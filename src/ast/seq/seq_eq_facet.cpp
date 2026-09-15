@@ -240,7 +240,7 @@ namespace seq {
                     }
                     auto ambient = get_ambient(n);
                     ambient.solver_facet_ref().add_constraint(eq_expr, parent_dep);
-                    ambient.assumption_facet_ref().add_assumption(eq_expr);
+                    ambient.assumption_facet_ref().add_assumption(eq_expr, ambient.context());
                 }
             }
             add_equation(lts, rts, parent_dep);
@@ -449,7 +449,7 @@ namespace seq {
                     // satisfiable node is found, make the ambient context
                     // agree - see assumption_facet's class comment).
                     ac.solver_facet_ref().add_constraint(eq_expr, eq_dep);
-                    ac.assumption_facet_ref().add_assumption(eq_expr);
+                    ac.assumption_facet_ref().add_assumption(eq_expr, ac.context());
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
                     committed = true;
                     m_stats.m_num_splits++;

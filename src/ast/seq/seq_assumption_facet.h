@@ -23,6 +23,7 @@ Author:
 #include "ast/seq/seq_ambient_context.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
+#include <utility>
 
 namespace seq {
 
@@ -51,40 +52,33 @@ namespace seq {
      * handling).
      */
     class assumption_facet : public stx::facet_i {
-        ast_manager&    m;
-        expr_ref_vector m_assumptions;
-    public:
-        assumption_facet(trail_stack& trail, ast_manager& m) :
-            facet_i(trail), m(m), m_assumptions(m) {}
+        using dep_tracker_t = stx::search_tree<unsigned>::dep_tracker;
 
-        ast_manager& get_manager() const { return m; }
+        ast_manager& m;
+        vector<std::pair<expr_ref, dep_tracker_t>> m_assumptions;
 
-        // Trailed: all constraint additions are trailed, no exception.
-        // Undo just pops the pushed element.
-        void add_assumption(expr* a) {
-            m_assumptions.push_back(a);
+        void cache_assumption(expr* a, dep_tracker_t dep) {
+            m_assumptions.push_back({ expr_ref(a, m), dep });
             m_trail.push(push_back_vector(m_assumptions));
         }
 
-        // Records `a` as an assumption (as above, and skipping the
-        // re-add if `a` is already present - e.g. because an earlier
-        // call, possibly for a different tree edge, already added it)
-        // and also registers it as a conditional dependency with the
-        // ambient context, so a caller can attach the returned
-        // dep_tracker_t to whatever hypothetical constraint (e.g. a
-        // view_witness assertion) relies on `a`, instead of calling
-        // add_assumption(a) and ac.add_conditional_dep(a) separately. A
-        // fresh conditional-dep leaf is always minted and returned, even
-        // when `a` was already recorded, since distinct call sites/edges
-        // each need their own dep_tracker_t handle.
-        template <typename dep_tracker_t>
+    public:
+        assumption_facet(trail_stack& trail, ast_manager& m) :
+            facet_i(trail), m(m) {}
+
+        ast_manager& get_manager() const { return m; }
+
+        // Return the cached dependency for `a`, or register and cache one.
         dep_tracker_t add_assumption(expr* a, ambient_context_i<dep_tracker_t>& ac) {
-            if (!m_assumptions.contains(a))
-                add_assumption(a);
-            return ac.add_conditional_dep(a);
+            for (auto const& [assumption, dep] : m_assumptions)
+                if (assumption == a)
+                    return dep;
+            dep_tracker_t dep = ac.add_conditional_dep(a);
+            cache_assumption(a, dep);
+            return dep;
         }
 
-        expr_ref_vector const& assumptions() const { return m_assumptions; }
+        vector<std::pair<expr_ref, dep_tracker_t>> const& assumptions() const { return m_assumptions; }
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override {
@@ -95,7 +89,8 @@ namespace seq {
         bool is_satisfied() const override { return true; } // never blocks satisfiability on its own
         std::ostream& display(std::ostream& out) const override {
             out << "assumption_facet: " << m_assumptions.size() << " assumption(s)\n";
-            for (expr* a : m_assumptions) out << "  " << mk_pp(a, m) << "\n";
+            for (auto const& assumption : m_assumptions)
+                out << "  " << mk_pp(assumption.first, m) << "\n";
             return out;
         }
     };

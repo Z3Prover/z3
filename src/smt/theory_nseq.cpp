@@ -730,7 +730,8 @@ namespace smt {
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();
             if (snap) {
                 auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
-                for (expr* a : af.assumptions()) {
+                for (auto const& assumption : af.assumptions()) {
+                    expr* a = assumption.first;
                     literal lit = mk_literal(a);
                     bool_var bv = lit.var();
                     if (ctx.get_var_theory(bv) == null_theory_var)
