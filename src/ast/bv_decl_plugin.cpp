@@ -753,6 +753,11 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bvsrem",OP_BSREM));
     op_names.push_back(builtin_name("bvurem",OP_BUREM));
     op_names.push_back(builtin_name("bvsmod",OP_BSMOD));
+    op_names.push_back(builtin_name("bvsdiv_i", OP_BSDIV_I));
+    op_names.push_back(builtin_name("bvudiv_i", OP_BUDIV_I));
+    op_names.push_back(builtin_name("bvsrem_i", OP_BSREM_I));
+    op_names.push_back(builtin_name("bvurem_i", OP_BUREM_I));
+    op_names.push_back(builtin_name("bvsmod_i", OP_BSMOD_I));
 
     op_names.push_back(builtin_name("bvule",OP_ULEQ));
     op_names.push_back(builtin_name("bvsle",OP_SLEQ));
@@ -797,12 +802,6 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("bvsrem0", OP_BSREM0));
         op_names.push_back(builtin_name("bvurem0", OP_BUREM0));
         op_names.push_back(builtin_name("bvsmod0", OP_BSMOD0));
-
-        op_names.push_back(builtin_name("bvsdiv_i", OP_BSDIV_I));
-        op_names.push_back(builtin_name("bvudiv_i", OP_BUDIV_I));
-        op_names.push_back(builtin_name("bvsrem_i", OP_BSREM_I));
-        op_names.push_back(builtin_name("bvurem_i", OP_BUREM_I));
-        op_names.push_back(builtin_name("bvsmod_i", OP_BSMOD_I));
 
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
