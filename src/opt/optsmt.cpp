@@ -32,7 +32,6 @@ Notes:
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_nlsat.h"
-#include "math/polynomial/algebraic_numbers.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
@@ -390,8 +389,8 @@ namespace opt {
         if (!m_lower[obj_index].is_finite() && m_lower[obj_index].is_neg())
             return l_undef;
 
-        // set the solution tight. An algebraic optimum keeps its rational
-        // bracket [m_lower, m_upper]; the exact value is in m_exact.
+        // Keep the rational bracket and any infinitesimal for a certified
+        // nlsat result; m_exact stores its finite part.
         if (!m_exact.get(obj_index))
             m_upper[obj_index] = m_lower[obj_index];
         if (!is_box)
@@ -466,8 +465,9 @@ namespace opt {
        \brief Exact optimization over nlsat cells (README section 3.3, layer 2):
        maximize the objective over the hard constraints within
        [m_lower[idx], hi] with nlsat_opt. On success the optimum may be an
-       algebraic number: m_exact[idx] holds it as a numeral and
-       [m_lower, m_upper] a rational bracket. Returns l_true when the optimum
+       algebraic number: m_exact[idx] holds its finite part as a numeral and
+       [m_lower, m_upper] a rational bracket, with -epsilon for an open limit.
+       Returns l_true when the optimum
        is proven, l_undef when the engine made progress but could not close
        the interval (m_lower/m_upper hold the remaining gap), and l_false
        when it could not be applied (unsupported fragment, no model).
@@ -485,7 +485,8 @@ namespace opt {
         std::optional<rational> upper;
         if (hi.is_finite())
             upper = hi.get_rational();
-        lbool r = engine.maximize(hard, m_objs.get(idx), m_lower[idx].get_rational(), upper, m_bisect_rounds, res);
+        lbool r = engine.maximize(hard, m_objs.get(idx), m_lower[idx].get_rational(), upper,
+                                 m_bisect_rounds, res, m_nlsat_supremum_rlimit);
         TRACE(opt, tout << "nlsat cells: " << r << " rounds " << res.m_rounds << " value " << res.m_value << "\n";);
         if (!res.m_model)
             return l_false;
@@ -493,6 +494,16 @@ namespace opt {
             m_model = res.m_model;
             set_best(idx, inf_eps(rational(1), inf_rational(0)), is_maximize);
             m_upper[idx] = m_lower[idx];
+            return l_true;
+        }
+        if (res.m_open) {
+            // The real model is a feasible witness, not an assignment at the
+            // limit. The certified optimum is represented by sup - epsilon.
+            m_model = res.m_model;
+            set_best(idx, inf_eps(rational(0), inf_rational(res.m_sup_lower, rational(-1))), is_maximize);
+            m_exact[idx] = res.m_sup;
+            m_upper[idx] = inf_eps(rational(0), inf_rational(res.m_sup_upper, rational(-1)));
+            IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat open supremum " << res.m_sup << ")\n");
             return l_true;
         }
         inf_eps v(res.m_lower);
@@ -866,73 +877,20 @@ namespace opt {
         labels = m_labels;
     }
 
-    /**
-       \brief A coarse rational interval (l, u) that isolates a among the
-       roots of its defining polynomial (coeffs, consumed): the simplest
-       rationals between a and its neighbouring roots, an integer beyond the
-       extreme roots. Wide on purpose: the interval feeds the LP relaxation
-       of the next lex objective, and a tight bracket makes the LP hint for
-       that objective sit a hair above its true optimum, a gap the nlsat
-       stage would then have to close one cut at a time.
-    */
-    static void coarse_isolating_interval(ast_manager& m, algebraic_numbers::manager& am, algebraic_numbers::anum const& a,
-                                          svector<mpz>& coeffs, rational& l, rational& u) {
-        polynomial::manager pm(m.limit(), am.qm());
-        polynomial::var x = pm.mk_var();
-        polynomial_ref p(pm);
-        p = pm.mk_univariate(x, coeffs.size() - 1, coeffs.data());
-        scoped_anum_vector roots(am);
-        am.isolate_roots(p, roots);
-        unsigned j = 0;
-        while (j < roots.size() && !am.eq(roots[j], a))
-            ++j;
-        if (j == roots.size()) {
-            am.get_lower(a, l, 40);
-            am.get_upper(a, u, 40);
-            return;
-        }
-        scoped_anum lo(am), hi(am);
-        if (j == 0)
-            am.int_lt(a, lo);
-        else
-            am.select(roots[j-1], a, lo);
-        if (j + 1 == roots.size())
-            am.int_gt(a, hi);
-        else
-            am.select(a, roots[j+1], hi);
-        am.to_rational(lo, l);
-        am.to_rational(hi, u);
-    }
-
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
         inf_eps lo = m_lower[i];
         TRACE(opt, tout << "set lower bound of " << mk_pp(m_objs.get(i), m) << " to: " << lo << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
         expr* e = m_exact.get(i);
+        SASSERT(!has_open_bound(i));
         arith_util arith(m);
         if (e && arith.is_irrational_algebraic_numeral(e)) {
-            // An algebraic optimum a (nlsat cells) is committed exactly: with
-            // p the defining polynomial of a and (l, u) a rational isolating
-            // interval, p(obj) = 0 /\ l <= obj <= u pins obj to a.
-            algebraic_numbers::manager& am = arith.am();
-            algebraic_numbers::anum const& a = arith.to_irrational_algebraic_numeral(e);
-            svector<mpz> coeffs;
-            am.get_polynomial(a, coeffs);
-            expr_ref obj(m_objs.get(i), m), poly(m);
-            // Horner: (..((c_n * obj + c_{n-1}) * obj + ...) * obj + c_0
-            unsigned n = coeffs.size();
-            for (unsigned k = n; k-- > 0; ) {
-                expr_ref c(arith.mk_numeral(rational(coeffs[k]), false), m);
-                poly = poly ? arith.mk_add(arith.mk_mul(poly, obj), c) : c;
-            }
-            rational l, u;
-            coarse_isolating_interval(m, am, a, coeffs, l, u);
-            expr_ref zero(arith.mk_real(rational(0)), m);
-            m_s->assert_expr(m.mk_eq(poly, zero));
-            m_s->assert_expr(arith.mk_ge(obj, arith.mk_numeral(l, false)));
-            m_s->assert_expr(arith.mk_le(obj, arith.mk_numeral(u, false)));
-            TRACE(opt, tout << "commit exact " << mk_pp(e, m) << ": " << poly << " = 0, [" << l << ", " << u << "]\n";);
+            // Keep the defining equation and its isolating interval in
+            // rational arithmetic; the SMT core cannot use a root numeral directly.
+            expr_ref constraint = mk_algebraic_eq(m, m_objs.get(i), e);
+            m_s->assert_expr(constraint);
+            TRACE(opt, tout << "commit exact " << mk_pp(e, m) << ": " << constraint << "\n";);
         }
         else if (lo.is_finite()) {
             // Only assert bounds for bounded objectives
@@ -959,6 +917,7 @@ namespace opt {
         m_optsmt_engine = _p.optsmt_engine();        
         m_bisect_rounds = _p.optsmt_bisect_rounds();
         m_optsmt_nlsat = _p.optsmt_nlsat();
+        m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
     }
 
     void optsmt::reset() {

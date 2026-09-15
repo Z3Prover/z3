@@ -312,7 +312,7 @@ namespace opt {
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
         bool contains_quantifiers() const;
-        expr_ref to_expr(inf_eps const& n);
+        expr_ref to_expr(inf_eps const& n, expr* exact = nullptr);
         void to_exprs(inf_eps const& n, expr* exact, expr_ref_vector& es);
 
         void reset_maxsmts();

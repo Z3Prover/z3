@@ -16,6 +16,7 @@ Author:
 
 --*/
 #include "opt/opt_nlsat.h"
+#include "util/common_msgs.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/expr2var.h"
@@ -47,7 +48,102 @@ namespace opt {
         m_attained = false;
         m_unbounded = false;
         m_has_sup = false;
+        m_open = false;
+        m_sup = nullptr;
         m_rounds = 0;
+    }
+
+    // A coarse isolating interval avoids large dyadic coefficients in both
+    // lexicographic commitments and the quantified finite-limit query.
+    static void coarse_isolating_interval(ast_manager& m, algebraic_numbers::manager& am, anum const& value,
+                                          svector<mpz>& coeffs, rational& lower, rational& upper) {
+        polynomial::manager pm(m.limit(), am.qm());
+        polynomial::var x = pm.mk_var();
+        polynomial_ref p(pm);
+        p = pm.mk_univariate(x, coeffs.size() - 1, coeffs.data());
+        scoped_anum_vector roots(am);
+        am.isolate_roots(p, roots);
+        unsigned j = 0;
+        while (j < roots.size() && !am.eq(roots[j], value))
+            ++j;
+        if (j == roots.size()) {
+            am.get_lower(value, lower, 40);
+            am.get_upper(value, upper, 40);
+            return;
+        }
+        scoped_anum lo(am), hi(am);
+        if (j == 0)
+            am.int_lt(value, lo);
+        else
+            am.select(roots[j-1], value, lo);
+        if (j + 1 == roots.size())
+            am.int_gt(value, hi);
+        else
+            am.select(value, roots[j+1], hi);
+        am.to_rational(lo, lower);
+        am.to_rational(hi, upper);
+    }
+
+    expr_ref mk_algebraic_eq(ast_manager& m, expr* term, expr* value) {
+        arith_util a(m);
+        SASSERT(a.is_real(term));
+        rational q;
+        if (a.is_numeral(value, q))
+            return expr_ref(m.mk_eq(term, a.mk_numeral(q, false)), m);
+        SASSERT(a.is_irrational_algebraic_numeral(value));
+        auto& am = a.am();
+        anum const& number = a.to_irrational_algebraic_numeral(value);
+        svector<mpz> coeffs;
+        am.get_polynomial(number, coeffs);
+        expr_ref poly(m);
+        for (unsigned k = coeffs.size(); k-- > 0; ) {
+            expr_ref c(a.mk_numeral(rational(coeffs[k]), false), m);
+            poly = poly ? a.mk_add(a.mk_mul(poly, term), c) : c;
+        }
+        rational lower, upper;
+        coarse_isolating_interval(m, am, number, coeffs, lower, upper);
+        expr_ref_vector constraints(m);
+        constraints.push_back(m.mk_eq(poly, a.mk_numeral(rational(0), false)));
+        constraints.push_back(a.mk_ge(term, a.mk_numeral(lower, false)));
+        constraints.push_back(a.mk_le(term, a.mk_numeral(upper, false)));
+        return mk_and(constraints);
+    }
+
+    template<typename Query>
+    static lbool bounded_limit_query(ast_manager& m, unsigned ticks, Query const& query) {
+        if (ticks == 0) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check disabled)\n");
+            return l_undef;
+        }
+        // Pushing a resource scope clears the cancellation flag, so do not
+        // enter one when the enclosing operation has already been canceled.
+        if (!m.inc())
+            return l_undef;
+        lbool result = l_undef;
+        bool external_cancel = false;
+        uint64_t start = m.limit().count(), consumed = 0;
+        {
+            scoped_rlimit budget(m.limit(), ticks);
+            try {
+                result = query();
+            }
+            catch (tactic_exception& ex) {
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check failed: " << ex.what() << ")\n");
+            }
+            catch (z3_exception& ex) {
+                if (!m.limit().is_canceled())
+                    throw;
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check interrupted: " << ex.what() << ")\n");
+            }
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+            consumed = m.limit().count() - start;
+        }
+        // Popping the private budget must not swallow a timeout or Ctrl-C.
+        if (external_cancel)
+            m.limit().cancel();
+        IF_VERBOSE(3, verbose_stream() << "(optsmt nlsat finite-limit check :result " << result
+                   << " :rlimit-consumed " << consumed << " :budget " << ticks << ")\n");
+        return result;
     }
 
     /**
@@ -98,6 +194,78 @@ namespace opt {
         void operator()(quantifier*) {}
         void operator()(app* n) { if (is_uninterp_const(n)) m_consts.push_back(n); }
     };
+
+    lbool nlsat_opt::can_approach_from_below(expr_ref_vector const& hard, expr* obj, rational const& lo,
+                                            expr* bound, unsigned rlimit_budget) {
+        return bounded_limit_query(m, rlimit_budget, [&]() {
+            if (!m_arith.is_real(obj) || !in_nra_fragment(m, m_arith, hard, obj)) {
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: outside NRA)\n");
+                return l_undef;
+            }
+            app_ref T(m);
+            goal_ref pg;
+            lbool st = preprocess(hard, obj, lo, std::nullopt, T, pg);
+            if (st != l_true)
+                return st;
+            return can_approach_from_below(*pg, T, bound);
+        });
+    }
+
+    lbool nlsat_opt::can_approach_from_below(goal const& pg, app* T, expr* bound) {
+        rational q;
+        if (!bound || (!m_arith.is_numeral(bound, q) && !m_arith.is_irrational_algebraic_numeral(bound))) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: bound is not a numeral)\n");
+            return l_undef;
+        }
+        ptr_vector<app> consts;
+        expr_ref_vector fmls(m);
+        {
+            uninterp_const_collector collect(consts);
+            expr_fast_mark1 visited;
+            for (unsigned i = 0; i < pg.size(); ++i) {
+                for_each_expr_core<uninterp_const_collector, expr_fast_mark1, false, false>(collect, visited, pg.form(i));
+                fmls.push_back(pg.form(i));
+            }
+        }
+        for (app* c : consts) {
+            if (m_arith.is_int(c)) {
+                IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat finite-limit check: integer variable)\n");
+                return l_undef;
+            }
+        }
+        app_ref limit(m.mk_fresh_const("opt.nlsat.limit", m_arith.mk_real()), m);
+        app_ref epsilon(m.mk_fresh_const("opt.nlsat.epsilon", m_arith.mk_real()), m);
+        fmls.push_back(m_arith.mk_lt(T, limit));
+        fmls.push_back(m_arith.mk_gt(T, m_arith.mk_sub(limit, epsilon)));
+        expr_ref fml = mk_and(fmls);
+        fml = mk_exists(m, consts.size(), consts.data(), fml);
+        fml = m.mk_implies(m_arith.mk_gt(epsilon, m_arith.mk_numeral(rational(0), false)), fml);
+        app* epsilons[] = { epsilon.get() };
+        fml = mk_forall(m, 1, epsilons, fml);
+        // nlqsat does not accept algebraic numerals in arbitrary arithmetic
+        // expressions. Bind the limit by its polynomial and isolating interval.
+        expr_ref definition = mk_algebraic_eq(m, limit, bound);
+        fml = m.mk_and(definition, fml);
+        app* limits[] = { limit.get() };
+        fml = mk_exists(m, 1, limits, fml);
+        IF_VERBOSE(3, verbose_stream() << "(optsmt nlsat approach-from-below\n" << mk_pp(fml, m) << ")\n");
+        goal_ref g = alloc(goal, m, false, false, false);
+        g->assert_expr(fml);
+        tactic_ref check = and_then(mk_simplify_tactic(m),
+                                    mk_propagate_values_tactic(m),
+                                    mk_qe_lite_tactic(m),
+                                    mk_simplify_tactic(m),
+                                    mk_nlqsat_tactic(m, m_params));
+        goal_ref_buffer result;
+        (*check)(g, result);
+        if (result.size() != 1)
+            return l_undef;
+        if (result[0]->is_decided_sat())
+            return l_true;
+        if (result[0]->is_decided_unsat())
+            return l_false;
+        return l_undef;
+    }
 
     lbool nlsat_opt::prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo) {
         if (!in_nra_fragment(m, m_arith, hard, obj))
@@ -316,11 +484,11 @@ namespace opt {
 
     /**
        \brief The round budget was exhausted at a model below an open
-       supremum sup of the feasible set of t. Check whether t >= sup has a
-       model; if not, sup is a proven upper bound (F-Close at the supremum)
-       and is recorded in res.
+       candidate supremum sup. Refuting t >= sup proves a strict upper
+       bound, but not that feasible values approach it. Record this partial
+       result even if the separate quantified limit check cannot finish.
     */
-    static void prove_supremum(nlsat::solver& s, nlsat::var t, anum const& sup, anum const& best, nlsat_opt::result& res) {
+    void nlsat_opt::prove_strict_upper_bound(nlsat::solver& s, nlsat::var t, anum const& sup, anum const& best, result& res) {
         algebraic_numbers::manager& am = s.am();
         if (!am.gt(sup, best))
             return;
@@ -332,31 +500,28 @@ namespace opt {
         IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat sup-check "; am.display_root_smt2(verbose_stream(), sup); verbose_stream() << " " << st << ")\n");
         if (st != l_false)
             return;
+        set_value(am, sup, res.m_sup, res.m_sup_lower, res.m_sup_upper);
         res.m_has_sup = true;
-        if (am.is_rational(sup))
-            am.to_rational(sup, res.m_sup_upper);
-        else
-            am.get_upper(sup, res.m_sup_upper, 40);
     }
 
     /**
-       \brief Report best as the exact value with a rational bracket.
+       \brief Store a numeral with a rational bracket.
     */
-    void nlsat_opt::set_result(algebraic_numbers::manager& am, anum const& best, bool attained, result& res) {
-        res.m_value = m_arith.mk_numeral(am, best, false);
-        if (am.is_rational(best)) {
-            am.to_rational(best, res.m_lower);
-            res.m_upper = res.m_lower;
+    void nlsat_opt::set_value(algebraic_numbers::manager& am, anum const& value,
+                             expr_ref& numeral, rational& lower, rational& upper) {
+        numeral = m_arith.mk_numeral(am, value, false);
+        if (am.is_rational(value)) {
+            am.to_rational(value, lower);
+            upper = lower;
         }
         else {
-            am.get_lower(best, res.m_lower, 40);
-            am.get_upper(best, res.m_upper, 40);
+            am.get_lower(value, lower, 40);
+            am.get_upper(value, upper, 40);
         }
-        res.m_attained = attained;
     }
 
     lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
-                              unsigned max_rounds, result& res) {
+                              unsigned max_rounds, result& res, unsigned supremum_rlimit) {
         res.reset();
         if (!in_nra_fragment(m, m_arith, hard, obj)) {
             IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
@@ -428,12 +593,16 @@ namespace opt {
         if (!has_best)
             return st == l_false ? l_false : l_undef;
 
-        if (st == l_true && has_sup)
-            prove_supremum(s, t, sup, best, res);
-
-        // 4. report the exact value and a rational bracket (a witness only
-        //    when unboundedness was proven).
-        set_result(am, best, st == l_false, res);
-        return res.m_attained || res.m_unbounded ? l_true : l_undef;
+        // Keep the feasible model value separate from an unattained limit.
+        set_value(am, best, res.m_value, res.m_lower, res.m_upper);
+        res.m_attained = st == l_false;
+        if (st == l_true && has_sup) {
+            prove_strict_upper_bound(s, t, sup, best, res);
+            if (res.m_has_sup)
+                res.m_open = bounded_limit_query(m, supremum_rlimit, [&]() {
+                    return can_approach_from_below(*pg, T, res.m_sup);
+                }) == l_true;
+        }
+        return res.m_attained || res.m_unbounded || res.m_open ? l_true : l_undef;
     }
 }
