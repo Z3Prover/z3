@@ -39,6 +39,7 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_eq_approx.h"
 #include "model/model.h"
 #include "util/lbool.h"
 #include "util/dependency.h"
@@ -961,6 +962,8 @@ namespace seq {
         unsigned m_monadic_leaf_sat    = 0;
         unsigned m_monadic_leaf_unsat  = 0;
         unsigned m_monadic_leaf_gaveup = 0;
+        unsigned m_equation_abstractions = 0;
+        unsigned m_equation_abstraction_refutations = 0;
         // ... of which closed a node that still carried equations, where only the
         // refutation half is a verdict about the node (see apply_monadic_leaf).
         unsigned m_monadic_leaf_refuted = 0;
@@ -1058,6 +1061,8 @@ namespace seq {
         unsigned                      m_max_search_depth = 0;
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
+        bool                          m_equation_abstraction = false;
+        bool                          m_reverse_retry = true;
         bool                          m_signature_split = false;
         unsigned                      m_block_compression = 4;
         bool                          m_fine_wilf = false;
@@ -1175,6 +1180,7 @@ namespace seq {
         // Its own rewriter and trail: a derivative cache must not be shared across two
         // transition modes.
         seq_rewriter     m_monadic_leaf_rw;
+        seq_eq_approx    m_equation_approx;
         trail_stack      m_monadic_leaf_trail;
         seq_monadic*     m_monadic_leaf_engine = nullptr;
         // What the engine's own budget default is, captured on allocation so that a
@@ -1379,6 +1385,15 @@ namespace seq {
         
         // enable/disable Parikh image verification constraints
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
+        void set_equation_abstraction(bool e) { m_equation_abstraction = e; }
+        bool equation_abstraction_enabled() const { return m_equation_abstraction; }
+        void set_reverse_retry(bool e) {
+            m_reverse_retry = e;
+            if (m_monadic_leaf_engine)
+                m_monadic_leaf_engine->set_orientation(e ? seq_monadic::orientation::retry
+                                                        : seq_monadic::orientation::forward);
+        }
+        bool reverse_retry_enabled() const { return m_reverse_retry; }
 
         // access to the Parikh module (e.g. for theory_nseq's length-coherence
         // check to lazily encode a SAT leaf's exact length sets)
@@ -2032,6 +2047,10 @@ namespace seq {
         // Allocate m_monadic_leaf_engine on first use, in the default transition mode.
         void ensure_monadic_leaf();
 
+        // Empty intersections of regular over-approximations refute equations;
+        // nonempty intersections never justify a satisfying assignment.
+        bool equation_abstraction_refute(nielsen_node& node);
+
         // Collect the memberships apply_monadic_landing may decompose on `node`, abstract
         // them, and start a branch enumerator.  Null when there is nothing to gain (no
         // covered non-primitive membership, a gate not met).  Owned by m_mon_states.
@@ -2170,4 +2189,3 @@ namespace seq {
     };
 
 }
-

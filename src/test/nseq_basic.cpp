@@ -776,3 +776,108 @@ void tst_nseq_basic() {
     test_nseq_regex_parikh_residues();
     std::cout << "nseq_basic: all tests passed\n";
 }
+
+static void test_nseq_equation_abstraction() {
+    for (bool enabled : {false, true}) {
+        for (bool unsat : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util u(m);
+            euf::egraph eg(m);
+            euf::sgraph sg(m, eg);
+            nseq_basic_dummy_solver solver;
+            seq::context_solver_i context_solver;
+            seq::nielsen_graph ng(sg, solver, context_solver);
+            ng.set_parikh_enabled(false);
+            ng.set_regex_parikh(false);
+            ng.set_equation_abstraction(enabled);
+            expr_ref x(m.mk_const("eq.x", u.str.mk_string_sort()), m);
+            expr_ref a(u.re.mk_to_re(u.str.mk_string(zstring("a"))), m);
+            expr_ref regex(u.re.mk_star(a), m);
+            expr_ref rhs(u.str.mk_string(zstring(unsat ? "b" : "a")), m);
+            ng.add_str_eq(sg.mk(x), sg.mk(rhs));
+            ng.add_str_mem(sg.mk(x), sg.mk(regex));
+            auto result = ng.solve();
+            ENSURE(result == (unsat ? seq::nielsen_graph::search_result::unsat
+                                   : seq::nielsen_graph::search_result::sat));
+            ENSURE((ng.stats().m_equation_abstraction_refutations > 0) == (enabled && unsat));
+            ENSURE((ng.stats().m_equation_abstractions > 0) == enabled);
+        }
+    }
+}
+
+static void test_nseq_equation_abstraction_is_not_a_witness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+    params.m_nseq_equation_abstraction = true;
+    params.m_nseq_eager = false;
+    smt::context ctx(m, params);
+    expr_ref x(m.mk_const("x", u.str.mk_string_sort()), m);
+    expr_ref lhs(u.str.mk_concat(x, x), m), rhs(u.str.mk_string(zstring("a")), m);
+    seq_rewriter rw(m);
+    seq_eq_approx approx(rw);
+    // Independent Sigma* segments admit "a", but two equal words cannot form it.
+    ENSURE(approx.check(lhs, rhs) == l_true);
+    ctx.assert_expr(expr_ref(m.mk_eq(lhs, rhs), m));
+    ENSURE(ctx.check() == l_false);
+}
+
+static void test_nseq_ablation_retry() {
+    for (bool retry : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        euf::egraph eg(m);
+        euf::sgraph sg(m, eg);
+        nseq_basic_dummy_solver solver;
+        seq::context_solver_i context_solver;
+        seq::nielsen_graph ng(sg, solver, context_solver);
+        ng.set_parikh_enabled(false);
+        ng.set_regex_parikh(false);
+        ng.set_reverse_retry(retry);
+        ng.set_monadic_leaf(true);
+        ng.set_monadic_leaf_budget_root(1024);
+        ng.set_regex_factorization_threshold(0);
+        ng.set_max_nodes(1);
+        sort* str = u.str.mk_string_sort();
+        sort* re = u.re.mk_re(str);
+        expr_ref x(m.mk_const("retry.x", str), m);
+        expr_ref one(u.re.mk_full_char(re), m), all(u.re.mk_full_seq(re), m);
+        expr_ref b(u.re.mk_to_re(u.str.mk_string(zstring("b"))), m);
+        expr_ref contains_b(u.re.mk_concat(all, u.re.mk_concat(b, u.re.mk_loop(one, 128, 128))), m);
+        expr_ref regex(u.re.mk_complement(contains_b), m);
+        std::string suffix(129, 'b');
+        expr_ref term(u.str.mk_concat(x, u.str.mk_string(zstring(suffix.c_str()))), m);
+        ng.add_str_mem(sg.mk(term), sg.mk(regex));
+        ng.solve();
+        statistics st;
+        ng.collect_statistics(st);
+        unsigned retries = 0;
+        for (unsigned i = 0; i < st.size(); ++i)
+            if (std::string(st.get_key(i)) == "seq monadic reverse retries")
+                retries += st.get_uint_value(i);
+        ENSURE((retries > 0) == retry);
+        ENSURE((ng.stats().m_monadic_leaf_root_refutes > 0) == retry);
+    }
+}
+
+void tst_nseq_ablation() {
+    const smt_params defaults;
+    ENSURE(!defaults.m_nseq_equation_abstraction);
+    ENSURE(defaults.m_nseq_reverse_retry);
+    ENSURE(defaults.m_nseq_monadic_leaf && defaults.m_nseq_regex_parikh);
+    for (unsigned mask = 0; mask < 4; ++mask) {
+        params_ref raw;
+        raw.set_bool("nseq.equation_abstraction", (mask & 1) != 0);
+        raw.set_bool("nseq.reverse_retry", (mask & 2) != 0);
+        const smt_params params(raw);
+        ENSURE(params.m_nseq_equation_abstraction == ((mask & 1) != 0));
+        ENSURE(params.m_nseq_reverse_retry == ((mask & 2) != 0));
+    }
+    test_nseq_equation_abstraction();
+    test_nseq_equation_abstraction_is_not_a_witness();
+    test_nseq_ablation_retry();
+}

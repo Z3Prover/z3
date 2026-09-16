@@ -507,6 +507,7 @@ namespace seq {
         m_sk(m, m_rw), m_length_solver(solver), m_context_solver(ctx_solver), m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)), m_split_rw(sg.get_manager()), m_deriv_rw(sg.get_manager()),
         m_monadic_rw(sg.get_manager()), m_monadic_leaf_rw(sg.get_manager()),
+        m_equation_approx(m_monadic_leaf_rw, 1u << 12),
         m_partial_dfa_pin(sg.get_manager()) {
     }
 
@@ -612,6 +613,7 @@ namespace seq {
         m_monadic = nullptr;
         dealloc(m_monadic_leaf_engine);
         m_monadic_leaf_engine = nullptr;
+        m_equation_approx.reset_views();
         m_monadic_leaf_root_asked = false;
         m_monadic_leaf_root_witness.reset();
         m_monadic_leaf_root_witness_dep = nullptr;
@@ -1138,6 +1140,9 @@ namespace seq {
         st.update("nseq monadic leaf sat",     m_stats.m_monadic_leaf_sat);
         st.update("nseq monadic leaf unsat",   m_stats.m_monadic_leaf_unsat);
         st.update("nseq monadic leaf gaveup",  m_stats.m_monadic_leaf_gaveup);
+        st.update("nseq equation abstractions", m_stats.m_equation_abstractions);
+        st.update("nseq equation abstraction refutations", m_stats.m_equation_abstraction_refutations);
+        m_equation_approx.collect_statistics(st);
         st.update("nseq monadic leaf refuted", m_stats.m_monadic_leaf_refuted);
         st.update("nseq monadic leaf root asks", m_stats.m_monadic_leaf_root_asks);
         st.update("nseq monadic leaf root refutes", m_stats.m_monadic_leaf_root_refutes);

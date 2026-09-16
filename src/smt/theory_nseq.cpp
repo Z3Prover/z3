@@ -1018,6 +1018,8 @@ namespace smt {
                 m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
                 m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+                m_nielsen.set_equation_abstraction(get_fparams().m_nseq_equation_abstraction);
+                m_nielsen.set_reverse_retry(get_fparams().m_nseq_reverse_retry);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_block_compression(get_fparams().m_nseq_block_compression);
                 m_nielsen.set_fine_wilf(get_fparams().m_nseq_fine_wilf);
@@ -2434,4 +2436,3 @@ namespace smt {
     
 }
   
-
