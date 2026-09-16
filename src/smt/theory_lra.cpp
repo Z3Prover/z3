@@ -2965,18 +2965,20 @@ public:
         CTRACE(arith, !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_bounds.empty()) {
+            // Group the pending bounds by variable with one sort instead of
+            // rescanning the pending list once per variable: the list can hold
+            // every bound atom created before search starts (over 100k on
+            // string problems with long fixed-length strings), which made the
+            // grouping quadratic and uninterruptible.
+            lp_bounds pending(m_new_bounds);
+            m_new_bounds.reset();
+            std::sort(pending.begin(), pending.end(), 
+                      [](api_bound* a, api_bound* b) { return a->get_var() < b->get_var(); });
+            for (unsigned j = 0; j < pending.size(); ) {
             lp_bounds atoms;            
-            atoms.push_back(m_new_bounds.back());
-            m_new_bounds.pop_back();
-            theory_var v = atoms.back()->get_var();
-            for (unsigned i = 0; i < m_new_bounds.size(); ++i) {
-                if (m_new_bounds[i]->get_var() == v) {
-                    atoms.push_back(m_new_bounds[i]);
-                    m_new_bounds[i] = m_new_bounds.back();
-                    m_new_bounds.pop_back();
-                    --i;
-                }
-            }            
+            theory_var v = pending[j]->get_var();
+            for (; j < pending.size() && pending[j]->get_var() == v; ++j) 
+                atoms.push_back(pending[j]);
             CTRACE(arith, atoms.size() > 1, 
                    for (auto* a : atoms) a->display(tout) << "\n";);
             lp_bounds occs(m_bounds[v]);
@@ -3014,6 +3016,7 @@ public:
                 if (hi_inf1 != end && hi_inf != end && !visited.contains(*hi_inf)) mk_bound_axiom(*a1, **hi_inf);
                 if (hi_sup1 != end && hi_sup != end && !visited.contains(*hi_sup)) mk_bound_axiom(*a1, **hi_sup);
             }                            
+            }
         }
     }
 
