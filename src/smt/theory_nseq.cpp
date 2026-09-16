@@ -175,6 +175,8 @@ namespace smt {
         // split alone can already close.
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
+        m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
+        m_tree.add_split_plugin(m_mem_leaf);
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
@@ -749,6 +751,8 @@ namespace smt {
         // instead, since new axioms are now available for the core to
         // reconsider, so giving up here would be premature.
         bool stoi_progress = !check_stoi_coherence();
+        if (m_mem_leaf)
+            m_mem_leaf->reset_root_ask();
         stx::search_result res = m_tree.solve();
         switch (res) {
         case stx::search_result::sat: {

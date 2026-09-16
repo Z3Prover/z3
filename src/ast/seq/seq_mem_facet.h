@@ -65,8 +65,10 @@ Author:
 #include "ast/seq/seq_view_witness.h"
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
+#include "ast/seq/seq_monadic.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_substitution.h"
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/obj_pair_hashtable.h"
@@ -656,6 +658,130 @@ namespace seq {
         void collect_statistics(::statistics& st) const override {
             st.update("seq-mem-monadic num splits", m_stats.m_num_splits);
             st.update("seq-mem-monadic num refuted", m_stats.m_num_refuted);
+        }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
+    // Whole-language, whole-conjunction decision rule ("monadic leaf",
+    // c3/z3-tacas: nielsen_graph::apply_monadic_leaf,
+    // seq_nielsen_regex.cpp). Where mem_monadic_split above decomposes ONE
+    // compound membership at a time (token-by-token derivative splitting,
+    // driven back through mem_split/view_witness), this rule instead feeds
+    // every currently active PLAIN membership (whole term, non-reach) into
+    // a single `seq::monadic` engine instance and asks it to decide the
+    // WHOLE conjunction in one shot - the same self-contained decision
+    // procedure theory_seq's own seq_regex.cpp already uses for classic
+    // seq. This matters most for "MembershipEquations"-style benchmarks,
+    // where several regex-constrained variables are also linked by word
+    // equations: mem_monadic_split's per-token case splitting blows up
+    // combinatorially on these, while seq::monadic decides the whole
+    // regex side directly and lets the resulting concrete witness settle
+    // the equation side too.
+    //
+    // Unlike z3-tacas's nielsen_graph, this port has no persistent
+    // per-branch node objects to tag "already tried, don't refire" (see
+    // module comment / apply_monadic_leaf's node->is_signature_alias()
+    // guard) - the search tree here reuses one mutable node throughout the
+    // whole DFS. m_declined_here plays that role instead: it is set true,
+    // via a value_trail pushed on the SHARED node trail, only when the
+    // "unchanged" (child B) branch below is committed, so split() declines
+    // outright on that exact subtree until backtracking restores it to
+    // false - without needing any node-side flag.
+    //
+    // Two outcomes on check():
+    //  - l_false: the fed memberships are a SUBSET of the node's full
+    //    constraint set, so refuting them alone refutes the whole node,
+    //    regardless of whatever equations/disequations are also active
+    //    (mirrors nielsen_graph's `refute_only` reasoning) - this half is
+    //    therefore always attempted.
+    //  - l_true: only acted on when eq_facet/deq_facet are BOTH already
+    //    satisfied (no active equations/disequations) - otherwise this is
+    //    a relaxation (the memberships alone being satisfiable says
+    //    nothing about the equations), so it is silently discarded exactly
+    //    as z3-tacas's refute_only gate does. When it does apply, every
+    //    variable in the joint solution is materialized to a witness word
+    //    and the rule commits two branches: child A pins every variable to
+    //    its witness via a fresh eq_facet equation (a sound restriction,
+    //    checked like any other equation by the rest of the search); child
+    //    B leaves the node completely unchanged but marks m_declined_here
+    //    so this rule does not refire on it (this is what keeps the rule
+    //    complete - child B still covers "the witness picked might be
+    //    wrong").
+    class mem_leaf_split : public eq_tree::split_plugin_i {
+        ast_manager&        m;
+        seq_util&           u;
+        trail_stack         m_mon_trail;   // private scratch trail, scoped per check() via push/pop_scope
+        seq::monadic        m_mon;
+        unsigned            m_budget;
+        unsigned            m_budget_root;
+        bool                m_declined_here = false;
+        // See split()'s comment: not trailed - a true one-time (per
+        // reset_root_ask()) lifetime event, mirroring c3's
+        // m_monadic_leaf_root_asked. theory_nseq resets this once before
+        // every m_tree.solve() call (one "search" per final_check_eh, as
+        // in c3), so a later search over a since-grown constraint set
+        // gets its own root ask.
+        bool                m_root_asked = false;
+        struct stats {
+            unsigned m_num_asked = 0;
+            unsigned m_num_refuted = 0;
+            unsigned m_num_committed = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+
+        // Runs one ask of the engine over every active plain membership in
+        // `mf`: asserts them all (in a private, immediately-popped scope
+        // of m_mon_trail), calls check() under `budget`, and reports the
+        // verdict. On l_false, `all_dep` is overwritten with the
+        // minimized-core dependency (from m_mon.core()) - the conflict
+        // justification. On l_true, `all_dep` holds the joined
+        // dependency of every fed membership - the justification for any
+        // equation this rule goes on to add - and, when `witnesses` is
+        // non-null, every variable's joint solution is materialized into
+        // it (materialize_all()); a materialization failure degrades the
+        // result to l_undef. Passing `witnesses == nullptr` requests a
+        // refutation-only ask (mirrors nielsen_graph's refute_only):
+        // l_true is still reported (with all_dep set) but nothing is
+        // materialized, letting the caller cheaply distinguish "would
+        // have committed a witness" from "nothing to feed" without
+        // paying materialize()'s cost. Returns l_undef if there was
+        // nothing to feed (no active plain memberships decidable by the
+        // engine) - callers must not treat that as "decided".
+        lbool ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses);
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            eq_tree::dep_tracker m_dep;
+            mem_leaf_split& m_owner;
+            bool m_offered = false;
+        public:
+            iterator(eq_tree::node& n, eq_tree::dep_tracker dep, mem_leaf_split& owner) :
+                m_n(n), m_dep(dep), m_owner(owner) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        mem_leaf_split(ast_manager& m, seq_util& u, seq_rewriter& rw, ambient_context_i<eq_tree::dep_tracker>& ac) :
+            m(m), u(u), m_mon(rw, m_mon_trail), m_budget(ac.fparams().m_seq_monadic_leaf_budget),
+            m_budget_root(ac.fparams().m_seq_monadic_leaf_budget_root) {
+            m_mon.set_gen_solution(true);
+            m_mon.set_orientation(seq::monadic::orientation::retry);
+            m_mon.set_split_rounds(10);
+        }
+        char const* name() const override { return "mem-leaf"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+
+        // Called once by theory_nseq right before every m_tree.solve()
+        // (see split()'s comment on m_root_asked / c3's
+        // monadic_leaf_root_refute): gives the next search its own
+        // refutation-only root ask, even while equations are pending.
+        void reset_root_ask() { m_root_asked = false; }
+
+        void collect_statistics(::statistics& st) const override {
+            st.update("seq-mem-leaf num asked", m_stats.m_num_asked);
+            st.update("seq-mem-leaf num refuted", m_stats.m_num_refuted);
+            st.update("seq-mem-leaf num committed", m_stats.m_num_committed);
         }
         void reset_statistics() override { m_stats.reset(); }
     };

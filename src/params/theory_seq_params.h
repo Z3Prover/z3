@@ -44,6 +44,20 @@ struct theory_seq_params {
     bool m_seq_fine_wilf = false;
     // Opt-in gate for mem_parikh_split, mirroring c3's smt.nseq.parikh.
     bool m_seq_mem_parikh = false;
+    // Master gate for mem_leaf_split (whole-language monadic decision
+    // over the conjunction of active plain regex memberships), mirroring
+    // c3's smt.nseq.monadic_leaf (default true there and here).
+    bool m_seq_monadic_leaf = true;
+    unsigned m_seq_monadic_leaf_budget = 300000;
+    // Run mem_leaf_split's refutation-only ask once at the search root
+    // before the DFS proper starts, mirroring c3's smt.nseq.monadic_leaf_root
+    // and nielsen_graph::monadic_leaf_root_refute.
+    bool m_seq_monadic_leaf_root = true;
+    unsigned m_seq_monadic_leaf_budget_root = 50000;
+    // Gate for mem_facet's incremental single-variable regex-intersection
+    // feasibility check (view_witness/vw().check() in mem_propagation),
+    // mirroring c3's smt.nseq.regex_precheck.
+    bool m_seq_regex_precheck = true;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);

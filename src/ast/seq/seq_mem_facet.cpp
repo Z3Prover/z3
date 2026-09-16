@@ -265,7 +265,12 @@ namespace seq {
         // this is the ONLY place that decides those constraints now that
         // mem_monadic_split no longer runs a joint multi-membership
         // search of its own (see mem_monadic_split's class comment).
-        {
+        // Gated by smt.seq.regex_precheck (default true, mirroring c3's
+        // smt.nseq.regex_precheck): turning it off only forgoes this
+        // early single-variable joint-feasibility check, it does not
+        // affect soundness elsewhere - mem_leaf_split and the ordinary
+        // per-membership splitting still see the same constraints.
+        if (ac.fparams().m_seq_regex_precheck) {
             view_witness& vw = f.vw();
             f.reset_vw_budget();
             lbool r = vw.check();
@@ -865,6 +870,119 @@ namespace seq {
         m_stats.m_num_splits++;
         has_more = true;
         return it.detach();
+    }
+
+    // ---- mem_leaf_split -----------------------------------------------------------
+
+    lbool mem_leaf_split::ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses) {
+        all_dep = nullptr;
+        m_mon_trail.push_scope();
+        bool any = false;
+        for (str_mem const& sm : mf.memberships()) {
+            if (!sm.active() || !sm.is_plain() || sm.m_str.empty())
+                continue;
+            expr* term = u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort());
+            if (!m_mon.can_decide_term(term))
+                continue;
+            m_mon.add(term, sm.m_view.m_state.get(), sm.m_dep);
+            all_dep = mf.dm().mk_join(all_dep, sm.m_dep);
+            any = true;
+        }
+        lbool result = l_undef;
+        if (any) {
+            m_mon.set_budget(budget);
+            result = m_mon.check();
+            m_stats.m_num_asked++;
+            if (result == l_false) {
+                eq_tree::dep_tracker core_dep = nullptr;
+                for (void* d : m_mon.core())
+                    core_dep = mf.dm().mk_join(core_dep, static_cast<eq_tree::dep_tracker>(d));
+                all_dep = core_dep;
+            }
+            else if (result == l_true && witnesses) {
+                if (m_mon.materialize_all(*witnesses) != l_true)
+                    result = l_undef;
+            }
+        }
+        m_mon_trail.pop_scope(1);
+        return any ? result : l_undef;
+    }
+
+    bool mem_leaf_split::iterator::next(eq_tree::edge& out) {
+        if (m_offered)
+            return false;
+        m_offered = true;
+        auto ac = get_ambient(m_n);
+        // See mem_leaf_split's class comment: this is the "unchanged"
+        // branch, so the only mutation is the decline guard itself -
+        // pushed on the SHARED node trail so it pops back to false
+        // exactly when the search backtracks out of this branch.
+        ac.trail().push(value_trail<bool>(m_owner.m_declined_here, true));
+        out = eq_tree::edge("mem-leaf-decline", m_dep, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> mem_leaf_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        if (m_declined_here)
+            return nullptr;
+        auto ac = get_ambient(n);
+        if (!ac.fparams().m_seq_monadic_leaf)
+            return nullptr;
+        // Ordinary asks only run once the node's own equations/
+        // disequations are already settled - mirrors c3's
+        // `m_monadic_leaf_refute` defaulting false: asking (and
+        // discarding an l_true relaxation) on every equation-bearing
+        // interior node visited by the DFS was measured to cost more
+        // than it saves there.
+        //
+        // The ONE exception, mirroring c3's monadic_leaf_root_refute /
+        // m_monadic_leaf_root (default true): a refutation-only ask,
+        // regardless of eqs_done, exactly once for the whole lifetime of
+        // this plugin instance. This port has no separate "before the
+        // DFS proper starts" hook to call into (unlike c3's nielsen_graph,
+        // whose root is a distinct, persistent object) - but since this
+        // plugin is registered ahead of every other split plugin and at
+        // min_cost 0 (see theory_nseq.cpp), the very first time split()
+        // is ever invoked at all is necessarily on the search's root node,
+        // before any split has committed a branch anywhere - so "first
+        // call ever" is exactly the event c3's guard is asking for.
+        // Deliberately NOT trailed: like m_monadic_leaf_root_asked, this
+        // is a true one-time lifetime event, not a per-branch decision -
+        // backtracking past the root never "undoes" having asked once.
+        bool eqs_done = ac.eq_facet_ref().is_satisfied() && ac.deq_facet_ref().is_satisfied();
+        bool root_ask = !m_root_asked && ac.fparams().m_seq_monadic_leaf_root;
+        m_root_asked = true;
+        if (!eqs_done && !root_ask)
+            return nullptr;
+        auto& mf = ac.mem_facet_ref();
+        eq_tree::dep_tracker dep = nullptr;
+        expr_substitution witnesses(m);
+        unsigned budget = (!eqs_done && root_ask) ? ac.fparams().m_seq_monadic_leaf_budget_root : m_budget;
+        lbool r = ask(mf, budget, dep, eqs_done ? &witnesses : nullptr);
+        if (r == l_undef)
+            return nullptr;   // nothing to feed, or gave up before deciding
+        has_more = true;
+        if (r == l_false) {
+            m_stats.m_num_refuted++;
+            n.set_conflict(stx::br_plugin_base, dep);
+            return nullptr;
+        }
+        SASSERT(r == l_true);
+        if (witnesses.empty())
+            return nullptr;   // nothing to pin (all memberships already single-variable)
+        // Child A: pin every variable to its witness word via a fresh
+        // eq_facet equation (sound restriction; the rest of the search
+        // checks it like any other equation).
+        auto& ef = ac.eq_facet_ref();
+        for (auto const& entry : witnesses.sub())
+            ef.add_equation(&entry.get_key(), entry.get_value(), dep);
+        out = eq_tree::edge("mem-leaf", dep, true, cost);
+        committed = true;
+        m_stats.m_num_committed++;
+        // Child B: the unchanged alternative, offered by the iterator.
+        return alloc(iterator, n, dep, *this);
     }
 
     // -- mem_bounds_propagation --

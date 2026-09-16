@@ -169,6 +169,12 @@ namespace smt {
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
+        // Non-owning alias into m_tree's own split-plugin vector (which
+        // owns and destroys it) - kept so final_check_eh can call
+        // reset_root_ask() once before each m_tree.solve() (see
+        // seq::mem_leaf_split's class comment / c3's
+        // monadic_leaf_root_refute).
+        seq::mem_leaf_split*             m_mem_leaf = nullptr;
         seq_factory*                     m_factory = nullptr; // owned by the model's plugin_manager once registered
         obj_map<expr, expr*>             m_model_subst;
         // Keeps every model_subst value (a witness term materialized by
