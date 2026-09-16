@@ -60,6 +60,8 @@ jobs:
           pip install ./src/api/python/wheelhouse/*.whl
           python - <src/api/python/z3test.py z3
           python - <src/api/python/z3test.py z3num
+          python -m unittest discover -s examples/python -p test_proof_certificate.py
+          python -m unittest discover -s examples/python -p test_proof_to_lean.py
 
   manylinux-python-arm64:
     name: "Python bindings (manylinux Centos ARM64 cross) build"
@@ -328,6 +330,20 @@ jobs:
           cd build
           ./test-z3 -a
           cd ..
+
+      - name: Install Lean for native proof reconstruction
+        if: matrix.name == 'releaseClang'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://elan.lean-lang.org/elan-init.sh -o "$RUNNER_TEMP/elan-init.sh"
+          sh "$RUNNER_TEMP/elan-init.sh" -y --no-modify-path --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install "$(cat lean/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Check native Boolean proofs in Lean
+        if: matrix.name == 'releaseClang'
+        env:
+          PYTHONPATH: ${{ github.workspace }}/build/python
+        run: python -m unittest discover -s examples/python -p 'test_proof_to_lean*.py' -v
 
       - name: Run examples
         if: matrix.runTests

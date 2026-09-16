@@ -5,7 +5,12 @@ set(python_example_files
   hamiltonian/hamiltonian.py
   mus/marco.py
   mus/mss.py
+  proof_certificate.py
+  proof_to_lean.py
   socrates.py
+  test_proof_certificate.py
+  test_proof_to_lean.py
+  test_proof_to_lean_integration.py
   visitor.py
 )
 

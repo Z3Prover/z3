@@ -1,0 +1,103 @@
+# Z3 native certificates and Lean verification
+
+## Goal and boundary
+
+Preserve Z3's native proof-producing architecture and add an independent Lean
+verification backend. Missing native proof evidence and checker correctness are
+separate obligations. Ordinary Z3 behavior stays unchanged while the integration
+is developed.
+
+## Milestones
+
+1. **Native Boolean proof exporter (implemented).** Use the existing proof API
+   with proof generation enabled before solving. Export one propositional
+   refutation together with its original source, assertion roots, typed native
+   declarations, shared proof/term DAG, and rule inventory. Reject unsupported
+   script semantics, nonpropositional assertions, missing proofs, and unsupported
+   native shapes. Never present the artifact as independently verified.
+2. **Kernel-checked Boolean vertical slice (asserted/unit-resolution implemented).**
+   Extend the initial reconstructor with more Boolean proof rules and formalize
+   the frontend encoding boundary. Account for preprocessing, fresh definitions,
+   hypothesis scope, and the
+   connection to the original assertions. Produce a theorem that the assertions
+   imply False, with no sorry or solver-oracle axioms. Reject malformed/tampered
+   certificates and unsupported inference rules.
+3. **Equality and linear arithmetic.** Add uninterpreted functions and equality
+   reasoning, then real/integer linear arithmetic with checked side conditions
+   and certificates. Extend native evidence only where replay needs it. Complete
+   each fragment end-to-end before adding another.
+4. **Broader theories and integration.** Treat bit-vectors, arrays, quantifiers,
+   strings, and nonlinear arithmetic as distinct extensions. Introduce a
+   proof-required frontend that publishes certified unsat only after successful
+   checking, preserves exact incremental/assumption contexts, and explicitly
+   rejects unsupported configurations. Keep the C++ checker for diagnostics.
+
+## First milestone deliverables
+
+- `examples/python/proof_certificate.py`: opt-in CLI and Python exporter using
+  existing APIs; no solver algorithm or public API changes.
+- Versioned, topologically ordered JSON encoding of native ASTs, preserving
+  declaration identity and complete arguments.
+- Documentation in `examples/python/README` and CMake example integration.
+- `examples/python/test_proof_certificate.py`: focused coverage of exact native
+  DAG preservation, source/assertion binding,
+  sharing, Boolean operators, named assertions, lexer/query restrictions, CLI
+  behavior, and error paths. Run this in the existing Python-wheel CI job,
+  separately from the dependency-free build-script tests.
+
+## Acceptance boundary
+
+For a supported unsat snapshot, produce a complete native proof bundle with
+explicit unverified status. For sat, unknown, unsupported inputs, or missing
+proof evidence, fail explicitly without a success-shaped certificate.
+The exporter itself still makes no independent verification claim. The new
+reconstruction slice publishes a Lean artifact only after checking succeeds,
+and rejects unsupported proof rules rather than treating them as axioms.
+
+## Lean environment
+
+The `lean/` workspace pins Lean 4.34.0 and contains a small example proof library.
+Run `./scripts/check_lean.sh` to build/check it, or
+`./scripts/check_lean.sh /tmp/l.txt` to check a Lean source file. Both `.lean` and
+`.txt` inputs are accepted, and files may import `Z3Proofs`.
+
+The helper rechecks imported modules and enables warnings as errors. It checks
+Lean source, not JSON. The separate `examples/python/proof_to_lean.py` consumer
+validates JSON and invokes the helper before publishing generated Lean source.
+Installation and usage are documented in `lean/README.md`.
+
+## Current reconstruction slice
+
+- Require the original SMT-LIB input separately from the certificate. Match
+  source text and the exact parsed assertion structures; validate declaration
+  signatures, topological node references, sorts, and proof conclusions.
+- Reconstruct `asserted` and `unit-resolution` only, including derived clauses,
+  both complement orientations, factoring, and shared intermediate proofs.
+- Generate shared Lean proposition definitions and explicit proof terms using
+  Lean core logical rules. Do not introduce axioms, sorry, or solver calls to
+  justify missing reasoning.
+- Check with the pinned Lean toolchain before atomically publishing a `.lean`
+  artifact. Fail explicitly for malformed certificates, changed assumptions,
+  unsupported rules, and Lean errors.
+- Exercise a complete example using `lean/examples/unit_resolution.smt2`.
+
+Z3's SMT-LIB parser and the Python statement encoder remain part of the trusted
+frontend. The source digest identifies the generated namespace; it is not the
+input-binding check or a formal proof of parsing/encoding correctness.
+
+The next extension is `mp` plus checked Boolean rewrites. Definition introduction,
+hypothesis discharge, and a formalized encoding connection must be addressed
+before claiming general Boolean proof support. Arithmetic and other theories
+remain later milestones.
+
+## Completed first-milestone evidence
+
+- CMake/Ninja Release build with local Python bindings; full native build
+  completed in 101.70 seconds. No legacy Python/make artifacts were present.
+- 22 exporter tests passed against the local build, including exact DAG
+  preservation, deep terms, escaped symbols, and command/fragment rejection.
+- All 18 existing build-script tests passed with Python site packages disabled.
+- Solver, Python bindings, help, and copied CMake examples were exercised.
+- `boolean-unsat.proof.json` in this session's files directory contains an
+  exported three-assertion refutation: 16 nodes, 12 declarations, and native
+  asserted/mp/rewrite/unit-resolution steps. Its status is explicitly unverified.

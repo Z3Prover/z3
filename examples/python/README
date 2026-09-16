@@ -2,3 +2,160 @@ The example is copied to the build directory during configuration.
 You can execute it using
     python example.py
 in the build directory after you build Z3.
+
+Native Boolean proof certificates
+--------------------------------
+
+proof_certificate.py exports a native Z3 proof DAG as JSON. It is a first
+milestone toward independent proof checking, not a Lean proof or a verified
+unsat verdict. Every bundle explicitly has verification = "unverified".
+It uses a separate proof-enabled context and does not change global settings.
+
+Build the local Python bindings and examples:
+
+    cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release \
+        -DZ3_BUILD_PYTHON_BINDINGS=ON
+    ninja -C build build_z3_python_bindings build_z3_python_examples
+
+From the repository root, export a proof:
+
+    PYTHONPATH=build/python python3 examples/python/proof_certificate.py - \
+        > proof.json <<'SMT'
+    (set-option :produce-proofs true)
+    (declare-const p Bool)
+    (assert p)
+    (assert (not p))
+    (check-sat)
+    (get-proof)
+    SMT
+
+Pass a filename instead of "-" to read a file. A successful invocation writes
+only the JSON bundle to stdout and exits with status 0. Sat, unknown, unsupported
+input, missing proofs, and parse errors produce diagnostics on stderr and exit
+with status 2, without a bundle. Check the exit status before consuming output.
+
+The Python entry point is export_certificate(source_smt2).
+
+Input scope
+-----------
+
+Input is one assertion snapshot, optionally followed by a single check-sat,
+get-proof, and exit. Declarations, define-fun, set-logic, set-info, and
+(set-option :produce-proofs true) are accepted. Queries with assumptions,
+push/pop, multiple queries, commands after a query that change the problem,
+and other options or commands are rejected rather than ignored.
+Standard semicolon comments, doubled quotes in strings, and Z3's backslash
+escapes in quoted symbols are supported. Nonstandard block comments are rejected.
+
+Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
+xor, Boolean equality/distinct, and Boolean ite. Quantifiers, uninterpreted
+function applications, arithmetic, bit-vectors, arrays, and pseudo-Boolean
+operators are outside this milestone. Definitions are expanded by Z3's parser.
+Named assertions are retained as formulas, not converted into extra tracking
+assumptions. Declarations unused by the assertions do not affect the fragment.
+
+Bundle format, version 1
+-----------------------
+
+    format          "z3-native-proof-dag"
+    format_version  1
+    z3_version      producer's full Z3 version
+    fragment        "propositional"
+    result          "unsat" (the producer's result, not a checked claim)
+    verification    "unverified"
+    source_smt2     original input text
+    declarations    native declaration kind, name, domain, range, parameters
+    nodes           native applications: declaration index and argument indices
+    assertions      node indices of the parsed assertions, in input order
+    proof           node index of the native refutation
+    rule_counts     counts of distinct proof nodes by native rule name
+
+All indices are zero-based. Nodes are topologically ordered: each argument
+refers to an earlier node. Nodes and declarations preserve native identity
+and sharing; names are metadata, not identifiers. Proof applications retain
+all their arguments, including their conclusions. Declaration kinds are the
+Z3_OP_* API constants, not a new set of logical rules.
+
+This version supports application nodes with Bool/Proof sorts and declarations
+without parameters. Other native shapes are rejected, never serialized
+incompletely. The root is required to conclude false, but checking that shape
+does not establish proof correctness.
+
+The exporter itself does not verify inference rules. A separate, deliberately
+limited Lean reconstruction path is now available below. Theory support and
+general proof-required solver integration remain later milestones.
+
+Run the focused regression suite with the local bindings:
+
+    PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
+        -p test_proof_certificate.py
+
+Reconstruct and check a Boolean proof in Lean
+-------------------------------------------
+
+proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
+It supports asserted and unit-resolution proof nodes. Other proof rules,
+including mp, rewrite, hypothesis, and theory lemmas, fail explicitly.
+Consequently, many otherwise propositional Z3 refutations are not supported yet.
+
+Install the pinned Lean toolchain as described in lean/README.md. Then, from
+the repository root, run this end-to-end example:
+
+    PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
+        lean/examples/unit_resolution.smt2 > /tmp/unit_resolution.json
+    PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
+        lean/examples/unit_resolution.smt2 /tmp/unit_resolution.json \
+        -o /tmp/unit_resolution.lean
+
+The second command invokes scripts/check_lean.sh and publishes the .lean file
+only if the pinned Lean checker succeeds. It exits nonzero for malformed or
+unsupported certificates, input mismatches, or Lean failures. Existing output
+is left unchanged on failure. Output must not alias the original input or JSON
+file. Bash and the pinned Lean toolchain must be available.
+
+You can check the resulting Lean file again without Z3:
+
+    ./scripts/check_lean.sh /tmp/unit_resolution.lean
+
+The generated file imports only Init. It contains shared formula definitions
+and explicit proof terms built from input hypotheses, Or introduction/elimination,
+and False elimination. It uses no solver-oracle axioms, sorry, or native_decide.
+The theorem is named unsat inside a namespace derived from the source SHA-256;
+the digest is an identifier, not a substitute for checking input equality.
+Atoms use generated numeric identifiers, with their original names escaped in
+comments. Certificate text is never inserted as executable Lean source.
+
+Trust boundary
+--------------
+
+The original file is supplied separately, its text must match source_smt2, and
+its parsed assertion DAG must match the certificate's assertion roots exactly,
+including order and duplicates. Matching text or result = "unsat" alone does not
+authorize a proof. The consumer reparses with Z3's SMT-LIB parser but does not
+run Z3's solver search.
+
+Parsing and the Python translation of Boolean expressions into Lean propositions
+remain trusted frontend components, not formally verified implementations.
+Lean checks the reconstructed theorem relative to that encoding. Boolean
+equality is encoded as Iff, and Boolean xor/ite/distinct as their logical
+definitions. This is not yet a fully formalized SMT-LIB frontend.
+
+The JSON bundle remains marked unverified: successful reconstruction produces
+a separate Lean proof artifact rather than changing the producer's claim.
+
+The reconstruction API is reconstruct(source, certificate), which returns
+unchecked Lean source, and check_and_write(source, certificate, output), which
+checks before publishing. Ordinary Z3 solving and its public APIs are unchanged.
+
+Run input-validation/reconstruction tests with the native bindings:
+
+    PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
+        -p test_proof_to_lean.py
+
+Include the real Lean integration tests when the pinned toolchain is installed:
+
+    PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
+        -p 'test_proof_to_lean*.py'
+
+These run in a Lean-enabled Ubuntu CMake CI configuration, not the dependency-free
+build-script job.

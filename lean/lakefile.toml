@@ -1,0 +1,7 @@
+name = "z3_proofs"
+version = "0.1.0"
+defaultTargets = ["Z3Proofs"]
+moreLeanArgs = ["--trust=0", "-DwarningAsError=true"]
+
+[[lean_lib]]
+name = "Z3Proofs"
