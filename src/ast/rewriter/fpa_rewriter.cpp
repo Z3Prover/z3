@@ -1066,6 +1066,13 @@ expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, un
     arith_util & au = m_util.au();
     mpf_exp_t max_exp = m_fm.mk_max_exp(ebits);
 
+    // |x| >= threshold  <->  x >= threshold || x <= -threshold
+    auto abs_ge = [&](rational const& threshold) {
+        expr_ref thr(au.mk_int(threshold), m());
+        expr_ref neg_thr(au.mk_int(-threshold), m());
+        return expr_ref(m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr)), m());
+    };
+
     if (static_cast<mpf_exp_t>(sbits) > max_exp) {
         // MAX_FINITE and the nearest-rounding midpoint are both strictly
         // between 2^(max_exp + 1) - 1 and 2^(max_exp + 1).
@@ -1075,7 +1082,7 @@ expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, un
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN:
         case MPF_ROUND_NEAREST_TAWAY:
-            return expr_ref(m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr)), m());
+            return abs_ge(threshold);
         case MPF_ROUND_TOWARD_POSITIVE:
             return expr_ref(au.mk_ge(int_expr, thr), m());
         case MPF_ROUND_TOWARD_NEGATIVE:
@@ -1103,17 +1110,12 @@ expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, un
 
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:
-    case MPF_ROUND_NEAREST_TAWAY: {
+    case MPF_ROUND_NEAREST_TAWAY:
         // Overflow when |x| >= MAX_FINITE + ULP/2.
         // At the midpoint, RNE rounds to even, which is infinity since
         // MAX_FINITE has an odd significand. RNA also rounds to infinity.
-        rational threshold = max_finite + half_ulp;
-        expr_ref thr(au.mk_int(threshold), m());
-        expr_ref neg_thr(au.mk_int(-threshold), m());
-        // |x| >= threshold  ↔  x >= threshold || x <= -threshold
-        r = m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr));
+        r = abs_ge(max_finite + half_ulp);
         break;
-    }
     case MPF_ROUND_TOWARD_POSITIVE:
         // RTP: positive overflow when x > MAX_FINITE, negative overflow never.
         r = au.mk_gt(int_expr, au.mk_int(max_finite));
