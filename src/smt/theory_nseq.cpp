@@ -135,6 +135,14 @@ namespace smt {
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::lex_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_lex_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::stoi_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_stoi_id(id); }, m, m_seq, m_autil);
+        m_tree.register_facet_bound<seq::ho_facet>(
+            *m_root,
+            [&](stx::facet_id id) { m_ambient->set_ho_id(id); },
+            m,
+            m_seq,
+            m_rewriter,
+            [this](expr* lhs, expr* rhs) { return add_ho_eq(lhs, rhs); },
+            [this](expr* term, expr*& elaboration) { return find_ho_elaboration(term, elaboration); });
         m_ambient->stoi_facet(*m_root).set_instantiate([this](expr* e, unsigned k) { m_ax.add_stoi_axiom(e, k); });
 
         // deterministic propagation plugins (order among these does not
@@ -441,6 +449,12 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::relevant_eh(expr* n) {
+        seq::ho_facet& hf = m_ambient->ho_facet(*m_root);
+        expr* s = nullptr;
+        if (hf.is_ho_term(n, s)) {
+            hf.add_term(n);
+            ensure_length_var(s);
+        }
         if (m_seq.str.is_length(n)      ||
             m_seq.str.is_index(n)       ||
             m_seq.str.is_last_index(n)  ||
@@ -699,6 +713,9 @@ namespace smt {
     final_check_status theory_nseq::final_check_eh(unsigned) {
         ++m_num_final_checks;
 
+        if (m_ambient->ho_facet(*m_root).propagate())
+            return FC_CONTINUE;
+
         if (!m_pending_assumptions.empty()) {
 
             if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) 
@@ -793,13 +810,66 @@ namespace smt {
 
     void theory_nseq::display(std::ostream& out) const {
         out << "theory_nseq: " << m_num_final_checks << " final checks, " << m_num_conflicts << " conflicts\n";
+        out << "  ho terms: " << m_ambient->ho_facet(*m_root).terms().size() << "\n";
         m_tree.display(out);
     }
 
     void theory_nseq::collect_statistics(::statistics& st) const {
         st.update("nseq final checks", m_num_final_checks);
         st.update("nseq conflicts", m_num_conflicts);
+        seq::ho_facet const& hf = m_ambient->ho_facet(*m_root);
+        st.update("nseq length axioms", hf.num_length_axioms());
+        st.update("nseq ho unfolds", hf.num_ho_unfolds());
         m_tree.collect_statistics(st);
+    }
+
+    void theory_nseq::ensure_length_var(expr* e) const {
+        SASSERT(e && m_seq.is_seq(e));
+        expr_ref len(m_seq.str.mk_length(e), m);
+        if (!ctx.e_internalized(len))
+            ctx.internalize(len, false);
+    }
+
+    bool theory_nseq::add_ho_eq(expr* lhs, expr* rhs) {
+        if (!ctx.e_internalized(lhs))
+            ctx.internalize(lhs, false);
+        if (!ctx.e_internalized(rhs))
+            ctx.internalize(rhs, false);
+        if (ctx.get_enode(lhs)->get_root() == ctx.get_enode(rhs)->get_root())
+            return false;
+
+        expr_ref eq(m.mk_eq(lhs, rhs), m);
+        if (!ctx.b_internalized(eq))
+            ctx.internalize(eq, true);
+        literal lit = ctx.get_literal(eq);
+        if (ctx.get_assignment(lit) == l_true)
+            return false;
+        ctx.mk_th_axiom(get_id(), 1, &lit);
+        TRACE(seq, tout << "nseq ho equality: "
+                        << mk_bounded_pp(lhs, m, 3) << " = "
+                        << mk_bounded_pp(rhs, m, 3) << "\n";);
+        return true;
+    }
+
+    bool theory_nseq::find_ho_elaboration(expr* term, expr*& elaboration) const {
+        elaboration = nullptr;
+        if (!ctx.e_internalized(term))
+            return false;
+        enode* root = ctx.get_enode(term)->get_root();
+        enode* curr = root;
+        do {
+            expr* e = curr->get_expr();
+            expr* a1 = nullptr, *a2 = nullptr;
+            if (m_seq.str.is_empty(e) ||
+                m_seq.str.is_unit(e, a1) ||
+                m_seq.str.is_concat(e, a1, a2)) {
+                elaboration = e;
+                return true;
+            }
+            curr = curr->get_next();
+        }
+        while (curr != root);
+        return false;
     }
 
     bool theory_nseq::get_num_value(expr* e, rational& val) {

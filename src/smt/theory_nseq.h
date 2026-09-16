@@ -15,8 +15,9 @@ Abstract:
     but replaces the Nielsen-graph/sgraph end-game machinery with the
     `stx::search_tree<unsigned>` engine (`seq::eq_tree`) that is already used
     by the `ast/seq` facet unit tests: `eq_facet`/`deq_facet`/`power_facet`/
-    `mem_facet`/`ncontains_facet`/`solver_facet`, propagated/split by the
-    already-implemented plugin classes.
+    `mem_facet`/`ncontains_facet`/`solver_facet`, plus passive incremental
+    state such as `ho_facet`, propagated/split by the already-implemented
+    plugin classes.
 
     Split-plugin registration order mirrors the priority order in which the
     c3 branch's `nielsen_graph::generate_extensions`
@@ -50,6 +51,7 @@ Author:
 #include "ast/seq/seq_req_facet.h"
 #include "ast/seq/seq_lex_facet.h"
 #include "ast/seq/seq_stoi_facet.h"
+#include "ast/seq/seq_ho_facet.h"
 #include "ast/seq/seq_regex_live.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
@@ -330,6 +332,9 @@ namespace smt {
         // would otherwise FC_GIVEUP - FC_CONTINUE instead, since new
         // information is now available).
         bool check_stoi_coherence();
+        bool add_ho_eq(expr* lhs, expr* rhs);
+        bool find_ho_elaboration(expr* term, expr*& elaboration) const;
+        void ensure_length_var(expr* e) const;
 
     public:
         theory_nseq(context& ctx);

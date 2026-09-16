@@ -80,6 +80,7 @@ namespace seq {
     class req_facet;
     class lex_facet;
     class stoi_facet;
+    class ho_facet;
 
     /**
      * Abstracted, dependency-tracked bridge into the ambient SMT context.
@@ -138,6 +139,7 @@ namespace seq {
         stx::facet_id m_req_id = no_facet;
         stx::facet_id m_lex_id = no_facet;
         stx::facet_id m_stoi_id = no_facet;
+        stx::facet_id m_ho_id = no_facet;
 
         // Raw facet ids are deliberately not public: nothing outside this
         // class (or the facet-accessor templates just below, which are
@@ -158,6 +160,7 @@ namespace seq {
         stx::facet_id req_id() const { return m_req_id; }
         stx::facet_id lex_id() const { return m_lex_id; }
         stx::facet_id stoi_id() const { return m_stoi_id; }
+        stx::facet_id ho_id() const { return m_ho_id; }
     public:
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
         ~ambient_context_i() override = default;
@@ -186,6 +189,7 @@ namespace seq {
         void set_req_id(stx::facet_id id) { m_req_id = id; }
         void set_lex_id(stx::facet_id id) { m_lex_id = id; }
         void set_stoi_id(stx::facet_id id) { m_stoi_id = id; }
+        void set_ho_id(stx::facet_id id) { m_ho_id = id; }
 
         // Is `e` a token this facet layer's Nielsen-style split rules may
         // treat as a freely-substitutable "variable" - i.e. neither a
@@ -274,6 +278,7 @@ namespace seq {
         template <typename node_t> seq::req_facet& req_facet(node_t& n) const { return n.template facet_as<seq::req_facet>(req_id()); }
         template <typename node_t> seq::lex_facet& lex_facet(node_t& n) const { return n.template facet_as<seq::lex_facet>(lex_id()); }
         template <typename node_t> seq::stoi_facet& stoi_facet(node_t& n) const { return n.template facet_as<seq::stoi_facet>(stoi_id()); }
+        template <typename node_t> seq::ho_facet& ho_facet(node_t& n) const { return n.template facet_as<seq::ho_facet>(ho_id()); }
 
     };
 
@@ -331,6 +336,7 @@ namespace seq {
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }
         stoi_facet& stoi_facet_ref() const { return m_ac.stoi_facet(m_node); }
+        ho_facet& ho_facet_ref() const { return m_ac.ho_facet(m_node); }
 
     };
 
