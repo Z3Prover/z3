@@ -10,6 +10,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include <iostream>
 #include "util/util.h"
 #include "util/trace.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/simplifiers/recfun_finder.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -323,6 +326,40 @@ static void test_array() {
     Z3_del_context(ctx);
 }
 
+static void test_recfun_finder() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* int_sort = a.mk_int();
+    sort* domain[1] = { int_sort };
+    func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, int_sort), m);
+    var_ref x(m.mk_var(0, int_sort), m);
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref fx(m.mk_app(f, x.get()), m);
+    expr_ref xm1(a.mk_sub(x, one), m);
+    expr_ref rec(m.mk_app(f, xm1.get()), m);
+    expr_ref body(m.mk_ite(m.mk_eq(x, zero), zero, a.mk_add(one, rec)), m);
+    expr_ref eq(m.mk_eq(fx, body), m);
+    symbol x_name("x");
+    quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
+
+    base_dependent_expr_state st(m);
+    st.add(dependent_expr(m, q, nullptr, nullptr));
+    expr_ref three(a.mk_int(3), m);
+    expr_ref f3(m.mk_app(f, three.get()), m);
+    st.add(dependent_expr(m, m.mk_not(m.mk_eq(f3, three)), nullptr, nullptr));
+
+    recfun_finder rf(m, params_ref(), st);
+    rf.reduce();
+    st.flatten_suffix();
+
+    ENSURE(st.qtail() == 1);
+    ENSURE(!is_quantifier(st[0].fml()));
+    recfun::util ru(m);
+    ENSURE(ru.has_defs());
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -330,5 +367,6 @@ void tst_simplifier() {
     test_datatypes();
     test_bool();
     test_fpa();
+    test_recfun_finder();
     test_skolemize_bug();
 }
