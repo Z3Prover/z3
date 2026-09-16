@@ -171,7 +171,10 @@ bool macro_manager::occurs_in_recursive_definition(func_decl * f) const {
     if (!u.has_defs())
         return false;
     for (func_decl * g : u.get_rec_funs()) {
-        expr * rhs = u.get_def(g).get_rhs();
+        recfun::def & d = u.get_def(g);
+        if (d.is_macro()) // define-fun: applications are expanded by the parser, the body is never unfolded lazily
+            continue;
+        expr * rhs = d.get_rhs();
         if (rhs && occurs(f, rhs))
             return true;
     }

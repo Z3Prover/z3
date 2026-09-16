@@ -25,6 +25,13 @@ Revision History:
 #include "ast/normal_forms/nnf.h"
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
+#include <vector>
+#include "ast/recfun_decl_plugin.h"
+#include "ast/rewriter/recfun_replace.h"
+#include "ast/rewriter/func_decl_replace.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/occurs.h"
+#include "ast/for_each_expr.h"
 #include "ast/occurs.h"
 #include "ast/bv_decl_plugin.h"
 #include "solver/assertions/asserted_formulas.h"
@@ -59,6 +66,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_lift_ite(*this),
     m_ng_lift_ite(*this),
     m_find_macros(*this),
+    m_find_recfuns(*this),
     m_propagate_values(*this),
     m_nnf_cnf(*this),
     m_apply_quasi_macros(*this),
@@ -282,6 +290,7 @@ void asserted_formulas::reduce() {
     IF_VERBOSE(10, verbose_stream() << "(smt.simplify-begin :num-exprs " << get_total_size() << ")\n";);
 
     set_eliminate_and(false); // do not eliminate and before nnf.
+    if (!invoke(m_find_recfuns)) return;
     if (!invoke(m_propagate_values)) return;
     if (!invoke(m_find_macros)) return;
     if (!invoke(m_nnf_cnf)) return;
@@ -375,6 +384,490 @@ void asserted_formulas::swap_asserted_formulas(vector<justified_expr>& formulas)
     m_formulas.append(formulas);
 }
 
+
+
+/**
+   \brief Detect (mutually) recursive function definitions among the asserted axioms and
+   register them as recursive function definitions (as if declared with define-funs-rec).
+
+   A candidate is an axiom of the form
+        (forall X (= (f X) body))        or        (forall X (= body (f X)))
+   where f is uninterpreted, is applied to exactly the bound variables (each once), and has
+   exactly one such axiom.  If body is (g X) for a recursive function g (a "mirror"
+   definition whose own body refers back to uninterpreted candidates), g is inlined one step,
+   so the recursion that goes through the axioms becomes visible.
+
+   The candidates form a call graph; every strongly connected component that contains a
+   cycle is turned into one group of recursive definitions f' over fresh recfun symbols.
+   f is then treated as the macro f(X) = f'(X): the axiom is removed, f is replaced by f'
+   in all asserted formulas, and the macro provides the model interpretation of f.
+
+   This is always sound for unsat (every unfolding is an instance of the axiom).  It is
+   sound for sat only when the definitions are terminating, which z3 cannot check; the
+   transformation is therefore controlled by smt.recfun_finder (off by default).
+*/
+namespace {
+    // does e contain an application of one of the symbols in syms?
+    bool contains_sym(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
+        for (expr* t : subterms::all(expr_ref(e, m)))
+            if (is_app(t) && syms.contains(to_app(t)->get_decl()))
+                return true;
+        return false;
+    }
+
+    // The simplifier turns Boolean (ite c t true) into (or (not c) t) and (ite c t false) into
+    // (and c t). Recursive definitions need their recursive calls guarded by ite so that they are
+    // unfolded lazily, case by case. Rebuild the guards: in an or/and, the disjuncts/conjuncts
+    // without recursive calls become the condition.
+    expr_ref guard_recursion(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
+        expr_ref r(e, m);
+        if (!contains_sym(m, e, syms))
+            return r;
+        if (m.is_ite(e)) {
+            app* a = to_app(e);
+            expr_ref t = guard_recursion(m, a->get_arg(1), syms);
+            expr_ref el = guard_recursion(m, a->get_arg(2), syms);
+            r = m.mk_ite(a->get_arg(0), t, el);
+            return r;
+        }
+        if (m.is_not(e)) {
+            r = m.mk_not(guard_recursion(m, to_app(e)->get_arg(0), syms));
+            return r;
+        }
+        if (m.is_or(e) || m.is_and(e)) {
+            bool is_or = m.is_or(e);
+            expr_ref_vector guards(m), recs(m);
+            for (expr* arg : *to_app(e))
+                (contains_sym(m, arg, syms) ? recs : guards).push_back(guard_recursion(m, arg, syms));
+            if (guards.empty())
+                return r;
+            expr_ref g(m), rest(m);
+            g = is_or ? mk_or(guards) : mk_and(guards);
+            rest = is_or ? mk_or(recs) : mk_and(recs);
+            r = is_or ? m.mk_ite(g, m.mk_true(), rest) : m.mk_ite(g, rest, m.mk_false());
+            return r;
+        }
+        return r;
+    }
+
+    // every recursive call must be below an ite
+    bool recursion_guarded(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
+        if (m.is_ite(e))
+            return true;
+        if (is_app(e)) {
+            app* a = to_app(e);
+            if (syms.contains(a->get_decl()))
+                return false;
+            for (expr* arg : *a)
+                if (!recursion_guarded(m, arg, syms))
+                    return false;
+        }
+        return true;
+    }
+}
+
+void asserted_formulas::find_recfuns_core() {
+    if (!m.has_plugin(symbol("recfun")))
+        m.register_plugin(symbol("recfun"), alloc(recfun::decl::plugin));
+    recfun::util ru(m);
+    recfun::decl::plugin& plugin = ru.get_plugin();
+    macro_util& mu = m_macro_manager.get_util();
+    unsigned sz = m_formulas.size();
+
+    // function symbols occurring in committed formulas cannot be redefined here
+    obj_hashtable<func_decl> committed;
+    {
+        struct proc {
+            obj_hashtable<func_decl>& s;
+            proc(obj_hashtable<func_decl>& s): s(s) {}
+            void operator()(app* a) { s.insert(a->get_decl()); }
+            void operator()(var*) {}
+            void operator()(quantifier*) {}
+        };
+        proc p(committed);
+        expr_mark visited;
+        for (unsigned i = 0; i < m_qhead; ++i)
+            for_each_expr(p, visited, m_formulas[i].fml());
+    }
+
+    struct candidate {
+        quantifier* q;
+        app*        head;
+        expr_ref    def;
+        func_decl*  mirror;
+        unsigned    fml_idx;
+    };
+    vector<candidate> cands;
+    obj_map<func_decl, unsigned> f2c;
+    obj_hashtable<func_decl> ambiguous;
+
+    for (unsigned i = m_qhead; i < sz; ++i) {
+        expr* fml = m_formulas[i].fml();
+        if (!is_forall(fml))
+            continue;
+        quantifier* q = to_quantifier(fml);
+        IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :axiom " << mk_pp(q->get_expr(), m) << ")\n";);
+        unsigned nd = q->get_num_decls();
+        app_ref head(m);
+        expr_ref defr(m);
+        // Recognize a definitional axiom for a head f(X) where f is applied to exactly the
+        // bound variables. Unlike macro_util::is_simple_macro, the head is allowed to occur in
+        // the body (that is what makes it recursive). The body itself can be any expression:
+        //   (= (f X) body) / (= body (f X))            [also iff, since eq==iff for Bool]
+        //   (not (= (f X) body)) / (not (= body (f X))) [Boolean head, negated form]
+        //   arithmetic normal form (= (+ (f X) t) c)   [is_arith_macro]
+        {
+            expr* n = q->get_expr();
+            expr *a = nullptr, *b = nullptr;
+            bool neg = m.is_not(n, n);
+            if (m.is_eq(n, a, b) && (!neg || m.is_bool(a))) {
+                if (mu.is_macro_head(a, nd))
+                    head = to_app(a), defr = neg ? m.mk_not(b) : expr_ref(b, m);
+                else if (mu.is_macro_head(b, nd))
+                    head = to_app(b), defr = neg ? m.mk_not(a) : expr_ref(a, m);
+            }
+            if (!head) {
+                app_ref ahead(m);
+                expr_ref adef(m);
+                bool inv = false;
+                if (!neg && mu.is_arith_macro(n, nd, ahead, adef, inv))
+                    head = ahead, defr = adef;
+            }
+        }
+        if (!head) {
+            IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :no-head)\n";);
+            continue;
+        }
+        app* head_app = head.get();
+        expr* def = defr.get();
+        func_decl* f = head_app->get_decl();
+        if (committed.contains(f) || m_macro_manager.is_forbidden(f) || m_macro_manager.contains(f))
+            continue;
+        if (f2c.contains(f)) {
+            ambiguous.insert(f);
+            continue;
+        }
+        expr_ref d(def, m);
+        // z3's recfun theory does not support lambdas in a recursive body (def::compute_cases
+        // throws). Leave such an axiom untouched rather than abort the solve. A recursive call
+        // that appears under a lambda (a binder that shifts de Bruijn indices) is likewise not
+        // handled: is_macro_head would not recognise the shifted variables, so it is skipped here.
+        {
+            bool has_lam = false;
+            for (expr* e : subterms::all(d))
+                if (is_lambda(e)) { has_lam = true; break; }
+            if (has_lam) {
+                IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :lambda-in-body " << f->get_name() << ")\n";);
+                continue;
+            }
+        }
+        func_decl* mirror = nullptr;
+        // mirror: def is g(X) with the same argument variables, g a recursive definition
+        if (is_app(def) && ru.is_defined(to_app(def)->get_decl()) && ru.has_def(to_app(def)->get_decl()) &&
+            to_app(def)->get_num_args() == head_app->get_num_args()) {
+            app* ga = to_app(def);
+            bool same = !committed.contains(ga->get_decl());
+            for (unsigned k = 0; same && k < ga->get_num_args(); ++k)
+                same = ga->get_arg(k) == head_app->get_arg(k);
+            recfun::def& gd = ru.get_def(ga->get_decl());
+            if (same && gd.get_rhs() && gd.get_vars().size() == ga->get_num_args()) {
+                unsigned max_idx = 0;
+                for (var* v : gd.get_vars())
+                    max_idx = std::max(max_idx, v->get_idx() + 1);
+                expr_ref_vector sub(m);
+                for (unsigned k = 0; k < max_idx; ++k)
+                    sub.push_back(m.mk_var(k, m.mk_bool_sort()));
+                for (unsigned k = 0; k < ga->get_num_args(); ++k)
+                    sub[gd.get_vars()[k]->get_idx()] = ga->get_arg(k);
+                var_subst vs(m, false);
+                d = vs(gd.get_rhs(), sub.size(), sub.data());
+                mirror = ga->get_decl();
+            }
+        }
+        f2c.insert(f, cands.size());
+        IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :candidate " << f->get_name() << (mirror ? " :mirror " : "") << (mirror ? mirror->get_name().str() : std::string()) << ")\n";);
+        cands.push_back(candidate{q, head_app, d, mirror, i});
+    }
+
+    IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :candidates " << cands.size() << " :ambiguous " << ambiguous.size() << ")\n";);
+    // symbol -> candidate index (heads and their mirrors)
+    obj_map<func_decl, unsigned> sym2c;
+    for (unsigned i = 0; i < cands.size(); ++i) {
+        if (ambiguous.contains(cands[i].head->get_decl()))
+            continue;
+        sym2c.insert(cands[i].head->get_decl(), i);
+        if (cands[i].mirror)
+            sym2c.insert(cands[i].mirror, i);
+    }
+
+    // call graph
+    unsigned n = cands.size();
+    vector<unsigned_vector> succ(n);
+    for (unsigned i = 0; i < n; ++i) {
+        if (ambiguous.contains(cands[i].head->get_decl()))
+            continue;
+        for (expr* e : subterms::all(expr_ref(cands[i].def.get(), m))) {
+            unsigned j;
+            if (is_app(e) && sym2c.find(to_app(e)->get_decl(), j))
+                succ[i].push_back(j);
+        }
+    }
+
+    // Tarjan's SCC
+    unsigned_vector index, low, stack;
+    svector<bool> on_stack;
+    index.resize(n, UINT_MAX);
+    low.resize(n, 0);
+    on_stack.resize(n, false);
+    vector<unsigned_vector> comps;
+    unsigned counter = 0;
+    std::function<void(unsigned)> strong = [&](unsigned v) {
+        index[v] = low[v] = counter++;
+        stack.push_back(v);
+        on_stack[v] = true;
+        for (unsigned w : succ[v]) {
+            if (index[w] == UINT_MAX) {
+                strong(w);
+                low[v] = std::min(low[v], low[w]);
+            }
+            else if (on_stack[w])
+                low[v] = std::min(low[v], index[w]);
+        }
+        if (low[v] == index[v]) {
+            unsigned_vector comp;
+            unsigned w;
+            do {
+                w = stack.back();
+                stack.pop_back();
+                on_stack[w] = false;
+                comp.push_back(w);
+            }
+            while (w != v);
+            comps.push_back(comp);
+        }
+    };
+    for (unsigned v = 0; v < n; ++v)
+        if (index[v] == UINT_MAX && !ambiguous.contains(cands[v].head->get_decl()))
+            strong(v);
+
+    IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :components " << comps.size() << ")\n"; for (auto const& comp : comps) { verbose_stream() << "  ("; for (unsigned i : comp) verbose_stream() << cands[i].head->get_decl()->get_name() << " "; verbose_stream() << ")\n"; });
+    // keep the components that are actually recursive
+    vector<unsigned_vector> rec_comps;
+    for (auto const& comp : comps) {
+        bool rec = comp.size() > 1;
+        if (!rec)
+            for (unsigned w : succ[comp[0]])
+                rec |= w == comp[0];
+        if (rec)
+            rec_comps.push_back(comp);
+    }
+    // A head must not occur in a recursive definition that survives the transformation:
+    // the macro f(X) = f'(X) could not be applied inside such a body (see macro_manager::insert).
+    // Mirrors of accepted components are redefined as aliases, so they do not count.
+    // Rejecting a component keeps its mirrors, which may block others: iterate to a fixpoint.
+    svector<bool> accepted;
+    accepted.resize(rec_comps.size(), true);
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        obj_hashtable<func_decl> mirrors;
+        for (unsigned c = 0; c < rec_comps.size(); ++c)
+            if (accepted[c])
+                for (unsigned i : rec_comps[c])
+                    if (cands[i].mirror)
+                        mirrors.insert(cands[i].mirror);
+        for (unsigned c = 0; c < rec_comps.size(); ++c) {
+            if (!accepted[c])
+                continue;
+            bool blocked = false;
+            for (func_decl* g : ru.get_rec_funs()) {
+                if (mirrors.contains(g) || !ru.has_def(g))
+                    continue;
+                if (ru.get_def(g).is_macro()) // define-fun: applications are expanded by the parser
+                    continue;
+                expr* rhs = ru.get_def(g).get_rhs();
+                for (unsigned i : rec_comps[c])
+                    if (rhs && occurs(cands[i].head->get_decl(), rhs)) {
+                        blocked = true;
+                        IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :blocked-by " << g->get_name() << " :head " << cands[i].head->get_decl()->get_name() << ")\n";);
+                    }
+            }
+            if (blocked) {
+                accepted[c] = false;
+                changed = true;
+                IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :blocked " << cands[rec_comps[c][0]].head->get_decl()->get_name() << ")\n";);
+            }
+        }
+    }
+    {
+        vector<unsigned_vector> kept;
+        for (unsigned c = 0; c < rec_comps.size(); ++c)
+            if (accepted[c])
+                kept.push_back(rec_comps[c]);
+        rec_comps.swap(kept);
+    }
+
+    unsigned num_defs = 0;
+    func_decl_replace replace(m);
+    std::vector<std::pair<unsigned, recfun::promise_def>> pdefs;
+    func_decl_ref_vector new_decls(m);
+    uint_set removed;
+
+    obj_hashtable<func_decl> rec_syms;
+    for (auto const& comp : rec_comps)
+        for (unsigned i : comp) {
+            rec_syms.insert(cands[i].head->get_decl());
+            if (cands[i].mirror)
+                rec_syms.insert(cands[i].mirror);
+        }
+    // Recursive calls have to be guarded by ite, otherwise a definition is unfolded eagerly
+    // (as an unconditional macro) and unfolding may not terminate. A definition without guards
+    // is fine as long as every cycle of recursive calls passes through a guarded definition,
+    // i.e. the unguarded definitions of a component form an acyclic subgraph.
+    {
+        vector<unsigned_vector> kept;
+        for (auto const& comp : rec_comps) {
+            uint_set unguarded, in_comp;
+            for (unsigned i : comp) {
+                in_comp.insert(i);
+                cands[i].def = guard_recursion(m, cands[i].def, rec_syms);
+                if (!recursion_guarded(m, cands[i].def, rec_syms))
+                    unguarded.insert(i);
+            }
+            // cycle detection on the unguarded subgraph (colors: 0 white, 1 gray, 2 black)
+            unsigned_vector color;
+            color.resize(n, 0);
+            bool cyclic = false;
+            std::function<void(unsigned)> dfs = [&](unsigned v) {
+                color[v] = 1;
+                for (unsigned w : succ[v]) {
+                    if (!in_comp.contains(w) || !unguarded.contains(w))
+                        continue;
+                    if (color[w] == 1)
+                        cyclic = true;
+                    else if (color[w] == 0)
+                        dfs(w);
+                }
+                color[v] = 2;
+            };
+            for (unsigned i : comp)
+                if (unguarded.contains(i) && color[i] == 0)
+                    dfs(i);
+            if (cyclic) {
+                IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :unguarded-cycle " << cands[comp[0]].head->get_decl()->get_name() << ")\n";);
+                continue;
+            }
+            kept.push_back(comp);
+        }
+        rec_comps.swap(kept);
+    }
+
+    // phase 1: declare the new recursive function symbols
+    for (auto const& comp : rec_comps) {
+        for (unsigned i : comp) {
+            func_decl* f = cands[i].head->get_decl();
+            recfun::promise_def pd = plugin.ensure_def(f->get_name(), f->get_arity(), f->get_domain(), f->get_range(), false);
+            func_decl* f1 = pd.get_def()->get_decl();
+            new_decls.push_back(f1);
+            replace.insert(f, f1);
+            if (cands[i].mirror)
+                replace.insert(cands[i].mirror, f1);
+            pdefs.push_back(std::make_pair(i, pd));
+        }
+    }
+
+    // phase 2: define them
+    for (auto& [i, pd] : pdefs) {
+        candidate& c = cands[i];
+        unsigned nargs = c.head->get_num_args();
+        // canonicalize bound variables: argument k of the head becomes variable nargs-1-k
+        expr_ref_vector sub(m);
+        var_ref_vector vars(m);
+        for (unsigned k = 0; k < nargs; ++k)
+            sub.push_back(nullptr);
+        for (unsigned k = 0; k < nargs; ++k) {
+            var* v = to_var(c.head->get_arg(k));
+            var* w = m.mk_var(nargs - 1 - k, v->get_sort());
+            sub[v->get_idx()] = w;
+            vars.push_back(w);
+        }
+        var_subst vs(m, false);
+        expr_ref body = vs(c.def, sub.size(), sub.data());
+        body = replace(body);
+        recfun_replace rr(m);
+        plugin.set_definition(rr, pd, false, vars.size(), vars.data(), body);
+        IF_VERBOSE(11, verbose_stream() << "(smt.recfun-finder :define " << pd.get_def()->get_decl()->get_name() << " := " << body << ")\n";);
+        ++num_defs;
+    }
+
+    // phase 3: mirrors g(X) become aliases g(X) = f'(X), so their bodies no longer mention f
+    for (auto& [i, pd] : pdefs) {
+        candidate& c = cands[i];
+        if (!c.mirror)
+            continue;
+        func_decl* g = c.mirror;
+        func_decl* f1 = pd.get_def()->get_decl();
+        unsigned nargs = g->get_arity();
+        var_ref_vector vars(m);
+        expr_ref_vector args(m);
+        for (unsigned k = 0; k < nargs; ++k) {
+            var* w = m.mk_var(nargs - 1 - k, g->get_domain(k));
+            vars.push_back(w);
+            args.push_back(w);
+        }
+        recfun::promise_def gpd = plugin.ensure_def(g->get_name(), nargs, g->get_domain(), g->get_range(), false);
+        expr_ref alias(m.mk_app(f1, args.size(), args.data()), m);
+        recfun_replace rr(m);
+        plugin.set_definition(rr, gpd, true, vars.size(), vars.data(), alias);
+    }
+
+    // phase 4: f(X) = f'(X) as macros (model interpretation of f, expansion in later formulas)
+    for (auto& [i, pd] : pdefs) {
+        candidate& c = cands[i];
+        func_decl* f = c.head->get_decl();
+        func_decl* f1 = pd.get_def()->get_decl();
+        expr_ref rhs(m.mk_app(f1, c.head->get_num_args(), c.head->get_args()), m);
+        quantifier_ref q1(m.update_quantifier(c.q, m.mk_eq(c.head, rhs)), m);
+        proof_ref pr(m);
+        if (m.proofs_enabled())
+            pr = m.mk_def_intro(q1);
+        if (m_macro_manager.insert(f, q1, pr))
+            removed.insert(c.fml_idx);
+        else
+            IF_VERBOSE(1, verbose_stream() << "(smt.recfun-finder :warning \"could not register " << f->get_name() << " as a macro\")\n";);
+    }
+
+    if (num_defs == 0 && !m_macro_manager.has_macros())
+        return;
+
+    // rewrite the asserted formulas
+    vector<justified_expr> new_fmls;
+    for (unsigned i = m_qhead; i < sz; ++i) {
+        if (removed.contains(i))
+            continue;
+        expr* fml = m_formulas[i].fml();
+        proof* pr = m_formulas[i].pr();
+        expr_ref new_fml(fml, m);
+        proof_ref new_pr(pr, m);
+        if (m_macro_manager.has_macros()) {
+            expr_dependency_ref new_dep(m);
+            m_macro_manager.expand_macros(fml, pr, nullptr, new_fml, new_pr, new_dep);
+        }
+        if (num_defs > 0) {
+            expr_ref r = replace(new_fml);
+            if (r != new_fml) {
+                if (m.proofs_enabled())
+                    new_pr = m.mk_modus_ponens(new_pr, m.mk_rewrite(new_fml, r));
+                new_fml = r;
+            }
+        }
+        new_fmls.push_back(justified_expr(m, new_fml, new_pr));
+    }
+    if (num_defs > 0)
+        IF_VERBOSE(10, verbose_stream() << "(smt.recfun-finder :num-defs " << num_defs << ")\n";);
+    swap_asserted_formulas(new_fmls);
+    reduce_and_solve();
+}
 
 void asserted_formulas::find_macros_core() {
     vector<justified_expr> new_fmls;

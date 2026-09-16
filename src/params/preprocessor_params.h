@@ -35,6 +35,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_pull_nested_quantifiers = false;
     bool            m_eliminate_term_ite = false;
     bool            m_macro_finder = false;
+    bool            m_recfun_finder = false;
     bool            m_propagate_values = true;
     bool            m_elim_unconstrained = true;
     bool            m_solve_eqs = true;

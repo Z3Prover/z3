@@ -71,6 +71,8 @@ namespace smt {
         }
         setup_card();
         setup_sls();
+        if (m_params.m_recfun_finder && !m_context.get_theory(m_manager.get_family_id("recfun")))
+            setup_recfuns();
     }
 
     void setup::setup_default() {

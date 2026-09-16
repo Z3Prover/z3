@@ -94,6 +94,14 @@ class asserted_formulas {
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
+    class find_recfuns_fn : public simplify_fmls {
+    public:
+        find_recfuns_fn(asserted_formulas& af): simplify_fmls(af, "find-recfuns") {}
+        void operator()() override { af.find_recfuns_core(); }
+        bool should_apply() const override { return af.m_smt_params.m_recfun_finder && (af.has_quantifiers() || af.m_macro_manager.has_macros()); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
+    };
+
     class apply_quasi_macros_fn : public simplify_fmls {
     public:
         apply_quasi_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-quasi-macros") {}
@@ -219,6 +227,7 @@ class asserted_formulas {
     lift_ite                    m_lift_ite;
     ng_lift_ite                 m_ng_lift_ite;
     find_macros_fn              m_find_macros;
+    find_recfuns_fn             m_find_recfuns;
     propagate_values_fn         m_propagate_values;
     nnf_cnf_fn                  m_nnf_cnf;
     apply_quasi_macros_fn       m_apply_quasi_macros;
@@ -236,6 +245,7 @@ class asserted_formulas {
     unsigned get_total_size() const;
 
     void find_macros_core();
+    void find_recfuns_core();
     void expand_macros();
     void apply_quasi_macros();
     void nnf_cnf();
