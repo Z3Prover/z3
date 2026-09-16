@@ -93,7 +93,9 @@ def get_os_name():
         return basic
 
 def get_z3_name():
-    version = "4"
+    version_file = os.path.join(os.path.dirname(__file__), "VERSION.txt")
+    with open(version_file, encoding="utf-8") as f:
+        version = ".".join(f.read().strip().split(".")[:3])
     if ASSEMBLY_VERSION:
         version = ASSEMBLY_VERSION
     print("Assembly version:", version)
