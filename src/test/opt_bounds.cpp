@@ -115,19 +115,19 @@ static Z3_ast shifted_root(opt_fixture& f, Z3_ast offset, bool positive) {
                       Z3_algebraic_sub(f.ctx, offset, root(f));
 }
 
-// Require exact equality and preserve the rational/algebraic representation.
+// Check exact equality and whether each value is rational or irrational algebraic.
 static void ensure_value(opt_fixture& f, Z3_ast actual, Z3_ast expected) {
     ENSURE(actual && Z3_algebraic_is_value(f.ctx, actual));
     ENSURE(Z3_is_algebraic_number(f.ctx, actual) == Z3_is_algebraic_number(f.ctx, expected));
     ENSURE(Z3_algebraic_eq(f.ctx, actual, expected));
 }
 
-// Numeric equality alone would not detect a change from Int to Real numerals.
+// Check the numeral's sort independently of its value.
 static void ensure_sort(opt_fixture& f, Z3_ast a, Z3_sort_kind kind) {
     ENSURE(Z3_get_sort_kind(f.ctx, Z3_get_sort(f.ctx, a)) == kind);
 }
 
-// Read a previously computed bound through the C API; this does not optimize.
+// Read a bound from the latest optimization result; this call does not solve.
 static Z3_ast scalar_bound(opt_fixture& f, unsigned h, bool lower) {
     Z3_ast r = lower ? Z3_optimize_get_lower(f.ctx, f.opt, h) :
                        Z3_optimize_get_upper(f.ctx, f.opt, h);
@@ -164,7 +164,7 @@ static void ensure_finite_bounds(opt_fixture& f, unsigned h, Z3_ast expected,
 }
 
 // An open scalar bound is finite +/- epsilon, not an algebraic numeral.
-// All four getters must preserve its exact finite part and epsilon sign.
+// Check its exact finite part and epsilon sign in all four getters.
 static void ensure_open_bounds(opt_fixture& f, unsigned h, Z3_ast finite, int epsilon,
                                Z3_sort_kind finite_sort = Z3_REAL_SORT) {
     ENSURE(epsilon == -1 || epsilon == 1);
@@ -434,7 +434,7 @@ static void tst_open_multiobjective(bool box, bool open_first, bool with_soft) {
             if (index == closed)
                 ensure_model_value(f, y, f.num(3));
         }
-        // The cached box-model enumeration is now exhausted.
+        // No cached box model remains after one has been returned for each objective.
         ENSURE(f.check() == Z3_L_FALSE);
     }
     else {
@@ -483,8 +483,9 @@ static void tst_open_proof_budget() {
     }
 }
 
-// Exercise cached exact values across repeated checks and push/pop:
-// tighter or open constraints must replace the old result, and pop must restore it.
+// Check bounds across repeated solves, additional constraints, and pop.
+// The rational cap gives 1; the strict square bound gives an open limit;
+// popping either condition restores the attained sqrt(2).
 static void tst_recheck_and_scopes() {
     opt_fixture f("lex", 8);
     Z3_ast x = f.real("x");
@@ -513,12 +514,12 @@ static void tst_recheck_and_scopes() {
     ENSURE(f.check() == Z3_L_TRUE);
     ensure_open_bounds(f, h, root(f), -1);
     ensure_open_model(f, x, root(f), true);
-    // Repeating the optimization must preserve the open result and feasible witness.
+    // Solve the same open problem again and check its bound and feasible witness.
     ENSURE(f.check() == Z3_L_TRUE);
     ensure_open_bounds(f, h, root(f), -1);
     ensure_open_model(f, x, root(f), true);
     Z3_optimize_pop(f.ctx, f.opt);
-    // Re-optimize the closed problem; popping must clear the old epsilon coefficient.
+    // After pop, the closed optimum must have a zero epsilon coefficient.
     ENSURE(f.check() == Z3_L_TRUE);
     ensure_finite_bounds(f, h, root(f));
 }
@@ -581,7 +582,7 @@ static void tst_open_integer_fallback() {
     }
 }
 
-// Preserve the existing API error code and message for invalid objective handles.
+// Invalid objective handles report Z3_EXCEPTION and "index out of bounds".
 static void ensure_index_error(opt_fixture& f) {
     ENSURE(Z3_get_error_code(f.ctx) == Z3_EXCEPTION);
     ENSURE(std::strcmp(Z3_get_error_msg(f.ctx, Z3_EXCEPTION), "index out of bounds") == 0);
@@ -599,8 +600,8 @@ static void ensure_invalid_index(opt_fixture& f, unsigned h) {
     ensure_index_error(f);
 }
 
-// Check invalid handles before solving, after solving, and after removing all
-// objectives. Reusing handle zero must not resurrect an old root or epsilon.
+// Check invalid handles before and after solving and after removing all objectives.
+// A reused index must report the bounds of its replacement objective.
 static void tst_reset_and_invalid_indices(bool open) {
     opt_fixture f("lex", 8);
     ensure_invalid_index(f, 0);
@@ -636,8 +637,8 @@ static void tst_reset_and_invalid_indices(bool open) {
     ensure_finite_bounds(f, replacement, f.num(-1), Z3_INT_SORT);
 }
 
-// Preserve rational bounds and their sorts: max 7/3, min -5/2, and the
-// nonlinear maximum 2 under x^2 <= 4, represented as an Int numeral.
+// Check max 7/3, min -5/2, and max 2 under x^2 <= 4.
+// Fractional bounds use Real numerals; the integral bound 2 uses Int numerals.
 static void tst_rational_bounds() {
     for (bool maximize : {true, false}) {
         opt_fixture f;
@@ -655,7 +656,7 @@ static void tst_rational_bounds() {
     unsigned h = f.objective(x);
     // Optimize a nonlinear problem whose attained optimum is nevertheless rational.
     ENSURE(f.check() == Z3_L_TRUE);
-    // Integral rational optima retain Int numerals even for a Real objective.
+    // Require Int numerals for the integral bounds of this Real objective.
     ensure_finite_bounds(f, h, f.num(2), Z3_INT_SORT);
 }
 
@@ -707,8 +708,8 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
-// A bounded unsigned BV objective must retain max 9 and min 3 as Int
-// numerals in all getters, unaffected by the new algebraic-value path.
+// Check unsigned BV maximum 9 and minimum 3 as Int scalar bounds,
+// with coefficient vectors [0, 9, 0] and [0, 3, 0].
 static void tst_bitvector_bounds() {
     for (bool maximize : {true, false}) {
         opt_fixture f;

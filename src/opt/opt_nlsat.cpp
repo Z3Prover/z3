@@ -520,59 +520,61 @@ namespace opt {
         }
     }
 
-    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
-                              unsigned max_rounds, result& res, unsigned supremum_rlimit) {
-        res.reset();
-        if (!in_nra_fragment(m, m_arith, hard, obj)) {
-            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
-            return l_undef;
-        }
+    // Keep one call's solver, translation maps, and search outcome together.
+    struct nlsat_opt::search_state {
+        goal_ref m_goal;
+        app_ref m_objective;
+        model_converter_ref m_converter;
+        nlsat::solver m_solver;
+        nlsat::var m_variable = nlsat::null_var;
+        expr_ref_vector m_x2t, m_b2a;
+        // The solver owns their number manager and must outlive these values.
+        scoped_anum m_best, m_sup;
+        bool const m_has_upper_bound;
+        bool m_has_best = false;
+        bool m_has_sup = false; // a candidate endpoint, not yet a global upper-bound proof
+        lbool m_status = l_undef;
 
-        // 1. hard /\ T = obj /\ lo <= T <= hi, normalized for goal2nlsat.
-        app_ref T(m);
-        goal_ref pg;
-        lbool st = preprocess(hard, obj, lo, hi, T, pg);
-        if (st != l_true)
-            return st;
-        model_converter_ref mc = pg->mc();
+        search_state(ast_manager& m, params_ref const& p, goal* pg, app* objective, bool has_upper_bound):
+            m_goal(pg),
+            m_objective(objective, m),
+            m_converter(pg->mc()),
+            m_solver(m.limit(), p, true),
+            m_x2t(m), m_b2a(m),
+            m_best(m_solver.am()), m_sup(m_solver.am()),
+            m_has_upper_bound(has_upper_bound) {}
 
-        // 2. nlsat with T as the first variable and maximization target.
-        nlsat::solver s(m.limit(), m_params, true);
-        nlsat::var t;
-        expr_ref_vector x2t(m), b2a(m);
-        if (!load(*pg, T, s, t, x2t, b2a))
-            return l_undef;
-        algebraic_numbers::manager& am = s.am();
+        search_state(search_state const&) = delete;
+        search_state& operator=(search_state const&) = delete;
+    };
 
-        // 3. F-Sat / F-Close loop: after each model, require t > best.
-        scoped_anum best(am), sup(am);
-        bool has_best = false;
-        bool has_sup = false; // the feasible set of t was bounded above at the last sat check
+    // Improve the model and remember the candidate endpoint. After five
+    // consecutive rounds without one, probe unboundedness if no upper bound was supplied.
+    void nlsat_opt::search_models(search_state& state, unsigned max_rounds, result& res) {
+        auto& s = state.m_solver;
+        auto& am = s.am();
         unsigned unbounded_rounds = 0;
-        st = l_undef;
         for (unsigned round = 0; round < max_rounds && m.inc(); ++round) {
             res.m_rounds = round + 1;
-            st = s.check();
-            TRACE(opt, tout << "nlsat round " << round << ": " << st << "\n";);
-            if (st != l_true)
+            state.m_status = s.check();
+            TRACE(opt, tout << "nlsat round " << round << ": " << state.m_status << "\n";);
+            if (state.m_status != l_true)
                 break;
-            am.set(best, s.value(t));
-            has_best = true;
+            am.set(state.m_best, s.value(state.m_variable));
+            state.m_has_best = true;
             bool attained = false;
-            has_sup = s.max_var_sup(sup, attained);
-            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), best);
+            state.m_has_sup = s.max_var_sup(state.m_sup, attained);
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat round " << round << " value "; am.display_root_smt2(verbose_stream(), state.m_best);
                        verbose_stream() << (attained ? " sup" : " below-sup") << ")\n");
-            res.m_model = extract_model(s, x2t, b2a, T, mc.get());
-            if (!has_sup) {
-                // A bound on t may depend on variables assigned later. Nlsat
-                // may first see t as unbounded and then learn a clause that
-                // bounds it, so allow a few such rounds. If this continues
-                // and no upper bound was given, use qe/nlqsat to check
-                // (forall c. exists x. hard /\ t > c). If this query is sat,
-                // the objective is unbounded. Otherwise, return l_undef.
+            res.m_model = extract_model(s, state.m_x2t, state.m_b2a, state.m_objective, state.m_converter.get());
+            if (!state.m_has_sup) {
+                // Bounds involving later-assigned variables reach t through
+                // conflict learning. An unbounded-looking interval alone is
+                // inconclusive; without a supplied upper bound, check
+                // forall c. exists x. hard /\ t > c.
                 if (++unbounded_rounds > 4) {
                     IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: feasible set unbounded above)\n");
-                    if (!hi && prove_unbounded(*pg, T) == l_true) {
+                    if (!state.m_has_upper_bound && prove_unbounded(*state.m_goal, state.m_objective) == l_true) {
                         res.m_unbounded = true;
                         IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat: objective proven unbounded above)\n");
                     }
@@ -581,28 +583,55 @@ namespace opt {
             }
             else
                 unbounded_rounds = 0;
-            nlsat::literal l = mk_lower_bound(s, t, best, true);
+            nlsat::literal l = mk_lower_bound(s, state.m_variable, state.m_best, true);
             if (l == nlsat::null_literal) {
                 IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: root index not found)\n");
-                st = l_undef;
+                state.m_status = l_undef;
                 break;
             }
             s.mk_clause(1, &l);
             IF_VERBOSE(4, s.display(verbose_stream() << "(optsmt nlsat state after blocking)\n") << "\n");
         }
-        if (!has_best)
-            return st == l_false ? l_false : l_undef;
+    }
+
+    // Fill the result from the search outcome, then certify a remaining finite candidate.
+    lbool nlsat_opt::certify_result(search_state& state, unsigned supremum_rlimit, result& res) {
+        if (!state.m_has_best)
+            return state.m_status == l_false ? l_false : l_undef;
 
         // Keep the feasible model value separate from an unattained limit.
-        set_value(am, best, res.m_value, res.m_lower, res.m_upper);
-        res.m_attained = st == l_false;
-        if (st == l_true && has_sup) {
-            prove_strict_upper_bound(s, t, sup, best, res);
+        set_value(state.m_solver.am(), state.m_best, res.m_value, res.m_lower, res.m_upper);
+        res.m_attained = state.m_status == l_false;
+        if (state.m_status == l_true && state.m_has_sup) {
+            prove_strict_upper_bound(state.m_solver, state.m_variable, state.m_sup, state.m_best, res);
             if (res.m_has_sup)
                 res.m_open = bounded_limit_query(m, supremum_rlimit, [&]() {
-                    return can_approach_from_below(*pg, T, res.m_sup);
+                    return can_approach_from_below(*state.m_goal, state.m_objective, res.m_sup);
                 }) == l_true;
         }
         return res.m_attained || res.m_unbounded || res.m_open ? l_true : l_undef;
+    }
+
+    lbool nlsat_opt::maximize(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
+                              unsigned max_rounds, result& res, unsigned supremum_rlimit) {
+        res.reset();
+        if (!in_nra_fragment(m, m_arith, hard, obj)) {
+            IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat: outside the nonlinear real arithmetic fragment)\n");
+            return l_undef;
+        }
+
+        // Inconsistent or unsupported goals need no solver allocation.
+        app_ref T(m);
+        goal_ref pg;
+        lbool st = preprocess(hard, obj, lo, hi, T, pg);
+        if (st != l_true)
+            return st;
+
+        search_state state(m, m_params, pg.get(), T.get(), hi.has_value());
+        if (!load(*state.m_goal, state.m_objective, state.m_solver, state.m_variable, state.m_x2t, state.m_b2a))
+            return l_undef;
+
+        search_models(state, max_rounds, res);
+        return certify_result(state, supremum_rlimit, res);
     }
 }

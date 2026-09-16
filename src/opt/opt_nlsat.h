@@ -116,6 +116,7 @@ namespace opt {
         lbool prove_unbounded(expr_ref_vector const& hard, expr* obj, rational const& lo);
 
     private:
+        struct search_state;
         lbool prove_unbounded(goal const& pg, app* T);
         lbool can_approach_from_below(goal const& pg, app* T, expr* bound);
         void prove_strict_upper_bound(nlsat::solver& s, nlsat::var t, algebraic_numbers::anum const& sup,
@@ -124,6 +125,9 @@ namespace opt {
         lbool preprocess(expr_ref_vector const& hard, expr* obj, rational const& lo, std::optional<rational> const& hi,
                          app_ref& T, goal_ref& pg);
         bool load(goal const& pg, app* T, nlsat::solver& s, nlsat::var& t, expr_ref_vector& x2t, expr_ref_vector& b2a);
+        void search_models(search_state& state, unsigned max_rounds, result& res);
+        lbool certify_result(search_state& state, unsigned supremum_rlimit, result& res);
+
         model_ref extract_model(nlsat::solver& s, expr_ref_vector const& x2t, expr_ref_vector const& b2a, app* T,
                                 model_converter* mc);
         void set_value(algebraic_numbers::manager& am, algebraic_numbers::anum const& value,

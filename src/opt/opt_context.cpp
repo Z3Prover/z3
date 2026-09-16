@@ -1730,8 +1730,8 @@ namespace opt {
             expr_ref exact = get_exact(i);
             if (exact) {
                 inf_eps bound = get_lower_as_num(i);
-                // Preserve the existing numeral display for attained values;
-                // an open limit also needs its infinitesimal component.
+                // Display attained values as numerals and include the
+                // infinitesimal component for an open limit.
                 out << " " << (bound.get_infinitesimal().is_zero() ? exact : to_expr(bound, exact));
             }
             else if (get_lower_as_num(i) != get_upper_as_num(i)) {
@@ -1809,8 +1809,8 @@ namespace opt {
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
-        // Rational optima keep their existing numeral sorts. Only replace
-        // the rational bracket when an irrational value is certified.
+        // Use the certified irrational finite part when present. Otherwise,
+        // integral rationals use Int numerals and fractions use Real numerals.
         es.push_back(exact && m_arith.is_irrational_algebraic_numeral(exact) ?
                      exact : m_arith.mk_numeral(r, r.is_int()));
         es.push_back(m_arith.mk_numeral(eps, eps.is_int()));

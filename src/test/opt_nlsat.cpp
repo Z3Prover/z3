@@ -295,8 +295,8 @@ static void tst_open_proof_budget() {
     }
 }
 
-// Reusing a result across open and attained optima must clear the old flags
-// and exact limit; explicit reset must also release both values and the model.
+// Alternate open and attained inputs and check the result flags and limit.
+// Explicit reset clears both numeral values and the model.
 static void tst_result_reuse() {
     std::cout << "opt_nlsat: result reuse and reset\n";
     ast_manager m;

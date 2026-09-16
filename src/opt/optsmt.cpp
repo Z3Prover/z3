@@ -415,7 +415,7 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions with one quantified-NRA (nlqsat) query (README section 3.3),
+       assertions with one quantified-NRA (nlqsat) query,
        given a budget of rlimit_budget resource-counter ticks; bounds pushed
        by the climb hold in the current model and are harmless. The budget's
        expiry surfaces from the nlsat solver as a solver_exception, not a
@@ -462,7 +462,7 @@ namespace opt {
     }
 
     /**
-       \brief Exact optimization over nlsat cells (README section 3.3, layer 2):
+       \brief Exact optimization over nlsat cells:
        maximize the objective over the hard constraints within
        [m_lower[idx], hi] with nlsat_opt. On success the optimum may be an
        algebraic number: m_exact[idx] holds its finite part as a numeral and
