@@ -329,6 +329,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+
+      - name: Setup Java
+        uses: actions/setup-java@v6.0.1
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       
       - name: Download Ubuntu x64 build from release
         env:
@@ -353,6 +359,23 @@ jobs:
           (assert (> x 0))
           (check-sat)
           (get-model)" | ./bin/z3 -in
+
+      - name: Validate Java full version
+        run: |
+          Z3_DIR=$(find downloads -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cat > VersionCheck.java <<'EOF'
+          import com.microsoft.z3.Version;
+
+          public class VersionCheck {
+              public static void main(String[] args) {
+                  System.out.println(Version.getFullVersion());
+              }
+          }
+          EOF
+          javac -cp "$Z3_DIR/bin/com.microsoft.z3.jar" VersionCheck.java
+          env -u LD_LIBRARY_PATH java \
+            -Djava.library.path="$Z3_DIR/bin" \
+            -cp ".:$Z3_DIR/bin/com.microsoft.z3.jar" VersionCheck
 
   validate-exe-macos-x64:
     name: "Validate executable on macOS x64"
