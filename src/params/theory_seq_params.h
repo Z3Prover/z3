@@ -40,6 +40,10 @@ struct theory_seq_params {
     // see nielsen_graph::apply_eq_approx's `if (!m_eq_approx) return
     // false;` gate in seq_nielsen_regex.cpp).
     bool m_seq_eq_approx = false;
+    // Opt-in gate for power_fine_wilf, mirroring c3's smt.nseq.fine_wilf.
+    bool m_seq_fine_wilf = false;
+    // Opt-in gate for mem_parikh_split, mirroring c3's smt.nseq.parikh.
+    bool m_seq_mem_parikh = false;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);

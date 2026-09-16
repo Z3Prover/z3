@@ -1012,6 +1012,8 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
+        if (!ac.fparams().m_seq_mem_parikh)
+            return nullptr;
         auto& mf = ac.mem_facet_ref();
         if (mf.is_satisfied())
             return nullptr;

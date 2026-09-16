@@ -327,6 +327,8 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
+        if (!ac.fparams().m_seq_fine_wilf)
+            return nullptr;
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
         auto& sf = ac.solver_facet_ref();
