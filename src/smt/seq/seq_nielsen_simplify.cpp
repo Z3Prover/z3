@@ -902,7 +902,7 @@ namespace seq {
         // abelian rule reads letter counts off the two sides of an EQUATION,
         // this one reads them off the LANGUAGE of a membership, which is the
         // only thing available when a benchmark has no word equations at all.
-        // Opt-in via smt.nseq.regex_parikh.
+        // Controlled by smt.nseq.regex_parikh.
         if (m_graph.regex_parikh_enabled() && !m_str_mem.empty()) {
             dep_tracker lc_dep = nullptr;
             if (m_graph.parikh().check_letter_conflict(*this, lc_dep,

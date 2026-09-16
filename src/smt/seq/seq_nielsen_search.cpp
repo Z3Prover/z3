@@ -849,7 +849,7 @@ namespace seq {
         // membership set of an equation-free node: a core refutes the node outright, a
         // witness becomes a pinned child.  Tried before the enumerator below and before
         // the grinding rules, because it answers in one call what they approach by
-        // splitting.  (opt-in via smt.nseq.monadic_leaf, default off)
+        // splitting.  Controlled by smt.nseq.monadic_leaf.
         if (!harvest_mode() && apply_monadic_leaf(node))
             return ++m_stats.m_mod_monadic_leaf, true;
 

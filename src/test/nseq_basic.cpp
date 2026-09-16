@@ -11,6 +11,7 @@ Abstract:
 
 --*/
 #include "util/util.h"
+#include "util/statistics.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
@@ -67,6 +68,26 @@ static void test_nseq_param_validation() {
     } catch (...) {
         SASSERT(false && "legacy values should still be accepted");
     }
+}
+
+static void test_nseq_default_options() {
+    std::cout << "test_nseq_default_options\n";
+    const smt_params defaults;
+    ENSURE(defaults.m_string_solver == symbol("seq"));
+    ENSURE(defaults.m_nseq_monadic_leaf);
+    ENSURE(defaults.m_nseq_regex_parikh);
+    for (unsigned mask = 0; mask < 4; ++mask) {
+        params_ref p;
+        p.set_bool("nseq.monadic_leaf", (mask & 1) != 0);
+        p.set_bool("nseq.regex_parikh", (mask & 2) != 0);
+        smt_params params(p);
+        ENSURE(params.m_nseq_monadic_leaf == ((mask & 1) != 0));
+        ENSURE(params.m_nseq_regex_parikh == ((mask & 2) != 0));
+        params.updt_local_params(params_ref());
+        ENSURE(params.m_nseq_monadic_leaf);
+        ENSURE(params.m_nseq_regex_parikh);
+    }
+    std::cout << "  ok: defaults and explicit overrides\n";
 }
 
 // Test 2b: parameter validation rejects invalid variants of "nseq"
@@ -639,17 +660,55 @@ static void assert_mod2_memberships(smt::context& ctx, ast_manager& m, bool y_is
 
 static void test_nseq_regex_parikh_e2e_unsat() {
     std::cout << "test_nseq_regex_parikh_e2e_unsat\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    smt_params params;
-    params.m_string_solver = symbol("nseq");
-    SASSERT(!params.m_nseq_regex_parikh); // opt-in
-    params.m_nseq_regex_parikh = true;
-    smt::context ctx(m, params);
-    assert_mod2_memberships(ctx, m, true);
-    const lbool r = ctx.check();
-    SASSERT(r == l_false);
-    std::cout << "  ok: unsat\n";
+    for (bool use_default : {true, false}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        params_ref p;
+        // This example otherwise closes in the earlier eager structural pass.
+        p.set_bool("nseq.eager", false);
+        if (!use_default)
+            p.set_bool("nseq.regex_parikh", false);
+        smt_params params(p);
+        params.m_string_solver = symbol("nseq");
+        ENSURE(params.m_nseq_regex_parikh == use_default);
+        smt::context ctx(m, params);
+        assert_mod2_memberships(ctx, m, true);
+        const lbool r = ctx.check();
+        ENSURE(r == l_false);
+        statistics st;
+        ctx.collect_statistics(st);
+        unsigned refutations = 0;
+        for (unsigned i = 0; i < st.size(); ++i)
+            if (std::string(st.get_key(i)) == "nseq letter-count refutations")
+                refutations = st.get_uint_value(i);
+        ENSURE((refutations > 0) == use_default);
+    }
+    std::cout << "  ok: unsat with the default and with regex_parikh disabled\n";
+}
+
+static void test_nseq_monadic_leaf_witness() {
+    std::cout << "test_nseq_monadic_leaf_witness\n";
+    for (bool use_default : {true, false}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        params_ref p;
+        if (!use_default)
+            p.set_bool("nseq.monadic_leaf", false);
+        smt_params params(p);
+        params.m_string_solver = symbol("nseq");
+        smt::context ctx(m, params);
+        seq_util su(m);
+        const expr_ref x(m.mk_const(symbol("x"), su.str.mk_string_sort()), m);
+        const expr_ref a(su.str.mk_string(zstring("a")), m);
+        const expr_ref term(su.str.mk_concat(x, su.str.mk_concat(a, x)), m);
+        const expr_ref aa(su.re.mk_to_re(su.str.mk_string(zstring("aa"))), m);
+        const expr_ref any(su.re.mk_full_seq(aa->get_sort()), m);
+        const expr_ref regex(su.re.mk_concat(any, su.re.mk_concat(aa, any)), m);
+        ctx.assert_expr(expr_ref(su.re.mk_in_re(term, regex), m));
+        const lbool r = ctx.check();
+        ENSURE(r == l_true);
+    }
+    std::cout << "  ok: sat with the default and with monadic_leaf disabled\n";
 }
 
 // The rule must not over-refute: making both variables even leaves the system
@@ -690,6 +749,7 @@ static void test_nseq_regex_parikh_residues() {
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
+    test_nseq_default_options();
     test_nseq_param_validation_rejects_invalid();
     test_nseq_simplification();
     test_nseq_node_satisfied();
@@ -711,6 +771,7 @@ void tst_nseq_basic() {
     test_nseq_abelian_sat_guard();
     test_nseq_abelian_option_off();
     test_nseq_regex_parikh_e2e_unsat();
+    test_nseq_monadic_leaf_witness();
     test_nseq_regex_parikh_sat_guard();
     test_nseq_regex_parikh_residues();
     std::cout << "nseq_basic: all tests passed\n";
