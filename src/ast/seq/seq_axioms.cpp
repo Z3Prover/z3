@@ -1375,10 +1375,12 @@ namespace seq {
         expr* x = nullptr, * y = nullptr, * offs = nullptr, * l = nullptr;
         VERIFY(seq.str.is_length(n, x));
         if (seq.str.is_concat(x) && to_app(x)->get_num_args() != 0) {
-            ptr_vector<expr> args;
-            for (auto arg : *to_app(x)) 
-                args.push_back(seq.str.mk_length(arg));
-            expr_ref len(a.mk_add(args), m);
+            // len(a ++ b ++ ...) = len(a) + len(b) + ...
+            // Let the rewriter flatten the concatenation and fold components of
+            // known length (units, string literals) into one numeral instead of
+            // creating one arithmetic length term per component here.
+            expr_ref len(n, m);
+            m_rewrite(len);
             add_clause(mk_eq(len, n));
         }        
         else if (seq.str.is_extract(x, y, offs, l)) {
