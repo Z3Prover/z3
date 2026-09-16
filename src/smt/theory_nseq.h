@@ -206,6 +206,11 @@ namespace smt {
         //   priority 4   apply_const_num_unwinding    -> power_var_peel
         //   priority 5   apply_eq_split               -> eq_split
         //   priority 5d  apply_monadic_landing        -> mem_monadic_split
+        //     (deviation: mem_monadic_split is registered ahead of
+        //     eq_split/word_eq_split in theory_nseq.cpp, not between
+        //     them as this priority numbering would suggest - regex
+        //     membership splitting is tried before any equality
+        //     splitting; see the registration-order comment there.)
         //   priority 7   apply_gpower_intr            -> power_gpower_intro
         //   priority 8b  apply_const_nielsen          -> word_eq_split (const/var)
         //   priority 9   apply_regex_if_split         -> (removed; ite tokens treated as ordinary Nielsen variables, see ambient_context_i::is_var)

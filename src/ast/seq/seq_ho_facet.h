@@ -82,7 +82,7 @@ namespace seq {
 
         void add_term(expr* term) {
             SASSERT(is_app(term));
-            SASSERT(!m_terms.contains(term));
+            SASSERT(!m_terms.contains(to_app(term)));
             m_terms.push_back(static_cast<app*>(term));
             m_trail.push(push_back_vector(m_terms));
         } // namespace seq

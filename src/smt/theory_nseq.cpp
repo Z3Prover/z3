@@ -162,17 +162,25 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
 
-        // split plugins: registration order mirrors the priority order of
-        // the c3 branch's nielsen_graph::generate_extensions (see
-        // theory_nseq.h's module comment for the mapping table).
+        // split plugins: registration order mostly mirrors the priority
+        // order of the c3 branch's nielsen_graph::generate_extensions
+        // (see theory_nseq.h's module comment for the mapping table),
+        // with one deliberate deviation: mem_monadic_split (regex
+        // membership landing, c3 priority 5d) is registered ahead of
+        // eq_split/word_eq_split (equality splitting, c3 priorities 5
+        // and 8b/12) instead of between them, so that at cost 0 the
+        // engine always tries a regex-membership split before it tries
+        // any word-equation split. This was found experimentally to
+        // avoid needless equation case-splitting on nodes that a regex
+        // split alone can already close.
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
-        m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
