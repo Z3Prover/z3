@@ -27,7 +27,7 @@ ADD_DOTNET("${z3_dotnet_project}"
     SOURCES "${z3_dotnet_project}" "${z3_dotnet_program}")
 
 # Its NuGet restore has no local package source wired up outside of a real
-# packaging flow, so (unlike c_example/cpp_example) don't build it by default.
+# packaging flow, so don't build it by default.
 set_target_properties(BUILD_dotnet PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 if(UNIX AND NOT APPLE)
