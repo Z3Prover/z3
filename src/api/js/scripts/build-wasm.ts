@@ -58,7 +58,7 @@ assert(fs.existsSync('./package.json'), 'Not in the root directory of js api');
 const z3RootDir = path.join(process.cwd(), '../../../');
 
 // TODO(ritave): Detect if it's in the configuration we need
-if (!existsSync(path.join(z3RootDir, 'build/Makefile'))) {
+if (!existsSync(path.join(z3RootDir, 'build/CMakeCache.txt'))) {
   spawnSync(
     'emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_SINGLE_THREADED=ON',
     { cwd: z3RootDir },
