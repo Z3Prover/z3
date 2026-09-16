@@ -1376,30 +1376,14 @@ namespace seq {
         VERIFY(seq.str.is_length(n, x));
         if (seq.str.is_concat(x) && to_app(x)->get_num_args() != 0) {
             // len(a ++ b ++ ...) = len(a) + len(b) + ...
-            // Nested concatenations are flattened and components of known length
-            // (units, string literals, empty) are folded into one numeral. A long
-            // chain of units (as produced when a string of fixed length n is expanded
-            // into its characters) then yields a bound on len(x) instead of one fresh
-            // arithmetic length term per nested concatenation, which made the number
-            // of arithmetic terms and rows quadratic in n.
-            expr_ref_vector es(m);
-            seq.str.get_concat(x, es);
+            // The sum is simplified by the rewriter so that components of known
+            // length (units, string literals, nested concatenations of those) fold
+            // into one numeral instead of one arithmetic length term each.
             ptr_vector<expr> args;
-            rational k(0);
-            zstring str;
-            for (expr* e : es) {
-                if (seq.str.is_unit(e))
-                    k += 1;
-                else if (seq.str.is_string(e, str))
-                    k += rational(str.length());
-                else if (seq.str.is_empty(e))
-                    ;
-                else 
-                    args.push_back(seq.str.mk_length(e));
-            }
-            if (!k.is_zero() || args.empty())
-                args.push_back(a.mk_int(k));
+            for (auto arg : *to_app(x)) 
+                args.push_back(seq.str.mk_length(arg));
             expr_ref len(a.mk_add(args), m);
+            m_rewrite(len);
             add_clause(mk_eq(len, n));
         }        
         else if (seq.str.is_extract(x, y, offs, l)) {
