@@ -61,7 +61,7 @@ release build is:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake --build build --parallel $(nproc)
 ```
 
 See [README-CMake.md](README-CMake.md) for build options, language bindings,
@@ -182,7 +182,7 @@ and it requires ``libz3.dll`` to be in the path.
 virtualenv venv
 source venv/bin/activate
 cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$VIRTUAL_ENV -DZ3_BUILD_PYTHON_BINDINGS=ON
-cmake --build build --parallel
+cmake --build build --parallel $(nproc)
 cmake --install build
 # You will find Z3 and the Python bindings installed in the virtual environment
 venv/bin/z3 -h

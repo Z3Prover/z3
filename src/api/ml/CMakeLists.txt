@@ -257,10 +257,6 @@ add_custom_target(build_z3_ocaml_bindings
 
 set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
 
-# -cclib flags used to hardcode the path to the shared libz3, which only
-# exists when BUILD_SHARED_LIBS=ON. Pass a normal -L/-l pair instead (matching
-# how ocamlmklib already links dllz3ml.so above), so the linker picks up
-# whichever libz3 (static or shared) was actually built.
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlc

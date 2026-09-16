@@ -194,11 +194,7 @@ jobs:
         run: |
           eval `opam config env`
           ML=build/src/api/ml
-          ocamlfind install z3 "$ML/META" "$ML/z3.cmi" src/api/ml/z3.mli "$ML/z3.cmx" \
-            "$ML/z3enums.cmi" "$ML/z3enums.cmx" "$ML/z3enums.mli" \
-            "$ML/z3native.cmi" "$ML/z3native.cmx" "$ML/z3native.mli" \
-            "$ML/libz3ml.a" "$ML/z3ml.a" "$ML/z3ml.cma" "$ML/z3ml.cmxa" "$ML/z3ml.cmxs" \
-            -dll "$ML/dllz3ml.so"
+          ocamlfind install z3 "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
 
       - name: Run unit tests
         run: |
@@ -253,11 +249,7 @@ jobs:
         run: |
           eval `opam config env`
           ML=build/src/api/ml
-          ocamlfind install z3-static "$ML/META" "$ML/z3.cmi" src/api/ml/z3.mli "$ML/z3.cmx" \
-            "$ML/z3enums.cmi" "$ML/z3enums.cmx" "$ML/z3enums.mli" \
-            "$ML/z3native.cmi" "$ML/z3native.cmx" "$ML/z3native.mli" \
-            "$ML/libz3ml.a" "$ML/z3ml.a" "$ML/z3ml.cma" "$ML/z3ml.cmxa" "$ML/z3ml.cmxs" \
-            -dll "$ML/dllz3ml.so"
+          ocamlfind install z3-static "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
           # Ensure the stublibs directory where dllz3ml.so was installed is
           # listed in ld.conf so the OCaml bytecode linker can find it.  When no
           # explicit -dll flag is passed, ocamlfind installs dll* files to stublibs
@@ -268,6 +260,18 @@ jobs:
           if [ -d "$STUBLIBS" ] && ! grep -qF "$STUBLIBS" "$LDCONF" 2>/dev/null; then
             echo "$STUBLIBS" >> "$LDCONF"
           fi
+
+      - name: Build and run OCaml examples
+        run: |
+          set -e
+          eval `opam config env`
+          EX=examples/ml/ml_example.ml
+          ocamlfind ocamlc -o ml_example_static.byte -thread -package z3-static -linkpkg "$EX"
+          ./ml_example_static.byte
+          ocamlfind ocamlc -custom -o ml_example_static_custom.byte -thread -package z3-static -linkpkg "$EX"
+          ./ml_example_static_custom.byte
+          ocamlfind ocamlopt -o ml_example_static -thread -package z3-static -linkpkg "$EX"
+          ./ml_example_static
 
       - name: Run unit tests
         run: |
@@ -560,15 +564,8 @@ jobs:
         run: |
           set -e
           JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu || echo 1)
-          # Build specific targets rather than the default "all": the
-          # examples/dotnet example (unlike c_example/cpp_example) is not
-          # EXCLUDE_FROM_ALL, and its NuGet restore has no local package
-          # source wired up, so it fails outside of a real packaging flow.
-          # We don't need that example here, just the bindings and the C/C++
-          # examples this job actually exercises below.
-          cmake --build build --target shell --target z3java \
-            --target build_z3_dotnet_bindings --target c_example \
-            --target cpp_example --target test-z3 --parallel "$JOBS"
+          cmake --build build --parallel "$JOBS"
+          cmake --build build --target c_example --target cpp_example --target test-z3 --parallel "$JOBS"
           # c_example/cpp_example are ExternalProject_Add targets, so they
           # build into their own nested binary dirs rather than build/ root.
           build/examples/cpp_example_build_dir/cpp_example

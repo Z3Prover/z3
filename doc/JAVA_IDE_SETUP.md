@@ -26,7 +26,7 @@ If you need to build Z3 from source with Java bindings enabled:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON
-cmake --build build --parallel
+cmake --build build --parallel $(nproc)
 ```
 
 The resulting files will be in the `build` directory.
@@ -302,7 +302,7 @@ cd z3
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON
 
 # Build
-cmake --build build --parallel
+cmake --build build --parallel $(nproc)
 
 # The Java bindings will be in the build directory
 # - com.microsoft.z3.jar

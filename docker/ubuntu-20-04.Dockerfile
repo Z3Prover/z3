@@ -25,7 +25,7 @@ FROM lib-base as builder
 COPY ./ /z3-source/
 WORKDIR /z3-source/
 RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-RUN cmake --build build --parallel
+RUN cmake --build build --parallel $(nproc)
 RUN sudo cmake --install build
 
 # -------

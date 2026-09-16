@@ -141,7 +141,7 @@ ocamlfind install z3 build/src/api/ml/* -dll build/src/api/ml/dllz3ml.so
 assuming that the following configuration and building process
 ```
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_OCAML_BINDINGS=ON
-cmake --build build --parallel
+cmake --build build --parallel $(nproc)
 ```
 
 Though CMake's own `install` target (`-DZ3_INSTALL_OCAML_BINDINGS=ON`, the
