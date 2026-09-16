@@ -67,8 +67,7 @@ namespace opt {
         while (j < roots.size() && !am.eq(roots[j], value))
             ++j;
         if (j == roots.size()) {
-            am.get_lower(value, lower, 40);
-            am.get_upper(value, upper, 40);
+            am.get_interval(value, lower, upper, 40);
             return;
         }
         scoped_anum lo(am), hi(am);
@@ -510,14 +509,14 @@ namespace opt {
     void nlsat_opt::set_value(algebraic_numbers::manager& am, anum const& value,
                              expr_ref& numeral, rational& lower, rational& upper) {
         numeral = m_arith.mk_numeral(am, value, false);
+        // is_rational turns value into a basic cell when it succeeds, so the exact
+        // bound is available; otherwise one refinement yields both bracket ends.
         if (am.is_rational(value)) {
             am.to_rational(value, lower);
             upper = lower;
         }
-        else {
-            am.get_lower(value, lower, 40);
-            am.get_upper(value, upper, 40);
-        }
+        else
+            am.get_interval(value, lower, upper, 40);
     }
 
     // Keep one call's solver, translation maps, and search outcome together.

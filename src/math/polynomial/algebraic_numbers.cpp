@@ -3299,6 +3299,22 @@ namespace algebraic_numbers {
             }
         }
 
+        // get_lower and get_upper each call the mpbq get_interval above and then
+        // discard one of the two bounds, so asking for both separately refines
+        // twice. Expose the interval itself to do the refinement only once.
+        void get_interval(numeral const & a, mpq & l, mpq & u, unsigned precision) {
+            if (a.is_basic()) {
+                qm().set(l, basic_value(a));
+                qm().set(u, basic_value(a));
+            }
+            else {
+                scoped_mpbq _l(bqm()), _u(bqm());
+                get_interval(a, _l, _u, precision);
+                to_mpq(qm(), _l, l);
+                to_mpq(qm(), _u, u);
+            }
+        }
+
     };
 
     manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
@@ -3576,6 +3592,17 @@ namespace algebraic_numbers {
         scoped_mpq _l(qm());
         m_imp->get_upper(a, _l, precision);
         l = rational(_l);
+    }
+
+    void manager::get_interval(numeral const & a, mpq & l, mpq & u, unsigned precision) {
+        m_imp->get_interval(a, l, u, precision);
+    }
+
+    void manager::get_interval(numeral const & a, rational & l, rational & u, unsigned precision) {
+        scoped_mpq _l(qm()), _u(qm());
+        m_imp->get_interval(a, _l, _u, precision);
+        l = rational(_l);
+        u = rational(_u);
     }
 
     sign manager::eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v) {

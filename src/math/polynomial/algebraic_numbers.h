@@ -336,6 +336,17 @@ namespace algebraic_numbers {
         void get_upper(numeral const & a, rational & l, unsigned precision);
 
         /**
+           \brief Store in (l, u) an isolating interval for \c a of the given precision.
+
+           Both bounds are produced by a single refinement. Calling get_lower and
+           get_upper instead costs twice as much: each one refines an interval to
+           \c precision and then throws away the bound it was not asked for, and the
+           refinement is done on a copy, so nothing is cached between the two calls.
+        */
+        void get_interval(numeral const & a, mpq & l, mpq & u, unsigned precision);
+        void get_interval(numeral const & a, rational & l, rational & u, unsigned precision);
+
+        /**
            \brief Display algebraic number as a rational if is_rational(n)
            Otherwise, display it as an interval.
         */
