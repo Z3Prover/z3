@@ -22,6 +22,7 @@ Revision History:
 void preprocessor_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_macro_finder            = p.macro_finder();
+    m_recfun_finder           = p.recfun_finder();
     m_quasi_macros            = p.quasi_macros();
     m_restricted_quasi_macros = p.restricted_quasi_macros();
     m_pull_nested_quantifiers = p.pull_nested_quantifiers();
@@ -50,6 +51,7 @@ void preprocessor_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pull_nested_quantifiers);
     DISPLAY_PARAM(m_eliminate_term_ite);
     DISPLAY_PARAM(m_macro_finder);
+    DISPLAY_PARAM(m_recfun_finder);
     DISPLAY_PARAM(m_propagate_values);
     DISPLAY_PARAM(m_solve_eqs);
     DISPLAY_PARAM(m_elim_unconstrained);
