@@ -11,6 +11,7 @@ Abstract:
 
 Author:
 
+    Jean-Frédéric Etienne (etiennejf) 2026-09-16
     Nikolaj Bjorner (nbjorner) 2026-09-16
 
 --*/
