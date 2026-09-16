@@ -58,6 +58,7 @@ class macro_manager {
 
     void restore_decls(unsigned old_sz);
     void restore_forbidden(unsigned old_sz);
+    bool occurs_in_recursive_definition(func_decl * f) const;
     
     struct macro_expander_cfg;
     struct macro_expander_rw;
