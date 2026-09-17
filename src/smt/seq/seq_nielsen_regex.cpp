@@ -857,6 +857,44 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Refute word equations using seq_eq_approx regular over-approximations
+
+    bool nielsen_graph::equation_abstraction_refute(nielsen_node& node) {
+        if (!m_equation_abstraction || node.str_eqs().empty())
+            return false;
+        m_equation_approx.reset_views();
+        obj_map<expr, dep_tracker> deps;
+        for (str_mem const& mem : node.str_mems()) {
+            // Nielsen's Q-gated land views are not seq_eq_approx reach views.
+            // Omitting them only enlarges the abstraction; reusing their state
+            // as a plain language would be unsound.
+            if (!mem.is_plain() || !mem.m_regex->is_ground())
+                continue;
+            expr* term = mem.m_str->get_expr();
+            m_equation_approx.add_view(term, seq::view::membership(mem.m_regex->get_expr()));
+            dep_tracker old = nullptr;
+            deps.find(term, old);
+            deps.insert(term, m_dep_mgr.mk_join(old, mem.m_dep));
+        }
+        for (str_eq const& eq : node.str_eqs()) {
+            ++m_stats.m_equation_abstractions;
+            if (m_equation_approx.check(eq.m_lhs->get_expr(), eq.m_rhs->get_expr()) != l_false)
+                continue;
+            dep_tracker dep = eq.m_dep;
+            for (expr* term : m_equation_approx.used()) {
+                dep_tracker d = nullptr;
+                if (deps.find(term, d))
+                    dep = m_dep_mgr.mk_join(dep, d);
+            }
+            ++m_stats.m_equation_abstraction_refutations;
+            node.set_general_conflict();
+            node.set_conflict(backtrack_reason::regex_widening, dep);
+            return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Modifier: apply_monadic_leaf  (monadic decomposition as an END-GAME)
 
     void nielsen_graph::ensure_monadic_leaf() {

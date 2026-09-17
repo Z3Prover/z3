@@ -273,6 +273,7 @@ struct smt_params : public preprocessor_params,
     unsigned m_nseq_monadic_leaf_budget_refute = 30000;
     bool m_nseq_monadic_leaf_root = true;
     unsigned m_nseq_monadic_leaf_budget_root = 50000;
+    bool m_nseq_equation_abstraction = true;
     unsigned m_nseq_exploration_budget = 512;
     bool m_nseq_view_length_constraints = true;
     bool m_nseq_axiomatize_diseq = false;

@@ -39,6 +39,7 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/seq_eq_approx.h"
 #include "model/model.h"
 #include "util/lbool.h"
 #include "util/dependency.h"
@@ -971,6 +972,8 @@ namespace seq {
         // and pinned later by apply_monadic_leaf_root_witness.
         unsigned m_monadic_leaf_root_wins    = 0;
         unsigned m_mod_monadic_leaf_root_wit = 0;
+        unsigned m_equation_abstractions = 0;
+        unsigned m_equation_abstraction_refutations = 0;
         // branches the monadic enumerator handed out, and enumerations it drained
         // cleanly (each of those closes a node)
         unsigned m_monadic_branches    = 0;
@@ -1089,6 +1092,8 @@ namespace seq {
         // every equation-bearing node, so the per-call cost is what decides whether the
         // rule pays for itself.  0 = the round's own budget.
         unsigned                      m_monadic_leaf_budget_refute = 30000;
+        // User options are installed at final_check, after the early eager closure.
+        bool                          m_equation_abstraction = false;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1175,6 +1180,7 @@ namespace seq {
         // Its own rewriter and trail: a derivative cache must not be shared across two
         // transition modes.
         seq_rewriter     m_monadic_leaf_rw;
+        seq_eq_approx    m_equation_approx;
         trail_stack      m_monadic_leaf_trail;
         seq_monadic*     m_monadic_leaf_engine = nullptr;
         // What the engine's own budget default is, captured on allocation so that a
@@ -1412,6 +1418,8 @@ namespace seq {
         void set_monadic_leaf_root(bool e) { m_monadic_leaf_root = e; }
         void set_monadic_leaf_budget_root(unsigned n) { m_monadic_leaf_budget_root = n; }
         void set_monadic_leaf_budget_refute(unsigned n) { m_monadic_leaf_budget_refute = n; }
+        void set_equation_abstraction(bool e) { m_equation_abstraction = e; }
+        bool equation_abstraction_enabled() const { return m_equation_abstraction; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 
@@ -2029,6 +2037,11 @@ namespace seq {
         // Returns true when the whole problem is refuted.
         bool letter_count_root_refute();
 
+        // Refute word equations using seq_eq_approx regular over-approximations at the
+        // root and per node; only empty intersections conclude, with a 4096-state budget
+        // per equation. Returns true when the node is refuted.
+        bool equation_abstraction_refute(nielsen_node& node);
+
         // Allocate m_monadic_leaf_engine on first use, in the default transition mode.
         void ensure_monadic_leaf();
 
@@ -2170,4 +2183,3 @@ namespace seq {
     };
 
 }
-
