@@ -239,6 +239,12 @@ def mk_build_dir():
         # CMAKE_INSTALL_LIBDIR (scoped to this throwaway packaging build tree
         # only) installs it there directly, with no post-install copying needed.
         cmd.append(' -DCMAKE_INSTALL_LIBDIR=bin')
+        # Z3Config.cmake and the pkgconfig file default to living under
+        # CMAKE_INSTALL_LIBDIR too, so pin those back to their conventional
+        # lib-relative locations to keep them inside find_package()'s default
+        # search paths (<prefix>/lib/cmake/<name>*), instead of moving to bin/.
+        cmd.append(' -DCMAKE_INSTALL_PKGCONFIGDIR=lib/pkgconfig')
+        cmd.append(' -DCMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR=lib/cmake/z3')
         cmd.append(' -DCMAKE_INSTALL_PREFIX=' + get_build_dist_path())
         cmd.append('\n')
         cmds.append("".join(cmd))
