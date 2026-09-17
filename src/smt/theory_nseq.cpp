@@ -25,6 +25,7 @@ Author:
 #include "util/trail.h"
 #include "ast/ast_ll_pp.h"
 #include <functional>
+#include <fstream>
 
 namespace smt {
 
@@ -191,6 +192,16 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
 
         m_tree.set_max_search_depth(30);
+
+        // Diagnostics only: NSEQ_DOT_FILE=<path>, if set, enables
+        // stx::search_tree's dot-trace recording (see stx_search_tree.h's
+        // m_dot_nodes comment) and dumps the most recently explored DFS
+        // round to that path after every final_check_eh's m_tree.solve()
+        // call (overwriting on each call) - mirroring z3-tacas's
+        // nielsen_graph::to_dot() debugging facility, reusable via e.g.
+        // `dot -Tsvg <path> -o out.svg` or an online viewer.
+        if (getenv("NSEQ_DOT_FILE"))
+            m_tree.enable_dot_trace(true);
     }
 
     void theory_nseq::init() {
@@ -754,6 +765,13 @@ namespace smt {
         if (m_mem_leaf)
             m_mem_leaf->reset_root_ask();
         stx::search_result res = m_tree.solve();
+        if (m_tree.dot_trace_enabled()) {
+            if (char const* path = getenv("NSEQ_DOT_FILE")) {
+                std::ofstream dot(path);
+                if (dot)
+                    m_tree.to_dot(dot);
+            }
+        }
         switch (res) {
         case stx::search_result::sat: {
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();

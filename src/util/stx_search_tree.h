@@ -68,6 +68,7 @@ Author:
 #include <unordered_set>
 #include <climits>
 #include <ostream>
+#include <sstream>
 
 namespace stx {
 
@@ -531,6 +532,56 @@ namespace stx {
         // been restored to its pre-solve state.
         scoped_ptr<node>                       m_sat_snapshot;
 
+        // --- Optional DOT-trace instrumentation (diagnostics only) ---
+        //
+        // Unlike the c3 branch's `nielsen_graph`, this engine keeps only
+        // one live `node`, so there is no persistent tree object to dump.
+        // When enabled (`enable_dot_trace(true)`), `dfs()` instead records
+        // one `dot_node` per recursive call into `m_dot_nodes`, capturing
+        // this call's parent (via `m_dot_stack`, the current root-to-here
+        // path), the incoming edge's label, a text snapshot of every
+        // installed facet's `display()` taken right after this call's own
+        // `propagate_to_fixpoint()` (i.e. before any child branch further
+        // mutates the live node), and (once known) this call's own
+        // `search_result`/`node_status`/`backtrack_reason`. `to_dot()`
+        // renders `m_dot_nodes` as a graphviz digraph, colouring nodes/
+        // edges by result, mirroring `nielsen_graph::to_dot` in z3-tacas.
+        //
+        // `solve()`'s iterative deepening re-runs `dfs(0)` from scratch at
+        // increasing depth bounds; recording every round would make the
+        // trace an ever-growing, mostly-redundant prefix of itself, so the
+        // trace is cleared at the start of each round - `to_dot()` after
+        // `solve()` returns therefore always reflects only the *last*
+        // (deepest, or externally cancelled) round, which is what a caller
+        // actually wants to inspect.
+        struct dot_node {
+            unsigned      id = 0;
+            int           parent_id = -1;
+            std::string   edge_label;
+            std::string   state_label;
+            search_result result = search_result::unknown;
+            node_status   status = node_status::unevaluated;
+            backtrack_reason reason = br_unevaluated;
+        };
+        bool                 m_dot_trace_enabled = false;
+        unsigned             m_max_dot_nodes = 200000; // cap to bound memory/file size
+        vector<dot_node>     m_dot_nodes;
+        vector<unsigned>     m_dot_stack; // current root-to-here path, by dot_node id
+
+        static std::string dot_escape(std::string const& s) {
+            std::string out;
+            out.reserve(s.size());
+            for (char c : s) {
+                switch (c) {
+                case '"':  out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\n': out += "\\n"; break;
+                default:   out += c; break;
+                }
+            }
+            return out;
+        }
+
         // Run every registered propagation plugin to a fixed point. The
         // fixed point is detected via each plugin's own report: a round
         // is a single pass over every plugin in registration order; we
@@ -629,7 +680,7 @@ namespace stx {
             return false;
         }
 
-        search_result dfs(unsigned depth) {
+        search_result dfs(unsigned depth, edge const* in_edge = nullptr) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
@@ -639,9 +690,44 @@ namespace stx {
 
             dfs_frame frame;
 
+            // --- dot trace: open this node's record, linked to the
+            // current path via m_dot_stack, before any children recurse.
+            int dot_id = -1;
+            if (m_dot_trace_enabled && m_dot_nodes.size() < m_max_dot_nodes) {
+                dot_id = static_cast<int>(m_dot_nodes.size());
+                m_dot_nodes.push_back(dot_node());
+                dot_node& rec = m_dot_nodes.back();
+                rec.id = static_cast<unsigned>(dot_id);
+                rec.parent_id = m_dot_stack.empty() ? -1 : static_cast<int>(m_dot_stack.back());
+                if (in_edge) {
+                    std::ostringstream es;
+                    es << in_edge->rule_name();
+                    if (in_edge->cost())
+                        es << " (cost " << in_edge->cost() << ")";
+                    rec.edge_label = es.str();
+                }
+                m_dot_stack.push_back(static_cast<unsigned>(dot_id));
+            }
+            on_scope_exit dot_pop([&]() {
+                if (dot_id >= 0)
+                    m_dot_stack.pop_back();
+            });
+
             search_result result;
             n.clear_status();
             simplify_result sr = propagate_to_fixpoint(n);
+
+            // --- dot trace: snapshot this node's own facet state now -
+            // before any child branch further mutates the (single, live)
+            // node in place.
+            if (dot_id >= 0) {
+                std::ostringstream ss;
+                for (facet_id id = 0; id < n.num_facets(); ++id)
+                    if (n.has_facet(id))
+                        n.facet(id).display(ss) << "\n";
+                m_dot_nodes[dot_id].state_label = ss.str();
+            }
+
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
             }
@@ -683,7 +769,7 @@ namespace stx {
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
-                        cr = dfs(depth + 1);
+                        cr = dfs(depth + 1, &cur_edge);
                         // Always pop back out of this branch, even on
                         // sat: the sat leaf's facet state was already
                         // captured by m_sat_snapshot (a cold-path
@@ -726,12 +812,19 @@ namespace stx {
                     }
                 }
             }
+            if (dot_id >= 0) {
+                dot_node& rec = m_dot_nodes[dot_id];
+                rec.result = result;
+                rec.status = n.status();
+                rec.reason = n.reason();
+            }
             return result;
         }
 
     public:
         search_tree(trail_stack& trail, reslimit& lim) : m_trail(trail), m_limit(lim) {}
         ~search_tree() = default;
+
 
         dep_manager_t& dep_mgr() { return m_dep_mgr; }
         trail_stack& trail() { return m_trail; }
@@ -869,6 +962,65 @@ namespace stx {
                 sp->reset_statistics();
         }
 
+        // Turn dot-trace recording on/off (default off: recording a
+        // facet-state snapshot at every DFS node is not free). Disabling
+        // also discards whatever was recorded so far.
+        void enable_dot_trace(bool b = true) {
+            m_dot_trace_enabled = b;
+            if (!b) {
+                m_dot_nodes.clear();
+                m_dot_stack.clear();
+            }
+        }
+        bool dot_trace_enabled() const { return m_dot_trace_enabled; }
+        void set_max_dot_nodes(unsigned n) { m_max_dot_nodes = n; }
+
+        // Render the most recently recorded DFS round (see the comment on
+        // `m_dot_nodes` above) as a graphviz digraph: one node per DFS
+        // call, labelled with its id and a snapshot of every facet's
+        // `display()` output at that point, coloured green/red/gray for
+        // sat/unsat/unknown-or-depth_cutoff; edges labelled with the
+        // split rule (and iterative-deepening cost, if non-zero) that
+        // produced that child, coloured to match the child's outcome.
+        // Available whether `solve()` ran to completion or was cut short
+        // by cancellation/a resource limit - whatever was recorded before
+        // that happened is still here (dfs() records incrementally, not
+        // as a single post-hoc dump).
+        std::ostream& to_dot(std::ostream& out) const {
+            out << "digraph G {\n";
+            out << "  node [shape=box, fontname=\"monospace\", fontsize=10];\n";
+            for (auto const& rec : m_dot_nodes) {
+                out << "  n" << rec.id << " [label=\"" << rec.id;
+                if (!rec.state_label.empty())
+                    out << ": " << dot_escape(rec.state_label);
+                out << "\"";
+                switch (rec.result) {
+                case search_result::sat:          out << ", color=green, penwidth=2"; break;
+                case search_result::unsat:         out << ", color=red"; break;
+                case search_result::depth_cutoff:  out << ", color=orange"; break;
+                case search_result::unknown:       out << ", color=gray"; break;
+                }
+                out << "];\n";
+            }
+            for (auto const& rec : m_dot_nodes) {
+                if (rec.parent_id < 0)
+                    continue;
+                out << "  n" << rec.parent_id << " -> n" << rec.id << " [label=\"" << dot_escape(rec.edge_label) << "\"";
+                if (rec.result == search_result::sat)
+                    out << ", color=green, penwidth=2";
+                else if (rec.result == search_result::unsat)
+                    out << ", color=red";
+                out << "];\n";
+            }
+            out << "}\n";
+            return out;
+        }
+        std::string to_dot() const {
+            std::ostringstream ss;
+            to_dot(ss);
+            return ss.str();
+        }
+
         // Print the live node's installed facets (one per registered
         // facet_id), via each facet's own facet_i::display() override.
         // Diagnostics only; the engine itself never parses this output.
@@ -906,6 +1058,14 @@ namespace stx {
                 }
                 m_depth_bound = depth_bound;
                 m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth_bound);
+                // Each iterative-deepening round re-explores from the
+                // root; keeping only the latest round's dot-trace (rather
+                // than appending across rounds) is what makes to_dot()
+                // useful - see the m_dot_nodes comment above.
+                if (m_dot_trace_enabled) {
+                    m_dot_nodes.clear();
+                    m_dot_stack.clear();
+                }
                 res = dfs(0);
                 if (res == search_result::sat) { m_stats.m_num_sat++; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; }
