@@ -2965,55 +2965,53 @@ public:
         CTRACE(arith, !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_bounds.empty()) {
-            lp_bounds atoms;            
-            atoms.push_back(m_new_bounds.back());
-            m_new_bounds.pop_back();
-            theory_var v = atoms.back()->get_var();
-            for (unsigned i = 0; i < m_new_bounds.size(); ++i) {
-                if (m_new_bounds[i]->get_var() == v) {
-                    atoms.push_back(m_new_bounds[i]);
-                    m_new_bounds[i] = m_new_bounds.back();
-                    m_new_bounds.pop_back();
-                    --i;
-                }
-            }            
-            CTRACE(arith, atoms.size() > 1, 
-                   for (auto* a : atoms) a->display(tout) << "\n";);
-            lp_bounds occs(m_bounds[v]);
+            lp_bounds pending(m_new_bounds);
+            m_new_bounds.reset();
+            std::stable_sort(pending.begin(), pending.end(), 
+                      [](api_bound* a, api_bound* b) { return a->get_var() < b->get_var(); });
+            for (unsigned j = 0; j < pending.size(); ) {
+                lp_bounds atoms;            
+                theory_var v = pending[j]->get_var();
+                for (; j < pending.size() && pending[j]->get_var() == v; ++j) 
+                    atoms.push_back(pending[j]);
+                CTRACE(arith, atoms.size() > 1, 
+                       for (auto* a : atoms) a->display(tout) << "\n";);
+                lp_bounds occs(m_bounds[v]);
             
-            std::sort(atoms.begin(), atoms.end(), compare_bounds());
-            std::sort(occs.begin(), occs.end(), compare_bounds());
+                std::stable_sort(atoms.begin(), atoms.end(), compare_bounds());
+                std::stable_sort(occs.begin(), occs.end(), compare_bounds());
                 
-            iterator begin1 = occs.begin();
-            iterator begin2 = occs.begin();
-            iterator end = occs.end();
-            begin1 = first(lp_api::lower_t, begin1, end);
-            begin2 = first(lp_api::upper_t, begin2, end);
+                iterator begin1 = occs.begin();
+                iterator begin2 = occs.begin();
+                iterator end = occs.end();
+                begin1 = first(lp_api::lower_t, begin1, end);
+                begin2 = first(lp_api::upper_t, begin2, end);
                 
-            iterator lo_inf = begin1, lo_sup = begin1;
-            iterator hi_inf = begin2, hi_sup = begin2;
-            bool flo_inf, fhi_inf, flo_sup, fhi_sup;
-            ptr_addr_hashtable<api_bound> visited;
-            for (unsigned i = 0; i < atoms.size(); ++i) {
-                api_bound* a1 = atoms[i];
-                iterator lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
-                iterator hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
-                iterator lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
-                iterator hi_sup1 = next_sup(a1, lp_api::upper_t, hi_sup, end, fhi_sup);
-                if (lo_inf1 != end) lo_inf = lo_inf1; 
-                if (lo_sup1 != end) lo_sup = lo_sup1; 
-                if (hi_inf1 != end) hi_inf = hi_inf1; 
-                if (hi_sup1 != end) hi_sup = hi_sup1; 
-                if (!flo_inf) lo_inf = end;
-                if (!fhi_inf) hi_inf = end;
-                if (!flo_sup) lo_sup = end;
-                if (!fhi_sup) hi_sup = end;
-                visited.insert(a1);
-                if (lo_inf1 != end && lo_inf != end && !visited.contains(*lo_inf)) mk_bound_axiom(*a1, **lo_inf);
-                if (lo_sup1 != end && lo_sup != end && !visited.contains(*lo_sup)) mk_bound_axiom(*a1, **lo_sup);
-                if (hi_inf1 != end && hi_inf != end && !visited.contains(*hi_inf)) mk_bound_axiom(*a1, **hi_inf);
-                if (hi_sup1 != end && hi_sup != end && !visited.contains(*hi_sup)) mk_bound_axiom(*a1, **hi_sup);
-            }                            
+                iterator lo_inf = begin1, lo_sup = begin1;
+                iterator hi_inf = begin2, hi_sup = begin2;
+                bool flo_inf, fhi_inf, flo_sup, fhi_sup;
+                ptr_addr_hashtable<api_bound> visited;
+                for (unsigned i = 0; i < atoms.size(); ++i) {
+                    api_bound* a1 = atoms[i];
+                    iterator lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
+                    iterator hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
+                    iterator lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
+                    iterator hi_sup1 = next_sup(a1, lp_api::upper_t, hi_sup, end, fhi_sup);
+                    if (lo_inf1 != end) lo_inf = lo_inf1; 
+                    if (lo_sup1 != end) lo_sup = lo_sup1; 
+                    if (hi_inf1 != end) hi_inf = hi_inf1; 
+                    if (hi_sup1 != end) hi_sup = hi_sup1; 
+                    if (!flo_inf) lo_inf = end;
+                    if (!fhi_inf) hi_inf = end;
+                    if (!flo_sup) lo_sup = end;
+                    if (!fhi_sup) hi_sup = end;
+                    visited.insert(a1);
+                    if (lo_inf1 != end && lo_inf != end && !visited.contains(*lo_inf)) mk_bound_axiom(*a1, **lo_inf);
+                    if (lo_sup1 != end && lo_sup != end && !visited.contains(*lo_sup)) mk_bound_axiom(*a1, **lo_sup);
+                    if (hi_inf1 != end && hi_inf != end && !visited.contains(*hi_inf)) mk_bound_axiom(*a1, **hi_inf);
+                    if (hi_sup1 != end && hi_sup != end && !visited.contains(*hi_sup)) mk_bound_axiom(*a1, **hi_sup);
+                }                            
+            }
         }
     }
 
