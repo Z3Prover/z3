@@ -1373,8 +1373,8 @@ namespace seq {
     */
     void axioms::length_axiom(expr* n) {
         expr* x = nullptr, * y = nullptr, * offs = nullptr, * l = nullptr;
-        VERIFY(seq.str.is_length(n, x));     
-        else if (seq.str.is_extract(x, y, offs, l)) {
+        VERIFY(seq.str.is_length(n, x));
+        if (seq.str.is_extract(x, y, offs, l)) {
             // len(extract(y, o, l)) = l if len(y) >= o + l, o >= 0, l >= 0
             // len(extract(y, o, l)) = 0 if o < 0 or l <= 0 or len(y) < o
             // len(extract(y, o, l)) = len(y) - o if o <= len(y) < o + l
