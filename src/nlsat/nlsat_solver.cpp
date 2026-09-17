@@ -2117,8 +2117,19 @@ namespace nlsat {
                     cube.push_back(witness);
                 }
             }
-            // Do not relax strict projected bounds: every included point must
-            // have a satisfying extension, including at cell boundaries.
+            // check() may enable full-dimensional conflict explanations when
+            // all arithmetic literals are strict inequalities/disequalities.
+            // Feasible regions are then open and their complement is closed,
+            // so an infeasible cell can safely include its boundary. The flag
+            // implements this by using ROOT_GE/ROOT_LE instead of ROOT_GT/ROOT_LT
+            // for generated sector bounds.
+            //
+            // Here we project a satisfying cube, not a conflict. Closing its
+            // sectors could add points with no satisfying values for the
+            // eliminated variables, e.g. weaken x0 > 0 to x0 >= 0 when x0 = 0
+            // is infeasible. Setting the flag false keeps sector bounds strict.
+            // Samples on roots still produce ROOT_EQ sections; disabling this
+            // shortcut does not discard those feasible boundary points.
             m_explain.set_full_dimensional(false);
             scoped_literal_vector projected(m_solver);
             // Each projection preserves the sample and implies existence of
