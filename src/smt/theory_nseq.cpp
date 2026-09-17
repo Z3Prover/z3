@@ -195,13 +195,21 @@ namespace smt {
 
         // Diagnostics only: NSEQ_DOT_FILE=<path>, if set, enables
         // stx::search_tree's dot-trace recording (see stx_search_tree.h's
-        // m_dot_nodes comment) and dumps the most recently explored DFS
-        // round to that path after every final_check_eh's m_tree.solve()
-        // call (overwriting on each call) - mirroring z3-tacas's
-        // nielsen_graph::to_dot() debugging facility, reusable via e.g.
-        // `dot -Tsvg <path> -o out.svg` or an online viewer.
-        if (getenv("NSEQ_DOT_FILE"))
+        // m_dot_nodes comment). The file is kept live-updated throughout
+        // the search (throttled, see set_dot_live_file) rather than only
+        // dumped after m_tree.solve() returns, since a real -T: timeout
+        // is enforced by the shell calling _Exit() directly from a
+        // background thread once the deadline elapses - that never
+        // unwinds back to a post-solve() dump point, so a live file is
+        // the only way to see anything for a run that actually times
+        // out. Mirrors z3-tacas's nielsen_graph::to_dot() debugging
+        // facility, reusable via e.g. `dot -Tsvg <path> -o out.svg`.
+        if (const char* dot_path = getenv("NSEQ_DOT_FILE")) {
             m_tree.enable_dot_trace(true);
+            m_tree.set_dot_live_file(dot_path);
+            if (const char* max_nodes = getenv("NSEQ_DOT_MAX_NODES"))
+                m_tree.set_max_dot_nodes(static_cast<unsigned>(atoi(max_nodes)));
+        }
     }
 
     void theory_nseq::init() {
@@ -764,7 +772,25 @@ namespace smt {
         bool stoi_progress = !check_stoi_coherence();
         if (m_mem_leaf)
             m_mem_leaf->reset_root_ask();
-        stx::search_result res = m_tree.solve();
+        stx::search_result res;
+        try {
+            res = m_tree.solve();
+        }
+        catch (const std::exception&) {
+            // Diagnostics only: on cancellation/timeout (thrown from
+            // deep within m_tree.solve() via the async -T timeout event
+            // handler), dump whatever dot-trace state was recorded so
+            // far, since the normal post-solve() dump point below is
+            // never reached in that case.
+            if (m_tree.dot_trace_enabled()) {
+                if (char const* path = getenv("NSEQ_DOT_FILE")) {
+                    std::ofstream dot(path);
+                    if (dot)
+                        m_tree.to_dot(dot);
+                }
+            }
+            throw;
+        }
         if (m_tree.dot_trace_enabled()) {
             if (char const* path = getenv("NSEQ_DOT_FILE")) {
                 std::ofstream dot(path);

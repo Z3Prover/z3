@@ -69,6 +69,8 @@ Author:
 #include <climits>
 #include <ostream>
 #include <sstream>
+#include <fstream>
+#include <chrono>
 
 namespace stx {
 
@@ -567,6 +569,14 @@ namespace stx {
         unsigned             m_max_dot_nodes = 200000; // cap to bound memory/file size
         vector<dot_node>     m_dot_nodes;
         vector<unsigned>     m_dot_stack; // current root-to-here path, by dot_node id
+        // Optional "live" dump: if set, dfs() periodically overwrites this
+        // file with the current to_dot() rendering as the search
+        // progresses, instead of only after solve() returns. This is what
+        // makes the trace usable when the process is torn down abruptly
+        // (e.g. -T:'s timeout handler calls _Exit() directly, which never
+        // unwinds the stack back to a post-solve() dump point).
+        std::string          m_dot_live_path;
+        std::chrono::steady_clock::time_point m_dot_live_last_write{};
 
         static std::string dot_escape(std::string const& s) {
             std::string out;
@@ -707,6 +717,16 @@ namespace stx {
                     rec.edge_label = es.str();
                 }
                 m_dot_stack.push_back(static_cast<unsigned>(dot_id));
+                if (!m_dot_live_path.empty()) {
+                    auto now = std::chrono::steady_clock::now();
+                    if (m_dot_live_last_write.time_since_epoch().count() == 0 ||
+                        now - m_dot_live_last_write >= std::chrono::milliseconds(200)) {
+                        m_dot_live_last_write = now;
+                        std::ofstream live_out(m_dot_live_path);
+                        if (live_out)
+                            to_dot(live_out);
+                    }
+                }
             }
             on_scope_exit dot_pop([&]() {
                 if (dot_id >= 0)
@@ -974,6 +994,18 @@ namespace stx {
         }
         bool dot_trace_enabled() const { return m_dot_trace_enabled; }
         void set_max_dot_nodes(unsigned n) { m_max_dot_nodes = n; }
+
+        // Optional "live" dump path: if set, dfs() periodically
+        // overwrites this file with the current to_dot() rendering
+        // (throttled to roughly once every 200ms), so a trace survives
+        // an abrupt process teardown - e.g. the shell's -T: timeout
+        // handler calls _Exit() directly on a background thread once
+        // the deadline elapses, which never unwinds back to a normal
+        // post-solve() dump point.
+        void set_dot_live_file(std::string path) {
+            m_dot_live_path = std::move(path);
+            m_dot_live_last_write = std::chrono::steady_clock::time_point();
+        }
 
         // Render the most recently recorded DFS round (see the comment on
         // `m_dot_nodes` above) as a graphviz digraph: one node per DFS
