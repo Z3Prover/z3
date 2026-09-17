@@ -61,16 +61,38 @@ namespace {
         return r;
     }
 
+    // A recursive call is guarded when it occurs in a branch of an ite whose
+    // condition is free of recursive calls: this is the notion of case split
+    // used by recfun::def::compute_cases. A call inside the condition of an ite,
+    // or outside every such ite, is unguarded: recfun would treat the definition
+    // as an unconditional macro and unfold it eagerly.
     bool recursion_guarded(ast_manager& m, expr* e, obj_hashtable<func_decl> const& syms) {
-        if (m.is_ite(e))
-            return true;
-        if (is_app(e)) {
-            app* a = to_app(e);
+        expr_mark visited;
+        ptr_buffer<expr> todo;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(t))
+                continue;
+            visited.mark(t);
+            if (is_quantifier(t)) {
+                todo.push_back(to_quantifier(t)->get_expr());
+                continue;
+            }
+            if (!is_app(t))
+                continue;
+            app* a = to_app(t);
             if (syms.contains(a->get_decl()))
                 return false;
+            expr* c = nullptr, *th = nullptr, *el = nullptr;
+            if (m.is_ite(t, c, th, el)) {
+                if (!contains_sym(m, c, syms))
+                    continue;          // branches are guarded by a recursion-free test
+                return false;          // recursive call inside the test
+            }
             for (expr* arg : *a)
-                if (!recursion_guarded(m, arg, syms))
-                    return false;
+                todo.push_back(arg);
         }
         return true;
     }
