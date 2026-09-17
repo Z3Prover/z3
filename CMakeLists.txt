@@ -492,14 +492,14 @@ include(GNUInstallDirs)
 set(CMAKE_INSTALL_PKGCONFIGDIR
   "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
   CACHE
-  PATH
+  STRING
   "Directory to install pkgconfig files"
 )
 
 set(CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR
   "${CMAKE_INSTALL_LIBDIR}/cmake/z3"
   CACHE
-  PATH
+  STRING
   "Directory to install Z3 CMake package files"
 )
 message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")

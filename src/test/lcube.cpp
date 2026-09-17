@@ -11,9 +11,9 @@
   (Fast Cube Tests for LIA Constraint Solving, IJCAR 2016),
   implemented in int_cube::find_largest_cube().
 
-  This file lives directly under src/test (not src/test/lp) so that the
-  scripts/mk_make.py build, which only compiles the top-level test
-  directory, links tst_lcube().
+  This file lives directly under src/test (not src/test/lp) for historical
+  reasons: the legacy Python build only compiled the top-level test
+  directory, so this file had to live there for tst_lcube() to be linked.
 
   Author:
 
