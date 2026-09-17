@@ -46,8 +46,13 @@ struct theory_seq_params {
     bool m_seq_mem_parikh = false;
     // Master gate for mem_leaf_split (whole-language monadic decision
     // over the conjunction of active plain regex memberships), mirroring
-    // c3's smt.nseq.monadic_leaf (default true there and here).
-    bool m_seq_monadic_leaf = true;
+    // c3's smt.nseq.monadic_leaf (default true there). Default here is
+    // false: benchmarking on the regexes suite showed mem_leaf_split
+    // firing too eagerly on unproductive branches (asking/committing far
+    // more often than it refutes), causing a net regression in solved
+    // count vs. leaving it off. Enable explicitly once the ask
+    // frequency/budget is tuned to actually pay for itself.
+    bool m_seq_monadic_leaf = false;
     unsigned m_seq_monadic_leaf_budget = 300000;
     // Run mem_leaf_split's refutation-only ask once at the search root
     // before the DFS proper starts, mirroring c3's smt.nseq.monadic_leaf_root
