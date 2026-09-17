@@ -1,5 +1,0 @@
-def_module_params(module_name='rewriter',
-                  class_name='fpa2bv_rewriter_params',
-                  export=True,
-                  params=(("hi_fp_unspecified", BOOL, False, "use the 'hardware interpretation' for unspecified values in fp.min, fp.max, fp.to_ubv, fp.to_sbv, and fp.to_real"),
-))

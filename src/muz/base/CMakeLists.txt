@@ -17,6 +17,6 @@ z3_add_component(muz
     sat
     smt
     smt2parser
-  PYG_FILES
-    fp_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    fp_params.hpp
 )
