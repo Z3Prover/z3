@@ -1373,19 +1373,7 @@ namespace seq {
     */
     void axioms::length_axiom(expr* n) {
         expr* x = nullptr, * y = nullptr, * offs = nullptr, * l = nullptr;
-        VERIFY(seq.str.is_length(n, x));
-        if (seq.str.is_concat(x) && to_app(x)->get_num_args() != 0) {
-            // len(a ++ b ++ ...) = len(a) + len(b) + ...
-            // The sum is simplified by the rewriter so that components of known
-            // length (units, string literals, nested concatenations of those) fold
-            // into one numeral instead of one arithmetic length term each.
-            ptr_vector<expr> args;
-            for (auto arg : *to_app(x)) 
-                args.push_back(seq.str.mk_length(arg));
-            expr_ref len(a.mk_add(args), m);
-            m_rewrite(len);
-            add_clause(mk_eq(len, n));
-        }        
+        VERIFY(seq.str.is_length(n, x));     
         else if (seq.str.is_extract(x, y, offs, l)) {
             // len(extract(y, o, l)) = l if len(y) >= o + l, o >= 0, l >= 0
             // len(extract(y, o, l)) = 0 if o < 0 or l <= 0 or len(y) < o
@@ -1405,6 +1393,7 @@ namespace seq {
         }
         else if (seq.str.is_unit(x) ||
             seq.str.is_empty(x) ||
+            seq.str.is_concat(x) ||
             seq.str.is_string(x)) {
             expr_ref len(n, m);
             m_rewrite(len);
