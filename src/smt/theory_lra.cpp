@@ -2972,7 +2972,7 @@ public:
             // grouping quadratic and uninterruptible.
             lp_bounds pending(m_new_bounds);
             m_new_bounds.reset();
-            std::sort(pending.begin(), pending.end(), 
+            std::stable_sort(pending.begin(), pending.end(), 
                       [](api_bound* a, api_bound* b) { return a->get_var() < b->get_var(); });
             for (unsigned j = 0; j < pending.size(); ) {
             lp_bounds atoms;            
@@ -2983,8 +2983,8 @@ public:
                    for (auto* a : atoms) a->display(tout) << "\n";);
             lp_bounds occs(m_bounds[v]);
             
-            std::sort(atoms.begin(), atoms.end(), compare_bounds());
-            std::sort(occs.begin(), occs.end(), compare_bounds());
+            std::stable_sort(atoms.begin(), atoms.end(), compare_bounds());
+            std::stable_sort(occs.begin(), occs.end(), compare_bounds());
                 
             iterator begin1 = occs.begin();
             iterator begin2 = occs.begin();
