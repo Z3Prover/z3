@@ -1373,16 +1373,7 @@ namespace seq {
     */
     void axioms::length_axiom(expr* n) {
         expr* x = nullptr, * y = nullptr, * offs = nullptr, * l = nullptr;
-        VERIFY(seq.str.is_length(n, x));
-        if (seq.str.is_concat(x) && to_app(x)->get_num_args() != 0) {
-            // len(a ++ b ++ ...) = len(a) + len(b) + ...
-            // Let the rewriter flatten the concatenation and fold components of
-            // known length (units, string literals) into one numeral instead of
-            // creating one arithmetic length term per component here.
-            expr_ref len(n, m);
-            m_rewrite(len);
-            add_clause(mk_eq(len, n));
-        }        
+        VERIFY(seq.str.is_length(n, x));     
         else if (seq.str.is_extract(x, y, offs, l)) {
             // len(extract(y, o, l)) = l if len(y) >= o + l, o >= 0, l >= 0
             // len(extract(y, o, l)) = 0 if o < 0 or l <= 0 or len(y) < o
@@ -1402,6 +1393,7 @@ namespace seq {
         }
         else if (seq.str.is_unit(x) ||
             seq.str.is_empty(x) ||
+            seq.str.is_concat(x) ||
             seq.str.is_string(x)) {
             expr_ref len(n, m);
             m_rewrite(len);
