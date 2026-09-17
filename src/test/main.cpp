@@ -124,6 +124,7 @@
     X(seq_eq_approx) \
     X(seq_regex_witness) \
     X(seq_monadic) \
+    X(seq_monadic_retry) \
     X(seq_monadic_bench) \
     X(seq_profile_abs) \
     X(check_assumptions) \

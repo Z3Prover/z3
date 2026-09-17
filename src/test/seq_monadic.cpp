@@ -23,6 +23,8 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_monadic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/statistics.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
@@ -1182,4 +1184,68 @@ void tst_seq_monadic() {
     brz.run();
     seq_monadic_test light_ant(seq::transition_mode::light_antimirov_tm);
     light_ant.run();
+}
+
+void tst_seq_monadic_retry() {
+    ENSURE(smt_params().m_nseq_reverse_retry);
+    for (bool enabled : { false, true }) {
+        params_ref p;
+        p.set_bool("nseq.reverse_retry", enabled);
+        smt_params options(p);
+        ENSURE(options.m_nseq_reverse_retry == enabled);
+        options.updt_local_params(params_ref());
+        ENSURE(options.m_nseq_reverse_retry);
+    }
+    for (auto mode : { seq::transition_mode::brzozowski_tm,
+                       seq::transition_mode::light_antimirov_tm }) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* str = u.str.mk_string_sort();
+        sort* re = u.re.mk_re(str);
+        expr_ref x(m.mk_const("retry.x", str), m);
+        expr_ref all(u.re.mk_full_seq(re), m), one(u.re.mk_full_char(re), m);
+        expr_ref ra(u.re.mk_to_re(u.str.mk_string(zstring("a"))), m);
+        expr_ref regex(u.re.mk_concat(all, u.re.mk_concat(ra, u.re.mk_loop(one, 8, 8))), m);
+        expr_ref term(u.str.mk_concat(x, u.str.mk_string(zstring("bbbbbbbbb"))), m);
+        auto count = [](seq_monadic& mon, char const* key) {
+            statistics st;
+            mon.collect_statistics(st);
+            for (unsigned i = 0; i < st.size(); ++i)
+                if (std::string(st.get_key(i)) == key)
+                    return st.get_uint_value(i);
+            return 0u;
+        };
+        seq_rewriter fw_rw(m), retry_rw(m);
+        trail_stack fw_trail, retry_trail;
+        seq_monadic fw(fw_rw, fw_trail, mode), retry(retry_rw, retry_trail, mode);
+        fw.set_budget(32);
+        retry.set_budget(32);
+        retry.set_orientation(seq_monadic::orientation::retry);
+        // Backwards the fixed suffix refutes before reaching the variable.
+        ENSURE(fw.solve(term, regex) == l_undef);
+        ENSURE(retry.solve(term, regex) == l_false);
+        ENSURE(count(fw, "seq monadic reverse retries") == 0);
+        ENSURE(count(retry, "seq monadic reverse retries") == 1);
+        ENSURE(count(retry, "seq monadic reverse retry decided") == 1);
+
+        unsigned const before = count(retry, "seq monadic reverse retries");
+        ENSURE(retry.solve(x, ra) == l_true);
+        ENSURE(count(retry, "seq monadic reverse retries") == before);
+        expr_ref unsupported(u.str.mk_substr(x, a.mk_int(0), a.mk_int(1)), m);
+        ENSURE(retry.solve(unsupported, ra) == l_undef);
+        ENSURE(count(retry, "seq monadic reverse retries") == before);
+
+        retry.set_orientation(seq_monadic::orientation::reversed);
+        expr_ref ab(u.str.mk_string(zstring("ab")), m);
+        ENSURE(retry.solve(x, u.re.mk_to_re(ab)) == l_true);
+        expr_ref witness(m);
+        ENSURE(retry.materialize(x, witness) == l_true);
+        th_rewriter normalize(m);
+        normalize(witness);
+        zstring value;
+        ENSURE(u.str.is_string(witness, value) && value == zstring("ab"));
+    }
+    std::cout << "seq_monadic_retry: all tests passed\n";
 }

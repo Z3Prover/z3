@@ -1157,7 +1157,10 @@ lbool seq_monadic::decide_policy(membership_vec const& memberships, unsigned bud
     lbool r = decide_oriented(memberships, false, budget);
     if (r != l_undef || m_retry_disabled || work_bails() == before)
         return r;
+    ++m_stats.m_reverse_retries;
     r = decide_oriented(memberships, true, budget);
+    if (r != l_undef)
+        ++m_stats.m_reverse_retry_decided;
     // A bail is not in itself bad: it hands the problem back to the caller, which has its
     // own way of making progress.  Reversing spends a second full budget instead, so a
     // reversed attempt that also fails is evidence that this query's regexes are no cheaper
@@ -1508,6 +1511,8 @@ void seq_monadic::collect_statistics(::statistics& st) const {
     st.update("seq monadic split calls", m_stats.m_split_calls);
     st.update("seq monadic split rounds", m_stats.m_split_rounds);
     st.update("seq monadic split decided", m_stats.m_split_decided);
+    st.update("seq monadic reverse retries", m_stats.m_reverse_retries);
+    st.update("seq monadic reverse retry decided", m_stats.m_reverse_retry_decided);
     for (unsigned i = 0; i < static_cast<unsigned>(bail_reason::num_reasons); ++i){
         st.update(bail_names[i], m_stats.m_bails[i]);
     }

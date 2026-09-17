@@ -1094,6 +1094,7 @@ namespace seq {
         unsigned                      m_monadic_leaf_budget_refute = 30000;
         // User options are installed at final_check, after the early eager closure.
         bool                          m_equation_abstraction = false;
+        bool                          m_reverse_retry = true;
         // per-call cap on eagerly explored states (ensure_automaton_explored); 0 = fully lazy
         unsigned                      m_exploration_budget = 512;
         // attach the view length abstraction to pinned variables
@@ -1420,6 +1421,13 @@ namespace seq {
         void set_monadic_leaf_budget_refute(unsigned n) { m_monadic_leaf_budget_refute = n; }
         void set_equation_abstraction(bool e) { m_equation_abstraction = e; }
         bool equation_abstraction_enabled() const { return m_equation_abstraction; }
+        void set_reverse_retry(bool e) {
+            m_reverse_retry = e;
+            if (m_monadic_leaf_engine)
+                m_monadic_leaf_engine->set_orientation(e ? seq_monadic::orientation::retry
+                                                        : seq_monadic::orientation::forward);
+        }
+        bool reverse_retry_enabled() const { return m_reverse_retry; }
         void set_exploration_budget(unsigned b) { m_exploration_budget = b; }
         void set_view_length_constraints(bool e) { m_view_length_constraints = e; }
 

@@ -907,7 +907,8 @@ namespace seq {
                                       seq::transition_mode::light_antimirov_tm);
         // The witness is the whole point of this rule.
         m_monadic_leaf_engine->set_gen_solution(true);
-        m_monadic_leaf_engine->set_orientation(seq_monadic::orientation::retry);
+        m_monadic_leaf_engine->set_orientation(m_reverse_retry ? seq_monadic::orientation::retry
+                                                              : seq_monadic::orientation::forward);
         // Intersection refinement, off by default in the engine.  These nodes are an
         // intersection by construction -- every membership on one subject is a conjunct --
         // so without it the engine bails on exactly the re.inter/re.comp shapes this rule
