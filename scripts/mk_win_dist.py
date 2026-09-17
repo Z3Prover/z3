@@ -187,6 +187,8 @@ def mk_build_dir(arch):
         if DOTNET_CORE_ENABLED:
             cmd.append(' -DZ3_BUILD_DOTNET_BINDINGS=ON')
 #           cmd.append(' -DZ3_INSTALL_DOTNET_BINDINGS=ON')
+            if DOTNET_KEY_FILE is not None:
+                cmd.append(' -DZ3_DOTNET_KEY_FILE=' + os.path.abspath(DOTNET_KEY_FILE))
         if JAVA_ENABLED:
             cmd.append(' -DZ3_BUILD_JAVA_BINDINGS=ON')
             cmd.append(' -DZ3_INSTALL_JAVA_BINDINGS=ON')
