@@ -13,9 +13,6 @@ z3_add_component(tactic
     model
     simplifiers
     converters
-  TACTIC_HEADERS
-    probe.h
-    tactic.h
 )
 
 add_subdirectory(aig)

@@ -56,14 +56,13 @@ This can be achieved by using option :arith-lhs true in the simplifier.
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/bound_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic* mk_propagate_ineqs_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(bound_simplifier, m, p, s); });
 }
 
-/*
-  ADD_TACTIC("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "mk_propagate_ineqs_tactic(m, p)")
-  ADD_SIMPLIFIER("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "alloc(bound_simplifier, m, p, s)")
-*/
+Z3_ADD_TACTIC(propagate_ineqs, "propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", mk_propagate_ineqs_tactic(m, p));
+Z3_ADD_SIMPLIFIER(propagate_ineqs, "propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", alloc(bound_simplifier, m, p, s));
 

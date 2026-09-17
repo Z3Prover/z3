@@ -48,14 +48,13 @@ tree are visited. Since the paths selected by the dominator trees are limited, t
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/dominator_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic* mk_dom_simplify_tactic(ast_manager& m, params_ref const& p) {
     return alloc(dependent_expr_state_tactic, m, p,
         [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* { return alloc(dominator_simplifier, m, s, mk_expr_substitution_simplifier(m), p); });
 }
 
-/*
-ADD_TACTIC("dom-simplify", "apply dominator simplification rules.", "mk_dom_simplify_tactic(m, p)")
-ADD_SIMPLIFIER("dom-simplify", "apply dominator simplification rules.", "alloc(dominator_simplifier, m, s, mk_expr_substitution_simplifier(m), p)")
-*/
+Z3_ADD_TACTIC(dom_simplify, "dom-simplify", "apply dominator simplification rules.", mk_dom_simplify_tactic(m, p));
+Z3_ADD_SIMPLIFIER(dom_simplify, "dom-simplify", "apply dominator simplification rules.", alloc(dominator_simplifier, m, s, mk_expr_substitution_simplifier(m), p));
 

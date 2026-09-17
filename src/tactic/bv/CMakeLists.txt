@@ -4,25 +4,15 @@ z3_add_component(bv_tactics
     bit_blaster_tactic.cpp
     bv1_blaster_tactic.cpp
     bvarray2uf_rewriter.cpp
+    bvarray2uf_tactic.cpp
     bv_bound_chk_tactic.cpp
     bv_bounds_tactic.cpp
     bv_size_reduction_tactic.cpp
+    bv_slice_tactic.cpp
     dt2bv_tactic.cpp
     elim_small_bv_tactic.cpp
   COMPONENT_DEPENDENCIES
     bit_blaster
     core_tactics
     tactic
-  TACTIC_HEADERS
-    bit_blaster_tactic.h
-    bv1_blaster_tactic.h
-    bv_bound_chk_tactic.h
-    bv_bounds_tactic.h
-    bv_divrem_bounds_tactic.h
-    bv_size_reduction_tactic.h
-    bv_slice_tactic.h
-    bvarray2uf_tactic.h
-    dt2bv_tactic.h
-    elim_small_bv_tactic.h
-    max_bv_sharing_tactic.h
 )

@@ -22,6 +22,7 @@ Notes:
 #include <climits>
 #include <limits>
 #include "util/cmd_context_types.h"
+#include "util/memory_manager.h"
 #include "util/vector.h"
 
 // Support for hand-written <module>_params.hpp headers (formerly generated at build time
@@ -33,14 +34,19 @@ Notes:
 //     BOOL_(walksat,    "walksat",    true,     "use walksat assertion selection")           \
 //     ...
 //
-//   Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS);
+//   Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS,
+//       "Stochastic Local Search Solver ...");
 //
 // Row shape is the same for every kind: (method, key, default, doc). `method` is the C++
 // accessor name; `key` is the (possibly dotted) parameter name used at the params_ref/gparams
 // level, so the two can differ (e.g. `solve_eqs_non_ground` / "solve_eqs.non_ground").
 //
 // Z3_DEFINE_MODULE_PARAMS expands the param-list macro twice: once to collect param_descrs
-// (self-documentation, `-pd`, option validation) and once to define the typed accessors.
+// (self-documentation, `-pd`, option validation) and once to define the typed accessors. It
+// then registers the module with gparams via Z3_REGISTER_MODULE_PARAMS -- see that macro,
+// and gparams::module_registration/global_registration in util/gparams.h, for how modules
+// find their way into gparams without any source-scanning code generator. The last argument
+// is a description string literal, or nullptr if the module has none.
 
 // Stringizes a macro argument after expanding it, e.g. Z3_PARAM_STR(20.0) -> "20.0". Only
 // safe for defaults that are already plain literals (DOUBLE parameters in practice): unlike
@@ -87,7 +93,23 @@ struct z3_param_uint_str {
 #define Z3_PARAM_GET_STRING(method, key, deflt, doc) char const * method() const { return p.get_str(key, g, deflt); }
 #define Z3_PARAM_GET_SYMBOL(method, key, deflt, doc) symbol method() const { return p.get_sym(key, g, symbol(deflt)); }
 
-#define Z3_DEFINE_MODULE_PARAMS(CLASS, MODULE, PARAMS)                                    \
+// Registers a module's parameter descriptions with gparams -- for hand-written classes
+// with their own params_ref-based accessors that don't go through Z3_DEFINE_MODULE_PARAMS
+// (e.g. nnf::get_param_descrs, polynomial::factor_params::get_param_descrs). TAG must be a
+// bare identifier, unique in the translation unit, used to name the (inline, so safely
+// mergeable across every translation unit that includes this header) registration object.
+// DESCR is a string literal describing the module, or nullptr.
+#define Z3_REGISTER_MODULE_PARAMS(TAG, MODULE, GET_DESCRS, DESCR)                          \
+  inline ::gparams::module_registration g_z3_module_registration_##TAG(                   \
+      MODULE,                                                                             \
+      []() -> param_descrs * { auto * d = alloc(param_descrs); GET_DESCRS(*d); return d; }, \
+      DESCR)
+
+// Registers global (module-less) parameters, e.g. context_params::collect_param_descrs.
+#define Z3_REGISTER_GLOBAL_PARAMS(TAG, COLLECT)                                            \
+  inline ::gparams::global_registration g_z3_global_registration_##TAG(COLLECT)
+
+#define Z3_DEFINE_MODULE_PARAMS(CLASS, MODULE, PARAMS, DESCR)                              \
   struct CLASS {                                                                          \
     params_ref const & p;                                                                 \
     params_ref g;                                                                         \
@@ -100,7 +122,8 @@ struct z3_param_uint_str {
     }                                                                                      \
     PARAMS(Z3_PARAM_GET_UINT, Z3_PARAM_GET_BOOL, Z3_PARAM_GET_DOUBLE,                      \
            Z3_PARAM_GET_STRING, Z3_PARAM_GET_SYMBOL)                                       \
-  }
+  };                                                                                       \
+  Z3_REGISTER_MODULE_PARAMS(CLASS, MODULE, CLASS::collect_param_descrs, DESCR)
 
 std::string norm_param_name(char const * n);
 std::string norm_param_name(symbol const & n);

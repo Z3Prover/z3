@@ -28,10 +28,6 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "math/realclosure/realclosure.h"
 
-
-// The install_tactics procedure is automatically generated
-void install_tactics(tactic_manager & ctx);
-
 namespace api {
 
     object::object(context& c): m_ref_count(0), m_context(c) { this->m_id = m_context.add_object(this); }

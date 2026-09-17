@@ -43,6 +43,4 @@ public:
     }
 };
 
-/*
-  ADD_SIMPLIFIER("cheap-fourier-motzkin", "eliminate variables from quantifiers using partial Fourier-Motzkin elimination.", "alloc(elim_bounds_simplifier, m, p, s)")
- */
+Z3_ADD_SIMPLIFIER(cheap_fourier_motzkin, "cheap-fourier-motzkin", "eliminate variables from quantifiers using partial Fourier-Motzkin elimination.", alloc(elim_bounds_simplifier, m, p, s));

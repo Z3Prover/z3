@@ -20,11 +20,6 @@ Abstract:
   BOOL_(ignore_solver1,   "ignore_solver1",   false,     "if true, solver 2 is always used") \
   UINT_(solver2_unknown,  "solver2_unknown",  1,         "what should be done when solver 2 returns unknown: 0 - just return unknown, 1 - execute solver 1 if quantifier free problem, 2 - execute solver 1")
 
-Z3_DEFINE_MODULE_PARAMS(combined_solver_params, "combined_solver", COMBINED_SOLVER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('combined_solver', 'combined_solver_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('combined_solver', 'combines two solvers: non-incremental (solver1) and incremental (solver2)')
-*/
+Z3_DEFINE_MODULE_PARAMS(combined_solver_params, "combined_solver", COMBINED_SOLVER_PARAMS_LIST, "combines two solvers: non-incremental (solver1) and incremental (solver2)");
 
 #undef COMBINED_SOLVER_PARAMS_LIST

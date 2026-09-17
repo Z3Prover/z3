@@ -24,6 +24,7 @@ Revision History:
 #include "util/uint_set.h"
 #include "util/params.h"
 #include "ast/simplifiers/dependent_expr_state.h"
+#include "tactic/tactic.h"
 
 class tactic;
 
@@ -72,7 +73,5 @@ tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref())
 
 dependent_expr_simplifier* mk_qe_lite_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& st);
 
-/*
-  ADD_TACTIC("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_tactic(m, p)")
-  ADD_SIMPLIFIER("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_simplifier(m, p, s)")
-*/
+Z3_ADD_TACTIC(qe_light, "qe-light", "apply light-weight quantifier elimination.", mk_qe_lite_tactic(m, p));
+Z3_ADD_SIMPLIFIER(qe_light, "qe-light", "apply light-weight quantifier elimination.", mk_qe_lite_simplifier(m, p, s));

@@ -9,8 +9,5 @@ z3_add_component(polynomial
     upolynomial_factorization.cpp
   COMPONENT_DEPENDENCIES
     util
-  EXTRA_REGISTER_MODULE_HEADERS
-    polynomial.h
-    algebraic_params.hpp
 )
 

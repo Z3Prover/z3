@@ -18,11 +18,6 @@ Abstract:
 #define ACKERMANNIZATION_PARAMS_LIST(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_) \
   BOOL_(eager,  "eager",  true,  "eagerly instantiate all congruence rules")
 
-Z3_DEFINE_MODULE_PARAMS(ackermannization_params, "ackermannization", ACKERMANNIZATION_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('ackermannization', 'ackermannization_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('ackermannization', 'solving UF via ackermannization')
-*/
+Z3_DEFINE_MODULE_PARAMS(ackermannization_params, "ackermannization", ACKERMANNIZATION_PARAMS_LIST, "solving UF via ackermannization");
 
 #undef ACKERMANNIZATION_PARAMS_LIST

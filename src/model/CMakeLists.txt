@@ -19,8 +19,5 @@ z3_add_component(model
   COMPONENT_DEPENDENCIES
     rewriter
     macros
-  EXTRA_REGISTER_MODULE_HEADERS
-    model_evaluator_params.hpp
-    model_params.hpp
 )
 

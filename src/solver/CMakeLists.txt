@@ -19,9 +19,6 @@ z3_add_component(solver
     tactic
     params
     qe_lite
-  EXTRA_REGISTER_MODULE_HEADERS
-    combined_solver_params.hpp
-    parallel_params.hpp
 )
 
 add_subdirectory(assertions)

@@ -22,6 +22,7 @@ Notes:
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
 #include "tactic/goal.h"
+#include "tactic/tactic.h"
 
 class tactic;
 
@@ -32,6 +33,4 @@ tactic * mk_smt_tactic_core_using(ast_manager& m, bool auto_config = true, param
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p);
 
 
-/*
-  ADD_TACTIC("psmt", "builtin strategy for SMT tactic in parallel.", "mk_parallel_smt_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(psmt, "psmt", "builtin strategy for SMT tactic in parallel.", mk_parallel_smt_tactic(m, p));

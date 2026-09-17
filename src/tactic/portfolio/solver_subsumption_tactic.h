@@ -13,13 +13,12 @@ Author:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_solver_subsumption_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("solver-subsumption", "remove assertions that are subsumed.", "mk_solver_subsumption_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(solver_subsumption, "solver-subsumption", "remove assertions that are subsumed.", mk_solver_subsumption_tactic(m, p));
 
 

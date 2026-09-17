@@ -50,9 +50,14 @@ public:
     ptr_vector<simplifier_cmd> const& simplifiers() const { return m_simplifiers; }
     ptr_vector<tactic_cmd> const& tactics() const { return m_tactics; }
     ptr_vector<probe_info> const& probes() const { return m_probes; }
-    
-        
 };
+
+// Populates ctx with every built-in tactic, probe, and simplifier that got linked into this
+// binary, by walking tactic_registration::g_head / probe_registration::g_head /
+// simplifier_registration::g_head (see tactic/tactic.h, tactic/probe.h,
+// ast/simplifiers/dependent_expr_state.h). Called once per tactic_manager, i.e. once per Z3
+// context -- replaces the old per-final-target generated install_tactic.cpp.
+void install_tactics(tactic_manager & ctx);
 
 
 

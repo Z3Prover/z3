@@ -56,13 +56,12 @@ The result of resolution is a set of equalities between arguments to `p`. The fu
 #include "ast/simplifiers/eliminate_predicates.h"
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic * mk_eliminate_predicates_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(eliminate_predicates, m, s); });
 }
 
-/*
-  ADD_TACTIC("elim-predicates", "eliminate predicates, macros and implicit definitions.", "mk_eliminate_predicates_tactic(m, p)")
-  ADD_SIMPLIFIER("elim-predicates", "eliminate predicates, macros and implicit definitions.", "alloc(eliminate_predicates, m, s)")
-*/
+Z3_ADD_TACTIC(elim_predicates, "elim-predicates", "eliminate predicates, macros and implicit definitions.", mk_eliminate_predicates_tactic(m, p));
+Z3_ADD_SIMPLIFIER(elim_predicates, "elim-predicates", "eliminate predicates, macros and implicit definitions.", alloc(eliminate_predicates, m, s));

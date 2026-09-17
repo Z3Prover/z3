@@ -31,11 +31,6 @@ Abstract:
   UINT_  (simplify_restart_max,         "simplify.restart.max",         5000,      "maximal number of restarts during simplification phase") \
   UINT_  (simplify_inprocess_max,       "simplify.inprocess.max",       2,         "maximal number of inprocessing steps during simplification")
 
-Z3_DEFINE_MODULE_PARAMS(parallel_params, "parallel", PARALLEL_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('parallel', 'parallel_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('parallel', 'parameters for parallel solver')
-*/
+Z3_DEFINE_MODULE_PARAMS(parallel_params, "parallel", PARALLEL_PARAMS_LIST, "parameters for parallel solver");
 
 #undef PARALLEL_PARAMS_LIST

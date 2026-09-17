@@ -21,6 +21,7 @@ Notes:
 #include "util/vector.h"
 #include "util/z3_exception.h"
 #include "util/util.h"
+#include "util/memory_manager.h"
 
 class prime_generator_exception : public default_exception {
 public:
@@ -48,9 +49,8 @@ public:
     uint64_t next();
     static void initialize();
     static void finalize();
-    /*
-      ADD_INITIALIZER('prime_iterator::initialize();')
-      ADD_FINALIZER('prime_iterator::finalize();')
-    */
 };
+
+Z3_ADD_INITIALIZER(prime_iterator, prime_iterator::initialize, 0);
+Z3_ADD_FINALIZER(prime_iterator, prime_iterator::finalize);
 

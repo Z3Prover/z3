@@ -100,6 +100,33 @@ typedef ref<tactic>         tactic_ref;
 typedef sref_vector<tactic> tactic_ref_vector;
 typedef sref_buffer<tactic> tactic_ref_buffer;
 
+/**
+   \brief Self-registration for built-in tactics, consumed by cmd_context/tactic_manager.cpp's
+   install_tactics() to populate a tactic_manager (once per Z3 context) -- replaces the old
+   ADD_TACTIC('name', 'descr', 'code') comment scraped by scripts/mk_install_tactic_cpp.py.
+   Lives here (rather than in cmd_context, which depends on tactic) so headers declaring
+   tactics don't need to depend "upward" on the frontend layer.
+   Each Z3_ADD_TACTIC(...) instantiates one as an `inline` global (safe across however many
+   translation units include the declaring header); the factory itself is a plain function
+   pointer, not invoked at registration time -- only later, once per tactic_manager, from
+   install_tactics().
+*/
+struct tactic_registration {
+    typedef tactic* (*factory_t)(ast_manager&, const params_ref&);
+    char const * name;
+    char const * descr;
+    factory_t factory;
+    tactic_registration * next;
+    static inline tactic_registration * g_head = nullptr;
+    tactic_registration(char const * name, char const * descr, factory_t factory):
+        name(name), descr(descr), factory(factory), next(g_head) {
+        g_head = this;
+    }
+};
+
+#define Z3_ADD_TACTIC(TAG, NAME, DESCR, CODE) \
+  inline tactic_registration g_z3_tactic_registration_##TAG(NAME, DESCR, [](ast_manager & m, params_ref const & p) -> tactic* { return CODE; })
+
 // minimum verbosity level for tactics
 #define TACTIC_VERBOSITY_LVL 10
 
@@ -137,11 +164,9 @@ tactic * mk_fail_tactic();
 tactic * mk_fail_if_undecided_tactic();
 tactic*  mk_lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic*(ast_manager& m, params_ref const& p)>);
 
-/*
-  ADD_TACTIC("skip", "do nothing tactic.", "mk_skip_tactic()")
-  ADD_TACTIC("fail", "always fail tactic.", "mk_fail_tactic()")
-  ADD_TACTIC("fail-if-undecided", "fail if goal is undecided.", "mk_fail_if_undecided_tactic()")
-*/
+Z3_ADD_TACTIC(skip, "skip", "do nothing tactic.", mk_skip_tactic());
+Z3_ADD_TACTIC(fail, "fail", "always fail tactic.", mk_fail_tactic());
+Z3_ADD_TACTIC(fail_if_undecided, "fail-if-undecided", "fail if goal is undecided.", mk_fail_if_undecided_tactic());
 
 tactic * mk_report_verbose_tactic(char const * msg, unsigned lvl);
 tactic * mk_trace_tactic(char const * tag);

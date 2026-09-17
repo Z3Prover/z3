@@ -14,22 +14,4 @@ z3_add_component(params
   COMPONENT_DEPENDENCIES
     util
     ast
-  EXTRA_REGISTER_MODULE_HEADERS
-    context_params.h
-    sls_params.hpp
-    arith_rewriter_params.hpp
-    array_rewriter_params.hpp
-    bool_rewriter_params.hpp
-    bv_rewriter_params.hpp
-    fpa_rewriter_params.hpp
-    fpa2bv_rewriter_params.hpp
-    pattern_inference_params_helper.hpp
-    poly_rewriter_params.hpp
-    rewriter_params.hpp
-    sat_params.hpp
-    seq_rewriter_params.hpp
-    smt_params_helper.hpp
-    solver_params.hpp
-    tactic_params.hpp
-    tptp.hpp
 )

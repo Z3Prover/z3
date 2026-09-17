@@ -50,11 +50,6 @@ Abstract:
   BOOL_  (maxres_wmax,                     "maxres.wmax",                     false,     "use weighted theory solver to constrain upper bounds") \
   BOOL_  (maxres_pivot_on_correction_set,  "maxres.pivot_on_correction_set",  true,      "reduce soft constraints if the current correction set is smaller than current core")
 
-Z3_DEFINE_MODULE_PARAMS(opt_params, "opt", OPT_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('opt', 'opt_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('opt', 'optimization parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(opt_params, "opt", OPT_PARAMS_LIST, "optimization parameters");
 
 #undef OPT_PARAMS_LIST
