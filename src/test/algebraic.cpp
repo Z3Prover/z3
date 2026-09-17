@@ -563,6 +563,52 @@ static void tst_root() {
 
 }
 
+static void tst_get_interval() {
+    reslimit rl;
+    unsynch_mpq_manager qm;
+    algebraic_numbers::manager am(rl, qm);
+    scoped_anum a(am);
+    scoped_mpq q(qm), l(qm), u(qm);
+    rational lower, upper;
+
+    for (int n = -1; n <= 1; ++n) {
+        qm.set(q, n, 3);
+        am.set(a, q);
+        auto count = rl.count();
+        am.get_interval(a, l, u);
+        am.get_interval(a, lower, upper);
+        ENSURE(rl.count() == count);
+        ENSURE(qm.eq(l, q) && qm.eq(u, q));
+        ENSURE(lower == rational(q) && upper == rational(q));
+    }
+
+    polynomial::manager pm(rl, qm);
+    polynomial_ref x(pm), p(pm);
+    x = pm.mk_polynomial(pm.mk_var());
+    p = (x^2) - 2;
+    scoped_anum_vector roots(am);
+    am.isolate_roots(p, roots);
+    ENSURE(roots.size() == 2);
+    for (auto const & root : roots) {
+        rational stored_lower, stored_upper;
+        am.get_lower(root, stored_lower);
+        am.get_upper(root, stored_upper);
+
+        // Copying bounds must neither refine them nor consume solver resources.
+        auto count = rl.count();
+        am.get_interval(root, l, u);
+        am.get_interval(root, lower, upper);
+        ENSURE(rl.count() == count);
+        ENSURE(rational(l) == stored_lower && rational(u) == stored_upper);
+        ENSURE(lower == stored_lower && upper == stored_upper);
+
+        am.get_lower(root, lower);
+        am.get_upper(root, upper);
+        ENSURE(lower == stored_lower && upper == stored_upper);
+        ENSURE(am.gt(root, l) && am.lt(root, u));
+    }
+}
+
 static void tst_sturm() {
     reslimit rl;
     unsynch_mpq_manager nm;
@@ -630,6 +676,7 @@ static void tst_sturm() {
 
 
 void tst_algebraic() {
+    tst_get_interval();
     tst_sturm();
 
     // enable_trace("resultant_bug");

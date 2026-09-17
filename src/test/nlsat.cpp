@@ -2739,7 +2739,207 @@ static void tst_retract_assumptions() {
     ENSURE(rejected);
 }
 
+static void tst_limit_projection() {
+    std::cout << "nlsat: projected feasible limits\n";
+    for (bool lws : {false, true}) {
+        params_ref ps;
+        ps.set_bool("lws", lws);
+        reslimit rlim;
+        scoped_rlimit budget(rlim, 1000000);
+        nlsat::solver s(rlim, ps, true);
+        auto& pm = s.pm();
+        auto& am = s.am();
+        auto x = s.mk_var(false), y = s.mk_var(false);
+        polynomial_ref px(pm), py(pm);
+        px = pm.mk_polynomial(x);
+        py = pm.mk_polynomial(y);
+        nlsat::literal equation = mk_eq(s, -(px - 1)*py - 1);
+        nlsat::literal positive = mk_gt(s, py);
+        s.mk_clause(1, &equation);
+        s.mk_clause(1, &positive);
+        scoped_anum one(am), two(am);
+        am.set(one, 1);
+        am.set(two, 2);
+
+        // The witnesses y = 1/(1-x) diverge at the limit; fixing y finds no interval.
+        ENSURE(s.check_limit(x, &one.get()) == l_true);
+        ENSURE(s.check_limit(x, &two.get()) == l_false);
+        ENSURE(s.check_limit(x) == l_false);
+        ENSURE(s.check() == l_true);
+        ENSURE(s.check_limit(x, &s.value(x)) == l_true);
+
+        // Retraction must preserve caller clauses while removing all proof-local cuts.
+        nlsat::literal above = ~mk_lt(s, px - 1);
+        unsigned tag = 0;
+        s.mk_clause(1, &above, &tag);
+        ENSURE(s.check_limit(x) == l_false);
+        ENSURE(s.check() == l_false);
+        s.retract(&tag);
+        ENSURE(s.check_limit(x, &one.get()) == l_true);
+        for (unsigned ticks : {1u, 10u, 100u}) {
+            {
+                scoped_rlimit limit(rlim, ticks);
+                try {
+                    ENSURE(s.check_limit(x, &one.get()) == l_true);
+                }
+                catch (default_exception const&) {
+                    ENSURE(rlim.is_canceled());
+                }
+            }
+            ENSURE(s.check_limit(x, &one.get()) == l_true);
+        }
+        rlim.cancel();
+        bool cancelled = false;
+        try {
+            s.check_limit(x, &one.get());
+        }
+        catch (default_exception const&) {
+            cancelled = true;
+        }
+        ENSURE(cancelled && rlim.is_canceled());
+        rlim.reset_cancel();
+        ENSURE(s.check_limit(x, &one.get()) == l_true);
+    }
+}
+
+static void tst_limit_regions() {
+    std::cout << "nlsat: disconnected feasible regions\n";
+    params_ref ps;
+    reslimit rlim;
+    scoped_rlimit budget(rlim, 1000000);
+    nlsat::solver s(rlim, ps, true);
+    auto& pm = s.pm();
+    auto& am = s.am();
+    auto x = s.mk_var(false), y = s.mk_var(false);
+    polynomial_ref px(pm), py(pm);
+    px = pm.mk_polynomial(x);
+    py = pm.mk_polynomial(y);
+    nlsat::literal choice(s.mk_bool_var(), false);
+    nlsat::literal point = mk_eq(s, px);
+    nlsat::literal curve = mk_eq(s, px*py - 1);
+    nlsat::literal positive = mk_gt(s, py);
+    nlsat::literal clauses[][2] = { {~choice, point}, {choice, curve}, {choice, positive} };
+    for (auto& clause : clauses)
+        s.mk_clause(2, clause);
+    scoped_anum zero(am), two(am);
+    am.set(two, 2);
+    // A Boolean branch contains only x = 0; the other supplies the positive ray.
+    ENSURE(s.check_limit(x) == l_true);
+    ENSURE(s.check_limit(x, &zero.get()) == l_false);
+    ENSURE(s.check_limit(x, &two.get()) == l_true);
+
+    unsigned tag = 0;
+    nlsat::literal below = mk_lt(s, px - 2);
+    s.mk_clause(1, &below, &tag);
+    ENSURE(s.check_limit(x) == l_false);
+    ENSURE(s.check_limit(x, &two.get()) == l_true);
+    s.retract(&tag);
+    ENSURE(s.check_limit(x) == l_true);
+
+    nlsat::solver empty(rlim, ps, true);
+    auto unconstrained = empty.mk_var(false);
+    ENSURE(empty.check_limit(unconstrained) == l_true);
+    ENSURE(empty.check_limit(unconstrained, &zero.get()) == l_true);
+    ENSURE(empty.check() == l_true);
+    empty.mk_clause(0, nullptr);
+    ENSURE(empty.check_limit(unconstrained) == l_false);
+}
+
+static void tst_limit_algebraic() {
+    std::cout << "nlsat: algebraic feasible limits\n";
+    params_ref ps;
+    reslimit rlim;
+    scoped_rlimit budget(rlim, 1000000);
+    nlsat::solver s(rlim, ps, true);
+    auto& pm = s.pm();
+    auto& am = s.am();
+    auto x = s.mk_var(false), y = s.mk_var(false), z = s.mk_var(false);
+    polynomial_ref px(pm), py(pm), pz(pm);
+    px = pm.mk_polynomial(x);
+    py = pm.mk_polynomial(y);
+    pz = pm.mk_polynomial(z);
+    nlsat::literal constraints[] = {
+        mk_eq(s, py*py - px), mk_gt(s, py),
+        mk_eq(s, pz*pz + px*px - 2), mk_gt(s, pz)
+    };
+    for (auto l : constraints)
+        s.mk_clause(1, &l);
+    scoped_anum root(am), two(am);
+    am.set(two, 2);
+    am.root(two, 2, root);
+    ENSURE(s.check_limit(x, &root.get()) == l_true);
+    ENSURE(s.check_limit(x, &two.get()) == l_false);
+    ENSURE(s.check_limit(x) == l_false);
+
+    nlsat::solver isolated(rlim, ps, true);
+    auto t = isolated.mk_var(false);
+    auto& ipm = isolated.pm();
+    polynomial_ref pt(ipm);
+    pt = ipm.mk_polynomial(t);
+    nlsat::literal equation = mk_eq(isolated, pt*pt - 2);
+    isolated.mk_clause(1, &equation);
+    // Covering both isolated roots proves boundedness, but not approachability.
+    ENSURE(isolated.check_limit(t) == l_false);
+    ENSURE(isolated.check_limit(t, &root.get()) == l_false);
+    ENSURE(isolated.check() == l_true);
+}
+
+static void tst_limit_integers() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, true);
+    auto x = s.mk_var(false);
+    s.mk_var(true);
+    scoped_anum bound(s.am());
+    s.am().set(bound, 1);
+    ENSURE(s.check_limit(x) == l_undef);
+    ENSURE(s.check_limit(x, &bound.get()) == l_undef);
+}
+
+static void tst_limit_sign_regions() {
+    std::cout << "nlsat: limits of projected polynomial sign regions\n";
+    for (bool lws : {false, true})
+        for (int a = -2; a < 2; ++a)
+            for (int b = a + 1; b <= 2; ++b)
+                for (int sign : {-1, 1})
+                    for (bool strict : {false, true}) {
+                        params_ref ps;
+                        ps.set_bool("lws", lws);
+                        reslimit rlim;
+                        scoped_rlimit budget(rlim, 1000000);
+                        nlsat::solver s(rlim, ps, true);
+                        auto& pm = s.pm();
+                        auto x = s.mk_var(false), y = s.mk_var(false);
+                        polynomial_ref px(pm), py(pm), p(pm);
+                        px = pm.mk_polynomial(x);
+                        py = pm.mk_polynomial(y);
+                        p = (px - a)*(px - b);
+                        if (sign < 0)
+                            p = -p;
+                        nlsat::literal equation = mk_eq(s, py*py - p);
+                        s.mk_clause(1, &equation);
+                        if (strict) {
+                            nlsat::literal positive = mk_gt(s, py);
+                            s.mk_clause(1, &positive);
+                        }
+                        scoped_anum bound(s.am());
+                        for (int t = -3; t <= 3; ++t) {
+                            s.am().set(bound, t);
+                            // All roots are integers, so t-1/2 has the exact
+                            // sign throughout a left neighborhood of t.
+                            bool expected = sign*(2*t - 1 - 2*a)*(2*t - 1 - 2*b) > 0;
+                            ENSURE(s.check_limit(x, &bound.get()) == to_lbool(expected));
+                        }
+                        ENSURE(s.check_limit(x) == to_lbool(sign > 0));
+                    }
+}
+
 void tst_nlsat() {
+    tst_limit_projection();
+    tst_limit_regions();
+    tst_limit_algebraic();
+    tst_limit_integers();
+    tst_limit_sign_regions();
     tst_cancelled_explanation();
     tst_retract_assumptions();
     tst_pick_max();
