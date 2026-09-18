@@ -100,9 +100,55 @@ void test_cosh_sinh_identity_detects_conflict() {
     VERIFY(result == l_false);
 }
 
+// Direct check on core::is_nla_context_satisfied() itself (as opposed to
+// test_check(), which additionally goes through the rest of check()'s
+// pipeline). Uses a tightly-bounded argument so the plain transcendental
+// delta-check (rather than the identity axioms, which additionally require
+// bounded_nlsat to actually run) is what catches the bad value: this keeps
+// the test independent of nlsat-scheduling timing.
+void test_is_nla_context_satisfied() {
+    std::cout << "test_is_nla_context_satisfied\n";
+
+    lp::lar_solver s;
+    reslimit rl;
+    params_ref p;
+    p.set_bool("arith.nl.nra", true);
+
+    lpvar x  = s.add_var(0, true);
+    lpvar xx = s.add_var(1, true);
+
+    nla::core nla_solver(s, p, rl);
+    vector<lpvar> vars;
+    vars.push_back(x); vars.push_back(x);
+    nla_solver.add_monic(xx, vars.size(), vars.begin());
+
+    s.set_column_value_test(x, lp::impq(rational(3)));
+    s.set_column_value_test(xx, lp::impq(rational(9)));
+
+    // Monomial alone is consistent, and there are no transcendentals yet.
+    VERIFY(nla_solver.is_nla_context_satisfied());
+
+    lpvar t       = s.add_var(2, true);
+    lpvar sin_val = s.add_var(3, true);
+    nla_solver.add_transcendental(nla::transcendental_op_kind::SIN, t, sin_val);
+
+    // Pin t = 0 tightly, so the delta-check's Taylor sandwich for sin(t)
+    // around 0 is tight enough to immediately refute sin_val = 1 (the
+    // correct value is 0), without any help from nlsat/identity axioms.
+    s.set_column_value_test(t, lp::impq(rational(0)));
+    s.add_var_bound(t, lp::lconstraint_kind::LE, rational(0));
+    s.add_var_bound(t, lp::lconstraint_kind::GE, rational(0));
+    s.set_column_value_test(sin_val, lp::impq(rational(1)));
+
+    // Monomial is still fine, but the context as a whole must be reported
+    // unsatisfied because of the bogus sin(t) value.
+    VERIFY(!nla_solver.is_nla_context_satisfied());
+}
+
 void test_nla_transcendentals() {
     test_sin_cos_identity_detects_conflict();
     test_cosh_sinh_identity_detects_conflict();
+    test_is_nla_context_satisfied();
 }
 
 } // namespace nla

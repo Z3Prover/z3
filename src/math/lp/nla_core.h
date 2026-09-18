@@ -372,7 +372,19 @@ public:
     bool  find_bfc_to_refine(const monic* & m, factorization& bf);
 
     bool  conflict_found() const;
-    
+
+    // True iff the current (rational) assignment satisfies both the
+    // registered monomials (re-derived here via init_to_refine()) and, if
+    // any are registered, the transcendental function applications
+    // (sin/cos/etc.), which are not monomials and so are not covered by the
+    // monomial check. Transcendental satisfaction is decided by
+    // check_transcendentals_and_finish(): a plain delta-check pass, or - on
+    // delta-check failure - certified unsatisfiability/satisfiability via
+    // bounded_nlsat when applicable. Like check_transcendentals_and_finish(),
+    // this can have the side effect of populating m_lemmas/m_literals with a
+    // refutation when the transcendentals are found inconsistent.
+    bool is_nla_context_satisfied();
+
     lbool check(unsigned level);
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();

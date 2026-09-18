@@ -925,6 +925,16 @@ lbool core::check_transcendentals_and_finish() {
     return l_true;
 }
 
+// True iff the current (rational) assignment satisfies both the registered
+// monomials and, if any are registered, the transcendental function
+// applications. See the declaration in nla_core.h for details.
+bool core::is_nla_context_satisfied() {
+    init_to_refine();
+    if (!m_to_refine.empty())
+        return false;
+    return check_transcendentals_and_finish() == l_true;
+}
+
 lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
