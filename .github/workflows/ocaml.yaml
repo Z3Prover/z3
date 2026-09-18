@@ -2,7 +2,7 @@ name: OCaml Binding CI (Ubuntu + macOS)
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ master ]
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
