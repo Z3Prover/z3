@@ -935,6 +935,15 @@ bool core::is_nla_context_satisfied() {
     return check_transcendentals_and_finish() == l_true;
 }
 
+// See the declaration in nla_core.h.
+lbool core::on_to_refine_empty() {
+    m_squeeze_schedule.on_nothing_to_refine();
+    // Even without nonlinear monomials to refine, registered transcendental
+    // function applications (sin/cos/etc.) still need a delta-consistency
+    // check against the current assignment before reporting l_true.
+    return check_transcendentals_and_finish();
+}
+
 lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
@@ -948,13 +957,9 @@ lbool core::check(unsigned level) {
     init_to_refine();
     m_patcher.patch_monomials();
     set_use_nra_model(false);
-    if (m_to_refine.empty()) {
-        m_squeeze_schedule.on_nothing_to_refine();
-        // Even without nonlinear monomials to refine, registered transcendental
-        // function applications (sin/cos/etc.) still need a delta-consistency
-        // check against the current assignment before reporting l_true.
-        return check_transcendentals_and_finish();
-    }
+    if (m_to_refine.empty())
+        return on_to_refine_empty();
+
     init_search();
     m_nla_satisfied = false;
 
@@ -976,10 +981,8 @@ lbool core::check(unsigned level) {
     bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
     if (no_effect() && m_squeeze_schedule.enabled() && (run_horner || run_grobner) && (m_squeeze_schedule.eager() || squeeze_cadence)) {
         m_squeeze_schedule.on_squeeze(m_monomial_bounds.optimize_nl_bounds());
-        if (m_to_refine.empty()) {
-            m_squeeze_schedule.on_nothing_to_refine();
-            return check_transcendentals_and_finish();
-        }
+        if (m_to_refine.empty())
+            return on_to_refine_empty();
     }
 
     {

@@ -74,6 +74,15 @@ class core {
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
     lbool check_transcendentals_and_finish();
+    // Consolidates the "no monomials left to refine" transition: records it
+    // with the squeeze schedule and defers to check_transcendentals_and_finish()
+    // for the final verdict, which also examines any registered
+    // transcendental applications (sin/cos/etc.) for feasibility - these are
+    // not monomials, so m_to_refine being empty alone never certifies them.
+    // check() calls this once at each point where m_to_refine is found to
+    // have just become empty, instead of duplicating the squeeze-schedule
+    // bookkeeping and transcendentals check inline at every such call site.
+    lbool on_to_refine_empty();
 
     var_eqs<emonics>         m_evars;
 
