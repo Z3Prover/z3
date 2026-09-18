@@ -64,6 +64,22 @@ Description:
   filter that runs before the (nonexistent, for transcendentals) exact
   decision procedure.
 
+  Incremental Taylor axioms: each app also remembers the smallest
+  number of Maclaurin-series terms (app::taylor_terms) whose sandwich
+  nra_solver should assert as a permanent nlsat clause for it (see
+  get_taylor and degree_to_exclude). It is seeded to a small default
+  degree as soon as the application is registered (so nlsat is never
+  handed a completely unconstrained val), and is bumped further, on
+  demand, only when check_app finds an actual delta-check failure: the
+  degree is chosen to be just large enough that the resulting sandwich
+  excludes the specific faulty (arg, val) witness that was observed,
+  rather than eagerly asserting a fixed high-degree polynomial for
+  every application regardless of whether nlsat's search ever needed
+  it. This keeps the polynomial problem nlsat has to solve as small as
+  possible while still making progress: a fresh nlsat run only pays
+  for the degree that history has shown to be necessary, beyond the
+  small default baseline.
+
   Two additional, stronger propagation mechanisms are layered on top of
   the per-application delta-check above:
 
@@ -125,6 +141,17 @@ namespace nla {
             transcendental_op_kind op;
             lpvar                  arg;
             lpvar                  val;
+            // Number of Taylor terms whose sandwich axiom nra_solver should
+            // assert for this application. Seeded to a small default degree
+            // for ops that support it (see k_default_taylor_terms in
+            // nla_transcendentals.cpp) as soon as the application is
+            // registered, so nlsat always has *some* algebraic connection
+            // between arg and val; bumped further (never decreased) by
+            // check() only once a delta-check failure exposes an actual
+            // inconsistent model, to just enough terms to exclude that
+            // specific (arg, val) witness -- see check_app/
+            // degree_to_exclude.
+            unsigned               taylor_terms = 0;
         };
 
         // A Maclaurin (Taylor-at-0) polynomial sandwich for a transcendental
@@ -151,6 +178,7 @@ namespace nla {
     private:
         core&         m_core;
         vector<app>   m_apps;
+        unsigned      m_num_failures = 0;
 
     public:
         transcendentals(core& c) : m_core(c) {}
@@ -163,17 +191,59 @@ namespace nla {
 
         vector<app> const& apps() const { return m_apps; }
 
-        // fills out a Taylor sandwich for op; returns false if none is
-        // available yet (currently implemented for SIN and COS only).
-        static bool get_taylor(transcendental_op_kind op, taylor_bounds& out);
+        // fills out a Taylor sandwich using num_terms terms of the Maclaurin
+        // series for op; returns false if none is available yet (currently
+        // implemented for SIN and COS only) or if num_terms == 0.
+        static bool get_taylor(transcendental_op_kind op, unsigned num_terms, taylor_bounds& out);
 
         // delta-check every registered application against the current
         // assignment; asserts a box-refinement lemma via lemma_builder
         // when an application is found inconsistent.
         void check();
 
+        // Certify (or refute) an nra (nlsat) model as an acceptable model
+        // for all registered transcendental applications, using the
+        // Taylor-sandwich remainder at each application's *actual* nlsat
+        // witness (read via core::nra_model_bound, not the stale plain-LP
+        // core::val). Requires use_nra_model() and a Taylor sandwich to be
+        // available for every registered op; returns false (reject) rather
+        // than trying to be clever when either is missing, since there is
+        // then no certificate that val is a good enough approximation of
+        // op(arg). This is what allows bounded_nlsat()'s l_true, obtained
+        // using the (sound but possibly very loose, for large |arg|) Taylor
+        // sandwich axioms, to be trusted as an actual model.
+        bool check_nra_model();
+
+        // true once at least one application has an accumulated Taylor
+        // axiom (see app::taylor_terms); used to gate bounded_nlsat calls
+        // that would otherwise be pointless (no axiom yet means nlsat has
+        // no more information about any val than "free real").
+        bool has_axioms() const {
+            for (auto const& a : m_apps)
+                if (a.taylor_terms > 0)
+                    return true;
+            return false;
+        }
+
+        // true once check_app has actually observed a delta-check failure
+        // (as opposed to every application merely carrying its seeded
+        // default-degree axiom from registration). Unlike has_axioms, this
+        // does not trip on the very first, typically-trivial round where
+        // the current assignment already passes the plain delta-check:
+        // handing that problem to nlsat too would only add cost (and risk)
+        // for no expected benefit, since the reactive delta-check alone
+        // was already about to succeed.
+        bool has_observed_failure() const { return m_num_failures > 0; }
+
     private:
-        bool check_app(app const& a);
+        bool check_app(app& a);
+        // Smallest number of Taylor terms (1..max_terms) such that the
+        // (floating point estimate of the) resulting sandwich at x
+        // provably excludes y, i.e. would contradict the faulty model
+        // (x, y) if asserted; 0 if no such degree is found within
+        // max_terms (x too large / y too close to op(x) for this
+        // approach to help).
+        static unsigned degree_to_exclude(transcendental_op_kind op, double x, double y, unsigned max_terms = 30);
         static double eval(transcendental_op_kind op, double x);
         static double error_bound(transcendental_op_kind op, double x, double fx);
         static char const* op_name(transcendental_op_kind op);

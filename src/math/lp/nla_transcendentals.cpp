@@ -20,10 +20,23 @@ Description:
 
 namespace nla {
 
+    // Default number of Taylor terms to seed every newly registered SIN/COS
+    // application with, before any delta-check failure has been observed:
+    // a small, cheap sandwich (degree 5 for sin, degree 4 for cos) that
+    // still gives nlsat *some* algebraic connection between arg and val
+    // from the very first call, rather than none at all. check_app bumps
+    // this up further (never down) once an actual faulty model is seen at
+    // a specific arg, so most applications never need more than this.
+    static constexpr unsigned k_default_taylor_terms = 3;
+
     void transcendentals::add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) {
         if (arg == null_lpvar || val == null_lpvar)
             return;
-        m_apps.push_back({ op, arg, val });
+        app a{ op, arg, val };
+        taylor_bounds tb;
+        if (get_taylor(op, k_default_taylor_terms, tb))
+            a.taylor_terms = k_default_taylor_terms;
+        m_apps.push_back(a);
         m_core.trail().push(push_back_vector(m_apps));
         add_range_axioms(op, val);
     }
@@ -164,37 +177,64 @@ namespace nla {
     // Maclaurin (Taylor-at-0) polynomial sandwiches, sound for every real x
     // (not just a local box) via Lagrange's remainder theorem: sin and cos
     // are entire with all derivatives bounded by 1 in absolute value, so
-    // truncating their Maclaurin series after the x^9 (sin) / x^8 (cos) term
-    // leaves a remainder bounded by |x|^10/10!. Both series are extended one
-    // order further than their last nonzero term (sin's x^10 coefficient,
-    // cos's x^9 coefficient, are both 0) purely so the remainder's exponent
-    // is even: this makes remainder_coeff*x^remainder_power manifestly
-    // non-negative without needing |x|, so the sandwich can be asserted
-    // without a case split on the sign of x.
-    bool transcendentals::get_taylor(transcendental_op_kind op, taylor_bounds& out) {
-        out.poly.clear();
-        switch (op) {
-        case transcendental_op_kind::SIN:
-            out.poly.push_back({ rational(1), 1 });
-            out.poly.push_back({ rational(-1, 6), 3 });
-            out.poly.push_back({ rational(1, 120), 5 });
-            out.poly.push_back({ rational(-1, 5040), 7 });
-            out.poly.push_back({ rational(1, 362880), 9 });
-            out.remainder_coeff = rational(1, 3628800);
-            out.remainder_power = 10;
-            return true;
-        case transcendental_op_kind::COS:
-            out.poly.push_back({ rational(1), 0 });
-            out.poly.push_back({ rational(-1, 2), 2 });
-            out.poly.push_back({ rational(1, 24), 4 });
-            out.poly.push_back({ rational(-1, 720), 6 });
-            out.poly.push_back({ rational(1, 40320), 8 });
-            out.remainder_coeff = rational(1, 3628800);
-            out.remainder_power = 10;
-            return true;
-        default:
+    // truncating their Maclaurin series after num_terms terms leaves a
+    // remainder bounded by |x|^p/p! for p the next power (p = last included
+    // power + 1 for sin, + 2 for cos). Both cases land on an even p (sin's
+    // last included power is odd, so +1 is even; cos's is already even, so
+    // +2 keeps it even): this makes remainder_coeff*x^remainder_power
+    // manifestly non-negative without needing |x|, so the sandwich can be
+    // asserted without a case split on the sign of x. num_terms == 5
+    // reproduces the fixed degree-9 (sin) / degree-8 (cos) sandwich this
+    // module started out with.
+    bool transcendentals::get_taylor(transcendental_op_kind op, unsigned num_terms, taylor_bounds& out) {
+        if (num_terms == 0)
             return false;
+        bool is_sin;
+        switch (op) {
+        case transcendental_op_kind::SIN: is_sin = true; break;
+        case transcendental_op_kind::COS: is_sin = false; break;
+        default: return false;
         }
+        out.poly.clear();
+        auto factorial = [](unsigned n) {
+            rational r(1);
+            for (unsigned k = 2; k <= n; ++k)
+                r *= rational(k);
+            return r;
+        };
+        unsigned last_power = 0;
+        for (unsigned i = 0; i < num_terms; ++i) {
+            unsigned power = is_sin ? 2 * i + 1 : 2 * i;
+            rational coeff = rational(1) / factorial(power);
+            if (i % 2 != 0)
+                coeff = -coeff;
+            out.poly.push_back({ coeff, power });
+            last_power = power;
+        }
+        out.remainder_power = last_power + (is_sin ? 1 : 2);
+        out.remainder_coeff = rational(1) / factorial(out.remainder_power);
+        return true;
+    }
+
+    // Picks the smallest Taylor degree (in the floating point sense; the
+    // eventual axiom is exact rational arithmetic, this is only a heuristic
+    // for choosing how many terms to bother with) that would exclude the
+    // observed faulty model (x, y): the sandwich guarantees op(x) is within
+    // rk of T_k(x), so if y is more than 2*rk away from T_k(x) it cannot lie
+    // in [T_k(x)-rk, T_k(x)+rk] and the axiom directly contradicts y.
+    unsigned transcendentals::degree_to_exclude(transcendental_op_kind op, double x, double y, unsigned max_terms) {
+        for (unsigned k = 1; k <= max_terms; ++k) {
+            taylor_bounds tb;
+            if (!get_taylor(op, k, tb))
+                return 0;
+            double tk = 0.0;
+            for (auto const& t : tb.poly)
+                tk += t.coeff.get_double() * std::pow(x, static_cast<int>(t.power));
+            double rk = tb.remainder_coeff.get_double() * std::pow(std::fabs(x), static_cast<int>(tb.remainder_power));
+            if (2.0 * rk < std::fabs(y - tk))
+                return k;
+        }
+        return 0; // |x| too large (or y too close to op(x)) for this to help
     }
 
     // A (non-certified) floating point enclosure of op over the box [lo,
@@ -265,7 +305,7 @@ namespace nla {
         return true;
     }
 
-    bool transcendentals::check_app(app const& a) {
+    bool transcendentals::check_app(app& a) {
         core& c = m_core;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
@@ -284,9 +324,22 @@ namespace nla {
         if (std::fabs(y - fx) <= err)
             return false; // consistent within tolerance
 
+        // A genuine delta-check failure: this is the only point at which
+        // it is worth paying for a Taylor sandwich axiom for this
+        // application at all. Bump (never lower) the recorded degree to
+        // just enough to exclude this specific faulty witness, so the next
+        // nra_solver invocation (bounded_nlsat or the main nra check) gets
+        // an axiom that actually rules the current (arg, val) assignment
+        // out, rather than an eagerly-asserted, possibly much higher degree
+        // polynomial that was never needed.
+        ++m_num_failures;
+        unsigned need = degree_to_exclude(a.op, x, y);
+        if (need > a.taylor_terms)
+            a.taylor_terms = need;
+
         TRACE(nla_solver, tout << op_name(a.op) << "(" << xr << ") = " << yr
                                << " but floating point evaluation gives " << fx
-                               << " +/- " << err << "\n";);
+                               << " +/- " << err << " (taylor_terms now " << a.taylor_terms << ")\n";);
 
         // First, try arg's *actual* known bounds in the LP (if both sides
         // are finite) as the box: unlike the tiny box below, this does not
@@ -372,8 +425,44 @@ namespace nla {
     void transcendentals::check() {
         if (m_apps.empty() || !m_core.params().arith_nl_transcendental())
             return;
-        for (auto const& a : m_apps)
+        for (auto& a : m_apps)
             if (check_app(a))
                 return; // one case split per round is enough
+    }
+
+    bool transcendentals::check_nra_model() {
+        core& c = m_core;
+        if (!c.use_nra_model())
+            return false;
+        double tolerance = c.params().arith_nl_transcendental_tolerance();
+        for (auto const& a : m_apps) {
+            // No axiom asserted for this application yet (it has never
+            // failed a delta-check): val is an opaque free real to nlsat,
+            // exactly as before Taylor axioms existed at all. Accepting
+            // that is no less sound than the established, already-tested
+            // behavior of trusting nra_solver's l_true together with just
+            // the unconditional range axioms; only tighten the check for
+            // applications that *do* have an accumulated axiom, where we
+            // can and should certify it is actually tight enough here.
+            if (a.taylor_terms == 0)
+                continue;
+            taylor_bounds tb;
+            if (!get_taylor(a.op, a.taylor_terms, tb))
+                continue; // no certified sandwich for this op: nothing to certify against
+            rational xlo, xhi;
+            c.nra_model_bound(a.arg, xlo, xhi);
+            rational xabs = std::max(abs(xlo), abs(xhi));
+            rational remainder = tb.remainder_coeff * xabs.expt(tb.remainder_power);
+            // the sandwich guarantees op(arg) lies within [-remainder,
+            // remainder] of T(arg); val, per the nlsat clauses added for
+            // this application, is itself within that same interval of
+            // T(arg) (it's a hard constraint on the witness), so |val -
+            // op(arg)| <= 2*remainder. Accept only if that is within the
+            // documented approximation tolerance already used elsewhere for
+            // transcendentals (arith.nl.transcendental_tolerance).
+            if (2 * remainder > to_rational(tolerance))
+                return false;
+        }
+        return true;
     }
 }

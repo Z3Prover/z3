@@ -224,6 +224,7 @@ public:
     void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) { m_divisions.add_divisibility(r, x, y, d); }
     void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
     transcendentals const& get_transcendentals() const { return m_transcendentals; }
+    transcendentals& get_transcendentals() { return m_transcendentals; }
     void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }
     lpvar add_mul_def(unsigned sz, lpvar const* vs) { SASSERT(m_add_mul_def_hook); lpvar v = m_add_mul_def_hook(sz, vs); add_monic(v, sz, vs); return v; }
 
@@ -406,6 +407,12 @@ public:
     bool has_real(const monic& m) const;
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
+    // Rational interval [lo, hi] enclosing v's algebraic-number witness in
+    // the most recent nra (nlsat) model; only meaningful when
+    // use_nra_model() is true. Unlike val(), which reads the plain LP
+    // column and is stale/unrelated once nlsat has run, this reads the
+    // actual nlsat witness via the algebraic number manager.
+    void nra_model_bound(lpvar v, rational& lo, rational& hi, unsigned precision = 64);
     vector<nla::lemma> const& lemmas() const { return m_lemmas; }
     vector<nla::ineq> const& literals() const { return m_literals; }
     vector<lp::equality> const& equalities() const { return m_equalities; }

@@ -902,6 +902,35 @@ lbool core::check(unsigned level) {
             m_transcendentals.check();
             if (!m_lemmas.empty() || !m_literals.empty())
                 return l_false;
+            // The delta-check alone can nudge the LP assignment indefinitely
+            // without ever producing a certificate. Each failed delta-check
+            // bumps the affected application's accumulated Taylor degree
+            // (nla_transcendentals.h), so periodically hand the problem to
+            // nlsat with those (permanent, necessary-condition) axioms:
+            // l_false is a sound proof of infeasibility on its own (the
+            // axioms are necessary conditions on val). l_true is only
+            // trusted once nla_transcendentals::check_nra_model certifies,
+            // using the actual algebraic witness, that every axiom is tight
+            // enough at that witness to accept as a model; this extra gate
+            // is applied here (rather than inside nra_solver itself) so it
+            // does not affect nra_solver's other, already-tuned call sites
+            // for problems that do have monomials to refine.
+            if (should_run_bounded_nlsat() && m_transcendentals.has_observed_failure()) {
+                lbool ret = bounded_nlsat();
+                if (ret == l_false)
+                    return l_false;
+                if (ret == l_true) {
+                    if (m_transcendentals.check_nra_model())
+                        return l_true;
+                    // Not tight enough to certify: don't report the
+                    // nlsat witness as a model; fall back to the plain
+                    // (pre-nlsat) assignment that already passed the
+                    // delta-check above, undoing bounded_nlsat's model
+                    // flag so the rest of the solver keeps reading the
+                    // ordinary LP assignment.
+                    set_use_nra_model(false);
+                }
+            }
         }
         m_squeeze_schedule.on_nothing_to_refine();
         return l_true;
@@ -1158,6 +1187,13 @@ void core::set_use_nra_model(bool m) {
         trail().push(value_trail(m_use_nra_model));
         m_use_nra_model = m;        
     }
+}
+
+void core::nra_model_bound(lpvar v, rational& lo, rational& hi, unsigned precision) {
+    nlsat::anum const& w = m_nra.value(v);
+    auto& am = m_nra.am();
+    am.get_lower(w, lo, precision);
+    am.get_upper(w, hi, precision);
 }
 
     

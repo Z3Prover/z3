@@ -222,19 +222,22 @@ struct solver::imp {
         return polynomial_ref(m_nlsat->pm().mk_const(r), m_nlsat->pm());
     }
 
-    // Injects the permanent Taylor-sandwich polynomial axioms (queried from
-    // nla::transcendentals) for every registered transcendental application
-    // into this one-shot nlsat instance: T(x) - R <= val <= T(x) + R, added
-    // directly as unconditional clauses (assumption = nullptr, matching the
-    // treatment of other structural definitions such as add_monic_eq/add_term,
-    // since these are mathematically true for all reals and never need to be
-    // cited as an explanation). Unlike the reactive box-refinement lemma in
-    // nla_transcendentals.cpp, this gives nlsat's own polynomial search an
-    // actual algebraic relationship between arg and val from the start.
+    // Injects the accumulated Taylor-sandwich polynomial axioms (queried
+    // from nla::transcendentals) for every registered transcendental
+    // application whose delta-check has actually observed a faulty model
+    // (app::taylor_terms > 0) into this one-shot nlsat instance: T(x) - R <=
+    // val <= T(x) + R, added directly as unconditional clauses (assumption =
+    // nullptr, matching the treatment of other structural definitions such
+    // as add_monic_eq/add_term, since these are mathematically true for all
+    // reals and never need to be cited as an explanation). Applications that
+    // have never failed a delta-check keep val as an opaque free real to
+    // nlsat, to keep the polynomial problem as small as nlsat actually needs.
     void add_transcendental_axioms() {
         for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            if (a.taylor_terms == 0)
+                continue;
             nla::transcendentals::taylor_bounds tb;
-            if (!nla::transcendentals::get_taylor(a.op, tb))
+            if (!nla::transcendentals::get_taylor(a.op, a.taylor_terms, tb))
                 continue;
             // polynomial::manager stores integer coefficients only, so the
             // rational Taylor coefficients (1/6, 1/120, ...) must be cleared
