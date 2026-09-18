@@ -577,19 +577,16 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                 }
                 else if (a.is_pi(n)) {
-                    // pi is a nullary transcendental constant: give it a tight,
-                    // exact-rational two-sided bound axiom directly (no
-                    // argument, so none of the sin/cos machinery -
-                    // registration with nla_transcendentals, argument-based
-                    // Taylor sandwiches - applies). The bounds below are
-                    // rationals strictly between the true (irrational) value
-                    // of pi and are tight enough (~1e-14) for typical
-                    // benchmarks that compare against pi or small rational
-                    // multiples of it.
-                    rational lo("3.14159265358979");
-                    rational hi("3.14159265358980");
-                    mk_axiom(mk_literal(a.mk_ge(n, a.mk_real(lo))));
-                    mk_axiom(mk_literal(a.mk_le(n, a.mk_real(hi))));
+                    // pi is a nullary transcendental constant: register it
+                    // with nla_transcendentals (which asserts the same
+                    // tight, exact-rational two-sided bound previously
+                    // asserted directly here) so other axioms in that
+                    // module - e.g. facts relating an argument range to
+                    // pi, rather than only to pi's numeric bound - can
+                    // refer to it directly via transcendentals::pi_var().
+                    ensure_nla();
+                    if (m_nla)
+                        m_nla->add_pi(register_theory_var_in_lar_solver(v));
                 }
                 else if (!a.is_div0(n)) {
                     found_unsupported(n);

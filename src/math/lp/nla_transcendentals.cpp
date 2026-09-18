@@ -77,6 +77,25 @@ namespace nla {
         }
     }
 
+    void transcendentals::add_pi(lpvar val) {
+        if (val == null_lpvar || m_pi_var != null_lpvar)
+            return;
+        m_core.trail().push(value_trail(m_pi_var, val));
+        m_pi_var = val;
+        // Same tight, exact-rational two-sided bound theory_lra used to
+        // assert directly on pi's term (see arith_solver/theory_lra's
+        // internalize_term): rationals strictly between the true
+        // (irrational) value of pi, tight enough (~1e-14) for typical
+        // benchmarks that compare against pi or small rational multiples
+        // of it. Asserted here (rather than only in theory_lra) so pi's
+        // range axiom lives alongside the other permanent range axioms in
+        // this module.
+        rational lo("3.14159265358979");
+        rational hi("3.14159265358980");
+        m_core.lra.add_var_bound(val, lp::lconstraint_kind::GE, lo);
+        m_core.lra.add_var_bound(val, lp::lconstraint_kind::LE, hi);
+    }
+
     // pi/2 and pi, each rounded outward (away from the true value) by more
     // than double's rounding error, so that using them as bounds never
     // excludes a value the corresponding function can actually attain.

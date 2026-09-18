@@ -228,6 +228,12 @@ namespace nla {
         vector<identity_pair> m_sin_cos_pairs;
         vector<identity_pair> m_cosh_sinh_pairs;
         vector<identity_pair> m_cosh_tanh_pairs;
+        // The lpvar theory_lra registered for the nullary constant pi, if
+        // any (null_lpvar otherwise); see add_pi. Exposed so future checks
+        // in this module (and nra_solver) can refer to pi directly, e.g. to
+        // express arg-range facts like "0 < arg < pi" symbolically instead
+        // of only via pi's already-asserted numeric bound.
+        lpvar m_pi_var = null_lpvar;
 
     public:
         transcendentals(core& c) : m_core(c) {}
@@ -235,6 +241,19 @@ namespace nla {
         // theory_lra registers (op_kind, input variable, output variable):
         // val is meant to represent op(arg).
         void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val);
+
+        // theory_lra registers the lpvar it created for the nullary
+        // constant pi. Unlike add_transcendental, there is no argument and
+        // no delta-check/Taylor-sandwich machinery applies (pi is not the
+        // output of a function of some other variable); this just asserts
+        // pi's permanent tight-rational range axiom (see add_range_axioms)
+        // and remembers the lpvar so other checks in this module can refer
+        // to pi directly. A no-op if val is null or pi has already been
+        // registered.
+        void add_pi(lpvar val);
+
+        // null_lpvar if theory_lra has not (yet) registered pi.
+        lpvar pi_var() const { return m_pi_var; }
 
         bool empty() const { return m_apps.empty(); }
 
