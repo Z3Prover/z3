@@ -345,12 +345,14 @@ static void test_recfun_finder() {
     quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
 
     base_dependent_expr_state st(m);
+    st.push();
     st.add(dependent_expr(m, q, nullptr, nullptr));
     expr_ref three(a.mk_int(3), m);
     expr_ref f3(m.mk_app(f, three.get()), m);
     st.add(dependent_expr(m, m.mk_not(m.mk_eq(f3, three)), nullptr, nullptr));
 
     recfun_finder rf(m, params_ref(), st);
+    rf.push();
     rf.reduce();
     st.flatten_suffix();
 
@@ -358,6 +360,8 @@ static void test_recfun_finder() {
     ENSURE(!is_quantifier(st[0].fml()));
     recfun::util ru(m);
     ENSURE(ru.has_defs());
+    st.pop(1);
+    ENSURE(!ru.has_defs());
 }
 
 void tst_simplifier() {
