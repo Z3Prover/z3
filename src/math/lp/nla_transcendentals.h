@@ -128,6 +128,19 @@ Description:
     exact and, when it applies, strictly stronger evidence than a
     locally-sampled enclosure.
 
+  - Sign-on-range lemmas: once pi is registered (see add_pi/pi_var), sin
+    and cos each satisfy an exact sign fact on a pi-relative range that
+    the floating point delta-check above cannot express as a *global*,
+    tolerance-free fact: sin(t) > 0 for 0 < t < pi and sin(t) < 0 for
+    -pi < t < 0; cos(t) > 0 for -pi/2 < t < pi/2 and cos(t) < 0 for pi/2
+    < t < 3pi/2 (the latter expressed via the doubled argument 2t vs
+    +/-pi, so no separate pi/2 variable is needed). Like the linear
+    majorant above this is asserted as an exact two-or-three-literal
+    lemma via lemma_builder - e.g. (arg <= 0 \/ arg >= pi \/ val > 0) -
+    referencing pi_var() symbolically rather than only its numeric
+    bound, and is tried with the same priority as the linear majorant,
+    before the floating point delta-check.
+
   - Wide-box refinement: when a delta-check does fail, check_app first
     tries to build the box-refinement lemma (see above) using arg's
     *actual currently known bounds* in the LP (lar_solver's column
@@ -332,6 +345,16 @@ namespace nla {
         // permanent single-column constant *bounds* added once in
         // add_range_axioms. Returns true iff a lemma was asserted.
         bool check_linear_majorant(app& a);
+        // For SIN: exact fact that sin > 0 on (0, pi) and sin < 0 on
+        // (-pi, 0) (derived symbolically from pi_var, not from pi's
+        // numeric bound, so it stays exact even though pi_var's own bound
+        // is only an outward-rounded rational approximation of pi). For
+        // COS: the analogous fact that cos > 0 on (-pi/2, pi/2) and cos <
+        // 0 on (pi/2, 3pi/2), expressed via the doubled argument (2*arg
+        // vs +/-pi) so no separate pi/2 variable is needed. A no-op
+        // (returns false) if pi has not been registered (pi_var() ==
+        // null_lpvar) or a.op is neither SIN nor COS.
+        bool check_sign_on_pi_range(app& a);
         // Smallest number of Taylor terms (1..max_terms) such that the
         // (floating point estimate of the) resulting sandwich at x
         // provably excludes y, i.e. would contradict the faulty model

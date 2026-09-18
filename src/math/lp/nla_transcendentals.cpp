@@ -397,9 +397,72 @@ namespace nla {
         return false;
     }
 
+    bool transcendentals::check_sign_on_pi_range(app& a) {
+        if (m_pi_var == null_lpvar)
+            return false;
+        if (a.op != transcendental_op_kind::SIN && a.op != transcendental_op_kind::COS)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        rational const& yr = c.val(a.val);
+        rational const& pr = c.val(m_pi_var);
+
+        if (a.op == transcendental_op_kind::SIN) {
+            // sin(t) > 0 for 0 < t < pi.
+            if (xr.is_pos() && xr < pr && !yr.is_pos()) {
+                lp::lar_term diff(rational(1), a.arg, rational(-1), m_pi_var); // arg - pi
+                lemma_builder lemma(c, "transcendental sign: sin(arg) > 0 on (0, pi)");
+                lemma |= ineq(a.arg, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(diff, lp::lconstraint_kind::GE, rational(0));
+                lemma |= ineq(a.val, lp::lconstraint_kind::GT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+            // sin(t) < 0 for -pi < t < 0.
+            if (xr.is_neg() && xr > -pr && !yr.is_neg()) {
+                lp::lar_term sum(rational(1), a.arg, rational(1), m_pi_var); // arg + pi
+                lemma_builder lemma(c, "transcendental sign: sin(arg) < 0 on (-pi, 0)");
+                lemma |= ineq(a.arg, lp::lconstraint_kind::GE, rational(0));
+                lemma |= ineq(sum, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(a.val, lp::lconstraint_kind::LT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+            return false;
+        }
+
+        // COS: use the doubled argument 2*arg vs +/-pi so no separate
+        // pi/2 variable is needed.
+        // cos(t) > 0 for -pi/2 < t < pi/2, i.e. -pi < 2t < pi.
+        if (2 * xr > -pr && 2 * xr < pr && !yr.is_pos()) {
+            lp::lar_term lo_term(rational(2), a.arg, rational(1), m_pi_var);  // 2*arg + pi
+            lp::lar_term hi_term(rational(2), a.arg, rational(-1), m_pi_var); // 2*arg - pi
+            lemma_builder lemma(c, "transcendental sign: cos(arg) > 0 on (-pi/2, pi/2)");
+            lemma |= ineq(lo_term, lp::lconstraint_kind::LE, rational(0));
+            lemma |= ineq(hi_term, lp::lconstraint_kind::GE, rational(0));
+            lemma |= ineq(a.val, lp::lconstraint_kind::GT, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        // cos(t) < 0 for pi/2 < t < 3pi/2, i.e. pi < 2t < 3pi.
+        if (2 * xr > pr && 2 * xr < 3 * pr && !yr.is_neg()) {
+            lp::lar_term lo_term(rational(2), a.arg, rational(-1), m_pi_var); // 2*arg - pi
+            lp::lar_term hi_term(rational(2), a.arg, rational(-3), m_pi_var); // 2*arg - 3*pi
+            lemma_builder lemma(c, "transcendental sign: cos(arg) < 0 on (pi/2, 3pi/2)");
+            lemma |= ineq(lo_term, lp::lconstraint_kind::LE, rational(0));
+            lemma |= ineq(hi_term, lp::lconstraint_kind::GE, rational(0));
+            lemma |= ineq(a.val, lp::lconstraint_kind::LT, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        return false;
+    }
+
     bool transcendentals::check_app(app& a) {
         core& c = m_core;
         if (check_linear_majorant(a))
+            return true;
+        if (check_sign_on_pi_range(a))
             return true;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
