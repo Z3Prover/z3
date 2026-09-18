@@ -26,18 +26,18 @@ jobs:
   - task: CopyFiles@2
     displayName: 'Collect Symbols'
     inputs:
-      sourceFolder: dist
-      contents: '**/*.pdb'
+      sourceFolder: build-dist/${{parameters.BuildArchitecture}}/
+      contents: '*.pdb'
       targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
   - task: DeleteFiles@1
     displayName: Cleanup
     inputs:
-      SourceFolder: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      SourceFolder: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Contents: 'CodeSignSummary*'
   - task: ArchiveFiles@2
     displayName: Zip
     inputs:
-      rootFolderOrFile: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
+      rootFolderOrFile: 'build-dist/${{parameters.BuildArchitecture}}/dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
       includeRootFolder: true
       archiveType: 'zip'
       archiveFile: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'

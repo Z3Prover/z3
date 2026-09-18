@@ -6,31 +6,18 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Bootstrap and Build the Repository
 
-Z3 supports multiple build systems. **ALWAYS** use one of these validated approaches:
-
-#### Option 1: Python Build System (Recommended for most use cases)
-- `python scripts/mk_make.py` -- takes 7 seconds to configure
-- `cd build && make -j$(nproc)` -- takes 15 minutes to complete. **NEVER CANCEL**. Set timeout to 30+ minutes.
-
-#### Option 2: CMake Build System (Recommended for integration)
-- Clean source tree first if you previously used Python build: `git clean -fx src/`
+Z3 is built with CMake:
 - `cmake -S . -B build` -- takes 1 second to configure
 - `cmake --build build --parallel $(nproc)` -- takes 17 minutes to complete. **NEVER CANCEL**. Set timeout to 30+ minutes.
 
 #### Dependencies and Requirements
-- Python 3.x (required for both build systems)
+- Python 3.x (required to run CMake's code generation scripts)
 - C++20 capable compiler (g++ or clang++)
-- GNU Make
 - Git (for version information)
 
 ### Test the Repository
 
-**Python Build System:**
-- Build unit tests: `make test` -- takes 3.5 minutes to compile. **NEVER CANCEL**. Set timeout to 10+ minutes.
-- Run unit tests: `./test-z3 /a` -- takes 16 seconds. **NEVER CANCEL**. Set timeout to 5+ minutes.
-
-**CMake Build System:**
-- Build unit tests: `make test-z3` -- takes 4 minutes to compile. **NEVER CANCEL**. Set timeout to 10+ minutes.
+- Build unit tests: `cmake --build build --target test-z3 --parallel $(nproc)` -- takes 4 minutes to compile. **NEVER CANCEL**. Set timeout to 10+ minutes.
 - Run unit tests: `./test-z3 /a` -- takes 16 seconds. **NEVER CANCEL**. Set timeout to 5+ minutes.
 
 **Test basic Z3 functionality:**
@@ -68,26 +55,17 @@ Should display version and usage information.
 
 ## Build System Details
 
-### Python Build System
-- Configuration: `python scripts/mk_make.py` (7 seconds)
-- Main build: `cd build && make -j$(nproc)` (15 minutes)
-- Test build: `make test` (3.5 minutes)
-- Generates build files in `build/` directory
-- Creates Python bindings in `build/python/`
-- **Warning**: Generates files in source tree that must be cleaned before using CMake
-
-### CMake Build System  
-- Clean first: `git clean -fx src/` (if switching from Python build)
+### CMake Build System
 - Configuration: `cmake -S . -B build` (1 second)
 - Main build: `cmake --build build --parallel $(nproc)` (17 minutes)
-- **Advantages**: Clean build tree, no source pollution, better for integration
-- **Recommended for**: IDE integration, package management, deployment
+- Creates Python bindings in `build/python/` when `-DZ3_BUILD_PYTHON_BINDINGS=ON` is set
+- Out-of-source build: clean build tree, no source pollution
 
 ### Critical Timing and Timeout Requirements
 
 **NEVER CANCEL these operations**:
-- `make -j$(nproc)` builds: 15-17 minutes. **Set timeout to 30+ minutes minimum**.
-- `make test` or `make test-z3` compilation: 3.5-4 minutes. **Set timeout to 10+ minutes**.
+- `cmake --build build --parallel $(nproc)`: 15-17 minutes. **Set timeout to 30+ minutes minimum**.
+- `cmake --build build --target test-z3` compilation: 3.5-4 minutes. **Set timeout to 10+ minutes**.
 - Unit test execution: 16 seconds. **Set timeout to 5+ minutes**.
 
 **Always wait for completion**. Z3 is a complex theorem prover with extensive code generation and builds may appear to hang but are actually progressing.
@@ -103,10 +81,8 @@ Should display version and usage information.
 
 ### Important Files
 - `README.md` - Main documentation and build instructions
-- `README-CMake.md` - Detailed CMake build documentation  
-- `configure` - Wrapper script around `scripts/mk_make.py`
+- `README-CMake.md` - Detailed CMake build documentation
 - `CMakeLists.txt` - Main CMake configuration
-- `scripts/mk_make.py` - Python build system entry point
 
 ## Common Tasks and Validation
 
@@ -122,20 +98,16 @@ Before committing changes:
 - **C/C++**: Examples in `examples/c/` and `examples/c++/`
   - Compile C++ example: `g++ -I src/api -I src/api/c++ examples/c++/example.cpp -L build -lz3 -o test_example`
   - Run with: `LD_LIBRARY_PATH=build ./test_example`
-- **Java**: Build with `python scripts/mk_make.py --java`, examples in `examples/java/`
-- **C#/.NET**: Build with `python scripts/mk_make.py --dotnet`, examples in `examples/dotnet/`
+- **Java**: Build with `cmake -S . -B build -DZ3_BUILD_JAVA_BINDINGS=ON`, examples in `examples/java/`
+- **C#/.NET**: Build with `cmake -S . -B build -DZ3_BUILD_DOTNET_BINDINGS=ON`, examples in `examples/dotnet/`
 
 ### Performance Testing
 For performance-sensitive changes:
-- Build optimized: `python scripts/mk_make.py` (Release mode by default)
+- Build optimized: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release` (Release mode)
 - Test with realistic SMT problems from `examples/SMT-LIB2/`
 - Use Z3's built-in statistics: `z3 -st problem.smt2`
 
 ## Common Issues and Solutions
-
-### Build System Conflicts
-- **Error**: CMake complains about polluted source tree
-- **Solution**: Run `git clean -fx src/` to remove Python build artifacts
 
 ### Python Import Errors
 - **Error**: `import z3` fails
@@ -148,7 +120,7 @@ For performance-sensitive changes:
 ### Long Build Times
 - **Normal**: 15-17 minute builds are expected for Z3
 - **Never cancel**: Set timeouts appropriately and wait for completion
-- **Optimization**: Use `make -j$(nproc)` for parallel compilation
+- **Optimization**: Use `cmake --build build --parallel $(nproc)` for parallel compilation
 
 ## Key Projects in Codebase
 
