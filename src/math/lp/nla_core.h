@@ -73,6 +73,7 @@ class core {
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
+    lbool check_transcendentals_and_finish();
 
     var_eqs<emonics>         m_evars;
 
