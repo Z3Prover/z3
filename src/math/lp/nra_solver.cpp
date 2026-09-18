@@ -54,7 +54,7 @@ struct solver::imp {
         m_nla_core(nla_core) {}
 
     bool need_check() {
-        return m_nla_core.m_to_refine.size() != 0;
+        return m_nla_core.m_to_refine.size() != 0 || !m_nla_core.get_transcendentals().empty();
     }
 
     void reset() {
@@ -222,6 +222,57 @@ struct solver::imp {
         return polynomial_ref(m_nlsat->pm().mk_const(r), m_nlsat->pm());
     }
 
+    // Injects the permanent Taylor-sandwich polynomial axioms (queried from
+    // nla::transcendentals) for every registered transcendental application
+    // into this one-shot nlsat instance: T(x) - R <= val <= T(x) + R, added
+    // directly as unconditional clauses (assumption = nullptr, matching the
+    // treatment of other structural definitions such as add_monic_eq/add_term,
+    // since these are mathematically true for all reals and never need to be
+    // cited as an explanation). Unlike the reactive box-refinement lemma in
+    // nla_transcendentals.cpp, this gives nlsat's own polynomial search an
+    // actual algebraic relationship between arg and val from the start.
+    void add_transcendental_axioms() {
+        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            nla::transcendentals::taylor_bounds tb;
+            if (!nla::transcendentals::get_taylor(a.op, tb))
+                continue;
+            // polynomial::manager stores integer coefficients only, so the
+            // rational Taylor coefficients (1/6, 1/120, ...) must be cleared
+            // of denominators first; scale is a common multiple of all of
+            // them (and of val's implicit coefficient 1), so multiplying the
+            // whole inequality by it preserves its direction and meaning.
+            rational scale(1);
+            for (auto const& term : tb.poly)
+                scale = lcm(scale, denominator(term.coeff));
+            scale = lcm(scale, denominator(tb.remainder_coeff));
+
+            polynomial::polynomial_ref x = var(a.arg);
+            polynomial::polynomial_ref t(m_nlsat->pm());
+            bool first = true;
+            for (auto const& term : tb.poly) {
+                polynomial::polynomial_ref p = constant(scale * term.coeff);
+                for (unsigned i = 0; i < term.power; ++i)
+                    p = mul(p.get(), x.get());
+                t = first ? p : (t + p);
+                first = false;
+            }
+            polynomial::polynomial_ref r = constant(scale * tb.remainder_coeff);
+            for (unsigned i = 0; i < tb.remainder_power; ++i)
+                r = mul(r.get(), x.get());
+            polynomial::polynomial_ref scaled_val = mul(constant(scale).get(), var(a.val).get());
+            polynomial::polynomial_ref diff = sub(scaled_val.get(), t.get());
+            // scale*val - T'(x) - R' <= 0  and  scale*val - T'(x) + R' >= 0
+            // (T', R' are T, R scaled by `scale` to be integral).
+            add_axiom(sub(diff.get(), r.get()).get(), lp::lconstraint_kind::LE);
+            add_axiom((diff + r).get(), lp::lconstraint_kind::GE);
+        }
+    }
+
+    void add_axiom(polynomial::polynomial* p, lp::lconstraint_kind k) {
+        nlsat::literal lit = mk_literal(p, k);
+        m_nlsat->mk_clause(1, &lit, nullptr);
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -241,6 +292,7 @@ struct solver::imp {
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
+        add_transcendental_axioms();
 
         TRACE(nra, m_nlsat->display(tout));
 

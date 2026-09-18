@@ -38,6 +38,19 @@ namespace nla {
           }
       }
 
+      // Transcendental applications (sin(x), cos(x), ...) are not monomials
+      // or lar_solver terms, so without this they would never be reachable
+      // by the occurs-graph traversal below: seed both the argument and the
+      // output variable of every registered application directly, so any
+      // linear constraint that mentions either one (e.g. an assertion on
+      // sin(x), or the Taylor-sandwich axiom nra_solver adds relating val to
+      // arg) gets pulled into the COI, and nra_solver's setup_solver_poly
+      // creates nlsat variables/definitions for them.
+      for (auto const& a : c.get_transcendentals().apps()) {
+          todo.push_back(a.arg);
+          todo.push_back(a.val);
+      }
+
       for (const auto *t :  lra.terms() ) {
           for (auto const iv : *t) {
               auto v = iv.j();

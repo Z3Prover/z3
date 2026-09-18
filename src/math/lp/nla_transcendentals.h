@@ -120,13 +120,35 @@ namespace nla {
     };
 
     class transcendentals {
-
+    public:
         struct app {
             transcendental_op_kind op;
             lpvar                  arg;
             lpvar                  val;
         };
 
+        // A Maclaurin (Taylor-at-0) polynomial sandwich for a transcendental
+        // op: T(x) = sum(coeff * x^power), sound over all reals (not just a
+        // local box) via the Lagrange remainder, i.e.
+        //   T(x) - remainder_coeff*x^remainder_power <= op(x) <= T(x) + remainder_coeff*x^remainder_power
+        // remainder_power is always even (see nla_transcendentals.cpp for the
+        // derivation), so the remainder term is manifestly non-negative and
+        // no case split on the sign of x is needed. Consumers (nra_solver)
+        // use this to inject a permanent polynomial axiom relating val and
+        // arg directly into the nlsat problem, giving nlsat's polynomial
+        // search an actual algebraic connection between the two instead of
+        // treating val as an opaque, unconstrained real.
+        struct taylor_term {
+            rational coeff;
+            unsigned power;
+        };
+        struct taylor_bounds {
+            vector<taylor_term> poly;
+            rational            remainder_coeff;
+            unsigned            remainder_power;
+        };
+
+    private:
         core&         m_core;
         vector<app>   m_apps;
 
@@ -138,6 +160,12 @@ namespace nla {
         void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val);
 
         bool empty() const { return m_apps.empty(); }
+
+        vector<app> const& apps() const { return m_apps; }
+
+        // fills out a Taylor sandwich for op; returns false if none is
+        // available yet (currently implemented for SIN and COS only).
+        static bool get_taylor(transcendental_op_kind op, taylor_bounds& out);
 
         // delta-check every registered application against the current
         // assignment; asserts a box-refinement lemma via lemma_builder

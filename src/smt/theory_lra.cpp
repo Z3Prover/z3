@@ -3701,7 +3701,7 @@ public:
     void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
         if (idx == UINT_MAX) 
             return;        
-        switch (m_constraint_sources[idx]) {
+        switch (m_constraint_sources.get(idx, null_source)) {
         case inequality_source: {
             literal lit = m_inequalities[idx];
             SASSERT(lit != null_literal);
@@ -3719,6 +3719,13 @@ public:
             // skip definitions (these are treated as hard constraints)
             break;
         }
+        case null_source:
+            // idx has no theory_lra-tracked source: a genuine, permanent
+            // fact asserted directly against lar_solver by an nla_core
+            // sub-module (e.g. nla_transcendentals' range axioms) rather
+            // than derived from a boolean literal/equality. There is
+            // nothing to explain back to the SAT core.
+            break;
         default:
             UNREACHABLE();
             break;

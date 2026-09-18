@@ -161,6 +161,42 @@ namespace nla {
         return r;
     }
 
+    // Maclaurin (Taylor-at-0) polynomial sandwiches, sound for every real x
+    // (not just a local box) via Lagrange's remainder theorem: sin and cos
+    // are entire with all derivatives bounded by 1 in absolute value, so
+    // truncating their Maclaurin series after the x^9 (sin) / x^8 (cos) term
+    // leaves a remainder bounded by |x|^10/10!. Both series are extended one
+    // order further than their last nonzero term (sin's x^10 coefficient,
+    // cos's x^9 coefficient, are both 0) purely so the remainder's exponent
+    // is even: this makes remainder_coeff*x^remainder_power manifestly
+    // non-negative without needing |x|, so the sandwich can be asserted
+    // without a case split on the sign of x.
+    bool transcendentals::get_taylor(transcendental_op_kind op, taylor_bounds& out) {
+        out.poly.clear();
+        switch (op) {
+        case transcendental_op_kind::SIN:
+            out.poly.push_back({ rational(1), 1 });
+            out.poly.push_back({ rational(-1, 6), 3 });
+            out.poly.push_back({ rational(1, 120), 5 });
+            out.poly.push_back({ rational(-1, 5040), 7 });
+            out.poly.push_back({ rational(1, 362880), 9 });
+            out.remainder_coeff = rational(1, 3628800);
+            out.remainder_power = 10;
+            return true;
+        case transcendental_op_kind::COS:
+            out.poly.push_back({ rational(1), 0 });
+            out.poly.push_back({ rational(-1, 2), 2 });
+            out.poly.push_back({ rational(1, 24), 4 });
+            out.poly.push_back({ rational(-1, 720), 6 });
+            out.poly.push_back({ rational(1, 40320), 8 });
+            out.remainder_coeff = rational(1, 3628800);
+            out.remainder_power = 10;
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // A (non-certified) floating point enclosure of op over the box [lo,
     // hi]: samples op at both endpoints, then inflates the resulting range
     // by error_bound so that small deviations from monotonicity within the
