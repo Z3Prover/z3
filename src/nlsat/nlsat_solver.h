@@ -255,6 +255,21 @@ namespace nlsat {
 
         lbool check(literal_vector& assumptions);
 
+        /**
+           \brief Decide whether feasible values of x approach bound from below,
+           or are unbounded above when bound is null.
+
+           Project satisfying regions onto x and cover them until a feasible
+           interval reaches the limit or no feasible values remain. A finite
+           limit need not be an upper bound of the original problem.
+
+           Requires an incremental solver with x == 0 and no active reordering.
+           Integer variables return l_undef. Resource exceptions propagate.
+           Temporary clauses are retracted on exit, including on cancellation;
+           the previous model and unsat core are invalidated.
+        */
+        lbool check_limit(var x, anum const* bound = nullptr);
+
         //
         // check satisfiability of asserted formulas relative to state of the nlsat solver.
         // produce either,

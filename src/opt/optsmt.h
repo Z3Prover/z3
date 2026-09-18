@@ -40,7 +40,8 @@ namespace opt {
         symbol           m_optsmt_engine;
         unsigned         m_bisect_rounds = 64;
         bool             m_optsmt_nlsat = true;
-        expr_ref_vector  m_exact;         // exact (possibly algebraic) optimum per objective, null if none
+        unsigned         m_nlsat_supremum_rlimit = 100000;
+        expr_ref_vector  m_exact;         // exact finite part; open limits also carry -epsilon in the bounds
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
@@ -65,6 +66,10 @@ namespace opt {
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
         expr*   get_exact(unsigned index) const { return m_exact.get(index); }
+        // A finite, unattained limit certified by the nlsat-cell engine.
+        bool    has_open_bound(unsigned index) const {
+            return m_exact.get(index) && !get_lower(index).get_infinitesimal().is_zero();
+        }
         void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
 
@@ -104,4 +109,3 @@ namespace opt {
     };
 
 }
-

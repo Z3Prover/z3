@@ -3,7 +3,8 @@ def_module_params('opt',
                   export=True,
                   params=(('optsmt_engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'symba'"),
                           ('optsmt_bisect_rounds', UINT, 64, 'maximal number of solver calls spent bisecting the interval between the best model value and the refuted arithmetic bound of a real-valued objective (e.g. under nonlinear constraints); when exhausted the objective is reported as unknown with that interval'),
-                          ('optsmt_nlsat', BOOL, True, 'optimize real objectives under nonlinear constraints exactly over nlsat cells (algebraic optima print as root-obj; unboundedness proven by nlqsat queries under an escalating rlimit budget)'),
+                          ('optsmt_nlsat', BOOL, True, 'optimize real objectives under nonlinear constraints exactly over nlsat cells (algebraic optima print as root-obj; unboundedness proven by native nlsat projection under an escalating rlimit budget)'),
+                          ('optsmt_nlsat_supremum_rlimit', UINT, 100000, 'resource limit for certifying finite open suprema with native nlsat projection (0 disables the extra check)'),
                           ('pareto_nlsat', BOOL, True, 'enumerate Pareto fronts of pure NRA problems over an nlsat-backed solver, comparing objectives against exact algebraic model values instead of rounded isolating-interval endpoints'),
                           ('pareto_nlsat_reuse', BOOL, True, 'reuse nlsat clauses across Pareto checks on polynomial real problems; false keeps the exact solver that starts each check from scratch'),
                           ('pareto_nlsat_max_lemmas', UINT, 128, 'maximum number of independent learned clauses retained between Pareto climbs; shorter clauses are preferred'),
@@ -36,6 +37,4 @@ def_module_params('opt',
                           ('maxres.pivot_on_correction_set', BOOL, True, 'reduce soft constraints if the current correction set is smaller than current core')
 
                           ))
-
-
 

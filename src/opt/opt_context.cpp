@@ -540,6 +540,17 @@ namespace opt {
             warning_msg("unbounded objectives on quantified constraints is not supported");
             return l_undef;
         }
+        if (result == l_true && m_optsmt.has_open_bound(index)) {
+            if (committed && m_objectives.size() > 1) {
+                // A later lex objective cannot be optimized by fixing the
+                // earlier objective to an unattainable real value.
+                m_opt_solver->set_reason_unknown("later lexicographic objectives after an unattained nonlinear optimum are not supported");
+                result = l_undef;
+            }
+            // A single objective also requests a commitment, but there is
+            // no following objective and no real assignment at this limit.
+            committed = false;
+        }
         if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
         if (result == l_undef) {
             // best model found so far, e.g. the lower end of a reported interval.
@@ -1718,7 +1729,10 @@ namespace opt {
             display_objective(out, obj);
             expr_ref exact = get_exact(i);
             if (exact) {
-                out << " " << exact;
+                inf_eps bound = get_lower_as_num(i);
+                // Display attained values as numerals and include the
+                // infinitesimal component for an open limit.
+                out << " " << (bound.get_infinitesimal().is_zero() ? exact : to_expr(bound, exact));
             }
             else if (get_lower_as_num(i) != get_upper_as_num(i)) {
                 out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
@@ -1782,16 +1796,12 @@ namespace opt {
 
     expr_ref context::get_lower(unsigned idx) {
         expr_ref exact = get_exact(idx);
-        if (exact && m_arith.is_irrational_algebraic_numeral(exact))
-            return exact;
-        return to_expr(get_lower_as_num(idx));
+        return to_expr(get_lower_as_num(idx), exact);
     }
 
     expr_ref context::get_upper(unsigned idx) {
         expr_ref exact = get_exact(idx);
-        if (exact && m_arith.is_irrational_algebraic_numeral(exact))
-            return exact;
-        return to_expr(get_upper_as_num(idx));
+        return to_expr(get_upper_as_num(idx), exact);
     }
 
     void context::to_exprs(inf_eps const& n, expr* exact, expr_ref_vector& es) {
@@ -1799,17 +1809,17 @@ namespace opt {
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
-        // Rational optima keep their existing numeral sorts. Only replace
-        // the rational bracket when an irrational value is certified.
+        // Use the certified irrational finite part when present. Otherwise,
+        // integral rationals use Int numerals and fractions use Real numerals.
         es.push_back(exact && m_arith.is_irrational_algebraic_numeral(exact) ?
                      exact : m_arith.mk_numeral(r, r.is_int()));
         es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
     }
 
     /**
-       \brief The exact value of an arithmetic objective when the optsmt
-       engine established it as an algebraic number (nlsat cells), adjusted
-       for minimization and offsets; null otherwise.
+       \brief The exact finite part of an arithmetic objective established
+       by nlsat cells, adjusted for minimization and offsets; null otherwise.
+       For an open limit, its infinitesimal is carried by the numeric bounds.
     */
     expr_ref context::get_exact(unsigned idx) {
         if (idx >= m_objectives.size())
@@ -1831,12 +1841,13 @@ namespace opt {
         return r;
     }
 
-    expr_ref context::to_expr(inf_eps const& n) {
+    expr_ref context::to_expr(inf_eps const& n, expr* exact) {
         rational inf = n.get_infinity();
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         expr_ref_vector args(m);
-        bool is_int = eps.is_zero() && r.is_int();
+        bool algebraic = exact && m_arith.is_irrational_algebraic_numeral(exact);
+        bool is_int = !algebraic && eps.is_zero() && r.is_int();
         if (!inf.is_zero()) {
             expr* oo = m.mk_const(symbol("oo"), is_int ? m_arith.mk_int() : m_arith.mk_real());
             if (inf.is_one()) {
@@ -1846,7 +1857,10 @@ namespace opt {
                 args.push_back(m_arith.mk_mul(m_arith.mk_numeral(inf, is_int), oo));
             }
         }
-        if (!r.is_zero()) {
+        if (algebraic) {
+            args.push_back(exact);
+        }
+        else if (!r.is_zero()) {
             args.push_back(m_arith.mk_numeral(r, is_int));
         }
         if (!eps.is_zero()) {
