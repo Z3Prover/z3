@@ -36,6 +36,10 @@ namespace nla {
         m_core->add_divisibility(r, x, y, d);
     }
 
+    void solver::add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) {
+        m_core->add_transcendental(op, arg, val);
+    }
+
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
         m_core->set_relevant(is_relevant);
     }

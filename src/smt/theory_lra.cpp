@@ -538,6 +538,44 @@ class theory_lra::imp {
                     for (expr* arg : *to_app(n))
                         st.to_ensure_var().push_back(arg);                    
                 }
+                else if (a.is_sin(n, n1) || a.is_cos(n, n1) || a.is_tan(n, n1) ||
+                         a.is_sinh(n, n1) || a.is_cosh(n, n1) || a.is_tanh(n, n1) ||
+                         a.is_asin(n, n1) || a.is_acos(n, n1) || a.is_atan(n, n1) ||
+                         a.is_asinh(n, n1) || a.is_acosh(n, n1) || a.is_atanh(n, n1)) {
+                    // theory_lra treats sin/cos/etc. as underspecified/uninterpreted
+                    // (nlsat/nra_solver have no representation for transcendental
+                    // functions), but register (op, arg, val) with the nla_core
+                    // end-game checker (nla_transcendentals.h), which can flag an
+                    // assignment as inconsistent using floating point evaluation
+                    // even though the core arithmetic solvers cannot. Deliberately
+                    // not calling found_unsupported(n) here: that would add n to
+                    // m_not_handled, whose only handler (eval_unsupported) returns
+                    // FC_GIVEUP for anything that isn't a power term, forcing the
+                    // whole final_check to give up even when nla_core's delta-check
+                    // found the current assignment consistent - which would make it
+                    // impossible to ever report sat for a satisfiable formula
+                    // containing a transcendental application.
+                    ensure_nla();
+                    if (m_nla) {
+                        nla::transcendental_op_kind op;
+                        if (a.is_sin(n))        op = nla::transcendental_op_kind::SIN;
+                        else if (a.is_cos(n))   op = nla::transcendental_op_kind::COS;
+                        else if (a.is_tan(n))   op = nla::transcendental_op_kind::TAN;
+                        else if (a.is_sinh(n))  op = nla::transcendental_op_kind::SINH;
+                        else if (a.is_cosh(n))  op = nla::transcendental_op_kind::COSH;
+                        else if (a.is_tanh(n))  op = nla::transcendental_op_kind::TANH;
+                        else if (a.is_asin(n))  op = nla::transcendental_op_kind::ASIN;
+                        else if (a.is_acos(n))  op = nla::transcendental_op_kind::ACOS;
+                        else if (a.is_atan(n))  op = nla::transcendental_op_kind::ATAN;
+                        else if (a.is_asinh(n)) op = nla::transcendental_op_kind::ASINH;
+                        else if (a.is_acosh(n)) op = nla::transcendental_op_kind::ACOSH;
+                        else                    op = nla::transcendental_op_kind::ATANH;
+                        internalize_term(to_app(n1));
+                        theory_var x = mk_var(n1);
+                        m_nla->add_transcendental(op, register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(v));
+                    }
+                    st.to_ensure_var().push_back(n1);
+                }
                 else if (!a.is_div0(n)) {
                     found_unsupported(n);
                 }

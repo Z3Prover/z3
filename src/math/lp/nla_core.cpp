@@ -37,6 +37,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_monomial_bounds(this),
     m_patcher(this),
     m_explanations(this),
+    m_transcendentals(*this),
     m_horner(this),
     m_grobner(this),
     m_emons(m_evars),
@@ -555,6 +556,8 @@ bool core::rm_check(const monic& rm) const {
 }
 
 bool core::has_relevant_monomial() const {
+    if (!m_transcendentals.empty())
+        return true;
     return any_of(emons(), [&](auto const& m) { return is_relevant(m.var()); });
 }
     
@@ -892,6 +895,14 @@ lbool core::check(unsigned level) {
     m_patcher.patch_monomials();
     set_use_nra_model(false);
     if (m_to_refine.empty()) {
+        // Even without nonlinear monomials to refine, registered transcendental
+        // function applications (sin/cos/etc.) still need a delta-consistency
+        // check against the current assignment.
+        if (!m_transcendentals.empty()) {
+            m_transcendentals.check();
+            if (!m_lemmas.empty() || !m_literals.empty())
+                return l_false;
+        }
         m_squeeze_schedule.on_nothing_to_refine();
         return l_true;
     }
@@ -941,6 +952,9 @@ lbool core::check(unsigned level) {
         if (m_nla_satisfied)
             return l_true;
     }
+
+    if (no_effect() && !m_transcendentals.empty())
+        m_transcendentals.check();
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
         scoped_limits sl(m_reslim);

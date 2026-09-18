@@ -39,6 +39,7 @@ z3_add_component(lp
     nla_solver.cpp
     nla_tangent_lemmas.cpp
     nla_throttle.cpp
+    nla_transcendentals.cpp
     nra_solver.cpp    
     permutation_matrix.cpp
     random_updater.cpp      

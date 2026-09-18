@@ -141,6 +141,7 @@ struct statistics {
     unsigned m_bounds_tightening_conflicts = 0;
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
+    unsigned m_nla_transcendental_splits = 0;
 
     ::statistics m_st = {};
 
@@ -183,6 +184,7 @@ struct statistics {
         st.update("arith-dio-state-resets", m_dio_state_resets);
         st.update("arith-bounds-tightening-conflicts", m_bounds_tightening_conflicts);
         st.update("arith-bounds-tightenings", m_bounds_tightenings);
+        st.update("arith-nla-transcendental-splits", m_nla_transcendental_splits);
         st.update("arith-nla-throttled-lemmas", m_nla_throttled_lemmas);
         st.copy(m_st);
     }

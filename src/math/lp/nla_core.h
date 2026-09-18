@@ -32,6 +32,7 @@
 #include "math/lp/nla_backoff.h"
 #include "math/lp/nla_patcher.h"
 #include "math/lp/nla_explanations.h"
+#include "math/lp/nla_transcendentals.h"
 
 namespace nra {
     class solver;
@@ -65,6 +66,7 @@ class core {
     friend class divisions;
     friend class patcher;
     friend class explanations;
+    friend class transcendentals;
 
     backoff  m_nlsat_backoff;
     unsigned m_check_assignment_fail_cnt = 0;
@@ -94,6 +96,7 @@ class core {
     monomial_bounds          m_monomial_bounds;
     patcher                  m_patcher;
     explanations             m_explanations;
+    transcendentals          m_transcendentals;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     // set when bound optimization re-calibrates m_to_refine to empty: every
@@ -219,6 +222,7 @@ public:
     void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_rdivision(q, x, y, r); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_bounded_division(q, x, y, r); }
     void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) { m_divisions.add_divisibility(r, x, y, d); }
+    void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
     void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }
     lpvar add_mul_def(unsigned sz, lpvar const* vs) { SASSERT(m_add_mul_def_hook); lpvar v = m_add_mul_def_hook(sz, vs); add_monic(v, sz, vs); return v; }
 

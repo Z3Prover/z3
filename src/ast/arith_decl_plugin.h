@@ -322,6 +322,8 @@ public:
     bool is_sin(expr const* n) const { return is_app_of(n, arith_family_id, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, arith_family_id, OP_COS); }
     bool is_tan(expr const* n) const { return is_app_of(n, arith_family_id, OP_TAN); }
+    bool is_sinh(expr const* n) const { return is_app_of(n, arith_family_id, OP_SINH); }
+    bool is_cosh(expr const* n) const { return is_app_of(n, arith_family_id, OP_COSH); }
     bool is_tanh(expr const* n) const { return is_app_of(n, arith_family_id, OP_TANH); }
     bool is_asin(expr const* n) const { return is_app_of(n, arith_family_id, OP_ASIN); }
     bool is_acos(expr const* n) const { return is_app_of(n, arith_family_id, OP_ACOS); }
@@ -335,6 +337,8 @@ public:
         return is_sin(n) ||
             is_cos(n) ||
             is_tan(n) ||
+            is_sinh(n) ||
+            is_cosh(n) ||
             is_tanh(n) || 
             is_asin(n) ||
             is_acos(n) ||
@@ -379,6 +383,9 @@ public:
     MATCH_UNARY(is_tan);
     MATCH_UNARY(is_atan);
     MATCH_UNARY(is_atanh);
+    MATCH_UNARY(is_sinh);
+    MATCH_UNARY(is_cosh);
+    MATCH_UNARY(is_tanh);
     END_DISABLE_WARNING;
 
 };
