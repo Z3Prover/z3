@@ -94,6 +94,27 @@ Description:
     immediately prune the search space rather than waiting for an
     inconsistent sample to be found first.
 
+  - Cross-application identity axioms: when two applications of
+    complementary ops share the *same argument variable* (structurally,
+    not merely equal in the current model), an exact polynomial
+    relation between their two output variables holds for every real
+    value of that argument, with no remainder/error term at all (unlike
+    the Taylor sandwich, which is only ever an enclosure). These are
+    asserted unconditionally and permanently by nra_solver as soon as
+    the second application of a matching pair is registered:
+      - sin(t), cos(t):   sin(t)^2 + cos(t)^2 = 1
+      - sinh(t), cosh(t): cosh(t)^2 - sinh(t)^2 = 1
+      - cosh(t), tanh(t): cosh(t)^2 * (1 - tanh(t)^2) = 1
+        (derived from tanh = sinh/cosh and the cosh/sinh identity above;
+        expressed without needing sinh(t) to be registered at all, and
+        safe unconditionally since cosh(t) >= 1 is never 0, unlike e.g.
+        cos(t)*tan(t) = sin(t), which would be unsound to assert
+        unconditionally since cos(t) can be 0)
+    Only the *same lpvar* case is detected (e.g. literally sin(x) and
+    cos(x) for the same term x, as internalized); two arguments that
+    merely happen to be equal in the current model, or are equal via a
+    separately-asserted equality constraint, are not linked this way.
+
   - Wide-box refinement: when a delta-check does fail, check_app first
     tries to build the box-refinement lemma (see above) using arg's
     *actual currently known bounds* in the LP (lar_solver's column
@@ -175,10 +196,25 @@ namespace nla {
             unsigned            remainder_power;
         };
 
+        // A pair of output variables of two applications with the same
+        // (structural) argument, related by an exact polynomial identity
+        // (see module comment); consumed by nra_solver to assert the
+        // corresponding permanent equality axiom.
+        struct identity_pair {
+            lpvar v1;
+            lpvar v2;
+        };
+
     private:
         core&         m_core;
         vector<app>   m_apps;
         unsigned      m_num_failures = 0;
+        // (sin_val, cos_val), (cosh_val, sinh_val), (cosh_val, tanh_val)
+        // pairs found so far via matching arguments; see add_transcendental
+        // and the module comment for the identities these enable.
+        vector<identity_pair> m_sin_cos_pairs;
+        vector<identity_pair> m_cosh_sinh_pairs;
+        vector<identity_pair> m_cosh_tanh_pairs;
 
     public:
         transcendentals(core& c) : m_core(c) {}
@@ -190,6 +226,15 @@ namespace nla {
         bool empty() const { return m_apps.empty(); }
 
         vector<app> const& apps() const { return m_apps; }
+
+        // Cross-application identity pairs discovered so far (see the
+        // identity_pair doc comment and the module-level comment on
+        // cross-application identity axioms); consumed by nra_solver to
+        // assert sin(t)^2+cos(t)^2=1, cosh(t)^2-sinh(t)^2=1, and
+        // cosh(t)^2*(1-tanh(t)^2)=1 respectively.
+        vector<identity_pair> const& sin_cos_pairs() const { return m_sin_cos_pairs; }
+        vector<identity_pair> const& cosh_sinh_pairs() const { return m_cosh_sinh_pairs; }
+        vector<identity_pair> const& cosh_tanh_pairs() const { return m_cosh_tanh_pairs; }
 
         // fills out a Taylor sandwich using num_terms terms of the Maclaurin
         // series for op; returns false if none is available yet (currently

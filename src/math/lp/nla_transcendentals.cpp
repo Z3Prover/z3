@@ -39,6 +39,42 @@ namespace nla {
         m_apps.push_back(a);
         m_core.trail().push(push_back_vector(m_apps));
         add_range_axioms(op, val);
+
+        // Look for a previously-registered application with the same
+        // (structural) argument and a complementary op, to record an exact
+        // cross-application identity pair (see the module comment). Only
+        // considers apps registered *before* this one to avoid recording
+        // the same pair twice if this function is ever called again for
+        // the same (op, arg).
+        for (unsigned i = 0; i + 1 < m_apps.size(); ++i) {
+            app const& other = m_apps[i];
+            if (other.arg != arg)
+                continue;
+            if (op == transcendental_op_kind::SIN && other.op == transcendental_op_kind::COS) {
+                m_sin_cos_pairs.push_back({ val, other.val });
+                m_core.trail().push(push_back_vector(m_sin_cos_pairs));
+            }
+            else if (op == transcendental_op_kind::COS && other.op == transcendental_op_kind::SIN) {
+                m_sin_cos_pairs.push_back({ other.val, val });
+                m_core.trail().push(push_back_vector(m_sin_cos_pairs));
+            }
+            else if (op == transcendental_op_kind::SINH && other.op == transcendental_op_kind::COSH) {
+                m_cosh_sinh_pairs.push_back({ other.val, val });
+                m_core.trail().push(push_back_vector(m_cosh_sinh_pairs));
+            }
+            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::SINH) {
+                m_cosh_sinh_pairs.push_back({ val, other.val });
+                m_core.trail().push(push_back_vector(m_cosh_sinh_pairs));
+            }
+            else if (op == transcendental_op_kind::TANH && other.op == transcendental_op_kind::COSH) {
+                m_cosh_tanh_pairs.push_back({ other.val, val });
+                m_core.trail().push(push_back_vector(m_cosh_tanh_pairs));
+            }
+            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::TANH) {
+                m_cosh_tanh_pairs.push_back({ val, other.val });
+                m_core.trail().push(push_back_vector(m_cosh_tanh_pairs));
+            }
+        }
     }
 
     // pi/2 and pi, each rounded outward (away from the true value) by more

@@ -271,6 +271,41 @@ struct solver::imp {
         }
     }
 
+    // Injects the exact cross-application identity axioms recorded in
+    // nla::transcendentals (see its module comment and identity_pair):
+    // sin(t)^2+cos(t)^2=1, cosh(t)^2-sinh(t)^2=1, and
+    // cosh(t)^2*(1-tanh(t)^2)=1. Unlike the Taylor sandwich these have no
+    // remainder term - they hold exactly for every real t - so they are
+    // asserted the moment a matching pair is found (nla_transcendentals.cpp)
+    // and always included here, regardless of whether either application
+    // has ever failed a delta-check.
+    void add_identity_axioms() {
+        auto const& tr = m_nla_core.get_transcendentals();
+        for (auto const& pr : tr.sin_cos_pairs()) {
+            // sin^2 + cos^2 - 1 = 0
+            polynomial::polynomial_ref s = var(pr.v1);
+            polynomial::polynomial_ref c = var(pr.v2);
+            polynomial::polynomial_ref eq = mul(s.get(), s.get()) + mul(c.get(), c.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+        for (auto const& pr : tr.cosh_sinh_pairs()) {
+            // cosh^2 - sinh^2 - 1 = 0
+            polynomial::polynomial_ref ch = var(pr.v1);
+            polynomial::polynomial_ref sh = var(pr.v2);
+            polynomial::polynomial_ref eq = mul(ch.get(), ch.get()) - mul(sh.get(), sh.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+        for (auto const& pr : tr.cosh_tanh_pairs()) {
+            // cosh^2 - cosh^2*tanh^2 - 1 = 0  (i.e. cosh^2*(1-tanh^2) = 1)
+            polynomial::polynomial_ref ch = var(pr.v1);
+            polynomial::polynomial_ref th = var(pr.v2);
+            polynomial::polynomial_ref ch2 = mul(ch.get(), ch.get());
+            polynomial::polynomial_ref th2 = mul(th.get(), th.get());
+            polynomial::polynomial_ref eq = ch2 - mul(ch2.get(), th2.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+    }
+
     void add_axiom(polynomial::polynomial* p, lp::lconstraint_kind k) {
         nlsat::literal lit = mk_literal(p, k);
         m_nlsat->mk_clause(1, &lit, nullptr);
@@ -296,6 +331,7 @@ struct solver::imp {
 
 	    setup_solver_poly();
         add_transcendental_axioms();
+        add_identity_axioms();
 
         TRACE(nra, m_nlsat->display(tout));
 
