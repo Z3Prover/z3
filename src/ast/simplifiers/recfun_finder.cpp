@@ -225,12 +225,16 @@ void recfun_finder::find_recfuns_core() {
     }
 
     obj_map<func_decl, unsigned> sym2c;
-    for (unsigned i = 0; i < cands.size(); ++i) {
-        if (ambiguous.contains(cands[i].head->get_decl()))
+    unsigned i = 0;
+    for (auto& cand : cands) {
+        if (ambiguous.contains(cand.head->get_decl())) {
+            ++i;
             continue;
-        sym2c.insert(cands[i].head->get_decl(), i);
-        if (cands[i].mirror)
-            sym2c.insert(cands[i].mirror, i);
+        }
+        sym2c.insert(cand.head->get_decl(), i);
+        if (cand.mirror)
+            sym2c.insert(cand.mirror, i);
+        ++i;
     }
 
     unsigned n = cands.size();
