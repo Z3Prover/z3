@@ -224,6 +224,7 @@ void recfun_finder::find_recfuns_core() {
         IF_VERBOSE(11, verbose_stream() << "(recfun-finder :candidate " << f->get_name() << (mirror ? " :mirror " : "") << (mirror ? mirror->get_name().str() : std::string()) << ")\n";);
     }
 
+    unsigned n = cands.size();
     obj_map<func_decl, unsigned> sym2c;
     unsigned i = 0;
     for (auto& cand : cands) {
@@ -237,7 +238,6 @@ void recfun_finder::find_recfuns_core() {
         ++i;
     }
 
-    unsigned n = cands.size();
     vector<unsigned_vector> succ(n);
     for (unsigned i = 0; i < n; ++i) {
         if (ambiguous.contains(cands[i].head->get_decl()))
