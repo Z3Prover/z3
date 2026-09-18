@@ -287,9 +287,10 @@ namespace recfun {
 
                     expr* cond = nullptr, *th = nullptr, *el = nullptr; 
                     if (m.is_ite(e, cond, th, el) && contains_def(u, cond)) {
-                        // skip
+                        // the test contains a recursive call: this is not a case split,
+                        // the ite is kept as a term of the case body
                     }
-                    if (m.is_ite(e, cond, th, el) && !contains_def(u, th) && !contains_def(u, el)) {
+                    else if (m.is_ite(e, cond, th, el) && !contains_def(u, th) && !contains_def(u, el)) {
                         // skip
                     }
                     else if (m.is_ite(e)) {
