@@ -227,14 +227,16 @@ void recfun_finder::find_recfuns_core() {
             for (unsigned k = 0; same && k < ga->get_num_args(); ++k)
                 same = ga->get_arg(k) == head_app->get_arg(k);
             recfun::def& gd = ru.get_def(ga->get_decl());
-            if (same && gd.get_rhs() && gd.get_vars().size() == ga->get_num_args()) {
-                unsigned max_idx = 0;
-                for (var* v : gd.get_vars())
-                    max_idx = std::max(max_idx, v->get_idx() + 1);
+            unsigned nv = gd.get_vars().size();
+            // the variables of a recfun definition are exactly the de Bruijn indices 0..nv-1
+            bool canonical = nv == ga->get_num_args();
+            for (unsigned k = 0; canonical && k < nv; ++k)
+                canonical = gd.get_vars()[k]->get_idx() < nv;
+            if (same && canonical && gd.get_rhs()) {
+                // substitute the mirror's k-th argument for the definition's k-th variable
                 expr_ref_vector sub(m);
-                for (unsigned k = 0; k < max_idx; ++k)
-                    sub.push_back(m.mk_var(k, m.mk_bool_sort()));
-                for (unsigned k = 0; k < ga->get_num_args(); ++k)
+                sub.resize(nv);
+                for (unsigned k = 0; k < nv; ++k)
                     sub[gd.get_vars()[k]->get_idx()] = ga->get_arg(k);
                 var_subst vs(m, false);
                 d = vs(gd.get_rhs(), sub.size(), sub.data());
