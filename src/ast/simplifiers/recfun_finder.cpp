@@ -149,6 +149,8 @@ bool recfun_finder::has_quantifier() const {
 }
 
 void recfun_finder::reduce() {
+    if (m.proofs_enabled())
+        return;
     apply_aliases();
     if (has_quantifier())
         find_recfuns_core();
@@ -187,15 +189,14 @@ void recfun_finder::find_recfuns_core() {
         bool neg = m.is_not(n, n);
         if (m.is_eq(n, a, b) && (!neg || m.is_bool(a))) {
             if (m_macro_util.is_macro_head(a, nd))
-                head = to_app(a), defr = neg ? m.mk_not(b) : expr_ref(b, m);
+                head = to_app(a), defr = neg ? m.mk_not(b) : b;
             else if (m_macro_util.is_macro_head(b, nd))
-                head = to_app(b), defr = neg ? m.mk_not(a) : expr_ref(a, m);
+                head = to_app(b), defr = neg ? m.mk_not(a) : a;
         }
         if (!head) {
             app_ref ahead(m);
             expr_ref adef(m);
-            bool inv = false;
-            if (!neg && m_macro_util.is_arith_macro(n, nd, ahead, adef, inv))
+            if (!neg && m_macro_util.is_arith_macro(n, nd, ahead, adef))
                 head = ahead, defr = adef;
         }
         if (!head) {
