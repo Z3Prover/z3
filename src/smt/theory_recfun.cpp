@@ -241,9 +241,26 @@ namespace smt {
         return lit;
     }
 
+
+    // lambdas are quantifier nodes, but they are first-class array terms for the
+    // solver; only forall/exists need to be tunnelled through a fresh Boolean.
+    static bool has_real_quantifiers(expr* e) {
+        if (!has_quantifiers(e))
+            return false;
+        struct proc {
+            bool m_found = false;
+            void operator()(quantifier* q) { if (!is_lambda(q)) m_found = true; }
+            void operator()(app*) {}
+            void operator()(var*) {}
+        };
+        proc p;
+        for_each_expr(p, e);
+        return p.m_found;
+    }
+
     literal theory_recfun::mk_eq_lit(expr* l, expr* r) {
         literal lit;
-        if (has_quantifiers(l) || has_quantifiers(r)) {
+        if (has_real_quantifiers(l) || has_real_quantifiers(r)) {
             expr_ref eq1(m.mk_eq(l, r), m);
             expr_ref fn(m.mk_fresh_const("rec-eq", m.mk_bool_sort()), m);
             expr_ref eq(m.mk_eq(fn, eq1), m);
@@ -378,7 +395,7 @@ namespace smt {
         unsigned depth = get_depth(e.m_pred);
         expr_ref lhs(u().mk_fun_defined(d, args), m);
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
-        if (has_quantifiers(rhs)) {
+        if (has_real_quantifiers(rhs)) {
             expr_ref fn(m.mk_fresh_const("rec-eq", m.mk_bool_sort()), m);
             expr_ref eq(m.mk_eq(fn, rhs), m);
             ctx.assert_expr(eq);
