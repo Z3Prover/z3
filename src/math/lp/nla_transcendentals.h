@@ -115,6 +115,19 @@ Description:
     merely happen to be equal in the current model, or are equal via a
     separately-asserted equality constraint, are not linked this way.
 
+  - Global linear-majorant lemmas: sin, tanh, and atan all satisfy
+    op(0) = 0 and are 1-Lipschitz, so none of them can cross the line
+    y = x: op(t) <= t for every t >= 0, and op(t) >= t for every t <= 0.
+    Unlike range axioms, this relates val to arg (not a single column
+    to a constant) and unlike a permanent bound it need not always
+    hold trivially against the current box, so it is asserted as an
+    actual (exact, tolerance-free) two-literal lemma via lemma_builder
+    - e.g. (arg < 0 \/ val <= arg) - rather than as a column bound.
+    check_app tries this check (check_linear_majorant) *before* the
+    floating point delta-check/box-refinement lemma above, since it is
+    exact and, when it applies, strictly stronger evidence than a
+    locally-sampled enclosure.
+
   - Wide-box refinement: when a delta-check does fail, check_app first
     tries to build the box-refinement lemma (see above) using arg's
     *actual currently known bounds* in the LP (lar_solver's column
@@ -282,6 +295,24 @@ namespace nla {
 
     private:
         bool check_app(app& a);
+        // True for op such that op(0) = 0 and op is 1-Lipschitz (sin,
+        // tanh, atan): each then satisfies the *exact*, global (not just
+        // locally-around-the-current-point) fact op(x) <= x for x >= 0 and
+        // op(x) >= x for x <= 0, since op cannot cross the line y = x
+        // without its slope exceeding 1 somewhere. Unlike the reactive
+        // Taylor-sandwich box-refinement lemma (whose reach and tightness
+        // depend on floating point evaluation and an accumulated degree),
+        // this is exact rational arithmetic and holds unconditionally, so
+        // check_app tries it with priority, before falling back to the
+        // Taylor sandwich.
+        static bool has_linear_majorant(transcendental_op_kind op);
+        // Checks the fact from has_linear_majorant against the current
+        // assignment and, on violation, asserts it as a two-literal lemma
+        // (arg's sign disjunct, or val <= arg / val >= arg) - a global
+        // inequality *lemma* relating val to arg, in contrast to the
+        // permanent single-column constant *bounds* added once in
+        // add_range_axioms. Returns true iff a lemma was asserted.
+        bool check_linear_majorant(app& a);
         // Smallest number of Taylor terms (1..max_terms) such that the
         // (floating point estimate of the) resulting sandwich at x
         // provably excludes y, i.e. would contradict the faulty model

@@ -341,8 +341,47 @@ namespace nla {
         return true;
     }
 
+    bool transcendentals::has_linear_majorant(transcendental_op_kind op) {
+        switch (op) {
+        case transcendental_op_kind::SIN:
+        case transcendental_op_kind::TANH:
+        case transcendental_op_kind::ATAN:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    bool transcendentals::check_linear_majorant(app& a) {
+        if (!has_linear_majorant(a.op))
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        rational const& yr = c.val(a.val);
+        // val - arg, used as the two-variable term for the "val <= arg" /
+        // "val >= arg" literal below.
+        lp::lar_term diff(rational(1), a.val, rational(-1), a.arg);
+        if (xr.is_nonneg() && yr > xr) {
+            lemma_builder lemma(c, "transcendental linear majorant: arg negative or val <= arg");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, rational(0));
+            lemma |= ineq(diff, lp::lconstraint_kind::LE, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        if (xr.is_nonpos() && yr < xr) {
+            lemma_builder lemma(c, "transcendental linear majorant: arg positive or val >= arg");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, rational(0));
+            lemma |= ineq(diff, lp::lconstraint_kind::GE, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        return false;
+    }
+
     bool transcendentals::check_app(app& a) {
         core& c = m_core;
+        if (check_linear_majorant(a))
+            return true;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
         double x = xr.get_double();
