@@ -597,6 +597,59 @@ namespace nla {
         return true;
     }
 
+    bool transcendentals::check_exp_taylor_range(app& a) {
+        if (a.op != transcendental_op_kind::EXP)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        // Restrict to x in [-1, 0]: there exp(x) = sum x^n/n! is a genuine
+        // alternating series (term_n = x^n/n!, sign (-1)^n since x <= 0)
+        // whose magnitude |x|^n/n! is non-increasing from n = 0 onward
+        // (ratio |x|/(n+1) <= 1 already at n = 0, since |x| <= 1), so by
+        // the alternating series estimation theorem every pair of
+        // consecutive partial sums S_k, S_{k+1} brackets the true value:
+        // min(S_k, S_{k+1}) <= exp(x) <= max(S_k, S_{k+1}). This closes a
+        // gap that check_exp_lower_bound (only the k=1 tangent-line bound,
+        // exp(x) >= 1+x) leaves open: near x = 0 the tangent bound alone
+        // permits exp(x) to be set arbitrarily far above its true value
+        // without tripping any lemma, which can flip the sign of an
+        // otherwise-infeasible inequality whose margin vanishes as x -> 0.
+        // (For x > 0 the series terms don't alternate - the partial sums
+        // only increase monotonically towards exp(x) - so this bracket
+        // does not apply there; only check_exp_lower_bound/monotonicity
+        // constrain that side.)
+        if (xr < rational(-1) || xr > rational(0))
+            return false;
+        rational const& yr = c.val(a.val);
+        constexpr unsigned k_terms = 40;
+        rational term(1); // x^0 / 0!
+        rational sum(0);
+        rational lo = sum, hi = sum;
+        for (unsigned k = 0; k < k_terms; ++k) {
+            rational next = sum + term;
+            lo = std::min(sum, next);
+            hi = std::max(sum, next);
+            sum = next;
+            term = term * xr / rational(k + 1);
+        }
+        if (yr >= lo && yr <= hi)
+            return false; // already consistent with the bracket.
+        if (yr < lo) {
+            lemma_builder lemma(c, "transcendental exp Maclaurin lower bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+        }
+        else {
+            lemma_builder lemma(c, "transcendental exp Maclaurin upper bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+        }
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
     bool transcendentals::check_atan2(atan2_app& a) {
         core& c = m_core;
         rational const& yr = c.val(a.y);
@@ -650,6 +703,8 @@ namespace nla {
         if (check_sign_on_pi_range(a))
             return true;
         if (check_exp_lower_bound(a))
+            return true;
+        if (check_exp_taylor_range(a))
             return true;
         if (check_exp_monotonicity(a))
             return true;

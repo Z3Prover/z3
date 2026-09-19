@@ -402,6 +402,15 @@ namespace nla {
         // below). Asserted as a single-literal lemma (no case split
         // needed, since it holds for every t) whenever violated.
         bool check_exp_lower_bound(app& a);
+        // EXP: an exact rational Maclaurin sandwich for exp(arg), valid
+        // only while -1 <= arg <= 0 (there exp's series is a genuine
+        // alternating series with non-increasing term magnitude from the
+        // first term onward), using the same classical alternating-series
+        // bracket idea as check_atan_taylor_range. This closes a gap that
+        // check_exp_lower_bound alone leaves open near arg = 0, where the
+        // tangent-line bound permits exp(arg) to be set arbitrarily far
+        // above its true value.
+        bool check_exp_taylor_range(app& a);
         // EXP: monotonicity - exp(x1) < exp(x2) whenever x1 < x2. Checked
         // pairwise across all registered EXP applications (the paper's
         // "Monotonicity constraint"); asserted as a two-literal lemma

@@ -921,6 +921,18 @@ lbool core::check_transcendentals_and_finish() {
             // ordinary LP assignment.
             set_use_nra_model(false);
         }
+        else {
+            // bounded_nlsat gave up (resource limit) rather than
+            // certifying l_true or refuting with l_false. The plain
+            // delta-check above only guarantees the witness is within
+            // a small floating point tolerance of the true
+            // transcendental value; for problems whose true answer
+            // hinges on a margin finer than that tolerance (the exact
+            // reason bounded_nlsat was invoked to begin with), trusting
+            // it here would silently launder an unresolved case into a
+            // (potentially unsound) "sat". Report unknown instead.
+            return l_undef;
+        }
     }
     return l_true;
 }
