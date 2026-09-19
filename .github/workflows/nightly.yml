@@ -323,7 +323,7 @@ jobs:
       - name: Build
         run: |
           eval $(opam config env)
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_OCAML_BINDINGS=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_BUILD_OCAML_BINDINGS=ON
           cmake --build build --parallel $(nproc)
           cmake --build build --target test-z3 --parallel $(nproc)
 
