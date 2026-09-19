@@ -241,12 +241,15 @@ void test_symbol_escape() {
     std::cout << "testing Z3_eval_smtlib2_string\n";
 
     try {
+        // Per the SMT-LIB 2.5+ standard, quoted symbols support no escape
+        // mechanism: '|' always terminates the token and '\' is not a
+        // legal character inside a quoted symbol (it must be rejected).
         test_name(SYMBOL_ASSERTION("|a|"), "a");
         test_name(SYMBOL_ASSERTION("|a\\|"), nullptr);
-        test_name(SYMBOL_ASSERTION("|a\\||"), "a|");
-        test_name(SYMBOL_ASSERTION("|a\\\\|"), "a\\");
+        test_name(SYMBOL_ASSERTION("|a\\||"), nullptr);
+        test_name(SYMBOL_ASSERTION("|a\\\\|"), nullptr);
         test_name(SYMBOL_ASSERTION("|a\\\\||"), nullptr);
-        test_name(SYMBOL_ASSERTION("|a\\a|"), "a\\a");
+        test_name(SYMBOL_ASSERTION("|a\\a|"), nullptr);
         test_name(SYMBOL_ASSERTION("|a\\a"), nullptr);
     }
     catch(...) {
