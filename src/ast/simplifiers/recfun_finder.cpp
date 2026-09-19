@@ -451,8 +451,7 @@ void recfun_finder::find_recfuns_core() {
         unsigned nargs = c.head->get_num_args();
         expr_ref_vector sub(m);
         var_ref_vector vars(m);
-        for (unsigned k = 0; k < nargs; ++k)
-            sub.push_back(nullptr);
+        sub.resize(nargs);
         for (unsigned k = 0; k < nargs; ++k) {
             var* v = to_var(c.head->get_arg(k));
             var* w = m.mk_var(nargs - 1 - k, v->get_sort());
