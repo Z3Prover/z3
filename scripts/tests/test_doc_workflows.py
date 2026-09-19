@@ -4,7 +4,6 @@
 # Unit tests for documentation workflow configuration.
 ############################################
 from pathlib import Path
-import re
 import unittest
 
 
@@ -13,10 +12,18 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 class TestDocWorkflows(unittest.TestCase):
     def _ubuntu_doc_job(self, workflow):
-        text = (_REPO_ROOT / ".github" / "workflows" / workflow).read_text()
-        match = re.search(r"^  ubuntu-doc:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:|\Z)", text, re.MULTILINE | re.DOTALL)
-        self.assertIsNotNone(match, f"{workflow} should define an ubuntu-doc job")
-        return match.group("body")
+        lines = (_REPO_ROOT / ".github" / "workflows" / workflow).read_text().splitlines()
+        try:
+            start = lines.index("  ubuntu-doc:") + 1
+        except ValueError:
+            self.fail(f"{workflow} should define an ubuntu-doc job")
+
+        body = []
+        for line in lines[start:]:
+            if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
+                break
+            body.append(line)
+        return "\n".join(body)
 
     def test_ubuntu_doc_builds_python_bindings_for_z3py_docs(self):
         for workflow in ("nightly.yml", "release.yml"):
