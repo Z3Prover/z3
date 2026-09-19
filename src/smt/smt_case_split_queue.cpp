@@ -1264,6 +1264,7 @@ namespace smt {
         case CS_ACTIVITY_WITH_CACHE:
             return alloc(cact_case_split_queue, ctx, p);
         case CS_RELEVANCY:
+            // Preserve compatibility for F* queries; see issue #10863.
             return alloc(dact_case_split_queue, ctx, p);
         case CS_RELEVANCY_ACTIVITY:
             return alloc(rel_act_case_split_queue, ctx, p);
@@ -1271,6 +1272,8 @@ namespace smt {
             return alloc(rel_goal_case_split_queue, ctx, p);
         case CS_ACTIVITY_THEORY_AWARE_BRANCHING:
             return alloc(theory_aware_branching_queue, ctx, p);
+        case CS_RELEVANCY_LEGACY:
+            return alloc(rel_case_split_queue, ctx, p);
         default:
             return alloc(act_case_split_queue, ctx, p);
         }
