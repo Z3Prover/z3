@@ -538,6 +538,75 @@ class theory_lra::imp {
                     for (expr* arg : *to_app(n))
                         st.to_ensure_var().push_back(arg);                    
                 }
+                else if (a.is_sin(n, n1) || a.is_cos(n, n1) || a.is_tan(n, n1) ||
+                         a.is_sinh(n, n1) || a.is_cosh(n, n1) || a.is_tanh(n, n1) ||
+                         a.is_asin(n, n1) || a.is_acos(n, n1) || a.is_atan(n, n1) ||
+                         a.is_asinh(n, n1) || a.is_acosh(n, n1) || a.is_atanh(n, n1) ||
+                         a.is_exp(n, n1)) {
+                    // theory_lra treats sin/cos/etc. as underspecified/uninterpreted
+                    // (nlsat/nra_solver have no representation for transcendental
+                    // functions), but register (op, arg, val) with the nla_core
+                    // end-game checker (nla_transcendentals.h), which can flag an
+                    // assignment as inconsistent using floating point evaluation
+                    // even though the core arithmetic solvers cannot. Deliberately
+                    // not calling found_unsupported(n) here: that would add n to
+                    // m_not_handled, whose only handler (eval_unsupported) returns
+                    // FC_GIVEUP for anything that isn't a power term, forcing the
+                    // whole final_check to give up even when nla_core's delta-check
+                    // found the current assignment consistent - which would make it
+                    // impossible to ever report sat for a satisfiable formula
+                    // containing a transcendental application.
+                    ensure_nla();
+                    if (m_nla) {
+                        nla::transcendental_op_kind op;
+                        if (a.is_sin(n))        op = nla::transcendental_op_kind::SIN;
+                        else if (a.is_cos(n))   op = nla::transcendental_op_kind::COS;
+                        else if (a.is_tan(n))   op = nla::transcendental_op_kind::TAN;
+                        else if (a.is_sinh(n))  op = nla::transcendental_op_kind::SINH;
+                        else if (a.is_cosh(n))  op = nla::transcendental_op_kind::COSH;
+                        else if (a.is_tanh(n))  op = nla::transcendental_op_kind::TANH;
+                        else if (a.is_asin(n))  op = nla::transcendental_op_kind::ASIN;
+                        else if (a.is_acos(n))  op = nla::transcendental_op_kind::ACOS;
+                        else if (a.is_atan(n))  op = nla::transcendental_op_kind::ATAN;
+                        else if (a.is_asinh(n)) op = nla::transcendental_op_kind::ASINH;
+                        else if (a.is_acosh(n)) op = nla::transcendental_op_kind::ACOSH;
+                        else if (a.is_atanh(n)) op = nla::transcendental_op_kind::ATANH;
+                        else                    op = nla::transcendental_op_kind::EXP;
+                        internalize_term(to_app(n1));
+                        theory_var x = mk_var(n1);
+                        m_nla->add_transcendental(op, register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(v));
+                    }
+                    st.to_ensure_var().push_back(n1);
+                }
+                else if (a.is_atan2(n, n1, n2)) {
+                    // atan2(y, x): a genuine binary transcendental (no native
+                    // OP_ATAN elaboration applies here, since the two
+                    // arguments play structurally different roles - see
+                    // nla_transcendentals::add_atan2). Registered separately
+                    // from the unary add_transcendental family above.
+                    ensure_nla();
+                    if (m_nla) {
+                        internalize_term(to_app(n1));
+                        internalize_term(to_app(n2));
+                        theory_var y = mk_var(n1);
+                        theory_var x = mk_var(n2);
+                        m_nla->add_atan2(register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(v));
+                    }
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);
+                }
+                else if (a.is_pi(n)) {
+                    // pi is a nullary transcendental constant: register it
+                    // with nla_transcendentals (which asserts the same
+                    // tight, exact-rational two-sided bound previously
+                    // asserted directly here) so other axioms in that
+                    // module - e.g. facts relating an argument range to
+                    // pi, rather than only to pi's numeric bound - can
+                    // refer to it directly via transcendentals::pi_var().
+                    ensure_nla();
+                    if (m_nla)
+                        m_nla->add_pi(register_theory_var_in_lar_solver(v));
+                }
                 else if (!a.is_div0(n)) {
                     found_unsupported(n);
                 }
@@ -3663,7 +3732,7 @@ public:
     void set_evidence(lp::constraint_index idx, literal_vector& core, svector<enode_pair>& eqs) {
         if (idx == UINT_MAX) 
             return;        
-        switch (m_constraint_sources[idx]) {
+        switch (m_constraint_sources.get(idx, null_source)) {
         case inequality_source: {
             literal lit = m_inequalities[idx];
             SASSERT(lit != null_literal);
@@ -3681,6 +3750,13 @@ public:
             // skip definitions (these are treated as hard constraints)
             break;
         }
+        case null_source:
+            // idx has no theory_lra-tracked source: a genuine, permanent
+            // fact asserted directly against lar_solver by an nla_core
+            // sub-module (e.g. nla_transcendentals' range axioms) rather
+            // than derived from a boolean literal/equality. There is
+            // nothing to explain back to the SAT core.
+            break;
         default:
             UNREACHABLE();
             break;

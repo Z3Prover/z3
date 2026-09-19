@@ -216,6 +216,8 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_UNARY(m_asinh_decl, "asinh", OP_ASINH, r);
     MK_UNARY(m_acosh_decl, "acosh", OP_ACOSH, r);
     MK_UNARY(m_atanh_decl, "atanh", OP_ATANH, r);
+    MK_UNARY(m_exp_decl, "exp", OP_EXP, r);
+    MK_OP(m_atan2_decl, "atan2", OP_ATAN2, r);
 
     func_decl * pi_decl = m->mk_const_decl(symbol("pi"), r, func_decl_info(id, OP_PI));
     m_pi = m->mk_const(pi_decl);
@@ -334,6 +336,8 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_asinh_decl);
     DEC_REF(m_acosh_decl);
     DEC_REF(m_atanh_decl);
+    DEC_REF(m_exp_decl);
+    DEC_REF(m_atan2_decl);
     DEC_REF(m_pi);
     DEC_REF(m_e);
     DEC_REF(m_neg_root_decl);
@@ -391,6 +395,8 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_ASINH:     return m_asinh_decl;
     case OP_ACOSH:     return m_acosh_decl;
     case OP_ATANH:     return m_atanh_decl;
+    case OP_EXP:       return m_exp_decl;
+    case OP_ATAN2:     return m_atan2_decl;
     case OP_PI:        return m_pi->get_decl();
     case OP_E:         return m_e->get_decl();
     //case OP_0_PW_0_INT:  return m_0_pw_0_int->get_decl();
@@ -637,6 +643,8 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("asinh", OP_ASINH));
         op_names.push_back(builtin_name("acosh", OP_ACOSH));
         op_names.push_back(builtin_name("atanh", OP_ATANH));
+        op_names.push_back(builtin_name("exp", OP_EXP));
+        op_names.push_back(builtin_name("atan2", OP_ATAN2));
         op_names.push_back(builtin_name("pi", OP_PI));
         op_names.push_back(builtin_name("euler", OP_E));
         op_names.push_back(builtin_name("/0",OP_DIV0));

@@ -54,7 +54,7 @@ struct solver::imp {
         m_nla_core(nla_core) {}
 
     bool need_check() {
-        return m_nla_core.m_to_refine.size() != 0;
+        return m_nla_core.m_to_refine.size() != 0 || !m_nla_core.get_transcendentals().empty();
     }
 
     void reset() {
@@ -222,6 +222,95 @@ struct solver::imp {
         return polynomial_ref(m_nlsat->pm().mk_const(r), m_nlsat->pm());
     }
 
+    // Injects the accumulated Taylor-sandwich polynomial axioms (queried
+    // from nla::transcendentals) for every registered transcendental
+    // application whose delta-check has actually observed a faulty model
+    // (app::taylor_terms > 0) into this one-shot nlsat instance: T(x) - R <=
+    // val <= T(x) + R, added directly as unconditional clauses (assumption =
+    // nullptr, matching the treatment of other structural definitions such
+    // as add_monic_eq/add_term, since these are mathematically true for all
+    // reals and never need to be cited as an explanation). Applications that
+    // have never failed a delta-check keep val as an opaque free real to
+    // nlsat, to keep the polynomial problem as small as nlsat actually needs.
+    void add_transcendental_axioms() {
+        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            if (a.taylor_terms == 0)
+                continue;
+            nla::transcendentals::taylor_bounds tb;
+            if (!nla::transcendentals::get_taylor(a.op, a.taylor_terms, tb))
+                continue;
+            // polynomial::manager stores integer coefficients only, so the
+            // rational Taylor coefficients (1/6, 1/120, ...) must be cleared
+            // of denominators first; scale is a common multiple of all of
+            // them (and of val's implicit coefficient 1), so multiplying the
+            // whole inequality by it preserves its direction and meaning.
+            rational scale(1);
+            for (auto const& term : tb.poly)
+                scale = lcm(scale, denominator(term.coeff));
+            scale = lcm(scale, denominator(tb.remainder_coeff));
+
+            polynomial::polynomial_ref x = var(a.arg);
+            polynomial::polynomial_ref t(m_nlsat->pm());
+            bool first = true;
+            for (auto const& term : tb.poly) {
+                polynomial::polynomial_ref p = constant(scale * term.coeff);
+                for (unsigned i = 0; i < term.power; ++i)
+                    p = mul(p.get(), x.get());
+                t = first ? p : (t + p);
+                first = false;
+            }
+            polynomial::polynomial_ref r = constant(scale * tb.remainder_coeff);
+            for (unsigned i = 0; i < tb.remainder_power; ++i)
+                r = mul(r.get(), x.get());
+            polynomial::polynomial_ref scaled_val = mul(constant(scale).get(), var(a.val).get());
+            polynomial::polynomial_ref diff = sub(scaled_val.get(), t.get());
+            // scale*val - T'(x) - R' <= 0  and  scale*val - T'(x) + R' >= 0
+            // (T', R' are T, R scaled by `scale` to be integral).
+            add_axiom(sub(diff.get(), r.get()).get(), lp::lconstraint_kind::LE);
+            add_axiom((diff + r).get(), lp::lconstraint_kind::GE);
+        }
+    }
+
+    // Injects the exact cross-application identity axioms recorded in
+    // nla::transcendentals (see its module comment and identity_pair):
+    // sin(t)^2+cos(t)^2=1, cosh(t)^2-sinh(t)^2=1, and
+    // cosh(t)^2*(1-tanh(t)^2)=1. Unlike the Taylor sandwich these have no
+    // remainder term - they hold exactly for every real t - so they are
+    // asserted the moment a matching pair is found (nla_transcendentals.cpp)
+    // and always included here, regardless of whether either application
+    // has ever failed a delta-check.
+    void add_identity_axioms() {
+        auto const& tr = m_nla_core.get_transcendentals();
+        for (auto const& pr : tr.sin_cos_pairs()) {
+            // sin^2 + cos^2 - 1 = 0
+            polynomial::polynomial_ref s = var(pr.v1);
+            polynomial::polynomial_ref c = var(pr.v2);
+            polynomial::polynomial_ref eq = mul(s.get(), s.get()) + mul(c.get(), c.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+        for (auto const& pr : tr.cosh_sinh_pairs()) {
+            // cosh^2 - sinh^2 - 1 = 0
+            polynomial::polynomial_ref ch = var(pr.v1);
+            polynomial::polynomial_ref sh = var(pr.v2);
+            polynomial::polynomial_ref eq = mul(ch.get(), ch.get()) - mul(sh.get(), sh.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+        for (auto const& pr : tr.cosh_tanh_pairs()) {
+            // cosh^2 - cosh^2*tanh^2 - 1 = 0  (i.e. cosh^2*(1-tanh^2) = 1)
+            polynomial::polynomial_ref ch = var(pr.v1);
+            polynomial::polynomial_ref th = var(pr.v2);
+            polynomial::polynomial_ref ch2 = mul(ch.get(), ch.get());
+            polynomial::polynomial_ref th2 = mul(th.get(), th.get());
+            polynomial::polynomial_ref eq = ch2 - mul(ch2.get(), th2.get()) - constant(rational(1));
+            add_axiom(eq.get(), lp::lconstraint_kind::EQ);
+        }
+    }
+
+    void add_axiom(polynomial::polynomial* p, lp::lconstraint_kind k) {
+        nlsat::literal lit = mk_literal(p, k);
+        m_nlsat->mk_clause(1, &lit, nullptr);
+    }
+
     /**
        \brief one-shot nlsat check.
        A one shot checker is the least functionality that can 
@@ -241,6 +330,8 @@ struct solver::imp {
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
+        add_transcendental_axioms();
+        add_identity_axioms();
 
         TRACE(nra, m_nlsat->display(tout));
 

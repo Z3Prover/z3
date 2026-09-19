@@ -88,6 +88,7 @@ add_executable(test-z3
   model_evaluator.cpp
   model_retrieval.cpp
   monomial_bounds.cpp
+  nla_transcendentals.cpp
   mpbq.cpp
   mpf.cpp
   mpff.cpp

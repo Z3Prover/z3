@@ -37,6 +37,7 @@ core::core(lp::lar_solver& s, params_ref const& p, reslimit & lim) :
     m_monomial_bounds(this),
     m_patcher(this),
     m_explanations(this),
+    m_transcendentals(*this),
     m_horner(this),
     m_grobner(this),
     m_emons(m_evars),
@@ -555,6 +556,8 @@ bool core::rm_check(const monic& rm) const {
 }
 
 bool core::has_relevant_monomial() const {
+    if (!m_transcendentals.empty())
+        return true;
     return any_of(emons(), [&](auto const& m) { return is_relevant(m.var()); });
 }
     
@@ -878,6 +881,81 @@ void core::add_bounds() {
     }    
 }
 
+// Called whenever the rest of the pipeline is about to report the state as
+// satisfied (l_true) purely on the strength of the polynomial/monomial
+// reasoning, i.e. before m_to_refine/m_nla_satisfied are trusted as a full
+// answer. Registered transcendental function applications (sin/cos/etc.)
+// are not monomials and are not accounted for by that reasoning, so they
+// still need a delta-consistency check against the current assignment.
+lbool core::check_transcendentals_and_finish() {
+    if (m_transcendentals.empty())
+        return l_true;
+    m_transcendentals.check();
+    if (!m_lemmas.empty() || !m_literals.empty())
+        return l_false;
+    // The delta-check alone can nudge the LP assignment indefinitely
+    // without ever producing a certificate. Each failed delta-check
+    // bumps the affected application's accumulated Taylor degree
+    // (nla_transcendentals.h), so periodically hand the problem to
+    // nlsat with those (permanent, necessary-condition) axioms:
+    // l_false is a sound proof of infeasibility on its own (the
+    // axioms are necessary conditions on val). l_true is only
+    // trusted once nla_transcendentals::check_nra_model certifies,
+    // using the actual algebraic witness, that every axiom is tight
+    // enough at that witness to accept as a model; this extra gate
+    // is applied here (rather than inside nra_solver itself) so it
+    // does not affect nra_solver's other, already-tuned call sites
+    // for problems that do have monomials to refine.
+    if (should_run_bounded_nlsat() && m_transcendentals.has_observed_failure()) {
+        lbool ret = bounded_nlsat();
+        if (ret == l_false)
+            return l_false;
+        if (ret == l_true) {
+            if (m_transcendentals.check_nra_model())
+                return l_true;
+            // Not tight enough to certify: don't report the
+            // nlsat witness as a model; fall back to the plain
+            // (pre-nlsat) assignment that already passed the
+            // delta-check above, undoing bounded_nlsat's model
+            // flag so the rest of the solver keeps reading the
+            // ordinary LP assignment.
+            set_use_nra_model(false);
+        }
+        else {
+            // bounded_nlsat gave up (resource limit) rather than
+            // certifying l_true or refuting with l_false. The plain
+            // delta-check above only guarantees the witness is within
+            // a small floating point tolerance of the true
+            // transcendental value; for problems whose true answer
+            // hinges on a margin finer than that tolerance (the exact
+            // reason bounded_nlsat was invoked to begin with), trusting
+            // it here would silently launder an unresolved case into a
+            // (potentially unsound) "sat". Report unknown instead.
+            return l_undef;
+        }
+    }
+    return l_true;
+}
+
+// True iff the current (rational) assignment satisfies both the registered
+// monomials and, if any are registered, the transcendental function
+// applications. See the declaration in nla_core.h for details.
+bool core::is_nla_context_satisfied() {
+    init_to_refine();
+    if (!m_to_refine.empty())
+        return false;
+    return check_transcendentals_and_finish() == l_true;
+}
+
+// See the declaration in nla_core.h.
+lbool core::on_to_refine_empty() {
+    m_squeeze_schedule.on_nothing_to_refine();
+    // Even without nonlinear monomials to refine, registered transcendental
+    // function applications (sin/cos/etc.) still need a delta-consistency
+    // check against the current assignment before reporting l_true.
+    return check_transcendentals_and_finish();
+}
+
 lbool core::check(unsigned level) {
     lp_settings().stats().m_nla_calls++;
     TRACE(nla_solver, tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
@@ -891,10 +969,9 @@ lbool core::check(unsigned level) {
     init_to_refine();
     m_patcher.patch_monomials();
     set_use_nra_model(false);
-    if (m_to_refine.empty()) {
-        m_squeeze_schedule.on_nothing_to_refine();
-        return l_true;
-    }
+    if (m_to_refine.empty())
+        return on_to_refine_empty();
+
     init_search();
     m_nla_satisfied = false;
 
@@ -916,10 +993,8 @@ lbool core::check(unsigned level) {
     bool squeeze_cadence = lp_settings().stats().m_nla_calls % params().arith_nl_horner_frequency() == 0;
     if (no_effect() && m_squeeze_schedule.enabled() && (run_horner || run_grobner) && (m_squeeze_schedule.eager() || squeeze_cadence)) {
         m_squeeze_schedule.on_squeeze(m_monomial_bounds.optimize_nl_bounds());
-        if (m_to_refine.empty()) {
-            m_squeeze_schedule.on_nothing_to_refine();
-            return l_true;
-        }
+        if (m_to_refine.empty())
+            return on_to_refine_empty();
     }
 
     {
@@ -937,10 +1012,14 @@ lbool core::check(unsigned level) {
             return l_undef;
         if (!m_lemmas.empty() || !m_literals.empty() || m_check_feasible)
             return l_false;
-        // bound optimization proved all monomials consistent: goal satisfied.
+        // bound optimization proved all monomials consistent: goal satisfied,
+        // modulo any registered transcendentals also being consistent.
         if (m_nla_satisfied)
-            return l_true;
+            return check_transcendentals_and_finish();
     }
+
+    if (no_effect() && !m_transcendentals.empty())
+        m_transcendentals.check();
 
     if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < params().arith_nl_nra_check_assignment_max_fail()) {
         scoped_limits sl(m_reslim);
@@ -1144,6 +1223,13 @@ void core::set_use_nra_model(bool m) {
         trail().push(value_trail(m_use_nra_model));
         m_use_nra_model = m;        
     }
+}
+
+void core::nra_model_bound(lpvar v, rational& lo, rational& hi, unsigned precision) {
+    nlsat::anum const& w = m_nra.value(v);
+    auto& am = m_nra.am();
+    am.get_lower(w, lo, precision);
+    am.get_upper(w, hi, precision);
 }
 
     
