@@ -602,36 +602,79 @@ namespace nla {
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
-        // Restrict to x in [-1, 0]: there exp(x) = sum x^n/n! is a genuine
-        // alternating series (term_n = x^n/n!, sign (-1)^n since x <= 0)
-        // whose magnitude |x|^n/n! is non-increasing from n = 0 onward
-        // (ratio |x|/(n+1) <= 1 already at n = 0, since |x| <= 1), so by
-        // the alternating series estimation theorem every pair of
-        // consecutive partial sums S_k, S_{k+1} brackets the true value:
-        // min(S_k, S_{k+1}) <= exp(x) <= max(S_k, S_{k+1}). This closes a
-        // gap that check_exp_lower_bound (only the k=1 tangent-line bound,
-        // exp(x) >= 1+x) leaves open: near x = 0 the tangent bound alone
-        // permits exp(x) to be set arbitrarily far above its true value
-        // without tripping any lemma, which can flip the sign of an
-        // otherwise-infeasible inequality whose margin vanishes as x -> 0.
-        // (For x > 0 the series terms don't alternate - the partial sums
-        // only increase monotonically towards exp(x) - so this bracket
-        // does not apply there; only check_exp_lower_bound/monotonicity
-        // constrain that side.)
-        if (xr < rational(-1) || xr > rational(0))
-            return false;
-        rational const& yr = c.val(a.val);
+        // Two exact rational brackets, depending on the sign of x:
+        //  - x <= 0: exp(x) = sum x^n/n! is a genuine alternating series
+        //    (term_n = x^n/n!, sign (-1)^n since x <= 0); once n+1 >= |x|
+        //    the term magnitude |x|^n/n! is non-increasing, so the
+        //    alternating series estimation theorem brackets the value
+        //    between consecutive partial sums from that point on (see
+        //    below for how the possibly non-monotone initial terms are
+        //    handled).
+        //  - x > 0 (and small enough that k_terms+1 > x): all terms are
+        //    positive, so partial sums increase monotonically towards
+        //    exp(x) (a sound lower bound), and the omitted tail is
+        //    bracketed by a geometric series (see below) for the upper
+        //    bound.
+        // This closes a gap that check_exp_lower_bound (only the k=1
+        // tangent-line bound, exp(x) >= 1+x) leaves open: near x = 0 the
+        // tangent bound alone permits exp(x) to be set arbitrarily far
+        // above its true value without tripping any lemma, which can flip
+        // the sign of an otherwise-infeasible inequality whose margin
+        // vanishes as x -> 0 (and analogously elsewhere on x > 0, where
+        // the tangent bound alone gives no upper bound at all).
         constexpr unsigned k_terms = 40;
-        rational term(1); // x^0 / 0!
-        rational sum(0);
-        rational lo = sum, hi = sum;
-        for (unsigned k = 0; k < k_terms; ++k) {
-            rational next = sum + term;
-            lo = std::min(sum, next);
-            hi = std::max(sum, next);
-            sum = next;
-            term = term * xr / rational(k + 1);
+        rational const& yr = c.val(a.val);
+        rational lo, hi;
+        if (xr <= rational(0) && xr > rational(-static_cast<int>(k_terms))) {
+            // x <= 0: term_n = x^n/n! alternates in sign; its magnitude
+            // |x|^n/n! is non-increasing once n+1 >= |x| (ratio
+            // |x|/(n+1) <= 1). Compute the exact prefix sum S_{n0} for the
+            // (possibly non-monotone) initial terms n = 0 .. n0-1 directly
+            // - no bracket needed there, they're exact rationals - then
+            // apply the alternating-series bracket from n0 onward, where
+            // it is valid. n0 = 0 whenever |x| <= 1 (the previously fixed
+            // special case is the n0 == 0 instance of this).
+            rational ax = -xr;
+            unsigned n0 = 0;
+            while (rational(n0 + 1) < ax)
+                ++n0;
+            rational term(1); // x^0 / 0!
+            rational sum(0);
+            for (unsigned k = 0; k < n0; ++k) {
+                sum += term;
+                term = term * xr / rational(k + 1);
+            }
+            lo = sum; hi = sum;
+            for (unsigned k = n0; k < k_terms; ++k) {
+                rational next = sum + term;
+                lo = std::min(sum, next);
+                hi = std::max(sum, next);
+                sum = next;
+                term = term * xr / rational(k + 1);
+            }
         }
+        else if (xr > rational(0) && xr < rational(k_terms + 1)) {
+            // x > 0: all terms term_n = x^n/n! are positive, so the
+            // partial sums S_n increase monotonically towards exp(x),
+            // giving a sound lower bound directly. For the upper bound,
+            // bracket the omitted tail sum_{k>=n} x^k/k! by a geometric
+            // series: term_k/term_n <= (x/(n+1))^(k-n) once the ratio
+            // q = x/(n+1) < 1 (guaranteed by the domain guard above), so
+            // the tail is <= term_n / (1 - q), an exact rational bound.
+            rational term(1); // x^0/0!
+            rational sum(0);
+            for (unsigned k = 0; k < k_terms; ++k) {
+                sum += term;
+                term = term * xr / rational(k + 1);
+            }
+            // here `term` is term_{k_terms} = x^{k_terms}/k_terms!, and
+            // `sum` = S_{k_terms} (k_terms terms included).
+            rational q = xr / rational(k_terms + 1);
+            lo = sum;
+            hi = sum + term / (rational(1) - q);
+        }
+        else
+            return false;
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
         if (yr < lo) {
@@ -642,6 +685,49 @@ namespace nla {
         }
         else {
             lemma_builder lemma(c, "transcendental exp Maclaurin upper bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+        }
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
+    bool transcendentals::check_sin_cos_taylor_range(app& a) {
+        if (a.op != transcendental_op_kind::SIN && a.op != transcendental_op_kind::COS)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        // sin/cos are entire, so get_taylor's sandwich is valid for any
+        // |arg|; the cutoff below only keeps the exact rational arithmetic
+        // (and the remainder bound itself) small/tight enough to be worth
+        // computing - for large |arg| this many terms would neither be
+        // cheap nor tight, and check_sign_on_pi_range/the general box
+        // refinement in check_app already cover that case.
+        if (xr < rational(-8) || xr > rational(8))
+            return false;
+        rational const& yr = c.val(a.val);
+        constexpr unsigned k_terms = 20;
+        taylor_bounds tb;
+        if (!get_taylor(a.op, k_terms, tb))
+            return false;
+        rational sum(0);
+        for (auto const& t : tb.poly)
+            sum += t.coeff * xr.expt(static_cast<int>(t.power));
+        // remainder_power is always even (see get_taylor), so this is
+        // manifestly non-negative without needing |xr|.
+        rational bound = tb.remainder_coeff * xr.expt(static_cast<int>(tb.remainder_power));
+        rational lo = sum - bound, hi = sum + bound;
+        if (yr >= lo && yr <= hi)
+            return false; // already consistent with the bracket.
+        if (yr < lo) {
+            lemma_builder lemma(c, "transcendental sin/cos Maclaurin lower bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+        }
+        else {
+            lemma_builder lemma(c, "transcendental sin/cos Maclaurin upper bound");
             lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
             lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
             lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
@@ -709,6 +795,8 @@ namespace nla {
         if (check_exp_monotonicity(a))
             return true;
         if (check_atan_taylor_range(a))
+            return true;
+        if (check_sin_cos_taylor_range(a))
             return true;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);

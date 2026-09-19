@@ -428,6 +428,17 @@ namespace nla {
         // back to it. Asserted as a lemma gated by (arg < -1 \/ arg > 1 \/
         // ...) whenever violated; a no-op outside [-1, 1].
         bool check_atan_taylor_range(app& a);
+        // SIN/COS: an exact rational Maclaurin sandwich for sin(arg) or
+        // cos(arg), analogous to check_atan_taylor_range/
+        // check_exp_taylor_range but using get_taylor's exact rational
+        // polynomial + remainder bound (sin/cos are entire, so - unlike
+        // atan/exp - no domain restriction is needed for the *bound itself*
+        // to be valid; a fixed |arg| cutoff is applied purely to keep the
+        // exact rational arithmetic and remainder bound tractable/useful).
+        // Tried before the general float-tolerance-gated box refinement in
+        // check_app, so it also catches violations whose true margin is
+        // narrower than arith.nl.transcendental_tolerance.
+        bool check_sin_cos_taylor_range(app& a);
         // Smallest number of Taylor terms (1..max_terms) such that the
         // (floating point estimate of the) resulting sandwich at x
         // provably excludes y, i.e. would contradict the faulty model
