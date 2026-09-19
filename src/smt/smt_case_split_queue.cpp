@@ -1264,7 +1264,7 @@ namespace smt {
         case CS_ACTIVITY_WITH_CACHE:
             return alloc(cact_case_split_queue, ctx, p);
         case CS_RELEVANCY:
-            return alloc(rel_case_split_queue, ctx, p);
+            return alloc(dact_case_split_queue, ctx, p);
         case CS_RELEVANCY_ACTIVITY:
             return alloc(rel_act_case_split_queue, ctx, p);
         case CS_RELEVANCY_GOAL:
