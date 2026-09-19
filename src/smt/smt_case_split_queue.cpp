@@ -1272,7 +1272,7 @@ namespace smt {
             return alloc(rel_goal_case_split_queue, ctx, p);
         case CS_ACTIVITY_THEORY_AWARE_BRANCHING:
             return alloc(theory_aware_branching_queue, ctx, p);
-        case CS_RELEVANCY_LEGACY:
+        case CS_RELEVANCY_STRUCTURAL:
             return alloc(rel_case_split_queue, ctx, p);
         default:
             return alloc(act_case_split_queue, ctx, p);
