@@ -103,18 +103,10 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
             else if (c == '\\') {
-                // SMT-LIB 2.5+ gives '\' no special meaning inside a quoted symbol: a
-                // quoted symbol has no escape mechanism at all (unlike a string literal,
-                // whose escape for '"' is doubling it, not a backslash), and a backslash
-                // is one of the two characters (along with '|') a quoted symbol may not
-                // contain. Accepting it here (formerly as an escape for '|' or '\') let a
-                // quoted symbol swallow an unescaped '|' -- and everything up to the next
-                // real '|' -- as part of its name, letting attacker-controlled symbol text
-                // smuggle extra top-level commands past a template that assumed the
-                // symbol would end at the first '|'.
+                // SMT-LIB 2.5+ gives '\' no special meaning inside a quoted symbol
                 throw scanner_exception("invalid character '\\' in quoted symbol", m_line, m_spos);
             }
-            if (c == '\n')
+            else if (c == '\n')
                 new_line();
             m_string.push_back(c);
             next();
