@@ -3,7 +3,7 @@
 #
 # Reconstruct a supported native Boolean refutation in Lean.
 ############################################
-"""Check asserted/unit-resolution certificates in Lean before publishing a proof."""
+"""Check native Boolean refutations using explicit Lean proof terms."""
 
 import argparse
 from collections import Counter
@@ -36,6 +36,16 @@ _FIXED_ARITY = {
     z3.Z3_OP_TRUE: 0, z3.Z3_OP_FALSE: 0, z3.Z3_OP_UNINTERPRETED: 0,
     z3.Z3_OP_NOT: 1, z3.Z3_OP_IMPLIES: 2, z3.Z3_OP_XOR: 2,
     z3.Z3_OP_EQ: 2, z3.Z3_OP_IFF: 2, z3.Z3_OP_ITE: 3,
+}
+_FIXED_PROOF_RULES = {
+    z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
+    z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
+    z3.Z3_OP_PR_REWRITE: ("rewrite", 0),
+    z3.Z3_OP_PR_REFLEXIVITY: ("refl", 0),
+    z3.Z3_OP_PR_SYMMETRY: ("symm", 1),
+    z3.Z3_OP_PR_TRANSITIVITY: ("trans", 2),
+    z3.Z3_OP_PR_AND_ELIM: ("and-elim", 1),
+    z3.Z3_OP_PR_NOT_OR_ELIM: ("not-or-elim", 1),
 }
 
 
@@ -130,13 +140,16 @@ def _declaration(raw):
             expected = 2  # Native associative declarations have a binary domain.
         if expected is not None and len(domain) != expected:
             raise ReconstructionError("invalid Boolean declaration arity: %s" % name)
-    elif kind == z3.Z3_OP_PR_ASSERTED:
-        if name != "asserted" or domain != ("Bool",):
-            raise ReconstructionError("invalid asserted declaration")
-    elif kind == z3.Z3_OP_PR_UNIT_RESOLUTION:
-        if (name != "unit-resolution" or len(domain) < 2 or domain[-1] != "Bool"
+    elif kind in _FIXED_PROOF_RULES:
+        expected_name, premises = _FIXED_PROOF_RULES[kind]
+        if name != expected_name or domain != ("Proof",) * premises + ("Bool",):
+            raise ReconstructionError("invalid %s declaration" % expected_name)
+    elif kind in (z3.Z3_OP_PR_UNIT_RESOLUTION, z3.Z3_OP_PR_MONOTONICITY):
+        expected_name = "unit-resolution" if kind == z3.Z3_OP_PR_UNIT_RESOLUTION else "monotonicity"
+        minimum = 2 if kind == z3.Z3_OP_PR_UNIT_RESOLUTION else 1
+        if (name != expected_name or len(domain) < minimum or domain[-1] != "Bool"
                 or any(sort != "Proof" for sort in domain[:-1])):
-            raise ReconstructionError("invalid unit-resolution declaration")
+            raise ReconstructionError("invalid %s declaration" % expected_name)
     else:
         raise ReconstructionError("unsupported native proof rule: %s" % name)
     return _Declaration(kind, name, domain, raw["range"])
@@ -290,6 +303,171 @@ def _inject(position, count, term):
     return term
 
 
+def _modus_ponens(graph, terms, node):
+    premise, implication, conclusion = graph.arguments(node)
+    relation = graph.conclusion(implication)
+    kind = graph.kind(relation)
+    if kind not in (z3.Z3_OP_IMPLIES, z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        raise ReconstructionError("mp requires an implication or Boolean equivalence at node %d" % node)
+    antecedent, consequent = graph.arguments(relation)
+    if (terms[graph.conclusion(premise)] != terms[antecedent]
+            or terms[conclusion] != terms[consequent]):
+        raise ReconstructionError("incorrect mp antecedent or conclusion at node %d" % node)
+    if kind == z3.Z3_OP_IMPLIES:
+        return "(_step_%d _step_%d)" % (implication, premise)
+    return "(Iff.mp _step_%d _step_%d)" % (implication, premise)
+
+
+def _equivalence(graph, formula, rule):
+    if graph.kind(formula) not in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        raise ReconstructionError("%s requires a Boolean equivalence at node %d" % (rule, formula))
+    return graph.arguments(formula)
+
+
+def _equivalence_step(graph, terms, node):
+    rule = graph.decl(node).name
+    left, right = _equivalence(graph, graph.conclusion(node), rule)
+    premises = graph.arguments(node)[:-1]
+    if graph.kind(node) == z3.Z3_OP_PR_REFLEXIVITY:
+        valid = terms[left] == terms[right]
+        term = "(Iff.refl %s)" % _formula(left)
+    elif graph.kind(node) == z3.Z3_OP_PR_SYMMETRY:
+        first, second = _equivalence(graph, graph.conclusion(premises[0]), rule)
+        valid = terms[left] == terms[second] and terms[right] == terms[first]
+        term = "(Iff.symm _step_%d)" % premises[0]
+    else:
+        first, middle = _equivalence(graph, graph.conclusion(premises[0]), rule)
+        other_middle, last = _equivalence(graph, graph.conclusion(premises[1]), rule)
+        valid = (terms[left] == terms[first] and terms[middle] == terms[other_middle]
+                 and terms[right] == terms[last])
+        term = "(Iff.trans _step_%d _step_%d)" % tuple(premises)
+    if not valid:
+        raise ReconstructionError("incorrect %s premises or conclusion at node %d" % (rule, node))
+    return term
+
+
+def _iff_congruence(left, right):
+    # Lean's core iff_congr uses propext; compose the two directions instead.
+    return ("(Iff.intro (fun _h => Iff.trans (Iff.symm %s) (Iff.trans _h %s))"
+            " (fun _h => Iff.trans %s (Iff.trans _h (Iff.symm %s))))" % (
+                left, right, left, right))
+
+
+def _congruence_term(kind, arguments):
+    if kind == z3.Z3_OP_NOT:
+        return "(not_congr %s)" % arguments[0]
+    if kind == z3.Z3_OP_AND:
+        return _fold("and_congr", arguments, "(Iff.refl True)")
+    if kind == z3.Z3_OP_OR:
+        return _fold("or_congr", arguments, "(Iff.refl False)")
+    if kind == z3.Z3_OP_IMPLIES:
+        return "(imp_congr %s %s)" % tuple(arguments)
+    if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        return _iff_congruence(*arguments)
+    if kind == z3.Z3_OP_XOR:
+        return "(or_congr (and_congr %s (not_congr %s)) (and_congr (not_congr %s) %s))" % (
+            arguments[0], arguments[1], arguments[0], arguments[1])
+    if kind == z3.Z3_OP_ITE:
+        return "(or_congr (and_congr %s %s) (and_congr (not_congr %s) %s))" % (
+            arguments[0], arguments[1], arguments[0], arguments[2])
+    if kind == z3.Z3_OP_DISTINCT:
+        pairs = ["(not_congr %s)" % _iff_congruence(left, right)
+                 for index, left in enumerate(arguments) for right in arguments[index + 1:]]
+        return _fold("and_congr", pairs, "(Iff.refl True)")
+    raise ReconstructionError("unsupported Boolean congruence")
+
+
+def _monotonicity(graph, terms, node):
+    left, right = _equivalence(graph, graph.conclusion(node), "monotonicity")
+    left_args, right_args = graph.arguments(left), graph.arguments(right)
+    if (graph.nodes[left].declaration != graph.nodes[right].declaration
+            or len(left_args) != len(right_args)):
+        raise ReconstructionError("monotonicity requires matching heads and arities at node %d" % node)
+    evidence = {}
+    for premise in graph.arguments(node)[:-1]:
+        first, second = _equivalence(graph, graph.conclusion(premise), "monotonicity")
+        evidence.setdefault((terms[first], terms[second]), premise)
+    arguments = []
+    for first, second in zip(left_args, right_args):
+        if terms[first] == terms[second]:
+            arguments.append("(Iff.refl %s)" % _formula(first))
+        elif (terms[first], terms[second]) in evidence:
+            arguments.append("_step_%d" % evidence[terms[first], terms[second]])
+        else:
+            raise ReconstructionError("monotonicity is missing an argument equivalence at node %d" % node)
+    if not left_args:
+        return "(Iff.refl %s)" % _formula(left)
+    return _congruence_term(graph.kind(left), arguments)
+
+
+def _and_elim(graph, terms, node):
+    premise, conclusion = graph.arguments(node)
+    conjunction = graph.conclusion(premise)
+    if graph.kind(conjunction) != z3.Z3_OP_AND:
+        raise ReconstructionError("and-elim requires a conjunction at node %d" % node)
+    arguments = graph.arguments(conjunction)
+    term = "_step_%d" % premise
+    for position, argument in enumerate(arguments):
+        if terms[argument] == terms[conclusion]:
+            return "(And.left %s)" % term if position < len(arguments) - 1 else term
+        term = "(And.right %s)" % term
+    raise ReconstructionError("and-elim conclusion is not a conjunct at node %d" % node)
+
+
+def _not_or_elim(graph, terms, node):
+    premise, conclusion = graph.arguments(node)
+    negation = graph.conclusion(premise)
+    if (graph.kind(negation) != z3.Z3_OP_NOT
+            or graph.kind(graph.arguments(negation)[0]) != z3.Z3_OP_OR):
+        raise ReconstructionError("not-or-elim requires a negated disjunction at node %d" % node)
+    arguments = graph.arguments(graph.arguments(negation)[0])
+    for position, argument in enumerate(arguments):
+        injected = _inject(position, len(arguments), "_literal")
+        contradiction = "(_step_%d %s)" % (premise, injected)
+        if (graph.kind(conclusion) == z3.Z3_OP_NOT
+                and terms[graph.arguments(conclusion)[0]] == terms[argument]):
+            return "(fun _literal => %s)" % contradiction, None
+        if (graph.kind(argument) == z3.Z3_OP_NOT
+                and terms[graph.arguments(argument)[0]] == terms[conclusion]):
+            # Native not-or-elim may cancel a double negation.
+            return ("(@Decidable.byContradiction %s _df%d (fun _literal => %s))" % (
+                _formula(conclusion), conclusion, contradiction)), conclusion
+    raise ReconstructionError("not-or-elim conclusion does not complement a disjunct at node %d" % node)
+
+
+def _rewrite_lemma(graph, node, atom_indices):
+    """Generate a Lean lemma checking every truth assignment by kernel reduction."""
+    conclusion = graph.conclusion(node)
+    _equivalence(graph, conclusion, "rewrite")
+    reachable, atoms, pending = set(), set(), [conclusion]
+    while pending:
+        formula = pending.pop()
+        if formula in reachable:
+            continue
+        reachable.add(formula)
+        if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED:
+            atoms.add(atom_indices[graph.nodes[formula].declaration])
+        pending.extend(graph.arguments(formula))
+    atoms = sorted(atoms)
+    lines = ["", "private theorem rewrite_%d (_atoms : Nat -> Prop)" % node]
+    for atom in atoms:
+        lines.append("    [_d%d : Decidable (_atoms %d)]" % (atom, atom))
+    lines.extend([
+        "    : %s := by" % _formula(conclusion),
+        "  unfold " + " ".join("formula_%d" % formula for formula in sorted(reachable, reverse=True)),
+    ])
+    for atom in atoms:
+        lines.extend([
+            "  all_goals",
+            "    cases _d%d <;> rename_i _h%d <;>" % (atom, atom),
+            "      (first | letI : Decidable (_atoms %d) := .isFalse _h%d" % (atom, atom),
+            "             | letI : Decidable (_atoms %d) := .isTrue _h%d)" % (atom, atom),
+        ])
+    lines.append("  all_goals exact of_decide_eq_true rfl")
+    term = "(@rewrite_%d _atoms%s)" % (node, "".join(" _d%d" % atom for atom in atoms))
+    return lines, atoms, term
+
+
 def _resolution(graph, terms, node):
     premises = graph.arguments(node)[:-1]
     first, units = premises[0], premises[1:]
@@ -354,12 +532,17 @@ def reconstruct(source, certificate):
         if graph.decl(node).range == "Bool":
             lines.append("def formula_%d (_atoms : Nat -> Prop) : Prop := %s" % (
                 node, _formula_body(graph, node, atom_indices)))
-    lines.extend(["", "theorem unsat (_atoms : Nat -> Prop)"])
+    rewrites, decidable_atoms = {}, set()
+    for node in range(len(graph.nodes)):
+        if graph.kind(node) == z3.Z3_OP_PR_REWRITE:
+            lemma, support, term = _rewrite_lemma(graph, node, atom_indices)
+            lines.extend(lemma)
+            decidable_atoms.update(support)
+            rewrites[node] = term
     assumptions = {}
     for position, assertion in enumerate(graph.assertions):
-        lines.append("    (_h%d : %s)" % (position, _formula(assertion)))
         assumptions.setdefault(terms[assertion], position)
-    lines.append("    : False :=")
+    steps, decidable_formulas = [], set()
     for node in range(len(graph.nodes)):
         if graph.decl(node).range != "Proof":
             continue
@@ -368,9 +551,44 @@ def reconstruct(source, certificate):
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             term = "_h%d" % assumptions[terms[conclusion]]
-        else:
+        elif graph.kind(node) == z3.Z3_OP_PR_MODUS_PONENS:
+            term = _modus_ponens(graph, terms, node)
+        elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
+            term = rewrites[node]
+        elif graph.kind(node) in (z3.Z3_OP_PR_REFLEXIVITY, z3.Z3_OP_PR_SYMMETRY,
+                                 z3.Z3_OP_PR_TRANSITIVITY):
+            term = _equivalence_step(graph, terms, node)
+        elif graph.kind(node) == z3.Z3_OP_PR_MONOTONICITY:
+            term = _monotonicity(graph, terms, node)
+        elif graph.kind(node) == z3.Z3_OP_PR_AND_ELIM:
+            term = _and_elim(graph, terms, node)
+        elif graph.kind(node) == z3.Z3_OP_PR_NOT_OR_ELIM:
+            term, formula = _not_or_elim(graph, terms, node)
+            if formula is not None:
+                decidable_formulas.add(formula)
+        elif graph.kind(node) == z3.Z3_OP_PR_UNIT_RESOLUTION:
             term = _resolution(graph, terms, node)
-        lines.append("  let _step_%d : %s := %s" % (node, _formula(conclusion), term))
+        else:
+            raise ReconstructionError("unsupported native proof rule: %s" % graph.decl(node).name)
+        steps.append("  let _step_%d : %s := %s" % (node, _formula(conclusion), term))
+    if decidable_atoms or decidable_formulas:
+        # A continuation ending in False can eliminate the temporary decidability
+        # assumptions constructively, preserving the original theorem statement.
+        lines.extend([
+            "",
+            "private theorem refute_with_decidable (p : Prop)",
+            "    (k : Decidable p -> False) : False :=",
+            "  k (.isFalse (fun hp => k (.isTrue hp)))",
+        ])
+    lines.extend(["", "theorem unsat (_atoms : Nat -> Prop)"])
+    for position, assertion in enumerate(graph.assertions):
+        lines.append("    (_h%d : %s)" % (position, _formula(assertion)))
+    lines.append("    : False :=")
+    for atom in sorted(decidable_atoms):
+        lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
+    for formula in sorted(decidable_formulas):
+        lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(formula), formula))
+    lines.extend(steps)
     lines.extend(["  _step_%d" % graph.proof, "", "end " + namespace, ""])
     return "\n".join(lines)
 

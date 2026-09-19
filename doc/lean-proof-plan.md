@@ -15,7 +15,7 @@ is developed.
    declarations, shared proof/term DAG, and rule inventory. Reject unsupported
    script semantics, nonpropositional assertions, missing proofs, and unsupported
    native shapes. Never present the artifact as independently verified.
-2. **Kernel-checked Boolean vertical slice (asserted/unit-resolution implemented).**
+2. **Kernel-checked Boolean vertical slice (basic and structural rules implemented).**
    Extend the initial reconstructor with more Boolean proof rules and formalize
    the frontend encoding boundary. Account for preprocessing, fresh definitions,
    hypothesis scope, and the
@@ -71,24 +71,47 @@ Installation and usage are documented in `lean/README.md`.
 - Require the original SMT-LIB input separately from the certificate. Match
   source text and the exact parsed assertion structures; validate declaration
   signatures, topological node references, sorts, and proof conclusions.
-- Reconstruct `asserted` and `unit-resolution` only, including derived clauses,
-  both complement orientations, factoring, and shared intermediate proofs.
+- Reconstruct `asserted`, `unit-resolution`, `mp`, and Boolean `rewrite`,
+  including derived clauses, both complement orientations, factoring, shared
+  intermediate proofs, and ordered implication/equivalence elimination.
+- Reconstruct Boolean equivalence `refl`, `symm`, and `trans`, as well as
+  `monotonicity` for the supported Boolean connectives. Match application heads,
+  arities, and oriented argument equivalences, including omitted reflexive
+  premises and shared evidence. Use direct Lean proof terms, not truth tables.
+- Reconstruct `and-elim` and `not-or-elim` for immediate operands, including
+  singleton/n-ary connectives and native double-negation cancellation.
+- Check each rewrite independently of the assertions by exhaustive cases over
+  its own atoms and kernel reduction using `of_decide_eq_true rfl`. Rewrites and
+  double-negation cancellation use temporary decidability witnesses, which are
+  eliminated constructively from the refutation:
+  `k (isFalse (fun hp => k (isTrue hp))) : False` for
+  `k : Decidable p -> False`. The final theorem keeps arbitrary `Nat -> Prop`
+  valuations, the original hypotheses, and no axiom dependencies.
 - Generate shared Lean proposition definitions and explicit proof terms using
   Lean core logical rules. Do not introduce axioms, sorry, or solver calls to
   justify missing reasoning.
 - Check with the pinned Lean toolchain before atomically publishing a `.lean`
   artifact. Fail explicitly for malformed certificates, changed assumptions,
   unsupported rules, and Lean errors.
-- Exercise a complete example using `lean/examples/unit_resolution.smt2`.
+- Exercise complete examples using `lean/examples/unit_resolution.smt2`,
+  `lean/examples/boolean_rewrite.smt2`, and
+  `lean/examples/boolean_structural.smt2`. Cover Boolean truth tables, chained
+  and shared proof steps, all Boolean congruence operators, both elimination
+  orientations, large congruences without truth tables, forged structural
+  premises/conclusions, and false or unused rewrites.
 
 Z3's SMT-LIB parser and the Python statement encoder remain part of the trusted
 frontend. The source digest identifies the generated namespace; it is not the
 input-binding check or a formal proof of parsing/encoding correctness.
 
-The next extension is `mp` plus checked Boolean rewrites. Definition introduction,
-hypothesis discharge, and a formalized encoding connection must be addressed
-before claiming general Boolean proof support. Arithmetic and other theories
-remain later milestones.
+Rewrite truth tables are exponential in the number of atoms in an individual
+rewrite; large valid rewrites may exceed Lean's normal resource limits. A
+checking failure never publishes an artifact.
+
+Condensed transitivity (`trans*`), definition introduction, hypothesis discharge,
+and other native rules remain unsupported. These and a formalized encoding
+connection must be addressed before claiming general Boolean proof support.
+Arithmetic and other theories remain later milestones.
 
 ## Completed first-milestone evidence
 

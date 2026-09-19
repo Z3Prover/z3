@@ -31,6 +31,19 @@ REWRITE = """\
 (declare-const p Bool)(declare-const q Bool)
 (assert (or p q))(assert (=> p q))(assert (not q))
 """
+CONJUNCTION = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (and p q))(assert (not p))
+"""
+STRUCTURAL = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (not (or (not p) q)))(assert (not (and p (not q))))
+"""
+UNSUPPORTED = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (or p q))(assert (or (not p) q))
+(assert (or p (not q)))(assert (or (not p) (not q)))
+"""
 
 
 def make_certificate(source, steps):
@@ -57,6 +70,14 @@ def make_certificate(source, steps):
 
     def add_step(rule, premises, conclusion):
         kind = {"asserted": z3.Z3_OP_PR_ASSERTED,
+                "mp": z3.Z3_OP_PR_MODUS_PONENS,
+                "rewrite": z3.Z3_OP_PR_REWRITE,
+                "refl": z3.Z3_OP_PR_REFLEXIVITY,
+                "symm": z3.Z3_OP_PR_SYMMETRY,
+                "trans": z3.Z3_OP_PR_TRANSITIVITY,
+                "monotonicity": z3.Z3_OP_PR_MONOTONICITY,
+                "and-elim": z3.Z3_OP_PR_AND_ELIM,
+                "not-or-elim": z3.Z3_OP_PR_NOT_OR_ELIM,
                 "unit-resolution": z3.Z3_OP_PR_UNIT_RESOLUTION}[rule]
         domain = ("Proof",) * len(premises) + ("Bool",)
         key = (kind, domain)
@@ -93,7 +114,8 @@ class TestProofToLean(unittest.TestCase):
         self.certificate = proof_certificate.export_certificate(LITERAL)
 
     def test_real_native_refutations_generate_explicit_proof_terms(self):
-        for source in [LITERAL, CLAUSE, "(assert false)"]:
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL,
+                       "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 certificate = proof_certificate.export_certificate(source)
                 text = proof_to_lean.reconstruct(source, certificate)
@@ -102,11 +124,215 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("sorry", text)
                 self.assertNotIn("axiom ", text)
                 self.assertNotIn("native_decide", text)
+                self.assertNotIn("classical", text)
                 self.assertEqual(text.count("  let _step_"), sum(certificate["rule_counts"].values()))
 
     def test_reconstruction_does_not_run_solver_search(self):
-        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
-            proof_to_lean.reconstruct(LITERAL, self.certificate)
+        for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL]:
+            certificate = proof_certificate.export_certificate(source)
+            with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+                proof_to_lean.reconstruct(source, certificate)
+
+    def test_mp_supports_implications_and_boolean_equalities(self):
+        for relation in ["(=> p q)", "(= p q)"]:
+            with self.subTest(relation=relation):
+                source = "(declare-const p Bool)(declare-const q Bool)"
+                source += "(assert p)(assert %s)(assert (not q))" % relation
+                certificate = make_certificate(source, [
+                    ("mp", [0, 1], "q"),
+                    ("unit-resolution", [3, 2], "false"),
+                ])
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual("Iff.mp" in text, relation.startswith("(= "))
+
+    def test_incorrect_mp_steps_are_rejected_even_when_unused(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += """\
+(assert p)(assert q)(assert (=> p q))(assert (= p q))
+(assert (or p q))(assert false)
+"""
+        for premises, conclusion in [
+            ([0, 2], "p"), ([1, 2], "q"), ([1, 3], "p"),
+            ([0, 4], "q"), ([2, 0], "q"), ([0, 2], "false"),
+        ]:
+            with self.subTest(premises=premises, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    ("mp", premises, conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "mp"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_mp_and_rewrite_signatures_are_checked(self):
+        original = proof_certificate.export_certificate(REWRITE)
+        for rule, domains in [("mp", [[], ["Bool", "Proof", "Bool"], ["Proof", "Bool"]]),
+                              ("rewrite", [[], ["Proof", "Bool"], ["Proof"]])]:
+            for key, value in [("name", "forged")] + [("domain", domain) for domain in domains]:
+                with self.subTest(rule=rule, key=key, value=value):
+                    certificate = copy.deepcopy(original)
+                    declaration = next(decl for decl in certificate["declarations"] if decl["name"] == rule)
+                    declaration[key] = value
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                        proof_to_lean.reconstruct(REWRITE, certificate)
+        for rule, premises in [("mp", [0]), ("mp", [0, 1, 2]), ("rewrite", [0])]:
+            certificate = make_certificate(LITERAL + "(assert false)", [
+                (rule, premises, "false"),
+            ])
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                proof_to_lean.reconstruct(LITERAL + "(assert false)", certificate)
+
+    def test_rewrite_requires_a_boolean_equivalence(self):
+        source = LITERAL + "(assert false)"
+        for conclusion in ["p", "(=> p p)", "false"]:
+            with self.subTest(conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    ("rewrite", [], conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "rewrite requires"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_rewrite_lemmas_share_only_the_needed_atom_cases(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        source += "(assert (or p q r s))(assert false)"
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (not (not p)) p)"),
+            ("rewrite", [], "(= (=> p q) (or q (not p)))"),
+            ("asserted", [], "false"),
+        ])
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("private theorem rewrite_"), 2)
+        self.assertEqual(text.count("  refute_with_decidable"), 2)
+        self.assertEqual(text.count("cases _d0"), 2)
+        self.assertEqual(text.count("cases _d1"), 1)
+        self.assertNotIn("cases _d2", text)
+        self.assertNotIn("cases _d3", text)
+        statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+        self.assertNotIn("Decidable", statement)
+
+    def test_structural_rule_signatures_are_checked(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (= p p))(assert (and p q))(assert (not (or p q)))(assert false)"
+        rules = [
+            ("refl", [], "(= p p)"), ("symm", [0], "(= p p)"),
+            ("trans", [0, 0], "(= p p)"),
+            ("monotonicity", [0], "(= (not p) (not p))"),
+            ("and-elim", [1], "p"), ("not-or-elim", [2], "(not p)"),
+        ]
+        for rule, premises, conclusion in rules:
+            original = make_certificate(source, [
+                (rule, premises, conclusion), ("asserted", [], "false"),
+            ])
+            for key, value in [("name", "forged"), ("domain", []),
+                               ("domain", ["Proof"]), ("domain", ["Bool", "Bool"])]:
+                with self.subTest(rule=rule, key=key, value=value):
+                    certificate = copy.deepcopy(original)
+                    declaration = next(decl for decl in certificate["declarations"] if decl["name"] == rule)
+                    declaration[key] = value
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                        proof_to_lean.reconstruct(source, certificate)
+        for rule, premises in [
+            ("refl", [0]), ("symm", []), ("symm", [0, 0]),
+            ("trans", [0]), ("trans", [0, 0, 0]),
+            ("and-elim", []), ("and-elim", [1, 1]),
+            ("not-or-elim", []), ("not-or-elim", [2, 2]),
+        ]:
+            with self.subTest(rule=rule, premises=premises):
+                certificate = make_certificate(source, [
+                    (rule, premises, "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_incorrect_equivalence_steps_are_rejected_even_when_unused(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += """\
+(assert (= p q))(assert (= q r))(assert (= r q))
+(assert (=> p q))(assert (=> q r))(assert false)
+"""
+        for rule, premises, conclusion in [
+            ("refl", [], "(= p q)"), ("refl", [], "(=> p p)"),
+            ("symm", [0], "(= p q)"), ("symm", [0], "(= q r)"),
+            ("symm", [3], "(=> q p)"), ("symm", [3], "(= q p)"),
+            ("trans", [0, 1], "(= p q)"), ("trans", [0, 2], "(= p r)"),
+            ("trans", [1, 0], "(= p r)"), ("trans", [3, 4], "(= p r)"),
+            ("trans", [0, 1], "(=> p r)"),
+        ]:
+            with self.subTest(rule=rule, premises=premises, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    (rule, premises, conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, rule):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_monotonicity_requires_matching_heads_and_oriented_evidence(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        source += "(assert (= p q))(assert (= r s))(assert (=> p q))(assert (= q p))(assert false)"
+        for premises, conclusion in [
+            ([0], "(= (and p r) (or q r))"),
+            ([0], "(= (or p r) (or q r s))"),
+            ([], "(= (not p) (not q))"),
+            ([3], "(= (not p) (not q))"),
+            ([2], "(= (not p) (not q))"),
+            ([0], "(= (and p r) (and q s))"),
+            ([0, 1], "(= (and p r) (and s q))"),
+            ([0], "(=> (not p) (not q))"),
+            ([0], "(= p q)"),
+        ]:
+            with self.subTest(premises=premises, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    ("monotonicity", premises, conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "monotonicity"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_monotonicity_reuses_argument_evidence_without_atom_cases(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        source += "(assert (= p q))(assert (= r s))"
+        source += "(assert (and p r p q))(assert (not (and q s q q)))"
+        certificate = make_certificate(source, [
+            ("monotonicity", [1, 0, 0], "(= (and p r p q) (and q s q q))"),
+            ("mp", [2, 4], "(and q s q q)"),
+            ("unit-resolution", [5, 3], "false"),
+        ])
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("and_congr"), 3)
+        self.assertNotIn("cases _d", text)
+        self.assertNotIn("refute_with_decidable", text)
+
+    def test_elimination_requires_an_immediate_operand(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += """\
+(assert (and p q r))(assert (not (or p q r)))
+(assert (and (and p q) r))(assert (not (or (or p q) r)))
+(assert (or p q r))(assert (not p))(assert false)
+"""
+        for rule, premise, conclusion in [
+            ("and-elim", 0, "(and p q)"), ("and-elim", 0, "(not p)"),
+            ("and-elim", 2, "p"), ("and-elim", 4, "p"),
+            ("not-or-elim", 1, "p"), ("not-or-elim", 1, "(not (and p q))"),
+            ("not-or-elim", 3, "(not p)"), ("not-or-elim", 4, "(not p)"),
+            ("not-or-elim", 5, "(not p)"),
+        ]:
+            with self.subTest(rule=rule, premise=premise, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    (rule, [premise], conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, rule):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_invalid_structural_step_never_replaces_an_artifact(self):
+        source = LITERAL + "(assert false)"
+        certificate = make_certificate(source, [
+            ("symm", [0], "(= p p)"), ("asserted", [], "false"),
+        ])
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            output.write_text("previous artifact")
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "symm"):
+                proof_to_lean.check_and_write(source, certificate, output)
+            checker.assert_not_called()
+            self.assertEqual(output.read_text(), "previous artifact")
+            self.assertEqual(list(Path(directory).iterdir()), [output])
 
     def test_duplicate_assertions_remain_in_the_theorem(self):
         source = "(declare-const p Bool)(assert p)(assert p)(assert (not p))"
@@ -171,11 +397,15 @@ class TestProofToLean(unittest.TestCase):
             proof_to_lean.reconstruct(source, certificate)
 
     def test_unsupported_native_rules_are_rejected(self):
-        certificate = proof_certificate.export_certificate(REWRITE)
+        certificate = proof_certificate.export_certificate(UNSUPPORTED)
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported native proof rule"):
-            proof_to_lean.reconstruct(REWRITE, certificate)
+            proof_to_lean.reconstruct(UNSUPPORTED, certificate)
         for kind, name in [(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis"),
-                           (z3.Z3_OP_PR_TH_LEMMA, "th-lemma")]:
+                           (z3.Z3_OP_PR_TH_LEMMA, "th-lemma"),
+                           (z3.Z3_OP_PR_TRANSITIVITY_STAR, "trans*"),
+                           (z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"),
+                           (z3.Z3_OP_PR_MODUS_PONENS_OEQ, "mp~"),
+                           (z3.Z3_OP_PR_DEF_AXIOM, "def-axiom")]:
             certificate = copy.deepcopy(self.certificate)
             for decl in certificate["declarations"]:
                 if decl["kind"] == z3.Z3_OP_PR_ASSERTED:
