@@ -34,6 +34,7 @@ namespace nla {
         void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d);
         void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val);
         void add_pi(lpvar val);
+        void add_atan2(lpvar y, lpvar x, lpvar val);
         void check_bounded_divisions();
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
         void updt_params(params_ref const& p);

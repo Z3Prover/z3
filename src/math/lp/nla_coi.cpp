@@ -50,6 +50,11 @@ namespace nla {
           todo.push_back(a.arg);
           todo.push_back(a.val);
       }
+      for (auto const& a : c.get_transcendentals().atan2_apps()) {
+          todo.push_back(a.y);
+          todo.push_back(a.x);
+          todo.push_back(a.val);
+      }
 
       for (const auto *t :  lra.terms() ) {
           for (auto const iv : *t) {

@@ -234,6 +234,7 @@ public:
     void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) { m_divisions.add_divisibility(r, x, y, d); }
     void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
     void add_pi(lpvar val) { m_transcendentals.add_pi(val); }
+    void add_atan2(lpvar y, lpvar x, lpvar val) { m_transcendentals.add_atan2(y, x, val); }
     transcendentals const& get_transcendentals() const { return m_transcendentals; }
     transcendentals& get_transcendentals() { return m_transcendentals; }
     void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }

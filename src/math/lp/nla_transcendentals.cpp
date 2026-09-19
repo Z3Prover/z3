@@ -132,9 +132,31 @@ namespace nla {
             lra.add_var_bound(val, lp::lconstraint_kind::LE, to_rational(k_pi_ub));
             lra.add_var_bound(val, lp::lconstraint_kind::GE, rational(0));
             break;
+        case transcendental_op_kind::EXP:
+            // Sign constraint (TOCL/MathSAT paper): exp(x) > 0 for every x.
+            // The tighter, still-unconditional exp(x) >= 1+x fact is
+            // asserted reactively as a lemma instead (see
+            // check_exp_lower_bound), since it is a two-column inequality
+            // and this permanent-axiom path is single-column only.
+            lra.add_var_bound(val, lp::lconstraint_kind::GT, rational(0));
+            break;
         default:
             break; // TAN, SINH, ASINH, ATANH: no simple unconditional bound.
         }
+    }
+
+    void transcendentals::add_atan2(lpvar y, lpvar x, lpvar val) {
+        if (y == null_lpvar || x == null_lpvar || val == null_lpvar)
+            return;
+        m_atan2_apps.push_back({ y, x, val });
+        m_core.trail().push(push_back_vector(m_atan2_apps));
+        // Permanent range axiom: atan2's range is (-pi, pi]; k_pi_ub is an
+        // outward-rounded rational upper bound for pi (see above), so
+        // asserting val <= k_pi_ub and val >= -k_pi_ub is sound (slightly
+        // looser at -pi than the true half-open range, which does not
+        // exclude any value atan2 can actually attain).
+        m_core.lra.add_var_bound(val, lp::lconstraint_kind::LE, to_rational(k_pi_ub));
+        m_core.lra.add_var_bound(val, lp::lconstraint_kind::GE, to_rational(-k_pi_ub));
     }
 
     char const* transcendentals::op_name(transcendental_op_kind op) {
@@ -151,6 +173,7 @@ namespace nla {
         case transcendental_op_kind::ASINH: return "asinh";
         case transcendental_op_kind::ACOSH: return "acosh";
         case transcendental_op_kind::ATANH: return "atanh";
+        case transcendental_op_kind::EXP:   return "exp";
         }
         return "?";
     }
@@ -172,6 +195,7 @@ namespace nla {
         case transcendental_op_kind::ASINH: return std::asinh(x);
         case transcendental_op_kind::ACOSH: return std::acosh(x); // NaN for x < 1
         case transcendental_op_kind::ATANH: return std::atanh(x); // NaN/+-inf for |x| >= 1
+        case transcendental_op_kind::EXP:   return std::exp(x);
         }
         return std::numeric_limits<double>::quiet_NaN();
     }
@@ -197,6 +221,7 @@ namespace nla {
             return safety * eps * std::max(1.0, std::fabs(x));
         case transcendental_op_kind::SINH:
         case transcendental_op_kind::COSH:
+        case transcendental_op_kind::EXP:
             return safety * eps * std::max(1.0, std::fabs(fx));
         case transcendental_op_kind::TAN:
         case transcendental_op_kind::ASIN:
@@ -458,11 +483,177 @@ namespace nla {
         return false;
     }
 
+    bool transcendentals::check_exp_lower_bound(app& a) {
+        if (a.op != transcendental_op_kind::EXP)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        rational const& yr = c.val(a.val);
+        if (yr >= rational(1) + xr)
+            return false; // exp(x) >= 1+x already holds, nothing to do.
+        // val - arg >= 1, i.e. val >= 1 + arg; sound for every real arg
+        // (TOCL/MathSAT paper's degree-1 Maclaurin lower bound, which for
+        // exp coincides with the tangent line at 0 - unlike a tangent
+        // line at an arbitrary point, this one needs no case split and no
+        // floating point point-evaluation to be sound), so this is
+        // asserted as a single-literal lemma.
+        lp::lar_term diff(rational(1), a.val, rational(-1), a.arg); // val - arg
+        lemma_builder lemma(c, "transcendental exp lower bound: exp(arg) >= 1+arg");
+        lemma |= ineq(diff, lp::lconstraint_kind::GE, rational(1));
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
+    bool transcendentals::check_exp_monotonicity(app& a) {
+        if (a.op != transcendental_op_kind::EXP)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        rational const& yr = c.val(a.val);
+        for (auto const& other : m_apps) {
+            if (other.op != transcendental_op_kind::EXP || other.arg == a.arg)
+                continue;
+            rational const& xr2 = c.val(other.arg);
+            rational const& yr2 = c.val(other.val);
+            // Monotonicity constraint (TOCL/MathSAT paper): x1 < x2 =>
+            // exp(x1) < exp(x2). Checked both ways (a vs other) so a
+            // single pairwise scan catches either orientation. Expressed
+            // via lar_terms relating the two applications' variables
+            // symbolically (not the current concrete values), so the
+            // resulting lemma is a genuine, reusable fact about the
+            // relationship between the two applications, rather than one
+            // tied to this particular round's witness values (which would
+            // never converge, since a fresh pair of concrete values would
+            // trip the same check again next round).
+            lp::lar_term arg_diff(rational(1), a.arg, rational(-1), other.arg); // a.arg - other.arg
+            lp::lar_term val_diff(rational(1), a.val, rational(-1), other.val); // a.val - other.val
+            if (xr < xr2 && yr >= yr2) {
+                lemma_builder lemma(c, "transcendental exp monotonicity");
+                lemma |= ineq(arg_diff, lp::lconstraint_kind::GE, rational(0));
+                lemma |= ineq(val_diff, lp::lconstraint_kind::LT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+            if (xr > xr2 && yr <= yr2) {
+                lemma_builder lemma(c, "transcendental exp monotonicity");
+                lemma |= ineq(arg_diff, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(val_diff, lp::lconstraint_kind::GT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool transcendentals::check_atan_taylor_range(app& a) {
+        if (a.op != transcendental_op_kind::ATAN)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        if (xr < rational(-1) || xr > rational(1))
+            return false; // outside the Maclaurin series' radius of convergence.
+        rational const& yr = c.val(a.val);
+        // atan(x) = x - x^3/3 + x^5/5 - ... ; for |x| <= 1 the terms are
+        // non-increasing in magnitude, so by the alternating series
+        // estimation theorem every partial sum S_k brackets the true
+        // value together with S_{k+1}: min(S_k, S_{k+1}) <= atan(x) <=
+        // max(S_k, S_{k+1}). Computed here in exact rational arithmetic
+        // (unlike the generic float-based box-refinement fallback), so
+        // the resulting bracket is an exact, not just floating point
+        // approximate, enclosure - but, since S_k(xr) is evaluated at
+        // this specific xr, it is only sound exactly at arg = xr, not
+        // over the whole [-1,1] domain (unlike check_linear_majorant's
+        // fact, which is uniform over an entire half-line); the lemma
+        // below therefore gates on arg == xr exactly (a point exclusion,
+        // in the same spirit as check_app's plain case-split fallback),
+        // not on the domain condition.
+        constexpr unsigned k_terms = 40;
+        rational term = xr;
+        rational xr2 = xr * xr;
+        rational sum(0);
+        rational lo = sum, hi = sum;
+        for (unsigned k = 0; k < k_terms; ++k) {
+            rational next = sum + term / rational(2 * k + 1);
+            lo = std::min(sum, next);
+            hi = std::max(sum, next);
+            sum = next;
+            term = -term * xr2;
+        }
+        if (yr >= lo && yr <= hi)
+            return false; // already consistent with the bracket.
+        if (yr < lo) {
+            lemma_builder lemma(c, "transcendental atan Maclaurin lower bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+        }
+        else {
+            lemma_builder lemma(c, "transcendental atan Maclaurin upper bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+        }
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
+    bool transcendentals::check_atan2(atan2_app& a) {
+        core& c = m_core;
+        rational const& yr = c.val(a.y);
+        rational const& xr = c.val(a.x);
+        rational const& vr = c.val(a.val);
+        // Sign fact: sign(atan2(y,x)) == sign(y) whenever y != 0, for
+        // every x (atan2's quadrant selection never flips the sign of the
+        // result relative to y - it only ever affects how close |val| is
+        // to pi vs 0).
+        if (yr.is_pos() && !vr.is_pos()) {
+            lemma_builder lemma(c, "transcendental atan2 sign: y > 0 => atan2(y,x) > 0");
+            lemma |= ineq(a.y, lp::lconstraint_kind::LE, rational(0));
+            lemma |= ineq(a.val, lp::lconstraint_kind::GT, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        if (yr.is_neg() && !vr.is_neg()) {
+            lemma_builder lemma(c, "transcendental atan2 sign: y < 0 => atan2(y,x) < 0");
+            lemma |= ineq(a.y, lp::lconstraint_kind::GE, rational(0));
+            lemma |= ineq(a.val, lp::lconstraint_kind::LT, rational(0));
+            ++c.lp_settings().stats().m_nla_transcendental_splits;
+            return true;
+        }
+        double y = yr.get_double(), x = xr.get_double(), v = vr.get_double();
+        double fv = std::atan2(y, x);
+        if (!std::isfinite(fv))
+            return false; // (0,0): undefined, not this check's responsibility.
+        double tolerance = c.params().arith_nl_transcendental_tolerance();
+        // atan2 has a branch cut, so its derivative is unbounded near
+        // x < 0, y ~ 0 (val jumps by ~2*pi there); use a generous margin
+        // rather than attempting a tight closed-form error bound.
+        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv)) + tolerance;
+        if (std::fabs(v - fv) <= err)
+            return false;
+        // Coarse case-split fallback on sign(x), rather than a full 2D
+        // box-refinement enclosure (atan2's branch structure makes a tight
+        // closed-form box substantially more involved - out of scope
+        // here; see the module comment). This is always sound: it merely
+        // forces the search to commit to one quadrant-determining fact at
+        // a time, in the same spirit as check_app's plain case-split
+        // fallback.
+        c.m_literals.push_back(ineq(a.x, lp::lconstraint_kind::LE, xr));
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
     bool transcendentals::check_app(app& a) {
         core& c = m_core;
         if (check_linear_majorant(a))
             return true;
         if (check_sign_on_pi_range(a))
+            return true;
+        if (check_exp_lower_bound(a))
+            return true;
+        if (check_exp_monotonicity(a))
+            return true;
+        if (check_atan_taylor_range(a))
             return true;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
@@ -580,11 +771,14 @@ namespace nla {
     }
 
     void transcendentals::check() {
-        if (m_apps.empty() || !m_core.params().arith_nl_transcendental())
+        if (empty() || !m_core.params().arith_nl_transcendental())
             return;
         for (auto& a : m_apps)
             if (check_app(a))
                 return; // one case split per round is enough
+        for (auto& a : m_atan2_apps)
+            if (check_atan2(a))
+                return;
     }
 
     bool transcendentals::check_nra_model() {

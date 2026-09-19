@@ -179,7 +179,8 @@ namespace nla {
         TANH,
         ASINH,
         ACOSH,
-        ATANH
+        ATANH,
+        EXP
     };
 
     class transcendentals {
@@ -231,6 +232,21 @@ namespace nla {
             lpvar v2;
         };
 
+        // A registered application of the binary function atan2(y, x),
+        // val meant to represent atan2(y, x) (the 2-argument arctangent,
+        // range (-pi, pi]). This is a genuinely different shape from app
+        // above (two input variables, playing structurally different
+        // roles - y's sign alone fixes val's sign, x's sign alone selects
+        // the branch), so it is kept as a separate, self-contained
+        // registration/check path rather than shoehorned into the
+        // single-argument transcendental_op_kind family; see add_atan2 and
+        // check_atan2 in nla_transcendentals.cpp.
+        struct atan2_app {
+            lpvar y;
+            lpvar x;
+            lpvar val;
+        };
+
     private:
         core&         m_core;
         vector<app>   m_apps;
@@ -247,6 +263,9 @@ namespace nla {
         // express arg-range facts like "0 < arg < pi" symbolically instead
         // of only via pi's already-asserted numeric bound.
         lpvar m_pi_var = null_lpvar;
+
+        // Registered atan2(y, x) applications; see atan2_app and add_atan2.
+        vector<atan2_app> m_atan2_apps;
 
     public:
         transcendentals(core& c) : m_core(c) {}
@@ -265,12 +284,20 @@ namespace nla {
         // registered.
         void add_pi(lpvar val);
 
+        // theory_lra registers a binary atan2(y, x) application: y and x
+        // are the two input variables, val the output. Asserts atan2's
+        // permanent range axiom (-pi <= val <= pi) and records the
+        // application for check() (see check_atan2). A no-op if any of y,
+        // x, val is null.
+        void add_atan2(lpvar y, lpvar x, lpvar val);
+
         // null_lpvar if theory_lra has not (yet) registered pi.
         lpvar pi_var() const { return m_pi_var; }
 
-        bool empty() const { return m_apps.empty(); }
+        bool empty() const { return m_apps.empty() && m_atan2_apps.empty(); }
 
         vector<app> const& apps() const { return m_apps; }
+        vector<atan2_app> const& atan2_apps() const { return m_atan2_apps; }
 
         // Cross-application identity pairs discovered so far (see the
         // identity_pair doc comment and the module-level comment on
@@ -327,6 +354,16 @@ namespace nla {
 
     private:
         bool check_app(app& a);
+        // atan2(y, x): the exact fact sign(val) == sign(y) whenever y != 0
+        // (val and y share a sign regardless of x's sign or magnitude -
+        // atan2's quadrant selection never flips the sign of the result
+        // relative to y), asserted as a lemma when violated; then a
+        // float-based delta-check against std::atan2(y, x) with a coarse
+        // case-split on sign(x) as fallback (rather than full 2D box
+        // refinement - atan2's branch structure makes a tight closed-form
+        // box enclosure substantially more involved, and is out of scope
+        // here; see the module comment).
+        bool check_atan2(atan2_app& a);
         // True for op such that op(0) = 0 and op is 1-Lipschitz (sin,
         // tanh, atan): each then satisfies the *exact*, global (not just
         // locally-around-the-current-point) fact op(x) <= x for x >= 0 and
@@ -355,6 +392,33 @@ namespace nla {
         // (returns false) if pi has not been registered (pi_var() ==
         // null_lpvar) or a.op is neither SIN nor COS.
         bool check_sign_on_pi_range(app& a);
+        // EXP: the exact, tolerance-free, global inequality exp(t) >= 1+t
+        // for every real t (equivalently, T_1's Maclaurin lower bound at
+        // degree 1, sound unconditionally - unlike sin/cos/tan/etc.,
+        // exp is not entire-with-bounded-derivatives, so the general
+        // get_taylor sandwich machinery does not apply to it; see the
+        // module comment and nla_transcendentals.cpp for the TOCL/MathSAT
+        // paper's derivation of this and the other exp-specific facts
+        // below). Asserted as a single-literal lemma (no case split
+        // needed, since it holds for every t) whenever violated.
+        bool check_exp_lower_bound(app& a);
+        // EXP: monotonicity - exp(x1) < exp(x2) whenever x1 < x2. Checked
+        // pairwise across all registered EXP applications (the paper's
+        // "Monotonicity constraint"); asserted as a two-literal lemma
+        // whenever two applications currently violate it.
+        bool check_exp_monotonicity(app& a);
+        // ATAN: an exact rational Maclaurin sandwich for atan(arg), valid
+        // only while -1 <= arg <= 1 (atan's Maclaurin series has radius of
+        // convergence 1, unlike sin/cos which are entire), using the
+        // classical alternating-series bracket (consecutive partial sums
+        // enclose the true value whenever the terms are non-increasing in
+        // magnitude, which holds throughout this domain). Computed
+        // directly in exact rational arithmetic at arg's current value
+        // (unlike the generic float-based box-refinement below), so this
+        // is tried - like the other exact checks above - before falling
+        // back to it. Asserted as a lemma gated by (arg < -1 \/ arg > 1 \/
+        // ...) whenever violated; a no-op outside [-1, 1].
+        bool check_atan_taylor_range(app& a);
         // Smallest number of Taylor terms (1..max_terms) such that the
         // (floating point estimate of the) resulting sandwich at x
         // provably excludes y, i.e. would contradict the faulty model

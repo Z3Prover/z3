@@ -70,6 +70,8 @@ enum arith_op_kind {
     OP_ASINH,
     OP_ACOSH,
     OP_ATANH,
+    OP_EXP,
+    OP_ATAN2,
     // Bit-vector functions
     OP_ARITH_BAND,
     OP_ARITH_SHL,
@@ -143,6 +145,8 @@ protected:
     func_decl * m_asinh_decl;
     func_decl * m_acosh_decl;
     func_decl * m_atanh_decl;
+    func_decl * m_exp_decl;
+    func_decl * m_atan2_decl;
 
     app       * m_pi;
     app       * m_e;
@@ -331,6 +335,8 @@ public:
     bool is_asinh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ASINH); }
     bool is_acosh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ACOSH); }
     bool is_atanh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATANH); }
+    bool is_exp(expr const* n) const { return is_app_of(n, arith_family_id, OP_EXP); }
+    bool is_atan2(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATAN2); }
     bool is_pi(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_PI); }
     bool is_e(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_E); }
     bool is_non_algebraic(expr const* n) const {
@@ -346,6 +352,8 @@ public:
             is_asinh(n) ||
             is_acosh(n) ||
             is_atanh(n) ||
+            is_exp(n) ||
+            is_atan2(n) ||
             is_e(n) ||
             is_pi(n);
     }
@@ -386,6 +394,8 @@ public:
     MATCH_UNARY(is_sinh);
     MATCH_UNARY(is_cosh);
     MATCH_UNARY(is_tanh);
+    MATCH_UNARY(is_exp);
+    MATCH_BINARY(is_atan2);
     END_DISABLE_WARNING;
 
 };
@@ -533,6 +543,8 @@ public:
     app * mk_asinh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ASINH, arg); }
     app * mk_acosh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ACOSH, arg); }
     app * mk_atanh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ATANH, arg); }
+    app * mk_exp(expr * arg) { return m_manager.mk_app(arith_family_id, OP_EXP, arg); }
+    app * mk_atan2(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_ATAN2, arg1, arg2); }
 
     app * mk_pi() { return plugin().mk_pi(); }
     app * mk_e()  { return plugin().mk_e(); }
