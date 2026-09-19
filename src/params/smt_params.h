@@ -66,10 +66,11 @@ enum case_split_strategy {
     CS_ACTIVITY, // case split based on activity
     CS_ACTIVITY_DELAY_NEW, // case split based on activity but delay new case splits created during the search
     CS_ACTIVITY_WITH_CACHE, // case split based on activity and cache the activity
-    CS_RELEVANCY, // case split based on relevancy
+    CS_RELEVANCY, // deprecated alias for delayed activity due to quantified UF+LIA performance; use structural strategy 7 instead
     CS_RELEVANCY_ACTIVITY, // case split based on relevancy and activity
     CS_RELEVANCY_GOAL, // based on relevancy and the current goal
-    CS_ACTIVITY_THEORY_AWARE_BRANCHING // activity-based case split, but theory solvers can manipulate activity
+    CS_ACTIVITY_THEORY_AWARE_BRANCHING, // activity-based case split, but theory solvers can manipulate activity
+    CS_RELEVANCY_STRUCTURAL // structural relevancy splitting (strategy 7)
 };
 
 struct smt_params : public preprocessor_params,
@@ -313,4 +314,3 @@ struct smt_params : public preprocessor_params,
     void setup_LRA();
             
 };
-

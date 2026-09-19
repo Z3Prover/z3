@@ -1264,13 +1264,16 @@ namespace smt {
         case CS_ACTIVITY_WITH_CACHE:
             return alloc(cact_case_split_queue, ctx, p);
         case CS_RELEVANCY:
-            return alloc(rel_case_split_queue, ctx, p);
+            // Strategy 3 is a deprecated alias for delayed activity; strategy 7 retains structural relevancy splitting.
+            return alloc(dact_case_split_queue, ctx, p);
         case CS_RELEVANCY_ACTIVITY:
             return alloc(rel_act_case_split_queue, ctx, p);
         case CS_RELEVANCY_GOAL:
             return alloc(rel_goal_case_split_queue, ctx, p);
         case CS_ACTIVITY_THEORY_AWARE_BRANCHING:
             return alloc(theory_aware_branching_queue, ctx, p);
+        case CS_RELEVANCY_STRUCTURAL:
+            return alloc(rel_case_split_queue, ctx, p);
         default:
             return alloc(act_case_split_queue, ctx, p);
         }
