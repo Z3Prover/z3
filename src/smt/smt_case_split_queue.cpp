@@ -1264,7 +1264,7 @@ namespace smt {
         case CS_ACTIVITY_WITH_CACHE:
             return alloc(cact_case_split_queue, ctx, p);
         case CS_RELEVANCY:
-            // Preserve compatibility for F* queries; see issue #10863.
+            // Strategy 3 is a deprecated alias for delayed activity; strategy 7 retains structural relevancy splitting.
             return alloc(dact_case_split_queue, ctx, p);
         case CS_RELEVANCY_ACTIVITY:
             return alloc(rel_act_case_split_queue, ctx, p);
