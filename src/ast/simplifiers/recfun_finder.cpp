@@ -111,8 +111,25 @@ struct recfun_finder::undo_aliases : public trail {
     }
 };
 
+struct recfun_finder::undo_definitions : public trail {
+    recfun_finder& s;
+    unsigned sz;
+    undo_definitions(recfun_finder& s): s(s), sz(s.m_definitions.size()) {}
+    void undo() override {
+        if (s.m_definitions.size() <= sz)
+            return;
+        recfun::util ru(s.m);
+        recfun::decl::plugin& plugin = ru.get_plugin();
+        while (s.m_definitions.size() > sz) {
+            plugin.erase_def(s.m_definitions.back());
+            s.m_definitions.pop_back();
+        }
+    }
+};
+
 void recfun_finder::push() {
     m_trail.push(undo_aliases(*this));
+    m_trail.push(undo_definitions(*this));
 }
 
 void recfun_finder::add_alias(func_decl* src, func_decl* dst) {
@@ -418,6 +435,7 @@ void recfun_finder::find_recfuns_core() {
             recfun::promise_def pd = plugin.ensure_def(f->get_name(), f->get_arity(), f->get_domain(), f->get_range(), true);
             func_decl* f1 = pd.get_def()->get_decl();
             m_pinned.push_back(f1);
+            m_definitions.push_back(f1);
             replace.insert(f, f1);
             add_alias(f, f1);
             if (cands[i].mirror) {
@@ -465,6 +483,7 @@ void recfun_finder::find_recfuns_core() {
             args.push_back(w);
         }
         recfun::promise_def gpd = plugin.ensure_def(g->get_name(), nargs, g->get_domain(), g->get_range(), true);
+        m_definitions.push_back(gpd.get_def()->get_decl());
         expr_ref alias(m.mk_app(f1, args.size(), args.data()), m);
         recfun_replace rr(m);
         plugin.set_definition(rr, gpd, true, vars.size(), vars.data(), alias);
@@ -505,4 +524,3 @@ void recfun_finder::find_recfuns_core() {
 
     IF_VERBOSE(10, verbose_stream() << "(recfun-finder :num-defs " << pdefs.size() << ")\n";);
 }
-

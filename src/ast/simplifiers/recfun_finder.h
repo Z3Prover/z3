@@ -34,11 +34,13 @@ class recfun_finder : public dependent_expr_simplifier {
 
     vector<alias>           m_aliases;
     obj_map<func_decl, func_decl*> m_alias_map;
+    func_decl_ref_vector    m_definitions;
     func_decl_ref_vector    m_pinned;
     macro_util              m_macro_util;
     unsigned                m_num_recfuns = 0;
 
     struct undo_aliases;
+    struct undo_definitions;
 
     void add_alias(func_decl* src, func_decl* dst);
     void apply_aliases();
@@ -49,6 +51,7 @@ class recfun_finder : public dependent_expr_simplifier {
 public:
     recfun_finder(ast_manager& m, params_ref const& p, dependent_expr_state& s):
         dependent_expr_simplifier(m, s),
+        m_definitions(m),
         m_pinned(m),
         m_macro_util(m) {}
 
@@ -62,4 +65,3 @@ public:
 /*
   ADD_SIMPLIFIER("recfun-finder", "detect recursive-function definitions encoded as universally quantified axioms.", "alloc(recfun_finder, m, p, s)")
 */
-
