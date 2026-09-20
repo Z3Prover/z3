@@ -59,7 +59,8 @@ class nlsat_tactic : public tactic {
             m_solver.updt_params(m_params);
         }
         
-        // Transcendental applications (sin/cos/exp/atan/log) registered
+        // Transcendental applications (sin/cos/tan/asin/acos/atan/sinh/cosh/
+        // tanh/asinh/acosh/atanh/exp/log) registered
         // with nlsat's own transcendental engine (see goal2nlsat's
         // register_transcendentals / nlsat_transcendentals.*) are a second,
         // legitimate reason for an x2t entry not to be a bare uninterpreted
@@ -73,7 +74,11 @@ class nlsat_tactic : public tactic {
             if (to_app(t)->get_family_id() != m.get_family_id("arith"))
                 return false;
             switch (to_app(t)->get_decl_kind()) {
-            case OP_SIN: case OP_COS: case OP_EXP: case OP_ATAN: case OP_LOG:
+            case OP_SIN: case OP_COS: case OP_TAN:
+            case OP_ASIN: case OP_ACOS: case OP_ATAN:
+            case OP_SINH: case OP_COSH: case OP_TANH:
+            case OP_ASINH: case OP_ACOSH: case OP_ATANH:
+            case OP_EXP: case OP_LOG:
                 return true;
             default:
                 return false;

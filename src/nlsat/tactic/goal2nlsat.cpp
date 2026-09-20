@@ -257,18 +257,26 @@ struct goal2nlsat::imp {
 
     // Maps a unary arith-family transcendental application's decl_kind to
     // nlsat's own transcendental_op_kind, when supported by nlsat's engine
-    // (nlsat_transcendentals.*); everything else (tan/asin/acos/sinh/cosh/
-    // tanh/asinh/acosh/atanh/atan2/...) is left abstracted as an opaque
-    // variable, exactly as before this method existed.
+    // (nlsat_transcendentals.*); everything else (atan2/pi, which have a
+    // different arity/arg-shape) is left abstracted as an opaque variable.
     static bool get_transcendental_op(app * t, nlsat::transcendental_op_kind & op) {
         if (t->get_num_args() != 1)
             return false;
         switch (t->get_decl_kind()) {
-        case OP_SIN: op = nlsat::transcendental_op_kind::SIN; return true;
-        case OP_COS: op = nlsat::transcendental_op_kind::COS; return true;
-        case OP_EXP: op = nlsat::transcendental_op_kind::EXP; return true;
-        case OP_ATAN: op = nlsat::transcendental_op_kind::ATAN; return true;
-        case OP_LOG: op = nlsat::transcendental_op_kind::LOG; return true;
+        case OP_SIN:   op = nlsat::transcendental_op_kind::SIN;   return true;
+        case OP_COS:   op = nlsat::transcendental_op_kind::COS;   return true;
+        case OP_TAN:   op = nlsat::transcendental_op_kind::TAN;   return true;
+        case OP_ASIN:  op = nlsat::transcendental_op_kind::ASIN;  return true;
+        case OP_ACOS:  op = nlsat::transcendental_op_kind::ACOS;  return true;
+        case OP_ATAN:  op = nlsat::transcendental_op_kind::ATAN;  return true;
+        case OP_SINH:  op = nlsat::transcendental_op_kind::SINH;  return true;
+        case OP_COSH:  op = nlsat::transcendental_op_kind::COSH;  return true;
+        case OP_TANH:  op = nlsat::transcendental_op_kind::TANH;  return true;
+        case OP_ASINH: op = nlsat::transcendental_op_kind::ASINH; return true;
+        case OP_ACOSH: op = nlsat::transcendental_op_kind::ACOSH; return true;
+        case OP_ATANH: op = nlsat::transcendental_op_kind::ATANH; return true;
+        case OP_EXP:   op = nlsat::transcendental_op_kind::EXP;   return true;
+        case OP_LOG:   op = nlsat::transcendental_op_kind::LOG;   return true;
         default: return false;
         }
     }

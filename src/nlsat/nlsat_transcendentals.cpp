@@ -25,11 +25,22 @@ namespace nlsat {
 
     double transcendentals::eval(transcendental_op_kind op, double x) {
         switch (op) {
-        case transcendental_op_kind::SIN:  return std::sin(x);
-        case transcendental_op_kind::COS:  return std::cos(x);
-        case transcendental_op_kind::EXP:  return std::exp(x);
-        case transcendental_op_kind::ATAN: return std::atan(x);
-        case transcendental_op_kind::LOG:  return std::log(x); // NaN for x<0, -inf for x==0
+        case transcendental_op_kind::SIN:   return std::sin(x);
+        case transcendental_op_kind::COS:   return std::cos(x);
+        case transcendental_op_kind::TAN:   return std::tan(x);
+        // std::asin/std::acos return NaN outside [-1,1]; that is expected
+        // and handled by interval_eval's isfinite check.
+        case transcendental_op_kind::ASIN:  return std::asin(x);
+        case transcendental_op_kind::ACOS:  return std::acos(x);
+        case transcendental_op_kind::ATAN:  return std::atan(x);
+        case transcendental_op_kind::SINH:  return std::sinh(x);
+        case transcendental_op_kind::COSH:  return std::cosh(x);
+        case transcendental_op_kind::TANH:  return std::tanh(x);
+        case transcendental_op_kind::ASINH: return std::asinh(x);
+        case transcendental_op_kind::ACOSH: return std::acosh(x); // NaN for x < 1
+        case transcendental_op_kind::ATANH: return std::atanh(x); // NaN/+-inf for |x| >= 1
+        case transcendental_op_kind::EXP:   return std::exp(x);
+        case transcendental_op_kind::LOG:   return std::log(x); // NaN for x<0, -inf for x==0
         }
         return std::numeric_limits<double>::quiet_NaN();
     }
@@ -37,19 +48,30 @@ namespace nlsat {
     // Same conservative (not tight) round-off margin as
     // nla::transcendentals::error_bound (math/lp/nla_transcendentals.cpp):
     // a generous constant times machine epsilon, scaled by the argument (for
-    // the bounded-derivative sin/cos/atan) or by the function value (for
-    // exp, whose derivative is unbounded but grows with the value itself).
+    // the bounded-derivative ops) or by the function value (for
+    // exp/sinh/cosh, whose derivative is unbounded but grows with the value
+    // itself); ops whose derivative blows up near a domain boundary/pole
+    // (tan, asin, acos, atanh, acosh, log) get a larger safety margin.
     double transcendentals::error_bound(transcendental_op_kind op, double x, double fx) {
         double const eps = std::numeric_limits<double>::epsilon();
         double const safety = 64.0; // generous margin, this is not a tight certificate
-        double const boundary_safety = 4096.0; // extra margin near the domain boundary (x -> 0+)
+        double const boundary_safety = 4096.0; // extra margin near a domain boundary/pole
         switch (op) {
         case transcendental_op_kind::SIN:
         case transcendental_op_kind::COS:
         case transcendental_op_kind::ATAN:
+        case transcendental_op_kind::TANH:
+        case transcendental_op_kind::ASINH:
             return safety * eps * std::max(1.0, std::fabs(x));
         case transcendental_op_kind::EXP:
+        case transcendental_op_kind::SINH:
+        case transcendental_op_kind::COSH:
             return safety * eps * std::max(1.0, std::fabs(fx));
+        case transcendental_op_kind::TAN:
+        case transcendental_op_kind::ASIN:
+        case transcendental_op_kind::ACOS:
+        case transcendental_op_kind::ATANH:
+        case transcendental_op_kind::ACOSH:
         case transcendental_op_kind::LOG: // derivative 1/x blows up as x -> 0+
             return boundary_safety * eps * std::max(1.0, std::max(std::fabs(x), std::fabs(fx)));
         }
@@ -197,8 +219,20 @@ namespace nlsat {
             if (contains_multiple_of(lo, hi, 0.0, two_pi)) mx = 1.0;
             if (contains_multiple_of(lo, hi, pi, two_pi)) mn = -1.0;
             break;
+        case transcendental_op_kind::TAN:
+            // a pole strictly inside [lo, hi] makes tan unbounded there;
+            // bail out and let refine_app fall back to a tiny local box.
+            if (contains_multiple_of(std::nextafter(lo, hi), std::nextafter(hi, lo), pi / 2, pi))
+                return false;
+            break;
+        case transcendental_op_kind::COSH:
+            // cosh is convex with its unique minimum (1) at 0.
+            if (lo <= 0.0 && 0.0 <= hi) mn = 1.0;
+            break;
         default:
-            break; // EXP, ATAN, LOG: monotonic increasing everywhere on their domain, endpoints give the range.
+            break; // EXP, LOG, ATAN, ASIN, ACOS, SINH, TANH, ASINH, ACOSH, ATANH:
+                    // monotonic (increasing or, for ACOS, decreasing) everywhere on
+                    // their domain, so endpoints give the range.
         }
         double slack = std::max(error_bound(op, lo, f_lo), error_bound(op, hi, f_hi));
         lo_val = mn - slack;
@@ -240,6 +274,8 @@ namespace nlsat {
         m_apps.push_back({ op, arg, val });
         m_retry.push_back(0);
         add_global_axioms(op, arg, val);
+        add_range_axioms(op, val);
+        find_and_add_identity_axiom(op, arg, val);
     }
 
     // Exact, unconditional (or, for LOG, disjunctively domain-guarded)
@@ -267,8 +303,137 @@ namespace nlsat {
             break;
         }
         default:
-            break; // SIN/COS/ATAN: no exact global linear bound; left to refine_app's Taylor sandwich.
+            break; // SIN/COS/ATAN/TAN/ASIN/ACOS/SINH/COSH/TANH/ASINH/ACOSH/ATANH:
+                    // no exact global linear tangent bound; left to
+                    // refine_app's Taylor sandwich / interval enclosure and
+                    // (for the ops below) add_range_axioms' simple value bound.
         }
+    }
+
+    // pi/2 and pi, each rounded outward (away from the true value) by more
+    // than double's rounding error, so that using them as bounds never
+    // excludes a value the corresponding function can actually attain (same
+    // constants as nla::transcendentals::add_range_axioms).
+    static constexpr double k_pi_2_ub = 1.5707963267948968; // > true pi/2
+    static constexpr double k_pi_ub   = 3.1415926535897936; // > true pi
+
+    // Exact, unconditional value-range bound, ported from
+    // nla::transcendentals::add_range_axioms. Added once, permanently, the
+    // moment the application is registered - these are true for the op's
+    // *entire* range, so (like add_global_axioms) they need no
+    // witness-dependent widening.
+    void transcendentals::add_range_axioms(transcendental_op_kind op, var val) {
+        switch (op) {
+        case transcendental_op_kind::SIN:
+        case transcendental_op_kind::COS: {
+            literal lits[2] = {
+                ~bound_literal(s, val, atom::GT, rational(1)),
+                ~bound_literal(s, val, atom::LT, rational(-1))
+            };
+            s.mk_clause(1, lits, nullptr);     // NOT(val > 1)
+            s.mk_clause(1, lits + 1, nullptr); // NOT(val < -1)
+            break;
+        }
+        case transcendental_op_kind::TANH: {
+            literal lo = bound_literal(s, val, atom::GT, rational(-1)); // val > -1
+            literal hi = bound_literal(s, val, atom::LT, rational(1));  // val < 1
+            s.mk_clause(1, &lo, nullptr);
+            s.mk_clause(1, &hi, nullptr);
+            break;
+        }
+        case transcendental_op_kind::COSH: {
+            literal lit = ~bound_literal(s, val, atom::LT, rational(1)); // NOT(val < 1), i.e. val >= 1
+            s.mk_clause(1, &lit, nullptr);
+            break;
+        }
+        case transcendental_op_kind::ACOSH: {
+            literal lit = ~bound_literal(s, val, atom::LT, rational(0)); // val >= 0
+            s.mk_clause(1, &lit, nullptr);
+            break;
+        }
+        case transcendental_op_kind::ASIN: {
+            rational bnd = to_rational(k_pi_2_ub);
+            literal lits[2] = {
+                ~bound_literal(s, val, atom::GT, bnd),
+                ~bound_literal(s, val, atom::LT, -bnd)
+            };
+            s.mk_clause(1, lits, nullptr);
+            s.mk_clause(1, lits + 1, nullptr);
+            break;
+        }
+        case transcendental_op_kind::ACOS: {
+            rational bnd = to_rational(k_pi_ub);
+            literal lits[2] = {
+                ~bound_literal(s, val, atom::GT, bnd),
+                ~bound_literal(s, val, atom::LT, rational(0))
+            };
+            s.mk_clause(1, lits, nullptr);
+            s.mk_clause(1, lits + 1, nullptr);
+            break;
+        }
+        default:
+            break; // TAN, ATAN, SINH, ASINH, ATANH, EXP, LOG: no simple unconditional
+                    // value bound (EXP/LOG/ATAN already get a stronger, argument-
+                    // relating bound from add_global_axioms/the Taylor sandwich).
+        }
+    }
+
+    // Cross-application identity axiom: scans previously-registered
+    // applications for one with the same argument variable and a
+    // complementary op (ported from nla::transcendentals::add_transcendental's
+    // pairing scan), and - if found - asserts the corresponding permanent
+    // polynomial equality the moment the second application of the pair is
+    // registered.
+    void transcendentals::find_and_add_identity_axiom(transcendental_op_kind op, var arg, var val) {
+        for (unsigned i = 0; i + 1 < m_apps.size(); ++i) {
+            app const& other = m_apps[i];
+            if (other.arg != arg)
+                continue;
+            if (op == transcendental_op_kind::SIN && other.op == transcendental_op_kind::COS)
+                add_identity_axiom({ val, other.val }, true, false);
+            else if (op == transcendental_op_kind::COS && other.op == transcendental_op_kind::SIN)
+                add_identity_axiom({ other.val, val }, true, false);
+            else if (op == transcendental_op_kind::SINH && other.op == transcendental_op_kind::COSH)
+                add_identity_axiom({ other.val, val }, false, true);
+            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::SINH)
+                add_identity_axiom({ val, other.val }, false, true);
+            else if (op == transcendental_op_kind::TANH && other.op == transcendental_op_kind::COSH)
+                add_identity_axiom({ other.val, val }, false, false);
+            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::TANH)
+                add_identity_axiom({ val, other.val }, false, false);
+        }
+    }
+
+    // Asserts the permanent polynomial equality for a matched pair (see
+    // find_and_add_identity_axiom / nla::transcendentals's module comment):
+    //   is_sin_cos:                v1^2 + v2^2 - 1 = 0        (v1=sin, v2=cos)
+    //   is_cosh_sinh:              v1^2 - v2^2 - 1 = 0        (v1=cosh, v2=sinh)
+    //   otherwise (cosh, tanh):    v1^2 - v1^2*v2^2 - 1 = 0   (v1=cosh, v2=tanh)
+    // Each holds exactly for every real value of the shared argument, with
+    // no remainder/error term, so - unlike the Taylor sandwich - it is
+    // asserted unconditionally and permanently, the moment the pair is found.
+    void transcendentals::add_identity_axiom(identity_pair const& pr, bool is_sin_cos, bool is_cosh_sinh) {
+        auto& pm = s.pm();
+        polynomial_ref v1(pm.mk_polynomial(pr.v1), pm);
+        polynomial_ref v2(pm.mk_polynomial(pr.v2), pm);
+        polynomial_ref v1sq(pm); v1sq = v1 * v1;
+        polynomial_ref eq(pm);
+        if (is_sin_cos) {
+            polynomial_ref v2sq(pm); v2sq = v2 * v2;
+            eq = v1sq + v2sq - rational(1);
+        }
+        else if (is_cosh_sinh) {
+            polynomial_ref v2sq(pm); v2sq = v2 * v2;
+            eq = v1sq - v2sq - rational(1);
+        }
+        else {
+            polynomial_ref v2sq(pm); v2sq = v2 * v2;
+            eq = v1sq - (v1sq * v2sq) - rational(1);
+        }
+        poly* pp = eq.get();
+        bool is_even = false;
+        literal lit = s.mk_ineq_literal(atom::EQ, 1, &pp, &is_even);
+        s.mk_clause(1, &lit, nullptr);
     }
 
     bool transcendentals::refine_app(unsigned idx) {

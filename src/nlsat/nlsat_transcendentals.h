@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Direct-in-nlsat handling of transcendental function applications
-    (sin/cos/exp/atan/log).
+    (sin/cos/tan/asin/acos/atan/sinh/cosh/tanh/asinh/acosh/atanh/exp/log).
 
     This is an alternative to nla::transcendentals (math/lp/nla_transcendentals.*):
     that module grows Taylor-sandwich polynomial axioms *outside* nlsat and
@@ -57,7 +57,9 @@ namespace nlsat {
 
     class solver;
 
-    enum class transcendental_op_kind { SIN, COS, EXP, ATAN, LOG };
+    enum class transcendental_op_kind {
+        SIN, COS, TAN, ASIN, ACOS, ATAN, SINH, COSH, TANH, ASINH, ACOSH, ATANH, EXP, LOG
+    };
 
     class transcendentals {
     public:
@@ -67,9 +69,25 @@ namespace nlsat {
             var val;
         };
 
+        // A pair of output variables of two applications that share the
+        // same (structural) argument variable, related by an exact
+        // polynomial identity (see add_identity_axioms): (sin_val, cos_val),
+        // (cosh_val, sinh_val), (cosh_val, tanh_val).
+        struct identity_pair {
+            var v1;
+            var v2;
+        };
+
     private:
         solver&      s;
         vector<app>  m_apps;
+        // Pairs discovered so far (see add()); asserted immediately as
+        // permanent polynomial equality axioms the moment the second
+        // application of a matching pair is registered - see
+        // add_identity_axiom.
+        vector<identity_pair> m_sin_cos_pairs;
+        vector<identity_pair> m_cosh_sinh_pairs;
+        vector<identity_pair> m_cosh_tanh_pairs;
         // Per-application retry counter, indexed in lockstep with m_apps:
         // incremented every time refine_app excludes an interval around the
         // current witness for that application, so repeated near-identical
@@ -88,10 +106,14 @@ namespace nlsat {
         // Conservative floating point enclosure of op over [lo, hi] (lo may
         // equal hi): endpoint sampling inflated by error_bound, with SIN/COS
         // additionally checking whether a local extremum (a multiple of
-        // pi/2) falls inside the interval - EXP and ATAN are monotonic
-        // increasing everywhere, so plain endpoint sampling already gives a
-        // sound range for them. Returns false (no enclosure produced) only
-        // if an endpoint evaluates to a non-finite double.
+        // pi/2) falls inside the interval, COSH checking whether its
+        // minimum (at 0) falls inside it, and TAN bailing out (returning
+        // false) if a pole falls strictly inside it - EXP, LOG, ATAN, ASIN,
+        // ACOS, SINH, TANH, ASINH, ACOSH, ATANH are all monotonic
+        // increasing (or, for ACOS, decreasing) everywhere on their domain,
+        // so plain endpoint sampling already gives a sound range for them.
+        // Returns false (no enclosure produced) if an endpoint evaluates to
+        // a non-finite double, or a TAN pole falls inside [lo, hi].
         static bool interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
 
         // Exact rational Taylor/Maclaurin brackets [lo, hi] at a single
@@ -121,6 +143,26 @@ namespace nlsat {
         // everywhere and can only help pruning sooner.
         void add_global_axioms(transcendental_op_kind op, var arg, var val);
 
+        // Exact, unconditional value-range bound, ported from
+        // nla::transcendentals::add_range_axioms: -1<=sin,cos<=1;
+        // -1<tanh<1; cosh>=1; acosh>=0; -pi/2<=asin<=pi/2; 0<=acos<=pi
+        // (pi/2, pi rounded outward - see k_pi_2_ub/k_pi_ub in the .cpp).
+        // Added once, permanently, the moment the application is
+        // registered (add()), same as add_global_axioms above. TAN, SINH,
+        // ASINH, ATANH have no simple unconditional bound and are skipped.
+        void add_range_axioms(transcendental_op_kind op, var val);
+
+        // Exact cross-application identity axiom, ported from
+        // nla::transcendentals's module comment / add_transcendental:
+        // sin(t)^2+cos(t)^2=1, cosh(t)^2-sinh(t)^2=1,
+        // cosh(t)^2*(1-tanh(t)^2)=1. Scans previously-registered
+        // applications for one with the same argument variable and a
+        // complementary op, and - if found - asserts the corresponding
+        // permanent polynomial equality the moment the second application
+        // of the pair is registered.
+        void find_and_add_identity_axiom(transcendental_op_kind op, var arg, var val);
+        void add_identity_axiom(identity_pair const& pr, bool is_sin_cos, bool is_cosh_sinh);
+
         // Cross-application monotonicity, ported from
         // nla::transcendentals::check_exp_monotonicity /
         // check_log_monotonicity: x1 < x2 => op(x1) < op(x2) for every pair
@@ -138,7 +180,7 @@ namespace nlsat {
 
         bool empty() const { return m_apps.empty(); }
         void add(transcendental_op_kind op, var arg, var val);
-        void reset() { m_apps.reset(); m_retry.reset(); }
+        void reset() { m_apps.reset(); m_retry.reset(); m_sin_cos_pairs.reset(); m_cosh_sinh_pairs.reset(); m_cosh_tanh_pairs.reset(); }
 
         // Called right after search() reports l_true, mirroring the integer
         // branch-and-bound check in solver::imp::search_check. Adds a

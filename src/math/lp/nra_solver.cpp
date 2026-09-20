@@ -234,12 +234,21 @@ struct solver::imp {
         for (auto const& a : m_nla_core.get_transcendentals().apps()) {
             nlsat::transcendental_op_kind op;
             switch (a.op) {
-            case nla::transcendental_op_kind::SIN:  op = nlsat::transcendental_op_kind::SIN; break;
-            case nla::transcendental_op_kind::COS:  op = nlsat::transcendental_op_kind::COS; break;
-            case nla::transcendental_op_kind::EXP:  op = nlsat::transcendental_op_kind::EXP; break;
-            case nla::transcendental_op_kind::ATAN: op = nlsat::transcendental_op_kind::ATAN; break;
-            case nla::transcendental_op_kind::LOG:  op = nlsat::transcendental_op_kind::LOG; break;
-            default: continue; // not (yet) supported by the nlsat engine; val is left opaque to nlsat.
+            case nla::transcendental_op_kind::SIN:   op = nlsat::transcendental_op_kind::SIN;   break;
+            case nla::transcendental_op_kind::COS:   op = nlsat::transcendental_op_kind::COS;   break;
+            case nla::transcendental_op_kind::TAN:   op = nlsat::transcendental_op_kind::TAN;   break;
+            case nla::transcendental_op_kind::ASIN:  op = nlsat::transcendental_op_kind::ASIN;  break;
+            case nla::transcendental_op_kind::ACOS:  op = nlsat::transcendental_op_kind::ACOS;  break;
+            case nla::transcendental_op_kind::ATAN:  op = nlsat::transcendental_op_kind::ATAN;  break;
+            case nla::transcendental_op_kind::SINH:  op = nlsat::transcendental_op_kind::SINH;  break;
+            case nla::transcendental_op_kind::COSH:  op = nlsat::transcendental_op_kind::COSH;  break;
+            case nla::transcendental_op_kind::TANH:  op = nlsat::transcendental_op_kind::TANH;  break;
+            case nla::transcendental_op_kind::ASINH: op = nlsat::transcendental_op_kind::ASINH; break;
+            case nla::transcendental_op_kind::ACOSH: op = nlsat::transcendental_op_kind::ACOSH; break;
+            case nla::transcendental_op_kind::ATANH: op = nlsat::transcendental_op_kind::ATANH; break;
+            case nla::transcendental_op_kind::EXP:   op = nlsat::transcendental_op_kind::EXP;   break;
+            case nla::transcendental_op_kind::LOG:   op = nlsat::transcendental_op_kind::LOG;   break;
+            default: continue; // atan2/pi: no single-argument counterpart in nlsat::transcendentals; val is left opaque to nlsat.
             }
             m_nlsat->add_transcendental(op, lp2nl(a.arg), lp2nl(a.val));
         }
