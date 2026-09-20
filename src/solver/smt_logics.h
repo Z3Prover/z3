@@ -23,6 +23,7 @@ public:
     static bool supported_logic(symbol const & s);
     static bool logic_has_reals_only(symbol const& l);       
     static bool logic_is_all(symbol const& s) { return s == "ALL" || s == "HO_ALL"; }
+    static bool logic_has_transcendental(symbol const& s);
     static bool logic_has_uf(symbol const& s);
     static bool logic_has_arith(symbol const & s);
     static bool logic_has_bv(symbol const & s);

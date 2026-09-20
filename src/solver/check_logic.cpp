@@ -148,6 +148,11 @@ struct check_logic::imp {
             m_reals     = true;
             m_nonlinear = true;
         }
+        else if (logic == "QF_NTA") {
+            // QF_NRA extended with transcendental functions (sin, cos, exp, log, ...)
+            m_reals     = true;
+            m_nonlinear = true;
+        }
         else if (logic == "QF_UF") {
             m_uf = true;
         }

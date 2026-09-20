@@ -599,6 +599,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
+        logic == "QF_NTA" ||
         logic == "QF_UFNRA") {
         // TBD: remove completely pending regressions: 
         // m_convert_int_numerals_to_real = true;
@@ -631,7 +632,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("to_int",OP_TO_INT));
     op_names.push_back(builtin_name("is_int",OP_IS_INT));
     op_names.push_back(builtin_name("abs", OP_ABS));
-    if (logic == symbol::null || logic == symbol("ALL")) {
+    if (logic == symbol::null || logic == symbol("ALL") || logic == symbol("QF_NTA")) {
         op_names.push_back(builtin_name("^", OP_POWER));
         op_names.push_back(builtin_name("^0", OP_POWER0));
         op_names.push_back(builtin_name("sin", OP_SIN));
