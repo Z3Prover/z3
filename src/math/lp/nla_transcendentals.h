@@ -411,6 +411,27 @@ namespace nla {
         // tangent-line bound permits exp(arg) to be set arbitrarily far
         // above its true value.
         bool check_exp_taylor_range(app& a);
+        // The exact rational Maclaurin bracket [lo, hi] for exp(x) at the
+        // single point x; factored out of check_exp_taylor_range so it
+        // can also be evaluated at points other than the current witness
+        // (see check_exp_taylor_range for why).
+        static bool exp_taylor_bracket_at(rational const& x, rational& lo, rational& hi);
+        // A small rational half-width around xr used to widen a
+        // point-exact Taylor bracket into a genuine excluded interval;
+        // see check_atan_taylor_range/check_sin_cos_taylor_range/
+        // check_exp_taylor_range.
+        static rational taylor_exclusion_delta(core& c, rational const& xr);
+        // Shared by check_atan_taylor_range/check_sin_cos_taylor_range:
+        // both ops satisfy |f'(x)| <= 1 everywhere, so the point bound
+        // [lo, hi] at xr widens to [lo - delta, hi + delta] over
+        // [xr-delta, xr+delta] for any delta. Searches (by halving,
+        // starting from delta0) for the largest delta whose widened bound
+        // still conflicts with the current witness yr; falls back to
+        // delta = 0 (the original point bound, always a valid conflict by
+        // the caller's precondition) if none of the halvings do.
+        static void widen_unit_derivative_bound(rational const& yr, rational const& lo, rational const& hi,
+                                                 bool is_lower, rational delta0,
+                                                 rational& delta_out, rational& bound_out);
         // EXP: monotonicity - exp(x1) < exp(x2) whenever x1 < x2. Checked
         // pairwise across all registered EXP applications (the paper's
         // "Monotonicity constraint"); asserted as a two-literal lemma

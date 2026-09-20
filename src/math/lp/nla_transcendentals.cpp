@@ -545,6 +545,56 @@ namespace nla {
         return false;
     }
 
+    // A small rational half-width around xr for widening a point-exact
+    // Taylor/Maclaurin bracket into a genuine excluded interval (see
+    // check_atan_taylor_range/check_sin_cos_taylor_range/
+    // check_exp_taylor_range): using the same tolerance-derived scale as
+    // the generic box-refinement fallback below, so the resulting lemma
+    // rules out a whole neighborhood of the offending witness rather than
+    // just the single point xr. Excluding only a single point lets the LP
+    // relaxation keep proposing a new witness infinitesimally close to the
+    // last one whenever the true value sits at (or converges toward) a
+    // fixed point (e.g. an ODE equilibrium or an algebraic critical
+    // point), which was observed to cause hundreds of near-identical
+    // lemmas in a row without making progress on some benchmarks.
+    rational transcendentals::taylor_exclusion_delta(core& c, rational const& xr) {
+        double tolerance = c.params().arith_nl_transcendental_tolerance();
+        double w = std::max(tolerance, 1e-6) * std::max(1.0, std::fabs(xr.get_double()));
+        return to_rational(w);
+    }
+
+    // See the declaration in nla_transcendentals.h. delta0 is tried
+    // first (unwidened, i.e. the largest candidate), then halved up to
+    // 20 times; this always terminates with *some* valid, conflicting
+    // bound, because delta = 0 (bound_out = lo or hi, the original point
+    // bound) is guaranteed by the caller to already conflict with yr.
+    void transcendentals::widen_unit_derivative_bound(rational const& yr, rational const& lo, rational const& hi,
+                                                       bool is_lower, rational delta0,
+                                                       rational& delta_out, rational& bound_out) {
+        rational delta = delta0;
+        for (unsigned i = 0; i < 20; ++i) {
+            if (is_lower) {
+                rational cand = lo - delta;
+                if (yr < cand) {
+                    delta_out = delta;
+                    bound_out = cand;
+                    return;
+                }
+            }
+            else {
+                rational cand = hi + delta;
+                if (yr > cand) {
+                    delta_out = delta;
+                    bound_out = cand;
+                    return;
+                }
+            }
+            delta = delta / 2;
+        }
+        delta_out = rational(0);
+        bound_out = is_lower ? lo : hi;
+    }
+
     bool transcendentals::check_atan_taylor_range(app& a) {
         if (a.op != transcendental_op_kind::ATAN)
             return false;
@@ -560,13 +610,14 @@ namespace nla {
         // max(S_k, S_{k+1}). Computed here in exact rational arithmetic
         // (unlike the generic float-based box-refinement fallback), so
         // the resulting bracket is an exact, not just floating point
-        // approximate, enclosure - but, since S_k(xr) is evaluated at
-        // this specific xr, it is only sound exactly at arg = xr, not
-        // over the whole [-1,1] domain (unlike check_linear_majorant's
-        // fact, which is uniform over an entire half-line); the lemma
-        // below therefore gates on arg == xr exactly (a point exclusion,
-        // in the same spirit as check_app's plain case-split fallback),
-        // not on the domain condition.
+        // approximate, enclosure at this specific xr. To turn this into
+        // an interval-excluding lemma (see taylor_exclusion_delta and
+        // widen_unit_derivative_bound above), the bracket is widened
+        // using |atan'(x)| = 1/(1+x^2) <= 1 everywhere - but only by as
+        // much as still keeps the lemma conflicting with the current
+        // witness (yr), since a widened-but-non-conflicting lemma would
+        // be true yet satisfied by the current model, and so would fail
+        // to force the search to make progress.
         constexpr unsigned k_terms = 40;
         rational term = xr;
         rational xr2 = xr * xr;
@@ -581,20 +632,69 @@ namespace nla {
         }
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
-        if (yr < lo) {
+        bool is_lower = (yr < lo);
+        rational delta, bound;
+        widen_unit_derivative_bound(yr, lo, hi, is_lower, taylor_exclusion_delta(c, xr), delta, bound);
+        rational xlo = xr - delta, xhi = xr + delta;
+        if (is_lower) {
             lemma_builder lemma(c, "transcendental atan Maclaurin lower bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, bound);
         }
         else {
             lemma_builder lemma(c, "transcendental atan Maclaurin upper bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, bound);
         }
         ++c.lp_settings().stats().m_nla_transcendental_splits;
         return true;
+    }
+
+    // The exact rational Maclaurin bracket [lo, hi] for exp(x) at the
+    // single point x (see check_exp_taylor_range for the derivation);
+    // factored out so it can be evaluated at points other than the
+    // current witness (exp is globally increasing, so evaluating this at
+    // the two ends of a small interval around a witness - see
+    // check_exp_taylor_range - yields a sound bracket for the whole
+    // interval, not just the single point).
+    bool transcendentals::exp_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
+        constexpr unsigned k_terms = 40;
+        if (xr <= rational(0) && xr > rational(-static_cast<int>(k_terms))) {
+            rational ax = -xr;
+            unsigned n0 = 0;
+            while (rational(n0 + 1) < ax)
+                ++n0;
+            rational term(1); // x^0 / 0!
+            rational sum(0);
+            for (unsigned k = 0; k < n0; ++k) {
+                sum += term;
+                term = term * xr / rational(k + 1);
+            }
+            lo = sum; hi = sum;
+            for (unsigned k = n0; k < k_terms; ++k) {
+                rational next = sum + term;
+                lo = std::min(sum, next);
+                hi = std::max(sum, next);
+                sum = next;
+                term = term * xr / rational(k + 1);
+            }
+            return true;
+        }
+        if (xr > rational(0) && xr < rational(k_terms + 1)) {
+            rational term(1); // x^0/0!
+            rational sum(0);
+            for (unsigned k = 0; k < k_terms; ++k) {
+                sum += term;
+                term = term * xr / rational(k + 1);
+            }
+            rational q = xr / rational(k_terms + 1);
+            lo = sum;
+            hi = sum + term / (rational(1) - q);
+            return true;
+        }
+        return false;
     }
 
     bool transcendentals::check_exp_taylor_range(app& a) {
@@ -622,72 +722,68 @@ namespace nla {
         // the sign of an otherwise-infeasible inequality whose margin
         // vanishes as x -> 0 (and analogously elsewhere on x > 0, where
         // the tangent bound alone gives no upper bound at all).
-        constexpr unsigned k_terms = 40;
         rational const& yr = c.val(a.val);
         rational lo, hi;
-        if (xr <= rational(0) && xr > rational(-static_cast<int>(k_terms))) {
-            // x <= 0: term_n = x^n/n! alternates in sign; its magnitude
-            // |x|^n/n! is non-increasing once n+1 >= |x| (ratio
-            // |x|/(n+1) <= 1). Compute the exact prefix sum S_{n0} for the
-            // (possibly non-monotone) initial terms n = 0 .. n0-1 directly
-            // - no bracket needed there, they're exact rationals - then
-            // apply the alternating-series bracket from n0 onward, where
-            // it is valid. n0 = 0 whenever |x| <= 1 (the previously fixed
-            // special case is the n0 == 0 instance of this).
-            rational ax = -xr;
-            unsigned n0 = 0;
-            while (rational(n0 + 1) < ax)
-                ++n0;
-            rational term(1); // x^0 / 0!
-            rational sum(0);
-            for (unsigned k = 0; k < n0; ++k) {
-                sum += term;
-                term = term * xr / rational(k + 1);
-            }
-            lo = sum; hi = sum;
-            for (unsigned k = n0; k < k_terms; ++k) {
-                rational next = sum + term;
-                lo = std::min(sum, next);
-                hi = std::max(sum, next);
-                sum = next;
-                term = term * xr / rational(k + 1);
-            }
-        }
-        else if (xr > rational(0) && xr < rational(k_terms + 1)) {
-            // x > 0: all terms term_n = x^n/n! are positive, so the
-            // partial sums S_n increase monotonically towards exp(x),
-            // giving a sound lower bound directly. For the upper bound,
-            // bracket the omitted tail sum_{k>=n} x^k/k! by a geometric
-            // series: term_k/term_n <= (x/(n+1))^(k-n) once the ratio
-            // q = x/(n+1) < 1 (guaranteed by the domain guard above), so
-            // the tail is <= term_n / (1 - q), an exact rational bound.
-            rational term(1); // x^0/0!
-            rational sum(0);
-            for (unsigned k = 0; k < k_terms; ++k) {
-                sum += term;
-                term = term * xr / rational(k + 1);
-            }
-            // here `term` is term_{k_terms} = x^{k_terms}/k_terms!, and
-            // `sum` = S_{k_terms} (k_terms terms included).
-            rational q = xr / rational(k_terms + 1);
-            lo = sum;
-            hi = sum + term / (rational(1) - q);
-        }
-        else
+        if (!exp_taylor_bracket_at(xr, lo, hi))
             return false;
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
-        if (yr < lo) {
+        // Widen the point-exact bracket into a genuine interval exclusion
+        // (see taylor_exclusion_delta): exp is globally increasing, so a
+        // bracket computed at xlo is still a valid *lower* bound for every
+        // x >= xlo, and a bracket computed at xhi is still a valid
+        // *upper* bound for every x <= xhi - i.e. the lower half of the
+        // bracket at xlo and the upper half of the bracket at xhi
+        // together soundly bound exp over the whole [xlo, xhi] interval.
+        // Falls back to the single-point bracket (still sound, just less
+        // effective against slow convergence) if either endpoint falls
+        // outside exp_taylor_bracket_at's domain.
+        // Widen the point-exact bracket into a genuine interval exclusion
+        // (see taylor_exclusion_delta): exp is globally increasing, so a
+        // bracket computed at xr-delta is still a valid *lower* bound for
+        // every x >= xr-delta, and a bracket computed at xr+delta is
+        // still a valid *upper* bound for every x <= xr+delta - i.e. the
+        // lower half of the bracket at xr-delta and the upper half of the
+        // bracket at xr+delta together soundly bound exp over the whole
+        // [xr-delta, xr+delta] interval. As with
+        // widen_unit_derivative_bound (used for atan/sin/cos), delta is
+        // halved (up to 20 times, starting from taylor_exclusion_delta's
+        // suggestion) until the widened bound still conflicts with the
+        // current witness yr - required so the resulting lemma remains a
+        // genuine conflict clause - falling back to the unwidened point
+        // bracket (delta = 0, always conflicting by construction) if
+        // exp_taylor_bracket_at fails at the shifted endpoint or none of
+        // the halvings keep the conflict.
+        bool is_lower = (yr < lo);
+        rational delta = taylor_exclusion_delta(c, xr);
+        rational xlo = xr, xhi = xr, bound = is_lower ? lo : hi;
+        for (unsigned i = 0; i < 20; ++i) {
+            rational lo2, hi2;
+            if (is_lower) {
+                if (exp_taylor_bracket_at(xr - delta, lo2, hi2) && yr < lo2) {
+                    xlo = xr - delta; xhi = xr + delta; bound = lo2;
+                    break;
+                }
+            }
+            else {
+                if (exp_taylor_bracket_at(xr + delta, lo2, hi2) && yr > hi2) {
+                    xlo = xr - delta; xhi = xr + delta; bound = hi2;
+                    break;
+                }
+            }
+            delta = delta / 2;
+        }
+        if (is_lower) {
             lemma_builder lemma(c, "transcendental exp Maclaurin lower bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, bound);
         }
         else {
             lemma_builder lemma(c, "transcendental exp Maclaurin upper bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, bound);
         }
         ++c.lp_settings().stats().m_nla_transcendental_splits;
         return true;
@@ -716,21 +812,29 @@ namespace nla {
             sum += t.coeff * xr.expt(static_cast<int>(t.power));
         // remainder_power is always even (see get_taylor), so this is
         // manifestly non-negative without needing |xr|.
-        rational bound = tb.remainder_coeff * xr.expt(static_cast<int>(tb.remainder_power));
-        rational lo = sum - bound, hi = sum + bound;
+        rational rem = tb.remainder_coeff * xr.expt(static_cast<int>(tb.remainder_power));
+        rational lo = sum - rem, hi = sum + rem;
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
-        if (yr < lo) {
+        // Widen into a genuine interval exclusion, as for atan (see
+        // widen_unit_derivative_bound): |sin'(x)| = |cos(x)| <= 1 and
+        // |cos'(x)| = |sin(x)| <= 1 everywhere, so the same "at most unit
+        // derivative" argument applies unconditionally.
+        bool is_lower = (yr < lo);
+        rational delta, bound;
+        widen_unit_derivative_bound(yr, lo, hi, is_lower, taylor_exclusion_delta(c, xr), delta, bound);
+        rational xlo = xr - delta, xhi = xr + delta;
+        if (is_lower) {
             lemma_builder lemma(c, "transcendental sin/cos Maclaurin lower bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::GE, lo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, bound);
         }
         else {
             lemma_builder lemma(c, "transcendental sin/cos Maclaurin upper bound");
-            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xr);
-            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xr);
-            lemma |= ineq(a.val, lp::lconstraint_kind::LE, hi);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, bound);
         }
         ++c.lp_settings().stats().m_nla_transcendental_splits;
         return true;
