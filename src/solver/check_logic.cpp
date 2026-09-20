@@ -48,6 +48,7 @@ struct check_logic::imp {
     bool          m_bvs;       // true if the logic supports bit-vectors
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
+    bool          m_allow_casts; // true if to_real/to_int are allowed despite the logic not otherwise mixing Int and Real (QF_NTA specific: many transcendental benchmarks converted from other solvers cast integer literals with to_real)
 
     imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_dt_util(m), m_pb_util(m) {
         reset();
@@ -65,6 +66,7 @@ struct check_logic::imp {
         m_bvs         = false;
         m_quantifiers = false;
         m_unknown_logic = true;
+        m_allow_casts = false;
     }
 
     void set_logic(symbol const & logic) {
@@ -152,6 +154,19 @@ struct check_logic::imp {
             // QF_NRA extended with transcendental functions (sin, cos, exp, log, ...)
             m_reals     = true;
             m_nonlinear = true;
+            // QF_NTA is a Z3-specific extension, not an official SMT-LIB
+            // logic, and many of its benchmarks are mechanically converted
+            // from other solvers' output (e.g. MathSAT), which routinely
+            // cast integer literals with to_real (e.g. (to_real (- 4))) as
+            // a numeral-writing convenience - harmless here since Int sort
+            // itself is never registered under QF_NTA (see
+            // arith_decl_plugin's Real-only sort gate), so to_real/to_int
+            // can only ever apply to literals, never to genuine Int
+            // variables/terms. Unlike the official reals-only logics
+            // (QF_NRA, QF_LRA, ...), which intentionally reject casts to
+            // stay SMT-LIB compliant, QF_NTA has no such compliance
+            // obligation.
+            m_allow_casts = true;
         }
         else if (logic == "QF_UF") {
             m_uf = true;
@@ -450,7 +465,7 @@ struct check_logic::imp {
                     check_diff_predicate(n);
             }
             if (!m_ints || !m_reals) {
-                if (m_a_util.is_to_real(n) || m_a_util.is_to_int(n))
+                if (!m_allow_casts && (m_a_util.is_to_real(n) || m_a_util.is_to_int(n)))
                     fail("logic does not support casting operators");
             }
         }
