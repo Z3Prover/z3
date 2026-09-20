@@ -33,6 +33,13 @@ Abstract:
     Use smt_params_helper's arith.nl.transcendental_engine to select which of
     the two implementations nla_core delegates to.
 
+    The per-application reasoning (exact global tangent-line bounds, exact
+    rational Taylor/Maclaurin sandwiches, and cross-application
+    monotonicity) is ported from nla::transcendentals
+    (math/lp/nla_transcendentals.*), adapted to this module's simpler flat
+    application list and to nlsat's own polynomial/literal API in place of
+    nla_core's lar_term/lemma_builder.
+
 Author:
 
     Nikolaj Bjorner
@@ -61,6 +68,16 @@ namespace nlsat {
     private:
         solver&      s;
         vector<app>  m_apps;
+        // Per-application retry counter, indexed in lockstep with m_apps:
+        // incremented every time refine_app excludes an interval around the
+        // current witness for that application, so repeated near-identical
+        // witnesses (e.g. nlsat converging toward a tangent point where the
+        // function's value touches a global axiom bound) get an
+        // exponentially widening exclusion instead of the same tiny
+        // fixed-epsilon one every round - without this, convergence toward
+        // such a point can take arbitrarily many refinement rounds (each
+        // only ruling out an infinitesimally small neighborhood).
+        unsigned_vector m_retry;
 
         static double eval(transcendental_op_kind op, double x);
         static double error_bound(transcendental_op_kind op, double x, double fx);
@@ -75,14 +92,51 @@ namespace nlsat {
         // if an endpoint evaluates to a non-finite double.
         static bool interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
 
-        bool refine_app(app const& a);
+        // Exact rational Taylor/Maclaurin brackets [lo, hi] at a single
+        // point xr, ported from nla::transcendentals
+        // (math/lp/nla_transcendentals.cpp's exp_taylor_bracket_at /
+        // log_taylor_bracket_at / check_atan_taylor_range): unlike
+        // interval_eval above, these carry no floating point round-off
+        // risk at all - lo/hi are genuine rational bounds derived from an
+        // alternating (EXP for x<=0, LOG, ATAN) or monotonically increasing
+        // (EXP for x>0, via a geometric tail bound) series, so [lo, hi] is
+        // guaranteed (not just probably, up to float slack) to contain
+        // op(xr). Each returns false outside the domain where the
+        // respective series argument is applicable; refine_app falls back
+        // to interval_eval there.
+        static bool exp_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
+        static bool log_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
+        static bool atan_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
+
+        // Registers the exact global tangent-line axioms (sound for the
+        // op's *entire* domain, not just a local neighborhood of some
+        // witness) ported from nla::transcendentals::check_exp_lower_bound
+        // / check_log_upper_bound: exp(arg) >= 1+arg unconditionally, and
+        // arg <= 0 \/ log(arg) <= arg-1. Added once, as permanent clauses,
+        // the moment the application is registered (add()) rather than
+        // reactively in refine(), since - unlike the Taylor sandwich, whose
+        // bounds are only valid near a specific witness - these hold
+        // everywhere and can only help pruning sooner.
+        void add_global_axioms(transcendental_op_kind op, var arg, var val);
+
+        // Cross-application monotonicity, ported from
+        // nla::transcendentals::check_exp_monotonicity /
+        // check_log_monotonicity: x1 < x2 => op(x1) < op(x2) for every pair
+        // of registered EXP (unconditional) or LOG (both args positive)
+        // applications. Unlike add_global_axioms this is witness-dependent
+        // (only a violated pair yields a lemma) so it is checked from
+        // refine(), alongside the per-application Taylor/interval check.
+        bool refine_monotonicity();
+        bool refine_monotonicity_pair(app const& a, app const& b);
+
+        bool refine_app(unsigned idx);
 
     public:
         explicit transcendentals(solver& s): s(s) {}
 
         bool empty() const { return m_apps.empty(); }
-        void add(transcendental_op_kind op, var arg, var val) { m_apps.push_back({ op, arg, val }); }
-        void reset() { m_apps.reset(); }
+        void add(transcendental_op_kind op, var arg, var val);
+        void reset() { m_apps.reset(); m_retry.reset(); }
 
         // Called right after search() reports l_true, mirroring the integer
         // branch-and-bound check in solver::imp::search_check. Adds a
