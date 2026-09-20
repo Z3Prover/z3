@@ -21,6 +21,7 @@ Revision History:
 #pragma once
 
 #include "nlsat/nlsat_types.h"
+#include "nlsat/nlsat_transcendentals.h"
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/rlimit.h"
@@ -119,6 +120,20 @@ namespace nlsat {
            \brief Create an atom of the form: x=root[i](p), x<root[i](p), x>root[i](p)
         */
         bool_var mk_root_atom(atom::kind k, var x, unsigned i, poly * p);
+
+        /**
+           \brief Register a transcendental function application (sin/cos/exp/atan)
+           to be refined directly by nlsat's own search loop; see
+           nlsat_transcendentals.h and the "nlsat.transcendentals" parameter.
+        */
+        void add_transcendental(transcendental_op_kind op, var arg, var val);
+
+        /**
+           \brief True if the "nlsat.transcendentals" parameter is enabled,
+           i.e. registered transcendental applications (see
+           add_transcendental) are refined by this solver's own search loop.
+        */
+        bool transcendentals_enabled() const;
 
         void inc_ref(bool_var b);
         void inc_ref(literal l) { inc_ref(l.var()); }

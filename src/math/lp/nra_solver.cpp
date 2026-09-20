@@ -11,6 +11,7 @@
 #include "math/lp/nra_solver.h"
 #include "math/lp/nla_coi.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_transcendentals.h"
 #include "nlsat/nlsat_assignment.h"
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -271,6 +272,28 @@ struct solver::imp {
         }
     }
 
+    // Alternative to add_transcendental_axioms(): instead of feeding nlsat
+    // progressively-refined polynomial Taylor axioms from outside, register
+    // each application directly with nlsat so its own search loop refines
+    // them (see nlsat_transcendentals.h/.cpp and
+    // solver::imp::search_check's transcendentals branch). Selected via
+    // arith.nl.transcendental_engine = "nlsat" (default "nla" uses
+    // add_transcendental_axioms instead); requires "transcendentals" to
+    // also be set on m_nlsat (see check()).
+    void register_transcendentals_with_nlsat() {
+        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
+            nlsat::transcendental_op_kind op;
+            switch (a.op) {
+            case nla::transcendental_op_kind::SIN:  op = nlsat::transcendental_op_kind::SIN; break;
+            case nla::transcendental_op_kind::COS:  op = nlsat::transcendental_op_kind::COS; break;
+            case nla::transcendental_op_kind::EXP:  op = nlsat::transcendental_op_kind::EXP; break;
+            case nla::transcendental_op_kind::ATAN: op = nlsat::transcendental_op_kind::ATAN; break;
+            default: continue; // not (yet) supported by the nlsat engine; val is left opaque to nlsat.
+            }
+            m_nlsat->add_transcendental(op, lp2nl(a.arg), lp2nl(a.val));
+        }
+    }
+
     // Injects the exact cross-application identity axioms recorded in
     // nla::transcendentals (see its module comment and identity_pair):
     // sin(t)^2+cos(t)^2=1, cosh(t)^2-sinh(t)^2=1, and
@@ -324,13 +347,21 @@ struct solver::imp {
     */
     lbool check() {
         SASSERT(need_check());
+        smt_params_helper hp0(m_params);
+        bool use_nlsat_transcendentals = !m_nla_core.get_transcendentals().empty() &&
+            hp0.arith_nl_transcendental_engine() == symbol("nlsat");
+        if (use_nlsat_transcendentals)
+            m_params.set_bool("transcendentals", true);
         reset();
         vector<nlsat::assumption, false> core;        
         
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
-        add_transcendental_axioms();
+        if (use_nlsat_transcendentals)
+            register_transcendentals_with_nlsat();
+        else
+            add_transcendental_axioms();
         add_identity_axioms();
 
         TRACE(nra, m_nlsat->display(tout));

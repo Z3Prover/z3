@@ -248,6 +248,8 @@ namespace nlsat {
         // statistics
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
+        transcendentals m_transcendentals;
+        bool m_transcendentals_enabled = false;
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold  = 3;
@@ -273,6 +275,7 @@ namespace nlsat {
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).canonicalize()),
             m_scope_lvl(0),
+            m_transcendentals(s),
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
@@ -317,6 +320,7 @@ namespace nlsat {
             m_lws_witness_subs_lc = p. lws_witness_subs_lc();
             m_lws_witness_subs_disc = p.lws_witness_subs_disc();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
+            m_transcendentals_enabled = p.transcendentals();
   
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
@@ -2035,8 +2039,18 @@ namespace nlsat {
                         bounds.push_back(std::make_pair(x, lo));
                     }
                 }
-                if (bounds.empty()) 
+                if (bounds.empty()) {
+                    if (m_transcendentals_enabled && !m_transcendentals.empty() && m_transcendentals.refine()) {
+                        init_search();
+                        IF_VERBOSE(2, verbose_stream() << "(nlsat-transcendentals :conflicts " << m_stats.m_conflicts
+                                   << " :decisions " << m_stats.m_decisions
+                                   << " :propagations " << m_stats.m_propagations
+                                   << " :clauses " << m_clauses.size()
+                                   << " :learned " << m_learned.size() << ")\n");
+                        continue;
+                    }
                     break;
+                }
 
                 init_search();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
@@ -4854,6 +4868,14 @@ namespace nlsat {
 
     bool_var solver::mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
         return m_imp->mk_root_atom(k, x, i, p);
+    }
+
+    void solver::add_transcendental(transcendental_op_kind op, var arg, var val) {
+        m_imp->m_transcendentals.add(op, arg, val);
+    }
+
+    bool solver::transcendentals_enabled() const {
+        return m_imp->m_transcendentals_enabled;
     }
     
     void solver::inc_ref(bool_var b) {

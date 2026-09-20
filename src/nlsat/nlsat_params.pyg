@@ -26,5 +26,6 @@ def_module_params('nlsat',
                           ('lws_spt_threshold', UINT, 4, "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree"),
                           ('lws_witness_subs_lc', BOOL, True, "try substitute the non-nullified witness by the lc"),
                           ('lws_witness_subs_disc', BOOL, True, "try substitute the non-nullified witness by the discriminant"),
-                          ('canonicalize', BOOL, True, "canonicalize polynomials.")
+                          ('canonicalize', BOOL, True, "canonicalize polynomials."),
+                          ('transcendentals', BOOL, False, "handle transcendental function applications (sin/cos/exp/atan) directly inside nlsat's own search loop instead of relying on the caller to supply and refresh Taylor axioms (see nlsat_transcendentals.*)")
                           ))                  
