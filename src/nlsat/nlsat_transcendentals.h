@@ -30,8 +30,10 @@ Abstract:
     adds a permanent interval-exclusion clause and signals the caller to
     re-run search().
 
-    Use smt_params_helper's arith.nl.transcendental_engine to select which of
-    the two implementations nla_core delegates to.
+    nra_solver always registers transcendental applications directly with
+    nlsat (see nra_solver::imp::register_transcendentals_with_nlsat), so this
+    module's refinement loop is the sole engine used to solve them; there is
+    no longer an alternative nla_core-side Taylor-axiom-injection path.
 
     The per-application reasoning (exact global tangent-line bounds, exact
     rational Taylor/Maclaurin sandwiches, and cross-application

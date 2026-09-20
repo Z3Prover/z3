@@ -223,63 +223,13 @@ struct solver::imp {
         return polynomial_ref(m_nlsat->pm().mk_const(r), m_nlsat->pm());
     }
 
-    // Injects the accumulated Taylor-sandwich polynomial axioms (queried
-    // from nla::transcendentals) for every registered transcendental
-    // application whose delta-check has actually observed a faulty model
-    // (app::taylor_terms > 0) into this one-shot nlsat instance: T(x) - R <=
-    // val <= T(x) + R, added directly as unconditional clauses (assumption =
-    // nullptr, matching the treatment of other structural definitions such
-    // as add_monic_eq/add_term, since these are mathematically true for all
-    // reals and never need to be cited as an explanation). Applications that
-    // have never failed a delta-check keep val as an opaque free real to
-    // nlsat, to keep the polynomial problem as small as nlsat actually needs.
-    void add_transcendental_axioms() {
-        for (auto const& a : m_nla_core.get_transcendentals().apps()) {
-            if (a.taylor_terms == 0)
-                continue;
-            nla::transcendentals::taylor_bounds tb;
-            if (!nla::transcendentals::get_taylor(a.op, a.taylor_terms, tb))
-                continue;
-            // polynomial::manager stores integer coefficients only, so the
-            // rational Taylor coefficients (1/6, 1/120, ...) must be cleared
-            // of denominators first; scale is a common multiple of all of
-            // them (and of val's implicit coefficient 1), so multiplying the
-            // whole inequality by it preserves its direction and meaning.
-            rational scale(1);
-            for (auto const& term : tb.poly)
-                scale = lcm(scale, denominator(term.coeff));
-            scale = lcm(scale, denominator(tb.remainder_coeff));
-
-            polynomial::polynomial_ref x = var(a.arg);
-            polynomial::polynomial_ref t(m_nlsat->pm());
-            bool first = true;
-            for (auto const& term : tb.poly) {
-                polynomial::polynomial_ref p = constant(scale * term.coeff);
-                for (unsigned i = 0; i < term.power; ++i)
-                    p = mul(p.get(), x.get());
-                t = first ? p : (t + p);
-                first = false;
-            }
-            polynomial::polynomial_ref r = constant(scale * tb.remainder_coeff);
-            for (unsigned i = 0; i < tb.remainder_power; ++i)
-                r = mul(r.get(), x.get());
-            polynomial::polynomial_ref scaled_val = mul(constant(scale).get(), var(a.val).get());
-            polynomial::polynomial_ref diff = sub(scaled_val.get(), t.get());
-            // scale*val - T'(x) - R' <= 0  and  scale*val - T'(x) + R' >= 0
-            // (T', R' are T, R scaled by `scale` to be integral).
-            add_axiom(sub(diff.get(), r.get()).get(), lp::lconstraint_kind::LE);
-            add_axiom((diff + r).get(), lp::lconstraint_kind::GE);
-        }
-    }
-
-    // Alternative to add_transcendental_axioms(): instead of feeding nlsat
-    // progressively-refined polynomial Taylor axioms from outside, register
-    // each application directly with nlsat so its own search loop refines
-    // them (see nlsat_transcendentals.h/.cpp and
-    // solver::imp::search_check's transcendentals branch). Selected via
-    // arith.nl.transcendental_engine = "nlsat" (default "nla" uses
-    // add_transcendental_axioms instead); requires "transcendentals" to
-    // also be set on m_nlsat (see check()).
+    // Registers every transcendental application directly with nlsat so its
+    // own search loop refines them (exact Taylor brackets, global tangent
+    // axioms, cross-application monotonicity; see nlsat_transcendentals.h/
+    // .cpp and solver::imp::search_check's transcendentals branch), instead
+    // of nla_core feeding it progressively-refined polynomial axioms from
+    // outside. Requires "transcendentals" to also be set on m_nlsat (see
+    // check()).
     void register_transcendentals_with_nlsat() {
         for (auto const& a : m_nla_core.get_transcendentals().apps()) {
             nlsat::transcendental_op_kind op;
@@ -348,10 +298,8 @@ struct solver::imp {
     */
     lbool check() {
         SASSERT(need_check());
-        smt_params_helper hp0(m_params);
-        bool use_nlsat_transcendentals = !m_nla_core.get_transcendentals().empty() &&
-            hp0.arith_nl_transcendental_engine() == symbol("nlsat");
-        if (use_nlsat_transcendentals)
+        bool has_transcendentals = !m_nla_core.get_transcendentals().empty();
+        if (has_transcendentals)
             m_params.set_bool("transcendentals", true);
         reset();
         vector<nlsat::assumption, false> core;        
@@ -359,10 +307,7 @@ struct solver::imp {
         smt_params_helper p(m_params);
 
 	    setup_solver_poly();
-        if (use_nlsat_transcendentals)
-            register_transcendentals_with_nlsat();
-        else
-            add_transcendental_axioms();
+        register_transcendentals_with_nlsat();
         add_identity_axioms();
 
         TRACE(nra, m_nlsat->display(tout));
