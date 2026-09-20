@@ -993,6 +993,16 @@ bool cmd_context::is_func_decl(symbol const & s) const {
 }
 
 void cmd_context::insert(symbol const & s, func_decl * f) {
+    // A transcendental shadow declaration (e.g. MathSAT-style `(declare-fun
+    // sin (Real) Real)`) must be recognized as a no-op *before*
+    // m_check_logic runs: under a restrictive logic (e.g. QF_NRA, QF_NTA)
+    // that disallows uninterpreted functions, m_check_logic would otherwise
+    // reject the shadow declaration with "logic does not support
+    // uninterpreted functions" before this shadow-decl check ever gets a
+    // chance to treat it as a no-op.
+    if (builtin_signature_collides(s, f->get_arity(), f->get_domain()) &&
+        is_transcendental_shadow_decl(s, f->get_arity(), f->get_domain()))
+        return;
     if (!m_check_logic(f)) {
         throw cmd_exception(m_check_logic.get_last_error());
     }
@@ -1000,8 +1010,6 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         throw cmd_exception("invalid declaration, named expression already defined with this name ", s);
     }
     if (builtin_signature_collides(s, f->get_arity(), f->get_domain())) {
-        if (is_transcendental_shadow_decl(s, f->get_arity(), f->get_domain()))
-            return;
         std::string msg = "invalid declaration, builtin symbol '";
         msg += s.str();
         msg += "' has the same argument sorts";
