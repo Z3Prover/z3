@@ -63,6 +63,7 @@ struct goal2nlsat::imp {
 
     unsigned long long        m_max_memory;
     bool                      m_factor;
+    params_ref                m_params;
 
 
     imp(ast_manager & _m, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x, nlsat::assumption a):
@@ -79,6 +80,7 @@ struct goal2nlsat::imp {
     }
 
     void updt_params(params_ref const & p) {
+        m_params.copy(p);
         m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
@@ -253,6 +255,91 @@ struct goal2nlsat::imp {
         m_solver.mk_clause(ls.size(), ls.data(), m_assumption ? m_assumption : dep);
     }
 
+    // Maps a unary arith-family transcendental application's decl_kind to
+    // nlsat's own transcendental_op_kind, when supported by nlsat's engine
+    // (nlsat_transcendentals.*); everything else (tan/asin/acos/sinh/cosh/
+    // tanh/asinh/acosh/atanh/atan2/...) is left abstracted as an opaque
+    // variable, exactly as before this method existed.
+    static bool get_transcendental_op(app * t, nlsat::transcendental_op_kind & op) {
+        if (t->get_num_args() != 1)
+            return false;
+        switch (t->get_decl_kind()) {
+        case OP_SIN: op = nlsat::transcendental_op_kind::SIN; return true;
+        case OP_COS: op = nlsat::transcendental_op_kind::COS; return true;
+        case OP_EXP: op = nlsat::transcendental_op_kind::EXP; return true;
+        case OP_ATAN: op = nlsat::transcendental_op_kind::ATAN; return true;
+        case OP_LOG: op = nlsat::transcendental_op_kind::LOG; return true;
+        default: return false;
+        }
+    }
+
+    // Returns the polynomial variable denoting t (a real-valued expr):
+    // reuses the existing var directly when to_polynomial(t) reduces to a
+    // bare "1*x" (the common case: t is itself an uninterpreted constant or
+    // an already-registered term), otherwise allocates a fresh auxiliary
+    // variable v and asserts the permanent equality axiom d*v - p = 0,
+    // where p/d is t's polynomial/denominator - this is exactly what
+    // to_polynomial does at every equality atom already, just performed
+    // once more explicitly here for a transcendental application's
+    // argument, which visit_arith_app otherwise never recurses into (see
+    // expr2polynomial::visit_arith_app's default case: it treats the whole
+    // application, argument included, as a single opaque variable).
+    polynomial::var expr2var_axiom(expr * t) {
+        polynomial_ref p(m_pm);
+        scoped_mpz d(m_qm);
+        m_expr2poly.to_polynomial(t, p, d);
+        if (m_qm.is_one(d) && polynomial::manager::size(p.get()) == 1 &&
+            m_pm.m().is_one(polynomial::manager::coeff(p.get(), 0))) {
+            polynomial::var v;
+            if (polynomial::manager::is_var(polynomial::manager::get_monomial(p.get(), 0), v))
+                return v;
+        }
+        polynomial::var v = m_solver.mk_var(false);
+        polynomial_ref vp(m_pm);
+        vp = m_pm.mk_polynomial(v);
+        scoped_mpz none(m_qm);
+        m_qm.set(none, -1);
+        polynomial_ref eq(m_pm);
+        eq = m_pm.addmul(d, m_pm.mk_unit(), vp, none, m_pm.mk_unit(), p);
+        bool is_even = false;
+        polynomial::polynomial * peq = eq.get();
+        nlsat::literal lit(m_solver.mk_ineq_atom(nlsat::atom::EQ, 1, &peq, &is_even), false);
+        m_solver.mk_clause(1, &lit, nullptr);
+        return v;
+    }
+
+    // Scans m_t2x (built up while processing the goal's atoms) for
+    // transcendental applications abstracted into an opaque variable by
+    // expr2polynomial's generic visit_arith_app, and registers each one
+    // with nlsat's own transcendental engine (nlsat_transcendentals.*),
+    // creating an argument variable (with a linking equality axiom, if
+    // needed) along the way. Enables the "transcendentals" solver param
+    // the moment at least one such application is found, so
+    // solver::imp::search_check actually invokes the refinement loop.
+    void register_transcendentals() {
+        vector<std::pair<expr*, polynomial::var>> found;
+        for (auto const & kv : m_t2x) {
+            expr * e = &kv.get_key();
+            nlsat::transcendental_op_kind op;
+            if (is_app(e) && to_app(e)->get_family_id() == m_util.get_family_id() &&
+                get_transcendental_op(to_app(e), op))
+                found.push_back({ e, kv.get_value() });
+        }
+        if (found.empty())
+            return;
+        for (auto const & pr : found) {
+            app * t = to_app(pr.first);
+            nlsat::transcendental_op_kind op;
+            get_transcendental_op(t, op);
+            polynomial::var arg = expr2var_axiom(t->get_arg(0));
+            m_solver.add_transcendental(op, arg, pr.second);
+        }
+        params_ref p2;
+        p2.copy(m_params);
+        p2.set_bool("transcendentals", true);
+        m_solver.updt_params(p2);
+    }
+
     void operator()(goal const & g) {
         TRACE(goal2nlsat, g.display(tout););
         if (has_term_ite(g))
@@ -261,6 +348,7 @@ struct goal2nlsat::imp {
         for (unsigned i = 0; i < sz; ++i) {
             process(g.form(i), g.dep(i));
         }
+        register_transcendentals();
     }
 
 };

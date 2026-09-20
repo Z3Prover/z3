@@ -59,9 +59,30 @@ class nlsat_tactic : public tactic {
             m_solver.updt_params(m_params);
         }
         
+        // Transcendental applications (sin/cos/exp/atan/log) registered
+        // with nlsat's own transcendental engine (see goal2nlsat's
+        // register_transcendentals / nlsat_transcendentals.*) are a second,
+        // legitimate reason for an x2t entry not to be a bare uninterpreted
+        // constant: mk_model below already skips registering a model entry
+        // for them (their value is recoverable by evaluating the function
+        // at the model's value for the argument, not by looking up a named
+        // declaration), so they must not be flagged as "unsupported" here.
+        static bool is_supported_transcendental(ast_manager & m, expr * t) {
+            if (!is_app(t) || to_app(t)->get_num_args() != 1)
+                return false;
+            if (to_app(t)->get_family_id() != m.get_family_id("arith"))
+                return false;
+            switch (to_app(t)->get_decl_kind()) {
+            case OP_SIN: case OP_COS: case OP_EXP: case OP_ATAN: case OP_LOG:
+                return true;
+            default:
+                return false;
+            }
+        }
+
         bool contains_unsupported(expr_ref_vector & b2a, expr_ref_vector & x2t) {
             for (unsigned x = 0; x < x2t.size(); ++x) {
-                if (!is_uninterp_const(x2t.get(x))) {
+                if (!is_uninterp_const(x2t.get(x)) && !is_supported_transcendental(m, x2t.get(x))) {
                     TRACE(unsupported, tout << "unsupported atom:\n" << mk_ismt2_pp(x2t.get(x), m) << "\n";);
                     return true;
                 }
