@@ -29,6 +29,7 @@ namespace nlsat {
         case transcendental_op_kind::COS:  return std::cos(x);
         case transcendental_op_kind::EXP:  return std::exp(x);
         case transcendental_op_kind::ATAN: return std::atan(x);
+        case transcendental_op_kind::LOG:  return std::log(x); // NaN for x<0, -inf for x==0
         }
         return std::numeric_limits<double>::quiet_NaN();
     }
@@ -41,6 +42,7 @@ namespace nlsat {
     double transcendentals::error_bound(transcendental_op_kind op, double x, double fx) {
         double const eps = std::numeric_limits<double>::epsilon();
         double const safety = 64.0; // generous margin, this is not a tight certificate
+        double const boundary_safety = 4096.0; // extra margin near the domain boundary (x -> 0+)
         switch (op) {
         case transcendental_op_kind::SIN:
         case transcendental_op_kind::COS:
@@ -48,6 +50,8 @@ namespace nlsat {
             return safety * eps * std::max(1.0, std::fabs(x));
         case transcendental_op_kind::EXP:
             return safety * eps * std::max(1.0, std::fabs(fx));
+        case transcendental_op_kind::LOG: // derivative 1/x blows up as x -> 0+
+            return boundary_safety * eps * std::max(1.0, std::max(std::fabs(x), std::fabs(fx)));
         }
         return 1e-6;
     }
@@ -102,7 +106,7 @@ namespace nlsat {
             if (contains_multiple_of(lo, hi, pi, two_pi)) mn = -1.0;
             break;
         default:
-            break; // EXP, ATAN: monotonic increasing everywhere, endpoints give the range.
+            break; // EXP, ATAN, LOG: monotonic increasing everywhere on their domain, endpoints give the range.
         }
         double slack = std::max(error_bound(op, lo, f_lo), error_bound(op, hi, f_hi));
         lo_val = mn - slack;

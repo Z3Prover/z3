@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Direct-in-nlsat handling of transcendental function applications
-    (sin/cos/exp/atan).
+    (sin/cos/exp/atan/log).
 
     This is an alternative to nla::transcendentals (math/lp/nla_transcendentals.*):
     that module grows Taylor-sandwich polynomial axioms *outside* nlsat and
@@ -48,7 +48,7 @@ namespace nlsat {
 
     class solver;
 
-    enum class transcendental_op_kind { SIN, COS, EXP, ATAN };
+    enum class transcendental_op_kind { SIN, COS, EXP, ATAN, LOG };
 
     class transcendentals {
     public:

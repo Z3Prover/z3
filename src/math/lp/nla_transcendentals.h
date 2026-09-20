@@ -12,9 +12,7 @@ Description:
 
   End-game consistency check for transcendental function applications
   (sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh,
-  atanh) registered by theory_lra. These are exactly the transcendental
-  operators supported by arith_decl_plugin (OP_SIN .. OP_ATANH); there
-  is no OP_EXP/OP_LOG in Z3's arithmetic AST.
+  atanh, exp, atan2, log) registered by theory_lra.
 
   nlsat/nra_solver reason about polynomial arithmetic over algebraic
   numbers and have no representation for transcendental functions, so
@@ -180,7 +178,8 @@ namespace nla {
         ASINH,
         ACOSH,
         ATANH,
-        EXP
+        EXP,
+        LOG
     };
 
     class transcendentals {
@@ -437,6 +436,35 @@ namespace nla {
         // "Monotonicity constraint"); asserted as a two-literal lemma
         // whenever two applications currently violate it.
         bool check_exp_monotonicity(app& a);
+        // LOG: the exact, tolerance-free, global inequality log(x) <= x-1
+        // for every x > 0 (tangent line at x=1; log is concave, so every
+        // tangent line is a global upper bound over its domain - the dual
+        // of check_exp_lower_bound's exp(t) >= 1+t, via the substitution
+        // t = log(x)). Guarded by a disjunct on arg's sign (unlike
+        // check_exp_lower_bound, log's domain is x > 0, not all reals), so
+        // this is a two-literal (not single-literal) lemma when violated.
+        bool check_log_upper_bound(app& a);
+        // LOG: monotonicity - log(x1) < log(x2) whenever 0 < x1 < x2.
+        // Checked pairwise across all registered LOG applications with a
+        // positive argument (mirrors check_exp_monotonicity); a no-op for
+        // any pairing where either argument is non-positive (out of log's
+        // domain, not this check's responsibility).
+        bool check_log_monotonicity(app& a);
+        // LOG: an exact rational Mercator-series (Taylor-at-1) sandwich
+        // for log(arg), valid only while 1 <= arg <= 2 (there, writing
+        // u = arg-1 in [0,1], log(1+u) = sum (-1)^(n+1) u^n/n is a genuine
+        // alternating series with non-increasing term magnitude), using
+        // the same classical alternating-series bracket idea as
+        // check_atan_taylor_range/check_exp_taylor_range. This closes a
+        // gap that check_log_upper_bound alone leaves open (no lower
+        // bound, and the upper bound's margin vanishes as arg -> 1).
+        bool check_log_taylor_range(app& a);
+        // The exact rational Mercator bracket [lo, hi] for log(x) at the
+        // single point x (1 <= x <= 2 only); factored out of
+        // check_log_taylor_range so it can also be evaluated at points
+        // other than the current witness (see check_exp_taylor_range's
+        // analogous exp_taylor_bracket_at for why).
+        static bool log_taylor_bracket_at(rational const& x, rational& lo, rational& hi);
         // ATAN: an exact rational Maclaurin sandwich for atan(arg), valid
         // only while -1 <= arg <= 1 (atan's Maclaurin series has radius of
         // convergence 1, unlike sin/cos which are entire), using the

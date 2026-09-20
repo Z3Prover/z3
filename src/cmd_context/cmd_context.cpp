@@ -427,7 +427,7 @@ bool cmd_context::is_transcendental_shadow_decl(symbol const& s, unsigned arity,
     case OP_ASIN: case OP_ACOS: case OP_ATAN:
     case OP_SINH: case OP_COSH: case OP_TANH:
     case OP_ASINH: case OP_ACOSH: case OP_ATANH:
-    case OP_EXP: case OP_ATAN2:
+    case OP_EXP: case OP_ATAN2: case OP_LOG:
         return true;
     default:
         return false;

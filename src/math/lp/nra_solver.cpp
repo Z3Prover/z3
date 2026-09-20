@@ -288,6 +288,7 @@ struct solver::imp {
             case nla::transcendental_op_kind::COS:  op = nlsat::transcendental_op_kind::COS; break;
             case nla::transcendental_op_kind::EXP:  op = nlsat::transcendental_op_kind::EXP; break;
             case nla::transcendental_op_kind::ATAN: op = nlsat::transcendental_op_kind::ATAN; break;
+            case nla::transcendental_op_kind::LOG:  op = nlsat::transcendental_op_kind::LOG; break;
             default: continue; // not (yet) supported by the nlsat engine; val is left opaque to nlsat.
             }
             m_nlsat->add_transcendental(op, lp2nl(a.arg), lp2nl(a.val));

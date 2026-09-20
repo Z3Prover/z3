@@ -174,6 +174,7 @@ namespace nla {
         case transcendental_op_kind::ACOSH: return "acosh";
         case transcendental_op_kind::ATANH: return "atanh";
         case transcendental_op_kind::EXP:   return "exp";
+        case transcendental_op_kind::LOG:   return "log";
         }
         return "?";
     }
@@ -196,6 +197,7 @@ namespace nla {
         case transcendental_op_kind::ACOSH: return std::acosh(x); // NaN for x < 1
         case transcendental_op_kind::ATANH: return std::atanh(x); // NaN/+-inf for |x| >= 1
         case transcendental_op_kind::EXP:   return std::exp(x);
+        case transcendental_op_kind::LOG:   return std::log(x); // NaN for x<0, -inf for x==0
         }
         return std::numeric_limits<double>::quiet_NaN();
     }
@@ -228,6 +230,7 @@ namespace nla {
         case transcendental_op_kind::ACOS:
         case transcendental_op_kind::ATANH:
         case transcendental_op_kind::ACOSH:
+        case transcendental_op_kind::LOG: // derivative 1/x blows up as x -> 0+
             return boundary_safety * eps * std::max(1.0, std::max(std::fabs(x), std::fabs(fx)));
         case transcendental_op_kind::ATAN:
             return safety * eps * std::max(1.0, std::fabs(x));
@@ -543,6 +546,148 @@ namespace nla {
             }
         }
         return false;
+    }
+
+    bool transcendentals::check_log_upper_bound(app& a) {
+        if (a.op != transcendental_op_kind::LOG)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        if (!xr.is_pos())
+            return false; // outside log's domain; not this check's responsibility
+        rational const& yr = c.val(a.val);
+        if (yr <= xr - 1)
+            return false; // log(x) <= x-1 already holds, nothing to do.
+        // val - arg <= -1, i.e. val <= arg - 1; sound for every x > 0
+        // (tangent line at x=1 - log is concave, so every tangent line is
+        // a global upper bound over the domain - the dual, via t=log(x),
+        // of check_exp_lower_bound's exp(t) >= 1+t). Guarded by arg > 0
+        // since (unlike exp) log's domain is not all reals.
+        lp::lar_term diff(rational(1), a.val, rational(-1), a.arg); // val - arg
+        lemma_builder lemma(c, "transcendental log upper bound: arg non-positive or log(arg) <= arg-1");
+        lemma |= ineq(a.arg, lp::lconstraint_kind::LE, rational(0));
+        lemma |= ineq(diff, lp::lconstraint_kind::LE, rational(-1));
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
+    }
+
+    bool transcendentals::check_log_monotonicity(app& a) {
+        if (a.op != transcendental_op_kind::LOG)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        if (!xr.is_pos())
+            return false; // out of domain; not this check's responsibility
+        rational const& yr = c.val(a.val);
+        for (auto const& other : m_apps) {
+            if (other.op != transcendental_op_kind::LOG || other.arg == a.arg)
+                continue;
+            rational const& xr2 = c.val(other.arg);
+            if (!xr2.is_pos())
+                continue; // out of domain for the other application
+            rational const& yr2 = c.val(other.val);
+            // Monotonicity: 0 < x1 < x2 => log(x1) < log(x2). Guarded by
+            // both arguments being positive (mirrors check_exp_monotonicity,
+            // but log's domain restriction means the lemma must additionally
+            // concede when either argument is non-positive).
+            lp::lar_term arg_diff(rational(1), a.arg, rational(-1), other.arg); // a.arg - other.arg
+            lp::lar_term val_diff(rational(1), a.val, rational(-1), other.val); // a.val - other.val
+            if (xr < xr2 && yr >= yr2) {
+                lemma_builder lemma(c, "transcendental log monotonicity");
+                lemma |= ineq(a.arg, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(other.arg, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(arg_diff, lp::lconstraint_kind::GE, rational(0));
+                lemma |= ineq(val_diff, lp::lconstraint_kind::LT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+            if (xr > xr2 && yr <= yr2) {
+                lemma_builder lemma(c, "transcendental log monotonicity");
+                lemma |= ineq(a.arg, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(other.arg, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(arg_diff, lp::lconstraint_kind::LE, rational(0));
+                lemma |= ineq(val_diff, lp::lconstraint_kind::GT, rational(0));
+                ++c.lp_settings().stats().m_nla_transcendental_splits;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Exact rational Mercator (Taylor-at-1) bracket [lo, hi] for log(x),
+    // valid only for 1 <= x <= 2: writing u = x-1 in [0,1],
+    // log(1+u) = sum_{n=1}^inf (-1)^(n+1) u^n/n is a genuine alternating
+    // series there (term magnitude u^n/n is non-increasing since u <= 1),
+    // so consecutive partial sums bracket the true value from the very
+    // first term - no initial non-monotone prefix to skip, unlike
+    // exp_taylor_bracket_at's x < 0 case.
+    bool transcendentals::log_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
+        if (xr < rational(1) || xr > rational(2))
+            return false;
+        rational u = xr - rational(1);
+        constexpr unsigned k_terms = 60;
+        rational term = u; // u^1/1
+        rational sum(0);
+        lo = sum; hi = sum;
+        for (unsigned n = 1; n <= k_terms; ++n) {
+            rational next = (n % 2 == 1) ? sum + term : sum - term;
+            lo = std::min(sum, next);
+            hi = std::max(sum, next);
+            sum = next;
+            term = term * u * rational(n) / rational(n + 1);
+        }
+        return true;
+    }
+
+    bool transcendentals::check_log_taylor_range(app& a) {
+        if (a.op != transcendental_op_kind::LOG)
+            return false;
+        core& c = m_core;
+        rational const& xr = c.val(a.arg);
+        rational const& yr = c.val(a.val);
+        rational lo, hi;
+        if (!log_taylor_bracket_at(xr, lo, hi))
+            return false;
+        if (yr >= lo && yr <= hi)
+            return false; // already consistent with the bracket.
+        // Widen the point-exact bracket into a genuine interval exclusion,
+        // exactly as check_exp_taylor_range does for exp: log is globally
+        // increasing, so a bracket computed at xr-delta is still a valid
+        // lower bound for every x >= xr-delta, and a bracket computed at
+        // xr+delta is still a valid upper bound for every x <= xr+delta.
+        bool is_lower = (yr < lo);
+        rational delta = taylor_exclusion_delta(c, xr);
+        rational xlo = xr, xhi = xr, bound = is_lower ? lo : hi;
+        for (unsigned i = 0; i < 20; ++i) {
+            rational lo2, hi2;
+            if (is_lower) {
+                if (log_taylor_bracket_at(xr - delta, lo2, hi2) && yr < lo2) {
+                    xlo = xr - delta; xhi = xr + delta; bound = lo2;
+                    break;
+                }
+            }
+            else {
+                if (log_taylor_bracket_at(xr + delta, lo2, hi2) && yr > hi2) {
+                    xlo = xr - delta; xhi = xr + delta; bound = hi2;
+                    break;
+                }
+            }
+            delta = delta / 2;
+        }
+        if (is_lower) {
+            lemma_builder lemma(c, "transcendental log Mercator lower bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::GE, bound);
+        }
+        else {
+            lemma_builder lemma(c, "transcendental log Mercator upper bound");
+            lemma |= ineq(a.arg, lp::lconstraint_kind::LT, xlo);
+            lemma |= ineq(a.arg, lp::lconstraint_kind::GT, xhi);
+            lemma |= ineq(a.val, lp::lconstraint_kind::LE, bound);
+        }
+        ++c.lp_settings().stats().m_nla_transcendental_splits;
+        return true;
     }
 
     // A small rational half-width around xr for widening a point-exact
@@ -897,6 +1042,12 @@ namespace nla {
         if (check_exp_taylor_range(a))
             return true;
         if (check_exp_monotonicity(a))
+            return true;
+        if (check_log_upper_bound(a))
+            return true;
+        if (check_log_taylor_range(a))
+            return true;
+        if (check_log_monotonicity(a))
             return true;
         if (check_atan_taylor_range(a))
             return true;

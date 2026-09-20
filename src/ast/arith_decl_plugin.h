@@ -72,6 +72,7 @@ enum arith_op_kind {
     OP_ATANH,
     OP_EXP,
     OP_ATAN2,
+    OP_LOG,
     // Bit-vector functions
     OP_ARITH_BAND,
     OP_ARITH_SHL,
@@ -147,6 +148,7 @@ protected:
     func_decl * m_atanh_decl;
     func_decl * m_exp_decl;
     func_decl * m_atan2_decl;
+    func_decl * m_log_decl;
 
     app       * m_pi;
     app       * m_e;
@@ -337,6 +339,7 @@ public:
     bool is_atanh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATANH); }
     bool is_exp(expr const* n) const { return is_app_of(n, arith_family_id, OP_EXP); }
     bool is_atan2(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATAN2); }
+    bool is_log(expr const* n) const { return is_app_of(n, arith_family_id, OP_LOG); }
     bool is_pi(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_PI); }
     bool is_e(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_E); }
     bool is_non_algebraic(expr const* n) const {
@@ -354,6 +357,7 @@ public:
             is_atanh(n) ||
             is_exp(n) ||
             is_atan2(n) ||
+            is_log(n) ||
             is_e(n) ||
             is_pi(n);
     }
@@ -396,6 +400,7 @@ public:
     MATCH_UNARY(is_tanh);
     MATCH_UNARY(is_exp);
     MATCH_BINARY(is_atan2);
+    MATCH_UNARY(is_log);
     END_DISABLE_WARNING;
 
 };
@@ -545,6 +550,7 @@ public:
     app * mk_atanh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ATANH, arg); }
     app * mk_exp(expr * arg) { return m_manager.mk_app(arith_family_id, OP_EXP, arg); }
     app * mk_atan2(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_ATAN2, arg1, arg2); }
+    app * mk_log(expr * arg) { return m_manager.mk_app(arith_family_id, OP_LOG, arg); }
 
     app * mk_pi() { return plugin().mk_pi(); }
     app * mk_e()  { return plugin().mk_e(); }

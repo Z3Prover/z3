@@ -542,7 +542,7 @@ class theory_lra::imp {
                          a.is_sinh(n, n1) || a.is_cosh(n, n1) || a.is_tanh(n, n1) ||
                          a.is_asin(n, n1) || a.is_acos(n, n1) || a.is_atan(n, n1) ||
                          a.is_asinh(n, n1) || a.is_acosh(n, n1) || a.is_atanh(n, n1) ||
-                         a.is_exp(n, n1)) {
+                         a.is_exp(n, n1) || a.is_log(n, n1)) {
                     // theory_lra treats sin/cos/etc. as underspecified/uninterpreted
                     // (nlsat/nra_solver have no representation for transcendental
                     // functions), but register (op, arg, val) with the nla_core
@@ -571,6 +571,7 @@ class theory_lra::imp {
                         else if (a.is_asinh(n)) op = nla::transcendental_op_kind::ASINH;
                         else if (a.is_acosh(n)) op = nla::transcendental_op_kind::ACOSH;
                         else if (a.is_atanh(n)) op = nla::transcendental_op_kind::ATANH;
+                        else if (a.is_log(n))   op = nla::transcendental_op_kind::LOG;
                         else                    op = nla::transcendental_op_kind::EXP;
                         internalize_term(to_app(n1));
                         theory_var x = mk_var(n1);
