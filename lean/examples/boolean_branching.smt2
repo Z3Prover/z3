@@ -1,0 +1,10 @@
+; The native refutation learns a clause by discharging a temporary hypothesis.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(assert (or (not p) q))
+(assert (or p (not q)))
+(assert (or (not p) (not q)))
+(check-sat)
+(get-proof)

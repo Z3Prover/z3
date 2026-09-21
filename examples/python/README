@@ -95,7 +95,7 @@ Reconstruct and check a Boolean proof in Lean
 
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
 It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
-Boolean monotonicity, and-elim, and not-or-elim proof nodes.
+Boolean monotonicity, and-elim, not-or-elim, hypothesis, and lemma proof nodes.
 mp checks its ordered premises and conclusion, accepting implications and
 Boolean equivalences. Each rewrite must conclude a Boolean equality/equivalence
 and is checked independently of the input hypotheses by a Lean truth table.
@@ -109,8 +109,17 @@ tables or propositional extensionality. and-elim selects an immediate conjunct.
 not-or-elim selects the complement of an immediate disjunct, including native
 double-negation cancellation.
 
+hypothesis introduces a temporary assumption, not an original assertion. Open
+proof steps are functions of their hypotheses, so a shared subproof can be used
+under different lemma scopes without leaking assumptions. lemma requires a proof
+of false and a conclusion containing a complement of every open hypothesis.
+It supports both complement orientations, compound literals, reordered or
+repeated literals, and weakened clauses. All hypotheses of its premise are
+discharged; the final proof must have no open hypotheses. Nested lemmas and
+shared subproofs use direct Lean proof terms, not truth tables.
+
 Other proof rules, including trans*, rewrite*, mp~, definition introduction,
-hypothesis discharge, and theory lemmas, fail explicitly. Consequently, many
+and theory lemmas, fail explicitly. Consequently, many
 otherwise propositional Z3 refutations are still unsupported.
 
 Install the pinned Lean toolchain as described in lean/README.md. Then, from
@@ -131,7 +140,8 @@ To exercise implication rewriting and mp as well:
         -o /tmp/boolean_rewrite.lean
 
 To also exercise trans, monotonicity, and not-or-elim, replace boolean_rewrite
-with boolean_structural in both commands.
+with boolean_structural in both commands. Use boolean_branching to exercise
+hypothesis discharge and learned clauses.
 
 The second command invokes scripts/check_lean.sh and publishes the .lean file
 only if the pinned Lean checker succeeds. It exits nonzero for malformed or
@@ -151,8 +161,8 @@ or a solver call. The case count is exponential in a rewrite's atom count;
 large rewrites can exceed Lean's normal resource limits and fail without
 publishing a proof.
 
-Classical Boolean rewrites and double-negation cancellation in not-or-elim
-use local decidability witnesses.
+Classical Boolean rewrites, double-negation cancellation in not-or-elim, and
+classical steps in lemma discharge use local decidability witnesses.
 The refutation removes these witnesses constructively: given
 k : Decidable p -> False, the term
 k (isFalse (fun hp => k (isTrue hp))) proves False without assuming decidability.

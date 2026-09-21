@@ -39,6 +39,8 @@ _FIXED_ARITY = {
 }
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
+    z3.Z3_OP_PR_HYPOTHESIS: ("hypothesis", 0),
+    z3.Z3_OP_PR_LEMMA: ("lemma", 1),
     z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
     z3.Z3_OP_PR_REWRITE: ("rewrite", 0),
     z3.Z3_OP_PR_REFLEXIVITY: ("refl", 0),
@@ -517,6 +519,45 @@ def _resolution(graph, terms, node):
     return result
 
 
+def _lemma(graph, terms, node, hypotheses):
+    premise, conclusion = graph.arguments(node)
+    if graph.kind(graph.conclusion(premise)) != z3.Z3_OP_FALSE:
+        raise ReconstructionError("lemma requires a proof of false at node %d" % node)
+    if not hypotheses:
+        return "(False.elim _step_%d)" % premise, set()
+    if len(hypotheses) == 1:
+        hypothesis = hypotheses[0]
+        if (graph.kind(conclusion) == z3.Z3_OP_NOT
+                and terms[graph.arguments(conclusion)[0]] == terms[hypothesis]):
+            return "_step_%d" % premise, set()
+        if (graph.kind(hypothesis) == z3.Z3_OP_NOT
+                and terms[graph.arguments(hypothesis)[0]] == terms[conclusion]):
+            return ("(@Decidable.byContradiction %s _df%d _step_%d)" % (
+                _formula(conclusion), conclusion, premise)), {conclusion}
+
+    literals = graph.clause(conclusion)
+    arguments, decidable = [], {conclusion}
+    for hypothesis in hypotheses:
+        for position, literal in enumerate(literals):
+            negated_literal = "(fun _literal => _not_clause %s)" % (
+                _inject(position, len(literals), "_literal"))
+            if (graph.kind(hypothesis) == z3.Z3_OP_NOT
+                    and terms[graph.arguments(hypothesis)[0]] == terms[literal]):
+                arguments.append(negated_literal)
+                break
+            if (graph.kind(literal) == z3.Z3_OP_NOT
+                    and terms[graph.arguments(literal)[0]] == terms[hypothesis]):
+                arguments.append("(@Decidable.byContradiction %s _df%d %s)" % (
+                    _formula(hypothesis), hypothesis, negated_literal))
+                decidable.add(hypothesis)
+                break
+        else:
+            raise ReconstructionError("lemma does not discharge every hypothesis at node %d" % node)
+    contradiction = "(_step_%d %s)" % (premise, " ".join(arguments))
+    return ("(@Decidable.byContradiction %s _df%d (fun _not_clause => %s))" % (
+        _formula(conclusion), conclusion, contradiction)), decidable
+
+
 def reconstruct(source, certificate):
     """Return Lean source; callers must check it before claiming verification."""
     graph = _validate_graph(source, certificate)
@@ -543,14 +584,27 @@ def reconstruct(source, certificate):
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
     steps, decidable_formulas = [], set()
+    hypothesis_formulas, dependencies = {}, {}
     for node in range(len(graph.nodes)):
         if graph.decl(node).range != "Proof":
             continue
         conclusion = graph.conclusion(node)
+        premises = graph.arguments(node)[:-1]
+        dependencies[node] = tuple(sorted({
+            hypothesis for premise in premises for hypothesis in dependencies[premise]
+        }))
         if graph.kind(node) == z3.Z3_OP_PR_ASSERTED:
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             term = "_h%d" % assumptions[terms[conclusion]]
+        elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
+            hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
+            dependencies[node] = (hypothesis,)
+            term = "_hyp%d" % hypothesis
+        elif graph.kind(node) == z3.Z3_OP_PR_LEMMA:
+            term, support = _lemma(graph, terms, node, dependencies[node])
+            decidable_formulas.update(support)
+            dependencies[node] = ()
         elif graph.kind(node) == z3.Z3_OP_PR_MODUS_PONENS:
             term = _modus_ponens(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
@@ -570,7 +624,18 @@ def reconstruct(source, certificate):
             term = _resolution(graph, terms, node)
         else:
             raise ReconstructionError("unsupported native proof rule: %s" % graph.decl(node).name)
-        steps.append("  let _step_%d : %s := %s" % (node, _formula(conclusion), term))
+        # Abstract open DAG nodes so shared subproofs can be discharged independently.
+        parameters = "".join(" (_hyp%d : %s)" % (hypothesis, _formula(hypothesis))
+                             for hypothesis in dependencies[node])
+        steps.append("  let _step_%d%s : %s :=" % (node, parameters, _formula(conclusion)))
+        if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
+            for premise in dict.fromkeys(premises):
+                if dependencies[premise]:
+                    arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
+                    steps.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
+        steps.append("    " + term)
+    if dependencies[graph.proof]:
+        raise ReconstructionError("the root proof has undischarged hypotheses")
     if decidable_atoms or decidable_formulas:
         # A continuation ending in False can eliminate the temporary decidability
         # assumptions constructively, preserving the original theorem statement.

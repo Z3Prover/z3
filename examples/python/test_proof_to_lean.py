@@ -39,10 +39,14 @@ STRUCTURAL = """\
 (declare-const p Bool)(declare-const q Bool)
 (assert (not (or (not p) q)))(assert (not (and p (not q))))
 """
-UNSUPPORTED = """\
+BRANCHING = """\
 (declare-const p Bool)(declare-const q Bool)
 (assert (or p q))(assert (or (not p) q))
 (assert (or p (not q)))(assert (or (not p) (not q)))
+"""
+UNSUPPORTED = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (xor p q))(assert p)(assert q)
 """
 
 
@@ -70,6 +74,8 @@ def make_certificate(source, steps):
 
     def add_step(rule, premises, conclusion):
         kind = {"asserted": z3.Z3_OP_PR_ASSERTED,
+                "hypothesis": z3.Z3_OP_PR_HYPOTHESIS,
+                "lemma": z3.Z3_OP_PR_LEMMA,
                 "mp": z3.Z3_OP_PR_MODUS_PONENS,
                 "rewrite": z3.Z3_OP_PR_REWRITE,
                 "refl": z3.Z3_OP_PR_REFLEXIVITY,
@@ -114,7 +120,7 @@ class TestProofToLean(unittest.TestCase):
         self.certificate = proof_certificate.export_certificate(LITERAL)
 
     def test_real_native_refutations_generate_explicit_proof_terms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 certificate = proof_certificate.export_certificate(source)
@@ -125,10 +131,11 @@ class TestProofToLean(unittest.TestCase):
                 self.assertNotIn("axiom ", text)
                 self.assertNotIn("native_decide", text)
                 self.assertNotIn("classical", text)
-                self.assertEqual(text.count("  let _step_"), sum(certificate["rule_counts"].values()))
+                self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
+                                 sum(certificate["rule_counts"].values()))
 
     def test_reconstruction_does_not_run_solver_search(self):
-        for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL]:
+        for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING]:
             certificate = proof_certificate.export_certificate(source)
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
@@ -400,8 +407,7 @@ class TestProofToLean(unittest.TestCase):
         certificate = proof_certificate.export_certificate(UNSUPPORTED)
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported native proof rule"):
             proof_to_lean.reconstruct(UNSUPPORTED, certificate)
-        for kind, name in [(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis"),
-                           (z3.Z3_OP_PR_TH_LEMMA, "th-lemma"),
+        for kind, name in [(z3.Z3_OP_PR_TH_LEMMA, "th-lemma"),
                            (z3.Z3_OP_PR_TRANSITIVITY_STAR, "trans*"),
                            (z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"),
                            (z3.Z3_OP_PR_MODUS_PONENS_OEQ, "mp~"),
@@ -412,6 +418,109 @@ class TestProofToLean(unittest.TestCase):
                     decl["kind"], decl["name"] = kind, name
             with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported native proof rule"):
                 proof_to_lean.reconstruct(LITERAL, certificate)
+
+    def test_hypothesis_and_lemma_signatures_are_checked(self):
+        original = proof_certificate.export_certificate(BRANCHING)
+        for rule, domains in [
+            ("hypothesis", [[], ["Proof", "Bool"], ["Proof"]]),
+            ("lemma", [[], ["Bool"], ["Proof", "Proof", "Bool"], ["Bool", "Bool"]]),
+        ]:
+            for key, value in [("name", "forged")] + [("domain", domain) for domain in domains]:
+                with self.subTest(rule=rule, key=key, value=value):
+                    certificate = copy.deepcopy(original)
+                    declaration = next(decl for decl in certificate["declarations"] if decl["name"] == rule)
+                    declaration[key] = value
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                        proof_to_lean.reconstruct(BRANCHING, certificate)
+        source = LITERAL + "(assert false)"
+        for rule, premises in [("hypothesis", [0]), ("lemma", []), ("lemma", [0, 1])]:
+            with self.subTest(rule=rule, premises=premises):
+                certificate = make_certificate(source, [(rule, premises, "false")])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid " + rule):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_open_hypotheses_cannot_prove_unsat(self):
+        source = "(declare-const p Bool)(assert p)"
+        for steps in [
+            [("hypothesis", [], "false")],
+            [("hypothesis", [], "(not p)"), ("unit-resolution", [0, 1], "false")],
+            [
+                ("hypothesis", [], "(not p)"),
+                ("unit-resolution", [0, 1], "false"),
+                ("lemma", [2], "p"),
+                ("unit-resolution", [3, 1], "false"),
+            ],
+        ]:
+            with self.subTest(steps=steps):
+                certificate = make_certificate(source, steps)
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_a_lemma_does_not_close_its_shared_premise_globally(self):
+        source = "(declare-const p Bool)(assert p)"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "(not p)"),
+            ("unit-resolution", [0, 1], "false"),
+            ("lemma", [2], "p"),
+        ])
+        certificate["proof"] = certificate["nodes"][certificate["proof"]]["arguments"][0]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_hypotheses_are_not_implicitly_original_assertions(self):
+        certificate = make_certificate(LITERAL, [
+            ("hypothesis", [], "p"), ("unit-resolution", [2, 1], "false"),
+        ])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+            proof_to_lean.reconstruct(LITERAL, certificate)
+
+    def test_hypotheses_propagate_even_through_unused_congruence_evidence(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert p)(assert (not p))(assert (= q q))"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "(= q q)"),
+            ("monotonicity", [3], "(= (not p) (not p))"),
+            ("mp", [1, 4], "(not p)"),
+            ("unit-resolution", [0, 5], "false"),
+        ])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_lemma_requires_false_even_when_unused(self):
+        source = LITERAL + "(assert false)"
+        certificate = make_certificate(source, [
+            ("lemma", [0], "(not p)"), ("asserted", [], "false"),
+        ])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "lemma requires a proof of false"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_lemma_must_discharge_all_hypotheses_even_when_unused(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (or (not p) (not q)))(assert false)"
+        for conclusion in ["(not p)", "(not q)", "(or p q)", "false"]:
+            with self.subTest(conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    ("hypothesis", [], "p"), ("hypothesis", [], "q"),
+                    ("unit-resolution", [0, 2, 3], "false"),
+                    ("lemma", [4], conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "discharge every hypothesis"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_scope_errors_never_replace_an_artifact(self):
+        source = "(declare-const p Bool)(assert p)"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "(not p)"), ("unit-resolution", [0, 1], "false"),
+        ])
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            output.write_text("previous artifact")
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+                proof_to_lean.check_and_write(source, certificate, output)
+            checker.assert_not_called()
+            self.assertEqual(output.read_text(), "previous artifact")
+            self.assertEqual(list(Path(directory).iterdir()), [output])
 
     def test_invalid_indices_and_cycles_are_rejected(self):
         root = self.certificate["proof"]

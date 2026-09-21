@@ -21,7 +21,7 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_to_lean
 from test_proof_to_lean import (
-    CLAUSE, CONJUNCTION, LITERAL, REWRITE, STRUCTURAL, UNSUPPORTED, make_certificate,
+    BRANCHING, CLAUSE, CONJUNCTION, LITERAL, REWRITE, STRUCTURAL, UNSUPPORTED, make_certificate,
 )
 
 
@@ -31,6 +31,10 @@ class TestProofToLeanIntegration(unittest.TestCase):
             output = Path(directory) / "checked proof.lean"
             proof_to_lean.check_and_write(source, certificate, output)
             text = output.read_text()
+            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+            self.assertNotIn("_hyp", statement)
+            self.assertNotIn("Decidable", statement)
             namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
             theorems = ["unsat"] + [
                 "rewrite_%d" % node for node, raw in enumerate(certificate["nodes"])
@@ -45,7 +49,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
             return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
@@ -63,6 +67,154 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertTrue({"trans", "monotonicity", "not-or-elim"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
+
+    def test_documented_branching_boolean_example(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_branching.smt2").read_text()
+        certificate = proof_certificate.export_certificate(source)
+        self.assertTrue({"hypothesis", "lemma"} <= set(certificate["rule_counts"]))
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            self.check(source, certificate)
+
+    def test_native_multiple_learned_clauses(self):
+        for size in [3, 4]:
+            with self.subTest(size=size):
+                atoms = ["p%d" % index for index in range(size)]
+                source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+                for signs in itertools.product([False, True], repeat=size):
+                    literals = [atom if positive else "(not %s)" % atom
+                                for atom, positive in zip(atoms, signs)]
+                    source += "(assert (or %s))" % " ".join(literals)
+                certificate = proof_certificate.export_certificate(source)
+                self.assertGreater(certificate["rule_counts"]["lemma"], 1)
+                self.check(source, certificate)
+
+    def test_lemma_single_hypothesis_orientations_and_compound_literals(self):
+        for hypothesis, conclusion, premises in [
+            ("p", "(not p)", [0, 2]),
+            ("(not p)", "p", [0, 2]),
+            ("(not p)", "(not (not p))", [0, 2]),
+            ("(not (not p))", "(not p)", [0, 2]),
+            ("(not (or p q))", "(or p q)", [2, 0]),
+            ("(or p q)", "(not (or p q))", [0, 2]),
+            ("false", "(not false)", [0, 2]),
+            ("(not false)", "false", [2, 0]),
+        ]:
+            with self.subTest(hypothesis=hypothesis, conclusion=conclusion):
+                source = "(declare-const p Bool)(declare-const q Bool)"
+                source += "(assert %s)(assert (not %s))" % (conclusion, conclusion)
+                self.check(source, make_certificate(source, [
+                    ("hypothesis", [], hypothesis),
+                    ("unit-resolution", premises, "false"),
+                    ("lemma", [3], conclusion),
+                    ("unit-resolution", [1, 4], "false"),
+                ]))
+
+    def test_lemma_clauses_allow_reordering_factoring_and_weakening(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (or p q))(assert (not p))(assert (not q))(assert (not r))"
+        for conclusion, units in [
+            ("(or q p)", [1, 2]), ("(or p p q)", [1, 2]),
+            ("(or false q p)", [1, 2]), ("(or p q false)", [1, 2]),
+            ("(or r q p)", [1, 2, 3]),
+        ]:
+            with self.subTest(conclusion=conclusion):
+                self.check(source, make_certificate(source, [
+                    ("hypothesis", [], "(not p)"), ("hypothesis", [], "(not q)"),
+                    ("unit-resolution", [0, 4, 5], "false"),
+                    ("lemma", [6], conclusion),
+                    ("unit-resolution", [7] + units, "false"),
+                ]))
+
+    def test_repeated_hypotheses_share_one_parameter(self):
+        certificate = make_certificate(LITERAL, [
+            ("hypothesis", [], "p"), ("hypothesis", [], "p"),
+            ("unit-resolution", [1, 2, 3], "false"),
+            ("lemma", [4], "(not p)"),
+            ("unit-resolution", [5, 0], "false"),
+        ])
+        text = self.check(LITERAL, certificate)
+        lemma = certificate["nodes"][certificate["proof"]]["arguments"][0]
+        conflict = certificate["nodes"][lemma]["arguments"][0]
+        header = next(line for line in text.splitlines() if line.startswith("  let _step_%d " % conflict))
+        self.assertEqual(header.count("(_hyp"), 1)
+        self.assertNotIn("Decidable", text)
+
+    def test_lemma_with_mixed_polarities(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (or (not p) q))(assert p)(assert (not q))"
+        self.check(source, make_certificate(source, [
+            ("hypothesis", [], "(not q)"), ("hypothesis", [], "p"),
+            ("unit-resolution", [0, 3, 4], "false"),
+            ("lemma", [5], "(or q (not p))"),
+            ("unit-resolution", [6, 1, 2], "false"),
+        ]))
+
+    def test_nested_lemmas_and_shared_open_subproofs(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (or (not p) (not q)))(assert p)(assert q)"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "p"), ("hypothesis", [], "q"),
+            ("unit-resolution", [0, 3, 4], "false"),
+            ("lemma", [5], "(or (not p) (not q))"),
+            ("lemma", [5], "(or (not q) (not p))"),
+            ("unit-resolution", [6, 3, 2], "false"),
+            ("lemma", [8], "(not p)"),
+            ("unit-resolution", [7, 1], "(not q)"),
+            ("unit-resolution", [9, 1], "false"),
+        ])
+        text = self.check(source, certificate)
+        self.assertEqual(sum(line.startswith("  let _step_") for line in text.splitlines()),
+                         sum(certificate["rule_counts"].values()))
+        self.assertNotIn("cases _d", text)
+
+    def test_scoped_structural_proofs_and_double_negation(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (= p q))(assert (and p r))(assert (not q))"
+        self.check(source, make_certificate(source, [
+            ("hypothesis", [], "(= p q)"),
+            ("symm", [3], "(= q p)"), ("symm", [4], "(= p q)"),
+            ("refl", [], "(= q q)"), ("trans", [5, 6], "(= p q)"),
+            ("monotonicity", [7], "(= (and p r) (and q r))"),
+            ("hypothesis", [], "(and p r)"), ("mp", [9, 8], "(and q r)"),
+            ("and-elim", [10], "q"), ("unit-resolution", [2, 11], "false"),
+            ("lemma", [12], "(or (not (= p q)) (not (and p r)))"),
+            ("unit-resolution", [13, 0, 1], "false"),
+        ]))
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (not p))(assert (not (or (not p) q)))"
+        self.check(source, make_certificate(source, [
+            ("hypothesis", [], "(not (or (not p) q))"),
+            ("not-or-elim", [2], "p"), ("unit-resolution", [0, 3], "false"),
+            ("lemma", [4], "(or (not p) q)"),
+            ("unit-resolution", [1, 5], "false"),
+        ]))
+
+    def test_large_lemma_does_not_enumerate_truth_assignments(self):
+        size = 24
+        source = "".join("(declare-const p%d Bool)" % index for index in range(size))
+        clause = "(or %s)" % " ".join("(not p%d)" % index for index in range(size))
+        source += "(assert %s)" % clause
+        source += "".join("(assert p%d)" % index for index in range(size))
+        steps = [("hypothesis", [], "p%d" % index) for index in range(size)]
+        first_hypothesis = size + 1
+        conflict = first_hypothesis + size
+        steps.extend([
+            ("unit-resolution", [0] + list(range(first_hypothesis, conflict)), "false"),
+            ("lemma", [conflict], clause),
+            ("unit-resolution", [conflict + 1] + list(range(1, size + 1)), "false"),
+        ])
+        text = self.check(source, make_certificate(source, steps))
+        self.assertNotIn("cases _d", text)
+        self.assertLess(len(text), 50_000)
+
+    def test_closed_lemma_and_unused_open_hypothesis(self):
+        source = "(declare-const p Bool)(assert p)(assert false)"
+        text = self.check(source, make_certificate(source, [
+            ("hypothesis", [], "false"),
+            ("lemma", [1], "(or p (not p))"),
+            ("lemma", [1], "false"),
+        ]))
+        self.assertNotIn("Decidable", text)
 
     def test_reflexivity_symmetry_and_transitivity_chains(self):
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
@@ -426,12 +578,27 @@ class TestProofToLeanIntegration(unittest.TestCase):
             result = subprocess.run(command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("Lean checked the refutation", result.stdout)
+            original.write_text(BRANCHING)
+            certificate.write_text(json.dumps(proof_certificate.export_certificate(BRANCHING)))
+            result = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Lean checked the refutation", result.stdout)
             previous = output.read_text()
             original.write_text(UNSUPPORTED)
             certificate.write_text(json.dumps(proof_certificate.export_certificate(UNSUPPORTED)))
             result = subprocess.run(command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("unsupported native proof rule", result.stderr)
+            self.assertEqual(output.read_text(), previous)
+            self.assertEqual(set(directory.iterdir()), {original, certificate, output})
+            source = "(declare-const p Bool)(assert p)"
+            original.write_text(source)
+            certificate.write_text(json.dumps(make_certificate(source, [
+                ("hypothesis", [], "(not p)"), ("unit-resolution", [0, 1], "false"),
+            ])))
+            result = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("undischarged hypotheses", result.stderr)
             self.assertEqual(output.read_text(), previous)
             self.assertEqual(set(directory.iterdir()), {original, certificate, output})
 
