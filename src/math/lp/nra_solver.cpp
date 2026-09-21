@@ -403,6 +403,8 @@ struct solver::imp {
 
     void setup_assignment_solver() {
         SASSERT(need_check());
+        if (!m_nla_core.get_transcendentals().empty())
+            m_params.set_bool("transcendentals", true);
         reset();
         m_literal2constraint.reset();
         m_vars2mon.reset();
@@ -475,6 +477,7 @@ struct solver::imp {
             m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
         }
         definitions.reset();
+        register_transcendentals_with_nlsat();
     }
 
     void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
