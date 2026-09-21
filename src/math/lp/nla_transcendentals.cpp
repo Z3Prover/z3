@@ -160,101 +160,25 @@ namespace nla {
     }
 
     char const* transcendentals::op_name(transcendental_op_kind op) {
-        switch (op) {
-        case transcendental_op_kind::SIN:   return "sin";
-        case transcendental_op_kind::COS:   return "cos";
-        case transcendental_op_kind::TAN:   return "tan";
-        case transcendental_op_kind::ASIN:  return "asin";
-        case transcendental_op_kind::ACOS:  return "acos";
-        case transcendental_op_kind::ATAN:  return "atan";
-        case transcendental_op_kind::SINH:  return "sinh";
-        case transcendental_op_kind::COSH:  return "cosh";
-        case transcendental_op_kind::TANH:  return "tanh";
-        case transcendental_op_kind::ASINH: return "asinh";
-        case transcendental_op_kind::ACOSH: return "acosh";
-        case transcendental_op_kind::ATANH: return "atanh";
-        case transcendental_op_kind::EXP:   return "exp";
-        case transcendental_op_kind::LOG:   return "log";
-        }
-        return "?";
+        return transcendental_eval::op_name(op);
     }
 
     double transcendentals::eval(transcendental_op_kind op, double x) {
-        switch (op) {
-        case transcendental_op_kind::SIN:   return std::sin(x);
-        case transcendental_op_kind::COS:   return std::cos(x);
-        case transcendental_op_kind::TAN:   return std::tan(x);
-        // std::asin/std::acos return NaN outside [-1,1]; OP_U_ASIN/OP_U_ACOS
-        // are the separate operators z3 uses for that out-of-domain case, so
-        // NaN here is expected and handled by the isfinite check below.
-        case transcendental_op_kind::ASIN:  return std::asin(x);
-        case transcendental_op_kind::ACOS:  return std::acos(x);
-        case transcendental_op_kind::ATAN:  return std::atan(x);
-        case transcendental_op_kind::SINH:  return std::sinh(x);
-        case transcendental_op_kind::COSH:  return std::cosh(x);
-        case transcendental_op_kind::TANH:  return std::tanh(x);
-        case transcendental_op_kind::ASINH: return std::asinh(x);
-        case transcendental_op_kind::ACOSH: return std::acosh(x); // NaN for x < 1
-        case transcendental_op_kind::ATANH: return std::atanh(x); // NaN/+-inf for |x| >= 1
-        case transcendental_op_kind::EXP:   return std::exp(x);
-        case transcendental_op_kind::LOG:   return std::log(x); // NaN for x<0, -inf for x==0
-        }
-        return std::numeric_limits<double>::quiet_NaN();
+        return transcendental_eval::eval(op, x);
     }
 
     // A conservative (not tight) additive error bound accounting for the
     // floating point round-off incurred by evaluating op in double
-    // precision. It does not attempt to bound the error of converting an
-    // exact rational argument to a double in the first place; that
-    // rounding is itself included in the same margin for simplicity.
-    // Functions whose derivative can blow up near the boundary of their
-    // domain (tan's poles, asin/acos/atanh near +-1, acosh near 1) get a
-    // larger safety margin than the everywhere-smooth, bounded-derivative
-    // ones (sin, cos, tanh, asinh).
+    // precision. See transcendental_eval::error_bound (util/transcendental_eval.cpp)
+    // for the shared implementation.
     double transcendentals::error_bound(transcendental_op_kind op, double x, double fx) {
-        double const eps = std::numeric_limits<double>::epsilon();
-        double const safety = 64.0;       // generous margin, this is not a tight certificate
-        double const boundary_safety = 4096.0; // extra margin near domain boundaries/poles
-        switch (op) {
-        case transcendental_op_kind::SIN:
-        case transcendental_op_kind::COS:
-        case transcendental_op_kind::TANH:
-        case transcendental_op_kind::ASINH:
-            return safety * eps * std::max(1.0, std::fabs(x));
-        case transcendental_op_kind::SINH:
-        case transcendental_op_kind::COSH:
-        case transcendental_op_kind::EXP:
-            return safety * eps * std::max(1.0, std::fabs(fx));
-        case transcendental_op_kind::TAN:
-        case transcendental_op_kind::ASIN:
-        case transcendental_op_kind::ACOS:
-        case transcendental_op_kind::ATANH:
-        case transcendental_op_kind::ACOSH:
-        case transcendental_op_kind::LOG: // derivative 1/x blows up as x -> 0+
-            return boundary_safety * eps * std::max(1.0, std::max(std::fabs(x), std::fabs(fx)));
-        case transcendental_op_kind::ATAN:
-            return safety * eps * std::max(1.0, std::fabs(x));
-        }
-        return 1e-6;
+        return transcendental_eval::error_bound(op, x, fx);
     }
 
-    // Exact rational equal to the finite double d, obtained from d's binary
-    // (mantissa, exponent) representation via frexp/ldexp: this never loses
-    // precision (unlike scaling by a power of ten), so no outward-rounding
-    // slack needs to be reserved for the conversion itself.
+    // Exact rational equal to the finite double d; see
+    // transcendental_eval::to_rational for the shared implementation.
     rational transcendentals::to_rational(double d) {
-        if (d == 0.0)
-            return rational(0);
-        int exp = 0;
-        double mantissa = std::frexp(d, &exp); // d = mantissa * 2^exp, 0.5 <= |mantissa| < 1
-        int64_t num = static_cast<int64_t>(std::ldexp(mantissa, 53));
-        exp -= 53;
-        rational r(num);
-        if (exp >= 0)
-            r *= rational::power_of_two(static_cast<unsigned>(exp));
-        else
-            r /= rational::power_of_two(static_cast<unsigned>(-exp));
-        return r;
+        return transcendental_eval::to_rational(d);
     }
 
     // Maclaurin (Taylor-at-0) polynomial sandwiches, sound for every real x
@@ -323,69 +247,17 @@ namespace nla {
     // A (non-certified) floating point enclosure of op over the box [lo,
     // hi]: samples op at both endpoints, then inflates the resulting range
     // by error_bound so that small deviations from monotonicity within the
-    // (intentionally tiny) box are covered as well.
+    // (intentionally tiny) box are covered as well. See
+    // transcendental_eval::interval_eval for the shared implementation.
     void transcendentals::interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
-        double f_lo = eval(op, lo);
-        double f_hi = eval(op, hi);
-        double lo_v = std::min(f_lo, f_hi);
-        double hi_v = std::max(f_lo, f_hi);
-        double slack = std::max(error_bound(op, lo, f_lo), error_bound(op, hi, f_hi));
-        lo_val = lo_v - slack;
-        hi_val = hi_v + slack;
+        transcendental_eval::interval_eval(op, lo, hi, lo_val, hi_val);
     }
 
-    // true if some integer k has lo <= phase + k*period <= hi (used to
-    // detect whether a periodic function's extremum/pole falls inside
-    // [lo, hi]). A generous (safe) direction: false negatives would be
-    // unsound (missing an extremum), but this can only produce false
-    // positives (from floating point slack in the endpoint comparison),
-    // which merely widens an already-sound enclosure or triggers an
-    // unnecessary fallback - never unsound.
-    static bool contains_multiple_of(double lo, double hi, double phase, double period) {
-        if (!(lo <= hi))
-            return false;
-        double k = std::ceil((lo - phase) / period);
-        double candidate = phase + k * period;
-        return candidate <= hi;
-    }
-
+    // See transcendental_eval::wide_interval_eval for the shared
+    // implementation (closed-form handling of periodic extrema/poles so
+    // the enclosure stays sound regardless of box width).
     bool transcendentals::wide_interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
-        if (!(lo <= hi))
-            return false;
-        double f_lo = eval(op, lo);
-        double f_hi = eval(op, hi);
-        if (!std::isfinite(f_lo) || !std::isfinite(f_hi))
-            return false;
-        double mn = std::min(f_lo, f_hi);
-        double mx = std::max(f_lo, f_hi);
-        double const pi = 3.14159265358979323846;
-        double const two_pi = 2 * pi;
-        switch (op) {
-        case transcendental_op_kind::SIN:
-            if (contains_multiple_of(lo, hi, pi / 2, two_pi)) mx = 1.0;
-            if (contains_multiple_of(lo, hi, -pi / 2, two_pi)) mn = -1.0;
-            break;
-        case transcendental_op_kind::COS:
-            if (contains_multiple_of(lo, hi, 0.0, two_pi)) mx = 1.0;
-            if (contains_multiple_of(lo, hi, pi, two_pi)) mn = -1.0;
-            break;
-        case transcendental_op_kind::TAN:
-            // a pole strictly inside [lo, hi] makes tan unbounded there;
-            // bail out and let the caller fall back to a tiny local box.
-            if (contains_multiple_of(std::nextafter(lo, hi), std::nextafter(hi, lo), pi / 2, pi))
-                return false;
-            break;
-        case transcendental_op_kind::COSH:
-            // cosh is convex with its unique minimum (1) at 0.
-            if (lo <= 0.0 && 0.0 <= hi) mn = 1.0;
-            break;
-        default:
-            break; // monotonic on their whole domain: endpoints give the range.
-        }
-        double slack = std::max(error_bound(op, lo, f_lo), error_bound(op, hi, f_hi));
-        lo_val = mn - slack;
-        hi_val = mx + slack;
-        return true;
+        return transcendental_eval::wide_interval_eval(op, lo, hi, lo_val, hi_val);
     }
 
     bool transcendentals::has_linear_majorant(transcendental_op_kind op) {
@@ -614,29 +486,11 @@ namespace nla {
         return false;
     }
 
-    // Exact rational Mercator (Taylor-at-1) bracket [lo, hi] for log(x),
-    // valid only for 1 <= x <= 2: writing u = x-1 in [0,1],
-    // log(1+u) = sum_{n=1}^inf (-1)^(n+1) u^n/n is a genuine alternating
-    // series there (term magnitude u^n/n is non-increasing since u <= 1),
-    // so consecutive partial sums bracket the true value from the very
-    // first term - no initial non-monotone prefix to skip, unlike
-    // exp_taylor_bracket_at's x < 0 case.
+    // Exact rational Mercator (Taylor-at-1) bracket [lo, hi] for log(x);
+    // see transcendental_eval::log_taylor_bracket_at for the shared
+    // implementation.
     bool transcendentals::log_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
-        if (xr < rational(1) || xr > rational(2))
-            return false;
-        rational u = xr - rational(1);
-        constexpr unsigned k_terms = 60;
-        rational term = u; // u^1/1
-        rational sum(0);
-        lo = sum; hi = sum;
-        for (unsigned n = 1; n <= k_terms; ++n) {
-            rational next = (n % 2 == 1) ? sum + term : sum - term;
-            lo = std::min(sum, next);
-            hi = std::max(sum, next);
-            sum = next;
-            term = term * u * rational(n) / rational(n + 1);
-        }
-        return true;
+        return transcendental_eval::log_taylor_bracket_at(xr, lo, hi);
     }
 
     bool transcendentals::check_log_taylor_range(app& a) {
@@ -752,29 +606,20 @@ namespace nla {
         // non-increasing in magnitude, so by the alternating series
         // estimation theorem every partial sum S_k brackets the true
         // value together with S_{k+1}: min(S_k, S_{k+1}) <= atan(x) <=
-        // max(S_k, S_{k+1}). Computed here in exact rational arithmetic
-        // (unlike the generic float-based box-refinement fallback), so
-        // the resulting bracket is an exact, not just floating point
-        // approximate, enclosure at this specific xr. To turn this into
-        // an interval-excluding lemma (see taylor_exclusion_delta and
-        // widen_unit_derivative_bound above), the bracket is widened
-        // using |atan'(x)| = 1/(1+x^2) <= 1 everywhere - but only by as
-        // much as still keeps the lemma conflicting with the current
-        // witness (yr), since a widened-but-non-conflicting lemma would
-        // be true yet satisfied by the current model, and so would fail
-        // to force the search to make progress.
-        constexpr unsigned k_terms = 40;
-        rational term = xr;
-        rational xr2 = xr * xr;
-        rational sum(0);
-        rational lo = sum, hi = sum;
-        for (unsigned k = 0; k < k_terms; ++k) {
-            rational next = sum + term / rational(2 * k + 1);
-            lo = std::min(sum, next);
-            hi = std::max(sum, next);
-            sum = next;
-            term = -term * xr2;
-        }
+        // max(S_k, S_{k+1}). Computed via transcendental_eval::atan_taylor_bracket_at
+        // in exact rational arithmetic (unlike the generic float-based
+        // box-refinement fallback), so the resulting bracket is an exact,
+        // not just floating point approximate, enclosure at this specific
+        // xr. To turn this into an interval-excluding lemma (see
+        // taylor_exclusion_delta and widen_unit_derivative_bound above),
+        // the bracket is widened using |atan'(x)| = 1/(1+x^2) <= 1
+        // everywhere - but only by as much as still keeps the lemma
+        // conflicting with the current witness (yr), since a
+        // widened-but-non-conflicting lemma would be true yet satisfied by
+        // the current model, and so would fail to force the search to make
+        // progress.
+        rational lo, hi;
+        VERIFY(transcendental_eval::atan_taylor_bracket_at(xr, lo, hi));
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
         bool is_lower = (yr < lo);
@@ -798,48 +643,14 @@ namespace nla {
     }
 
     // The exact rational Maclaurin bracket [lo, hi] for exp(x) at the
-    // single point x (see check_exp_taylor_range for the derivation);
-    // factored out so it can be evaluated at points other than the
-    // current witness (exp is globally increasing, so evaluating this at
-    // the two ends of a small interval around a witness - see
-    // check_exp_taylor_range - yields a sound bracket for the whole
-    // interval, not just the single point).
+    // single point x; see transcendental_eval::exp_taylor_bracket_at for
+    // the shared implementation. Factored out so it can be evaluated at
+    // points other than the current witness (exp is globally increasing,
+    // so evaluating this at the two ends of a small interval around a
+    // witness - see check_exp_taylor_range - yields a sound bracket for
+    // the whole interval, not just the single point).
     bool transcendentals::exp_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
-        constexpr unsigned k_terms = 40;
-        if (xr <= rational(0) && xr > rational(-static_cast<int>(k_terms))) {
-            rational ax = -xr;
-            unsigned n0 = 0;
-            while (rational(n0 + 1) < ax)
-                ++n0;
-            rational term(1); // x^0 / 0!
-            rational sum(0);
-            for (unsigned k = 0; k < n0; ++k) {
-                sum += term;
-                term = term * xr / rational(k + 1);
-            }
-            lo = sum; hi = sum;
-            for (unsigned k = n0; k < k_terms; ++k) {
-                rational next = sum + term;
-                lo = std::min(sum, next);
-                hi = std::max(sum, next);
-                sum = next;
-                term = term * xr / rational(k + 1);
-            }
-            return true;
-        }
-        if (xr > rational(0) && xr < rational(k_terms + 1)) {
-            rational term(1); // x^0/0!
-            rational sum(0);
-            for (unsigned k = 0; k < k_terms; ++k) {
-                sum += term;
-                term = term * xr / rational(k + 1);
-            }
-            rational q = xr / rational(k_terms + 1);
-            lo = sum;
-            hi = sum + term / (rational(1) - q);
-            return true;
-        }
-        return false;
+        return transcendental_eval::exp_taylor_bracket_at(xr, lo, hi);
     }
 
     bool transcendentals::check_exp_taylor_range(app& a) {

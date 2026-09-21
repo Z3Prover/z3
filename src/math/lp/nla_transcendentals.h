@@ -160,27 +160,18 @@ Description:
 --*/
 #pragma once
 #include "math/lp/nla_types.h"
+#include "util/transcendental_eval.h"
 
 namespace nla {
 
     class core;
 
-    enum class transcendental_op_kind {
-        SIN,
-        COS,
-        TAN,
-        ASIN,
-        ACOS,
-        ATAN,
-        SINH,
-        COSH,
-        TANH,
-        ASINH,
-        ACOSH,
-        ATANH,
-        EXP,
-        LOG
-    };
+    // Alias, not a separate enum: nla::transcendentals and
+    // nlsat::transcendentals must agree bit-for-bit on op_kind so that
+    // nra_solver::register_transcendentals_with_nlsat (math/lp/nra_solver.cpp)
+    // can forward an nla::app's op straight to nlsat without a translation
+    // table silently getting out of sync.
+    using transcendental_op_kind = transcendental_eval::op_kind;
 
     class transcendentals {
     public:
