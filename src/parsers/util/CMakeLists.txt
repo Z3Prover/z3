@@ -6,6 +6,6 @@ z3_add_component(parser_util
     simple_parser.cpp
   COMPONENT_DEPENDENCIES
     ast
-  PYG_FILES
-    parser_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    parser_params.hpp
 )
