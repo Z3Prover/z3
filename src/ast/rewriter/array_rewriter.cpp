@@ -882,6 +882,21 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
+    // (= (lambda (x) s) (lambda (x) t))  ==>  (forall (x) (= s t))   (array extensionality)
+    if (is_lambda(lhs) && is_lambda(rhs)) {
+        quantifier* l1 = to_quantifier(lhs);
+        quantifier* l2 = to_quantifier(rhs);
+        if (l1->get_num_decls() == l2->get_num_decls()) {
+            bool same = true;
+            for (unsigned i = 0; same && i < l1->get_num_decls(); ++i)
+                same = l1->get_decl_sort(i) == l2->get_decl_sort(i);
+            if (same) {
+                expr_ref e(m().mk_eq(l1->get_expr(), l2->get_expr()), m());
+                result = m().update_quantifier(l1, quantifier_kind::forall_k, e);
+                return BR_REWRITE2;
+            }
+        }
+    }
 
     expr_ref_vector fmls(m());
 
