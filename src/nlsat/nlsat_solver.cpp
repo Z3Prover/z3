@@ -3310,6 +3310,15 @@ namespace nlsat {
             m_pm.rename(sz, p);
             for (auto& b : m_bounds) 
                 b.x = p[b.x];                                   
+            // m_bounds isn't the only place raw (non-polynomial-embedded)
+            // var indices are cached across a reorder: m_transcendentals
+            // stashes its own applications' argument/value vars directly
+            // (see nlsat_transcendentals.h), which m_pm.rename() above does
+            // not touch since they aren't part of any polynomial. Without
+            // this, refine() reads stale/wrong-variable values after the
+            // first reorder, silently corrupting every transcendental
+            // check (sign facts, Taylor brackets, etc.) from then on.
+            m_transcendentals.rename(sz, p);
             TRACE(nlsat_bool_assignment_bug, tout << "before reinit cache\n"; display_bool_assignment(tout, false, nullptr););
             reinit_cache();
             m_assignment.swap(new_assignment);
@@ -4872,6 +4881,14 @@ namespace nlsat {
 
     void solver::add_transcendental(transcendental_op_kind op, var arg, var val) {
         m_imp->m_transcendentals.add(op, arg, val);
+    }
+
+    void solver::add_pi(var val) {
+        m_imp->m_transcendentals.add_pi(val);
+    }
+
+    void solver::add_atan2(var y, var x, var val) {
+        m_imp->m_transcendentals.add_atan2(y, x, val);
     }
 
     bool solver::transcendentals_enabled() const {

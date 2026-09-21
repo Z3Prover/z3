@@ -270,12 +270,54 @@ namespace nlsat {
         return s.mk_ineq_literal(k, 1, &pp, &is_even);
     }
 
+    // pi/2 and pi, each rounded outward (away from the true value) by more
+    // than double's rounding error, so that using them as bounds never
+    // excludes a value the corresponding function can actually attain (same
+    // constants as nla::transcendentals::add_range_axioms). Used by
+    // add_range_axioms (ASIN/ACOS) as well as add_atan2.
+    static constexpr double k_pi_2_ub = 1.5707963267948968; // > true pi/2
+    static constexpr double k_pi_ub   = 3.1415926535897936; // > true pi
+
     void transcendentals::add(transcendental_op_kind op, var arg, var val) {
         m_apps.push_back({ op, arg, val });
         m_retry.push_back(0);
         add_global_axioms(op, arg, val);
         add_range_axioms(op, val);
         find_and_add_identity_axiom(op, arg, val);
+    }
+
+    // Same tight, exact-rational two-sided bound as
+    // nla::transcendentals::add_pi. A no-op if val is null_var or pi has
+    // already been registered.
+    void transcendentals::add_pi(var val) {
+        if (val == null_var || m_pi_var != null_var)
+            return;
+        m_pi_var = val;
+        rational lo("3.14159265358979");
+        rational hi("3.14159265358980");
+        literal lo_lit = ~bound_literal(s, val, atom::LT, lo); // val >= lo
+        literal hi_lit = ~bound_literal(s, val, atom::GT, hi); // val <= hi
+        s.mk_clause(1, &lo_lit, nullptr);
+        s.mk_clause(1, &hi_lit, nullptr);
+    }
+
+    // Ported from nla::transcendentals::add_atan2: records the application
+    // and asserts atan2's permanent range axiom (-pi <= val <= pi; k_pi_ub
+    // is an outward-rounded rational upper bound for pi, so this is sound
+    // even though the true range is the slightly tighter half-open
+    // (-pi, pi]). A no-op if any of y, x, val is null_var.
+    void transcendentals::add_atan2(var y, var x, var val) {
+        if (y == null_var || x == null_var || val == null_var)
+            return;
+        m_atan2_apps.push_back({ y, x, val });
+        m_retry_atan2.push_back(0);
+        rational bnd = to_rational(k_pi_ub);
+        literal lits[2] = {
+            ~bound_literal(s, val, atom::GT, bnd),
+            ~bound_literal(s, val, atom::LT, -bnd)
+        };
+        s.mk_clause(1, lits, nullptr);
+        s.mk_clause(1, lits + 1, nullptr);
     }
 
     // Exact, unconditional (or, for LOG, disjunctively domain-guarded)
@@ -314,8 +356,6 @@ namespace nlsat {
     // than double's rounding error, so that using them as bounds never
     // excludes a value the corresponding function can actually attain (same
     // constants as nla::transcendentals::add_range_axioms).
-    static constexpr double k_pi_2_ub = 1.5707963267948968; // > true pi/2
-    static constexpr double k_pi_ub   = 3.1415926535897936; // > true pi
 
     // Exact, unconditional value-range bound, ported from
     // nla::transcendentals::add_range_axioms. Added once, permanently, the
@@ -551,6 +591,75 @@ namespace nlsat {
         return true;
     }
 
+    // atan2(y, x): the exact fact sign(val) == sign(y) whenever y != 0 (atan2's
+    // quadrant selection never flips the sign of the result relative to y),
+    // checked first (exact, no floating point involved); then a float-based
+    // delta-check against std::atan2(y, x) with a widening box-exclusion
+    // fallback lemma (a 2D analogue of refine_app's box-exclusion, since
+    // atan2's branch cut near x<0,y~0 makes a closed-form enclosure like
+    // interval_eval substantially more involved) - ported from
+    // nla::transcendentals::check_atan2.
+    bool transcendentals::refine_atan2(unsigned idx) {
+        atan2_app const& a = m_atan2_apps[idx];
+        anum const& yv = s.value(a.y);
+        anum const& xv = s.value(a.x);
+        anum const& vv = s.value(a.val);
+        if (s.am().is_pos(yv) && !s.am().is_pos(vv)) {
+            literal lits[2] = {
+                ~bound_literal(s, a.y, atom::GT, rational(0)),  // y <= 0
+                bound_literal(s, a.val, atom::GT, rational(0))  // val > 0
+            };
+            s.mk_clause(2, lits, nullptr);
+            return true;
+        }
+        if (s.am().is_neg(yv) && !s.am().is_neg(vv)) {
+            literal lits[2] = {
+                ~bound_literal(s, a.y, atom::LT, rational(0)),  // y >= 0
+                bound_literal(s, a.val, atom::LT, rational(0))  // val < 0
+            };
+            s.mk_clause(2, lits, nullptr);
+            return true;
+        }
+        rational yl, yu, xl, xu, vl, vu;
+        s.am().get_interval(yv, yl, yu, 64);
+        s.am().get_interval(xv, xl, xu, 64);
+        s.am().get_interval(vv, vl, vu, 64);
+        double y = ((yl + yu) / rational(2)).get_double();
+        double x = ((xl + xu) / rational(2)).get_double();
+        double v = ((vl + vu) / rational(2)).get_double();
+        double fv = std::atan2(y, x);
+        if (!std::isfinite(fv))
+            return false; // (0,0): undefined, not this check's responsibility.
+        // Same generous margin as nla::transcendentals::check_atan2: atan2's
+        // derivative is unbounded near the branch cut (x < 0, y ~ 0), so a
+        // tight closed-form error bound is not attempted here.
+        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
+        if (std::fabs(v - fv) <= err)
+            return false;
+        // Widen the (possibly zero-width) y/x intervals before excluding
+        // them, same rationale and exponential-retry growth as refine_app.
+        rational ymid = (yl + yu) / rational(2); if (ymid.is_neg()) ymid = -ymid;
+        rational xmid = (xl + xu) / rational(2); if (xmid.is_neg()) xmid = -xmid;
+        rational scale = std::max(std::max(ymid, xmid), rational(1));
+        rational growth = rational::power_of_two(std::min(m_retry_atan2[idx], 30u));
+        rational rdelta = rational(1, 1000000) * scale * growth;
+        rational ylo = yl - rdelta, yhi = yu + rdelta;
+        rational xlo = xl - rdelta, xhi = xu + rdelta;
+        rational rv = to_rational(v);
+        literal_vector lemma;
+        lemma.push_back(bound_literal(s, a.y, atom::LT, ylo));
+        lemma.push_back(bound_literal(s, a.y, atom::GT, yhi));
+        lemma.push_back(bound_literal(s, a.x, atom::LT, xlo));
+        lemma.push_back(bound_literal(s, a.x, atom::GT, xhi));
+        if (v < fv)
+            lemma.push_back(~bound_literal(s, a.val, atom::LT, rv)); // val >= rv
+        else
+            lemma.push_back(~bound_literal(s, a.val, atom::GT, rv)); // val <= rv
+        s.mk_clause(lemma.size(), lemma.data(), nullptr);
+        ++m_retry_atan2[idx];
+        return true;
+    }
+
     // Cross-application monotonicity, ported from
     // nla::transcendentals::check_exp_monotonicity / check_log_monotonicity:
     // scans every pair of registered EXP or LOG applications and adds a
@@ -607,6 +716,9 @@ namespace nlsat {
         bool added = false;
         for (unsigned i = 0; i < m_apps.size(); ++i)
             if (refine_app(i))
+                added = true;
+        for (unsigned i = 0; i < m_atan2_apps.size(); ++i)
+            if (refine_atan2(i))
                 added = true;
         if (refine_monotonicity())
             added = true;

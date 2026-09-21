@@ -129,6 +129,19 @@ namespace nlsat {
         void add_transcendental(transcendental_op_kind op, var arg, var val);
 
         /**
+           \brief Register the nullary constant pi with the persistent
+           transcendentals engine (see nlsat_transcendentals.h::add_pi).
+        */
+        void add_pi(var val);
+
+        /**
+           \brief Register a binary atan2(y, x) application to be refined
+           directly by nlsat's own search loop (see
+           nlsat_transcendentals.h::add_atan2).
+        */
+        void add_atan2(var y, var x, var val);
+
+        /**
            \brief True if the "nlsat.transcendentals" parameter is enabled,
            i.e. registered transcendental applications (see
            add_transcendental) are refined by this solver's own search loop.

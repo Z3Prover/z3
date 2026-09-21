@@ -248,10 +248,18 @@ struct solver::imp {
             case nla::transcendental_op_kind::ATANH: op = nlsat::transcendental_op_kind::ATANH; break;
             case nla::transcendental_op_kind::EXP:   op = nlsat::transcendental_op_kind::EXP;   break;
             case nla::transcendental_op_kind::LOG:   op = nlsat::transcendental_op_kind::LOG;   break;
-            default: continue; // atan2/pi: no single-argument counterpart in nlsat::transcendentals; val is left opaque to nlsat.
+            default: continue; // exhaustive switch; kept defensive.
             }
             m_nlsat->add_transcendental(op, lp2nl(a.arg), lp2nl(a.val));
         }
+        // atan2(y, x) and pi are registered separately (see
+        // nla::transcendentals::atan2_apps/pi_var): they do not fit the
+        // single-argument (op, arg, val) shape above.
+        for (auto const& a : m_nla_core.get_transcendentals().atan2_apps())
+            m_nlsat->add_atan2(lp2nl(a.y), lp2nl(a.x), lp2nl(a.val));
+        lp::lpvar pi = m_nla_core.get_transcendentals().pi_var();
+        if (pi != nla::null_lpvar)
+            m_nlsat->add_pi(lp2nl(pi));
     }
 
     // Injects the exact cross-application identity axioms recorded in
