@@ -3020,6 +3020,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             expr_ref e_min_subnormal(m), gap_up(m), gap_down(m);
             e_min_subnormal = au.mk_numeral(min_subnormal, false);
             gap_up = m.mk_ite(exp_is_zero, e_min_subnormal, au.mk_div(abs_r, sig_value));
+            // The gap below a power of two is half the gap above it, except for the smallest
+            // normal number, whose predecessor is the largest subnormal at the same distance.
             gap_down = m.mk_ite(m.mk_or(exp_is_zero, exp_is_one, m.mk_not(sig_is_zero)),
                                 gap_up, au.mk_div(gap_up, two));
 
