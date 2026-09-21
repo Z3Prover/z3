@@ -28,7 +28,7 @@ struct opt_fixture {
     Z3_optimize opt;
 
     opt_fixture(char const* priority = "lex", unsigned rounds = 64, bool nlsat = true,
-                unsigned supremum_rlimit = 100000) {
+                unsigned supremum_rlimit = 100000, char const* engine = "basic") {
         Z3_config cfg = Z3_mk_config();
         ctx = Z3_mk_context(cfg);
         Z3_del_config(cfg);
@@ -41,12 +41,12 @@ struct opt_fixture {
         // Hold p while filling it and applying its settings to the optimizer.
         Z3_params_inc_ref(ctx, p);
         Z3_params_set_symbol(ctx, p, symbol("priority"), symbol(priority));
-        Z3_params_set_symbol(ctx, p, symbol("optsmt_engine"), symbol("basic"));
+        Z3_params_set_symbol(ctx, p, symbol("optsmt_engine"), symbol(engine));
         Z3_params_set_bool(ctx, p, symbol("optsmt_nlsat"), nlsat);
         Z3_params_set_uint(ctx, p, symbol("optsmt_bisect_rounds"), rounds);
         // Bound the extra finite-limit proof independently of the overall work limit.
         Z3_params_set_uint(ctx, p, symbol("optsmt_nlsat_supremum_rlimit"), supremum_rlimit);
-        Z3_params_set_uint(ctx, p, symbol("smt.arith.solver"), 6);
+        Z3_params_set_uint(ctx, p, symbol("smt.arith.solver"), std::strcmp(engine, "symba") == 0 ? 5 : 6);
         // Limit solver work without counting time spent paused in the debugger.
         Z3_params_set_uint(ctx, p, symbol("timeout"), 0);
         Z3_params_set_uint(ctx, p, symbol("rlimit"), 1000000);
@@ -524,6 +524,59 @@ static void tst_recheck_and_scopes() {
     ensure_finite_bounds(f, h, root(f));
 }
 
+static void tst_incremental_callback_bounds() {
+    for (bool maximize : {false, true}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("incremental"), true);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+        Z3_params_dec_ref(f.ctx, p);
+
+        Z3_ast x = f.real("x");
+        f.add(Z3_mk_le(f.ctx, f.square(x), f.num(2)));
+        unsigned first = f.objective(x, maximize);
+        unsigned second = f.objective(f.sum(x, f.num(3)), !maximize);
+        struct callback_state {
+            opt_fixture& f;
+            unsigned first;
+            bool maximize;
+            bool added = false;
+        } state{f, first, maximize};
+        Z3_model model = Z3_mk_model(f.ctx);
+        Z3_model_inc_ref(f.ctx, model);
+        Z3_optimize_register_model_eh(f.ctx, f.opt, model, &state, [](void* data) {
+            auto& s = *static_cast<callback_state*>(data);
+            auto& f = s.f;
+            bool lower = !s.maximize;
+            if (s.added || !Z3_is_algebraic_number(f.ctx, scalar_bound(f, s.first, lower)))
+                return;
+            s.added = true;
+            // Wait for the first exact optimum, then invalidate bounds without
+            // changing feasibility. Infinity must not retain its algebraic part.
+            f.add(Z3_mk_true(f.ctx));
+            ensure_vector(f, s.first, lower, s.maximize ? 1 : -1, f.num(0), 0, Z3_INT_SORT);
+            Z3_ast oo = Z3_mk_const(f.ctx, f.symbol("oo"), Z3_mk_int_sort(f.ctx));
+            Z3_ast expected = s.maximize ? oo : Z3_mk_unary_minus(f.ctx, oo);
+            Z3_ast same = Z3_simplify(f.ctx, Z3_mk_eq(f.ctx, scalar_bound(f, s.first, lower), expected));
+            ENSURE(Z3_get_bool_value(f.ctx, same) == Z3_L_TRUE);
+        });
+        ENSURE(f.check() == Z3_L_TRUE);
+        ENSURE(state.added);
+        Z3_ast value = shifted_root(f, f.num(0), maximize);
+        ensure_value(f, scalar_bound(f, first, maximize), value);
+        ensure_finite_bounds(f, second, shifted_root(f, f.num(3), maximize));
+        ensure_model_value(f, x, value);
+
+        // A later solve must recover tight bounds after the one-off invalidation.
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, first, value);
+        ensure_finite_bounds(f, second, shifted_root(f, f.num(3), maximize));
+        Z3_model_dec_ref(f.ctx, model);
+    }
+}
+
 // Disabling nlsat cells or adding a UF prevents the exact-cell proof.
 // Both cases must expose the remaining rational gap, not an algebraic optimum.
 static void tst_fallback_intervals() {
@@ -708,6 +761,41 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
+static void tst_symba_bounds() {
+    // An integer slack selects theory_inf_arith instead of the pure-LRA
+    // shortcut, so these cases exercise SYMBA's vector-bound updates.
+    for (bool strict : {false, true}) {
+        opt_fixture f("lex", 64, true, 100000, "symba");
+        Z3_ast x = f.real("x");
+        Z3_ast n = Z3_mk_const(f.ctx, f.symbol("n"), Z3_mk_int_sort(f.ctx));
+        Z3_ast slack = Z3_mk_int2real(f.ctx, n);
+        f.add(Z3_mk_ge(f.ctx, slack, f.num(0)));
+        Z3_ast total = f.sum(x, slack);
+        f.add(strict ? Z3_mk_lt(f.ctx, total, f.num(2)) : Z3_mk_le(f.ctx, total, f.num(2)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        if (strict)
+            ensure_symbolic_bounds(f, h, 0, 2, -1);
+        else
+            ensure_finite_bounds(f, h, f.num(2), Z3_INT_SORT);
+    }
+
+    opt_fixture f("lex", 64, true, 100000, "symba");
+    Z3_ast x = f.real("x"), y = f.real("y");
+    Z3_ast n = Z3_mk_const(f.ctx, f.symbol("n"), Z3_mk_int_sort(f.ctx));
+    Z3_ast slack = Z3_mk_int2real(f.ctx, n);
+    f.add(Z3_mk_ge(f.ctx, x, f.num(0)));
+    f.add(Z3_mk_ge(f.ctx, y, f.num(0)));
+    f.add(Z3_mk_ge(f.ctx, slack, f.num(0)));
+    f.add(Z3_mk_le(f.ctx, f.sum(f.sum(x, y), slack), f.num(5)));
+    unsigned first = f.objective(x), second = f.objective(y);
+    ENSURE(f.check() == Z3_L_TRUE);
+    ensure_finite_bounds(f, first, f.num(5), Z3_INT_SORT);
+    ensure_finite_bounds(f, second, f.num(0), Z3_INT_SORT);
+    // Legacy SYMBA may retain its initial feasible model even with tight
+    // bounds. Witness selection is not changed by the value representation.
+}
+
 // Check unsigned BV maximum 9 and minimum 3 as Int scalar bounds,
 // with coefficient vectors [0, 9, 0] and [0, 3, 0].
 static void tst_bitvector_bounds() {
@@ -745,6 +833,7 @@ void tst_opt_bounds() {
     }
     std::cout << "opt_bounds: recheck, scopes, and unknown intervals\n";
     tst_recheck_and_scopes();
+    tst_incremental_callback_bounds();
     tst_open_proof_budget();
     tst_fallback_intervals();
     tst_open_integer_fallback();
@@ -754,5 +843,6 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: rational, infinity, epsilon, and BV compatibility\n";
     tst_rational_bounds();
     tst_infinity_and_epsilon();
+    tst_symba_bounds();
     tst_bitvector_bounds();
 }

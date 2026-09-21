@@ -32,8 +32,8 @@ namespace opt {
         ast_manager&     m;
         context&         m_context;
         opt_solver*      m_s;
-        vector<inf_eps>  m_lower;
-        vector<inf_eps>  m_upper;
+        vector<objective_value> m_lower;
+        vector<objective_value> m_upper;
         app_ref_vector   m_objs;
         expr_ref_vector  m_lower_fmls;
         svector<smt::theory_var> m_vars;
@@ -41,13 +41,12 @@ namespace opt {
         unsigned         m_bisect_rounds = 64;
         bool             m_optsmt_nlsat = true;
         unsigned         m_nlsat_supremum_rlimit = 100000;
-        expr_ref_vector  m_exact;         // exact finite part; open limits also carry -epsilon in the bounds
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
     public:
         optsmt(ast_manager& m, context& ctx): 
-            m(m), m_context(ctx), m_s(nullptr), m_objs(m), m_lower_fmls(m), m_exact(m) {}
+            m(m), m_context(ctx), m_s(nullptr), m_objs(m), m_lower_fmls(m) {}
 
         void setup(opt_solver& solver);
 
@@ -63,12 +62,11 @@ namespace opt {
 
         unsigned get_num_objectives() const { return m_objs.size(); }
         void commit_assignment(unsigned index);
-        inf_eps get_lower(unsigned index) const;
-        inf_eps get_upper(unsigned index) const;
-        expr*   get_exact(unsigned index) const { return m_exact.get(index); }
+        objective_value get_lower(unsigned index) const;
+        objective_value get_upper(unsigned index) const;
         // A finite, unattained limit certified by the nlsat-cell engine.
         bool    has_open_bound(unsigned index) const {
-            return m_exact.get(index) && !get_lower(index).get_infinitesimal().is_zero();
+            return m_lower[index].exact_finite() && m_lower[index].has_infinitesimal();
         }
         void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
@@ -86,6 +84,9 @@ namespace opt {
 
     private:
 
+        inf_eps const& lower(unsigned index) const { return m_lower[index].rational_bound(); }
+        inf_eps const& upper(unsigned index) const { return m_upper[index].rational_bound(); }
+
         lbool geometric_opt();
 
         lbool symba_opt();
@@ -98,7 +99,7 @@ namespace opt {
 
         void set_best(unsigned idx, inf_eps const& v, bool is_maximize);
 
-        void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
+        void set_max(vector<objective_value>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 
         expr_ref update_lower();
 
