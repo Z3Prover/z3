@@ -12,7 +12,6 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 #   [NOT_LIBZ3_COMPONENT]
 #   SOURCES source1 [source2...]
 #   [COMPONENT_DEPENDENCIES component1 [component2...]]
-#   [PYG_FILES pygfile1 [pygfile2...]]
 #   [TACTIC_HEADERS header_file1 [header_file2...]]
 #   [EXTRA_REGISTER_MODULE_HEADERS header_file1 [header_file2...]]
 #   [MEMORY_INIT_FINALIZER_HEADERS header_file1 [header_file2...]]
@@ -36,20 +35,15 @@ define_property(TARGET PROPERTY INTERFACE_Z3_MEM_INIT_FINALIZER_HEADERS
 # causes them to be built before ``component_name`` and propagates their usage
 # requirements.
 #
-# The optional ``PYG_FILES`` keyword should be followed by a list of one or
-# more ``<NAME>.pyg`` files that should used to be generate
-# ``<NAME>_params.hpp`` header files used by the ``component_name``.
-# This generated file will automatically be scanned for the register module
-# declarations (i.e. ``REG_PARAMS()``, ``REG_MODULE_PARAMS()``, and
-# ``REG_MODULE_DESCRIPTION()``).
-#
 # The optional ``TACTIC_HEADERS`` keyword should be followed by a list of one or
 # more header files that declare a tactic and/or a probe that is part of this
 # component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
 #
 # The optional ``EXTRA_REGISTER_MODULE_HEADERS`` keyword should be followed by a list
-# of one or more header files that contain module registration declarations.
-# NOTE: The header files generated from ``.pyg`` files don't need to be included.
+# of one or more header files that contain module registration declarations
+# (i.e. ``REG_PARAMS()``, ``REG_MODULE_PARAMS()``, and ``REG_MODULE_DESCRIPTION()``
+# declarations, typically from a hand-written <module>_params.hpp using
+# Z3_DEFINE_MODULE_PARAMS -- see util/params.h).
 #
 # The optional ``MEMORY_INIT_FINALIZER_HEADERS`` keyword should be followed by a list
 # of one or more header files that contain memory initializer/finalizer declarations
@@ -58,45 +52,12 @@ function(z3_add_component component_name)
   cmake_parse_arguments(PARSE_ARGV 1 Z3_MOD
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
+    "SOURCES;COMPONENT_DEPENDENCIES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS")
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
 
-  set(_list_generated_headers "")
   set(_register_module_headers "")
-  foreach (pyg_file ${Z3_MOD_PYG_FILES})
-    set(_full_pyg_file_path "${CMAKE_CURRENT_SOURCE_DIR}/${pyg_file}")
-    if (NOT (EXISTS "${_full_pyg_file_path}"))
-      message(FATAL_ERROR "\"${_full_pyg_file_path}\" does not exist")
-    endif()
-    string(REPLACE ".pyg" ".hpp" _output_file "${pyg_file}")
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_output_file}")
-      message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/${_output_file}\" "
-        ${z3_polluted_tree_msg}
-      )
-    endif()
-    set(_full_output_file_path "${CMAKE_CURRENT_BINARY_DIR}/${_output_file}")
-    message(STATUS "Adding rule to generate \"${_output_file}\"")
-    add_custom_command(OUTPUT "${_output_file}"
-      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/pyg2hpp.py" "${_full_pyg_file_path}" "${CMAKE_CURRENT_BINARY_DIR}"
-      MAIN_DEPENDENCY "${_full_pyg_file_path}"
-      DEPENDS "${PROJECT_SOURCE_DIR}/scripts/pyg2hpp.py"
-              ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-      COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
-      WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-      VERBATIM
-    )
-    list(APPEND _list_generated_headers "${_full_output_file_path}")
-
-    # FIXME: This implicit dependency of a generated file depending on
-    # generated files was inherited from the old build system.
-
-    # Typically generated headers contain `REG_PARAMS()`, `REG_MODULE_PARAMS()`
-    # and `REG_MODULE_DESCRIPTION()` declarations so add to the list of
-    # header files to scan.
-    list(APPEND _register_module_headers "${_full_output_file_path}")
-  endforeach()
   # Resolve tactic/probe headers.
   set(_tactic_headers "")
   foreach (tactic_header ${Z3_MOD_TACTIC_HEADERS})
@@ -134,7 +95,7 @@ function(z3_add_component component_name)
   # build a static or dynamic library from the object libraries
   # on all platforms. Is this added flexibility worth the linking
   # overhead it adds?
-  add_library(${component_name} OBJECT ${Z3_MOD_SOURCES} ${_list_generated_headers})
+  add_library(${component_name} OBJECT ${Z3_MOD_SOURCES})
   target_link_libraries(${component_name} PRIVATE z3_common)
   set_target_properties(${component_name} PROPERTIES
     INTERFACE_Z3_REGISTER_MODULE_HEADERS "${_register_module_headers}"

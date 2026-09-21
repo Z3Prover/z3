@@ -15,8 +15,8 @@ z3_add_component(nlsat
     COMPONENT_DEPENDENCIES
     polynomial
     sat
-  PYG_FILES
-    nlsat_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    nlsat_params.hpp
 )
 
 add_subdirectory(tactic)

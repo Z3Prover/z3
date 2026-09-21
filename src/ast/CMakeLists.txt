@@ -55,8 +55,8 @@ z3_add_component(ast
   COMPONENT_DEPENDENCIES
     polynomial
     util # Unnecessary? polynomial already depends on util
-  PYG_FILES
-    pp_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    pp_params.hpp
 )
 
 add_subdirectory(converters)

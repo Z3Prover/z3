@@ -7,8 +7,6 @@ crashes/
 # Ignore callgrind files
 callgrind.out.*
 gmon.out
-# .hpp files are automatically generated
-*.hpp
 .env
 .z3-trace
 .env

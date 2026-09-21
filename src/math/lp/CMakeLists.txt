@@ -49,6 +49,6 @@ z3_add_component(lp
     polynomial
     nlsat
     params
-  PYG_FILES
-    lp_params_helper.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    lp_params_helper.hpp
 )

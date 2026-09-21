@@ -25,6 +25,7 @@ z3_add_component(simplifiers
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp
     propagate_values.cpp
+    recfun_finder.cpp
     reduce_args_simplifier.cpp
     solve_context_eqs.cpp
     solve_eqs.cpp
@@ -47,6 +48,7 @@ z3_add_component(simplifiers
     pull_nested_quantifiers.h
     push_ite.h
     randomizer.h
+    recfun_finder.h
     refine_inj_axiom.h
     rewriter_simplifier.h
 )

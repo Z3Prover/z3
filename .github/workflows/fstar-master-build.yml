@@ -2,7 +2,7 @@ name: Build FStar master with Z3 master
 
 on:
   schedule:
-    - cron: "9 4 * * *"
+    - cron: "9 4 * * 0"
   workflow_dispatch:
     inputs:
       z3_ref:
