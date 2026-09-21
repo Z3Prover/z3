@@ -15,7 +15,7 @@ is developed.
    declarations, shared proof/term DAG, and rule inventory. Reject unsupported
    script semantics, nonpropositional assertions, missing proofs, and unsupported
    native shapes. Never present the artifact as independently verified.
-2. **Kernel-checked Boolean vertical slice (basic and structural rules implemented).**
+2. **Kernel-checked Boolean vertical slice (basic, structural, and scoped rules implemented).**
    Extend the initial reconstructor with more Boolean proof rules and formalize
    the frontend encoding boundary. Account for preprocessing, fresh definitions,
    hypothesis scope, and the
@@ -80,9 +80,17 @@ Installation and usage are documented in `lean/README.md`.
   premises and shared evidence. Use direct Lean proof terms, not truth tables.
 - Reconstruct `and-elim` and `not-or-elim` for immediate operands, including
   singleton/n-ary connectives and native double-negation cancellation.
+- Reconstruct `hypothesis` and `lemma` with explicit open-hypothesis tracking.
+  Represent open proof DAG nodes as functions of their structural hypothesis
+  sets, preserving sharing without closing a shared node globally. A lemma must
+  consume a proof of false and discharge every open hypothesis into a
+  complementary conclusion literal. Support nested lemmas, both complement
+  orientations, compound literals, clause reordering, duplicates, and weakening.
+  Reject a root with any undischarged hypotheses.
 - Check each rewrite independently of the assertions by exhaustive cases over
   its own atoms and kernel reduction using `of_decide_eq_true rfl`. Rewrites and
-  double-negation cancellation use temporary decidability witnesses, which are
+  double-negation cancellation, as well as classical lemma steps, use temporary
+  decidability witnesses, which are
   eliminated constructively from the refutation:
   `k (isFalse (fun hp => k (isTrue hp))) : False` for
   `k : Decidable p -> False`. The final theorem keeps arbitrary `Nat -> Prop`
@@ -95,10 +103,13 @@ Installation and usage are documented in `lean/README.md`.
   unsupported rules, and Lean errors.
 - Exercise complete examples using `lean/examples/unit_resolution.smt2`,
   `lean/examples/boolean_rewrite.smt2`, and
-  `lean/examples/boolean_structural.smt2`. Cover Boolean truth tables, chained
+  `lean/examples/boolean_structural.smt2`, plus scoped learning in
+  `lean/examples/boolean_branching.smt2`. Cover Boolean truth tables, chained
   and shared proof steps, all Boolean congruence operators, both elimination
   orientations, large congruences without truth tables, forged structural
-  premises/conclusions, and false or unused rewrites.
+  premises/conclusions, false or unused rewrites, nested and shared hypothesis
+  scopes, malformed lemmas, leaked hypotheses, and large learned clauses without
+  truth tables.
 
 Z3's SMT-LIB parser and the Python statement encoder remain part of the trusted
 frontend. The source digest identifies the generated namespace; it is not the
@@ -108,8 +119,8 @@ Rewrite truth tables are exponential in the number of atoms in an individual
 rewrite; large valid rewrites may exceed Lean's normal resource limits. A
 checking failure never publishes an artifact.
 
-Condensed transitivity (`trans*`), definition introduction, hypothesis discharge,
-and other native rules remain unsupported. These and a formalized encoding
+Condensed transitivity (`trans*`), definition introduction, and other native
+rules remain unsupported. These and a formalized encoding
 connection must be addressed before claiming general Boolean proof support.
 Arithmetic and other theories remain later milestones.
 
