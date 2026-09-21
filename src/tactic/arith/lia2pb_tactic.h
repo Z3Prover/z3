@@ -35,11 +35,10 @@ Reduce bounded LIA benchmark into 0-1 LIA benchmark.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("lia2pb", "convert bounded integer variables into a sequence of 0-1 variables.", "mk_lia2pb_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(lia2pb, "lia2pb", "convert bounded integer variables into a sequence of 0-1 variables.", mk_lia2pb_tactic(m, p));
 

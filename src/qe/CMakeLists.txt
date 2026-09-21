@@ -21,10 +21,6 @@ z3_add_component(qe
     tactic
     mbp
     qe_lite
-  TACTIC_HEADERS
-    nlqsat.h
-    qe_tactic.h
-    qsat.h
 )
 
 add_subdirectory(lite)

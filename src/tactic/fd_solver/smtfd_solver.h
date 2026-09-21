@@ -20,6 +20,7 @@ Notes:
 
 #include "ast/ast.h"
 #include "util/params.h"
+#include "tactic/tactic.h"
 
 class solver;
 class tactic;
@@ -27,7 +28,5 @@ class tactic;
 solver * mk_smtfd_solver(ast_manager & m, params_ref const & p);
 tactic * mk_smtfd_tactic(ast_manager & m, params_ref const & p);
 
-/*
-    ADD_TACTIC("smtfd", "builtin strategy for solving SMT problems by reduction to FD.", "mk_smtfd_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(smtfd, "smtfd", "builtin strategy for solving SMT problems by reduction to FD.", mk_smtfd_tactic(m, p));
 

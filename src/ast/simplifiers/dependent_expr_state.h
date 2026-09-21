@@ -246,3 +246,25 @@ public:
 };
 
 typedef std::function<dependent_expr_simplifier*(ast_manager&, const params_ref&, dependent_expr_state& s)> simplifier_factory;
+
+/**
+   \brief Self-registration for built-in simplifiers -- the simplifier analogue of
+   tactic_registration (see tactic/tactic.h for the full rationale). The factory is a
+   std::function (matching simplifier_factory) rather than a plain function pointer because
+   the original ADD_SIMPLIFIER('name', 'descr', 'code') macro expanded `code` inside a generic
+   lambda `[](auto&, auto&, auto&) {...}`; Z3_ADD_SIMPLIFIER preserves that shape.
+*/
+struct simplifier_registration {
+    char const * name;
+    char const * descr;
+    simplifier_factory factory;
+    simplifier_registration * next;
+    static inline simplifier_registration * g_head = nullptr;
+    simplifier_registration(char const * name, char const * descr, simplifier_factory factory):
+        name(name), descr(descr), factory(std::move(factory)), next(g_head) {
+        g_head = this;
+    }
+};
+
+#define Z3_ADD_SIMPLIFIER(TAG, NAME, DESCR, CODE) \
+  inline simplifier_registration g_z3_simplifier_registration_##TAG(NAME, DESCR, [](auto & m, auto & p, auto & s) -> dependent_expr_simplifier* { return CODE; })

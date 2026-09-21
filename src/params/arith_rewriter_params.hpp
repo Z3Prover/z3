@@ -30,10 +30,6 @@ Abstract:
   BOOL_(eq2ineq,                     "eq2ineq",                     false,  "expand equalities into two inequalities") \
   BOOL_(elim_rem,                    "elim_rem",                    false,  "replace (rem x y) with (ite (>= y 0) (mod x y) (- (mod x y))).")
 
-Z3_DEFINE_MODULE_PARAMS(arith_rewriter_params, "rewriter", ARITH_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'arith_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(arith_rewriter_params, "rewriter", ARITH_REWRITER_PARAMS_LIST, nullptr);
 
 #undef ARITH_REWRITER_PARAMS_LIST

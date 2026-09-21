@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "util/mpq.h"
+#include "util/memory_manager.h"
 
 class rational {
     mpq   m_val;
@@ -37,10 +38,6 @@ class rational {
 public:
     static void initialize();
     static void finalize();
-    /*
-      ADD_INITIALIZER('rational::initialize();')
-      ADD_FINALIZER('rational::finalize();')
-    */
     rational() = default;
 
     rational(rational const & r) { m().set(m_val, r.m_val); }
@@ -555,7 +552,10 @@ public:
     static bool limit_denominator(rational &num, rational const& limit);
 };
 
-inline bool operator!=(rational const & r1, rational const & r2) { 
+Z3_ADD_INITIALIZER(rational, rational::initialize, 0);
+Z3_ADD_FINALIZER(rational, rational::finalize);
+
+inline bool operator!=(rational const & r1, rational const & r2) {
     return !operator==(r1, r2); 
 }
 

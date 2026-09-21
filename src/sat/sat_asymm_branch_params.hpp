@@ -23,10 +23,6 @@ Abstract:
   UINT_(asymm_branch_limit,    "asymm_branch.limit",    100000000,  "approx. maximum number of literals visited during asymmetric branching") \
   BOOL_(asymm_branch_all,      "asymm_branch.all",      false,      "asymmetric branching on all literals per clause")
 
-Z3_DEFINE_MODULE_PARAMS(sat_asymm_branch_params, "sat", SAT_ASYMM_BRANCH_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('sat', 'sat_asymm_branch_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(sat_asymm_branch_params, "sat", SAT_ASYMM_BRANCH_PARAMS_LIST, nullptr);
 
 #undef SAT_ASYMM_BRANCH_PARAMS_LIST

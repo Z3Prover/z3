@@ -23,6 +23,4 @@ z3_add_component(z3_opt
     sls_tactic
     smt
     smtlogic_tactics
-  EXTRA_REGISTER_MODULE_HEADERS
-    opt_params.hpp
 )

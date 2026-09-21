@@ -21,11 +21,6 @@ Abstract:
   SYMBOL_(mode,           "mode",           "skolem",  "NNF translation mode: skolem (skolem normal form), quantifiers (skolem normal form + quantifiers in NNF), full") \
   BOOL_  (ignore_labels,  "ignore_labels",  false,     "remove/ignore labels in the input formula, this option is ignored if proofs are enabled")
 
-Z3_DEFINE_MODULE_PARAMS(nnf_params, "nnf", NNF_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('nnf', 'nnf_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('nnf', 'negation normal form')
-*/
+Z3_DEFINE_MODULE_PARAMS(nnf_params, "nnf", NNF_PARAMS_LIST, "negation normal form");
 
 #undef NNF_PARAMS_LIST

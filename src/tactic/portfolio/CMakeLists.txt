@@ -17,9 +17,4 @@ z3_add_component(portfolio
     ufbv_tactic
     fd_solver
     simplifiers
-  TACTIC_HEADERS
-    euf_completion_tactic.h
-    default_tactic.h
-    solver_subsumption_tactic.h
-
 )

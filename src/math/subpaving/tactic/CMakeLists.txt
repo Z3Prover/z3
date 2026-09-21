@@ -5,6 +5,4 @@ z3_add_component(subpaving_tactic
   COMPONENT_DEPENDENCIES
     core_tactics
     subpaving
-  TACTIC_HEADERS
-    subpaving_tactic.h
 )

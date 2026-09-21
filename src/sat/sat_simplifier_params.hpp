@@ -46,10 +46,6 @@ Abstract:
   BOOL_(subsumption,                   "subsumption",                   true,       "eliminate subsumed clauses") \
   UINT_(subsumption_limit,             "subsumption.limit",             100000000,  "approx. maximum number of literals visited during subsumption (and subsumption resolution)")
 
-Z3_DEFINE_MODULE_PARAMS(sat_simplifier_params, "sat", SAT_SIMPLIFIER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('sat', 'sat_simplifier_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(sat_simplifier_params, "sat", SAT_SIMPLIFIER_PARAMS_LIST, nullptr);
 
 #undef SAT_SIMPLIFIER_PARAMS_LIST

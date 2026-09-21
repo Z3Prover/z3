@@ -23,10 +23,6 @@ Abstract:
   BOOL_(expand_store_eq,       "expand_store_eq",       false,  "reduce (store ...) = (store ...) with a common base into selects") \
   BOOL_(sort_store,            "sort_store",            false,  "sort nested stores when the indices are known to be different")
 
-Z3_DEFINE_MODULE_PARAMS(array_rewriter_params, "rewriter", ARRAY_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'array_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(array_rewriter_params, "rewriter", ARRAY_REWRITER_PARAMS_LIST, nullptr);
 
 #undef ARRAY_REWRITER_PARAMS_LIST

@@ -35,11 +35,10 @@ Eliminate small, quantified bit-vectors by expansion
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_elim_small_bv_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-    ADD_TACTIC("elim-small-bv", "eliminate small, quantified bit-vectors by expansion.", "mk_elim_small_bv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(elim_small_bv, "elim-small-bv", "eliminate small, quantified bit-vectors by expansion.", mk_elim_small_bv_tactic(m, p));

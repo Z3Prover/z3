@@ -19,13 +19,12 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("bv",  "builtin strategy for solving BV problems (with quantifiers).", "mk_ufbv_tactic(m, p)")
-  ADD_TACTIC("ufbv",  "builtin strategy for solving UFBV problems (with quantifiers).", "mk_ufbv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(bv, "bv", "builtin strategy for solving BV problems (with quantifiers).", mk_ufbv_tactic(m, p));
+Z3_ADD_TACTIC(ufbv, "ufbv", "builtin strategy for solving UFBV problems (with quantifiers).", mk_ufbv_tactic(m, p));
 

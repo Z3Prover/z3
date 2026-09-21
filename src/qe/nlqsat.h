@@ -27,10 +27,7 @@ tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p = params_ref());
 tactic * mk_nlqe_tactic(ast_manager & m, params_ref const& p = params_ref());
 
 
-/*
-  ADD_TACTIC("nlqsat", "apply a NL-QSAT solver.", "mk_nlqsat_tactic(m, p)") 
-
-*/
+Z3_ADD_TACTIC(nlqsat, "nlqsat", "apply a NL-QSAT solver.", mk_nlqsat_tactic(m, p));
 
 // TBD_TACTIC("nlqe", "apply a NL-QE solver.", "mk_nlqe_tactic(m, p)") 
 

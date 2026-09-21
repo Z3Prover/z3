@@ -35,11 +35,6 @@ Abstract:
   BOOL_(pretty_proof,       "pretty_proof",       false,     "use slower, but prettier, printer for proofs") \
   BOOL_(simplify_implies,   "simplify_implies",   true,      "simplify nested implications for pretty printing")
 
-Z3_DEFINE_MODULE_PARAMS(pp_params, "pp", PP_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('pp', 'pp_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('pp', 'pretty printer')
-*/
+Z3_DEFINE_MODULE_PARAMS(pp_params, "pp", PP_PARAMS_LIST, "pretty printer");
 
 #undef PP_PARAMS_LIST

@@ -26,6 +26,7 @@ Notes:
 #include "util/scoped_numeral.h"
 #include "util/scoped_numeral_vector.h"
 #include "util/params.h"
+#include "util/gparams.h"
 #include "util/mpbqi.h"
 #include "util/rlimit.h"
 #include "util/lbool.h"
@@ -95,11 +96,10 @@ namespace polynomial {
         factor_params();
         factor_params(unsigned max_p, unsigned p_trials, unsigned max_search_size);
         void updt_params(params_ref const & p);
-        /*
-          REG_MODULE_PARAMS('factor', polynomial::factor_params::get_param_descrs')
-        */
         static void get_param_descrs(param_descrs & r);
     };
+
+    Z3_REGISTER_MODULE_PARAMS(factor, "factor", factor_params::get_param_descrs, nullptr);
 
     struct display_var_proc {
         virtual std::ostream& operator()(std::ostream & out, var x) const { return out << "x" << x; }

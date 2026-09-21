@@ -28,11 +28,6 @@ Abstract:
   BOOL_(rewrite_patterns,                 "rewrite_patterns",                 false,     "rewrite patterns.") \
   BOOL_(ignore_patterns_on_ground_qbody,  "ignore_patterns_on_ground_qbody",  true,      "ignores patterns on quantifiers that don't mention their bound variables.")
 
-Z3_DEFINE_MODULE_PARAMS(rewriter_params, "rewriter", REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'rewriter_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('rewriter', 'new formula simplification module used in the tactic framework, and new solvers')
-*/
+Z3_DEFINE_MODULE_PARAMS(rewriter_params, "rewriter", REWRITER_PARAMS_LIST, "new formula simplification module used in the tactic framework, and new solvers");
 
 #undef REWRITER_PARAMS_LIST

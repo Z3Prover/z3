@@ -24,10 +24,6 @@ Abstract:
   BOOL_(user_functions,  "user_functions",  true,   "include user defined functions in model") \
   BOOL_(completion,      "completion",      false,  "enable/disable model completion")
 
-Z3_DEFINE_MODULE_PARAMS(model_params, "model", MODEL_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('model', 'model_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(model_params, "model", MODEL_PARAMS_LIST, nullptr);
 
 #undef MODEL_PARAMS_LIST

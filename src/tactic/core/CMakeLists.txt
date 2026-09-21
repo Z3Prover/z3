@@ -4,12 +4,19 @@ z3_add_component(core_tactics
     cofactor_elim_term_ite.cpp
     collect_statistics_tactic.cpp
     ctx_simplify_tactic.cpp
+    demodulator_tactic.cpp
+    dom_simplify_tactic.cpp
+    eliminate_predicates_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
+    elim_uncnstr2_tactic.cpp
+    fold_unfold_tactic.cpp
+    injectivity_tactic.cpp
     nnf_tactic.cpp
     occf_tactic.cpp
     pb_preprocess_tactic.cpp
     propagate_values_tactic.cpp
+    propagate_values2_tactic.cpp
     reduce_args_tactic.cpp
     simplify_tactic.cpp
     special_relations_tactic.cpp
@@ -21,32 +28,5 @@ z3_add_component(core_tactics
     normal_forms
     rewriter
     tactic
-  TACTIC_HEADERS
-    blast_term_ite_tactic.h
-    cofactor_term_ite_tactic.h
-    collect_statistics_tactic.h
-    ctx_simplify_tactic.h
-    demodulator_tactic.h
-    der_tactic.h
-    distribute_forall_tactic.h
-    dom_simplify_tactic.h
-    elim_term_ite_tactic.h
-    elim_uncnstr_tactic.h
-    elim_uncnstr2_tactic.h
-    eliminate_predicates_tactic.h
-    fold_unfold_tactic.h
-    injectivity_tactic.h
-    nnf_tactic.h
-    occf_tactic.h
-    pb_preprocess_tactic.h
-    propagate_values_tactic.h
-    propagate_values2_tactic.h
-    reduce_args_tactic.h
-    simplify_tactic.h
-    solve_eqs_tactic.h
-    special_relations_tactic.h
-    split_clause_tactic.h
-    symmetry_reduce_tactic.h
-    tseitin_cnf_tactic.h
 )
 

@@ -24,6 +24,4 @@ Author:
 
 dependent_expr_simplifier * mk_max_bv_sharing(ast_manager & m, params_ref const & p, dependent_expr_state& fmls);
 
-/*
-  ADD_SIMPLIFIER("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", "mk_max_bv_sharing(m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(max_bv_sharing, "max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", mk_max_bv_sharing(m, p, s));

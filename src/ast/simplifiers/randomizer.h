@@ -172,6 +172,4 @@ public:
     bool supports_proofs() const override { return false; }
 };
 
-/*
-  ADD_SIMPLIFIER("randomizer", "shuffle assertions and rename uninterpreted functions.", "alloc(randomizer_simplifier, m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(randomizer, "randomizer", "shuffle assertions and rename uninterpreted functions.", alloc(randomizer_simplifier, m, p, s));

@@ -38,12 +38,11 @@ where the `nlsat` tactic applies.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", "mk_qfnra_nlsat_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(qfnra_nlsat, "qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", mk_qfnra_nlsat_tactic(m, p));
 

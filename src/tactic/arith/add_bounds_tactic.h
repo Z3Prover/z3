@@ -39,6 +39,8 @@ The new goal may not be satisfiable even if the original goal is.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/probe.h"
+#include "tactic/tactic.h"
 
 class ast_manager;
 class goal;
@@ -50,8 +52,6 @@ probe * mk_is_unbounded_probe();
 
 tactic * mk_add_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("add-bounds", "add bounds to unbounded variables (under approximation).", "mk_add_bounds_tactic(m, p)")
-  ADD_PROBE("is-unbounded", "true if the goal contains integer/real constants that do not have lower/upper bounds.", "mk_is_unbounded_probe()")
-*/
+Z3_ADD_TACTIC(add_bounds, "add-bounds", "add bounds to unbounded variables (under approximation).", mk_add_bounds_tactic(m, p));
+Z3_ADD_PROBE(is_unbounded, "is-unbounded", "true if the goal contains integer/real constants that do not have lower/upper bounds.", mk_is_unbounded_probe());
 

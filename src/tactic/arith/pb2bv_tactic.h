@@ -44,17 +44,15 @@ Convert pseudo-boolean constraints to bit-vectors
 #pragma once
 
 #include "util/params.h"
+#include "tactic/probe.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("pb2bv", "convert pseudo-boolean constraints to bit-vectors.", "mk_pb2bv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(pb2bv, "pb2bv", "convert pseudo-boolean constraints to bit-vectors.", mk_pb2bv_tactic(m, p));
 
 probe * mk_is_pb_probe();
 
-/*
-  ADD_PROBE("is-pb", "true if the goal is a pseudo-boolean problem.", "mk_is_pb_probe()")
-*/
+Z3_ADD_PROBE(is_pb, "is-pb", "true if the goal is a pseudo-boolean problem.", mk_is_pb_probe());
 

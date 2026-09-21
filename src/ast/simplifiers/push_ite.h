@@ -64,9 +64,7 @@ public:
     }
 };
 
-/*
-  ADD_SIMPLIFIER("push-app-ite-conservative", "Push functions over if-then else.", "alloc(push_ite_simplifier, m, p, s, true)")
-  ADD_SIMPLIFIER("push-app-ite", "Push functions over if-then else.", "alloc(push_ite_simplifier, m, p, s, false)")
-  ADD_SIMPLIFIER("ng-push-app-ite-conservative", "Push functions over if-then-else within non-ground terms only.", "alloc(ng_push_ite_simplifier, m, p, s, true)")
-  ADD_SIMPLIFIER("ng-push-app-ite", "Push functions over if-then-else within non-ground terms only.", "alloc(ng_push_ite_simplifier, m, p, s, false)")
-*/
+Z3_ADD_SIMPLIFIER(push_app_ite_conservative, "push-app-ite-conservative", "Push functions over if-then else.", alloc(push_ite_simplifier, m, p, s, true));
+Z3_ADD_SIMPLIFIER(push_app_ite, "push-app-ite", "Push functions over if-then else.", alloc(push_ite_simplifier, m, p, s, false));
+Z3_ADD_SIMPLIFIER(ng_push_app_ite_conservative, "ng-push-app-ite-conservative", "Push functions over if-then-else within non-ground terms only.", alloc(ng_push_ite_simplifier, m, p, s, true));
+Z3_ADD_SIMPLIFIER(ng_push_app_ite, "ng-push-app-ite", "Push functions over if-then-else within non-ground terms only.", alloc(ng_push_ite_simplifier, m, p, s, false));

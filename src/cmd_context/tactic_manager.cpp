@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "cmd_context/tactic_manager.h"
+#include "tactic/tactic.h"
 
 tactic_manager::~tactic_manager() {
     finalize_tactic_manager();
@@ -73,5 +74,14 @@ probe_info * tactic_manager::find_probe(symbol const & s) const {
     probe_info * p = nullptr;
     m_name2probe.find(s, p);
     return p;
+}
+
+void install_tactics(tactic_manager & ctx) {
+    for (auto * r = tactic_registration::g_head; r; r = r->next)
+        ctx.insert(alloc(tactic_cmd, symbol(r->name), r->descr, r->factory));
+    for (auto * r = probe_registration::g_head; r; r = r->next)
+        ctx.insert(alloc(probe_info, symbol(r->name), r->descr, r->factory()));
+    for (auto * r = simplifier_registration::g_head; r; r = r->next)
+        ctx.insert(alloc(simplifier_cmd, symbol(r->name), r->descr, r->factory));
 }
 

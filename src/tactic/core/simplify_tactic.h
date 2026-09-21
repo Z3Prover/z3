@@ -100,8 +100,6 @@ public:
 tactic * mk_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
 tactic * mk_elim_and_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("simplify", "apply simplification rules.", "mk_simplify_tactic(m, p)")
-  ADD_TACTIC("elim-and", "convert (and a b) into (not (or (not a) (not b))).", "mk_elim_and_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(simplify, "simplify", "apply simplification rules.", mk_simplify_tactic(m, p));
+Z3_ADD_TACTIC(elim_and, "elim-and", "convert (and a b) into (not (or (not a) (not b))).", mk_elim_and_tactic(m, p));
 

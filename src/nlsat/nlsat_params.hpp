@@ -42,11 +42,6 @@ Abstract:
   BOOL_  (lws_witness_subs_disc,           "lws_witness_subs_disc",           true,      "try substitute the non-nullified witness by the discriminant") \
   BOOL_  (canonicalize,                    "canonicalize",                    true,      "canonicalize polynomials.")
 
-Z3_DEFINE_MODULE_PARAMS(nlsat_params, "nlsat", NLSAT_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('nlsat', 'nlsat_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('nlsat', 'nonlinear solver')
-*/
+Z3_DEFINE_MODULE_PARAMS(nlsat_params, "nlsat", NLSAT_PARAMS_LIST, "nonlinear solver");
 
 #undef NLSAT_PARAMS_LIST

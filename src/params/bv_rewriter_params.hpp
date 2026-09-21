@@ -29,10 +29,6 @@ Abstract:
   BOOL_(bv_le_extra,      "bv_le_extra",      false,  "additional bu_(u/s)le simplifications") \
   BOOL_(bv_le2extract,    "bv_le2extract",    true,   "disassemble bvule to extract")
 
-Z3_DEFINE_MODULE_PARAMS(bv_rewriter_params, "rewriter", BV_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'bv_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(bv_rewriter_params, "rewriter", BV_REWRITER_PARAMS_LIST, nullptr);
 
 #undef BV_REWRITER_PARAMS_LIST

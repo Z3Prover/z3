@@ -19,10 +19,6 @@ Abstract:
   BOOL_(coalesce_chars,       "coalesce_chars",       true,  "coalesce characters into strings") \
   UINT_(max_power_expansion,  "max_power_expansion",  2,     "maximal exponent of a sequence power that is expanded into a concatenation")
 
-Z3_DEFINE_MODULE_PARAMS(seq_rewriter_params, "rewriter", SEQ_REWRITER_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('rewriter', 'seq_rewriter_params::collect_param_descrs')
-*/
+Z3_DEFINE_MODULE_PARAMS(seq_rewriter_params, "rewriter", SEQ_REWRITER_PARAMS_LIST, nullptr);
 
 #undef SEQ_REWRITER_PARAMS_LIST

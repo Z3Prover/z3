@@ -62,6 +62,4 @@ public:
     void reset_statistics() override { m_num_recfuns = 0; }
 };
 
-/*
-  ADD_SIMPLIFIER("recfun-finder", "detect recursive-function definitions encoded as universally quantified axioms.", "alloc(recfun_finder, m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(recfun_finder, "recfun-finder", "detect recursive-function definitions encoded as universally quantified axioms.", alloc(recfun_finder, m, p, s));
