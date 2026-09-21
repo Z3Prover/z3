@@ -14,6 +14,7 @@ z3_add_component(z3_opt
     opt_preprocess.cpp
     optsmt.cpp
     opt_solver.cpp
+    opt_value.cpp
     pb_sls.cpp
     sortmax.cpp
     totalizer.cpp

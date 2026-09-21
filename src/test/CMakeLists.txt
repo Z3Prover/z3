@@ -103,6 +103,7 @@ add_executable(test-z3
   opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
+  opt_value.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
