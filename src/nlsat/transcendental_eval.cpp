@@ -14,11 +14,12 @@ Author:
     Nikolaj Bjorner
 
 --*/
-#include "util/transcendental_eval.h"
+#include "nlsat/transcendental_eval.h"
 #include <cmath>
 #include <limits>
 #include <algorithm>
 
+namespace nlsat {
 namespace transcendental_eval {
 
     char const* op_name(op_kind op) {
@@ -243,4 +244,5 @@ namespace transcendental_eval {
         return true;
     }
 
+}
 }

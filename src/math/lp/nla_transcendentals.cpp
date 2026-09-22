@@ -29,7 +29,7 @@ namespace nla {
     // a specific arg, so most applications never need more than this.
     static constexpr unsigned k_default_taylor_terms = 3;
 
-    void transcendentals::add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) {
+    void transcendentals::add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val) {
         if (arg == null_lpvar || val == null_lpvar)
             return;
         app a{ op, arg, val };
@@ -50,27 +50,27 @@ namespace nla {
             app const& other = m_apps[i];
             if (other.arg != arg)
                 continue;
-            if (op == transcendental_op_kind::SIN && other.op == transcendental_op_kind::COS) {
+            if (op == nlsat::transcendental_op_kind::SIN && other.op == nlsat::transcendental_op_kind::COS) {
                 m_sin_cos_pairs.push_back({ val, other.val });
                 m_core.trail().push(push_back_vector(m_sin_cos_pairs));
             }
-            else if (op == transcendental_op_kind::COS && other.op == transcendental_op_kind::SIN) {
+            else if (op == nlsat::transcendental_op_kind::COS && other.op == nlsat::transcendental_op_kind::SIN) {
                 m_sin_cos_pairs.push_back({ other.val, val });
                 m_core.trail().push(push_back_vector(m_sin_cos_pairs));
             }
-            else if (op == transcendental_op_kind::SINH && other.op == transcendental_op_kind::COSH) {
+            else if (op == nlsat::transcendental_op_kind::SINH && other.op == nlsat::transcendental_op_kind::COSH) {
                 m_cosh_sinh_pairs.push_back({ other.val, val });
                 m_core.trail().push(push_back_vector(m_cosh_sinh_pairs));
             }
-            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::SINH) {
+            else if (op == nlsat::transcendental_op_kind::COSH && other.op == nlsat::transcendental_op_kind::SINH) {
                 m_cosh_sinh_pairs.push_back({ val, other.val });
                 m_core.trail().push(push_back_vector(m_cosh_sinh_pairs));
             }
-            else if (op == transcendental_op_kind::TANH && other.op == transcendental_op_kind::COSH) {
+            else if (op == nlsat::transcendental_op_kind::TANH && other.op == nlsat::transcendental_op_kind::COSH) {
                 m_cosh_tanh_pairs.push_back({ other.val, val });
                 m_core.trail().push(push_back_vector(m_cosh_tanh_pairs));
             }
-            else if (op == transcendental_op_kind::COSH && other.op == transcendental_op_kind::TANH) {
+            else if (op == nlsat::transcendental_op_kind::COSH && other.op == nlsat::transcendental_op_kind::TANH) {
                 m_cosh_tanh_pairs.push_back({ val, other.val });
                 m_core.trail().push(push_back_vector(m_cosh_tanh_pairs));
             }
@@ -102,37 +102,37 @@ namespace nla {
     static constexpr double k_pi_2_ub = 1.5707963267948968; // > true pi/2
     static constexpr double k_pi_ub   = 3.1415926535897936; // > true pi
 
-    void transcendentals::add_range_axioms(transcendental_op_kind op, lpvar val) {
+    void transcendentals::add_range_axioms(nlsat::transcendental_op_kind op, lpvar val) {
         auto& lra = m_core.lra;
         switch (op) {
-        case transcendental_op_kind::SIN:
-        case transcendental_op_kind::COS:
+        case nlsat::transcendental_op_kind::SIN:
+        case nlsat::transcendental_op_kind::COS:
             lra.add_var_bound(val, lp::lconstraint_kind::LE, rational(1));
             lra.add_var_bound(val, lp::lconstraint_kind::GE, rational(-1));
             break;
-        case transcendental_op_kind::TANH:
+        case nlsat::transcendental_op_kind::TANH:
             lra.add_var_bound(val, lp::lconstraint_kind::LT, rational(1));
             lra.add_var_bound(val, lp::lconstraint_kind::GT, rational(-1));
             break;
-        case transcendental_op_kind::COSH:
+        case nlsat::transcendental_op_kind::COSH:
             lra.add_var_bound(val, lp::lconstraint_kind::GE, rational(1));
             break;
-        case transcendental_op_kind::ACOSH:
+        case nlsat::transcendental_op_kind::ACOSH:
             lra.add_var_bound(val, lp::lconstraint_kind::GE, rational(0));
             break;
-        case transcendental_op_kind::ASIN:
+        case nlsat::transcendental_op_kind::ASIN:
             lra.add_var_bound(val, lp::lconstraint_kind::LE, to_rational(k_pi_2_ub));
             lra.add_var_bound(val, lp::lconstraint_kind::GE, to_rational(-k_pi_2_ub));
             break;
-        case transcendental_op_kind::ATAN:
+        case nlsat::transcendental_op_kind::ATAN:
             lra.add_var_bound(val, lp::lconstraint_kind::LT, to_rational(k_pi_2_ub));
             lra.add_var_bound(val, lp::lconstraint_kind::GT, to_rational(-k_pi_2_ub));
             break;
-        case transcendental_op_kind::ACOS:
+        case nlsat::transcendental_op_kind::ACOS:
             lra.add_var_bound(val, lp::lconstraint_kind::LE, to_rational(k_pi_ub));
             lra.add_var_bound(val, lp::lconstraint_kind::GE, rational(0));
             break;
-        case transcendental_op_kind::EXP:
+        case nlsat::transcendental_op_kind::EXP:
             // Sign constraint (TOCL/MathSAT paper): exp(x) > 0 for every x.
             // The tighter, still-unconditional exp(x) >= 1+x fact is
             // asserted reactively as a lemma instead (see
@@ -159,26 +159,26 @@ namespace nla {
         m_core.lra.add_var_bound(val, lp::lconstraint_kind::GE, to_rational(-k_pi_ub));
     }
 
-    char const* transcendentals::op_name(transcendental_op_kind op) {
-        return transcendental_eval::op_name(op);
+    char const* transcendentals::op_name(nlsat::transcendental_op_kind op) {
+        return nlsat::transcendental_eval::op_name(op);
     }
 
-    double transcendentals::eval(transcendental_op_kind op, double x) {
-        return transcendental_eval::eval(op, x);
+    double transcendentals::eval(nlsat::transcendental_op_kind op, double x) {
+        return nlsat::transcendental_eval::eval(op, x);
     }
 
     // A conservative (not tight) additive error bound accounting for the
     // floating point round-off incurred by evaluating op in double
-    // precision. See transcendental_eval::error_bound (util/transcendental_eval.cpp)
+    // precision. See nlsat::transcendental_eval::error_bound (nlsat/transcendental_eval.cpp)
     // for the shared implementation.
-    double transcendentals::error_bound(transcendental_op_kind op, double x, double fx) {
-        return transcendental_eval::error_bound(op, x, fx);
+    double transcendentals::error_bound(nlsat::transcendental_op_kind op, double x, double fx) {
+        return nlsat::transcendental_eval::error_bound(op, x, fx);
     }
 
     // Exact rational equal to the finite double d; see
-    // transcendental_eval::to_rational for the shared implementation.
+    // nlsat::transcendental_eval::to_rational for the shared implementation.
     rational transcendentals::to_rational(double d) {
-        return transcendental_eval::to_rational(d);
+        return nlsat::transcendental_eval::to_rational(d);
     }
 
     // Maclaurin (Taylor-at-0) polynomial sandwiches, sound for every real x
@@ -193,13 +193,13 @@ namespace nla {
     // asserted without a case split on the sign of x. num_terms == 5
     // reproduces the fixed degree-9 (sin) / degree-8 (cos) sandwich this
     // module started out with.
-    bool transcendentals::get_taylor(transcendental_op_kind op, unsigned num_terms, taylor_bounds& out) {
+    bool transcendentals::get_taylor(nlsat::transcendental_op_kind op, unsigned num_terms, taylor_bounds& out) {
         if (num_terms == 0)
             return false;
         bool is_sin;
         switch (op) {
-        case transcendental_op_kind::SIN: is_sin = true; break;
-        case transcendental_op_kind::COS: is_sin = false; break;
+        case nlsat::transcendental_op_kind::SIN: is_sin = true; break;
+        case nlsat::transcendental_op_kind::COS: is_sin = false; break;
         default: return false;
         }
         out.poly.clear();
@@ -229,7 +229,7 @@ namespace nla {
     // observed faulty model (x, y): the sandwich guarantees op(x) is within
     // rk of T_k(x), so if y is more than 2*rk away from T_k(x) it cannot lie
     // in [T_k(x)-rk, T_k(x)+rk] and the axiom directly contradicts y.
-    unsigned transcendentals::degree_to_exclude(transcendental_op_kind op, double x, double y, unsigned max_terms) {
+    unsigned transcendentals::degree_to_exclude(nlsat::transcendental_op_kind op, double x, double y, unsigned max_terms) {
         for (unsigned k = 1; k <= max_terms; ++k) {
             taylor_bounds tb;
             if (!get_taylor(op, k, tb))
@@ -248,23 +248,23 @@ namespace nla {
     // hi]: samples op at both endpoints, then inflates the resulting range
     // by error_bound so that small deviations from monotonicity within the
     // (intentionally tiny) box are covered as well. See
-    // transcendental_eval::interval_eval for the shared implementation.
-    void transcendentals::interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
-        transcendental_eval::interval_eval(op, lo, hi, lo_val, hi_val);
+    // nlsat::transcendental_eval::interval_eval for the shared implementation.
+    void transcendentals::interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
+        nlsat::transcendental_eval::interval_eval(op, lo, hi, lo_val, hi_val);
     }
 
-    // See transcendental_eval::wide_interval_eval for the shared
+    // See nlsat::transcendental_eval::wide_interval_eval for the shared
     // implementation (closed-form handling of periodic extrema/poles so
     // the enclosure stays sound regardless of box width).
-    bool transcendentals::wide_interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
-        return transcendental_eval::wide_interval_eval(op, lo, hi, lo_val, hi_val);
+    bool transcendentals::wide_interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val) {
+        return nlsat::transcendental_eval::wide_interval_eval(op, lo, hi, lo_val, hi_val);
     }
 
-    bool transcendentals::has_linear_majorant(transcendental_op_kind op) {
+    bool transcendentals::has_linear_majorant(nlsat::transcendental_op_kind op) {
         switch (op) {
-        case transcendental_op_kind::SIN:
-        case transcendental_op_kind::TANH:
-        case transcendental_op_kind::ATAN:
+        case nlsat::transcendental_op_kind::SIN:
+        case nlsat::transcendental_op_kind::TANH:
+        case nlsat::transcendental_op_kind::ATAN:
             return true;
         default:
             return false;
@@ -300,14 +300,14 @@ namespace nla {
     bool transcendentals::check_sign_on_pi_range(app& a) {
         if (m_pi_var == null_lpvar)
             return false;
-        if (a.op != transcendental_op_kind::SIN && a.op != transcendental_op_kind::COS)
+        if (a.op != nlsat::transcendental_op_kind::SIN && a.op != nlsat::transcendental_op_kind::COS)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
         rational const& pr = c.val(m_pi_var);
 
-        if (a.op == transcendental_op_kind::SIN) {
+        if (a.op == nlsat::transcendental_op_kind::SIN) {
             // sin(t) > 0 for 0 < t < pi.
             if (xr.is_pos() && xr < pr && !yr.is_pos()) {
                 lp::lar_term diff(rational(1), a.arg, rational(-1), m_pi_var); // arg - pi
@@ -359,7 +359,7 @@ namespace nla {
     }
 
     bool transcendentals::check_exp_lower_bound(app& a) {
-        if (a.op != transcendental_op_kind::EXP)
+        if (a.op != nlsat::transcendental_op_kind::EXP)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -380,13 +380,13 @@ namespace nla {
     }
 
     bool transcendentals::check_exp_monotonicity(app& a) {
-        if (a.op != transcendental_op_kind::EXP)
+        if (a.op != nlsat::transcendental_op_kind::EXP)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
         rational const& yr = c.val(a.val);
         for (auto const& other : m_apps) {
-            if (other.op != transcendental_op_kind::EXP || other.arg == a.arg)
+            if (other.op != nlsat::transcendental_op_kind::EXP || other.arg == a.arg)
                 continue;
             rational const& xr2 = c.val(other.arg);
             rational const& yr2 = c.val(other.val);
@@ -421,7 +421,7 @@ namespace nla {
     }
 
     bool transcendentals::check_log_upper_bound(app& a) {
-        if (a.op != transcendental_op_kind::LOG)
+        if (a.op != nlsat::transcendental_op_kind::LOG)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -444,7 +444,7 @@ namespace nla {
     }
 
     bool transcendentals::check_log_monotonicity(app& a) {
-        if (a.op != transcendental_op_kind::LOG)
+        if (a.op != nlsat::transcendental_op_kind::LOG)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -452,7 +452,7 @@ namespace nla {
             return false; // out of domain; not this check's responsibility
         rational const& yr = c.val(a.val);
         for (auto const& other : m_apps) {
-            if (other.op != transcendental_op_kind::LOG || other.arg == a.arg)
+            if (other.op != nlsat::transcendental_op_kind::LOG || other.arg == a.arg)
                 continue;
             rational const& xr2 = c.val(other.arg);
             if (!xr2.is_pos())
@@ -487,14 +487,14 @@ namespace nla {
     }
 
     // Exact rational Mercator (Taylor-at-1) bracket [lo, hi] for log(x);
-    // see transcendental_eval::log_taylor_bracket_at for the shared
+    // see nlsat::transcendental_eval::log_taylor_bracket_at for the shared
     // implementation.
     bool transcendentals::log_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
-        return transcendental_eval::log_taylor_bracket_at(xr, lo, hi);
+        return nlsat::transcendental_eval::log_taylor_bracket_at(xr, lo, hi);
     }
 
     bool transcendentals::check_log_taylor_range(app& a) {
-        if (a.op != transcendental_op_kind::LOG)
+        if (a.op != nlsat::transcendental_op_kind::LOG)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -595,7 +595,7 @@ namespace nla {
     }
 
     bool transcendentals::check_atan_taylor_range(app& a) {
-        if (a.op != transcendental_op_kind::ATAN)
+        if (a.op != nlsat::transcendental_op_kind::ATAN)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -606,7 +606,7 @@ namespace nla {
         // non-increasing in magnitude, so by the alternating series
         // estimation theorem every partial sum S_k brackets the true
         // value together with S_{k+1}: min(S_k, S_{k+1}) <= atan(x) <=
-        // max(S_k, S_{k+1}). Computed via transcendental_eval::atan_taylor_bracket_at
+        // max(S_k, S_{k+1}). Computed via nlsat::transcendental_eval::atan_taylor_bracket_at
         // in exact rational arithmetic (unlike the generic float-based
         // box-refinement fallback), so the resulting bracket is an exact,
         // not just floating point approximate, enclosure at this specific
@@ -619,7 +619,7 @@ namespace nla {
         // the current model, and so would fail to force the search to make
         // progress.
         rational lo, hi;
-        VERIFY(transcendental_eval::atan_taylor_bracket_at(xr, lo, hi));
+        VERIFY(nlsat::transcendental_eval::atan_taylor_bracket_at(xr, lo, hi));
         if (yr >= lo && yr <= hi)
             return false; // already consistent with the bracket.
         bool is_lower = (yr < lo);
@@ -643,18 +643,18 @@ namespace nla {
     }
 
     // The exact rational Maclaurin bracket [lo, hi] for exp(x) at the
-    // single point x; see transcendental_eval::exp_taylor_bracket_at for
+    // single point x; see nlsat::transcendental_eval::exp_taylor_bracket_at for
     // the shared implementation. Factored out so it can be evaluated at
     // points other than the current witness (exp is globally increasing,
     // so evaluating this at the two ends of a small interval around a
     // witness - see check_exp_taylor_range - yields a sound bracket for
     // the whole interval, not just the single point).
     bool transcendentals::exp_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
-        return transcendental_eval::exp_taylor_bracket_at(xr, lo, hi);
+        return nlsat::transcendental_eval::exp_taylor_bracket_at(xr, lo, hi);
     }
 
     bool transcendentals::check_exp_taylor_range(app& a) {
-        if (a.op != transcendental_op_kind::EXP)
+        if (a.op != nlsat::transcendental_op_kind::EXP)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);
@@ -746,7 +746,7 @@ namespace nla {
     }
 
     bool transcendentals::check_sin_cos_taylor_range(app& a) {
-        if (a.op != transcendental_op_kind::SIN && a.op != transcendental_op_kind::COS)
+        if (a.op != nlsat::transcendental_op_kind::SIN && a.op != nlsat::transcendental_op_kind::COS)
             return false;
         core& c = m_core;
         rational const& xr = c.val(a.arg);

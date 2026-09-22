@@ -58,7 +58,6 @@ z3_add_component(util
     timeit.cpp
     timeout.cpp
     trace.cpp
-    transcendental_eval.cpp
     util.cpp
     warning.cpp
     z3_exception.cpp

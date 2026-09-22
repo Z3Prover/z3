@@ -12,6 +12,7 @@ z3_add_component(nlsat
     nlsat_types.cpp
     nlsat_simple_checker.cpp
     nlsat_variable_ordering_strategy.cpp
+    transcendental_eval.cpp
     COMPONENT_DEPENDENCIES
     polynomial
     sat

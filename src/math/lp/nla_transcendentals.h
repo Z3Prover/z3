@@ -160,23 +160,16 @@ Description:
 --*/
 #pragma once
 #include "math/lp/nla_types.h"
-#include "util/transcendental_eval.h"
+#include "nlsat/nlsat_transcendentals.h"
 
 namespace nla {
 
     class core;
 
-    // Alias, not a separate enum: nla::transcendentals and
-    // nlsat::transcendentals must agree bit-for-bit on op_kind so that
-    // nra_solver::register_transcendentals_with_nlsat (math/lp/nra_solver.cpp)
-    // can forward an nla::app's op straight to nlsat without a translation
-    // table silently getting out of sync.
-    using transcendental_op_kind = transcendental_eval::op_kind;
-
     class transcendentals {
     public:
         struct app {
-            transcendental_op_kind op;
+            nlsat::transcendental_op_kind op;
             lpvar                  arg;
             lpvar                  val;
             // Number of Taylor terms whose sandwich axiom nra_solver should
@@ -229,7 +222,7 @@ namespace nla {
         // roles - y's sign alone fixes val's sign, x's sign alone selects
         // the branch), so it is kept as a separate, self-contained
         // registration/check path rather than shoehorned into the
-        // single-argument transcendental_op_kind family; see add_atan2 and
+        // single-argument nlsat::transcendental_op_kind family; see add_atan2 and
         // check_atan2 in nla_transcendentals.cpp.
         struct atan2_app {
             lpvar y;
@@ -262,7 +255,7 @@ namespace nla {
 
         // theory_lra registers (op_kind, input variable, output variable):
         // val is meant to represent op(arg).
-        void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val);
+        void add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val);
 
         // theory_lra registers the lpvar it created for the nullary
         // constant pi. Unlike add_transcendental, there is no argument and
@@ -301,7 +294,7 @@ namespace nla {
         // fills out a Taylor sandwich using num_terms terms of the Maclaurin
         // series for op; returns false if none is available yet (currently
         // implemented for SIN and COS only) or if num_terms == 0.
-        static bool get_taylor(transcendental_op_kind op, unsigned num_terms, taylor_bounds& out);
+        static bool get_taylor(nlsat::transcendental_op_kind op, unsigned num_terms, taylor_bounds& out);
 
         // delta-check every registered application against the current
         // assignment; asserts a box-refinement lemma via lemma_builder
@@ -364,7 +357,7 @@ namespace nla {
         // this is exact rational arithmetic and holds unconditionally, so
         // check_app tries it with priority, before falling back to the
         // Taylor sandwich.
-        static bool has_linear_majorant(transcendental_op_kind op);
+        static bool has_linear_majorant(nlsat::transcendental_op_kind op);
         // Checks the fact from has_linear_majorant against the current
         // assignment and, on violation, asserts it as a two-literal lemma
         // (arg's sign disjunct, or val <= arg / val >= arg) - a global
@@ -485,26 +478,26 @@ namespace nla {
         // (x, y) if asserted; 0 if no such degree is found within
         // max_terms (x too large / y too close to op(x) for this
         // approach to help).
-        static unsigned degree_to_exclude(transcendental_op_kind op, double x, double y, unsigned max_terms = 30);
-        static double eval(transcendental_op_kind op, double x);
-        static double error_bound(transcendental_op_kind op, double x, double fx);
-        static char const* op_name(transcendental_op_kind op);
+        static unsigned degree_to_exclude(nlsat::transcendental_op_kind op, double x, double y, unsigned max_terms = 30);
+        static double eval(nlsat::transcendental_op_kind op, double x);
+        static double error_bound(nlsat::transcendental_op_kind op, double x, double fx);
+        static char const* op_name(nlsat::transcendental_op_kind op);
         // enclosure [lo_val, hi_val] of op over the (intentionally tiny) box
         // [lo, hi], inflated by error_bound at the box endpoints/center;
         // sound as long as op does not stray far from monotonic between lo
         // and hi (true for a small enough box, but not in general).
-        static void interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
+        static void interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
         // A sound enclosure [lo_val, hi_val] of op over a (possibly wide)
         // box [lo, hi], accounting in closed form for op's critical points
         // (sin/cos maxima/minima, cosh's minimum at 0) so it remains valid
         // regardless of box width. Returns false when no sound enclosure by
         // this method is available (tan has a pole inside [lo, hi]); the
         // caller should fall back to interval_eval on a tiny box instead.
-        static bool wide_interval_eval(transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
+        static bool wide_interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
         // exact rational equal to the (finite) double d.
         static rational to_rational(double d);
         // asserts permanent, unconditional column bounds on val that hold
         // for every application of op (see the module comment).
-        void add_range_axioms(transcendental_op_kind op, lpvar val);
+        void add_range_axioms(nlsat::transcendental_op_kind op, lpvar val);
     };
 }

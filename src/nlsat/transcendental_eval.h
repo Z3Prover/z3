@@ -11,15 +11,18 @@ Abstract:
     and exact rational Taylor/Maclaurin bracket routines for transcendental
     functions (sin, cos, tan, exp, log, ...).
 
-    This is pure numeric math with no dependency on either solver engine.
-    It is used by both nla::transcendentals (math/lp/nla_transcendentals.cpp,
-    the cheap per-node delta-consistency filter nla_core runs on every
-    check()) and nlsat::transcendentals (nlsat/nlsat_transcendentals.cpp,
-    the exact axiom/refinement engine nlsat runs when nra_solver delegates
-    to it) so that the numeric core the two engines rely on cannot silently
-    drift apart. The two engines still differ in *when* and *how* they
-    invoke this math and in how they turn a detected inconsistency into a
-    lemma/clause -- that control logic intentionally remains separate.
+    This is pure numeric math with no dependency on either solver engine's
+    control logic. It lives in nlsat (rather than a neutral location) since
+    nlsat is the lower layer both engines already depend on: it is used by
+    nlsat::transcendentals (nlsat_transcendentals.cpp, the exact
+    axiom/refinement engine nlsat runs when nra_solver delegates to it) and
+    by nla::transcendentals (math/lp/nla_transcendentals.cpp, the cheap
+    per-node delta-consistency filter nla_core runs on every check(), which
+    already depends on the nlsat component via nra_solver.cpp), so that the
+    numeric core the two engines rely on cannot silently drift apart. The
+    two engines still differ in *when* and *how* they invoke this math and
+    in how they turn a detected inconsistency into a lemma/clause -- that
+    control logic intentionally remains separate.
 
 Author:
 
@@ -29,6 +32,7 @@ Author:
 #pragma once
 #include "util/rational.h"
 
+namespace nlsat {
 namespace transcendental_eval {
 
     enum class op_kind {
@@ -95,4 +99,5 @@ namespace transcendental_eval {
     // consecutive partial sums bracket the true value.
     bool atan_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
 
+}
 }

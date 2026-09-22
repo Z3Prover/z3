@@ -32,7 +32,7 @@ namespace nla {
         void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r);
         void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r);
         void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d);
-        void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val);
+        void add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val);
         void add_pi(lpvar val);
         void add_atan2(lpvar y, lpvar x, lpvar val);
         void check_bounded_divisions();

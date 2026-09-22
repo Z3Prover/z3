@@ -47,8 +47,8 @@ void test_sin_cos_identity_detects_conflict() {
     lpvar cos2    = s.add_var(4, true);
 
     nla::core nla_solver(s, p, rl);
-    nla_solver.add_transcendental(nla::transcendental_op_kind::SIN, t, sin_val);
-    nla_solver.add_transcendental(nla::transcendental_op_kind::COS, t, cos_val);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::SIN, t, sin_val);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::COS, t, cos_val);
 
     vector<lpvar> sin_vars, cos_vars;
     sin_vars.push_back(sin_val); sin_vars.push_back(sin_val);
@@ -86,8 +86,8 @@ void test_cosh_sinh_identity_detects_conflict() {
     lpvar sinh_val = s.add_var(2, true);
 
     nla::core nla_solver(s, p, rl);
-    nla_solver.add_transcendental(nla::transcendental_op_kind::COSH, t, cosh_val);
-    nla_solver.add_transcendental(nla::transcendental_op_kind::SINH, t, sinh_val);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::COSH, t, cosh_val);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::SINH, t, sinh_val);
 
     s.set_column_value_test(cosh_val, lp::impq(rational(2)));
     s.set_column_value_test(sinh_val, lp::impq(rational(2)));
@@ -130,7 +130,7 @@ void test_is_nla_context_satisfied() {
 
     lpvar t       = s.add_var(2, true);
     lpvar sin_val = s.add_var(3, true);
-    nla_solver.add_transcendental(nla::transcendental_op_kind::SIN, t, sin_val);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::SIN, t, sin_val);
 
     // Pin t = 0 tightly, so the delta-check's Taylor sandwich for sin(t)
     // around 0 is tight enough to immediately refute sin_val = 1 (the

@@ -558,21 +558,21 @@ class theory_lra::imp {
                     // containing a transcendental application.
                     ensure_nla();
                     if (m_nla) {
-                        nla::transcendental_op_kind op;
-                        if (a.is_sin(n))        op = nla::transcendental_op_kind::SIN;
-                        else if (a.is_cos(n))   op = nla::transcendental_op_kind::COS;
-                        else if (a.is_tan(n))   op = nla::transcendental_op_kind::TAN;
-                        else if (a.is_sinh(n))  op = nla::transcendental_op_kind::SINH;
-                        else if (a.is_cosh(n))  op = nla::transcendental_op_kind::COSH;
-                        else if (a.is_tanh(n))  op = nla::transcendental_op_kind::TANH;
-                        else if (a.is_asin(n))  op = nla::transcendental_op_kind::ASIN;
-                        else if (a.is_acos(n))  op = nla::transcendental_op_kind::ACOS;
-                        else if (a.is_atan(n))  op = nla::transcendental_op_kind::ATAN;
-                        else if (a.is_asinh(n)) op = nla::transcendental_op_kind::ASINH;
-                        else if (a.is_acosh(n)) op = nla::transcendental_op_kind::ACOSH;
-                        else if (a.is_atanh(n)) op = nla::transcendental_op_kind::ATANH;
-                        else if (a.is_log(n))   op = nla::transcendental_op_kind::LOG;
-                        else                    op = nla::transcendental_op_kind::EXP;
+                        nlsat::transcendental_op_kind op;
+                        if (a.is_sin(n))        op = nlsat::transcendental_op_kind::SIN;
+                        else if (a.is_cos(n))   op = nlsat::transcendental_op_kind::COS;
+                        else if (a.is_tan(n))   op = nlsat::transcendental_op_kind::TAN;
+                        else if (a.is_sinh(n))  op = nlsat::transcendental_op_kind::SINH;
+                        else if (a.is_cosh(n))  op = nlsat::transcendental_op_kind::COSH;
+                        else if (a.is_tanh(n))  op = nlsat::transcendental_op_kind::TANH;
+                        else if (a.is_asin(n))  op = nlsat::transcendental_op_kind::ASIN;
+                        else if (a.is_acos(n))  op = nlsat::transcendental_op_kind::ACOS;
+                        else if (a.is_atan(n))  op = nlsat::transcendental_op_kind::ATAN;
+                        else if (a.is_asinh(n)) op = nlsat::transcendental_op_kind::ASINH;
+                        else if (a.is_acosh(n)) op = nlsat::transcendental_op_kind::ACOSH;
+                        else if (a.is_atanh(n)) op = nlsat::transcendental_op_kind::ATANH;
+                        else if (a.is_log(n))   op = nlsat::transcendental_op_kind::LOG;
+                        else                    op = nlsat::transcendental_op_kind::EXP;
                         internalize_term(to_app(n1));
                         theory_var x = mk_var(n1);
                         m_nla->add_transcendental(op, register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(v));

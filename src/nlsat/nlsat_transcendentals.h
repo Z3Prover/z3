@@ -52,7 +52,7 @@ Author:
 #include "nlsat/nlsat_types.h"
 #include "util/vector.h"
 #include "util/rational.h"
-#include "util/transcendental_eval.h"
+#include "nlsat/transcendental_eval.h"
 
 namespace nlsat {
 

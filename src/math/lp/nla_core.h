@@ -232,7 +232,7 @@ public:
     void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_rdivision(q, x, y, r); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_bounded_division(q, x, y, r); }
     void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) { m_divisions.add_divisibility(r, x, y, d); }
-    void add_transcendental(transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
+    void add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
     void add_pi(lpvar val) { m_transcendentals.add_pi(val); }
     void add_atan2(lpvar y, lpvar x, lpvar val) { m_transcendentals.add_atan2(y, x, val); }
     transcendentals const& get_transcendentals() const { return m_transcendentals; }
