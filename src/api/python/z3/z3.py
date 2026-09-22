@@ -4945,6 +4945,8 @@ def ArraySort(*sig):
     >>> AA = ArraySort(IntSort(), A)
     >>> AA
     Array(Int, Array(Int, Bool))
+    >>> ArraySort(IntSort(), BoolSort(), RealSort())
+    Array(Int, Bool, Real)
     """
     sig = _get_args(sig)
     if z3_debug():
