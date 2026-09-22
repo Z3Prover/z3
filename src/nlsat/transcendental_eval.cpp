@@ -244,5 +244,130 @@ namespace transcendental_eval {
         return true;
     }
 
+    // Shared skip-then-bracket helper for sin/cos's Maclaurin series:
+    // term_k = (-1)^k * x^(2k+base_power) / (2k+base_power)!
+    // (base_power = 1 for sin, 0 for cos). |term_{k+1}| <= |term_k| once
+    // x^2 <= (2k+base_power+1)*(2k+base_power+2); this is monotonically
+    // easier to satisfy as k grows (the RHS increases), so once it first
+    // holds at k = n0 it holds for every k >= n0, and the alternating
+    // series estimation theorem then applies from n0 onward: consecutive
+    // partial sums enclose the true value. The (possibly non-monotone)
+    // first n0 terms are just summed directly. Returns false if n0 is not
+    // reached within k_terms terms (|x| too large for this many terms to
+    // establish monotonicity).
+    static bool sin_cos_taylor_bracket_at(rational const& xr, unsigned base_power, rational& lo, rational& hi) {
+        constexpr unsigned k_terms = 60;
+        rational x2 = xr * xr;
+        unsigned n0 = 0;
+        while (n0 < k_terms) {
+            rational p(2 * n0 + base_power);
+            if (x2 <= (p + rational(1)) * (p + rational(2)))
+                break;
+            ++n0;
+        }
+        if (n0 >= k_terms)
+            return false;
+        auto factorial = [](unsigned n) {
+            rational r(1);
+            for (unsigned k = 2; k <= n; ++k)
+                r *= rational(k);
+            return r;
+        };
+        // term holds x^(2k+base_power)/(2k+base_power)! with sign
+        // (-1)^k already folded in; the recurrence term_{k+1} =
+        // -term_k * x^2 / ((2k+base_power+1)*(2k+base_power+2)) follows
+        // from power_{k+1} = power_k+2 and factorial(power_{k+1}) =
+        // factorial(power_k)*(power_k+1)*(power_k+2).
+        rational term = (base_power == 0) ? rational(1) : xr;
+        term /= factorial(base_power);
+        rational sum(0);
+        for (unsigned k = 0; k < n0; ++k) {
+            sum += term;
+            unsigned power = 2 * k + base_power;
+            term = -term * x2 / ((rational(power) + rational(1)) * (rational(power) + rational(2)));
+        }
+        lo = sum; hi = sum;
+        for (unsigned k = n0; k < k_terms; ++k) {
+            rational next = sum + term;
+            lo = std::min(sum, next);
+            hi = std::max(sum, next);
+            sum = next;
+            unsigned power = 2 * k + base_power;
+            term = -term * x2 / ((rational(power) + rational(1)) * (rational(power) + rational(2)));
+        }
+        return true;
+    }
+
+    bool sin_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
+        return sin_cos_taylor_bracket_at(xr, 1, lo, hi);
+    }
+
+    bool cos_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
+        return sin_cos_taylor_bracket_at(xr, 0, lo, hi);
+    }
+
+    // Verified rational bracket for pi: both bounds lie strictly between
+    // pi's true (irrational) value and each other, tight to ~1e-14 - same
+    // constants trusted elsewhere in this codebase for pi's own permanent
+    // range axiom (see e.g. nlsat::transcendentals::add_pi).
+
+    // true if some integer k has xlo <= phase + k*period <= xhi, where the
+    // true (irrational) phase/period are only known to lie in
+    // [phase_lo, phase_hi] / [period_lo, period_hi] (period_lo > 0):
+    // deliberately conservative (a "maybe" counts as "yes", by taking the
+    // min/max over all four sign combinations of the two brackets, so the
+    // returned interval [pos_lo, pos_hi] is guaranteed to contain the true
+    // position phase + k*period regardless of k's sign) - this can only
+    // ever cause an unnecessary widening of a sound enclosure, never an
+    // unsound one. Bails out (conservatively returning true) if the
+    // integer range to scan would be unreasonably large.
+    static bool interval_contains_periodic_point(rational const& xlo, rational const& xhi,
+                                                  rational const& phase_lo, rational const& phase_hi,
+                                                  rational const& period_lo, rational const& period_hi) {
+        rational k_lo = floor((xlo - phase_hi) / period_lo) - rational(1);
+        rational k_hi = ceil((xhi - phase_lo) / period_lo) + rational(1);
+        if (k_hi - k_lo > rational(1000))
+            return true; // unreasonably wide interval: be safe rather than scan.
+        for (rational k = k_lo; k <= k_hi; k += rational(1)) {
+            rational a = phase_lo + k * period_lo, b = phase_hi + k * period_hi;
+            rational c = phase_lo + k * period_hi, d = phase_hi + k * period_lo;
+            rational pos_lo = std::min(std::min(a, b), std::min(c, d));
+            rational pos_hi = std::max(std::max(a, b), std::max(c, d));
+            if (pos_lo <= xhi && pos_hi >= xlo)
+                return true;
+        }
+        return false;
+    }
+
+    bool sin_cos_taylor_bracket(op_kind op, rational const& xlo, rational const& xhi, rational& lo, rational& hi) {
+        if (op != op_kind::SIN && op != op_kind::COS)
+            return false;
+        rational lo1, hi1, lo2, hi2;
+        bool ok = (op == op_kind::SIN)
+            ? (sin_taylor_bracket_at(xlo, lo1, hi1) && sin_taylor_bracket_at(xhi, lo2, hi2))
+            : (cos_taylor_bracket_at(xlo, lo1, hi1) && cos_taylor_bracket_at(xhi, lo2, hi2));
+        if (!ok)
+            return false;
+        lo = std::min(lo1, lo2);
+        hi = std::max(hi1, hi2);
+        static const rational g_pi_lo("3.14159265358979");
+        static const rational g_pi_hi("3.14159265358980");
+        rational period_lo = rational(2) * g_pi_lo, period_hi = rational(2) * g_pi_hi;
+        rational max_phase_lo, max_phase_hi, min_phase_lo, min_phase_hi;
+        if (op == op_kind::SIN) {
+            max_phase_lo = g_pi_lo / 2; max_phase_hi = g_pi_hi / 2;   // sin = 1 at pi/2 + 2k*pi
+            min_phase_lo = -g_pi_hi / 2; min_phase_hi = -g_pi_lo / 2; // sin = -1 at -pi/2 + 2k*pi
+        }
+        else {
+            max_phase_lo = rational(0); max_phase_hi = rational(0);  // cos = 1 at 0 + 2k*pi
+            min_phase_lo = g_pi_lo; min_phase_hi = g_pi_hi;          // cos = -1 at pi + 2k*pi
+        }
+        if (interval_contains_periodic_point(xlo, xhi, max_phase_lo, max_phase_hi, period_lo, period_hi))
+            hi = std::max(hi, rational(1));
+        if (interval_contains_periodic_point(xlo, xhi, min_phase_lo, min_phase_hi, period_lo, period_hi))
+            lo = std::min(lo, rational(-1));
+        return true;
+    }
+
 }
 }

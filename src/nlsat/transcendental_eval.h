@@ -99,5 +99,33 @@ namespace transcendental_eval {
     // consecutive partial sums bracket the true value.
     bool atan_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
 
+    // Exact rational Maclaurin bracket [lo, hi] for sin(x)/cos(x) at a
+    // single point x. Unlike atan/log (whose series only converge inside a
+    // bounded radius), sin/cos are entire, so - as with exp - the series
+    // eventually becomes a genuine alternating series (term magnitude
+    // non-increasing) after skipping a possibly non-monotone initial run
+    // of terms; consecutive partial sums from that point on bracket the
+    // true value. Returns false if that point is not reached within a
+    // fixed term budget (|x| too large).
+    bool sin_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
+    bool cos_taylor_bracket_at(rational const& xr, rational& lo, rational& hi);
+
+    // Exact rational enclosure [lo, hi] of sin(x)/cos(x) over the whole
+    // interval [xlo, xhi] (xlo <= xhi), sound even when the interval is
+    // not contained in a single monotonic branch of the (periodic)
+    // function. Unlike exp/log/atan_taylor_bracket_at (valid at a single
+    // point, combined into an interval bound only because those ops are
+    // monotonic on their whole relevant domain), this additionally
+    // detects - using a verified rational bracket for pi, never assuming
+    // an exact irrational value - whether an extremum of op (a multiple of
+    // pi/2 for sin, of pi for cos) falls inside [xlo, xhi], and clamps the
+    // corresponding side of the enclosure to the exact extremal value (+-1)
+    // when it does (or might, up to the pi bracket's own tightness - the
+    // detection is deliberately conservative, so a "maybe" only ever
+    // widens the returned enclosure, never narrows it unsoundly). Returns
+    // false if either endpoint's point bracket (see
+    // sin_taylor_bracket_at/cos_taylor_bracket_at) is unavailable.
+    bool sin_cos_taylor_bracket(op_kind op, rational const& xlo, rational const& xhi, rational& lo, rational& hi);
+
 }
 }

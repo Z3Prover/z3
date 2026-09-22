@@ -257,9 +257,6 @@ struct solver::imp {
     */
     lbool check() {
         SASSERT(need_check());
-        bool has_transcendentals = !m_nla_core.get_transcendentals().empty();
-        if (has_transcendentals)
-            m_params.set_bool("transcendentals", true);
         reset();
         vector<nlsat::assumption, false> core;        
         
@@ -344,8 +341,6 @@ struct solver::imp {
 
     void setup_assignment_solver() {
         SASSERT(need_check());
-        if (!m_nla_core.get_transcendentals().empty())
-            m_params.set_bool("transcendentals", true);
         reset();
         m_literal2constraint.reset();
         m_vars2mon.reset();

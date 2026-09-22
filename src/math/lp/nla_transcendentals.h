@@ -62,21 +62,26 @@ Description:
   filter that runs before the (nonexistent, for transcendentals) exact
   decision procedure.
 
-  Incremental Taylor axioms: each app also remembers the smallest
-  number of Maclaurin-series terms (app::taylor_terms) whose sandwich
-  nra_solver should assert as a permanent nlsat clause for it (see
-  get_taylor and degree_to_exclude). It is seeded to a small default
-  degree as soon as the application is registered (so nlsat is never
-  handed a completely unconstrained val), and is bumped further, on
-  demand, only when check_app finds an actual delta-check failure: the
-  degree is chosen to be just large enough that the resulting sandwich
-  excludes the specific faulty (arg, val) witness that was observed,
-  rather than eagerly asserting a fixed high-degree polynomial for
-  every application regardless of whether nlsat's search ever needed
-  it. This keeps the polynomial problem nlsat has to solve as small as
-  possible while still making progress: a fresh nlsat run only pays
-  for the degree that history has shown to be necessary, beyond the
-  small default baseline.
+  Note on the split of responsibilities with nlsat: this module used
+  to also derive its own reactive Taylor-sandwich/box-refinement
+  polynomial lemmas whenever the delta-check above failed (bracketing
+  arg in a small box, sampling op in floating point over that box, and
+  asserting the resulting enclosure as a conflict clause). That
+  machinery has been removed: it was floating point-driven and could
+  nudge the LP assignment indefinitely without ever producing a
+  certificate, and it duplicated exact, terminating refinement that
+  nlsat now performs itself (see nlsat/nlsat_transcendentals.h/.cpp,
+  in particular its Taylor/Maclaurin brackets for exp/log/atan/sin/cos).
+  Instead, a delta-check failure here is only recorded
+  (has_observed_failure); core::check_transcendentals_and_finish uses
+  that, together with should_run_bounded_nlsat()'s backoff scheduler,
+  to hand the problem to nra_solver/nlsat, whose own
+  nlsat::transcendentals engine refines the polynomial constraints
+  relating arg and val internally. This module therefore only ever
+  contributes *linear* facts to the LP relaxation (range axioms,
+  global linear-majorant/monotonicity/sign lemmas below), while every
+  polynomial constraint on a transcendental application is owned by
+  nlsat.
 
   Two additional, stronger propagation mechanisms are layered on top of
   the per-application delta-check above:
@@ -131,24 +136,6 @@ Description:
     bound, and is tried with the same priority as the linear majorant,
     before the floating point delta-check.
 
-  - Wide-box refinement: when a delta-check does fail, check_app first
-    tries to build the box-refinement lemma (see above) using arg's
-    *actual currently known bounds* in the LP (lar_solver's column
-    bounds), rather than a tiny epsilon-sized window around the exact
-    current value. Unlike the tiny box, this lemma does not depend on
-    the specific value the input happened to take: it is a genuine,
-    reusable "(input is within its already-asserted range) => (output
-    is within the corresponding function range)" fact, closer in spirit
-    to the paper's Algorithm 2 which recomputes boxes from the trail's
-    current bounds rather than from an arbitrary point sample. Sound
-    range enclosure over such a (possibly wide) box requires accounting
-    for critical points of periodic/non-monotonic functions (sin, cos,
-    tan, cosh), which wide_interval_eval does in closed form; if the box
-    cannot be soundly enclosed this way (e.g. tan has a pole inside it)
-    the code falls back to the tiny local box, which by construction
-    always exhibits the inconsistency that triggered check_app in the
-    first place.
-
 --*/
 #pragma once
 #include "math/lp/nla_types.h"
@@ -164,38 +151,6 @@ namespace nla {
             nlsat::transcendental_op_kind op;
             lpvar                  arg;
             lpvar                  val;
-            // Number of Taylor terms whose sandwich axiom nra_solver should
-            // assert for this application. Seeded to a small default degree
-            // for ops that support it (see k_default_taylor_terms in
-            // nla_transcendentals.cpp) as soon as the application is
-            // registered, so nlsat always has *some* algebraic connection
-            // between arg and val; bumped further (never decreased) by
-            // check() only once a delta-check failure exposes an actual
-            // inconsistent model, to just enough terms to exclude that
-            // specific (arg, val) witness -- see check_app/
-            // degree_to_exclude.
-            unsigned               taylor_terms = 0;
-        };
-
-        // A Maclaurin (Taylor-at-0) polynomial sandwich for a transcendental
-        // op: T(x) = sum(coeff * x^power), sound over all reals (not just a
-        // local box) via the Lagrange remainder, i.e.
-        //   T(x) - remainder_coeff*x^remainder_power <= op(x) <= T(x) + remainder_coeff*x^remainder_power
-        // remainder_power is always even (see nla_transcendentals.cpp for the
-        // derivation), so the remainder term is manifestly non-negative and
-        // no case split on the sign of x is needed. Consumers (nra_solver)
-        // use this to inject a permanent polynomial axiom relating val and
-        // arg directly into the nlsat problem, giving nlsat's polynomial
-        // search an actual algebraic connection between the two instead of
-        // treating val as an opaque, unconstrained real.
-        struct taylor_term {
-            rational coeff;
-            unsigned power;
-        };
-        struct taylor_bounds {
-            vector<taylor_term> poly;
-            rational            remainder_coeff;
-            unsigned            remainder_power;
         };
 
         // A registered application of the binary function atan2(y, x),
@@ -259,48 +214,25 @@ namespace nla {
         vector<app> const& apps() const { return m_apps; }
         vector<atan2_app> const& atan2_apps() const { return m_atan2_apps; }
 
-        // fills out a Taylor sandwich using num_terms terms of the Maclaurin
-        // series for op; returns false if none is available yet (currently
-        // implemented for SIN and COS only) or if num_terms == 0.
-        static bool get_taylor(nlsat::transcendental_op_kind op, unsigned num_terms, taylor_bounds& out);
-
         // delta-check every registered application against the current
-        // assignment; asserts a box-refinement lemma via lemma_builder
-        // when an application is found inconsistent.
+        // assignment; asserts a lemma via lemma_builder for exact,
+        // tolerance-free facts (linear majorant/monotonicity/sign/range),
+        // and records has_observed_failure for a plain delta-check
+        // failure - see the module comment.
         void check();
 
-        // Certify (or refute) an nra (nlsat) model as an acceptable model
-        // for all registered transcendental applications, using the
-        // Taylor-sandwich remainder at each application's *actual* nlsat
-        // witness (read via core::nra_model_bound, not the stale plain-LP
-        // core::val). Requires use_nra_model() and a Taylor sandwich to be
-        // available for every registered op; returns false (reject) rather
-        // than trying to be clever when either is missing, since there is
-        // then no certificate that val is a good enough approximation of
-        // op(arg). This is what allows bounded_nlsat()'s l_true, obtained
-        // using the (sound but possibly very loose, for large |arg|) Taylor
-        // sandwich axioms, to be trusted as an actual model.
+        // Sanity-checks nra_solver's (nlsat's) own model against the plain
+        // delta-tolerance used by check_app, using each application's
+        // *actual* nlsat witness (read via core::nra_model_bound, not the
+        // stale plain-LP core::val). See the module comment for why this
+        // is expected to always pass.
         bool check_nra_model();
 
-        // true once at least one application has an accumulated Taylor
-        // axiom (see app::taylor_terms); used to gate bounded_nlsat calls
-        // that would otherwise be pointless (no axiom yet means nlsat has
-        // no more information about any val than "free real").
-        bool has_axioms() const {
-            for (auto const& a : m_apps)
-                if (a.taylor_terms > 0)
-                    return true;
-            return false;
-        }
-
-        // true once check_app has actually observed a delta-check failure
-        // (as opposed to every application merely carrying its seeded
-        // default-degree axiom from registration). Unlike has_axioms, this
-        // does not trip on the very first, typically-trivial round where
-        // the current assignment already passes the plain delta-check:
-        // handing that problem to nlsat too would only add cost (and risk)
-        // for no expected benefit, since the reactive delta-check alone
-        // was already about to succeed.
+        // true once check_app has actually observed a delta-check failure.
+        // Used to gate bounded_nlsat calls that would otherwise be
+        // pointless: handing the problem to nlsat too early (before any
+        // failure) would only add cost for no expected benefit, since the
+        // reactive delta-check alone was already about to succeed.
         bool has_observed_failure() const { return m_num_failures > 0; }
 
     private:
@@ -353,36 +285,6 @@ namespace nla {
         // below). Asserted as a single-literal lemma (no case split
         // needed, since it holds for every t) whenever violated.
         bool check_exp_lower_bound(app& a);
-        // EXP: an exact rational Maclaurin sandwich for exp(arg), valid
-        // only while -1 <= arg <= 0 (there exp's series is a genuine
-        // alternating series with non-increasing term magnitude from the
-        // first term onward), using the same classical alternating-series
-        // bracket idea as check_atan_taylor_range. This closes a gap that
-        // check_exp_lower_bound alone leaves open near arg = 0, where the
-        // tangent-line bound permits exp(arg) to be set arbitrarily far
-        // above its true value.
-        bool check_exp_taylor_range(app& a);
-        // The exact rational Maclaurin bracket [lo, hi] for exp(x) at the
-        // single point x; factored out of check_exp_taylor_range so it
-        // can also be evaluated at points other than the current witness
-        // (see check_exp_taylor_range for why).
-        static bool exp_taylor_bracket_at(rational const& x, rational& lo, rational& hi);
-        // A small rational half-width around xr used to widen a
-        // point-exact Taylor bracket into a genuine excluded interval;
-        // see check_atan_taylor_range/check_sin_cos_taylor_range/
-        // check_exp_taylor_range.
-        static rational taylor_exclusion_delta(core& c, rational const& xr);
-        // Shared by check_atan_taylor_range/check_sin_cos_taylor_range:
-        // both ops satisfy |f'(x)| <= 1 everywhere, so the point bound
-        // [lo, hi] at xr widens to [lo - delta, hi + delta] over
-        // [xr-delta, xr+delta] for any delta. Searches (by halving,
-        // starting from delta0) for the largest delta whose widened bound
-        // still conflicts with the current witness yr; falls back to
-        // delta = 0 (the original point bound, always a valid conflict by
-        // the caller's precondition) if none of the halvings do.
-        static void widen_unit_derivative_bound(rational const& yr, rational const& lo, rational const& hi,
-                                                 bool is_lower, rational delta0,
-                                                 rational& delta_out, rational& bound_out);
         // EXP: monotonicity - exp(x1) < exp(x2) whenever x1 < x2. Checked
         // pairwise across all registered EXP applications (the paper's
         // "Monotonicity constraint"); asserted as a two-literal lemma
@@ -402,66 +304,9 @@ namespace nla {
         // any pairing where either argument is non-positive (out of log's
         // domain, not this check's responsibility).
         bool check_log_monotonicity(app& a);
-        // LOG: an exact rational Mercator-series (Taylor-at-1) sandwich
-        // for log(arg), valid only while 1 <= arg <= 2 (there, writing
-        // u = arg-1 in [0,1], log(1+u) = sum (-1)^(n+1) u^n/n is a genuine
-        // alternating series with non-increasing term magnitude), using
-        // the same classical alternating-series bracket idea as
-        // check_atan_taylor_range/check_exp_taylor_range. This closes a
-        // gap that check_log_upper_bound alone leaves open (no lower
-        // bound, and the upper bound's margin vanishes as arg -> 1).
-        bool check_log_taylor_range(app& a);
-        // The exact rational Mercator bracket [lo, hi] for log(x) at the
-        // single point x (1 <= x <= 2 only); factored out of
-        // check_log_taylor_range so it can also be evaluated at points
-        // other than the current witness (see check_exp_taylor_range's
-        // analogous exp_taylor_bracket_at for why).
-        static bool log_taylor_bracket_at(rational const& x, rational& lo, rational& hi);
-        // ATAN: an exact rational Maclaurin sandwich for atan(arg), valid
-        // only while -1 <= arg <= 1 (atan's Maclaurin series has radius of
-        // convergence 1, unlike sin/cos which are entire), using the
-        // classical alternating-series bracket (consecutive partial sums
-        // enclose the true value whenever the terms are non-increasing in
-        // magnitude, which holds throughout this domain). Computed
-        // directly in exact rational arithmetic at arg's current value
-        // (unlike the generic float-based box-refinement below), so this
-        // is tried - like the other exact checks above - before falling
-        // back to it. Asserted as a lemma gated by (arg < -1 \/ arg > 1 \/
-        // ...) whenever violated; a no-op outside [-1, 1].
-        bool check_atan_taylor_range(app& a);
-        // SIN/COS: an exact rational Maclaurin sandwich for sin(arg) or
-        // cos(arg), analogous to check_atan_taylor_range/
-        // check_exp_taylor_range but using get_taylor's exact rational
-        // polynomial + remainder bound (sin/cos are entire, so - unlike
-        // atan/exp - no domain restriction is needed for the *bound itself*
-        // to be valid; a fixed |arg| cutoff is applied purely to keep the
-        // exact rational arithmetic and remainder bound tractable/useful).
-        // Tried before the general float-tolerance-gated box refinement in
-        // check_app, so it also catches violations whose true margin is
-        // narrower than arith.nl.transcendental_tolerance.
-        bool check_sin_cos_taylor_range(app& a);
-        // Smallest number of Taylor terms (1..max_terms) such that the
-        // (floating point estimate of the) resulting sandwich at x
-        // provably excludes y, i.e. would contradict the faulty model
-        // (x, y) if asserted; 0 if no such degree is found within
-        // max_terms (x too large / y too close to op(x) for this
-        // approach to help).
-        static unsigned degree_to_exclude(nlsat::transcendental_op_kind op, double x, double y, unsigned max_terms = 30);
         static double eval(nlsat::transcendental_op_kind op, double x);
         static double error_bound(nlsat::transcendental_op_kind op, double x, double fx);
         static char const* op_name(nlsat::transcendental_op_kind op);
-        // enclosure [lo_val, hi_val] of op over the (intentionally tiny) box
-        // [lo, hi], inflated by error_bound at the box endpoints/center;
-        // sound as long as op does not stray far from monotonic between lo
-        // and hi (true for a small enough box, but not in general).
-        static void interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
-        // A sound enclosure [lo_val, hi_val] of op over a (possibly wide)
-        // box [lo, hi], accounting in closed form for op's critical points
-        // (sin/cos maxima/minima, cosh's minimum at 0) so it remains valid
-        // regardless of box width. Returns false when no sound enclosure by
-        // this method is available (tan has a pole inside [lo, hi]); the
-        // caller should fall back to interval_eval on a tiny box instead.
-        static bool wide_interval_eval(nlsat::transcendental_op_kind op, double lo, double hi, double& lo_val, double& hi_val);
         // exact rational equal to the (finite) double d.
         static rational to_rational(double d);
         // asserts permanent, unconditional column bounds on val that hold

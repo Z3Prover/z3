@@ -322,10 +322,10 @@ struct goal2nlsat::imp {
     // with nlsat's own transcendental engine (nlsat_transcendentals.*),
     // creating argument variables (with a linking equality axiom, if
     // needed) along the way. Handles the unary ops (get_transcendental_op),
-    // the binary atan2(y, x), and the nullary constant pi. Enables the
-    // "transcendentals" solver param the moment at least one such
-    // application is found, so solver::imp::search_check actually invokes
-    // the refinement loop.
+    // the binary atan2(y, x), and the nullary constant pi. Refinement is
+    // enabled automatically inside solver::imp::search_check the moment at
+    // least one such application is registered - no separate solver param
+    // needed.
     void register_transcendentals() {
         vector<std::pair<expr*, polynomial::var>> found;
         vector<std::pair<app*, polynomial::var>> atan2_found;
@@ -360,10 +360,6 @@ struct goal2nlsat::imp {
         }
         if (pi_found.first != nullptr)
             m_solver.add_pi(pi_found.second);
-        params_ref p2;
-        p2.copy(m_params);
-        p2.set_bool("transcendentals", true);
-        m_solver.updt_params(p2);
     }
 
     void operator()(goal const & g) {

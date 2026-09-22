@@ -72,7 +72,7 @@ class nlsat_tactic : public tactic {
         static bool is_supported_transcendental(ast_manager & m, expr * t) {
             if (!is_app(t))
                 return false;
-            if (to_app(t)->get_family_id() != m.get_family_id("arith"))
+            if (to_app(t)->get_family_id() != arith_family_id)
                 return false;
             unsigned n = to_app(t)->get_num_args();
             switch (to_app(t)->get_decl_kind()) {

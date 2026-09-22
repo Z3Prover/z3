@@ -185,12 +185,10 @@ namespace nlsat {
         switch (op) {
         case transcendental_op_kind::SIN:
         case transcendental_op_kind::COS: {
-            literal lits[2] = {
-                ~bound_literal(s, val, atom::GT, rational(1)),
-                ~bound_literal(s, val, atom::LT, rational(-1))
-            };
-            s.mk_clause(1, lits, nullptr);     // NOT(val > 1)
-            s.mk_clause(1, lits + 1, nullptr); // NOT(val < -1)
+            auto lit1 = ~bound_literal(s, val, atom::GT, rational(1));
+            s.mk_clause(1, &lit1, nullptr); // NOT(val > 1)
+            auto lit2 = ~bound_literal(s, val, atom::LT, rational(-1));
+            s.mk_clause(1, &lit2, nullptr); // NOT(val < -1)
             break;
         }
         case transcendental_op_kind::TANH: {
@@ -212,22 +210,18 @@ namespace nlsat {
         }
         case transcendental_op_kind::ASIN: {
             rational bnd = to_rational(k_pi_2_ub);
-            literal lits[2] = {
-                ~bound_literal(s, val, atom::GT, bnd),
-                ~bound_literal(s, val, atom::LT, -bnd)
-            };
-            s.mk_clause(1, lits, nullptr);
-            s.mk_clause(1, lits + 1, nullptr);
+            auto lit1 = ~bound_literal(s, val, atom::GT, bnd);
+            s.mk_clause(1, &lit1, nullptr);
+            auto lit2 = ~bound_literal(s, val, atom::LT, -bnd);
+            s.mk_clause(1, &lit2, nullptr);
             break;
         }
         case transcendental_op_kind::ACOS: {
             rational bnd = to_rational(k_pi_ub);
-            literal lits[2] = {
-                ~bound_literal(s, val, atom::GT, bnd),
-                ~bound_literal(s, val, atom::LT, rational(0))
-            };
-            s.mk_clause(1, lits, nullptr);
-            s.mk_clause(1, lits + 1, nullptr);
+            auto lit1 = ~bound_literal(s, val, atom::GT, bnd);
+            s.mk_clause(1, &lit1, nullptr);
+            auto lit2 = ~bound_literal(s, val, atom::LT, rational(0));
+            s.mk_clause(1, &lit2, nullptr);
             break;
         }
         default:
@@ -337,6 +331,12 @@ namespace nlsat {
         // bracket_at(xlo)'s lower half and bracket_at(xhi)'s upper half
         // together soundly enclose the op over the whole [xlo, xhi], with
         // no floating point round-off risk anywhere in the computation.
+        // SIN/COS are not monotonic on all of [xlo, xhi] (they can have an
+        // extremum strictly inside it), so they instead go through
+        // sin_cos_taylor_bracket, which combines the two endpoint brackets
+        // the same way but additionally clamps to +-1 whenever a periodic
+        // extremum might fall inside the interval (detected using a
+        // verified rational bracket for pi, so it stays exact throughout).
         rational rlo, rhi;
         bool have_exact = false;
         {
@@ -351,10 +351,16 @@ namespace nlsat {
             case transcendental_op_kind::ATAN:
                 have_exact = atan_taylor_bracket_at(xlo, lo1, hi1) && atan_taylor_bracket_at(xhi, lo2, hi2);
                 break;
+            case transcendental_op_kind::SIN:
+                have_exact = transcendental_eval::sin_cos_taylor_bracket(transcendental_eval::op_kind::SIN, xlo, xhi, rlo, rhi);
+                break;
+            case transcendental_op_kind::COS:
+                have_exact = transcendental_eval::sin_cos_taylor_bracket(transcendental_eval::op_kind::COS, xlo, xhi, rlo, rhi);
+                break;
             default:
-                break; // SIN/COS: not monotonic, use interval_eval's extremum-aware double enclosure instead.
+                break; // remaining ops: use interval_eval's extremum-aware double enclosure instead.
             }
-            if (have_exact) {
+            if (have_exact && a.op != transcendental_op_kind::SIN && a.op != transcendental_op_kind::COS) {
                 rlo = lo1;
                 rhi = hi2;
             }

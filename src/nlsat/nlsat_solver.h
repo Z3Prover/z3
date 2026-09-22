@@ -124,7 +124,9 @@ namespace nlsat {
         /**
            \brief Register a transcendental function application (sin/cos/exp/atan)
            to be refined directly by nlsat's own search loop; see
-           nlsat_transcendentals.h and the "nlsat.transcendentals" parameter.
+           nlsat_transcendentals.h. Refinement is enabled automatically the
+           moment at least one such application is registered - there is no
+           separate on/off parameter.
         */
         void add_transcendental(transcendental_op_kind op, var arg, var val);
 
@@ -142,9 +144,9 @@ namespace nlsat {
         void add_atan2(var y, var x, var val);
 
         /**
-           \brief True if the "nlsat.transcendentals" parameter is enabled,
-           i.e. registered transcendental applications (see
-           add_transcendental) are refined by this solver's own search loop.
+           \brief True if at least one transcendental application has been
+           registered (see add_transcendental/add_pi/add_atan2), i.e. this
+           solver's own search loop refines them.
         */
         bool transcendentals_enabled() const;
 

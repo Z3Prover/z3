@@ -40,8 +40,7 @@ Abstract:
   UINT_  (lws_spt_threshold,               "lws_spt_threshold",               4,         "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree") \
   BOOL_  (lws_witness_subs_lc,             "lws_witness_subs_lc",             true,      "try substitute the non-nullified witness by the lc") \
   BOOL_  (lws_witness_subs_disc,           "lws_witness_subs_disc",           true,      "try substitute the non-nullified witness by the discriminant") \
-  BOOL_  (canonicalize,                    "canonicalize",                    true,      "canonicalize polynomials.") \
-  BOOL_  (transcendentals,                 "transcendentals",                 false,     "handle transcendental function applications (sin/cos/exp/atan) directly inside nlsat's own search loop instead of relying on the caller to supply and refresh Taylor axioms (see nlsat_transcendentals.*)")
+  BOOL_  (canonicalize,                    "canonicalize",                    true,      "canonicalize polynomials.")
 
 Z3_DEFINE_MODULE_PARAMS(nlsat_params, "nlsat", NLSAT_PARAMS_LIST);
 
