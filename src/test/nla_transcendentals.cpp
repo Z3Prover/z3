@@ -7,9 +7,14 @@ Module Name:
 
 Abstract:
 
-    Tests for cross-application transcendental identity axioms
-    (nla::transcendentals::sin_cos_pairs/cosh_sinh_pairs/cosh_tanh_pairs,
-    consumed by nra_solver::add_identity_axioms) in math/lp.
+    Tests for cross-application transcendental identity axioms. The
+    identity pairs (sin/cos, sinh/cosh, cosh/tanh sharing the same
+    argument) are no longer tracked on the nla side: nra_solver forwards
+    every registered application straight to nlsat, and
+    nlsat::transcendentals::add (nlsat/nlsat_transcendentals.cpp) itself
+    discovers matching pairs and asserts the corresponding permanent
+    polynomial identity. These tests exercise that end-to-end behavior
+    through nla::core/nra_solver.
 
 Author:
 
