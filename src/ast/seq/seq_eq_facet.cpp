@@ -238,9 +238,7 @@ namespace seq {
                         conflict_dep = m_dm.mk_join(parent_dep, false_dep);
                         return false;
                     }
-                    auto ambient = get_ambient(n);
-                    ambient.solver_facet_ref().add_constraint(eq_expr, parent_dep);
-                    ambient.assumption_facet_ref().add_assumption(eq_expr, ambient.context());
+                    get_ambient(n).add_assumption(eq_expr, parent_dep);
                 }
             }
             add_equation(lts, rts, parent_dep);

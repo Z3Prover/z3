@@ -111,6 +111,14 @@ namespace seq {
         // plugin, from still acting on this same obligation.
         bool                 m_fw_marked = false;
 
+        // power_split has taken its residual `n > bound` branch: the obligation stays
+        // pending for the other rules, power_split does not re-enumerate it. Trailed.
+        bool                 m_split_exhausted = false;
+
+        // power_num_cmp/power_split_elim already compared this exponent in this branch
+        // (arith-only rules: re-offering the same split would loop). Trailed.
+        bool                 m_cmp_marked = false;
+
         // Append-only representation: m_pows is never erased/shifted
         // (mirrors eq_facet/deq_facet's discipline - see seq_eq_facet.h's
         // `equation::m_active` comment). "Removing" an obligation just
@@ -118,7 +126,7 @@ namespace seq {
         // back to true on backtrack); no index is ever invalidated by a
         // removal elsewhere. This matters here specifically because
         // several split plugins' iterators (power_split, power_fine_wilf,
-        // power_var_peel, and mem_facet's power_var_peel_mem) persist a
+        // power_peel, and mem_facet's power_peel_mem) persist a
         // raw index into this vector across multiple next() calls that
         // span DFS branch resumptions - a shift-based removal of some
         // other (earlier-indexed) obligation in between (e.g. from a
@@ -137,7 +145,7 @@ namespace seq {
      * Facet holding a set of pending `s^n` obligations. See module
      * comment for the propagation/split responsibilities.
      */
-    class power_facet : public stx::facet_i {
+    class power_facet : public stx::facet_i, public subst_sink_i {
         ast_manager&    m;
         seq_util&       u;
         arith_util&     a;
@@ -157,10 +165,12 @@ namespace seq {
         unsigned max_unfold() const { return m_max_unfold; }
         void set_max_unfold(unsigned k) { m_max_unfold = k; }
 
-        // Trailed: for adding a power obligation (root construction or
-        // mid-search alike - all constraint additions are trailed, no
-        // exception). Undo just pops the pushed element.
+        // Trailed and idempotent: obligations are keyed by the power term, so
+        // re-registering a pending term is a no-op. Undo just pops the pushed element.
         void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
+            unsigned idx;
+            if (find_power(e, idx))
+                return;
             m_pows.push_back(str_power(m, e, s, n, dep));
             m_trail.push(push_back_trail<str_power>(m_pows));
         }
@@ -204,15 +214,13 @@ namespace seq {
         // holding onto `idx` (see str_power::m_active comment).
         void remove(unsigned idx);
 
-        // Mark `idx`'s obligation as having had its length axioms
-        // asserted (so power_propagation does not re-assert them every
-        // round). Trailed.
-        void set_axiomatized(unsigned idx);
+        // Set one of str_power's flags (m_axiomatized, m_fw_marked, ...). Trailed.
+        void mark(unsigned idx, bool str_power::* flag);
 
-        // Mark `idx`'s obligation as having had power_fine_wilf's case-1
-        // ("small overlap") branch already offered (see str_power's
-        // m_fw_marked comment). Trailed.
-        void set_fw_marked(unsigned idx);
+        // -- subst_sink_i --
+        // Registers power tokens in `repl`, discharges `var` if it is a power token, and
+        // rebases obligations whose base mentions `var` (the token itself keeps its identity).
+        void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
@@ -243,7 +251,8 @@ namespace seq {
     };
 
     // Bounded case-split completeness driver for symbolic exponents: see
-    // module comment.
+    // module comment. A final residual branch `n > bound` (obligation left
+    // pending) keeps the split exhaustive.
     class power_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -414,15 +423,16 @@ namespace seq {
             eq_tree::node& m_n;
             expr_ref       m_n_exp;
             expr_ref       m_m_exp;
+            unsigned       m_lidx, m_ridx;
             eq_tree::dep_tracker m_dep;
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, expr* n_exp, expr* m_exp,
+            iterator(eq_tree::node& n, expr* n_exp, expr* m_exp, unsigned lidx, unsigned ridx,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_dep(dep), m(m), u(u), a(a) {}
+                m_n(n), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_lidx(lidx), m_ridx(ridx), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
@@ -475,15 +485,16 @@ namespace seq {
             eq_tree::node& m_n;
             expr_ref       m_pow_exp;
             expr_ref       m_count;
+            unsigned       m_pow_idx;
             eq_tree::dep_tracker m_dep;
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, expr* pow_exp, expr* count,
+            iterator(eq_tree::node& n, expr* pow_exp, expr* count, unsigned pow_idx,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_exp(pow_exp, m), m_count(count, m), m_dep(dep), m(m), u(u), a(a) {}
+                m_n(n), m_pow_exp(pow_exp, m), m_count(count, m), m_pow_idx(pow_idx), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
@@ -502,43 +513,11 @@ namespace seq {
         stats m_stats;
     };
 
-    // Power-vs-variable peel, ported from the c3 branch's
-    // seq_nielsen_modifiers.cpp `apply_var_num_unwinding_eq`. Trigger
-    // pattern: some eq_facet equation has, at the same directional end
-    // (front or back) of its two sides, a power token `U^n` opposite a
-    // Nielsen-substitutable variable token `v` (i.e. neither a unit nor
-    // a power - per z3papers/nseq's README.md section 5.1.1 token model;
-    // computed locally as `!u.str.is_unit(x) && !u.str.is_power(x)`,
-    // mirroring word_eq_split's own convention, not via
-    // ambient_context_i::is_var/theory_seq::is_var). This is exactly
-    // word_eq_split's "one side unit, other side variable" case, except
-    // with the unit token replaced by a power token - word_eq_split
-    // itself explicitly skips any equation whose head is a power (see
-    // its own comment), so this rule is what fills that gap for the
-    // power-vs-variable pairing specifically (the power-vs-non-variable
-    // pairing, e.g. power-vs-unit or power-vs-different-base-power, is
-    // instead power_num_cmp/power_split_elim's territory - a plain
-    // "peel one copy" step like this one would be unsound/incomplete
-    // there since a non-variable head cannot simply be grown by
-    // `v := u.v'`).
-    //
-    // Two branches (both justified by the equation's own dependency):
-    //   1. `n = 0`: replace `U^n` with epsilon (progress). Side
-    //      constraint `n = 0` (via `n>=0` and `n<=0`, matching c3's own
-    //      two-clause form for this branch specifically - see
-    //      `apply_var_num_unwinding_eq`, as opposed to
-    //      `apply_const_num_unwinding`'s single `n=0` clause for the
-    //      analogous non-variable-head case; c3 is not fully consistent
-    //      between the two, but both encode the same fact).
-    //   2. `n >= 1`: peel one copy, replacing `U^n` with `U . U^(n-1)`
-    //      (a *nested* power token, not a fresh string variable, so
-    //      that ordinary propagation/simplification can merge/cancel
-    //      adjacent same-base powers exactly as power_split's own
-    //      per-`j` unfold does) at the same directional end that `U^n`
-    //      originally occupied, and substituting `v := U . v'` for a
-    //      fresh `v'` on the other side (the variable's own Nielsen
-    //      peel, in lock-step with the power's).
-    class power_var_peel : public eq_tree::split_plugin_i {
+    // Peel one copy off a power at a directional end of an equation, whatever
+    // the opposite token is (c3's apply_const_num_unwinding / apply_var_num_unwinding_eq):
+    // `n <= 0` (U^n := epsilon) or `n >= 1` (U^n := U . U^(n-1)). The exposed
+    // head of U is then handled by the ordinary rules.
+    class power_peel : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
@@ -546,31 +525,26 @@ namespace seq {
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
             unsigned       m_eq_idx;
-            bool           m_pow_on_lhs;
             bool           m_fwd;
             unsigned       m_pow_idx;
-            expr_ref       m_var; // the variable token opposite U^n, captured before any mutation
             eq_tree::dep_tracker m_dep;
             bool           m_done = false;
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
         public:
-            iterator(eq_tree::node& n,
-                      unsigned eq_idx, bool pow_on_lhs, bool fwd, unsigned pow_idx, expr* var,
+            iterator(eq_tree::node& n, unsigned eq_idx, bool fwd, unsigned pow_idx,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n),
-                m_eq_idx(eq_idx), m_pow_on_lhs(pow_on_lhs), m_fwd(fwd), m_pow_idx(pow_idx), m_var(var, m),
-                m_dep(dep), m(m), u(u), a(a) {}
+                m_n(n), m_eq_idx(eq_idx), m_fwd(fwd), m_pow_idx(pow_idx), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
     public:
-        power_var_peel(ast_manager& m, seq_util& u, arith_util& a) :
+        power_peel(ast_manager& m, seq_util& u, arith_util& a) :
             m(m), u(u), a(a) {}
-        char const* name() const override { return "power-var-peel"; }
+        char const* name() const override { return "power-peel"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-power-var-peel num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-peel num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     private:
         struct stats {
@@ -588,12 +562,12 @@ namespace seq {
     // opposite a power token `U^n` at the matching end of the other
     // side, where `U`'s own flattened base is itself made of more than
     // one token pattern instance the rule can decompose against.
-    // Unlike `power_var_peel` (which only ever peels a single copy of
+    // Unlike `power_peel` (which only ever peels a single copy of
     // `U` and keeps the remaining `U^(n-1)` as an opaque nested power),
     // this rule decomposes `U`'s *own* base token pattern at every
     // possible position, and additionally offers a "non-progress"
     // branch where `v` simply extends past the whole power term. Since
-    // both rules can fire on the same trigger, and `power_var_peel`'s
+    // both rules can fire on the same trigger, and `power_peel`'s
     // single-copy peel is strictly the cheaper/more incremental step,
     // this rule is intentionally not merged with it - both are offered
     // by the search driver's own cost-ordering machinery, not gated

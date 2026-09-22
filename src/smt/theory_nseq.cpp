@@ -182,13 +182,13 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
-        m_tree.add_split_plugin(alloc(seq::power_var_peel, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
-        m_tree.add_split_plugin(alloc(seq::power_var_peel_mem, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
 
         m_tree.set_max_search_depth(30);
@@ -484,6 +484,9 @@ namespace smt {
             hf.add_term(n);
             ensure_length_var(s);
         }
+        // s^k: register the power obligation (otherwise the term is an opaque token
+        // without length link or unfolding)
+        m_ambient->power_facet(*m_root).add_power_if(n);
         if (m_seq.str.is_length(n)      ||
             m_seq.str.is_index(n)       ||
             m_seq.str.is_last_index(n)  ||

@@ -22,6 +22,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_power_facet.h"
+#include "ast/seq/seq_assumption_facet.h"
 #include "smt/seq_solver_facet.h"
 #include <iostream>
 
@@ -39,6 +40,7 @@ namespace {
         stx::facet_id    eq_id;
         stx::facet_id    arith_id;
         stx::facet_id    pow_id;
+        stx::facet_id    assumption_id;
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
@@ -51,11 +53,13 @@ namespace {
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
             pow_id(tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr())),
+            assumption_id(tree.register_facet<seq::assumption_facet>(*root, m)),
             ac(m, u, trail)
         {
             ac.set_eq_id(eq_id);
             ac.set_arith_id(arith_id);
             ac.set_pow_id(pow_id);
+            ac.set_assumption_id(assumption_id);
             tree.set_ambient_context(&ac);
             tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
             tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
@@ -64,7 +68,7 @@ namespace {
             tree.add_split_plugin(alloc(seq::power_fine_wilf, m, u, a));
             tree.add_split_plugin(alloc(seq::power_num_cmp, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split_elim, m, u, a));
-            tree.add_split_plugin(alloc(seq::power_var_peel, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_peel, m, u, a));
             tree.add_split_plugin(alloc(seq::power_var_decompose, m, u, a));
             tree.add_split_plugin(alloc(seq::power_gpower_intro, m, u, a));
             tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
@@ -163,21 +167,9 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // Fine & Wilf trigger, arithmetic-only conflict: e_u = X^n (base X),
-    // e_w = Y^m (base Y, distinct term from X) with equation e_u = e_w
-    // (Y-run empty, so this is exactly power_fine_wilf's trigger
-    // pattern with two *distinct* bases). Forcing len(e_u) way past any
-    // bound power_split could ever unfold to (n is left otherwise
-    // unconstrained) must still be refutable: arith_propagation's
-    // automatic add_length_constraint over this same equation forces
-    // len(e_u)=len(e_w), and power_fine_wilf's case-1 side constraint
-    // `len(e_u)-0 < T \/ len(e_w) < T` (T = len(X)+len(Y) = 2, since X,Y
-    // are both length-1 fresh string constants) then has no way to hold
-    // once len(e_u)=len(e_w)=1000, exercising the plugin's arithmetic
-    // path directly rather than power_split's bounded combinatorial
-    // unfold (whose default bound of 5 could never itself witness or
-    // refute an exponent this large).
-    static void tst_fine_wilf_large_exponent_unsat() {
+    // X^n = Y^m, len(X) = len(Y) = 1, len(e_u) = 1000: satisfiable (X = Y, n = m = 1000)
+    // but far beyond the unfolding bound - must not be refuted (sat or unknown).
+    static void tst_fine_wilf_large_exponent_not_refuted() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -194,7 +186,7 @@ namespace {
             fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
         fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
             fx.m.mk_eq(fx.u.str.mk_length(e_u), fx.a.mk_int(1000)));
-        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+        ENSURE(fx.tree.solve() != stx::search_result::unsat);
     }
 
     // Same trigger pattern but a satisfiable instance: e_u = X^n,
@@ -328,12 +320,12 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_var_peel ("apply_var_num_unwinding_eq" in c3): X^N = Y where
+    // power_peel ("apply_var_num_unwinding_eq" in c3): X^N = Y where
     // Y is a plain Nielsen-substitutable variable (not a unit, not a
     // power) - word_eq_split itself explicitly skips any equation whose
-    // head is a power, so without power_var_peel this equation could
+    // head is a power, so without power_peel this equation could
     // never make progress. Must be sat, e.g. via N=0 (X^0=epsilon=Y).
-    static void tst_power_var_peel_sat() {
+    static void tst_power_peel_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -344,13 +336,13 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // power_var_peel, forced unsat: X^N = Y with len(X)=2, len(Y)=5 (not
+    // power_peel, forced unsat: X^N = Y with len(X)=2, len(Y)=5 (not
     // a multiple of len(X)) - power_propagation's own length-only axiom
     // (len(e)=n*len(X) once n>=1, len(e)=0 once n<=0) already refutes
-    // this regardless of how power_var_peel's own two branches are
-    // explored, so this exercises that power_var_peel's presence doesn't
+    // this regardless of how power_peel's own two branches are
+    // explored, so this exercises that power_peel's presence doesn't
     // introduce an unsound path around that conflict.
-    static void tst_power_var_peel_unsat() {
+    static void tst_power_peel_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
         expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
@@ -448,6 +440,104 @@ namespace {
 
 } // namespace
 
+    // power_facet as subst sink: idempotent add, base rebased on substitution,
+    // power token discharged and nested power registered when substituted away.
+    static void tst_power_sink_registers_and_rebases() {
+        fixture fx;
+        auto& pf = fx.root->facet_as<seq::power_facet>(fx.pow_id);
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Xp(fx.m.mk_fresh_const("Xp", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref c(fx.u.str.mk_unit(fx.u.str.mk_char('c')), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        pf.add_power(e_n, X, N);
+        pf.add_power(e_n, X, N);
+        unsigned idx;
+        ENSURE(pf.find_power(e_n, idx));
+        ENSURE(pf.powers().size() == 1);
+
+        expr_ref_vector repl(fx.m);
+        repl.push_back(c);
+        repl.push_back(Xp);
+        seq::broadcast_subst(*fx.root, X, repl, nullptr);
+        ENSURE(pf.find_power(e_n, idx));
+        expr_ref_vector base(fx.m);
+        fx.u.str.get_concat_units(pf.powers()[idx].m_s.get(), base);
+        ENSURE(base.size() == 2 && base.get(0) == c.get() && base.get(1) == Xp.get());
+
+        expr_ref N1(fx.a.mk_sub(N, fx.a.mk_int(1)), fx.m);
+        expr_ref nested(fx.u.str.mk_power(pf.powers()[idx].m_s.get(), N1), fx.m);
+        expr_ref_vector repl2(fx.m);
+        repl2.push_back(c);
+        repl2.push_back(Xp);
+        repl2.push_back(nested);
+        seq::broadcast_subst(*fx.root, e_n, repl2, nullptr);
+        ENSURE(!pf.find_power(e_n, idx));
+        ENSURE(pf.find_power(nested, idx));
+        ENSURE(pf.powers()[idx].m_n.get() == N1.get());
+    }
+
+    // "ab"^N = Y with len(Y)=12 needs N=6, beyond power_split's bound: residual
+    // branch, one peel, then power_split resolves N-1=5 (used to be refuted).
+    static void tst_power_beyond_bound_sat() {
+        fixture fx;
+        expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(ab, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, ab, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, Y);
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(12)));
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
+    // "ab"^N = Y with len(Y)=5: odd length, must be unsat (not unknown).
+    static void tst_power_beyond_bound_unsat() {
+        fixture fx;
+        expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(ab, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, ab, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_n, Y);
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(5)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
+    // no equation, power only under str.len: the length axioms alone refute len(X^N)=3, len(X)=2
+    static void tst_power_length_only_unsat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(X, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, X, N);
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(e_n), fx.a.mk_int(3)));
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(2)));
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
+    // Y^M = X X X with len(X) = len(Y) = 1: sat (X = Y, M = 3). Requires the
+    // case where the variable opposite the power is shorter than one copy of the base.
+    static void tst_power_peel_short_var_sat() {
+        fixture fx;
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref M(fx.m.mk_fresh_const("M", fx.a.mk_int()), fx.m);
+        expr_ref e_m(fx.u.str.mk_power(Y, M), fx.m);
+        expr_ref xxx(fx.u.str.mk_concat(X, fx.u.str.mk_concat(X, X)), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_m, Y, M);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(e_m, xxx);
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(X), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
 void tst_seq_power_facet() {
     tst_power_known_exponent_sat();
     tst_power_known_exponent_conflict();
@@ -460,7 +550,7 @@ void tst_seq_power_facet() {
     std::cout << "=== test5c ===\n" << std::flush;
     tst_fine_wilf_sat();
     std::cout << "=== test5d ===\n" << std::flush;
-    tst_fine_wilf_large_exponent_unsat();
+    tst_fine_wilf_large_exponent_not_refuted();
     std::cout << "=== test5e ===\n" << std::flush;
     tst_fine_wilf_progress_sat();
     std::cout << "=== test5f ===\n" << std::flush;
@@ -472,9 +562,9 @@ void tst_seq_power_facet() {
     std::cout << "=== test5i ===\n" << std::flush;
     tst_power_split_elim_unsat();
     std::cout << "=== test5j ===\n" << std::flush;
-    tst_power_var_peel_sat();
+    tst_power_peel_sat();
     std::cout << "=== test5k ===\n" << std::flush;
-    tst_power_var_peel_unsat();
+    tst_power_peel_unsat();
     std::cout << "=== test5l ===\n" << std::flush;
     tst_power_var_decompose_sat();
     std::cout << "=== test5m ===\n" << std::flush;
@@ -483,5 +573,15 @@ void tst_seq_power_facet() {
     tst_power_gpower_intro_self_cycle_unsat();
     std::cout << "=== test5o ===\n" << std::flush;
     tst_power_gpower_intro_period_compress_unsat();
+    std::cout << "=== test6 ===\n" << std::flush;
+    tst_power_sink_registers_and_rebases();
+    std::cout << "=== test6b ===\n" << std::flush;
+    tst_power_beyond_bound_sat();
+    std::cout << "=== test6c ===\n" << std::flush;
+    tst_power_beyond_bound_unsat();
+    std::cout << "=== test6d ===\n" << std::flush;
+    tst_power_length_only_unsat();
+    std::cout << "=== test6e ===\n" << std::flush;
+    tst_power_peel_short_var_sat();
     std::cout << "seq_power_facet: all tests passed\n";
 }

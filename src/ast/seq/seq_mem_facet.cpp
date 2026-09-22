@@ -467,14 +467,8 @@ namespace seq {
     }
 
 
-    // Locate a membership-side var-peel trigger: some mem_facet
-    // membership's own flattened string has a power token `U^n` at a
-    // directional end (front or back). No "opposite side" check is
-    // needed, since a membership has only one string operand (see class
-    // comment on power_var_peel_mem). Skipped if `n` is already a
-    // resolved numeral (power_propagation's known-exponent branch
-    // handles that case directly).
-    static bool find_var_peel_mem_trigger(power_facet const& f, mem_facet const& mf, arith_util& a,
+    // A power token with symbolic exponent at a directional end of a membership's string.
+    static bool find_peel_mem_trigger(power_facet const& f, mem_facet const& mf, arith_util& a,
                                            unsigned& mem_idx, bool& fwd, unsigned& pow_idx,
                                            eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < mf.memberships().size(); ++i) {
@@ -502,7 +496,7 @@ namespace seq {
         return false;
     }
 
-    bool power_var_peel_mem::iterator::next(eq_tree::edge& out) {
+    bool power_peel_mem::iterator::next(eq_tree::edge& out) {
         if (m_done)
             return false;
         m_done = true;
@@ -510,80 +504,54 @@ namespace seq {
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
-        auto& sf = ac.solver_facet_ref();
         if (m_pow_idx >= f.powers().size() || !f.powers()[m_pow_idx].active()
             || m_mem_idx >= mf.memberships().size() || !mf.memberships()[m_mem_idx].active())
             return false; // defensive; obligation/membership discharged by another route
 
-        str_power const& p = f.powers()[m_pow_idx];
-        expr* exp_n = p.m_n.get();
+        str_power p = f.powers()[m_pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
-        // Branch 2 (the remaining alternative once branch 1 - "n=0",
+        // Branch 2 (the remaining alternative once branch 1 - "n<=0",
         // materialized by split() itself - has been offered): n >= 1,
         // peel one copy: U^n -> U . U^(n-1) (nested power, same
-        // directional end), spliced directly into this membership's
-        // own string.
-        expr_ref n_minus_1(a.mk_sub(exp_n, a.mk_int(1)), m);
-        expr_ref nested_pow(u.str.mk_power(p.m_s.get(), n_minus_1.get()), m);
+        // directional end), broadcast to every occurrence of U^n.
+        expr_ref n_minus_1(a.mk_sub(p.m_n, a.mk_int(1)), m);
+        expr_ref nested_pow(u.str.mk_power(p.m_s, n_minus_1), m);
+        expr_ref_vector base(m);
+        u.str.get_concat_units(p.m_s, base);
+        expr_ref_vector repl(m);
+        if (m_fwd) { repl.append(base); repl.push_back(nested_pow.get()); }
+        else       { repl.push_back(nested_pow.get()); repl.append(base); }
 
-        expr_ref_vector const& ts = mf.memberships()[m_mem_idx].m_str;
-        SASSERT(!ts.empty());
-        expr_ref_vector s_units(m);
-        u.str.get_concat_units(p.m_s.get(), s_units);
-        expr_ref_vector new_ts(m);
-        if (m_fwd) {
-            new_ts.append(s_units);
-            new_ts.push_back(nested_pow.get());
-            for (unsigned i = 1; i < ts.size(); ++i)
-                new_ts.push_back(ts.get(i));
-        }
-        else {
-            for (unsigned i = 0; i + 1 < ts.size(); ++i)
-                new_ts.push_back(ts.get(i));
-            new_ts.push_back(nested_pow.get());
-            new_ts.append(s_units);
-        }
+        broadcast_subst(m_n, p.m_e, repl, m_dep);
+        ac.add_assumption(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
 
-        mf.replace(m_mem_idx, new_ts, m_dep);
-        sf.add_constraint(a.mk_ge(exp_n, a.mk_int(1)), m_dep);
-        f.remove(m_pow_idx);
-
-        out = eq_tree::edge("power-var-peel-mem:n>=1", m_dep, true, 0);
+        out = eq_tree::edge("power-peel-mem:n>=1", m_dep, true, 0);
         return true;
     }
 
-    scoped_ptr<eq_tree::split_iterator_i> power_var_peel_mem::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+    scoped_ptr<eq_tree::split_iterator_i> power_peel_mem::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& mf = ac.mem_facet_ref();
-        auto& sf = ac.solver_facet_ref();
 
         unsigned mem_idx, pow_idx;
         bool fwd;
         eq_tree::dep_tracker dep;
-        if (!find_var_peel_mem_trigger(f, mf, a, mem_idx, fwd, pow_idx, dep))
+        if (!find_peel_mem_trigger(f, mf, a, mem_idx, fwd, pow_idx, dep))
             return nullptr;
         has_more = true;
 
-        str_power const& p = f.powers()[pow_idx];
-        expr* exp_n = p.m_n.get();
+        str_power p = f.powers()[pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
-        // Branch 1 (first, immediately materialized): n = 0, replace
-        // U^n with epsilon (progress). c3's mem-variant asserts a
-        // single `n = 0` clause (not the eq-variant's `n>=0 /\ n<=0`
-        // pair) - preserved faithfully per rule variant.
-        expr_ref_vector ts(mf.memberships()[mem_idx].m_str);
-        SASSERT(!ts.empty());
-        unsigned drop = fwd ? 0 : ts.size() - 1;
-        ts.erase(drop);
-        mf.replace(mem_idx, ts, dep);
-        sf.add_constraint(m.mk_eq(exp_n, a.mk_int(0)), dep);
-        f.remove(pow_idx);
+        // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon
+        expr_ref_vector empty(m);
+        broadcast_subst(n, p.m_e, empty, dep);
+        ac.add_assumption(a.mk_le(p.m_n, a.mk_int(0)), dep);
 
         iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);
-        out = eq_tree::edge("power-var-peel-mem:n=0", dep, true, 0);
+        out = eq_tree::edge("power-peel-mem:n=0", dep, true, 0);
         committed = true;
         m_stats.m_num_splits++;
         return it;
@@ -813,6 +781,8 @@ namespace seq {
                 continue;
             if (is_single_var_plain(sm))
                 continue;             // handled directly by mem_facet's own view_witness
+            if (sm.m_str.size() == 1 && u.str.is_power(sm.m_str.get(0)))
+                continue;             // power_peel_mem's: narrowing its view again makes no progress
             unsigned cost = 0;
             for (expr* e : sm.m_str)
                 if (!u.str.is_unit(e))

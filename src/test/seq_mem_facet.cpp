@@ -131,7 +131,7 @@ namespace {
         }, 16) == stx::search_result::sat);
     }
 
-    // power_var_peel_mem ("apply_var_num_unwinding_mem" in c3): a
+    // power_peel_mem ("apply_var_num_unwinding_mem" in c3): a
     // membership whose string is a power term `s^n` at a directional
     // end must offer the n=0 (replace with epsilon) branch immediately
     // and, on the follow-up branch, the n>=1 peel (`s^n -> s.s^(n-1)`),
@@ -143,7 +143,7 @@ namespace {
     // nullable before a split ever gets a chance to run, which would
     // make an end-to-end solve()-based test dependent on propagation
     // ordering rather than on this rule's own logic.
-    static void tst_power_var_peel_mem_split() {
+    static void tst_power_peel_mem_split() {
         ast_manager m;
         reg_decl_plugins(m);
         seq_util u(m);
@@ -178,7 +178,7 @@ namespace {
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;
-        seq::power_var_peel_mem pvpm(m, u, a);
+        seq::power_peel_mem pvpm(m, u, a);
         auto it = pvpm.split(*root, 0, out, has_more, committed);
         ENSURE(committed && has_more && it.get() != nullptr);
 
@@ -220,7 +220,7 @@ namespace {
         tree.trail().push_scope();
         seq::eq_tree::edge out;
         bool has_more = false, committed = false;
-        seq::power_var_peel_mem pvpm(m, u, a);
+        seq::power_peel_mem pvpm(m, u, a);
         auto it = pvpm.split(*root, 0, out, has_more, committed);
         ENSURE(committed && it.get() != nullptr);
         tree.trail().pop_scope(1);
@@ -255,6 +255,6 @@ void tst_seq_mem_facet() {
     tst_dead_unsat();
     tst_single_var_sat();
     tst_two_var_monadic_sat();
-    tst_power_var_peel_mem_split();
+    tst_power_peel_mem_split();
     std::cout << "seq_mem_facet: all tests passed\n";
 }

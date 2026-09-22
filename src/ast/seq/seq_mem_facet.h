@@ -84,7 +84,7 @@ namespace seq {
         // discipline). "Removing" a membership just flips m_active to
         // false (trailed via value_trail, restored on backtrack); no
         // index is ever invalidated by a removal elsewhere. This matters
-        // here specifically because power_var_peel_mem's iterator
+        // here specifically because power_peel_mem's iterator
         // persists a raw m_mem_idx across next() calls that span DFS
         // branch resumptions. Consumers that iterate memberships() must
         // skip entries with !active().
@@ -365,30 +365,11 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Membership-side analog of `power_var_peel` (seq_power_facet.h),
-    // ported from the c3 branch's `seq_nielsen_modifiers.cpp`
-    // `apply_var_num_unwinding_mem` (facet-eq-deq.md /
-    // facet-membership.md). Trigger pattern: some mem_facet membership's
-    // own flattened string has a power token `U^n` at a directional end
-    // (front or back) - unlike the eq-side rule, no "opposite side is a
-    // variable" check applies, since a membership has only one string
-    // operand (see class comment on power_var_peel for the shared
-    // two-branch structure this mirrors). Skipped if `n` is already a
-    // resolved numeral (power_propagation's known-exponent branch
-    // handles that case directly).
-    //
-    // Branch 1 (n=0): U^n -> epsilon, single side constraint `n=0`
-    // (c3's mem-variant uses one `mk_eq(exp_n, zero)` clause, not the
-    // eq-variant's two-clause `n>=0 /\ n<=0` - preserved faithfully per
-    // rule variant, see facet-eq-deq.md).
-    // Branch 2 (n>=1): peel one copy, U^n -> U . U^(n-1) (or reversed,
-    // matching directional end), spliced directly into the
-    // membership's own string via `mem_facet::replace` (not
-    // `broadcast_subst`, since the power token here may be a sub-token
-    // of a larger concatenation on the membership's string, and
-    // `mem_facet::apply_subst`'s exact-whole-string-match semantics
-    // cannot splice a sub-token in place).
-    class power_var_peel_mem : public eq_tree::split_plugin_i {
+    // Membership-side analog of `power_peel` (seq_power_facet.h), c3's
+    // `apply_var_num_unwinding_mem`: a power token `U^n` at a directional end of a
+    // membership's string is peeled, `n <= 0` (U^n := epsilon) or `n >= 1`
+    // (U^n := U . U^(n-1)). Both branches go through `broadcast_subst`.
+    class power_peel_mem : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
@@ -419,11 +400,11 @@ namespace seq {
         };
 
     public:
-        power_var_peel_mem(ast_manager& m, seq_util& u, arith_util& a) :
+        power_peel_mem(ast_manager& m, seq_util& u, arith_util& a) :
             m(m), u(u), a(a) {}
-        char const* name() const override { return "power-var-peel-mem"; }
+        char const* name() const override { return "power-peel-mem"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-power-var-peel-mem num splits", m_stats.m_num_splits); }
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-peel-mem num splits", m_stats.m_num_splits); }
         void reset_statistics() override { m_stats.reset(); }
     };
 

@@ -333,6 +333,13 @@ namespace seq {
         ncontains_facet& ncontains_facet_ref() const { return m_ac.ncontains_facet(m_node); }
         solver_facet_i& solver_facet_ref() const { return m_ac.solver_facet(m_node); }
         assumption_facet& assumption_facet_ref() const { return m_ac.assumption_facet(m_node); }
+
+        // Constraint for the sub-solver that the SMT core must adopt as well
+        // (branch decisions on exponents, forced character equalities).
+        void add_assumption(expr* c, dep_tracker_t dep) const {
+            solver_facet_ref().add_constraint(c, dep);
+            assumption_facet_ref().add_assumption(c, m_ac);
+        }
         req_facet& req_facet_ref() const { return m_ac.req_facet(m_node); }
         lex_facet& lex_facet_ref() const { return m_ac.lex_facet(m_node); }
         stoi_facet& stoi_facet_ref() const { return m_ac.stoi_facet(m_node); }

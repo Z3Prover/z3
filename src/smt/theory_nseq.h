@@ -26,8 +26,8 @@ Abstract:
 
     Model construction and other c3-era features that have no analog yet
     (regex factorization, monadic-leaf/landing decomposition beyond
-    `mem_monadic_split`, signature split, variable-power-unwinding for
-    membership, cycle subsumption, ...) are intentionally deferred/stubbed.
+    `mem_monadic_split`, signature split, cycle subsumption, ...) are
+    intentionally deferred/stubbed.
 
 Author:
 
@@ -209,7 +209,7 @@ namespace smt {
         //   priority 3   apply_num_cmp               -> power_num_cmp
         //   priority 3b  apply_split_power_elim       -> power_split_elim
         //   priority 3c  apply_fine_wilf              -> power_fine_wilf
-        //   priority 4   apply_const_num_unwinding    -> power_var_peel
+        //   priority 4   apply_const_num_unwinding    -> power_peel
         //   priority 5   apply_eq_split               -> eq_split
         //   priority 5d  apply_monadic_landing        -> mem_monadic_split
         //     (deviation: mem_monadic_split is registered ahead of
@@ -224,7 +224,7 @@ namespace smt {
         //   priority 11  apply_power_split            -> power_split
         //   priority 12  apply_var_nielsen            -> word_eq_split (var/var)
         //   (disequality unwinding)                   -> deq_split
-        //   (membership power peel)                   -> power_var_peel_mem
+        //   (membership power peel)                   -> power_peel_mem
 
 
         // Constraints are added directly to the ambient facets as soon as
