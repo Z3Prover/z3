@@ -14,6 +14,8 @@ Abstract:
 
 --*/
 #include "api/z3.h"
+#include "ast/reg_decl_plugins.h"
+#include "opt/opt_context.h"
 #include "util/debug.h"
 #include <climits>
 #include <cstring>
@@ -599,6 +601,138 @@ static void tst_fallback_intervals() {
     }
 }
 
+enum class search_exit { unknown, cancel, exception };
+
+class search_exit_solver : public opt::opt_solver {
+public:
+    search_exit kind;
+    unsigned probe = 0;
+    unsigned stop_at;
+    bool stopped = false;
+
+    search_exit_solver(ast_manager& m, params_ref const& p, generic_model_converter& fm,
+                       search_exit kind, unsigned stop_at):
+        opt_solver(m, p, fm), kind(kind), stop_at(stop_at) {}
+
+    void assert_expr_core(expr* e) override {
+        opt_solver::assert_expr_core(e);
+        // Cancel between iterations, while the newly pushed probe is still live.
+        if (kind == search_exit::cancel && stop_here())
+            get_manager().limit().cancel();
+    }
+
+    lbool check_sat_core2(unsigned n, expr* const* assumptions) override {
+        if (kind != search_exit::cancel && stop_here()) {
+            if (kind == search_exit::exception)
+                throw default_exception("search scope test");
+            return l_undef;
+        }
+        return opt_solver::check_sat_core2(n, assumptions);
+    }
+
+private:
+    bool stop_here() {
+        // The test opens level one and optsmt::lex opens level two.
+        // Wait for a deeper push, where a trial bound is active, and stop once.
+        if (stopped || get_scope_level() <= 2 || ++probe != stop_at)
+            return false;
+        stopped = true;
+        return true;
+    }
+};
+
+// Maximize the real variable x subject to x >= 0 and x*x <= 2.
+// The feasible interval is [0, sqrt(2)], so the true maximum is sqrt(2).
+// With exact nlsat optimization disabled, this search keeps rational lower
+// and upper bounds. A short bisection run leaves a gap, so we expect UNKNOWN,
+// not a claim that one of those rational bounds is the exact maximum.
+//
+// The search first tries a temporary bound x >= best + step. When that bound
+// is infeasible, it removes it and switches to bisection. Bisection alternates
+// between asking for any improvement (x > lo) and trying the midpoint
+// (x >= (lo + hi)/2). Each question gets its own temporary solver scope.
+//
+// Force an early exit while a trial bound is active, then check that all
+// search scopes were removed, the original constraints still allow x = 0,
+// and the same optimizer and solver can be used again.
+static void tst_search_scope_exits() {
+    // Run all three exit types at both locations, with a fresh solver each time:
+    // stop_at = 1 stops the geometric trial; stop_at = 2 lets it fail normally
+    // and stops the first bisection trial. Counting trials avoids timing limits
+    // or resource counts that could stop at different places on other machines.
+    for (search_exit exit : {search_exit::unknown, search_exit::cancel, search_exit::exception})
+        for (unsigned stop_at : {1u, 2u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            arith_util a(m);
+            opt::context ctx(m);
+            params_ref p;
+            // Keep the exact-cell shortcut out of the test so the failed
+            // geometric step leads to the bisection code we want to exercise.
+            p.set_bool("optsmt_nlsat", false);
+            p.set_uint("optsmt_bisect_rounds", 8);
+            p.set_uint("arith.solver", 6);
+            generic_model_converter fm(m, "search scopes");
+            search_exit_solver s(m, p, fm, exit, stop_at);
+            opt::optsmt optimizer(m, ctx);
+            expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+            expr_ref zero(a.mk_numeral(rational(0), false), m);
+            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            // Put x >= 0 in a scope that must survive the optimization call.
+            // After the search, this must still be the only open scope.
+            solver::scoped_push caller_scope(s);
+            s.assert_expr(a.mk_ge(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            model_ref mdl;
+            s.get_model(mdl);
+            ctx.set_model(mdl);
+            unsigned h = optimizer.add(to_app(x));
+            optimizer.setup(s);
+            optimizer.updt_params(p);
+            rational initial;
+            // Start the search with a valid lower bound from a feasible model,
+            // just as the normal optimization entry point does.
+            ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+            optimizer.update_lower(h, opt::inf_eps(initial));
+            unsigned assertions = s.get_num_assertions();
+            bool threw = false;
+            // UNKNOWN and cancellation should return l_undef. The test exception
+            // should escape unchanged, but still trigger scope cleanup.
+            try {
+                ENSURE(optimizer.lex(h, true) == l_undef);
+            }
+            catch (default_exception const& ex) {
+                ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
+                threw = true;
+            }
+            // Ensure the intended stop was reached, then check that neither
+            // extra pushes nor temporary assertions remain.
+            ENSURE(s.stopped);
+            ENSURE(threw == (exit == search_exit::exception));
+            ENSURE(s.get_scope_level() == 1);
+            ENSURE(s.get_num_assertions() == assertions);
+            if (exit == search_exit::cancel) {
+                // Cleanup must not swallow the cancellation request. Clear it
+                // here only so the remaining checks can use the solver again.
+                ENSURE(m.limit().is_canceled());
+                m.limit().reset_cancel();
+            }
+            // x = 0 satisfies both original constraints, but violates the trial
+            // improvement bounds. A leaked bound would make this check UNSAT.
+            {
+                solver::scoped_push check_scope(s);
+                s.assert_expr(m.mk_eq(x, zero));
+                ENSURE(s.check_sat(0, nullptr) == l_true);
+            }
+            // The forced stop happens only once. Retry without it on the same
+            // objects: eight bisection rounds still leave a rational gap around
+            // sqrt(2), so UNKNOWN is expected, with no extra scopes or assertions.
+            ENSURE(optimizer.lex(h, true) == l_undef);
+            ENSURE(s.get_scope_level() == 1);
+            ENSURE(s.get_num_assertions() == assertions);
+        }
+}
+
 // A real relaxation would approach 2, but integer n < 2 forces x < 1.
 // Keep this mixed-arithmetic problem incomplete rather than certify the wrong limit.
 static void tst_open_integer_fallback() {
@@ -836,6 +970,7 @@ void tst_opt_bounds() {
     tst_incremental_callback_bounds();
     tst_open_proof_budget();
     tst_fallback_intervals();
+    tst_search_scope_exits();
     tst_open_integer_fallback();
     std::cout << "opt_bounds: reset and invalid indices\n";
     tst_reset_and_invalid_indices(false);

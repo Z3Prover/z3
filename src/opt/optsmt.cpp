@@ -44,6 +44,39 @@ Notes:
 
 namespace opt {
 
+    namespace {
+        // Track pushes used to try temporary bounds such as obj >= best + step.
+        // These bounds may be infeasible, so remove them before nlsat/bisection
+        // and on exit.
+        class scoped_pushes {
+            solver& m_solver;
+            unsigned m_size = 0;
+        public:
+            explicit scoped_pushes(solver& s): m_solver(s) {}
+            ~scoped_pushes() { reset(); }
+            scoped_pushes(scoped_pushes const&) = delete;
+            scoped_pushes& operator=(scoped_pushes const&) = delete;
+
+            unsigned size() const { return m_size; }
+
+            void push() {
+                m_solver.push();
+                ++m_size;
+            }
+
+            void pop() {
+                SASSERT(m_size > 0);
+                m_solver.pop(1);
+                --m_size;
+            }
+
+            void reset() {
+                if (m_size > 0)
+                    m_solver.pop(m_size);
+                m_size = 0;
+            }
+        };
+    }
 
     void optsmt::set_max(vector<objective_value>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls) {
         for (unsigned i = 0; i < src.size(); ++i) {
@@ -111,7 +144,7 @@ namespace opt {
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
-        unsigned num_scopes = 0;
+        scoped_pushes scopes(*m_s);
         unsigned delta_index = 0;    // index of objective to speed up.
         bool has_bound = false;      // is the current objective bounded by a constraint.
 
@@ -135,8 +168,7 @@ namespace opt {
                     ++steps;
                 }
                 if (delta_per_step > rational::one()) {
-                    m_s->push();
-                    ++num_scopes;
+                    scopes.push();
                     // only try to improve delta_index. 
                     bound = m_s->mk_ge(delta_index, lower(delta_index) + inf_eps(delta_per_step));
                 }
@@ -158,17 +190,13 @@ namespace opt {
                 steps = 0;
                 step_incs = 0;
                 delta_per_step = 1;
-                SASSERT(num_scopes > 0);
-                --num_scopes;
-                m_s->pop(1);       
+                scopes.pop();
                 last_bound = nullptr;
             }
             else if (is_sat == l_false) {
                 // we are done with this delta_index.
                 m_upper[delta_index] = m_lower[delta_index];
-                if (num_scopes > 0)
-                    m_s->pop(num_scopes); 
-                num_scopes = 0;
+                scopes.reset();
                 last_bound = nullptr;
                 bool all_tight = true;
                 for (unsigned i = 0; i < m_lower.size(); ++i) {
@@ -183,8 +211,7 @@ namespace opt {
                 has_bound = false;
             }
             else {
-                if (num_scopes > 0)
-                    m_s->pop(num_scopes);        
+                scopes.reset();
                 break;
             }
         }
@@ -224,7 +251,7 @@ namespace opt {
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
-        unsigned num_scopes = 0;
+        scoped_pushes scopes(*m_s);
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
         inf_eps const infty(rational(1), inf_rational(0));
         // Upper bounds established along the way for a real-valued objective
@@ -301,8 +328,7 @@ namespace opt {
                 // toward the true optimum instead of terminating prematurely
                 // (issue #10028).
                 if (!bound_valid || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
-                    m_s->push();
-                    ++num_scopes;
+                    scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                     step_bound = obj + inf_eps(delta_per_step);
                 }
@@ -326,8 +352,7 @@ namespace opt {
                         // strictly larger rational step instead; if the step is
                         // infeasible the loop terminates through the l_false
                         // branch below with the best proven bound.
-                        m_s->push();
-                        ++num_scopes;
+                        scopes.push();
                         bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                         step_bound = obj + inf_eps(delta_per_step);
                     }
@@ -341,9 +366,7 @@ namespace opt {
                 steps = 0;
                 step_incs = 0;
                 delta_per_step = rational::one();
-                SASSERT(num_scopes > 0);
-                --num_scopes;
-                m_s->pop(1);                             
+                scopes.pop();
             }
             else {
                 if (((is_sat == l_false && !last_bound_valid) || is_sat == l_undef) && !is_int && m_lower[obj_index].is_finite()) {
@@ -354,8 +377,7 @@ namespace opt {
                     // reporting the lower bound as the optimum.
                     inf_eps hi = std::min(step_bound, refuted_hint);
                     if (lower(obj_index) < hi) {
-                        m_s->pop(num_scopes);
-                        num_scopes = 0;
+                        scopes.reset();
                         bool smt_gave_up = is_sat == l_undef;
                         is_sat = l_false;
                         if (m_optsmt_nlsat)
@@ -373,9 +395,8 @@ namespace opt {
                 break;
             }
         }
-        m_s->pop(num_scopes);        
-
-        TRACE(opt, tout << is_sat << " " << num_scopes << "\n";);
+        TRACE(opt, tout << is_sat << " " << scopes.size() << "\n";);
+        scopes.reset();
 
         if (is_sat == l_false && !m_model) {
             return l_false;
@@ -556,13 +577,17 @@ namespace opt {
                 bound = lo + hi;
                 bound /= rational(2);
             }
-            m_s->push();
-            m_s->assert_expr(m_s->mk_ge(idx, bound));
-            lbool is_sat = m_s->check_sat(0, nullptr);
-            TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
+            lbool is_sat;
+            {
+                solver::scoped_push scope(*m_s);
+                m_s->assert_expr(m_s->mk_ge(idx, bound));
+                is_sat = m_s->check_sat(0, nullptr);
+                TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
+                if (is_sat == l_true)
+                    m_s->get_model(m_model);
+            }
+            // Publish an improved model only after removing the probe bound.
             if (is_sat == l_true) {
-                m_s->get_model(m_model);
-                m_s->pop(1);
                 if (!m_model)
                     break;
                 // Prefer the model's own value of the objective; if the model
@@ -581,7 +606,6 @@ namespace opt {
                 }
             }
             else if (is_sat == l_false) {
-                m_s->pop(1);
                 if (strict) {
                     // no model is strictly better than the best model.
                     hi = lo;
@@ -590,10 +614,8 @@ namespace opt {
                 }
                 hi = bound;
             }
-            else {
-                m_s->pop(1);
+            else
                 break;
-            }
         }
         m_lower[idx] = lo;
         m_upper[idx] = hi;
