@@ -60,6 +60,7 @@ namespace smt {
         expr * get_term_from_ctx(expr * val);
         expr * get_type_compatible_term(expr * val);
         expr_ref replace_value_from_ctx(expr * e);
+        expr_ref replace_model_values(expr * e);
         void restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe);
         bool assert_neg_q_m(quantifier * q, expr_ref_vector & sks);
         bool add_blocking_clause(model * cex, expr_ref_vector & sks);
