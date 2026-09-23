@@ -48,6 +48,7 @@ struct check_logic::imp {
     bool          m_bvs;       // true if the logic supports bit-vectors
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
+    bool          m_allow_casts; // true if to_real/to_int are allowed despite the logic not otherwise mixing Int and Real
 
     imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_dt_util(m), m_pb_util(m) {
         reset();
@@ -65,6 +66,7 @@ struct check_logic::imp {
         m_bvs         = false;
         m_quantifiers = false;
         m_unknown_logic = true;
+        m_allow_casts = false;
     }
 
     void set_logic(symbol const & logic) {
@@ -147,6 +149,12 @@ struct check_logic::imp {
         else if (logic == "QF_NRA") {
             m_reals     = true;
             m_nonlinear = true;
+        }
+        else if (logic == "QF_NTA") {
+            // QF_NRA extended with transcendental functions (sin, cos, exp, log, ...)
+            m_reals     = true;
+            m_nonlinear = true;
+            m_allow_casts = true;
         }
         else if (logic == "QF_UF") {
             m_uf = true;
@@ -445,7 +453,7 @@ struct check_logic::imp {
                     check_diff_predicate(n);
             }
             if (!m_ints || !m_reals) {
-                if (m_a_util.is_to_real(n) || m_a_util.is_to_int(n))
+                if (!m_allow_casts && (m_a_util.is_to_real(n) || m_a_util.is_to_int(n)))
                     fail("logic does not support casting operators");
             }
         }

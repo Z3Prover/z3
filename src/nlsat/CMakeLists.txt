@@ -8,9 +8,11 @@ z3_add_component(nlsat
     levelwise.cpp
     nlsat_simplify.cpp
     nlsat_solver.cpp
+    nlsat_transcendentals.cpp
     nlsat_types.cpp
     nlsat_simple_checker.cpp
     nlsat_variable_ordering_strategy.cpp
+    transcendental_eval.cpp
     COMPONENT_DEPENDENCIES
     polynomial
     sat

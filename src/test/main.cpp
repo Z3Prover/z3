@@ -142,6 +142,7 @@
     X(algebraic_numbers) \
     X(ackermannize) \
     X(monomial_bounds) \
+    X(nla_transcendentals) \
     X(nla_intervals) \
     X(horner) \
     X(prime_generator) \

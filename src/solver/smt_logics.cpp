@@ -34,6 +34,7 @@ bool smt_logics::logic_has_reals_only(symbol const& s) {
         str.find("LRA") != std::string::npos ||
         str.find("LRA") != std::string::npos ||
         str.find("NRA") != std::string::npos ||
+        str.find("NTA") != std::string::npos ||
         str.find("RDL") != std::string::npos;
 }
 
@@ -45,6 +46,7 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         str.find("LIA") != std::string::npos ||
         str.find("LRA") != std::string::npos ||
         str.find("NRA") != std::string::npos ||
+        str.find("NTA") != std::string::npos ||
         str.find("NIRA") != std::string::npos ||
         str.find("NIA") != std::string::npos ||
         str.find("IDL") != std::string::npos ||
@@ -55,6 +57,11 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         logic_is_all(s) ||
         str == "QF_FD" ||
         str == "HORN";
+}
+
+bool smt_logics::logic_has_transcendental(symbol const & s) {
+    auto str = s.str();
+    return str.find("NTA") != std::string::npos || logic_is_all(s);
 }
 
 bool smt_logics::logic_has_bv(symbol const & s) {

@@ -385,16 +385,53 @@ bool cmd_context::builtin_signature_collides(symbol const& s, unsigned arity, so
     catch (ast_exception&) {
         return false;
     }
-    // A function/overload collision (arity > 0) is always rejected: the user
-    // declaration would clash with a built-in of the same argument sorts.
-    if (arity > 0)
-        return true;
     // For nullary symbols there are no argument sorts to distinguish an
     // overload. Only genuine reserved core constants (e.g. true/false in the
     // basic theory) block a user declaration. Z3-specific extension constants
     // such as 'pi' and 'euler' are not SMT-LIB reserved symbols and may be
     // shadowed by user declarations, as was historically permitted.
-    return is_app(result) && to_app(result)->get_family_id() == m().get_basic_family_id();
+    if (arity == 0)
+        return is_app(result) && to_app(result)->get_family_id() == m().get_basic_family_id();
+    // A function/overload collision (arity > 0) is always rejected: the user
+    // declaration would clash with a built-in of the same argument sorts.
+    return true;
+}
+
+// Recognize a (declare-fun f (...) ...) whose signature matches a
+// Z3-specific transcendental extension function (sin, cos, exp, atan2, ...).
+// These are not part of any SMT-LIB theory; many existing benchmarks declare
+// them as ordinary uninterpreted functions for the benefit of solvers without
+// native support. Rather than reporting a hard error (like a genuine builtin
+// collision, e.g. re-declaring '+') or silently registering a *new*
+// uninterpreted function that would shadow (and hide the semantics of) the
+// builtin, we treat such a declaration as a no-op: later references to the
+// symbol still resolve to the real builtin.
+bool cmd_context::is_transcendental_shadow_decl(symbol const& s, unsigned arity, sort* const* domain) const {
+    if (arity == 0)
+        return false;
+    expr_ref_vector args(m());
+    for (unsigned i = 0; i < arity; ++i)
+        args.push_back(m().mk_var(i, domain[i]));
+    expr_ref result(m());
+    try {
+        if (!try_mk_builtin_app(s, arity, args.data(), 0, nullptr, nullptr, result))
+            return false;
+    }
+    catch (ast_exception&) {
+        return false;
+    }
+    if (!is_app(result) || to_app(result)->get_family_id() != m().get_family_id("arith"))
+        return false;
+    switch (to_app(result)->get_decl_kind()) {
+    case OP_SIN: case OP_COS: case OP_TAN:
+    case OP_ASIN: case OP_ACOS: case OP_ATAN:
+    case OP_SINH: case OP_COSH: case OP_TANH:
+    case OP_ASINH: case OP_ACOSH: case OP_ATANH:
+    case OP_EXP: case OP_ATAN2: case OP_LOG:
+        return true;
+    default:
+        return false;
+    }
 }
 
 bool cmd_context::contains_macro(symbol const& s) const {
@@ -956,6 +993,16 @@ bool cmd_context::is_func_decl(symbol const & s) const {
 }
 
 void cmd_context::insert(symbol const & s, func_decl * f) {
+    // A transcendental shadow declaration (e.g. MathSAT-style `(declare-fun
+    // sin (Real) Real)`) must be recognized as a no-op *before*
+    // m_check_logic runs: under a restrictive logic (e.g. QF_NRA, QF_NTA)
+    // that disallows uninterpreted functions, m_check_logic would otherwise
+    // reject the shadow declaration with "logic does not support
+    // uninterpreted functions" before this shadow-decl check ever gets a
+    // chance to treat it as a no-op.
+    if (builtin_signature_collides(s, f->get_arity(), f->get_domain()) &&
+        is_transcendental_shadow_decl(s, f->get_arity(), f->get_domain()))
+        return;
     if (!m_check_logic(f)) {
         throw cmd_exception(m_check_logic.get_last_error());
     }

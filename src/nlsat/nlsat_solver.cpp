@@ -248,6 +248,7 @@ namespace nlsat {
         // statistics
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
+        transcendentals m_transcendentals;
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold  = 3;
@@ -273,6 +274,7 @@ namespace nlsat {
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).canonicalize()),
             m_scope_lvl(0),
+            m_transcendentals(s),
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
@@ -2035,8 +2037,18 @@ namespace nlsat {
                         bounds.push_back(std::make_pair(x, lo));
                     }
                 }
-                if (bounds.empty()) 
+                if (bounds.empty()) {
+                    if (!m_transcendentals.empty() && m_transcendentals.refine()) {
+                        init_search();
+                        IF_VERBOSE(2, verbose_stream() << "(nlsat-transcendentals :conflicts " << m_stats.m_conflicts
+                                   << " :decisions " << m_stats.m_decisions
+                                   << " :propagations " << m_stats.m_propagations
+                                   << " :clauses " << m_clauses.size()
+                                   << " :learned " << m_learned.size() << ")\n");
+                        continue;
+                    }
                     break;
+                }
 
                 init_search();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
@@ -3296,6 +3308,15 @@ namespace nlsat {
             m_pm.rename(sz, p);
             for (auto& b : m_bounds) 
                 b.x = p[b.x];                                   
+            // m_bounds isn't the only place raw (non-polynomial-embedded)
+            // var indices are cached across a reorder: m_transcendentals
+            // stashes its own applications' argument/value vars directly
+            // (see nlsat_transcendentals.h), which m_pm.rename() above does
+            // not touch since they aren't part of any polynomial. Without
+            // this, refine() reads stale/wrong-variable values after the
+            // first reorder, silently corrupting every transcendental
+            // check (sign facts, Taylor brackets, etc.) from then on.
+            m_transcendentals.rename(sz, p);
             TRACE(nlsat_bool_assignment_bug, tout << "before reinit cache\n"; display_bool_assignment(tout, false, nullptr););
             reinit_cache();
             m_assignment.swap(new_assignment);
@@ -4854,6 +4875,22 @@ namespace nlsat {
 
     bool_var solver::mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
         return m_imp->mk_root_atom(k, x, i, p);
+    }
+
+    void solver::add_transcendental(transcendental_op_kind op, var arg, var val) {
+        m_imp->m_transcendentals.add(op, arg, val);
+    }
+
+    void solver::add_pi(var val) {
+        m_imp->m_transcendentals.add_pi(val);
+    }
+
+    void solver::add_atan2(var y, var x, var val) {
+        m_imp->m_transcendentals.add_atan2(y, x, val);
+    }
+
+    bool solver::transcendentals_enabled() const {
+        return !m_imp->m_transcendentals.empty();
     }
     
     void solver::inc_ref(bool_var b) {
