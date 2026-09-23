@@ -182,16 +182,16 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
+        m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_gpower_intro, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::word_eq_split, m, m_seq));
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
-        m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
 
-        m_tree.set_max_search_depth(30);
+        m_tree.set_max_search_depth(100);
 
         // Diagnostics only: NSEQ_DOT_FILE=<path>, if set, enables
         // stx::search_tree's dot-trace recording (see stx_search_tree.h's
@@ -346,7 +346,10 @@ namespace smt {
         literal lit(v, !is_true);
         expr* e1 = nullptr, *e2 = nullptr;
 
-        m_pending_assumptions.reset();
+        // Any other assignment invalidates the sat snapshot final_check_eh is waiting
+        // on; the pending assumption literals themselves are what it is waiting for.
+        if (!any_of(m_pending_assumptions, [&](literal l) { return l.var() == v; }))
+            m_pending_assumptions.reset();
         if (m_seq.str.is_in_re(e, e1, e2)) {
             ensure_enode(e1);
             ensure_enode(e2);
@@ -670,6 +673,7 @@ namespace smt {
             m_seq.str.get_concat_units(e, resolved);
 
         seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());
+        seq::solver_facet_i const* sf = snap ? &m_ambient->solver_facet(const_cast<seq::eq_tree::node&>(*snap)) : nullptr;
 
         // Append token `t` to `proc`: literal tokens (values, units over
         // a value char, or any token that has no enode yet - nothing to
@@ -679,7 +683,8 @@ namespace smt {
         // seq_model_value_proc::mk_value, instead of being thrown away
         // for an unrelated fresh value.
         std::function<void(expr*)> add_token = [&](expr* t) {
-            expr* sub = nullptr;
+            expr* sub = nullptr, *s = nullptr, *k = nullptr;
+            rational count;
             if (m_model_subst.find(t, sub)) {
                 expr_ref_vector toks(m);
                 m_seq.str.get_concat_units(sub, toks);
@@ -705,6 +710,12 @@ namespace smt {
                     else
                         proc->add_literal(m_seq.str.mk_unit(m_seq.str.mk_char(0)));
                 }
+            }
+            else if (sf && m_seq.str.is_power(t, s, k) && sf->value(k, count)) {
+                // the base, repeated as often as the sat leaf's arithmetic model says
+                unsigned reps = count.is_pos() && count <= rational(100000) ? count.get_unsigned() : 0;
+                for (unsigned c = 0; c < reps; ++c)
+                    add_token(s);
             }
             else if (m.is_value(t) || !ctx.e_internalized(t)) {
                 proc->add_literal(t);
@@ -805,9 +816,16 @@ namespace smt {
         case stx::search_result::sat: {
             seq::eq_tree::node const* snap = m_tree.sat_snapshot();
             if (snap) {
-                auto const& af = m_ambient->assumption_facet(const_cast<seq::eq_tree::node&>(*snap));
-                for (auto const& assumption : af.assumptions()) {
-                    expr* a = assumption.first;
+                auto& node = const_cast<seq::eq_tree::node&>(*snap);
+                expr_ref_vector assumptions(m);
+                for (auto const& assumption : m_ambient->assumption_facet(node).assumptions())
+                    assumptions.push_back(assumption.first);
+                // the core must agree with the leaf's arithmetic model on every exponent it may see
+                rational v;
+                for (auto const& p : m_ambient->power_facet(node).powers())
+                    if (m_ambient->solver_facet(node).value(p.m_n, v))
+                        assumptions.push_back(m.mk_eq(p.m_n, m_autil.mk_numeral(v, true)));
+                for (expr* a : assumptions) {
                     literal lit = mk_literal(a);
                     bool_var bv = lit.var();
                     if (ctx.get_var_theory(bv) == null_theory_var)

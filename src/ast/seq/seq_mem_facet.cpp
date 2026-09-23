@@ -455,15 +455,16 @@ namespace seq {
                         f.set_witness(v, w);
                     }
                     f.set_witness_extracted();
+                    changed = true;
                 }
                 vw.set_enable_witness(false);
             }
-            return stx::simplify_result::satisfied;
         }
-        if (changed)
-            return stx::simplify_result::proceed;
-        m_stats.m_num_propagate--;
-        return stx::simplify_result::noop;
+        if (!changed) {
+            m_stats.m_num_propagate--;
+            return stx::simplify_result::noop;
+        }
+        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
 
@@ -523,9 +524,9 @@ namespace seq {
         else       { repl.push_back(nested_pow.get()); repl.append(base); }
 
         broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.add_assumption(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
+        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
 
-        out = eq_tree::edge("power-peel-mem:n>=1", m_dep, true, 0);
+        out = eq_tree::edge("power-peel-mem:n>=1", m_dep, false, 0);
         return true;
     }
 
@@ -548,10 +549,10 @@ namespace seq {
         // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon
         expr_ref_vector empty(m);
         broadcast_subst(n, p.m_e, empty, dep);
-        ac.add_assumption(a.mk_le(p.m_n, a.mk_int(0)), dep);
+        ac.solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);
 
         iterator* it = alloc(iterator, n, mem_idx, fwd, pow_idx, dep, m, u, a);
-        out = eq_tree::edge("power-peel-mem:n=0", dep, true, 0);
+        out = eq_tree::edge("power-peel-mem:n<=0", dep, true, 0);
         committed = true;
         m_stats.m_num_splits++;
         return it;
@@ -808,7 +809,7 @@ namespace seq {
             ts.push_back(e.var.get());
             mf.add(str_mem(m, ts, e.m_view, m_dep));
         }
-        out = eq_tree::edge("mem-monadic", m_dep, true, 0);
+        out = eq_tree::edge("mem-monadic", m_dep, false, 0);
         return true;
     }
 

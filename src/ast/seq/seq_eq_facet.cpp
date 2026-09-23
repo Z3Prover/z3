@@ -277,9 +277,9 @@ namespace seq {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
         }
-        if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        if (!changed)
+            return stx::simplify_result::noop;
+        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
     // Centralized substitution dispatcher: broadcast the substitution to
@@ -323,7 +323,7 @@ namespace seq {
             auto ac = get_ambient(m_n);
             ac.solver_facet_ref().add_constraint(a.m_guard.get(), a.m_dep);
         }
-        out = eq_tree::edge(a.m_name, a.m_dep, true, 0);
+        out = eq_tree::edge(a.m_name, a.m_dep, a.m_progress, 0);
         return true;
     }
 
@@ -534,13 +534,13 @@ namespace seq {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v2); repl.push_back(v1p); }
                         else     { repl.push_back(v1p); repl.push_back(v2); }
-                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep, v1_pos);
+                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep, v1_pos, false);
                     }
                     {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v1); repl.push_back(v2p); }
                         else     { repl.push_back(v2p); repl.push_back(v1); }
-                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep, v2_pos);
+                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep, v2_pos, false);
                     }
 
                     // Materialize the first branch ("v1:=eps") now, in the
@@ -553,19 +553,43 @@ namespace seq {
                     return it;
                 }
 
-                // one side is a variable, the other a unit token
-                expr* var = lv || !lu ? lh : rh;
-                expr* c = lv || !lu ? rh : lh;
-                sort* s = var->get_sort();
-                expr* var2 = f.mk_fresh_var(s);
+                // one side is a variable, the other a unit token. Block compression
+                // (c3's "nielsen block ="): the variable is split against the whole
+                // block of leading unit tokens at once - `v := c1..ck` for every proper
+                // prefix (v eliminated), `v := c1..cm . v'` for the whole block - instead
+                // of one character per search level.
+                bool var_on_lhs = lv || !lu;
+                expr* var = var_on_lhs ? lh : rh;
+                expr_ref_vector const& var_side = var_on_lhs ? eq.m_lhs : eq.m_rhs;
+                expr_ref_vector const& unit_side = var_on_lhs ? eq.m_rhs : eq.m_lhs;
+                unsigned cap = ac.fparams().m_seq_block_compression;
+                if (cap == 0) cap = UINT_MAX;
+                expr_ref_vector block(m); // leading units of unit_side in direction fwd
+                for (unsigned i = 0; i < unit_side.size() && block.size() < cap; ++i) {
+                    expr* t = fwd ? unit_side[i] : unit_side[unit_side.size() - 1 - i];
+                    if (!u.str.is_unit(t))
+                        break;
+                    block.push_back(t);
+                }
+                // in natural token order, the first k block tokens (plus an optional tail)
+                auto prefix_repl = [&](unsigned k, expr* tail) {
+                    expr_ref_vector repl(m);
+                    if (!fwd && tail) repl.push_back(tail);
+                    for (unsigned j = 0; j < k; ++j) repl.push_back(block.get(fwd ? j : k - 1 - j));
+                    if (fwd && tail) repl.push_back(tail);
+                    return repl;
+                };
+                expr* var2 = f.mk_fresh_var(var->get_sort());
+                expr* next_tok = var_side.size() > 1 ? (fwd ? var_side[1] : var_side[var_side.size() - 2]) : nullptr;
 
                 iterator* it = alloc(iterator, n, m, u);
-                {
-                    expr_ref_vector repl(m);
-                    if (fwd) { repl.push_back(c); repl.push_back(var2); }
-                    else     { repl.push_back(var2); repl.push_back(c); }
-                    it->push_back(fwd ? "v:=c.v'" : "v:=v'.c", var, repl, eq_dep);
+                for (unsigned k = 1; next_tok && k < block.size(); ++k) {
+                    expr* a = nullptr, *b = nullptr;
+                    if (u.str.is_unit(next_tok, a) && u.str.is_unit(block.get(k), b) && m.are_distinct(a, b))
+                        continue; // the token after v cannot match the block where v would end
+                    it->push_back("v:=block-prefix", var, prefix_repl(k, nullptr), eq_dep);
                 }
+                it->push_back(fwd ? "v:=c.v'" : "v:=v'.c", var, prefix_repl(block.size(), var2), eq_dep, nullptr, false);
 
                 // Materialize the first branch ("v:=eps") now, in the scope
                 // the driver already pushed for this call.
@@ -896,9 +920,9 @@ namespace seq {
             n.set_conflict(stx::br_plugin_base, conflict_dep);
             return stx::simplify_result::conflict;
         }
-        if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        if (!changed)
+            return stx::simplify_result::noop;
+        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
     // -- deq_split --

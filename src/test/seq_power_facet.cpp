@@ -68,8 +68,8 @@ namespace {
             tree.add_split_plugin(alloc(seq::power_fine_wilf, m, u, a));
             tree.add_split_plugin(alloc(seq::power_num_cmp, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split_elim, m, u, a));
-            tree.add_split_plugin(alloc(seq::power_peel, m, u, a));
             tree.add_split_plugin(alloc(seq::power_var_decompose, m, u, a));
+            tree.add_split_plugin(alloc(seq::power_peel, m, u, a));
             tree.add_split_plugin(alloc(seq::power_gpower_intro, m, u, a));
             tree.add_split_plugin(alloc(seq::word_eq_split, m, u));
             tree.set_max_search_depth(20);
@@ -538,6 +538,22 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
+    // X.Y = ("ab")^N, len(Y) = 1, N >= 100: sat (X = (ab)^99 a, Y = b), but far beyond the depth
+    // bound for peeling; needs decomposition X := (ab)^m . a and cancellation of (ab)^m against (ab)^N.
+    static void tst_power_decompose_far_exponent_sat() {
+        fixture fx;
+        expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m), Y(fx.m.mk_fresh_const("Y", fx.s), fx.m);
+        expr_ref N(fx.m.mk_fresh_const("N", fx.a.mk_int()), fx.m);
+        expr_ref e_n(fx.u.str.mk_power(ab, N), fx.m);
+        fx.root->facet_as<seq::power_facet>(fx.pow_id).add_power(e_n, ab, N);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(fx.u.str.mk_concat(X, Y), e_n);
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(
+            fx.m.mk_eq(fx.u.str.mk_length(Y), fx.a.mk_int(1)));
+        fx.root->facet_as<seq::solver_facet>(fx.arith_id).add_constraint(fx.a.mk_ge(N, fx.a.mk_int(100)));
+        ENSURE(fx.tree.solve() == stx::search_result::sat);
+    }
+
 void tst_seq_power_facet() {
     tst_power_known_exponent_sat();
     tst_power_known_exponent_conflict();
@@ -583,5 +599,7 @@ void tst_seq_power_facet() {
     tst_power_length_only_unsat();
     std::cout << "=== test6e ===\n" << std::flush;
     tst_power_peel_short_var_sat();
+    std::cout << "=== test6f ===\n" << std::flush;
+    tst_power_decompose_far_exponent_sat();
     std::cout << "seq_power_facet: all tests passed\n";
 }

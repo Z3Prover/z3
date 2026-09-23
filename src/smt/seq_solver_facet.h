@@ -64,6 +64,7 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
+#include "model/model.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
@@ -107,6 +108,9 @@ namespace seq {
         vector<eq_tree::dep_tracker> m_deps;       // slot id -> dep
         eq_tree::dep_manager_t&   m_core_dep_mgr;
         eq_tree::dep_tracker      m_last_core = nullptr;
+        bool                      m_dirty = true;  // assertions changed since the last check()
+        lbool                     m_last_result = l_undef;
+        model_ref                 m_model;         // of the last check(), fetched lazily
 
     public:
         sub_solver(ast_manager& m, arith_util& a, eq_tree::dep_manager_t& core_dep_mgr);
@@ -118,6 +122,7 @@ namespace seq {
         unsigned get_scope_level() const override;
         lbool check() override;
         eq_tree::dep_tracker unsat_core() const override { return m_last_core; }
+        bool get_model(model_ref& md) override;
     };
 
     /**
@@ -141,6 +146,7 @@ namespace seq {
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
         eq_tree::dep_tracker m_conflict_dep = nullptr; // dep justifying m_conflict (from m_solver.unsat_core()), valid iff m_conflict
+        model_ref         m_model;                       // arithmetic model captured by clone() at a sat leaf
 
         // Trail undo object: pairs with the backend push done when the
         // first constraint at a given trail-scope level is asserted.
@@ -240,7 +246,8 @@ namespace seq {
         // backend directly (NOT via the trail - this is a read-only
         // probe, symmetric and side-effect-free by construction, so it
         // needs no undo registration).
-        lbool implies(expr* c) const override;
+        lbool implies(expr* c, eq_tree::dep_tracker* core = nullptr) const override;
+        bool value(expr* e, rational& v) const override;
         std::ostream& display(std::ostream& out) const override;
     };
 

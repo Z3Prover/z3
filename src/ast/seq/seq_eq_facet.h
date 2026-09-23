@@ -429,13 +429,15 @@ namespace seq {
             // the branches of the var/var Nielsen split mutually
             // exclusive (c3 branch's apply_var_nielsen; see split()'s own
             // comment on branches (3)/(4)).
-            struct alt { char const* m_name; expr_ref m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; expr_ref m_guard; };
+            struct alt { char const* m_name; expr_ref m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; expr_ref m_guard; bool m_progress; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
             iterator(eq_tree::node& n, ast_manager& m, seq_util& u) : m_n(n), m(m), u(u) {}
-            void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep, expr* guard = nullptr) {
-                m_pending.push_back(alt{ name, expr_ref(var, m), repl, dep, expr_ref(guard, m) });
+            // `progress` is false for the alternatives that introduce a fresh variable
+            // (`v := c.v'`, `v1 := v2.v1'`): only those count towards the search depth.
+            void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep, expr* guard = nullptr, bool progress = true) {
+                m_pending.push_back(alt{ name, expr_ref(var, m), repl, dep, expr_ref(guard, m), progress });
             }
             bool next(eq_tree::edge& out) override;
         };

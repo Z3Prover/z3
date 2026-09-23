@@ -265,9 +265,9 @@ namespace seq {
             f.advance_qhead(head);
             changed = true;
         }
-        if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
-        return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        if (!changed)
+            return stx::simplify_result::noop;
+        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
 } // namespace seq

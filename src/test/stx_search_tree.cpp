@@ -104,7 +104,7 @@ namespace {
                 m_done = true;
                 auto& f = m_n.facet_as<counter_facet>(m_id);
                 f.add(2);
-                out = tree_t::edge("+2", nullptr, true, 0);
+                out = tree_t::edge("+2", nullptr, false, 0); // a counting step: consumes depth
                 return true;
             }
         };
@@ -121,7 +121,7 @@ namespace {
             if (f.total() >= m_cfg->m_target)
                 return nullptr;
             f.add(1);
-            out = tree_t::edge("+1", nullptr, true, 0);
+            out = tree_t::edge("+1", nullptr, false, 0);
             committed = true;
             return alloc(iterator, n, m_id);
         }

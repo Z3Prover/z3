@@ -48,7 +48,11 @@ Author:
 #pragma once
 
 #include "ast/ast.h"
+#include "util/ref.h"
 #include "ast/seq/seq_eq_facet.h"
+
+class model;
+typedef ref<model> model_ref;
 
 namespace seq {
 
@@ -85,6 +89,8 @@ namespace seq {
         // dependency" claim about a real contributing dep, so it is
         // always sound to use as a conflict's justification.
         virtual eq_tree::dep_tracker unsat_core() const { return nullptr; }
+        // model of the current constraints, if they are satisfiable
+        virtual bool get_model(model_ref& md) { return false; }
     };
 
 } // namespace seq

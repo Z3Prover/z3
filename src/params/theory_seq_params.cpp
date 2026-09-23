@@ -50,6 +50,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_mem_parikh = p.seq_mem_parikh();
     m_seq_monadic_leaf = p.seq_monadic_leaf();
     m_seq_monadic_leaf_budget = p.seq_monadic_leaf_budget();
+    m_seq_block_compression = p.seq_block_compression();
     m_seq_monadic_leaf_root = p.seq_monadic_leaf_root();
     m_seq_monadic_leaf_budget_root = p.seq_monadic_leaf_budget_root();
     m_seq_regex_precheck = p.seq_regex_precheck();

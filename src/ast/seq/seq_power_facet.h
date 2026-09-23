@@ -115,8 +115,8 @@ namespace seq {
         // pending for the other rules, power_split does not re-enumerate it. Trailed.
         bool                 m_split_exhausted = false;
 
-        // power_num_cmp/power_split_elim already compared this exponent in this branch
-        // (arith-only rules: re-offering the same split would loop). Trailed.
+        // power_split_elim already compared this exponent in this branch (arith-only rule:
+        // re-offering the same split would loop). Trailed.
         bool                 m_cmp_marked = false;
 
         // Append-only representation: m_pows is never erased/shifted
@@ -224,7 +224,9 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        bool is_satisfied() const override { return std::all_of(m_pows.begin(), m_pows.end(), [](str_power const& p) { return !p.active(); }); }
+        // A power still inside a string constraint keeps that constraint's facet unsatisfied; an
+        // obligation on its own never blocks, its exponent is read off the arithmetic model.
+        bool is_satisfied() const override { return true; }
         std::ostream& display(std::ostream& out) const override;
     };
 
@@ -385,35 +387,9 @@ namespace seq {
         stats m_stats;
     };
 
-    // Same-base power-vs-power exponent comparison, ported from the c3
-    // branch's seq_nielsen_modifiers.cpp `apply_num_cmp`: when some
-    // eq_facet equation has, at the same directional end (both heads or
-    // both tails) of each side, a power token with the *same* base but a
-    // different registered obligation (i.e. `U^n` and `U^m` for the same
-    // `U`, appearing as distinct tokens - this can only happen before
-    // `power_propagation`'s known-exponent unfold or `word_eq_split`'s
-    // ordinary token matching has fired, e.g. right after two such
-    // obligations are first registered against the same equation), the
-    // relative order of `n` and `m` is not yet determined and must be
-    // case-split on directly (arith-only, no string-side progress in
-    // either branch - unlike power_fine_wilf, this rule's whole point is
-    // to let solver_facet resolve the comparison, after which ordinary
-    // simplification/propagation can cancel the common `U^min(n,m)`
-    // prefix/suffix):
-    //
-    //   Branch 1: n < m   (side constraint `m >= n + 1`)
-    //   Branch 2: m <= n  (side constraint `n >= m`)
-    //
-    // Mirrors c3's two `mk_edge`/`add_side_constraint` branches exactly
-    // (both marked `set_arith_split()` there, i.e. exempt from the
-    // sibling loop-cut/unsat-cache since they differ only in an
-    // arithmetic fact, not in any string-level substitution - c3mv has
-    // no equivalent exemption mechanism yet, so both branches are
-    // offered as ordinary split alternatives here). Guarded so it is
-    // only offered for a given pair of obligations once their exponents
-    // are not already resolvable as a constant difference (that case is
-    // handled by ordinary equation simplification/propagation once one
-    // side is a numeral, per power_propagation's known-exponent branch).
+    // Same-base powers U^a, U^b at matching ends of an equation. Exhaustive split a <= 0,
+    // b <= 0, 1 <= a < b, 1 <= b <= a; the last two cancel U^min(a,b) in that equation:
+    // U^a . s = U^b . t becomes s = U^(b-a) . t (resp. U^(a-b) . s = t).
     class power_num_cmp : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -421,18 +397,17 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            expr_ref       m_n_exp;
-            expr_ref       m_m_exp;
-            unsigned       m_lidx, m_ridx;
+            unsigned       m_eq_idx, m_lidx, m_ridx;
+            bool           m_front;
             eq_tree::dep_tracker m_dep;
             ast_manager&   m;
             seq_util&      u;
             arith_util&    a;
-            bool           m_done = false;
+            unsigned       m_j = 0;
         public:
-            iterator(eq_tree::node& n, expr* n_exp, expr* m_exp, unsigned lidx, unsigned ridx,
+            iterator(eq_tree::node& n, unsigned eq_idx, unsigned lidx, unsigned ridx, bool front,
                       eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_n_exp(n_exp, m), m_m_exp(m_exp, m), m_lidx(lidx), m_ridx(ridx), m_dep(dep), m(m), u(u), a(a) {}
+                m_n(n), m_eq_idx(eq_idx), m_lidx(lidx), m_ridx(ridx), m_front(front), m_dep(dep), m(m), u(u), a(a) {}
             bool next(eq_tree::edge& out) override;
         };
 
@@ -611,6 +586,7 @@ namespace seq {
         // issue.
         obj_map<expr, expr*> m_n_cache;
         obj_map<expr, expr*> m_m_cache;
+        expr_ref_vector      m_pin; // keeps cache keys and skolems alive
 
         expr* get_or_create_n_var(expr* var);
         expr* get_or_create_m_var(expr* var);
@@ -640,7 +616,7 @@ namespace seq {
 
     public:
         power_var_decompose(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a) {}
+            m(m), u(u), a(a), m_pin(m) {}
         char const* name() const override { return "power-var-decompose"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-power-var-decompose num splits", m_stats.m_num_splits); }
@@ -698,6 +674,7 @@ namespace seq {
         // same idiom, separate cache (see class comment above).
         obj_map<expr, expr*> m_n_cache;
         obj_map<expr, expr*> m_m_cache;
+        expr_ref_vector      m_pin; // keeps cache keys and skolems alive
 
         expr* get_or_create_n_var(expr* var);
         expr* get_or_create_m_var(expr* var);
@@ -726,7 +703,7 @@ namespace seq {
 
     public:
         power_gpower_intro(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a) {}
+            m(m), u(u), a(a), m_pin(m) {}
         char const* name() const override { return "power-gpower-intro"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override { st.update("seq-power-gpower-intro num splits", m_stats.m_num_splits); }

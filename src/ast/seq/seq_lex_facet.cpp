@@ -239,7 +239,7 @@ namespace seq {
             return stx::simplify_result::conflict;
         }
         if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
+            return changed ? stx::simplify_result::satisfied : stx::simplify_result::noop;
         bool cyc_conflict = false;
         eq_tree::dep_tracker cyc_dep = nullptr;
         bool cyc_changed = f.detect_cycles(cyc_conflict, cyc_dep, ac.eq_facet_ref(), ac.deq_facet_ref());
@@ -247,9 +247,9 @@ namespace seq {
             n.set_conflict(stx::br_plugin_base, cyc_dep);
             return stx::simplify_result::conflict;
         }
-        if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
-        return (changed || cyc_changed) ? stx::simplify_result::proceed : stx::simplify_result::noop;
+        if (!changed && !cyc_changed)
+            return stx::simplify_result::noop;
+        return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
     // to_ptr/from_ptr: pack a small integer index into the `void*

@@ -41,6 +41,7 @@ namespace seq {
     }
 
     void sub_solver::assert_expr(expr* e, eq_tree::dep_tracker dep) {
+        m_dirty = true;
         if (!dep) {
             m_solver->assert_expr(e);
             return;
@@ -59,11 +60,13 @@ namespace seq {
     }
 
     void sub_solver::push() {
+        m_dirty = true;
         m_solver->push();
         m_frame_bounds.push_back(m_deps.size());
     }
 
     void sub_solver::pop(unsigned n) {
+        m_dirty = true;
         SASSERT(n <= m_frame_bounds.size());
         unsigned target = m_frame_bounds[m_frame_bounds.size() - n];
         m_deps.shrink(target);
@@ -81,6 +84,8 @@ namespace seq {
         // may outlive this call (e.g. solver_facet::conflict_dep() is read
         // after check() returns); it is only reset by the arena's own
         // owner.
+        if (!m_dirty)
+            return m_last_result;
         m_last_core = nullptr;
         lbool r;
         if (m_deps.empty()) {
@@ -106,6 +111,9 @@ namespace seq {
                 }
             }
         }
+        m_dirty = false;
+        m_last_result = r;
+        m_model = nullptr;
         return r;
     }
 
@@ -168,10 +176,28 @@ namespace seq {
         return changed;
     }
 
-    lbool solver_facet::implies(expr* c) const {
+    bool sub_solver::get_model(model_ref& md) {
+        if (check() != l_true)
+            return false;
+        if (!m_model)
+            m_solver->get_model(m_model);
+        md = m_model;
+        return md.get() != nullptr;
+    }
+
+    bool solver_facet::value(expr* e, rational& v) const {
+        model_ref md = m_model;
+        if (!md && !m_solver.get_model(md))
+            return false;
+        return a.is_numeral((*md)(e), v);
+    }
+
+    lbool solver_facet::implies(expr* c, eq_tree::dep_tracker* core) const {
         m_solver.push();
         m_solver.assert_expr(m.mk_not(c));
         lbool r = m_solver.check();
+        if (core)
+            *core = r == l_false ? m_solver.unsat_core() : nullptr;
         m_solver.pop(1);
         // unsat under the negation means c is implied (l_true); otherwise
         // undecided/not implied (l_undef, or l_false meaning c's negation
@@ -184,6 +210,7 @@ namespace seq {
 
     stx::facet_i* solver_facet::clone(trail_stack& trail) const {
         solver_facet* f = alloc(solver_facet, trail, m, u, m_solver);
+        m_solver.get_model(f->m_model); // the leaf's arithmetic model, for exponent values
         // A cloned node's *own* constraint set starts empty: this is only
         // used for cold-path snapshots (hot-restart SAT leaf, cache
         // entries) which never re-enter the shared incremental backend's

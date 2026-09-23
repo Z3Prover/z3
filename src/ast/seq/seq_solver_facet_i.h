@@ -73,7 +73,10 @@ namespace seq {
         // Query the shared incremental backend for whether `c` is
         // currently implied by the asserted constraint set, without
         // adding it permanently.
-        virtual lbool implies(expr* c) const = 0;
+        // On l_true, `*core` (if given) justifies the implication.
+        virtual lbool implies(expr* c, eq_tree::dep_tracker* core = nullptr) const = 0;
+        // numeral value of `e` in the arithmetic model: the live one, or the one captured at a sat leaf
+        virtual bool value(expr* e, rational& v) const = 0;
     };
 
 } // namespace seq

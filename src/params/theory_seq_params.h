@@ -54,6 +54,7 @@ struct theory_seq_params {
     // frequency/budget is tuned to actually pay for itself.
     bool m_seq_monadic_leaf = false;
     unsigned m_seq_monadic_leaf_budget = 300000;
+    unsigned m_seq_block_compression = 0;
     // Run mem_leaf_split's refutation-only ask once at the search root
     // before the DFS proper starts, mirroring c3's smt.nseq.monadic_leaf_root
     // and nielsen_graph::monadic_leaf_root_refute.

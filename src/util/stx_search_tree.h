@@ -506,6 +506,9 @@ namespace stx {
         unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
+
+        // iterative deepening doubles the bound (as c3), clamped so the maximum is still tried
+        unsigned next_depth_bound(unsigned d) const { return d >= m_max_search_depth ? m_max_search_depth + 1 : std::min(2 * d, m_max_search_depth); }
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
 
@@ -789,7 +792,9 @@ namespace stx {
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
-                        cr = dfs(depth + 1, &cur_edge);
+                        // progress edges (a variable eliminated, an arithmetic decision) are
+                        // free; only edges introducing fresh variables count towards the bound
+                        cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge);
                         // Always pop back out of this branch, even on
                         // sat: the sat leaf's facet state was already
                         // captured by m_sat_snapshot (a cold-path
@@ -1083,7 +1088,7 @@ namespace stx {
             m_sat_snapshot = nullptr;
             m_root->clear_conflict_deps();
             search_result res = search_result::depth_cutoff;
-            for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; ++depth_bound) {
+            for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; depth_bound = next_depth_bound(depth_bound)) {
                 if (!m_limit.inc()) {
                     res = search_result::unknown;
                     break;

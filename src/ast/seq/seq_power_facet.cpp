@@ -118,7 +118,17 @@ namespace seq {
             // own numeral-power folding): the obligation is fully precise,
             // so unfold it exactly into an eq_facet equation and discharge
             // it here - no need for solver_facet or power_split at all.
-            if (a.is_numeral(p.m_n, v)) {
+            bool known = a.is_numeral(p.m_n, v);
+            eq_tree::dep_tracker dep = p.m_dep;
+            // an exponent the arithmetic has fixed (e.g. 2n = 12) is unfolded as well, justified by the implication's core
+            if (!known && p.m_axiomatized && sf.value(p.m_n, v) && v <= rational(1024)) {
+                eq_tree::dep_tracker core;
+                if (sf.implies(m.mk_eq(p.m_n, a.mk_numeral(v, true)), &core) == l_true) {
+                    dep = f.dm().mk_join(dep, core);
+                    known = true;
+                }
+            }
+            if (known) {
                 expr_ref rhs(m);
                 if (!v.is_pos())
                     rhs = u.str.mk_empty(p.m_e.get()->get_sort());
@@ -126,15 +136,12 @@ namespace seq {
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
                 u.str.get_concat_units(rhs.get(), repl);
-                broadcast_subst(n, p.m_e.get(), repl, p.m_dep);
-                f.remove(i);
+                broadcast_subst(n, p.m_e.get(), repl, dep);
                 changed = true;
                 continue;
             }
 
-            // Symbolic exponent: assert the length-only consequences of
-            // axioms::power_axiom into solver_facet (see module comment) -
-            // sound under-approximation, asserted at most once.
+            // Symbolic exponent: length-only consequences of the power axiom (sound, asserted once)
             if (!p.m_axiomatized) {
                 expr_ref len_e(u.str.mk_length(p.m_e.get()), m);
                 // token-wise base length: the sub-solver has no sequence theory for len("ab")
@@ -146,13 +153,9 @@ namespace seq {
                 expr_ref e_is_emp(m.mk_eq(len_e, a.mk_int(0)), m);
                 expr_ref s_is_emp(m.mk_eq(len_s, a.mk_int(0)), m);
 
-                // n <= 0 => len(e) = 0 (stands in for e = epsilon)
                 sf.add_constraint(m.mk_or(n_ge_1, e_is_emp), p.m_dep);
-                // s = epsilon => len(e) = 0
                 sf.add_constraint(m.mk_or(m.mk_not(s_is_emp), e_is_emp), p.m_dep);
-                // n >= 1 => len(e) = n * len(s)
                 sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), m.mk_eq(len_e, a.mk_mul(p.m_n.get(), len_s))), p.m_dep);
-                // n >= 1 & s != epsilon => n <= len(e)
                 sf.add_constraint(m.mk_or(m.mk_not(n_ge_1), s_is_emp, a.mk_le(p.m_n.get(), len_e)), p.m_dep);
                 f.mark(i, &str_power::m_axiomatized);
                 changed = true;
@@ -162,8 +165,6 @@ namespace seq {
             n.set_conflict(stx::br_plugin_base, sf.conflict_dep());
             return stx::simplify_result::conflict;
         }
-        if (f.is_satisfied())
-            return stx::simplify_result::satisfied;
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }
 
@@ -217,7 +218,7 @@ namespace seq {
                     continue;
                 str_power const& p = f.powers()[pow_idx];
                 if (p.m_fw_marked)
-                    continue; // case 1 already offered; cases 2/3 are per-branch anyway, but a stable trigger requires *some* undischarged obligation
+                    continue; // case 1 already offered for this obligation
                 unsigned y_len, wpow_idx;
                 if (!find_wpow(f, other_side, p.m_s.get(), y_len, wpow_idx))
                     continue;
@@ -369,7 +370,7 @@ namespace seq {
         // overlap, arith-only, no string-side progress. Marked so it is
         // never re-offered for this same obligation.
         expr_ref case1(m.mk_or(a.mk_lt(a.mk_sub(len_upow, len_y), T), a.mk_lt(len_wpow, T)), m);
-        ac.add_assumption(case1, dep);
+        ac.solver_facet_ref().add_constraint(case1, dep);
         f.mark(t.m_pow_idx, &str_power::m_fw_marked);
 
         iterator* it = alloc(iterator, n, t, 2u, m, u, a);
@@ -392,7 +393,7 @@ namespace seq {
 
         if (j > m_bound) {
             // residual branch n > bound: no substitution, obligation stays pending
-            ac.add_assumption(a.mk_ge(p.m_n, a.mk_int(m_bound + 1)), m_dep);
+            ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(m_bound + 1)), m_dep);
             f.mark(m_pow_index, &str_power::m_split_exhausted);
             out = eq_tree::edge("power:n>bound", m_dep, false, 0);
             return true;
@@ -402,11 +403,19 @@ namespace seq {
         expr_ref_vector repl(m);
         u.str.get_concat_units(rhs.get(), repl);
         broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.add_assumption(m.mk_eq(p.m_n, a.mk_int(j)), m_dep);
-        f.remove(m_pow_index);
+        ac.solver_facet_ref().add_constraint(m.mk_eq(p.m_n, a.mk_int(j)), m_dep);
 
         out = eq_tree::edge("power:n=j", m_dep, true, 0);
         return true;
+    }
+
+    // U^n := epsilon under n <= 0; the substitution also discharges the obligation
+    static void unfold_empty(eq_tree::node& n, power_facet& f, unsigned idx, eq_tree::dep_tracker dep) {
+        arith_util& a = f.get_arith_util();
+        str_power p = f.powers()[idx]; // copy: broadcast_subst may reallocate m_pows
+        expr_ref_vector empty(a.get_manager());
+        broadcast_subst(n, p.m_e, empty, dep);
+        get_ambient(n).solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);
     }
 
     scoped_ptr<eq_tree::split_iterator_i> power_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
@@ -414,9 +423,17 @@ namespace seq {
         committed = false;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
+        // only a power that still occurs in an equation needs its exponent enumerated
+        obj_hashtable<expr> present;
+        for (auto const& eq : ac.eq_facet_ref().equations()) {
+            if (!eq.active())
+                continue;
+            for (expr* t : eq.m_lhs) present.insert(t);
+            for (expr* t : eq.m_rhs) present.insert(t);
+        }
 
         for (unsigned i = 0; i < f.powers().size(); ++i) {
-            if (!f.powers()[i].active())
+            if (!f.powers()[i].active() || !present.contains(f.powers()[i].m_e.get()))
                 continue;
             str_power p = f.powers()[i]; // copy: broadcast_subst may reallocate m_pows
             rational v;
@@ -430,10 +447,7 @@ namespace seq {
 
             // First branch: n <= 0, e := epsilon (the "n <= 0" case of
             // power_axiom/power_unfold_axiom).
-            expr_ref_vector empty(m);
-            broadcast_subst(n, p.m_e, empty, dep);
-            ac.add_assumption(a.mk_le(p.m_n, a.mk_int(0)), dep);
-            f.remove(i);
+            unfold_empty(n, f, i, dep);
 
             iterator* it = alloc(iterator, n, i, bound, dep, m, u, a);
             out = eq_tree::edge("power:n<=0", dep, true, 0);
@@ -471,8 +485,6 @@ namespace seq {
                     continue;
                 if (lidx == ridx)
                     continue; // same obligation: nothing to compare
-                if (f.powers()[lidx].m_cmp_marked || f.powers()[ridx].m_cmp_marked)
-                    continue; // already compared in this branch
                 if (f.powers()[lidx].m_s.get() != f.powers()[ridx].m_s.get())
                     continue; // different bases: power_fine_wilf's territory, not this rule's
                 // Exponents already numerals are resolved directly by
@@ -495,17 +507,43 @@ namespace seq {
     }
 
     bool power_num_cmp::iterator::next(eq_tree::edge& out) {
-        if (m_done)
+        if (m_j > 3)
             return false;
-        m_done = true;
+        unsigned j = m_j++;
         auto ac = get_ambient(m_n);
         auto& f = ac.power_facet_ref();
-        if (m_lidx < f.powers().size()) f.mark(m_lidx, &str_power::m_cmp_marked);
-        if (m_ridx < f.powers().size()) f.mark(m_ridx, &str_power::m_cmp_marked);
-        // Branch 2 (the remaining alternative once branch 1 - "n < m",
-        // materialized by split() itself - has been offered): m <= n.
-        ac.add_assumption(a.mk_ge(m_n_exp.get(), m_m_exp.get()), m_dep);
-        out = eq_tree::edge("power-cmp:>=", m_dep, true, 0);
+        auto& ef = ac.eq_facet_ref();
+        auto& sf = ac.solver_facet_ref();
+        static char const* names[4] = { "power-cmp:a<=0", "power-cmp:b<=0", "power-cmp:a<b", "power-cmp:a>=b" };
+        if (j < 2) {
+            unfold_empty(m_n, f, j == 0 ? m_lidx : m_ridx, m_dep);
+            if (j == 1)
+                sf.add_constraint(a.mk_ge(f.powers()[m_lidx].m_n, a.mk_int(1)), m_dep);
+        }
+        else {
+            unsigned small = j == 2 ? m_lidx : m_ridx, big = j == 2 ? m_ridx : m_lidx;
+            str_power ps = f.powers()[small], pb = f.powers()[big]; // copies: add_power may reallocate m_pows
+            expr_ref diff(a.mk_sub(pb.m_n, ps.m_n), m);
+            expr_ref rest(u.str.mk_power(pb.m_s, diff), m);
+            f.add_power(rest, pb.m_s, diff);
+            eq_facet::equation const& eq = ef.equations()[m_eq_idx];
+            bool small_is_lhs = (m_front ? eq.m_lhs[0] : eq.m_lhs.back()) == ps.m_e.get();
+            auto strip = [&](expr_ref_vector const& v, expr* repl) { // drop the end token, or replace it by repl
+                expr_ref_vector out(m);
+                for (unsigned i = 0; i < v.size(); ++i) {
+                    if (i != (m_front ? 0 : v.size() - 1)) out.push_back(v.get(i));
+                    else if (repl) out.push_back(repl);
+                }
+                return out;
+            };
+            expr_ref_vector lhs = strip(eq.m_lhs, small_is_lhs ? nullptr : rest.get());
+            expr_ref_vector rhs = strip(eq.m_rhs, small_is_lhs ? rest.get() : nullptr);
+            ef.remove_equation_trailed(m_eq_idx);
+            ef.add_equation(lhs, rhs, m_dep);
+            sf.add_constraint(a.mk_ge(ps.m_n, a.mk_int(1)), m_dep);
+            sf.add_constraint(a.mk_ge(pb.m_n, j == 2 ? a.mk_add(ps.m_n, a.mk_int(1)) : ps.m_n.get()), m_dep);
+        }
+        out = eq_tree::edge(names[j], m_dep, true, 0);
         return true;
     }
 
@@ -521,20 +559,9 @@ namespace seq {
         eq_tree::dep_tracker dep;
         if (!find_num_cmp_trigger(f, ef, eq_idx, at_front, pow_idx_l, pow_idx_r, dep))
             return nullptr;
+        iterator* it = alloc(iterator, n, eq_idx, pow_idx_l, pow_idx_r, at_front, dep, m, u, a);
+        it->next(out); // first branch, materialized here like every other split's
         has_more = true;
-
-        expr* lexp = f.powers()[pow_idx_l].m_n.get();
-        expr* rexp = f.powers()[pow_idx_r].m_n.get();
-
-        // Branch 1 (first, immediately materialized): lexp < rexp, i.e.
-        // rexp >= lexp + 1.
-        expr_ref lexp_plus_1(a.mk_add(lexp, a.mk_int(1)), m);
-        f.mark(pow_idx_l, &str_power::m_cmp_marked);
-        f.mark(pow_idx_r, &str_power::m_cmp_marked);
-        ac.add_assumption(a.mk_ge(rexp, lexp_plus_1.get()), dep);
-
-        iterator* it = alloc(iterator, n, lexp, rexp, pow_idx_l, pow_idx_r, dep, m, u, a);
-        out = eq_tree::edge("power-cmp:<", dep, true, 0);
         committed = true;
         m_stats.m_num_splits++;
         return it;
@@ -689,7 +716,7 @@ namespace seq {
         // Branch 2 (the remaining alternative once branch 1 - "count >
         // pow_exp", materialized by split() itself - has been offered):
         // pow_exp >= count.
-        ac.add_assumption(a.mk_ge(m_pow_exp.get(), m_count.get()), m_dep);
+        ac.solver_facet_ref().add_constraint(a.mk_ge(m_pow_exp.get(), m_count.get()), m_dep);
         out = eq_tree::edge("power-split-elim:<=", m_dep, true, 0);
         return true;
     }
@@ -714,7 +741,7 @@ namespace seq {
         // i.e. count >= pow_exp + 1.
         expr_ref pow_plus_1(a.mk_add(pow_exp, a.mk_int(1)), m);
         f.mark(t.m_pow_idx, &str_power::m_cmp_marked);
-        ac.add_assumption(a.mk_ge(count, pow_plus_1.get()), dep);
+        ac.solver_facet_ref().add_constraint(a.mk_ge(count, pow_plus_1.get()), dep);
 
         iterator* it = alloc(iterator, n, pow_exp, count, t.m_pow_idx, dep, m, u, a);
         out = eq_tree::edge("power-split-elim:>", dep, true, 0);
@@ -779,10 +806,9 @@ namespace seq {
         if (m_fwd) { repl.append(base); repl.push_back(nested_pow); }
         else       { repl.push_back(nested_pow); repl.append(base); }
         broadcast_subst(m_n, p.m_e, repl, m_dep);
-        ac.add_assumption(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
-        f.remove(m_pow_idx);
+        ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(1)), m_dep);
 
-        out = eq_tree::edge("power-peel:n>=1", m_dep, true, 0);
+        out = eq_tree::edge("power-peel:n>=1", m_dep, false, 0);
         return true;
     }
 
@@ -802,10 +828,7 @@ namespace seq {
         str_power p = f.powers()[pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
         // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon
-        expr_ref_vector empty(m);
-        broadcast_subst(n, p.m_e, empty, dep);
-        ac.add_assumption(a.mk_le(p.m_n, a.mk_int(0)), dep);
-        f.remove(pow_idx);
+        unfold_empty(n, f, pow_idx, dep);
 
         iterator* it = alloc(iterator, n, eq_idx, fwd, pow_idx, dep, m, u, a);
         out = eq_tree::edge("power-peel:n<=0", dep, true, 0);
@@ -822,6 +845,8 @@ namespace seq {
             return v;
         v = m.mk_fresh_const("gp-n", a.mk_int());
         m_n_cache.insert(var, v);
+        m_pin.push_back(var);
+        m_pin.push_back(v);
         return v;
     }
 
@@ -831,6 +856,8 @@ namespace seq {
             return v;
         v = m.mk_fresh_const("gp-m", a.mk_int());
         m_m_cache.insert(var, v);
+        m_pin.push_back(var);
+        m_pin.push_back(v);
         return v;
     }
 
@@ -878,7 +905,6 @@ namespace seq {
 
     bool power_var_decompose::iterator::next(eq_tree::edge& out) {
         auto ac = get_ambient(m_n);
-        auto& ef = ac.eq_facet_ref();
         auto& sf = ac.solver_facet_ref();
         auto& f = ac.power_facet_ref();
 
@@ -893,6 +919,11 @@ namespace seq {
             unsigned prev_pidx;
             if (i > 0 && is_power_token(f, m_base_toks[i - 1].get(), prev_pidx))
                 continue;
+            unsigned pidx;
+            if (!f.find_power(m_pow_e, pidx))
+                return false;
+            expr* n_exp = f.powers()[pidx].m_n.get();
+            expr_ref pow_m(u.str.mk_power(f.powers()[pidx].m_s, m_fresh_m), m); // U^m, v := U^m . prefix
 
             // Build the U^m . prefix (or U^m . prefix . w^m') replacement,
             // in the direction v faces U^n: m_base_toks is already
@@ -919,13 +950,13 @@ namespace seq {
 
             expr_ref_vector repl(m);
             if (m_fwd) {
-                repl.push_back(m_pow_e.get());
+                repl.push_back(pow_m.get());
                 for (unsigned j = 0; j < prefix.size(); ++j) repl.push_back(prefix[j].get());
                 if (fresh_inner_m) repl.push_back(suffix_tok.get());
             } else {
                 if (fresh_inner_m) repl.push_back(suffix_tok.get());
                 for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());
-                repl.push_back(m_pow_e.get());
+                repl.push_back(pow_m.get());
             }
             // Plain-char case (no power at position i): the token
             // itself contributes nothing further beyond U^m . prefix
@@ -935,6 +966,7 @@ namespace seq {
 
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
             sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
+            sf.add_constraint(a.mk_ge(n_exp, a.mk_add(m_fresh_m.get(), a.mk_int(1))), m_dep); // v is a proper prefix of U^n
             if (fresh_inner_m) {
                 sf.add_constraint(a.mk_ge(fresh_inner_m, a.mk_int(0)), m_dep);
                 sf.add_constraint(a.mk_ge(inner_exp, fresh_inner_m), m_dep);
@@ -957,7 +989,7 @@ namespace seq {
             else       { repl.push_back(vp); repl.push_back(m_pow_e.get()); }
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
             sf.add_constraint(a.mk_ge(u.str.mk_length(vp), a.mk_int(0)), m_dep);
-            out = eq_tree::edge("power-var-decompose:extend", m_dep, true, 0);
+            out = eq_tree::edge("power-var-decompose:extend", m_dep, false, 0);
             return true;
         }
         return false;
@@ -969,7 +1001,6 @@ namespace seq {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
         auto& ef = ac.eq_facet_ref();
-        auto& sf = ac.solver_facet_ref();
 
         unsigned pow_idx;
         expr* var = nullptr;
@@ -1021,6 +1052,8 @@ namespace seq {
             return v;
         v = m.mk_fresh_const("gp-n", a.mk_int());
         m_n_cache.insert(var, v);
+        m_pin.push_back(var);
+        m_pin.push_back(v);
         return v;
     }
 
@@ -1030,6 +1063,8 @@ namespace seq {
             return v;
         v = m.mk_fresh_const("gp-m", a.mk_int());
         m_m_cache.insert(var, v);
+        m_pin.push_back(var);
+        m_pin.push_back(v);
         return v;
     }
 

@@ -447,6 +447,20 @@ namespace {
 
 } // namespace
 
+    // Block compression: X.a.Y = aaaa.b needs X = aa (ending inside the block
+    // aaaa) and Y = ab. One character at a time this takes four fresh-variable
+    // steps; against whole blocks it takes one (Y := ab.Y'), so depth 1 suffices.
+    static void tst_block_compression_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m), Y(m.mk_fresh_const("Y", s), m);
+        expr_ref lhs(u.str.mk_concat(X, u.str.mk_concat(u.str.mk_string(zstring("a")), Y)), m);
+        expr_ref rhs(u.str.mk_string(zstring("aaaab")), m);
+        ENSURE(solve_eq(m, u, lhs, rhs, 1) == stx::search_result::sat);
+    }
+
 void tst_seq_eq_facet() {
     tst_trivial_sat();
     tst_symbol_clash_unsat();
@@ -462,5 +476,6 @@ void tst_seq_eq_facet() {
     tst_deq_split_free_vars_sat();
     tst_deq_split_equal_consts_unsat();
     tst_word_eq_split_char_eq_sat();
+    tst_block_compression_sat();
     std::cout << "seq_eq_facet: all tests passed\n";
 }
