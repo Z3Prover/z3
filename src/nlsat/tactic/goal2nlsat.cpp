@@ -255,10 +255,6 @@ struct goal2nlsat::imp {
         m_solver.mk_clause(ls.size(), ls.data(), m_assumption ? m_assumption : dep);
     }
 
-    // Maps a unary arith-family transcendental application's decl_kind to
-    // nlsat's own transcendental_op_kind, when supported by nlsat's engine
-    // (nlsat_transcendentals.*); atan2/pi have a different arity/arg-shape
-    // and are detected and registered separately in register_transcendentals.
     static bool get_transcendental_op(app * t, nlsat::transcendental_op_kind & op) {
         if (t->get_num_args() != 1)
             return false;
@@ -316,18 +312,8 @@ struct goal2nlsat::imp {
         return v;
     }
 
-    // Scans m_t2x (built up while processing the goal's atoms) for
-    // transcendental applications abstracted into an opaque variable by
-    // expr2polynomial's generic visit_arith_app, and registers each one
-    // with nlsat's own transcendental engine (nlsat_transcendentals.*),
-    // creating argument variables (with a linking equality axiom, if
-    // needed) along the way. Handles the unary ops (get_transcendental_op),
-    // the binary atan2(y, x), and the nullary constant pi. Refinement is
-    // enabled automatically inside solver::imp::search_check the moment at
-    // least one such application is registered - no separate solver param
-    // needed.
     void register_transcendentals() {
-        vector<std::pair<expr*, polynomial::var>> found;
+        vector<std::pair<app*, polynomial::var>> found;
         vector<std::pair<app*, polynomial::var>> atan2_found;
         std::pair<expr*, polynomial::var> pi_found{ nullptr, polynomial::null_var };
         for (auto const & kv : m_t2x) {
@@ -337,7 +323,7 @@ struct goal2nlsat::imp {
             app * t = to_app(e);
             nlsat::transcendental_op_kind op;
             if (get_transcendental_op(t, op))
-                found.push_back({ e, kv.get_value() });
+                found.push_back({ t, kv.get_value() });
             else if (m_util.is_atan2(e))
                 atan2_found.push_back({ t, kv.get_value() });
             else if (m_util.is_pi(e))
@@ -345,18 +331,16 @@ struct goal2nlsat::imp {
         }
         if (found.empty() && atan2_found.empty() && pi_found.first == nullptr)
             return;
-        for (auto const & pr : found) {
-            app * t = to_app(pr.first);
+        for (auto const & [t, val] : found) {
             nlsat::transcendental_op_kind op;
             get_transcendental_op(t, op);
             polynomial::var arg = expr2var_axiom(t->get_arg(0));
-            m_solver.add_transcendental(op, arg, pr.second);
+            m_solver.add_transcendental(op, arg, val);
         }
-        for (auto const & pr : atan2_found) {
-            app * t = pr.first;
+        for (auto const & [t, val] : atan2_found) {
             polynomial::var y = expr2var_axiom(t->get_arg(0));
             polynomial::var x = expr2var_axiom(t->get_arg(1));
-            m_solver.add_atan2(y, x, pr.second);
+            m_solver.add_atan2(y, x, val);
         }
         if (pi_found.first != nullptr)
             m_solver.add_pi(pi_found.second);
