@@ -80,12 +80,6 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
     else if (logic=="QF_NRA")
         return annotate_tactic("qfnra-tactic", mk_qfnra_tactic(m, p));
     else if (logic=="QF_NTA")
-        // QF_NTA (QF_NRA + transcendental functions) reuses QF_NRA's
-        // nlsat-first portfolio tactic: goal2nlsat now registers
-        // transcendental applications directly with nlsat's own
-        // transcendental engine (see nlsat_transcendentals.*), so the
-        // nlsat-first path is no longer restricted to purely algebraic
-        // nonlinear arithmetic.
         return annotate_tactic("qfnra-tactic", mk_qfnra_tactic(m, p));
     else if (logic=="QF_AUFLIA")
         return annotate_tactic("qfauflia-tactic", mk_qfauflia_tactic(m, p));
