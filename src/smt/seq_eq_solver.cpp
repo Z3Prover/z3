@@ -1186,12 +1186,18 @@ struct remove_obj_pair_map : public trail {
 bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
     expr* s = nullptr, *idx = nullptr;
     if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
+        expr_ref rhs = mk_concat(rs.size(), rs.data(), ls[0]->get_sort());
+        bool is_explicit_word = true;
+        for (expr* r : rs)
+            is_explicit_word &= m_util.str.is_unit(r) || m_util.str.is_string(r);
+        // Decomposing s can recreate this equation without solving the element.
+        if (is_explicit_word)
+            return add_solution(ls[0], rhs, deps);
         rational r;
         bool idx_is_zero = m_autil.is_numeral(idx, r) && r.is_zero();
         expr_ref_vector ls1(m), rs1(m); 
         expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
         m_rewrite(idx1);
-        expr_ref rhs = mk_concat(rs.size(), rs.data(), ls[0]->get_sort());
         if (m_nth_eq2_cache.contains(std::make_pair(rhs, ls[0])))
             return false;
         m.inc_ref(rhs);
