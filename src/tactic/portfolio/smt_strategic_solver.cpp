@@ -34,6 +34,8 @@ Notes:
 #include "tactic/smtlogics/qfidl_tactic.h"
 #include "tactic/smtlogics/nra_tactic.h"
 #include "tactic/portfolio/default_tactic.h"
+#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include "tactic/fd_solver/smtfd_solver.h"
 #include "tactic/ufbv/ufbv_tactic.h"
@@ -65,6 +67,10 @@ public:
 };
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
+    // Let native SMT reasoning handle residual field goals before its exact
+    // BV fallback, preserving shared equalities and lazy Boolean choices.
+    if (logic == "QF_FF")
+        return and_then(mk_ff_simplify_tactic(m, p), or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_smt_tactic(m, p)));
     if (logic=="QF_UF")
         return mk_qfuf_tactic(m, p);
     else if (logic=="QF_BV")
@@ -185,6 +191,10 @@ public:
         if (!t) {
             t = mk_tactic_for_logic(m, p, l);
         }
+        // Preserve native equality/Boolean reasoning on residual field goals;
+    // the field theory itself supplies exact BV fallback when needed.
+    if (l == "QF_FF")
+            return mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l);
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
                                   p);
@@ -198,5 +208,3 @@ public:
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic) {
     return alloc(smt_strategic_solver_factory, logic);
 }
-
-

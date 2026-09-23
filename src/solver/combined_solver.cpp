@@ -22,6 +22,8 @@ Notes:
 #include "util/common_msgs.h"
 #include "ast/ast_pp.h"
 #include "solver/solver.h"
+#include "ast/ff_decl_plugin.h"
+#include "ast/for_each_expr.h"
 #include "solver/combined_solver_params.hpp"
 #include <atomic>
 #define PS_VB_LVL 15
@@ -208,6 +210,24 @@ public:
     }
 
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+        // Prime-field terms need the algebraic/ff2bv pipeline on every check,
+        // including assumptions and incremental calls. Mixed goals fall back
+        // to the SMT field plugin; pure goals retain the fast algebraic path.
+        // Most contexts never create a field sort.
+        auto* fp = static_cast<ff_decl_plugin*>(get_manager().get_plugin(get_manager().mk_family_id("ff")));
+        if (fp && fp->has_sorts()) {
+            bool found = false;
+            ff_util ff(get_manager());
+            auto visit = [&](expr* e) { found |= ff.is_ff(e); };
+            for (unsigned i = 0; i < get_num_assertions() && !found; ++i) for_each_expr(visit, get_assertion(i));
+            for (unsigned i = 0; i < num_assumptions && !found; ++i) for_each_expr(visit, assumptions[i]);
+            if (found) {
+                m_check_sat_executed = true;
+                m_use_solver1_results = true;
+                return m_solver1->check_sat_core(num_assumptions, assumptions);
+            }
+        }
+
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
 

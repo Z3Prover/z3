@@ -17,6 +17,8 @@ Notes:
 
 --*/
 #include "tactic/portfolio/default_tactic.h"
+#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/arith/ff2bv_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/qflia_tactic.h"
@@ -51,6 +53,7 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                         //cond(mk_is_qfufnra_probe(), mk_qfufnra_tactic(m, p),
                                              and_then(mk_preamble_tactic(m), mk_lazy_tactic(m, p, [&](auto& m, auto const& p) { return mk_smt_tactic(m, p);}))))))))))))))),
                                p);
-    return st;
+    // Preserve native equality/Boolean reasoning on residual field goals;
+    // the field theory itself supplies exact BV fallback when needed.
+    return cond(mk_has_ff_probe(), and_then(mk_ff_simplify_tactic(m, p), or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_smt_tactic(m, p))), st);
 }
-
