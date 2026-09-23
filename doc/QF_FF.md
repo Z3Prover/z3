@@ -176,6 +176,13 @@ so it remains opt-in. New resource sub-counters identify the exact stopping
 guard; matrix storage peaks are estimates per engine, and wrappers may sum them
 across attempts. See [QF_FF_PERFORMANCE_ROUND9.md](QF_FF_PERFORMANCE_ROUND9.md).
 
+Round 10 partitions algebra work into exclusive computation phases and adds
+`ff.fused_reduction` (false): scalar reducer multiples are added directly to the
+accumulator without a temporary polynomial. It preserves reduction order,
+coefficients, sugar metadata and conflict premises across field sizes. Phase
+counters count charged work, not elapsed time. See
+[QF_FF_PERFORMANCE_ROUND10.md](QF_FF_PERFORMANCE_ROUND10.md) for the measurements.
+
 A residual formula whose only free variables are explicitly Boolean
 field elements can be evaluated exhaustively without polynomial expansion.
 Characteristic-two variables need no additional Booleanity premise.

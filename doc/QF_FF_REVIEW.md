@@ -66,6 +66,16 @@ The new diagnostic runner and [round-9 report](QF_FF_PERFORMANCE_ROUND9.md) keep
 algebra-only resource experiments separate from portfolio scores. The existing
 CAV paper remains tied to its frozen round-8 evidence.
 
+## Follow-up: round-10 work accounting and scalar experiment
+
+The work-accounting commit partitions existing charges without changing budgets
+or cancellation. Review it separately from the scalar-fusion commit, which
+removes a temporary polynomial while keeping reducer choice, exact remainders,
+sugar metadata and premises. The option remains disabled by default. The final
+build passes 18 regression commands, including 768 basis-configuration checks
+and 60 exact eager/fused remainder comparisons across field sizes. See the
+[round-10 report](QF_FF_PERFORMANCE_ROUND10.md) for benchmark evidence and limits.
+
 ## Source and data boundaries
 
 Source commits include tests, benchmark tools, small fixtures, and manifests.
