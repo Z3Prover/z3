@@ -4,6 +4,4 @@ z3_add_component(aig_tactic
     aig_tactic.cpp
   COMPONENT_DEPENDENCIES
     tactic
-  TACTIC_HEADERS
-    aig_tactic.h
 )

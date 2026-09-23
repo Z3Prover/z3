@@ -16,8 +16,6 @@ z3_add_component(nlsat
     COMPONENT_DEPENDENCIES
     polynomial
     sat
-  EXTRA_REGISTER_MODULE_HEADERS
-    nlsat_params.hpp
 )
 
 add_subdirectory(tactic)

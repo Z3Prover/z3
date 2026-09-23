@@ -75,8 +75,6 @@ inline tactic* mk_cofactor_term_ite_tactic(ast_manager& m, params_ref const& p =
     return alloc(dependent_expr_state_tactic, m, p, mk_cofactor_term_ite_simplifier);
 }
 
-/*
-  ADD_TACTIC("cofactor-term-ite", "eliminate term if-then-else using cofactors.", "mk_cofactor_term_ite_tactic(m, p)")
-  ADD_SIMPLIFIER("cofactor-term-ite", "eliminate term if-then-else using cofactors.", "mk_cofactor_term_ite_simplifier(m, p, s)")
-*/
+Z3_ADD_TACTIC(cofactor_term_ite, "cofactor-term-ite", "eliminate term if-then-else using cofactors.", mk_cofactor_term_ite_tactic(m, p));
+Z3_ADD_SIMPLIFIER(cofactor_term_ite, "cofactor-term-ite", "eliminate term if-then-else using cofactors.", mk_cofactor_term_ite_simplifier(m, p, s));
 

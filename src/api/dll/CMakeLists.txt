@@ -5,4 +5,3 @@ z3_add_component(api_dll
   COMPONENT_DEPENDENCIES
     ${api_dll_deps}
 )
-z3_generate_registration(api_dll)

@@ -107,11 +107,6 @@ Abstract:
   DOUBLE_(lookahead_delta_fraction,         "lookahead.delta_fraction",         1.0,            "number between 0 and 1, the smaller the more literals are selected for double lookahead") \
   SYMBOL_(lookahead_reward,                 "lookahead.reward",                 "march_cu",     "select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu")
 
-Z3_DEFINE_MODULE_PARAMS(sat_params, "sat", SAT_PARAMS_LIST);
-
-/*
-   REG_MODULE_PARAMS('sat', 'sat_params::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('sat', 'propositional SAT solver')
-*/
+Z3_DEFINE_MODULE_PARAMS(sat_params, "sat", SAT_PARAMS_LIST, "propositional SAT solver");
 
 #undef SAT_PARAMS_LIST

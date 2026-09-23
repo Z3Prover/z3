@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "util/event_handler.h"
+#include "util/memory_manager.h"
 
 struct scoped_timer_state;
 
@@ -33,6 +34,4 @@ private:
     void init_state(unsigned ms, event_handler * eh);
 };
 
-/*
-    ADD_INITIALIZER('scoped_timer::initialize();')
-*/
+Z3_ADD_INITIALIZER(scoped_timer, scoped_timer::initialize, 0);

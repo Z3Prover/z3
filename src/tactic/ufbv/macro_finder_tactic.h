@@ -57,12 +57,11 @@ Other instances of macros are also recognized by the macro finder.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_macro_finder_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("macro-finder",  "Identifies and applies macros.", "mk_macro_finder_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(macro_finder, "macro-finder", "Identifies and applies macros.", mk_macro_finder_tactic(m, p));
 

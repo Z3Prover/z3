@@ -41,12 +41,11 @@ This is useful because, many bounds can be exposed after this operation is perfo
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_fix_dl_var_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("fix-dl-var", "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.", "mk_fix_dl_var_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(fix_dl_var, "fix-dl-var", "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.", mk_fix_dl_var_tactic(m, p));
 

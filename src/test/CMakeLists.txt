@@ -104,6 +104,7 @@ add_executable(test-z3
   opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
+  opt_value.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
@@ -180,4 +181,3 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
-z3_generate_registration(test-z3)

@@ -33,13 +33,12 @@ the number of Adders and Multipliers before "bit-blasting".
 
 #include "ast/simplifiers/max_bv_sharing.h"
 #include "tactic/dependent_expr_state_tactic.h"
+#include "tactic/tactic.h"
 
 inline tactic* mk_max_bv_sharing_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p, mk_max_bv_sharing);
 }
 
-/*
-  ADD_TACTIC("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", "mk_max_bv_sharing_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(max_bv_sharing, "max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", mk_max_bv_sharing_tactic(m, p));
 
 

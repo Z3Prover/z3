@@ -43,6 +43,4 @@ public:
     }
 };
 
-/*
-  ADD_SIMPLIFIER("refine-injectivity", "refine injectivity axioms.", "alloc(refine_inj_axiom_simplifier, m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(refine_injectivity, "refine-injectivity", "refine injectivity axioms.", alloc(refine_inj_axiom_simplifier, m, p, s));

@@ -22,7 +22,6 @@ set_target_properties(shell PROPERTIES OUTPUT_NAME z3)
 # roots directly instead of going through the shared libz3 target.
 target_link_libraries(shell PRIVATE
   z3_common ${shell_deps})
-z3_generate_registration(shell)
 install(TARGETS shell
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )

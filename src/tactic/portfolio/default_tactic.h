@@ -19,12 +19,11 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-ADD_TACTIC("default", "default strategy used when no logic is specified.", "mk_default_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(default, "default", "default strategy used when no logic is specified.", mk_default_tactic(m, p));
 

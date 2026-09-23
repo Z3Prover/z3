@@ -180,11 +180,6 @@ Abstract:
   UINT_  (dt_lazy_splits,                          "dt_lazy_splits",                          1,                        "How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy") \
   BOOL_  (qsat_use_qel,                            "qsat_use_qel",                            true,                     "Use QEL for lite quantifier elimination and model-based projection in QSAT")
 
-Z3_DEFINE_MODULE_PARAMS(smt_params_helper, "smt", SMT_PARAMS_HELPER_LIST);
-
-/*
-   REG_MODULE_PARAMS('smt', 'smt_params_helper::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('smt', 'smt solver based on lazy smt')
-*/
+Z3_DEFINE_MODULE_PARAMS(smt_params_helper, "smt", SMT_PARAMS_HELPER_LIST, "smt solver based on lazy smt");
 
 #undef SMT_PARAMS_HELPER_LIST

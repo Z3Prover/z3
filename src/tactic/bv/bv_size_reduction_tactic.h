@@ -53,10 +53,9 @@ where `k` is a fresh bit-vector constant of size 3.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", "mk_bv_size_reduction_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(reduce_bv_size, "reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", mk_bv_size_reduction_tactic(m, p));

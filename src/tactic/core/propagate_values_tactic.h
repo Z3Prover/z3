@@ -20,11 +20,10 @@ Revision History:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("propagate-values", "propagate constants.", "mk_propagate_values_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(propagate_values, "propagate-values", "propagate constants.", mk_propagate_values_tactic(m, p));

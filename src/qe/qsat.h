@@ -138,12 +138,7 @@ tactic * mk_qe2_tactic(ast_manager & m, params_ref const& p = params_ref());
 tactic * mk_qe_rec_tactic(ast_manager & m, params_ref const& p = params_ref());
 
 
-/*
-  ADD_TACTIC("qsat", "apply a QSAT solver.", "mk_qsat_tactic(m, p)") 
-
-  ADD_TACTIC("qe2", "apply a QSAT based quantifier elimination.", "mk_qe2_tactic(m, p)") 
-
-  ADD_TACTIC("qe_rec", "apply a QSAT based quantifier elimination recursively.", "mk_qe_rec_tactic(m, p)") 
-
-*/
+Z3_ADD_TACTIC(qsat, "qsat", "apply a QSAT solver.", mk_qsat_tactic(m, p));
+Z3_ADD_TACTIC(qe2, "qe2", "apply a QSAT based quantifier elimination.", mk_qe2_tactic(m, p));
+Z3_ADD_TACTIC(qe_rec, "qe_rec", "apply a QSAT based quantifier elimination recursively.", mk_qe_rec_tactic(m, p));
 

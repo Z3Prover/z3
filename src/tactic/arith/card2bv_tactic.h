@@ -61,13 +61,12 @@ separately from the conversions from Pseudo-Boolean constraints using different 
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/card2bv.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic* mk_card2bv_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(card2bv, m, p, s); });
 }
 
-/*
-  ADD_TACTIC("card2bv", "convert pseudo-boolean constraints to bit-vectors.", "mk_card2bv_tactic(m, p)")
-  ADD_SIMPLIFIER("card2bv", "convert pseudo-boolean constraints to bit-vectors.", "alloc(card2bv, m, p, s)")
-*/
+Z3_ADD_TACTIC(card2bv, "card2bv", "convert pseudo-boolean constraints to bit-vectors.", mk_card2bv_tactic(m, p));
+Z3_ADD_SIMPLIFIER(card2bv, "card2bv", "convert pseudo-boolean constraints to bit-vectors.", alloc(card2bv, m, p, s));

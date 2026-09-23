@@ -12,6 +12,4 @@ z3_add_component(fp
     rel
     spacer
     tab
-  TACTIC_HEADERS
-    horn_tactic.h
 )

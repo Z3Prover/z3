@@ -21,6 +21,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/simplifiers/extract_eqs.h"
 #include "ast/simplifiers/bound_manager.h"
 #include "params/tactic_params.hpp"
@@ -446,9 +447,86 @@ break;
         }
     };
 
+
+    // Guarded pointwise definitions of array constants:
+    //   (forall (x) (= (select A x) t))            ==>  A := (lambda (x) t)
+    //   (forall (x) (=> G (= (select A x) t)))     ==>  A := (lambda (x) (ite G t (select A' x)))   with A' fresh
+    // where A is an uninterpreted constant not occurring in G or t, and the select
+    // arguments are exactly the bound variables in binder order.
+    class array_extract_eq : public extract_eq {
+        ast_manager& m;
+        array_util   a;
+
+        bool is_select_of_vars(expr* e, unsigned n, app*& sel) {
+            if (!a.is_select(e)) return false;
+            sel = to_app(e);
+            if (sel->get_num_args() != n + 1) return false;
+            for (unsigned i = 0; i < n; ++i) {
+                expr* arg = sel->get_arg(i + 1);
+                if (!is_var(arg) || to_var(arg)->get_idx() != n - i - 1) return false;
+            }
+            return true;
+        }
+
+        bool occurs_in(expr* A, expr* e) {
+            for (expr* t : subterms::all(expr_ref(e, m)))
+                if (t == A) return true;
+            return false;
+        }
+
+    public:
+        array_extract_eq(ast_manager& m): m(m), a(m) {}
+
+        void get_eqs(dependent_expr const& e, dep_eq_vector& eqs) override {
+            auto [f, p, d] = e();
+            if (!is_forall(f)) return;
+            quantifier* q = to_quantifier(f);
+            unsigned n = q->get_num_decls();
+            expr* body = q->get_expr();
+            expr* guard = nullptr, *eq = body, *g = nullptr, *c = nullptr;
+            expr_ref guard_ref(m);
+            if (m.is_implies(body, g, c)) {
+                guard = g; eq = c;
+            }
+            else if (m.is_or(body) && to_app(body)->get_num_args() == 2) {
+                expr* a0 = to_app(body)->get_arg(0), *a1 = to_app(body)->get_arg(1);
+                if (m.is_eq(a1)) { guard_ref = mk_not(m, a0); guard = guard_ref; eq = a1; }
+                else if (m.is_eq(a0)) { guard_ref = mk_not(m, a1); guard = guard_ref; eq = a0; }
+                else return;
+            }
+            expr* lhs = nullptr, *rhs = nullptr;
+            if (!m.is_eq(eq, lhs, rhs)) return;
+            // (= (ite G (select A x) s) (ite G t s))  ==  (=> G (= (select A x) t))
+            expr *c1 = nullptr, *t1 = nullptr, *e1 = nullptr, *c2 = nullptr, *t2 = nullptr, *e2 = nullptr;
+            if (!guard && m.is_ite(lhs, c1, t1, e1) && m.is_ite(rhs, c2, t2, e2) && c1 == c2 && e1 == e2) {
+                guard = c1; lhs = t1; rhs = t2;
+            }
+            app* sel = nullptr; expr* def = nullptr;
+            if (is_select_of_vars(lhs, n, sel)) def = rhs;
+            else if (is_select_of_vars(rhs, n, sel)) def = lhs;
+            else return;
+            expr* A = sel->get_arg(0);
+            if (!is_uninterp_const(A)) return;
+            if (occurs_in(A, def) || (guard && occurs_in(A, guard))) return;
+            if (has_quantifiers(def) || (guard && has_quantifiers(guard))) return;
+            expr_ref lam_body(def, m);
+            if (guard) {
+                app* Ap = m.mk_fresh_const("array-def", A->get_sort());
+                ptr_buffer<expr> args;
+                args.push_back(Ap);
+                for (unsigned i = 0; i < n; ++i) args.push_back(sel->get_arg(i + 1));
+                expr_ref selp(a.mk_select(args.size(), args.data()), m);
+                lam_body = m.mk_ite(guard, def, selp);
+            }
+            expr_ref lam(m.mk_lambda(n, q->get_decl_sorts(), q->get_decl_names(), lam_body), m);
+            eqs.push_back(dependent_eq(f, to_app(A), lam, d));
+        }
+    };
+
     void register_extract_eqs(ast_manager& m, scoped_ptr_vector<extract_eq>& ex) {
         ex.push_back(alloc(arith_extract_eq, m));
         ex.push_back(alloc(basic_extract_eq, m));
         ex.push_back(alloc(bv_extract_eq, m));
+        ex.push_back(alloc(array_extract_eq, m));
     }
 }

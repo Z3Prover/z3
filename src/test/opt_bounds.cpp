@@ -14,6 +14,8 @@ Abstract:
 
 --*/
 #include "api/z3.h"
+#include "ast/reg_decl_plugins.h"
+#include "opt/opt_context.h"
 #include "util/debug.h"
 #include <climits>
 #include <cstring>
@@ -28,7 +30,7 @@ struct opt_fixture {
     Z3_optimize opt;
 
     opt_fixture(char const* priority = "lex", unsigned rounds = 64, bool nlsat = true,
-                unsigned supremum_rlimit = 100000) {
+                unsigned supremum_rlimit = 100000, char const* engine = "basic") {
         Z3_config cfg = Z3_mk_config();
         ctx = Z3_mk_context(cfg);
         Z3_del_config(cfg);
@@ -41,12 +43,12 @@ struct opt_fixture {
         // Hold p while filling it and applying its settings to the optimizer.
         Z3_params_inc_ref(ctx, p);
         Z3_params_set_symbol(ctx, p, symbol("priority"), symbol(priority));
-        Z3_params_set_symbol(ctx, p, symbol("optsmt_engine"), symbol("basic"));
+        Z3_params_set_symbol(ctx, p, symbol("optsmt_engine"), symbol(engine));
         Z3_params_set_bool(ctx, p, symbol("optsmt_nlsat"), nlsat);
         Z3_params_set_uint(ctx, p, symbol("optsmt_bisect_rounds"), rounds);
         // Bound the extra finite-limit proof independently of the overall work limit.
         Z3_params_set_uint(ctx, p, symbol("optsmt_nlsat_supremum_rlimit"), supremum_rlimit);
-        Z3_params_set_uint(ctx, p, symbol("smt.arith.solver"), 6);
+        Z3_params_set_uint(ctx, p, symbol("smt.arith.solver"), std::strcmp(engine, "symba") == 0 ? 5 : 6);
         // Limit solver work without counting time spent paused in the debugger.
         Z3_params_set_uint(ctx, p, symbol("timeout"), 0);
         Z3_params_set_uint(ctx, p, symbol("rlimit"), 1000000);
@@ -524,6 +526,59 @@ static void tst_recheck_and_scopes() {
     ensure_finite_bounds(f, h, root(f));
 }
 
+static void tst_incremental_callback_bounds() {
+    for (bool maximize : {false, true}) {
+        opt_fixture f;
+        Z3_params p = Z3_mk_params(f.ctx);
+        Z3_params_inc_ref(f.ctx, p);
+        Z3_params_set_bool(f.ctx, p, f.symbol("incremental"), true);
+        Z3_optimize_set_params(f.ctx, f.opt, p);
+        ENSURE(Z3_get_error_code(f.ctx) == Z3_OK);
+        Z3_params_dec_ref(f.ctx, p);
+
+        Z3_ast x = f.real("x");
+        f.add(Z3_mk_le(f.ctx, f.square(x), f.num(2)));
+        unsigned first = f.objective(x, maximize);
+        unsigned second = f.objective(f.sum(x, f.num(3)), !maximize);
+        struct callback_state {
+            opt_fixture& f;
+            unsigned first;
+            bool maximize;
+            bool added = false;
+        } state{f, first, maximize};
+        Z3_model model = Z3_mk_model(f.ctx);
+        Z3_model_inc_ref(f.ctx, model);
+        Z3_optimize_register_model_eh(f.ctx, f.opt, model, &state, [](void* data) {
+            auto& s = *static_cast<callback_state*>(data);
+            auto& f = s.f;
+            bool lower = !s.maximize;
+            if (s.added || !Z3_is_algebraic_number(f.ctx, scalar_bound(f, s.first, lower)))
+                return;
+            s.added = true;
+            // Wait for the first exact optimum, then invalidate bounds without
+            // changing feasibility. Infinity must not retain its algebraic part.
+            f.add(Z3_mk_true(f.ctx));
+            ensure_vector(f, s.first, lower, s.maximize ? 1 : -1, f.num(0), 0, Z3_INT_SORT);
+            Z3_ast oo = Z3_mk_const(f.ctx, f.symbol("oo"), Z3_mk_int_sort(f.ctx));
+            Z3_ast expected = s.maximize ? oo : Z3_mk_unary_minus(f.ctx, oo);
+            Z3_ast same = Z3_simplify(f.ctx, Z3_mk_eq(f.ctx, scalar_bound(f, s.first, lower), expected));
+            ENSURE(Z3_get_bool_value(f.ctx, same) == Z3_L_TRUE);
+        });
+        ENSURE(f.check() == Z3_L_TRUE);
+        ENSURE(state.added);
+        Z3_ast value = shifted_root(f, f.num(0), maximize);
+        ensure_value(f, scalar_bound(f, first, maximize), value);
+        ensure_finite_bounds(f, second, shifted_root(f, f.num(3), maximize));
+        ensure_model_value(f, x, value);
+
+        // A later solve must recover tight bounds after the one-off invalidation.
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, first, value);
+        ensure_finite_bounds(f, second, shifted_root(f, f.num(3), maximize));
+        Z3_model_dec_ref(f.ctx, model);
+    }
+}
+
 // Disabling nlsat cells or adding a UF prevents the exact-cell proof.
 // Both cases must expose the remaining rational gap, not an algebraic optimum.
 static void tst_fallback_intervals() {
@@ -544,6 +599,138 @@ static void tst_fallback_intervals() {
         ENSURE(f.check() == Z3_L_UNDEF);
         ensure_rational_interval(f, h);
     }
+}
+
+enum class search_exit { unknown, cancel, exception };
+
+class search_exit_solver : public opt::opt_solver {
+public:
+    search_exit kind;
+    unsigned probe = 0;
+    unsigned stop_at;
+    bool stopped = false;
+
+    search_exit_solver(ast_manager& m, params_ref const& p, generic_model_converter& fm,
+                       search_exit kind, unsigned stop_at):
+        opt_solver(m, p, fm), kind(kind), stop_at(stop_at) {}
+
+    void assert_expr_core(expr* e) override {
+        opt_solver::assert_expr_core(e);
+        // Cancel between iterations, while the newly pushed probe is still live.
+        if (kind == search_exit::cancel && stop_here())
+            get_manager().limit().cancel();
+    }
+
+    lbool check_sat_core2(unsigned n, expr* const* assumptions) override {
+        if (kind != search_exit::cancel && stop_here()) {
+            if (kind == search_exit::exception)
+                throw default_exception("search scope test");
+            return l_undef;
+        }
+        return opt_solver::check_sat_core2(n, assumptions);
+    }
+
+private:
+    bool stop_here() {
+        // The test opens level one and optsmt::lex opens level two.
+        // Wait for a deeper push, where a trial bound is active, and stop once.
+        if (stopped || get_scope_level() <= 2 || ++probe != stop_at)
+            return false;
+        stopped = true;
+        return true;
+    }
+};
+
+// Maximize the real variable x subject to x >= 0 and x*x <= 2.
+// The feasible interval is [0, sqrt(2)], so the true maximum is sqrt(2).
+// With exact nlsat optimization disabled, this search keeps rational lower
+// and upper bounds. A short bisection run leaves a gap, so we expect UNKNOWN,
+// not a claim that one of those rational bounds is the exact maximum.
+//
+// The search first tries a temporary bound x >= best + step. When that bound
+// is infeasible, it removes it and switches to bisection. Bisection alternates
+// between asking for any improvement (x > lo) and trying the midpoint
+// (x >= (lo + hi)/2). Each question gets its own temporary solver scope.
+//
+// Force an early exit while a trial bound is active, then check that all
+// search scopes were removed, the original constraints still allow x = 0,
+// and the same optimizer and solver can be used again.
+static void tst_search_scope_exits() {
+    // Run all three exit types at both locations, with a fresh solver each time:
+    // stop_at = 1 stops the geometric trial; stop_at = 2 lets it fail normally
+    // and stops the first bisection trial. Counting trials avoids timing limits
+    // or resource counts that could stop at different places on other machines.
+    for (search_exit exit : {search_exit::unknown, search_exit::cancel, search_exit::exception})
+        for (unsigned stop_at : {1u, 2u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            arith_util a(m);
+            opt::context ctx(m);
+            params_ref p;
+            // Keep the exact-cell shortcut out of the test so the failed
+            // geometric step leads to the bisection code we want to exercise.
+            p.set_bool("optsmt_nlsat", false);
+            p.set_uint("optsmt_bisect_rounds", 8);
+            p.set_uint("arith.solver", 6);
+            generic_model_converter fm(m, "search scopes");
+            search_exit_solver s(m, p, fm, exit, stop_at);
+            opt::optsmt optimizer(m, ctx);
+            expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+            expr_ref zero(a.mk_numeral(rational(0), false), m);
+            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            // Put x >= 0 in a scope that must survive the optimization call.
+            // After the search, this must still be the only open scope.
+            solver::scoped_push caller_scope(s);
+            s.assert_expr(a.mk_ge(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            model_ref mdl;
+            s.get_model(mdl);
+            ctx.set_model(mdl);
+            unsigned h = optimizer.add(to_app(x));
+            optimizer.setup(s);
+            optimizer.updt_params(p);
+            rational initial;
+            // Start the search with a valid lower bound from a feasible model,
+            // just as the normal optimization entry point does.
+            ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+            optimizer.update_lower(h, opt::inf_eps(initial));
+            unsigned assertions = s.get_num_assertions();
+            bool threw = false;
+            // UNKNOWN and cancellation should return l_undef. The test exception
+            // should escape unchanged, but still trigger scope cleanup.
+            try {
+                ENSURE(optimizer.lex(h, true) == l_undef);
+            }
+            catch (default_exception const& ex) {
+                ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
+                threw = true;
+            }
+            // Ensure the intended stop was reached, then check that neither
+            // extra pushes nor temporary assertions remain.
+            ENSURE(s.stopped);
+            ENSURE(threw == (exit == search_exit::exception));
+            ENSURE(s.get_scope_level() == 1);
+            ENSURE(s.get_num_assertions() == assertions);
+            if (exit == search_exit::cancel) {
+                // Cleanup must not swallow the cancellation request. Clear it
+                // here only so the remaining checks can use the solver again.
+                ENSURE(m.limit().is_canceled());
+                m.limit().reset_cancel();
+            }
+            // x = 0 satisfies both original constraints, but violates the trial
+            // improvement bounds. A leaked bound would make this check UNSAT.
+            {
+                solver::scoped_push check_scope(s);
+                s.assert_expr(m.mk_eq(x, zero));
+                ENSURE(s.check_sat(0, nullptr) == l_true);
+            }
+            // The forced stop happens only once. Retry without it on the same
+            // objects: eight bisection rounds still leave a rational gap around
+            // sqrt(2), so UNKNOWN is expected, with no extra scopes or assertions.
+            ENSURE(optimizer.lex(h, true) == l_undef);
+            ENSURE(s.get_scope_level() == 1);
+            ENSURE(s.get_num_assertions() == assertions);
+        }
 }
 
 // A real relaxation would approach 2, but integer n < 2 forces x < 1.
@@ -708,6 +895,41 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
+static void tst_symba_bounds() {
+    // An integer slack selects theory_inf_arith instead of the pure-LRA
+    // shortcut, so these cases exercise SYMBA's vector-bound updates.
+    for (bool strict : {false, true}) {
+        opt_fixture f("lex", 64, true, 100000, "symba");
+        Z3_ast x = f.real("x");
+        Z3_ast n = Z3_mk_const(f.ctx, f.symbol("n"), Z3_mk_int_sort(f.ctx));
+        Z3_ast slack = Z3_mk_int2real(f.ctx, n);
+        f.add(Z3_mk_ge(f.ctx, slack, f.num(0)));
+        Z3_ast total = f.sum(x, slack);
+        f.add(strict ? Z3_mk_lt(f.ctx, total, f.num(2)) : Z3_mk_le(f.ctx, total, f.num(2)));
+        unsigned h = f.objective(x);
+        ENSURE(f.check() == Z3_L_TRUE);
+        if (strict)
+            ensure_symbolic_bounds(f, h, 0, 2, -1);
+        else
+            ensure_finite_bounds(f, h, f.num(2), Z3_INT_SORT);
+    }
+
+    opt_fixture f("lex", 64, true, 100000, "symba");
+    Z3_ast x = f.real("x"), y = f.real("y");
+    Z3_ast n = Z3_mk_const(f.ctx, f.symbol("n"), Z3_mk_int_sort(f.ctx));
+    Z3_ast slack = Z3_mk_int2real(f.ctx, n);
+    f.add(Z3_mk_ge(f.ctx, x, f.num(0)));
+    f.add(Z3_mk_ge(f.ctx, y, f.num(0)));
+    f.add(Z3_mk_ge(f.ctx, slack, f.num(0)));
+    f.add(Z3_mk_le(f.ctx, f.sum(f.sum(x, y), slack), f.num(5)));
+    unsigned first = f.objective(x), second = f.objective(y);
+    ENSURE(f.check() == Z3_L_TRUE);
+    ensure_finite_bounds(f, first, f.num(5), Z3_INT_SORT);
+    ensure_finite_bounds(f, second, f.num(0), Z3_INT_SORT);
+    // Legacy SYMBA may retain its initial feasible model even with tight
+    // bounds. Witness selection is not changed by the value representation.
+}
+
 // Check unsigned BV maximum 9 and minimum 3 as Int scalar bounds,
 // with coefficient vectors [0, 9, 0] and [0, 3, 0].
 static void tst_bitvector_bounds() {
@@ -745,8 +967,10 @@ void tst_opt_bounds() {
     }
     std::cout << "opt_bounds: recheck, scopes, and unknown intervals\n";
     tst_recheck_and_scopes();
+    tst_incremental_callback_bounds();
     tst_open_proof_budget();
     tst_fallback_intervals();
+    tst_search_scope_exits();
     tst_open_integer_fallback();
     std::cout << "opt_bounds: reset and invalid indices\n";
     tst_reset_and_invalid_indices(false);
@@ -754,5 +978,6 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: rational, infinity, epsilon, and BV compatibility\n";
     tst_rational_bounds();
     tst_infinity_and_epsilon();
+    tst_symba_bounds();
     tst_bitvector_bounds();
 }

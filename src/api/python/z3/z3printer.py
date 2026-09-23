@@ -747,7 +747,9 @@ class Formatter:
 
     def pp_sort(self, s):
         if isinstance(s, z3.ArraySortRef):
-            return seq1("Array", (self.pp_sort(s.domain()), self.pp_sort(s.range())))
+            arity = Z3_get_array_arity(s.ctx_ref(), s.ast)
+            domains = [self.pp_sort(s.domain_n(i)) for i in range(arity)]
+            return seq1("Array", domains + [self.pp_sort(s.range())])
         elif isinstance(s, z3.BitVecSortRef):
             return seq1("BitVec", (to_format(s.size()), ))
         elif isinstance(s, z3.FPSortRef):

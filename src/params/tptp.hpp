@@ -21,11 +21,6 @@ Abstract:
   BOOL_  (unfold_lambda_macros,   "unfold_lambda_macros",   true,   "pre-process the goal by unfolding constants that are defined as lambda terms (shallow embeddings of higher-order/modal operators), inlining and beta-reducing their occurrences") \
   BOOL_  (leibniz_instantiation,  "leibniz_instantiation",  false,  "pre-process the goal by synthesizing and adding Leibniz-equality style instantiations of universally quantified predicate variables applied to distinct argument terms")
 
-Z3_DEFINE_MODULE_PARAMS(tptp, "tptp", TPTP_LIST);
-
-/*
-   REG_MODULE_PARAMS('tptp', 'tptp::collect_param_descrs')
-   REG_MODULE_DESCRIPTION('tptp', 'TPTP frontend parameters')
-*/
+Z3_DEFINE_MODULE_PARAMS(tptp, "tptp", TPTP_LIST, "TPTP frontend parameters");
 
 #undef TPTP_LIST
