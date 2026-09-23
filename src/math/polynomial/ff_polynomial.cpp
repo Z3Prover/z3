@@ -23,6 +23,23 @@ namespace ff {
         st.update("ff term exhaustions", m_term_exhaustions);
         st.update("ff basis exhaustions", m_basis_exhaustions);
         st.update("ff matrix exhaustions", m_matrix_exhaustions);
+        st.update("ff local work exhaustions", m_local_work_exhaustions);
+        st.update("ff shared limit exhaustions", m_shared_limit_exhaustions);
+        st.update("ff polynomial term exhaustions", m_polynomial_terms_exhaustions);
+        st.update("ff monomial degree exhaustions", m_monomial_degree_exhaustions);
+        st.update("ff active basis exhaustions", m_active_basis_exhaustions);
+        st.update("ff basis slot exhaustions", m_basis_slots_exhaustions);
+        st.update("ff matrix symbolic storage exhaustions", m_matrix_symbolic_exhaustions);
+        st.update("ff matrix reducer count exhaustions", m_matrix_reducer_exhaustions);
+        st.update("ff matrix column count exhaustions", m_matrix_column_exhaustions);
+        st.update("ff matrix row growth exhaustions", m_matrix_row_exhaustions);
+        st.update("ff matrix pivot storage exhaustions", m_matrix_pivot_exhaustions);
+        st.update("ff matrix peak columns", static_cast<double>(m_peak_matrix_columns));
+        st.update("ff matrix peak reducers", static_cast<double>(m_peak_matrix_reducers));
+        st.update("ff matrix peak row terms", static_cast<double>(m_peak_matrix_row_terms));
+        st.update("ff matrix peak symbolic bytes", static_cast<double>(m_peak_matrix_symbolic_bytes));
+        st.update("ff matrix peak coefficient bytes", static_cast<double>(m_peak_matrix_coefficient_bytes));
+        st.update("ff matrix peak dependency bytes", static_cast<double>(m_peak_matrix_dependency_bytes));
         st.update("ff root calls", m_root_calls);
         st.update("ff propagated bit facts", m_bit_facts);
         st.update("ff bit rounds", m_bit_rounds);
@@ -443,8 +460,14 @@ namespace ff {
         probe.quotient_field = quotient_field;
     }
     void engine::tick() {
-        if (++work > max_work || !limit.inc()) {
+        if (++work > max_work) {
             ++m_step_exhaustions;
+            ++m_local_work_exhaustions;
+            throw exhausted();
+        }
+        if (!limit.inc()) {
+            ++m_step_exhaustions;
+            ++m_shared_limit_exhaustions;
             throw exhausted();
         }
     }
@@ -485,6 +508,8 @@ namespace ff {
         }
         f.sugar = std::max(f.sugar, static_cast<unsigned>(mon.size()));
         if (f.size() > max_terms || mon.size() > 1024) {
+            m_polynomial_terms_exhaustions += f.size() > max_terms;
+            m_monomial_degree_exhaustions += mon.size() > 1024;
             ++m_term_exhaustions;
             throw exhausted();
         }
@@ -709,10 +734,12 @@ namespace ff {
             // Saturating admission check avoids multiplication overflow. This
             // is a conservative storage allowance, not an allocator measurement.
             if (count > (symbolic_limit - symbolic_bytes) / bytes) {
+                ++m_matrix_symbolic_exhaustions;
                 ++m_matrix_exhaustions;
                 throw exhausted();
             }
             symbolic_bytes += count * bytes;
+            m_peak_matrix_symbolic_bytes = std::max(m_peak_matrix_symbolic_bytes, symbolic_bytes);
         };
         auto charge_header = [&](polynomial const &f) {
             // Include old plus new vector capacity during reallocation,
@@ -750,7 +777,9 @@ namespace ff {
                     }
                 }
                 else if (columns.insert(mon).second) pending.insert(mon);
+                m_peak_matrix_columns = std::max(m_peak_matrix_columns, columns.size());
                 if (columns.size() > static_cast<size_t>(max_terms) * 4) {
+                    ++m_matrix_column_exhaustions;
                     ++m_matrix_exhaustions;
                     throw exhausted();
                 }
@@ -786,8 +815,10 @@ namespace ff {
                 }
                 discover(row);
                 reducers.push_back(std::move(row));
+                m_peak_matrix_reducers = std::max(m_peak_matrix_reducers, reducers.size());
                 if (reducers.size() > 1024) {
                     if (!adaptive_matrix) {
+                        ++m_matrix_reducer_exhaustions;
                         ++m_matrix_exhaustions;
                         throw exhausted();
                     }
@@ -814,13 +845,14 @@ namespace ff {
             };
             std::map<unsigned, packed_row> pivots;
             std::vector<polynomial> out;
-            size_t stored = 0;
+            size_t stored = 0, coefficient_bytes = 0, dependency_bytes = 0;
             auto eliminate = [&](polynomial const &f, bool emit) {
                 ++m_matrix_rows;
                 packed_row row;
                 row.dependencies = f.dependencies;
                 row.sugar = f.sugar;
                 for (auto const &[mon, c] : f) row.coefficients.emplace_back(indices.at(mon), c.get_uint64());
+                m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
                 while (!row.coefficients.empty()) {
                     tick();
                     auto [lead, factor] = row.coefficients.front();
@@ -847,7 +879,9 @@ namespace ff {
                         if (c) next.emplace_back(column, c);
                     }
                     row.coefficients = std::move(next);
+                    m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
                     if (row.coefficients.size() > max_terms) {
+                        ++m_matrix_row_exhaustions;
                         ++m_matrix_exhaustions; throw exhausted();
                     }
                 }
@@ -864,8 +898,13 @@ namespace ff {
                 // Bound allocated row capacity, not just live terms. A packed
                 // coefficient pair uses 16 bytes rather than an allocated tree
                 // node; provenance still uses tree nodes and is charged at 48.
+                coefficient_bytes += 16 * row.coefficients.capacity();
+                dependency_bytes += 48 * row.dependencies.size();
+                m_peak_matrix_coefficient_bytes = std::max(m_peak_matrix_coefficient_bytes, coefficient_bytes);
+                m_peak_matrix_dependency_bytes = std::max(m_peak_matrix_dependency_bytes, dependency_bytes);
                 stored += 16 * row.coefficients.capacity() + 48 * row.dependencies.size();
                 if (stored > static_cast<size_t>(max_terms) * 64 * 48) {
+                    ++m_matrix_pivot_exhaustions;
                     ++m_matrix_exhaustions; throw exhausted();
                 }
                 unsigned column = row.coefficients.front().first;
@@ -882,7 +921,7 @@ namespace ff {
         };
         std::map<unsigned, sparse_row> pivots;
         std::vector<polynomial> out;
-        size_t stored = 0;
+        size_t stored = 0, coefficient_bytes = 0, dependency_bytes = 0;
         auto eliminate = [&](polynomial const &f, bool emit) {
             ++m_matrix_rows;
             sparse_row row;
@@ -890,6 +929,7 @@ namespace ff {
             row.sugar = f.sugar;
             for (auto const &[mon, coefficient] : f)
                 row.coefficients.emplace(indices.at(mon), coefficient.get_uint64());
+            m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
             while (!row.coefficients.empty()) {
                 tick();
                 auto [column, factor] = *row.coefficients.begin();
@@ -912,7 +952,9 @@ namespace ff {
                     else
                         row.coefficients.erase(c);
                 }
+                m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
                 if (row.coefficients.size() > max_terms) {
+                    ++m_matrix_row_exhaustions;
                     ++m_matrix_exhaustions;
                     throw exhausted();
                 }
@@ -935,8 +977,16 @@ namespace ff {
                     add_term(result, monomials[column], rational(value));
                 out.push_back(std::move(result));
             }
+            // The existing tree-row budget counts coefficient and premise
+            // nodes together. Report its two components at 48 bytes per node,
+            // matching the packed-row policy; these are estimates, not RSS.
+            coefficient_bytes += 48 * row.coefficients.size();
+            dependency_bytes += 48 * row.dependencies.size();
+            m_peak_matrix_coefficient_bytes = std::max(m_peak_matrix_coefficient_bytes, coefficient_bytes);
+            m_peak_matrix_dependency_bytes = std::max(m_peak_matrix_dependency_bytes, dependency_bytes);
             stored += row.coefficients.size() + row.dependencies.size();
             if (stored > static_cast<size_t>(max_terms) * 64) {
+                ++m_matrix_pivot_exhaustions;
                 ++m_matrix_exhaustions;
                 throw exhausted();
             }
@@ -1095,6 +1145,8 @@ namespace ff {
                     }
                 }
                 if (active_basis > 256 || bs.size() > 4096) {
+                    m_active_basis_exhaustions += active_basis > 256;
+                    m_basis_slots_exhaustions += bs.size() > 4096;
                     ++m_basis_exhaustions;
                     throw exhausted();
                 }

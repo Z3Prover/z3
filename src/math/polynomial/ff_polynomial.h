@@ -58,6 +58,16 @@ namespace ff {
         unsigned m_extra_matrix_reducers = 0;
         unsigned m_sparse_trials = 0, m_sparse_witnesses = 0;
         unsigned m_step_exhaustions = 0, m_term_exhaustions = 0, m_basis_exhaustions = 0, m_matrix_exhaustions = 0;
+        // Sub-counters identify the unchanged guard that ended an attempt.
+        // Peaks are per engine (not process RSS); wrapper statistics may sum
+        // them across independent engine calls rather than take a global max.
+        unsigned m_local_work_exhaustions = 0, m_shared_limit_exhaustions = 0;
+        unsigned m_polynomial_terms_exhaustions = 0, m_monomial_degree_exhaustions = 0;
+        unsigned m_active_basis_exhaustions = 0, m_basis_slots_exhaustions = 0;
+        unsigned m_matrix_symbolic_exhaustions = 0, m_matrix_reducer_exhaustions = 0;
+        unsigned m_matrix_column_exhaustions = 0, m_matrix_row_exhaustions = 0, m_matrix_pivot_exhaustions = 0;
+        size_t m_peak_matrix_columns = 0, m_peak_matrix_reducers = 0, m_peak_matrix_row_terms = 0;
+        size_t m_peak_matrix_symbolic_bytes = 0, m_peak_matrix_coefficient_bytes = 0, m_peak_matrix_dependency_bytes = 0;
         std::vector<polynomial> batch_reduce(std::vector<polynomial> const &rows,
                                              std::vector<polynomial> const &basis);
         std::set<unsigned> m_conflict;

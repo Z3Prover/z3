@@ -73,6 +73,7 @@ namespace ff {
             try { local.minimal_polynomial(0, {mixed}); }
             catch (ff::exhausted const &) { exhausted = true; }
             ENSURE(exhausted && local.steps() == 1 && !local_limit.is_canceled());
+            ENSURE(local.m_local_work_exhaustions == 1 && local.m_shared_limit_exhaustions == 0);
             reslimit canceled_limit;
             engine canceled(rational(7), canceled_limit, 100);
             canceled_limit.cancel();
@@ -80,7 +81,49 @@ namespace ff {
             try { canceled.minimal_polynomial(0, {mixed}); }
             catch (ff::exhausted const &) { exhausted = true; }
             ENSURE(exhausted && canceled_limit.is_canceled());
+            ENSURE(canceled.m_shared_limit_exhaustions == 1 && canceled.m_local_work_exhaustions == 0);
             std::cout << "Minimal-polynomial dimension guard honors local work and shared cancellation\n";
+        }
+        static void matrix_limit_diagnostics() {
+            reslimit limit;
+            engine builder(rational(7), limit, 1000000);
+            auto x = builder.variable(4), y = builder.variable(3), z = builder.variable(2);
+            auto a = builder.variable(1), b = builder.variable(0);
+            // Five symbolic columns exceed 4*max_terms before elimination.
+            auto wide = builder.add(builder.add(builder.add(builder.add(x, y), z), a), b);
+            engine columns(rational(7), limit, 1000000, 1);
+            bool exhausted = false;
+            try { columns.batch_reduce({wide}, {}); }
+            catch (ff::exhausted const &) { exhausted = true; }
+            ENSURE(exhausted && columns.m_matrix_column_exhaustions == 1);
+            ENSURE(columns.m_peak_matrix_columns == 5 && columns.m_matrix_exhaustions == 1);
+            for (bool compact : {false, true}) {
+                // Each input has three terms, but subtracting the first pivot
+                // from the second row produces four nonzero terms.
+                auto first = builder.add(builder.add(x, y), z);
+                auto second = builder.add(builder.add(x, a), b);
+                engine growth(rational(7), limit, 1000000, 3);
+                growth.compact_matrix = compact;
+                exhausted = false;
+                try { growth.batch_reduce({first, second}, {}); }
+                catch (ff::exhausted const &) { exhausted = true; }
+                ENSURE(exhausted && growth.m_matrix_row_exhaustions == 1);
+                ENSURE(growth.m_peak_matrix_row_terms == 4 && growth.m_matrix_exhaustions == 1);
+                // A short row can exhaust retained storage through provenance
+                // alone. Report both components of the shared budget honestly.
+                auto supported = x;
+                for (unsigned i = 0; i < 200; ++i) supported.dependencies.insert(i);
+                engine provenance(rational(7), limit, 1000000, 2);
+                provenance.compact_matrix = compact;
+                exhausted = false;
+                try { provenance.batch_reduce({supported}, {}); }
+                catch (ff::exhausted const &) { exhausted = true; }
+                ENSURE(exhausted && provenance.m_matrix_pivot_exhaustions == 1);
+                ENSURE(provenance.m_peak_matrix_dependency_bytes == 200 * 48);
+                ENSURE(provenance.m_peak_matrix_coefficient_bytes < provenance.m_peak_matrix_dependency_bytes);
+                ENSURE(provenance.m_matrix_exhaustions == 1);
+            }
+            std::cout << "Matrix guard diagnostics: columns, row growth and provenance-dominated storage in both representations\n";
         }
         static void adaptive_matrix_storage() {
             reslimit limit;
@@ -102,6 +145,7 @@ namespace ff {
             catch (ff::exhausted const &) { exhausted = true; }
             ENSURE(exhausted && bounded.m_matrix_exhaustions == 1);
             ENSURE(bounded.m_extra_matrix_reducers == 0);
+            ENSURE(bounded.m_matrix_reducer_exhaustions == 1 && bounded.m_peak_matrix_reducers == 1025);
             for (bool compact : {false, true}) {
                 engine extended(rational(7), limit, 10000000, 4096, false, true, false);
                 extended.adaptive_matrix = true;
@@ -144,6 +188,7 @@ namespace ff {
             try { storage.batch_reduce({wide}, {divisor}); }
             catch (ff::exhausted const &) { exhausted = true; }
             ENSURE(exhausted && storage.m_matrix_exhaustions == 1);
+            ENSURE(storage.m_matrix_symbolic_exhaustions == 1);
             // A failed admission leaves no reusable partial matrix state.
             auto recovered = storage.batch_reduce({input}, {divisor});
             ENSURE(recovered.size() == 1 && recovered.front() == expected);
@@ -252,6 +297,7 @@ static void test_ff_scalar_recovery() {
 void tst_finite_field() {
     ff::test_engine::minimal_polynomial_provenance();
     ff::test_engine::minimal_polynomial_guard_budget();
+    ff::test_engine::matrix_limit_diagnostics();
     ff::test_engine::adaptive_matrix_storage();
     test_ff_basis_optimizations();
     test_ff_scalar_recovery();
