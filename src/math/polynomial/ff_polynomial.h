@@ -55,7 +55,7 @@ namespace ff {
         unsigned m_basis_calls = 0, m_basis_pairs = 0, m_root_calls = 0;
         unsigned m_chain_skips = 0;
         unsigned m_batches = 0, m_matrix_rows = 0;
-        unsigned m_extra_matrix_reducers = 0;
+        unsigned m_extra_matrix_reducers = 0, m_lazy_matrix_reducers = 0;
         unsigned m_sparse_trials = 0, m_sparse_witnesses = 0;
         unsigned m_step_exhaustions = 0, m_term_exhaustions = 0, m_basis_exhaustions = 0, m_matrix_exhaustions = 0;
         // Sub-counters identify the unchanged guard that ended an attempt.
@@ -96,6 +96,7 @@ namespace ff {
         bool bounded_elimination = false;
         bool adaptive_reduction = false;
         bool adaptive_matrix = false;
+        bool lazy_matrix = false;
         bool sugar_pairs = false, gm_pairs = false, div_masks = false, geobucket = false, small_coefficients = false, compact_encoding = false;
         bool linear_split = false, basis_bits = false, compact_matrix = false, model_search = false, bit_bounds = false;
         bool root_completion = false, quotient_field = false;

@@ -33,6 +33,7 @@ namespace {
                 algebra.bit_bounds = smt_params_helper(p).ff_bit_bounds();
                 algebra.adaptive_reduction = smt_params_helper(p).ff_adaptive_reduction();
                 algebra.adaptive_matrix = smt_params_helper(p).ff_adaptive_matrix();
+                algebra.lazy_matrix = smt_params_helper(p).ff_lazy_matrix();
                 algebra.bounded_elimination = smt_params_helper(p).ff_bounded_elimination();
                 algebra.sugar_pairs = smt_params_helper(p).ff_sugar_pairs();
                 algebra.gm_pairs = smt_params_helper(p).ff_gm_pairs();
@@ -264,6 +265,7 @@ namespace {
             ds.insert("ff.quotient_field", CPK_BOOL, "adjoin bounded quotient reductions of finite-field Frobenius axioms", "false");
             ds.insert("ff.bit_bounds", CPK_BOOL, "propagate Boolean digits using no-wrap signed interval bounds", "true");
             ds.insert("ff.adaptive_reduction", CPK_BOOL, "fall back to scalar basis reduction when a matrix exceeds its storage budget", "false");
+            ds.insert("ff.lazy_matrix", CPK_BOOL, "retain matrix reducers as basis references and monomial multipliers", "false");
             ds.insert("ff.adaptive_matrix", CPK_BOOL, "allow more symbolic matrix reducers within a bounded storage allowance", "false");
             ds.insert("ff.bounded_elimination", CPK_BOOL, "retain nonlinear definitions when substitution predicts polynomial growth", "false");
             ds.insert("ff.sugar_pairs", CPK_BOOL, "rank critical pairs by propagated sugar degree in all field sizes", "false");

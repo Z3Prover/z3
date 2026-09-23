@@ -17,6 +17,7 @@ namespace ff {
         st.update("ff matrix batches", m_batches);
         st.update("ff matrix rows", m_matrix_rows);
         st.update("ff extra matrix reducers", m_extra_matrix_reducers);
+        st.update("ff lazy matrix reducers", m_lazy_matrix_reducers);
         st.update("ff sparse trials", m_sparse_trials);
         st.update("ff sparse witnesses", m_sparse_witnesses);
         st.update("ff step exhaustions", m_step_exhaustions);
@@ -455,6 +456,7 @@ namespace ff {
         probe.compact_encoding = compact_encoding;
         probe.adaptive_reduction = adaptive_reduction;
         probe.adaptive_matrix = adaptive_matrix;
+        probe.lazy_matrix = lazy_matrix;
         probe.definition_variables = definition_variables;
         probe.root_completion = root_completion;
         probe.quotient_field = quotient_field;
@@ -728,7 +730,13 @@ namespace ff {
         uint64_t prime = p.get_uint64();
         std::set<monomial, monomial_order> columns, pending;
         std::vector<polynomial> reducers;
-        size_t symbolic_bytes = 0;
+        struct reducer_ref { unsigned basis; monomial factor; };
+        std::vector<reducer_ref> reducer_refs;
+        // A referenced row denotes factor * bs[basis] exactly. bs is immutable
+        // throughout this batch. Keeping this descriptor avoids retaining a
+        // polynomial tree (including coefficients and premises) for every shift.
+        bool bounded_symbolic = adaptive_matrix || lazy_matrix;
+        size_t symbolic_bytes = 0, shifted_scratch_bytes = 0;
         constexpr size_t symbolic_limit = 16 * 1024 * 1024;
         auto charge = [&](size_t count, size_t bytes) {
             // Saturating admission check avoids multiplication overflow. This
@@ -753,7 +761,7 @@ namespace ff {
             charge(1, 128);
             charge(mon.capacity(), sizeof(unsigned));
         };
-        if (adaptive_matrix)
+        if (bounded_symbolic)
             for (auto const &f : rows) {
                 charge_header(f);
                 for (auto const &[mon, c] : f) charge_term(mon);
@@ -761,29 +769,28 @@ namespace ff {
         std::vector<uint64_t> masks;
         if (div_masks)
             for (auto const &b : bs) masks.push_back(b.empty() ? 0 : support_mask(b.begin()->first));
-        auto discover = [&](polynomial const &f) {
-            for (auto const &[mon, coefficient] : f) {
-                tick();
-                if (adaptive_matrix) {
-                    if (!columns.contains(mon)) {
-                        // Reserve four copies: columns, pending, the later
-                        // column-index tree and indexed monomial vector. Keep
-                        // charging erased pending entries; this overestimates
-                        // live storage and never weakens the bound.
-                        charge(4, 64 + sizeof(monomial));
-                        charge(mon.capacity(), 4 * sizeof(unsigned));
-                        columns.insert(mon);
-                        pending.insert(mon);
-                    }
-                }
-                else if (columns.insert(mon).second) pending.insert(mon);
-                m_peak_matrix_columns = std::max(m_peak_matrix_columns, columns.size());
-                if (columns.size() > static_cast<size_t>(max_terms) * 4) {
-                    ++m_matrix_column_exhaustions;
-                    ++m_matrix_exhaustions;
-                    throw exhausted();
+        auto discover_term = [&](monomial const &mon) {
+            tick();
+            if (bounded_symbolic) {
+                if (!columns.contains(mon)) {
+                    // Keep the original conservative four-copy allowance for
+                    // discovery sets and the later column map/indexed vector.
+                    charge(4, 64 + sizeof(monomial));
+                    charge(mon.capacity(), 4 * sizeof(unsigned));
+                    columns.insert(mon);
+                    pending.insert(mon);
                 }
             }
+            else if (columns.insert(mon).second) pending.insert(mon);
+            m_peak_matrix_columns = std::max(m_peak_matrix_columns, columns.size());
+            if (columns.size() > static_cast<size_t>(max_terms) * 4) {
+                ++m_matrix_column_exhaustions;
+                ++m_matrix_exhaustions;
+                throw exhausted();
+            }
+        };
+        auto discover = [&](polynomial const &f) {
+            for (auto const &[mon, coefficient] : f) discover_term(mon);
         };
         for (auto const &f : rows)
             discover(f);
@@ -803,29 +810,57 @@ namespace ff {
                 monomial factor;
                 if (!quotient(mon, b.begin()->first, factor))
                     continue;
-                if (adaptive_matrix) charge_header(b);
-                polynomial row;
-                row.dependencies = b.dependencies;
-                row.sugar = b.sugar + static_cast<unsigned>(factor.size());
-                for (auto const &[tail, coefficient] : b) {
-                    monomial product;
-                    std::merge(factor.begin(), factor.end(), tail.begin(), tail.end(), std::back_inserter(product));
-                    if (adaptive_matrix) charge_term(product);
-                    add_term(row, product, coefficient);
+                if (lazy_matrix) {
+                    // Account for descriptor-vector reallocation, owned factor
+                    // storage, and the largest temporary shifted monomial. No
+                    // expanded reducer or copied premise set is retained here.
+                    charge(3, sizeof(reducer_ref));
+                    charge(factor.capacity(), 3 * sizeof(unsigned));
+                    unsigned terms = 0;
+                    for (auto const &[tail, coefficient] : b) {
+                        tick(); // Same symbolic term charge as eager add_term.
+                        monomial product;
+                        std::merge(factor.begin(), factor.end(), tail.begin(), tail.end(), std::back_inserter(product));
+                        if (++terms > max_terms || product.size() > 1024) {
+                            m_polynomial_terms_exhaustions += terms > max_terms;
+                            m_monomial_degree_exhaustions += product.size() > 1024;
+                            ++m_term_exhaustions;
+                            throw exhausted();
+                        }
+                        size_t scratch = sizeof(monomial) + product.capacity() * sizeof(unsigned);
+                        if (scratch > shifted_scratch_bytes) {
+                            charge(1, scratch - shifted_scratch_bytes);
+                            shifted_scratch_bytes = scratch;
+                        }
+                        // Multiplication by a fixed monomial is injective, so
+                        // terms neither merge nor cancel. Its order is preserved.
+                        discover_term(product);
+                    }
+                    reducer_refs.push_back({j, std::move(factor)});
+                    ++m_lazy_matrix_reducers;
                 }
-                discover(row);
-                reducers.push_back(std::move(row));
-                m_peak_matrix_reducers = std::max(m_peak_matrix_reducers, reducers.size());
-                if (reducers.size() > 1024) {
+                else {
+                    if (bounded_symbolic) charge_header(b);
+                    polynomial row;
+                    row.dependencies = b.dependencies;
+                    row.sugar = b.sugar + static_cast<unsigned>(factor.size());
+                    for (auto const &[tail, coefficient] : b) {
+                        monomial product;
+                        std::merge(factor.begin(), factor.end(), tail.begin(), tail.end(), std::back_inserter(product));
+                        if (bounded_symbolic) charge_term(product);
+                        add_term(row, product, coefficient);
+                    }
+                    discover(row);
+                    reducers.push_back(std::move(row));
+                }
+                size_t count = lazy_matrix ? reducer_refs.size() : reducers.size();
+                m_peak_matrix_reducers = std::max(m_peak_matrix_reducers, count);
+                if (count > 1024) {
                     if (!adaptive_matrix) {
                         ++m_matrix_reducer_exhaustions;
                         ++m_matrix_exhaustions;
                         throw exhausted();
                     }
-                    // Only the admission bound changes: the same reducer is
-                    // selected in the same order and denotes the same ideal
-                    // multiple. Existing column, row, work and cancellation
-                    // guards remain active, including matrix elimination caps.
                     ++m_extra_matrix_reducers;
                 }
                 break;
@@ -837,6 +872,20 @@ namespace ff {
             indices.emplace(mon, monomials.size());
             monomials.push_back(mon);
         }
+        auto column_index = [&](monomial const &mon, monomial const *factor) {
+            if (!factor) return indices.at(mon);
+            tick(); // Lazy materialization is charged in addition to discovery.
+            monomial product;
+            std::merge(factor->begin(), factor->end(), mon.begin(), mon.end(), std::back_inserter(product));
+            return indices.at(product);
+        };
+        auto eliminate_reducers = [&](auto const &eliminate) {
+            if (lazy_matrix)
+                for (auto const &r : reducer_refs) eliminate(bs[r.basis], false, &r.factor);
+            else
+                for (auto const &f : reducers) eliminate(f, false, nullptr);
+            for (auto const &f : rows) eliminate(f, true, nullptr);
+        };
         if (compact_matrix) {
             struct packed_row {
                 std::vector<std::pair<unsigned, uint64_t>> coefficients;
@@ -846,12 +895,12 @@ namespace ff {
             std::map<unsigned, packed_row> pivots;
             std::vector<polynomial> out;
             size_t stored = 0, coefficient_bytes = 0, dependency_bytes = 0;
-            auto eliminate = [&](polynomial const &f, bool emit) {
+            auto eliminate = [&](polynomial const &f, bool emit, monomial const *factor) {
                 ++m_matrix_rows;
                 packed_row row;
                 row.dependencies = f.dependencies;
-                row.sugar = f.sugar;
-                for (auto const &[mon, c] : f) row.coefficients.emplace_back(indices.at(mon), c.get_uint64());
+                row.sugar = f.sugar + (factor ? static_cast<unsigned>(factor->size()) : 0);
+                for (auto const &[mon, c] : f) row.coefficients.emplace_back(column_index(mon, factor), c.get_uint64());
                 m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
                 while (!row.coefficients.empty()) {
                     tick();
@@ -910,8 +959,7 @@ namespace ff {
                 unsigned column = row.coefficients.front().first;
                 pivots.emplace(column, std::move(row));
             };
-            for (auto const &f : reducers) eliminate(f, false);
-            for (auto const &f : rows) eliminate(f, true);
+            eliminate_reducers(eliminate);
             return out;
         }
         struct sparse_row {
@@ -922,13 +970,13 @@ namespace ff {
         std::map<unsigned, sparse_row> pivots;
         std::vector<polynomial> out;
         size_t stored = 0, coefficient_bytes = 0, dependency_bytes = 0;
-        auto eliminate = [&](polynomial const &f, bool emit) {
+        auto eliminate = [&](polynomial const &f, bool emit, monomial const *factor) {
             ++m_matrix_rows;
             sparse_row row;
             row.dependencies = f.dependencies;
-            row.sugar = f.sugar;
+            row.sugar = f.sugar + (factor ? static_cast<unsigned>(factor->size()) : 0);
             for (auto const &[mon, coefficient] : f)
-                row.coefficients.emplace(indices.at(mon), coefficient.get_uint64());
+                row.coefficients.emplace(column_index(mon, factor), coefficient.get_uint64());
             m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
             while (!row.coefficients.empty()) {
                 tick();
@@ -993,10 +1041,7 @@ namespace ff {
             unsigned column = row.coefficients.begin()->first;
             pivots.emplace(column, std::move(row));
         };
-        for (auto const &f : reducers)
-            eliminate(f, false);
-        for (auto const &f : rows)
-            eliminate(f, true);
+        eliminate_reducers(eliminate);
         return out;
     }
 

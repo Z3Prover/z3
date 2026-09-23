@@ -30,6 +30,7 @@ Abstract:
   BOOL_  (ff_quotient_field, "ff.quotient_field", false, "adjoin bounded quotient reductions of finite-field Frobenius axioms") \
   BOOL_  (ff_bit_bounds, "ff.bit_bounds", true, "propagate Boolean digits using no-wrap signed interval bounds") \
   BOOL_  (ff_adaptive_reduction, "ff.adaptive_reduction", false, "fall back to scalar basis reduction when a matrix exceeds its storage budget") \
+  BOOL_  (ff_lazy_matrix, "ff.lazy_matrix", false, "retain matrix reducers as basis references and monomial multipliers") \
   BOOL_  (ff_adaptive_matrix, "ff.adaptive_matrix", false, "allow more symbolic matrix reducers within a bounded storage allowance") \
   BOOL_  (ff_bounded_elimination, "ff.bounded_elimination", false, "retain nonlinear definitions when substitution predicts polynomial growth") \
   BOOL_  (ff_sugar_pairs, "ff.sugar_pairs", false, "rank critical pairs by propagated sugar degree in all field sizes") \

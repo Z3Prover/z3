@@ -84,6 +84,39 @@ namespace ff {
             ENSURE(canceled.m_shared_limit_exhaustions == 1 && canceled.m_local_work_exhaustions == 0);
             std::cout << "Minimal-polynomial dimension guard honors local work and shared cancellation\n";
         }
+        static void lazy_matrix_equivalence() {
+            reslimit limit;
+            engine builder(rational(7), limit, 10000000);
+            polynomial divisor, input;
+            for (unsigned v = 0; v < 20; ++v) builder.add_term(divisor, {v}, rational(1));
+            divisor.dependencies = {1, 3};
+            input.dependencies = {2};
+            for (unsigned v = 100; v < 150; ++v) builder.add_term(input, {19, v}, rational(1));
+            for (bool packed : {false, true}) {
+                engine eager(rational(7), limit, 10000000);
+                eager.adaptive_matrix = true;
+                eager.compact_matrix = packed;
+                auto expected = eager.batch_reduce({input}, {divisor});
+                engine lazy(rational(7), limit, 10000000);
+                lazy.adaptive_matrix = lazy.lazy_matrix = true;
+                lazy.compact_matrix = packed;
+                auto actual = lazy.batch_reduce({input}, {divisor});
+                ENSURE(actual == expected && actual.size() == 1);
+                ENSURE(actual.front().dependencies == std::set<unsigned>({1, 2, 3}));
+                ENSURE(actual.front().sugar == expected.front().sugar);
+                ENSURE(lazy.m_peak_matrix_symbolic_bytes < eager.m_peak_matrix_symbolic_bytes);
+                ENSURE(lazy.m_peak_matrix_reducers == eager.m_peak_matrix_reducers);
+                ENSURE(lazy.m_peak_matrix_columns == eager.m_peak_matrix_columns);
+                auto ideal = std::vector<polynomial>{input, divisor};
+                builder.basis(ideal);
+                ENSURE(builder.reduce(actual.front(), ideal).empty());
+                // A descriptor never survives the call: the next batch must
+                // use its own basis without stale references.
+                auto again = lazy.batch_reduce({divisor}, {});
+                ENSURE(again.size() == 1 && again.front() == divisor);
+            }
+            std::cout << "Lazy matrix reducers: exact rows, sugar, premises and lower symbolic storage\n";
+        }
         static void matrix_limit_diagnostics() {
             reslimit limit;
             engine builder(rational(7), limit, 1000000);
@@ -146,10 +179,11 @@ namespace ff {
             ENSURE(exhausted && bounded.m_matrix_exhaustions == 1);
             ENSURE(bounded.m_extra_matrix_reducers == 0);
             ENSURE(bounded.m_matrix_reducer_exhaustions == 1 && bounded.m_peak_matrix_reducers == 1025);
-            for (bool compact : {false, true}) {
+            for (bool compact : {false, true}) for (bool lazy : {false, true}) {
                 engine extended(rational(7), limit, 10000000, 4096, false, true, false);
                 extended.adaptive_matrix = true;
                 extended.compact_matrix = compact;
+                extended.lazy_matrix = lazy;
                 auto actual = extended.batch_reduce({input}, {divisor});
                 ENSURE(actual.size() == 1 && actual.front() == expected);
                 ENSURE(extended.m_extra_matrix_reducers == 76);
@@ -222,14 +256,16 @@ static void test_ff_basis_optimizations() {
             }
             auto expected = input;
             reference.basis(expected);
-            for (unsigned mode = 0; mode < 8; ++mode) {
+            for (unsigned mode = 0; mode < 10; ++mode) {
                 ff::engine e(rational(prime), lim, 10000000, 4096, false, mode != 7, false);
                 e.sugar_pairs = mode == 0 || mode >= 5;
                 e.gm_pairs = mode == 1 || mode >= 5;
                 e.div_masks = mode == 2 || mode >= 5;
                 e.geobucket = mode == 3 || mode >= 5;
                 e.small_coefficients = mode == 4 || mode >= 5;
-                e.compact_matrix = mode == 6;
+                e.compact_matrix = mode == 6 || mode == 9;
+                e.lazy_matrix = mode >= 8;
+                e.adaptive_matrix = mode >= 8;
                 e.adaptive_reduction = mode >= 5;
                 auto actual = input;
                 e.basis(actual);
@@ -297,6 +333,7 @@ static void test_ff_scalar_recovery() {
 void tst_finite_field() {
     ff::test_engine::minimal_polynomial_provenance();
     ff::test_engine::minimal_polynomial_guard_budget();
+    ff::test_engine::lazy_matrix_equivalence();
     ff::test_engine::matrix_limit_diagnostics();
     ff::test_engine::adaptive_matrix_storage();
     test_ff_basis_optimizations();
