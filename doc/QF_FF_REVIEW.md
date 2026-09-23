@@ -33,7 +33,7 @@ native foreign signatures, and conflict premises must match the SAT atoms.
 
 ## Validation and scope
 
-The final retained source passed 16 regression commands, including independent
+The round-8 retained source passed 16 regression commands, including independent
 small-field enumeration, 512 C++ algebra/provenance checks, mixed-theory and
 incremental tests, and resource/cancellation recovery. All 559 primary SAT
 model replays in the latest paired study validate against original assertions.
@@ -50,6 +50,21 @@ Certificates remain v2; dependency sets are not checkable proofs. Large-modulus
 primality is screened rather than certified. General quantified solving and
 extension fields are outside the implemented feature scope. Neither the latest
 Z3 default nor current cvc5 main has a completed fresh full-corpus comparison.
+
+## Follow-up: round-9 diagnostics and matrix experiment
+
+After the original ten-commit stack, review the resource-diagnostic commit,
+then the opt-in referenced-reducer implementation and its tests. The diagnostic
+commit separates existing stopping guards; it does not enlarge their limits.
+The representation experiment stores basis indices and monomial multipliers,
+with the same exact rows, sugar and conflict premises. It remains disabled by
+default because fewer symbolic-storage failures did not add solves.
+
+The final round-9 build passes 17 regression commands, including 640 C++ basis
+configuration checks and independent enumeration through both matrix layouts.
+The new diagnostic runner and [round-9 report](QF_FF_PERFORMANCE_ROUND9.md) keep
+algebra-only resource experiments separate from portfolio scores. The existing
+CAV paper remains tied to its frozen round-8 evidence.
 
 ## Source and data boundaries
 

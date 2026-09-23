@@ -167,6 +167,15 @@ already includes the minimal-polynomial operation. Their deductions retain
 input dependencies, work accounting, and shared cancellation. See
 [QF_FF_PERFORMANCE_ROUND8.md](QF_FF_PERFORMANCE_ROUND8.md).
 
+Round 9 adds `ff.lazy_matrix` (false), which stores symbolic matrix reducers as
+basis references with monomial multipliers instead of expanded polynomial trees.
+It supports both coefficient layouts and preserves conflict premises. Enable
+`ff.adaptive_matrix` as well to admit more than 1,024 reducers. This removes most
+symbolic-storage blockers in the targeted Small cohort without adding solves,
+so it remains opt-in. New resource sub-counters identify the exact stopping
+guard; matrix storage peaks are estimates per engine, and wrappers may sum them
+across attempts. See [QF_FF_PERFORMANCE_ROUND9.md](QF_FF_PERFORMANCE_ROUND9.md).
+
 A residual formula whose only free variables are explicitly Boolean
 field elements can be evaluated exhaustively without polynomial expansion.
 Characteristic-two variables need no additional Booleanity premise.
