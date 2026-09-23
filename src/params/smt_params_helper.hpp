@@ -16,6 +16,32 @@ Abstract:
 #include "util/gparams.h"
 
 #define SMT_PARAMS_HELPER_LIST(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_) \
+  BOOL_  (ff_root_split,                           "ff.root_split",                           true,                     "emit bounded finite-field factor and square-root case splits") \
+  BOOL_  (ff_bit_propagation, "ff.bit_propagation", true, "repeat no-wrap bit-sum propagation after algebraic elimination") \
+  BOOL_  (ff_boolean_split, "ff.boolean_split", false, "expose Boolean field domains to SAT (may change branching substantially)") \
+  BOOL_  (ff_batch, "ff.batch", true, "batch small-field critical pairs using sparse modular elimination") \
+  BOOL_  (ff_sparse_witness, "ff.sparse_witness", true, "try bounded univariate slices for underdetermined systems") \
+  BOOL_  (ff_disjunctive_bits, "ff.disjunctive_bits", true, "rewrite disjunctive Boolean field domains as polynomial equations") \
+  BOOL_  (ff_linear_split, "ff.linear_split", false, "exchange bounded linear and nonlinear basis consequences before elimination") \
+  BOOL_  (ff_basis_bits, "ff.basis_bits", false, "recover Boolean domains and digit equalities from basis consequences") \
+  BOOL_  (ff_compact_matrix, "ff.compact_matrix", false, "use packed sparse matrix rows and smaller critical-pair batches") \
+  BOOL_  (ff_model_search, "ff.model_search", true, "derive bounded quotient minimal polynomials and diversify witness probes") \
+  BOOL_  (ff_root_completion, "ff.root_completion", false, "derive bounded quotient minimal polynomials without extra witness probes") \
+  BOOL_  (ff_quotient_field, "ff.quotient_field", false, "adjoin bounded quotient reductions of finite-field Frobenius axioms") \
+  BOOL_  (ff_bit_bounds, "ff.bit_bounds", true, "propagate Boolean digits using no-wrap signed interval bounds") \
+  BOOL_  (ff_adaptive_reduction, "ff.adaptive_reduction", false, "fall back to scalar basis reduction when a matrix exceeds its storage budget") \
+  BOOL_  (ff_adaptive_matrix, "ff.adaptive_matrix", false, "allow more symbolic matrix reducers within a bounded storage allowance") \
+  BOOL_  (ff_bounded_elimination, "ff.bounded_elimination", false, "retain nonlinear definitions when substitution predicts polynomial growth") \
+  BOOL_  (ff_sugar_pairs, "ff.sugar_pairs", false, "rank critical pairs by propagated sugar degree in all field sizes") \
+  BOOL_  (ff_gm_pairs, "ff.gm_pairs", false, "install critical pairs using minimal lcm and strict chain criteria") \
+  BOOL_  (ff_div_masks, "ff.div_masks", false, "filter reducer divisibility tests using support masks") \
+  BOOL_  (ff_geobucket, "ff.geobucket", false, "accumulate scalar polynomial reductions in geometric buckets") \
+  BOOL_  (ff_small_coefficients, "ff.small_coefficients", false, "use exact machine arithmetic for small-field polynomial coefficients") \
+  BOOL_  (ff_compact_retry, "ff.compact_retry", true, "retry the algebra tactic with compact definitions after an encoding size limit") \
+  BOOL_  (ff_compact_encoding, "ff.compact_encoding", false, "retain compact definitions when polynomial expansion would grow") \
+  BOOL_  (ff_basis_cache, "ff.basis_cache", true, "reuse exact bounded finite-field bases across native checks") \
+  UINT_  (ff_max_steps,                            "ff.max_steps",                            2000000,                  "maximum native finite-field algebra operations before exact BV fallback") \
+  UINT_  (ff_max_terms,                            "ff.max_terms",                            4096,                     "maximum terms in an expanded finite-field polynomial") \
   BOOL_  (auto_config,                             "auto_config",                             true,                     "automatically configure solver") \
   SYMBOL_(logic,                                   "logic",                                   "",                       "logic used to setup the SMT solver") \
   UINT_  (random_seed,                             "random_seed",                             0,                        "random seed for the smt solver") \
