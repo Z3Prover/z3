@@ -20,8 +20,7 @@ Notes:
 --*/
 #pragma once
 
-#include "util/inf_rational.h"
-#include "util/inf_eps_rational.h"
+#include "opt/opt_value.h"
 #include "ast/ast.h"
 #include "util/params.h"
 #include "solver/solver_na2as.h"
@@ -34,8 +33,6 @@ Notes:
 class arith_util;
 
 namespace opt {
-
-    typedef inf_eps_rational<inf_rational> inf_eps;
 
     // Extract from a model value of an objective term a rational bound on it:
     // the value itself when it is a rational numeral, otherwise, for an
@@ -63,6 +60,9 @@ namespace opt {
             if (m_negate) result.neg();
             result += m_offset;
             return result;
+        }
+        objective_value operator()(objective_value const& r) const {
+            return r.adjusted(m_offset, m_negate);
         }
         rational operator()(rational const& r) const {
             rational result = r;
@@ -213,4 +213,3 @@ namespace opt {
         lbool adjust_result(lbool r);
     };
 }
-

@@ -20,6 +20,7 @@ Author:
 #include "ast/ast.h"
 #include "ast/expr_substitution.h"
 #include "util/obj_pair_hashtable.h"
+#include "util/params.h"
 
 class expr_dominators {
 public:

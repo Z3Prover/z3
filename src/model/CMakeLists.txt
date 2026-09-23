@@ -19,8 +19,5 @@ z3_add_component(model
   COMPONENT_DEPENDENCIES
     rewriter
     macros
-  PYG_FILES
-    model_evaluator_params.pyg
-    model_params.pyg
 )
 

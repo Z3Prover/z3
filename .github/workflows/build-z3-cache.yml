@@ -60,13 +60,11 @@ jobs:
 
       - name: Configure Z3
         if: steps.cache-z3.outputs.cache-hit != 'true'
-        run: python scripts/mk_make.py
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Z3
         if: steps.cache-z3.outputs.cache-hit != 'true'
-        run: |
-          cd build
-          make -j$(nproc)
+        run: cmake --build build --parallel $(nproc)
 
       - name: Display build info
         run: |

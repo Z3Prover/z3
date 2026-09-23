@@ -255,11 +255,10 @@ namespace opt {
         params_ref& get_params() { return m_params; }
 
         expr_ref get_lower(unsigned idx);
-        expr_ref get_exact(unsigned idx);
         expr_ref get_upper(unsigned idx);
 
-        void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }
-        void get_upper(unsigned idx, expr_ref_vector& es) { to_exprs(get_upper_as_num(idx), es); }
+        void get_lower(unsigned idx, expr_ref_vector& es) { get_lower_value(idx).to_exprs(es); }
+        void get_upper(unsigned idx, expr_ref_vector& es) { get_upper_value(idx).to_exprs(es); }
 
         std::string to_string();
 
@@ -312,8 +311,6 @@ namespace opt {
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
         bool contains_quantifiers() const;
-        expr_ref to_expr(inf_eps const& n);
-        void to_exprs(inf_eps const& n, expr_ref_vector& es);
 
         void reset_maxsmts();
         void import_scoped_state();
@@ -342,8 +339,8 @@ namespace opt {
         void update_lower() { update_bound(true); }
         void update_bound(bool is_lower);
 
-        inf_eps get_lower_as_num(unsigned idx);
-        inf_eps get_upper_as_num(unsigned idx);
+        objective_value get_lower_value(unsigned idx);
+        objective_value get_upper_value(unsigned idx);
 
 
         struct is_fd;

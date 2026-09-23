@@ -24,6 +24,7 @@ Revision History:
 #include "util/util.h"
 #include "util/tptr.h"
 #include "util/string_buffer.h"
+#include "util/memory_manager.h"
 
 template<typename T>
 class symbol_table;
@@ -140,10 +141,8 @@ struct symbol_eq_proc {
 
 void initialize_symbols();
 void finalize_symbols();
-/*
-  ADD_INITIALIZER('initialize_symbols();')
-  ADD_FINALIZER('finalize_symbols();')
-*/
+Z3_ADD_INITIALIZER(symbol, initialize_symbols, 0);
+Z3_ADD_FINALIZER(symbol, finalize_symbols);
 
 // total order on symbols... I did not overloaded '<' to avoid misunderstandings.
 // numerical symbols are smaller than non numerical symbols.

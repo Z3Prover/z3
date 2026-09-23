@@ -150,13 +150,16 @@
     X(algebraic_numbers) \
     X(ackermannize) \
     X(monomial_bounds) \
+    X(nla_transcendentals) \
     X(nla_intervals) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
     X(nlsat) \
+    X(opt_bounds) \
     X(opt_nlsat) \
     X(opt_pareto) \
+    X(opt_value) \
     X(13) \
     X(zstring)
 

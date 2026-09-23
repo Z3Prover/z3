@@ -526,8 +526,8 @@ namespace opt {
         // core checked against the quantified constraints (update_lower in
         // optimize()). The theory-level push below does not instantiate
         // quantifiers, so an "unbounded" verdict from it is not trustworthy.
-        inf_eps lower0 = m_optsmt.get_lower(index);
-        inf_eps upper0 = m_optsmt.get_upper(index);
+        inf_eps lower0 = m_optsmt.get_lower(index).rational_bound();
+        inf_eps upper0 = m_optsmt.get_upper(index).rational_bound();
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
         if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
@@ -539,6 +539,17 @@ namespace opt {
             m_optsmt.update_upper(index, upper0);
             warning_msg("unbounded objectives on quantified constraints is not supported");
             return l_undef;
+        }
+        if (result == l_true && m_optsmt.has_open_bound(index)) {
+            if (committed && m_objectives.size() > 1) {
+                // A later lex objective cannot be optimized by fixing the
+                // earlier objective to an unattainable real value.
+                m_opt_solver->set_reason_unknown("later lexicographic objectives after an unattained nonlinear optimum are not supported");
+                result = l_undef;
+            }
+            // A single objective also requests a commitment, but there is
+            // no following objective and no real assignment at this limit.
+            committed = false;
         }
         if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
         if (result == l_undef) {
@@ -603,10 +614,10 @@ namespace opt {
             objective const& o = m_objectives[i];
             bool is_last = i + 1 == sz;            
             r = execute(o, i + 1 < sz, sc && !is_last);
-            if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_as_num(i).is_finite()) {
+            if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_value(i).is_finite()) {
                 return r;
             }
-            if (r == l_true && o.m_type == O_MAXIMIZE && !get_upper_as_num(i).is_finite()) {
+            if (r == l_true && o.m_type == O_MAXIMIZE && !get_upper_value(i).is_finite()) {
                 return r;
             }
             if (r == l_true && i + 1 < sz) {
@@ -1716,15 +1727,18 @@ namespace opt {
             objective const& obj = m_scoped_state.m_objectives[i];
             out << " (";
             display_objective(out, obj);
-            expr_ref exact = get_exact(i);
-            if (exact) {
-                out << " " << exact;
+            objective_value lower = get_lower_value(i);
+            objective_value upper = get_upper_value(i);
+            if (lower != upper) {
+                out << "  (interval " << lower.to_expr() << " " << upper.to_expr() << ")";
             }
-            else if (get_lower_as_num(i) != get_upper_as_num(i)) {
-                out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
+            else if (lower.exact_finite() && !lower.has_infinitesimal()) {
+                // Keep the attained numeral's original SMT-LIB sort, while
+                // the bound APIs retain their integral-rational normalization.
+                out << " " << expr_ref(lower.exact_finite(), m);
             }
             else {
-                out << " " << get_lower(i);
+                out << " " << lower.to_expr();
             }
             out << ")\n";
         }
@@ -1746,112 +1760,46 @@ namespace opt {
         }
     }
 
-    inf_eps context::get_lower_as_num(unsigned idx) {
+    objective_value context::get_lower_value(unsigned idx) {
         if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
         case O_MAXSMT: 
-            return inf_eps(m_maxsmts.find(obj.m_id)->get_lower());
+            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_lower()));
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         }        
         UNREACHABLE();
-        return inf_eps();
+        return objective_value(m);
     }
 
-    inf_eps context::get_upper_as_num(unsigned idx) {
+    objective_value context::get_upper_value(unsigned idx) {
         if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
         switch(obj.m_type) {
         case O_MAXSMT: 
-            return inf_eps(m_maxsmts.find(obj.m_id)->get_upper());
+            return objective_value(m, inf_eps(m_maxsmts.find(obj.m_id)->get_upper()));
         case O_MINIMIZE:
             return obj.m_adjust_value(m_optsmt.get_lower(obj.m_index));
         case O_MAXIMIZE: 
             return obj.m_adjust_value(m_optsmt.get_upper(obj.m_index));
         }
         UNREACHABLE();
-        return inf_eps();
+        return objective_value(m);
     }
 
     expr_ref context::get_lower(unsigned idx) {
-        return to_expr(get_lower_as_num(idx));
+        return get_lower_value(idx).to_expr();
     }
 
     expr_ref context::get_upper(unsigned idx) {
-        return to_expr(get_upper_as_num(idx));
-    }
-
-    void context::to_exprs(inf_eps const& n, expr_ref_vector& es) {
-        rational inf = n.get_infinity();
-        rational r   = n.get_rational();
-        rational eps = n.get_infinitesimal();
-        es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
-        es.push_back(m_arith.mk_numeral(r, r.is_int()));
-        es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
-    }
-
-    /**
-       \brief The exact value of an arithmetic objective when the optsmt
-       engine established it as an algebraic number (nlsat cells), adjusted
-       for minimization and offsets; null otherwise.
-    */
-    expr_ref context::get_exact(unsigned idx) {
-        expr_ref r(m);
-        objective const& obj = m_objectives[idx];
-        if (obj.m_type != O_MAXIMIZE && obj.m_type != O_MINIMIZE)
-            return r;
-        expr* e = m_optsmt.get_exact(obj.m_index);
-        if (!e)
-            return r;
-        r = e;
-        if (obj.m_adjust_value.get_negate())
-            r = m_arith.mk_uminus(r);
-        if (!obj.m_adjust_value.get_offset().is_zero())
-            r = m_arith.mk_add(r, m_arith.mk_numeral(obj.m_adjust_value.get_offset(), false));
-        th_rewriter rw(m);
-        rw(r);
-        return r;
-    }
-
-    expr_ref context::to_expr(inf_eps const& n) {
-        rational inf = n.get_infinity();
-        rational r   = n.get_rational();
-        rational eps = n.get_infinitesimal();
-        expr_ref_vector args(m);
-        bool is_int = eps.is_zero() && r.is_int();
-        if (!inf.is_zero()) {
-            expr* oo = m.mk_const(symbol("oo"), is_int ? m_arith.mk_int() : m_arith.mk_real());
-            if (inf.is_one()) {
-                args.push_back(oo);
-            }
-            else {
-                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(inf, is_int), oo));
-            }
-        }
-        if (!r.is_zero()) {
-            args.push_back(m_arith.mk_numeral(r, is_int));
-        }
-        if (!eps.is_zero()) {
-            expr* ep = m.mk_const(symbol("epsilon"), m_arith.mk_real());
-            if (eps.is_one()) {
-                args.push_back(ep);
-            }
-            else {
-                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(eps, is_int), ep));
-            }
-        }
-        switch(args.size()) {
-        case 0: return expr_ref(m_arith.mk_numeral(rational(0), true), m);
-        case 1: return expr_ref(args[0].get(), m);
-        default: return expr_ref(m_arith.mk_add(args.size(), args.data()), m);
-        }
+        return get_upper_value(idx).to_expr();
     }
        
     void context::set_simplify(tactic* tac) {

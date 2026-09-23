@@ -16,12 +16,16 @@ or Visual Studio Code, see:
 
 ## Building and Running Examples
 
-To build the example, configure Z3 with the --java option to scripts/mk_make.py, build via  
-   make examples
-in the build directory.
+To build the example, configure Z3 with Java bindings enabled and build:
+   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON
+   cmake --build build --parallel $(nproc)
 
-It will create JavaExample.class in the build directory,
-which can be run on Windows via 
+This produces com.microsoft.z3.jar and the native Z3 Java library in the
+build directory. Compile an example against the jar, e.g.:
+   javac -cp build/com.microsoft.z3.jar -d build examples/java/JavaExample.java
+
+This creates JavaExample.class in the build directory,
+which can be run on Windows via
    java -cp com.microsoft.z3.jar;. JavaExample
 
 On Linux and FreeBSD, we must use

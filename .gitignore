@@ -7,8 +7,6 @@ crashes/
 # Ignore callgrind files
 callgrind.out.*
 gmon.out
-# .hpp files are automatically generated
-*.hpp
 .env
 .z3-trace
 .env
@@ -62,6 +60,7 @@ bld_dbg/*
 bld_rel/*
 bld_dbg_x64/*
 bld_rel_x64/*
+.idea
 .vscode
 *build*/**
 # Auto generated files.

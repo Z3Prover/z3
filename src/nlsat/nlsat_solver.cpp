@@ -248,6 +248,7 @@ namespace nlsat {
         // statistics
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
+        transcendentals m_transcendentals;
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold  = 3;
@@ -273,6 +274,7 @@ namespace nlsat {
             m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).canonicalize()),
             m_scope_lvl(0),
+            m_transcendentals(s),
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
@@ -2035,8 +2037,18 @@ namespace nlsat {
                         bounds.push_back(std::make_pair(x, lo));
                     }
                 }
-                if (bounds.empty()) 
+                if (bounds.empty()) {
+                    if (!m_transcendentals.empty() && m_transcendentals.refine()) {
+                        init_search();
+                        IF_VERBOSE(2, verbose_stream() << "(nlsat-transcendentals :conflicts " << m_stats.m_conflicts
+                                   << " :decisions " << m_stats.m_decisions
+                                   << " :propagations " << m_stats.m_propagations
+                                   << " :clauses " << m_clauses.size()
+                                   << " :learned " << m_learned.size() << ")\n");
+                        continue;
+                    }
                     break;
+                }
 
                 init_search();
                 IF_VERBOSE(2, verbose_stream() << "(nlsat-b&b :conflicts " << m_stats.m_conflicts 
@@ -2078,6 +2090,137 @@ namespace nlsat {
             if (m_max_var == null_var || !m_assignment.is_assigned(m_max_var))
                 return false;
             return m_ism.query_max_in_complement(m_infeasible[m_max_var], sup, attained);
+        }
+
+        /**
+           \brief Generalize a satisfying model to a feasible condition on x0.
+
+           A "cube" is a conjunction of literals, unlike a clause, which is a
+           disjunction. The vector's literals must all hold; the name does not
+           imply a geometric cube or even a connected feasible region.
+
+           Requires an empty cube and a model satisfying the current clauses.
+           The returned cube holds at the sampled x0, and every x0 satisfying
+           it extends to a full model. Other real witnesses may vary with x0.
+        */
+        void project_model(scoped_literal_vector& cube) {
+            uint_set seen;
+            // Select one true literal per clause. Together with the model's
+            // fixed pure Boolean assignment, the retained arithmetic literals
+            // imply every clause without fixing the other real variables.
+            for (clause const* c : m_clauses) {
+                checkpoint();
+                literal witness = null_literal;
+                // mk_clause sorts pure Boolean literals first (lit_lt), so
+                // selecting the first true literal prefers a Boolean witness
+                // and avoids unnecessary arithmetic restrictions on the cube.
+                for (literal l : *c)
+                    if (value(l) == l_true) {
+                        witness = l;
+                        break;
+                    }
+                if (witness == null_literal)
+                    throw default_exception("nlsat limit check: unsatisfied model clause");
+                // Pure Boolean witnesses need not constrain the arithmetic cube.
+                // Opposite polarities cannot both be true in this model, so the
+                // atom id suffices to deduplicate the arithmetic witnesses.
+                if (m_atoms[witness.var()] && !seen.contains(witness.var())) {
+                    seen.insert(witness.var());
+                    cube.push_back(witness);
+                }
+            }
+            // check() may enable full-dimensional conflict explanations when
+            // all arithmetic literals are strict inequalities/disequalities.
+            // Feasible regions are then open and their complement is closed,
+            // so an infeasible cell can safely include its boundary. The flag
+            // implements this by using ROOT_GE/ROOT_LE instead of ROOT_GT/ROOT_LT
+            // for generated sector bounds.
+            //
+            // Here we project a satisfying cube, not a conflict. Closing its
+            // sectors could add points with no satisfying values for the
+            // eliminated variables, e.g. weaken x0 > 0 to x0 >= 0 when x0 = 0
+            // is infeasible. Setting the flag false keeps sector bounds strict.
+            // Samples on roots still produce ROOT_EQ sections; disabling this
+            // shortcut does not discard those feasible boundary points.
+            m_explain.set_full_dimensional(false);
+            scoped_literal_vector projected(m_solver);
+            // Each projection preserves the sample and implies existence of
+            // the eliminated variable. Highest-first avoids variable renaming
+            // and leaves only the objective x0 in the resulting cube.
+            for (var v = num_vars(); v-- > 1 && !cube.empty();) {
+                checkpoint();
+                projected.reset();
+                m_explain.project(v, cube.size(), cube.data(), projected);
+                cube.swap(projected);
+            }
+        }
+
+        lbool check_limit(var x, anum const* bound) {
+            if (!m_incremental || x != 0 || x >= num_vars() || m_inv_perm[x] != x)
+                throw default_exception("nlsat limit checking requires an incremental solver with the objective first");
+            for (var v = 0; v < num_vars(); ++v)
+                if (is_int(v)) {
+                    IF_VERBOSE(2, verbose_stream() << "(nlsat limit check: integer variable)\n");
+                    return l_undef;
+                }
+
+            // Own the endpoint before check() invalidates any borrowed model value.
+            scoped_anum limit(m_am);
+            if (bound)
+                m_am.set(limit, *bound);
+            flet<var> max_var(m_max_var, x);
+            char scope_tag = 0;
+            on_scope_exit cleanup([&]() { retract(&scope_tag, UINT_MAX); });
+            if (bound) {
+                bool is_rational = m_am.is_rational(limit);
+                svector<mpz> coeffs;
+                m_am.get_polynomial(limit, coeffs);
+                polynomial_ref p(m_pm);
+                p = m_pm.mk_univariate(x, coeffs.size() - 1, coeffs.data());
+                literal upper;
+                if (is_rational) {
+                    poly* ps[] = { p.get() };
+                    bool is_even[] = { false };
+                    upper = mk_ineq_literal(atom::LT, 1, ps, is_even);
+                }
+                else
+                    upper = literal(mk_root_atom(atom::ROOT_LT, x, m_am.get_i(limit), p), false);
+                mk_external_clause(1, &upper, &scope_tag);
+            }
+
+            while (true) {
+                checkpoint();
+                lbool st = check();
+                if (st != l_true)
+                    return st;
+                scoped_literal_vector cube(m_solver);
+                project_model(cube);
+
+                // The complement now describes a sufficient feasible region,
+                // not merely values that conflict learning has yet to exclude.
+                interval_set_ref infeasible(m_ism);
+                for (literal l : cube) {
+                    atom* a = m_atoms[l.var()];
+                    SASSERT(a && a->max_var() == x);
+                    auto excluded = m_evaluator.infeasible_intervals(a, l.sign(), nullptr);
+                    infeasible = m_ism.mk_union(infeasible, excluded);
+                }
+                if (m_ism.is_full(infeasible))
+                    throw default_exception("nlsat limit check: inconsistent model projection");
+                scoped_anum sup(m_am);
+                bool attained = false;
+                bool bounded = m_ism.query_max_in_complement(infeasible, sup, attained);
+                if (bound ? bounded && !attained && m_am.eq(sup, limit) : !bounded)
+                    return l_true;
+
+                // Block the entire certified region, not just the sample point.
+                // If their complement becomes unsatisfiable, this finite cover
+                // has a gap below the limit (or a finite upper bound).
+                literal_vector blocking;
+                for (literal l : cube)
+                    blocking.push_back(~l);
+                mk_external_clause(blocking.size(), blocking.data(), &scope_tag);
+            }
         }
 
         bool simple_check() {
@@ -3165,6 +3308,15 @@ namespace nlsat {
             m_pm.rename(sz, p);
             for (auto& b : m_bounds) 
                 b.x = p[b.x];                                   
+            // m_bounds isn't the only place raw (non-polynomial-embedded)
+            // var indices are cached across a reorder: m_transcendentals
+            // stashes its own applications' argument/value vars directly
+            // (see nlsat_transcendentals.h), which m_pm.rename() above does
+            // not touch since they aren't part of any polynomial. Without
+            // this, refine() reads stale/wrong-variable values after the
+            // first reorder, silently corrupting every transcendental
+            // check (sign facts, Taylor brackets, etc.) from then on.
+            m_transcendentals.rename(sz, p);
             TRACE(nlsat_bool_assignment_bug, tout << "before reinit cache\n"; display_bool_assignment(tout, false, nullptr););
             reinit_cache();
             m_assignment.swap(new_assignment);
@@ -4547,6 +4699,10 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
+    lbool solver::check_limit(var x, anum const* bound) {
+        return m_imp->check_limit(x, bound);
+    }
+
     lbool solver::check(assignment const& rvalues, literal_vector& clause) {
         return m_imp->check(rvalues, clause);
     }
@@ -4719,6 +4875,22 @@ namespace nlsat {
 
     bool_var solver::mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
         return m_imp->mk_root_atom(k, x, i, p);
+    }
+
+    void solver::add_transcendental(transcendental_op_kind op, var arg, var val) {
+        m_imp->m_transcendentals.add(op, arg, val);
+    }
+
+    void solver::add_pi(var val) {
+        m_imp->m_transcendentals.add_pi(val);
+    }
+
+    void solver::add_atan2(var y, var x, var val) {
+        m_imp->m_transcendentals.add_atan2(y, x, val);
+    }
+
+    bool solver::transcendentals_enabled() const {
+        return !m_imp->m_transcendentals.empty();
     }
     
     void solver::inc_ref(bool_var b) {

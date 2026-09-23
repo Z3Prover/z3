@@ -64,13 +64,12 @@ where `A <= B` and `x, y` do not occur elsewhere.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_pb_preprocess_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-    ADD_TACTIC("pb-preprocess", "pre-process pseudo-Boolean constraints a la Davis Putnam.", "mk_pb_preprocess_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(pb_preprocess, "pb-preprocess", "pre-process pseudo-Boolean constraints a la Davis Putnam.", mk_pb_preprocess_tactic(m, p));
 
 

@@ -22,16 +22,14 @@ Author:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/probe.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
 tactic * mk_qffplra_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-ADD_TACTIC("qffplra", "(try to) solve goal using the tactic for QF_FPLRA.", "mk_qffplra_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(qffplra, "qffplra", "(try to) solve goal using the tactic for QF_FPLRA.", mk_qffplra_tactic(m, p));
 
 probe * mk_is_qffplra_probe();
-/*
-ADD_PROBE("is-qffplra", "true if the goal is in QF_FPLRA.", "mk_is_qffplra_probe()")
-*/
+Z3_ADD_PROBE(is_qffplra, "is-qffplra", "true if the goal is in QF_FPLRA.", mk_is_qffplra_probe());
 

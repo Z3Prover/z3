@@ -9,6 +9,4 @@ z3_add_component(sat_solver
     core_tactics
     sat_tactic
     solver
-  TACTIC_HEADERS
-    inc_sat_solver.h
 )

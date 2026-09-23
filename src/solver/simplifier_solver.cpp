@@ -276,7 +276,7 @@ public:
             return;
         }
         s->get_model(m); 
-        if (m_mc)
+        if (m_mc && m)
             (*m_mc)(m);
         m_cached_model = m;        
     }

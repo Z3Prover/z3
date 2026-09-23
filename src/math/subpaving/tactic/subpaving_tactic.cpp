@@ -17,6 +17,10 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
+// Pulls in this file's own Z3_ADD_TACTIC registration (see tactic/tactic.h) -- an `inline`
+// global's constructor only runs if some compiled translation unit includes the header
+// declaring it, and subpaving_tactic.h was otherwise never included by anything.
+#include "math/subpaving/tactic/subpaving_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "math/subpaving/tactic/expr2subpaving.h"
 #include "ast/expr2var.h"

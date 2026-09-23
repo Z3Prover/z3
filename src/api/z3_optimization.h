@@ -227,6 +227,17 @@ extern "C" {
     /**
        \brief Retrieve lower bound value or approximation for the i'th optimization objective.
 
+       An attained, certified irrational algebraic optimum is returned as an
+       exact algebraic numeral by both #Z3_optimize_get_lower and
+       #Z3_optimize_get_upper. Use #Z3_get_algebraic_number_lower and
+       #Z3_get_algebraic_number_upper to obtain rational approximations.
+
+       A certified finite limit that is not attained includes an infinitesimal
+       term: for example, \ccode{sqrt(2) - epsilon} for a supremum. The finite
+       part can be algebraic even though the whole expression is not an
+       algebraic numeral. Use #Z3_optimize_get_lower_as_vector to inspect
+       the finite part and the infinitesimal coefficient separately.
+
        \param c - context
        \param o - optimization context
        \param idx - index of optimization objective
@@ -241,6 +252,9 @@ extern "C" {
 
     /**
        \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       Certified algebraic optima and finite open limits are returned
+       as described for #Z3_optimize_get_lower.
 
        \param c - context
        \param o - optimization context
@@ -257,9 +271,15 @@ extern "C" {
 
     /**
        \brief Retrieve lower bound value or approximation for the i'th optimization objective.
-              The returned vector is of length 3. It always contains numerals.
-              The three numerals are coefficients \c a, \c b, \c c and encode the result of
+              The returned vector is of length 3.
+              Its entries are coefficients \c a, \c b, \c c and encode the result of
               #Z3_optimize_get_lower \ccode{a * infinity + b + c * epsilon}.
+              The coefficients \c a and \c c are rational numerals. The finite
+              part \c b is a rational numeral or an exact irrational algebraic
+              numeral when such a bound has been certified.
+              For a finite attained optimum, \c a and \c c are zero. A finite
+              open limit has \c a equal to zero and a nonzero infinitesimal
+              coefficient \c c, even when \c b is algebraic.
               
        \param c - context
        \param o - optimization context
@@ -275,6 +295,10 @@ extern "C" {
 
     /**
        \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       The returned vector has the same coefficient and algebraic-value
+       semantics as #Z3_optimize_get_lower_as_vector, and encodes the result
+       of #Z3_optimize_get_upper.
 
        \param c - context
        \param o - optimization context

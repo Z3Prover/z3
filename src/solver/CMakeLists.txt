@@ -19,10 +19,6 @@ z3_add_component(solver
     tactic
     params
     qe_lite
-  PYG_FILES
-    combined_solver_params.pyg
-    parallel_params.pyg
-
 )
 
 add_subdirectory(assertions)

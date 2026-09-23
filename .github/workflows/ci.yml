@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ master ]
   pull_request:
     branches: [ "**" ]
   workflow_dispatch:
@@ -18,59 +18,6 @@ concurrency:
 # See .github/workflows/CI_MIGRATION.md for details on the migration.
 
 jobs:
-  # ============================================================================
-  # Linux Python Debug Builds
-  # ============================================================================
-  linux-python-debug:
-    name: "Ubuntu build - python make - ${{ matrix.variant }}"
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [MT, ST]
-        include:
-          - variant: MT
-            cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
-            runRegressions: true
-          - variant: ST
-            cmdLine: './configure --single-threaded'
-            runRegressions: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.x'
-
-      - name: Configure
-        run: ${{ matrix.cmdLine }}
-
-      - name: Build
-        run: |
-          set -e
-          cd build
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
-
-      - name: Run unit tests
-        run: |
-          cd build
-          ./test-z3 -a
-          cd ..
-
-      - name: Clone z3test
-        if: matrix.runRegressions
-        run: git clone https://github.com/z3prover/z3test z3test
-
-      - name: Run regressions
-        if: matrix.runRegressions
-        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
-
   # ============================================================================
   # Manylinux Python Builds
   # ============================================================================
@@ -185,20 +132,20 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; python scripts/mk_make.py --ml
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
           set -e
-          cd build
           eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
+          cmake --build build --parallel $(nproc)
+          cmake --build build --target test-z3 --parallel $(nproc)
 
       - name: Install Z3 OCaml package
-        run: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+        run: |
+          eval `opam config env`
+          ML=build/src/api/ml
+          ocamlfind install z3 "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
 
       - name: Run unit tests
         run: |
@@ -216,7 +163,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   ubuntu-ocaml-static:
@@ -240,23 +187,21 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
           set -e
-          cd build
           eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) examples
-          make -j$(nproc) test-z3
-          cd ..
+          cmake --build build --parallel $(nproc)
+          cmake --build build --target test-z3 --parallel $(nproc)
 
       - name: Install Z3 OCaml package
         run: |
           eval `opam config env`
-          ocamlfind install z3-static build/api/ml/* build/libz3-static.a
-          # Ensure the stublibs directory where dllz3ml-static.so was installed is
+          ML=build/src/api/ml
+          ocamlfind install z3-static "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
+          # Ensure the stublibs directory where dllz3ml.so was installed is
           # listed in ld.conf so the OCaml bytecode linker can find it.  When no
           # explicit -dll flag is passed, ocamlfind installs dll* files to stublibs
           # but may not update ld.conf, causing "Fatal error: exception End_of_file"
@@ -270,14 +215,14 @@ jobs:
       - name: Build and run OCaml examples
         run: |
           set -e
-          cd build
           eval `opam config env`
-          make -j$(nproc)
-          make -j$(nproc) _ex_ml_example_post_install
+          EX=examples/ml/ml_example.ml
+          ocamlfind ocamlc -o ml_example_static.byte -thread -package z3-static -linkpkg "$EX"
           ./ml_example_static.byte
+          ocamlfind ocamlc -custom -o ml_example_static_custom.byte -thread -package z3-static -linkpkg "$EX"
           ./ml_example_static_custom.byte
+          ocamlfind ocamlopt -o ml_example_static -thread -package z3-static -linkpkg "$EX"
           ./ml_example_static
-          cd ..
 
       - name: Run unit tests
         run: |
@@ -295,7 +240,7 @@ jobs:
         run: |
           cd doc
           sudo apt-get install -y doxygen graphviz
-          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          python mk_api_doc.py --no-z3py
           cd ..
 
   # ============================================================================
@@ -548,55 +493,6 @@ jobs:
           --test-command ctest --output-on-failure
 
   # ============================================================================
-  # macOS Python Builds
-  # ============================================================================
-  macos-python:
-    name: "MacOS build"
-    runs-on: macos-latest
-    timeout-minutes: 90
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.x'
-
-      - name: Configure
-        run: python scripts/mk_make.py -d --java --dotnet
-
-      - name: Build
-        run: |
-          set -e
-          cd build
-          JOBS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu || echo 1)
-          make -j"$JOBS"
-          make -j"$JOBS" examples
-          make -j"$JOBS" test-z3
-          ./cpp_example
-          ./c_example
-          cd ..
-
-      - name: Clone z3test
-        run: git clone https://github.com/z3prover/z3test z3test
-
-      - name: Run regressions
-        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
-
-      - name: Validate JNI library architecture matches host
-        run: |
-          echo "Checking libz3java.dylib architecture..."
-          ARCH=$(lipo -archs build/libz3java.dylib)
-          HOST_ARCH=$(uname -m)
-          echo "libz3java.dylib arch: $ARCH  |  host arch: $HOST_ARCH"
-          if [ "$ARCH" != "$HOST_ARCH" ]; then
-            echo "ERROR: libz3java.dylib has arch '$ARCH' but host is '$HOST_ARCH'"
-            exit 1
-          fi
-          echo "OK: libz3java.dylib correctly built for $HOST_ARCH"
-
-  # ============================================================================
   # macOS JNI cross-compilation validation (ARM64 host -> x86_64 target)
   # ============================================================================
   macos-jni-cross-compile:
@@ -613,19 +509,13 @@ jobs:
           python-version: '3.x'
 
       - name: Configure (cross-compile ARM64 host -> x86_64 target)
-        env:
-          CFLAGS: -arch x86_64
-          CXXFLAGS: -arch x86_64
-          LDFLAGS: -arch x86_64
-        run: python scripts/mk_make.py --java --arm64=false
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_JAVA_BINDINGS=ON -DCMAKE_OSX_ARCHITECTURES=x86_64
 
       - name: Build
         run: |
           set -e
-          cd build
           NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
-          make -j"$NPROC" libz3java.dylib
-          cd ..
+          cmake --build build --target z3java --parallel "$NPROC"
 
       - name: Validate libz3java.dylib is x86_64
         run: |

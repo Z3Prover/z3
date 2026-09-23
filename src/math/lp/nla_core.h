@@ -32,6 +32,7 @@
 #include "math/lp/nla_backoff.h"
 #include "math/lp/nla_patcher.h"
 #include "math/lp/nla_explanations.h"
+#include "math/lp/nla_transcendentals.h"
 
 namespace nra {
     class solver;
@@ -65,12 +66,23 @@ class core {
     friend class divisions;
     friend class patcher;
     friend class explanations;
+    friend class transcendentals;
 
     backoff  m_nlsat_backoff;
     unsigned m_check_assignment_fail_cnt = 0;
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();
+    lbool check_transcendentals_and_finish();
+    // Consolidates the "no monomials left to refine" transition: records it
+    // with the squeeze schedule and defers to check_transcendentals_and_finish()
+    // for the final verdict, which also examines any registered
+    // transcendental applications (sin/cos/etc.) for feasibility - these are
+    // not monomials, so m_to_refine being empty alone never certifies them.
+    // check() calls this once at each point where m_to_refine is found to
+    // have just become empty, instead of duplicating the squeeze-schedule
+    // bookkeeping and transcendentals check inline at every such call site.
+    lbool on_to_refine_empty();
 
     var_eqs<emonics>         m_evars;
 
@@ -94,6 +106,7 @@ class core {
     monomial_bounds          m_monomial_bounds;
     patcher                  m_patcher;
     explanations             m_explanations;
+    transcendentals          m_transcendentals;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     // set when bound optimization re-calibrates m_to_refine to empty: every
@@ -219,6 +232,11 @@ public:
     void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_rdivision(q, x, y, r); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_bounded_division(q, x, y, r); }
     void add_divisibility(lpvar r, lpvar x, lpvar y, lpvar d) { m_divisions.add_divisibility(r, x, y, d); }
+    void add_transcendental(nlsat::transcendental_op_kind op, lpvar arg, lpvar val) { m_transcendentals.add_transcendental(op, arg, val); }
+    void add_pi(lpvar val) { m_transcendentals.add_pi(val); }
+    void add_atan2(lpvar y, lpvar x, lpvar val) { m_transcendentals.add_atan2(y, x, val); }
+    transcendentals const& get_transcendentals() const { return m_transcendentals; }
+    transcendentals& get_transcendentals() { return m_transcendentals; }
     void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }
     lpvar add_mul_def(unsigned sz, lpvar const* vs) { SASSERT(m_add_mul_def_hook); lpvar v = m_add_mul_def_hook(sz, vs); add_monic(v, sz, vs); return v; }
 
@@ -365,7 +383,19 @@ public:
     bool  find_bfc_to_refine(const monic* & m, factorization& bf);
 
     bool  conflict_found() const;
-    
+
+    // True iff the current (rational) assignment satisfies both the
+    // registered monomials (re-derived here via init_to_refine()) and, if
+    // any are registered, the transcendental function applications
+    // (sin/cos/etc.), which are not monomials and so are not covered by the
+    // monomial check. Transcendental satisfaction is decided by
+    // check_transcendentals_and_finish(): a plain delta-check pass, or - on
+    // delta-check failure - certified unsatisfiability/satisfiability via
+    // bounded_nlsat when applicable. Like check_transcendentals_and_finish(),
+    // this can have the side effect of populating m_lemmas/m_literals with a
+    // refutation when the transcendentals are found inconsistent.
+    bool is_nla_context_satisfied();
+
     lbool check(unsigned level);
     lbool check_power(lpvar r, lpvar x, lpvar y);
     void check_bounded_divisions();
@@ -401,6 +431,12 @@ public:
     bool has_real(const monic& m) const;
     void set_use_nra_model(bool m);
     bool use_nra_model() const { return m_use_nra_model; }
+    // Rational interval [lo, hi] enclosing v's algebraic-number witness in
+    // the most recent nra (nlsat) model; only meaningful when
+    // use_nra_model() is true. Unlike val(), which reads the plain LP
+    // column and is stale/unrelated once nlsat has run, this reads the
+    // actual nlsat witness via the algebraic number manager.
+    void nra_model_bound(lpvar v, rational& lo, rational& hi, unsigned precision = 64);
     vector<nla::lemma> const& lemmas() const { return m_lemmas; }
     vector<nla::ineq> const& literals() const { return m_literals; }
     vector<lp::equality> const& equalities() const { return m_equalities; }

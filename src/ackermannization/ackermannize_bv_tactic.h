@@ -46,11 +46,10 @@ produces a pure bit-vector benchmark, it allows Z3 to use a specialized SAT solv
 
 #pragma once
 #include "tactic/tactical.h"
+#include "tactic/tactic.h"
 
 tactic * mk_ackermannize_bv_tactic(ast_manager & m, params_ref const & p);
 
-/*
-  ADD_TACTIC("ackermannize_bv", "A tactic for performing full Ackermannization on bv instances.", "mk_ackermannize_bv_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(ackermannize_bv, "ackermannize_bv", "A tactic for performing full Ackermannization on bv instances.", mk_ackermannize_bv_tactic(m, p));
 
 

@@ -18,8 +18,112 @@ Notes:
 --*/
 #pragma once
 
+#include <array>
+#include <climits>
+#include <limits>
 #include "util/cmd_context_types.h"
+#include "util/memory_manager.h"
 #include "util/vector.h"
+
+// Support for hand-written <module>_params.hpp headers (formerly generated at build time
+// from a <module>.pyg file by scripts/pyg2hpp.py). Each such header defines an X-macro
+// listing its parameters, one row per parameter, e.g.:
+//
+//   #define SLS_PARAMS(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_)                             \
+//     UINT_(max_memory, "max_memory", UINT_MAX, "maximum amount of memory in megabytes")     \
+//     BOOL_(walksat,    "walksat",    true,     "use walksat assertion selection")           \
+//     ...
+//
+//   Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS,
+//       "Stochastic Local Search Solver ...");
+//
+// Row shape is the same for every kind: (method, key, default, doc). `method` is the C++
+// accessor name; `key` is the (possibly dotted) parameter name used at the params_ref/gparams
+// level, so the two can differ (e.g. `solve_eqs_non_ground` / "solve_eqs.non_ground").
+//
+// Z3_DEFINE_MODULE_PARAMS expands the param-list macro twice: once to collect param_descrs
+// (self-documentation, `-pd`, option validation) and once to define the typed accessors. It
+// then registers the module with gparams via Z3_REGISTER_MODULE_PARAMS -- see that macro,
+// and gparams::module_registration/global_registration in util/gparams.h, for how modules
+// find their way into gparams without any source-scanning code generator. The last argument
+// is a description string literal, or nullptr if the module has none.
+
+// Stringizes a macro argument after expanding it, e.g. Z3_PARAM_STR(20.0) -> "20.0". Only
+// safe for defaults that are already plain literals (DOUBLE parameters in practice): unlike
+// Z3_PARAM_UINT_STR below, it renders whatever text the default happens to expand to, so a
+// macro that expands to an expression (e.g. some libcs' <climits> UINT_MAX) would leak into
+// the display string verbatim.
+#define Z3_PARAM_STR2(x) #x
+#define Z3_PARAM_STR(x) Z3_PARAM_STR2(x)
+
+// Renders an unsigned default's decimal digits at compile time from its *value*, not its
+// spelling, via a constexpr non-type template parameter: whatever `deflt` expands to (a
+// literal, or <climits>'s UINT_MAX -- however that macro happens to be defined, e.g. some
+// libcs spell it as an expression like `(2147483647 *2U +1U)`) is fully constant-folded
+// into an `unsigned` before formatting, so the display string can never end up as that
+// stray expression text.
+template <unsigned N>
+struct z3_param_uint_str {
+    static constexpr auto arr = [] {
+        std::array<char, std::numeric_limits<unsigned>::digits10 + 3> a{};
+        unsigned v = N;
+        unsigned len = 0;
+        char digits[a.size()]{};
+        do {
+            digits[len++] = char('0' + (v % 10));
+            v /= 10;
+        } while (v != 0);
+        for (unsigned i = 0; i < len; ++i)
+            a[i] = digits[len - 1 - i];
+        return a;
+    }();
+    static constexpr char const * value = arr.data();
+};
+#define Z3_PARAM_UINT_STR(deflt) (z3_param_uint_str<(unsigned)(deflt)>::value)
+
+#define Z3_PARAM_DESCR_UINT(method, key, deflt, doc)   d.insert(key, CPK_UINT, doc, Z3_PARAM_UINT_STR(deflt), module);
+#define Z3_PARAM_DESCR_BOOL(method, key, deflt, doc)   d.insert(key, CPK_BOOL, doc, (deflt) ? "true" : "false", module);
+#define Z3_PARAM_DESCR_DOUBLE(method, key, deflt, doc) d.insert(key, CPK_DOUBLE, doc, Z3_PARAM_STR(deflt), module);
+#define Z3_PARAM_DESCR_STRING(method, key, deflt, doc) d.insert(key, CPK_STRING, doc, deflt, module);
+#define Z3_PARAM_DESCR_SYMBOL(method, key, deflt, doc) d.insert(key, CPK_SYMBOL, doc, deflt, module);
+
+#define Z3_PARAM_GET_UINT(method, key, deflt, doc)   unsigned method() const { return p.get_uint(key, g, deflt); }
+#define Z3_PARAM_GET_BOOL(method, key, deflt, doc)   bool method() const { return p.get_bool(key, g, deflt); }
+#define Z3_PARAM_GET_DOUBLE(method, key, deflt, doc) double method() const { return p.get_double(key, g, deflt); }
+#define Z3_PARAM_GET_STRING(method, key, deflt, doc) char const * method() const { return p.get_str(key, g, deflt); }
+#define Z3_PARAM_GET_SYMBOL(method, key, deflt, doc) symbol method() const { return p.get_sym(key, g, symbol(deflt)); }
+
+// Registers a module's parameter descriptions with gparams -- for hand-written classes
+// with their own params_ref-based accessors that don't go through Z3_DEFINE_MODULE_PARAMS
+// (e.g. nnf::get_param_descrs, polynomial::factor_params::get_param_descrs). TAG must be a
+// bare identifier, unique in the translation unit, used to name the (inline, so safely
+// mergeable across every translation unit that includes this header) registration object.
+// DESCR is a string literal describing the module, or nullptr.
+#define Z3_REGISTER_MODULE_PARAMS(TAG, MODULE, GET_DESCRS, DESCR)                          \
+  inline ::gparams::module_registration g_z3_module_registration_##TAG(                   \
+      MODULE,                                                                             \
+      []() -> param_descrs * { auto * d = alloc(param_descrs); GET_DESCRS(*d); return d; }, \
+      DESCR)
+
+// Registers global (module-less) parameters, e.g. context_params::collect_param_descrs.
+#define Z3_REGISTER_GLOBAL_PARAMS(TAG, COLLECT)                                            \
+  inline ::gparams::global_registration g_z3_global_registration_##TAG(COLLECT)
+
+#define Z3_DEFINE_MODULE_PARAMS(CLASS, MODULE, PARAMS, DESCR)                              \
+  struct CLASS {                                                                          \
+    params_ref const & p;                                                                 \
+    params_ref g;                                                                         \
+    CLASS(params_ref const & _p = params_ref::get_empty()):                               \
+       p(_p), g(gparams::get_module(MODULE)) {}                                           \
+    static void collect_param_descrs(param_descrs & d) {                                  \
+      char const * const module = MODULE;                                                 \
+      PARAMS(Z3_PARAM_DESCR_UINT, Z3_PARAM_DESCR_BOOL, Z3_PARAM_DESCR_DOUBLE,              \
+             Z3_PARAM_DESCR_STRING, Z3_PARAM_DESCR_SYMBOL)                                 \
+    }                                                                                      \
+    PARAMS(Z3_PARAM_GET_UINT, Z3_PARAM_GET_BOOL, Z3_PARAM_GET_DOUBLE,                      \
+           Z3_PARAM_GET_STRING, Z3_PARAM_GET_SYMBOL)                                       \
+  };                                                                                       \
+  Z3_REGISTER_MODULE_PARAMS(CLASS, MODULE, CLASS::collect_param_descrs, DESCR)
 
 std::string norm_param_name(char const * n);
 std::string norm_param_name(symbol const & n);

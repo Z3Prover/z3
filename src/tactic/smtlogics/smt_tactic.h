@@ -18,6 +18,7 @@ Author:
 #pragma once
 
 #include "util/params.h"
+#include "tactic/tactic.h"
 class ast_manager;
 class tactic;
 
@@ -25,8 +26,6 @@ tactic * mk_smt_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 tactic * mk_smt_tactic_using(ast_manager& m, bool auto_config = true, params_ref const& p = params_ref());
 
-/*
-  ADD_TACTIC("smt", "apply a SAT based SMT solver.", "mk_smt_tactic(m, p)") 
-*/
+Z3_ADD_TACTIC(smt, "smt", "apply a SAT based SMT solver.", mk_smt_tactic(m, p));
 
 

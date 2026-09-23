@@ -27,6 +27,8 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/recurse_expr_def.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/occurs.h"
 
 
 macro_manager::macro_manager(ast_manager & m):
@@ -122,6 +124,16 @@ bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_depen
         return false;
     }
 
+    // Macros are expanded in the asserted formulas only. The bodies of recursive
+    // function definitions (define-fun-rec) are not asserted formulas: they are
+    // unfolded lazily by the recfun theory. If f occurs in such a body, eliminating
+    // f from the assertions would leave those occurrences without their defining
+    // axiom, so the resulting problem is weaker than the original (false 'sat').
+    if (occurs_in_recursive_definition(f)) {
+        TRACE(macro_insert, tout << "cannot create macro for: " << f->get_name() << ", it occurs in a recursive function definition\n";);
+        return false;
+    }
+
     app * head;
     expr_ref definition(m);
     bool revert = false;
@@ -150,6 +162,23 @@ bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_depen
     // Nothing's forbidden anymore; if something's bad, we detected it earlier.
     // mark_forbidden(m->get_expr());
     return true;
+}
+
+bool macro_manager::occurs_in_recursive_definition(func_decl * f) const {
+    if (!m.has_plugin(symbol("recfun")))
+        return false;
+    recfun::util u(m);
+    if (!u.has_defs())
+        return false;
+    for (func_decl * g : u.get_rec_funs()) {
+        recfun::def & d = u.get_def(g);
+        if (d.is_macro())
+            continue;
+        expr * rhs = d.get_rhs();
+        if (rhs && occurs(f, rhs))
+            return true;
+    }
+    return false;
 }
 
 namespace macro_manager_ns {
@@ -408,4 +437,3 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
     SASSERT(!new_pr || m.get_fact(new_pr) == r);
     SASSERT(!dep || new_dep);
 }
-

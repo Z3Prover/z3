@@ -40,6 +40,7 @@ Notes:
 #include "ast/simplifiers/elim_term_ite.h"
 #include "ast/simplifiers/flatten_clauses.h"
 #include "ast/simplifiers/bound_simplifier.h"
+#include "ast/simplifiers/recfun_finder.h"
 #include "ast/simplifiers/cnf_nnf.h"
 #include "params/smt_params.h"
 #include "solver/solver_preprocess.h"
@@ -60,6 +61,7 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
     };
     smt_params smtp(p);
     s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
+    if (smtp.m_recfun_finder) s.add_simplifier(alloc(recfun_finder, m, p, st));
     if (smtp.m_propagate_values) s.add_simplifier(alloc(propagate_values, m, p, st));
     if (smtp.m_solve_eqs) s.add_simplifier(alloc(euf::solve_eqs, m, st));
     if (smtp.m_elim_unconstrained) s.add_simplifier(alloc(elim_unconstrained, m, st));
@@ -88,4 +90,3 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
     // 
 
 }
-

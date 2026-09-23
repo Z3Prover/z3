@@ -260,7 +260,7 @@ set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlc
-    -cclib "${libz3_path}/libz3${so_ext}"
+    -cclib "-L${libz3_path}" -cclib "-lz3"
     -o "${z3ml_bin}/ml_example.byte"
     -package zarith
     -linkpkg
@@ -276,7 +276,7 @@ add_custom_command(
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlopt
-    -cclib "${libz3_path}/libz3${so_ext}"
+    -cclib "-L${libz3_path}" -cclib "-lz3"
     -o "${z3ml_bin}/ml_example"
     -package zarith
     -linkpkg

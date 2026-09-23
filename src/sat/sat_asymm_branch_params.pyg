@@ -1,9 +1,0 @@
-def_module_params(module_name='sat', 
-                  class_name='sat_asymm_branch_params',
-                  export=True,
-                  params=(('asymm_branch', BOOL, True, 'asymmetric branching'),
-                          ('asymm_branch.rounds', UINT, 2, 'maximal number of rounds to run asymmetric branch simplifications if progress is made'),
-                          ('asymm_branch.delay', UINT, 1, 'number of simplification rounds to wait until invoking asymmetric branch simplification'),
-                          ('asymm_branch.sampled', BOOL, True, 'use sampling based asymmetric branching based on binary implication graph'),
-                          ('asymm_branch.limit', UINT, 100000000, 'approx. maximum number of literals visited during asymmetric branching'),
-                          ('asymm_branch.all', BOOL, False, 'asymmetric branching on all literals per clause')))

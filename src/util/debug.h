@@ -20,6 +20,7 @@ Revision History:
 
 #include <stdlib.h>
 #include <iostream>
+#include "util/memory_manager.h"
 
 void enable_assertions(bool f);
 bool assertions_enabled();
@@ -120,6 +121,4 @@ bool is_debug_enabled(const char * tag);
 
 
 void finalize_debug();
-/*
-  ADD_FINALIZER('finalize_debug();')
-*/
+Z3_ADD_FINALIZER(debug, finalize_debug);

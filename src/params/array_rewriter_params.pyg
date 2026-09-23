@@ -1,9 +1,0 @@
-def_module_params(module_name='rewriter',
-                  class_name='array_rewriter_params',
-                  export=True,
-                  params=(("expand_select_store", BOOL, False, "conservatively replace a (select (store ...) ...) term by an if-then-else term"),
-                          ("blast_select_store", BOOL, False, "eagerly replace all (select (store ..) ..) term by an if-then-else term"),
-                          ("expand_nested_stores", BOOL, False, "replace nested stores by a lambda expression"),
-                          ("expand_select_ite", BOOL, False, "expand select over ite expressions"),
-                          ("expand_store_eq", BOOL, False, "reduce (store ...) = (store ...) with a common base into selects"),
-                          ("sort_store", BOOL, False, "sort nested stores when the indices are known to be different")))

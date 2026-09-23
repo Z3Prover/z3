@@ -38,18 +38,13 @@ Contextual bounds simplification tactic.
 #pragma once
 #include "tactic/tactic.h"
 #include "ast/simplifiers/bv_bounds_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 tactic * mk_bv_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 tactic * mk_dom_bv_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-/*
-  ADD_TACTIC("propagate-bv-bounds", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", "mk_bv_bounds_tactic(m, p)")
-
-  ADD_SIMPLIFIER("propagate-bv-bounds", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", "mk_bv_bounds_simplifier(m, p, s)")
-
-  ADD_TACTIC("propagate-bv-bounds2", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", "mk_dom_bv_bounds_tactic(m, p)")
-
-
-*/
+Z3_ADD_TACTIC(propagate_bv_bounds, "propagate-bv-bounds", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", mk_bv_bounds_tactic(m, p));
+Z3_ADD_SIMPLIFIER(propagate_bv_bounds, "propagate-bv-bounds", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", mk_bv_bounds_simplifier(m, p, s));
+Z3_ADD_TACTIC(propagate_bv_bounds2, "propagate-bv-bounds2", "propagate bit-vector bounds by simplifying implied or contradictory bounds.", mk_dom_bv_bounds_tactic(m, p));
 

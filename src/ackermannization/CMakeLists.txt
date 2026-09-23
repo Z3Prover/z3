@@ -14,10 +14,4 @@ z3_add_component(ackermannization
     rewriter
     solver
     tactic
-  PYG_FILES
-    ackermannization_params.pyg
-    ackermannize_bv_tactic_params.pyg
-  TACTIC_HEADERS
-    ackermannize_bv_tactic.h
-    ackr_bound_probe.h
 )

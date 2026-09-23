@@ -30,7 +30,7 @@ def is_verbose():
 # TODO: rewrite this file without using global variables.
 # This file is a big HACK.
 # It started as small simple script.
-# Now, it is too big, and is invoked from mk_make.py
+# Now, it is too big, and is invoked from CMake
 #
 ##########################################################
 

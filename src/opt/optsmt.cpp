@@ -32,7 +32,6 @@ Notes:
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_nlsat.h"
-#include "math/polynomial/algebraic_numbers.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
@@ -45,20 +44,53 @@ Notes:
 
 namespace opt {
 
+    namespace {
+        // Track pushes used to try temporary bounds such as obj >= best + step.
+        // These bounds may be infeasible, so remove them before nlsat/bisection
+        // and on exit.
+        class scoped_pushes {
+            solver& m_solver;
+            unsigned m_size = 0;
+        public:
+            explicit scoped_pushes(solver& s): m_solver(s) {}
+            ~scoped_pushes() { reset(); }
+            scoped_pushes(scoped_pushes const&) = delete;
+            scoped_pushes& operator=(scoped_pushes const&) = delete;
 
-    void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls) {
+            unsigned size() const { return m_size; }
+
+            void push() {
+                m_solver.push();
+                ++m_size;
+            }
+
+            void pop() {
+                SASSERT(m_size > 0);
+                m_solver.pop(1);
+                --m_size;
+            }
+
+            void reset() {
+                if (m_size > 0)
+                    m_solver.pop(m_size);
+                m_size = 0;
+            }
+        };
+    }
+
+    void optsmt::set_max(vector<objective_value>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls) {
         for (unsigned i = 0; i < src.size(); ++i) {
-            if (src[i] >= dst[i]) {
+            if (src[i] >= dst[i].rational_bound()) {
                 dst[i] = src[i];
                 m_models.set(i, m_s->get_model_idx(i));
                 m_s->get_labels(m_labels);
                 m_lower_fmls[i] = fmls.get(i);
-                if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
+                if (dst[i].rational_bound().is_pos() && !dst[i].is_finite()) { // review: likely done already.
                     m_lower_fmls[i] = m.mk_false();
                     fmls[i] = m.mk_false();
                 }
             }
-            else if (src[i] < dst[i] && !m.is_true(m_lower_fmls.get(i))) {
+            else if (src[i] < dst[i].rational_bound() && !m.is_true(m_lower_fmls.get(i))) {
                 fmls[i] = m_lower_fmls.get(i);                
             }
         }
@@ -106,11 +138,13 @@ namespace opt {
 
         expr_ref bound(m), last_bound(m);
 
-        vector<inf_eps> lower(m_lower);
+        vector<inf_eps> previous_lower;
+        for (auto const& value : m_lower)
+            previous_lower.push_back(value.rational_bound());
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
-        unsigned num_scopes = 0;
+        scoped_pushes scopes(*m_s);
         unsigned delta_index = 0;    // index of objective to speed up.
         bool has_bound = false;      // is the current objective bounded by a constraint.
 
@@ -122,7 +156,7 @@ namespace opt {
                 bound = update_lower();
                 if (!m.is_true(bound))
                     has_bound = true;
-                if (!can_increment_delta(lower, delta_index)) {
+                if (!can_increment_delta(previous_lower, delta_index)) {
                     delta_per_step = 1;
                 }
                 else if (steps > step_incs) {
@@ -134,14 +168,13 @@ namespace opt {
                     ++steps;
                 }
                 if (delta_per_step > rational::one()) {
-                    m_s->push();
-                    ++num_scopes;
+                    scopes.push();
                     // only try to improve delta_index. 
-                    bound = m_s->mk_ge(delta_index, m_lower[delta_index] + inf_eps(delta_per_step));
+                    bound = m_s->mk_ge(delta_index, lower(delta_index) + inf_eps(delta_per_step));
                 }
                 TRACE(opt, tout << mk_pp(m_objs.get(delta_index), m) << " index: " << delta_index
                       << " delta: " << delta_per_step << " bound: " << bound
-                      << " " << m_lower[delta_index] << " " << m_upper[delta_index] << "\n");
+                      << " " << lower(delta_index) << " " << upper(delta_index) << "\n");
                 if (bound == last_bound) {
                     is_sat = l_false;
                     if ((!has_bound || !m_lower[delta_index].is_finite()) && !m_upper[delta_index].is_finite())
@@ -157,21 +190,17 @@ namespace opt {
                 steps = 0;
                 step_incs = 0;
                 delta_per_step = 1;
-                SASSERT(num_scopes > 0);
-                --num_scopes;
-                m_s->pop(1);       
+                scopes.pop();
                 last_bound = nullptr;
             }
             else if (is_sat == l_false) {
                 // we are done with this delta_index.
                 m_upper[delta_index] = m_lower[delta_index];
-                if (num_scopes > 0)
-                    m_s->pop(num_scopes); 
-                num_scopes = 0;
+                scopes.reset();
                 last_bound = nullptr;
                 bool all_tight = true;
                 for (unsigned i = 0; i < m_lower.size(); ++i) {
-                    all_tight &= m_lower[i] == m_upper[i];
+                    all_tight &= lower(i) == upper(i);
                 }
                 if (all_tight || delta_index + 1 == m_lower.size())
                     break;
@@ -182,8 +211,7 @@ namespace opt {
                 has_bound = false;
             }
             else {
-                if (num_scopes > 0)
-                    m_s->pop(num_scopes);        
+                scopes.reset();
                 break;
             }
         }
@@ -204,25 +232,17 @@ namespace opt {
         }
     }
 
-    lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize, bool is_box) {
+    lbool optsmt::geometric_search(unsigned obj_index, bool is_maximize) {
         TRACE(opt, tout << "index: " << obj_index << " is-max: " << is_maximize << "\n";);
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs.get(obj_index));
         lbool is_sat = l_true;
-        m_exact[obj_index] = nullptr;
         expr_ref bound(m), last_bound(m);
-
-        // In lex mode, commit previous objectives so that earlier objectives
-        // constrain later ones. In box mode, skip this so each objective
-        // is optimized independently.
-        if (!is_box)
-            for (unsigned i = 0; i < obj_index; ++i) 
-                commit_assignment(i);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
-        unsigned num_scopes = 0;
+        scoped_pushes scopes(*m_s);
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
         inf_eps const infty(rational(1), inf_rational(0));
         // Upper bounds established along the way for a real-valued objective
@@ -245,8 +265,8 @@ namespace opt {
             is_sat = m_s->check_sat(0, nullptr);
             TRACE(opt, tout << "check " << is_sat << "\n";
                   tout << "last bound: " << last_bound << " bound " << bound << "\n";
-                  tout << "lower: " << m_lower[obj_index] << "\n";
-                  tout << "upper: " << m_upper[obj_index] << "\n";
+                  tout << "lower: " << lower(obj_index) << "\n";
+                  tout << "upper: " << upper(obj_index) << "\n";
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
@@ -299,8 +319,7 @@ namespace opt {
                 // toward the true optimum instead of terminating prematurely
                 // (issue #10028).
                 if (!bound_valid || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
-                    m_s->push();
-                    ++num_scopes;
+                    scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                     step_bound = obj + inf_eps(delta_per_step);
                 }
@@ -310,8 +329,8 @@ namespace opt {
                     // is strictly better than what the LP found, use it to push the LP
                     // further. This handles cases where nonlinear constraints, mod,
                     // to_int, prevent the LP from seeing the full feasible region.
-                    if (m_lower[obj_index].is_finite() && m_lower[obj_index] > obj)
-                        bound = m_s->mk_ge(obj_index, m_lower[obj_index]);
+                    if (m_lower[obj_index].is_finite() && lower(obj_index) > obj)
+                        bound = m_s->mk_ge(obj_index, lower(obj_index));
                     if (bound == last_bound && obj.get_infinitesimal().is_pos()) {
                         // The objective sits infinitesimally above the strict
                         // bound asserted in the previous round: r + k*delta with
@@ -324,8 +343,7 @@ namespace opt {
                         // strictly larger rational step instead; if the step is
                         // infeasible the loop terminates through the l_false
                         // branch below with the best proven bound.
-                        m_s->push();
-                        ++num_scopes;
+                        scopes.push();
                         bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                         step_bound = obj + inf_eps(delta_per_step);
                     }
@@ -339,9 +357,7 @@ namespace opt {
                 steps = 0;
                 step_incs = 0;
                 delta_per_step = rational::one();
-                SASSERT(num_scopes > 0);
-                --num_scopes;
-                m_s->pop(1);                             
+                scopes.pop();
             }
             else {
                 if (((is_sat == l_false && !last_bound_valid) || is_sat == l_undef) && !is_int && m_lower[obj_index].is_finite()) {
@@ -351,9 +367,8 @@ namespace opt {
                     // optimal. Close or narrow the gap by bisection instead of
                     // reporting the lower bound as the optimum.
                     inf_eps hi = std::min(step_bound, refuted_hint);
-                    if (m_lower[obj_index] < hi) {
-                        m_s->pop(num_scopes);
-                        num_scopes = 0;
+                    if (lower(obj_index) < hi) {
+                        scopes.reset();
                         bool smt_gave_up = is_sat == l_undef;
                         is_sat = l_false;
                         if (m_optsmt_nlsat)
@@ -361,7 +376,7 @@ namespace opt {
                         if (is_sat == l_false) {
                             if (!hi.is_finite() || smt_gave_up)
                                 is_sat = l_undef;
-                            else if (m_lower[obj_index] < hi)
+                            else if (lower(obj_index) < hi)
                                 is_sat = bisect(obj_index, is_maximize, hi);
                             else
                                 is_sat = l_true;
@@ -371,9 +386,8 @@ namespace opt {
                 break;
             }
         }
-        m_s->pop(num_scopes);        
-
-        TRACE(opt, tout << is_sat << " " << num_scopes << "\n";);
+        TRACE(opt, tout << is_sat << " " << scopes.size() << "\n";);
+        scopes.reset();
 
         if (is_sat == l_false && !m_model) {
             return l_false;
@@ -387,22 +401,19 @@ namespace opt {
         // model value was ever extracted before the loop stalled. Tightening
         // below would then report -oo as the optimum of a satisfiable
         // objective; report the interval as unknown instead.
-        if (!m_lower[obj_index].is_finite() && m_lower[obj_index].is_neg())
+        if (!m_lower[obj_index].is_finite() && lower(obj_index).is_neg())
             return l_undef;
 
-        // set the solution tight. An algebraic optimum keeps its rational
-        // bracket [m_lower, m_upper]; the exact value is in m_exact.
-        if (!m_exact.get(obj_index))
+        // Exact endpoints share a finite part but retain their outward
+        // rational brackets for the legacy search.
+        if (!m_lower[obj_index].exact_finite())
             m_upper[obj_index] = m_lower[obj_index];
-        if (!is_box)
-            for (unsigned i = obj_index+1; i < m_lower.size(); ++i)
-                m_lower[i] = inf_eps(rational(-1), inf_rational(0));
         return l_true;
     }
 
     void optsmt::set_best(unsigned idx, inf_eps const& v, bool is_maximize) {
         m_lower[idx] = v;
-        m_exact[idx] = nullptr;
+        m_upper[idx].reset_exact();
         IF_VERBOSE(1, 
                    if (is_maximize) 
                        verbose_stream() << "(optsmt lower bound: " << v << ")\n";
@@ -416,7 +427,7 @@ namespace opt {
 
     /**
        \brief Certify that objective idx is unbounded above over the current
-       assertions with one quantified-NRA (nlqsat) query (README section 3.3),
+       assertions by projecting feasible nlsat regions onto the objective,
        given a budget of rlimit_budget resource-counter ticks; bounds pushed
        by the climb hold in the current model and are harmless. The budget's
        expiry surfaces from the nlsat solver as a solver_exception, not a
@@ -443,7 +454,7 @@ namespace opt {
         {
             scoped_rlimit budget(m.limit(), rlimit_budget);
             try {
-                r = engine.prove_unbounded(hard, m_objs.get(idx), m_lower[idx].get_rational());
+                r = engine.prove_unbounded(hard, m_objs.get(idx), lower(idx).get_rational());
             }
             catch (z3_exception&) {
                 external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
@@ -463,11 +474,12 @@ namespace opt {
     }
 
     /**
-       \brief Exact optimization over nlsat cells (README section 3.3, layer 2):
+       \brief Exact optimization over nlsat cells:
        maximize the objective over the hard constraints within
        [m_lower[idx], hi] with nlsat_opt. On success the optimum may be an
-       algebraic number: m_exact[idx] holds it as a numeral and
-       [m_lower, m_upper] a rational bracket. Returns l_true when the optimum
+       algebraic number: both objective_value endpoints carry its exact
+       finite part and outward rational bounds, with -epsilon for an open limit.
+       Returns l_true when the optimum
        is proven, l_undef when the engine made progress but could not close
        the interval (m_lower/m_upper hold the remaining gap), and l_false
        when it could not be applied (unsupported fragment, no model).
@@ -481,11 +493,12 @@ namespace opt {
         params_ref p;
         nlsat_opt engine(m, p);
         nlsat_opt::result res(m);
-        IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat [" << m_lower[idx] << ", " << hi << "])\n");
-        std::optional<rational> upper;
+        IF_VERBOSE(2, verbose_stream() << "(optsmt nlsat [" << lower(idx) << ", " << hi << "])\n");
+        std::optional<rational> rational_upper;
         if (hi.is_finite())
-            upper = hi.get_rational();
-        lbool r = engine.maximize(hard, m_objs.get(idx), m_lower[idx].get_rational(), upper, m_bisect_rounds, res);
+            rational_upper = hi.get_rational();
+        lbool r = engine.maximize(hard, m_objs.get(idx), lower(idx).get_rational(), rational_upper,
+                                 m_bisect_rounds, res, m_nlsat_supremum_rlimit);
         TRACE(opt, tout << "nlsat cells: " << r << " rounds " << res.m_rounds << " value " << res.m_value << "\n";);
         if (!res.m_model)
             return l_false;
@@ -495,23 +508,34 @@ namespace opt {
             m_upper[idx] = m_lower[idx];
             return l_true;
         }
+        if (res.m_open) {
+            // The real model is a feasible witness, not an assignment at the
+            // limit. The certified optimum is represented by sup - epsilon.
+            m_model = res.m_model;
+            inf_eps lo(rational(0), inf_rational(res.m_sup_lower, rational(-1)));
+            set_best(idx, lo, is_maximize);
+            m_lower[idx].set_exact(lo, res.m_sup);
+            m_upper[idx].set_exact(inf_eps(rational(0), inf_rational(res.m_sup_upper, rational(-1))), res.m_sup);
+            IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat open supremum " << res.m_sup << ")\n");
+            return l_true;
+        }
         inf_eps v(res.m_lower);
-        if (v < m_lower[idx])
+        if (v < lower(idx))
             return l_false;
         m_model = res.m_model;
         set_best(idx, v, is_maximize);
         if (r == l_true) {
-            m_exact[idx] = res.m_value;
-            m_upper[idx] = inf_eps(res.m_upper);
+            m_lower[idx].set_exact(v, res.m_value);
+            m_upper[idx].set_exact(inf_eps(res.m_upper), res.m_value);
             IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat optimum " << res.m_value << ")\n");
             return l_true;
         }
         // not closed: report the interval [best, sup] where sup is the
         // supremum proven by nlsat when available, else the caller's bound.
         m_upper[idx] = res.m_has_sup ? inf_eps(res.m_sup_upper) : hi;
-        if (m_upper[idx] < m_lower[idx])
+        if (upper(idx) < lower(idx))
             m_upper[idx] = m_lower[idx];
-        IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat interval [" << m_lower[idx] << ", " << m_upper[idx] << "])\n");
+        IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat interval [" << lower(idx) << ", " << upper(idx) << "])\n");
         return l_undef;
     }
 
@@ -529,7 +553,7 @@ namespace opt {
     */
     lbool optsmt::bisect(unsigned idx, bool is_maximize, inf_eps hi) {
         arith_util arith(m);
-        inf_eps lo = m_lower[idx];
+        inf_eps lo = lower(idx);
         inf_eps const eps(rational(0), inf_rational(rational(0), rational(1)));
         SASSERT(lo.is_finite() && hi.is_finite() && lo < hi);
         IF_VERBOSE(2, verbose_stream() << "(optsmt bisect [" << lo << ", " << hi << "])\n");
@@ -541,13 +565,17 @@ namespace opt {
                 bound = lo + hi;
                 bound /= rational(2);
             }
-            m_s->push();
-            m_s->assert_expr(m_s->mk_ge(idx, bound));
-            lbool is_sat = m_s->check_sat(0, nullptr);
-            TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
+            lbool is_sat;
+            {
+                solver::scoped_push scope(*m_s);
+                m_s->assert_expr(m_s->mk_ge(idx, bound));
+                is_sat = m_s->check_sat(0, nullptr);
+                TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
+                if (is_sat == l_true)
+                    m_s->get_model(m_model);
+            }
+            // Publish an improved model only after removing the probe bound.
             if (is_sat == l_true) {
-                m_s->get_model(m_model);
-                m_s->pop(1);
                 if (!m_model)
                     break;
                 // Prefer the model's own value of the objective; if the model
@@ -566,7 +594,6 @@ namespace opt {
                 }
             }
             else if (is_sat == l_false) {
-                m_s->pop(1);
                 if (strict) {
                     // no model is strictly better than the best model.
                     hi = lo;
@@ -575,10 +602,8 @@ namespace opt {
                 }
                 hi = bound;
             }
-            else {
-                m_s->pop(1);
+            else
                 break;
-            }
         }
         m_lower[idx] = lo;
         m_upper[idx] = hi;
@@ -588,11 +613,11 @@ namespace opt {
         return l_undef;
     }
 
-    bool optsmt::can_increment_delta(vector<inf_eps> const& lower, unsigned i) {
+    bool optsmt::can_increment_delta(vector<inf_eps> const& previous_lower, unsigned i) {
         arith_util arith(m);
         inf_eps max_delta;
-        if (m_lower[i] < m_upper[i] && arith.is_int(m_objs.get(i))) {
-            inf_eps delta = m_lower[i] - lower[i];  
+        if (lower(i) < upper(i) && arith.is_int(m_objs.get(i))) {
+            inf_eps delta = lower(i) - previous_lower[i];
             if (m_lower[i].is_finite() && delta > max_delta) {
                 return true;
             }
@@ -615,7 +640,7 @@ namespace opt {
         expr* vars[1];
         {
             for (unsigned i = 0; i < m_upper.size(); ++i) 
-                ors.push_back(m_s->mk_ge(i, m_upper[i]));
+                ors.push_back(m_s->mk_ge(i, upper(i)));
                         
             fml = mk_or(ors);
             tmp = m.mk_fresh_const("b", m.mk_bool_sort());
@@ -665,9 +690,9 @@ namespace opt {
     }
 
     void optsmt::update_lower_lex(unsigned idx, inf_eps const& v, bool is_maximize) {
-        TRACE(opt, tout << v << " lower: " << m_lower[idx] << "\n";);
-        if (v > m_lower[idx]) {
-            m_lower[idx] = v;                
+        TRACE(opt, tout << v << " lower: " << lower(idx) << "\n";);
+        if (v > lower(idx)) {
+            m_lower[idx] = v;
             IF_VERBOSE(1, 
                        if (is_maximize) 
                            verbose_stream() << "(optsmt lower bound: " << v << ")\n";
@@ -687,17 +712,22 @@ namespace opt {
     void optsmt::update_lower(unsigned idx, inf_eps const& v) {
         TRACE(opt, tout << "v" << idx << " >= " << v << "\n";);
         m_lower_fmls[idx] = m_s->mk_ge(idx, v);
-        m_lower[idx] = v;                    
+        m_lower[idx].update_rational_bound(v);
     }
 
     void optsmt::update_upper(unsigned idx, inf_eps const& v) {
         TRACE(opt, tout << "v" << idx << " <= " << v << "\n";);
-        m_upper[idx] = v;                    
+        // A model callback can invalidate this bound by resetting it to
+        // infinity; that is not a refinement of its exact finite endpoint.
+        if (v.is_finite())
+            m_upper[idx].update_rational_bound(v);
+        else
+            m_upper[idx] = v;
     }
 
-    std::ostream& operator<<(std::ostream& out, vector<inf_eps> const& vs) {
+    std::ostream& operator<<(std::ostream& out, vector<objective_value> const& vs) {
         for (unsigned i = 0; i < vs.size(); ++i) {
-            out << vs[i] << " ";
+            out << vs[i].rational_bound() << " ";
         }
         return out;
     }
@@ -731,8 +761,8 @@ namespace opt {
         vector<inf_eps> mid;
 
         for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
-            if (m_lower[i] < m_upper[i]) {
-                mid.push_back((m_upper[i]+m_lower[i])/rational(2));
+            if (lower(i) < upper(i)) {
+                mid.push_back((upper(i)+lower(i))/rational(2));
                 bound = m_s->mk_ge(i, mid[i]);
                 bounds.push_back(bound);
             }
@@ -743,12 +773,12 @@ namespace opt {
         }
         bool progress = false;
         for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
-            if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
+            if (lower(i) <= mid[i] && mid[i] <= upper(i) && lower(i) < upper(i)) {
                 th.enable_record_conflict(bounds.get(i));
                 lbool is_sat = m_s->check_sat(1, bounds.data() + i);
                 switch(is_sat) {
                 case l_true:
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << m_upper[i] << ")\n";);
+                    IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << upper(i) << ")\n";);
                     m_lower[i] = mid[i];
                     th.enable_record_conflict(nullptr);
                     m_s->assert_expr(update_lower());
@@ -761,7 +791,7 @@ namespace opt {
                         return l_false;
                     }
                     else {
-                        m_upper[i] = std::min(m_upper[i], th.conflict_minimize());
+                        m_upper[i] = std::min(upper(i), th.conflict_minimize());
                     }
                     break;
                 default:
@@ -808,12 +838,23 @@ namespace opt {
         m_context.get_base_model(m_best_model);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
-        if (is_maximize && m_optsmt_engine == symbol("symba")) {
+        if (is_maximize && m_optsmt_engine == symbol("symba"))
             return symba_opt();
-        }
-        else {
-            return geometric_lex(obj_index, is_maximize);
-        }
+
+        // A fresh search must not report a previous exact value for this objective.
+        m_lower[obj_index].reset_exact();
+        m_upper[obj_index].reset_exact();
+        // Add constraints so optimizing this objective cannot worsen earlier
+        // objectives' results. Other variable values remain free to change.
+        for (unsigned i = 0; i < obj_index; ++i)
+            commit_assignment(i);
+
+        lbool result = geometric_search(obj_index, is_maximize);
+        // Later objectives must be reconsidered only after this one succeeds.
+        if (result == l_true)
+            for (unsigned i = obj_index + 1; i < m_lower.size(); ++i)
+                m_lower[i] = inf_eps(rational(-1), inf_rational(0));
+        return result;
     }
 
     /**
@@ -828,7 +869,7 @@ namespace opt {
         // In box mode, optimize each objective independently.
         // Each objective gets its own push/pop scope so that bounds
         // from one objective do not constrain another.
-        // Note: geometric_lex is used unconditionally here, even when
+        // Note: geometric_search is used unconditionally here, even when
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
         //
@@ -839,7 +880,7 @@ namespace opt {
             m_lower[i] = inf_eps(rational(-1), inf_rational(0));
             m_upper[i] = inf_eps(rational(1), inf_rational(0));
             solver::scoped_push _push(*m_s);
-            is_sat = geometric_lex(i, true, true);
+            is_sat = geometric_search(i, true);
             if (is_sat == l_undef)
                 return l_undef;
             if (is_sat == l_false)
@@ -850,13 +891,15 @@ namespace opt {
     }
 
 
-    inf_eps optsmt::get_lower(unsigned i) const {
-        if (i >= m_lower.size()) return inf_eps();
+    objective_value optsmt::get_lower(unsigned i) const {
+        if (i >= m_lower.size())
+            return objective_value(m);
         return m_lower[i];
     }
 
-    inf_eps optsmt::get_upper(unsigned i) const {
-        if (i >= m_upper.size()) return inf_eps();
+    objective_value optsmt::get_upper(unsigned i) const {
+        if (i >= m_upper.size())
+            return objective_value(m);
         return m_upper[i];
     }
 
@@ -866,73 +909,20 @@ namespace opt {
         labels = m_labels;
     }
 
-    /**
-       \brief A coarse rational interval (l, u) that isolates a among the
-       roots of its defining polynomial (coeffs, consumed): the simplest
-       rationals between a and its neighbouring roots, an integer beyond the
-       extreme roots. Wide on purpose: the interval feeds the LP relaxation
-       of the next lex objective, and a tight bracket makes the LP hint for
-       that objective sit a hair above its true optimum, a gap the nlsat
-       stage would then have to close one cut at a time.
-    */
-    static void coarse_isolating_interval(ast_manager& m, algebraic_numbers::manager& am, algebraic_numbers::anum const& a,
-                                          svector<mpz>& coeffs, rational& l, rational& u) {
-        polynomial::manager pm(m.limit(), am.qm());
-        polynomial::var x = pm.mk_var();
-        polynomial_ref p(pm);
-        p = pm.mk_univariate(x, coeffs.size() - 1, coeffs.data());
-        scoped_anum_vector roots(am);
-        am.isolate_roots(p, roots);
-        unsigned j = 0;
-        while (j < roots.size() && !am.eq(roots[j], a))
-            ++j;
-        if (j == roots.size()) {
-            am.get_lower(a, l, 40);
-            am.get_upper(a, u, 40);
-            return;
-        }
-        scoped_anum lo(am), hi(am);
-        if (j == 0)
-            am.int_lt(a, lo);
-        else
-            am.select(roots[j-1], a, lo);
-        if (j + 1 == roots.size())
-            am.int_gt(a, hi);
-        else
-            am.select(a, roots[j+1], hi);
-        am.to_rational(lo, l);
-        am.to_rational(hi, u);
-    }
-
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
-        inf_eps lo = m_lower[i];
+        inf_eps lo = lower(i);
         TRACE(opt, tout << "set lower bound of " << mk_pp(m_objs.get(i), m) << " to: " << lo << "\n";
-              tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
-        expr* e = m_exact.get(i);
+              tout << lower(i) << ":" << upper(i) << "\n";);
+        expr* e = m_lower[i].exact_finite();
+        SASSERT(!has_open_bound(i));
         arith_util arith(m);
         if (e && arith.is_irrational_algebraic_numeral(e)) {
-            // An algebraic optimum a (nlsat cells) is committed exactly: with
-            // p the defining polynomial of a and (l, u) a rational isolating
-            // interval, p(obj) = 0 /\ l <= obj <= u pins obj to a.
-            algebraic_numbers::manager& am = arith.am();
-            algebraic_numbers::anum const& a = arith.to_irrational_algebraic_numeral(e);
-            svector<mpz> coeffs;
-            am.get_polynomial(a, coeffs);
-            expr_ref obj(m_objs.get(i), m), poly(m);
-            // Horner: (..((c_n * obj + c_{n-1}) * obj + ...) * obj + c_0
-            unsigned n = coeffs.size();
-            for (unsigned k = n; k-- > 0; ) {
-                expr_ref c(arith.mk_numeral(rational(coeffs[k]), false), m);
-                poly = poly ? arith.mk_add(arith.mk_mul(poly, obj), c) : c;
-            }
-            rational l, u;
-            coarse_isolating_interval(m, am, a, coeffs, l, u);
-            expr_ref zero(arith.mk_real(rational(0)), m);
-            m_s->assert_expr(m.mk_eq(poly, zero));
-            m_s->assert_expr(arith.mk_ge(obj, arith.mk_numeral(l, false)));
-            m_s->assert_expr(arith.mk_le(obj, arith.mk_numeral(u, false)));
-            TRACE(opt, tout << "commit exact " << mk_pp(e, m) << ": " << poly << " = 0, [" << l << ", " << u << "]\n";);
+            // Keep the defining equation and its isolating interval in
+            // rational arithmetic; the SMT core cannot use a root numeral directly.
+            expr_ref constraint = mk_algebraic_eq(m, m_objs.get(i), e);
+            m_s->assert_expr(constraint);
+            TRACE(opt, tout << "commit exact " << mk_pp(e, m) << ": " << constraint << "\n";);
         }
         else if (lo.is_finite()) {
             // Only assert bounds for bounded objectives
@@ -946,11 +936,10 @@ namespace opt {
         rw(t1, t2);
         SASSERT(is_app(t2));
         m_objs.push_back(to_app(t2));
-        m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
-        m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+        m_lower.push_back(objective_value(m, inf_eps(rational(-1),inf_rational(0))));
+        m_upper.push_back(objective_value(m, inf_eps(rational(1), inf_rational(0))));
         m_lower_fmls.push_back(m.mk_true());
         m_models.push_back(nullptr);
-        m_exact.push_back(nullptr);
         return m_objs.size()-1;
     }
 
@@ -959,6 +948,7 @@ namespace opt {
         m_optsmt_engine = _p.optsmt_engine();        
         m_bisect_rounds = _p.optsmt_bisect_rounds();
         m_optsmt_nlsat = _p.optsmt_nlsat();
+        m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
     }
 
     void optsmt::reset() {
@@ -970,7 +960,6 @@ namespace opt {
         m_best_model = nullptr; 
         m_models.reset();
         m_lower_fmls.reset();
-        m_exact.reset();
         m_s = nullptr;
     }
 }

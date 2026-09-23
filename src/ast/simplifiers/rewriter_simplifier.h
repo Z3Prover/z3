@@ -54,6 +54,4 @@ public:
     void collect_param_descrs(param_descrs& r) override { th_rewriter::get_param_descrs(r); }
 };
 
-/*
-  ADD_SIMPLIFIER("simplify", "apply simplification rules.", "alloc(rewriter_simplifier, m, p, s)")
- */
+Z3_ADD_SIMPLIFIER(simplify, "simplify", "apply simplification rules.", alloc(rewriter_simplifier, m, p, s));

@@ -35,10 +35,6 @@ z3_add_component(sat
     dd
     grobner
     params
-  PYG_FILES
-    sat_asymm_branch_params.pyg
-    sat_scc_params.pyg
-    sat_simplifier_params.pyg
 )
 
 add_subdirectory(sat_solver)

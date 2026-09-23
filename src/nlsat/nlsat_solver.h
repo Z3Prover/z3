@@ -21,6 +21,7 @@ Revision History:
 #pragma once
 
 #include "nlsat/nlsat_types.h"
+#include "nlsat/nlsat_transcendentals.h"
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/rlimit.h"
@@ -119,6 +120,35 @@ namespace nlsat {
            \brief Create an atom of the form: x=root[i](p), x<root[i](p), x>root[i](p)
         */
         bool_var mk_root_atom(atom::kind k, var x, unsigned i, poly * p);
+
+        /**
+           \brief Register a transcendental function application (sin/cos/exp/atan)
+           to be refined directly by nlsat's own search loop; see
+           nlsat_transcendentals.h. Refinement is enabled automatically the
+           moment at least one such application is registered - there is no
+           separate on/off parameter.
+        */
+        void add_transcendental(transcendental_op_kind op, var arg, var val);
+
+        /**
+           \brief Register the nullary constant pi with the persistent
+           transcendentals engine (see nlsat_transcendentals.h::add_pi).
+        */
+        void add_pi(var val);
+
+        /**
+           \brief Register a binary atan2(y, x) application to be refined
+           directly by nlsat's own search loop (see
+           nlsat_transcendentals.h::add_atan2).
+        */
+        void add_atan2(var y, var x, var val);
+
+        /**
+           \brief True if at least one transcendental application has been
+           registered (see add_transcendental/add_pi/add_atan2), i.e. this
+           solver's own search loop refines them.
+        */
+        bool transcendentals_enabled() const;
 
         void inc_ref(bool_var b);
         void inc_ref(literal l) { inc_ref(l.var()); }
@@ -254,6 +284,21 @@ namespace nlsat {
         lbool check();
 
         lbool check(literal_vector& assumptions);
+
+        /**
+           \brief Decide whether feasible values of x approach bound from below,
+           or are unbounded above when bound is null.
+
+           Project satisfying regions onto x and cover them until a feasible
+           interval reaches the limit or no feasible values remain. A finite
+           limit need not be an upper bound of the original problem.
+
+           Requires an incremental solver with x == 0 and no active reordering.
+           Integer variables return l_undef. Resource exceptions propagate.
+           Temporary clauses are retracted on exit, including on cancellation;
+           the previous model and unsat core are invalidated.
+        */
+        lbool check_limit(var x, anum const* bound = nullptr);
 
         //
         // check satisfiability of asserted formulas relative to state of the nlsat solver.

@@ -47,6 +47,4 @@ public:
     bool supports_proofs() const override { return true; }
 };
 
-/*
-  ADD_SIMPLIFIER("pull-nested-quantifiers", "pull nested quantifiers to top-level.", "alloc(pull_nested_quantifiers_simplifier, m, p, s)")
-*/
+Z3_ADD_SIMPLIFIER(pull_nested_quantifiers, "pull-nested-quantifiers", "pull nested quantifiers to top-level.", alloc(pull_nested_quantifiers_simplifier, m, p, s));

@@ -88,6 +88,7 @@ add_executable(test-z3
   model_evaluator.cpp
   model_retrieval.cpp
   monomial_bounds.cpp
+  nla_transcendentals.cpp
   mpbq.cpp
   mpf.cpp
   mpff.cpp
@@ -100,8 +101,10 @@ add_executable(test-z3
   no_overflow.cpp
   object_allocator.cpp
   old_interval.cpp
+  opt_bounds.cpp
   opt_nlsat.cpp
   opt_pareto.cpp
+  opt_value.cpp
   optional.cpp
   parray.cpp
   pb2bv.cpp
@@ -186,4 +189,3 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
-z3_generate_registration(test-z3)

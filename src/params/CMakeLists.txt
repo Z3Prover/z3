@@ -14,23 +14,4 @@ z3_add_component(params
   COMPONENT_DEPENDENCIES
     util
     ast
-  PYG_FILES
-    arith_rewriter_params.pyg
-    array_rewriter_params.pyg
-    bool_rewriter_params.pyg
-    bv_rewriter_params.pyg
-    fpa_rewriter_params.pyg
-    fpa2bv_rewriter_params.pyg
-    pattern_inference_params_helper.pyg
-    poly_rewriter_params.pyg
-    rewriter_params.pyg
-    sat_params.pyg
-    seq_rewriter_params.pyg
-    sls_params.pyg
-    smt_params_helper.pyg
-    solver_params.pyg
-    tactic_params.pyg
-    tptp.pyg
-  EXTRA_REGISTER_MODULE_HEADERS
-    context_params.h
 )

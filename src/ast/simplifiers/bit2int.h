@@ -42,6 +42,4 @@ public:
     bool supports_proofs() const override { return true; }
 };
 
-/*
-  ADD_SIMPLIFIER("bit2int", "simplify bit2int expressions.", "alloc(bit2int_simplifier, m, p, s)")
- */
+Z3_ADD_SIMPLIFIER(bit2int, "bit2int", "simplify bit2int expressions.", alloc(bit2int_simplifier, m, p, s));

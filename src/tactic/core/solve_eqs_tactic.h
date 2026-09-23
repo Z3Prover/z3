@@ -71,13 +71,12 @@ where `x` was solved as `(+ 5 y)`.
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 inline tactic * mk_solve_eqs_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto &s) -> dependent_expr_simplifier* { return alloc(euf::solve_eqs, m, s); });
 }
 
-/*
-  ADD_TACTIC("solve-eqs", "solve for variables.", "mk_solve_eqs_tactic(m, p)")
-  ADD_SIMPLIFIER("solve-eqs", "solve for variables.", "alloc(euf::solve_eqs, m, s)")
-*/
+Z3_ADD_TACTIC(solve_eqs, "solve-eqs", "solve for variables.", mk_solve_eqs_tactic(m, p));
+Z3_ADD_SIMPLIFIER(solve_eqs, "solve-eqs", "solve for variables.", alloc(euf::solve_eqs, m, s));

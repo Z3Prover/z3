@@ -79,6 +79,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return annotate_tactic("qfnia-tactic", mk_qfnia_tactic(m, p));
     else if (logic=="QF_NRA")
         return annotate_tactic("qfnra-tactic", mk_qfnra_tactic(m, p));
+    else if (logic=="QF_NTA")
+        return annotate_tactic("qfnra-tactic", mk_qfnra_tactic(m, p));
     else if (logic=="QF_AUFLIA")
         return annotate_tactic("qfauflia-tactic", mk_qfauflia_tactic(m, p));
     else if (logic=="QF_AUFBV")

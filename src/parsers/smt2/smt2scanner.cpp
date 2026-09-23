@@ -88,7 +88,6 @@ namespace smt2 {
 
     scanner::token scanner::read_quoted_symbol() {
         SASSERT(curr() == '|');
-        bool escape = false;
         m_string.reset();
         next();
         while (true) {
@@ -96,23 +95,20 @@ namespace smt2 {
             if (m_at_eof) {
                 throw scanner_exception("unexpected end of quoted symbol", m_line, m_spos);
             }
-            else if (c == '\n') {
-                new_line();
-            }
-            else if (c == '|' && !escape) {
+            else if (c == '|') {
                 next();
                 m_string.push_back(0);
                 m_id = m_string.begin();
                 TRACE(scanner, tout << "new quoted symbol: " << m_id << "\n";);
                 return SYMBOL_TOKEN;
             }
-            else if (c != '|' && c != '\\' && escape) {
-                m_string.push_back('\\');
+            else if (c == '\\') {
+                // SMT-LIB 2.5+ gives '\' no special meaning inside a quoted symbol
+                throw scanner_exception("invalid character '\\' in quoted symbol", m_line, m_spos);
             }
-
-            escape = (c == '\\') && !escape;
-            if (!escape)
-                m_string.push_back(c);
+            else if (c == '\n')
+                new_line();
+            m_string.push_back(c);
             next();
         }
     }

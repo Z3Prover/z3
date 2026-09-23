@@ -154,7 +154,23 @@ else()
     set(Z3_DOTNET_WIN_RID "win-x64")
 endif()
 
-# TODO conditional for signing. we can then enable the ``Release_delaysign`` configuration
+set(Z3_DOTNET_KEY_FILE "" CACHE FILEPATH "Path to a .snk strong-name key file used to sign the .NET assembly")
+if(Z3_DOTNET_KEY_FILE)
+  get_filename_component(Z3_DOTNET_KEY_FILE "${Z3_DOTNET_KEY_FILE}" ABSOLUTE BASE_DIR "${CMAKE_BINARY_DIR}")
+  if(NOT EXISTS "${Z3_DOTNET_KEY_FILE}")
+    message(FATAL_ERROR "Z3_DOTNET_KEY_FILE '${Z3_DOTNET_KEY_FILE}' does not exist")
+  endif()
+  set(Z3_DOTNET_SIGNING_PROPERTY_GROUP "  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>false</DelaySign>
+    <AssemblyOriginatorKeyFile>${Z3_DOTNET_KEY_FILE}</AssemblyOriginatorKeyFile>
+  </PropertyGroup>")
+else()
+  set(Z3_DOTNET_SIGNING_PROPERTY_GROUP "  <PropertyGroup>
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
+  </PropertyGroup>")
+endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj)
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj

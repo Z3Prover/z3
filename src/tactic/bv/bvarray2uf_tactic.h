@@ -35,6 +35,7 @@ Tactic that rewrites bit-vector arrays into bit-vector
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "tactic/bv/bvarray2uf_simplifier.h"
+#include "ast/simplifiers/dependent_expr_state.h"
 
 class ast_manager;
 class tactic;
@@ -46,9 +47,7 @@ inline tactic * mk_bvarray2uf_tactic(ast_manager & m, params_ref const & p = par
         });
 }
 
-/*
-    ADD_TACTIC("bvarray2uf", "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.", "mk_bvarray2uf_tactic(m, p)")
-    ADD_SIMPLIFIER("bvarray2uf", "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.", "alloc(bvarray2uf_simplifier, m, p, s)")
-*/
+Z3_ADD_TACTIC(bvarray2uf, "bvarray2uf", "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.", mk_bvarray2uf_tactic(m, p));
+Z3_ADD_SIMPLIFIER(bvarray2uf, "bvarray2uf", "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.", alloc(bvarray2uf_simplifier, m, p, s));
 
 

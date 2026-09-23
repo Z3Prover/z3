@@ -33,7 +33,5 @@ It uses the default SMT solver.
 #include "tactic/tactic.h"
 
 tactic * mk_unit_subsumption_tactic(ast_manager & m, params_ref const & p = params_ref());
-/*
-  ADD_TACTIC("unit-subsume-simplify", "unit subsumption simplification.", "mk_unit_subsumption_tactic(m, p)")
-*/
+Z3_ADD_TACTIC(unit_subsume_simplify, "unit-subsume-simplify", "unit subsumption simplification.", mk_unit_subsumption_tactic(m, p));
 

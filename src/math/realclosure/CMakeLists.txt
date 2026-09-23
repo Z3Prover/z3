@@ -4,6 +4,4 @@ z3_add_component(realclosure
     realclosure.cpp
   COMPONENT_DEPENDENCIES
     interval
-  PYG_FILES
-    rcf_params.pyg
 )

@@ -39,16 +39,7 @@
   </PropertyGroup>
 
   <!-- Code contract & signing properties -->
-  <PropertyGroup Condition="'$(Configuration)' != 'Release_delaysign'">
-    <SignAssembly>false</SignAssembly>
-    <DelaySign>false</DelaySign>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)' == 'Release_delaysign'">
-    <DefineConstants>DELAYSIGN</DefineConstants>
-    <SignAssembly>true</SignAssembly>
-    <DelaySign>true</DelaySign>
-  </PropertyGroup>
+${Z3_DOTNET_SIGNING_PROPERTY_GROUP}
 
   <!-- Build properties -->
   <PropertyGroup>

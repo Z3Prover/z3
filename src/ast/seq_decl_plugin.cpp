@@ -1536,6 +1536,31 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
                 out << "){" << lo << "," << hi << "}";
         }
     }
+    else if (re.is_loop(e, r1, s, s2)) {
+        // loop with symbolic bounds: (re.loop r1 lo hi)
+        if (can_skip_parenth(r1))
+            print(out, r1);
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")";
+        }
+        out << "{";
+        print(out, s) << ",";
+        print(out, s2) << "}";
+    }
+    else if (re.is_loop(e, r1, s)) {
+        // loop with symbolic lower bound and unbounded upper bound: (re.loop r1 lo)
+        if (can_skip_parenth(r1))
+            print(out, r1);
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")";
+        }
+        out << "{";
+        print(out, s) << ",}";
+    }
     else if (re.is_diff(e, r1, r2)) {
         out << "(";
         print(out, r1);

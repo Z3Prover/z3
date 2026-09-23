@@ -326,6 +326,9 @@ struct expr2subpaving::imp {
         case OP_ASINH:
         case OP_ACOSH:
         case OP_ATANH:
+        case OP_EXP:
+        case OP_ATAN2:
+        case OP_LOG:
             // TODO
             throw default_exception("transcendental and hyperbolic functions are not supported yet.");
         default:
