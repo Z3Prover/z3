@@ -331,7 +331,7 @@ struct goal2nlsat::imp {
             return;
         for (auto const & [t, val] : found) {
             nlsat::transcendental_op_kind op;
-            get_transcendental_op(t, op);
+            VERIFY(get_transcendental_op(t, op));
             polynomial::var arg = expr2var_axiom(t->get_arg(0));
             m_solver.add_transcendental(op, arg, val);
         }

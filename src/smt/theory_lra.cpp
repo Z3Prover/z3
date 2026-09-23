@@ -543,19 +543,6 @@ class theory_lra::imp {
                          a.is_asin(n, n1) || a.is_acos(n, n1) || a.is_atan(n, n1) ||
                          a.is_asinh(n, n1) || a.is_acosh(n, n1) || a.is_atanh(n, n1) ||
                          a.is_exp(n, n1) || a.is_log(n, n1)) {
-                    // theory_lra treats sin/cos/etc. as underspecified/uninterpreted
-                    // (nlsat/nra_solver have no representation for transcendental
-                    // functions), but register (op, arg, val) with the nla_core
-                    // end-game checker (nla_transcendentals.h), which can flag an
-                    // assignment as inconsistent using floating point evaluation
-                    // even though the core arithmetic solvers cannot. Deliberately
-                    // not calling found_unsupported(n) here: that would add n to
-                    // m_not_handled, whose only handler (eval_unsupported) returns
-                    // FC_GIVEUP for anything that isn't a power term, forcing the
-                    // whole final_check to give up even when nla_core's delta-check
-                    // found the current assignment consistent - which would make it
-                    // impossible to ever report sat for a satisfiable formula
-                    // containing a transcendental application.
                     ensure_nla();
                     if (m_nla) {
                         nlsat::transcendental_op_kind op;
@@ -573,6 +560,7 @@ class theory_lra::imp {
                         else if (a.is_atanh(n)) op = nlsat::transcendental_op_kind::ATANH;
                         else if (a.is_log(n))   op = nlsat::transcendental_op_kind::LOG;
                         else                    op = nlsat::transcendental_op_kind::EXP;
+                        SASSERT(is_app(n1));
                         internalize_term(to_app(n1));
                         theory_var x = mk_var(n1);
                         m_nla->add_transcendental(op, register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(v));
@@ -580,11 +568,7 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                 }
                 else if (a.is_atan2(n, n1, n2)) {
-                    // atan2(y, x): a genuine binary transcendental (no native
-                    // OP_ATAN elaboration applies here, since the two
-                    // arguments play structurally different roles - see
-                    // nla_transcendentals::add_atan2). Registered separately
-                    // from the unary add_transcendental family above.
+                    SASSERT(is_app(n1) && is_app(n2));
                     ensure_nla();
                     if (m_nla) {
                         internalize_term(to_app(n1));
@@ -597,13 +581,6 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n2);
                 }
                 else if (a.is_pi(n)) {
-                    // pi is a nullary transcendental constant: register it
-                    // with nla_transcendentals (which asserts the same
-                    // tight, exact-rational two-sided bound previously
-                    // asserted directly here) so other axioms in that
-                    // module - e.g. facts relating an argument range to
-                    // pi, rather than only to pi's numeric bound - can
-                    // refer to it directly via transcendentals::pi_var().
                     ensure_nla();
                     if (m_nla)
                         m_nla->add_pi(register_theory_var_in_lar_solver(v));

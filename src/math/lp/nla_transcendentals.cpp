@@ -1,11 +1,12 @@
 /*++
-Copyright (c) 2025 Microsoft Corporation
+Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
   nla_transcendentals.cpp
 
 Author:
+
   Nikolaj Bjorner (nbjorner)
 
 Description:
@@ -27,11 +28,6 @@ namespace nla {
         m_apps.push_back(a);
         m_core.trail().push(push_back_vector(m_apps));
         add_range_axioms(op, val);
-        // Cross-application identity axioms (sin^2+cos^2=1 etc.) are no
-        // longer tracked here: nra_solver forwards this application
-        // straight to nlsat (register_transcendentals_with_nlsat), and
-        // nlsat::transcendentals::add already discovers matching pairs and
-        // asserts the identity itself - see the module comment.
     }
 
     void transcendentals::add_pi(lpvar val) {
@@ -39,16 +35,8 @@ namespace nla {
             return;
         m_core.trail().push(value_trail(m_pi_var, val));
         m_pi_var = val;
-        // Same tight, exact-rational two-sided bound theory_lra used to
-        // assert directly on pi's term (see arith_solver/theory_lra's
-        // internalize_term): rationals strictly between the true
-        // (irrational) value of pi, tight enough (~1e-14) for typical
-        // benchmarks that compare against pi or small rational multiples
-        // of it. Asserted here (rather than only in theory_lra) so pi's
-        // range axiom lives alongside the other permanent range axioms in
-        // this module.
-        rational lo("3.14159265358979");
-        rational hi("3.14159265358980");
+        rational lo("3.1416");
+        rational hi("3.1415");
         m_core.lra.add_var_bound(val, lp::lconstraint_kind::GE, lo);
         m_core.lra.add_var_bound(val, lp::lconstraint_kind::LE, hi);
     }
@@ -459,6 +447,8 @@ namespace nla {
 
     void transcendentals::check() {
         if (empty() || !m_core.params().arith_nl_transcendental())
+            return;
+        if (m_core.use_nra_model())
             return;
         for (auto& a : m_apps)
             if (check_app(a))

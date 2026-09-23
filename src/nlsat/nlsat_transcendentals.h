@@ -10,16 +10,8 @@ Abstract:
     Direct-in-nlsat handling of transcendental function applications
     (sin/cos/tan/asin/acos/atan/sinh/cosh/tanh/asinh/acosh/atanh/exp/log).
 
-    This is an alternative to nla::transcendentals (math/lp/nla_transcendentals.*):
-    that module grows Taylor-sandwich polynomial axioms *outside* nlsat and
-    re-invokes nlsat as a fresh, one-shot solver every time it wants to give
-    nlsat a tighter approximation (nra_solver::check() calls reset(), which
-    reallocates the whole nlsat::solver instance). Growing and re-solving from
-    scratch is sound but throws away all of nlsat's incremental search state
-    (learned clauses, variable order, watch lists, ...) on every refinement
-    round.
 
-    This module instead keeps a persistent nlsat::solver instance in charge
+    This module keeps a persistent nlsat::solver instance in charge
     and refines the model *inside* nlsat's own search loop
     (solver::imp::search_check), exactly where integer branch-and-bound
     already tightens variable bounds and re-runs search() without tearing
@@ -31,16 +23,8 @@ Abstract:
     re-run search().
 
     nra_solver always registers transcendental applications directly with
-    nlsat (see nra_solver::imp::register_transcendentals_with_nlsat), so this
-    module's refinement loop is the sole engine used to solve them; there is
-    no longer an alternative nla_core-side Taylor-axiom-injection path.
+    nlsat (see nra_solver::imp::register_transcendentals_with_nlsat).
 
-    The per-application reasoning (exact global tangent-line bounds, exact
-    rational Taylor/Maclaurin sandwiches, and cross-application
-    monotonicity) is ported from nla::transcendentals
-    (math/lp/nla_transcendentals.*), adapted to this module's simpler flat
-    application list and to nlsat's own polynomial/literal API in place of
-    nla_core's lar_term/lemma_builder.
 
 Author:
 
@@ -58,12 +42,7 @@ namespace nlsat {
 
     class solver;
 
-    // Alias, not a separate enum: nlsat::transcendentals and
-    // nla::transcendentals (math/lp/nla_transcendentals.h) must agree
-    // bit-for-bit on op_kind so that
-    // nra_solver::register_transcendentals_with_nlsat
-    // (math/lp/nra_solver.cpp) can forward an nla::app's op straight to
-    // nlsat without a translation table silently getting out of sync.
+
     using transcendental_op_kind = transcendental_eval::op_kind;
 
     class transcendentals {

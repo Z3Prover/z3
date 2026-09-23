@@ -39,9 +39,7 @@ namespace nlsat {
         return transcendental_eval::to_rational(d);
     }
 
-    // ---- Exact rational Taylor/Maclaurin brackets, shared with
-    // nla::transcendentals (math/lp/nla_transcendentals.cpp) via
-    // util/transcendental_eval.h ----
+    // ---- Exact rational Taylor/Maclaurin brackets
 
     bool transcendentals::exp_taylor_bracket_at(rational const& xr, rational& lo, rational& hi) {
         return transcendental_eval::exp_taylor_bracket_at(xr, lo, hi);
@@ -131,12 +129,10 @@ namespace nlsat {
         m_atan2_apps.push_back({ y, x, val });
         m_retry_atan2.push_back(0);
         rational bnd = to_rational(k_pi_ub);
-        literal lits[2] = {
-            ~bound_literal(s, val, atom::GT, bnd),
-            ~bound_literal(s, val, atom::LT, -bnd)
-        };
-        s.mk_clause(1, lits, nullptr);
-        s.mk_clause(1, lits + 1, nullptr);
+        literal lit1 = ~bound_literal(s, val, atom::GT, bnd);
+        literal lit2 = ~bound_literal(s, val, atom::LT, -bnd);        
+        s.mk_clause(1, &lit1, nullptr);
+        s.mk_clause(1, &lit2, nullptr);
     }
 
     // Exact, unconditional (or, for LOG, disjunctively domain-guarded)
@@ -186,8 +182,8 @@ namespace nlsat {
         case transcendental_op_kind::SIN:
         case transcendental_op_kind::COS: {
             auto lit1 = ~bound_literal(s, val, atom::GT, rational(1));
-            s.mk_clause(1, &lit1, nullptr); // NOT(val > 1)
             auto lit2 = ~bound_literal(s, val, atom::LT, rational(-1));
+            s.mk_clause(1, &lit1, nullptr); // NOT(val > 1)
             s.mk_clause(1, &lit2, nullptr); // NOT(val < -1)
             break;
         }
@@ -211,16 +207,16 @@ namespace nlsat {
         case transcendental_op_kind::ASIN: {
             rational bnd = to_rational(k_pi_2_ub);
             auto lit1 = ~bound_literal(s, val, atom::GT, bnd);
-            s.mk_clause(1, &lit1, nullptr);
             auto lit2 = ~bound_literal(s, val, atom::LT, -bnd);
+            s.mk_clause(1, &lit1, nullptr);
             s.mk_clause(1, &lit2, nullptr);
             break;
         }
         case transcendental_op_kind::ACOS: {
             rational bnd = to_rational(k_pi_ub);
             auto lit1 = ~bound_literal(s, val, atom::GT, bnd);
-            s.mk_clause(1, &lit1, nullptr);
             auto lit2 = ~bound_literal(s, val, atom::LT, rational(0));
+            s.mk_clause(1, &lit1, nullptr);
             s.mk_clause(1, &lit2, nullptr);
             break;
         }
@@ -237,9 +233,14 @@ namespace nlsat {
     // pairing scan), and - if found - asserts the corresponding permanent
     // polynomial equality the moment the second application of the pair is
     // registered.
+    // 
+    // TODO: this can be generalized to compare s.value(arg) == s.value(other.arg) (+ 2*k*pi)
+    // and add conditional equation axioms.
     void transcendentals::find_and_add_identity_axiom(transcendental_op_kind op, var arg, var val) {
+        // anum const &xv = s.value(arg);
         for (unsigned i = 0; i + 1 < m_apps.size(); ++i) {
             app const& other = m_apps[i];
+            // anum const &yv = s.value(other.arg);
             if (other.arg != arg)
                 continue;
             if (op == transcendental_op_kind::SIN && other.op == transcendental_op_kind::COS)
@@ -270,19 +271,15 @@ namespace nlsat {
         polynomial_ref v1(pm.mk_polynomial(pr.v1), pm);
         polynomial_ref v2(pm.mk_polynomial(pr.v2), pm);
         polynomial_ref v1sq(pm); v1sq = v1 * v1;
+        polynomial_ref v2sq(pm); v2sq = v2 * v2;
         polynomial_ref eq(pm);
-        if (is_sin_cos) {
-            polynomial_ref v2sq(pm); v2sq = v2 * v2;
-            eq = v1sq + v2sq - rational(1);
-        }
-        else if (is_cosh_sinh) {
-            polynomial_ref v2sq(pm); v2sq = v2 * v2;
-            eq = v1sq - v2sq - rational(1);
-        }
-        else {
-            polynomial_ref v2sq(pm); v2sq = v2 * v2;
+        if (is_sin_cos) 
+            eq = v1sq + v2sq - rational(1);        
+        else if (is_cosh_sinh) 
+            eq = v1sq - v2sq - rational(1);        
+        else 
             eq = v1sq - (v1sq * v2sq) - rational(1);
-        }
+        
         poly* pp = eq.get();
         bool is_even = false;
         literal lit = s.mk_ineq_literal(atom::EQ, 1, &pp, &is_even);
@@ -485,12 +482,7 @@ namespace nlsat {
         return true;
     }
 
-    // Cross-application monotonicity, ported from
-    // nla::transcendentals::check_exp_monotonicity / check_log_monotonicity:
-    // scans every pair of registered EXP or LOG applications and adds a
-    // (symbolic, reusable - not tied to this round's witness values) lemma
-    // the first time a pair's current witnesses violate x1 < x2 => op(x1) <
-    // op(x2).
+    // Cross-application monotonicity
     bool transcendentals::refine_monotonicity_pair(app const& a, app const& b) {
         anum const& xa = s.value(a.arg);
         anum const& xb = s.value(b.arg);
