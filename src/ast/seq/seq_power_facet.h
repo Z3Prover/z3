@@ -115,10 +115,6 @@ namespace seq {
         // pending for the other rules, power_split does not re-enumerate it. Trailed.
         bool                 m_split_exhausted = false;
 
-        // power_split_elim already compared this exponent in this branch (arith-only rule:
-        // re-offering the same split would loop). Trailed.
-        bool                 m_cmp_marked = false;
-
         // Append-only representation: m_pows is never erased/shifted
         // (mirrors eq_facet/deq_facet's discipline - see seq_eq_facet.h's
         // `equation::m_active` comment). "Removing" an obligation just
@@ -387,70 +383,21 @@ namespace seq {
         stats m_stats;
     };
 
-    // Same-base powers U^a, U^b at matching ends of an equation. Exhaustive split a <= 0,
-    // b <= 0, 1 <= a < b, 1 <= b <= a; the last two cancel U^min(a,b) in that equation:
-    // U^a . s = U^b . t becomes s = U^(b-a) . t (resp. U^(a-b) . s = t).
-    class power_num_cmp : public eq_tree::split_plugin_i {
-        ast_manager&  m;
-        seq_util&     u;
-        arith_util&   a;
-
-        class iterator : public eq_tree::split_iterator_i {
-            eq_tree::node& m_n;
-            unsigned       m_eq_idx, m_lidx, m_ridx;
-            bool           m_front;
-            eq_tree::dep_tracker m_dep;
-            ast_manager&   m;
-            seq_util&      u;
-            arith_util&    a;
-            unsigned       m_j = 0;
-        public:
-            iterator(eq_tree::node& n, unsigned eq_idx, unsigned lidx, unsigned ridx, bool front,
-                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_eq_idx(eq_idx), m_lidx(lidx), m_ridx(ridx), m_front(front), m_dep(dep), m(m), u(u), a(a) {}
-            bool next(eq_tree::edge& out) override;
-        };
-
-    public:
-        power_num_cmp(ast_manager& m, seq_util& u, arith_util& a) :
-            m(m), u(u), a(a) {}
-        char const* name() const override { return "power-num-cmp"; }
-        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-power-num-cmp num splits", m_stats.m_num_splits); }
-        void reset_statistics() override { m_stats.reset(); }
-    private:
-        struct stats {
-            unsigned m_num_splits = 0;
-            void reset() { *this = stats(); }
-        };
-        stats m_stats;
+    // Power U^e at one end of an equation side whose other side begins (in the same direction)
+    // with copies of U: `comm_power` counts them (chars of the base pattern, same-base powers by
+    // their exponent) as `count` over `consumed` tokens. Branch e < count or e >= count, and cancel:
+    // U^e . s = U^count . t becomes s = U^(count-e) . t (resp. U^(e-count) . s = t).
+    struct elim_trigger {
+        unsigned      m_eq_idx = 0;
+        bool          m_pow_on_lhs = true;
+        bool          m_fwd = true;
+        unsigned      m_pow_idx = 0;
+        unsigned      m_consumed = 0;
+        expr_ref      m_count;
+        eq_tree::dep_tracker m_dep;
+        elim_trigger(ast_manager& m) : m_count(m) {}
     };
 
-    // General same-base power-vs-token-run exponent comparison, ported
-    // from the c3 branch's `apply_split_power_elim`
-    // (seq_nielsen_modifiers.cpp), generalizing power_num_cmp: instead of
-    // requiring the *other* side's directional end to itself be a
-    // registered power obligation with the same base, this rule scans a
-    // whole prefix/suffix run of the other side for repeated copies of
-    // the power's own base pattern `U` (a `comm_power`-style match:
-    // ordinary tokens matching `U`'s flattened token pattern verbatim,
-    // plus - only at a pattern boundary - another power token whose base
-    // is the *same* pattern, whose whole exponent is absorbed into the
-    // running count), accumulating a symbolic "how many copies of U were
-    // just consumed" expression `count`. Once some nonzero-length prefix
-    // run has been matched this way, the relative order of `count`
-    // versus `U^n`'s own exponent `n` is generally undetermined and must
-    // be case-split on, exactly like power_num_cmp:
-    //
-    //   Branch 1: n < count    (side constraint `count >= n + 1`)
-    //   Branch 2: count <= n   (side constraint `n >= count`)
-    //
-    // Both are pure solver_facet side constraints (no string-side
-    // progress in either branch, same as power_num_cmp) - after either
-    // is asserted, ordinary propagation can cancel the common
-    // `U^min(n,count)` prefix/suffix. Guarded so it is only offered when
-    // `count` and `n` are not both already-resolved numerals (that case
-    // needs no case split).
     class power_split_elim : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -458,18 +405,10 @@ namespace seq {
 
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
-            expr_ref       m_pow_exp;
-            expr_ref       m_count;
-            unsigned       m_pow_idx;
-            eq_tree::dep_tracker m_dep;
-            ast_manager&   m;
-            seq_util&      u;
-            arith_util&    a;
+            elim_trigger   m_t;
             bool           m_done = false;
         public:
-            iterator(eq_tree::node& n, expr* pow_exp, expr* count, unsigned pow_idx,
-                      eq_tree::dep_tracker dep, ast_manager& m, seq_util& u, arith_util& a) :
-                m_n(n), m_pow_exp(pow_exp, m), m_count(count, m), m_pow_idx(pow_idx), m_dep(dep), m(m), u(u), a(a) {}
+            iterator(eq_tree::node& n, elim_trigger const& t) : m_n(n), m_t(t) {}
             bool next(eq_tree::edge& out) override;
         };
 

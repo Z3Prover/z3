@@ -90,15 +90,37 @@ namespace smt {
             SASSERT(values.size() == m_dep_enodes.size());
             ast_manager& m = th.m;
             expr_ref_vector final_toks(m);
+            // runs of constant tokens become one string literal (a power's model may repeat its base thousands of times)
+            svector<unsigned> chars;
+            auto flush = [&]() {
+                if (!chars.empty())
+                    final_toks.push_back(th.m_seq.str.mk_string(zstring(chars.size(), chars.data())));
+                chars.reset();
+            };
+            auto add = [&](expr* t) {
+                expr_ref_vector units(m);
+                th.m_seq.str.get_concat_units(t, units); // flattens concats, splits string literals into units
+                for (expr* u : units) {
+                    expr* ch = nullptr;
+                    unsigned code;
+                    if (th.m_seq.str.is_unit(u, ch) && th.m_seq.is_const_char(ch, code))
+                        chars.push_back(code);
+                    else {
+                        flush();
+                        final_toks.push_back(u);
+                    }
+                }
+            };
             unsigned j = 0;
             for (slot const& sl : m_slots) {
                 if (sl.m_literal) {
-                    final_toks.push_back(sl.m_literal);
+                    add(sl.m_literal);
                     continue;
                 }
                 expr* v = values.get(j++);
-                final_toks.push_back(sl.m_is_unit ? th.m_seq.str.mk_unit(v) : v);
+                add(sl.m_is_unit ? th.m_seq.str.mk_unit(v) : v);
             }
+            flush();
             expr_ref result(m);
             result = final_toks.empty() ? th.m_seq.str.mk_empty(m_sort)
                                         : th.m_seq.str.mk_concat(final_toks.size(), final_toks.data(), m_sort);
@@ -179,7 +201,6 @@ namespace smt {
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
         m_tree.add_split_plugin(m_mem_leaf);
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
-        m_tree.add_split_plugin(alloc(seq::power_num_cmp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_var_decompose, m, m_seq, m_autil));
@@ -487,9 +508,12 @@ namespace smt {
             hf.add_term(n);
             ensure_length_var(s);
         }
-        // s^k: register the power obligation (otherwise the term is an opaque token
-        // without length link or unfolding)
-        m_ambient->power_facet(*m_root).add_power_if(n);
+        // s^k: register the power obligation; the facet's rules assume k >= 0 (s^k = s^max(k,0))
+        expr* pow_base = nullptr, *k = nullptr;
+        if (m_seq.str.is_power(n, pow_base, k)) {
+            expr* k0 = m_autil.is_numeral(k) ? k : m.mk_ite(m_autil.mk_ge(k, m_autil.mk_int(0)), k, m_autil.mk_int(0));
+            m_ambient->power_facet(*m_root).add_power(n, pow_base, k0);
+        }
         if (m_seq.str.is_length(n)      ||
             m_seq.str.is_index(n)       ||
             m_seq.str.is_last_index(n)  ||

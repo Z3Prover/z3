@@ -360,7 +360,7 @@ namespace seq {
                     // Nielsen-substitutable variables - they are owned
                     // exclusively by power_facet's own dedicated rule
                     // family (power_propagation/power_split/
-                    // power_fine_wilf/power_num_cmp/power_split_elim; see
+                    // power_fine_wilf/power_split_elim; see
                     // facet-eq-deq.md section 2.3). Substituting a power
                     // token wholesale here (as v:=epsilon or v:=c.v')
                     // would be unsound/redundant with that machinery, so

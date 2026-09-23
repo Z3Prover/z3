@@ -66,7 +66,6 @@ namespace {
             tree.add_propagation_plugin(alloc(seq::power_propagation, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split, m, u, a));
             tree.add_split_plugin(alloc(seq::power_fine_wilf, m, u, a));
-            tree.add_split_plugin(alloc(seq::power_num_cmp, m, u, a));
             tree.add_split_plugin(alloc(seq::power_split_elim, m, u, a));
             tree.add_split_plugin(alloc(seq::power_var_decompose, m, u, a));
             tree.add_split_plugin(alloc(seq::power_peel, m, u, a));
@@ -241,7 +240,7 @@ namespace {
 
     // Same-base power-vs-power comparison (`apply_num_cmp`): X^n = X^m
     // for the *same* base X, with n and m otherwise unconstrained -
-    // must be sat regardless of which of power_num_cmp's two branches
+    // must be sat regardless of which of power_split_elim's two branches
     // (n<m or m<=n) is explored, since n=m=0 (both sides epsilon) is
     // always a witness.
     static void tst_power_num_cmp_sat() {
@@ -261,7 +260,7 @@ namespace {
     // len(X) pinned to 1 and n, m forced *disequal* (n >= m+1 or
     // m >= n+1 via a disjunction that excludes n=m) - since X is a
     // fixed nonempty base, X^n = X^m forces n=m, so no witness exists
-    // in either of power_num_cmp's two branches.
+    // in either of power_split_elim's two branches.
     static void tst_power_num_cmp_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -284,7 +283,7 @@ namespace {
     // power_split_elim ("apply_split_power_elim" in c3): X^N = X.X.V
     // where the *other* side (X.X.V) contains a literal run of X's own
     // base pattern (matched token-by-token via comm_power) rather than
-    // a single opposing power token (power_num_cmp's territory) - must
+    // a single opposing power token - must
     // be sat, e.g. via N=2, V=epsilon.
     static void tst_power_split_elim_sat() {
         fixture fx;

@@ -195,7 +195,7 @@ namespace seq {
         // treat as a freely-substitutable "variable" - i.e. neither a
         // power token (`seq.power`, owned exclusively by power_facet's
         // own dedicated rule family: power_propagation/power_split/
-        // power_fine_wilf/power_num_cmp/power_split_elim) nor a unit
+        // power_fine_wilf/power_split_elim) nor a unit
         // token (`seq.unit`, a single concrete character/element, never
         // itself substitutable). `ite` terms are treated as ordinary
         // variables (unlike `is_solvable_var`/`eq_solver::is_var`'s

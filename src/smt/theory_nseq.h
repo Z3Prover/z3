@@ -206,7 +206,7 @@ namespace smt {
         //   priority 2   apply_power_epsilon        -> (folded into power_propagation)
         //   (refutation gate)  seq_eq_approx (view-segment intersection) -> eq_approx_split
         //   (refutation gate)  seq_parikh (length/period feasibility)    -> mem_parikh_split
-        //   priority 3   apply_num_cmp               -> power_num_cmp
+        //   priority 3   apply_num_cmp               -> power_split_elim
         //   priority 3b  apply_split_power_elim       -> power_split_elim
         //   priority 3c  apply_fine_wilf              -> power_fine_wilf
         //   priority 4   apply_const_num_unwinding    -> power_peel
