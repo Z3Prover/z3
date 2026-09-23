@@ -91,7 +91,7 @@ namespace opt {
 
         lbool symba_opt();
 
-        lbool geometric_lex(unsigned idx, bool is_maximize, bool is_box = false);
+        lbool geometric_search(unsigned idx, bool is_maximize);
 
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
         lbool nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
