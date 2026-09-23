@@ -376,6 +376,99 @@ static void tst_multiobjective(bool box) {
     }
 }
 
+// For x >= 0, y >= 0, x + y <= 5, lexicographic maximization gives (5, 0).
+// Box optimization instead gives max(x) = max(y) = 5 in different models.
+// Call optsmt directly: the public context also fixes earlier objectives,
+// which could hide a missing constraint in optsmt::lex itself.
+static void tst_lex_box_search() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    opt::context ctx(m);
+    params_ref p;
+    p.set_uint("arith.solver", 6);
+    generic_model_converter fm(m, "lex and box");
+    struct solver_with_unknown : opt::opt_solver {
+        using opt_solver::opt_solver;
+        bool unknown_on_next_check = false;
+
+        lbool check_sat_core2(unsigned n, expr* const* assumptions) override {
+            if (unknown_on_next_check) {
+                unknown_on_next_check = false;
+                return l_undef;
+            }
+            return opt_solver::check_sat_core2(n, assumptions);
+        }
+    } s(m, p, fm);
+    opt::optsmt optimizer(m, ctx);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    expr_ref zero(a.mk_numeral(rational(0), false), m);
+    s.assert_expr(a.mk_ge(x, zero));
+    s.assert_expr(a.mk_ge(y, zero));
+    solver::scoped_push problem_scope(s);
+    s.assert_expr(a.mk_le(a.mk_add(x, y), a.mk_numeral(rational(5), false)));
+    ENSURE(s.check_sat(0, nullptr) == l_true);
+    model_ref mdl;
+    s.get_model(mdl);
+    ctx.set_model(mdl);
+    unsigned first = optimizer.add(to_app(x));
+    unsigned second = optimizer.add(to_app(y));
+    optimizer.setup(s);
+    optimizer.updt_params(p);
+    rational initial_x, initial_y;
+    ENSURE(a.is_numeral((*mdl)(x), initial_x));
+    ENSURE(a.is_numeral((*mdl)(y), initial_y));
+    optimizer.update_lower(first, opt::inf_eps(initial_x));
+    optimizer.update_lower(second, opt::inf_eps(initial_y));
+    unsigned assertions = s.get_num_assertions();
+    auto ensure_problem_unchanged = [&]() {
+        ENSURE(s.get_scope_level() == 1);
+        ENSURE(s.get_num_assertions() == assertions);
+    };
+    auto ensure_bounds = [&](unsigned h, int expected) {
+        ENSURE(optimizer.get_lower(h).rational_bound() == opt::inf_eps(rational(expected)));
+        ENSURE(optimizer.get_upper(h).rational_bound() == opt::inf_eps(rational(expected)));
+    };
+    auto ensure_model = [&](model* witness, int expected_x, int expected_y) {
+        ENSURE(witness);
+        rational q;
+        ENSURE(a.is_numeral((*witness)(x), q) && q == rational(expected_x));
+        ENSURE(a.is_numeral((*witness)(y), q) && q == rational(expected_y));
+    };
+
+    // An unfinished first objective must not erase the later model-derived bound.
+    s.unknown_on_next_check = true;
+    ENSURE(optimizer.lex(first, true) == l_undef);
+    ENSURE(!s.unknown_on_next_check);
+    ENSURE(optimizer.get_lower(second).rational_bound() == opt::inf_eps(initial_y));
+    ensure_problem_unchanged();
+
+    // Success clears the later lower bound. The next call must fix x = 5
+    // while optimizing y, even though the first call's solver scope is gone.
+    ENSURE(optimizer.lex(first, true) == l_true);
+    ensure_bounds(first, 5);
+    ENSURE(!optimizer.get_lower(second).is_finite());
+    ENSURE(optimizer.get_lower(second).rational_bound().is_neg());
+    ensure_problem_unchanged();
+    ENSURE(optimizer.lex(second, true) == l_true);
+    ensure_bounds(first, 5);
+    ensure_bounds(second, 0);
+    svector<symbol> labels;
+    optimizer.get_model(mdl, labels);
+    ensure_model(mdl.get(), 5, 0);
+    ensure_problem_unchanged();
+
+    // Reuse the same solver in box mode. Neither objective may be constrained
+    // by the other's optimum, and each cached model must attain its own bound.
+    ENSURE(optimizer.box() == l_true);
+    ensure_bounds(first, 5);
+    ensure_bounds(second, 5);
+    ensure_model(optimizer.get_model(first), 5, 0);
+    ensure_model(optimizer.get_model(second), 0, 5);
+    ensure_problem_unchanged();
+}
+
 // Earlier open lex objectives conservatively stop before later objectives.
 // Last-lex and independent box objectives succeed, also with a preceding soft handle.
 static void tst_open_multiobjective(bool box, bool open_first, bool with_soft) {
@@ -956,6 +1049,7 @@ void tst_opt_bounds() {
     std::cout << "opt_bounds: lexicographic and box handles\n";
     tst_multiobjective(false);
     tst_multiobjective(true);
+    tst_lex_box_search();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();

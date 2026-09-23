@@ -252,9 +252,10 @@ namespace opt {
         return true;
     }
 
-    // Irrational algebraic model values do not fit in inf_eps, so use the
-    // requested side of their isolating interval as a sound bound. Without
-    // it, geometric_lex can report -oo for a satisfiable objective. Replace a
+    // The finite part of inf_eps is a rational number, so it cannot store
+    // all algebraic numbers exactly. Use a rational lower or upper bound
+    // on the model value instead. Without this bound, geometric_search can
+    // report -oo for a satisfiable objective. Replace a
     // lower endpoint n by floor(10^12*n)/10^12 and an upper endpoint n by
     // ceil(10^12*n)/10^12. Each reduced denominator divides 10^12, so its
     // dyadic valuation is at most 12. nra_solver omits generated bounds with
@@ -353,7 +354,7 @@ namespace opt {
         // true optimum and may not be achievable by any model.  Committing it
         // prematurely and then failing validation (check_bound below) would
         // leave m_objective_values holding an unachievable bound that callers
-        // such as optsmt::geometric_lex report as the optimum, together with a
+        // such as optsmt::geometric_search report as the optimum, together with a
         // model that does not attain it (issue #10028).  The value is only
         // committed after it has been validated, or replaced by the value of
         // an actual model in update_objective().

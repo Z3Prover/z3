@@ -232,21 +232,12 @@ namespace opt {
         }
     }
 
-    lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize, bool is_box) {
+    lbool optsmt::geometric_search(unsigned obj_index, bool is_maximize) {
         TRACE(opt, tout << "index: " << obj_index << " is-max: " << is_maximize << "\n";);
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs.get(obj_index));
         lbool is_sat = l_true;
-        m_lower[obj_index].reset_exact();
-        m_upper[obj_index].reset_exact();
         expr_ref bound(m), last_bound(m);
-
-        // In lex mode, commit previous objectives so that earlier objectives
-        // constrain later ones. In box mode, skip this so each objective
-        // is optimized independently.
-        if (!is_box)
-            for (unsigned i = 0; i < obj_index; ++i) 
-                commit_assignment(i);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
@@ -417,9 +408,6 @@ namespace opt {
         // rational brackets for the legacy search.
         if (!m_lower[obj_index].exact_finite())
             m_upper[obj_index] = m_lower[obj_index];
-        if (!is_box)
-            for (unsigned i = obj_index+1; i < m_lower.size(); ++i)
-                m_lower[i] = inf_eps(rational(-1), inf_rational(0));
         return l_true;
     }
 
@@ -850,12 +838,23 @@ namespace opt {
         m_context.get_base_model(m_best_model);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
-        if (is_maximize && m_optsmt_engine == symbol("symba")) {
+        if (is_maximize && m_optsmt_engine == symbol("symba"))
             return symba_opt();
-        }
-        else {
-            return geometric_lex(obj_index, is_maximize);
-        }
+
+        // A fresh search must not report a previous exact value for this objective.
+        m_lower[obj_index].reset_exact();
+        m_upper[obj_index].reset_exact();
+        // Add constraints so optimizing this objective cannot worsen earlier
+        // objectives' results. Other variable values remain free to change.
+        for (unsigned i = 0; i < obj_index; ++i)
+            commit_assignment(i);
+
+        lbool result = geometric_search(obj_index, is_maximize);
+        // Later objectives must be reconsidered only after this one succeeds.
+        if (result == l_true)
+            for (unsigned i = obj_index + 1; i < m_lower.size(); ++i)
+                m_lower[i] = inf_eps(rational(-1), inf_rational(0));
+        return result;
     }
 
     /**
@@ -870,7 +869,7 @@ namespace opt {
         // In box mode, optimize each objective independently.
         // Each objective gets its own push/pop scope so that bounds
         // from one objective do not constrain another.
-        // Note: geometric_lex is used unconditionally here, even when
+        // Note: geometric_search is used unconditionally here, even when
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
         //
@@ -881,7 +880,7 @@ namespace opt {
             m_lower[i] = inf_eps(rational(-1), inf_rational(0));
             m_upper[i] = inf_eps(rational(1), inf_rational(0));
             solver::scoped_push _push(*m_s);
-            is_sat = geometric_lex(i, true, true);
+            is_sat = geometric_search(i, true);
             if (is_sat == l_undef)
                 return l_undef;
             if (is_sat == l_false)
