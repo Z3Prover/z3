@@ -46,6 +46,7 @@ namespace smt {
                 algebra.adaptive_reduction = smt_params_helper(p).ff_adaptive_reduction();
                 algebra.adaptive_matrix = smt_params_helper(p).ff_adaptive_matrix();
                 algebra.lazy_matrix = smt_params_helper(p).ff_lazy_matrix();
+                algebra.fused_reduction = smt_params_helper(p).ff_fused_reduction();
                 algebra.bounded_elimination = smt_params_helper(p).ff_bounded_elimination();
                 algebra.sugar_pairs = smt_params_helper(p).ff_sugar_pairs();
                 algebra.gm_pairs = smt_params_helper(p).ff_gm_pairs();

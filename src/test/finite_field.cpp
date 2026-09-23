@@ -8,6 +8,34 @@
 
 namespace ff {
     struct test_engine {
+        static void fused_reduction_equivalence() {
+            for (rational const &prime : {rational(7), rational("4294967291"), rational("18446744073709551629")})
+                for (bool small : {false, true}) {
+                    reslimit limit;
+                    engine builder(prime, limit, 10000000);
+                    auto x = builder.variable(2), y = builder.variable(1), z = builder.variable(0);
+                    std::vector<polynomial> bs{
+                        builder.add(builder.scale(builder.mul(x, x), rational(3)), y),
+                        builder.add(builder.scale(builder.mul(y, y), rational(2)), z),
+                        builder.add(builder.mul(z, z), builder.constant(rational(-1)))};
+                    for (unsigned i = 0; i < bs.size(); ++i) { bs[i].dependencies.insert(i); bs[i].sugar += 5; }
+                    for (unsigned degree = 2; degree < 12; ++degree) {
+                        polynomial f;
+                        builder.add_term(f, monomial(degree, 2), prime - rational(1));
+                        builder.add_term(f, monomial(degree - 1, 1), prime - rational(2));
+                        builder.add_term(f, {0, 1, 2}, rational(3));
+                        f.dependencies.insert(3);
+                        engine eager(prime, limit, 10000000), fused(prime, limit, 10000000);
+                        eager.small_coefficients = fused.small_coefficients = small;
+                        fused.fused_reduction = true;
+                        auto expected = eager.reduce(f, bs), actual = fused.reduce(f, bs);
+                        ENSURE(actual == expected && actual.dependencies == expected.dependencies);
+                        ENSURE(actual.sugar == expected.sugar && fused.m_fused_reductions > 0);
+                        ENSURE(fused.steps() < eager.steps());
+                    }
+                }
+            std::cout << "Fused scalar reduction: exact remainders, premises and sugar across three field sizes\n";
+        }
         static void work_accounting() {
             reslimit limit;
             engine e(rational(7), limit, 3);
@@ -283,15 +311,16 @@ static void test_ff_basis_optimizations() {
             }
             auto expected = input;
             reference.basis(expected);
-            for (unsigned mode = 0; mode < 10; ++mode) {
+            for (unsigned mode = 0; mode < 12; ++mode) {
                 ff::engine e(rational(prime), lim, 10000000, 4096, false, mode != 7, false);
                 e.sugar_pairs = mode == 0 || mode >= 5;
                 e.gm_pairs = mode == 1 || mode >= 5;
                 e.div_masks = mode == 2 || mode >= 5;
                 e.geobucket = mode == 3 || mode >= 5;
                 e.small_coefficients = mode == 4 || mode >= 5;
-                e.compact_matrix = mode == 6 || mode == 9;
-                e.lazy_matrix = mode >= 8;
+                e.compact_matrix = mode == 6 || mode == 9 || mode == 11;
+                e.lazy_matrix = mode == 8 || mode == 9;
+                e.fused_reduction = mode >= 10;
                 e.adaptive_matrix = mode >= 8;
                 e.adaptive_reduction = mode >= 5;
                 auto actual = input;
@@ -359,6 +388,7 @@ static void test_ff_scalar_recovery() {
 
 void tst_finite_field() {
     ff::test_engine::work_accounting();
+    ff::test_engine::fused_reduction_equivalence();
     ff::test_engine::minimal_polynomial_provenance();
     ff::test_engine::minimal_polynomial_guard_budget();
     ff::test_engine::lazy_matrix_equivalence();

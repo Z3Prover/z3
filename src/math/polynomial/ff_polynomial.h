@@ -74,7 +74,7 @@ namespace ff {
         unsigned m_bit_facts = 0, m_bit_rounds = 0;
         unsigned m_eliminations = 0, m_substitutions = 0, m_substituted_terms = 0;
         unsigned m_basis_calls = 0, m_basis_pairs = 0, m_root_calls = 0;
-        unsigned m_chain_skips = 0;
+        unsigned m_chain_skips = 0, m_fused_reductions = 0;
         unsigned m_batches = 0, m_matrix_rows = 0;
         unsigned m_extra_matrix_reducers = 0, m_lazy_matrix_reducers = 0;
         unsigned m_sparse_trials = 0, m_sparse_witnesses = 0;
@@ -118,6 +118,7 @@ namespace ff {
         bool adaptive_reduction = false;
         bool adaptive_matrix = false;
         bool lazy_matrix = false;
+        bool fused_reduction = false;
         bool sugar_pairs = false, gm_pairs = false, div_masks = false, geobucket = false, small_coefficients = false, compact_encoding = false;
         bool linear_split = false, basis_bits = false, compact_matrix = false, model_search = false, bit_bounds = false;
         bool root_completion = false, quotient_field = false;

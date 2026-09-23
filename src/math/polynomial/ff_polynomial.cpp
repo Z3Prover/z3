@@ -18,6 +18,7 @@ namespace ff {
         st.update("ff basis calls", m_basis_calls);
         st.update("ff basis pairs", m_basis_pairs);
         st.update("ff chain skips", m_chain_skips);
+        st.update("ff fused reductions", m_fused_reductions);
         st.update("ff matrix batches", m_batches);
         st.update("ff matrix rows", m_matrix_rows);
         st.update("ff extra matrix reducers", m_extra_matrix_reducers);
@@ -461,6 +462,7 @@ namespace ff {
         probe.adaptive_reduction = adaptive_reduction;
         probe.adaptive_matrix = adaptive_matrix;
         probe.lazy_matrix = lazy_matrix;
+        probe.fused_reduction = fused_reduction;
         probe.definition_variables = definition_variables;
         probe.root_completion = root_completion;
         probe.quotient_field = quotient_field;
@@ -719,11 +721,29 @@ namespace ff {
             }
             else {
                 auto const &b = bs[j];
-                polynomial factor;
-                add_term(factor, q, -coeff * inverse(b.begin()->second));
                 rem.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
                 rem.sugar = std::max(rem.sugar, b.sugar + static_cast<unsigned>(q.size()));
-                f = add(std::move(f), mul(factor, b));
+                if (fused_reduction) {
+                    ++m_fused_reductions;
+                    tick(); // Formation of the scalar monomial multiplier.
+                    rational scalar = mod(-coeff * inverse(b.begin()->second), p);
+                    // Update f := f + scalar*q*b directly. Multiplication by
+                    // q preserves term order and is injective, so these are the
+                    // exact same additions as materialize-then-add, without
+                    // constructing an intermediate polynomial. add_term keeps
+                    // all per-update size/degree and cancellation guards. rem
+                    // retains every used premise and the same sugar bound.
+                    for (auto const &[mon, value] : b) {
+                        monomial product;
+                        std::merge(q.begin(), q.end(), mon.begin(), mon.end(), std::back_inserter(product));
+                        add_term(f, product, coefficient_product(scalar, value));
+                    }
+                }
+                else {
+                    polynomial factor;
+                    add_term(factor, q, -coeff * inverse(b.begin()->second));
+                    f = add(std::move(f), mul(factor, b));
+                }
             }
         }
         return rem;
