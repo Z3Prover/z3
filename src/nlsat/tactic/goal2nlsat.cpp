@@ -63,7 +63,6 @@ struct goal2nlsat::imp {
 
     unsigned long long        m_max_memory;
     bool                      m_factor;
-    params_ref                m_params;
 
 
     imp(ast_manager & _m, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x, nlsat::assumption a):
@@ -80,7 +79,6 @@ struct goal2nlsat::imp {
     }
 
     void updt_params(params_ref const & p) {
-        m_params.copy(p);
         m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
