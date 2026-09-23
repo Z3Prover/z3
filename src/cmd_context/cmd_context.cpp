@@ -31,6 +31,7 @@ Notes:
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -884,6 +885,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_builtin_ops(basic);
         // the manager was created by the command context.
         register_plugin(symbol("arith"),    alloc(arith_decl_plugin), logic_has_arith());
+        register_plugin(symbol("ff"), alloc(ff_decl_plugin), !has_logic() || smt_logics::logic_has_ff(m_logic));
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
@@ -903,6 +905,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         svector<family_id> fids;
         m_manager->get_range(fids);
         load_plugin(symbol("arith"),    logic_has_arith(), fids);
+        load_plugin(symbol("ff"), !has_logic() || smt_logics::logic_has_ff(m_logic), fids);
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
@@ -1454,6 +1457,36 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     if (try_mk_declared_app(s, num_args, args, num_indices, indices, range, result))
         return;   
+    if (!range && !num_args && !num_indices && !s.is_numerical()) {
+        std::string name = s.str();
+        if (name.starts_with("#f")) {
+            auto separator = name.find('m', 2);
+            if (separator != std::string::npos) {
+                std::string value = name.substr(2, separator-2), prime = name.substr(separator+1);
+                unsigned start = !value.empty() && value[0] == '-' ? 1 : 0;
+                if (value.size() > start && value.find_first_not_of("0123456789", start) == std::string::npos &&
+                    !prime.empty() && prime.find_first_not_of("0123456789") == std::string::npos) {
+                    if (has_logic() && !smt_logics::logic_has_ff(m_logic)) throw cmd_exception("logic does not support finite fields");
+                    ff_util ff(m());
+                    sort_ref field(ff.mk_sort(rational(prime.c_str())), m());
+                    result = ff.mk_numeral(rational(value.c_str()), field);
+                    return;
+                }
+            }
+            throw cmd_exception("invalid finite-field literal, expected #f<integer>m<prime>");
+        }
+    }
+    if (range && ff_util(m()).is_ff(range) && !num_args && !num_indices && !s.is_numerical()) {
+        std::string name = s.str();
+        if (name.starts_with("ff")) {
+            std::string value = name.substr(2);
+            unsigned start = !value.empty() && value[0] == '-' ? 1 : 0;
+            if (value.size() > start && value.find_first_not_of("0123456789", start) == std::string::npos) {
+                result = ff_util(m()).mk_numeral(rational(value.c_str()), range);
+                return;
+            }
+        }
+    }
     if (!range && s == symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
         return;
     if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 

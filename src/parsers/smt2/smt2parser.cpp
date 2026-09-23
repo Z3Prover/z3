@@ -23,6 +23,7 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/var_subst.h"
@@ -637,6 +638,15 @@ namespace smt2 {
             psort_decl * d = m_ctx.find_psort_decl(id);
             if (d == nullptr)
                 unknown_sort(id);
+            if (id == symbol("FiniteField")) {
+                check_int("FiniteField expects a prime integer modulus");
+                rational prime = curr_numeral();
+                next();
+                if (!curr_is_rparen()) throw parser_exception("FiniteField expects exactly one modulus");
+                sort* field = ff_util(m()).mk_sort(prime);
+                next();
+                return field;
+            }
             sbuffer<unsigned> args;
             while (!curr_is_rparen()) {
                 check_int("invalid indexed sort, integer or ')' expected");

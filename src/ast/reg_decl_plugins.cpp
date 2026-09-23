@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #include "ast/ast.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -32,6 +33,8 @@ Revision History:
 #include "ast/finite_set_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
+    if (!m.get_plugin(m.mk_family_id("ff")))
+        m.register_plugin(symbol("ff"), alloc(ff_decl_plugin));
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
         m.register_plugin(symbol("arith"), alloc(arith_decl_plugin));
     }

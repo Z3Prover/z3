@@ -20,6 +20,7 @@ Revision History:
 
 class smt_logics {
 public:
+    static bool logic_has_ff(symbol const& s) { return s == "QF_FF" || logic_is_all(s); }
     static bool supported_logic(symbol const & s);
     static bool logic_has_reals_only(symbol const& l);       
     static bool logic_is_all(symbol const& s) { return s == "ALL" || s == "HO_ALL"; }

@@ -28,6 +28,7 @@ z3_add_component(ast
     expr_map.cpp
     expr_stat.cpp
     expr_substitution.cpp
+    ff_decl_plugin.cpp
     finite_set_decl_plugin.cpp
     for_each_ast.cpp
     for_each_expr.cpp
