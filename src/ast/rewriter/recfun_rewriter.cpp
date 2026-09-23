@@ -48,30 +48,18 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
 
         // check if there is an argument that is a constructor
         // such that the recursive function can be partially evaluated.
-        // at most one kind of accessor is allowed to prevent recursive
-        // patterns that reconstruct the argument indirectly.
-        // This can be relaxed to omitting at least one accessor, and probably other patterns.
+        // At most one kind of accessor is allowed to prevent recursive
+        // patterns that reconstruct the argument indirectly, unless the
+        // argument is ground: accessors of a ground constructor term are
+        // strictly smaller ground terms, so unfolding terminates.
+        // Model evaluation relies on the ground case to check a quantifier over a
+        // recursively defined function whose recursion argument is ground
+        // (e.g. forall a. isList(a, items)) - see smt_model_finder.
         if (!safe_to_subst && !has_quantifiers(r)) {
             datatype::util u(m);
-            auto is_decreasing = [&](unsigned i) {
-                bool is_dec = true;
-                unsigned idx = num_args - i - 1;
-                func_decl* dec_fun = nullptr;
-                for (auto t : subterms::all(expr_ref(r, m))) {
-                    if (is_app(t) && any_of(*to_app(t), [&](expr* e) { return is_var(e) && to_var(e)->get_idx() == idx; })) {
-                        if (!u.is_accessor(t) && !u.is_is(t) && !u.is_recognizer(t))
-                            is_dec = false;                       
-                        else if (u.is_accessor(t) && dec_fun && to_app(t)->get_decl() != dec_fun)
-                            is_dec = false;
-                        else if (u.is_accessor(t))                        
-                            dec_fun = to_app(t)->get_decl();
-                    }
-                }
-                return is_dec;
-            };
             for (unsigned i = 0; i < num_args; ++i) {
                 auto arg = args[i];
-                if (u.is_constructor(arg) && is_decreasing(i)) {
+                if (u.is_constructor(arg) && is_decreasing_arg(f, i, is_ground(arg))) {
                     safe_to_subst = true;
                     break;
                 }
@@ -89,4 +77,27 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         return BR_FAILED;
 }
 
-
+bool recfun_rewriter::is_decreasing_arg(func_decl* f, unsigned i, bool allow_any_accessor) {
+    if (!m_rec.is_defined(f) || !m_rec.has_def(f))
+        return false;
+    recfun::def const& d = m_rec.get_def(f);
+    expr* r = d.get_rhs();
+    if (!r || has_quantifiers(r))
+        return false;
+    datatype::util u(m);
+    unsigned num_args = f->get_arity();
+    unsigned idx = num_args - i - 1;
+    func_decl* dec_fun = nullptr;
+    for (auto t : subterms::all(expr_ref(r, m))) {
+        if (is_app(t) && any_of(*to_app(t), [&](expr* e) { return is_var(e) && to_var(e)->get_idx() == idx; })) {
+            if (!u.is_accessor(t) && !u.is_is(t) && !u.is_recognizer(t))
+                return false;
+            if (u.is_accessor(t)) {
+                if (!allow_any_accessor && dec_fun && to_app(t)->get_decl() != dec_fun)
+                    return false;
+                dec_fun = to_app(t)->get_decl();
+            }
+        }
+    }
+    return dec_fun != nullptr || !allow_any_accessor;
+}
