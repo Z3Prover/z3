@@ -137,3 +137,5 @@ tptp_benchmarks/
 /output/pdf/
 /tmp/pdfs/
 /tmp-bibtex.log
+/doc/qf-ff-round6-performance.svg
+/doc/qf-ff-round7-performance.svg
