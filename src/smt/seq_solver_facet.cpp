@@ -193,6 +193,7 @@ namespace seq {
     }
 
     lbool solver_facet::implies(expr* c, eq_tree::dep_tracker* core) const {
+        expr_ref pin(c, m);
         m_solver.push();
         m_solver.assert_expr(m.mk_not(c));
         lbool r = m_solver.check();
