@@ -19,6 +19,7 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
+#include "ast/occurs.h"
 #include <algorithm>
 #include <cstdlib>
 #include <utility>
@@ -190,6 +191,20 @@ namespace seq {
         if (eq.m_lhs.empty() && eq.m_rhs.empty()) {
             m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
             m_eqs[idx].m_active = false;
+        }
+
+        // variable definition (c3's det rule): x = t with x not occurring in t, substitute x := t
+        for (int side = 0; side < 2; ++side) {
+            expr_ref_vector const& vs = side == 0 ? eq.m_lhs : eq.m_rhs;
+            expr_ref_vector def(side == 0 ? eq.m_rhs : eq.m_lhs);
+            if (vs.size() != 1 || !is_uninterp_const(vs.get(0)))
+                continue;
+            expr_ref x(vs.get(0), m);
+            if (any_of(def, [&](expr* t) { return occurs(x, t); }))
+                continue;
+            broadcast_subst(n, x, def, eq.m_dep);
+            changed = true;
+            break;
         }
 
         // Any newly-produced sub-equations (from unit-vs-unit
