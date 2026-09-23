@@ -1,0 +1,53 @@
+{
+  "repository": "https://github.com/Veridise/Picus",
+  "commit": "138b151d3a388e5b6c040c163e0a1db04f2ceda6",
+  "main_files": [
+    "darkforest-eth-9033eaf-fixed/whitelist.circom",
+    "darkforest-eth-9033eaf-fixed/move.circom",
+    "hermez-network-9a696e3-fixed/test-compute-fee.circom",
+    "maci-9b1b1a6-fixed/merkleTreeInclusionProof_test.circom",
+    "maci-9b1b1a6-fixed/verifySignature_test.circom"
+  ],
+  "files_sha256": {
+    "benchmarks/darkforest-eth-9033eaf-fixed/whitelist.circom": "b517347e1f5830a93573e58cff70dc9f7c78754a8a828b0d6853b84346f9429a",
+    "benchmarks/libs/circomlib-cff5ab6/mimcsponge.circom": "3adfd1876931eba559ba2ee899c2f6f89194626cf8104770844f2febcac4691a",
+    "benchmarks/darkforest-eth-9033eaf-fixed/move.circom": "d6c2bdb7816ef277a1f635734cabb3342ecce37bf2bec2e2b50161d7fff73d7e",
+    "benchmarks/libs/circomlib-cff5ab6/comparators.circom": "fd0c7723ee56e1467df1861131157cbb108e156fe2d9ec64895c8e68de14db20",
+    "benchmarks/libs/circomlib-cff5ab6/bitify.circom": "688f121303a2dd0154ceeda8d2f53a9d2d26789d10a69a46acd534642725683e",
+    "benchmarks/libs/circomlib-cff5ab6/aliascheck.circom": "7df7542461a68c1564a55be8f01d75571c0e2555a08a078abeba43e1ea032eb4",
+    "benchmarks/libs/circomlib-cff5ab6/compconstant.circom": "94c5cc93b589a940acbfecdb98babc2efc253ad4298814399fb41109faa3b50d",
+    "benchmarks/libs/circomlib-cff5ab6/binsum.circom": "8aa153baf5791d96d06dce837c1e19b9ecc3a7dc65054132d5dd189b60bfcfc2",
+    "benchmarks/darkforest-eth-9033eaf-fixed/range_proof.circom": "08843d9a0815f05aa39ad4dbd9f55d9444cc001a532872f8e7a53ce035e30dec",
+    "benchmarks/darkforest-eth-9033eaf-fixed/perlin.circom": "692c6ff442d754edaa6c0435c7a8aaf2aa21875ec11b022014406f4a63e0801f",
+    "benchmarks/libs/circomlib-cff5ab6/sign.circom": "172255ff7d11d48958d9836f88bb40792009b94be19ba94ed01982a12c276dfb",
+    "benchmarks/darkforest-eth-9033eaf-fixed/QuinSelector.circom": "7e2e24cf2e4f27a598439a734a2427a8c40a00ed1c5f2eb2d02ddc6f4b0d85dd",
+    "benchmarks/darkforest-eth-9033eaf-fixed/CalculateTotal.circom": "6a18bd03cd27d46bc3c773a44a9136bc4bbc1a5ac49a8cb45893b8ce6ce327ad",
+    "benchmarks/hermez-network-9a696e3-fixed/test-compute-fee.circom": "ec052acf91ad61da7911d34b71d18e2d8529edc51eb6fb772bd09385eb60b57d",
+    "benchmarks/libs/hermez-network-9a696e3-fixed/compute-fee.circom": "0d071df60da1462c5551b4d38360b188dcedb67217ba19b6529ce699a02e76a7",
+    "benchmarks/libs/hermez-network-9a696e3-fixed/lib/mux256.circom": "84c56c9ba441aa382407ca6aafe061d54782fa4b8acbc7218bb7101fee3da8ff",
+    "benchmarks/libs/circomlib-cff5ab6/mux4.circom": "df75a7969324854fc038efd370ee413d8a5b3680fe1e26bb6d4a2f3b293acbfc",
+    "benchmarks/maci-9b1b1a6-fixed/merkleTreeInclusionProof_test.circom": "d8353078c4ad31450ebcec9d00347e9d91fb31bf7ddce197bbcdeb3ca8b73906",
+    "benchmarks/libs/maci-9b1b1a6-fixed/trees/incrementalMerkleTree.circom": "dc89ef91c5028377b5835b27d069e91f275350397830d70fab85c35bb8879475",
+    "benchmarks/libs/circomlib-cff5ab6/mux1.circom": "eaa61d34d40b03a1695212c012f5793c06f6d0db634878a0246249ba12a40922",
+    "benchmarks/libs/maci-9b1b1a6-fixed/hasherPoseidon.circom": "4e00525eb94c20b35364b68dc40735e98af0c9126c85195031af7f2d30b9d10b",
+    "benchmarks/libs/maci-9b1b1a6-fixed/poseidon/poseidonHashT3.circom": "c5639a0d6f17ee66786c432e2429095a546e03975ce0b0b11091ec7a887cff08",
+    "benchmarks/libs/circomlib-cff5ab6/poseidon.circom": "a14a82b1802956f074e3bed509125035363dabaf197da3d59a61b98516ae4202",
+    "benchmarks/libs/circomlib-cff5ab6/poseidon_constants.circom": "94c9e4b5ea891ab4d1ba626f1d719f8c661014d9b628f6096c803f75f39e3eee",
+    "benchmarks/libs/maci-9b1b1a6-fixed/poseidon/poseidonHashT6.circom": "8cbce494df42d22eec4a68386a3ef45d4af48dfcabb1dd1b49f54d2472bde336",
+    "benchmarks/maci-9b1b1a6-fixed/verifySignature_test.circom": "de6ea3faeeeb7f99de16adc51074b9522e0f222e663cbbbc122dde6a55509511",
+    "benchmarks/libs/maci-9b1b1a6-fixed/verify_signature.circom": "74049d3933ecff77a0155060952f1a98fd5101aae7fbfa7fefa98aada001ee72",
+    "benchmarks/libs/circomlib-cff5ab6/pointbits.circom": "7db4382cf32ab0ad7032d47d31543ca9e60fe8bfb9e7ef0bf0a6cf77a406bcba",
+    "benchmarks/libs/circomlib-cff5ab6/babyjub.circom": "fdd45cd3edd59621c203d478218c1a623a03acdd4d5be997208310bc72df61ce",
+    "benchmarks/libs/circomlib-cff5ab6/escalarmulfix.circom": "32c3f23c33d6325156ba42ebcd83cd75f944ccb5fb4db042ddb9bec987b2c7e6",
+    "benchmarks/libs/circomlib-cff5ab6/mux3.circom": "5fe2d242bf2482df1d75401d18399c4eac3e1d34d89622290c98f4aefa21dba4",
+    "benchmarks/libs/circomlib-cff5ab6/montgomery.circom": "63692077f57f4467960b172830abbeb4dfafdc3744cde6863433cccea7f0f2bf",
+    "benchmarks/libs/circomlib-cff5ab6/escalarmulany.circom": "a881382804dc0e0fde2784c6b6e507928b5e0f14bef927c50f4529c05d2fa9de"
+  },
+  "compiler": "circom2 npm 0.2.23; Circom 2.2.3",
+  "flags": [
+    "--r1cs",
+    "--sym",
+    "--O0"
+  ],
+  "compiler_wasm_sha256": "96fc92a93768f38979db6c2bac4b1aa9fc7d66742121a63d4c4792d5b4037162"
+}

@@ -1,0 +1,549 @@
+{
+  "source": "https://zenodo.org/records/7864537",
+  "archive_url": "https://zenodo.org/records/7864537/files/cav23-artifact-ff-init.zip?download=1",
+  "archive_sha256_published": "4c326375a6495ce761c9a7c42705d62bf2511998977ef6a635922761a0a79077",
+  "integrity": "per-entry ZIP CRC and recorded extracted SHA256; whole archive not downloaded",
+  "selection": "cartesian product: sound/deterministic; none/last/random; circ/zokcirc/zokref; 8 variables; 4/16/64 terms; 255 bits; seed 0",
+  "files": [
+    {
+      "file": "compilation-sound-none-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 3590,
+      "sha256": "5220bb26eb603a92eabaa042ad50f174780d0e3e75c52ddd5fb68e7185793866",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-none-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 7523,
+      "sha256": "09c25aa87d5387f4704ad654d6ed06ad2a020b00be6d0d565b313045224d873b",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-none-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 22567,
+      "sha256": "84dd89953dac4339cceffcbacc786eb821048c46726fef98c33ec3180ae9fe4b",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-none-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 3857,
+      "sha256": "6f1fc95525c4abce780e4fd3949b2366d85f947c2490edc7738f5afad88b3415",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-none-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 9082,
+      "sha256": "944580afd522ea1b90b60dbcf62f8c8b39b043a558df4cc6697e1c952cea98b8",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-none-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 27583,
+      "sha256": "edd34dc966014dc0fe0bf210ea5fa0c68964bafa2590f5fc8fe13705f416b2b7",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-none-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 4139,
+      "sha256": "49a4cc854bd240b61713ced1e1cfe3b0a8dd8b114024ce2c7b1c071660b09b26",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-none-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 10093,
+      "sha256": "101704e2103840c052ef674edb7b7d8a39942d739dbfb26ce7b342e60a7ab0d1",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-none-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-none-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 24154,
+      "sha256": "c42bb551a01c9b928ba4b5a2ee81483edf6b97a8ec3cf1dee6392c6ac99fc652",
+      "property": "sound",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-last-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 3511,
+      "sha256": "eaffc501af89149189e59ce1e94a1c92f74117b39f6b89987ed8f63a75f06e15",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-last-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 7439,
+      "sha256": "cd083d87f716c6272fc04ae472a5415a458262792c4d71daaffd554e7c164852",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-last-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 22484,
+      "sha256": "567cb9ad6cc1b7582cc73cf0796b7dc46f33848ad0293c040f5633945461d068",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-last-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 3700,
+      "sha256": "b088d24504c7bf3e8d580b3bb9eec89b062c60177a0ee5f3cca4981e91f80d33",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-last-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 8999,
+      "sha256": "7d11f04575accd9f9a581473c6787a84c0bb9bf126c1f38793fbca9c9b0bce68",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-last-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 27500,
+      "sha256": "074fd23a2c272218d15471afb2d80f82bc0f277b747d8e4d4017b2b1cde2b5a6",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-last-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 4099,
+      "sha256": "0bc63f8a07d28ab1b87f0c7a739d5ffb96143e072ad6b5a90117192ae5bfedb8",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-last-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 10051,
+      "sha256": "c130a5ac6cd66810241286b7d6fd7f01efbb6597c5ea6fd9a7ee5eb0f1020aa2",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-last-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-last-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 24148,
+      "sha256": "ba04f0a073c43e93a659e88606e19312d5a0c942a69e8fb40822743da9114667",
+      "property": "sound",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-random-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 3472,
+      "sha256": "83ed89a1ffb176a3e7b373f92b59a7a2b992ec975e6f3a8dc27863d7cda7254d",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-random-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 7392,
+      "sha256": "9d36dbe572cad41b2e0507daa59d9fa014702594e02fe5884b4c4bb72e321017",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-random-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 22335,
+      "sha256": "5590363ed3a9eec67405859498461f8d7fbd56dd4be004201e30161137bb6914",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-random-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 3778,
+      "sha256": "66857fca70320e54b2b26e38a53b3bd358a45cbf23621ccc6e565f7075273b9d",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-random-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 8998,
+      "sha256": "41f1c38d89dfa447d70fccdc311c1844d74c1dd4f2bae5b37c36086d103f6e01",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-random-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 27497,
+      "sha256": "58cc6891f47a8669cf3ef8949a85ac6e98350b140db4f42d5ef82a801b3eb06c",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-sound-random-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 4060,
+      "sha256": "8d064606c8fe15ae43be089d0c6eddc94089aa6f930c9f7a95cd7440d907e03e",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-sound-random-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 9928,
+      "sha256": "d79c70cbdf8a44968bcf61f10c12a62edb4fe95222a08728038ce5b190e3725f",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-sound-random-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-sound-random-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 24068,
+      "sha256": "9810fdd21880001ed908c2f285c4696132635246795bc684f9249733e05eb29b",
+      "property": "sound",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-none-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 4702,
+      "sha256": "a85cf37c9baef052adbdb456257052d23138d595fd1689cc7d2a1cadc32e042e",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-none-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 10050,
+      "sha256": "58b9e6a6f0afdeebffb40356f92a51e43d5df51ea8c1dbe745a1987fb596a9ba",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-none-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 37803,
+      "sha256": "4b102482336eb093a273fb5303c474599b0f3404e91b211ce51f134efc9c6bba",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-none-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 5847,
+      "sha256": "613401281e60eddaea48be9d2a14742e7b81361292fdf1fdd637cd00c5a5cab4",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-none-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 12479,
+      "sha256": "f5f617c93de609a6f29900f4ba01786bd42d48832bf04049976f7866f97a47b5",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-none-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 49673,
+      "sha256": "86178f04874f934519419f31bafa06aaa187122444bf5f01155cafe7989f4b27",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-none-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 7382,
+      "sha256": "37b26046c72e4272efd5fd49a165cdf50c7631a43a734a4eb78ae2fa51eae6bc",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-none-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 15637,
+      "sha256": "674eeb75f875d322f559741074a224419093f5a1d84fc92e08beaad902b12329",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-none-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-none-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 54875,
+      "sha256": "35c7eec1ce1a329d607e6e85057434ceacc57a3e156e0be1ca4e9312cd0eb486",
+      "property": "deterministic",
+      "mutation": "none",
+      "compiler": "zokref",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-last-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 4219,
+      "sha256": "52e6990496b25cc316a0921d70249063adeac660fae77938969b414fc4083488",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-last-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 9552,
+      "sha256": "42194f9de89b090e0bbf33514c846c8c207e373ec64c14fc798ee7bdf539ccb2",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-last-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 37497,
+      "sha256": "2f8e9fbd8e4a2822e210ce34215050580022046031be4c68b87fe531bc60fab2",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-last-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 5257,
+      "sha256": "2b97269c844c5e13626835eb98a30ae60579cd04a10beb7d06563b277a1d7fc4",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-last-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 11985,
+      "sha256": "cd6fed41cff81294a2167f12ee61e477ac4d43734708a8e21bcfc1f369f3aa69",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-last-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 49121,
+      "sha256": "bbb6a321a35e70790f9282ce133ba4cd525636ae6d713ec26c99f3d7c7780bbe",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-last-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 7299,
+      "sha256": "a23a346fb1c371728144623a2d49a8f6806a1e23df0e91b5986445ed6f0a0904",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-last-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 15553,
+      "sha256": "317feedbe050a98c3e38ffd44d611541719466fdecf524d0768a5ea984dc306c",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-last-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-last-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 54687,
+      "sha256": "aebc8f942ecaa402eea21cf67ac8a8b58aee705b4e20d4428e668ca08cdffa5b",
+      "property": "deterministic",
+      "mutation": "last",
+      "compiler": "zokref",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-random-08v-004t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-004t-ff-circ-255b-0s.smt2",
+      "bytes": 4392,
+      "sha256": "be69cc7d98175d5cf05e668fd9f0528e01223f4d875549d64a161232f7ec9fec",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-random-08v-016t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-016t-ff-circ-255b-0s.smt2",
+      "bytes": 9719,
+      "sha256": "7ea85ada08dd26e2480815a4065291eb396198dcf4d3c69a748504c0751fccbf",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-random-08v-064t-ff-circ-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-064t-ff-circ-255b-0s.smt2",
+      "bytes": 37637,
+      "sha256": "51543eac9e8a39fbb049f80d1f835b9019db72a172f8ae60f98cfc20ae1a5237",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "circ",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-random-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-004t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 5519,
+      "sha256": "0adf1bd40b9d9e3e5d630ead449e55c16102e5398504ad175c2dce51819f1537",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-random-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-016t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 12309,
+      "sha256": "db98d1235bfb6e1ba3ea9c62b7d0189ed3e63c600663642f2c95e59c7639831f",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-random-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-064t-ff-zokcirc-255b-0s.smt2",
+      "bytes": 49394,
+      "sha256": "2e23c4f229add24ec3cdfe5a148c090ec5b51b30031ed9f3d3ee572941fb80a9",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokcirc",
+      "terms": 64
+    },
+    {
+      "file": "compilation-deterministic-random-08v-004t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-004t-ff-zokref-255b-0s.smt2",
+      "bytes": 7037,
+      "sha256": "3f8354eb1230f645c5aa0a5ff6beae9f86b32edaf22907b5fefe2c656da821e1",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 4
+    },
+    {
+      "file": "compilation-deterministic-random-08v-016t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-016t-ff-zokref-255b-0s.smt2",
+      "bytes": 15272,
+      "sha256": "19adf665529452acecfb858db9fe1b6eb318166556a35c73b2092bba99fd7a4b",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 16
+    },
+    {
+      "file": "compilation-deterministic-random-08v-064t-ff-zokref-255b-0s.smt2",
+      "member": "docker/benchmarks/benchmarks/compilation-deterministic-random-08v-064t-ff-zokref-255b-0s.smt2",
+      "bytes": 54693,
+      "sha256": "0be19296a009de901e02c3e0f57ae42aad7608c653e3e898e1b2d1700f79be0b",
+      "property": "deterministic",
+      "mutation": "random",
+      "compiler": "zokref",
+      "terms": 64
+    }
+  ]
+}

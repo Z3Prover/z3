@@ -126,3 +126,14 @@ bazel-*
 .deeptest/
 tptp_test/
 tptp_benchmarks/
+
+# Finite-field benchmark downloads, raw runs, and rendered report products.
+# Sources, manifests, small test fixtures, and compact paper evidence are tracked.
+/tests/finite_field/__pycache__/
+/tests/finite_field/results/
+/tests/finite_field/fixtures/real-circuits/*.zip
+/tests/finite_field/fixtures/real-circuits/picus/
+/output/finite-field-real-circuits/
+/output/pdf/
+/tmp/pdfs/
+/tmp-bibtex.log
