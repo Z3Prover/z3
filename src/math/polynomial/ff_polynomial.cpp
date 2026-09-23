@@ -8,6 +8,10 @@
 namespace ff {
     void engine::collect_statistics(statistics &st) const {
         st.update("ff algebra steps", work);
+        char const *phase_names[] = {"ff work other", "ff work scalar reduction", "ff work basis insertion",
+                                     "ff work pair processing", "ff work matrix symbolic", "ff work matrix elimination"};
+        for (unsigned i = 0; i < num_work_phases; ++i)
+            st.update(phase_names[i], m_phase_work[i] + (i == m_work_phase ? work - m_phase_start : 0));
         st.update("ff eliminations", m_eliminations);
         st.update("ff substitutions", m_substitutions);
         st.update("ff substituted terms", m_substituted_terms);
@@ -630,6 +634,7 @@ namespace ff {
         return mask;
     }
     polynomial engine::reduce(polynomial f, std::vector<polynomial> const &bs) {
+        scoped_work accounting(*this, scalar_work);
         // Each subtraction f-q*b preserves f modulo the ideal of bs. Record
         // every used reducer's premises, including steps whose terms cancel.
         polynomial rem;
@@ -725,6 +730,7 @@ namespace ff {
     }
     std::vector<polynomial> engine::batch_reduce(std::vector<polynomial> const &rows,
                                                  std::vector<polynomial> const &bs) {
+        scoped_work accounting(*this, symbolic_work);
         ++m_batches;
         SASSERT(p.is_unsigned());
         uint64_t prime = p.get_uint64();
@@ -886,6 +892,7 @@ namespace ff {
                 for (auto const &f : reducers) eliminate(f, false, nullptr);
             for (auto const &f : rows) eliminate(f, true, nullptr);
         };
+        scoped_work elimination_accounting(*this, matrix_work);
         if (compact_matrix) {
             struct packed_row {
                 std::vector<std::pair<unsigned, uint64_t>> coefficients;
@@ -1046,6 +1053,7 @@ namespace ff {
     }
 
     void engine::basis(std::vector<polynomial> &eqs) {
+        scoped_work accounting(*this, pair_work);
         ++m_basis_calls;
         std::vector<polynomial> cache_input;
         auto cacheable = [](std::vector<polynomial> const &polys) {
@@ -1099,6 +1107,7 @@ namespace ff {
 
         unsigned active_basis = 0;
         auto insert = [&](polynomial input) {
+            scoped_work insertion_accounting(*this, insertion_work);
             std::vector<polynomial> pending;
             pending.push_back(std::move(input));
             for (unsigned next = 0; next < pending.size(); ++next) {

@@ -48,6 +48,27 @@ namespace ff {
         reslimit &limit;
         unsigned work = 0, max_work, max_terms;
         unsigned random_state = 17;
+        enum work_phase { other_work, scalar_work, insertion_work, pair_work, symbolic_work, matrix_work, num_work_phases };
+        unsigned m_phase_work[num_work_phases] = {};
+        work_phase m_work_phase = other_work;
+        unsigned m_phase_start = 0;
+        // Exclusive work attribution: nested scopes charge only their own
+        // ticks, including the failing tick on resource exhaustion. Scope
+        // transitions do not consume work or alter shared cancellation.
+        class scoped_work {
+            engine &e;
+            work_phase previous;
+            void enter(work_phase phase) {
+                e.m_phase_work[e.m_work_phase] += e.work - e.m_phase_start;
+                e.m_phase_start = e.work;
+                e.m_work_phase = phase;
+            }
+        public:
+            scoped_work(engine &e, work_phase phase) : e(e), previous(e.m_work_phase) { enter(phase); }
+            ~scoped_work() { enter(previous); }
+            scoped_work(scoped_work const &) = delete;
+            scoped_work &operator=(scoped_work const &) = delete;
+        };
         bool bit_propagation, batch_enabled, sparse_enabled;
         basis_cache *memo = nullptr;
         unsigned m_bit_facts = 0, m_bit_rounds = 0;

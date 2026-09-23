@@ -8,6 +8,33 @@
 
 namespace ff {
     struct test_engine {
+        static void work_accounting() {
+            reslimit limit;
+            engine e(rational(7), limit, 3);
+            e.tick();
+            bool failed = false;
+            try {
+                engine::scoped_work outer(e, engine::pair_work);
+                e.tick();
+                engine::scoped_work inner(e, engine::scalar_work);
+                e.tick();
+                e.tick();
+            }
+            catch (exhausted const &) { failed = true; }
+            ENSURE(failed && e.work == 4 && e.m_work_phase == engine::other_work);
+            ENSURE(e.m_phase_work[engine::other_work] == 1);
+            ENSURE(e.m_phase_work[engine::pair_work] == 1);
+            ENSURE(e.m_phase_work[engine::scalar_work] == 2);
+            e.max_work = 10;
+            e.tick();
+            statistics st;
+            e.collect_statistics(st);
+            unsigned total = 0;
+            for (unsigned i = 0; i < st.size(); ++i)
+                if (std::string(st.get_key(i)).starts_with("ff work ")) total += st.get_uint_value(i);
+            ENSURE(total == e.steps() && total == 5);
+            std::cout << "Exclusive work accounting preserves nested scopes, failing ticks and subsequent reuse\n";
+        }
         static void minimal_polynomial_provenance() {
             reslimit limit;
             engine builder(rational(5), limit, 1000000, 4096, false, false, false);
@@ -331,6 +358,7 @@ static void test_ff_scalar_recovery() {
 }
 
 void tst_finite_field() {
+    ff::test_engine::work_accounting();
     ff::test_engine::minimal_polynomial_provenance();
     ff::test_engine::minimal_polynomial_guard_budget();
     ff::test_engine::lazy_matrix_equivalence();
