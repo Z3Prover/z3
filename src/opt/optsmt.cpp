@@ -31,6 +31,7 @@ Notes:
 #include <typeinfo>
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
+#include "opt/opt_geometric.h"
 #include "opt/opt_nlsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
@@ -141,39 +142,25 @@ namespace opt {
         vector<inf_eps> previous_lower;
         for (auto const& value : m_lower)
             previous_lower.push_back(value.rational_bound());
-        unsigned steps = 0;
-        unsigned step_incs = 0;
-        rational delta_per_step(1);
+        geometric_step step;
         scoped_pushes scopes(*m_s);
         unsigned delta_index = 0;    // index of objective to speed up.
         bool has_bound = false;      // is the current objective bounded by a constraint.
 
         while (m.inc()) {
-            SASSERT(delta_per_step.is_int());
-            SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
             if (is_sat == l_true) { 
                 bound = update_lower();
                 if (!m.is_true(bound))
                     has_bound = true;
-                if (!can_increment_delta(previous_lower, delta_index)) {
-                    delta_per_step = 1;
-                }
-                else if (steps > step_incs) {
-                    delta_per_step *= rational(2);
-                    ++step_incs;
-                    steps = 0;
-                }
-                else {
-                    ++steps;
-                }
-                if (delta_per_step > rational::one()) {
+                step.update(can_increment_delta(previous_lower, delta_index));
+                if (step.value() > rational::one()) {
                     scopes.push();
                     // only try to improve delta_index. 
-                    bound = m_s->mk_ge(delta_index, lower(delta_index) + inf_eps(delta_per_step));
+                    bound = m_s->mk_ge(delta_index, lower(delta_index) + inf_eps(step.value()));
                 }
                 TRACE(opt, tout << mk_pp(m_objs.get(delta_index), m) << " index: " << delta_index
-                      << " delta: " << delta_per_step << " bound: " << bound
+                      << " delta: " << step.value() << " bound: " << bound
                       << " " << lower(delta_index) << " " << upper(delta_index) << "\n");
                 if (bound == last_bound) {
                     is_sat = l_false;
@@ -186,10 +173,8 @@ namespace opt {
                     continue;
                 }
             }
-            if (is_sat == l_false && delta_per_step > rational::one()) {
-                steps = 0;
-                step_incs = 0;
-                delta_per_step = 1;
+            if (is_sat == l_false && step.value() > rational::one()) {
+                step.reset();
                 scopes.pop();
                 last_bound = nullptr;
             }
@@ -204,9 +189,7 @@ namespace opt {
                 }
                 if (all_tight || delta_index + 1 == m_lower.size())
                     break;
-                delta_per_step = 1;
-                steps = 0;
-                step_incs = 0;
+                step.reset();
                 ++delta_index;
                 has_bound = false;
             }
@@ -239,9 +222,7 @@ namespace opt {
         lbool is_sat = l_true;
         expr_ref bound(m), last_bound(m);
 
-        unsigned steps = 0;
-        unsigned step_incs = 0;
-        rational delta_per_step(1);
+        geometric_step step;
         scoped_pushes scopes(*m_s);
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
         inf_eps const infty(rational(1), inf_rational(0));
@@ -260,8 +241,6 @@ namespace opt {
         unsigned unbounded_check_rlimit = 100000;
 
         while (m.inc()) {
-            SASSERT(delta_per_step.is_int());
-            SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
             TRACE(opt, tout << "check " << is_sat << "\n";
                   tout << "last bound: " << last_bound << " bound " << bound << "\n";
@@ -280,17 +259,7 @@ namespace opt {
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 TRACE(opt, tout << "saved objective: " << obj << "\n";);
                 update_lower_lex(obj_index, obj, is_maximize);
-                if (!is_int || !m_lower[obj_index].is_finite()) {
-                    delta_per_step = rational(1);
-                }
-                else if (steps > step_incs) {
-                    delta_per_step *= rational(2);
-                    ++step_incs;
-                    steps = 0;
-                }
-                else {
-                    ++steps;
-                }
+                step.update(is_int && m_lower[obj_index].is_finite());
                 // A real objective may improve forever without refuting an
                 // upper bound. After a streak, use prove_unbounded_above to
                 // commit +oo with the current model as a witness. Bounded
@@ -318,10 +287,10 @@ namespace opt {
                 // model-derived tightening so the search keeps making progress
                 // toward the true optimum instead of terminating prematurely
                 // (issue #10028).
-                if (!bound_valid || delta_per_step > rational::one() || (obj == last_objective && is_int)) {
+                if (!bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
                     scopes.push();
-                    bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
-                    step_bound = obj + inf_eps(delta_per_step);
+                    bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
+                    step_bound = obj + inf_eps(step.value());
                 }
                 last_objective = obj;
                 if (bound == last_bound) {
@@ -344,8 +313,8 @@ namespace opt {
                         // infeasible the loop terminates through the l_false
                         // branch below with the best proven bound.
                         scopes.push();
-                        bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
-                        step_bound = obj + inf_eps(delta_per_step);
+                        bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
+                        step_bound = obj + inf_eps(step.value());
                     }
                     if (bound == last_bound)
                         break;
@@ -353,10 +322,8 @@ namespace opt {
                 m_s->assert_expr(bound);
                 last_bound = bound;
             }
-            else if (is_sat == l_false && delta_per_step > rational::one()) {
-                steps = 0;
-                step_incs = 0;
-                delta_per_step = rational::one();
+            else if (is_sat == l_false && step.value() > rational::one()) {
+                step.reset();
                 scopes.pop();
             }
             else {
