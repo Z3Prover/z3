@@ -20,6 +20,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/recfun_rewriter.h"
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"
 #include "qe/mbp/mbp_datatypes.h"
@@ -35,7 +36,8 @@ namespace q {
         ctx(ctx),
         m_qs(s),
         m(s.get_manager()),
-        m_model_fixer(ctx, m_qs) {
+        m_model_fixer(ctx, m_qs),
+        m_recfun_rw(m) {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
         ap->set_apply_projection(true);
@@ -521,11 +523,18 @@ namespace q {
         for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
-            if (is_uninterp(s) && to_app(s)->get_num_args() > 0) {
+            // Ground structurally decreasing recursion is evaluated by MBQI, so its
+            // non-ground arguments require the same domain restrictions as AUF heads.
+            if (!is_app(s))
+                continue;
+            app* a = to_app(s);
+            if (a->get_num_args() == 0)
+                continue;
+            if (is_uninterp(a) || m_recfun_rw.is_recfun_with_ground_recursion_args(a)) {
                 unsigned i = 0;
-                for (expr* arg : *to_app(s)) {
+                for (expr* arg : *a) {
                     if (!is_ground(arg) && !is_uninterp(arg) && !qb.is_free(arg))
-                        qb.var_args.push_back(std::make_pair(to_app(s), i));
+                        qb.var_args.push_back(std::make_pair(a, i));
                     ++i;
                 }
             }

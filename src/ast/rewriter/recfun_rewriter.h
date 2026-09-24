@@ -18,16 +18,18 @@ Author:
 
 #pragma once
 
+#include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter.h"
 
 class recfun_rewriter {
     ast_manager& m;
     recfun::util  m_rec;
+    datatype::util m_dt;
     bool m_recfun_unfold = false;
 
 public:
-    recfun_rewriter(ast_manager& m): m(m), m_rec(m) {}
+    recfun_rewriter(ast_manager& m): m(m), m_rec(m), m_dt(m) {}
     
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
@@ -41,9 +43,15 @@ public:
     */
     bool is_decreasing_arg(func_decl* f, unsigned i, bool allow_any_accessor);
 
+    /**
+       \brief Check whether t is a recursive-function application that can be safely
+       evaluated by MBQI because it has a ground, structurally decreasing datatype
+       argument and all non-ground arguments have uninterpreted sorts.
+    */
+    bool is_recfun_with_ground_recursion_args(app* t);
+
     family_id get_fid() const { return m_rec.get_family_id(); }
 
     void updt_params(params_ref const &p);
 
 };
-
