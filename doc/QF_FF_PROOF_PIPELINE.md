@@ -6,6 +6,11 @@ Carcara finite-field branch and FFPacheck, with pinned sources and a small local
 FFPacheck completion patch. It does not claim that the artifact VM contains
 these exact revisions, stock Carcara compatibility, or Lean acceptance.
 
+The [third milestone](QF_FF_BOOLEAN_PROOFS.md) now adds checked Boolean/ITE
+reasoning and deep-input support. The results and narrower profile documented
+below describe the second milestone; the CLI automatically selects the new
+profile for inputs outside the legacy literal-conjunction path.
+
 ## Run and independently recheck
 
 Build the external checkers using
@@ -27,7 +32,7 @@ not a substitute for rechecking files after they change. Nonzero exit means the
 pipeline has not certified the problem. Unsupported input and bounded
 reconstruction failure are never reported as SAT.
 
-The supported original-input profile is a conjunction of field equalities and
+The legacy `z3-ff-alethe-pac-v1` original-input profile is a conjunction of field equalities and
 **disequalities**, over one prime field, with constants, nullary definitions,
 lets, named assertions and addition/multiplication/negation. The polynomial
 reconstruction remains the existing bounded scalar `ff-certify` command. There
@@ -35,7 +40,7 @@ are no changes to default solving, native Z3 proofs, or the optimized solver's
 execution path. This is standalone reconstruction, not proof logging for every
 successful Z3 UNSAT answer.
 
-General Boolean formulas, Boolean declarations, ITEs, UF/theory-combination
+In this legacy profile, general Boolean formulas, Boolean declarations, ITEs, UF/theory-combination
 steps, implicit field/root reasoning, incremental scripts, mixed fields and
 `ff.bitsum` are outside this external-checker profile. The legacy independent
 positive-equation checker continues to support bitsum. The existing 200-level
@@ -133,7 +138,7 @@ under `tests/finite_field/results/fmcad-proof-pipeline-v2/` (ignored benchmark
 artifacts). A small checked disequality fixture is tracked under
 `tests/finite_field/fixtures/certificates/artifact-disequality/`.
 
-## Next implementation priorities
+## Priorities identified at this milestone (see the third-milestone update)
 
 - Replace recursive/limited front-end expansion with a bounded shared term
   representation, to support deeply nested artifact inputs without duplicating

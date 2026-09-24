@@ -3,7 +3,9 @@
 This is the historical first certificate screen. The subsequent
 [Alethe/PAC pipeline](QF_FF_PROOF_PIPELINE.md) checks 135/390 original inputs
 through our independent checker and pinned public Carcara/FFPacheck sources.
-The paper's reported results below remain separate from our measurements.
+The [third milestone](QF_FF_BOOLEAN_PROOFS.md) extends that screen with
+Boolean/ITE proofs and deep-input support. The paper's reported results below
+remain separate from our measurements.
 
 ## Reference pipeline and published results
 

@@ -29,27 +29,20 @@ def execute(job):
     signal.signal(signal.SIGALRM, expired)
     signal.setitimer(signal.ITIMER_REAL, timeout)
     try:
-        normalized = pp.LiteralProblem(text).normalized()
+        prepared = pp.prepare_profile(text)
         out.mkdir()
         (out / 'problem.smt2').write_text(text)
-        solver = pp.run([z3, '-in'], timeout, normalized + f'(ff-certify :timeout {int(timeout * 900)})\n')
-        result['producer_seconds'] = solver['seconds']
-        dag = solver['stdout']
-        if not dag.startswith('(ff-certificate\n'):
-            result.update(status='unavailable', reason=dag.strip())
-        else:
-            t = time.monotonic()
-            normalized, alethe, pac = pp.export_artifact(text, dag)
-            result['export_seconds'] = time.monotonic() - t
-            for name, data in [('certificate.ffcert', dag), ('polynomial-input.smt2', normalized),
-                               ('proof.alethe', alethe), ('proof.pac', pac)]:
-                (out / name).write_text(data)
-            stages = pp.check_bundle(out, carcara, ffpacheck, timeout)
-            result.update(status='checked', stages=stages,
-                          bytes=dict(dag=len(dag.encode()), alethe=len(alethe.encode()), pac=len(pac.encode())))
+        t = time.monotonic()
+        producer = pp.produce_bundle(text, out, z3, timeout, prepared)
+        result['producer_seconds'] = time.monotonic() - t
+        stages = pp.check_bundle(out, carcara, ffpacheck, timeout)
+        result.update(status='checked', stages=stages, profile=producer['profile'],
+                      field_lemmas=producer['field_lemmas'],
+                      bytes={suffix: sum(p.stat().st_size for p in out.iterdir() if p.suffix == suffix)
+                             for suffix in ('.ffcert', '.json', '.alethe', '.pac', '.smt2')})
     except (pp.fc.Invalid, ValueError, TypeError, IndexError, KeyError, OSError, RecursionError) as e:
         result['reason'] = str(e)
-        result['status'] = 'timeout' if 'timeout' in str(e) else 'rejected' if out.exists() else 'unsupported'
+        result['status'] = 'timeout' if 'timeout' in str(e) else 'unavailable' if 'certificate unavailable' in str(e) or 'no certificate:' in str(e) or 'limit' in str(e) else 'rejected' if out.exists() else 'unsupported'
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
     result['seconds'] = time.monotonic() - start
@@ -73,6 +66,8 @@ def main():
     (args.out / 'selection.json').write_text(json.dumps(list(selected.values()), indent=2))
     metadata = dict(timeout=args.timeout, jobs=args.jobs, budget='whole pipeline wall time per distinct input',
                     memory_limit='none (bounded Python checker and Z3 reconstruction)', members=len(members),
+                    implementation_sha256={name: pp.digest(ROOT / 'scripts' / name) for name in
+                                           ['ff_certificate.py', 'ff_proof_pipeline.py', 'ff_boolean_proof.py']},
                     carcara_revision=pp.CARCARA_REVISION, ffpacheck_revision=pp.FFPACHECK_REVISION,
                     ffpacheck_patch='tests/finite_field/proof_checkers/ffpacheck-completion.patch',
                     binaries={k: dict(path=str(getattr(args,k).resolve()), sha256=pp.digest(getattr(args,k)))

@@ -9,6 +9,8 @@ V1 dependency sets still identify premises only, and cannot replace a derivation
 The second milestone adds the [original-input Alethe/PAC pipeline](QF_FF_PROOF_PIPELINE.md),
 including checked disequality witnesses and real Carcara/FFPacheck runs. The
 first-milestone format and shell command described below remain supported.
+The [third milestone](QF_FF_BOOLEAN_PROOFS.md) adds checked Boolean resolution,
+field/Boolean ITEs and an iterative shared-term front end to that pipeline.
 
 ## Implemented: polynomial refutations from original equations
 
