@@ -190,6 +190,16 @@ are bounded. The heuristic does not guarantee a smaller final matrix and adds
 no solves in the measured cohort. It remains opt-in. See
 [QF_FF_PERFORMANCE_ROUND11.md](QF_FF_PERFORMANCE_ROUND11.md).
 
+Round 12 adds `ff.adaptive_basis` (false), which permits up to 1,024 active rows
+within estimated retained-basis and pair-record storage budgets, and removes
+stale pair records at safe batch boundaries. The default retained-basis budget
+is 16 MiB; `ff.basis_max_bytes` can adjust it, capped at 1 GiB. The separate pair
+budget remains 16 MiB. Existing work, polynomial, matrix and historical-slot
+limits remain active. The policy applies to both scalar and matrix basis paths;
+only the batched path retires rows and needs stale-pair cleanup. It adds no solves
+on the measured cohort, so defaults remain unchanged. See
+[QF_FF_PERFORMANCE_ROUND12.md](QF_FF_PERFORMANCE_ROUND12.md).
+
 A residual formula whose only free variables are explicitly Boolean
 field elements can be evaluated exhaustively without polynomial expansion.
 Characteristic-two variables need no additional Booleanity premise.

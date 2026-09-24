@@ -85,6 +85,16 @@ Nineteen regression commands pass, including 1,024 basis-configuration checks.
 The [round-11 report](QF_FF_PERFORMANCE_ROUND11.md) records the coverage-neutral
 result and why shorter individual rows need not reduce the full matrix.
 
+## Follow-up: round-12 basis admission and pair storage
+
+Review per-row storage accounting and retirement subtraction, the separate pair
+capacity bound, and cleanup at batch boundaries. Live basis and premise indices
+are never renumbered. The implementation remains opt-in; the report separates
+normal-budget screening from larger-memory/work diagnostics. Twenty regression
+commands pass, including 1,152 basis-configuration checks and 300-row admission,
+guard/reuse and retirement fixtures over small and cryptographic primes. See
+[round 12](QF_FF_PERFORMANCE_ROUND12.md) for the resource findings and default decision.
+
 ## Source and data boundaries
 
 Source commits include tests, benchmark tools, small fixtures, and manifests.
