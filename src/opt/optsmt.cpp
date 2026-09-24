@@ -100,40 +100,6 @@ namespace opt {
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool optsmt::basic_opt() {
-        lbool is_sat = l_true;
-
-        expr_ref bound(m.mk_true(), m), tmp(m);
-        expr* vars[1];
-
-        solver::scoped_push _push(*m_s);
-        while (is_sat == l_true && m.inc()) {
-
-            tmp = m.mk_fresh_const("b", m.mk_bool_sort());            
-            vars[0] = tmp;
-            bound = m.mk_implies(tmp, bound);
-            m_s->assert_expr(bound);
-            is_sat = m_s->check_sat(1, vars); 
-            if (is_sat == l_true) {
-                bound = update_lower();
-            }
-        }      
-        
-        if (!m.inc() || is_sat == l_undef) {
-            return l_undef;
-        }
-
-        // set the solution tight.
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            m_upper[i] = m_lower[i];
-        }
-        
-        return l_true;        
-    }
-
-    /*
-        Enumerate locally optimal assignments until fixedpoint.
-    */
     lbool optsmt::geometric_opt() {
         lbool is_sat = l_true;
 
@@ -710,74 +676,6 @@ namespace opt {
         IF_VERBOSE(2, verbose_stream() << "(optsmt.lower " << m_lower << ")\n";);
         return mk_or(disj);
     }
-
-    lbool optsmt::update_upper() {
-        smt::theory_opt& opt = m_s->get_optimizer();
-        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
-        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-        expr_ref bound(m);
-        expr_ref_vector bounds(m);
-
-        solver::scoped_push _push(*m_s);
-
-        //
-        // NB: we have to create all bound expressions before calling check_sat
-        // because the state after check_sat is not at base level.
-        //
-
-        vector<inf_eps> mid;
-
-        for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
-            if (lower(i) < upper(i)) {
-                mid.push_back((upper(i)+lower(i))/rational(2));
-                bound = m_s->mk_ge(i, mid[i]);
-                bounds.push_back(bound);
-            }
-            else {
-                bounds.push_back(nullptr);
-                mid.push_back(inf_eps());
-            }
-        }
-        bool progress = false;
-        for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
-            if (lower(i) <= mid[i] && mid[i] <= upper(i) && lower(i) < upper(i)) {
-                th.enable_record_conflict(bounds.get(i));
-                lbool is_sat = m_s->check_sat(1, bounds.data() + i);
-                switch(is_sat) {
-                case l_true:
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << upper(i) << ")\n";);
-                    m_lower[i] = mid[i];
-                    th.enable_record_conflict(nullptr);
-                    m_s->assert_expr(update_lower());
-                    break;
-                case l_false:
-                    IF_VERBOSE(2, verbose_stream() << "(optsmt conflict: " << th.conflict_minimize() << ") \n";);
-                    if (!th.conflict_minimize().is_finite()) {
-                        // bounds is not in the core. The context is unsat.
-                        m_upper[i] = m_lower[i];
-                        return l_false;
-                    }
-                    else {
-                        m_upper[i] = std::min(upper(i), th.conflict_minimize());
-                    }
-                    break;
-                default:
-                    th.enable_record_conflict(nullptr);
-                    return l_undef;
-                }
-                th.enable_record_conflict(nullptr);
-                progress = true;
-            }
-        }
-        if (!m.inc()) {
-            return l_undef;
-        }
-        if (!progress) {
-            return l_false;
-        }
-        return l_true;
-    }
-
 
     void optsmt::setup(opt_solver& solver) {
         m_s = &solver;

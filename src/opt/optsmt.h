@@ -78,8 +78,6 @@ namespace opt {
 
         void reset();
 
-        lbool basic_opt();
-        
         bool can_increment_delta(vector<inf_eps> const& lower, unsigned i);
 
     private:
@@ -104,8 +102,6 @@ namespace opt {
         expr_ref update_lower();
 
         void update_lower_lex(unsigned idx, inf_eps const& r, bool is_maximize);
-
-        lbool update_upper();
 
     };
 
