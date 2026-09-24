@@ -76,6 +76,15 @@ build passes 18 regression commands, including 768 basis-configuration checks
 and 60 exact eager/fused remainder comparisons across field sizes. See the
 [round-10 report](QF_FF_PERFORMANCE_ROUND10.md) for benchmark evidence and limits.
 
+## Follow-up: round-11 symbolic reducer selection
+
+The implementation commit adds an opt-in choice heuristic without changing the
+retained basis or resource thresholds. Check ideal preservation with the old
+basis, stable ties, and propagation of the chosen row's premises and sugar.
+Nineteen regression commands pass, including 1,024 basis-configuration checks.
+The [round-11 report](QF_FF_PERFORMANCE_ROUND11.md) records the coverage-neutral
+result and why shorter individual rows need not reduce the full matrix.
+
 ## Source and data boundaries
 
 Source commits include tests, benchmark tools, small fixtures, and manifests.

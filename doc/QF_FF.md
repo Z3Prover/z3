@@ -183,6 +183,13 @@ coefficients, sugar metadata and conflict premises across field sizes. Phase
 counters count charged work, not elapsed time. See
 [QF_FF_PERFORMANCE_ROUND10.md](QF_FF_PERFORMANCE_ROUND10.md) for the measurements.
 
+Round 11 adds `ff.sparse_matrix_reducers` (false), which prefers shorter valid
+basis rows during matrix symbolic preprocessing, breaking ties by basis order.
+Chosen premises and sugar metadata are preserved; selection work and storage
+are bounded. The heuristic does not guarantee a smaller final matrix and adds
+no solves in the measured cohort. It remains opt-in. See
+[QF_FF_PERFORMANCE_ROUND11.md](QF_FF_PERFORMANCE_ROUND11.md).
+
 A residual formula whose only free variables are explicitly Boolean
 field elements can be evaluated exhaustively without polynomial expansion.
 Characteristic-two variables need no additional Booleanity premise.
