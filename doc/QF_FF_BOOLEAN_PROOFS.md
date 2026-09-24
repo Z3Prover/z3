@@ -1,5 +1,9 @@
 # Checked Boolean/ITE reasoning and deep inputs: third v2 milestone
 
+For the subsequent search improvements and current **355/390** checked coverage,
+see [the fourth milestone](QF_FF_PROOF_SEARCH.md). The results below record the
+original Boolean/ITE milestone.
+
 The standalone proof pipeline now handles general Boolean combinations of
 prime-field equalities/disequalities and field-valued ITEs. It retains the
 existing literal-conjunction path where applicable and automatically selects
