@@ -523,6 +523,8 @@ namespace q {
         for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
+            // Ground structurally decreasing recursion is evaluated by MBQI, so its
+            // non-ground arguments require the same domain restrictions as AUF heads.
             if (is_app(s) &&
                 (is_uninterp(s) || m_recfun_rw.is_recfun_with_ground_recursion_args(to_app(s))) &&
                 to_app(s)->get_num_args() > 0) {
