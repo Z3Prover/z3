@@ -979,6 +979,10 @@ lbool core::check(unsigned level) {
     bool run_grobner = need_run_grobner();
     bool run_horner = need_run_horner();
     bool run_bounds = params().arith_nl_branching();
+    // Model-based basic lemmas are effective on small systems, but their
+    // factorization lemmas can overwhelm branching on larger systems.
+    constexpr unsigned delayed_branch_monomial_limit = 8;
+    bool delay_bounds = run_bounds && m_emons.number_of_monics() <= delayed_branch_monomial_limit;
 
     auto no_effect = [&]() { return ret == l_undef && !done() && !m_nla_satisfied && m_lemmas.empty() && m_literals.empty() && !m_check_feasible; };
     
@@ -1000,11 +1004,21 @@ lbool core::check(unsigned level) {
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
+        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
 
-        std::pair<unsigned, std::function<void(void)>> checks[] =
-            { {1, check1},
-              {1, check2} };
-        check_weighted(2, checks);
+        if (delay_bounds) {
+            std::pair<unsigned, std::function<void(void)>> checks[] =
+                { {1, check1},
+                  {1, check2} };
+            check_weighted(2, checks);
+        }
+        else {
+            std::pair<unsigned, std::function<void(void)>> checks[] =
+                { {1, check1},
+                  {1, check2},
+                  {1, check3} };
+            check_weighted(3, checks);
+        }
 
         if (lp_settings().get_cancel_flag())
             return l_undef;
@@ -1033,7 +1047,13 @@ lbool core::check(unsigned level) {
     if (no_effect()) 
         m_basics.basic_lemma(true); 
 
-    if (no_effect()) 
+    if (no_effect() && delay_bounds)
+        m_basics.basic_lemma(false);
+
+    if (no_effect() && delay_bounds)
+        add_bounds();
+
+    if (no_effect() && !delay_bounds)
         m_basics.basic_lemma(false);
 
     if (no_effect()) 
@@ -1069,10 +1089,6 @@ lbool core::check(unsigned level) {
         lp_settings().stats().m_nra_calls++;
     }
 
-    // Prefer algebraic refinement before introducing integer case splits.
-    if (no_effect() && run_bounds)
-        add_bounds();
-    
     if (ret == l_undef && !no_effect() && m_reslim.inc()) 
         ret = l_false;
 
