@@ -19,6 +19,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_preprocessing
 import proof_to_lean
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
@@ -84,6 +85,75 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertGreater(certificate["rule_counts"]["def-axiom"], 0)
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
+
+    def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        context = z3.Context()
+        assertions = proof_certificate.parse_propositional_assertions(source, context)
+        without_equality = z3.SimpleSolver(ctx=context)
+        without_equality.add(list(assertions)[1:])
+        self.assertEqual(without_equality.check(), z3.sat)
+        goal = z3.Goal(ctx=context)
+        goal.add(assertions)
+        reduced = z3.Tactic("solve-eqs", ctx=context)(goal)
+        self.assertEqual(len(reduced), 1)
+        self.assertEqual(len(reduced[0]), 4)
+        self.assertFalse(reduced[0].inconsistent())
+
+        report = proof_preprocessing.audit_preprocessing(source, require_search=True)
+        self.assertEqual(len(report["runs"]), 4)
+        for run in report["runs"]:
+            with self.subTest(pipeline=run["pipeline"], proofs=run["proofs_enabled"]):
+                self.assertEqual(run["result"], "unsat")
+                self.assertTrue(run["branching_search_observed"])
+                self.assertEqual(run["preprocessing_observed"],
+                                 run["statistics"].get("solve-eqs-elim-vars", 0) > 0)
+                if not run["proofs_enabled"]:
+                    self.assertTrue(run["preprocessing_observed"])
+                    self.assertEqual(run["proof_status"], "disabled")
+                else:
+                    self.assertIn(run["proof_status"], (
+                        "lean-checked", "native-proof-error", "reconstruction-rejected", "lean-rejected"))
+                    if run["proof_status"] != "lean-checked" or not run["preprocessing_observed"]:
+                        self.assertTrue(run["diagnostics"])
+        self.assertEqual(report["complete"], all(
+            run["preprocessing_observed"]
+            and (not run["proofs_enabled"] or run["proof_status"] == "lean-checked")
+            for run in report["runs"]))
+
+    def test_preprocessing_audit_also_covers_preprocessing_only_refutations(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "unit_resolution.smt2").read_text()
+        report = proof_preprocessing.audit_preprocessing(source)
+        for run in report["runs"]:
+            self.assertEqual(run["result"], "unsat")
+            if not run["proofs_enabled"]:
+                self.assertTrue(run["preprocessing_observed"])
+                self.assertFalse(run["branching_search_observed"])
+            elif run["proof_status"] != "lean-checked" or not run["preprocessing_observed"]:
+                self.assertTrue(run["diagnostics"])
+        self.assertEqual(report["complete"], all(
+            run["preprocessing_observed"]
+            and (not run["proofs_enabled"] or run["proof_status"] == "lean-checked")
+            for run in report["runs"]))
+
+    def test_preprocessing_audit_cli_never_reports_bypasses_as_success(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            original = Path(directory) / "input with spaces.smt2"
+            original.write_text(source)
+            command = [sys.executable, str(_EXAMPLES / "proof_preprocessing.py"),
+                       str(original), "--require-search"]
+            result = subprocess.run(command, capture_output=True, text=True)
+            report = json.loads(result.stdout)
+            self.assertEqual(result.returncode, 0 if report["complete"] else 1, result.stderr)
+            self.assertEqual(len(report["runs"]), 4)
+            if not report["complete"]:
+                self.assertIn("proof coverage is incomplete", result.stderr)
+            result = subprocess.run(command + ["--timeout-ms", "0"], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("positive integer", result.stderr)
+            self.assertEqual(original.read_text(), source)
+            self.assertEqual(list(Path(directory).iterdir()), [original])
 
     def test_all_def_axiom_gate_schemas_and_literal_orders(self):
         source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"

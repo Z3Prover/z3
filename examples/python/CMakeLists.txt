@@ -6,6 +6,7 @@ set(python_example_files
   mus/marco.py
   mus/mss.py
   proof_certificate.py
+  proof_preprocessing.py
   proof_to_lean.py
   socrates.py
   test_proof_certificate.py

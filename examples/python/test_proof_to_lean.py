@@ -20,6 +20,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_preprocessing
 import proof_to_lean
 
 
@@ -173,6 +174,89 @@ class TestProofToLean(unittest.TestCase):
             certificate = proof_certificate.export_certificate(source)
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
+
+    def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
+        successful = [{
+            "pipeline": pipeline, "proofs_enabled": proofs, "result": "unsat",
+            "preprocessing_observed": True, "branching_search_observed": True,
+            "proof_status": "lean-checked" if proofs else "disabled",
+            "diagnostics": [],
+        } for pipeline in ("simplifier", "tactic") for proofs in (False, True)]
+        with patch.object(proof_preprocessing, "_run_pipeline", side_effect=copy.deepcopy(successful)) as run:
+            self.assertTrue(proof_preprocessing.audit_preprocessing(LITERAL, require_search=True)["complete"])
+            self.assertEqual(run.call_count, 4)
+        for index, field, value in [
+            (0, "result", "sat"), (1, "result", "unknown"),
+            (1, "preprocessing_observed", False), (1, "branching_search_observed", False),
+            (1, "proof_status", "reconstruction-rejected"),
+            (3, "proof_status", "lean-rejected"), (3, "proof_status", "native-proof-error"),
+        ]:
+            with self.subTest(index=index, field=field, value=value):
+                runs = copy.deepcopy(successful)
+                runs[index][field] = value
+                with patch.object(proof_preprocessing, "_run_pipeline", side_effect=runs):
+                    report = proof_preprocessing.audit_preprocessing(LITERAL, require_search=True)
+                self.assertFalse(report["complete"])
+        for require_search in [False, True]:
+            runs = copy.deepcopy(successful)
+            for run in runs:
+                run["branching_search_observed"] = False
+            with patch.object(proof_preprocessing, "_run_pipeline", side_effect=runs):
+                report = proof_preprocessing.audit_preprocessing(LITERAL, require_search=require_search)
+            self.assertEqual(report["complete"], not require_search)
+
+    def test_preprocessing_audit_reports_reconstruction_and_lean_errors(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        errors = [
+            (proof_to_lean.ReconstructionError("incorrect substitution proof"), "reconstruction-rejected"),
+            (subprocess.CalledProcessError(1, ["lean"], output="bad proof", stderr="rejected"), "lean-rejected"),
+        ]
+        for pipeline, (error, status) in itertools.product(("simplifier", "tactic"), errors):
+            with self.subTest(pipeline=pipeline, status=status):
+                with patch.object(proof_preprocessing, "check_and_write", side_effect=error) as checker:
+                    report = proof_preprocessing._run_pipeline(source, pipeline, True, 10000)
+                self.assertEqual(report["proof_status"], status)
+                self.assertTrue(report["diagnostics"])
+                self.assertTrue(report["native_proof"])
+                self.assertEqual(checker.call_args.args[0], source)
+                certificate = checker.call_args.args[1]
+                self.assertEqual(certificate["source_smt2"], source)
+                self.assertEqual(certificate["verification"], "unverified")
+                self.assertEqual(len(certificate["assertions"]), 5)
+                proof_to_lean._bind_input(source, proof_to_lean._validate_graph(source, certificate))
+                self.assertFalse(checker.call_args.args[2].exists())
+
+    def test_preprocessing_audit_does_not_replay_non_unsat_results(self):
+        source = "(declare-const p Bool)(assert p)"
+        with patch.object(proof_preprocessing, "check_and_write") as checker:
+            report = proof_preprocessing._run_pipeline(source, "simplifier", True, 10000)
+        checker.assert_not_called()
+        self.assertEqual(report["result"], "sat")
+        self.assertEqual(report["proof_status"], "unavailable")
+        self.assertTrue(report["diagnostics"])
+        with patch.object(z3.Solver, "check", return_value=z3.unknown), \
+                patch.object(z3.Solver, "reason_unknown", return_value="test resource limit"), \
+                patch.object(proof_preprocessing, "check_and_write") as checker:
+            report = proof_preprocessing._run_pipeline(source, "tactic", True, 10000)
+        checker.assert_not_called()
+        self.assertEqual(report["result"], "unknown")
+        self.assertIn("unknown: test resource limit", report["diagnostics"])
+
+    def test_preprocessing_audit_reports_missing_native_proofs(self):
+        with patch.object(z3.Solver, "proof", side_effect=z3.Z3Exception("native proof is unavailable")), \
+                patch.object(proof_preprocessing, "check_and_write") as checker:
+            report = proof_preprocessing._run_pipeline(BRANCHING, "tactic", True, 10000)
+        checker.assert_not_called()
+        self.assertEqual(report["result"], "unsat")
+        self.assertEqual(report["proof_status"], "native-proof-error")
+        self.assertIn("native proof is unavailable", report["diagnostics"])
+        self.assertNotIn("native_proof", report)
+
+    def test_preprocessing_audit_requires_a_positive_timeout(self):
+        for timeout in [0, -1, True, 1.0, "10"]:
+            with self.subTest(timeout=timeout):
+                with self.assertRaisesRegex(ValueError, "positive integer"):
+                    proof_preprocessing.audit_preprocessing(LITERAL, timeout_ms=timeout)
 
     def test_def_axiom_signatures_are_checked(self):
         original = proof_certificate.export_certificate(XOR)

@@ -139,6 +139,35 @@ Definition introduction and other native rules remain unsupported. These and
 a formalized encoding connection must be addressed before claiming general
 Boolean proof support. Arithmetic and other theories remain later milestones.
 
+## Preprocessing evidence audit
+
+Before expanding the checker further, exercise native simplifiers explicitly.
+`examples/python/proof_preprocessing.py` compares the simplifier API
+(`solve-eqs` wrapping `SimpleSolver`) with the `solve-eqs`/`smt` tactic chain,
+each with proof generation off and on. It records elimination and search
+statistics separately from proof validity and checks every available native
+refutation against the original input using the existing Lean consumer.
+
+`lean/examples/boolean_solve_eqs.smt2` requires its equality for unsatisfiability:
+elimination leaves four clauses and search still makes decisions and conflicts.
+Use `--require-search` for this case. The existing unit-resolution example
+covers contradictions closed by preprocessing alone; a search step is not
+required in that case.
+
+The current audit exposes incomplete native evidence. The simplifier wrapper
+does run `solve-eqs`, but substitution proofs are not composed correctly; the
+consumer rejects malformed `mp` or `unit-resolution` steps. The tactic wrapper
+skips this simplifier in proof mode, so its valid proof does not demonstrate
+preprocessing proof support. The diagnostic returns failure for both gaps,
+rather than accepting an unchecked refutation or counting a skipped pass as
+coverage.
+
+The next native-proof obligation is to carry evidence through equality
+extraction, substitution normalization/application, and solver proof conversion.
+Only then should `solve-eqs` advertise proof support. Preprocessing-only proofs
+and preprocessing followed by search must both preserve the original assertion
+boundary; checking a SAT proof of an unrelated or unverified CNF is insufficient.
+
 ## Completed first-milestone evidence
 
 - CMake/Ninja Release build with local Python bindings; full native build

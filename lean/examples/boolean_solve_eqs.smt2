@@ -1,0 +1,12 @@
+; The equality is essential; eliminating p leaves four clauses requiring search.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(assert (= p q))
+(assert (or p r))
+(assert (or p (not r)))
+(assert (or (not q) r))
+(assert (or (not q) (not r)))
+(check-sat)
+(get-proof)
