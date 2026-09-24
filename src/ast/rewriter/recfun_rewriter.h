@@ -41,9 +41,15 @@ public:
     */
     bool is_decreasing_arg(func_decl* f, unsigned i, bool allow_any_accessor);
 
+    /**
+       \brief Check whether t is a recursive-function application that can be safely
+       evaluated by MBQI because it has a ground, structurally decreasing datatype
+       argument and all non-ground arguments have uninterpreted sorts.
+    */
+    bool is_recfun_with_ground_recursion_args(app* t);
+
     family_id get_fid() const { return m_rec.get_family_id(); }
 
     void updt_params(params_ref const &p);
 
 };
-
