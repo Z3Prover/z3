@@ -1,8 +1,119 @@
-# Certificate contract for v2
+# QF_FF certificates: first v2 milestone and remaining contract
 
-This is a design contract, not implemented proof reconstruction. V1's dependency
-sets identify input constraints used by a conflict; they do not justify the
-algebra. Proof-producing QF_FF checks remain explicitly unsupported.
+The first v2 milestone implements standalone polynomial refutation certificates,
+including arbitrary-precision prime fields. It uses an explicit reconstruction
+command; normal solving and `get-proof` retain their existing behavior. The
+optimized QF_FF solver does not yet record a complete proof of its own execution.
+V1 dependency sets still identify premises only, and cannot replace a derivation.
+
+## Implemented: polynomial refutations from original equations
+
+Use `(ff-certify)` instead of `(check-sat)` for a single-field conjunction of
+positive equations when producing a standalone certificate file. The
+shell command reads the current assertions directly, expands field arithmetic,
+and runs bounded scalar basis reconstruction. It does not use `ff-simplify`,
+model sampling, native equality-engine facts, root reasoning or a previous SAT
+answer. A successful object proves **1 belongs to the ideal of the original
+polynomial equations**. Lack of such a derivation reports
+`(ff-certificate-unavailable no-polynomial-refutation)`, never SAT. Exhaustion
+reports `(ff-certificate-unavailable budget)`. Unsupported input reports an
+explicit error. This command does not alter assertions or the solver result.
+
+The initial interface is shell-only. The reusable C++ `ff::certify` API takes
+polynomial equations; no C/Python solver API or Z3 native proof rule is added.
+Its output object is replaced only on success, including after cancellation.
+The ordinary solver has no new recording branch or per-polynomial proof data.
+
+```sh
+build-ff-cmake/z3 tests/finite_field/fixtures/certificates/large-prime.smt2 > /tmp/large.ffcert
+python3 scripts/ff_certificate.py tests/finite_field/fixtures/certificates/large-prime.smt2 \
+  /tmp/large.ffcert --export-alethe /tmp/large.alethe
+python3 scripts/ff_certificate.py tests/finite_field/fixtures/certificates/large-prime.smt2 \
+  /tmp/large.alethe --alethe
+```
+
+The Python checker uses only the standard library and integer arithmetic. It
+independently parses the original SMT-LIB equations, checks their normalization,
+then evaluates the derivation DAG. It does not import Z3 or rerun Groebner search.
+The standalone input profile supports field constants, nullary sort aliases and
+function definitions, simultaneous `let`, `:named`, conjunctions and field
+addition/multiplication/negation/bitsum. It rejects push/pop/reset, nonconstant
+UFs, disequalities, general Boolean structure and mixed-field equations. To
+check a lemma from a larger computation, supply its exact assumptions as a
+standalone problem; merely checking that lemma does not certify the larger run.
+
+Default producer bounds are 2M arithmetic operations, 4096 terms per polynomial,
+100K DAG nodes, 16 MiB estimated DAG storage, 256 basis rows, 4096 input equations
+and a ten-second command timeout. Set `:max_steps`, `:max_terms`, `:max_nodes`
+and `:timeout` on `ff-certify`; the node and DAG-storage ceilings remain absolute.
+The profile bounds moduli to 4096 bits and monomials to degree 1024. The checker
+has separate work/size limits and can refuse an otherwise valid large proof.
+The producer's storage estimate is not a total-process memory bound.
+
+### Evidence DAG version 1
+
+The serialized `ff-certificate` object has exactly `:version`, `:modulus`,
+`:variables`, `:inputs`, `:nodes` and `:root`. Input polynomials are lists of
+`(coefficient variable-id...)` terms, with nonzero canonical coefficients and
+sorted variable multisets. Variable names must resolve to declarations in the
+original problem, and every supplied input must equal the independent
+normalization of its corresponding original equation, including conjunction
+projection. IDs are zero-based list indices.
+
+- `(input i)` denotes the normalized left side minus right side of equation i.
+- `(mul j c (v...))` denotes node j multiplied by the scalar c and monomial v....
+- `(add j k)` denotes the polynomial sum of nodes j and k.
+
+All node references must point backward. Each derived polynomial is asserted
+equal to zero. The selected root must be exactly the constant polynomial 1.
+Scaling, reduction and S-polynomials record their actual multipliers; moving
+an irreducible term to a remainder is bookkeeping and introduces no assumption.
+Subderivations are shared by ID; expanded combinations of the original inputs
+are never materialized by the producer. Search pair ordering and skipped pairs
+are outside the trust boundary: only the explicit contradiction is checked.
+
+This slice uses ring identities only. Checking a refutation modulo p >= 2 does
+not require a primality certificate: a checked identity 1 = sum(q_i*f_i) is
+already contradictory over Z/pZ. Future root/no-zero-divisor/Frobenius rules
+need the stronger field assumptions listed below.
+
+### Alethe extension, not stock-checker compatibility
+
+The export uses Alethe's `assume` and `step` syntax with four explicitly custom
+`ff-poly-v1` rules. All equations and multiplier terms have the same field sort.
+No `hole`, trusted step or unasserted assumption is accepted by our checker.
+
+| Rule | Premises / arguments | Checked conclusion |
+| --- | --- | --- |
+| `ff_poly_input` | One original assertion; zero-based conjunct index | Normalize the selected equality to P = 0, expanding supported lets/definitions |
+| `ff_poly_add` | P = 0 and Q = 0; no arguments | R = 0 with R = P + Q modulo p |
+| `ff_poly_mul` | P = 0; multiplier term M | R = 0 with R = M*P modulo p |
+| `ff_poly_contra` | 1 = 0; no arguments | Empty clause |
+
+Each algebraic conclusion is printed explicitly. Alethe output can therefore
+be larger than the internal DAG. The exporter first checks the DAG, and the CLI
+checks the exported Alethe derivation through a separate rule-replay path before
+writing it. `--alethe` also checks an existing extension proof directly against
+the original problem. The checker requires an explicit final empty clause.
+
+This is **an experimental extension**, not a claim of compatibility with
+unmodified Carcara, SMTCoq or Isabelle. The [Alethe specification](https://verit.loria.fr/documentation/alethe-spec.pdf)
+distinguishes the language from its proof rules. [cvc5's current Alethe documentation](https://cvc5.github.io/docs-ci/docs-main/proofs/output_alethe.html)
+does not list finite fields among its supported theories (checked 2026-09-24).
+These rules need agreement and implementation in the target consumer before
+interoperability can be claimed.
+
+A Z3-native certificate **file format** is not required for this export. Native
+proof objects or another complete Boolean/equality proof interface will be
+needed to compose field lemmas into a checked mixed-theory Z3 proof. The DAG
+is deliberately independent of either serialization. The next integration
+step is to attach it to an FF theory lemma with exact premises, then certify
+preprocessing, disequality witnesses and finite-field root reasoning.
+
+For validation and bounded cost measurements, see
+[QF_FF_CERTIFICATES_MILESTONE1.md](QF_FF_CERTIFICATES_MILESTONE1.md).
+The remainder of this document is the contract for full v2, not a claim that
+these additional obligations are implemented.
 
 ## Boundary with Blaster
 
@@ -67,9 +178,9 @@ Gröbner search or trusting the SAT engine.
 
 Before v2 is accepted, corrupt coefficients, missing premises, invalid inverses,
 cross-field references, incomplete root lists, and omitted no-wrap guards must
-all be rejected by checker tests. The proof format and Lean reconstruction API
-still need agreement with Blaster; this document does not freeze a serialized
-format.
+all be rejected by checker tests. The full-v2 proof format and Lean reconstruction API
+still need agreement with Blaster; the experimental profile above does not freeze
+the eventual full-v2 serialization.
 
 The public [FMCAD 2026 finite-field proof artifact](https://zenodo.org/records/20133205)
 also advertises proof checking in Pacheck and Lean. It is a relevant reference

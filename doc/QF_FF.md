@@ -3,7 +3,8 @@
 This branch adds native prime-field syntax, models, C/C++/Python interfaces,
 and an algebraic solver to Z3. Large-prime performance is part of the v1 target;
 bit-vector lowering is the complete fallback and a correctness reference.
-Certificates are explicitly deferred to v2.
+V2 has begun with standalone polynomial certificates; complete solver proofs
+remain under development.
 
 ## Current interface
 
@@ -324,10 +325,13 @@ The subsequent algebra and representation experiments are recorded in
 
 ## V2: checkable certificates
 
-See [QF_FF_CERTIFICATES.md](QF_FF_CERTIFICATES.md) for the proposed recording and
-checking contract, including the boundary with Blaster.
+See [QF_FF_CERTIFICATES.md](QF_FF_CERTIFICATES.md) for the implemented standalone polynomial
+certificate command and the remaining full-proof contract, including the boundary
+with Blaster.
 
-Proof-producing calls reject field solving with an explicit unsupported message.
+Standard proof-producing solver calls still reject field solving. The explicit
+`ff-certify` shell command can export a checked polynomial contradiction and an
+experimental Alethe extension without changing the default solver.
 Input dependency sets support cores and Boolean conflict clauses; they are
 **not** algebraic certificates. Preserve this distinction.
 

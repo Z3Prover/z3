@@ -46,7 +46,10 @@ inputs, no losses, and +0.45% summed time on common solves. Two short-case
 slowdowns are documented. `ff.quotient_field` and `ff.adaptive_matrix` remain
 off. See [round 8](QF_FF_PERFORMANCE_ROUND8.md) for the acceptance evidence.
 
-Certificates remain v2; dependency sets are not checkable proofs. Large-modulus
+V2 now has standalone polynomial certificates and an experimental Alethe
+extension; complete native solver proofs remain unsupported. See
+[the certificate contract](QF_FF_CERTIFICATES.md). Dependency sets alone are not
+checkable proofs. Large-modulus
 primality is screened rather than certified. General quantified solving and
 extension fields are outside the implemented feature scope. Neither the latest
 Z3 default nor current cvc5 main has a completed fresh full-corpus comparison.
