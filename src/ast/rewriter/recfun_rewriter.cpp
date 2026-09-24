@@ -106,7 +106,6 @@ bool recfun_rewriter::is_recfun_with_ground_recursion_args(app* t) {
     func_decl* f = t->get_decl();
     if (!m_rec.is_defined(f) || !m_rec.has_def(f))
         return false;
-    datatype::util dt(m);
     bool has_decreasing = false;
     unsigned i = 0;
     for (expr* arg : *t) {
@@ -115,7 +114,7 @@ bool recfun_rewriter::is_recfun_with_ground_recursion_args(app* t) {
             if (!m.is_uninterp(s))
                 return false;
         }
-        else if (dt.is_datatype(s) && is_decreasing_arg(f, i, true)) {
+        else if (m_dt.is_datatype(s) && is_decreasing_arg(f, i, true)) {
             has_decreasing = true;
         }
         ++i;
