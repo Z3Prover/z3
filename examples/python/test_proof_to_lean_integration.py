@@ -348,6 +348,117 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertIn("Iff.trans", text)
         self.assertNotIn("cases _d", text)
 
+    def test_transitivity_star_paths_and_redundant_edges(self):
+        cases = [
+            ([2, 0, 1], "p", "s"), ([1, 0, 2], "s", "p"),
+            ([2, 0, 1, 0, 3, 6], "p", "s"), ([0, 1, 2, 4, 5], "p", "s"),
+            ([6, 3, 0], "p", "q"), ([0], "q", "p"),
+            ([], "p", "p"), ([6], "p", "p"), ([3], "p", "p"),
+        ]
+        for premises, left, right in cases:
+            with self.subTest(premises=premises, left=left, right=right):
+                source = "".join("(declare-const %s Bool)" % atom for atom in "pqrstu")
+                source += """\
+(assert (= p q))(assert (= r q))(assert (= r s))(assert (= p p))
+(assert (= s t))(assert (= t q))(assert (= u u))
+"""
+                source += "(assert %s)(assert (not %s))" % (left, right)
+                certificate = make_certificate(source, [
+                    ("trans*", premises, "(= %s %s)" % (left, right)),
+                    ("mp", [7, 9], right),
+                    ("unit-resolution", [8, 10], "false"),
+                ])
+                with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+                    text = self.check(source, certificate)
+                self.assertNotIn("Decidable", text)
+                self.assertNotIn("cases ", text)
+
+    def test_transitivity_star_replays_a_condensed_native_chain(self):
+        certificate = proof_certificate.export_certificate(STRUCTURAL)
+        self.assertGreater(certificate["rule_counts"]["trans"], 0)
+        for declaration in certificate["declarations"]:
+            if declaration["kind"] == z3.Z3_OP_PR_TRANSITIVITY:
+                declaration["kind"], declaration["name"] = z3.Z3_OP_PR_TRANSITIVITY_STAR, "trans*"
+        certificate["rule_counts"]["trans*"] = certificate["rule_counts"].pop("trans")
+        self.check(STRUCTURAL, certificate)
+
+    def test_transitivity_star_native_iff_and_compound_endpoints(self):
+        source = "(declare-const p Bool)(assert (not (not p)))(assert (not p))"
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (not (not p)) p)"),
+            ("refl", [], "(= p p)"),
+            ("trans*", [3, 2], "(= (not (not p)) p)"),
+            ("mp", [0, 4], "p"),
+            ("unit-resolution", [1, 5], "false"),
+        ])
+        for declaration in certificate["declarations"]:
+            if declaration["kind"] == z3.Z3_OP_EQ:
+                declaration["kind"], declaration["name"] = z3.Z3_OP_IFF, "iff"
+        self.check(source, certificate)
+
+    def test_transitivity_star_shared_scoped_paths(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (= p q))(assert (= r q))(assert p)(assert (not r))"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "(= p q)"),
+            ("trans*", [1, 4], "(= p r)"),
+            ("mp", [2, 5], "r"),
+            ("unit-resolution", [3, 6], "false"),
+            ("hypothesis", [], "p"),
+            ("mp", [8, 5], "r"),
+            ("unit-resolution", [3, 9], "false"),
+            ("lemma", [10], "(or (not (= p q)) (not p))"),
+            ("lemma", [7], "(not (= p q))"),
+            ("unit-resolution", [11, 0, 2], "false"),
+        ])
+        text = self.check(source, certificate)
+        proof_nodes = [node for node, raw in enumerate(certificate["nodes"])
+                       if certificate["declarations"][raw["declaration"]]["range"] == "Proof"]
+        header = next(line for line in text.splitlines() if line.startswith("  let _step_%d " % proof_nodes[5]))
+        self.assertEqual(header.count("(_hyp"), 1)
+        certificate["proof"] = proof_nodes[7]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_transitivity_star_connects_structurally_identical_nodes(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (= p q))(assert (= q r))(assert p)(assert (not r))"
+        certificate = make_certificate(source, [
+            ("trans*", [0, 1], "(= p r)"),
+            ("mp", [2, 4], "r"),
+            ("unit-resolution", [3, 5], "false"),
+        ])
+        middle = certificate["nodes"][certificate["assertions"][0]]["arguments"][1]
+        duplicate = middle + 1
+        for node in certificate["nodes"]:
+            node["arguments"] = [arg + 1 if arg >= duplicate else arg for arg in node["arguments"]]
+        certificate["nodes"].insert(duplicate, {
+            "declaration": certificate["nodes"][middle]["declaration"], "arguments": [],
+        })
+        certificate["assertions"] = [arg + 1 if arg >= duplicate else arg for arg in certificate["assertions"]]
+        certificate["proof"] += 1
+        certificate["nodes"][certificate["assertions"][1]]["arguments"][0] = duplicate
+        self.check(source, certificate)
+
+    def test_long_transitivity_star_paths_do_not_enumerate_assignments(self):
+        size = 128
+        source = "".join("(declare-const p%d Bool)" % index for index in range(size + 1))
+        for index in range(size):
+            pair = (index, index + 1) if index % 2 == 0 else (index + 1, index)
+            source += "(assert (= p%d p%d))" % pair
+        source += "(assert p0)(assert (not p%d))" % size
+        certificate = make_certificate(source, [
+            ("trans*", list(reversed(range(size))), "(= p0 p%d)" % size),
+            ("mp", [size, size + 2], "p%d" % size),
+            ("unit-resolution", [size + 1, size + 3], "false"),
+        ])
+        text = self.check(source, certificate)
+        self.assertEqual(text.count("Iff.trans"), size - 1)
+        self.assertEqual(text.count("Iff.symm"), size // 2)
+        self.assertNotIn("Decidable", text)
+        self.assertNotIn("cases ", text)
+        self.assertLess(len(text), 250_000)
+
     def test_monotonicity_for_all_boolean_operators(self):
         cases = [
             ("p", "p", []), ("true", "true", []), ("false", "false", []),

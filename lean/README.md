@@ -3,7 +3,7 @@
 This workspace pins **Lean 4.34.0** and supports the
 [proof integration plan](../doc/lean-proof-plan.md). A first native-certificate
 reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
-`rewrite`, plus `refl`, `symm`, `trans`, Boolean `monotonicity`, `and-elim`, and
+`rewrite`, plus `refl`, `symm`, `trans`, `trans*`, Boolean `monotonicity`, `and-elim`, and
 `not-or-elim`, with scoped `hypothesis` and `lemma` proofs and supported Boolean
 `def-axiom` clauses. Other native proof rules are still unsupported.
 
@@ -35,6 +35,10 @@ The generated theorem derives `False` from the encoded original assertions using
 Lean core proof terms, without any axioms or `sorry`. Boolean rewrites are checked
 by exhaustive cases and kernel reduction, independently of the assertions.
 Structural rules use direct logical proof terms, without truth tables.
+Condensed transitivity (`trans*`) follows equivalence paths through its supplied
+premises, including reversed and redundant edges, and composes the result with
+`Iff.symm` and `Iff.trans`. It rejects disconnected endpoints and preserves the
+hypothesis dependencies of every premise.
 Each supported `def-axiom` clause is proved in a separate Lean theorem with no
 input assertions, not introduced as an axiom. Gate clauses for not, and/or,
 implication, equivalence, xor, and Boolean ite use direct proof terms over
