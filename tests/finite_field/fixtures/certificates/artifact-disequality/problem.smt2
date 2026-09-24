@@ -1,0 +1,5 @@
+(set-logic QF_FF)
+(define-sort F () (_ FiniteField 7))
+(declare-const x F)
+(declare-const y F)
+(assert (and (= x y) (not (= (ff.mul x x) (ff.mul y y)))))
