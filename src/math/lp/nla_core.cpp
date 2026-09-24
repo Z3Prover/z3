@@ -1000,13 +1000,11 @@ lbool core::check(unsigned level) {
     {
         std::function<void(void)> check1 = [&]() { if (no_effect() && run_horner) m_horner.horner_lemmas(); };
         std::function<void(void)> check2 = [&]() { if (no_effect() && run_grobner) m_grobner(); };
-        std::function<void(void)> check3 = [&]() { if (no_effect() && run_bounds) add_bounds(); };
 
         std::pair<unsigned, std::function<void(void)>> checks[] =
             { {1, check1},
-              {1, check2},
-              {1, check3} };
-        check_weighted(3, checks);
+              {1, check2} };
+        check_weighted(2, checks);
 
         if (lp_settings().get_cancel_flag())
             return l_undef;
@@ -1070,6 +1068,10 @@ lbool core::check(unsigned level) {
         ret = m_nra.check();
         lp_settings().stats().m_nra_calls++;
     }
+
+    // Prefer algebraic refinement before introducing integer case splits.
+    if (no_effect() && run_bounds)
+        add_bounds();
     
     if (ret == l_undef && !no_effect() && m_reslim.inc()) 
         ret = l_false;
