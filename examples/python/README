@@ -96,7 +96,7 @@ Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
 
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
-It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
+It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans, trans*,
 Boolean monotonicity, and-elim, not-or-elim, hypothesis, and lemma proof nodes.
 It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
@@ -111,6 +111,14 @@ covers all supported Boolean connectives using direct proof terms, not truth
 tables or propositional extensionality. and-elim selects an immediate conjunct.
 not-or-elim selects the complement of an immediate disjunct, including native
 double-negation cancellation.
+
+trans* finds an equivalence path using only its supplied premises, which may be
+reordered, reversed, repeated, cyclic, or redundant. It emits a balanced
+composition of Iff.symm and Iff.trans terms without truth tables or solver calls.
+Reflexive conclusions permit an empty path. Every premise must be a Boolean
+equivalence, even if unused by the chosen path, and disconnected endpoints are
+rejected. All supplied premises retain their hypothesis dependencies; choosing
+a path does not silently discharge unused assumptions.
 
 hypothesis introduces a temporary assumption, not an original assertion. Open
 proof steps are functions of their hypotheses, so a shared subproof can be used
@@ -132,7 +140,7 @@ enumerating assignments to nested atoms. Unsupported or malformed clauses fail
 explicitly, even when unused in the final refutation. This is not a general
 propositional tautology prover, and fresh-symbol definitions remain unsupported.
 
-Other proof rules, including trans*, rewrite*, mp~, definition introduction,
+Other proof rules, including rewrite*, mp~, definition introduction,
 and theory lemmas, fail explicitly. Consequently, many
 otherwise propositional Z3 refutations are still unsupported.
 

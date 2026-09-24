@@ -78,6 +78,12 @@ Installation and usage are documented in `lean/README.md`.
   `monotonicity` for the supported Boolean connectives. Match application heads,
   arities, and oriented argument equivalences, including omitted reflexive
   premises and shared evidence. Use direct Lean proof terms, not truth tables.
+- Reconstruct condensed Boolean transitivity (`trans*`) by finding a path
+  through the supplied equivalences, reversing edges as needed. Support
+  reordered, repeated, cyclic, and redundant evidence, and reflexive empty
+  paths. Validate every premise, preserve the hypotheses of all supplied
+  premises, and reject disconnected endpoints. Balance the generated
+  `Iff.trans` terms so long paths do not require deeply nested compositions.
 - Reconstruct `and-elim` and `not-or-elim` for immediate operands, including
   singleton/n-ary connectives and native double-negation cancellation.
 - Reconstruct `hypothesis` and `lemma` with explicit open-hypothesis tracking.
@@ -117,7 +123,9 @@ Installation and usage are documented in `lean/README.md`.
   orientations, large congruences without truth tables, forged structural
   premises/conclusions, false or unused rewrites, nested and shared hypothesis
   scopes, malformed lemmas, leaked hypotheses, forged/unused gate clauses, and
-  large gate and learned clauses without truth tables.
+  large gate and learned clauses without truth tables. Cover condensed
+  transitivity with reversed/cyclic paths, structural sharing, scoped premises,
+  disconnected endpoints, and long equivalence chains.
 
 Z3's SMT-LIB parser and the Python statement encoder remain part of the trusted
 frontend. The source digest identifies the generated namespace; it is not the
@@ -127,10 +135,9 @@ Rewrite truth tables are exponential in the number of atoms in an individual
 rewrite; large valid rewrites may exceed Lean's normal resource limits. A
 checking failure never publishes an artifact.
 
-Condensed transitivity (`trans*`), definition introduction, and other native
-rules remain unsupported. These and a formalized encoding
-connection must be addressed before claiming general Boolean proof support.
-Arithmetic and other theories remain later milestones.
+Definition introduction and other native rules remain unsupported. These and
+a formalized encoding connection must be addressed before claiming general
+Boolean proof support. Arithmetic and other theories remain later milestones.
 
 ## Completed first-milestone evidence
 

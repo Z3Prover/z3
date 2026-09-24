@@ -114,6 +114,7 @@ def make_certificate(source, steps):
                 "refl": z3.Z3_OP_PR_REFLEXIVITY,
                 "symm": z3.Z3_OP_PR_SYMMETRY,
                 "trans": z3.Z3_OP_PR_TRANSITIVITY,
+                "trans*": z3.Z3_OP_PR_TRANSITIVITY_STAR,
                 "monotonicity": z3.Z3_OP_PR_MONOTONICITY,
                 "and-elim": z3.Z3_OP_PR_AND_ELIM,
                 "not-or-elim": z3.Z3_OP_PR_NOT_OR_ELIM,
@@ -426,6 +427,106 @@ class TestProofToLean(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, rule):
                     proof_to_lean.reconstruct(source, certificate)
 
+    def test_transitivity_star_signatures_are_checked(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (= p q))(assert false)"
+        original = make_certificate(source, [
+            ("trans*", [0], "(= p q)"), ("asserted", [], "false"),
+        ])
+        for key, value in [
+            ("name", "trans"), ("domain", []), ("domain", ["Proof"]),
+            ("domain", ["Bool", "Bool"]), ("domain", ["Proof", "Bool", "Proof"]),
+            ("range", "Bool"), ("parameters", [1]),
+        ]:
+            with self.subTest(key=key, value=value):
+                certificate = copy.deepcopy(original)
+                declaration = next(decl for decl in certificate["declarations"] if decl["name"] == "trans*")
+                declaration[key] = value
+                with self.assertRaises(proof_to_lean.ReconstructionError):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_invalid_transitivity_star_steps_are_rejected_even_when_unused(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        source += "(assert (= p q))(assert (= r s))(assert (=> q r))(assert false)"
+        for premises, conclusion in [
+            ([], "(= p q)"), ([0], "(= p r)"), ([0, 1], "(= p s)"),
+            ([0, 1], "(= p r)"), ([0, 2], "(= p q)"),
+            ([2], "(= p p)"), ([0, 3], "(= p q)"),
+            ([0], "(=> p q)"), ([0], "p"), ([0], "false"),
+        ]:
+            with self.subTest(premises=premises, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    ("trans*", premises, conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, r"trans\*"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_transitivity_star_uses_only_supplied_equivalence_paths(self):
+        atoms = "pqr"
+        edges = [("p", "q"), ("r", "q"), ("p", "r")]
+        source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+        source += "".join("(assert (= %s %s))" % edge for edge in edges) + "(assert false)"
+        for selected in itertools.product([False, True], repeat=len(edges)):
+            premises = [index for index in reversed(range(len(edges))) if selected[index]]
+            for left, right in itertools.product(atoms, repeat=2):
+                reachable = {left}
+                for _ in atoms:
+                    for index in premises:
+                        first, second = edges[index]
+                        if first in reachable or second in reachable:
+                            reachable.update((first, second))
+                certificate = make_certificate(source, [
+                    ("trans*", premises, "(= %s %s)" % (left, right)),
+                    ("asserted", [], "false"),
+                ])
+                with self.subTest(premises=premises, left=left, right=right):
+                    if right in reachable:
+                        proof_to_lean.reconstruct(source, certificate)
+                    else:
+                        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "no equivalence path"):
+                            proof_to_lean.reconstruct(source, certificate)
+
+    def test_transitivity_star_preserves_hypotheses_from_unused_evidence(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        source += "(assert (= p q))(assert p)(assert (not q))(assert (= r s))"
+        for hypothesis in ["(= r s)", "(= p q)"]:
+            with self.subTest(hypothesis=hypothesis):
+                certificate = make_certificate(source, [
+                    ("hypothesis", [], hypothesis),
+                    ("trans*", [0, 4], "(= p q)"),
+                    ("mp", [1, 5], "q"),
+                    ("unit-resolution", [2, 6], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+                    proof_to_lean.reconstruct(source, certificate)
+        source = LITERAL + "(declare-const r Bool)(declare-const s Bool)(assert (= r s))"
+        certificate = make_certificate(source, [
+            ("hypothesis", [], "(= r s)"),
+            ("trans*", [3], "(= p p)"),
+            ("mp", [0, 4], "p"),
+            ("unit-resolution", [1, 5], "false"),
+        ])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "undischarged hypotheses"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_invalid_transitivity_star_never_publishes_a_proof(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (= p q))(assert p)(assert (not r))"
+        certificate = make_certificate(source, [
+            ("trans*", [0], "(= p r)"),
+            ("mp", [1, 3], "r"),
+            ("unit-resolution", [2, 4], "false"),
+        ])
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            output.write_text("previous artifact")
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "no equivalence path"):
+                proof_to_lean.check_and_write(source, certificate, output)
+            checker.assert_not_called()
+            self.assertEqual(output.read_text(), "previous artifact")
+            self.assertEqual(list(Path(directory).iterdir()), [output])
+
     def test_monotonicity_requires_matching_heads_and_oriented_evidence(self):
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
         source += "(assert (= p q))(assert (= r s))(assert (=> p q))(assert (= q p))(assert false)"
@@ -564,7 +665,6 @@ class TestProofToLean(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported native proof rule"):
             proof_to_lean.reconstruct(UNSUPPORTED, certificate)
         for kind, name in [(z3.Z3_OP_PR_TH_LEMMA, "th-lemma"),
-                           (z3.Z3_OP_PR_TRANSITIVITY_STAR, "trans*"),
                            (z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"),
                            (z3.Z3_OP_PR_MODUS_PONENS_OEQ, "mp~"),
                            (z3.Z3_OP_PR_DEF_INTRO, "intro-def")]:

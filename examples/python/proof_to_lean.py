@@ -6,7 +6,7 @@
 """Check native Boolean refutations using explicit Lean proof terms."""
 
 import argparse
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 import hashlib
 import json
@@ -49,6 +49,11 @@ _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_TRANSITIVITY: ("trans", 2),
     z3.Z3_OP_PR_AND_ELIM: ("and-elim", 1),
     z3.Z3_OP_PR_NOT_OR_ELIM: ("not-or-elim", 1),
+}
+_VARIADIC_PROOF_RULES = {
+    z3.Z3_OP_PR_UNIT_RESOLUTION: ("unit-resolution", 1),
+    z3.Z3_OP_PR_MONOTONICITY: ("monotonicity", 0),
+    z3.Z3_OP_PR_TRANSITIVITY_STAR: ("trans*", 0),
 }
 
 
@@ -147,10 +152,9 @@ def _declaration(raw):
         expected_name, premises = _FIXED_PROOF_RULES[kind]
         if name != expected_name or domain != ("Proof",) * premises + ("Bool",):
             raise ReconstructionError("invalid %s declaration" % expected_name)
-    elif kind in (z3.Z3_OP_PR_UNIT_RESOLUTION, z3.Z3_OP_PR_MONOTONICITY):
-        expected_name = "unit-resolution" if kind == z3.Z3_OP_PR_UNIT_RESOLUTION else "monotonicity"
-        minimum = 2 if kind == z3.Z3_OP_PR_UNIT_RESOLUTION else 1
-        if (name != expected_name or len(domain) < minimum or domain[-1] != "Bool"
+    elif kind in _VARIADIC_PROOF_RULES:
+        expected_name, minimum = _VARIADIC_PROOF_RULES[kind]
+        if (name != expected_name or len(domain) < minimum + 1 or domain[-1] != "Bool"
                 or any(sort != "Proof" for sort in domain[:-1])):
             raise ReconstructionError("invalid %s declaration" % expected_name)
     else:
@@ -353,6 +357,42 @@ def _equivalence_step(graph, terms, node):
     if not valid:
         raise ReconstructionError("incorrect %s premises or conclusion at node %d" % (rule, node))
     return term
+
+
+def _transitivity_star(graph, terms, node):
+    left, right = _equivalence(graph, graph.conclusion(node), "trans*")
+    edges = {}
+    for premise in graph.arguments(node)[:-1]:
+        first, second = _equivalence(graph, graph.conclusion(premise), "trans*")
+        first, second = terms[first], terms[second]
+        edges.setdefault(first, []).append((second, premise, False))
+        edges.setdefault(second, []).append((first, premise, True))
+    start, target = terms[left], terms[right]
+    parents, pending = {start: None}, deque([start])
+    while pending and target not in parents:
+        current = pending.popleft()
+        for successor, premise, reverse in edges.get(current, ()):
+            if successor not in parents:
+                parents[successor] = (current, premise, reverse)
+                pending.append(successor)
+    if target not in parents:
+        raise ReconstructionError("trans* has no equivalence path between its endpoints at node %d" % node)
+
+    path = []
+    current = target
+    while current != start:
+        current, premise, reverse = parents[current]
+        term = "_step_%d" % premise
+        path.append("(Iff.symm %s)" % term if reverse else term)
+    if not path:
+        return "(Iff.refl %s)" % _formula(left)
+    path.reverse()
+    # Balance the composition to avoid deeply nested Lean terms on long paths.
+    while len(path) > 1:
+        path = ["(Iff.trans %s %s)" % (path[index], path[index + 1])
+                if index + 1 < len(path) else path[index]
+                for index in range(0, len(path), 2)]
+    return path[0]
 
 
 def _iff_congruence(left, right):
@@ -755,6 +795,8 @@ def reconstruct(source, certificate):
         elif graph.kind(node) in (z3.Z3_OP_PR_REFLEXIVITY, z3.Z3_OP_PR_SYMMETRY,
                                  z3.Z3_OP_PR_TRANSITIVITY):
             term = _equivalence_step(graph, terms, node)
+        elif graph.kind(node) == z3.Z3_OP_PR_TRANSITIVITY_STAR:
+            term = _transitivity_star(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_MONOTONICITY:
             term = _monotonicity(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_AND_ELIM:
