@@ -44,8 +44,10 @@ get-proof, and exit. Declarations, define-fun, set-logic, set-info, and
 (set-option :produce-proofs true) are accepted. Queries with assumptions,
 push/pop, multiple queries, commands after a query that change the problem,
 and other options or commands are rejected rather than ignored.
-Standard semicolon comments, doubled quotes in strings, and Z3's backslash
-escapes in quoted symbols are supported. Nonstandard block comments are rejected.
+Standard semicolon comments, doubled quotes in strings, and quoted symbols are
+supported. Quoted symbols have no escape mechanism: backslashes are rejected
+and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's
+scanner. Nonstandard block comments are rejected.
 
 Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
 xor, Boolean equality/distinct, and Boolean ite. Quantifiers, uninterpreted
@@ -96,6 +98,7 @@ Reconstruct and check a Boolean proof in Lean
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
 It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
 Boolean monotonicity, and-elim, not-or-elim, hypothesis, and lemma proof nodes.
+It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
 Boolean equivalences. Each rewrite must conclude a Boolean equality/equivalence
 and is checked independently of the input hypotheses by a Lean truth table.
@@ -117,6 +120,17 @@ It supports both complement orientations, compound literals, reordered or
 repeated literals, and weakened clauses. All hypotheses of its premise are
 discharged; the final proof must have no open hypotheses. Nested lemmas and
 shared subproofs use direct Lean proof terms, not truth tables.
+
+def-axiom is not permission to introduce a Lean axiom. Each supported clause is
+proved in a separate Lean theorem with no input assertions or proof premises.
+Supported shapes are the Boolean gate clauses for not, n-ary and/or, implication,
+Boolean equivalence, xor, and Boolean ite, plus complementary literals and
+constant tautologies. Negated and compound operands, literal reordering,
+duplicates, and weakened clauses are supported. The proof negates the clause
+and derives a contradiction from one gate and its immediate operands, without
+enumerating assignments to nested atoms. Unsupported or malformed clauses fail
+explicitly, even when unused in the final refutation. This is not a general
+propositional tautology prover, and fresh-symbol definitions remain unsupported.
 
 Other proof rules, including trans*, rewrite*, mp~, definition introduction,
 and theory lemmas, fail explicitly. Consequently, many
@@ -141,7 +155,9 @@ To exercise implication rewriting and mp as well:
 
 To also exercise trans, monotonicity, and not-or-elim, replace boolean_rewrite
 with boolean_structural in both commands. Use boolean_branching to exercise
-hypothesis discharge and learned clauses.
+hypothesis discharge and learned clauses. Use boolean_def_axiom for the
+contradiction between (xor p q), p, and q, whose native proof uses a Boolean
+gate clause.
 
 The second command invokes scripts/check_lean.sh and publishes the .lean file
 only if the pinned Lean checker succeeds. It exits nonzero for malformed or
@@ -161,14 +177,15 @@ or a solver call. The case count is exponential in a rewrite's atom count;
 large rewrites can exceed Lean's normal resource limits and fail without
 publishing a proof.
 
-Classical Boolean rewrites, double-negation cancellation in not-or-elim, and
-classical steps in lemma discharge use local decidability witnesses.
+Classical Boolean rewrites, double-negation cancellation in not-or-elim,
+def-axiom clauses, and classical steps in lemma discharge use local decidability
+witnesses.
 The refutation removes these witnesses constructively: given
 k : Decidable p -> False, the term
 k (isFalse (fun hp => k (isTrue hp))) proves False without assuming decidability.
 The final theorem still quantifies over arbitrary Nat -> Prop atom valuations
 and takes only the original assertions as hypotheses. Neither it nor the rewrite
-lemmas depend on any axioms, sorry, or solver oracles.
+and gate-clause lemmas depend on any axioms, sorry, or solver oracles.
 
 The theorem is named unsat inside a namespace derived from the source SHA-256;
 the digest is an identifier, not a substitute for checking input equality.
@@ -186,10 +203,10 @@ run Z3's solver search.
 
 Parsing and the Python translation of Boolean expressions into Lean propositions
 remain trusted frontend components, not formally verified implementations.
-Lean checks the reconstructed theorem and the Boolean rewrite truth tables
-relative to that encoding. Boolean equality is encoded as Iff, and Boolean
-xor/ite/distinct as their logical definitions. This is not yet a fully formalized
-SMT-LIB frontend.
+Lean checks the reconstructed theorem, Boolean gate-clause lemmas, and rewrite
+truth tables relative to that encoding. Boolean equality is encoded as Iff, and
+Boolean xor/ite/distinct as their logical definitions. This is not yet a fully
+formalized SMT-LIB frontend.
 
 The JSON bundle remains marked unverified: successful reconstruction produces
 a separate Lean proof artifact rather than changing the producer's claim.

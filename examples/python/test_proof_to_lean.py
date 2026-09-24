@@ -6,6 +6,7 @@
 import copy
 from collections import Counter
 import io
+import itertools
 import json
 from pathlib import Path
 import subprocess
@@ -44,10 +45,41 @@ BRANCHING = """\
 (assert (or p q))(assert (or (not p) q))
 (assert (or p (not q)))(assert (or (not p) (not q)))
 """
-UNSUPPORTED = """\
+XOR = """\
 (declare-const p Bool)(declare-const q Bool)
 (assert (xor p q))(assert p)(assert q)
 """
+UNSUPPORTED = """\
+(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
+(assert (or (and p q) r))(assert (not p))(assert (not r))
+"""
+DEF_AXIOM_CLAUSES = [
+    "(or (not p) p)",
+    "(or (not (not p)) (not p))",
+    "(or (not (and p q r)) p)",
+    "(or (not (and p q r)) q)",
+    "(or (not (and p q r)) r)",
+    "(or (and p q r) (not p) (not q) (not r))",
+    "(or (not (or p q r)) p q r)",
+    "(or (or p q r) (not p))",
+    "(or (or p q r) (not q))",
+    "(or (or p q r) (not r))",
+    "(or (not (=> p q)) (not p) q)",
+    "(or (=> p q) p)",
+    "(or (=> p q) (not q))",
+    "(or (not (= p q)) p (not q))",
+    "(or (not (= p q)) (not p) q)",
+    "(or (= p q) p q)",
+    "(or (= p q) (not p) (not q))",
+    "(or (xor p q) p (not q))",
+    "(or (xor p q) (not p) q)",
+    "(or (not (xor p q)) p q)",
+    "(or (not (xor p q)) (not p) (not q))",
+    "(or (not (ite p q r)) (not p) q)",
+    "(or (not (ite p q r)) p r)",
+    "(or (ite p q r) (not p) (not q))",
+    "(or (ite p q r) p (not r))",
+]
 
 
 def make_certificate(source, steps):
@@ -78,6 +110,7 @@ def make_certificate(source, steps):
                 "lemma": z3.Z3_OP_PR_LEMMA,
                 "mp": z3.Z3_OP_PR_MODUS_PONENS,
                 "rewrite": z3.Z3_OP_PR_REWRITE,
+                "def-axiom": z3.Z3_OP_PR_DEF_AXIOM,
                 "refl": z3.Z3_OP_PR_REFLEXIVITY,
                 "symm": z3.Z3_OP_PR_SYMMETRY,
                 "trans": z3.Z3_OP_PR_TRANSITIVITY,
@@ -120,7 +153,7 @@ class TestProofToLean(unittest.TestCase):
         self.certificate = proof_certificate.export_certificate(LITERAL)
 
     def test_real_native_refutations_generate_explicit_proof_terms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 certificate = proof_certificate.export_certificate(source)
@@ -135,10 +168,133 @@ class TestProofToLean(unittest.TestCase):
                                  sum(certificate["rule_counts"].values()))
 
     def test_reconstruction_does_not_run_solver_search(self):
-        for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING]:
+        for source in [LITERAL, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR]:
             certificate = proof_certificate.export_certificate(source)
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
+
+    def test_def_axiom_signatures_are_checked(self):
+        original = proof_certificate.export_certificate(XOR)
+        for key, value in [
+            ("name", "forged"), ("domain", []), ("domain", ["Proof", "Bool"]),
+            ("domain", ["Bool", "Bool"]), ("range", "Bool"), ("parameters", [1]),
+        ]:
+            with self.subTest(key=key, value=value):
+                certificate = copy.deepcopy(original)
+                declaration = next(decl for decl in certificate["declarations"] if decl["name"] == "def-axiom")
+                declaration[key] = value
+                with self.assertRaises(proof_to_lean.ReconstructionError):
+                    proof_to_lean.reconstruct(XOR, certificate)
+        source = LITERAL + "(assert false)"
+        certificate = make_certificate(source, [
+            ("def-axiom", [0], "(or p (not p))"), ("asserted", [], "false"),
+        ])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom"):
+            proof_to_lean.reconstruct(source, certificate)
+
+    def test_def_axiom_lemmas_are_independent_of_original_assertions(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        steps = [("def-axiom", [], clause) for clause in DEF_AXIOM_CLAUSES]
+        steps.append(("asserted", [], "false"))
+        certificate = make_certificate(source, steps)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("private theorem def_axiom_"), len(DEF_AXIOM_CLAUSES))
+        lemmas = text.split("private theorem def_axiom_", 1)[1].split("theorem unsat", 1)[0]
+        self.assertNotIn("_h0", lemmas)
+        self.assertNotIn("_step_", lemmas)
+        self.assertNotIn("cases ", lemmas)
+        self.assertNotIn("of_decide_eq_true", lemmas)
+
+    def test_forged_def_axioms_are_rejected_even_when_unused(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        for clause in [
+            "false", "p", "(not p)", "(or p q)",
+            "(or (not (and p q)) r)", "(or (and p q) (not p))",
+            "(or (not (or p q)) p)", "(or (or p q) (not r))",
+            "(or (not (=> p q)) p q)", "(or (=> p q) (not p))",
+            "(or (not (= p q)) p q)", "(or (= p q) p (not q))",
+            "(or (not (xor p q)) p (not q))", "(or (xor p q) p q)",
+            "(or (not (ite p q r)) p q)", "(or (ite p q r) (not p) (not r))",
+        ]:
+            with self.subTest(clause=clause):
+                certificate = make_certificate(source, [
+                    ("def-axiom", [], clause), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_removing_a_required_def_axiom_literal_is_rejected(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        context = z3.Context()
+        for clause in DEF_AXIOM_CLAUSES:
+            parsed = proof_certificate.parse_propositional_assertions(
+                source + "(assert %s)" % clause, context)[-1]
+            for position in range(parsed.num_args()):
+                damaged = "(or %s)" % " ".join(
+                    arg.sexpr() for index, arg in enumerate(parsed.children()) if index != position)
+                with self.subTest(clause=clause, removed=position):
+                    certificate = make_certificate(source, [
+                        ("def-axiom", [], damaged), ("asserted", [], "false"),
+                    ])
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                        proof_to_lean.reconstruct(source, certificate)
+
+    def test_false_gate_clause_polarities_are_rejected(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        gates = [
+            ("(and p q r)", 3, lambda values: all(values)),
+            ("(or p q r)", 3, lambda values: any(values)),
+            ("(=> p q)", 2, lambda values: not values[0] or values[1]),
+            ("(= p q)", 2, lambda values: values[0] == values[1]),
+            ("(xor p q)", 2, lambda values: values[0] != values[1]),
+            ("(ite p q r)", 3, lambda values: values[1] if values[0] else values[2]),
+        ]
+        for gate, arity, evaluate in gates:
+            for gate_sign in [False, True]:
+                for signs in itertools.product([None, False, True], repeat=arity):
+                    tautology = all(
+                        evaluate(values) == gate_sign
+                        or any(sign is not None and value == sign for value, sign in zip(values, signs))
+                        for values in itertools.product([False, True], repeat=arity))
+                    if tautology:
+                        continue
+                    literals = [gate if gate_sign else "(not %s)" % gate]
+                    literals.extend(atom if sign else "(not %s)" % atom
+                                    for atom, sign in zip("pqr", signs) if sign is not None)
+                    clause = "(or %s)" % " ".join(literals)
+                    with self.subTest(clause=clause):
+                        certificate = make_certificate(source, [
+                            ("def-axiom", [], clause), ("asserted", [], "false"),
+                        ])
+                        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                            proof_to_lean.reconstruct(source, certificate)
+
+    def test_invalid_def_axioms_never_invoke_lean_or_replace_an_artifact(self):
+        source = "(declare-const p Bool)(assert p)"
+        certificates = [
+            (source, make_certificate(source, [
+                ("def-axiom", [], "(not p)"), ("unit-resolution", [0, 1], "false"),
+            ])),
+            (LITERAL, make_certificate(LITERAL, [
+                ("def-axiom", [], "p"), ("unit-resolution", [0, 1], "false"),
+            ])),
+        ]
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(proof_to_lean.subprocess, "run") as checker:
+            output = Path(directory) / "proof.lean"
+            output.write_text("previous artifact")
+            for original, certificate in certificates:
+                with self.subTest(source=original):
+                    with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+                        proof_to_lean.check_and_write(original, certificate, output)
+                    checker.assert_not_called()
+                    self.assertEqual(output.read_text(), "previous artifact")
+                    self.assertEqual(list(Path(directory).iterdir()), [output])
 
     def test_mp_supports_implications_and_boolean_equalities(self):
         for relation in ["(=> p q)", "(= p q)"]:
@@ -411,7 +567,7 @@ class TestProofToLean(unittest.TestCase):
                            (z3.Z3_OP_PR_TRANSITIVITY_STAR, "trans*"),
                            (z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"),
                            (z3.Z3_OP_PR_MODUS_PONENS_OEQ, "mp~"),
-                           (z3.Z3_OP_PR_DEF_AXIOM, "def-axiom")]:
+                           (z3.Z3_OP_PR_DEF_INTRO, "intro-def")]:
             certificate = copy.deepcopy(self.certificate)
             for decl in certificate["declarations"]:
                 if decl["kind"] == z3.Z3_OP_PR_ASSERTED:

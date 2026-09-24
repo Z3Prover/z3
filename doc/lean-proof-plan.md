@@ -15,7 +15,7 @@ is developed.
    declarations, shared proof/term DAG, and rule inventory. Reject unsupported
    script semantics, nonpropositional assertions, missing proofs, and unsupported
    native shapes. Never present the artifact as independently verified.
-2. **Kernel-checked Boolean vertical slice (basic, structural, and scoped rules implemented).**
+2. **Kernel-checked Boolean vertical slice (basic, structural, scoped, and gate-clause rules implemented).**
    Extend the initial reconstructor with more Boolean proof rules and formalize
    the frontend encoding boundary. Account for preprocessing, fresh definitions,
    hypothesis scope, and the
@@ -87,11 +87,18 @@ Installation and usage are documented in `lean/README.md`.
   complementary conclusion literal. Support nested lemmas, both complement
   orientations, compound literals, clause reordering, duplicates, and weakening.
   Reject a root with any undischarged hypotheses.
+- Reconstruct Boolean `def-axiom` clauses as independent Lean theorems, never
+  as trusted axioms. Support the gate schemas for not, n-ary and/or, implication,
+  Boolean equivalence, xor, and Boolean ite, plus complementary literals and
+  constant tautologies. Handle negated/compound operands and reordered,
+  duplicated, or weakened clauses using direct proof terms over one gate's
+  immediate operands, not truth tables over nested atoms. Reject invalid or
+  unsupported clauses, including unused ones. Fresh definitions remain separate.
 - Check each rewrite independently of the assertions by exhaustive cases over
   its own atoms and kernel reduction using `of_decide_eq_true rfl`. Rewrites and
-  double-negation cancellation, as well as classical lemma steps, use temporary
-  decidability witnesses, which are
-  eliminated constructively from the refutation:
+  double-negation cancellation, gate clauses, and classical lemma steps use
+  temporary decidability witnesses, which are eliminated constructively from
+  the refutation:
   `k (isFalse (fun hp => k (isTrue hp))) : False` for
   `k : Decidable p -> False`. The final theorem keeps arbitrary `Nat -> Prop`
   valuations, the original hypotheses, and no axiom dependencies.
@@ -104,12 +111,13 @@ Installation and usage are documented in `lean/README.md`.
 - Exercise complete examples using `lean/examples/unit_resolution.smt2`,
   `lean/examples/boolean_rewrite.smt2`, and
   `lean/examples/boolean_structural.smt2`, plus scoped learning in
-  `lean/examples/boolean_branching.smt2`. Cover Boolean truth tables, chained
+  `lean/examples/boolean_branching.smt2` and gate clauses in
+  `lean/examples/boolean_def_axiom.smt2`. Cover Boolean truth tables, chained
   and shared proof steps, all Boolean congruence operators, both elimination
   orientations, large congruences without truth tables, forged structural
   premises/conclusions, false or unused rewrites, nested and shared hypothesis
-  scopes, malformed lemmas, leaked hypotheses, and large learned clauses without
-  truth tables.
+  scopes, malformed lemmas, leaked hypotheses, forged/unused gate clauses, and
+  large gate and learned clauses without truth tables.
 
 Z3's SMT-LIB parser and the Python statement encoder remain part of the trusted
 frontend. The source digest identifies the generated namespace; it is not the

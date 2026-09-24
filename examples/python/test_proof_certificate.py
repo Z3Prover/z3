@@ -179,11 +179,18 @@ class TestProofCertificate(unittest.TestCase):
                 with self.assertRaises(proof_certificate.ProofExportError):
                     proof_certificate.export_certificate(command + "(assert false)")
 
-    def test_escaped_quoted_symbols_match_the_z3_scanner(self):
-        for name in [r"|p\|;(push 1)|", r"|p\\|", r"|p\q|", "||"]:
+    def test_quoted_symbols_match_the_z3_scanner(self):
+        for name in ["||", "|p with spaces|", "|p; (push 1)|", "|p\nq|"]:
             with self.subTest(name=name):
                 source = "(declare-const %s Bool)(assert %s)(assert (not %s))" % (name, name, name)
                 self.assert_well_formed(proof_certificate.export_certificate(source))
+
+    def test_backslashes_in_quoted_symbols_are_rejected(self):
+        for name in [r"|p\|;(push 1)|", r"|p\\|", r"|p\q|"]:
+            with self.subTest(name=name):
+                source = "(declare-const %s Bool)(assert %s)(assert (not %s))" % (name, name, name)
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported or unterminated token"):
+                    proof_certificate.export_certificate(source)
 
     def test_nonstandard_block_comments_are_rejected(self):
         with self.assertRaises(proof_certificate.ProofExportError):

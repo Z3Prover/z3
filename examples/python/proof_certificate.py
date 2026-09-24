@@ -19,7 +19,7 @@ class ProofExportError(Exception):
 
 
 _TOKEN = re.compile(
-    r'\s+|;[^\r\n]*|"(?:[^"]|"")*"|\|(?:\\.|[^|\\])*\||[()]|[^\s();"|#]+|#[xb][0-9a-fA-F]+',
+    r'\s+|;[^\r\n]*|"(?:[^"]|"")*"|\|[^|\\]*\||[()]|[^\s();"|#]+|#[xb][0-9a-fA-F]+',
     re.DOTALL,
 )
 _ASSERTION_COMMANDS = {
