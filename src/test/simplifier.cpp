@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 
 
@@ -364,6 +365,36 @@ static void test_recfun_finder() {
     ENSURE(!ru.has_defs());
 }
 
+static void test_incremental_demodulator() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* int_sort = a.mk_int();
+    sort* domain[1] = { int_sort };
+    func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, int_sort), m);
+    var_ref x(m.mk_var(0, int_sort), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref fx(m.mk_app(f, x.get()), m);
+    expr_ref rhs(a.mk_add(x, one), m);
+    expr_ref eq(m.mk_eq(fx, rhs), m);
+    symbol x_name("x");
+    quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
+
+    base_dependent_expr_state st(m);
+    demodulator_simplifier demod(m, params_ref(), st);
+    st.add(dependent_expr(m, q, nullptr, nullptr));
+    demod.reduce();
+    st.advance_qhead();
+
+    expr_ref two(a.mk_int(2), m);
+    expr_ref three(a.mk_int(3), m);
+    expr_ref f2(m.mk_app(f, two.get()), m);
+    st.add(dependent_expr(m, m.mk_not(m.mk_eq(f2, three)), nullptr, nullptr));
+    demod.reduce();
+
+    ENSURE(m.is_false(st[1].fml()));
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -371,6 +402,7 @@ void tst_simplifier() {
     test_datatypes();
     test_bool();
     test_fpa();
+    test_incremental_demodulator();
     test_recfun_finder();
     test_skolemize_bug();
 }
