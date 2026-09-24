@@ -144,8 +144,6 @@ namespace seq {
         sub_solver_i&     m_solver;
         expr_ref_vector   m_own;       // constraints added at this node only
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
-        bool              m_conflict = false; // true if the shared solver went unsat after the last add_constraint
-        eq_tree::dep_tracker m_conflict_dep = nullptr; // dep justifying m_conflict (from m_solver.unsat_core()), valid iff m_conflict
         model_ref         m_model;                       // arithmetic model captured by clone() at a sat leaf
 
         // Trail undo object: pairs with the backend push done when the
@@ -214,18 +212,11 @@ namespace seq {
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        // solver_facet never itself blocks the "satisfied" verdict: it only
-        // ever prunes via a conflict (surfaced through propagate(),
-        // returning simplify_result::conflict, not through is_satisfied());
-        // it defers to the other facets (eq_facet/deq_facet's own
-        // is_satisfied()) for whether solving as a whole is done. Since
-        // node::is_satisfied() is an AND over every registered facet,
-        // solver_facet must return true here (silently "not objecting"),
-        // not false (which would make it impossible for any node with
-        // this facet registered to ever reach the sat verdict).
-        bool is_satisfied() const override { return true; }
+        // A node is only satisfied if its arithmetic is: an undecided
+        // (e.g. resource-limited) check must not let a leaf pass as sat.
+        bool is_satisfied() const override { return m_solver.check() == l_true; }
 
-        bool has_conflict() const override { return m_conflict; }
+        bool has_conflict() const override { return m_solver.check() == l_false; }
 
         // Dependency justifying the current conflict (valid iff
         // `has_conflict()`): the join, as computed by the backend's own
@@ -235,7 +226,7 @@ namespace seq {
         // unconditional facts) - callers should treat a `nullptr` here
         // exactly as they already treat a `nullptr` dep elsewhere: sound,
         // just less precise.
-        eq_tree::dep_tracker conflict_dep() const override { return m_conflict_dep; }
+        eq_tree::dep_tracker conflict_dep() const override { return m_solver.unsat_core(); }
 
         // Query the shared incremental backend for whether `c` is
         // currently *implied* (resp. its negation implied) by the

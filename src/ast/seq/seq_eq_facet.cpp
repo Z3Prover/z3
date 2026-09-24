@@ -162,60 +162,14 @@ namespace seq {
         eq.m_lhs = std::move(L);
         eq.m_rhs = std::move(R);
 
-        // reduce_eq strips common prefixes/suffixes and performs other
-        // deterministic simplifications, but (unlike the old hand-rolled
-        // loop) does not itself force the remaining tokens of a side to
-        // epsilon when the other side has already been fully consumed -
-        // do that here: pop leading variables as forced (unconditional)
-        // substitutions v := epsilon, justified by this equation's own
-        // dependency; a leading constant on the nonempty side at this
-        // point is a symbol clash (conflict).
-
-        // NSB code review: use broadcast_subst instead of apply_subst, so
-        // this forced v:=epsilon substitution reaches sibling facets too.
-        if (eq.m_lhs.empty() != eq.m_rhs.empty()) {
-            expr_ref_vector& side = eq.m_lhs.empty() ? eq.m_rhs : eq.m_lhs;
-            eq_tree::dep_tracker eq_dep = eq.m_dep;
-            while (!side.empty()) {
-                expr* tok = side.get(0);
-                if (u.str.is_unit(tok)) {
-                    conflict = true;
-                    conflict_dep = eq_dep;
-                    return false;
-                }
-                expr_ref_vector empty_repl(m);
-                broadcast_subst(n, tok, empty_repl, eq_dep);
-            }
-        }
-
-        if (eq.m_lhs.empty() && eq.m_rhs.empty()) {
-            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
-            m_eqs[idx].m_active = false;
-        }
-
-        // variable definition (c3's det rule): x = t with x not occurring in t, substitute x := t
-        for (int side = 0; side < 2; ++side) {
-            expr_ref_vector const& vs = side == 0 ? eq.m_lhs : eq.m_rhs;
-            expr_ref_vector def(side == 0 ? eq.m_rhs : eq.m_lhs);
-            if (vs.size() != 1 || !is_uninterp_const(vs.get(0)))
-                continue;
-            expr_ref x(vs.get(0), m);
-            if (any_of(def, [&](expr* t) { return occurs(x, t); }))
-                continue;
-            broadcast_subst(n, x, def, eq.m_dep);
-            changed = true;
-            break;
-        }
-
         // Any newly-produced sub-equations (from unit-vs-unit
         // decomposition, length reasoning, etc.) are appended as fresh
         // equations, trailed. The decomposition is definitional (not an
         // added assumption), so each sub-equation inherits the parent
         // equation's dependency directly rather than joining a fresh leaf.
-        // NOTE: `eq` may be a dangling reference at this point if the
-        // equation at idx was just erased above (the vector element it
-        // referred to has been shifted/removed) - capture the dependency
-        // we need (parent_dep) BEFORE the erase, not here.
+        // NOTE: `eq` dangles once add_equation reallocates m_eqs - use
+        // parent_dep here, and re-fetch m_eqs[idx] afterwards. They are
+        // added before the substitutions below, so that those reach them.
         //
         // Special case: reduce_eq's own unit-vs-unit trimming
         // (reduce_back/reduce_front in ast/rewriter/seq_rewriter.cpp)
@@ -257,6 +211,52 @@ namespace seq {
                 }
             }
             add_equation(lts, rts, parent_dep);
+        }
+
+        // reduce_eq strips common prefixes/suffixes and performs other
+        // deterministic simplifications, but (unlike the old hand-rolled
+        // loop) does not itself force the remaining tokens of a side to
+        // epsilon when the other side has already been fully consumed -
+        // do that here: pop leading variables as forced (unconditional)
+        // substitutions v := epsilon, justified by this equation's own
+        // dependency; a leading constant on the nonempty side at this
+        // point is a symbol clash (conflict).
+
+        // NSB code review: use broadcast_subst instead of apply_subst, so
+        // this forced v:=epsilon substitution reaches sibling facets too.
+        equation& cur = m_eqs[idx];
+        if (cur.m_lhs.empty() != cur.m_rhs.empty()) {
+            expr_ref_vector& side = cur.m_lhs.empty() ? cur.m_rhs : cur.m_lhs;
+            eq_tree::dep_tracker eq_dep = cur.m_dep;
+            while (!side.empty()) {
+                expr* tok = side.get(0);
+                if (u.str.is_unit(tok)) {
+                    conflict = true;
+                    conflict_dep = eq_dep;
+                    return false;
+                }
+                expr_ref_vector empty_repl(m);
+                broadcast_subst(n, tok, empty_repl, eq_dep);
+            }
+        }
+
+        if (cur.m_lhs.empty() && cur.m_rhs.empty()) {
+            m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
+            m_eqs[idx].m_active = false;
+        }
+
+        // variable definition (c3's det rule): x = t with x not occurring in t, substitute x := t
+        for (int side = 0; side < 2; ++side) {
+            expr_ref_vector const& vs = side == 0 ? cur.m_lhs : cur.m_rhs;
+            expr_ref_vector def(side == 0 ? cur.m_rhs : cur.m_lhs);
+            if (vs.size() != 1 || !is_uninterp_const(vs.get(0)))
+                continue;
+            expr_ref x(vs.get(0), m);
+            if (any_of(def, [&](expr* t) { return occurs(x, t); }))
+                continue;
+            broadcast_subst(n, x, def, cur.m_dep);
+            changed = true;
+            break;
         }
         return true;
     }

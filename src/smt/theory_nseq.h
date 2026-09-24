@@ -203,6 +203,7 @@ namespace smt {
         // (in the constructor) mirrors the priority order of
         // `nielsen_graph::generate_extensions` (seq_nielsen_search.cpp)
         // for every plugin that has a current analog:
+        //   (simplification)  simplify_const_powers (exponent bounds) -> power_fixed_exp
         //   priority 2   apply_power_epsilon        -> (folded into power_propagation)
         //   (refutation gate)  seq_eq_approx (view-segment intersection) -> eq_approx_split
         //   (refutation gate)  seq_parikh (length/period feasibility)    -> mem_parikh_split

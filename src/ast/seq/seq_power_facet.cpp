@@ -17,6 +17,7 @@ Author:
 
 --*/
 #include "ast/seq/seq_power_facet.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/seq/seq_solver_facet_i.h"
 #include "ast/ast_pp.h"
 
@@ -91,6 +92,14 @@ namespace seq {
         return result;
     }
 
+    // an exponent in arithmetic normal form, so that e.g. (n + 1) - n becomes the numeral 1
+    static expr_ref mk_exp(ast_manager& m, expr* e) {
+        th_rewriter rw(m);
+        expr_ref r(e, m);
+        rw(r);
+        return r;
+    }
+
     static expr_ref mk_len_sum(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks, unsigned from, unsigned to) {
         expr_ref sum(a.mk_int(0), m);
         for (unsigned i = from; i < to; ++i)
@@ -118,17 +127,7 @@ namespace seq {
             // own numeral-power folding): the obligation is fully precise,
             // so unfold it exactly into an eq_facet equation and discharge
             // it here - no need for solver_facet or power_split at all.
-            bool known = a.is_numeral(p.m_n, v);
-            eq_tree::dep_tracker dep = p.m_dep;
-            // an exponent the arithmetic has fixed (e.g. 2n = 12) is unfolded as well, justified by the implication's core
-            if (!known && p.m_axiomatized && sf.value(p.m_n, v) && v <= rational(1024)) {
-                eq_tree::dep_tracker core;
-                if (sf.implies(m.mk_eq(p.m_n, a.mk_numeral(v, true)), &core) == l_true) {
-                    dep = f.dm().mk_join(dep, core);
-                    known = true;
-                }
-            }
-            if (known) {
+            if (a.is_numeral(p.m_n, v)) {
                 expr_ref rhs(m);
                 if (!v.is_pos())
                     rhs = u.str.mk_empty(p.m_e.get()->get_sort());
@@ -136,7 +135,7 @@ namespace seq {
                     rhs = mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned());
                 expr_ref_vector repl(m);
                 u.str.get_concat_units(rhs.get(), repl);
-                broadcast_subst(n, p.m_e.get(), repl, dep);
+                broadcast_subst(n, p.m_e.get(), repl, p.m_dep);
                 changed = true;
                 continue;
             }
@@ -478,15 +477,13 @@ namespace seq {
     // pattern of some power's own base `U`), returning how many complete
     // copies were consumed as a symbolic sum expression, plus the number
     // of *tokens* of `side` that participated (0 if no complete copy was
-    // ever matched). At each pattern boundary (not mid-pattern, and not
-    // at the very first token, mirroring c3's `i > 0` guard that avoids
-    // undoing power_split's own `u . u^(n-1)` unwinding), a token that is
+    // ever matched). At each pattern boundary (not mid-pattern), a token that is
     // itself a registered power obligation with exactly the same base
     // token pattern is absorbed whole - its entire exponent is added to
     // the running sum directly, rather than requiring it to be matched
     // token-by-token.
     static bool comm_power(power_facet const& f, expr_ref_vector const& base_pattern,
-                            expr_ref_vector const& side, bool fwd, unsigned exclude_idx,
+                            expr_ref_vector const& side, bool fwd,
                             ast_manager& m, arith_util& a, seq_util& u,
                             expr_ref& count, unsigned& consumed) {
         unsigned bn = base_pattern.size();
@@ -519,9 +516,9 @@ namespace seq {
             }
             // Case 2: a power token whose base is the exact same
             // pattern, absorbed whole - only at a pattern boundary
-            // (pos==0), and never at the very first token (i>0).
+            // (pos==0).
             unsigned pidx;
-            if (pos == 0 && f.find_power(t, pidx) && pidx != exclude_idx) {
+            if (pos == 0 && f.find_power(t, pidx)) {
                 str_power const& q = f.powers()[pidx];
                 expr_ref_vector qbase(m);
                 u.str.get_concat_units(q.m_s.get(), qbase);
@@ -576,7 +573,7 @@ namespace seq {
                     u.str.get_concat_units(p.m_s.get(), base_pattern);
                     expr_ref count(m);
                     unsigned consumed;
-                    if (!comm_power(f, base_pattern, other_side, fwd, pow_idx, m, a, u, count, consumed) || consumed == 0)
+                    if (!comm_power(f, base_pattern, other_side, fwd, m, a, u, count, consumed) || consumed == 0)
                         continue;
                     // Already resolved: no case split needed (mirrors
                     // c3's get_const_power_diff-guard - simplification
@@ -608,7 +605,7 @@ namespace seq {
         str_power p = f.powers()[t.m_pow_idx]; // copy: add_power may reallocate m_pows
         expr* e = p.m_n, *count = t.m_count;
         ac.solver_facet_ref().add_constraint(covered ? a.mk_ge(count, a.mk_add(e, a.mk_int(1))) : a.mk_ge(e, count), t.m_dep);
-        expr_ref rest_exp(covered ? a.mk_sub(count, e) : a.mk_sub(e, count), m);
+        expr_ref rest_exp = mk_exp(m, covered ? a.mk_sub(count, e) : a.mk_sub(e, count));
         expr_ref rest(f.get_seq_util().str.mk_power(p.m_s, rest_exp), m);
         f.add_power(rest, p.m_s, rest_exp);
         eq_facet::equation const& eq = ef.equations()[t.m_eq_idx];
@@ -638,12 +635,49 @@ namespace seq {
         if (!find_split_elim_trigger(f, ef, m, a, u, t))
             return nullptr;
         has_more = true;
+        committed = true;
+        m_stats.m_num_splits++;
+        // an ordering fixed by the exponents themselves (e.g. n + 1 against n) needs no split, as in c3's CommPower simplification
+        rational d;
+        if (a.is_numeral(mk_exp(m, a.mk_sub(t.m_count, f.powers()[t.m_pow_idx].m_n)), d)) {
+            elim_branch(n, t, d.is_pos());
+            out = eq_tree::edge(d.is_pos() ? "power-split-elim:<" : "power-split-elim:>=", t.m_dep, true, 0);
+            return nullptr;
+        }
         elim_branch(n, t, true);
         iterator* it = alloc(iterator, n, t);
         out = eq_tree::edge("power-split-elim:<", t.m_dep, true, 0);
-        committed = true;
-        m_stats.m_num_splits++;
         return it;
+    }
+
+    // -- power_fixed_exp --
+
+    scoped_ptr<eq_tree::split_iterator_i> power_fixed_exp::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        auto& f = ac.power_facet_ref();
+        auto& sf = ac.solver_facet_ref();
+        for (unsigned i = 0; i < f.powers().size(); ++i) {
+            str_power const& p = f.powers()[i];
+            rational v;
+            if (!p.active() || !p.m_axiomatized || a.is_numeral(p.m_n) || !sf.value(p.m_n, v) || v > rational(1024))
+                continue;
+            eq_tree::dep_tracker core = nullptr;
+            if (sf.implies(m.mk_eq(p.m_n, a.mk_numeral(v, true)), &core) != l_true)
+                continue;
+            eq_tree::dep_tracker dep = f.dm().mk_join(p.m_dep, core);
+            expr_ref_vector repl(m);
+            if (v.is_pos())
+                u.str.get_concat_units(mk_power_unfold(u, m, p.m_s.get(), v.get_unsigned()), repl);
+            broadcast_subst(n, p.m_e.get(), repl, dep);
+            has_more = true;
+            committed = true;
+            m_stats.m_num_splits++;
+            out = eq_tree::edge("power-fixed-exp", dep, true, 0);
+            return nullptr;
+        }
+        return nullptr;
     }
 
     // -- power_peel --
@@ -695,7 +729,7 @@ namespace seq {
         str_power p = f.powers()[m_pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
         // Branch 2: n >= 1, U^n := U . U^(n-1) with the nested power at the far end
-        expr_ref n_minus_1(a.mk_sub(p.m_n, a.mk_int(1)), m);
+        expr_ref n_minus_1 = mk_exp(m, a.mk_sub(p.m_n, a.mk_int(1)));
         expr_ref nested_pow(u.str.mk_power(p.m_s, n_minus_1), m);
         expr_ref_vector base(m), repl(m);
         u.str.get_concat_units(p.m_s, base);

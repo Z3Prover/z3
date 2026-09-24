@@ -31,8 +31,11 @@ namespace seq {
         // Disable the (n)seq string solver on this arithmetic sub-solver:
         // it only ever sees QF_LIA-level constraints (lengths, etc.), and
         // without this it could otherwise recursively try to instantiate a
-        // string theory of its own.
-        p.set_sym("smt.string_solver", symbol("empty"));
+        // string theory of its own. (Keys are module-local here; "empty"
+        // would still set up theory_seq.)
+        p.set_sym("string_solver", symbol("none"));
+        // a hard length problem is left undecided (sound: only a refutation is lost) instead of stalling the search
+        p.set_uint("max_conflicts", 100);
         m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
     }
 
@@ -132,10 +135,6 @@ namespace seq {
         m_trail.push(push_back_ref_trail(m_own));
         m_own.push_back(c);
         m_solver.assert_expr(c, dep);
-        m_trail.push(value_trail<bool>(m_conflict));
-        m_trail.push(value_trail<eq_tree::dep_tracker>(m_conflict_dep));
-        m_conflict = (m_solver.check() == l_false);
-        m_conflict_dep = m_conflict ? m_solver.unsat_core() : nullptr;
         return true;
     }
 
@@ -220,8 +219,7 @@ namespace seq {
     }
 
     std::ostream& solver_facet::display(std::ostream& out) const {
-        out << "solver_facet: " << m_own.size() << " own constraint(s)"
-            << (m_conflict ? " (conflict)" : "") << "\n";
+        out << "solver_facet: " << m_own.size() << " own constraint(s)\n";
         for (expr* c : m_own)
             out << "  " << mk_pp(c, m) << "\n";
         return out;

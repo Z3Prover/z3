@@ -248,6 +248,27 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
+    // Unfolds a power whose exponent the arithmetic has fixed (e.g. 2n = 12), justified by the
+    // implication's core. A single-branch split rather than a propagation, so that the model query
+    // runs once per node instead of in every propagation round.
+    class power_fixed_exp : public eq_tree::split_plugin_i {
+        ast_manager&  m;
+        seq_util&     u;
+        arith_util&   a;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+    public:
+        power_fixed_exp(ast_manager& m, seq_util& u, arith_util& a) :
+            m(m), u(u), a(a) {}
+        char const* name() const override { return "power-fixed-exp"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-power-fixed-exp num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
     // Bounded case-split completeness driver for symbolic exponents: see
     // module comment. A final residual branch `n > bound` (obligation left
     // pending) keeps the split exhaustive.

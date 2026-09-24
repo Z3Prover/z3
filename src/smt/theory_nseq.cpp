@@ -196,6 +196,7 @@ namespace smt {
         // any word-equation split. This was found experimentally to
         // avoid needless equation case-splitting on nodes that a regex
         // split alone can already close.
+        m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
@@ -735,10 +736,9 @@ namespace smt {
                         proc->add_literal(m_seq.str.mk_unit(m_seq.str.mk_char(0)));
                 }
             }
-            else if (sf && m_seq.str.is_power(t, s, k) && sf->value(k, count)) {
+            else if (sf && m_seq.str.is_power(t, s, k) && sf->value(k, count) && count.is_unsigned()) {
                 // the base, repeated as often as the sat leaf's arithmetic model says
-                unsigned reps = count.is_pos() && count <= rational(100000) ? count.get_unsigned() : 0;
-                for (unsigned c = 0; c < reps; ++c)
+                for (unsigned c = 0; c < count.get_unsigned(); ++c)
                     add_token(s);
             }
             else if (m.is_value(t) || !ctx.e_internalized(t)) {
