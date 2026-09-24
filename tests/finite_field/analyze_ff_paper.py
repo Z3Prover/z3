@@ -71,7 +71,7 @@ def main():
     import matplotlib.pyplot as plt
     import numpy as np
     plt.rcParams.update({'font.size':10,'axes.spines.top':False,'axes.spines.right':False})
-    names={'artifact-clean-wip-gb':'Artifact baseline (clean-wip)','artifact-clean-wip-nosimp':'Artifact baseline, no simplification','cvc5-1.3.3-gb':'CVC5 1.3.3','cvc5-1.3.3-nosimp':'CVC5 1.3.3, no simplification','paper-candidate-gb':'Paper candidate, default','paper-candidate-nosimp':'Paper candidate, no simplification','paper-candidate-proof-generation':'Paper candidate + proof','paper-candidate-proof':'Paper candidate + proof + check','z3-ff-solve':'Z3+FF solver','z3-ff-proof-generation':'Z3+FF certificate production','z3-ff-proof':'Z3+FF + proof + check'}
+    names={'artifact-clean-wip-gb':'cvc5 1.3.3.dev (clean-wip)','artifact-clean-wip-nosimp':'cvc5 1.3.3.dev (clean-wip), no simplification','cvc5-1.3.3-gb':'CVC5 1.3.3','cvc5-1.3.3-nosimp':'CVC5 1.3.3, no simplification','paper-candidate-gb':'cvc5 1.3.4.dev (FMCAD), default','paper-candidate-nosimp':'cvc5 1.3.4.dev (FMCAD), no simplification','paper-candidate-proof-generation':'cvc5 1.3.4.dev (FMCAD) + proof','paper-candidate-proof':'cvc5 1.3.4.dev (FMCAD) + proof + check','z3-ff-solve':'Z3+FF solver','z3-ff-proof-generation':'Z3+FF certificate production','z3-ff-proof':'Z3+FF + proof + check'}
     fig,ax=plt.subplots(figsize=(10,6))
     for c in ['artifact-clean-wip-gb','artifact-clean-wip-nosimp','paper-candidate-proof-generation','paper-candidate-proof','z3-ff-solve','z3-ff-proof']:
         times=sorted(r['seconds'] for r in by[c].values() if success(r))
@@ -92,7 +92,7 @@ def main():
     fig.colorbar(im,ax=ax,label='Completion fraction',shrink=.85);fig.tight_layout();fig.savefig(out/'categories.png',dpi=180);plt.close(fig)
     fig,ax=plt.subplots(figsize=(6,6))
     for h in common:ax.scatter(by[proof_names[0]][h]['seconds'],by[proof_names[1]][h]['seconds'],s=14,alpha=.55,color='#167f8c')
-    ax.plot([.01,meta['timeout']],[.01,meta['timeout']],ls='--',color='gray');ax.set(xscale='log',yscale='log',xlim=(.01,meta['timeout']),ylim=(.01,meta['timeout']),xlabel='Paper candidate + proof + check (s)',ylabel='Z3+FF + proof + check (s)',title=f'Common externally checked inputs: {len(common)}')
+    ax.plot([.01,meta['timeout']],[.01,meta['timeout']],ls='--',color='gray');ax.set(xscale='log',yscale='log',xlim=(.01,meta['timeout']),ylim=(.01,meta['timeout']),xlabel='cvc5 1.3.4.dev (FMCAD) + proof + check (s)',ylabel='Z3+FF + proof + check (s)',title=f'Common externally checked inputs: {len(common)}')
     ax.grid(alpha=.2);fig.tight_layout();fig.savefig(out/'proof-scatter.png',dpi=180);plt.close(fig)
     print('\n'.join(md));print('Common proof inputs',len(common),'candidate-only',len(conly),'Z3-only',len(zonly))
 
