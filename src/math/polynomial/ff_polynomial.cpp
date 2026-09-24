@@ -23,6 +23,7 @@ namespace ff {
         st.update("ff matrix rows", m_matrix_rows);
         st.update("ff extra matrix reducers", m_extra_matrix_reducers);
         st.update("ff lazy matrix reducers", m_lazy_matrix_reducers);
+        st.update("ff sparse matrix reducers", m_sparse_matrix_reducers);
         st.update("ff sparse trials", m_sparse_trials);
         st.update("ff sparse witnesses", m_sparse_witnesses);
         st.update("ff step exhaustions", m_step_exhaustions);
@@ -462,6 +463,7 @@ namespace ff {
         probe.adaptive_reduction = adaptive_reduction;
         probe.adaptive_matrix = adaptive_matrix;
         probe.lazy_matrix = lazy_matrix;
+        probe.sparse_matrix_reducers = sparse_matrix_reducers;
         probe.fused_reduction = fused_reduction;
         probe.definition_variables = definition_variables;
         probe.root_completion = root_completion;
@@ -820,6 +822,25 @@ namespace ff {
         };
         for (auto const &f : rows)
             discover(f);
+        std::vector<unsigned> reducer_order;
+        if (sparse_matrix_reducers) {
+            if (bounded_symbolic) charge(bs.size(), sizeof(unsigned));
+            reducer_order.reserve(bs.size());
+            for (unsigned j = 0; j < bs.size(); ++j) {
+                tick();
+                if (!bs[j].empty()) reducer_order.push_back(j);
+            }
+            // Multiplication by a monomial preserves the number of terms.
+            // A shorter valid basis row therefore introduces fewer candidate
+            // tail terms. This heuristic need not minimize the final matrix.
+            // Stable basis indices break ties, independent of input names or
+            // field size. Charge sorting and each candidate test to the same
+            // local/shared work limits as the rest of symbolic preprocessing.
+            std::sort(reducer_order.begin(), reducer_order.end(), [&](unsigned a, unsigned b) {
+                tick();
+                return bs[a].size() != bs[b].size() ? bs[a].size() < bs[b].size() : a < b;
+            });
+        }
         // F4 symbolic preprocessing: for every reducible matrix monomial M,
         // add one row (M/lm(g))*g from the existing basis and discover its tail.
         // These rows belong to the old ideal. A monomial is processed once;
@@ -829,13 +850,22 @@ namespace ff {
             monomial mon = *pending.begin();
             pending.erase(pending.begin());
             uint64_t mask = div_masks ? support_mask(mon) : 0;
-            for (unsigned j = 0; j < bs.size(); ++j) {
+            unsigned count = sparse_matrix_reducers ? reducer_order.size() : bs.size();
+            for (unsigned k = 0; k < count; ++k) {
+                unsigned j = sparse_matrix_reducers ? reducer_order[k] : k;
+                if (sparse_matrix_reducers) tick();
                 auto const &b = bs[j];
                 if (b.empty()) continue;
                 if (div_masks && (mask & masks[j]) != masks[j]) { ++m_mask_skips; continue; }
                 monomial factor;
                 if (!quotient(mon, b.begin()->first, factor))
                     continue;
+                // Any divisible leading monomial is a valid reducer: the row
+                // is exactly factor*b in the retained basis ideal. Choosing a
+                // different b changes its tail and premises, but preserves the
+                // ideal generated with the old basis and input rows. The chosen
+                // row carries its own premises and sugar, never the old choice's.
+                if (sparse_matrix_reducers) ++m_sparse_matrix_reducers;
                 if (lazy_matrix) {
                     // Account for descriptor-vector reallocation, owned factor
                     // storage, and the largest temporary shifted monomial. No

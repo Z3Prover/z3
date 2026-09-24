@@ -8,6 +8,45 @@
 
 namespace ff {
     struct test_engine {
+        static void sparse_matrix_selection() {
+            reslimit limit;
+            engine reference(rational(7), limit, 10000000, 4096, false, false, false);
+            auto x = reference.variable(10), z = reference.variable(20);
+            auto dense = reference.add(reference.add(reference.add(x, reference.variable(5)),
+                                                     reference.variable(4)), reference.variable(3));
+            auto sparse = reference.add(x, reference.variable(0));
+            auto tied = reference.add(x, reference.variable(1));
+            auto input = reference.mul(x, z);
+            dense.dependencies = {0}; sparse.dependencies = {1}; input.dependencies = {2}; tied.dependencies = {3};
+            sparse.sugar = 7;
+            std::vector<polynomial> bs{dense, sparse, tied};
+            // Matrix outputs are made monic after elimination.
+            auto expected = reference.mul(reference.variable(0), z);
+            for (bool packed : {false, true}) for (bool lazy : {false, true}) {
+                engine old(rational(7), limit, 1000000), chosen(rational(7), limit, 1000000);
+                old.compact_matrix = chosen.compact_matrix = packed;
+                old.lazy_matrix = chosen.lazy_matrix = lazy;
+                chosen.sparse_matrix_reducers = true;
+                auto before = old.batch_reduce({input}, bs), after = chosen.batch_reduce({input}, bs);
+                ENSURE(before.size() == 1 && before.front().size() == 3);
+                ENSURE(after.size() == 1 && after.front() == expected);
+                ENSURE(after.front().dependencies == std::set<unsigned>({1, 2}));
+                ENSURE(after.front().sugar == 8 && chosen.m_sparse_matrix_reducers == 1);
+                ENSURE(chosen.m_peak_matrix_columns == 2 && old.m_peak_matrix_columns == 4);
+                // Choice may change the remainder, but it must preserve the
+                // ideal with the retained basis in both directions. Check this
+                // using the separate scalar basis/reduction route.
+                auto original = bs, transformed = bs;
+                original.push_back(input); transformed.push_back(after.front());
+                reference.basis(original); reference.basis(transformed);
+                ENSURE(reference.reduce(after.front(), original).empty());
+                ENSURE(reference.reduce(input, transformed).empty());
+                auto premises = std::vector<polynomial>{sparse, input};
+                reference.basis(premises);
+                ENSURE(reference.reduce(after.front(), premises).empty());
+            }
+            std::cout << "Sparse matrix selection: smaller closure, stable ties, exact ideals, chosen premises and sugar\n";
+        }
         static void fused_reduction_equivalence() {
             for (rational const &prime : {rational(7), rational("4294967291"), rational("18446744073709551629")})
                 for (bool small : {false, true}) {
@@ -311,16 +350,17 @@ static void test_ff_basis_optimizations() {
             }
             auto expected = input;
             reference.basis(expected);
-            for (unsigned mode = 0; mode < 12; ++mode) {
+            for (unsigned mode = 0; mode < 16; ++mode) {
                 ff::engine e(rational(prime), lim, 10000000, 4096, false, mode != 7, false);
                 e.sugar_pairs = mode == 0 || mode >= 5;
                 e.gm_pairs = mode == 1 || mode >= 5;
                 e.div_masks = mode == 2 || mode >= 5;
                 e.geobucket = mode == 3 || mode >= 5;
                 e.small_coefficients = mode == 4 || mode >= 5;
-                e.compact_matrix = mode == 6 || mode == 9 || mode == 11;
-                e.lazy_matrix = mode == 8 || mode == 9;
-                e.fused_reduction = mode >= 10;
+                e.compact_matrix = mode == 6 || mode == 9 || mode == 11 || mode == 13 || mode == 15;
+                e.lazy_matrix = mode == 8 || mode == 9 || mode >= 14;
+                e.sparse_matrix_reducers = mode >= 12;
+                e.fused_reduction = mode == 10 || mode == 11;
                 e.adaptive_matrix = mode >= 8;
                 e.adaptive_reduction = mode >= 5;
                 auto actual = input;
@@ -387,6 +427,7 @@ static void test_ff_scalar_recovery() {
 }
 
 void tst_finite_field() {
+    ff::test_engine::sparse_matrix_selection();
     ff::test_engine::work_accounting();
     ff::test_engine::fused_reduction_equivalence();
     ff::test_engine::minimal_polynomial_provenance();

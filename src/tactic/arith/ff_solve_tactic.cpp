@@ -34,6 +34,7 @@ namespace {
                 algebra.adaptive_reduction = smt_params_helper(p).ff_adaptive_reduction();
                 algebra.adaptive_matrix = smt_params_helper(p).ff_adaptive_matrix();
                 algebra.lazy_matrix = smt_params_helper(p).ff_lazy_matrix();
+                algebra.sparse_matrix_reducers = smt_params_helper(p).ff_sparse_matrix_reducers();
                 algebra.fused_reduction = smt_params_helper(p).ff_fused_reduction();
                 algebra.bounded_elimination = smt_params_helper(p).ff_bounded_elimination();
                 algebra.sugar_pairs = smt_params_helper(p).ff_sugar_pairs();
@@ -267,6 +268,7 @@ namespace {
             ds.insert("ff.bit_bounds", CPK_BOOL, "propagate Boolean digits using no-wrap signed interval bounds", "true");
             ds.insert("ff.adaptive_reduction", CPK_BOOL, "fall back to scalar basis reduction when a matrix exceeds its storage budget", "false");
             ds.insert("ff.lazy_matrix", CPK_BOOL, "retain matrix reducers as basis references and monomial multipliers", "false");
+            ds.insert("ff.sparse_matrix_reducers", CPK_BOOL, "prefer fewer-term basis rows during matrix symbolic preprocessing", "false");
             ds.insert("ff.fused_reduction", CPK_BOOL, "add scalar reducer multiples directly without temporary polynomials", "false");
             ds.insert("ff.adaptive_matrix", CPK_BOOL, "allow more symbolic matrix reducers within a bounded storage allowance", "false");
             ds.insert("ff.bounded_elimination", CPK_BOOL, "retain nonlinear definitions when substitution predicts polynomial growth", "false");

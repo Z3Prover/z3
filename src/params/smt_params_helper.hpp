@@ -31,6 +31,7 @@ Abstract:
   BOOL_  (ff_bit_bounds, "ff.bit_bounds", true, "propagate Boolean digits using no-wrap signed interval bounds") \
   BOOL_  (ff_adaptive_reduction, "ff.adaptive_reduction", false, "fall back to scalar basis reduction when a matrix exceeds its storage budget") \
   BOOL_  (ff_lazy_matrix, "ff.lazy_matrix", false, "retain matrix reducers as basis references and monomial multipliers") \
+  BOOL_  (ff_sparse_matrix_reducers, "ff.sparse_matrix_reducers", false, "prefer fewer-term basis rows during matrix symbolic preprocessing") \
   BOOL_  (ff_fused_reduction, "ff.fused_reduction", false, "add scalar reducer multiples directly without temporary polynomials") \
   BOOL_  (ff_adaptive_matrix, "ff.adaptive_matrix", false, "allow more symbolic matrix reducers within a bounded storage allowance") \
   BOOL_  (ff_bounded_elimination, "ff.bounded_elimination", false, "retain nonlinear definitions when substitution predicts polynomial growth") \
