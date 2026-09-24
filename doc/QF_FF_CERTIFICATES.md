@@ -6,6 +6,10 @@ command; normal solving and `get-proof` retain their existing behavior. The
 optimized QF_FF solver does not yet record a complete proof of its own execution.
 V1 dependency sets still identify premises only, and cannot replace a derivation.
 
+The second milestone adds the [original-input Alethe/PAC pipeline](QF_FF_PROOF_PIPELINE.md),
+including checked disequality witnesses and real Carcara/FFPacheck runs. The
+first-milestone format and shell command described below remain supported.
+
 ## Implemented: polynomial refutations from original equations
 
 Use `(ff-certify)` instead of `(check-sat)` for a single-field conjunction of
@@ -103,8 +107,11 @@ does not list finite fields among its supported theories (checked 2026-09-24).
 These rules need agreement and implementation in the target consumer before
 interoperability can be claimed. The FMCAD 2026 artifact already extends Alethe/Carcara
 for finite fields through a PAC backend, despite the general cvc5 documentation
-omitting FF. Its existing interface is now the first compatibility target to
-evaluate; see the artifact screen linked below.
+omitting FF. The separate `ff_proof_pipeline.py` exporter now targets that
+interface and has been tested with pinned public companion checkers; see
+[QF_FF_PROOF_PIPELINE.md](QF_FF_PROOF_PIPELINE.md) for its mandatory independent
+input binding, checker patch, scope and measurements. The legacy rules in this
+section are retained for regression compatibility.
 
 A Z3-native certificate **file format** is not required for this export. Native
 proof objects or another complete Boolean/equality proof interface will be
@@ -189,8 +196,9 @@ The public [FMCAD 2026 finite-field proof artifact](https://zenodo.org/records/2
 provides an Alethe/Carcara/FFPacheck pipeline and a separate Lean-SMT/CPC
 pipeline. Its published results and our fresh 390-input certificate coverage
 screen are recorded in [QF_FF_FMCAD_PROOF_BENCHMARK.md](QF_FF_FMCAD_PROOF_BENCHMARK.md).
-The artifact checker has not yet been run against our certificates, and format
-compatibility is not established.
+That screen is historical: the [second milestone](QF_FF_PROOF_PIPELINE.md) now
+checks 135/390 inputs with the public companion Carcara/FFPacheck sources. The
+artifact image's exact binaries and the CPC/Lean path remain unevaluated.
 
 Round 7 keeps coefficient normalization, geobucket reductions and sparse matrix
 operations at the same ideal-combination boundary. A certificate recorder must
