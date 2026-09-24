@@ -12,8 +12,13 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/for_each_expr.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
+#include "ast/simplifiers/solve_eqs.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -395,6 +400,136 @@ static void test_incremental_demodulator() {
     ENSURE(m.is_false(st[1].fml()));
 }
 
+static void check_simplifier_proofs(ast_manager& m, base_dependent_expr_state& st,
+                                    expr_ref_vector const& assertions) {
+    proof_checker checker(m);
+    for (unsigned i = 0; i < st.qtail(); ++i) {
+        proof* pr = st[i].pr();
+        ENSURE(pr && m.get_fact(pr) == st[i].fml());
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(pr, side_conditions));
+        for (expr* condition : side_conditions) {
+            solver_ref check(mk_smt_solver(m, params_ref(), symbol()));
+            check->assert_expr(m.mk_not(condition));
+            ENSURE(check->check_sat(0, nullptr) == l_false);
+        }
+        for (expr* e : subterms::all(expr_ref(pr, m))) {
+            if (!m.is_asserted(e))
+                continue;
+            bool found = false;
+            for (expr* f : assertions)
+                found |= f == m.get_fact(to_app(e));
+            ENSURE(found);
+        }
+    }
+}
+
+static void test_solve_eqs_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    expr_ref p(m.mk_const("p", m.mk_bool_sort()), m);
+    expr_ref q(m.mk_const("q", m.mk_bool_sort()), m);
+    expr_ref r(m.mk_const("r", m.mk_bool_sort()), m);
+    expr_ref s(m.mk_const("s", m.mk_bool_sort()), m);
+    expr_ref_vector assertions(m);
+
+    auto check = [&]() {
+        base_dependent_expr_state st(m);
+        for (expr* f : assertions)
+            st.add(dependent_expr(m, f, m.mk_asserted(f), nullptr));
+        euf::solve_eqs solve(m, st);
+        ENSURE(solve.supports_proofs());
+        solve.reduce();
+        ENSURE(st.inconsistent());
+        check_simplifier_proofs(m, st, assertions);
+    };
+
+    assertions.push_back(m.mk_eq(p, q));
+    assertions.push_back(m.mk_eq(q, r));
+    assertions.push_back(m.mk_or(p, s));
+    assertions.push_back(m.mk_not(r));
+    assertions.push_back(m.mk_not(s));
+    check();
+
+    assertions.reset();
+    assertions.push_back(m.mk_eq(m.mk_not(q), p));
+    assertions.push_back(m.mk_not(q));
+    assertions.push_back(m.mk_not(p));
+    check();
+
+    assertions.reset();
+    assertions.push_back(m.mk_eq(p, m.mk_or(q, r)));
+    assertions.push_back(m.mk_not(q));
+    assertions.push_back(m.mk_not(r));
+    assertions.push_back(p);
+    check();
+
+    arith_util a(m);
+    expr_ref x(m.mk_const("x", a.mk_int()), m);
+    assertions.reset();
+    assertions.push_back(m.mk_eq(x, a.mk_int(3)));
+    assertions.push_back(a.mk_lt(x, a.mk_int(2)));
+    check();
+
+    assertions.reset();
+    assertions.push_back(m.mk_eq(p, q));
+    base_dependent_expr_state st(m);
+    st.add(dependent_expr(m, assertions.get(0), m.mk_asserted(assertions.get(0)), nullptr));
+    euf::solve_eqs solve(m, st);
+    solve.reduce();
+    check_simplifier_proofs(m, st, assertions);
+    st.flatten_suffix();
+    st.advance_qhead();
+    assertions.push_back(m.mk_not(p));
+    assertions.push_back(q);
+    for (unsigned i = 1; i < assertions.size(); ++i)
+        st.add(dependent_expr(m, assertions.get(i), m.mk_asserted(assertions.get(i)), nullptr));
+    expr_ref_vector assumptions(m);
+    st.replay(st.qhead(), assumptions);
+    check_simplifier_proofs(m, st, assertions);
+    solve.reduce();
+    ENSURE(st.inconsistent());
+    check_simplifier_proofs(m, st, assertions);
+}
+
+static void test_solve_eqs_proof_scope() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_const("y", a.mk_int()), m);
+        expr_ref equation(m.mk_eq(a.mk_add(x, y), a.mk_int(0)), m);
+        base_dependent_expr_state st(m);
+        st.add(dependent_expr(m, equation, proofs ? m.mk_asserted(equation) : nullptr, nullptr));
+        euf::solve_eqs solve(m, st);
+        solve.reduce();
+        if (proofs) {
+            ENSURE(st[0].fml() == equation);
+            expr_ref_vector assertions(m);
+            assertions.push_back(equation);
+            check_simplifier_proofs(m, st, assertions);
+        }
+        else
+            ENSURE(m.is_true(st[0].fml()));
+    }
+}
+
+static void test_flatten_suffix_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    expr_ref p(m.mk_const("p", m.mk_bool_sort()), m);
+    expr_ref q(m.mk_const("q", m.mk_bool_sort()), m);
+    expr_ref r(m.mk_const("r", m.mk_bool_sort()), m);
+    expr_ref_vector assertions(m);
+    assertions.push_back(m.mk_and(p, m.mk_not(m.mk_or(m.mk_not(q), r))));
+    base_dependent_expr_state st(m);
+    st.add(dependent_expr(m, assertions.get(0), m.mk_asserted(assertions.get(0)), nullptr));
+    st.flatten_suffix();
+    ENSURE(st.qtail() == 3);
+    check_simplifier_proofs(m, st, assertions);
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -404,5 +539,8 @@ void tst_simplifier() {
     test_fpa();
     test_incremental_demodulator();
     test_recfun_finder();
+    test_solve_eqs_proofs();
+    test_solve_eqs_proof_scope();
+    test_flatten_suffix_proofs();
     test_skolemize_bug();
 }

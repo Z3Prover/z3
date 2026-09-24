@@ -448,7 +448,8 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         else {
             if (fr.m_new_child) {
                 m_r = m().mk_app(f, new_num_args, new_args);
-                if (ProofGen) {
+                // Preserve the congruence proof from the rewritten children.
+                if (ProofGen && !m_pr) {
                     m_pr = m().mk_rewrite(t, m_r);
                 }
             }

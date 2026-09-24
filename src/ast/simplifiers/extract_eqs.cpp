@@ -71,6 +71,8 @@ namespace euf {
     public:
         basic_extract_eq(ast_manager& m) : m(m) {}
 
+        bool supports_proofs() const override { return true; }
+
         void set_allow_booleans(bool f) override {
             m_allow_bool = f;
         }
@@ -84,10 +86,19 @@ namespace euf {
                 if (!m_allow_bool && m.is_bool(x))
                     return;
                 if (is_uninterp_const(x))
-                    eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(y, m), d));
+                    eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(y, m), d, p));
                 if (is_uninterp_const(y))
-                    eqs.push_back(dependent_eq(e.fml(), to_app(y), expr_ref(x, m), d));
+                    eqs.push_back(dependent_eq(e.fml(), to_app(y), expr_ref(x, m), d, m.mk_symmetry(p)));
             }
+            if (m_allow_bool) {
+                if (is_uninterp_const(f))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(f), expr_ref(m.mk_true(), m), d, m.mk_iff_true(p)));
+                if (m.is_not(f, x) && is_uninterp_const(x))
+                    eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(m.mk_false(), m), d, m.mk_iff_false(p)));
+            }
+            // Conditional extraction needs additional evidence beyond the input proof.
+            if (p)
+                return;
             expr* c = nullptr, * th = nullptr, * el = nullptr, * x1, * y1 = nullptr, * x2 = nullptr, * y2 = nullptr;
             if (m_ite_solver && m.is_ite(f, c, th, el)) {
                 if (m.is_eq(th, x1, y1) && m.is_eq(el, x2, y2)) {
@@ -127,12 +138,6 @@ namespace euf {
                 if (is_eq_of(x2, y1, z, s, t) && is_complementary(x1, y2))
                     eqs.push_back(dependent_eq(e.fml(), to_app(z), expr_ref(m.mk_ite(y2, s, t), m), d));
             }
-            if (!m_allow_bool)
-                return;
-            if (is_uninterp_const(f))
-                eqs.push_back(dependent_eq(e.fml(), to_app(f), expr_ref(m.mk_true(), m), d));
-            if (m.is_not(f, x) && is_uninterp_const(x))
-                eqs.push_back(dependent_eq(e.fml(), to_app(x), expr_ref(m.mk_false(), m), d));
         }
 
         void updt_params(params_ref const& p) override {

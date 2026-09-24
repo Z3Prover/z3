@@ -107,6 +107,8 @@ public:
 
     void reset_updated() override { m_updated = false; }
 
+    bool proofs_enabled() const override { return m_goal && m_goal->proofs_enabled(); }
+
     void updt_params(params_ref const& p) override {
         m_params.append(p);
         init();
