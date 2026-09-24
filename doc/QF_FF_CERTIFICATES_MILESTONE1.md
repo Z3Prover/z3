@@ -113,3 +113,11 @@ The next v2 steps are proof-producing preprocessing and native theory-lemma
 attachment with exact premises, followed by inverse witnesses, finite-field
 root certificates and Boolean/theory-combination composition. Alethe
 interoperability requires agreement on rules and support in the target checker.
+
+## Real-artifact follow-up
+
+The first full artifact screen is in [QF_FF_FMCAD_PROOF_BENCHMARK.md](QF_FF_FMCAD_PROOF_BENCHMARK.md):
+382/390 ordinary UNSAT answers at ten seconds, but 0/390 certificates because
+all original queries exceed the first milestone's positive-equality input scope.
+The synthetic certificate-cost fixtures above must not be read as artifact
+certificate coverage.

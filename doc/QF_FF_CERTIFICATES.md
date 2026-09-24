@@ -101,7 +101,10 @@ unmodified Carcara, SMTCoq or Isabelle. The [Alethe specification](https://verit
 distinguishes the language from its proof rules. [cvc5's current Alethe documentation](https://cvc5.github.io/docs-ci/docs-main/proofs/output_alethe.html)
 does not list finite fields among its supported theories (checked 2026-09-24).
 These rules need agreement and implementation in the target consumer before
-interoperability can be claimed.
+interoperability can be claimed. The FMCAD 2026 artifact already extends Alethe/Carcara
+for finite fields through a PAC backend, despite the general cvc5 documentation
+omitting FF. Its existing interface is now the first compatibility target to
+evaluate; see the artifact screen linked below.
 
 A Z3-native certificate **file format** is not required for this export. Native
 proof objects or another complete Boolean/equality proof interface will be
@@ -183,9 +186,11 @@ still need agreement with Blaster; the experimental profile above does not freez
 the eventual full-v2 serialization.
 
 The public [FMCAD 2026 finite-field proof artifact](https://zenodo.org/records/20133205)
-also advertises proof checking in Pacheck and Lean. It is a relevant reference
-for the v2 design; its checker and proof format have not been evaluated or
-integrated in this branch.
+provides an Alethe/Carcara/FFPacheck pipeline and a separate Lean-SMT/CPC
+pipeline. Its published results and our fresh 390-input certificate coverage
+screen are recorded in [QF_FF_FMCAD_PROOF_BENCHMARK.md](QF_FF_FMCAD_PROOF_BENCHMARK.md).
+The artifact checker has not yet been run against our certificates, and format
+compatibility is not established.
 
 Round 7 keeps coefficient normalization, geobucket reductions and sparse matrix
 operations at the same ideal-combination boundary. A certificate recorder must
