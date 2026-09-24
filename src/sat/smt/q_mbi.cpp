@@ -20,6 +20,8 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/recfun_rewriter.h"
+#include "ast/datatype_decl_plugin.h"
 #include "qe/mbp/mbp_arith.h"
 #include "qe/mbp/mbp_arrays.h"
 #include "qe/mbp/mbp_datatypes.h"
@@ -30,6 +32,29 @@ Author:
 
 
 namespace q {
+
+    static bool is_recfun_with_ground_recursion_args(ast_manager& m, app* t) {
+        recfun::util recfun(m);
+        func_decl* f = t->get_decl();
+        if (!recfun.is_defined(f) || !recfun.has_def(f))
+            return false;
+        recfun_rewriter recfun_rw(m);
+        datatype::util dt(m);
+        bool has_decreasing = false;
+        unsigned i = 0;
+        for (expr* arg : *t) {
+            sort* s = arg->get_sort();
+            if (!is_ground(arg)) {
+                if (!m.is_uninterp(s))
+                    return false;
+            }
+            else if (dt.is_datatype(s) && recfun_rw.is_decreasing_arg(f, i, true)) {
+                has_decreasing = true;
+            }
+            ++i;
+        }
+        return has_decreasing;
+    }
 
     mbqi::mbqi(euf::solver& ctx, solver& s) :
         ctx(ctx),
@@ -521,7 +546,8 @@ namespace q {
         for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
-            if (is_uninterp(s) && to_app(s)->get_num_args() > 0) {
+            if ((is_uninterp(s) || is_recfun_with_ground_recursion_args(m, to_app(s))) &&
+                to_app(s)->get_num_args() > 0) {
                 unsigned i = 0;
                 for (expr* arg : *to_app(s)) {
                     if (!is_ground(arg) && !is_uninterp(arg) && !qb.is_free(arg))
