@@ -45,6 +45,8 @@ namespace smt {
                 algebra.bit_bounds = smt_params_helper(p).ff_bit_bounds();
                 algebra.adaptive_reduction = smt_params_helper(p).ff_adaptive_reduction();
                 algebra.adaptive_matrix = smt_params_helper(p).ff_adaptive_matrix();
+                algebra.adaptive_basis = smt_params_helper(p).ff_adaptive_basis();
+                algebra.set_basis_storage_limit(smt_params_helper(p).ff_basis_max_bytes());
                 algebra.lazy_matrix = smt_params_helper(p).ff_lazy_matrix();
                 algebra.sparse_matrix_reducers = smt_params_helper(p).ff_sparse_matrix_reducers();
                 algebra.fused_reduction = smt_params_helper(p).ff_fused_reduction();

@@ -36,6 +36,13 @@ namespace ff {
         st.update("ff monomial degree exhaustions", m_monomial_degree_exhaustions);
         st.update("ff active basis exhaustions", m_active_basis_exhaustions);
         st.update("ff basis slot exhaustions", m_basis_slots_exhaustions);
+        st.update("ff basis storage exhaustions", m_basis_storage_exhaustions);
+        st.update("ff pair storage exhaustions", m_pair_storage_exhaustions);
+        st.update("ff pair compactions", m_pair_compactions);
+        st.update("ff discarded stale pairs", m_discarded_pairs);
+        st.update("ff peak active basis", static_cast<double>(m_peak_active_basis));
+        st.update("ff peak basis bytes", static_cast<double>(m_peak_basis_bytes));
+        st.update("ff peak pair bytes", static_cast<double>(m_peak_pair_bytes));
         st.update("ff matrix symbolic storage exhaustions", m_matrix_symbolic_exhaustions);
         st.update("ff matrix reducer count exhaustions", m_matrix_reducer_exhaustions);
         st.update("ff matrix column count exhaustions", m_matrix_column_exhaustions);
@@ -462,6 +469,8 @@ namespace ff {
         probe.compact_encoding = compact_encoding;
         probe.adaptive_reduction = adaptive_reduction;
         probe.adaptive_matrix = adaptive_matrix;
+        probe.adaptive_basis = adaptive_basis;
+        probe.m_basis_storage_limit = m_basis_storage_limit;
         probe.lazy_matrix = lazy_matrix;
         probe.sparse_matrix_reducers = sparse_matrix_reducers;
         probe.fused_reduction = fused_reduction;
@@ -1149,13 +1158,68 @@ namespace ff {
         // transferred too; the existing autoreduction is used only without GM.
         std::map<std::pair<unsigned, unsigned>, monomial> live_pairs;
         using critical_pair = std::tuple<unsigned, unsigned, unsigned>;
-        std::priority_queue<critical_pair, std::vector<critical_pair>, std::greater<critical_pair>> ranked;
+        struct pair_queue : std::priority_queue<critical_pair, std::vector<critical_pair>, std::greater<critical_pair>> {
+            size_t capacity() const { return this->c.capacity(); }
+        } ranked;
         std::set<std::pair<unsigned, unsigned>> completed;
         auto pair_key = [](unsigned a, unsigned b) {
             return std::make_pair(std::min(a, b), std::max(a, b));
         };
 
-        unsigned active_basis = 0;
+        unsigned active_basis = 0, retired_since_compaction = 0;
+        size_t basis_payload = 0, live_pair_payload = 0;
+        std::vector<size_t> basis_sizes;
+        auto check_basis_storage = [&]() {
+            if (!adaptive_basis) return;
+            // Headers include vector reallocation; tree terms include links,
+            // rationals, canonical coefficient limbs, monomials and premises.
+            // This bounds estimated retained basis storage, not total RSS.
+            size_t bytes = basis_payload + 3 * bs.capacity() * sizeof(polynomial) +
+                           3 * basis_sizes.capacity() * sizeof(size_t);
+            m_peak_basis_bytes = std::max(m_peak_basis_bytes, bytes);
+            if (bytes > m_basis_storage_limit) {
+                ++m_basis_storage_exhaustions; ++m_basis_exhaustions; throw exhausted();
+            }
+        };
+        auto check_pair_storage = [&]() {
+            if (!adaptive_basis) return;
+            // Capacity is charged even after heap pops. The 3x allowance covers
+            // old/new vector allocations during growth or compaction. Premise
+            // indices retain their meaning; these records only schedule work.
+            size_t bytes = 3 * ranked.capacity() * sizeof(critical_pair) +
+                           3 * pairs.capacity() * sizeof(pairs[0]) +
+                           64 * completed.size() + 128 * live_pairs.size() + live_pair_payload;
+            m_peak_pair_bytes = std::max(m_peak_pair_bytes, bytes);
+            if (bytes > m_pair_storage_limit) {
+                ++m_pair_storage_exhaustions; ++m_basis_exhaustions; throw exhausted();
+            }
+        };
+        auto compact_pairs = [&]() {
+            if (!adaptive_basis || retired_since_compaction < 64) return;
+            // Run only at batch boundaries, after completed outputs have been
+            // installed. A pair touching a retired row was already skipped by
+            // the original loop. Removing it early preserves all live pairs and
+            // their rank/order, and no basis or premise index is renumbered.
+            pair_queue fresh;
+            while (!ranked.empty()) {
+                tick();
+                auto [rank, a, b] = ranked.top(); ranked.pop();
+                if (bs[a].empty() || bs[b].empty()) ++m_discarded_pairs;
+                else fresh.emplace(rank, a, b);
+            }
+            ranked.swap(fresh);
+            for (auto it = completed.begin(); it != completed.end();) {
+                tick();
+                if (bs[it->first].empty() || bs[it->second].empty()) it = completed.erase(it);
+                else ++it;
+            }
+            // Only the ordinary batched path retires rows; it uses the ranked
+            // heap and has no GM live-pair records or scalar FIFO to compact.
+            SASSERT(pairs.empty() && live_pairs.empty());
+            retired_since_compaction = 0;
+            ++m_pair_compactions;
+            check_pair_storage();
+        };
         auto insert = [&](polynomial input) {
             scoped_work insertion_accounting(*this, insertion_work);
             std::vector<polynomial> pending;
@@ -1190,6 +1254,7 @@ namespace ff {
                         // combination of lower-lcm pairs. Strict decrease makes
                         // deferred elimination well-founded, not circular.
                         if (la != lcm && lb != lcm && std::includes(lcm.begin(), lcm.end(), right.begin(), right.end())) {
+                            if (adaptive_basis) live_pair_payload -= it->second.capacity() * sizeof(unsigned);
                             it = live_pairs.erase(it); ++m_gm_skips;
                         }
                         else ++it;
@@ -1218,7 +1283,10 @@ namespace ff {
                         skip |= candidate.coprime;
                     }
                     if (skip) { ++m_gm_skips; continue; }
-                    if (gm_pairs) live_pairs.emplace(pair_key(j, bs.size()), lcm);
+                    if (gm_pairs) {
+                        auto [it, inserted] = live_pairs.emplace(pair_key(j, bs.size()), lcm);
+                        if (adaptive_basis && inserted) live_pair_payload += it->second.capacity() * sizeof(unsigned);
+                    }
                     if (ordered) {
                         unsigned rank = sugar_pairs ? std::max(
                             bs[j].sugar + static_cast<unsigned>(lcm.size() - bs[j].begin()->first.size()),
@@ -1226,9 +1294,25 @@ namespace ff {
                         ranked.emplace(rank, j, bs.size());
                     }
                     else pairs.emplace_back(j, bs.size());
+                    check_pair_storage();
+                }
+                if (adaptive_basis) {
+                    size_t bytes = 64 * f.dependencies.size();
+                    size_t coefficient_bytes = 2 * (static_cast<size_t>(p.get_num_bits()) / 8 + (p.get_num_bits() % 8 != 0));
+                    for (auto const &[mon, coefficient] : f) {
+                        tick();
+                        bytes += 128 + coefficient_bytes + mon.capacity() * sizeof(unsigned);
+                        if (bytes > m_basis_storage_limit) {
+                            ++m_basis_storage_exhaustions; ++m_basis_exhaustions; throw exhausted();
+                        }
+                    }
+                    basis_payload += bytes;
+                    basis_sizes.push_back(bytes);
                 }
                 bs.push_back(std::move(f));
                 ++active_basis;
+                m_peak_active_basis = std::max(m_peak_active_basis, static_cast<size_t>(active_basis));
+                check_basis_storage();
                 if (batched && !gm_pairs) {
                     // If a new leading monomial divides an old one, replace
                     // the old row by its remainder using the other rows. This
@@ -1245,11 +1329,13 @@ namespace ff {
                         bs[j].clear();
                         bs[j].dependencies.clear();
                         --active_basis;
+                        if (adaptive_basis) { basis_payload -= basis_sizes[j]; basis_sizes[j] = 0; ++retired_since_compaction; }
                         pending.push_back(reduce(std::move(old), bs));
                     }
                 }
-                if (active_basis > 256 || bs.size() > 4096) {
-                    m_active_basis_exhaustions += active_basis > 256;
+                unsigned active_limit = adaptive_basis ? 1024 : 256;
+                if (active_basis > active_limit || bs.size() > 4096) {
+                    m_active_basis_exhaustions += active_basis > active_limit;
                     m_basis_slots_exhaustions += bs.size() > 4096;
                     ++m_basis_exhaustions;
                     throw exhausted();
@@ -1258,6 +1344,7 @@ namespace ff {
         };
         for (auto const &f : eqs)
             insert(f);
+        compact_pairs();
         unsigned next_pair = 0;
         while (ordered ? !ranked.empty() : next_pair < pairs.size()) {
             if (!bs.empty() && bs.back().begin()->first.empty())
@@ -1274,7 +1361,12 @@ namespace ff {
                     ranked.pop();
                 }
                 else std::tie(a, b) = pairs[next_pair++];
-                if (gm_pairs && !live_pairs.erase(pair_key(a, b))) continue;
+                if (gm_pairs) {
+                    auto it = live_pairs.find(pair_key(a, b));
+                    if (it == live_pairs.end()) continue;
+                    if (adaptive_basis) live_pair_payload -= it->second.capacity() * sizeof(unsigned);
+                    live_pairs.erase(it);
+                }
                 if (bs[a].empty() || bs[b].empty()) continue;
                 auto const &ma = bs[a].begin()->first;
                 auto const &mb = bs[b].begin()->first;
@@ -1284,6 +1376,7 @@ namespace ff {
                 // their S-polynomial reduces to zero (the product criterion).
                 if (common.empty()) {
                     completed.insert(pair_key(a, b));
+                    check_pair_storage();
                     continue;
                 }
                 std::set_union(ma.begin(), ma.end(), mb.begin(), mb.end(), std::back_inserter(lcm));
@@ -1304,6 +1397,7 @@ namespace ff {
                 if (chained) {
                     ++m_chain_skips;
                     completed.insert(pair_key(a, b));
+                    check_pair_storage();
                     continue;
                 }
                 monomial qa, qb;
@@ -1336,6 +1430,8 @@ namespace ff {
                 insert(std::move(row));
             // Only completed batch outputs justify subsequent chain skips.
             completed.insert(reduced_pairs.begin(), reduced_pairs.end());
+            check_pair_storage();
+            compact_pairs();
         }
         std::erase_if(bs, [](auto const &f) { return f.empty(); });
         if (memo && !cache_input.empty()) {

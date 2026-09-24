@@ -34,6 +34,8 @@ Abstract:
   BOOL_  (ff_sparse_matrix_reducers, "ff.sparse_matrix_reducers", false, "prefer fewer-term basis rows during matrix symbolic preprocessing") \
   BOOL_  (ff_fused_reduction, "ff.fused_reduction", false, "add scalar reducer multiples directly without temporary polynomials") \
   BOOL_  (ff_adaptive_matrix, "ff.adaptive_matrix", false, "allow more symbolic matrix reducers within a bounded storage allowance") \
+  BOOL_  (ff_adaptive_basis, "ff.adaptive_basis", false, "admit larger bases within storage bounds and compact retired pair records") \
+  UINT_  (ff_basis_max_bytes, "ff.basis_max_bytes", 16777216, "estimated retained basis storage with adaptive_basis (capped at 1 GiB)") \
   BOOL_  (ff_bounded_elimination, "ff.bounded_elimination", false, "retain nonlinear definitions when substitution predicts polynomial growth") \
   BOOL_  (ff_sugar_pairs, "ff.sugar_pairs", false, "rank critical pairs by propagated sugar degree in all field sizes") \
   BOOL_  (ff_gm_pairs, "ff.gm_pairs", false, "install critical pairs using minimal lcm and strict chain criteria") \

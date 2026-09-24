@@ -85,6 +85,10 @@ namespace ff {
         unsigned m_local_work_exhaustions = 0, m_shared_limit_exhaustions = 0;
         unsigned m_polynomial_terms_exhaustions = 0, m_monomial_degree_exhaustions = 0;
         unsigned m_active_basis_exhaustions = 0, m_basis_slots_exhaustions = 0;
+        unsigned m_basis_storage_exhaustions = 0, m_pair_storage_exhaustions = 0;
+        unsigned m_pair_compactions = 0, m_discarded_pairs = 0;
+        size_t m_peak_basis_bytes = 0, m_peak_pair_bytes = 0, m_peak_active_basis = 0;
+        size_t m_basis_storage_limit = 16 * 1024 * 1024, m_pair_storage_limit = 16 * 1024 * 1024;
         unsigned m_matrix_symbolic_exhaustions = 0, m_matrix_reducer_exhaustions = 0;
         unsigned m_matrix_column_exhaustions = 0, m_matrix_row_exhaustions = 0, m_matrix_pivot_exhaustions = 0;
         size_t m_peak_matrix_columns = 0, m_peak_matrix_reducers = 0, m_peak_matrix_row_terms = 0;
@@ -117,6 +121,7 @@ namespace ff {
         bool bounded_elimination = false;
         bool adaptive_reduction = false;
         bool adaptive_matrix = false;
+        bool adaptive_basis = false;
         bool lazy_matrix = false;
         bool sparse_matrix_reducers = false;
         bool fused_reduction = false;
@@ -138,6 +143,11 @@ namespace ff {
         polynomial reduce(polynomial f, std::vector<polynomial> const &basis);
         void basis(std::vector<polynomial> &eqs);
         unsigned propagate_bits(std::vector<polynomial> &eqs);
+        void set_basis_storage_limit(unsigned bytes) {
+            // Keep accumulation safe on 32-bit hosts, and preserve an absolute
+            // bound even when a caller requests the largest unsigned value.
+            m_basis_storage_limit = std::min<size_t>(bytes, 1024u * 1024u * 1024u);
+        }
         void set_basis_cache(basis_cache *c) {
             memo = c;
         }

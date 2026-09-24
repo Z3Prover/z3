@@ -8,6 +8,63 @@
 
 namespace ff {
     struct test_engine {
+        static void adaptive_basis_storage() {
+            for (rational const &prime : {rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
+                reslimit limit;
+                engine builder(prime, limit, 10000000);
+                std::vector<polynomial> input;
+                for (unsigned i = 0; i < 300; ++i) {
+                    auto f = builder.variable(i); f.dependencies.insert(i); input.push_back(f);
+                }
+                engine bounded(prime, limit, 10000000);
+                auto original = input;
+                bool failed = false;
+                try { bounded.basis(original); } catch (exhausted const &) { failed = true; }
+                ENSURE(failed && bounded.m_active_basis_exhaustions == 1 && original == input);
+                for (bool gm : {false, true}) {
+                    engine extended(prime, limit, 10000000);
+                    extended.adaptive_basis = true; extended.gm_pairs = gm;
+                    auto actual = input; extended.basis(actual);
+                    // Independent monic variables already form a Groebner basis:
+                    // every pair is coprime and the exact ideal is unchanged.
+                    ENSURE(actual == input && extended.m_peak_active_basis == 300);
+                    ENSURE(extended.m_peak_basis_bytes > 0 && extended.m_basis_exhaustions == 0);
+                    for (unsigned i = 0; i < actual.size(); ++i) ENSURE(actual[i].dependencies == input[i].dependencies);
+                }
+                for (bool pairs : {false, true}) {
+                    engine guarded(prime, limit, 1000000);
+                    guarded.adaptive_basis = true;
+                    if (pairs) guarded.m_pair_storage_limit = 256;
+                    else guarded.set_basis_storage_limit(256);
+                    std::vector<polynomial> tiny{input[0], input[1], input[2]};
+                    auto before = tiny; failed = false;
+                    try { guarded.basis(tiny); } catch (exhausted const &) { failed = true; }
+                    ENSURE(failed && tiny == before);
+                    ENSURE(pairs ? guarded.m_pair_storage_exhaustions == 1 : guarded.m_basis_storage_exhaustions == 1);
+                    guarded.set_basis_storage_limit(16 * 1024 * 1024);
+                    guarded.m_pair_storage_limit = 16 * 1024 * 1024;
+                    guarded.basis(tiny); ENSURE(tiny == before);
+                }
+                std::vector<polynomial> retirement;
+                for (unsigned i = 0; i < 80; ++i) {
+                    auto x = builder.variable(i);
+                    auto f = builder.add(builder.mul(x, x), x, rational(-1));
+                    f.dependencies.insert(i); retirement.push_back(f);
+                }
+                for (unsigned i = 0; i < 80; ++i) {
+                    auto x = builder.variable(i); x.dependencies.insert(80+i); retirement.push_back(x);
+                }
+                engine old(prime, limit, 10000000), compact(prime, limit, 10000000);
+                compact.adaptive_basis = true;
+                auto expected = retirement, actual = retirement;
+                old.basis(expected); compact.basis(actual);
+                ENSURE(actual == expected);
+                ENSURE(compact.m_pair_compactions == (prime.is_unsigned() ? 1u : 0u));
+                ENSURE(prime.is_unsigned() ? compact.m_discarded_pairs > 0 : compact.m_discarded_pairs == 0);
+                for (unsigned i = 0; i < actual.size(); ++i) ENSURE(actual[i].dependencies == expected[i].dependencies);
+                std::cout << "Adaptive basis: 300 rows, independent storage guards/reuse, exact stale-pair compaction\n";
+            }
+        }
         static void sparse_matrix_selection() {
             reslimit limit;
             engine reference(rational(7), limit, 10000000, 4096, false, false, false);
@@ -350,16 +407,17 @@ static void test_ff_basis_optimizations() {
             }
             auto expected = input;
             reference.basis(expected);
-            for (unsigned mode = 0; mode < 16; ++mode) {
+            for (unsigned mode = 0; mode < 18; ++mode) {
                 ff::engine e(rational(prime), lim, 10000000, 4096, false, mode != 7, false);
                 e.sugar_pairs = mode == 0 || mode >= 5;
-                e.gm_pairs = mode == 1 || mode >= 5;
+                e.gm_pairs = mode == 1 || (mode >= 5 && mode != 16);
                 e.div_masks = mode == 2 || mode >= 5;
                 e.geobucket = mode == 3 || mode >= 5;
                 e.small_coefficients = mode == 4 || mode >= 5;
                 e.compact_matrix = mode == 6 || mode == 9 || mode == 11 || mode == 13 || mode == 15;
                 e.lazy_matrix = mode == 8 || mode == 9 || mode >= 14;
-                e.sparse_matrix_reducers = mode >= 12;
+                e.sparse_matrix_reducers = mode >= 12 && mode < 16;
+                e.adaptive_basis = mode >= 16;
                 e.fused_reduction = mode == 10 || mode == 11;
                 e.adaptive_matrix = mode >= 8;
                 e.adaptive_reduction = mode >= 5;
@@ -427,6 +485,7 @@ static void test_ff_scalar_recovery() {
 }
 
 void tst_finite_field() {
+    ff::test_engine::adaptive_basis_storage();
     ff::test_engine::sparse_matrix_selection();
     ff::test_engine::work_accounting();
     ff::test_engine::fused_reduction_equivalence();
