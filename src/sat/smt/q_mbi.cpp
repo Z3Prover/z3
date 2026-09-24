@@ -546,7 +546,8 @@ namespace q {
         for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
-            if ((is_uninterp(s) || is_recfun_with_ground_recursion_args(m, to_app(s))) &&
+            if (is_app(s) &&
+                (is_uninterp(s) || is_recfun_with_ground_recursion_args(m, to_app(s))) &&
                 to_app(s)->get_num_args() > 0) {
                 unsigned i = 0;
                 for (expr* arg : *to_app(s)) {
