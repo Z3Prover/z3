@@ -289,8 +289,40 @@ def run(argv, timeout, input_text=None):
     return result
 
 
+def prepare_profile(original):
+    """Keep the cheaper v1 path when applicable; use v2 for Boolean/deep input."""
+    try:
+        return 'literal', LiteralProblem(original).normalized()
+    except (fc.Invalid, RecursionError):
+        import ff_boolean_proof as bp
+        bp.Graph(original)  # Validate supported sorts/commands before writing.
+        return 'boolean', None
+
+
+def produce_bundle(original, directory, z3, timeout=10, prepared=None):
+    profile, normalized = prepare_profile(original) if prepared is None else prepared
+    directory = Path(directory)
+    if profile == 'boolean':
+        import ff_boolean_proof as bp
+        count = bp.produce_bundle(original, directory, z3, timeout)
+        return dict(profile='z3-ff-alethe-pac-v2', field_lemmas=count)
+    cmd = normalized + f'(ff-certify :timeout {max(1, int(timeout * 900))})\n'
+    result = run([str(z3), '-in'], timeout, cmd)
+    dag = result['stdout']
+    fc.require(dag.lstrip().startswith('(ff-certificate\n'), 'no certificate: ' + dag[:1000])
+    normalized, alethe, pac = export_artifact(original, dag)
+    for name, data in [('certificate.ffcert', dag), ('polynomial-input.smt2', normalized),
+                       ('proof.alethe', alethe), ('proof.pac', pac)]:
+        (directory / name).write_text(data)
+    return dict(profile='z3-ff-alethe-pac-v1', z3=result, field_lemmas=1)
+
+
 def check_bundle(directory, carcara, ffpacheck, timeout=10):
     directory = Path(directory)
+    if (directory / 'boolean-certificate.json').exists():
+        fc.require(not (directory / 'certificate.ffcert').exists(), 'ambiguous proof bundle profile')
+        import ff_boolean_proof as bp
+        return bp.check_bundle(directory, carcara, ffpacheck, timeout)
     original, dag = read(directory / 'problem.smt2'), read(directory / 'certificate.ffcert')
     normalized, alethe, pac = export_artifact(original, dag)
     # Exact bytes are deliberately required by this versioned export profile.
@@ -324,25 +356,18 @@ def main():
         if not args.check:
             fc.require(args.problem and args.z3, 'production requires problem and --z3')
             original = read(args.problem)
-            normalized = LiteralProblem(original).normalized()
+            prepared = prepare_profile(original)
             args.out.mkdir(parents=True, exist_ok=False)
             (args.out / 'problem.smt2').write_text(original)
-            cmd = normalized + f'(ff-certify :timeout {max(1, int(args.timeout * 900))})\n'
-            results['z3'] = run([str(args.z3.resolve()), '-in'], args.timeout, cmd)
-            dag = results['z3']['stdout']
-            fc.require(dag.lstrip().startswith('(ff-certificate\n'), 'no certificate: ' + dag[:1000])
-            normalized, alethe, pac = export_artifact(original, dag)
-            for name, data in [('certificate.ffcert', dag), ('polynomial-input.smt2', normalized),
-                               ('proof.alethe', alethe), ('proof.pac', pac)]:
-                (args.out / name).write_text(data)
+            results.update(produce_bundle(original, args.out, args.z3.resolve(), args.timeout, prepared))
         results.update(check_bundle(args.out.resolve(), args.carcara.resolve(), args.ffpacheck.resolve(), args.timeout))
         results['status'] = 'checked'
-        results['profile'] = 'z3-ff-alethe-pac-v1'
+        results['profile'] = 'z3-ff-alethe-pac-v2' if (args.out / 'boolean-certificate.json').exists() else 'z3-ff-alethe-pac-v1'
         results['tested_checker_sources'] = dict(carcara=CARCARA_REVISION, ffpacheck=FFPACHECK_REVISION,
             patch='tests/finite_field/proof_checkers/ffpacheck-completion.patch')
         results['total_seconds'] = time.monotonic() - start
         results['files'] = {p.name: dict(sha256=digest(p), bytes=p.stat().st_size)
-                            for p in args.out.iterdir() if p.suffix in ('.smt2', '.ffcert', '.alethe', '.pac')}
+                            for p in args.out.iterdir() if p.suffix in ('.smt2', '.ffcert', '.alethe', '.pac') or p.name == 'boolean-certificate.json'}
         results['binaries'] = {name: dict(path=str(path.resolve()), sha256=digest(path))
                                for name, path in [('z3', args.z3), ('carcara', args.carcara), ('ffpacheck', args.ffpacheck)] if path}
         (args.out / ('recheck.json' if args.check else 'result.json')).write_text(json.dumps(results, indent=2) + '\n')

@@ -31,7 +31,7 @@ def symbol(x):
     return x[1:-1] if x.startswith('|') and x.endswith('|') else x
 
 
-def parse(text):
+def parse(text, max_depth=200):
     require(len(text) <= 32 * 1024 * 1024, "file size limit")
     # Preserve quoted symbols and strings, including SMT-LIB doubled quotes.
     token = re.compile(r'\s+|;[^\n]*|\(|\)|\|[^|\\]*\||"(?:[^"]|"")*"|[^\s();|"\\]+')
@@ -47,7 +47,7 @@ def parse(text):
         require(count <= 2000000, "token limit")
         if t == '(':
             child = []; stack[-1].append(child); stack.append(child)
-            require(len(stack) <= 200, "nesting limit")
+            require(len(stack) <= max_depth, "nesting limit")
         elif t == ')':
             require(len(stack) > 1, "unbalanced parentheses")
             stack.pop()
@@ -277,7 +277,11 @@ def decode_polynomial(raw, ar, count):
 
 
 def verify(problem_text, certificate_text):
-    problem = Problem(problem_text)
+    return verify_problem(Problem(problem_text), certificate_text)
+
+
+def verify_problem(problem, certificate_text):
+    """Replay a DAG against independently supplied typed input equations."""
     objects = parse(certificate_text)
     require(len(objects) == 1 and isinstance(objects[0], list) and objects[0] and objects[0][0] == 'ff-certificate', "expected one certificate")
     cert = attributes(objects[0][1:], {':version', ':modulus', ':variables', ':inputs', ':nodes', ':root'})
