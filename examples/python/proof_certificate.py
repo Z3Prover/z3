@@ -172,6 +172,23 @@ def _encode_proof(assertions, proof):
     }
 
 
+def _certificate_from_proof(source, assertions, proof):
+    if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
+            or not z3.is_false(proof.arg(proof.num_args() - 1))):
+        raise ProofExportError("the native proof does not conclude false")
+    certificate = _encode_proof(assertions, proof)
+    certificate.update({
+        "format": "z3-native-proof-dag",
+        "format_version": 1,
+        "z3_version": z3.get_full_version(),
+        "fragment": "propositional",
+        "result": "unsat",
+        "verification": "unverified",
+        "source_smt2": source,
+    })
+    return certificate
+
+
 def export_certificate(source):
     """Return a native proof bundle, not an independently verified verdict.
 
@@ -187,21 +204,7 @@ def export_certificate(source):
         raise ProofExportError("sat: no unsat proof exists")
     if result == z3.unknown:
         raise ProofExportError("unknown: %s" % solver.reason_unknown())
-    proof = solver.proof()
-    if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
-            or not z3.is_false(proof.arg(proof.num_args() - 1))):
-        raise ProofExportError("the native proof does not conclude false")
-    certificate = _encode_proof(assertions, proof)
-    certificate.update({
-        "format": "z3-native-proof-dag",
-        "format_version": 1,
-        "z3_version": z3.get_full_version(),
-        "fragment": "propositional",
-        "result": "unsat",
-        "verification": "unverified",
-        "source_smt2": source,
-    })
-    return certificate
+    return _certificate_from_proof(source, assertions, solver.proof())
 
 
 def main():

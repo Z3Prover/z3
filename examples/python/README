@@ -223,6 +223,57 @@ The reconstruction API is reconstruct(source, certificate), which returns
 unchecked Lean source, and check_and_write(source, certificate, output), which
 checks before publishing. Ordinary Z3 solving and its public APIs are unchanged.
 
+Audit preprocessing proof evidence
+---------------------------------
+
+proof_preprocessing.py compares two explicit solve-eqs pipelines with proof
+generation both disabled and enabled:
+
+    Simplifier("solve-eqs").add(SimpleSolver())
+    Then(Tactic("solve-eqs"), Tactic("smt")).solver()
+
+Each run uses a separate context and reports its result, native statistics,
+proof terms, rule inventory, and reconstruction/Lean-checking outcome as JSON.
+The certificate is always bound to the original input assertions, not the
+reduced goal. Checking uses temporary Lean files, which are removed afterward.
+This is an opt-in diagnostic, not a replacement exporter or a change to solver
+defaults. It currently accepts the same propositional input fragment.
+
+Exercise an essential Boolean equality followed by branching search:
+
+    PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
+        lean/examples/boolean_solve_eqs.smt2 --require-search
+
+Here, removing (= p q) makes the original constraints satisfiable. solve-eqs
+eliminates one variable but leaves four clauses; subsequent search reports
+positive decision and conflict counts. Also cover goals discharged entirely by
+preprocessing, where requiring a search step would be inappropriate:
+
+    PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
+        lean/examples/unit_resolution.smt2
+
+Exit status 0 requires unsat and observed solve-eqs variable elimination in all
+four runs, plus successful Lean reconstruction for both proof-enabled runs.
+With --require-search, positive decision and conflict counts are also required.
+Status 1 reports incomplete coverage or rejected evidence; status 2 indicates an
+input, dependency, or invocation error. --timeout-ms bounds each solver check
+(default: 10000). Missing statistics mean no execution evidence, not success.
+
+The current implementation exposes a native proof gap on these examples:
+the simplifier API runs solve-eqs but loses substitution evidence, producing
+incorrect mp or unit-resolution steps that reconstruction rejects. The tactic
+API skips solve-eqs when proofs are enabled because it does not declare
+supports_proofs(); its final refutation checks, but does not cover preprocessing.
+Thus the diagnostic currently exits 1. Do not enable the proof-support flag,
+trust reduced assertions, or treat a solver unsat result as a substitute for
+repairing the native proof evidence.
+
+Preprocessing-only refutations still need checked evidence connecting them to
+the original assertions. Conversely, a clausal proof after search only proves
+the supplied CNF unless the translation to that CNF is also justified. These
+are the two boundaries highlighted in the rutgers-apl/Alivio#1 discussion:
+https://github.com/rutgers-apl/Alivio/pull/1#issuecomment-5732956039
+
 Run input-validation/reconstruction tests with the native bindings:
 
     PYTHONPATH=build/python python3 -m unittest discover -s examples/python \

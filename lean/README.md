@@ -56,6 +56,31 @@ Parsing and SMT-to-Lean statement translation remain trusted frontend components
 See [the exporter documentation](../examples/python/README) for the exact scope
 and trust boundary.
 
+## Audit preprocessing
+
+The opt-in harness distinguishes real preprocessing from a pass skipped in
+proof mode:
+
+```sh
+PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
+  lean/examples/boolean_solve_eqs.smt2 --require-search
+```
+
+It compares the simplifier and tactic APIs with proofs off/on and reports native
+proofs, elimination/search statistics, and actual Lean replay results as JSON.
+For a preprocessing-only contradiction, use `lean/examples/unit_resolution.smt2`
+without `--require-search`. Refutations are checked against the original input,
+not a replacement goal.
+
+Currently the simplifier API returns incorrect substitution proof steps, while
+the tactic API skips `solve-eqs` in proof mode. The harness therefore exits 1
+with diagnostics rather than reporting preprocessing proof support. See
+[the plan](../doc/lean-proof-plan.md#preprocessing-evidence-audit) for the missing
+native evidence. The regular exporter and reconstructor are unchanged by this
+diagnostic.
+
+## Recheck a proof artifact
+
 `check_lean.sh` still accepts Lean source files, not JSON. To recheck the artifact:
 
 ```sh
