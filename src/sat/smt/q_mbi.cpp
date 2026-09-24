@@ -528,8 +528,9 @@ namespace q {
             if (!is_app(s))
                 continue;
             app* a = to_app(s);
-            if ((is_uninterp(a) || m_recfun_rw.is_recfun_with_ground_recursion_args(a)) &&
-                a->get_num_args() > 0) {
+            if (a->get_num_args() == 0)
+                continue;
+            if (is_uninterp(a) || m_recfun_rw.is_recfun_with_ground_recursion_args(a)) {
                 unsigned i = 0;
                 for (expr* arg : *a) {
                     if (!is_ground(arg) && !is_uninterp(arg) && !qb.is_free(arg))
