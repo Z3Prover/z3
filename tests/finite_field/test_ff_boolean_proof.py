@@ -52,10 +52,57 @@ def evaluate(g, assignment):
     return all(values[a] for a in g.assertions)
 
 
+def check_boolean_search():
+    """Adjudicate SAT independently and replay every learned resolution clause."""
+    rng = random.Random(926)
+    clauses = [(1,), (-1,), (2,), (-2,), (1, 2), (1, -2), (-1, 2), (-1, -2)]
+    cases = [[c for i, c in enumerate(clauses) if mask & (1 << i)] for mask in range(256)]
+    for _ in range(128):
+        cases.append([tuple(v if rng.randrange(2) else -v for v in rng.sample(range(1, 7), rng.randint(1, 4)))
+                      for _ in range(rng.randint(5, 30))])
+    checks, learned = 0, False
+    for original in cases:
+        original = [bp.clause(c) for c in original]
+        search = bp.Search(original)
+        # Reuse the search after adding a blocking clause, as field lemmas do.
+        added = []
+        for _ in range(3):
+            assumptions = original + added
+            variables = sorted({abs(x) for c in assumptions for x in c})
+            expected = any(all(any(values[abs(x)] == (x > 0) for x in c) for c in assumptions)
+                           for bits in itertools.product([False, True], repeat=len(variables))
+                           for values in [dict(zip(variables, bits))])
+            sat, result = search.search()
+            assert sat == expected, (assumptions, sat, expected)
+            replay = list(original)
+            for record in search.records:
+                if record['rule'] == 'field':
+                    replay.append(tuple(record['clause']))
+                else:
+                    a, b, pivot = record['left'], record['right'], record['pivot']
+                    assert 0 <= a < len(replay) and 0 <= b < len(replay)
+                    assert pivot in replay[a] and -pivot in replay[b]
+                    replay.append(bp.clause((set(replay[a]) - {pivot}) | (set(replay[b]) - {-pivot})))
+            assert replay == search.clauses
+            learned |= any(i >= len(original) and search.records[i-len(original)]['rule'] == 'resolve'
+                           for i in search.active)
+            checks += 1
+            if not sat:
+                assert replay[result] == ()
+                break
+            assert all(any(result.get(abs(x)) == (x > 0) for x in c) for c in assumptions)
+            blocked = bp.clause(-v if result.get(v, False) else v for v in variables)
+            added.append(blocked)
+            search.append(blocked, dict(rule='field', clause=list(blocked)))
+    assert learned
+    return checks
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ['z3','carcara','ffpacheck']: parser.add_argument('--'+name, required=True)
     args = parser.parse_args()
+    search_checks = check_boolean_search()
     checked, rejected, sat_count, unsat_count, unknown_count = 0, 0, 0, 0, 0
     with tempfile.TemporaryDirectory(prefix='ff-boolean-tests-') as temp:
         root = Path(temp)
@@ -177,7 +224,7 @@ def main():
         assert sat_count and unsat_count and sat_count+unsat_count+unknown_count==36
     print(json.dumps(dict(externally_checked=checked,rejected=rejected,
                           exhaustive_mixed=dict(sat=sat_count,unsat_certified=unsat_count,unsat_unavailable=unknown_count),
-                          deep_let_depth=12000,sharing_chain=400)))
+                          boolean_search_checks=search_checks,deep_let_depth=12000,sharing_chain=400)))
 
 
 if __name__=='__main__': main()

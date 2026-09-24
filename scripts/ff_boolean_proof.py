@@ -257,6 +257,7 @@ class Search:
         self.records, self.work = [], 0
         self.active = list(range(len(self.clauses)))
         self.by_clause = {c: i for i, c in enumerate(self.clauses)}
+        self.active_set = set(self.active)
 
     def append(self, c, record):
         # Reusing a globally proved clause preserves its proof and avoids
@@ -266,8 +267,15 @@ class Search:
         require(len(self.records) < MAX_RECORDS, 'resolution record limit')
         self.records.append(record); self.clauses.append(c)
         self.by_clause[c] = len(self.clauses) - 1
-        if record['rule'] == 'field': self.active.append(len(self.clauses) - 1)
+        if record['rule'] == 'field': self.activate(len(self.clauses) - 1)
         return len(self.clauses) - 1
+
+    def activate(self, index):
+        # Every learned clause has an explicit, globally valid resolution
+        # derivation. Reusing it in propagation adds no unproved assumption.
+        if index not in self.active_set:
+            self.active.append(index); self.active_set.add(index)
+        return index
 
     def resolution(self, a, b, pivot):
         return self.append(resolve(self.clauses[a], self.clauses[b], pivot), dict(rule='resolve', left=a, right=b, pivot=pivot))
@@ -291,7 +299,7 @@ class Search:
                     for lit in reversed(trail):
                         if -lit in self.clauses[result] and abs(lit) in reasons:
                             result = self.resolution(result, reasons[abs(lit)], -lit)
-                    return False, result
+                    return False, self.activate(result)
                 if len(unknown) == 1:
                     x = unknown[0]; assignment[abs(x)] = x > 0; reasons[abs(x)] = index; trail.append(x)
                     changed = True
@@ -306,7 +314,7 @@ class Search:
         sat, right = self.search(assignment | {abs(pivot): pivot < 0}, reasons, trail + [-pivot], depth + 1)
         if sat: return True, right
         if pivot not in self.clauses[right]: return False, right
-        return False, self.resolution(left, right, -pivot)
+        return False, self.activate(self.resolution(left, right, -pivot))
 
 
 class Case:

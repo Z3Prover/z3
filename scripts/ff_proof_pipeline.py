@@ -275,7 +275,12 @@ def run(argv, timeout, input_text=None):
                 fc.require(time.monotonic() - start < timeout, 'external stage timeout')
                 fc.require(os.fstat(out.fileno()).st_size <= LIMIT and os.fstat(err.fileno()).st_size <= LIMIT,
                            'external output limit')
-                time.sleep(0.02)
+                # Wait for early completion instead of imposing 20ms on every
+                # tiny field lemma. Keep output/deadline supervision bounded.
+                try:
+                    child.wait(timeout=0.02)
+                except subprocess.TimeoutExpired:
+                    pass
         finally:
             if child.poll() is None:
                 os.killpg(child.pid, signal.SIGKILL)
