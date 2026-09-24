@@ -16,6 +16,7 @@ Abstract:
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
+#include "opt/opt_geometric.h"
 #include "util/debug.h"
 #include <climits>
 #include <cstring>
@@ -23,6 +24,69 @@ Abstract:
 #include <iostream>
 
 namespace {
+
+static void tst_geometric_step() {
+    opt::geometric_step step;
+    ENSURE(step.value() == rational(1));
+
+    // The first doubling takes two eligible rounds, the next takes three,
+    // then four, then five. A full reset must restart that same sequence.
+    for (unsigned repeat = 0; repeat < 2; ++repeat) {
+        for (unsigned expected : {1u, 2u, 2u, 2u, 4u, 4u, 4u, 4u, 8u, 8u, 8u, 8u, 8u, 16u}) {
+            step.update(true);
+            ENSURE(step.value() == rational(expected));
+        }
+        step.reset();
+        ENSURE(step.value() == rational(1));
+    }
+
+    // Turning growth off must not erase a round already counted toward doubling.
+    step.update(true);
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+
+    // Keep the count of earlier doublings too. After growth is turned back on,
+    // the next doubling still needs three rounds in total, then four.
+    step.update(true);
+    step.update(false);
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    for (unsigned expected : {1u, 2u, 2u, 2u, 2u, 4u}) {
+        step.update(true);
+        ENSURE(step.value() == rational(expected));
+    }
+
+    // Unlike turning growth off, a failed larger trial clears both counters.
+    step.update(true);
+    step.reset();
+    step.reset();
+    step.update(true);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+
+    // The step remains an exact rational even after it outgrows a machine word.
+    step.reset();
+    rational expected(1);
+    for (unsigned doubles = 0; doubles < 70; ++doubles) {
+        for (unsigned round = 0; round < doubles + 1; ++round) {
+            step.update(true);
+            ENSURE(step.value() == expected);
+        }
+        step.update(true);
+        expected *= rational(2);
+        ENSURE(step.value() == expected);
+    }
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    step.reset();
+    step.update(true);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+}
 
 // Own a separate C API context for each test and pin the optimizer settings.
 struct opt_fixture {
@@ -1044,6 +1108,8 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    std::cout << "opt_bounds: geometric step schedule\n";
+    tst_geometric_step();
     std::cout << "opt_bounds: signed algebraic optima and offsets\n";
     tst_signed_offsets();
     std::cout << "opt_bounds: lexicographic and box handles\n";
