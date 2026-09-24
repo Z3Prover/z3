@@ -344,6 +344,13 @@ namespace opt {
         return l_true;
     }
 
+    void optsmt::publish_best_model() {
+        // Callbacks may add constraints, so save the model and labels first.
+        m_best_model = m_model;
+        m_s->get_labels(m_labels);
+        m_context.set_model(m_model);
+    }
+
     void optsmt::set_best(unsigned idx, inf_eps const& v, bool is_maximize) {
         m_lower[idx] = v;
         m_upper[idx].reset_exact();
@@ -353,9 +360,7 @@ namespace opt {
                    else
                        verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
                    );
-        m_best_model = m_model;
-        m_s->get_labels(m_labels);
-        m_context.set_model(m_model);
+        publish_best_model();
     }
 
     /**
@@ -636,9 +641,7 @@ namespace opt {
                 m_lower[i] = m_s->saved_objective_value(i);
             }
             TRACE(opt, tout << "update best model " << *m_model << "\n";);
-            m_best_model = m_model;
-            m_s->get_labels(m_labels);
-            m_context.set_model(m_model);
+            publish_best_model();
         }
     }
 
