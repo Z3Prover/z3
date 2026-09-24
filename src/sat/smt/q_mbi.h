@@ -18,6 +18,7 @@ Author:
 
 #include "solver/solver.h"
 #include "qe/mbp/mbp_plugin.h"
+#include "ast/rewriter/recfun_rewriter.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_model_fixer.h"
 #include "sat/sat_solver.h"
@@ -60,6 +61,7 @@ namespace q {
         ast_manager&                           m;
         stats                                  m_stats;
         model_fixer                            m_model_fixer;
+        recfun_rewriter                        m_recfun_rw;
         model_ref                              m_model;
         sat::no_drat_params                    m_no_drat_params;
         ref<::solver>                          m_solver;

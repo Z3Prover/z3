@@ -36,7 +36,8 @@ namespace q {
         ctx(ctx),
         m_qs(s),
         m(s.get_manager()),
-        m_model_fixer(ctx, m_qs) {
+        m_model_fixer(ctx, m_qs),
+        m_recfun_rw(m) {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
         ap->set_apply_projection(true);
@@ -519,12 +520,11 @@ namespace q {
     */
     void mbqi::extract_var_args(expr* _t, q_body& qb) {
         expr_ref t(_t, m);
-        recfun_rewriter recfun_rw(m);
         for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
             if (is_app(s) &&
-                (is_uninterp(s) || recfun_rw.is_recfun_with_ground_recursion_args(to_app(s))) &&
+                (is_uninterp(s) || m_recfun_rw.is_recfun_with_ground_recursion_args(to_app(s))) &&
                 to_app(s)->get_num_args() > 0) {
                 unsigned i = 0;
                 for (expr* arg : *to_app(s)) {
