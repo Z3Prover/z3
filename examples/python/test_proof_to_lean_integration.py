@@ -21,7 +21,8 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_to_lean
 from test_proof_to_lean import (
-    BRANCHING, CLAUSE, CONJUNCTION, LITERAL, REWRITE, STRUCTURAL, UNSUPPORTED, make_certificate,
+    BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
+    UNSUPPORTED, XOR, make_certificate,
 )
 
 
@@ -36,10 +37,12 @@ class TestProofToLeanIntegration(unittest.TestCase):
             self.assertNotIn("_hyp", statement)
             self.assertNotIn("Decidable", statement)
             namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
-            theorems = ["unsat"] + [
-                "rewrite_%d" % node for node, raw in enumerate(certificate["nodes"])
-                if certificate["declarations"][raw["declaration"]]["kind"] == z3.Z3_OP_PR_REWRITE
-            ]
+            theorem_rules = {z3.Z3_OP_PR_REWRITE: "rewrite", z3.Z3_OP_PR_DEF_AXIOM: "def_axiom"}
+            theorems = ["unsat"]
+            for node, raw in enumerate(certificate["nodes"]):
+                rule = certificate["declarations"][raw["declaration"]]["kind"]
+                if rule in theorem_rules:
+                    theorems.append("%s_%d" % (theorem_rules[rule], node))
             output.write_text(text + "".join(
                 "\n#print axioms %s.%s\n" % (namespace, theorem) for theorem in theorems))
             result = subprocess.run(
@@ -49,7 +52,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
             return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
@@ -74,6 +77,117 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertTrue({"hypothesis", "lemma"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
+
+    def test_documented_def_axiom_xor_example(self):
+        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_def_axiom.smt2").read_text()
+        certificate = proof_certificate.export_certificate(source)
+        self.assertGreater(certificate["rule_counts"]["def-axiom"], 0)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            self.check(source, certificate)
+
+    def test_all_def_axiom_gate_schemas_and_literal_orders(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        steps = []
+        context = z3.Context()
+        for clause in DEF_AXIOM_CLAUSES:
+            parsed = proof_certificate.parse_propositional_assertions(
+                source + "(assert %s)" % clause, context)[-1]
+            for arguments in [parsed.children(), list(reversed(parsed.children()))]:
+                steps.append(("def-axiom", [], "(or %s)" % " ".join(arg.sexpr() for arg in arguments)))
+        steps.append(("asserted", [], "false"))
+        certificate = make_certificate(source, steps)
+        text = self.check(source, certificate)
+        self.assertEqual(text.count("private theorem def_axiom_"), 2 * len(DEF_AXIOM_CLAUSES))
+        self.assertNotIn("cases ", text)
+        self.assertNotIn("of_decide_eq_true", text)
+        for declaration in certificate["declarations"]:
+            if declaration["kind"] == z3.Z3_OP_EQ:
+                declaration["kind"], declaration["name"] = z3.Z3_OP_IFF, "iff"
+        self.check(source, certificate)
+
+    def test_def_axiom_negated_compound_repeated_and_constant_operands(self):
+        clauses = [
+            "true", "(not false)", "(or false true)", "(or true false)",
+            "(or (not (and p)) p)", "(or (and p) (not p))",
+            "(or (not (or p)) p)", "(or (or p) (not p))",
+            "(or (not (and p p q)) p)", "(or (and p p q) (not p) (not q))",
+            "(or (not (and true p)) p)", "(or (and true p) (not p))",
+            "(or (not (or false p)) p)", "(or (or false p) (not p))",
+            "(or (not (and (not p) (not q))) (not p))",
+            "(or (and (not p) (not q)) p q)",
+            "(or (= (not p) (not q)) p q)",
+            "(or (not (= (not p) (not q))) p (not q))",
+            "(or (not (xor (not p) q)) p (not q))",
+            "(or (ite (not p) q r) p (not q))",
+            "(or (not (ite (not p) q r)) (not p) r)",
+            "(or (not (=> (not p) (not q))) p (not q))",
+            "(or (not (and (or p q) r)) (or p q))",
+            "(or (or (and p q) r) (not (and p q)))",
+            "(or (not (not (not p))) p)",
+            "(or (not (not p)) (not (not (not p))))",
+            "(or r (not (and p q)) p p false)",
+        ]
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+        source += "(assert (or p q r))(assert false)"
+        steps = [("def-axiom", [], clause) for clause in clauses]
+        steps.append(("asserted", [], "false"))
+        self.check(source, make_certificate(source, steps))
+
+    def test_def_axiom_shared_with_scoped_proofs(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (= p q))(assert p)(assert (not q))"
+        certificate = make_certificate(source, [
+            ("def-axiom", [], "(or (not (= p q)) (not p) q)"),
+            ("hypothesis", [], "p"),
+            ("unit-resolution", [3, 0, 4], "q"),
+            ("unit-resolution", [5, 2], "false"),
+            ("lemma", [6], "(not p)"),
+            ("unit-resolution", [3, 0, 1], "q"),
+            ("unit-resolution", [7, 1], "false"),
+        ])
+        text = self.check(source, certificate)
+        self.assertEqual(text.count("private theorem def_axiom_"), 1)
+
+    def test_large_def_axioms_do_not_enumerate_atom_assignments(self):
+        size = 48
+        atoms = ["p%d" % index for index in range(size)]
+        source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+        source += "(assert (or %s))(assert false)" % " ".join(atoms)
+        conjunction, disjunction = "(and %s)" % " ".join(atoms), "(or %s)" % " ".join(atoms)
+        clauses = [
+            "(or %s %s)" % (conjunction, " ".join("(not %s)" % atom for atom in atoms)),
+            "(or (not %s) %s)" % (disjunction, " ".join(atoms)),
+            "(or (= %s %s) (not %s) (not %s))" % (
+                conjunction, disjunction, conjunction, disjunction),
+        ]
+        steps = [("def-axiom", [], clause) for clause in clauses]
+        steps.append(("asserted", [], "false"))
+        text = self.check(source, make_certificate(source, steps))
+        self.assertNotIn("cases ", text)
+        self.assertNotIn("of_decide_eq_true", text)
+        self.assertLess(len(text), 150_000)
+
+    def test_lean_rechecks_def_axiom_lemmas_even_when_unused(self):
+        source = "(declare-const p Bool)(assert p)(assert false)"
+        certificate = make_certificate(source, [
+            ("def-axiom", [], "(or p (not p))"), ("asserted", [], "false"),
+        ])
+        generator = proof_to_lean._def_axiom_lemma
+
+        def corrupt_lemma(*args):
+            lines, support, term = generator(*args)
+            lines[-1] = "  True.intro"
+            return lines, support, term
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "proof.lean"
+            output.write_text("previous artifact")
+            with patch.object(proof_to_lean, "_def_axiom_lemma", side_effect=corrupt_lemma):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    proof_to_lean.check_and_write(source, certificate, output)
+            self.assertEqual(output.read_text(), "previous artifact")
+            self.assertEqual(list(Path(directory).iterdir()), [output])
 
     def test_native_multiple_learned_clauses(self):
         for size in [3, 4]:
@@ -583,12 +697,27 @@ class TestProofToLeanIntegration(unittest.TestCase):
             result = subprocess.run(command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("Lean checked the refutation", result.stdout)
+            original.write_text(XOR)
+            certificate.write_text(json.dumps(proof_certificate.export_certificate(XOR)))
+            result = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Lean checked the refutation", result.stdout)
             previous = output.read_text()
             original.write_text(UNSUPPORTED)
             certificate.write_text(json.dumps(proof_certificate.export_certificate(UNSUPPORTED)))
             result = subprocess.run(command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("unsupported native proof rule", result.stderr)
+            self.assertEqual(output.read_text(), previous)
+            self.assertEqual(set(directory.iterdir()), {original, certificate, output})
+            source = "(declare-const p Bool)(assert p)"
+            original.write_text(source)
+            certificate.write_text(json.dumps(make_certificate(source, [
+                ("def-axiom", [], "(not p)"), ("unit-resolution", [0, 1], "false"),
+            ])))
+            result = subprocess.run(command, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("invalid def-axiom clause", result.stderr)
             self.assertEqual(output.read_text(), previous)
             self.assertEqual(set(directory.iterdir()), {original, certificate, output})
             source = "(declare-const p Bool)(assert p)"

@@ -4,8 +4,8 @@ This workspace pins **Lean 4.34.0** and supports the
 [proof integration plan](../doc/lean-proof-plan.md). A first native-certificate
 reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
 `rewrite`, plus `refl`, `symm`, `trans`, Boolean `monotonicity`, `and-elim`, and
-`not-or-elim`, with scoped `hypothesis` and `lemma` proofs. Other native proof
-rules are still unsupported.
+`not-or-elim`, with scoped `hypothesis` and `lemma` proofs and supported Boolean
+`def-axiom` clauses. Other native proof rules are still unsupported.
 
 ## Check a native Z3 refutation
 
@@ -23,7 +23,8 @@ For an example that also requires implication rewriting and `mp`, replace
 `unit_resolution` with `boolean_rewrite` in both commands. Use
 `boolean_structural` to also exercise transitivity, congruence, and
 negated-disjunction elimination. Use `boolean_branching` to exercise temporary
-hypotheses and learned clauses.
+hypotheses and learned clauses. Use `boolean_def_axiom` for a refutation of
+`(xor p q)`, `p`, and `q` that requires a Boolean gate clause.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's
@@ -34,13 +35,19 @@ The generated theorem derives `False` from the encoded original assertions using
 Lean core proof terms, without any axioms or `sorry`. Boolean rewrites are checked
 by exhaustive cases and kernel reduction, independently of the assertions.
 Structural rules use direct logical proof terms, without truth tables.
+Each supported `def-axiom` clause is proved in a separate Lean theorem with no
+input assertions, not introduced as an axiom. Gate clauses for not, and/or,
+implication, equivalence, xor, and Boolean ite use direct proof terms over
+immediate operands; nested atoms are not enumerated. Invalid or unsupported
+clauses are rejected even when unused. Fresh-symbol definitions remain outside
+this slice.
 Open proof steps are functions of their temporary hypotheses. Each `lemma`
 discharges all hypotheses of its contradiction, including in nested and shared
 subproofs; a final proof with any open hypothesis is rejected.
 Temporary decidability witnesses for rewrites, double-negation cancellation,
-and learned clauses are eliminated constructively from the refutation, so they
-do not become extra theorem hypotheses. Large rewrite truth tables can exceed
-Lean's resource limits; failures never publish a proof.
+gate clauses, and learned clauses are eliminated constructively from the
+refutation, so they do not become extra theorem hypotheses. Large rewrite truth
+tables can exceed Lean's resource limits; failures never publish a proof.
 Parsing and SMT-to-Lean statement translation remain trusted frontend components.
 See [the exporter documentation](../examples/python/README) for the exact scope
 and trust boundary.

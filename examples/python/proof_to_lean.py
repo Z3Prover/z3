@@ -43,6 +43,7 @@ _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_LEMMA: ("lemma", 1),
     z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
     z3.Z3_OP_PR_REWRITE: ("rewrite", 0),
+    z3.Z3_OP_PR_DEF_AXIOM: ("def-axiom", 0),
     z3.Z3_OP_PR_REFLEXIVITY: ("refl", 0),
     z3.Z3_OP_PR_SYMMETRY: ("symm", 1),
     z3.Z3_OP_PR_TRANSITIVITY: ("trans", 2),
@@ -305,6 +306,12 @@ def _inject(position, count, term):
     return term
 
 
+def _project(position, count, term):
+    for _ in range(position):
+        term = "(And.right %s)" % term
+    return "(And.left %s)" % term if position < count - 1 else term
+
+
 def _modus_ponens(graph, terms, node):
     premise, implication, conclusion = graph.arguments(node)
     relation = graph.conclusion(implication)
@@ -408,11 +415,9 @@ def _and_elim(graph, terms, node):
     if graph.kind(conjunction) != z3.Z3_OP_AND:
         raise ReconstructionError("and-elim requires a conjunction at node %d" % node)
     arguments = graph.arguments(conjunction)
-    term = "_step_%d" % premise
     for position, argument in enumerate(arguments):
         if terms[argument] == terms[conclusion]:
-            return "(And.left %s)" % term if position < len(arguments) - 1 else term
-        term = "(And.right %s)" % term
+            return _project(position, len(arguments), "_step_%d" % premise)
     raise ReconstructionError("and-elim conclusion is not a conjunct at node %d" % node)
 
 
@@ -468,6 +473,137 @@ def _rewrite_lemma(graph, node, atom_indices):
     lines.append("  all_goals exact of_decide_eq_true rfl")
     term = "(@rewrite_%d _atoms%s)" % (node, "".join(" _d%d" % atom for atom in atoms))
     return lines, atoms, term
+
+
+def _gate_contradiction(graph, formula, truth, proof, fact):
+    """Refute one Boolean gate using only facts about its immediate operands."""
+    kind, args = graph.kind(formula), graph.arguments(formula)
+    pos = [fact(arg, True) for arg in args]
+    neg = [fact(arg, False) for arg in args]
+    if kind == z3.Z3_OP_AND:
+        if truth:
+            for position, evidence in enumerate(neg):
+                if evidence is not None:
+                    return "(%s %s)" % (evidence, _project(position, len(args), proof))
+        elif all(evidence is not None for evidence in pos):
+            return "(%s %s)" % (proof, _fold("And.intro", pos, "True.intro"))
+    elif kind == z3.Z3_OP_OR:
+        if truth and all(evidence is not None for evidence in neg):
+            if not args:
+                return proof
+            branch = neg[-1]
+            for evidence in reversed(neg[:-1]):
+                branch = "(fun _tail => Or.elim _tail %s %s)" % (evidence, branch)
+            return "(%s %s)" % (branch, proof)
+        if not truth:
+            for position, evidence in enumerate(pos):
+                if evidence is not None:
+                    return "(%s %s)" % (proof, _inject(position, len(args), evidence))
+    elif kind == z3.Z3_OP_IMPLIES:
+        if truth and pos[0] and neg[1]:
+            return "(%s (%s %s))" % (neg[1], proof, pos[0])
+        if not truth and neg[0]:
+            return "(%s (fun _arg => False.elim (%s _arg)))" % (proof, neg[0])
+        if not truth and pos[1]:
+            return "(%s (fun _arg => %s))" % (proof, pos[1])
+    elif kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        if truth:
+            if pos[0] and neg[1]:
+                return "(%s (Iff.mp %s %s))" % (neg[1], proof, pos[0])
+            if pos[1] and neg[0]:
+                return "(%s (Iff.mpr %s %s))" % (neg[0], proof, pos[1])
+        elif all(pos):
+            return "(%s (Iff.intro (fun _arg => %s) (fun _arg => %s)))" % (proof, pos[1], pos[0])
+        elif all(neg):
+            return ("(%s (Iff.intro (fun _arg => False.elim (%s _arg))"
+                    " (fun _arg => False.elim (%s _arg))))") % (proof, neg[0], neg[1])
+    elif kind == z3.Z3_OP_XOR:
+        if truth and all(pos):
+            return ("(Or.elim %s (fun _pair => (And.right _pair) %s)"
+                    " (fun _pair => (And.left _pair) %s))") % (proof, pos[1], pos[0])
+        if truth and all(neg):
+            return ("(Or.elim %s (fun _pair => %s (And.left _pair))"
+                    " (fun _pair => %s (And.right _pair)))") % (proof, neg[0], neg[1])
+        if not truth and pos[0] and neg[1]:
+            return "(%s (Or.inl (And.intro %s %s)))" % (proof, pos[0], neg[1])
+        if not truth and neg[0] and pos[1]:
+            return "(%s (Or.inr (And.intro %s %s)))" % (proof, neg[0], pos[1])
+    elif kind == z3.Z3_OP_ITE:
+        if truth and pos[0] and neg[1]:
+            return ("(Or.elim %s (fun _pair => %s (And.right _pair))"
+                    " (fun _pair => (And.left _pair) %s))") % (proof, neg[1], pos[0])
+        if truth and neg[0] and neg[2]:
+            return ("(Or.elim %s (fun _pair => %s (And.left _pair))"
+                    " (fun _pair => %s (And.right _pair)))") % (proof, neg[0], neg[2])
+        if not truth and pos[0] and pos[1]:
+            return "(%s (Or.inl (And.intro %s %s)))" % (proof, pos[0], pos[1])
+        if not truth and neg[0] and pos[2]:
+            return "(%s (Or.inr (And.intro %s %s)))" % (proof, neg[0], pos[2])
+    return None
+
+
+def _def_axiom_lemma(graph, terms, node):
+    """Prove a Boolean gate clause independently of all input assertions."""
+    conclusion = graph.conclusion(node)
+    literals = graph.clause(conclusion)
+    facts, formulas, steps, support = {}, {}, [], {conclusion}
+    for position, literal in enumerate(literals):
+        evidence = "_lit%d" % position
+        steps.append("  let %s : Not %s := fun _value => _not_clause %s" % (
+            evidence, _formula(literal), _inject(position, len(literals), "_value")))
+        formula, truth = literal, False
+        while graph.kind(formula) == z3.Z3_OP_NOT:
+            formula = graph.arguments(formula)[0]
+            if not truth:
+                support.add(formula)
+                evidence = "(@Decidable.byContradiction %s _df%d %s)" % (
+                    _formula(formula), formula, evidence)
+            truth = not truth
+        key = terms[formula], truth
+        facts.setdefault(key, evidence)
+        formulas.setdefault(key, formula)
+
+    def fact(formula, truth):
+        negations = []
+        while graph.kind(formula) == z3.Z3_OP_NOT:
+            negations.append(truth)
+            formula, truth = graph.arguments(formula)[0], not truth
+        evidence = facts.get((terms[formula], truth))
+        if evidence is None:
+            if graph.kind(formula) == z3.Z3_OP_TRUE and truth:
+                evidence = "True.intro"
+            elif graph.kind(formula) == z3.Z3_OP_FALSE and not truth:
+                evidence = "(fun _false => _false)"
+            else:
+                return None
+        for truth in reversed(negations):
+            if not truth:
+                evidence = "(fun _neg => _neg %s)" % evidence
+        return evidence
+
+    contradiction = None
+    for key, evidence in facts.items():
+        formula, truth = formulas[key], key[1]
+        opposite = fact(formula, not truth)
+        if opposite is not None:
+            contradiction = "(%s %s)" % ((opposite, evidence) if truth else (evidence, opposite))
+        else:
+            contradiction = _gate_contradiction(graph, formula, truth, evidence, fact)
+        if contradiction is not None:
+            break
+    if contradiction is None:
+        raise ReconstructionError("unsupported or invalid def-axiom clause at node %d" % node)
+    support = sorted(support)
+    lines = ["", "private theorem def_axiom_%d (_atoms : Nat -> Prop)" % node]
+    lines.extend("    [_df%d : Decidable %s]" % (formula, _formula(formula)) for formula in support)
+    lines.extend([
+        "    : %s :=" % _formula(conclusion),
+        "  @Decidable.byContradiction %s _df%d fun _not_clause =>" % (_formula(conclusion), conclusion),
+    ])
+    lines.extend(steps)
+    lines.append("  " + contradiction)
+    term = "(@def_axiom_%d _atoms%s)" % (node, "".join(" _df%d" % formula for formula in support))
+    return lines, support, term
 
 
 def _resolution(graph, terms, node):
@@ -573,17 +709,22 @@ def reconstruct(source, certificate):
         if graph.decl(node).range == "Bool":
             lines.append("def formula_%d (_atoms : Nat -> Prop) : Prop := %s" % (
                 node, _formula_body(graph, node, atom_indices)))
-    rewrites, decidable_atoms = {}, set()
+    rewrites, def_axioms, decidable_atoms, decidable_formulas = {}, {}, set(), set()
     for node in range(len(graph.nodes)):
         if graph.kind(node) == z3.Z3_OP_PR_REWRITE:
             lemma, support, term = _rewrite_lemma(graph, node, atom_indices)
             lines.extend(lemma)
             decidable_atoms.update(support)
             rewrites[node] = term
+        elif graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM:
+            lemma, support, term = _def_axiom_lemma(graph, terms, node)
+            lines.extend(lemma)
+            decidable_formulas.update(support)
+            def_axioms[node] = term
     assumptions = {}
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
-    steps, decidable_formulas = [], set()
+    steps = []
     hypothesis_formulas, dependencies = {}, {}
     for node in range(len(graph.nodes)):
         if graph.decl(node).range != "Proof":
@@ -609,6 +750,8 @@ def reconstruct(source, certificate):
             term = _modus_ponens(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
             term = rewrites[node]
+        elif graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM:
+            term = def_axioms[node]
         elif graph.kind(node) in (z3.Z3_OP_PR_REFLEXIVITY, z3.Z3_OP_PR_SYMMETRY,
                                  z3.Z3_OP_PR_TRANSITIVITY):
             term = _equivalence_step(graph, terms, node)
