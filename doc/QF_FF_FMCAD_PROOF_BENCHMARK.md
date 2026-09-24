@@ -7,6 +7,12 @@ The [third milestone](QF_FF_BOOLEAN_PROOFS.md) extends that screen with
 Boolean/ITE proofs and deep-input support. The paper's reported results below
 remain separate from our measurements.
 
+The [native versioned comparison](QF_FF_FMCAD_CVC5_COMPARISON.md) now reruns
+the exact artifact candidate, its forked baseline, official CVC5 releases and
+Z3+FF under a shared 10-second protocol, excluding Lean-SMT. It records
+358 candidate and 351 Z3 checked proofs; these fresh measurements supersede
+earlier coverage screens for that protocol.
+
 ## Reference pipeline and published results
 
 The [paper](https://repositum.tuwien.at/handle/20.500.12708/230471)
