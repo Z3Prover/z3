@@ -29,10 +29,10 @@ Notes:
 // from a <module>.pyg file by scripts/pyg2hpp.py). Each such header defines an X-macro
 // listing its parameters, one row per parameter, e.g.:
 //
-//   #define SLS_PARAMS(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_)                             \
-//     UINT_(max_memory, "max_memory", UINT_MAX, "maximum amount of memory in megabytes")     \
-//     BOOL_(walksat,    "walksat",    true,     "use walksat assertion selection")           \
-//     ...
+//   #define SLS_PARAMS(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_)
+//       UINT_(max_memory, "max_memory", UINT_MAX, "maximum amount of memory in megabytes")
+//       BOOL_(walksat,    "walksat",    true,     "use walksat assertion selection")
+//       ...
 //
 //   Z3_DEFINE_MODULE_PARAMS(sls_params, "sls", SLS_PARAMS,
 //       "Stochastic Local Search Solver ...");
@@ -248,4 +248,3 @@ void insert_produce_proofs(param_descrs & r);
 void insert_timeout(param_descrs & r);
 void insert_rlimit(param_descrs & r);
 void insert_ctrl_c(param_descrs & r);
-
