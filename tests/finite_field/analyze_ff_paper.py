@@ -71,15 +71,54 @@ def main():
     import matplotlib.pyplot as plt
     import numpy as np
     plt.rcParams.update({'font.size':10,'axes.spines.top':False,'axes.spines.right':False})
-    names={'artifact-clean-wip-gb':'cvc5 1.3.3.dev (clean-wip)','artifact-clean-wip-nosimp':'cvc5 1.3.3.dev (clean-wip), no simplification','cvc5-1.3.3-gb':'CVC5 1.3.3','cvc5-1.3.3-nosimp':'CVC5 1.3.3, no simplification','paper-candidate-gb':'cvc5 1.3.4.dev (FMCAD), default','paper-candidate-nosimp':'cvc5 1.3.4.dev (FMCAD), no simplification','paper-candidate-proof-generation':'cvc5 1.3.4.dev (FMCAD) + proof','paper-candidate-proof':'cvc5 1.3.4.dev (FMCAD) + proof + check','z3-ff-solve':'Z3+FF solver','z3-ff-proof-generation':'Z3+FF certificate production','z3-ff-proof':'Z3+FF + proof + check'}
-    fig,ax=plt.subplots(figsize=(10,6))
-    for c in ['artifact-clean-wip-gb','artifact-clean-wip-nosimp','paper-candidate-proof-generation','paper-candidate-proof','z3-ff-solve','z3-ff-proof']:
-        times=sorted(r['seconds'] for r in by[c].values() if success(r))
-        ax.step(times,range(1,len(times)+1),where='post',label=f'{names[c]} ({len(times)})')
-    ax.set(xscale='log',xlim=(.01,meta['timeout']),ylim=(0,meta['distinct']+10),xlabel='Whole-pipeline wall time (s)',ylabel='Completed distinct inputs',title='FMCAD finite-field artifact — fresh native comparison')
-    ax.grid(alpha=.2);ax.legend(loc='upper left',fontsize=9)
-    fig.text(.5,.015,f"{meta['distinct']} distinct inputs / {len(selection)} member paths · {meta['timeout']:g} s per pipeline · {meta['jobs']} workers · no Lean-SMT",ha='center',fontsize=9)
-    fig.tight_layout(rect=(0,.04,1,1));fig.savefig(out/'cactus.png',dpi=180);plt.close(fig)
+    # Color identifies the executable; line style identifies its configuration.
+    # Include every measured mode, plus both recorded proof-generation stages.
+    families = [
+        ('cvc5-1.3.3', 'cvc5 1.3.3', '#0072B2', ['gb', 'nosimp', 'split']),
+        ('cvc5-1.4.0', 'cvc5 1.4.0', '#E69F00', ['gb', 'nosimp', 'split']),
+        ('cvc5-main-72f647e', 'cvc5 master (1.4.1.dev, 72f647e)', '#009E73', ['gb', 'split']),
+        ('artifact-clean-wip', 'cvc5 1.3.3.dev (clean-wip)', '#8B5AA5', ['gb', 'nosimp']),
+        ('paper-candidate', 'cvc5 1.3.4.dev (FMCAD)', '#D55E00', ['gb', 'nosimp', 'proof-generation', 'proof']),
+        ('z3-ff', 'Z3+FF', '#202020', ['solve', 'proof-generation', 'proof']),
+    ]
+    modes = {
+        'gb': ('GB', '-', None),
+        'solve': ('solver', '-', None),
+        'nosimp': ('GB, no simplification', '--', None),
+        'split': ('split', ':', None),
+        'proof-generation': ('+ proof generation', '-.', None),
+        'proof': ('+ proof + check', (0, (5, 1, 1, 1, 1, 1)), 'o'),
+    }
+    plotted = set()
+    fig, ax = plt.subplots(figsize=(16, 8))
+    for prefix, name, color, variants in families:
+        for mode in variants:
+            c = prefix + '-' + mode
+            label, linestyle, marker = modes[mode]
+            times = sorted(r['seconds'] for r in by[c].values() if success(r))
+            ax.step(times, range(1, len(times) + 1), where='post',
+                    label=f'{name}, {label} ({len(times)})', color=color,
+                    linestyle=linestyle, linewidth=1.8, marker=marker,
+                    markersize=3, markevery=max(1, len(times) // 10))
+            plotted.add(c)
+    assert plotted == set(by), 'every configuration must appear in the cactus'
+    ax.set(xscale='log', xlim=(.01, meta['timeout']), ylim=(0, meta['distinct'] + 10),
+           xlabel='Wall time to the indicated outcome (s)', ylabel='Completed distinct inputs',
+           title='FMCAD finite-field artifact — all measured configurations')
+    ax.grid(alpha=.2)
+    ax.legend(loc='center left', bbox_to_anchor=(1.02, .5), fontsize=9,
+              handlelength=3.6, labelspacing=.85, frameon=False,
+              title='Executable / configuration (completed inputs)', title_fontsize=10)
+    fig.text(.5, .035,
+             f"{meta['distinct']} distinct inputs / {len(selection)} artifact paths · {meta['timeout']:g} s per pipeline · {meta['jobs']} workers · no Lean-SMT",
+             ha='center', fontsize=10)
+    fig.text(.5, .012,
+             'Solver curves: UNSAT answers · Proof generation: produced certificates · Proof + check: accepted certificates',
+             ha='center', fontsize=9)
+    fig.tight_layout(rect=(0, .07, 1, 1))
+    fig.savefig(out/'cactus.png', dpi=180)
+    fig.savefig(out/'cactus.svg')
+    plt.close(fig)
     cols=['artifact-clean-wip-gb','artifact-clean-wip-nosimp','cvc5-1.3.3-gb','cvc5-1.3.3-nosimp','cvc5-1.3.3-split','cvc5-1.4.0-gb','cvc5-1.4.0-nosimp','cvc5-1.4.0-split','cvc5-main-72f647e-gb','cvc5-main-72f647e-split','paper-candidate-gb','paper-candidate-nosimp','paper-candidate-proof','z3-ff-solve','z3-ff-proof']
     labels=['Artifact\nGB','Artifact\nno simp.','1.3.3\nGB','1.3.3\nno simp.','1.3.3\nsplit','1.4.0\nGB','1.4.0\nno simp.','1.4.0\nsplit','main\nGB','main\nsplit','Candidate\nGB','Candidate\nno simp.','Candidate\nchecked','Z3+FF\nsolver','Z3+FF\nchecked']
     cats=sorted(summary[cols[0]]['categories']);ratios=np.array([[summary[c]['categories'][k]['successful']/summary[c]['categories'][k]['total'] for c in cols] for k in cats])
