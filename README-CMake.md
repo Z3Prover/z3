@@ -4,7 +4,7 @@ CMake is the preferred build system for most Z3 build and integration tasks.
 It supports the Z3 executable and library, tests, examples, documentation, and
 the Python, .NET, Java, Go, OCaml, and Julia bindings.
 
-Z3 requires CMake 3.30 or newer, Python 3, and a compiler with C++20 support.
+Z3 requires CMake 3.26 or newer, Python 3, and a compiler with C++20 support.
 Additional language bindings require their corresponding toolchains.
 
 ## Build Z3
