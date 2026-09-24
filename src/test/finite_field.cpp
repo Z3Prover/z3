@@ -510,6 +510,24 @@ static void test_certificates() {
         ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
         ENSURE(ff::certify(e, equations, proof));
     }
+    // More independent rows than the retained basis cap, followed by a
+    // contradiction: fallback can change order without changing input IDs.
+    reslimit limit;
+    ff::engine maker(rational(7), limit, 1000000);
+    std::vector<ff::polynomial> equations;
+    for (unsigned i = 0; i < 257; ++i) equations.push_back(maker.variable(i));
+    equations.push_back(maker.constant(rational(1)));
+    ff::certificate proof;
+    ENSURE(ff::certify(maker, equations, proof));
+    ENSURE(proof.nodes.size() == 1 && proof.root == 0);
+    ENSURE(proof.nodes[0].kind == ff::certificate::rule::input && proof.nodes[0].left == 257);
+    // With a fresh budget the fallback could prove this immediately. It must
+    // instead retain work spent by the failed original-order attempt.
+    ff::engine bounded(rational(7), limit, 1000);
+    bool exhausted = false;
+    try { ff::certify(bounded, equations, proof); } catch (ff::exhausted const &) { exhausted = true; }
+    ENSURE(exhausted && bounded.steps() >= 1000 && bounded.steps() <= 1002);
+    ENSURE(proof.nodes.size() == 1 && proof.nodes[0].left == 257);
     std::cout << "Certificate reconstruction: output atomicity, input preservation, budget/cancellation recovery over three fields\n";
 }
 

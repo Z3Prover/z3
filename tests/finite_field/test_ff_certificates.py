@@ -70,6 +70,19 @@ def main():
             text = source(p, equations)
             proof = run(args.z3, text)
             check_both(text, proof); checked += 1
+    # Search may reorder premises; every permutation must still bind its DAG
+    # input nodes to the original equation indices, including unused premises.
+    for p in [7, LARGE]:
+        equations = [f'(= (ff.mul x y) {numeral(1)})', f'(= x {numeral(0)})', f'(= y {numeral(2)})']
+        for permutation in itertools.permutations(equations):
+            text = source(p, permutation)
+            check_both(text, run(args.z3, text)); checked += 1
+    # The first order exhausts the basis cap before seeing the last premise.
+    # Reordering must preserve the original premise index in the checked proof.
+    text = source(7, [f'(= v{i} {numeral(0)})' for i in range(257)] +
+                  [f'(= {numeral(1)} {numeral(0)})'],
+                  declarations='\n'.join(f'(declare-const v{i} F)' for i in range(257)))
+    check_both(text, run(args.z3, text)); checked += 1
     # Definitions, simultaneous let binding and quoting are checked without Z3.
     text = source(LARGE, ['(= alias (as ff1 F))', '(= |quoted x| (as ff0 F))'],
                   extra='(define-fun alias () F (let ((z |quoted x|)) z))',

@@ -94,8 +94,22 @@ namespace ff {
         }
     public:
         certificate_builder(engine &e, unsigned max_nodes) : e(e), max_nodes(std::min(max_nodes, 100000u)) {}
-        bool run(std::vector<polynomial> const &equations, certificate &out) {
+        bool run(std::vector<polynomial> const &equations, certificate &out, bool linear_first = false) {
+            // Linear and sparse equations can eliminate variables before
+            // nonlinear input rows create large intermediate polynomials.
+            // This only changes search order: input nodes retain their original
+            // equation indices, and the checker still replays every multiplier.
+            std::vector<std::tuple<unsigned, size_t, unsigned>> order;
             for (unsigned i = 0; i < equations.size(); ++i) {
+                unsigned degree = 0;
+                if (linear_first) for (auto const &[mon, coefficient] : equations[i]) {
+                    e.tick();
+                    degree = std::max(degree, static_cast<unsigned>(mon.size()));
+                }
+                order.emplace_back(degree, equations[i].size(), i);
+            }
+            if (linear_first) std::sort(order.begin(), order.end());
+            for (auto const &[degree, size, i] : order) {
                 unsigned id = record({certificate::rule::input, i, 0, rational(1), {}});
                 if (insert({equations[i], id})) { out = std::move(proof); return true; }
             }
@@ -122,6 +136,17 @@ namespace ff {
     };
     bool certify(engine &arithmetic, std::vector<polynomial> const &equations,
                  certificate &output, unsigned max_nodes) {
-        return certificate_builder(arithmetic, max_nodes).run(equations, output);
+        try {
+            // Preserve the original schedule when it succeeds. A different
+            // insertion order can help after a basis/storage bound is hit, but
+            // is not uniformly better for all systems.
+            return certificate_builder(arithmetic, max_nodes).run(equations, output);
+        }
+        catch (exhausted const &) {
+            // The failed builder has been destroyed. Reuse the SAME engine:
+            // work already spent, term bounds and cancellation remain charged.
+            // Only the discarded search/DAG state starts over, never the budget.
+            return certificate_builder(arithmetic, max_nodes).run(equations, output, true);
+        }
     }
 }
