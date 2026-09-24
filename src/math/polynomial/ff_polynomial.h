@@ -44,6 +44,7 @@ namespace ff {
         // Unit tests exercise bounded matrix admission directly, without an
         // unrelated Groebner pair schedule deciding whether the cap is reached.
         friend struct test_engine;
+        friend class certificate_builder;
         rational p;
         reslimit &limit;
         unsigned work = 0, max_work, max_terms;

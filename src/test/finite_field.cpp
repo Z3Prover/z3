@@ -1,4 +1,5 @@
 #include "math/polynomial/ff_polynomial.h"
+#include "math/polynomial/ff_certificate.h"
 #include "util/debug.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ff_decl_plugin.h"
@@ -484,7 +485,36 @@ static void test_ff_scalar_recovery() {
     std::cout << "Matrix overflow recovered by exact scalar reduction; mask collisions checked\n";
 }
 
+static void test_certificates() {
+    for (rational const &prime : {rational(2), rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
+        reslimit limit;
+        ff::engine e(prime, limit, 1000000);
+        auto x = e.variable(0), y = e.variable(1), one = e.constant(rational(1));
+        std::vector<ff::polynomial> equations{e.add(e.mul(x, y), one, rational(-1)),
+            e.add(e.mul(x, e.add(y, one)), one, rational(-1))};
+        auto original = equations;
+        ff::certificate proof;
+        ENSURE(ff::certify(e, equations, proof));
+        ENSURE(equations == original && !proof.nodes.empty());
+        auto size = proof.nodes.size();
+        unsigned root = proof.root;
+        // Failure must leave the caller's previous successful object intact.
+        bool exhausted = false;
+        try { ff::certify(e, equations, proof, 0); } catch (ff::exhausted const &) { exhausted = true; }
+        ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
+        ENSURE(!ff::certify(e, {x}, proof));
+        ENSURE(proof.nodes.size() == size && proof.root == root);
+        limit.inc_cancel(); exhausted = false;
+        try { ff::certify(e, equations, proof); } catch (ff::exhausted const &) { exhausted = true; }
+        limit.dec_cancel();
+        ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
+        ENSURE(ff::certify(e, equations, proof));
+    }
+    std::cout << "Certificate reconstruction: output atomicity, input preservation, budget/cancellation recovery over three fields\n";
+}
+
 void tst_finite_field() {
+    test_certificates();
     ff::test_engine::adaptive_basis_storage();
     ff::test_engine::sparse_matrix_selection();
     ff::test_engine::work_accounting();

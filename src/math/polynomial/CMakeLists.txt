@@ -3,6 +3,7 @@ z3_add_component(polynomial
     algebraic_numbers.cpp
     polynomial_cache.cpp
     ff_polynomial.cpp
+    ff_certificate.cpp
     polynomial.cpp
     rpolynomial.cpp
     sexpr2upolynomial.cpp
