@@ -525,13 +525,15 @@ namespace q {
                 continue;
             // Ground structurally decreasing recursion is evaluated by MBQI, so its
             // non-ground arguments require the same domain restrictions as AUF heads.
-            if (is_app(s) &&
-                (is_uninterp(s) || m_recfun_rw.is_recfun_with_ground_recursion_args(to_app(s))) &&
-                to_app(s)->get_num_args() > 0) {
+            if (!is_app(s))
+                continue;
+            app* a = to_app(s);
+            if ((is_uninterp(a) || m_recfun_rw.is_recfun_with_ground_recursion_args(a)) &&
+                a->get_num_args() > 0) {
                 unsigned i = 0;
-                for (expr* arg : *to_app(s)) {
+                for (expr* arg : *a) {
                     if (!is_ground(arg) && !is_uninterp(arg) && !qb.is_free(arg))
-                        qb.var_args.push_back(std::make_pair(to_app(s), i));
+                        qb.var_args.push_back(std::make_pair(a, i));
                     ++i;
                 }
             }
