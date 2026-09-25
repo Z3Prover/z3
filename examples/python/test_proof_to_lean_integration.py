@@ -23,7 +23,7 @@ import proof_preprocessing
 import proof_to_lean
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
-    UNSUPPORTED, XOR, make_certificate,
+    NESTED, XOR, make_certificate,
 )
 
 
@@ -53,7 +53,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
             return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
@@ -61,7 +61,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
     def test_documented_boolean_rewrite_example(self):
         source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_rewrite.smt2").read_text()
         certificate = proof_certificate.export_certificate(source)
-        self.assertEqual(set(certificate["rule_counts"]), {"asserted", "mp", "rewrite", "unit-resolution"})
+        self.assertTrue({"asserted", "mp", "rewrite"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
 
@@ -101,40 +101,32 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertFalse(reduced[0].inconsistent())
 
         report = proof_preprocessing.audit_preprocessing(source, require_search=True)
+        self.assertTrue(report["complete"], report)
         self.assertEqual(len(report["runs"]), 4)
         for run in report["runs"]:
             with self.subTest(pipeline=run["pipeline"], proofs=run["proofs_enabled"]):
                 self.assertEqual(run["result"], "unsat")
                 self.assertTrue(run["branching_search_observed"])
+                self.assertTrue(run["preprocessing_observed"])
                 self.assertEqual(run["preprocessing_observed"],
                                  run["statistics"].get("solve-eqs-elim-vars", 0) > 0)
                 if not run["proofs_enabled"]:
                     self.assertTrue(run["preprocessing_observed"])
                     self.assertEqual(run["proof_status"], "disabled")
                 else:
-                    self.assertIn(run["proof_status"], (
-                        "lean-checked", "native-proof-error", "reconstruction-rejected", "lean-rejected"))
-                    if run["proof_status"] != "lean-checked" or not run["preprocessing_observed"]:
-                        self.assertTrue(run["diagnostics"])
-        self.assertEqual(report["complete"], all(
-            run["preprocessing_observed"]
-            and (not run["proofs_enabled"] or run["proof_status"] == "lean-checked")
-            for run in report["runs"]))
+                    self.assertEqual(run["proof_status"], "lean-checked")
+                self.assertFalse(run["diagnostics"])
 
     def test_preprocessing_audit_also_covers_preprocessing_only_refutations(self):
         source = (_EXAMPLES.parents[1] / "lean" / "examples" / "unit_resolution.smt2").read_text()
         report = proof_preprocessing.audit_preprocessing(source)
+        self.assertTrue(report["complete"], report)
         for run in report["runs"]:
             self.assertEqual(run["result"], "unsat")
-            if not run["proofs_enabled"]:
-                self.assertTrue(run["preprocessing_observed"])
-                self.assertFalse(run["branching_search_observed"])
-            elif run["proof_status"] != "lean-checked" or not run["preprocessing_observed"]:
-                self.assertTrue(run["diagnostics"])
-        self.assertEqual(report["complete"], all(
-            run["preprocessing_observed"]
-            and (not run["proofs_enabled"] or run["proof_status"] == "lean-checked")
-            for run in report["runs"]))
+            self.assertTrue(run["preprocessing_observed"])
+            self.assertFalse(run["branching_search_observed"])
+            self.assertEqual(run["proof_status"], "lean-checked" if run["proofs_enabled"] else "disabled")
+            self.assertFalse(run["diagnostics"])
 
     def test_preprocessing_audit_cli_never_reports_bypasses_as_success(self):
         source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
@@ -145,15 +137,201 @@ class TestProofToLeanIntegration(unittest.TestCase):
                        str(original), "--require-search"]
             result = subprocess.run(command, capture_output=True, text=True)
             report = json.loads(result.stdout)
-            self.assertEqual(result.returncode, 0 if report["complete"] else 1, result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue(report["complete"])
             self.assertEqual(len(report["runs"]), 4)
-            if not report["complete"]:
-                self.assertIn("proof coverage is incomplete", result.stderr)
             result = subprocess.run(command + ["--timeout-ms", "0"], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("positive integer", result.stderr)
             self.assertEqual(original.read_text(), source)
             self.assertEqual(list(Path(directory).iterdir()), [original])
+
+    def test_iff_constant_rules_are_axiom_free(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert (and p q))(assert (not (and p q)))(assert true)"
+        certificate = make_certificate(source, [
+            ("iff-true", [0], "(= (and p q) true)"),
+            ("iff-false", [1], "(= (and p q) false)"),
+            ("symm", [3], "(= true (and p q))"),
+            ("trans", [5, 4], "(= true false)"),
+            ("mp", [2, 6], "false"),
+        ])
+        self.check(source, certificate)
+        for declaration in certificate["declarations"]:
+            if declaration["kind"] == z3.Z3_OP_EQ:
+                declaration["kind"], declaration["name"] = z3.Z3_OP_IFF, "iff"
+        self.check(source, certificate)
+
+    def test_iff_constant_rules_preserve_hypothesis_scope(self):
+        source = LITERAL + "(assert true)"
+        self.check(source, make_certificate(source, [
+            ("hypothesis", [], "p"),
+            ("iff-true", [3], "(= p true)"),
+            ("symm", [4], "(= true p)"),
+            ("mp", [2, 5], "p"),
+            ("unit-resolution", [1, 6], "false"),
+            ("lemma", [7], "(not p)"),
+            ("unit-resolution", [0, 8], "false"),
+        ]))
+        self.check(LITERAL, make_certificate(LITERAL, [
+            ("hypothesis", [], "(not p)"),
+            ("iff-false", [2], "(= p false)"),
+            ("mp", [0, 3], "false"),
+            ("lemma", [4], "(not (not p))"),
+            ("unit-resolution", [5, 1], "false"),
+        ]))
+
+    def test_solve_eqs_native_boolean_proof_chains(self):
+        prefix = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
+        cases = [
+            "(assert (= p q))(assert (= q r))(assert (or p s))(assert (not r))(assert (not s))",
+            "(assert (= (not q) p))(assert (not q))(assert (not p))",
+            "(assert (= p (or q r)))(assert (not q))(assert (not r))(assert p)",
+            "(assert (= p q))(assert (= q p))(assert p)(assert (not q))",
+            "(assert (= p (ite q r s)))(assert q)(assert (not r))(assert p)",
+            "(assert (and p (not p)))",
+            "(assert (not (or (not p) q)))(assert (or (not p) q))",
+        ]
+        for pipeline, constraints in itertools.product(("simplifier", "tactic"), cases):
+            with self.subTest(pipeline=pipeline, constraints=constraints):
+                source = prefix + constraints
+                context = z3.Context(proof=True)
+                assertions = proof_certificate.parse_propositional_assertions(source, context)
+                if pipeline == "simplifier":
+                    solver = z3.Simplifier("solve-eqs", ctx=context).add(z3.SimpleSolver(ctx=context))
+                else:
+                    solver = z3.Then(z3.Tactic("solve-eqs", ctx=context), z3.Tactic("smt", ctx=context)).solver()
+                solver.add(assertions)
+                self.assertEqual(solver.check(), z3.unsat)
+                self.check(source, proof_certificate._certificate_from_proof(source, assertions, solver.proof()))
+
+    def test_solve_eqs_incremental_proofs_and_models(self):
+        prefix = "(declare-const p Bool)(declare-const q Bool)(assert (= p q))"
+        source = prefix + "(assert p)(assert (not q))"
+        for pipeline, mode in itertools.product(
+                ("simplifier", "tactic"), ("append", "push-pop", "assumptions", "translate")):
+            with self.subTest(pipeline=pipeline, mode=mode):
+                context = z3.Context(proof=True)
+                assertions = proof_certificate.parse_propositional_assertions(source, context)
+                if pipeline == "simplifier":
+                    solver = z3.Simplifier("solve-eqs", ctx=context).add(z3.SimpleSolver(ctx=context))
+                else:
+                    solver = z3.Then(z3.Tactic("solve-eqs", ctx=context), z3.Tactic("smt", ctx=context)).solver()
+                solver.add(assertions[0])
+                self.assertEqual(solver.check(), z3.sat)
+                self.assertTrue(z3.is_true(solver.model().eval(assertions[0], model_completion=True)))
+                if mode == "translate":
+                    target = z3.Context(proof=True)
+                    solver = solver.translate(target)
+                    assertions = proof_certificate.parse_propositional_assertions(source, target)
+                if mode == "push-pop":
+                    solver.push()
+                if mode == "assumptions":
+                    result = solver.check(assertions[1], assertions[2])
+                else:
+                    solver.add(assertions[1], assertions[2])
+                    result = solver.check()
+                self.assertEqual(result, z3.unsat)
+                self.check(source, proof_certificate._certificate_from_proof(source, assertions, solver.proof()))
+                if mode == "push-pop":
+                    solver.pop()
+                    self.assertEqual(solver.check(), z3.sat)
+                    solver.push()
+                    flipped = [assertions[0], z3.Not(assertions[1]), assertions[2].arg(0)]
+                    solver.add(flipped[1:])
+                    self.assertEqual(solver.check(), z3.unsat)
+                    flipped_source = prefix + "(assert (not p))(assert q)"
+                    self.check(flipped_source, proof_certificate._certificate_from_proof(
+                        flipped_source, flipped, solver.proof()))
+                    solver.pop()
+                    self.assertEqual(solver.check(), z3.sat)
+                if mode == "assumptions":
+                    self.assertEqual(solver.check(), z3.sat)
+
+    def test_solve_eqs_tracked_proofs_do_not_introduce_proxy_assumptions(self):
+        for count, translate in itertools.product((1, 2), (False, True)):
+            with self.subTest(count=count, translate=translate):
+                source = "".join("(declare-const %s Bool)" % atom for atom in "pqrab")
+                if count == 1:
+                    source += "(assert (=> a (= p q)))(assert a)(assert p)(assert (not q))"
+                    tracked, start = [(0, 1)], 2
+                else:
+                    source += "(assert (=> a (= p q)))(assert (=> b (= q r)))"
+                    source += "(assert a)(assert b)(assert p)(assert (not r))"
+                    tracked, start = [(0, 2), (1, 3)], 4
+                context = z3.Context(proof=True)
+                assertions = proof_certificate.parse_propositional_assertions(source, context)
+                solver = z3.Simplifier("solve-eqs", ctx=context).add(z3.SimpleSolver(ctx=context))
+                for fact, label in tracked:
+                    solver.assert_and_track(assertions[fact].arg(1), assertions[label])
+                self.assertEqual(solver.check(), z3.sat)
+                if translate:
+                    target = z3.Context(proof=True)
+                    solver = solver.translate(target)
+                    assertions = proof_certificate.parse_propositional_assertions(source, target)
+                solver.add(list(assertions)[start:])
+                self.assertEqual(solver.check(), z3.unsat)
+                self.assertEqual({str(label) for label in solver.unsat_core()}, set("ab"[:count]))
+                self.check(source, proof_certificate._certificate_from_proof(source, assertions, solver.proof()))
+
+    def test_solve_eqs_scoped_tracking_literals_are_removed_on_pop(self):
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqabc")
+        source += "(assert (=> a (= p q)))(assert a)"
+        source += "(assert (=> b p))(assert b)(assert (=> c (not q)))(assert c)"
+        context = z3.Context(proof=True)
+        assertions = proof_certificate.parse_propositional_assertions(source, context)
+        solver = z3.Simplifier("solve-eqs", ctx=context).add(z3.SimpleSolver(ctx=context))
+        solver.assert_and_track(assertions[0].arg(1), assertions[1])
+        self.assertEqual(solver.check(), z3.sat)
+        solver.push()
+        solver.assert_and_track(assertions[2].arg(1), assertions[3])
+        solver.assert_and_track(assertions[4].arg(1), assertions[5])
+        self.assertEqual(solver.check(), z3.unsat)
+        self.assertEqual({str(label) for label in solver.unsat_core()}, set("abc"))
+        self.check(source, proof_certificate._certificate_from_proof(source, assertions, solver.proof()))
+        solver.pop()
+        self.assertEqual(solver.check(z3.Not(assertions[3]), z3.Not(assertions[5])), z3.sat)
+
+    def test_solve_eqs_tactic_tracked_proof(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(declare-const a Bool)"
+        source += "(assert (=> a (= p q)))(assert a)(assert p)(assert (not q))"
+        context = z3.Context(proof=True)
+        assertions = proof_certificate.parse_propositional_assertions(source, context)
+        solver = z3.Then(z3.Tactic("solve-eqs", ctx=context), z3.Tactic("smt", ctx=context)).solver()
+        solver.assert_and_track(assertions[0].arg(1), assertions[1])
+        self.assertEqual(solver.check(), z3.sat)
+        solver.add(assertions[2], assertions[3])
+        self.assertEqual(solver.check(), z3.unsat)
+        self.check(source, proof_certificate._certificate_from_proof(source, assertions, solver.proof()))
+
+    def test_solve_eqs_leaves_unproved_extraction_schemes_unchanged(self):
+        context = z3.Context(proof=True)
+        x, y, z = z3.Ints("x y z", ctx=context)
+        a, b = z3.BitVecs("a b", 8, ctx=context)
+        array = z3.Array("array", z3.IntSort(ctx=context), z3.IntSort(ctx=context))
+        p = z3.Bool("p", ctx=context)
+        expressions = [
+            x + y == 0, a + b == 0, x % 3 == 1,
+            z3.If(p, x == y, x == z), z3.Or(x == y, p),
+            z3.ForAll(x, z3.Implies(x > 0, z3.Select(array, x) == x + 1)),
+        ]
+        for expression in expressions:
+            with self.subTest(expression=expression):
+                goal = z3.Goal(proofs=True, ctx=context)
+                goal.add(expression)
+                result = z3.Tactic("solve-eqs", ctx=context)(goal)
+                self.assertEqual(len(result), 1)
+                self.assertEqual(len(result[0]), 1)
+                self.assertTrue(result[0][0].eq(expression))
+
+    def test_solve_eqs_respects_the_goal_proof_setting(self):
+        context = z3.Context(proof=True)
+        x, y = z3.Ints("x y", ctx=context)
+        goal = z3.Goal(proofs=False, ctx=context)
+        goal.add(x + y == 0)
+        result = z3.Tactic("solve-eqs", ctx=context)(goal)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result[0]), 0)
 
     def test_all_def_axiom_gate_schemas_and_literal_orders(self):
         source = "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
@@ -884,8 +1062,13 @@ class TestProofToLeanIntegration(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("Lean checked the refutation", result.stdout)
             previous = output.read_text()
-            original.write_text(UNSUPPORTED)
-            certificate.write_text(json.dumps(proof_certificate.export_certificate(UNSUPPORTED)))
+            original.write_text(NESTED)
+            unsupported = proof_certificate.export_certificate(NESTED)
+            for declaration in unsupported["declarations"]:
+                if declaration["kind"] == z3.Z3_OP_PR_ASSERTED:
+                    declaration["kind"], declaration["name"] = z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"
+            unsupported["rule_counts"]["rewrite*"] = unsupported["rule_counts"].pop("asserted")
+            certificate.write_text(json.dumps(unsupported))
             result = subprocess.run(command, text=True, capture_output=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("unsupported native proof rule", result.stderr)

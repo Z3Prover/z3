@@ -50,7 +50,7 @@ XOR = """\
 (declare-const p Bool)(declare-const q Bool)
 (assert (xor p q))(assert p)(assert q)
 """
-UNSUPPORTED = """\
+NESTED = """\
 (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
 (assert (or (and p q) r))(assert (not p))(assert (not r))
 """
@@ -116,6 +116,8 @@ def make_certificate(source, steps):
                 "symm": z3.Z3_OP_PR_SYMMETRY,
                 "trans": z3.Z3_OP_PR_TRANSITIVITY,
                 "trans*": z3.Z3_OP_PR_TRANSITIVITY_STAR,
+                "iff-true": z3.Z3_OP_PR_IFF_TRUE,
+                "iff-false": z3.Z3_OP_PR_IFF_FALSE,
                 "monotonicity": z3.Z3_OP_PR_MONOTONICITY,
                 "and-elim": z3.Z3_OP_PR_AND_ELIM,
                 "not-or-elim": z3.Z3_OP_PR_NOT_OR_ELIM,
@@ -155,7 +157,7 @@ class TestProofToLean(unittest.TestCase):
         self.certificate = proof_certificate.export_certificate(LITERAL)
 
     def test_real_native_refutations_generate_explicit_proof_terms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 certificate = proof_certificate.export_certificate(source)
@@ -259,7 +261,10 @@ class TestProofToLean(unittest.TestCase):
                     proof_preprocessing.audit_preprocessing(LITERAL, timeout_ms=timeout)
 
     def test_def_axiom_signatures_are_checked(self):
-        original = proof_certificate.export_certificate(XOR)
+        original = make_certificate(XOR, [
+            ("def-axiom", [], "(or (not (xor p q)) (not p) (not q))"),
+            ("unit-resolution", [3, 0, 1, 2], "false"),
+        ])
         for key, value in [
             ("name", "forged"), ("domain", []), ("domain", ["Proof", "Bool"]),
             ("domain", ["Bool", "Bool"]), ("range", "Bool"), ("parameters", [1]),
@@ -462,6 +467,8 @@ class TestProofToLean(unittest.TestCase):
         rules = [
             ("refl", [], "(= p p)"), ("symm", [0], "(= p p)"),
             ("trans", [0, 0], "(= p p)"),
+            ("iff-true", [0], "(= (= p p) true)"),
+            ("iff-false", [2], "(= (or p q) false)"),
             ("monotonicity", [0], "(= (not p) (not p))"),
             ("and-elim", [1], "p"), ("not-or-elim", [2], "(not p)"),
         ]
@@ -480,6 +487,8 @@ class TestProofToLean(unittest.TestCase):
         for rule, premises in [
             ("refl", [0]), ("symm", []), ("symm", [0, 0]),
             ("trans", [0]), ("trans", [0, 0, 0]),
+            ("iff-true", []), ("iff-true", [0, 0]),
+            ("iff-false", []), ("iff-false", [2, 2]),
             ("and-elim", []), ("and-elim", [1, 1]),
             ("not-or-elim", []), ("not-or-elim", [2, 2]),
         ]:
@@ -507,6 +516,24 @@ class TestProofToLean(unittest.TestCase):
             with self.subTest(rule=rule, premises=premises, conclusion=conclusion):
                 certificate = make_certificate(source, [
                     (rule, premises, conclusion), ("asserted", [], "false"),
+                ])
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, rule):
+                    proof_to_lean.reconstruct(source, certificate)
+
+    def test_iff_constant_steps_validate_the_fact_and_both_endpoints(self):
+        source = "(declare-const p Bool)(declare-const q Bool)"
+        source += "(assert p)(assert (not q))(assert (not (not p)))(assert false)"
+        for rule, premise, conclusion in [
+            ("iff-true", 0, "(= q true)"), ("iff-true", 0, "(= p false)"),
+            ("iff-true", 0, "(= true p)"), ("iff-true", 0, "(=> p true)"),
+            ("iff-true", 1, "(= q true)"), ("iff-true", 0, "true"),
+            ("iff-false", 0, "(= p false)"), ("iff-false", 1, "(= p false)"),
+            ("iff-false", 1, "(= q true)"), ("iff-false", 1, "(= false q)"),
+            ("iff-false", 2, "(= p false)"), ("iff-false", 1, "false"),
+        ]:
+            with self.subTest(rule=rule, premise=premise, conclusion=conclusion):
+                certificate = make_certificate(source, [
+                    (rule, [premise], conclusion), ("asserted", [], "false"),
                 ])
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, rule):
                     proof_to_lean.reconstruct(source, certificate)
@@ -745,9 +772,6 @@ class TestProofToLean(unittest.TestCase):
             proof_to_lean.reconstruct(source, certificate)
 
     def test_unsupported_native_rules_are_rejected(self):
-        certificate = proof_certificate.export_certificate(UNSUPPORTED)
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported native proof rule"):
-            proof_to_lean.reconstruct(UNSUPPORTED, certificate)
         for kind, name in [(z3.Z3_OP_PR_TH_LEMMA, "th-lemma"),
                            (z3.Z3_OP_PR_REWRITE_STAR, "rewrite*"),
                            (z3.Z3_OP_PR_MODUS_PONENS_OEQ, "mp~"),
