@@ -71,6 +71,13 @@ namespace seq {
         expr_ref_vector          m_worklist;
         unsigned                 m_step_bound { 50000 };
         unsigned                 m_steps      { 0 };
+        uint64_t                 m_pilot_expansions { 0 };
+        uint64_t                 m_pilot_leaves { 0 };
+        uint64_t                 m_pilot_merge_attempts { 0 };
+        uint64_t                 m_pilot_merges { 0 };
+        uint64_t                 m_pilot_states { 0 };
+        unsigned                 m_pilot_directions { 0 };
+        bool                     m_pilot_bound_hit { false };
 
         unsigned node_of(expr* r);
         bool merge_leaf(expr* xor_pair);
@@ -87,6 +94,8 @@ namespace seq {
         void reset();
 
         lbool are_equivalent_core(expr* p, expr* q);
+        lbool pilot_is_empty(expr* r);
+        lbool pilot_two_way(expr* p, expr* q);
 
     public:
         regex_bisim(seq_rewriter& rw);

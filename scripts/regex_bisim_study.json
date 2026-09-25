@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "solver": "z3",
+  "default_mode": "bisim",
+  "environment_variable": "Z3_REGEX_STUDY_MODE",
+  "modes": ["bisim", "subsumption"],
+  "diagnostic_prefix": "regex-study ",
+  "upstream_base": "6e585beeaebf9f7efd56b1105a72e5b5451796fc",
+  "union_fix": "81c61b39ae33e9f147e64d3590ba778b433e3d3d",
+  "equivalence_step_bound": 50000
+}
