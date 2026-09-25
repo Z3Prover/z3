@@ -139,7 +139,7 @@ namespace array {
         expr_ref sel(a.mk_select(sel_args), m);
         euf::enode* n1 = e_internalize(sel);
         euf::enode* n2 = expr2enode(e->get_arg(num_args - 1));
-        return ctx.propagate(n1, n2, array_axiom());
+        return propagate_axiom(n1, n2);
     }
 
 
@@ -246,7 +246,7 @@ namespace array {
         expr_ref sel(a.mk_select(sel_args), m);
         euf::enode* n1 = e_internalize(sel);
         euf::enode* n2 = expr2enode(val);
-        return ctx.propagate(n1, n2, array_axiom());
+        return propagate_axiom(n1, n2);
     }
 
 
@@ -311,7 +311,7 @@ namespace array {
         rewrite(sel2); 
         euf::enode* n1 = e_internalize(sel1);
         euf::enode* n2 = e_internalize(sel2);
-        return ctx.propagate(n1, n2, array_axiom());
+        return propagate_axiom(n1, n2);
    }
 
 
@@ -331,7 +331,7 @@ namespace array {
         expr_ref val(m.mk_app(f, sel_args.size() - 1, sel_args.data() + 1), m);
         euf::enode* n1 = e_internalize(sel);
         euf::enode* n2 = e_internalize(val);
-        return ctx.propagate(n1, n2, array_axiom());
+        return propagate_axiom(n1, n2);
     }
 
     expr_ref solver::apply_map(app* map, unsigned n, expr* const* args) {
@@ -372,7 +372,7 @@ namespace array {
             args2.push_back(a.mk_default(arg));
         expr_ref def1(a.mk_default(map), m);
         expr_ref def2 = apply_map(map, args2.size(), args2.data());
-        return ctx.propagate(e_internalize(def1), e_internalize(def2), array_axiom());
+        return propagate_axiom(e_internalize(def1), e_internalize(def2));
     }
 
     /**
@@ -384,7 +384,7 @@ namespace array {
         expr* val = nullptr;
         VERIFY(a.is_const(cnst, val));
         expr_ref def(a.mk_default(cnst), m);
-        return ctx.propagate(expr2enode(val), e_internalize(def), array_axiom());
+        return propagate_axiom(expr2enode(val), e_internalize(def));
     }
 
     /**
@@ -441,12 +441,12 @@ namespace array {
             sel1 = a.mk_select(args1);
             sel2 = a.mk_select(args2);
             return 
-                ctx.propagate(e_internalize(sel1), ndef1, array_axiom()) ||
-                ctx.propagate(e_internalize(sel2), ndef2, array_axiom()) ||
+                propagate_axiom(e_internalize(sel1), ndef1) ||
+                propagate_axiom(e_internalize(sel2), ndef2) ||
                 prop;
         }
         // default(A) == default(B)
-        if (ctx.propagate(ndef1, ndef2, array_axiom()))
+        if (propagate_axiom(ndef1, ndef2))
             prop = true;
         return prop;
     }
@@ -465,7 +465,7 @@ namespace array {
         expr_ref beta(alpha);
         rewrite(beta);
         TRACE(array, tout << alpha << " == " << beta << "\n";);
-        return ctx.propagate(e_internalize(alpha), e_internalize(beta), array_axiom());
+        return propagate_axiom(e_internalize(alpha), e_internalize(beta));
     }
 
     bool solver::assert_choice_axiom(app* choice_term) {
