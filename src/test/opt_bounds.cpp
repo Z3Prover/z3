@@ -17,6 +17,7 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
 #include "opt/opt_geometric.h"
+#include "smt/smt_context.h"
 #include "util/debug.h"
 #include <climits>
 #include <cstring>
@@ -68,6 +69,85 @@ static void tst_maximize_result() {
     // A later objective must not overwrite the earlier call's result.
     ENSURE(first.bound_valid && first.hint_status == l_true);
     ENSURE(first.hint == opt::inf_eps(rational(3)));
+}
+
+// Maximize real x under 0 <= x <= 3 and x*x <= 2. The maximum is sqrt(2),
+// so an arithmetic-relaxation hint above it must be rejected, not committed.
+// Throw after asserting the temporary validation bound, both directly and
+// inside isolated maximization. Neither internal scope may survive the throw
+// or a normal rejection, and the caller's scope must still allow x = 0.
+static void tst_arithmetic_scope_exits() {
+    for (bool isolated : {false, true})
+        for (bool interrupt : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            arith_util a(m);
+            params_ref p;
+            p.set_uint("arith.solver", 6);
+            generic_model_converter fm(m, "arithmetic scopes");
+            struct bound_exit_solver : opt::opt_solver {
+                using opt_solver::opt_solver;
+                bool armed = false;
+                bool stopped = false;
+
+                void assert_expr_core(expr* e) override {
+                    opt_solver::assert_expr_core(e);
+                    if (armed) {
+                        armed = false;
+                        stopped = true;
+                        // Internal probes must not change the public assumption stack.
+                        ENSURE(get_scope_level() == 1);
+                        throw default_exception("arithmetic scope test");
+                    }
+                }
+            } s(m, p, fm);
+            expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+            expr_ref zero(a.mk_numeral(rational(0), false), m);
+            s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
+            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            solver::scoped_push caller_scope(s);
+            s.assert_expr(a.mk_ge(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            model_ref baseline;
+            s.get_model(baseline);
+            s.add_objective(to_app(x));
+            unsigned base_level = s.get_context().get_base_level();
+            unsigned assertions = s.get_num_assertions();
+            expr_ref blocker(m);
+            auto maximize = [&]() {
+                if (isolated)
+                    return s.maximize_objective_isolated(0, baseline, blocker);
+                auto result = s.maximize_objective(0, blocker);
+                ENSURE(result.hint_status == l_false);
+                return result.bound_valid;
+            };
+            auto ensure_scopes = [&]() {
+                ENSURE(s.get_scope_level() == 1);
+                ENSURE(s.get_context().get_base_level() == base_level);
+                ENSURE(s.get_num_assertions() == assertions);
+            };
+            s.armed = interrupt;
+            bool threw = false;
+            try {
+                ENSURE(!maximize());
+            }
+            catch (default_exception const& ex) {
+                ENSURE(std::strcmp(ex.what(), "arithmetic scope test") == 0);
+                threw = true;
+            }
+            ENSURE(threw == interrupt && s.stopped == interrupt);
+            ensure_scopes();
+            {
+                solver::scoped_push check_scope(s);
+                s.assert_expr(m.mk_eq(x, zero));
+                ENSURE(s.check_sat(0, nullptr) == l_true);
+            }
+            // Retry the same objects after cleanup; the unsupported arithmetic
+            // hint must still be rejected without leaving validation constraints.
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            ENSURE(!maximize());
+            ensure_scopes();
+        }
 }
 
 static void tst_geometric_step() {
@@ -1155,6 +1235,8 @@ static void tst_bitvector_bounds() {
 void tst_opt_bounds() {
     std::cout << "opt_bounds: per-call arithmetic results\n";
     tst_maximize_result();
+    std::cout << "opt_bounds: arithmetic scope exits\n";
+    tst_arithmetic_scope_exits();
     std::cout << "opt_bounds: geometric step schedule\n";
     tst_geometric_step();
     std::cout << "opt_bounds: signed algebraic optima and offsets\n";

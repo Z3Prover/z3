@@ -33,6 +33,7 @@ Notes:
 #include "opt/opt_params.hpp"
 #include "model/model_smt2_pp.h"
 #include "util/stopwatch.h"
+#include "util/util.h"
 
 namespace opt {
 
@@ -222,20 +223,21 @@ namespace opt {
     // and guards against LP state corruption for non-linear objectives
     // like mod, fixes #9012.
     bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
-        m_context.push();
-
-        if (!maximize_objective(i, blocker).bound_valid) {
-            m_context.pop(1);
-            return false;
-        }
-
-        // Save results before popping
-        inf_eps val = m_objective_values[i];
+        inf_eps val;
         model_ref mdl;
-        if (m_objective_models[i])
-            mdl = m_objective_models[i];
+        {
+            m_context.push();
+            // Keep internal scopes separate from the public assumption stack.
+            on_scope_exit pop([&] { m_context.pop(1); });
 
-        m_context.pop(1);
+            if (!maximize_objective(i, blocker).bound_valid)
+                return false;
+
+            // Save results before popping
+            val = m_objective_values[i];
+            if (m_objective_models[i])
+                mdl = m_objective_models[i];
+        }
 
         // Restore the computed values after pop
         m_objective_values[i] = val;
@@ -426,6 +428,7 @@ namespace opt {
 
     lbool opt_solver::bound_value(unsigned i, inf_eps& val) {
         push_core();
+        on_scope_exit pop([&] { pop_core(1); });
         expr_ref ge = mk_ge(i, val);
         assert_expr(ge);
         lbool is_sat = m_context.check(0, nullptr);
@@ -434,7 +437,6 @@ namespace opt {
             m_context.get_model(m_model);
             m_objective_models.set(i, m_model.get());
         }
-        pop_core(1);
         return is_sat;
     }
 
