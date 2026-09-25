@@ -215,11 +215,12 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                bool bound_valid = m_s->maximize_objective(obj_index, bound);
+                auto result = m_s->maximize_objective(obj_index, bound);
+                bool bound_valid = result.bound_valid;
                 last_bound_valid = bound_valid;
                 step_bound = infty;
-                if (!bound_valid && m_s->last_hint_status() == l_false && m_s->last_hint().is_finite())
-                    refuted_hint = std::min(refuted_hint, m_s->last_hint());
+                if (!bound_valid && result.hint_status == l_false && result.hint.is_finite())
+                    refuted_hint = std::min(refuted_hint, result.hint);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
                 inf_eps obj = m_s->saved_objective_value(obj_index);

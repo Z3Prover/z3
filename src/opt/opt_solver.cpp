@@ -224,7 +224,7 @@ namespace opt {
     bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
         m_context.push();
 
-        if (!maximize_objective(i, blocker)) {
+        if (!maximize_objective(i, blocker).bound_valid) {
             m_context.pop(1);
             return false;
         }
@@ -315,7 +315,8 @@ namespace opt {
 
     /**
        \brief maximize the value of objective i in the current state.
-       Return a predicate that blocks the current maximal value.
+       Return the hint and its acceptance/validation status; write the
+       predicate blocking the current maximal value to blocker.
        
        The result of 'maximize' is post-processed. 
        The model produced by local optimization does not necessarily satisfy
@@ -324,7 +325,7 @@ namespace opt {
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
-    bool opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
+    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
         m_model = nullptr;
         blocker = nullptr;
@@ -335,8 +336,7 @@ namespace opt {
         // relative to other theories.
         // 
         inf_eps val = get_optimizer().maximize(v, blocker);
-        m_last_hint = val;
-        m_last_hint_status = l_undef;
+        maximize_result result{false, val, l_undef};
         m_context.get_model(m_model);
         inf_eps val2;
         TRACE(opt, tout << val << " " << blocker << "\n";
@@ -365,7 +365,8 @@ namespace opt {
             // the previous behavior of adopting the (possibly infinite) hint.
             if (val > m_objective_values[i])
                 m_objective_values[i] = val;
-            return true;
+            result.bound_valid = true;
+            return result;
         }
 
         //
@@ -390,7 +391,7 @@ namespace opt {
             lbool r = bound_value(i, val);
             if (r == l_true) 
                 r = m_context.check(0, nullptr);
-            m_last_hint_status = r;
+            result.hint_status = r;
             return r == l_true;
         };
 
@@ -402,16 +403,16 @@ namespace opt {
             m_model = nullptr;
             m_context.get_model(m_model);
             if (!m_model)
-                return false;
+                return result;
             else if (val == current_objective_value(i))
                 m_objective_models.set(i, m_model.get());
             else if (!check_bound())
-                return false;
+                return result;
         }
         else if (!check_bound())
-            return false;
+            return result;
         m_objective_values[i] = val;
-        m_last_hint_status = l_true;
+        result.hint_status = l_true;
         TRACE(opt, { 
                 tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
@@ -419,7 +420,8 @@ namespace opt {
                 if (m_objective_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_objective_models[i], 0); 
                 if (m_model) model_smt2_pp(tout << "current model:\n", m, *m_model, 0);
             });
-        return true;
+        result.bound_valid = true;
+        return result;
     }
 
     lbool opt_solver::bound_value(unsigned i, inf_eps& val) {

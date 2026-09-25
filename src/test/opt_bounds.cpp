@@ -25,6 +25,38 @@ Abstract:
 
 namespace {
 
+static void tst_maximize_result() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    p.set_uint("arith.solver", 6);
+    generic_model_converter fm(m, "maximize result");
+    opt::opt_solver s(m, p, fm);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
+    s.assert_expr(a.mk_le(y, a.mk_numeral(rational(7), false)));
+    ENSURE(s.check_sat(0, nullptr) == l_true);
+    s.add_objective(to_app(x));
+    s.add_objective(to_app(y));
+    expr_ref blocker(m);
+    auto first = s.maximize_objective(0, blocker);
+    ENSURE(first.bound_valid && first.hint_status == l_true);
+    ENSURE(first.hint == opt::inf_eps(rational(3)));
+    ENSURE(blocker);
+    ENSURE(s.saved_objective_value(0) == first.hint);
+    ENSURE(s.check_sat(0, nullptr) == l_true);
+    auto second = s.maximize_objective(1, blocker);
+    ENSURE(second.bound_valid && second.hint_status == l_true);
+    ENSURE(second.hint == opt::inf_eps(rational(7)));
+    ENSURE(blocker);
+    ENSURE(s.saved_objective_value(1) == second.hint);
+    // A later objective must not overwrite the earlier call's result.
+    ENSURE(first.bound_valid && first.hint_status == l_true);
+    ENSURE(first.hint == opt::inf_eps(rational(3)));
+}
+
 static void tst_geometric_step() {
     opt::geometric_step step;
     ENSURE(step.value() == rational(1));
@@ -1108,6 +1140,8 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    std::cout << "opt_bounds: per-call arithmetic results\n";
+    tst_maximize_result();
     std::cout << "opt_bounds: geometric step schedule\n";
     tst_geometric_step();
     std::cout << "opt_bounds: signed algebraic optima and offsets\n";
