@@ -47,6 +47,8 @@ _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_REFLEXIVITY: ("refl", 0),
     z3.Z3_OP_PR_SYMMETRY: ("symm", 1),
     z3.Z3_OP_PR_TRANSITIVITY: ("trans", 2),
+    z3.Z3_OP_PR_IFF_TRUE: ("iff-true", 1),
+    z3.Z3_OP_PR_IFF_FALSE: ("iff-false", 1),
     z3.Z3_OP_PR_AND_ELIM: ("and-elim", 1),
     z3.Z3_OP_PR_NOT_OR_ELIM: ("not-or-elim", 1),
 }
@@ -356,6 +358,24 @@ def _equivalence_step(graph, terms, node):
         term = "(Iff.trans _step_%d _step_%d)" % tuple(premises)
     if not valid:
         raise ReconstructionError("incorrect %s premises or conclusion at node %d" % (rule, node))
+    return term
+
+
+def _iff_constant(graph, terms, node):
+    premise, conclusion = graph.arguments(node)
+    rule = graph.decl(node).name
+    left, right = _equivalence(graph, conclusion, rule)
+    fact = graph.conclusion(premise)
+    if graph.kind(node) == z3.Z3_OP_PR_IFF_TRUE:
+        valid = terms[left] == terms[fact] and graph.kind(right) == z3.Z3_OP_TRUE
+        term = "(Iff.intro (fun _ => True.intro) (fun _ => _step_%d))" % premise
+    else:
+        valid = (graph.kind(fact) == z3.Z3_OP_NOT
+                 and terms[left] == terms[graph.arguments(fact)[0]]
+                 and graph.kind(right) == z3.Z3_OP_FALSE)
+        term = "(Iff.intro _step_%d (fun _false => False.elim _false))" % premise
+    if not valid:
+        raise ReconstructionError("incorrect %s premise or conclusion at node %d" % (rule, node))
     return term
 
 
@@ -795,6 +815,8 @@ def reconstruct(source, certificate):
         elif graph.kind(node) in (z3.Z3_OP_PR_REFLEXIVITY, z3.Z3_OP_PR_SYMMETRY,
                                  z3.Z3_OP_PR_TRANSITIVITY):
             term = _equivalence_step(graph, terms, node)
+        elif graph.kind(node) in (z3.Z3_OP_PR_IFF_TRUE, z3.Z3_OP_PR_IFF_FALSE):
+            term = _iff_constant(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_TRANSITIVITY_STAR:
             term = _transitivity_star(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_MONOTONICITY:

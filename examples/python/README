@@ -96,8 +96,9 @@ Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
 
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
-It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans, trans*,
-Boolean monotonicity, and-elim, not-or-elim, hypothesis, and lemma proof nodes.
+It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
+trans*, iff-true, iff-false, Boolean monotonicity, and-elim, not-or-elim,
+hypothesis, and lemma proof nodes.
 It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
 Boolean equivalences. Each rewrite must conclude a Boolean equality/equivalence
@@ -111,6 +112,10 @@ covers all supported Boolean connectives using direct proof terms, not truth
 tables or propositional extensionality. and-elim selects an immediate conjunct.
 not-or-elim selects the complement of an immediate disjunct, including native
 double-negation cancellation.
+
+iff-true derives (p <-> True) from a proof of p; iff-false derives (p <-> False)
+from a proof of (not p). Both validate the premise and ordered endpoints and
+use direct Lean logical terms, retaining any open hypothesis dependencies.
 
 trans* finds an equivalence path using only its supplied premises, which may be
 reordered, reversed, repeated, cyclic, or redundant. It emits a balanced
@@ -163,9 +168,9 @@ To exercise implication rewriting and mp as well:
 
 To also exercise trans, monotonicity, and not-or-elim, replace boolean_rewrite
 with boolean_structural in both commands. Use boolean_branching to exercise
-hypothesis discharge and learned clauses. Use boolean_def_axiom for the
-contradiction between (xor p q), p, and q, whose native proof uses a Boolean
-gate clause.
+hypothesis discharge and learned clauses. Use boolean_def_axiom for clauses
+forcing both arguments of an xor to be true, whose native proof still requires
+a Boolean gate clause after preprocessing.
 
 The second command invokes scripts/check_lean.sh and publishes the .lean file
 only if the pinned Lean checker succeeds. It exits nonzero for malformed or
@@ -221,7 +226,8 @@ a separate Lean proof artifact rather than changing the producer's claim.
 
 The reconstruction API is reconstruct(source, certificate), which returns
 unchecked Lean source, and check_and_write(source, certificate, output), which
-checks before publishing. Ordinary Z3 solving and its public APIs are unchanged.
+checks before publishing. Public API signatures and proof-disabled solving
+are unchanged by the preprocessing proof support described below.
 
 Audit preprocessing proof evidence
 ---------------------------------
@@ -259,14 +265,27 @@ Status 1 reports incomplete coverage or rejected evidence; status 2 indicates an
 input, dependency, or invocation error. --timeout-ms bounds each solver check
 (default: 10000). Missing statistics mean no execution evidence, not success.
 
-The current implementation exposes a native proof gap on these examples:
-the simplifier API runs solve-eqs but loses substitution evidence, producing
-incorrect mp or unit-resolution steps that reconstruction rejects. The tactic
-API skips solve-eqs when proofs are enabled because it does not declare
-supports_proofs(); its final refutation checks, but does not cover preprocessing.
-Thus the diagnostic currently exits 1. Do not enable the proof-support flag,
-trust reduced assertions, or treat a solver unsat result as a substitute for
-repairing the native proof evidence.
+Both examples now exit 0: solve-eqs runs through both interfaces in proof mode,
+and the resulting native proofs reconstruct in Lean. Native equality evidence
+is carried through extraction, substitution normalization/application, and
+solver proof conversion. Congruence proofs are preserved rather than replaced
+by unsupported rewrite claims. Boolean unit substitutions use iff-true and
+iff-false. Conjunction flattening, replay of eliminated definitions, and tracked
+assertions also retain their evidence and original assumption identities.
+
+Proof mode currently supports direct variable equalities, including compound
+right-hand sides, and Boolean units. Algebraic/bit-vector isolation, conditional
+and nested-equation extraction, and guarded array definitions are skipped until
+their own evidence is implemented. A proof-disabled goal still uses the normal
+extraction schemes even inside a proof-enabled context. Native support for a
+direct equality of another sort does not extend the Lean consumer beyond its
+propositional fragment.
+
+Regression coverage includes chained and reversed substitutions, incremental
+assertions, push/pop, query assumptions, context translation, and tracked
+assertions with single or multiple labels. These are checked against explicit
+snapshots of their original active constraints; the exporter still rejects
+incremental SMT-LIB scripts and check-sat-assuming.
 
 Preprocessing-only refutations still need checked evidence connecting them to
 the original assertions. Conversely, a clausal proof after search only proves

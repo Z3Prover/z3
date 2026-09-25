@@ -86,6 +86,8 @@ Installation and usage are documented in `lean/README.md`.
   `Iff.trans` terms so long paths do not require deeply nested compositions.
 - Reconstruct `and-elim` and `not-or-elim` for immediate operands, including
   singleton/n-ary connectives and native double-negation cancellation.
+- Reconstruct `iff-true` and `iff-false` from their exact Boolean premises and
+  ordered endpoints, using axiom-free logical terms and preserving scope.
 - Reconstruct `hypothesis` and `lemma` with explicit open-hypothesis tracking.
   Represent open proof DAG nodes as functions of their structural hypothesis
   sets, preserving sharing without closing a shared node globally. A lemma must
@@ -154,19 +156,30 @@ Use `--require-search` for this case. The existing unit-resolution example
 covers contradictions closed by preprocessing alone; a search step is not
 required in that case.
 
-The current audit exposes incomplete native evidence. The simplifier wrapper
-does run `solve-eqs`, but substitution proofs are not composed correctly; the
-consumer rejects malformed `mp` or `unit-resolution` steps. The tactic wrapper
-skips this simplifier in proof mode, so its valid proof does not demonstrate
-preprocessing proof support. The diagnostic returns failure for both gaps,
-rather than accepting an unchecked refutation or counting a skipped pass as
-coverage.
+Both examples now run `solve-eqs` and reconstruct their refutations successfully
+through both interfaces with proof generation enabled. The native producer
+carries equality evidence through extraction and substitution normalization,
+composes substitution congruences with subsequent rewrites, and preserves proofs
+when flattening conjunctions or replaying eliminated definitions. Tracked
+assertions keep their original labels instead of introducing unbound proxy
+assumptions in the final proof.
 
-The next native-proof obligation is to carry evidence through equality
-extraction, substitution normalization/application, and solver proof conversion.
-Only then should `solve-eqs` advertise proof support. Preprocessing-only proofs
-and preprocessing followed by search must both preserve the original assertion
-boundary; checking a SAT proof of an unrelated or unverified CNF is insufficient.
+Proof support currently covers direct variable equalities and Boolean units.
+Theory-specific isolation, conditional and nested-equation extraction, and
+guarded array definitions remain disabled in proof mode until their own
+certificates are implemented. The actual goal's proof setting is respected;
+proof-disabled goals keep the existing extraction behavior.
+
+Native checks validate proof conclusions, original assertion leaves, and rewrite
+side conditions. Lean coverage checks complete Boolean refutations, axiom
+dependencies, incremental additions, push/pop, query assumptions, context
+translation, and tracked assertions against explicit original-input snapshots.
+The exporter retains its single-snapshot input restriction.
+
+Preprocessing-only proofs and preprocessing followed by search must both
+preserve the original assertion boundary; checking a SAT proof of an unrelated
+or unverified CNF is insufficient. The audit continues to report failure when
+required execution evidence or checked proofs are absent.
 
 ## Completed first-milestone evidence
 

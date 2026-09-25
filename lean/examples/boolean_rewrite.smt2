@@ -1,4 +1,4 @@
-; The native refutation uses asserted, rewrite, mp, and unit-resolution.
+; The native refutation uses implication rewrites and modus ponens.
 (set-option :produce-proofs true)
 (declare-const p Bool)
 (declare-const q Bool)

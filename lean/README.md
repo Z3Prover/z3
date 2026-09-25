@@ -3,9 +3,10 @@
 This workspace pins **Lean 4.34.0** and supports the
 [proof integration plan](../doc/lean-proof-plan.md). A first native-certificate
 reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
-`rewrite`, plus `refl`, `symm`, `trans`, `trans*`, Boolean `monotonicity`, `and-elim`, and
-`not-or-elim`, with scoped `hypothesis` and `lemma` proofs and supported Boolean
-`def-axiom` clauses. Other native proof rules are still unsupported.
+`rewrite`, plus `refl`, `symm`, `trans`, `trans*`, `iff-true`, `iff-false`,
+Boolean `monotonicity`, `and-elim`, and `not-or-elim`, with scoped `hypothesis`
+and `lemma` proofs and supported Boolean `def-axiom` clauses. Other native proof
+rules are still unsupported.
 
 ## Check a native Z3 refutation
 
@@ -23,8 +24,9 @@ For an example that also requires implication rewriting and `mp`, replace
 `unit_resolution` with `boolean_rewrite` in both commands. Use
 `boolean_structural` to also exercise transitivity, congruence, and
 negated-disjunction elimination. Use `boolean_branching` to exercise temporary
-hypotheses and learned clauses. Use `boolean_def_axiom` for a refutation of
-`(xor p q)`, `p`, and `q` that requires a Boolean gate clause.
+hypotheses and learned clauses. Use `boolean_def_axiom` for clauses forcing both
+arguments of an xor to be true, requiring a Boolean gate clause after
+preprocessing.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's
@@ -72,12 +74,17 @@ For a preprocessing-only contradiction, use `lean/examples/unit_resolution.smt2`
 without `--require-search`. Refutations are checked against the original input,
 not a replacement goal.
 
-Currently the simplifier API returns incorrect substitution proof steps, while
-the tactic API skips `solve-eqs` in proof mode. The harness therefore exits 1
-with diagnostics rather than reporting preprocessing proof support. See
-[the plan](../doc/lean-proof-plan.md#preprocessing-evidence-audit) for the missing
-native evidence. The regular exporter and reconstructor are unchanged by this
-diagnostic.
+Both examples now succeed through both interfaces, with observed variable
+elimination and Lean-checked, axiom-free refutations. The native producer
+preserves equality-substitution evidence, including through incremental replay
+and tracked assertions. `iff-true` and `iff-false` justify replacing Boolean
+units by constants.
+
+Proof mode supports direct equalities and Boolean units; theory-specific and
+conditional extraction still await their own certificates and are skipped.
+See [the plan](../doc/lean-proof-plan.md#preprocessing-evidence-audit) for the
+boundary. The harness still rejects missing evidence and bypassed passes;
+successful solver output alone does not count as verification.
 
 ## Recheck a proof artifact
 
