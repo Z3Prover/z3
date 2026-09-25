@@ -216,10 +216,9 @@ namespace opt {
                   );
             if (is_sat == l_true) {                
                 auto result = m_s->maximize_objective(obj_index, bound);
-                bool bound_valid = result.bound_valid;
-                last_bound_valid = bound_valid;
+                last_bound_valid = result.bound_valid;
                 step_bound = infty;
-                if (!bound_valid && result.hint_status == l_false && result.hint.is_finite())
+                if (!result.bound_valid && result.hint_status == l_false && result.hint.is_finite())
                     refuted_hint = std::min(refuted_hint, result.hint);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
@@ -248,13 +247,13 @@ namespace opt {
                         unbounded_check_rlimit *= 2;
                 }
                 // When maximize_objective could not validate its arithmetic
-                // hint (bound_valid == false), the blocker it produced refers to
+                // hint (result.bound_valid == false), the blocker refers to
                 // that unachievable hint and must not be used.  'obj' now holds
                 // the value of an actual model, so replace the blocker with a
                 // model-derived tightening so the search keeps making progress
                 // toward the true optimum instead of terminating prematurely
                 // (issue #10028).
-                if (!bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
+                if (!result.bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
                     scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
                     step_bound = obj + inf_eps(step.value());
