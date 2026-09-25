@@ -21,6 +21,11 @@ Author:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "util/z3_exception.h"
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 
 namespace seq {
 
@@ -49,6 +54,7 @@ namespace seq {
         if (m_node_of.find(r, id))
             return id;
         id = m_uf.mk_var();
+        ++m_pilot_states;
         m_node_of.insert(r, id);
         m_pinned.push_back(r);
         return id;
@@ -132,6 +138,7 @@ namespace seq {
        For non-XOR leaves we treat the leaf l as the pair (empty XOR l).
     */
     bool regex_bisim::merge_leaf(expr* leaf) {
+        ++m_pilot_merge_attempts;
         expr* a = nullptr, * b = nullptr;
         if (!m_util.re.is_xor(leaf, a, b)) {
             a = m_util.re.mk_empty(leaf->get_sort());
@@ -143,6 +150,7 @@ namespace seq {
         if (m_uf.find(ia) == m_uf.find(ib))
             return false;
         m_uf.merge(ia, ib);
+        ++m_pilot_merges;
         return true;
     }
 
@@ -150,7 +158,92 @@ namespace seq {
        Decide equivalence by bisimulation on D(p XOR q).
     */
     lbool regex_bisim::are_equivalent(expr* p, expr* q) {
-        return are_equivalent_core(p, q);
+        char const* mode = std::getenv("Z3_REGEX_STUDY_MODE");
+        if (!mode)
+            return are_equivalent_core(p, q);
+        bool two_way = std::strcmp(mode, "subsumption") == 0;
+        if (!two_way && std::strcmp(mode, "bisim") != 0)
+            throw default_exception("Z3_REGEX_STUDY_MODE must be bisim or subsumption");
+        m_pilot_expansions = m_pilot_leaves = m_pilot_merge_attempts = 0;
+        m_pilot_merges = m_pilot_states = m_pilot_directions = 0;
+        m_pilot_bound_hit = false;
+        std::cerr << "regex-study {\"event\":\"start\",\"mode\":\"" << mode << "\"}\n" << std::flush;
+        auto start = std::chrono::steady_clock::now();
+        lbool result = two_way ? pilot_two_way(p, q) : are_equivalent_core(p, q);
+        double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        std::cerr << "regex-study {\"event\":\"finish\",\"mode\":\"" << mode
+                  << "\",\"result\":\"" << (result == l_true ? "equivalent" : result == l_false ? "inequivalent" : "unknown")
+                  << "\",\"expansions\":" << m_pilot_expansions
+                  << ",\"cofactor_paths\":" << m_pilot_leaves
+                  << ",\"merge_attempts\":" << m_pilot_merge_attempts
+                  << ",\"merges\":" << m_pilot_merges
+                  << ",\"states\":" << m_pilot_states
+                  << ",\"directions\":" << m_pilot_directions
+                  << ",\"bound_hit\":" << (m_pilot_bound_hit ? "true" : "false")
+                  << ",\"seconds\":" << seconds << "}\n" << std::flush;
+        return result;
+    }
+
+    // Two directional emptiness closures, using the same cofactor engine as
+    // the release bisimulation and seq_regex::re_is_empty. No union-find/XOR.
+    lbool regex_bisim::pilot_is_empty(expr* root) {
+        ++m_pilot_directions;
+        if (m_util.re.is_empty(root))
+            return l_true;
+        expr_ref_vector pinned(m), work(m);
+        obj_hashtable<expr> visited;
+        visited.insert(root);
+        pinned.push_back(root);
+        work.push_back(root);
+        ++m_pilot_states;
+        while (!work.empty()) {
+            if (++m_steps > m_step_bound) {
+                m_pilot_bound_hit = true;
+                return l_undef;
+            }
+            expr_ref r(work.back(), m);
+            work.pop_back();
+            auto info = m_util.re.get_info(r);
+            if (!info.is_known())
+                return l_undef;
+            lbool nullable = nullability(r);
+            if (nullable == l_true || info.classical)
+                return l_false;
+            if (nullable == l_undef)
+                return l_undef;
+            if (info.min_length == UINT_MAX)
+                continue;
+            ++m_pilot_expansions;
+            expr_ref_pair_vector cofs(m);
+            m_rw.brz_derivative_cofactors(r, cofs);
+            m_pilot_leaves += cofs.size();
+            for (auto const& cofactor : cofs) {
+                expr* target = cofactor.second;
+                if (m_util.re.is_empty(target) || visited.contains(target))
+                    continue;
+                visited.insert(target);
+                pinned.push_back(target);
+                work.push_back(target);
+                ++m_pilot_states;
+            }
+        }
+        return l_true;
+    }
+
+    lbool regex_bisim::pilot_two_way(expr* p, expr* q) {
+        if (!is_supported(p) || !is_supported(q))
+            return l_undef;
+        if (p == q)
+            return l_true;
+        reset();
+        expr_ref not_q = m_rw.mk_complement(q);
+        expr_ref first = m_rw.mk_inter(p, not_q);
+        lbool result = pilot_is_empty(first);
+        if (result != l_true)
+            return result;
+        expr_ref not_p = m_rw.mk_complement(p);
+        expr_ref second = m_rw.mk_inter(q, not_p);
+        return pilot_is_empty(second);
     }
 
     lbool regex_bisim::are_equivalent_core(expr* p, expr* q) {
@@ -186,8 +279,10 @@ namespace seq {
         m_worklist.push_back(r0);
 
         while (!m_worklist.empty()) {
-            if (++m_steps > m_step_bound)
+            if (++m_steps > m_step_bound) {
+                m_pilot_bound_hit = true;
                 return l_undef;
+            }
 
             expr_ref r(m_worklist.back(), m);
             m_worklist.pop_back();
@@ -202,7 +297,9 @@ namespace seq {
             // kept intact as single leaves (a union leaf denotes a single
             // bisimulation state, never a split into separate states).
             expr_ref_pair_vector cofs(m);
+            ++m_pilot_expansions;
             m_rw.brz_derivative_cofactors(r, cofs);
+            m_pilot_leaves += cofs.size();
             expr_ref_vector leaves(m);
             for (auto const& p : cofs)
                 leaves.push_back(p.second);
