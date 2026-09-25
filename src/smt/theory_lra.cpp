@@ -58,6 +58,14 @@ namespace smt {
     
 class theory_lra::imp {        
 
+    struct propagation_cache_entry {
+        expr*         m_target = nullptr;
+        unsigned      m_offset = 0;
+        unsigned char m_size = 0;
+        bool          m_initialized = false;
+        bool          m_clause = false;
+    };
+
     struct scope {
         unsigned m_bounds_lim;
         unsigned m_asserted_qhead;            
@@ -211,6 +219,10 @@ class theory_lra::imp {
 
     svector<scope>               m_scopes;
     lp_api::stats                m_stats;
+    vector<propagation_cache_entry> m_propagation_cache;
+    unsigned_vector              m_propagation_cores;
+    unsigned_vector              m_propagation_core;
+    unsigned                     m_rediscovered_clauses = 0;
     arith_factory*               m_factory;       
     scoped_ptr<lp::lar_solver>   m_solver;
     resource_limit               m_resource_limit;
@@ -1553,6 +1565,9 @@ public:
     void init_search_eh() {
         m_arith_eq_adapter.init_search_eh();
         m_num_conflicts = 0;
+        m_propagation_cache.reset();
+        m_propagation_cores.reset();
+        m_rediscovered_clauses = 0;
     }
 
     bool can_get_value(theory_var v) const {
@@ -2666,7 +2681,38 @@ public:
             VERIFY(validate_assign(lit));
         if (params().m_arith_dump_lemmas)
             dump_assign_lemma(lit);
-        if (false && core.size() < small_lemma_size() && eqs.empty()) {
+        bool create_clause = false;
+        if (core.size() <= 4 && eqs.empty()) {
+            unsigned idx = lit.index();
+            if (m_propagation_cache.size() <= idx)
+                m_propagation_cache.resize(idx + 1);
+            auto& entry = m_propagation_cache[idx];
+            expr* target = ctx().bool_var2expr(lit.var());
+            m_propagation_core.reset();
+            for (literal c : core)
+                m_propagation_core.push_back(c.index());
+            std::sort(m_propagation_core.begin(), m_propagation_core.end());
+            if (entry.m_target != target) {
+                entry = propagation_cache_entry();
+                entry.m_target = target;
+            }
+            if (!entry.m_initialized) {
+                entry.m_initialized = true;
+                entry.m_offset = m_propagation_cores.size();
+                entry.m_size = static_cast<unsigned char>(m_propagation_core.size());
+                m_propagation_cores.append(m_propagation_core);
+            }
+            else if (!entry.m_clause && entry.m_size == m_propagation_core.size()) {
+                create_clause = true;
+                for (unsigned i = 0; i < entry.m_size && create_clause; ++i)
+                    create_clause = m_propagation_cores[entry.m_offset + i] == m_propagation_core[i];
+                if (create_clause) {
+                    entry.m_clause = true;
+                    ++m_rediscovered_clauses;
+                }
+            }
+        }
+        if (create_clause) {
             m_core2.reset();
             for (auto const& c : core) {
                 m_core2.push_back(~c);
@@ -4539,6 +4585,7 @@ public:
         m_arith_eq_adapter.collect_statistics(st);
         m_stats.collect_statistics(st);
         lp().settings().stats().collect_statistics(st);
+        st.update("arith-rediscovered-clauses", m_rediscovered_clauses);
     }        
 
     /*
