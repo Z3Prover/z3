@@ -23,7 +23,6 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
-#include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/recfun_rewriter.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/rewriter/var_subst.h"
@@ -1894,9 +1893,7 @@ namespace smt {
             array_util           m_array_util;
             arith_util           m_arith_util;
             bv_util              m_bv_util;
-            recfun::util         m_recfun;
             recfun_rewriter      m_recfun_rw;
-            datatype::util       m_dt;
 
             quantifier_info* m_info;
 
@@ -2183,36 +2180,6 @@ namespace smt {
                 }
             }
 
-            /**
-               \brief A define-fun-rec application that is structurally recursive on a ground
-               datatype argument, and whose non-ground arguments are of uninterpreted sorts.
-               Its definition is then a finite unfolding on the value of the datatype
-               argument(s), which the model evaluator performs (recfun_rewriter), so the model
-               checker verifies the quantifier against the definition and the quantified
-               arguments can be handled like those of an uninterpreted function (instantiation
-               sets, projections). Otherwise the application is left to lazy unfolding by
-               theory_recfun: treating it as uninterpreted would be unsound because the
-               definition is never checked against the model.
-            */
-            bool is_recfun_with_ground_recursion_args(app* t) {
-                func_decl* f = t->get_decl();
-                if (!m_recfun.is_defined(f) || !m_recfun.has_def(f))
-                    return false;
-                bool has_decreasing = false;
-                unsigned i = 0;
-                for (expr* arg : *t) {
-                    sort* s = arg->get_sort();
-                    if (!is_ground(arg)) {
-                        if (!m.is_uninterp(s))
-                            return false;
-                    }
-                    else if (m_dt.is_datatype(s) && m_recfun_rw.is_decreasing_arg(f, i, true))
-                        has_decreasing = true;
-                    ++i;
-                }
-                return has_decreasing;
-            }
-
             void process_app(app* t) {
                 SASSERT(!is_ground(t));
 
@@ -2227,7 +2194,7 @@ namespace smt {
                 // variables occurring as its arguments without instantiation set, so the
                 // model finder invents a fresh element of that sort at every round and
                 // the model checker keeps producing a new counterexample.
-                if (is_uninterp(t) || is_recfun_with_ground_recursion_args(t)) {
+                if (is_uninterp(t) || m_recfun_rw.is_recfun_with_ground_recursion_args(t)) {
                     process_u_app(t);
                 }
                 else {
@@ -2426,9 +2393,7 @@ namespace smt {
                 m_array_util(m),
                 m_arith_util(m),
                 m_bv_util(m),
-                m_recfun(m),
                 m_recfun_rw(m),
-                m_dt(m),
                 m_info(nullptr) {
             }
 

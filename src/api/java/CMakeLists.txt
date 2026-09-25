@@ -2,14 +2,6 @@ find_package(Java REQUIRED)
 find_package(JNI REQUIRED)
 include(UseJava)
 
-# Sanity check for dirty source tree
-foreach (file_name "enumerations" "Native.cpp" "Native.java")
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${file_name}")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/${file_name}\""
-            ${z3_polluted_tree_msg})
-  endif()
-endforeach()
-
 set(Z3_JAVA_PACKAGE_NAME "com.microsoft.z3")
 
 # Rule to generate ``Native.java`` and ``Native.cpp``

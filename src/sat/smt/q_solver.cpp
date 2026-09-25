@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/pull_quant.h"
@@ -273,7 +274,7 @@ namespace q {
         else
             UNREACHABLE();
 
-        if (m_expanded.size() == 1 && is_forall(q)) {
+        if (m_expanded.size() == 1 && is_forall(q) && !recfun::util(m).contains_def(q->get_expr())) {
             m_expanded.reset();
             flatten_or(q->get_expr(), m_expanded);
             expr_ref split1(m), split2(m), e1(m), e2(m);

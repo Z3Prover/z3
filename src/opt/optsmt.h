@@ -82,6 +82,8 @@ namespace opt {
 
     private:
 
+        enum class nlsat_outcome { no_result, certified, incomplete };
+
         inf_eps const& lower(unsigned index) const { return m_lower[index].rational_bound(); }
         inf_eps const& upper(unsigned index) const { return m_upper[index].rational_bound(); }
 
@@ -91,8 +93,9 @@ namespace opt {
 
         lbool geometric_search(unsigned idx, bool is_maximize);
 
+        lbool refine_real_objective(unsigned idx, bool is_maximize, inf_eps const& hi, bool smt_gave_up);
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
-        lbool nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
+        nlsat_outcome nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
         bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget);
 
         void publish_best_model();

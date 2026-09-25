@@ -101,3 +101,23 @@ bool recfun_rewriter::is_decreasing_arg(func_decl* f, unsigned i, bool allow_any
     }
     return dec_fun != nullptr || !allow_any_accessor;
 }
+
+bool recfun_rewriter::is_recfun_with_ground_recursion_args(app* t) {
+    func_decl* f = t->get_decl();
+    if (!m_rec.is_defined(f) || !m_rec.has_def(f))
+        return false;
+    bool has_decreasing = false;
+    unsigned i = 0;
+    for (expr* arg : *t) {
+        sort* s = arg->get_sort();
+        if (!is_ground(arg)) {
+            if (!m.is_uninterp(s))
+                return false;
+        }
+        else if (m_dt.is_datatype(s) && is_decreasing_arg(f, i, true)) {
+            has_decreasing = true;
+        }
+        ++i;
+    }
+    return has_decreasing;
+}

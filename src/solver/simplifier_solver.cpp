@@ -91,14 +91,19 @@ class simplifier_solver : public solver {
                     continue;
                 if (s.m.is_and(f)) {
                     auto* d = s.m_fmls[i].dep();
+                    proof_ref p(s.m_fmls[i].pr(), s.m);
+                    unsigned index = 0;
                     for (expr* arg : *to_app(f))
-                        add(dependent_expr(s.m, arg, nullptr, d));
+                        add(dependent_expr(s.m, arg, p ? s.m.mk_and_elim(p, index++) : nullptr, d));
                     continue;
                 }
                 if (s.m.is_not(f, g) && s.m.is_or(g)) {
                     auto* d = s.m_fmls[i].dep();
+                    proof_ref p(s.m_fmls[i].pr(), s.m);
+                    unsigned index = 0;
                     for (expr* arg : *to_app(g))
-                        add(dependent_expr(s.m, mk_not(s.m, arg), nullptr, d));
+                        add(dependent_expr(s.m, mk_not(s.m, arg),
+                                           p ? s.m.mk_not_or_elim(p, index++) : nullptr, d));
                     continue;
                 }
                 if (i != j)
@@ -191,8 +196,11 @@ class simplifier_solver : public solver {
         m.linearize(de.dep(), m_deps);
         m_assumptions.reset();
         for (expr* d : m_deps) 
-            m_assumptions.push_back(d);        
-        s->assert_expr(de.fml(), mk_and(m_assumptions));
+            m_assumptions.push_back(d);
+        if (m.proofs_enabled())
+            s->assert_expr(m.mk_implies(mk_and(m_assumptions), de.fml()));
+        else
+            s->assert_expr(de.fml(), mk_and(m_assumptions));
     }
 
     bool inconsistent() const {
@@ -229,7 +237,18 @@ public:
     void assert_expr_core2(expr* t, expr* a) override {
         m_cached_model = nullptr;
         m_cached_mc    = nullptr;
-        proof* pr = m.proofs_enabled() ? m.mk_asserted(t) : nullptr;
+        proof_ref pr(m);
+        if (m.proofs_enabled()) {
+            if (a) {
+                proof_ref assumption(m.mk_asserted(a), m);
+                proof_ref implication(m.mk_asserted(m.mk_implies(a, t)), m);
+                pr = m.mk_modus_ponens(assumption, implication);
+                // Register original labels, not compound dependencies that create fresh proxies.
+                s->assert_expr(m.mk_true(), a);
+            }
+            else
+                pr = m.mk_asserted(t);
+        }
         m_fmls.push_back(dependent_expr(m, t, pr, m.mk_leaf(a)));
     }
 
@@ -289,9 +308,27 @@ public:
             expr_ref tmp(p, m);
             expr_safe_replace sub(m);
             for (auto const& d : m_fmls) {
-                if (d.pr()) 
-                    sub.insert(m.mk_asserted(d.fml()), d.pr());                
+                if (!d.pr())
+                    continue;
+                expr_ref fact(d.fml(), m);
+                proof_ref pr(d.pr(), m);
+                if (d.dep()) {
+                    ptr_vector<expr> dependencies;
+                    expr_ref_vector assumptions(m);
+                    m.linearize(d.dep(), dependencies);
+                    for (expr* dependency : dependencies)
+                        assumptions.push_back(dependency);
+                    fact = m.mk_implies(mk_and(assumptions), d.fml());
+                    proof_ref weaken(m.mk_def_axiom(m.mk_or(m.mk_not(d.fml()), fact)), m);
+                    pr = m.mk_unit_resolution({weaken.get(), pr.get()}, fact);
+                }
+                sub.insert(m.mk_asserted(fact), pr);
             }
+            for (unsigned i = 0; i < s->get_num_assumptions(); ++i) {
+                expr_ref fact(m.mk_implies(s->get_assumption(i), m.mk_true()), m);
+                sub.insert(m.mk_asserted(fact), m.mk_def_axiom(fact));
+            }
+            sub.insert(m.mk_asserted(m.mk_true()), m.mk_def_axiom(m.mk_true()));
             sub(tmp);
             SASSERT(is_app(tmp));
             m_proof = to_app(tmp);

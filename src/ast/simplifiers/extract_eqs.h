@@ -32,8 +32,9 @@ namespace euf {
         app* var;         // isolated variable
         expr_ref term;    // defined term
         expr_dependency_ref dep;
-        dependent_eq(expr* orig, app* var, expr_ref const& term, expr_dependency* d) : 
-            orig(orig), var(var), term(term), dep(d, term.get_manager()) {}
+        proof_ref pr;
+        dependent_eq(expr* orig, app* var, expr_ref const& term, expr_dependency* d, proof* p = nullptr) :
+            orig(orig), var(var), term(term), dep(d, term.get_manager()), pr(p, term.get_manager()) {}
     };
 
     typedef vector<dependent_eq> dep_eq_vector;
@@ -45,6 +46,7 @@ namespace euf {
         virtual void pre_process(dependent_expr_state& fmls) {}
         virtual void updt_params(params_ref const& p) {}
         virtual void set_allow_booleans(bool f) {}
+        virtual bool supports_proofs() const { return false; }
     };
 
     void register_extract_eqs(ast_manager& m, scoped_ptr_vector<extract_eq>& ex);

@@ -77,6 +77,7 @@ public:
     virtual void flatten_suffix() {}
     virtual bool updated() = 0;
     virtual void reset_updated() = 0;
+    virtual bool proofs_enabled() const { return m_frozen_trail.get_manager().proofs_enabled(); }
 
     trail_stack    m_trail;
     void push() {
@@ -172,14 +173,19 @@ struct base_dependent_expr_state : public dependent_expr_state {
                 continue;
             if (m.is_and(f)) {
                 auto* d = m_fmls[i].dep();
+                proof_ref p(m_fmls[i].pr(), m);
+                unsigned index = 0;
                 for (expr* arg : *to_app(f))
-                    add(dependent_expr(m, arg, nullptr, d));
+                    add(dependent_expr(m, arg, p ? m.mk_and_elim(p, index++) : nullptr, d));
                 continue;
             }
             if (m.is_not(f, g) && m.is_or(g)) {
                 auto* d = m_fmls[i].dep();
+                proof_ref p(m_fmls[i].pr(), m);
+                unsigned index = 0;
                 for (expr* arg : *to_app(g))
-                    add(dependent_expr(m, mk_not(m, arg), nullptr, d));
+                    add(dependent_expr(m, mk_not(m, arg),
+                                       p ? m.mk_not_or_elim(p, index++) : nullptr, d));
                 continue;
             }
             if (i != j)
@@ -208,6 +214,7 @@ protected:
 
     unsigned qhead() const { return m_fmls.qhead(); }
     unsigned qtail() const { return m_fmls.qtail(); }
+    bool proofs_enabled() const { return m_fmls.proofs_enabled(); }
     struct iterator {
         dependent_expr_simplifier& s;
         unsigned m_index, m_end;
