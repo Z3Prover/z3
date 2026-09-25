@@ -62,7 +62,8 @@ where `x` was solved as `(+ 5 y)`.
 ### Notes
 
 * supports unsat cores
-* does not support fine-grained proofs
+* supports fine-grained proofs for direct variable equalities and Boolean units
+* theory-specific, conditional, and nested-equation extraction are skipped when producing proofs
 
 --*/
 

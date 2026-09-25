@@ -90,6 +90,8 @@ namespace euf {
 
         char const* name() const override { return "solve-eqs"; }
 
+        bool supports_proofs() const override { return true; }
+
         void reduce() override;
 
         void updt_params(params_ref const& p) override;
