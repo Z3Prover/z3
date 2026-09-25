@@ -145,7 +145,7 @@ namespace seq {
         // Depth check
         if (m_depth >= m_max_depth) {
             // Return stuck derivative (the derivative operator applied symbolically)
-            return expr_ref(re().mk_derivative(m_ele, r), m);
+            return mk_stuck_derivative(r);
         }
 
         flet<unsigned> _scoped_depth(m_depth, m_depth + 1);
@@ -165,7 +165,7 @@ namespace seq {
         VERIFY(m_util.is_re(r, s));
 
         auto nothing = [&]() { return expr_ref(re().mk_empty(r->get_sort()), m); };
-        auto epsilon = [&]() { return expr_ref(re().mk_to_re(u().str.mk_empty(s)), m); };
+        auto epsilon = [&]() { return m_re.mk_to_re(u().str.mk_empty(s)); };
         auto dotstar = [&]() { return expr_ref(re().mk_full_seq(r->get_sort()), m); };
 
         expr* r1 = nullptr;
@@ -267,14 +267,14 @@ namespace seq {
         // δ(r1*) = δ(r1) · r1*
         if (re().is_star(r, r1)) {
             expr_ref d1 = derive_rec(r1);
-            expr_ref star_r1(re().mk_star(r1), m);
+            expr_ref star_r1 = m_re.mk_star(r1);
             return mk_deriv_concat(d1, star_r1);
         }
 
         // δ(r1+) = δ(r1) · r1*
         if (re().is_plus(r, r1)) {
             expr_ref d1 = derive_rec(r1);
-            expr_ref star_r1(re().mk_star(r1), m);
+            expr_ref star_r1 = m_re.mk_star(r1);
             return mk_deriv_concat(d1, star_r1);
         }
 
@@ -287,14 +287,14 @@ namespace seq {
             if (hi == 0 || hi < lo)
                 return nothing();
             expr_ref d1 = derive_rec(r1);
-            expr_ref tail(re().mk_loop_proper(r1, (lo == 0 ? 0 : lo - 1), hi - 1), m);
+            expr_ref tail = m_re.mk_loop(r1, (lo == 0 ? 0 : lo - 1), hi - 1);
             return mk_deriv_concat(d1, tail);
         }
 
         // δ(r1{lo,}) - unbounded loop
         if (re().is_loop(r, r1, lo)) {
             expr_ref d1 = derive_rec(r1);
-            expr_ref tail(re().mk_loop(r1, (lo == 0 ? 0 : lo - 1)), m);
+            expr_ref tail = m_re.mk_loop(r1, (lo == 0 ? 0 : lo - 1));
             return mk_deriv_concat(d1, tail);
         }
 
@@ -308,10 +308,10 @@ namespace seq {
             if (re().is_loop(r, r1, lo_e, hi_e) &&
                 m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned() &&
                 m_autil.is_numeral(hi_e, nhi) && nhi.is_unsigned())
-                return derive_rec(re().mk_loop_proper(r1, nlo.get_unsigned(), nhi.get_unsigned()));
+                return derive_rec(m_re.mk_loop(r1, nlo.get_unsigned(), nhi.get_unsigned()));
             if (re().is_loop(r, r1, lo_e) &&
                 m_autil.is_numeral(lo_e, nlo) && nlo.is_unsigned())
-                return derive_rec(re().mk_loop(r1, nlo.get_unsigned()));
+                return derive_rec(m_re.mk_loop(r1, nlo.get_unsigned()));
         }
 
         // δ(r1 \ r2) = δ(r1) ∩ ~δ(r2)
@@ -331,14 +331,14 @@ namespace seq {
 
         // δ(reverse(r1)) - normalize by pushing reverse inward, then derive
         if (re().is_reverse(r, r1)) {
-            expr_ref norm = mk_regex_reverse(r1);
+            expr_ref norm = m_re.mk_reverse(r1);
             if (norm != r)
                 return derive_rec(norm);
-            return expr_ref(re().mk_derivative(m_ele, r), m);
+            return mk_stuck_derivative(r);
         }
 
         // Stuck/uninterpreted case
-        return expr_ref(re().mk_derivative(m_ele, r), m);
+        return mk_stuck_derivative(r);
     }
 
     // -------------------------------------------------------
@@ -361,7 +361,7 @@ namespace seq {
             expr_ref cond(m.mk_eq(m_ele, head), m);
             // Tail string
             expr_ref tail_str(u().str.mk_string(zs.extract(1, zs.length() - 1)), m);
-            expr_ref tail_re(re().mk_to_re(tail_str), m);
+            expr_ref tail_re = m_re.mk_to_re(tail_str);
             expr_ref empty(re().mk_empty(re_sort), m);
             return mk_ite(cond, tail_re, empty);
         }
@@ -369,7 +369,7 @@ namespace seq {
         // δ(to_re(unit(c))) = ite(ele = c, ε, ∅)
         expr* ch = nullptr;
         if (u().str.is_unit(s, ch)) {
-            expr_ref eps(re().mk_to_re(u().str.mk_empty(seq_sort)), m);
+            expr_ref eps = m_re.mk_to_re(u().str.mk_empty(seq_sort));
             expr_ref empty(re().mk_empty(re_sort), m);
             expr_ref cond(m.mk_eq(m_ele, ch), m);
             return mk_ite(cond, eps, empty);
@@ -381,7 +381,7 @@ namespace seq {
             expr_ref hd(m), tl(m);
             if (get_head_tail(s1, s2, hd, tl)) {
                 expr_ref cond(m.mk_eq(m_ele, hd), m);
-                expr_ref tail_re(re().mk_to_re(tl), m);
+                expr_ref tail_re = m_re.mk_to_re(tl);
                 expr_ref empty(re().mk_empty(re_sort), m);
                 return mk_ite(cond, tail_re, empty);
             }
@@ -410,7 +410,7 @@ namespace seq {
             expr_ref len(u().str.mk_length(s), m);
             expr_ref rest_len(m_autil.mk_sub(len, one), m);
             expr_ref rest(u().str.mk_substr(s, one, rest_len), m);
-            expr_ref rest_re(re().mk_to_re(rest), m);
+            expr_ref rest_re = m_re.mk_to_re(rest);
             return mk_ite(guard, rest_re, empty);
         }
 
@@ -425,7 +425,7 @@ namespace seq {
         expr_ref len(u().str.mk_length(s), m);
         expr_ref rest_len(m_autil.mk_sub(len, one), m);
         expr_ref rest(u().str.mk_substr(s, one, rest_len), m);
-        expr_ref rest_re(re().mk_to_re(rest), m);
+        expr_ref rest_re = m_re.mk_to_re(rest);
         expr_ref empty(re().mk_empty(re_sort), m);
         return mk_ite(guard, rest_re, empty);
     }
@@ -433,7 +433,7 @@ namespace seq {
     expr_ref derive::derive_range(expr* lo, expr* hi, sort* seq_sort) {
         sort* re_sort = re().mk_re(seq_sort);
         expr_ref empty(re().mk_empty(re_sort), m);
-        expr_ref eps(re().mk_to_re(u().str.mk_empty(seq_sort)), m);
+        expr_ref eps = m_re.mk_to_re(u().str.mk_empty(seq_sort));
 
         // Extract character values from unit strings
         expr_ref c_lo(m), c_hi(m);
@@ -485,7 +485,7 @@ namespace seq {
     expr_ref derive::derive_of_pred(expr* pred, sort* seq_sort) {
         sort* re_sort = re().mk_re(seq_sort);
         expr_ref empty(re().mk_empty(re_sort), m);
-        expr_ref eps(re().mk_to_re(u().str.mk_empty(seq_sort)), m);
+        expr_ref eps = m_re.mk_to_re(u().str.mk_empty(seq_sort));
 
         // Apply predicate to the element
         array_util autil(m);
@@ -505,7 +505,7 @@ namespace seq {
             return true;
         }
         if (u().str.is_concat(s1, a, b)) {
-            expr_ref new_s2(u().str.mk_concat(b, s2), m);
+            expr_ref new_s2 = m_re.mk_seq_concat(b, s2);
             return get_head_tail(a, new_s2, hd, tl);
         }
         zstring zs;
@@ -515,63 +515,11 @@ namespace seq {
                 tl = s2;
             else {
                 expr_ref rest(u().str.mk_string(zs.extract(1, zs.length() - 1)), m);
-                tl = u().str.mk_concat(rest, s2);
+                tl = m_re.mk_seq_concat(rest, s2);
             }
             return true;
         }
         return false;
-    }
-
-    // -------------------------------------------------------
-    // Normalize reverse
-    // -------------------------------------------------------
-
-    expr_ref derive::mk_regex_reverse(expr* r) {
-        expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
-        unsigned lo = 0, hi = 0;
-        expr_ref result(m);
-        if (re().is_empty(r) || re().is_range(r) || re().is_epsilon(r) || re().is_full_seq(r) ||
-            re().is_full_char(r) || re().is_dot_plus(r) || re().is_of_pred(r))
-            result = r;
-        else if (re().is_to_re(r))
-            result = re().mk_reverse(r);
-        else if (re().is_reverse(r, r1))
-            result = r1;
-        else if (re().is_concat(r, r1, r2)) {
-            auto _seq0 = mk_regex_reverse(r2);
-            auto _seq1 = mk_regex_reverse(r1);
-            result = re().mk_concat(_seq0, _seq1);
-        } else if (m.is_ite(r, c, r1, r2)) {
-            auto _seq0 = mk_regex_reverse(r1);
-            auto _seq1 = mk_regex_reverse(r2);
-            result = m.mk_ite(c, _seq0, _seq1);
-        } else if (re().is_union(r, r1, r2)) {
-            auto a1 = mk_regex_reverse(r1);
-            auto b1 = mk_regex_reverse(r2);
-            result = m_re.mk_union(a1, b1);
-        } else if (re().is_intersection(r, r1, r2)) {
-            auto a1 = mk_regex_reverse(r1);
-            auto b1 = mk_regex_reverse(r2);
-            result = re().mk_inter(a1, b1);
-        } else if (re().is_diff(r, r1, r2)) {
-            auto a1 = mk_regex_reverse(r1);
-            auto b1 = mk_regex_reverse(r2);
-            result = re().mk_diff(a1, b1);
-        } else if (re().is_star(r, r1))
-            result = re().mk_star(mk_regex_reverse(r1));
-        else if (re().is_plus(r, r1))
-            result = re().mk_plus(mk_regex_reverse(r1));
-        else if (re().is_loop(r, r1, lo))
-            result = re().mk_loop(mk_regex_reverse(r1), lo);
-        else if (re().is_loop(r, r1, lo, hi))
-            result = re().mk_loop_proper(mk_regex_reverse(r1), lo, hi);
-        else if (re().is_opt(r, r1))
-            result = re().mk_opt(mk_regex_reverse(r1));
-        else if (re().is_complement(r, r1))
-            result = re().mk_complement(mk_regex_reverse(r1));
-        else
-            result = re().mk_reverse(r);
-        return result;
     }
 
     // -------------------------------------------------------
@@ -915,16 +863,11 @@ namespace seq {
         if (is_subset(b, a)) return expr_ref(b, m);
 
         // Complement absorption: r ∩ ~r = ∅
-        expr *c = nullptr, *d = nullptr;
+        expr* c = nullptr;
         if (re().is_complement(a, c) && c == b)
             return expr_ref(re().mk_empty(a->get_sort()), m);
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_empty(a->get_sort()), m);
-        if (re().is_complement(a, c) && re().is_complement(b, d))
-            return expr_ref(re().mk_complement(mk_union_core(c, d)), m);
-
-
-
         // Distribution of intersection over union:  (x ∪ y) ∩ b → (x ∩ b) ∪ (y ∩ b).
         //
         // This is done only in *antimirov* mode.  Antimirov derivatives expose
@@ -957,44 +900,12 @@ namespace seq {
             }
         }
 
-        // Base case: build raw intersection
         return m_re.mk_inter(a, b);
     }
 
 
     expr_ref derive::mk_concat(expr* a, expr* b) {
-        sort* seq_s = nullptr, * ele_s = nullptr;
-        VERIFY(m_util.is_re(a, seq_s));
-        VERIFY(u().is_seq(seq_s, ele_s));
-        if (re().is_empty(a)) return expr_ref(a, m);
-        if (re().is_empty(b)) return expr_ref(b, m);
-        if (re().is_epsilon(a)) return expr_ref(b, m);
-        if (re().is_epsilon(b)) return expr_ref(a, m);
-        if (re().is_full_seq(a) && re().is_full_seq(b))
-            return expr_ref(a, m);
-        if (re().is_full_char(a) && re().is_full_seq(b))
-            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
-        if (re().is_full_seq(a) && re().is_full_char(b))
-            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
-
-        // to_re(s1) · to_re(s2) → to_re(s1 ++ s2)
-        expr* s1 = nullptr, * s2 = nullptr;
-        if (re().is_to_re(a, s1) && re().is_to_re(b, s2))
-            return expr_ref(re().mk_to_re(u().str.mk_concat(s1, s2)), m);
-
-        // r* · r* → r*
-
-        expr* a1 = nullptr, *a2 = nullptr, * b1 = nullptr;
-
-        if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1)
-            return expr_ref(a, m);
-
-        // Right-associate: (a · b) · c → a · (b · c)
-
-        if (re().is_concat(a, a1, a2)) 
-            return mk_concat(a1, mk_concat(a2, b));
-        
-        return expr_ref(re().mk_concat(a, b), m);
+        return m_re.mk_re_append(a, b);
     }
 
     expr_ref derive::mk_complement(expr* a) {
@@ -1035,14 +946,6 @@ namespace seq {
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
         }
 
-        // ~ε → .+
-        sort* s = nullptr;
-        expr* r1 = nullptr;
-        if (re().is_to_re(a, r1) && u().str.is_empty(r1)) {
-            VERIFY(m_util.is_re(a, s));
-            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
-        }
-
         // De Morgan: push complement through union/intersection to the leaves
         // so that complemented subterms stay invariant across successive
         // derivatives and unions are exposed at the top.  This keeps the
@@ -1063,7 +966,7 @@ namespace seq {
             return mk_union(_seq0, _seq1);
         }
 
-        return expr_ref(re().mk_complement(a), m);
+        return m_re.mk_complement(a);
     }
 
     expr_ref derive::mk_ite(expr* c, expr* t, expr* e) {
@@ -1525,12 +1428,57 @@ namespace seq {
     // -------------------------------------------------------
 
     expr_ref derive::clean_leaf(expr* r) {
-        expr* a = nullptr, * b = nullptr;
-        if (re().is_union(r, a, b))
-            return mk_union(clean_leaf(a), clean_leaf(b));
-        if (re().is_intersection(r, a, b))
-            return mk_inter(clean_leaf(a), clean_leaf(b));
-        return expr_ref(r, m);
+        obj_map<expr, expr*> cache;
+        expr_ref_vector pinned(m), args(m);
+        ptr_vector<expr> todo;
+        todo.push_back(r);
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            if (cache.contains(e)) {
+                todo.pop_back();
+                continue;
+            }
+            // Rewriting embedded sequence/Boolean terms can re-enter this
+            // derivative engine through membership and invalidate its path.
+            if (!is_app(e) || !m_util.is_re(e) || re().is_derivative(e)) {
+                cache.insert(e, e);
+                todo.pop_back();
+                continue;
+            }
+            app* a = to_app(e);
+            bool ready = true;
+            for (expr* arg : *a) {
+                if (!cache.contains(arg)) {
+                    todo.push_back(arg);
+                    ready = false;
+                }
+            }
+            if (!ready)
+                continue;
+            args.reset();
+            for (expr* arg : *a) {
+                expr* value = nullptr;
+                VERIFY(cache.find(arg, value));
+                args.push_back(value);
+            }
+            expr_ref result(m);
+            if (args.size() == 2 && re().is_union(e))
+                result = mk_union(args.get(0), args.get(1));
+            else if (args.size() == 2 && re().is_intersection(e))
+                result = mk_inter(args.get(0), args.get(1));
+            else if (args.size() == 2 && re().is_xor(e))
+                result = mk_xor(args.get(0), args.get(1));
+            else if (re().is_complement(e))
+                result = mk_complement(args.get(0));
+            else
+                result = m_re.mk_app(a->get_decl(), args);
+            cache.insert(e, result);
+            pinned.push_back(result);
+            todo.pop_back();
+        }
+        expr* result = nullptr;
+        VERIFY(cache.find(r, result));
+        return expr_ref(result, m);
     }
 
     void derive::get_cofactors_rec(expr* r, expr_ref_pair_vector& result) {
@@ -1539,15 +1487,14 @@ namespace seq {
         // leaf of the transition regex.
         expr_ref c(m), th(m), el(m);
         if (!m_br.decompose_ite(r, c, th, el)) {
-            // Re-normalize the leaf: decompose_ite substitutes ITE branches
-            // structurally so the leaf may carry un-simplified union(_, none)
-            // / inter(_, none) nodes.  Cleaning them keeps semantically equal
-            // states syntactically identical, which is essential for state
-            // dedup in the emptiness/bisim closure.
             expr_ref cr = clean_leaf(r);
-            if (!re().is_empty(cr))
-                result.push_back(get_path_expr(), cr);
-            return;
+            // A smart constructor can expose another conditional, for example
+            // when rebuilding str.to_re(str.at(s, i)).
+            if (!m_br.decompose_ite(cr, c, th, el)) {
+                if (!re().is_empty(cr))
+                    result.push_back(get_path_expr(), cr);
+                return;
+            }
         }
         // Positive branch: c holds.
         switch (push(c, false)) {
@@ -1654,7 +1601,7 @@ namespace seq {
                             heads.push_back(a);
                         }
                         else {
-                            expr_ref split = m_re.mk_regex_concat(head, right);
+                            expr_ref split = m_re.mk_re_append(head, right);
                             add(guard, split);
                         }
                     }
