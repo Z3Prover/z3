@@ -623,7 +623,7 @@ namespace smt {
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
                     if (!parent->is_eq()) // we don't track generations of equalities.
-                        m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
+                        m_r1_parent_generations.insert(parent, get_generation(parent));
                     m_cg_table.erase(parent);
                     SASSERT(!m_cg_table.contains_ptr(parent));
                 }
@@ -662,7 +662,6 @@ namespace smt {
         enode_vector & r2_parents  = r2->m_parents;
         enode_vector & r1_parents  = r1->m_parents;
         unsigned num_r1_parents = r1_parents.size();
-        unsigned generation_cache_idx = 0;
         for (unsigned i = 0; i < num_r1_parents; ++i) {
             enode* parent = r1_parents[i];
             if (!parent->is_marked())
@@ -692,9 +691,11 @@ namespace smt {
                 // Look up the generation cache
                 unsigned parent_generation = 0; // Just use generation 0 for equalities
                 if (!parent->is_eq()) {
-                    auto [p, g] = m_r1_parent_generations[generation_cache_idx++];
-                    SASSERT(p == parent);   
-                    parent_generation = g;
+                    bool found = m_r1_parent_generations.find(parent, parent_generation);
+                    SASSERT(found);
+                    if (!found)
+                        continue;
+                    m_r1_parent_generations.erase(parent);
                 }
 
                 auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
@@ -724,6 +725,7 @@ namespace smt {
                 r2_parents.push_back(parent);
             }
         }
+        SASSERT(m_r1_parent_generations.empty());
         m_r1_parent_generations.reset();
     }
 
@@ -999,7 +1001,7 @@ namespace smt {
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
                 if (!parent->is_eq())
-                    m_r1_parent_generations.push_back(std::make_pair(parent, get_generation(parent)));
+                    m_r1_parent_generations.insert(parent, get_generation(parent));
                 m_cg_table.erase(parent);
             }
         }
@@ -1013,8 +1015,6 @@ namespace smt {
 
         // restore parents of r2
         r2->m_parents.shrink(r2_num_parents);
-
-        unsigned generation_cache_idx = 0;
 
         // try to reinsert parents of r1 that are not cgr
         for (enode * parent : enode::parents(r1)) {
@@ -1030,13 +1030,9 @@ namespace smt {
                     if (parent->is_eq()) {
                         gen = 0;
                     } else if (parent == cg) {
-                        enode *p = nullptr;
                         unsigned parent_generation;
-                        if (generation_cache_idx < m_r1_parent_generations.size()) {
-                            std::tie(p, parent_generation) = m_r1_parent_generations[generation_cache_idx];
-                        }
-                        if (p == parent) {
-                            generation_cache_idx++;
+                        if (m_r1_parent_generations.find(parent, parent_generation)) {
+                            m_r1_parent_generations.erase(parent);
                             gen = parent_generation;
                         } else {
                             SASSERT(m_cg_table.contains_ptr(parent));
@@ -1058,6 +1054,7 @@ namespace smt {
             }
         }
 
+        SASSERT(m_r1_parent_generations.empty());
         m_r1_parent_generations.reset();
 
         // restore theory vars

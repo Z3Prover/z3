@@ -161,7 +161,7 @@ namespace smt {
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         enode_generation_table      m_sticky_generation_updates;
-        vector<std::pair<enode*, unsigned>>      m_r1_parent_generations; // temporary field used to cache generations between remove_parents_from_cg_table and reinsert_parents_into_cg_table
+        enode_generation_table      m_r1_parent_generations; // temporary cache between remove_parents_from_cg_table and reinsert_parents_into_cg_table
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
