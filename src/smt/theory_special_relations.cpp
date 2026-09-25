@@ -911,8 +911,9 @@ namespace smt {
             else
                 throw default_exception("expected an integer or function declaration");
         }
-        // Use the declaration id suffix to avoid collisions between private helper definitions.
-        id += "!decl!" + std::to_string(r.decl()->get_id());
+        // Unparameterized SMT-LIB relations need a private helper namespace.
+        if (id.empty())
+            id = "!decl!" + std::to_string(r.decl()->get_id());
         member = "member" + id;
         next = "next" + id;
         connected_sym = "connected" + id;
