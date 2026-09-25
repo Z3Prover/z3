@@ -215,11 +215,11 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                bool bound_valid = m_s->maximize_objective(obj_index, bound);
-                last_bound_valid = bound_valid;
+                auto result = m_s->maximize_objective(obj_index, bound);
+                last_bound_valid = result.bound_valid;
                 step_bound = infty;
-                if (!bound_valid && m_s->last_hint_status() == l_false && m_s->last_hint().is_finite())
-                    refuted_hint = std::min(refuted_hint, m_s->last_hint());
+                if (!result.bound_valid && result.hint_status == l_false && result.hint.is_finite())
+                    refuted_hint = std::min(refuted_hint, result.hint);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
@@ -247,13 +247,13 @@ namespace opt {
                         unbounded_check_rlimit *= 2;
                 }
                 // When maximize_objective could not validate its arithmetic
-                // hint (bound_valid == false), the blocker it produced refers to
+                // hint (result.bound_valid == false), the blocker refers to
                 // that unachievable hint and must not be used.  'obj' now holds
                 // the value of an actual model, so replace the blocker with a
                 // model-derived tightening so the search keeps making progress
                 // toward the true optimum instead of terminating prematurely
                 // (issue #10028).
-                if (!bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
+                if (!result.bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
                     scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
                     step_bound = obj + inf_eps(step.value());
