@@ -902,7 +902,11 @@ namespace smt {
         func_decl* memf, *nextf, *connectedf;
 
         std::string member, next, connected_sym, id;
-        if (r.decl()->get_num_parameters() > 0) {
+        if (r.decl()->get_num_parameters() == 0) {
+            // Unparameterized SMT-LIB relations need a private helper namespace.
+            id = "!decl!" + std::to_string(r.decl()->get_id());
+        }
+        else {
             auto const& pa = r.decl()->get_parameter(0);
             if (pa.is_int())
                 id = std::to_string(pa.get_int());
@@ -911,9 +915,6 @@ namespace smt {
             else
                 throw default_exception("expected an integer or function declaration");
         }
-        // Unparameterized SMT-LIB relations need a private helper namespace.
-        if (id.empty())
-            id = "!decl!" + std::to_string(r.decl()->get_id());
         member = "member" + id;
         next = "next" + id;
         connected_sym = "connected" + id;
