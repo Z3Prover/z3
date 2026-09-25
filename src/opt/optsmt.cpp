@@ -303,17 +303,7 @@ namespace opt {
                     if (lower(obj_index) < hi) {
                         scopes.reset();
                         bool smt_gave_up = is_sat == l_undef;
-                        is_sat = l_false;
-                        if (m_optsmt_nlsat)
-                            is_sat = nlsat_cells(obj_index, is_maximize, hi);
-                        if (is_sat == l_false) {
-                            if (!hi.is_finite() || smt_gave_up)
-                                is_sat = l_undef;
-                            else if (lower(obj_index) < hi)
-                                is_sat = bisect(obj_index, is_maximize, hi);
-                            else
-                                is_sat = l_true;
-                        }
+                        is_sat = refine_real_objective(obj_index, is_maximize, hi, smt_gave_up);
                     }
                 }
                 break;
@@ -411,20 +401,39 @@ namespace opt {
         return r == l_true;
     }
 
+    lbool optsmt::refine_real_objective(unsigned idx, bool is_maximize, inf_eps const& hi, bool smt_gave_up) {
+        if (m_optsmt_nlsat) {
+            switch (nlsat_cells(idx, is_maximize, hi)) {
+            case nlsat_outcome::certified:
+                return l_true;
+            case nlsat_outcome::incomplete:
+                return l_undef;
+            case nlsat_outcome::no_result:
+                break;
+            }
+        }
+        if (!hi.is_finite() || smt_gave_up)
+            return l_undef;
+        if (lower(idx) < hi)
+            return bisect(idx, is_maximize, hi);
+        return l_true;
+    }
+
     /**
        \brief Exact optimization over nlsat cells:
        maximize the objective over the hard constraints within
        [m_lower[idx], hi] with nlsat_opt. On success the optimum may be an
        algebraic number: both objective_value endpoints carry its exact
        finite part and outward rational bounds, with -epsilon for an open limit.
-       Returns l_true when the optimum
-       is proven, l_undef when the engine made progress but could not close
-       the interval (m_lower/m_upper hold the remaining gap), and l_false
-       when it could not be applied (unsupported fragment, no model).
+       Returns certified for an attained optimum, an open limit, or unboundedness;
+       incomplete when an accepted model leaves an unresolved interval; and
+       no_result when no result is accepted (unsupported fragment, no model,
+       or a lower bracket below the incumbent). Only no_result permits the
+       caller to try another fallback instead of retaining the nlsat result.
     */
-    lbool optsmt::nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi) {
+    optsmt::nlsat_outcome optsmt::nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi) {
         if (!m_lower[idx].is_finite())
-            return l_false;
+            return nlsat_outcome::no_result;
         expr_ref_vector hard(m);
         for (unsigned i = 0; i < m_s->get_num_assertions(); ++i)
             hard.push_back(m_s->get_assertion(i));
@@ -439,12 +448,12 @@ namespace opt {
                                  m_bisect_rounds, res, m_nlsat_supremum_rlimit);
         TRACE(opt, tout << "nlsat cells: " << r << " rounds " << res.m_rounds << " value " << res.m_value << "\n";);
         if (!res.m_model)
-            return l_false;
+            return nlsat_outcome::no_result;
         if (res.m_unbounded) {
             m_model = res.m_model;
             set_best(idx, inf_eps(rational(1), inf_rational(0)), is_maximize);
             m_upper[idx] = m_lower[idx];
-            return l_true;
+            return nlsat_outcome::certified;
         }
         if (res.m_open) {
             // The real model is a feasible witness, not an assignment at the
@@ -455,18 +464,18 @@ namespace opt {
             m_lower[idx].set_exact(lo, res.m_sup);
             m_upper[idx].set_exact(inf_eps(rational(0), inf_rational(res.m_sup_upper, rational(-1))), res.m_sup);
             IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat open supremum " << res.m_sup << ")\n");
-            return l_true;
+            return nlsat_outcome::certified;
         }
         inf_eps v(res.m_lower);
         if (v < lower(idx))
-            return l_false;
+            return nlsat_outcome::no_result;
         m_model = res.m_model;
         set_best(idx, v, is_maximize);
         if (r == l_true) {
             m_lower[idx].set_exact(v, res.m_value);
             m_upper[idx].set_exact(inf_eps(res.m_upper), res.m_value);
             IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat optimum " << res.m_value << ")\n");
-            return l_true;
+            return nlsat_outcome::certified;
         }
         // not closed: report the interval [best, sup] where sup is the
         // supremum proven by nlsat when available, else the caller's bound.
@@ -474,7 +483,7 @@ namespace opt {
         if (upper(idx) < lower(idx))
             m_upper[idx] = m_lower[idx];
         IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat interval [" << lower(idx) << ", " << upper(idx) << "])\n");
-        return l_undef;
+        return nlsat_outcome::incomplete;
     }
 
     /**
