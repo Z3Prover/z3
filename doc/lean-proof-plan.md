@@ -70,11 +70,18 @@ single-query benchmarks (z3test regressions plus small local SMT-LIB samples in
 QF_UF, QF_LIA, QF_LRA/QF_RDL, QF_NIA, QF_AUFLIA/QF_ALIA) produced these
 findings:
 
-- **Crash.** `sat.smt=true` with `solver.proof.log` segfaults on 13 array-logic
-  instances that solve fine without logging (for example z3test `t168.smt2`).
-  The fault is in `euf::solver::log_justifications`, where a justification in
-  an egraph explanation has no equality consequent and a null enode is
-  dereferenced. This is the first regression test for the suite.
+- **Crash (fixed in PR).** `sat.smt=true` with `solver.proof.log` segfaulted on
+  13 array-logic instances that solve fine without logging (for example z3test
+  `t168.smt2`). The array solver justified its unconditional axiom merges with
+  a bare `sat::constraint_base` index, which `log_justifications` reinterpreted
+  as a `th_explain`. The fix (branch `array-proof-log`) uses a `th_explain`
+  with an `array` hint carrying the derived equality. A four-line reproducer
+  is in the PR description and should become the first canary regression.
+- **Checker rejection exposed by the fix.** With logging working on arrays,
+  z3test `t8.smt2` (array `default`, `map`, and `array-ext`) replays with
+  `tseitin` and `euf` steps whose derived units are not RUP-derivable
+  (`unit (not (default s1)) is not rup`). This is a logging or checker defect
+  in the array/euf interplay, not a solver result error.
 - **Preprocessing is outside the clause log.** Every QF_UF unsat instance and
   some QF_LIA ones are closed by `solve-eqs` or value propagation before the
   core runs, so the clause log is empty and the run is classed `no-proof`. The
