@@ -902,8 +902,17 @@ namespace smt {
         func_decl* memf, *nextf, *connectedf;
 
         std::string member, next, connected_sym, id;
-        // Use the declaration id to avoid collisions between private helper definitions.
-        id = "!decl!" + std::to_string(r.decl()->get_id());
+        if (r.decl()->get_num_parameters() > 0) {
+            auto const& pa = r.decl()->get_parameter(0);
+            if (pa.is_int())
+                id = std::to_string(pa.get_int());
+            else if (pa.is_ast() && is_func_decl(pa.get_ast()))
+                id = to_func_decl(pa.get_ast())->get_name().str();
+            else
+                throw default_exception("expected an integer or function declaration");
+        }
+        // Use the declaration id suffix to avoid collisions between private helper definitions.
+        id += "!decl!" + std::to_string(r.decl()->get_id());
         member = "member" + id;
         next = "next" + id;
         connected_sym = "connected" + id;
