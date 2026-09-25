@@ -63,6 +63,41 @@ together with a canary list per logic and a summary table. The runner must
 exit nonzero on `checker-rejected` and `crash`, and must report fallbacks
 separately from verified results.
 
+### First matrix run (2026-09-25)
+
+`examples/python/proof_matrix.py` implements the runner. A canary of 86
+single-query benchmarks (z3test regressions plus small local SMT-LIB samples in
+QF_UF, QF_LIA, QF_LRA/QF_RDL, QF_NIA, QF_AUFLIA/QF_ALIA) produced these
+findings:
+
+- **Crash.** `sat.smt=true` with `solver.proof.log` segfaults on 13 array-logic
+  instances that solve fine without logging (for example z3test `t168.smt2`).
+  The fault is in `euf::solver::log_justifications`, where a justification in
+  an egraph explanation has no equality consequent and a null enode is
+  dereferenced. This is the first regression test for the suite.
+- **Preprocessing is outside the clause log.** Every QF_UF unsat instance and
+  some QF_LIA ones are closed by `solve-eqs` or value propagation before the
+  core runs, so the clause log is empty and the run is classed `no-proof`. The
+  `smt-clause-log-nopp` cell disables those simplifiers to measure the core
+  alone. Preprocessing proofs exist only in the legacy proof objects.
+- **Self-checker fallbacks in linear arithmetic.** On the QF_LIA canary the
+  checker fell back to the SMT solver for 262 `smt` hints, 41 failed `rup`
+  checks, and all 16 `bound` hints in one bignum instance; one `farkas` hint in
+  QF_RDL was also rejected and recovered by fallback. `bound` and `farkas`
+  misses are the coefficient defects described below; `smt` hints carry no
+  checkable justification at all; `rup` misses mean the logged clause is not
+  reverse-unit-propagation derivable from the logged state.
+- **Nonlinear lemmas always fall back.** `nla` and `cut` hints were never
+  accepted by the checker.
+- **Legacy proof objects have no external checker.** Every unsat legacy proof
+  is classed `no-checker` outside the propositional fragment. Their theory
+  lemma kinds on this canary are `arith`, `arith farkas`,
+  `arith assign-bounds`, and `arith triangle-eq`, which is the inventory for
+  milestone 3. The built-in `context::check_proof` runs `proof_checker` but
+  discards the verdict and is not exposed as an option.
+- **Legacy clause proofs** (`smt.clause_proof`) record only assumptions and the
+  final `proof-trail`, so there is nothing to check.
+
 ## Milestones
 
 1. **Native Boolean proof exporter (implemented).** Use the existing proof API

@@ -305,3 +305,46 @@ Include the real Lean integration tests when the pinned toolchain is installed:
 
 These run in a Lean-enabled Ubuntu CMake CI configuration, not the dependency-free
 build-script job.
+Run the proof regression matrix
+-------------------------------
+
+proof_matrix.py measures proof production and checking across Z3's different
+proof paths. It solves each benchmark without proofs to record the expected
+result, then re-solves it in each parameter cell and applies that cell's
+checking method:
+
+    smt-clause-log        sat.smt=true with solver.proof.log; the log is replayed
+                          through the built-in checker (proof_cmds / euf_proof_checker)
+    smt-clause-log-nopp   the same with solve-eqs, propagate-values, and
+                          elim-unconstrained disabled, because the clause log does
+                          not cover contradictions found by preprocessing
+    legacy-proof-object   sat.smt=false with produce-proofs; the proof object is
+                          inventoried by rule and th-lemma kind, and Lean-checked
+                          with --lean when the input is propositional
+    legacy-clause-proof   sat.smt=false with smt.clause_proof; the proof trail is
+                          inventoried (no checker yet)
+    arith-validate        smt.arith.validate self-validation inside theory_lra
+
+Every (benchmark, cell) record carries one failure class: verified,
+unverified-fallback, checker-rejected, no-proof, not-applicable, disagree,
+crash, timeout, or no-checker. A self-checker fallback to the SMT solver is
+counted as unverified-fallback, never as verified. Records for smt-clause-log
+also carry the hint names seen in the log, the checker's per-hint hit and miss
+counts, and the number of fallbacks.
+
+    python3 examples/python/proof_matrix.py --z3 build/z3 --timeout 30 \
+        --out results.jsonl benchmarks/QF_LIA lean/examples/unit_resolution.smt2
+
+Inputs may be SMT-LIB files, directories, or .txt lists of paths. Options that
+would change the proof configuration, and get-proof/get-model/get-unsat-core
+queries, are stripped from the input; the runner controls them. Benchmarks
+should contain a single check-sat and no push/pop. The summary table is
+printed per logic and cell, and the exit status is 1 if any record is
+checker-rejected, disagree, or crash.
+
+Tests:
+
+    Z3_EXE=build/z3 python3 -m unittest discover -s examples/python -p test_proof_matrix.py
+
+The classification tests run without z3; the end-to-end tests are skipped
+unless Z3_EXE is set or z3 is on PATH.
