@@ -7,6 +7,62 @@ verification backend. Missing native proof evidence and checker correctness are
 separate obligations. Ordinary Z3 behavior stays unchanged while the integration
 is developed.
 
+## Regression methodology
+
+Proof checking in Z3 is currently disjointed, and the remaining work is larger
+than a handful of PRs. Before extending Lean coverage further, establish one
+regression methodology and suite that covers every proof-producing path:
+
+- The `sat.smt=true` core has a modular self-checker (`euf_proof_checker` with
+  theory plugins for arithmetic `farkas`/`bound`/`implied-eq`/`cut`,
+  bit-vectors, quantifiers, Tseitin, and `distinct`). It falls back to calling
+  the SMT solver for lemmas it does not handle; such a fallback is not a check.
+- The legacy core (`sat.smt=false`) produces proof objects with
+  `produce-proofs` and clause proofs with `smt.clause_proof` /
+  `solver.proof.log`, checked by `solver.proof.check` and
+  `solver.proof.check_rup`, optionally saved via `solver.proof.save` or
+  `solver.proof.trim`. The clause-proof logging is not yet rock solid.
+- `theory_lra` has ad hoc self-validation behind `smt.arith.validate`, and the
+  SMT context validates cores behind `smt.core.validate`.
+
+The suite is a matrix of benchmarks x parameters x checking method.
+
+**Benchmarks.** QF_UF, QF_LIA, QF_LRA, QF_NIA, QF_AUFLIA from the SMT-LIB
+release archives, plus the z3test regressions and the generated propositional
+families from the scaling survey. Curate per logic a small canary set (seconds,
+mixed sat/unsat) for PR CI and a larger set for nightly runs. Record the
+expected result of every instance from a proof-free run.
+
+**Parameters.**
+1. `sat.smt=true` with clause-proof checking enabled (`solver.proof.check`,
+   `solver.proof.check_rup`) and `solver.proof.log` written for external replay.
+2. `sat.smt=false` with `produce-proofs=true` (legacy proof objects).
+3. `sat.smt=false` with `smt.clause_proof=true` (legacy clause proofs).
+4. Self-validation oracles: `smt.arith.validate=true`, `smt.core.validate=true`.
+   These use the solver to check itself and only count as diagnostics.
+
+**Checking method.** Self checker (the built-in checkers above) and external
+checker (the C++ `proof_checker` for proof objects, DRAT tools for pure clause
+trails, and Lean reconstruction for the fragments it supports).
+
+**Recorded per cell.** Result agreement with the proof-free run, time, proof
+size, checker verdict, number of self-checker fallbacks, and a failure class:
+`verified`, `unverified-fallback`, `checker-rejected`, `no-proof`, `crash`,
+`timeout`. A cell that passes only through fallback is never reported as
+verified. Every `checker-rejected` and `crash` instance is minimized and added
+as a regression test with its parameter cell.
+
+**Coverage tracking.** For each logic and parameter cell, tabulate the proof
+rules and theory-lemma kinds that occur and which checkers accept each kind.
+This replaces guessing which rule to support next; the Boolean survey below is
+the first instance of this method.
+
+**First deliverable.** A runner in `examples/python/` that takes a benchmark
+list and emits one JSON record per cell, following `proof_preprocessing.py`,
+together with a canary list per logic and a summary table. The runner must
+exit nonzero on `checker-rejected` and `crash`, and must report fallbacks
+separately from verified results.
+
 ## Milestones
 
 1. **Native Boolean proof exporter (implemented).** Use the existing proof API
@@ -31,6 +87,14 @@ is developed.
    proof-required frontend that publishes certified unsat only after successful
    checking, preserves exact incremental/assumption contexts, and explicitly
    rejects unsupported configurations. Keep the C++ checker for diagnostics.
+5. **External consumers as gradual milestones.** Each is one end-to-end test in
+   the regression matrix: the Rutgers project consuming Z3 certificates
+   end-to-end; a Z3-native path in Lean-smt, which currently only supports
+   CVC5; and a certifying mode for F*, whose infrastructure is not yet set up
+   here. Start with the consumer whose fragment the checkers already cover.
+
+The regression methodology above is the current top priority and gates the
+order in which milestones 3 to 5 proceed.
 
 ## First milestone deliverables
 
@@ -141,6 +205,30 @@ Definition introduction and other native rules remain unsupported. These and
 a formalized encoding connection must be addressed before claiming general
 Boolean proof support. Arithmetic and other theories remain later milestones.
 
+### Scaling survey (2026-09-25)
+
+A survey of export, reconstruction, and Lean checking over generated
+propositional families (pigeonhole, xor cycles, implication chains, wide de
+Morgan, nested equivalences, random 3-SAT) shows that rule coverage is no longer
+the bottleneck: every rule the default pipeline emits on propositional inputs is
+supported. Two resource cliffs remain, both on the Lean side:
+
+- The main theorem is one nested `let` chain. Lean's elaborator hits its
+  recursion limit at roughly 500 bindings (about 1000 proof nodes). Raising
+  `maxRecDepth` inside the theorem recovers chains and random 3-SAT, but the
+  chain is superlinear to elaborate; pigeonhole with five holes emits 5391
+  steps for 1939 nodes because shared lemma nodes are re-instantiated per
+  hypothesis scope. Emit steps as top-level lemmas parameterized by the
+  assertion hypotheses, or as a tactic `have` chain, and share instantiations.
+- Rewrites are checked by truth tables, exponential in the atom count: eight
+  atoms take seconds, twelve exceed the heartbeat limit. The large rewrites seen
+  are structural: identity, and/or flattening, de Morgan, and reordering.
+  Prove these schemas directly and keep truth tables only for small rewrites.
+  Z3 should also stop emitting identity rewrites from the simplify pass.
+
+The z3test corpus has almost no single-query propositional files, so generated
+families are the benchmark for this fragment.
+
 ## Preprocessing evidence audit
 
 Before expanding the checker further, exercise native simplifiers explicitly.
@@ -158,6 +246,7 @@ required in that case.
 
 Both examples now run `solve-eqs` and reconstruct their refutations successfully
 through both interfaces with proof generation enabled. The native producer
+changes were merged upstream in Z3Prover/z3#10915. The native producer
 carries equality evidence through extraction and substitution normalization,
 composes substitution congruences with subsequent rewrites, and preserves proofs
 when flattening conjunctions or replaying eliminated definitions. Tracked
@@ -180,6 +269,32 @@ Preprocessing-only proofs and preprocessing followed by search must both
 preserve the original assertion boundary; checking a SAT proof of an unrelated
 or unverified CNF is insufficient. The audit continues to report failure when
 required execution evidence or checked proofs are absent.
+
+## Arithmetic proof infrastructure
+
+The arithmetic proof infrastructure is slightly broken and must be repaired
+before milestone 3 can claim checked arithmetic. Known defects:
+
+- `theory_lra` attaches Farkas coefficients to `th-lemma arith farkas`, but the
+  coefficients can be wrong in two situations: when a lemma is reused for unit
+  propagation rather than the conflict it was derived for, and when the LP
+  solver derives bounds internally that do not correspond to literals and
+  those bounds enter an LP explanation. The `sat.smt=true` arithmetic checker
+  already re-derives `farkas` and `bound` justifications, so the first step is
+  to run the matrix with that checker and with `smt.arith.validate` on the
+  linear logics and measure how often each defect occurs. The fix is to explain
+  only in terms of literal bounds, or to emit explicit derived-bound steps
+  that the checker can replay, and to regenerate coefficients for the
+  propagated orientation.
+- `nla` lemmas are built at more than fifty sites across the basics, order,
+  monotonicity, tangent, power, and Groebner modules, and the self-checker
+  falls back to the SMT solver for them. Proposal: inventory the lemma schemas,
+  certify each schema statically at build time as a parameterized theorem,
+  name the schema in the `lemma_builder` output, and emit each lemma with a
+  hint recording the schema and its instantiation (monomial, factors, sign, and
+  bounds). The proof checker then instantiates the certified schema from the
+  hint instead of calling a solver. Lemmas without a certified schema stay in
+  the `unverified-fallback` class of the matrix until they are covered.
 
 ## Completed first-milestone evidence
 
