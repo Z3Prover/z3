@@ -30,6 +30,7 @@ Author:
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
 #include "solver/solver.h"
+#include "util/rlimit.h"
 #include <iostream>
 #include <sstream>
 #include <set>
@@ -562,10 +563,11 @@ class seq_monadic_test {
         bool ok = parse_smt2_commands(cmd, is);
         if (ok) {
             params_ref p;
-            p.set_uint("rlimit", rlimit);
             ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
             for (expr* a : cmd.assertions())
                 slv->assert_expr(a);
+            // Direct solver calls do not install the API's rlimit scope.
+            scoped_rlimit limit(m.limit(), rlimit);
             slv->check_sat(0, nullptr);
         }
         if (!ok) ++m_fail;
