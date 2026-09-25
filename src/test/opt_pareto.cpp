@@ -365,7 +365,7 @@ static void tst_reuse_fragment() {
     ENSURE(!opt::can_reuse_nlsat_solver(terms));
 }
 
-static void tst_sampled_fronts() {
+static void tst_sampled_fronts(unsigned first_seed, unsigned last_seed) {
     // For each seed s in {0, ..., 15}, generate the finite feasible set
     //
     //   u(s, i) = (3*s + 5*i) mod 11 - 5,
@@ -384,6 +384,9 @@ static void tst_sampled_fronts() {
     // p in F(s) for which no such q exists. The full seed varies the points;
     // its low bits additionally select the four direction pairs and the scale.
     // Every problem is run with fresh and reused nlsat, for 32 solver runs.
+    // Bits 0-2 of the seed select the directions and the scale, so seeds
+    // 0..7 already cover every combination; seeds 8..15 only vary the points
+    // and run in opt_pareto_long.
     //
     // Compute the expected front with plain integer comparisons, independently
     // of Z3, and store its point indices in front. Ask Z3 to return exactly
@@ -391,7 +394,7 @@ static void tst_sampled_fronts() {
     // nlsat solvers. Positive scaling preserves the expected front while
     // exercising both rational and algebraic coordinates.
     struct point { int x, y; };
-    for (unsigned seed = 0; seed < 16; ++seed) {
+    for (unsigned seed = first_seed; seed < last_seed; ++seed) {
         // Vary the point set reproducibly; the seed's low two bits choose the
         // four combinations of objective directions.
         svector<point> points;
@@ -508,7 +511,7 @@ void tst_opt_pareto() {
     tst_cancelled_solver();
     tst_reuse_fragment();
     // Sampled fronts already exercise both nlsat modes; assumptions force SMT.
-    tst_sampled_fronts();
+    tst_sampled_fronts(0, 8);
     tst_assumption_fallback();
     // Run the remaining front tests with and without nlsat reuse. The UF case
     // must stay on the general SMT solver regardless of this setting.
@@ -519,4 +522,10 @@ void tst_opt_pareto() {
         tst_finite_front(reuse_nlsat_solver);
         tst_mixed_directions(reuse_nlsat_solver);
     }
+}
+
+// The remaining sampled fronts (seeds 8..15, about 6 seconds in Debug).
+// Not part of `test-z3 -a`; run as `test-z3 opt_pareto_long`.
+void tst_opt_pareto_long() {
+    tst_sampled_fronts(8, 16);
 }

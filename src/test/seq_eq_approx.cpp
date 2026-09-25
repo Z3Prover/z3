@@ -519,7 +519,7 @@ public:
         m_reg(m), m_rw(m), m_eq(m_rw), m_wit(m_rw), u(m), m_arith(m),
         m_str(u.str.mk_string_sort(), m), m_re(re().mk_re(m_str), m), m_keep(m) {}
 
-    void run() {
+    void run(unsigned oracle_cases, unsigned oracle_len) {
         std::cout << std::unitbuf;             // keep the log usable if a case crashes
         expr_ref x = var("x"), y = var("y"), z = var("z");
         expr_ref a = word("a"), b = word("b"), ab = word("ab");
@@ -616,7 +616,10 @@ public:
 
         std::cout << "=== seq_eq_approx: randomized cross-checks ===\n";
         check_cross_regex(400);
-        check_cross_oracle(600, 8);
+        // The oracle enumerates every word up to oracle_len for each refuted
+        // instance, so the cost is cases * 2^oracle_len; the full grid runs
+        // in seq_eq_approx_long.
+        check_cross_oracle(oracle_cases, oracle_len);
         check_cross_positive(600);
 
         std::cout << "=== seq_eq_approx: non-character elements ===\n";
@@ -638,5 +641,12 @@ public:
 
 void tst_seq_eq_approx() {
     seq_eq_approx_test test;
-    test.run();
+    test.run(100, 6);
+}
+
+// The full randomized word-oracle cross-check (about 100 seconds in Debug).
+// Not part of `test-z3 -a`; run as `test-z3 seq_eq_approx_long`.
+void tst_seq_eq_approx_long() {
+    seq_eq_approx_test test;
+    test.run(600, 8);
 }
