@@ -903,7 +903,7 @@ namespace smt {
 
         std::string member, next, connected_sym, id;
         if (r.decl()->get_num_parameters() == 0) {
-            id = std::to_string(r.decl()->get_id());
+            id = "decl" + std::to_string(r.decl()->get_id());
         }
         else {
             auto const& pa = r.decl()->get_parameter(0);
