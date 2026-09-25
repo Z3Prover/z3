@@ -25,6 +25,19 @@ Abstract:
 
 namespace {
 
+// Solve two independent maximization problems over real x and y, both under
+// the constraints x <= 3 and y <= 7: first maximize x, then maximize y.
+// The maxima are attained at x = 3 and y = 7; neither variable constrains
+// the other, so both expected answers follow directly from the upper bounds.
+//
+// For each call, check that the returned maximize_result accepts the bound
+// (bound_valid), reports an accepted hint (hint_status == l_true), and holds
+// the exact expected value. Also check that the solver's saved objective
+// value agrees and that a blocker was produced.
+//
+// Keep the first result while making the second call, then check its value
+// and status again. This checks the new per-call ownership: maximizing y
+// must not replace the retained result for x with the latest hint, 7.
 static void tst_maximize_result() {
     ast_manager m;
     reg_decl_plugins(m);
