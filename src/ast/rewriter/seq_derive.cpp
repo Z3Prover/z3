@@ -548,7 +548,7 @@ namespace seq {
         } else if (re().is_union(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
-            result = re().mk_union(a1, b1);
+            result = m_re.mk_union(a1, b1);
         } else if (re().is_intersection(r, r1, r2)) {
             auto a1 = mk_regex_reverse(r1);
             auto b1 = mk_regex_reverse(r2);
@@ -848,7 +848,7 @@ namespace seq {
             return expr_ref(re().mk_empty(a->get_sort()), m);
         expr_ref r(set.get(0), m);
         for (unsigned i = 1; i < set.size(); ++i)
-            r = expr_ref(re().mk_union(r, set.get(i)), m);
+            r = m_re.mk_union(r, set.get(i));
         return r;
     }
 

@@ -16,6 +16,9 @@
 //   (str.in_re "aP" (re.++ (re.* "a") "P"))
 // which used to return false because the derivative wrt 'a' was cached and
 // re-used as the derivative wrt 'P'.
+//
+// Derivative unions must also use the rewriter's ordered, right-associated
+// normal form so equivalent operand orderings share the same residual.
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
@@ -121,7 +124,109 @@ static void test_derive_cache_per_ele() {
     ENSURE(m.is_true(n_P));
 }
 
+static void test_derive_union_normalization() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    auto literal = [&](char const* s) {
+        return expr_ref(u.re.mk_to_re(u.str.mk_string(zstring(s))), m);
+    };
+
+    // Multi-character residuals prevent character-range collapsing from
+    // hiding a noncanonical union tree.
+    expr_ref axx = literal("axx"), ayy = literal("ayy"), azz = literal("azz");
+    expr_ref xx = literal("xx"), yy = literal("yy"), zz = literal("zz");
+    expr_ref xy(u.re.mk_union(axx, ayy), m);
+    expr_ref yx(u.re.mk_union(ayy, axx), m);
+    expr_ref yz(u.re.mk_union(ayy, azz), m);
+    expr_ref_vector inputs(m);
+    inputs.push_back(u.re.mk_union(xy, azz));
+    inputs.push_back(u.re.mk_union(azz, yx));
+    inputs.push_back(u.re.mk_union(axx, yz));
+    inputs.push_back(u.re.mk_union(inputs.get(0), axx));
+    expr_ref expected = rw.mk_union(xx, rw.mk_union(yy, zz));
+    expr_ref ch_a(u.mk_char('a'), m);
+
+    for (expr* input : inputs) {
+        for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+            expr_ref derivative = rw.get_derive()(kind, ch_a, input);
+            ENSURE(derivative == expected);
+        }
+
+        expr_ref_pair_vector cofactors(m);
+        rw.brz_derivative_cofactors(input, cofactors);
+        unsigned nonempty_targets = 0;
+        for (auto const& cofactor : cofactors) {
+            if (u.re.is_empty(cofactor.second))
+                continue;
+            ++nonempty_targets;
+            ENSURE(cofactor.second == expected);
+        }
+        ENSURE(nonempty_targets == 1);
+    }
+
+    expr_ref not_axx(u.re.mk_complement(axx), m);
+    expr_ref complemented(u.re.mk_union(yz, not_axx), m);
+    expected = rw.mk_union(rw.mk_complement(xx), rw.mk_union(yy, zz));
+    expr_ref derivative = rw.get_derive()(seq::derivative_kind::brzozowski_t, ch_a, complemented);
+    ENSURE(derivative == expected);
+
+    expr_ref a = literal("a");
+    expr_ref optional_a(u.re.mk_opt(a), m);
+    expr_ref tail = rw.mk_union(axx, rw.mk_union(ayy, azz));
+    expr_ref nullable_concat(u.re.mk_concat(optional_a, tail), m);
+    expected = rw.mk_union(tail, rw.mk_union(xx, rw.mk_union(yy, zz)));
+    for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+        derivative = rw.get_derive()(kind, ch_a, nullable_concat);
+        ENSURE(derivative == expected);
+    }
+}
+
+static void test_derive_reverse_union_normalization() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref digit(u.re.mk_range(re_sort, '0', '1'), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref cd(u.re.mk_range(re_sort, 'c', 'd'), m);
+    expr_ref ef(u.re.mk_range(re_sort, 'e', 'f'), m);
+    expr_ref dab(u.re.mk_concat(digit, ab), m);
+    expr_ref dcd(u.re.mk_concat(digit, cd), m);
+    expr_ref def(u.re.mk_concat(digit, ef), m);
+    expr_ref abd(u.re.mk_concat(ab, digit), m);
+    expr_ref cdd(u.re.mk_concat(cd, digit), m);
+    expr_ref efd(u.re.mk_concat(ef, digit), m);
+    expr_ref reversed_body = rw.mk_union(abd, rw.mk_union(cdd, efd));
+    expr_ref reversed_star(u.re.mk_star(reversed_body), m);
+    expr_ref expected(u.re.mk_concat(digit, reversed_star), m);
+
+    expr_ref first_two(u.re.mk_union(dab, dcd), m);
+    expr_ref last_two(u.re.mk_union(dcd, def), m);
+    expr_ref_vector inputs(m);
+    inputs.push_back(u.re.mk_union(first_two, def));
+    inputs.push_back(u.re.mk_union(def, first_two));
+    inputs.push_back(u.re.mk_union(dab, last_two));
+
+    // The union survives inside the star tail of each derivative.
+    for (expr* body : inputs) {
+        expr_ref star(u.re.mk_star(body), m);
+        expr_ref reversed(u.re.mk_reverse(star), m);
+        for (unsigned c : {'a', 'c', 'e'}) {
+            expr_ref ch(u.mk_char(c), m);
+            for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+                expr_ref derivative = rw.get_derive()(kind, ch, reversed);
+                ENSURE(derivative == expected);
+            }
+        }
+    }
+}
+
 void tst_seq_regex_bisim() {
     test_a_star_neq_ab_star();
     test_derive_cache_per_ele();
+    test_derive_union_normalization();
+    test_derive_reverse_union_normalization();
 }
