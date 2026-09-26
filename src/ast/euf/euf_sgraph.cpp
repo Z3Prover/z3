@@ -830,6 +830,17 @@ namespace euf {
         if (m_seq.re.is_empty(e))
             return;
 
+        // An unevaluated derivative d_c(r), which the rewriter can leave in
+        // place. c is a character, not a regex, and every character class of
+        // d_c(r) is already one of r's, so collect from r alone. Walking into
+        // c reached the unhandled-leaf case below.
+        expr* d_ch = nullptr, *d_body = nullptr;
+        if (m_seq.re.is_derivative(e, d_ch, d_body)) {
+            if (re->num_args() == 2)
+                collect_re_predicates(re->arg(1), preds, visited);
+            return;
+        }
+
         // re.of_pred over a range-fragment lambda: the canonical multi-range
         // character class (see seq::range_predicate_to_regex).  Contribute one
         // single-range regex per interval so the minterm partition sees its
