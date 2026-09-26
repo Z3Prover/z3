@@ -157,6 +157,10 @@
 
 #define FOR_EACH_EXTRA_TEST(X, X_ARGV) \
     X(seq_parikh_long) \
+    X(seq_eq_approx_long) \
+    X(opt_pareto_long) \
+    X(total_order_long) \
+    X(rational_perf) \
     X(tptp) \
     X(tptp_crashes) \
     X(ext_numeral) \
