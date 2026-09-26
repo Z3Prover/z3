@@ -4,14 +4,6 @@ set(generated_files
   api_log_macros.h
 )
 
-# Sanity check
-foreach (gen_file ${generated_files})
-  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}\""
-            ${z3_polluted_tree_msg})
-  endif()
-endforeach()
-
 set(full_path_generated_files "")
 foreach (gen_file ${generated_files})
   list(APPEND full_path_generated_files "${CMAKE_CURRENT_BINARY_DIR}/${gen_file}")

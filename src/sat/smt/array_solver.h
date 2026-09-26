@@ -168,9 +168,12 @@ namespace array {
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
         axiom_record choice_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_choice, n); }
 
-        scoped_ptr<sat::constraint_base> m_constraint;
+        symbol m_array_hint;
 
-        sat::ext_justification_idx array_axiom() { return m_constraint->to_index(); }
+        // Merge n1 and n2 as a consequence of an unconditional array axiom.
+        // The justification is a theory explanation so that proof logging and
+        // conflict explanation can inspect it.
+        bool propagate_axiom(euf::enode* n1, euf::enode* n2);
 
         bool assert_store_axiom(app* _e);
         bool assert_select_store_axiom(app* select, app* store);
@@ -273,7 +276,7 @@ namespace array {
     public:
         solver(euf::solver& ctx, theory_id id);
         bool is_external(bool_var v) override { return false; }
-        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}
+        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override;
         void asserted(literal l) override {}
         sat::check_result check() override;
 

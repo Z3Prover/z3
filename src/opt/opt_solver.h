@@ -84,8 +84,6 @@ namespace opt {
         model_ref           m_model;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
-        inf_eps             m_last_hint;          // hint from the last maximize_objective call
-        lbool               m_last_hint_status = l_undef; // l_true: validated, l_false: refuted, l_undef: not decided
         sref_vector<model>  m_objective_models;
         expr_ref_vector     m_objective_terms;
         bool                m_dump_benchmarks;
@@ -173,19 +171,21 @@ namespace opt {
 
         void set_logic(symbol const& logic);
 
+        struct maximize_result {
+            // The no-model path accepts the hint without validating it.
+            bool bound_valid;
+            inf_eps hint;
+            // l_true: accepted; l_false: obj >= hint refuted; l_undef: undecided or unchecked.
+            lbool hint_status;
+        };
+
         smt::theory_var add_objective(app* term);
         void reset_objectives();
-        bool maximize_objective(unsigned i, expr_ref& blocker);
+        maximize_result maximize_objective(unsigned i, expr_ref& blocker);
         bool maximize_objectives1(expr_ref_vector& blockers);
         bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         inf_eps const & saved_objective_value(unsigned obj_index);
-        // The optimization hint of the last maximize_objective call and what
-        // check_bound established about it: l_true - a model attains it;
-        // l_false - no model satisfies obj >= hint, so it is a sound upper
-        // bound on the objective; l_undef - not decided (or no check made).
-        inf_eps const & last_hint() const { return m_last_hint; }
-        lbool last_hint_status() const { return m_last_hint_status; }
         inf_eps current_objective_value(unsigned obj_index);
         model* get_model_idx(unsigned obj_index) { return m_objective_models[obj_index]; }
 

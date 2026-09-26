@@ -510,9 +510,15 @@ void tst_rational() {
     std::cout << "running rational_tester::tst1" << std::endl;
     rational_tester::tst1();
     rational_tester::tst2();
+    tst12();
+    tst13();
+}
+
+// Multiplication micro-benchmarks against floats. They only print timings and
+// assert nothing, so they are not part of `test-z3 -a`; run as
+// `test-z3 rational_perf`.
+void tst_rational_perf() {
     tst11(true);
     tst10(true);
     tst10(false);
-    tst12();
-    tst13();
 }

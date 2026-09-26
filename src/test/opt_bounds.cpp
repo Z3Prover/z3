@@ -16,6 +16,8 @@ Abstract:
 #include "api/z3.h"
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
+#include "opt/opt_geometric.h"
+#include "smt/smt_context.h"
 #include "util/debug.h"
 #include <climits>
 #include <cstring>
@@ -23,6 +25,193 @@ Abstract:
 #include <iostream>
 
 namespace {
+
+// Solve two independent maximization problems over real x and y, both under
+// the constraints x <= 3 and y <= 7: first maximize x, then maximize y.
+// The maxima are attained at x = 3 and y = 7; neither variable constrains
+// the other, so both expected answers follow directly from the upper bounds.
+//
+// For each call, check that the returned maximize_result accepts the bound
+// (bound_valid), reports an accepted hint (hint_status == l_true), and holds
+// the exact expected value. Also check that the solver's saved objective
+// value agrees and that a blocker was produced.
+//
+// Keep the first result while making the second call, then check its value
+// and status again. This checks the new per-call ownership: maximizing y
+// must not replace the retained result for x with the latest hint, 7.
+static void tst_maximize_result() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    params_ref p;
+    p.set_uint("arith.solver", 6);
+    generic_model_converter fm(m, "maximize result");
+    opt::opt_solver s(m, p, fm);
+    expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+    expr_ref y(m.mk_const(symbol("y"), a.mk_real()), m);
+    s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
+    s.assert_expr(a.mk_le(y, a.mk_numeral(rational(7), false)));
+    ENSURE(s.check_sat(0, nullptr) == l_true);
+    s.add_objective(to_app(x));
+    s.add_objective(to_app(y));
+    expr_ref blocker(m);
+    auto first = s.maximize_objective(0, blocker);
+    ENSURE(first.bound_valid && first.hint_status == l_true);
+    ENSURE(first.hint == opt::inf_eps(rational(3)));
+    ENSURE(blocker);
+    ENSURE(s.saved_objective_value(0) == first.hint);
+    ENSURE(s.check_sat(0, nullptr) == l_true);
+    auto second = s.maximize_objective(1, blocker);
+    ENSURE(second.bound_valid && second.hint_status == l_true);
+    ENSURE(second.hint == opt::inf_eps(rational(7)));
+    ENSURE(blocker);
+    ENSURE(s.saved_objective_value(1) == second.hint);
+    // A later objective must not overwrite the earlier call's result.
+    ENSURE(first.bound_valid && first.hint_status == l_true);
+    ENSURE(first.hint == opt::inf_eps(rational(3)));
+}
+
+// Maximize real x under 0 <= x <= 3 and x*x <= 2. The maximum is sqrt(2),
+// so an arithmetic-relaxation hint above it must be rejected, not committed.
+// Throw after asserting the temporary validation bound, both directly and
+// inside isolated maximization. Neither internal scope may survive the throw
+// or a normal rejection, and the caller's scope must still allow x = 0.
+static void tst_arithmetic_scope_exits() {
+    for (bool isolated : {false, true})
+        for (bool interrupt : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            arith_util a(m);
+            params_ref p;
+            p.set_uint("arith.solver", 6);
+            generic_model_converter fm(m, "arithmetic scopes");
+            struct bound_exit_solver : opt::opt_solver {
+                using opt_solver::opt_solver;
+                bool armed = false;
+                bool stopped = false;
+
+                void assert_expr_core(expr* e) override {
+                    opt_solver::assert_expr_core(e);
+                    if (armed) {
+                        armed = false;
+                        stopped = true;
+                        // Internal probes must not change the public assumption stack.
+                        ENSURE(get_scope_level() == 1);
+                        throw default_exception("arithmetic scope test");
+                    }
+                }
+            } s(m, p, fm);
+            expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+            expr_ref zero(a.mk_numeral(rational(0), false), m);
+            s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
+            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            solver::scoped_push caller_scope(s);
+            s.assert_expr(a.mk_ge(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            model_ref baseline;
+            s.get_model(baseline);
+            s.add_objective(to_app(x));
+            unsigned base_level = s.get_context().get_base_level();
+            unsigned assertions = s.get_num_assertions();
+            expr_ref blocker(m);
+            auto maximize = [&]() {
+                if (isolated)
+                    return s.maximize_objective_isolated(0, baseline, blocker);
+                auto result = s.maximize_objective(0, blocker);
+                ENSURE(result.hint_status == l_false);
+                return result.bound_valid;
+            };
+            auto ensure_scopes = [&]() {
+                ENSURE(s.get_scope_level() == 1);
+                ENSURE(s.get_context().get_base_level() == base_level);
+                ENSURE(s.get_num_assertions() == assertions);
+            };
+            s.armed = interrupt;
+            bool threw = false;
+            try {
+                ENSURE(!maximize());
+            }
+            catch (default_exception const& ex) {
+                ENSURE(std::strcmp(ex.what(), "arithmetic scope test") == 0);
+                threw = true;
+            }
+            ENSURE(threw == interrupt && s.stopped == interrupt);
+            ensure_scopes();
+            {
+                solver::scoped_push check_scope(s);
+                s.assert_expr(m.mk_eq(x, zero));
+                ENSURE(s.check_sat(0, nullptr) == l_true);
+            }
+            // Retry the same objects after cleanup; the unsupported arithmetic
+            // hint must still be rejected without leaving validation constraints.
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+            ENSURE(!maximize());
+            ensure_scopes();
+        }
+}
+
+static void tst_geometric_step() {
+    opt::geometric_step step;
+    ENSURE(step.value() == rational(1));
+
+    // The first doubling takes two eligible rounds, the next takes three,
+    // then four, then five. A full reset must restart that same sequence.
+    for (unsigned repeat = 0; repeat < 2; ++repeat) {
+        for (unsigned expected : {1u, 2u, 2u, 2u, 4u, 4u, 4u, 4u, 8u, 8u, 8u, 8u, 8u, 16u}) {
+            step.update(true);
+            ENSURE(step.value() == rational(expected));
+        }
+        step.reset();
+        ENSURE(step.value() == rational(1));
+    }
+
+    // Turning growth off must not erase a round already counted toward doubling.
+    step.update(true);
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+
+    // Keep the count of earlier doublings too. After growth is turned back on,
+    // the next doubling still needs three rounds in total, then four.
+    step.update(true);
+    step.update(false);
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    for (unsigned expected : {1u, 2u, 2u, 2u, 2u, 4u}) {
+        step.update(true);
+        ENSURE(step.value() == rational(expected));
+    }
+
+    // Unlike turning growth off, a failed larger trial clears both counters.
+    step.update(true);
+    step.reset();
+    step.reset();
+    step.update(true);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+
+    // The step remains an exact rational even after it outgrows a machine word.
+    step.reset();
+    rational expected(1);
+    for (unsigned doubles = 0; doubles < 70; ++doubles) {
+        for (unsigned round = 0; round < doubles + 1; ++round) {
+            step.update(true);
+            ENSURE(step.value() == expected);
+        }
+        step.update(true);
+        expected *= rational(2);
+        ENSURE(step.value() == expected);
+    }
+    step.update(false);
+    ENSURE(step.value() == rational(1));
+    step.reset();
+    step.update(true);
+    ENSURE(step.value() == rational(1));
+    step.update(true);
+    ENSURE(step.value() == rational(2));
+}
 
 // Own a separate C API context for each test and pin the optimizer settings.
 struct opt_fixture {
@@ -1044,6 +1233,12 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    std::cout << "opt_bounds: per-call arithmetic results\n";
+    tst_maximize_result();
+    std::cout << "opt_bounds: arithmetic scope exits\n";
+    tst_arithmetic_scope_exits();
+    std::cout << "opt_bounds: geometric step schedule\n";
+    tst_geometric_step();
     std::cout << "opt_bounds: signed algebraic optima and offsets\n";
     tst_signed_offsets();
     std::cout << "opt_bounds: lexicographic and box handles\n";

@@ -337,6 +337,58 @@ public:
         return result;
     }
 
+    expr_ref mk_to_re(expr* a) {
+        expr_ref result(m());
+        if (mk_str_to_regexp(a, result) == BR_FAILED)
+            result = re().mk_to_re(a);
+        return result;
+    }
+
+    expr_ref mk_star(expr* a) {
+        expr_ref result(m());
+        if (mk_re_star(a, result) == BR_FAILED)
+            result = re().mk_star(a);
+        return result;
+    }
+
+    expr_ref mk_plus(expr* a) {
+        expr_ref result(m());
+        if (mk_re_plus(a, result) == BR_FAILED)
+            result = re().mk_plus(a);
+        return result;
+    }
+
+    expr_ref mk_opt(expr* a) {
+        expr_ref result(m());
+        if (mk_re_opt(a, result) == BR_FAILED)
+            result = re().mk_opt(a);
+        return result;
+    }
+
+    expr_ref mk_loop(expr* a, unsigned lo) {
+        app_ref loop(re().mk_loop(a, lo), m());
+        return mk_app(loop->get_decl(), loop->get_num_args(), loop->get_args());
+    }
+
+    expr_ref mk_loop(expr* a, unsigned lo, unsigned hi) {
+        app_ref loop(re().mk_loop(a, lo, hi), m());
+        return mk_app(loop->get_decl(), loop->get_num_args(), loop->get_args());
+    }
+
+    expr_ref mk_diff(expr* a, expr* b) {
+        expr_ref result(m());
+        if (mk_re_diff(a, b, result) == BR_FAILED)
+            result = re().mk_diff(a, b);
+        return result;
+    }
+
+    expr_ref mk_reverse(expr* a) {
+        expr_ref result(m());
+        if (mk_re_reverse(a, result) == BR_FAILED)
+            result = re().mk_reverse(a);
+        return result;
+    }
+
     /*
     * makes concat and simplifies
     */

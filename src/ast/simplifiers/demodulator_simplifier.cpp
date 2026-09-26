@@ -178,16 +178,27 @@ void demodulator_simplifier::reschedule_demodulators(func_decl* f, expr* lhs) {
 void demodulator_simplifier::reset() {
     m_pinned.reset();
     m_index.reset();
+    m_rewrites.reset();
     m_processed.reset();
     m_todo.reset();
     unsigned max_vid = 1;
-    for (unsigned i : indices())
+    for (unsigned i = 0; i < qtail(); ++i)
         max_vid = std::max(max_vid, m_util.max_var_id(fml(i)));
     m_match_subst.reserve(max_vid);
 }
 
 void demodulator_simplifier::reduce() {
     reset();
+    for (unsigned i = 0; i < qhead(); ++i) {
+        app_ref large(m);
+        expr_ref small(m);
+        if (!m_util.is_demodulator(fml(i), large, small))
+            continue;
+        m_index.insert_fwd(large->get_decl(), i);
+        m_rewrites.insert(i, app_expr_pair(large, small));
+        m_pinned.push_back(large);
+        m_pinned.push_back(small);
+    }
     for (unsigned i : indices())
         m_todo.push_back(i);
 

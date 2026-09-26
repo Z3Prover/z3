@@ -46,10 +46,10 @@ def check_dependencies():
     """Fail early if required build tools are not on PATH."""
     missing = []
     if not shutil.which("cmake"):
-        missing.append(("cmake", "pip install --user 'cmake>=3.30'"))
+        missing.append(("cmake", "pip install --user 'cmake>=3.26'"))
     elif (cmake_version() or (0, 0)) < MIN_CMAKE_VERSION:
-        # Z3 requires CMake >= 3.30; distro packages (e.g. apt's) are often older.
-        missing.append(("cmake >= 3.30", "pip install --user --upgrade 'cmake>=3.30'"))
+        # Z3 requires CMake >= 3.26; distro packages (e.g. apt's) are often older.
+        missing.append(("cmake >= 3.26", "pip install --user --upgrade 'cmake>=3.26'"))
     if not shutil.which("make"):
         missing.append(("make", "sudo apt install build-essential"))
 

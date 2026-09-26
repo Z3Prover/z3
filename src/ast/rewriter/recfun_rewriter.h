@@ -18,22 +18,40 @@ Author:
 
 #pragma once
 
+#include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter.h"
 
 class recfun_rewriter {
     ast_manager& m;
     recfun::util  m_rec;
+    datatype::util m_dt;
     bool m_recfun_unfold = false;
 
 public:
-    recfun_rewriter(ast_manager& m): m(m), m_rec(m) {}
+    recfun_rewriter(ast_manager& m): m(m), m_rec(m), m_dt(m) {}
     
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
+
+    /**
+       \brief Check whether the body of the recursive definition of f only uses argument i
+       through accessors and recognizers, so that unfolding f on a constructor term at
+       position i is structurally decreasing. With allow_any_accessor = false at most one
+       accessor kind may be used (guards against reconstructing a non-ground argument);
+       with allow_any_accessor = true, which is safe for ground constructor terms, any
+       accessor kinds may be used.
+    */
+    bool is_decreasing_arg(func_decl* f, unsigned i, bool allow_any_accessor);
+
+    /**
+       \brief Check whether t is a recursive-function application that can be safely
+       evaluated by MBQI because it has a ground, structurally decreasing datatype
+       argument and all non-ground arguments have uninterpreted sorts.
+    */
+    bool is_recfun_with_ground_recursion_args(app* t);
 
     family_id get_fid() const { return m_rec.get_family_id(); }
 
     void updt_params(params_ref const &p);
 
 };
-

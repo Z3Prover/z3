@@ -245,37 +245,43 @@ void tst_seq_parikh() {
     // Regression for the rotation being shared across observers.  The clock is an argument
     // of the rotation, so clocks of different moduli that happen to agree used to make
     // congruence identify rotations that mean different things.  n >= 3 puts two observers
-    // in the same system, which is what it takes to see this.
-    for (unsigned n = 1; n <= 6; ++n) {
+    // in the same system, which is what it takes to see this.  n = 4..6 repeat the
+    // same check with more observers and take tens of seconds each in Debug, so
+    // they run in seq_parikh_long.
+    for (unsigned n = 1; n <= 3; ++n) {
         check("ayyx", "aba", 1, n, verdict::allowed);   // y empty, x = "ba"
         check("aba", "ax", 1, n, verdict::allowed);     // x = "ba"
         check("xax", "axa", 2, n, verdict::allowed);    // x in a*
     }
 
     test_shared_alphabet();
-    // Only the random grids that finish in a few seconds run here. The
+    // Only the random grids that finish in a few seconds (n = 1) run here. The
     // larger grids spend most of their time on systems that exhaust the
     // resource bound and read as `allowed`, which no assertion consumes;
     // they run in seq_parikh_long, only when named (see FOR_EACH_EXTRA_TEST
     // in main.cpp).
-    for (unsigned n = 1; n <= 2; ++n) {
-        test_random(80, 1, n);
-    }
-    for (unsigned n = 1; n <= 2; ++n) {
-        test_random(25, 2, n);
-    }
+    test_random(80, 1, 1);
+    test_random(25, 2, 1);
     std::cout << "seq_parikh: " << g_checks << " directed cases, " << g_failures << " failures" << std::endl;
     ENSURE(g_failures == 0);
 }
 
-// The random grids dominated by the resource bound (about 1.5 minutes).
+// The directed cases with many observers and the random grids dominated by
+// the resource bound (about 20 minutes in Debug).
 // Not part of `test-z3 -a`; run as `test-z3 seq_parikh_long`.
 void tst_seq_parikh_long() {
     g_failures = 0;
-    for (unsigned n = 3; n <= 4; ++n) {
+    for (unsigned n = 4; n <= 6; ++n) {
+        check("ayyx", "aba", 1, n, verdict::allowed);
+        check("aba", "ax", 1, n, verdict::allowed);
+        check("xax", "axa", 2, n, verdict::allowed);
+    }
+    for (unsigned n = 2; n <= 4; ++n) {
         test_random(80, 1, n);
     }
-    test_random(25, 2, 3);
+    for (unsigned n = 2; n <= 3; ++n) {
+        test_random(25, 2, n);
+    }
     std::cout << "seq_parikh_long: " << g_failures << " failures" << std::endl;
     ENSURE(g_failures == 0);
 }

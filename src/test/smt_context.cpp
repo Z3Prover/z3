@@ -20,6 +20,39 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/smtlogics/smt_tactic.h"
 #include <sstream>
 
+static void check_sat_smt_recfun(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
+}
+
+static void check_sat_smt_model(char const* input)
+{
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(l_true == slv->check_sat(0, nullptr));
+    model_ref model;
+    slv->get_model(model);
+    VERIFY(model);
+}
+
 void tst_smt_context()
 {
     smt_params params;
@@ -213,4 +246,19 @@ void tst_smt_context()
             slv->assert_expr(a);
         VERIFY(l_true == slv->check_sat(0, nullptr));
     }
+
+    check_sat_smt_recfun(
+        "(declare-sort I 0)\n"
+        "(declare-fun isI (I) Bool)\n"
+        "(declare-datatype L1 ((n1) (c1 (h1 I) (t1 L1))))\n"
+        "(declare-datatype L2 ((n2) (c2 (h2 L1) (t2 L2))))\n"
+        "(define-fun-rec isL1 ((x L1)) Bool (ite (is-c1 x) (and (isI (h1 x)) (isL1 (t1 x))) true))\n"
+        "(declare-fun isL2 (L2) Bool)\n"
+        "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
+        "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
+
+    check_sat_smt_model(
+        "(declare-sort H 0)\n"
+        "(declare-const h H)\n"
+        "(assert (partial-order h h))\n");
 }

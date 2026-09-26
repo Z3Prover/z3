@@ -160,8 +160,14 @@ void tst_total_order() {
     tst2();
     tst4(3,    1000000);
     tst4(100,  100000);
-    tst4(512,  100000);
-    tst4(1000, 100000);
     tst3(100,  100000);
     tst3(1000, 100000);
+}
+
+// tst4 re-validates the whole order after every move, so its cost is
+// sz * num_rounds; the large sizes take over 10 seconds in Debug.
+// Not part of `test-z3 -a`; run as `test-z3 total_order_long`.
+void tst_total_order_long() {
+    tst4(512,  100000);
+    tst4(1000, 100000);
 }

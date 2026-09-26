@@ -23,6 +23,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/rewriter/recfun_rewriter.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/macros/cond_macro.h"
@@ -1892,6 +1893,7 @@ namespace smt {
             array_util           m_array_util;
             arith_util           m_arith_util;
             bv_util              m_bv_util;
+            recfun_rewriter      m_recfun_rw;
 
             quantifier_info* m_info;
 
@@ -2185,7 +2187,14 @@ namespace smt {
                     m_info->m_ng_decls.insert(t->get_decl());
                 }
 
-                if (is_uninterp(t)) {
+                // A function defined by define-fun-rec is, from the point of view of
+                // model-based quantifier instantiation, an uninterpreted function: its
+                // interpretation is a table extended lazily by the recfun theory on the
+                // ground instances. Treating it as interpreted leaves the quantified
+                // variables occurring as its arguments without instantiation set, so the
+                // model finder invents a fresh element of that sort at every round and
+                // the model checker keeps producing a new counterexample.
+                if (is_uninterp(t) || m_recfun_rw.is_recfun_with_ground_recursion_args(t)) {
                     process_u_app(t);
                 }
                 else {
@@ -2384,6 +2393,7 @@ namespace smt {
                 m_array_util(m),
                 m_arith_util(m),
                 m_bv_util(m),
+                m_recfun_rw(m),
                 m_info(nullptr) {
             }
 

@@ -79,7 +79,14 @@ void model_reconstruction_trail::replay(unsigned qhead, expr_ref_vector& assumpt
         if (t->is_loose_subst()) {                
             for (auto const& [k, v] : t->m_subst->sub()) {
                 add_vars(v, free_vars);
-                st.add(dependent_expr(m, m.mk_eq(k, v), nullptr, nullptr));
+                proof* pr = nullptr;
+                expr_dependency* dep = nullptr;
+                if (st.proofs_enabled()) {
+                    expr* value = nullptr;
+                    if (!t->m_subst->find(k, value, pr, dep) || !pr)
+                        throw default_exception("cannot replay a substitution without its proof");
+                }
+                st.add(dependent_expr(m, m.mk_eq(k, v), pr, dep));
             }
             m_trail_stack.push(value_trail(t->m_active));
             t->m_active = false;

@@ -45,11 +45,12 @@ void test_sin_cos_identity_detects_conflict() {
     params_ref p;
     p.set_bool("arith.nl.nra", true);
 
-    lpvar t       = s.add_var(0, true);
-    lpvar sin_val = s.add_var(1, true);
-    lpvar cos_val = s.add_var(2, true);
-    lpvar sin2    = s.add_var(3, true);
-    lpvar cos2    = s.add_var(4, true);
+    // Integer columns would round the 3/5 lower bounds up to 1.
+    lpvar t       = s.add_var(0, false);
+    lpvar sin_val = s.add_var(1, false);
+    lpvar cos_val = s.add_var(2, false);
+    lpvar sin2    = s.add_var(3, false);
+    lpvar cos2    = s.add_var(4, false);
 
     nla::core nla_solver(s, p, rl);
     nla_solver.add_transcendental(nlsat::transcendental_op_kind::SIN, t, sin_val);
@@ -64,12 +65,17 @@ void test_sin_cos_identity_detects_conflict() {
     // sin_val = cos_val = 0.8: each square is 0.64, individually within the
     // (already-known, identity-independent) [0,1] range, but their sum
     // (1.28) contradicts sin^2+cos^2=1.
-    s.set_column_value_test(sin_val, lp::impq(rational(4), rational(5)));
-    s.set_column_value_test(cos_val, lp::impq(rational(4), rational(5)));
-    s.set_column_value_test(sin2, lp::impq(rational(16), rational(25)));
-    s.set_column_value_test(cos2, lp::impq(rational(16), rational(25)));
     s.add_var_bound(sin2, lp::lconstraint_kind::GE, rational(3, 5));
     s.add_var_bound(cos2, lp::lconstraint_kind::GE, rational(3, 5));
+    // impq(a, b) means a + b*epsilon, not a/b.
+    s.set_column_value_test(sin_val, lp::impq(rational(4, 5)));
+    s.set_column_value_test(cos_val, lp::impq(rational(4, 5)));
+    s.set_column_value_test(sin2, lp::impq(rational(16, 25)));
+    s.set_column_value_test(cos2, lp::impq(rational(16, 25)));
+    for (lpvar v : {sin_val, cos_val, sin2, cos2}) {
+        VERIFY(s.column_is_feasible(v));
+        VERIFY(s.get_column_value(v).y.is_zero());
+    }
 
     lbool result = nla_solver.test_check();
     VERIFY(result == l_false);

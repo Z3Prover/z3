@@ -78,11 +78,11 @@ namespace opt {
 
         void reset();
 
-        lbool basic_opt();
-        
         bool can_increment_delta(vector<inf_eps> const& lower, unsigned i);
 
     private:
+
+        enum class nlsat_outcome { no_result, certified, incomplete };
 
         inf_eps const& lower(unsigned index) const { return m_lower[index].rational_bound(); }
         inf_eps const& upper(unsigned index) const { return m_upper[index].rational_bound(); }
@@ -93,9 +93,12 @@ namespace opt {
 
         lbool geometric_search(unsigned idx, bool is_maximize);
 
+        lbool refine_real_objective(unsigned idx, bool is_maximize, inf_eps const& hi, bool smt_gave_up);
         lbool bisect(unsigned idx, bool is_maximize, inf_eps hi);
-        lbool nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
+        nlsat_outcome nlsat_cells(unsigned idx, bool is_maximize, inf_eps const& hi);
         bool prove_unbounded_above(unsigned idx, unsigned rlimit_budget);
+
+        void publish_best_model();
 
         void set_best(unsigned idx, inf_eps const& v, bool is_maximize);
 
@@ -104,8 +107,6 @@ namespace opt {
         expr_ref update_lower();
 
         void update_lower_lex(unsigned idx, inf_eps const& r, bool is_maximize);
-
-        lbool update_upper();
 
     };
 

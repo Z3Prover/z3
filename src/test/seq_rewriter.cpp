@@ -41,6 +41,68 @@ static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
 }
 
+static void tst_nested_sequence_assumptions() {
+    for (unsigned seed = 0; seed < 100; ++seed) {
+        for (bool reverse : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            seq_util su(m);
+            arith_util a(m);
+            sort_ref seq_int(su.str.mk_seq(a.mk_int()), m);
+            sort_ref seq_seq_int(su.str.mk_seq(seq_int), m);
+            app_ref x(m.mk_fresh_const("x", seq_seq_int), m);
+            app_ref xp(m.mk_fresh_const("xp", seq_seq_int), m);
+            app_ref z(m.mk_fresh_const("z", seq_int), m);
+            app_ref n(m.mk_fresh_const("n", a.mk_int()), m);
+            app_ref l0(m.mk_fresh_const("l0", m.mk_bool_sort()), m);
+            app_ref l1(m.mk_fresh_const("l1", m.mk_bool_sort()), m);
+            app_ref l3(m.mk_fresh_const("l3", m.mk_bool_sort()), m);
+            app_ref l4(m.mk_fresh_const("l4", m.mk_bool_sort()), m);
+            app_ref l5(m.mk_fresh_const("l5", m.mk_bool_sort()), m);
+            expr_ref zero(a.mk_int(0), m), one(a.mk_int(1), m);
+            expr_ref empty(su.str.mk_empty(seq_int), m);
+            expr_ref empty_outer(su.str.mk_empty(seq_seq_int), m);
+            smt_params sp;
+            sp.m_random_seed = seed;
+            smt::context ctx(m, sp);
+
+            ctx.assert_expr(m.mk_not(m.mk_eq(
+                su.str.mk_unit(one), su.str.mk_substr(z, zero, one))));
+            ctx.assert_expr(m.mk_eq(l5, l0));
+            ctx.assert_expr(m.mk_not(m.mk_eq(
+                su.str.mk_substr(z, n, one), su.str.mk_unit(zero))));
+            ctx.assert_expr(m.mk_eq(
+                l4, m.mk_eq(x, su.str.mk_concat(xp, su.str.mk_unit(z)))));
+            expr* first[] = {l1, l3, l5};
+            expr* second[] = {l4};
+            if (reverse) {
+                ENSURE(ctx.check(1, second) == l_true);
+                ENSURE(ctx.check(3, first) == l_true);
+            }
+            else {
+                ENSURE(ctx.check(3, first) == l_true);
+                ENSURE(ctx.check(1, second) == l_true);
+            }
+
+            ctx.push();
+            ctx.assert_expr(m.mk_eq(x, empty_outer));
+            ENSURE(ctx.check(1, second) == l_false);
+            ctx.pop(1);
+            ENSURE(ctx.check(1, second) == l_true);
+
+            ctx.push();
+            ctx.assert_expr(m.mk_eq(xp, empty_outer));
+            ctx.assert_expr(m.mk_eq(z, empty));
+            ENSURE(ctx.check(1, second) == l_true);
+            ctx.push();
+            ctx.assert_expr(m.mk_not(m.mk_eq(su.str.mk_nth(x, zero), empty)));
+            ENSURE(ctx.check(1, second) == l_false);
+            ctx.pop(2);
+            ENSURE(ctx.check(1, second) == l_true);
+        }
+    }
+}
+
 void tst_seq_rewriter() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -613,5 +675,6 @@ void tst_seq_rewriter() {
         ENSURE(contains == expected);
     }
 
+    tst_nested_sequence_assumptions();
     std::cout << "tst_seq_rewriter: all tests passed\n";
 }

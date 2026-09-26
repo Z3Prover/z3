@@ -85,7 +85,7 @@ namespace euf {
 
     void fold_unfold::extract_subst(bool fuf, dep_eq_vector const& eqs) {
         m_find.reset();
-        for (auto const& [orig, v, t, d] : eqs) {
+        for (auto const& [orig, v, t, d, eq_pr] : eqs) {
             auto a = mk_enode(v);
             auto b = mk_enode(t);
             // verbose_stream() << mk_bounded_pp(v, m) << " == " << mk_bounded_pp(t, m) << "\n";
