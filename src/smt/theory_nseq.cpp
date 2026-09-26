@@ -810,6 +810,13 @@ namespace smt {
         bool stoi_progress = !check_stoi_coherence();
         if (m_mem_leaf)
             m_mem_leaf->reset_root_ask();
+        // At least one split is needed per top-level constraint just flushed
+        // into the tree, so solve()'s iterative-deepening loop cannot possibly
+        // finish below that many rounds: skip straight past the cheap,
+        // provably-insufficient depth_bound rounds solve() would otherwise
+        // re-try from 1 on every final_check_eh call (a pure perf floor -
+        // solve() still deepens further on depth_cutoff, same as before).
+        m_tree.set_min_search_depth(m_lits_qhead);
         stx::search_result res;
         try {
             res = m_tree.solve();

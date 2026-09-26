@@ -506,6 +506,15 @@ namespace stx {
         unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
+        // Starting bound for solve()'s doubling loop (see set_min_search_depth()).
+        // Every call to solve() otherwise restarts iterative deepening from 1,
+        // re-exploring the same shallow, provably-insufficient rounds each time -
+        // wasteful once the caller already knows some floor (e.g. the number of
+        // top-level constraints just asserted) below which no split sequence can
+        // possibly finish. This is a pure performance floor: solve() still runs
+        // the doubling loop and any depth_cutoff still triggers further deepening,
+        // so soundness/completeness are unaffected by any value here.
+        unsigned                               m_min_search_depth = 1;
 
         // iterative deepening doubles the bound (as c3), clamped so the maximum is still tried
         unsigned next_depth_bound(unsigned d) const { return d >= m_max_search_depth ? m_max_search_depth + 1 : std::min(2 * d, m_max_search_depth); }
@@ -900,6 +909,12 @@ namespace stx {
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
         void set_max_cost(unsigned c) { m_max_cost = c; }
         void set_max_nodes(unsigned n) { m_max_nodes = n; }
+        // Sets the floor solve() starts its doubling loop from (default 1).
+        // Intended to be called before each solve(), e.g. with the number of
+        // top-level constraints just flushed into the tree, so solve() skips
+        // depth_bound rounds that provably cannot yet touch every constraint
+        // once. Clamped so it never exceeds m_max_search_depth.
+        void set_min_search_depth(unsigned d) { m_min_search_depth = std::max(1u, std::min(d, m_max_search_depth)); }
 
         // Create the single root node (all facet slots initially null;
         // fill them in via the templated `register_facet<T>(node&, ...)`
@@ -1088,7 +1103,7 @@ namespace stx {
             m_sat_snapshot = nullptr;
             m_root->clear_conflict_deps();
             search_result res = search_result::depth_cutoff;
-            for (unsigned depth_bound = 1; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; depth_bound = next_depth_bound(depth_bound)) {
+            for (unsigned depth_bound = m_min_search_depth; depth_bound <= m_max_search_depth && res == search_result::depth_cutoff; depth_bound = next_depth_bound(depth_bound)) {
                 if (!m_limit.inc()) {
                     res = search_result::unknown;
                     break;
