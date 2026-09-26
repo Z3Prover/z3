@@ -2946,9 +2946,6 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         expr_ref rme(bv_rm, m);
         round(s, rme, sgn, sig, exp, result);
 
-        expr * e = m.mk_eq(m_util.mk_to_real(result), x);
-        m_extra_assertions.push_back(e);
-
         expr_ref r_is_nan(m);
         mk_is_nan(result, r_is_nan);
         m_extra_assertions.push_back(m.mk_not(r_is_nan));
@@ -2981,6 +2978,94 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_is_rm(bv_rm, BV_RM_TO_POSITIVE, rm_tp);
         mk_is_rm(bv_rm, BV_RM_TO_NEGATIVE, rm_tn);
         mk_is_rm(bv_rm, BV_RM_TO_ZERO, rm_tz);
+
+        // The conversion from a symbolic real is inexact in general; the result is the
+        // real number x rounded according to rm. The rounding relation is stated in terms
+        // of the real value of the result and the gaps to its neighboring floats.
+        {
+            expr_ref r_sgn(m), r_exp(m), r_sig(m);
+            split_fp(result, r_sgn, r_exp, r_sig);
+
+            // integer value of the significand field, as a real expression
+            expr_ref sig_field(m);
+            sig_field = zero;
+            rational w(1);
+            for (unsigned i = 0; i < sbits - 1; i++) {
+                expr_ref bit(m);
+                bit = bu.mk_extract(i, i, r_sig);
+                sig_field = au.mk_add(sig_field, m.mk_ite(m.mk_eq(bit, bv1), au.mk_numeral(w, false), zero));
+                w *= rational(2);
+            }
+
+            expr_ref exp_is_zero(m), exp_is_one(m), sig_is_zero(m), sig_is_even(m);
+            exp_is_zero = m.mk_eq(r_exp, bu.mk_numeral(0, ebits));
+            exp_is_one = m.mk_eq(r_exp, bu.mk_numeral(1, ebits));
+            sig_is_zero = m.mk_eq(r_sig, bu.mk_numeral(0, sbits - 1));
+            sig_is_even = m.mk_eq(bu.mk_extract(0, 0, r_sig), bv0);
+
+            // smallest positive (subnormal) value: 2^(2 - bias - sbits), with bias = max_exp
+            rational min_subnormal = rational(1) /
+                (rational(m_mpf_manager.m_powers2(max_exp)) * rational(m_mpf_manager.m_powers2(sbits - 2)));
+
+            // significand value including the hidden bit (normal case)
+            expr_ref sig_value(m);
+            sig_value = au.mk_add(au.mk_numeral(rational(m_mpf_manager.m_powers2(sbits - 1)), false), sig_field);
+
+            expr_ref r_real(m), abs_r(m), abs_x(m);
+            r_real = m_util.mk_to_real(result);
+            abs_r = m.mk_ite(au.mk_lt(r_real, zero), au.mk_uminus(r_real), r_real);
+            abs_x = m.mk_ite(au.mk_lt(x, zero), au.mk_uminus(x), x);
+
+            // gap to the next float of larger magnitude and to the next float of smaller magnitude
+            expr_ref e_min_subnormal(m), gap_up(m), gap_down(m);
+            e_min_subnormal = au.mk_numeral(min_subnormal, false);
+            gap_up = m.mk_ite(exp_is_zero, e_min_subnormal, au.mk_div(abs_r, sig_value));
+            // The gap below a power of two is half the gap above it, except for the smallest
+            // normal number, whose predecessor is the largest subnormal at the same distance.
+            gap_down = m.mk_ite(m.mk_or(exp_is_zero, exp_is_one, m.mk_not(sig_is_zero)),
+                                gap_up, au.mk_div(gap_up, two));
+
+            expr_ref lower_mid(m), upper_mid(m), in_nearest_range(m), tie_lo(m), tie_hi(m);
+            lower_mid = au.mk_sub(abs_r, au.mk_div(gap_down, two));
+            upper_mid = au.mk_add(abs_r, au.mk_div(gap_up, two));
+            in_nearest_range = m.mk_and(au.mk_le(lower_mid, abs_x), au.mk_le(abs_x, upper_mid));
+            tie_lo = m.mk_eq(abs_x, lower_mid);
+            tie_hi = m.mk_eq(abs_x, upper_mid);
+
+            expr_ref nte_cond(m), nta_cond(m);
+            nte_cond = m.mk_and(in_nearest_range, m.mk_implies(m.mk_or(tie_lo, tie_hi), sig_is_even));
+            nta_cond = m.mk_and(in_nearest_range, m.mk_not(tie_hi));
+
+            // rounding away from zero / toward zero, in terms of magnitudes.
+            // Rounding toward zero saturates at the largest finite value.
+            expr_ref is_max_finite(m), away_cond(m), to_zero_cond(m);
+            is_max_finite = m.mk_and(
+                m.mk_eq(r_exp, bu.mk_numeral(rational(m_mpf_manager.m_powers2(ebits)) - rational(2), ebits)),
+                m.mk_eq(r_sig, bu.mk_numeral(rational(m_mpf_manager.m_powers2.m1(sbits - 1, false)), sbits - 1)));
+            away_cond = m.mk_and(au.mk_le(abs_x, abs_r), au.mk_lt(au.mk_sub(abs_r, gap_down), abs_x));
+            to_zero_cond = m.mk_and(au.mk_le(abs_r, abs_x),
+                                    m.mk_or(au.mk_lt(abs_x, au.mk_add(abs_r, gap_up)), is_max_finite));
+
+            expr_ref x_is_nonneg(m), tp_cond(m), tn_cond(m), rounding_cond(m);
+            x_is_nonneg = au.mk_ge(x, zero);
+            tp_cond = m.mk_ite(x_is_nonneg, away_cond, to_zero_cond);
+            tn_cond = m.mk_ite(x_is_nonneg, to_zero_cond, away_cond);
+
+            rounding_cond = to_zero_cond;
+            rounding_cond = m.mk_ite(rm_tn, tn_cond, rounding_cond);
+            rounding_cond = m.mk_ite(rm_tp, tp_cond, rounding_cond);
+            rounding_cond = m.mk_ite(rm_nte, nte_cond, rounding_cond);
+            rounding_cond = m.mk_ite(rm_nta, nta_cond, rounding_cond);
+
+            expr_ref r_is_inf(m);
+            mk_is_inf(result, r_is_inf);
+            m_extra_assertions.push_back(
+                m.mk_implies(m.mk_not(m.mk_or(r_is_nan, r_is_inf)), rounding_cond));
+
+            // rounding never changes the sign
+            m_extra_assertions.push_back(m.mk_implies(au.mk_gt(x, zero), m.mk_eq(r_sgn, bv0)));
+            m_extra_assertions.push_back(m.mk_implies(au.mk_lt(x, zero), m.mk_eq(r_sgn, bv1)));
+        }
 
         // Directed rounding overflows immediately beyond the largest finite value.
         // Nearest rounding overflows at the midpoint to the next binade.
