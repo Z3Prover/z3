@@ -1706,6 +1706,12 @@ namespace smt {
         expr_ref result(m);
         double score = 0;
         unsigned n = 0;
+        obj_hashtable<expr> cube_atoms;
+        for (expr* lit : cube) {
+            expr* atom = lit;
+            m.is_not(lit, atom);
+            cube_atoms.insert(atom);
+        }
         ctx->pop_to_search_lvl();
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
@@ -1715,11 +1721,7 @@ namespace smt {
                 continue;
 
             // A cube literal may be assumed through a proxy, leaving its atom unassigned.
-            if (any_of(cube, [&](expr* c) {
-                expr* atom = c;
-                m.is_not(c, atom);
-                return atom == e;
-            }))
+            if (cube_atoms.contains(e))
                 continue;
 
             // don't split on a backbone or its negation
