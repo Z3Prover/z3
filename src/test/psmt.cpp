@@ -16,11 +16,16 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include "smt/smt_solver.h"
 #include "smt/tactic/smt_tactic_core.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 #include <iostream>
+#include <sstream>
 
 // Regression test for GitHub issue #9985:
 //
@@ -134,6 +139,43 @@ static void tst_psmt_worker() {
         ENSURE(r == l_undef);
         (void)r;
         std::cout << "psmt UNKNOWN (no deadlock): " << r << "\n";
+    }
+
+    // Exercise native smt.threads, which uses smt_parallel rather than the psmt tactic.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream input(R"(
+(declare-fun g (Real) Real)
+(declare-fun f ((_ FloatingPoint 8 24)) (_ FloatingPoint 8 24))
+(declare-fun y () (_ FloatingPoint 8 24))
+(declare-fun x () (_ FloatingPoint 8 24))
+(assert (forall ((q Real)) (! (> (g q) 0.0) :pattern ((g q)))))
+(assert (forall ((q Real)) (! (>= (g q) (+ 1.0 q)) :pattern ((g q)))))
+(assert (=> (not (fp.isNaN (fp.sub roundNearestTiesToEven x y)))
+            (fp.geq (f (fp.sub roundNearestTiesToEven x y)) (_ +zero 8 24))))
+(assert (not (fp.geq (f (fp.sub roundNearestTiesToEven x y)) (_ +zero 8 24))))
+)");
+        VERIFY(parse_smt2_commands(cmd, input));
+        params_ref parallel_params;
+        parallel_params.set_uint("threads", 2);
+        parallel_params.set_uint("random_seed", 66);
+        ref<solver> s = mk_smt_solver(m, parallel_params, symbol::null);
+        for (expr* a : cmd.assertions())
+            s->assert_expr(a);
+
+        cancel_eh<reslimit> eh(m.limit());
+        scoped_timer timer(10000, &eh);
+        s->check_sat(0, nullptr);
+        statistics st;
+        s->collect_statistics(st);
+        bool split = false;
+        for (unsigned i = 0; i < st.size(); ++i) {
+            if (std::string(st.get_key(i)) == "parallel-max-cube-size") {
+                split = st.get_uint_value(i) > 0;
+                break;
+            }
+        }
+        ENSURE(split);
     }
 
     std::cout << "psmt tests passed\n";

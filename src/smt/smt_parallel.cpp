@@ -800,7 +800,7 @@ namespace smt {
                 if (m_config.m_max_cube_depth <= cube.size())
                     goto check_cube_start;
 
-                auto atom = get_split_atom();
+                auto atom = get_split_atom(cube);
                 if (!atom)
                     goto check_cube_start;
                 b.try_split(m_l2g, id, lease, atom, m_config.m_threads_max_conflicts);
@@ -1702,16 +1702,26 @@ namespace smt {
         return r;
     }
 
-    expr_ref parallel::worker::get_split_atom() {
+    expr_ref parallel::worker::get_split_atom(expr_ref_vector const& cube) {
         expr_ref result(m);
         double score = 0;
         unsigned n = 0;
+        expr_fast_mark1 cube_atoms;
+        for (expr* lit : cube) {
+            expr* atom = lit;
+            m.is_not(lit, atom);
+            cube_atoms.mark(atom);
+        }
         ctx->pop_to_search_lvl();
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;
             expr *e = ctx->bool_var2expr(v);
             if (!e)
+                continue;
+
+            // A cube literal may be assumed through a proxy, leaving its atom unassigned.
+            if (cube_atoms.is_marked(e))
                 continue;
 
             // don't split on a backbone or its negation

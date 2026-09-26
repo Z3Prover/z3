@@ -297,7 +297,7 @@ namespace smt {
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             
-            expr_ref get_split_atom();
+            expr_ref get_split_atom(expr_ref_vector const& cube);
 
             lbool check_cube(expr_ref_vector const& cube);
             void share_units();
