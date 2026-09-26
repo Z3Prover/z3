@@ -1715,7 +1715,11 @@ namespace smt {
                 continue;
 
             // A cube literal may be assumed through a proxy, leaving its atom unassigned.
-            if (any_of(cube, [&](expr* c) { m.is_not(c, c); return c == e; }))
+            if (any_of(cube, [&](expr* c) {
+                expr* atom = c;
+                m.is_not(c, atom);
+                return atom == e;
+            }))
                 continue;
 
             // don't split on a backbone or its negation
