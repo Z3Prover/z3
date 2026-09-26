@@ -55,6 +55,8 @@ namespace seq {
      * Key properties:
      * - Results are memoized for termination on cyclic derivative graphs
      * - Union/intersection operands are sorted for ACI canonicalization
+     * - Regex construction uses the shared seq_rewriter smart constructors;
+     *   only canonical constants and opaque, stuck derivatives are built raw
      * - Depth-bounded to prevent stack overflow
      */
     class derive {
@@ -183,6 +185,10 @@ namespace seq {
         // Core derivative computation
         expr_ref derive_rec(expr* r);
         expr_ref derive_core(expr* r);
+        expr_ref mk_stuck_derivative(expr* r) {
+            // Rewriting this node would re-enter the depth-limited computation.
+            return expr_ref(re().mk_derivative(m_ele, r), m);
+        }
 
         // Helpers for specific regex constructs
         expr_ref derive_to_re(expr* s, sort* seq_sort);
@@ -221,9 +227,6 @@ namespace seq {
         bool pred_implies(bool sign_a, expr* a, bool sign_b, expr* b);
         bool pred_implies(expr* a, expr* b);
 
-        // Normalize reverse(r)
-        expr_ref mk_regex_reverse(expr* r);
-
         // Condition evaluation helpers
         lbool eval_cond(expr* cond);
         lbool eval_range_cond(expr* c);
@@ -233,11 +236,9 @@ namespace seq {
         // Cofactor enumeration over a transition regex (ITE-tree).
         void get_cofactors_rec(expr* r, expr_ref_pair_vector& result);
 
-        // Re-apply union/intersection simplifications bottom-up to a cofactor
-        // leaf.  decompose_ite substitutes ITE branch values structurally
-        // (no simplification), so leaves can contain un-normalized nodes such
-        // as union(R, none) or inter(R, none); this rebuilds them through
-        // mk_union/mk_inter so equal states share a canonical form.
+        // Rebuild cofactor leaves bottom-up through smart constructors.
+        // decompose_ite substitutes branches without simplifying any of the
+        // surrounding operators. Shared subterms are visited only once.
         expr_ref clean_leaf(expr* r);
 
         sort* re_sort(expr* r) { return r->get_sort(); }

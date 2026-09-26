@@ -224,9 +224,227 @@ static void test_derive_reverse_union_normalization() {
     }
 }
 
+static void test_derive_concat_normalization() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref full(u.re.mk_full_seq(re_sort), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref cd(u.re.mk_range(re_sort, 'c', 'd'), m);
+    expr_ref ef(u.re.mk_range(re_sort, 'e', 'f'), m);
+    expr_ref body = rw.mk_re_append(full, rw.mk_re_append(ab, full));
+    expr_ref ch_z(u.mk_char('z'), m), ch_a(u.mk_char('a'), m);
+    auto literal = [&](char const* s) {
+        return expr_ref(u.re.mk_to_re(u.str.mk_string(zstring(s))), m);
+    };
+
+    for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+        for (unsigned n : {3u, 30u, 40u, 50u}) {
+            expr_ref loop(u.re.mk_loop(body, n, n), m);
+            expr_ref derivative = rw.get_derive()(kind, ch_z, loop);
+            ENSURE(derivative == loop);
+        }
+        expr_ref loop(u.re.mk_loop(body, 2, 4), m);
+        ENSURE(rw.get_derive()(kind, ch_z, loop) == loop);
+
+        expr_ref ax = literal("ax"), yz = literal("yz"), xyz = literal("xyz");
+        expr_ref strings(u.re.mk_concat(ax, yz), m);
+        ENSURE(rw.get_derive()(kind, ch_a, strings) == xyz);
+
+        expr_ref left(u.re.mk_concat(literal("a"), ab), m);
+        left = u.re.mk_concat(left, cd);
+        left = u.re.mk_concat(left, ef);
+        expr_ref expected = rw.mk_re_append(ab, rw.mk_re_append(cd, ef));
+        ENSURE(rw.get_derive()(kind, ch_a, left) == expected);
+    }
+}
+
+static void test_derive_repetition_normalization() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref star(u.re.mk_star(ab), m), plus(u.re.mk_plus(ab), m);
+    expr_ref ch_a(u.mk_char('a'), m);
+    expr_ref_vector inputs(m);
+    inputs.push_back(u.re.mk_star(star));
+    inputs.push_back(u.re.mk_star(plus));
+    inputs.push_back(u.re.mk_plus(star));
+    inputs.push_back(u.re.mk_loop(ab, 1));
+
+    for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+        for (expr* input : inputs)
+            ENSURE(rw.get_derive()(kind, ch_a, input) == star);
+
+        expr_ref twice(u.re.mk_loop(ab, 2, 2), m);
+        expr_ref six(u.re.mk_loop(twice, 3, 3), m);
+        expr_ref five(u.re.mk_loop(ab, 5, 5), m);
+        ENSURE(rw.get_derive()(kind, ch_a, six) == five);
+    }
+}
+
+static void test_derive_reverse_smart_constructors() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref af(u.re.mk_range(re_sort, 'a', 'f'), m);
+    expr_ref cz(u.re.mk_range(re_sort, 'c', 'z'), m);
+    expr_ref cf(u.re.mk_range(re_sort, 'c', 'f'), m);
+    expr_ref cf_star(u.re.mk_star(cf), m);
+    expr_ref ab_star(u.re.mk_star(ab), m);
+    expr_ref ch_a(u.mk_char('a'), m), ch_c(u.mk_char('c'), m);
+    expr_ref twice(u.re.mk_loop(ab, 2, 2), m);
+    expr_ref repeated(u.re.mk_concat(ab, twice), m);
+    expr_ref reversed(u.re.mk_reverse(repeated), m);
+
+    for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+        ENSURE(rw.get_derive()(kind, ch_a, reversed) == twice);
+
+        expr_ref_vector bodies(m);
+        bodies.push_back(u.re.mk_inter(af, cz));
+        bodies.push_back(u.re.mk_diff(af, ab));
+        for (expr* body : bodies) {
+            expr_ref input(u.re.mk_reverse(u.re.mk_star(body)), m);
+            ENSURE(rw.get_derive()(kind, ch_c, input) == cf_star);
+        }
+        bodies.reset();
+        bodies.push_back(u.re.mk_complement(u.re.mk_complement(ab)));
+        bodies.push_back(u.re.mk_loop(ab, 0u));
+        bodies.push_back(u.re.mk_opt(ab));
+        for (expr* body : bodies) {
+            expr_ref input(u.re.mk_reverse(u.re.mk_star(body)), m);
+            ENSURE(rw.get_derive()(kind, ch_a, input) == ab_star);
+        }
+
+        expr_ref ba(u.re.mk_to_re(u.str.mk_string(zstring("ba"))), m);
+        expr_ref b(u.re.mk_to_re(u.str.mk_string(zstring("b"))), m);
+        expr_ref reverse_ba(u.re.mk_reverse(ba), m);
+        ENSURE(rw.get_derive()(kind, ch_a, reverse_ba) == b);
+    }
+}
+
+static void test_cofactor_smart_constructors() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref ele(m.mk_var(0, u.mk_char_sort()), m);
+    expr_ref guard(m.mk_eq(ele, u.mk_char('a')), m);
+    expr_ref empty(u.re.mk_empty(re_sort), m);
+    expr_ref full(u.re.mk_full_seq(re_sort), m);
+    expr_ref epsilon(u.re.mk_to_re(u.str.mk_string(zstring(""))), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref twice(u.re.mk_loop(ab, 2, 2), m);
+    expr_ref thrice(u.re.mk_loop(ab, 3, 3), m);
+
+    auto check = [&](expr* input, expr* first, expr* second = nullptr) {
+        expr_ref_pair_vector cofactors(m);
+        rw.get_cofactors(ele, input, cofactors);
+        ENSURE(cofactors.size() == (second ? 2u : first ? 1u : 0u));
+        bool found_first = false, found_second = false;
+        for (auto const& [condition, target] : cofactors) {
+            ENSURE(target == first || target == second);
+            found_first |= target == first;
+            found_second |= target == second;
+        }
+        ENSURE(!first || found_first);
+        ENSURE(!second || found_second);
+    };
+
+    expr_ref conditional_ab(m.mk_ite(guard, ab, empty), m);
+    expr_ref concat(u.re.mk_concat(conditional_ab, twice), m);
+    check(concat, thrice);
+
+    expr_ref conditional(m.mk_ite(guard, full, empty), m);
+    expr_ref complement(u.re.mk_complement(conditional), m);
+    check(complement, full);
+    expr_ref plus(u.re.mk_plus(conditional), m);
+    check(plus, full);
+    expr_ref optional(u.re.mk_opt(conditional), m);
+    check(optional, full, epsilon);
+    expr_ref star(u.re.mk_star(conditional), m);
+    check(star, full, epsilon);
+    expr_ref loop(u.re.mk_loop(conditional, 0u), m);
+    check(loop, full, epsilon);
+    expr_ref xor_re(u.re.mk_xor(conditional, full), m);
+    check(xor_re, full);
+
+    expr_ref nested(u.re.mk_complement(u.re.mk_complement(concat)), m);
+    check(nested, thrice);
+
+    expr_ref unknown(m.mk_fresh_const("R", re_sort), m);
+    expr_ref stuck(u.re.mk_derivative(ele, unknown), m);
+    check(stuck, stuck);
+}
+
+static void test_shared_regex_constructor_boundaries() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util u(m);
+    seq_rewriter rw(m);
+    sort_ref re_sort(u.re.mk_re(u.str.mk_string_sort()), m);
+    expr_ref ab(u.re.mk_range(re_sort, 'a', 'b'), m);
+    expr_ref full(u.re.mk_full_seq(re_sort), m);
+    expr_ref dot(u.re.mk_full_char(re_sort), m);
+    expr_ref dot_plus(u.re.mk_plus(dot), m);
+    expr_ref epsilon = rw.mk_to_re(u.str.mk_string(zstring("")));
+    ENSURE(rw.mk_plus(dot) == dot_plus);
+    ENSURE(rw.mk_re_append(dot, full) == dot_plus);
+    ENSURE(rw.mk_re_append(full, dot) == dot_plus);
+    ENSURE(rw.mk_complement(epsilon) == dot_plus);
+    ENSURE(rw.mk_star(dot_plus) == full);
+    ENSURE(rw.mk_re_xor_simplified(full, rw.mk_complement(ab)) == ab);
+
+    expr_ref max_loop = rw.mk_loop(ab, UINT_MAX, UINT_MAX);
+    expr_ref almost_max = rw.mk_loop(ab, UINT_MAX - 1, UINT_MAX - 1);
+    expr_ref twice = rw.mk_loop(ab, 2, 2);
+    ENSURE(rw.mk_re_append(ab, almost_max) == max_loop);
+    ENSURE(rw.mk_re_append(almost_max, ab) == max_loop);
+    ENSURE(u.re.is_concat(rw.mk_re_append(ab, max_loop)));
+    ENSURE(u.re.is_concat(rw.mk_re_append(max_loop, ab)));
+    ENSURE(u.re.is_concat(rw.mk_re_append(max_loop, twice)));
+    expr_ref unbounded = rw.mk_loop(ab, UINT_MAX);
+    expr_ref one_or_more = rw.mk_loop(ab, 1);
+    ENSURE(u.re.is_concat(rw.mk_re_append(unbounded, one_or_more)));
+    ENSURE(u.re.is_concat(rw.mk_re_append(unbounded, twice)));
+
+    expr_ref many = rw.mk_loop(ab, 65536, 65536);
+    expr_ref nested = rw.mk_loop(many, 65536, 65536);
+    expr* inner = nullptr;
+    unsigned lo = 0, hi = 0;
+    ENSURE(u.re.is_loop(nested, inner, lo, hi));
+    ENSURE(inner == many && lo == 65536 && hi == 65536);
+    many = rw.mk_loop(ab, 65536);
+    nested = rw.mk_loop(many, 65536);
+    ENSURE(u.re.is_loop(nested, inner, lo));
+    ENSURE(inner == many && lo == 65536);
+
+    expr_ref at_least_two = rw.mk_loop(ab, 2);
+    expr_ref zero_or_at_least_two = rw.mk_loop(at_least_two, 0);
+    ENSURE(u.re.is_star(zero_or_at_least_two, inner) && inner == at_least_two);
+    expr_ref ch_a(u.mk_char('a'), m);
+    for (auto kind : {seq::derivative_kind::antimirov_t, seq::derivative_kind::brzozowski_t}) {
+        expr_ref derivative = rw.get_derive()(kind, ch_a, zero_or_at_least_two);
+        ENSURE(m.is_false(rw.is_nullable(derivative)));
+    }
+}
+
 void tst_seq_regex_bisim() {
     test_a_star_neq_ab_star();
     test_derive_cache_per_ele();
     test_derive_union_normalization();
     test_derive_reverse_union_normalization();
+    test_derive_concat_normalization();
+    test_derive_repetition_normalization();
+    test_derive_reverse_smart_constructors();
+    test_cofactor_smart_constructors();
+    test_shared_regex_constructor_boundaries();
 }

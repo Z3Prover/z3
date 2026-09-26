@@ -21,6 +21,7 @@ Author:
 #include "ast/reg_decl_plugins.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq/seq_monadic.h"
 #include "ast/seq/seq_view_witness.h"
@@ -561,6 +562,7 @@ class seq_monadic_test {
         cmd_context cmd(false, &m);
         std::istringstream is(input);
         bool ok = parse_smt2_commands(cmd, is);
+        bool resource_limited = false;
         if (ok) {
             params_ref p;
             ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
@@ -568,12 +570,22 @@ class seq_monadic_test {
                 slv->assert_expr(a);
             // Direct solver calls do not install the API's rlimit scope.
             scoped_rlimit limit(m.limit(), rlimit);
-            slv->check_sat(0, nullptr);
+            try {
+                slv->check_sat(0, nullptr);
+            }
+            catch (rewriter_exception const& ex) {
+                // Internal rewriting can report the installed budget by exception.
+                if (!m.limit().is_canceled() || std::string(ex.what()) != Z3_MAX_RESOURCE_MSG)
+                    throw;
+                resource_limited = true;
+            }
         }
         if (!ok) ++m_fail;
         std::cout << (ok ? "  OK   " : "  FAIL ") << name;
         if (!ok)
             std::cout << " parse failed";
+        if (resource_limited)
+            std::cout << " resource limit reached";
         std::cout << "\n";
     }
 
