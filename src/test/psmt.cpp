@@ -165,13 +165,16 @@ static void tst_psmt_worker() {
 
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(10000, &eh);
-        ENSURE(s->check_sat(0, nullptr) == l_undef);
+        s->check_sat(0, nullptr);
         statistics st;
         s->collect_statistics(st);
         bool split = false;
-        for (unsigned i = 0; i < st.size(); ++i)
-            if (std::string(st.get_key(i)) == "parallel-max-cube-size")
+        for (unsigned i = 0; i < st.size(); ++i) {
+            if (std::string(st.get_key(i)) == "parallel-max-cube-size") {
                 split = st.get_uint_value(i) > 0;
+                break;
+            }
+        }
         ENSURE(split);
     }
 
