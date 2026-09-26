@@ -5,7 +5,7 @@
   "environment_variable": "Z3_REGEX_STUDY_MODE",
   "modes": ["bisim", "subsumption"],
   "diagnostic_prefix": "regex-study ",
-  "upstream_base": "6e585beeaebf9f7efd56b1105a72e5b5451796fc",
-  "union_fix": "81c61b39ae33e9f147e64d3590ba778b433e3d3d",
+  "upstream_base": "ddf15d09502ba7bb36851609be5237db10483a3d",
+  "union_fix": "e77a84911a3705c03df5b75cfc8dd78ee4a74a24",
   "equivalence_step_bound": 50000
 }

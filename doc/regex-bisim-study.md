@@ -1,9 +1,16 @@
 # Regex equivalence study
 
 This study branch is based on master commit
-`6e585beeaebf9f7efd56b1105a72e5b5451796fc` plus the complete union-normalization
-fix `81c61b39ae33e9f147e64d3590ba778b433e3d3d` (PR #10920).
+`ddf15d09502ba7bb36851609be5237db10483a3d`, which includes the shared
+derivative smart-constructor fix (PR #10926) and the earlier union-normalization
+fix `e77a84911a3705c03df5b75cfc8dd78ee4a74a24` (PR #10920).
 The version string alone is insufficient to identify this baseline.
+
+The original campaign used study commit
+`4daccfba13706fe6486e6a0477ce04236f3acdf3`, preserved as
+`bisim-study-pre-smart-20260925`. Its source pin, binaries, and measurements
+remain separate from this rebased campaign. The study controls, counter
+locations, and ablation algorithms are unchanged by the rebase.
 
 Build one Release binary with CMake and Ninja:
 
