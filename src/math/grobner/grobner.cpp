@@ -421,6 +421,8 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
     return true;
 }
 
+// Approximate quadratic coefficient arithmetic in 32-bit words while leaving
+// coefficients below roughly 256 bits uncharged.
 static unsigned coeff_cost(rational const & a, rational const & b) {
     uint64_t da = a.bitsize() / 32;
     uint64_t db = b.bitsize() / 32;

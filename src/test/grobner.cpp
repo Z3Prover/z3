@@ -2,6 +2,9 @@
 #include "ast/reg_decl_plugins.h"
 
 void tst_grobner() {
+    constexpr unsigned coefficient_bits = 1024;
+    constexpr unsigned coefficient_word_bits = 32;
+    constexpr unsigned coefficient_cost_scale = 6;
     ast_manager m;
     reg_decl_plugins(m);
     v_dependency_manager dm;
@@ -12,8 +15,10 @@ void tst_grobner() {
     expr_ref z(m.mk_const("z", a.mk_int()), m);
     expr_ref one(a.mk_int(1), m);
     rational big(1);
-    for (unsigned i = 0; i < 1024; ++i)
+    for (unsigned i = 0; i < coefficient_bits; ++i)
         big *= rational(2);
+    uint64_t coefficient_words = big.bitsize() / coefficient_word_bits;
+    uint64_t coefficient_cost = (coefficient_words * coefficient_words) >> coefficient_cost_scale;
 
     g.set_weight(x, 1);
 
@@ -21,7 +26,7 @@ void tst_grobner() {
     expr* merge_monomials[] = { x, x };
     m.limit().reset_count();
     g.assert_eq_0(2, merge_coeffs, merge_monomials);
-    ENSURE(m.limit().count() >= 2 + 16);
+    ENSURE(m.limit().count() >= 2 + coefficient_cost);
 
     rational source_coeffs[] = { rational(1), big };
     expr* source_monomials[] = { x, one };
@@ -31,5 +36,5 @@ void tst_grobner() {
     g.assert_eq_0(3, target_coeffs, target_monomials);
     m.limit().reset_count();
     g.compute_basis(1);
-    ENSURE(m.limit().count() >= 16);
+    ENSURE(m.limit().count() >= coefficient_cost);
 }
