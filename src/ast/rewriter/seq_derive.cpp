@@ -28,6 +28,7 @@ Authors:
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "util/util.h"
+#include "util/z3_exception.h"
 #include <algorithm>
 
 namespace seq {
@@ -681,6 +682,9 @@ namespace seq {
     }
 
     expr_ref derive::mk_xor(expr *a, expr *b) {
+        if (m_op_depth >= m_max_op_depth)
+            return expr_ref(m_re.mk_xor0(a, b), m);
+        flet<unsigned> _scoped_op_depth(m_op_depth, m_op_depth + 1);
         return mk_core(OP_RE_XOR, a, b);
     }
 
@@ -731,6 +735,12 @@ namespace seq {
     }
 
     expr_ref derive::mk_union(expr* a, expr* b) {
+        // Bail out to the raw (unsimplified) constructor once the mutually
+        // recursive union/inter/complement/hoist_ite family gets too deep,
+        // rather than risking a stack overflow. See m_op_depth's comment.
+        if (m_op_depth >= m_max_op_depth)
+            return expr_ref(m_re.mk_union(a, b), m);
+        flet<unsigned> _scoped_op_depth(m_op_depth, m_op_depth + 1);
         return mk_core(OP_RE_UNION, a, b);
     }
 
@@ -853,6 +863,9 @@ namespace seq {
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
+        if (m_op_depth >= m_max_op_depth)
+            return expr_ref(m_re.mk_inter(a, b), m);
+        flet<unsigned> _scoped_op_depth(m_op_depth, m_op_depth + 1);
         return mk_core(OP_RE_INTERSECT, a, b);
     }
 
@@ -914,6 +927,13 @@ namespace seq {
         expr* cached = nullptr;
         if (complement_cache().find(a, pe, cached))
             return expr_ref(cached, m);
+
+        // Bail out to the raw (unsimplified) constructor once the mutually
+        // recursive union/inter/complement/hoist_ite family gets too deep,
+        // rather than risking a stack overflow. See m_op_depth's comment.
+        if (m_op_depth >= m_max_op_depth)
+            return expr_ref(m_re.mk_complement(a), m);
+        flet<unsigned> _scoped_op_depth(m_op_depth, m_op_depth + 1);
 
         expr_ref result = mk_complement_core(a);
 
@@ -1485,6 +1505,24 @@ namespace seq {
         // Hoist the (first) if-then-else condition to the top of r, splitting it
         // into the equivalent ite(c, th, el); when r contains no ite it is a
         // leaf of the transition regex.
+        //
+        // This recursion follows the nesting of *distinct* character-range
+        // conditions accumulated in the ITE-tree of r, which is not bounded by
+        // derive_rec's own m_max_depth: a transition regex built by combining
+        // several derivative steps over multiple (possibly negated/looped)
+        // membership constraints can carry an ITE-tree whose condition-nesting
+        // and total leaf count blow up combinatorially. Two independent
+        // recursive calls are made per node (then/else branch), so total work
+        // is exponential in that nesting depth while the *stack* depth needed
+        // to reach the deepest single path grows only logarithmically with the
+        // total work performed - which is why throwing more stack budget at
+        // this barely postpones a crash: reaching a handful of extra ITE
+        // levels costs orders of magnitude more total enumeration time. Bail
+        // out with a normal (catchable) resource exception rather than
+        // exhausting the native stack.
+        if (result.size() > m_max_cofactor_leaves || m_cofactor_rec_depth >= m_max_cofactor_depth)
+            throw default_exception("seq derivative: transition regex too large to enumerate cofactors");
+        flet<unsigned> _scoped_cofactor_depth(m_cofactor_rec_depth, m_cofactor_rec_depth + 1);
         expr_ref c(m), th(m), el(m);
         if (!m_br.decompose_ite(r, c, th, el)) {
             expr_ref cr = clean_leaf(r);

@@ -167,6 +167,38 @@ namespace stx {
         // debugging output); the engine never relies on the output being
         // present.
         virtual std::ostream& display(std::ostream& out) const { return out; }
+
+        // --- unsat-cache signature (see search_tree::m_unsat_cache) ---
+        //
+        // Does this facet's current state contribute to the transposition-
+        // table signature used to memoize string-only UNSAT nodes? Default
+        // false: a facet that doesn't override this is conservatively
+        // excluded from the signature, and any node where it currently
+        // holds live (non-vacuous, i.e. !is_satisfied()) content is made
+        // ineligible for the cache altogether (see search_tree::
+        // cache_eligible) - this is what keeps the cache sound without
+        // needing per-facet "did I actually cause this conflict"
+        // bookkeeping: a facet opting out only ever forfeits its own
+        // caching benefit (e.g. the arithmetic backend, whose bounds are
+        // deliberately excluded the same way c3's cache excludes length/
+        // arithmetic from its node signature), it can never cause an
+        // unsound hit.
+        virtual bool contributes_to_signature() const { return false; }
+
+        // Append this facet's current *active* constraints to `out` as a
+        // canonical (self-sorted internally, so the result is independent
+        // of the order constraints happened to be added/derived in - two
+        // nodes reaching the same active-constraint multiset via
+        // different split orders must serialize identically) sequence of
+        // plain values (typically AST expr ids, which are hash-consed and
+        // stay valid for the lifetime of the enclosing ast_manager). `out`
+        // is a freshly-built, fully owned vector - not a view into this
+        // facet's own (about-to-be-backtracked) internal containers - so
+        // it is always safe for the caller to keep past this call
+        // returning, including across the trail unwinding that follows
+        // this dfs() frame's return. Only ever called when
+        // contributes_to_signature() is true; default no-op.
+        virtual void append_signature(vector<uint64_t>& out) const {}
     };
 
     /**
@@ -480,6 +512,7 @@ namespace stx {
             unsigned m_num_unsat        = 0;
             unsigned m_num_unknown      = 0;
             unsigned m_max_depth        = 0;
+            unsigned m_num_cache_hits   = 0;
             std::unordered_map<std::string, unsigned> m_propagate_counts;
             std::unordered_map<std::string, unsigned> m_split_counts;
             void reset() { *this = stats(); }
@@ -506,6 +539,21 @@ namespace stx {
         unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
+        // Physical dfs() call-nesting counter: unlike `depth` (the logical
+        // iterative-deepening bound argument, which is NOT incremented for
+        // "free" progress edges - a variable eliminated, an arithmetic
+        // decision), this counts every recursive dfs() invocation regardless
+        // of edge kind. A long chain of free progress edges (e.g. a bound
+        // propagation that converges one unit at a time) can recurse far
+        // deeper than `m_depth_bound` ever sees, since the logical depth
+        // never advances - risking a native stack overflow rather than a
+        // clean depth_cutoff. This is a pure stack-safety backstop, set
+        // generously above any depth iterative deepening would reasonably
+        // reach; tripping it degrades to the already-handled depth_cutoff
+        // result (retried at a larger bound / eventually reported unknown),
+        // never changes the answer on well-behaved inputs.
+        unsigned                               m_raw_dfs_depth = 0;
+        static const unsigned                  m_max_raw_dfs_depth = 3000;
         // Starting bound for solve()'s doubling loop (see set_min_search_depth()).
         // Every call to solve() otherwise restarts iterative deepening from 1,
         // re-exploring the same shallow, provably-insufficient rounds each time -
@@ -520,6 +568,119 @@ namespace stx {
         unsigned next_depth_bound(unsigned d) const { return d >= m_max_search_depth ? m_max_search_depth + 1 : std::min(2 * d, m_max_search_depth); }
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
+
+        // --- unsat cache (transposition table for string-only UNSAT nodes) ---
+        //
+        // Unlike c3's m_unsat_node_cache (a set of persistent nielsen_node*
+        // pointers - c3 keeps every historical node alive until reset()),
+        // this engine has exactly one live, destructively-mutated node, so
+        // the cache instead stores owned VALUE snapshots: for each entry, a
+        // canonical vector of ids (see facet_i::append_signature) built
+        // fresh at insertion time and never aliasing the live facets. Keyed
+        // by an order-independent hash of that vector's contents for
+        // bucketing; a bucket may hold more than one distinct signature
+        // (hash collisions), so a hit still requires exact vector equality
+        // against the stored entry, never the hash alone.
+        bool                                    m_unsat_cache_enabled = true;
+        std::unordered_map<uint64_t, vector<vector<uint64_t>>> m_unsat_cache;
+
+        // True iff every facet NOT contributing to the signature currently
+        // holds no live content (is_satisfied()). This is the soundness
+        // gate: if some excluded facet (e.g. the arithmetic backend) has
+        // live, non-vacuous state, this node's UNSAT-ness (if any) might
+        // depend on that excluded state, so it must not be cached or used
+        // to prune via the cache - the node simply opts out, forfeiting
+        // its own caching benefit without risking an unsound hit elsewhere.
+        bool cache_eligible(node const& n) const {
+            for (facet_id id = 0; id < n.num_facets(); ++id) {
+                if (!n.has_facet(id))
+                    continue;
+                facet_i const& f = n.facet(id);
+                if (!f.contributes_to_signature() && !f.is_satisfied())
+                    return false;
+            }
+            return true;
+        }
+
+        // Canonical signature: concatenate every contributing facet's own
+        // (self-sorted) append_signature() output, in ascending facet_id
+        // order. facet_id order is fixed at root construction (unlike c3,
+        // which must explicitly sort a flat untyped constraint list), so
+        // cross-facet ordering is already canonical; each facet is
+        // responsible for making its own contribution order-independent.
+        static vector<uint64_t> compute_signature(node const& n) {
+            vector<uint64_t> ids;
+            for (facet_id id = 0; id < n.num_facets(); ++id)
+                if (n.has_facet(id) && n.facet(id).contributes_to_signature())
+                    n.facet(id).append_signature(ids);
+            return ids;
+        }
+
+        static uint64_t hash_signature(vector<uint64_t> const& ids) {
+            // FNV-1a: cheap, decent avalanche; collisions are expected
+            // occasionally and are handled by the exact-equality check
+            // that follows every bucket lookup, never trusted alone.
+            uint64_t h = 1469598103934665603ull;
+            for (uint64_t v : ids) {
+                h ^= v;
+                h *= 1099511628211ull;
+            }
+            return h;
+        }
+
+        static bool ids_eq(vector<uint64_t> const& a, vector<uint64_t> const& b) {
+            if (a.size() != b.size())
+                return false;
+            for (unsigned i = 0; i < a.size(); ++i)
+                if (a[i] != b[i])
+                    return false;
+            return true;
+        }
+
+        // Lookup: true iff this node's current (post-propagation) state
+        // exactly matches a previously-cached string-only UNSAT signature.
+        // Ineligible/trivial (empty signature) nodes never hit.
+        bool cache_lookup(node const& n) {
+            if (!m_unsat_cache_enabled || !cache_eligible(n))
+                return false;
+            vector<uint64_t> ids = compute_signature(n);
+            if (ids.empty())
+                return false;
+            auto it = m_unsat_cache.find(hash_signature(ids));
+            if (it == m_unsat_cache.end())
+                return false;
+            for (auto const& cand : it->second)
+                if (ids_eq(cand, ids)) {
+                    ++m_stats.m_num_cache_hits;
+                    return true;
+                }
+            return false;
+        }
+
+        // Insert: memoize this node's current state as string-only UNSAT.
+        // Only called at closure points the caller has already determined
+        // are a pure function of the signature-contributing facets (see
+        // dfs()); cache_eligible() is re-checked here regardless, as a
+        // second, cheap safety net.
+        void cache_insert(node const& n) {
+            if (!m_unsat_cache_enabled || !cache_eligible(n))
+                return;
+            vector<uint64_t> ids = compute_signature(n);
+            if (ids.empty())
+                return;
+            auto& bucket = m_unsat_cache[hash_signature(ids)];
+            for (auto const& cand : bucket)
+                if (ids_eq(cand, ids))
+                    return; // already memoized
+            bucket.push_back(std::move(ids));
+        }
+
+        unsigned unsat_cache_size() const {
+            unsigned n = 0;
+            for (auto const& [h, bucket] : m_unsat_cache)
+                n += bucket.size();
+            return n;
+        }
 
         // statistics::update() stores the raw char const* without copying
         // it, and statistics::copy() (used e.g. by check_sat_result to
@@ -702,13 +863,32 @@ namespace stx {
             return false;
         }
 
-        search_result dfs(unsigned depth, edge const* in_edge = nullptr) {
+        // `pure_out`, when non-null, is set (only meaningful when the
+        // return value is `unsat`) to whether this call's UNSAT verdict
+        // is a pure function of the signature-contributing facets
+        // throughout the ENTIRE subtree explored here - not just this
+        // frame's own current facet snapshot. A child branch may have
+        // transiently relied on excluded-facet content (e.g. an
+        // arithmetic split) that has already been popped/undone by the
+        // time this frame resumes, so purity has to be threaded up from
+        // where each conflict actually originated, mirroring c3's
+        // per-subtree `all_string_only` tracking (`m_unsat_cacheable`) -
+        // a point-in-time check at the aggregating parent alone cannot
+        // see what its children depended on along the way.
+        search_result dfs(unsigned depth, edge const* in_edge = nullptr, bool* pure_out = nullptr) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
             if (!m_limit.inc())
                 return search_result::unknown;
+            // Stack-safety backstop: see m_raw_dfs_depth's comment. Treated
+            // exactly like an ordinary depth_cutoff (both pure_out purity
+            // tracking and the iterative-deepening retry above already
+            // handle that result).
+            if (m_raw_dfs_depth >= m_max_raw_dfs_depth)
+                return search_result::depth_cutoff;
+            flet<unsigned> _scoped_raw_depth(m_raw_dfs_depth, m_raw_dfs_depth + 1);
 
             dfs_frame frame;
 
@@ -749,6 +929,16 @@ namespace stx {
             n.clear_status();
             simplify_result sr = propagate_to_fixpoint(n);
 
+            // --- unsat cache lookup: only when propagation didn't already
+            // resolve this node one way or the other, so a hit here always
+            // replaces genuine further search (branching), never a
+            // decision propagation already made for free.
+            if (sr != simplify_result::conflict && sr != simplify_result::satisfied &&
+                cache_lookup(n)) {
+                n.set_conflict(br_children_failed, nullptr);
+                sr = simplify_result::conflict;
+            }
+
             // --- dot trace: snapshot this node's own facet state now -
             // before any child branch further mutates the (single, live)
             // node in place.
@@ -762,6 +952,14 @@ namespace stx {
 
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
+                // Propagation-level conflict: sound to memoize whenever no
+                // excluded facet holds live content (cache_insert re-checks
+                // cache_eligible itself), mirroring c3's leaf-regex-
+                // infeasible insert site.
+                bool pure = cache_eligible(n);
+                if (pure)
+                    cache_insert(n);
+                if (pure_out) *pure_out = pure;
             }
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
@@ -784,8 +982,17 @@ namespace stx {
                     // conjunction) while declining to offer a branch -
                     // that conflict must be honored here, or a real unsat
                     // is misreported as unknown.
-                    if (n.is_conflict())
+                    if (n.is_conflict()) {
                         result = search_result::unsat;
+                        // A split plugin declared conflict directly (e.g. a
+                        // refuted membership conjunction) with no further
+                        // branching left to try: same leaf-level memoization
+                        // opportunity as the propagation-conflict site above.
+                        bool pure = cache_eligible(n);
+                        if (pure)
+                            cache_insert(n);
+                        if (pure_out) *pure_out = pure;
+                    }
                     else if (n.is_satisfied()) {
                         result = search_result::sat;
                         m_sat_snapshot = n.clone(m_trail);
@@ -796,14 +1003,16 @@ namespace stx {
                 else {
                     bool saw_unknown = false;
                     bool saw_depth_cutoff = false;
+                    bool all_children_pure = true; // AND-reduced across every UNSAT child
                     result = search_result::unsat;
                     edge cur_edge = first_edge;
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
+                        bool child_pure = false;
                         // progress edges (a variable eliminated, an arithmetic decision) are
                         // free; only edges introducing fresh variables count towards the bound
-                        cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge);
+                        cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge, &child_pure);
                         // Always pop back out of this branch, even on
                         // sat: the sat leaf's facet state was already
                         // captured by m_sat_snapshot (a cold-path
@@ -817,6 +1026,8 @@ namespace stx {
                             result = search_result::sat;
                             break;
                         }
+                        if (cr == search_result::unsat && !child_pure)
+                            all_children_pure = false;
                         if (cr == search_result::depth_cutoff)
                             saw_depth_cutoff = true;
                         else if (cr == search_result::unknown)
@@ -842,6 +1053,19 @@ namespace stx {
                             for (dep_tracker d : n.conflict_deps())
                                 joined = m_dep_mgr.mk_join(joined, d);
                             n.set_conflict(br_children_failed, joined);
+                            // Only cache this aggregate closure if EVERY
+                            // child's own unsat was itself pure (see the
+                            // pure_out doc comment above dfs()) AND this
+                            // node's own current (parent-level) facet
+                            // state has nothing excluded live either -
+                            // both conditions are required, since a
+                            // spurious cache entry here would prune an
+                            // unrelated node that legitimately still has
+                            // arithmetic-dependent branches to try.
+                            bool pure = all_children_pure && cache_eligible(n);
+                            if (pure)
+                                cache_insert(n);
+                            if (pure_out) *pure_out = pure;
                         }
                     }
                 }
@@ -916,6 +1140,13 @@ namespace stx {
         // once. Clamped so it never exceeds m_max_search_depth.
         void set_min_search_depth(unsigned d) { m_min_search_depth = std::max(1u, std::min(d, m_max_search_depth)); }
 
+        // Ablation switch for the unsat cache (default off until validated
+        // by ablation on real benchmarks - see the c3 branch's analogous
+        // nseq.unsat_cache toggle for the measurement methodology this
+        // mirrors).
+        void set_unsat_cache_enabled(bool b) { m_unsat_cache_enabled = b; }
+        bool unsat_cache_enabled() const { return m_unsat_cache_enabled; }
+
         // Create the single root node (all facet slots initially null;
         // fill them in via the templated `register_facet<T>(node&, ...)`
         // overload above, or `node::install_facet` directly).
@@ -982,6 +1213,8 @@ namespace stx {
             st.update("seq-stx num unsat", m_stats.m_num_unsat);
             st.update("seq-stx num unknown", m_stats.m_num_unknown);
             st.update("seq-stx max depth", m_stats.m_max_depth);
+            st.update("seq-stx unsat-cache size", unsat_cache_size());
+            st.update("seq-stx unsat-cache hits", m_stats.m_num_cache_hits);
             for (auto const& [k, v] : m_stats.m_propagate_counts)
                 st.update(intern_stat_name(std::string("seq-stx propagate ") + k), v);
             for (auto const& [k, v] : m_stats.m_split_counts)
@@ -1095,6 +1328,14 @@ namespace stx {
         search_result solve() {
             SASSERT(m_root);
             m_stats.m_num_solve_calls++;
+            // Mirrors c3's nielsen_graph::reset(): the cache is a pure
+            // performance memo scoped to one solve() call, cleared here so
+            // stale entries from a structurally different accumulated
+            // problem never linger (conservative; a persistent cache across
+            // solve() calls would also be sound since containment facts
+            // never expire, but isn't validated for this engine's
+            // clone_state_from/push/pop interactions yet).
+            m_unsat_cache.clear();
             unsigned base_scopes = m_trail.get_num_scopes();
             on_scope_exit rewind([&]() {
                 while (m_trail.get_num_scopes() > base_scopes)

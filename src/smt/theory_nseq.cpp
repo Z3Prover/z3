@@ -56,8 +56,22 @@ namespace smt {
         vector<slot>                      m_slots;
         ptr_vector<enode>                 m_dep_enodes;
         svector<bool>                     m_dep_is_unit;
+        // Pins every literal token's refcount for this proc's own
+        // lifetime. `mk_value()` runs much later than the code that
+        // discovers each literal (only after model_generator finishes
+        // topologically resolving every enode's dependencies), by which
+        // time the caller's own local expr_ref_vector(s) that happened to
+        // be the token's only other owner (e.g. `resolved`, or a nested
+        // `toks` built for a model_subst chain) have long since gone out
+        // of scope and released it. Without this pin, a literal recorded
+        // via add_literal() can be silently freed by the ast_manager and
+        // its slot later reused for an unrelated ast node (observed in
+        // practice as expr::get_sort() reaching UNREACHABLE on a stale
+        // slot reused as a sort/func_decl) between proc construction and
+        // mk_value() actually running.
+        expr_ref_vector                   m_pin;
     public:
-        seq_model_value_proc(theory_nseq& th, sort* s) : th(th), m_sort(s) {}
+        seq_model_value_proc(theory_nseq& th, sort* s) : th(th), m_sort(s), m_pin(th.m) {}
 
         // Append a token already known to be a final value/constant
         // (values, or units wrapping a value char) - no dependency
@@ -66,6 +80,7 @@ namespace smt {
             slot sl;
             sl.m_literal = t;
             m_slots.push_back(sl);
+            m_pin.push_back(t); // keep alive until mk_value() runs - see m_pin comment
         }
 
         // Append a token that still needs its model value computed:
@@ -214,6 +229,12 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
 
         m_tree.set_max_search_depth(100);
+
+        // Ablation switch for the unsat-node cache (see stx_search_tree.h's
+        // m_unsat_cache comment): NSEQ_UNSAT_CACHE=0 forces it off,
+        // NSEQ_UNSAT_CACHE=1 forces it on, unset uses the built-in default.
+        if (const char* cache_flag = getenv("NSEQ_UNSAT_CACHE"))
+            m_tree.set_unsat_cache_enabled(atoi(cache_flag) != 0);
 
         // Diagnostics only: NSEQ_DOT_FILE=<path>, if set, enables
         // stx::search_tree's dot-trace recording (see stx_search_tree.h's

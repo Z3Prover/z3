@@ -113,6 +113,26 @@ namespace seq {
         unsigned m_depth { 0 };
         static const unsigned m_max_depth = 512;
 
+        // Recursion-depth guard for the mutually recursive smart-constructor
+        // family (mk_union/mk_inter/mk_complement/mk_xor <-> mk_core <->
+        // hoist_ite <-> apply_ite). Unlike m_depth/m_max_depth (which only
+        // bounds the outer derive_rec unfolding), this family can recurse
+        // structurally through however many ITE/union/intersection layers a
+        // single already-built transition regex contains, which grows with
+        // every derivative step. mk_union_core/add_union_elem were already
+        // hardened into iterative form for the same reason; this guards the
+        // remaining recursive members of the family against stack overflow
+        // on deeply nested transition regexes.
+        unsigned m_op_depth { 0 };
+        static const unsigned m_max_op_depth = 2000;
+
+        // Guards get_cofactors_rec against exponential ITE-tree blowup; see
+        // its comment for why a stack-depth bound alone is insufficient and a
+        // leaf-count bound is also needed.
+        unsigned m_cofactor_rec_depth { 0 };
+        static const unsigned m_max_cofactor_depth = 500;
+        static const unsigned m_max_cofactor_leaves = 200000;
+
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 

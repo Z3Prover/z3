@@ -233,6 +233,12 @@ namespace seq {
         // without having already conflicted is known consistent.
         bool is_satisfied() const override;
         std::ostream& display(std::ostream& out) const override;
+
+        // -- unsat-cache signature --
+        // Regex memberships (state, target) determine (in)consistency
+        // directly, so they always participate.
+        bool contributes_to_signature() const override { return true; }
+        void append_signature(vector<uint64_t>& out) const override;
     };
 
     class mem_propagation : public eq_tree::propagation_plugin_i {

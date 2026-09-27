@@ -59,6 +59,54 @@ namespace seq {
         return f;
     }
 
+    namespace {
+        // Lexicographic order over `vector<uint64_t>` (z3's `vector<T>`
+        // has no built-in `operator<`).
+        bool sig_vec_less(vector<uint64_t> const& a, vector<uint64_t> const& b) {
+            unsigned n = std::min(a.size(), b.size());
+            for (unsigned i = 0; i < n; ++i) {
+                if (a[i] != b[i])
+                    return a[i] < b[i];
+            }
+            return a.size() < b.size();
+        }
+
+        // Encode one (lhs, rhs) token-list pair (a word (dis)equation)
+        // into a self-contained, length-prefixed uint64_t sequence for
+        // the unsat-cache signature. The two sides are canonically
+        // ordered (lexicographically smaller id-sequence first) so that
+        // `x = y` and a mirrored `y = x` - which the Nielsen
+        // transformation can produce interchangeably depending on split
+        // order - hash and compare identically.
+        void sig_encode_pair(expr_ref_vector const& lhs, expr_ref_vector const& rhs, vector<uint64_t>& enc) {
+            vector<uint64_t> a, b;
+            for (expr* t : lhs) a.push_back(static_cast<uint64_t>(t->get_id()));
+            for (expr* t : rhs) b.push_back(static_cast<uint64_t>(t->get_id()));
+            if (sig_vec_less(b, a))
+                std::swap(a, b);
+            enc.push_back(a.size());
+            enc.append(a);
+            enc.push_back(b.size());
+            enc.append(b);
+        }
+    }
+
+    void eq_facet::append_signature(vector<uint64_t>& out) const {
+        vector<vector<uint64_t>> entries;
+        for (auto const& eq : m_eqs) {
+            if (!eq.active())
+                continue;
+            vector<uint64_t> enc;
+            sig_encode_pair(eq.m_lhs, eq.m_rhs, enc);
+            entries.push_back(enc);
+        }
+        std::sort(entries.begin(), entries.end(), sig_vec_less);
+        out.push_back(0x6571u); // tag: "eq" - disambiguates from deq_facet's flat encoding
+        out.push_back(entries.size());
+        for (auto const& e : entries)
+            out.append(e);
+    }
+
     bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
         for (unsigned i = m_subst.size(); i-- > 0; ) {
             if (m_subst[i].m_var == var) {
@@ -844,6 +892,22 @@ namespace seq {
         deq_facet* f = alloc(deq_facet, trail, m, u, m_dm);
         f->m_diseqs.append(m_diseqs);
         return f;
+    }
+
+    void deq_facet::append_signature(vector<uint64_t>& out) const {
+        vector<vector<uint64_t>> entries;
+        for (auto const& dq : m_diseqs) {
+            if (!dq.active())
+                continue;
+            vector<uint64_t> enc;
+            sig_encode_pair(dq.m_lhs, dq.m_rhs, enc);
+            entries.push_back(enc);
+        }
+        std::sort(entries.begin(), entries.end(), sig_vec_less);
+        out.push_back(0x6465717u); // tag: "deq" - disambiguates from eq_facet's flat encoding
+        out.push_back(entries.size());
+        for (auto const& e : entries)
+            out.append(e);
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {

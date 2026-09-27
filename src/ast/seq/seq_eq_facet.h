@@ -322,6 +322,12 @@ namespace seq {
         bool is_satisfied() const override { return std::all_of(m_eqs.begin(), m_eqs.end(), [](equation const& e) { return !e.active(); }); }
         std::ostream& display(std::ostream& out) const override;
 
+        // -- unsat-cache signature --
+        // Word equations directly determine (in)consistency in the
+        // Nielsen transformation, so they always participate.
+        bool contributes_to_signature() const override { return true; }
+        void append_signature(vector<uint64_t>& out) const override;
+
         // Deterministic simplification pass: uses seq_rewriter::reduce_eq
         // to simplify each equation's token lists (prefix/suffix
         // stripping, unit-vs-unit decomposition, symbol-clash and other
@@ -642,6 +648,10 @@ namespace seq {
         facet_i* clone(trail_stack& trail) const override;
         bool is_satisfied() const override { return std::all_of(m_diseqs.begin(), m_diseqs.end(), [](disequation const& d) { return !d.active(); }); }
         std::ostream& display(std::ostream& out) const override;
+
+        // -- unsat-cache signature --
+        bool contributes_to_signature() const override { return true; }
+        void append_signature(vector<uint64_t>& out) const override;
 
         // Deterministic simplification pass: prefix-stripping, then
         // discharge-on-symbol-clash / conflict-on-both-empty. On
