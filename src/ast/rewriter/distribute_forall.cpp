@@ -125,6 +125,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
         //      (forall X (not Fn)))
         app * or_e        = to_app(to_app(e)->get_arg(0));
         unsigned num_args = or_e->get_num_args();
+        expr_ref_buffer conjuncts(m_manager);
         expr_ref_buffer new_args(m_manager);
         for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = or_e->get_arg(i);
@@ -136,6 +137,9 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
                 cache_result(q, m_manager.update_quantifier(q, e));
                 return;
             }
+            conjuncts.push_back(not_arg);
+        }
+        for (expr* not_arg : conjuncts) {
             quantifier_ref tmp_q(m_manager);
             tmp_q = m_manager.update_quantifier(q, not_arg);
             new_args.push_back(elim_unused_vars(m_manager, tmp_q, params_ref()));

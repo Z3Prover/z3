@@ -56,6 +56,7 @@ class distribute_forall {
 
 public:
     distribute_forall(ast_manager & m);
+    // Restrict distribution to unpatterned conjunctions of array-select equalities.
     void set_array_only(bool array_only) { m_array_only = array_only; }
 
     /**

@@ -123,10 +123,13 @@ class asserted_formulas {
     public:
         distribute_forall_fn(asserted_formulas& af): simplify_fmls(af, "distribute-forall"), m_functor(af.m) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override {
+            // Full distribution is opt-in; array-select equalities are distributed by default.
             m_functor.set_array_only(!af.m_smt_params.m_distribute_forall);
             m_functor(j.fml(), n);
         }
-        bool should_apply() const override { return af.has_quantifiers(); }
+        bool should_apply() const override {
+            return (af.m_smt_params.m_distribute_forall || af.m_smt_params.m_distribute_forall_arrays) && af.has_quantifiers();
+        }
         void post_op() override { af.reduce_and_solve();  TRACE(asserted_formulas, af.display(tout);); }
     };
 
@@ -299,4 +302,3 @@ public:
     void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency* dep) { force_push(); m_macro_manager.insert(f, m, pr, dep); }
 
 };
-
