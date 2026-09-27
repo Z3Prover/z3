@@ -421,6 +421,13 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
     return true;
 }
 
+static unsigned coeff_cost(rational const & a, rational const & b) {
+    uint64_t da = a.bitsize() / 32;
+    uint64_t db = b.bitsize() / 32;
+    uint64_t c  = (da * db) >> 6;
+    return c > UINT_MAX ? UINT_MAX : static_cast<unsigned>(c);
+}
+
 /**
    \brief Merge monomials (* c1 m) (* c2 m).
    
@@ -440,6 +447,8 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
         monomial * m1 = monomials[j];
         monomial * m2 = monomials[i];
         if (is_eq_monomial_body(m1, m2)) {
+            if (unsigned c = coeff_cost(m1->m_coeff, m2->m_coeff))
+                m_manager.limit().inc(c);
             m1->m_coeff += m2->m_coeff;
             to_delete.push_back(m2);
         } 
@@ -577,6 +586,8 @@ void grobner::mul_append(unsigned start_idx, equation const * source, rational c
     for (unsigned i = start_idx; i < sz; ++i) {
         monomial const * m = source->get_monomial(i);
         monomial * new_m   = alloc(monomial);
+        if (unsigned c = coeff_cost(m->m_coeff, coeff))
+            m_manager.limit().inc(c);
         new_m->m_coeff     = m->m_coeff;
         new_m->m_coeff    *= coeff;
         new_m->m_vars.append(m->m_vars.size(), m->m_vars.data());
@@ -955,4 +966,3 @@ void grobner::get_equations(ptr_vector<equation> & result) const {
     copy_to(m_processed, result);
     copy_to(m_to_process, result);
 }
-

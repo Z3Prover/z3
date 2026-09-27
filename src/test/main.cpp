@@ -90,6 +90,7 @@
     X(cube_clause) \
     X(old_interval) \
     X(get_implied_equalities) \
+    X(grobner) \
     X(arith_simplifier_plugin) \
     X(matcher) \
     X(object_allocator) \
