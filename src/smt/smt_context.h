@@ -1240,7 +1240,9 @@ namespace smt {
             return r;
         }
 
-        bool is_diseq(enode * n1, enode * n2, bool check_distinct_root_values = true) const;
+        bool is_diseq(enode * n1, enode * n2) const;
+
+        bool is_diseq_no_value_check(enode * n1, enode * n2) const;
 
         bool is_diseq_slow(enode * n1, enode * n2) const;
 
@@ -1251,6 +1253,8 @@ namespace smt {
         bool guess(bool_var var, lbool phase);
 
     protected:
+        bool is_diseq_core(enode * n1, enode * n2, bool check_distinct_root_values) const;
+
         bool m_has_case_split = true;
         bool decide();
 

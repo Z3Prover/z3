@@ -54,17 +54,12 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
-static unsigned get_uint_stat(statistics const& st, char const* key) {
+static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
     for (unsigned i = 0; i < st.size(); ++i)
-        if (st.is_uint(i) && !strcmp(st.get_key(i), key))
-            return st.get_uint_value(i);
-    return 0;
-}
-
-static bool has_uint_stat(statistics const& st, char const* key) {
-    for (unsigned i = 0; i < st.size(); ++i)
-        if (st.is_uint(i) && !strcmp(st.get_key(i), key))
+        if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
+            value = st.get_uint_value(i);
             return true;
+        }
     return false;
 }
 
@@ -93,8 +88,9 @@ void tst_smt_context()
         VERIFY(l_true == qctx.check());
         statistics st;
         qctx.collect_statistics(st);
-        VERIFY(has_uint_stat(st, "array ext ax"));
-        VERIFY(get_uint_stat(st, "array ext ax") > 0);
+        unsigned num_array_ext_axioms;
+        VERIFY(get_uint_stat(st, "array ext ax", num_array_ext_axioms));
+        VERIFY(num_array_ext_axioms > 0);
     }
 
     app_ref a1(m.mk_const(symbol("a"), m.mk_bool_sort()), m);

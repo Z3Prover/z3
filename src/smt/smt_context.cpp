@@ -1223,11 +1223,17 @@ namespace smt {
 
     /**
        \brief Return true if n1 and n2 are known to be disequal in the logical
-       context. When check_distinct_root_values is false, skip the syntactic
-       check for distinct values at their roots. Array extensionality disables
-       this check to avoid suppressing its witness axiom.
+       context.
     */
-    bool context::is_diseq(enode * n1, enode * n2, bool check_distinct_root_values) const {
+    bool context::is_diseq(enode * n1, enode * n2) const {
+        return is_diseq_core(n1, n2, true);
+    }
+
+    bool context::is_diseq_no_value_check(enode * n1, enode * n2) const {
+        return is_diseq_core(n1, n2, false);
+    }
+
+    bool context::is_diseq_core(enode * n1, enode * n2, bool check_distinct_root_values) const {
         SASSERT(n1->get_sort() == n2->get_sort());
         if (check_distinct_root_values && m.are_distinct(n1->get_root()->get_expr(), n2->get_root()->get_expr()))
             return true;
