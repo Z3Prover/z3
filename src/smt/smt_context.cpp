@@ -1223,11 +1223,12 @@ namespace smt {
 
     /**
        \brief Return true if n1 and n2 are known to be disequal in the logical
-       context.
+       context. check_distinct_root_values includes the syntactic check for
+       distinct values at their roots.
     */
-    bool context::is_diseq(enode * n1, enode * n2, bool use_value_roots) const {
+    bool context::is_diseq(enode * n1, enode * n2, bool check_distinct_root_values) const {
         SASSERT(n1->get_sort() == n2->get_sort());
-        if (use_value_roots && m.are_distinct(n1->get_root()->get_expr(), n2->get_root()->get_expr()))
+        if (check_distinct_root_values && m.are_distinct(n1->get_root()->get_expr(), n2->get_root()->get_expr()))
             return true;
         context * _this = const_cast<context*>(this);
         if (!m_is_diseq_tmp) {

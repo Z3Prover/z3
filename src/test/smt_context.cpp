@@ -18,6 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/fpa/fpa2bv_tactic.h"
 #include "tactic/smtlogics/quant_tactics.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include <cstring>
 #include <sstream>
 
 static void check_sat_smt_recfun(char const* input)
