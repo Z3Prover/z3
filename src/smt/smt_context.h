@@ -1240,7 +1240,7 @@ namespace smt {
             return r;
         }
 
-        bool is_diseq(enode * n1, enode * n2) const;
+        bool is_diseq(enode * n1, enode * n2, bool use_value_roots = true) const;
 
         bool is_diseq_slow(enode * n1, enode * n2) const;
 

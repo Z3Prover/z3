@@ -319,7 +319,7 @@ namespace smt {
                 parent->get_arg(0)->get_root() == r2 &&
                 m_array_value.find(parent, other)) {
                 
-                if (ctx.is_diseq(parent, other)) {
+                if (ctx.is_diseq(parent, other, false)) {
                     TRACE(array_ext, tout << "selects are disequal\n";);
                     return true;
                 }
