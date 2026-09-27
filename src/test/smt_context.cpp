@@ -61,6 +61,13 @@ static unsigned get_uint_stat(statistics const& st, char const* key) {
     return 0;
 }
 
+static bool has_uint_stat(statistics const& st, char const* key) {
+    for (unsigned i = 0; i < st.size(); ++i)
+        if (st.is_uint(i) && !strcmp(st.get_key(i), key))
+            return true;
+    return false;
+}
+
 void tst_smt_context()
 {
     smt_params params;
@@ -86,6 +93,7 @@ void tst_smt_context()
         VERIFY(l_true == qctx.check());
         statistics st;
         qctx.collect_statistics(st);
+        VERIFY(has_uint_stat(st, "array ext ax"));
         VERIFY(get_uint_stat(st, "array ext ax") > 0);
     }
 
