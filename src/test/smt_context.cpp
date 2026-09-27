@@ -261,4 +261,32 @@ void tst_smt_context()
         "(declare-sort H 0)\n"
         "(declare-const h H)\n"
         "(assert (partial-order h h))\n");
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun c () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(declare-fun d () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun e () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun f () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun g () (Array (_ BitVec 11) (_ BitVec 8)))\n"
+            "(declare-fun h () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(declare-fun k () (Array (_ BitVec 11) (_ BitVec 16)))\n"
+            "(assert (forall ((i (_ BitVec 11)))\n"
+            "  (and (= (select e i) (select b #b00000000000))\n"
+            "       (= (select f i) (select a i))\n"
+            "       (= (select g i) (select d i))\n"
+            "       (= (select h i) (select c #b00000000000))\n"
+            "       (= (select k i) (select h i)))))\n"
+            "(assert (= (select d #b00000000000) #x00))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("rlimit", 1000000);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+    }
 }
