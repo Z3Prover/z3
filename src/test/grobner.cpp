@@ -37,7 +37,7 @@ void tst_grobner() {
         return m.limit().count();
     };
 
-    uint64_t small_merge_cost = merge_cost(rational(1));
+    auto small_merge_cost = merge_cost(rational(1));
     ENSURE(merge_cost(big) > small_merge_cost);
     ENSURE(reduction_cost(big) > reduction_cost(rational(1)));
 }
