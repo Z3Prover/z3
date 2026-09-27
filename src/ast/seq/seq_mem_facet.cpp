@@ -847,36 +847,81 @@ namespace seq {
 
     lbool mem_leaf_split::ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses) {
         all_dep = nullptr;
-        m_mon_trail.push_scope();
-        bool any = false;
+        struct fed_item { expr* term; expr* regex; eq_tree::dep_tracker dep; };
+        std::vector<fed_item> fed;
         for (str_mem const& sm : mf.memberships()) {
             if (!sm.active() || !sm.is_plain() || sm.m_str.empty())
                 continue;
             expr* term = u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort());
             if (!m_mon.can_decide_term(term))
                 continue;
-            m_mon.add(term, sm.m_view.m_state.get(), sm.m_dep);
-            all_dep = mf.dm().mk_join(all_dep, sm.m_dep);
-            any = true;
+            fed.push_back({term, sm.m_view.m_state.get(), sm.m_dep});
         }
-        lbool result = l_undef;
-        if (any) {
-            m_mon.set_budget(budget);
-            result = m_mon.check();
-            m_stats.m_num_asked++;
-            if (result == l_false) {
-                eq_tree::dep_tracker core_dep = nullptr;
-                for (void* d : m_mon.core())
-                    core_dep = mf.dm().mk_join(core_dep, static_cast<eq_tree::dep_tracker>(d));
-                all_dep = core_dep;
+        if (fed.empty())
+            return l_undef;
+
+        for (auto const& fi : fed)
+            all_dep = mf.dm().mk_join(all_dep, fi.dep);
+
+        // Canonical signature for the memoization cache (see mem_leaf_split's
+        // class comment / m_cache's own comment): sorted so unrelated
+        // iteration order of mf.memberships() across different nodes/clones
+        // still lands on the same entry.
+        std::vector<std::pair<expr*, expr*>> key;
+        key.reserve(fed.size());
+        for (auto const& fi : fed)
+            key.emplace_back(fi.term, fi.regex);
+        std::sort(key.begin(), key.end());
+
+        if (leaf_cache_entry* hit = find_cache(key)) {
+            if (hit->result == l_false) {
+                m_stats.m_num_cache_hits++;
+                // all_dep above already joins every currently-fed dep, a
+                // sound (if not core-minimized) justification - the cached
+                // verdict only tells us THAT this set is unsat, not which
+                // minimal subset the original ask's core() found.
+                return l_false;
             }
-            else if (result == l_true && witnesses) {
+            if (hit->result == l_true && (!witnesses || hit->has_witnesses)) {
+                m_stats.m_num_cache_hits++;
+                if (witnesses)
+                    for (unsigned i = 0; i < hit->wit_vars.size(); ++i)
+                        witnesses->insert(hit->wit_vars.get(i), hit->wit_words.get(i));
+                return l_true;
+            }
+            // l_true cached without witnesses, but this ask needs them:
+            // fall through and recompute (cache_insert below overwrites
+            // with a witness-bearing entry via a fresh push_back - the old,
+            // witness-less entry is simply never looked up again first,
+            // since find_cache returns the first match and both share the
+            // same key. Harmless: it just wastes a slot).
+        }
+
+        m_mon_trail.push_scope();
+        for (auto const& fi : fed)
+            m_mon.add(fi.term, fi.regex, fi.dep);
+        m_mon.set_budget(budget);
+        lbool result = m_mon.check();
+        m_stats.m_num_asked++;
+        if (result == l_false) {
+            eq_tree::dep_tracker core_dep = nullptr;
+            for (void* d : m_mon.core())
+                core_dep = mf.dm().mk_join(core_dep, static_cast<eq_tree::dep_tracker>(d));
+            all_dep = core_dep;
+            cache_insert(key, l_false, nullptr);
+        }
+        else if (result == l_true) {
+            if (witnesses) {
                 if (m_mon.materialize_all(*witnesses) != l_true)
                     result = l_undef;
+                else
+                    cache_insert(key, l_true, witnesses);
             }
+            else
+                cache_insert(key, l_true, nullptr);
         }
         m_mon_trail.pop_scope(1);
-        return any ? result : l_undef;
+        return result;
     }
 
     bool mem_leaf_split::iterator::next(eq_tree::edge& out) {

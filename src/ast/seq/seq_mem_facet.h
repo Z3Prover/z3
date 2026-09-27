@@ -72,6 +72,8 @@ Author:
 #include "util/stx_search_tree.h"
 #include "util/trail.h"
 #include "util/obj_pair_hashtable.h"
+#include <vector>
+#include <utility>
 
 namespace seq {
 
@@ -707,9 +709,62 @@ namespace seq {
             unsigned m_num_asked = 0;
             unsigned m_num_refuted = 0;
             unsigned m_num_committed = 0;
+            unsigned m_num_cache_hits = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
+
+        // Memoization over ask()'s own decision: the SAME set of (term,
+        // regex) pairs, fed to a fresh seq::monadic instance, always
+        // gets the SAME l_true/l_false verdict - the class comment above
+        // already relies on this ("refuting them alone refutes the whole
+        // node", i.e. the verdict is a pure fact about the pair set, not
+        // about whatever else is active at the node that asked). Since
+        // the DFS in stx_search_tree has no shared UNSAT-node cache (see
+        // c3's m_unsat_node_cache; not ported - see module comment), the
+        // exact same conjunction is often re-asked from many different
+        // nodes whose OTHER constraints (unrelated equations/splits)
+        // differ but whose active plain memberships happen to coincide.
+        // This cache turns every such re-ask after the first into an O(1)
+        // (well, O(#fed) for the linear scan) lookup instead of a fresh
+        // seq::monadic search. Entries are permanent for this plugin's
+        // (i.e. this theory_nseq instance's) lifetime: they depend only
+        // on AST term/regex identity, never on tree position or search
+        // context, so nothing ever needs to invalidate them on backtrack.
+        struct leaf_cache_entry {
+            std::vector<std::pair<expr*, expr*>> key;   // sorted (term, regex) pairs fed
+            lbool                                 result;
+            bool                                   has_witnesses = false;
+            expr_ref_vector                        wit_vars;
+            expr_ref_vector                        wit_words;
+            leaf_cache_entry(ast_manager& m, std::vector<std::pair<expr*, expr*>> k, lbool r) :
+                key(std::move(k)), result(r), wit_vars(m), wit_words(m) {}
+        };
+        std::vector<leaf_cache_entry> m_cache;
+
+        leaf_cache_entry* find_cache(std::vector<std::pair<expr*, expr*>> const& key) {
+            for (auto& e : m_cache)
+                if (e.key == key)
+                    return &e;
+            return nullptr;
+        }
+
+        // Records a fresh verdict for `key`. `witnesses`, when non-null, is
+        // the already-materialized substitution to replay on future
+        // l_true cache hits that also need witnesses (see ask()); passing
+        // nullptr caches a witness-less l_true (still useful for
+        // refutation-only re-asks of the same key).
+        void cache_insert(std::vector<std::pair<expr*, expr*>> const& key, lbool result, expr_substitution* witnesses) {
+            m_cache.emplace_back(m, key, result);
+            leaf_cache_entry& e = m_cache.back();
+            if (witnesses) {
+                e.has_witnesses = true;
+                for (auto const& entry : witnesses->sub()) {
+                    e.wit_vars.push_back(&entry.get_key());
+                    e.wit_words.push_back(entry.get_value());
+                }
+            }
+        }
 
         // Runs one ask of the engine over every active plain membership in
         // `mf`: asserts them all (in a private, immediately-popped scope
@@ -763,6 +818,7 @@ namespace seq {
             st.update("seq-mem-leaf num asked", m_stats.m_num_asked);
             st.update("seq-mem-leaf num refuted", m_stats.m_num_refuted);
             st.update("seq-mem-leaf num committed", m_stats.m_num_committed);
+            st.update("seq-mem-leaf num cache hits", m_stats.m_num_cache_hits);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
