@@ -264,6 +264,8 @@ void tst_smt_context()
 
     {
         cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.params().set_rlimit(1000000);
         std::istringstream is(
             "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
@@ -282,11 +284,7 @@ void tst_smt_context()
             "       (= (select k i) (select h i)))))\n"
             "(assert (= (select d #b00000000000) #x00))\n");
         VERIFY(parse_smt2_commands(cmd, is));
-        params_ref p;
-        p.set_uint("rlimit", 1000000);
-        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
-        for (expr* a : cmd.assertions())
-            slv->assert_expr(a);
-        VERIFY(l_true == slv->check_sat(0, nullptr));
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
     }
 }

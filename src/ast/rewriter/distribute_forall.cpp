@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/array_decl_plugin.h"
 
 distribute_forall::distribute_forall(ast_manager & m) :
     m_manager(m),
@@ -109,7 +110,12 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
 
     expr * e = get_cached(q->get_expr());
     if (m_manager.is_not(e) && m_manager.is_or(to_app(e)->get_arg(0))) {
+        if (m_array_only && (q->get_num_patterns() || q->get_num_no_patterns())) {
+            cache_result(q, m_manager.update_quantifier(q, e));
+            return;
+        }
         bool_rewriter br(m_manager);
+        array_util autil(m_manager);
 
         // found target for simplification
         // (forall X (not (or F1 ... Fn)))
@@ -124,6 +130,12 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
             expr * arg = or_e->get_arg(i);
             expr_ref not_arg(m_manager);
             br.mk_not(arg, not_arg);
+            if (m_array_only && (!m_manager.is_eq(not_arg) ||
+                (!autil.is_select(to_app(not_arg)->get_arg(0)) &&
+                 !autil.is_select(to_app(not_arg)->get_arg(1))))) {
+                cache_result(q, m_manager.update_quantifier(q, e));
+                return;
+            }
             quantifier_ref tmp_q(m_manager);
             tmp_q = m_manager.update_quantifier(q, not_arg);
             new_args.push_back(elim_unused_vars(m_manager, tmp_q, params_ref()));
