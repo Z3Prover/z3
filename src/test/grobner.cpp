@@ -37,6 +37,10 @@ void tst_grobner() {
         return m.limit().count();
     };
 
-    ENSURE(merge_cost(big) > merge_cost(rational(1)));
+    uint64_t small_merge_cost = merge_cost(rational(1));
+    constexpr uint64_t merge_iterations = 2;
+    constexpr uint64_t normalization_iterations = 1;
+    ENSURE(small_merge_cost == merge_iterations + normalization_iterations);
+    ENSURE(merge_cost(big) > small_merge_cost);
     ENSURE(reduction_cost(big) > reduction_cost(rational(1)));
 }
