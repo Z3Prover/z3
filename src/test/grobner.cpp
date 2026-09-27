@@ -1,6 +1,7 @@
 #include "math/grobner/grobner.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
+#include "util/debug.h"
 
 void tst_grobner() {
     constexpr unsigned coefficient_bits = 1024;
