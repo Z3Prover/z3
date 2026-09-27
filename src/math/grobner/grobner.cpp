@@ -424,9 +424,11 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
 // Approximate quadratic coefficient arithmetic in 32-bit words while leaving
 // coefficients below roughly 256 bits uncharged.
 static unsigned coeff_cost(rational const & a, rational const & b) {
-    uint64_t da = a.bitsize() / 32;
-    uint64_t db = b.bitsize() / 32;
-    uint64_t c  = (da * db) >> 6;
+    constexpr uint64_t word_bits = 32;
+    constexpr uint64_t cost_shift = 6;
+    uint64_t da = a.bitsize() / word_bits;
+    uint64_t db = b.bitsize() / word_bits;
+    uint64_t c  = (da * db) >> cost_shift;
     return c > UINT_MAX ? UINT_MAX : static_cast<unsigned>(c);
 }
 
