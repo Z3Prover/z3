@@ -1,4 +1,5 @@
 #include "math/grobner/grobner.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 
 void tst_grobner() {
@@ -12,9 +13,7 @@ void tst_grobner() {
     expr_ref y(m.mk_const("y", a.mk_int()), m);
     expr_ref z(m.mk_const("z", a.mk_int()), m);
     expr_ref one(a.mk_int(1), m);
-    rational big(1);
-    for (unsigned i = 0; i < coefficient_bits; ++i)
-        big *= rational(2);
+    rational big = rational::power_of_two(coefficient_bits);
 
     g.set_weight(x, 1);
 
