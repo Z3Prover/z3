@@ -423,9 +423,9 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
 
 // Charge costly coefficient normalization using a word product. This model is
 // shared by addition and multiplication because both can trigger expensive
-// normalization. Equal operands below min_charged_words (currently eight
-// 32-bit words, or 256 bits) incur no extra charge; asymmetric operands are
-// charged once their word product reaches 64.
+// normalization. Operands whose word-count product is below 64 incur no extra
+// charge; for example, two operands below min_charged_words (currently eight
+// 32-bit words, or 256 bits).
 static unsigned coeff_cost(rational const & a, rational const & b) {
     constexpr uint64_t word_bits = 32;
     constexpr uint64_t cost_shift = 6;
