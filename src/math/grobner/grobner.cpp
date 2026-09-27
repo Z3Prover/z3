@@ -421,9 +421,10 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
     return true;
 }
 
-// Approximate quadratic coefficient arithmetic in word_bits-bit words.
-// cost_shift divides the word product by 64, so equal operands below eight
-// words (256 bits) incur no extra charge.
+// Charge costly coefficient normalization using a word product. This model is
+// shared by addition and multiplication because both can trigger expensive
+// normalization. cost_shift divides the word product by 64, so equal operands
+// below eight word_bits-bit words (256 bits) incur no extra charge.
 static unsigned coeff_cost(rational const & a, rational const & b) {
     constexpr uint64_t word_bits = 32;
     constexpr uint64_t cost_shift = 6;
