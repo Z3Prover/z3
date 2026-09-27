@@ -88,8 +88,9 @@ void tst_smt_context()
         VERIFY(l_true == qctx.check());
         statistics st;
         qctx.collect_statistics(st);
+        char const* array_ext_axiom_stat = "array ext ax";
         unsigned num_array_ext_axioms = 0;
-        VERIFY(get_uint_stat(st, "array ext ax", num_array_ext_axioms));
+        VERIFY(get_uint_stat(st, array_ext_axiom_stat, num_array_ext_axioms));
         VERIFY(num_array_ext_axioms > 0);
     }
 
