@@ -2943,11 +2943,58 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         sig = mk_fresh_const("fpa2bv_to_fp_real_sig", sbits + 4);
         exp = mk_fresh_const("fpa2bv_to_fp_real_exp", ebits + 2);
 
+        // Link the (unrounded, extended-precision) significand/exponent pair
+        // (sgn, sig, exp) to the exact value of x using a "gap" encoding,
+        // instead of asserting an exact round-trip equality between x and
+        // the *rounded* result. An exact round-trip equality would force x
+        // to coincide with a representable float, silently discarding any
+        // rounding carry into the next binade for non-exact x (see #10931).
+        // Here, the top (sbits+3) bits of sig ("sig_hi") are pinned to the
+        // (normalized) truncation of |x| at that precision, and the
+        // trailing bit of sig ("sticky") records whether |x| falls exactly
+        // on that grid point (sticky = 0) or strictly above it (sticky =
+        // 1). This reproduces the standard guard/round/sticky construction
+        // that round() expects, for any real x, not just exactly
+        // representable ones.
+        expr_ref x_is_neg(m), sgn_is_one(m);
+        x_is_neg = au.mk_lt(x, zero);
+        sgn_is_one = m.mk_eq(sgn, bv1);
+        m_extra_assertions.push_back(m.mk_eq(sgn_is_one, x_is_neg));
+
+        expr_ref x_abs(m);
+        x_abs = m.mk_ite(x_is_neg, au.mk_uminus(x), x);
+
+        expr_ref sig_hi(m), sticky(m);
+        sig_hi = bu.mk_extract(sbits + 3, 1, sig);
+        sticky = bu.mk_extract(0, 0, sig);
+
+        expr_ref sig_hi_r(m), unit_exp(m), unit(m);
+        mk_ubv_to_real(sig_hi, sig_hi_r);
+        unit_exp = bu.mk_bv_sub(exp, bu.mk_numeral(sbits + 1, ebits + 2));
+        mk_signed_pow2(unit_exp, unit);
+
+        expr_ref grid_lo(m), grid_hi(m);
+        grid_lo = au.mk_mul(sig_hi_r, unit);
+        grid_hi = au.mk_add(grid_lo, unit);
+
+        expr_ref sticky_is_zero(m);
+        sticky_is_zero = m.mk_eq(sticky, bv0);
+        m_extra_assertions.push_back(
+            m.mk_ite(sticky_is_zero, m.mk_eq(x_abs, grid_lo), au.mk_gt(x_abs, grid_lo)));
+        m_extra_assertions.push_back(au.mk_lt(x_abs, grid_hi));
+
+        // Force (sig, exp) to be normalized (leading bit of sig_hi set)
+        // whenever x is nonzero, so that x uniquely determines (sgn, sig,
+        // exp) up to the guard/round/sticky rounding decision, and hence
+        // uniquely determines the (correctly) rounded result.
+        expr_ref sig_msb(m), sig_msb_is_one(m), x_abs_is_zero(m);
+        sig_msb = bu.mk_extract(sbits + 3, sbits + 3, sig);
+        sig_msb_is_one = m.mk_eq(sig_msb, bv1);
+        x_abs_is_zero = m.mk_eq(x_abs, zero);
+        m_extra_assertions.push_back(m.mk_or(x_abs_is_zero, sig_msb_is_one));
+
         expr_ref rme(bv_rm, m);
         round(s, rme, sgn, sig, exp, result);
-
-        expr * e = m.mk_eq(m_util.mk_to_real(result), x);
-        m_extra_assertions.push_back(e);
 
         expr_ref r_is_nan(m);
         mk_is_nan(result, r_is_nan);
@@ -3971,6 +4018,51 @@ void fpa2bv_converter::mk_unbias(expr * e, expr_ref & result) {
     rest = m_bv_util.mk_extract(ebits-2, 0, e_plus_one);
 
     result = m_bv_util.mk_concat(n_leading, rest);
+}
+
+void fpa2bv_converter::mk_ubv_to_real(expr * bv, expr_ref & result) {
+    // Converts an unsigned bit-vector into an (exact) arithmetic real term,
+    // by summing the weighted bits, MSB first.
+    unsigned sz = m_bv_util.get_bv_size(bv);
+    expr_ref zero(m_arith_util.mk_numeral(rational(0), false), m);
+    expr_ref one(m_arith_util.mk_numeral(rational(1), false), m);
+    expr_ref two(m_arith_util.mk_numeral(rational(2), false), m);
+    expr_ref bv1(m_bv_util.mk_numeral(1, 1), m);
+
+    expr_ref res(zero, m);
+    for (unsigned i = sz; i-- > 0; ) {
+        expr_ref bit(m_bv_util.mk_extract(i, i, bv), m);
+        expr_ref bit_eq_1(m.mk_eq(bit, bv1), m);
+        res = m_arith_util.mk_add(m_arith_util.mk_mul(res, two), m.mk_ite(bit_eq_1, one, zero));
+    }
+    result = res;
+}
+
+void fpa2bv_converter::mk_signed_pow2(expr * signed_bv, expr_ref & result) {
+    // Computes 2^value(signed_bv) as an exact arithmetic real term. As in
+    // mk_to_real, mk_power is only ever applied to a non-negative exponent;
+    // negative exponents are handled by inverting 2^|value(signed_bv)|,
+    // since arithmetic reasoning about mk_power with a symbolic negative
+    // exponent is not complete.
+    unsigned sz = m_bv_util.get_bv_size(signed_bv);
+    SASSERT(sz >= 1);
+
+    expr_ref bv1(m_bv_util.mk_numeral(1, 1), m);
+    expr_ref msb(m_bv_util.mk_extract(sz-1, sz-1, signed_bv), m);
+    expr_ref is_neg(m.mk_eq(msb, bv1), m);
+
+    expr_ref neg_bv(m_bv_util.mk_bv_neg(signed_bv), m);
+    expr_ref abs_bv(m.mk_ite(is_neg, neg_bv, signed_bv), m);
+
+    expr_ref mag(m);
+    mk_ubv_to_real(abs_bv, mag);
+
+    expr_ref one(m_arith_util.mk_numeral(rational(1), false), m);
+    expr_ref two(m_arith_util.mk_numeral(rational(2), false), m);
+    expr_ref pw(m_arith_util.mk_power(two, mag), m);
+    expr_ref inv_pw(m_arith_util.mk_div(one, pw), m);
+
+    result = m.mk_ite(is_neg, inv_pw, pw);
 }
 
 void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize) {

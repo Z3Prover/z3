@@ -196,6 +196,9 @@ protected:
 
     void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize);
     void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);
+
+    void mk_ubv_to_real(expr * bv, expr_ref & result);
+    void mk_signed_pow2(expr * signed_bv, expr_ref & result);
     expr_ref mk_rounding_decision(expr * rm, expr * sgn, expr * last, expr * round, expr * sticky);
 
     void add_core(unsigned sbits, unsigned ebits,
