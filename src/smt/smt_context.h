@@ -1242,6 +1242,7 @@ namespace smt {
 
         bool is_diseq(enode * n1, enode * n2) const;
 
+        // Skip the distinct root-value shortcut when array extensionality needs a witness.
         bool is_diseq_no_value_check(enode * n1, enode * n2) const;
 
         bool is_diseq_slow(enode * n1, enode * n2) const;
