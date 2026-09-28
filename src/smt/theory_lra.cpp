@@ -36,6 +36,7 @@
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
 #include "smt/theory_lra.h"
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
@@ -4178,11 +4179,46 @@ public:
         return inf_eps(rational(0), inf_rational(ival.x, ival.y));
     }
 
-    lp::lp_status max_with_lp(theory_var v, lpvar& vi, lp::impq& term_max) {
+    bool bound_premises_at_base(u_dependency* dep) {
+        literal_vector premises;
+        svector<lp::constraint_index> dependencies(lp().flatten(dep));
+        for (auto ci : dependencies) {
+            switch (m_constraint_sources.get(ci, null_source)) {
+            case definition_source:
+                break;
+            case inequality_source:
+                premises.push_back(m_inequalities[ci]);
+                break;
+            case equality_source: {
+                auto [n1, n2] = m_equalities[ci];
+                ctx().get_cr().eq2literals(n1, n2, premises);
+                break;
+            }
+            case null_source:
+                // Unknown sources do not provide a certificate at this interface.
+                return false;
+            }
+        }
+        return all_of(premises, [&](literal lit) {
+            return ctx().get_assignment(lit) == l_true &&
+                   ctx().get_assign_level(lit.var()) <= ctx().get_base_level();
+        });
+    }
+
+    lp::lp_status max_with_lp(theory_var v, lpvar& vi, lp::impq& term_max, std::optional<rational>* upper) {
         if (!lp().is_feasible() || lp().has_changed_columns())
             make_feasible();
         vi = get_lpvar(v);
-        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true);
+        u_dependency* dep = nullptr;
+        bool dual = upper && m_nla;
+        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true, dual ? &dep : nullptr);
+        if (dual && st == lp::lp_status::OPTIMAL && !m.limit().is_canceled() && bound_premises_at_base(dep)) {
+            // The exact reduced costs prove this upper bound. Dropping a
+            // negative infinitesimal weakens it to a closed rational bound.
+            SASSERT(!term_max.y.is_pos());
+            *upper = term_max.x;
+            IF_VERBOSE(2, verbose_stream() << "(optsmt dual upper " << term_max.x << ")\n");
+        }
         if (has_int() && lp().has_inf_int()) {
             st = lp::lp_status::FEASIBLE;
             lp().restore_x();
@@ -4263,7 +4299,9 @@ public:
         }
     }
 
-    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker) {
+    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, std::optional<rational>* upper = nullptr) {
+        if (upper)
+            upper->reset();
         unsigned level = 2;
         lp::impq term_max;
         lp::lp_status st;
@@ -4279,7 +4317,7 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            st = max_with_lp(v, vi, term_max);
+            st = max_with_lp(v, vi, term_max, upper);
             inf_eps nl_result;
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
@@ -4715,6 +4753,9 @@ theory_lra::inf_eps theory_lra::value(theory_var v) {
 }
 theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker) {
     return m_imp->maximize(v, blocker);
+}
+theory_lra::inf_eps theory_lra::maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<rational>& upper) {
+    return m_imp->maximize(v, blocker, &upper);
 }
 theory_var theory_lra::add_objective(app* term) {
     return m_imp->add_objective(term);

@@ -40,6 +40,7 @@ namespace opt {
         symbol           m_optsmt_engine;
         unsigned         m_bisect_rounds = 64;
         bool             m_optsmt_nlsat = true;
+        bool             m_dual_bounds = true;
         unsigned         m_nlsat_supremum_rlimit = 100000;
         model_ref        m_model, m_best_model;
         svector<symbol>  m_labels;
