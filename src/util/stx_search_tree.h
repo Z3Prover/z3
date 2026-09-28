@@ -943,11 +943,6 @@ namespace stx {
             // node happens to hold never grows the store on its own.
             std::unordered_set<unsigned> active;
             active.reserve(cs.size());
-            // Note: unlike std::vector, stx's `vector<T>::reserve(n)`
-            // actually resizes (and default-fills) up to `n` - it is NOT
-            // a capacity-only hint - so it must never be combined with
-            // push_back() the way std::vector::reserve() commonly is;
-            // just push_back() without pre-reserving here.
             vector<unsigned> active_ids;
             for (constraint_i const* c : cs) {
                 unsigned id;
@@ -1101,18 +1096,6 @@ namespace stx {
             return m_unsat_cores.size();
         }
 
-        // statistics::update() stores the raw char const* without copying
-        // it, and statistics::copy() (used e.g. by check_sat_result to
-        // snapshot stats for later display) shallow-copies that pointer
-        // too - so a dynamically built key's backing storage must survive
-        // for the rest of the process, not merely for the duration of this
-        // collect_statistics() call. A function-local/member std::string
-        // is not enough: by the time cmd_context::display_statistics()
-        // actually prints the snapshot, this search_tree (and any member
-        // buffer) may already be destroyed, leaving a dangling pointer
-        // (a heap-use-after-free caught by ASan). Intern each built name
-        // in a static, process-lifetime pool instead; insertion never
-        // invalidates previously returned pointers.
         static char const* intern_stat_name(std::string&& s) {
             static std::unordered_set<std::string> pool;
             return pool.insert(std::move(s)).first->c_str();
@@ -1491,30 +1474,11 @@ namespace stx {
                         result = saw_depth_cutoff ? search_result::depth_cutoff
                                : saw_unknown       ? search_result::unknown
                                :                     search_result::unsat;
-                        // Every branch failed with unsat (no unknown/
-                        // depth-cutoff anywhere): the node itself is
-                        // unsatisfiable. Each contributing branch already
-                        // recorded its own dependency in m_conflict_deps
-                        // when it hit conflict; join them here into one
-                        // dependency so the caller (theory_nseq::
-                        // final_check_eh) has something to report - an
-                        // aggregate conflict with no dependency at all
-                        // would otherwise fall back to a giveup and the
-                        // real unsat would be misreported as unknown.
                         if (result == search_result::unsat) {
                             dep_tracker joined = nullptr;
                             for (dep_tracker d : n.conflict_deps())
                                 joined = m_dep_mgr.mk_join(joined, d);
                             n.set_conflict(br_children_failed, joined);
-                            // Only cache this aggregate closure if EVERY
-                            // child's own unsat was itself pure (see the
-                            // pure_out doc comment above dfs()) AND this
-                            // node's own current (parent-level) facet
-                            // state has nothing excluded live either -
-                            // both conditions are required, since a
-                            // spurious cache entry here would prune an
-                            // unrelated node that legitimately still has
-                            // arithmetic-dependent branches to try.
                             bool pure = all_children_pure && cache_eligible(n);
                             if (pure)
                                 cache_insert(n);
