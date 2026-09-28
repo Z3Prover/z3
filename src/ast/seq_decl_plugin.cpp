@@ -693,6 +693,9 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
     op_names.push_back(builtin_name("str.from_ubv", OP_STRING_UBVTOS));
     op_names.push_back(builtin_name("str.from_sbv", OP_STRING_SBVTOS));
+    op_names.push_back(builtin_name("seq.replace_all", OP_SEQ_REPLACE_ALL));
+    op_names.push_back(builtin_name("seq.replace_re", OP_SEQ_REPLACE_RE));
+    op_names.push_back(builtin_name("seq.replace_re_all", OP_SEQ_REPLACE_RE_ALL));
 }
 
 void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
