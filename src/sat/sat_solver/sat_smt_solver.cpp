@@ -177,6 +177,21 @@ public:
         if (r != l_true)
             return r;
 
+        // Functions that goal2sat/euf could not internalize (e.g. an unsupported
+        // theory such as strings/regex) are silently dropped from the formula.
+        // Reporting sat in that case would be unsound, so bail out with unknown
+        // instead, matching the guard in inc_sat_solver.cpp's check_uninterpreted().
+        if (m_goal2sat.has_interpreted_funs()) {
+            func_decl_ref_vector funs(m);
+            m_goal2sat.get_interpreted_funs(funs);
+            std::stringstream strm;
+            strm << "(sat.giveup interpreted functions sent to SAT solver " << funs << ")";
+            TRACE(sat, tout << strm.str() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
+            set_reason_unknown(strm.str());
+            return l_undef;
+        }
+
         internalize_assumptions(assumptions);
         
         try {
