@@ -1,9 +1,11 @@
 # Arrays: the z3test array regressions and minimized instances from this directory.
 # array_axiom_log.smt2, t168, and t170 crashed under solver.proof.log before
 # Z3Prover/z3#10922; they must stay unverified-fallback or not-applicable.
-# t8.smt2 (array default, map, array-ext) replays with tseitin/euf units that are not
-# RUP-derivable; keep the annotation until the logging or checker defect is fixed.
+# t8.smt2 and its minimized form array_default_not.smt2 are rejected because the checker
+# compared literals over negated Boolean terms syntactically; remove the annotations once
+# the proof checker fix for negated Boolean terms is merged.
 array_axiom_log.smt2
+array_default_not.smt2  smt-clause-log=checker-rejected  smt-clause-log-nopp=checker-rejected
 z3test/regressions/smt2/t8.smt2  smt-clause-log=checker-rejected  smt-clause-log-nopp=checker-rejected
 z3test/regressions/smt2/t168.smt2
 z3test/regressions/smt2/t170.smt2
