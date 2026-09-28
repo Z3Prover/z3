@@ -1,0 +1,4 @@
+# QF_NIA regressions from z3test (sat). On unsat instances nla hints are never accepted by the
+# self checker, so they classify as unverified-fallback.
+z3test/regressions/smt2/3997.smt2
+z3test/regressions/smt2/3264.smt2

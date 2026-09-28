@@ -1,0 +1,7 @@
+# QF_LIA regressions from z3test (all sat). Unsat QF_LIA instances from the SMT-LIB release
+# exercise farkas/bound/cut/smt hints; add them from a local SMT-LIB checkout via --benchmark-root.
+z3test/regressions/smt2/3509.smt2
+z3test/regressions/smt2/3504.smt2
+z3test/regressions/smt2/3502.smt2
+z3test/regressions/smt2/3521.smt2
+z3test/regressions/smt2/2923.smt2

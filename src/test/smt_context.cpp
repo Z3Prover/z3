@@ -18,6 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/fpa/fpa2bv_tactic.h"
 #include "tactic/smtlogics/quant_tactics.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include <cstring>
 #include <sstream>
 
 static void check_sat_smt_recfun(char const* input)
@@ -53,6 +54,15 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
+    for (unsigned i = 0; i < st.size(); ++i)
+        if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
+            value = st.get_uint_value(i);
+            return true;
+        }
+    return false;
+}
+
 void tst_smt_context()
 {
     smt_params params;
@@ -61,6 +71,28 @@ void tst_smt_context()
     reg_decl_plugins(m);
 
     smt::context ctx(m, params);
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const a (Array Int Int))\n"
+            "(declare-const b (Array Int Int))\n"
+            "(declare-const i Int)\n"
+            "(assert (distinct a b))\n"
+            "(assert (= (select a i) 0))\n"
+            "(assert (= (select b i) 1))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* assertion : cmd.assertions())
+            qctx.assert_expr(assertion);
+        VERIFY(l_true == qctx.check());
+        statistics st;
+        qctx.collect_statistics(st);
+        char const* array_ext_axiom_stat = "array ext ax";
+        unsigned num_array_ext_axioms = 0;
+        VERIFY(get_uint_stat(st, array_ext_axiom_stat, num_array_ext_axioms));
+        VERIFY(num_array_ext_axioms > 0);
+    }
 
     app_ref a1(m.mk_const(symbol("a"), m.mk_bool_sort()), m);
     app_ref b1(m.mk_const(symbol("b"), m.mk_bool_sort()), m);

@@ -329,6 +329,12 @@ jobs:
           ./test-z3 -a
           cd ..
 
+      - name: Run the proof regression matrix tests
+        if: matrix.runTests
+        env:
+          Z3_EXE: ${{ github.workspace }}/build/z3
+        run: python -m unittest discover -s examples/python -p test_proof_matrix.py -v
+
       - name: Run examples
         if: matrix.runTests
         run: |
