@@ -7,16 +7,6 @@ Module Name:
 
 Abstract:
 
-    Sequence equality facet ("Phase 2" of the modular plugin-based search
-    tree design, following the `stx::` core in util/stx_search_tree.h).
-
-    This is the first concrete instantiation of the design document "A
-    Modular Plugin-Based Search Tree for String Solving" (based on
-    `theory_nseq` / `nielsen_graph` on the c3 branch): the `eq_facet`
-    facet plus its propagation and split plugins, implementing classical
-    word-equation solving via the Nielsen transformation directly over
-    `expr_ref`/`seq_util`, with no dependency on `euf::sgraph`/`euf::snode`.
-
     A word equation `L = R` is represented as a pair of *token lists*: each
     side of a `str.++` chain is flattened into a vector of leaves, where a
     leaf is either
@@ -49,17 +39,6 @@ Abstract:
     phase); this module reproduces exactly the equational (Nielsen) part of
     `theory_nseq`, migrated per the design document's facet table (see
     z3papers/nseq/facet-eq-deq.md).
-
-    "Phase 3" adds `deq_facet` (pending disequations `lhs != rhs`). Per
-    the design (facet-eq-deq.md section 2.5), disequalities have no
-    symmetric Nielsen branching of their own: `deq_facet` is a passive
-    `subst_sink_i` that only reacts to substitutions broadcast from
-    `eq_facet`'s split plugin (`word_eq_split`), discharging a
-    disequation when prefix-stripping exposes distinct leading constants
-    and flagging a conflict when both sides are forced fully equal.
-    Without an `solver_facet` this is sound but incomplete (a disequation
-    whose variables are never pinned down by `eq_facet`'s branching stays
-    pending, contributing to "unknown" rather than a definite answer).
 
 Author:
 
@@ -221,19 +200,7 @@ namespace seq {
         struct equation {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
-            // Justification for this equation: for a root-level equation,
-            // the dependency of the original assertion it came from
-            // (nullptr/empty if none); for an equation produced by
-            // simplification (reduce_eq's sub-equations), the parent
-            // equation's dependency (the decomposition is definitional,
-            // not an added assumption, so no new leaf is introduced).
             eq_tree::dep_tracker m_dep;
-            // Append-only representation: m_eqs is never erased/shifted.
-            // "Removing" or "updating" an equation just flips m_active to
-            // false (trailed via value_trail, so it flips back to true on
-            // backtrack) and, for an update, appends the replacement
-            // equation(s) to the back of the vector. Consumers that
-            // iterate equations() must skip entries with !active().
             bool                 m_active = true;
             equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
@@ -272,18 +239,6 @@ namespace seq {
             add_equation(lts, rts, dep);
         }
 
-        // Trailed removal of the equation at `idx` (e.g. eq_split
-        // replacing one equation with two shorter ones): the vector is
-        // append-only, so "removal" just flips m_active to false via a
-        // value_trail (restored to true on backtrack) - no shifting, no
-        // index invalidation for any other facet/iterator holding onto
-        // `idx`.
-        // NB: the undo must address the flag by vector+index, not by
-        // reference. Callers routinely follow a removal with add_equation
-        // (eq_split replaces one equation by two), and that push_back can
-        // reallocate m_eqs - a value_trail<bool> capturing m_eqs[idx].m_active
-        // would then restore through a dangling reference, leaving the
-        // equation permanently inactive on backtracking (silent false SAT).
         void remove_equation_trailed(unsigned idx) {
             m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
             m_eqs[idx].m_active = false;
@@ -339,28 +294,12 @@ namespace seq {
         // `conflict_dep` to the dependency of the equation that produced
         // the contradiction. See module comment.
         //
-        // `n`/`id` identify this facet's own node/slot so that any forced
-        // v:=epsilon substitution discovered during simplification can be
-        // broadcast (via broadcast_subst) to every sibling subst_sink_i
-        // facet (e.g. deq_facet) in the same node, not just applied to
-        // this facet's own equations - NSB code review: simplify_equation
-        // previously called apply_subst directly, silently skipping that
-        // broadcast and leaving sibling facets holding a stale reference
-        // to a variable this facet had already eliminated.
         bool simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep);
         ambient_context_i<eq_tree::dep_tracker>& ambient(eq_tree::node const& n) const;
 
     private:
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
-        // Simplify a single equation (by index into m_eqs) using
-        // seq_rewriter::reduce_eq. Returns false and sets conflict=true
-        // (and conflict_dep to the culprit equation's dependency) if the
-        // equation is contradictory; otherwise returns true. Sets
-        // changed=true if the equation's token lists were mutated or new
-        // sub-equations were appended to m_eqs. On success, if both sides
-        // reduced to empty, the equation is erased (trailed). `n`/`id` are
-        // forwarded to broadcast_subst for any forced v:=epsilon
-        // substitution (see simplify's comment above).
+
         bool simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed);
     };
 
@@ -596,8 +535,6 @@ namespace seq {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
-            // Append-only, same discipline as eq_facet::equation: removal/
-            // update flips m_active (trailed) rather than erasing.
             bool                 m_active = true;
             disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
