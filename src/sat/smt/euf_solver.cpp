@@ -692,6 +692,14 @@ namespace euf {
             return sat::check_result::CR_GIVEUP;  
         if (m_qsolver && m_config.m_arith_ignore_int)
             return sat::check_result::CR_GIVEUP; 
+        if (!m_unhandled_functions.empty()) {
+            // Functions from theories this solver has no plugin for (e.g. sequences/regexes)
+            // were treated as uninterpreted. A model built this way does not account for
+            // their real semantics, so a "sat" verdict here would be unsound. Report unknown
+            // instead of a possibly-wrong "sat".
+            m_reason_unknown = "unhandled function " + m_unhandled_functions.back()->get_name().str();
+            return sat::check_result::CR_GIVEUP;
+        }
         for (auto s : m_solvers)
             s->finalize();
         return sat::check_result::CR_DONE;
