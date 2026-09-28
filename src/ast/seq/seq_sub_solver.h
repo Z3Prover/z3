@@ -7,39 +7,36 @@ Module Name:
 
 Abstract:
 
-    Abstract incremental-arithmetic backend interface (`sub_solver_i`,
-    per z3papers/nseq/facet-arith.md), factored out of
-    smt/seq_solver_facet.h so that facets living in ast/seq (which must
-    not depend on anything under src/smt) can reference the interface
-    without pulling in the concrete `smt::seq_solver_facet.h`/`solver_facet`
-    module (which does depend on src/solver and is compiled as part of
-    the `smt` component, itself a consumer of `ast_seq` - the reverse
-    dependency direction would create a cycle).
+    Abstract incremental-arithmetic backend interface `sub_solver_i`.
 
     `solver_facet` (smt/seq_solver_facet.h) is the only concrete consumer
-    that owns/constructs a `sub_solver_i` instance (via `sub_solver`);
-    ast/seq facets such as `ncontains_facet`/`power_facet` only ever see
-    `solver_facet` referenced by id through `stx::node::facet_as<>`, so
-    they do not even need this header directly for that - but they do
-    reference `solver_facet` by name in the propagation plugins that
-    consult it, which is why this split keeps the interface (not the
-    concrete backend) as the shared, dependency-direction-safe piece.
+    that owns/constructs a `sub_solver_i` instance (via `sub_solver`).
 
-    This mirrors the c3 branch's `seq::sub_solver_i`
-    (src/smt/seq/seq_nielsen.h): `assert_expr` takes an optional
-    `dep_tracker` justification (built via the caller's own
-    `eq_tree::dep_manager_t`, e.g. `eq_facet::dm()`/`solver_facet`'s
-    caller); a `nullptr` dep means "unconditional fact" (asserted
-    directly, never retracted from an unsat core), while a non-null dep
-    ties the assertion to a fresh internal assumption literal so that,
-    should `check()` return `l_false`, `unsat_core()` can return the
-    join of exactly the deps of the assertions that contributed to that
-    particular UNSAT result - the same "dependency-tracked constraint"
-    discipline `arith_propagation`/`power_propagation`/`power_split` use
-    when asserting length axioms derived from a specific equation/
-    obligation (whose own justification must be threaded through so a
-    resulting conflict's dependency is precise, not `nullptr`).
+    Interface requirements:
 
+    S_m - the main solver state based on asserted literals 
+    M_m - model of the main solver state (for arithmetic variables)
+    S_s - the sub-solver state during search
+    M_s - model of the sub-solver state
+    L_s - assumption literals asserted on the sub-solver state
+
+    We will assume a relation between S_m and S_s by 
+    
+             S_s = S_m + L_s
+
+   M_m(|x|) in N_\bot - current assignment to length |x| term in main solver. \bot if there are no assignments
+   S_m(|x|_lo) in N_\bot - forced lower bound in main solver
+   S_m(|x|_hi) in N_\bot - forced upper bound in main solver
+
+   Assumption on model construction by search tree:
+   
+      Preferred: |M_s(|x|)| = M_m(|x|) if M_m(|x|) \neq \bot 
+      Required: S_m(|x|_lo) <= |M_s(|x|)| <= S_m(|x|_hi)
+
+   In other words, the string x is preferrably to be assigned values that are consistent with the current model.
+
+   If the subsolver ends in a satisfiable state, then literals in L_s are assumed if they are not already true in M_m / S_m.
+   
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026
