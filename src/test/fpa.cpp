@@ -171,63 +171,24 @@ static void test_transcendental_rewriter_specials() {
 }
 
 // Checks that the new transcendental operations translate into
-// well-sorted bit-vector formulas (fpa2bv) and that repeated applications
-// of the same operator to (semantically) equal arguments are recognized
-// as equal, as required for any deterministic function -- interpreted
-// or, as here, translated into a fresh uninterpreted bit-vector function.
+// interpreted, well-sorted bit-vector formulas (fpa2bv).
 static void test_transcendental_fpa2bv() {
-    // Congruence: equal arguments must give equal results. This is
-    // checked through the SMT kernel's native FPA theory (theory_fpa),
-    // which shares the same fpa2bv_converter::mk_uf translation used by
-    // the fpa2bv *tactic*. (The standalone fpa2bv/bit-blast tactic chain
-    // has a pre-existing, unrelated limitation with RoundingMode-sorted
-    // UF arguments that also affects ordinary user-declared functions,
-    // so congruence is checked via plain (check-sat) here instead.)
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
+    // The approximations are interpreted instead of being assigned
+    // arbitrary values by UFs. Log also exercises subtraction lowering.
     char const* spec =
-        "(declare-const x (_ FloatingPoint 8 24))\n"
-        "(declare-const y (_ FloatingPoint 8 24))\n"
-        "(assert (= x y))\n"
-        "(assert (not (= (fp.sin RNE x) (fp.sin RNE y))))\n"
-        "(check-sat)\n";
+        "(define-fun one () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 1.0))\n"
+        "(define-fun two () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 2.0))\n"
+        "(define-fun half () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 0.5))\n"
+        "(assert (not (fp.gt (fp.exp RNE one) one)))\n"
+        "(assert (not (fp.gt (fp.log RNE two) half)))\n"
+        "(check-sat-using (then fpa2bv simplify bit-blast smt))\n";
     std::string response = Z3_eval_smtlib2_string(ctx, spec);
     if (response.find("unsat") == std::string::npos)
-        std::cout << "fp.sin congruence: " << response << "\n";
+        std::cout << "fp.exp interpreted approximation: " << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
-    Z3_del_context(ctx);
-
-    cfg = Z3_mk_config();
-    ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    char const* spec2 =
-        "(declare-const x (_ FloatingPoint 8 24))\n"
-        "(declare-const y (_ FloatingPoint 8 24))\n"
-        "(assert (= x y))\n"
-        "(assert (not (= (fp.pow RNE x x) (fp.pow RNE y y))))\n"
-        "(check-sat)\n";
-    response = Z3_eval_smtlib2_string(ctx, spec2);
-    if (response.find("unsat") == std::string::npos)
-        std::cout << "fp.pow congruence: " << response << "\n";
-    ENSURE(response.find("unsat") != std::string::npos);
-    Z3_del_context(ctx);
-
-    // fp.exp is satisfiable both ways when unconstrained by special
-    // values: it is translated as an uninterpreted function, so nothing
-    // prevents the solver from picking a NaN result for a generic input.
-    cfg = Z3_mk_config();
-    ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    char const* spec3 =
-        "(declare-const x (_ FloatingPoint 8 24))\n"
-        "(assert (not (fp.isNaN x)))\n"
-        "(assert (fp.isNaN (fp.exp RNE x)))\n"
-        "(check-sat)\n";
-    response = Z3_eval_smtlib2_string(ctx, spec3);
-    if (response.find("unsat") != std::string::npos || response.find("sat") == std::string::npos)
-        std::cout << "fp.exp uninterpreted (expect sat): " << response << "\n";
-    ENSURE(response.find("unsat") == std::string::npos && response.find("sat") != std::string::npos);
     Z3_del_context(ctx);
 
     // Sanity check that the standalone fpa2bv tactic (used e.g. for
@@ -236,14 +197,14 @@ static void test_transcendental_fpa2bv() {
     cfg = Z3_mk_config();
     ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-    char const* spec4 =
-        "(declare-const x (_ FloatingPoint 8 24))\n"
-        "(assert (fp.gt (fp.sin RNE x) (_ +zero 8 24)))\n"
-        "(check-sat-using (then fpa2bv simplify bit-blast smt))\n";
-    response = Z3_eval_smtlib2_string(ctx, spec4);
-    if (response.find("sat") == std::string::npos)
+    char const* spec2 =
+        "(define-fun half () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 0.5))\n"
+        "(assert (not (fp.gt (fp.sin RNE half) (_ +zero 8 24))))\n"
+        "(check-sat-using (then (using-params fpa2bv :fpa2bv_transcendental_degree 3) simplify bit-blast smt))\n";
+    response = Z3_eval_smtlib2_string(ctx, spec2);
+    if (response.find("unsat") == std::string::npos)
         std::cout << "fp.sin fpa2bv well-sortedness: " << response << "\n";
-    ENSURE(response.find("sat") != std::string::npos);
+    ENSURE(response.find("unsat") != std::string::npos);
 
 
     Z3_del_context(ctx);

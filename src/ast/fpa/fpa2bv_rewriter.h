@@ -31,6 +31,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     unsigned long long         m_max_memory;
     unsigned                   m_max_steps;
+    unsigned                   m_transcendental_degree;
 
     ast_manager & m() const { return m_manager; }
 
@@ -48,6 +49,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     void updt_params(params_ref const & p);
 
     bool max_steps_exceeded(unsigned num_steps) const;
+
+    br_status reduce_transcendental(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
 
@@ -79,4 +82,3 @@ struct fpa2bv_rewriter : public rewriter_tpl<fpa2bv_rewriter_cfg> {
 
     fpa_util& fu() { return m_cfg.m_conv.fu();  }
 };
-

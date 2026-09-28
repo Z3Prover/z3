@@ -40,6 +40,7 @@ void fpa2bv_rewriter_cfg::updt_local_params(params_ref const & _p) {
     fpa2bv_rewriter_params p(_p);
     bool v = p.hi_fp_unspecified();
     m_conv.set_unspecified_fp_hi(v);
+    m_transcendental_degree = std::clamp(p.fpa2bv_transcendental_degree(), 1u, 16u);
 }
 
 void fpa2bv_rewriter_cfg::updt_params(params_ref const & p) {
@@ -50,6 +51,187 @@ void fpa2bv_rewriter_cfg::updt_params(params_ref const & p) {
 
 bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
     return num_steps > m_max_steps;
+}
+
+br_status fpa2bv_rewriter_cfg::reduce_transcendental(
+    func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    fpa_util& u = m_conv.fu();
+    expr* rm = args[0];
+    expr* x = args[1];
+    sort* s = x->get_sort();
+
+    auto val = [&](rational const& q) {
+        scoped_mpf v(u.fm());
+        u.fm().set(v, u.get_ebits(s), u.get_sbits(s), MPF_ROUND_NEAREST_TEVEN, q.to_mpq());
+        return expr_ref(u.mk_value(v), m());
+    };
+    auto add = [&](expr* a, expr* b) { return expr_ref(u.mk_add(rm, a, b), m()); };
+    auto neg = [&](expr* a) { return expr_ref(u.mk_neg(a), m()); };
+    auto sub = [&](expr* a, expr* b) { return add(a, neg(b)); };
+    auto mul = [&](expr* a, expr* b) { return expr_ref(u.mk_mul(rm, a, b), m()); };
+    auto div = [&](expr* a, expr* b) { return expr_ref(u.mk_div(rm, a, b), m()); };
+
+    expr_ref zero = val(rational(0));
+    expr_ref one = val(rational(1));
+    expr_ref two = val(rational(2));
+    expr_ref pi = val(rational(355) / rational(113));
+
+    auto exp_series = [&](expr* a) {
+        expr_ref r = val(rational(1));
+        for (unsigned i = m_transcendental_degree; i > 0; --i)
+            r = add(one, mul(a, div(r, val(rational(i)))));
+        return r;
+    };
+    auto log_series = [&](expr* a) {
+        expr_ref z = div(sub(a, one), add(a, one));
+        expr_ref z2 = mul(z, z);
+        expr_ref r = val(rational(1, 2 * m_transcendental_degree - 1));
+        for (unsigned i = m_transcendental_degree - 1; i > 0; --i)
+            r = add(val(rational(1, 2 * i - 1)), mul(z2, r));
+        return mul(two, mul(z, r));
+    };
+    auto sin_series = [&](expr* a) {
+        expr_ref z = mul(a, a);
+        rational coefficient(1);
+        for (unsigned i = 1; i < m_transcendental_degree; ++i)
+            coefficient /= rational((2 * i) * (2 * i + 1));
+        if ((m_transcendental_degree - 1) & 1)
+            coefficient.neg();
+        expr_ref r = val(coefficient);
+        for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
+            rational c(1);
+            for (unsigned j = 1; j < i; ++j)
+                c /= rational((2 * j) * (2 * j + 1));
+            if ((i - 1) & 1)
+                c.neg();
+            r = add(val(c), mul(z, r));
+        }
+        return mul(a, r);
+    };
+    auto cos_series = [&](expr* a) {
+        expr_ref z = mul(a, a);
+        rational coefficient(1);
+        for (unsigned i = 1; i < m_transcendental_degree; ++i)
+            coefficient /= rational((2 * i - 1) * (2 * i));
+        if ((m_transcendental_degree - 1) & 1)
+            coefficient.neg();
+        expr_ref r = val(coefficient);
+        for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
+            rational c(1);
+            for (unsigned j = 1; j < i; ++j)
+                c /= rational((2 * j - 1) * (2 * j));
+            if ((i - 1) & 1)
+                c.neg();
+            r = add(val(c), mul(z, r));
+        }
+        return r;
+    };
+    auto atan_series = [&](expr* a) {
+        expr_ref abs_a(u.mk_abs(a), m());
+        expr_ref z = mul(abs_a, abs_a);
+        rational coefficient(1, 2 * m_transcendental_degree - 1);
+        if ((m_transcendental_degree - 1) & 1)
+            coefficient.neg();
+        expr_ref r = val(coefficient);
+        for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
+            rational c(1, 2 * i - 1);
+            if ((i - 1) & 1)
+                c.neg();
+            r = add(val(c), mul(z, r));
+        }
+        expr_ref direct = mul(abs_a, r);
+        expr_ref inv = div(one, abs_a);
+        expr_ref iz = mul(inv, inv);
+        coefficient = rational(1, 2 * m_transcendental_degree - 1);
+        if ((m_transcendental_degree - 1) & 1)
+            coefficient.neg();
+        r = val(coefficient);
+        for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
+            rational c(1, 2 * i - 1);
+            if ((i - 1) & 1)
+                c.neg();
+            r = add(val(c), mul(iz, r));
+        }
+        expr_ref reciprocal = sub(div(pi, two), mul(inv, r));
+        expr_ref magnitude(m());
+        magnitude = m().mk_ite(u.mk_le(abs_a, one), direct, reciprocal);
+        return expr_ref(m().mk_ite(u.mk_lt(a, zero), neg(magnitude), magnitude), m());
+    };
+
+    switch (f->get_decl_kind()) {
+    case OP_FPA_EXP:
+        result = exp_series(x);
+        break;
+    case OP_FPA_LOG:
+        result = log_series(x);
+        break;
+    case OP_FPA_LOG2:
+        result = div(log_series(x), val(rational("6931471805599453/10000000000000000")));
+        break;
+    case OP_FPA_LOG10:
+        result = div(log_series(x), val(rational("2302585092994046/1000000000000000")));
+        break;
+    case OP_FPA_SIN:
+        result = sin_series(x);
+        break;
+    case OP_FPA_COS:
+        result = cos_series(x);
+        break;
+    case OP_FPA_TAN:
+        result = div(sin_series(x), cos_series(x));
+        break;
+    case OP_FPA_ASIN: {
+        expr_ref denominator(u.mk_sqrt(rm, sub(one, mul(x, x))), m());
+        result = atan_series(div(x, denominator));
+        break;
+    }
+    case OP_FPA_ACOS: {
+        expr_ref denominator(u.mk_sqrt(rm, sub(one, mul(x, x))), m());
+        result = sub(div(pi, two), atan_series(div(x, denominator)));
+        break;
+    }
+    case OP_FPA_ATAN:
+        result = atan_series(x);
+        break;
+    case OP_FPA_SINH:
+        result = div(sub(exp_series(x), exp_series(neg(x))), two);
+        break;
+    case OP_FPA_COSH:
+        result = div(add(exp_series(x), exp_series(neg(x))), two);
+        break;
+    case OP_FPA_TANH: {
+        expr_ref ep = exp_series(x);
+        expr_ref en = exp_series(neg(x));
+        result = div(sub(ep, en), add(ep, en));
+        break;
+    }
+    case OP_FPA_POW:
+        SASSERT(num == 3);
+        result = exp_series(mul(args[2], log_series(x)));
+        break;
+    case OP_FPA_ATAN2: {
+        SASSERT(num == 3);
+        expr* y = x;
+        expr* x2 = args[2];
+        expr_ref a = atan_series(div(y, x2));
+        expr_ref upper = add(a, pi);
+        expr_ref lower = sub(a, pi);
+        expr_ref half_pi = div(pi, two);
+        expr_ref at_zero(m()), at_negative(m());
+        at_zero = m().mk_ite(u.mk_lt(y, zero), neg(half_pi), half_pi);
+        at_negative = m().mk_ite(u.mk_lt(y, zero), lower, upper);
+        result = m().mk_ite(u.mk_gt(x2, zero), a,
+                 m().mk_ite(u.mk_lt(x2, zero), at_negative, at_zero));
+        break;
+    }
+    case OP_FPA_HYPOT:
+        SASSERT(num == 3);
+        result = u.mk_sqrt(rm, add(mul(x, x), mul(args[2], args[2])));
+        break;
+    default:
+        UNREACHABLE();
+    }
+    return BR_REWRITE_FULL;
 }
 
 
@@ -153,12 +335,6 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV_I: m_conv.mk_to_ieee_bv_i(f, num, args, result); return BR_DONE;
 
-        // IEEE 754-2019 recommended transcendental operations (Section 9.2).
-        // There is no standard bit-exact algorithm for these (they are
-        // "recommended", not required, and no particular rounding is
-        // mandated), so we translate them as deterministic but
-        // uninterpreted bit-vector functions -- the same approach used
-        // for ordinary declared uninterpreted functions over floats.
         case OP_FPA_EXP:
         case OP_FPA_LOG:
         case OP_FPA_LOG2:
@@ -175,7 +351,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_SINH:
         case OP_FPA_COSH:
         case OP_FPA_TANH:
-            m_conv.mk_uf(f, num, args, result); return BR_DONE;
+            return reduce_transcendental(f, num, args, result);
 
         case OP_FPA_BVWRAP:
         case OP_FPA_BV2RM:

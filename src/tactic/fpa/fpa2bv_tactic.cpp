@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
+#include "params/fpa2bv_rewriter_params.hpp"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/fpa/fpa2bv_tactic.h"
 #include "tactic/fpa/fpa2bv_model_converter.h"
@@ -128,6 +129,7 @@ public:
     }
 
     void collect_param_descrs(param_descrs & r) override {
+        fpa2bv_rewriter_params::collect_param_descrs(r);
     }
 
     void operator()(goal_ref const & in,
