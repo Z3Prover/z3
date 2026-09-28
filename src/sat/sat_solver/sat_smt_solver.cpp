@@ -191,9 +191,18 @@ public:
             r = l_undef;            
         }
         switch (r) {
-        case l_true:
+        case l_true: {
+            auto* ext = get_euf();
+            if (ext && !ext->unhandled_functions().empty()) {
+                std::stringstream strm;
+                strm << "(sat.giveup interpreted functions sent to SAT solver " << ext->unhandled_functions() << ")";
+                set_reason_unknown(strm.str());
+                r = l_undef;
+                break;
+            }
             check_assumptions();
             break;
+        }
         case l_false:
             extract_core();
             break;
