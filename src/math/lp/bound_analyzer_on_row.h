@@ -298,13 +298,21 @@ namespace lp {
         void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict) {
             auto* lar = &m_bp.lp();
             auto* row = &this->m_row;
-            auto explain = [row, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, lar]() {
+            // The bound on bound_j follows from the row sum_k a_k x_k = 0 and the bounds of the
+            // other columns: x_j = -sum_{k != j} (a_k / a_j) x_k. The bound of column k enters
+            // the derivation with Farkas coefficient |a_k / a_j|.
+            auto explain_weighted = [row, bound_j, coeff_before_j_is_pos, is_lower_bound, strict, lar]
+                (implied_bound::weighted_consumer const& consume) {
                 (void) strict;
                 TRACE(bound_analyzer, tout << "explain_bound_on_var_on_coeff, bound_j = " << bound_j << ", coeff_before_j_is_pos = " << coeff_before_j_is_pos << ", is_lower_bound = " << is_lower_bound << ", strict = " << strict << "\n";);
                 int bound_sign = (is_lower_bound ? 1 : -1);
                 int j_sign = (coeff_before_j_is_pos ? 1 : -1) * bound_sign;
-
-                u_dependency* ret = nullptr;
+                mpq a_j;
+                for (auto const& r : *row)
+                    if (r.var() == bound_j) {
+                        a_j = abs(r.coeff());
+                        break;
+                    }
                 for (auto const& r : *row) {
                     unsigned j = r.var();
                     if (j == bound_j)
@@ -313,11 +321,15 @@ namespace lp {
                     int a_sign = is_pos(a) ? 1 : -1;
                     int sign = j_sign * a_sign;
                     u_dependency* witness = sign > 0 ? lar->get_column_upper_bound_witness(j) : lar->get_column_lower_bound_witness(j);
-                    ret = lar->join_deps(ret, witness);
+                    consume(abs(a) / a_j, witness);
                 }
+            };
+            auto explain = [explain_weighted, lar]() {
+                u_dependency* ret = nullptr;
+                explain_weighted([&](mpq const&, u_dependency* witness) { ret = lar->join_deps(ret, witness); });
                 return ret;
             };
-            m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain);
+            m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain, explain_weighted);
         }
 
         void advance_u(unsigned j) {

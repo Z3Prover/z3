@@ -221,34 +221,10 @@ public:
     std::function<void(lpvar)> m_fixed_var_eh;
     template <typename T>
     void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
-        u_dependency* dep = ib.explain_implied();
-        for (auto ci : flatten(dep))
-            bp.consume(mpq(1), ci); // TODO: flatten should provide the coefficients
-        /*
-        if (ib.m_is_monic) {
-            NOT_IMPLEMENTED_YET();
-        } else {
-            unsigned i = ib.m_row_or_term_index;
-            int bound_sign = (ib.m_is_lower_bound ? 1 : -1);
-            int j_sign = (ib.m_coeff_before_j_is_pos ? 1 : -1) * bound_sign;
-            unsigned bound_j = ib.m_j;
-            if (tv::is_term(bound_j))
-                bound_j = m_var_register.external_to_local(bound_j);
-
-            for (auto const& r : get_row(i)) {
-                unsigned j = r.var();
-                if (j == bound_j)
-                    continue;
-                mpq const& a = r.coeff();
-                int a_sign = is_pos(a) ? 1 : -1;
-                int sign = j_sign * a_sign;
-                const column& ul = m_columns[j];
-                auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-                SASSERT(witness);
-                for (auto ci : flatten(witness))
-                    bp.consume(a, ci);
-            }
-            }*/
+        ib.explain_weighted([&](mpq const& coeff, u_dependency* dep) {
+            for (auto ci : flatten(dep))
+                bp.consume(coeff, ci);
+        });
     }
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
