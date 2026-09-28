@@ -104,6 +104,7 @@ namespace seq {
         uint64_t hash() const override;
         bool equals(stx::constraint_i const& other) const override;
         stx::constraint_i* clone() const override { return alloc(str_mem, m_str.get_manager(), m_str, m_view); }
+        void* dep_handle() const override { return m_dep; }
     };
 
     class mem_facet : public stx::facet_i, public subst_sink_i {

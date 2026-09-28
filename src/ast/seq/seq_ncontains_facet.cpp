@@ -90,6 +90,28 @@ namespace seq {
         return out;
     }
 
+    uint64_t str_ncontains::hash() const {
+        vector<uint64_t> enc;
+        enc.push_back(m_haystack.size());
+        for (expr* t : m_haystack)
+            enc.push_back(static_cast<uint64_t>(t->get_id()));
+        enc.push_back(m_needle.size());
+        for (expr* t : m_needle)
+            enc.push_back(static_cast<uint64_t>(t->get_id()));
+        return stx::stx_hash_fact(0x6e636fu, enc); // tag: "nco"
+    }
+
+    bool str_ncontains::equals(stx::constraint_i const& other) const {
+        auto const* o = dynamic_cast<str_ncontains const*>(&other);
+        return o && m_haystack == o->m_haystack && m_needle == o->m_needle;
+    }
+
+    void ncontains_facet::append_constraints(vector<stx::constraint_i const*>& out) const {
+        for (auto const& nc : m_ncs)
+            if (nc.active())
+                out.push_back(&nc);
+    }
+
     // Build a str.++ chain expr from a token list, for querying
     // solver_facet's length-gate (`u.str.mk_length` needs an actual
     // sequence-sorted expr, not a token vector).

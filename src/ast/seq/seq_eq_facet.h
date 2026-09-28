@@ -218,6 +218,13 @@ namespace seq {
             uint64_t hash() const override;
             bool equals(stx::constraint_i const& other) const override;
             stx::constraint_i* clone() const override { return alloc(equation, m_lhs, m_rhs); }
+            // Exposes m_dep (this fact's own justification, or nullptr
+            // for an unconditional/definitional one) so cache_insert()'s
+            // filter_by_conflict_dep() can narrow an over-approximate
+            // core down to just the equations that could actually have
+            // contributed to a given conflict - see stx::constraint_i's
+            // dep_handle() doc comment.
+            void* dep_handle() const override { return m_dep; }
         };
 
 
@@ -563,6 +570,7 @@ namespace seq {
             uint64_t hash() const override;
             bool equals(stx::constraint_i const& other) const override;
             stx::constraint_i* clone() const override { return alloc(disequation, m_lhs, m_rhs); }
+            void* dep_handle() const override { return m_dep; }
         };
 
     private:

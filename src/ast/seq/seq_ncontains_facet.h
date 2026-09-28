@@ -130,7 +130,7 @@ namespace seq {
     // stripping a leading run of determined-mismatch tokens), appends
     // the shortened obligation to the back of the vector. Consumers
     // that iterate ncontains() must skip entries with !active().
-    struct str_ncontains {
+    struct str_ncontains : public stx::constraint_i {
         expr_ref_vector m_haystack;
         expr_ref_vector m_needle;
         eq_tree::dep_tracker m_dep;
@@ -138,6 +138,17 @@ namespace seq {
         str_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) :
             m_haystack(h), m_needle(n), m_dep(dep) {}
         bool active() const { return m_active; }
+
+        // -- stx::constraint_i (unsat-cache identity) --
+        // Identity is (haystack, needle) - directional, unlike
+        // eq_facet::equation, so no canonical lhs/rhs swap is needed
+        // (h not-contains n and n not-contains h are different facts).
+        // `clone()` intentionally drops `m_dep`/`m_active` - see
+        // stx::constraint_i's class comment.
+        uint64_t hash() const override;
+        bool equals(stx::constraint_i const& other) const override;
+        stx::constraint_i* clone() const override { return alloc(str_ncontains, m_haystack, m_needle); }
+        void* dep_handle() const override { return m_dep; }
     };
 
     /**
@@ -220,6 +231,13 @@ namespace seq {
         stx::facet_i* clone(trail_stack& trail) const override;
         bool is_satisfied() const override { return std::all_of(m_ncs.begin(), m_ncs.end(), [](str_ncontains const& nc) { return !nc.active(); }); }
         std::ostream& display(std::ostream& out) const override;
+
+        // -- unsat-cache signature --
+        // An active `not contains(h,n)` obligation determines
+        // (in)consistency directly (see is_satisfied()), so it always
+        // participates.
+        bool contributes_to_signature() const override { return true; }
+        void append_constraints(vector<stx::constraint_i const*>& out) const override;
     };
 
     // Length-gate propagation (facet-ncontains.md section 3.3), plus the

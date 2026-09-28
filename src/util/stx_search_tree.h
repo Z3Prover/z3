@@ -164,6 +164,24 @@ namespace stx {
         virtual uint64_t hash() const = 0;
         virtual bool equals(constraint_i const& other) const = 0;
         virtual constraint_i* clone() const = 0;
+
+        // Opaque pointer to this LIVE fact's own justification/dependency
+        // object, as understood by the instantiating domain's
+        // `scoped_dependency_manager` (`search_tree::dep_tracker`/
+        // `m_dep_mgr`) - nullptr (the default) if this fact holds
+        // unconditionally within the current branch and has no
+        // independent leaf justification of its own (e.g. a purely
+        // definitional fact). Deliberately domain- and dep-type-agnostic,
+        // mirroring `ambient_context_base`'s opaque-marker-base idiom:
+        // `constraint_i` itself must not know what a `dep_tracker` is
+        // (that type is a template parameter of `search_tree`, not
+        // available at this non-template scope), so it hands back an
+        // untyped `void*` that only the templated `search_tree` -
+        // which DOES know the concrete `dep_tracker` type it was
+        // instantiated with - ever `static_cast`s back down (see
+        // `search_tree::cache_insert`'s conflict-relevance filter). The
+        // engine never dereferences this pointer itself.
+        virtual void* dep_handle() const { return nullptr; }
     };
 
     /**
@@ -955,6 +973,70 @@ namespace stx {
             return false;
         }
 
+        // Narrow `cs` (the node's full active, signature-contributing set,
+        // as gathered by compute_constraints()) down to just the facts
+        // that could actually have contributed to deriving THIS
+        // conflict - a cheap, sound alternative to full minimal-unsat-
+        // core extraction, using dependency information the engine
+        // already tracks for its own conflict-explanation purposes at
+        // zero extra propagation cost. `conflict_dep` is the closing
+        // node's own `conflict_dep()` (already set by the caller before
+        // cache_insert() runs - see dfs()'s three call sites).
+        //
+        // Soundness: every `node::set_conflict()` call site builds its
+        // dependency purely by joining (via `dep_manager_t::mk_join()`,
+        // which forms a leaf-value join-tree without ever inventing new
+        // leaves) the `m_dep`/`dep_handle()` of exactly the fact(s) that
+        // participated in that specific conflict/derivation (see e.g.
+        // `eq_facet::simplify_equation`'s `conflict_dep = eq.m_dep` /
+        // `mk_join(parent_dep, false_dep)`), so a fact that genuinely
+        // participated always has its own leaf set as a SUBSET of
+        // `conflict_dep`'s leaf set. A fact whose own leaf set is NOT a
+        // subset - it depends on at least one leaf this conflict's
+        // derivation never needed - provably did not contribute to
+        // producing THIS conflict via THIS derivation path, so dropping
+        // it cannot make the recorded core insufficient (any future node
+        // containing the remaining, smaller set still deterministically
+        // reaches the same conflict the same way).
+        //
+        // Not a minimal core: multiple still-included facts may share
+        // enough overlapping leaves that, on closer (unattempted) proof-
+        // theoretic inspection, some of them would also turn out to be
+        // unnecessary - this only ever removes facts that are PROVABLY
+        // irrelevant by the subset test above, nothing more.
+        //
+        // A fact with no dependency handle (`dep_handle() == nullptr` -
+        // the default; e.g. a purely definitional/derived fact with no
+        // independent leaf justification of its own, or `conflict_dep`
+        // itself being null, which should not normally happen for a real
+        // conflict) is always kept: there is no dependency information
+        // available to safely rule it out.
+        void filter_by_conflict_dep(vector<constraint_i const*>& cs, dep_tracker conflict_dep) {
+            if (!conflict_dep)
+                return;
+            vector<constraint_i const*> kept;
+            vector<dep_source_t, false> fact_leaves;
+            for (constraint_i const* c : cs) {
+                dep_tracker fd = static_cast<dep_tracker>(c->dep_handle());
+                if (!fd) {
+                    kept.push_back(c);
+                    continue;
+                }
+                fact_leaves.reset();
+                m_dep_mgr.linearize(fd, fact_leaves);
+                bool all_contained = true;
+                for (auto const& v : fact_leaves) {
+                    if (!m_dep_mgr.contains(conflict_dep, v)) {
+                        all_contained = false;
+                        break;
+                    }
+                }
+                if (all_contained)
+                    kept.push_back(c);
+            }
+            cs = std::move(kept);
+        }
+
         // Insert: memoize this node's current state as an (over-
         // approximate) unsat core, and register it in the watch list.
         // Only called at closure points the caller has already determined
@@ -975,6 +1057,15 @@ namespace stx {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return;
             vector<constraint_i const*> cs = compute_constraints(n);
+            if (cs.empty())
+                return;
+            // Narrow the over-approximate active set down to just the
+            // facts that could have contributed to THIS conflict (see
+            // filter_by_conflict_dep()'s comment) before interning
+            // anything: a smaller recorded core matches (as a subset)
+            // more future nodes, so this only ever helps the cache's hit
+            // rate, never hurts its soundness.
+            filter_by_conflict_dep(cs, n.conflict_dep());
             if (cs.empty())
                 return;
             // Every constraint in this node's active set becomes (or
@@ -1091,6 +1182,74 @@ namespace stx {
                 }
             }
             return out;
+        }
+
+        // --- dot trace: open this call's record, linked to the current
+        // path via m_dot_stack, before any children recurse. Returns the
+        // new record's id (index into m_dot_nodes), or -1 if tracing is
+        // disabled or the node cap has been reached (in which case dfs()
+        // must not touch m_dot_nodes/m_dot_stack for this call at all -
+        // every other dot_trace_* method below is a no-op given dot_id
+        // < 0, mirroring that same convention).
+        int dot_trace_open(edge const* in_edge) {
+            if (!m_dot_trace_enabled || m_dot_nodes.size() >= m_max_dot_nodes)
+                return -1;
+            int dot_id = static_cast<int>(m_dot_nodes.size());
+            m_dot_nodes.push_back(dot_node());
+            dot_node& rec = m_dot_nodes.back();
+            rec.id = static_cast<unsigned>(dot_id);
+            rec.parent_id = m_dot_stack.empty() ? -1 : static_cast<int>(m_dot_stack.back());
+            if (in_edge) {
+                std::ostringstream es;
+                es << in_edge->rule_name();
+                if (in_edge->cost())
+                    es << " (cost " << in_edge->cost() << ")";
+                rec.edge_label = es.str();
+            }
+            m_dot_stack.push_back(static_cast<unsigned>(dot_id));
+            if (!m_dot_live_path.empty()) {
+                auto now = std::chrono::steady_clock::now();
+                if (m_dot_live_last_write.time_since_epoch().count() == 0 ||
+                    now - m_dot_live_last_write >= std::chrono::milliseconds(200)) {
+                    m_dot_live_last_write = now;
+                    std::ofstream live_out(m_dot_live_path);
+                    if (live_out)
+                        to_dot(live_out);
+                }
+            }
+            return dot_id;
+        }
+
+        // --- dot trace: pop `dot_id`'s entry off m_dot_stack. Called from
+        // dfs()'s on_scope_exit guard, so it runs on every exit path
+        // (normal return, exception, early return alike).
+        void dot_trace_pop(int dot_id) {
+            if (dot_id >= 0)
+                m_dot_stack.pop_back();
+        }
+
+        // --- dot trace: snapshot this call's own facet state now -
+        // before any child branch further mutates the (single, live)
+        // node in place.
+        void dot_trace_snapshot(int dot_id, node const& n) {
+            if (dot_id < 0)
+                return;
+            std::ostringstream ss;
+            for (facet_id id = 0; id < n.num_facets(); ++id)
+                if (n.has_facet(id))
+                    n.facet(id).display(ss) << "\n";
+            m_dot_nodes[dot_id].state_label = ss.str();
+        }
+
+        // --- dot trace: record this call's final result/status/reason,
+        // once known, right before dfs() returns.
+        void dot_trace_close(int dot_id, search_result result, node const& n) {
+            if (dot_id < 0)
+                return;
+            dot_node& rec = m_dot_nodes[dot_id];
+            rec.result = result;
+            rec.status = n.status();
+            rec.reason = n.reason();
         }
 
         // Run every registered propagation plugin to a fixed point. The
@@ -1222,36 +1381,8 @@ namespace stx {
 
             // --- dot trace: open this node's record, linked to the
             // current path via m_dot_stack, before any children recurse.
-            int dot_id = -1;
-            if (m_dot_trace_enabled && m_dot_nodes.size() < m_max_dot_nodes) {
-                dot_id = static_cast<int>(m_dot_nodes.size());
-                m_dot_nodes.push_back(dot_node());
-                dot_node& rec = m_dot_nodes.back();
-                rec.id = static_cast<unsigned>(dot_id);
-                rec.parent_id = m_dot_stack.empty() ? -1 : static_cast<int>(m_dot_stack.back());
-                if (in_edge) {
-                    std::ostringstream es;
-                    es << in_edge->rule_name();
-                    if (in_edge->cost())
-                        es << " (cost " << in_edge->cost() << ")";
-                    rec.edge_label = es.str();
-                }
-                m_dot_stack.push_back(static_cast<unsigned>(dot_id));
-                if (!m_dot_live_path.empty()) {
-                    auto now = std::chrono::steady_clock::now();
-                    if (m_dot_live_last_write.time_since_epoch().count() == 0 ||
-                        now - m_dot_live_last_write >= std::chrono::milliseconds(200)) {
-                        m_dot_live_last_write = now;
-                        std::ofstream live_out(m_dot_live_path);
-                        if (live_out)
-                            to_dot(live_out);
-                    }
-                }
-            }
-            on_scope_exit dot_pop([&]() {
-                if (dot_id >= 0)
-                    m_dot_stack.pop_back();
-            });
+            int dot_id = dot_trace_open(in_edge);
+            on_scope_exit dot_pop([&]() { dot_trace_pop(dot_id); });
 
             search_result result;
             n.clear_status();
@@ -1270,13 +1401,7 @@ namespace stx {
             // --- dot trace: snapshot this node's own facet state now -
             // before any child branch further mutates the (single, live)
             // node in place.
-            if (dot_id >= 0) {
-                std::ostringstream ss;
-                for (facet_id id = 0; id < n.num_facets(); ++id)
-                    if (n.has_facet(id))
-                        n.facet(id).display(ss) << "\n";
-                m_dot_nodes[dot_id].state_label = ss.str();
-            }
+            dot_trace_snapshot(dot_id, n);
 
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
@@ -1398,12 +1523,7 @@ namespace stx {
                     }
                 }
             }
-            if (dot_id >= 0) {
-                dot_node& rec = m_dot_nodes[dot_id];
-                rec.result = result;
-                rec.status = n.status();
-                rec.reason = n.reason();
-            }
+            dot_trace_close(dot_id, result, n);
             return result;
         }
 
