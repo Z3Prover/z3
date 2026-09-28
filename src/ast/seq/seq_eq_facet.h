@@ -197,7 +197,7 @@ namespace seq {
             subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl) :
                 m_var(var, m), m_repl(repl) {}
         };
-        struct equation {
+        struct equation : public stx::constraint_i {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
@@ -205,7 +205,21 @@ namespace seq {
             equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
             bool active() const { return m_active; }
+
+            // -- stx::constraint_i (unsat-cache identity) --
+            // Canonically orders (lhs,rhs) - see seq_eq_facet.cpp's
+            // canonical_pair_hash/canonical_pair_eq - so `x=y` and a
+            // mirrored `y=x` (interchangeable outputs of Nielsen
+            // branching, depending on split order) compare equal.
+            // `clone()` intentionally drops `m_dep`/`m_active`: a memoized
+            // unsat-cache entry is a pure value, never mutated or
+            // backtracked, and its identity is only ever queried via
+            // hash()/equals() (see stx::constraint_i).
+            uint64_t hash() const override;
+            bool equals(stx::constraint_i const& other) const override;
+            stx::constraint_i* clone() const override { return alloc(equation, m_lhs, m_rhs); }
         };
+
 
     private:
         ast_manager&          m;
@@ -281,7 +295,7 @@ namespace seq {
         // Word equations directly determine (in)consistency in the
         // Nielsen transformation, so they always participate.
         bool contributes_to_signature() const override { return true; }
-        void append_signature(vector<uint64_t>& out) const override;
+        void append_constraints(vector<stx::constraint_i const*>& out) const override;
 
         // Deterministic simplification pass: uses seq_rewriter::reduce_eq
         // to simplify each equation's token lists (prefix/suffix
@@ -531,7 +545,7 @@ namespace seq {
      */
     class deq_facet : public stx::facet_i, public subst_sink_i {
     public:
-        struct disequation {
+        struct disequation : public stx::constraint_i {
             expr_ref_vector      m_lhs;
             expr_ref_vector      m_rhs;
             eq_tree::dep_tracker m_dep;
@@ -539,6 +553,16 @@ namespace seq {
             disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) :
                 m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
             bool active() const { return m_active; }
+
+            // -- stx::constraint_i (unsat-cache identity) --
+            // Same canonicalization as eq_facet::equation; `equals()`
+            // rejects an `equation` (or any other constraint kind) even
+            // if it happens to share the same (canonicalized) lhs/rhs -
+            // a disequation and an equation over the same tokens are NOT
+            // the same fact.
+            uint64_t hash() const override;
+            bool equals(stx::constraint_i const& other) const override;
+            stx::constraint_i* clone() const override { return alloc(disequation, m_lhs, m_rhs); }
         };
 
     private:
@@ -588,7 +612,7 @@ namespace seq {
 
         // -- unsat-cache signature --
         bool contributes_to_signature() const override { return true; }
-        void append_signature(vector<uint64_t>& out) const override;
+        void append_constraints(vector<stx::constraint_i const*>& out) const override;
 
         // Deterministic simplification pass: prefix-stripping, then
         // discharge-on-symbol-clash / conflict-on-both-empty. On

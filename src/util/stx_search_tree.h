@@ -103,18 +103,19 @@ namespace stx {
     const backtrack_reason br_children_failed = 2;
     const backtrack_reason br_plugin_base     = 3; // first value free for plugin use
 
-    // Shared helper for facet_i::append_signature() implementations: hash
-    // one whole fact's canonical encoding (as built by the facet's own
-    // e.g. sig_encode_pair-style helper) down to a single opaque uint64,
-    // salted with a facet-specific tag so identically-shaped encodings
-    // from different facet kinds never collide. Every value pushed by
-    // append_signature() must be produced this way (one call per active
-    // fact) - never the raw, unhashed per-fact encoding - because the
-    // unsat cache tests these values for SET CONTAINMENT across
-    // completely unrelated nodes (see search_tree::cache_lookup): a
-    // fact's *sub-terms* (e.g. a shared character literal or skolem
-    // reused across many unrelated equations) are not safe to test this
-    // way, only an opaque hash of the *whole* fact is.
+    // Shared helper for `constraint_i::hash()` implementations: hash one
+    // whole fact's canonical encoding (as built by the concrete
+    // constraint's own e.g. sig_encode_pair-style helper) down to a
+    // single opaque uint64, salted with a facet-specific tag so
+    // identically-shaped encodings from different constraint kinds never
+    // collide. `hash()` need only be a good bucket selector - it is
+    // never trusted alone (`constraint_store` always follows a hash
+    // match with an exact `equals()` check, so an occasional collision
+    // between unrelated facts is harmless, merely a wasted equality
+    // check) - but should still be built from the *whole* fact, not just
+    // one of its sub-terms (e.g. a shared character literal or skolem
+    // reused across many unrelated equations), so that in practice
+    // distinct facts rarely collide.
     inline uint64_t stx_hash_fact(uint64_t tag, vector<uint64_t> const& enc) {
         uint64_t h = 1469598103934665603ull ^ (tag * 1099511628211ull);
         for (uint64_t v : enc) {
@@ -123,6 +124,47 @@ namespace stx {
         }
         return h;
     }
+
+    /**
+     * Domain-opaque handle for ONE atomic fact a facet contributes to the
+     * unsat-cache (e.g. a word equation, a disequation, a regex
+     * membership). Unlike the earlier uint64_t-hash-based signature
+     * scheme, facets now subclass this directly on their own live
+     * fact-holding element type (e.g. `seq::eq_facet::equation` IS-A
+     * `constraint_i`) and hand the engine borrowed pointers to their own
+     * (currently active) elements - no separate encode-to-uint64_t step,
+     * and no reliance on hash values alone for equality (a hash
+     * collision between two unrelated facts can never cause a false
+     * unsat-cache hit, because `search_tree::constraint_store` always
+     * follows up a hash match with an exact `equals()` check).
+     *
+     * `hash()`/`equals()` must implement whatever canonicalization makes
+     * two structurally-interchangeable facts compare equal (e.g. a word
+     * equation `x = y` and a mirrored `y = x` - both possible outputs of
+     * Nielsen branching depending on split order - must hash/compare
+     * identically); `equals()` must return false for two constraints of
+     * different concrete (sub)type, even if by some coincidence their
+     * hashes matched (a plain `dynamic_cast` check is the simplest way to
+     * guarantee this, and is already used elsewhere in this codebase,
+     * e.g. `seq_eq_facet.cpp`'s ambient-context lookups).
+     *
+     * `clone()` allocates a fresh, independent, heap-owned copy holding
+     * just the comparison-relevant state: the dependency-tracking and
+     * active/alive bookkeeping fields a *live* fact carries (e.g.
+     * `equation::m_dep`, `::m_active`) are never meaningful once memoized
+     * into the constraint_store (a stored entry is a pure value, never
+     * mutated or backtracked, and its identity is only ever queried via
+     * `hash()`/`equals()`), so `clone()` need not copy them - a
+     * default-constructed/omitted dependency and `active()==true` are
+     * both fine.
+     */
+    class constraint_i {
+    public:
+        virtual ~constraint_i() = default;
+        virtual uint64_t hash() const = 0;
+        virtual bool equals(constraint_i const& other) const = 0;
+        virtual constraint_i* clone() const = 0;
+    };
 
     /**
      * Domain-opaque marker base class for an "ambient context" handle
@@ -206,31 +248,37 @@ namespace stx {
         // unsound hit.
         virtual bool contributes_to_signature() const { return false; }
 
-        // Append ONE opaque uint64_t per currently *active* fact/
-        // constraint this facet owns (e.g. one value per active
-        // equation, one per active membership) to `out`, in a canonical
-        // (self-sorted internally, so the result is independent of the
-        // order constraints happened to be added/derived in - two nodes
-        // reaching the same active-constraint multiset via different
-        // split orders must serialize identically) order.
+        // Append a BORROWED `constraint_i const*` per currently *active*
+        // fact/constraint this facet owns (e.g. one pointer per active
+        // equation, one per active membership) to `out`. Order does not
+        // matter (the engine canonicalizes by interning each pointee into
+        // `search_tree::constraint_store` and, where order-sensitivity
+        // matters at all - e.g. `cache_insert`'s insertion-time dedup -
+        // sorting the resulting dense ids itself), so a facet needs no
+        // internal self-sorting of its own the way the old uint64_t-hash
+        // scheme required.
         //
-        // Each value MUST be an opaque hash of that fact's *whole*
-        // encoding (see stx_hash_fact()), never a raw AST/sub-term id
-        // pulled out of it directly: the unsat cache (search_tree::
-        // cache_lookup) tests these values for SET CONTAINMENT against a
-        // totally unrelated node, so a value must mean "this exact whole
-        // fact is active" - if it instead only meant "some sub-term this
-        // fact happens to use is active" (e.g. a shared character literal
-        // or skolem var also appearing in many other, unrelated facts),
-        // containment across unrelated nodes would be unsound (a shared
-        // alphabet/sub-term, not a shared fact, would trigger a false
-        // hit). `out` is a freshly-built, fully owned vector - not a view
-        // into this facet's own (about-to-be-backtracked) internal
-        // containers - so it is always safe for the caller to keep past
-        // this call returning, including across the trail unwinding that
-        // follows this dfs() frame's return. Only ever called when
+        // Each pointer must point at an object whose `hash()`/`equals()`
+        // pair implements the SAME fact this facet's own is_satisfied()/
+        // display() logic reasons about - the unsat cache (search_tree::
+        // cache_lookup) tests these for SET CONTAINMENT against a totally
+        // unrelated node, so equals() returning true must mean "this
+        // exact whole fact is active in both nodes", never merely "some
+        // sub-term this fact happens to use is active in both" (e.g. a
+        // shared character literal or skolem var also appearing in many
+        // other, unrelated facts) - that would make containment across
+        // unrelated nodes unsound.
+        //
+        // The pointers are only read synchronously during this call and
+        // the (also synchronous) `constraint_store::intern()`/`find()`
+        // call that immediately follows it - never retained past that -
+        // so they may (and normally do) point directly at this facet's
+        // own live, currently-active elements (no extra allocation needed
+        // just to compute a signature); if `constraint_store` needs to
+        // memoize a genuinely new fact, it calls `clone()` itself to make
+        // an independent, permanently-owned copy. Only ever called when
         // contributes_to_signature() is true; default no-op.
-        virtual void append_signature(vector<uint64_t>& out) const {}
+        virtual void append_constraints(vector<constraint_i const*>& out) const {}
     };
 
     /**
@@ -607,7 +655,8 @@ namespace stx {
         // pointers - c3 keeps every historical node alive until reset()),
         // this engine has exactly one live, destructively-mutated node, so
         // every cache entry is an owned VALUE snapshot: a canonical vector
-        // of ids (see facet_i::append_signature) built fresh at insertion
+        // of constraint-store ids (see facet_i::append_constraints) built
+        // fresh at insertion
         // time and never aliasing the live facets - here called an "unsat
         // core", though (per the eligibility gate above) it is really only
         // an over-approximation of one: the full active, non-vacuous,
@@ -650,19 +699,29 @@ namespace stx {
         //     undo bookkeeping of its own; it is maintained purely by
         //     construction.
         //
-        // The watch list itself is keyed not by the raw uint64_t signature
-        // hash (see compute_signature()/facet_i::append_signature) but by
-        // a small dense "constraint id" that a global constraint_store
-        // (below) assigns to each distinct hash the first time it is seen
-        // - so m_watch_list can be a plain `vector<vector<unsigned>>`
-        // indexed directly by id, instead of an `unordered_map<uint64_t,
-        // ...>` hashing on the full 64-bit value on every lookup/insert.
+        // The watch list itself is keyed not by a raw signature hash but
+        // by a small dense "constraint id" that a global constraint_store
+        // (below) assigns to each distinct constraint (per its `hash()`/
+        // `equals()`) the first time it is seen - so m_watch_list can be a
+        // plain `vector<vector<unsigned>>` indexed directly by id, instead
+        // of a hash map keyed by some approximate signature value.
         bool                                    m_unsat_cache_enabled = true;
 
-        // Maps a fact's canonical signature hash to a small, dense,
-        // monotonically-assigned unsigned id, so `m_watch_list` (and
-        // `unsat_core_entry::lits`) can be plain vectors indexed by id
-        // rather than hash maps keyed by the raw uint64_t hash.
+        // Maps a fact (any `constraint_i`, e.g. an `eq_facet::equation`,
+        // `deq_facet::disequation`, or `mem_facet::str_mem` - see that
+        // class's comment) to a small, dense, monotonically-assigned
+        // unsigned id, so `m_watch_list` (and `unsat_core_entry::lits`)
+        // can be plain vectors indexed by id. Unlike the earlier
+        // uint64_t-hash-keyed scheme, lookups here are never fooled by a
+        // hash collision: `hash()` only selects the bucket, `equals()`
+        // (an exact, type-checked comparison - see `constraint_i`) is
+        // always used to confirm a match.
+        //
+        // The store owns a permanent, independent `clone()` of every
+        // constraint it interns (never a borrowed pointer into some
+        // facet's live, about-to-be-backtracked container) - see
+        // `intern()`.
+        //
         // `solve()` reseeds this fresh on every call (see its cache-reset
         // block) with exactly the constraints present in the root node at
         // that point (`init()`), so the root's own constraints always get
@@ -672,36 +731,51 @@ namespace stx {
         // `cache_insert()` needs one for it (`intern()`), growing the
         // store - and `m_watch_list` alongside it - incrementally as the
         // search proceeds. `cache_lookup()` only ever queries (`find()`),
-        // never interns: a hash the store has never seen cannot possibly
+        // never interns: a fact the store has never seen cannot possibly
         // be contained in any already-inserted core (every core's own
         // literals are themselves ids assigned by this store), so lookup
         // has no reason to grow the store itself.
         class constraint_store {
-            std::unordered_map<uint64_t, unsigned> m_ids;
-            vector<uint64_t>                       m_hashes; // id -> hash (reverse lookup, diagnostics only)
+            // Hash/equality functors dispatch through the (borrowed or
+            // owned - both are fine, only `hash()`/`equals()` are ever
+            // called) pointer to the pointee's own virtual methods, so
+            // `m_ids` transparently supports lookups keyed by a transient,
+            // facet-owned pointer against buckets keyed by this store's
+            // own permanent clones.
+            struct ptr_hash {
+                size_t operator()(constraint_i* c) const { return static_cast<size_t>(c->hash()); }
+            };
+            struct ptr_eq {
+                bool operator()(constraint_i* a, constraint_i* b) const { return a == b || a->equals(*b); }
+            };
+            std::unordered_map<constraint_i*, unsigned, ptr_hash, ptr_eq> m_ids;
+            scoped_ptr_vector<constraint_i>                               m_owned; // id -> owned canonical clone
         public:
-            void clear() { m_ids.clear(); m_hashes.clear(); }
-            void init(vector<uint64_t> const& hashes) {
-                for (uint64_t h : hashes)
-                    intern(h);
+            void clear() { m_ids.clear(); m_owned.reset(); }
+            void init(vector<constraint_i const*> const& cs) {
+                for (constraint_i const* c : cs)
+                    intern(*c);
             }
-            unsigned intern(uint64_t hash) {
-                auto it = m_ids.find(hash);
+            unsigned intern(constraint_i const& c) {
+                constraint_i* key = const_cast<constraint_i*>(&c);
+                auto it = m_ids.find(key);
                 if (it != m_ids.end())
                     return it->second;
-                unsigned id = m_hashes.size();
-                m_hashes.push_back(hash);
-                m_ids.emplace(hash, id);
+                constraint_i* owned = c.clone();
+                unsigned id = m_owned.size();
+                m_owned.push_back(owned);
+                m_ids.emplace(owned, id);
                 return id;
             }
-            bool find(uint64_t hash, unsigned& id) const {
-                auto it = m_ids.find(hash);
+            bool find(constraint_i const& c, unsigned& id) const {
+                constraint_i* key = const_cast<constraint_i*>(&c);
+                auto it = m_ids.find(key);
                 if (it == m_ids.end())
                     return false;
                 id = it->second;
                 return true;
             }
-            unsigned size() const { return m_hashes.size(); }
+            unsigned size() const { return m_owned.size(); }
         };
         constraint_store                       m_constraint_store;
 
@@ -739,26 +813,35 @@ namespace stx {
             return true;
         }
 
-        // Canonical signature: concatenate every contributing facet's own
-        // (self-sorted) append_signature() output, in ascending facet_id
+        // Canonical constraint list: concatenate every contributing
+        // facet's own append_constraints() output (borrowed pointers into
+        // the facet's own live, active elements), in ascending facet_id
         // order. facet_id order is fixed at root construction (unlike c3,
         // which must explicitly sort a flat untyped constraint list), so
-        // cross-facet ordering is already canonical; each facet is
-        // responsible for making its own contribution order-independent.
-        static vector<uint64_t> compute_signature(node const& n) {
-            vector<uint64_t> ids;
+        // cross-facet ordering is already canonical; unlike the earlier
+        // uint64_t-hash scheme, a facet no longer needs to internally sort
+        // its own contribution - any residual order-sensitivity (only
+        // `cache_insert()`'s insertion-time dedup cares) is handled once,
+        // centrally, by sorting the resulting dense constraint-store ids
+        // (see `cache_insert()`).
+        static vector<constraint_i const*> compute_constraints(node const& n) {
+            vector<constraint_i const*> cs;
             for (facet_id id = 0; id < n.num_facets(); ++id)
                 if (n.has_facet(id) && n.facet(id).contributes_to_signature())
-                    n.facet(id).append_signature(ids);
-            return ids;
+                    n.facet(id).append_constraints(cs);
+            return cs;
         }
 
-        static uint64_t hash_signature(vector<uint64_t> const& ids) {
-            // FNV-1a: cheap, decent avalanche; collisions are expected
-            // occasionally and are handled by the exact-equality check
-            // that follows every bucket lookup, never trusted alone.
+        static uint64_t hash_ids(vector<unsigned> const& ids) {
+            // FNV-1a over the (already dense, small) constraint-store ids;
+            // used only to bucket `m_unsat_core_index` for insertion-time
+            // dedup - collisions are handled by the exact-equality check
+            // (`ids_eq`) that follows every bucket lookup, never trusted
+            // alone. `ids` must already be sorted by the caller so that
+            // the same set of constraints hashes identically regardless
+            // of the order they were originally interned in.
             uint64_t h = 1469598103934665603ull;
-            for (uint64_t v : ids) {
+            for (unsigned v : ids) {
                 h ^= v;
                 h *= 1099511628211ull;
             }
@@ -823,33 +906,34 @@ namespace stx {
         }
 
         // Lookup: true iff this node's current (post-propagation) active
-        // signature fully contains (as a superset) some previously-cached
-        // unsat core - not merely an exact match against a past node's full
-        // signature (see the watch-list comment above `m_unsat_cache_enabled`).
-        // Ineligible/trivial (empty signature) nodes never hit.
+        // constraint set fully contains (as a superset) some previously-
+        // cached unsat core - not merely an exact match against a past
+        // node's full constraint set (see the watch-list comment above
+        // `m_unsat_cache_enabled`). Ineligible/trivial (empty) nodes never
+        // hit.
         bool cache_lookup(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return false;
-            vector<uint64_t> hashes = compute_signature(n);
-            if (hashes.empty())
+            vector<constraint_i const*> cs = compute_constraints(n);
+            if (cs.empty())
                 return false;
-            // Only hashes the constraint store already knows about (i.e.
-            // that some previously-inserted core actually mentions) can
+            // Only constraints the store already knows about (i.e. that
+            // some previously-inserted core actually mentions) can
             // possibly be contained in any cached core - every core's own
             // literals are themselves store-assigned ids - so this is a
             // pure query (find(), never intern()): a brand-new fact this
             // node happens to hold never grows the store on its own.
             std::unordered_set<unsigned> active;
-            active.reserve(hashes.size());
+            active.reserve(cs.size());
             // Note: unlike std::vector, stx's `vector<T>::reserve(n)`
             // actually resizes (and default-fills) up to `n` - it is NOT
             // a capacity-only hint - so it must never be combined with
             // push_back() the way std::vector::reserve() commonly is;
             // just push_back() without pre-reserving here.
             vector<unsigned> active_ids;
-            for (uint64_t hv : hashes) {
+            for (constraint_i const* c : cs) {
                 unsigned id;
-                if (m_constraint_store.find(hv, id)) {
+                if (m_constraint_store.find(*c, id)) {
                     active.insert(id);
                     active_ids.push_back(id);
                 }
@@ -890,20 +974,27 @@ namespace stx {
         void cache_insert(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return;
-            vector<uint64_t> hashes = compute_signature(n);
-            if (hashes.empty())
+            vector<constraint_i const*> cs = compute_constraints(n);
+            if (cs.empty())
                 return;
-            // Every hash in this node's signature becomes (or already is)
-            // a constraint-store id: this is the only place the store ever
-            // grows past its root-seeded initial contents (see solve()'s
-            // cache-reset block). Note: unlike std::vector, stx's own
-            // `vector<T>::reserve(n)` actually resizes (default-filling)
-            // rather than just reserving capacity, so it must not be
-            // combined with push_back() below - just push_back() directly.
+            // Every constraint in this node's active set becomes (or
+            // already is) a constraint-store id: this is the only place
+            // the store ever grows past its root-seeded initial contents
+            // (see solve()'s cache-reset block). Note: unlike std::vector,
+            // stx's own `vector<T>::reserve(n)` actually resizes (default-
+            // filling) rather than just reserving capacity, so it must
+            // not be combined with push_back() below - just push_back()
+            // directly.
             vector<unsigned> ids;
-            for (uint64_t hv : hashes)
-                ids.push_back(m_constraint_store.intern(hv));
-            uint64_t h = hash_signature(hashes);
+            for (constraint_i const* c : cs)
+                ids.push_back(m_constraint_store.intern(*c));
+            // Sort once, centrally, so the dedup check below (and the
+            // dedup bucket hash) are independent of the order this node's
+            // facets/split path happened to produce their contributions
+            // in - two nodes reaching the same active-constraint set via
+            // different split orders must dedup against each other.
+            std::sort(ids.begin(), ids.end());
+            uint64_t h = hash_ids(ids);
             auto& dup_bucket = m_unsat_core_index[h];
             for (unsigned idx : dup_bucket)
                 if (ids_eq(m_unsat_cores[idx].lits, ids))
@@ -1583,7 +1674,7 @@ namespace stx {
             // cache_insert() call (further down the tree) can intern a
             // fresh id for a fact the root doesn't have.
             m_constraint_store.clear();
-            m_constraint_store.init(compute_signature(*m_root));
+            m_constraint_store.init(compute_constraints(*m_root));
             unsigned base_scopes = m_trail.get_num_scopes();
             on_scope_exit rewind([&]() {
                 while (m_trail.get_num_scopes() > base_scopes)

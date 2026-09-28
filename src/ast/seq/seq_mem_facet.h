@@ -77,7 +77,7 @@ Author:
 
 namespace seq {
 
-    struct str_mem {
+    struct str_mem : public stx::constraint_i {
         expr_ref_vector      m_str;
         view                 m_view;
         eq_tree::dep_tracker m_dep = nullptr;
@@ -93,6 +93,17 @@ namespace seq {
         bool is_plain() const { return m_view.is_membership(); }
         bool is_view() const { return m_view.is_reach(); }
         bool active() const { return m_active; }
+
+        // -- stx::constraint_i (unsat-cache identity) --
+        // Identity is (token list, view): the same string term driving
+        // the same (state,target) automaton view. `clone()` intentionally
+        // drops `m_dep`/`m_active` - see stx::constraint_i's class
+        // comment - and recovers the ast_manager it needs from
+        // `m_str`'s own ref-vector (str_mem itself holds no separate
+        // `ast_manager&` member).
+        uint64_t hash() const override;
+        bool equals(stx::constraint_i const& other) const override;
+        stx::constraint_i* clone() const override { return alloc(str_mem, m_str.get_manager(), m_str, m_view); }
     };
 
     class mem_facet : public stx::facet_i, public subst_sink_i {
@@ -168,7 +179,7 @@ namespace seq {
         // Regex memberships (state, target) determine (in)consistency
         // directly, so they always participate.
         bool contributes_to_signature() const override { return true; }
-        void append_signature(vector<uint64_t>& out) const override;
+        void append_constraints(vector<stx::constraint_i const*>& out) const override;
     };
 
     class mem_propagation : public eq_tree::propagation_plugin_i {

@@ -71,37 +71,53 @@ namespace seq {
             return a.size() < b.size();
         }
 
-        // Encode one (lhs, rhs) token-list pair (a word (dis)equation)
-        // into a self-contained, length-prefixed uint64_t sequence for
-        // the unsat-cache signature. The two sides are canonically
-        // ordered (lexicographically smaller id-sequence first) so that
-        // `x = y` and a mirrored `y = x` - which the Nielsen
-        // transformation can produce interchangeably depending on split
-        // order - hash and compare identically.
-        void sig_encode_pair(expr_ref_vector const& lhs, expr_ref_vector const& rhs, vector<uint64_t>& enc) {
-            vector<uint64_t> a, b;
+        // Canonicalize one (lhs, rhs) token-list pair (a word (dis)
+        // equation) for unsat-cache identity: the two sides are
+        // canonically ordered (lexicographically smaller id-sequence
+        // first) so that `x = y` and a mirrored `y = x` - which the
+        // Nielsen transformation can produce interchangeably depending on
+        // split order - hash and compare identically. Shared by both
+        // `eq_facet::equation` and `deq_facet::disequation` (below).
+        void canonical_pair(expr_ref_vector const& lhs, expr_ref_vector const& rhs, vector<uint64_t>& a, vector<uint64_t>& b) {
             for (expr* t : lhs) a.push_back(static_cast<uint64_t>(t->get_id()));
             for (expr* t : rhs) b.push_back(static_cast<uint64_t>(t->get_id()));
             if (sig_vec_less(b, a))
                 std::swap(a, b);
+        }
+
+        uint64_t canonical_pair_hash(uint64_t tag, expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
+            vector<uint64_t> a, b;
+            canonical_pair(lhs, rhs, a, b);
+            vector<uint64_t> enc;
             enc.push_back(a.size());
             enc.append(a);
             enc.push_back(b.size());
             enc.append(b);
+            return stx::stx_hash_fact(tag, enc);
+        }
+
+        bool canonical_pair_eq(expr_ref_vector const& l1, expr_ref_vector const& r1,
+                                expr_ref_vector const& l2, expr_ref_vector const& r2) {
+            vector<uint64_t> a1, b1, a2, b2;
+            canonical_pair(l1, r1, a1, b1);
+            canonical_pair(l2, r2, a2, b2);
+            return a1 == a2 && b1 == b2;
         }
     }
 
-    void eq_facet::append_signature(vector<uint64_t>& out) const {
-        vector<uint64_t> hashes;
-        for (auto const& eq : m_eqs) {
-            if (!eq.active())
-                continue;
-            vector<uint64_t> enc;
-            sig_encode_pair(eq.m_lhs, eq.m_rhs, enc);
-            hashes.push_back(stx::stx_hash_fact(0x6571u, enc)); // tag: "eq"
-        }
-        std::sort(hashes.begin(), hashes.end());
-        out.append(hashes);
+    uint64_t eq_facet::equation::hash() const {
+        return canonical_pair_hash(0x6571u, m_lhs, m_rhs); // tag: "eq"
+    }
+
+    bool eq_facet::equation::equals(stx::constraint_i const& other) const {
+        auto const* o = dynamic_cast<equation const*>(&other);
+        return o && canonical_pair_eq(m_lhs, m_rhs, o->m_lhs, o->m_rhs);
+    }
+
+    void eq_facet::append_constraints(vector<stx::constraint_i const*>& out) const {
+        for (auto const& eq : m_eqs)
+            if (eq.active())
+                out.push_back(&eq);
     }
 
     bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
@@ -891,17 +907,19 @@ namespace seq {
         return f;
     }
 
-    void deq_facet::append_signature(vector<uint64_t>& out) const {
-        vector<uint64_t> hashes;
-        for (auto const& dq : m_diseqs) {
-            if (!dq.active())
-                continue;
-            vector<uint64_t> enc;
-            sig_encode_pair(dq.m_lhs, dq.m_rhs, enc);
-            hashes.push_back(stx::stx_hash_fact(0x6465717u, enc)); // tag: "deq"
-        }
-        std::sort(hashes.begin(), hashes.end());
-        out.append(hashes);
+    uint64_t deq_facet::disequation::hash() const {
+        return canonical_pair_hash(0x6465717u, m_lhs, m_rhs); // tag: "deq"
+    }
+
+    bool deq_facet::disequation::equals(stx::constraint_i const& other) const {
+        auto const* o = dynamic_cast<disequation const*>(&other);
+        return o && canonical_pair_eq(m_lhs, m_rhs, o->m_lhs, o->m_rhs);
+    }
+
+    void deq_facet::append_constraints(vector<stx::constraint_i const*>& out) const {
+        for (auto const& dq : m_diseqs)
+            if (dq.active())
+                out.push_back(&dq);
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {

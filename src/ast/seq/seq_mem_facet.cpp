@@ -159,23 +159,27 @@ namespace seq {
         return true;
     }
 
-    void mem_facet::append_signature(vector<uint64_t>& out) const {
-        vector<uint64_t> hashes;
-        for (auto const& sm : m_mems) {
-            if (!sm.active())
-                continue;
-            vector<uint64_t> enc;
-            enc.push_back(sm.m_str.size());
-            for (expr* t : sm.m_str)
-                enc.push_back(static_cast<uint64_t>(t->get_id()));
-            // view identity: (state, target) - target is null for a
-            // plain membership, encoded as id 0 (ast ids are never 0).
-            enc.push_back(static_cast<uint64_t>(sm.m_view.m_state->get_id()));
-            enc.push_back(sm.m_view.m_target ? static_cast<uint64_t>(sm.m_view.m_target->get_id()) : 0);
-            hashes.push_back(stx::stx_hash_fact(0x6d656du, enc)); // tag: "mem"
-        }
-        std::sort(hashes.begin(), hashes.end());
-        out.append(hashes);
+    uint64_t str_mem::hash() const {
+        vector<uint64_t> enc;
+        enc.push_back(m_str.size());
+        for (expr* t : m_str)
+            enc.push_back(static_cast<uint64_t>(t->get_id()));
+        // view identity: (state, target) - target is null for a plain
+        // membership, encoded as id 0 (ast ids are never 0).
+        enc.push_back(static_cast<uint64_t>(m_view.m_state->get_id()));
+        enc.push_back(m_view.m_target ? static_cast<uint64_t>(m_view.m_target->get_id()) : 0);
+        return stx::stx_hash_fact(0x6d656du, enc); // tag: "mem"
+    }
+
+    bool str_mem::equals(stx::constraint_i const& other) const {
+        auto const* o = dynamic_cast<str_mem const*>(&other);
+        return o && m_str == o->m_str && m_view == o->m_view;
+    }
+
+    void mem_facet::append_constraints(vector<stx::constraint_i const*>& out) const {
+        for (auto const& sm : m_mems)
+            if (sm.active())
+                out.push_back(&sm);
     }
 
     namespace {
