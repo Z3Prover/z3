@@ -364,6 +364,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/build/python
         run: python -m unittest discover -s examples/python -p 'test_proof_to_lean*.py' -v
+
       - name: Run examples
         if: matrix.runTests
         run: |

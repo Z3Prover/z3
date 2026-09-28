@@ -105,6 +105,43 @@ findings:
 - **Legacy clause proofs** (`smt.clause_proof`) record only assumptions and the
   final `proof-trail`, so there is nothing to check.
 
+### Canary lists and known failures (2026-09-25)
+
+The array proof-logging fix merged as Z3Prover/z3#10922 without a test, and the
+canary set of the first run existed only as session files. Both are now in the
+repository under `examples/python/proof_canaries/`:
+
+- `array_axiom_log.smt2` is the four-line reproducer from the PR. The
+  end-to-end test in `test_proof_matrix.py` asserts that both clause-log cells
+  classify it as `unverified-fallback` with `array` hints, so a return of the
+  crash fails the test, and so does a silent change to `verified` once an array
+  checker plugin exists. CI runs the matrix tests against the built binary in
+  the Lean-enabled job.
+- One list per logic (`QF_UF`, `QF_LIA`, `QF_LRA` with `QF_RDL`, `QF_NIA`,
+  `QF_AUFLIA` with `QF_ALIA` and the z3test array regressions, plus the
+  propositional Lean examples). Entries resolve next to the list first and then
+  against `--benchmark-root`, so the z3test checkout and the SMT-LIB samples
+  are expected under one root outside the repository. The two z3test array
+  files whose proof-free run itself reports an error are excluded.
+- List entries may carry `cell=status` annotations for known failures in the
+  `checker-rejected`, `disagree`, and `crash` classes. A known failure that
+  reproduces is reported but does not fail the run; one that stops reproducing
+  is reported as stale so the annotation is removed deliberately. `t8.smt2`
+  carries the first annotation, for both clause-log cells, until the
+  array/euf replay defect is fixed. This is how every future minimized
+  `checker-rejected` or `crash` instance is recorded: the instance goes into
+  the canary directory or its list, its expected class is annotated, and the
+  fix removes the annotation.
+
+Rerunning the 115-entry canary set on the merged fix exits zero: the 13 former
+crash cells now log and replay (`unverified-fallback` or `not-applicable`), the
+`t8.smt2` annotation reproduces, and the six propositional examples are
+Lean-verified through `legacy-proof-object`. New observation: proof logging
+slows the larger `QF_ALIA_SAT` instances (`qlock-bug-10`, `qlock-bug2-10`,
+`qlock.induction.10`) past the 30-second budget although they solve within it
+without logging, so the array log volume on sat instances is itself a cost to
+measure.
+
 ## Milestones
 
 1. **Native Boolean proof exporter (implemented).** Use the existing proof API
