@@ -156,11 +156,22 @@ namespace seq {
         bool              m_witness_extracted = false;
         obj_map<expr, expr*> m_witness;
         expr_ref_vector   m_witness_pin;
+        // The single shared ambient context (see seq_ambient_context.h):
+        // consulted for its non-virtual, canonical `is_var()` (used by
+        // is_single_var_plain() below) instead of this facet re-deriving
+        // its own notion of "variable" from `u` - so every facet agrees
+        // on exactly the same classification and none can silently
+        // diverge (per ambient_context_i::is_var's own class comment).
+        // Never null: the ambient context is a single long-lived object
+        // owned by the domain layer (e.g. theory_nseq), constructed
+        // before any facet and outliving every node/clone.
+        ambient_context_i<eq_tree::dep_tracker>& m_ac;
 
     public:
-        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm, seq_rewriter& rw) :
+        mem_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm, seq_rewriter& rw,
+                  ambient_context_i<eq_tree::dep_tracker>& ac) :
             facet_i(trail), m(m), u(u), m_dm(dm), m_rw(rw), m_live(rw),
-            m_vw(trail, rw, m_live, transition_mode::brzozowski_tm), m_witness_pin(m) {
+            m_vw(trail, rw, m_live, transition_mode::brzozowski_tm), m_witness_pin(m), m_ac(ac) {
             m_vw.set_checkpoint([this]() {
                 if (!this->m.limit().inc())
                     return view_failure_reason::resource;
@@ -190,6 +201,20 @@ namespace seq {
         // vw().check() each round and reports a conflict from vw().core()
         // on l_false.
         view_witness& vw() { return m_vw; }
+
+        // True when `sm` is an active membership whose own flattened
+        // string is already exactly one bare variable (`x in R` or a
+        // narrowed reach view `x reaches s`): see m_vw's class comment
+        // above for why these are registered with view_witness instead
+        // of being left to mem_monadic_split. Uses the ambient context's
+        // own canonical is_var() (see m_ac's comment) rather than a
+        // facet-local uninterpreted-constant test, so a compound
+        // subterm that some other facet already treats as a
+        // free/substitutable token (not just a bare uninterpreted
+        // constant) is recognized here the same way.
+        bool is_single_var_plain(str_mem const& sm) const {
+            return sm.m_str.size() == 1 && m_ac.is_var(sm.m_str.get(0));
+        }
 
         // See m_witness/m_witness_extracted's comment above.
         bool witness_extracted() const { return m_witness_extracted; }

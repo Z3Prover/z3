@@ -47,23 +47,18 @@ throw away other constraints x in R_1, .., x in R_{k-1}.
 
 namespace seq {
 
-    // True when `sm` is an active membership whose own flattened string
-    // is already exactly one bare variable (`x in R` or a narrowed reach
-    // view `x reaches s`): mem_facet registers these with its own
-    // view_witness (m_vw) as soon as they are added, and
-    // mem_monadic_split never decomposes them (see the class comments on
-    // mem_facet::m_vw and mem_monadic_split). Deliberately not restricted
-    // to `sm.is_plain()`: mem_monadic_split's own narrowed reach views for
-    // a non-final atom are exactly as single-variable as a plain `x in R`
-    // membership, and withholding them from m_vw would silently exempt
-    // them from the joint per-variable feasibility check the comments
-    // above promise - which is exactly what used to let a reach view
-    // admitting several distinct lengths (e.g. a Kleene-plus loop-back
-    // state) coexist unchecked with an incompatible length-derived
-    // membership on the same variable.
-    static bool is_single_var_plain(str_mem const& sm) {
-        return sm.m_str.size() == 1 && is_uninterp(sm.m_str.get(0));
-    }
+    // See mem_facet::is_single_var_plain() (seq_mem_facet.h) for the
+    // definition, now expressed via the ambient context's own canonical
+    // is_var() instead of a facet-local uninterpreted-constant test.
+    // Deliberately not restricted to `sm.is_plain()`: mem_monadic_split's
+    // own narrowed reach views for a non-final atom are exactly as
+    // single-variable as a plain `x in R` membership, and withholding
+    // them from m_vw would silently exempt them from the joint
+    // per-variable feasibility check the comments above promise - which
+    // is exactly what used to let a reach view admitting several
+    // distinct lengths (e.g. a Kleene-plus loop-back state) coexist
+    // unchecked with an incompatible length-derived membership on the
+    // same variable.
 
     void mem_facet::advance_qhead(unsigned head) {
         m_trail.push(value_trail<unsigned>(m_qhead));
@@ -138,7 +133,7 @@ namespace seq {
     }
 
     stx::facet_i* mem_facet::clone(trail_stack& trail) const {
-        mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw);
+        mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw, m_ac);
         f->m_mems.append(m_mems);
         f->m_qhead = m_qhead;
         // Replay registration of every active single-variable plain
@@ -799,7 +794,7 @@ namespace seq {
             str_mem const& sm = mf.memberships()[i];
             if (!sm.active())
                 continue;
-            if (is_single_var_plain(sm))
+            if (mf.is_single_var_plain(sm))
                 continue;             // handled directly by mem_facet's own view_witness
             if (sm.m_str.size() == 1 && u.str.is_power(sm.m_str.get(0)))
                 continue;             // power_peel_mem's: narrowing its view again makes no progress

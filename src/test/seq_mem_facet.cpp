@@ -27,6 +27,7 @@ namespace {
         arith_util       a;
         seq_rewriter     rw;
         trail_stack      trail;
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
         seq::eq_tree     tree;
         seq::eq_tree::node* root;
         seq::sub_solver  solver;
@@ -34,20 +35,19 @@ namespace {
         stx::facet_id    mem_id;
         stx::facet_id    arith_id;
         stx::facet_id    assumption_id;
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac;
 
         static ast_manager& init_plugins(ast_manager& m) { reg_decl_plugins(m); return m; }
 
         fixture() :
             u((init_plugins(m), m)), a(m), rw(m),
+            ac(m, u, trail),
             tree(trail, m.limit()),
             root(tree.mk_root()),
             solver(m, a, tree.dep_mgr()),
             eq_id(tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr())),
-            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw)),
+            mem_id(tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac)),
             arith_id(tree.register_facet<seq::solver_facet>(*root, m, u, solver)),
-            assumption_id(tree.register_facet<seq::assumption_facet>(*root, m)),
-            ac(m, u, trail)
+            assumption_id(tree.register_facet<seq::assumption_facet>(*root, m))
         {
             ac.set_eq_id(eq_id);
             ac.set_mem_id(mem_id);
@@ -159,11 +159,11 @@ namespace {
         seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw);
+        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac);
         stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         ac.set_arith_id(arith_id);
         ac.set_pow_id(pow_id);
         ac.set_mem_id(mem_id);
@@ -201,11 +201,11 @@ namespace {
         seq::eq_tree tree(tr, m.limit());
         auto* root = tree.mk_root();
         seq::sub_solver solver(m, a, tree.dep_mgr());
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
         stx::facet_id pow_id = tree.register_facet<seq::power_facet>(*root, m, u, a, tree.dep_mgr());
-        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw);
+        stx::facet_id mem_id = tree.register_facet<seq::mem_facet>(*root, m, u, tree.dep_mgr(), rw, ac);
         stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
-        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         ac.set_arith_id(arith_id);
         ac.set_pow_id(pow_id);
         ac.set_mem_id(mem_id);

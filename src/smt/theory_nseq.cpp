@@ -167,7 +167,7 @@ namespace smt {
         m_tree.register_facet_bound<seq::deq_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_deq_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::solver_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_arith_id(id); }, m, m_seq, m_solver);
         m_tree.register_facet_bound<seq::power_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_pow_id(id); }, m, m_seq, m_autil, m_tree.dep_mgr());
-        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter);
+        m_tree.register_facet_bound<seq::mem_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_mem_id(id); }, m, m_seq, m_tree.dep_mgr(), m_rewriter, *m_ambient);
         m_tree.register_facet_bound<seq::ncontains_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_ncontains_id(id); }, m, m_seq, m_tree.dep_mgr());
         m_tree.register_facet_bound<seq::assumption_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_assumption_id(id); }, m);
         m_tree.register_facet_bound<seq::req_facet>(*m_root, [&](stx::facet_id id) { m_ambient->set_req_id(id); }, m, m_seq, m_tree.dep_mgr());

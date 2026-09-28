@@ -294,7 +294,7 @@ namespace seq {
         for (int side = 0; side < 2; ++side) {
             expr_ref_vector const& vs = side == 0 ? cur.m_lhs : cur.m_rhs;
             expr_ref_vector def(side == 0 ? cur.m_rhs : cur.m_lhs);
-            if (vs.size() != 1 || !is_uninterp_const(vs.get(0)))
+            if (vs.size() != 1 || !ac.is_var(vs.get(0)))
                 continue;
             expr_ref x(vs.get(0), m);
             if (any_of(def, [&](expr* t) { return occurs(x, t); }))
