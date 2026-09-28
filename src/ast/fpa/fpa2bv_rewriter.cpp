@@ -21,6 +21,7 @@ Notes:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
 #include "params/fpa2bv_rewriter_params.hpp"
+#include <algorithm>
 
 
 fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p) :
@@ -53,6 +54,11 @@ bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
     return num_steps > m_max_steps;
 }
 
+// Expand transcendental operations into floating-point arithmetic that is
+// subsequently lowered to bit-vectors. The configurable degree controls the
+// number of Taylor terms. These are bounded approximations without general
+// range reduction; explicit guards preserve the special cases handled by the
+// floating-point rewriter.
 br_status fpa2bv_rewriter_cfg::reduce_transcendental(
     func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     fpa_util& u = m_conv.fu();
@@ -70,11 +76,15 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
     auto sub = [&](expr* a, expr* b) { return add(a, neg(b)); };
     auto mul = [&](expr* a, expr* b) { return expr_ref(u.mk_mul(rm, a, b), m()); };
     auto div = [&](expr* a, expr* b) { return expr_ref(u.mk_div(rm, a, b), m()); };
+    auto ite = [&](expr* c, expr* t, expr* e) { return expr_ref(m().mk_ite(c, t, e), m()); };
 
     expr_ref zero = val(rational(0));
     expr_ref one = val(rational(1));
     expr_ref two = val(rational(2));
     expr_ref pi = val(rational(355) / rational(113));
+    expr_ref nan(u.mk_nan(s), m());
+    expr_ref pinf(u.mk_pinf(s), m());
+    expr_ref ninf(u.mk_ninf(s), m());
 
     auto exp_series = [&](expr* a) {
         expr_ref r = val(rational(1));
@@ -159,56 +169,115 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
     };
 
     switch (f->get_decl_kind()) {
-    case OP_FPA_EXP:
-        result = exp_series(x);
+    case OP_FPA_EXP: {
+        expr_ref approx = exp_series(x);
+        expr_ref inf = ite(u.mk_is_negative(x), zero, pinf);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), one,
+                 ite(u.mk_is_inf(x), inf, approx)));
         break;
-    case OP_FPA_LOG:
-        result = log_series(x);
+    }
+    case OP_FPA_LOG: {
+        expr_ref approx = log_series(x);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), ninf,
+                 ite(u.mk_is_negative(x), nan,
+                 ite(u.mk_is_inf(x), pinf, approx))));
         break;
-    case OP_FPA_LOG2:
-        result = div(log_series(x), val(rational("6931471805599453/10000000000000000")));
+    }
+    case OP_FPA_LOG2: {
+        expr_ref approx = div(log_series(x), val(rational("6931471805599453/10000000000000000")));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), ninf,
+                 ite(u.mk_is_negative(x), nan,
+                 ite(u.mk_is_inf(x), pinf, approx))));
         break;
-    case OP_FPA_LOG10:
-        result = div(log_series(x), val(rational("2302585092994046/1000000000000000")));
+    }
+    case OP_FPA_LOG10: {
+        expr_ref approx = div(log_series(x), val(rational("2302585092994046/1000000000000000")));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), ninf,
+                 ite(u.mk_is_negative(x), nan,
+                 ite(u.mk_is_inf(x), pinf, approx))));
         break;
-    case OP_FPA_SIN:
-        result = sin_series(x);
+    }
+    case OP_FPA_SIN: {
+        expr_ref approx = sin_series(x);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_inf(x), nan,
+                 ite(u.mk_is_zero(x), x, approx)));
         break;
-    case OP_FPA_COS:
-        result = cos_series(x);
+    }
+    case OP_FPA_COS: {
+        expr_ref approx = cos_series(x);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_inf(x), nan,
+                 ite(u.mk_is_zero(x), one, approx)));
         break;
-    case OP_FPA_TAN:
-        result = div(sin_series(x), cos_series(x));
+    }
+    case OP_FPA_TAN: {
+        expr_ref approx = div(sin_series(x), cos_series(x));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_inf(x), nan,
+                 ite(u.mk_is_zero(x), x, approx)));
         break;
+    }
     case OP_FPA_ASIN: {
         expr_ref denominator(u.mk_sqrt(rm, sub(one, mul(x, x))), m());
-        result = atan_series(div(x, denominator));
+        expr_ref approx = atan_series(div(x, denominator));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_gt(u.mk_abs(x), one), nan,
+                 ite(u.mk_is_zero(x), x, approx)));
         break;
     }
     case OP_FPA_ACOS: {
         expr_ref denominator(u.mk_sqrt(rm, sub(one, mul(x, x))), m());
-        result = sub(div(pi, two), atan_series(div(x, denominator)));
+        expr_ref approx = sub(div(pi, two), atan_series(div(x, denominator)));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_gt(u.mk_abs(x), one), nan, approx));
         break;
     }
-    case OP_FPA_ATAN:
-        result = atan_series(x);
+    case OP_FPA_ATAN: {
+        expr_ref approx = atan_series(x);
+        expr_ref inf = ite(u.mk_is_negative(x), neg(div(pi, two)), div(pi, two));
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), x,
+                 ite(u.mk_is_inf(x), inf, approx)));
         break;
-    case OP_FPA_SINH:
-        result = div(sub(exp_series(x), exp_series(neg(x))), two);
+    }
+    case OP_FPA_SINH: {
+        expr_ref approx = div(sub(exp_series(x), exp_series(neg(x))), two);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), x,
+                 ite(u.mk_is_inf(x), x, approx)));
         break;
-    case OP_FPA_COSH:
-        result = div(add(exp_series(x), exp_series(neg(x))), two);
+    }
+    case OP_FPA_COSH: {
+        expr_ref approx = div(add(exp_series(x), exp_series(neg(x))), two);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), one,
+                 ite(u.mk_is_inf(x), pinf, approx)));
         break;
+    }
     case OP_FPA_TANH: {
         expr_ref ep = exp_series(x);
         expr_ref en = exp_series(neg(x));
-        result = div(sub(ep, en), add(ep, en));
+        expr_ref approx = div(sub(ep, en), add(ep, en));
+        expr_ref inf = ite(u.mk_is_negative(x), neg(one), one);
+        result = ite(u.mk_is_nan(x), nan,
+                 ite(u.mk_is_zero(x), x,
+                 ite(u.mk_is_inf(x), inf, approx)));
         break;
     }
-    case OP_FPA_POW:
+    case OP_FPA_POW: {
         SASSERT(num == 3);
-        result = exp_series(mul(args[2], log_series(x)));
+        expr_ref approx = exp_series(mul(args[2], log_series(x)));
+        expr_ref any_nan(m().mk_or(u.mk_is_nan(x), u.mk_is_nan(args[2])), m());
+        result = ite(u.mk_is_zero(args[2]), one,
+                 ite(u.mk_float_eq(x, one), one,
+                 ite(any_nan, nan, approx)));
         break;
+    }
     case OP_FPA_ATAN2: {
         SASSERT(num == 3);
         expr* y = x;
@@ -220,14 +289,23 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
         expr_ref at_zero(m()), at_negative(m());
         at_zero = m().mk_ite(u.mk_lt(y, zero), neg(half_pi), half_pi);
         at_negative = m().mk_ite(u.mk_lt(y, zero), lower, upper);
-        result = m().mk_ite(u.mk_gt(x2, zero), a,
-                 m().mk_ite(u.mk_lt(x2, zero), at_negative, at_zero));
+        expr_ref approx = ite(u.mk_gt(x2, zero), a,
+                          ite(u.mk_lt(x2, zero), at_negative, at_zero));
+        expr_ref any_nan(m().mk_or(u.mk_is_nan(y), u.mk_is_nan(x2)), m());
+        result = ite(any_nan, nan, approx);
         break;
     }
-    case OP_FPA_HYPOT:
+    case OP_FPA_HYPOT: {
         SASSERT(num == 3);
-        result = u.mk_sqrt(rm, add(mul(x, x), mul(args[2], args[2])));
+        expr_ref approx(u.mk_sqrt(rm, add(mul(x, x), mul(args[2], args[2]))), m());
+        expr_ref any_inf(m().mk_or(u.mk_is_inf(x), u.mk_is_inf(args[2])), m());
+        expr_ref any_nan(m().mk_or(u.mk_is_nan(x), u.mk_is_nan(args[2])), m());
+        result = ite(any_inf, pinf,
+                 ite(any_nan, nan,
+                 ite(u.mk_is_zero(x), u.mk_abs(args[2]),
+                 ite(u.mk_is_zero(args[2]), u.mk_abs(x), approx))));
         break;
+    }
     default:
         UNREACHABLE();
     }

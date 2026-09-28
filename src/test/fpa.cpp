@@ -203,7 +203,7 @@ static void test_transcendental_fpa2bv() {
         "(check-sat-using (then (using-params fpa2bv :fpa2bv_transcendental_degree 3) simplify bit-blast smt))\n";
     response = Z3_eval_smtlib2_string(ctx, spec2);
     if (response.find("unsat") == std::string::npos)
-        std::cout << "fp.sin fpa2bv well-sortedness: " << response << "\n";
+        std::cout << "fp.sin interpreted approximation: " << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
 
 
