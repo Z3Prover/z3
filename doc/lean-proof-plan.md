@@ -133,6 +133,23 @@ repository under `examples/python/proof_canaries/`:
   the canary directory or its list, its expected class is annotated, and the
   fix removes the annotation.
 
+**t8 diagnosed (2026-09-28).** The rejection is two checker defects, not a
+logging gap. The array `default` axiom for `(_ map not)` over a Bool array
+introduces the term `(not (default s))` as its own literal. The clause log
+prints the negation of that literal as `(not (not x))`, while the `tseitin`
+and `euf` hints, built through `literal2expr`, collapse it to `x`;
+`theory_checker::check` compared the two syntactically, saw a spurious extra
+hint literal, and demanded a unit that is not RUP-derivable. Separately, the
+`euf` plugin treated `(not x)` inside an equality as uninterpreted and found no
+conflict in `x = true, (not x) = y, y = true`. The fix (branch
+`proof-log-double-negation`) compares literals modulo double negation and makes
+the `euf` plugin reject a class where `x` and `(not x)` coincide or share a
+truth value. On t8 the replay goes from four rejected `tseitin` and two
+rejected `euf` steps to all accepted, leaving only the `array` fallbacks. The
+one-assertion reproducer `array_default_not.smt2` is in the canary directory
+with a known-failure annotation; the annotations for it and t8 go stale, and
+are removed, when the fix merges.
+
 Rerunning the 115-entry canary set on the merged fix exits zero: the 13 former
 crash cells now log and replay (`unverified-fallback` or `not-applicable`), the
 `t8.smt2` annotation reproduces, and the six propositional examples are
