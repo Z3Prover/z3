@@ -371,6 +371,21 @@ required execution evidence or checked proofs are absent.
 The arithmetic proof infrastructure is slightly broken and must be repaired
 before milestone 3 can claim checked arithmetic. Known defects:
 
+- **Fixed (2026-09-28), two checker-side defects and one producer defect found
+  by the matrix.** The two `farkas` misses on QF_RDL `bignum_rdl2` were the
+  arithmetic checker not parsing printed numerals: a replayed log carries
+  non-integers as `(/ n d)`, and the checker accepted only plain numerals and
+  `(- n)`, so any hint with a fractional constant was rejected (branch
+  `proof-checker-numerals`). The 16 `bound` misses on QF_LIA `bignum_lia1`
+  were the producer: `lar_solver::explain_implied_bound` handed every premise
+  to the consumer with coefficient 1 behind a TODO, because the dependency
+  flattening had lost the row coefficients. A bound on column `j` from row
+  `sum_k a_k x_k = 0` uses each other column's bound with Farkas coefficient
+  `|a_k / a_j|`; the bound analyzer now supplies those weights through
+  `implied_bound` (branch `lp-bound-explanation-coefficients`). This is the
+  second of Nikolaj's two coefficient situations, bounds derived from a
+  tableau row over slack columns. After both fixes every `farkas` and `bound`
+  hint in the canary set is accepted.
 - `theory_lra` attaches Farkas coefficients to `th-lemma arith farkas`, but the
   coefficients can be wrong in two situations: when a lemma is reused for unit
   propagation rather than the conflict it was derived for, and when the LP
