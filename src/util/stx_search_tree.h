@@ -569,20 +569,68 @@ namespace stx {
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
 
-        // --- unsat cache (transposition table for string-only UNSAT nodes) ---
+        // --- unsat cache (watch-list based unsat-core memo) ---
         //
         // Unlike c3's m_unsat_node_cache (a set of persistent nielsen_node*
         // pointers - c3 keeps every historical node alive until reset()),
         // this engine has exactly one live, destructively-mutated node, so
-        // the cache instead stores owned VALUE snapshots: for each entry, a
-        // canonical vector of ids (see facet_i::append_signature) built
-        // fresh at insertion time and never aliasing the live facets. Keyed
-        // by an order-independent hash of that vector's contents for
-        // bucketing; a bucket may hold more than one distinct signature
-        // (hash collisions), so a hit still requires exact vector equality
-        // against the stored entry, never the hash alone.
+        // every cache entry is an owned VALUE snapshot: a canonical vector
+        // of ids (see facet_i::append_signature) built fresh at insertion
+        // time and never aliasing the live facets - here called an "unsat
+        // core", though (per the eligibility gate above) it is really only
+        // an over-approximation of one: the full active, non-vacuous,
+        // signature-contributing content of the node that just closed, not
+        // a minimized core. Cheap to build (no extra proof-of-unsat-core
+        // extraction pass); the watch-list lookup below is what keeps
+        // checking it affordable even though it isn't minimized.
+        //
+        // Lookup no longer recomputes a full signature and does an exact
+        // hash-bucket vector comparison against every previously-cached
+        // entry (that only detects a node revisiting the EXACT SAME active
+        // set as some past unsat node). Instead each core is a *subset*
+        // check: it fires as soon as ALL of its literals are simultaneously
+        // active in the current node - a strictly more general and more
+        // useful hit (a superset of a known-unsat set of facts is itself
+        // unsat), regardless of what else is also active.
+        //
+        // This is done with one-watched-literal bookkeeping, mirroring
+        // SAT's two-watched-literal scheme but adapted to detect a set
+        // becoming fully TRUE (an "all-active" trigger) rather than a
+        // clause becoming fully FALSE:
+        //   - Each core watches exactly one of its own literals, chosen (at
+        //     any point it's checked) to currently be ABSENT from the live
+        //     node's active set whenever possible. That invariant makes the
+        //     core provably not-yet-fired: at least one of its literals is
+        //     missing, so it cannot be fully contained.
+        //   - The watched literal is only ever inspected when it is found
+        //     among the node's *currently active* ids (see cache_lookup):
+        //     that is the only event that can possibly have broken the
+        //     invariant. All other literals joining or leaving the active
+        //     set never need to touch this core's bookkeeping at all.
+        //   - On such a hit, try_rewatch() scans the core's other literals
+        //     for one that is still absent and moves the watch there
+        //     (m_watch_list[old] -> m_watch_list[new]). If none exists, every
+        //     literal of the core is active right now: the core is fully
+        //     contained in the current node, which is therefore unsat.
+        //   - Backtracking (pop()) only ever shrinks the active set, so a
+        //     literal that was absent when chosen as a watch stays absent
+        //     across any later pop() - the invariant needs no trail-scoped
+        //     undo bookkeeping of its own; it is maintained purely by
+        //     construction.
         bool                                    m_unsat_cache_enabled = true;
-        std::unordered_map<uint64_t, vector<vector<uint64_t>>> m_unsat_cache;
+
+        struct unsat_core_entry {
+            vector<uint64_t> lits;   // over-approximate unsat core, as built by compute_signature()
+            unsigned         watch;  // index into lits currently registered in m_watch_list
+        };
+        vector<unsat_core_entry>                          m_unsat_cores;
+        // literal id -> indices (into m_unsat_cores) of cores currently watching it.
+        std::unordered_map<uint64_t, vector<unsigned>>     m_watch_list;
+        // Insertion-time dedup only (never consulted during lookup): hash of
+        // a core's ids -> indices (into m_unsat_cores) of previously
+        // inserted cores with that hash, so re-deriving the same closure
+        // along a different path doesn't grow the cache without bound.
+        std::unordered_map<uint64_t, vector<unsigned>>     m_unsat_core_index;
 
         // True iff every facet NOT contributing to the signature currently
         // holds no live content (is_satisfied()). This is the soundness
@@ -637,8 +685,49 @@ namespace stx {
             return true;
         }
 
-        // Lookup: true iff this node's current (post-propagation) state
-        // exactly matches a previously-cached string-only UNSAT signature.
+        // Remove one occurrence of `core_idx` from the watch bucket for
+        // `lit` (the core's watch is always moved away from `lit` right
+        // before this is called, so the bucket is left consistent).
+        void unwatch(uint64_t lit, unsigned core_idx) {
+            auto it = m_watch_list.find(lit);
+            if (it == m_watch_list.end())
+                return;
+            auto& bucket = it->second;
+            auto pos = std::find(bucket.begin(), bucket.end(), core_idx);
+            if (pos != bucket.end())
+                bucket.erase(pos);
+        }
+
+        // Precondition: m_unsat_cores[core_idx]'s watch literal is
+        // currently `active` (that's the only reason cache_lookup() is
+        // inspecting it at all). Looks for another of the core's literals
+        // that is NOT active and moves the watch there.
+        // Returns true  - watch moved, core has not fired (still some
+        //                 absent literal, just a different one now).
+        // Returns false - no absent literal exists anywhere in the core:
+        //                 every one of its literals is active right now,
+        //                 so the core is fully contained in the current
+        //                 node, which is therefore unsat.
+        bool try_rewatch(unsigned core_idx, std::unordered_set<uint64_t> const& active) {
+            unsat_core_entry& e = m_unsat_cores[core_idx];
+            uint64_t old_lit = e.lits[e.watch];
+            for (unsigned i = 0; i < e.lits.size(); ++i) {
+                if (i == e.watch)
+                    continue;
+                if (!active.count(e.lits[i])) {
+                    unwatch(old_lit, core_idx);
+                    e.watch = i;
+                    m_watch_list[e.lits[i]].push_back(core_idx);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Lookup: true iff this node's current (post-propagation) active
+        // signature fully contains (as a superset) some previously-cached
+        // unsat core - not merely an exact match against a past node's full
+        // signature (see the watch-list comment above `m_unsat_cache_enabled`).
         // Ineligible/trivial (empty signature) nodes never hit.
         bool cache_lookup(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
@@ -646,40 +735,62 @@ namespace stx {
             vector<uint64_t> ids = compute_signature(n);
             if (ids.empty())
                 return false;
-            auto it = m_unsat_cache.find(hash_signature(ids));
-            if (it == m_unsat_cache.end())
-                return false;
-            for (auto const& cand : it->second)
-                if (ids_eq(cand, ids)) {
-                    ++m_stats.m_num_cache_hits;
-                    return true;
+            std::unordered_set<uint64_t> active(ids.begin(), ids.end());
+            for (uint64_t lit : ids) {
+                auto it = m_watch_list.find(lit);
+                if (it == m_watch_list.end())
+                    continue;
+                // Snapshot: try_rewatch()/unwatch() mutate m_watch_list
+                // (including this very bucket, and possibly rehash the
+                // table via m_watch_list[...] on a fresh key), so `it`
+                // and `it->second` must not be relied on past this point.
+                vector<unsigned> watchers = it->second;
+                for (unsigned core_idx : watchers) {
+                    if (!try_rewatch(core_idx, active)) {
+                        ++m_stats.m_num_cache_hits;
+                        return true;
+                    }
                 }
+            }
             return false;
         }
 
-        // Insert: memoize this node's current state as string-only UNSAT.
+        // Insert: memoize this node's current state as an (over-
+        // approximate) unsat core, and register it in the watch list.
         // Only called at closure points the caller has already determined
         // are a pure function of the signature-contributing facets (see
         // dfs()); cache_eligible() is re-checked here regardless, as a
         // second, cheap safety net.
+        //
+        // The initial watch is picked arbitrarily (lits[0]): the "watch is
+        // absent" invariant need not hold yet - this very node's active set
+        // is exactly (a superset of) the core being inserted, so every
+        // literal is present right now. It self-repairs the first time
+        // cache_lookup() visits some other node containing lits[0]: if
+        // every other literal is also active there, the core fires
+        // immediately (correctly - that node is unsat too); otherwise
+        // try_rewatch() moves the watch to a literal that is genuinely
+        // absent there, restoring the invariant for future checks.
         void cache_insert(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return;
             vector<uint64_t> ids = compute_signature(n);
             if (ids.empty())
                 return;
-            auto& bucket = m_unsat_cache[hash_signature(ids)];
-            for (auto const& cand : bucket)
-                if (ids_eq(cand, ids))
+            uint64_t h = hash_signature(ids);
+            auto& dup_bucket = m_unsat_core_index[h];
+            for (unsigned idx : dup_bucket)
+                if (ids_eq(m_unsat_cores[idx].lits, ids))
                     return; // already memoized
-            bucket.push_back(std::move(ids));
+            unsigned idx = m_unsat_cores.size();
+            uint64_t first_lit = ids[0];
+            m_unsat_cores.push_back({ std::move(ids), 0 });
+            dup_bucket.push_back(idx);
+            m_watch_list[first_lit].push_back(idx);
         }
 
         unsigned unsat_cache_size() const {
-            unsigned n = 0;
-            for (auto const& [h, bucket] : m_unsat_cache)
-                n += bucket.size();
-            return n;
+            return m_unsat_cores.size();
         }
 
         // statistics::update() stores the raw char const* without copying
@@ -1335,7 +1446,9 @@ namespace stx {
             // solve() calls would also be sound since containment facts
             // never expire, but isn't validated for this engine's
             // clone_state_from/push/pop interactions yet).
-            m_unsat_cache.clear();
+            m_unsat_cores.clear();
+            m_watch_list.clear();
+            m_unsat_core_index.clear();
             unsigned base_scopes = m_trail.get_num_scopes();
             on_scope_exit rewind([&]() {
                 while (m_trail.get_num_scopes() > base_scopes)
