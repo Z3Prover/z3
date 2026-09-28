@@ -81,15 +81,6 @@ namespace seq {
         expr_ref_vector      m_str;
         view                 m_view;
         eq_tree::dep_tracker m_dep = nullptr;
-        // Append-only representation: m_mems is never erased/shifted
-        // (mirrors power_facet::str_power::m_active / eq_facet's
-        // discipline). "Removing" a membership just flips m_active to
-        // false (trailed via value_trail, restored on backtrack); no
-        // index is ever invalidated by a removal elsewhere. This matters
-        // here specifically because power_peel_mem's iterator
-        // persists a raw m_mem_idx across next() calls that span DFS
-        // branch resumptions. Consumers that iterate memberships() must
-        // skip entries with !active().
         bool                 m_active = true;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
@@ -111,60 +102,14 @@ namespace seq {
         seq_rewriter&     m_rw;
         live_states       m_live;
         vector<str_mem>   m_mems;
-        // Incrementally tracks every active plain membership whose own
-        // string is already a single bare variable (`x in R`): add()
-        // registers it here as soon as it is added (see
-        // is_single_var_plain() in seq_mem_facet.cpp), so the joint
-        // feasibility of every such constraint - across however many
-        // originally-distinct memberships produced views on the same
-        // variable - is checked incrementally by mem_propagation via
-        // m_vw.check(), instead of being recomputed from scratch by
-        // mem_monadic_split on every split() call. Uses this facet's own
-        // (shared, ambient) trail, so add()'s bookkeeping backtracks in
-        // lockstep with m_mems automatically. narrow()/replace()/
-        // apply_subst() never unregister a stale entry when they
-        // deactivate a membership (append-only, like m_mems itself) -
-        // the surviving fact stays true and is harmless to keep around.
         view_witness      m_vw;
-        // Work counter backing m_vw's checkpoint (see the constructor):
-        // product_nonempty()'s state-expansion search has no bound of its
-        // own and relies entirely on the checkpoint callback to cut off a
-        // search over a cyclic/unbounded view (e.g. `x in (ab)+` alone),
-        // so m_vw must have one installed - mirrors seq_monadic's own
-        // m_budget/out_of_budget (seq_monadic.h), which every OTHER
-        // view_witness in this codebase is given at construction time.
         mutable unsigned  m_vw_budget = 0;
 
-        // First not-yet-fully-examined index into m_mems for
-        // mem_propagation's per-membership structural scan (mirrors
-        // req_facet's/ncontains_facet's own m_qhead convention): a round
-        // only re-scans [m_qhead, m_mems.size()), never the whole vector
-        // from scratch. No rewind hook is needed here (unlike
-        // ncontains_facet's apply_subst, which mutates an existing
-        // entry's token vectors in place): every mutator that ever
-        // touches an existing membership - narrow(), replace(), and
-        // apply_subst() - is built entirely on remove()+add() (see their
-        // definitions), so a membership below m_qhead can only ever be
-        // deactivated, never have its m_str/m_view changed in place; any
-        // actual update always appears as a brand-new entry appended
-        // past the current size, which is >= m_qhead by construction and
-        // so is naturally still ahead of the qhead when it is reached.
-        // Trailed via advance_qhead(), so it unwinds with everything else
-        // on backtrack.
         unsigned          m_qhead = 0;
 
         bool              m_witness_extracted = false;
         obj_map<expr, expr*> m_witness;
         expr_ref_vector   m_witness_pin;
-        // The single shared ambient context (see seq_ambient_context.h):
-        // consulted for its non-virtual, canonical `is_var()` (used by
-        // is_single_var_plain() below) instead of this facet re-deriving
-        // its own notion of "variable" from `u` - so every facet agrees
-        // on exactly the same classification and none can silently
-        // diverge (per ambient_context_i::is_var's own class comment).
-        // Never null: the ambient context is a single long-lived object
-        // owned by the domain layer (e.g. theory_nseq), constructed
-        // before any facet and outliving every node/clone.
         ambient_context_i<eq_tree::dep_tracker>& m_ac;
 
     public:
@@ -178,17 +123,11 @@ namespace seq {
                 return ++m_vw_budget > 2000000 ? view_failure_reason::budget : view_failure_reason::none;
             });
         }
-        // Resets the per-check() work counter backing m_vw's checkpoint
-        // (see m_vw_budget's comment): called by mem_propagation right
-        // before vw().check(), so each round gets a fresh budget rather
-        // than a single lifetime allowance for the whole search.
+
         void reset_vw_budget() const { m_vw_budget = 0; }
 
-        // See m_qhead's comment: mem_propagation's per-membership scan
-        // uses these to avoid rescanning already-examined entries.
         unsigned qhead() const { return m_qhead; }
-        // Advance m_qhead to `head` (only ever forward via this call;
-        // trailed so it un-advances correctly on backtrack).
+
         void advance_qhead(unsigned head);
 
         ast_manager& get_manager() const { return m; }
@@ -196,22 +135,8 @@ namespace seq {
         live_states& live() const { return const_cast<live_states&>(m_live); }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
         vector<str_mem> const& memberships() const { return m_mems; }
-        // Every active plain single-variable membership registered so
-        // far (see m_vw's comment above); mem_propagation calls
-        // vw().check() each round and reports a conflict from vw().core()
-        // on l_false.
         view_witness& vw() { return m_vw; }
 
-        // True when `sm` is an active membership whose own flattened
-        // string is already exactly one bare variable (`x in R` or a
-        // narrowed reach view `x reaches s`): see m_vw's class comment
-        // above for why these are registered with view_witness instead
-        // of being left to mem_monadic_split. Uses the ambient context's
-        // own canonical is_var() (see m_ac's comment) rather than a
-        // facet-local uninterpreted-constant test, so a compound
-        // subterm that some other facet already treats as a
-        // free/substitutable token (not just a bare uninterpreted
-        // constant) is recognized here the same way.
         bool is_single_var_plain(str_mem const& sm) const {
             return sm.m_str.size() == 1 && m_ac.is_var(sm.m_str.get(0));
         }
@@ -230,32 +155,12 @@ namespace seq {
 
         void add(str_mem const& sm);
         void narrow(unsigned idx, view const& new_view);
-        // Drop `idx`'s membership entirely. Trailed: this just flips
-        // m_active to false via a value_trail (restored to true on
-        // backtrack) - append-only, no shifting, no index invalidation
-        // for any other facet/iterator holding onto `idx` (see
-        // str_mem::m_active comment).
         void remove(unsigned idx);
-        // Replace `idx`'s own string term wholesale (as opposed to
-        // `apply_subst`'s global variable-keyed rewrite): used by
-        // plugins that peel/rewrite a single membership's string
-        // in-place, e.g. `power_var_num_unwinding_mem`'s power-token
-        // peel at a directional end of `m_str`, where the change is not
-        // a substitution for some other facet's variable but a direct
-        // edit of this one membership's own term.
         void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         stx::facet_i* clone(trail_stack& trail) const override;
 
-        // True once there is no active plain membership left for
-        // mem_monadic_split to decompose - i.e. every active plain
-        // membership is already a single-variable view (or there are no
-        // active memberships at all). This says nothing about whether
-        // those single-variable views are jointly satisfiable - that is
-        // m_vw/mem_propagation's job, checked incrementally and reported
-        // as an ordinary conflict, so a node that reaches this predicate
-        // without having already conflicted is known consistent.
         bool is_satisfied() const override;
         std::ostream& display(std::ostream& out) const override;
 
