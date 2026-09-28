@@ -192,6 +192,11 @@ public:
         }
         switch (r) {
         case l_true:
+            if (m_goal2sat.has_interpreted_funs()) {
+                set_reason_unknown("(sat.giveup has-uninterpreted)");
+                r = l_undef;
+                break;
+            }
             check_assumptions();
             break;
         case l_false:
