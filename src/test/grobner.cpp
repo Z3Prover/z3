@@ -38,7 +38,17 @@ void tst_grobner() {
         return m.limit().count();
     };
 
+    auto normalization_cost = [&](rational const& coeff) {
+        grobner g(m, dm);
+        rational coeffs[] = { rational(2), coeff };
+        expr* monomials[] = { x, y };
+        m.limit().reset_count();
+        g.assert_eq_0(2, coeffs, monomials);
+        return m.limit().count();
+    };
+
     auto small_merge_cost = merge_cost(rational(1));
     ENSURE(merge_cost(big) > small_merge_cost);
     ENSURE(reduction_cost(big) > reduction_cost(rational(1)));
+    ENSURE(normalization_cost(rational::power_of_two(512)) > normalization_cost(rational(1)));
 }

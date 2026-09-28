@@ -325,6 +325,7 @@ void grobner::init_equation(equation * eq, v_dependency * d) {
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, v_dependency * ex) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     ptr_vector<monomial> ms;
     ms.append(num_monomials, monomials);
     std::stable_sort(ms.begin(), ms.end(), m_monomial_lt);
@@ -339,6 +340,7 @@ void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, 
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr * const * monomials, v_dependency * ex) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
 #define MK_EQ(COEFF)                                    \
     ptr_vector<monomial> ms;                            \
     for (unsigned i = 0; i < num_monomials; ++i)        \
@@ -357,6 +359,7 @@ void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr 
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, expr * const * monomials, v_dependency * ex) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     rational one(1);
     MK_EQ(one);
 }
@@ -371,6 +374,7 @@ void grobner::extract_monomials(expr * lhs, ptr_buffer<expr> & monomials) {
 }
 
 void grobner::assert_eq(expr * eq, v_dependency * ex) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     SASSERT(m_manager.is_eq(eq));
     expr * lhs = to_app(eq)->get_arg(0);
     expr * rhs = to_app(eq)->get_arg(1);
@@ -390,6 +394,7 @@ void grobner::assert_eq(expr * eq, v_dependency * ex) {
 }
 
 void grobner::assert_monomial_tautology(expr * m) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     equation * eq   = alloc(equation);
     eq->m_monomials.push_back(mk_monomial(rational(1), m));
     // create (quote m)
@@ -421,21 +426,6 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
     return true;
 }
 
-// Charge costly coefficient normalization using floor(words(a) * words(b) / 64).
-// This model is shared by addition and multiplication because both can trigger
-// expensive normalization. Pairs with a word-count product below 64 incur no
-// extra charge; for example, both operands below 256 bits are free.
-static unsigned coeff_cost(rational const & a, rational const & b) {
-    constexpr uint64_t word_bits = 32;
-    constexpr uint64_t cost_shift = 6;
-    constexpr uint64_t min_charged_words = 1ULL << (cost_shift / 2);
-    static_assert(min_charged_words * min_charged_words == (1ULL << cost_shift));
-    uint64_t da = a.bitsize() / word_bits;
-    uint64_t db = b.bitsize() / word_bits;
-    uint64_t c  = (da * db) >> cost_shift;
-    return c > static_cast<uint64_t>(UINT_MAX) ? UINT_MAX : static_cast<unsigned>(c);
-}
-
 /**
    \brief Merge monomials (* c1 m) (* c2 m).
    
@@ -455,8 +445,6 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
         monomial * m1 = monomials[j];
         monomial * m2 = monomials[i];
         if (is_eq_monomial_body(m1, m2)) {
-            if (unsigned c = coeff_cost(m1->m_coeff, m2->m_coeff))
-                m_manager.limit().inc(c);
             m1->m_coeff += m2->m_coeff;
             to_delete.push_back(m2);
         } 
@@ -594,8 +582,6 @@ void grobner::mul_append(unsigned start_idx, equation const * source, rational c
     for (unsigned i = start_idx; i < sz; ++i) {
         monomial const * m = source->get_monomial(i);
         monomial * new_m   = alloc(monomial);
-        if (unsigned c = coeff_cost(m->m_coeff, coeff))
-            m_manager.limit().inc(c);
         new_m->m_coeff     = m->m_coeff;
         new_m->m_coeff    *= coeff;
         new_m->m_vars.append(m->m_vars.size(), m->m_vars.data());
@@ -928,6 +914,7 @@ void grobner::compute_basis_init() {
 }
 
 bool grobner::compute_basis_step() {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     equation * eq = pick_next();
     if (!eq)
         return true;
@@ -953,6 +940,7 @@ bool grobner::compute_basis_step() {
 }
 
 bool grobner::compute_basis(unsigned threshold) {
+    scoped_mpz_resource_limit _limit(m_manager.limit());
     compute_basis_init();
     while (m_num_new_equations < threshold && m_manager.inc()) {
         if (compute_basis_step()) return true;
