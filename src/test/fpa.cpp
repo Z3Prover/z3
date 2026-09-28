@@ -181,9 +181,12 @@ static void test_transcendental_fpa2bv() {
     char const* spec =
         "(define-fun one () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 1.0))\n"
         "(define-fun two () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 2.0))\n"
+        "(define-fun neg-two () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE (- 2.0)))\n"
         "(define-fun half () (_ FloatingPoint 8 24) ((_ to_fp 8 24) RNE 0.5))\n"
         "(assert (not (fp.gt (fp.exp RNE one) one)))\n"
         "(assert (not (fp.gt (fp.log RNE two) half)))\n"
+        "(assert (not (fp.isNaN (fp.pow RNE neg-two half))))\n"
+        "(assert (not (= (fp.atan2 RNE (_ +zero 8 24) (_ +zero 8 24)) (_ +zero 8 24))))\n"
         "(check-sat-using (then fpa2bv simplify bit-blast smt))\n";
     std::string response = Z3_eval_smtlib2_string(ctx, spec);
     if (response.find("unsat") == std::string::npos)

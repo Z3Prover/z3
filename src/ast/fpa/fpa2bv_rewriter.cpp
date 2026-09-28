@@ -81,7 +81,7 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
     expr_ref zero = val(rational(0));
     expr_ref one = val(rational(1));
     expr_ref two = val(rational(2));
-    expr_ref pi = val(rational(355) / rational(113));
+    expr_ref pi = val(rational("31415926535897932384626433832795028841971693993751/10000000000000000000000000000000000000000000000000"));
     expr_ref nan(u.mk_nan(s), m());
     expr_ref pinf(u.mk_pinf(s), m());
     expr_ref ninf(u.mk_ninf(s), m());
@@ -109,12 +109,9 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
             coefficient.neg();
         expr_ref r = val(coefficient);
         for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
-            rational c(1);
-            for (unsigned j = 1; j < i; ++j)
-                c /= rational((2 * j) * (2 * j + 1));
-            if ((i - 1) & 1)
-                c.neg();
-            r = add(val(c), mul(z, r));
+            coefficient.neg();
+            coefficient *= rational((2 * i) * (2 * i + 1));
+            r = add(val(coefficient), mul(z, r));
         }
         return mul(a, r);
     };
@@ -127,12 +124,9 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
             coefficient.neg();
         expr_ref r = val(coefficient);
         for (unsigned i = m_transcendental_degree - 1; i > 0; --i) {
-            rational c(1);
-            for (unsigned j = 1; j < i; ++j)
-                c /= rational((2 * j - 1) * (2 * j));
-            if ((i - 1) & 1)
-                c.neg();
-            r = add(val(c), mul(z, r));
+            coefficient.neg();
+            coefficient *= rational((2 * i - 1) * (2 * i));
+            r = add(val(coefficient), mul(z, r));
         }
         return r;
     };
@@ -275,7 +269,10 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
         expr_ref any_nan(m().mk_or(u.mk_is_nan(x), u.mk_is_nan(args[2])), m());
         result = ite(u.mk_is_zero(args[2]), one,
                  ite(u.mk_float_eq(x, one), one,
-                 ite(any_nan, nan, approx)));
+                 ite(any_nan, nan,
+                 ite(u.mk_is_zero(x),
+                     ite(u.mk_is_negative(args[2]), pinf, zero),
+                 ite(u.mk_is_negative(x), nan, approx)))));
         break;
     }
     case OP_FPA_ATAN2: {
@@ -286,8 +283,11 @@ br_status fpa2bv_rewriter_cfg::reduce_transcendental(
         expr_ref upper = add(a, pi);
         expr_ref lower = sub(a, pi);
         expr_ref half_pi = div(pi, two);
-        expr_ref at_zero(m()), at_negative(m());
-        at_zero = m().mk_ite(u.mk_lt(y, zero), neg(half_pi), half_pi);
+        expr_ref at_zero(m()), at_negative(m()), zero_zero(m());
+        zero_zero = ite(u.mk_is_negative(x2),
+                        ite(u.mk_is_negative(y), neg(pi), pi), y);
+        at_zero = ite(u.mk_is_zero(y), zero_zero,
+                      ite(u.mk_lt(y, zero), neg(half_pi), half_pi));
         at_negative = m().mk_ite(u.mk_lt(y, zero), lower, upper);
         expr_ref approx = ite(u.mk_gt(x2, zero), a,
                           ite(u.mk_lt(x2, zero), at_negative, at_zero));
