@@ -862,26 +862,36 @@ namespace lp {
     }
 
     lp_status lar_solver::maximize_term(unsigned j,
-        impq& term_max, bool fix_int_cols) {
+        impq& term_max, bool fix_int_cols, u_dependency** upper_bound_dependencies) {
+        if (upper_bound_dependencies)
+            *upper_bound_dependencies = nullptr;
         TRACE(lar_solver, print_values(tout););
         SASSERT(get_core_solver().m_r_solver.calc_current_x_is_feasible_include_non_basis());
         lar_term term = get_term_to_maximize(j);
         if (term.is_empty()) return lp_status::UNBOUNDED;
         get_core_solver().backup_x();
         impq prev_value = term.apply(get_core_solver().r_x());
-        auto restore = [&]() {
+        vector<std::pair<mpq, lpvar>> max_coeffs;
+        if (!maximize_term_on_feasible_r_solver(term, term_max, upper_bound_dependencies ? &max_coeffs : nullptr)) {
             get_core_solver().restore_x();
-        };
-        if (!maximize_term_on_feasible_r_solver(term, term_max, nullptr)) {
-            restore();
             return lp_status::UNBOUNDED;
         }
+        if (upper_bound_dependencies)
+            *upper_bound_dependencies = get_dependencies_of_maximum(max_coeffs);
 
         if (!fix_int_cols) {
             set_status(lp_status::OPTIMAL);
             return lp_status::OPTIMAL;
         }
 
+        return adjust_integer_columns(term, prev_value, term_max);
+    }
+
+    lp_status lar_solver::adjust_integer_columns(lar_term const& term, impq const& prev_value, impq& term_max) {
+        // Integer-column handling may require restoring the pre-maximization assignment.
+        auto restore = [&]() {
+            get_core_solver().restore_x();
+        };
         impq opt_val = term_max;
 
         bool change = false;
@@ -890,13 +900,12 @@ namespace lp {
                 continue;
             if (column_value_is_integer(j))
                 continue;
-            if (m_imp->m_int_solver->is_base(j)) {
+            if (m_imp->m_int_solver->is_base(j))
                 if (!remove_from_basis(j)) { // consider a special version of remove_from_basis that would not remove inf_int columns
                     restore();
                     term_max = prev_value;
                     return lp_status::FEASIBLE; // it should not happen
                 }
-            }
             if (!column_value_is_integer(j)) {
                 term_max = prev_value;
                 restore();
@@ -904,9 +913,8 @@ namespace lp {
             }
             change = true;
         }
-        if (change) {
+        if (change)
             term_max = term.apply(get_core_solver().r_x());
-        }
         if (term_max < prev_value) {
             term_max = prev_value;
             restore();

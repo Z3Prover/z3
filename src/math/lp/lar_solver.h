@@ -174,6 +174,7 @@ class lar_solver : public column_namer {
     lpvar to_column(unsigned ext_j) const;
     void fix_terms_with_rounded_columns();
     bool remove_from_basis(unsigned);
+    lp_status adjust_integer_columns(lar_term const& term, impq const& prev_value, impq& term_max);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     bool sum_first_coords(const lar_term& t, mpq& val) const;
     void register_normalized_term(const lar_term&, lpvar);
@@ -208,7 +209,9 @@ public:
 
     // fix_int_cols: after maximizing try to move the integer columns to integer values;
     // pass false to keep the optimal (possibly fractional) vertex intact, e.g., for the largest cube test
-    lp_status maximize_term(unsigned j_or_term, impq& term_max, bool fix_int_cols);
+    // The optional dependencies certify term_max only when the returned status is OPTIMAL.
+    lp_status maximize_term(unsigned j_or_term, impq& term_max, bool fix_int_cols,
+                            u_dependency** upper_bound_dependencies = nullptr);
 
     core_solver_pretty_printer<lp::mpq, lp::impq> pp(std::ostream& out) const;
     

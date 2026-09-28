@@ -29,6 +29,7 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include <cstring>
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_geometric.h"
@@ -215,8 +216,13 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                auto result = m_s->maximize_objective(obj_index, bound);
+                auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int);
                 last_bound_valid = result.bound_valid;
+                // Search scopes only impose lower cuts on this objective. A
+                // finite LP optimum satisfies them, so excluded values cannot
+                // exceed its certified rational upper bound.
+                if (result.upper_bound && inf_eps(*result.upper_bound) < upper(obj_index))
+                    m_upper[obj_index] = inf_eps(*result.upper_bound);
                 step_bound = infty;
                 if (!result.bound_valid && result.hint_status == l_false && result.hint.is_finite())
                     refuted_hint = std::min(refuted_hint, result.hint);
@@ -225,6 +231,10 @@ namespace opt {
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 TRACE(opt, tout << "saved objective: " << obj << "\n";);
                 update_lower_lex(obj_index, obj, is_maximize);
+                if (m.limit().is_canceled()) {
+                    is_sat = l_undef;
+                    break;
+                }
                 step.update(is_int && m_lower[obj_index].is_finite());
                 // A real objective may improve forever without refuting an
                 // upper bound. After a streak, use prove_unbounded_above to
@@ -299,9 +309,13 @@ namespace opt {
                     // obj < step_bound, it does not make the model value
                     // optimal. Close or narrow the gap by bisection instead of
                     // reporting the lower bound as the optimum.
-                    inf_eps hi = std::min(step_bound, refuted_hint);
+                    // An undecided trial is not an upper-bound certificate.
+                    inf_eps hi = std::min(upper(obj_index), refuted_hint);
+                    if (is_sat == l_false)
+                        hi = std::min(hi, step_bound);
                     if (lower(obj_index) < hi) {
                         scopes.reset();
+                        m_upper[obj_index] = hi;
                         bool smt_gave_up = is_sat == l_undef;
                         is_sat = refine_real_objective(obj_index, is_maximize, hi, smt_gave_up);
                     }
@@ -403,7 +417,20 @@ namespace opt {
 
     lbool optsmt::refine_real_objective(unsigned idx, bool is_maximize, inf_eps const& hi, bool smt_gave_up) {
         if (m_optsmt_nlsat) {
-            switch (nlsat_cells(idx, is_maximize, hi)) {
+            nlsat_outcome outcome;
+            try {
+                outcome = nlsat_cells(idx, is_maximize, hi);
+            }
+            catch (default_exception const& ex) {
+                if (!m.limit().is_canceled() ||
+                    (std::strcmp(ex.what(), Z3_CANCELED_MSG) != 0 && std::strcmp(ex.what(), Z3_MAX_RESOURCE_MSG) != 0))
+                    throw;
+                // Algebraic operations use "canceled" for resource exhaustion too.
+                // Preserve the proven interval, but do not swallow unrelated errors.
+                m_s->set_reason_unknown(m.limit().get_cancel_msg());
+                return l_undef;
+            }
+            switch (outcome) {
             case nlsat_outcome::certified:
                 return l_true;
             case nlsat_outcome::incomplete:
@@ -479,7 +506,7 @@ namespace opt {
         }
         // not closed: report the interval [best, sup] where sup is the
         // supremum proven by nlsat when available, else the caller's bound.
-        m_upper[idx] = res.m_has_sup ? inf_eps(res.m_sup_upper) : hi;
+        m_upper[idx] = res.m_has_sup ? std::min(inf_eps(res.m_sup_upper), hi) : hi;
         if (upper(idx) < lower(idx))
             m_upper[idx] = m_lower[idx];
         IF_VERBOSE(1, verbose_stream() << "(optsmt nlsat interval [" << lower(idx) << ", " << upper(idx) << "])\n");
@@ -825,6 +852,7 @@ namespace opt {
         m_optsmt_engine = _p.optsmt_engine();        
         m_bisect_rounds = _p.optsmt_bisect_rounds();
         m_optsmt_nlsat = _p.optsmt_nlsat();
+        m_dual_bounds = _p.optsmt_dual_bounds();
         m_nlsat_supremum_rlimit = _p.optsmt_nlsat_supremum_rlimit();
     }
 

@@ -317,7 +317,8 @@ namespace opt {
 
     /**
        \brief maximize the value of objective i in the current state.
-       Return the hint and its acceptance/validation status; write the
+       Return the hint, its acceptance/validation status, and an optional
+       independently justified relaxation upper bound; write the
        predicate blocking the current maximal value to blocker.
        
        The result of 'maximize' is post-processed. 
@@ -327,7 +328,7 @@ namespace opt {
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
-    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
+    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds) {
         smt::theory_var v = m_objective_vars[i];
         m_model = nullptr;
         blocker = nullptr;
@@ -337,8 +338,9 @@ namespace opt {
         // Generally, the hint is not necessarily valid and has to be checked
         // relative to other theories.
         // 
-        inf_eps val = get_optimizer().maximize(v, blocker);
-        maximize_result result{false, val, l_undef};
+        std::optional<rational> upper;
+        inf_eps val = dual_bounds ? get_optimizer().maximize_with_bound(v, blocker, upper) : get_optimizer().maximize(v, blocker);
+        maximize_result result{false, val, l_undef, upper};
         m_context.get_model(m_model);
         inf_eps val2;
         TRACE(opt, tout << val << " " << blocker << "\n";
@@ -384,12 +386,16 @@ namespace opt {
         };
 
         update_objective();
+        if (m.limit().is_canceled())
+            return result;
                         
 
         // 
         // check that "val" obtained from optimization hint is a valid bound.
         // 
         auto check_bound = [&]() {
+            if (m.limit().is_canceled())
+                return false;
             lbool r = bound_value(i, val);
             if (r == l_true) 
                 r = m_context.check(0, nullptr);
