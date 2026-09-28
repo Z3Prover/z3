@@ -649,15 +649,72 @@ namespace stx {
         //     across any later pop() - the invariant needs no trail-scoped
         //     undo bookkeeping of its own; it is maintained purely by
         //     construction.
+        //
+        // The watch list itself is keyed not by the raw uint64_t signature
+        // hash (see compute_signature()/facet_i::append_signature) but by
+        // a small dense "constraint id" that a global constraint_store
+        // (below) assigns to each distinct hash the first time it is seen
+        // - so m_watch_list can be a plain `vector<vector<unsigned>>`
+        // indexed directly by id, instead of an `unordered_map<uint64_t,
+        // ...>` hashing on the full 64-bit value on every lookup/insert.
         bool                                    m_unsat_cache_enabled = true;
 
+        // Maps a fact's canonical signature hash to a small, dense,
+        // monotonically-assigned unsigned id, so `m_watch_list` (and
+        // `unsat_core_entry::lits`) can be plain vectors indexed by id
+        // rather than hash maps keyed by the raw uint64_t hash.
+        // `solve()` reseeds this fresh on every call (see its cache-reset
+        // block) with exactly the constraints present in the root node at
+        // that point (`init()`), so the root's own constraints always get
+        // the same small, stable ids for that call; any later fact never
+        // seen in the root (e.g. one a split further down the tree
+        // produces) is assigned the next free id the first time
+        // `cache_insert()` needs one for it (`intern()`), growing the
+        // store - and `m_watch_list` alongside it - incrementally as the
+        // search proceeds. `cache_lookup()` only ever queries (`find()`),
+        // never interns: a hash the store has never seen cannot possibly
+        // be contained in any already-inserted core (every core's own
+        // literals are themselves ids assigned by this store), so lookup
+        // has no reason to grow the store itself.
+        class constraint_store {
+            std::unordered_map<uint64_t, unsigned> m_ids;
+            vector<uint64_t>                       m_hashes; // id -> hash (reverse lookup, diagnostics only)
+        public:
+            void clear() { m_ids.clear(); m_hashes.clear(); }
+            void init(vector<uint64_t> const& hashes) {
+                for (uint64_t h : hashes)
+                    intern(h);
+            }
+            unsigned intern(uint64_t hash) {
+                auto it = m_ids.find(hash);
+                if (it != m_ids.end())
+                    return it->second;
+                unsigned id = m_hashes.size();
+                m_hashes.push_back(hash);
+                m_ids.emplace(hash, id);
+                return id;
+            }
+            bool find(uint64_t hash, unsigned& id) const {
+                auto it = m_ids.find(hash);
+                if (it == m_ids.end())
+                    return false;
+                id = it->second;
+                return true;
+            }
+            unsigned size() const { return m_hashes.size(); }
+        };
+        constraint_store                       m_constraint_store;
+
         struct unsat_core_entry {
-            vector<uint64_t> lits;   // over-approximate unsat core, as built by compute_signature()
+            vector<unsigned> lits;   // over-approximate unsat core, as constraint-store ids
             unsigned         watch;  // index into lits currently registered in m_watch_list
         };
         vector<unsat_core_entry>                          m_unsat_cores;
-        // literal id -> indices (into m_unsat_cores) of cores currently watching it.
-        std::unordered_map<uint64_t, vector<unsigned>>     m_watch_list;
+        // constraint-store id -> indices (into m_unsat_cores) of cores
+        // currently watching it. Grown (via watch()) on demand as new ids
+        // are interned; an id past the current size simply has no cores
+        // watching it yet.
+        vector<vector<unsigned>>                          m_watch_list;
         // Insertion-time dedup only (never consulted during lookup): hash of
         // a core's ids -> indices (into m_unsat_cores) of previously
         // inserted cores with that hash, so re-deriving the same closure
@@ -708,7 +765,7 @@ namespace stx {
             return h;
         }
 
-        static bool ids_eq(vector<uint64_t> const& a, vector<uint64_t> const& b) {
+        static bool ids_eq(vector<unsigned> const& a, vector<unsigned> const& b) {
             if (a.size() != b.size())
                 return false;
             for (unsigned i = 0; i < a.size(); ++i)
@@ -717,14 +774,23 @@ namespace stx {
             return true;
         }
 
+        // Register `core_idx` as watching constraint-store id `id`,
+        // growing `m_watch_list` on demand (ids are assigned densely from
+        // 0 by `constraint_store`, so a plain resize-then-index keeps this
+        // O(1) amortized, same as `vector::push_back`).
+        void watch(unsigned id, unsigned core_idx) {
+            if (id >= m_watch_list.size())
+                m_watch_list.resize(id + 1);
+            m_watch_list[id].push_back(core_idx);
+        }
+
         // Remove one occurrence of `core_idx` from the watch bucket for
-        // `lit` (the core's watch is always moved away from `lit` right
+        // `id` (the core's watch is always moved away from `id` right
         // before this is called, so the bucket is left consistent).
-        void unwatch(uint64_t lit, unsigned core_idx) {
-            auto it = m_watch_list.find(lit);
-            if (it == m_watch_list.end())
+        void unwatch(unsigned id, unsigned core_idx) {
+            if (id >= m_watch_list.size())
                 return;
-            auto& bucket = it->second;
+            auto& bucket = m_watch_list[id];
             auto pos = std::find(bucket.begin(), bucket.end(), core_idx);
             if (pos != bucket.end())
                 bucket.erase(pos);
@@ -740,16 +806,16 @@ namespace stx {
         //                 every one of its literals is active right now,
         //                 so the core is fully contained in the current
         //                 node, which is therefore unsat.
-        bool try_rewatch(unsigned core_idx, std::unordered_set<uint64_t> const& active) {
+        bool try_rewatch(unsigned core_idx, std::unordered_set<unsigned> const& active) {
             unsat_core_entry& e = m_unsat_cores[core_idx];
-            uint64_t old_lit = e.lits[e.watch];
+            unsigned old_id = e.lits[e.watch];
             for (unsigned i = 0; i < e.lits.size(); ++i) {
                 if (i == e.watch)
                     continue;
                 if (!active.count(e.lits[i])) {
-                    unwatch(old_lit, core_idx);
+                    unwatch(old_id, core_idx);
                     e.watch = i;
-                    m_watch_list[e.lits[i]].push_back(core_idx);
+                    watch(e.lits[i], core_idx);
                     return true;
                 }
             }
@@ -764,19 +830,37 @@ namespace stx {
         bool cache_lookup(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return false;
-            vector<uint64_t> ids = compute_signature(n);
-            if (ids.empty())
+            vector<uint64_t> hashes = compute_signature(n);
+            if (hashes.empty())
                 return false;
-            std::unordered_set<uint64_t> active(ids.begin(), ids.end());
-            for (uint64_t lit : ids) {
-                auto it = m_watch_list.find(lit);
-                if (it == m_watch_list.end())
+            // Only hashes the constraint store already knows about (i.e.
+            // that some previously-inserted core actually mentions) can
+            // possibly be contained in any cached core - every core's own
+            // literals are themselves store-assigned ids - so this is a
+            // pure query (find(), never intern()): a brand-new fact this
+            // node happens to hold never grows the store on its own.
+            std::unordered_set<unsigned> active;
+            active.reserve(hashes.size());
+            // Note: unlike std::vector, stx's `vector<T>::reserve(n)`
+            // actually resizes (and default-fills) up to `n` - it is NOT
+            // a capacity-only hint - so it must never be combined with
+            // push_back() the way std::vector::reserve() commonly is;
+            // just push_back() without pre-reserving here.
+            vector<unsigned> active_ids;
+            for (uint64_t hv : hashes) {
+                unsigned id;
+                if (m_constraint_store.find(hv, id)) {
+                    active.insert(id);
+                    active_ids.push_back(id);
+                }
+            }
+            for (unsigned id : active_ids) {
+                if (id >= m_watch_list.size())
                     continue;
                 // Snapshot: try_rewatch()/unwatch() mutate m_watch_list
-                // (including this very bucket, and possibly rehash the
-                // table via m_watch_list[...] on a fresh key), so `it`
-                // and `it->second` must not be relied on past this point.
-                vector<unsigned> watchers = it->second;
+                // (including this very bucket), so the bucket itself must
+                // not be relied on past this point - copy it first.
+                vector<unsigned> watchers = m_watch_list[id];
                 for (unsigned core_idx : watchers) {
                     if (!try_rewatch(core_idx, active)) {
                         ++m_stats.m_num_cache_hits;
@@ -806,19 +890,29 @@ namespace stx {
         void cache_insert(node const& n) {
             if (!m_unsat_cache_enabled || !cache_eligible(n))
                 return;
-            vector<uint64_t> ids = compute_signature(n);
-            if (ids.empty())
+            vector<uint64_t> hashes = compute_signature(n);
+            if (hashes.empty())
                 return;
-            uint64_t h = hash_signature(ids);
+            // Every hash in this node's signature becomes (or already is)
+            // a constraint-store id: this is the only place the store ever
+            // grows past its root-seeded initial contents (see solve()'s
+            // cache-reset block). Note: unlike std::vector, stx's own
+            // `vector<T>::reserve(n)` actually resizes (default-filling)
+            // rather than just reserving capacity, so it must not be
+            // combined with push_back() below - just push_back() directly.
+            vector<unsigned> ids;
+            for (uint64_t hv : hashes)
+                ids.push_back(m_constraint_store.intern(hv));
+            uint64_t h = hash_signature(hashes);
             auto& dup_bucket = m_unsat_core_index[h];
             for (unsigned idx : dup_bucket)
                 if (ids_eq(m_unsat_cores[idx].lits, ids))
                     return; // already memoized
             unsigned idx = m_unsat_cores.size();
-            uint64_t first_lit = ids[0];
+            unsigned first_id = ids[0];
             m_unsat_cores.push_back({ std::move(ids), 0 });
             dup_bucket.push_back(idx);
-            m_watch_list[first_lit].push_back(idx);
+            watch(first_id, idx);
         }
 
         unsigned unsat_cache_size() const {
@@ -1358,6 +1452,7 @@ namespace stx {
             st.update("seq-stx max depth", m_stats.m_max_depth);
             st.update("seq-stx unsat-cache size", unsat_cache_size());
             st.update("seq-stx unsat-cache hits", m_stats.m_num_cache_hits);
+            st.update("seq-stx constraint-store size", m_constraint_store.size());
             for (auto const& [k, v] : m_stats.m_propagate_counts)
                 st.update(intern_stat_name(std::string("seq-stx propagate ") + k), v);
             for (auto const& [k, v] : m_stats.m_split_counts)
@@ -1481,6 +1576,14 @@ namespace stx {
             m_unsat_cores.clear();
             m_watch_list.clear();
             m_unsat_core_index.clear();
+            // Reseed the constraint store with exactly the constraints
+            // present in the root node right now (see constraint_store's
+            // class comment): the root's own facts get the same small,
+            // stable ids for this whole solve() call, before any
+            // cache_insert() call (further down the tree) can intern a
+            // fresh id for a fact the root doesn't have.
+            m_constraint_store.clear();
+            m_constraint_store.init(compute_signature(*m_root));
             unsigned base_scopes = m_trail.get_num_scopes();
             on_scope_exit rewind([&]() {
                 while (m_trail.get_num_scopes() > base_scopes)
