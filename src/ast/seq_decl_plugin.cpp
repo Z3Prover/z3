@@ -245,10 +245,13 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_DERIVATIVE]     = alloc(psig, m, "re.derivative", 1, 2, AreA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
-    m_sigs[OP_SEQ_REPLACE_RE_ALL] = alloc(psig, m, "str.replace_re_all", 1, 3, seqAreAseqA, seqA);
-    m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
-    m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
+    m_sigs[OP_SEQ_REPLACE_RE_ALL] = alloc(psig, m, "seq.replace_re_all", 1, 3, seqAreAseqA, seqA);
+    m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "seq.replace_re", 1, 3, seqAreAseqA, seqA);
+    m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "seq.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
+    m_sigs[_OP_STRING_REPLACE_ALL] = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
+    m_sigs[_OP_STRING_REPLACE_RE] = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
+    m_sigs[_OP_STRING_REPLACE_RE_ALL] = alloc(psig, m, "str.replace_re_all", 1, 3, seqAreAseqA, seqA);
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[_OP_STRING_FROM_CHAR] = alloc(psig, m, "char", 1, 0, nullptr, strT);
@@ -515,11 +518,22 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         return mk_left_assoc_fun(k, arity, domain, range, k, k);
 
     case OP_SEQ_REPLACE_RE_ALL:
+        m_has_re = true;
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_REPLACE_RE_ALL);
+    case _OP_STRING_REPLACE_RE_ALL:
+        m_has_re = true;
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_REPLACE_RE_ALL);
     case OP_SEQ_REPLACE_RE:
         m_has_re = true;
-        Z3_fallthrough;
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_REPLACE_RE);
+    case _OP_STRING_REPLACE_RE:
+        m_has_re = true;
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_REPLACE_RE);
+
     case OP_SEQ_REPLACE_ALL:
-        return mk_str_fun(k, arity, domain, range, k);        
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_REPLACE_ALL);
+    case _OP_STRING_REPLACE_ALL:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_REPLACE_ALL);
 
     case OP_SEQ_CONCAT:
         return mk_assoc_fun(k, arity, domain, range, k, _OP_STRING_CONCAT);

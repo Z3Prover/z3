@@ -403,6 +403,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_TO_REGEXP: 
     case _OP_STRING_SUBSTR: 
     case _OP_STRING_STRREPL:
+    case _OP_STRING_REPLACE_ALL:
+    case _OP_STRING_REPLACE_RE:
+    case _OP_STRING_REPLACE_RE_ALL:
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }

@@ -98,6 +98,9 @@ enum seq_op_kind {
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_FROM_CHAR,
     _OP_STRING_STRREPL,
+    _OP_STRING_REPLACE_ALL,
+    _OP_STRING_REPLACE_RE,
+    _OP_STRING_REPLACE_RE_ALL,
     _OP_STRING_CONCAT,
     _OP_STRING_LENGTH,
     _OP_STRING_STRCTN,
