@@ -355,17 +355,20 @@ void tst_smt2print_parse() {
     {
         Z3_context ctx = Z3_mk_context(nullptr);
         Z3_set_error_handler(ctx, setError);
-        test_eval(ctx,
-                  "(assert (= (seq.replace_all \"aaa\" \"a\" \"b\") (str.replace_all \"aaa\" \"a\" \"b\")))\n"
-                  "(assert (= (seq.replace_re \"aba\" (str.to_re \"a\") \"b\") (str.replace_re \"aba\" (str.to_re \"a\") \"b\")))\n"
-                  "(assert (= (seq.replace_re_all \"aba\" (str.to_re \"a\") \"b\") (str.replace_re_all \"aba\" (str.to_re \"a\") \"b\")))\n"
-                  "(declare-const s (Seq Int))\n"
-                  "(declare-const t (Seq Int))\n"
-                  "(declare-const r (RegEx (Seq Int)))\n"
-                  "(assert (= (seq.replace_all s t s) (str.replace_all s t s)))\n"
-                  "(assert (= (seq.replace_re s r t) (str.replace_re s r t)))\n"
-                  "(assert (= (seq.replace_re_all s r t) (str.replace_re_all s r t)))\n",
-                  false);
+        is_error = false;
+        std::string response = Z3_eval_smtlib2_string(ctx,
+            "(declare-const s (Seq Int))\n"
+            "(declare-const t (Seq Int))\n"
+            "(declare-const r (RegEx (Seq Int)))\n"
+            "(assert (not (and\n"
+            "  (= (seq.replace_all \"aaa\" \"a\" \"b\") (str.replace_all \"aaa\" \"a\" \"b\"))\n"
+            "  (= (seq.replace_re \"aba\" (str.to_re \"a\") \"b\") (str.replace_re \"aba\" (str.to_re \"a\") \"b\"))\n"
+            "  (= (seq.replace_re_all \"aba\" (str.to_re \"a\") \"b\") (str.replace_re_all \"aba\" (str.to_re \"a\") \"b\"))\n"
+            "  (= (seq.replace_all s t s) (str.replace_all s t s))\n"
+            "  (= (seq.replace_re s r t) (str.replace_re s r t))\n"
+            "  (= (seq.replace_re_all s r t) (str.replace_re_all s r t)))))\n"
+            "(check-sat)\n");
+        ENSURE(!is_error && response == "unsat\n");
         Z3_del_context(ctx);
     }
 
