@@ -650,6 +650,36 @@ namespace smt {
         return 2 * j + 1;
     }
 
+    // A literal whose atom is one of the sequence/regex-theory predicates
+    // assign_eh() itself dispatches (str.in_re, prefix, suffix, contains,
+    // str.</str.<=, and the internal is_eq skolem) is already fed - fully
+    // and precisely - into the matching facet (mem_facet/eq_facet/
+    // ncontains_facet/lex_facet) the moment it is assigned; forwarding it
+    // AGAIN here would hand solver_facet's sub-solver (an isolated,
+    // QF_LIA-only `smt::solver` with no seq/char theory registered at
+    // all - see sub_solver's ctor) a raw sequence/regex atom it has no
+    // sound way to interpret. In practice this is not merely redundant:
+    // asserting e.g. a `str.in_re` atom whose regex nests a symbolic
+    // `re.range` bound (such as `(re.++ re.all (re.range s "c"))`) into
+    // that isolated solver lets its own (theory-independent) default
+    // preprocessing re-run seq_rewriter's regex-membership unfolding on
+    // it from scratch, in a context that never gets to see mem_facet's
+    // own (correct) resolution - this was observed to occasionally
+    // derive an incorrect verdict for such atoms in isolation, taking the
+    // whole node down as an unsound conflict. Excluding them here is
+    // always safe: nothing distinguishing about arithmetic/length
+    // reasoning is lost, since solver_facet already learns everything
+    // relevant about these atoms indirectly (their eq_facet/mem_facet
+    // consequences, e.g. via add_length_constraint) through the normal
+    // propagation plugins.
+    static bool is_seq_theory_atom(seq_util& seq, seq::skolem const& sk, expr* atom) {
+        expr* e1 = nullptr, *e2 = nullptr;
+        return seq.str.is_in_re(atom, e1, e2) || seq.str.is_prefix(atom, e1, e2) ||
+               seq.str.is_suffix(atom, e1, e2) || seq.str.is_contains(atom, e1, e2) ||
+               seq.str.is_lt(atom, e1, e2) || seq.str.is_le(atom, e1, e2) ||
+               sk.is_eq(atom, e1, e2);
+    }
+
     // See theory_nseq.h's module comment on flush_assigned_literals for
     // the full rationale.
     void theory_nseq::flush_assigned_literals() {
@@ -661,6 +691,8 @@ namespace smt {
             if (!ctx.is_relevant(lit))
                 continue;
             expr* atom = ctx.bool_var2expr(lit.var());
+            if (is_seq_theory_atom(m_seq, m_sk, atom))
+                continue;
             expr_ref e(lit.sign() ? m.mk_not(atom) : atom, m);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);

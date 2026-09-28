@@ -298,23 +298,29 @@ namespace smt {
         // not just the length constraints solver_facet derives on its
         // own from eq_facet's equations. A literal is forwarded only if
         // ctx.is_relevant(lit) holds - matching the ambient context's own
-        // notion of relevance (see smt_context.h's is_relevant), so
-        // literals the core itself has no interest in propagating/
-        // explaining are not force-fed into the sub-solver either. Called
-        // right before m_tree.solve() in final_check_eh (i.e. whenever
-        // the sub-solver is about to be consulted). Each forwarded
-        // literal is tagged with its own dependency (mk_dep/
-        // dep_mgr().mk_leaf), exactly like every other assumption fed
-        // into the tree, so that if it contributes to a sub-solver
-        // conflict, report_conflict can build a sound (precise) SMT
-        // conflict clause that actually blocks it - not an unconditional
-        // "fact" that would silently survive backtracking past the scope
-        // that assigned it. m_lits_qhead's own updates are pushed on
-        // ctx.get_trail_stack() (value_trail<unsigned>, mirrors
-        // m_axioms_head), so a literal consumed at trail scope k is
-        // "un-consumed" again on backtracking past k - in lockstep with
-        // solver_facet::add_constraint's own backend scope for that same
-        // trail level being popped.
+        // notion of relevance (see smt_context.h's is_relevant) - AND its
+        // atom is not itself one of the sequence/regex-theory predicates
+        // (str.in_re, prefix, suffix, contains, str.</str.<=, the
+        // internal is_eq skolem) assign_eh() already dispatches into the
+        // matching facet directly: solver_facet's sub-solver has no
+        // seq/char theory of its own (see sub_solver's ctor) and cannot
+        // soundly re-derive what such an atom means in isolation (see
+        // theory_nseq.cpp's is_seq_theory_atom() for the concrete
+        // unsoundness this was found to cause). Called right before
+        // m_tree.solve() in final_check_eh (i.e. whenever the sub-solver
+        // is about to be consulted). Each forwarded literal is tagged
+        // with its own dependency (mk_dep/dep_mgr().mk_leaf), exactly
+        // like every other assumption fed into the tree, so that if it
+        // contributes to a sub-solver conflict, report_conflict can
+        // build a sound (precise) SMT conflict clause that actually
+        // blocks it - not an unconditional "fact" that would silently
+        // survive backtracking past the scope that assigned it.
+        // m_lits_qhead's own updates are pushed on ctx.get_trail_stack()
+        // (value_trail<unsigned>, mirrors m_axioms_head), so a literal
+        // consumed at trail scope k is "un-consumed" again on
+        // backtracking past k - in lockstep with solver_facet::
+        // add_constraint's own backend scope for that same trail level
+        // being popped.
         void flush_assigned_literals();
 
         // Mirrors theory_seq::propagate_eq: propagates an equality
