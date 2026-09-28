@@ -73,6 +73,23 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
     case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round_to_integral(args[0], args[1], result); break;
 
+    case OP_FPA_EXP:       SASSERT(num_args == 2); st = mk_exp(args[0], args[1], result); break;
+    case OP_FPA_LOG:       SASSERT(num_args == 2); st = mk_log(args[0], args[1], result); break;
+    case OP_FPA_LOG2:      SASSERT(num_args == 2); st = mk_log2(args[0], args[1], result); break;
+    case OP_FPA_LOG10:     SASSERT(num_args == 2); st = mk_log10(args[0], args[1], result); break;
+    case OP_FPA_SIN:       SASSERT(num_args == 2); st = mk_sin(args[0], args[1], result); break;
+    case OP_FPA_COS:       SASSERT(num_args == 2); st = mk_cos(args[0], args[1], result); break;
+    case OP_FPA_TAN:       SASSERT(num_args == 2); st = mk_tan(args[0], args[1], result); break;
+    case OP_FPA_ASIN:      SASSERT(num_args == 2); st = mk_asin(args[0], args[1], result); break;
+    case OP_FPA_ACOS:      SASSERT(num_args == 2); st = mk_acos(args[0], args[1], result); break;
+    case OP_FPA_ATAN:      SASSERT(num_args == 2); st = mk_atan(args[0], args[1], result); break;
+    case OP_FPA_SINH:      SASSERT(num_args == 2); st = mk_sinh(args[0], args[1], result); break;
+    case OP_FPA_COSH:      SASSERT(num_args == 2); st = mk_cosh(args[0], args[1], result); break;
+    case OP_FPA_TANH:      SASSERT(num_args == 2); st = mk_tanh(args[0], args[1], result); break;
+    case OP_FPA_POW:       SASSERT(num_args == 3); st = mk_pow(args[0], args[1], args[2], result); break;
+    case OP_FPA_ATAN2:     SASSERT(num_args == 3); st = mk_atan2(args[0], args[1], args[2], result); break;
+    case OP_FPA_HYPOT:     SASSERT(num_args == 3); st = mk_hypot(args[0], args[1], args[2], result); break;
+
     case OP_FPA_EQ:        SASSERT(num_args == 2); st = mk_float_eq(args[0], args[1], result); break;
     case OP_FPA_LT:        SASSERT(num_args == 2); st = mk_lt(args[0], args[1], result); break;
     case OP_FPA_GT:        SASSERT(num_args == 2); st = mk_gt(args[0], args[1], result); break;
@@ -550,6 +567,164 @@ br_status fpa_rewriter::mk_round_to_integral(expr * arg1, expr * arg2, expr_ref 
         }
     }
 
+    return BR_FAILED;
+}
+
+// -----------------------------------------------------------------------
+// IEEE 754-2019 recommended transcendental operations (Section 9.2).
+//
+// These are "recommended", not required, operations: the standard does
+// not mandate a particular correctly-rounded algorithm, so there is no
+// bit-exact reference implementation to evaluate against (unlike e.g.
+// sqrt). We therefore only simplify the special values that every
+// conforming implementation must agree on (NaN propagation and the
+// exactly specified results at signed zero/infinity/one), and otherwise
+// leave the term unevaluated (BR_FAILED).
+// -----------------------------------------------------------------------
+
+static void mk_one_value(fpa_util & u, mpf_manager & fm, sort * s, expr_ref & result) {
+    scoped_mpf v(fm);
+    fm.set(v, u.get_ebits(s), u.get_sbits(s), 1);
+    result = u.mk_value(v);
+}
+
+br_status fpa_rewriter::mk_exp(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { mk_one_value(m_util, m_fm, arg2->get_sort(), result); return BR_DONE; }
+    if (m_util.is_pinf(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_ninf(arg2)) { result = m_util.mk_pzero(arg2->get_sort()); return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_log(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { result = m_util.mk_ninf(arg2->get_sort()); return BR_DONE; }
+    if (m_util.is_pinf(arg2)) { result = arg2; return BR_DONE; }
+    scoped_mpf v(m_fm);
+    if (m_util.is_numeral(arg2, v)) {
+        if (m_fm.is_neg(v)) { result = m_util.mk_nan(arg2->get_sort()); return BR_DONE; }
+        if (m_fm.is_one(v)) { result = m_util.mk_pzero(arg2->get_sort()); return BR_DONE; }
+    }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_log2(expr * arg1, expr * arg2, expr_ref & result) {
+    return mk_log(arg1, arg2, result);
+}
+
+br_status fpa_rewriter::mk_log10(expr * arg1, expr * arg2, expr_ref & result) {
+    return mk_log(arg1, arg2, result);
+}
+
+br_status fpa_rewriter::mk_sin(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) {
+        result = m_util.mk_nan(arg2->get_sort());
+        return BR_DONE;
+    }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_cos(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) {
+        result = m_util.mk_nan(arg2->get_sort());
+        return BR_DONE;
+    }
+    if (m_util.is_zero(arg2)) { mk_one_value(m_util, m_fm, arg2->get_sort(), result); return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_tan(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) {
+        result = m_util.mk_nan(arg2->get_sort());
+        return BR_DONE;
+    }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_asin(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) {
+        result = m_util.mk_nan(arg2->get_sort());
+        return BR_DONE;
+    }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_acos(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) {
+        result = m_util.mk_nan(arg2->get_sort());
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_atan(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_sinh(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) { result = arg2; return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_cosh(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { mk_one_value(m_util, m_fm, arg2->get_sort(), result); return BR_DONE; }
+    if (m_util.is_pinf(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_ninf(arg2)) { result = m_util.mk_pinf(arg2->get_sort()); return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_tanh(expr * arg1, expr * arg2, expr_ref & result) {
+    if (m_util.is_nan(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_zero(arg2)) { result = arg2; return BR_DONE; }
+    if (m_util.is_pinf(arg2)) { mk_one_value(m_util, m_fm, arg2->get_sort(), result); return BR_DONE; }
+    if (m_util.is_ninf(arg2)) {
+        scoped_mpf v(m_fm);
+        m_fm.set(v, m_util.get_ebits(arg2->get_sort()), m_util.get_sbits(arg2->get_sort()), -1);
+        result = m_util.mk_value(v);
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_pow(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+    // pow(x, +-0) = 1, for any x (including NaN).
+    if (m_util.is_zero(arg3)) { mk_one_value(m_util, m_fm, arg2->get_sort(), result); return BR_DONE; }
+    scoped_mpf vx(m_fm);
+    // pow(1, y) = 1, for any y (including NaN, +-inf).
+    if (m_util.is_numeral(arg2, vx) && m_fm.is_one(vx) && !m_fm.is_neg(vx)) {
+        mk_one_value(m_util, m_fm, arg2->get_sort(), result);
+        return BR_DONE;
+    }
+    // pow(x, 1) = x.
+    scoped_mpf vy(m_fm);
+    if (m_util.is_numeral(arg3, vy) && m_fm.is_one(vy) && !m_fm.is_neg(vy)) {
+        result = arg2;
+        return BR_DONE;
+    }
+    if (m_util.is_nan(arg2) || m_util.is_nan(arg3)) { result = m_util.mk_nan(arg2->get_sort()); return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_atan2(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+    if (m_util.is_nan(arg2) || m_util.is_nan(arg3)) { result = m_util.mk_nan(arg2->get_sort()); return BR_DONE; }
+    return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_hypot(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
+    // hypot(+-inf, y) = +inf, even if y is NaN.
+    if (m_util.is_pinf(arg2) || m_util.is_ninf(arg2)) { result = m_util.mk_pinf(arg2->get_sort()); return BR_DONE; }
+    if (m_util.is_pinf(arg3) || m_util.is_ninf(arg3)) { result = m_util.mk_pinf(arg2->get_sort()); return BR_DONE; }
+    if (m_util.is_nan(arg2) || m_util.is_nan(arg3)) { result = m_util.mk_nan(arg2->get_sort()); return BR_DONE; }
+    if (m_util.is_zero(arg2)) { result = m_util.mk_abs(arg3); return BR_REWRITE1; }
+    if (m_util.is_zero(arg3)) { result = m_util.mk_abs(arg2); return BR_REWRITE1; }
     return BR_FAILED;
 }
 

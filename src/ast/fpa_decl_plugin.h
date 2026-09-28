@@ -65,6 +65,28 @@ enum fpa_op_kind {
     OP_FPA_SQRT,
     OP_FPA_ROUND_TO_INTEGRAL,
 
+    /* IEEE 754-2019 recommended transcendental/correctly-rounded operations
+       (Section 9.2). These are "recommended", not required: implementations
+       are not mandated to deliver a single correctly-rounded result, so
+       unlike the operations above there is no bit-precise reference
+       algorithm they must match. */
+    OP_FPA_EXP,
+    OP_FPA_LOG,
+    OP_FPA_LOG2,
+    OP_FPA_LOG10,
+    OP_FPA_POW,
+    OP_FPA_HYPOT,
+    OP_FPA_SIN,
+    OP_FPA_COS,
+    OP_FPA_TAN,
+    OP_FPA_ASIN,
+    OP_FPA_ACOS,
+    OP_FPA_ATAN,
+    OP_FPA_ATAN2,
+    OP_FPA_SINH,
+    OP_FPA_COSH,
+    OP_FPA_TANH,
+
     OP_FPA_EQ,
     OP_FPA_LT,
     OP_FPA_GT,
@@ -326,6 +348,57 @@ public:
         expr * args[4] = { arg1, arg2, arg3, arg4 };
         return m().mk_app(m_fid, OP_FPA_FMA, 4, args);
     }
+
+    // IEEE 754-2019 recommended transcendental operations (rm, x) -> x
+    app * mk_exp(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_EXP, rm, x); }
+    app * mk_log(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_LOG, rm, x); }
+    app * mk_log2(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_LOG2, rm, x); }
+    app * mk_log10(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_LOG10, rm, x); }
+    app * mk_sin(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_SIN, rm, x); }
+    app * mk_cos(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_COS, rm, x); }
+    app * mk_tan(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_TAN, rm, x); }
+    app * mk_asin(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_ASIN, rm, x); }
+    app * mk_acos(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_ACOS, rm, x); }
+    app * mk_atan(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_ATAN, rm, x); }
+    app * mk_sinh(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_SINH, rm, x); }
+    app * mk_cosh(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_COSH, rm, x); }
+    app * mk_tanh(expr * rm, expr * x) { return m().mk_app(m_fid, OP_FPA_TANH, rm, x); }
+
+    // IEEE 754-2019 recommended transcendental operations (rm, x, y) -> x
+    app * mk_pow(expr * rm, expr * x, expr * y) { return m().mk_app(m_fid, OP_FPA_POW, rm, x, y); }
+    app * mk_atan2(expr * rm, expr * x, expr * y) { return m().mk_app(m_fid, OP_FPA_ATAN2, rm, x, y); }
+    app * mk_hypot(expr * rm, expr * x, expr * y) { return m().mk_app(m_fid, OP_FPA_HYPOT, rm, x, y); }
+
+    bool is_transcendental(func_decl const * f) const {
+        if (f->get_family_id() != m_fid) return false;
+        switch (f->get_decl_kind()) {
+        case OP_FPA_EXP: case OP_FPA_LOG: case OP_FPA_LOG2: case OP_FPA_LOG10:
+        case OP_FPA_POW: case OP_FPA_HYPOT:
+        case OP_FPA_SIN: case OP_FPA_COS: case OP_FPA_TAN:
+        case OP_FPA_ASIN: case OP_FPA_ACOS: case OP_FPA_ATAN: case OP_FPA_ATAN2:
+        case OP_FPA_SINH: case OP_FPA_COSH: case OP_FPA_TANH:
+            return true;
+        default:
+            return false;
+        }
+    }
+    bool is_transcendental(expr const * e) const { return is_app(e) && is_transcendental(to_app(e)->get_decl()); }
+    bool is_exp(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_EXP); }
+    bool is_log(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_LOG); }
+    bool is_log2(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_LOG2); }
+    bool is_log10(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_LOG10); }
+    bool is_pow(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_POW); }
+    bool is_hypot(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_HYPOT); }
+    bool is_sin(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_SIN); }
+    bool is_cos(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_COS); }
+    bool is_tan(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_TAN); }
+    bool is_asin(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_ASIN); }
+    bool is_acos(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_ACOS); }
+    bool is_atan(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_ATAN); }
+    bool is_atan2(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_ATAN2); }
+    bool is_sinh(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_SINH); }
+    bool is_cosh(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_COSH); }
+    bool is_tanh(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_TANH); }
 
     app * mk_float_eq(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FPA_EQ, arg1, arg2); }
     app * mk_lt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FPA_LT, arg1, arg2); }

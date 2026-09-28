@@ -490,6 +490,60 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+#define MK_FPA_TRANSCENDENTAL_UNARY(NAME, MK)                                  \
+    Z3_ast Z3_API NAME(Z3_context c, Z3_ast rm, Z3_ast t) {                    \
+        Z3_TRY;                                                               \
+        LOG_##NAME(c, rm, t);                                                 \
+        RESET_ERROR_CODE();                                                   \
+        if (!is_rm(c, rm) || !is_fp(c, t)) {                                  \
+            SET_ERROR_CODE(Z3_INVALID_ARG, "rm and fp sorts expected");       \
+            RETURN_Z3(nullptr);                                              \
+        }                                                                     \
+        api::context * ctx = mk_c(c);                                        \
+        expr * a = ctx->fpautil().MK(to_expr(rm), to_expr(t));               \
+        ctx->save_ast_trail(a);                                              \
+        RETURN_Z3(of_expr(a));                                               \
+        Z3_CATCH_RETURN(nullptr);                                            \
+    }
+
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_exp, mk_exp)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_log, mk_log)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_log2, mk_log2)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_log10, mk_log10)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_sin, mk_sin)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_cos, mk_cos)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_tan, mk_tan)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_asin, mk_asin)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_acos, mk_acos)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_atan, mk_atan)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_sinh, mk_sinh)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_cosh, mk_cosh)
+    MK_FPA_TRANSCENDENTAL_UNARY(Z3_mk_fpa_tanh, mk_tanh)
+
+#undef MK_FPA_TRANSCENDENTAL_UNARY
+
+#define MK_FPA_TRANSCENDENTAL_BINARY(NAME, MK)                                 \
+    Z3_ast Z3_API NAME(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2) {        \
+        Z3_TRY;                                                               \
+        LOG_##NAME(c, rm, t1, t2);                                            \
+        RESET_ERROR_CODE();                                                   \
+        if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2)) {                \
+            SET_ERROR_CODE(Z3_INVALID_ARG, "rm and fp sorts expected");       \
+            RETURN_Z3(nullptr);                                              \
+        }                                                                     \
+        api::context * ctx = mk_c(c);                                        \
+        expr * a = ctx->fpautil().MK(to_expr(rm), to_expr(t1), to_expr(t2));  \
+        ctx->save_ast_trail(a);                                              \
+        RETURN_Z3(of_expr(a));                                               \
+        Z3_CATCH_RETURN(nullptr);                                            \
+    }
+
+    MK_FPA_TRANSCENDENTAL_BINARY(Z3_mk_fpa_pow, mk_pow)
+    MK_FPA_TRANSCENDENTAL_BINARY(Z3_mk_fpa_atan2, mk_atan2)
+    MK_FPA_TRANSCENDENTAL_BINARY(Z3_mk_fpa_hypot, mk_hypot)
+
+#undef MK_FPA_TRANSCENDENTAL_BINARY
+
     Z3_ast Z3_API Z3_mk_fpa_rem(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
         LOG_Z3_mk_fpa_rem(c, t1, t2);

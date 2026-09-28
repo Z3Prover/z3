@@ -153,6 +153,30 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV_I: m_conv.mk_to_ieee_bv_i(f, num, args, result); return BR_DONE;
 
+        // IEEE 754-2019 recommended transcendental operations (Section 9.2).
+        // There is no standard bit-exact algorithm for these (they are
+        // "recommended", not required, and no particular rounding is
+        // mandated), so we translate them as deterministic but
+        // uninterpreted bit-vector functions -- the same approach used
+        // for ordinary declared uninterpreted functions over floats.
+        case OP_FPA_EXP:
+        case OP_FPA_LOG:
+        case OP_FPA_LOG2:
+        case OP_FPA_LOG10:
+        case OP_FPA_POW:
+        case OP_FPA_HYPOT:
+        case OP_FPA_SIN:
+        case OP_FPA_COS:
+        case OP_FPA_TAN:
+        case OP_FPA_ASIN:
+        case OP_FPA_ACOS:
+        case OP_FPA_ATAN:
+        case OP_FPA_ATAN2:
+        case OP_FPA_SINH:
+        case OP_FPA_COSH:
+        case OP_FPA_TANH:
+            m_conv.mk_uf(f, num, args, result); return BR_DONE;
+
         case OP_FPA_BVWRAP:
         case OP_FPA_BV2RM:
                 return BR_FAILED;

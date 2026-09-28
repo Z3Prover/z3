@@ -60,6 +60,30 @@ public:
     br_status mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result);
     br_status mk_sqrt(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result);
+
+    // IEEE 754-2019 recommended transcendental operations.
+    // These functions only implement NaN-propagation and the exactly
+    // specified special values at zero/infinity: general literal
+    // arguments are not evaluated (mpf_manager has no correctly-rounded
+    // transcendental function implementation), so BR_FAILED is returned
+    // for anything else.
+    br_status mk_exp(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_log(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_log2(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_log10(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_sin(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_cos(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_tan(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_asin(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_acos(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_atan(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_sinh(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_cosh(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_tanh(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_pow(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
+    br_status mk_atan2(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
+    br_status mk_hypot(expr * arg1, expr * arg2, expr * arg3, expr_ref & result);
+
     br_status mk_float_eq(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_lt(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_gt(expr * arg1, expr * arg2, expr_ref & result);

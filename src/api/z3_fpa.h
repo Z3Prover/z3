@@ -656,6 +656,50 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_fpa_sqrt(Z3_context c, Z3_ast rm, Z3_ast t);
 
     /**
+        \brief Floating-point transcendental operations (IEEE 754-2019 Section 9.2,
+        recommended operations). These operations are not required by the IEEE 754
+        standard and no particular rounding algorithm is mandated, so no bit-exact
+        semantics are attached to them beyond the special values at zero/infinity/NaN.
+
+        \c rm must be of RoundingMode sort, \c t (and \c t2, where present) must have
+        FloatingPoint sort.
+
+        def_API('Z3_mk_fpa_exp', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_log', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_log2', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_log10', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_sin', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_cos', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_tan', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_asin', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_acos', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_atan', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_sinh', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_cosh', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_tanh', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_pow', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_atan2', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_hypot', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_fpa_exp(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_log(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_log2(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_log10(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_sin(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_cos(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_tan(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_asin(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_acos(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_atan(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_sinh(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_cosh(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_tanh(Z3_context c, Z3_ast rm, Z3_ast t);
+    Z3_ast Z3_API Z3_mk_fpa_pow(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_atan2(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_hypot(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2);
+
+
+    /**
         \brief Floating-point remainder
 
         \param c logical context

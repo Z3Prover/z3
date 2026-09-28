@@ -399,6 +399,9 @@ func_decl * fpa_decl_plugin::mk_rm_binary_decl(decl_kind k, unsigned num_paramet
     case OP_FPA_SUB: name = "fp.sub";   break;
     case OP_FPA_MUL: name = "fp.mul";   break;
     case OP_FPA_DIV: name = "fp.div";   break;
+    case OP_FPA_POW: name = "fp.pow";   break;
+    case OP_FPA_ATAN2: name = "fp.atan2"; break;
+    case OP_FPA_HYPOT: name = "fp.hypot"; break;
     default:
         UNREACHABLE();
         break;
@@ -418,6 +421,19 @@ func_decl * fpa_decl_plugin::mk_rm_unary_decl(decl_kind k, unsigned num_paramete
     switch (k) {
     case OP_FPA_SQRT: name = "fp.sqrt";   break;
     case OP_FPA_ROUND_TO_INTEGRAL: name = "fp.roundToIntegral";   break;
+    case OP_FPA_EXP: name = "fp.exp"; break;
+    case OP_FPA_LOG: name = "fp.log"; break;
+    case OP_FPA_LOG2: name = "fp.log2"; break;
+    case OP_FPA_LOG10: name = "fp.log10"; break;
+    case OP_FPA_SIN: name = "fp.sin"; break;
+    case OP_FPA_COS: name = "fp.cos"; break;
+    case OP_FPA_TAN: name = "fp.tan"; break;
+    case OP_FPA_ASIN: name = "fp.asin"; break;
+    case OP_FPA_ACOS: name = "fp.acos"; break;
+    case OP_FPA_ATAN: name = "fp.atan"; break;
+    case OP_FPA_SINH: name = "fp.sinh"; break;
+    case OP_FPA_COSH: name = "fp.cosh"; break;
+    case OP_FPA_TANH: name = "fp.tanh"; break;
     default:
         UNREACHABLE();
         break;
@@ -765,6 +781,9 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_ADD:
     case OP_FPA_MUL:
     case OP_FPA_DIV:
+    case OP_FPA_POW:
+    case OP_FPA_ATAN2:
+    case OP_FPA_HYPOT:
         return mk_rm_binary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_SUB:
         if (arity == 1)
@@ -773,6 +792,19 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             return mk_rm_binary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_SQRT:
     case OP_FPA_ROUND_TO_INTEGRAL:
+    case OP_FPA_EXP:
+    case OP_FPA_LOG:
+    case OP_FPA_LOG2:
+    case OP_FPA_LOG10:
+    case OP_FPA_SIN:
+    case OP_FPA_COS:
+    case OP_FPA_TAN:
+    case OP_FPA_ASIN:
+    case OP_FPA_ACOS:
+    case OP_FPA_ATAN:
+    case OP_FPA_SINH:
+    case OP_FPA_COSH:
+    case OP_FPA_TANH:
         return mk_rm_unary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_FMA:
         return mk_fma(k, num_parameters, parameters, arity, domain, range);
@@ -840,6 +872,24 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp.max", OP_FPA_MAX));
     op_names.push_back(builtin_name("fp.min_i", OP_FPA_MIN_I));
     op_names.push_back(builtin_name("fp.max_i", OP_FPA_MAX_I));
+
+    /* IEEE 754-2019 recommended transcendental operations (Extensions) */
+    op_names.push_back(builtin_name("fp.exp", OP_FPA_EXP));
+    op_names.push_back(builtin_name("fp.log", OP_FPA_LOG));
+    op_names.push_back(builtin_name("fp.log2", OP_FPA_LOG2));
+    op_names.push_back(builtin_name("fp.log10", OP_FPA_LOG10));
+    op_names.push_back(builtin_name("fp.pow", OP_FPA_POW));
+    op_names.push_back(builtin_name("fp.hypot", OP_FPA_HYPOT));
+    op_names.push_back(builtin_name("fp.sin", OP_FPA_SIN));
+    op_names.push_back(builtin_name("fp.cos", OP_FPA_COS));
+    op_names.push_back(builtin_name("fp.tan", OP_FPA_TAN));
+    op_names.push_back(builtin_name("fp.asin", OP_FPA_ASIN));
+    op_names.push_back(builtin_name("fp.acos", OP_FPA_ACOS));
+    op_names.push_back(builtin_name("fp.atan", OP_FPA_ATAN));
+    op_names.push_back(builtin_name("fp.atan2", OP_FPA_ATAN2));
+    op_names.push_back(builtin_name("fp.sinh", OP_FPA_SINH));
+    op_names.push_back(builtin_name("fp.cosh", OP_FPA_COSH));
+    op_names.push_back(builtin_name("fp.tanh", OP_FPA_TANH));
     op_names.push_back(builtin_name("fp.leq", OP_FPA_LE));
     op_names.push_back(builtin_name("fp.lt",  OP_FPA_LT));
     op_names.push_back(builtin_name("fp.geq", OP_FPA_GE));
