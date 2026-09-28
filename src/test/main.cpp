@@ -126,6 +126,7 @@
     X(seq_monadic) \
     X(seq_monadic_bench) \
     X(seq_profile_abs) \
+    X(seq_replace) \
     X(check_assumptions) \
     X(smt_context) \
     X(theory_dl) \

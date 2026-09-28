@@ -136,6 +136,7 @@ add_executable(test-z3
   scoped_vector.cpp
   seq_power.cpp
   seq_rewriter.cpp
+  seq_replace.cpp
   seq_parikh.cpp
   seq_eq_approx.cpp
   seq_regex_witness.cpp
