@@ -278,9 +278,11 @@ def summarize(records):
             table[(record["logic"], record["cell"])][record["status"]] += 1
     statuses = sorted({s for counter in table.values() for s in counter})
     width = max([len("%s / %s" % key) for key in table] + [12])
-    lines = ["%-*s %s" % (width, "logic / cell", " ".join("%20s" % s for s in statuses))]
+    lines = ["%-*s %8s %s" % (width, "logic / cell", "total", " ".join("%20s" % s for s in statuses))]
     for key in sorted(table):
-        lines.append("%-*s %s" % (width, "%s / %s" % key, " ".join("%20d" % table[key][s] for s in statuses)))
+        counter = table[key]
+        lines.append("%-*s %8d %s" % (width, "%s / %s" % key, sum(counter.values()),
+                                      " ".join("%20d" % counter[s] for s in statuses)))
     return "\n".join(lines)
 
 

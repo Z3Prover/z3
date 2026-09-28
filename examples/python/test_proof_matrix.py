@@ -69,9 +69,11 @@ class TestClassification(unittest.TestCase):
             {"logic": "QF_LIA", "cell": "reference", "status": "reference"},
         ]
         summary = proof_matrix.summarize(records)
-        self.assertIn("QF_LIA / smt-clause-log", summary)
-        self.assertIn("unverified-fallback", summary)
-        self.assertNotIn("reference", summary.split("\n", 1)[1])
+        header, row = summary.split("\n")
+        self.assertEqual(header.split()[3:], ["total", "unverified-fallback", "verified"])
+        self.assertIn("QF_LIA / smt-clause-log", row)
+        self.assertEqual(row.split()[3:], ["2", "1", "1"])
+        self.assertNotIn("reference", row)
 
 
 class TestBenchmarkLists(unittest.TestCase):
