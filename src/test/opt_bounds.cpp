@@ -152,6 +152,12 @@ static void tst_arithmetic_scope_exits() {
 
 // A branch may cap x at 1 although another branch permits x > 1. Test both
 // an inequality premise and a congruence equality x = y with y <= 1.
+// Besides x >= 0, 0 <= y <= 1, and x^2 <= 3, the four cases assert:
+//   conditional  equality  additional constraints
+//   false        false     x <= 1
+//   false        true      x = y
+//   true         false     (b => x <= 1) && (!b => x <= 2)
+//   true         true      (b => x = y)  && (!b => x = 2*y)
 // Only the unconditional versions may publish 1 as a global dual bound.
 static void tst_dual_bound_premises() {
     for (bool conditional : {false, true})
@@ -174,12 +180,27 @@ static void tst_dual_bound_premises() {
             s.assert_expr(a.mk_le(y, one));
             s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(3), false)));
             expr_ref cap(equality ? m.mk_eq(x, y) : a.mk_le(x, one), m);
+            // With conditional=false, cap is a hard constraint and max x = 1.
             if (conditional) {
+                // Worked example: conditional=true and equality=true.
+                // Maximize x over real x,y and Boolean b, subject to
+                //   x >= 0, 0 <= y <= 1, x^2 <= 3,
+                //   (b => x = y) && (!b => x = 2*y).
+                //
+                // The test first assumes b=true. Then x=y <= 1, and x=y=1
+                // attains the branch maximum 1.
+                // Without that assumption, b=false permits x=2*y.
+                // Now x=sqrt(3), y=sqrt(3)/2 is feasible and attains the
+                // upper bound from x^2 <= 3. The full optimum is sqrt(3).
+                // Therefore the accepted hint 1 must not be returned as a
+                // global upper bound: it depends on the temporary assumption b.
                 s.assert_expr(m.mk_implies(b, cap));
                 s.assert_expr(m.mk_implies(m.mk_not(b), equality ? m.mk_eq(x, a.mk_mul(two, y)) : a.mk_le(x, two)));
             }
             else
                 s.assert_expr(cap);
+            // In conditional mode, select b only as a check-sat assumption.
+            // Both modes yield hint 1, but only the unconditional cap is global.
             expr* assumption = b;
             ENSURE(s.check_sat(conditional ? 1 : 0, conditional ? &assumption : nullptr) == l_true);
             s.add_objective(to_app(x));
@@ -191,6 +212,7 @@ static void tst_dual_bound_premises() {
                 ENSURE(*result.upper_bound == rational(1));
             // Drop the branch assumption: x > 1 is feasible exactly when
             // the cap was conditional, so that local bound cannot be global.
+            // For example, x = 3/2 and y = 3/4 satisfy either !b branch.
             solver::scoped_push scope(s);
             s.assert_expr(a.mk_gt(x, one));
             ENSURE(s.check_sat(0, nullptr) == (conditional ? l_true : l_false));
