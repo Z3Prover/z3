@@ -1,0 +1,31 @@
+# Arrays: the z3test array regressions and minimized instances from this directory.
+# array_axiom_log.smt2, t168, and t170 crashed under solver.proof.log before
+# Z3Prover/z3#10922; they must stay unverified-fallback or not-applicable.
+# t8.smt2 (array default, map, array-ext) replays with tseitin/euf units that are not
+# RUP-derivable; keep the annotation until the logging or checker defect is fixed.
+array_axiom_log.smt2
+z3test/regressions/smt2/t8.smt2  smt-clause-log=checker-rejected  smt-clause-log-nopp=checker-rejected
+z3test/regressions/smt2/t168.smt2
+z3test/regressions/smt2/t170.smt2
+z3test/regressions/smt2/2432.smt2
+z3test/regressions/smt2/2549.smt2
+z3test/regressions/smt2/3006.smt2
+z3test/regressions/smt2/3411.smt2
+z3test/regressions/smt2/3420.smt2
+z3test/regressions/smt2/3423.smt2
+z3test/regressions/smt2/3529.smt2
+z3test/regressions/smt2/3532.smt2
+z3test/regressions/smt2/3553.smt2
+z3test/regressions/smt2/3601.smt2
+z3test/regressions/smt2/3709.smt2
+z3test/regressions/smt2/3728.smt2
+z3test/regressions/smt2/5798.smt2
+z3test/regressions/smt2/const_array_store_chain_unsat.smt2
+z3test/regressions/smt2/memset.smt2
+z3test/regressions/smt2/mev_array.smt2
+z3test/regressions/smt2/t109.smt2
+z3test/regressions/smt2/t155.smt2
+z3test/regressions/smt2/t172.smt2
+z3test/regressions/smt2/t173.smt2
+z3test/regressions/smt2/t175.smt2
+z3test/regressions/smt2/z3.20.smt2
