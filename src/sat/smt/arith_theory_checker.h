@@ -194,11 +194,19 @@ namespace arith {
             m_todo.reset();
         }
 
+        // Numerals in a replayed proof log arrive as they were printed:
+        // negative values as (- n), non-integers as (/ n d), and casts as (to_real n).
         bool is_numeral(expr* e, rational& n) {
+            expr* e1 = nullptr, *e2 = nullptr;
+            rational d;
             if (a.is_numeral(e, n))
                 return true;
-            if (a.is_uminus(e, e) && a.is_numeral(e, n))
+            if (a.is_uminus(e, e1) && is_numeral(e1, n))
                 return n.neg(), true;
+            if (a.is_div(e, e1, e2) && is_numeral(e1, n) && is_numeral(e2, d) && !d.is_zero())
+                return n /= d, true;
+            if (a.is_to_real(e, e1) && is_numeral(e1, n))
+                return true;
             return false;
         }
         
