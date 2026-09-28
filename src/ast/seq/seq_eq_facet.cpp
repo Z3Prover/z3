@@ -92,19 +92,16 @@ namespace seq {
     }
 
     void eq_facet::append_signature(vector<uint64_t>& out) const {
-        vector<vector<uint64_t>> entries;
+        vector<uint64_t> hashes;
         for (auto const& eq : m_eqs) {
             if (!eq.active())
                 continue;
             vector<uint64_t> enc;
             sig_encode_pair(eq.m_lhs, eq.m_rhs, enc);
-            entries.push_back(enc);
+            hashes.push_back(stx::stx_hash_fact(0x6571u, enc)); // tag: "eq"
         }
-        std::sort(entries.begin(), entries.end(), sig_vec_less);
-        out.push_back(0x6571u); // tag: "eq" - disambiguates from deq_facet's flat encoding
-        out.push_back(entries.size());
-        for (auto const& e : entries)
-            out.append(e);
+        std::sort(hashes.begin(), hashes.end());
+        out.append(hashes);
     }
 
     bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
@@ -895,19 +892,16 @@ namespace seq {
     }
 
     void deq_facet::append_signature(vector<uint64_t>& out) const {
-        vector<vector<uint64_t>> entries;
+        vector<uint64_t> hashes;
         for (auto const& dq : m_diseqs) {
             if (!dq.active())
                 continue;
             vector<uint64_t> enc;
             sig_encode_pair(dq.m_lhs, dq.m_rhs, enc);
-            entries.push_back(enc);
+            hashes.push_back(stx::stx_hash_fact(0x6465717u, enc)); // tag: "deq"
         }
-        std::sort(entries.begin(), entries.end(), sig_vec_less);
-        out.push_back(0x6465717u); // tag: "deq" - disambiguates from eq_facet's flat encoding
-        out.push_back(entries.size());
-        for (auto const& e : entries)
-            out.append(e);
+        std::sort(hashes.begin(), hashes.end());
+        out.append(hashes);
     }
 
     std::ostream& deq_facet::display(std::ostream& out) const {

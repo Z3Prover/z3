@@ -103,6 +103,27 @@ namespace stx {
     const backtrack_reason br_children_failed = 2;
     const backtrack_reason br_plugin_base     = 3; // first value free for plugin use
 
+    // Shared helper for facet_i::append_signature() implementations: hash
+    // one whole fact's canonical encoding (as built by the facet's own
+    // e.g. sig_encode_pair-style helper) down to a single opaque uint64,
+    // salted with a facet-specific tag so identically-shaped encodings
+    // from different facet kinds never collide. Every value pushed by
+    // append_signature() must be produced this way (one call per active
+    // fact) - never the raw, unhashed per-fact encoding - because the
+    // unsat cache tests these values for SET CONTAINMENT across
+    // completely unrelated nodes (see search_tree::cache_lookup): a
+    // fact's *sub-terms* (e.g. a shared character literal or skolem
+    // reused across many unrelated equations) are not safe to test this
+    // way, only an opaque hash of the *whole* fact is.
+    inline uint64_t stx_hash_fact(uint64_t tag, vector<uint64_t> const& enc) {
+        uint64_t h = 1469598103934665603ull ^ (tag * 1099511628211ull);
+        for (uint64_t v : enc) {
+            h ^= v;
+            h *= 1099511628211ull;
+        }
+        return h;
+    }
+
     /**
      * Domain-opaque marker base class for an "ambient context" handle
      * stashed on a `search_tree::node` and reachable from every facet
@@ -185,18 +206,29 @@ namespace stx {
         // unsound hit.
         virtual bool contributes_to_signature() const { return false; }
 
-        // Append this facet's current *active* constraints to `out` as a
-        // canonical (self-sorted internally, so the result is independent
-        // of the order constraints happened to be added/derived in - two
-        // nodes reaching the same active-constraint multiset via
-        // different split orders must serialize identically) sequence of
-        // plain values (typically AST expr ids, which are hash-consed and
-        // stay valid for the lifetime of the enclosing ast_manager). `out`
-        // is a freshly-built, fully owned vector - not a view into this
-        // facet's own (about-to-be-backtracked) internal containers - so
-        // it is always safe for the caller to keep past this call
-        // returning, including across the trail unwinding that follows
-        // this dfs() frame's return. Only ever called when
+        // Append ONE opaque uint64_t per currently *active* fact/
+        // constraint this facet owns (e.g. one value per active
+        // equation, one per active membership) to `out`, in a canonical
+        // (self-sorted internally, so the result is independent of the
+        // order constraints happened to be added/derived in - two nodes
+        // reaching the same active-constraint multiset via different
+        // split orders must serialize identically) order.
+        //
+        // Each value MUST be an opaque hash of that fact's *whole*
+        // encoding (see stx_hash_fact()), never a raw AST/sub-term id
+        // pulled out of it directly: the unsat cache (search_tree::
+        // cache_lookup) tests these values for SET CONTAINMENT against a
+        // totally unrelated node, so a value must mean "this exact whole
+        // fact is active" - if it instead only meant "some sub-term this
+        // fact happens to use is active" (e.g. a shared character literal
+        // or skolem var also appearing in many other, unrelated facts),
+        // containment across unrelated nodes would be unsound (a shared
+        // alphabet/sub-term, not a shared fact, would trigger a false
+        // hit). `out` is a freshly-built, fully owned vector - not a view
+        // into this facet's own (about-to-be-backtracked) internal
+        // containers - so it is always safe for the caller to keep past
+        // this call returning, including across the trail unwinding that
+        // follows this dfs() frame's return. Only ever called when
         // contributes_to_signature() is true; default no-op.
         virtual void append_signature(vector<uint64_t>& out) const {}
     };

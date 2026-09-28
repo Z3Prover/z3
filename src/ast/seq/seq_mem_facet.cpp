@@ -164,22 +164,8 @@ namespace seq {
         return true;
     }
 
-    namespace {
-        // Lexicographic order over `vector<uint64_t>`, used only to sort
-        // this facet's own signature entries into split-order-independent
-        // canonical order (see mem_facet::append_signature).
-        bool mem_sig_vec_less(vector<uint64_t> const& a, vector<uint64_t> const& b) {
-            unsigned n = std::min(a.size(), b.size());
-            for (unsigned i = 0; i < n; ++i) {
-                if (a[i] != b[i])
-                    return a[i] < b[i];
-            }
-            return a.size() < b.size();
-        }
-    }
-
     void mem_facet::append_signature(vector<uint64_t>& out) const {
-        vector<vector<uint64_t>> entries;
+        vector<uint64_t> hashes;
         for (auto const& sm : m_mems) {
             if (!sm.active())
                 continue;
@@ -191,13 +177,10 @@ namespace seq {
             // plain membership, encoded as id 0 (ast ids are never 0).
             enc.push_back(static_cast<uint64_t>(sm.m_view.m_state->get_id()));
             enc.push_back(sm.m_view.m_target ? static_cast<uint64_t>(sm.m_view.m_target->get_id()) : 0);
-            entries.push_back(enc);
+            hashes.push_back(stx::stx_hash_fact(0x6d656du, enc)); // tag: "mem"
         }
-        std::sort(entries.begin(), entries.end(), mem_sig_vec_less);
-        out.push_back(0x6d656du); // tag: "mem"
-        out.push_back(entries.size());
-        for (auto const& e : entries)
-            out.append(e);
+        std::sort(hashes.begin(), hashes.end());
+        out.append(hashes);
     }
 
     namespace {
