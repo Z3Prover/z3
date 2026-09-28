@@ -491,19 +491,54 @@ namespace smt {
         }
 
         if (m_sk.is_eq(e, e1, e2)) {
-            // Internal equality-atom skolem (see seq::skolem::mk_eq):
-            // theory_seq's own mechanism for deferring an
-            // internally-derived equality until the atom itself is
-            // asserted true - mirror theory_seq::assign_eh's
-            // m_sk.is_eq branch by propagating the equality straight
-            // into the SMT core (propagate_eq/ctx.assign_eq), rather
-            // than merely recording it as an ordinary eq_facet
-            // equation (this is not currently created by any
-            // theory_nseq call site, but assign_eh must still handle it
-            // correctly if any future code path - or a shared skolem
-            // instance - ever creates one).
-            if (is_true)
+            // Internal equality-atom skolem (see seq::skolem::mk_eq): the
+            // prefix/suffix/not-contains axioms (seq_axioms.cpp's
+            // prefix_axiom/suffix_axiom/ternary_string_recognizer, driven
+            // from the is_prefix/is_suffix/is_contains branches above)
+            // use this predicate to defer an internally-derived equality
+            // (e.g. the "not suffix" decomposition s = y.c.x, t = z.d.x,
+            // c != d) until the atom itself is asserted true.
+            //
+            // theory_seq's own assign_eh handles this by calling
+            // propagate_eq (ctx.assign_eq) and trusting new_eq_eh to feed
+            // the equality back into its own solved-form bookkeeping.
+            // That trust is misplaced for theory_nseq (and, on closer
+            // reading, for theory_seq too - it works there only because
+            // theory_seq's real equation-processing entry point is
+            // add_solved_edge/branch-and-bound off m_eqs pushed by other
+            // means): smt_context.cpp's context::merge_theory_vars
+            // deliberately SKIPS calling new_eq_eh back on the very
+            // theory whose own justification (get_from_theory()) drove
+            // the merge - "only send the equality to the theory, if the
+            // equality was not propagated by it" - specifically to avoid
+            // a pointless self-notification loop. Since propagate_eq's
+            // justification is tagged with get_id() (theory_nseq's own
+            // theory id), ctx.assign_eq's merge NEVER calls back into
+            // theory_nseq::new_eq_eh here, so eq_facet - which learns
+            // about every other equality exclusively through new_eq_eh -
+            // silently never learns about this one. The result is a
+            // soundness bug: the disjunct of the not-suffix/not-prefix/
+            // not-contains axiom that should pin down a concrete
+            // character mismatch is treated by the SAT core as already
+            // "handled", while nseq's own facets never see it, so a
+            // witness violating it can still be reported sat.
+            //
+            // Fix: feed eq_facet directly here, exactly as the true-case
+            // prefix/suffix/contains branches above already do for their
+            // own existential equations - do not rely on new_eq_eh for
+            // this one. ctx.assign_eq is still worth keeping alongside
+            // it (congruence closure/length sharing with the ambient
+            // egraph is harmless and can help other theories), but it is
+            // no longer the only route feeding this equality into the
+            // search tree.
+            if (is_true) {
+                unsigned idx = mk_dep(assumption(lit));
+                seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
+                expr_ref_vector lhs = m_ambient->tokenize(e1);
+                expr_ref_vector rhs = m_ambient->tokenize(e2);
+                m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
                 propagate_eq(lit, e1, e2);
+            }
             return;
         }
 
