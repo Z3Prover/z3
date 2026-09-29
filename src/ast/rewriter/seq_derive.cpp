@@ -81,6 +81,11 @@ namespace seq {
     }
 
     expr_ref derive::operator()(derivative_kind k, expr* ele, expr* r) {
+        // Protect ele/r before any cache reset: they may be alive only via
+        // the previous call's m_trail/m_ele entries, which reset() below
+        // can drop. Without this, reset() could free ele/r out from under
+        // this very call (use-after-free) before they get re-pinned.
+        expr_ref ele_protect(ele, m), r_protect(r, m);
         m_derivative_kind = k;
         SASSERT(m_util.is_re(r));
         if (m_trail.size() > 500000)
