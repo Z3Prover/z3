@@ -1087,8 +1087,10 @@ namespace lp {
 
         void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_f_columns) {
-                if (auto terms = try_get_value(m_columns_to_terms, j)) {
-                    for (unsigned k : *terms) {
+                if (auto it = m_columns_to_terms.find(j); it != m_columns_to_terms.end()) {
+                    std_vector<unsigned> terms(it->second.begin(), it->second.end());
+                    std::sort(terms.begin(), terms.end());
+                    for (unsigned k : terms) {
                         mark_term_change(k);
                     }
                 }
