@@ -59,7 +59,19 @@ Existing numeral constructors/readers work for fields. C++ adds
 
 ## Solving pipeline
 
-The default strategy first runs `ff-simplify`: field rewriting, guarded zero-test
+The default strategy starts with a bounded `ff-unique` attempt. It propagates
+functional dependencies, non-wrapping Boolean digits and zero-test gadgets
+between circuit copies. The iterative encoder handles deep expression DAGs;
+a shared local work allowance covers encoding, propagation and Boolean splits.
+An unproductive pass yields to the existing solver without changing the goal.
+`ff.unique_work` defaults to 1,000,000 work units; propagation gives up after
+one tenth of that allowance without a new equality or value. There is also a
+50,000-node limit and a default split depth of 16 (hard-capped at 64).
+Disable the pass with `:smt.ff.unique false`; local exhaustion does not cancel
+the subsequent solver. The optional `ff.unique_equalities` mode only exports
+root-level consequences and is off by default.
+
+Next, `ff-simplify` performs field rewriting, guarded zero-test
 recovery, and acyclic wire elimination with model reconstruction. Constraints
 defining Boolean field elements are preserved so wide range encodings remain
 recognizable. Goals with free Boolean inputs retain the compact original atoms
@@ -69,10 +81,16 @@ for lazy Boolean/algebra search instead of expanding across choices. Set
 1. `ff-solve`: sparse modular variable elimination, polynomial normalization,
    Buchberger Gröbner bases, univariate prime-field root extraction, and guarded
    bit-decomposition reasoning. Sparse occurrence indices update affected
-   constraints instead of repeatedly traversing the whole circuit. For primes
-   below 2^32, bounded F4-style batches reduce critical pairs with sparse modular
-   row elimination. Arbitrary-precision Buchberger remains the larger-field
-   backend. Both use the product and completed-pair chain criteria.
+   constraints instead of repeatedly traversing the whole circuit. After
+   elimination, fields smaller than 64 receive bounded finite-domain search
+   with forward checking and an explicit choice stack. On compilers with a
+   128-bit integer type, odd primes below 2^256 can use fixed-width Montgomery
+   arithmetic, F4 elimination and bounded quotient/root model construction.
+   Failed random slices are inconclusive; only verified SAT assignments escape
+   a slice. Remaining cases retain the arbitrary-precision Buchberger path,
+   including its small-field sparse batches. Compilers without that integer
+   type use the existing engine and tiny-field search; they report F4 as
+   unsupported rather than failing compilation.
    Underdetermined systems also receive bounded sparse witness probes; each
    accepted assignment is checked against the full original problem.
 2. `ff-sat`: Boolean SAT abstraction with lazy algebraic consistency checks.
@@ -112,6 +130,14 @@ Parameters: `ff.max_steps` (default 2,000,000), `ff.max_terms` (4,096),
 `ff.max_branches` (128), `ff.enum_bits` (8, capped at 12), `ff.bit_propagation`
 (true, repeated propagation), `ff.batch` (true, sparse word-arithmetic batches),
 `ff.sparse_witness` (true, bounded witness probes), and `ff.preprocess` (true).
+`ff.f4` and `ff.tiny` default to true. F4's local allowance is
+`ff.f4_budget` (40) times `ff.max_steps`, with `ff.f4_short_budget` (1) for
+circuit-like inputs and a further reduction on tiny fields. Its quotient cap
+is `ff.f4_max_quotient` (1,024), and `ff.f4_slice` defaults to four attempts per
+level within a bounded total. `ff.tiny_budget` defaults to 200 work units per
+`ff.max_steps` unit. Auxiliary variables count against F4's variable limit;
+monomial admission and exponent conversion are guarded before allocation.
+Disabling only F4 does not disable uniqueness or tiny-field search.
 These strategies can be disabled independently on a solver/tactic.
 Their global SMT-LIB spellings are `:smt.ff.batch` and `:smt.ff.sparse_witness`. The SMT integration additionally supports `ff.root_split` (true) for
 bounded product/square case splits, and `ff.boolean_split` (false) for optional
@@ -306,8 +332,8 @@ current configuration solves 43/54 public queries, leaving 11 unknown at the
 recorded limits. Broader compiler exports and harder symbolic witness searches
 remain performance acceptance work; fixed-witness evaluation alone is insufficient.
 
-Both the word-arithmetic batched reducer and arbitrary-precision Buchberger
-backend are intentionally bounded. Larger systems may need scalable matrix
+The fixed-width F4 backend, word-arithmetic batched reducer and
+arbitrary-precision Buchberger backend are intentionally bounded. Larger systems may need scalable matrix
 storage, arbitrary-precision batching, better pair selection, shared polynomial
 DAGs, and incremental extension of bases. Exact bounded basis reuse is already
 implemented. These are potential responses to measured bottlenecks,
@@ -333,7 +359,10 @@ Standard proof-producing solver calls still reject field solving. The explicit
 `ff-certify` shell command can export a checked polynomial contradiction and an
 experimental Alethe extension without changing the default solver.
 Input dependency sets support cores and Boolean conflict clauses; they are
-**not** algebraic certificates. Preserve this distinction.
+**not** algebraic certificates. Preserve this distinction. The new F4 and
+uniqueness passes do not yet emit the derivations consumed by the standalone
+certificate pipeline. The supplied Python uniqueness checker regenerates its
+own derivation; it is not a checker for a trace emitted by the C++ tactic.
 
 The native AST and polynomial engine are independent of the BV encoder. Future
 proof recording should retain polynomial multipliers for elimination and basis
