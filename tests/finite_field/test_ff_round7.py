@@ -1,5 +1,8 @@
 """Semantic, model and core checks for independently implemented algebra optimizations."""
 from z3 import *
+
+# Exercise the scalar engine explicitly; newer frontends can otherwise finish
+# before the matrix/root operation whose counters this regression checks.
 import test_ff_round6 as previous
 
 FLAGS = ['bounded_elimination', 'adaptive_reduction', 'sugar_pairs', 'gm_pairs', 'div_masks', 'geobucket', 'small_coefficients', 'compact_encoding']
@@ -17,6 +20,7 @@ def compact_definitions():
             value = (value * value + 1) % p
         for theory in [False, True]:
             s = SimpleSolver() if theory else Tactic('ff-solve').solver()
+            s.set(**{'ff.f4': False, 'ff.tiny': False})
             s.set(**{'ff.' + k: True for k in FLAGS},
                   **{'ff.sparse_witness': False, 'ff.model_search': False})
             if not theory: s.set(**{'ff.enum_bits': 0})
@@ -28,6 +32,7 @@ def compact_definitions():
             s.pop(); assert s.check() == sat
         # Named assertions exercise dependency accounting across fresh definitions.
         s = SolverFor('QF_FF'); s.set(unsat_core=True, **{'ff.' + k: True for k in FLAGS})
+        s.set(**{'ff.f4': False, 'ff.tiny': False})
         s.set(**{'ff.model_search': False})
         for tag, q in [('xpin', x == 1), ('ypin', y == 2), ('wrong', expr != value)]:
             s.assert_and_track(q, Bool(tag))
@@ -50,6 +55,7 @@ def compact_retry():
         for enabled in [False, True]:
             if route == 'global': set_param('smt.ff.compact_retry', enabled)
             s = Tactic('ff-solve').solver()
+            s.set(**{'ff.f4': False, 'ff.tiny': False})
             s.set(**{'ff.enum_bits': 0, 'ff.compact_encoding': False,
                      'ff.max_steps': 2000000, 'ff.model_search': False})
             if route == 'local': s.set(**{'ff.compact_retry': enabled})

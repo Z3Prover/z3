@@ -7,6 +7,9 @@ import itertools
 import random
 from z3 import *
 
+# Exercise the scalar engine explicitly; newer frontends can otherwise finish
+# before the matrix/root operation whose counters this regression checks.
+
 
 def random_systems():
     rng = random.Random(729143)
@@ -40,6 +43,7 @@ def random_systems():
                 return True
             expected = any(satisfies(point, range(len(specs))) for point in points)
             solver = SolverFor('QF_FF')
+            solver.set(**{'ff.f4': False, 'ff.tiny': False})
             solver.set(timeout=3000, unsat_core=True)
             for i, q in enumerate(constraints): solver.assert_and_track(q, Bool('general_tag_'+str(i)))
             answer = solver.check()
@@ -73,6 +77,7 @@ def mixed_domains():
                 (sat, [domain, observer(term) == 3]),
                 (sat if p > 2 else unsat, [Or(domain, guard), guard, term != 0, term != 1])]:
                 solver = SimpleSolver()
+                solver.set(**{'ff.f4': False, 'ff.tiny': False})
                 solver.set(timeout=3000, **{'ff.boolean_split': True})
                 solver.add(conditions)
                 assert solver.check() == expected, (p, term, conditions)
@@ -101,6 +106,7 @@ def word_boundary():
                     rows[i] += rng.randrange(1, p)*rows[j]
                 for enabled in [False, True]:
                     solver = Tactic('ff-solve').solver()
+                    solver.set(**{'ff.f4': False, 'ff.tiny': False})
                     solver.set(**{'ff.batch': enabled, 'ff.sparse_witness': False,
                                   'ff.model_search': False})
                     solver.add([row == 0 for row in rows])
@@ -136,6 +142,7 @@ def mixed_bitvectors():
                 x, alias = Consts('mix_x mix_alias', field)
                 guard = Bool('mix_guard')
                 solver = SimpleSolver()
+                solver.set(**{'ff.f4': False, 'ff.tiny': False})
                 solver.set(timeout=3000)
                 base = [alias == f(operation), x == alias, Or(Not(guard), x*x == x),
                         h(zero) == 0, h(one) == 1]
@@ -166,6 +173,7 @@ def sparse_witnesses():
                       [(x-2)*(y-3)*(z-4) == 1]]:
             for enabled in [False, True]:
                 solver = Tactic('ff-solve').solver()
+                solver.set(**{'ff.f4': False, 'ff.tiny': False})
                 # model_search independently enables sparse slices. Disable it
                 # explicitly so the off arm really excludes that algorithm,
                 # regardless of the interface defaults adopted later.
@@ -190,6 +198,7 @@ def global_parameters():
         for enabled in [False, True]:
             set_param('smt.ff.batch', enabled)
             solver = SolverFor('QF_FF')
+            solver.set(**{'ff.f4': False, 'ff.tiny': False})
             solver.set(**{'ff.model_search': False})
             solver.add(x*x+y*y == 3, x*y == 1)
             assert solver.check() == unsat
@@ -200,6 +209,7 @@ def global_parameters():
         reset_params()
     for enabled in [False, True]:
         solver = SimpleSolver()
+        solver.set(**{'ff.f4': False, 'ff.tiny': False})
         solver.set(**{'ff.boolean_split': enabled})
         solver.add(x*x == x, x != 0, x != 1)
         assert solver.check() == unsat

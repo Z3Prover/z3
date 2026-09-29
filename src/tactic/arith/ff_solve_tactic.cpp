@@ -1,3 +1,4 @@
+#include "math/polynomial/ff_params.h"
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
@@ -14,45 +15,18 @@ namespace {
     struct field_problem {
         ast_manager &m;
         ff_util ff;
+        smt_params_helper options;
         ff::engine algebra;
         expr_ref_vector variables;
         std::unordered_map<expr *, ff::polynomial> cache;
         std::vector<ff::polynomial> eqs, neqs;
         std::vector<expr_dependency *> dependencies;
         field_problem(ast_manager &m, sort *s, params_ref const &p)
-            : m(m), ff(m),
-              algebra(ff.modulus(s), m.limit(), p.get_uint("ff.max_steps", 2000000), p.get_uint("ff.max_terms", 4096), p.get_bool("ff.bit_propagation", true),
-                                       smt_params_helper(p).ff_batch(), smt_params_helper(p).ff_sparse_witness()),
+            : m(m), ff(m), options(p),
+              algebra(ff.modulus(s), m.limit(), options.ff_max_steps(), options.ff_max_terms(), options.ff_bit_propagation(),
+                                       options.ff_batch(), options.ff_sparse_witness()),
               variables(m) {
-                algebra.linear_split = smt_params_helper(p).ff_linear_split();
-                algebra.basis_bits = smt_params_helper(p).ff_basis_bits();
-                algebra.compact_matrix = smt_params_helper(p).ff_compact_matrix();
-                algebra.model_search = smt_params_helper(p).ff_model_search();
-                algebra.root_completion = smt_params_helper(p).ff_root_completion();
-                algebra.quotient_field = smt_params_helper(p).ff_quotient_field();
-                algebra.bit_bounds = smt_params_helper(p).ff_bit_bounds();
-                algebra.adaptive_reduction = smt_params_helper(p).ff_adaptive_reduction();
-                algebra.adaptive_matrix = smt_params_helper(p).ff_adaptive_matrix();
-                algebra.adaptive_basis = smt_params_helper(p).ff_adaptive_basis();
-                algebra.set_basis_storage_limit(smt_params_helper(p).ff_basis_max_bytes());
-                algebra.lazy_matrix = smt_params_helper(p).ff_lazy_matrix();
-                algebra.sparse_matrix_reducers = smt_params_helper(p).ff_sparse_matrix_reducers();
-                algebra.fused_reduction = smt_params_helper(p).ff_fused_reduction();
-                algebra.bounded_elimination = smt_params_helper(p).ff_bounded_elimination();
-                algebra.sugar_pairs = smt_params_helper(p).ff_sugar_pairs();
-                algebra.gm_pairs = smt_params_helper(p).ff_gm_pairs();
-                algebra.div_masks = smt_params_helper(p).ff_div_masks();
-                algebra.geobucket = smt_params_helper(p).ff_geobucket();
-                algebra.small_coefficients = smt_params_helper(p).ff_small_coefficients();
-                algebra.compact_encoding = smt_params_helper(p).ff_compact_encoding();
-                algebra.f4 = smt_params_helper(p).ff_f4();
-                algebra.f4_max_quotient = smt_params_helper(p).ff_f4_max_quotient();
-                algebra.f4_budget_factor = smt_params_helper(p).ff_f4_budget();
-                algebra.f4_short_budget = smt_params_helper(p).ff_f4_short_budget();
-                algebra.f4_value_split = smt_params_helper(p).ff_f4_value_split();
-                algebra.f4_slice = smt_params_helper(p).ff_f4_slice();
-                algebra.tiny_search = smt_params_helper(p).ff_tiny();
-                algebra.tiny_budget = smt_params_helper(p).ff_tiny_budget();
+                ff::configure_engine(algebra, options);
 
             }
         ff::polynomial compact(ff::polynomial f, bool force = false) {
@@ -318,7 +292,7 @@ namespace {
             catch (tactic_exception const &) {
                 if (!m_encoding_size_failure || !smt_params_helper(p).ff_compact_retry() ||
                     smt_params_helper(p).ff_compact_encoding() || m.limit().is_canceled() ||
-                    m_encoding_work >= p.get_uint("ff.max_steps", 2000000)) throw;
+                    m_encoding_work >= smt_params_helper(p).ff_max_steps()) throw;
                 // A failed encoding has not changed the goal. Rebuild from its
                 // original literals with exact fresh-variable definitions. Both
                 // attempts remain charged to the shared cancellation/rlimit and
@@ -327,7 +301,7 @@ namespace {
                 // This is a single retry, not a loop, and cannot bypass a timeout.
                 params_ref saved(p);
                 on_scope_exit restore([&]() { p.reset(); p.append(saved); });
-                unsigned cap = p.get_uint("ff.max_steps", 2000000);
+                unsigned cap = smt_params_helper(p).ff_max_steps();
                 // A representation retry is a speculative probe. Reserve most
                 // of the work allowance for the established fallback strategies.
                 // The fraction is independent of circuit, modulus and outcome.

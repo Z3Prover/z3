@@ -172,7 +172,7 @@ public:
         collect(b, rational(-1), p, terms, constant, pins, count);
         if (terms.empty()) {
             out = m.mk_bool_val(constant.is_zero());
-            return BR_DONE;
+            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
         }
         if (terms.size() == 1) {
             // c*t+k=0 iff t=-k/c because c is a nonzero field constant.
@@ -180,7 +180,7 @@ public:
             auto const &[base, coeff] = *terms.begin();
             expr_ref value(u.mk_numeral(mod(-constant * inverse(coeff, p), p), a->get_sort()), m);
             out = m.mk_eq(base, value);
-            return BR_DONE;
+            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
         }
         // Expose affine wire definitions to solve-eqs even when a circuit
         // exporter writes t = c - a*x. Prefer a wire absent from the other
@@ -225,7 +225,7 @@ public:
                 coeff = mod(coeff * factor, p);
             expr_ref rhs = sum(terms, mod(constant * factor, p), a->get_sort());
             out = m.mk_eq(var, rhs);
-            return BR_DONE;
+            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
         }
         // Avoid expanding an ordinary x=y or changing equalities that contain
         // no cancellable summands. Never cancel a symbolic multiplicative factor.
@@ -236,7 +236,7 @@ public:
         expr_ref left = sum(terms, rational(0), a->get_sort());
         expr_ref right(u.mk_numeral(mod(-constant, p), a->get_sort()), m);
         out = m.mk_eq(left, right);
-        return BR_DONE;
+        return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
     }
 
     br_status mk_app_core(func_decl *f, unsigned n, expr *const *args, expr_ref &out) {

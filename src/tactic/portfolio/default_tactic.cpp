@@ -1,3 +1,4 @@
+#include "tactic/portfolio/ff_tactic.h"
 /*++
 Copyright (c) 2012 Microsoft Corporation
 
@@ -40,33 +41,6 @@ Notes:
 #include "tactic/smtlogics/smt_tactic.h"
 
 
-// SMT fallback for field goals. Over large fields, relevancy propagation
-// costs 20-40 % on the goals that reach this stage and gives nothing back.
-// Over small fields the goal is mostly bit-blasted and search behaves better
-// with relevancy, so the default is kept there.
-namespace {
-    class ff_small_field_probe : public probe {
-    public:
-        result operator()(goal const &g) override {
-            ast_manager &m = g.m();
-            ff_util ff(m);
-            bool small = false;
-            auto visit = [&](expr *e) {
-                if (ff.is_ff(e) && ff.modulus(e->get_sort()) < rational(1 << 16))
-                    small = true;
-            };
-            for (unsigned i = 0; i < g.size() && !small; ++i)
-                for_each_expr(visit, g.form(i));
-            return result(small);
-        }
-    };
-}
-
-static tactic *mk_ff_smt_tactic(ast_manager &m, params_ref const &p) {
-    params_ref q;
-    q.set_uint("relevancy", 0);
-    return cond(alloc(ff_small_field_probe), mk_smt_tactic(m, p), using_params(mk_smt_tactic(m, p), q));
-}
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m, p),

@@ -801,6 +801,10 @@ cmd_context::check_sat_state cmd_context::cs_state() const {
 }
 
 void cmd_context::register_builtin_sorts(decl_plugin * p) {
+    // The indexed field sort is parsed directly. Do not reserve a legacy
+    // user sort name in unrestricted scripts merely by loading the plugin.
+    if (p->get_family_id() == m().get_family_id("ff") && (!has_logic() || m_logic == "ALL"))
+        return;
     svector<builtin_name> names;
     p->get_sort_names(names, m_logic);
     family_id fid = p->get_family_id();
@@ -1457,7 +1461,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     if (try_mk_declared_app(s, num_args, args, num_indices, indices, range, result))
         return;   
-    if (!range && !num_args && !num_indices && !s.is_numerical()) {
+    if (!num_args && !num_indices && !s.is_numerical()) {
         std::string name = s.str();
         if (name.starts_with("#f")) {
             auto separator = name.find('m', 2);
@@ -1469,6 +1473,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
                     if (has_logic() && !smt_logics::logic_has_ff(m_logic)) throw cmd_exception("logic does not support finite fields");
                     ff_util ff(m());
                     sort_ref field(ff.mk_sort(rational(prime.c_str())), m());
+                    if (range && range != field) throw cmd_exception("finite-field literal sort mismatch");
                     result = ff.mk_numeral(rational(value.c_str()), field);
                     return;
                 }

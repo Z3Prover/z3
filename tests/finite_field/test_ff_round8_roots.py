@@ -9,6 +9,9 @@ from collections import Counter
 import random
 from z3 import *
 
+# Exercise the scalar engine explicitly; newer frontends can otherwise finish
+# before the matrix/root operation whose counters this regression checks.
+
 OPTIONS = ['root_completion', 'quotient_field']
 
 
@@ -19,10 +22,13 @@ def statistic(s, name):
 def solver(kind, options):
     if kind in ['ff-solve', 'ff-sat']:
         s = Tactic(kind).solver()
+        s.set(**{'ff.f4': False, 'ff.tiny': False})
     elif kind == 'native':
         s = SimpleSolver()
+        s.set(**{'ff.f4': False, 'ff.tiny': False})
     else:
         s = SolverFor('QF_FF')
+        s.set(**{'ff.f4': False, 'ff.tiny': False})
     s.set(**{'ff.' + k: True for k in options})
     s.set(**{'ff.model_search': False, 'ff.sparse_witness': False})
     if kind in ['ff-solve', 'ff-sat']:
@@ -241,6 +247,7 @@ def default_model_search_policy():
                 expected = local_value if local_value is not None else (global_value if global_value is not None else True)
                 for kind in ['ff-solve', 'ff-sat', 'native', 'QF_FF']:
                     s = Tactic(kind).solver() if kind in ['ff-solve', 'ff-sat'] else (SimpleSolver() if kind == 'native' else SolverFor('QF_FF'))
+                    s.set(**{'ff.f4': False, 'ff.tiny': False})
                     s.set(**{'ff.sparse_witness': False})
                     if kind in ['ff-solve', 'ff-sat']:
                         s.set(**{'ff.enum_bits': 0})

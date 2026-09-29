@@ -4,6 +4,9 @@ The general-algebra suite supplies independently enumerated answers and cores;
 C++ tests separately compare ideal preservation, stable ties, smaller closures and chosen premises.
 """
 from z3 import *
+
+# Exercise the scalar engine explicitly; newer frontends can otherwise finish
+# before the matrix/root operation whose counters this regression checks.
 import test_ff_general_algebra as general
 
 
@@ -18,6 +21,7 @@ def interfaces():
     for name in ['ff-solve', 'ff-sat', 'QF_FF', 'native']:
         for enabled in [False, True]:
             s = Tactic(name).solver() if name.startswith('ff-') else SimpleSolver() if name == 'native' else SolverFor(name)
+            s.set(**{'ff.f4': False, 'ff.tiny': False})
             s.set(**{'ff.sparse_matrix_reducers': enabled,
                      'ff.model_search': False, 'ff.sparse_witness': False})
             s.push()

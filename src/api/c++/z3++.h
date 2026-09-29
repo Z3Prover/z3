@@ -318,10 +318,11 @@ namespace z3 {
            \brief Return the Real sort.
         */
         sort real_sort();
+        /** \brief Return the prime finite-field sort with the given decimal modulus. */
+        sort finite_field_sort(char const* prime);
         /**
            \brief Return the Bit-vector sort of size \c sz. That is, the sort for bit-vectors of size \c sz.
         */
-        sort finite_field_sort(char const* prime);
         sort bv_sort(unsigned sz);
 
         /**

@@ -1,3 +1,4 @@
+#include "tactic/portfolio/ff_tactic.h"
 /*++
 Copyright (c) 2012 Microsoft Corporation
 
@@ -71,33 +72,6 @@ public:
 };
 
 
-// SMT fallback for field goals. Over large fields, relevancy propagation
-// costs 20-40 % on the goals that reach this stage and gives nothing back.
-// Over small fields the goal is mostly bit-blasted and search behaves better
-// with relevancy, so the default is kept there.
-namespace {
-    class ff_small_field_probe : public probe {
-    public:
-        result operator()(goal const &g) override {
-            ast_manager &m = g.m();
-            ff_util ff(m);
-            bool small = false;
-            auto visit = [&](expr *e) {
-                if (ff.is_ff(e) && ff.modulus(e->get_sort()) < rational(1 << 16))
-                    small = true;
-            };
-            for (unsigned i = 0; i < g.size() && !small; ++i)
-                for_each_expr(visit, g.form(i));
-            return result(small);
-        }
-    };
-}
-
-static tactic *mk_ff_smt_tactic(ast_manager &m, params_ref const &p) {
-    params_ref q;
-    q.set_uint("relevancy", 0);
-    return cond(alloc(ff_small_field_probe), mk_smt_tactic(m, p), using_params(mk_smt_tactic(m, p), q));
-}
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
     // Let native SMT reasoning handle residual field goals before its exact
@@ -229,8 +203,8 @@ public:
     if (smt_logics::logic_is_ff(l))
             return mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l);
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
-                                  mk_solver_for_logic(m, p, l), 
-                                  p);
+                                  mk_solver_for_logic(m, p, l),
+                                  p, has_ff_terms);
     }
     
     solver_factory* translate(ast_manager& m) override {

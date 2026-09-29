@@ -8,9 +8,6 @@ class ff_decl_plugin : public decl_plugin {
     vector<rational> m_checked_moduli;
 
 public:
-    bool has_sorts() const {
-        return !m_checked_moduli.empty();
-    }
     decl_plugin *mk_fresh() override {
         return alloc(ff_decl_plugin);
     }

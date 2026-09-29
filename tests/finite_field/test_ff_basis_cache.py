@@ -3,15 +3,20 @@ import itertools
 from z3 import *
 
 
-def main():
+def main(global_options=False):
+    # This cache belongs to the scalar basis engine; F4 can finish before it.
     checked = 0
     for enabled in [False, True]:
+        if global_options:
+            set_param("smt.ff.basis_cache", enabled)
         for p in [5, 7, 97]:
             field = FiniteFieldSort(p)
             x, y = Consts('cache_x cache_y', field)
             observer = Function('cache_observer', field, IntSort())
             solver = SimpleSolver()
-            solver.set(**{'ff.basis_cache': enabled, 'unsat_core': True, 'timeout': 10000})
+            solver.set(**{'ff.f4': False, 'unsat_core': True, 'timeout': 10000})
+            if not global_options:
+                solver.set('ff.basis_cache', enabled)
             base = [x*x+y*y == 5, x*y == 2]
             solver.add(base)
             for i, total in enumerate([None, None, 3, 0, None, 4, None]):
@@ -35,6 +40,8 @@ def main():
                 checked += 1
             if enabled and p == 97:
                 assert solver.statistics().get_key_value('ff basis cache hits') > 0
+            if not enabled:
+                assert {k: v for k, v in solver.statistics()}.get('ff basis cache hits', 0) == 0
             solver.reset()
             # Same variable indices can be reused after reset in another field.
             other = FiniteFieldSort(11)
@@ -44,7 +51,9 @@ def main():
             assert all(is_true(solver.model().eval(q, model_completion=True)) for q in solver.assertions())
             checked += 1
         solver = SimpleSolver()
-        solver.set(**{'ff.basis_cache': enabled, 'timeout': 10000})
+        solver.set(**{'ff.f4': False, 'timeout': 10000})
+        if not global_options:
+            solver.set('ff.basis_cache', enabled)
         # Identical positive coefficients, different prime: the first system
         # has no F5 point but the second has F7 points. Keep the solver alive
         # across pop so cache identity must distinguish the fields.
@@ -63,4 +72,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+        main(global_options=True)
+    finally:
+        reset_params()

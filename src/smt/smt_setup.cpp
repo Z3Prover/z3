@@ -72,8 +72,10 @@ namespace smt {
         }
         setup_card();
         setup_sls();
-        // Register even before a field-valued ground term exists: array
-        // extensionality and datatype selectors may introduce one later.
+
+    }
+
+    void setup::setup_ff() {
         setup_bv();
         m_context.register_plugin(alloc(theory_ff, m_context));
     }

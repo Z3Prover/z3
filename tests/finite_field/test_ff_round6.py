@@ -3,11 +3,15 @@ import itertools
 import random
 from z3 import *
 
+# Exercise the scalar engine explicitly; newer frontends can otherwise finish
+# before the matrix/root operation whose counters this regression checks.
+
 FLAGS = ['linear_split', 'basis_bits', 'compact_matrix', 'model_search', 'bit_bounds']
 
 
 def algebra_solver(flags):
     s = Tactic('ff-solve').solver()
+    s.set(**{'ff.f4': False, 'ff.tiny': False})
     # Flags describe an isolated experiment, not additions to whichever
     # model-search default a future solver release happens to adopt.
     s.set(**{'ff.model_search': 'model_search' in flags})
@@ -45,6 +49,7 @@ def random_systems():
             expected=sat if any(holds(pt,range(len(specs))) for pt in points) else unsat
             for flags in [FLAGS, ['compact_matrix'], ['model_search']]:
                 s=SolverFor('QF_FF');s.set(unsat_core=True, **{"ff."+k:True for k in flags})
+                s.set(**{'ff.f4': False, 'ff.tiny': False})
                 s.set(**{'ff.model_search': 'model_search' in flags})
                 for i,q in enumerate(constraints):s.assert_and_track(q,Bool('r6_tag'+str(i)))
                 answer=s.check();assert answer==expected,(p,trial,flags,answer,expected,s.reason_unknown())
@@ -123,6 +128,7 @@ def disjunctions():
         # Rewrite must preserve dependency cores across assumptions.
         set_param('smt.ff.disjunctive_bits',True)
         s=SolverFor('QF_FF');s.set(unsat_core=True)
+        s.set(**{'ff.f4': False, 'ff.tiny': False})
         s.assert_and_track(Or(x==0,x==1),Bool('domain'))
         s.assert_and_track(x!=0,Bool('nz'));s.assert_and_track(x!=1,Bool('no'))
         assert s.check()==unsat

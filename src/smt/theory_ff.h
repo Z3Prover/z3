@@ -5,6 +5,7 @@
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/ff_bv_operations.h"
 #include <map>
 #include <memory>
 
@@ -18,26 +19,26 @@ namespace smt {
         ff_util ff;
         bv_util bv;
         th_rewriter rw;
+        ff_bv_operations operations;
         func_decl_ref_vector helpers;
         obj_map<sort, func_decl *> wraps, unwraps;
         obj_hashtable<func_decl> decoders;
         unsigned axioms = 0;
         unsigned native_checks = 0, native_conflicts = 0, arrangements = 0, fallbacks = 0;
         unsigned root_clauses = 0;
-        bool bv_mode = false;
+        obj_hashtable<sort> bv_fields; // fallback is local to a field, never the whole context
+        void refresh_bv_fields();
         ff::basis_cache memo;
         std::map<sort *, std::unique_ptr<ff_encoding_cache>> encodings;
         obj_hashtable<expr> constrained;
         obj_hashtable<expr> split_atoms;
-        obj_map<expr, expr *> root_norm;   // rewritten form of equality atoms, kept across scopes
+        obj_map<expr, expr *> root_norm;   // bounded pure-rewriting cache; cleared on pop
         expr_ref_vector root_norm_pins;
         obj_map<expr, rational> native_values;
         expr_ref_vector model_values;
 
         void ensure_helpers(sort *s);
         expr_ref wrap(expr *e);
-        expr_ref reduce(expr *e, sort *s, unsigned width);
-        expr_ref binary(expr *a, expr *b, sort *s, bool mul);
         void assert_axiom(expr *e, bool simplify = true);
         void constrain(expr *e);
         expr_ref square_root_term(expr *e);
@@ -51,6 +52,7 @@ namespace smt {
             // bridge definition. Retry all live definitions on the next check.
             constrained.reset();
             split_atoms.reset();
+            refresh_bv_fields();
         }
 
         bool internalize_atom(app *, bool) override {
@@ -84,6 +86,7 @@ namespace smt {
             st.update("ff arrangements", arrangements);
             st.update("ff bv fallbacks", fallbacks);
             st.update("ff root clauses", root_clauses);
+            st.update("ff normalization cache entries", root_norm_pins.size() / 2);
             st.update("ff basis cache hits", memo.hits);
             st.update("ff basis cache misses", memo.misses);
         }

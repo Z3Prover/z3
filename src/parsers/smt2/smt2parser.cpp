@@ -24,6 +24,7 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ff_decl_plugin.h"
+#include "solver/smt_logics.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/var_subst.h"
@@ -636,9 +637,9 @@ namespace smt2 {
             next();
             symbol id = check_identifier_next("invalid indexed sort, symbol expected");
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == nullptr)
-                unknown_sort(id);
             if (id == symbol("FiniteField")) {
+                if (m_ctx.has_logic() && !smt_logics::logic_has_ff(m_ctx.get_logic()))
+                    throw parser_exception("logic does not support finite fields");
                 check_int("FiniteField expects a prime integer modulus");
                 rational prime = curr_numeral();
                 next();
@@ -647,6 +648,8 @@ namespace smt2 {
                 next();
                 return field;
             }
+            if (d == nullptr)
+                unknown_sort(id);
             sbuffer<unsigned> args;
             while (!curr_is_rparen()) {
                 check_int("invalid indexed sort, integer or ')' expected");

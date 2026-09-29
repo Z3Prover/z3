@@ -360,7 +360,6 @@ namespace ff {
             uint64_t rng;
             std::vector<bool> bits_p, bits_half;  // p and (p-1)/2
             bool field_closed = false;           // field equations already adjoined on this branch
-            bool m_in_slice = false;             // below a random slice: UNSAT answers are not global
             unsigned m_slice_budget = 0;
 
             uint64_t next_random() {
@@ -655,9 +654,7 @@ namespace ff {
                             lazy_done = true;
                         }
                     }
-                    if (lazy_done) {
-                    }
-                    else if (scan) {
+                    if (!lazy_done && scan) {
                         for (size_t c = first; c <= last; ++c) {
                             E v = acc[c];
                             if (f.is_zero(v))
@@ -666,7 +663,7 @@ namespace ff {
                             eliminate(static_cast<unsigned>(c), v);
                         }
                     }
-                    else {
+                    else if (!lazy_done) {
                         while (!heap.empty()) {
                             unsigned c = heap.top();
                             heap.pop();
@@ -1019,10 +1016,7 @@ namespace ff {
                     if (!groebner(std::move(input), nb, ud))
                         continue;
                     deps sub;
-                    bool saved = m_in_slice;
-                    m_in_slice = true;
                     lbool res = model(nb, vals, sub, depth + 1);
-                    m_in_slice = saved;
                     if (res == l_true)
                         return l_true;
                 }
@@ -1263,9 +1257,9 @@ namespace ff {
                 scan(p);
             for (auto const &p : neqs)
                 scan(p);
-            (void)num_vars;
+            // Variable IDs belong to the declared problem as well as its model buffer.
             for (unsigned v : var_of)
-                if (v >= values.size())
+                if (v >= num_vars || v >= values.size())
                     return l_undef;
             if (var_of.size() > cfg.max_vars) {
                 ++st.m_unsupported;

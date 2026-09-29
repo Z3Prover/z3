@@ -1,3 +1,7 @@
+#include "smt/smt_context.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include <sstream>
 #include "math/polynomial/ff_polynomial.h"
 #include "math/polynomial/ff_certificate.h"
 #include "math/polynomial/ff_f4.h"
@@ -854,7 +858,71 @@ static void test_ff_tiny() {
     ENSURE(sat > 50 && unsat > 50);
 }
 
+static void test_ff_integration() {
+    auto stat = [](smt::context &ctx, char const *key) {
+        statistics stats; ctx.collect_statistics(stats);
+        for (unsigned i = 0; i < stats.size(); ++i)
+            if (std::string(stats.get_key(i)) == key)
+                return stats.is_uint(i) ? double(stats.get_uint_value(i)) : stats.get_double_value(i);
+        return 0.0;
+    };
+    ast_manager m; reg_decl_plugins(m); ff_util ff(m);
+    // Even an unrelated field sort in the same manager must not install extra
+    // theories in a field-free QF_UF context.
+    sort_ref field(ff.mk_sort(rational(7)), m);
+    smt_params sp;
+    smt::context ctx(m, sp); ctx.set_logic(symbol("QF_UF"));
+    expr_ref b(m.mk_const("b", m.mk_bool_sort()), m);
+    ctx.assert_expr(b); ENSURE(ctx.check() == l_true);
+    ENSURE(!ctx.get_theory(ff.get_fid()));
+    ENSURE(!ctx.get_theory(m.get_family_id("bv")));
+    // A later assertion installs field support at the existing scope depth.
+    ctx.push();
+    expr_ref x(m.mk_const("x", field), m), two(ff.mk_numeral(rational(2), field), m);
+    expr *args[] = {x, x};
+    expr_ref square(ff.mk_app(OP_FF_MUL, 2, args), m);
+    expr_ref eq(m.mk_eq(square, two), m);
+    params_ref tiny; tiny.set_uint("ff.max_steps", 0); ctx.updt_params(tiny);
+    ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
+    ENSURE(stat(ctx, "ff bv fallbacks") > 0);
+    double checks = stat(ctx, "ff native checks");
+    ctx.pop(1);
+    ENSURE(stat(ctx, "ff normalization cache entries") == 0);
+    params_ref normal; normal.set_uint("ff.max_steps", 2000000); ctx.updt_params(normal);
+    ctx.push(); ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
+    ENSURE(stat(ctx, "ff native checks") > checks);
+    // No new bridge axioms: the popped bridge did not permanently disable native solving.
+    double axioms = stat(ctx, "ff combination axioms");
+    ctx.pop(1); ctx.push(); ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
+    ENSURE(stat(ctx, "ff combination axioms") == axioms);
+    ctx.pop(1);
+    // Algebra remains usable with BV disabled; an inconclusive algebra result
+    // must return unknown instead of sending field definitions to a dummy theory.
+    smt_params no_bv; no_bv.m_bv_mode = bv_solver_id::BS_NO_BV;
+    smt::context disabled(m, no_bv); disabled.set_logic(symbol("QF_UF"));
+    disabled.updt_params(tiny); disabled.assert_expr(eq);
+    ENSURE(disabled.check() == l_undef);
+    for (bool reverse : {false, true}) {
+        ast_manager mm; reg_decl_plugins(mm);
+        cmd_context commands(false, &mm);
+        std::string defs = reverse ? "(define-sort A () (_ FiniteField 3))(define-sort B () (_ FiniteField 7))" :
+                                     "(define-sort B () (_ FiniteField 7))(define-sort A () (_ FiniteField 3))";
+        std::istringstream input(defs + "(declare-const x A)(declare-const u B)(declare-const v B)"
+            "(assert (= (ff.mul x x) (as ff2 A)))"
+            "(assert (= (ff.add (ff.mul u v) u v (as ff1 B)) (as ff0 B)))");
+        ENSURE(parse_smt2_commands(commands, input));
+        smt_params params; smt::context mixed(mm, params);
+        params_ref bounded; bounded.set_uint("ff.max_terms", 2); mixed.updt_params(bounded);
+        for (expr *a : commands.assertions()) mixed.assert_expr(a);
+        ENSURE(mixed.check() == l_false);
+        ENSURE(stat(mixed, "ff native conflicts") > 0);
+        ENSURE(stat(mixed, "ff combination axioms") < 4);
+    }
+    std::cout << "FF integration: demand registration, scoped fallback, disabled BV and independent fields\n";
+}
+
 void tst_finite_field() {
+    test_ff_integration();
     test_ff_tiny();
     test_ff_f4();
     test_certificates();
