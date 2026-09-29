@@ -216,7 +216,10 @@ namespace opt {
                   if (is_sat == l_true) m_s->display(tout);
                   );
             if (is_sat == l_true) {                
-                auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int);
+                // Once a finite cap is known, leave refinement to the normal
+                // search instead of perturbing it with more certification probes.
+                bool probe_bound = !std::min(upper(obj_index), refuted_hint).is_finite();
+                auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int, probe_bound);
                 last_bound_valid = result.bound_valid;
                 // Search scopes only impose lower cuts on this objective. A
                 // finite LP optimum satisfies them, so excluded values cannot
