@@ -1,0 +1,51 @@
+{
+  "inputs": 190,
+  "solved": {
+    "z3-pr1": 168,
+    "cvc5-1.3.3-nosimp": 111,
+    "cvc5-1.4.0-gb": 110,
+    "cvc5-1.4.0-split": 140,
+    "cvc5-main-72f647e-gb": 110,
+    "cvc5-main-72f647e-split": 140,
+    "cvc5-paper-nosimp": 111
+  },
+  "disputed": [],
+  "pairwise": {
+    "cvc5-1.3.3-nosimp": {
+      "both": 111,
+      "z3_only": 57,
+      "cvc5_only": 0,
+      "neither": 22
+    },
+    "cvc5-1.4.0-gb": {
+      "both": 110,
+      "z3_only": 58,
+      "cvc5_only": 0,
+      "neither": 22
+    },
+    "cvc5-1.4.0-split": {
+      "both": 139,
+      "z3_only": 29,
+      "cvc5_only": 1,
+      "neither": 21
+    },
+    "cvc5-main-72f647e-gb": {
+      "both": 110,
+      "z3_only": 58,
+      "cvc5_only": 0,
+      "neither": 22
+    },
+    "cvc5-main-72f647e-split": {
+      "both": 139,
+      "z3_only": 29,
+      "cvc5_only": 1,
+      "neither": 21
+    },
+    "cvc5-paper-nosimp": {
+      "both": 111,
+      "z3_only": 57,
+      "cvc5_only": 0,
+      "neither": 22
+    }
+  }
+}
