@@ -9,25 +9,6 @@ Abstract:
 
     Domain-agnostic plugin-based search tree (namespace `stx`).
 
-    This implements the trail/iterator-based architecture described in the
-    (updated) design document "A Modular Plugin-Based Search Tree for
-    String Solving" (based on `theory_nseq` / `nielsen_graph` on the c3
-    branch). It provides a generic engine that knows nothing about
-    sequences, strings, or automata: it manages a *single mutable node*,
-    dependencies, conflict explanation, iterative deepening, subsumption,
-    and backtracking over an abstract node *state*, which is a collection
-    of *facets* contributed by plugins.
-
-    Unlike the earlier (Phase 1-4) revision of this file, nodes are no
-    longer persistent/clone-per-edge: there is exactly one live `node`
-    object per `search_tree`, and "descending into a branch" means
-    destructively mutating that node's facets while registering undo
-    actions on a shared `trail_stack` (util/trail.h, reused verbatim).
-    Backtracking out of a branch means popping that trail scope, which
-    restores every mutated facet's prior state without any cloning.
-    `facet_i::clone()` still exists, but only for cold-path use (hot
-    restart's post-solve snapshot of a SAT leaf); it is never used on the
-    DFS hot path itself.
 
     The two extension points are:
       - `propagation_plugin_i`: deterministic, non-branching simplification.
