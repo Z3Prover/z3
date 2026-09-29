@@ -891,7 +891,7 @@ namespace seq {
 
     bool deq_facet::disequation::equals(stx::constraint_i const& other) const {
         auto const* o = dynamic_cast<disequation const*>(&other);
-        return o && canonical_pair_eq(m_lhs, m_rhs, o->m_lhs, o->m_rhs);
+        return o && ((m_lhs == o->m_lhs && m_rhs == o->m_rhs) || (m_lhs == o->m_rhs && m_rhs == o->m_lhs));
     }
 
     void deq_facet::append_constraints(vector<stx::constraint_i const*>& out) const {
