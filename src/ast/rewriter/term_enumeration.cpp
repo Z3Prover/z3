@@ -443,7 +443,9 @@ private:
                 m_bank_idx = 0;
                 m_bank_size = get_bank_size();
                 m_children_iter.reset();
-                if (!m_made_progress && !m_bank.is_productive(m_cost, m_sorts_produced)) {
+                // terms of cost m_cost - 1 are still usable as children at level m_cost
+                // (costs may skip levels, so the bucket at m_cost can be empty).
+                if (!m_made_progress && !m_bank.is_productive(m_cost - 1, m_sorts_produced)) {
                     m_state = State::Done;
                     return nullptr;
                 }
