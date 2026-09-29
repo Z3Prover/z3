@@ -1378,9 +1378,6 @@ namespace stx {
                 cache_hit = true;
             }
 
-            // --- dot trace: snapshot this node's own facet state now -
-            // before any child branch further mutates the (single, live)
-            // node in place.
             dot_trace_snapshot(dot_id, n);
 
             if (sr == simplify_result::conflict) {
@@ -1413,21 +1410,8 @@ namespace stx {
                 bool has_children = extend_node(n, frame, first_edge);
 
                 if (!has_children) {
-                    // No propagation conflict/satisfaction and no split rule
-                    // has anything left to offer: the node is stuck (a
-                    // genuine "unknown", not a depth cutoff - retrying with
-                    // a larger depth bound will not help). A split plugin may
-                    // still have called n.set_conflict() itself (e.g.
-                    // mem_monadic_split reporting a refuted membership
-                    // conjunction) while declining to offer a branch -
-                    // that conflict must be honored here, or a real unsat
-                    // is misreported as unknown.
                     if (n.is_conflict()) {
                         result = search_result::unsat;
-                        // A split plugin declared conflict directly (e.g. a
-                        // refuted membership conjunction) with no further
-                        // branching left to try: same leaf-level memoization
-                        // opportunity as the propagation-conflict site above.
                         bool pure = cache_eligible(n);
                         if (pure)
                             cache_insert(n);
@@ -1523,19 +1507,6 @@ namespace stx {
             return id;
         }
 
-        // Same as above, but additionally invokes `bind(id)` right after
-        // the new facet id is minted. `bind` is typically a small lambda
-        // supplied by the domain layer that stashes `id` on the node's
-        // ambient context (e.g. `[&](facet_id id){ ac->set_eq_id(id); }`),
-        // so that registration and ambient-context id-binding happen as
-        // one atomic step at the call site instead of two - without this
-        // engine header needing to know anything about what an "ambient
-        // context" or a "facet id setter" actually is (`Binder` is fully
-        // generic; this stays domain-agnostic). Named differently from
-        // the overload above (rather than overloaded on it) to avoid an
-        // ambiguous-overload resolution between two same-name variadic
-        // templates whenever `Args...` could itself begin with a
-        // callable.
         template <typename T, typename Binder, typename... Args>
         facet_id register_facet_bound(node& n, Binder&& bind, Args&&... args) {
             facet_id id = register_facet<T>(n, std::forward<Args>(args)...);
@@ -1569,15 +1540,6 @@ namespace stx {
         node* mk_root() { SASSERT(!m_root); m_root = alloc(node, m_next_facet_id); return m_root.get(); }
         node* root() const { return m_root.get(); }
 
-        // Called by the ambient owner (theory_nseq) in lockstep with its
-        // own push_scope_eh()/pop_scope_eh(), i.e. at the SMT core's own
-        // scope boundaries - distinct from DFS's internal scoped_push/
-        // pop(), which additionally opens/closes a *trail* scope on the
-        // shared trail_stack (already owned by the SMT core itself, see
-        // m_tree's constructor). Only the facet-level push()/pop() hooks
-        // need to be relayed here (any trail-scope bookkeeping the SMT
-        // core does is already visible to every trail object pushed by a
-        // facet, since m_trail *is* ctx.get_trail_stack()).
         void push_facets() { m_root->push_facets(); }
         void pop_facets() { m_root->pop_facets(); }
 
@@ -1677,17 +1639,6 @@ namespace stx {
             m_dot_live_last_write = std::chrono::steady_clock::time_point();
         }
 
-        // Render the most recently recorded DFS round (see the comment on
-        // `m_dot_nodes` above) as a graphviz digraph: one node per DFS
-        // call, labelled with its id and a snapshot of every facet's
-        // `display()` output at that point, coloured green/red/gray for
-        // sat/unsat/unknown-or-depth_cutoff; edges labelled with the
-        // split rule (and iterative-deepening cost, if non-zero) that
-        // produced that child, coloured to match the child's outcome.
-        // Available whether `solve()` ran to completion or was cut short
-        // by cancellation/a resource limit - whatever was recorded before
-        // that happened is still here (dfs() records incrementally, not
-        // as a single post-hoc dump).
         std::ostream& to_dot(std::ostream& out) const {
             out << "digraph G {\n";
             out << "  node [shape=box, fontname=\"monospace\", fontsize=10];\n";
@@ -1745,22 +1696,9 @@ namespace stx {
         search_result solve() {
             SASSERT(m_root);
             m_stats.m_num_solve_calls++;
-            // Mirrors c3's nielsen_graph::reset(): the cache is a pure
-            // performance memo scoped to one solve() call, cleared here so
-            // stale entries from a structurally different accumulated
-            // problem never linger (conservative; a persistent cache across
-            // solve() calls would also be sound since containment facts
-            // never expire, but isn't validated for this engine's
-            // clone_state_from/push/pop interactions yet).
             m_unsat_cores.clear();
             m_watch_list.clear();
             m_unsat_core_index.clear();
-            // Reseed the constraint store with exactly the constraints
-            // present in the root node right now (see constraint_store's
-            // class comment): the root's own facts get the same small,
-            // stable ids for this whole solve() call, before any
-            // cache_insert() call (further down the tree) can intern a
-            // fresh id for a fact the root doesn't have.
             m_constraint_store.clear();
             m_constraint_store.init(compute_constraints(*m_root));
             unsigned base_scopes = m_trail.get_num_scopes();
