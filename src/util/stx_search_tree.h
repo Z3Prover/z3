@@ -1336,11 +1336,10 @@ namespace stx {
         // conflict actually originated, mirroring c3's per-subtree
         // `all_string_only` tracking (`m_unsat_cacheable`) - a point-in-
         // time check at the aggregating parent alone cannot see what its
-        // children depended on along the way. The top-level call (from
-        // solve()) doesn't care about purity and binds it to
-        // `s_dummy_pure`, a scratch sink shared across such callers.
-        inline static bool s_dummy_pure = false;
-        search_result dfs(unsigned depth, edge const* in_edge = nullptr, bool& pure_out = s_dummy_pure) {
+        // children depended on along the way. Every caller supplies its
+        // own bool to bind this to, even the top-level call from
+        // solve() (which doesn't otherwise care about purity).
+        search_result dfs(unsigned depth, edge const* in_edge, bool& pure_out) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
@@ -1393,10 +1392,9 @@ namespace stx {
                 // found - wasted work (recompute constraints, filter,
                 // sort, bucket-lookup) for no benefit, so return as soon
                 // as the hit is established instead.
-                bool pure = cache_eligible(n);
-                if (pure && !cache_hit)
+                pure_out = cache_eligible(n);
+                if (pure_out && !cache_hit)
                     cache_insert(n);
-                pure_out = pure;
             }
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
@@ -1412,10 +1410,9 @@ namespace stx {
                 if (!has_children) {
                     if (n.is_conflict()) {
                         result = search_result::unsat;
-                        bool pure = cache_eligible(n);
-                        if (pure)
+                        pure_out = cache_eligible(n);
+                        if (pure_out)
                             cache_insert(n);
-                        pure_out = pure;
                     }
                     else if (n.is_satisfied()) {
                         result = search_result::sat;
@@ -1467,10 +1464,9 @@ namespace stx {
                             for (dep_tracker d : n.conflict_deps())
                                 joined = m_dep_mgr.mk_join(joined, d);
                             n.set_conflict(br_children_failed, joined);
-                            bool pure = all_children_pure && cache_eligible(n);
-                            if (pure)
+                            pure_out = all_children_pure && cache_eligible(n);
+                            if (pure_out)
                                 cache_insert(n);
-                            pure_out = pure;
                         }
                     }
                 }
@@ -1724,7 +1720,8 @@ namespace stx {
                     m_dot_nodes.clear();
                     m_dot_stack.clear();
                 }
-                res = dfs(0);
+                bool root_pure = false; // unused by solve(); every call must supply a binding
+                res = dfs(0, nullptr, root_pure);
                 if (res == search_result::sat) { m_stats.m_num_sat++; }
                 if (res == search_result::unsat) { m_stats.m_num_unsat++; }
                 // res == search_result::unknown: genuinely stuck (no
