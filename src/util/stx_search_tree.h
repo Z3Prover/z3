@@ -769,16 +769,6 @@ namespace stx {
         // are interned; an id past the current size simply has no cores
         // watching it yet.
         vector<vector<unsigned>>                          m_watch_list;
-        // Insertion-time dedup only (never consulted during lookup):
-        // smallest constraint-store id in a (sorted) core's ids ->
-        // indices (into m_unsat_cores) of previously inserted cores
-        // sharing that same minimum id, so re-deriving the same closure
-        // along a different path doesn't grow the cache without bound.
-        // Since ids are already sorted before this map is consulted, two
-        // equal id-sets necessarily share the same minimum element, so
-        // this plain id is already as good a bucket key as any computed
-        // hash - no separate hash function is needed.
-        std::unordered_map<unsigned, vector<unsigned>>     m_unsat_core_index;
 
         // True iff every facet NOT contributing to the signature currently
         // holds no live content (is_satisfied()). This is the soundness
@@ -801,29 +791,13 @@ namespace stx {
         // Canonical constraint list: concatenate every contributing
         // facet's own append_constraints() output (borrowed pointers into
         // the facet's own live, active elements), in ascending facet_id
-        // order. facet_id order is fixed at root construction (unlike c3,
-        // which must explicitly sort a flat untyped constraint list), so
-        // cross-facet ordering is already canonical; unlike the earlier
-        // uint64_t-hash scheme, a facet no longer needs to internally sort
-        // its own contribution - any residual order-sensitivity (only
-        // `cache_insert()`'s insertion-time dedup cares) is handled once,
-        // centrally, by sorting the resulting dense constraint-store ids
-        // (see `cache_insert()`).
+        // order.
         static vector<constraint_i const*> compute_constraints(node const& n) {
             vector<constraint_i const*> cs;
             for (facet_id id = 0; id < n.num_facets(); ++id)
                 if (n.has_facet(id) && n.facet(id).contributes_to_signature())
                     n.facet(id).append_constraints(cs);
             return cs;
-        }
-
-        static bool ids_eq(vector<unsigned> const& a, vector<unsigned> const& b) {
-            if (a.size() != b.size())
-                return false;
-            for (unsigned i = 0; i < a.size(); ++i)
-                if (a[i] != b[i])
-                    return false;
-            return true;
         }
 
         // Register `core_idx` as watching constraint-store id `id`,
@@ -1025,25 +999,10 @@ namespace stx {
             vector<unsigned> ids;
             for (constraint_i const* c : cs)
                 ids.push_back(m_constraint_store.intern(*c));
-            // Sort once, centrally, so the dedup check below is
-            // independent of the order this node's facets/split path
-            // happened to produce their contributions in - two nodes
-            // reaching the same active-constraint set via different
-            // split orders must dedup against each other. Bucketing the
-            // dedup index by the smallest id (`ids[0]`) needs no separate
-            // hash: two sorted id-sets that are equal necessarily share
-            // the same minimum element, so it's already a valid bucket
-            // key on its own.
-            std::sort(ids.begin(), ids.end());
-            auto& dup_bucket = m_unsat_core_index[ids[0]];
-            for (unsigned idx : dup_bucket)
-                if (ids_eq(m_unsat_cores[idx].lits, ids))
-                    return; // already memoized
             unsigned idx = m_unsat_cores.size();
-            unsigned first_id = ids[0];
+            unsigned watch_id = ids[0];
             m_unsat_cores.push_back({ std::move(ids), 0 });
-            dup_bucket.push_back(idx);
-            watch(first_id, idx);
+            watch(watch_id, idx);
         }
 
         unsigned unsat_cache_size() const {
@@ -1656,7 +1615,6 @@ namespace stx {
             m_stats.m_num_solve_calls++;
             m_unsat_cores.clear();
             m_watch_list.clear();
-            m_unsat_core_index.clear();
             m_constraint_store.clear();
             m_constraint_store.init(compute_constraints(*m_root));
             unsigned base_scopes = m_trail.get_num_scopes();
