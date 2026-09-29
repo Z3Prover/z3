@@ -163,6 +163,8 @@ protected:
 
     void simplify(ptr_vector<monomial> & monomials);
 
+    void inc(monomial const & m);
+
     void simplify(equation * eq);
 
     bool is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const;
@@ -309,5 +311,4 @@ public:
     
     void display(std::ostream & out, std::function<void(std::ostream&, expr*)>& display_var) const;
 };
-
 
