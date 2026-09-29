@@ -1871,6 +1871,7 @@ namespace polynomial {
         unsigned_vector          m_degree2pos;
         bool                     m_use_sparse_gcd;
         bool                     m_use_prs_gcd;
+        random_gen               m_rand;
 
         // Debugging method: check if the coefficients of p are in the numeral_manager.
         bool consistent_coeffs(polynomial const * p) {
@@ -4394,7 +4395,10 @@ namespace polynomial {
             SASSERT(m().modular()); // ensure we're in modular mode
             auto sz = vals.size();
             while (true) {
-                m().set(r, rand() % p);
+                // Combine two 15-bit draws in a fixed order to cover the field.
+                uint32_t hi = m_rand();
+                uint32_t lo = m_rand();
+                m().set(r, ((hi << 15) | lo) % p);
                 m().p_normalize(r.get()); // normalize the value to ensure it's in the correct range
                 SASSERT(m().is_p_normalized(r)); // verify normalization succeeded
                 // check if fresh value...
