@@ -206,7 +206,7 @@ static void test_cardinality_consequences_after_check() {
     fd_solver->assert_expr(m.mk_or(xs.size(), xs.data()));
     fd_solver->assert_expr(pb.mk_at_most_k(xs.size(), xs.data(), 1));
     for (unsigned i = 0; i < xs.size(); ++i) {
-        if (i != 5) clause.push_back(xs[i]);
+        if (i != 5) clause.push_back(xs[i].get());
     }
     clause.push_back(m.mk_not(y));
     fd_solver->assert_expr(m.mk_or(clause));
@@ -219,14 +219,14 @@ static void test_cardinality_consequences_after_check() {
     ENSURE(m.is_true(value));
 
     expr_ref_vector asms(m), vars(m), conseq(m);
-    asms.push_back(xs[5]);
+    asms.push_back(xs[5].get());
     vars.push_back(y);
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
     ENSURE(conseq.size() == 1);
-    ENSURE(m.are_equal(conseq[0], m.mk_implies(xs[5], m.mk_not(y))));
+    ENSURE(m.are_equal(conseq[0].get(), m.mk_implies(xs[5].get(), m.mk_not(y))));
 
     expr_ref_vector check_asms(m);
-    check_asms.push_back(xs[5]);
+    check_asms.push_back(xs[5].get());
     check_asms.push_back(y);
     VERIFY(l_false == fd_solver->check_sat(check_asms));
 }
