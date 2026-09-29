@@ -63,6 +63,7 @@ add_executable(test-z3
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
+  grobner.cpp
   hashtable.cpp
   heap.cpp
   heap_trie.cpp

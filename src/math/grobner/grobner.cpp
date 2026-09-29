@@ -435,10 +435,10 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
     SASSERT(&m_del_monomials != &monomials);
     ptr_vector<monomial>& to_delete = m_del_monomials;
     to_delete.reset();
-    m_manager.limit().inc(sz);
     for (unsigned i = 1; i < sz; ++i) {
         monomial * m1 = monomials[j];
         monomial * m2 = monomials[i];
+        inc(*m2);
         if (is_eq_monomial_body(m1, m2)) {
             m1->m_coeff += m2->m_coeff;
             to_delete.push_back(m2);
@@ -576,6 +576,7 @@ void grobner::mul_append(unsigned start_idx, equation const * source, rational c
     unsigned sz = source->get_num_monomials();
     for (unsigned i = start_idx; i < sz; ++i) {
         monomial const * m = source->get_monomial(i);
+        inc(*m);
         monomial * new_m   = alloc(monomial);
         new_m->m_coeff     = m->m_coeff;
         new_m->m_coeff    *= coeff;
@@ -612,6 +613,11 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
     return r;
 }
 
+void grobner::inc(monomial const & m) {
+    unsigned words = 1 + m.m_coeff.bitsize() / 32;
+    m_manager.inc(words);
+}
+
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
@@ -638,6 +644,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         ptr_vector<expr>  & rest = m_tmp_vars1;
         for (; i < sz; ++i) {
             monomial * curr = target->m_monomials[i];
+            inc(*curr);
             rest.reset();
             if (is_subset(LT, curr, rest)) {
                 if (i == 0)
@@ -797,6 +804,7 @@ void grobner::simplify_to_process(equation * eq) {
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
     for (equation* curr : m_to_process) {
+        inc(*curr->m_monomials[0]);
         equation * new_curr = simplify(eq, curr);
         if (new_curr != nullptr && new_curr != curr) {
             m_equations_to_unfreeze.push_back(curr);
@@ -826,6 +834,8 @@ bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> &
     unsigned sz1 = m1->m_vars.size();
     unsigned sz2 = m2->m_vars.size();
     while (true) {
+        inc(*m1);
+        inc(*m2);
         if (i1 >= sz1) {
             if (found_M) {
                 for (; i2 < sz2; ++i2) 
@@ -899,6 +909,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
 */
 void grobner::superpose(equation * eq) {
     for (equation * curr : m_processed) {
+        inc(*curr->m_monomials[0]);
         superpose(eq, curr);
     }
 }
@@ -955,4 +966,3 @@ void grobner::get_equations(ptr_vector<equation> & result) const {
     copy_to(m_processed, result);
     copy_to(m_to_process, result);
 }
-
