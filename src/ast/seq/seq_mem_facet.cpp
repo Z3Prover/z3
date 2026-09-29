@@ -416,9 +416,28 @@ namespace seq {
             if (!f.witness_extracted() && !f.memberships().empty()) {
                 view_witness& vw = f.vw();
 
-                vector<std::pair<expr*, rational>> lens;
+                // Length requirements to force onto the witness search:
+                // an exact known length value for a single-variable
+                // plain membership's own variable, recovered from the
+                // search tree's own arithmetic sub-solver (`solver_facet_i
+                // ::value`, the same source already trusted by
+                // `theory_nseq::mk_value`'s `mk_length_correct_fresh_
+                // value` fallback) - NOT the ambient `theory_lra`/
+                // `arith_value`-based `lower_bound`/`upper_bound`, which
+                // (unlike classic theory_seq) never actually see
+                // nseq's string-length literals: those are opaque
+                // Boolean atoms theory_nseq feeds directly into its own
+                // per-node `solver_facet` (see `flush_assigned_
+                // literals`), and never touch theory_lra at all - so an
+                // nseq-side analogue of `seq_regex.cpp`'s LO/HI/LEN
+                // candidate-bound loop must query that sub-solver
+                // instead. This forces witnesses to match the length
+                // the arithmetic side has already committed to.
+                struct len_req { expr* v; unsigned len; };
+                vector<len_req> lens;
                 {
                     expr_mark seen;
+                    auto& sf = ac.solver_facet_ref();
                     for (auto const& sm : f.memberships()) {
                         if (!sm.active() || sm.m_str.size() != 1)
                             continue;
@@ -426,24 +445,23 @@ namespace seq {
                         if (seen.is_marked(v))
                             continue;
                         seen.mark(v);
+                        expr_ref len_expr(u.str.mk_length(v), m);
                         rational k;
-                        if (!ac.current_value(u.str.mk_length(v), k) || !k.is_unsigned())
-                            continue;
-                        lens.push_back({v, k});
+                        if (sf.value(len_expr, k) && k.is_unsigned())
+                            lens.push_back({v, k.get_unsigned()});
                     }
                 }
                 if (!lens.empty()) {
                     auto& sf = ac.solver_facet_ref();
                     arith_util& au = sf.get_arith_util();
                     assumption_facet& asf = ac.assumption_facet_ref();
-                    for (auto const& [v, k] : lens) {
-                        expr_ref len_eq(m.mk_eq(u.str.mk_length(v), au.mk_int(k)), m);
+                    for (auto const& req : lens) {
+                        expr_ref len_eq(m.mk_eq(u.str.mk_length(req.v), au.mk_int(req.len)), m);
                         eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context());
-                        sort* re_sort = u.re.mk_re(v->get_sort());
+                        sort* re_sort = u.re.mk_re(req.v->get_sort());
                         app* full_char = u.re.mk_full_char(re_sort);
-                        unsigned k_u = k.get_unsigned();
-                        expr_ref exact(u.re.mk_loop_proper(full_char, k_u, k_u), m);
-                        vw.add(v, view::membership(exact, m), static_cast<void*>(cond_dep));
+                        expr_ref exact(u.re.mk_loop_proper(full_char, req.len, req.len), m);
+                        vw.add(req.v, view::membership(exact, m), static_cast<void*>(cond_dep));
                     }
                 }
 
