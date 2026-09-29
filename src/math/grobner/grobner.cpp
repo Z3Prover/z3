@@ -615,8 +615,7 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
 
 void grobner::inc(monomial const & m) {
     unsigned words = 1 + m.m_coeff.bitsize() / 32;
-    while (words-- > 0)
-        m_manager.inc();
+    m_manager.inc(words);
 }
 
 /**
