@@ -123,7 +123,7 @@ step is to attach it to an FF theory lemma with exact premises, then certify
 preprocessing, disequality witnesses and finite-field root reasoning.
 
 For validation and bounded cost measurements, see
-[QF_FF_CERTIFICATES_MILESTONE1.md](QF_FF_CERTIFICATES_MILESTONE1.md).
+[QF_FF_CERTIFICATES_MILESTONE1.md](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_CERTIFICATES_MILESTONE1.md).
 The remainder of this document is the contract for full v2, not a claim that
 these additional obligations are implemented.
 
@@ -197,7 +197,7 @@ the eventual full-v2 serialization.
 The public [FMCAD 2026 finite-field proof artifact](https://zenodo.org/records/20133205)
 provides an Alethe/Carcara/FFPacheck pipeline and a separate Lean-SMT/CPC
 pipeline. Its published results and our fresh 390-input certificate coverage
-screen are recorded in [QF_FF_FMCAD_PROOF_BENCHMARK.md](QF_FF_FMCAD_PROOF_BENCHMARK.md).
+screen are recorded in [QF_FF_FMCAD_PROOF_BENCHMARK.md](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_FMCAD_PROOF_BENCHMARK.md).
 That screen is historical: the [second milestone](QF_FF_PROOF_PIPELINE.md) now
 checks 135/390 inputs with the public companion Carcara/FFPacheck sources. The
 artifact image's exact binaries and the CPC/Lean path remain unevaluated.

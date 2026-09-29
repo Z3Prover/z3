@@ -47,10 +47,10 @@ disable this SMT pass; `ff root clauses` counts its emitted clauses.
 The polynomial engine also recognizes a*X²+c=0 when -c/a has an integer-square
 representative, directly enumerating the complete ±r root set. Other quadratics
 continue through the existing field-membership gcd and root factorization.
-See [QF_FF_ROOT_BENCHMARKS.md](QF_FF_ROOT_BENCHMARKS.md) for the measurements.
+See [QF_FF_ROOT_BENCHMARKS.md](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_ROOT_BENCHMARKS.md) for the measurements.
 
-Current equality facts and models are rebuilt after backtracking. Basis reuse
-across assignments and checks remains a future optimization. Model factories
+Current equality facts and models are rebuilt after backtracking. A bounded exact basis cache can reuse compatible problems across assignments
+and checks. Model factories
 never invent extra elements when a field's finite domain is full.
 
 ## Exact fallback and lifecycle
@@ -65,9 +65,10 @@ and decode:BV_w->F_p, with w=ceil(log2(p)), enforce:
   reduction so machine-width overflow cannot change the result.
 
 Congruence gives both directions of equality preservation, including finite
-cardinality across theory boundaries. The bridge stays enabled in that SMT
-context once selected; helpers must not later become unconstrained native
-variables. Definition caches are invalidated on pop and at a new search, so
+cardinality across theory boundaries. Fallback is selected independently for each field, after checking the other
+fields for native conflicts. A bridge stays enabled while its decoder enodes
+survive; helpers must not later become unconstrained native variables. Popping
+the last such enode permits native solving for that field again. Definition caches are invalidated on pop and at a new search, so
 popped or interrupted axioms are re-emitted. Resource cancellation returns
 unknown; it is not a reason to start a fresh expensive fallback. Private helpers
 are hidden from returned models.
@@ -91,19 +92,19 @@ Boolean field domains to the shared SAT search, including compound and foreign
 field terms. It defaults to false because these clauses hurt some mixed SAT
 searches. Both changes preserve conditional explanations; neither propagates
 values merely sampled for a candidate model. See the
-[generalization experiment](QF_FF_PERFORMANCE_ROUND5.md).
+[generalization experiment](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_PERFORMANCE_ROUND5.md).
 
 The default `ff.bit_bounds` rule also propagates algebraic consequences of proved
 Boolean domains using signed integer intervals and exact modulus-multiple tests.
 It retains the domain/pin dependencies needed by a shared-theory conflict. This
 adds no eager Boolean-domain split clauses. Disjunctive-domain rewriting is part
 of QF_FF preprocessing (`ff.disjunctive_bits`), not an unconditional native SMT
-rewrite of arbitrary Boolean structure. See [round 6](QF_FF_PERFORMANCE_ROUND6.md).
+rewrite of arbitrary Boolean structure. See [round 6](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_PERFORMANCE_ROUND6.md).
 
 Quantified solving is not an acceptance claim. Proof production remains
 explicitly unsupported; see [QF_FF_CERTIFICATES.md](QF_FF_CERTIFICATES.md).
 
-## Validation (2026-09-22)
+## Regression coverage
 
 Release and Debug pass both combination suites. Coverage includes:
 
@@ -140,7 +141,7 @@ PYTHONPATH=build-ff-cmake/python Z3_LIBRARY_PATH=build-ff-cmake \
 
 The table below records the native-combination baseline before the root-clause
 optimization. The subsequent before/after results are recorded in
-[QF_FF_ROOT_BENCHMARKS.md](QF_FF_ROOT_BENCHMARKS.md).
+[QF_FF_ROOT_BENCHMARKS.md](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_ROOT_BENCHMARKS.md).
 
 `benchmark_ff_combination.py` generates nonlinear mixed UF/array queries and
 one/four chained Poseidon permutations, over both cryptographic fields. It

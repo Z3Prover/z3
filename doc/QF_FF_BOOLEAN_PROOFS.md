@@ -1,7 +1,7 @@
 # Checked Boolean/ITE reasoning and deep inputs: third v2 milestone
 
 For the subsequent search improvements and current **355/390** checked coverage,
-see [the fourth milestone](QF_FF_PROOF_SEARCH.md). The results below record the
+see [the fourth milestone](https://github.com/RSoulatIOHK/z3/blob/0a5210c9009ba5595521c39cefa7ef0a7b1d46aa/doc/QF_FF_PROOF_SEARCH.md). The results below record the
 original Boolean/ITE milestone.
 
 The standalone proof pipeline now handles general Boolean combinations of
