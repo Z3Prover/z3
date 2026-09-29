@@ -240,6 +240,7 @@ namespace bv {
     };
 }
 
+#ifndef SINGLE_THREAD
 class test_sat_internalizer : public sat::sat_internalizer {
 public:
     bool is_bool_op(expr* e) const override { return false; }
@@ -277,6 +278,7 @@ static void test_best_phase() {
     sls.set_has_new_best_phase(false);
     VERIFY(!sat.has_new_best_phase());
 }
+#endif
 
 
 [[maybe_unused]] static void test_eval1() {
@@ -324,7 +326,9 @@ static void test_best_phase() {
 }
 
 void tst_sls_test() {
+#ifndef SINGLE_THREAD
     test_best_phase();
+#endif
     //test_eval1();
     //test_repair1();
 
