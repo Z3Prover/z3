@@ -396,7 +396,7 @@ namespace smt {
         expr_ref lhs(u().mk_fun_defined(d, args), m);
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
         if (has_real_quantifiers(rhs)) {
-            expr_ref fn(m.mk_fresh_const("rec-eq", m.mk_bool_sort()), m);
+            expr_ref fn(m.mk_fresh_const("rec-eq", rhs->get_sort()), m);
             expr_ref eq(m.mk_eq(fn, rhs), m);
             ctx.assert_expr(eq);
             ctx.internalize_assertions();
