@@ -1675,7 +1675,9 @@ namespace lp {
             // Sort by term_weight descending
             std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
                       [this](unsigned j1, unsigned j2) {
-                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
+                          unsigned w1 = term_weight(lra.get_term(j1));
+                          unsigned w2 = term_weight(lra.get_term(j2));
+                          return w1 != w2 ? w1 > w2 : j1 < j2;
                       });
         
             lia_move r = lia_move::undef;
