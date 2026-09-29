@@ -39,6 +39,24 @@ def main():
     run(z3, '(simplify (as #f5m7 (_ FiniteField 11)))', error=True)
     run(z3, '(set-logic QF_UF)(declare-const x (_ FiniteField 7))', error=True)
     assert run(z3, '(declare-const c Bool)(simplify (= (ite c #f1m7 #f2m7) #f1m7))').strip() == 'c'
+    # Compound sorts must print and parse native indexed field sorts, including
+    # moduli too large for the parser's unsigned-index declaration metadata.
+    for prime in [7, 2305843009213693951,
+                  21888242871839275222246405745257275088548364400416034343698204186575808495617]:
+        field = f'(_ FiniteField {prime})'
+        for container, value in [
+            (f'(Array Int {field})', f'((as const (Array Int {field})) #f2m{prime})'),
+            (f'(Seq {field})', f'(seq.unit #f2m{prime})'),
+            (f'(Array Int (Seq {field}))',
+             f'((as const (Array Int (Seq {field}))) (seq.unit #f2m{prime}))'),
+        ]:
+            source = f'(set-logic ALL)(declare-const a {container})(assert (= a {value}))'
+            output = run(z3, source + '(check-sat)(get-model)', ['model_validate=true'])
+            assert output.startswith('sat\n(') and container in ' '.join(output.split()), output
+            # Reparse the printed definitions in a fresh command context.
+            model = output.split('\n', 1)[1].strip()
+            assert model.startswith('(') and model.endswith(')'), model
+            assert run(z3, model[1:-1] + '(check-sat)').strip() == 'sat'
     src = '''(set-logic QF_FF)
 (declare-const x (_ FiniteField 7))
 (assert (= (ff.mul x x) #f2m7))
