@@ -126,7 +126,7 @@ struct check_logic::imp {
         else if (logic == "QF_AX") {
             m_arrays = true;
         }
-        else if (logic == "QF_FF") {
+        else if (smt_logics::logic_is_ff(logic)) {
             // Only Boolean structure and prime-field terms.
         }
         else if (logic == "QF_BV") {
