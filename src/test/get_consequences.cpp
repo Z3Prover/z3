@@ -211,6 +211,12 @@ static void test_cardinality_consequences_after_check() {
     clause.push_back(m.mk_not(y));
     fd_solver->assert_expr(m.mk_or(clause));
     VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+    model_ref mdl;
+    fd_solver->get_model(mdl);
+    model_evaluator eval(*mdl);
+    expr_ref value(m);
+    eval(y, value);
+    ENSURE(m.is_true(value));
 
     expr_ref_vector asms(m), vars(m), conseq(m);
     asms.push_back(xs[5]);
