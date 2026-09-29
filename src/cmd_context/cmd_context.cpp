@@ -889,7 +889,6 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_builtin_ops(basic);
         // the manager was created by the command context.
         register_plugin(symbol("arith"),    alloc(arith_decl_plugin), logic_has_arith());
-        register_plugin(symbol("ff"), alloc(ff_decl_plugin), !has_logic() || smt_logics::logic_has_ff(m_logic));
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
@@ -901,6 +900,8 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
         register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin), !has_logic() || smt_logics::logic_has_finite_sets(m_logic));
+        // Preserve existing theory family IDs when adding finite fields.
+        register_plugin(symbol("ff"), alloc(ff_decl_plugin), !has_logic() || smt_logics::logic_has_ff(m_logic));
     }
     else {
         // the manager was created by an external module
@@ -909,7 +910,6 @@ void cmd_context::init_manager_core(bool new_manager) {
         svector<family_id> fids;
         m_manager->get_range(fids);
         load_plugin(symbol("arith"),    logic_has_arith(), fids);
-        load_plugin(symbol("ff"), !has_logic() || smt_logics::logic_has_ff(m_logic), fids);
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
@@ -919,6 +919,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
         load_plugin(symbol("finite_set"), smt_logics::logic_has_finite_sets(m_logic) || !has_logic(), fids);
+        load_plugin(symbol("ff"), !has_logic() || smt_logics::logic_has_ff(m_logic), fids);
 
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);

@@ -19,6 +19,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--z3', required=True)
     z3 = p.parse_args().z3
+    # Adding a theory must preserve existing family IDs: renumbering them
+    # changes AST hashes and even the printed model for a field-free script.
+    # This snapshot matches upstream and failed with early FF registration.
+    unrelated = '(declare-const a String)(declare-const b String)' \
+                '(assert (= a "abc"))(assert (= b "de"))(check-sat)(get-model)'
+    assert run(z3, unrelated) == 'sat\n(\n  (define-fun b () String\n    "de")\n  (define-fun a () String\n    "abc")\n)\n'
     for logic in ['', '(set-logic ALL)']:
         # Indexed native sorts must coexist with an old user-defined name.
         src = logic + '''

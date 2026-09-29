@@ -33,8 +33,6 @@ Revision History:
 #include "ast/finite_set_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
-    if (!m.get_plugin(m.mk_family_id("ff")))
-        m.register_plugin(symbol("ff"), alloc(ff_decl_plugin));
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
         m.register_plugin(symbol("arith"), alloc(arith_decl_plugin));
     }
@@ -71,4 +69,7 @@ void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("finite_set")))) {
         m.register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin));
     }
+    // Append new theories so existing theory family IDs and AST hashes stay stable.
+    if (!m.get_plugin(m.mk_family_id("ff")))
+        m.register_plugin(symbol("ff"), alloc(ff_decl_plugin));
 }
