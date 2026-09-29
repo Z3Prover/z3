@@ -755,6 +755,9 @@ namespace stx {
                 m_ids.insert(owned);
                 return id;
             }
+            constraint_i const* operator[](unsigned id) const {
+                return m_owned[id];
+            }
             unsigned size() const { return m_owned.size(); }
         };
         constraint_store                       m_constraint_store;
@@ -832,13 +835,14 @@ namespace stx {
         //                 every one of its literals is active right now,
         //                 so the core is fully contained in the current
         //                 node, which is therefore unsat.
-        bool try_rewatch(unsigned core_idx, std::unordered_set<unsigned> const& active) {
+        bool try_rewatch(unsigned core_idx, vector<constraint_i const*> const& active) {
             unsat_core_entry& e = m_unsat_cores[core_idx];
             unsigned old_id = e.lits[e.watch];
             for (unsigned i = 0; i < e.lits.size(); ++i) {
                 if (i == e.watch)
                     continue;
-                if (!active.count(e.lits[i])) {
+                auto c = m_constraint_store[e.lits[i]];
+                if (!active.contains(c)) {             
                     unwatch(old_id, core_idx);
                     e.watch = i;
                     watch(e.lits[i], core_idx);
@@ -866,29 +870,19 @@ namespace stx {
             // literals are themselves store-assigned ids - so this is a
             // pure query (find(), never intern()): a brand-new fact this
             // node happens to hold never grows the store on its own.
-            std::unordered_set<unsigned> active;
-            active.reserve(cs.size());
-            vector<unsigned> active_ids;
+            unsigned id;
             for (constraint_i const* c : cs) {
-                unsigned id;
-                if (m_constraint_store.find(*c, id)) {
-                    active.insert(id);
-                    active_ids.push_back(id);
-                }
-            }
-            for (unsigned id : active_ids) {
+                if (!m_constraint_store.find(*c, id))
+                    continue;
                 if (id >= m_watch_list.size())
                     continue;
-                // Snapshot: try_rewatch()/unwatch() mutate m_watch_list
-                // (including this very bucket), so the bucket itself must
-                // not be relied on past this point - copy it first.
-                vector<unsigned> watchers = m_watch_list[id];
-                for (unsigned core_idx : watchers) {
-                    if (!try_rewatch(core_idx, active)) {
+                for (unsigned j = 0; j < m_watch_list[id].size(); ++j) {
+                    auto core_idx = m_watch_list[id][j];
+                    if (!try_rewatch(core_idx, cs)) {
                         ++m_stats.m_num_cache_hits;
                         return true;
                     }
-                }
+                }                
             }
             return false;
         }
