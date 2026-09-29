@@ -289,6 +289,16 @@ void tst_smt_context()
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
 
+    // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
+    // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh
+    // constant (mk_bool_sort() instead of rhs->get_sort()), producing an ill-typed
+    // definitional axiom and a spurious `unsat`. t(1) = -1 is satisfiable: pick s == 0.
+    check_sat_smt_recfun(
+        "(declare-fun s (Int) Int)\n"
+        "(define-fun-rec t ((p Int)) Int\n"
+        "  (ite (<= p 0) 0 (+ (t (- p 1)) (ite (exists ((y Int)) (= (s y) (- p 1))) (- 1) 0))))\n"
+        "(assert (= (t 1) (- 1)))\n");
+
     check_sat_smt_model(
         "(declare-sort H 0)\n"
         "(declare-const h H)\n"
