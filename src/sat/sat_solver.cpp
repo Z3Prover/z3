@@ -3780,6 +3780,7 @@ namespace sat {
     void solver::pop_to_base_level() {
         reset_assumptions();
         pop(scope_lvl());
+        m_model_is_current = false;
     }
 
     // -----------------------
