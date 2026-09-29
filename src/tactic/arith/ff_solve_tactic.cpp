@@ -45,6 +45,14 @@ namespace {
                 algebra.geobucket = smt_params_helper(p).ff_geobucket();
                 algebra.small_coefficients = smt_params_helper(p).ff_small_coefficients();
                 algebra.compact_encoding = smt_params_helper(p).ff_compact_encoding();
+                algebra.f4 = smt_params_helper(p).ff_f4();
+                algebra.f4_max_quotient = smt_params_helper(p).ff_f4_max_quotient();
+                algebra.f4_budget_factor = smt_params_helper(p).ff_f4_budget();
+                algebra.f4_short_budget = smt_params_helper(p).ff_f4_short_budget();
+                algebra.f4_value_split = smt_params_helper(p).ff_f4_value_split();
+                algebra.f4_slice = smt_params_helper(p).ff_f4_slice();
+                algebra.tiny_search = smt_params_helper(p).ff_tiny();
+                algebra.tiny_budget = smt_params_helper(p).ff_tiny_budget();
 
             }
         ff::polynomial compact(ff::polynomial f, bool force = false) {
@@ -284,6 +292,14 @@ namespace {
             ds.insert("ff.compact_retry", CPK_BOOL, "retry the algebra tactic with compact definitions after an encoding size limit", "true");
             ds.insert("ff.compact_encoding", CPK_BOOL, "retain compact definitions when polynomial expansion would grow", "false");
             ds.insert("ff.enum_bits", CPK_UINT, "maximum residual bit inputs to enumerate (capped at 12)", "8");
+            ds.insert("ff.f4", CPK_BOOL, "use the fixed-width F4 backend with zero-dimensional model construction", "true");
+            ds.insert("ff.f4_max_quotient", CPK_UINT, "largest quotient-ring dimension explored by F4 model construction", "1024");
+            ds.insert("ff.f4_budget", CPK_UINT, "F4 work units allowed per unit of ff.max_steps", "40");
+            ds.insert("ff.f4_slice", CPK_UINT, "random x = r slices tried per level on positive-dimensional ideals in F4 model construction (SAT only)", "4");
+            ds.insert("ff.f4_value_split", CPK_BOOL, "in F4 model construction over small fields, enumerate the values of a free variable", "false");
+            ds.insert("ff.f4_short_budget", CPK_UINT, "F4 work units per unit of ff.max_steps on circuit-like systems (many Boolean variables)", "1");
+            ds.insert("ff.tiny", CPK_BOOL, "complete finite-domain search with forward checking over fields with p < 64", "true");
+            ds.insert("ff.tiny_budget", CPK_UINT, "tiny-field search work units per unit of ff.max_steps", "200");
         }
         void collect_statistics(statistics &st) const override {
             st.copy(m_stats);

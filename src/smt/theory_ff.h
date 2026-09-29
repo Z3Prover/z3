@@ -5,8 +5,11 @@
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include <map>
+#include <memory>
 
 namespace smt {
+    struct ff_encoding_cache;
     // Ground theory combination using modular algebra and model arrangements,
     // with an exact bounded BV representation when algebra is inconclusive.
     // Original field sorts/terms stay in the equality engine, so arrays,
@@ -23,8 +26,11 @@ namespace smt {
         unsigned root_clauses = 0;
         bool bv_mode = false;
         ff::basis_cache memo;
+        std::map<sort *, std::unique_ptr<ff_encoding_cache>> encodings;
         obj_hashtable<expr> constrained;
         obj_hashtable<expr> split_atoms;
+        obj_map<expr, expr *> root_norm;   // rewritten form of equality atoms, kept across scopes
+        expr_ref_vector root_norm_pins;
         obj_map<expr, rational> native_values;
         expr_ref_vector model_values;
 
@@ -61,6 +67,7 @@ namespace smt {
 
     public:
         explicit theory_ff(context &ctx);
+        ~theory_ff() override;
         theory *mk_fresh(context *ctx) override {
             return alloc(theory_ff, *ctx);
         }

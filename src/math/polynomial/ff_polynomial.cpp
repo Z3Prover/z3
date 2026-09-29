@@ -1,4 +1,6 @@
 #include "math/polynomial/ff_polynomial.h"
+#include "math/polynomial/ff_tiny.h"
+#include "math/polynomial/ff_f4.h"
 #include <algorithm>
 #include <iterator>
 #include <set>
@@ -70,6 +72,22 @@ namespace ff {
         st.update("ff mask skips", m_mask_skips);
         st.update("ff bucket reductions", m_bucket_reductions);
         st.update("ff small products", m_small_products);
+        st.update("ff tiny calls", tiny_calls);
+        st.update("ff tiny sat", tiny_sat);
+        st.update("ff tiny unsat", tiny_unsat);
+        st.update("ff tiny undef", tiny_undef);
+        st.update("ff tiny nodes", static_cast<double>(tiny_nodes));
+        st.update("ff f4 calls", f4_calls);
+        st.update("ff f4 bit heavy", f4_bit_heavy);
+        st.update("ff f4 steps", static_cast<double>(f4_steps));
+        st.update("ff f4 sat", f4_sat);
+        st.update("ff f4 unsat", f4_unsat);
+        st.update("ff f4 undef", f4_undef);
+        static char const *names[] = {"ff f4 gb calls", "ff f4 matrices", "ff f4 rows", "ff f4 new polys",
+                                      "ff f4 zero reductions", "ff f4 splits", "ff f4 minpolys", "ff f4 roots",
+                                      "ff f4 positive dim", "ff f4 large quotient", "ff f4 unsupported"};
+        for (unsigned i = 0; i < f4_counters.size(); ++i)
+            st.update(names[i], f4_counters[i]);
     }
     unsigned engine::propagate_bits(std::vector<polynomial> &eqs) {
         // Recognize the polynomial shape used by R1CS exporters as well as
@@ -477,6 +495,14 @@ namespace ff {
         probe.definition_variables = definition_variables;
         probe.root_completion = root_completion;
         probe.quotient_field = quotient_field;
+        probe.f4 = f4;
+        probe.f4_max_quotient = f4_max_quotient;
+        probe.f4_budget_factor = f4_budget_factor;
+        probe.f4_short_budget = f4_short_budget;
+        probe.f4_value_split = f4_value_split;
+        probe.f4_slice = f4_slice;
+        probe.tiny_search = tiny_search;
+        probe.tiny_budget = tiny_budget;
     }
     void engine::tick() {
         if (++work > max_work) {
@@ -1779,7 +1805,96 @@ namespace ff {
                 }
             }
         }
-        basis(eqs);
+        if (tiny_search && depth == 0 && p < rational(64) && !eqs.empty()) {
+            lbool r = tiny_solve(eqs, neqs, values);
+            if (r == l_true) {
+                restore();
+                return l_true;
+            }
+            if (r == l_false)
+                return l_false;
+        }
+        bool have_basis = false;
+        if (f4 && f4_supported(p)) {
+            // Complete for zero-dimensional ideals: a fixed-width F4 basis
+            // followed by minimal-polynomial root splitting. SAT answers are
+            // verified assignments, UNSAT answers carry the premises of every
+            // derivation used. Inconclusive runs leave the equations unchanged
+            // unless a reduced basis was obtained, which is an ideal-preserving
+            // replacement for the legacy basis computation below.
+            ++f4_calls;
+            f4_config cfg;
+            cfg.max_quotient_dim = f4_max_quotient;
+            cfg.value_split = f4_value_split;
+            cfg.slice_attempts = f4_slice;
+            f4_stats fst;
+            std::vector<rational> trial(values.size());
+            std::set<unsigned> core;
+            std::vector<polynomial> reduced;
+            lbool r = l_undef;
+            // F4 counts sparse row operations, which are much coarser than the
+            // legacy per-term ticks. It gets its own budget, proportional to the
+            // legacy one, so the legacy heuristics keep their full share when F4
+            // is inconclusive. Cancellation and resource limits still apply.
+            // Budget by shape. Circuit-like systems, where many variables carry
+            // a Boolean domain constraint a*x^2 - a*x, are usually decided
+            // faster by bit propagation, the legacy heuristics and the later
+            // SAT-based strategies, so F4 only gets a short attempt there.
+            // Algebraic systems get the full F4 budget.
+            // Tiny fields (p < 64) are treated alike: the legacy heuristics
+            // (guessing, enumeration, bit propagation) decide them faster than a
+            // full Groebner basis, which blows up on dense tiny-field systems.
+            // From p = 211 on (FFSAT crafted), the full F4 budget pays off.
+            bool small_field = p < rational(64);
+            bool bit_heavy = m_bit_heavy_input || small_field;
+            uint64_t f4_work = 0;
+            uint64_t stop = uint64_t(max_work) * (bit_heavy ? f4_short_budget : f4_budget_factor);
+            if (small_field)
+                stop /= 8;
+            if (bit_heavy)
+                ++f4_bit_heavy;
+            auto charge = [&](unsigned k) {
+                f4_work += k;
+                if (f4_work > stop)
+                    throw exhausted();
+                if (!limit.inc())
+                    throw exhausted();
+            };
+            try {
+                r = f4_solve(p, eqs, neqs, static_cast<unsigned>(values.size()), trial, core, cfg, fst, charge,
+                             &reduced);
+            }
+            catch (exhausted const &) {
+                r = l_undef;
+                reduced.clear();
+            }
+            unsigned const counts[] = {fst.m_gb_calls, fst.m_matrices, fst.m_rows, fst.m_new_polys,
+                                       fst.m_zero_reductions, fst.m_splits, fst.m_minpolys, fst.m_roots,
+                                       fst.m_positive_dim, fst.m_large_quotient, fst.m_unsupported};
+            for (unsigned i = 0; i < f4_counters.size(); ++i)
+                f4_counters[i] += counts[i];
+            f4_steps += f4_work;
+            if (limit.is_canceled())
+                throw exhausted();
+            if (r == l_true) {
+                ++f4_sat;
+                values = std::move(trial);
+                restore();
+                return l_true;
+            }
+            if (r == l_false) {
+                ++f4_unsat;
+                m_conflict = std::move(core);
+                return l_false;
+            }
+            ++f4_undef;
+            if ((f4_handback || !small_field) && !reduced.empty()) {
+                eqs = std::move(reduced);
+                have_basis = true;
+            }
+        }
+        if (!have_basis)
+            basis(eqs);
         if (quotient_field && depth == 0 && work < max_work) {
             engine probe(p, limit, std::min(50000u, (max_work - work) / 16),
                          std::min(max_terms, 512u), false, batch_enabled, false);
@@ -1978,8 +2093,93 @@ namespace ff {
         }
         return l_undef;
     }
+    lbool engine::tiny_solve(std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
+                             std::vector<rational> &values) {
+        // Exhaustive search over F_p^n with forward checking. Only reached for
+        // p < 64. UNSAT answers exhaust the whole space, so the premises of
+        // every constraint form the conflict.
+        std::map<unsigned, uint32_t> local;
+        std::vector<unsigned> global;
+        std::vector<tiny_constraint> cs;
+        uint32_t pp = p.get_unsigned();
+        auto convert = [&](polynomial const &f, bool is_neq) {
+            tiny_constraint c;
+            c.is_neq = is_neq;
+            for (auto const &[mon, coeff] : f) {
+                tiny_term t;
+                t.coef = mod(coeff, p).get_unsigned();
+                for (unsigned v : mon) {
+                    auto [it, fresh] = local.emplace(v, static_cast<uint32_t>(global.size()));
+                    if (fresh)
+                        global.push_back(v);
+                    t.vars.push_back(it->second);
+                }
+                std::sort(t.vars.begin(), t.vars.end());
+                c.terms.push_back(std::move(t));
+            }
+            cs.push_back(std::move(c));
+        };
+        for (auto const &f : eqs)
+            convert(f, false);
+        for (auto const &f : neqs)
+            convert(f, true);
+        ++tiny_calls;
+        uint64_t used = 0;
+        uint64_t stop = uint64_t(max_work) * tiny_budget;
+        auto charge = [&](unsigned k) {
+            used += k;
+            if (used > stop || !limit.inc())
+                throw exhausted();
+        };
+        tiny_stats ts;
+        std::vector<uint32_t> model;
+        lbool r = l_undef;
+        try {
+            r = ff::tiny_search(pp, static_cast<unsigned>(global.size()), cs, model, charge, ts);
+        }
+        catch (exhausted const &) {
+            r = l_undef;
+        }
+        tiny_nodes += ts.nodes;
+        if (limit.is_canceled())
+            throw exhausted();
+        if (r == l_true) {
+            ++tiny_sat;
+            for (unsigned i = 0; i < global.size(); ++i)
+                values[global[i]] = rational(model[i]);
+            return l_true;
+        }
+        if (r == l_false) {
+            ++tiny_unsat;
+            m_conflict.clear();
+            for (auto const &f : eqs)
+                m_conflict.insert(f.dependencies.begin(), f.dependencies.end());
+            for (auto const &f : neqs)
+                m_conflict.insert(f.dependencies.begin(), f.dependencies.end());
+            return l_false;
+        }
+        ++tiny_undef;
+        return l_undef;
+    }
     lbool engine::solve(std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                         std::vector<rational> &values) {
+        // Classify the input once, before elimination rewrites the Boolean
+        // domain constraints: circuit-like when at least 5% of the
+        // variables carry a constraint a*x^2 - a*x = 0.
+        {
+            std::set<unsigned> active, bits;
+            for (auto const &f : eqs) {
+                for (auto const &[mon, c] : f)
+                    active.insert(mon.begin(), mon.end());
+                if (f.size() == 2) {
+                    auto a = f.begin(), b = std::next(a);
+                    if (a->first.size() == 2 && b->first.size() == 1 && a->first[0] == a->first[1] &&
+                        a->first[0] == b->first[0] && mod(a->second + b->second, p).is_zero())
+                        bits.insert(b->first[0]);
+                }
+            }
+            m_bit_heavy_input = !active.empty() && 20 * bits.size() >= active.size();
+        }
         lbool r = solve_core(eqs, neqs, values, 0);
         if (r == l_true) {
             // Independently evaluate the input polynomials after reconstruction.

@@ -40,6 +40,9 @@ namespace ff {
     // Backend-independent modular polynomial arithmetic. All transformations below
     // are ideal operations or invertible variable eliminations. A future certificate
     // recorder can attach polynomial-combination witnesses at add_scaled/reduce.
+    struct f4_config;
+    struct f4_stats;
+
     class engine {
         // Unit tests exercise bounded matrix admission directly, without an
         // unrelated Groebner pair schedule deciding whether the cap is reached.
@@ -112,6 +115,8 @@ namespace ff {
                          unsigned depth);
 
         void split_consequences(std::vector<polynomial> &eqs);
+        lbool tiny_solve(std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
+                         std::vector<rational> &values);
         polynomial minimal_polynomial(unsigned v, std::vector<polynomial> const &bs);
         bool small_quotient(std::vector<polynomial> const &bs, std::set<unsigned> &vars);
         bool quotient_field_basis(std::vector<polynomial> &bs);
@@ -129,6 +134,24 @@ namespace ff {
         bool sugar_pairs = false, gm_pairs = false, div_masks = false, geobucket = false, small_coefficients = false, compact_encoding = false;
         bool linear_split = false, basis_bits = false, compact_matrix = false, model_search = false, bit_bounds = false;
         bool root_completion = false, quotient_field = false;
+        // Fixed-width F4 backend with zero-dimensional model construction.
+        bool f4 = true;
+        unsigned f4_max_quotient = 1024;
+        unsigned f4_budget_factor = 40;  // F4 work units allowed per legacy step (algebraic systems)
+        unsigned f4_short_budget = 1;     // same, for circuit-like systems with many Boolean variables
+        unsigned f4_bit_heavy = 0;
+        bool m_bit_heavy_input = false;
+        bool f4_value_split = false;
+        unsigned f4_slice = 4;  // random slices per level for positive-dimensional ideals (SAT only)
+        // Complete finite-domain search over tiny fields (p < 64).
+        bool tiny_search = true;
+        unsigned tiny_budget = 200;  // search work units per legacy step
+        unsigned tiny_calls = 0, tiny_sat = 0, tiny_unsat = 0, tiny_undef = 0;
+        uint64_t tiny_nodes = 0;
+        bool f4_handback = false;  // also hand inconclusive F4 bases to the legacy heuristics over small fields
+        uint64_t f4_steps = 0;
+        unsigned f4_calls = 0, f4_sat = 0, f4_unsat = 0, f4_undef = 0;
+        std::vector<unsigned> f4_counters = std::vector<unsigned>(11, 0);
         engine(rational const &p, reslimit &limit, unsigned max_work = 200000, unsigned max_terms = 4096,
                bool bit_propagation = true, bool batch_enabled = true, bool sparse_enabled = true)
             : p(p), limit(limit), max_work(max_work), max_terms(max_terms), bit_propagation(bit_propagation),

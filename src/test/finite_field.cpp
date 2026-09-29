@@ -1,5 +1,9 @@
 #include "math/polynomial/ff_polynomial.h"
 #include "math/polynomial/ff_certificate.h"
+#include "math/polynomial/ff_f4.h"
+#include "math/polynomial/ff_tiny.h"
+#include "math/polynomial/ff_field.h"
+
 #include "util/debug.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ff_decl_plugin.h"
@@ -531,12 +535,334 @@ static void test_certificates() {
     std::cout << "Certificate reconstruction: output atomicity, input preservation, budget/cancellation recovery over three fields\n";
 }
 
+
+#if Z3_FF_HAS_UINT128
+template <class F>
+static void check_field_arithmetic(rational const &p, unsigned rounds) {
+    F f(p);
+    uint64_t state = 88172645463325252ull;
+    auto next = [&]() {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        return state;
+    };
+    auto sample = [&]() {
+        rational r(0);
+        for (unsigned i = 0; i < 5; ++i)
+            r = r * rational::power_of_two(64) + rational(next(), rational::ui64());
+        // Include boundary values.
+        switch (next() % 8) {
+        case 0: return rational(0);
+        case 1: return p - rational(1);
+        case 2: return rational(1);
+        default: return mod(r, p);
+        }
+    };
+    for (unsigned i = 0; i < rounds; ++i) {
+        rational a = sample(), b = sample();
+        auto x = f.from(a), y = f.from(b);
+        ENSURE(f.to(x) == a && f.to(y) == b);
+        ENSURE(f.to(f.add(x, y)) == mod(a + b, p));
+        ENSURE(f.to(f.sub(x, y)) == mod(a - b, p));
+        ENSURE(f.to(f.mul(x, y)) == mod(a * b, p));
+        ENSURE(f.to(f.neg(x)) == mod(-a, p));
+        if (!a.is_zero())
+            ENSURE(f.to(f.mul(x, f.inv(x))) == rational(1));
+    }
+}
+
+static void test_ff_f4_guards() {
+    reslimit limit;
+    ff::engine e(rational(7), limit);
+    auto x = e.variable(0);
+    auto eq = e.add(x, e.constant(rational(-1)));
+    eq.dependencies.insert(17);
+    ff::f4_config cfg;
+    ff::f4_stats stats;
+    std::vector<rational> values{rational(42)};
+    std::set<unsigned> core{99};
+    auto charge = [](unsigned) {};
+    cfg.max_vars = 1;
+    ENSURE(ff::f4_solve(rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_undef);
+    ENSURE(values[0] == rational(42) && core == std::set<unsigned>{99});
+    cfg.max_vars = 2;
+    ENSURE(ff::f4_solve(rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_true);
+    ENSURE(!values[0].is_zero());
+    cfg.max_monomials = 1;
+    bool stopped = false;
+    try { ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge); }
+    catch (ff::exhausted const &) { stopped = true; }
+    ENSURE(stopped);
+    cfg.max_monomials = 1024;
+    ENSURE(ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
+    ENSURE(values[0].is_one());
+    // Do not allow the input conversion to wrap a uint16 exponent to zero:
+    // x^65536 = 0 has a solution; truncation would turn it into 1 = 0.
+    ff::polynomial high;
+    high.emplace(ff::monomial(65536, 0), rational(1));
+    stopped = false;
+    try { ff::f4_solve(rational(7), {high}, {}, 1, values, core, cfg, stats, charge); }
+    catch (ff::exhausted const &) { stopped = true; }
+    ENSURE(stopped);
+    ff::polynomial many;
+    for (unsigned degree = 1; degree <= 300; ++degree)
+        many.emplace(ff::monomial(degree, 0), rational(1));
+    stopped = false;
+    unsigned callbacks = 0;
+    try {
+        ff::f4_solve(rational(7), {many}, {}, 1, values, core, cfg, stats,
+                     [&](unsigned) { ++callbacks; throw ff::exhausted(); });
+    }
+    catch (ff::exhausted const &) { stopped = true; }
+    ENSURE(stopped && callbacks == 1);
+    ENSURE(ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
+    std::cout << "F4 guards: auxiliary variables, monomial admission, exponent overflow, cancellation and reuse\n";
+}
+
+static void test_ff_f4() {
+    test_ff_f4_guards();
+    // Fixed-width arithmetic, including a modulus whose top limb exceeds
+    // 2^63 (general CIOS path) and BN254 / BLS12-381 (no-carry path).
+    check_field_arithmetic<ff::field64>(rational(2147483647), 2000);
+    check_field_arithmetic<ff::field64>(rational::power_of_two(61) - rational(1), 2000);
+    check_field_arithmetic<ff::field64>(rational(7), 200);
+    check_field_arithmetic<ff::field256>(
+        rational("21888242871839275222246405745257275088548364400416034343698204186575808495617"), 2000);
+    check_field_arithmetic<ff::field256>(
+        rational("52435875175126190479447740508185965837690552500527637822603658699938581184513"), 2000);
+    check_field_arithmetic<ff::field256>(rational::power_of_two(256) - rational(189), 2000);
+
+    // F4 against exhaustive enumeration: SAT answers are models, UNSAT cores
+    // exclude every assignment (so the conflict clause is valid).
+    for (unsigned prime : {3u, 5u, 7u}) {
+        reslimit limit;
+        ff::engine builder(rational(prime), limit, 100000000);
+        uint64_t state = 12345 + prime;
+        auto next = [&]() {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            return static_cast<unsigned>(state % 1000003);
+        };
+        for (unsigned round = 0; round < 300; ++round) {
+            unsigned nv = 1 + next() % 3, ne = 1 + next() % 3, nn = next() % 2;
+            auto random_poly = [&](unsigned dep) {
+                ff::polynomial f;
+                unsigned terms = 1 + next() % 4;
+                for (unsigned t = 0; t < terms; ++t) {
+                    ff::monomial mon;
+                    unsigned deg = next() % 3;
+                    for (unsigned d = 0; d < deg; ++d)
+                        mon.push_back(next() % nv);
+                    std::sort(mon.begin(), mon.end());
+                    builder.add_term(f, mon, rational(next() % prime));
+                }
+                f.dependencies.insert(dep);
+                return f;
+            };
+            std::vector<ff::polynomial> eqs, neqs;
+            for (unsigned i = 0; i < ne; ++i)
+                eqs.push_back(random_poly(i));
+            for (unsigned i = 0; i < nn; ++i)
+                neqs.push_back(random_poly(ne + i));
+            std::vector<rational> values(nv, rational(0));
+            std::set<unsigned> core;
+            ff::f4_config cfg;
+            ff::f4_stats st;
+            auto charge = [](unsigned) {};
+            lbool r = ff::f4_solve(rational(prime), eqs, neqs, nv, values, core, cfg, st, charge);
+            auto eval = [&](ff::polynomial const &f, std::vector<rational> const &a) {
+                rational acc(0);
+                for (auto const &[mon, c] : f) {
+                    rational t = c;
+                    for (unsigned v : mon)
+                        t *= a[v];
+                    acc += t;
+                }
+                return mod(acc, rational(prime));
+            };
+            bool any = false;
+            std::vector<rational> a(nv);
+            unsigned total = 1;
+            for (unsigned i = 0; i < nv; ++i)
+                total *= prime;
+            for (unsigned code = 0; code < total; ++code) {
+                unsigned c = code;
+                for (unsigned i = 0; i < nv; ++i, c /= prime)
+                    a[i] = rational(c % prime);
+                bool ok = true, core_ok = true;
+                for (unsigned i = 0; i < eqs.size(); ++i) {
+                    bool holds = eval(eqs[i], a).is_zero();
+                    ok &= holds;
+                    if (core.contains(i))
+                        core_ok &= holds;
+                }
+                for (unsigned i = 0; i < neqs.size(); ++i) {
+                    bool holds = !eval(neqs[i], a).is_zero();
+                    ok &= holds;
+                    if (core.contains(ne + i))
+                        core_ok &= holds;
+                }
+                any |= ok;
+                if (r == l_false)
+                    ENSURE(!core_ok);
+            }
+            if (r == l_true) {
+                ENSURE(any);
+                for (auto const &f : eqs)
+                    ENSURE(eval(f, values).is_zero());
+                for (auto const &f : neqs)
+                    ENSURE(!eval(f, values).is_zero());
+            }
+            if (r == l_false)
+                ENSURE(!any);
+        }
+    }
+
+    // Zero-dimensional model construction over BN254: x*y = 6, x + y = 5.
+    {
+        rational p("21888242871839275222246405745257275088548364400416034343698204186575808495617");
+        reslimit limit;
+        ff::engine e(p, limit);
+        auto x = e.variable(0), y = e.variable(1);
+        auto f = e.add(e.mul(x, y), e.constant(rational(-6)));
+        auto g = e.add(e.add(x, y), e.constant(rational(-5)));
+        std::vector<rational> values(2, rational(0));
+        std::set<unsigned> core;
+        ff::f4_config cfg;
+        ff::f4_stats st;
+        auto charge = [](unsigned) {};
+        ENSURE(ff::f4_solve(p, {f, g}, {}, 2, values, core, cfg, st, charge) == l_true);
+        ENSURE(mod(values[0] * values[1], p) == rational(6) && mod(values[0] + values[1], p) == rational(5));
+        ENSURE(st.m_minpolys >= 1);
+        // x^2 = 3 has no root when 3 is a quadratic non-residue; BN254 - 1 is
+        // divisible by 3, so use x^2 = -1 * r with r a non-residue found by Euler's test.
+        rational r(5);
+        while (true) {
+            // Euler: r^((p-1)/2) == -1 mod p.
+            rational e2 = div(p - rational(1), rational(2)), acc(1), base = r;
+            while (e2.is_pos()) {
+                if (!mod(e2, rational(2)).is_zero())
+                    acc = mod(acc * base, p);
+                base = mod(base * base, p);
+                e2 = div(e2, rational(2));
+            }
+            if (acc == p - rational(1))
+                break;
+            r += rational(1);
+        }
+        auto h = e.add(e.mul(x, x), e.constant(-r));
+        h.dependencies.insert(7);
+        core.clear();
+        ENSURE(ff::f4_solve(p, {h}, {}, 2, values, core, cfg, st, charge) == l_false);
+        ENSURE(core == std::set<unsigned>({7}));
+    }
+}
+
+#else
+static void test_ff_f4() {
+    ff::f4_config cfg;
+    ff::f4_stats stats;
+    std::vector<rational> values{rational(42)};
+    std::set<unsigned> core{7};
+    ENSURE(!ff::f4_supported(rational(7)));
+    ENSURE(ff::f4_solve(rational(7), {}, {}, 1, values, core, cfg, stats, [](unsigned) {}) == l_undef);
+    ENSURE(values[0] == rational(42) && core == std::set<unsigned>{7});
+    ENSURE(stats.m_unsupported == 1);
+}
+#endif
+
+
+// Tiny-field search against exhaustive enumeration: random systems of
+// equations and disequations over F_p, p < 64.
+static void test_ff_tiny() {
+    // Deep finite search uses a heap choice stack, even for independent
+    // variables. Re-run after an interrupted attempt to check local cleanup.
+    std::vector<uint32_t> model;
+    ff::tiny_stats stats;
+    bool stopped = false;
+    try {
+        ff::tiny_search(3, 12000, {}, model, [](unsigned n) { if (n) throw ff::exhausted(); }, stats);
+    }
+    catch (ff::exhausted const &) { stopped = true; }
+    ENSURE(stopped && model.empty());
+    ENSURE(ff::tiny_search(3, 12000, {}, model, [](unsigned) {}, stats) == l_true);
+    ENSURE(model.size() == 12000 && std::all_of(model.begin(), model.end(), [](unsigned v) { return v == 0; }));
+    uint64_t seed = 12345;
+    auto rnd = [&](unsigned k) {
+        seed = seed * 6364136223846793005ull + 1442695040888963407ull;
+        return static_cast<unsigned>((seed >> 33) % k);
+    };
+    unsigned sat = 0, unsat = 0;
+    for (unsigned round = 0; round < 600; ++round) {
+        unsigned const primes[] = {2, 3, 5, 7, 13, 61};
+        uint32_t p = primes[rnd(6)];
+        unsigned n = 1 + rnd(p <= 7 ? 5 : 3);
+        std::vector<ff::tiny_constraint> cs(1 + rnd(6));
+        for (auto &c : cs) {
+            c.is_neq = rnd(4) == 0;
+            unsigned terms = 1 + rnd(4);
+            for (unsigned t = 0; t < terms; ++t) {
+                ff::tiny_term tm;
+                tm.coef = rnd(p);
+                unsigned d = rnd(4);
+                for (unsigned k = 0; k < d; ++k)
+                    tm.vars.push_back(rnd(n));
+                std::sort(tm.vars.begin(), tm.vars.end());
+                c.terms.push_back(tm);
+            }
+        }
+        auto holds = [&](std::vector<uint32_t> const &a) {
+            for (auto const &c : cs) {
+                uint64_t s = 0;
+                for (auto const &t : c.terms) {
+                    uint64_t x = t.coef;
+                    for (uint32_t v : t.vars)
+                        x = x * a[v] % p;
+                    s += x;
+                }
+                if ((s % p == 0) == c.is_neq)
+                    return false;
+            }
+            return true;
+        };
+        bool exists = false;
+        std::vector<uint32_t> a(n, 0);
+        for (;;) {
+            if (holds(a)) {
+                exists = true;
+                break;
+            }
+            unsigned k = 0;
+            while (k < n && ++a[k] == p)
+                a[k++] = 0;
+            if (k == n)
+                break;
+        }
+        std::vector<uint32_t> model;
+        ff::tiny_stats st;
+        lbool r = ff::tiny_search(p, n, cs, model, [](unsigned) {}, st);
+        ENSURE(r == (exists ? l_true : l_false));
+        if (r == l_true) {
+            ENSURE(holds(model));
+            ++sat;
+        }
+        else
+            ++unsat;
+    }
+    ENSURE(sat > 50 && unsat > 50);
+}
+
 void tst_finite_field() {
+    test_ff_tiny();
+    test_ff_f4();
     test_certificates();
     ff::test_engine::adaptive_basis_storage();
     ff::test_engine::sparse_matrix_selection();
     ff::test_engine::work_accounting();
     ff::test_engine::fused_reduction_equivalence();
+
     ff::test_engine::minimal_polynomial_provenance();
     ff::test_engine::minimal_polynomial_guard_budget();
     ff::test_engine::lazy_matrix_equivalence();

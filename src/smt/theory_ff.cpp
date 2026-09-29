@@ -9,13 +9,34 @@
 #include <memory>
 
 namespace smt {
+    // Polynomial encodings of field terms, shared across final checks.
+    // Encoding a term only depends on the term (and on the variable ids given
+    // to foreign atoms), so it can be reused as long as the keys stay alive;
+    // every key is pinned here. Not used with compact encodings, whose fresh
+    // definitional variables belong to a single problem.
+    struct ff_encoding_cache {
+        std::unordered_map<expr *, ff::polynomial> cache;
+        std::unordered_map<expr *, unsigned> variable_ids;
+        unsigned num_variables = 0;
+        expr_ref_vector pins;
+        explicit ff_encoding_cache(ast_manager &m) : pins(m) {}
+        void reset() {
+            cache.clear();
+            variable_ids.clear();
+            num_variables = 0;
+            pins.reset();
+        }
+    };
+
     namespace {
         struct field_problem {
             ast_manager &m;
             ff_util ff;
             ff::engine algebra;
-            std::unordered_map<expr *, ff::polynomial> cache;
-            unsigned num_variables = 0;
+            ff_encoding_cache local;
+            ff_encoding_cache &enc;
+            std::unordered_map<expr *, ff::polynomial> &cache;
+            unsigned &num_variables;
             std::vector<ff::polynomial> eqs, neqs;
             expr_ref_vector premises;
             ptr_vector<enode> terms;
@@ -26,16 +47,18 @@ namespace smt {
             std::vector<constraint> inputs;
             std::unordered_map<expr *, expr *> normalized;
             std::unordered_map<expr *, std::set<unsigned>> normalization_deps;
-            std::unordered_map<expr *, unsigned> variable_ids;
+            std::unordered_map<expr *, unsigned> &variable_ids;
             std::unordered_map<expr *, rational> evaluated;
             expr_ref_vector pins;
             th_rewriter rw;
 
-            field_problem(ast_manager &m, sort *s, params_ref const &p)
+            field_problem(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache *shared)
                 : m(m), ff(m), algebra(ff.modulus(s), m.limit(), p.get_uint("ff.max_steps", 2000000),
                                        p.get_uint("ff.max_terms", 4096), p.get_bool("ff.bit_propagation", true),
                                        smt_params_helper(p).ff_batch(), smt_params_helper(p).ff_sparse_witness()),
-                  premises(m), pins(m), rw(m) {
+                  local(m), enc(shared && !smt_params_helper(p).ff_compact_encoding() ? *shared : local),
+                  cache(enc.cache), num_variables(enc.num_variables), premises(m), variable_ids(enc.variable_ids),
+                  pins(m), rw(m) {
                 algebra.linear_split = smt_params_helper(p).ff_linear_split();
                 algebra.basis_bits = smt_params_helper(p).ff_basis_bits();
                 algebra.compact_matrix = smt_params_helper(p).ff_compact_matrix();
@@ -57,6 +80,14 @@ namespace smt {
                 algebra.geobucket = smt_params_helper(p).ff_geobucket();
                 algebra.small_coefficients = smt_params_helper(p).ff_small_coefficients();
                 algebra.compact_encoding = smt_params_helper(p).ff_compact_encoding();
+                algebra.f4 = smt_params_helper(p).ff_f4();
+                algebra.f4_max_quotient = smt_params_helper(p).ff_f4_max_quotient();
+                algebra.f4_budget_factor = smt_params_helper(p).ff_f4_budget();
+                algebra.f4_short_budget = smt_params_helper(p).ff_f4_short_budget();
+                algebra.f4_value_split = smt_params_helper(p).ff_f4_value_split();
+                algebra.f4_slice = smt_params_helper(p).ff_f4_slice();
+                algebra.tiny_search = smt_params_helper(p).ff_tiny();
+                algebra.tiny_budget = smt_params_helper(p).ff_tiny_budget();
 
             }
 
@@ -309,6 +340,7 @@ namespace smt {
                         }
                     }
                     cache.emplace(e, std::move(f));
+                    enc.pins.push_back(e);
                     todo.pop_back();
                 }
                 return cache.at(root);
@@ -343,7 +375,10 @@ namespace smt {
     }  // namespace
 
     theory_ff::theory_ff(context &ctx)
-        : theory(ctx, ctx.get_manager().mk_family_id("ff")), ff(m), bv(m), rw(m), helpers(m), model_values(m) {}
+        : theory(ctx, ctx.get_manager().mk_family_id("ff")), ff(m), bv(m), rw(m), helpers(m), root_norm_pins(m),
+          model_values(m) {}
+
+    theory_ff::~theory_ff() {}
 
     void theory_ff::ensure_helpers(sort *s) {
         if (wraps.contains(s))
@@ -565,8 +600,18 @@ namespace smt {
                 to_app(b)->get_family_id() != get_id()))
                 continue;
             split_atoms.insert(atom);
-            expr_ref normalized(atom, m);
-            rw(normalized);
+            // Rewriting an atom is pure; keep the result across backtracking.
+            expr *cached = nullptr;
+            expr_ref normalized(m);
+            if (root_norm.find(atom, cached))
+                normalized = cached;
+            else {
+                normalized = atom;
+                rw(normalized);
+                root_norm_pins.push_back(atom);
+                root_norm_pins.push_back(normalized);
+                root_norm.insert(atom, normalized);
+            }
             if (!m.is_eq(normalized, a, b))
                 continue;
             expr_ref_vector branches(m);
@@ -639,7 +684,14 @@ namespace smt {
         auto problem = [&](sort *s) -> field_problem & {
             auto &p = fields[s];
             if (!p)
-                p = std::make_unique<field_problem>(m, s, ctx.get_params());
+            {
+                auto &shared = encodings[s];
+                if (!shared)
+                    shared = std::make_unique<ff_encoding_cache>(m);
+                if (shared->cache.size() > 200000)
+                    shared->reset();
+                p = std::make_unique<field_problem>(m, s, ctx.get_params(), shared.get());
+            }
             if (ctx.get_params().get_bool("ff.basis_cache", true))
                 p->algebra.set_basis_cache(&memo);
             return *p;
@@ -779,6 +831,9 @@ namespace smt {
 
     void theory_ff::reset_eh() {
         theory::reset_eh();
+        encodings.clear();
+        root_norm.reset();
+        root_norm_pins.reset();
         memo.clear();
         native_values.reset();
         model_values.reset();

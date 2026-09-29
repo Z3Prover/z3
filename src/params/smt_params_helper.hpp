@@ -16,6 +16,11 @@ Abstract:
 #include "util/gparams.h"
 
 #define SMT_PARAMS_HELPER_LIST(UINT_, BOOL_, DOUBLE_, STRING_, SYMBOL_) \
+  BOOL_  (ff_unique, "ff.unique", true, "bounded uniqueness propagation before field solving") \
+  UINT_  (ff_unique_work, "ff.unique_work", 1000000, "local work allowance for the entire uniqueness attempt") \
+  UINT_  (ff_unique_nodes, "ff.unique_nodes", 50000, "maximum nodes in uniqueness search") \
+  UINT_  (ff_unique_depth, "ff.unique_depth", 16, "maximum Boolean split depth in uniqueness search (capped at 64)") \
+  BOOL_  (ff_unique_equalities, "ff.unique_equalities", false, "add derived root equalities after uniqueness propagation") \
   BOOL_  (ff_root_split,                           "ff.root_split",                           true,                     "emit bounded finite-field factor and square-root case splits") \
   BOOL_  (ff_bit_propagation, "ff.bit_propagation", true, "repeat no-wrap bit-sum propagation after algebraic elimination") \
   BOOL_  (ff_boolean_split, "ff.boolean_split", false, "expose Boolean field domains to SAT (may change branching substantially)") \
@@ -46,6 +51,14 @@ Abstract:
   BOOL_  (ff_compact_encoding, "ff.compact_encoding", false, "retain compact definitions when polynomial expansion would grow") \
   BOOL_  (ff_basis_cache, "ff.basis_cache", true, "reuse exact bounded finite-field bases across native checks") \
   UINT_  (ff_max_steps,                            "ff.max_steps",                            2000000,                  "maximum native finite-field algebra operations before exact BV fallback") \
+  BOOL_  (ff_f4, "ff.f4", true, "use the fixed-width F4 backend with zero-dimensional model construction") \
+  UINT_  (ff_f4_max_quotient, "ff.f4_max_quotient", 1024, "largest quotient-ring dimension explored by F4 model construction") \
+  UINT_  (ff_f4_budget, "ff.f4_budget", 40, "F4 work units allowed per unit of ff.max_steps") \
+  UINT_  (ff_f4_slice, "ff.f4_slice", 4, "random x = r slices tried per level on positive-dimensional ideals in F4 model construction (SAT only)") \
+  BOOL_  (ff_f4_value_split, "ff.f4_value_split", false, "in F4 model construction over small fields, enumerate the values of a free variable") \
+  UINT_  (ff_f4_short_budget, "ff.f4_short_budget", 1, "F4 work units per unit of ff.max_steps on circuit-like systems (many Boolean variables)") \
+  BOOL_  (ff_tiny, "ff.tiny", true, "complete finite-domain search with forward checking over fields with p < 64") \
+  UINT_  (ff_tiny_budget, "ff.tiny_budget", 200, "tiny-field search work units per unit of ff.max_steps") \
   UINT_  (ff_max_terms,                            "ff.max_terms",                            4096,                     "maximum terms in an expanded finite-field polynomial") \
   BOOL_  (auto_config,                             "auto_config",                             true,                     "automatically configure solver") \
   SYMBOL_(logic,                                   "logic",                                   "",                       "logic used to setup the SMT solver") \

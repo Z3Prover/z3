@@ -36,6 +36,7 @@ namespace {
         }
         void collect_param_descrs(param_descrs &ds) override {
             ds.insert("ff.max_branches", CPK_UINT, "maximum lazy SAT/algebra assignments before exact fallback", "128");
+            ds.insert("ff.f4_in_sat", CPK_BOOL, "use the F4 backend for the lazy SAT/algebra branch queries", "false");
             tactic_ref t = mk_ff_solve_tactic(m, p);
             t->collect_param_descrs(ds);
         }
@@ -131,7 +132,12 @@ namespace {
                 unit.push_back(encode(g->form(i)));
                 clause(unit);
             }
-            tactic_ref algebra = mk_ff_solve_tactic(m, p);
+            // Branch queries are small and numerous; their conflict cores steer the
+            // SAT search. The legacy engine's cores work better here than F4's, and
+            // F4 would spend its budget once per branch, so it is off by default.
+            params_ref ap(p);
+            ap.set_bool("ff.f4", p.get_bool("ff.f4_in_sat", false) && p.get_bool("ff.f4", true));
+            tactic_ref algebra = mk_ff_solve_tactic(m, ap);
             on_scope_exit collect([&]() { algebra->collect_statistics(m_stats); });
             for (unsigned round = 0; round < p.get_uint("ff.max_branches", 128); ++round) {
                 m_stats.update("ff sat branches", 1u);
