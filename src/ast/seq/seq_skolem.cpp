@@ -174,7 +174,8 @@ bool skolem::is_left_or_right(expr* e, expr*& x, expr*& y, expr*& z) {
 
 
 bool skolem::is_eq(expr* e, expr*& a, expr*& b) const {
-    return is_skolem(m_eq, e) && (a = to_app(e)->get_arg(0), b = to_app(e)->get_arg(1), true);
+    return is_skolem(m_eq, e) && to_app(e)->get_num_args() == 2 &&
+        (a = to_app(e)->get_arg(0), b = to_app(e)->get_arg(1), true);
 }
 
 bool skolem::is_pre(expr* e, expr*& s, expr*& i) {

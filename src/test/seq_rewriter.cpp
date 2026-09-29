@@ -32,6 +32,7 @@ Tests:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/seq/seq_skolem.h"
 #include "smt/smt_context.h"
 #include <iostream>
 #include <string>
@@ -39,6 +40,30 @@ Tests:
 // Build a single-char string literal expression.
 static expr_ref mk_str(ast_manager& m, seq_util& su, unsigned c) {
     return expr_ref(su.str.mk_string(zstring(c)), m);
+}
+
+static void tst_eq_skolem_arity() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    th_rewriter rw(m);
+    seq::skolem sk(m, rw);
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    app_ref x(m.mk_const("x", str_sort), m);
+    app_ref y(m.mk_const("y", str_sort), m);
+    expr* args[] = { x, y, x };
+    expr* a = m.mk_true();
+    expr* b = m.mk_false();
+
+    for (unsigned arity : {0u, 1u, 3u}) {
+        expr_ref marker(su.mk_skolem(symbol("seq.eq"), arity, args, m.mk_bool_sort()), m);
+        ENSURE(!sk.is_eq(marker, a, b));
+        ENSURE(a == m.mk_true() && b == m.mk_false());
+    }
+
+    expr_ref marker(sk.mk_eq(x, y));
+    ENSURE(sk.is_eq(marker, a, b));
+    ENSURE(a == x && b == y);
 }
 
 static void tst_nested_sequence_assumptions() {
@@ -104,6 +129,7 @@ static void tst_nested_sequence_assumptions() {
 }
 
 void tst_seq_rewriter() {
+    tst_eq_skolem_arity();
     ast_manager m;
     reg_decl_plugins(m);
     th_rewriter rw(m);
