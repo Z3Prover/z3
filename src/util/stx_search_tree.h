@@ -807,11 +807,16 @@ namespace stx {
         // are interned; an id past the current size simply has no cores
         // watching it yet.
         vector<vector<unsigned>>                          m_watch_list;
-        // Insertion-time dedup only (never consulted during lookup): hash of
-        // a core's ids -> indices (into m_unsat_cores) of previously
-        // inserted cores with that hash, so re-deriving the same closure
+        // Insertion-time dedup only (never consulted during lookup):
+        // smallest constraint-store id in a (sorted) core's ids ->
+        // indices (into m_unsat_cores) of previously inserted cores
+        // sharing that same minimum id, so re-deriving the same closure
         // along a different path doesn't grow the cache without bound.
-        std::unordered_map<uint64_t, vector<unsigned>>     m_unsat_core_index;
+        // Since ids are already sorted before this map is consulted, two
+        // equal id-sets necessarily share the same minimum element, so
+        // this plain id is already as good a bucket key as any computed
+        // hash - no separate hash function is needed.
+        std::unordered_map<unsigned, vector<unsigned>>     m_unsat_core_index;
 
         // True iff every facet NOT contributing to the signature currently
         // holds no live content (is_satisfied()). This is the soundness
@@ -848,22 +853,6 @@ namespace stx {
                 if (n.has_facet(id) && n.facet(id).contributes_to_signature())
                     n.facet(id).append_constraints(cs);
             return cs;
-        }
-
-        static uint64_t hash_ids(vector<unsigned> const& ids) {
-            // FNV-1a over the (already dense, small) constraint-store ids;
-            // used only to bucket `m_unsat_core_index` for insertion-time
-            // dedup - collisions are handled by the exact-equality check
-            // (`ids_eq`) that follows every bucket lookup, never trusted
-            // alone. `ids` must already be sorted by the caller so that
-            // the same set of constraints hashes identically regardless
-            // of the order they were originally interned in.
-            uint64_t h = 1469598103934665603ull;
-            for (unsigned v : ids) {
-                h ^= v;
-                h *= 1099511628211ull;
-            }
-            return h;
         }
 
         static bool ids_eq(vector<unsigned> const& a, vector<unsigned> const& b) {
@@ -1074,14 +1063,17 @@ namespace stx {
             vector<unsigned> ids;
             for (constraint_i const* c : cs)
                 ids.push_back(m_constraint_store.intern(*c));
-            // Sort once, centrally, so the dedup check below (and the
-            // dedup bucket hash) are independent of the order this node's
-            // facets/split path happened to produce their contributions
-            // in - two nodes reaching the same active-constraint set via
-            // different split orders must dedup against each other.
+            // Sort once, centrally, so the dedup check below is
+            // independent of the order this node's facets/split path
+            // happened to produce their contributions in - two nodes
+            // reaching the same active-constraint set via different
+            // split orders must dedup against each other. Bucketing the
+            // dedup index by the smallest id (`ids[0]`) needs no separate
+            // hash: two sorted id-sets that are equal necessarily share
+            // the same minimum element, so it's already a valid bucket
+            // key on its own.
             std::sort(ids.begin(), ids.end());
-            uint64_t h = hash_ids(ids);
-            auto& dup_bucket = m_unsat_core_index[h];
+            auto& dup_bucket = m_unsat_core_index[ids[0]];
             for (unsigned idx : dup_bucket)
                 if (ids_eq(m_unsat_cores[idx].lits, ids))
                     return; // already memoized
@@ -1333,19 +1325,22 @@ namespace stx {
             return false;
         }
 
-        // `pure_out`, when non-null, is set (only meaningful when the
-        // return value is `unsat`) to whether this call's UNSAT verdict
-        // is a pure function of the signature-contributing facets
-        // throughout the ENTIRE subtree explored here - not just this
-        // frame's own current facet snapshot. A child branch may have
-        // transiently relied on excluded-facet content (e.g. an
-        // arithmetic split) that has already been popped/undone by the
-        // time this frame resumes, so purity has to be threaded up from
-        // where each conflict actually originated, mirroring c3's
-        // per-subtree `all_string_only` tracking (`m_unsat_cacheable`) -
-        // a point-in-time check at the aggregating parent alone cannot
-        // see what its children depended on along the way.
-        search_result dfs(unsigned depth, edge const* in_edge = nullptr, bool* pure_out = nullptr) {
+        // `pure_out` is set (only meaningful when the return value is
+        // `unsat`) to whether this call's UNSAT verdict is a pure
+        // function of the signature-contributing facets throughout the
+        // ENTIRE subtree explored here - not just this frame's own
+        // current facet snapshot. A child branch may have transiently
+        // relied on excluded-facet content (e.g. an arithmetic split)
+        // that has already been popped/undone by the time this frame
+        // resumes, so purity has to be threaded up from where each
+        // conflict actually originated, mirroring c3's per-subtree
+        // `all_string_only` tracking (`m_unsat_cacheable`) - a point-in-
+        // time check at the aggregating parent alone cannot see what its
+        // children depended on along the way. The top-level call (from
+        // solve()) doesn't care about purity and binds it to
+        // `s_dummy_pure`, a scratch sink shared across such callers.
+        inline static bool s_dummy_pure = false;
+        search_result dfs(unsigned depth, edge const* in_edge = nullptr, bool& pure_out = s_dummy_pure) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
@@ -1375,10 +1370,12 @@ namespace stx {
             // resolve this node one way or the other, so a hit here always
             // replaces genuine further search (branching), never a
             // decision propagation already made for free.
+            bool cache_hit = false;
             if (sr != simplify_result::conflict && sr != simplify_result::satisfied &&
                 cache_lookup(n)) {
                 n.set_conflict(br_children_failed, nullptr);
                 sr = simplify_result::conflict;
+                cache_hit = true;
             }
 
             // --- dot trace: snapshot this node's own facet state now -
@@ -1391,11 +1388,18 @@ namespace stx {
                 // Propagation-level conflict: sound to memoize whenever no
                 // excluded facet holds live content (cache_insert re-checks
                 // cache_eligible itself), mirroring c3's leaf-regex-
-                // infeasible insert site.
+                // infeasible insert site. Skip it when this conflict was
+                // itself just derived FROM the cache (cache_lookup() only
+                // ever returns true after already confirming
+                // cache_eligible(n) itself): re-inserting here would just
+                // re-derive and dedup against the very entry that was just
+                // found - wasted work (recompute constraints, filter,
+                // sort, bucket-lookup) for no benefit, so return as soon
+                // as the hit is established instead.
                 bool pure = cache_eligible(n);
-                if (pure)
+                if (pure && !cache_hit)
                     cache_insert(n);
-                if (pure_out) *pure_out = pure;
+                pure_out = pure;
             }
             else if (sr == simplify_result::satisfied) {
                 result = search_result::sat;
@@ -1427,7 +1431,7 @@ namespace stx {
                         bool pure = cache_eligible(n);
                         if (pure)
                             cache_insert(n);
-                        if (pure_out) *pure_out = pure;
+                        pure_out = pure;
                     }
                     else if (n.is_satisfied()) {
                         result = search_result::sat;
@@ -1448,7 +1452,7 @@ namespace stx {
                         bool child_pure = false;
                         // progress edges (a variable eliminated, an arithmetic decision) are
                         // free; only edges introducing fresh variables count towards the bound
-                        cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge, &child_pure);
+                        cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge, child_pure);
                         // Always pop back out of this branch, even on
                         // sat: the sat leaf's facet state was already
                         // captured by m_sat_snapshot (a cold-path
@@ -1482,7 +1486,7 @@ namespace stx {
                             bool pure = all_children_pure && cache_eligible(n);
                             if (pure)
                                 cache_insert(n);
-                            if (pure_out) *pure_out = pure;
+                            pure_out = pure;
                         }
                     }
                 }
