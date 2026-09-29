@@ -124,7 +124,7 @@ namespace seq {
     }
 
     bool eq_facet::equation::equals(stx::constraint_i const& other) const {
-        auto const* o = dynamic_cast<equation const*>(&other);
+        auto const* o = dynamic_cast<equation const*>(&other);       
         return o && canonical_pair_eq(m_lhs, m_rhs, o->m_lhs, o->m_rhs);
     }
 
