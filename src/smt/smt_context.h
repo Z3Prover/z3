@@ -1237,6 +1237,13 @@ namespace smt {
                 return n;
             auto r = m_cg_table.find(n);
             SASSERT(r != nullptr);
+            // Defensive: if the "every non-cgr node has a cg_table entry" invariant is transiently
+            // violated (e.g. after an interrupted merge), find() returns nullptr. Reading
+            // ->m_generation through it would segfault (see issue #10385, fault site 1). Fall back
+            // to treating n as its own root; generations are a heuristic quantity, so this is sound
+            // and merely conservative, while turning a crash into safe behaviour.
+            if (r == nullptr)
+                return n;
             return r;
         }
 
