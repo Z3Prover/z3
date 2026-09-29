@@ -138,6 +138,8 @@ public:
 
     void reset() {
         m_pinned.reset();
+        for (auto s : m_terms)
+            dealloc(s);
         m_terms.clear();
     }
 
@@ -157,7 +159,7 @@ public:
         for (unsigned c = 0; c <= max_cost; ++c) {
             if (c >= m_terms.size()) 
                 break;
-            if (!m_terms[c]->contains(s))
+            if (!m_terms[c] || !m_terms[c]->contains(s))
                 continue;
             for (auto t : m_terms[c]->find(s))
                 result.push_back({t, c});
