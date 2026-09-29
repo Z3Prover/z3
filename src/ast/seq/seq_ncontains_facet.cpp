@@ -91,14 +91,10 @@ namespace seq {
     }
 
     uint64_t str_ncontains::hash() const {
-        vector<uint64_t> enc;
-        enc.push_back(m_haystack.size());
-        for (expr* t : m_haystack)
-            enc.push_back(static_cast<uint64_t>(t->get_id()));
-        enc.push_back(m_needle.size());
-        for (expr* t : m_needle)
-            enc.push_back(static_cast<uint64_t>(t->get_id()));
-        return stx::stx_hash_fact(0x6e636fu, enc); // tag: "nco"
+        uint64_t h = stx::stx_hash_tag(0x6e636fu); // tag: "nco"
+        h = stx::stx_hash_ids(h, m_haystack);
+        h = stx::stx_hash_ids(h, m_needle);
+        return h;
     }
 
     bool str_ncontains::equals(stx::constraint_i const& other) const {

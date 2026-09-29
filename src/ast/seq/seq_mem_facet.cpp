@@ -160,15 +160,13 @@ namespace seq {
     }
 
     uint64_t str_mem::hash() const {
-        vector<uint64_t> enc;
-        enc.push_back(m_str.size());
-        for (expr* t : m_str)
-            enc.push_back(static_cast<uint64_t>(t->get_id()));
+        uint64_t h = stx::stx_hash_tag(0x6d656du); // tag: "mem"
+        h = stx::stx_hash_ids(h, m_str);
         // view identity: (state, target) - target is null for a plain
         // membership, encoded as id 0 (ast ids are never 0).
-        enc.push_back(static_cast<uint64_t>(m_view.m_state->get_id()));
-        enc.push_back(m_view.m_target ? static_cast<uint64_t>(m_view.m_target->get_id()) : 0);
-        return stx::stx_hash_fact(0x6d656du, enc); // tag: "mem"
+        h = stx::stx_hash_mix(h, static_cast<uint64_t>(m_view.m_state->get_id()));
+        h = stx::stx_hash_mix(h, m_view.m_target ? static_cast<uint64_t>(m_view.m_target->get_id()) : 0);
+        return h;
     }
 
     bool str_mem::equals(stx::constraint_i const& other) const {

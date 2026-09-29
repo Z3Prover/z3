@@ -103,6 +103,25 @@ namespace stx {
     const backtrack_reason br_children_failed = 2;
     const backtrack_reason br_plugin_base     = 3; // first value free for plugin use
 
+    // Salted starting point for the FNV-1a-style accumulator used by
+    // stx_hash_fact()/stx_hash_mix()/stx_hash_ids(): a facet-specific tag
+    // so identically-shaped encodings from different constraint kinds
+    // never collide.
+    inline uint64_t stx_hash_tag(uint64_t tag) {
+        return 1469598103934665603ull ^ (tag * 1099511628211ull);
+    }
+
+    // Mix a single 64-bit value into an FNV-1a-style hash accumulator -
+    // exposed separately so a constraint_i::hash() implementation can mix
+    // in a few extra scalar ids (e.g. a view's own state/target term)
+    // around a stx_hash_ids() call below without first collecting
+    // everything into an intermediate vector<uint64_t>.
+    inline uint64_t stx_hash_mix(uint64_t h, uint64_t v) {
+        h ^= v;
+        h *= 1099511628211ull;
+        return h;
+    }
+
     // Shared helper for `constraint_i::hash()` implementations: hash one
     // whole fact's canonical encoding (as built by the concrete
     // constraint's own e.g. sig_encode_pair-style helper) down to a
@@ -117,11 +136,24 @@ namespace stx {
     // reused across many unrelated equations), so that in practice
     // distinct facts rarely collide.
     inline uint64_t stx_hash_fact(uint64_t tag, vector<uint64_t> const& enc) {
-        uint64_t h = 1469598103934665603ull ^ (tag * 1099511628211ull);
-        for (uint64_t v : enc) {
-            h ^= v;
-            h *= 1099511628211ull;
-        }
+        uint64_t h = stx_hash_tag(tag);
+        for (uint64_t v : enc)
+            h = stx_hash_mix(h, v);
+        return h;
+    }
+
+    // Mix one whole ref_vector of AST nodes (e.g. an expr_ref_vector)
+    // into an FNV-1a-style hash accumulator directly by each element's
+    // own get_id() - size-prefixed first, so a 1-element and a
+    // 2-element list that happen to share a leading id never collide -
+    // sparing constraint_i::hash() implementations the need to first
+    // copy every element's get_id() into an intermediate
+    // vector<uint64_t> just to hash one term-list.
+    template <typename RefVec>
+    inline uint64_t stx_hash_ids(uint64_t h, RefVec const& v) {
+        h = stx_hash_mix(h, v.size());
+        for (auto* t : v)
+            h = stx_hash_mix(h, static_cast<uint64_t>(t->get_id()));
         return h;
     }
 

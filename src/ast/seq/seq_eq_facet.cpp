@@ -71,37 +71,51 @@ namespace seq {
             return a.size() < b.size();
         }
 
-        // Canonicalize one (lhs, rhs) token-list pair (a word (dis)
-        // equation) for unsat-cache identity: the two sides are
-        // canonically ordered (lexicographically smaller id-sequence
-        // first) so that `x = y` and a mirrored `y = x` - which the
-        // Nielsen transformation can produce interchangeably depending on
-        // split order - hash and compare identically. Shared by both
-        // `eq_facet::equation` and `deq_facet::disequation` (below).
-        void canonical_pair(expr_ref_vector const& lhs, expr_ref_vector const& rhs, vector<uint64_t>& a, vector<uint64_t>& b) {
+        // Decide whether (lhs, rhs) needs its two sides swapped so that
+        // the lexicographically smaller id-sequence comes first - shared
+        // by canonical_pair_hash() and canonical_pair_eq() so both agree
+        // on which side is "first" (mirrors `x = y` and a mirrored
+        // `y = x`, which the Nielsen transformation can produce
+        // interchangeably depending on split order, hashing/comparing
+        // identically).
+        bool canonical_needs_swap(expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
+            vector<uint64_t> a, b;
             for (expr* t : lhs) a.push_back(static_cast<uint64_t>(t->get_id()));
             for (expr* t : rhs) b.push_back(static_cast<uint64_t>(t->get_id()));
-            if (sig_vec_less(b, a))
-                std::swap(a, b);
+            return sig_vec_less(b, a);
         }
 
+        // Hash one canonically-ordered (lhs, rhs) token-list pair (a word
+        // (dis)equation) for unsat-cache identity: mix the
+        // canonically-first side's term ids, then the other side's,
+        // directly via stx_hash_ids() - no separate encode-to-
+        // vector<uint64_t> step. Shared by both `eq_facet::equation` and
+        // `deq_facet::disequation` (below).
         uint64_t canonical_pair_hash(uint64_t tag, expr_ref_vector const& lhs, expr_ref_vector const& rhs) {
-            vector<uint64_t> a, b;
-            canonical_pair(lhs, rhs, a, b);
-            vector<uint64_t> enc;
-            enc.push_back(a.size());
-            enc.append(a);
-            enc.push_back(b.size());
-            enc.append(b);
-            return stx::stx_hash_fact(tag, enc);
+            bool swap = canonical_needs_swap(lhs, rhs);
+            expr_ref_vector const& a = swap ? rhs : lhs;
+            expr_ref_vector const& b = swap ? lhs : rhs;
+            uint64_t h = stx::stx_hash_tag(tag);
+            h = stx::stx_hash_ids(h, a);
+            h = stx::stx_hash_ids(h, b);
+            return h;
         }
 
+        // Equality: compare the actual term vectors (m_lhs/m_rhs)
+        // directly - canonical_needs_swap() only decides WHICH side is
+        // "first" (mirroring canonical_pair_hash()'s ordering); the
+        // comparison itself is plain expr_ref_vector equality
+        // (pointer-wise, via ref_vector::operator==), not a comparison
+        // of the id-encoded hash inputs.
         bool canonical_pair_eq(expr_ref_vector const& l1, expr_ref_vector const& r1,
-                                expr_ref_vector const& l2, expr_ref_vector const& r2) {
-            vector<uint64_t> a1, b1, a2, b2;
-            canonical_pair(l1, r1, a1, b1);
-            canonical_pair(l2, r2, a2, b2);
-            return a1 == a2 && b1 == b2;
+                               expr_ref_vector const& l2, expr_ref_vector const& r2) {
+            bool swap1 = canonical_needs_swap(l1, r1);
+            bool swap2 = canonical_needs_swap(l2, r2);
+            expr_ref_vector const& x1 = swap1 ? r1 : l1;
+            expr_ref_vector const& y1 = swap1 ? l1 : r1;
+            expr_ref_vector const& x2 = swap2 ? r2 : l2;
+            expr_ref_vector const& y2 = swap2 ? l2 : r2;
+            return x1 == x2 && y1 == y2;
         }
     }
 
