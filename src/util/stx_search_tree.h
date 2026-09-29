@@ -41,6 +41,7 @@ Author:
 #include "util/trail.h"
 #include "util/statistics.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/hashtable.h"
 #include "util/rlimit.h"
 #include <string>
 #include <memory>
@@ -172,11 +173,15 @@ namespace stx {
      * both fine.
      */
     class constraint_i {
+        unsigned m_store_id = UINT_MAX; // index assigned by constraint_store::intern(), once interned
     public:
         virtual ~constraint_i() = default;
         virtual uint64_t hash() const = 0;
         virtual bool equals(constraint_i const& other) const = 0;
         virtual constraint_i* clone() const = 0;
+
+        unsigned store_id() const { return m_store_id; }
+        void set_store_id(unsigned id) { m_store_id = id; }
 
         // Opaque pointer to this LIVE fact's own justification/dependency
         // object, as understood by the instantiating domain's
@@ -682,129 +687,73 @@ namespace stx {
 
         // --- unsat cache (watch-list based unsat-core memo) ---
         //
-        // Unlike c3's m_unsat_node_cache (a set of persistent nielsen_node*
-        // pointers - c3 keeps every historical node alive until reset()),
-        // this engine has exactly one live, destructively-mutated node, so
-        // every cache entry is an owned VALUE snapshot: a canonical vector
-        // of constraint-store ids (see facet_i::append_constraints) built
-        // fresh at insertion
-        // time and never aliasing the live facets - here called an "unsat
-        // core", though (per the eligibility gate above) it is really only
-        // an over-approximation of one: the full active, non-vacuous,
-        // signature-contributing content of the node that just closed, not
-        // a minimized core. Cheap to build (no extra proof-of-unsat-core
-        // extraction pass); the watch-list lookup below is what keeps
-        // checking it affordable even though it isn't minimized.
+        // Each cache entry is an owned vector of constraint_store ids - an
+        // over-approximate unsat core (no minimization pass), captured from
+        // the active, non-vacuous, signature-contributing content of a node
+        // that just closed unsat.
         //
-        // Lookup no longer recomputes a full signature and does an exact
-        // hash-bucket vector comparison against every previously-cached
-        // entry (that only detects a node revisiting the EXACT SAME active
-        // set as some past unsat node). Instead each core is a *subset*
-        // check: it fires as soon as ALL of its literals are simultaneously
-        // active in the current node - a strictly more general and more
-        // useful hit (a superset of a known-unsat set of facts is itself
-        // unsat), regardless of what else is also active.
+        // Lookup is a *subset* check via one-watched-literal bookkeeping
+        // (mirroring SAT's two-watched-literal scheme, but detecting a set
+        // becoming fully ACTIVE rather than a clause becoming fully FALSE):
+        // each core watches one literal currently absent from the node's
+        // active set; when that literal becomes active, try_rewatch() looks
+        // for another absent literal to move the watch to, and if none
+        // exists every literal is active, so the core (hence the node) is
+        // unsat. Backtracking only shrinks the active set, so an absent
+        // watch stays absent across pop() - no undo bookkeeping needed.
         //
-        // This is done with one-watched-literal bookkeeping, mirroring
-        // SAT's two-watched-literal scheme but adapted to detect a set
-        // becoming fully TRUE (an "all-active" trigger) rather than a
-        // clause becoming fully FALSE:
-        //   - Each core watches exactly one of its own literals, chosen (at
-        //     any point it's checked) to currently be ABSENT from the live
-        //     node's active set whenever possible. That invariant makes the
-        //     core provably not-yet-fired: at least one of its literals is
-        //     missing, so it cannot be fully contained.
-        //   - The watched literal is only ever inspected when it is found
-        //     among the node's *currently active* ids (see cache_lookup):
-        //     that is the only event that can possibly have broken the
-        //     invariant. All other literals joining or leaving the active
-        //     set never need to touch this core's bookkeeping at all.
-        //   - On such a hit, try_rewatch() scans the core's other literals
-        //     for one that is still absent and moves the watch there
-        //     (m_watch_list[old] -> m_watch_list[new]). If none exists, every
-        //     literal of the core is active right now: the core is fully
-        //     contained in the current node, which is therefore unsat.
-        //   - Backtracking (pop()) only ever shrinks the active set, so a
-        //     literal that was absent when chosen as a watch stays absent
-        //     across any later pop() - the invariant needs no trail-scoped
-        //     undo bookkeeping of its own; it is maintained purely by
-        //     construction.
-        //
-        // The watch list itself is keyed not by a raw signature hash but
-        // by a small dense "constraint id" that a global constraint_store
-        // (below) assigns to each distinct constraint (per its `hash()`/
-        // `equals()`) the first time it is seen - so m_watch_list can be a
-        // plain `vector<vector<unsigned>>` indexed directly by id, instead
-        // of a hash map keyed by some approximate signature value.
+        // The watch list is indexed by the small dense id constraint_store
+        // (below) assigns each distinct constraint, so m_watch_list is a
+        // plain `vector<vector<unsigned>>` rather than a hash map.
         bool                                    m_unsat_cache_enabled = true;
 
-        // Maps a fact (any `constraint_i`, e.g. an `eq_facet::equation`,
-        // `deq_facet::disequation`, or `mem_facet::str_mem` - see that
-        // class's comment) to a small, dense, monotonically-assigned
-        // unsigned id, so `m_watch_list` (and `unsat_core_entry::lits`)
-        // can be plain vectors indexed by id. Unlike the earlier
-        // uint64_t-hash-keyed scheme, lookups here are never fooled by a
-        // hash collision: `hash()` only selects the bucket, `equals()`
-        // (an exact, type-checked comparison - see `constraint_i`) is
-        // always used to confirm a match.
-        //
-        // The store owns a permanent, independent `clone()` of every
-        // constraint it interns (never a borrowed pointer into some
-        // facet's live, about-to-be-backtracked container) - see
-        // `intern()`.
-        //
-        // `solve()` reseeds this fresh on every call (see its cache-reset
-        // block) with exactly the constraints present in the root node at
-        // that point (`init()`), so the root's own constraints always get
-        // the same small, stable ids for that call; any later fact never
-        // seen in the root (e.g. one a split further down the tree
-        // produces) is assigned the next free id the first time
-        // `cache_insert()` needs one for it (`intern()`), growing the
-        // store - and `m_watch_list` alongside it - incrementally as the
-        // search proceeds. `cache_lookup()` only ever queries (`find()`),
-        // never interns: a fact the store has never seen cannot possibly
-        // be contained in any already-inserted core (every core's own
-        // literals are themselves ids assigned by this store), so lookup
-        // has no reason to grow the store itself.
+        // Maps a fact (any `constraint_i`) to a small, dense,
+        // monotonically-assigned id (stored directly on the interned
+        // clone, see `constraint_i::store_id()`), so `m_watch_list` (and
+        // `unsat_core_entry::lits`) can be plain vectors indexed by id.
+        // `hash()` only selects the bucket; `equals()` always confirms.
+        // The store owns a permanent `clone()` of every interned
+        // constraint (never a borrowed pointer into a facet's live,
+        // about-to-be-backtracked container). `solve()` reseeds this
+        // fresh on every call with the root node's constraints (`init()`);
+        // later facts are interned lazily by `cache_insert()`.
+        // `cache_lookup()` only ever queries (`find()`), never interns.
         class constraint_store {
-            // Hash/equality functors dispatch through the (borrowed or
-            // owned - both are fine, only `hash()`/`equals()` are ever
-            // called) pointer to the pointee's own virtual methods, so
-            // `m_ids` transparently supports lookups keyed by a transient,
-            // facet-owned pointer against buckets keyed by this store's
-            // own permanent clones.
+            // Dispatch through the pointee's own hash()/equals(), so
+            // lookups keyed by a transient, facet-owned pointer match
+            // buckets keyed by this store's own permanent clones.
             struct ptr_hash {
-                size_t operator()(constraint_i* c) const { return static_cast<size_t>(c->hash()); }
+                unsigned operator()(constraint_i* c) const { return static_cast<unsigned>(c->hash()); }
             };
             struct ptr_eq {
                 bool operator()(constraint_i* a, constraint_i* b) const { return a == b || a->equals(*b); }
             };
-            std::unordered_map<constraint_i*, unsigned, ptr_hash, ptr_eq> m_ids;
-            scoped_ptr_vector<constraint_i>                               m_owned; // id -> owned canonical clone
+            hashtable<constraint_i*, ptr_hash, ptr_eq> m_ids;
+            scoped_ptr_vector<constraint_i>            m_owned; // id -> owned canonical clone
         public:
-            void clear() { m_ids.clear(); m_owned.reset(); }
+            void clear() { m_ids.reset(); m_owned.reset(); }
             void init(vector<constraint_i const*> const& cs) {
                 for (constraint_i const* c : cs)
                     intern(*c);
             }
-            unsigned intern(constraint_i const& c) {
-                constraint_i* key = const_cast<constraint_i*>(&c);
-                auto it = m_ids.find(key);
-                if (it != m_ids.end())
-                    return it->second;
-                constraint_i* owned = c.clone();
-                unsigned id = m_owned.size();
-                m_owned.push_back(owned);
-                m_ids.emplace(owned, id);
-                return id;
-            }
             bool find(constraint_i const& c, unsigned& id) const {
                 constraint_i* key = const_cast<constraint_i*>(&c);
-                auto it = m_ids.find(key);
-                if (it == m_ids.end())
+                constraint_i* found = nullptr;
+                if (!m_ids.find(key, found))
                     return false;
-                id = it->second;
+                id = found->store_id();
                 return true;
+            }
+            unsigned intern(constraint_i const& c) {
+                unsigned id;
+                if (find(c, id))
+                    return id;
+                constraint_i* owned = c.clone();
+                id = m_owned.size();
+                owned->set_store_id(id);
+                m_owned.push_back(owned);
+                m_ids.insert(owned);
+                return id;
             }
             unsigned size() const { return m_owned.size(); }
         };
