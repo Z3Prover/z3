@@ -24,6 +24,25 @@ def check(factory, constraints, expected, label):
     return s
 
 
+def sequences(factory, prime=7):
+    F = FiniteFieldSort(prime)
+    S = SeqSort(F)
+    s = Const('field_sequence', S)
+    x = Const('sequence_field_x', F)
+    i = Int('sequence_index')
+    one, minus_one = FiniteFieldVal(1, F), FiniteFieldVal(prime-1, F)
+    # Indices are in bounds: seq.nth outside a sequence is underconstrained.
+    check(factory, [Length(s) == 2, i == 1, s[i]*s[i] == 1,
+                    s[1] != one, s[1] != minus_one], unsat, 'sequence field roots')
+    check(factory, [x*x == 4, s == Concat(Unit(x), Unit(x+one)),
+                    Length(s) == 2, s[1] == s[0]+one], sat, 'sequence field model')
+    a = Array('array_of_field_sequences', IntSort(), S)
+    v = Select(a, i)[0]
+    check(factory, [i == 3, Length(Select(a, i)) == 1, v*v == 1,
+                    Select(a, 3)[0] != one, Select(a, 3)[0] != minus_one],
+          unsat, 'array of sequences field roots')
+
+
 def examples(factory):
     F = FiniteFieldSort(7)
     x, y = FiniteFieldElems('x y', F)
@@ -55,6 +74,7 @@ def examples(factory):
     B = Array('B', IntSort(), F)
     check(factory, [i == 2, Select(B, i)*Select(B, i) == 3], unsat, 'field array range')
     check(factory, [Select(Store(B, i, x), i) == x, x*x == 2], sat, 'store model')
+    sequences(factory)
     Box = Datatype('FFBox')
     Box.declare('box', ('value', F))
     Box = Box.create()

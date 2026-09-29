@@ -5,7 +5,7 @@ Use the Python bindings/library from the build being tested. No timing threshold
 is asserted: native counters ensure these cases do not pass via bit-blasting.
 """
 from z3 import *
-from test_ff_combination import check, examples, finite_domains, incremental, exhaustive_uf
+from test_ff_combination import check, examples, finite_domains, incremental, exhaustive_uf, sequences
 from zk_circuits import FIELDS, poseidon_case
 
 
@@ -32,6 +32,7 @@ def large_field(factory, p):
                           Select(a, x) != Select(a, minus_one)], unsat, 'large array indices'))
     native(check(factory, [x*x == 1, Select(a, x)*Select(a, x) == 4,
                           Select(a, -x) == 0], sat, 'large array model'))
+    sequences(factory, p)
     # Nonlinear equality crossing a UF boundary, rather than a numeral-only pin.
     native(check(factory, [y == x*x, x*x*x*x == 1, h(y) != h(one), h(y) != h(minus_one)],
                  unsat, 'large symbolic determinism'))
@@ -138,7 +139,7 @@ if __name__ == '__main__':
         for p in FIELDS.values():
             large_field(factory, p)
         poseidon_models(factory)
-        print(name + ': large-field UFs, arrays, cores, incremental checks and Poseidon DAGs passed', flush=True)
+        print(name + ': large-field UFs, arrays, sequences, cores, incremental checks and Poseidon DAGs passed', flush=True)
     forced_fallback()
     resource_recovery()
     print('Forced exact fallback: mixed theories, finite domains, exhaustive UF cases and lifecycle passed', flush=True)
