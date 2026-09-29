@@ -189,6 +189,7 @@ static void test_cardinality_consequences_after_check() {
     ast_manager m;
     reg_decl_plugins(m);
     params_ref p;
+    p.set_sym("phase", symbol("always_true"));
     ref<solver> fd_solver = mk_fd_solver(m, p);
     pb_util pb(m);
 
