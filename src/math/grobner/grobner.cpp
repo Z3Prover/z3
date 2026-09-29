@@ -325,7 +325,6 @@ void grobner::init_equation(equation * eq, v_dependency * d) {
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, v_dependency * ex) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     ptr_vector<monomial> ms;
     ms.append(num_monomials, monomials);
     std::stable_sort(ms.begin(), ms.end(), m_monomial_lt);
@@ -340,7 +339,6 @@ void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, 
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr * const * monomials, v_dependency * ex) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
 #define MK_EQ(COEFF)                                    \
     ptr_vector<monomial> ms;                            \
     for (unsigned i = 0; i < num_monomials; ++i)        \
@@ -359,7 +357,6 @@ void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr 
 }
 
 void grobner::assert_eq_0(unsigned num_monomials, expr * const * monomials, v_dependency * ex) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     rational one(1);
     MK_EQ(one);
 }
@@ -374,7 +371,6 @@ void grobner::extract_monomials(expr * lhs, ptr_buffer<expr> & monomials) {
 }
 
 void grobner::assert_eq(expr * eq, v_dependency * ex) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     SASSERT(m_manager.is_eq(eq));
     expr * lhs = to_app(eq)->get_arg(0);
     expr * rhs = to_app(eq)->get_arg(1);
@@ -394,7 +390,6 @@ void grobner::assert_eq(expr * eq, v_dependency * ex) {
 }
 
 void grobner::assert_monomial_tautology(expr * m) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     equation * eq   = alloc(equation);
     eq->m_monomials.push_back(mk_monomial(rational(1), m));
     // create (quote m)
@@ -580,6 +575,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
 void grobner::mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result) {
     unsigned sz = source->get_num_monomials();
     for (unsigned i = start_idx; i < sz; ++i) {
+        m_manager.limit().inc();
         monomial const * m = source->get_monomial(i);
         monomial * new_m   = alloc(monomial);
         new_m->m_coeff     = m->m_coeff;
@@ -642,6 +638,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         new_monomials.reset();
         ptr_vector<expr>  & rest = m_tmp_vars1;
         for (; i < sz; ++i) {
+            m_manager.limit().inc();
             monomial * curr = target->m_monomials[i];
             rest.reset();
             if (is_subset(LT, curr, rest)) {
@@ -802,6 +799,7 @@ void grobner::simplify_to_process(equation * eq) {
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
     for (equation* curr : m_to_process) {
+        m_manager.limit().inc();
         equation * new_curr = simplify(eq, curr);
         if (new_curr != nullptr && new_curr != curr) {
             m_equations_to_unfreeze.push_back(curr);
@@ -831,6 +829,7 @@ bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> &
     unsigned sz1 = m1->m_vars.size();
     unsigned sz2 = m2->m_vars.size();
     while (true) {
+        m_manager.limit().inc();
         if (i1 >= sz1) {
             if (found_M) {
                 for (; i2 < sz2; ++i2) 
@@ -904,6 +903,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
 */
 void grobner::superpose(equation * eq) {
     for (equation * curr : m_processed) {
+        m_manager.limit().inc();
         superpose(eq, curr);
     }
 }
@@ -914,7 +914,6 @@ void grobner::compute_basis_init() {
 }
 
 bool grobner::compute_basis_step() {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     equation * eq = pick_next();
     if (!eq)
         return true;
@@ -940,7 +939,6 @@ bool grobner::compute_basis_step() {
 }
 
 bool grobner::compute_basis(unsigned threshold) {
-    scoped_mpz_resource_limit _limit(m_manager.limit());
     compute_basis_init();
     while (m_num_new_equations < threshold && m_manager.inc()) {
         if (compute_basis_step()) return true;

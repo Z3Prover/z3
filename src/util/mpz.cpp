@@ -25,7 +25,6 @@ Revision History:
 #include "util/trace.h"
 #include "util/hash.h"
 #include "util/bit_util.h"
-#include "util/rlimit.h"
 
 #if defined(_MP_INTERNAL)
 #include "util/mpn.h"
@@ -47,26 +46,6 @@ Revision History:
 #else
 #define LEHMER_GCD
 #endif
-
-static thread_local reslimit* g_mpz_resource_limit = nullptr;
-
-scoped_mpz_resource_limit::scoped_mpz_resource_limit(reslimit& limit):
-    m_prev(g_mpz_resource_limit) {
-    g_mpz_resource_limit = &limit;
-}
-
-scoped_mpz_resource_limit::~scoped_mpz_resource_limit() {
-    g_mpz_resource_limit = m_prev;
-}
-
-void charge_mpz_resource(uint64_t amount) {
-    while (amount > UINT_MAX) {
-        g_mpz_resource_limit->inc(UINT_MAX);
-        amount -= UINT_MAX;
-    }
-    if (amount)
-        g_mpz_resource_limit->inc(static_cast<unsigned>(amount));
-}
 
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
@@ -751,8 +730,6 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_add(mpz const & a, mpz const & b, mpz & c) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(std::max(size_info(a), size_info(b)));
 #ifndef _MP_GMP
     big_add_sub<false>(a, b, c);
 #else
@@ -765,8 +742,6 @@ void mpz_manager<SYNCH>::big_add(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_sub(mpz const & a, mpz const & b, mpz & c) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(std::max(size_info(a), size_info(b)));
 #ifndef _MP_GMP
     big_add_sub<true>(a, b, c);
 #else
@@ -779,8 +754,6 @@ void mpz_manager<SYNCH>::big_sub(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(static_cast<uint64_t>(size_info(a)) * size_info(b));
 #ifndef _MP_GMP
     // TBD replace tmp by c.
     mpz_stack tmp;
@@ -805,8 +778,6 @@ void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(static_cast<uint64_t>(size_info(a)) * size_info(b));
 #ifndef _MP_GMP
     quot_rem_core<QUOT_AND_REM>(a, b, q, r);
 #else
@@ -858,8 +829,6 @@ void mpz_manager<SYNCH>::quot_rem_core(mpz const & a, mpz const & b, mpz & q, mp
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_div(mpz const & a, mpz const & b, mpz & c) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(static_cast<uint64_t>(size_info(a)) * size_info(b));
 #ifndef _MP_GMP
     mpz dummy;
     quot_rem_core<QUOT_ONLY>(a, b, c, dummy);
@@ -875,8 +844,6 @@ void mpz_manager<SYNCH>::big_div(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
-    if (g_mpz_resource_limit)
-        charge_mpz_resource(static_cast<uint64_t>(size_info(a)) * size_info(b));
 #ifndef _MP_GMP
     mpz dummy;
     quot_rem_core<REM_ONLY>(a, b, dummy, c);
@@ -903,8 +870,6 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         set(c, r);
     }
     else {
-        if (g_mpz_resource_limit)
-            charge_mpz_resource(static_cast<uint64_t>(size_info(a)) * size_info(b));
 #ifdef _MP_GMP
         ensure_mpz_t a1(a), b1(b);
         mk_big(c);

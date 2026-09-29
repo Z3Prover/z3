@@ -42,16 +42,6 @@ typedef unsigned digit_t;
 
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
-class reslimit;
-
-class scoped_mpz_resource_limit {
-    reslimit* m_prev;
-public:
-    scoped_mpz_resource_limit(reslimit& limit);
-    ~scoped_mpz_resource_limit();
-};
-
-void charge_mpz_resource(uint64_t amount);
 
 #if !defined(_MP_GMP) && !defined(_MP_INTERNAL)
 #ifdef _WINDOWS
