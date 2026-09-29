@@ -29,6 +29,9 @@ Revision History:
    -->
    (and (forall X F1) ... (forall X Fn))
 
+   Quantifiers with patterns or no-patterns are left intact because their
+   annotations need not apply to each conjunct.
+
    The actual transformation is slightly different since the "and" connective is eliminated and
    replaced with a "not or".
    So, the actual transformation is:
@@ -48,7 +51,6 @@ class distribute_forall {
     ptr_vector<expr>          m_todo;
     expr_map                  m_cache;
     ptr_vector<expr>          m_new_args;
-    bool                      m_array_only = false;
     // The new expressions are stored in a mapping that increments their reference counter. So, we do not need to store them in
     // m_new_exprs
     // expr_ref_vector  m_new_exprs;
@@ -56,8 +58,6 @@ class distribute_forall {
 
 public:
     distribute_forall(ast_manager & m);
-    // Restrict distribution to unpatterned conjunctions of array-select equalities.
-    void set_array_only(bool array_only) { m_array_only = array_only; }
 
     /**
        \brief Apply the distribute_forall transformation (when possible) to all universal quantifiers in \c f.

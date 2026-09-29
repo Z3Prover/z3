@@ -43,8 +43,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_eliminate_bounds = false;
     bool            m_simplify_bit2int = false;
     bool            m_nnf_cnf = true;
-    bool            m_distribute_forall = false;
-    bool            m_distribute_forall_arrays = true;
+    bool            m_distribute_forall = true;
     bool            m_reduce_args = false;
     bool            m_quasi_macros = false;
     bool            m_restricted_quasi_macros = false;

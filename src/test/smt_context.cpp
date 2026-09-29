@@ -9,6 +9,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "ast/rewriter/distribute_forall.h"
+#include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
@@ -286,5 +288,47 @@ void tst_smt_context()
         VERIFY(parse_smt2_commands(cmd, is));
         cmd.check_sat(0, nullptr);
         VERIFY(cmd.cs_state() == cmd_context::css_sat);
+    }
+
+    {
+        arith_util a(m);
+        sort* s = a.mk_int();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, s), m);
+        expr_ref first(m.mk_eq(x, a.mk_int(0)), m);
+        expr_ref second(m.mk_eq(x, a.mk_int(1)), m);
+        expr_ref body(m.mk_not(m.mk_or(m.mk_not(first), m.mk_not(second))), m);
+        quantifier_ref q(m.mk_forall(1, &s, &name, body), m);
+        distribute_forall distribute(m);
+        expr_ref result(m);
+        distribute(q, result);
+        VERIFY(result != q && !is_quantifier(result));
+
+        base_dependent_expr_state state(m);
+        state.add(dependent_expr(m, q, nullptr, nullptr));
+        distribute_forall_simplifier simplifier(m, params_ref(), state);
+        simplifier.reduce();
+        VERIFY(state[0].fml() != q);
+
+        func_decl_ref f(m.mk_fresh_func_decl("f", 1, &s, s), m);
+        app_ref term(m.mk_app(f.get(), x.get()), m);
+        app_ref pattern(m.mk_pattern(term), m);
+        expr* pat = pattern;
+        quantifier_ref patterned(m.mk_forall(1, &s, &name, body, 0, symbol::null,
+                                            symbol::null, 1, &pat), m);
+        distribute(patterned, result);
+        VERIFY(result == patterned);
+        state.add(dependent_expr(m, patterned, nullptr, nullptr));
+        simplifier.reduce();
+        VERIFY(state[1].fml() == patterned);
+
+        expr* no_pat = term;
+        quantifier_ref no_pattern(m.mk_forall(1, &s, &name, body, 0, symbol::null,
+                                             symbol::null, 0, nullptr, 1, &no_pat), m);
+        distribute(no_pattern, result);
+        VERIFY(result == no_pattern);
+        state.add(dependent_expr(m, no_pattern, nullptr, nullptr));
+        simplifier.reduce();
+        VERIFY(state[2].fml() == no_pattern);
     }
 }
