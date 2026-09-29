@@ -771,6 +771,7 @@ namespace smt {
         m_factory = nullptr; // owned by the model's plugin_manager; do not delete here
         m_model_subst.reset();
         m_model_pin.reset();
+        m_next_fresh_len_marker = 0;
     }
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator&) {
@@ -787,6 +788,41 @@ namespace smt {
 
         seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());
         seq::solver_facet_i const* sf = snap ? &m_ambient->solver_facet(const_cast<seq::eq_tree::node&>(*snap)) : nullptr;
+
+        // An "irreducible" seq variable (no equation/membership witness
+        // left to resolve it further) may still have its length pinned
+        // by the arithmetic facet (e.g. `(= (str.len x) 6)` with no other
+        // constraint on x's content). m_factory->get_fresh_value ignores
+        // any such length and returns an arbitrarily-sized "!N!"-style
+        // placeholder, which then fails model validation whenever the
+        // placeholder's length happens to differ from the pinned one.
+        // Build a value of exactly the pinned length instead: one
+        // private-use-area marker character (unique per call, so the
+        // value still behaves like a fresh value w.r.t. any other
+        // literal/fresh value in the model) followed by filler.
+        auto mk_length_correct_fresh_value = [&](expr* t) -> expr* {
+            expr* fallback = m_factory->get_fresh_value(t->get_sort());
+            if (!sf)
+                return fallback;
+            rational len;
+            expr_ref len_t(m_seq.str.mk_length(t), m);
+            if (!sf->value(len_t, len) || !len.is_unsigned())
+                return fallback;
+            unsigned n_len = len.get_unsigned();
+            if (!m_seq.is_string(t->get_sort()))
+                return fallback; // only the common String case is handled here
+            zstring s;
+            if (m_seq.str.is_string(fallback, s) && s.length() == n_len)
+                return fallback; // already the right length
+            svector<unsigned> chars;
+            if (n_len > 0)
+                chars.push_back(m_seq.max_char() - (m_next_fresh_len_marker++));
+            for (unsigned i = 1; i < n_len; ++i)
+                chars.push_back('a');
+            expr* result = m_seq.str.mk_string(zstring(chars.size(), chars.data()));
+            m_factory->add_trail(result);
+            return result;
+        };
 
         // Append token `t` to `proc`: literal tokens (values, units over
         // a value char, or any token that has no enode yet - nothing to
@@ -844,7 +880,7 @@ namespace smt {
                 // isn't in m_root2value yet) - fall back to a fresh
                 // value for such an irreducible token instead.
                 if (en->get_root() == n) {
-                    proc->add_literal(to_app(m_factory->get_fresh_value(t->get_sort())));
+                    proc->add_literal(to_app(mk_length_correct_fresh_value(t)));
                     return;
                 }
                 // Any other still-unresolved seq-sorted subterm that is

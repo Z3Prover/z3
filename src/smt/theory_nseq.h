@@ -189,6 +189,11 @@ namespace smt {
         // together with m_model_subst in finalize_model().
         expr_ref_vector                  m_model_pin;
 
+        // Per-mk_value-round counter used to mint distinct private-use-area
+        // marker characters for length-correct fresh values (see mk_value's
+        // mk_length_correct_fresh_value lambda); reset in finalize_model.
+        unsigned                         m_next_fresh_len_marker = 0;
+
         // Facet ids are registered once in the constructor and handed to
         // m_ambient (set_eq_id() etc.); they are not kept as members
         // here - all facet access goes through m_ambient's own id
