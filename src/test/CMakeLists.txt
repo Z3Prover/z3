@@ -175,6 +175,7 @@ add_executable(test-z3
   value_sweep.cpp
   var_subst.cpp
   vector.cpp
+  lp/bound_propagation.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp
   zstring.cpp

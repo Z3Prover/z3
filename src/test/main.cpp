@@ -144,6 +144,7 @@
     X(monomial_bounds) \
     X(nla_transcendentals) \
     X(nla_intervals) \
+    X(lp_bound_propagation) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
