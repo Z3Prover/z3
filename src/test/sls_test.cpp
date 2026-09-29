@@ -5,6 +5,8 @@
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
+#include "sat/smt/sls_solver.h"
+#include "sat/smt/euf_solver.h"
 
 namespace bv {
 
@@ -238,6 +240,44 @@ namespace bv {
     };
 }
 
+class test_sat_internalizer : public sat::sat_internalizer {
+public:
+    bool is_bool_op(expr* e) const override { return false; }
+    sat::literal internalize(expr* e) override { return sat::null_literal; }
+    sat::bool_var to_bool_var(expr* e) override { return sat::null_bool_var; }
+    sat::bool_var add_bool_var(expr* e) override { return sat::null_bool_var; }
+    sat::literal get_cached(app* t) const override { return sat::null_literal; }
+    bool is_cached(app* t, sat::literal l) const override { return false; }
+    void cache(app* t, sat::literal l) override {}
+    void uncache(sat::literal l) override {}
+    void push() override {}
+    void pop(unsigned n) override {}
+    void set_expr2var_replay(obj_map<expr, sat::bool_var>* r) override {}
+};
+
+static void test_best_phase() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    test_sat_internalizer si;
+    params_ref p;
+    reslimit r;
+    sat::solver sat(p, r);
+    auto* ctx = alloc(euf::solver, m, si);
+    sat.set_extension(ctx);
+    sls::solver sls(*ctx);
+    sat::bool_var v = sat.mk_var();
+
+    VERIFY(!sls.get_best_phase(v));
+    sat.set_best_phase(v, true);
+    VERIFY(sls.get_best_phase(v));
+    sat.set_best_phase(v, false);
+    VERIFY(!sls.get_best_phase(v));
+
+    sat.set_has_new_best_phase(true);
+    sls.set_has_new_best_phase(false);
+    VERIFY(!sat.has_new_best_phase());
+}
+
 
 [[maybe_unused]] static void test_eval1() {
     ast_manager m;
@@ -284,6 +324,7 @@ namespace bv {
 }
 
 void tst_sls_test() {
+    test_best_phase();
     //test_eval1();
     //test_repair1();
 
