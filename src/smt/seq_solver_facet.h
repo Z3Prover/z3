@@ -7,52 +7,13 @@ Module Name:
 
 Abstract:
 
-    Arithmetic (length) facet ("Phase 4" of the modular plugin-based search
-    tree design, following the `stx::` core in util/stx_search_tree.h and
-    the `eq_facet`/`deq_facet` facets in ast/seq/seq_eq_facet.h).
+    Arithmetic facet for the search tree.
 
-    This is the first facet that wraps a genuine incremental SMT backend
-    (per z3papers/nseq/facet-arith.md's `sub_solver_i`): rather than
-    reasoning about length/arithmetic constraints itself, `solver_facet`
-    delegates satisfiability of a set of integer-linear-arithmetic
-    constraints (derived from `eq_facet`'s equations via `str.len`) to a
-    real `solver` instance (see src/solver/solver.h,
-    src/smt/smt_solver.h's `mk_smt_solver`), kept alive for the whole
-    search and pushed/popped in lockstep with the search tree's DFS
-    backtracking via the new `facet_i::on_enter()`/`on_leave()` hooks
-    (see the "Phase 4" note at the top of util/stx_search_tree.h).
-
-    Design simplifications relative to the full facet-arith.md spec (left
-    for later, since no `mem_facet` exists yet to feed Parikh-image /
-    regex-membership constraints):
-      - Only length constraints are generated: for each pending equation
-        `L = R` held by `eq_facet`, `solver_facet` asserts
-        `len(L) = len(R)` (as a sum of `str.len` over each token: a
-        constant token contributes 1, a variable token contributes
-        `str.len(v)`), plus `len(v) >= 0` for every variable it has not
-        already constrained. This alone is enough to refute equations
-        like `a ++ X = X ++ b` with `a != b` (see facet-arith.md section
-        3.1's simplest case): any solution has `len(a++X) = len(X++b)`,
-        i.e. `1 + len(X) = len(X) + 1`, which is not a contradiction by
-        itself for *this* equation alone, but combined with iterating
-        Nielsen branches that never terminate, the arithmetic facet's
-        real payoff appears once a `mem_facet`/exponent argument is
-        layered on. For this phase, `solver_facet` is deliberately kept as
-        infrastructure: a real incremental backend, wired to push/pop
-        with the tree, generating and checking length constraints - not a
-        complete decision procedure for periodicity by itself.
-      - No model extraction / no consequence-finding: `solver_facet` only
-        asks `check()` for `sat`/`unsat`/`unknown` on the accumulated
-        constraint set; `unknown` is folded into the facet reporting
-        "unresolved" (never itself conflicting or being satisfied), so it
-        can never cause a false verdict, only a possible loss of
-        precision (soundness preserved, exactly as `deq_facet`'s
-        documented incompleteness in Phase 3).
-      - No fresh-constraint deduplication across nodes beyond what
-        `eq_facet`'s own equation-set already provides; nodes are
-        immutable/persistent so this facet's own vector of constraints is
-        always exactly "this node's own new asserts" (see the `on_enter`
-        design note below), which is what push/pop needs.
+    `solver_facet` delegates integer constraints, primarily sequence
+    lengths derived from `eq_facet`, to a shared incremental SMT solver.
+    The backend is pushed and popped in sync with DFS backtracking. The
+    facet currently generates length equalities and basic non-negativity
+    facts; `unknown` is treated conservatively as unresolved.
 
 Author:
 
@@ -80,24 +41,10 @@ class solver;
 namespace seq {
 
     /**
-     * Concrete `sub_solver_i` backed by a single shared `solver` instance
-     * (see src/solver/solver.h, src/smt/smt_solver.h). This is the only
-     * place in the arith-facet module that depends on the concrete solver
-     * API; `solver_facet` itself only ever sees `sub_solver_i&`.
-     *
-     * Follows the c3 branch's `smt::sub_solver` (src/smt/
-     * nseq_context_solver.h): a dependency-tracked `assert_expr(e, dep)`
-     * introduces a fresh Boolean assumption literal `a` and asserts
-     * `a => e`, remembering `dep` at `a`'s slot; `check()` passes every
-     * live assumption literal to the backend solver and, on `l_false`,
-     * reads back the backend's own UNSAT core (over assumption literals)
-     * to compute the join of the corresponding deps, cached for
-     * `unsat_core()`. Assertions with `dep == nullptr` are asserted
-     * directly (unconditional facts, never explained by/retracted from a
-     * core). Assumption-literal slots are recycled across push/pop
-     * scopes (mirroring `sub_solver`'s `m_assump_lits`/`m_frame_bounds`)
-     * so that repeated add/pop cycles across DFS sibling branches do not
-     * leak ever-growing vectors.
+     * `sub_solver_i` backed by one shared `solver`.
+     * Dependency-tracked assertions use assumption literals so UNSAT
+     * cores can be mapped back to `dep_tracker`s. Literal slots are
+     * reused across push/pop scopes.
      */
     class sub_solver : public sub_solver_i {
         ast_manager&              m;
@@ -126,16 +73,10 @@ namespace seq {
     };
 
     /**
-     * Facet holding this node's own newly-added length constraints (over
-     * and above whatever its ancestors already pushed into the shared
-     * `sub_solver`). Since nodes in `stx::search_tree` are
-     * immutable/persistent (a child is a clone of its parent plus one
-     * incremental change), a fresh `solver_facet` clone's own constraint
-     * vector naturally holds exactly the constraints *this* node adds -
-     * `on_enter()` asserts precisely those and pushes a new backend scope;
-     * `on_leave()` pops it. This mirrors facet-arith.md section 2's
-     * "push/pop synced to DFS scope" requirement without the generic
-     * `stx::` engine needing to know anything about incremental solvers.
+     * Holds the arithmetic constraints added at this node only.
+     * Child nodes clone their parent state structurally, so `m_own`
+     * contains exactly the constraints that must be pushed when the node
+     * is entered and popped when it is left.
      */
     class solver_facet : public solver_facet_i {
         ast_manager&      m;
@@ -146,15 +87,7 @@ namespace seq {
         unsigned          m_pushed_at_scope = 0; // trail scope level at which the backend scope currently in effect was pushed (0 = none pushed yet)
         model_ref         m_model;                       // arithmetic model captured by clone() at a sat leaf
 
-        // Trail undo object: pairs with the backend push done when the
-        // first constraint at a given trail-scope level is asserted.
-        // Its constructor does the push; `undo()` (invoked on
-        // pop_scope()) does the matching pop, keeping the shared
-        // incremental solver's scope stack synced to the search tree's
-        // own trail-scope stack. Also restores `m_pushed_at_scope` to
-        // its prior value so a later sibling branch at the same (now
-        // popped-back-to) trail level pushes its own fresh backend scope
-        // rather than assuming one is still open.
+        // Pairs the backend push for a trail scope with the matching pop.
         class scope_trail : public ::trail {
             sub_solver_i& m_solver;
             unsigned&     m_pushed_at_scope;
@@ -165,9 +98,7 @@ namespace seq {
             void undo() override { m_solver.pop(1); m_pushed_at_scope = m_old_value; }
         };
 
-        // Trail undo object mirroring push_back_trail but for a
-        // ref_vector (whose pop_back manages reference counts, unlike
-        // plain vector<T>).
+        // Undo object for expr_ref_vector::push_back().
         class push_back_ref_trail : public ::trail {
             expr_ref_vector& m_vec;
         public:
@@ -183,73 +114,36 @@ namespace seq {
         arith_util& get_arith_util() override { return a; }
         seq_util& get_seq_util() const { return u; }
 
-        // Record one more length (or other arithmetic) constraint owned by
-        // the current branch. The first call within a branch (trail scope)
-        // lazily pushes a matching scope onto the shared incremental
-        // backend via `scope_trail`, whose `undo()` pops it again exactly
-        // when this trail scope is popped - so the backend's scope stack
-        // always tracks the DFS call stack, without the generic `stx::`
-        // engine needing to know anything about incremental solvers.
-        // `dep` (if non-null) is the dependency justifying `c` (e.g. the
-        // equation/obligation `c` was derived from); it is forwarded to
-        // `m_solver.assert_expr` so that, should the backend go unsat,
-        // `has_conflict()`/`conflict_dep()` can report a precise
-        // dependency instead of `nullptr` (an unconditional "some subset
-        // of everything asserted so far" claim).
-        // Returns true iff `c` was newly recorded (false if it was
-        // already present, e.g. because propagate() revisits the same
-        // equation across simplify rounds).
+        // Add one branch-local arithmetic constraint. The first add at a
+        // trail scope lazily opens a matching backend scope. `dep`, when
+        // present, is forwarded so UNSAT cores can explain the conflict.
+        // Returns false if the constraint was already recorded.
         bool add_constraint(expr* c, eq_tree::dep_tracker dep = nullptr) override;
 
-        // Generate `len(lhs) = len(rhs)` (as an expr over str.len of each
-        // token-list side, per the module comment) from an eq_facet
-        // equation and record it via add_constraint, tagged with `dep`
-        // (the equation's own dependency). Also records `len(v) >= 0`
-        // once per fresh variable token seen (asserted with a null dep:
-        // an unconditional axiom, not contingent on any one equation).
-        // Returns true iff at least one new constraint was recorded.
+        // Add `len(lhs) = len(rhs)` and `len(v) >= 0` facts for any
+        // sequence variables encountered. Returns true iff something new
+        // was recorded.
         bool add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        // A node is only satisfied if its arithmetic is: an undecided
-        // (e.g. resource-limited) check must not let a leaf pass as sat.
+        // A node is satisfied only when the arithmetic backend says `sat`.
         bool is_satisfied() const override { return m_solver.check() == l_true; }
 
         bool has_conflict() const override { return m_solver.check() == l_false; }
 
-        // Dependency justifying the current conflict (valid iff
-        // `has_conflict()`): the join, as computed by the backend's own
-        // `unsat_core()`, of every dependency-tracked constraint that
-        // contributed to the UNSAT result. May be `nullptr` even when
-        // `has_conflict()` is true (e.g. the conflict is purely among
-        // unconditional facts) - callers should treat a `nullptr` here
-        // exactly as they already treat a `nullptr` dep elsewhere: sound,
-        // just less precise.
+        // Dependency explaining the current conflict, if any. It may be
+        // `nullptr` when the conflict only uses unconditional facts.
         eq_tree::dep_tracker conflict_dep() const override { return m_solver.unsat_core(); }
 
-        // Query the shared incremental backend for whether `c` is
-        // currently *implied* (resp. its negation implied) by the
-        // asserted constraint set, without adding it permanently: used by
-        // ncontains_facet's length-gate propagation (facet-ncontains.md
-        // §3.3) to check `len(h) < len(n)` without polluting m_own. This
-        // pushes/asserts/checks/pops a throwaway scope on the shared
-        // backend directly (NOT via the trail - this is a read-only
-        // probe, symmetric and side-effect-free by construction, so it
-        // needs no undo registration).
+        // Probe whether `c` is implied without permanently asserting it.
         lbool implies(expr* c, eq_tree::dep_tracker* core = nullptr) const override;
         bool value(expr* e, rational& v) const override;
         std::ostream& display(std::ostream& out) const override;
     };
 
 
-    // Deterministic propagation plugin: reads eq_facet's current equation
-    // set (facet id `eq_id`) and feeds any not-yet-seen equation's length
-    // constraint into solver_facet (facet id `arith_id`), then checks the
-    // shared incremental backend. Constraints are generated once (the
-    // simplify pass here is not idempotency-guarded beyond `eq_facet`'s
-    // own dedup via propagate_to_fixpoint's hashing - see module comment
-    // for the "no cross-node dedup beyond eq_facet's own set" caveat).
+    // Deterministic propagation from eq_facet into solver_facet.
     class arith_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;

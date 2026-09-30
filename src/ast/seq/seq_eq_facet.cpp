@@ -188,12 +188,8 @@ namespace seq {
             conflict_dep = eq.m_dep;
             return false;
         }
-        // NOTE: do not early-return here just because reduce_eq itself made
-        // no change - L/R may already be in an unresolved empty-vs-nonempty
-        // state (e.g. because some other facet's apply_subst just emptied
-        // one side directly, without going through reduce_eq at all), and
-        // that state must still be checked/resolved below on every call,
-        // not only when reduce_eq itself reports a change.
+        // Even if reduce_eq reports no change, later checks still need to
+        // handle empty-vs-nonempty states introduced by substitutions.
         if (eq_changed || !new_eqs.empty())
             changed = true;
         m_trail.push(vector_field_trail<equation, expr_ref_vector>(m_eqs, idx, &equation::m_lhs));
@@ -201,31 +197,13 @@ namespace seq {
         eq.m_lhs = std::move(L);
         eq.m_rhs = std::move(R);
 
-        // Any newly-produced sub-equations (from unit-vs-unit
-        // decomposition, length reasoning, etc.) are appended as fresh
-        // equations, trailed. The decomposition is definitional (not an
-        // added assumption), so each sub-equation inherits the parent
-        // equation's dependency directly rather than joining a fresh leaf.
-        // NOTE: `eq` dangles once add_equation reallocates m_eqs - use
-        // parent_dep here, and re-fetch m_eqs[idx] afterwards. They are
-        // added before the substitutions below, so that those reach them.
+        // Append newly produced sub-equations as trailed, definitional
+        // consequences of the parent equation. Use parent_dep because
+        // add_equation may reallocate m_eqs and invalidate `eq`.
         //
-        // Special case: reduce_eq's own unit-vs-unit trimming
-        // (reduce_back/reduce_front in ast/rewriter/seq_rewriter.cpp)
-        // pushes a pair (a, b) of individual character terms whenever
-        // two leading/trailing unit tokens are neither statically equal
-        // nor statically distinct (e.g. from an `ite`/`nth` application)
-        // - this is exactly the same situation word_eq_split's
-        // unit-vs-unit fallback (above) handles explicitly, so it must
-        // go through the same soundness checks here: consult the
-        // ambient context first (a conflict if the equality is already
-        // assigned false there), and otherwise record the forced
-        // equality both on the arithmetic sub-solver and in
-        // assumption_facet (so theory_nseq can, once a satisfiable node
-        // is found, make the ambient context agree). Any other shape of
-        // sub-equation (multi-token, from length/overlap/bag reasoning)
-        // is a definitional decomposition, not a forced character
-        // equality, and is added as a plain equation as before.
+        // Unit-vs-unit decompositions may force equality between two
+        // character terms. Check whether that equality is already false
+        // in the ambient context before recording it as an assumption.
         for (auto const& [l, r] : new_eqs) {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(l, lts);
@@ -252,17 +230,9 @@ namespace seq {
             add_equation(lts, rts, parent_dep);
         }
 
-        // reduce_eq strips common prefixes/suffixes and performs other
-        // deterministic simplifications, but (unlike the old hand-rolled
-        // loop) does not itself force the remaining tokens of a side to
-        // epsilon when the other side has already been fully consumed -
-        // do that here: pop leading variables as forced (unconditional)
-        // substitutions v := epsilon, justified by this equation's own
-        // dependency; a leading constant on the nonempty side at this
-        // point is a symbol clash (conflict).
-
-        // NSB code review: use broadcast_subst instead of apply_subst, so
-        // this forced v:=epsilon substitution reaches sibling facets too.
+        // If one side is empty, the other side must reduce to epsilon.
+        // Leading variables become forced substitutions; a leading unit
+        // is a conflict. Use broadcast_subst so sibling facets stay in sync.
         equation& cur = m_eqs[idx];
         if (cur.m_lhs.empty() != cur.m_rhs.empty()) {
             expr_ref_vector& side = cur.m_lhs.empty() ? cur.m_rhs : cur.m_lhs;
@@ -284,7 +254,7 @@ namespace seq {
             m_eqs[idx].m_active = false;
         }
 
-        // variable definition (c3's det rule): x = t with x not occurring in t, substitute x := t
+        // If x = t and x does not occur in t, substitute x := t.
         for (int side = 0; side < 2; ++side) {
             expr_ref_vector const& vs = side == 0 ? cur.m_lhs : cur.m_rhs;
             expr_ref_vector def(side == 0 ? cur.m_rhs : cur.m_lhs);
@@ -336,10 +306,8 @@ namespace seq {
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
-    // Centralized substitution dispatcher: broadcast the substitution to
-    // every subst_sink_i facet in the node (including eq_facet itself,
-    // which is one such sink), so all token-based facets stay
-    // synchronized.
+    // Broadcast a substitution to every subst_sink_i facet in the node so
+    // token-based facets stay synchronized.
     void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
         for (unsigned id = 0; id < target.num_facets(); ++id) {
             if (!target.has_facet(id))
@@ -347,17 +315,8 @@ namespace seq {
             if (auto* sink = dynamic_cast<subst_sink_i*>(&target.facet(id)))
                 sink->apply_subst(var, repl, subst_dep);
         }
-        // c3 branch's add_subst_length_constraints (seq_nielsen.cpp):
-        // every substitution v := t1...tk is only sound in models where
-        // len(v) actually equals len(t1...tk), so record that length
-        // equation on the arithmetic sub-solver alongside the
-        // substitution itself - this lets the sub-solver detect a
-        // length-infeasible substitution (e.g. one that would force a
-        // negative-length remainder) without waiting for a later
-        // eq_facet equation to expose the same fact via
-        // arith_propagation. Only applies to sequence-sorted variables:
-        // word_eq_split's character-vs-character splits substitute a
-        // bare char variable (e.g. `c := a`), which has no `len()`.
+        // Also assert the matching length equation for sequence-sorted
+        // variables. Character-sorted substitutions have no len().
         auto ac = get_ambient(target);
         auto& sf = ac.solver_facet_ref();
         ast_manager& mgr = sf.get_arith_util().get_manager();
@@ -392,13 +351,8 @@ namespace seq {
                 continue;
             if (eq.m_lhs.empty() || eq.m_rhs.empty())
                 continue; // fully resolved by propagation; shouldn't occur
-            // Mirror c3's apply_const_nielsen/apply_var_nielsen: try both
-            // directions (fwd=true: leading/prefix tokens, matching
-            // reduce_front; fwd=false: trailing/suffix tokens, matching
-            // reduce_back) - a two-sided equation can be stuck only at
-            // its tail even though its head has already been resolved by
-            // propagation (e.g. a substitution narrowed a suffix without
-            // touching the still-agreeing prefix).
+            // Try both directions: a substitution may leave an equation
+            // stuck only at the tail even if the head already simplifies.
             for (int dir = 0; dir < 2; ++dir) {
                 bool fwd = dir == 0;
                 expr* lh = fwd ? eq.m_lhs[0] : eq.m_lhs.back();
@@ -410,56 +364,15 @@ namespace seq {
                 if (lh == rh)
                     continue;
                 if (lp || rp)
-                    // Power tokens are neither units nor
-                    // Nielsen-substitutable variables - they are owned
-                    // exclusively by power_facet's own dedicated rule
-                    // family (power_propagation/power_split/
-                    // power_fine_wilf/power_split_elim; see
-                    // facet-eq-deq.md section 2.3). Substituting a power
-                    // token wholesale here (as v:=epsilon or v:=c.v')
-                    // would be unsound/redundant with that machinery, so
-                    // word_eq_split simply skips any equation whose
-                    // head/tail is a power on either side. `ite` tokens
-                    // are treated as ordinary Nielsen variables (no
-                    // special-case here; see ambient_context_i::is_var).
+                    // Power tokens are handled by power_facet, not by
+                    // Nielsen-style substitutions here.
                     continue;
-                // A token is a Nielsen-substitutable variable precisely when
-                // it is neither a unit nor a power (per z3papers/nseq's
-                // README.md section 5.1.1 token model - no separate is_var
-                // predicate). Computed locally rather than via
-                // ambient_context_i::is_var/theory_seq::is_var, which do not
-                // exclude power tokens and are kept as-is only for legacy
-                // model-construction compatibility (theory_seq::mk_value/
-                // init_model).
+                // A Nielsen-substitutable token is any non-unit, non-power token.
                 bool lv = !lu && !lp;
                 bool rv = !ru && !rp;
-                // NSB code review: there is a conflict if characters are
-                // distinct; if not equal and not distinct, force them to
-                // coincide via a term substitution replacing whichever of
-                // lh/rh is not already a concrete char value (if both are
-                // values yet not equal, m.are_distinct necessarily holds
-                // for them, so that case is covered by the conflict arm
-                // above and cannot fall through to here).
-                //
-                // In practice, when lch/rch are both syntactically
-                // determined constant chars, `reduce_eq` (run by
-                // `eq_propagation` immediately before any split is
-                // attempted) already performs this same unit-vs-unit
-                // decomposition/symbol-clash check deterministically, so
-                // the `are_distinct`/`lch == rch` arms below are a
-                // defensive fallback that should not normally trigger;
-                // the case this rule exists to resolve is two *symbolic*
-                // (non-value) character terms - e.g. from an `ite`/`nth`
-                // application - that reduce_eq cannot statically compare,
-                // for which forcing the unit tokens to coincide (via the
-                // same broadcast_subst token-substitution machinery used
-                // by every other Nielsen rule in this file) both resolves
-                // the equation's stuck head/tail and is, by itself,
-                // sufficient to guarantee lch/rch agree in any model
-                // (they become literally the same term everywhere) - no
-                // separate arithmetic equality constraint is needed for
-                // soundness (word_eq_split has no solver_facet_i handle in
-                // any case; see class comment).
+                // For two unit tokens, a distinct pair is a clash; an
+                // incomparable symbolic pair is resolved by forcing the
+                // tokens to coincide.
                 if (lu && ru) {
                     expr* lch = nullptr, *rch = nullptr;
                     VERIFY(u.str.is_unit(lh, lch));
@@ -469,37 +382,25 @@ namespace seq {
                     if (lch == rch)
                         continue;
                     eq_tree::dep_tracker eq_dep = eq.m_dep;
-                    // Neither statically equal nor statically distinct
-                    // (e.g. two symbolic character terms from an
-                    // `ite`/`nth` application): build the equality
-                    // expression and consult the ambient context first -
-                    // if it is already assigned false there, this is a
-                    // genuine conflict (justified by the dependencies
-                    // backing that assignment, joined with this
-                    // equation's own dependency), not a case to resolve
-                    // by substitution.
+                    // If the implied character equality is already false
+                    // in the ambient context, report a conflict instead
+                    // of substituting.
                     expr_ref eq_expr(m.mk_eq(lch, rch), m);
                     if (auto false_dep = ac.literal_if_false(eq_expr)) {
                         n.set_conflict(stx::br_plugin_base, f.dm().mk_join(eq_dep, false_dep));
                         return nullptr;
                     }
                     has_more = true;
-                    // Eliminate whichever side is not already a concrete
-                    // char value; if neither (or both) is a value,
-                    // arbitrarily eliminate the trailing/second side (rh).
+                    // Prefer eliminating the non-constant side; otherwise
+                    // eliminate the rhs token.
                     bool elim_lh = !u.is_const_char(lch) && u.is_const_char(rch);
                     expr* var_tok = elim_lh ? lh : rh;
                     expr* val_tok = elim_lh ? rh : lh;
                     expr_ref_vector repl(m);
                     repl.push_back(val_tok);
                     broadcast_subst(n, var_tok, repl, eq_dep);
-                    // The substitution alone is only sound in models
-                    // where lch/rch really are equal, so record that
-                    // requirement both in the arithmetic sub-solver (so
-                    // it prunes any future assignment violating it) and
-                    // in assumption_facet (so theory_nseq can, once a
-                    // satisfiable node is found, make the ambient context
-                    // agree - see assumption_facet's class comment).
+                    // Record the implied character equality alongside the
+                    // substitution.
                     ac.solver_facet_ref().add_constraint(eq_expr, eq_dep);
                     ac.assumption_facet_ref().add_assumption(eq_expr, ac.context());
                     out = eq_tree::edge("char-eq", eq_dep, true, 0);
@@ -508,59 +409,28 @@ namespace seq {
                     return nullptr;
                 }
 
-                // Every alternative below is a case-split on how to unstick
-                // this one equation, so all of them (and the immediately
-                // materialized first branch) are justified by this
-                // equation's own dependency, not a join of several.
+                // Each alternative below resolves this single equation, so
+                // all branches inherit eq_dep directly.
                 eq_tree::dep_tracker eq_dep = eq.m_dep;
 
                 if ((lv || !lu) && (rv || !ru)) {
-                    // Two distinct variables lh, rh: the classic 5-branch
-                    // Nielsen transformation for word equations (design doc
-                    // facet-eq-deq.md section 2.2 / c3 branch's
-                    // apply_var_nielsen). Since v1, v2 are symbols at the
-                    // matching end of each side, exactly one of these must
-                    // hold in any solution (mirrored - v'.c instead of c.v' -
-                    // when fwd is false, i.e. the variables are at the tail):
-                    //   (1) v1 := epsilon                                  (progress)
-                    //   (2) v2 := epsilon                                  (progress)
-                    //   (3) v1 := v2                                       (progress)
-                    //   (4) v1 := v2 . v1'  / v1' . v2   (v1 longer than v2, no progress)
-                    //   (5) v2 := v1 . v2'  / v2' . v1   (v2 longer than v1, no progress)
-                    // Branch (3) (c3's apply_var_nielsen child 3) covers the
-                    // case where v1 and v2 turn out equal outright - neither
-                    // properly extends the other - and eliminates v1
-                    // entirely, so it counts as progress alongside (1)/(2).
-                    // Branches (4)/(5) are the "non-progress" cases (they
-                    // introduce a fresh variable rather than shrinking the
-                    // equation), but are still required for completeness:
-                    // without them, any solution where both v1 and v2 are
-                    // non-empty and neither is a literal prefix/suffix of the
-                    // other one being consumed first is unreachable. All of
-                    // (3)/(4)/(5) carry a |v1| > 0 (or |v2| > 0) guard so
-                    // the five branches stay pairwise disjoint (mirroring
-                    // c3's apply_var_nielsen disjointness guards).
+                    // Two variables use the standard five Nielsen cases:
+                    // either side is empty, the variables are equal, or
+                    // one properly extends the other. The non-empty cases
+                    // are guarded by len(v) > 0 to keep branches disjoint.
                     expr* v1 = lh;
                     expr* v2 = rh;
                     sort* s = v1->get_sort();
                     expr* v1p = f.mk_fresh_var(s);
                     expr* v2p = f.mk_fresh_var(s);
 
-                    // Branches (3)/(4) both presuppose their eliminated
-                    // variable is non-empty (that is exactly what
-                    // distinguishes them from branches (1)/(2)): without
-                    // an explicit `len(v) > 0` guard the branches are not
-                    // mutually exclusive, matching c3's apply_var_nielsen
-                    // disjointness guards (seq_nielsen_modifiers.cpp).
+                    // The equal/extension branches require the eliminated
+                    // variable to be non-empty.
                     expr* v1_pos = nullptr, *v2_pos = nullptr;
                     {
                         arith_util& a = ac.solver_facet_ref().get_arith_util();
-                        // v1/v2 can themselves be char-sorted variables
-                        // (e.g. two bare character variables compared
-                        // head-to-head); such tokens have no `len()`, so
-                        // the non-emptiness guard is simply omitted for
-                        // them - a char-sorted "variable" is trivially
-                        // non-empty in every model anyway.
+                        // Character-sorted variables have no len() and are
+                        // already non-empty.
                         if (u.is_seq(v1->get_sort()))
                             v1_pos = a.mk_gt(u.str.mk_length(v1), a.mk_int(0));
                         if (u.is_seq(v2->get_sort()))
@@ -573,13 +443,8 @@ namespace seq {
                         it->push_back("v2:=eps", v2, empty, eq_dep);
                     }
                     {
-                        // Branch 3 (c3's apply_var_nielsen child 3):
-                        // v1 := v2 && |v1| > 0. This is the case where
-                        // the two variables are outright equal (neither
-                        // properly extends the other); it eliminates v1
-                        // entirely (progress), and is guarded by |v1| > 0
-                        // to stay disjoint from branch 1 (v1:=eps, which
-                        // covers |v1| = 0).
+                        // Equality case: v1 := v2, guarded to stay disjoint
+                        // from v1 := eps.
                         expr_ref_vector repl(m);
                         repl.push_back(v2);
                         it->push_back("v1:=v2", v1, repl, eq_dep, v1_pos);
@@ -607,11 +472,9 @@ namespace seq {
                     return it;
                 }
 
-                // one side is a variable, the other a unit token. Block compression
-                // (c3's "nielsen block ="): the variable is split against the whole
-                // block of leading unit tokens at once - `v := c1..ck` for every proper
-                // prefix (v eliminated), `v := c1..cm . v'` for the whole block - instead
-                // of one character per search level.
+                // One side is a variable, the other a run of unit tokens.
+                // Split against the whole block instead of one character
+                // per search level.
                 bool var_on_lhs = lv || !lu;
                 expr* var = var_on_lhs ? lh : rh;
                 expr_ref_vector const& var_side = var_on_lhs ? eq.m_lhs : eq.m_rhs;
@@ -625,7 +488,7 @@ namespace seq {
                         break;
                     block.push_back(t);
                 }
-                // in natural token order, the first k block tokens (plus an optional tail)
+                // Build the first k block tokens in natural order, with an optional tail.
                 auto prefix_repl = [&](unsigned k, expr* tail) {
                     expr_ref_vector repl(m);
                     if (!fwd && tail) repl.push_back(tail);
@@ -645,8 +508,7 @@ namespace seq {
                 }
                 it->push_back(fwd ? "v:=c.v'" : "v:=v'.c", var, prefix_repl(block.size(), var2), eq_dep, nullptr, false);
 
-                // Materialize the first branch ("v:=eps") now, in the scope
-                // the driver already pushed for this call.
+                // Materialize the first branch now in the caller's scope.
                 expr_ref_vector empty(m);
                 broadcast_subst(n, var, empty, eq_dep);
                 out = eq_tree::edge("v:=eps", eq_dep, true, 0);
@@ -660,9 +522,7 @@ namespace seq {
 
     // -- eq_approx_split --
 
-    // Build a `str.++` chain expr from a token list, since `seq_eq_approx`
-    // reads a whole term via `to_segments`, not a pre-flattened token
-    // vector (mirrors `seq_ncontains_facet.cpp`'s `tokens_to_expr`).
+    // Build a concat expression from a token list for seq_eq_approx.
     static expr* eq_approx_tokens_to_expr(seq_util& u, expr_ref_vector const& ts) {
         if (ts.empty())
             return u.str.mk_empty(u.str.mk_string(zstring())->get_sort());
@@ -673,9 +533,7 @@ namespace seq {
         has_more = false;
         committed = false;
         auto ac = get_ambient(n);
-        // Opt-in, mirroring the c3 branch's `nielsen_graph::apply_eq_approx`
-        // (`if (!m_eq_approx) return false;`, itself wired from
-        // `smt.nseq.eq_approx`, default false, in seq_nielsen_regex.cpp).
+        // Optional refutation pass.
         if (!ac.fparams().m_seq_eq_approx)
             return nullptr;
         auto& f = ac.eq_facet_ref();
@@ -688,41 +546,21 @@ namespace seq {
             m_stats.m_num_checks++;
             lbool r = m_approx.check(lhs, rhs);
             if (r == l_false) {
-                // Empty intersection: every value of either side lies in
-                // the language of its own segments (constants and
-                // unconstrained variables only - no view was ever
-                // installed on any term here), so the equation's own
-                // dependency alone justifies the refutation.
+                // An empty segment-language intersection refutes the equation.
                 m_stats.m_num_refuted++;
                 n.set_conflict(stx::br_plugin_base, eq.m_dep);
                 return nullptr;
             }
         }
-        // Nothing refuted: nothing has changed since the last pass over
-        // this (unchanged) equation set, so there is no point offering
-        // again at a higher cost until some other rule mutates eq_facet.
+        // No refutation.
         return nullptr;
     }
 
     // -- eq_split (mid-equation split with padding variable) --
 
-    // Ported from the c3 branch's find_eq_split_point
-    // (seq_nielsen_modifiers.cpp): walk tokens from each side, tracking a
-    // per-token-id signed balance of variable-length tokens consumed on
-    // LHS (+1) vs RHS (-1), plus a running net constant-length difference
-    // (const_diff). A split point is valid when the balance is entirely
-    // zero (nz==0, i.e. the two prefixes consumed the exact same
-    // multiset of variable tokens so far, so their symbolic lengths
-    // cancel) and interior on both sides (never at an endpoint - an
-    // endpoint split degenerates to the original equation with a renamed
-    // tail, no progress). Among valid split points, keep the one
-    // minimizing |const_diff| (the padding amount).
-    //
-    // NOTE (preserved from c3 branch history): an earlier version used
-    // two booleans ("has a variable-length token been consumed on this
-    // side") instead of a per-token signed balance, requiring both false
-    // *after* a variable had been seen - unsatisfiable, so that version
-    // never fired. The per-token balance above is the correct fix.
+    // Walk both sides, tracking the net variable-token balance and
+    // constant-length difference. A valid split is interior on both
+    // sides, has zero token balance, and minimizes |const_diff|.
     bool eq_split::find_eq_split_point(seq_util& u, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
                                         unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding) {
         unsigned lhs_len = lhs.size();
@@ -770,10 +608,8 @@ namespace seq {
             else consume_lhs = const_diff <= 0;
 
             expr* tok = consume_lhs ? lhs.get(li++) : rhs.get(ri++);
-            // A length-1 string constant is const-length 1 (get_concat_units's
-            // token model never produces longer constant tokens); every
-            // other token (opaque variable, fresh Skolem, etc.) is
-            // variable-length.
+            // get_concat_units produces unit constants; every other token
+            // has variable length.
             if (u.str.is_unit(tok)) {
                 const_diff += (consume_lhs ? 1 : -1);
             }
@@ -809,7 +645,7 @@ namespace seq {
             int padding = 0;
             if (!find_eq_split_point(u, eq.m_lhs, eq.m_rhs, split_lhs, split_rhs, padding))
                 continue;
-            has_more = true; // an alternative exists at this cost, even if not yet materialized below (loop continues to next equation only on failure)
+            has_more = true;
 
             eq_tree::dep_tracker eq_dep = eq.m_dep;
             expr_ref_vector lhs_prefix(m), lhs_suffix(m), rhs_prefix(m), rhs_suffix(m);
@@ -826,7 +662,7 @@ namespace seq {
             eq2_rhs.append(rhs_suffix);
             if (pad) {
                 if (padding > 0) {
-                    // LHS prefix is longer by |padding|: rhs_prefix.pad = lhs_prefix, pad.lhs_suffix = rhs_suffix.
+                    // LHS prefix is longer by |padding|.
                     eq1_rhs.push_back(pad);
                     expr_ref_vector new_eq2_lhs(m);
                     new_eq2_lhs.push_back(pad);
@@ -859,7 +695,7 @@ namespace seq {
             out = eq_tree::edge("eq-split", eq_dep, true, 0);
             committed = true;
             m_stats.m_num_splits++;
-            return nullptr; // single deterministic progress branch, no resumable iterator
+            return nullptr;
         }
         return nullptr;
     }
@@ -996,11 +832,7 @@ namespace seq {
 
     // -- deq_split --
 
-    // len(toks[0]) + .. + len(toks[n-1]) as a single arithmetic
-    // expression, mirroring power_facet.cpp's mk_len_sum (a per-token
-    // const-1-or-str.len sum); duplicated locally rather than shared
-    // since eq_facet/power_facet intentionally have no header dependency
-    // on each other's static helpers.
+    // Sum the lengths of all tokens on one side.
     static expr_ref mk_side_len(seq_util& u, arith_util& a, ast_manager& m, expr_ref_vector const& toks) {
         expr_ref sum(a.mk_int(0), m);
         for (expr* tok : toks)
@@ -1008,17 +840,9 @@ namespace seq {
         return sum;
     }
 
-    // Locate the first "stuck" disequation - both sides nonempty (an
-    // empty side would already have been resolved/discharged by
-    // deq_facet::simplify) - to case-split on. Unlike eq_facet's splits,
-    // this rule does not need to inspect the disequation's leading
-    // tokens at all: the 3-way branch (length-order x2, equal-length
-    // split) applies uniformly regardless of what the heads look like.
-    // Since every sibling branch resumes from the very same backtracked
-    // node state that split() itself ran in (the driver pops each
-    // branch's scope before trying the next, mirroring word_eq_split's
-    // iterator), `idx` stays a valid index into f.disequations() for
-    // every branch - no content-based re-lookup is needed.
+    // Split the first unresolved disequation into two length-order cases
+    // and one equal-length decomposition. Branch resumption backtracks to
+    // the same node state, so idx remains valid across iterator steps.
     scoped_ptr<eq_tree::split_iterator_i> deq_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;
@@ -1039,11 +863,7 @@ namespace seq {
 
             iterator* it = alloc(iterator, n, idx, lhs, rhs, dq_dep, 2, m, u);
 
-            // Materialize branch 1 ("len(u) < len(v)") now, in the scope
-            // the driver already pushed for this call: a length mismatch
-            // alone already proves the disequation, so it is simply
-            // discharged (removed) here - the arith side constraint is
-            // what actually justifies the discharge.
+            // A strict length mismatch already proves the disequation.
             f.remove_disequation_trailed(idx);
             sf.add_constraint(sf.get_arith_util().mk_lt(len_lhs, len_rhs), dq_dep);
             out = eq_tree::edge("diseq len<", dq_dep, true, 0);
@@ -1065,19 +885,15 @@ namespace seq {
         auto& f = ac.deq_facet_ref();
 
         if (this_case == 2) {
-            // Branch 2: len(v) < len(u), symmetric to branch 1.
+            // Symmetric length-mismatch branch.
             f.remove_disequation_trailed(m_diseq_idx);
             sf.add_constraint(sf.get_arith_util().mk_lt(len_rhs, len_lhs), m_dep);
             out = eq_tree::edge("diseq len>", m_dep, true, 0);
             return true;
         }
 
-        // Branch 3: equal-length split. Fresh skolem terms w (common
-        // prefix), a, b (fresh single-char unit terms), u', v' (fresh
-        // suffix vars); new equations u = w.a.u', v = w.b.v'; arith
-        // constraint len(u')=len(v'); replace the original disequation
-        // with the finer a != b - which, together with the two new
-        // equalities just asserted, is what actually proves u != v.
+        // Equal-length case: factor out a common prefix and reduce the
+        // disequation to a single differing character.
         auto& ef = ac.eq_facet_ref();
         sort* seq_sort = m_lhs[0]->get_sort();
         sort* char_sort = nullptr;

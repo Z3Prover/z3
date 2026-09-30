@@ -7,66 +7,13 @@ Module Name:
 
 Abstract:
 
-    Sequence power operator (`s^n`, `seq.power`) facet, following `stx::`
-    in util/stx_search_tree.h and the `eq_facet`/`solver_facet` modules
-    (ast/seq/seq_eq_facet.h, smt/seq_solver_facet.h).
+    Sequence power operator (`s^n`, `seq.power`) facet.
 
-    Design, ported from theory_seq's existing power-operator machinery
-    (`theory_seq.h/.cpp`'s `is_power`/`add_power_axiom`/
-    `add_power_unfold_axiom`, `seq_axioms.cpp`'s `axioms::power_axiom`/
-    `axioms::power_unfold_axiom`) into the modular plugin architecture:
-
-      - `power_facet` owns `vector<str_power>`, each a pending obligation
-        `e = s^n` (the power term `e`, its base `s`, and its exponent
-        `n`), exactly mirroring `theory_seq`'s per-term bookkeeping (there
-        it is driven by `relevant_eh`/`deque_axiom` on `is_power` terms;
-        here the obligation is registered explicitly, e.g. by a
-        preprocessing/axiomatization layer that spots `seq.power` terms in
-        the input, per z3papers/nseq/string-function-coverage.md section
-        2's "reduce to existing facets before the search tree ever sees
-        them" pattern - except unlike section 2's *purely* Skolemizable
-        functions, `s^n` genuinely needs live search-tree participation
-        when `n` is symbolic, since the unfolding depth is not fixed in
-        advance).
-
-      - `power_propagation` (propagation_plugin_i) implements the
-        deterministic part:
-          * if `n` is a resolved numeral `j` (`arith_util::is_numeral`),
-            the obligation is fully precise and can be discharged exactly
-            as `theory_seq`'s "known exponent" branch of
-            `power_unfold_axiom` does: for `j <= 0`, add the equation
-            `e = epsilon` to `eq_facet`; for `j >= 1`, add the equation
-            `e = s ++ .. ++ s` (`j` copies) to `eq_facet`. Either way the
-            power obligation itself is then fully discharged (removed) -
-            `eq_facet`'s own Nielsen machinery takes it from there.
-          * if `n` is symbolic, the *length* consequences of
-            `axioms::power_axiom` are asserted into `solver_facet` as
-            arithmetic-only clauses (no sequence equality is needed, only
-            `str.len`): `n>=1 \/ len(e)=0`, `len(s)!=0 \/ len(e)=0`,
-            `~(n>=1) \/ len(e)=n*len(s)`, and
-            `~(n>=1) \/ len(s)=0 \/ n<=len(e)`. These are sound
-            *under-approximations* of the full (sequence-level) axiom -
-            `len(e)=0` stands in for the imprecise-but-sufficient
-            "e=epsilon" antecedent/consequent, exactly as `solver_facet`'s
-            own module comment documents for its length-only design - and
-            are asserted at most once per obligation (idempotency is
-            `solver_facet::add_constraint`'s own responsibility, mirroring
-            `arith_propagation`).
-
-      - `power_split` (split_plugin_i) implements the nondeterministic
-        completeness driver for symbolic exponents, mirroring
-        `theory_seq`'s `add_power_unfold_axiom`'s per-`k` case split
-        (there driven by `propagate_length_limit`/`should_research`'s
-        unfolding-depth escalation loop): for a still-pending obligation
-        with a symbolic `n`, branch over `n <= 0` (unify `e = epsilon`)
-        and `n = 1, 2, .., bound` (unify `e` with `j` concatenated copies
-        of `s` and record `n = j` as an arithmetic fact), up to
-        `power_facet::max_unfold()` (a fixed per-facet bound rather than
-        `theory_seq`'s dynamically-escalating `m_max_unfolding_depth` -
-        the iterative deepening / "should_research" escalation loop is
-        left as a documented future integration point, exactly as
-        `ncontains_facet`'s own module comment defers the regex-rewrite
-        alternative reduction).
+    `power_facet` stores pending obligations `e = s^n`. Deterministic
+    propagation handles known exponents exactly and adds length-only
+    consequences for symbolic exponents. `power_split` performs the bounded
+    case split for symbolic exponents by branching over `n <= 0`,
+    `n = 1..bound`, and a residual `n > bound` case.
 
 Author:
 
@@ -93,43 +40,21 @@ namespace seq {
         expr_ref             m_s;
         expr_ref             m_n;
         eq_tree::dep_tracker  m_dep;
-        // Set once this obligation's symbolic-exponent length axioms
-        // (power_propagation) have been asserted into solver_facet, so
-        // they are only ever added once (mirrors arith_propagation's own
-        // "changed only if new" idiom, but tracked explicitly here since
-        // the four clauses must be added atomically as a group).
+        // Set once this obligation's symbolic-exponent length axioms have
+        // been asserted into `solver_facet`.
         bool                 m_axiomatized = false;
 
-        // Set once `power_fine_wilf` has fired its (non-progress,
-        // arith-only) "small overlap" case-1 branch for this obligation,
-        // so that branch is not offered again for the same obligation
-        // every round (a coarser but sound substitute for the c3 branch's
-        // per-(lhs,rhs,direction) `fw_applied` key: since case-1 makes no
-        // string-side change at all, without *some* guard the identical
-        // split would be re-offered forever). Does not block
-        // power_fine_wilf's other (progress) cases 2/3, nor any other
-        // plugin, from still acting on this same obligation.
+        // Set once `power_fine_wilf` has fired its non-progress case-1
+        // branch for this obligation, so that branch is not offered again.
         bool                 m_fw_marked = false;
 
         // power_split has taken its residual `n > bound` branch: the obligation stays
         // pending for the other rules, power_split does not re-enumerate it. Trailed.
         bool                 m_split_exhausted = false;
 
-        // Append-only representation: m_pows is never erased/shifted
-        // (mirrors eq_facet/deq_facet's discipline - see seq_eq_facet.h's
-        // `equation::m_active` comment). "Removing" an obligation just
-        // flips m_active to false (trailed via value_trail, so it flips
-        // back to true on backtrack); no index is ever invalidated by a
-        // removal elsewhere. This matters here specifically because
-        // several split plugins' iterators (power_split, power_fine_wilf,
-        // power_peel, and mem_facet's power_peel_mem) persist a
-        // raw index into this vector across multiple next() calls that
-        // span DFS branch resumptions - a shift-based removal of some
-        // other (earlier-indexed) obligation in between (e.g. from a
-        // re-propagation pass after a sibling branch fails) would
-        // silently repoint those stored indices at the wrong obligation.
-        // Consumers that iterate powers() must skip entries with
-        // !active().
+        // Append-only representation: removing an obligation just flips
+        // `m_active`, so stored indices remain valid across iterator
+        // resumptions. Consumers must skip inactive entries.
         bool                 m_active = true;
 
         str_power(ast_manager& m, expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) :
@@ -161,8 +86,7 @@ namespace seq {
         unsigned max_unfold() const { return m_max_unfold; }
         void set_max_unfold(unsigned k) { m_max_unfold = k; }
 
-        // Trailed and idempotent: obligations are keyed by the power term, so
-        // re-registering a pending term is a no-op. Undo just pops the pushed element.
+        // Trailed and idempotent: obligations are keyed by the power term.
         void add_power(expr* e, expr* s, expr* n, eq_tree::dep_tracker dep = nullptr) {
             unsigned idx;
             if (find_power(e, idx))
@@ -182,15 +106,9 @@ namespace seq {
 
         vector<str_power> const& powers() const { return m_pows; }
 
-        // Locate the (unique, since power terms are hash-consed) pending
-        // obligation whose power term is `e`, if any. Used by plugins
-        // (power_fine_wilf) that need to recognize a `seq.power` token
-        // appearing inside an eq_facet equation's token list - since
-        // eq_facet::get_concat_units() treats `seq.power` terms as opaque single
-        // tokens (it does not decompose them), this linear scan over the
-        // (typically small) pending-obligation set is how a plugin
-        // bridges "this token is a power term" back to "here is its
-        // base/exponent/dependency".
+        // Locate the pending obligation whose power term is `e`. Plugins use
+        // this to recover the base, exponent, and dependency of an opaque
+        // `seq.power` token inside an equation.
         bool find_power(expr* e, unsigned& idx) const {
             for (unsigned i = 0; i < m_pows.size(); ++i) {
                 if (!m_pows[i].active())
@@ -203,25 +121,21 @@ namespace seq {
             return false;
         }
 
-        // Drop `idx`'s obligation entirely (fully discharged into
-        // eq_facet). Trailed: this just flips m_active to false via a
-        // value_trail (restored to true on backtrack) - append-only, no
-        // shifting, no index invalidation for any other facet/iterator
-        // holding onto `idx` (see str_power::m_active comment).
+        // Drop `idx`'s obligation by flipping `m_active`. Trailed.
         void remove(unsigned idx);
 
-        // Set one of str_power's flags (m_axiomatized, m_fw_marked, ...). Trailed.
+        // Set one of `str_power`'s flags. Trailed.
         void mark(unsigned idx, bool str_power::* flag);
 
         // -- subst_sink_i --
-        // Registers power tokens in `repl`, discharges `var` if it is a power token, and
-        // rebases obligations whose base mentions `var` (the token itself keeps its identity).
+        // Register power tokens in `repl`, discharge `var` if it is a power
+        // token, and rebase obligations whose base mentions `var`.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --
         stx::facet_i* clone(trail_stack& trail) const override;
-        // A power still inside a string constraint keeps that constraint's facet unsatisfied; an
-        // obligation on its own never blocks, its exponent is read off the arithmetic model.
+        // A standalone power obligation never blocks satisfaction; only a
+        // power that still appears in a string constraint does.
         bool is_satisfied() const override { return true; }
         std::ostream& display(std::ostream& out) const override;
     };
@@ -248,9 +162,8 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Unfolds a power whose exponent the arithmetic has fixed (e.g. 2n = 12), justified by the
-    // implication's core. A single-branch split rather than a propagation, so that the model query
-    // runs once per node instead of in every propagation round.
+    // Unfold a power whose exponent arithmetic has fixed. This is a
+    // single-branch split so the model query runs once per node.
     class power_fixed_exp : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -310,33 +223,15 @@ namespace seq {
         stats m_stats;
     };
 
-    // Fine & Wilf periodicity rule, ported from the c3 branch's
-    // seq_nielsen_modifiers.cpp `apply_fine_wilf` (see z3papers/nseq's
-    // facet-eq-deq.md design-doc comments on Fine & Wilf for the
-    // underlying combinatorics-on-words argument). Only the fully
-    // symbolic path is implemented (all three cases below, which are
-    // jointly - not individually - sound); the ground-string
-    // enumeration fast path that c3 uses as a pure optimization ahead of
-    // the symbolic path is deliberately not ported (documented
-    // completeness/perf gap, not a soundness one: the symbolic path
-    // alone already covers every ground instance, just less directly).
+    // Fine & Wilf periodicity rule. Only the symbolic path is implemented;
+    // it is complete but may be less direct on fully ground cases.
     //
-    // Trigger pattern: some eq_facet equation has, at its head, a power
-    // token `U^n` on one side (recognized via power_facet::find_power on
-    // the token, since eq_facet::get_concat_units() never decomposes `seq.power`
-    // terms - they remain single opaque tokens in the equation's token
-    // list) and, on the other side, a run of zero-or-more non-power
-    // tokens `Y` immediately followed by a *different* power token
-    // `W^m` (same-base overlaps are already handled by ordinary
-    // propagation/word_eq_split, so this rule only fires when the two
-    // bases are syntactically distinct terms - it does not attempt to
-    // prove/refute base equality itself).
+    // Trigger: an equation starts with `U^n` on one side and with `Y.W^m`
+    // on the other, where `W^m` is the first power token there and the
+    // two bases are syntactically different.
     //
-    // Given `Ly = len(Y)`, `len_upow = len(U^n) = n*len(U)`,
-    // `len_wpow = len(W^m) = m*len(W)`, and threshold
-    // `T = len(U) + len(W)` (a sound weakening of the exact
-    // Fine & Wilf bound `len(U)+len(W)-gcd(len(U),len(W))`, avoiding a
-    // non-linear gcd term - see design doc), the three branches are:
+    // With `Ly = len(Y)`, `len_upow = len(U^n)`, `len_wpow = len(W^m)`, and
+    // `T = len(U) + len(W)`, the three branches are:
     //
     //   Case 1 (small overlap; arith-only, no string-side progress):
     //     side constraint `len_upow - Ly < T \/ len_wpow < T`. Guarded by
@@ -351,15 +246,11 @@ namespace seq {
     //     `|S1| = Ly + len_wpow`, `len_wpow >= T`, `|S2| >= 1`,
     //     `|S1| + |S2| = len_upow`.
     //
-    // All three are generated together as sibling branches (jointly
-    // sound; individually each is only a sound *strengthening*, not an
-    // equivalence, of the disjunction the three together represent).
+    // The three branches are generated together as sibling branches.
     class power_fine_wilf : public eq_tree::split_plugin_i {
     public:
-        // Trigger-site description, computed once by split() and reused
-        // by the iterator for the remaining (case 2 / case 3) branches
-        // after case 1 (if offered) is the first, immediately
-        // materialized branch.
+        // Trigger-site description reused by the iterator for cases 2 and 3
+        // after case 1 is materialized in `split()`.
         struct trigger {
             unsigned    m_eq_idx;
             bool        m_pow_on_lhs;   // U^n is eq.lhs[0] (true) or eq.rhs[0] (false)
@@ -404,10 +295,9 @@ namespace seq {
         stats m_stats;
     };
 
-    // Power U^e at one end of an equation side whose other side begins (in the same direction)
-    // with copies of U: `comm_power` counts them (chars of the base pattern, same-base powers by
-    // their exponent) as `count` over `consumed` tokens. Branch e < count or e >= count, and cancel:
-    // U^e . s = U^count . t becomes s = U^(count-e) . t (resp. U^(e-count) . s = t).
+    // Power `U^e` at one end of an equation side whose other side begins,
+    // in the same direction, with copies of `U`. Split on `e < count` vs
+    // `e >= count` and cancel the common prefix.
     struct elim_trigger {
         unsigned      m_eq_idx = 0;
         bool          m_pow_on_lhs = true;
@@ -448,10 +338,9 @@ namespace seq {
         stats m_stats;
     };
 
-    // Peel one copy off a power at a directional end of an equation, whatever
-    // the opposite token is (c3's apply_const_num_unwinding / apply_var_num_unwinding_eq):
-    // `n <= 0` (U^n := epsilon) or `n >= 1` (U^n := U . U^(n-1)). The exposed
-    // head of U is then handled by the ordinary rules.
+    // Peel one copy off a power at a directional end of an equation:
+    // `n <= 0` gives `epsilon`; `n >= 1` gives `U . U^(n-1)`. The exposed
+    // head of `U` is then handled by the ordinary rules.
     class power_peel : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -489,34 +378,18 @@ namespace seq {
         stats m_stats;
     };
 
-    // Variable-vs-power decomposition, ported from the c3 branch's
-    // seq_nielsen_modifiers.cpp `apply_power_split` (facet-eq-deq.md
-    // section 2.3). Trigger pattern: some eq_facet equation has, at a
-    // directional end (front or back) of one side, a Nielsen-
-    // substitutable variable token `v` (neither a unit nor a power),
-    // opposite a power token `U^n` at the matching end of the other
-    // side, where `U`'s own flattened base is itself made of more than
-    // one token pattern instance the rule can decompose against.
-    // Unlike `power_peel` (which only ever peels a single copy of
-    // `U` and keeps the remaining `U^(n-1)` as an opaque nested power),
-    // this rule decomposes `U`'s *own* base token pattern at every
-    // possible position, and additionally offers a "non-progress"
-    // branch where `v` simply extends past the whole power term. Since
-    // both rules can fire on the same trigger, and `power_peel`'s
-    // single-copy peel is strictly the cheaper/more incremental step,
-    // this rule is intentionally not merged with it - both are offered
-    // by the search driver's own cost-ordering machinery, not gated
-    // against each other here.
+    // Variable-vs-power decomposition. Trigger: an equation has a variable
+    // `v` at one end of one side and a power token `U^n` at the matching
+    // end of the other side, where `U`'s base has decomposable structure.
     //
-    // Let `t_0, t_1, ..., t_{k-1}` be `U`'s own flattened base tokens
-    // (in the direction `v` faces `U^n`, i.e. reversed if `fwd` is
-    // false), and let `n` be `U^n`'s exponent (fresh skolem `m`
-    // introduced per *target variable*, not per branch, mirroring c3's
-    // `get_or_create_gpower_n_var` cache - see class comment on
-    // `m_n_cache`/`m_m_cache` below). One branch is generated per
-    // decomposition position `i` in `0..k-1` (skipped when `i>0` and
-    // `t_{i-1}` is itself a power token, since that position's `m'`
-    // range already covers this one - mirrors c3's own skip guard):
+    // Unlike `power_peel`, which removes only one copy of `U`, this rule
+    // decomposes `U`'s base at every possible position and also offers a
+    // final branch where `v` extends past the whole power term.
+    //
+    // Let `t_0, ..., t_{k-1}` be `U`'s base tokens in the direction `v`
+    // faces `U^n`. One branch is generated per decomposition position `i`
+    // in `0..k-1`, except when position `i-1` is itself a power token and
+    // already covers the same boundary:
     //   - if `t_i` is a plain (non-power) token:
     //       `v := U^m . t_0 . t_1 . ... . t_{i-1}`,  side constraint `m>=0`
     //   - if `t_i` is itself a power token `w^e` (base `w`, exponent `e`):
@@ -533,17 +406,8 @@ namespace seq {
         seq_util&     u;
         arith_util&   a;
 
-        // Per-target-variable cache of the fresh exponent skolem `m`
-        // used for `U^m` (the "how much of U has v already consumed"
-        // counter) - mirrors c3's `get_or_create_gpower_n_var`. Keyed
-        // by the target variable's ast pointer so repeated re-triggering
-        // of this rule on the same variable reuses the same skolem
-        // rather than minting an unbounded number of them. Not trailed:
-        // like `power_split::m_next_j`, this is a monotonic counter-ish
-        // cache owned by the plugin itself (shared across the whole
-        // search tree, not per-branch), so leftover entries from an
-        // abandoned branch are harmless dead skolems, not a soundness
-        // issue.
+        // Per-target-variable caches for the fresh exponent skolems used by
+        // this rule. Not trailed: stale entries are harmless dead skolems.
         obj_map<expr, expr*> m_n_cache;
         obj_map<expr, expr*> m_m_cache;
         expr_ref_vector      m_pin; // keeps cache keys and skolems alive
@@ -589,49 +453,21 @@ namespace seq {
         stats m_stats;
     };
 
-    // Generalized power introduction, ported from the c3 branch's
-    // seq_nielsen_modifiers.cpp `apply_gpower_intr`/`fire_gpower_intro`
-    // (facet-eq-deq.md section 2.3). Trigger pattern ("self-cycle"):
-    // some eq_facet equation has, at a directional end (front or back)
-    // of one side, a Nielsen-substitutable variable `v`, while the
-    // *other* side, scanned from the matching end, consists of a
-    // non-empty run of non-variable ("ground") tokens followed by that
-    // *same* variable `v` reappearing. (Transitive cycles spanning
-    // several equations are not detected - c3 leaves this as a TODO
-    // too.)
+    // Generalized power introduction. Trigger: an equation has a variable
+    // `v` at one end of one side, and the other side consists of a
+    // non-empty ground run followed by the same variable `v` again.
     //
-    // On firing: the ground run is compressed to its minimal repeating
-    // period (e.g. `[a,b,a,b]` has period 2, so the power base becomes
-    // `[a,b]` rather than the redundant `[a,b,a,b]`); if the compressed
-    // period is itself a single power token, it is unwrapped to its own
-    // base tokens first (avoiding a nested power-of-power). A fresh
-    // exponent skolem `n` is introduced (per target variable, cached -
-    // mirrors `power_var_decompose`'s own `get_or_create_n_var`, though
-    // this rule keeps a separate cache since its target variables and
-    // c3's own `get_or_create_gpower_n_var` cache are shared across both
-    // rules there - a minor, harmless divergence: at worst two separate
-    // skolems are minted for the same variable across the two rules
-    // rather than one shared skolem), giving `base^n`. Exactly as
-    // `power_var_decompose`, one branch is generated per decomposition
-    // position `i` of the compressed base (skipped when `i>0` and
-    // position `i-1` is itself a power token), substituting
-    // `v := base^n . t_0 . ... . t_{i-1}` (or, at a power-token
-    // position, `v := base^n . t_0 . ... . t_{i-1} . w^m'` with a fresh
-    // partial exponent `0<=m'<=inner_exp`), each with side constraint
-    // `n>=0` (plus `m'>=0`/`m'<=inner_exp` when used). Unlike
-    // `power_var_decompose`, there is no separate "extend past" branch
-    // here - the reappearance of `v` itself at the tail of the ground
-    // run *is* the completion of the cycle, so the decomposition
-    // positions alone are exhaustive (every position up to and
-    // including the last one, where `t_{k-1}` is the token immediately
-    // preceding `v`'s own reappearance, is covered).
+    // The ground run is compressed to its minimal repeating period, then
+    // turned into a fresh `base^n`. As in `power_var_decompose`, one
+    // branch is generated per decomposition position of the compressed
+    // base. There is no separate "extend past" branch here because the
+    // reappearance of `v` already closes the cycle.
     class power_gpower_intro : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
 
-        // See power_var_decompose's own m_n_cache/m_m_cache comment;
-        // same idiom, separate cache (see class comment above).
+        // Same caching idiom as `power_var_decompose`, but kept separate.
         obj_map<expr, expr*> m_n_cache;
         obj_map<expr, expr*> m_m_cache;
         expr_ref_vector      m_pin; // keeps cache keys and skolems alive

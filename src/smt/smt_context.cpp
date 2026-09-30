@@ -590,14 +590,9 @@ namespace smt {
             // Restore trail size since procedure was interrupted in the middle.
             // If the add_eq_trail remains on the trail stack, then Z3 may crash when the destructor is invoked.
             TRACE(add_eq, tout << "add_eq interrupted. This is unsafe " << m.limit().is_canceled() << "\n";);
-            // remove_parents_from_cg_table / reinsert_parents_into_cg_table maintain two pieces of
-            // transient state that are NOT tracked by the trail stack: marks on r1's parents (set in
-            // remove_parents, cleared in reinsert) and the m_r1_parent_generations scratch vector. If
-            // add_eq is interrupted between these two calls the marks and the vector are left
-            // inconsistent; unless cleared they corrupt the *next* add_eq (a still-marked parent is
-            // silently skipped by remove_parents, and a leftover entry desyncs the positional
-            // generation replay), which manifests as congruence-table corruption and later crashes
-            // (issue #10385). Restore both here before unwinding.
+            // These helpers leave parent marks and m_r1_parent_generations
+            // outside the trail stack. If add_eq is interrupted between
+            // them, clear both before unwinding.
             if (r1) {
                 for (enode * parent : enode::parents(r1))
                     parent->unset_mark();
@@ -706,11 +701,8 @@ namespace smt {
                 // Look up the generation cache
                 unsigned parent_generation = 0; // Just use generation 0 for equalities
                 if (!parent->is_eq()) {
-                    // The cache is consumed positionally, in the same order remove_parents_from_cg_table
-                    // populated it. Guard the index (as undo_add_eq already does) so that a transiently
-                    // desynced cache cannot read out of bounds and scribble a bogus generation through a
-                    // stale pointer (see issue #10385). In the healthy case idx is always in range and
-                    // p == parent.
+                    // The cache is consumed in insertion order. Guard the
+                    // index so a transient desync falls back safely.
                     if (generation_cache_idx < m_r1_parent_generations.size()) {
                         auto [p, g] = m_r1_parent_generations[generation_cache_idx++];
                         SASSERT(p == parent);

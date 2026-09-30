@@ -28,13 +28,9 @@ namespace seq {
     sub_solver::sub_solver(ast_manager& m, arith_util&, eq_tree::dep_manager_t& core_dep_mgr) :
         m(m), m_assump_lits(m), m_core_dep_mgr(core_dep_mgr) {
         params_ref p;
-        // Disable the (n)seq string solver on this arithmetic sub-solver:
-        // it only ever sees QF_LIA-level constraints (lengths, etc.), and
-        // without this it could otherwise recursively try to instantiate a
-        // string theory of its own. (Keys are module-local here; "empty"
-        // would still set up theory_seq.)
+        // This backend only handles arithmetic; keep string theories out.
         p.set_sym("string_solver", symbol("none"));
-        // a hard length problem is left undecided (sound: only a refutation is lost) instead of stalling the search
+        // Leave hard arithmetic subproblems unresolved instead of stalling the search.
         p.set_uint("max_conflicts", 100);
         m_solver = mk_smt_solver(m, p, symbol("QF_LIA"));
     }
@@ -83,10 +79,8 @@ namespace seq {
     }
 
     lbool sub_solver::check() {
-        // do NOT reset m_core_dep_mgr here: the returned dep_tracker tree
-        // may outlive this call (e.g. solver_facet::conflict_dep() is read
-        // after check() returns); it is only reset by the arena's own
-        // owner.
+        // The returned dep tree may outlive this call, so its arena is
+        // reset by the owner, not here.
         if (!m_dirty)
             return m_last_result;
         m_last_core = nullptr;
@@ -95,12 +89,7 @@ namespace seq {
             r = m_solver->check_sat(0, nullptr);
         }
         else {
-            // Only the first m_deps.size() literals are bound to an
-            // active (a => e) assertion; the tail of m_assump_lits holds
-            // recycled literals from popped frames - passing those as
-            // assumptions is pointless and, should one surface in a
-            // (non-minimal) unsat core, m_deps[id] below would index
-            // past m_deps.size().
+            // Only the active assumption literals correspond to live deps.
             r = m_solver->check_sat(m_deps.size(), m_assump_lits.data());
             if (r == l_false) {
                 expr_ref_vector core(m);
@@ -123,10 +112,10 @@ namespace seq {
     // -- solver_facet --
 
     bool solver_facet::add_constraint(expr* c0, eq_tree::dep_tracker dep) {
-        expr_ref c(c0, m); // guard against a fresh, ref-count-0 term being collected before m_own retains it
+        expr_ref c(c0, m); // keep fresh terms alive until m_own retains them
         for (expr* e : m_own)
             if (e == c.get())
-                return false; // already recorded (propagate may revisit the same equation across simplify rounds)
+                return false;
         if (m_trail.get_num_scopes() != m_pushed_at_scope) {
             unsigned cur_scope = m_trail.get_num_scopes();
             m_trail.push(scope_trail(m_solver, m_pushed_at_scope));
@@ -139,14 +128,8 @@ namespace seq {
     }
 
     bool solver_facet::add_length_constraint(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep) {
-        // Tokens are usually either a `unit(ch)` application (length 1)
-        // or a full sequence-sorted subterm (length via `seq.len`).
-        // word_eq_split's unit-vs-unit fallback (seq_eq_facet.cpp) can
-        // however push a raw char-sorted equation `c = a` (bare
-        // characters, not wrapped in `unit()`) - such a token has no
-        // `len()` of its own (nor a length of 1, since it isn't
-        // seq-sorted at all), so it must be excluded from the length
-        // sum entirely.
+        // Raw char tokens contribute no sequence length; only unit(...)
+        // tokens count as length 1.
         auto tok_len = [&](expr* t) -> expr* {
             if (u.str.is_unit(t))
                 return a.mk_int(1);
@@ -163,9 +146,7 @@ namespace seq {
             if (expr* len = tok_len(t))
                 rsum = a.mk_add(rsum, len);
         bool changed = add_constraint(m.mk_eq(lsum, rsum), dep);
-        // len(v) >= 0 is an unconditional axiom, not contingent on `dep`
-        // (the particular equation `v` was seen in) - asserted with a
-        // null dep.
+        // len(v) >= 0 is unconditional.
         for (expr* t : lhs)
             if (!u.str.is_unit(t) && u.is_seq(t->get_sort()))
                 changed = add_constraint(a.mk_ge(u.str.mk_length(t), a.mk_int(0))) || changed;
@@ -199,22 +180,14 @@ namespace seq {
         if (core)
             *core = r == l_false ? m_solver.unsat_core() : nullptr;
         m_solver.pop(1);
-        // unsat under the negation means c is implied (l_true); otherwise
-        // undecided/not implied (l_undef, or l_false meaning c's negation
-        // is itself consistent, i.e. c is not implied - callers treat
-        // anything other than l_false-from-negation-check as "not yet
-        // known", per facet-ncontains.md §3.3's l_true/l_undef/l_false
-        // three-way split on the GATE, not on this helper's own result).
+        // If `not c` is UNSAT then `c` is implied; otherwise report unknown.
         return r == l_false ? l_true : l_undef;
     }
 
     stx::facet_i* solver_facet::clone(trail_stack& trail) const {
         solver_facet* f = alloc(solver_facet, trail, m, u, m_solver);
         m_solver.get_model(f->m_model); // the leaf's arithmetic model, for exponent values
-        // A cloned node's *own* constraint set starts empty: this is only
-        // used for cold-path snapshots (hot-restart SAT leaf, cache
-        // entries) which never re-enter the shared incremental backend's
-        // scope stack themselves.
+        // Snapshot clones do not own any new backend assertions.
         return f;
     }
 

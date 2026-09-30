@@ -15,28 +15,13 @@ Author:
     Clemens Eisenhofer 2026
     Margus Veanes 2026
 
-Notes: 
+Notes:
 
-    TODO: review and realize other ways to resolve remaining comparisons based on theory_seq.
-
-    Loop/cycle detection over lexicographic obligations uses `lex_facet`'s
-    own incremental `euf::egraph` (`m_g`, with `euf::seq_plugin` registered
-    for associative-concatenation reasoning), pushed/popped in lockstep
-    with the shared trail's scopes (see `lex_facet::push`/`pop`). Each
-    `detect_cycles` call first calls `sync_egraph` to register into `m_g`
-    only the active equations (`eq_facet`)/disequations (`deq_facet`)
-    added since `m_eq_qhead`/`m_deq_qhead` (via `merge`/`new_diseq`, with
-    each justification's `void*` reason packing an index into the
-    append-only `m_reasons` table, mirroring
-    `ast/simplifiers/euf_completion.cpp`'s `to_ptr`/`from_ptr` trick), then
-    every pending obligation's token-list concatenation is looked
-    up/inserted as a node. After `propagate()`, an egraph-level conflict
-    (the equations/disequations are already contradictory) is reported
-    directly, with the minimal justification extracted via `explain`.
-    Otherwise, the DFS cycle-detection graph uses the *egraph root's expr*
-    (not the raw token-concat expr) as each node's identity, so
-    obligations that are only semantically equal - not just syntactically
-    identical - collapse onto the same digraph node, per the design below.
+    Cycle detection uses an incremental `euf::egraph`, scoped with the
+    shared trail. `detect_cycles` registers newly active equations and
+    disequations, reports any direct egraph contradiction, then builds a
+    DFS graph over egraph roots so semantically equal obligations share a
+    node.
 
 --*/
 #include "ast/seq/seq_lex_facet.h"
@@ -91,9 +76,7 @@ namespace seq {
         return out;
     }
 
-    // Compare two unit/character-constant tokens' underlying character
-    // values; returns -1/0/1. Precondition: both are u.str.is_unit with a
-    // u.is_const_char payload (checked by the caller).
+    // Compare two unit tokens carrying constant characters.
     static int cmp_const_chars(seq_util& u, expr* a, expr* b) {
         expr* ca = nullptr, *cb = nullptr;
         VERIFY(u.str.is_unit(a, ca));
@@ -109,11 +92,7 @@ namespace seq {
         return u.str.is_unit(tok, c) && u.is_const_char(c);
     }
 
-    // A token list is only *guaranteed* to denote a non-empty sequence
-    // when one of its tokens is a unit() (a single character is always
-    // length 1). Any other token (an opaque variable/term) could still
-    // be bound to the empty sequence, so its presence in the list does
-    // not by itself establish non-emptiness.
+    // A token list is guaranteed non-empty only if it contains a unit token.
     static bool contains_unit(seq_util& u, expr_ref_vector const& v) {
         for (expr* t : v)
             if (u.str.is_unit(t))
@@ -130,9 +109,7 @@ namespace seq {
             expr_ref_vector const& L0 = lx.m_lhs;
             expr_ref_vector const& R0 = lx.m_rhs;
 
-            // Strip every leading pair of tokens already known equal
-            // (same pointer, or two equal character constants) - always
-            // sound regardless of m_strict.
+            // Strip leading tokens already known equal.
             unsigned li = 0, ri = 0;
             while (li < L0.size() && ri < R0.size()) {
                 expr* lh = L0.get(li);
@@ -166,33 +143,24 @@ namespace seq {
                 changed = true;
                 continue;
             }
-            // If it is strict, then R must contain a non-empty sequence
-            // for lhs < rhs to hold; this is guaranteed only if R
-            // contains a unit token. Otherwise leave the obligation
-            // pending (a split rule elsewhere must first show one of
-            // R's variables has length > 0).
+            // For a strict comparison, rhs must be provably non-empty.
             if (L.empty() && !R.empty()) {
                 if (lx.m_strict && !contains_unit(u, R)) {
                     ++i;
                     continue;
                 }
-                // lhs is a proper prefix of rhs: lhs < rhs holds (both
-                // strict and non-strict obligations are satisfied).
+                // lhs is a proper prefix of rhs.
                 remove(i);
                 changed = true;
                 continue;
             }
-            // rhs is a proper prefix of lhs: lhs > rhs holds only if L is
-            // guaranteed non-empty beyond rhs, i.e. is_strict, or L
-            // contains a unit token (definitely non-empty). Otherwise
-            // leave pending, since L could still collapse to equal rhs.
+            // rhs is a proper prefix of lhs only if lhs is provably longer.
             if (!L.empty() && R.empty()) {
                 if (!lx.m_strict && !contains_unit(u, L)) {
                     ++i;
                     continue;
                 }
-                // rhs is a proper prefix of lhs: lhs > rhs, so the
-                // obligation (lhs < rhs, or lhs <= rhs) fails outright.
+                // lhs > rhs, so the obligation fails.
                 conflict = true;
                 conflict_dep = lx.m_dep;
                 return true;
@@ -202,26 +170,23 @@ namespace seq {
             expr* lh = L.get(0);
             expr* rh = R.get(0);
             if (is_const_char_unit(u, lh) && is_const_char_unit(u, rh)) {
-                // Distinct constants: the comparison is decided outright.
+                // Distinct constants decide the comparison outright.
                 int c = cmp_const_chars(u, lh, rh);
                 SASSERT(c != 0); // equal case already stripped above
                 if (c < 0) {
-                    // lhs < rhs regardless of m_strict.
+                    // lhs < rhs.
                     remove(i);
                     changed = true;
                     continue;
                 }
                 else {
-                    // lhs > rhs: obligation fails.
+                    // lhs > rhs.
                     conflict = true;
                     conflict_dep = lx.m_dep;
                     return true;
                 }
-            }            
-            // Otherwise stuck (at least one leading token is a
-            // variable/opaque term): leave pending for a future round,
-            // e.g. once a substitution from eq_facet's split narrows it
-            // further (see apply_subst above).
+            }
+            // Otherwise leave the obligation pending.
             ++i;
         }
         return changed;
@@ -252,12 +217,7 @@ namespace seq {
         return f.is_satisfied() ? stx::simplify_result::satisfied : stx::simplify_result::proceed;
     }
 
-    // to_ptr/from_ptr: pack a small integer index into the `void*
-    // reason` slot of an egraph justification (mirrors the identical
-    // trick in ast/simplifiers/euf_completion.h/.cpp), so that
-    // egraph::explain's ptr_vector<size_t> result can be mapped back to
-    // the `eq_tree::dep_tracker` that justified the corresponding
-    // eq_facet/deq_facet entry.
+    // Pack/unpack an index into an egraph justification reason pointer.
     static size_t* to_ptr(size_t i) { return reinterpret_cast<size_t*>(i); }
     static unsigned from_ptr(size_t* s) { return (unsigned)reinterpret_cast<size_t>(s); }
 
@@ -286,14 +246,7 @@ namespace seq {
             return mk_node(t);
         };
 
-        // Only the [qhead, size) suffix is new since the last call: the
-        // vectors are append-only (eq_facet/deq_facet's own append-only
-        // discipline - see seq_eq_facet.h), so entries before the qhead
-        // were already registered by a prior sync_egraph call and never
-        // change identity, only (possibly) their active() flag - but a
-        // once-active entry later marked inactive by backtracking is
-        // simply popped back out of m_g by pop() below, exactly like any
-        // other trailed mutation, so there is nothing to re-scan there.
+        // Only the suffix beyond each qhead is new since the last sync.
         vector<eq_facet::equation> const& eqs = eqf.equations();
         for (unsigned i = m_eq_qhead; i < eqs.size(); ++i) {
             eq_facet::equation const& eq = eqs[i];
@@ -341,11 +294,7 @@ namespace seq {
         conflict = false;
         conflict_dep = nullptr;
 
-        // sync_egraph() registers any newly-active equations/disequations
-        // since the last call. Propagation must still happen whenever
-        // there are new equalities/disequalities, even without any
-        // pending lt/le obligations, since they alone may already be
-        // contradictory.
+        // New equalities or disequalities may already be contradictory.
         sync_egraph(eqf, deqf);
 
         obj_map<expr, euf::enode*> node_cache;
@@ -385,10 +334,7 @@ namespace seq {
 
         m_g.propagate();
         if (m_g.inconsistent()) {
-            // The equations/disequations registered above are themselves
-            // contradictory (independent of any lex obligation): extract
-            // the minimal justification via the egraph's own explanation
-            // machinery and report the conflict directly.
+            // The registered equations and disequations already conflict.
             ptr_vector<size_t> just;
             m_g.begin_explain();
             m_g.explain(just, nullptr);
@@ -401,16 +347,14 @@ namespace seq {
             return true;
         }
 
-        // No-op fast path: no lex obligations produced any digraph edges,
-        // so there is nothing further to do regardless of whether new
-        // equations/disequations were registered above.
+        // No lex obligations produced graph edges.
         if (nedges.empty())
             return false;
 
         obj_map<expr, unsigned> var_id;
         ptr_vector<expr> vars;
         struct edge { unsigned src, dst; bool strict; unsigned lex_idx; };
-        vector<edge> edges;        
+        vector<edge> edges;
 
         // add nodes to graph
         auto get_id = [&](euf::enode* n) {
@@ -428,10 +372,9 @@ namespace seq {
             auto [l, r] = nedges[i];
             str_lex const& lx = m_lexs[i];
             edges.push_back({ get_id(l), get_id(r), lx.m_strict, i });
-        } 
+        }
 
-        // Build adjacency and look for a cycle via DFS, tracking
-        // whether any edge along the current path is strict.
+        // Build adjacency and look for a cycle, tracking whether any edge is strict.
         vector<vector<unsigned>> adj(vars.size());
         for (unsigned ei = 0; ei < edges.size(); ++ei)
             adj[edges[ei].src].push_back(ei);
@@ -441,7 +384,6 @@ namespace seq {
         vector<unsigned> on_path;      // stack of edge indices on current DFS path
         vector<unsigned> path_node;    // stack of node ids on current DFS path
 
-        // NSB code review: use explanation from egraph for connection to root
         std::function<bool(unsigned)> dfs = [&](unsigned u_id) -> bool {
             colors[u_id] = color::gray;
             path_node.push_back(u_id);
@@ -449,8 +391,8 @@ namespace seq {
                 unsigned v_id = edges[ei].dst;
                 on_path.push_back(ei);
                 if (colors[v_id] == color::gray) {
-                    // Found a cycle: it consists of the edges on
-                    // on_path from v_id's first occurrence onward.
+                    // Found a cycle: it consists of the suffix of on_path
+                    // starting at v_id's first occurrence.
                     unsigned start = 0;
                     while (path_node[start] != v_id) ++start;
                     bool has_strict = false;
@@ -462,17 +404,9 @@ namespace seq {
                         auto& lx = m_lexs[e.lex_idx];
                         has_strict |= e.strict;
                         dep = m_dm.mk_join(dep, lx.m_dep);
-                        // Consecutive obligations on the cycle chain
-                        // through a shared digraph-node id (e.g. edge i's
-                        // rhs and edge i+1's lhs both map to the same
-                        // `get_id`), but their *own* token-concat enodes
-                        // may only be congruent, not syntactically
-                        // identical. Explain that congruence directly
-                        // between this edge's rhs node and the next
-                        // edge's lhs node (wrapping around the cycle),
-                        // and join in whatever eq_facet/seq_plugin facts
-                        // established it - this is exactly the equality
-                        // that closes the cycle at this link.
+                        // Consecutive obligations may share a root only by
+                        // egraph congruence, so explain that equality and
+                        // include its dependencies.
                         unsigned next_k = (k + 1 - start) % cycle_len + start;
                         auto next_edge_id = on_path[next_k];
                         auto [l, b] = nedges[edge_id];
@@ -492,11 +426,8 @@ namespace seq {
                         conflict_dep = dep;
                         return true;
                     }
-                    // All-non-strict cycle: every variable on it is
-                    // forced pairwise equal - re-assert as equations on
-                    // eqf and drop these obligations from lex_facet
-                    // (removing high indices first so lower indices
-                    // stay valid).
+                    // An all-non-strict cycle forces equality. Re-assert it
+                    // as equations and drop the lex obligations.
 
 
                     vector<unsigned> to_remove;
@@ -526,4 +457,3 @@ namespace seq {
     }
 
 } // namespace seq
-

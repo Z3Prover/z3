@@ -7,38 +7,16 @@ Module Name:
 
 Abstract:
 
-    A word equation `L = R` is represented as a pair of *token lists*: each
-    side of a `str.++` chain is flattened into a vector of leaves, where a
-    leaf is either
-      - a length-1 string constant (a single character), or
-      - an arbitrary non-constant term (treated as an opaque "variable" -
-        it need not literally be a declared constant; any subterm the
-        sequence theory has not otherwise decomposed is a valid Nielsen
-        transformation atom).
+    Word equations are stored as token lists: each side of a `str.++`
+    chain is flattened into a vector of length-1 string constants and
+    opaque non-constant terms.
 
-    `eq_facet::propagate` performs the two deterministic, confluent parts of
-    the transformation:
-      - strip a common leading token off both sides (progress),
-      - if one side becomes empty while the other is not, the nonempty side
-        is *forced* to be empty: popping a leading variable is a forced
-        (unconditional) substitution `v := epsilon`, while popping a leading
-        constant is an immediate symbol-clash conflict.
-      - if both sides reduce to empty, the equation is solved and removed.
-      - if the leading tokens are two distinct constants, that is a symbol
-        clash (conflict).
+    `eq_facet::simplify` performs deterministic reductions such as
+    stripping common prefixes/suffixes, detecting symbol clashes, and
+    forcing `v := epsilon` when one side is empty.
 
-    `word_eq_split` performs the nondeterministic part: whenever some
-    equation's leading tokens are a variable and a constant (in either
-    order), or two distinct variables, it produces the classical Nielsen
-    alternatives (`v := epsilon`, `v := c ++ v'`, or for two variables
-    `v1 := epsilon`, `v2 := epsilon`, `v1 := v2 ++ v1'`) as sibling edges.
-
-    Scope note: this facet alone is INCOMPLETE for word equations in
-    general (e.g. `a ++ X = X ++ b` with `a != b` needs a length/periodicity
-    argument to refute, which requires the arithmetic facet - a later
-    phase); this module reproduces exactly the equational (Nielsen) part of
-    `theory_nseq`, migrated per the design document's facet table (see
-    z3papers/nseq/facet-eq-deq.md).
+    `word_eq_split` performs the remaining Nielsen-style branching for
+    variable/constant and variable/variable heads or tails.
 
 Author:
 
@@ -61,10 +39,7 @@ Author:
 
 namespace seq {
 
-    // Dependency source leaf type for this standalone (theory_nseq-free)
-    // instantiation of the search tree: word-equation solving needs no
-    // external SAT/EUF justification, so a plain unsigned tag (unused here,
-    // but required by stx::search_tree's template parameter) suffices.
+    // Dependency source leaf type for this search tree instantiation.
     using eq_tree = stx::search_tree<unsigned>;
 
     // A flattened side of a word equation is represented directly as an
@@ -78,15 +53,7 @@ namespace seq {
     // constants are exploded into one token per character; any other
     // leaf (variable or otherwise-opaque term) becomes a single token.
 
-    // Recover the node's ambient context, bundled together with the node
-    // itself into an `ambient_ref`, so that a propagation/split plugin
-    // can coerce straight to a sibling facet's own type in one call, e.g.
-    // `get_ambient(n).mem_facet_ref()` instead of
-    // `n.facet_as<mem_facet>(get_ambient(n).mem_id())`. Every node must
-    // have had `search_tree::set_ambient_context()` called on it with a
-    // real `ambient_context_i` (not merely some other
-    // `ambient_context_base`); if not, this throws `default_exception`
-    // rather than silently degrading to an always-"unknown" fallback.
+    // Recover the node's ambient context as an ambient_ref.
     ambient_ref<eq_tree::node, eq_tree::dep_tracker> get_ambient(eq_tree::node& n);
     ambient_ref<eq_tree::node const, eq_tree::dep_tracker> get_ambient(eq_tree::node const& n);
 
@@ -95,34 +62,17 @@ namespace seq {
     // `deq_facet` (and any future facet holding token-list equations).
     void subst_in(expr_ref_vector& ts, expr* var, expr_ref_vector const& repl);
 
-    // Mixin implemented by any facet whose state is expressed over the
-    // same shared variable pool as `eq_facet`'s token lists, so that a
-    // substitution chosen by one facet's split plugin (e.g.
-    // `word_eq_split`) is broadcast to every other such facet in the same
-    // node - this is how `deq_facet` (and later `solver_facet`) stay in
-    // sync with `eq_facet`'s Nielsen branching without needing their own
-    // copy of the branching logic (see facet-eq-deq.md section 2.5: a
-    // disequation is discharged/refuted only as a side effect of
-    // substitutions driven by the equational system, never by inventing
-    // its own).
+    // Mixin for facets that must stay synchronized with token
+    // substitutions chosen elsewhere.
     class subst_sink_i {
     public:
         virtual ~subst_sink_i() = default;
-        // `subst_dep` is the dependency justifying the substitution
-        // itself (e.g. the dependency of the equation whose branching
-        // produced it). Each sink joins it (via its dep manager's
-        // `mk_join`) with the existing dependency of every constraint it
-        // actually mutates, so provenance accumulates through chains of
-        // substitutions rather than being dropped.
+        // `subst_dep` justifies the substitution itself. Each sink joins
+        // it into the dependencies of the constraints it mutates.
         virtual void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) = 0;
     };
 
-    // Trail undo object for a single-element `vector<T>::erase(idx)`:
-    // remembers just the erased index and value (not the whole vector) and
-    // re-inserts it at the same index on undo, restoring `erase`'s
-    // shift-down with a shift-up. O(distance from idx to the end) at both
-    // erase and undo time, versus the old whole-vector snapshot's O(n)
-    // copy regardless of where the change was.
+    // Trail undo object for a single-element `vector<T>::erase(idx)`.
     template <typename T>
     class vector_erase_trail : public ::trail {
         vector<T>& m_vec;
@@ -131,12 +81,7 @@ namespace seq {
     public:
         vector_erase_trail(vector<T>& v, unsigned idx) : m_vec(v), m_idx(idx), m_value(v[idx]) {}
         void undo() override {
-            // Grow by one via a copy of m_value appended at the end (copy
-            // *construction* is available even for move-only-assignable
-            // T), then shift every element from idx..end-2 up by one
-            // (move-assign, safe since no reallocation happens once the
-            // vector has already grown), then drop m_value into the
-            // now-vacant slot at m_idx.
+            // Grow by one, shift elements up, then restore the erased slot.
             m_vec.push_back(m_value);
             for (unsigned i = m_vec.size() - 1; i > m_idx; --i)
                 m_vec[i] = std::move(m_vec[i - 1]);
@@ -144,11 +89,8 @@ namespace seq {
         }
     };
 
-    // Like value_trail<T>, but the target is a field of the idx'th element
-    // of a vector, not a raw reference - so it stays safe even if later
-    // operations (erase/push_back) reallocate or shift the vector's
-    // storage before undo() runs. `Member` is a pointer-to-member selecting
-    // the (move-only, e.g. expr_ref_vector/expr_ref) field to restore.
+    // Like value_trail<T>, but restores a field of a vector element by
+    // index so later reallocation does not invalidate the target.
     template <typename Elem, typename T>
     class vector_field_trail : public ::trail {
         vector<Elem>& m_vec;
@@ -163,14 +105,8 @@ namespace seq {
         }
     };
 
-    // Scan the field `ts` (the `member` field of the `idx`'th element of
-    // `vec`) for `var`; if present, register a fine-grained undo (just
-    // this one field, addressed by vector+index+member so it stays valid
-    // across later vector reallocation - not the whole facet's
-    // equation/disequation/membership/ncontains vector) and perform the
-    // substitution, returning true. If `var` does not occur, this is a
-    // no-op returning false: apply_subst's per-call loop over every entry
-    // only pays for a trail object on the entries that actually change.
+    // If `var` occurs in the selected token vector, trail and perform the
+    // substitution; otherwise return false.
     template <typename Elem>
     inline bool subst_in_trailed(trail_stack& trail, vector<Elem>& vec, unsigned idx, expr_ref_vector Elem::* member, expr* var, expr_ref_vector const& repl) {
         expr_ref_vector& ts = vec[idx].*member;
@@ -207,23 +143,12 @@ namespace seq {
             bool active() const { return m_active; }
 
             // -- stx::constraint_i (unsat-cache identity) --
-            // Canonically orders (lhs,rhs) - see seq_eq_facet.cpp's
-            // canonical_pair_hash/canonical_pair_eq - so `x=y` and a
-            // mirrored `y=x` (interchangeable outputs of Nielsen
-            // branching, depending on split order) compare equal.
-            // `clone()` intentionally drops `m_dep`/`m_active`: a memoized
-            // unsat-cache entry is a pure value, never mutated or
-            // backtracked, and its identity is only ever queried via
-            // hash()/equals() (see stx::constraint_i).
+            // Canonicalize (lhs,rhs) so mirrored equations compare equal.
+            // clone() keeps only the value part of the constraint.
             uint64_t hash() const override;
             bool equals(stx::constraint_i const& other) const override;
             stx::constraint_i* clone() const override { return alloc(equation, m_lhs, m_rhs); }
-            // Exposes m_dep (this fact's own justification, or nullptr
-            // for an unconditional/definitional one) so cache_insert()'s
-            // filter_by_conflict_dep() can narrow an over-approximate
-            // core down to just the equations that could actually have
-            // contributed to a given conflict - see stx::constraint_i's
-            // dep_handle() doc comment.
+            // Expose the justification so conflict cores can be filtered.
             void* dep_handle() const override { return m_dep; }
         };
 
@@ -244,15 +169,12 @@ namespace seq {
         seq_util& get_seq_util() const { return u; }
         eq_tree::dep_manager_t& dm() const { return m_dm; }
 
-        // Trailed: for adding an equation (root construction or
-        // mid-search alike - all constraint additions are trailed, no
-        // exception). Undo just pops the pushed element.
+        // Trailed equation insertion.
         void add_equation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
             m_eqs.push_back(equation(lhs, rhs, dep));
             m_trail.push(push_back_trail<equation>(m_eqs));
         }
-        // Convenience overload: splits lhs/rhs into concat units and
-        // delegates to the trailed vector form above.
+        // Convenience overload that tokenizes lhs and rhs first.
         void add_equation(expr* lhs, expr* rhs, eq_tree::dep_tracker dep = nullptr) {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(lhs, lts);
@@ -268,27 +190,12 @@ namespace seq {
         vector<equation> const& equations() const { return m_eqs; }
         vector<subst_entry> const& substitutions() const { return m_subst; }
 
-        // Global triangular substitution accumulated from every forced
-        // Nielsen substitution this facet decided. Model construction
-        // reads the SAT leaf's table back and repeatedly expands tokens
-        // through it until no further binding applies, so a chain such
-        // as  x := y ++ "a", y := "b"  materializes as "ba".
-        //
-        // The table is append-only and trailed, matching the search
-        // tree's single-live-node discipline: pushing a branch appends
-        // new bindings; backtracking simply pops them in LIFO order.
-        // Because bindings are recorded in creation order, walking the
-        // table backwards yields the newest active binding for a token.
+        // Append-only substitution table used during model construction.
+        // Walking it backwards yields the newest active binding.
         bool get_subst(expr* var, expr_ref_vector& out) const;
         void eliminate(expr* e, expr_ref_vector& out) const;
         void eliminate(expr_ref_vector const& in, expr_ref_vector& out) const;
 
-        // Apply a forced/branch substitution `var := repl` to every
-        // equation currently in the facet. Trailed per-equation: only
-        // equations that actually contain `var` register an undo object
-        // (see subst_in_trailed). Each touched equation's dependency is
-        // joined with `subst_dep` (the justification for the
-        // substitution itself), also trailed.
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
 
@@ -304,17 +211,8 @@ namespace seq {
         bool contributes_to_signature() const override { return true; }
         void append_constraints(vector<stx::constraint_i const*>& out) const override;
 
-        // Deterministic simplification pass: uses seq_rewriter::reduce_eq
-        // to simplify each equation's token lists (prefix/suffix
-        // stripping, unit-vs-unit decomposition, symbol-clash and other
-        // contradiction detection, length-based reasoning, etc.), removes
-        // solved (both-empty) equations, and folds any newly-produced
-        // sub-equations back into the set. Returns true if the equation
-        // set changed (informational only - the engine detects the fixed
-        // point itself via facet hashing). Trailed. On conflict, sets
-        // `conflict_dep` to the dependency of the equation that produced
-        // the contradiction. See module comment.
-        //
+        // Deterministic simplification pass over all active equations.
+        // On conflict, `conflict_dep` identifies the culprit equation.
         bool simplify(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, bool& conflict, eq_tree::dep_tracker& conflict_dep);
         ambient_context_i<eq_tree::dep_tracker>& ambient(eq_tree::node const& n) const;
 
@@ -326,9 +224,7 @@ namespace seq {
 
     void broadcast_subst(eq_tree::node& target, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep);
 
-    // Deterministic propagation plugin wrapping eq_facet::simplify. Reads
-    // its own facet id via the ambient context's eq_id() rather than a
-    // constructor argument (see get_ambient()/ambient_context_i above).
+    // Deterministic propagation plugin wrapping eq_facet::simplify.
     class eq_propagation : public eq_tree::propagation_plugin_i {
         ast_manager& m;
         seq_util&    u;
@@ -349,22 +245,8 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Nielsen-transformation split plugin: branches the first equation
-    // whose leading OR trailing tokens are not both resolved by
-    // propagation (i.e. a variable paired with a constant, or two
-    // distinct variables) - mirroring the c3 branch's `apply_const_nielsen`/
-    // `apply_var_nielsen`, each of which loops over both directions
-    // (`od` in {0=forward/prefix, 1=backward/suffix}) so that a trailing
-    // clash (e.g. `x ++ a = y ++ b`) is caught exactly like a leading one
-    // (`eq_propagation`/`reduce_eq`'s own `reduce_back`/`reduce_front`
-    // pair already strips agreeing prefixes/suffixes deterministically;
-    // this split plugin is the nondeterministic counterpart, so it must
-    // examine both ends too - a leading-only check would miss branching
-    // opportunities exposed only at the tail, e.g. after a suffix
-    // narrowed by some other facet's substitution). The first branch is
-    // materialized immediately by `split()`; remaining branches (up to
-    // two more, for the two-variable case) are produced lazily by the
-    // returned `split_iterator_i` on resumption.
+    // Nielsen-transformation split plugin. It examines both ends of an
+    // equation so suffix-only branching opportunities are not missed.
     class word_eq_split : public eq_tree::split_plugin_i {
         ast_manager& m;
         seq_util&    u;
@@ -378,30 +260,13 @@ namespace seq {
             eq_tree::node& m_n;
             ast_manager&   m;
             seq_util&      u;
-            // Remaining alternatives to produce, in order. Each entry is a
-            // (rule_name, var, replacement, dep, guard) tuple - `m_dep` is
-            // the dependency of the equation whose stuck leading/trailing
-            // tokens motivated this split (a case-split on how to unstick
-            // a single equation derives its justification from that one
-            // equation, not a join of several). `next()` pops the front
-            // one, mutates in place, pushes a scope, and returns it. The
-            // replacement vector is already built in the correct
-            // direction by `split()` (`[c, v']` for a forward/prefix
-            // branch, `[v', c]` for a backward/suffix branch), so
-            // `next()` itself does not need to know which direction
-            // produced it. `m_guard` (if non-null) is an extra arithmetic
-            // side condition (e.g. `len(v1) > 0`) recorded on the
-            // arithmetic sub-solver alongside the substitution, to keep
-            // the branches of the var/var Nielsen split mutually
-            // exclusive (c3 branch's apply_var_nielsen; see split()'s own
-            // comment on branches (3)/(4)).
+            // Remaining alternatives to produce, in order.
             struct alt { char const* m_name; expr_ref m_var; expr_ref_vector m_repl; eq_tree::dep_tracker m_dep; expr_ref m_guard; bool m_progress; };
             vector<alt>    m_pending;
             unsigned       m_pos = 0;
         public:
             iterator(eq_tree::node& n, ast_manager& m, seq_util& u) : m_n(n), m(m), u(u) {}
-            // `progress` is false for the alternatives that introduce a fresh variable
-            // (`v := c.v'`, `v1 := v2.v1'`): only those count towards the search depth.
+            // `progress` is false for alternatives that introduce a fresh variable.
             void push_back(char const* name, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep, expr* guard = nullptr, bool progress = true) {
                 m_pending.push_back(alt{ name, expr_ref(var, m), repl, dep, expr_ref(guard, m), progress });
             }
@@ -416,47 +281,8 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Refutation-only rule wrapping `seq_eq_approx::check` (see
-    // seq_eq_approx.h's module comment), ported from the c3 branch's use
-    // of exact word-length/segment-intersection refutation as an early,
-    // cheap gate ahead of the Nielsen search proper. `seq_eq_approx`
-    // itself has no notion of "branching": `check(lhs, rhs)` either
-    // refutes the equation outright (l_false, an empty intersection of
-    // the two sides' segment languages) or is inconclusive (l_true/
-    // l_undef). There is therefore nothing to offer as a `split_plugin_i`
-    // in the ordinary sense - this rule never actually branches - but the
-    // user's design explicitly calls for implementing it as a *split*
-    // plugin (not a propagation plugin) precisely so its priority
-    // relative to every other split rule is controlled the same way
-    // theirs is (registration order + `min_cost()`), rather than running
-    // unconditionally to a fixpoint before any split is even considered
-    // (which is what a propagation plugin would do, and which would give
-    // it no way to defer to a cheaper split rule).
-    //
-    // `split()` iterates `eq_facet`'s current equations, feeding each to
-    // a persistent `seq_eq_approx` instance (its derivative caches are
-    // reused across calls; `reset_views()` is not needed since this rule
-    // never calls `add_view`/`set_views` - each equation is checked with
-    // no external view constraints, i.e. plain constant/variable
-    // segments only). On the first refutation found (`l_false`), the
-    // equation's own dependency justifies the conflict (segments over
-    // plain tokens consult nothing beyond the equation's own sides, per
-    // `seq_eq_approx`'s module comment: "An empty intersection refutes
-    // the equation, because every value of a side lies in the language
-    // of its segments" - no view/membership dependency is ever
-    // introduced here since none is ever installed), `n.set_conflict`
-    // is called directly and `split()` returns with `committed = false`
-    // (no branch materialized - a pure refutation). If every equation is
-    // inconclusive, the rule declines (`has_more = false`: nothing about
-    // the equation set has changed since the last check, so retrying at
-    // a higher cost cannot find a different answer without some other
-    // rule first mutating `eq_facet`).
-    //
-    // Given a low `min_cost() == 0`, this is tried before every other
-    // registered split plugin at cost 0 (see `theory_nseq.h`'s
-    // registration-order table), mirroring the c3 branch's placement of
-    // its own cheap pre-search refutation checks ahead of any
-    // nondeterministic branching.
+    // Refutation-only split plugin that uses seq_eq_approx::check. It
+    // never produces branches: it either reports a conflict or declines.
     class eq_approx_split : public eq_tree::split_plugin_i {
         ast_manager&    m;
         seq_util&       u;
@@ -483,28 +309,9 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Mid-equation split with a padding variable, ported from the c3
-    // branch's `apply_eq_split`/`find_eq_split_point`
-    // (seq_nielsen_modifiers.cpp) per facet-eq-deq.md section 2.2. Unlike
-    // `word_eq_split` (which only ever peels the *head* token of an
-    // equation), this rule looks for an interior position on each side
-    // where the multiset of variable tokens consumed so far balances out
-    // between LHS and RHS - at such a position the two prefixes must have
-    // equal length up to a constant offset ("padding"), so the equation
-    // can be safely cut in two there, each half strictly shorter than the
-    // original (bounding recursion) without losing any solutions: this is
-    // a single deterministic *progress* transformation, not a
-    // multi-branch case split, so it is offered at split cost 0 exactly
-    // like word_eq_split, but always commits its lone alternative
-    // immediately (no resumable iterator, mirroring power_split's
-    // single-branch cases).
-    //
-    // If lhs is longer than rhs at the split (padding > 0), a fresh
-    // Skolem "pad" variable is introduced and spliced onto the shorter
-    // (rhs) side at the split point (mirrored if rhs is longer); an
-    // exact-length constraint `len(pad) = |padding|` plus the two new
-    // equations' own `len(lhs)=len(rhs)` constraints are asserted into
-    // solver_facet, all tagged with the original equation's dependency.
+    // Deterministic interior split with an optional padding variable.
+    // It cuts an equation at a balanced point and replaces it with two
+    // shorter equations plus the necessary length constraints.
     class eq_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -514,21 +321,15 @@ namespace seq {
         };
         stats m_stats;
 
-        // Classify a token's length as a known constant (chars, always 1
-        // here since get_concat_units() explodes multi-char strings into
-        // single-char tokens) or unknown/variable (anything else,
-        // including fresh Skolem/opaque terms).
+        // Tokens from get_concat_units are either unit constants or
+        // variable-length opaque terms.
         static bool token_has_variable_length(seq_util& u, expr* tok) { return !u.str.is_unit(tok); }
 
     public:
         eq_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
         char const* name() const override { return "eq-split"; }
 
-        // Walk `lhs`/`rhs` token lists looking for a balanced interior
-        // split point, as in the c3 branch's find_eq_split_point (see
-        // module comment above and the .cpp implementation for the
-        // per-token signed-balance algorithm and its history). Returns
-        // false if no such point exists.
+        // Find a balanced interior split point, if one exists.
         static bool find_eq_split_point(seq_util& u, expr_ref_vector const& lhs, expr_ref_vector const& rhs,
                                          unsigned& out_lhs_idx, unsigned& out_rhs_idx, int& out_padding);
 
@@ -538,17 +339,10 @@ namespace seq {
     };
 
     /**
-     * Facet holding a set of pending word disequations (`lhs != rhs`).
-     * Per the design (z3papers/nseq/facet-eq-deq.md section 2.5),
-     * `deq_facet` has no Nielsen branching of its own: it only reacts,
-     * via `subst_sink_i::apply_subst`, to substitutions chosen by
-     * `eq_facet`'s split plugin (`word_eq_split`, broadcast via
-     * `subst_sink_i`). A disequation is discharged (removed, i.e. proved
-     * satisfiable-distinct) as soon as prefix-stripping exposes two
-     * distinct leading constants; it is a conflict if prefix-stripping
-     * reduces both sides to empty (the two sides were forced equal,
-     * contradicting `!=`). Otherwise it is left pending (sound but
-     * incomplete without an solver_facet - see module comment).
+     * Facet holding pending word disequations (`lhs != rhs`). It reacts
+     * to substitutions broadcast from other facets, discharges a
+     * disequation once distinct leading constants are exposed, and
+     * reports a conflict if both sides reduce to empty.
      */
     class deq_facet : public stx::facet_i, public subst_sink_i {
     public:
@@ -562,11 +356,8 @@ namespace seq {
             bool active() const { return m_active; }
 
             // -- stx::constraint_i (unsat-cache identity) --
-            // Same canonicalization as eq_facet::equation; `equals()`
-            // rejects an `equation` (or any other constraint kind) even
-            // if it happens to share the same (canonicalized) lhs/rhs -
-            // a disequation and an equation over the same tokens are NOT
-            // the same fact.
+            // Same canonicalization as equations, but a disequation is a
+            // distinct constraint kind.
             uint64_t hash() const override;
             bool equals(stx::constraint_i const& other) const override;
             stx::constraint_i* clone() const override { return alloc(disequation, m_lhs, m_rhs); }
@@ -586,9 +377,7 @@ namespace seq {
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
-        // Trailed: for adding a disequation (root construction or
-        // mid-search alike - all constraint additions are trailed, no
-        // exception). Undo just pops the pushed element.
+        // Trailed disequation insertion.
         void add_disequation(expr_ref_vector const& lhs, expr_ref_vector const& rhs, eq_tree::dep_tracker dep = nullptr) {
             m_diseqs.push_back(disequation(lhs, rhs, dep));
             m_trail.push(push_back_trail<disequation>(m_diseqs));
@@ -596,18 +385,10 @@ namespace seq {
 
         vector<disequation> const& disequations() const { return m_diseqs; }
 
-        // Apply a substitution `var := repl` (chosen elsewhere, by
-        // eq_facet's split plugin) to every pending disequation. Trailed
-        // per-disequation (only entries containing `var` register undo).
-        // The touched disequation's dependency is joined with
-        // `subst_dep`, also trailed.
+        // Apply a broadcast substitution to every pending disequation.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
-        // Trailed removal of the disequation at `idx` (e.g. deq_split
-        // discharging/replacing a stuck disequation): append-only, so
-        // this just flips m_active to false. As with equations the undo is
-        // addressed by vector+index so it survives a later push_back that
-        // reallocates m_diseqs.
+        // Trailed removal of the disequation at `idx`.
         void remove_disequation_trailed(unsigned idx) {
             m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, idx, &disequation::m_active));
             m_diseqs[idx].m_active = false;
@@ -622,15 +403,11 @@ namespace seq {
         bool contributes_to_signature() const override { return true; }
         void append_constraints(vector<stx::constraint_i const*>& out) const override;
 
-        // Deterministic simplification pass: prefix-stripping, then
-        // discharge-on-symbol-clash / conflict-on-both-empty. On
-        // conflict, sets `conflict_dep` to the culprit disequation's
-        // dependency. See module comment. Trailed.
+        // Deterministic simplification pass over all active disequations.
         bool simplify(bool& conflict, eq_tree::dep_tracker& conflict_dep);
     };
 
     // Deterministic propagation plugin wrapping deq_facet::simplify.
-    // Reads its own facet id via the ambient context's deq_id().
     class deq_propagation : public eq_tree::propagation_plugin_i {
         ast_manager& m;
         seq_util&    u;
@@ -648,36 +425,10 @@ namespace seq {
     };
 
 
-    // Disequation case-split, ported from the c3 branch's
-    // `axiomatize_diseq` (seq_nielsen_modifiers.cpp) per
-    // facet-eq-deq.md section 2.5. Unlike equalities, disequalities have
-    // no symmetric Nielsen-modifier family: `deq_facet::simplify` only
-    // ever discharges a disequation once prefix-stripping exposes two
-    // distinct leading constants, or detects a conflict once both sides
-    // are forced identical - it never invents a substitution of its own.
-    // Without this rule a disequation stuck behind two distinct
-    // variables (e.g. `x . a != y . b`) can never be resolved, since no
-    // other plugin ever mutates deq_facet's pending set except via
-    // subst_sink_i::apply_subst broadcasts triggered by *eq_facet's* own
-    // splits.
-    //
-    // For a stuck disequation `u != v` (both sides nonempty, and not
-    // already resolved by simplification), branches into exactly 3
-    // cases, spanning deq_facet + eq_facet + solver_facet:
-    //   1. `len(u) < len(v)` (arith-only; a length mismatch alone
-    //      already proves `u != v`, so the disequation is discharged -
-    //      removed from deq_facet - in this branch).
-    //   2. `len(v) < len(u)` (symmetric).
-    //   3. equal-length split: fresh skolem terms `w` (common prefix,
-    //      same sort as u/v), `a`, `b` (fresh single-char unit terms),
-    //      `u'`, `v'` (fresh suffix vars); asserts new eq_facet equations
-    //      `u = w.a.u'` and `v = w.b.v'`, an solver_facet constraint
-    //      `len(u') = len(v')`, and replaces the original disequation
-    //      with the finer-grained `a != b` (a single-token disequation
-    //      between two fresh unit chars) - this is what actually proves
-    //      `u != v` in this branch, given the two new equalities.
-    // All three branches are justified solely by the disequation's own
-    // dependency (a case-split on how to resolve one stuck disequation).
+    // Split plugin for unresolved disequations. It branches on the two
+    // possible strict length orders, or on an equal-length
+    // decomposition that reduces the disequation to a differing
+    // character.
     class deq_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -687,13 +438,11 @@ namespace seq {
         };
         stats m_stats;
 
-        // Remaining alternatives (case 2, then case 3) after case 1 (if
-        // offered) is the first, immediately materialized branch -
-        // mirrors word_eq_split::iterator's "alt" list pattern.
+        // Remaining alternatives after the first materialized branch.
         class iterator : public eq_tree::split_iterator_i {
             eq_tree::node& m_n;
             unsigned       m_diseq_idx;
-            expr_ref_vector m_lhs, m_rhs; // the original disequation's sides, captured before any branch mutates the vector
+            expr_ref_vector m_lhs, m_rhs; // original sides before branch mutation
             eq_tree::dep_tracker m_dep;
             unsigned       m_next_case; // 2, then 3, then done
             ast_manager&   m;

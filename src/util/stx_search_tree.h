@@ -9,17 +9,15 @@ Abstract:
 
     Domain-agnostic plugin-based search tree (namespace `stx`).
 
-
     The two extension points are:
       - `propagation_plugin_i`: deterministic, non-branching simplification.
         Mutations MUST register with the trail; must NEVER call
         `push_scope()` itself (that is the DFS driver's job, via
         `scoped_push`).
       - `split_plugin_i`: nondeterministic branching (search) rules,
-        selected lowest-cost-first. `split()` now materializes the first
-        available branch immediately (mutating the live node in place and
-        pushing exactly one trail scope) and returns a `split_iterator_i`
-        for resuming the remaining branches on backtrack.
+        selected lowest-cost-first. `split()` materializes the first
+        available branch immediately and returns a `split_iterator_i` for
+        resuming the remaining branches on backtrack.
 
     Everything domain-specific (string equalities, regex memberships,
     arithmetic constraints, ...) is expected to live *outside* this file, in
@@ -63,14 +61,10 @@ namespace stx {
     // satisfied state.
     enum class simplify_result { noop, proceed, conflict, satisfied };
 
-    // Result of solve()/dfs(). `depth_cutoff` is an internal-only variant
-    // of `unknown` used by dfs() to distinguish "this subtree was
-    // truncated by the current depth bound" (retrying with a larger bound
-    // may resolve it) from a genuine stuck/no-more-splits `unknown`
-    // (retrying will not help); `solve()`'s iterative deepening uses this
-    // to decide whether to keep raising the depth bound, but never
-    // returns `depth_cutoff` itself to callers - it is normalized to
-    // `unknown` in the final result.
+    // Result of solve()/dfs(). `depth_cutoff` is an internal-only result
+    // meaning the current depth bound truncated the subtree; `solve()`
+    // may retry with a larger bound, but normalizes the final answer back
+    // to `unknown`.
     enum class search_result { sat, unsat, unknown, depth_cutoff };
 
     // A stable per-plugin handle into a node's facet array.
@@ -140,37 +134,17 @@ namespace stx {
     }
 
     /**
-     * Domain-opaque handle for ONE atomic fact a facet contributes to the
-     * unsat-cache (e.g. a word equation, a disequation, a regex
-     * membership). Unlike the earlier uint64_t-hash-based signature
-     * scheme, facets now subclass this directly on their own live
-     * fact-holding element type (e.g. `seq::eq_facet::equation` IS-A
-     * `constraint_i`) and hand the engine borrowed pointers to their own
-     * (currently active) elements - no separate encode-to-uint64_t step,
-     * and no reliance on hash values alone for equality (a hash
-     * collision between two unrelated facts can never cause a false
-     * unsat-cache hit, because `search_tree::constraint_store` always
-     * follows up a hash match with an exact `equals()` check).
+     * Domain-opaque handle for one atomic fact a facet contributes to the
+     * unsat cache (e.g. a word equation, disequation, or regex
+     * membership). Facets typically subclass this on their live fact type
+     * and pass borrowed pointers to active elements. Hash collisions are
+     * harmless because `constraint_store` always confirms matches with
+     * `equals()`.
      *
-     * `hash()`/`equals()` must implement whatever canonicalization makes
-     * two structurally-interchangeable facts compare equal (e.g. a word
-     * equation `x = y` and a mirrored `y = x` - both possible outputs of
-     * Nielsen branching depending on split order - must hash/compare
-     * identically); `equals()` must return false for two constraints of
-     * different concrete (sub)type, even if by some coincidence their
-     * hashes matched (a plain `dynamic_cast` check is the simplest way to
-     * guarantee this, and is already used elsewhere in this codebase,
-     * e.g. `seq_eq_facet.cpp`'s ambient-context lookups).
-     *
-     * `clone()` allocates a fresh, independent, heap-owned copy holding
-     * just the comparison-relevant state: the dependency-tracking and
-     * active/alive bookkeeping fields a *live* fact carries (e.g.
-     * `equation::m_dep`, `::m_active`) are never meaningful once memoized
-     * into the constraint_store (a stored entry is a pure value, never
-     * mutated or backtracked, and its identity is only ever queried via
-     * `hash()`/`equals()`), so `clone()` need not copy them - a
-     * default-constructed/omitted dependency and `active()==true` are
-     * both fine.
+     * `hash()`/`equals()` must canonicalize structurally equivalent facts
+     * and reject different concrete fact kinds. `clone()` should copy only
+     * comparison-relevant state; cached entries are immutable values and do
+     * not need live bookkeeping such as activity flags or dependencies.
      */
     class constraint_i {
         unsigned m_store_id = UINT_MAX; // index assigned by constraint_store::intern(), once interned
@@ -183,39 +157,20 @@ namespace stx {
         unsigned store_id() const { return m_store_id; }
         void set_store_id(unsigned id) { m_store_id = id; }
 
-        // Opaque pointer to this LIVE fact's own justification/dependency
-        // object, as understood by the instantiating domain's
-        // `scoped_dependency_manager` (`search_tree::dep_tracker`/
-        // `m_dep_mgr`) - nullptr (the default) if this fact holds
-        // unconditionally within the current branch and has no
-        // independent leaf justification of its own (e.g. a purely
-        // definitional fact). Deliberately domain- and dep-type-agnostic,
-        // mirroring `ambient_context_base`'s opaque-marker-base idiom:
-        // `constraint_i` itself must not know what a `dep_tracker` is
-        // (that type is a template parameter of `search_tree`, not
-        // available at this non-template scope), so it hands back an
-        // untyped `void*` that only the templated `search_tree` -
-        // which DOES know the concrete `dep_tracker` type it was
-        // instantiated with - ever `static_cast`s back down (see
-        // `search_tree::cache_insert`'s conflict-relevance filter). The
-        // engine never dereferences this pointer itself.
+        // Opaque pointer to this live fact's justification object, as
+        // understood by the instantiating domain's
+        // `scoped_dependency_manager`. Returns nullptr when the fact has no
+        // independent leaf justification. `constraint_i` exposes this as
+        // `void*` because the concrete `dep_tracker` type is only known to
+        // the enclosing `search_tree` template.
         virtual void* dep_handle() const { return nullptr; }
     };
 
     /**
-     * Domain-opaque marker base class for an "ambient context" handle
-     * stashed on a `search_tree::node` and reachable from every facet
-     * registered against that node. This class deliberately has NO
-     * virtual methods and NO dependency on any domain type (in
-     * particular, nothing from `src/ast`): `stx_search_tree.h` is a
-     * domain-agnostic engine and must not know what an `expr*` or a
-     * `dep_tracker` is. The domain layer (e.g. `ast/seq/
-     * seq_ambient_context.h`'s `ambient_context_i<dep_tracker_t>`)
-     * derives its concrete, method-bearing interface from this class;
-     * facets that need to query it hold a `facet_i::ambient()`-style
-     * accessor that `static_cast`s this base pointer back down to the
-     * domain's own `ambient_context_i` type (see e.g. `seq::eq_facet::
-     * ambient()` in `ast/seq/seq_eq_facet.h`).
+     * Domain-opaque base class for an ambient-context handle stored on a
+     * `search_tree::node`. The concrete, method-bearing interface lives in
+     * the domain layer; this header keeps only an opaque base pointer to
+     * remain domain-agnostic.
      */
     class ambient_context_base {
     public:
@@ -269,50 +224,18 @@ namespace stx {
 
         // --- unsat-cache signature (see search_tree::m_unsat_cache) ---
         //
-        // Does this facet's current state contribute to the transposition-
-        // table signature used to memoize string-only UNSAT nodes? Default
-        // false: a facet that doesn't override this is conservatively
-        // excluded from the signature, and any node where it currently
-        // holds live (non-vacuous, i.e. !is_satisfied()) content is made
-        // ineligible for the cache altogether (see search_tree::
-        // cache_eligible) - this is what keeps the cache sound without
-        // needing per-facet "did I actually cause this conflict"
-        // bookkeeping: a facet opting out only ever forfeits its own
-        // caching benefit (e.g. the arithmetic backend, whose bounds are
-        // deliberately excluded the same way c3's cache excludes length/
-        // arithmetic from its node signature), it can never cause an
-        // unsound hit.
+        // Whether this facet contributes to the cache signature. Default
+        // false: a non-contributing facet with live content makes the node
+        // ineligible for caching, which preserves soundness by treating the
+        // facet as "unknown to the cache" instead of risking a false hit.
         virtual bool contributes_to_signature() const { return false; }
 
-        // Append a BORROWED `constraint_i const*` per currently *active*
-        // fact/constraint this facet owns (e.g. one pointer per active
-        // equation, one per active membership) to `out`. Order does not
-        // matter (the engine canonicalizes by interning each pointee into
-        // `search_tree::constraint_store` and, where order-sensitivity
-        // matters at all - e.g. `cache_insert`'s insertion-time dedup -
-        // sorting the resulting dense ids itself), so a facet needs no
-        // internal self-sorting of its own the way the old uint64_t-hash
-        // scheme required.
-        //
-        // Each pointer must point at an object whose `hash()`/`equals()`
-        // pair implements the SAME fact this facet's own is_satisfied()/
-        // display() logic reasons about - the unsat cache (search_tree::
-        // cache_lookup) tests these for SET CONTAINMENT against a totally
-        // unrelated node, so equals() returning true must mean "this
-        // exact whole fact is active in both nodes", never merely "some
-        // sub-term this fact happens to use is active in both" (e.g. a
-        // shared character literal or skolem var also appearing in many
-        // other, unrelated facts) - that would make containment across
-        // unrelated nodes unsound.
-        //
-        // The pointers are only read synchronously during this call and
-        // the (also synchronous) `constraint_store::intern()`/`find()`
-        // call that immediately follows it - never retained past that -
-        // so they may (and normally do) point directly at this facet's
-        // own live, currently-active elements (no extra allocation needed
-        // just to compute a signature); if `constraint_store` needs to
-        // memoize a genuinely new fact, it calls `clone()` itself to make
-        // an independent, permanently-owned copy. Only ever called when
+        // Append a borrowed `constraint_i const*` for each active fact this
+        // facet contributes to the cache signature. Order does not matter.
+        // Equality must denote the whole fact, not a shared subterm, so
+        // set-containment checks across nodes stay sound. The pointers are
+        // used only synchronously during lookup/interning; `constraint_store`
+        // clones anything it needs to retain. Only called when
         // contributes_to_signature() is true; default no-op.
         virtual void append_constraints(vector<constraint_i const*>& out) const {}
     };
@@ -334,11 +257,9 @@ namespace stx {
 
         class node;
 
-        // A pure value type: a named transformation, with a
-        // dependency-tracked justification and an iterative-deepening
-        // cost. There is only one live `node` at a time, so an edge no
-        // longer carries src/tgt pointers; it exists purely to describe
-        // *how* the (in-place) mutation that already happened got there,
+        // A pure value type describing one transformation: its rule name,
+        // justification, progress flag, and iterative-deepening cost. With
+        // only one live node, it records how the current state was reached
         // for diagnostics/explanation.
         class edge {
             const char*       m_rule_name = "";
@@ -430,7 +351,7 @@ namespace stx {
             // only ever appear at cost >= k need not itself re-check
             // `cost < k` in every split() override; the engine already
             // skips those calls entirely. Default: 0 (no lower bound;
-            // split() is tried starting at cost 0, as before).
+            // split() is tried starting at cost 0).
             virtual unsigned min_cost() const { return m_min_cost; }
             void set_min_cost(unsigned c) { m_min_cost = c; }
 
@@ -635,11 +556,7 @@ namespace stx {
         };
 
     private:
-        // Per-depth bookkeeping for the (recursive) DFS driver. Replaces
-        // what used to live directly on a persistent `node` object: since
-        // there is only one live node now, everything that varies by DFS
-        // depth (the winning split's resumable iterator, its
-        // last-produced edge) must live on the call stack instead.
+        // Per-depth bookkeeping for the recursive DFS driver.
         struct dfs_frame {
             scoped_ptr<split_iterator_i>           m_iter;                // resumable remaining branches, if any
             edge                                   m_last_edge;
@@ -655,32 +572,20 @@ namespace stx {
         unsigned                               m_depth_bound = 0; // current iterative-deepening bound, set by solve()
         unsigned                               m_max_cost = 1000;
         unsigned                               m_max_nodes = 0; // 0 == unlimited
-        // Physical dfs() call-nesting counter: unlike `depth` (the logical
-        // iterative-deepening bound argument, which is NOT incremented for
-        // "free" progress edges - a variable eliminated, an arithmetic
-        // decision), this counts every recursive dfs() invocation regardless
-        // of edge kind. A long chain of free progress edges (e.g. a bound
-        // propagation that converges one unit at a time) can recurse far
-        // deeper than `m_depth_bound` ever sees, since the logical depth
-        // never advances - risking a native stack overflow rather than a
-        // clean depth_cutoff. This is a pure stack-safety backstop, set
-        // generously above any depth iterative deepening would reasonably
-        // reach; tripping it degrades to the already-handled depth_cutoff
-        // result (retried at a larger bound / eventually reported unknown),
-        // never changes the answer on well-behaved inputs.
+        // Physical dfs() call depth. Unlike the logical iterative-
+        // deepening `depth`, this counts every recursive call, including
+        // "free" progress edges. It is a stack-safety backstop: if a long
+        // chain of such edges recurses too deeply, we degrade to
+        // `depth_cutoff` instead of overflowing the native stack.
         unsigned                               m_raw_dfs_depth = 0;
         static const unsigned                  m_max_raw_dfs_depth = 3000;
-        // Starting bound for solve()'s doubling loop (see set_min_search_depth()).
-        // Every call to solve() otherwise restarts iterative deepening from 1,
-        // re-exploring the same shallow, provably-insufficient rounds each time -
-        // wasteful once the caller already knows some floor (e.g. the number of
-        // top-level constraints just asserted) below which no split sequence can
-        // possibly finish. This is a pure performance floor: solve() still runs
-        // the doubling loop and any depth_cutoff still triggers further deepening,
-        // so soundness/completeness are unaffected by any value here.
+        // Starting bound for solve()'s doubling loop. This is a
+        // performance floor only; deeper retries still happen normally on
+        // `depth_cutoff`.
         unsigned                               m_min_search_depth = 1;
 
-        // iterative deepening doubles the bound (as c3), clamped so the maximum is still tried
+        // Iterative deepening doubles the bound, clamped so the maximum is
+        // still tried.
         unsigned next_depth_bound(unsigned d) const { return d >= m_max_search_depth ? m_max_search_depth + 1 : std::min(2 * d, m_max_search_depth); }
         dep_manager_t                          m_dep_mgr;
         stats                                  m_stats;
@@ -1008,36 +913,21 @@ namespace stx {
             return pool.insert(std::move(s)).first->c_str();
         }
 
-        // Hot-restart snapshot of the (unique, innermost) SAT leaf found by
-        // the most recent `solve()` call, taken via the cold-path `clone()`
-        // before the DFS unwind pops the trail scopes that produced it - so
-        // callers can still inspect the satisfying facet state (e.g. read
-        // off a model) after `solve()` has returned and the live node has
-        // been restored to its pre-solve state.
+        // Snapshot of the SAT leaf found by the most recent `solve()`,
+        // taken before the DFS unwind restores the live node to its
+        // pre-solve state.
         scoped_ptr<node>                       m_sat_snapshot;
 
         // --- Optional DOT-trace instrumentation (diagnostics only) ---
         //
-        // Unlike the c3 branch's `nielsen_graph`, this engine keeps only
-        // one live `node`, so there is no persistent tree object to dump.
-        // When enabled (`enable_dot_trace(true)`), `dfs()` instead records
-        // one `dot_node` per recursive call into `m_dot_nodes`, capturing
-        // this call's parent (via `m_dot_stack`, the current root-to-here
-        // path), the incoming edge's label, a text snapshot of every
-        // installed facet's `display()` taken right after this call's own
-        // `propagate_to_fixpoint()` (i.e. before any child branch further
-        // mutates the live node), and (once known) this call's own
-        // `search_result`/`node_status`/`backtrack_reason`. `to_dot()`
-        // renders `m_dot_nodes` as a graphviz digraph, colouring nodes/
-        // edges by result, mirroring `nielsen_graph::to_dot` in z3-tacas.
+        // The engine keeps only one live node, so tracing records one
+        // `dot_node` per recursive `dfs()` call: parent id, incoming edge,
+        // a post-propagation facet snapshot, and the final result/status.
+        // `to_dot()` renders these records as a graphviz digraph.
         //
-        // `solve()`'s iterative deepening re-runs `dfs(0)` from scratch at
-        // increasing depth bounds; recording every round would make the
-        // trace an ever-growing, mostly-redundant prefix of itself, so the
-        // trace is cleared at the start of each round - `to_dot()` after
-        // `solve()` returns therefore always reflects only the *last*
-        // (deepest, or externally cancelled) round, which is what a caller
-        // actually wants to inspect.
+        // Iterative deepening re-runs `dfs(0)` from scratch, so the trace
+        // is cleared at the start of each round and `to_dot()` shows only
+        // the last round.
         struct dot_node {
             unsigned      id = 0;
             int           parent_id = -1;
@@ -1240,20 +1130,11 @@ namespace stx {
             return false;
         }
 
-        // `pure_out` is set (only meaningful when the return value is
-        // `unsat`) to whether this call's UNSAT verdict is a pure
-        // function of the signature-contributing facets throughout the
-        // ENTIRE subtree explored here - not just this frame's own
-        // current facet snapshot. A child branch may have transiently
-        // relied on excluded-facet content (e.g. an arithmetic split)
-        // that has already been popped/undone by the time this frame
-        // resumes, so purity has to be threaded up from where each
-        // conflict actually originated, mirroring c3's per-subtree
-        // `all_string_only` tracking (`m_unsat_cacheable`) - a point-in-
-        // time check at the aggregating parent alone cannot see what its
-        // children depended on along the way. Every caller supplies its
-        // own bool to bind this to, even the top-level call from
-        // solve() (which doesn't otherwise care about purity).
+        // `pure_out` is meaningful only for `unsat`: it reports whether
+        // the entire explored subtree depends only on signature-
+        // contributing facets. This must be threaded up from the leaves
+        // because child branches may have relied on excluded facets that
+        // are no longer visible when the parent resumes.
         search_result dfs(unsigned depth, edge const* in_edge, bool& pure_out) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
@@ -1296,17 +1177,9 @@ namespace stx {
 
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
-                // Propagation-level conflict: sound to memoize whenever no
-                // excluded facet holds live content (cache_insert re-checks
-                // cache_eligible itself), mirroring c3's leaf-regex-
-                // infeasible insert site. Skip it when this conflict was
-                // itself just derived FROM the cache (cache_lookup() only
-                // ever returns true after already confirming
-                // cache_eligible(n) itself): re-inserting here would just
-                // re-derive and dedup against the very entry that was just
-                // found - wasted work (recompute constraints, filter,
-                // sort, bucket-lookup) for no benefit, so return as soon
-                // as the hit is established instead.
+                // Propagation-level conflict: memoize it when the node is
+                // cache-eligible, unless the conflict itself came from a
+                // cache hit.
                 pure_out = cache_eligible(n);
                 if (pure_out && !cache_hit)
                     cache_insert(n);
@@ -1431,17 +1304,12 @@ namespace stx {
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
         void set_max_cost(unsigned c) { m_max_cost = c; }
         void set_max_nodes(unsigned n) { m_max_nodes = n; }
-        // Sets the floor solve() starts its doubling loop from (default 1).
-        // Intended to be called before each solve(), e.g. with the number of
-        // top-level constraints just flushed into the tree, so solve() skips
-        // depth_bound rounds that provably cannot yet touch every constraint
-        // once. Clamped so it never exceeds m_max_search_depth.
+        // Sets the floor for solve()'s iterative-deepening loop (default 1).
+        // Useful when the caller already knows shallower rounds cannot
+        // reach all top-level constraints. Clamped to m_max_search_depth.
         void set_min_search_depth(unsigned d) { m_min_search_depth = std::max(1u, std::min(d, m_max_search_depth)); }
 
-        // Ablation switch for the unsat cache (default off until validated
-        // by ablation on real benchmarks - see the c3 branch's analogous
-        // nseq.unsat_cache toggle for the measurement methodology this
-        // mirrors).
+        // Enable/disable the unsat cache.
         void set_unsat_cache_enabled(bool b) { m_unsat_cache_enabled = b; }
         bool unsat_cache_enabled() const { return m_unsat_cache_enabled; }
 

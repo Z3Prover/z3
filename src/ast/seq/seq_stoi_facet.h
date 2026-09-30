@@ -13,23 +13,16 @@ Abstract:
     smt/seq_axioms.h) has already been instantiated for it.
 
     Unlike a purely passive accumulator (e.g. `assumption_facet`), this
-    facet also owns the actual coherence-checking control logic
-    (`check_stoi_coherence`, below - ported from the c3 branch's
-    `theory_nseq::check_stoi_coherence` of the same name), consulted once
-    per final check and before `m_tree.solve()`. It never itself
-    simplifies, propagates, or splits the search tree though
-    (`is_satisfied()` is always true) - any actual axiom injection back
-    into the live SMT context happens only inside the two callbacks
-    below, supplied by `theory_nseq` at construction time, keeping this
-    (ast/seq-layer) facet itself free of any `smt_context` dependency:
+    facet also owns the coherence check used before final search. It
+    never itself simplifies, propagates, or splits the search tree
+    (`is_satisfied()` is always true). Axiom injection back into the
+    ambient SMT context happens only through callbacks supplied at
+    construction time:
       - `m_instantiate`: instantiates the inductive positional-unfolding
         axiom for a given (term, depth) pair - i.e.
         `seq_axioms_util::add_stoi_axiom(e, k)`.
-      - the ambient context's own `add_axiom` (see
-        ast/seq/seq_ambient_context.h's `ambient_context_i::add_axiom`,
-        the same "mk_axiom" mechanism `seq::axioms`/`smt::seq_axioms`
-        already use internally) - used for the explicit upper bound
-        clause `check_stoi_coherence` also asserts.
+      - the ambient context's `add_axiom`, used for the explicit upper
+        bound clause added by `check_stoi_coherence`.
 
 Author:
 
@@ -90,21 +83,12 @@ namespace seq {
             m_terms[idx].second = k;
         }
 
-        // Ported from the c3 branch's `theory_nseq::check_stoi_coherence`:
-        // for every tracked `str.to_int` term, instantiates the inductive
-        // positional-unfolding axiom (via `m_instantiate`) once the
-        // arithmetic sub-solver (queried through `ac.current_value`) has
-        // committed to a concrete length `k` for its argument that is
-        // deeper than any previously instantiated for it - together with
-        // an explicit upper bound `len(s)=k && stoi(s)>=0 =>
-        // stoi(s)<=10^k-1` (asserted via `ac.add_axiom`) that the
-        // positional unfolding alone does not provide (digit2int has no
-        // arithmetic bounds for symbolic characters). Returns true if no
-        // new axioms were needed (the tree's answer, if any, can stand),
-        // false if at least one axiom was freshly instantiated (the
-        // caller should not commit to whatever `m_tree.solve()` would
-        // otherwise report/give up on, since new information is now
-        // available).
+        // For each tracked `str.to_int` term, instantiate the positional
+        // unfolding axiom once `ac.current_value` fixes its argument
+        // length to a larger concrete `k` than seen before. Also assert
+        // the upper bound `len(s)=k && stoi(s)>=0 => stoi(s)<=10^k-1`,
+        // which positional unfolding alone does not provide for symbolic
+        // digits. Returns true if no new axioms were added.
         template <typename dep_tracker_t>
         bool check_stoi_coherence(ambient_context_i<dep_tracker_t>& ac) {
             if (m_terms.empty())

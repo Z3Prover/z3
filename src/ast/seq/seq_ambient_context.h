@@ -7,44 +7,14 @@ Module Name:
 
 Abstract:
 
-    Abstracted bridge into the ambient SMT context (per
-    z3papers/nseq/facet-arith.md's `context_solver_i`), factored out so
-    that every facet/plugin living under `ast/seq` (which must not depend
-    on anything under `src/smt`, see seq_sub_solver.h's module comment)
-    can query bounds/values/variable-hood of the surrounding solver
-    without any of them depending on a concrete `smt::context`.
+    Dependency-tracked bridge from `ast/seq` facets into the ambient SMT
+    context.
 
-    This differs from `facet-arith.md`'s original `context_solver_i` in
-    two ways:
-      - Every query that used to return raw `literal_vector`/
-        `enode_pair_vector`/`literal` justifications now returns (or
-        takes an out-param of) a single `eq_tree::dep_tracker` - the same
-        opaque provenance handle every facet already threads through
-        `apply_subst`/`add_equation`/`set_conflict` etc. The concrete
-        implementation (living under `src/smt`, wrapping
-        `theory_seq`/`arith_value`) is responsible for converting
-        whatever literals/equalities it consulted into one
-        `dep_tracker` (via its own `dep_manager_t`), exactly as
-        `sub_solver` already converts assumption literals into
-        dependencies today (`seq_solver_facet.cpp`).
-      - It adds `is_var(expr*)`, replacing the c3 branch's
-        `euf::snode::is_var()` (a node in the old `sgraph`/Nielsen-graph
-        representation, not applicable here since this design has no
-        `snode` at all - see seq_eq_facet.h's module comment). Per the
-        token model in z3papers/nseq's README.md section 5.1.1, a token
-        is exactly one of unit/power/variable (ite terms count as
-        variables); `is_var` is implemented directly on the base class
-        (non-virtual, `!is_power(x) && !is_unit(x)`) using the
-        `ast_manager&`/`seq_util&`
-        every concrete `ambient_context_i` is now constructed with, so
-        every implementation (including `null_ambient_context`, e.g. in
-        unit tests with no live `theory_seq` wired up) shares exactly the
-        same notion of "variable" and none can silently diverge.
-
-    `ambient_context_i` is intentionally domain-generic over the
-    `dep_tracker` type of whichever `eq_tree` instantiation the caller
-    is using (see seq_eq_facet.h's `eq_tree` alias) - it is a template on
-    `dep_tracker_t` for that reason, not hardcoded to `seq::eq_tree`.
+    It exposes bounds, current values, standing-axiom injection, and
+    sibling-facet lookup without depending on a concrete
+    `smt::context`. Justifications are reported uniformly as one
+    `dep_tracker_t`, and `is_var(expr*)` provides the shared token
+    classification used by the facet layer.
 
 Author:
 
@@ -62,14 +32,9 @@ Author:
 
 namespace seq {
 
-    // Forward declarations only - this header must stay free of any
-    // dependency on the concrete facet classes (see module comment
-    // above); `ambient_context_i`'s typed accessor methods below
-    // (`eq_facet`, `mem_facet`, ...) are member function templates on
-    // the node type, so each is only instantiated (and so only requires
-    // its facet type to be complete) at the point it is actually called
-    // - i.e. in whichever .cpp already includes the concrete facet
-    // header - not here.
+    // Forward declarations only: this header stays independent of the
+    // concrete facet definitions, and the typed accessors below are only
+    // instantiated at call sites that include those facet headers.
     class eq_facet;
     class deq_facet;
     class power_facet;
@@ -83,25 +48,13 @@ namespace seq {
     class ho_facet;
 
     /**
-     * Abstracted, dependency-tracked bridge into the ambient SMT context.
-     * Concrete implementations (e.g. under src/smt, wrapping
-     * `theory_seq`'s `arith_value`/enode machinery) own translating
-     * whatever literals/equalities they actually consulted into a single
-     * `dep_tracker_t` value via their own dependency manager.
+     * Abstract, dependency-tracked bridge into the ambient SMT context.
+     * Concrete implementations translate their native justifications into
+     * one `dep_tracker_t`. The template parameter keeps this interface
+     * independent of any particular search-tree instantiation.
      *
-     * `dep_tracker_t` is a template parameter (rather than hardcoding
-     * `seq::eq_tree::dep_tracker`) purely so this header has no
-     * dependency on any one `stx::search_tree<...>` instantiation; in
-     * practice every current user instantiates it with
-     * `seq::eq_tree::dep_tracker` (see seq_eq_facet.h).
-     *
-     * Derives from `stx::ambient_context_base` (util/stx_search_tree.h) -
-     * the domain-opaque, method-free marker class that a
-     * `stx::search_tree::node` actually stores (`node::ambient()`/
-     * `search_tree::set_ambient_context()`), so that an instance
-     * constructed here can be handed straight to
-     * `search_tree::set_ambient_context()` and later recovered from any
-     * facet via `static_cast` (see e.g. `eq_facet::ambient()` below).
+     * The class derives from `stx::ambient_context_base` so search-tree
+     * nodes can store and recover it directly.
      */
     template <typename dep_tracker_t>
     class ambient_context_i : public stx::ambient_context_base {
@@ -118,17 +71,10 @@ namespace seq {
         // "unset").
         static constexpr stx::facet_id no_facet = ~0u;
 
-        // Sibling facet ids, collected here once (by whoever assembles
-        // the search tree - a test fixture today, `theory_nseq`
-        // eventually) right after the corresponding `register_facet<...>`
-        // calls, via the setters below. Every propagation/split plugin
-        // that used to take these as constructor arguments now instead
-        // reads them off `node::ambient()` (cast down to this type) at
-        // the point of use (`propagate(node&)`/`split(node&, ...)`), so
-        // that assembling a new combination of facets/plugins for a node
-        // no longer requires threading each sibling's id through every
-        // plugin constructor - it only requires registering the ids here
-        // once.
+        // Sibling facet ids, registered once after the corresponding
+        // `register_facet<...>` calls. Plugins read them from the ambient
+        // context at the point of use instead of carrying them around as
+        // constructor arguments.
         stx::facet_id m_eq_id = no_facet;
         stx::facet_id m_deq_id = no_facet;
         stx::facet_id m_arith_id = no_facet;
@@ -141,15 +87,8 @@ namespace seq {
         stx::facet_id m_stoi_id = no_facet;
         stx::facet_id m_ho_id = no_facet;
 
-        // Raw facet ids are deliberately not public: nothing outside this
-        // class (or the facet-accessor templates just below, which are
-        // the only legitimate consumers) should need a bare `facet_id` -
-        // every caller that used to write `n.facet_as<mem_facet>(ac.
-        // mem_id())` should instead write `ac.mem_facet(n)` and never see
-        // an id at all. `broadcast_subst` (seq_eq_facet.h/.cpp) no longer
-        // needs any of these either - it distinguishes the eq_facet it
-        // already updated directly from every other sibling facet by
-        // pointer identity, not by id.
+        // Raw facet ids stay private; callers should use the typed
+        // accessors below instead of manipulating ids directly.
         stx::facet_id eq_id() const { return m_eq_id; }
         stx::facet_id deq_id() const { return m_deq_id; }
         stx::facet_id arith_id() const { return m_arith_id; }
@@ -191,22 +130,10 @@ namespace seq {
         void set_stoi_id(stx::facet_id id) { m_stoi_id = id; }
         void set_ho_id(stx::facet_id id) { m_ho_id = id; }
 
-        // Is `e` a token this facet layer's Nielsen-style split rules may
-        // treat as a freely-substitutable "variable" - i.e. neither a
-        // power token (`seq.power`, owned exclusively by power_facet's
-        // own dedicated rule family: power_propagation/power_split/
-        // power_fine_wilf/power_split_elim) nor a unit
-        // token (`seq.unit`, a single concrete character/element, never
-        // itself substitutable). `ite` terms are treated as ordinary
-        // variables (unlike `is_solvable_var`/`eq_solver::is_var`'s
-        // treatment, which leaves them alone). Per the token model in
-        // z3papers/nseq's README.md section 5.1.1, a token is exactly one
-        // of unit/power/variable, so this predicate - not
-        // `is_solvable_var`/`theory_seq::is_var` - is the one every
-        // strict three-way token classification (word_eq_split::split,
-        // etc.) should consult; it is implemented once here (non-virtual)
-        // so every concrete `ambient_context_i` shares exactly the same
-        // notion of "variable" and none can silently diverge.
+        // True when `e` is treated as a sequence variable by the facet
+        // layer: neither `seq.power` nor `seq.unit`. The implementation
+        // lives here so every ambient context shares the same token
+        // classification.
         bool is_var(expr* e) const { return !u.str.is_power(e) && !u.str.is_unit(e); }
 
     public:
@@ -245,29 +172,13 @@ namespace seq {
         // anything within the search tree.
         virtual void add_diseq_axiom(expr* e1, expr* e2) = 0;
 
-        // Ask the ambient context to add a standing clause (a
-        // disjunction of Boolean-sorted literals, each possibly negated
-        // via `m.mk_not`) directly to the ambient SMT context - the same
-        // "mk_axiom" mechanism `seq::axioms`/`smt::seq_axioms` already
-        // use internally (see smt::seq_axioms::add_clause, wired to
-        // `seq::axioms::set_add_clause`), exposed here so search-tree
-        // facets (e.g. `stoi_facet::check_stoi_coherence`) that need to
-        // add an ordinary clause-shaped axiom of their own can reuse the
-        // exact same literal/relevance plumbing instead of re-deriving
-        // it themselves.
+        // Ask the ambient context to add a standing clause directly to
+        // the ambient SMT solver.
         virtual void add_axiom(expr_ref_vector const& clause) = 0;
 
-        // Retrieve one of this node's sibling facets directly, coercing
-        // it to its concrete type in one call - e.g. `ac.mem_facet(n)`
-        // instead of the old two-step `n.facet_as<mem_facet>(ac.mem_id())`.
-        // `node_t` is a template parameter (rather than a fixed
-        // `stx::search_tree<...>::node`) purely so this header does not
-        // need to name any one `search_tree` instantiation; every current
-        // caller passes `eq_tree::node` (see seq_eq_facet.h). Each method
-        // is a member function template, so (like `facet_as<T>` itself)
-        // it is only instantiated - and so only requires its facet type
-        // to be complete - at the point it is actually called, i.e. in
-        // whichever .cpp already includes that facet's own header.
+        // Retrieve one of this node's sibling facets with its concrete
+        // type. These are templates so they are only instantiated at
+        // call sites that include the corresponding facet headers.
         template <typename node_t> seq::eq_facet& eq_facet(node_t& n) const { return n.template facet_as<seq::eq_facet>(eq_id()); }
         template <typename node_t> seq::deq_facet& deq_facet(node_t& n) const { return n.template facet_as<seq::deq_facet>(deq_id()); }
         template <typename node_t> seq::power_facet& power_facet(node_t& n) const { return n.template facet_as<seq::power_facet>(pow_id()); }
@@ -283,23 +194,12 @@ namespace seq {
     };
 
     /**
-     * A lightweight, non-owning proxy bundling a search-tree node
-     * together with its ambient context, so a call site can write
-     * `get_ambient(n).mem_facet()` instead of the old two-step
-     * `n.facet_as<mem_facet>(get_ambient(n).mem_id())`. The ambient context already knows every sibling's `facet_id`
-     * (`eq_id()`, `mem_id()`, etc.); this class just adds the missing
-     * piece - the node to call `facet_as<T>` on - and one accessor
-     * method per sibling facet type.
+     * Lightweight, non-owning bundle of a search-tree node and its
+     * ambient context, with typed accessors for sibling facets.
      *
-     * Since this is itself a class template, a method such as
-     * `mem_facet()` is only instantiated (and so only requires `seq::
-     * mem_facet` to be a complete type) at the point it is actually
-     * called - i.e. in whichever .cpp already includes the concrete
-     * facet's header. `seq_ambient_context.h` itself never needs to see
-     * those headers, only the forward declarations above; this is what
-     * lets `ambient_ref` return real reference types (`mem_facet&`, not
-     * `facet_i&` requiring a further cast at every call site) without
-     * creating a header dependency cycle.
+     * As a class template, its accessors are instantiated only at call
+     * sites that include the concrete facet headers, so this file can
+     * keep only forward declarations.
      */
     template <typename node_t, typename dep_tracker_t>
     class ambient_ref {
@@ -308,10 +208,8 @@ namespace seq {
     public:
         ambient_ref(node_t& n, ambient_context_i<dep_tracker_t>& ac) : m_node(n), m_ac(ac) {}
 
-        // Access to the underlying context (bounds/values queries,
-        // is_var, ...) for call sites that still need those directly.
-        // Note: raw facet ids are intentionally not exposed here - use
-        // the typed accessors (eq_facet_ref(), etc.) or has_arith()/etc.
+        // Access to the underlying ambient context for bounds, values,
+        // and other non-facet queries.
         ambient_context_i<dep_tracker_t>& context() const { return m_ac; }
         node_t& node() const { return m_node; }
 

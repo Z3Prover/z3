@@ -28,13 +28,8 @@ Author:
 
 namespace {
 
-    // `X = "ab"` is satisfiable via eq_facet alone (X := "ab"), but this
-    // test additionally asserts the explicit numeric constraint
-    // `len(X) = 3` directly into the shared incremental backend up
-    // front, contradicting the (implicit) actual length of the solution
-    // - solver_facet's real incremental solver must catch this
-    // arithmetic-only conflict that eq_facet's Nielsen transformation
-    // alone has no way to see (it never reasons about lengths).
+    // A conflicting explicit length constraint should be caught by the
+    // arithmetic backend even when the equation itself is satisfiable.
     static void tst_arith_length_conflict() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -68,13 +63,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
-    // Same equation without the conflicting explicit length assertion:
-    // eq_facet resolves `X ++ "a" = "b"` to a symbol clash immediately
-    // (leading token 'a' of the singleton "b" side after eq_facet's
-    // simplify would need len(X)=0 then compare "a" vs "b" - a plain
-    // symbol clash), independent of solver_facet, so the combination
-    // should still find unsat and solver_facet must not introduce a false
-    // sat/unknown verdict.
+    // solver_facet must not interfere with an unsat equation already
+    // detected by eq_facet.
     static void tst_solver_facet_does_not_break_eq_unsat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -110,11 +100,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
-    // A satisfiable equation (`X = "ab"`) combined with a consistent
-    // explicit length assertion (`len(X) = 2`) must still succeed: this
-    // exercises that solver_facet's push/pop discipline does not leave the
-    // shared backend permanently polluted/broken across sibling branches
-    // (a bug here would show up as a false unsat/unknown).
+    // A consistent explicit length constraint should preserve the sat
+    // result.
     static void tst_solver_facet_consistent_sat() {
         ast_manager m;
         reg_decl_plugins(m);

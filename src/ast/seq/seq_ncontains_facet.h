@@ -7,96 +7,26 @@ Module Name:
 
 Abstract:
 
-    Negative `str.contains` facet ("Phase 6" of the modular plugin-based
-    search tree design, following `stx::` in util/stx_search_tree.h, the
-    `eq_facet`/`deq_facet` module (ast/seq/seq_eq_facet.h), and
-    `solver_facet` (smt/seq_solver_facet.h)).
+    Negative `str.contains` facet.
 
-    Nielsen (seq_nielsen.h/.cpp) has no support for `str.contains` at all:
-    positive `str.contains(h,n)` reduces to an `eq_facet` equation
-    `h = x.n.y` for fresh existential Skolems `x`, `y` (not modeled by this
-    facet - the caller/preprocessing layer is responsible for that
-    reduction, exactly as it is for theory_seq today); only the *negative*
-    form `not contains(h,n)` needs a dedicated facet, since it is a
-    universal ("no factorization of h contains n"), not a language
-    complement the way negating str.in_re is (see z3papers/nseq/
-    facet-ncontains.md section 2).
+    Positive `str.contains(h,n)` is reduced elsewhere to an equation
+    `h = x.n.y`. This facet handles only the negative form
+    `not contains(h,n)`.
 
-    Design, drawn primarily from theory_seq's existing negative-containment
-    machinery (theory_seq.h/.cpp's `class nc`/`m_ncs`/`solve_nc`/
-    `unroll_not_contains`) per facet-ncontains.md:
+    `ncontains_facet` owns pending haystack/needle obligations as flattened
+    token lists. Substitutions are broadcast through `subst_sink_i` so each
+    obligation stays synchronized with the current representatives.
 
-      - `ncontains_facet` owns `vector<str_ncontains>`, each a pending
-        `haystack` / `needle` obligation, flattened into `expr_ref_vector`s
-        exactly like eq_facet/deq_facet's equations (shared helpers:
-        `u.str.get_concat_units`, `seq::expr_ref_vector`, `seq::subst_in`) so that a
-        substitution chosen by `word_eq_split` keeps every obligation's
-        haystack/needle in sync via `subst_sink_i::apply_subst` (this is
-        the fix for the nseq monotonicity-soundness gap documented in
-        research/docs/nseq-issues/02-soundness-contains-monotonicity.md:
-        an obligation is *re-derived* against the current representative
-        of `h`, never frozen at creation time - see facet-ncontains.md
-        section 4).
+    `ncontains_propagation` performs a length gate and a deterministic
+    prefix-unrolling search. A determined match is a conflict; a determined
+    mismatch can shorten or discharge the obligation; unresolved variable
+    alignments stay pending. An empty needle is an immediate conflict.
 
-      - `ncontains_propagation` (propagation_plugin_i) implements both the
-        length-gate check of facet-ncontains.md section 3.3 (given
-        `solver_facet`'s incremental backend, ask whether `len(h) < len(n)`
-        is already implied - obligation vacuously satisfied, discharge it)
-        and, as deterministic propagation rather than a nondeterministic
-        split, the recursive prefix-unrolling occurrence search of
-        section 3.4: at the haystack's current leading position, either
-        the needle's tokens are already resolved distinct from the
-        haystack's (safe, unconditional progress - strip the haystack's
-        leading token and recurse with no branching), or they resolve to
-        a full match (the needle DOES occur - a direct conflict for this
-        `not contains` obligation), or the comparison is undecided
-        because some token is an unresolved variable (left pending until
-        a substitution narrows it, exactly like deq_facet's own
-        documented incompleteness). This also detects the trivial
-        conflict case `needle = epsilon` (an empty needle is always
-        contained, so `not contains(h, "")` is immediately
-        unsatisfiable).
-
-    Scope note / simplifications relative to the full design:
-      - the ground-needle regex-rewrite alternative reduction of
-        facet-ncontains.md section 3.5 (rewriting `not contains(h,n)` to
-        a `mem_facet` non-membership `h not-in .*n.*` when `n` is a
-        literal string) is NOT implemented in this pass - `mem_facet`'s
-        regex-complement construction is left as a documented future
-        integration point; the deterministic prefix-unrolling propagation
-        (section 3.4) alone is sound and complete for the token-list
-        representation this port already uses, just potentially more
-        expensive than the regex reduction would be for a long constant
-        needle.
-      - the termination argument for the prefix-unrolling loop relies on
-        the token lists being finite (word equations are already
-        required to terminate via eq_facet's own machinery): each step
-        strictly shortens the haystack's token list by exactly one
-        token, so the loop is bounded by the haystack's initial token
-        count - no separate `solver_facet` upper-bound query (section 3.6)
-        is needed for termination in this concrete/token-list
-        representation (as opposed to an open-ended symbolic length).
-
-    Representation / incrementality, mirroring eq_facet/deq_facet's
-    append-only equations/disequations (see seq_eq_facet.h) and
-    req_facet's m_qhead convention (see seq_req_facet.h):
-      - `m_ncs` is append-only: "removing" an obligation (discharged by
-        the length gate or by the prefix-unrolling mismatch scan) just
-        flips its `m_active` flag to false (trailed, so it flips back to
-        true on backtrack), and "replacing" an obligation (stripping a
-        leading run of determined-mismatch tokens) deactivates the old
-        entry and appends the shortened one to the back of the vector -
-        no index into `m_ncs` handed out to another facet/iterator is
-        ever invalidated by a remove/replace.
-      - `m_qhead` tracks the first obligation `ncontains_propagation`
-        has not yet scanned to a fixed point this round, so a
-        propagation call only re-examines `[m_qhead, m_ncs.size())`
-        instead of rescanning every still-active obligation from
-        scratch every round. `apply_subst` rewinds `m_qhead` back down
-        to the earliest touched (still-active) index, since a
-        substitution can invalidate a prior "no further progress
-        possible" verdict for any active obligation, not only ones
-        added after the current qhead.
+    `m_ncs` is append-only: removing or replacing an obligation only flips
+    `m_active`, and replacements append a shortened obligation to the end.
+    `m_qhead` records the first obligation that still needs scanning;
+    `apply_subst` rewinds it when a substitution can invalidate an earlier
+    "no further progress" verdict.
 
 Author:
 
@@ -118,18 +48,12 @@ Author:
 namespace seq {
 
     // One pending negative-containment obligation: `m_needle` does not
-    // occur as an infix of `m_haystack`, represented (like eq_facet's
-    // equations) as flattened token lists so that eq_facet substitutions
-    // keep it in sync via subst_sink_i.
+    // occur as an infix of `m_haystack`, represented as flattened token
+    // lists so substitutions keep it in sync.
     //
-    // Append-only representation, mirroring eq_facet::equation/
-    // deq_facet::disequation: m_ncs is never erased/shifted. "Removing"
-    // or "replacing" an obligation just flips m_active to false (trailed
-    // via vector_field_trail, so it flips back to true on backtrack)
-    // and, for a replace (the deterministic prefix-unrolling propagation
-    // stripping a leading run of determined-mismatch tokens), appends
-    // the shortened obligation to the back of the vector. Consumers
-    // that iterate ncontains() must skip entries with !active().
+    // The representation is append-only. Removing or replacing an
+    // obligation just flips `m_active`; replacements append the shortened
+    // obligation to the end. Iterators must skip inactive entries.
     struct str_ncontains : public stx::constraint_i {
         expr_ref_vector m_haystack;
         expr_ref_vector m_needle;
@@ -160,17 +84,10 @@ namespace seq {
         seq_util&    u;
         eq_tree::dep_manager_t& m_dm;
         vector<str_ncontains> m_ncs;
-        // Index of the first obligation not yet known to be at a fixed
-        // point for the current node (mirrors req_facet's m_qhead):
-        // ncontains_propagation only re-scans [m_qhead, m_ncs.size())
-        // each round instead of the whole append-only vector. Trailed
-        // like any other facet-owned scalar (see advance_qhead()).
-        // apply_subst rewinds m_qhead down to the earliest index it
-        // actually touches (only ever backwards - past-the-qhead
-        // obligations were already re-derived, so nothing needs
-        // rewinding for those), since a substitution can invalidate a
-        // "no further progress possible" verdict reached in an earlier
-        // round for any *active* obligation, not just newly-added ones.
+        // First obligation not yet known to be at a fixed point for the
+        // current node. `ncontains_propagation` scans only
+        // `[m_qhead, m_ncs.size())`. `apply_subst` rewinds it to the
+        // earliest touched active obligation.
         unsigned m_qhead = 0;
 
     public:
@@ -180,9 +97,7 @@ namespace seq {
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
-        // Trailed: for adding an ncontains obligation (root construction
-        // or mid-search alike - all constraint additions are trailed, no
-        // exception). Undo just pops the pushed element.
+        // Trailed add.
         void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) {
             m_ncs.push_back(str_ncontains(h, n, dep));
             m_trail.push(push_back_trail<str_ncontains>(m_ncs));
@@ -199,32 +114,23 @@ namespace seq {
         vector<str_ncontains> const& ncontains() const { return m_ncs; }
         unsigned qhead() const { return m_qhead; }
 
-        // Advance m_qhead to `head` (only ever forward via this call;
-        // rewound backwards only by apply_subst/rewind_qhead). Trailed.
+        // Advance `m_qhead` forward. Trailed.
         void advance_qhead(unsigned head);
 
-        // Rewind m_qhead down to `idx` if it is currently past it -
-        // used by apply_subst when a substitution touches an obligation
-        // that a previous propagation round had already scanned past,
-        // so it (and everything after it) is re-examined next round.
-        // Trailed, and a no-op if m_qhead is already <= idx.
+        // Rewind `m_qhead` to `idx` when a substitution touches an
+        // already-scanned obligation. Trailed.
         void rewind_qhead(unsigned idx);
 
-        // Drop `idx`'s obligation entirely (discharged/proved): flips
-        // m_active to false. Trailed.
+        // Drop `idx`'s obligation by flipping `m_active`. Trailed.
         void remove(unsigned idx);
 
-        // Drop `idx`'s obligation and push a fresh one whose haystack is
-        // `new_haystack` (used by ncontains_propagation's deterministic
-        // prefix-unrolling: strip one leading haystack token, keep the
-        // same needle). Trailed.
+        // Replace `idx` with a fresh obligation over `new_haystack`.
+        // Used when deterministic prefix-unrolling strips a leading run.
         void replace_with_tail(unsigned idx, expr_ref_vector const& new_haystack);
 
-        // Broadcast substitution from eq_facet's Nielsen split - keeps
-        // every obligation's haystack/needle in sync with the shared
-        // variable pool (the monotonicity-soundness fix, see module
-        // comment). The touched obligation's dependency is joined with
-        // `subst_dep`, also trailed.
+        // Broadcast a substitution so haystack and needle stay in sync with
+        // the shared variable pool. Joins `subst_dep` into the touched
+        // obligation's dependency.
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;
 
         // -- stx::facet_i --
@@ -240,21 +146,11 @@ namespace seq {
         void append_constraints(vector<stx::constraint_i const*>& out) const override;
     };
 
-    // Length-gate propagation (facet-ncontains.md section 3.3), plus the
-    // recursive prefix-unrolling occurrence search (facet-ncontains.md
-    // section 3.4) - implemented here as *deterministic* propagation
-    // rather than as a nondeterministic split, since each step either
-    // strictly shortens the haystack's token list (pure progress, no
-    // branching) or immediately decides the obligation (conflict/
-    // discharge); branching is only needed when the current leading
-    // token pairing is genuinely undecided (an unresolved variable is
-    // involved), and in that case the obligation is simply left pending
-    // until a substitution (broadcast via apply_subst, see facet-
-    // ncontains.md section 4) resolves it enough for propagation to
-    // proceed - mirroring deq_facet's own "no branching of its own"
-    // design (facet-eq-deq.md section 2.5). Incremental via
-    // `f.qhead()`: only `[qhead, ncontains().size())` is scanned each
-    // call, and only active() obligations are ever examined/mutated.
+    // Length-gate propagation plus deterministic prefix-unrolling. Each
+    // step either shortens the haystack, decides the obligation, or leaves
+    // it pending until substitutions resolve more token equalities.
+    // Incremental via `f.qhead()`: only `[qhead, ncontains().size())` is
+    // scanned each call.
     class ncontains_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;

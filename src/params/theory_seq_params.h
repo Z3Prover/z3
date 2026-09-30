@@ -35,23 +35,16 @@ struct theory_seq_params {
     unsigned m_seq_parikh_n = 2;
     unsigned m_seq_parikh_chars = 6;
     // Opt-in gate for eq_approx_split (ast/seq/seq_eq_facet.h), read via
-    // ambient_context_i::fparams() rather than a bespoke accessor.
-    // Mirrors the c3 branch's `smt.nseq.eq_approx` (also default false -
-    // see nielsen_graph::apply_eq_approx's `if (!m_eq_approx) return
-    // false;` gate in seq_nielsen_regex.cpp).
+    // ambient_context_i::fparams(). Mirrors c3's `smt.nseq.eq_approx`.
     bool m_seq_eq_approx = false;
     // Opt-in gate for power_fine_wilf, mirroring c3's smt.nseq.fine_wilf.
     bool m_seq_fine_wilf = false;
     // Opt-in gate for mem_parikh_split, mirroring c3's smt.nseq.parikh.
     bool m_seq_mem_parikh = false;
-    // Master gate for mem_leaf_split (whole-language monadic decision
-    // over the conjunction of active plain regex memberships), mirroring
-    // c3's smt.nseq.monadic_leaf (default true there). Default here is
-    // false: benchmarking on the regexes suite showed mem_leaf_split
-    // firing too eagerly on unproductive branches (asking/committing far
-    // more often than it refutes), causing a net regression in solved
-    // count vs. leaving it off. Enable explicitly once the ask
-    // frequency/budget is tuned to actually pay for itself.
+    // Master gate for mem_leaf_split, the whole-language monadic decision
+    // over active plain regex memberships. Mirrors c3's
+    // `smt.nseq.monadic_leaf`; default false here because current tuning
+    // made it too eager on the regexes suite.
     bool m_seq_monadic_leaf = false;
     unsigned m_seq_monadic_leaf_budget = 300000;
     unsigned m_seq_block_compression = 0;
@@ -64,18 +57,10 @@ struct theory_seq_params {
     // feasibility check (view_witness/vw().check() in mem_propagation),
     // mirroring c3's smt.nseq.regex_precheck.
     bool m_seq_regex_precheck = true;
-    // Opt-in gate: use seq::monadic (the same whole-conjunction decision
-    // procedure mem_leaf_split already uses) as the END-GAME witness
-    // solver in mem_propagation::propagate() once a node's memberships
-    // are all satisfied, in place of view_witness's per-variable
-    // single-step search - and, unlike that search, also asserts every
-    // involved variable's length (recovered from the ambient arithmetic
-    // sub-solver, mirroring c3/master's seq_regex.cpp
-    // collect_candidate_bounds/record_bound) as a hypothesis before
-    // deciding. Falls back to view_witness whenever the engine cannot
-    // decide (unsupported term shape, or budget exhaustion). Default
-    // off: unproven on the regex/mem benchmark suite, see
-    // m_seq_monadic_leaf's comment for the analogous caution.
+    // Opt-in gate for using seq::monadic as the end-game witness solver in
+    // mem_propagation::propagate(), with ambient length bounds asserted as
+    // hypotheses. Falls back to view_witness when unsupported or out of
+    // budget; default off pending validation on regex/mem benchmarks.
     bool m_seq_mem_monadic_endgame = false;
 
     theory_seq_params(params_ref const & p = params_ref()) {

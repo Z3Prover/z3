@@ -18,21 +18,12 @@ Author:
 
 NSB code review:
 
-There is a serious flaw with the mem_split rule. 
-The current implementation collects all membership constraints and creates a split iterator on m_mon.
-All membership constraints are used for this.
-The flaw is that dependencies are not tracked correctly. This leads to unsound behavior.
-The iterator creates a set of branches based on all membership constraints. Infeasible leaves are pruned internally in seq_monadic.
-It could settle on that there are no branches. Then the dependencies for the membership constraints used to show emptiness should be
-added to a conflicting state. 
-It could skip leaves that are infeasible because of intersection constraints. 
-Dependencies for skipped leaves have to be reflected in the justification for closing the sub-tree.
-It is probably better to use monadic decomposition one by one for membership constraint.
-In this case, a single membership constraints (uv) in R with dependency dep is decomposed into new membership constraints u in R_i1, v in R_i2 with dependency d.
-We have to then also check non-emptiness of intersections for x in R_i for variables that are either in the original constraints or end up being produced by the iterator.
-seq-monadic has code internally for checking non-emptiness. It would have to be exposed in a suitable way to also minimize conflict dependencies.
-Say, i add x in R_1 with dep_1, x in R_2 with dep_2, ..., sucn that a prefix is known to have non-empty intersection, then adding x in R_k with dep_k is unsat, we can try to
-throw away other constraints x in R_1, .., x in R_{k-1}.
+The old joint `mem_split` design can be unsound because it loses precise
+dependencies. Branches pruned inside the monadic search, including
+intersection-based pruning, must contribute to the justification for closing
+the subtree. A safer design decomposes one membership at a time and checks
+per-variable intersection non-emptiness separately so conflicts can name the
+constraints actually used.
 
 
 - nice to have: allow reverse live_states from a regex.
@@ -47,18 +38,10 @@ throw away other constraints x in R_1, .., x in R_{k-1}.
 
 namespace seq {
 
-    // See mem_facet::is_single_var_plain() (seq_mem_facet.h) for the
-    // definition, now expressed via the ambient context's own canonical
-    // is_var() instead of a facet-local uninterpreted-constant test.
-    // Deliberately not restricted to `sm.is_plain()`: mem_monadic_split's
-    // own narrowed reach views for a non-final atom are exactly as
-    // single-variable as a plain `x in R` membership, and withholding
-    // them from m_vw would silently exempt them from the joint
-    // per-variable feasibility check the comments above promise - which
-    // is exactly what used to let a reach view admitting several
-    // distinct lengths (e.g. a Kleene-plus loop-back state) coexist
-    // unchecked with an incompatible length-derived membership on the
-    // same variable.
+    // Intentionally not restricted to plain memberships: single-variable
+    // reach views must also participate in `m_vw`'s joint feasibility
+    // check, or they can bypass incompatible constraints on the same
+    // variable.
 
     void mem_facet::advance_qhead(unsigned head) {
         m_trail.push(value_trail<unsigned>(m_qhead));
@@ -79,14 +62,9 @@ namespace seq {
         str_mem const& sm = m_mems[idx];
         if (!sm.active() || sm.m_view == new_view)
             return;
-        // Append-only: an "update" to an existing membership never mutates
-        // its entry in place - it deactivates the old entry and appends a
-        // fresh one with the new view (mirrors str_mem::m_active's own
-        // append-only discipline comment; also matches how
-        // mem_monadic_split::iterator::next already narrows a variable's
-        // membership this way). Copy the fields that survive the update
-        // before remove()/add() touch m_mems, since add() may reallocate
-        // the vector out from under a live reference into it.
+        // Updates are append-only: deactivate the old entry and append a
+        // fresh one. Copy fields before remove()/add() because add() may
+        // reallocate `m_mems`.
         expr_ref_vector str(sm.m_str);
         eq_tree::dep_tracker dep = sm.m_dep;
         remove(idx);
@@ -136,11 +114,8 @@ namespace seq {
         mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw, m_ac);
         f->m_mems.append(m_mems);
         f->m_qhead = m_qhead;
-        // Replay registration of every active single-variable plain
-        // membership with the clone's own m_vw (which was built fresh
-        // against `trail`, not `this->m_vw`'s private state) - mirrors
-        // how the rest of this facet's state is deep-copied field by
-        // field rather than shared.
+        // Re-register active single-variable memberships in the clone's
+        // fresh `m_vw`.
         for (auto const& sm : f->m_mems)
             if (is_single_var_plain(sm))
                 f->m_vw.add_untrailed(sm.m_str.get(0), sm.m_view, sm.m_dep);
@@ -260,58 +235,32 @@ namespace seq {
         return out;
     }
 
-    // Feeds every active plain membership in `f` to `m_mon` and asks it to
-    // decide the whole conjunction jointly, in place of view_witness's
-    // per-variable single-step search - see class comment. Before
-    // check(), asserts an exact length hypothesis for every variable
-    // appearing in a fed membership that the ambient arithmetic
-    // sub-solver already commits to a value for (mirrors c3/master's
-    // seq_regex.cpp collect_candidate_bounds/record_bound, adapted to
-    // nseq's own private per-node solver_facet: unlike classic
-    // theory_seq, nseq never registers string lengths with theory_lra
-    // (see mem_propagation::propagate's pre-existing single-variable
-    // length-forcing preamble, whose comment explains this in full), so
-    // there is no working lower_bound/upper_bound to consult - only
-    // solver_facet_i::value(), which returns *a* value consistent with
-    // the sub-solver's current model, not necessarily a forced one). As
-    // with that preamble, the hypothesis is recorded via
-    // assumption_facet::add_assumption rather than asserted outright:
-    // it is sound to explore under, since theory_nseq re-validates every
-    // accumulated assumption before trusting a satisfiable node's model
-    // (see assumption_facet's class comment), so a wrong guess here can
-    // only cost search effort, never soundness.
+    // Ask `m_mon` to decide all active plain memberships jointly. Before
+    // `check()`, add exact-length assumptions for variables whose length
+    // already has a value in the arithmetic sub-solver. These are added as
+    // assumptions, not hard facts, so a wrong guess only costs search.
     lbool mem_propagation::solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep) {
         dep = nullptr;
         struct fed_item { expr* term; expr* regex; eq_tree::dep_tracker dep; };
         vector<fed_item> fed;
+        // Pin freshly built concatenation terms for this call: `fed` stores
+        // only raw expr*.
+        expr_ref_vector pinned_terms(m);
         expr_mark vars_seen;
         ptr_vector<expr> vars;
         for (str_mem const& sm : f.memberships()) {
             if (!sm.active())
                 continue;
-            // f.is_satisfied() (this function's only caller's precondition)
-            // only guarantees every active membership is single-variable
-            // (mem_facet::is_single_var_plain) - not that it is a PLAIN
-            // (whole-language) membership: a REACH view (str_mem::is_view,
-            // a partial "reach automaton state X" constraint from an
-            // in-progress derivative walk) is just as single-variable, but
-            // seq::monadic's add() only understands whole-language accept
-            // membership, not reach targets (mem_leaf_split excludes them
-            // for the same reason - see its class comment). Materializing
-            // a witness for every OTHER variable while silently skipping
-            // a reach-view one would leave it out of f's witness map
-            // entirely - get_witness_model() would then have no witness to
-            // offer for it, producing an incomplete substitution and an
-            // invalid model (a reach-view variable is never "vacuously
-            // satisfied": something still constrains its content). Bail
-            // out to the view_witness fallback, which does handle reach
-            // views, whenever any active membership isn't plain, rather
-            // than only partially handling this node.
+            // `seq::monadic` only understands whole-language memberships,
+            // not reach views. If any active membership is non-plain, fall
+            // back to `view_witness` rather than producing only a partial
+            // witness map.
             if (!sm.is_plain())
                 return l_undef;
             if (sm.m_str.empty())
                 continue;
-            expr* term = u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort());
+            expr_ref term(u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort()), m);
+            pinned_terms.push_back(term);
             if (!m_mon.can_decide_term(term))
                 return l_undef;
             fed.push_back({term, sm.m_view.m_state.get(), sm.m_dep});
@@ -359,32 +308,19 @@ namespace seq {
         return result;
     }
 
-    // NSB code review: also strip units from back for membership constraints.
-    // you can do this by reversing regex, take derivative and reverse result. 
-    // derivative itself can be an if-then-else tree with predicates on characters.
-    // we have to handle it by separately splitting on if-then-else for membership constraints
-    // membership regexes that are if-then-else should not be propagated on. So disable propagation for those.
-    // hoist the ite patterns.
-    // consider if co-factor code in ast/rewriter directory already does this.
+    // NSB code review: also strip trailing units from membership
+    // constraints by reversing the regex, taking derivatives, and
+    // reversing back. This likely needs explicit handling of derivative
+    // ITEs, or propagation must avoid such regexes.
     stx::simplify_result mem_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.mem_facet_ref();
         bool changed = false;
         m_stats.m_num_propagate++;
-        // Every active single-variable plain membership (`x in R`) is
-        // registered incrementally with f.vw() as it is added (see
-        // mem_facet::add / is_single_var_plain) - including narrowed
-        // views mem_monadic_split materializes from a compound
-        // membership's decomposition. Check their joint feasibility per
-        // variable here, before this round's structural checks below:
-        // this is the ONLY place that decides those constraints now that
-        // mem_monadic_split no longer runs a joint multi-membership
-        // search of its own (see mem_monadic_split's class comment).
-        // Gated by smt.seq.regex_precheck (default true, mirroring c3's
-        // smt.nseq.regex_precheck): turning it off only forgoes this
-        // early single-variable joint-feasibility check, it does not
-        // affect soundness elsewhere - mem_leaf_split and the ordinary
-        // per-membership splitting still see the same constraints.
+        // Every active single-variable membership is registered with
+        // `f.vw()` as it is added. Check their joint feasibility here,
+        // before the structural checks below. Disabling
+        // `smt.seq.regex_precheck` only skips this early check.
         if (ac.fparams().m_seq_regex_precheck) {
             view_witness& vw = f.vw();
             f.reset_vw_budget();
@@ -397,13 +333,10 @@ namespace seq {
                 return stx::simplify_result::conflict;
             }
         }
-        // Incremental scan: [qhead, memberships().size()) only (see
-        // mem_facet::m_qhead's comment). A membership left pending here
-        // (still active, not yet removed/conflicted) never needs to be
-        // revisited on a later round unless it is actually updated, and
-        // any update always deactivates this index and appends a fresh
-        // one past the current size - so advancing past every entry seen
-        // this pass, whether resolved or merely pending, is sound.
+        // Incremental scan over `[qhead, memberships().size())`. Pending
+        // entries are only revisited if they are later replaced by a fresh
+        // appended entry, so advancing `qhead` past everything seen here is
+        // sound.
         unsigned head = f.qhead();
         while (head < f.memberships().size()) {
             unsigned i = head++;
@@ -412,18 +345,9 @@ namespace seq {
                 continue;
             if (sm.is_view())
                 continue;
-            // c3 branch's generate_length_constraints/
-            // generate_node_length_constraints (seq_nielsen.cpp): a plain
-            // membership `str in re` bounds `len(str)` by re's own
-            // min/max accepted length, independent of whatever
-            // derivative/live-state reasoning this loop does below -
-            // assert those bounds to the arithmetic sub-solver so length
-            // reasoning (arith_propagation, power facets, ...) can prune
-            // on them without waiting for this membership to be fully
-            // resolved structurally. solver_facet::add_constraint itself
-            // de-dupes identical terms via `m_own`; the qhead above also
-            // means this fires at most once per membership entry, since
-            // an entry is never revisited once passed.
+            // A plain membership `str in re` bounds `len(str)` by the
+            // regex's min/max accepted length. Assert those bounds into the
+            // arithmetic sub-solver so length reasoning can use them early.
             {
                 auto& sf = ac.solver_facet_ref();
                 arith_util& a = sf.get_arith_util();
@@ -457,7 +381,8 @@ namespace seq {
                 }
             }
             #if 0 
-            // NSB code review: todo
+            // Also strip trailing units by reversing the regex, taking
+            // derivatives, then reversing back.
             if (bad) {
                 SASSERT(!sm.m_str.empty());
                 auto rcur = cur;
@@ -526,29 +451,13 @@ namespace seq {
                         changed = true;
                         handled = true;
                     }
-                    // l_undef: engine could not decide (unsupported term
-                    // shape / budget) - fall back to view_witness below.
+                    // `l_undef`: fall back to `view_witness`.
                 }
                 if (!handled) {
                 view_witness& vw = f.vw();
 
-                // Length requirements to force onto the witness search:
-                // an exact known length value for a single-variable
-                // plain membership's own variable, recovered from the
-                // search tree's own arithmetic sub-solver (`solver_facet_i
-                // ::value`, the same source already trusted by
-                // `theory_nseq::mk_value`'s `mk_length_correct_fresh_
-                // value` fallback) - NOT the ambient `theory_lra`/
-                // `arith_value`-based `lower_bound`/`upper_bound`, which
-                // (unlike classic theory_seq) never actually see
-                // nseq's string-length literals: those are opaque
-                // Boolean atoms theory_nseq feeds directly into its own
-                // per-node `solver_facet` (see `flush_assigned_
-                // literals`), and never touch theory_lra at all - so an
-                // nseq-side analogue of `seq_regex.cpp`'s LO/HI/LEN
-                // candidate-bound loop must query that sub-solver
-                // instead. This forces witnesses to match the length
-                // the arithmetic side has already committed to.
+                // Force witness search to respect exact known lengths from
+                // the local arithmetic sub-solver.
                 struct len_req { expr* v; unsigned len; };
                 vector<len_req> lens;
                 {
@@ -978,12 +887,9 @@ namespace seq {
         if (!it->next(out)) {
             if (it->gave_up())
                 return nullptr;   // resource bound hit before deciding; not a conflict
-            // mem_split never consults any OTHER membership or variable's
-            // constraints when decomposing one membership (see its class
-            // comment): its own decomposition being exhausted with no
-            // satisfying branch means THIS membership alone is UNSAT, so
-            // its own dependency names the conflict precisely - no join
-            // over anything else is needed or would even be more precise.
+            // `mem_split` reasons about this membership in isolation, so if
+            // it exhausts every branch, this membership's own dependency is
+            // the precise conflict.
             m_stats.m_num_refuted++;
             n.set_conflict(stx::br_plugin_base, dep0);
             return nullptr;
@@ -1014,10 +920,7 @@ namespace seq {
         for (auto const& fi : fed)
             all_dep = mf.dm().mk_join(all_dep, fi.dep);
 
-        // Canonical signature for the memoization cache (see mem_leaf_split's
-        // class comment / m_cache's own comment): sorted so unrelated
-        // iteration order of mf.memberships() across different nodes/clones
-        // still lands on the same entry.
+        // Canonical cache key: sort so different iteration orders still hit.
         std::vector<std::pair<expr*, expr*>> key;
         key.reserve(fed.size());
         for (auto const& fi : fed)
@@ -1027,10 +930,8 @@ namespace seq {
         if (leaf_cache_entry* hit = find_cache(key)) {
             if (hit->result == l_false) {
                 m_stats.m_num_cache_hits++;
-                // all_dep above already joins every currently-fed dep, a
-                // sound (if not core-minimized) justification - the cached
-                // verdict only tells us THAT this set is unsat, not which
-                // minimal subset the original ask's core() found.
+                // `all_dep` already joins every fed dependency. That is
+                // sound even though it is not core-minimized.
                 return l_false;
             }
             if (hit->result == l_true && (!witnesses || hit->has_witnesses)) {
@@ -1040,12 +941,8 @@ namespace seq {
                         witnesses->insert(hit->wit_vars.get(i), hit->wit_words.get(i));
                 return l_true;
             }
-            // l_true cached without witnesses, but this ask needs them:
-            // fall through and recompute (cache_insert below overwrites
-            // with a witness-bearing entry via a fresh push_back - the old,
-            // witness-less entry is simply never looked up again first,
-            // since find_cache returns the first match and both share the
-            // same key. Harmless: it just wastes a slot).
+            // Cached `l_true` without witnesses; recompute so the witness
+            // map can be recorded too.
         }
 
         m_mon_trail.push_scope();
@@ -1080,10 +977,8 @@ namespace seq {
             return false;
         m_offered = true;
         auto ac = get_ambient(m_n);
-        // See mem_leaf_split's class comment: this is the "unchanged"
-        // branch, so the only mutation is the decline guard itself -
-        // pushed on the SHARED node trail so it pops back to false
-        // exactly when the search backtracks out of this branch.
+        // This is the unchanged branch, so the only mutation is the
+        // trailed decline guard.
         ac.trail().push(value_trail<bool>(m_owner.m_declined_here, true));
         out = eq_tree::edge("mem-leaf-decline", m_dep, true, 0);
         return true;
@@ -1097,27 +992,10 @@ namespace seq {
         auto ac = get_ambient(n);
         if (!ac.fparams().m_seq_monadic_leaf)
             return nullptr;
-        // Ordinary asks only run once the node's own equations/
-        // disequations are already settled - mirrors c3's
-        // `m_monadic_leaf_refute` defaulting false: asking (and
-        // discarding an l_true relaxation) on every equation-bearing
-        // interior node visited by the DFS was measured to cost more
-        // than it saves there.
-        //
-        // The ONE exception, mirroring c3's monadic_leaf_root_refute /
-        // m_monadic_leaf_root (default true): a refutation-only ask,
-        // regardless of eqs_done, exactly once for the whole lifetime of
-        // this plugin instance. This port has no separate "before the
-        // DFS proper starts" hook to call into (unlike c3's nielsen_graph,
-        // whose root is a distinct, persistent object) - but since this
-        // plugin is registered ahead of every other split plugin and at
-        // min_cost 0 (see theory_nseq.cpp), the very first time split()
-        // is ever invoked at all is necessarily on the search's root node,
-        // before any split has committed a branch anywhere - so "first
-        // call ever" is exactly the event c3's guard is asking for.
-        // Deliberately NOT trailed: like m_monadic_leaf_root_asked, this
-        // is a true one-time lifetime event, not a per-branch decision -
-        // backtracking past the root never "undoes" having asked once.
+        // Ordinary asks run only after equations and disequations are
+        // settled. The exception is a one-time root ask, even while
+        // equations are pending. `m_root_asked` is deliberately not
+        // trailed: it is a once-per-search event.
         bool eqs_done = ac.eq_facet_ref().is_satisfied() && ac.deq_facet_ref().is_satisfied();
         bool root_ask = !m_root_asked && ac.fparams().m_seq_monadic_leaf_root;
         m_root_asked = true;
@@ -1140,39 +1018,25 @@ namespace seq {
         if (witnesses.empty())
             return nullptr;   // nothing to pin (all memberships already single-variable)
         // Child A: pin every variable to its witness word via a fresh
-        // eq_facet equation (sound restriction; the rest of the search
-        // checks it like any other equation).
+        // equation.
         auto& ef = ac.eq_facet_ref();
         for (auto const& entry : witnesses.sub())
             ef.add_equation(&entry.get_key(), entry.get_value(), dep);
         out = eq_tree::edge("mem-leaf", dep, true, cost);
         committed = true;
         m_stats.m_num_committed++;
-        // Child B: the unchanged alternative, offered by the iterator.
+        // Child B: unchanged alternative, offered by the iterator.
         return alloc(iterator, n, dep, *this);
     }
 
     // -- mem_bounds_propagation --
 
-    // Trail-undo object for mem_bounds_propagation's own `m_last` cache;
-    // see mem_bounds_propagation's class comment (seq_mem_facet.h). Kept
-    // right next to its sole use site below rather than at file scope,
-    // since nothing else in this file references it.
+    // Trail undo for `mem_bounds_propagation`'s `m_last` cache.
     //
-    // m_prior is heap-allocated (via alloc()/dealloc()) rather than
-    // embedded by value in this object: trail objects are placement-new'd
-    // into trail_stack's own region allocator (see trail_stack::push()),
-    // and popping/resetting that region only rewinds/frees raw memory -
-    // it never runs the placed object's own destructor (region's
-    // operator delete is a no-op by design). last_bound holds two
-    // rational fields, whose own destructor frees a heap-allocated digit
-    // buffer for any value too large for rational's inline
-    // representation; embedding one by value here would silently leak
-    // that buffer on every backtrack past this trail entry, since nothing
-    // would ever call ~last_bound()/~rational() for it. Allocating it
-    // separately on the ordinary heap and explicitly dealloc()-ing it in
-    // undo() (which - unlike this object's own destructor - IS always
-    // invoked on backtrack, see undo_trail_stack()) frees it correctly.
+    // `m_prior` lives on the ordinary heap because trail objects are
+    // region-allocated and their destructors are not run on backtrack.
+    // Storing `last_bound` by value here would leak its `rational`
+    // payloads.
     class mem_bounds_last_trail : public trail {
         obj_map<expr, mem_bounds_propagation::last_bound>& m_map;
         expr*                                              m_var;        
@@ -1250,11 +1114,8 @@ namespace seq {
             expr* state = nullptr;
             unsigned lo_u = has_lo ? (lo.is_unsigned() ? lo.get_unsigned() : 0) : 0;
             if (has_lo && has_hi) {
-                // An infeasible range (hi < lo) is an arithmetic
-                // conflict, not a regex-shape one; leave discharging it
-                // to arith_propagation (which consults the same
-                // ambient bounds directly) rather than duplicating that
-                // conflict-detection responsibility here.
+                // An infeasible range is an arithmetic conflict; leave it to
+                // `arith_propagation`.
                 if (hi.is_neg() || hi < lo)
                     continue;
                 unsigned hi_u = hi.is_unsigned() ? hi.get_unsigned() : lo_u;
@@ -1276,13 +1137,8 @@ namespace seq {
             last_bound updated;
             updated.has_lo = has_lo; updated.lo = has_lo ? lo : rational::zero();
             updated.has_hi = has_hi; updated.hi = has_hi ? hi : rational::zero();
-            // `m_last` is a plugin-local cache used purely to skip
-            // redundant re-adds (a performance/confluence aid, not part
-            // of the tree's own state) - so its entries are undone via
-            // the shared trail exactly like every other facet mutation,
-            // restoring whatever was cached before this node was
-            // visited (or removing the key entirely if it is new) once
-            // the trail scope backtracking past this point unwinds.
+            // `m_last` is a plugin-local cache used only to skip redundant
+            // re-adds, so it is unwound with the shared trail.
             m_trail.push(mem_bounds_last_trail(m_last, var, have_prior, prior));
             m_last.insert(var, updated);
             changed = true;
@@ -1303,11 +1159,8 @@ namespace seq {
         if (mf.is_satisfied())
             return nullptr;
 
-        // Group plain membership views (`x in R_i`) by their single
-        // variable token; reach views and multi-token strings carry no
-        // per-variable length obligation this check can use, so they are
-        // skipped (sound: skipping only loses precision, never
-        // soundness).
+        // Group plain single-variable memberships by variable. Reach views
+        // and multi-token strings are skipped.
         obj_map<expr, len_abs> lens;
         obj_map<expr, eq_tree::dep_tracker> deps;
         obj_map<expr, unsigned> counts;

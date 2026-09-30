@@ -58,12 +58,8 @@ namespace seq {
                     m_trail.push(vector_field_trail<str_ncontains, eq_tree::dep_tracker>(m_ncs, i, &str_ncontains::m_dep));
                     m_ncs[i].m_dep = m_dm.mk_join(m_ncs[i].m_dep, subst_dep);
                 }
-                // A substitution may invalidate a "no further progress
-                // possible" verdict ncontains_propagation reached for
-                // this obligation in an earlier round (e.g. an
-                // undecided position may now resolve), so make sure it
-                // is re-examined next round even if qhead had already
-                // advanced past it.
+                // A substitution can invalidate an earlier "no further
+                // progress" verdict, so rescan this obligation next round.
                 rewind_qhead(i);
             }
         }
@@ -148,15 +144,9 @@ namespace seq {
         m_stats.m_num_propagate++;
 
         bool changed = false;
-        // Incremental scan: only [qhead, ncontains().size()) is examined
-        // this round (mirrors req_facet's own m_qhead convention). An
-        // obligation that becomes inactive (remove()/replace_with_tail())
-        // is simply skipped from here on; replace_with_tail's shortened
-        // replacement is appended past the current scan position, so it
-        // is picked up later in this same forward scan without needing
-        // to revisit `head`. apply_subst rewinds qhead when it touches
-        // an already-scanned obligation, so this loop never needs to
-        // look behind qhead on its own.
+        // Incremental scan over `[qhead, ncontains().size())`. Replacements
+        // are appended past the current position and picked up later in the
+        // same scan; `apply_subst` rewinds `qhead` when needed.
         unsigned head = f.qhead();
         while (head < f.ncontains().size()) {
             if (!f.ncontains()[head].active()) {
@@ -171,41 +161,14 @@ namespace seq {
                 return stx::simplify_result::conflict;
             }
 
-            // Recursive prefix-unrolling (facet-ncontains.md section
-            // 3.4): try every token-aligned starting position of the
-            // needle within the haystack's *current* token list, not
-            // just position 0 - since haystack/needle tokens may
-            // themselves be unresolved variables, there is in general no
-            // single "the" starting position to check; any position
-            // whose window fits could be the one where the needle
-            // occurs.
-            //   - if some position is a *determined* match
-            //     (`compare_alignment` returns l_true), the needle
-            //     provably occurs somewhere in h - this `not contains`
-            //     obligation is UNSAT (conflict), regardless of what any
-            //     other position resolves to.
-            //   - if EVERY position is a *determined* mismatch (l_false),
-            //     the needle provably does not occur anywhere in the
-            //     current token list - the obligation is proved and
-            //     discharged.
-            //   - otherwise some positions are undecided (l_undef: an
-            //     unresolved variable token is involved) and none is a
-            //     determined match; those undecided positions are left
-            //     pending (sound but incomplete, exactly as deq_facet's
-            //     own documented incompleteness for un-substituted
-            //     variables - a later substitution, broadcast via
-            //     apply_subst, may resolve them on a future propagation
-            //     round). Any *leading* run of determined-mismatch
-            //     positions (before the first undecided one) can still
-            //     be safely stripped as progress: no future substitution
-            //     can turn an already-determined mismatch into a match,
-            //     so it is safe to advance past it (see module comment's
-            //     termination argument: the haystack strictly shortens).
-            //   - if the haystack currently has fewer tokens than the
-            //     needle, there is no complete token-aligned window at
-            //     all yet (a haystack variable token may still expand to
-            //     supply more tokens via a later Nielsen split): left
-            //     pending, no progress made here.
+            // Try every token-aligned starting position of the needle in the
+            // current haystack.
+            //   - some determined match => conflict;
+            //   - every position a determined mismatch => discharge;
+            //   - otherwise leave undecided positions pending, but strip any
+            //     leading run of determined mismatches as safe progress.
+            // If the haystack is currently shorter than the needle, leave
+            // the obligation pending.
             unsigned h_size = nc.m_haystack.size();
             unsigned n_size = nc.m_needle.size();
             bool has_window = h_size >= n_size;
@@ -220,9 +183,7 @@ namespace seq {
                 }
                 if (al == l_undef && first_undef_pos > max_pos) {
                     first_undef_pos = pos;
-                    // keep scanning later positions: a later position
-                    // might still be a determined match (conflict) even
-                    // though this one is undecided.
+                    // A later position may still be a determined match.
                 }
             }
             if (found_match) {
@@ -248,20 +209,11 @@ namespace seq {
                 continue;
             }
 
-            // Length gate (facet-ncontains.md section 3.3): only reached
-            // once the cheap syntactic scan above found no determined
-            // match/mismatch/progress. If h is provably shorter than n,
-            // containment is impossible - the obligation is vacuously
-            // satisfied. This can only be decided via solver_facet's
-            // incremental backend (real str.len reasoning): a
-            // haystack/needle *token count* is NOT a sound proxy for
-            // actual sequence length here, since a non-constant token is
-            // an opaque variable that may denote a string of any length
-            // (including longer than any bound implied by token count,
-            // or shorter, e.g. epsilon) - unlike eq_facet's constant
-            // tokens, which are always exactly one character. Checked
-            // last since it invokes the (comparatively expensive)
-            // incremental arithmetic solver.
+            // Length gate: after the cheap token scan above, ask whether
+            // `len(h) < len(n)` is already implied. Token counts are not a
+            // sound proxy here because variable tokens may denote strings of
+            // any length. Checked last because it calls the arithmetic
+            // solver.
             expr* h_expr = tokens_to_expr(u, m, nc.m_haystack);
             expr* n_expr = tokens_to_expr(u, m, nc.m_needle);
             expr_ref len_h(u.str.mk_length(h_expr), m);

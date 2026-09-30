@@ -853,15 +853,11 @@ namespace seq {
                     changed = true;
                     break;
                 }
-                // NB: a `p·x ∪ p·y → p·(x ∪ y)` prefix-factoring rule used to
-                // live here.  It is semantically valid but harmful: factoring a
-                // common nullable-star prefix (e.g. (a|b)*) produces nested
-                // `S·(… ∪ …)` leaves that never stabilise to a bounded state
-                // family, so the bisimulation/emptiness closure keys ever-larger
-                // distinct expressions and fails to dedup.  Leaving the union in
-                // distributed form keeps each disjunct a "position" state, which
-                // matches the classical Brzozowski derivative and lets bisim
-                // close in a bounded number of steps on flat-vs-loop equivalence.
+                // Do not prefix-factor here: with a common nullable-star
+                // prefix such as `(a|b)*`, `p·x ∪ p·y -> p·(x ∪ y)` creates
+                // nested `S·(… ∪ …)` leaves that keep growing and defeat
+                // state deduplication. Leaving the union distributed keeps
+                // each disjunct in a bounded "position" form.
             }
         }
         set.push_back(e);

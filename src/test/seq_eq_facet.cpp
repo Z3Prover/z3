@@ -96,10 +96,8 @@ namespace {
         ENSURE(solve_eq(m, u, lhs, rhs) == stx::search_result::sat);
     }
 
-    // Same variable forced to two different constants ("X = a" and "X = b"
-    // combined into one equation via a shared X) is unsatisfiable: this
-    // exercises the two/three-way Nielsen split and backtracking across
-    // all-conflicting children, not just an immediate symbol clash.
+    // Shared variable forced equal to two different constants.
+    // Exercises Nielsen splitting and backtracking before reporting unsat.
     static void tst_branch_then_unsat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -195,11 +193,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
-    // eq_facet and deq_facet share the same node/variable pool: solving
-    // `X = "a"` (via eq_facet's Nielsen split) must broadcast the chosen
-    // substitution to `deq_facet`'s pending `X != "b"`, which then gets
-    // discharged once X is resolved far enough to see a symbol clash
-    // against "b" - this exercises subst_sink_i cross-facet wiring.
+    // A substitution produced by eq_facet must propagate to deq_facet so
+    // `X != "b"` is discharged after solving `X = "a"`.
     static void tst_deq_reacts_to_eq_branch_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -235,25 +230,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
-    // Direct unit test of eq_split::find_eq_split_point (the ported
-    // c3-branch balance-tracking algorithm), independent of the full
-    // search: LHS = [a, X, Y], RHS = [X, a, Y] (a is a constant char, X
-    // and Y are distinct variables). Tracing the algorithm by hand: the
-    // running signed balance of variable tokens returns to zero (nz==0)
-    // at the interior point (li=2, ri=2) with const_diff=0 - i.e. the
-    // split "a.X | Y" vs "X.a | Y" - which is the minimal-|padding|
-    // choice (padding=0) since an earlier candidate at (li=2, ri=1) had
-    // |const_diff|=1. This confirms the ported algorithm finds a valid,
-    // minimal-padding interior split rather than stopping at the first
-    // nz==0 point it encounters.
-    // word_eq_split's char-eq rule: "unit(c) . X = unit('a') . X" for a
-    // symbolic (non-value) char constant `c` - reduce_eq cannot
-    // statically decide whether c and 'a' clash or agree (both are
-    // units, but not equal terms and not provably distinct), so
-    // word_eq_split's char-eq branch must force `c := 'a'` via
-    // broadcast_subst (NSB code review fix - the rule used to just
-    // `continue`, silently dropping this equation without ever
-    // resolving it), after which "X = X" is trivially satisfiable.
+    // Symbolic char equality must substitute `c := 'a'`, reducing the
+    // equation to `X = X`.
     static void tst_word_eq_split_char_eq_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -268,6 +246,8 @@ namespace {
         ENSURE(solve_eq(m, u, lhs, rhs) == stx::search_result::sat);
     }
 
+    // Check that find_eq_split_point chooses the balanced interior split
+    // for `[a, X, Y] = [X, a, Y]`, with zero padding.
     static void tst_eq_split_find_point() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -290,12 +270,7 @@ namespace {
         ENSURE(padding == 0);
     }
 
-    // No split point exists when there is only one variable-length
-    // token total (find_eq_split_point requires lhs_len>1 && rhs_len>1,
-    // and also requires an interior point where the variable balance is
-    // zero) - LHS = [X], RHS = [a] never reaches the `lhs_len<=1`
-    // guard's else-branch productively since lhs has just one token.
-    // Confirms the short-circuit guard for trivially-short sides.
+    // No interior split exists for `[X] = [a]`.
     static void tst_eq_split_find_point_none() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -313,17 +288,8 @@ namespace {
         ENSURE(!seq::eq_split::find_eq_split_point(u, lhs, rhs, split_lhs, split_rhs, padding));
     }
 
-    // eq_split (mid-equation split with padding variable): "X ++ a ++ Y =
-    // Y ++ a ++ X" is satisfiable (e.g. X = Y = epsilon, or X = Y = any
-    // common value) - find_eq_split_point finds a balanced interior
-    // point around the shared "a" token (X, Y both consumed once on
-    // each side, net zero balance), splitting into "X = Y" and "Y = X"
-    // (up to padding), which then re-enter eq_facet/word_eq_split and
-    // resolve to sat. This exercises eq_split's own splitting logic
-    // (not just word_eq_split's single-token peel, which alone cannot
-    // make progress here since neither side starts/ends with a
-    // resolvable constant-vs-constant or matching-variable head token
-    // pair beyond the shared "a" in the middle).
+    // Balanced interior split on `X ++ a ++ Y = Y ++ a ++ X` should make
+    // progress and preserve satisfiability.
     static void tst_eq_split_progress_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -358,19 +324,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
-    // deq_split: "X != Y" for two free string variables (no other
-    // constraints) is trivially satisfiable (e.g. X = "a", Y = "b"), but
-    // deq_facet's own simplify/propagation can never resolve it - it
-    // only reacts to substitutions broadcast by *eq_facet's* splits, and
-    // there are no equations here for eq_facet to split on. Without
-    // deq_split, tree.solve() would exhaust the search (depth cutoff /
-    // unknown) since nothing ever discharges the disequation. deq_split
-    // should take branch 3 (equal-length split, since X and Y are both
-    // unconstrained free variables of unknown/unequal length - branch 1
-    // and 2's length side-constraints are also individually
-    // satisfiable, so any of the three branches suffices for sat) and
-    // resolve it via the new fresh a != b disequation, which is itself
-    // trivially satisfiable.
+    // `X != Y` over two unconstrained variables should be discharged by
+    // deq_split rather than getting stuck as unknown.
     static void tst_deq_split_free_vars_sat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -406,12 +361,8 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
-    // deq_split: "a != a" (two identical single-char constants) is
-    // unsatisfiable - deq_facet::simplify discharges this directly
-    // (both sides collapse to the same constant token, so simplify
-    // detects the conflict) without ever reaching deq_split, so this
-    // exercises that deq_split's presence doesn't interfere with (or
-    // mask) the deterministic-conflict path.
+    // `a != a` should remain an immediate conflict even when deq_split is
+    // enabled.
     static void tst_deq_split_equal_consts_unsat() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -447,9 +398,7 @@ namespace {
 
 } // namespace
 
-    // Block compression: X.a.Y = aaaa.b needs X = aa (ending inside the block
-    // aaaa) and Y = ab. One character at a time this takes four fresh-variable
-    // steps; against whole blocks it takes one (Y := ab.Y'), so depth 1 suffices.
+    // Block compression should solve `X.a.Y = aaaa.b` within depth 1.
     static void tst_block_compression_sat() {
         ast_manager m;
         reg_decl_plugins(m);

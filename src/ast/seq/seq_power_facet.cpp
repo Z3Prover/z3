@@ -80,10 +80,7 @@ namespace seq {
         return out;
     }
 
-    // Build the concatenation of `j` copies of `s` (j >= 1), reusing
-    // `flatten`/`u.str.mk_concat` conventions from eq_facet - but since
-    // this is destined for eq_facet::add_equation (which itself flattens
-    // its arguments), a plain right-nested str.++ chain suffices.
+    // Build the concatenation of `j` copies of `s` (`j >= 1`).
     static expr_ref mk_power_unfold(seq_util& u, ast_manager& m, expr* s, unsigned j) {
         SASSERT(j >= 1);
         expr_ref result(s, m);
@@ -92,7 +89,7 @@ namespace seq {
         return result;
     }
 
-    // an exponent in arithmetic normal form, so that e.g. (n + 1) - n becomes the numeral 1
+    // Put an exponent expression into arithmetic normal form.
     static expr_ref mk_exp(ast_manager& m, expr* e) {
         th_rewriter rw(m);
         expr_ref r(e, m);
@@ -114,19 +111,14 @@ namespace seq {
         m_stats.m_num_propagate++;
 
         bool changed = false;
-        // Append-only: m_pows never shrinks, so a plain forward scan
-        // suffices (mirrors eq_facet::simplify's identical idiom).
+        // `m_pows` is append-only, so a plain forward scan suffices.
         for (unsigned i = 0; i < f.powers().size(); ++i) {
             if (!f.powers()[i].active())
                 continue;
             str_power const& p = f.powers()[i];
             rational v;
 
-            // Known exponent (facet-power's mirror of theory_seq's
-            // power_unfold_axiom's "known exponent" branch / seq_rewriter's
-            // own numeral-power folding): the obligation is fully precise,
-            // so unfold it exactly into an eq_facet equation and discharge
-            // it here - no need for solver_facet or power_split at all.
+            // Known exponent: unfold exactly and discharge the obligation.
             if (a.is_numeral(p.m_n, v)) {
                 expr_ref rhs(m);
                 if (!v.is_pos())
@@ -140,7 +132,7 @@ namespace seq {
                 continue;
             }
 
-            // Symbolic exponent: length-only consequences of the power axiom (sound, asserted once)
+            // Symbolic exponent: assert the length-only consequences once.
             if (!p.m_axiomatized) {
                 expr_ref len_e(u.str.mk_length(p.m_e.get()), m);
                 // token-wise base length: the sub-solver has no sequence theory for len("ab")
@@ -169,22 +161,14 @@ namespace seq {
 
     // -- power_fine_wilf --
 
-    // Is `e` a registered power obligation with base `s`, exponent `n`?
-    // Thin wrapper around power_facet::find_power for readability at call
-    // sites below.
+    // Thin wrapper around `power_facet::find_power`.
     static bool is_power_token(power_facet const& f, expr* e, unsigned& idx) {
         return f.find_power(e, idx);
     }
 
-    // Scan `side` for the first token that is a registered power
-    // obligation (with power_facet index != `exclude_idx`, so `U^n`
-    // itself - if it also appears literally inside `side`, which cannot
-    // happen here since `side` is the *other* equation side - is never
-    // mistaken for `W^m`; the exclude parameter is defensive rather than
-    // load-bearing). All tokens strictly before it become `Y`. Returns
-    // false if no power token is found in `side` at all, or if the one
-    // found has the same base as `u_base` (same-base overlaps are left
-    // to ordinary propagation/word_eq_split).
+    // Scan `side` for its first registered power token. Tokens before it
+    // become `Y`. Returns false if none exists or if the first power has
+    // the same base as `u_base`.
     static bool find_wpow(power_facet const& f, expr_ref_vector const& side, expr* u_base,
                            unsigned& y_len, unsigned& wpow_idx) {
         for (unsigned i = 0; i < side.size(); ++i) {
@@ -200,8 +184,7 @@ namespace seq {
         return false;
     }
 
-    // Locate one Fine & Wilf trigger site among f's obligations / ef's
-    // equations, if any. See class comment for the pattern.
+    // Locate one Fine & Wilf trigger site, if any.
     static bool find_fw_trigger(power_facet const& f, eq_facet const& ef, power_fine_wilf::trigger& t) {
         for (unsigned eq_idx = 0; eq_idx < ef.equations().size(); ++eq_idx) {
             eq_facet::equation const& eq = ef.equations()[eq_idx];
@@ -233,11 +216,7 @@ namespace seq {
         return false;
     }
 
-    // len(U^n) = n*len(U) as an expr (both U^n's own str.len and, since
-    // power_propagation asserts `len(e)=n*len(s)` into solver_facet only
-    // as a *constraint* (not a rewrite), the token's own str.len(e) is
-    // the right handle to use here - solver_facet will relate it to
-    // n*len(base) on its own via that already-asserted axiom).
+    // `len(U^n)` as an expression.
     static expr_ref mk_len(seq_util& u, ast_manager& m, expr* e) {
         return expr_ref(u.str.mk_length(e), m);
     }
@@ -259,10 +238,7 @@ namespace seq {
         auto& ef = ac.eq_facet_ref();
         auto& sf = ac.solver_facet_ref();
 
-        // The trigger equation may already have been consumed/replaced.
-        // With eq_facet's append-only equation vector, an index is never
-        // reused by an unrelated equation, so it suffices to check that
-        // it is still in range and still active.
+        // The trigger equation may already have been consumed or replaced.
         if (t_stale(f, m_t) || m_t.m_eq_idx >= ef.equations().size() || !ef.equations()[m_t.m_eq_idx].active())
             return false;
 
@@ -278,7 +254,7 @@ namespace seq {
         expr_ref len_y = mk_len_sum(u, a, m, other_side, 0, m_t.m_y_len);
         expr_ref T(a.mk_add(mk_len(u, m, p_u.m_s.get()).get(), mk_len(u, m, p_w.m_s.get()).get()), m);
 
-        // V, Z: the remainder of each side after U^n / (Y . W^m).
+        // V, Z: the remainders after `U^n` and `Y.W^m`.
         expr_ref_vector V(m); // remainder of head_side after U^n (index 0)
         V.append(head_side.size() - 1, head_side.data() + 1);
         expr_ref_vector Z(m); // remainder of other_side after Y . W^m
@@ -365,9 +341,7 @@ namespace seq {
         expr_ref len_y = mk_len_sum(u, a, m, other_side, 0, t.m_y_len);
         expr_ref T(a.mk_add(mk_len(u, m, p_u.m_s.get()).get(), mk_len(u, m, p_w.m_s.get()).get()), m);
 
-        // Case 1 (first, immediately materialized branch): small
-        // overlap, arith-only, no string-side progress. Marked so it is
-        // never re-offered for this same obligation.
+        // Case 1: small overlap, arith-only, no string-side progress.
         expr_ref case1(m.mk_or(a.mk_lt(a.mk_sub(len_upow, len_y), T), a.mk_lt(len_wpow, T)), m);
         ac.solver_facet_ref().add_constraint(case1, dep);
         f.mark(t.m_pow_idx, &str_power::m_fw_marked);
@@ -391,7 +365,7 @@ namespace seq {
         unsigned j = m_next_j++;
 
         if (j > m_bound) {
-            // residual branch n > bound: no substitution, obligation stays pending
+            // Residual branch `n > bound`: no substitution, obligation stays pending.
             ac.solver_facet_ref().add_constraint(a.mk_ge(p.m_n, a.mk_int(m_bound + 1)), m_dep);
             f.mark(m_pow_index, &str_power::m_split_exhausted);
             out = eq_tree::edge("power:n>bound", m_dep, false, 0);
@@ -408,7 +382,7 @@ namespace seq {
         return true;
     }
 
-    // U^n := epsilon under n <= 0; the substitution also discharges the obligation
+    // `U^n := epsilon` under `n <= 0`.
     static void unfold_empty(eq_tree::node& n, power_facet& f, unsigned idx, eq_tree::dep_tracker dep) {
         arith_util& a = f.get_arith_util();
         str_power p = f.powers()[idx]; // copy: broadcast_subst may reallocate m_pows
@@ -417,7 +391,8 @@ namespace seq {
         get_ambient(n).solver_facet_ref().add_constraint(a.mk_le(p.m_n, a.mk_int(0)), dep);
     }
 
-    // `side` without its k tokens at the front (resp. back) end, `repl` in their place if given
+    // `side` with `k` tokens removed from the chosen end, optionally
+    // replaced by `repl`.
     static expr_ref_vector replace_end(expr_ref_vector const& side, bool front, unsigned k, expr* repl) {
         expr_ref_vector r(side.get_manager());
         if (front && repl)
@@ -434,7 +409,7 @@ namespace seq {
         committed = false;
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
-        // only a power that still occurs in an equation needs its exponent enumerated
+        // Only a power still present in an equation needs exponent enumeration.
         obj_hashtable<expr> present;
         for (auto const& eq : ac.eq_facet_ref().equations()) {
             if (!eq.active())
@@ -456,8 +431,7 @@ namespace seq {
             eq_tree::dep_tracker dep = p.m_dep;
             unsigned bound = f.max_unfold();
 
-            // First branch: n <= 0, e := epsilon (the "n <= 0" case of
-            // power_axiom/power_unfold_axiom).
+            // First branch: `n <= 0`, so `e := epsilon`.
             unfold_empty(n, f, i, dep);
 
             iterator* it = alloc(iterator, n, i, bound, dep, m, u, a);
@@ -471,17 +445,10 @@ namespace seq {
 
     // -- power_split_elim --
 
-    // Ported from c3's `comm_power` (seq_nielsen_simplify.cpp): scan
-    // `side`'s directional run (from the front if `fwd`, else from the
-    // back) for repeated copies of `base_pattern` (the flattened token
-    // pattern of some power's own base `U`), returning how many complete
-    // copies were consumed as a symbolic sum expression, plus the number
-    // of *tokens* of `side` that participated (0 if no complete copy was
-    // ever matched). At each pattern boundary (not mid-pattern), a token that is
-    // itself a registered power obligation with exactly the same base
-    // token pattern is absorbed whole - its entire exponent is added to
-    // the running sum directly, rather than requiring it to be matched
-    // token-by-token.
+    // Scan `side` for repeated copies of `base_pattern`, returning the
+    // symbolic copy count and the number of participating tokens. At a
+    // pattern boundary, a same-base power token is absorbed whole by
+    // adding its exponent to the count.
     static bool comm_power(power_facet const& f, expr_ref_vector const& base_pattern,
                             expr_ref_vector const& side, bool fwd,
                             ast_manager& m, arith_util& a, seq_util& u,
@@ -504,7 +471,7 @@ namespace seq {
                 last_stable_idx = i;
                 last_stable_sum = sum;
             }
-            // Case 1: direct token match with the base pattern.
+            // Case 1: direct token match.
             expr* pat = fwd ? base_pattern[pos] : base_pattern[bn - 1 - pos];
             if (pos < bn && t == pat) {
                 ++pos;
@@ -514,9 +481,8 @@ namespace seq {
                 }
                 continue;
             }
-            // Case 2: a power token whose base is the exact same
-            // pattern, absorbed whole - only at a pattern boundary
-            // (pos==0).
+            // Case 2: a same-base power token, absorbed whole at a pattern
+            // boundary.
             unsigned pidx;
             if (pos == 0 && f.find_power(t, pidx)) {
                 str_power const& q = f.powers()[pidx];
@@ -545,12 +511,7 @@ namespace seq {
         return true;
     }
 
-    // Locate a power-vs-token-run elimination trigger: some equation has
-    // a power term `U^n` at a directional end of one side, whose base
-    // pattern `U` recurs (per comm_power, possibly absorbing same-base
-    // power tokens at boundaries) along the same directional run of the
-    // *other* side. Skipped if the resulting comparison is already
-    // resolved (both count and n are numerals).
+    // Locate a power-vs-token-run elimination trigger.
     static bool find_split_elim_trigger(power_facet const& f, eq_facet const& ef,
                                          ast_manager& m, arith_util& a, seq_util& u,
                                          elim_trigger& t) {
@@ -575,9 +536,7 @@ namespace seq {
                     unsigned consumed;
                     if (!comm_power(f, base_pattern, other_side, fwd, m, a, u, count, consumed) || consumed == 0)
                         continue;
-                    // Already resolved: no case split needed (mirrors
-                    // c3's get_const_power_diff-guard - simplification
-                    // is expected to have already discharged this case).
+                    // Already resolved: no case split needed.
                     rational vc, vp;
                     if (a.is_numeral(count, vc) && a.is_numeral(p.m_n, vp))
                         continue;
@@ -595,7 +554,7 @@ namespace seq {
         return false;
     }
 
-    // the branch e < count (`covered`: U^e is cancelled entirely) or e >= count
+    // Apply one elimination branch: either `e < count` or `e >= count`.
     static void elim_branch(eq_tree::node& n, elim_trigger const& t, bool covered) {
         auto ac = get_ambient(n);
         auto& f = ac.power_facet_ref();
@@ -637,7 +596,7 @@ namespace seq {
         has_more = true;
         committed = true;
         m_stats.m_num_splits++;
-        // an ordering fixed by the exponents themselves (e.g. n + 1 against n) needs no split, as in c3's CommPower simplification
+        // If exponent ordering is already determined, no split is needed.
         rational d;
         if (a.is_numeral(mk_exp(m, a.mk_sub(t.m_count, f.powers()[t.m_pow_idx].m_n)), d)) {
             elim_branch(n, t, d.is_pos());
@@ -682,13 +641,8 @@ namespace seq {
 
     // -- power_peel --
 
-    // Locate a power-vs-variable peel trigger: some eq_facet equation
-    // has, at a matching directional end of both sides, a power token
-    // `U^n` opposite a Nielsen-substitutable variable `v` (not a unit,
-    // not a power - see class comment). Skipped if `n` is already a
-    // resolved numeral (power_propagation's known-exponent branch
-    // handles that case directly, with no case split needed).
-    // A power at a directional end of an equation, opposite any other token.
+    // Locate a power at a directional end of an equation, opposite any
+    // other token. Skip powers whose exponent is already a numeral.
     static bool find_peel_trigger(power_facet const& f, eq_facet const& ef, arith_util& a,
                                   unsigned& eq_idx, bool& fwd, unsigned& pow_idx, eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
@@ -728,7 +682,7 @@ namespace seq {
             return false;
         str_power p = f.powers()[m_pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
-        // Branch 2: n >= 1, U^n := U . U^(n-1) with the nested power at the far end
+        // Branch 2: `n >= 1`, so `U^n := U . U^(n-1)`.
         expr_ref n_minus_1 = mk_exp(m, a.mk_sub(p.m_n, a.mk_int(1)));
         expr_ref nested_pow(u.str.mk_power(p.m_s, n_minus_1), m);
         expr_ref_vector base(m), repl(m);
@@ -757,7 +711,7 @@ namespace seq {
         has_more = true;
         str_power p = f.powers()[pow_idx]; // copy: broadcast_subst may reallocate m_pows
 
-        // Branch 1 (first, immediately materialized): n <= 0, U^n := epsilon
+        // Branch 1: `n <= 0`, so `U^n := epsilon`.
         unfold_empty(n, f, pow_idx, dep);
 
         iterator* it = alloc(iterator, n, eq_idx, fwd, pow_idx, dep, m, u, a);
@@ -791,14 +745,8 @@ namespace seq {
         return v;
     }
 
-    // Locate a variable-vs-power decomposition trigger: some eq_facet
-    // equation has, at a matching directional end of both sides, a
-    // Nielsen-substitutable variable `v` opposite a power token `U^n`,
-    // where `U`'s own flattened base has at least one token (an empty
-    // base cannot happen for a well-formed power term, but the check is
-    // defensive). Skipped if `n` is already a resolved numeral
-    // (power_propagation's known-exponent unfold handles that case
-    // directly, no case split needed).
+    // Locate a variable-vs-power decomposition trigger. Skip powers whose
+    // exponent is already a numeral.
     static bool find_var_decompose_trigger(power_facet const& f, eq_facet const& ef, arith_util& a, seq_util& u,
                                             unsigned& pow_idx, expr*& var, bool& fwd, eq_tree::dep_tracker& dep) {
         for (unsigned i = 0; i < ef.equations().size(); ++i) {
@@ -842,10 +790,7 @@ namespace seq {
             unsigned i = m_pos++;
             expr* tok = m_base_toks[i].get();
 
-            // Skip position i when the *preceding* token is itself a
-            // power: that position's own m' range (0<=m'<=inner_exp)
-            // already covers this boundary (mirrors c3's `i>0 &&
-            // base_toks[i-1]->is_power()` skip guard).
+            // Skip a boundary already covered by the preceding power token.
             unsigned prev_pidx;
             if (i > 0 && is_power_token(f, m_base_toks[i - 1].get(), prev_pidx))
                 continue;
@@ -855,12 +800,7 @@ namespace seq {
             expr* n_exp = f.powers()[pidx].m_n.get();
             expr_ref pow_m(u.str.mk_power(f.powers()[pidx].m_s, m_fresh_m), m); // U^m, v := U^m . prefix
 
-            // Build the U^m . prefix (or U^m . prefix . w^m') replacement,
-            // in the direction v faces U^n: m_base_toks is already
-            // stored in that direction (see split()'s construction), so
-            // the prefix is simply toks[0..i-1] and the new suffix token
-            // (plain-char case) or w^m' (power case) is appended/
-            // prepended according to m_fwd.
+            // Build the replacement in the direction `v` faces `U^n`.
             expr_ref_vector prefix(m);
             for (unsigned j = 0; j < i; ++j)
                 prefix.push_back(m_base_toks[j].get());
@@ -888,11 +828,8 @@ namespace seq {
                 for (unsigned j = prefix.size(); j-- > 0; ) repl.push_back(prefix[j].get());
                 repl.push_back(pow_m.get());
             }
-            // Plain-char case (no power at position i): the token
-            // itself contributes nothing further beyond U^m . prefix
-            // (per c3's P(char)=epsilon rule - the char is absorbed into
-            // the base pattern's own repetition count, not appended
-            // again literally).
+            // In the plain-token case the current token is absorbed into the
+            // repeated base and is not appended again literally.
 
             broadcast_subst(m_n, m_var.get(), repl, m_dep);
             sf.add_constraint(a.mk_ge(m_fresh_m.get(), a.mk_int(0)), m_dep);
@@ -907,11 +844,7 @@ namespace seq {
 
         if (!m_extend_done) {
             m_extend_done = true;
-            // Final non-progress branch: v extends past the whole power,
-            // v := U^n . v' (or v' . U^n if !m_fwd), fresh v', side
-            // constraint len(v') >= 0 (trivially true, but matches c3's
-            // own explicit branch condition and keeps the constraint
-            // symmetric with the other branches' side constraints).
+            // Final non-progress branch: `v` extends past the whole power.
             sort* s = m_var.get()->get_sort();
             expr* vp = m.mk_fresh_const("t", s);
             expr_ref_vector repl(m);
@@ -945,8 +878,7 @@ namespace seq {
         if (base_toks.empty())
             return nullptr;
         if (!fwd) {
-            // Store base_toks in the direction v faces U^n (reversed,
-            // mirroring c3's `collect_tokens_dir(base, fwd, ...)`).
+            // Store `base_toks` in the direction `v` faces `U^n`.
             expr_ref_vector rev(m);
             for (unsigned j = base_toks.size(); j-- > 0; ) rev.push_back(base_toks[j].get());
             base_toks = std::move(rev);
@@ -956,13 +888,8 @@ namespace seq {
         has_more = true;
 
         iterator* it = alloc(iterator, n, var, p.m_e.get(), base_toks, fresh_m, fwd, dep, m, u, a, this);
-        // First branch is offered by the iterator itself (position 0),
-        // uniformly with every other decomposition position - unlike
-        // power_peel/power_split, there is no "cheap" branch to
-        // materialize immediately in split() itself here (every
-        // decomposition position, including position 0, requires the
-        // same shape of substitution), so split() simply hands off to
-        // the iterator's first next() call.
+        // The iterator offers the first branch itself; every decomposition
+        // position has the same shape.
         eq_tree::edge first;
         if (!it->next(first)) {
             dealloc(it);
@@ -998,23 +925,13 @@ namespace seq {
         return v;
     }
 
-    // Is `e` a Nielsen-substitutable variable token (neither a unit nor
-    // a power)? Local predicate, per z3papers/nseq's token model - see
-    // word_eq_split's own comment for why this is computed locally
-    // rather than via theory_seq::is_var.
+    // Is `e` a substitutable variable token (neither a unit nor a power)?
     static bool is_gpower_var(seq_util& u, expr* e) {
         return !u.str.is_unit(e) && !u.str.is_power(e);
     }
 
-    // Locate a self-cycle trigger for gpower introduction: some
-    // eq_facet equation has, at a directional end of one side, a bare
-    // Nielsen-substitutable variable `v`, while the *other* side,
-    // scanned from the matching end, is a non-empty run of ground
-    // (non-variable) tokens followed by that same variable `v`
-    // reappearing. `ground_prefix` is returned in the direction `v`
-    // faces the cycle (i.e. nearest-to-farthest from the reappearance
-    // point), matching `power_var_decompose`'s own `m_base_toks`
-    // convention.
+    // Locate a self-cycle trigger for gpower introduction. `ground_prefix`
+    // is returned in the direction `v` faces the cycle.
     static bool find_gpower_trigger(eq_facet const& ef, seq_util& u, ast_manager& m,
                                      unsigned& eq_idx, bool& fwd,
                                      expr_ref_vector& ground_prefix, expr*& var, eq_tree::dep_tracker& dep) {
@@ -1030,9 +947,7 @@ namespace seq {
                 bool lhead_is_var = is_gpower_var(u, lhead);
                 bool rhead_is_var = is_gpower_var(u, rhead);
 
-                // Orientation 1: rhs directional head is the bare
-                // target variable; scan lhs in the same direction for a
-                // ground prefix that cycles back to it.
+                // Orientation 1: rhs head is the target variable; scan lhs.
                 if (rhead_is_var && !lhead_is_var) {
                     expr_ref_vector prefix(m);
                     expr* target = nullptr;
@@ -1052,8 +967,7 @@ namespace seq {
                     }
                 }
 
-                // Orientation 2: symmetric, lhs directional head is the
-                // target variable; scan rhs.
+                // Orientation 2: symmetric case.
                 if (lhead_is_var && !rhead_is_var) {
                     expr_ref_vector prefix(m);
                     expr* target = nullptr;
@@ -1086,10 +1000,7 @@ namespace seq {
             unsigned i = m_pos++;
             expr* tok = m_base_toks[i].get();
 
-            // Skip position i when the preceding token is itself a
-            // power - its own m' range already covers this boundary
-            // (mirrors power_var_decompose's identical skip guard and
-            // c3's own).
+            // Skip a boundary already covered by the preceding power token.
             unsigned prev_pidx;
             if (i > 0 && is_power_token(f, m_base_toks[i - 1].get(), prev_pidx))
                 continue;
@@ -1149,9 +1060,7 @@ namespace seq {
         if (!find_gpower_trigger(ef, u, m, eq_idx, fwd, ground_prefix_orig, var, dep))
             return nullptr;
 
-        // Compress the ground prefix to its minimal repeating period
-        // (token-identity match, since get_concat_units() hash-conses identical
-        // sub-terms to the same expr*).
+        // Compress the ground prefix to its minimal repeating period.
         unsigned gn = ground_prefix_orig.size();
         unsigned period = gn;
         for (unsigned p = 1; p <= gn / 2; ++p) {
@@ -1167,8 +1076,7 @@ namespace seq {
             compressed.push_back(ground_prefix_orig[i].get());
 
         // If the compressed prefix is a single power token, unwrap it to
-        // its own base tokens (natural order), avoiding a nested
-        // power-of-power - mirrors c3's own unwrap step.
+        // its own base tokens to avoid a nested power-of-power.
         if (compressed.size() == 1) {
             unsigned pidx;
             if (is_power_token(f, compressed[0].get(), pidx)) {
@@ -1187,10 +1095,7 @@ namespace seq {
         if (compressed.empty())
             return nullptr;
 
-        // Build the power's base string in natural (left-to-right)
-        // order: `compressed` is stored in the direction `var` faces
-        // the cycle, which equals natural order when fwd, and is
-        // reversed natural order otherwise.
+        // Build the power base in natural left-to-right order.
         expr_ref_vector natural(m);
         if (fwd)
             for (unsigned j = 0; j < compressed.size(); ++j) natural.push_back(compressed[j].get());
@@ -1204,9 +1109,7 @@ namespace seq {
         expr* fresh_n = get_or_create_n_var(var);
         expr_ref power_expr(u.str.mk_power(base_str.get(), fresh_n), m);
 
-        // Register the fresh power obligation (shared by every branch
-        // this call generates - power_propagation will pick it up on
-        // the very next round in each resulting branch).
+        // Register the fresh power obligation shared by every branch.
         f.add_power(power_expr.get(), base_str.get(), fresh_n, dep);
         has_more = true;
 

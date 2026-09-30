@@ -7,24 +7,11 @@ Module Name:
 
 Abstract:
 
-    Abstract base class for the arithmetic (length) facet, factored out
-    of smt/seq_solver_facet.h so that facets living in ast/seq (which must
-    not depend on anything under src/smt - see seq_sub_solver.h's module
-    comment for the same dependency-direction argument applied to
-    `sub_solver_i`) can reference the facet's public surface without
-    pulling in the concrete `smt::solver_facet` (which owns a real
-    `solver` instance and is compiled as part of the `smt` component,
-    itself a consumer of `ast_seq` - the reverse dependency direction
-    would create a cycle).
+    Abstract interface for the arithmetic (length) facet.
 
-    `solver_facet` (smt/seq_solver_facet.h) is the sole concrete
-    implementation; every ast/seq plugin that needs to read/mutate the
-    arithmetic facet (eq_split, power_propagation, power_split,
-    power_fine_wilf, ncontains_facet's length-gate propagation, ...)
-    looks it up via `node.facet_as<solver_facet_i>(arith_id)`, exactly as
-    they already look up `eq_facet`/`power_facet` by id - only the
-    concrete type differs, from a src/smt dependency to an
-    src/ast/seq-only one.
+    Facets under `ast/seq` use this header to read and update
+    branch-local arithmetic state without depending on the concrete
+    `smt::solver_facet` implementation under `src/smt`.
 
 Author:
 
@@ -43,9 +30,7 @@ Author:
 namespace seq {
 
     /**
-     * Abstract interface for the arithmetic (length) facet - see
-     * smt/seq_solver_facet.h's module comment for the full design
-     * rationale and `solver_facet`'s concrete implementation.
+     * Abstract interface for the arithmetic (length) facet.
      */
     class solver_facet_i : public stx::facet_i {
     public:

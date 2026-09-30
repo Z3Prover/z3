@@ -7,10 +7,7 @@ Module Name:
 
 Abstract:
 
-    Concrete `ambient_context_i` (ast/seq/seq_ambient_context.h) backed by a
-    live `smt::theory_nseq` instance. Structurally mirrors
-    `seq::theory_seq_ambient_context` (smt/seq_ambient_context.h), but wraps
-    `theory_nseq` instead of `theory_seq`.
+    `ambient_context_i` implementation backed by a live `theory_nseq`.
 
 Author:
 
@@ -62,10 +59,7 @@ namespace seq {
             // theory_nseq's ordinary disequality propagation.
         }
 
-        // "mk_axiom" callback: reuse the same clause-to-literals-plus-
-        // th_axiom plumbing that smt::seq_axioms::add_clause already
-        // implements (mk_literal + add_axiom), rather than re-deriving it
-        // in facet code (e.g. stoi_facet::check_stoi_coherence).
+        // Reuse seq_axioms' ordinary clause-to-theory-axiom path.
         void add_axiom(expr_ref_vector const& clause) override {
             m_th.m_ax.add_axiom_clause(clause);
         }

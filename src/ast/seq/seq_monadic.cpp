@@ -7,39 +7,12 @@ Module Name:
 
 Abstract:
 
-    Whole-language monadic decomposition for regex membership.  See seq_monadic.h.
-    Automaton-based (product-reachability); reach(q) is never materialized as a regex, and
-    the disjunction produced by the decomposition is never materialized as a DNF: it is
-    explored as a depth-first search tree with per-variable emptiness pruning.
+    Implementation of the monadic regex-membership solver described in
+    seq_monadic.h.
 
-    Generic in the element sort.  The decomposition, liveness and product-reachability
-    are element-agnostic; only the *guard algebra* over the derivative cofactor guards
-    depends on the element sort.  For the character sort it is the exact, compact
-    seq::range_predicate; for any other element sort it is a candidate-basis over the
-    element values mentioned by the guards (sound and complete for the
-    {true,false,=,<=,and,or,not} grammar the derivatives emit).  The same guard algebra
-    yields the concrete element used to build a witness sequence.
-
-TODOs:
-- create a validation harness: expose certificates for correctness that can be checked.
-- take into account shape of terms to prune the search space (e.g., if the term is xax, then retain the effect of 
-  intersecting with .*a.*).
-- connect to semi-linear pruning, such as xx in (ab)*a is unsat due to parity 
-- support units of non-values (element variables).
-  Model construction would assign values to the elements.
-- make unsat core tracking less naive by tracking dependencies at a finer grain.
-- add selective tracing TRACE(seq, ..).
-- revisit DFS to select next membership constraint to explore base on the current state.
-  In the current state include current set of variable intersection membership constraints.
-  The next membership constraint to explore is preferrably for a variable that was just
-  explored and we can check the variable intersection membership constraints if the new
-  expansion is feasible. Constant characters are consumed at the same time to also prune
-  the choice.
-- separate out "live-state" and enumerator over reachable live states:
-  - make it share live states between callers.
-  - make it expose an iterator instead of using vectors of live states to allow on-demand expansion of live states.
-  - make use of DFS exploration of derivatives to extract live states without visiting all states up front.
-  - use it in seq_regex legacy mode that also has this notion.
+    It explores the decomposition as a depth-first search tree with
+    per-variable emptiness pruning. The procedure is generic in the
+    element sort; only the guard algebra depends on the sort.
 
 
 

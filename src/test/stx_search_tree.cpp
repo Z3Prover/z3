@@ -50,11 +50,7 @@ namespace {
             facet_i(trail), m_cfg(cfg), m_total(total) {}
         int total() const { return m_total; }
 
-        // Destructive mutator: registers a trail undo object instead of
-        // being cloned. `m_trail.push(value_trail<int>(m_total))` snapshots
-        // the current value and restores it on pop_scope(). The engine
-        // pushes the enclosing scope before calling split()/next(); the
-        // facet/plugin code never calls push_scope()/pop_scope() itself.
+        // Mutate in place and register a trail undo for backtracking.
         void add(int delta) {
             m_trail.push(value_trail<int>(m_total));
             m_total += delta;
@@ -127,8 +123,7 @@ namespace {
         }
     };
 
-    // Build a fresh engine + root for the given config; caller owns nothing
-    // extra to clean up (search_tree's destructor frees all state).
+    // Build a fresh engine and root for the given configuration.
     tree_t::node* mk_root(tree_t& tree, stx::facet_id& id, counter_config const* cfg) {
         tree_t::node* root = tree.mk_root();
         id = tree.register_facet<counter_facet>(*root, cfg, 0);
@@ -150,9 +145,8 @@ namespace {
         ENSURE(tree.get_stats().m_num_sat == 1);
         ENSURE(tree.sat_snapshot() != nullptr);
         ENSURE(tree.sat_snapshot()->facet_as<counter_facet>(id).total() == 5);
-        // The live root's trail scopes are always fully popped back to
-        // base level by solve() before it returns, regardless of verdict:
-        // the satisfying state is only available via sat_snapshot().
+        // solve() restores the live root to base level; the satisfying
+        // assignment is available only through sat_snapshot().
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
@@ -207,10 +201,8 @@ namespace {
         ENSURE(r == stx::search_result::sat);
     }
 
-    // A second solve() call (e.g. after the caller has mutated facets, or
-    // just re-solving as-is) must still find the same sat result: the live
-    // root is always back at base level after a solve() call (sat or not),
-    // so there is no suspended-scope state to leak/compound across calls.
+    // A second solve() call should start from the restored base state and
+    // find the same result.
     static void tst_resolve_after_sat_resumes_base_level() {
         counter_config cfg{ 5, { 3 } };
         trail_stack tr;
@@ -239,4 +231,3 @@ void tst_stx_search_tree() {
     tst_resolve_after_sat_resumes_base_level();
     std::cout << "stx_search_tree: all tests passed\n";
 }
-

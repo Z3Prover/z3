@@ -7,46 +7,24 @@ Module Name:
 
 Abstract:
 
-    Positive regular-expression membership facet ("Phase 5" of the modular
-    plugin-based search tree design, following `stx::` in
-    util/stx_search_tree.h and the `eq_facet`/`deq_facet` and `solver_facet`
-    modules).
+    Positive regular-expression membership facet.
 
     A `str_mem` constrains one sequence term against a `seq::view`: either a
     plain membership `<state,null>` meaning the whole term is in the language
     of `state`, or a reach view `<state,target>` meaning the term drives the
     derivative automaton from `state` to `target`.
 
-    This port deliberately keeps the facet small and delegates regex-specific
-    search to already-existing components:
-      - deterministic discharge / conflict checks use `seq::accepts`,
-        `seq::is_dead`, and `seq::live_states`;
-      - multi-view landing splits are delegated to `mem_split` (decomposes
-        one membership at a time into per-variable views) combined with
-        `view_witness` (per-variable view-intersection non-emptiness),
-        both defined in this file;
-      - substitutions chosen by `word_eq_split` are broadcast here through
-        `subst_sink_i`, so pending memberships stay synchronized with the
-        shared variable pool.
+    Deterministic checks use `seq::accepts`, `seq::is_dead`, and
+    `seq::live_states`. Splitting is delegated to `mem_split`, which
+    decomposes one membership at a time into per-variable views, and
+    `view_witness`, which checks joint feasibility of the accumulated views.
+    Substitutions chosen elsewhere are broadcast through `subst_sink_i` so
+    pending memberships stay synchronized with the shared variable pool.
 
-    Scope note / simplifications relative to the full design:
-      - regex factorization (§4.2 of facet-membership.md) is NOT implemented
-        in this pass;
-      - the c3 branch's `apply_regex_var_split` (a per-membership
-        Nielsen-style variable split, `x -> epsilon` / `x -> c.x'`) is not
-        ported here: monadic landing (`mem_monadic_split`, driven by
-        `mem_split` + `view_witness`) subsumes it as the sole
-        membership-side splitting rule, so no standalone `mem_var_split`
-        class exists in this port;
-      - monadic landing is implemented for the conjunction of memberships
-        currently present in `mem_facet`; it narrows views reported by
-        per-membership `mem_split::iterator`s and leaves exact witness
-        materialization to `view_witness` itself. Unlike the earlier
-        `seq_monadic`-based engine, there is no orientation retry
-        (forward/reversed) or intersection-decomposition refinement pass -
-        those were seq_monadic-specific policies layered on top of its
-        joint search, not part of the one-membership-at-a-time
-        decomposition this port now uses.
+    This facet does not implement regex factorization. Membership-side
+    splitting is driven entirely by `mem_monadic_split`, which narrows views
+    one membership at a time and leaves witness materialization to
+    `view_witness`.
 
 Author:
 
@@ -187,20 +165,11 @@ namespace seq {
         ast_manager&    m;
         seq_util&       u;
         seq_rewriter&   m_rw;
-        // Optional "end-game" witness solver, gated by
-        // smt.seq.mem_monadic_endgame (default off): when enabled,
-        // propagate()'s witness-extraction step (once f.is_satisfied())
-        // asks THIS engine to decide every active plain membership
-        // jointly - the same seq::monadic decision procedure
-        // mem_leaf_split already uses for its whole-conjunction split -
-        // instead of driving view_witness's per-variable single-step
-        // search. Private scratch trail, scoped per ask via
-        // push_scope()/pop_scope() (mirrors mem_leaf_split's own
-        // m_mon/m_mon_trail); not shared with mem_leaf_split's instance,
-        // since the two run at different, non-overlapping points in the
-        // node's lifecycle (mem_leaf_split only ever runs BEFORE
-        // is_satisfied(), this only AFTER) and there is no benefit to
-        // coordinating their private search state.
+        // Optional end-game witness solver, gated by
+        // smt.seq.mem_monadic_endgame. Once `f.is_satisfied()` holds, it
+        // decides all active plain memberships jointly with `seq::monadic`
+        // instead of asking `view_witness` for per-variable witnesses.
+        // Uses a private scratch trail scoped per call.
         trail_stack     m_mon_trail;
         seq::monadic    m_mon;
         struct stats {
@@ -211,21 +180,13 @@ namespace seq {
         };
         stats m_stats;
 
-        // Runs the seq_monadic end-game solver over every active plain
-        // membership in `f`, asserting an exact length bound for every
-        // variable it can recover one for from the ambient arithmetic
-        // sub-solver (see solve_monadic_endgame's own comment - mirrors
-        // c3/master's seq_regex.cpp collect_candidate_bounds/
-        // record_bound, adapted since nseq's sub-solver only exposes
-        // `value()`, not real lower_bound/upper_bound queries). l_false
-        // means the conjunction (as fed, plus the asserted length
-        // hypotheses) is refuted, `dep` holding the joined core; l_true
-        // means every fed variable's witness was materialized directly
-        // into `f`; l_undef means the engine could not decide (an active
-        // membership it does not support - e.g. a reach view rather than
-        // a plain whole-language membership, an unsupported term shape,
-        // or budget exhaustion) and the caller should fall back to
-        // view_witness.
+        // Runs the monadic end-game solver over every active plain
+        // membership in `f`, adding exact length assumptions when the
+        // arithmetic sub-solver already assigns one. `l_false` means the
+        // conjunction is refuted and `dep` is the joined core; `l_true`
+        // means witnesses were materialized into `f`; `l_undef` means the
+        // solver could not decide and the caller should fall back to
+        // `view_witness`.
         lbool solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep);
     public:
         mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw) :
@@ -240,35 +201,17 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Forwards ambient-context length bounds (lower/upper bounds on
-    // `str.len(x)` known to the surrounding arithmetic theory, together
-    // with their justifying dependency) as membership constraints on the
-    // corresponding sequence variable: `x in (allchar){lo,hi}` (or an
-    // open lower/upper variant when only one side is known). This lets
-    // e.g. `mem_var_split`'s fresh split variables inherit whatever
-    // length obligations the sub-solver has already derived for the
-    // parent variable's remaining suffix/prefix, instead of only ever
-    // seeing them through arithmetic constraints that regex-side rules
-    // do not consult.
+    // Forwards arithmetic bounds on `str.len(x)` as membership constraints
+    // `x in (allchar){lo,hi}` (or one-sided variants). This lets regex-side
+    // rules see length information directly.
     //
-    // Runs as an ordinary propagation plugin (every node, to fixpoint
-    // alongside every other propagation plugin) rather than a one-shot
-    // "root only" step: per node this naturally also picks up any
-    // *tighter* bound the sub-solver has derived for a variable it saw
-    // before (e.g. after further splits narrow it), not just the first
-    // bound ever seen for that variable. Idempotency (required by
-    // `propagation_plugin_i`'s confluence contract) is maintained by
-    // remembering, per variable, the last (lo, hi) pair whose membership
-    // was actually added, in a trail-managed map that is unwound on
-    // backtrack along with everything else - so a repeated query that
-    // yields the same bound is skipped (`noop`) and only a strictly
-    // tighter bound triggers a fresh membership add.
+    // The plugin remembers, per variable, the last forwarded `(lo, hi)`
+    // pair in a trail-managed map, so unchanged bounds are skipped and
+    // tighter bounds add a fresh membership.
     class mem_bounds_propagation : public eq_tree::propagation_plugin_i {
     public:
-        // Last (lo, hi) bound pair for which a membership was already
-        // added for a given variable, so unchanged bounds are skipped.
-        // Public: referenced by mem_bounds_last_trail (seq_mem_facet.cpp),
-        // this plugin's own trail-undo object for `m_last`.
+        // Last `(lo, hi)` pair already forwarded for a variable, so
+        // unchanged bounds are skipped. Public for the trail-undo helper.
         struct last_bound { rational lo, hi; bool has_lo = false, has_hi = false; };
 
     private:
@@ -286,10 +229,8 @@ namespace seq {
         };
         stats m_stats;
 
-        // Collect the candidate sequence variables currently live in
-        // this node: those appearing in eq_facet's equations (both
-        // sides) and mem_facet's own membership tokens - the only two
-        // facets that expose variable-bearing token vectors today.
+        // Collect candidate sequence variables from equation sides and
+        // membership tokens.
         void collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const;
 
     public:
@@ -303,35 +244,12 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Length/Parikh feasibility check, ported (in spirit) from the c3
-    // branch's `seq_parikh` congruence-abstraction engine, but built as a
-    // thin wrapper over infrastructure this port already has:
-    // `seq_util::rex::info`/`util/len_abs.h`'s `len_abs` compute a sound
-    // ultimately-periodic over-approximation of a regex's admissible word
-    // lengths structurally, so this plugin only has to combine the
-    // per-membership abstractions already reachable via
-    // `u.re.get_info(view.m_state).len()` and check the meet for
-    // emptiness - no separate hand-rolled length/stride reasoning is
-    // needed (see len_abs.h's module comment: (a^4)* meet (b^6)* type
-    // refutations - e.g. two plain memberships on the same variable whose
-    // period/residue sets disagree - are exactly what this abstraction is
-    // for).
+    // Length/Parikh feasibility check. It combines the `len_abs`
+    // abstractions of multiple plain memberships on the same variable and
+    // refutes the node if their meet is empty.
     //
-    // Trigger: some variable carries two or more PLAIN membership views
-    // (`str_mem::is_plain()`, i.e. `x in R_i`, not a reach view) whose
-    // combined (meet of) length abstractions is certified empty by
-    // `len_abs::is_empty()` - a sound refutation, since every value of
-    // `x` must lie in the length set of every `R_i` simultaneously.
-    //
-    // Implemented as a `split_plugin_i` (not a propagation plugin), per
-    // the same rationale as `eq_approx_split`: this is a pure refutation
-    // gate (it never commits a branch, only ever calls
-    // `n.set_conflict()` or declines), so it must run at a low
-    // `min_cost()` ahead of every other, more expensive branching rule
-    // rather than eagerly firing every propagation fixpoint round -
-    // mirroring how c3 invokes its own Parikh feasibility check ahead of
-    // `generate_extensions` rather than folding it into ordinary
-    // constraint propagation.
+    // This is a `split_plugin_i` because it is purely a cheap refutation
+    // gate: it either reports conflict or declines.
     class mem_parikh_split : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -354,10 +272,9 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Membership-side analog of `power_peel` (seq_power_facet.h), c3's
-    // `apply_var_num_unwinding_mem`: a power token `U^n` at a directional end of a
-    // membership's string is peeled, `n <= 0` (U^n := epsilon) or `n >= 1`
-    // (U^n := U . U^(n-1)). Both branches go through `broadcast_subst`.
+    // Peel a power token `U^n` at a directional end of a membership:
+    // `n <= 0` gives `epsilon`, `n >= 1` gives `U . U^(n-1)`. Both
+    // branches go through `broadcast_subst`.
     class power_peel_mem : public eq_tree::split_plugin_i {
         ast_manager&  m;
         seq_util&     u;
@@ -397,30 +314,14 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Self-contained monadic decomposition of ONE membership constraint
-    // `term in R` into an iterator of branches, each branch being the
-    // vector of (variable, view) pairs the search commits to for every
-    // variable occurrence in `term` - a reach view <state,target> for a
-    // variable followed by more of the term, a membership view
-    // <state,null> for a variable that ends it (see seq_view.h).
+    // Decompose one membership `term in R` into branches. Each branch is a
+    // vector of `(variable, view)` pairs: a reach view for a variable
+    // followed by more of the term, or a membership view for a variable
+    // that ends it.
     //
-    // This class deliberately does ONLY the decomposition: it never
-    // tests whether the views it hands out for a given variable have a
-    // non-empty intersection with views coming from elsewhere (e.g. the
-    // same variable's occurrence in a DIFFERENT membership, or an
-    // ambient length bound) - that is `view_witness`'s job
-    // (seq_view_witness.h), which a caller combining several
-    // memberships (see mem_monadic_split below) consults once it has
-    // accumulated a variable's views across however many mem_split
-    // instances it drives. Folding that check in here would duplicate
-    // view_witness and reintroduce exactly the conflation seq_monadic
-    // had between single-membership decomposition and joint
-    // (multi-membership) solving.
-    //
-    // Mirrors seq_monadic's derivative-stepping DFS (advance_pos /
-    // push_frame / commit_next / run_search), specialized to a single
-    // membership: there is exactly one atom stream and no per-variable
-    // group bookkeeping.
+    // This class only performs the decomposition. It does not test whether
+    // views for the same variable are jointly feasible; that is
+    // `view_witness`'s job.
     class mem_split {
     public:
         struct elem {
@@ -430,11 +331,9 @@ namespace seq {
         };
         using branch = vector<elem>;
 
-        // Lazily enumerates the branches of the decomposition prepared by
-        // the last iterate() call.  Only ONE iterator may be in flight for
-        // a given mem_split at a time (a fresh iterate() call throws away
-        // the previous search's stack) - `m_gen` detects a stale iterator
-        // and makes it report exhausted rather than resume garbage state.
+        // Lazily enumerates the branches prepared by the last iterate()
+        // call. Only one iterator may be live per `mem_split`; `m_gen`
+        // makes stale iterators report exhaustion.
         //
         // next() returning false with gave_up() false means the
         // decomposition of this membership is fully exhausted, i.e. the
@@ -453,12 +352,8 @@ namespace seq {
         };
 
     private:
-        // One frame per variable atom on the branch currently being built;
-        // frames form an explicit stack so a leaf can be left standing and
-        // resumed later by the iterator (mirrors seq_monadic::frame,
-        // narrowed to a single membership: no `mi`/`vi`/`finalize`/`undef`
-        // bookkeeping, since there is one membership and no cross-variable
-        // grouping here).
+        // One frame per variable atom on the current branch. Frames form an
+        // explicit stack so a leaf can be resumed by the iterator.
         struct frame {
             unsigned i;             // atom index this frame stands on
             expr*    R;             // derivative state entering atom i
@@ -525,50 +420,27 @@ namespace seq {
         mem_split(ast_manager& m, seq_util& u, seq_rewriter& rw, live_states& live) :
             m(m), u(u), m_rw(rw), m_live(live), m_thrw(m), m_pin(m), m_atoms(m) {}
 
-        // Work budget for one iterate() call (search nodes / derivative
-        // steps); default matches seq_monadic's per-decision budget.
+        // Work budget for one iterate() call.
         void set_budget(unsigned b) { m_budget_limit = b; }
 
-        // True when some element of `str` (already-flattened, e.g.
-        // str_mem::m_str) is a seq.unit wrapping something other than a
-        // constant value - the one shape this class cannot decompose (a
-        // sequence variable, or a seq.unit of a value, are both fine).
+        // True when `str` contains a seq.unit of a non-value, which this
+        // class cannot decompose.
         bool can_decide(expr_ref_vector const& str);
 
-        // Begin decomposing the membership whose already-flattened atom
-        // stream is `str` (see str_mem::m_str) against `v` (a plain
-        // membership or a reach view - live_states/seq::accepts are both
-        // mode-independent in the state they enumerate/test, so either
-        // kind decomposes the same way, only the final acceptance test
-        // differs, see final_accepts()); invalidates any iterator from a
-        // previous call. If can_decide() flags `str` as containing an
-        // undecidable element, the returned iterator reports gave_up()
-        // immediately (defensive: mem_facet only ever holds terms this
-        // class can decompose).
+        // Begin decomposing the already-flattened atom stream `str`
+        // against `v`. Invalidates any iterator from a previous call. If
+        // `str` contains an unsupported element, the returned iterator
+        // reports `gave_up()` immediately.
         iterator iterate(expr_ref_vector const& str, view const& v);
     };
 
 
-    // Drives ONE active plain membership's decomposition at a time (see
-    // mem_split's own class comment for what one membership's
-    // decomposition means): split() picks the cheapest active plain
-    // membership that is not already a single-variable view (see
-    // is_single_var_plain() in seq_mem_facet.cpp - those are handled
-    // directly by mem_facet's own view_witness, m_vw, and never reach
-    // this class at all), and this iterator wraps a single
-    // mem_split::iterator over it. Materializing a branch narrows every
-    // variable occurrence in that one membership's string into a fresh
-    // single-variable str_mem (mem_facet::add), which mem_facet::add()
-    // then registers with m_vw itself - so cross-membership consistency
-    // for a variable that occurs in several (originally distinct)
-    // memberships is entirely m_vw/mem_propagation's responsibility,
-    // never this class's. This intentionally removes the joint
-    // multi-membership DFS the previous port of this class used to run
-    // (with its own private view_witness, m_groups/m_group_deps
-    // bookkeeping, and per-membership last-occurrence tracking): with
-    // decomposition one-membership-at-a-time and per-variable joint
-    // feasibility fully delegated to mem_facet's persistent, incrementally
-    // maintained m_vw, none of that machinery is needed here anymore.
+    // Decomposes one active membership at a time. `split()` picks the
+    // cheapest active membership that is not already a single-variable
+    // plain membership, then materializes one `mem_split` branch by
+    // replacing it with fresh single-variable memberships. Joint
+    // feasibility across memberships is handled by `view_witness` in
+    // `mem_facet`, not here.
     class mem_monadic_split : public eq_tree::split_plugin_i {
         ast_manager&      m;
         seq_util&         u;
@@ -598,26 +470,15 @@ namespace seq {
                 m_it(m_split.iterate(sm.m_str, sm.m_view)) {}
             bool next(eq_tree::edge& out) override;
             // See mem_split::iterator's class comment on the same
-            // ambiguity: next() reporting no branch could mean either
-            // "this single membership is genuinely refuted" or "gave up
-            // before deciding". gave_up() disambiguates for split(),
-            // which must not report a conflict on a mere give-up.
+            // `next()` returning no branch may mean either "refuted" or
+            // "gave up"; `gave_up()` disambiguates that for `split()`.
             bool gave_up() const { return m_it.gave_up(); }
             eq_tree::dep_tracker dep() const { return m_dep; }
         };
 
-        // Finds the cheapest (fewest non-unit atoms) active membership
-        // that is not already a single-variable view (plain `x in R` or
-        // reach `x reaches target` alike - mem_split decomposes both, see
-        // its class comment); ties broken by earliest index. Non-unit
-        // atoms (variables) are what drives the combinatorial branching in
-        // mem_split - unit atoms just narrow the automaton state without
-        // any choice, so counting only non-units ranks by actual branching
-        // cost rather than raw string length. Returns false if no such
-        // membership exists (nothing left for this class to do - either
-        // mf.is_satisfied() already holds, or every active membership is a
-        // single-variable view whose feasibility is m_vw/mem_propagation's
-        // job).
+        // Find the cheapest active membership that is not already a
+        // single-variable view. Cost counts only non-unit atoms, which
+        // are the actual branching points.
         bool find_split_target(mem_facet const& mf, unsigned& idx);
 
     public:
@@ -632,51 +493,22 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
-    // Whole-language, whole-conjunction decision rule ("monadic leaf",
-    // c3/z3-tacas: nielsen_graph::apply_monadic_leaf,
-    // seq_nielsen_regex.cpp). Where mem_monadic_split above decomposes ONE
-    // compound membership at a time (token-by-token derivative splitting,
-    // driven back through mem_split/view_witness), this rule instead feeds
-    // every currently active PLAIN membership (whole term, non-reach) into
-    // a single `seq::monadic` engine instance and asks it to decide the
-    // WHOLE conjunction in one shot - the same self-contained decision
-    // procedure theory_seq's own seq_regex.cpp already uses for classic
-    // seq. This matters most for "MembershipEquations"-style benchmarks,
-    // where several regex-constrained variables are also linked by word
-    // equations: mem_monadic_split's per-token case splitting blows up
-    // combinatorially on these, while seq::monadic decides the whole
-    // regex side directly and lets the resulting concrete witness settle
-    // the equation side too.
+    // Whole-conjunction decision rule. Unlike `mem_monadic_split`, which
+    // decomposes one membership at a time, this rule feeds every active
+    // plain membership into one `seq::monadic` instance and asks it to
+    // decide the whole conjunction.
     //
-    // Unlike z3-tacas's nielsen_graph, this port has no persistent
-    // per-branch node objects to tag "already tried, don't refire" (see
-    // module comment / apply_monadic_leaf's node->is_signature_alias()
-    // guard) - the search tree here reuses one mutable node throughout the
-    // whole DFS. m_declined_here plays that role instead: it is set true,
-    // via a value_trail pushed on the SHARED node trail, only when the
-    // "unchanged" (child B) branch below is committed, so split() declines
-    // outright on that exact subtree until backtracking restores it to
-    // false - without needing any node-side flag.
+    // `m_declined_here` prevents the unchanged branch from refiring on the
+    // same subtree; it is trailed on the shared node trail and cleared on
+    // backtrack.
     //
     // Two outcomes on check():
-    //  - l_false: the fed memberships are a SUBSET of the node's full
-    //    constraint set, so refuting them alone refutes the whole node,
-    //    regardless of whatever equations/disequations are also active
-    //    (mirrors nielsen_graph's `refute_only` reasoning) - this half is
-    //    therefore always attempted.
-    //  - l_true: only acted on when eq_facet/deq_facet are BOTH already
-    //    satisfied (no active equations/disequations) - otherwise this is
-    //    a relaxation (the memberships alone being satisfiable says
-    //    nothing about the equations), so it is silently discarded exactly
-    //    as z3-tacas's refute_only gate does. When it does apply, every
-    //    variable in the joint solution is materialized to a witness word
-    //    and the rule commits two branches: child A pins every variable to
-    //    its witness via a fresh eq_facet equation (a sound restriction,
-    //    checked like any other equation by the rest of the search); child
-    //    B leaves the node completely unchanged but marks m_declined_here
-    //    so this rule does not refire on it (this is what keeps the rule
-    //    complete - child B still covers "the witness picked might be
-    //    wrong").
+    //  - `l_false`: the memberships alone are inconsistent, so the whole
+    //    node is inconsistent.
+    //  - `l_true`: only useful once eq/deq facets are already satisfied.
+    //    The rule then pins each variable to a witness equation in one
+    //    branch and leaves an unchanged fallback branch guarded by
+    //    `m_declined_here`.
     class mem_leaf_split : public eq_tree::split_plugin_i {
         ast_manager&        m;
         seq_util&           u;
@@ -685,12 +517,7 @@ namespace seq {
         unsigned            m_budget;
         unsigned            m_budget_root;
         bool                m_declined_here = false;
-        // See split()'s comment: not trailed - a true one-time (per
-        // reset_root_ask()) lifetime event, mirroring c3's
-        // m_monadic_leaf_root_asked. theory_nseq resets this once before
-        // every m_tree.solve() call (one "search" per final_check_eh, as
-        // in c3), so a later search over a since-grown constraint set
-        // gets its own root ask.
+        // Not trailed: reset once per outer search by `reset_root_ask()`.
         bool                m_root_asked = false;
         struct stats {
             unsigned m_num_asked = 0;
@@ -701,25 +528,11 @@ namespace seq {
         };
         stats m_stats;
 
-        // Memoization over ask()'s own decision: the SAME set of (term,
-        // regex) pairs, fed to a fresh seq::monadic instance, always
-        // gets the SAME l_true/l_false verdict - the class comment above
-        // already relies on this ("refuting them alone refutes the whole
-        // node", i.e. the verdict is a pure fact about the pair set, not
-        // about whatever else is active at the node that asked). Since
-        // the DFS in stx_search_tree has no shared UNSAT-node cache (see
-        // c3's m_unsat_node_cache; not ported - see module comment), the
-        // exact same conjunction is often re-asked from many different
-        // nodes whose OTHER constraints (unrelated equations/splits)
-        // differ but whose active plain memberships happen to coincide.
-        // This cache turns every such re-ask after the first into an O(1)
-        // (well, O(#fed) for the linear scan) lookup instead of a fresh
-        // seq::monadic search. Entries are permanent for this plugin's
-        // (i.e. this theory_nseq instance's) lifetime: they depend only
-        // on AST term/regex identity, never on tree position or search
-        // context, so nothing ever needs to invalidate them on backtrack.
+        // Cache `ask()` results by the sorted `(term, regex)` pairs fed to
+        // the solver. The verdict depends only on that set, so entries are
+        // valid across backtracking for the plugin's lifetime.
         struct leaf_cache_entry {
-            std::vector<std::pair<expr*, expr*>> key;   // sorted (term, regex) pairs fed
+            std::vector<std::pair<expr*, expr*>> key;   // sorted `(term, regex)` pairs
             lbool                                 result;
             bool                                   has_witnesses = false;
             expr_ref_vector                        wit_vars;
@@ -736,11 +549,8 @@ namespace seq {
             return nullptr;
         }
 
-        // Records a fresh verdict for `key`. `witnesses`, when non-null, is
-        // the already-materialized substitution to replay on future
-        // l_true cache hits that also need witnesses (see ask()); passing
-        // nullptr caches a witness-less l_true (still useful for
-        // refutation-only re-asks of the same key).
+        // Record a fresh verdict for `key`. When non-null, `witnesses` is
+        // replayed on future `l_true` cache hits that also need witnesses.
         void cache_insert(std::vector<std::pair<expr*, expr*>> const& key, lbool result, expr_substitution* witnesses) {
             m_cache.emplace_back(m, key, result);
             leaf_cache_entry& e = m_cache.back();
@@ -753,24 +563,12 @@ namespace seq {
             }
         }
 
-        // Runs one ask of the engine over every active plain membership in
-        // `mf`: asserts them all (in a private, immediately-popped scope
-        // of m_mon_trail), calls check() under `budget`, and reports the
-        // verdict. On l_false, `all_dep` is overwritten with the
-        // minimized-core dependency (from m_mon.core()) - the conflict
-        // justification. On l_true, `all_dep` holds the joined
-        // dependency of every fed membership - the justification for any
-        // equation this rule goes on to add - and, when `witnesses` is
-        // non-null, every variable's joint solution is materialized into
-        // it (materialize_all()); a materialization failure degrades the
-        // result to l_undef. Passing `witnesses == nullptr` requests a
-        // refutation-only ask (mirrors nielsen_graph's refute_only):
-        // l_true is still reported (with all_dep set) but nothing is
-        // materialized, letting the caller cheaply distinguish "would
-        // have committed a witness" from "nothing to feed" without
-        // paying materialize()'s cost. Returns l_undef if there was
-        // nothing to feed (no active plain memberships decidable by the
-        // engine) - callers must not treat that as "decided".
+        // Ask the monadic engine about every active plain membership in
+        // `mf`. On `l_false`, `all_dep` is replaced by the minimized core.
+        // On `l_true`, `all_dep` is the joined dependency of the fed
+        // memberships and `witnesses`, when requested, receives the joint
+        // solution. Returns `l_undef` when nothing was fed or the solver
+        // could not decide.
         lbool ask(mem_facet const& mf, unsigned budget, eq_tree::dep_tracker& all_dep, expr_substitution* witnesses);
 
         class iterator : public eq_tree::split_iterator_i {
@@ -795,10 +593,8 @@ namespace seq {
         char const* name() const override { return "mem-leaf"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
 
-        // Called once by theory_nseq right before every m_tree.solve()
-        // (see split()'s comment on m_root_asked / c3's
-        // monadic_leaf_root_refute): gives the next search its own
-        // refutation-only root ask, even while equations are pending.
+        // Called before each outer search to re-enable the root-only
+        // refutation ask, even while equations are pending.
         void reset_root_ask() { m_root_asked = false; }
 
         void collect_statistics(::statistics& st) const override {

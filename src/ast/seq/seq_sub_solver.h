@@ -9,33 +9,13 @@ Abstract:
 
     Abstract incremental-arithmetic backend interface `sub_solver_i`.
 
-    `solver_facet` (smt/seq_solver_facet.h) is the only concrete consumer
-    that owns/constructs a `sub_solver_i` instance (via `sub_solver`).
-
-    Interface requirements:
-
-    S_m - the main solver state based on asserted literals 
-    M_m - model of the main solver state (for arithmetic variables)
-    S_s - the sub-solver state during search
-    M_s - model of the sub-solver state
-    L_s - assumption literals asserted on the sub-solver state
-
-    We will assume a relation between S_m and S_s by 
-    
-             S_s = S_m + L_s
-
-   M_m(|x|) in N_\bot - current assignment to length |x| term in main solver. \bot if there are no assignments
-   S_m(|x|_lo) in N_\bot - forced lower bound in main solver
-   S_m(|x|_hi) in N_\bot - forced upper bound in main solver
-
-   Assumption on model construction by search tree:
-   
-      Preferred: |M_s(|x|)| = M_m(|x|) if M_m(|x|) \neq \bot 
-      Required: S_m(|x|_lo) <= |M_s(|x|)| <= S_m(|x|_hi)
-
-   In other words, the string x is preferrably to be assigned values that are consistent with the current model.
-
-   If the subsolver ends in a satisfiable state, then literals in L_s are assumed if they are not already true in M_m / S_m.
+    `solver_facet` owns the concrete backend and exposes it through this
+    interface. The backend models a branch-local state `S_s = S_m + L_s`,
+    where `S_m` is the ambient solver state and `L_s` are branch
+    assumptions. Its model should prefer the main solver's current length
+    values when available and must respect its known lower and upper
+    bounds. If the backend is satisfiable, assumptions from `L_s` must be
+    adopted by the main solver unless they are already implied.
    
 Author:
 
@@ -54,13 +34,11 @@ typedef ref<model> model_ref;
 namespace seq {
 
     /**
-     * Abstract incremental-arithmetic backend interface (per
-     * z3papers/nseq/facet-arith.md's `sub_solver_i`). `solver_facet` is
-     * built entirely against this interface - it has no dependency on
-     * `src/solver/solver.h` or any concrete solver implementation. One
-     * instance is shared by every `solver_facet` clone in the tree (they
-     * all describe the same underlying incremental scope stack, kept in
-     * sync with DFS backtracking via `facet_i::on_enter`/`on_leave`).
+     * Abstract incremental-arithmetic backend interface. `solver_facet`
+     * uses this surface without depending on any concrete solver type.
+     * One backend instance is shared by all `solver_facet` clones in the
+     * tree and kept in sync with DFS backtracking by
+     * `facet_i::on_enter`/`on_leave`.
      */
     class sub_solver_i {
     public:

@@ -36,12 +36,8 @@ namespace seq {
     void req_facet::remove(unsigned idx) {
         m_trail.push(vector_erase_trail<str_req>(m_reqs, idx));
         m_reqs.erase(m_reqs.begin() + idx);
-        // Any request at or after `idx` that m_qhead had already passed
-        // shifts down by one; since requests are only ever removed once
-        // resolved (i.e. at an index already < m_qhead, see
-        // req_propagation::propagate), m_qhead itself needs to shrink by
-        // one to keep pointing at the same logical "first unexamined"
-        // boundary.
+        // Removing a resolved request below `m_qhead` shifts later entries
+        // down, so move `m_qhead` back to the same logical boundary.
         if (idx < m_qhead)
             advance_qhead(m_qhead - 1);
     }
@@ -69,11 +65,9 @@ namespace seq {
 
         bool changed = false;
         unsigned head = f.qhead();
-        // Examine every request from qhead() to the end exactly once per
-        // round; a request whose bisimulation verdict remains l_undef is
-        // simply left behind (qhead advances past it too - nothing in
-        // this facet ever mutates a pending request's p/q, so retrying
-        // it on a later round cannot help, see module comment).
+        // Examine every request from `qhead()` to the end exactly once.
+        // Undecided requests are left behind because this facet never
+        // mutates their `p/q`.
         while (head < f.reqs().size()) {
             str_req const& r = f.reqs()[head];
             regex_bisim bisim(m_rw);

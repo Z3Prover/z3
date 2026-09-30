@@ -86,13 +86,7 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // Ground/ground case where the needle genuinely does not occur:
-    // `not contains("abc", "d")` must be satisfiable (both are fully
-    // ground, so the recursive split simply exhausts the haystack
-    // without ever aligning, and the case is discharged once the
-    // haystack token list is fully consumed by the split's own
-    // bookkeeping - this is a pure ground-term / no-variable exercise of
-    // ncontains_split's recursion).
+    // Ground negative containment with no matching position should be sat.
     static void tst_ncontains_ground_no_occurrence_sat() {
         fixture fx;
         expr_ref h(fx.u.str.mk_string(zstring("abc")), fx.m);
@@ -113,15 +107,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // Variable-based case exercising the subst_sink_i re-derivation
-    // (facet-ncontains.md section 4's monotonicity-soundness fix): the
-    // obligation `not contains(X, "b")` is initially undecided (X is an
-    // unresolved variable), but once eq_facet's Nielsen split forces
-    // `X := "b"` (via the equation `X = "b"` also asserted), the
-    // broadcast substitution must let ncontains_facet re-derive the
-    // obligation against the new representative and detect the conflict
-    // - if apply_subst were missing/wrong, this would incorrectly report
-    // sat instead of unsat.
+    // After solving `X = "b"`, the substitution must be reflected in
+    // `not contains(X, "b")`, yielding a conflict.
     static void tst_ncontains_resolved_by_substitution_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -132,13 +119,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // Multi-position case: haystack = X ++ "b" (X unresolved). Position 0
-    // (X vs "b") is undecided, but position 1 ("b" vs "b") is a
-    // determined match - the needle provably occurs regardless of what X
-    // turns out to be, so this must be unsat even though not every
-    // position is individually decided. This exercises the fix that scans
-    // ALL candidate starting positions (not just position 0) before
-    // concluding "pending".
+    // A definite match at a later position should still make
+    // `not contains(X ++ "b", "b")` unsat.
     static void tst_ncontains_match_not_at_first_position_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);

@@ -7,27 +7,8 @@ Module Name:
 
 Abstract:
 
-    Theory plugin for string/sequence constraints driven by the modular
-    `stx::search_tree` engine (util/stx_search_tree.h) with the facets and
-    plugins implemented under `ast/seq` and `smt/seq_solver_facet.h`.
-
-    This is modeled after the c3 branch's `theory_nseq` (Nielsen-graph based),
-    but replaces the Nielsen-graph/sgraph end-game machinery with the
-    `stx::search_tree<unsigned>` engine (`seq::eq_tree`) that is already used
-    by the `ast/seq` facet unit tests: `eq_facet`/`deq_facet`/`power_facet`/
-    `mem_facet`/`ncontains_facet`/`solver_facet`, plus passive incremental
-    state such as `ho_facet`, propagated/split by the already-implemented
-    plugin classes.
-
-    Split-plugin registration order mirrors the priority order in which the
-    c3 branch's `nielsen_graph::generate_extensions`
-    (smt/seq/seq_nielsen_search.cpp) applies its corresponding rules, for
-    every plugin that currently has an analog implemented under `ast/seq`.
-
-    Model construction and other c3-era features that have no analog yet
-    (regex factorization, monadic-leaf/landing decomposition beyond
-    `mem_monadic_split`, signature split, cycle subsumption, ...) are
-    intentionally deferred/stubbed.
+    Theory plugin for string and sequence constraints driven by the
+    modular `stx::search_tree` engine and the facets under `ast/seq`.
 
 Author:
 
@@ -67,48 +48,21 @@ namespace seq {
 namespace smt {
 
     /**
-     * `smt::theory` subclass driving `seq::eq_tree` (`stx::search_tree<unsigned>`)
-     * with the `ast/seq` facets/plugins in place of the c3 branch's
-     * Nielsen-graph based end-game.
+     * `smt::theory` subclass driving `seq::eq_tree`.
      *
-     * Constraints asserted by the SMT core (`new_eq_eh`/`new_diseq_eh`, and
-     * `str.in_re` atoms via `assign_eh`) are queued (mirroring the c3 branch's
-     * `m_prop_queue`/`m_prop_qhead`), and drained into a freshly-populated
-     * `seq::eq_tree` at each `final_check_eh`: the tree's own facets/plugins
-     * are stateless w.r.t. earlier final checks, so the tree is rebuilt (not
-     * incrementally reused) each time - this keeps the translation from
-     * "current SMT-context assignment" to "search-tree root state" simple and
-     * avoids depending on `stx::search_tree`'s push/pop machinery across
-     * distinct final-check calls (that machinery is used internally, within
-     * one `solve()` call, to support the DFS itself).
-     *
-     * Because every facet class in `ast/seq` is written directly against the
-     * concrete `seq::eq_tree` alias (`stx::search_tree<unsigned>`, not a
-     * template parameter), the dependency leaves recorded while populating
-     * the tree are plain `unsigned` indices; `theory_nseq` maintains its own
-     * side table (`m_assumptions`) mapping each such index back to the real
-     * SMT assumption (an enode-equality or a literal) that justified it, so
-     * that a tree-level `unsat` conflict can be translated into a genuine
-     * SMT conflict clause via `dep_mgr().linearize(...)` + this table.
+     * The search tree is rebuilt at each `final_check_eh` from the
+     * current SMT assignment. Tree dependencies are stored as `unsigned`
+     * leaves and mapped back through `m_assumptions` when a tree-level
+     * conflict is reported to the SMT core.
      */
     class theory_nseq : public theory {
         friend class seq::theory_nseq_ambient_context;
         class seq_model_value_proc;
 
-        // One real SMT-level justification underlying a single `unsigned`
-        // dependency-leaf value recorded in `seq::eq_tree`'s dependency
-        // manager. Mirrors `theory_seq::assumption`.
-        //
-        // `n1`/`n2` together with `is_diseq` represent either "n1 and n2
-        // are equal" (is_diseq == false, from new_eq_eh - already true in
-        // the ambient context, since they share an enode class) or "n1
-        // and n2 are distinct" (is_diseq == true, from new_diseq_eh -
-        // already true in the ambient context, since they are in
-        // different enode classes). Neither case needs (or eagerly
-        // creates) an equality literal: the corresponding
-        // `mk_eq(n1,n2)` atom is only internalized lazily, in
-        // report_conflict, if this assumption actually participates in
-        // a conflict.
+        // One SMT-level justification backing a single dependency leaf.
+        // Equality and disequality assumptions are represented by enodes;
+        // the corresponding equality literal is internalized lazily only
+        // if it is needed in a conflict clause.
         struct assumption {
             enode* n1 = nullptr, *n2 = nullptr;
             bool is_diseq = false;
@@ -121,135 +75,46 @@ namespace smt {
         seq_util           m_seq;
         arith_util          m_autil;
         seq_rewriter        m_rewriter;
-        th_rewriter         m_th_rewriter; // band-aid: normalizes `e` (e.g. folds
-                                            // str.len(unit(a)++x) into 1 + str.len(x))
-                                            // before querying m_arith_value, so bound/
-                                            // value queries reach the same term shape
-                                            // the SMT core's own preprocessing produced
-                                            // and internalized.
+        th_rewriter         m_th_rewriter; // normalize arithmetic terms before querying m_arith_value
         arith_value         m_arith_value;
-        expr_ref_vector     m_pin; // pins fresh terms (e.g. complemented regexes, Skolem
-                                   // fresh existentials for prefix/suffix/contains
-                                   // axiomatization) built while adding constraints that
-                                   // are not otherwise owned by the calling context.
+        expr_ref_vector     m_pin; // owns fresh helper terms built while adding constraints
 
-        // Axiomatization of string operations that are reduced to more
-        // basic constraints (length/index/replace/extract/at/nth/itos/
-        // stoi/lt/le/unit/is_digit/from_code/to_code, and negated
-        // prefix/suffix, following theory_seq's m_ax/enque_axiom/
-        // deque_axiom pattern - see theory_seq.h/.cpp). Unlike
-        // theory_seq, axioms are drained via can_propagate/propagate
-        // (not final_check_eh), consistent with the rest of theory_nseq's
-        // "apply as soon as noticed" style; the axioms themselves are
-        // solver-independent term rewrites (m_ax.add_*), so draining them
-        // eagerly rather than at final_check has no effect on soundness.
+        // Axiomatization of string operations reduced to simpler
+        // constraints. The queue is drained eagerly via
+        // can_propagate/propagate.
         smt::seq_axioms     m_ax;
-        seq::skolem         m_sk; // recognizes m_sk.is_eq-tagged internal equality
-                                   // atoms (see assign_eh's m_sk.is_eq branch);
-                                   // shares no state with m_ax's own private skolem
-                                   // instance, matching theory_seq's own separate
-                                   // m_sk member.
+        seq::skolem         m_sk; // recognizes internal equality atoms
         expr_ref_vector     m_axioms;      // queue of terms awaiting axiomatization
         obj_hashtable<expr> m_axiom_set;   // dedup guard for m_axioms enqueues
         unsigned            m_axioms_head = 0; // index of first axiom still to add
 
-        // Incremental cursor into ctx.assigned_literals() (the ambient
-        // SMT context's own assignment stack): index of the first literal
-        // not yet examined by flush_assigned_literals(). Mirrors
-        // m_axioms_head's push/pop discipline (via value_trail, on the
-        // same shared ctx.get_trail_stack() used by m_tree/m_root's own
-        // facets), so a literal fed to the arith sub-solver at trail
-        // scope k is naturally "un-consumed" again (the cursor rewinds)
-        // when the context backtracks past k - matching the backend
-        // solver_facet scope that housed it also being popped at that
-        // point (see solver_facet::add_constraint's own scope_trail).
+        // Index of the first assigned literal not yet forwarded to
+        // flush_assigned_literals(). Trailed so backtracking rewinds it.
         unsigned            m_lits_qhead = 0;
 
         seq::eq_tree                     m_tree;
         seq::eq_tree::node*              m_root = nullptr;
         seq::sub_solver             m_solver;
         scoped_ptr<seq::theory_nseq_ambient_context> m_ambient;
-        // Non-owning alias into m_tree's own split-plugin vector (which
-        // owns and destroys it) - kept so final_check_eh can call
-        // reset_root_ask() once before each m_tree.solve() (see
-        // seq::mem_leaf_split's class comment / c3's
-        // monadic_leaf_root_refute).
+        // Non-owning handle used to reset per-solve mem_leaf state.
         seq::mem_leaf_split*             m_mem_leaf = nullptr;
         seq_factory*                     m_factory = nullptr; // owned by the model's plugin_manager once registered
         obj_map<expr, expr*>             m_model_subst;
-        // Keeps every model_subst value (a witness term materialized by
-        // view_witness::product_nonempty in init_model) alive for as
-        // long as m_model_subst itself references it: m_model_subst
-        // stores raw expr* (see above), so without a ref-counted owner
-        // the witness's refcount could drop to 0 and the ast_manager
-        // could recycle/delete it once init_model's own locals
-        // (expr_substitution model, the local view_witness) go out of
-        // scope - leaving a dangling pointer that mk_value's add_token
-        // (via m_model_subst.find()) later dereferences. Cleared
-        // together with m_model_subst in finalize_model().
+        // Keeps witness terms referenced by m_model_subst alive.
         expr_ref_vector                  m_model_pin;
 
-        // Per-mk_value-round counter used to mint distinct private-use-area
-        // marker characters for length-correct fresh values (see mk_value's
-        // mk_length_correct_fresh_value lambda); reset in finalize_model.
+        // Counter for distinct marker characters used in fresh model values.
         unsigned                         m_next_fresh_len_marker = 0;
 
-        // Facet ids are registered once in the constructor and handed to
-        // m_ambient (set_eq_id() etc.); they are not kept as members
-        // here - all facet access goes through m_ambient's own id
-        // accessors / facet_as-style helpers (e.g. m_ambient->eq_facet(n)).
+        // Facet ids live in m_ambient; plugins are owned by m_tree.
 
-        // Propagation and split plugins are no longer stored as members:
-        // `stx::search_tree::add_propagation_plugin`/`add_split_plugin`
-        // now take ownership of a heap-allocated plugin (stored in the
-        // tree's own `scoped_ptr_vector`s, deallocated with the tree), so
-        // the constructor allocates each with `alloc(...)` and hands it
-        // straight to the tree - see theory_nseq.cpp. Registration order
-        // (in the constructor) mirrors the priority order of
-        // `nielsen_graph::generate_extensions` (seq_nielsen_search.cpp)
-        // for every plugin that has a current analog:
-        //   (simplification)  simplify_const_powers (exponent bounds) -> power_fixed_exp
-        //   priority 2   apply_power_epsilon        -> (folded into power_propagation)
-        //   (refutation gate)  seq_eq_approx (view-segment intersection) -> eq_approx_split
-        //   (refutation gate)  seq_parikh (length/period feasibility)    -> mem_parikh_split
-        //   priority 3   apply_num_cmp               -> power_split_elim
-        //   priority 3b  apply_split_power_elim       -> power_split_elim
-        //   priority 3c  apply_fine_wilf              -> power_fine_wilf
-        //   priority 4   apply_const_num_unwinding    -> power_peel
-        //   priority 5   apply_eq_split               -> eq_split
-        //   priority 5d  apply_monadic_landing        -> mem_monadic_split
-        //     (deviation: mem_monadic_split is registered ahead of
-        //     eq_split/word_eq_split in theory_nseq.cpp, not between
-        //     them as this priority numbering would suggest - regex
-        //     membership splitting is tried before any equality
-        //     splitting; see the registration-order comment there.)
-        //   priority 7   apply_gpower_intr            -> power_gpower_intro
-        //   priority 8b  apply_const_nielsen          -> word_eq_split (const/var)
-        //   priority 9   apply_regex_if_split         -> (removed; ite tokens treated as ordinary Nielsen variables, see ambient_context_i::is_var)
-        //   priority 10  apply_regex_var_split        -> (removed; see mem_var_split removal note in seq_mem_facet.h)
-        //   priority 11  apply_power_split            -> power_split
-        //   priority 12  apply_var_nielsen            -> word_eq_split (var/var)
-        //   (disequality unwinding)                   -> deq_split
-        //   (membership power peel)                   -> power_peel_mem
-
-
-        // Constraints are added directly to the ambient facets as soon as
-        // the SMT core notifies us (new_eq_eh/new_diseq_eh/assign_eh), not
-        // queued and drained at final_check_eh time: every facet's own
-        // trail is the shared `ctx.get_trail_stack()` (see m_tree's
-        // constructor), so a constraint added at scope level `k` is
-        // automatically retracted on pop_scope_eh back below `k`, exactly
-        // like any other trailed mutation. `m_assumptions` (below) is the
-        // corresponding side table and is itself scoped the same way, via
-        // `push_back_vector` in `mk_dep`.
+        // Constraints are fed into facets as soon as the SMT core reports
+        // them. Facet state and m_assumptions are trailed with the shared
+        // SMT trail stack.
         vector<assumption> m_assumptions;
 
-        // Assumption literals (from assumption_facet) that a satisfying
-        // tree state depended on, but that final_check_eh found not yet
-        // assigned true in the ambient context on the round it was found
-        // (see final_check_eh's sat case). Reset (to empty) via a trailed
-        // restore_vector pushed the moment this is populated, so it
-        // unwinds like any other trailed state on backtrack.
+        // Assumptions required by the current SAT snapshot but not yet
+        // assigned true in the ambient context.
         literal_vector m_pending_assumptions;
 
         unsigned m_num_conflicts = 0;
@@ -279,12 +144,7 @@ namespace smt {
         void finalize_model(model_generator& mg) override;
         model_value_proc* mk_value(enode* n, model_generator& mg) override;
 
-        // Model construction reads the SAT snapshot left by the search
-        // tree: eq_facet supplies the accumulated triangular
-        // substitutions, while mem_facet/seq_monadic-simplified views
-        // provide regex witnesses for any variable left unsolved by the
-        // equational part. Remaining unconstrained variables receive a
-        // fresh sequence value from seq_factory.
+        // Build models from the SAT snapshot left by the search tree.
         bool build_models() const override { return true; }
 
         char const* get_name() const override { return "nseq"; }
@@ -296,64 +156,20 @@ namespace smt {
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
 
-        // Drains ctx.assigned_literals() from m_lits_qhead onward into
-        // the arith facet's shared sub-solver (m_ambient->solver_facet),
-        // so that every relevant Boolean literal already forced true in
-        // the ambient SMT context is visible to solver_facet's backend,
-        // not just the length constraints solver_facet derives on its
-        // own from eq_facet's equations. A literal is forwarded only if
-        // ctx.is_relevant(lit) holds - matching the ambient context's own
-        // notion of relevance (see smt_context.h's is_relevant) - AND its
-        // atom is not itself one of the sequence/regex-theory predicates
-        // (str.in_re, prefix, suffix, contains, str.</str.<=, the
-        // internal is_eq skolem) assign_eh() already dispatches into the
-        // matching facet directly: solver_facet's sub-solver has no
-        // seq/char theory of its own (see sub_solver's ctor) and cannot
-        // soundly re-derive what such an atom means in isolation (see
-        // theory_nseq.cpp's is_seq_theory_atom() for the concrete
-        // unsoundness this was found to cause). Called right before
-        // m_tree.solve() in final_check_eh (i.e. whenever the sub-solver
-        // is about to be consulted). Each forwarded literal is tagged
-        // with its own dependency (mk_dep/dep_mgr().mk_leaf), exactly
-        // like every other assumption fed into the tree, so that if it
-        // contributes to a sub-solver conflict, report_conflict can
-        // build a sound (precise) SMT conflict clause that actually
-        // blocks it - not an unconditional "fact" that would silently
-        // survive backtracking past the scope that assigned it.
-        // m_lits_qhead's own updates are pushed on ctx.get_trail_stack()
-        // (value_trail<unsigned>, mirrors m_axioms_head), so a literal
-        // consumed at trail scope k is "un-consumed" again on
-        // backtracking past k - in lockstep with solver_facet::
-        // add_constraint's own backend scope for that same trail level
-        // being popped.
+        // Forward relevant assigned literals into solver_facet's backend,
+        // skipping sequence-theory atoms already handled by assign_eh.
+        // The cursor is trailed so backtracking replays literals in sync
+        // with solver_facet's backend scopes.
         void flush_assigned_literals();
 
-        // Mirrors theory_seq::propagate_eq: propagates an equality
-        // e1 = e2 directly into the SMT core (ctx.assign_eq), justified
-        // by lit (the m_sk.is_eq-tagged atom's literal, now true). Returns
-        // false (no-op) if e1/e2 already share an enode root. Since
-        // theory_nseq has no `new_eq_eh`-fed solved-form bookkeeping of
-        // its own beyond the eq_tree/facet machinery (already driven by
-        // the ordinary new_eq_eh callback once ctx.assign_eq triggers
-        // congruence closure), no separate "add_to_eqs" step is needed
-        // here (unlike theory_seq's own bookkeeping-heavy variant).
+        // Propagate e1 = e2 into the SMT core, justified by `lit`.
         bool propagate_eq(literal lit, expr* e1, expr* e2);
 
         bool get_num_value(expr* e, rational& val);
         bool lower_bound(expr* e, rational& lo);
         bool upper_bound(expr* e, rational& hi);
 
-        // Thin forwarder onto `seq::stoi_facet::check_stoi_coherence`
-        // (ast/seq/seq_stoi_facet.h), which now owns the actual
-        // coherence-checking control logic (ported from the c3 branch's
-        // `theory_nseq::check_stoi_coherence` of the same name). Called
-        // once per final check, before m_tree.solve(): returns true if
-        // no new axioms were needed (the tree's answer, if any, can
-        // stand), false if at least one axiom was freshly instantiated
-        // (the caller should FC_CONTINUE instead of committing to
-        // whatever m_tree.solve() would otherwise report, or - if it
-        // would otherwise FC_GIVEUP - FC_CONTINUE instead, since new
-        // information is now available).
+        // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
         bool add_ho_eq(expr* lhs, expr* rhs);
         bool find_ho_elaboration(expr* term, expr*& elaboration) const;

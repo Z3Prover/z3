@@ -29,26 +29,13 @@ Author:
 
 namespace smt {
 
-    // Model-value builder for a seq-sorted enode. Unlike the previous
-    // implementation (which eagerly substituted a *fresh* value for any
-    // non-value, non-unit token and then ran m_th_rewriter over the
-    // whole concatenation - discarding the actual dependency on that
-    // token's real model value), this walks the token list once in
-    // get_dependencies() to record every token that still needs a value
-    // computed for it (any unit() argument, or any other still-unresolved
-    // subterm) as a proper model_value_dependency, and only then, in
-    // mk_value(), splices each dependency's already-materialized value
-    // back into its slot before concatenating - so unit(x) where x is a
-    // shared variable receives the *same* character value assigned to x
-    // elsewhere, and any other non-value token found (e.g. the model_subst-
-    // rewritten forms) is also asked for its own value rather than being
-    // discarded in favor of an unrelated fresh one.
+    // Model-value builder for a seq-sorted enode. Non-literal tokens are
+    // recorded as dependencies and spliced back in once their values are
+    // available, so shared subterms keep their actual model values.
     class theory_nseq::seq_model_value_proc : public model_value_proc {
         theory_nseq&       th;
         sort*              m_sort;
-        // Each slot is either a literal (already-final) token, recorded
-        // directly, or a placeholder standing for the i'th dependency in
-        // m_dep_enodes/m_dep_units (resolved from `values` in mk_value).
+        // Each slot is either a final literal token or a dependency slot.
         struct slot {
             expr* m_literal = nullptr; // non-null: use this token as-is
             bool  m_is_unit = false;   // true: dependency's value must be wrapped via str.mk_unit
@@ -56,38 +43,20 @@ namespace smt {
         vector<slot>                      m_slots;
         ptr_vector<enode>                 m_dep_enodes;
         svector<bool>                     m_dep_is_unit;
-        // Pins every literal token's refcount for this proc's own
-        // lifetime. `mk_value()` runs much later than the code that
-        // discovers each literal (only after model_generator finishes
-        // topologically resolving every enode's dependencies), by which
-        // time the caller's own local expr_ref_vector(s) that happened to
-        // be the token's only other owner (e.g. `resolved`, or a nested
-        // `toks` built for a model_subst chain) have long since gone out
-        // of scope and released it. Without this pin, a literal recorded
-        // via add_literal() can be silently freed by the ast_manager and
-        // its slot later reused for an unrelated ast node (observed in
-        // practice as expr::get_sort() reaching UNREACHABLE on a stale
-        // slot reused as a sort/func_decl) between proc construction and
-        // mk_value() actually running.
+        // Keeps literal tokens alive until mk_value() runs.
         expr_ref_vector                   m_pin;
     public:
         seq_model_value_proc(theory_nseq& th, sort* s) : th(th), m_sort(s), m_pin(th.m) {}
 
-        // Append a token already known to be a final value/constant
-        // (values, or units wrapping a value char) - no dependency
-        // needed.
+        // Append a token already known to be final.
         void add_literal(expr* t) {
             slot sl;
             sl.m_literal = t;
             m_slots.push_back(sl);
-            m_pin.push_back(t); // keep alive until mk_value() runs - see m_pin comment
+            m_pin.push_back(t);
         }
 
-        // Append a token that still needs its model value computed:
-        // `n` is the enode whose value should be substituted in; if
-        // `is_unit` holds, `n`'s own value is the character payload of a
-        // unit() token (str.unit(value-of-n) is spliced in), otherwise
-        // `n`'s value is spliced in directly (n is itself seq-sorted).
+        // Append a token whose value will be provided later.
         void add_dependency(enode* n, bool is_unit) {
             slot sl;
             sl.m_is_unit = is_unit;
@@ -105,7 +74,7 @@ namespace smt {
             SASSERT(values.size() == m_dep_enodes.size());
             ast_manager& m = th.m;
             expr_ref_vector final_toks(m);
-            // runs of constant tokens become one string literal (a power's model may repeat its base thousands of times)
+            // Merge runs of constant tokens into one string literal.
             svector<unsigned> chars;
             auto flush = [&]() {
                 if (!chars.empty())
@@ -183,13 +152,7 @@ namespace smt {
             [this](expr* term, expr*& elaboration) { return find_ho_elaboration(term, elaboration); });
         m_ambient->stoi_facet(*m_root).set_instantiate([this](expr* e, unsigned k) { m_ax.add_stoi_axiom(e, k); });
 
-        // deterministic propagation plugins (order among these does not
-        // matter: the engine iterates every propagation plugin to
-        // fixpoint before ever consulting a split plugin). Each plugin
-        // is heap-allocated and handed to `m_tree`, which owns it from
-        // here on (stored in its own `scoped_ptr_vector`, deallocated
-        // with the tree) - see stx_search_tree.h's
-        // `add_propagation_plugin`/`add_split_plugin`.
+        // Propagation plugins are owned by m_tree.
         m_tree.add_propagation_plugin(alloc(seq::eq_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::deq_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::arith_propagation, m, m_seq));
@@ -200,17 +163,8 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
 
-        // split plugins: registration order mostly mirrors the priority
-        // order of the c3 branch's nielsen_graph::generate_extensions
-        // (see theory_nseq.h's module comment for the mapping table),
-        // with one deliberate deviation: mem_monadic_split (regex
-        // membership landing, c3 priority 5d) is registered ahead of
-        // eq_split/word_eq_split (equality splitting, c3 priorities 5
-        // and 8b/12) instead of between them, so that at cost 0 the
-        // engine always tries a regex-membership split before it tries
-        // any word-equation split. This was found experimentally to
-        // avoid needless equation case-splitting on nodes that a regex
-        // split alone can already close.
+        // Split plugins are owned by m_tree. Regex-membership splitting
+        // is tried before word-equation splitting.
         m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
@@ -230,23 +184,11 @@ namespace smt {
 
         m_tree.set_max_search_depth(100);
 
-        // Ablation switch for the unsat-node cache (see stx_search_tree.h's
-        // m_unsat_cache comment): NSEQ_UNSAT_CACHE=0 forces it off,
-        // NSEQ_UNSAT_CACHE=1 forces it on, unset uses the built-in default.
+        // NSEQ_UNSAT_CACHE=0 disables the UNSAT-node cache; =1 enables it.
         if (const char* cache_flag = getenv("NSEQ_UNSAT_CACHE"))
             m_tree.set_unsat_cache_enabled(atoi(cache_flag) != 0);
 
-        // Diagnostics only: NSEQ_DOT_FILE=<path>, if set, enables
-        // stx::search_tree's dot-trace recording (see stx_search_tree.h's
-        // m_dot_nodes comment). The file is kept live-updated throughout
-        // the search (throttled, see set_dot_live_file) rather than only
-        // dumped after m_tree.solve() returns, since a real -T: timeout
-        // is enforced by the shell calling _Exit() directly from a
-        // background thread once the deadline elapses - that never
-        // unwinds back to a post-solve() dump point, so a live file is
-        // the only way to see anything for a run that actually times
-        // out. Mirrors z3-tacas's nielsen_graph::to_dot() debugging
-        // facility, reusable via e.g. `dot -Tsvg <path> -o out.svg`.
+        // NSEQ_DOT_FILE=<path> enables a live-updated dot trace.
         if (const char* dot_path = getenv("NSEQ_DOT_FILE")) {
             m_tree.enable_dot_trace(true);
             m_tree.set_dot_live_file(dot_path);
@@ -389,8 +331,7 @@ namespace smt {
         literal lit(v, !is_true);
         expr* e1 = nullptr, *e2 = nullptr;
 
-        // Any other assignment invalidates the sat snapshot final_check_eh is waiting
-        // on; the pending assumption literals themselves are what it is waiting for.
+        // Any unrelated assignment invalidates the pending SAT snapshot.
         if (!any_of(m_pending_assumptions, [&](literal l) { return l.var() == v; }))
             m_pending_assumptions.reset();
         if (m_seq.str.is_in_re(e, e1, e2)) {
@@ -401,32 +342,21 @@ namespace smt {
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
             seq::view mv = seq::view::membership(re, m);
             expr_ref_vector ts = m_ambient->tokenize(e1);
-            // str_mem itself pins m_view's regex (m_regex, an expr_ref)
-            // for as long as the membership is live, so no separate
-            // theory_nseq::pin() call is needed here even though the
-            // complement is freshly built and not owned elsewhere.
+            // str_mem keeps the complemented regex alive.
             m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
             return;
         }
 
         if (m_seq.str.is_prefix(e, e1, e2)) {
-            // prefix(e1,e2) <=> exists f. e2 = e1 ++ f  in the true case;
-            // the false case - "e1 is not a prefix of e2" - has no
-            // eq_facet/ncontains_facet analog, so it is axiomatized
-            // directly (following theory_seq::propagate_not_prefix, minus
-            // the canonize-based short-circuit which relies on solved-form
-            // machinery theory_nseq doesn't have): the disjunctive axiom
-            // `!prefix(e1,e2) => len(e1) > len(e2) or e1=xcy & e2=xdz & c!=d`
-            // is emitted via m_ax.add_prefix_axiom, which internally calls
-            // back into add_axiom5/mk_eq_empty2 (wired in init()) to create
-            // ordinary theory-axiom clauses in the ambient SMT context.
+            // True prefix constraints become e2 = e1 ++ f; false ones are
+            // handled by the standard prefix axiom.
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
                 expr_ref_vector lhs = m_ambient->tokenize(e2);
                 expr_ref_vector rhs = m_ambient->tokenize(e1);
-                rhs.push_back(f); // fresh existential, kept alive by rhs's own ref (add_equation copies it into the stored equation)
+                rhs.push_back(f); // fresh existential
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else
@@ -435,16 +365,15 @@ namespace smt {
         }
 
         if (m_seq.str.is_suffix(e, e1, e2)) {
-            // suffix(e1,e2) <=> exists f. e2 = f ++ e1 in the true case;
-            // the false case is axiomatized directly, mirroring the
-            // prefix case above (theory_seq::propagate_not_suffix).
+            // True suffix constraints become e2 = f ++ e1; false ones are
+            // handled by the standard suffix axiom.
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
                 expr_ref_vector lhs = m_ambient->tokenize(e2);
                 expr_ref_vector rhs(m);
-                rhs.push_back(f); // fresh existential, kept alive by rhs's own ref
+                rhs.push_back(f); // fresh existential
                 rhs.append(m_ambient->tokenize(e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
@@ -457,30 +386,26 @@ namespace smt {
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             if (is_true) {
-                // contains(e1,e2) <=> exists x,y. e1 = x ++ e2 ++ y
+                // contains(e1,e2) => e1 = x ++ e2 ++ y
                 expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
                 expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
                 expr_ref_vector lhs = m_ambient->tokenize(e1);
                 expr_ref_vector rhs(m);
-                rhs.push_back(x); // fresh existentials, kept alive by rhs's own ref
+                rhs.push_back(x); // fresh existentials
                 rhs.append(m_ambient->tokenize(e2));
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else {
-                // not contains(e1,e2): a universal obligation, not reducible
-                // to an equation - accumulate it on ncontains_facet.
+                // not contains(e1,e2) is tracked by ncontains_facet.
                 m_ambient->ncontains_facet(*m_root).add_ncontains(e1, e2, dep);
             }
             return;
         }
 
         if (m_seq.str.is_lt(e, e1, e2) || m_seq.str.is_le(e, e1, e2)) {
-            // Lexicographic comparison: route into lex_facet instead of
-            // m_ax.add_lt_axiom/add_le_axiom's disjunctive Skolem
-            // axiomatization (see seq_lex_facet.h's module comment).
-            // Negation flips both the operator and the operand order:
-            // !(e1 < e2) <=> e2 <= e1, !(e1 <= e2) <=> e2 < e1.
+            // Route lexicographic comparisons into lex_facet. Negation
+            // flips both the operator and the operand order.
             bool strict = m_seq.str.is_lt(e);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
@@ -491,46 +416,10 @@ namespace smt {
         }
 
         if (m_sk.is_eq(e, e1, e2)) {
-            // Internal equality-atom skolem (see seq::skolem::mk_eq): the
-            // prefix/suffix/not-contains axioms (seq_axioms.cpp's
-            // prefix_axiom/suffix_axiom/ternary_string_recognizer, driven
-            // from the is_prefix/is_suffix/is_contains branches above)
-            // use this predicate to defer an internally-derived equality
-            // (e.g. the "not suffix" decomposition s = y.c.x, t = z.d.x,
-            // c != d) until the atom itself is asserted true.
-            //
-            // theory_seq's own assign_eh handles this by calling
-            // propagate_eq (ctx.assign_eq) and trusting new_eq_eh to feed
-            // the equality back into its own solved-form bookkeeping.
-            // That trust is misplaced for theory_nseq (and, on closer
-            // reading, for theory_seq too - it works there only because
-            // theory_seq's real equation-processing entry point is
-            // add_solved_edge/branch-and-bound off m_eqs pushed by other
-            // means): smt_context.cpp's context::merge_theory_vars
-            // deliberately SKIPS calling new_eq_eh back on the very
-            // theory whose own justification (get_from_theory()) drove
-            // the merge - "only send the equality to the theory, if the
-            // equality was not propagated by it" - specifically to avoid
-            // a pointless self-notification loop. Since propagate_eq's
-            // justification is tagged with get_id() (theory_nseq's own
-            // theory id), ctx.assign_eq's merge NEVER calls back into
-            // theory_nseq::new_eq_eh here, so eq_facet - which learns
-            // about every other equality exclusively through new_eq_eh -
-            // silently never learns about this one. The result is a
-            // soundness bug: the disjunct of the not-suffix/not-prefix/
-            // not-contains axiom that should pin down a concrete
-            // character mismatch is treated by the SAT core as already
-            // "handled", while nseq's own facets never see it, so a
-            // witness violating it can still be reported sat.
-            //
-            // Fix: feed eq_facet directly here, exactly as the true-case
-            // prefix/suffix/contains branches above already do for their
-            // own existential equations - do not rely on new_eq_eh for
-            // this one. ctx.assign_eq is still worth keeping alongside
-            // it (congruence closure/length sharing with the ambient
-            // egraph is harmless and can help other theories), but it is
-            // no longer the only route feeding this equality into the
-            // search tree.
+            // Internal equality skolem used by sequence axioms. Feed the
+            // equality directly to eq_facet as well as ctx.assign_eq:
+            // self-propagated equalities do not come back through
+            // new_eq_eh.
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
@@ -542,20 +431,14 @@ namespace smt {
             return;
         }
 
-        // No handler recognized this atom: log it so gaps in assign_eh's
-        // dispatch are visible rather than silently ignored.
+        // Log unhandled atoms instead of silently ignoring them.
         TRACE(seq, tout << "unhandled assign_eh: " << (is_true ? "" : "not ") << mk_bounded_pp(e, m) << "\n";);
     }
 
     // -----------------------------------------------------------------------
-    // Axiomatization queue: string operations reducible to more basic
-    // arithmetic/sequence constraints (length/index/replace/extract/at/
-    // nth/itos/stoi/lt/le/unit/is_digit/from_code/to_code). Follows
-    // theory_seq's relevant_eh/enque_axiom/deque_axiom pattern, but is
-    // drained eagerly (can_propagate/propagate) rather than at
-    // final_check_eh, matching theory_nseq's "apply as soon as noticed"
-    // style; the axioms themselves are solver-independent term rewrites,
-    // so eager draining is sound.
+    // Axiomatization queue for string operations reduced to simpler
+    // arithmetic and sequence constraints. The queue is drained eagerly
+    // via can_propagate/propagate.
     // -----------------------------------------------------------------------
 
     void theory_nseq::relevant_eh(expr* n) {
@@ -565,7 +448,7 @@ namespace smt {
             hf.add_term(n);
             ensure_length_var(s);
         }
-        // s^k: register the power obligation; the facet's rules assume k >= 0 (s^k = s^max(k,0))
+        // Register the power obligation with exponent clamped at 0.
         expr* pow_base = nullptr, *k = nullptr;
         if (m_seq.str.is_power(n, pow_base, k)) {
             expr* k0 = m_autil.is_numeral(k) ? k : m.mk_ite(m_autil.mk_ge(k, m_autil.mk_int(0)), k, m_autil.mk_int(0));
@@ -650,28 +533,8 @@ namespace smt {
         return 2 * j + 1;
     }
 
-    // A literal whose atom is one of the sequence/regex-theory predicates
-    // assign_eh() itself dispatches (str.in_re, prefix, suffix, contains,
-    // str.</str.<=, and the internal is_eq skolem) is already fed - fully
-    // and precisely - into the matching facet (mem_facet/eq_facet/
-    // ncontains_facet/lex_facet) the moment it is assigned; forwarding it
-    // AGAIN here would hand solver_facet's sub-solver (an isolated,
-    // QF_LIA-only `smt::solver` with no seq/char theory registered at
-    // all - see sub_solver's ctor) a raw sequence/regex atom it has no
-    // sound way to interpret. In practice this is not merely redundant:
-    // asserting e.g. a `str.in_re` atom whose regex nests a symbolic
-    // `re.range` bound (such as `(re.++ re.all (re.range s "c"))`) into
-    // that isolated solver lets its own (theory-independent) default
-    // preprocessing re-run seq_rewriter's regex-membership unfolding on
-    // it from scratch, in a context that never gets to see mem_facet's
-    // own (correct) resolution - this was observed to occasionally
-    // derive an incorrect verdict for such atoms in isolation, taking the
-    // whole node down as an unsound conflict. Excluding them here is
-    // always safe: nothing distinguishing about arithmetic/length
-    // reasoning is lost, since solver_facet already learns everything
-    // relevant about these atoms indirectly (their eq_facet/mem_facet
-    // consequences, e.g. via add_length_constraint) through the normal
-    // propagation plugins.
+    // Sequence-theory atoms are handled by their dedicated facets, not by
+    // solver_facet's arithmetic-only backend.
     static bool is_seq_theory_atom(seq_util& seq, seq::skolem const& sk, expr* atom) {
         expr* e1 = nullptr, *e2 = nullptr;
         return seq.str.is_in_re(atom, e1, e2) || seq.str.is_prefix(atom, e1, e2) ||
@@ -680,8 +543,6 @@ namespace smt {
                sk.is_eq(atom, e1, e2);
     }
 
-    // See theory_nseq.h's module comment on flush_assigned_literals for
-    // the full rationale.
     void theory_nseq::flush_assigned_literals() {
         seq::solver_facet_i& sf = m_ambient->solver_facet(*m_root);
         literal_vector const& lits = ctx.assigned_literals();
@@ -734,10 +595,7 @@ namespace smt {
                 clause.push_back(~a.lit);
             }
             else if (a.is_diseq) {
-                // n1, n2 were distinct in the ambient context - the
-                // equality literal is only created now, lazily, since
-                // the disequality is actually needed to justify this
-                // conflict.
+                // Lazily create the equality literal only if needed here.
                 SASSERT(a.n1->get_root() != a.n2->get_root());
                 clause.push_back(mk_eq(a.n1->get_expr(), a.n2->get_expr(), false));
             }
@@ -789,17 +647,8 @@ namespace smt {
         seq_model_value_proc* proc = alloc(seq_model_value_proc, *this, e->get_sort());
         seq::solver_facet_i const* sf = snap ? &m_ambient->solver_facet(const_cast<seq::eq_tree::node&>(*snap)) : nullptr;
 
-        // An "irreducible" seq variable (no equation/membership witness
-        // left to resolve it further) may still have its length pinned
-        // by the arithmetic facet (e.g. `(= (str.len x) 6)` with no other
-        // constraint on x's content). m_factory->get_fresh_value ignores
-        // any such length and returns an arbitrarily-sized "!N!"-style
-        // placeholder, which then fails model validation whenever the
-        // placeholder's length happens to differ from the pinned one.
-        // Build a value of exactly the pinned length instead: one
-        // private-use-area marker character (unique per call, so the
-        // value still behaves like a fresh value w.r.t. any other
-        // literal/fresh value in the model) followed by filler.
+        // Respect any arithmetic length fixed for an otherwise
+        // unconstrained sequence variable.
         auto mk_length_correct_fresh_value = [&](expr* t) -> expr* {
             expr* fallback = m_factory->get_fresh_value(t->get_sort());
             if (!sf)
@@ -810,10 +659,10 @@ namespace smt {
                 return fallback;
             unsigned n_len = len.get_unsigned();
             if (!m_seq.is_string(t->get_sort()))
-                return fallback; // only the common String case is handled here
+                return fallback;
             zstring s;
             if (m_seq.str.is_string(fallback, s) && s.length() == n_len)
-                return fallback; // already the right length
+                return fallback;
             svector<unsigned> chars;
             if (n_len > 0)
                 chars.push_back(m_seq.max_char() - (m_next_fresh_len_marker++));
@@ -824,13 +673,8 @@ namespace smt {
             return result;
         };
 
-        // Append token `t` to `proc`: literal tokens (values, units over
-        // a value char, or any token that has no enode yet - nothing to
-        // depend on) are recorded as-is; anything else that is already
-        // internalized records an actual dependency so its real,
-        // already-materialized model value is spliced in later by
-        // seq_model_value_proc::mk_value, instead of being thrown away
-        // for an unrelated fresh value.
+        // Append token `t`, either as a literal or as a dependency whose
+        // model value will be spliced in later.
         std::function<void(expr*)> add_token = [&](expr* t) {
             expr* sub = nullptr, *s = nullptr, *k = nullptr;
             rational count;
@@ -847,13 +691,7 @@ namespace smt {
                     proc->add_literal(t);
                 else {
                     enode* en = ctx.get_enode(ch);
-                    // model_generator only builds a model_value_proc for
-                    // enodes it deems relevant (see mk_value_procs); a
-                    // dependency on a non-relevant enode's root would
-                    // never be found in root2proc, crashing top-sort/
-                    // mk_values. Rather than forcing it relevant, fall
-                    // back to a default character - non-relevant enodes
-                    // are free to take an arbitrary value.
+                    // Non-relevant enodes have no model_value_proc.
                     if (ctx.is_relevant(en))
                         proc->add_dependency(en, true);
                     else
@@ -861,7 +699,7 @@ namespace smt {
                 }
             }
             else if (sf && m_seq.str.is_power(t, s, k) && sf->value(k, count) && count.is_unsigned()) {
-                // the base, repeated as often as the sat leaf's arithmetic model says
+                // Repeat the base as many times as the arithmetic model says.
                 for (unsigned c = 0; c < count.get_unsigned(); ++c)
                     add_token(s);
             }
@@ -870,26 +708,12 @@ namespace smt {
             }
             else {
                 enode* en = ctx.get_enode(t);
-                // eliminate() may fail to resolve `t` any further than
-                // `e` itself (e.g. an unconstrained seq variable), in
-                // which case en->get_root() == n: recording that as a
-                // dependency would be a self-dependency on the very
-                // enode this model_value_proc is building the value
-                // for, which model_generator::mk_values (see
-                // smt_model_generator.cpp) cannot satisfy (its value
-                // isn't in m_root2value yet) - fall back to a fresh
-                // value for such an irreducible token instead.
+                // Avoid a self-dependency on the very enode being built.
                 if (en->get_root() == n) {
                     proc->add_literal(to_app(mk_length_correct_fresh_value(t)));
                     return;
                 }
-                // Any other still-unresolved seq-sorted subterm that is
-                // already internalized: record a dependency on its own
-                // enode so its (separately computed) model value is
-                // spliced in here, rather than being replaced by an
-                // unrelated fresh value - unless it is not relevant, in
-                // which case there is no model_value_proc for it to
-                // depend on; fall back to the empty sequence instead.
+                // Non-relevant subterms have no model_value_proc.
                 if (ctx.is_relevant(en))
                     proc->add_dependency(en, false);
                 else
@@ -914,43 +738,24 @@ namespace smt {
 
             SASSERT(all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) != l_undef; }));
 
-            // At least one hypothesis turned out false: it never held,
-            // so the tree state it came from cannot be trusted as a
-            // model. Discard it and fall through to re-run the tree
-            // search below from scratch.
+            // A required hypothesis turned false; discard the snapshot.
             m_pending_assumptions.reset();
         }
 
         m_ambient->reset_conditional_deps();
         flush_assigned_literals();
-        // Instantiate any inductive stoi coherence axioms now made
-        // available by the arithmetic sub-solver committing to concrete
-        // lengths (see check_stoi_coherence's declaration). Doing this
-        // before m_tree.solve() lets a `str.to_int` unfolding feed
-        // straight into the very same search; `stoi_progress` also lets
-        // any later FC_GIVEUP in this call fall back to FC_CONTINUE
-        // instead, since new axioms are now available for the core to
-        // reconsider, so giving up here would be premature.
+        // Instantiate any newly enabled stoi coherence axioms first.
         bool stoi_progress = !check_stoi_coherence();
         if (m_mem_leaf)
             m_mem_leaf->reset_root_ask();
-        // At least one split is needed per top-level constraint just flushed
-        // into the tree, so solve()'s iterative-deepening loop cannot possibly
-        // finish below that many rounds: skip straight past the cheap,
-        // provably-insufficient depth_bound rounds solve() would otherwise
-        // re-try from 1 on every final_check_eh call (a pure perf floor -
-        // solve() still deepens further on depth_cutoff, same as before).
+        // Skip depth bounds that cannot cover the freshly flushed work.
         m_tree.set_min_search_depth(m_lits_qhead);
         stx::search_result res;
         try {
             res = m_tree.solve();
         }
         catch (const std::exception&) {
-            // Diagnostics only: on cancellation/timeout (thrown from
-            // deep within m_tree.solve() via the async -T timeout event
-            // handler), dump whatever dot-trace state was recorded so
-            // far, since the normal post-solve() dump point below is
-            // never reached in that case.
+            // Preserve any partial dot trace on cancellation.
             if (m_tree.dot_trace_enabled()) {
                 if (char const* path = getenv("NSEQ_DOT_FILE")) {
                     std::ofstream dot(path);
@@ -975,7 +780,7 @@ namespace smt {
                 expr_ref_vector assumptions(m);
                 for (auto const& assumption : m_ambient->assumption_facet(node).assumptions())
                     assumptions.push_back(assumption.first);
-                // the core must agree with the leaf's arithmetic model on every exponent it may see
+                // Record exponent equalities from the leaf's arithmetic model.
                 rational v;
                 for (auto const& p : m_ambient->power_facet(node).powers())
                     if (m_ambient->solver_facet(node).value(p.m_n, v))
@@ -1128,12 +933,7 @@ namespace smt {
         return m_arith_value.get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
     }
 
-    // Thin forwarder: the actual coherence-checking control logic now
-    // lives on the facet itself (see seq::stoi_facet::check_stoi_coherence,
-    // ast/seq/seq_stoi_facet.h) - it consults `*m_ambient` (for
-    // `current_value`/`add_axiom`) and the `m_instantiate` callback wired
-    // up at construction time, rather than touching `ctx`/`m_ax` here
-    // directly.
+    // Forward to stoi_facet, which owns the coherence-checking logic.
     bool theory_nseq::check_stoi_coherence() {
         return m_ambient->stoi_facet(*m_root).check_stoi_coherence(*m_ambient);
     }

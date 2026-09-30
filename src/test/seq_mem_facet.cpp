@@ -69,12 +69,8 @@ namespace {
         return f.tree.solve();
     }
 
-    // mem_facet is append-only: narrow()/replace()/apply_subst() never
-    // mutate an entry in place - they deactivate the old entry and
-    // append a fresh one (see seq_mem_facet.cpp). Tests that expect
-    // exactly one still-active membership after such an update must
-    // therefore look it up by active(), not assume index 0 / a
-    // single-element vector.
+    // mem_facet updates append new entries and deactivate old ones, so
+    // tests must look for the single active membership.
     static seq::str_mem const& only_active_membership(seq::mem_facet const& mf) {
         seq::str_mem const* found = nullptr;
         for (auto const& sm : mf.memberships()) {
@@ -131,18 +127,9 @@ namespace {
         }, 16) == stx::search_result::sat);
     }
 
-    // power_peel_mem ("apply_var_num_unwinding_mem" in c3): a
-    // membership whose string is a power term `s^n` at a directional
-    // end must offer the n=0 (replace with epsilon) branch immediately
-    // and, on the follow-up branch, the n>=1 peel (`s^n -> s.s^(n-1)`),
-    // splicing the replacement directly into the membership's own
-    // string. Tested directly against `split`/`iterator::next` (rather
-    // than through `tree.solve()`) since `mem_propagation`'s own
-    // coarse nullability shortcut (pre-existing, out of this rule's
-    // scope) may discharge a membership whose start state is already
-    // nullable before a split ever gets a chance to run, which would
-    // make an end-to-end solve()-based test dependent on propagation
-    // ordering rather than on this rule's own logic.
+    // power_peel_mem should first try the `n = 0` branch, then peel one
+    // copy for the `n >= 1` branch. This test drives the split iterator
+    // directly to inspect both rewrites.
     static void tst_power_peel_mem_split() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -226,10 +213,8 @@ namespace {
         tree.trail().pop_scope(1);
         root->pop_facets();
 
-        // split()'s branch-1 was popped above (undoing the epsilon
-        // replacement / obligation removal); re-register the obligation
-        // (as the sibling branch of the same case split would see it)
-        // before driving the iterator's own branch-2 logic.
+        // Restore the original obligation, then drive the iterator's
+        // second branch independently.
         tree.trail().push_scope();
         root->facet_as<seq::power_facet>(pow_id).add_power(pow, one_a, N);
         seq::eq_tree::edge out2;

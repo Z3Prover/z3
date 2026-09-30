@@ -7,53 +7,17 @@ Module Name:
 
 Abstract:
 
-    Whole-language monadic decomposition for regex membership of a term that is a
-    concatenation of sequence variables and constant elements, e.g.  x.a.x in R.
-    Generic in the element sort: characters are one instance, but the procedure works
-    for any sequence element sort (the guard algebra falls back from the exact character
-    range_predicate to a candidate-basis over the element values mentioned by the
-    derivatives).
+    Monadic decomposition for regex membership of sequence terms that
+    are concatenations of variables and constant elements.
 
-    Self-contained decision procedure: NO Nielsen splitting (seq_split), NO minterms,
-    and NO materialization of reach(q) as a regex. It uses symbolic derivative
-    cofactors as Brzozowski states or Brzozowski states post-processed into
-    light-weight Antimirov states, and automaton product-reachability for emptiness.
+    The solver never materializes the decomposition as a DNF and never
+    builds `reach(q)` as a regex. Instead it explores the decomposition
+    as a depth-first search tree over per-variable `seq::view`s and
+    checks accumulated views with lazy product-reachability.
 
-    Method.  For a term  x.u in R  and the whole-language split, x drives the derivative
-    automaton of R from R to some live state q, and the rest u must be accepted from q:
-
-        x.u in R  <=>  OR_{q live} ( x reaches q in A_R  /\  u in q ).
-
-    Decomposing u recursively (a leading constant is consumed by a derivative, a leading
-    variable splits again, the last variable is a plain membership) yields a disjunction
-    of conjunctions of per-variable *views* (seq::view):
-
-      - reach view       <state0, q>     : the variable's value drives the derivative
-                                           automaton from state0 to q
-      - membership view  <state0, null>  : the variable's value is in L(state0)
-
-    That disjunction is NEVER materialized as a DNF.  Materializing it costs the product
-    of the per-position split degrees (and, for a conjunction of memberships, the product
-    over memberships), which is the dominant cost in practice.  Instead the decomposition
-    is explored as a depth-first search tree: one branch at a time, views pushed on
-    entry and popped on backtracking.  A variable's accumulated views are tested for
-    emptiness as soon as the search passes the variable's LAST occurrence -- the test has
-    to be done anyway, and doing it there prunes the whole remaining subtree.  The search
-    stops at the first satisfying leaf and reports the views it committed to (solution()).
-    No word is built; materialize() collapses a variable's views to one on request.
-
-    reach(q) is therefore NEVER built as a regex (which state-elimination would blow up
-    super-polynomially for lattice-shaped automata).  Instead the constraints on a
-    variable are decided directly by a lazy product-reachability search over tuples of
-    view states: a product state accepts iff every reach view is at its target and every
-    membership view is nullable; transitions are the product of the views' cofactor
-    branches with pairwise-conjoined range guards (minterm-free).
-    This stays in the product-of-state-counts regime, never the path-enumeration (k!)
-    regime of regex state-elimination.
-
-    Supports single / multiple / repeated variables.  Per-variable extra constraints
-    (e.g. a base membership intersected with a length-regex) are expressed as an extra
-    membership passed to `add` and decided by `check`.
+    The procedure is generic in the element sort: characters use the
+    exact range-predicate algebra, while other element sorts fall back
+    to a candidate basis over the values mentioned by the derivatives.
 
 Author:
 
@@ -87,14 +51,12 @@ namespace seq {
 class monadic {
 
 public:
-    // Which end of the problem the search reads from.  Reading a membership backwards is
-    // sound because w in R iff rev(w) in rev(R), and it is worth doing because the two
-    // directions can have wildly different derivative-automaton sizes: .*a.{k} needs
-    // 2^(k+1) states read forwards and k+2 read backwards.  The reversal is internal --
-    // every membership is reinterpreted together and witnesses are turned back around on
-    // the way out -- so it is never visible to the caller.  `retry` reads forwards and
-    // turns a decision around only when the forward search runs out of budget, which keeps
-    // the cost of the second direction to the decisions that had no answer anyway.
+    // Which end of the membership the search reads from. Reversing is
+    // sound because `w in R` iff `rev(w) in rev(R)`, and it can shrink
+    // the derivative automaton substantially. The reversal is internal:
+    // all memberships are reinterpreted together and witnesses are
+    // reversed back before they are reported. `retry` runs forwards
+    // first and only retries backwards after a work-related give-up.
     enum class orientation { forward, reversed, retry };
 
 private:
@@ -183,10 +145,9 @@ private:
     unsigned               m_undef_vars = 0;  // depth of groups whose emptiness test gave up
 
     // ---- the branch, as an explicit stack ------------------------------------------
-    // The search runs on its own stack rather than on the C++ one, so a branch can be left
-    // standing and picked up again later (see the public `iterator`).  Only VARIABLE atoms
-    // branch, so one frame per variable atom is the whole branch, and everything a frame
-    // has to undo on backtracking sits in the frame.
+    // The search uses an explicit stack so a branch can be suspended and
+    // resumed by `iterator`. Only variable atoms branch, so one frame per
+    // variable atom is enough to restore the branch on backtracking.
     struct frame {
         unsigned mi, i;      // the variable atom this frame stands on ...
         expr*    R;          // ... and the derivative state there: the view's source state
@@ -319,11 +280,11 @@ private:
     lbool decide_policy(membership_vec const& memberships, unsigned budget, bool sticky);
 
     // ---- decomposition of intersections of regexes -------------------------------------
-    // A membership t in R1 & ... & Rk makes the search explore the product of all k regexes
-    // at once.  These decide instead a RELAXATION that keeps only some of the Ri, and grow
-    // it on demand.  Dropping intersected regexes only enlarges the language, so a
-    // relaxation that is unsatisfiable refutes the original, and a model that every dropped
-    // Ri accepts satisfies it.  Anything else falls back to the undecomposed search.
+    // For `t in R1 & ... & Rk`, the split solver starts from a relaxation
+    // that keeps only some conjuncts and grows it on demand. Dropping
+    // conjuncts only enlarges the language, so an unsatisfiable
+    // relaxation refutes the original, and a model accepted by every
+    // dropped conjunct satisfies it.
 
     // The conjuncts of a membership: the arguments of its top-level intersection, flattened
     // through nested re.inter.  A membership that is not an intersection yields itself.
@@ -460,10 +421,9 @@ public:
     // Memberships remain asserted until the constructor-provided trail is popped.
     void add(expr* term, expr* regex, void* d);
 
-    // Replace the decided term of the membership carrying dependency `d` with `term`
-    // (trailed, so the previous term is restored on pop).  Used to re-decide a membership
-    // over the current expansion of its term once theory_seq's equalities define it as a
-    // concatenation.  No-op if no membership carries `d`.
+    // Replace the decided term of the membership carrying dependency `d`
+    // with `term`. Trailed: the old term is restored on pop. No-op if no
+    // membership carries `d`.
     void set_term(void* d, expr* term);
 
     // True if `term` is in the shape the solver can decide: a concatenation of string
@@ -481,36 +441,23 @@ public:
     // Assert that `term` has exactly `len` elements.
     void add_len(expr* term, unsigned len, void* d);
 
-    // Decide the CONJUNCTION of all memberships asserted via add() jointly: a variable
-    // shared across memberships is constrained consistently (the DNFs are multiplied and
-    // each variable's constraints intersected).  This is the natural extension of single-
-    // membership solving to a Boolean combination of memberships (a disjunction is the
-    // union of DNFs; a negated membership  ~(t in R)  is just  t in complement(R)).
-    // Per-variable extra constraints are expressed as extra memberships (v in R').
-    // Leaves the asserted memberships unchanged.  l_true = sat (empty conjunction is sat),
-    // l_false = unsat, l_undef = gave up.  On l_false, core() holds the dependencies
-    // of a minimal unsatisfiable subset.
+    // Decide the conjunction of all asserted memberships jointly. Shared
+    // variables are constrained consistently by intersecting the views
+    // accumulated for them across memberships. Leaves the asserted
+    // memberships unchanged. On `l_false`, `core()` holds a minimal
+    // unsatisfiable subset's dependencies.
     lbool check();
 
     // Dependencies of a minimal unsatisfiable subset from the last check() that returned
     // l_false (nullptr dependencies are omitted).  Empty otherwise.
     ptr_vector<void> const& core() const { return m_core; }
 
-    // Lazy enumerator over the BRANCHES of the decomposition of a conjunction of
-    // memberships: check() stops at the first satisfying branch, this hands them out one
-    // at a time, so a caller can walk
-    //
-    //     conjunction  <=>  OR_i (branch i's per-variable views)
-    //
-    // as a lazy case split instead of materializing the disjunction.
-    //
-    // The search state is the engine's, so exactly ONE iterator can be in flight: anybody
-    // else's solve()/check() takes the stack away, and the iterator then gives up rather
-    // than resuming.
-    //
-    // next() returning false with gave_up() false means every branch not yet reported is
-    // REFUTED, so the conjunction holds only if a reported branch does.  gave_up() means
-    // the enumeration is incomplete and its end proves nothing.
+    // Lazy enumerator over satisfying branches of the decomposition.
+    // `check()` stops at the first satisfying branch; this hands them
+    // out one at a time without materializing the disjunction. The
+    // engine owns the search state, so only one iterator may be active.
+    // If `next()` returns false and `gave_up()` is false, every
+    // remaining branch has been refuted.
     class iterator {
         monadic&        m_engine;
         membership_vec  m_memberships;   // own copy: outlives the scope it was asserted in
@@ -522,16 +469,18 @@ public:
         bool            m_giveup = false;
     public:
         iterator(monadic& engine, membership_vec const& memberships, unsigned limit);
-        // Report the next branch as the views it commits each variable to.  While it
-        // holds, materialize() collapses those views to concrete words.
+        // Report the next branch as per-variable views. While it is the
+        // current branch, materialize() can collapse those views to
+        // concrete words.
         bool next(obj_map<expr, seq::view_vector>& solution);
         bool gave_up() const { return m_giveup; }
         unsigned count() const { return m_count; }
     };
 
-    // Enumerate the branches of the conjunction of all memberships asserted via add().
-    // The iterator snapshots them, so it outlives the trail scope they were asserted in.
-    // `limit` caps the branches reported; hitting it is a give-up, not an exhaustion.
+    // Enumerate the branches of the conjunction of all asserted
+    // memberships. The iterator snapshots them, so it outlives the
+    // trail scope they were asserted in. Hitting `limit` is a give-up,
+    // not an exhaustion.
     iterator iterate(unsigned limit);
 };
 

@@ -9,51 +9,18 @@ Abstract:
 
     Regular-expression equality/disequality facet.
 
-    `new_eq_eh`/`new_diseq_eh` (smt/theory_nseq.cpp) can be handed a pair of
-    regex-sorted (`RE_SORT`) enodes, not just sequence-sorted ones - e.g.
-    `(= (str.to_re "a") (re.union (str.to_re "a") (str.to_re "a")))` becomes
-    an ordinary congruence equality/disequality between two `RE_SORT`
-    terms once both are internalized. Regex terms carry no useful
-    "flatten into tokens" decomposition the way sequence terms do
-    (`get_concat_units`), so they cannot be handed to `eq_facet`/
-    `deq_facet` at all; they need their own facet.
+    Regex equalities and disequalities cannot go through `eq_facet` or
+    `deq_facet`, because regex terms do not decompose into sequence tokens.
 
-    Deciding regex equality/disequality is exactly what
-    `seq::regex_bisim` (ast/rewriter/seq_regex_bisim.h) already does for
-    ground regexes, via a union-find bisimulation search on the symbolic
-    derivative of the XOR (symmetric difference) of the two regexes (see
-    `smt/seq_regex.cpp`'s `propagate_eq`/`propagate_ne`, which call it the
-    same way for `str.in_re` derivative-closure regex terms). This facet
-    reuses that same decision procedure for standalone `RE_SORT`
-    equalities/disequalities asserted directly at the SMT-core level.
+    `req_facet` stores pending `(p, q, is_eq)` obligations. `req_propagation`
+    resolves them with `seq::regex_bisim`:
+      - `l_true`: the languages are equivalent, so equalities are discharged
+        and disequalities conflict;
+      - `l_false`: the languages differ, so disequalities are discharged and
+        equalities conflict;
+      - `l_undef`: the request stays pending.
 
-    `req_facet` just accumulates pending obligations (`str_req`, one
-    `(p, q, is_eq)` request per asserted (dis)equality); `req_propagation`
-    (a `propagation_plugin_i`) drains them by running `regex_bisim` on
-    each still-`l_undef` entry:
-      - `l_true` (p, q are language-equivalent): if `is_eq`, the request
-        is confirmed (discharge it); if `!is_eq` (a disequality
-        obligation, i.e. "p != q" was asserted), this contradicts the
-        obligation - conflict.
-      - `l_false` (p, q are language-distinct): the mirror image of the
-        above - confirms a disequality obligation, contradicts an
-        equality obligation.
-      - `l_undef` (bisimulation could not decide within its step bound,
-        or hit a non-ground/unsupported regex): the entry is left
-        pending (marked `l_undef`, i.e. simply not yet resolved) for a
-        future propagation round - e.g. after further rewriting/
-        internalization has made one side ground, or simply retried
-        (regex_bisim is deterministic on the same input, so a retry only
-        helps if the input expressions themselves changed, which nothing
-        in this facet currently does - there is no substitution/rewrite
-        applied to a pending request; this mirrors ncontains_facet's own
-        "leave undecided obligations pending" incompleteness).
-
-    `m_qhead` tracks which of `m_reqs` have already been resolved
-    (discharged or confirmed-pending as still-undef so far), so a
-    propagation round only re-examines genuinely new requests plus any
-    prior `l_undef` entries - mirroring `theory_nseq`'s own axiom-queue
-    `m_axioms_head` convention (smt/theory_nseq.h/.cpp).
+    `m_qhead` tracks the first request not yet examined by propagation.
 
 Author:
 
@@ -99,9 +66,8 @@ namespace seq {
         seq_util&    u;
         eq_tree::dep_manager_t& m_dm;
         vector<str_req> m_reqs;
-        // Index of the first request in m_reqs not yet examined by
-        // req_propagation (mirrors theory_nseq::m_axioms_head). Trailed
-        // like any other facet-owned scalar (see mark_resolved()).
+        // First request not yet examined by `req_propagation`. Trailed like
+        // any other facet-owned scalar.
         unsigned m_qhead = 0;
 
     public:
@@ -111,9 +77,7 @@ namespace seq {
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
 
-        // Trailed: for adding a regex (dis)equality request (root
-        // construction or mid-search alike - all constraint additions
-        // are trailed, no exception).
+        // Trailed add.
         void add_req(expr* p, expr* q, bool is_eq, eq_tree::dep_tracker dep = nullptr) {
             m_reqs.push_back(str_req(m, p, q, is_eq, dep));
             m_trail.push(push_back_trail<str_req>(m_reqs));
@@ -140,15 +104,9 @@ namespace seq {
         std::ostream& display(std::ostream& out) const override;
     };
 
-    // Drains req_facet's pending requests by running seq::regex_bisim on
-    // each one still at index >= qhead() whose status is l_undef,
-    // exactly once per round (regex_bisim is deterministic and nothing
-    // here ever rewrites a pending request's p/q, so re-running it on an
-    // already-l_undef entry in a *later* round - after qhead has
-    // advanced past it - cannot yield a different answer; entries are
-    // therefore examined only once each, via m_qhead, not repeatedly
-    // polled to a fixpoint the way eq_facet's substitution-driven
-    // simplification is).
+    // Run `seq::regex_bisim` on each pending request at index >= qhead().
+    // Requests are examined once: this facet never rewrites pending `p/q`,
+    // so re-running the same undecided request would not help.
     class req_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;

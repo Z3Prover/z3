@@ -28,28 +28,15 @@ Author:
 namespace seq {
 
     /**
-     * Facet accumulating side assumptions (Boolean literals) picked up
-     * during search that the main SMT context must also make hold for
-     * any model extracted from a satisfiable node to be valid. Unlike
-     * every other facet, `assumption_facet` never itself simplifies,
-     * propagates, or splits: it is a pure accumulator, consulted only by
-     * `theory_nseq` when a satisfiable node is reported (see
-     * theory_nseq.cpp), which must ensure every accumulated assumption
-     * is (or becomes) true in the ambient context before the search
-     * tree's model can be trusted.
+     * Pure accumulator of branch-local Boolean assumptions that must
+     * also hold in the ambient SMT context for a satisfiable node's
+     * model to be valid.
      *
-     * A typical source is `word_eq_split`'s "neither equal nor distinct"
-     * arm (facet-eq-deq.md, seq_eq_facet.cpp around word_eq_split): two
-     * symbolic (non-value) character terms that reduce_eq/word_eq_split
-     * cannot statically resolve are forced to coincide via a term
-     * substitution, but that substitution is only sound in models where
-     * the two characters actually are equal - so the equality is also
-     * recorded here (and separately asserted to the arithmetic
-     * sub-solver via solver_facet_i::add_constraint) so that
-     * `theory_nseq` can, at satisfiability time, either confirm the
-     * ambient context already assigns the corresponding literal true or
-     * force it so (see module comment on theory_nseq.cpp's satisfiable
-     * handling).
+     * A typical source is a search step that substitutes one symbolic
+     * character term for another under an equality that is not yet
+     * known globally. The equality is recorded here, and also fed to
+     * the arithmetic facet, so it can be checked or enforced before the
+     * node is reported satisfiable.
      */
     class assumption_facet : public stx::facet_i {
         using dep_tracker_t = stx::search_tree<unsigned>::dep_tracker;

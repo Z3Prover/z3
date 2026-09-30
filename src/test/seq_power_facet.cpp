@@ -166,8 +166,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // X^n = Y^m, len(X) = len(Y) = 1, len(e_u) = 1000: satisfiable (X = Y, n = m = 1000)
-    // but far beyond the unfolding bound - must not be refuted (sat or unknown).
+    // Large equal-length powers beyond the unfolding bound must not be
+    // spuriously refuted.
     static void tst_fine_wilf_large_exponent_not_refuted() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -206,16 +206,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // Force Fine & Wilf's progress cases (2/3), not case 1: X, Y both
-    // fixed-length-1 constants, and e_u/e_w's *lengths* are pinned to
-    // values that make case 1's disjunction
-    // (len(e_u)-Ly<T \/ len(e_w)<T, with Ly=0, T=len(X)+len(Y)=2)
-    // false outright (both len(e_u), len(e_w) forced to 5 >= T), so the
-    // only way this equation can be satisfied is via case 2 or case 3's
-    // string-level elimination (introducing R1/R2 or S1/S2 and relating
-    // them back to eq_facet/solver_facet) - must still be sat, since
-    // n=m=5 with X=Y-as-strings-of-equal-content is a genuine solution
-    // once the fresh split variables are unified consistently.
+    // Constrain the lengths so Fine-Wilf must use a progress case rather
+    // than the short-overlap case; the instance remains satisfiable.
     static void tst_fine_wilf_progress_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -238,11 +230,7 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // Same-base power-vs-power comparison (`apply_num_cmp`): X^n = X^m
-    // for the *same* base X, with n and m otherwise unconstrained -
-    // must be sat regardless of which of power_split_elim's two branches
-    // (n<m or m<=n) is explored, since n=m=0 (both sides epsilon) is
-    // always a witness.
+    // Same-base powers with unconstrained exponents are satisfiable.
     static void tst_power_num_cmp_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -256,11 +244,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // Same-base power-vs-power comparison, forced unsat: X^n = X^m with
-    // len(X) pinned to 1 and n, m forced *disequal* (n >= m+1 or
-    // m >= n+1 via a disjunction that excludes n=m) - since X is a
-    // fixed nonempty base, X^n = X^m forces n=m, so no witness exists
-    // in either of power_split_elim's two branches.
+    // Same-base powers with a nonempty base and unequal exponents are
+    // unsatisfiable.
     static void tst_power_num_cmp_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -280,11 +265,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_split_elim ("apply_split_power_elim" in c3): X^N = X.X.V
-    // where the *other* side (X.X.V) contains a literal run of X's own
-    // base pattern (matched token-by-token via comm_power) rather than
-    // a single opposing power token - must
-    // be sat, e.g. via N=2, V=epsilon.
+    // Eliminate a power against an explicit run of its base on the other
+    // side: `X^N = X.X.V` is satisfiable.
     static void tst_power_split_elim_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -319,11 +301,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_peel ("apply_var_num_unwinding_eq" in c3): X^N = Y where
-    // Y is a plain Nielsen-substitutable variable (not a unit, not a
-    // power) - word_eq_split itself explicitly skips any equation whose
-    // head is a power, so without power_peel this equation could
-    // never make progress. Must be sat, e.g. via N=0 (X^0=epsilon=Y).
+    // power_peel should make progress on `X^N = Y` when Y is a plain
+    // variable.
     static void tst_power_peel_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -356,12 +335,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_var_decompose ("apply_power_split" in c3): a variable facing
-    // a power whose base is multi-token allows decomposing the base at
-    // an interior position - e.g. X = ("ab")^N with X a Nielsen variable
-    // should be sat, exercising both a "plain-char" decomposition branch
-    // (position 1: X := ("ab")^m . "a") and the final "extend past"
-    // branch.
+    // A variable opposite a multi-token power base should be decomposable
+    // at an interior base position.
     static void tst_power_var_decompose_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -394,18 +369,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_gpower_intro ("apply_gpower_intr" in c3): a self-cycle
-    // X = a.b.X (X reappears after a ground run within the *same*
-    // equation) is inherently unsatisfiable by a pure length argument
-    // (len(X) = 2 + len(X), impossible for any finite X) regardless of
-    // which branch gpower_intro's own case split explores - this rule's
-    // self-cycle trigger (c3's own limitation, transitive cross-equation
-    // cycles are a TODO there too) can therefore only ever fire on
-    // equations that are already unsat by construction; its job is to
-    // let the ordinary length/arithmetic machinery discover that
-    // quickly via a power representation, not to produce new
-    // satisfying models. This test exercises the plain (uncompressed)
-    // trigger: ground run [a,b] has minimal period 2 (no compression).
+    // A self-cycle `X = a.b.X` is unsatisfiable by length, and
+    // gpower_intro should expose that case.
     static void tst_power_gpower_intro_self_cycle_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -416,12 +381,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // power_gpower_intro, exercising minimal-period compression: the
-    // self-cycle X = a.a.a.a.X has ground run [a,a,a,a] with minimal
-    // period 1 ("a" repeated 4 times, not the redundant base "aaaa"),
-    // so gpower_intro should compress it to base "a" before introducing
-    // the fresh power. Still inherently unsat by the same length
-    // argument as the plain case (len(X) = 4 + len(X)).
+    // The same self-cycle with `a.a.a.a` should first compress to base
+    // `"a"` and remain unsatisfiable.
     static void tst_power_gpower_intro_period_compress_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -476,8 +437,8 @@ namespace {
         ENSURE(pf.powers()[idx].m_n.get() == N1.get());
     }
 
-    // "ab"^N = Y with len(Y)=12 needs N=6, beyond power_split's bound: residual
-    // branch, one peel, then power_split resolves N-1=5 (used to be refuted).
+    // `("ab")^N = Y` with `len(Y) = 12` should stay satisfiable even
+    // though solving requires progress beyond the initial split bound.
     static void tst_power_beyond_bound_sat() {
         fixture fx;
         expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);
@@ -505,7 +466,7 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // no equation, power only under str.len: the length axioms alone refute len(X^N)=3, len(X)=2
+    // Length axioms alone should refute `len(X^N) = 3` and `len(X) = 2`.
     static void tst_power_length_only_unsat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -519,8 +480,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
-    // Y^M = X X X with len(X) = len(Y) = 1: sat (X = Y, M = 3). Requires the
-    // case where the variable opposite the power is shorter than one copy of the base.
+    // `Y^M = X X X` with unit-length bases should be satisfiable, even
+    // when the opposite variable is shorter than one base copy.
     static void tst_power_peel_short_var_sat() {
         fixture fx;
         expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
@@ -537,8 +498,8 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::sat);
     }
 
-    // X.Y = ("ab")^N, len(Y) = 1, N >= 100: sat (X = (ab)^99 a, Y = b), but far beyond the depth
-    // bound for peeling; needs decomposition X := (ab)^m . a and cancellation of (ab)^m against (ab)^N.
+    // `X.Y = ("ab")^N` with `len(Y) = 1` and large `N` should be solved
+    // by decomposition rather than repeated peeling.
     static void tst_power_decompose_far_exponent_sat() {
         fixture fx;
         expr_ref ab(fx.u.str.mk_string(zstring("ab")), fx.m);

@@ -30,13 +30,8 @@ Author:
 
 namespace {
 
-    // x < y, y < z, z <= x, where x is asserted (via eq_facet) equal to
-    // `a ++ b ++ c`, and z is asserted equal to `a ++ (b ++ c)` - the
-    // same sequence, but only recognized as such via seq_plugin's
-    // associative-completion reasoning, not by syntactic identity with
-    // x's defining term. This closes a strict cycle x < y < z <= x,
-    // which is only detectable once the egraph has merged x and z's
-    // defining terms into the same equivalence class.
+    // Detect a strict lex cycle that closes only after associativity
+    // merges `(a ++ b) ++ c` with `a ++ (b ++ c)`.
     static void tst_strict_cycle_modulo_congruence() {
         ast_manager m;
         reg_decl_plugins(m);
@@ -81,20 +76,14 @@ namespace {
             u.str.get_concat_units(z, rhs);
             lexf.add_lex(lhs, rhs, true);
         }
-        // z <= (a ++ (b ++ c))   -- registers z's token-concat node, and
-        // (via seq_plugin's completion) puts z's side of this edge into
-        // the same equivalence class as x's defining term abc_left.
+        // z <= a ++ (b ++ c)
         {
             expr_ref_vector lhs(m), rhs(m);
             u.str.get_concat_units(z, lhs);
             u.str.get_concat_units(abc_right, rhs);
             lexf.add_lex(lhs, rhs, false);
         }
-        // Tie z to x: assert z == a ++ (b ++ c) is not enough by itself
-        // to close the cycle back to x syntactically - x's defining
-        // term is `(a ++ b) ++ c`, a *different* (but associatively
-        // equal) parse. Register that additional equation so the loop
-        // z <= abc_right ~ abc_left = x closes.
+        // Tie z to the associatively equivalent form of x's definition.
         unsigned eq_leaf2 = 2;
         eqf.add_equation(z, abc_right, dm.mk_leaf(eq_leaf2));
 
@@ -104,18 +93,14 @@ namespace {
 
         ENSURE(changed);
         ENSURE(conflict);
-        // The conflict's justification must include the two equations
-        // that established the congruence closing the cycle (x's and
-        // z's ties to their respective associative parses of a++b++c),
-        // not just the lex obligations' own (trivial, nullptr) deps.
+        // The justification should include the equations that closed the
+        // cycle modulo congruence.
         ENSURE(dm.contains(conflict_dep, eq_leaf));
         ENSURE(dm.contains(conflict_dep, eq_leaf2));
     }
 
-    // Sanity check: the same three obligations but with the middle edge
-    // relaxed to `<=` (no strict edge on the cycle) does not report a
-    // conflict; instead the cycle's variables are forced pairwise equal
-    // and folded into eq_facet.
+    // Replacing the middle strict edge with `<=` should force equalities
+    // instead of reporting a conflict.
     static void tst_non_strict_cycle_forces_equalities() {
         ast_manager m;
         reg_decl_plugins(m);
