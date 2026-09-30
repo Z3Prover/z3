@@ -147,7 +147,7 @@ public:
     }
 
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound,
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
                    implied_bound::weighted_explain explain_weighted) {
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
