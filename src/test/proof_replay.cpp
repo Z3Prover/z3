@@ -73,6 +73,18 @@ static char const* farkas_int_log =
     "(declare-fun rup () Proof)\n"
     "(infer rup)\n";
 
+static char const* farkas_to_int_log =
+    "(declare-fun x () Int)\n"
+    "(define-const $1 Bool (>= x (to_int (/ (- 7.0) 3.0))))\n"
+    "(assume $1)\n"
+    "(define-const $2 Bool (<= x (- 4)))\n"
+    "(assume $2)\n"
+    "(declare-fun farkas (Int Bool Int Bool) Proof)\n"
+    "(define-const $3 Proof (farkas 1 $2 1 $1))\n"
+    "(infer $3)\n"
+    "(declare-fun rup () Proof)\n"
+    "(infer rup)\n";
+
 // The same problem logged with smt.solve_eqs, smt.propagate_values, and
 // smt.elim_unconstrained off. The literals contain (* (- 1.0) y), so folding
 // produces terms that exist nowhere else in the log; the RUP checker must keep
@@ -95,6 +107,7 @@ static char const* farkas_nopp_log =
 static void tst_replay_folds_printed_numerals() {
     check_verified_natively(replay(farkas_real_log), "farkas 1");
     check_verified_natively(replay(farkas_int_log), "farkas 1");
+    check_verified_natively(replay(farkas_to_int_log), "farkas 1");
     check_verified_natively(replay(farkas_nopp_log), "farkas 1");
 }
 
@@ -168,10 +181,16 @@ static void tst_is_extended_numeral() {
     arith_util a(m);
     rational n;
     expr_ref t(m);
+    t = a.mk_real(7);
+    ENSURE(a.is_extended_numeral(t, n) && n == 7);
     t = a.mk_div(a.mk_uminus(a.mk_real(1)), a.mk_div(a.mk_real(2), a.mk_uminus(a.mk_real(4))));
     ENSURE(a.is_extended_numeral(t, n) && n == 2);
     t = a.mk_to_real(a.mk_uminus(a.mk_int(3)));
     ENSURE(a.is_extended_numeral(t, n) && n == -3);
+    t = a.mk_to_int(a.mk_div(a.mk_real(-7), a.mk_real(3)));
+    ENSURE(a.is_extended_numeral(t, n) && n == -3);
+    t = a.mk_to_real(a.mk_to_int(a.mk_div(a.mk_real(7), a.mk_real(3))));
+    ENSURE(a.is_extended_numeral(t, n) && n == 2);
     t = a.mk_div(a.mk_real(1), a.mk_real(0));
     ENSURE(!a.is_extended_numeral(t, n));
     t = a.mk_div(a.mk_real(1), a.mk_uminus(a.mk_real(0)));
@@ -196,6 +215,9 @@ static void tst_is_extended_numeral() {
     t = a.mk_real(1);
     for (unsigned i = 0; i < 20000; ++i)
         t = a.mk_div(a.mk_add(t, a.mk_real(0)), a.mk_real(1));
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    for (unsigned i = 0; i < 20000; ++i)
+        t = a.mk_to_real(a.mk_to_int(t));
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
 
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);

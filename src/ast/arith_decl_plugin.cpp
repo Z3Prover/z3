@@ -958,6 +958,8 @@ bool arith_util::is_bounded(expr* n) const {
 }
 
 bool arith_util::is_extended_numeral(expr* term, rational& r) const {
+    if (is_numeral(term, r))
+        return true;
     struct frame { expr* term; bool visited; bool neg; };
     svector<frame> todo;
     vector<rational> values;
@@ -967,7 +969,11 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
         todo.pop_back();
         if (visited) {
             rational value;
-            if (is_add(t) || is_mul(t)) {
+            if (is_to_int(t)) {
+                value = floor(values.back());
+                values.pop_back();
+            }
+            else if (is_add(t) || is_mul(t)) {
                 bool add = is_add(t);
                 value = add ? rational(0) : rational(1);
                 for (unsigned i = to_app(t)->get_num_args(); i-- > 0;) {
@@ -1009,7 +1015,7 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
             continue;
         }
         expr* t1, *t2;
-        if (!is_add(t) && !is_mul(t) && !is_sub(t, t1, t2) && !is_div(t, t1, t2))
+        if (!is_to_int(t) && !is_add(t) && !is_mul(t) && !is_sub(t, t1, t2) && !is_div(t, t1, t2))
             return false;
         app* a = to_app(t);
         todo.push_back({ t, true, neg });

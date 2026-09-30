@@ -239,40 +239,25 @@ public:
 
 /**
  * Numerals in a proof log arrive as the SMT-LIB printer wrote them: negative
- * values as (- n), non-integers as (/ n d), and casts as (to_real n). The parser
- * keeps these as applications. Fold them into numerals once, before literals and
- * hints reach the checkers, so every checker plugin sees plain numerals and the
- * same literal is represented the same way in every clause it occurs in.
+ * values as (- n), non-integers as (/ n d), and casts such as (to_real n)
+ * and (to_int n). The parser keeps these as applications. Fold them into
+ * numerals once, before literals and hints reach the checkers, so every
+ * checker plugin sees plain numerals and the same literal is represented
+ * the same way in every clause it occurs in.
  */
 struct numeral_folder_cfg : public default_rewriter_cfg {
+    ast_manager& m;
     arith_util a;
-    numeral_folder_cfg(ast_manager& m): a(m) {}
+    numeral_folder_cfg(ast_manager& m): m(m), a(m) {}
 
     br_status reduce_app(func_decl* f, unsigned num, expr* const* args, expr_ref& result, proof_ref& result_pr) {
-        if (f->get_family_id() != a.get_family_id())
+        if (f->get_family_id() != a.get_family_id() || f->get_decl_kind() == OP_NUM)
             return BR_FAILED;
-        rational n, d;
-        switch (f->get_decl_kind()) {
-        case OP_UMINUS:
-            if (num == 1 && a.is_numeral(args[0], n)) {
-                result = a.mk_numeral(-n, f->get_range());
-                return BR_DONE;
-            }
-            break;
-        case OP_TO_REAL:
-            if (num == 1 && a.is_numeral(args[0], n)) {
-                result = a.mk_numeral(n, false);
-                return BR_DONE;
-            }
-            break;
-        case OP_DIV:
-            if (num == 2 && a.is_numeral(args[0], n) && a.is_numeral(args[1], d) && !d.is_zero()) {
-                result = a.mk_numeral(n / d, false);
-                return BR_DONE;
-            }
-            break;
-        default:
-            break;
+        expr_ref term(m.mk_app(f, num, args), m);
+        rational n;
+        if (a.is_extended_numeral(term, n)) {
+            result = a.mk_numeral(n, f->get_range());
+            return BR_DONE;
         }
         return BR_FAILED;
     }
