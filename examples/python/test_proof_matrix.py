@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import proof_matrix  # noqa: E402
@@ -56,6 +57,21 @@ class TestClassification(unittest.TestCase):
 
     def test_unknown_reference_never_counts_as_disagreement(self):
         self.assertEqual(self.classify(fake_run("unsat\n"), expected=None)["status"], "verified")
+
+    def test_logic_labels_are_distinct_from_unknown_solver_results(self):
+        for declaration, logic in (("", "logic_unknown"), ("(set-logic QF_LIA)", "QF_LIA")):
+            with self.subTest(logic=logic), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "b.smt2"
+                path.write_text(declaration + "(check-sat)")
+                with patch.object(proof_matrix, "run_z3", return_value=fake_run("unknown\n")):
+                    records = list(proof_matrix.run_benchmark("z3", path, ["smt-clause-log"], 30, False))
+                self.assertEqual(len(records), 2)
+                for record in records:
+                    self.assertEqual(record["logic"], logic)
+                    self.assertEqual(record["result"], "unknown")
+                    self.assertEqual(record["expected"], "unknown")
+                self.assertEqual(records[1]["status"], "not-applicable")
+                self.assertIn(logic + " / smt-clause-log", proof_matrix.summarize(records))
 
     def test_strip_commands_removes_conflicting_options_and_queries(self):
         source = ("(set-option :produce-proofs true)(set-option :sat.smt true)(set-option :solver.proof.log \"x\")"
@@ -136,6 +152,17 @@ class TestEndToEnd(unittest.TestCase):
                                    "--cells", cells, "--out", str(out), *paths], capture_output=True, text=True)
             records = [json.loads(line) for line in out.read_text().splitlines()]
             return proc, records
+
+    def test_missing_logic_label_in_output_and_json(self):
+        proc, records = self.run_matrix(["(check-sat)"], "smt-clause-log")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(len(records), 2)
+        for record in records:
+            self.assertEqual(record["logic"], "logic_unknown")
+            self.assertEqual(record["result"], "sat")
+        self.assertEqual(proc.stdout.splitlines()[0].split()[:3],
+                         ["b0.smt2", "logic_unknown", "smt-clause-log"])
+        self.assertIn("logic_unknown / smt-clause-log", proc.stdout)
 
     def test_linear_arithmetic_clause_log_is_verified_and_sat_is_not_applicable(self):
         unsat = ("(set-logic QF_LRA)(declare-const x Real)(declare-const y Real)"
