@@ -593,7 +593,8 @@ namespace smt {
             // Parent marks and the generation cache are not tracked by the trail stack.
             if (r1) {
                 for (enode * parent : enode::parents(r1))
-                    parent->unset_mark();
+                    if (parent->is_marked())
+                        parent->unset_mark();
             }
             m_r1_parent_generations.reset();
             m_trail_stack.shrink(old_trail_size);
