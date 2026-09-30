@@ -6,6 +6,7 @@ set(python_example_files
   mus/marco.py
   mus/mss.py
   proof_canaries/array_axiom_log.smt2
+  proof_canaries/real_numeral_farkas.smt2
   proof_matrix.py
   socrates.py
   test_proof_matrix.py

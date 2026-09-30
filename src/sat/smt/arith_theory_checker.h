@@ -173,10 +173,8 @@ namespace arith {
             expr* e1, *e2;
             for (unsigned i = 0; i < m_todo.size(); ++i) {
                 auto [coeff, e] = m_todo[i];
-                if (a.is_mul(e, e1, e2) && is_numeral(e1, coeff1))
-                    m_todo.push_back({coeff*coeff1, e2});
-                else if (a.is_mul(e, e1, e2) && is_numeral(e2, coeff1))
-                    m_todo.push_back({ coeff * coeff1, e1 });
+                if (a.is_mul(e))
+                    linearize_mul(r, coeff, to_app(e));
                 else if (a.is_add(e))
                     for (expr* arg : *to_app(e))
                         m_todo.push_back({coeff, arg});
@@ -194,20 +192,32 @@ namespace arith {
             m_todo.reset();
         }
 
-        // Numerals in a replayed proof log arrive as they were printed:
-        // negative values as (- n), non-integers as (/ n d), and casts as (to_real n).
-        bool is_numeral(expr* e, rational& n) {
-            expr* e1 = nullptr, *e2 = nullptr;
-            rational d;
-            if (a.is_numeral(e, n))
-                return true;
-            if (a.is_uminus(e, e1) && is_numeral(e1, n))
-                return n.neg(), true;
-            if (a.is_div(e, e1, e2) && is_numeral(e1, n) && is_numeral(e2, d) && !d.is_zero())
-                return n /= d, true;
-            if (a.is_to_real(e, e1) && is_numeral(e1, n))
-                return true;
-            return false;
+        /**
+         * \brief add mul * (* t1 .. tn) to r, folding the numeral factors into the coefficient.
+         * A product with two or more non-numeral factors is nonlinear and is kept as one opaque term.
+         */
+        void linearize_mul(row& r, rational const& mul, app* e) {
+            rational coeff(mul), coeff1;
+            expr* x = nullptr;
+            for (expr* arg : *e) {
+                if (is_numeral(arg, coeff1))
+                    coeff *= coeff1;
+                else if (!x)
+                    x = arg;
+                else {
+                    add(r, e, mul);
+                    return;
+                }
+            }
+            if (x)
+                m_todo.push_back({coeff, x});
+            else
+                r.m_coeff += coeff;
+        }
+
+        // Numerals may arrive as the SMT-LIB printer wrote them: (- n), (/ n d), (to_real n).
+        bool is_numeral(expr* e, rational& n) const {
+            return euf::is_numeral_term(a, e, n);
         }
         
         bool check_ineq(row& r) {
@@ -483,7 +493,7 @@ namespace arith {
             expr* arg1 = jst->get_arg(n - 2);
             expr* arg2 = jst->get_arg(n - 1);
             rational coeff;
-            if (!a.is_numeral(arg1, coeff))
+            if (!is_numeral(arg1, coeff))
                 return false;
             if (!m.is_not(arg2, arg2))
                 return false;
@@ -518,7 +528,7 @@ namespace arith {
             for (expr* arg : *jst) {
                 
                 if (even) {
-                    if (!a.is_numeral(arg, coeff)) {
+                    if (!is_numeral(arg, coeff)) {
                         IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
                         return false;
                     }

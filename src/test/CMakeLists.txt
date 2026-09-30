@@ -119,6 +119,7 @@ add_executable(test-z3
   psmt.cpp
   seq_regex_bisim.cpp
   proof_checker.cpp
+  proof_replay.cpp
   qe_arith.cpp
   qe_lite.cpp
   mbp_qel.cpp

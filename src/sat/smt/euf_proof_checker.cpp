@@ -32,6 +32,44 @@ Author:
 
 namespace euf {
 
+    bool is_numeral_term(arith_util const& a, expr* e, rational& n) {
+        if (a.is_numeral(e, n))
+            return true;
+        // e denotes num / den; (t, true) on the work list means t is a factor of den.
+        rational num(1), den(1), k;
+        svector<std::pair<expr*, bool>> todo;
+        todo.push_back({ e, false });
+        while (!todo.empty()) {
+            auto [t, inv] = todo.back();
+            todo.pop_back();
+            bool neg = false;
+            expr* t1 = nullptr, *t2 = nullptr;
+            for (;;) {
+                if (a.is_uminus(t, t1))
+                    neg = !neg, t = t1;
+                else if (a.is_to_real(t, t1))
+                    t = t1;
+                else
+                    break;
+            }
+            if (neg)
+                num.neg();
+            if (a.is_numeral(t, k)) {
+                if (inv && k.is_zero())
+                    return false;
+                (inv ? den : num) *= k;
+            }
+            else if (a.is_div(t, t1, t2)) {
+                todo.push_back({ t1, inv });
+                todo.push_back({ t2, !inv });
+            }
+            else
+                return false;
+        }
+        n = num / den;
+        return true;
+    }
+
     /**
      * The equality proof checker checks congruence proofs.
      * A congruence claim comprises
@@ -81,12 +119,11 @@ namespace euf {
 
         void merge_numeral(expr* x) {
             rational n;
-            expr* y;
-            if (m_arith.is_uminus(x, y) && m_arith.is_numeral(y, n)) {
-                y = m_arith.mk_numeral(-n, x->get_sort());
-                m_trail.push_back(y);
-                m_uf.merge(expr2id(x), expr2id(y));
-            }
+            if (m_arith.is_numeral(x) || !is_numeral_term(m_arith, x, n))
+                return;
+            expr* y = m_arith.mk_numeral(n, x->get_sort());
+            m_trail.push_back(y);
+            m_uf.merge(expr2id(x), expr2id(y));
         }
 
         bool are_equal(expr* x, expr* y) {
@@ -378,7 +415,8 @@ namespace euf {
         m_params(p),
         m_checker(m),
         m_sat_solver(m_params, m.limit()), 
-        m_drat(m_sat_solver) 
+        m_drat(m_sat_solver),
+        m_pinned(m)
     {
         m_params.set_bool("drat.check_unsat", true);
         m_params.set_bool("euf", false);

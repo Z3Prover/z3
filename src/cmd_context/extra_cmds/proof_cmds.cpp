@@ -44,6 +44,7 @@ Proof checker for clauses created during search.
 #include "ast/ast_util.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
@@ -236,10 +237,57 @@ public:
     
 };
 
+/**
+ * Numerals in a proof log arrive as the SMT-LIB printer wrote them: negative
+ * values as (- n), non-integers as (/ n d), and casts as (to_real n). The parser
+ * keeps these as applications. Fold them into numerals once, before literals and
+ * hints reach the checkers, so every checker plugin sees plain numerals and the
+ * same literal is represented the same way in every clause it occurs in.
+ */
+struct numeral_folder_cfg : public default_rewriter_cfg {
+    arith_util a;
+    numeral_folder_cfg(ast_manager& m): a(m) {}
+
+    br_status reduce_app(func_decl* f, unsigned num, expr* const* args, expr_ref& result, proof_ref& result_pr) {
+        if (f->get_family_id() != a.get_family_id())
+            return BR_FAILED;
+        rational n, d;
+        switch (f->get_decl_kind()) {
+        case OP_UMINUS:
+            if (num == 1 && a.is_numeral(args[0], n)) {
+                result = a.mk_numeral(-n, f->get_range());
+                return BR_DONE;
+            }
+            break;
+        case OP_TO_REAL:
+            if (num == 1 && a.is_numeral(args[0], n)) {
+                result = a.mk_numeral(n, false);
+                return BR_DONE;
+            }
+            break;
+        case OP_DIV:
+            if (num == 2 && a.is_numeral(args[0], n) && a.is_numeral(args[1], d) && !d.is_zero()) {
+                result = a.mk_numeral(n / d, false);
+                return BR_DONE;
+            }
+            break;
+        default:
+            break;
+        }
+        return BR_FAILED;
+    }
+};
+
+struct numeral_folder : public rewriter_tpl<numeral_folder_cfg> {
+    numeral_folder_cfg m_cfg;
+    numeral_folder(ast_manager& m): rewriter_tpl<numeral_folder_cfg>(m, false, m_cfg), m_cfg(m) {}
+};
+
 class proof_cmds_imp : public proof_cmds {
     cmd_context&    ctx;
     ast_manager&    m;
     arith_util      m_arith;
+    numeral_folder  m_fold;
     expr_ref_vector m_lits;
     app_ref         m_proof_hint;
     unsigned_vector m_deps;
@@ -286,6 +334,7 @@ public:
         ctx(ctx), 
         m(ctx.m()),
         m_arith(m),
+        m_fold(m),
         m_lits(m), 
         m_proof_hint(m), 
         m_assumption(m), 
@@ -293,7 +342,9 @@ public:
         updt_params(gparams::get_module("solver"));
     }
 
-    void add_literal(expr* e) override {
+    void add_literal(expr* _e) override {
+        expr_ref e(m);
+        m_fold(_e, e);
         if (m.is_proof(e)) {
             if (is_dep(e))
                 get_deps(e);

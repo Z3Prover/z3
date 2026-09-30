@@ -1,4 +1,6 @@
 # QF_LRA regressions from z3test. core.smt2 is unsat and verifies without fallback.
+# real_numeral_farkas.smt2 replays Real constants printed as (/ n d); it must stay verified.
+real_numeral_farkas.smt2
 z3test/regressions/smt2/arith_bug.smt2
 z3test/regressions/smt2/arith_bug3.smt2
 z3test/regressions/smt2/3503.smt2

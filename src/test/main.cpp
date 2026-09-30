@@ -70,6 +70,7 @@
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \
+    X(proof_replay) \
     X(simplifier) \
     X(bit_blaster) \
     X(var_subst) \
