@@ -29,6 +29,9 @@ Revision History:
    -->
    (and (forall X F1) ... (forall X Fn))
 
+   Quantifiers with patterns or no-patterns are left intact because their
+   annotations need not apply to each conjunct.
+
    The actual transformation is slightly different since the "and" connective is eliminated and
    replaced with a "not or".
    So, the actual transformation is:
@@ -75,4 +78,3 @@ protected:
     void reset_cache() { m_cache.reset(); }
     void flush_cache() { m_cache.cleanup(); }
 };
-

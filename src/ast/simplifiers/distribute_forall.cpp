@@ -34,7 +34,8 @@ struct distribute_forall_simplifier::rw_cfg : public default_rewriter_cfg {
         quantifier_ref tmp_q(m);
         expr_ref_vector es(m);
         expr* f;
-        if (is_forall(old_q)) {
+        // Splitting an annotated quantifier would copy its patterns to every conjunct.
+        if (is_forall(old_q) && !old_q->get_num_patterns() && !old_q->get_num_no_patterns()) {
             // (forall X (and F1 ... Fn))
             // -->
             // (and (forall X F1)
@@ -54,7 +55,7 @@ struct distribute_forall_simplifier::rw_cfg : public default_rewriter_cfg {
                 result_pr = m.mk_push_quant(old_q, result);
             return true;
         }
-        if (is_exists(old_q)) {
+        if (is_exists(old_q) && !old_q->get_num_patterns() && !old_q->get_num_no_patterns()) {
             // (exists X (or F1 ... Fn))
             // -->
             // (or (exists X F1)
@@ -102,4 +103,3 @@ void distribute_forall_simplifier::reduce() {
             m_fmls.update(idx, dependent_expr(m, r, mp(d.pr(), pr), d.dep()));
     }
 }
-

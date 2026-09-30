@@ -296,5 +296,3 @@ public:
     void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency* dep) { force_push(); m_macro_manager.insert(f, m, pr, dep); }
 
 };
-
-

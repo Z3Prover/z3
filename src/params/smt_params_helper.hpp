@@ -21,6 +21,7 @@ Abstract:
   UINT_  (random_seed,                             "random_seed",                             0,                        "random seed for the smt solver") \
   UINT_  (relevancy,                               "relevancy",                               2,                        "relevancy propagation heuristic: 0 - disabled, 1 - relevancy is tracked by only affects quantifier instantiation, 2 - relevancy is tracked, and an atom is only asserted if it is relevant") \
   BOOL_  (macro_finder,                            "macro_finder",                            false,                    "try to find universally quantified formulas that can be viewed as macros") \
+  BOOL_  (distribute_forall,                       "distribute_forall",                       true,                     "distribute unpatterned universal conjunctions") \
   BOOL_  (recfun_finder,                           "recfun_finder",                           false,                    "detect (mutually) recursive function definitions among universally quantified axioms of the form (forall X (= (f X) body)) and register them as recursive function definitions") \
   BOOL_  (quasi_macros,                            "quasi_macros",                            false,                    "try to find universally quantified formulas that are quasi-macros") \
   BOOL_  (restricted_quasi_macros,                 "restricted_quasi_macros",                 false,                    "try to find universally quantified formulas that are restricted quasi-macros") \

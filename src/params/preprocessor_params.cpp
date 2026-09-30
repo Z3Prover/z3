@@ -22,6 +22,7 @@ Revision History:
 void preprocessor_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_macro_finder            = p.macro_finder();
+    m_distribute_forall       = p.distribute_forall();
     m_recfun_finder           = p.recfun_finder();
     m_quasi_macros            = p.quasi_macros();
     m_restricted_quasi_macros = p.restricted_quasi_macros();
