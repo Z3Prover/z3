@@ -180,6 +180,8 @@ static void tst_is_extended_numeral() {
     ENSURE(!a.is_extended_numeral(t, n));
     t = a.mk_div(a.mk_real(1), a.mk_add(a.mk_real(1), a.mk_real(-1)));
     ENSURE(!a.is_extended_numeral(t, n));
+    t = a.mk_sub(a.mk_mul(a.mk_real(2), a.mk_real(3)), a.mk_add(a.mk_real(1), a.mk_real(2)));
+    ENSURE(a.is_extended_numeral(t, n) && n == 3);
     t = a.mk_uminus(m.mk_const(symbol("x"), a.mk_real()));
     ENSURE(!a.is_extended_numeral(t, n));
 
@@ -190,6 +192,10 @@ static void tst_is_extended_numeral() {
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
     for (unsigned i = 0; i < 20000; ++i)
         t = a.mk_div(t, a.mk_real(1));
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    t = a.mk_real(1);
+    for (unsigned i = 0; i < 20000; ++i)
+        t = a.mk_div(a.mk_add(t, a.mk_real(0)), a.mk_real(1));
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
 
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
