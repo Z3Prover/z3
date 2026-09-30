@@ -352,13 +352,6 @@ namespace euf {
     // The clause log prints a negated literal whose atom is itself a negation as
     // (not (not x)), while proof hints collapse the same literal to x.
     // Literals are therefore compared modulo double negation.
-    static expr* strip_double_not(ast_manager& m, expr* e) {
-        expr* a = nullptr, *b = nullptr;
-        while (m.is_not(e, a) && m.is_not(a, b))
-            e = b;
-        return e;
-    }
-
     bool theory_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
         if (!check(e))
             return false;
@@ -368,9 +361,9 @@ namespace euf {
 
         // check that all literals in clause1 are in clause2
         for (expr* arg : clause2)
-            literals.mark(strip_double_not(m, arg), true);
+            literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause1)
-            if (!literals.is_marked(strip_double_not(m, arg))) {
+            if (!literals.is_marked(m.strip_double_not(arg))) {
                 IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(arg, m) << " not in " << clause2 << "\n");
                 return false;
             }
@@ -379,9 +372,9 @@ namespace euf {
         // the literals should be rup
         literals.reset();
         for (expr* arg : clause1)
-            literals.mark(strip_double_not(m, arg), true);
+            literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause2)
-            if (!literals.is_marked(strip_double_not(m, arg)))
+            if (!literals.is_marked(m.strip_double_not(arg)))
                 units.push_back(mk_not(m, arg));
 
         return true;

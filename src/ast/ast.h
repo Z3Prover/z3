@@ -2231,6 +2231,13 @@ public:
     MATCH_TERNARY(is_or);
     END_DISABLE_WARNING;
 
+    expr* strip_double_not(expr* e) const {
+        expr* a = nullptr, *b = nullptr;
+        while (is_not(e, a) && is_not(a, b))
+            e = b;
+        return e;
+    }
+
     bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 
     bool is_ite(expr const* n, expr*& t1, expr*& t2, expr*& t3) const {
