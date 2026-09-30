@@ -1648,6 +1648,7 @@ public:
     reslimit& limit() { return m_limit; }
     // bool canceled() { return !limit().inc(); }
     bool inc() { return limit().inc(); }
+    bool inc(unsigned v) { return limit().inc(v); }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
 
@@ -2230,6 +2231,13 @@ public:
     MATCH_TERNARY(is_and);
     MATCH_TERNARY(is_or);
     END_DISABLE_WARNING;
+
+    expr* strip_double_not(expr* e) const {
+        expr* a = nullptr, *b = nullptr;
+        while (is_not(e, a) && is_not(a, b))
+            e = b;
+        return e;
+    }
 
     bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 

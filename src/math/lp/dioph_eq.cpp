@@ -1087,8 +1087,10 @@ namespace lp {
 
         void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_f_columns) {
-                if (auto terms = try_get_value(m_columns_to_terms, j)) {
-                    for (unsigned k : *terms) {
+                if (auto it = m_columns_to_terms.find(j); it != m_columns_to_terms.end()) {
+                    std_vector<unsigned> terms(it->second.begin(), it->second.end());
+                    std::sort(terms.begin(), terms.end());
+                    for (unsigned k : terms) {
                         mark_term_change(k);
                     }
                 }
@@ -1675,7 +1677,9 @@ namespace lp {
             // Sort by term_weight descending
             std::sort(sorted_changed_terms.begin(), sorted_changed_terms.end(),
                       [this](unsigned j1, unsigned j2) {
-                          return term_weight(lra.get_term(j1)) > term_weight(lra.get_term(j2) );
+                          unsigned w1 = term_weight(lra.get_term(j1));
+                          unsigned w2 = term_weight(lra.get_term(j2));
+                          return w1 != w2 ? w1 > w2 : j1 < j2;
                       });
         
             lia_move r = lia_move::undef;

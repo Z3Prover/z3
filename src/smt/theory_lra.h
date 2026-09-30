@@ -117,6 +117,7 @@ namespace smt {
         expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
         inf_eps value(theory_var) override;
         inf_eps maximize(theory_var v, expr_ref& blocker) override;
+        inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<upper_bound>& upper) override;
         theory_var add_objective(app* term) override;
     };
 

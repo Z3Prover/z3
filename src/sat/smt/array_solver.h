@@ -174,6 +174,9 @@ namespace array {
         // The justification is a theory explanation so that proof logging and
         // conflict explanation can inspect it.
         bool propagate_axiom(euf::enode* n1, euf::enode* n2);
+        // Merge n1 and n2 as a consequence of the array axiom together with
+        // the (already established) equalities in eqs, recorded as antecedents.
+        bool propagate_axiom(euf::enode_pair_vector const& eqs, euf::enode* n1, euf::enode* n2);
 
         bool assert_store_axiom(app* _e);
         bool assert_select_store_axiom(app* select, app* store);
@@ -219,6 +222,7 @@ namespace array {
         bool can_beta_reduce(euf::enode* n) const { return can_beta_reduce(n->get_expr()); }
         bool can_beta_reduce(expr* e) const;
         bool check_lambdas();
+        lbool check_const_arrays();
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }

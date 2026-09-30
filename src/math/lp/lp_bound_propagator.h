@@ -147,7 +147,8 @@ public:
     }
 
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, std::function<u_dependency* ()> explain_bound) {
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
+                   implied_bound::weighted_explain explain_weighted) {
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
             kind = static_cast<lconstraint_kind>(kind / 2);
@@ -162,12 +163,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_explain(explain_bound);
+                    found_bound.set_explain(explain_bound, explain_weighted);
                     TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_lower_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound, explain_weighted));
                 TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         } else {  // the upper bound case
@@ -178,12 +179,12 @@ public:
 
                     found_bound.m_bound = v;
                     found_bound.m_strict = strict;
-                    found_bound.set_explain(explain_bound);
+                    found_bound.set_explain(explain_bound, explain_weighted);
                     TRACE(add_bound, lp().print_implied_bound(found_bound, tout););
                 }
             } else {
                 m_improved_upper_bounds.insert(j, static_cast<unsigned>(m_ibounds.size()));
-                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound));
+                m_ibounds.push_back(implied_bound(v, j, is_low, strict, explain_bound, explain_weighted));
                 TRACE(add_bound, lp().print_implied_bound(m_ibounds.back(), tout););
             }
         }

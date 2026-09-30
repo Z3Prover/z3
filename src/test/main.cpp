@@ -70,6 +70,7 @@
     X(small_object_allocator) \
     X(timeout) \
     X(proof_checker) \
+    X(proof_replay) \
     X(simplifier) \
     X(bit_blaster) \
     X(var_subst) \
@@ -90,6 +91,7 @@
     X(cube_clause) \
     X(old_interval) \
     X(get_implied_equalities) \
+    X(grobner) \
     X(arith_simplifier_plugin) \
     X(matcher) \
     X(object_allocator) \
@@ -144,6 +146,7 @@
     X(monomial_bounds) \
     X(nla_transcendentals) \
     X(nla_intervals) \
+    X(lp_bound_propagation) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \

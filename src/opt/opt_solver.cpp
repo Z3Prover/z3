@@ -19,6 +19,7 @@ Notes:
    
 --*/
 #include <typeinfo>
+#include <cstring>
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_solver.h"
 #include "smt/smt_context.h"
@@ -47,7 +48,8 @@ namespace opt {
         m_objective_terms(m),
         m_dump_benchmarks(false),
         m_first(true),
-        m_was_unknown(false) {
+        m_was_unknown(false),
+        m_dual_bound_rlimit(opt_params(p).optsmt_dual_bound_rlimit()) {
         solver::updt_params(p);
         m_params.updt_params(p);
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {            
@@ -63,6 +65,7 @@ namespace opt {
     void opt_solver::updt_params(params_ref const & _p) {
         opt_params p(_p);
         m_dump_benchmarks = p.dump_benchmarks();
+        m_dual_bound_rlimit = p.optsmt_dual_bound_rlimit();
         m_params.updt_params(_p);
         m_context.updt_params(_p);
         m_params.m_arith_auto_config_simplex = true;
@@ -79,6 +82,8 @@ namespace opt {
     
     void opt_solver::collect_statistics_core(statistics & st) const {        
         m_context.collect_statistics(st);
+        st.update("opt-dual-bound-checks", m_dual_bound_checks);
+        st.update("opt-dual-bound-refutations", m_dual_bound_refutations);
     }
     
     void opt_solver::assert_expr_core(expr * t) {
@@ -317,7 +322,8 @@ namespace opt {
 
     /**
        \brief maximize the value of objective i in the current state.
-       Return the hint and its acceptance/validation status; write the
+       Return the hint, its acceptance/validation status, and an optional
+       independently justified relaxation upper bound; write the
        predicate blocking the current maximal value to blocker.
        
        The result of 'maximize' is post-processed. 
@@ -327,7 +333,7 @@ namespace opt {
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
-    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
+    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds, bool probe_bound) {
         smt::theory_var v = m_objective_vars[i];
         m_model = nullptr;
         blocker = nullptr;
@@ -337,8 +343,11 @@ namespace opt {
         // Generally, the hint is not necessarily valid and has to be checked
         // relative to other theories.
         // 
-        inf_eps val = get_optimizer().maximize(v, blocker);
-        maximize_result result{false, val, l_undef};
+        std::optional<smt::theory_opt::upper_bound> upper;
+        inf_eps val = dual_bounds ? get_optimizer().maximize_with_bound(v, blocker, upper) : get_optimizer().maximize(v, blocker);
+        maximize_result result{false, val, l_undef, {}};
+        if (upper && upper->is_global)
+            result.upper_bound = upper->value;
         m_context.get_model(m_model);
         inf_eps val2;
         TRACE(opt, tout << val << " " << blocker << "\n";
@@ -383,13 +392,34 @@ namespace opt {
                 m_objective_values[i] = inf_eps(r);
         };
 
-        update_objective();
+        if (m.limit().is_canceled()) {
+            set_reason_unknown(m.limit().get_cancel_msg());
+            return result;
+        }
+        try {
+            update_objective();
+        }
+        catch (z3_exception const& ex) {
+            // A later arithmetic maximization may consume the remaining
+            // budget; retain the previous witness instead of evaluating it.
+            if (!m.limit().is_canceled() ||
+                (std::strcmp(ex.what(), Z3_CANCELED_MSG) != 0 && std::strcmp(ex.what(), Z3_MAX_RESOURCE_MSG) != 0))
+                throw;
+            set_reason_unknown(m.limit().get_cancel_msg());
+            return result;
+        }
+        if (m.limit().is_canceled()) {
+            set_reason_unknown(m.limit().get_cancel_msg());
+            return result;
+        }
                         
 
         // 
         // check that "val" obtained from optimization hint is a valid bound.
         // 
         auto check_bound = [&]() {
+            if (m.limit().is_canceled())
+                return false;
             lbool r = bound_value(i, val);
             if (r == l_true) 
                 r = m_context.check(0, nullptr);
@@ -397,7 +427,15 @@ namespace opt {
             return r == l_true;
         };
 
-        if (!val.is_finite()) {
+        if (probe_bound && val.is_finite() && upper && !upper->is_global && m_dual_bound_rlimit) {
+            // A strict query can close all other branches without solving the
+            // harder attainability query at the relaxation endpoint itself.
+            if (check_upper_bound(i, upper->value) == l_false)
+                result.upper_bound = upper->value;
+            if (!m.inc() || !check_bound())
+                return result;
+        }
+        else if (!val.is_finite()) {
             // skip model updates
         }
         else if (m_context.get_context().update_model(true)) {
@@ -424,6 +462,52 @@ namespace opt {
             });
         result.bound_valid = true;
         return result;
+    }
+
+    lbool opt_solver::check_upper_bound(unsigned i, rational const& value) {
+        if (!m.inc())
+            return l_undef;
+        model_ref baseline = m_model;
+        bool external_cancel = false;
+        on_scope_exit restore([&] {
+            m_model = baseline;
+            if (external_cancel)
+                m.limit().cancel();
+        });
+        try {
+            push_core();
+        }
+        catch (default_exception const& ex) {
+            // push() can exhaust the enclosing budget before creating a scope.
+            if (!m.limit().is_canceled() || std::strcmp(ex.what(), "push canceled") != 0)
+                throw;
+            set_reason_unknown(m.limit().get_cancel_msg());
+            return l_undef;
+        }
+        on_scope_exit pop([&] { pop_core(1); });
+        scoped_rlimit budget(m.limit(), m_dual_bound_rlimit);
+        on_scope_exit remember_cancel([&] {
+            external_cancel = m.limit().get_cancel_msg() == Z3_CANCELED_MSG;
+        });
+        ++m_dual_bound_checks;
+        lbool r = l_undef;
+        try {
+            // Do not carry check-sat assumptions into this global query.
+            assert_expr(mk_ge(i, inf_eps(rational(0), inf_rational(value, rational(1)))));
+            r = m_context.check(0, nullptr);
+        }
+        catch (z3_exception const& ex) {
+            // Nonlinear arithmetic can throw on resource exhaustion. Inspect
+            // the limit before popping our budget clears its canceled state.
+            if (!m.limit().is_canceled() ||
+                (std::strcmp(ex.what(), Z3_CANCELED_MSG) != 0 && std::strcmp(ex.what(), Z3_MAX_RESOURCE_MSG) != 0))
+                throw;
+            set_reason_unknown(m.limit().get_cancel_msg());
+        }
+        if (r == l_false)
+            ++m_dual_bound_refutations;
+        IF_VERBOSE(2, verbose_stream() << "(optsmt dual bound check " << value << " " << r << ")\n");
+        return r;
     }
 
     lbool opt_solver::bound_value(unsigned i, inf_eps& val) {

@@ -36,6 +36,7 @@
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
 #include "smt/theory_lra.h"
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
@@ -1218,7 +1219,9 @@ public:
             if (numerator(r) == 1 && denominator(r) > 1) {
                 expr_ref x_ge_0(a.mk_ge(x, a.mk_real(0)), m);
                 expr_ref x_eq_pn(a.mk_eq(x, a.mk_power(p, a.mk_real(denominator(r)))), m);
-                mk_axiom(~mk_literal(x_ge_0), mk_literal(x_eq_pn));
+                literal ge = mk_literal(x_ge_0);
+                literal eq = mk_literal(x_eq_pn);
+                mk_axiom(~ge, eq);
             }
         }
         bool can_be_underspecified = false;
@@ -1382,7 +1385,9 @@ public:
         context& c = ctx();
         if (!k.is_zero()) {
             mk_axiom(eq);
-            m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
+            enode* mod_r_node = th.ensure_enode(mod_r);
+            enode* p_node = th.ensure_enode(p);
+            m_arith_eq_adapter.mk_axioms(mod_r_node, p_node);
             mk_axiom(mk_literal(a.mk_ge(mod, zero)));
             mk_axiom(mk_literal(a.mk_le(mod, upper)));
             
@@ -1409,15 +1414,21 @@ public:
 
             mk_axiom(eqz, eq);
             mk_axiom(eqz, mod_ge_0);
-            mk_axiom(mk_literal(a.mk_le(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, minus_q), mone)));
-            mk_axiom(mk_literal(a.mk_ge(q, zero)), mk_literal(a.mk_le(a.mk_add(mod, q), mone)));
+            literal q_le_0 = mk_literal(a.mk_le(q, zero));
+            literal mod_lt_q = mk_literal(a.mk_le(a.mk_add(mod, minus_q), mone));
+            mk_axiom(q_le_0, mod_lt_q);
+            literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
+            literal mod_lt_minus_q = mk_literal(a.mk_le(a.mk_add(mod, q), mone));
+            mk_axiom(q_ge_0, mod_lt_minus_q);
 
                 
             expr* x = nullptr, * y = nullptr;
             if (false && !(a.is_mul(q, x, y) && mone == x))
                 mk_axiom(mk_literal(m.mk_eq(mod, a.mk_mod(p, a.mk_mul(mone, q)))));
             
-            m_arith_eq_adapter.mk_axioms(th.ensure_enode(mod_r), th.ensure_enode(p));
+            enode* mod_r_node = th.ensure_enode(mod_r);
+            enode* p_node = th.ensure_enode(p);
+            m_arith_eq_adapter.mk_axioms(mod_r_node, p_node);
 
             if (a.is_zero(p)) {
                 mk_axiom(eqz, mk_literal(m.mk_eq(div, zero)));
@@ -2750,8 +2761,8 @@ public:
         
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
-            expr_ref r(m);
-            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
+            expr_ref r(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), m);
+            r = a.mk_ge(r, a.mk_int(rational::power_of_two(i)));
             return mk_literal(r);
         };
 
@@ -2761,12 +2772,22 @@ public:
                 bool xb = valx.get_bit(i);
                 bool yb = valy.get_bit(i);
                 bool nb = valn.get_bit(i);
-                if (xb && yb && !nb)
-                    ctx().mk_th_axiom(get_id(), ~bitof(x, i), ~bitof(y, i), bitof(n, i));
-                else if (nb && !xb)
-                    ctx().mk_th_axiom(get_id(), ~bitof(n, i), bitof(x, i));
-                else if (nb && !yb)
-                    ctx().mk_th_axiom(get_id(), ~bitof(n, i), bitof(y, i));
+                if (xb && yb && !nb) {
+                    literal lx = bitof(x, i);
+                    literal ly = bitof(y, i);
+                    literal ln = bitof(n, i);
+                    ctx().mk_th_axiom(get_id(), ~lx, ~ly, ln);
+                }
+                else if (nb && !xb) {
+                    literal ln = bitof(n, i);
+                    literal lx = bitof(x, i);
+                    ctx().mk_th_axiom(get_id(), ~ln, lx);
+                }
+                else if (nb && !yb) {
+                    literal ln = bitof(n, i);
+                    literal ly = bitof(y, i);
+                    ctx().mk_th_axiom(get_id(), ~ln, ly);
+                }
                 else
                     continue;
                 return false;
@@ -2856,29 +2877,47 @@ public:
             // 0 <= y => x&y <= y
             // TODO? x = y => x&y = x
 
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(x, a.mk_int(0))), mk_literal(a.mk_le(n, x)));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(0))), mk_literal(a.mk_le(n, y)));
+            literal x_ge_0 = mk_literal(a.mk_ge(x, a.mk_int(0)));
+            literal n_le_x = mk_literal(a.mk_le(n, x));
+            ctx().mk_th_axiom(get_id(), ~x_ge_0, n_le_x);
+            literal y_ge_0 = mk_literal(a.mk_ge(y, a.mk_int(0)));
+            literal n_le_y = mk_literal(a.mk_le(n, y));
+            ctx().mk_th_axiom(get_id(), ~y_ge_0, n_le_y);
         }
         else if (a.is_shl(n)) {
             // y >= sz => n = 0
             // y = 0 => n = x
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+            literal y_ge_sz = mk_literal(a.mk_ge(y, a.mk_int(sz)));
+            literal n_eq_0 = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            ctx().mk_th_axiom(get_id(), ~y_ge_sz, n_eq_0);
+            literal y_eq_0 = mk_literal(a.mk_eq(y, a.mk_int(0)));
+            literal n_eq_x = mk_literal(m.mk_eq(n, x));
+            ctx().mk_th_axiom(get_id(), ~y_eq_0, n_eq_x);
         }
         else if (a.is_lshr(n)) {
             // y >= sz => n = 0
             // y = 0 => n = x
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+            literal y_ge_sz = mk_literal(a.mk_ge(y, a.mk_int(sz)));
+            literal n_eq_0 = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            ctx().mk_th_axiom(get_id(), ~y_ge_sz, n_eq_0);
+            literal y_eq_0 = mk_literal(a.mk_eq(y, a.mk_int(0)));
+            literal n_eq_x = mk_literal(m.mk_eq(n, x));
+            ctx().mk_th_axiom(get_id(), ~y_eq_0, n_eq_x);
         }
         else if (a.is_ashr(n)) {
             // y >= sz & x < 2^{sz-1} => n = 0
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
             auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
-            ctx().mk_th_axiom(get_id(), ~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+            expr_ref y_mod(a.mk_mod(y, a.mk_int(N)), m);
+            literal y_ge_sz = mk_literal(a.mk_ge(y_mod, a.mk_int(sz)));
+            literal n_eq_0 = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            ctx().mk_th_axiom(get_id(), ~y_ge_sz, signx, n_eq_0);
+            literal n_eq_max = mk_literal(m.mk_eq(n, a.mk_int(N-1)));
+            ctx().mk_th_axiom(get_id(), ~y_ge_sz, ~signx, n_eq_max);
+            literal y_eq_0 = mk_literal(a.mk_eq(y_mod, a.mk_int(0)));
+            literal n_eq_x = mk_literal(m.mk_eq(n, x));
+            ctx().mk_th_axiom(get_id(), ~y_eq_0, n_eq_x);
         }
         else
             UNREACHABLE();
@@ -3972,8 +4011,8 @@ public:
             es.push_back(a.mk_eq(l->get_expr(), r->get_expr()));
         for (auto l : m_core)
             es.push_back(ctx().literal2expr(l));
-        // remove duplicats from es:        
-        std::stable_sort(es.data(), es.data() + es.size());
+        // Remove duplicates using AST IDs instead of pointer addresses.
+        std::stable_sort(es.data(), es.data() + es.size(), ast_lt_proc());
         unsigned j = 0;
         for (unsigned i = 0; i < es.size(); ++i) {
             if (i > 0 && es.get(i) == es.get(i - 1))
@@ -4178,11 +4217,50 @@ public:
         return inf_eps(rational(0), inf_rational(ival.x, ival.y));
     }
 
-    lp::lp_status max_with_lp(theory_var v, lpvar& vi, lp::impq& term_max) {
+    bool bound_premises(u_dependency* dep, bool& is_global) {
+        is_global = true;
+        literal_vector premises;
+        svector<lp::constraint_index> dependencies(lp().flatten(dep));
+        for (auto ci : dependencies) {
+            switch (m_constraint_sources.get(ci, null_source)) {
+            case definition_source:
+                break;
+            case inequality_source:
+                premises.push_back(m_inequalities[ci]);
+                break;
+            case equality_source: {
+                auto [n1, n2] = m_equalities[ci];
+                ctx().get_cr().eq2literals(n1, n2, premises);
+                break;
+            }
+            case null_source:
+                // Unknown sources do not provide a certificate at this interface.
+                return false;
+            }
+        }
+        for (literal lit : premises) {
+            if (ctx().get_assignment(lit) != l_true)
+                return false;
+            is_global &= ctx().get_assign_level(lit.var()) <= ctx().get_base_level();
+        }
+        return true;
+    }
+
+    lp::lp_status max_with_lp(theory_var v, lpvar& vi, lp::impq& term_max, std::optional<theory_opt::upper_bound>* upper) {
         if (!lp().is_feasible() || lp().has_changed_columns())
             make_feasible();
         vi = get_lpvar(v);
-        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true);
+        u_dependency* dep = nullptr;
+        bool dual = upper && m_nla;
+        auto st = lp().maximize_term(vi, term_max, /*fix_int_cols*/ true, dual ? &dep : nullptr);
+        bool is_global;
+        if (dual && st == lp::lp_status::OPTIMAL && !m.limit().is_canceled() && bound_premises(dep, is_global)) {
+            // The exact reduced costs prove this upper bound. Dropping a
+            // negative infinitesimal weakens it to a closed rational bound.
+            SASSERT(!term_max.y.is_pos());
+            *upper = theory_opt::upper_bound{term_max.x, is_global};
+            IF_VERBOSE(2, verbose_stream() << "(optsmt dual " << (is_global ? "upper " : "candidate ") << term_max.x << ")\n");
+        }
         if (has_int() && lp().has_inf_int()) {
             st = lp::lp_status::FEASIBLE;
             lp().restore_x();
@@ -4263,7 +4341,9 @@ public:
         }
     }
 
-    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker) {
+    theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, std::optional<theory_opt::upper_bound>* upper = nullptr) {
+        if (upper)
+            upper->reset();
         unsigned level = 2;
         lp::impq term_max;
         lp::lp_status st;
@@ -4279,7 +4359,7 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            st = max_with_lp(v, vi, term_max);
+            st = max_with_lp(v, vi, term_max, upper);
             inf_eps nl_result;
             if (max_with_nl(v, st, level, blocker, nl_result))
                 return nl_result;
@@ -4715,6 +4795,9 @@ theory_lra::inf_eps theory_lra::value(theory_var v) {
 }
 theory_lra::inf_eps theory_lra::maximize(theory_var v, expr_ref& blocker) {
     return m_imp->maximize(v, blocker);
+}
+theory_lra::inf_eps theory_lra::maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<upper_bound>& upper) {
+    return m_imp->maximize(v, blocker, &upper);
 }
 theory_var theory_lra::add_objective(app* term) {
     return m_imp->add_objective(term);

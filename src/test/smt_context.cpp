@@ -20,6 +20,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "tactic/fpa/fpa2bv_tactic.h"
 #include "tactic/smtlogics/quant_tactics.h"
 #include "tactic/smtlogics/smt_tactic.h"
+#include <cstring>
 #include <sstream>
 
 static void check_sat_smt_recfun(char const* input)
@@ -55,6 +56,15 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
+    for (unsigned i = 0; i < st.size(); ++i)
+        if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
+            value = st.get_uint_value(i);
+            return true;
+        }
+    return false;
+}
+
 void tst_smt_context()
 {
     smt_params params;
@@ -63,6 +73,28 @@ void tst_smt_context()
     reg_decl_plugins(m);
 
     smt::context ctx(m, params);
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-const a (Array Int Int))\n"
+            "(declare-const b (Array Int Int))\n"
+            "(declare-const i Int)\n"
+            "(assert (distinct a b))\n"
+            "(assert (= (select a i) 0))\n"
+            "(assert (= (select b i) 1))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* assertion : cmd.assertions())
+            qctx.assert_expr(assertion);
+        VERIFY(l_true == qctx.check());
+        statistics st;
+        qctx.collect_statistics(st);
+        char const* array_ext_axiom_stat = "array ext ax";
+        unsigned num_array_ext_axioms = 0;
+        VERIFY(get_uint_stat(st, array_ext_axiom_stat, num_array_ext_axioms));
+        VERIFY(num_array_ext_axioms > 0);
+    }
 
     app_ref a1(m.mk_const(symbol("a"), m.mk_bool_sort()), m);
     app_ref b1(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
@@ -259,6 +291,16 @@ void tst_smt_context()
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
 
+    // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
+    // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh
+    // constant (mk_bool_sort() instead of rhs->get_sort()), producing an ill-typed
+    // definitional axiom and a spurious `unsat`. t(1) = -1 is satisfiable: pick s == 0.
+    check_sat_smt_recfun(
+        "(declare-fun s (Int) Int)\n"
+        "(define-fun-rec t ((p Int)) Int\n"
+        "  (ite (<= p 0) 0 (+ (t (- p 1)) (ite (exists ((y Int)) (= (s y) (- p 1))) (- 1) 0))))\n"
+        "(assert (= (t 1) (- 1)))\n");
+
     check_sat_smt_model(
         "(declare-sort H 0)\n"
         "(declare-const h H)\n"
@@ -331,4 +373,11 @@ void tst_smt_context()
         simplifier.reduce();
         VERIFY(state[2].fml() == no_pattern);
     }
+    // Regression (issue #10981): two extensionally equal arrays over a Bit-Vector 1
+    // (2-element) domain, built as stores over `const` arrays with different default
+    // values, used to be reported unsat due to a reversed default/select pairing (and
+    // a missing diagonal axiom) in the small-domain default-store axiom.
+    check_sat_smt_model(
+        "(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)\n"
+        "           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))\n");
 }

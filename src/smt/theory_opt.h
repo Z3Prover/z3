@@ -21,6 +21,7 @@ Notes:
 #include "util/inf_rational.h"
 #include "util/inf_eps_rational.h"
 #include "ast/arith_decl_plugin.h"
+#include <optional>
 
 #pragma once
 
@@ -32,6 +33,15 @@ namespace smt {
         virtual ~theory_opt() = default;
         virtual inf_eps value(theory_var) = 0;
         virtual inf_eps maximize(theory_var v, expr_ref& blocker) = 0;
+        struct upper_bound {
+            rational value;
+            // Otherwise the certificate depends on the current Boolean branch.
+            bool is_global;
+        };
+        virtual inf_eps maximize_with_bound(theory_var v, expr_ref& blocker, std::optional<upper_bound>& upper) {
+            upper.reset();
+            return maximize(v, blocker);
+        }
         virtual theory_var add_objective(app* term) = 0;
         bool is_linear(ast_manager& m, expr* term);
         bool is_numeral(arith_util& a, expr* term);

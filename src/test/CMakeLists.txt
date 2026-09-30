@@ -63,6 +63,7 @@ add_executable(test-z3
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
+  grobner.cpp
   hashtable.cpp
   heap.cpp
   heap_trie.cpp
@@ -118,6 +119,7 @@ add_executable(test-z3
   psmt.cpp
   seq_regex_bisim.cpp
   proof_checker.cpp
+  proof_replay.cpp
   qe_arith.cpp
   qe_lite.cpp
   mbp_qel.cpp
@@ -175,6 +177,7 @@ add_executable(test-z3
   value_sweep.cpp
   var_subst.cpp
   vector.cpp
+  lp/bound_propagation.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp
   zstring.cpp

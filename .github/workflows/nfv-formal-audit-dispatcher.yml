@@ -3,7 +3,7 @@ name: Dispatch NFV formal audit
 on:
   pull_request_target:
     branches: [master]
-    types: [opened, synchronize, closed]
+    types: [opened, synchronize, edited, closed]
 
 permissions:
   contents: read

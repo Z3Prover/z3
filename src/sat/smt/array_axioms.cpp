@@ -423,27 +423,32 @@ namespace array {
             // Add:
             //   default(A) = A[epsilon]
             //   default(B) = B[epsilon]
+            //   A[diag(i)] = B[diag(i)]
             // 
-            expr_ref_vector eqs(m);
-            expr_ref_vector args1(m), args2(m);
-            args1.push_back(store->get_arg(0));
-            args2.push_back(store);
+            expr_ref_vector args1(m), args2(m), args3(m), args4(m);
+            args1.push_back(store);
+            args2.push_back(store->get_arg(0));
+            args3.push_back(store);
+            args4.push_back(store->get_arg(0));
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store->get_arg(i);
                 sort* srt = arg->get_sort();
-                auto [ep, d] = mk_epsilon(srt);
-                eqs.push_back(m.mk_eq(ep, arg));
+                auto [ep, diag] = mk_epsilon(srt);
                 args1.push_back(ep);
                 args2.push_back(ep);
+                args3.push_back(m.mk_app(diag, arg));
+                args4.push_back(m.mk_app(diag, arg));
             }
-            app_ref sel1(m), sel2(m);
+            app_ref sel1(m), sel2(m), sel3(m), sel4(m);
             sel1 = a.mk_select(args1);
             sel2 = a.mk_select(args2);
-            return 
-                propagate_axiom(e_internalize(sel1), ndef1) ||
-                propagate_axiom(e_internalize(sel2), ndef2) ||
-                prop;
+            bool p1 = propagate_axiom(e_internalize(sel1), ndef1);
+            bool p2 = propagate_axiom(e_internalize(sel2), ndef2);
+            sel3 = a.mk_select(args3);
+            sel4 = a.mk_select(args4);
+            bool p3 = propagate_axiom(e_internalize(sel3), e_internalize(sel4));
+            return p1 || p2 || p3 || prop;
         }
         // default(A) == default(B)
         if (propagate_axiom(ndef1, ndef2))
@@ -708,6 +713,223 @@ namespace array {
         }
             
         return false;
+    }
+
+    /**
+     * \brief check that distinct constant arrays (as const v) that are connected
+     * through chains of store applications have models that agree on their
+     * constant values.
+     *
+     * Let K1 and K2 be two distinct constant arrays with different values, reachable
+     * from each other through a chain of stores (K1 ~store~> ... ~store~> M <~store~ ... <~store~ K2),
+     * where M is some node in the egraph reachable from both K1 and K2 via stores.
+     * Let I be the set of distinct indices written along the two paths, and DS be
+     * the size of the array's domain (index sort).
+     *
+     * - If DS is uninterpreted, its size is determined dynamically by the number of
+     *   distinct elements, so the check is inconclusive (l_undef) whenever it is the
+     *   limiting factor.
+     * - If DS is finite and |I| < DS, some domain element is not written along either
+     *   path, so K1 and K2 must disagree there: the store chain is unsat. Propagate
+     *   the conflicting equality between the two (different) constant values.
+     * - If DS is finite and |I| >= DS, ensure that all indices in I are applied (selected)
+     *   at both K1 and K2, to enforce that no disequality between them is masked by an
+     *   unprocessed index.
+     * - If DS is finite, |I| >= DS, and the selects at K1, K2 for all of I already exist,
+     *   the constant arrays are consistent: conclude l_true (unless some domain was
+     *   uninterpreted and not otherwise ruled out, in which case l_undef).
+     *
+     * This is a port of theory_array_full::check_const_arrays (the classic smt engine's
+     * mechanism for using axioms to refine a candidate model that pairs different
+     * constant arrays over small/boundary-size domains).
+     */
+    lbool solver::check_const_arrays() {
+        euf::enode_vector const_arrays;
+        obj_hashtable<euf::enode> seen_consts;
+        unsigned num_vars = get_num_vars();
+        for (unsigned v = 0; v < num_vars; ++v) {
+            euf::enode* n = var2enode(v);
+            if (!a.is_const(n->get_expr()) || !ctx.is_relevant(n))
+                continue;
+            euf::enode* r = n->get_root();
+            if (seen_consts.contains(r))
+                continue;
+            seen_consts.insert(r);
+            const_arrays.push_back(n);
+        }
+        if (const_arrays.size() < 2)
+            return l_true;
+
+        struct reach {
+            euf::enode* m_root;
+            reach*      m_parent = nullptr;
+            euf::enode* m_store = nullptr;
+            reach(euf::enode* r, reach* p = nullptr, euf::enode* s = nullptr) : m_root(r), m_parent(p), m_store(s) {}
+        };
+
+        scoped_ptr_vector<reach> reach_nodes;
+        auto reachable = [&](euf::enode* cnst, ptr_vector<reach>& result) {
+            obj_hashtable<euf::enode> visited;
+            reach* initial = alloc(reach, cnst->get_root());
+            reach_nodes.push_back(initial);
+            result.push_back(initial);
+            visited.insert(cnst->get_root());
+            for (unsigned qhead = 0; qhead < result.size(); ++qhead) {
+                reach* current = result[qhead];
+                for (euf::enode* p : euf::enode_parents(current->m_root)) {
+                    if (!a.is_store(p->get_expr()) || !ctx.is_relevant(p))
+                        continue;
+                    if (p->get_arg(0)->get_root() != current->m_root)
+                        continue;
+                    euf::enode* next_root = p->get_root();
+                    if (visited.contains(next_root))
+                        continue;
+                    visited.insert(next_root);
+                    reach* next = alloc(reach, next_root, current, p);
+                    reach_nodes.push_back(next);
+                    result.push_back(next);
+                }
+            }
+        };
+
+        auto same_index = [&](euf::enode* s1, euf::enode* s2) {
+            if (s1->num_args() != s2->num_args())
+                return false;
+            for (unsigned i = 1; i + 1 < s1->num_args(); ++i)
+                if (s1->get_arg(i)->get_root() != s2->get_arg(i)->get_root())
+                    return false;
+            return true;
+        };
+
+        auto add_indices = [&](reach const* path, euf::enode_vector& indices) {
+            for (; path->m_store; path = path->m_parent) {
+                euf::enode* store = path->m_store;
+                bool found = false;
+                for (euf::enode* old : indices)
+                    if (same_index(store, old)) {
+                        found = true;
+                        break;
+                    }
+                if (!found)
+                    indices.push_back(store);
+            }
+        };
+
+        auto add_eq = [&](euf::enode* n1, euf::enode* n2, euf::enode_pair_vector& eqs) {
+            if (n1 != n2) {
+                SASSERT(n1->get_root() == n2->get_root());
+                eqs.push_back({ n1, n2 });
+            }
+        };
+
+        auto add_path_eqs = [&](euf::enode* cnst, reach const* path, euf::enode_pair_vector& eqs) {
+            reach const* initial = path;
+            while (initial->m_parent)
+                initial = initial->m_parent;
+            add_eq(cnst, initial->m_root, eqs);
+            for (; path->m_store; path = path->m_parent) {
+                add_eq(path->m_store->get_arg(0), path->m_parent->m_root, eqs);
+                add_eq(path->m_store, path->m_root, eqs);
+            }
+        };
+
+        auto internalize_select = [&](euf::enode* cnst, unsigned num_indices, expr* const* indices) {
+            ptr_buffer<expr> args;
+            args.push_back(cnst->get_expr());
+            args.append(num_indices, indices);
+            expr_ref select(a.mk_select(args.size(), args.data()), m);
+            bool is_new = !ctx.get_egraph().find(select);
+            euf::enode* select_node = e_internalize(select);
+            if (!ctx.is_relevant(select_node)) {
+                ctx.get_relevancy().mark_relevant(select_node);
+                is_new = true;
+            }
+            return is_new;
+        };
+
+        vector<ptr_vector<reach>> all_reachable;
+        all_reachable.resize(const_arrays.size());
+        for (unsigned i = 0; i < const_arrays.size(); ++i)
+            reachable(const_arrays[i], all_reachable[i]);
+
+        bool has_uninterpreted = false;
+        for (unsigned i = 0; i < const_arrays.size(); ++i) {
+            euf::enode* value_expr1 = const_arrays[i]->get_arg(0);
+            euf::enode* value1 = value_expr1->get_root();
+            for (unsigned j = i + 1; j < const_arrays.size(); ++j) {
+                euf::enode* value_expr2 = const_arrays[j]->get_arg(0);
+                euf::enode* value2 = value_expr2->get_root();
+                if (value1 == value2)
+                    continue;
+
+                reach const* path1 = nullptr;
+                reach const* path2 = nullptr;
+                for (reach const* r1 : all_reachable[i]) {
+                    for (reach const* r2 : all_reachable[j])
+                        if (r1->m_root == r2->m_root) {
+                            path1 = r1;
+                            path2 = r2;
+                            break;
+                        }
+                    if (path1)
+                        break;
+                }
+                if (!path1)
+                    continue;
+
+                euf::enode_vector indices;
+                add_indices(path1, indices);
+                add_indices(path2, indices);
+
+                sort* array_sort = const_arrays[i]->get_expr()->get_sort();
+                bool domain_exceeds_indices = false;
+                uint64_t domain_size = 1;
+                bool has_uninterp = false;
+                for (unsigned k = 0; k < get_array_arity(array_sort); ++k) {
+                    sort* index_sort = get_array_domain(array_sort, k);
+                    if (m.is_uninterp(index_sort)) {
+                        has_uninterp = true;
+                        continue;
+                    }
+                    sort_size const& size = index_sort->get_num_elements();
+                    if (!size.is_finite() || size.size() > indices.size() ||
+                        domain_size > indices.size() / size.size()) {
+                        domain_exceeds_indices = true;
+                        break;
+                    }
+                    domain_size *= size.size();
+                }
+                bool has_common_uncovered_index =
+                    domain_exceeds_indices || domain_size > indices.size();
+
+                if (has_common_uncovered_index) {
+                    euf::enode_pair_vector eqs;
+                    add_path_eqs(const_arrays[i], path1, eqs);
+                    add_path_eqs(const_arrays[j], path2, eqs);
+                    propagate_axiom(eqs, value_expr1, value_expr2);
+                    return l_false;
+                }
+
+                bool is_new = false;
+                for (euf::enode* store : indices) {
+                    unsigned arity = store->num_args() - 2;
+                    ptr_buffer<expr> store_indices;
+                    for (unsigned k = 1; k <= arity; ++k)
+                        store_indices.push_back(store->get_arg(k)->get_expr());
+                    is_new |= internalize_select(const_arrays[i], arity, store_indices.data());
+                    is_new |= internalize_select(const_arrays[j], arity, store_indices.data());
+                }
+                if (is_new)
+                    return l_false;
+
+                // we are inconclusive towards satisfiability
+                // the domain size of uninterpreted sort is determined dynamically
+                // by number of distinct enode roots for the sort.
+                if (has_uninterp)
+                    has_uninterpreted = true;
+            }
+        }
+        return has_uninterpreted ? l_undef : l_true;
     }
 
 }

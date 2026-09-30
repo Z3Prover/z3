@@ -1146,7 +1146,9 @@ class term_graph::projector {
 
     struct term_depth {
         bool operator()(term const *t1, term const *t2) const {
-            return get_depth(t1->get_expr()) < get_depth(t2->get_expr());
+            unsigned d1 = get_depth(t1->get_expr());
+            unsigned d2 = get_depth(t2->get_expr());
+            return d1 != d2 ? d1 < d2 : t1->get_expr()->get_id() < t2->get_expr()->get_id();
         }
     };
 

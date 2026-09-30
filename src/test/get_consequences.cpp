@@ -7,6 +7,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "tactic/bv/dt2bv_tactic.h"
@@ -15,6 +16,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include <iostream>
+#include <string>
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);
@@ -183,9 +185,56 @@ static void test_bounded_int() {
     VERIFY(l_true == fd_solver->check_sat(0, nullptr));
 }
 
+static void test_cardinality_consequences_after_check() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    params_ref p;
+    p.set_sym("phase", symbol("always_true"));
+    ref<solver> fd_solver = mk_fd_solver(m, p);
+    pb_util pb(m);
+
+    expr_ref_vector as(m), xs(m), clause(m);
+    for (unsigned i = 0; i < 5; ++i) {
+        as.push_back(mk_bool(m, ("a" + std::to_string(i)).c_str()));
+    }
+    for (unsigned i = 0; i < 8; ++i) {
+        xs.push_back(mk_bool(m, ("x" + std::to_string(i)).c_str()));
+    }
+    expr_ref y = mk_bool(m, "y");
+
+    fd_solver->assert_expr(pb.mk_at_most_k(as.size(), as.data(), 1));
+    fd_solver->assert_expr(m.mk_or(xs.size(), xs.data()));
+    fd_solver->assert_expr(pb.mk_at_most_k(xs.size(), xs.data(), 1));
+    for (unsigned i = 0; i < xs.size(); ++i) {
+        if (i != 5) clause.push_back(xs[i].get());
+    }
+    clause.push_back(m.mk_not(y));
+    fd_solver->assert_expr(m.mk_or(clause));
+    VERIFY(l_true == fd_solver->check_sat(0, nullptr));
+    model_ref mdl;
+    fd_solver->get_model(mdl);
+    model_evaluator eval(*mdl);
+    expr_ref value(m);
+    eval(y, value);
+    ENSURE(m.is_true(value));
+
+    expr_ref_vector asms(m), vars(m), conseq(m);
+    asms.push_back(xs[5].get());
+    vars.push_back(y);
+    VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
+    ENSURE(conseq.size() == 1);
+    ENSURE(m.are_equal(conseq[0].get(), m.mk_implies(xs[5].get(), m.mk_not(y))));
+
+    expr_ref_vector check_asms(m);
+    check_asms.push_back(xs[5].get());
+    check_asms.push_back(y);
+    VERIFY(l_false == fd_solver->check_sat(check_asms));
+}
+
 void tst_get_consequences() {
     test1();
     test2();
     test_bounded_int();
     test_bounded_int_translation();
+    test_cardinality_consequences_after_check();
 }
