@@ -187,17 +187,56 @@ namespace seq {
         ast_manager&    m;
         seq_util&       u;
         seq_rewriter&   m_rw;
+        // Optional "end-game" witness solver, gated by
+        // smt.seq.mem_monadic_endgame (default off): when enabled,
+        // propagate()'s witness-extraction step (once f.is_satisfied())
+        // asks THIS engine to decide every active plain membership
+        // jointly - the same seq::monadic decision procedure
+        // mem_leaf_split already uses for its whole-conjunction split -
+        // instead of driving view_witness's per-variable single-step
+        // search. Private scratch trail, scoped per ask via
+        // push_scope()/pop_scope() (mirrors mem_leaf_split's own
+        // m_mon/m_mon_trail); not shared with mem_leaf_split's instance,
+        // since the two run at different, non-overlapping points in the
+        // node's lifecycle (mem_leaf_split only ever runs BEFORE
+        // is_satisfied(), this only AFTER) and there is no benefit to
+        // coordinating their private search state.
+        trail_stack     m_mon_trail;
+        seq::monadic    m_mon;
         struct stats {
             unsigned m_num_propagate = 0;
+            unsigned m_num_monadic_asked = 0;
+            unsigned m_num_monadic_refuted = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
+
+        // Runs the seq_monadic end-game solver over every active plain
+        // membership in `f`, asserting an exact length bound for every
+        // variable it can recover one for from the ambient arithmetic
+        // sub-solver (see solve_monadic_endgame's own comment - mirrors
+        // c3/master's seq_regex.cpp collect_candidate_bounds/
+        // record_bound, adapted since nseq's sub-solver only exposes
+        // `value()`, not real lower_bound/upper_bound queries). l_false
+        // means the conjunction (as fed, plus the asserted length
+        // hypotheses) is refuted, `dep` holding the joined core; l_true
+        // means every fed variable's witness was materialized directly
+        // into `f`; l_undef means the engine could not decide (an active
+        // membership it does not support - e.g. a reach view rather than
+        // a plain whole-language membership, an unsupported term shape,
+        // or budget exhaustion) and the caller should fall back to
+        // view_witness.
+        lbool solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep);
     public:
         mem_propagation(ast_manager& m, seq_util& u, seq_rewriter& rw) :
-            m(m), u(u), m_rw(rw) {}
+            m(m), u(u), m_rw(rw), m_mon(rw, m_mon_trail) {}
         char const* name() const override { return "mem-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
-        void collect_statistics(::statistics& st) const override { st.update("seq-mem-propagate num calls", m_stats.m_num_propagate); }
+        void collect_statistics(::statistics& st) const override {
+            st.update("seq-mem-propagate num calls", m_stats.m_num_propagate);
+            st.update("seq-mem-monadic-endgame num asked", m_stats.m_num_monadic_asked);
+            st.update("seq-mem-monadic-endgame num refuted", m_stats.m_num_monadic_refuted);
+        }
         void reset_statistics() override { m_stats.reset(); }
     };
 

@@ -260,6 +260,105 @@ namespace seq {
         return out;
     }
 
+    // Feeds every active plain membership in `f` to `m_mon` and asks it to
+    // decide the whole conjunction jointly, in place of view_witness's
+    // per-variable single-step search - see class comment. Before
+    // check(), asserts an exact length hypothesis for every variable
+    // appearing in a fed membership that the ambient arithmetic
+    // sub-solver already commits to a value for (mirrors c3/master's
+    // seq_regex.cpp collect_candidate_bounds/record_bound, adapted to
+    // nseq's own private per-node solver_facet: unlike classic
+    // theory_seq, nseq never registers string lengths with theory_lra
+    // (see mem_propagation::propagate's pre-existing single-variable
+    // length-forcing preamble, whose comment explains this in full), so
+    // there is no working lower_bound/upper_bound to consult - only
+    // solver_facet_i::value(), which returns *a* value consistent with
+    // the sub-solver's current model, not necessarily a forced one). As
+    // with that preamble, the hypothesis is recorded via
+    // assumption_facet::add_assumption rather than asserted outright:
+    // it is sound to explore under, since theory_nseq re-validates every
+    // accumulated assumption before trusting a satisfiable node's model
+    // (see assumption_facet's class comment), so a wrong guess here can
+    // only cost search effort, never soundness.
+    lbool mem_propagation::solve_monadic_endgame(ambient_ref<eq_tree::node, eq_tree::dep_tracker>& ac, mem_facet& f, eq_tree::dep_tracker& dep) {
+        dep = nullptr;
+        struct fed_item { expr* term; expr* regex; eq_tree::dep_tracker dep; };
+        vector<fed_item> fed;
+        expr_mark vars_seen;
+        ptr_vector<expr> vars;
+        for (str_mem const& sm : f.memberships()) {
+            if (!sm.active())
+                continue;
+            // f.is_satisfied() (this function's only caller's precondition)
+            // only guarantees every active membership is single-variable
+            // (mem_facet::is_single_var_plain) - not that it is a PLAIN
+            // (whole-language) membership: a REACH view (str_mem::is_view,
+            // a partial "reach automaton state X" constraint from an
+            // in-progress derivative walk) is just as single-variable, but
+            // seq::monadic's add() only understands whole-language accept
+            // membership, not reach targets (mem_leaf_split excludes them
+            // for the same reason - see its class comment). Materializing
+            // a witness for every OTHER variable while silently skipping
+            // a reach-view one would leave it out of f's witness map
+            // entirely - get_witness_model() would then have no witness to
+            // offer for it, producing an incomplete substitution and an
+            // invalid model (a reach-view variable is never "vacuously
+            // satisfied": something still constrains its content). Bail
+            // out to the view_witness fallback, which does handle reach
+            // views, whenever any active membership isn't plain, rather
+            // than only partially handling this node.
+            if (!sm.is_plain())
+                return l_undef;
+            if (sm.m_str.empty())
+                continue;
+            expr* term = u.str.mk_concat(sm.m_str.size(), sm.m_str.data(), sm.m_str[0]->get_sort());
+            if (!m_mon.can_decide_term(term))
+                return l_undef;
+            fed.push_back({term, sm.m_view.m_state.get(), sm.m_dep});
+            for (expr* t : sm.m_str) {
+                if (u.str.is_unit(t) || vars_seen.is_marked(t))
+                    continue;
+                vars_seen.mark(t);
+                vars.push_back(t);
+            }
+        }
+        if (fed.empty())
+            return l_undef;
+
+        m_stats.m_num_monadic_asked++;
+        auto& sf = ac.solver_facet_ref();
+        arith_util& au = sf.get_arith_util();
+        assumption_facet& asf = ac.assumption_facet_ref();
+        m_mon_trail.push_scope();
+        for (auto const& fi : fed)
+            m_mon.add(fi.term, fi.regex, static_cast<void*>(fi.dep));
+        for (expr* v : vars) {
+            expr_ref len_expr(u.str.mk_length(v), m);
+            rational k;
+            if (!sf.value(len_expr, k) || !k.is_unsigned())
+                continue;
+            expr_ref len_eq(m.mk_eq(len_expr, au.mk_int(k)), m);
+            eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context());
+            m_mon.add_len(v, k.get_unsigned(), static_cast<void*>(cond_dep));
+        }
+        lbool result = m_mon.check();
+        if (result == l_false) {
+            for (void* d : m_mon.core())
+                dep = f.dm().mk_join(dep, static_cast<eq_tree::dep_tracker>(d));
+            m_stats.m_num_monadic_refuted++;
+        }
+        else if (result == l_true) {
+            expr_substitution subst(m);
+            if (m_mon.materialize_all(subst) != l_true)
+                result = l_undef;
+            else
+                for (auto const& entry : subst.sub())
+                    f.set_witness(&entry.get_key(), entry.get_value());
+        }
+        m_mon_trail.pop_scope(1);
+        return result;
+    }
+
     // NSB code review: also strip units from back for membership constraints.
     // you can do this by reversing regex, take derivative and reverse result. 
     // derivative itself can be an if-then-else tree with predicates on characters.
@@ -414,6 +513,23 @@ namespace seq {
         }
         if (f.is_satisfied()) {
             if (!f.witness_extracted() && !f.memberships().empty()) {
+                bool handled = false;
+                if (ac.fparams().m_seq_mem_monadic_endgame) {
+                    eq_tree::dep_tracker mdep = nullptr;
+                    lbool mr = solve_monadic_endgame(ac, f, mdep);
+                    if (mr == l_false) {
+                        n.set_conflict(stx::br_plugin_base, mdep);
+                        return stx::simplify_result::conflict;
+                    }
+                    if (mr == l_true) {
+                        f.set_witness_extracted();
+                        changed = true;
+                        handled = true;
+                    }
+                    // l_undef: engine could not decide (unsupported term
+                    // shape / budget) - fall back to view_witness below.
+                }
+                if (!handled) {
                 view_witness& vw = f.vw();
 
                 // Length requirements to force onto the witness search:
@@ -492,6 +608,7 @@ namespace seq {
                     changed = true;
                 }
                 vw.set_enable_witness(false);
+            }
             }
         }
         if (!changed) {

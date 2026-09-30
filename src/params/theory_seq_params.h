@@ -64,6 +64,19 @@ struct theory_seq_params {
     // feasibility check (view_witness/vw().check() in mem_propagation),
     // mirroring c3's smt.nseq.regex_precheck.
     bool m_seq_regex_precheck = true;
+    // Opt-in gate: use seq::monadic (the same whole-conjunction decision
+    // procedure mem_leaf_split already uses) as the END-GAME witness
+    // solver in mem_propagation::propagate() once a node's memberships
+    // are all satisfied, in place of view_witness's per-variable
+    // single-step search - and, unlike that search, also asserts every
+    // involved variable's length (recovered from the ambient arithmetic
+    // sub-solver, mirroring c3/master's seq_regex.cpp
+    // collect_candidate_bounds/record_bound) as a hypothesis before
+    // deciding. Falls back to view_witness whenever the engine cannot
+    // decide (unsupported term shape, or budget exhaustion). Default
+    // off: unproven on the regex/mem benchmark suite, see
+    // m_seq_monadic_leaf's comment for the analogous caution.
+    bool m_seq_mem_monadic_endgame = false;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);
