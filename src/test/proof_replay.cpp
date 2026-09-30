@@ -188,6 +188,9 @@ static void tst_is_extended_numeral() {
     for (unsigned i = 0; i < 200000; ++i)
         t = a.mk_uminus(t);
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
+    for (unsigned i = 0; i < 20000; ++i)
+        t = a.mk_div(t, a.mk_real(1));
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
 
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref_vector lits(m);

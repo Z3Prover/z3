@@ -994,11 +994,45 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
         }
         rational k1, k2;
         expr* t1, *t2;
-        if (is_div(term, t1, t2) &&
-            is_extended_numeral(t1, k1) &&
-            is_extended_numeral(t2, k2) &&
-            !k2.is_zero()) {
-            r = (k1 / k2) * mul;
+        if (is_div(term, t1, t2)) {
+            struct frame { expr* term; bool visited; bool neg; };
+            svector<frame> todo;
+            vector<rational> values;
+            todo.push_back({ term, false, false });
+            while (!todo.empty()) {
+                auto [t, visited, neg] = todo.back();
+                todo.pop_back();
+                if (visited) {
+                    rational den = values.back();
+                    values.pop_back();
+                    rational num = values.back();
+                    values.pop_back();
+                    if (den.is_zero())
+                        return false;
+                    values.push_back((neg ? -num : num) / den);
+                    continue;
+                }
+                for (;;) {
+                    if (is_uminus(t, t1))
+                        neg = !neg, t = t1;
+                    else if (is_to_real(t, t1))
+                        t = t1;
+                    else
+                        break;
+                }
+                if (is_div(t, t1, t2)) {
+                    todo.push_back({ t, true, neg });
+                    todo.push_back({ t2, false, false });
+                    todo.push_back({ t1, false, false });
+                }
+                else {
+                    rational n;
+                    if (!is_extended_numeral(t, n))
+                        return false;
+                    values.push_back(neg ? -n : n);
+                }
+            }
+            r = values.back() * mul;
             return true;
         }
         if (is_sub(term, t1, t2) && 
