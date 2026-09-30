@@ -151,7 +151,6 @@ namespace seq {
         void get_witness_model(obj_map<expr, expr*>& subst, expr_ref_vector& pin) const;
 
         void add(str_mem const& sm);
-        void narrow(unsigned idx, view const& new_view);
         void remove(unsigned idx);
         void replace(unsigned idx, expr_ref_vector const& new_str, eq_tree::dep_tracker dep = nullptr);
         void apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) override;

@@ -62,20 +62,6 @@ namespace seq {
             set_witness_extracted(false);
     }
 
-    void mem_facet::narrow(unsigned idx, view const& new_view) {
-        SASSERT(idx < m_mems.size());
-        str_mem const& sm = m_mems[idx];
-        if (!sm.active() || sm.m_view == new_view)
-            return;
-        // Updates are append-only: deactivate the old entry and append a
-        // fresh one. Copy fields before remove()/add() because add() may
-        // reallocate `m_mems`.
-        expr_ref_vector str(sm.m_str);
-        eq_tree::dep_tracker dep = sm.m_dep;
-        remove(idx);
-        add(str_mem(m, str, new_view, dep));
-    }
-
     void mem_facet::remove(unsigned idx) {
         SASSERT(idx < m_mems.size());
         m_trail.push(vector_field_trail<str_mem, bool>(m_mems, idx, &str_mem::m_active));
@@ -143,8 +129,6 @@ namespace seq {
     uint64_t str_mem::hash() const {
         uint64_t h = stx::stx_hash_tag(0x6d656du); // tag: "mem"
         h = stx::stx_hash_ids(h, m_str);
-        // view identity: (state, target) - target is null for a plain
-        // membership, encoded as id 0 (ast ids are never 0).
         h = stx::stx_hash_mix(h, static_cast<uint64_t>(m_view.m_state->get_id()));
         h = stx::stx_hash_mix(h, m_view.m_target ? static_cast<uint64_t>(m_view.m_target->get_id()) : 0);
         return h;

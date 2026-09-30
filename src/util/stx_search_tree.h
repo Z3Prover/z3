@@ -98,19 +98,7 @@ namespace stx {
         return h;
     }
 
-    // Shared helper for `constraint_i::hash()` implementations: hash one
-    // whole fact's canonical encoding (as built by the concrete
-    // constraint's own e.g. sig_encode_pair-style helper) down to a
-    // single opaque uint64, salted with a facet-specific tag so
-    // identically-shaped encodings from different constraint kinds never
-    // collide. `hash()` need only be a good bucket selector - it is
-    // never trusted alone (`constraint_store` always follows a hash
-    // match with an exact `equals()` check, so an occasional collision
-    // between unrelated facts is harmless, merely a wasted equality
-    // check) - but should still be built from the *whole* fact, not just
-    // one of its sub-terms (e.g. a shared character literal or skolem
-    // reused across many unrelated equations), so that in practice
-    // distinct facts rarely collide.
+
     inline uint64_t stx_hash_fact(uint64_t tag, vector<uint64_t> const& enc) {
         uint64_t h = stx_hash_tag(tag);
         for (uint64_t v : enc)
@@ -118,13 +106,6 @@ namespace stx {
         return h;
     }
 
-    // Mix one whole ref_vector of AST nodes (e.g. an expr_ref_vector)
-    // into an FNV-1a-style hash accumulator directly by each element's
-    // own get_id() - size-prefixed first, so a 1-element and a
-    // 2-element list that happen to share a leading id never collide -
-    // sparing constraint_i::hash() implementations the need to first
-    // copy every element's get_id() into an intermediate
-    // vector<uint64_t> just to hash one term-list.
     template <typename RefVec>
     inline uint64_t stx_hash_ids(uint64_t h, RefVec const& v) {
         h = stx_hash_mix(h, v.size());
@@ -135,16 +116,7 @@ namespace stx {
 
     /**
      * Domain-opaque handle for one atomic fact a facet contributes to the
-     * unsat cache (e.g. a word equation, disequation, or regex
-     * membership). Facets typically subclass this on their live fact type
-     * and pass borrowed pointers to active elements. Hash collisions are
-     * harmless because `constraint_store` always confirms matches with
-     * `equals()`.
-     *
-     * `hash()`/`equals()` must canonicalize structurally equivalent facts
-     * and reject different concrete fact kinds. `clone()` should copy only
-     * comparison-relevant state; cached entries are immutable values and do
-     * not need live bookkeeping such as activity flags or dependencies.
+     * unsat cache.
      */
     class constraint_i {
         unsigned m_store_id = UINT_MAX; // index assigned by constraint_store::intern(), once interned
@@ -157,12 +129,7 @@ namespace stx {
         unsigned store_id() const { return m_store_id; }
         void set_store_id(unsigned id) { m_store_id = id; }
 
-        // Opaque pointer to this live fact's justification object, as
-        // understood by the instantiating domain's
-        // `scoped_dependency_manager`. Returns nullptr when the fact has no
-        // independent leaf justification. `constraint_i` exposes this as
-        // `void*` because the concrete `dep_tracker` type is only known to
-        // the enclosing `search_tree` template.
+        // Opaque pointer to this live fact's justification object
         virtual void* dep_handle() const { return nullptr; }
     };
 
@@ -202,12 +169,6 @@ namespace stx {
         // NOT used on the DFS hot path.
         virtual facet_i* clone(trail_stack& trail) const = 0;
 
-        // Scope-boundary hooks, called by the engine (never by a facet or
-        // plugin) in lockstep with the shared trail's push_scope()/
-        // pop_scope(): push() immediately after a trail scope is opened,
-        // pop() immediately before/alongside the matching trail unwind.
-        // Default no-ops; a facet overrides these only if it maintains
-        // scope-local state that isn't already trail-object-based.
         virtual void push() {}
         virtual void pop() {}
 
@@ -215,11 +176,6 @@ namespace stx {
         // (e.g. no equations left, or an empty membership set)?
         virtual bool is_satisfied() const = 0;
 
-        // Print this facet's internal state (e.g. its pending equations/
-        // disequations/memberships) for diagnostics. Default: print
-        // nothing (a facet only needs to override this to be useful in
-        // debugging output); the engine never relies on the output being
-        // present.
         virtual std::ostream& display(std::ostream& out) const { return out; }
 
         // --- unsat-cache signature (see search_tree::m_unsat_cache) ---
@@ -230,24 +186,12 @@ namespace stx {
         // facet as "unknown to the cache" instead of risking a false hit.
         virtual bool contributes_to_signature() const { return false; }
 
-        // Append a borrowed `constraint_i const*` for each active fact this
-        // facet contributes to the cache signature. Order does not matter.
-        // Equality must denote the whole fact, not a shared subterm, so
-        // set-containment checks across nodes stay sound. The pointers are
-        // used only synchronously during lookup/interning; `constraint_store`
-        // clones anything it needs to retain. Only called when
-        // contributes_to_signature() is true; default no-op.
         virtual void append_constraints(vector<constraint_i const*>& out) const {}
     };
 
     /**
      * Domain-agnostic plugin-based search tree.
      *
-     * `dep_source_t` is supplied by the instantiating domain (e.g. a
-     * `std::variant<sat::literal, enode_pair>` for a sequence solver) and is
-     * the leaf payload type of the dependency arena (`util/dependency.h`'s
-     * `scoped_dependency_manager`, reused verbatim - it is already fully
-     * generic).
      */
     template <typename dep_source_t>
     class search_tree {
@@ -887,14 +831,6 @@ namespace stx {
             filter_by_conflict_dep(cs, n.conflict_dep());
             if (cs.empty())
                 return;
-            // Every constraint in this node's active set becomes (or
-            // already is) a constraint-store id: this is the only place
-            // the store ever grows past its root-seeded initial contents
-            // (see solve()'s cache-reset block). Note: unlike std::vector,
-            // stx's own `vector<T>::reserve(n)` actually resizes (default-
-            // filling) rather than just reserving capacity, so it must
-            // not be combined with push_back() below - just push_back()
-            // directly.
             vector<unsigned> ids;
             for (constraint_i const* c : cs)
                 ids.push_back(m_constraint_store.intern(*c));
@@ -943,10 +879,7 @@ namespace stx {
         vector<unsigned>     m_dot_stack; // current root-to-here path, by dot_node id
         // Optional "live" dump: if set, dfs() periodically overwrites this
         // file with the current to_dot() rendering as the search
-        // progresses, instead of only after solve() returns. This is what
-        // makes the trace usable when the process is torn down abruptly
-        // (e.g. -T:'s timeout handler calls _Exit() directly, which never
-        // unwinds the stack back to a post-solve() dump point).
+        // progresses
         std::string          m_dot_live_path;
         std::chrono::steady_clock::time_point m_dot_live_last_write{};
 
@@ -1032,17 +965,7 @@ namespace stx {
             rec.reason = n.reason();
         }
 
-        // Run every registered propagation plugin to a fixed point. The
-        // fixed point is detected via each plugin's own report: a round
-        // is a single pass over every plugin in registration order; we
-        // stop once a full round has every plugin report `noop` (no
-        // plugin changed anything), or a plugin reports
-        // conflict/satisfied.
         simplify_result propagate_to_fixpoint(node& n) {
-            // Bound the number of rounds by the number of plugins plus
-            // facets: propagation must be confluent/terminating, so this
-            // is a safety net against a misbehaving plugin, not a normal
-            // termination condition.
             unsigned max_rounds = (m_prop_plugins.size() + n.num_facets() + 1) * 4 + 8;
             for (unsigned round = 0; round < max_rounds; ++round) {
                 if (!m_limit.inc())
@@ -1055,14 +978,6 @@ namespace stx {
                         return r;
                     if (r != simplify_result::noop)
                         any_change = true;
-                    // NOTE: a plugin reporting `satisfied` only means ITS
-                    // OWN facet is discharged, not that every other facet
-                    // in this node is - the node is only truly satisfied
-                    // once ALL facets agree (n.is_satisfied(), an AND over
-                    // every registered facet). Keep running the remaining
-                    // plugins in this round (and further rounds, since
-                    // other facets may still need to react/propagate)
-                    // rather than short-circuiting here.
                 }
                 if (!any_change)
                     break;
@@ -1070,26 +985,12 @@ namespace stx {
             return n.is_satisfied() ? simplify_result::satisfied : simplify_result::proceed;
         }
 
-        // Pop one trail scope and fan out node::pop_facets() together -
-        // the one-shot counterpart to scoped_push, for call sites that
-        // pop a scope committed elsewhere (e.g. the dfs() recursion site,
-        // which matches a scope a split already committed rather than
-        // owning a fresh one itself). Always operates on the single live
-        // node (m_root).
+
         void pop() {
             m_trail.pop_scope(1);
             m_root->pop_facets();
         }
 
-        // Search for the cheapest available split, raising `cost` from 0.
-        // Pushes exactly one trail scope immediately before each `split()`
-        // call, popping it again if that call declines to commit a
-        // branch. On success, `n`/the trail have already been mutated for
-        // the first branch (inside that one pushed scope, left in place),
-        // `out` holds that branch's edge, and `frame.m_iter` (possibly
-        // null) holds the resumable iterator for the rest. Returns false
-        // once every plugin has nothing left to offer at any cost (the
-        // node is closed).
         bool extend_node(node& n, dfs_frame& frame, edge& out) {
             for (unsigned cost = 0; cost <= m_max_cost; ++cost) {
                 bool any_offer = false;
@@ -1117,10 +1018,6 @@ namespace stx {
             return false;
         }
 
-        // Pushes exactly one trail scope immediately before calling
-        // `iter->next()`, popping it again if `next()` returns false (no
-        // more branches). On success the pushed scope holds that branch's
-        // mutations and is left in place for the caller.
         bool advance_iter(split_iterator_i& iter, edge& out) {
             scoped_push guard(*this);
             if (iter.next(out)) {
@@ -1130,11 +1027,6 @@ namespace stx {
             return false;
         }
 
-        // `pure_out` is meaningful only for `unsat`: it reports whether
-        // the entire explored subtree depends only on signature-
-        // contributing facets. This must be threaded up from the leaves
-        // because child branches may have relied on excluded facets that
-        // are no longer visible when the parent resumes.
         search_result dfs(unsigned depth, edge const* in_edge, bool& pure_out) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
@@ -1142,10 +1034,6 @@ namespace stx {
                 return search_result::unknown;
             if (!m_limit.inc())
                 return search_result::unknown;
-            // Stack-safety backstop: see m_raw_dfs_depth's comment. Treated
-            // exactly like an ordinary depth_cutoff (both pure_out purity
-            // tracking and the iterative-deepening retry above already
-            // handle that result).
             if (m_raw_dfs_depth >= m_max_raw_dfs_depth)
                 return search_result::depth_cutoff;
             flet<unsigned> _scoped_raw_depth(m_raw_dfs_depth, m_raw_dfs_depth + 1);
@@ -1161,10 +1049,6 @@ namespace stx {
             n.clear_status();
             simplify_result sr = propagate_to_fixpoint(n);
 
-            // --- unsat cache lookup: only when propagation didn't already
-            // resolve this node one way or the other, so a hit here always
-            // replaces genuine further search (branching), never a
-            // decision propagation already made for free.
             bool cache_hit = false;
             if (sr != simplify_result::conflict && sr != simplify_result::satisfied &&
                 cache_lookup(n)) {
@@ -1177,9 +1061,6 @@ namespace stx {
 
             if (sr == simplify_result::conflict) {
                 result = search_result::unsat;
-                // Propagation-level conflict: memoize it when the node is
-                // cache-eligible, unless the conflict itself came from a
-                // cache hit.
                 pure_out = cache_eligible(n);
                 if (pure_out && !cache_hit)
                     cache_insert(n);
@@ -1222,14 +1103,6 @@ namespace stx {
                         // progress edges (a variable eliminated, an arithmetic decision) are
                         // free; only edges introducing fresh variables count towards the bound
                         cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge, child_pure);
-                        // Always pop back out of this branch, even on
-                        // sat: the sat leaf's facet state was already
-                        // captured by m_sat_snapshot (a cold-path
-                        // clone taken where the leaf was found), so
-                        // there is no need to leave any trail scopes
-                        // suspended just to keep the live node in the
-                        // satisfying state - callers that want to
-                        // inspect it use sat_snapshot() instead.
                         pop(); // matches the scope the split committed for this branch
                         if (cr == search_result::sat) {
                             result = search_result::sat;
@@ -1322,33 +1195,6 @@ namespace stx {
         void push_facets() { m_root->push_facets(); }
         void pop_facets() { m_root->pop_facets(); }
 
-        // Deep-copy `src`'s current root facet state into this tree's own
-        // root, re-binding each cloned facet to this tree's own trail_stack
-        // (so subsequent mutations undo through *this* tree's trail, not
-        // `src`'s). Used by e.g. `theory_nseq::mk_fresh` to make a cloned
-        // context start out with the same accumulated facet state as the
-        // context it was cloned from, rather than silently starting empty.
-        // Both trees must have gone through the identical sequence of
-        // `register_facet<T>(...)` calls (same facet ids/types/order) -
-        // true whenever `src` and `*this` come from two `theory_nseq`
-        // instances constructed the same way.
-        void clone_state_from(search_tree const& src) {
-            SASSERT(m_root && src.m_root);
-            SASSERT(m_root->num_facets() == src.m_root->num_facets());
-            node* new_root = src.m_root->clone(m_trail);
-            for (facet_id id = 0; id < m_root->num_facets(); ++id) {
-                if (!src.m_root->has_facet(id))
-                    continue;
-                dealloc(m_root->m_facets[id]);
-                m_root->m_facets[id] = new_root->m_facets[id];
-                new_root->m_facets[id] = nullptr;
-            }
-            m_root->m_status = new_root->m_status;
-            m_root->m_reason = new_root->m_reason;
-            m_root->m_conflict_dep = new_root->m_conflict_dep;
-            dealloc(new_root);
-        }
-
         // Non-null only immediately after a `solve()` call returned `sat`;
         // a standalone (trail-independent) snapshot of the satisfying
         // facet state. Overwritten/cleared by the next `solve()` call.
@@ -1357,12 +1203,6 @@ namespace stx {
         stats const& get_stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
 
-        // Engine-level stats plus a fan-out to every registered
-        // propagation/split plugin's own collect_statistics(), so a
-        // caller need only call this once to get both the generic
-        // engine counters (solve/dfs/split counts, per-plugin
-        // invocation counts) and every plugin's domain-specific
-        // counters (e.g. "eq: word_eq_split applications").
         void collect_statistics(::statistics& st) const {
             st.update("seq-stx num solve calls", m_stats.m_num_solve_calls);
             st.update("seq-stx num dfs nodes", m_stats.m_num_dfs_nodes);
