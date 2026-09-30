@@ -551,8 +551,40 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (extract_array_func_interp(a, stores1, else1, args_are_unique1) &&
             extract_array_func_interp(b, stores2, else2, args_are_unique2)) {
             expr_ref_vector conj(m), args1(m), args2(m);
+            // When the array domain is small and finite and the union of explicit
+            // store indices already covers every domain element, the "else" (default)
+            // values are never actually observed, so they need not agree.
+            bool small_domain_fully_covered = false;
+            if (args_are_unique1 && args_are_unique2 && !m.are_equal(else1, else2)) {
+                sort* asort = a->get_sort();
+                unsigned arity = get_array_arity(asort);
+                rational dom_size(1);
+                bool finite = true;
+                for (unsigned i = 0; finite && i < arity; ++i) {
+                    sort* d = get_array_domain(asort, i);
+                    if (d->is_infinite() || d->is_very_big()) 
+                        finite = false;
+                    else
+                        dom_size *= rational(d->get_num_elements().size(), rational::ui64());
+                }
+                if (finite && dom_size.is_unsigned() && (!stores1.empty() || !stores2.empty())) {
+                    args_hash ah(arity);
+                    args_eq   ae(arity);
+                    args_table seen(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+                    unsigned count = 0;
+                    for (auto& s : stores1) 
+                        if (!seen.contains(s.data())) { seen.insert(s.data()); ++count; }
+                    for (auto& s : stores2) 
+                        if (!seen.contains(s.data())) { seen.insert(s.data()); ++count; }
+                    if (rational(count) >= dom_size)
+                        small_domain_fully_covered = true;
+                }
+            }
             if (m.are_equal(else1, else2)) {
                 // no op
+            }
+            else if (small_domain_fully_covered) {
+                // defaults are not observed on any domain element; no constraint needed
             }
             else if (m.are_distinct(else1, else2) && !(else1->get_sort()->get_info()->get_num_elements().is_finite())) {
                 result = m.mk_false();

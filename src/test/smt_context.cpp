@@ -303,4 +303,12 @@ void tst_smt_context()
         "(declare-sort H 0)\n"
         "(declare-const h H)\n"
         "(assert (partial-order h h))\n");
+
+    // Regression (issue #10981): two extensionally equal arrays over a Bit-Vector 1
+    // (2-element) domain, built as stores over `const` arrays with different default
+    // values, used to be reported unsat due to a reversed default/select pairing (and
+    // a missing diagonal axiom) in the small-domain default-store axiom.
+    check_sat_smt_model(
+        "(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)\n"
+        "           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))\n");
 }
