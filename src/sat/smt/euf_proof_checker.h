@@ -24,7 +24,6 @@ Author:
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
 
-
 namespace euf {
 
     class theory_checker;
@@ -85,6 +84,10 @@ namespace euf {
         sat::literal_vector m_units;
         sat::literal_vector m_clause;
         bool         m_check_rup = false;
+        // Literals are mapped to SAT variables by expression id, so every mapped
+        // expression is pinned to keep its id from being reused by another term.
+        expr_ref_vector m_pinned;
+        bool_vector  m_is_pinned;
 
         // for logging
 
@@ -112,22 +115,27 @@ namespace euf {
                 proof_hint->get_name() == m_rup;        
         }
         
+        sat::literal mk_literal(expr* e) {
+            bool sign = false;
+            while (m.is_not(e, e))
+                sign = !sign;
+            unsigned id = e->get_id();
+            if (!m_is_pinned.get(id, false)) {
+                m_is_pinned.setx(id, true, false);
+                m_pinned.push_back(e);
+            }
+            return sat::literal(id, sign);
+        }
+
         void mk_clause(expr_ref_vector const& clause) {
             m_clause.reset();
-            for (expr* e : clause) {
-                bool sign = false;
-                while (m.is_not(e, e))
-                    sign = !sign;
-                m_clause.push_back(sat::literal(e->get_id(), sign));
-            }
+            for (expr* e : clause) 
+                m_clause.push_back(mk_literal(e));
         }
         
         void mk_clause(expr* e) {
             m_clause.reset();
-            bool sign = false;
-            while (m.is_not(e, e))
-                sign = !sign;
-            m_clause.push_back(sat::literal(e->get_id(), sign));
+            m_clause.push_back(mk_literal(e));
         }
         
         bool check_rup(expr_ref_vector const& clause);
@@ -161,4 +169,3 @@ namespace euf {
 
 
 }
-

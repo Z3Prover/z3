@@ -173,10 +173,8 @@ namespace arith {
             expr* e1, *e2;
             for (unsigned i = 0; i < m_todo.size(); ++i) {
                 auto [coeff, e] = m_todo[i];
-                if (a.is_mul(e, e1, e2) && is_numeral(e1, coeff1))
-                    m_todo.push_back({coeff*coeff1, e2});
-                else if (a.is_mul(e, e1, e2) && is_numeral(e2, coeff1))
-                    m_todo.push_back({ coeff * coeff1, e1 });
+                if (a.is_mul(e))
+                    linearize_mul(r, coeff, to_app(e));
                 else if (a.is_add(e))
                     for (expr* arg : *to_app(e))
                         m_todo.push_back({coeff, arg});
@@ -194,12 +192,31 @@ namespace arith {
             m_todo.reset();
         }
 
-        bool is_numeral(expr* e, rational& n) {
-            if (a.is_numeral(e, n))
-                return true;
-            if (a.is_uminus(e, e) && a.is_numeral(e, n))
-                return n.neg(), true;
-            return false;
+        /**
+         * \brief add mul * (* t1 .. tn) to r, folding the numeral factors into the coefficient.
+         * A product with two or more non-numeral factors is nonlinear and is kept as one opaque term.
+         */
+        void linearize_mul(row& r, rational const& mul, app* e) {
+            rational coeff(mul), coeff1;
+            expr* x = nullptr;
+            for (expr* arg : *e) {
+                if (is_numeral(arg, coeff1))
+                    coeff *= coeff1;
+                else if (!x)
+                    x = arg;
+                else {
+                    add(r, e, mul);
+                    return;
+                }
+            }
+            if (x)
+                m_todo.push_back({coeff, x});
+            else
+                r.m_coeff += coeff;
+        }
+
+        bool is_numeral(expr* e, rational& n) const {
+            return a.is_extended_numeral(e, n);
         }
         
         bool check_ineq(row& r) {
@@ -475,7 +492,7 @@ namespace arith {
             expr* arg1 = jst->get_arg(n - 2);
             expr* arg2 = jst->get_arg(n - 1);
             rational coeff;
-            if (!a.is_numeral(arg1, coeff))
+            if (!is_numeral(arg1, coeff))
                 return false;
             if (!m.is_not(arg2, arg2))
                 return false;
@@ -510,7 +527,7 @@ namespace arith {
             for (expr* arg : *jst) {
                 
                 if (even) {
-                    if (!a.is_numeral(arg, coeff)) {
+                    if (!is_numeral(arg, coeff)) {
                         IF_VERBOSE(0, verbose_stream() << "not numeral " << mk_pp(jst, m) << "\n");
                         return false;
                     }

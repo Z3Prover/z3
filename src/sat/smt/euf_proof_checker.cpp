@@ -81,12 +81,11 @@ namespace euf {
 
         void merge_numeral(expr* x) {
             rational n;
-            expr* y;
-            if (m_arith.is_uminus(x, y) && m_arith.is_numeral(y, n)) {
-                y = m_arith.mk_numeral(-n, x->get_sort());
-                m_trail.push_back(y);
-                m_uf.merge(expr2id(x), expr2id(y));
-            }
+            if (m_arith.is_numeral(x) || !m_arith.is_extended_numeral(x, n))
+                return;
+            expr* y = m_arith.mk_numeral(n, x->get_sort());
+            m_trail.push_back(y);
+            m_uf.merge(expr2id(x), expr2id(y));
         }
 
         bool are_equal(expr* x, expr* y) {
@@ -399,7 +398,8 @@ namespace euf {
         m_params(p),
         m_checker(m),
         m_sat_solver(m_params, m.limit()), 
-        m_drat(m_sat_solver) 
+        m_drat(m_sat_solver),
+        m_pinned(m)
     {
         m_params.set_bool("drat.check_unsat", true);
         m_params.set_bool("euf", false);
@@ -555,4 +555,3 @@ namespace euf {
     }
     
 }
-

@@ -958,52 +958,72 @@ bool arith_util::is_bounded(expr* n) const {
 }
 
 bool arith_util::is_extended_numeral(expr* term, rational& r) const {
-    rational mul(1);
-    do {
-        if (is_numeral(term, r)) {
-            r *= mul;
-            return true;
-        }
-        if (is_uminus(term, term)) {
-            mul.neg();
+    if (is_numeral(term, r))
+        return true;
+    struct frame { expr* term; bool visited; bool neg; };
+    svector<frame> todo;
+    vector<rational> values;
+    todo.push_back({ term, false, false });
+    while (!todo.empty()) {
+        auto [t, visited, neg] = todo.back();
+        todo.pop_back();
+        if (visited) {
+            rational value;
+            if (is_to_int(t)) {
+                value = floor(values.back());
+                values.pop_back();
+            }
+            else if (is_add(t) || is_mul(t)) {
+                bool add = is_add(t);
+                value = add ? rational(0) : rational(1);
+                for (unsigned i = to_app(t)->get_num_args(); i-- > 0;) {
+                    if (add)
+                        value += values.back();
+                    else
+                        value *= values.back();
+                    values.pop_back();
+                }
+            }
+            else {
+                rational rhs = values.back();
+                values.pop_back();
+                rational lhs = values.back();
+                values.pop_back();
+                if (is_div(t)) {
+                    if (rhs.is_zero())
+                        return false;
+                    value = lhs / rhs;
+                }
+                else
+                    value = lhs - rhs;
+            }
+            values.push_back(neg ? -value : value);
             continue;
         }
-        if (is_to_real(term, term)) {
+        expr* arg;
+        for (;;) {
+            if (is_uminus(t, arg))
+                neg = !neg, t = arg;
+            else if (is_to_real(t, arg))
+                t = arg;
+            else
+                break;
+        }
+        rational value;
+        if (is_numeral(t, value)) {
+            values.push_back(neg ? -value : value);
             continue;
         }
-        if (is_mul(term)) {
-            r = mul;
-            rational n(0);
-            for (expr* arg : *to_app(term)) {
-                if (!is_extended_numeral(arg, n))
-                    return false;
-                r *= n;
-            }
-            return true;
-        }
-        if (is_add(term)) {
-            rational n(0);
-            r = 0;
-            for (expr* arg : *to_app(term)) {
-                if (!is_extended_numeral(arg, n))
-                    return false;
-                r += n;
-            }
-            r *= mul;
-            return true;
-        }
-        rational k1, k2;
         expr* t1, *t2;
-        if (is_sub(term, t1, t2) && 
-            is_extended_numeral(t1, k1) &&
-            is_extended_numeral(t2, k2)) {
-            r = (k1 - k2) * mul;
-            return true;
-        }
-        return false;
-    } 
-    while (true);
-    return false;
+        if (!is_to_int(t) && !is_add(t) && !is_mul(t) && !is_sub(t, t1, t2) && !is_div(t, t1, t2))
+            return false;
+        app* a = to_app(t);
+        todo.push_back({ t, true, neg });
+        for (unsigned i = a->get_num_args(); i-- > 0;)
+            todo.push_back({ a->get_arg(i), false, false });
+    }
+    r = values.back();
+    return true;
 }
 
 bool arith_util::is_underspecified(expr* e) const {
@@ -1025,4 +1045,3 @@ bool arith_util::is_underspecified(expr* e) const {
     }
     return false;
 }
-
