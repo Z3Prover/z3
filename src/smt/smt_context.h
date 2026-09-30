@@ -1236,8 +1236,7 @@ namespace smt {
             if (n->is_cgr())
                 return n;
             auto r = m_cg_table.find(n);
-            SASSERT(r != nullptr);
-            return r;
+            return r ? r : n;
         }
 
         bool is_diseq(enode * n1, enode * n2) const;
