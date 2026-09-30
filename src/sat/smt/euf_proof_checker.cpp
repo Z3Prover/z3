@@ -97,30 +97,14 @@ namespace euf {
             return m_expr2id.get(e->get_id(), {0, 0}).first == m_ts;
         }
 
-        // the truth value (true or false) in the equivalence class of t, if any
-        expr* value_of(expr* t) {
-            unsigned r = m_uf.find(expr2id(t)), v = r;
-            do {
-                expr* e = m_id2expr[v];
-                if (m.is_true(e) || m.is_false(e))
-                    return e;
-                v = m_uf.next(v);
-            }
-            while (v != r);
-            return nullptr;
-        }
-
         // a Boolean term (not x) that occurs inside an equality is interpreted:
-        // it is inconsistent for x and (not x) to be equal or to share a truth value.
+        // x and (not x) cannot share a class, including via true or false.
         bool negation_violated() {
             for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
                 expr* e = m_id2expr[v], *x = nullptr;
                 if (!m.is_not(e, x) || !has_id(x))
                     continue;
                 if (are_equal(e, x))
-                    return true;
-                expr* ve = value_of(e), *vx = value_of(x);
-                if (ve && vx && ve == vx)
                     return true;
             }
             return false;

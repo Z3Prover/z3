@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_ll_pp.h"
+#include "sat/smt/euf_proof_checker.h"
 #include <iostream>
 
 void tst_checker1() {
@@ -74,7 +75,48 @@ void tst_initializer_list_overloads() {
     std::cout << "Initializer list overloads test passed!" << std::endl;
 }
 
+static void tst_euf_negation() {
+    ast_manager m;
+    euf::theory_checker checker(m);
+    expr_ref x(m.mk_const(symbol("x"), m.mk_bool_sort()), m);
+    expr_ref y(m.mk_const(symbol("y"), m.mk_bool_sort()), m);
+    expr_ref nx(m.mk_not(x), m);
+    expr_ref eq(m.mk_eq(nx, y), m);
+    auto check = [&](std::initializer_list<expr*> args) {
+        expr_ref hint(m.mk_app(symbol("euf"), args.size(), args.begin(), m.mk_proof_sort()), m);
+        return checker.check(hint);
+    };
+
+    VERIFY(check({m.mk_eq(x, nx)}));
+    VERIFY(!check({eq, y}));
+    VERIFY(check({x, eq, y}));
+    VERIFY(!check({x, eq, m.mk_not(y)}));
+    VERIFY(check({nx, eq, m.mk_not(y)}));
+    VERIFY(!check({nx, eq, y}));
+}
+
+static void tst_euf_negation_large_classes() {
+    ast_manager m;
+    euf::theory_checker checker(m);
+    expr_ref x(m.mk_const(symbol("x"), m.mk_bool_sort()), m);
+    expr_ref nx(m.mk_not(x), m);
+    expr_ref_vector args(m);
+    // Both classes lack truth values, so per-negation class scans are quadratic.
+    for (unsigned i = 0; i < 16384; ++i) {
+        expr_ref y(m.mk_fresh_const("y", m.mk_bool_sort()), m);
+        args.push_back(m.mk_eq(x, y));
+        args.push_back(m.mk_eq(nx, m.mk_not(y)));
+    }
+    expr_ref hint(m.mk_app(symbol("euf"), args.size(), args.data(), m.mk_proof_sort()), m);
+    VERIFY(!checker.check(hint));
+    args.push_back(m.mk_false());
+    hint = m.mk_app(symbol("euf"), args.size(), args.data(), m.mk_proof_sort());
+    VERIFY(checker.check(hint));
+}
+
 void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
+    tst_euf_negation();
+    tst_euf_negation_large_classes();
 }
