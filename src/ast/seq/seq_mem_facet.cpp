@@ -48,6 +48,11 @@ namespace seq {
         m_qhead = head;
     }
 
+    void mem_facet::advance_bounds_qhead(unsigned head) {
+        m_trail.push(value_trail<unsigned>(m_bounds_qhead));
+        m_bounds_qhead = head;
+    }
+
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
         m_trail.push(push_back_trail<str_mem>(m_mems));
@@ -114,6 +119,7 @@ namespace seq {
         mem_facet* f = alloc(mem_facet, trail, m, u, m_dm, m_rw, m_ac);
         f->m_mems.append(m_mems);
         f->m_qhead = m_qhead;
+        f->m_bounds_qhead = m_bounds_qhead;
         // Re-register active single-variable memberships in the clone's
         // fresh `m_vw`.
         for (auto const& sm : f->m_mems)
@@ -1029,120 +1035,74 @@ namespace seq {
         return alloc(iterator, n, dep, *this);
     }
 
-    // -- mem_bounds_propagation --
+    // -- mem_var_bounds_propagation --
 
-    // Trail undo for `mem_bounds_propagation`'s `m_last` cache.
-    //
-    // `m_prior` lives on the ordinary heap because trail objects are
-    // region-allocated and their destructors are not run on backtrack.
-    // Storing `last_bound` by value here would leak its `rational`
-    // payloads.
-    class mem_bounds_last_trail : public trail {
-        obj_map<expr, mem_bounds_propagation::last_bound>& m_map;
-        expr*                                              m_var;        
-        mem_bounds_propagation::last_bound*                 m_prior;
-    public:
-        mem_bounds_last_trail(obj_map<expr, mem_bounds_propagation::last_bound>& map, expr* var,
-                               bool had_prior, mem_bounds_propagation::last_bound const& prior) :
-            m_map(map), m_var(var),
-            m_prior(had_prior ? alloc(mem_bounds_propagation::last_bound, prior) : nullptr) {}
-        void undo() override {
-            if (m_prior) {
-                m_map.insert(m_var, *m_prior);
-                dealloc(m_prior);
-            }
-            else
-                m_map.remove(m_var);
-        }
-    };
-
-    void mem_bounds_propagation::collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const {
-        auto ac = get_ambient(n);
-        auto& ef = ac.eq_facet_ref();
-        for (auto const& eq : ef.equations()) {
-            if (!eq.active())
-                continue;
-            for (expr* t : eq.m_lhs)
-                if (ac.is_var(t))
-                    vars.insert(t);
-            for (expr* t : eq.m_rhs)
-                if (ac.is_var(t))
-                    vars.insert(t);
-        }
-        auto& mf = ac.mem_facet_ref();
-        for (auto const& sm : mf.memberships()) {
-            if (!sm.active())
-                continue;
-            for (expr* t : sm.m_str)
-                if (ac.is_var(t))
-                    vars.insert(t);
-        }
-    }
-
-    stx::simplify_result mem_bounds_propagation::propagate(eq_tree::node& n) {
+    stx::simplify_result mem_var_bounds_propagation::propagate(eq_tree::node& n) {
         m_stats.m_num_propagate++;
         auto ac = get_ambient(n);
         auto& mf = ac.mem_facet_ref();
-        obj_hashtable<expr> vars;
-        collect_vars(n, vars);
         bool changed = false;
-        for (expr* var : vars) {
-            sort* elem_sort = nullptr;
-            if (!u.is_seq(var->get_sort(), elem_sort))
+        unsigned head = mf.bounds_qhead();
+        unsigned end = mf.memberships().size();
+        while (head < end) {
+            str_mem const& sm = mf.memberships()[head++];
+            if (!sm.active())
                 continue;
-            expr_ref len(u.str.mk_length(var), m);
-            rational lo, hi;
-            eq_tree::dep_tracker lo_dep = nullptr, hi_dep = nullptr;
-            bool has_lo = ac.lower_bound(len, lo, lo_dep);
-            bool has_hi = ac.upper_bound(len, hi, hi_dep);
-            if (!has_lo && !has_hi)
-                continue;
-            if (has_lo && lo.is_neg())
-                has_lo = false;
-            if (!has_lo && !has_hi)
-                continue;
-
-            last_bound prior;
-            bool have_prior = m_last.find(var, prior);
-            bool same_lo = have_prior && prior.has_lo == has_lo && (!has_lo || prior.lo == lo);
-            bool same_hi = have_prior && prior.has_hi == has_hi && (!has_hi || prior.hi == hi);
-            if (have_prior && same_lo && same_hi)
-                continue;
-
-            sort* re_sort = u.re.mk_re(var->get_sort());
-            app* full_char = u.re.mk_full_char(re_sort);
-            expr* state = nullptr;
-            unsigned lo_u = has_lo ? (lo.is_unsigned() ? lo.get_unsigned() : 0) : 0;
-            if (has_lo && has_hi) {
-                // An infeasible range is an arithmetic conflict; leave it to
-                // `arith_propagation`.
-                if (hi.is_neg() || hi < lo)
+            for (expr* var : sm.m_str) {
+                if (!ac.is_var(var) || m_done.contains(var))
                     continue;
-                unsigned hi_u = hi.is_unsigned() ? hi.get_unsigned() : lo_u;
-                state = u.re.mk_loop_proper(full_char, lo_u, hi_u);
+                sort* elem_sort = nullptr;
+                if (!u.is_seq(var->get_sort(), elem_sort))
+                    continue;
+                expr_ref len(u.str.mk_length(var), m);
+                rational lo, hi;
+                eq_tree::dep_tracker lo_dep = nullptr, hi_dep = nullptr;
+                bool has_lo = ac.lower_bound(len, lo, lo_dep);
+                bool has_hi = ac.upper_bound(len, hi, hi_dep);
+                if (has_lo && lo.is_neg())
+                    has_lo = false;
+                // No bound known yet: leave `var` unmarked so a later
+                // membership mentioning it (e.g. from a split or
+                // substitution) gets another chance.
+                if (!has_lo && !has_hi)
+                    continue;
+
+                sort* re_sort = u.re.mk_re(var->get_sort());
+                app* full_char = u.re.mk_full_char(re_sort);
+                expr* state = nullptr;
+                unsigned lo_u = has_lo ? (lo.is_unsigned() ? lo.get_unsigned() : 0) : 0;
+                if (has_lo && has_hi) {
+                    // An infeasible range is an arithmetic conflict; leave
+                    // it to `arith_propagation`.
+                    if (hi.is_neg() || hi < lo)
+                        continue;
+                    unsigned hi_u = hi.is_unsigned() ? hi.get_unsigned() : lo_u;
+                    state = u.re.mk_loop_proper(full_char, lo_u, hi_u);
+                }
+                else if (has_lo)
+                    state = u.re.mk_loop(full_char, lo_u);
+                else /* has_hi only */
+                    state = u.re.mk_loop_proper(full_char, 0, hi.is_unsigned() ? hi.get_unsigned() : 0);
+
+                eq_tree::dep_tracker dep = nullptr;
+                if (has_lo)
+                    dep = mf.dm().mk_join(dep, lo_dep);
+                if (has_hi)
+                    dep = mf.dm().mk_join(dep, hi_dep);
+
+                mf.add(str_mem(m, var, view::membership(state, m), dep));
+                // `m_done` is a plugin-local, whole-search cache (variable
+                // identity is global), so it is unwound with the shared
+                // trail.
+                m_trail.push(insert_obj_trail<expr>(m_done, var));
+                m_done.insert(var);
+                changed = true;
+                m_stats.m_num_added++;
             }
-            else if (has_lo)
-                state = u.re.mk_loop(full_char, lo_u);
-            else /* has_hi only */
-                state = u.re.mk_loop_proper(full_char, 0, hi.is_unsigned() ? hi.get_unsigned() : 0);
-
-            eq_tree::dep_tracker dep = nullptr;
-            if (has_lo)
-                dep = mf.dm().mk_join(dep, lo_dep);
-            if (has_hi)
-                dep = mf.dm().mk_join(dep, hi_dep);
-
-            mf.add(str_mem(m, var, view::membership(state, m), dep));
-
-            last_bound updated;
-            updated.has_lo = has_lo; updated.lo = has_lo ? lo : rational::zero();
-            updated.has_hi = has_hi; updated.hi = has_hi ? hi : rational::zero();
-            // `m_last` is a plugin-local cache used only to skip redundant
-            // re-adds, so it is unwound with the shared trail.
-            m_trail.push(mem_bounds_last_trail(m_last, var, have_prior, prior));
-            m_last.insert(var, updated);
+        }
+        if (head != mf.bounds_qhead()) {
+            mf.advance_bounds_qhead(head);
             changed = true;
-            m_stats.m_num_added++;
         }
         return changed ? stx::simplify_result::proceed : stx::simplify_result::noop;
     }

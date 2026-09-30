@@ -96,6 +96,9 @@ namespace seq {
         mutable unsigned  m_vw_budget = 0;
 
         unsigned          m_qhead = 0;
+        // Incremental cursor for `mem_var_bounds_propagation`, separate
+        // from `m_qhead` (owned by `mem_propagation`'s derivative scan).
+        unsigned          m_bounds_qhead = 0;
 
         bool              m_witness_extracted = false;
         obj_map<expr, expr*> m_witness;
@@ -119,6 +122,10 @@ namespace seq {
         unsigned qhead() const { return m_qhead; }
 
         void advance_qhead(unsigned head);
+
+        unsigned bounds_qhead() const { return m_bounds_qhead; }
+
+        void advance_bounds_qhead(unsigned head);
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
@@ -202,25 +209,31 @@ namespace seq {
     };
 
     // Forwards arithmetic bounds on `str.len(x)` as membership constraints
-    // `x in (allchar){lo,hi}` (or one-sided variants). This lets regex-side
-    // rules see length information directly.
+    // `x in (allchar){lo,hi}` (or one-sided variants), so regex-side rules
+    // (view_witness, seq::monadic) see the current length bounds directly
+    // instead of only inferring them from a model round-trip.
     //
-    // The plugin remembers, per variable, the last forwarded `(lo, hi)`
-    // pair in a trail-managed map, so unchanged bounds are skipped and
-    // tighter bounds add a fresh membership.
-    class mem_bounds_propagation : public eq_tree::propagation_plugin_i {
-    public:
-        // Last `(lo, hi)` pair already forwarded for a variable, so
-        // unchanged bounds are skipped. Public for the trail-undo helper.
-        struct last_bound { rational lo, hi; bool has_lo = false, has_hi = false; };
-
-    private:
+    // Processes `str_mem` constraints incrementally: `m_bounds_qhead`
+    // (owned by `mem_facet`) tracks which memberships have already been
+    // scanned. For each variable in a newly scanned membership, if the
+    // ambient context currently has a lower and/or upper bound on its
+    // length, a bound membership is added once and the variable is marked
+    // done in `m_done` (a trail-managed set shared across the whole
+    // search, mirroring how variable identity is shared). A later,
+    // tighter bound is not re-forwarded: the wider membership already
+    // added remains a sound (if less precise) constraint. If no bound is
+    // known yet, the variable is left unmarked and may still be picked up
+    // later if it recurs in a fresh membership (e.g. produced by a split
+    // or substitution).
+    class mem_var_bounds_propagation : public eq_tree::propagation_plugin_i {
         ast_manager&  m;
         seq_util&     u;
         arith_util&   a;
         trail_stack&  m_trail;
 
-        obj_map<expr, last_bound> m_last;
+        // Variables that already have a bound membership forwarded; never
+        // re-added, see class comment.
+        obj_hashtable<expr> m_done;
 
         struct stats {
             unsigned m_num_propagate = 0;
@@ -229,12 +242,8 @@ namespace seq {
         };
         stats m_stats;
 
-        // Collect candidate sequence variables from equation sides and
-        // membership tokens.
-        void collect_vars(eq_tree::node& n, obj_hashtable<expr>& vars) const;
-
     public:
-        mem_bounds_propagation(ast_manager& m, seq_util& u, arith_util& a, ambient_context_i<eq_tree::dep_tracker>& ac) : m(m), u(u), a(a), m_trail(ac.trail()) {}
+        mem_var_bounds_propagation(ast_manager& m, seq_util& u, arith_util& a, ambient_context_i<eq_tree::dep_tracker>& ac) : m(m), u(u), a(a), m_trail(ac.trail()) {}
         char const* name() const override { return "mem-bounds-propagate"; }
         stx::simplify_result propagate(eq_tree::node& n) override;
         void collect_statistics(::statistics& st) const override {

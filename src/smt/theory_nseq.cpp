@@ -158,7 +158,7 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::arith_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter));
-        m_tree.add_propagation_plugin(alloc(seq::mem_bounds_propagation, m, m_seq, m_autil, *m_ambient));
+        m_tree.add_propagation_plugin(alloc(seq::mem_var_bounds_propagation, m, m_seq, m_autil, *m_ambient));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
         m_tree.add_propagation_plugin(alloc(seq::req_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::lex_propagation, m, m_seq));
