@@ -994,6 +994,13 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
         }
         rational k1, k2;
         expr* t1, *t2;
+        if (is_div(term, t1, t2) &&
+            is_extended_numeral(t1, k1) &&
+            is_extended_numeral(t2, k2) &&
+            !k2.is_zero()) {
+            r = (k1 / k2) * mul;
+            return true;
+        }
         if (is_sub(term, t1, t2) && 
             is_extended_numeral(t1, k1) &&
             is_extended_numeral(t2, k2)) {
@@ -1025,4 +1032,3 @@ bool arith_util::is_underspecified(expr* e) const {
     }
     return false;
 }
-

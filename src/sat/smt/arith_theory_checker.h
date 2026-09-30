@@ -215,9 +215,8 @@ namespace arith {
                 r.m_coeff += coeff;
         }
 
-        // Numerals may arrive as the SMT-LIB printer wrote them: (- n), (/ n d), (to_real n).
         bool is_numeral(expr* e, rational& n) const {
-            return euf::is_numeral_term(a, e, n);
+            return a.is_extended_numeral(e, n);
         }
         
         bool check_ineq(row& r) {

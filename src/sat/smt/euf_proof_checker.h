@@ -24,22 +24,9 @@ Author:
 #include "sat/sat_solver.h"
 #include "sat/sat_drat.h"
 
-class arith_util;
-
 namespace euf {
 
     class theory_checker;
-
-    /**
-       \brief Recognize a term that denotes a numeral in the shapes the SMT-LIB printer emits:
-       a numeral n, (- t), (to_real t), and (/ t1 t2) with t2 != 0, nested to any depth.
-
-       Proof-log replay folds these shapes into numerals before literals and hints reach
-       the checkers (see proof_cmds.cpp). Checkers still accept them here so that hints
-       checked without a replay round-trip, or produced by other tools, are not rejected.
-       The traversal is iterative, so deeply nested wrappers cannot overflow the stack.
-    */
-    bool is_numeral_term(arith_util const& a, expr* e, rational& n);
 
     class theory_checker_plugin {
     public:
@@ -182,4 +169,3 @@ namespace euf {
 
 
 }
-

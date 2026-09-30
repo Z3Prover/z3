@@ -162,28 +162,32 @@ static void tst_checker_printed_numerals() {
     ENSURE(checker.check(mk_farkas(m, coeffs, lits)));
 }
 
-static void tst_is_numeral_term() {
+static void tst_is_extended_numeral() {
     ast_manager m;
     reg_decl_plugins(m);
     arith_util a(m);
     rational n;
     expr_ref t(m);
     t = a.mk_div(a.mk_uminus(a.mk_real(1)), a.mk_div(a.mk_real(2), a.mk_uminus(a.mk_real(4))));
-    ENSURE(euf::is_numeral_term(a, t, n) && n == 2);
+    ENSURE(a.is_extended_numeral(t, n) && n == 2);
     t = a.mk_to_real(a.mk_uminus(a.mk_int(3)));
-    ENSURE(euf::is_numeral_term(a, t, n) && n == -3);
+    ENSURE(a.is_extended_numeral(t, n) && n == -3);
     t = a.mk_div(a.mk_real(1), a.mk_real(0));
-    ENSURE(!euf::is_numeral_term(a, t, n));
+    ENSURE(!a.is_extended_numeral(t, n));
     t = a.mk_div(a.mk_real(1), a.mk_uminus(a.mk_real(0)));
-    ENSURE(!euf::is_numeral_term(a, t, n));
+    ENSURE(!a.is_extended_numeral(t, n));
+    t = a.mk_div(a.mk_real(1), a.mk_div(a.mk_real(1), a.mk_real(0)));
+    ENSURE(!a.is_extended_numeral(t, n));
+    t = a.mk_div(a.mk_real(1), a.mk_add(a.mk_real(1), a.mk_real(-1)));
+    ENSURE(!a.is_extended_numeral(t, n));
     t = a.mk_uminus(m.mk_const(symbol("x"), a.mk_real()));
-    ENSURE(!euf::is_numeral_term(a, t, n));
+    ENSURE(!a.is_extended_numeral(t, n));
 
     // A numeral under many wrappers must not overflow the stack.
     t = a.mk_real(1);
     for (unsigned i = 0; i < 200000; ++i)
         t = a.mk_uminus(t);
-    ENSURE(euf::is_numeral_term(a, t, n) && n == 1);
+    ENSURE(a.is_extended_numeral(t, n) && n == 1);
 
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref_vector lits(m);
@@ -194,7 +198,7 @@ static void tst_is_numeral_term() {
 }
 
 void tst_proof_replay() {
-    tst_is_numeral_term();
+    tst_is_extended_numeral();
     tst_checker_nary_mul();
     tst_checker_printed_numerals();
     tst_replay_folds_printed_numerals();
