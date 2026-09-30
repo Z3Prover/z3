@@ -423,27 +423,32 @@ namespace array {
             // Add:
             //   default(A) = A[epsilon]
             //   default(B) = B[epsilon]
+            //   A[diag(i)] = B[diag(i)]
             // 
-            expr_ref_vector eqs(m);
-            expr_ref_vector args1(m), args2(m);
-            args1.push_back(store->get_arg(0));
-            args2.push_back(store);
+            expr_ref_vector args1(m), args2(m), args3(m), args4(m);
+            args1.push_back(store);
+            args2.push_back(store->get_arg(0));
+            args3.push_back(store);
+            args4.push_back(store->get_arg(0));
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store->get_arg(i);
                 sort* srt = arg->get_sort();
-                auto [ep, d] = mk_epsilon(srt);
-                eqs.push_back(m.mk_eq(ep, arg));
+                auto [ep, diag] = mk_epsilon(srt);
                 args1.push_back(ep);
                 args2.push_back(ep);
+                args3.push_back(m.mk_app(diag, arg));
+                args4.push_back(m.mk_app(diag, arg));
             }
-            app_ref sel1(m), sel2(m);
+            app_ref sel1(m), sel2(m), sel3(m), sel4(m);
             sel1 = a.mk_select(args1);
             sel2 = a.mk_select(args2);
-            return 
-                propagate_axiom(e_internalize(sel1), ndef1) ||
-                propagate_axiom(e_internalize(sel2), ndef2) ||
-                prop;
+            bool p1 = propagate_axiom(e_internalize(sel1), ndef1);
+            bool p2 = propagate_axiom(e_internalize(sel2), ndef2);
+            sel3 = a.mk_select(args3);
+            sel4 = a.mk_select(args4);
+            bool p3 = propagate_axiom(e_internalize(sel3), e_internalize(sel4));
+            return p1 || p2 || p3 || prop;
         }
         // default(A) == default(B)
         if (propagate_axiom(ndef1, ndef2))
