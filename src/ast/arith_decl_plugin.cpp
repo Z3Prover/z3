@@ -649,6 +649,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("atanh", OP_ATANH));
         op_names.push_back(builtin_name("exp", OP_EXP));
         op_names.push_back(builtin_name("atan2", OP_ATAN2));
+        op_names.push_back(builtin_name("arctan2", OP_ATAN2));
         op_names.push_back(builtin_name("log", OP_LOG));
         op_names.push_back(builtin_name("ln", OP_LOG));
         op_names.push_back(builtin_name("pi", OP_PI));
