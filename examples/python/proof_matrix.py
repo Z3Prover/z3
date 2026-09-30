@@ -250,7 +250,7 @@ def cell_arith_validate(z3, source, timeout, record):
 
 def run_benchmark(z3, path, cells, timeout, lean):
     original = Path(path).read_text(errors="replace")
-    logic = (_LOGIC.search(original) or [None, "unknown"])[1]
+    logic = (_LOGIC.search(original) or [None, "logic_unknown"])[1]
     source = strip_commands(original)
     reference = run_z3(z3, source, timeout)
     expected = None if reference["timeout"] or crashed(reference) else result_of(reference)
@@ -385,7 +385,7 @@ def main():
                     note = "known-failure " + note
                 elif record.get("stale_expectation"):
                     note = "stale-expectation(%s) " % record["stale_expectation"] + note
-                print("%-22s %-10s %-20s %-8s %6.2fs %s" % (
+                print("%-22s %-13s %-20s %-8s %6.2fs %s" % (
                     Path(record["benchmark"]).name[:22], record["logic"], record["cell"], record["status"],
                     record.get("time") or 0, note), flush=True)
     if out:
