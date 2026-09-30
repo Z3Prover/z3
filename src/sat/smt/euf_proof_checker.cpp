@@ -93,6 +93,23 @@ namespace euf {
             return m_uf.find(expr2id(x)) == m_uf.find(expr2id(y));
         }
 
+        bool has_id(expr* e) const {
+            return m_expr2id.get(e->get_id(), {0, 0}).first == m_ts;
+        }
+
+        // a Boolean term (not x) that occurs inside an equality is interpreted:
+        // x and (not x) cannot share a class, including via true or false.
+        bool negation_violated() {
+            for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
+                expr* e = m_id2expr[v], *x = nullptr;
+                if (!m.is_not(e, x) || !has_id(x))
+                    continue;
+                if (are_equal(e, x))
+                    return true;
+            }
+            return false;
+        }
+
         bool congruence(bool comm, app* x, app* y) {
             if (x->get_decl() != y->get_decl())
                 return false;
@@ -193,6 +210,9 @@ namespace euf {
             for (auto const& [a, b] : m_diseqs)
                 if (are_equal(a, b))
                     return true;
+
+            if (negation_violated())
+                return true;
 
             // check if some equivalence class contains two distinct values.            
             for (unsigned v = 0; v < m_uf.get_num_vars(); ++v) {
@@ -329,6 +349,9 @@ namespace euf {
         return false;
     }
    
+    // The clause log prints a negated literal whose atom is itself a negation as
+    // (not (not x)), while proof hints collapse the same literal to x.
+    // Literals are therefore compared modulo double negation.
     bool theory_checker::check(expr_ref_vector const& clause1, expr* e, expr_ref_vector & units) {
         if (!check(e))
             return false;
@@ -338,11 +361,9 @@ namespace euf {
 
         // check that all literals in clause1 are in clause2
         for (expr* arg : clause2)
-            literals.mark(arg, true);
+            literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause1)
-            if (!literals.is_marked(arg)) {
-                if (m.is_not(arg, arg) && m.is_not(arg, arg) && literals.is_marked(arg)) // kludge
-                    continue;
+            if (!literals.is_marked(m.strip_double_not(arg))) {
                 IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(arg, m) << " not in " << clause2 << "\n");
                 return false;
             }
@@ -351,9 +372,9 @@ namespace euf {
         // the literals should be rup
         literals.reset();
         for (expr* arg : clause1)
-            literals.mark(arg, true);
+            literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause2)
-            if (!literals.is_marked(arg))
+            if (!literals.is_marked(m.strip_double_not(arg)))
                 units.push_back(mk_not(m, arg));
 
         return true;
