@@ -6,6 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/reg_decl_plugins.h"
 #include "sat/smt/euf_proof_checker.h"
 #include <iostream>
 
@@ -77,6 +78,7 @@ void tst_initializer_list_overloads() {
 
 static void tst_euf_negation() {
     ast_manager m;
+    reg_decl_plugins(m);
     euf::theory_checker checker(m);
     expr_ref x(m.mk_const(symbol("x"), m.mk_bool_sort()), m);
     expr_ref y(m.mk_const(symbol("y"), m.mk_bool_sort()), m);
@@ -97,6 +99,7 @@ static void tst_euf_negation() {
 
 static void tst_euf_negation_large_classes() {
     ast_manager m;
+    reg_decl_plugins(m);
     euf::theory_checker checker(m);
     expr_ref x(m.mk_const(symbol("x"), m.mk_bool_sort()), m);
     expr_ref nx(m.mk_not(x), m);
