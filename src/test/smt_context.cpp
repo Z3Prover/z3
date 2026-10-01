@@ -380,4 +380,44 @@ void tst_smt_context()
     check_sat_smt_model(
         "(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)\n"
         "           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))\n");
+
+    // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
+    // internalized in a gate context by the ite-term axioms, and must still be merged
+    // with true/false when it occurs as an argument of an uninterpreted function.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort U 0)\n"
+            "(declare-const x U)\n"
+            "(declare-const y U)\n"
+            "(declare-const p Bool)\n"
+            "(declare-fun g (Bool) Bool)\n"
+            "(assert (distinct (g (= x (ite p x y))) (g true)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* a : cmd.assertions())
+            qctx.assert_expr(a);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr* assumption = p;
+        VERIFY(l_false == qctx.check(1, &assumption));
+    }
+
+    // Regression (issue #10996, bug B): an n-ary distinct assigned while it is
+    // internalized must propagate its value to the e-graph.
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(declare-sort U 0)\n"
+            "(declare-const x U)\n"
+            "(declare-const c U)\n"
+            "(declare-fun h (U) U)\n"
+            "(declare-fun g (Bool) Bool)\n"
+            "(assert (= (h x) x))\n"
+            "(assert (distinct (g (distinct (h (h x)) c x)) (g false)))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        smt::context qctx(m, params);
+        for (expr* a : cmd.assertions())
+            qctx.assert_expr(a);
+        VERIFY(l_false == qctx.check());
+    }
 }
