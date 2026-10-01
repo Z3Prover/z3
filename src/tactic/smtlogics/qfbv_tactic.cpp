@@ -26,6 +26,8 @@ Notes:
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/bv/bv_divrem_bounds_tactic.h"
+#include "tactic/bv/bv_mul_bounds_tactic.h"
+#include "ast/simplifiers/then_simplifier.h"
 #include "tactic/aig/aig_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
@@ -33,6 +35,30 @@ Notes:
 #include "tactic/smtlogics/smt_tactic.h"
 
 #define MEMLIMIT 300
+
+namespace {
+    class qfbv_bounds_simplifier : public then_simplifier {
+    public:
+        qfbv_bounds_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& s) :
+            then_simplifier(m, p, s) {
+            add_simplifier(alloc(bv::divrem_bounds, m, s));
+            add_simplifier(alloc(bv::mul_bounds, m, s));
+        }
+
+        char const* name() const override { return "bv-divrem-mul-bounds"; }
+
+        // Both component simplifiers preserve proofs and dependencies.
+        bool supports_proofs() const override { return true; }
+    };
+}
+
+static tactic* mk_qfbv_bounds_tactic(ast_manager& m, params_ref const& p) {
+    // Keep the existing preprocessing stage and goal-depth accounting.
+    return alloc(dependent_expr_state_tactic, m, p,
+                 [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
+                     return alloc(qfbv_bounds_simplifier, m, p, s);
+                 });
+}
 
 static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
@@ -64,7 +90,7 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             using_params(mk_propagate_values_tactic(m), flat_and_or_p),
             using_params(mk_solve_eqs_tactic(m), solve_eq_p),
             mk_elim_uncnstr_tactic(m),
-            mk_bv_divrem_bounds_tactic(m),
+            mk_qfbv_bounds_tactic(m, p),
             if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
             using_params(mk_simplify_tactic(m), simp2_p),
 
