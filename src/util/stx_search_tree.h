@@ -61,10 +61,10 @@ namespace stx {
     // satisfied state.
     enum class simplify_result { noop, proceed, conflict, satisfied };
 
-    // Result of solve()/dfs(). `depth_cutoff` is an internal-only result
-    // meaning the current depth bound truncated the subtree; `solve()`
-    // may retry with a larger bound, but normalizes the final answer back
-    // to `unknown`.
+    // Result of solve()/dfs(). `unknown` means propagation reached an
+    // unsatisfied leaf that no split plugin could reduce. `depth_cutoff`
+    // means the configured depth bound truncated at least one subtree.
+    // solve() preserves the distinction after iterative deepening.
     enum class search_result { sat, unsat, unknown, depth_cutoff };
 
     // A stable per-plugin handle into a node's facet array.
@@ -492,6 +492,7 @@ namespace stx {
             unsigned m_num_sat          = 0;
             unsigned m_num_unsat        = 0;
             unsigned m_num_unknown      = 0;
+            unsigned m_num_depth_cutoff = 0;
             unsigned m_max_depth        = 0;
             unsigned m_num_cache_hits   = 0;
             std::unordered_map<std::string, unsigned> m_propagate_counts;
@@ -1209,6 +1210,7 @@ namespace stx {
             st.update("seq-stx num sat", m_stats.m_num_sat);
             st.update("seq-stx num unsat", m_stats.m_num_unsat);
             st.update("seq-stx num unknown", m_stats.m_num_unknown);
+            st.update("seq-stx num depth cutoff", m_stats.m_num_depth_cutoff);
             st.update("seq-stx max depth", m_stats.m_max_depth);
             st.update("seq-stx unsat-cache size", unsat_cache_size());
             st.update("seq-stx unsat-cache hits", m_stats.m_num_cache_hits);
@@ -1355,10 +1357,10 @@ namespace stx {
                 // the loop condition keeps deepening until the
                 // search-depth budget is exhausted.
             }
-            if (res == search_result::unknown || res == search_result::depth_cutoff) {
+            if (res == search_result::unknown)
                 m_stats.m_num_unknown++;
-                res = search_result::unknown; // normalize: never leak depth_cutoff to callers
-            }
+            else if (res == search_result::depth_cutoff)
+                m_stats.m_num_depth_cutoff++;
             return res;
         }
 

@@ -131,7 +131,7 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
-    static void tst_depth_cutoff_unknown() {
+    static void tst_depth_cutoff() {
         ast_manager m;
         reg_decl_plugins(m);
         seq_util u(m);
@@ -140,7 +140,7 @@ namespace {
         expr_ref Y(m.mk_fresh_const("Y", s), m);
         expr_ref lhs(u.str.mk_concat(X, Y), m);
         expr_ref rhs(u.str.mk_string(zstring("abc")), m);
-        ENSURE(solve_eq(m, u, lhs, rhs, 0) == stx::search_result::unknown);
+        ENSURE(solve_eq(m, u, lhs, rhs, 0) == stx::search_result::depth_cutoff);
     }
 
     // A disequation between two distinct constants is immediately
@@ -165,6 +165,27 @@ namespace {
 
         tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
         tree.set_max_search_depth(4);
+        ENSURE(tree.solve() == stx::search_result::sat);
+    }
+
+    static void tst_deq_unit_nonempty_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        expr_ref a(u.str.mk_char('a'), m);
+        expr_ref unit(u.str.mk_unit(a), m);
+        expr_ref empty(u.str.mk_empty(u.str.mk_string_sort()), m);
+
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        stx::facet_id id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        root->facet_as<seq::deq_facet>(id).add_disequation(mk_toks(u, m, unit), mk_toks(u, m, empty));
+
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_deq_id(id);
+        tree.set_ambient_context(&ac);
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
         ENSURE(tree.solve() == stx::search_result::sat);
     }
 
@@ -415,8 +436,9 @@ void tst_seq_eq_facet() {
     tst_symbol_clash_unsat();
     tst_commute_sat();
     tst_branch_then_unsat();
-    tst_depth_cutoff_unknown();
+    tst_depth_cutoff();
     tst_deq_trivial_sat();
+    tst_deq_unit_nonempty_sat();
     tst_deq_trivial_unsat();
     tst_deq_reacts_to_eq_branch_sat();
     tst_eq_split_find_point();

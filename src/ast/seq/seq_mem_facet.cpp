@@ -405,21 +405,16 @@ namespace seq {
                     changed = true;
                     continue;
                 }
+                ac.solver_facet_ref().add_constraint(nb, sm.m_dep);
+                ac.assumption_facet_ref().add_assumption(nb, ac.context());
+                f.remove(i);
+                changed = true;
+                continue;
             }
             auto live = f.live().reachable_live(sm.m_view);
             if (live.is_dead() || seq::is_dead(sm.m_view, m_rw)) {
                 n.set_conflict(stx::br_plugin_base, sm.m_dep);
                 return stx::simplify_result::conflict;
-            }
-            lbool a = bad ? l_undef : seq::accepts(sm.m_view, m_rw);
-            if (a == l_false) {
-                n.set_conflict(stx::br_plugin_base, sm.m_dep);
-                return stx::simplify_result::conflict;
-            }
-            if (a == l_true) {
-                f.remove(i);
-                changed = true;
-                continue;
             }
         }
         if (head != f.qhead()) {

@@ -767,6 +767,20 @@ namespace seq {
             expr_ref_vector& L = dq.m_lhs;
             expr_ref_vector& R = dq.m_rhs;
 
+            // If the equation is inconsistent, its negation is valid and
+            // the disequation is discharged.
+            {
+                expr_ref_vector eq_lhs(L), eq_rhs(R);
+                expr_ref_pair_vector new_eqs(m);
+                bool eq_changed = false;
+                if (!m_rw.reduce_eq(eq_lhs, eq_rhs, new_eqs, eq_changed)) {
+                    m_trail.push(vector_field_trail<disequation, bool>(m_diseqs, i, &disequation::m_active));
+                    m_diseqs[i].m_active = false;
+                    changed = true;
+                    continue;
+                }
+            }
+
             // strip a common leading prefix, exactly as eq_facet::simplify.
             unsigned li = 0, ri = 0;
             while (li < L.size() && ri < R.size() && L.get(li) == R.get(ri)) {

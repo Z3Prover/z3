@@ -127,6 +127,21 @@ namespace {
         }, 16) == stx::search_result::sat);
     }
 
+    static void tst_symbolic_unit_derivative_not_rejected() {
+        fixture f;
+        sort* s = f.u.str.mk_string_sort();
+        expr_ref X(f.m.mk_fresh_const("X", s), f.m);
+        expr_ref zero(f.a.mk_int(0), f.m);
+        expr_ref nth(f.u.str.mk_nth_i(X, zero), f.m);
+        expr_ref unit(f.u.str.mk_unit(nth), f.m);
+        expr_ref digit(f.u.re.mk_range(f.u.str.mk_string("0"), f.u.str.mk_string("9")), f.m);
+        expr_ref digits(f.u.re.mk_plus(digit), f.m);
+        ENSURE(solve_mem(f, [&](seq::eq_tree::node* root) {
+            root->facet_as<seq::mem_facet>(f.mem_id).add(
+                seq::str_mem(f.m, unit, seq::view::membership(digits, f.m)));
+        }) == stx::search_result::sat);
+    }
+
     // power_peel_mem should first try the `n = 0` branch, then peel one
     // copy for the `n >= 1` branch. This test drives the split iterator
     // directly to inspect both rewrites.
@@ -240,6 +255,7 @@ void tst_seq_mem_facet() {
     tst_dead_unsat();
     tst_single_var_sat();
     tst_two_var_monadic_sat();
+    tst_symbolic_unit_derivative_not_rejected();
     tst_power_peel_mem_split();
     std::cout << "seq_mem_facet: all tests passed\n";
 }

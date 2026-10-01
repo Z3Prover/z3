@@ -367,12 +367,13 @@ namespace seq {
     private:
         ast_manager& m;
         seq_util&    u;
+        seq_rewriter m_rw;
         eq_tree::dep_manager_t& m_dm;
         vector<disequation> m_diseqs;
 
     public:
         deq_facet(trail_stack& trail, ast_manager& m, seq_util& u, eq_tree::dep_manager_t& dm) :
-            facet_i(trail), m(m), u(u), m_dm(dm) {}
+            facet_i(trail), m(m), u(u), m_rw(m), m_dm(dm) {}
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }

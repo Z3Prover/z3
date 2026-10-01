@@ -169,9 +169,9 @@ namespace {
         ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
     }
 
-    static void tst_unknown_depth_cutoff() {
+    static void tst_depth_cutoff() {
         // Unreachable within the depth bound (target requires >2 steps),
-        // and not otherwise refutable, so the search reports unknown.
+        // and not otherwise refutable, so the search reports depth_cutoff.
         counter_config cfg{ 100, {} };
         trail_stack tr;
         reslimit lim;
@@ -182,9 +182,27 @@ namespace {
         tree.add_split_plugin(alloc(step_split, id, &cfg));
         tree.set_max_search_depth(2);
         stx::search_result r = tree.solve();
+        ENSURE(r == stx::search_result::depth_cutoff);
+        ENSURE(tree.get_stats().m_num_unknown == 0);
+        ENSURE(tree.get_stats().m_num_depth_cutoff == 1);
+        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
+    }
+
+    // An unsatisfied leaf with no applicable split cannot be resolved by
+    // increasing the depth bound and is therefore a genuine unknown.
+    static void tst_irreducible_leaf_unknown() {
+        counter_config cfg{ 1, {} };
+        trail_stack tr;
+        reslimit lim;
+        tree_t tree(tr, lim);
+        stx::facet_id id;
+        mk_root(tree, id, &cfg);
+        tree.add_propagation_plugin(alloc(overshoot_propagation, id, &cfg));
+        tree.set_max_search_depth(2);
+        stx::search_result r = tree.solve();
         ENSURE(r == stx::search_result::unknown);
         ENSURE(tree.get_stats().m_num_unknown == 1);
-        ENSURE(tree.root()->facet_as<counter_facet>(id).total() == 0);
+        ENSURE(tree.get_stats().m_num_depth_cutoff == 0);
     }
 
     static void tst_trivially_satisfied_root() {
@@ -226,7 +244,8 @@ namespace {
 void tst_stx_search_tree() {
     tst_sat();
     tst_unsat();
-    tst_unknown_depth_cutoff();
+    tst_depth_cutoff();
+    tst_irreducible_leaf_unknown();
     tst_trivially_satisfied_root();
     tst_resolve_after_sat_resumes_base_level();
     std::cout << "stx_search_tree: all tests passed\n";
