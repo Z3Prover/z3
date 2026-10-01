@@ -15,7 +15,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/polynomial/ff_certificate.h"
+#include "math/ff/ff_certificate.h"
 #include <algorithm>
 #include <queue>
 #include <tuple>

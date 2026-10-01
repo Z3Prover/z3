@@ -15,9 +15,9 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/polynomial/ff_polynomial.h"
-#include "math/polynomial/ff_tiny.h"
-#include "math/polynomial/ff_f4.h"
+#include "math/ff/ff_polynomial.h"
+#include "math/ff/ff_tiny.h"
+#include "math/ff/ff_f4.h"
 #include <algorithm>
 #include <iterator>
 #include <set>

@@ -15,12 +15,12 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/polynomial/ff_params.h"
+#include "math/ff/ff_params.h"
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/converters/model_converter.h"
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include "model/model_evaluator.h"
 #include "util/stopwatch.h"
 #include <memory>

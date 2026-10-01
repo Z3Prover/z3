@@ -19,11 +19,11 @@ Author:
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include <sstream>
-#include "math/polynomial/ff_polynomial.h"
-#include "math/polynomial/ff_certificate.h"
-#include "math/polynomial/ff_f4.h"
-#include "math/polynomial/ff_tiny.h"
-#include "math/polynomial/ff_field.h"
+#include "math/ff/ff_polynomial.h"
+#include "math/ff/ff_certificate.h"
+#include "math/ff/ff_f4.h"
+#include "math/ff/ff_tiny.h"
+#include "math/ff/ff_field.h"
 
 #include "util/debug.h"
 #include "ast/reg_decl_plugins.h"

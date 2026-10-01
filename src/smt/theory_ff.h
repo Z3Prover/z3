@@ -21,7 +21,7 @@ Author:
 #pragma once
 
 #include "smt/smt_theory.h"
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"

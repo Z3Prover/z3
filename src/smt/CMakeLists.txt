@@ -82,6 +82,7 @@ z3_add_component(smt
     solver_assertions
     bit_blaster
     cmd_context
+    ff
     fpa
     grobner
     nlsat

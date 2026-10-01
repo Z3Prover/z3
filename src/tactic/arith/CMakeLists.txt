@@ -25,5 +25,6 @@ z3_add_component(arith_tactics
     recover_01_tactic.cpp
   COMPONENT_DEPENDENCIES
     core_tactics
+    ff
     sat
 )

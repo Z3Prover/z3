@@ -18,7 +18,7 @@ Author:
 
 --*/
 #pragma once
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 
 namespace ff {
     // Format-independent ideal-membership evidence. Node IDs are indices in a

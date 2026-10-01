@@ -17,7 +17,7 @@ Author:
 --*/
 #pragma once
 
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include "params/smt_params_helper.hpp"
 
 namespace ff {

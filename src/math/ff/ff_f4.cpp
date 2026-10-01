@@ -18,8 +18,8 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/polynomial/ff_f4.h"
-#include "math/polynomial/ff_field.h"
+#include "math/ff/ff_f4.h"
+#include "math/ff/ff_field.h"
 #include <algorithm>
 #include <bit>
 #include <type_traits>

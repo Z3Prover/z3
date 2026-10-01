@@ -19,7 +19,7 @@ Author:
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/parametric_cmd.h"
 #include "ast/ff_decl_plugin.h"
-#include "math/polynomial/ff_certificate.h"
+#include "math/ff/ff_certificate.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"

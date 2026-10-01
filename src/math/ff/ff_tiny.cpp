@@ -14,7 +14,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/polynomial/ff_tiny.h"
+#include "math/ff/ff_tiny.h"
 #include <algorithm>
 #include <bit>
 

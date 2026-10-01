@@ -35,7 +35,7 @@ Author:
 
 --*/
 #pragma once
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include <functional>
 
 namespace ff {
