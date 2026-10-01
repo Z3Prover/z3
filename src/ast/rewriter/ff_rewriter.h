@@ -15,6 +15,11 @@ Author:
 
     Romain Soulat
 
+// Shared by simplification and model evaluation. This normalizes sums and
+// products without distributing products of symbolic sums or cancelling unknown factors.
+// All identities are in F_p. Inverse-based rules require p prime and a nonzero
+// constant coefficient; accepting a large modulus is not a primality certificate.
+
 --*/
 #pragma once
 #include "ast/ff_decl_plugin.h"
@@ -25,10 +30,6 @@ Author:
 #include <vector>
 #include <algorithm>
 
-// Shared by simplification and model evaluation. This normalizes sums and
-// products without distributing products of symbolic sums or cancelling unknown factors.
-// All identities are in F_p. Inverse-based rules require p prime and a nonzero
-// constant coefficient; accepting a large modulus is not a primality certificate.
 class ff_rewriter {
     ast_manager &m;
     ff_util u;
@@ -300,7 +301,7 @@ public:
             ptr_vector<expr> ordered;
             for (expr *e : factors)
                 ordered.push_back(e);
-            std::sort(ordered.begin(), ordered.end(), expr_order());
+            std::stable_sort(ordered.begin(), ordered.end(), expr_order());
             expr_ref_vector sorted(m);
             for (expr *e : ordered)
                 sorted.push_back(e);
