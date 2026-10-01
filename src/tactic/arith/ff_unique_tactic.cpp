@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -36,6 +36,10 @@ Abstract:
     Every step is a local implication between a few asserted constraints and
     previously derived equalities; this is the shape a certificate checker
     replays (see tests/finite_field/check_unique_certificates.py).
+
+Author:
+
+    Romain Soulat
 
 --*/
 #include "tactic/arith/ff_solve_tactic.h"

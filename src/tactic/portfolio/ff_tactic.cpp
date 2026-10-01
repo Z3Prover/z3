@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_tactic.cpp
+
+Abstract:
+
+    Portfolio-level SMT fallback tactic and probes for goals containing
+    prime-field terms.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "tactic/portfolio/ff_tactic.h"
 #include "tactic/probe.h"
 #include "tactic/tactical.h"

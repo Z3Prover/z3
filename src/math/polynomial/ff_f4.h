@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -28,6 +28,10 @@ Abstract:
 
     Disequalities f != 0 are encoded with fresh Rabinowitsch variables
     (f * t - 1 = 0), which preserves F_p solutions exactly.
+
+Author:
+
+    Romain Soulat
 
 --*/
 #pragma once

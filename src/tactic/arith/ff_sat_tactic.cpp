@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_sat_tactic.cpp
+
+Abstract:
+
+    A bounded lazy SAT/algebra combination for prime-field goals
+    ("ff-sat"). The complete ff2bv backend remains available when algebra
+    or Boolean search reaches its budget.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/core/elim_term_ite_tactic.h"

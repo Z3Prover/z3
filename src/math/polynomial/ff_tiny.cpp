@@ -1,4 +1,6 @@
 /*++
+Copyright (c) 2026 Romain Soulat
+
 Module Name:
 
     ff_tiny.cpp
@@ -6,6 +8,10 @@ Module Name:
 Abstract:
 
     Finite-domain search over tiny prime fields. See ff_tiny.h.
+
+Author:
+
+    Romain Soulat
 
 --*/
 #include "math/polynomial/ff_tiny.h"

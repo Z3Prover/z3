@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    theory_ff.cpp
+
+Abstract:
+
+    Theory solver for prime fields: ground combination with uninterpreted
+    functions, arrays, and datatypes via modular algebra (Groebner bases),
+    falling back to an exact bit-vector encoding when algebra is
+    inconclusive. See theory_ff.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "math/polynomial/ff_params.h"
 #include "smt/theory_ff.h"
 #include "smt/smt_context.h"

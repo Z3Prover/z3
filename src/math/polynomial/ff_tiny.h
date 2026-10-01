@@ -1,4 +1,6 @@
 /*++
+Copyright (c) 2026 Romain Soulat
+
 Module Name:
 
     ff_tiny.h
@@ -15,6 +17,10 @@ Abstract:
     SAT answers are total assignments that satisfy every constraint. UNSAT
     answers follow from exhausting the finite search space, so every input
     constraint is a premise.
+
+Author:
+
+    Romain Soulat
 
 --*/
 #pragma once

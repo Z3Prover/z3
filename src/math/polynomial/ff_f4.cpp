@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -12,6 +12,10 @@ Abstract:
     F_p-root isolation via gcd with X^p - X and Cantor-Zassenhaus splitting).
 
     See ff_f4.h for the soundness contract.
+
+Author:
+
+    Romain Soulat
 
 --*/
 #include "math/polynomial/ff_f4.h"

@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_solve_tactic.cpp
+
+Abstract:
+
+    Tactic solving prime-field conjunctions by modular elimination and
+    Groebner-basis algebra ("ff-solve"). See ff_solve_tactic.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "math/polynomial/ff_params.h"
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"

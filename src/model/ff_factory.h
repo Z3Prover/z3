@@ -1,3 +1,19 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_factory.h
+
+Abstract:
+
+    Value factory producing fresh, distinct prime-field model values.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "ast/ff_decl_plugin.h"
 #include "model/value_factory.h"

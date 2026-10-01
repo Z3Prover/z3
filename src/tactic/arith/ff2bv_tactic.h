@@ -1,3 +1,19 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff2bv_tactic.h
+
+Abstract:
+
+    Tactic encoding prime-field goals as bounded modular bit-vector goals.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "util/params.h"
 class ast_manager;

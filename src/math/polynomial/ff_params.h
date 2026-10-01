@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_params.h
+
+Abstract:
+
+    Binds ff::engine Groebner-basis algebra options (basis storage, reduction
+    strategy, resource bounds) to the global SMT parameter defaults.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 
 #include "math/polynomial/ff_polynomial.h"

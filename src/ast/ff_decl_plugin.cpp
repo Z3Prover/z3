@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_decl_plugin.cpp
+
+Abstract:
+
+    Declaration plugin for prime-field (finite field) sorts and values:
+    canonical modular numerals, field arithmetic operators, and family
+    registration. See ff_decl_plugin.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "ast/ff_decl_plugin.h"
 #include "util/z3_exception.h"
 

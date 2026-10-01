@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_certificate.h
+
+Abstract:
+
+    Format-independent ideal-membership certificates (a topologically
+    ordered DAG of input/multiply/add steps) witnessing unsatisfiability of
+    a system of prime-field polynomial equations, plus bounded
+    reconstruction from the original equations.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "math/polynomial/ff_polynomial.h"
 

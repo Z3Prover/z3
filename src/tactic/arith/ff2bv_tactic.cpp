@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff2bv_tactic.cpp
+
+Abstract:
+
+    Tactic encoding prime-field goals as bounded modular bit-vector goals
+    (eager translation), plus a probe detecting field terms. See
+    ff2bv_tactic.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "ast/rewriter/ff_bv_operations.h"
 #include "tactic/arith/ff2bv_tactic.h"
 #include "tactic/tactical.h"

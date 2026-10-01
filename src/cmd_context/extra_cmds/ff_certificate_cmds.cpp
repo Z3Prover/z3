@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_certificate_cmds.cpp
+
+Abstract:
+
+    ff-certify command: reconstructs and prints a standalone polynomial
+    ideal-membership certificate (see ff_certificate.h) from the field
+    equations currently asserted in the command context.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/parametric_cmd.h"
 #include "ast/ff_decl_plugin.h"

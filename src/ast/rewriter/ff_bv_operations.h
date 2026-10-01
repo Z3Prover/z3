@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_bv_operations.h
+
+Abstract:
+
+    Canonical field arithmetic shared by eager translation (ff2bv) and the
+    lazy SMT bridge (theory_ff). Each caller owns its own traversal, range
+    bounds, and model conversion.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"

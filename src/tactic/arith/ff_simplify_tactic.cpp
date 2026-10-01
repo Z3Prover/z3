@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_simplify_tactic.cpp
+
+Abstract:
+
+    Tactic simplifying prime-field goals and propagating constants (no
+    certificates), preserving Boolean domain constraints ("ff-simplify").
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/probe.h"

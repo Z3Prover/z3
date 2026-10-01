@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_rewriter.h
+
+Abstract:
+
+    Rewriter for prime-field arithmetic, shared by simplification and model
+    evaluation. Normalizes sums and products over F_p without distributing
+    products of symbolic sums or cancelling unknown factors.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "ast/ff_decl_plugin.h"
 #include "ast/occurs.h"
