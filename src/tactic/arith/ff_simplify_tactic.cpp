@@ -165,17 +165,11 @@ namespace {
                         !m.is_eq(to_app(f)->get_arg(0), a, b) || !m.is_eq(to_app(f)->get_arg(1), c, d) ||
                         !ff.is_ff(a) || a->get_sort() != c->get_sort())
                         continue;
-                    expr_ref_vector args(m);
-                    args.push_back(b);
-                    expr_ref nb(ff.mk_app(OP_FF_NEG, 1, args.data()), m);
-                    args.reset(); args.push_back(a); args.push_back(nb);
-                    expr_ref lhs(ff.mk_app(OP_FF_ADD, 2, args.data()), m);
-                    args.reset(); args.push_back(d);
-                    expr_ref nd(ff.mk_app(OP_FF_NEG, 1, args.data()), m);
-                    args.reset(); args.push_back(c); args.push_back(nd);
-                    expr_ref rhs(ff.mk_app(OP_FF_ADD, 2, args.data()), m);
-                    args.reset(); args.push_back(lhs); args.push_back(rhs);
-                    expr_ref product(ff.mk_app(OP_FF_MUL, 2, args.data()), m);
+                    expr_ref nb(ff.mk_neg(b), m);
+                    expr_ref lhs(ff.mk_add(a, nb), m);
+                    expr_ref nd(ff.mk_neg(d), m);
+                    expr_ref rhs(ff.mk_add(c, nd), m);
+                    expr_ref product(ff.mk_mul(lhs, rhs), m);
                     expr_ref eq(m.mk_eq(product, ff.mk_numeral(rational(0), a->get_sort())), m);
                     rw(eq);
                     // In a field, uv=0 iff u=0 or v=0. This equivalence needs
@@ -415,7 +409,7 @@ namespace {
             auto complement = [&](expr *e) -> expr * {
                 // Recognize 1-z using -1=p-1. In characteristic two -z=z,
                 // so 1+z is the same complement.
-                if (!is_app_of(e, ff.get_fid(), OP_FF_ADD) || to_app(e)->get_num_args() != 2)
+                if (!ff.is_add(e) || to_app(e)->get_num_args() != 2)
                     return nullptr;
                 expr *a = to_app(e)->get_arg(0), *b = to_app(e)->get_arg(1);
                 rational c;
@@ -425,7 +419,7 @@ namespace {
                     return nullptr;
                 if (ff.modulus(e->get_sort()) == rational(2))
                     return b;
-                if (!is_app_of(b, ff.get_fid(), OP_FF_MUL) || to_app(b)->get_num_args() != 2)
+                if (!ff.is_mul(b) || to_app(b)->get_num_args() != 2)
                     return nullptr;
                 a = to_app(b)->get_arg(0);
                 expr *v = to_app(b)->get_arg(1);
@@ -449,7 +443,7 @@ namespace {
                     continue;
                 if (ff.is_numeral(a, c) && c.is_zero())
                     std::swap(a, b);
-                if (!ff.is_numeral(b, c) || !c.is_zero() || !is_app_of(a, ff.get_fid(), OP_FF_MUL))
+                if (!ff.is_numeral(b, c) || !c.is_zero() || !ff.is_mul(a))
                     continue;
                 auto *mul = to_app(a);
                 for (unsigned j = 0; j < mul->get_num_args(); ++j) {
@@ -491,7 +485,7 @@ namespace {
                     expr *term = rhs;
                     bool valid = true;
                     if (!rec.nonzero) {
-                        if (!is_app_of(rhs, ff.get_fid(), OP_FF_ADD))
+                        if (!ff.is_add(rhs))
                             continue;
                         term = nullptr;
                         for (expr *arg : *to_app(rhs)) {
@@ -508,7 +502,7 @@ namespace {
                             continue;
                     }
                     ptr_vector<expr> factors;
-                    if (is_app_of(term, ff.get_fid(), OP_FF_MUL)) {
+                    if (ff.is_mul(term)) {
                         for (expr *arg : *to_app(term))
                             if (!ff.is_numeral(arg, c))
                                 factors.push_back(arg);
@@ -537,7 +531,7 @@ namespace {
                     if (rec.factors.size() == 1)
                         x = rec.factors.get(0);
                     else
-                        x = ff.mk_app(OP_FF_MUL, rec.factors.size(), rec.factors.data());
+                        x = ff.mk_mul(rec.factors);
                     expr_ref zero(ff.mk_numeral(rational(0), z->get_sort()), m);
                     expr_ref one(ff.mk_numeral(rational(1), z->get_sort()), m);
                     // Zero indicator: x*z=0 and z=1+c*x*u imply z=1 if

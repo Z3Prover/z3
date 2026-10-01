@@ -480,7 +480,7 @@ namespace smt {
                 return expr_ref(ff.mk_numeral(root, e->get_sort()), m);
             return expr_ref(m);
         }
-        if (!is_app_of(e, get_id(), OP_FF_MUL) || to_app(e)->get_num_args() > 16)
+        if (!ff.is_mul(e) || to_app(e)->get_num_args() > 16)
             return expr_ref(m);
         std::map<expr *, unsigned> powers;
         rational coefficient(1);
@@ -510,7 +510,7 @@ namespace smt {
         else if (factors.size() == 1)
             result = factors.get(0);
         else
-            result = ff.mk_app(OP_FF_MUL, factors.size(), factors.data());
+            result = ff.mk_mul(factors);
         rw(result);
         return result;
     }
@@ -534,7 +534,7 @@ namespace smt {
                 split_atoms.contains(atom))
                 continue;
             auto square_of = [&](expr *square, expr *base) {
-                return is_app_of(square, get_id(), OP_FF_MUL) &&
+                return ff.is_mul(square) &&
                        to_app(square)->get_num_args() == 2 &&
                        to_app(square)->get_arg(0) == base && to_app(square)->get_arg(1) == base;
             };
@@ -579,7 +579,7 @@ namespace smt {
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(0), digit->get_sort())));
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(1), digit->get_sort())));
             }
-            else if (ff.is_numeral(b, c) && c.is_zero() && is_app_of(a, get_id(), OP_FF_MUL) &&
+            else if (ff.is_numeral(b, c) && c.is_zero() && ff.is_mul(a) &&
                 to_app(a)->get_num_args() <= 16) {
                 // A field has no zero divisors: a product is zero iff some
                 // factor is zero. Nonzero constant factors need no branch.
@@ -595,8 +595,7 @@ namespace smt {
                 // No inverse of 2 is used. In characteristic two the branches
                 // coincide and are deduplicated below; B=0 is likewise a unit.
                 branches.push_back(m.mk_eq(lhs, rhs));
-                expr *arg = rhs;
-                expr_ref neg(ff.mk_app(OP_FF_NEG, 1, &arg), m);
+                expr_ref neg(ff.mk_neg(rhs), m);
                 branches.push_back(m.mk_eq(lhs, neg));
             }
             if (branches.empty())

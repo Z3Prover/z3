@@ -171,7 +171,7 @@ namespace {
                     // are 0 and 1. This is an actual premise, unlike the
                     // preprocessing heuristic that merely protects likely bits.
                     auto is_square = [&](expr *v, expr *t) {
-                        return is_uninterp_const(v) && is_app_of(t, ff.get_fid(), OP_FF_MUL) &&
+                        return is_uninterp_const(v) && ff.is_mul(t) &&
                                to_app(t)->get_num_args() == 2 && to_app(t)->get_arg(0) == v &&
                                to_app(t)->get_arg(1) == v;
                     };

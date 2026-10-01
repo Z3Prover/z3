@@ -896,8 +896,7 @@ static void test_ff_integration() {
     // A later assertion installs field support at the existing scope depth.
     ctx.push();
     expr_ref x(m.mk_const("x", field), m), two(ff.mk_numeral(rational(2), field), m);
-    expr *args[] = {x, x};
-    expr_ref square(ff.mk_app(OP_FF_MUL, 2, args), m);
+    expr_ref square(ff.mk_mul(x, x), m);
     expr_ref eq(m.mk_eq(square, two), m);
     params_ref tiny; tiny.set_uint("ff.max_steps", 0); ctx.updt_params(tiny);
     ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);

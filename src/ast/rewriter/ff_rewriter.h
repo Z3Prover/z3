@@ -38,9 +38,9 @@ class ff_rewriter {
         }
     };
     struct monomial_order {
-        family_id fid;
+        ff_util const &u;
         bool operator()(expr *a, expr *b) const {
-            bool am = is_app_of(a, fid, OP_FF_MUL), bm = is_app_of(b, fid, OP_FF_MUL);
+            bool am = u.is_mul(a), bm = u.is_mul(b);
             unsigned na = am ? to_app(a)->get_num_args() : 1;
             unsigned nb = bm ? to_app(b)->get_num_args() : 1;
             if (na != nb)
@@ -69,7 +69,7 @@ class ff_rewriter {
         args.append(factors);
         if (args.size() == 1)
             return expr_ref(args.get(0), m);
-        return expr_ref(u.mk_app(OP_FF_MUL, args.size(), args.data()), m);
+        return expr_ref(u.mk_mul(args), m);
     }
 
     // Children have already been rewritten. Temporary products must remain
@@ -86,7 +86,7 @@ class ff_rewriter {
                 throw default_exception("canceled");
             auto [a, factor] = todo.back();
             todo.pop_back();
-            if (is_app_of(a, u.get_fid(), OP_FF_ADD)) {
+            if (u.is_add(a)) {
                 for (expr *arg : *to_app(a))
                     todo.emplace_back(arg, factor);
                 continue;
@@ -98,7 +98,7 @@ class ff_rewriter {
             }
             rational coeff = factor;
             expr_ref base(a, m);
-            if (is_app_of(a, u.get_fid(), OP_FF_MUL)) {
+            if (u.is_mul(a)) {
                 expr_ref_vector factors(m);
                 for (expr *arg : *to_app(a)) {
                     if (u.is_numeral(arg, value))
@@ -109,7 +109,7 @@ class ff_rewriter {
                 base = product(factors, rational(1), a->get_sort());
                 pins.push_back(base);
             }
-            if (is_app_of(base, u.get_fid(), OP_FF_ADD)) {
+            if (u.is_add(base)) {
                 for (expr *arg : *to_app(base))
                     todo.emplace_back(arg, coeff);
                 continue;
@@ -137,7 +137,7 @@ class ff_rewriter {
         for (auto const &[term, coeff] : terms) {
             expr_ref_vector factors(m);
             // Flatten a monomial when restoring its coefficient.
-            if (is_app_of(term, u.get_fid(), OP_FF_MUL))
+            if (u.is_mul(term))
                 for (expr *arg : *to_app(term))
                     factors.push_back(arg);
             else
@@ -148,7 +148,7 @@ class ff_rewriter {
             return expr_ref(u.mk_numeral(rational(0), s), m);
         if (args.size() == 1)
             return expr_ref(args.get(0), m);
-        return expr_ref(u.mk_app(OP_FF_ADD, args.size(), args.data()), m);
+        return expr_ref(u.mk_add(args), m);
     }
 
     rational inverse(rational a, rational const &p) {
@@ -180,7 +180,7 @@ public:
 
     br_status mk_eq_core(expr *a, expr *b, expr_ref &out) {
         rational const &p = u.modulus(a->get_sort());
-        coefficients terms(monomial_order{u.get_fid()});
+        coefficients terms(monomial_order{u});
         rational constant(0);
         expr_ref_vector pins(m);
         unsigned count = 0;
@@ -264,7 +264,7 @@ public:
         sort *s = f->get_range();
         rational const &p = u.modulus(s);
         if (kind == OP_FF_ADD) {
-            coefficients terms(monomial_order{u.get_fid()});
+            coefficients terms(monomial_order{u});
             rational constant(0);
             expr_ref_vector pins(m);
             unsigned count = 0;
@@ -289,7 +289,7 @@ public:
                 todo.pop_back();
                 if (u.is_numeral(a, value))
                     coeff = mod(coeff * value, p);
-                else if (is_app_of(a, u.get_fid(), OP_FF_MUL))
+                else if (u.is_mul(a))
                     for (expr *arg : *to_app(a))
                         todo.push_back(arg);
                 else
