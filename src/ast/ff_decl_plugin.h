@@ -138,4 +138,9 @@ public:
     MATCH_BINARY(is_add);
     MATCH_BINARY(is_mul);
     MATCH_UNARY(is_neg);
+
+    // true if e is an FF-interpreted operator (add/mul/neg/bitsum/numeral).
+    bool is_interp(expr *e) const {
+        return is_add(e) || is_mul(e) || is_neg(e) || is_bitsum(e) || is_numeral(e);
+    }
 };

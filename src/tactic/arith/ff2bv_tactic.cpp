@@ -96,7 +96,7 @@ namespace {
             rational value;
             if (ff.is_numeral(a, value))
                 return expr_ref(bv.mk_numeral(value, ff.width(s)), m);
-            if (ff.is_ff(s) && is_uninterp_const(a)) {
+            if (ff.is_ff(s) && !ff.is_interp(a)) {
                 // The bound makes BV values bijective with canonical field
                 // representatives; without it BV equality would distinguish
                 // different encodings of the same field element.

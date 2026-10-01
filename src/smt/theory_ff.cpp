@@ -135,9 +135,9 @@ namespace smt {
                     auto [a, b, equality] = inputs[i];
                     if (!equality)
                         continue;
-                    if (!is_uninterp_const(a))
+                    if (ff.is_interp(a))
                         std::swap(a, b);
-                    if (!is_uninterp_const(a) || definitions.contains(a))
+                    if (ff.is_interp(a) || definitions.contains(a))
                         continue;
                     definitions[a] = vars.size();
                     vars.push_back(a);

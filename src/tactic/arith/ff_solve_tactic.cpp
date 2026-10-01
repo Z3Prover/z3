@@ -93,7 +93,7 @@ namespace {
                 rational value;
                 if (ff.is_numeral(e, value))
                     f = algebra.constant(value);
-                else if (is_uninterp_const(a)) {
+                else if (!ff.is_interp(a)) {
                     f = algebra.variable(variables.size());
                     variables.push_back(a);
                 }
@@ -171,7 +171,7 @@ namespace {
                     // are 0 and 1. This is an actual premise, unlike the
                     // preprocessing heuristic that merely protects likely bits.
                     auto is_square = [&](expr *v, expr *t) {
-                        return is_uninterp_const(v) && ff.is_mul(t) &&
+                        return !ff.is_interp(v) && ff.is_mul(t) &&
                                to_app(t)->get_num_args() == 2 && to_app(t)->get_arg(0) == v &&
                                to_app(t)->get_arg(1) == v;
                     };
@@ -191,7 +191,7 @@ namespace {
                     continue;
                 if (!is_app(e))
                     return false;
-                if (is_uninterp_const(e)) {
+                if (!ff.is_interp(e)) {
                     // F_2 already has exactly these two elements; in any larger
                     // field every enumerated variable needs its own bit premise.
                     if (!ff.is_ff(e) || (!bits.contains(e) && ff.modulus(e->get_sort()) != rational(2)))

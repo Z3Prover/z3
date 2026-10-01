@@ -46,7 +46,7 @@ namespace {
         if (!m.is_eq(f, a, b) || !ff.is_ff(a))
             return nullptr;
         rational c;
-        if ((is_uninterp_const(a) && ff.is_numeral(b, c)) || (is_uninterp_const(b) && ff.is_numeral(a, c)))
+        if ((!ff.is_interp(a) && ff.is_numeral(b, c)) || (!ff.is_interp(b) && ff.is_numeral(a, c)))
             return nullptr;
         expr *var = nullptr;
         ptr_vector<expr> todo;
@@ -62,7 +62,7 @@ namespace {
                 continue;
             if (!is_app(e))
                 return nullptr;
-            if (is_uninterp_const(e)) {
+            if (!ff.is_interp(e)) {
                 if (var && var != e)
                     return nullptr;
                 var = e;
@@ -245,11 +245,11 @@ namespace {
                 expr *v = nullptr, *rhs = nullptr;
                 if (!m.is_eq(g->form(i), v, rhs))
                     continue;
-                if (!is_uninterp_const(v))
+                if (ff.is_interp(v))
                     std::swap(v, rhs);
                 // Keep one defining equality per variable; other equalities
                 // remain constraints, so conflicting definitions cannot vanish.
-                if (!is_uninterp_const(v) || !ff.is_ff(v) || bits.contains(v) || ids.contains(v) || occurs(v, rhs))
+                if (ff.is_interp(v) || !ff.is_ff(v) || bits.contains(v) || ids.contains(v) || occurs(v, rhs))
                     continue;
                 ids.emplace(v, vars.size());
                 vars.push_back(v);

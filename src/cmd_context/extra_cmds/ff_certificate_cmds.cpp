@@ -95,7 +95,7 @@ namespace {
                         rational value;
                         ff::polynomial f;
                         if (field.is_numeral(t, value)) f = arithmetic.constant(value);
-                        else if (is_uninterp_const(t)) {
+                        else if (!field.is_interp(t)) {
                             f = arithmetic.variable(variables.size()); variables.push_back(t);
                         }
                         else if (a->get_decl_kind() == OP_FF_NEG)

@@ -25,6 +25,7 @@ Author:
 #include "ast/ff_decl_plugin.h"
 #include "ast/occurs.h"
 #include "ast/rewriter/rewriter_types.h"
+#include "util/common_msgs.h"
 #include "util/z3_exception.h"
 #include <map>
 #include <vector>
@@ -84,7 +85,7 @@ class ff_rewriter {
         todo.emplace_back(e, scale);
         while (!todo.empty()) {
             if (!m.inc())
-                throw default_exception("canceled");
+                throw rewriter_exception(Z3_CANCELED_MSG);
             auto [a, factor] = todo.back();
             todo.pop_back();
             if (u.is_add(a)) {
@@ -152,24 +153,14 @@ class ff_rewriter {
         return expr_ref(u.mk_add(args), m);
     }
 
-    rational inverse(rational a, rational const &p) {
+    rational inverse(rational const &a, rational const &p) {
         // 1 and -1 are self-inverse (also in F_2). Otherwise extended Euclid
         // yields t*a + k*p = 1, hence t*a = 1 in F_p for nonzero a.
         if (a.is_one() || a == p - rational(1))
             return a;
-        rational r = p, t(0), s(1);
-        while (!a.is_zero()) {
-            if (!m.inc())
-                throw default_exception("canceled");
-            rational q = div(r, a), next = r - q * a;
-            r = a;
-            a = next;
-            next = t - q * s;
-            t = s;
-            s = next;
-        }
+        rational t, k, g = gcd(a, p, t, k);
         // The sort contract requires p prime; the caller supplies nonzero a.
-        SASSERT(r.is_one());
+        SASSERT(g.is_one());
         return mod(t, p);
     }
 
@@ -185,13 +176,14 @@ public:
         rational constant(0);
         expr_ref_vector pins(m);
         unsigned count = 0;
+        expr_ref eq(m.mk_eq(a, b), m);
         // a=b iff a-b=0. If all symbolic summands cancel, this is exactly
         // the test that the remaining canonical constant is zero.
         collect(a, rational(1), p, terms, constant, pins, count);
         collect(b, rational(-1), p, terms, constant, pins, count);
         if (terms.empty()) {
             out = m.mk_bool_val(constant.is_zero());
-            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
+            return out == eq ? BR_FAILED : BR_REWRITE_FULL;
         }
         if (terms.size() == 1) {
             // c*t+k=0 iff t=-k/c because c is a nonzero field constant.
@@ -199,7 +191,7 @@ public:
             auto const &[base, coeff] = *terms.begin();
             expr_ref value(u.mk_numeral(mod(-constant * inverse(coeff, p), p), a->get_sort()), m);
             out = m.mk_eq(base, value);
-            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
+            return out == eq ? BR_FAILED : BR_REWRITE_FULL;
         }
         // Expose affine wire definitions to solve-eqs even when a circuit
         // exporter writes t = c - a*x. Prefer a wire absent from the other
@@ -211,14 +203,14 @@ public:
         auto pivot = terms.end();
         bool pivot_unit = false;
         expr *preferred = nullptr;
-        if (is_uninterp_const(a) != is_uninterp_const(b)) {
-            expr *v = is_uninterp_const(a) ? a : b;
+        if (u.is_interp(a) != u.is_interp(b)) {
+            expr *v = !u.is_interp(a) ? a : b;
             expr *rhs = v == a ? b : a;
             if (!occurs(v, rhs))
                 preferred = v;
         }
         for (auto it = terms.begin(); it != terms.end(); ++it) {
-            if (!is_uninterp_const(it->first))
+            if (u.is_interp(it->first))
                 continue;
             if (preferred && it->first != preferred)
                 continue;
@@ -244,7 +236,7 @@ public:
                 coeff = mod(coeff * factor, p);
             expr_ref rhs = sum(terms, mod(constant * factor, p), a->get_sort());
             out = m.mk_eq(var, rhs);
-            return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
+            return out == eq ? BR_FAILED : BR_REWRITE_FULL;
         }
         // Avoid expanding an ordinary x=y or changing equalities that contain
         // no cancellable summands. Never cancel a symbolic multiplicative factor.
@@ -255,7 +247,7 @@ public:
         expr_ref left = sum(terms, rational(0), a->get_sort());
         expr_ref right(u.mk_numeral(mod(-constant, p), a->get_sort()), m);
         out = m.mk_eq(left, right);
-        return out == m.mk_eq(a, b) ? BR_FAILED : BR_REWRITE_FULL;
+        return out == eq ? BR_FAILED : BR_REWRITE_FULL;
     }
 
     br_status mk_app_core(func_decl *f, unsigned n, expr *const *args, expr_ref &out) {
@@ -285,7 +277,7 @@ public:
                 todo.push_back(args[i]);
             while (!todo.empty()) {
                 if (!m.inc())
-                    throw default_exception("canceled");
+                    throw rewriter_exception(Z3_CANCELED_MSG);
                 expr *a = todo.back();
                 todo.pop_back();
                 if (u.is_numeral(a, value))
