@@ -143,6 +143,8 @@ namespace smt {
             setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
+        else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+            setup_ff();
         else
             setup_unknown();
     }
@@ -213,6 +215,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+                setup_ff();
             else 
                 setup_unknown(st);
         }
@@ -823,6 +827,7 @@ namespace smt {
         setup_dl();
         setup_seq_str(st);
         setup_fpa();
+        setup_ff();
         setup_finite_set();
         setup_special_relations();
         setup_polymorphism();
@@ -858,6 +863,7 @@ namespace smt {
             setup_seq_str(st);
             setup_finite_set();
             setup_fpa();
+            setup_ff();
             setup_recfuns();
             setup_special_relations();
             setup_polymorphism();
@@ -926,6 +932,11 @@ namespace smt {
 
         if (st.num_theories() == 1 && st.m_has_fpa) {
             setup_QF_FP();
+            return;
+        }
+
+        if (st.num_theories() == 1 && st.m_has_ff) {
+            setup_ff();
             return;
         }
 
