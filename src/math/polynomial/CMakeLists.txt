@@ -2,6 +2,10 @@ z3_add_component(polynomial
   SOURCES
     algebraic_numbers.cpp
     polynomial_cache.cpp
+    ff_polynomial.cpp
+    ff_certificate.cpp
+    ff_f4.cpp
+    ff_tiny.cpp
     polynomial.cpp
     rpolynomial.cpp
     sexpr2upolynomial.cpp

@@ -218,6 +218,15 @@ namespace smt2 {
         SASSERT(curr() == '#');
         next();
         char c = curr();
+        if (c == 'f') {
+            std::string value("#f");
+            next();
+            while ((curr() >= '0' && curr() <= '9') || curr() == 'm' || curr() == '-') {
+                value.push_back(curr()); next();
+            }
+            m_id = symbol(value.c_str());
+            return SYMBOL_TOKEN;
+        }
         if (c == 'x') {
             next();
             c = curr();

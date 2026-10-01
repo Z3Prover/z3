@@ -1,0 +1,28 @@
+; Z3 FF artifact profile: checked original-input bridge + Alethe/PAC.
+(assume a0 (and (= x y) (not (= (ff.mul x x) (ff.mul y y)))))
+(step t0 (cl (= x y)) :rule and :premises (a0) :args (0))
+(step t1 (cl (not (= (ff.mul x x) (ff.mul y y)))) :rule and :premises (a0) :args (1))
+(step t2 (cl (= (ff.mul #f1m7 (ff.add x (ff.neg y))) (ff.mul #f1m7 (ff.add (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) (ff.neg #f0m7))))) :rule poly_simp)
+(step t3 (cl (= (= x y) (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) #f0m7))) :rule poly_simp_rel :premises (t2))
+(step t4 (cl (not (= x y)) (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) #f0m7)) :rule equiv1 :premises (t3))
+(step t5 (cl (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) #f0m7)) :rule resolution :premises (t4 t0))
+(step t6 (cl (= (not (= (ff.mul x x) (ff.mul y y))) (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) #f0m7))) :rule ff_diseq :args ((ff.mul x x) (ff.mul y y) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))))
+(step t7 (cl (not (not (= (ff.mul x x) (ff.mul y y)))) (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) #f0m7)) :rule equiv1 :premises (t6))
+(step t8 (cl (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) #f0m7)) :rule resolution :premises (t7 t1))
+(step t9 (cl (= (ff.mul #f1m7 (ff.add (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) (ff.neg #f0m7))) (ff.mul #f1m7 (ff.add (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7))) (ff.neg #f0m7))))) :rule poly_simp)
+(step t10 (cl (= (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) #f0m7) (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7))) #f0m7))) :rule poly_simp_rel :premises (t9))
+(step t11 (cl (not (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) #f6m7) #f0m7)) (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7))) #f0m7)) :rule equiv1 :premises (t10))
+(step t12 (cl (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7))) #f0m7)) :rule resolution :premises (t11 t8))
+(step t13 (cl (and (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) #f0m7) (= (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7))) #f0m7))) :rule and_intro :premises (t5 t12))
+(step t14 (cl (not (set.is_empty (@ff.variety (@ff.ideal (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y) x) (ff.add (ff.mul (as ff6 (_ FiniteField 7)) y y (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (ff.mul x x (choice ((ff_witness_0_bound (_ FiniteField 7))) (= (ff.mul ff_witness_0_bound (ff.add (ff.mul x x) (ff.neg (ff.mul y y)))) #f1m7))) (as ff6 (_ FiniteField 7)))))))) :rule ff_poly_conversion :premises (t13))
+(step contradiction (cl) :rule ff_pac :premises (t14) :args (m 7;
+a 1 6*v2 + 1*v1;
+a 2 6*v2^2*v3 + 1*v1^2*v3 + 6;
+l 3 1*(6), 1*v2 + 6*v1;
+l 4 3*(1*v2*v3), 1*v2^2*v3 + 6*v1*v2*v3;
+l 5 2*(1) + 4*(1), 6*v1*v2*v3 + 1*v1^2*v3 + 6;
+l 6 3*(1*v1*v3), 1*v1*v2*v3 + 6*v1^2*v3;
+l 7 5*(1) + 6*(1), 6;
+l 8 7*(6), 1;
+unsat
+))

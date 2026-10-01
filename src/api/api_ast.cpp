@@ -17,6 +17,7 @@ Revision History:
 --*/
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
+#include "ast/ff_decl_plugin.h"
 #include "api/api_util.h"
 #include "ast/well_sorted.h"
 #include "ast/arith_decl_plugin.h"
@@ -793,6 +794,9 @@ extern "C" {
         else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
             return Z3_CHAR_SORT;
         }
+        else if (ff_util(mk_c(c)->m()).is_ff(to_sort(t))) {
+            return Z3_FINITE_FIELD_SORT;
+        }
         else if (fid == poly_family_id) {
             return Z3_TYPE_VAR;
         }
@@ -1531,6 +1535,15 @@ extern "C" {
             return get_decl_kind_label(k);
         if (mk_c(c)->fsutil().get_family_id() == fid)
             return get_decl_kind_finite_set(k);
+        if (ff_util(mk_c(c)->m()).get_fid() == fid) {
+            switch (k) {
+            case OP_FF_NUM: return Z3_OP_FF_NUM;
+            case OP_FF_ADD: return Z3_OP_FF_ADD;
+            case OP_FF_MUL: return Z3_OP_FF_MUL;
+            case OP_FF_NEG: return Z3_OP_FF_NEG;
+            case OP_FF_BITSUM: return Z3_OP_FF_BITSUM;
+            }
+        }
         if (mk_c(c)->recfun().get_family_id() == fid)
             return Z3_OP_RECURSIVE;
 

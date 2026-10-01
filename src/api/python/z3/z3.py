@@ -708,6 +708,8 @@ def _to_sort_ref(s, ctx):
         return ArraySortRef(s, ctx)
     elif k == Z3_DATATYPE_SORT:
         return DatatypeSortRef(s, ctx)
+    elif k == Z3_FINITE_FIELD_SORT:
+        return FiniteFieldSortRef(s, ctx)
     elif k == Z3_FINITE_DOMAIN_SORT:
         return FiniteDomainSortRef(s, ctx)
     elif k == Z3_FLOATING_POINT_SORT:
@@ -1258,6 +1260,8 @@ def _to_expr_ref(a, ctx):
             return FPNumRef(a, ctx)
         else:
             return FPRef(a, ctx)
+    if sk == Z3_FINITE_FIELD_SORT:
+        return FiniteFieldRef(a, ctx)
     if sk == Z3_FINITE_DOMAIN_SORT:
         if k == Z3_NUMERAL_AST:
             return FiniteDomainNumRef(a, ctx)
@@ -9716,7 +9720,7 @@ def Sum(*args):
     if ctx is None:
         return _reduce(lambda a, b: a + b, args, 0)
     args = _coerce_expr_list(args, ctx)
-    if is_bv(args[0]):
+    if is_bv(args[0]) or isinstance(args[0], FiniteFieldRef):
         return _reduce(lambda a, b: a + b, args, 0)
     else:
         _args, sz = _to_ast_array(args)
@@ -9742,7 +9746,7 @@ def Product(*args):
     if ctx is None:
         return _reduce(lambda a, b: a * b, args, 1)
     args = _coerce_expr_list(args, ctx)
-    if is_bv(args[0]):
+    if is_bv(args[0]) or isinstance(args[0], FiniteFieldRef):
         return _reduce(lambda a, b: a * b, args, 1)
     else:
         _args, sz = _to_ast_array(args)
@@ -12602,3 +12606,99 @@ class UserPropagateBase:
 
     def conflict(self, deps = [], eqs = []):
         self.propagate(BoolVal(False, self.ctx()), deps, eqs)
+
+
+class FiniteFieldSortRef(SortRef):
+    """A prime field. Use SolverFor('QF_FF') for incremental field solving."""
+    def size(self):
+        return int(Z3_get_finite_field_sort_size(self.ctx_ref(), self.ast))
+
+    def cast(self, value):
+        if is_expr(value):
+            if not self.eq(value.sort()):
+                raise Z3Exception("finite-field sort mismatch")
+            return value
+        return FiniteFieldVal(value, self)
+
+
+class FiniteFieldRef(ExprRef):
+    def sort(self):
+        return FiniteFieldSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def as_long(self):
+        if not Z3_is_numeral_ast(self.ctx_ref(), self.as_ast()):
+            raise Z3Exception("finite-field numeral expected")
+        return int(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
+
+    def _binary(self, other, operation):
+        other = self.sort().cast(other)
+        args = (Ast * 2)(self.as_ast(), other.as_ast())
+        return FiniteFieldRef(operation(self.ctx_ref(), 2, args), self.ctx)
+
+    def __add__(self, other):
+        return self._binary(other, Z3_mk_ff_add)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __mul__(self, other):
+        return self._binary(other, Z3_mk_ff_mul)
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __neg__(self):
+        return FiniteFieldRef(Z3_mk_ff_neg(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def __sub__(self, other):
+        return self + -self.sort().cast(other)
+
+    def __rsub__(self, other):
+        return self.sort().cast(other) + -self
+
+    def __pow__(self, n):
+        if not isinstance(n, int) or n < 0:
+            raise Z3Exception("finite-field exponent must be a nonnegative integer")
+        result, base = FiniteFieldVal(1, self.sort()), self
+        while n:
+            if n & 1:
+                result = result * base
+            n >>= 1
+            if n:
+                base = base * base
+        return result
+
+
+def FiniteFieldSort(prime, ctx=None):
+    ctx = _get_ctx(ctx)
+    return FiniteFieldSortRef(Z3_mk_finite_field_sort(ctx.ref(), str(prime)), ctx)
+
+
+def FiniteFieldVal(value, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    if not isinstance(value, (int, str)):
+        raise Z3Exception("finite-field value must be an integer")
+    return FiniteFieldRef(Z3_mk_numeral(field.ctx_ref(), str(value), field.ast), field.ctx)
+
+
+def FiniteFieldElem(name, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    return Const(name, field)
+
+
+def FiniteFieldElems(names, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    return [Const(name, field) for name in (names.split() if isinstance(names, str) else names)]
+
+
+def FiniteFieldBitsum(*args):
+    args = _get_args(args)
+    if len(args) < 2 or not isinstance(args[0], FiniteFieldRef):
+        raise Z3Exception("bitsum needs at least two field arguments")
+    field = args[0].sort()
+    values = [field.cast(a) for a in args]
+    raw = (Ast * len(values))(*[a.as_ast() for a in values])
+    return FiniteFieldRef(Z3_mk_ff_bitsum(field.ctx_ref(), len(values), raw), field.ctx)

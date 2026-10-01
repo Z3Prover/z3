@@ -63,6 +63,7 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_ff.cpp
     theory_intblast.cpp
     theory_lra.cpp
     theory_opt.cpp
@@ -89,6 +90,7 @@ z3_add_component(smt
     normal_forms
     parser_util
     pattern
+    polynomial
     proofs
     proto_model
     simplex

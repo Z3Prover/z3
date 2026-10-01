@@ -22,6 +22,7 @@ Notes:
 #include "util/common_msgs.h"
 #include "ast/ast_pp.h"
 #include "solver/solver.h"
+#include "solver/combined_solver.h"
 #include "solver/combined_solver_params.hpp"
 #include <atomic>
 #define PS_VB_LVL 15
@@ -53,6 +54,13 @@ public:
     };
 
 private:
+    solver_routing_predicate m_prefer_solver1;
+    bool m_route_solver1 = false;
+    svector<unsigned> m_route_scopes;
+    void note_assertion(expr *e) {
+        if (m_prefer_solver1 && !m_route_solver1)
+            m_route_solver1 = m_prefer_solver1(get_manager(), e);
+    }
     bool                 m_inc_mode;
     bool                 m_check_sat_executed;
     bool                 m_use_solver1_results;
@@ -114,8 +122,8 @@ private:
     }
 
 public:
-    combined_solver(solver * s1, solver * s2, params_ref const & p):
-        solver(s1->get_manager()) {
+    combined_solver(solver * s1, solver * s2, params_ref const & p, solver_routing_predicate route):
+        solver(s1->get_manager()), m_prefer_solver1(route) {
         m_solver1 = s1;
         m_solver2 = s2;
         updt_local_params(p);
@@ -128,7 +136,9 @@ public:
         TRACE(solver, tout << "translate\n";);
         solver* s1 = m_solver1->translate(m, p);
         solver* s2 = m_solver2->translate(m, p);
-        combined_solver* r = alloc(combined_solver, s1, s2, p);
+        combined_solver* r = alloc(combined_solver, s1, s2, p, m_prefer_solver1);
+        r->m_route_solver1 = m_route_solver1;
+        r->m_route_scopes = m_route_scopes;
         r->m_inc_mode = m_inc_mode;
         r->m_check_sat_executed = m_check_sat_executed;
         r->m_use_solver1_results = m_use_solver1_results;
@@ -159,6 +169,7 @@ public:
     }
     
     void assert_expr_core(expr * t) override {
+        note_assertion(t);
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t);
@@ -166,6 +177,8 @@ public:
     }
 
     void assert_expr_core2(expr * t, expr * a) override {
+        note_assertion(t);
+        note_assertion(a);
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t, a);
@@ -173,6 +186,7 @@ public:
     }
 
     void push() override {
+        m_route_scopes.push_back(m_route_solver1);
         switch_inc_mode();
         m_solver1->push();
         m_solver2->push();        
@@ -180,6 +194,10 @@ public:
     }
     
     void pop(unsigned n) override {
+        if (n) {
+            m_route_solver1 = m_route_scopes[m_route_scopes.size() - n];
+            m_route_scopes.shrink(m_route_scopes.size() - n);
+        }
         TRACE(pop, tout << n << "\n";);
         switch_inc_mode();
         m_solver1->pop(n);
@@ -208,6 +226,18 @@ public:
     }
 
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+        // Portfolio-specific routing is cached at assertion time and restored
+        // with scopes. Only ephemeral assumptions need inspection on each check.
+        bool route = m_route_solver1;
+        if (m_prefer_solver1)
+            for (unsigned i = 0; i < num_assumptions && !route; ++i)
+                route = m_prefer_solver1(get_manager(), assumptions[i]);
+        if (route) {
+            m_check_sat_executed = true;
+            m_use_solver1_results = true;
+            return m_solver1->check_sat_core(num_assumptions, assumptions);
+        }
+
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
 
@@ -408,8 +438,8 @@ public:
 };
 
 
-solver * mk_combined_solver(solver * s1, solver * s2, params_ref const & p) {
-    return alloc(combined_solver, s1, s2, p);
+solver * mk_combined_solver(solver * s1, solver * s2, params_ref const & p, solver_routing_predicate route) {
+    return alloc(combined_solver, s1, s2, p, route);
 }
 
 class combined_solver_factory : public solver_factory {
