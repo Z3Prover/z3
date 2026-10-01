@@ -73,6 +73,7 @@
     X(proof_replay) \
     X(simplifier) \
     X(bit_blaster) \
+    X(bv_mul_bounds) \
     X(var_subst) \
     X(simple_parser) \
     X(scanner_io) \

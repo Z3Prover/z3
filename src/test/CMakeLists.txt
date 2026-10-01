@@ -23,6 +23,7 @@ add_executable(test-z3
   ast.cpp
   bdd.cpp
   bit_blaster.cpp
+  bv_mul_bounds.cpp
   bits.cpp
   bit_vector.cpp
   buffer.cpp
@@ -184,3 +185,4 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
+target_include_directories(test-z3 PRIVATE "${PROJECT_SOURCE_DIR}/src/api")
