@@ -24,10 +24,12 @@ Revision History:
 
 --*/
 
+#include "api/z3.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/lar_solver.h"
 #include "util/rational.h"
 #include "util/rlimit.h"
+#include <string>
 
 namespace nla {
 
@@ -156,10 +158,63 @@ void test_is_nla_context_satisfied() {
     VERIFY(!nla_solver.is_nla_context_satisfied());
 }
 
+// A delta-check failure that is not refined (here because nlsat is
+// disabled, as when its backoff defers it) must not be reported as l_true.
+void test_unrefined_failure_is_not_sat() {
+    std::cout << "test_unrefined_failure_is_not_sat\n";
+
+    lp::lar_solver s;
+    reslimit rl;
+    params_ref p;
+    p.set_bool("arith.nl.nra", false);
+
+    lpvar x       = s.add_var(0, false);
+    lpvar exp_val = s.add_var(1, false);
+
+    nla::core nla_solver(s, p, rl);
+    nla_solver.add_transcendental(nlsat::transcendental_op_kind::EXP, x, exp_val);
+
+    // exp(-3) ~ 0.0498, so exp_val = 1/10 fails the delta-check while
+    // satisfying the exact linear exp facts (exp(x) > 0, exp(x) >= 1 + x).
+    s.set_column_value_test(x, lp::impq(rational(-3)));
+    s.set_column_value_test(exp_val, lp::impq(rational(1, 10)));
+
+    VERIFY(nla_solver.test_check() != l_true);
+}
+
+// After an earlier check-sat in a popped scope, the exp(x) failure must
+// still be refined (not deferred into sat) and its nlsat conflict must not
+// be explained by stale literals from the popped scope.
+void test_incremental_exp_unsat() {
+    std::cout << "test_incremental_exp_unsat\n";
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic ALL)\n"
+        "(declare-const x Real)\n"
+        "(push 1)\n"
+        "(assert (< x 0))\n"
+        "(assert (> (exp x) 0))\n"
+        "(check-sat)\n"
+        "(pop 1)\n"
+        "(assert (>= x (- 3)))\n"
+        "(assert (<= x (- (/ 299 100))))\n"
+        "(assert (> (* (exp x) (exp x)) (/ 1 300)))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\nunsat\n")
+        std::cout << response << "\n";
+    VERIFY(response == "sat\nunsat\n");
+    Z3_del_context(ctx);
+}
+
 void test_nla_transcendentals() {
     test_sin_cos_identity_detects_conflict();
     test_cosh_sinh_identity_detects_conflict();
     test_is_nla_context_satisfied();
+    test_unrefined_failure_is_not_sat();
+    test_incremental_exp_unsat();
 }
 
 } // namespace nla

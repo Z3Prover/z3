@@ -923,12 +923,10 @@ lbool core::check_transcendentals_and_finish() {
         if (ret == l_true) {
             if (m_transcendentals.check_nra_model())
                 return l_true;
-            if (failed_now)
-                return l_undef;
             // Not tight enough to certify: don't report the
             // nlsat witness as a model; fall back to the plain
-            // (pre-nlsat) assignment, which passed the delta-check
-            // above (otherwise failed_now), undoing bounded_nlsat's model
+            // (pre-nlsat) assignment that already passed the
+            // delta-check above, undoing bounded_nlsat's model
             // flag so the rest of the solver keeps reading the
             // ordinary LP assignment.
             set_use_nra_model(false);
