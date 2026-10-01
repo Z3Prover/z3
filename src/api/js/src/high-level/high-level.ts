@@ -131,8 +131,6 @@ import { allSatisfy, assert, assertExhaustive } from './utils';
 
 const FALLBACK_PRECISION = 17;
 
-const asyncMutex = new Mutex();
-
 function isCoercibleRational(obj: any): obj is CoercibleRational {
   // prettier-ignore
   const r = (
@@ -155,7 +153,48 @@ function isCoercibleRational(obj: any): obj is CoercibleRational {
 export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
   // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
   //               Don't capture `this`
-  const cleanup = new FinalizationRegistry<() => void>(callback => callback());
+  //
+  // The WASM build of libz3 is single-threaded (no allocator locking), while async calls such as
+  // `check()` run on a separate pthread. Finalizers run on the main thread and call `*_dec_ref`, which
+  // frees memory. To avoid racing the solver thread, finalizers are deferred while an async call is in
+  // flight and flushed once it settles.
+  let asyncCallsInFlight = 0;
+  let pendingFinalizers: (() => void)[] = [];
+  function runFinalizer(callback: () => void) {
+    try {
+      callback();
+    } catch (e) {
+      // Finalizers must not throw; ignore errors from freeing already-released objects.
+    }
+  }
+  function flushPendingFinalizers() {
+    while (asyncCallsInFlight === 0 && pendingFinalizers.length > 0) {
+      const callbacks = pendingFinalizers;
+      pendingFinalizers = [];
+      callbacks.forEach(runFinalizer);
+    }
+  }
+  const cleanup = new FinalizationRegistry<() => void>(callback => {
+    if (asyncCallsInFlight > 0) {
+      pendingFinalizers.push(callback);
+    } else {
+      runFinalizer(callback);
+    }
+  });
+
+  // One mutex per module: a call abandoned on one module must not block calls on other modules.
+  const asyncMutex = new Mutex();
+  function runAsync<T>(fn: () => Promise<T>): Promise<T> {
+    return asyncMutex.runExclusive(async () => {
+      asyncCallsInFlight++;
+      try {
+        return await fn();
+      } finally {
+        asyncCallsInFlight--;
+        flushPendingFinalizers();
+      }
+    });
+  }
 
   function enableTrace(tag: string) {
     Z3.enable_trace(tag);
@@ -734,7 +773,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
     ///////////////////////////////
 
     async function simplify(e: Expr<Name>): Promise<Expr<Name>> {
-      const result = await Z3.simplify(contextPtr, e.ast);
+      const result = await runAsync(() => Z3.simplify(contextPtr, e.ast));
       return _toExpr(check(result));
     }
 
@@ -2002,7 +2041,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       q: Arith<Name>,
       x: Arith<Name>,
     ): Promise<AstVector<Name, Arith<Name>>> {
-      const result = await Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast);
+      const result = await runAsync(() => Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast));
       return new AstVectorImpl<ArithImpl>(check(result));
     }
 
@@ -2136,7 +2175,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           _assertContext(expr);
           return expr.ast;
         });
-        const result = await asyncMutex.runExclusive(() =>
+        const result = await runAsync(() =>
           check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)),
         );
         switch (result) {
@@ -2244,7 +2283,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
       async cube(vars?: AstVector<Name, Bool<Name>>, cutoff: number = 0xFFFFFFFF): Promise<AstVector<Name, Bool<Name>>> {
         const tempVars = vars ?? new AstVectorImpl();
-        const result = await asyncMutex.runExclusive(() =>
+        const result = await runAsync(() =>
           check(Z3.solver_cube(contextPtr, this.ptr, tempVars.ptr, cutoff)),
         );
         return new AstVectorImpl(result);
@@ -2265,7 +2304,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           _assertContext(v);
           Z3.ast_vector_push(contextPtr, varsVec.ptr, v.ast);
         });
-        const r = await asyncMutex.runExclusive(() =>
+        const r = await runAsync(() =>
           check(Z3.solver_get_consequences(contextPtr, this.ptr, asmsVec.ptr, varsVec.ptr, consVec.ptr)),
         );
         let status: CheckSatResult;
@@ -2481,7 +2520,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           _assertContext(expr);
           return expr.ast;
         });
-        const result = await asyncMutex.runExclusive(() => check(Z3.optimize_check(contextPtr, this.ptr, assumptions)));
+        const result = await runAsync(() => check(Z3.optimize_check(contextPtr, this.ptr, assumptions)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -2583,7 +2622,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
       async query(query: Bool<Name>): Promise<CheckSatResult> {
         _assertContext(query);
-        const result = await asyncMutex.runExclusive(() => check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)));
+        const result = await runAsync(() => check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -2599,7 +2638,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
         relations.forEach(rel => _assertContext(rel));
         const decls = relations.map(rel => rel.ptr);
-        const result = await asyncMutex.runExclusive(() =>
+        const result = await runAsync(() =>
           check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
         );
         switch (result) {
@@ -3454,7 +3493,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         }
 
         _assertContext(goalToUse);
-        const result = await Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr);
+        const result = await runAsync(() => Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr));
         const applyResult = new ApplyResultImpl(check(result));
         // Wrap with Proxy to enable indexer access
         return new Proxy(applyResult, applyResultHandler) as ApplyResult<Name>;

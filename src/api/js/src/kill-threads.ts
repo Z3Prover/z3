@@ -17,6 +17,9 @@
  */
 export function killThreads(em: any): Promise<void> {
   em.PThread.terminateAllThreads();
+  // Reject any async call abandoned by the termination and clear its keep-alive timers,
+  // so that later calls are not blocked and the process can exit.
+  em.async_cancel?.(new Error('Z3 threads were terminated'));
 
   // Poll until all workers have been terminated.
   let intervalHandle: ReturnType<typeof setInterval>;
