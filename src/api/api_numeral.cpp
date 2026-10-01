@@ -31,7 +31,7 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
     return 
-        ff_util(mk_c(c)->m()).is_ff(_ty) ||
+        fid == mk_c(c)->get_ff_fid() ||
         fid == mk_c(c)->get_arith_fid() ||
         fid == mk_c(c)->get_bv_fid() ||
         fid == mk_c(c)->get_datalog_fid() ||
@@ -149,7 +149,7 @@ extern "C" {
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         return
-            ff_util(mk_c(c)->m()).is_numeral(e) ||
+            is_app_of(e, mk_c(c)->get_ff_fid(), OP_FF_NUM) ||
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
             mk_c(c)->fpautil().is_numeral(e) ||
@@ -164,7 +164,10 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
-        if (ff_util(mk_c(c)->m()).is_numeral(e, r)) return true;
+        if (is_app_of(e, mk_c(c)->get_ff_fid(), OP_FF_NUM)) {
+            r = to_app(e)->get_parameter(0).get_rational();
+            return true;
+        }
         if (mk_c(c)->autil().is_numeral(e, r)) {
             return true;
         }
