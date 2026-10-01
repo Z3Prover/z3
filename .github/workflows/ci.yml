@@ -329,11 +329,25 @@ jobs:
           ./test-z3 -a
           cd ..
 
+      - name: Clone z3test
+        if: matrix.runTests
+        run: git clone https://github.com/z3prover/z3test z3test
+
       - name: Run the proof regression matrix tests
         if: matrix.runTests
         env:
           Z3_EXE: ${{ github.workspace }}/build/z3
-        run: python -m unittest discover -s examples/python -p test_proof_matrix.py -v
+        run: python -m unittest discover -s z3test/scripts/proofs -p test_proof_matrix.py -v
+
+      - name: Run proof canaries
+        if: matrix.name == 'releaseClang'
+        run: |
+          python z3test/scripts/proofs/proof_matrix.py \
+            --z3 build/z3 \
+            --benchmark-root z3test \
+            --timeout 30 \
+            --out "${{ runner.temp }}/proof-canaries.jsonl" \
+            z3test/regressions/proofs/canaries/*.txt
 
       - name: Run examples
         if: matrix.runTests
@@ -361,10 +375,6 @@ jobs:
           cd build
           ninja test-go-examples
           cd ..
-
-      - name: Clone z3test
-        if: matrix.runTests
-        run: git clone https://github.com/z3prover/z3test z3test
 
       - name: Run regressions
         if: matrix.runTests
