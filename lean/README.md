@@ -146,13 +146,18 @@ lean --version
 No Mathlib or other external Lean packages are needed. Lake build artifacts
 remain under the ignored `lean/.lake/` directory.
 
-## Proof matrix certification gate
+## Automated Lean proof checks
 
-The matrix runner and its tests remain in
+The Python script `scripts/proofs/proof_matrix.py` and its tests are in
 [Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs).
-Its exact-artifact Lean integration is provided by
-[Z3Prover/z3test#73](https://github.com/Z3Prover/z3test/pull/73).
-With that integration, run from this Z3 checkout with z3test cloned beside it:
+The CI job uses a separate `z3test-lean/` checkout at the fixed revision
+specified in the workflow's "Check out Lean proof-checking tools" step.
+This revision provides the required `--z3-source` and `--lean-artifacts`
+options. Other Z3 tests use the independent `z3test/` checkout from its default
+branch.
+
+To run the same checks locally, use a z3test checkout at that revision, cloned
+beside this Z3 checkout:
 
 ```sh
 python3 ../z3test/scripts/proofs/proof_matrix.py \
@@ -168,10 +173,10 @@ the separate checking process consumes the saved native JSON and original input,
 without solving again. Records identify the producer and retain input,
 certificate, and checked Lean artifacts with their hashes.
 
-Every selected cell must be `lean-verified` for success. Unsupported inputs,
-sat/unknown, missing evidence, checking errors, and timeouts fail the gate.
-The `releaseClang` CI configuration runs the handoff tests and this gate after
-installing Lean, and uploads the artifacts even when certification fails.
+Every input must have status `lean-verified` for success. Unsupported inputs,
+sat/unknown, missing evidence, checking errors, and timeouts cause failure.
+The `releaseClang` CI job runs the tests and checks all six Boolean examples
+after installing Lean. It uploads the proof files even when a check fails.
 
 The [planned additional test inputs](../doc/lean-proof-plan.md#additional-input-files-future-plan)
 include seven examples from `jreeves3/SMT-Skeleton-Check` and the larger

@@ -365,14 +365,27 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/build/python
         run: python -m unittest discover -s examples/python -p 'test_proof_to_lean*.py' -v
 
+      - name: Check out Lean proof-checking tools
+        if: matrix.name == 'releaseClang'
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: Z3Prover/z3test
+          ref: 32c920c918232930086cc2f9f56c0c9f2f8154c0
+          path: z3test-lean
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/proofs
+            regressions/proofs
+            regressions/smt2
+
       - name: Require Lean-certified Boolean matrix results
         if: matrix.name == 'releaseClang'
         env:
           Z3_EXE: ${{ github.workspace }}/build/z3
           Z3_SOURCE: ${{ github.workspace }}
         run: |
-          python -m unittest discover -s z3test/scripts/proofs -p 'test_proof*.py' -v
-          python z3test/scripts/proofs/proof_matrix.py \
+          python -m unittest discover -s z3test-lean/scripts/proofs -p 'test_proof*.py' -v
+          python z3test-lean/scripts/proofs/proof_matrix.py \
             --z3 "$Z3_EXE" --z3-source "$Z3_SOURCE" \
             --lean --cells legacy-proof-object --timeout 30 \
             --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
