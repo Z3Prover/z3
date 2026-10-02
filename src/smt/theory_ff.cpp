@@ -485,13 +485,13 @@ namespace smt {
         }
         if (!ff.is_mul(e) || to_app(e)->get_num_args() > 16)
             return expr_ref(m);
-        std::map<expr *, unsigned> powers;
+        obj_map<expr, unsigned> powers;
         rational coefficient(1);
         for (expr *arg : *to_app(e)) {
             if (ff.is_numeral(arg, value))
                 coefficient = mod(coefficient * value, ff.modulus(e->get_sort()));
             else
-                ++powers[arg];
+                ++powers.insert_if_not_there(arg, 0u);
         }
         if (!coefficient.is_int_perfect_square(root))
             return expr_ref(m);
@@ -501,7 +501,9 @@ namespace smt {
         // Every symbolic factor must have even multiplicity. Halving these
         // multiplicities constructs A with e=A*A, without distributing products
         // of sums or assuming anything about the values of symbolic factors.
-        for (auto const &[arg, power] : powers) {
+        for (auto const &kv : powers) {
+            expr *arg = &kv.get_key();
+            unsigned power = kv.get_value();
             if (power % 2)
                 return expr_ref(m);
             for (unsigned i = 0; i < power / 2; ++i)

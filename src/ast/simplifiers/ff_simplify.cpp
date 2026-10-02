@@ -27,7 +27,6 @@ Author:
 #include "params/smt_params_helper.hpp"
 #include <unordered_map>
 #include <set>
-#include <map>
 #include <vector>
 
 namespace {
@@ -241,7 +240,7 @@ void ff_zero_test_simplifier::reduce() {
         bool nonzero;
         zero(ast_manager &m, unsigned i, bool nz) : factors(m), premise(i), nonzero(nz) {}
     };
-    std::map<expr *, std::vector<zero>> zeros;
+    obj_map<expr, std::vector<zero>> zeros;
     for (unsigned i : indices()) {
         if (!m.inc())
             return;
@@ -273,7 +272,7 @@ void ff_zero_test_simplifier::reduce() {
                 if (k != j && !ff.is_numeral(mul->get_arg(k), c))
                     rec.factors.push_back(mul->get_arg(k));
             if (!rec.factors.empty())
-                zeros[z].push_back(std::move(rec));
+                zeros.insert_if_not_there(z, std::vector<zero>()).push_back(std::move(rec));
         }
     }
     for (unsigned i : indices()) {
@@ -284,10 +283,9 @@ void ff_zero_test_simplifier::reduce() {
             continue;
         if (!is_uninterp_const(z))
             std::swap(z, rhs);
-        auto found = zeros.find(z);
-        if (found == zeros.end())
+        if (!zeros.contains(z))
             continue;
-        for (auto const &rec : found->second) {
+        for (auto const &rec : zeros.find(z)) {
             rational constant(0), c;
             expr *term = rhs;
             bool valid = true;
