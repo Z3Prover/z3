@@ -16,10 +16,12 @@ Boolean path; they do not certify arbitrary SMT inputs.
 
 The regression matrix, its tests, and its canaries moved to
 [Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs)
-in Z3Prover/z3#11008. Keep those files there. The matrix's optional `--lean`
-integration still needs an explicit connection to this checkout and a handoff
-of the exact measured certificate instead of a second solver run. The
-standalone exporter and reconstructor do not depend on that integration.
+in Z3Prover/z3#11008. Keep those files there. Z3Prover/z3test#73 supplies the
+matrix's explicit connection to this checkout and the handoff of the exact
+measured certificate instead of a second solver run. The `releaseClang`
+certification gate depends on that integration, requires `lean-verified` for
+every Boolean example, and retains the native and Lean artifacts. The
+standalone exporter and reconstructor do not depend on the matrix.
 
 The dated findings below describe earlier runs and retain their historical
 file paths. The Boolean-negation and arithmetic-coefficient fixes have since

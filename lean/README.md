@@ -145,3 +145,30 @@ lean --version
 
 No Mathlib or other external Lean packages are needed. Lake build artifacts
 remain under the ignored `lean/.lake/` directory.
+
+## Proof matrix certification gate
+
+The matrix runner and its tests remain in
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs).
+Its exact-artifact Lean integration is provided by
+[Z3Prover/z3test#73](https://github.com/Z3Prover/z3test/pull/73).
+With that integration, run from this Z3 checkout with z3test cloned beside it:
+
+```sh
+python3 ../z3test/scripts/proofs/proof_matrix.py \
+  --z3 "$PWD/build/z3" --z3-source "$PWD" \
+  --lean --cells legacy-proof-object --timeout 30 \
+  --lean-artifacts /tmp/lean-proof-artifacts --out /tmp/lean-proof-matrix.jsonl \
+  lean/examples/*.smt2
+```
+
+This requires a POSIX CMake build with the executable, shared library, and
+Python bindings in `build/`. The producer uses those bindings to solve once;
+the separate checking process consumes the saved native JSON and original input,
+without solving again. Records identify the producer and retain input,
+certificate, and checked Lean artifacts with their hashes.
+
+Every selected cell must be `lean-verified` for success. Unsupported inputs,
+sat/unknown, missing evidence, checking errors, and timeouts fail the gate.
+The `releaseClang` CI configuration runs the handoff tests and this gate after
+installing Lean, and uploads the artifacts even when certification fails.
