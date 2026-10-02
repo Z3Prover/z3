@@ -86,7 +86,7 @@ function add<Name extends string>(a: Arith<Name>, b: Arith<Name>): Arith<Name> {
 
 Some long-running functions are promises and will run in a separate thread.
 Currently Z3-solver is not thread safe, and so, high-level APIs ensures that only one long-running function can run at a time, and all other long-running requests will queue up and be run one after another.
-The queue is per module (per `init()` call). While a long-running call is in flight, objects reclaimed by the garbage collector are freed only after the call settles, since the WebAssembly build of Z3 is single-threaded. Do not call other (synchronous) Z3 APIs on the same module while a long-running call is in flight.
+The queue is per module (per `init()` call). The WebAssembly build queues decref requests from garbage collection for processing by the context rather than performing them concurrently with a long-running call. Other finalizer cleanup is delayed until the call settles. Do not call other (synchronous) Z3 APIs on the same module while a long-running call is in flight.
 
 ## Low-level
 

@@ -154,12 +154,6 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
   // TODO(ritave): Create a custom linting rule that checks if the provided callbacks to cleanup
   //               Don't capture `this`
   //
-  // The WASM build of libz3 is single-threaded (no allocator locking), while async calls such as
-  // `check()` run on a separate pthread. Finalizers run on the main thread and call `*_dec_ref`, which
-  // frees memory. To avoid racing the solver thread, finalizers are deferred while an async call is in
-  // flight and flushed once it settles.
-  let asyncCallsInFlight = 0;
-  let pendingFinalizers: (() => void)[] = [];
   function runFinalizer(callback: () => void) {
     try {
       callback();
@@ -167,6 +161,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       // Finalizers must not throw; ignore errors from freeing already-released objects.
     }
   }
+  let asyncCallsInFlight = 0;
+  let pendingFinalizers: (() => void)[] = [];
   function flushPendingFinalizers() {
     while (asyncCallsInFlight === 0 && pendingFinalizers.length > 0) {
       const callbacks = pendingFinalizers;
@@ -174,7 +170,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       callbacks.forEach(runFinalizer);
     }
   }
-  const cleanup = new FinalizationRegistry<() => void>(callback => {
+  const cleanup = new FinalizationRegistry<() => void>(runFinalizer);
+  const cleanupAfterAsync = new FinalizationRegistry<() => void>(callback => {
     if (asyncCallsInFlight > 0) {
       pendingFinalizers.push(callback);
     } else {
@@ -250,6 +247,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       Object.entries(options).forEach(([key, value]) => check(Z3.set_param_value(cfg, key, value.toString())));
     }
     const contextPtr = Z3.mk_context_rc(cfg);
+    Z3.enable_concurrent_dec_ref(contextPtr);
     Z3.set_ast_print_mode(contextPtr, Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
     Z3.del_config(cfg);
 
@@ -3906,7 +3904,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           myPtr = valueOrPtr;
         }
         this.ptr = myPtr;
-        cleanup.register(this, () => Z3.rcf_del(contextPtr, myPtr), this);
+        cleanupAfterAsync.register(this, () => Z3.rcf_del(contextPtr, myPtr), this);
       }
 
       add(other: RCFNum<Name>): RCFNum<Name> {
@@ -5590,7 +5588,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       mkCharIsDigit,
       polynomialSubresultants,
     };
-    cleanup.register(ctx, () => Z3.del_context(contextPtr));
+    cleanupAfterAsync.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;
   }
 
