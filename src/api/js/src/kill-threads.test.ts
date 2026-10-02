@@ -44,16 +44,25 @@ describe('killThreads', () => {
   });
 
   it('cancels a pending async call so it does not block later calls', async () => {
+    const runningWorkers: unknown[] = [{}];
     const mockEm = {
       PThread: {
         terminateAllThreads: jest.fn(),
         unusedWorkers: [] as unknown[],
-        runningWorkers: [] as unknown[],
+        runningWorkers,
       },
       async_cancel: jest.fn(),
     };
 
-    await killThreads(mockEm);
+    setTimeout(() => {
+      runningWorkers.length = 0;
+    }, 50);
+
+    const killing = killThreads(mockEm);
+    await new Promise(resolve => setTimeout(resolve, 25));
+    expect(mockEm.async_cancel).not.toHaveBeenCalled();
+
+    await killing;
 
     expect(mockEm.async_cancel).toHaveBeenCalledTimes(1);
     expect(mockEm.async_cancel.mock.calls[0][0]).toBeInstanceOf(Error);
