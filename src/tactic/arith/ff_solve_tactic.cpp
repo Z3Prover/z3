@@ -175,7 +175,7 @@ namespace {
             }
             while (!todo.empty()) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 expr *e = todo.back();
                 todo.pop_back();
                 if (!seen.insert(e).second)
@@ -201,7 +201,7 @@ namespace {
                 return false;
             for (unsigned mask = 0; mask < (1u << vars.size()); ++mask) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 m_stats.update("ff bit assignments", 1u);
                 mdl = alloc(model, m);
                 for (unsigned j = 0; j < vars.size(); ++j)

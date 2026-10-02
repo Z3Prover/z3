@@ -80,7 +80,7 @@ namespace {
             unsigned depth = 0;
             std::function<sat::literal(expr *)> encode = [&](expr *e) -> sat::literal {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 if (depth > 512)
                     throw tactic_exception("ff-sat Boolean nesting budget exceeded");
                 flet<unsigned> nesting(depth, depth + 1);

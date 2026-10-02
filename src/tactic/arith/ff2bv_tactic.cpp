@@ -136,7 +136,7 @@ namespace {
             todo.push_back(root);
             while (!todo.empty()) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 expr *e = todo.back();
                 if (cache.contains(e)) {
                     todo.pop_back();
