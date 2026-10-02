@@ -136,6 +136,40 @@ namespace {
         return std::max(lhs.degree, rhs.degree) == 2 && lhs.zero == rhs.zero && lhs.one == rhs.one ? var : nullptr;
     }
 
+    // Does f, or an equation nested under it (e.g., beneath not/or/ite),
+    // define a Boolean field domain per domain_variable()'s detector?
+    // `visited` is supplied by the caller and shared across every formula
+    // scanned in the same pass, so an ast node reachable from more than one
+    // formula (common for field circuits built from shared wires) is
+    // inspected at most once: the overhead of this search is proportional
+    // to the number of ast nodes shared among all the scanned formulas,
+    // not to the number of formulas times the number of expressions
+    // reachable from each one individually. Searching nested equations
+    // (rather than just testing whether f itself is one) only makes this
+    // detector fire on strictly more formulas than before, so it remains
+    // a safe cost heuristic wherever it replaces a direct domain_variable
+    // check on f.
+    bool has_domain_variable(ast_manager &m, ff_util &ff, expr *f, expr_mark &visited) {
+        ptr_vector<expr> todo;
+        todo.push_back(f);
+        while (!todo.empty()) {
+            if (!m.inc())
+                return false;
+            expr *e = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(e))
+                continue;
+            visited.mark(e, true);
+            if (!is_app(e))
+                continue;
+            if (m.is_eq(e) && domain_variable(m, ff, e))
+                return true;
+            for (expr *arg : *to_app(e))
+                todo.push_back(arg);
+        }
+        return false;
+    }
+
     // cond(has_bits_probe, skip, solve-eqs): skip generic equality solving
     // when a formula looks like a Boolean domain candidate, for the same
     // reason ff_disjunctive_simplifier and ff_wire_simplifier preserve them.
@@ -144,8 +178,9 @@ namespace {
 
         bool has_bits() {
             ff_util ff(m);
+            expr_mark visited;
             for (unsigned i : indices())
-                if (domain_variable(m, ff, m_fmls[i].fml()))
+                if (has_domain_variable(m, ff, m_fmls[i].fml(), visited))
                     return true;
             return false;
         }
