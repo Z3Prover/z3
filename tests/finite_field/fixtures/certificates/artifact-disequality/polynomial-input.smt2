@@ -1,6 +1,0 @@
-(set-logic QF_FF)
-(declare-const x (_ FiniteField 7))
-(declare-const y (_ FiniteField 7))
-(declare-const ff_witness_0 (_ FiniteField 7))
-(assert (= x y))
-(assert (= (ff.add (ff.mul (ff.add (ff.mul x x) (ff.neg (ff.mul y y))) ff_witness_0) #f6m7) #f0m7))

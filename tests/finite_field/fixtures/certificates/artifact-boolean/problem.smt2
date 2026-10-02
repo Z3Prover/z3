@@ -1,7 +1,0 @@
-(set-logic QF_FF)
-(define-sort F () (_ FiniteField 7))
-(declare-const c Bool)
-(declare-const x F)
-(assert (= x (ite c (as ff0 F) (as ff1 F))))
-(assert (not (= x (as ff0 F))))
-(assert (not (= x (as ff1 F))))
