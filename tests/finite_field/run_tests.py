@@ -20,7 +20,7 @@ CORE = [
     'test_ff_general_algebra.py', 'test_ff_matrix.py', 'test_ff_basis_storage.py',
     'test_ff_reduction.py', 'test_ff_sparse_reducers.py', 'test_ff_round6.py',
     'test_ff_round7.py', 'test_ff_round8_roots.py', 'test_ff_preprocess.py',
-    'test_zk.py',
+    'test_zk.py', 'test_ff_review.py',
 ]
 PROOFS = ['test_ff_certificates.py', 'test_ff_proof_pipeline.py', 'test_ff_boolean_proof.py']
 CLI = {'test_qfff.py', 'test_ff_backend_recovery.py', 'test_ff_integration.py'}

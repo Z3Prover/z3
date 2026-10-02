@@ -487,11 +487,29 @@ namespace smt {
             return expr_ref(m);
         obj_map<expr, unsigned> powers;
         rational coefficient(1);
-        for (expr *arg : *to_app(e)) {
-            if (ff.is_numeral(arg, value))
-                coefficient = mod(coefficient * value, ff.modulus(e->get_sort()));
-            else
-                ++powers.insert_if_not_there(arg, 0u);
+        // Binary associative ASTs may hide repeated factors at different
+        // depths. Flatten the product, retaining every occurrence: a visited
+        // set would incorrectly turn x*x into x and invalidate the square test.
+        ptr_vector<expr> pending;
+        pending.push_back(e);
+        unsigned factor_count = 0;
+        while (!pending.empty()) {
+            if (!m.inc())
+                return expr_ref(m);
+            expr *arg = pending.back();
+            pending.pop_back();
+            if (ff.is_mul(arg)) {
+                for (expr *factor : *to_app(arg))
+                    pending.push_back(factor);
+            }
+            else {
+                if (++factor_count > 16)
+                    return expr_ref(m);
+                if (ff.is_numeral(arg, value))
+                    coefficient = mod(coefficient * value, ff.modulus(e->get_sort()));
+                else
+                    ++powers.insert_if_not_there(arg, 0u);
+            }
         }
         if (!coefficient.is_int_perfect_square(root))
             return expr_ref(m);
