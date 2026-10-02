@@ -692,8 +692,10 @@ namespace ff {
                     pivrow[R.cols[0]] = static_cast<int>(r);
                     fresh.push_back(r);
                 }
-                // New basis elements, smallest leads first.
-                std::sort(fresh.begin(), fresh.end(), [&](unsigned a, unsigned b) { return rows[a].cols[0] > rows[b].cols[0]; });
+                // New basis elements, smallest leads first. Stable: rows sharing
+                // a leading column (should not happen, but keep deterministic
+                // if it ever does) retain their original processing order.
+                std::stable_sort(fresh.begin(), fresh.end(), [&](unsigned a, unsigned b) { return rows[a].cols[0] > rows[b].cols[0]; });
                 for (unsigned r : fresh) {
                     P p;
                     p.mons.reserve(rows[r].cols.size());
@@ -768,7 +770,11 @@ namespace ff {
                 redundant.clear();
                 pairs.clear();
                 unit = -1;
-                std::sort(input.begin(), input.end(), [&](P const &a, P const &b) {
+                // Stable: equations sharing a leading monomial keep their
+                // original (caller-supplied) relative order instead of an
+                // unspecified tie-break, so reduction/dependency tracking
+                // stays deterministic across sort implementations.
+                std::stable_sort(input.begin(), input.end(), [&](P const &a, P const &b) {
                     if (a.empty() || b.empty())
                         return !a.empty() && b.empty();
                     return M.cmp(a.lm(), b.lm()) < 0;
@@ -802,7 +808,10 @@ namespace ff {
                 for (unsigned g = 0; g < G.size(); ++g)
                     if (!redundant[g])
                         idx.push_back(g);
-                std::sort(idx.begin(), idx.end(), [&](unsigned a, unsigned b) { return M.cmp(G[a].lm(), G[b].lm()) < 0; });
+                // Stable: basis elements with an identical leading monomial
+                // (the case this pass exists to resolve) keep insertion order,
+                // so the earliest-derived representative is always kept.
+                std::stable_sort(idx.begin(), idx.end(), [&](unsigned a, unsigned b) { return M.cmp(G[a].lm(), G[b].lm()) < 0; });
                 for (unsigned g : idx) {
                     bool red = false;
                     for (unsigned k : keep)

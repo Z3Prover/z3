@@ -111,18 +111,15 @@ namespace {
         unsigned m_budget, m_nodes = 0;
 
         rational inv(rational a) const {
-            rational r = p, t(0), s(1);
             a = mod(a, p);
-            while (!a.is_zero()) {
-                work.charge();
-                rational q = div(r, a), nx = r - q * a;
-                r = a;
-                a = nx;
-                nx = t - q * s;
-                t = s;
-                s = nx;
-            }
-            return mod(t, p);
+            // Extended Euclid (Bezout coefficients x, y with a*x + p*y = gcd)
+            // is already implemented by rational's gcd(); reuse it instead of
+            // re-deriving the loop here. Step count is bounded by O(bitsize(p)),
+            // so charge that instead of per-iteration ticks.
+            work.charge(p.bitsize() + 1);
+            rational x, y;
+            gcd(a, p, x, y);
+            return mod(x, p);
         }
 
     public:
