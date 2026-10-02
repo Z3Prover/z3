@@ -1,0 +1,8 @@
+(set-info :smt-lib-version 2.6)
+(set-logic QF_FF)
+(define-sort F () (_ FiniteField 3))
+(declare-const a F)
+(declare-const b F)
+(assert (= (ff.add (ff.mul a b) a (ff.mul (as ff2 F) b) (as ff2 F)) (as ff0 F)))
+(assert (= (ff.add b (as ff2 F)) (as ff0 F)))
+(check-sat)
