@@ -67,7 +67,7 @@ export function makeCCWrapper() {
       wrappers.push(
         `
 extern "C" void async_${fn.name}(${paramList}) {
- unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });
+  unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });
   ${arrayCopies.join('\n  ')}
   std::thread t([${captureList}] {
     try {
@@ -155,7 +155,7 @@ void wrapper(Args&&... args) {
       }, e.what(), call_id);
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async($0, 'failed with unknown exception');
+        reject_async($0, new Error('failed with unknown exception'));
       }, call_id);
     }
     MAIN_THREAD_ASYNC_EM_ASM({
