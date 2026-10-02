@@ -18,7 +18,7 @@ Author:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/rewriter/ff_bv_operations.h"
-#include "tactic/arith/ff2bv_tactic.h"
+#include "tactic/ff/ff2bv_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"

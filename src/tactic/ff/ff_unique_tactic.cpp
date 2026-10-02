@@ -42,7 +42,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
 #include "params/smt_params_helper.hpp"

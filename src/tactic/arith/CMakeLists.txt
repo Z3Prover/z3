@@ -7,11 +7,6 @@ z3_add_component(arith_tactics
     degree_shift_tactic.cpp
     diff_neq_tactic.cpp
     eq2bv_tactic.cpp
-    ff2bv_tactic.cpp
-    ff_solve_tactic.cpp
-    ff_simplify_tactic.cpp
-    ff_sat_tactic.cpp
-    ff_unique_tactic.cpp
     fix_dl_var_tactic.cpp
     fm_tactic.cpp
     lia2card_tactic.cpp
@@ -25,6 +20,4 @@ z3_add_component(arith_tactics
     recover_01_tactic.cpp
   COMPONENT_DEPENDENCIES
     core_tactics
-    ff
-    sat
 )

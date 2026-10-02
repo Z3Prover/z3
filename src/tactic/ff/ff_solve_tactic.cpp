@@ -16,7 +16,7 @@ Author:
 
 --*/
 #include "math/ff/ff_params.h"
-#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/converters/model_converter.h"

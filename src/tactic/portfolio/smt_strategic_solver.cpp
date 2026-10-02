@@ -39,7 +39,7 @@ Notes:
 #include "tactic/smtlogics/nra_tactic.h"
 #include "tactic/portfolio/default_tactic.h"
 #include "solver/smt_logics.h"
-#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include "tactic/fd_solver/smtfd_solver.h"

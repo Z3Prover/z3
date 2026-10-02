@@ -8,6 +8,7 @@ z3_add_component(portfolio
     solver_subsumption_tactic.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
+    ff_tactics
     fp
     fpa_tactics
     qe

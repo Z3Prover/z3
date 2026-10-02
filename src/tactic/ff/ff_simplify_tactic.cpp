@@ -17,7 +17,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
 #include "ast/simplifiers/ff_simplify.h"
 

@@ -16,7 +16,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "tactic/arith/ff_solve_tactic.h"
+#include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/core/elim_term_ite_tactic.h"
 #include "ast/ff_decl_plugin.h"
