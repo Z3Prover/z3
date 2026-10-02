@@ -18,6 +18,7 @@ z3_add_component(simplifiers
     euf_completion.cpp
     extract_eqs.cpp
     factor_simplifier.cpp
+    ff_simplify.cpp
     fold_unfold.cpp
     lambda_simplifier.cpp
     leibniz_simplifier.cpp
