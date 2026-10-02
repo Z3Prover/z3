@@ -625,11 +625,10 @@ namespace {
                     if (memo.contains(e)) { pending.pop_back(); continue; }
                     rational v;
                     bool numeral = ff.is_numeral(e, v);
-                    bool interpreted = is_app(e) && to_app(e)->get_family_id() == ff.get_fid();
+                    bool interpreted = ff.is_interp(e);
                     if (interpreted && !numeral) {
                         app *a = to_app(e);
-                        auto k = a->get_decl_kind();
-                        if (k != OP_FF_NEG && k != OP_FF_ADD && k != OP_FF_BITSUM && k != OP_FF_MUL)
+                        if (!ff.is_add(e) && !ff.is_mul(e) && !ff.is_neg(e) && !ff.is_bitsum(e))
                             return false;
                         auto &f = pending.back();
                         if (f.next < a->get_num_args()) {
@@ -650,12 +649,12 @@ namespace {
                     }
                     else {
                         app *a = to_app(e);
-                        auto k = a->get_decl_kind();
-                        if (k == OP_FF_MUL) r[monomial()] = rational(1);
+                        bool mul = ff.is_mul(e);
+                        if (mul) r[monomial()] = rational(1);
                         rational w(1);
                         for (expr *arg : *a) {
                             poly const &x = memo.find(arg);
-                            if (k == OP_FF_MUL) {
+                            if (mul) {
                                 poly nr;
                                 for (auto const &[m1, c1] : r)
                                     for (auto const &[m2, c2] : x) {
@@ -676,11 +675,11 @@ namespace {
                                 for (auto const &[mm, c] : x) {
                                     budget.charge(1 + mm.size());
                                     auto &slot = r[mm];
-                                    slot = mod(slot + (k == OP_FF_NEG ? -c : w * c), prime);
+                                    slot = mod(slot + (ff.is_neg(e) ? -c : w * c), prime);
                                     if (slot.is_zero()) r.erase(mm);
                                     if (r.size() > max_terms) return false;
                                 }
-                                if (k == OP_FF_BITSUM) w = mod(w * rational(2), prime);
+                                if (ff.is_bitsum(e)) w = mod(w * rational(2), prime);
                             }
                         }
                     }

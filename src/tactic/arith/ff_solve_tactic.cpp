@@ -79,7 +79,7 @@ namespace {
                 app *a = to_app(e);
                 if (!ff.is_ff(e))
                     throw tactic_exception("ff-solve requires field terms");
-                if (a->get_family_id() != ff.get_fid() && !is_uninterp_const(a))
+                if (!ff.is_interp(a) && !is_uninterp_const(a))
                     throw tactic_exception("ff-solve: unsupported term; use ff2bv");
                 bool ready = true;
                 for (expr *arg : *a)
@@ -97,34 +97,28 @@ namespace {
                     f = algebra.variable(variables.size());
                     variables.push_back(a);
                 }
-                else {
-                    switch (a->get_decl_kind()) {
-                    case OP_FF_NEG: f = algebra.scale(cache.find(a->get_arg(0)), rational(-1)); break;
-                    case OP_FF_ADD:
-                    case OP_FF_MUL:
-                    case OP_FF_BITSUM: {
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
-                        f = algebra.constant(rational(mul ? 1 : 0));
-                        rational weight(1);
-                        for (expr *arg : *a) {
-                            auto const &b = cache.find(arg);
-                            if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
-                                // Definitional abstraction happens before the
-                                // Cartesian product, not after a size exception.
-                                f = compact(std::move(f), true);
-                                auto operand = compact(b, true);
-                                f = algebra.mul(f, operand);
-                            }
-                            else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
-                            f = compact(std::move(f));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
-                                weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
+                else if (ff.is_neg(a))
+                    f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
+                else if (ff.is_add(a) || ff.is_mul(a) || ff.is_bitsum(a)) {
+                    bool mul = ff.is_mul(a);
+                    f = algebra.constant(rational(mul ? 1 : 0));
+                    rational weight(1);
+                    for (expr *arg : *a) {
+                        auto const &b = cache.find(arg);
+                        if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
+                            // Definitional abstraction happens before the
+                            // Cartesian product, not after a size exception.
+                            f = compact(std::move(f), true);
+                            auto operand = compact(b, true);
+                            f = algebra.mul(f, operand);
                         }
-                        break;
-                    }
-                    default: throw tactic_exception("ff-solve: unsupported operator");
+                        else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
+                        f = compact(std::move(f));
+                        if (ff.is_bitsum(a))
+                            weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                     }
                 }
+                else throw tactic_exception("ff-solve: unsupported operator");
                 cache.insert(e, std::move(f));
                 todo.pop_back();
             }

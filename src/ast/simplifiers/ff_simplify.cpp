@@ -94,7 +94,7 @@ namespace {
                 todo.pop_back();
                 continue;
             }
-            if (!is_app(e) || to_app(e)->get_family_id() != ff.get_fid())
+            if (!ff.is_add(e) && !ff.is_mul(e) && !ff.is_neg(e))
                 return nullptr;
             bool ready = true;
             for (expr *arg : *to_app(e))
@@ -104,15 +104,13 @@ namespace {
                 }
             if (!ready)
                 continue;
-            auto kind = to_app(e)->get_decl_kind();
-            if (kind != OP_FF_ADD && kind != OP_FF_MUL && kind != OP_FF_NEG)
-                return nullptr;
+            bool mul = ff.is_mul(e);
             sample v;
-            if (kind == OP_FF_MUL)
+            if (mul)
                 v.zero = v.one = rational(1);
             for (expr *arg : *to_app(e)) {
                 auto const &w = values.find(arg);
-                if (kind == OP_FF_MUL) {
+                if (mul) {
                     v.degree += w.degree;
                     v.zero *= w.zero;
                     v.one *= w.one;
@@ -127,7 +125,7 @@ namespace {
                 v.zero = mod(v.zero, p);
                 v.one = mod(v.one, p);
             }
-            if (kind == OP_FF_NEG) {
+            if (ff.is_neg(e)) {
                 v.zero = mod(-v.zero, p);
                 v.one = mod(-v.one, p);
             }

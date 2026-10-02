@@ -107,7 +107,7 @@ namespace {
                 mc->add(a, r);
                 return r;
             }
-            if (a->get_family_id() == ff.get_fid())
+            if (ff.is_interp(a))
                 return operations.apply(a, args);
             // Rebuild polymorphic Boolean operators at their translated sorts.
             if (m.is_eq(a))

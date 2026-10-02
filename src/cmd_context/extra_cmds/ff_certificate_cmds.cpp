@@ -87,7 +87,7 @@ namespace {
                         if (!is_app(t) || t->get_sort() != s)
                             throw cmd_exception("ff-certify requires pure field terms");
                         app *a = to_app(t);
-                        if (!is_uninterp_const(a) && a->get_family_id() != field.get_fid())
+                        if (!is_uninterp_const(a) && !field.is_interp(t))
                             throw cmd_exception("ff-certify does not yet certify theory combination");
                         bool ready = true;
                         for (expr *arg : *a) if (!cache.contains(arg)) { pending.push_back(arg); ready = false; }
@@ -98,16 +98,15 @@ namespace {
                         else if (!field.is_interp(t)) {
                             f = arithmetic.variable(variables.size()); variables.push_back(t);
                         }
-                        else if (a->get_decl_kind() == OP_FF_NEG)
+                        else if (field.is_neg(t))
                             f = arithmetic.scale(cache.find(a->get_arg(0)), rational(-1));
-                        else if (a->get_decl_kind() == OP_FF_ADD || a->get_decl_kind() == OP_FF_MUL ||
-                                 a->get_decl_kind() == OP_FF_BITSUM) {
-                            bool mul = a->get_decl_kind() == OP_FF_MUL;
+                        else if (field.is_add(t) || field.is_mul(t) || field.is_bitsum(t)) {
+                            bool mul = field.is_mul(t);
                             f = arithmetic.constant(rational(mul ? 1 : 0));
                             rational weight(1);
                             for (expr *arg : *a) {
                                 f = mul ? arithmetic.mul(f, cache.find(arg)) : arithmetic.add(std::move(f), cache.find(arg), weight);
-                                if (a->get_decl_kind() == OP_FF_BITSUM) weight = mod(rational(2) * weight, prime);
+                                if (field.is_bitsum(t)) weight = mod(rational(2) * weight, prime);
                             }
                         }
                         else throw cmd_exception("ff-certify: unsupported field operator");

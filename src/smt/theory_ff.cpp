@@ -95,7 +95,7 @@ namespace smt {
                         continue;
                     }
                     app *a = to_app(e);
-                    if (a->get_family_id() != ff.get_fid()) {
+                    if (!ff.is_interp(e)) {
                         // Foreign applications are opaque to this field. The
                         // SMT arrangement, not this substitution, handles their
                         // arguments (which may belong to entirely other sorts).
@@ -162,7 +162,7 @@ namespace smt {
                             uses[use_id].push_back(i);
                             ++degree[i];
                         }
-                        if (to_app(e)->get_family_id() == ff.get_fid())
+                        if (ff.is_interp(e))
                             for (expr *arg : *to_app(e))
                                 todo.push_back(arg);
                     }
@@ -234,7 +234,7 @@ namespace smt {
                     rational value;
                     if (ff.is_numeral(e, value)) {
                     }
-                    else if (a->get_family_id() != ff.get_fid()) {
+                    else if (!ff.is_interp(e)) {
                         unsigned vid;
                         value = variable_ids.find(e, vid) ? values[vid] : rational(0);
                     }
@@ -247,16 +247,16 @@ namespace smt {
                             }
                         if (!ready)
                             continue;
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
+                        bool mul = ff.is_mul(e);
                         value = rational(mul ? 1 : 0);
                         rational weight(1);
                         for (expr *arg : *a) {
                             rational const &v = evaluated.find(arg);
                             value = mod(mul ? value * v : value + weight * v, ff.modulus(e->get_sort()));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
+                            if (ff.is_bitsum(e))
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                         }
-                        if (a->get_decl_kind() == OP_FF_NEG)
+                        if (ff.is_neg(e))
                             value = mod(-value, ff.modulus(e->get_sort()));
                     }
                     evaluated.insert(e, value);
@@ -293,7 +293,7 @@ namespace smt {
                         continue;
                     }
                     app *a = to_app(e);
-                    bool interpreted = a->get_family_id() == ff.get_fid();
+                    bool interpreted = ff.is_interp(e);
                     bool ready = true;
                     if (interpreted)
                         for (expr *arg : *a)
@@ -314,10 +314,10 @@ namespace smt {
                         variable_ids.insert(e, num_variables);
                         f = algebra.variable(num_variables++);
                     }
-                    else if (a->get_decl_kind() == OP_FF_NEG)
+                    else if (ff.is_neg(e))
                         f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
                     else {
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
+                        bool mul = ff.is_mul(e);
                         f = algebra.constant(rational(mul ? 1 : 0));
                         rational weight(1);
                         for (expr *arg : *a) {
@@ -331,7 +331,7 @@ namespace smt {
                             }
                             else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
                             f = compact(std::move(f));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
+                            if (ff.is_bitsum(e))
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                         }
                     }
@@ -437,7 +437,7 @@ namespace smt {
         expr_ref decoded(m.mk_app(unwraps.find(s), encoded), m);
         assert_axiom(m.mk_eq(decoded, e));
 
-        if (!is_app(e) || to_app(e)->get_family_id() != get_id())
+        if (!ff.is_interp(e))
             return;  // UF applications, array reads and datatype selectors.
         app *a = to_app(e);
         expr_ref_vector args(m);
@@ -548,8 +548,7 @@ namespace smt {
             // a syntactic square or product, so avoid normalizing these atoms
             // just to discover that. This heuristic may miss a cancellation
             // exposing a square; the complete algebra/fallback still sees it.
-            if (!digit && (!is_app(a) || !is_app(b) || to_app(a)->get_family_id() != get_id() ||
-                to_app(b)->get_family_id() != get_id()))
+            if (!digit && (!ff.is_interp(a) || !ff.is_interp(b)))
                 continue;
             split_atoms.insert(atom);
             // Rewriting an atom is pure; keep the result across backtracking.
