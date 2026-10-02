@@ -8,5 +8,6 @@ z3_add_component(extra_cmds
   COMPONENT_DEPENDENCIES
     arith_tactics
     cmd_context
+    ff
     subpaving_tactic
 )

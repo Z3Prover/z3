@@ -1,10 +1,10 @@
-#include "math/polynomial/ff_params.h"
+#include "math/ff/ff_params.h"
 #include "smt/theory_ff.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
 #include "model/ff_factory.h"
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include "params/smt_params_helper.hpp"
 #include <unordered_map>
 #include <memory>

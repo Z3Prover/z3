@@ -1,9 +1,26 @@
-#include "math/polynomial/ff_params.h"
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_solve_tactic.cpp
+
+Abstract:
+
+    Tactic solving prime-field conjunctions by modular elimination and
+    Groebner-basis algebra ("ff-solve"). See ff_solve_tactic.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
+#include "math/ff/ff_params.h"
 #include "tactic/arith/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/converters/model_converter.h"
-#include "math/polynomial/ff_polynomial.h"
+#include "math/ff/ff_polynomial.h"
 #include "model/model_evaluator.h"
 #include "util/stopwatch.h"
 #include <memory>
@@ -18,7 +35,7 @@ namespace {
         smt_params_helper options;
         ff::engine algebra;
         expr_ref_vector variables;
-        std::unordered_map<expr *, ff::polynomial> cache;
+        obj_map<expr, ff::polynomial> cache;
         std::vector<ff::polynomial> eqs, neqs;
         std::vector<expr_dependency *> dependencies;
         field_problem(ast_manager &m, sort *s, params_ref const &p)
@@ -80,38 +97,32 @@ namespace {
                     f = algebra.variable(variables.size());
                     variables.push_back(a);
                 }
-                else {
-                    switch (a->get_decl_kind()) {
-                    case OP_FF_NEG: f = algebra.scale(cache.at(a->get_arg(0)), rational(-1)); break;
-                    case OP_FF_ADD:
-                    case OP_FF_MUL:
-                    case OP_FF_BITSUM: {
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
-                        f = algebra.constant(rational(mul ? 1 : 0));
-                        rational weight(1);
-                        for (expr *arg : *a) {
-                            auto const &b = cache.at(arg);
-                            if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
-                                // Definitional abstraction happens before the
-                                // Cartesian product, not after a size exception.
-                                f = compact(std::move(f), true);
-                                auto operand = compact(b, true);
-                                f = algebra.mul(f, operand);
-                            }
-                            else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
-                            f = compact(std::move(f));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
-                                weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
+                else if (ff.is_neg(a))
+                    f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
+                else if (ff.is_add(a) || ff.is_mul(a) || ff.is_bitsum(a)) {
+                    bool mul = ff.is_mul(a);
+                    f = algebra.constant(rational(mul ? 1 : 0));
+                    rational weight(1);
+                    for (expr *arg : *a) {
+                        auto const &b = cache.find(arg);
+                        if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
+                            // Definitional abstraction happens before the
+                            // Cartesian product, not after a size exception.
+                            f = compact(std::move(f), true);
+                            auto operand = compact(b, true);
+                            f = algebra.mul(f, operand);
                         }
-                        break;
-                    }
-                    default: throw tactic_exception("ff-solve: unsupported operator");
+                        else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
+                        f = compact(std::move(f));
+                        if (ff.is_bitsum(a))
+                            weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                     }
                 }
-                cache.emplace(e, std::move(f));
+                else throw tactic_exception("ff-solve: unsupported operator");
+                cache.insert(e, std::move(f));
                 todo.pop_back();
             }
-            return cache.at(root);
+            return cache.find(root);
         }
         void add(expr *a, expr *b, bool equality, expr_dependency *dep) {
             auto lhs = encode(a);  // copy: encoding b can rehash the cache
@@ -154,9 +165,8 @@ namespace {
                     // are 0 and 1. This is an actual premise, unlike the
                     // preprocessing heuristic that merely protects likely bits.
                     auto is_square = [&](expr *v, expr *t) {
-                        return is_uninterp_const(v) && is_app_of(t, ff.get_fid(), OP_FF_MUL) &&
-                               to_app(t)->get_num_args() == 2 && to_app(t)->get_arg(0) == v &&
-                               to_app(t)->get_arg(1) == v;
+                        expr *x = nullptr, *y = nullptr;
+                        return is_uninterp_const(v) && ff.is_mul(t, x, y) && x == v && y == v;
                     };
                     if (is_square(a, b))
                         bits.insert(a);
@@ -167,7 +177,7 @@ namespace {
             }
             while (!todo.empty()) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 expr *e = todo.back();
                 todo.pop_back();
                 if (!seen.insert(e).second)
@@ -193,7 +203,7 @@ namespace {
                 return false;
             for (unsigned mask = 0; mask < (1u << vars.size()); ++mask) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 m_stats.update("ff bit assignments", 1u);
                 mdl = alloc(model, m);
                 for (unsigned j = 0; j < vars.size(); ++j)
@@ -332,17 +342,18 @@ namespace {
                 result.push_back(g.get());
                 return;
             }
-            std::map<sort *, std::unique_ptr<field_problem>> fields;
+            obj_map<sort, std::unique_ptr<field_problem>> fields;
             m_stats.update("ff algebra calls", 1u);
             // Retain work from unsuccessful alternatives and budget exhaustion.
             on_scope_exit collect([&]() {
-                for (auto const &[s, q] : fields) {
+                for (auto const &kv : fields) {
+                    auto const &q = kv.get_value();
                     q->algebra.collect_statistics(m_stats);
                     m_stats.update("ff bit facts", q->bit_facts);
                 }
             });
             auto field = [&](sort *s) -> field_problem & {
-                auto &q = fields[s];
+                auto &q = fields.insert_if_not_there(s, std::unique_ptr<field_problem>());
                 if (!q)
                     q = std::make_unique<field_problem>(m, s, p);
                 return *q;
@@ -376,12 +387,14 @@ namespace {
                         else
                             throw tactic_exception("ff-solve requires a conjunction of field literals");
                     }
-                    for (auto &[s, q] : fields)
-                        q->decompose_bitsums();
+                    for (auto &kv : fields)
+                        kv.m_value->decompose_bitsums();
                 }
                 encoding = false;
                 scoped_watch watch(m_solve_time);
-                for (auto &[s, q] : fields) {
+                for (auto &kv : fields) {
+                    sort *s = &kv.get_key();
+                    auto &q = kv.m_value;
                     if (unsat)
                         break;
                     std::vector<rational> values(q->variables.size(), rational(0));
@@ -397,7 +410,8 @@ namespace {
                 }
             } catch (ff::exhausted const &) {
                 if (encoding)
-                    for (auto const &[s, q] : fields) {
+                    for (auto const &kv : fields) {
+                        auto const &q = kv.get_value();
                         m_encoding_size_failure |= q->algebra.polynomial_limit_hit();
                         m_encoding_work = std::max(m_encoding_work, q->algebra.steps());
                     }

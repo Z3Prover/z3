@@ -148,6 +148,7 @@ namespace api {
         m_seq_fid   = m().mk_family_id("seq");
 	    m_char_fid   = m().mk_family_id("char");
         m_special_relations_fid   = m().mk_family_id("specrels");
+        m_ff_fid    = m().mk_family_id("ff");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);

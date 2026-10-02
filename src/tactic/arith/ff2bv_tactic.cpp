@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff2bv_tactic.cpp
+
+Abstract:
+
+    Tactic encoding prime-field goals as bounded modular bit-vector goals
+    (eager translation), plus a probe detecting field terms. See
+    ff2bv_tactic.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
+#include "ast/ast_pp.h"
 #include "ast/rewriter/ff_bv_operations.h"
 #include "tactic/arith/ff2bv_tactic.h"
 #include "tactic/tactical.h"
@@ -51,6 +70,9 @@ namespace {
         }
         void display(std::ostream &out) override {
             out << "(ff2bv-model-converter)";
+            for (unsigned i = 0; i < m_encoded.size(); ++i) {
+                out << "  (" << mk_pp(m_encoded.get(i), m) << " -> " << mk_pp(m_original.get(i), m) << ")\n";
+            }
         }
     };
 
@@ -89,7 +111,7 @@ namespace {
                 mc->add(a, r);
                 return r;
             }
-            if (a->get_family_id() == ff.get_fid())
+            if (ff.is_interp(a))
                 return operations.apply(a, args);
             // Rebuild polymorphic Boolean operators at their translated sorts.
             if (m.is_eq(a))
@@ -115,7 +137,7 @@ namespace {
             todo.push_back(root);
             while (!todo.empty()) {
                 if (!m.inc())
-                    throw tactic_exception(m.limit().get_cancel_msg());
+                    throw tactic_exception(Z3_CANCELED_MSG);
                 expr *e = todo.back();
                 if (cache.contains(e)) {
                     todo.pop_back();

@@ -1,6 +1,23 @@
-#include "math/polynomial/ff_polynomial.h"
-#include "math/polynomial/ff_tiny.h"
-#include "math/polynomial/ff_f4.h"
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_polynomial.cpp
+
+Abstract:
+
+    Groebner-basis (Buchberger-style) elimination engine over Q used to
+    decide prime-field constraint systems. See ff_polynomial.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
+#include "math/ff/ff_polynomial.h"
+#include "math/ff/ff_tiny.h"
+#include "math/ff/ff_f4.h"
 #include <algorithm>
 #include <iterator>
 #include <set>

@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -13,9 +13,13 @@ Abstract:
 
     See ff_f4.h for the soundness contract.
 
+Author:
+
+    Romain Soulat
+
 --*/
-#include "math/polynomial/ff_f4.h"
-#include "math/polynomial/ff_field.h"
+#include "math/ff/ff_f4.h"
+#include "math/ff/ff_field.h"
 #include <algorithm>
 #include <bit>
 #include <type_traits>

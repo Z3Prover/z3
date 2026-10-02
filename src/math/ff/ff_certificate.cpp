@@ -1,4 +1,21 @@
-#include "math/polynomial/ff_certificate.h"
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_certificate.cpp
+
+Abstract:
+
+    Bounded reconstruction of ideal-membership certificates from the
+    original polynomial equations. See ff_certificate.h.
+
+Author:
+
+    Romain Soulat
+
+--*/
+#include "math/ff/ff_certificate.h"
 #include <algorithm>
 #include <queue>
 #include <tuple>

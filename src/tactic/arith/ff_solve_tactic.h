@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_solve_tactic.h
+
+Abstract:
+
+    Registration entry points for the prime-field tactics: ff-solve,
+    ff-sat, ff-simplify, and ff-unique.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "util/params.h"
 class ast_manager;

@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_decl_plugin.h
+
+Abstract:
+
+    Declaration plugin for prime-field (finite field) sorts and values:
+    canonical modular numerals, field arithmetic operators, and family
+    registration.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "ast/ast.h"
 
@@ -72,5 +90,57 @@ public:
     }
     app *mk_app(decl_kind k, unsigned n, expr *const *args) {
         return m.mk_app(m_fid, k, n, args);
+    }
+    app *mk_add(unsigned n, expr *const *args) {
+        return mk_app(OP_FF_ADD, n, args);
+    }
+    app *mk_add(expr *a, expr *b) {
+        expr *args[2] = {a, b};
+        return mk_add(2, args);
+    }
+    template <typename Vec>
+    app *mk_add(Vec const &args) {
+        return mk_add(args.size(), args.data());
+    }
+    app *mk_mul(unsigned n, expr *const *args) {
+        return mk_app(OP_FF_MUL, n, args);
+    }
+    app *mk_mul(expr *a, expr *b) {
+        expr *args[2] = {a, b};
+        return mk_mul(2, args);
+    }
+    template <typename Vec>
+    app *mk_mul(Vec const &args) {
+        return mk_mul(args.size(), args.data());
+    }
+    app *mk_neg(expr *a) {
+        return mk_app(OP_FF_NEG, 1, &a);
+    }
+    app *mk_bitsum(unsigned n, expr *const *args) {
+        return mk_app(OP_FF_BITSUM, n, args);
+    }
+    template <typename Vec>
+    app *mk_bitsum(Vec const &args) {
+        return mk_bitsum(args.size(), args.data());
+    }
+    bool is_add(expr const *e) const {
+        return is_app_of(e, m_fid, OP_FF_ADD);
+    }
+    bool is_mul(expr const *e) const {
+        return is_app_of(e, m_fid, OP_FF_MUL);
+    }
+    bool is_neg(expr const *e) const {
+        return is_app_of(e, m_fid, OP_FF_NEG);
+    }
+    bool is_bitsum(expr const *e) const {
+        return is_app_of(e, m_fid, OP_FF_BITSUM);
+    }
+    MATCH_BINARY(is_add);
+    MATCH_BINARY(is_mul);
+    MATCH_UNARY(is_neg);
+
+    // true if e is an FF-interpreted operator (add/mul/neg/bitsum/numeral).
+    bool is_interp(expr *e) const {
+        return is_add(e) || is_mul(e) || is_neg(e) || is_bitsum(e) || is_numeral(e);
     }
 };

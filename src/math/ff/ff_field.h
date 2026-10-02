@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -16,6 +16,10 @@ Abstract:
     Both expose the same interface so that the F4 backend (ff_f4.cpp) can be
     instantiated once per representation. Conversions to and from `rational`
     only happen at the boundary of the backend.
+
+Author:
+
+    Romain Soulat
 
 --*/
 #pragma once

@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2026
+Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
@@ -36,6 +36,10 @@ Abstract:
     Every step is a local implication between a few asserted constraints and
     previously derived equalities; this is the shape a certificate checker
     replays (see tests/finite_field/check_unique_certificates.py).
+
+Author:
+
+    Romain Soulat
 
 --*/
 #include "tactic/arith/ff_solve_tactic.h"
@@ -601,7 +605,7 @@ namespace {
             }
             ff_util ff(m);
             sort *field = nullptr;
-            std::unordered_map<expr *, unsigned> var_id;
+            obj_map<expr, unsigned> var_id;
             std::vector<expr *> vars;
             std::vector<poly> eqs, neqs;
             std::set<unsigned> bools;
@@ -609,7 +613,7 @@ namespace {
             unsigned const max_terms = 256;
             bool unsupported = false;
 
-            std::unordered_map<expr *, poly> memo;
+            obj_map<expr, poly> memo;
             // Iterative postorder traversal: SMT lets can describe arbitrarily
             // deep DAGs. A memo entry exists only after every operand succeeds.
             auto encode = [&](expr *root, poly &out) -> bool {
@@ -621,11 +625,10 @@ namespace {
                     if (memo.contains(e)) { pending.pop_back(); continue; }
                     rational v;
                     bool numeral = ff.is_numeral(e, v);
-                    bool interpreted = is_app(e) && to_app(e)->get_family_id() == ff.get_fid();
+                    bool interpreted = ff.is_interp(e);
                     if (interpreted && !numeral) {
                         app *a = to_app(e);
-                        auto k = a->get_decl_kind();
-                        if (k != OP_FF_NEG && k != OP_FF_ADD && k != OP_FF_BITSUM && k != OP_FF_MUL)
+                        if (!ff.is_add(e) && !ff.is_mul(e) && !ff.is_neg(e) && !ff.is_bitsum(e))
                             return false;
                         auto &f = pending.back();
                         if (f.next < a->get_num_args()) {
@@ -639,18 +642,19 @@ namespace {
                         if (!v.is_zero()) r[monomial()] = v;
                     }
                     else if (!interpreted) {
-                        auto [it, fresh] = var_id.emplace(e, static_cast<unsigned>(vars.size()));
+                        bool fresh = !var_id.contains(e);
+                        unsigned &id = var_id.insert_if_not_there(e, static_cast<unsigned>(vars.size()));
                         if (fresh) vars.push_back(e);
-                        r[monomial{it->second}] = rational(1);
+                        r[monomial{id}] = rational(1);
                     }
                     else {
                         app *a = to_app(e);
-                        auto k = a->get_decl_kind();
-                        if (k == OP_FF_MUL) r[monomial()] = rational(1);
+                        bool mul = ff.is_mul(e);
+                        if (mul) r[monomial()] = rational(1);
                         rational w(1);
                         for (expr *arg : *a) {
-                            poly const &x = memo.at(arg);
-                            if (k == OP_FF_MUL) {
+                            poly const &x = memo.find(arg);
+                            if (mul) {
                                 poly nr;
                                 for (auto const &[m1, c1] : r)
                                     for (auto const &[m2, c2] : x) {
@@ -671,19 +675,19 @@ namespace {
                                 for (auto const &[mm, c] : x) {
                                     budget.charge(1 + mm.size());
                                     auto &slot = r[mm];
-                                    slot = mod(slot + (k == OP_FF_NEG ? -c : w * c), prime);
+                                    slot = mod(slot + (ff.is_neg(e) ? -c : w * c), prime);
                                     if (slot.is_zero()) r.erase(mm);
                                     if (r.size() > max_terms) return false;
                                 }
-                                if (k == OP_FF_BITSUM) w = mod(w * rational(2), prime);
+                                if (ff.is_bitsum(e)) w = mod(w * rational(2), prime);
                             }
                         }
                     }
-                    memo.emplace(e, std::move(r));
+                    memo.insert(e, std::move(r));
                     pending.pop_back();
                 }
-                budget.charge(memo.at(root).size());
-                out = memo.at(root);
+                budget.charge(memo.find(root).size());
+                out = memo.find(root);
                 return true;
             };
 

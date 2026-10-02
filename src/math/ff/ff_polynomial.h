@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    ff_polynomial.h
+
+Abstract:
+
+    Sparse multivariate polynomial representation (monomial -> rational
+    coefficient maps) over Q, with input-constraint provenance tracking,
+    used by the Groebner-basis elimination engine for prime fields.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 #include "util/rational.h"
 #include "util/rlimit.h"
