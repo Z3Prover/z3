@@ -210,7 +210,7 @@ public:
             return mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l);
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l),
-                                  p, has_ff_terms);
+                                  p);
     }
     
     solver_factory* translate(ast_manager& m) override {

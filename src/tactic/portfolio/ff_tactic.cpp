@@ -50,13 +50,3 @@ tactic *mk_ff_smt_tactic(ast_manager &m, params_ref const &p) {
     return cond(alloc(ff_small_field_probe), mk_smt_tactic(m, p), using_params(mk_smt_tactic(m, p), q));
 }
 
-
-bool has_ff_terms(ast_manager &m, expr *e) {
-    auto *plugin = static_cast<ff_decl_plugin *>(m.get_plugin(m.get_family_id("ff")));
-    if (!plugin || !plugin->has_sorts()) return false;
-    ff_util ff(m);
-    bool found = false;
-    auto visit = [&](expr *e) { found |= ff.is_ff(e); };
-    for_each_expr(visit, e);
-    return found;
-}
