@@ -349,17 +349,18 @@ namespace {
                 result.push_back(g.get());
                 return;
             }
-            std::map<sort *, std::unique_ptr<field_problem>> fields;
+            obj_map<sort, std::unique_ptr<field_problem>> fields;
             m_stats.update("ff algebra calls", 1u);
             // Retain work from unsuccessful alternatives and budget exhaustion.
             on_scope_exit collect([&]() {
-                for (auto const &[s, q] : fields) {
+                for (auto const &kv : fields) {
+                    auto const &q = kv.get_value();
                     q->algebra.collect_statistics(m_stats);
                     m_stats.update("ff bit facts", q->bit_facts);
                 }
             });
             auto field = [&](sort *s) -> field_problem & {
-                auto &q = fields[s];
+                auto &q = fields.insert_if_not_there(s, std::unique_ptr<field_problem>());
                 if (!q)
                     q = std::make_unique<field_problem>(m, s, p);
                 return *q;
@@ -393,12 +394,14 @@ namespace {
                         else
                             throw tactic_exception("ff-solve requires a conjunction of field literals");
                     }
-                    for (auto &[s, q] : fields)
-                        q->decompose_bitsums();
+                    for (auto &kv : fields)
+                        kv.m_value->decompose_bitsums();
                 }
                 encoding = false;
                 scoped_watch watch(m_solve_time);
-                for (auto &[s, q] : fields) {
+                for (auto &kv : fields) {
+                    sort *s = &kv.get_key();
+                    auto &q = kv.m_value;
                     if (unsat)
                         break;
                     std::vector<rational> values(q->variables.size(), rational(0));
@@ -414,7 +417,8 @@ namespace {
                 }
             } catch (ff::exhausted const &) {
                 if (encoding)
-                    for (auto const &[s, q] : fields) {
+                    for (auto const &kv : fields) {
+                        auto const &q = kv.get_value();
                         m_encoding_size_failure |= q->algebra.polynomial_limit_hit();
                         m_encoding_work = std::max(m_encoding_work, q->algebra.steps());
                     }

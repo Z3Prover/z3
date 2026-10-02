@@ -637,12 +637,12 @@ namespace smt {
         ++native_checks;
         native_values.reset();
         bool arranged = false;
-        std::map<sort *, std::unique_ptr<field_problem>> fields;
+        obj_map<sort, std::unique_ptr<field_problem>> fields;
         auto problem = [&](sort *s) -> field_problem & {
-            auto &p = fields[s];
+            auto &p = fields.insert_if_not_there(s, std::unique_ptr<field_problem>());
             if (!p)
             {
-                auto &shared = encodings[s];
+                auto &shared = encodings.insert_if_not_there(s, std::unique_ptr<ff_encoding_cache>());
                 if (!shared)
                     shared = std::make_unique<ff_encoding_cache>(m);
                 if (shared->cache.size() > 200000)
@@ -691,7 +691,9 @@ namespace smt {
             if (value != l_undef)
                 add(a->get_sort(), a, b, value == l_true);
         }
-        for (auto &[s, pp] : fields) {
+        for (auto &kv : fields) {
+            sort *s = &kv.get_key();
+            auto &pp = kv.m_value;
             if (bv_fields.contains(s)) continue;
             auto &p = *pp;
             try {
@@ -812,7 +814,7 @@ namespace smt {
 
     void theory_ff::reset_eh() {
         theory::reset_eh();
-        encodings.clear();
+        encodings.reset();
         root_norm.reset();
         root_norm_pins.reset();
         memo.clear();
