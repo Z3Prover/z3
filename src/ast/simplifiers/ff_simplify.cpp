@@ -42,7 +42,7 @@ namespace {
         if (!m.is_eq(f, a, b) || !ff.is_ff(a))
             return nullptr;
         rational c;
-        if ((!ff.is_interp(a) && ff.is_numeral(b, c)) || (!ff.is_interp(b) && ff.is_numeral(a, c)))
+        if ((!ff.is_interp(a) && ff.is_numeral(b)) || (!ff.is_interp(b) && ff.is_numeral(a)))
             return nullptr;
         expr *var = nullptr;
         ptr_vector<expr> todo;
@@ -220,7 +220,7 @@ void ff_zero_test_simplifier::reduce() {
             return nullptr;
         expr *a = to_app(e)->get_arg(0), *b = to_app(e)->get_arg(1);
         rational c;
-        if (!ff.is_numeral(a, c))
+        if (!ff.is_numeral(a))
             std::swap(a, b);
         if (!ff.is_numeral(a, c) || !c.is_one())
             return nullptr;
@@ -230,7 +230,7 @@ void ff_zero_test_simplifier::reduce() {
             return nullptr;
         a = to_app(b)->get_arg(0);
         expr *v = to_app(b)->get_arg(1);
-        if (!ff.is_numeral(a, c))
+        if (!ff.is_numeral(a))
             std::swap(a, v);
         return ff.is_numeral(a, c) && c == ff.modulus(e->get_sort()) - rational(1) ? v : nullptr;
     };
@@ -269,7 +269,7 @@ void ff_zero_test_simplifier::reduce() {
             // away. Remaining numerical factors are nonzero units and
             // may be dropped from an equation c*x*z=0 (or c*x*(1-z)=0).
             for (unsigned k = 0; k < mul->get_num_args(); ++k)
-                if (k != j && !ff.is_numeral(mul->get_arg(k), c))
+                if (k != j && !ff.is_numeral(mul->get_arg(k)))
                     rec.factors.push_back(mul->get_arg(k));
             if (!rec.factors.empty())
                 zeros.insert_if_not_there(z, std::vector<zero>()).push_back(std::move(rec));
@@ -309,7 +309,7 @@ void ff_zero_test_simplifier::reduce() {
             ptr_vector<expr> factors;
             if (ff.is_mul(term)) {
                 for (expr *arg : *to_app(term))
-                    if (!ff.is_numeral(arg, c))
+                    if (!ff.is_numeral(arg))
                         factors.push_back(arg);
             }
             else
