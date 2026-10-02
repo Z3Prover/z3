@@ -69,6 +69,9 @@ namespace {
         }
         void display(std::ostream &out) override {
             out << "(ff2bv-model-converter)";
+            for (unsigned i = 0; i < m_encoded.size(); ++i) {
+                out << "  (" << mk_pp(m_encoded.get(i), m) << " -> " << mk_pp(m_translated.get(i), m) << ")\n";
+            }
         }
     };
 
