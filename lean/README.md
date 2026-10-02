@@ -172,3 +172,8 @@ Every selected cell must be `lean-verified` for success. Unsupported inputs,
 sat/unknown, missing evidence, checking errors, and timeouts fail the gate.
 The `releaseClang` CI configuration runs the handoff tests and this gate after
 installing Lean, and uploads the artifacts even when certification fails.
+
+The [planned additional test inputs](../doc/lean-proof-plan.md#additional-input-files-future-plan)
+include seven examples from `jreeves3/SMT-Skeleton-Check` and the larger
+collections named in its CSV result files. These are future additions, not
+part of the six Boolean examples currently checked automatically.
