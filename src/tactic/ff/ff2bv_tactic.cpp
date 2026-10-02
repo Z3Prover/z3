@@ -208,8 +208,9 @@ namespace {
             bool found = false;
             ff_util ff(g.m());
             auto visitor = [&](expr *e) { found |= ff.is_ff(e); };
+            expr_mark visited;
             for (unsigned i = 0; i < g.size() && !found; ++i)
-                for_each_expr(visitor, g.form(i));
+                for_each_expr(visitor, visited, g.form(i));
             return found;
         }
     };
