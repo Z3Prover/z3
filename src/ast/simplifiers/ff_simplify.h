@@ -19,7 +19,7 @@ Abstract:
       `x`), substituting `x` by `t` and recording the elimination on the
       model reconstruction trail.
 
-    ff_simplify_simplifier composes the above together with the generic
+    ff_basic_simplifier composes the above together with the generic
     simplify/propagate-values/solve-eqs simplifiers into the "ff-simplify"
     preprocessing pipeline used ahead of the QF_FF decision procedures
     (ff-solve, ff-sat, ff-unique). It preserves compact theory atoms for
@@ -77,7 +77,7 @@ public:
     }
 };
 
-class ff_simplify_simplifier : public dependent_expr_simplifier {
+class ff_basic_simplifier : public dependent_expr_simplifier {
     params_ref                  m_params;
     scoped_ptr<then_simplifier> m_impl;
     stopwatch                   m_elapsed;
@@ -86,7 +86,7 @@ class ff_simplify_simplifier : public dependent_expr_simplifier {
     bool skip_boolean_goal();
 
 public:
-    ff_simplify_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s);
+    ff_basic_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s);
     char const *name() const override { return "ff-simplify"; }
     bool supports_proofs() const override { return true; }
     void reduce() override;
@@ -103,4 +103,4 @@ Z3_ADD_SIMPLIFIER(ff_zero_test, "ff-zero-test", "derive Boolean zero-test indica
 Z3_ADD_SIMPLIFIER(ff_wires, "ff-wires", "eliminate acyclic wire definitions in prime-field goals.",
                   alloc(ff_wire_simplifier, m, s));
 Z3_ADD_SIMPLIFIER(ff_simplify, "ff-simplify", "simplify prime-field goals ahead of QF_FF decision procedures.",
-                  alloc(ff_simplify_simplifier, m, p, s));
+                  alloc(ff_basic_simplifier, m, p, s));

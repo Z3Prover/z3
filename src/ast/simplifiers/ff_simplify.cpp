@@ -465,7 +465,7 @@ void ff_wire_simplifier::reduce() {
         new_dep = m.mk_join(d.dep(), new_dep);
         m_fmls.update(i, dependent_expr(m, tmp, nullptr, new_dep));
     }
-    m_eliminated += order.size();
+    m_eliminated += static_cast<unsigned>(order.size());
     m_fmls.model_trail().push(subst.detach(), {}, false);
 }
 
@@ -474,7 +474,7 @@ void ff_wire_simplifier::collect_statistics(statistics &st) const {
     st.update("ff wire seconds", m_elapsed.get_seconds());
 }
 
-ff_simplify_simplifier::ff_simplify_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s)
+ff_basic_simplifier::ff_basic_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s)
     : dependent_expr_simplifier(m, s) {
     // propagate-values uses substitutivity: x=c permits G(x)->G(c).
     // ff_cond_solve_eqs_simplifier performs equisatisfiable elimination
@@ -492,30 +492,30 @@ ff_simplify_simplifier::ff_simplify_simplifier(ast_manager &m, params_ref const 
     updt_params(p);
 }
 
-void ff_simplify_simplifier::updt_params(params_ref const &p) {
+void ff_basic_simplifier::updt_params(params_ref const &p) {
     m_params.append(p);
     m_impl->updt_params(p);
 }
 
-void ff_simplify_simplifier::collect_param_descrs(param_descrs &r) {
+void ff_basic_simplifier::collect_param_descrs(param_descrs &r) {
     m_impl->collect_param_descrs(r);
     r.insert("ff.disjunctive_bits", CPK_BOOL, "rewrite disjunctive Boolean field domains as polynomial equations", "true");
     r.insert("ff.preprocess", CPK_BOOL, "simplify field circuits before modular algebra", "true");
 }
 
-void ff_simplify_simplifier::collect_statistics(statistics &st) const {
+void ff_basic_simplifier::collect_statistics(statistics &st) const {
     m_impl->collect_statistics(st);
     st.update("ff preprocess seconds", m_elapsed.get_seconds());
     st.update("ff preprocess Boolean skips", m_boolean_skips);
 }
 
-void ff_simplify_simplifier::reset_statistics() {
+void ff_basic_simplifier::reset_statistics() {
     m_elapsed.reset();
     m_boolean_skips = 0;
     m_impl->reset_statistics();
 }
 
-bool ff_simplify_simplifier::skip_boolean_goal() {
+bool ff_basic_simplifier::skip_boolean_goal() {
     // Preserve compact theory atoms for lazy Boolean search. Expanding
     // wire definitions across Boolean input choices can turn a small
     // branch-local polynomial into a large shared Boolean/field term.
@@ -541,7 +541,7 @@ bool ff_simplify_simplifier::skip_boolean_goal() {
     return false;
 }
 
-void ff_simplify_simplifier::reduce() {
+void ff_basic_simplifier::reduce() {
     if (m_fmls.proofs_enabled())
         throw rewriter_exception("QF_FF certificates are not supported in v1");
     if (!m_params.get_bool("ff.preprocess", true))
