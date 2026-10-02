@@ -403,8 +403,8 @@ namespace smt {
         expr_ref axiom(e, m);
         if (simplify)
             rw(axiom);
-        if (m.limit().is_canceled())
-            throw default_exception(m.limit().get_cancel_msg());
+        if (!m.inc())
+            throw default_exception(Z3_CANCELED_MSG);
         if (m.is_true(axiom))
             return;
         ctx.internalize(axiom, false);
