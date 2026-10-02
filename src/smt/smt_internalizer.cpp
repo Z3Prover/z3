@@ -566,6 +566,9 @@ namespace smt {
             mk_enode(n, true, true, false);
             set_enode_flag(v, true);
             SASSERT(get_assignment(v) == l_undef || get_assignment(l_def) != l_undef);
+            // v may have been assigned by the definition clauses before the enode was created.
+            if (get_assignment(v) != l_undef)
+                propagate_bool_var_enode(v);
         }
     }
 
@@ -735,6 +738,11 @@ namespace smt {
             mk_enode(n, suppress_args, merge_tf, true);
             set_enode_flag(v, is_new_var);
             SASSERT(has_enode(v));
+        }
+        else if (!gate_ctx && e_internalized(n)) {
+            // n was internalized in a gate context while its children were internalized
+            // (e.g., ite-term axioms), but it now occurs outside a gate and must be merged with true/false.
+            set_merge_tf(get_enode(n), v, is_new_var);
         }
 
         // The constraints associated with node 'n' should be asserted
