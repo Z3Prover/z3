@@ -39,6 +39,8 @@ const api = await init();
 await killThreads(api.em);
 ```
 
+`killThreads` can also be used to abandon a hung long-running call: the pending promise is rejected, so later calls on the module are not blocked, and the keep-alive timers are cleared so the process can exit.
+
 The package requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.
 
 The Emscripten worker model will spawn multiple instances of `z3-built.js` for long-running operations. When building for the web, you should include that file as its own script on the page - using a bundler like webpack will prevent it from loading correctly.
@@ -84,6 +86,7 @@ function add<Name extends string>(a: Arith<Name>, b: Arith<Name>): Arith<Name> {
 
 Some long-running functions are promises and will run in a separate thread.
 Currently Z3-solver is not thread safe, and so, high-level APIs ensures that only one long-running function can run at a time, and all other long-running requests will queue up and be run one after another.
+The queue is per module (per `init()` call). The WebAssembly build queues decref requests from garbage collection for processing by the context rather than performing them concurrently with a long-running call. Other finalizer cleanup is delayed until the call settles. Do not call other (synchronous) Z3 APIs on the same module while a long-running call is in flight.
 
 ## Low-level
 

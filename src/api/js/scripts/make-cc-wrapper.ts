@@ -37,7 +37,9 @@ export function makeCCWrapper() {
         // Allocate and copy with null check
         arrayCopies.push(`${ptrType} ${copyName} = (${ptrType})malloc(sizeof(${p.cType}) * ${sizeParam.name});`);
         arrayCopies.push(`if (!${copyName}) {`);
-        arrayCopies.push(`  MAIN_THREAD_ASYNC_EM_ASM({ reject_async(new Error("Memory allocation failed")); });`);
+        arrayCopies.push(
+          `  MAIN_THREAD_ASYNC_EM_ASM({ reject_async($0, new Error("Memory allocation failed")); }, call_id);`,
+        );
         arrayCopies.push(`  return;`);
         arrayCopies.push(`}`);
         arrayCopies.push(`memcpy(${copyName}, ${p.name}, sizeof(${p.cType}) * ${sizeParam.name});`);
@@ -47,7 +49,7 @@ export function makeCCWrapper() {
 
       // Build lambda capture list
       const nonArrayParams = fn.params.filter(p => !p.isArray || p.kind !== 'in_array');
-      const captureList = [...arrayCopyNames, ...nonArrayParams.map(p => p.name)].join(', ');
+      const captureList = [...arrayCopyNames, ...nonArrayParams.map(p => p.name), 'call_id'].join(', ');
 
       // Build argument list for the actual function call, using copied arrays
       const callArgs = fn.params
@@ -65,6 +67,7 @@ export function makeCCWrapper() {
       wrappers.push(
         `
 extern "C" void async_${fn.name}(${paramList}) {
+ unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });
   ${arrayCopies.join('\n  ')}
   std::thread t([${captureList}] {
     try {
@@ -73,23 +76,23 @@ extern "C" void async_${fn.name}(${paramList}) {
         isString
           ? `
       MAIN_THREAD_ASYNC_EM_ASM({
-        resolve_async(UTF8ToString($0));
-      }, result);
+        resolve_async($1, UTF8ToString($0));
+      }, result, call_id);
       `
           : `
       MAIN_THREAD_ASYNC_EM_ASM({
-        resolve_async($0);
-      }, result);
+        resolve_async($1, $0);
+      }, result, call_id);
       `
       }
     } catch (std::exception& e) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async(new Error(UTF8ToString($0)));
-      }, e.what());
+        reject_async($1, new Error(UTF8ToString($0)));
+      }, e.what(), call_id);
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async(new Error('failed with unknown exception'));
-      });
+        reject_async($0, new Error('failed with unknown exception'));
+      }, call_id);
     }
     ${arrayFrees.join('\n    ')}
     MAIN_THREAD_ASYNC_EM_ASM({
@@ -139,20 +142,21 @@ extern "C" void async_${fn.name}(${fn.params
 
 template<typename Fn, Fn fn, typename... Args>
 void wrapper(Args&&... args) {
-  std::thread t([...args = std::forward<Args>(args)] {
+  unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });
+  std::thread t([call_id, ...args = std::forward<Args>(args)] {
     try {
       auto result = fn(args...);
       MAIN_THREAD_ASYNC_EM_ASM({
-        resolve_async($0);
-      }, result);
+        resolve_async($1, $0);
+      }, result, call_id);
     } catch (std::exception& e) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async(new Error(UTF8ToString($0)));
-      }, e.what());
+        reject_async($1, new Error(UTF8ToString($0)));
+      }, e.what(), call_id);
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async('failed with unknown exception');
-      });
+        reject_async($0, 'failed with unknown exception');
+      }, call_id);
     }
     MAIN_THREAD_ASYNC_EM_ASM({
       // this clears the earliest timeout
@@ -176,20 +180,21 @@ void wrapper(Args&&... args) {
 
 template<typename Fn, Fn fn, typename... Args>
 void wrapper_str(Args&&... args) {
-  std::thread t([...args = std::forward<Args>(args)] {
+  unsigned int call_id = EM_ASM_INT({ return current_async_call_id; });
+  std::thread t([call_id, ...args = std::forward<Args>(args)] {
     try {
       auto result = fn(args...);
       MAIN_THREAD_ASYNC_EM_ASM({
-        resolve_async(UTF8ToString($0));
-      }, result);
+        resolve_async($1, UTF8ToString($0));
+      }, result, call_id);
     } catch (std::exception& e) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async(new Error(UTF8ToString($0)));
-      }, e.what());
+        reject_async($1, new Error(UTF8ToString($0)));
+      }, e.what(), call_id);
     } catch (...) {
       MAIN_THREAD_ASYNC_EM_ASM({
-        reject_async(new Error('failed with unknown exception'));
-      });
+        reject_async($0, new Error('failed with unknown exception'));
+      }, call_id);
     }
     MAIN_THREAD_ASYNC_EM_ASM({
       // this clears the earliest timeout
