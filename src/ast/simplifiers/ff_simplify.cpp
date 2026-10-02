@@ -214,9 +214,9 @@ void ff_zero_test_simplifier::reduce() {
     auto complement = [&](expr *e) -> expr * {
         // Recognize 1-z using -1=p-1. In characteristic two -z=z,
         // so 1+z is the same complement.
-        if (!ff.is_add(e) || to_app(e)->get_num_args() != 2)
+        expr *a = nullptr, *b = nullptr;
+        if (!ff.is_add(e, a, b))
             return nullptr;
-        expr *a = to_app(e)->get_arg(0), *b = to_app(e)->get_arg(1);
         rational c;
         if (!ff.is_numeral(a))
             std::swap(a, b);
@@ -224,10 +224,9 @@ void ff_zero_test_simplifier::reduce() {
             return nullptr;
         if (ff.modulus(e->get_sort()) == rational(2))
             return b;
-        if (!ff.is_mul(b) || to_app(b)->get_num_args() != 2)
+        expr *v = nullptr;
+        if (!ff.is_mul(b, a, v))
             return nullptr;
-        a = to_app(b)->get_arg(0);
-        expr *v = to_app(b)->get_arg(1);
         if (!ff.is_numeral(a))
             std::swap(a, v);
         return ff.is_numeral(a, c) && c == ff.modulus(e->get_sort()) - rational(1) ? v : nullptr;
@@ -254,13 +253,13 @@ void ff_zero_test_simplifier::reduce() {
         for (unsigned j = 0; j < mul->get_num_args(); ++j) {
             expr *z = mul->get_arg(j);
             bool nz = false;
-            if (!is_uninterp_const(z)) {
+            if (ff.is_interp(z)) {
                 z = complement(z);
                 nz = true;
             }
             if (!z)
                 continue;
-            if (!is_uninterp_const(z))
+            if (ff.is_interp(z))
                 continue;
             zero rec(m, i, nz);
             // The preceding simplify pass folds any zero coefficient
@@ -279,7 +278,7 @@ void ff_zero_test_simplifier::reduce() {
         expr *z = nullptr, *rhs = nullptr;
         if (!m.is_eq(m_fmls[i].fml(), z, rhs))
             continue;
-        if (!is_uninterp_const(z))
+        if (ff.is_interp(z))
             std::swap(z, rhs);
         if (!zeros.contains(z))
             continue;

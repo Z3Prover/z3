@@ -539,9 +539,8 @@ namespace smt {
                 split_atoms.contains(atom))
                 continue;
             auto square_of = [&](expr *square, expr *base) {
-                return ff.is_mul(square) &&
-                       to_app(square)->get_num_args() == 2 &&
-                       to_app(square)->get_arg(0) == base && to_app(square)->get_arg(1) == base;
+                expr *x = nullptr, *y = nullptr;
+                return ff.is_mul(square, x, y) && x == base && y == base;
             };
             expr *digit = boolean_split ? (square_of(a, b) ? b : (square_of(b, a) ? a : nullptr)) : nullptr;
             // Most circuit atoms are wire=expression. An opaque operand is not

@@ -87,8 +87,6 @@ namespace {
                         if (!is_app(t) || t->get_sort() != s)
                             throw cmd_exception("ff-certify requires pure field terms");
                         app *a = to_app(t);
-                        if (!is_uninterp_const(a) && !field.is_interp(t))
-                            throw cmd_exception("ff-certify does not yet certify theory combination");
                         bool ready = true;
                         for (expr *arg : *a) if (!cache.contains(arg)) { pending.push_back(arg); ready = false; }
                         if (!ready) continue;

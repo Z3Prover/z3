@@ -79,8 +79,6 @@ namespace {
                 app *a = to_app(e);
                 if (!ff.is_ff(e))
                     throw tactic_exception("ff-solve requires field terms");
-                if (!ff.is_interp(a) && !is_uninterp_const(a))
-                    throw tactic_exception("ff-solve: unsupported term; use ff2bv");
                 bool ready = true;
                 for (expr *arg : *a)
                     if (!cache.contains(arg)) {
@@ -165,9 +163,8 @@ namespace {
                     // are 0 and 1. This is an actual premise, unlike the
                     // preprocessing heuristic that merely protects likely bits.
                     auto is_square = [&](expr *v, expr *t) {
-                        return !ff.is_interp(v) && ff.is_mul(t) &&
-                               to_app(t)->get_num_args() == 2 && to_app(t)->get_arg(0) == v &&
-                               to_app(t)->get_arg(1) == v;
+                        expr *x = nullptr, *y = nullptr;
+                        return !ff.is_interp(v) && ff.is_mul(t, x, y) && x == v && y == v;
                     };
                     if (is_square(a, b))
                         bits.insert(a);
