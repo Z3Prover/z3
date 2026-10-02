@@ -35,8 +35,8 @@ namespace nla {
             return;
         m_core.trail().push(value_trail(m_pi_var, val));
         m_pi_var = val;
-        rational lo("3.1416");
-        rational hi("3.1415");
+        rational lo("3.1415");
+        rational hi("3.1416");
         m_core.lra.add_var_bound(val, lp::lconstraint_kind::GE, lo);
         m_core.lra.add_var_bound(val, lp::lconstraint_kind::LE, hi);
     }
