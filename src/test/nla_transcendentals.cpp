@@ -209,12 +209,27 @@ void test_incremental_exp_unsat() {
     Z3_del_context(ctx);
 }
 
+void test_pi_positive_sat() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(assert (> pi 0))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\n")
+        std::cout << response << "\n";
+    VERIFY(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
 void test_nla_transcendentals() {
     test_sin_cos_identity_detects_conflict();
     test_cosh_sinh_identity_detects_conflict();
     test_is_nla_context_satisfied();
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
+    test_pi_positive_sat();
 }
 
 } // namespace nla
