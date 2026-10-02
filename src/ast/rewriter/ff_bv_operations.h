@@ -55,21 +55,20 @@ public:
         rational value;
         if (ff.is_numeral(a, value)) return expr_ref(bv.mk_numeral(value, ff.width(s)), m);
         expr_ref r(m);
-        switch (a->get_decl_kind()) {
-        case OP_FF_NEG: {
+        if (ff.is_neg(a)) {
             // Canonical x satisfies 0 <= p-x <= p; remainder maps -0 to 0.
             unsigned w = ff.width(s);
             expr_ref x(bv.mk_zero_extend(1, args.get(0)), m);
             r = bv.mk_bv_sub(bv.mk_numeral(ff.modulus(s), w + 1), x);
             return reduce(r, s, w + 1);
         }
-        case OP_FF_ADD:
-        case OP_FF_MUL:
+        if (ff.is_add(a) || ff.is_mul(a)) {
             r = args.get(0);
             for (unsigned i = 1; i < args.size(); ++i)
-                r = binary(r, args.get(i), s, a->get_decl_kind() == OP_FF_MUL);
+                r = binary(r, args.get(i), s, ff.is_mul(a));
             return r;
-        case OP_FF_BITSUM:
+        }
+        if (ff.is_bitsum(a)) {
             // Horner's identity holds modulo p without Boolean/no-wrap assumptions.
             r = args.back();
             for (unsigned i = args.size() - 1; i-- > 0;) {
@@ -77,7 +76,8 @@ public:
                 r = binary(r, args.get(i), s, false);
             }
             return r;
-        default: UNREACHABLE(); return r;
         }
+        UNREACHABLE();
+        return r;
     }
 };
