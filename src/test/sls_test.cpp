@@ -2,6 +2,7 @@
 #include "ast/sls/sls_bv_eval.h"
 #include "ast/sls/sls_bv_terms.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
@@ -325,7 +326,47 @@ static void test_best_phase() {
     }
 }
 
+// Check normalization axioms against the bit-vector rewriter.
+static void test_smod_normalization() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    bv_util bv(m);
+    th_rewriter rw(m);
+    bv::my_sat_solver_context solver;
+    sls::context ctx(m, solver);
+    sls::bv_terms terms(ctx);
+    for (unsigned width = 1; width <= 4; ++width) {
+        expr_ref sx(m.mk_const("x", bv.mk_sort(width)), m);
+        expr_ref sy(m.mk_const("y", bv.mk_sort(width)), m);
+        expr_ref e(bv.mk_bv_smod(sx, sy), m);
+        terms.axioms().reset();
+        terms.register_term(e);
+        ENSURE(terms.axioms().size() == 1);
+        expr_ref symbolic_axiom(terms.axioms().get(0), m);
+        for (unsigned i = 0; i < (1u << width); ++i) {
+            expr_ref x(bv.mk_numeral(rational(i), width), m);
+            for (unsigned j = 0; j < (1u << width); ++j) {
+                expr_ref y(bv.mk_numeral(rational(j), width), m);
+                expr_ref e(bv.mk_bv_smod(x, y), m);
+                terms.axioms().reset();
+                terms.register_term(e);
+                ENSURE(terms.axioms().size() == 1);
+                expr_ref axiom(terms.axioms().get(0), m);
+                rw(axiom);
+                ENSURE(m.is_true(axiom));
+                expr_safe_replace subst(m);
+                subst.insert(sx, x);
+                subst.insert(sy, y);
+                subst(symbolic_axiom, axiom);
+                rw(axiom);
+                ENSURE(m.is_true(axiom));
+            }
+        }
+    }
+}
+
 void tst_sls_test() {
+    test_smod_normalization();
 #ifndef SINGLE_THREAD
     test_best_phase();
 #endif
