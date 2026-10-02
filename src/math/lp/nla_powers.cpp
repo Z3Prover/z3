@@ -128,9 +128,9 @@ namespace nla {
         };
 
         auto x_ge_3 = [&]() {
-            lemma_builder lemma(c, "x >= 3, y != 0 => x^y > ln(x)y + 1");
+            lemma_builder lemma(c, "x >= 3, y > 0 => x^y > ln(x)y + 1");
             lemma |= ineq(x, llc::LT, rational(3));
-            lemma |= ineq(y, llc::EQ, rational::zero());
+            lemma |= ineq(y, llc::LE, rational::zero());
             lemma |= ineq(lp::lar_term(r, rational::minus_one(), y), llc::GT, rational::one());
             return l_false;
         };
@@ -173,7 +173,7 @@ namespace nla {
                 return y_lt_1();
             else if (xval > 1 && yval > 0 && rval <= 1)
                 return y_gt_1();
-            else if (xval >= 3 && yval != 0 && rval <= yval + 1)
+            else if (xval >= 3 && yval > 0 && rval <= yval + 1)
                 return x_ge_3();
             else if (xval > 0 && yval.is_unsigned()) {
                 auto r2val = power(xval, yval.get_unsigned());
@@ -233,7 +233,7 @@ namespace nla {
                 return y_lt_1();
             else if (xval > 1 && yval > 0 && rval <= 1)
                 return y_gt_1();
-            else if (xval >= 3 && yval != 0 && rval <= yval + 1)
+            else if (xval >= 3 && yval > 0 && rval <= yval + 1)
                 return x_ge_3();
             else if (xval > 0 && yval > 0 && am.is_rational(yval)) {
                 rational yr;
