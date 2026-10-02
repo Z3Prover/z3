@@ -79,8 +79,58 @@ static void test_significand_out_of_range() {
     Z3_del_context(ctx);
 }
 
+static void test_to_fp_real_rounding_carry() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // to_fp from a symbolic Real must account for a rounding carry into
+    // the next binade: any r in [2 - 2^-24, 2) rounds to 2.0 under RNE.
+    // See https://github.com/Z3Prover/z3/issues/10931
+    char const* sat_spec =
+        "(set-logic ALL)\n"
+        "(declare-fun r () Real)\n"
+        "(declare-fun c () (_ FloatingPoint 8 24))\n"
+        "(assert (< r 2.0))\n"
+        "(assert (= c ((_ to_fp 8 24) roundNearestTiesToEven r)))\n"
+        "(assert (= c (fp #b0 #x80 #b00000000000000000000000)))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, sat_spec);
+    if (response.find("sat") == std::string::npos || response.find("unsat") != std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    Z3_del_context(ctx);
+
+    // r strictly below the largest float less than 2.0 cannot round up to
+    // 2.0, so this must remain unsat.
+    cfg = Z3_mk_config();
+    ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* unsat_spec =
+        "(set-logic ALL)\n"
+        "(declare-fun r () Real)\n"
+        "(declare-fun c () (_ FloatingPoint 8 24))\n"
+        "(assert (< r (/ 33554430.0 16777216.0)))\n"
+        "(assert (= c ((_ to_fp 8 24) roundNearestTiesToEven r)))\n"
+        "(assert (= c (fp #b0 #x80 #b00000000000000000000000)))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, unsat_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
+    test_to_fp_real_rounding_carry();
 }
+
