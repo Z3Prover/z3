@@ -7,6 +7,24 @@ verification backend. Missing native proof evidence and checker correctness are
 separate obligations. Ordinary Z3 behavior stays unchanged while the integration
 is developed.
 
+## Current integration status (2026-10-02)
+
+The Boolean exporter, Lean reconstructor, and preprocessing audit live in
+`examples/python/`, with the checking helper in `scripts/check_lean.sh` and
+the pinned workspace in `lean/`. They provide the standalone supported
+Boolean path; they do not certify arbitrary SMT inputs.
+
+The regression matrix, its tests, and its canaries moved to
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs)
+in Z3Prover/z3#11008. Keep those files there. The matrix's optional `--lean`
+integration still needs an explicit connection to this checkout and a handoff
+of the exact measured certificate instead of a second solver run. The
+standalone exporter and reconstructor do not depend on that integration.
+
+The dated findings below describe earlier runs and retain their historical
+file paths. The Boolean-negation and arithmetic-coefficient fixes have since
+merged as Z3Prover/z3#10952, Z3Prover/z3#10954, and Z3Prover/z3#10955.
+
 ## Regression methodology
 
 Proof checking in Z3 is currently disjointed, and the remaining work is larger
@@ -57,9 +75,10 @@ rules and theory-lemma kinds that occur and which checkers accept each kind.
 This replaces guessing which rule to support next; the Boolean survey below is
 the first instance of this method.
 
-**First deliverable.** A runner in `examples/python/` that takes a benchmark
-list and emits one JSON record per cell, following `proof_preprocessing.py`,
-together with a canary list per logic and a summary table. The runner must
+**Implemented infrastructure.** The runner is now
+`Z3Prover/z3test/scripts/proofs/proof_matrix.py`. It takes a benchmark
+list and emits one JSON record per cell, together with a summary table;
+canary lists live in `Z3Prover/z3test/regressions/proofs/canaries/`. The runner must
 exit nonzero on `checker-rejected` and `crash`, and must report fallbacks
 separately from verified results.
 
