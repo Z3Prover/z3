@@ -73,11 +73,17 @@ public:
 
 
 
-tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
+static tactic *mk_ff_tactic(ast_manager &m, params_ref const &p) {
     // Let native SMT reasoning handle residual field goals before its exact
     // BV fallback, preserving shared equalities and lazy Boolean choices.
+    return annotate_tactic("ff-tactic",
+                            and_then(mk_ff_unique_tactic(m, p), mk_ff_simplify_tactic(m, p),
+                                     or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_ff_smt_tactic(m, p))));
+}
+
+tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
     if (smt_logics::logic_is_ff(logic))
-        return and_then(mk_ff_unique_tactic(m, p), mk_ff_simplify_tactic(m, p), or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_ff_smt_tactic(m, p)));
+        return mk_ff_tactic(m, p);
     if (logic=="QF_UF")
         return mk_qfuf_tactic(m, p);
     else if (logic=="QF_BV")
