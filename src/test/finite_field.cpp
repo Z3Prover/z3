@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    finite_field.cpp
+
+Abstract:
+
+    Unit tests for prime-field polynomial algebra: Groebner-basis reduction,
+    certificate reconstruction, the F4/tiny backends, and model evaluation.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #include "smt/smt_context.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"

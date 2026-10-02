@@ -1,3 +1,23 @@
+/*++
+Copyright (c) 2026 Romain Soulat
+
+Module Name:
+
+    theory_ff.h
+
+Abstract:
+
+    Ground theory combination for prime fields using modular algebra and
+    model arrangements, with an exact bounded bit-vector representation
+    when algebra is inconclusive. Original field sorts/terms stay in the
+    equality engine, so arrays, datatypes and uninterpreted functions
+    retain their original signatures.
+
+Author:
+
+    Romain Soulat
+
+--*/
 #pragma once
 
 #include "smt/smt_theory.h"
