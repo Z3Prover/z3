@@ -25,7 +25,6 @@ Author:
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
 #include "params/smt_params_helper.hpp"
-#include <unordered_map>
 #include <memory>
 
 namespace smt {
@@ -35,14 +34,14 @@ namespace smt {
     // every key is pinned here. Not used with compact encodings, whose fresh
     // definitional variables belong to a single problem.
     struct ff_encoding_cache {
-        std::unordered_map<expr *, ff::polynomial> cache;
-        std::unordered_map<expr *, unsigned> variable_ids;
+        obj_map<expr, ff::polynomial> cache;
+        obj_map<expr, unsigned> variable_ids;
         unsigned num_variables = 0;
         expr_ref_vector pins;
         explicit ff_encoding_cache(ast_manager &m) : pins(m) {}
         void reset() {
-            cache.clear();
-            variable_ids.clear();
+            cache.reset();
+            variable_ids.reset();
             num_variables = 0;
             pins.reset();
         }
@@ -56,7 +55,7 @@ namespace smt {
             ff::engine algebra;
             ff_encoding_cache local;
             ff_encoding_cache &enc;
-            std::unordered_map<expr *, ff::polynomial> &cache;
+            obj_map<expr, ff::polynomial> &cache;
             unsigned &num_variables;
             std::vector<ff::polynomial> eqs, neqs;
             expr_ref_vector premises;
@@ -66,10 +65,10 @@ namespace smt {
                 bool equality;
             };
             std::vector<constraint> inputs;
-            std::unordered_map<expr *, expr *> normalized;
-            std::unordered_map<expr *, std::set<unsigned>> normalization_deps;
-            std::unordered_map<expr *, unsigned> &variable_ids;
-            std::unordered_map<expr *, rational> evaluated;
+            obj_map<expr, expr *> normalized;
+            obj_map<expr, std::set<unsigned>> normalization_deps;
+            obj_map<expr, unsigned> &variable_ids;
+            obj_map<expr, rational> evaluated;
             expr_ref_vector pins;
             th_rewriter rw;
 
@@ -96,11 +95,11 @@ namespace smt {
                         continue;
                     }
                     app *a = to_app(e);
-                    if (a->get_family_id() != ff.get_fid()) {
+                    if (!ff.is_interp(e)) {
                         // Foreign applications are opaque to this field. The
                         // SMT arrangement, not this substitution, handles their
                         // arguments (which may belong to entirely other sorts).
-                        normalized[e] = e;
+                        normalized.insert(e, e);
                         todo.pop_back();
                         continue;
                     }
@@ -113,22 +112,23 @@ namespace smt {
                     if (!ready)
                         continue;
                     expr_ref_vector args(m);
-                    auto &deps = normalization_deps[e];
+                    std::set<unsigned> deps;
                     for (expr *arg : *a) {
-                        args.push_back(normalized.at(arg));
-                        auto const &used = normalization_deps[arg];
+                        args.push_back(normalized.find(arg));
+                        std::set<unsigned> const &used = normalization_deps.insert_if_not_there(arg, std::set<unsigned>());
                         deps.insert(used.begin(), used.end());
                     }
+                    normalization_deps.insert(e, std::move(deps));
                     expr_ref value = rw.mk_app(a->get_decl(), args);
                     pins.push_back(value);
-                    normalized[e] = value;
+                    normalized.insert(e, value);
                     todo.pop_back();
                 }
-                return normalized.at(root);
+                return normalized.find(root);
             }
 
             void prepare() {
-                std::unordered_map<expr *, unsigned> definitions;
+                obj_map<expr, unsigned> definitions;
                 std::vector<unsigned> chosen;
                 ptr_vector<expr> vars, defs;
                 for (unsigned i = 0; i < inputs.size(); ++i) {
@@ -139,7 +139,7 @@ namespace smt {
                         std::swap(a, b);
                     if (!is_uninterp_const(a) || definitions.contains(a))
                         continue;
-                    definitions[a] = vars.size();
+                    definitions.insert(a, vars.size());
                     vars.push_back(a);
                     defs.push_back(b);
                     chosen.push_back(i);
@@ -157,11 +157,12 @@ namespace smt {
                         todo.pop_back();
                         if (!seen.insert(e).second)
                             continue;
-                        if (auto it = definitions.find(e); it != definitions.end()) {
-                            uses[it->second].push_back(i);
+                        unsigned use_id;
+                        if (definitions.find(e, use_id)) {
+                            uses[use_id].push_back(i);
                             ++degree[i];
                         }
-                        if (to_app(e)->get_family_id() == ff.get_fid())
+                        if (ff.is_interp(e))
                             for (expr *arg : *to_app(e))
                                 todo.push_back(arg);
                     }
@@ -181,9 +182,11 @@ namespace smt {
                 // conflict needs only definitions actually used by its terms;
                 // unrelated wire equalities must not weaken the learned clause.
                 for (unsigned i : order) {
-                    normalized[vars[i]] = normalize(defs[i]);
-                    normalization_deps[vars[i]] = normalization_deps[defs[i]];
-                    normalization_deps[vars[i]].insert(chosen[i]);
+                    expr *value = normalize(defs[i]);
+                    normalized.insert(vars[i], value);
+                    std::set<unsigned> deps = normalization_deps.insert_if_not_there(defs[i], std::set<unsigned>());
+                    deps.insert(chosen[i]);
+                    normalization_deps.insert(vars[i], std::move(deps));
                     removed.insert(chosen[i]);
                 }
                 for (unsigned i = 0; i < inputs.size(); ++i) {
@@ -191,8 +194,8 @@ namespace smt {
                         continue;
                     auto [a, b, equality] = inputs[i];
                     expr *lhs_term = normalize(a), *rhs_term = normalize(b);
-                    auto dependencies = normalization_deps[a];
-                    auto const &rhs_deps = normalization_deps[b];
+                    std::set<unsigned> dependencies = normalization_deps.insert_if_not_there(a, std::set<unsigned>());
+                    std::set<unsigned> const &rhs_deps = normalization_deps.insert_if_not_there(b, std::set<unsigned>());
                     dependencies.insert(rhs_deps.begin(), rhs_deps.end());
                     a = lhs_term;
                     b = rhs_term;
@@ -231,9 +234,9 @@ namespace smt {
                     rational value;
                     if (ff.is_numeral(e, value)) {
                     }
-                    else if (a->get_family_id() != ff.get_fid()) {
-                        auto it = variable_ids.find(e);
-                        value = it == variable_ids.end() ? rational(0) : values[it->second];
+                    else if (!ff.is_interp(e)) {
+                        unsigned vid;
+                        value = variable_ids.find(e, vid) ? values[vid] : rational(0);
                     }
                     else {
                         bool ready = true;
@@ -244,22 +247,22 @@ namespace smt {
                             }
                         if (!ready)
                             continue;
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
+                        bool mul = ff.is_mul(e);
                         value = rational(mul ? 1 : 0);
                         rational weight(1);
                         for (expr *arg : *a) {
-                            rational const &v = evaluated.at(arg);
+                            rational const &v = evaluated.find(arg);
                             value = mod(mul ? value * v : value + weight * v, ff.modulus(e->get_sort()));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
+                            if (ff.is_bitsum(e))
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                         }
-                        if (a->get_decl_kind() == OP_FF_NEG)
+                        if (ff.is_neg(e))
                             value = mod(-value, ff.modulus(e->get_sort()));
                     }
-                    evaluated[e] = value;
+                    evaluated.insert(e, value);
                     todo.pop_back();
                 }
-                return evaluated.at(root);
+                return evaluated.find(root);
             }
 
             ff::polynomial compact(ff::polynomial f, bool force = false) {
@@ -290,7 +293,7 @@ namespace smt {
                         continue;
                     }
                     app *a = to_app(e);
-                    bool interpreted = a->get_family_id() == ff.get_fid();
+                    bool interpreted = ff.is_interp(e);
                     bool ready = true;
                     if (interpreted)
                         for (expr *arg : *a)
@@ -308,17 +311,17 @@ namespace smt {
                         // A foreign application is an atomic field value. Its
                         // arguments and congruence belong to the other theories;
                         // equalities from their equality classes are added below.
-                        variable_ids[e] = num_variables;
+                        variable_ids.insert(e, num_variables);
                         f = algebra.variable(num_variables++);
                     }
-                    else if (a->get_decl_kind() == OP_FF_NEG)
-                        f = algebra.scale(cache.at(a->get_arg(0)), rational(-1));
+                    else if (ff.is_neg(e))
+                        f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
                     else {
-                        bool mul = a->get_decl_kind() == OP_FF_MUL;
+                        bool mul = ff.is_mul(e);
                         f = algebra.constant(rational(mul ? 1 : 0));
                         rational weight(1);
                         for (expr *arg : *a) {
-                            auto const &b = cache.at(arg);
+                            auto const &b = cache.find(arg);
                             if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
                                 // Definitional abstraction happens before the
                                 // Cartesian product, not after a size exception.
@@ -328,15 +331,15 @@ namespace smt {
                             }
                             else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
                             f = compact(std::move(f));
-                            if (a->get_decl_kind() == OP_FF_BITSUM)
+                            if (ff.is_bitsum(e))
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                         }
                     }
-                    cache.emplace(e, std::move(f));
+                    cache.insert(e, std::move(f));
                     enc.pins.push_back(e);
                     todo.pop_back();
                 }
-                return cache.at(root);
+                return cache.find(root);
             }
 
             void add(expr *a, expr *b, bool equality) {
@@ -400,8 +403,8 @@ namespace smt {
         expr_ref axiom(e, m);
         if (simplify)
             rw(axiom);
-        if (m.limit().is_canceled())
-            throw default_exception(m.limit().get_cancel_msg());
+        if (!m.inc())
+            throw default_exception(Z3_CANCELED_MSG);
         if (m.is_true(axiom))
             return;
         ctx.internalize(axiom, false);
@@ -434,7 +437,7 @@ namespace smt {
         expr_ref decoded(m.mk_app(unwraps.find(s), encoded), m);
         assert_axiom(m.mk_eq(decoded, e));
 
-        if (!is_app(e) || to_app(e)->get_family_id() != get_id())
+        if (!ff.is_interp(e))
             return;  // UF applications, array reads and datatype selectors.
         app *a = to_app(e);
         expr_ref_vector args(m);
@@ -480,15 +483,15 @@ namespace smt {
                 return expr_ref(ff.mk_numeral(root, e->get_sort()), m);
             return expr_ref(m);
         }
-        if (!is_app_of(e, get_id(), OP_FF_MUL) || to_app(e)->get_num_args() > 16)
+        if (!ff.is_mul(e) || to_app(e)->get_num_args() > 16)
             return expr_ref(m);
-        std::map<expr *, unsigned> powers;
+        obj_map<expr, unsigned> powers;
         rational coefficient(1);
         for (expr *arg : *to_app(e)) {
             if (ff.is_numeral(arg, value))
                 coefficient = mod(coefficient * value, ff.modulus(e->get_sort()));
             else
-                ++powers[arg];
+                ++powers.insert_if_not_there(arg, 0u);
         }
         if (!coefficient.is_int_perfect_square(root))
             return expr_ref(m);
@@ -498,7 +501,9 @@ namespace smt {
         // Every symbolic factor must have even multiplicity. Halving these
         // multiplicities constructs A with e=A*A, without distributing products
         // of sums or assuming anything about the values of symbolic factors.
-        for (auto const &[arg, power] : powers) {
+        for (auto const &kv : powers) {
+            expr *arg = &kv.get_key();
+            unsigned power = kv.get_value();
             if (power % 2)
                 return expr_ref(m);
             for (unsigned i = 0; i < power / 2; ++i)
@@ -510,7 +515,7 @@ namespace smt {
         else if (factors.size() == 1)
             result = factors.get(0);
         else
-            result = ff.mk_app(OP_FF_MUL, factors.size(), factors.data());
+            result = ff.mk_mul(factors);
         rw(result);
         return result;
     }
@@ -534,17 +539,15 @@ namespace smt {
                 split_atoms.contains(atom))
                 continue;
             auto square_of = [&](expr *square, expr *base) {
-                return is_app_of(square, get_id(), OP_FF_MUL) &&
-                       to_app(square)->get_num_args() == 2 &&
-                       to_app(square)->get_arg(0) == base && to_app(square)->get_arg(1) == base;
+                expr *x = nullptr, *y = nullptr;
+                return ff.is_mul(square, x, y) && x == base && y == base;
             };
             expr *digit = boolean_split ? (square_of(a, b) ? b : (square_of(b, a) ? a : nullptr)) : nullptr;
             // Most circuit atoms are wire=expression. An opaque operand is not
             // a syntactic square or product, so avoid normalizing these atoms
             // just to discover that. This heuristic may miss a cancellation
             // exposing a square; the complete algebra/fallback still sees it.
-            if (!digit && (!is_app(a) || !is_app(b) || to_app(a)->get_family_id() != get_id() ||
-                to_app(b)->get_family_id() != get_id()))
+            if (!digit && (!ff.is_interp(a) || !ff.is_interp(b)))
                 continue;
             split_atoms.insert(atom);
             // Rewriting an atom is pure; keep the result across backtracking.
@@ -579,7 +582,7 @@ namespace smt {
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(0), digit->get_sort())));
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(1), digit->get_sort())));
             }
-            else if (ff.is_numeral(b, c) && c.is_zero() && is_app_of(a, get_id(), OP_FF_MUL) &&
+            else if (ff.is_numeral(b, c) && c.is_zero() && ff.is_mul(a) &&
                 to_app(a)->get_num_args() <= 16) {
                 // A field has no zero divisors: a product is zero iff some
                 // factor is zero. Nonzero constant factors need no branch.
@@ -595,8 +598,7 @@ namespace smt {
                 // No inverse of 2 is used. In characteristic two the branches
                 // coincide and are deduplicated below; B=0 is likewise a unit.
                 branches.push_back(m.mk_eq(lhs, rhs));
-                expr *arg = rhs;
-                expr_ref neg(ff.mk_app(OP_FF_NEG, 1, &arg), m);
+                expr_ref neg(ff.mk_neg(rhs), m);
                 branches.push_back(m.mk_eq(lhs, neg));
             }
             if (branches.empty())
@@ -633,12 +635,12 @@ namespace smt {
         ++native_checks;
         native_values.reset();
         bool arranged = false;
-        std::map<sort *, std::unique_ptr<field_problem>> fields;
+        obj_map<sort, std::unique_ptr<field_problem>> fields;
         auto problem = [&](sort *s) -> field_problem & {
-            auto &p = fields[s];
+            auto &p = fields.insert_if_not_there(s, std::unique_ptr<field_problem>());
             if (!p)
             {
-                auto &shared = encodings[s];
+                auto &shared = encodings.insert_if_not_there(s, std::unique_ptr<ff_encoding_cache>());
                 if (!shared)
                     shared = std::make_unique<ff_encoding_cache>(m);
                 if (shared->cache.size() > 200000)
@@ -687,7 +689,9 @@ namespace smt {
             if (value != l_undef)
                 add(a->get_sort(), a, b, value == l_true);
         }
-        for (auto &[s, pp] : fields) {
+        for (auto &kv : fields) {
+            sort *s = &kv.get_key();
+            auto &pp = kv.m_value;
             if (bv_fields.contains(s)) continue;
             auto &p = *pp;
             try {
@@ -808,7 +812,7 @@ namespace smt {
 
     void theory_ff::reset_eh() {
         theory::reset_eh();
-        encodings.clear();
+        encodings.reset();
         root_norm.reset();
         root_norm_pins.reset();
         memo.clear();
