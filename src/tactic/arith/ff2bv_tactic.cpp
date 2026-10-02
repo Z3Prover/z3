@@ -16,6 +16,7 @@ Author:
     Romain Soulat
 
 --*/
+#include "ast/ast_pp.h"
 #include "ast/rewriter/ff_bv_operations.h"
 #include "tactic/arith/ff2bv_tactic.h"
 #include "tactic/tactical.h"
@@ -70,7 +71,7 @@ namespace {
         void display(std::ostream &out) override {
             out << "(ff2bv-model-converter)";
             for (unsigned i = 0; i < m_encoded.size(); ++i) {
-                out << "  (" << mk_pp(m_encoded.get(i), m) << " -> " << mk_pp(m_translated.get(i), m) << ")\n";
+                out << "  (" << mk_pp(m_encoded.get(i), m) << " -> " << mk_pp(m_original.get(i), m) << ")\n";
             }
         }
     };
