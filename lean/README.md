@@ -150,14 +150,10 @@ remain under the ignored `lean/.lake/` directory.
 
 The Python script `scripts/proofs/proof_matrix.py` and its tests are in
 [Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs).
-The CI job uses a separate `z3test-lean/` checkout at the fixed revision
-specified in the workflow's "Check out Lean proof-checking tools" step.
-This revision provides the required `--z3-source` and `--lean-artifacts`
-options. Other Z3 tests use the independent `z3test/` checkout from its default
-branch.
+The CI job uses the `z3test/` checkout from its default branch for both the
+Lean checks and the other Z3 tests.
 
-To run the same checks locally, use a z3test checkout at that revision, cloned
-beside this Z3 checkout:
+To run the same checks locally, clone z3test beside this Z3 checkout:
 
 ```sh
 python3 ../z3test/scripts/proofs/proof_matrix.py \

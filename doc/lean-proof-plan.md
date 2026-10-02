@@ -28,8 +28,8 @@ also live in that repository. With `--lean`, the script uses
 The `releaseClang` job in `.github/workflows/ci.yml` requires Lean to accept the
 proof for every Boolean example, reported as `lean-verified`. It saves the
 native JSON proof certificates and the checked Lean source files.
-These Lean checks use a separate `z3test-lean/` checkout at the fixed revision
-specified in the workflow. Other tests use `z3test/` from its default branch.
+These Lean checks and the other tests share the `z3test/` checkout from its
+default branch.
 `proof_certificate.py` and `proof_to_lean.py` can also be used directly,
 without `proof_matrix.py`.
 
