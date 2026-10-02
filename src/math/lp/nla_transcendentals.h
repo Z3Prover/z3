@@ -235,6 +235,11 @@ namespace nla {
         // reactive delta-check alone was already about to succeed.
         bool has_observed_failure() const { return m_num_failures > 0; }
 
+        // number of delta-check failures observed so far; comparing it
+        // before and after check() tells whether the current assignment
+        // failed the delta-check.
+        unsigned num_failures() const { return m_num_failures; }
+
     private:
         bool check_app(app& a);
         // atan2(y, x): the exact fact sign(val) == sign(y) whenever y != 0

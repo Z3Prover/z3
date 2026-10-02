@@ -224,6 +224,7 @@ public:
     lar_base_constraint const& operator[](constraint_index ci) const { return *m_constraints[ci]; }    
 
     bool valid_index(constraint_index ci) const { return ci < m_constraints.size(); }
+    unsigned size() const { return m_constraints.size(); }
 
     class active_constraints {
         friend class constraint_set;

@@ -1155,6 +1155,10 @@ public:
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
         m_scopes.resize(old_size);            
         lp().pop(num_scopes);
+        // Constraint indices of popped constraints are reused by lar_solver;
+        // forget their sources so constraints that theory_lra does not track
+        // (e.g. nla range axioms) are not explained by stale literals.
+        m_constraint_sources.shrink(std::min(m_constraint_sources.size(), lp().constraints().size()));
         // VERIFY(l_false != make_feasible());
         m_new_bounds.reset();
         m_bv_to_propagate.reset();

@@ -890,9 +890,13 @@ void core::add_bounds() {
 lbool core::check_transcendentals_and_finish() {
     if (m_transcendentals.empty())
         return l_true;
+    unsigned num_failures = m_transcendentals.num_failures();
     m_transcendentals.check();
     if (!m_lemmas.empty() || !m_literals.empty())
         return l_false;
+    // A delta-check failure on the current assignment must be settled by
+    // nlsat; it cannot be deferred by the backoff and reported as l_true.
+    bool failed_now = m_transcendentals.num_failures() > num_failures;
     // The delta-check alone can nudge the LP assignment indefinitely
     // without ever producing a certificate. Each failed delta-check
     // bumps the affected application's accumulated Taylor degree
@@ -906,7 +910,13 @@ lbool core::check_transcendentals_and_finish() {
     // is applied here (rather than inside nra_solver itself) so it
     // does not affect nra_solver's other, already-tuned call sites
     // for problems that do have monomials to refine.
-    if (should_run_bounded_nlsat() && m_transcendentals.has_observed_failure()) {
+    bool run_nlsat = should_run_bounded_nlsat() && m_transcendentals.has_observed_failure();
+    if (failed_now && !run_nlsat) {
+        if (!params().arith_nl_nra())
+            return l_undef;
+        run_nlsat = true;
+    }
+    if (run_nlsat) {
         lbool ret = bounded_nlsat();
         if (ret == l_false)
             return l_false;
