@@ -106,6 +106,7 @@ namespace smt {
         params_ref                  m_params;
         ::statistics                m_aux_stats;
         setup                       m_setup;
+        family_id                   m_ff_fid;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
         region                      m_region;
@@ -905,7 +906,6 @@ namespace smt {
         void undo_mk_enode();
 
 
-        void ensure_field_theory(expr *e);
         void apply_sort_cnstr(expr * term, enode * e);
 
         bool simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits);
