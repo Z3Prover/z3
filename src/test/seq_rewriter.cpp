@@ -136,11 +136,13 @@ static void tst_length_coherence_guards() {
         arith_util a(m);
         th_rewriter rw(m);
         seq::skolem sk(m, rw);
-        app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+        app_ref base(m.mk_const("base", su.str.mk_string_sort()), m);
+        // Tail skolems bypass fixed-length expansion and exercise length coherence.
+        expr_ref x(sk.mk_tail(base, a.mk_int(0)));
         expr_ref len(su.str.mk_length(x), m);
         expr_ref low(a.mk_ge(len, a.mk_int(2)), m);
         expr_ref high(a.mk_le(len, a.mk_int(hi)), m);
-        expr_ref tail(sk.mk_tail(x, a.mk_int(1)));
+        expr_ref tail(sk.mk_tail(base, a.mk_int(2)));
         expr_ref empty(su.str.mk_empty(x->get_sort()), m);
         expr_ref conclusion(m);
         if (hi == 2)
