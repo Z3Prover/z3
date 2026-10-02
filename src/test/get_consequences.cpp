@@ -12,6 +12,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactic.h"
+#include "smt/smt_solver.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_evaluator.h"
 #include "tactic/fd_solver/fd_solver.h"
@@ -231,10 +232,58 @@ static void test_cardinality_consequences_after_check() {
     VERIFY(l_false == fd_solver->check_sat(check_asms));
 }
 
+static void test_datatype_accessor_consequences() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datatype_util dt(m);
+    arith_util arith(m);
+    params_ref p;
+
+    accessor_decl* accessors[] = { mk_accessor_decl(m, symbol("val"), type_ref(arith.mk_int())) };
+    constructor_decl* constructors[] = {
+        mk_constructor_decl(symbol("none"), symbol("is-none"), 0, nullptr),
+        mk_constructor_decl(symbol("some"), symbol("is-some"), 1, accessors)
+    };
+    datatype_decl* option = mk_datatype_decl(dt, symbol("Option_Int"), 0, nullptr, 2, constructors);
+    sort_ref_vector sorts(m);
+    VERIFY(dt.plugin().mk_datatypes(1, &option, 0, nullptr, sorts));
+    sort* option_sort = sorts[0].get();
+    func_decl* val = (*dt.get_constructor_accessors((*dt.get_datatype_constructors(option_sort))[1]))[0];
+
+    expr_ref a = mk_const(m, "a", option_sort);
+    expr_ref b = mk_const(m, "b", option_sort);
+    expr_ref t0 = mk_bool(m, "t0");
+    expr_ref t1 = mk_bool(m, "t1");
+    expr_ref va(m.mk_app(val, a), m);
+    expr_ref vb(m.mk_app(val, b), m);
+    expr_ref two(arith.mk_int(2), m);
+    expr_ref nine(arith.mk_int(9), m);
+    ref<solver> smt_solver = mk_smt_solver(m, p, symbol::null);
+    smt_solver->assert_expr(m.mk_implies(t0, m.mk_eq(va, two)));
+    smt_solver->assert_expr(m.mk_implies(t1, m.mk_eq(vb, nine)));
+
+    expr_ref_vector assumptions(m), vars(m), consequences(m);
+    assumptions.push_back(t0);
+    assumptions.push_back(t1);
+    vars.push_back(va);
+    vars.push_back(vb);
+    VERIFY(l_true == smt_solver->get_consequences(assumptions, vars, consequences));
+    ENSURE(consequences.size() == 2);
+    expr_ref expected_a(m.mk_implies(t0, m.mk_eq(va, two)), m);
+    expr_ref expected_b(m.mk_implies(t1, m.mk_eq(vb, nine)), m);
+    bool found_a = false, found_b = false;
+    for (expr* consequence : consequences) {
+        found_a |= m.are_equal(consequence, expected_a);
+        found_b |= m.are_equal(consequence, expected_b);
+    }
+    ENSURE(found_a && found_b);
+}
+
 void tst_get_consequences() {
     test1();
     test2();
     test_bounded_int();
     test_bounded_int_translation();
     test_cardinality_consequences_after_check();
+    test_datatype_accessor_consequences();
 }
