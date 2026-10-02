@@ -605,7 +605,7 @@ namespace {
             }
             ff_util ff(m);
             sort *field = nullptr;
-            std::unordered_map<expr *, unsigned> var_id;
+            obj_map<expr, unsigned> var_id;
             std::vector<expr *> vars;
             std::vector<poly> eqs, neqs;
             std::set<unsigned> bools;
@@ -613,7 +613,7 @@ namespace {
             unsigned const max_terms = 256;
             bool unsupported = false;
 
-            std::unordered_map<expr *, poly> memo;
+            obj_map<expr, poly> memo;
             // Iterative postorder traversal: SMT lets can describe arbitrarily
             // deep DAGs. A memo entry exists only after every operand succeeds.
             auto encode = [&](expr *root, poly &out) -> bool {
@@ -643,9 +643,10 @@ namespace {
                         if (!v.is_zero()) r[monomial()] = v;
                     }
                     else if (!interpreted) {
-                        auto [it, fresh] = var_id.emplace(e, static_cast<unsigned>(vars.size()));
+                        bool fresh = !var_id.contains(e);
+                        unsigned &id = var_id.insert_if_not_there(e, static_cast<unsigned>(vars.size()));
                         if (fresh) vars.push_back(e);
-                        r[monomial{it->second}] = rational(1);
+                        r[monomial{id}] = rational(1);
                     }
                     else {
                         app *a = to_app(e);
@@ -653,7 +654,7 @@ namespace {
                         if (k == OP_FF_MUL) r[monomial()] = rational(1);
                         rational w(1);
                         for (expr *arg : *a) {
-                            poly const &x = memo.at(arg);
+                            poly const &x = memo.find(arg);
                             if (k == OP_FF_MUL) {
                                 poly nr;
                                 for (auto const &[m1, c1] : r)
@@ -683,11 +684,11 @@ namespace {
                             }
                         }
                     }
-                    memo.emplace(e, std::move(r));
+                    memo.insert(e, std::move(r));
                     pending.pop_back();
                 }
-                budget.charge(memo.at(root).size());
-                out = memo.at(root);
+                budget.charge(memo.find(root).size());
+                out = memo.find(root);
                 return true;
             };
 

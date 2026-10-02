@@ -77,7 +77,7 @@ namespace {
                 ff::engine arithmetic(prime, m.limit(), m_params.get_uint("max_steps", 2000000),
                                       m_params.get_uint("max_terms", 4096), false, false, false);
                 ptr_vector<expr> variables;
-                std::unordered_map<expr *, ff::polynomial> cache;
+                obj_map<expr, ff::polynomial> cache;
                 auto encode = [&](expr *root) {
                     ptr_vector<expr> pending; pending.push_back(root);
                     while (!pending.empty()) {
@@ -99,21 +99,21 @@ namespace {
                             f = arithmetic.variable(variables.size()); variables.push_back(t);
                         }
                         else if (a->get_decl_kind() == OP_FF_NEG)
-                            f = arithmetic.scale(cache.at(a->get_arg(0)), rational(-1));
+                            f = arithmetic.scale(cache.find(a->get_arg(0)), rational(-1));
                         else if (a->get_decl_kind() == OP_FF_ADD || a->get_decl_kind() == OP_FF_MUL ||
                                  a->get_decl_kind() == OP_FF_BITSUM) {
                             bool mul = a->get_decl_kind() == OP_FF_MUL;
                             f = arithmetic.constant(rational(mul ? 1 : 0));
                             rational weight(1);
                             for (expr *arg : *a) {
-                                f = mul ? arithmetic.mul(f, cache.at(arg)) : arithmetic.add(std::move(f), cache.at(arg), weight);
+                                f = mul ? arithmetic.mul(f, cache.find(arg)) : arithmetic.add(std::move(f), cache.find(arg), weight);
                                 if (a->get_decl_kind() == OP_FF_BITSUM) weight = mod(rational(2) * weight, prime);
                             }
                         }
                         else throw cmd_exception("ff-certify: unsupported field operator");
-                        cache.emplace(t, std::move(f));
+                        cache.insert(t, std::move(f));
                     }
-                    return cache.at(root);
+                    return cache.find(root);
                 };
                 std::vector<ff::polynomial> equations;
                 for (expr *literal : literals) {

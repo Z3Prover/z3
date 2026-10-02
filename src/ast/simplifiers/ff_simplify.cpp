@@ -73,7 +73,7 @@ namespace {
             unsigned degree = 0;
             rational zero{0}, one{0};
         };
-        std::unordered_map<expr *, sample> values;
+        obj_map<expr, sample> values;
         todo.push_back(a);
         todo.push_back(b);
         rational const &p = ff.modulus(a->get_sort());
@@ -86,12 +86,12 @@ namespace {
                 continue;
             }
             if (e == var) {
-                values[e] = {1, rational(0), rational(1)};
+                values.insert(e, sample{1, rational(0), rational(1)});
                 todo.pop_back();
                 continue;
             }
             if (ff.is_numeral(e, c)) {
-                values[e] = {0, c, c};
+                values.insert(e, sample{0, c, c});
                 todo.pop_back();
                 continue;
             }
@@ -112,7 +112,7 @@ namespace {
             if (kind == OP_FF_MUL)
                 v.zero = v.one = rational(1);
             for (expr *arg : *to_app(e)) {
-                auto const &w = values.at(arg);
+                auto const &w = values.find(arg);
                 if (kind == OP_FF_MUL) {
                     v.degree += w.degree;
                     v.zero *= w.zero;
@@ -132,10 +132,10 @@ namespace {
                 v.zero = mod(-v.zero, p);
                 v.one = mod(-v.one, p);
             }
-            values[e] = v;
+            values.insert(e, v);
             todo.pop_back();
         }
-        auto const &lhs = values.at(a), &rhs = values.at(b);
+        auto const &lhs = values.find(a), &rhs = values.find(b);
         return std::max(lhs.degree, rhs.degree) == 2 && lhs.zero == rhs.zero && lhs.one == rhs.one ? var : nullptr;
     }
 
@@ -372,7 +372,7 @@ void ff_wire_simplifier::reduce() {
     if (m_fmls.has_quantifiers())
         return;
     ff_util ff(m);
-    std::unordered_map<expr *, unsigned> ids;
+    obj_map<expr, unsigned> ids;
     ptr_vector<expr> vars, defs;
     std::set<expr *> bits;
     for (unsigned i : indices())
@@ -390,7 +390,7 @@ void ff_wire_simplifier::reduce() {
         // remain constraints, so conflicting definitions cannot vanish.
         if (ff.is_interp(v) || !ff.is_ff(v) || bits.contains(v) || ids.contains(v) || occurs(v, rhs))
             continue;
-        ids.emplace(v, vars.size());
+        ids.insert(v, static_cast<unsigned>(vars.size()));
         vars.push_back(v);
         defs.push_back(rhs);
     }
@@ -409,8 +409,9 @@ void ff_wire_simplifier::reduce() {
                 continue;
             if (!is_app(e))
                 return;
-            if (auto it = ids.find(e); it != ids.end()) {
-                uses[it->second].push_back(i);
+            unsigned id;
+            if (ids.find(e, id)) {
+                uses[id].push_back(i);
                 ++degree[i];
             }
             for (expr *arg : *to_app(e))

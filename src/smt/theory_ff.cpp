@@ -25,7 +25,6 @@ Author:
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
 #include "params/smt_params_helper.hpp"
-#include <unordered_map>
 #include <memory>
 
 namespace smt {
@@ -35,14 +34,14 @@ namespace smt {
     // every key is pinned here. Not used with compact encodings, whose fresh
     // definitional variables belong to a single problem.
     struct ff_encoding_cache {
-        std::unordered_map<expr *, ff::polynomial> cache;
-        std::unordered_map<expr *, unsigned> variable_ids;
+        obj_map<expr, ff::polynomial> cache;
+        obj_map<expr, unsigned> variable_ids;
         unsigned num_variables = 0;
         expr_ref_vector pins;
         explicit ff_encoding_cache(ast_manager &m) : pins(m) {}
         void reset() {
-            cache.clear();
-            variable_ids.clear();
+            cache.reset();
+            variable_ids.reset();
             num_variables = 0;
             pins.reset();
         }
@@ -56,7 +55,7 @@ namespace smt {
             ff::engine algebra;
             ff_encoding_cache local;
             ff_encoding_cache &enc;
-            std::unordered_map<expr *, ff::polynomial> &cache;
+            obj_map<expr, ff::polynomial> &cache;
             unsigned &num_variables;
             std::vector<ff::polynomial> eqs, neqs;
             expr_ref_vector premises;
@@ -66,10 +65,10 @@ namespace smt {
                 bool equality;
             };
             std::vector<constraint> inputs;
-            std::unordered_map<expr *, expr *> normalized;
-            std::unordered_map<expr *, std::set<unsigned>> normalization_deps;
-            std::unordered_map<expr *, unsigned> &variable_ids;
-            std::unordered_map<expr *, rational> evaluated;
+            obj_map<expr, expr *> normalized;
+            obj_map<expr, std::set<unsigned>> normalization_deps;
+            obj_map<expr, unsigned> &variable_ids;
+            obj_map<expr, rational> evaluated;
             expr_ref_vector pins;
             th_rewriter rw;
 
@@ -100,7 +99,7 @@ namespace smt {
                         // Foreign applications are opaque to this field. The
                         // SMT arrangement, not this substitution, handles their
                         // arguments (which may belong to entirely other sorts).
-                        normalized[e] = e;
+                        normalized.insert(e, e);
                         todo.pop_back();
                         continue;
                     }
@@ -113,22 +112,23 @@ namespace smt {
                     if (!ready)
                         continue;
                     expr_ref_vector args(m);
-                    auto &deps = normalization_deps[e];
+                    std::set<unsigned> deps;
                     for (expr *arg : *a) {
-                        args.push_back(normalized.at(arg));
-                        auto const &used = normalization_deps[arg];
+                        args.push_back(normalized.find(arg));
+                        std::set<unsigned> const &used = normalization_deps.insert_if_not_there(arg, std::set<unsigned>());
                         deps.insert(used.begin(), used.end());
                     }
+                    normalization_deps.insert(e, std::move(deps));
                     expr_ref value = rw.mk_app(a->get_decl(), args);
                     pins.push_back(value);
-                    normalized[e] = value;
+                    normalized.insert(e, value);
                     todo.pop_back();
                 }
-                return normalized.at(root);
+                return normalized.find(root);
             }
 
             void prepare() {
-                std::unordered_map<expr *, unsigned> definitions;
+                obj_map<expr, unsigned> definitions;
                 std::vector<unsigned> chosen;
                 ptr_vector<expr> vars, defs;
                 for (unsigned i = 0; i < inputs.size(); ++i) {
@@ -139,7 +139,7 @@ namespace smt {
                         std::swap(a, b);
                     if (ff.is_interp(a) || definitions.contains(a))
                         continue;
-                    definitions[a] = vars.size();
+                    definitions.insert(a, vars.size());
                     vars.push_back(a);
                     defs.push_back(b);
                     chosen.push_back(i);
@@ -157,8 +157,9 @@ namespace smt {
                         todo.pop_back();
                         if (!seen.insert(e).second)
                             continue;
-                        if (auto it = definitions.find(e); it != definitions.end()) {
-                            uses[it->second].push_back(i);
+                        unsigned use_id;
+                        if (definitions.find(e, use_id)) {
+                            uses[use_id].push_back(i);
                             ++degree[i];
                         }
                         if (to_app(e)->get_family_id() == ff.get_fid())
@@ -181,9 +182,11 @@ namespace smt {
                 // conflict needs only definitions actually used by its terms;
                 // unrelated wire equalities must not weaken the learned clause.
                 for (unsigned i : order) {
-                    normalized[vars[i]] = normalize(defs[i]);
-                    normalization_deps[vars[i]] = normalization_deps[defs[i]];
-                    normalization_deps[vars[i]].insert(chosen[i]);
+                    expr *value = normalize(defs[i]);
+                    normalized.insert(vars[i], value);
+                    std::set<unsigned> deps = normalization_deps.insert_if_not_there(defs[i], std::set<unsigned>());
+                    deps.insert(chosen[i]);
+                    normalization_deps.insert(vars[i], std::move(deps));
                     removed.insert(chosen[i]);
                 }
                 for (unsigned i = 0; i < inputs.size(); ++i) {
@@ -191,8 +194,8 @@ namespace smt {
                         continue;
                     auto [a, b, equality] = inputs[i];
                     expr *lhs_term = normalize(a), *rhs_term = normalize(b);
-                    auto dependencies = normalization_deps[a];
-                    auto const &rhs_deps = normalization_deps[b];
+                    std::set<unsigned> dependencies = normalization_deps.insert_if_not_there(a, std::set<unsigned>());
+                    std::set<unsigned> const &rhs_deps = normalization_deps.insert_if_not_there(b, std::set<unsigned>());
                     dependencies.insert(rhs_deps.begin(), rhs_deps.end());
                     a = lhs_term;
                     b = rhs_term;
@@ -232,8 +235,8 @@ namespace smt {
                     if (ff.is_numeral(e, value)) {
                     }
                     else if (a->get_family_id() != ff.get_fid()) {
-                        auto it = variable_ids.find(e);
-                        value = it == variable_ids.end() ? rational(0) : values[it->second];
+                        unsigned vid;
+                        value = variable_ids.find(e, vid) ? values[vid] : rational(0);
                     }
                     else {
                         bool ready = true;
@@ -248,7 +251,7 @@ namespace smt {
                         value = rational(mul ? 1 : 0);
                         rational weight(1);
                         for (expr *arg : *a) {
-                            rational const &v = evaluated.at(arg);
+                            rational const &v = evaluated.find(arg);
                             value = mod(mul ? value * v : value + weight * v, ff.modulus(e->get_sort()));
                             if (a->get_decl_kind() == OP_FF_BITSUM)
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
@@ -256,10 +259,10 @@ namespace smt {
                         if (a->get_decl_kind() == OP_FF_NEG)
                             value = mod(-value, ff.modulus(e->get_sort()));
                     }
-                    evaluated[e] = value;
+                    evaluated.insert(e, value);
                     todo.pop_back();
                 }
-                return evaluated.at(root);
+                return evaluated.find(root);
             }
 
             ff::polynomial compact(ff::polynomial f, bool force = false) {
@@ -308,17 +311,17 @@ namespace smt {
                         // A foreign application is an atomic field value. Its
                         // arguments and congruence belong to the other theories;
                         // equalities from their equality classes are added below.
-                        variable_ids[e] = num_variables;
+                        variable_ids.insert(e, num_variables);
                         f = algebra.variable(num_variables++);
                     }
                     else if (a->get_decl_kind() == OP_FF_NEG)
-                        f = algebra.scale(cache.at(a->get_arg(0)), rational(-1));
+                        f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
                     else {
                         bool mul = a->get_decl_kind() == OP_FF_MUL;
                         f = algebra.constant(rational(mul ? 1 : 0));
                         rational weight(1);
                         for (expr *arg : *a) {
-                            auto const &b = cache.at(arg);
+                            auto const &b = cache.find(arg);
                             if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
                                 // Definitional abstraction happens before the
                                 // Cartesian product, not after a size exception.
@@ -332,11 +335,11 @@ namespace smt {
                                 weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
                         }
                     }
-                    cache.emplace(e, std::move(f));
+                    cache.insert(e, std::move(f));
                     enc.pins.push_back(e);
                     todo.pop_back();
                 }
-                return cache.at(root);
+                return cache.find(root);
             }
 
             void add(expr *a, expr *b, bool equality) {

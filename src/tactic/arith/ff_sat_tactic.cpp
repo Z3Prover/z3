@@ -64,7 +64,7 @@ namespace {
             ff_util ff(m);
             params_ref sp;
             sat::solver sat(sp, m.limit());
-            std::unordered_map<expr *, sat::literal> lits;
+            obj_map<expr, sat::literal> lits;
             expr_ref_vector pins(m), atoms(m), booleans(m);
             expr_dependency_ref deps(m);
             auto clause = [&](sat::literal_vector const &ls) { sat.mk_clause(ls); };
@@ -84,13 +84,14 @@ namespace {
                 if (depth > 512)
                     throw tactic_exception("ff-sat Boolean nesting budget exceeded");
                 flet<unsigned> nesting(depth, depth + 1);
-                if (auto it = lits.find(e); it != lits.end())
-                    return it->second;
+                sat::literal cached;
+                if (lits.find(e, cached))
+                    return cached;
                 if (!is_app(e) || !m.is_bool(e))
                     throw tactic_exception("ff-sat requires quantifier-free Boolean structure");
                 pins.push_back(e);
                 sat::literal r(sat.mk_var(true), false);
-                lits.emplace(e, r);
+                lits.insert(e, r);
                 app *a = to_app(e);
                 if (m.is_true(e) || m.is_false(e)) {
                     sat::literal_vector unit;
@@ -173,7 +174,7 @@ namespace {
                     throw tactic_exception("ff-sat Boolean search incomplete");
                 auto const &assignment = sat.get_model();
                 auto truth = [&](expr *e) {
-                    auto l = lits.at(e);
+                    auto l = lits.find(e);
                     return (assignment[l.var()] == l_true) != l.sign();
                 };
                 goal_ref branch = alloc(goal, m, false, true, true);
@@ -182,7 +183,7 @@ namespace {
                     bool value = truth(atom);
                     expr_ref signed_atom(value ? atom : m.mk_not(atom), m);
                     branch->assert_expr(signed_atom, nullptr, m.mk_leaf(signed_atom));
-                    block.push_back(value ? ~lits.at(atom) : lits.at(atom));
+                    block.push_back(value ? ~lits.find(atom) : lits.find(atom));
                 }
                 // Save Boolean values: the next SAT check may change its model.
                 std::vector<bool> bool_values;
@@ -199,9 +200,9 @@ namespace {
                     sat::literal_vector learned;
                     for (expr *e : core) {
                         if (m.is_not(e))
-                            learned.push_back(lits.at(to_app(e)->get_arg(0)));
+                            learned.push_back(lits.find(to_app(e)->get_arg(0)));
                         else
-                            learned.push_back(~lits.at(e));
+                            learned.push_back(~lits.find(e));
                     }
                     block = learned;
                     sat.pop_to_base_level();

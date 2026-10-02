@@ -35,7 +35,7 @@ namespace {
         smt_params_helper options;
         ff::engine algebra;
         expr_ref_vector variables;
-        std::unordered_map<expr *, ff::polynomial> cache;
+        obj_map<expr, ff::polynomial> cache;
         std::vector<ff::polynomial> eqs, neqs;
         std::vector<expr_dependency *> dependencies;
         field_problem(ast_manager &m, sort *s, params_ref const &p)
@@ -99,7 +99,7 @@ namespace {
                 }
                 else {
                     switch (a->get_decl_kind()) {
-                    case OP_FF_NEG: f = algebra.scale(cache.at(a->get_arg(0)), rational(-1)); break;
+                    case OP_FF_NEG: f = algebra.scale(cache.find(a->get_arg(0)), rational(-1)); break;
                     case OP_FF_ADD:
                     case OP_FF_MUL:
                     case OP_FF_BITSUM: {
@@ -107,7 +107,7 @@ namespace {
                         f = algebra.constant(rational(mul ? 1 : 0));
                         rational weight(1);
                         for (expr *arg : *a) {
-                            auto const &b = cache.at(arg);
+                            auto const &b = cache.find(arg);
                             if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
                                 // Definitional abstraction happens before the
                                 // Cartesian product, not after a size exception.
@@ -125,10 +125,10 @@ namespace {
                     default: throw tactic_exception("ff-solve: unsupported operator");
                     }
                 }
-                cache.emplace(e, std::move(f));
+                cache.insert(e, std::move(f));
                 todo.pop_back();
             }
-            return cache.at(root);
+            return cache.find(root);
         }
         void add(expr *a, expr *b, bool equality, expr_dependency *dep) {
             auto lhs = encode(a);  // copy: encoding b can rehash the cache
