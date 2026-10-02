@@ -21,6 +21,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/z3_version.h"
 #include "api/api_context.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
@@ -217,6 +218,10 @@ namespace api {
         family_id fid  = s->get_family_id();
         if (fid == arith_family_id) {
             e = m_arith_util.mk_numeral(n, s);
+        }
+        else if (ff_util(m()).is_ff(s)) {
+            if (!n.is_int()) m().raise_exception("finite-field numeral must be an integer");
+            e = ff_util(m()).mk_numeral(n, s);
         }
         else if (fid == m_bv_fid) {
             e = m_bv_util.mk_numeral(n, s);

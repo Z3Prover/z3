@@ -905,6 +905,7 @@ namespace smt {
         void undo_mk_enode();
 
 
+        void ensure_field_theory(expr *e);
         void apply_sort_cnstr(expr * term, enode * e);
 
         bool simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits);

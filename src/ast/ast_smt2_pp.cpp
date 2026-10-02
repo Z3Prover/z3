@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "ast/ast_smt2_pp.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/shared_occs.h"
 #include "ast/pp.h"
 #include "ast/ast_ll_pp.h"
@@ -401,6 +402,10 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
     // This method is redefined in cmd_context::pp_env: support for parametric sorts.
     // Here, we just pretty print builtin sorts: Bool, Int, Real, BitVec and Array.
     ast_manager & m = get_manager();
+    if (ff_util(m).is_ff(s)) {
+        std::string text = "(_ FiniteField " + ff_util(m).modulus(s).to_string() + ")";
+        return mk_string(m, text);
+    }
     if (m.is_bool(s))
         return mk_string(m, "Bool");
     if (get_autil().is_int(s))
@@ -635,6 +640,13 @@ class smt2_printer {
         }
         else if (m_env.get_futil().is_numeral(c)) {
             f = m_env.pp_float_literal(c, m_pp_bv_lits, m_pp_float_real_lits);
+        }
+        else if (ff_util(m()).is_numeral(c)) {
+            ff_util u(m());
+            rational value;
+            u.is_numeral(c, value);
+            std::string text = "(as ff" + value.to_string() + " (_ FiniteField " + u.modulus(c->get_sort()).to_string() + "))";
+            f = mk_string(m(), text);
         }
         else if (m_env.get_dlutil().is_numeral(c)) {
             f = m_env.pp_datalog_literal(c);
