@@ -17,6 +17,7 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_context.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_search.h"
 #include "smt/smt_context.h"
 #include "util/common_msgs.h"
 #include "util/debug.h"
@@ -26,6 +27,65 @@ Abstract:
 #include <iostream>
 
 namespace {
+
+static void tst_objective_search() {
+    using opt::inf_eps;
+    inf_eps infinity(rational(1), inf_rational(0));
+    opt::objective_search search(infinity);
+    opt::maximize_result result{false, inf_eps(rational(3)), l_undef, {}};
+    search.update(result);
+    ENSURE(search.upper() == infinity);
+    result.bound_valid = true;
+    result.hint_status = l_true;
+    search.update(result);
+    ENSURE(search.upper() == infinity);
+    result.upper_bound = rational(10);
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(10)));
+    result = {false, inf_eps(rational(7)), l_false, {}};
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(7)));
+    result.hint = infinity;
+    search.update(result);
+    ENSURE(search.upper() == inf_eps(rational(7)));
+
+    search.enter_region(inf_eps(rational(2)));
+    search.enter_region(inf_eps(rational(5)));
+    search.tighten_upper(inf_eps(rational(4)));
+    ENSURE(search.upper() == inf_eps(rational(5)));
+    search.leave_region(l_undef);
+    search.tighten_upper(inf_eps(rational(3)));
+    ENSURE(search.upper() == inf_eps(rational(3)));
+    search.reset_regions();
+    ENSURE(search.upper() == inf_eps(rational(3)));
+
+    for (lbool status : {l_true, l_false, l_undef}) {
+        opt::objective_search trial(infinity);
+        trial.enter_region(inf_eps(rational(2)));
+        trial.enter_region(inf_eps(rational(1)));
+        trial.leave_region(status);
+        ENSURE(trial.upper() == (status == l_false ? inf_eps(rational(2)) : infinity));
+        trial.leave_region(l_undef);
+        ENSURE(trial.upper() == (status == l_false ? inf_eps(rational(2)) : infinity));
+    }
+    opt::objective_search bounded(inf_eps(rational(1)));
+    bounded.enter_region(inf_eps(rational(2)));
+    bounded.leave_region(l_false);
+    ENSURE(bounded.upper() == inf_eps(rational(1)));
+
+    opt::objective_search blockers(infinity);
+    blockers.exclude_below(inf_eps(rational(1)));
+    blockers.enter_region(inf_eps(rational(2)));
+    blockers.exclude_below(inf_eps(rational(6)));
+    blockers.leave_region(l_false);
+    ENSURE(blockers.upper() == inf_eps(rational(6)));
+    blockers.tighten_upper(inf_eps(rational(3)));
+    ENSURE(blockers.upper() == inf_eps(rational(3)));
+    blockers.enter_region(inf_eps(rational(10)));
+    blockers.reset_regions();
+    blockers.refute_region();
+    ENSURE(blockers.upper() == inf_eps(rational(1)));
+}
 
 // Solve two independent maximization problems over real x and y, both under
 // the constraints x <= 3 and y <= 7: first maximize x, then maximize y.
@@ -1266,6 +1326,73 @@ private:
     }
 };
 
+// Rejecting an unattainable LP hint already proves a cap. Keep it even if
+// the following geometric trial is interrupted, with LP certificates disabled.
+static void tst_refuted_hint_exits() {
+    for (search_exit exit : {search_exit::unknown, search_exit::cancel, search_exit::exception})
+    for (bool known_upper : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        opt::context ctx(m);
+        params_ref p;
+        p.set_bool("optsmt_nlsat", false);
+        p.set_bool("optsmt_dual_bounds", false);
+        p.set_uint("arith.solver", 6);
+        generic_model_converter fm(m, "refuted hint");
+        search_exit_solver s(m, p, fm, exit, 1);
+        opt::optsmt optimizer(m, ctx);
+        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
+        expr_ref zero(a.mk_numeral(rational(0), false), m);
+        s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
+        s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+        solver::scoped_push caller_scope(s);
+        s.assert_expr(a.mk_ge(x, zero));
+        ENSURE(s.check_sat(0, nullptr) == l_true);
+        model_ref mdl;
+        s.get_model(mdl);
+        ctx.set_model(mdl);
+        unsigned h = optimizer.add(to_app(x));
+        optimizer.setup(s);
+        optimizer.updt_params(p);
+        rational initial;
+        ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
+        optimizer.update_lower(h, opt::inf_eps(initial));
+        if (known_upper)
+            optimizer.update_upper(h, opt::inf_eps(rational(5)));
+        unsigned assertions = s.get_num_assertions();
+        bool threw = false;
+        try {
+            ENSURE(optimizer.lex(h, true) == l_undef);
+        }
+        catch (default_exception const& ex) {
+            ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
+            threw = true;
+        }
+        ENSURE(s.stopped && threw == (exit == search_exit::exception));
+        if (exit == search_exit::cancel) {
+            ENSURE(m.limit().is_canceled());
+            m.limit().reset_cancel();
+        }
+        auto upper = optimizer.get_upper(h).rational_bound();
+        ENSURE(upper.is_finite() && upper <= opt::inf_eps(rational(3)));
+        ENSURE(upper.get_rational() * upper.get_rational() >= rational(2));
+        ENSURE(s.get_scope_level() == 1 && s.get_num_assertions() == assertions);
+        svector<symbol> labels;
+        optimizer.get_model(mdl, labels);
+        rational value;
+        ENSURE(mdl && opt::model_value_bound(a, (*mdl)(x), true, value));
+        ENSURE(value == optimizer.get_lower(h).rational_bound().get_rational());
+        {
+            solver::scoped_push check_scope(s);
+            s.assert_expr(m.mk_eq(x, zero));
+            ENSURE(s.check_sat(0, nullptr) == l_true);
+        }
+        ENSURE(optimizer.lex(h, true) == l_undef);
+        ENSURE(s.get_scope_level() == 1 && s.get_num_assertions() == assertions);
+    }
+}
+
 // Maximize the real variable x subject to x >= 0 and x*x <= 2.
 // The feasible interval is [0, sqrt(2)], so the true maximum is sqrt(2).
 // With exact nlsat optimization disabled, this search keeps rational lower
@@ -1576,6 +1703,7 @@ static void tst_bitvector_bounds() {
 
 // Run all the optimization tests defined above.
 void tst_opt_bounds() {
+    tst_objective_search();
     std::cout << "opt_bounds: per-call arithmetic results\n";
     tst_maximize_result();
     std::cout << "opt_bounds: arithmetic scope exits\n";
@@ -1608,6 +1736,7 @@ void tst_opt_bounds() {
     tst_open_proof_budget();
     tst_fallback_intervals();
     tst_search_scope_exits();
+    tst_refuted_hint_exits();
     tst_open_integer_fallback();
     std::cout << "opt_bounds: reset and invalid indices\n";
     tst_reset_and_invalid_indices(false);

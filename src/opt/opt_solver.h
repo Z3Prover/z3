@@ -20,7 +20,7 @@ Notes:
 --*/
 #pragma once
 
-#include "opt/opt_value.h"
+#include "opt/opt_search.h"
 #include "ast/ast.h"
 #include "util/params.h"
 #include "solver/solver_na2as.h"
@@ -173,16 +173,6 @@ namespace opt {
         }
 
         void set_logic(symbol const& logic);
-
-        struct maximize_result {
-            // The no-model path accepts the hint without validating it.
-            bool bound_valid;
-            inf_eps hint;
-            // l_true: accepted; l_false: obj >= hint refuted; l_undef: undecided or unchecked.
-            lbool hint_status;
-            // Independent of hint attainability; justified by global premises or a refutation.
-            std::optional<rational> upper_bound;
-        };
 
         smt::theory_var add_objective(app* term);
         void reset_objectives();
