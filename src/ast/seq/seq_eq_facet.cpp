@@ -437,36 +437,105 @@ namespace seq {
                             v2_pos = a.mk_gt(u.str.mk_length(v2), a.mk_int(0));
                     }
 
-                    iterator* it = alloc(iterator, n, m, u);
+                    // Pack the five standard alternatives so they can be
+                    // reordered by length-bound feasibility before any of
+                    // them is materialized. Index: 0 = v1:=eps, 1 =
+                    // v2:=eps, 2 = v1:=v2, 3 = v1-extension, 4 =
+                    // v2-extension.
+                    struct branch { char const* name; expr* var; expr_ref_vector repl; expr* guard; bool progress; };
+                    vector<branch> br;
                     {
-                        expr_ref_vector empty(m);
-                        it->push_back("v2:=eps", v2, empty, eq_dep);
+                        expr_ref_vector e1(m);
+                        br.push_back(branch{ "v1:=eps", v1, e1, nullptr, true });
                     }
                     {
-                        // Equality case: v1 := v2, guarded to stay disjoint
-                        // from v1 := eps.
+                        expr_ref_vector e2(m);
+                        br.push_back(branch{ "v2:=eps", v2, e2, nullptr, true });
+                    }
+                    {
                         expr_ref_vector repl(m);
                         repl.push_back(v2);
-                        it->push_back("v1:=v2", v1, repl, eq_dep, v1_pos);
+                        br.push_back(branch{ "v1:=v2", v1, repl, v1_pos, true });
                     }
                     {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v2); repl.push_back(v1p); }
                         else     { repl.push_back(v1p); repl.push_back(v2); }
-                        it->push_back(fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, eq_dep, v1_pos, false);
+                        br.push_back(branch{ fwd ? "v1:=v2.v1'" : "v1:=v1'.v2", v1, repl, v1_pos, false });
                     }
                     {
                         expr_ref_vector repl(m);
                         if (fwd) { repl.push_back(v1); repl.push_back(v2p); }
                         else     { repl.push_back(v2p); repl.push_back(v1); }
-                        it->push_back(fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, eq_dep, v2_pos, false);
+                        br.push_back(branch{ fwd ? "v2:=v1.v2'" : "v2:=v2'.v1", v2, repl, v2_pos, false });
                     }
 
-                    // Materialize the first branch ("v1:=eps") now, in the
+                    // Try the branch that is most consistent with the
+                    // ambient context's current length bounds on v1/v2
+                    // first; this only reorders exploration (all five
+                    // alternatives are still produced), so it cannot
+                    // affect soundness or completeness. When bounds don't
+                    // discriminate, the order is unchanged from before:
+                    // v1:=eps, v2:=eps, v1:=v2, v1-ext, v2-ext.
+                    unsigned order[5] = { 0, 1, 2, 3, 4 };
+                    {
+                        auto len_lo_hi = [&](expr* v, rational& lo, bool& has_hi, rational& hi) {
+                            lo = rational::zero();
+                            has_hi = false;
+                            if (!u.is_seq(v->get_sort())) {
+                                // Character-sorted variables have length
+                                // exactly 1, never empty.
+                                lo = rational::one();
+                                has_hi = true;
+                                hi = rational::one();
+                                return;
+                            }
+                            eq_tree::dep_tracker dep = nullptr;
+                            ac.lower_bound(u.str.mk_length(v), lo, dep);
+                            has_hi = ac.upper_bound(u.str.mk_length(v), hi, dep);
+                        };
+                        rational lo1, hi1, lo2, hi2;
+                        bool has_hi1, has_hi2;
+                        len_lo_hi(v1, lo1, has_hi1, hi1);
+                        len_lo_hi(v2, lo2, has_hi2, hi2);
+                        bool v1_eps_ok = lo1.is_zero();
+                        bool v2_eps_ok = lo2.is_zero();
+                        unsigned pick = 2; // default: try equality first
+                        if (has_hi2 && lo1 > hi2)
+                            pick = 3; // v1 provably longer than any value v2 can take
+                        else if (has_hi1 && lo2 > hi1)
+                            pick = 4; // v2 provably longer than any value v1 can take
+                        unsigned pos = 0;
+                        if (v1_eps_ok)
+                            order[pos++] = 0;
+                        if (v2_eps_ok)
+                            order[pos++] = 1;
+                        order[pos++] = pick;
+                        for (unsigned k = 2; k <= 4; ++k)
+                            if (k != pick)
+                                order[pos++] = k;
+                        if (!v1_eps_ok)
+                            order[pos++] = 0;
+                        if (!v2_eps_ok)
+                            order[pos++] = 1;
+                        SASSERT(pos == 5);
+                    }
+
+                    iterator* it = alloc(iterator, n, m, u);
+                    for (unsigned i = 1; i < 5; ++i) {
+                        branch& b = br[order[i]];
+                        it->push_back(b.name, b.var, b.repl, eq_dep, b.guard, b.progress);
+                    }
+
+                    // Materialize the chosen first branch now, in the
                     // scope the driver already pushed for this call.
-                    expr_ref_vector empty(m);
-                    broadcast_subst(n, v1, empty, eq_dep);
-                    out = eq_tree::edge("v1:=eps", eq_dep, true, 0);
+                    branch& first = br[order[0]];
+                    broadcast_subst(n, first.var, first.repl, eq_dep);
+                    if (first.guard) {
+                        auto gc = get_ambient(n);
+                        gc.solver_facet_ref().add_constraint(first.guard, eq_dep);
+                    }
+                    out = eq_tree::edge(first.name, eq_dep, first.progress, 0);
                     committed = true;
                     m_stats.m_num_splits++;
                     return it;
