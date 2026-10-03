@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: RSoulatIOHK/z3test
-          ref: df7d7c5f66f603fc07991ece60c9a3e70eb91828
+          ref: ba8b14e7eafd0f1f3406f35c27a46bd9c7e24d80
           path: z3test
           sparse-checkout: regressions/finite_field
       - uses: actions/setup-python@v7
