@@ -145,3 +145,36 @@ lean --version
 
 No Mathlib or other external Lean packages are needed. Lake build artifacts
 remain under the ignored `lean/.lake/` directory.
+
+## Automated Lean proof checks
+
+The Python script `scripts/proofs/proof_matrix.py` and its tests are in
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs).
+The CI job uses the `z3test/` checkout from its default branch for both the
+Lean checks and the other Z3 tests.
+
+To run the same checks locally, clone z3test beside this Z3 checkout:
+
+```sh
+python3 ../z3test/scripts/proofs/proof_matrix.py \
+  --z3 "$PWD/build/z3" --z3-source "$PWD" \
+  --lean --cells legacy-proof-object --timeout 30 \
+  --lean-artifacts /tmp/lean-proof-artifacts --out /tmp/lean-proof-matrix.jsonl \
+  lean/examples/*.smt2
+```
+
+This requires a POSIX CMake build with the executable, shared library, and
+Python bindings in `build/`. The producer uses those bindings to solve once;
+the separate checking process consumes the saved native JSON and original input,
+without solving again. Records identify the producer and retain input,
+certificate, and checked Lean artifacts with their hashes.
+
+Every input must have status `lean-verified` for success. Unsupported inputs,
+sat/unknown, missing evidence, checking errors, and timeouts cause failure.
+The `releaseClang` CI job runs the tests and checks all six Boolean examples
+after installing Lean. It uploads the proof files even when a check fails.
+
+The [planned additional test inputs](../doc/lean-proof-plan.md#additional-input-files-future-plan)
+include seven examples from `jreeves3/SMT-Skeleton-Check` and the larger
+collections named in its CSV result files. These are future additions, not
+part of the six Boolean examples currently checked automatically.

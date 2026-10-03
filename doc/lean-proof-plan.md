@@ -9,17 +9,93 @@ is developed.
 
 ## Current integration status (2026-10-02)
 
-The Boolean exporter, Lean reconstructor, and preprocessing audit live in
-`examples/python/`, with the checking helper in `scripts/check_lean.sh` and
-the pinned workspace in `lean/`. They provide the standalone supported
-Boolean path; they do not certify arbitrary SMT inputs.
+`examples/python/proof_certificate.py` saves a native Z3 proof as JSON.
+`examples/python/proof_to_lean.py` translates that proof into Lean source and
+checks it. `examples/python/proof_preprocessing.py` checks that simplification
+steps preserve proof evidence connecting the result to the original assertions.
+`scripts/check_lean.sh` invokes the Lean version specified in
+`lean/lean-toolchain`. These tools currently support selected proofs over
+Boolean variables and operators, not arbitrary SMT inputs.
 
-The regression matrix, its tests, and its canaries moved to
+The Python script `scripts/proofs/proof_matrix.py` in
 [Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/scripts/proofs)
-in Z3Prover/z3#11008. Keep those files there. The matrix's optional `--lean`
-integration still needs an explicit connection to this checkout and a handoff
-of the exact measured certificate instead of a second solver run. The
-standalone exporter and reconstructor do not depend on that integration.
+runs input files through Z3 with different proof-generation and checking
+settings, then reports the results. Its automated tests and sample input files
+also live in that repository. With `--lean`, the script uses
+`examples/python/proof_certificate.py` to save a native Z3 proof and
+`examples/python/proof_to_lean.py` to check it with Lean.
+
+The `releaseClang` job in `.github/workflows/ci.yml` requires Lean to accept the
+proof for every Boolean example, reported as `lean-verified`. It saves the
+native JSON proof certificates and the checked Lean source files.
+These Lean checks and the other tests share the `z3test/` checkout from its
+default branch.
+`proof_certificate.py` and `proof_to_lean.py` can also be used directly,
+without `proof_matrix.py`.
+
+### Input files checked now
+
+The automated Lean checks use these six files in `lean/examples/`:
+
+- `unit_resolution.smt2`
+- `boolean_branching.smt2`
+- `boolean_def_axiom.smt2`
+- `boolean_rewrite.smt2`
+- `boolean_structural.smt2`
+- `boolean_solve_eqs.smt2`
+
+### Additional input files: future plan
+
+**Planned only; these files are not included in the current automated Lean
+checks.** Add the seven `.smt2` examples from
+[jreeves3/SMT-Skeleton-Check/formulas](https://github.com/jreeves3/SMT-Skeleton-Check/tree/main/formulas):
+
+| Logic | Input file |
+| --- | --- |
+| QF_UF | `simple-cong.smt2` |
+| QF_UF | `QG-classification-qg5-gensys_icl634.smt2` |
+| QF_LIA | `cut_lemmas-20-vars-cut_lemma_01_003.smt2` |
+| QF_LRA | `LassoRanker-CooperatingT2-efegp.t2.c_Iteration1_Lasso_3-pieceTemplate.smt2` |
+| QF_UFLIA | `wisas-xs_10_20.smt2` |
+| UF | `20170428-Barrett-cdt-cade2015-nada-afp-abstract_completeness-x2015_09_10_16_59_39_090_1045351.smt_in.smt2` |
+| UFLIA | `boogie-AdditiveMethods_AdditiveMethods..ctor.smt2` |
+
+These examples require support beyond Boolean variables: equality and
+uninterpreted functions, linear real or integer arithmetic, and, for UF and
+UFLIA, quantifiers. Before enabling each file, check that Z3 can read it,
+review cvc5-specific options such as `:simplification` without changing the
+assertions, and add the proof translation needed for Lean to check it.
+Keep these additional external test inputs in `Z3Prover/z3test`.
+
+### Larger collections of input files: future plan
+
+**Planned only; these collections are not included in the current automated
+Lean checks.** Obtain additional `.smt2` inputs using the benchmark names in
+the following CSV files in
+[jreeves3/SMT-Skeleton-Check/data/ijcar26](https://github.com/jreeves3/SMT-Skeleton-Check/tree/main/data/ijcar26):
+
+| Logic | CSV file containing benchmark names | Distinct names | Recorded as `unsat` |
+| --- | --- | ---: | ---: |
+| QF_UF | `QF_UF_cvc5-no-proof-rt.csv` | 7,503 | 4,356 |
+| QF_LIA | `QF_LIA_cvc5-no-proof-rt.csv` | 13,306 | 3,545 |
+| QF_LRA | `QF_LRA_cvc5-no-proof-rt.csv` | 1,753 | 696 |
+| QF_UFLIA | `QF_UFLIA_cvc5-no-proof-rt.csv` | 190 | 190 |
+| UF | `UF_cvc5-no-proof-rt.csv` | 2,857 | 702 |
+| UFLIA | `UFLIA_cvc5-no-proof-rt.csv` | 2,849 | 1,518 |
+
+The counts above describe the published CSV files inspected on 2026-10-02.
+Their `Name` columns identify benchmarks, not ready-to-use file paths. The
+repository provides only the seven example `.smt2` files listed above, not
+the complete collections. Obtain the remaining inputs separately.
+The recorded `unsat` results come from cvc5 runs; they are not Lean-checked
+results.
+
+Start with the entries recorded as `unsat`. Locate the original inputs,
+record their source and expected result, and store the selected test inputs
+and file lists in `Z3Prover/z3test`. Add them to automated Lean checking
+gradually as `proof_certificate.py` and `proof_to_lean.py` support their
+formulas and proof steps. Missing proof support must remain an explicit
+failure, not an accepted proof.
 
 The dated findings below describe earlier runs and retain their historical
 file paths. The Boolean-negation and arithmetic-coefficient fixes have since
