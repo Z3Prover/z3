@@ -19,6 +19,7 @@ Revision History:
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
+#include "ast/ff_decl_plugin.h"
 #include "api/api_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -30,6 +31,7 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
     return 
+        ff_util(mk_c(c)->m()).is_ff(_ty) ||
         fid == mk_c(c)->get_arith_fid() ||
         fid == mk_c(c)->get_bv_fid() ||
         fid == mk_c(c)->get_datalog_fid() ||
@@ -147,6 +149,7 @@ extern "C" {
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         return
+            ff_util(mk_c(c)->m()).is_numeral(e) ||
             mk_c(c)->autil().is_numeral(e) ||
             mk_c(c)->bvutil().is_numeral(e) ||
             mk_c(c)->fpautil().is_numeral(e) ||
@@ -161,6 +164,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
+        if (ff_util(mk_c(c)->m()).is_numeral(e, r)) return true;
         if (mk_c(c)->autil().is_numeral(e, r)) {
             return true;
         }

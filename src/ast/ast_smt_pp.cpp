@@ -24,6 +24,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/smt2_util.h"
 #include "ast/ast_smt_pp.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -303,6 +304,7 @@ class smt_printer {
     }
 
     void visit_sort(sort* s, bool bool2int = false) {
+        if (ff_util(m_manager).is_ff(s)) { m_out << mk_ismt2_pp(s,m_manager); return; }
         symbol sym;
         if (s->is_sort_of(m_bv_fid, BV_SORT)) {
             sym = symbol("BitVec");
@@ -397,6 +399,9 @@ class smt_printer {
         }
         else if (m_bvutil.is_numeral(n, val, bv_size)) {
             m_out << "(_ bv" << val << " " << bv_size << ")";
+        }
+        else if (ff_util(m_manager).is_numeral(n)) {
+            m_out << mk_ismt2_pp(n,m_manager);
         }
         else if (m_futil.is_numeral(n, float_val)) {
             m_out << mk_ismt2_pp(n, m_manager);

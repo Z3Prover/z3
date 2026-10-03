@@ -1,0 +1,9 @@
+z3_add_component(ff
+  SOURCES
+    ff_certificate.cpp
+    ff_f4.cpp
+    ff_polynomial.cpp
+    ff_tiny.cpp
+  COMPONENT_DEPENDENCIES
+    util
+)

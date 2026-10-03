@@ -106,6 +106,7 @@ namespace smt {
         params_ref                  m_params;
         ::statistics                m_aux_stats;
         setup                       m_setup;
+        family_id                   m_ff_fid;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
         region                      m_region;

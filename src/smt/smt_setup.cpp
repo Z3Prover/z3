@@ -39,6 +39,7 @@ Revision History:
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
+#include "smt/theory_ff.h"
 #include "smt/theory_polymorphism.h"
 #include "smt/theory_finite_set.h"
 #include "util/manage_warnings.h"
@@ -71,6 +72,12 @@ namespace smt {
         }
         setup_card();
         setup_sls();
+
+    }
+
+    void setup::setup_ff() {
+        setup_bv();
+        m_context.register_plugin(alloc(theory_ff, m_context));
     }
 
     void setup::setup_default() {
@@ -136,6 +143,8 @@ namespace smt {
             setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
+        else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+            setup_ff();
         else
             setup_unknown();
     }
@@ -206,6 +215,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "QF_FF" || m_logic == "QF_FFA")
+                setup_ff();
             else 
                 setup_unknown(st);
         }
@@ -816,6 +827,7 @@ namespace smt {
         setup_dl();
         setup_seq_str(st);
         setup_fpa();
+        setup_ff();
         setup_finite_set();
         setup_special_relations();
         setup_polymorphism();
@@ -851,6 +863,7 @@ namespace smt {
             setup_seq_str(st);
             setup_finite_set();
             setup_fpa();
+            setup_ff();
             setup_recfuns();
             setup_special_relations();
             setup_polymorphism();
@@ -919,6 +932,11 @@ namespace smt {
 
         if (st.num_theories() == 1 && st.m_has_fpa) {
             setup_QF_FP();
+            return;
+        }
+
+        if (st.num_theories() == 1 && st.m_has_ff) {
+            setup_ff();
             return;
         }
 
