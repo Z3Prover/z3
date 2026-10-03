@@ -2,10 +2,19 @@
 
 ## Goal and boundary
 
-Preserve Z3's native proof-producing architecture and add an independent Lean
-verification backend. Missing native proof evidence and checker correctness are
-separate obligations. Ordinary Z3 behavior stays unchanged while the integration
-is developed.
+The goal is unsat results from Z3 that an independent Lean checker accepts
+without trusting the solver. Z3's proof format is a means to that end, not
+something to preserve. The current low-level proof terms and clause logs are
+prone to regressions, because every simplifier and solver path has to thread
+proof evidence through by hand. The regression matrix below and the Lean checks
+exist to expose those regressions, and the format is free to change wherever a
+change makes the evidence more complete or easier to check. The exporter is a
+thin adapter over whatever evidence Z3 emits, so a format change is a change to
+the adapter, not to the Lean rules, which are tied to the meaning of each
+inference rather than to its encoding. Missing native proof evidence and
+checker correctness are separate obligations. Proof certification is opt-in,
+so users who do not request proofs see no change while the integration is
+developed.
 
 ## Current integration status (2026-10-02)
 
