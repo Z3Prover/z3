@@ -128,6 +128,16 @@ function render(r) {
     return lines.join('\n');
 }
 
+// The scans compare the tested merge commit with its first parent, the base
+// tip at scan time. pr.base.sha is only where the branch forked from the base,
+// so the artifact's base is checked against GitHub's own merge commit instead.
+async function reportMatchesMerge({github, owner, repo, report, pr}) {
+    const merge = await github.rest.repos.getCommit({owner, repo, ref: report.tested_sha})
+        .then(r => r.data, () => null);
+    return merge?.parents?.length === 2 &&
+        merge.parents[0].sha === report.base_sha && merge.parents[1].sha === pr.head.sha;
+}
+
 async function post({github, context, core, reportPath}) {
     const run = context.payload.workflow_run;
     const {owner, repo} = context.repo;
@@ -148,7 +158,7 @@ async function post({github, context, core, reportPath}) {
         const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: candidate.number});
         if (pr.state !== 'open' || pr.base.repo.full_name !== `${owner}/${repo}` ||
             pr.head.sha !== run.head_sha || pr.head.repo?.id !== run.head_repository.id ||
-            report && pr.base.sha !== report.base_sha) {
+            report && !await reportMatchesMerge({github, owner, repo, report, pr})) {
             core.info(`Skipping stale or unrelated report for #${pr.number}`);
             continue;
         }

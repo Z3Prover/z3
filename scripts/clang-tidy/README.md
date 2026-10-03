@@ -46,6 +46,8 @@ header diagnostics. Use `--jobs` for parallelism and `--filter` to select source
 
 `ast-order-warning-report.yml` checks changed sources and transitive header
 dependents on PRs, using `clang-scan-deps` on both base and the PR merge result.
+The base is the merge commit's first parent, the base branch tip at scan time,
+not `pull_request.base.sha`, which is where the branch forked from the base.
 Generated file changes are included. Build configuration or checker changes trigger
 full scans; master and nightly/manual runs also scan everything. Scans use all CPUs
 and cache completed reports. Compiler or scanner failures fail the job.
