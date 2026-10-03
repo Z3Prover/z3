@@ -1326,8 +1326,122 @@ private:
     }
 };
 
-// Rejecting an unattainable LP hint already proves a cap. Keep it even if
-// the following geometric trial is interrupted, with LP certificates disabled.
+// Objects shared by the steps of one run of tst_refuted_hint_exits. The
+// helpers below take it by reference so the driver reads step by step.
+struct refuted_hint_run {
+    ast_manager& m;
+    arith_util& a;
+    search_exit_solver& s;
+    opt::optsmt& optimizer;
+    expr_ref x;
+    expr_ref zero;
+    unsigned h = 0;            // optsmt handle of the objective x
+    unsigned assertions = 0;   // solver assertion count before the search
+};
+
+// Make the LP hint the only source of an upper bound: no exact nlsat
+// optimization and no dual-bound certificates. arith.solver 6 is the
+// arithmetic core whose relaxation produces the hint.
+static params_ref refuted_hint_params() {
+    params_ref p;
+    p.set_bool("optsmt_nlsat", false);
+    p.set_bool("optsmt_dual_bounds", false);
+    p.set_uint("arith.solver", 6);
+    return p;
+}
+
+// Assert the problem. The linear bound x <= 3 keeps the LP relaxation
+// bounded, so maximize_objective proposes the hint x = 3. The nonlinear
+// constraint x*x <= 2 makes that hint unattainable: validating x >= 3
+// against it is refuted, which by itself proves the cap x <= 3. The true
+// maximum is sqrt(2).
+static void assert_refuted_hint_problem(refuted_hint_run& r) {
+    r.s.assert_expr(r.a.mk_le(r.x, r.a.mk_numeral(rational(3), false)));
+    r.s.assert_expr(r.a.mk_le(r.a.mk_mul(r.x, r.x), r.a.mk_numeral(rational(2), false)));
+}
+
+// Register x as the objective and seed its lower bound from the model of an
+// initial check, as the optimization entry point does. On return the solver
+// is in the state optsmt::lex expects: satisfiable, with a model available.
+static void seed_objective(refuted_hint_run& r, params_ref& p, opt::context& ctx) {
+    ENSURE(r.s.check_sat(0, nullptr) == l_true);
+    model_ref mdl;
+    r.s.get_model(mdl);
+    ctx.set_model(mdl);
+    r.h = r.optimizer.add(to_app(r.x));
+    r.optimizer.setup(r.s);
+    r.optimizer.updt_params(p);
+    rational initial;
+    ENSURE(opt::model_value_bound(r.a, (*mdl)(r.x), true, initial));
+    r.optimizer.update_lower(r.h, opt::inf_eps(initial));
+}
+
+// Run one maximization with the forced stop armed. UNKNOWN and cancellation
+// make lex return l_undef; the test exception must escape unchanged. Either
+// way the stop must have fired, and a cancellation request must still be
+// pending afterwards: cleanup may not swallow it. Clear it only so the
+// remaining checks can use the solver.
+static void run_interrupted_lex(refuted_hint_run& r, search_exit exit) {
+    bool threw = false;
+    try {
+        ENSURE(r.optimizer.lex(r.h, true) == l_undef);
+    }
+    catch (default_exception const& ex) {
+        ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
+        threw = true;
+    }
+    ENSURE(r.s.stopped);
+    ENSURE(threw == (exit == search_exit::exception));
+    if (exit == search_exit::cancel) {
+        ENSURE(r.m.limit().is_canceled());
+        r.m.limit().reset_cancel();
+    }
+}
+
+// The cap proven by refuting the hint must survive the interrupted trial:
+// the upper bound is finite and at most 3, also when a looser cap was known
+// before the search. It must also stay sound. The interrupted trial
+// x >= best + 1 was never decided, so treating it as refuted would push the
+// cap below sqrt(2), the true maximum; hence upper * upper >= 2.
+static void check_refuted_cap(refuted_hint_run const& r) {
+    auto upper = r.optimizer.get_upper(r.h).rational_bound();
+    ENSURE(upper.is_finite() && upper <= opt::inf_eps(rational(3)));
+    ENSURE(upper.get_rational() * upper.get_rational() >= rational(2));
+}
+
+// Only the caller's scope may remain open and the assertion count must be
+// unchanged: every search scope and trial bound has been removed.
+static void check_solver_state_restored(refuted_hint_run const& r) {
+    ENSURE(r.s.get_scope_level() == 1);
+    ENSURE(r.s.get_num_assertions() == r.assertions);
+}
+
+// x = 0 satisfies the original constraints but violates every trial bound
+// x >= best + step. A leaked bound would make this check UNSAT.
+static void check_no_leaked_trial_bound(refuted_hint_run& r) {
+    solver::scoped_push check_scope(r.s);
+    r.s.assert_expr(r.m.mk_eq(r.x, r.zero));
+    ENSURE(r.s.check_sat(0, nullptr) == l_true);
+}
+
+// The model the optimizer reports must witness the lower bound it reports.
+static void check_best_model_matches_lower(refuted_hint_run& r) {
+    model_ref mdl;
+    svector<symbol> labels;
+    r.optimizer.get_model(mdl, labels);
+    rational value;
+    ENSURE(mdl && opt::model_value_bound(r.a, (*mdl)(r.x), true, value));
+    ENSURE(value == r.optimizer.get_lower(r.h).rational_bound().get_rational());
+}
+
+// Maximize real x subject to x <= 3 and x*x <= 2 with exact nlsat
+// optimization and LP dual-bound certificates disabled. The arithmetic
+// relaxation proposes the hint x = 3; validating x >= 3 fails because of
+// x*x <= 2. Rejecting that hint already proves the cap x <= 3. The search
+// then opens a trial scope with x >= best + 1, and the test forces an exit
+// there: an UNKNOWN answer, a cancellation, or an exception. Expect the cap
+// to survive the interruption and stay sound, and the solver and optimizer
+// to remain reusable with no leaked scopes or bounds.
 static void tst_refuted_hint_exits() {
     for (search_exit exit : {search_exit::unknown, search_exit::cancel, search_exit::exception})
     for (bool known_upper : {false, true}) {
@@ -1335,61 +1449,39 @@ static void tst_refuted_hint_exits() {
         reg_decl_plugins(m);
         arith_util a(m);
         opt::context ctx(m);
-        params_ref p;
-        p.set_bool("optsmt_nlsat", false);
-        p.set_bool("optsmt_dual_bounds", false);
-        p.set_uint("arith.solver", 6);
+        params_ref p = refuted_hint_params();
         generic_model_converter fm(m, "refuted hint");
+        // stop_at = 1: stop at the first scope opened below the caller's and
+        // optsmt::lex's own. Validating the hint uses push_core directly and
+        // does not raise the scope level, so the first such scope is the
+        // geometric trial x >= best + 1 that follows the refuted hint.
         search_exit_solver s(m, p, fm, exit, 1);
         opt::optsmt optimizer(m, ctx);
-        expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
-        expr_ref zero(a.mk_numeral(rational(0), false), m);
-        s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
-        s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+        refuted_hint_run r{m, a, s, optimizer,
+                           expr_ref(m.mk_const(symbol("x"), a.mk_real()), m),
+                           expr_ref(a.mk_numeral(rational(0), false), m)};
+        assert_refuted_hint_problem(r);
+        // Put x >= 0 in a scope that must survive the optimization call.
         solver::scoped_push caller_scope(s);
-        s.assert_expr(a.mk_ge(x, zero));
-        ENSURE(s.check_sat(0, nullptr) == l_true);
-        model_ref mdl;
-        s.get_model(mdl);
-        ctx.set_model(mdl);
-        unsigned h = optimizer.add(to_app(x));
-        optimizer.setup(s);
-        optimizer.updt_params(p);
-        rational initial;
-        ENSURE(opt::model_value_bound(a, (*mdl)(x), true, initial));
-        optimizer.update_lower(h, opt::inf_eps(initial));
+        s.assert_expr(a.mk_ge(r.x, r.zero));
+        seed_objective(r, p, ctx);
+        // A looser cap known before the search must be tightened to the
+        // refuted hint, not kept.
         if (known_upper)
-            optimizer.update_upper(h, opt::inf_eps(rational(5)));
-        unsigned assertions = s.get_num_assertions();
-        bool threw = false;
-        try {
-            ENSURE(optimizer.lex(h, true) == l_undef);
-        }
-        catch (default_exception const& ex) {
-            ENSURE(std::strcmp(ex.what(), "search scope test") == 0);
-            threw = true;
-        }
-        ENSURE(s.stopped && threw == (exit == search_exit::exception));
-        if (exit == search_exit::cancel) {
-            ENSURE(m.limit().is_canceled());
-            m.limit().reset_cancel();
-        }
-        auto upper = optimizer.get_upper(h).rational_bound();
-        ENSURE(upper.is_finite() && upper <= opt::inf_eps(rational(3)));
-        ENSURE(upper.get_rational() * upper.get_rational() >= rational(2));
-        ENSURE(s.get_scope_level() == 1 && s.get_num_assertions() == assertions);
-        svector<symbol> labels;
-        optimizer.get_model(mdl, labels);
-        rational value;
-        ENSURE(mdl && opt::model_value_bound(a, (*mdl)(x), true, value));
-        ENSURE(value == optimizer.get_lower(h).rational_bound().get_rational());
-        {
-            solver::scoped_push check_scope(s);
-            s.assert_expr(m.mk_eq(x, zero));
-            ENSURE(s.check_sat(0, nullptr) == l_true);
-        }
-        ENSURE(optimizer.lex(h, true) == l_undef);
-        ENSURE(s.get_scope_level() == 1 && s.get_num_assertions() == assertions);
+            optimizer.update_upper(r.h, opt::inf_eps(rational(5)));
+        r.assertions = s.get_num_assertions();
+
+        run_interrupted_lex(r, exit);
+        check_refuted_cap(r);
+        check_solver_state_restored(r);
+        check_best_model_matches_lower(r);
+        check_no_leaked_trial_bound(r);
+
+        // The forced stop fires only once. Rerun on the same objects: with
+        // exact optimization disabled the rational bounds still leave a gap
+        // around sqrt(2), so UNKNOWN is expected, again without leaks.
+        ENSURE(optimizer.lex(r.h, true) == l_undef);
+        check_solver_state_restored(r);
     }
 }
 
