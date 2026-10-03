@@ -499,7 +499,6 @@ void goal::elim_true() {
             if (unsat_core_enabled())
                 m().set(m_dependencies, j, dep);
         }
-        ++i;
         ++j;
     }
     shrink(j);
