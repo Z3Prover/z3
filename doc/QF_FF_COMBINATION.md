@@ -145,9 +145,9 @@ covering finite fields, SMT context, model evaluation and parametric datatypes.
 
 ```sh
 PYTHONPATH=build-ff-cmake/python Z3_LIBRARY_PATH=build-ff-cmake \
-  python3 tests/finite_field/test_ff_combination.py
+  python3 z3test/regressions/finite_field/test_ff_combination.py
 PYTHONPATH=build-ff-cmake/python Z3_LIBRARY_PATH=build-ff-cmake \
-  python3 tests/finite_field/test_ff_large_combination.py
+  python3 z3test/regressions/finite_field/test_ff_large_combination.py
 ```
 
 ## Measured large-field workloads

@@ -2,10 +2,10 @@ name: Finite-field regressions
 
 on:
   pull_request:
-    paths: ['src/**', 'tests/finite_field/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
+    paths: ['src/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
   push:
     branches: ['codex/qf-ff', 'codex/qf-ff-alethe-backend', 'master']
-    paths: ['src/**', 'tests/finite_field/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
+    paths: ['src/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
   workflow_dispatch:
 
 permissions:
@@ -21,6 +21,13 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Check out pinned finite-field regression harness
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: RSoulatIOHK/z3test
+          ref: df7d7c5f66f603fc07991ece60c9a3e70eb91828
+          path: z3test
+          sparse-checkout: regressions/finite_field
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -30,18 +37,18 @@ jobs:
           sudo apt-get install -y libgmp-dev
           python -m pip install 'cmake>=3.30,<4' ninja
       - name: Check runner failure handling
-        run: python tests/finite_field/test_ff_runner.py
+        run: python z3test/regressions/finite_field/test_ff_runner.py
       - name: Configure and build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_FF_TEST_DIR="$GITHUB_WORKSPACE/z3test/regressions/finite_field"
           cmake --build build --target z3 libz3 test-z3 test-ff-api build_z3_python_bindings --parallel 2
       - name: Run solver, integration and public API tests
-        run: python tests/finite_field/run_tests.py --build build --suite core --out test-results/core
+        run: python z3test/regressions/finite_field/run_tests.py --source . --build build --suite core --out test-results/core
       - name: Build pinned proof checkers
-        run: python tests/finite_field/proof_checkers/build.py --out proof-checkers
+        run: python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
       - name: Run certificate and rejection tests
         run: >-
-          python tests/finite_field/run_tests.py --build build --suite proofs
+          python z3test/regressions/finite_field/run_tests.py --source . --build build --suite proofs
           --carcara proof-checkers/carcara --ffpacheck proof-checkers/ffpacheck
           --out test-results/proofs
       - name: Upload test logs and checker provenance

@@ -104,7 +104,7 @@ DAG/Alethe-pair suite (including 144 exhaustively adjudicated systems) pass.
 Run the new suite with:
 
 ```sh
-python3 tests/finite_field/test_ff_boolean_proof.py --z3 build-ff-cmake/z3 \
+python3 z3test/regressions/finite_field/test_ff_boolean_proof.py --z3 build-ff-cmake/z3 \
   --carcara "$CARCARA" --ffpacheck "$FFPACHECK"
 ```
 
@@ -145,7 +145,7 @@ not establish superiority over CVC5's proof pipeline or the paper's different
 
 Raw outcomes, original inputs, proof bundles and checker logs are archived in
 `tests/finite_field/results/fmcad-proof-boolean-v2/`. A small Boolean/ITE bundle
-is tracked under `tests/finite_field/fixtures/certificates/artifact-boolean/`.
+is tracked under `z3test/regressions/finite_field/fixtures/certificates/artifact-boolean/`.
 
 The next coverage bottlenecks are bounded Boolean search and polynomial proof
 reconstruction. Root/field-completion evidence and theory-combination proofs
