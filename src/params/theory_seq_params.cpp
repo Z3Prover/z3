@@ -53,6 +53,7 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_block_compression = p.seq_block_compression();
     m_seq_monadic_leaf_root = p.seq_monadic_leaf_root();
     m_seq_monadic_leaf_budget_root = p.seq_monadic_leaf_budget_root();
+    m_seq_monadic_leaf_root_period = p.seq_monadic_leaf_root_period();
     m_seq_regex_precheck = p.seq_regex_precheck();
     m_seq_mem_monadic_endgame = p.seq_mem_monadic_endgame();
 }

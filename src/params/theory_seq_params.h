@@ -53,6 +53,14 @@ struct theory_seq_params {
     // and nielsen_graph::monadic_leaf_root_refute.
     bool m_seq_monadic_leaf_root = true;
     unsigned m_seq_monadic_leaf_budget_root = 50000;
+    // While equations/disequations are still pending, retry the root-only
+    // ask every `m_seq_monadic_leaf_root_period` split() visits instead of
+    // exactly once: a single long DFS (no outer-SMT restart) can run
+    // thousands of nodes before equations settle, and the memberships fed
+    // to the monadic engine change as substitutions and bound-derived
+    // regexes accumulate. 0 disables the retry (ask only once, the prior
+    // behavior).
+    unsigned m_seq_monadic_leaf_root_period = 64;
     // Gate for mem_facet's incremental single-variable regex-intersection
     // feasibility check (view_witness/vw().check() in mem_propagation),
     // mirroring c3's smt.nseq.regex_precheck.

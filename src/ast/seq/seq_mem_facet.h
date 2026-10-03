@@ -525,8 +525,15 @@ namespace seq {
         unsigned            m_budget;
         unsigned            m_budget_root;
         bool                m_declined_here = false;
-        // Not trailed: reset once per outer search by `reset_root_ask()`.
-        bool                m_root_asked = false;
+        // Not trailed: these persist across backtracking within one outer
+        // search (reset only by `reset_root_ask()`, called once per
+        // `final_check_eh`). `m_pending_visits` counts how many times
+        // `split()` has seen equations still unresolved; the root-only
+        // ask reruns every `seq.monadic_leaf_root_period` such visits
+        // instead of exactly once, so a long single-DFS search (no
+        // outer-SMT restarts) still gets repeated chances once more
+        // memberships/substitutions have materialized. See `split()`.
+        unsigned            m_pending_visits = 0;
         struct stats {
             unsigned m_num_asked = 0;
             unsigned m_num_refuted = 0;
@@ -603,7 +610,7 @@ namespace seq {
 
         // Called before each outer search to re-enable the root-only
         // refutation ask, even while equations are pending.
-        void reset_root_ask() { m_root_asked = false; }
+        void reset_root_ask() { m_pending_visits = 0; }
 
         void collect_statistics(::statistics& st) const override {
             st.update("seq-mem-leaf num asked", m_stats.m_num_asked);

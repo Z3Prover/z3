@@ -168,7 +168,8 @@ Abstract:
   BOOL_  (seq_monadic_leaf,                        "seq.monadic_leaf",                        true,                     "nseq: enable mem_leaf_split, the whole-language monadic decision over plain regex memberships") \
   UINT_  (seq_monadic_leaf_budget,                 "seq.monadic_leaf_budget",                 300000,                   "nseq: work budget for mem_leaf_split's per-node ask") \
   BOOL_  (seq_monadic_leaf_root,                   "seq.monadic_leaf_root",                   true,                     "nseq: run one refutation-only mem_leaf_split ask at the search root") \
-  UINT_  (seq_monadic_leaf_budget_root,            "seq.monadic_leaf_budget_root",            50000,                    "nseq: work budget for mem_leaf_split's root-only ask") \
+  UINT_  (seq_monadic_leaf_root_period,            "seq.monadic_leaf_root_period",              64,                       "nseq: while equations are pending, retry the root-only mem_leaf_split ask every N split() visits (0 = ask once only)") \
+  UINT_  (seq_monadic_leaf_budget_root,            "seq.monadic_leaf_budget_root",              50000,                    "nseq: work budget for mem_leaf_split's root-only ask") \
   BOOL_  (seq_regex_precheck,                      "seq.regex_precheck",                      true,                     "nseq: incremental single-variable regex-intersection feasibility check") \
   BOOL_  (seq_mem_monadic_endgame,                 "seq.mem_monadic_endgame",                 false,                    "nseq: use seq_monadic with ambient length bounds as the end-game witness solver") \
   UINT_  (seq_block_compression,                   "seq.block_compression",                   0,                        "nseq: split a variable against a whole character block at once; 0 means unlimited") \

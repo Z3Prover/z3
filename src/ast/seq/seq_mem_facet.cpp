@@ -978,12 +978,18 @@ namespace seq {
         if (!ac.fparams().m_seq_monadic_leaf)
             return nullptr;
         // Ordinary asks run only after equations and disequations are
-        // settled. The exception is a one-time root ask, even while
-        // equations are pending. `m_root_asked` is deliberately not
-        // trailed: it is a once-per-search event.
+        // settled. The exception is a root-only, refutation-only ask,
+        // retried every `seq.monadic_leaf_root_period` visits while
+        // equations are still pending (see `m_pending_visits`'s comment);
+        // not trailed, since it is meant to throttle across the whole
+        // outer search rather than per-branch.
         bool eqs_done = ac.eq_facet_ref().is_satisfied() && ac.deq_facet_ref().is_satisfied();
-        bool root_ask = !m_root_asked && ac.fparams().m_seq_monadic_leaf_root;
-        m_root_asked = true;
+        bool root_ask = false;
+        if (!eqs_done && ac.fparams().m_seq_monadic_leaf_root) {
+            unsigned period = ac.fparams().m_seq_monadic_leaf_root_period;
+            root_ask = (period == 0) ? (m_pending_visits == 0) : (m_pending_visits % period == 0);
+            ++m_pending_visits;
+        }
         if (!eqs_done && !root_ask)
             return nullptr;
         auto& mf = ac.mem_facet_ref();
