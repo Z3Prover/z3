@@ -1449,6 +1449,40 @@ static void tst_reset_and_invalid_indices(bool open) {
     ensure_finite_bounds(f, replacement, f.num(-1), Z3_INT_SORT);
 }
 
+static void tst_nested_objective() {
+    for (bool maximize : {false, true})
+    for (bool reverse : {false, true}) {
+        opt_fixture f;
+        Z3_ast p = Z3_mk_const(f.ctx, f.symbol("p"), Z3_mk_bool_sort(f.ctx));
+        Z3_ast q = Z3_mk_const(f.ctx, f.symbol("q"), Z3_mk_bool_sort(f.ctx));
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast zero = Z3_mk_int(f.ctx, 0, ints);
+        Z3_ast one = Z3_mk_int(f.ctx, 1, ints);
+        Z3_ast two = Z3_mk_int(f.ctx, 2, ints);
+        Z3_ast sum = f.sum(Z3_mk_ite(f.ctx, p, one, zero), Z3_mk_ite(f.ctx, q, two, zero));
+        // Preprocessing removes p, but verification still evaluates the original objective.
+        Z3_ast objective = Z3_mk_ite(f.ctx, Z3_mk_ge(f.ctx, one, sum),
+                                   reverse ? zero : one, reverse ? one : zero);
+        Z3_ast expected = maximize != reverse ? one : zero;
+        Z3_ast forced = reverse ? one : zero;
+        unsigned h = f.objective(objective, maximize);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, expected, Z3_INT_SORT);
+        ensure_model_value(f, objective, expected);
+
+        Z3_optimize_push(f.ctx, f.opt);
+        f.add(q);
+        f.add(Z3_mk_not(f.ctx, p));
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, forced, Z3_INT_SORT);
+        ensure_model_value(f, objective, forced);
+        Z3_optimize_pop(f.ctx, f.opt);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_finite_bounds(f, h, expected, Z3_INT_SORT);
+        ensure_model_value(f, objective, expected);
+    }
+}
+
 // Check max 7/3, min -5/2, and max 2 under x^2 <= 4.
 // Fractional bounds use Real numerals; the integral bound 2 uses Int numerals.
 static void tst_rational_bounds() {
@@ -1613,6 +1647,7 @@ void tst_opt_bounds() {
     tst_reset_and_invalid_indices(false);
     tst_reset_and_invalid_indices(true);
     std::cout << "opt_bounds: rational, infinity, epsilon, and BV compatibility\n";
+    tst_nested_objective();
     tst_rational_bounds();
     tst_infinity_and_epsilon();
     tst_symba_bounds();
