@@ -1463,7 +1463,7 @@ static void tst_nested_objective() {
         // Preprocessing removes p, but verification still evaluates the original objective.
         Z3_ast objective = Z3_mk_ite(f.ctx, Z3_mk_ge(f.ctx, one, sum),
                                    reverse ? zero : one, reverse ? one : zero);
-        Z3_ast expected = maximize != reverse ? one : zero;
+        Z3_ast expected = maximize ? one : zero;
         Z3_ast forced = reverse ? one : zero;
         unsigned h = f.objective(objective, maximize);
         ENSURE(f.check() == Z3_L_TRUE);
