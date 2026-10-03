@@ -567,7 +567,10 @@ namespace smt {
             setup_unknown();
         }
         else if (m_params.m_string_solver == "nseq") {
-            setup_nseq();
+            if (m_logic == "QF_SLIA")
+                setup_unknown();
+            else
+                setup_nseq();
         }
         else if (m_params.m_string_solver == "char") {
             setup_QF_BV();
