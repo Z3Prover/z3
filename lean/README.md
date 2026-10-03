@@ -10,13 +10,16 @@ rules are still unsupported.
 
 ## Check a native Z3 refutation
 
-From the repository root:
+The Boolean inputs live in
+[Z3Prover/z3test](https://github.com/Z3Prover/z3test/tree/master/regressions/proofs/lean)
+under `regressions/proofs/lean/`; the commands below assume a z3test checkout
+next to this repository. From the repository root:
 
 ```sh
 PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
-  lean/examples/unit_resolution.smt2 > /tmp/unit_resolution.json
+  ../z3test/regressions/proofs/lean/unit_resolution.smt2 > /tmp/unit_resolution.json
 PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
-  lean/examples/unit_resolution.smt2 /tmp/unit_resolution.json \
+  ../z3test/regressions/proofs/lean/unit_resolution.smt2 /tmp/unit_resolution.json \
   -o /tmp/unit_resolution.lean
 ```
 
@@ -65,12 +68,12 @@ proof mode:
 
 ```sh
 PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
-  lean/examples/boolean_solve_eqs.smt2 --require-search
+  ../z3test/regressions/proofs/lean/boolean_solve_eqs.smt2 --require-search
 ```
 
 It compares the simplifier and tactic APIs with proofs off/on and reports native
 proofs, elimination/search statistics, and actual Lean replay results as JSON.
-For a preprocessing-only contradiction, use `lean/examples/unit_resolution.smt2`
+For a preprocessing-only contradiction, use `../z3test/regressions/proofs/lean/unit_resolution.smt2`
 without `--require-search`. Refutations are checked against the original input,
 not a replacement goal.
 
@@ -160,7 +163,7 @@ python3 ../z3test/scripts/proofs/proof_matrix.py \
   --z3 "$PWD/build/z3" --z3-source "$PWD" \
   --lean --cells legacy-proof-object --timeout 30 \
   --lean-artifacts /tmp/lean-proof-artifacts --out /tmp/lean-proof-matrix.jsonl \
-  lean/examples/*.smt2
+  ../z3test/regressions/proofs/lean/*.smt2
 ```
 
 This requires a POSIX CMake build with the executable, shared library, and

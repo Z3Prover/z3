@@ -44,7 +44,7 @@ without `proof_matrix.py`.
 
 ### Input files checked now
 
-The automated Lean checks use these six files in `lean/examples/`:
+The automated Lean checks use these six files in `z3test/regressions/proofs/lean/`:
 
 - `unit_resolution.smt2`
 - `boolean_branching.smt2`
@@ -380,11 +380,11 @@ Installation and usage are documented in `lean/README.md`.
 - Check with the pinned Lean toolchain before atomically publishing a `.lean`
   artifact. Fail explicitly for malformed certificates, changed assumptions,
   unsupported rules, and Lean errors.
-- Exercise complete examples using `lean/examples/unit_resolution.smt2`,
-  `lean/examples/boolean_rewrite.smt2`, and
-  `lean/examples/boolean_structural.smt2`, plus scoped learning in
-  `lean/examples/boolean_branching.smt2` and gate clauses in
-  `lean/examples/boolean_def_axiom.smt2`. Cover Boolean truth tables, chained
+- Exercise complete examples using `z3test/regressions/proofs/lean/unit_resolution.smt2`,
+  `z3test/regressions/proofs/lean/boolean_rewrite.smt2`, and
+  `z3test/regressions/proofs/lean/boolean_structural.smt2`, plus scoped learning in
+  `z3test/regressions/proofs/lean/boolean_branching.smt2` and gate clauses in
+  `z3test/regressions/proofs/lean/boolean_def_axiom.smt2`. Cover Boolean truth tables, chained
   and shared proof steps, all Boolean congruence operators, both elimination
   orientations, large congruences without truth tables, forged structural
   premises/conclusions, false or unused rewrites, nested and shared hypothesis
@@ -438,7 +438,7 @@ each with proof generation off and on. It records elimination and search
 statistics separately from proof validity and checks every available native
 refutation against the original input using the existing Lean consumer.
 
-`lean/examples/boolean_solve_eqs.smt2` requires its equality for unsatisfiability:
+`z3test/regressions/proofs/lean/boolean_solve_eqs.smt2` requires its equality for unsatisfiability:
 elimination leaves four clauses and search still makes decisions and conflicts.
 Use `--require-search` for this case. The existing unit-resolution example
 covers contradictions closed by preprocessing alone; a search step is not

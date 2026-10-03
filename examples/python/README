@@ -159,21 +159,23 @@ Other proof rules, including rewrite*, mp~, definition introduction,
 and theory lemmas, fail explicitly. Consequently, many
 otherwise propositional Z3 refutations are still unsupported.
 
-Install the pinned Lean toolchain as described in lean/README.md. Then, from
-the repository root, run this end-to-end example:
+Install the pinned Lean toolchain as described in lean/README.md. The Boolean
+inputs live in Z3Prover/z3test under regressions/proofs/lean/; the commands
+below assume a z3test checkout next to this repository. From the repository
+root, run this end-to-end example:
 
     PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
-        lean/examples/unit_resolution.smt2 > /tmp/unit_resolution.json
+        ../z3test/regressions/proofs/lean/unit_resolution.smt2 > /tmp/unit_resolution.json
     PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
-        lean/examples/unit_resolution.smt2 /tmp/unit_resolution.json \
+        ../z3test/regressions/proofs/lean/unit_resolution.smt2 /tmp/unit_resolution.json \
         -o /tmp/unit_resolution.lean
 
 To exercise implication rewriting and mp as well:
 
     PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
-        lean/examples/boolean_rewrite.smt2 > /tmp/boolean_rewrite.json
+        ../z3test/regressions/proofs/lean/boolean_rewrite.smt2 > /tmp/boolean_rewrite.json
     PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
-        lean/examples/boolean_rewrite.smt2 /tmp/boolean_rewrite.json \
+        ../z3test/regressions/proofs/lean/boolean_rewrite.smt2 /tmp/boolean_rewrite.json \
         -o /tmp/boolean_rewrite.lean
 
 To also exercise trans, monotonicity, and not-or-elim, replace boolean_rewrite
@@ -258,7 +260,7 @@ defaults. It currently accepts the same propositional input fragment.
 Exercise an essential Boolean equality followed by branching search:
 
     PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
-        lean/examples/boolean_solve_eqs.smt2 --require-search
+        ../z3test/regressions/proofs/lean/boolean_solve_eqs.smt2 --require-search
 
 Here, removing (= p q) makes the original constraints satisfiable. solve-eqs
 eliminates one variable but leaves four clauses; subsequent search reports
@@ -266,7 +268,7 @@ positive decision and conflict counts. Also cover goals discharged entirely by
 preprocessing, where requiring a search step would be inappropriate:
 
     PYTHONPATH=build/python python3 examples/python/proof_preprocessing.py \
-        lean/examples/unit_resolution.smt2
+        ../z3test/regressions/proofs/lean/unit_resolution.smt2
 
 Exit status 0 requires unsat and observed solve-eqs variable elimination in all
 four runs, plus successful Lean reconstruction for both proof-enabled runs.

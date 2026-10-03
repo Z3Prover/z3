@@ -377,7 +377,7 @@ jobs:
             --lean --cells legacy-proof-object --timeout 30 \
             --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
             --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
-            lean/examples/*.smt2
+            z3test/regressions/proofs/lean/*.smt2
 
       - name: Upload native and Lean proof artifacts
         if: always() && matrix.name == 'releaseClang'
