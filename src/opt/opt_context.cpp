@@ -1495,6 +1495,7 @@ namespace opt {
         expr_ref val(m);
         model_ref mdl = md->copy();
         fix_model(mdl);
+        mdl->set_model_completion(true);
         val = (*mdl)(term);
         unsigned bvsz;
         if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bvsz)) {
