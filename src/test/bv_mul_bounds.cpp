@@ -375,9 +375,9 @@ static void test_mul_bounds_qfbv_depth() {
     z3::apply_result result = z3::tactic(ctx, "qfbv")(g);
     ENSURE(result.size() == 1);
     ENSURE(result[0].inconsistent());
-    // Preserve the existing QF_BV preprocessing depth for unrelated goals,
-    // including the official qfbv-quant SMT-LIB regression.
-    ENSURE(result[0].depth() == 8);
+    // The independent multiplication-bounds stage advances the goal depth,
+    // including for the official qfbv-quant SMT-LIB regression.
+    ENSURE(result[0].depth() == 9);
 }
 
 void tst_bv_mul_bounds() {
