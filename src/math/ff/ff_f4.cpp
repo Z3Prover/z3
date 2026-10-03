@@ -1312,7 +1312,10 @@ namespace ff {
                 }
                 if (rabinowitsch >= 0)
                     terms.push_back({M.one(), f.neg(f.one())});
-                std::sort(terms.begin(), terms.end(), [&](auto const &a, auto const &b) { return M.cmp(a.first, b.first) > 0; });
+                // Ties here are genuine duplicate (interned) monomial ids merged below via
+                // commutative addition, so stability is not required for correctness, but we
+                // use stable_sort for consistency with the other leading-monomial sorts.
+                std::stable_sort(terms.begin(), terms.end(), [&](auto const &a, auto const &b) { return M.cmp(a.first, b.first) > 0; });
                 for (auto const &[m, c] : terms) {
                     if (!q.mons.empty() && q.mons.back() == m) {
                         q.coefs.back() = f.add(q.coefs.back(), c);
