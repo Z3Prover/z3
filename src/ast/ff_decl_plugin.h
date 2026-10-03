@@ -141,6 +141,6 @@ public:
 
     // true if e is an FF-interpreted operator (add/mul/neg/bitsum/numeral).
     bool is_interp(expr *e) const {
-        return is_add(e) || is_mul(e) || is_neg(e) || is_bitsum(e) || is_numeral(e);
+        return is_app(e) && to_app(e)->get_family_id() == m_fid;
     }
 };
