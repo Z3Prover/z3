@@ -25,6 +25,7 @@ Author:
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
 #include "params/smt_params_helper.hpp"
+#include "util/dependency.h"
 #include <memory>
 
 namespace smt {
@@ -66,7 +67,8 @@ namespace smt {
             };
             std::vector<constraint> inputs;
             obj_map<expr, expr *> normalized;
-            obj_map<expr, std::set<unsigned>> normalization_deps;
+            u_dependency_manager dep;
+            obj_map<expr, u_dependency *> normalization_deps;
             obj_map<expr, unsigned> &variable_ids;
             obj_map<expr, rational> evaluated;
             expr_ref_vector pins;
@@ -112,13 +114,14 @@ namespace smt {
                     if (!ready)
                         continue;
                     expr_ref_vector args(m);
-                    std::set<unsigned> deps;
+                    u_dependency *deps = nullptr;
                     for (expr *arg : *a) {
                         args.push_back(normalized.find(arg));
-                        std::set<unsigned> const &used = normalization_deps.insert_if_not_there(arg, std::set<unsigned>());
-                        deps.insert(used.begin(), used.end());
+                        u_dependency *used = nullptr;
+                        normalization_deps.find(arg, used);
+                        deps = dep.mk_join(deps, used);
                     }
-                    normalization_deps.insert(e, std::move(deps));
+                    normalization_deps.insert(e, deps);
                     expr_ref value = rw.mk_app(a->get_decl(), args);
                     pins.push_back(value);
                     normalized.insert(e, value);
@@ -184,9 +187,10 @@ namespace smt {
                 for (unsigned i : order) {
                     expr *value = normalize(defs[i]);
                     normalized.insert(vars[i], value);
-                    std::set<unsigned> deps = normalization_deps.insert_if_not_there(defs[i], std::set<unsigned>());
-                    deps.insert(chosen[i]);
-                    normalization_deps.insert(vars[i], std::move(deps));
+                    u_dependency *deps = nullptr;
+                    normalization_deps.find(defs[i], deps);
+                    deps = dep.mk_join(deps, dep.mk_leaf(chosen[i]));
+                    normalization_deps.insert(vars[i], deps);
                     removed.insert(chosen[i]);
                 }
                 for (unsigned i = 0; i < inputs.size(); ++i) {
@@ -194,9 +198,11 @@ namespace smt {
                         continue;
                     auto [a, b, equality] = inputs[i];
                     expr *lhs_term = normalize(a), *rhs_term = normalize(b);
-                    std::set<unsigned> dependencies = normalization_deps.insert_if_not_there(a, std::set<unsigned>());
-                    std::set<unsigned> const &rhs_deps = normalization_deps.insert_if_not_there(b, std::set<unsigned>());
-                    dependencies.insert(rhs_deps.begin(), rhs_deps.end());
+                    u_dependency *dependencies = nullptr;
+                    normalization_deps.find(a, dependencies);
+                    u_dependency *rhs_deps = nullptr;
+                    normalization_deps.find(b, rhs_deps);
+                    dependencies = dep.mk_join(dependencies, rhs_deps);
                     a = lhs_term;
                     b = rhs_term;
                     // After justified substitution, t=t imposes no residual
@@ -212,8 +218,10 @@ namespace smt {
                     }
                     if (f.empty() && equality)
                         continue;
-                    f.dependencies = dependencies;
-                    f.dependencies.insert(i);
+                    dependencies = dep.mk_join(dependencies, dep.mk_leaf(i));
+                    vector<unsigned, false> flat;
+                    dep.linearize(dependencies, flat);
+                    f.dependencies.insert(flat.begin(), flat.end());
                     (equality ? eqs : neqs).push_back(std::move(f));
                 }
             }
