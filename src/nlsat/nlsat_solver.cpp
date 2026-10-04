@@ -2047,6 +2047,11 @@ namespace nlsat {
                                    << " :learned " << m_learned.size() << ")\n");
                         continue;
                     }
+                    if (!m_transcendentals.empty()) {
+                        // An enclosure containing the candidate does not
+                        // certify that it is the function's exact value.
+                        r = l_undef;
+                    }
                     break;
                 }
 
