@@ -355,6 +355,31 @@ void tst_smt_context()
     }
 
     {
+        // Regression (z3 issue #4600 benchmark): solve-eqs turned the guarded
+        // pointwise definition of indx1 into a lambda although indx1 is also an
+        // argument of the uninterpreted `length`; MBQI then gave up with
+        // "incomplete (theory array)" on a satisfiable goal.
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.params().set_rlimit(5000000);
+        std::istringstream is(
+            "(declare-fun length ((Array Int Int)) Int)\n"
+            "(declare-const lindx2 (Array Int Int))\n"
+            "(declare-const indx1 (Array Int Int))\n"
+            "(declare-const orig_findx1 (Array Int Int))\n"
+            "(assert (and\n"
+            "  (forall ((i Int) (j Int))\n"
+            "    (let ((a!1 (and (<= 0 i) (<= i (- (length indx1) 1))\n"
+            "                    (<= 0 j) (<= j (- (length orig_findx1) 1)) (= i j))))\n"
+            "      (=> a!1 (= (select indx1 i) (select orig_findx1 j)))))\n"
+            "  (= (length lindx2) 11)\n"
+            "  (forall ((i Int)) (=> (and (<= 3 i) (<= i 25)) (= (select indx1 i) (- 1))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
+    }
+
+    {
         arith_util a(m);
         sort* s = a.mk_int();
         symbol name("x");

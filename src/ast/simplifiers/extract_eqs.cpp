@@ -461,6 +461,27 @@ break;
     class array_extract_eq : public extract_eq {
         ast_manager& m;
         array_util   a;
+        // Array constants with an occurrence that is not the array argument of
+        // a select (e.g. an argument of an uninterpreted function such as a
+        // `length` function, a store, or an equality between arrays). Replacing
+        // such an occurrence by a lambda produces terms the solver handles
+        // poorly (MBQI gives up with "incomplete (theory array)"), so these
+        // arrays are not solved.
+        obj_hashtable<expr> m_blocked;
+
+        void collect_blocked(expr* f) {
+            for (expr* t : subterms::all(expr_ref(f, m))) {
+                if (!is_app(t))
+                    continue;
+                app* ap = to_app(t);
+                unsigned first = a.is_select(ap) ? 1 : 0;
+                for (unsigned i = first; i < ap->get_num_args(); ++i) {
+                    expr* arg = ap->get_arg(i);
+                    if (is_uninterp_const(arg) && a.is_array(arg->get_sort()))
+                        m_blocked.insert(arg);
+                }
+            }
+        }
 
         bool is_select_of_vars(expr* e, unsigned n, app*& sel) {
             if (!a.is_select(e)) return false;
@@ -512,6 +533,7 @@ break;
             else return;
             expr* A = sel->get_arg(0);
             if (!is_uninterp_const(A)) return;
+            if (m_blocked.contains(A)) return;
             if (occurs_in(A, def) || (guard && occurs_in(A, guard))) return;
             if (has_quantifiers(def) || (guard && has_quantifiers(guard))) return;
             expr_ref lam_body(def, m);
@@ -525,6 +547,12 @@ break;
             }
             expr_ref lam(m.mk_lambda(n, q->get_decl_sorts(), q->get_decl_names(), lam_body), m);
             eqs.push_back(dependent_eq(f, to_app(A), lam, d));
+        }
+
+        void pre_process(dependent_expr_state& fmls) override {
+            m_blocked.reset();
+            for (unsigned i = 0; i < fmls.qtail(); ++i)
+                collect_blocked(fmls[i].fml());
         }
     };
 
