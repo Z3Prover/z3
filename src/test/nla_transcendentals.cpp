@@ -223,6 +223,23 @@ void test_pi_positive_sat() {
     Z3_del_context(ctx);
 }
 
+void test_atan2_unsat_regression() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic QF_NTA)\n"
+        "(declare-const y Real)\n"
+        "(assert (< y 1))\n"
+        "(assert (> (atan2 y 1) 0.5))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "sat\n")
+        std::cout << response << "\n";
+    VERIFY(response == "sat\n");
+    Z3_del_context(ctx);
+}
+
 void test_nla_transcendentals() {
     test_sin_cos_identity_detects_conflict();
     test_cosh_sinh_identity_detects_conflict();
@@ -230,6 +247,7 @@ void test_nla_transcendentals() {
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
     test_pi_positive_sat();
+    test_atan2_unsat_regression();
 }
 
 } // namespace nla
