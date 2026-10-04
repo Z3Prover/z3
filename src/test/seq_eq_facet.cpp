@@ -22,7 +22,10 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_assumption_facet.h"
 #include "smt/seq_solver_facet.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
 #include <iostream>
 
 namespace {
@@ -47,11 +50,13 @@ namespace {
         seq::sub_solver solver(m, a, tree.dep_mgr());
         stx::facet_id id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
         stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
         root->facet_as<seq::eq_facet>(id).add_equation(lhs, rhs);
 
         seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
         ac.set_eq_id(id);
         ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
         tree.set_ambient_context(&ac);
 
         tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
@@ -417,6 +422,82 @@ namespace {
         ENSURE(tree.solve() == stx::search_result::unsat);
     }
 
+    static void tst_deq_split_multiple_units_sat() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        auto eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        auto deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        auto arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        auto assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_deq_id(deq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_const("y", a.mk_int()), m);
+        expr_ref z(m.mk_const("z", a.mk_int()), m);
+        expr_ref ux(u.str.mk_unit(x), m), uy(u.str.mk_unit(y), m), uz(u.str.mk_unit(z), m);
+        auto& df = root->facet_as<seq::deq_facet>(deq_id);
+        df.add_disequation(mk_toks(u, m, ux), mk_toks(u, m, uy));
+        df.add_disequation(mk_toks(u, m, uy), mk_toks(u, m, uz));
+        tree.add_propagation_plugin(alloc(seq::deq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_split_plugin(alloc(seq::deq_split, m, u));
+        tree.set_max_nodes(32);
+        ENSURE(tree.solve() == stx::search_result::sat);
+        ENSURE(df.disequations()[0].active() && df.disequations()[1].active());
+        ENSURE(root->facet_as<seq::assumption_facet>(assumption_id).assumptions().empty());
+    }
+
+    static void check_length_model(ast_manager& m, expr* element, unsigned length, bool word_equation) {
+        seq_util u(m);
+        arith_util a(m);
+        params_ref p;
+        p.set_sym("string_solver", symbol("nseq"));
+        p.set_bool("model", true);
+        ref<solver> s = mk_smt_solver(m, p, symbol("ALL"));
+        sort_ref seq_sort(u.str.mk_seq(element->get_sort()), m);
+        expr_ref x(m.mk_const("x", seq_sort), m), y(m.mk_const("y", seq_sort), m);
+        expr_ref_vector assertions(m);
+        assertions.push_back(m.mk_eq(u.str.mk_length(x), a.mk_int(length)));
+        if (word_equation) {
+            expr_ref unit(u.str.mk_unit(element), m);
+            assertions.push_back(m.mk_eq(u.str.mk_concat(x, unit), u.str.mk_concat(unit, y)));
+        }
+        for (expr* assertion : assertions)
+            s->assert_expr(assertion);
+        ENSURE(s->check_sat(0, nullptr) == l_true);
+        model_ref md;
+        s->get_model(md);
+        ENSURE(md);
+        for (expr* assertion : assertions)
+            ENSURE(md->is_true(assertion));
+    }
+
+    static void tst_nseq_length_model() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        arith_util a(m);
+        seq_util u(m);
+        expr_ref_vector elements(m);
+        elements.push_back(a.mk_int(1));
+        elements.push_back(m.mk_true());
+        elements.push_back(u.str.mk_char('a'));
+        for (expr* element : elements)
+            for (unsigned length : { 0u, 1u, 3u })
+                for (bool word_equation : { false, true })
+                    check_length_model(m, element, length, word_equation);
+    }
+
 } // namespace
 
     // Block compression should solve `X.a.Y = aaaa.b` within depth 1.
@@ -446,7 +527,9 @@ void tst_seq_eq_facet() {
     tst_eq_split_progress_sat();
     tst_deq_split_free_vars_sat();
     tst_deq_split_equal_consts_unsat();
+    tst_deq_split_multiple_units_sat();
     tst_word_eq_split_char_eq_sat();
     tst_block_compression_sat();
+    tst_nseq_length_model();
     std::cout << "seq_eq_facet: all tests passed\n";
 }

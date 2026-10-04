@@ -864,6 +864,8 @@ namespace seq {
 
         for (unsigned idx = 0; idx < f.disequations().size(); ++idx) {
             deq_facet::disequation const& dq = f.disequations()[idx];
+            if (!dq.active())
+                continue;
             if (dq.m_lhs.empty() || dq.m_rhs.empty())
                 continue; // resolved by propagation; shouldn't occur
             has_more = true;

@@ -658,8 +658,15 @@ namespace smt {
             if (!sf->value(len_t, len) || !len.is_unsigned())
                 return fallback;
             unsigned n_len = len.get_unsigned();
-            if (!m_seq.is_string(t->get_sort()))
-                return fallback;
+            if (!m_seq.is_string(t->get_sort())) {
+                expr_ref_vector units(m);
+                m_seq.str.get_concat_units(fallback, units);
+                SASSERT(!units.empty());
+                units.resize(n_len, units.back());
+                expr* result = m_seq.str.mk_concat(units.size(), units.data(), t->get_sort());
+                m_factory->add_trail(result);
+                return result;
+            }
             zstring s;
             if (m_seq.str.is_string(fallback, s) && s.length() == n_len)
                 return fallback;
