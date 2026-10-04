@@ -474,67 +474,9 @@ namespace smt {
     }
 
     expr_ref theory_ff::square_root_term(expr *e) {
-        rational value, root;
-        if (ff.is_numeral(e, value)) {
-            // An integer square representative is also a square modulo p.
-            // Failure here is not a nonresidue test: leave other residues to
-            // algebra. In particular, do not discard modular-only square roots.
-            if (value.is_int_perfect_square(root))
-                return expr_ref(ff.mk_numeral(root, e->get_sort()), m);
-            return expr_ref(m);
-        }
-        if (!ff.is_mul(e) || to_app(e)->get_num_args() > 16)
-            return expr_ref(m);
-        obj_map<expr, unsigned> powers;
-        rational coefficient(1);
-        // Binary associative ASTs may hide repeated factors at different
-        // depths. Flatten the product, retaining every occurrence: a visited
-        // set would incorrectly turn x*x into x and invalidate the square test.
-        ptr_vector<expr> pending;
-        pending.push_back(e);
-        unsigned factor_count = 0;
-        while (!pending.empty()) {
-            if (!m.inc())
-                return expr_ref(m);
-            expr *arg = pending.back();
-            pending.pop_back();
-            if (ff.is_mul(arg)) {
-                for (expr *factor : *to_app(arg))
-                    pending.push_back(factor);
-            }
-            else {
-                if (++factor_count > 16)
-                    return expr_ref(m);
-                if (ff.is_numeral(arg, value))
-                    coefficient = mod(coefficient * value, ff.modulus(e->get_sort()));
-                else
-                    ++powers.insert_if_not_there(arg, 0u);
-            }
-        }
-        if (!coefficient.is_int_perfect_square(root))
-            return expr_ref(m);
-        expr_ref_vector factors(m);
-        if (!root.is_one())
-            factors.push_back(ff.mk_numeral(root, e->get_sort()));
-        // Every symbolic factor must have even multiplicity. Halving these
-        // multiplicities constructs A with e=A*A, without distributing products
-        // of sums or assuming anything about the values of symbolic factors.
-        for (auto const &kv : powers) {
-            expr *arg = &kv.get_key();
-            unsigned power = kv.get_value();
-            if (power % 2)
-                return expr_ref(m);
-            for (unsigned i = 0; i < power / 2; ++i)
-                factors.push_back(arg);
-        }
-        expr_ref result(m);
-        if (factors.empty())
-            result = ff.mk_numeral(rational(1), e->get_sort());
-        else if (factors.size() == 1)
-            result = factors.get(0);
-        else
-            result = ff.mk_mul(factors);
-        rw(result);
+        expr_ref result = ff.square_root(e);
+        if (result)
+            rw(result);
         return result;
     }
 
