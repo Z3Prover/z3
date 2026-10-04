@@ -23,10 +23,90 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/has_free_vars.h"
+#include "ast/used_vars.h"
 
 distribute_forall::distribute_forall(ast_manager & m) :
     m_manager(m),
+    m_autil(m),
     m_cache(m) {
+}
+
+// The or-argument is a negated conjunct. Accept (not (= s t)) where s or t is a
+// select over a ground array, i.e. the bound variables only occur as indices
+// (or on the other side of the equation) and the quantifier does not range
+// over arrays.
+bool distribute_forall::is_array_select_eq(expr * arg) const {
+    expr * e = nullptr, * lhs = nullptr, * rhs = nullptr;
+    if (!m_manager.is_not(arg, e) || !m_manager.is_eq(e, lhs, rhs))
+        return false;
+    bool is_sel = false;
+    for (expr * side : { lhs, rhs }) {
+        if (!m_autil.is_select(side))
+            continue;
+        if (has_free_vars(to_app(side)->get_arg(0)))
+            return false;
+        is_sel = true;
+    }
+    return is_sel;
+}
+
+// True if some bound variable of the quantifier does not occur in the conjunct,
+// so the quantifier obtained for it binds fewer variables (elim_unused_vars).
+bool distribute_forall::omits_bound_var(expr * arg, unsigned num_decls) const {
+    used_vars uv;
+    uv(arg);
+    for (unsigned i = 0; i < num_decls; ++i)
+        if (!uv.contains(i))
+            return true;
+    return false;
+}
+
+// True if the conjunct applies an uninterpreted function (including Skolem
+// functions introduced for nested existentials) to a term with bound variables.
+// Splitting such conjunctions separates the occurrences that E-matching and
+// nested quantifier reasoning rely on, so restricted mode keeps them together.
+bool distribute_forall::has_uninterp_over_bound_vars(expr * arg) const {
+    ptr_vector<expr> todo;
+    ast_mark visited;
+    todo.push_back(arg);
+    while (!todo.empty()) {
+        expr * e = todo.back();
+        todo.pop_back();
+        if (visited.is_marked(e) || is_ground(e))
+            continue;
+        visited.mark(e, true);
+        if (is_quantifier(e)) {
+            todo.push_back(to_quantifier(e)->get_expr());
+            continue;
+        }
+        if (!is_app(e))
+            continue;
+        app * a = to_app(e);
+        if (a->get_num_args() > 0 && a->get_family_id() == null_family_id)
+            return true;
+        for (expr * child : *a)
+            todo.push_back(child);
+    }
+    return false;
+}
+
+bool distribute_forall::should_distribute(quantifier * q, app * or_e) const {
+    if (!m_restricted)
+        return true;
+    bool all_array_eqs = true, some_omit = false, has_uf = false;
+    for (expr * arg : *or_e) {
+        if (all_array_eqs && !is_array_select_eq(arg))
+            all_array_eqs = false;
+        if (!some_omit && omits_bound_var(arg, q->get_num_decls()))
+            some_omit = true;
+        if (!has_uf && has_uninterp_over_bound_vars(arg))
+            has_uf = true;
+    }
+    // Either pointwise equalities over ground arrays, or a split that yields a
+    // quantifier over fewer variables without tearing apart uninterpreted
+    // function applications over the bound variables.
+    return all_array_eqs || (some_omit && !has_uf);
 }
 
 void distribute_forall::visit(expr * n, bool & visited) {
@@ -110,7 +190,8 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
     expr * e = get_cached(q->get_expr());
     // A trigger for the original body need not be valid for each conjunct.
     if (m_manager.is_not(e) && m_manager.is_or(to_app(e)->get_arg(0)) &&
-        !q->get_num_patterns() && !q->get_num_no_patterns()) {
+        !q->get_num_patterns() && !q->get_num_no_patterns() &&
+        should_distribute(q, to_app(to_app(e)->get_arg(0)))) {
         bool_rewriter br(m_manager);
 
         // found target for simplification

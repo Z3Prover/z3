@@ -23,6 +23,7 @@ void preprocessor_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_macro_finder            = p.macro_finder();
     m_distribute_forall       = p.distribute_forall();
+    m_distribute_forall_restricted = p.distribute_forall_restricted();
     m_recfun_finder           = p.recfun_finder();
     m_quasi_macros            = p.quasi_macros();
     m_restricted_quasi_macros = p.restricted_quasi_macros();
@@ -61,6 +62,7 @@ void preprocessor_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_simplify_bit2int);
     DISPLAY_PARAM(m_nnf_cnf);
     DISPLAY_PARAM(m_distribute_forall);
+    DISPLAY_PARAM(m_distribute_forall_restricted);
     DISPLAY_PARAM(m_reduce_args);
     DISPLAY_PARAM(m_quasi_macros);
     DISPLAY_PARAM(m_restricted_quasi_macros);

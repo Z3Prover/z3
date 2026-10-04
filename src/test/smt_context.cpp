@@ -333,6 +333,28 @@ void tst_smt_context()
     }
 
     {
+        // Regression (z3 issue #3135 benchmark): distributing every universal
+        // conjunction by default split this nested real-arithmetic quantifier
+        // into pieces the quantifier solver no longer decides within budget
+        // (unsat in milliseconds became a timeout). The default only splits
+        // conjunctions of array select equalities or conjunctions where some
+        // conjunct omits a bound variable.
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.params().set_rlimit(5000000);
+        std::istringstream is(
+            "(assert (forall ((a Real)) (forall ((b Real)) (forall ((c Real)) (exists ((d Real))\n"
+            "  (and (or (>= (- b) (- 62)) (<= (* (- 1) d) 0) (and (>= (* (- b) 0) 7)))\n"
+            "       (or (>= (* (+ (- 92) a) (* 2 b)) 4) (> (* 3 c) 0)\n"
+            "           (>= (* (+ (- (* 22 a) (* 2 b)) (* 65 c)) (* (- 4) d)) 0)\n"
+            "           (>= (+ (/ 75 b) (* (- 5) c)) 7))\n"
+            "       (or (<= (- 11 c) 36) (>= (* 97 d) 61))))))))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_unsat);
+    }
+
+    {
         arith_util a(m);
         sort* s = a.mk_int();
         symbol name("x");
@@ -345,6 +367,20 @@ void tst_smt_context()
         expr_ref result(m);
         distribute(q, result);
         VERIFY(result != q && !is_quantifier(result));
+
+        // restricted mode leaves a conjunction whose conjuncts all use the bound variable alone
+        distribute.set_restricted(true);
+        distribute(q, result);
+        VERIFY(result == q);
+        // ... but splits one where a conjunct omits a bound variable
+        sort* ss[2] = { s, s };
+        symbol names[2] = { symbol("x"), symbol("y") };
+        expr_ref y(m.mk_var(1, s), m);
+        expr_ref body2(m.mk_not(m.mk_or(m.mk_not(m.mk_eq(x, a.mk_int(0))), m.mk_not(m.mk_eq(y, a.mk_int(1))))), m);
+        quantifier_ref q2(m.mk_forall(2, ss, names, body2), m);
+        distribute(q2, result);
+        VERIFY(result != q2 && !is_quantifier(result));
+        distribute.set_restricted(false);
 
         base_dependent_expr_state state(m);
         state.add(dependent_expr(m, q, nullptr, nullptr));

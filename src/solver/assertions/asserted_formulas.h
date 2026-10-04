@@ -120,11 +120,35 @@ class asserted_formulas {
 
     class distribute_forall_fn : public simplify_fmls {
         distribute_forall m_functor;
+        bool              m_changed = false;
     public:
         distribute_forall_fn(asserted_formulas& af): simplify_fmls(af, "distribute-forall"), m_functor(af.m) {}
-        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_functor(j.fml(), n); }
-        bool should_apply() const override { return af.m_smt_params.m_distribute_forall && af.has_quantifiers(); }
-        void post_op() override { af.reduce_and_solve();  TRACE(asserted_formulas, af.display(tout);); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override {
+            // smt.distribute_forall splits every conjunction; the default
+            // (smt.distribute_forall_restricted) only splits conjunctions of array
+            // select equalities or conjunctions where some conjunct omits a bound variable.
+            m_functor.set_restricted(!af.m_smt_params.m_distribute_forall);
+            m_functor(j.fml(), n);
+            if (n != j.fml())
+                m_changed = true;
+        }
+        bool should_apply() const override {
+            return (af.m_smt_params.m_distribute_forall || af.m_smt_params.m_distribute_forall_restricted) && af.has_quantifiers();
+        }
+        // Release the functor's cache right away: keeping references to the
+        // processed formulas alive across the search phase delays the reuse
+        // of AST ids and thereby perturbs term orders and model construction
+        // in later rounds, flipping fragile answers. Only re-simplify when a
+        // quantifier was actually split; an unconditional reduce_and_solve
+        // is wasted work and perturbs the preprocessed formulas as well.
+        void post_op() override {
+            m_functor.release_cache();
+            if (!m_changed)
+                return;
+            m_changed = false;
+            af.reduce_and_solve();
+            TRACE(asserted_formulas, af.display(tout););
+        }
     };
 
     class pattern_inference_fn : public simplify_fmls {
