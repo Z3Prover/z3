@@ -67,15 +67,15 @@ struct solver::imp {
         m_skipped_constraints.reset();
     }
 
-    // Power of two dividing the denominator of r (capped at 64).
-    static unsigned dyadic_valuation_of_denominator(rational const& r) {
+    // True if the denominator of r is exactly 2^k with k >= threshold.
+    static bool has_large_dyadic_denominator(rational const& r, unsigned threshold) {
         rational den = denominator(r);
         unsigned k = 0;
         while (k < 64 && den.is_even()) {
             den /= 2;
             ++k;
         }
-        return k;
+        return k >= threshold && den.is_one();
     }
 
     // Bounds derived by the eager bound squeeze reach the constraint set as
@@ -83,15 +83,17 @@ struct solver::imp {
     // huge power-of-two denominator (e.g. 1367758954463/2^39). They are implied
     // by the constraints they were derived from, yet after clearing denominators
     // they inject outsized coefficients into the nlsat polynomials and blow up
-    // the resultant computations. Decimal constants from the input have
-    // denominators 10^k = 2^k*5^k with small k, so a large dyadic valuation
-    // singles out the derived bounds.
+    // the resultant computations. Only a denominator that is a pure power of
+    // two qualifies: decimal constants from the input have denominators
+    // 10^k = 2^k*5^k, and long decimals (k >= 24, as produced by tools that
+    // print doubles exactly) must stay in the nlsat problem, otherwise nlsat
+    // loses the constraints it needs to refute the goal.
     bool is_dyadic_artifact(lp::lar_base_constraint const& c) const {
         unsigned const dyadic_artifact_threshold = 24;
-        if (dyadic_valuation_of_denominator(c.rhs()) >= dyadic_artifact_threshold)
+        if (has_large_dyadic_denominator(c.rhs(), dyadic_artifact_threshold))
             return true;
         for (auto const& [coeff, v] : c.coeffs())
-            if (dyadic_valuation_of_denominator(coeff) >= dyadic_artifact_threshold)
+            if (has_large_dyadic_denominator(coeff, dyadic_artifact_threshold))
                 return true;
         return false;
     }
