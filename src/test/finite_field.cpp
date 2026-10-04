@@ -885,8 +885,10 @@ static void test_ff_integration() {
         return 0.0;
     };
     ast_manager m; reg_decl_plugins(m); ff_util ff(m);
-    // Even an unrelated field sort in the same manager must not install extra
-    // theories in a field-free QF_UF context.
+    // An unrelated field sort in the same manager must not install extra
+    // theories in a field-free QF_UF context. A logic that does not mention
+    // the field theory correctly never learns about it, even if some other
+    // context sharing the same ast_manager happens to use it.
     sort_ref field(ff.mk_sort(rational(7)), m);
     smt_params sp;
     smt::context ctx(m, sp); ctx.set_logic(symbol("QF_UF"));
@@ -894,29 +896,32 @@ static void test_ff_integration() {
     ctx.assert_expr(b); ENSURE(ctx.check() == l_true);
     ENSURE(!ctx.get_theory(ff.get_fid()));
     ENSURE(!ctx.get_theory(m.get_family_id("bv")));
-    // A later assertion installs field support at the existing scope depth.
-    ctx.push();
+    // Using field terms requires declaring a logic that supports them
+    // (QF_FF/QF_FFA); the field theory is then installed as part of the
+    // logic's standard setup, same as every other theory.
+    smt::context fctx(m, sp); fctx.set_logic(symbol("QF_FF"));
     expr_ref x(m.mk_const("x", field), m), two(ff.mk_numeral(rational(2), field), m);
     expr_ref square(ff.mk_mul(x, x), m);
     expr_ref eq(m.mk_eq(square, two), m);
-    params_ref tiny; tiny.set_uint("ff.max_steps", 0); ctx.updt_params(tiny);
-    ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
-    ENSURE(stat(ctx, "ff bv fallbacks") > 0);
-    double checks = stat(ctx, "ff native checks");
-    ctx.pop(1);
-    ENSURE(stat(ctx, "ff normalization cache entries") == 0);
-    params_ref normal; normal.set_uint("ff.max_steps", 2000000); ctx.updt_params(normal);
-    ctx.push(); ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
-    ENSURE(stat(ctx, "ff native checks") > checks);
+    params_ref tiny; tiny.set_uint("ff.max_steps", 0); fctx.updt_params(tiny);
+    fctx.push();
+    fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
+    ENSURE(stat(fctx, "ff bv fallbacks") > 0);
+    double checks = stat(fctx, "ff native checks");
+    fctx.pop(1);
+    ENSURE(stat(fctx, "ff normalization cache entries") == 0);
+    params_ref normal; normal.set_uint("ff.max_steps", 2000000); fctx.updt_params(normal);
+    fctx.push(); fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
+    ENSURE(stat(fctx, "ff native checks") > checks);
     // No new bridge axioms: the popped bridge did not permanently disable native solving.
-    double axioms = stat(ctx, "ff combination axioms");
-    ctx.pop(1); ctx.push(); ctx.assert_expr(eq); ENSURE(ctx.check() == l_true);
-    ENSURE(stat(ctx, "ff combination axioms") == axioms);
-    ctx.pop(1);
+    double axioms = stat(fctx, "ff combination axioms");
+    fctx.pop(1); fctx.push(); fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
+    ENSURE(stat(fctx, "ff combination axioms") == axioms);
+    fctx.pop(1);
     // Algebra remains usable with BV disabled; an inconclusive algebra result
     // must return unknown instead of sending field definitions to a dummy theory.
     smt_params no_bv; no_bv.m_bv_mode = bv_solver_id::BS_NO_BV;
-    smt::context disabled(m, no_bv); disabled.set_logic(symbol("QF_UF"));
+    smt::context disabled(m, no_bv); disabled.set_logic(symbol("QF_FF"));
     disabled.updt_params(tiny); disabled.assert_expr(eq);
     ENSURE(disabled.check() == l_undef);
     for (bool reverse : {false, true}) {
@@ -935,7 +940,7 @@ static void test_ff_integration() {
         ENSURE(stat(mixed, "ff native conflicts") > 0);
         ENSURE(stat(mixed, "ff combination axioms") < 4);
     }
-    std::cout << "FF integration: demand registration, scoped fallback, disabled BV and independent fields\n";
+    std::cout << "FF integration: logic-gated registration, scoped fallback, disabled BV and independent fields\n";
 }
 
 // Substituting a wire into another assertion must retain the defining

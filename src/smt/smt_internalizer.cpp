@@ -881,9 +881,6 @@ namespace smt {
        \brief Internalize the given term into the logical context.
     */
     void context::internalize_term(app * n) {
-        if (!e_internalized(n) && m_ff_fid != null_family_id && n->get_sort()->get_family_id() == m_ff_fid && !m_theories.get_plugin(m_ff_fid))
-            m_setup.setup_ff();
-
         if (e_internalized(n)) {
             enode * e = get_enode(n);
             update_generation(e);
