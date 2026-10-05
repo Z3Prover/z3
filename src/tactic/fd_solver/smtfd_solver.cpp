@@ -374,6 +374,9 @@ namespace smtfd {
         app*       m_t;
         sort*      m_s;
         unsigned   m_val_offset;
+
+        // Array identity selects the table; only the indices form its keys.
+        unsigned first_arg() const { return is_func_decl(m_f) ? 0 : 1; }
     };
 
     class theory_plugin;
@@ -686,9 +689,9 @@ namespace smtfd {
     }
 
     bool f_app_eq::operator()(f_app const& a, f_app const& b) const {
-        if (a.m_f != b.m_f) 
+        if (a.m_t->get_decl() != b.m_t->get_decl())
             return false;
-        for (unsigned i = 0; i < a.m_t->get_num_args(); ++i) {
+        for (unsigned i = a.first_arg(); i < a.m_t->get_num_args(); ++i) {
             if (p.values().get(a.m_val_offset+i) != p.values().get(b.m_val_offset+i)) 
                 return false;
             if (a.m_t->get_arg(i)->get_sort() != b.m_t->get_arg(i)->get_sort())
@@ -698,7 +701,8 @@ namespace smtfd {
     }
 
     unsigned f_app_hash::operator()(f_app const& a) const {
-        return get_composite_hash(p.values().data() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
+        unsigned first = a.first_arg();
+        return get_composite_hash(p.values().data() + a.m_val_offset + first, a.m_t->get_num_args() - first, *this, *this);
     }
     
     class basic_plugin : public theory_plugin {
