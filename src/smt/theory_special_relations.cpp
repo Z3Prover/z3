@@ -803,7 +803,7 @@ namespace smt {
         r.pop(1);
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        result = arith.mk_le(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
+        result = arith.mk_ge(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
         return result;
     }
 
