@@ -30,10 +30,8 @@ Author:
 
 namespace smt {
     // Polynomial encodings of field terms, shared across final checks.
-    // Encoding a term only depends on the term (and on the variable ids given
-    // to foreign atoms), so it can be reused as long as the keys stay alive;
-    // every key is pinned here. Not used with compact encodings, whose fresh
-    // definitional variables belong to a single problem.
+    // Not used with compact encodings, whose fresh definitional variables
+    // belong to a single problem.
     struct ff_encoding_cache {
         obj_map<expr, ff::polynomial> cache;
         obj_map<expr, unsigned> variable_ids;
@@ -98,9 +96,7 @@ namespace smt {
                     }
                     app *a = to_app(e);
                     if (!ff.is_interp(e)) {
-                        // Foreign applications are opaque to this field. The
-                        // SMT arrangement, not this substitution, handles their
-                        // arguments (which may belong to entirely other sorts).
+                        // Foreign applications are opaque to this field.
                         normalized.insert(e, e);
                         todo.pop_back();
                         continue;
@@ -177,13 +173,10 @@ namespace smt {
                         if (!--degree[j])
                             order.push_back(j);
                 std::set<unsigned> removed;
-                // Acyclic x=t definitions admit a unique extension for x.
-                // Substitute along the DAG without expanding its polynomials;
-                // canonical rewriting can identify equivalent circuit outputs.
-                // Cycles and competing definitions remain residual constraints.
-                // Record the transitive support of each substitution. A
-                // conflict needs only definitions actually used by its terms;
-                // unrelated wire equalities must not weaken the learned clause.
+                // Substitute acyclic x=t definitions along the DAG; cycles and
+                // competing definitions remain residual constraints. Record
+                // each substitution's transitive support so a conflict only
+                // depends on the definitions its terms actually used.
                 for (unsigned i : order) {
                     expr *value = normalize(defs[i]);
                     normalized.insert(vars[i], value);
@@ -205,9 +198,7 @@ namespace smt {
                     dependencies = dep.mk_join(dependencies, rhs_deps);
                     a = lhs_term;
                     b = rhs_term;
-                    // After justified substitution, t=t imposes no residual
-                    // constraint. Do not duplicate the whole definition support
-                    // on the many tautologies in a circuit equality class.
+                    // After substitution, t=t imposes no residual constraint.
                     if (a == b && equality)
                         continue;
                     ff::polynomial f;
@@ -275,14 +266,11 @@ namespace smt {
 
             ff::polynomial compact(ff::polynomial f, bool force = false) {
                 if (!algebra.compact_encoding || f.empty()) return f;
-                // Preserve affine packs for bit propagation. Introduce a wire only
-                // for nonlinear growth, or before a product would exceed the bound.
+                // Preserve affine packs for bit propagation; introduce a wire
+                // only for nonlinear growth, or before a product exceeds the bound.
                 if (!force && (f.begin()->first.size() <= 1 || (f.size() <= 64 && f.begin()->first.size() <= 32))) return f;
                 if (f.size() == 1 && f.begin()->first.size() <= 1) return f;
-                // z=f is a definitional extension: each original assignment has
-                // exactly one value of the fresh z. The equation needs no asserted
-                // premise, and later conflicts still depend on the original facts.
-                // Bound local expansion structurally, independent of field or input.
+                // z=f is a definitional extension and needs no asserted premise.
                 unsigned v = num_variables++;
                 auto z = algebra.variable(v);
                 eqs.push_back(algebra.add(z, f, rational(-1)));
@@ -316,9 +304,8 @@ namespace smt {
                     if (ff.is_numeral(e, value))
                         f = algebra.constant(value);
                     else if (!interpreted) {
-                        // A foreign application is an atomic field value. Its
-                        // arguments and congruence belong to the other theories;
-                        // equalities from their equality classes are added below.
+                        // A foreign application is an atomic field value; its
+                        // equalities from other theories are added below.
                         variable_ids.insert(e, num_variables);
                         f = algebra.variable(num_variables++);
                     }
@@ -331,8 +318,7 @@ namespace smt {
                         for (expr *arg : *a) {
                             auto const &b = cache.find(arg);
                             if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
-                                // Definitional abstraction happens before the
-                                // Cartesian product, not after a size exception.
+                                // Abstract before the Cartesian product, not after.
                                 f = compact(std::move(f), true);
                                 auto operand = compact(b, true);
                                 f = algebra.mul(f, operand);
@@ -398,8 +384,7 @@ namespace smt {
     }
 
     expr_ref theory_ff::wrap(expr *e) {
-        // Decoder terms are private and only introduced as decode(encode(t)).
-        // Their representation is already bounded by t's range axiom. Avoid
+        // Decoder terms are only introduced as decode(encode(t)); avoid
         // recursively generating encode(decode(encode(...))).
         if (is_app(e) && decoders.contains(to_app(e)->get_decl()))
             return expr_ref(to_app(e)->get_arg(0), m);
@@ -437,11 +422,8 @@ namespace smt {
         if (ff.modulus(s) != rational(2))
             assert_axiom(bv.mk_ult(encoded, bv.mk_numeral(ff.modulus(s), ff.width(s))));
 
-        // encode is a function, hence t=u implies encode(t)=encode(u).
-        // decode(encode(t))=t supplies the converse by congruence. Together
-        // with the range bound this is an injective canonical representation,
-        // including finite-domain cardinality. Ordinary stable-infiniteness
-        // assumptions are not valid for fields and are not used here.
+        // encode(t)=encode(u) iff t=u by congruence; together with the range
+        // bound this gives an injective canonical representation.
         expr_ref decoded(m.mk_app(unwraps.find(s), encoded), m);
         assert_axiom(m.mk_eq(decoded, e));
 
@@ -456,14 +438,21 @@ namespace smt {
 
     bool theory_ff::internalize_term(app *e) {
         ctx.internalize(e->get_args(), e->get_num_args(), false);
-        // Field operators are interpreted through algebra or BV definitions. Keep
-        // them out of the EUF congruence table (as arithmetic internalizers do);
-        // congruent operands imply equal encodings, and decode then implies
-        // equal field results. Foreign UF/array/datatype terms retain normal
-        // congruence closure through their own internalizers.
+        // Keep field operators out of the EUF congruence table (as arithmetic
+        // internalizers do); foreign terms retain normal congruence closure.
         enode *n = ctx.e_internalized(e) ? ctx.get_enode(e) : ctx.mk_enode(e, false, false, false);
         apply_sort_cnstr(n, e->get_sort());
         return true;
+    }
+
+    void theory_ff::new_eq_eh(theory_var v1, theory_var v2) {
+        new_eqs.push_back({v1, v2});
+        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(new_eqs));
+    }
+
+    void theory_ff::new_diseq_eh(theory_var v1, theory_var v2) {
+        new_diseqs.push_back({v1, v2});
+        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(new_diseqs));
     }
 
     void theory_ff::apply_sort_cnstr(enode *n, sort *) {
@@ -475,8 +464,8 @@ namespace smt {
     }
 
     void theory_ff::relevant_eh(expr *e) {
-        // Re-emit on relevancy propagation after backtracking: theory axioms
-        // can be popped while the original term's enode remains internalized.
+        // Re-emit on relevancy propagation: axioms can be popped while the
+        // term's enode remains internalized.
         if (ff.is_ff(e) && bv_fields.contains(e->get_sort()))
             constrain(e);
     }
@@ -492,12 +481,11 @@ namespace smt {
         if (!smt_params_helper(ctx.get_params()).ff_root_split())
             return false;
         bool changed = false;
-        // Optional: these valid clauses can substantially change SAT branching.
-        // Keep the default conservative; caller-selected portfolios can enable them.
+        // Optional: these valid clauses can substantially change SAT branching,
+        // so keep the default conservative.
         bool boolean_split = smt_params_helper(ctx.get_params()).ff_boolean_split();
-        // New branch atoms are considered at the next final check. Bounding
-        // the snapshot and product arity keeps this pass from recursively
-        // expanding a circuit or generating an unbounded SAT disjunction.
+        // Bound the snapshot and product arity so this pass can't recursively
+        // expand a circuit or generate an unbounded SAT disjunction.
         unsigned end = ctx.get_num_b_internalized();
         for (unsigned i = 0; i < end; ++i) {
             if (!m.inc())
@@ -511,10 +499,8 @@ namespace smt {
                 return ff.is_mul(square, x, y) && x == base && y == base;
             };
             expr *digit = boolean_split ? (square_of(a, b) ? b : (square_of(b, a) ? a : nullptr)) : nullptr;
-            // Most circuit atoms are wire=expression. An opaque operand is not
-            // a syntactic square or product, so avoid normalizing these atoms
-            // just to discover that. This heuristic may miss a cancellation
-            // exposing a square; the complete algebra/fallback still sees it.
+            // Avoid normalizing atoms whose operands aren't a syntactic square
+            // or product; the complete algebra/fallback still sees any miss.
             if (!digit && (!ff.is_interp(a) || !ff.is_interp(b)))
                 continue;
             split_atoms.insert(atom);
@@ -526,8 +512,8 @@ namespace smt {
             else {
                 normalized = atom;
                 rw(normalized);
-                // Keep long incremental sessions bounded, including scopes that
-                // never pop. Rewriting is pure, so eviction loses only reuse.
+                // Keep long incremental sessions bounded; rewriting is pure,
+                // so eviction loses only reuse.
                 if (root_norm_pins.size() >= 8192) {
                     root_norm.reset();
                     root_norm_pins.reset();
@@ -543,17 +529,14 @@ namespace smt {
             if (!digit && ff.is_numeral(a, c) && c.is_zero())
                 std::swap(a, b);
             if (digit) {
-                // x*x=x iff x*(x-1)=0. A field has no zero divisors, so
-                // x=0 or x=1, including characteristic two. Expose this
-                // finite domain to SAT for any field term x, not just wires.
-                // The source equality remains the guard of the emitted clause.
+                // x*x=x iff x*(x-1)=0, so x=0 or x=1 in a field (no zero divisors).
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(0), digit->get_sort())));
                 branches.push_back(m.mk_eq(digit, ff.mk_numeral(rational(1), digit->get_sort())));
             }
             else if (ff.is_numeral(b, c) && c.is_zero() && ff.is_mul(a) &&
                 to_app(a)->get_num_args() <= 16) {
                 // A field has no zero divisors: a product is zero iff some
-                // factor is zero. Nonzero constant factors need no branch.
+                // factor is zero.
                 for (expr *arg : *to_app(a))
                     if (!ff.is_numeral(arg))
                         branches.push_back(m.mk_eq(arg, b));
@@ -563,8 +546,6 @@ namespace smt {
                 if (!lhs || !rhs || (lhs == a && rhs == b))
                     continue;
                 // A^2=B^2 iff (A-B)*(A+B)=0, hence A=B or A=-B.
-                // No inverse of 2 is used. In characteristic two the branches
-                // coincide and are deduplicated below; B=0 is likewise a unit.
                 branches.push_back(m.mk_eq(lhs, rhs));
                 expr_ref neg(ff.mk_neg(rhs), m);
                 branches.push_back(m.mk_eq(lhs, neg));
@@ -589,9 +570,7 @@ namespace smt {
             }
             if (satisfied)
                 continue;
-            // The original equality is the exact SAT premise, including when
-            // recognition used its normalized form. Never assert sampled roots
-            // as an exhaustive list or rewrite away this conditional guard.
+            // Assert the original equality, not just the sampled roots.
             assert_axiom(m.mk_or(clause.size(), clause.data()), false);
             ++root_clauses;
             changed = true;
@@ -632,30 +611,22 @@ namespace smt {
                 continue;
             if (bv_fields.contains(n->get_sort())) continue;
             auto &p = problem(n->get_sort());
-            // Equality classes can inherit their field theory variable from a
-            // non-root member. Model construction asks for the relevant root,
-            // so record both values, even if only the root is marked relevant.
-            // The retained equality premise justifies their common value.
+            // Record both the term and its root since either may be relevant.
             for (enode *term : {n, root})
                 if (!model_terms.contains(term)) {
                     model_terms.insert(term);
                     p.terms.push_back(term);
                 }
-            if (n != root)
-                add(n->get_sort(), n->get_expr(), root->get_expr(), true);
         }
-        // Include assigned equality atoms, including interface decisions. An
-        // equality-engine merge may have a foreign-theory justification; using
-        // the equality itself as a premise yields a theory-valid conditional
-        // lemma, which the SMT context resolves against that justification.
-        for (unsigned i = 0; i < ctx.get_num_b_internalized(); ++i) {
-            expr *e = ctx.get_b_internalized(i);
-            expr *a, *b;
-            if (!m.is_eq(e, a, b) || !ff.is_ff(a) || !ctx.is_relevant(e))
-                continue;
-            lbool value = ctx.get_assignment(e);
-            if (value != l_undef)
-                add(a->get_sort(), a, b, value == l_true);
+        // Replay the pairs new_eq_eh/new_diseq_eh already reported, instead
+        // of rescanning every variable and boolean atom.
+        for (auto [v1, v2] : new_eqs) {
+            enode *a = get_enode(v1), *b = get_enode(v2);
+            add(a->get_sort(), a->get_expr(), b->get_expr(), true);
+        }
+        for (auto [v1, v2] : new_diseqs) {
+            enode *a = get_enode(v1), *b = get_enode(v2);
+            add(a->get_sort(), a->get_expr(), b->get_expr(), false);
         }
         for (auto &kv : fields) {
             sort *s = &kv.get_key();
@@ -670,60 +641,49 @@ namespace smt {
                     throw ff::exhausted();
                 if (result == l_false) {
                     expr_ref_vector clause(m);
-                    // Provenance follows every ideal operation and root branch.
-                    // If these premises hold simultaneously, the polynomial system
-                    // has no solution, so their negated disjunction is field-valid.
-                    // This is a conflict explanation, not a v2 proof certificate.
+                    // These premises can't hold simultaneously, so their negated
+                    // disjunction is field-valid; this is an explanation, not a
+                    // v2 proof certificate.
                     for (unsigned d : p.algebra.conflict())
                         clause.push_back(m.mk_not(p.premises.get(d)));
-                    // Preserve the exact SAT atoms. Algebraically rewriting an
-                    // equality may create a different atom already assigned the
-                    // opposite truth value, making the lemma satisfied instead of
-                    // conflicting and repeating the same final check indefinitely.
+                    // Preserve the exact SAT atoms; rewriting could produce an
+                    // atom already assigned the opposite value, repeating this
+                    // final check indefinitely.
                     assert_axiom(m.mk_or(clause.size(), clause.data()), false);
                     ++native_conflicts;
                     return FC_CONTINUE;
                 }
                 std::map<rational, enode *> representatives;
-                // Check original inputs after DAG extension as well as the engine's
-                // residual polynomial check. Sampling only supplies SAT witnesses.
+                // Check original inputs as well as the engine's residual
+                // polynomial check; sampling only supplies SAT witnesses.
                 for (auto [a, b, equality] : p.inputs)
                     if ((p.evaluate(a, values) == p.evaluate(b, values)) != equality)
                         throw ff::exhausted();
                 for (enode *n : p.terms) {
                     rational value = p.evaluate(n->get_expr(), values);
                     native_values.insert(n->get_expr(), value);
-                    // Only roots observed by another theory need an arrangement.
-                    // Private field terms may share a value without being merged;
-                    // their equalities/disequalities are already checked by algebra.
-                    // Arranging every intermediate circuit wire creates irrelevant
-                    // SAT choices and can overwhelm otherwise linear DAG evaluation.
+                    // Only roots shared with another theory need an arrangement;
+                    // private terms are already checked by algebra, and arranging
+                    // every wire would overwhelm linear DAG evaluation.
                     if (!ctx.is_shared(n))
                         continue;
                     auto [it, inserted] = representatives.emplace(value, n);
                     if (inserted || n->get_root() == it->second->get_root())
                         continue;
-                    // Equal canonical values must agree in every other theory.
-                    // Ask SAT to choose the equality, rather than asserting it as
-                    // a consequence of one candidate model. Its false branch feeds
-                    // a disequality into the next algebra check. Shared terms take
-                    // their values from F_p itself, including finite cardinality;
-                    // stable infiniteness is not assumed. One representative per
-                    // value suffices by transitivity.
+                    // Equal canonical values must agree in every other theory;
+                    // ask SAT to choose the equality rather than asserting it.
                     if (ctx.assume_eq(n, it->second)) {
                         ++arrangements;
                         arranged = true;
                         continue;
                     }
-                    // A rewritten/previously assigned interface atom may already
-                    // exclude this candidate without having appeared above. Falling
-                    // back is conservative; never accept incompatible field models.
+                    // A previously assigned interface atom may already exclude
+                    // this candidate; fall back rather than accept it.
                     throw ff::exhausted();
                 }
             }
             catch (ff::exhausted const &) {
-                // A local algebra limit is not a reason to miss an immediate
-                // conflict in another field. Shared cancellation is still global.
+                // A local algebra limit shouldn't hide a conflict in another field.
                 if (m.limit().is_canceled()) return FC_GIVEUP;
                 bv_fields.insert(s);
                 ++fallbacks;
@@ -755,9 +715,8 @@ namespace smt {
 
     void theory_ff::refresh_bv_fields() {
         bv_fields.reset();
-        // Decoder applications can survive a SAT backtrack. Keep their entire
-        // field encoded until those enodes disappear; never expose them as free
-        // algebraic variables. A user pop can remove the last such bridge.
+        // Decoder applications can survive a SAT backtrack; keep their entire
+        // field encoded until those enodes disappear.
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             expr *e = get_enode(v)->get_expr();
             if (is_app(e) && decoders.contains(to_app(e)->get_decl()))
@@ -772,8 +731,8 @@ namespace smt {
         refresh_bv_fields();
         native_values.reset();
         model_values.reset();
-        // A term can survive a scope in which its defining axioms were emitted.
-        // Rebuild the emission cache, so final_check repairs all live definitions.
+        // A term can survive a scope in which its defining axioms were emitted;
+        // rebuild the emission cache so final_check repairs live definitions.
         constrained.reset();
         split_atoms.reset();
     }
@@ -789,6 +748,8 @@ namespace smt {
         constrained.reset();
         split_atoms.reset();
         bv_fields.reset();
+        new_eqs.reset();
+        new_diseqs.reset();
     }
 
     void theory_ff::init_model(model_generator &mg) {
