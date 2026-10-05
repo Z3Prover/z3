@@ -1656,7 +1656,8 @@ namespace smtfd {
                 TRACE(smtfd, tout << "flush: " << m_assertions_qhead << " " << mk_bounded_pp(fml, m, 3) << "\n";);
                 fml = abs(fml);
                 m_fd_sat_solver->assert_expr(fml);                
-                fml = m.mk_not(m.mk_and(toggle, fml));
+                // The toggle represents all assertions flushed so far.
+                fml = m.mk_iff(toggle, fml);
                 m_fd_core_solver->assert_expr(fml);
                 flush_atom_defs();
             }
@@ -1690,9 +1691,10 @@ namespace smtfd {
             if (r == l_false) {
                 m_fd_core_solver->get_unsat_core(core);
                 TRACE(smtfd, display(tout << core << "\n"););
-                SASSERT(asms.contains(m_toggles.back()));
-                SASSERT(core.contains(m_toggles.back()));
-                core.erase(m_toggles.back());
+                expr_ref not_toggle(m.mk_not(m_toggles.back()), m);
+                SASSERT(asms.contains(not_toggle));
+                SASSERT(core.contains(not_toggle));
+                core.erase(not_toggle.get());
                 rep(core);
             }
             return r;
@@ -1797,7 +1799,7 @@ namespace smtfd {
 
         void init_model_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
             asms.reset();
-            asms.push_back(m_toggles.back());
+            asms.push_back(m.mk_not(m_toggles.back()));
             for (unsigned i = 0; i < sz; ++i) {
                 asms.push_back(abs(user_asms[i]));
             }
@@ -1959,7 +1961,8 @@ namespace smtfd {
                 // phase 2: find prime implicate over FD (abstraction)
                 r = get_prime_implicate(num_assumptions, assumptions, core);
                 if (r != l_false) {
-                    break;
+                    // A satisfying abstraction alone does not establish satisfiability.
+                    return l_undef;
                 }
              
                 // phase 3: check if prime implicate is really valid, or add theory lemmas until there is a theory core
