@@ -24,8 +24,8 @@ jobs:
       - name: Check out pinned finite-field regression harness
         uses: actions/checkout@v7.0.1
         with:
-          repository: RSoulatIOHK/z3test
-          ref: ba8b14e7eafd0f1f3406f35c27a46bd9c7e24d80
+          repository: Z3Prover/z3test
+          ref: cb0b0d1e036ad30d27112ab7bfc02bf48fc9c0fb
           path: z3test
           sparse-checkout: regressions/finite_field
       - uses: actions/setup-python@v7
