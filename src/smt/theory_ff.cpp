@@ -453,6 +453,11 @@ namespace smt {
         }
     }
 
+    void theory_ff::new_eq_eh(theory_var v1, theory_var v2) {
+        root_equalities.push_back({v1, v2});
+        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(root_equalities));
+    }
+
     void theory_ff::relevant_eh(expr *e) {
         // Re-emit on relevancy propagation: axioms can be popped while the
         // term's enode remains internalized.
@@ -476,11 +481,11 @@ namespace smt {
         bool boolean_split = smt_params_helper(ctx.get_params()).ff_boolean_split();
         // new_eq_eh only fires for relevant, merged (hence true) equalities;
         // snapshot the size so lemmas asserted here can't grow this pass.
-        unsigned end = new_eqs.size();
+        unsigned end = root_equalities.size();
         for (unsigned i = 0; i < end; ++i) {
             if (!m.inc())
                 return changed;
-            auto [v1, v2] = new_eqs[i];
+            auto [v1, v2] = root_equalities[i];
             expr *a = get_enode(v1)->get_expr(), *b = get_enode(v2)->get_expr();
             expr *ka = a, *kb = b;
             if (ka->get_id() > kb->get_id())
