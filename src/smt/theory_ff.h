@@ -26,6 +26,7 @@ Author:
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/ff_bv_operations.h"
+#include "util/obj_pair_hashtable.h"
 #include <memory>
 
 namespace smt {
@@ -50,7 +51,9 @@ namespace smt {
         ff::basis_cache memo;
         obj_map<sort, std::unique_ptr<ff_encoding_cache>> encodings;
         obj_hashtable<expr> constrained;
-        obj_hashtable<expr> split_atoms;
+        // Deduplicates root-splitting by the merged terms' original operands,
+        // which are already kept alive by their enodes.
+        obj_pair_hashtable<expr, expr> split_atoms;
         obj_map<expr, expr *> root_norm;   // bounded pure-rewriting cache; cleared on pop
         expr_ref_vector root_norm_pins;
         obj_map<expr, rational> native_values;

@@ -484,15 +484,18 @@ namespace smt {
         // Optional: these valid clauses can substantially change SAT branching,
         // so keep the default conservative.
         bool boolean_split = smt_params_helper(ctx.get_params()).ff_boolean_split();
-        // Bound the snapshot and product arity so this pass can't recursively
-        // expand a circuit or generate an unbounded SAT disjunction.
-        unsigned end = ctx.get_num_b_internalized();
+        // new_eq_eh only fires for relevant, merged (hence true) equalities;
+        // snapshot the size so lemmas asserted here can't grow this pass.
+        unsigned end = new_eqs.size();
         for (unsigned i = 0; i < end; ++i) {
             if (!m.inc())
                 return changed;
-            expr *atom = ctx.get_b_internalized(i), *a, *b;
-            if (!m.is_eq(atom, a, b) || !ff.is_ff(a) || !ctx.is_relevant(atom) || ctx.get_assignment(atom) != l_true ||
-                split_atoms.contains(atom))
+            auto [v1, v2] = new_eqs[i];
+            expr *a = get_enode(v1)->get_expr(), *b = get_enode(v2)->get_expr();
+            expr *ka = a, *kb = b;
+            if (ka->get_id() > kb->get_id())
+                std::swap(ka, kb);
+            if (split_atoms.contains({ka, kb}))
                 continue;
             auto square_of = [&](expr *square, expr *base) {
                 expr *x = nullptr, *y = nullptr;
@@ -503,7 +506,9 @@ namespace smt {
             // or product; the complete algebra/fallback still sees any miss.
             if (!digit && (!ff.is_interp(a) || !ff.is_interp(b)))
                 continue;
-            split_atoms.insert(atom);
+            split_atoms.insert({ka, kb});
+            expr_ref atom_ref(m.mk_eq(a, b), m);
+            expr *atom = atom_ref;
             // Rewriting an atom is pure; keep the result across backtracking.
             expr *cached = nullptr;
             expr_ref normalized(m);
@@ -554,7 +559,7 @@ namespace smt {
                 continue;
             expr_ref_vector clause(m);
             clause.push_back(m.mk_not(atom));
-            obj_hashtable<expr> seen;
+            expr_mark seen;
             bool satisfied = false;
             for (expr *branch : branches) {
                 expr_ref root(branch, m);
@@ -563,8 +568,8 @@ namespace smt {
                     satisfied = true;
                     break;
                 }
-                if (!m.is_false(root) && !seen.contains(root)) {
-                    seen.insert(root);
+                if (!m.is_false(root) && !seen.is_marked(root)) {
+                    seen.mark(root);
                     clause.push_back(root);
                 }
             }
