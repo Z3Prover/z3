@@ -1696,6 +1696,8 @@ namespace smtfd {
                 SASSERT(core.contains(not_toggle));
                 core.erase(not_toggle.get());
                 rep(core);
+                // Core minimization may drop assumptions that still constrain this check.
+                core.append(num_assumptions, assumptions);
             }
             return r;
         }
