@@ -14,8 +14,50 @@ def checked(factory, constraints, expected):
         assert all(is_true(model.eval(c, model_completion=True)) for c in constraints), model
 
 
+def conditional_arithmetic(factory):
+    # Term ITEs do not necessarily own theory variables. Their selected-branch
+    # equalities must still constrain the opaque leaves in field polynomials.
+    for p in [7, 101]:
+        field = FiniteFieldSort(p)
+        zero, one = FiniteFieldVal(0, field), FiniteFieldVal(1, field)
+        c, d = Bools('review_ite_c review_ite_d')
+        a, b = If(c, zero, one), If(d, zero, one)
+        # The sum ranges over {0, 1, 2}, without modular wrap. Check SAT models
+        # as well as UNSAT: dropping the ITE equalities can break both.
+        for total in range(4):
+            checked(factory, [a + b == total], sat if total < 3 else unsat)
+        checked(factory, [a + b == 2, a != b], unsat)
+        checked(factory, [c, d, a + b != zero], unsat)
+
+        # The selected branches change across assumptions and popped scopes;
+        # neither missing equalities nor stale ones may survive the next check.
+        solver = factory()
+        solver.set(timeout=5000)
+        base = a + b == 2
+        solver.add(base)
+        for _ in range(2):
+            assert solver.check(c) == unsat
+            assert solver.check(Not(c), Not(d)) == sat
+            model = solver.model()
+            assert all(is_true(model.eval(f, model_completion=True))
+                       for f in [base, Not(c), Not(d)]), model
+            solver.push()
+            solver.add(c)
+            assert solver.check() == unsat
+            solver.pop()
+            assert solver.check() == sat
+            assert is_true(solver.model().eval(base, model_completion=True))
+        solver.reset()
+        solver.add(c, d, a + b == zero)
+        assert solver.check() == sat
+        assert all(is_true(solver.model().eval(f, model_completion=True))
+                   for f in [c, d, a + b == zero])
+
+
 def main():
     factories = [Solver, SimpleSolver, lambda: Tactic('smt').solver()]
+    for factory in factories:
+        conditional_arithmetic(factory)
     for p in [2, 3, 7, 101]:
         field = FiniteFieldSort(p)
         x, y = Consts('review_x review_y', field)

@@ -445,16 +445,6 @@ namespace smt {
         return true;
     }
 
-    void theory_ff::new_eq_eh(theory_var v1, theory_var v2) {
-        new_eqs.push_back({v1, v2});
-        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(new_eqs));
-    }
-
-    void theory_ff::new_diseq_eh(theory_var v1, theory_var v2) {
-        new_diseqs.push_back({v1, v2});
-        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(new_diseqs));
-    }
-
     void theory_ff::apply_sort_cnstr(enode *n, sort *) {
         if (!is_attached_to_var(n)) {
             ctx.attach_th_var(n, this, mk_var(n));
@@ -617,16 +607,21 @@ namespace smt {
                     model_terms.insert(term);
                     p.terms.push_back(term);
                 }
+            // A class root may inherit its field variable from another member.
+            if (n != root)
+                add(n->get_sort(), n->get_expr(), root->get_expr(), true);
         }
-        // Replay the pairs new_eq_eh/new_diseq_eh already reported, instead
-        // of rescanning every variable and boolean atom.
-        for (auto [v1, v2] : new_eqs) {
-            enode *a = get_enode(v1), *b = get_enode(v2);
-            add(a->get_sort(), a->get_expr(), b->get_expr(), true);
-        }
-        for (auto [v1, v2] : new_diseqs) {
-            enode *a = get_enode(v1), *b = get_enode(v2);
-            add(a->get_sort(), a->get_expr(), b->get_expr(), false);
+        // Term ITEs need not own a field theory variable, so equality callbacks
+        // alone miss their selected-branch equalities. Retain the assigned atoms
+        // as premises, including disequalities chosen by the SAT search.
+        for (unsigned i = 0; i < ctx.get_num_b_internalized(); ++i) {
+            expr *e = ctx.get_b_internalized(i);
+            expr *a, *b;
+            if (!m.is_eq(e, a, b) || !ff.is_ff(a) || !ctx.is_relevant(e))
+                continue;
+            lbool value = ctx.get_assignment(e);
+            if (value != l_undef)
+                add(a->get_sort(), a, b, value == l_true);
         }
         for (auto &kv : fields) {
             sort *s = &kv.get_key();
