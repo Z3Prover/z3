@@ -1161,10 +1161,10 @@ namespace smtfd {
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
             expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
-            if (!m.is_true(eval_abs(ext))) {
-                TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
-                m_context.add(ext, __FUNCTION__);            
-            }
+            // The arrays have different abstract values but identical observed reads.
+            // Evaluating a newly abstracted equality here can hide the violation.
+            TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
+            m_context.add(ext, __FUNCTION__);
         }
 
         expr_ref mk_array_value(table& t) {
