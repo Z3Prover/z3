@@ -149,13 +149,14 @@ namespace smtfd {
         ast_manager&    m;
         stats&          m_stats;
         expr_ref_vector m_abs, m_rep, m_atoms, m_atom_defs; // abstraction and representation maps
+        expr_ref_vector m_distincts; // source nodes aliased to expanded abstractions
         array_util      m_autil;
         bv_util         m_butil;
         pb_util         m_pb;
         ptr_vector<expr> m_args, m_todo;
         unsigned        m_nv;
         unsigned_vector m_abs_trail, m_rep_trail, m_nv_trail;
-        unsigned_vector m_abs_lim, m_rep_lim, m_atoms_lim;
+        unsigned_vector m_abs_lim, m_rep_lim, m_atoms_lim, m_distincts_lim;
         random_gen      m_rand;
         
         void pop(unsigned n, expr_ref_vector& v, unsigned_vector& trail, unsigned_vector& lim) {
@@ -222,6 +223,7 @@ namespace smtfd {
             m_rep(m),
             m_atoms(m),
             m_atom_defs(m),
+            m_distincts(m),
             m_autil(m),
             m_butil(m),
             m_pb(m),
@@ -247,6 +249,7 @@ namespace smtfd {
             m_abs_lim.push_back(m_abs_trail.size());
             m_rep_lim.push_back(m_rep_trail.size());
             m_atoms_lim.push_back(m_atoms.size());
+            m_distincts_lim.push_back(m_distincts.size());
             m_nv_trail.push_back(m_nv);
         }
 
@@ -255,6 +258,8 @@ namespace smtfd {
             pop(n, m_rep, m_rep_trail, m_rep_lim);
             m_atoms.shrink(m_atoms_lim[m_atoms_lim.size() - n]);
             m_atoms_lim.shrink(m_atoms_lim.size() - n);
+            m_distincts.shrink(m_distincts_lim[m_distincts_lim.size() - n]);
+            m_distincts_lim.shrink(m_distincts_lim.size() - n);
             m_nv = m_nv_trail[m_nv_trail.size() - n];
             m_nv_trail.shrink(m_nv_trail.size() - n);
         }
@@ -285,6 +290,7 @@ namespace smtfd {
         expr* abs(expr* e) {
             expr* r = try_abs(e);
             if (r) return r;
+            expr_ref_vector expanded_distincts(m);
             m_todo.push_back(e);
             family_id bvfid = m_butil.get_fid();
             family_id bfid  = m.get_basic_family_id();
@@ -293,6 +299,21 @@ namespace smtfd {
                 expr* t = m_todo.back();
                 r = try_abs(t);
                 if (r) {
+                    m_todo.pop_back();
+                    continue;
+                }
+                if (m.is_distinct(t)) {
+                    // Refine the individual disequalities, including under negation.
+                    app* a = to_app(t);
+                    expr_ref expanded(m.mk_distinct_expanded(a->get_num_args(), a->get_args()), m);
+                    r = try_abs(expanded);
+                    if (!r) {
+                        expanded_distincts.push_back(expanded);
+                        m_todo.push_back(expanded);
+                        continue;
+                    }
+                    push_trail(m_abs, m_abs_trail, t, r);
+                    m_distincts.push_back(t);
                     m_todo.pop_back();
                     continue;
                 }
@@ -314,9 +335,6 @@ namespace smtfd {
                     family_id fid = a->get_family_id();
                     if (m.is_eq(a)) {
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
-                    }
-                    else if (m.is_distinct(a)) {
-                        r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
                         r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
