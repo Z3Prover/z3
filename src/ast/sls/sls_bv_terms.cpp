@@ -96,7 +96,7 @@ namespace sls {
         expr_ref r(m);
         r = br.mk_ite(br.mk_eq_rw(u, z), z,
                 br.mk_ite(br.mk_eq_rw(y, z), x,
-                    br.mk_ite(br.mk_and(bvr.mk_sle(z, x), bvr.mk_sle(z, x)), u,
+                    br.mk_ite(br.mk_and(bvr.mk_sle(z, x), bvr.mk_sle(z, y)), u,
                         br.mk_ite(bvr.mk_sle(z, x), bvr.mk_bv_add(y, u),
                             br.mk_ite(bv.mk_sle(z, y), bvr.mk_bv_sub(y, u), bvr.mk_bv_neg(u))))));
         return r;
