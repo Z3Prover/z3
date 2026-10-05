@@ -748,8 +748,6 @@ namespace smt {
         constrained.reset();
         split_atoms.reset();
         bv_fields.reset();
-        new_eqs.reset();
-        new_diseqs.reset();
     }
 
     void theory_ff::init_model(model_generator &mg) {
