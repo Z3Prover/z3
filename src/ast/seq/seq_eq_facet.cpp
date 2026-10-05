@@ -208,10 +208,9 @@ namespace seq {
             expr_ref_vector lts(m), rts(m);
             u.str.get_concat_units(l, lts);
             u.str.get_concat_units(r, rts);
-            if (lts.size() == 1 && rts.size() == 1 && u.str.is_unit(lts.get(0)) && u.str.is_unit(rts.get(0))) {
-                expr* lch = nullptr, *rch = nullptr;
-                VERIFY(u.str.is_unit(lts.get(0), lch));
-                VERIFY(u.str.is_unit(rts.get(0), rch));
+            expr* lch = l, *rch = r;
+            if (!u.is_seq(l) ||
+                (lts.size() == 1 && rts.size() == 1 && u.str.is_unit(lts.get(0), lch) && u.str.is_unit(rts.get(0), rch))) {
                 if (m.are_distinct(lch, rch)) {
                     conflict = true;
                     conflict_dep = parent_dep;
@@ -934,12 +933,22 @@ namespace seq {
 
         for (unsigned idx = 0; idx < f.disequations().size(); ++idx) {
             deq_facet::disequation const& dq = f.disequations()[idx];
+            if (!dq.active())
+                continue;
             if (dq.m_lhs.empty() || dq.m_rhs.empty())
                 continue; // resolved by propagation; shouldn't occur
             has_more = true;
 
             eq_tree::dep_tracker dq_dep = dq.m_dep;
             expr_ref_vector lhs(dq.m_lhs), rhs(dq.m_rhs);
+            expr* a = nullptr, *b = nullptr;
+            if (lhs.size() == 1 && rhs.size() == 1 && u.str.is_unit(lhs.get(0), a) && u.str.is_unit(rhs.get(0), b)) {
+                f.remove_disequation_trailed(idx);
+                ac.add_assumption(expr_ref(m.mk_not(m.mk_eq(a, b)), m), dq_dep);
+                out = eq_tree::edge("diseq char", dq_dep, true, 0);
+                committed = true;
+                return nullptr;
+            }
             auto& sf = ac.solver_facet_ref();
             expr_ref len_lhs = mk_side_len(u, sf.get_arith_util(), m, lhs);
             expr_ref len_rhs = mk_side_len(u, sf.get_arith_util(), m, rhs);

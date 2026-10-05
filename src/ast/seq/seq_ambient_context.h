@@ -104,8 +104,6 @@ namespace seq {
         ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
         ~ambient_context_i() override = default;
 
-        void reset_conditional_deps() { m_cond_deps.reset(); }
-
         dep_tracker_t add_conditional_dep(expr* e) {
             unsigned j = m_cond_deps.size();
             m_cond_deps.push_back(e);

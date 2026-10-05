@@ -30,12 +30,18 @@ namespace seq {
 
         bool lower_bound(expr* e, rational& lo, eq_tree::dep_tracker& dep) override {
             dep = nullptr;
-            return m_th.lower_bound(e, lo);
+            if (!m_th.lower_bound(e, lo))
+                return false;
+            dep = add_conditional_dep(m_th.m_autil.mk_ge(e, m_th.m_autil.mk_int(lo)));
+            return true;
         }
 
         bool upper_bound(expr* e, rational& hi, eq_tree::dep_tracker& dep) override {
             dep = nullptr;
-            return m_th.upper_bound(e, hi);
+            if (!m_th.upper_bound(e, hi))
+                return false;
+            dep = add_conditional_dep(m_th.m_autil.mk_le(e, m_th.m_autil.mk_int(hi)));
+            return true;
         }
 
         bool current_value(expr* e, rational& v) override {
@@ -50,8 +56,7 @@ namespace seq {
             smt::literal lit = m_th.ctx.get_literal(e);
             if (m_th.ctx.get_assignment(lit) != l_false)
                 return nullptr;
-            unsigned idx = m_th.mk_dep(smt::theory_nseq::assumption(~lit));
-            return m_th.m_tree.dep_mgr().mk_leaf(idx);
+            return add_conditional_dep(m.mk_not(e));
         }
 
         void add_diseq_axiom(expr*, expr*) override {

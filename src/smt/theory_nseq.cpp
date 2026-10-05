@@ -658,8 +658,15 @@ namespace smt {
             if (!sf->value(len_t, len) || !len.is_unsigned())
                 return fallback;
             unsigned n_len = len.get_unsigned();
-            if (!m_seq.is_string(t->get_sort()))
-                return fallback;
+            if (!m_seq.is_string(t->get_sort())) {
+                expr_ref_vector units(m);
+                m_seq.str.get_concat_units(fallback, units);
+                SASSERT(!units.empty());
+                units.resize(n_len, units.back());
+                expr* result = m_seq.str.mk_concat(units.size(), units.data(), t->get_sort());
+                m_factory->add_trail(result);
+                return result;
+            }
             zstring s;
             if (m_seq.str.is_string(fallback, s) && s.length() == n_len)
                 return fallback;
@@ -703,6 +710,12 @@ namespace smt {
                 for (unsigned c = 0; c < count.get_unsigned(); ++c)
                     add_token(s);
             }
+            else if (!ctx.e_internalized(t) && is_uninterp_const(t) && m_seq.is_seq(t)) {
+                expr* v = mk_length_correct_fresh_value(t);
+                m_model_subst.insert(t, v);
+                m_model_pin.push_back(v);
+                proc->add_literal(v);
+            }
             else if (m.is_value(t) || !ctx.e_internalized(t)) {
                 proc->add_literal(t);
             }
@@ -733,8 +746,12 @@ namespace smt {
 
         if (!m_pending_assumptions.empty()) {
 
-            if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) 
-                return FC_DONE;
+            if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {
+                if (check_stoi_coherence())
+                    return FC_DONE;
+                m_pending_assumptions.reset();
+                return FC_CONTINUE;
+            }
 
             SASSERT(all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) != l_undef; }));
 
@@ -742,7 +759,6 @@ namespace smt {
             m_pending_assumptions.reset();
         }
 
-        m_ambient->reset_conditional_deps();
         flush_assigned_literals();
         // Instantiate any newly enabled stoi coherence axioms first.
         bool stoi_progress = !check_stoi_coherence();
