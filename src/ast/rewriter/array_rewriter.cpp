@@ -841,13 +841,11 @@ expr_ref array_rewriter::expand_store(expr* s) {
     svector<symbol> names;
     sh(s, arity, tmp);
     args.push_back(tmp);
-    for (unsigned i = arity; i-- > 0; ) {
-        args.push_back(m().mk_var(i, get_array_domain(srt, i)));
+    for (unsigned i = 0; i < arity; ++i) {
+        args.push_back(m().mk_var(arity - i - 1, get_array_domain(srt, i)));
         sorts.push_back(get_array_domain(srt, i));
         names.push_back(symbol(i));
     }
-    names.reverse();
-    sorts.reverse();
     result = m_util.mk_select(args);
     for (app* st : stores) {
         eqs.reset();
@@ -906,6 +904,8 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         uint64_t dsz = 1;
         for (unsigned i = 0; i < sz; ++i) {
             sort* d = get_array_domain(s, i);
+            if (m().is_uninterp(d))
+                continue;
             if (d->is_infinite() || d->is_very_big())
                 return true;
             auto const& n = d->get_num_elements();
@@ -923,6 +923,8 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         rational dsz(1);
         for (unsigned i = 0; i < sz; ++i) {
             sort* d = get_array_domain(s, i);
+            if (m().is_uninterp(d))
+                continue;
             if (d->is_infinite())
                 return true;
             if (d->is_very_big())
@@ -953,6 +955,17 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         fmls.push_back(m().mk_eq(v, w));
         result = m().mk_and(fmls);
         return BR_REWRITE_FULL;
+    }
+
+    if (m_util.is_const(lhs1) && m_util.is_const(rhs1)) {
+        for (unsigned i = 0; i < get_array_arity(lhs->get_sort()); ++i) {
+            if (m().is_uninterp(get_array_domain(lhs->get_sort(), i))) {
+                // The stores may cover the entire uninterpreted domain.
+                expr_ref l = expand_store(lhs), r = expand_store(rhs);
+                result = m().mk_eq(l, r);
+                return BR_REWRITE_FULL;
+            }
+        }
     }
 
 
