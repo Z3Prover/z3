@@ -917,7 +917,6 @@ public:
 
     obj_map<expr, expr*>      m_at_mostk;
     obj_map<expr, bound_info> m_bounds;
-    rational                  m_unfold_upper;
     obj_map<expr, totalizer*> m_totalizers;
 
     expr* mk_atmost_tot(expr_ref_vector const& es, unsigned bound, rational const& weight) {
@@ -979,7 +978,6 @@ public:
             expr_ref_vector es(m, b.es.size(), b.es.data());
             expr* amk = mk_atmost(es, b.k + 1, b.weight);
             new_assumption(amk, b.weight);
-            m_unfold_upper -= b.weight;
         }
     }
 
@@ -991,7 +989,6 @@ public:
         weaken_bounds(core);
 
         if (core.size() > 1) {
-            m_unfold_upper += rational(core.size() - 2) * weight;
             expr* am = mk_atmost(ncore, 1, weight);
             new_assumption(am, weight);
         }
@@ -1016,7 +1013,6 @@ public:
             expr_ref_vector ncore(m);
             for (expr* f : us) 
                 ncore.push_back(mk_not(m, f));
-            m_unfold_upper += rational(us.size() - 1) * weight;
             expr* am = mk_atmost(ncore, 0, weight);
             new_assumption(am, weight);
         }            
@@ -1114,7 +1110,8 @@ public:
     }
 
     rational cost(model& mdl) {
-        rational upper = m_unfold_upper;
+        // Core relaxations do not change the cost of the original soft constraints.
+        rational upper(0);
         for (soft& s : m_soft)
             if (!mdl.is_true(s.s))
                 upper += s.weight;
@@ -1218,7 +1215,6 @@ public:
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;
-        m_unfold_upper = 0;
         m_at_mostk.reset();
         m_bounds.reset();
         for (auto& [k,t] : m_totalizers)
