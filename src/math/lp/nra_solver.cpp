@@ -67,31 +67,40 @@ struct solver::imp {
         m_skipped_constraints.reset();
     }
 
-    // Power of two dividing the denominator of r (capped at 64).
-    static unsigned dyadic_valuation_of_denominator(rational const& r) {
+    // True if the denominator of r is exactly 2^k with k >= threshold.
+    static bool has_large_dyadic_denominator(rational const& r, unsigned threshold) {
         rational den = denominator(r);
         unsigned k = 0;
         while (k < 64 && den.is_even()) {
             den /= 2;
             ++k;
         }
-        return k;
+        return k >= threshold && den.is_one();
     }
 
-    // Bounds derived by the eager bound squeeze reach the constraint set as
-    // asserted atoms whose values are LP-vertex/delta-rational artifacts with a
-    // huge power-of-two denominator (e.g. 1367758954463/2^39). They are implied
-    // by the constraints they were derived from, yet after clearing denominators
-    // they inject outsized coefficients into the nlsat polynomials and blow up
-    // the resultant computations. Decimal constants from the input have
-    // denominators 10^k = 2^k*5^k with small k, so a large dyadic valuation
-    // singles out the derived bounds.
+    // nla lemmas (e.g. monotonicity) bound a monomial by products of the current
+    // LP values of its factors. Those values are LP-vertex artifacts with huge
+    // power-of-two denominators (e.g. 124341723133/2^39), and the atoms created
+    // for such lemma literals reach the constraint set via theory_lra. After
+    // clearing denominators they inject outsized coefficients into the nlsat
+    // polynomials and blow up the resultant computations, so they are kept out
+    // of the nlsat problem. Two conditions must hold:
+    //  - the constraint is auxiliary, i.e. it was created for an nla lemma atom
+    //    (theory_lra::mk_literal(nla::ineq const&)); input constraints, however
+    //    their constants look, are never skipped;
+    //  - a constant has a denominator that is a pure power of two, 2^k with
+    //    k >= 24. Decimal constants have denominators 10^k = 2^k*5^k, so long
+    //    decimals (as printed by tools that print doubles exactly) do not match.
+    // Skipping only weakens the nlsat problem: unsat stays sound, and a model
+    // that violates a skipped constraint yields l_undef (see check()).
     bool is_dyadic_artifact(lp::lar_base_constraint const& c) const {
+        if (!c.is_auxiliary())
+            return false;
         unsigned const dyadic_artifact_threshold = 24;
-        if (dyadic_valuation_of_denominator(c.rhs()) >= dyadic_artifact_threshold)
+        if (has_large_dyadic_denominator(c.rhs(), dyadic_artifact_threshold))
             return true;
         for (auto const& [coeff, v] : c.coeffs())
-            if (dyadic_valuation_of_denominator(coeff) >= dyadic_artifact_threshold)
+            if (has_large_dyadic_denominator(coeff, dyadic_artifact_threshold))
                 return true;
         return false;
     }
@@ -155,7 +164,7 @@ struct solver::imp {
         for (auto ci : m_coi.constraints()) {
             auto &c = lra.constraints()[ci];
             if (is_dyadic_artifact(c)) {
-                // implied bound artifact: keep it out of the nlsat problem
+                // lemma-atom with LP-vertex constants: keep it out of the nlsat problem
                 m_skipped_constraints.insert(ci);
                 continue;
             }
