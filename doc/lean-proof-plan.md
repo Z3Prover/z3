@@ -473,10 +473,10 @@ required execution evidence or checked proofs are absent.
 ## QF_LRA slice through the clause log (2026-10-06)
 
 Milestone 3 now has a working linear real arithmetic slice. It deliberately
-uses the `sat.smt` clause log rather than the legacy proof objects, because
-`theory_lra` records arithmetic conflicts as `(_ th-lemma arith)` with no
-Farkas coefficients: `set_conflict_or_lemma` passes a parameter vector that is
-only ever reset. The clause log carries them, for example
+uses the `sat.smt` clause log rather than the smt core's proof objects, because
+`theory_lra` records its arithmetic conflicts there as `(_ th-lemma arith)`
+with no Farkas coefficients: `set_conflict_or_lemma` passes a parameter vector
+that is only ever reset. The clause log carries them, for example
 `(farkas 1 $11 2 $17 1 $21)`, and its hints are already validated by the C++
 checker in the matrix. `proof_clause_log.py` rebuilds the log into the
 existing certificate format, so the Boolean reconstruction is reused

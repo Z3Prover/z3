@@ -117,8 +117,9 @@ Run the focused regression suite with the local bindings:
 Linear real arithmetic through the clause log
 --------------------------------------------
 
-The legacy proof objects of theory_lra record arithmetic conflicts as
-(_ th-lemma arith) without Farkas coefficients, so they cannot be replayed.
+The proof objects of the smt core (sat.smt=false) record theory_lra's
+arithmetic conflicts as (_ th-lemma arith) without Farkas coefficients, so
+they cannot be replayed.
 The sat.smt core's clause log carries them: each inferred clause comes with a
 hint such as (farkas 1 $11 2 $17 1 $21). proof_certificate.py therefore drives
 the z3 executable for arithmetic input and rebuilds the log into the same DAG
