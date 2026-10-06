@@ -139,9 +139,14 @@ namespace smt {
     }
 
     void theory_ff::new_eq_eh(theory_var v1, theory_var v2) {
-        root_equalities.push_back({v1, v2});
-        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(root_equalities));
+        eqs.push_back({v1, v2});
+        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(eqs));
     }
+
+    void theory_ff::new_diseq_eh(theory_var v1, theory_var v2) {
+        diseqs.push_back({v1, v2});
+        ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(diseqs));
+    }   
 
     void theory_ff::relevant_eh(expr *e) {
         // Re-emit on relevancy propagation: axioms can be popped while the
@@ -166,11 +171,9 @@ namespace smt {
         bool boolean_split = smt_params_helper(ctx.get_params()).ff_boolean_split();
         // new_eq_eh only fires for relevant, merged (hence true) equalities;
         // snapshot the size so lemmas asserted here can't grow this pass.
-        unsigned end = root_equalities.size();
-        for (unsigned i = 0; i < end; ++i) {
+        for (auto [v1, v2] : eqs) {
             if (!m.inc())
                 return changed;
-            auto [v1, v2] = root_equalities[i];
             expr *a = get_enode(v1)->get_expr(), *b = get_enode(v2)->get_expr();
             expr *ka = a, *kb = b;
             if (ka->get_id() > kb->get_id())
@@ -290,6 +293,12 @@ namespace smt {
             catch (ff::exhausted const &) { bv_fields.insert(s); ++fallbacks; }
         };
         obj_hashtable<enode> model_terms;
+        // NSB review: this was previous updated to use eqs and diseqs instead of 
+        // reproducing equalities from the E-graph.
+        // Accessing get_num_b_internalized and get_assigment is not following
+        // the conventions assumed for theory solvers to receive the solver state based
+        // on the assign_eh, new_eq_eh and new_diseq_eh callbacks.
+
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);
             enode *root = n->get_root();
@@ -311,6 +320,10 @@ namespace smt {
         // Term ITEs need not own a field theory variable, so equality callbacks
         // alone miss their selected-branch equalities. Retain the assigned atoms
         // as premises, including disequalities chosen by the SAT search.
+
+        // NSB code review: the above comment doesnt make sense.
+        // The code below just looks for equality atoms that get assigned to true or false.
+        // The new_eq_eh and new_diseq_eh callbacks should be used for this.
         for (unsigned i = 0; i < ctx.get_num_b_internalized(); ++i) {
             expr *e = ctx.get_b_internalized(i);
             expr *a, *b;
