@@ -3,6 +3,7 @@
 #
 # Tests for native Boolean proof certificate export.
 ############################################
+from fractions import Fraction
 import json
 from pathlib import Path
 import subprocess
@@ -16,6 +17,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_clause_log
 
 
 _CONTRADICTION = """\
@@ -315,6 +317,296 @@ class TestProofCertificate(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
         self.assertIn("missing.smt2", result.stderr)
+
+
+
+_LRA = """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (>= (+ (* 2.0 x) y) 5.0))
+(assert (<= (+ x (* 3.0 z)) 1.0))
+(assert (<= (- y (* 6.0 z)) 2.0))
+(assert (<= x 0.0))
+(check-sat)
+"""
+# The clause log Z3 writes for _LRA with sat.smt=true and preprocessing off.
+_LRA_LOG = """\
+(declare-fun y () Real)
+(declare-fun x () Real)
+(define-const $7 Real (* 2.0 x))
+(define-const $9 Real (+ $7 y))
+(define-const $11 Bool (>= $9 5.0))
+(assume $11)
+(declare-fun z () Real)
+(define-const $14 Real (* 3.0 z))
+(define-const $15 Real (+ x $14))
+(define-const $17 Bool (<= $15 1.0))
+(assume $17)
+(define-const $19 Real (* 6.0 z))
+(define-const $20 Real (- y $19))
+(define-const $21 Bool (<= $20 2.0))
+(assume $21)
+(define-const $23 Bool (<= x 0.0))
+(assume $23)
+(declare-fun farkas (Int Bool Int Bool Int Bool) Proof)
+(define-const $27 Proof (farkas 1 $11 2 $17 1 $21))
+(infer (not $11) (not $17) (not $21) $27)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+
+
+def _z3_available():
+    try:
+        return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
+                              capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
+class TestFragmentClassification(unittest.TestCase):
+    def classify(self, source):
+        assertions, fragment = proof_certificate.parse_assertions(source, z3.Context())
+        return fragment
+
+    def test_propositional_and_linear_real_inputs_are_classified(self):
+        self.assertEqual(self.classify(_CONTRADICTION), "propositional")
+        self.assertEqual(self.classify(_LRA), "qf_lra")
+        mixed = "(declare-const p Bool)(declare-const x Real)(assert (or p (< (/ x 2.0) (- 1.5))))"
+        self.assertEqual(self.classify(mixed), "qf_lra")
+
+    def test_nonlinear_integer_and_other_inputs_are_rejected(self):
+        for source, message in [
+            ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
+            ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
+            ("(declare-const x Int)(assert (> x 1))", "unsupported sort"),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (f x) 1.0))", "uninterpreted functions"),
+            ("(declare-const p Bool)(declare-const x Real)(assert (> (ite p x 1.0) 2.0))", "ite"),
+        ]:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.classify(source)
+
+    def test_legacy_exporter_still_rejects_arithmetic(self):
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log"):
+            proof_certificate.export_certificate(_LRA)
+
+
+class TestLinearCombination(unittest.TestCase):
+    def test_farkas_sum_refutes(self):
+        F = Fraction
+        constraints = [  # 2x + y >= 5, x + 3z <= 1, y - 6z <= 2 with coefficients 1, 2, 1
+            (F(1), "<=", {"x": F(-2), "y": F(-1)}, F(5)),
+            (F(2), "<=", {"x": F(1), "z": F(3)}, F(-1)),
+            (F(1), "<=", {"y": F(1), "z": F(-6)}, F(-2)),
+        ]
+        self.assertTrue(proof_certificate.linear_combination_refutes(constraints))
+        self.assertFalse(proof_certificate.linear_combination_refutes(constraints[:2]))
+        # Wrong coefficients leave a variable or make the constant harmless.
+        wrong = [(F(1),) + constraint[1:] for constraint in constraints]
+        self.assertFalse(proof_certificate.linear_combination_refutes(wrong))
+        self.assertFalse(proof_certificate.linear_combination_refutes(
+            [(F(-1),) + constraints[0][1:]] + constraints[1:]))
+
+    def test_strictness_and_equalities(self):
+        F = Fraction
+        # x <= 0 and x >= 0 are consistent, x < 0 and x >= 0 are not.
+        weak = [(F(1), "<=", {"x": F(1)}, F(0)), (F(1), "<=", {"x": F(-1)}, F(0))]
+        self.assertFalse(proof_certificate.linear_combination_refutes(weak))
+        strict = [(F(1), "<", {"x": F(1)}, F(0)), (F(1), "<=", {"x": F(-1)}, F(0))]
+        self.assertTrue(proof_certificate.linear_combination_refutes(strict))
+        # Equality multipliers are solved for: 15 * (x3 - x4 = 1) is needed here.
+        hint = [
+            (F(1), "=", {"x3": F(2), "x4": F(-2)}, F(-2)),
+            (F(1), "<", {"x2": F(-3), "x1": F(2)}, F(-1)),
+            (F(8), "<=", {"x1": F(2), "x4": F(3)}, F(3)),
+            (F(10), "<", {"x3": F(-3), "x1": F(-1)}, F(5)),
+            (F(1), "<=", {"x2": F(3), "x5": F(2)}, F(-1)),
+            (F(2), "<=", {"x5": F(-1), "x1": F(-3), "x0": F(-3)}, F(-5)),
+            (F(2), "<=", {"x4": F(3), "x0": F(3), "x1": F(-1)}, F(0)),
+        ]
+        self.assertTrue(proof_certificate.linear_combination_refutes(hint))
+        inconsistent = [(F(1), "=", {"x": F(1)}, F(-1)), (F(1), "=", {"x": F(1)}, F(-2))]
+        self.assertTrue(proof_certificate.linear_combination_refutes(inconsistent))
+        consistent = [(F(1), "=", {"x": F(1)}, F(-1)), (F(1), "=", {"y": F(1)}, F(-2))]
+        self.assertFalse(proof_certificate.linear_combination_refutes(consistent))
+
+
+class TestClauseLogReplay(unittest.TestCase):
+    def replay(self, source, log):
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        return proof_clause_log.build_certificate(source, fragment, assertions, log, context)
+
+    def test_recorded_log_becomes_a_well_formed_dag(self):
+        certificate = self.replay(_LRA, _LRA_LOG)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertEqual(certificate["verification"], "unverified")
+        self.assertEqual(certificate["source_smt2"], _LRA)
+        self.assertEqual(len(certificate["assertions"]), 4)
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["th-lemma"], 1)
+        self.assertEqual(counts["asserted"], 4)
+        self.assertEqual(counts["lemma"], 1)  # the final rup step
+        self.assertIn("unit-resolution", counts)
+        th_lemma = [d for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual(th_lemma[0]["parameters"], ["farkas", "1", "2", "1"])
+        self.assertEqual(th_lemma[0]["domain"], ["Bool"])
+        sorts = {d["range"] for d in certificate["declarations"]}
+        self.assertEqual(sorts, {"Bool", "Real", "Proof"})
+        numerals = sorted(d["name"] for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ANUM)
+        self.assertEqual(numerals, ["1", "2", "3", "5", "6", "0"][:0] + sorted(["0", "1", "2", "3", "5", "6"]))
+        root = certificate["nodes"][certificate["proof"]]
+        conclusion = certificate["nodes"][root["arguments"][-1]]
+        self.assertEqual(certificate["declarations"][conclusion["declaration"]]["kind"], z3.Z3_OP_FALSE)
+        for index, node in enumerate(certificate["nodes"]):
+            self.assertTrue(all(argument < index for argument in node["arguments"]))
+
+    def test_rewritten_assumptions_are_tied_to_their_assertions(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (and (> x 5.0) (< y 2.0)))(assert (= x (+ y 1.0)))")
+        log = """\
+(declare-fun x () Real)
+(define-const $1 Bool (<= x 5.0))
+(assume (not $1))
+(declare-fun y () Real)
+(define-const $2 Bool (>= y 2.0))
+(assume (not $2))
+(define-const $3 Real (+ 1.0 y))
+(define-const $4 Bool (= x $3))
+(assume $4)
+(declare-fun farkas (Int Bool Int Bool Int Bool) Proof)
+(define-const $5 Bool (not $1))
+(define-const $6 Bool (not $2))
+(define-const $7 Proof (farkas 1 $4 1 $6 1 $5))
+(infer $1 $2 (not $4) $7)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["and-elim"], 2)
+        self.assertEqual(counts["rewrite"], 3)
+        self.assertEqual(counts["mp"], 3)
+        self.assertEqual(counts["th-lemma"], 1)
+
+    def test_split_assertions_use_a_cnf_lemma_and_tautologies_need_no_source(self):
+        source = "(declare-const p Bool)(declare-const q Bool)(assert (xor p q))(assert (= p q))"
+        log = """\
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(assume p q)
+(assume (not p) (not q))
+(assume (not p) q)
+(assume p (not q))
+(assume (not false))
+(assume p (not p))
+(declare-fun rup () Proof)
+(infer p rup)
+(infer q rup)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        counts = certificate["rule_counts"]
+        cnf = [d for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual([d["parameters"] for d in cnf], [["cnf"]])
+        self.assertEqual(counts["th-lemma"], 4)
+        self.assertEqual(counts["def-axiom"], 2)
+        self.assertEqual(counts["lemma"], 3)
+
+    def test_tseitin_hints_are_gate_clauses_and_gates_support_propagation(self):
+        source = ("(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)"
+                  "(assert (or p (and q r)))(assert (not p))(assert (not q))")
+        log = """\
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(declare-fun r () Bool)
+(define-const $1 Bool (and q r))
+(assume p $1)
+(assume (not p))
+(assume (not q))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $2 Proof (tseitin (not $1) q))
+(infer (not $1) q $2)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        counts = certificate["rule_counts"]
+        self.assertGreaterEqual(counts["def-axiom"], 1)
+        self.assertNotIn("th-lemma", counts)
+        self.assertEqual(counts["lemma"], 1)
+
+    def test_deleted_and_repeated_empty_clauses_are_handled(self):
+        log = _LRA_LOG.replace("(infer rup)\n", "(del (not $11) (not $17) (not $21))\n(infer rup)\n(infer rup)\n")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not derivable"):
+            self.replay(_LRA, log)
+        log = _LRA_LOG + "(infer rup)\n"
+        certificate = self.replay(_LRA, log)
+        self.assertEqual(certificate["rule_counts"]["lemma"], 2)
+
+    def test_bad_hints_and_logs_are_rejected(self):
+        cases = [
+            (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(farkas 1 $11 1 $17 1 $21)"), "do not refute"),
+            (_LRA_LOG.replace("(assume $23)\n", "(assume $23)\n(infer (not $23) rup)\n"), "not derivable"),
+            (_LRA_LOG.replace("(declare-fun z () Real)", "(declare-fun w () Real)"), "absent from the input"),
+            (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(nla 1 $11)"), "unsupported clause-log hint"),
+            ("(assume $9)", "undeclared or fresh symbol"),
+        ]
+        for log, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_LRA, log)
+
+    def test_contradictions_outside_the_log_are_tied_to_the_assertions(self):
+        # Without the final rup step, propagation still closes the database.
+        certificate = self.replay(_LRA, _LRA_LOG.replace("(infer rup)\n", ""))
+        self.assertEqual(certificate["rule_counts"]["lemma"], 1)
+        # An empty log: the contradiction was found while asserting.
+        source = "(declare-const p Bool)(assert p)(assert (not p))"
+        certificate = self.replay(source, "")
+        self.assertEqual(certificate["fragment"], "propositional")
+        self.assertEqual([d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"],
+                         [["cnf"]])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
+            self.replay("(declare-const p Bool)(assert p)", "")
+
+    def test_unrelated_assumptions_are_rejected(self):
+        source = "(declare-const x Real)(assert (>= x 1.0))"
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
+            self.replay(source, "(declare-fun x () Real)\n(define-const $1 Bool (<= x 5.0))\n(assume $1)\n")
+
+    def test_log_terms_are_parsed_exactly(self):
+        self.assertEqual(proof_clause_log._number("5"), 5)
+        self.assertEqual(proof_clause_log._number(["-", ["/", "13.0", "2.0"]]), Fraction(-13, 2))
+        with self.assertRaises(proof_certificate.ProofExportError):
+            proof_clause_log._number(["/", "1.0", "0.0"])
+        commands = proof_clause_log._sexpressions("(a (b c) |d e|) ; comment\n(f)")
+        self.assertEqual(commands, [["a", ["b", "c"], "|d e|"], ["f"]])
+        with self.assertRaises(proof_certificate.ProofExportError):
+            proof_clause_log._sexpressions("(a (b)")
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_executable_export_and_cli(self):
+        certificate = proof_certificate.export_clause_log_certificate(_LRA)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
+            proof_certificate.export_clause_log_certificate(
+                "(declare-const x Real)(assert (> x 1.0))")
+        # Boolean input through the clause log, selected explicitly.
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "-"],
+            input=_CONTRADICTION, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["fragment"], "propositional")
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "-"],
+            input=_LRA, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["fragment"], "qf_lra")
 
 
 if __name__ == "__main__":

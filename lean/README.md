@@ -5,8 +5,11 @@ This workspace pins **Lean 4.34.0** and supports the
 reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
 `rewrite`, plus `refl`, `symm`, `trans`, `trans*`, `iff-true`, `iff-false`,
 Boolean `monotonicity`, `and-elim`, and `not-or-elim`, with scoped `hypothesis`
-and `lemma` proofs and supported Boolean `def-axiom` clauses. Other native proof
-rules are still unsupported.
+and `lemma` proofs and supported Boolean `def-axiom` clauses. For quantifier-free
+linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
+`bound`, `implied-eq`, `euf`, `smt`, or `cnf` hints and arithmetic rewrites,
+proved by `grind` over a `Rat` encoding of the Real variables. Other native
+proof rules are still unsupported.
 
 ## Check a native Z3 refutation
 
@@ -30,6 +33,22 @@ negated-disjunction elimination. Use `boolean_branching` to exercise temporary
 hypotheses and learned clauses. Use `boolean_def_axiom` for clauses forcing both
 arguments of an xor to be true, requiring a Boolean gate clause after
 preprocessing.
+
+For linear real arithmetic the exporter rebuilds the `sat.smt` clause log and
+needs the z3 executable:
+
+```sh
+PYTHONPATH=build/python python3 examples/python/proof_certificate.py --z3 build/z3 \
+  ../z3test/regressions/proofs/lean/lra_farkas.smt2 > /tmp/lra_farkas.json
+PYTHONPATH=build/python python3 examples/python/proof_to_lean.py \
+  ../z3test/regressions/proofs/lean/lra_farkas.smt2 /tmp/lra_farkas.json \
+  -o /tmp/lra_farkas.lean
+```
+
+The resulting theorem quantifies over `_vars : Nat -> Rat` as well as the atom
+valuation and depends on the three standard axioms through Lean core's `Rat`
+library; the Boolean slice stays axiom-free. See the exporter documentation
+for the Real-as-Rat trust statement.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

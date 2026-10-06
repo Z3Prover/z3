@@ -1,15 +1,20 @@
 ############################################
 # Copyright (c) 2026 Microsoft Corporation
 #
-# Export native Boolean refutations for independent proof consumers.
+# Export native Boolean and linear real arithmetic refutations for
+# independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional SMT-LIB problem."""
+"""Export an unverified native proof DAG for one propositional or QF_LRA SMT-LIB problem."""
 
 import argparse
 from collections import Counter
+from fractions import Fraction
 import json
+import os
 import re
+import subprocess
 import sys
+import tempfile
 
 import z3
 
@@ -30,6 +35,29 @@ _BOOLEAN_OPERATORS = {
     z3.Z3_OP_IMPLIES, z3.Z3_OP_XOR, z3.Z3_OP_IFF, z3.Z3_OP_EQ,
     z3.Z3_OP_DISTINCT, z3.Z3_OP_ITE,
 }
+# Linear real arithmetic: atoms over Real terms built from variables, numerals,
+# sums, differences, negation, scaling by a numeral, and division by a numeral.
+_ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
+_ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
+_ARITH_NAMES = {
+    z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">",
+    z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*",
+    z3.Z3_OP_DIV: "/",
+}
+# Clause-log hints accepted as theory lemmas. Each becomes one th-lemma node
+# whose conclusion negates the hint literals; Lean must prove that clause.
+_COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
+_LITERAL_HINTS = ("euf", "tseitin", "smt")
+# Synthesized by the exporter, not logged by Z3: an original assertion implies
+# one of the clauses it was split into.
+_CNF_HINT = "cnf"
+# The clause log starts after preprocessing, so every pass that rewrites one
+# assertion using another is disabled. bound_simplifier runs solve_eqs and
+# propagate_values internally regardless of their own options.
+_NO_PREPROCESSING = (
+    "(set-option :smt.solve_eqs false)\n(set-option :smt.propagate_values false)\n"
+    "(set-option :smt.elim_unconstrained false)\n(set-option :smt.bound_simplifier false)\n"
+)
 
 
 def _commands(source):
@@ -94,22 +122,99 @@ def _assertion_commands(source):
     return "\n".join(commands)
 
 
-def _require_propositional(assertions):
-    pending, seen = list(assertions), set()
+def _is_numeral(expr):
+    return z3.is_app(expr) and expr.decl().kind() == z3.Z3_OP_ANUM
+
+
+def numeral_value(expr):
+    """Return the exact rational value of a Real numeral."""
+    if not _is_numeral(expr):
+        raise ProofExportError("expected a numeral")
+    return Fraction(str(expr.as_fraction()))
+
+
+def constant_value(expr):
+    """Return the rational value of a variable-free Real term, or None."""
+    kind = expr.decl().kind()
+    if kind == z3.Z3_OP_ANUM:
+        return numeral_value(expr)
+    if kind not in _ARITH_OPERATORS:
+        return None
+    values = [constant_value(child) for child in expr.children()]
+    if any(value is None for value in values):
+        return None
+    if kind == z3.Z3_OP_ADD:
+        return sum(values, Fraction(0))
+    if kind == z3.Z3_OP_SUB:
+        return values[0] - sum(values[1:], Fraction(0))
+    if kind == z3.Z3_OP_UMINUS:
+        return -values[0]
+    if kind == z3.Z3_OP_MUL:
+        result = Fraction(1)
+        for value in values:
+            result *= value
+        return result
+    if values[1] == 0:
+        raise ProofExportError("division by zero")
+    return values[0] / values[1]
+
+
+def _require_linear_real(expr):
+    """Reject Real terms outside the linear fragment with constant coefficients."""
+    kind = expr.decl().kind()
+    if kind == z3.Z3_OP_UNINTERPRETED:
+        if expr.decl().arity() != 0:
+            raise ProofExportError("uninterpreted functions are not supported: %s" % expr.decl().name())
+    elif kind == z3.Z3_OP_ANUM:
+        pass
+    elif kind == z3.Z3_OP_MUL:
+        if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
+            raise ProofExportError("nonlinear multiplication is not supported")
+    elif kind == z3.Z3_OP_DIV:
+        divisor = constant_value(expr.arg(1))
+        if divisor is None or divisor == 0:
+            raise ProofExportError("division is supported only by a nonzero constant")
+    elif kind == z3.Z3_OP_ITE:
+        raise ProofExportError("arithmetic ite is not supported")
+    elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS):
+        raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
+
+
+def classify_fragment(assertions):
+    """Return "propositional" or "qf_lra", rejecting everything else."""
+    pending, seen, arithmetic = list(assertions), set(), False
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
             continue
         seen.add(expr.get_id())
-        if not z3.is_app(expr) or not z3.is_bool(expr):
-            raise ProofExportError("only quantifier-free propositional expressions are supported")
+        if not z3.is_app(expr):
+            raise ProofExportError("only quantifier-free expressions are supported")
         decl = expr.decl()
-        if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-            if decl.arity() != 0:
-                raise ProofExportError("uninterpreted functions are not supported: %s" % decl.name())
-        elif decl.kind() not in _BOOLEAN_OPERATORS:
-            raise ProofExportError("unsupported propositional operator: %s" % decl.name())
+        if z3.is_bool(expr):
+            if decl.kind() == z3.Z3_OP_UNINTERPRETED:
+                if decl.arity() != 0:
+                    raise ProofExportError("uninterpreted functions are not supported: %s" % decl.name())
+            elif decl.kind() in _ARITH_PREDICATES:
+                arithmetic = True
+            elif decl.kind() not in _BOOLEAN_OPERATORS:
+                raise ProofExportError("unsupported propositional operator: %s" % decl.name())
+            if decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and not z3.is_bool(expr.arg(0)):
+                arithmetic = True
+            elif decl.kind() == z3.Z3_OP_ITE and not z3.is_bool(expr.arg(1)):
+                raise ProofExportError("arithmetic ite is not supported")
+        elif z3.is_real(expr):
+            arithmetic = True
+            _require_linear_real(expr)
+        else:
+            raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
+    return "qf_lra" if arithmetic else "propositional"
+
+
+def _require_propositional(assertions):
+    if classify_fragment(assertions) != "propositional":
+        raise ProofExportError("arithmetic requires the clause-log exporter (fragment qf_lra)")
 
 
 def parse_propositional_assertions(source, context):
@@ -117,6 +222,12 @@ def parse_propositional_assertions(source, context):
     assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
     _require_propositional(assertions)
     return assertions
+
+
+def parse_assertions(source, context):
+    """Parse the assertion snapshot and return it with its fragment name."""
+    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
+    return assertions, classify_fragment(assertions)
 
 
 def _encode_proof(assertions, proof):
@@ -172,6 +283,152 @@ def _encode_proof(assertions, proof):
     }
 
 
+class DagBuilder:
+    """Encode z3 expressions and synthesized proof steps as one shared DAG.
+
+    Declarations are keyed by kind, name, domain, range, and parameters; nodes
+    by their z3 identity or by declaration and arguments. Both are therefore
+    hash-consed, so repeated literals, clauses, and steps share one node.
+    """
+
+    _SORTS = {z3.Z3_BOOL_SORT: "Bool", z3.Z3_REAL_SORT: "Real"}
+
+    def __init__(self):
+        self.declarations, self.nodes = [], []
+        self.rule_counts = Counter()
+        self._declaration_ids, self._expression_nodes, self._synthetic_nodes = {}, {}, {}
+        # z3 reuses AST identifiers once an expression is garbage collected, so
+        # every expression keyed by identifier is kept alive here.
+        self._alive = []
+
+    def sort_name(self, sort):
+        name = self._SORTS.get(sort.kind())
+        if name is None:
+            raise ProofExportError("unsupported native proof sort: %s" % sort)
+        return name
+
+    def declaration(self, kind, name, domain, range_name, parameters=()):
+        key = (kind, name, tuple(domain), range_name, tuple(parameters))
+        index = self._declaration_ids.get(key)
+        if index is None:
+            index = self._declaration_ids[key] = len(self.declarations)
+            self.declarations.append({
+                "kind": kind, "name": name, "domain": list(domain), "range": range_name,
+                "parameters": list(parameters),
+            })
+        return index
+
+    def rule(self, kind, name, premises, parameters=()):
+        return self.declaration(kind, name, ("Proof",) * premises + ("Bool",), "Proof", parameters)
+
+    def node(self, declaration, arguments):
+        key = (declaration, tuple(arguments))
+        index = self._synthetic_nodes.get(key)
+        if index is None:
+            index = self._synthetic_nodes[key] = len(self.nodes)
+            self.nodes.append({"declaration": declaration, "arguments": list(arguments)})
+            if self.declarations[declaration]["range"] == "Proof":
+                self.rule_counts[self.declarations[declaration]["name"]] += 1
+        return index
+
+    def expression(self, root):
+        """Add a Bool or Real z3 expression and return its node index."""
+        pending = [(root, False)]
+        while pending:
+            expr, expanded = pending.pop()
+            if expr.get_id() in self._expression_nodes:
+                continue
+            if not z3.is_app(expr):
+                raise ProofExportError("non-application terms are not supported")
+            if not expanded:
+                pending.append((expr, True))
+                pending.extend((child, False) for child in reversed(expr.children()))
+                continue
+            self._alive.append(expr)
+            decl = expr.decl()
+            name = str(decl.name())
+            if decl.kind() == z3.Z3_OP_ANUM:
+                name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
+            elif decl.params():
+                raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
+            domain = tuple(self.sort_name(decl.domain(i)) for i in range(decl.arity()))
+            declaration = self.declaration(decl.kind(), name, domain, self.sort_name(expr.sort()))
+            arguments = [self._expression_nodes[child.get_id()] for child in expr.children()]
+            self._expression_nodes[expr.get_id()] = self.node(declaration, arguments)
+        return self._expression_nodes[root.get_id()]
+
+    def certificate(self, source, fragment, assertions, root):
+        return {
+            "format": "z3-native-proof-dag",
+            "format_version": 1,
+            "z3_version": z3.get_full_version(),
+            "fragment": fragment,
+            "result": "unsat",
+            "verification": "unverified",
+            "source_smt2": source,
+            "declarations": self.declarations,
+            "nodes": self.nodes,
+            "assertions": list(assertions),
+            "proof": root,
+            "rule_counts": dict(sorted(self.rule_counts.items())),
+        }
+
+
+def linear_combination_refutes(constraints):
+    """Decide whether linear constraints combine into a contradiction.
+
+    Each constraint is (coefficient, relation, terms, constant) meaning
+    sum(terms) + constant <relation> 0 with relation in "<=", "<", or "=".
+    terms maps variable identifiers to rational coefficients. Inequalities are
+    scaled by their nonnegative coefficients and added. Equalities may be used
+    with any rational multiplier, as in Z3's own arithmetic checker, so their
+    multipliers are solved for by exact Gaussian elimination rather than read
+    from the hint.
+    """
+    total, constant, strict, equalities = {}, Fraction(0), False, []
+    for coefficient, relation, terms, offset in constraints:
+        if relation == "=":
+            equalities.append((dict(terms), offset))
+            continue
+        if coefficient < 0:
+            return False
+        for variable, value in terms.items():
+            total[variable] = total.get(variable, Fraction(0)) + coefficient * value
+        constant += coefficient * offset
+        strict = strict or (relation == "<" and coefficient != 0)
+    # Reduce the equalities to row echelon form, then eliminate every pivot
+    # variable from the inequality sum.
+    pivots = []
+    for terms, offset in equalities:
+        terms, offset = dict(terms), offset
+        for pivot, row_terms, row_offset in pivots:
+            factor = terms.get(pivot, Fraction(0))
+            if factor:
+                for variable, value in row_terms.items():
+                    terms[variable] = terms.get(variable, Fraction(0)) - factor * value
+                offset -= factor * row_offset
+        terms = {variable: value for variable, value in terms.items() if value != 0}
+        if not terms:
+            if offset != 0:
+                return True  # The equalities alone are inconsistent.
+            continue
+        pivot = min(terms)
+        scale = terms[pivot]
+        terms = {variable: value / scale for variable, value in terms.items()}
+        pivots.append((pivot, terms, offset / scale))
+    for pivot, row_terms, row_offset in pivots:
+        factor = total.get(pivot, Fraction(0))
+        if factor:
+            for variable, value in row_terms.items():
+                total[variable] = total.get(variable, Fraction(0)) - factor * value
+            constant -= factor * row_offset
+    if any(value != 0 for value in total.values()):
+        return False
+    if not any(relation != "=" for _, relation, _, _ in constraints):
+        return False  # Consistent equalities only.
+    return constant > 0 or (strict and constant == 0)
+
+
 def _certificate_from_proof(source, assertions, proof):
     if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
             or not z3.is_false(proof.arg(proof.num_args() - 1))):
@@ -194,6 +451,7 @@ def export_certificate(source):
 
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
+    This is the legacy proof-object path and supports propositional input.
     """
     context = z3.Context(proof=True)
     assertions = parse_propositional_assertions(source, context)
@@ -207,9 +465,47 @@ def export_certificate(source):
     return _certificate_from_proof(source, assertions, solver.proof())
 
 
+def default_z3_executable():
+    """Locate the z3 executable: $Z3_EXE, then build/z3 next to this checkout, then PATH."""
+    candidate = os.environ.get("Z3_EXE")
+    if candidate:
+        return candidate
+    build = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                         "build", "z3")
+    if os.access(build, os.X_OK):
+        return build
+    return "z3"
+
+
+def export_clause_log_certificate(source, z3_executable=None, timeout=None):
+    """Return a native-style proof bundle built from a sat.smt clause log.
+
+    The z3 executable solves the assertions with sat.smt=true and preprocessing
+    disabled, logging every assumed, inferred, and deleted clause. The log is
+    rebuilt into the proof DAG format: theory hints become th-lemma nodes and
+    reverse-unit-propagation steps become explicit resolution chains. The
+    bundle is unverified; the Lean reconstructor must check it.
+    """
+    import proof_clause_log
+    context = z3.Context()
+    assertions, fragment = parse_assertions(source, context)
+    try:
+        text = proof_clause_log.run_clause_log(
+            z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
+        return proof_clause_log.build_certificate(source, fragment, assertions, text, context)
+    except proof_clause_log.ProofExportError as error:
+        # Running this file as a script imports it twice; unify the error class.
+        raise ProofExportError(str(error)) from None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
+    parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
+                        help="proof source: the legacy proof object (propositional input only) or the "
+                             "sat.smt clause log via the z3 executable (default: legacy when propositional)")
+    parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
+    parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()
     try:
         if args.file == "-":
@@ -217,7 +513,14 @@ def main():
         else:
             with open(args.file, encoding="utf-8", newline="") as stream:
                 source = stream.read()
-        certificate = export_certificate(source)
+        core = args.core
+        if core == "auto":
+            _, fragment = parse_assertions(source, z3.Context())
+            core = "legacy" if fragment == "propositional" else "clause-log"
+        if core == "legacy":
+            certificate = export_certificate(source)
+        else:
+            certificate = export_clause_log_certificate(source, args.z3, args.timeout)
         json.dump(certificate, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     except (ProofExportError, z3.Z3Exception, OSError, UnicodeError) as error:

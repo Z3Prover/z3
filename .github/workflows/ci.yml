@@ -377,7 +377,21 @@ jobs:
             --lean --cells legacy-proof-object --timeout 30 \
             --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
             --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
-            z3test/regressions/proofs/lean/*.smt2
+            z3test/regressions/proofs/lean/boolean_*.smt2 \
+            z3test/regressions/proofs/lean/unit_resolution.smt2
+
+      - name: Require Lean-certified QF_LRA matrix results
+        if: matrix.name == 'releaseClang'
+        env:
+          Z3_EXE: ${{ github.workspace }}/build/z3
+          Z3_SOURCE: ${{ github.workspace }}
+        run: |
+          python z3test/scripts/proofs/proof_matrix.py \
+            --z3 "$Z3_EXE" --z3-source "$Z3_SOURCE" \
+            --lean --cells smt-clause-log-nopp --timeout 30 \
+            --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
+            --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
+            z3test/regressions/proofs/lean/lra_*.smt2
 
       - name: Upload native and Lean proof artifacts
         if: always() && matrix.name == 'releaseClang'
