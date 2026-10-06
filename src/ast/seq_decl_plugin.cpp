@@ -946,7 +946,7 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     // child: a chain of concatenations deep enough (e.g. from repeated
     // quantifier instantiation of `s ++ s`) can otherwise overflow the
     // native stack (#11042).
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     todo.push_back(e);
     while (!todo.empty()) {
         expr* cur = todo.back();
@@ -963,7 +963,7 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
 }
 
 void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
-    ptr_vector<expr> todo;
+    ptr_buffer<expr> todo;
     todo.push_back(e);
     while (!todo.empty()) {
         expr* cur = todo.back();
