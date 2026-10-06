@@ -223,19 +223,25 @@ void test_exp_negative_twenty() {
     Z3_del_context(ctx);
 }
 
-void test_exp_enclosure_does_not_certify_sat() {
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    char const* spec =
-        "(set-logic ALL)\n"
-        "(assert (= (exp (- 20.0)) 0.1))\n"
-        "(check-sat)\n";
-    std::string response = Z3_eval_smtlib2_string(ctx, spec);
-    if (response == "sat\n")
-        std::cout << response << "\n";
-    VERIFY(response != "sat\n");
-    Z3_del_context(ctx);
+void test_transcendental_enclosures_do_not_certify_sat() {
+    char const* assertions[] = {
+        "(= (exp (- 20.0)) 0.1)",
+        "(= (exp 0.0) 1.00000001)",
+        "(= (atan2 1.0 1.0) 0.7853982)"
+    };
+    for (char const* assertion : assertions) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = "(set-logic ALL)\n(assert ";
+        spec += assertion;
+        spec += ")\n(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response == "sat\n")
+            std::cout << response << "\n";
+        VERIFY(response != "sat\n");
+        Z3_del_context(ctx);
+    }
 }
 
 void test_pi_positive_sat() {
@@ -259,7 +265,7 @@ void test_nla_transcendentals() {
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
     test_exp_negative_twenty();
-    test_exp_enclosure_does_not_certify_sat();
+    test_transcendental_enclosures_do_not_certify_sat();
     test_pi_positive_sat();
 }
 
