@@ -99,6 +99,29 @@ bool recfun_rewriter::is_decreasing_arg(func_decl* f, unsigned i, bool allow_any
             }
         }
     }
+    if (allow_any_accessor) {
+        // Using the argument only through accessors does not make the
+        // recursion decrease on it: the body may rebuild a constructor
+        // term for position i from other data and recurse on a different
+        // argument, e.g. (f (tail s) (mk (proj_1 t) ...)) recursing on a
+        // sequence s. Unfolding such a ground constructor argument never
+        // terminates. Require every recursive call to pass a strict
+        // accessor chain of the argument at position i.
+        if (!dec_fun)
+            return false;
+        for (auto t : subterms::all(expr_ref(r, m))) {
+            if (!is_app(t) || to_app(t)->get_decl() != f)
+                continue;
+            expr* a = to_app(t)->get_arg(i);
+            bool strict = false;
+            while (is_app(a) && u.is_accessor(a)) {
+                a = to_app(a)->get_arg(0);
+                strict = true;
+            }
+            if (!strict || !is_var(a) || to_var(a)->get_idx() != idx)
+                return false;
+        }
+    }
     return dec_fun != nullptr || !allow_any_accessor;
 }
 
