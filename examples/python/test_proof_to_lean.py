@@ -54,6 +54,84 @@ NESTED = """\
 (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
 (assert (or (and p q) r))(assert (not p))(assert (not r))
 """
+# Verbatim copies of the documented inputs in Z3Prover/z3test under
+# regressions/proofs/lean/, so the tests need no z3test checkout.
+Z3TEST_LEAN_INPUTS = {
+    "unit_resolution": """\
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(assert (or p q r))
+(assert (not p))
+(assert (not q))
+(assert (not r))
+(check-sat)
+(get-proof)
+""",
+    "boolean_rewrite": """\
+; The native refutation uses implication rewrites and modus ponens.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(assert (=> p q))
+(assert (not q))
+(check-sat)
+(get-proof)
+""",
+    "boolean_structural": """\
+; The native refutation also uses trans, monotonicity, and not-or-elim.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (not (or (not p) q)))
+(assert (not (and p (not q))))
+(check-sat)
+(get-proof)
+""",
+    "boolean_branching": """\
+; The native refutation learns a clause by discharging a temporary hypothesis.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(assert (or (not p) q))
+(assert (or p (not q)))
+(assert (or (not p) (not q)))
+(check-sat)
+(get-proof)
+""",
+    "boolean_def_axiom": """\
+; A native Boolean gate clause connects XOR rewriting to unit resolution.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(declare-const s Bool)
+(assert (xor p q))
+(assert (or p r))
+(assert (or p (not r)))
+(assert (or q s))
+(assert (or q (not s)))
+(check-sat)
+(get-proof)
+""",
+    "boolean_solve_eqs": """\
+; The equality is essential; eliminating p leaves four clauses requiring search.
+(set-option :produce-proofs true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(assert (= p q))
+(assert (or p r))
+(assert (or p (not r)))
+(assert (or (not q) r))
+(assert (or (not q) (not r)))
+(check-sat)
+(get-proof)
+""",
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",
@@ -208,7 +286,7 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(report["complete"], not require_search)
 
     def test_preprocessing_audit_reports_reconstruction_and_lean_errors(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
         errors = [
             (proof_to_lean.ReconstructionError("incorrect substitution proof"), "reconstruction-rejected"),
             (subprocess.CalledProcessError(1, ["lean"], output="bad proof", stderr="rejected"), "lean-rejected"),

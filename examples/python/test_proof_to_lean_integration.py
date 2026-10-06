@@ -23,7 +23,7 @@ import proof_preprocessing
 import proof_to_lean
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
-    NESTED, XOR, make_certificate,
+    NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
 )
 
 
@@ -59,35 +59,35 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 self.check(source, proof_certificate.export_certificate(source))
 
     def test_documented_boolean_rewrite_example(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_rewrite.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_rewrite"]
         certificate = proof_certificate.export_certificate(source)
         self.assertTrue({"asserted", "mp", "rewrite"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
 
     def test_documented_structural_boolean_example(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_structural.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_structural"]
         certificate = proof_certificate.export_certificate(source)
         self.assertTrue({"trans", "monotonicity", "not-or-elim"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
 
     def test_documented_branching_boolean_example(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_branching.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_branching"]
         certificate = proof_certificate.export_certificate(source)
         self.assertTrue({"hypothesis", "lemma"} <= set(certificate["rule_counts"]))
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
 
     def test_documented_def_axiom_xor_example(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_def_axiom.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_def_axiom"]
         certificate = proof_certificate.export_certificate(source)
         self.assertGreater(certificate["rule_counts"]["def-axiom"], 0)
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
         context = z3.Context()
         assertions = proof_certificate.parse_propositional_assertions(source, context)
         without_equality = z3.SimpleSolver(ctx=context)
@@ -118,7 +118,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 self.assertFalse(run["diagnostics"])
 
     def test_preprocessing_audit_also_covers_preprocessing_only_refutations(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "unit_resolution.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["unit_resolution"]
         report = proof_preprocessing.audit_preprocessing(source)
         self.assertTrue(report["complete"], report)
         for run in report["runs"]:
@@ -129,7 +129,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
             self.assertFalse(run["diagnostics"])
 
     def test_preprocessing_audit_cli_never_reports_bypasses_as_success(self):
-        source = (_EXAMPLES.parents[1] / "lean" / "examples" / "boolean_solve_eqs.smt2").read_text()
+        source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
         with tempfile.TemporaryDirectory() as directory:
             original = Path(directory) / "input with spaces.smt2"
             original.write_text(source)
