@@ -2336,8 +2336,6 @@ public:
         for (; m_delay_ineqs_qhead < m_delay_ineqs.size() && !ctx().inconsistent() && m.inc(); ++m_delay_ineqs_qhead) {
             auto atom = m_delay_ineqs[m_delay_ineqs_qhead];
             ctx().push_trail(value_trail(m_delay_ineqs_qhead));
-            if (!ctx().is_relevant(atom))
-                continue;
             expr *x, *y;
             if (a.is_le(atom, x, y)) {
                 auto lit1 = mk_literal(atom);
