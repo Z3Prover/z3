@@ -39,8 +39,17 @@ namespace {
         expr_ref_vector variables;
         std::vector<expr_dependency *> dependencies;
 
+        static params_ref algebra_params(params_ref const &p) {
+            params_ref result(p);
+            // The surrounding tactic pipeline owns equality elimination. In
+            // particular, ff-sat submits many branch conjunctions whose local
+            // conflict cores guide Boolean search; do not re-eliminate them.
+            result.set_bool("solve_eqs", false);
+            return result;
+        }
+
         field_goal(ast_manager &m, sort *s, params_ref const &p)
-            : m(m), ff(m), problem(m, s, p), variables(m) {}
+            : m(m), ff(m), problem(m, s, algebra_params(p)), variables(m) {}
 
         void collect_variables(expr *root) {
             ptr_vector<expr> todo;

@@ -48,11 +48,13 @@ namespace {
             ff::basis_cache basis;
             // Reuse pure encodings while changing all input equations. Test
             // compact encodings too: their fresh definitions must stay local.
-            for (bool compact : {false, true})
+            for (bool preprocess : {false, true})
+              for (bool compact : {false, true})
                 for (unsigned a = 0; a < prime; ++a)
                     for (unsigned b = 0; b < prime; ++b) {
                         params_ref params;
                         params.set_bool("ff.compact_encoding", compact);
+                        params.set_bool("solve_eqs", preprocess);
                         ff::field_problem core(m, field, params, &cache, &basis);
                         expr_ref ca(ff.mk_numeral(rational(a), field), m);
                         expr_ref cb(ff.mk_numeral(rational(b), field), m);
@@ -90,7 +92,7 @@ namespace {
             cache.reset();
             ENSURE(cache.size() == 0);
         }
-        ENSURE(checked == 124);
+        ENSURE(checked == 248);
     }
 
     void interface_and_scope_contract() {
@@ -296,7 +298,6 @@ namespace {
         }
         params_ref params;
         params.set_uint("ff.enum_bits", 0);
-        params.set_uint("ff.max_steps", 0);
         tactic_ref solve = mk_ff_solve_tactic(m, params);
         goal_ref_buffer result;
         (*solve)(g, result);

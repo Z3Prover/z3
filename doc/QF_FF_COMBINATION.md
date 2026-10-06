@@ -13,8 +13,12 @@ are atomic algebraic variables; their arguments and interpretation remain with
 the owning theories. There is no eager bit-vector encoding on this path.
 
 The SMT plugin and `ff-solve` tactic both use `ff::field_problem` in `ast/ff`.
-It applies standard rewriting and `solve-eqs` to a private dependent-expression
-state before encoding residual equations for the bounded modular algebra engine.
+For SMT assignments it applies standard rewriting and `solve-eqs` to a private
+dependent-expression state before encoding residual equations for the bounded
+modular algebra engine. The tactic disables this repeated preprocessing with
+`solve_eqs=false`: its surrounding pipeline owns equality elimination, and
+`ff-sat` branch queries retain their direct literal support for conflict learning.
+Both routes share encoding, early bit propagation, algebra and model validation.
 Candidate digit variables are preserved during substitution to retain explicit
 bit-domain constraints. This is a cost heuristic, not an assumption of Booleanity.
 The standard model reconstruction trail restores eliminated variables; every

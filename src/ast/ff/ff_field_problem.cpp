@@ -48,6 +48,7 @@ namespace ff {
     struct field_problem::imp {
         ast_manager &m;
         ff_util ff;
+        params_ref params; // options borrows this, including for temporary caller parameters
         smt_params_helper options;
         ff::engine algebra;
         ff_encoding_cache::imp local;
@@ -70,17 +71,16 @@ namespace ff {
         base_dependent_expr_state state;
         obj_map<expr, unsigned> premise_ids;
         std::set<unsigned> conflict;
-        params_ref params;
         model_ref candidate;
         scoped_ptr<model_evaluator> evaluator;
 
         imp(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache::imp *shared)
-            : m(m), ff(m), options(p), algebra(ff.modulus(s), m.limit(), options.ff_max_steps(),
+            : m(m), ff(m), params(p), options(params), algebra(ff.modulus(s), m.limit(), options.ff_max_steps(),
                                    options.ff_max_terms(), options.ff_bit_propagation(),
                                    options.ff_batch(), options.ff_sparse_witness()),
               local(m, s), enc(shared && !options.ff_compact_encoding() ? *shared : local),
               cache(enc.cache), num_variables(enc.num_variables), premises(m), labels(m),
-              variable_ids(enc.variable_ids), state(m), params(p) {
+              variable_ids(enc.variable_ids), state(m) {
             ff::configure_engine(algebra, options);
         }
 
@@ -139,7 +139,26 @@ namespace ff {
             }
         }
 
+        void encode_constraint(expr *a, expr *b, bool equality, std::set<unsigned> support) {
+            auto lhs = encode(a);
+            auto rhs = encode(b);
+            auto poly = algebra.add(std::move(lhs), rhs, rational(-1));
+            poly.dependencies = std::move(support);
+            (equality ? eqs : neqs).push_back(std::move(poly));
+        }
+
         void prepare() {
+            if (!options.solve_eqs()) {
+                // Tactic pipelines already own preprocessing. Keep branch
+                // literals in their original shape and retain their direct
+                // support instead of rebuilding a second substitution state.
+                for (unsigned i = 0; i < inputs.size(); ++i) {
+                    auto [a, b, equality] = inputs[i];
+                    expr *lhs = purify(a), *rhs = purify(b);
+                    encode_constraint(lhs, rhs, equality, {i});
+                }
+                return;
+            }
             for (unsigned i = 0; i < inputs.size(); ++i) {
                 auto [a, b, equality] = inputs[i];
                 expr *lhs = purify(a), *rhs = purify(b);
@@ -188,11 +207,9 @@ namespace ff {
                 bool equality = !m.is_not(f, f);
                 if (!m.is_eq(f, a, b) || !ff.is_ff(a))
                     throw ff::exhausted();
-                auto lhs = encode(a);
-                auto rhs = encode(b);
-                auto poly = algebra.add(std::move(lhs), rhs, rational(-1));
-                dependencies(d.dep(), poly.dependencies);
-                (equality ? eqs : neqs).push_back(std::move(poly));
+                std::set<unsigned> support;
+                dependencies(d.dep(), support);
+                encode_constraint(a, b, equality, std::move(support));
             }
         }
 

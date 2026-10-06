@@ -37,8 +37,10 @@ namespace ff {
     // then consume either conflict indices or candidate values. Recreate the
     // problem for new assignments/scopes; only the pure encoding cache survives.
     // Foreign field terms are opaque leaves, NOT freely assignable UF models.
-    // Generic rewriting and solve-eqs run on a private dependent-expression state;
-    // its model reconstruction trail restores eliminated constants. Dependencies
+    // With solve_eqs enabled, rewriting and solve-eqs run on a private dependent-
+    // expression state; its model trail restores eliminated constants. Tactic
+    // pipelines disable this repeated preprocessing for their branch queries.
+    // Dependencies
     // use private labels mapped to the exact signed input premises.
     // SAT here means a field candidate: the frontend must enforce congruence,
     // other-theory semantics and finite-field model arrangements before accepting.
