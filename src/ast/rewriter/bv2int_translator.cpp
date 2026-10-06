@@ -213,16 +213,15 @@ void bv2int_translator::translate_bv(app* e) {
     auto rotate_left = [&](unsigned n) {
         auto sz = bv.get_bv_size(e);
         n = n % sz;
-        expr* r = arg(0);
+        expr_ref r(arg(0), m);
         if (n != 0 && sz != 1) {
             // r[sz - n - 1 : 0] ++ r[sz - 1 : sz - n]
-            // r * 2^(sz - n) + (r div 2^n) mod 2^(sz - n)???
-            // r * A + (r div B) mod A
-            auto N = bv_size(e);
-            auto A = rational::power_of_two(sz - n);
-            auto B = rational::power_of_two(n);
+            // r * 2^n + (r div 2^(sz - n)) mod 2^n
+            auto A = rational::power_of_two(n);
+            auto B = rational::power_of_two(sz - n);
             auto hi = mul(r, a.mk_int(A));
-            auto lo = amod(e, a.mk_idiv(umod(e, 0), a.mk_int(B)), A);
+            expr_ref normalized(umod(e, 0), m);
+            auto lo = amod(e, a.mk_idiv(normalized, a.mk_int(B)), A);
             r = add(hi, lo);
         }
         return r;
@@ -530,13 +529,14 @@ void bv2int_translator::translate_bv(app* e) {
     }
     case OP_ROTATE_RIGHT: {
         unsigned sz = bv.get_bv_size(e);
-        auto n = e->get_parameter(0).get_int();
+        auto n = e->get_parameter(0).get_int() % sz;
         r = rotate_left(sz - n);
         break;
     }
     case OP_EXT_ROTATE_LEFT: {
         unsigned sz = bv.get_bv_size(e);
-        expr* y = umod(e, 1);
+        expr_ref y(umod(e, 1), m);
+        y = a.mk_mod(y, a.mk_int(sz));
         r = a.mk_int(0);
         for (unsigned i = 0; i < sz; ++i)
             r = if_eq(y, i, rotate_left(i), r);
@@ -544,7 +544,8 @@ void bv2int_translator::translate_bv(app* e) {
     }
     case OP_EXT_ROTATE_RIGHT: {
         unsigned sz = bv.get_bv_size(e);
-        expr* y = umod(e, 1);
+        expr_ref y(umod(e, 1), m);
+        y = a.mk_mod(y, a.mk_int(sz));
         r = a.mk_int(0);
         for (unsigned i = 0; i < sz; ++i)
             r = if_eq(y, i, rotate_left(sz - i), r);
