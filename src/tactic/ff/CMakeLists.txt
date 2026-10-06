@@ -7,6 +7,7 @@ z3_add_component(ff_tactics
     ff_unique_tactic.cpp
   COMPONENT_DEPENDENCIES
     core_tactics
+    ff_ast
     ff
     sat
 )

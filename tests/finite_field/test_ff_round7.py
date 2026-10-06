@@ -47,24 +47,24 @@ def compact_retry():
     p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
     f = FiniteFieldSort(p); x, y = Consts('retry_x retry_y', f)
     expr = x + y + 1
-    value = 4
     for _ in range(7):
         expr = expr * expr + x
-        value = (value * value + 1) % p
     for route in ['local', 'global']:
         for enabled in [False, True]:
             if route == 'global': set_param('smt.ff.compact_retry', enabled)
             s = Tactic('ff-solve').solver()
             s.set(**{'ff.f4': False, 'ff.tiny': False})
             s.set(**{'ff.enum_bits': 0, 'ff.compact_encoding': False,
-                     'ff.max_steps': 2000000, 'ff.model_search': False})
+                     'ff.max_steps': 200000, 'ff.max_terms': 128, 'ff.model_search': False})
             if route == 'local': s.set(**{'ff.compact_retry': enabled})
-            s.add(x == 1, y == 2, expr == value)
+            # Leave the inputs unpinned: shared preprocessing now evaluates
+            # pinned DAGs before encoding, so they no longer trigger a retry.
+            s.add(expr != 0)
             status = s.check()
             assert status == (sat if enabled else unknown), (route, enabled, status)
             st = {k:v for k,v in s.statistics()}
             assert bool(st.get('ff compact retries', 0)) == enabled
-            if enabled: assert s.model().eval(expr).as_long() == value
+            if enabled: assert is_true(s.model().eval(expr != 0, model_completion=True))
     set_param('smt.ff.compact_retry', False)
     print('compact retry: local/global enable-disable controls, original model checked', flush=True)
 

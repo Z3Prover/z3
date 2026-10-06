@@ -40,6 +40,10 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/simplifiers/then_simplifier.h"
 
+// Preserve candidate digit variables during substitution, without assuming
+// Booleanity. The original domain constraints remain in the problem.
+void freeze_ff_domain_variables(ast_manager &m, dependent_expr_state &s);
+
 class ff_disjunctive_simplifier : public dependent_expr_simplifier {
     params_ref m_params;
 

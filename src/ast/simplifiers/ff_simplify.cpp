@@ -64,6 +64,13 @@ namespace {
     };
 }  // namespace
 
+void freeze_ff_domain_variables(ast_manager &m, dependent_expr_state &s) {
+    ff_domain_analysis domains(m);
+    for (unsigned i = 0; i < s.qtail(); ++i)
+        if (expr *v = domains.variable(s[i].fml()))
+            s.freeze(v);
+}
+
 ff_disjunctive_simplifier::ff_disjunctive_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s)
     : dependent_expr_simplifier(m, s) {
     updt_params(p);
