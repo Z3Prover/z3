@@ -386,7 +386,7 @@ namespace smt {
                     // Preserve the exact SAT atoms; rewriting could produce an
                     // atom already assigned the opposite value, repeating this
                     // final check indefinitely.
-                    assert_axiom(m.mk_or(clause.size(), clause.data()), false);
+                    assert_axiom(m.mk_or(clause), false);
                     ++native_conflicts;
                     return FC_CONTINUE;
                 }
