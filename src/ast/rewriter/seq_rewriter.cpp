@@ -1055,7 +1055,8 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) &&
         is_prefix(a, b, c) && is_suffix(a1, b1, c1)) {
         expr_ref q(m_autil.mk_sub(c, str().mk_length(a)), m());
-        result = str().mk_substr(a1, b1, m_autil.mk_add(c1, q));
+        expr_ref suffix_length(m_autil.mk_sub(str().mk_length(a1), b1), m());
+        result = str().mk_substr(a1, b1, m_autil.mk_add(suffix_length, q));
         return BR_REWRITE3;
     }
 
