@@ -64,6 +64,22 @@ analysis below, #10888's encoding is self-contained and independently
 checkable; #10938's correctness additionally depends on `round()`'s
 (unaudited, bit-precise) renormalization behavior.
 
+**Recommendation (confirmed after re-triage, see "Re-triage" section
+below): merge #10888.** It is self-contained, its correctness condition
+is fully mechanized end-to-end (`Z3FpaRoundingAudit.fst` +
+`Z3FpaRoundingBits.fst`), and a direct inspection of its diff (`gh pr
+diff 10888`) found no occurrence of `au.mk_power` and no division by a
+term that can be zero or symbolically negative — every `au.mk_div` it
+introduces divides by `sig_value` (a significand-with-hidden-bit real
+expression, always in `[2^(sbits-1), 2^sbits - 1]`, i.e. provably
+bounded away from zero) or by the literal constant `2`. This rules out
+#10888 as a source of the kind of real-division/model-completion risk
+suspected (see below) in issue #10176. #10938, by contrast, still
+depends on the separate, unaudited `fpa2bv_converter.cpp` bit-vector
+`round()` circuit (a different code path from `mpf.cpp`'s `round()`,
+which *was* proved correct in `Z3MpfRound.fst`/`Z3MpfExact.fst` — that
+proof does **not** transfer to this circuit).
+
 ## Correctness condition
 
 The symbolic rounding encoding's job is: given rounding mode `rm`, input
@@ -202,4 +218,78 @@ All lemmas in `Z3FpaRoundingBits.fst` are proved with no
   pipeline, explicitly flagged as a gap in `FPA_REPORT.md`.
 - Any judgment on issues #10176/#9953/#8052/#7842/#7431 beyond noting
   their existence; they were not re-triaged in depth here.
+
+## Re-triage of the remaining issues (this update)
+
+Each of the five previously-unexamined issues was read in full and
+checked against the current `master` code. Two led to new, mechanized
+F* modules; the other three were resolved by inspection.
+
+| # | Verdict | Detail |
+|---|---|---|
+| [#9953](https://github.com/Z3Prover/z3/issues/9953) | **Same root cause as #10881/#10931** | Repro is `fp.add RNE a t` vs. `to_fp 8 24 RNE (+ 1.0 (fp.to_real t))` — a compound real expression fed into the same `mk_to_fp_real` symbolic branch. Neither PR changes the entry point's structure, only the constraint on `x`, so both #10888 and #10938 fix this the same way they fix #10881/#10931. No new F* work needed; it is an instance of `Z3FpaRoundingAudit.fst`'s already-proved `exact_roundtrip`-vs-`round_nearest_even` gap. |
+| [#10176](https://github.com/Z3Prover/z3/issues/10176) | **Likely same root cause, with an unexplained secondary artifact** | Repro uses `(_ to_fp 8 24) RTN (to_real F)` with `F` a free `Int`, also hitting `mk_to_fp_real`'s symbolic branch. The reported invalid model contains a spurious uninterpreted `/0` function over reals — a hallmark of `nlsat`/NRA real-algebraic model completion filling in witnesses for an under-constrained variable. Removing the old exact-equality constraint (both PRs do this) removes the specific equation whose root-isolation is the most likely source of that artifact. **Not independently re-verified** that the `/0` artifact disappears under either PR; checked instead (see PR recommendation above) that #10888 introduces no new division/power construct that could itself cause it. |
+| [#8052](https://github.com/Z3Prover/z3/issues/8052) | **Out of scope — not a soundness bug** | "Unsat only with unnecessary asserts, else unknown" is a quantifier-instantiation/decision-procedure *completeness* issue (`unknown` vs. the "obviously implied" `unsat`), not an incorrect answer. There is no correctness property to state and falsify here (no wrong result is ever produced); it was not formalized. |
+| [#7842](https://github.com/Z3Prover/z3/issues/7842) | **Distinct bug, formalized: `Z3FpaNanCongruence.fst`** | `(distinct x (Flt (_ NaN 8 24)))` with `(fp.isNaN (getFlt_1 x))` is reported `sat` with an invalid model `x = Flt(NaN)`. Root cause (per the issue's own investigation thread): the FP theory's `=` already collapses all NaN bit-patterns into one equivalence class, but the datatype theory's congruence closure — operating on the raw encoding once an FP value is nested inside a constructor — does not, so two differently-encoded NaNs (`0x7f800001` vs `0x7f800002`) end up in different congruence classes and `distinct` spuriously succeeds. See new section below. **Confirmed still unresolved/open design discussion** as of the last thread comment. |
+| [#7431](https://github.com/Z3Prover/z3/issues/7431) | **Distinct bug, formalized: `Z3FpaZeroSign.fst`** | `(_ to_fp 2 6) RTZ v = (fp (_ bv1 1) (_ bv0 2) (_ bv0 5))` (i.e. "can some real round, under RTZ, to **negative** zero?") is reported `sat` with an invalid model. Root cause pinned down directly in `mk_to_fp_real`'s symbolic branch, **unaffected by either PR**: the line `// x = 0 -> result = +0/-0` asserts `x = 0 ==> (result = pzero \/ result = nzero)`, a disjunction that is actually *vacuous* given the only two zero-kinds the rest of the function already narrows `result` to. See new section below. |
+
+## New finding: the "x = 0" sign bug (issue #7431, `Z3FpaZeroSign.fst`)
+
+`mk_to_fp_real`'s symbolic branch ends with (current `master`,
+`fpa2bv_converter.cpp`, unchanged by both open PRs):
+
+```cpp
+// x = 0 -> result = +0/-0
+m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero),
+    m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
+```
+
+But IEEE-754 conversion of the *mathematical real* `0` — which, unlike
+a floating-point zero, carries no sign bit — must yield `+0` under
+**every** rounding mode; there is nothing for the rounding mode to
+decide. Restricted to the two-element domain `{pzero, nzero}` the rest
+of the function has already narrowed `result` to in this case, the
+quoted disjunction is **provably a tautology** (`lemma_old_constraint_
+is_vacuous`), i.e. it rules out nothing at all — exactly reproducing
+#7431's invalid model (`lemma_old_constraint_admits_invalid_model`).
+`Z3FpaZeroSign.fst` proves the fix — replacing the disjunction with
+the single equation `result = pzero`, unconditionally, for every
+rounding mode — is sound, strictly stronger, still admits the correct
+witness, and is in fact the *unique* minimal repair
+(`lemma_fix_is_minimal_and_unique`). **This is a one-line fix, not yet
+covered by #10888 or #10938, and not yet filed as a PR.**
+
+## New finding: NaN cross-theory congruence (issue #7842, `Z3FpaNanCongruence.fst`)
+
+`Z3FpaNanCongruence.fst` models two notions of FP-value equality: `fp_eq`
+(the FP theory's own, NaN-payload-collapsing "="), and `raw_eq` (bit-exact,
+distinguishing NaN payloads — what a datatype/UF congruence closure
+effectively uses once an FP value is nested inside another theory's
+term). It proves:
+
+- `fp_eq` is an equivalence (`lemma_fp_eq_equivalence`), matching the
+  issue thread's own claim ("SMT equality (=) on FP terms already
+  handles the both-NaN case correctly").
+- `raw_eq` refines `fp_eq` but not conversely (`lemma_raw_eq_refines_fp_eq`):
+  two NaNs with different payloads are `fp_eq`-equal but not `raw_eq`-equal.
+- Wrapping with `raw_eq` (`dt_eq_buggy`) is **not a congruence** of
+  `fp_eq` for the datatype constructor (`lemma_dt_eq_buggy_is_not_a_congruence`),
+  while wrapping with `fp_eq` directly (`dt_eq_correct`) trivially is
+  (`lemma_dt_eq_correct_is_congruence`) — this is the precise formal
+  shape of the bug.
+- The exact reported invalid model is reproduced as a corollary
+  (`lemma_reproduces_invalid_model`): `is_nan` holds, the FP values
+  *are* `fp_eq`-equal, yet `dt_eq_buggy` reports them distinct.
+- The fix direction floated in the issue thread by @wintersteiger
+  (canonicalize every FP-sorted sub-term — `if is_nan(v) then NaN else v`
+  — before it crosses into another theory) is proved **exactly
+  equivalent** to using the correct equality directly
+  (`lemma_fix_restores_congruence`), and closes the specific
+  counterexample above (`lemma_fix_closes_the_gap`). This formally
+  validates the maintainers' proposed repair direction, though the
+  thread's own last comment notes the actual landed partial
+  implementation does not yet canonicalize at *every* crossing point
+  (raw `(fp ...)` terms reaching UF arguments directly still slip
+  through) — **this issue remains open and unresolved in the codebase**,
+  this audit only establishes that the proposed fix *shape* is correct.
 
