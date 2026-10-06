@@ -266,6 +266,9 @@ public:
             case l_undef:
                 return l_undef;
             }
+            // LNS can replace assumptions, so run it only after consuming the core.
+            if (m_lower < m_upper)
+                improve_model(m_model);
         }
         found_optimum();
         trace();
@@ -306,6 +309,8 @@ public:
             case l_undef:
                 return l_undef;
             }
+            if (m_lower < m_upper)
+                improve_model(m_model);
         }
         m_lower = m_upper;
         trace();
@@ -682,7 +687,6 @@ public:
     void process_unsat(vector<weighted_core> const& cores) {
         for (auto const & c : cores)
             process_unsat(c.m_core, c.m_weight);
-        improve_model(m_model);
     }
 
     void update_model(expr* def, expr* value) {
@@ -1073,8 +1077,10 @@ public:
             return;
         model_ref mdl;
         s().get_model(mdl);
-        if (mdl)
+        if (mdl) {
+            improve_model(mdl);
             update_assignment(mdl);
+        }
     }
 
 
@@ -1119,7 +1125,6 @@ public:
     }
 
     void update_assignment(model_ref & mdl) {
-        improve_model(mdl);
         mdl->set_model_completion(true);
         unsigned correction_set_size = 0;
         for (expr* a : m_asms)
