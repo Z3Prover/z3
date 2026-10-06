@@ -137,8 +137,63 @@ bit-precise circuit-correctness question this audit does not verify
 (consistent with `unpack`/`round` being out of scope for the base FPA
 audit; see [`FPA_REPORT.md`](FPA_REPORT.md)).
 
+## Deeper layer: are the gap *formulas* themselves correct? (`Z3FpaRoundingBits.fst`)
+
+`Z3FpaRoundingAudit.fst` treated `gap_lo`/`gap_hi` as *abstract* positive
+rationals — it verified the logical schema (`exact_roundtrip` is
+strictly weaker than `round_nearest_even`) but not PR #10888's actual
+**formulas** for those gaps (`ulp = |r|/sig_value`, "the gap below a
+power of two is half the gap above it", and the smallest-normal
+exception). `Z3FpaRoundingBits.fst` closes that gap: it defines a
+value semantics `val_of(cs, e, s) = s · 2^e / 2^cs` for a representable
+magnitude at "format position" `(e, s)` (with `e = 1` uniformly
+covering subnormals, zero, and the first normal binade — the single
+modeling choice that makes the smallest-normal/largest-subnormal
+boundary provably *not* special), and proves:
+
+- **`lemma_gap_up_is_successor_distance`** — `gap_up(cs,e) = unit(cs,e)`
+  is *exactly* `val_of(succ) - val_of(current)`, for every position
+  (same-exponent step or binade-boundary step alike).
+- **`lemma_gap_down_is_predecessor_distance`** — `gap_down(cs,sigbits,e,s)`
+  is *exactly* `val_of(current) - val_of(pred)`, including at binade
+  boundaries (where it is proved to equal `unit(cs,e)/2`, via
+  `lemma_unit_doubles`: `unit` provably doubles with each exponent
+  increment).
+- **`lemma_smallest_normal_gap_not_halved`** — the smallest normal's gap
+  to the largest subnormal is proved to equal the *unhalved* unit,
+  confirming the code's explicit exception.
+
+**A bug was caught and fixed during this derivation**: the first draft
+of `gap_down` halved `unit(cs, e-1)` instead of `unit(cs, e)` — i.e. it
+would have asserted a *predecessor* gap of `unit(cs,e)/4` relative to
+the correct value, off by a factor of 2 — and F* correctly refused to
+verify the successor/predecessor distance lemma until the definition
+was corrected to match the algebra actually proved by
+`lemma_succ_binade_boundary`/`lemma_unit_doubles`. This is a direct,
+concrete illustration of the audit methodology catching an error before
+it could be mistaken for a verified fact.
+
+All lemmas in `Z3FpaRoundingBits.fst` are proved with no
+`admit`/`assume`.
+
 ## What this audit does *not* establish
 
+- A composed "capstone" theorem substituting the proved true
+  predecessor/successor values directly into `round_nearest_even`'s
+  midpoint formulas (i.e. restating `lower_mid`/`upper_mid` as
+  `(pred+r)/2`/`(r+succ)/2` and re-deriving `round_nearest_even` from
+  `round_nearest_true_neighbors`). The arithmetic identity is
+  straightforward on paper (`r - gap_down/2 = r - (r-pred)/2 =
+  (r+pred)/2`, using the distance lemmas above), but mechanizing it
+  cleanly needs a handful of `rat_eq` congruence lemmas (`rat_eq`
+  respects `rat_add`/`rat_sub`/`rat_half`) not yet added — a natural,
+  bounded next step, not attempted here to avoid an open-ended
+  nonlinear-arithmetic proof-engineering detour.
+- That the directed-rounding (`RNA`/`RTP`/`RTN`/`RTZ`) and
+  overflow-to-infinity/saturation branches of PR #10888 — only the
+  nearest-even case was formalized here — correctly use these same
+  gap values; by symmetry of construction they almost certainly do,
+  but this was not separately checked.
 - That either PR's C++ *implementation* is a byte-for-byte correct
   encoding of `round_nearest_even`/`grs_brackets` in SMT bit-vector
   arithmetic across every `(ebits, sbits)` combination, subnormal
@@ -147,3 +202,4 @@ audit; see [`FPA_REPORT.md`](FPA_REPORT.md)).
   pipeline, explicitly flagged as a gap in `FPA_REPORT.md`.
 - Any judgment on issues #10176/#9953/#8052/#7842/#7431 beyond noting
   their existence; they were not re-triaged in depth here.
+
