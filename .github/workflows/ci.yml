@@ -60,6 +60,8 @@ jobs:
           pip install ./src/api/python/wheelhouse/*.whl
           python - <src/api/python/z3test.py z3
           python - <src/api/python/z3test.py z3num
+          python -m unittest discover -s examples/python -p test_proof_certificate.py
+          python -m unittest discover -s examples/python -p test_proof_to_lean.py
 
   manylinux-python-arm64:
     name: "Python bindings (manylinux Centos ARM64 cross) build"
@@ -348,6 +350,44 @@ jobs:
             --timeout 30 \
             --out "${{ runner.temp }}/proof-canaries.jsonl" \
             z3test/regressions/proofs/canaries/*.txt
+
+      - name: Install Lean for native proof reconstruction
+        if: matrix.name == 'releaseClang'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://elan.lean-lang.org/elan-init.sh -o "$RUNNER_TEMP/elan-init.sh"
+          sh "$RUNNER_TEMP/elan-init.sh" -y --no-modify-path --default-toolchain none
+          "$HOME/.elan/bin/elan" toolchain install "$(cat lean/lean-toolchain)"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Check native Boolean proofs in Lean
+        if: matrix.name == 'releaseClang'
+        env:
+          PYTHONPATH: ${{ github.workspace }}/build/python
+        run: python -m unittest discover -s examples/python -p 'test_proof_to_lean*.py' -v
+
+      - name: Require Lean-certified Boolean matrix results
+        if: matrix.name == 'releaseClang'
+        env:
+          Z3_EXE: ${{ github.workspace }}/build/z3
+          Z3_SOURCE: ${{ github.workspace }}
+        run: |
+          python -m unittest discover -s z3test/scripts/proofs -p 'test_proof*.py' -v
+          python z3test/scripts/proofs/proof_matrix.py \
+            --z3 "$Z3_EXE" --z3-source "$Z3_SOURCE" \
+            --lean --cells legacy-proof-object --timeout 30 \
+            --lean-artifacts "${{ runner.temp }}/lean-proof-artifacts" \
+            --out "${{ runner.temp }}/lean-proof-matrix.jsonl" \
+            z3test/regressions/proofs/lean/*.smt2
+
+      - name: Upload native and Lean proof artifacts
+        if: always() && matrix.name == 'releaseClang'
+        uses: actions/upload-artifact@v7
+        with:
+          name: lean-proof-certificates
+          path: |
+            ${{ runner.temp }}/lean-proof-artifacts/
+            ${{ runner.temp }}/lean-proof-matrix.jsonl
+          if-no-files-found: warn
 
       - name: Run examples
         if: matrix.runTests
