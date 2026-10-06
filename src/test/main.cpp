@@ -137,6 +137,7 @@
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
+    X(ff_domain) \
     X(finite_field) \
     X(polynomial) \
     X(polynomial_factorization) \

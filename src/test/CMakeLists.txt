@@ -112,6 +112,7 @@ add_executable(test-z3
   pdd.cpp
   pdd_solver.cpp
   permutation.cpp
+  ff_domain.cpp
   finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp

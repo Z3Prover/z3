@@ -21,6 +21,7 @@ Author:
 #include "ast/ff_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/occurs.h"
+#include "ast/simplifiers/ff_domain_analysis.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/expr_replacer.h"
@@ -31,112 +32,6 @@ Author:
 #include <vector>
 
 namespace {
-    // Preserve Boolean domain constraints, including both b*b=b and
-    // b*(b-1)=0. Eliminating such a variable through a wide linear sum
-    // would hide the domain from the algebraic bit-decomposition recognizer.
-    // A nonzero univariate polynomial of degree <= 2 with roots 0 and 1
-    // is a nonzero multiple of b*(b-1). This detector only computes an upper
-    // degree bound and two samples: an identically zero polynomial may match
-    // too. It is a preservation heuristic, never evidence that b is Boolean.
-    expr *domain_variable(ast_manager &m, ff_util &ff, expr *f) {
-        expr *a = nullptr, *b = nullptr;
-        if (!m.is_eq(f, a, b) || !ff.is_ff(a))
-            return nullptr;
-        rational c;
-        if ((is_uninterp_const(a) && ff.is_numeral(b)) || (is_uninterp_const(b) && ff.is_numeral(a)))
-            return nullptr;
-        expr *var = nullptr;
-        ptr_vector<expr> todo;
-        todo.push_back(a);
-        todo.push_back(b);
-        std::set<expr *> seen;
-        while (!todo.empty()) {
-            if (!m.inc())
-                return nullptr;
-            expr *e = todo.back();
-            todo.pop_back();
-            if (!seen.insert(e).second)
-                continue;
-            if (!is_app(e))
-                return nullptr;
-            if (is_uninterp_const(e)) {
-                if (var && var != e)
-                    return nullptr;
-                var = e;
-            }
-            for (expr *arg : *to_app(e))
-                todo.push_back(arg);
-        }
-        if (!var)
-            return nullptr;
-        struct sample {
-            unsigned degree = 0;
-            rational zero{0}, one{0};
-        };
-        obj_map<expr, sample> values;
-        todo.push_back(a);
-        todo.push_back(b);
-        rational const &p = ff.modulus(a->get_sort());
-        while (!todo.empty()) {
-            if (!m.inc())
-                return nullptr;
-            expr *e = todo.back();
-            if (values.contains(e)) {
-                todo.pop_back();
-                continue;
-            }
-            if (e == var) {
-                values.insert(e, sample{1, rational(0), rational(1)});
-                todo.pop_back();
-                continue;
-            }
-            if (ff.is_numeral(e, c)) {
-                values.insert(e, sample{0, c, c});
-                todo.pop_back();
-                continue;
-            }
-            if (!ff.is_add(e) && !ff.is_mul(e) && !ff.is_neg(e))
-                return nullptr;
-            bool ready = true;
-            for (expr *arg : *to_app(e))
-                if (!values.contains(arg)) {
-                    todo.push_back(arg);
-                    ready = false;
-                }
-            if (!ready)
-                continue;
-            bool mul = ff.is_mul(e);
-            sample v;
-            if (mul)
-                v.zero = v.one = rational(1);
-            for (expr *arg : *to_app(e)) {
-                auto const &w = values.find(arg);
-                if (mul) {
-                    v.degree += w.degree;
-                    v.zero *= w.zero;
-                    v.one *= w.one;
-                }
-                else {
-                    v.degree = std::max(v.degree, w.degree);
-                    v.zero += w.zero;
-                    v.one += w.one;
-                }
-                if (v.degree > 2)
-                    return nullptr;
-                v.zero = mod(v.zero, p);
-                v.one = mod(v.one, p);
-            }
-            if (ff.is_neg(e)) {
-                v.zero = mod(-v.zero, p);
-                v.one = mod(-v.one, p);
-            }
-            values.insert(e, v);
-            todo.pop_back();
-        }
-        auto const &lhs = values.find(a), &rhs = values.find(b);
-        return std::max(lhs.degree, rhs.degree) == 2 && lhs.zero == rhs.zero && lhs.one == rhs.one ? var : nullptr;
-    }
-
     // cond(has_bits_probe, skip, solve-eqs): skip generic equality solving
     // when a formula looks like a Boolean domain candidate, for the same
     // reason ff_disjunctive_simplifier and ff_wire_simplifier preserve them.
@@ -144,9 +39,9 @@ namespace {
         euf::solve_eqs m_solve_eqs;
 
         bool has_bits() {
-            ff_util ff(m);
+            ff_domain_analysis domains(m);
             for (unsigned i : indices())
-                if (domain_variable(m, ff, m_fmls[i].fml()))
+                if (domains.variable(m_fmls[i].fml()))
                     return true;
             return false;
         }
@@ -184,6 +79,7 @@ void ff_disjunctive_simplifier::reduce() {
     if (!smt_params_helper(m_params).ff_disjunctive_bits())
         return;
     ff_util ff(m);
+    ff_domain_analysis domains(m);
     th_rewriter rw(m);
     for (unsigned i : indices()) {
         expr *f = m_fmls[i].fml(), *a, *b, *c, *d;
@@ -202,7 +98,7 @@ void ff_disjunctive_simplifier::reduce() {
         // no division and retains the original assertion's support.
         // Restrict its use to univariate candidate bit domains as a
         // cost heuristic; the detector itself proves no Booleanity.
-        if (domain_variable(m, ff, eq))
+        if (domains.variable(eq))
             m_fmls.update(i, dependent_expr(m, eq, nullptr, m_fmls[i].dep()));
     }
 }
@@ -392,8 +288,9 @@ void ff_wire_simplifier::reduce() {
     ptr_vector<expr> vars, defs;
     unsigned_vector defining_indices;
     std::set<expr *> bits;
+    ff_domain_analysis domains(m);
     for (unsigned i : indices())
-        if (expr *v = domain_variable(m, ff, m_fmls[i].fml()))
+        if (expr *v = domains.variable(m_fmls[i].fml()))
             bits.insert(v);
     for (unsigned i : indices()) {
         if (!m.inc())

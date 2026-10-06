@@ -58,10 +58,9 @@ namespace smt {
         expr_ref_vector root_norm_pins;
         obj_map<expr, rational> native_values;
         expr_ref_vector model_values;
-        // Interface equalities/disequalities between this theory's variables,
-        // accumulated incrementally from new_eq_eh/new_diseq_eh and popped on
-        // backtracking (see ctx.push_trail/push_back_vector below).
-        svector<std::pair<theory_var, theory_var>> new_eqs, new_diseqs;
+        // Optional root-splitting hints only. Algebra still collects complete
+        // active constraints: field-valued ITEs need not trigger this callback.
+        svector<std::pair<theory_var, theory_var>> root_equalities;
 
         void ensure_helpers(sort *s);
         expr_ref wrap(expr *e);
@@ -88,7 +87,7 @@ namespace smt {
         void apply_sort_cnstr(enode *n, sort *s) override;
         void relevant_eh(expr *e) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
-        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var, theory_var) override {}
         void init_model(model_generator &mg) override;
         model_value_proc *mk_value(enode *n, model_generator &mg) override;
         void finalize_model(model_generator &mg) override;
