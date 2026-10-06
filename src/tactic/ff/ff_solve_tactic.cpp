@@ -154,6 +154,7 @@ namespace {
         // explicit Booleanity for every free variable (except in F2).
         bool small_bits(goal const &g, model_ref &mdl, lbool &status) {
             ff_util ff(m);
+            // NSB review: use expr_mark for seen and bits.
             std::set<expr *> bits, seen;
             expr_ref_vector vars(m);
             ptr_vector<expr> todo;
@@ -193,6 +194,7 @@ namespace {
                     if (vars.size() > cap)
                         return false;
                 }
+                // NSB review: use ff.interp(e)
                 else if (to_app(e)->get_family_id() != ff.get_fid() &&
                          to_app(e)->get_family_id() != m.get_basic_family_id())
                     return false;
@@ -245,6 +247,8 @@ namespace {
         void updt_params(params_ref const &q) override {
             p.append(q);
         }
+        // NSB code review: retrieve parameter descriptions directly from the modules that instantiate them.
+        // For example ff_f4. Having them declare out of band here is too fragile.
         void collect_param_descrs(param_descrs &ds) override {
             ds.insert("ff.max_steps", CPK_UINT, "maximum modular algebra operations before exact BV fallback",
                       "2000000");
@@ -368,9 +372,7 @@ namespace {
                     for (unsigned i = 0; i < g->size(); ++i) {
                         deps = m.mk_join(deps, g->dep(i));
                         expr *f = g->form(i), *a = nullptr, *b = nullptr;
-                        bool neg = m.is_not(f);
-                        if (neg)
-                            f = to_app(f)->get_arg(0);
+                        bool neg = m.is_not(f, f);
                         if (m.is_true(f) || m.is_false(f)) {
                             unsat |= (m.is_false(f) != neg);
                             continue;
