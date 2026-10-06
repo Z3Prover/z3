@@ -12,7 +12,7 @@ assigned field equality/disequality atoms. Foreign field-valued applications
 are atomic algebraic variables; their arguments and interpretation remain with
 the owning theories. There is no eager bit-vector encoding on this path.
 
-The SMT plugin and `ff-solve` tactic both use `ff::field_problem` in `ast/ff`.
+The SMT plugin and `ff-solve` tactic both use `ff::solver` in `ast/ff`.
 For SMT assignments it applies standard rewriting and `solve-eqs` to a private
 dependent-expression state before encoding residual equations for the bounded
 modular algebra engine. The tactic disables this repeated preprocessing with

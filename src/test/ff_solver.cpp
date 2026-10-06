@@ -11,7 +11,7 @@ Abstract:
     reusable interface directly, without a smt::context or SAT solver.
 
 --*/
-#include "ast/ff/ff_field_problem.h"
+#include "ast/ff/ff_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "util/debug.h"
@@ -55,7 +55,7 @@ namespace {
                         params_ref params;
                         params.set_bool("ff.compact_encoding", compact);
                         params.set_bool("solve_eqs", preprocess);
-                        ff::field_problem core(m, field, params, &cache, &basis);
+                        ff::solver core(m, field, params, &cache, &basis);
                         expr_ref ca(ff.mk_numeral(rational(a), field), m);
                         expr_ref cb(ff.mk_numeral(rational(b), field), m);
                         core.add(product, ca, true);
@@ -108,7 +108,7 @@ namespace {
         ff::basis_cache basis;
         params_ref params;
         {
-            ff::field_problem core(m, field, params, &cache, &basis);
+            ff::solver core(m, field, params, &cache, &basis);
             core.add(y, square, true);
             core.add(z, ff.mk_add(y, one), true);
             core.add(x, zero, true);
@@ -119,7 +119,7 @@ namespace {
             ENSURE(core.conflict().size() == 4);
         }
         {
-            ff::field_problem core(m, field, params, &cache, &basis);
+            ff::solver core(m, field, params, &cache, &basis);
             core.add(z, zero, true);
             ENSURE(core.check() == l_true && core.value(z).is_zero());
             bool rejected = false;
@@ -128,7 +128,7 @@ namespace {
             ENSURE(rejected);
         }
         bool rejected = false;
-        try { ff::field_problem wrong(m, other, params, &cache); }
+        try { ff::solver wrong(m, other, params, &cache); }
         catch (default_exception const &) { rejected = true; }
         ENSURE(rejected);
         // Foreign terms are opaque field leaves, including non-field arguments.
@@ -137,13 +137,13 @@ namespace {
         func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, field), m);
         expr_ref a(m.mk_app(f, m.mk_true()), m), b(m.mk_app(f, m.mk_false()), m);
         {
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             core.add(a, zero, true); core.add(b, one, true);
             ENSURE(core.check() == l_true);
             ENSURE(core.value(a).is_zero() && core.value(b).is_one());
         }
         {
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             core.add(a, zero, true); core.add(b, one, true); core.add(a, b, true);
             ENSURE(core.check() == l_false);
             ENSURE(core.conflict().size() == 3);
@@ -151,7 +151,7 @@ namespace {
         // A canceled check exposes no candidate; a fresh problem can reuse the
         // pure cache after cancellation is reset, without any stale assertions.
         {
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             core.add(x, zero, true);
             m.limit().inc_cancel();
             try { core.check(); } catch (ff::exhausted const &) {}
@@ -160,7 +160,7 @@ namespace {
             try { core.value(x); } catch (default_exception const &) { unavailable = true; }
             ENSURE(unavailable);
         }
-        ff::field_problem recovered(m, field, params, &cache);
+        ff::solver recovered(m, field, params, &cache);
         recovered.add(x, one, true);
         ENSURE(recovered.check() == l_true && recovered.value(x).is_one());
     }
@@ -182,7 +182,7 @@ namespace {
             // Generic solve-eqs must discharge this without invoking algebra.
             // Using the input formulas themselves as dependency labels freezes
             // x and y and prevents the required substitutions.
-            ff::field_problem core(m, field, no_algebra, &cache);
+            ff::solver core(m, field, no_algebra, &cache);
             core.add(x, zero, true);
             core.add(y, ff.mk_add(x, one), true);
             core.add(y, one, false);
@@ -195,7 +195,7 @@ namespace {
         for (unsigned value = 0; value < 7; ++value) {
             // Only pure encodings survive. New assignments reconstruct fresh
             // values for eliminated variables and the same opaque ITE leaf.
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             expr_ref n(ff.mk_numeral(rational(value), field), m);
             core.add(x, n, true);
             core.add(y, ff.mk_add(ff.mk_mul(x, x), one), true);
@@ -208,12 +208,12 @@ namespace {
         {
             // The field solver treats a foreign term as opaque; it must not
             // substitute inside the ITE and silently change its identity.
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             core.add(x, zero, true);
             core.add(leaf, one, true);
             ENSURE(core.check() == l_true && core.value(leaf).is_one());
             // The frontend's selected-branch equality rules out this candidate.
-            ff::field_problem combined(m, field, params, &cache);
+            ff::solver combined(m, field, params, &cache);
             combined.add(x, zero, true);
             combined.add(leaf, one, true);
             combined.add(leaf, x, true);
@@ -222,7 +222,7 @@ namespace {
         }
         {
             // Inconsistent cyclic definitions cannot be eliminated together.
-            ff::field_problem core(m, field, params, &cache);
+            ff::solver core(m, field, params, &cache);
             core.add(x, ff.mk_add(y, one), true);
             core.add(y, ff.mk_add(x, one), true);
             ENSURE(core.check() == l_false);
@@ -240,7 +240,7 @@ namespace {
         params_ref params;
         params.set_uint("ff.max_steps", 1000);
         for (bool factored : {false, true}) {
-            ff::field_problem core(m, field, params);
+            ff::solver core(m, field, params);
             expr_ref_vector xs(m), ys(m), left(m), right(m);
             for (unsigned i = 0; i < 4; ++i) {
                 expr_ref x(m.mk_fresh_const("bit.x", field), m);
@@ -266,7 +266,7 @@ namespace {
         {
             // The domain detector may match a polynomial identity. Preservation
             // must never turn that heuristic match into a Boolean assumption.
-            ff::field_problem core(m, field, params);
+            ff::solver core(m, field, params);
             expr_ref x(m.mk_const("not.a.bit", field), m);
             expr_ref square(ff.mk_mul(x, x), m);
             expr_ref two(ff.mk_numeral(rational(2), field), m);

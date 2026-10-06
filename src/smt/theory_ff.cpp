@@ -24,7 +24,7 @@ Author:
 #include "smt/proto_model/proto_model.h"
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
-#include "ast/ff/ff_field_problem.h"
+#include "ast/ff/ff_solver.h"
 #include "params/smt_params_helper.hpp"
 #include <memory>
 
@@ -270,10 +270,10 @@ namespace smt {
         ++native_checks;
         native_values.reset();
         bool arranged = false;
-        obj_map<sort, std::unique_ptr<ff::field_problem>> fields;
+        obj_map<sort, std::unique_ptr<ff::solver>> fields;
         obj_map<sort, ptr_vector<enode>> terms_by_sort;
-        auto problem = [&](sort *s) -> ff::field_problem & {
-            auto &p = fields.insert_if_not_there(s, std::unique_ptr<ff::field_problem>());
+        auto problem = [&](sort *s) -> ff::solver & {
+            auto &p = fields.insert_if_not_there(s, std::unique_ptr<ff::solver>());
             if (!p)
             {
                 auto &shared = encodings.insert_if_not_there(s, std::unique_ptr<ff::ff_encoding_cache>());
@@ -281,7 +281,7 @@ namespace smt {
                     shared = std::make_unique<ff::ff_encoding_cache>(m, s);
                 if (shared->size() > 200000)
                     shared->reset();
-                p = std::make_unique<ff::field_problem>(m, s, ctx.get_params(), shared.get(), &memo);
+                p = std::make_unique<ff::solver>(m, s, ctx.get_params(), shared.get(), &memo);
             }
             return *p;
         };

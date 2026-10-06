@@ -3,7 +3,7 @@ Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
-    ff_field_problem.h
+    ff_solver.h
 
 Abstract:
 
@@ -25,7 +25,7 @@ namespace ff {
     class ff_encoding_cache {
         struct imp;
         std::unique_ptr<imp> m_imp;
-        friend class field_problem;
+        friend class solver;
     public:
         ff_encoding_cache(ast_manager &m, sort *field);
         ~ff_encoding_cache();
@@ -44,13 +44,13 @@ namespace ff {
     // use private labels mapped to the exact signed input premises.
     // SAT here means a field candidate: the frontend must enforce congruence,
     // other-theory semantics and finite-field model arrangements before accepting.
-    class field_problem {
+    class solver {
         struct imp;
         std::unique_ptr<imp> m_imp;
     public:
-        field_problem(ast_manager &m, sort *field, params_ref const &p,
+        solver(ast_manager &m, sort *field, params_ref const &p,
                       ff_encoding_cache *cache = nullptr, basis_cache *basis = nullptr);
-        ~field_problem();
+        ~solver();
         void add(expr *a, expr *b, bool equality);
         // May throw exhausted on resource limits, just like the algebra engine.
         // SAT candidates are rechecked against every supplied original constraint.

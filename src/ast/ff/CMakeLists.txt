@@ -1,6 +1,6 @@
 z3_add_component(ff_ast
   SOURCES
-    ff_field_problem.cpp
+    ff_solver.cpp
   COMPONENT_DEPENDENCIES
     ast
     simplifiers

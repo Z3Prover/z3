@@ -15,7 +15,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "ast/ff/ff_field_problem.h"
+#include "ast/ff/ff_solver.h"
 #include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
@@ -30,11 +30,11 @@ Author:
 namespace {
     // Goal dependencies and exported declarations belong to this frontend.
     // Normalization, polynomial encoding and model reconstruction are shared
-    // with theory_ff through ff::field_problem.
+    // with theory_ff through ff::solver.
     struct field_goal {
         ast_manager &m;
         ff_util ff;
-        ff::field_problem problem;
+        ff::solver problem;
         expr_mark seen;
         expr_ref_vector variables;
         std::vector<expr_dependency *> dependencies;

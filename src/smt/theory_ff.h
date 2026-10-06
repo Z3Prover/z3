@@ -22,7 +22,7 @@ Author:
 
 #include "smt/smt_theory.h"
 #include "math/ff/ff_polynomial.h"
-#include "ast/ff/ff_field_problem.h"
+#include "ast/ff/ff_solver.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"

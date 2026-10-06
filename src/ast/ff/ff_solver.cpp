@@ -3,7 +3,7 @@ Copyright (c) 2026 Romain Soulat
 
 Module Name:
 
-    ff_field_problem.cpp
+    ff_solver.cpp
 
 Abstract:
 
@@ -11,7 +11,7 @@ Abstract:
     reconstruction. No frontend equality-engine or SAT state is stored.
 
 --*/
-#include "ast/ff/ff_field_problem.h"
+#include "ast/ff/ff_solver.h"
 #include "math/ff/ff_params.h"
 #include "util/z3_exception.h"
 #include "ast/simplifiers/rewriter_simplifier.h"
@@ -45,7 +45,7 @@ namespace ff {
     };
 
 
-    struct field_problem::imp {
+    struct solver::imp {
         ast_manager &m;
         ff_util ff;
         params_ref params; // options borrows this, including for temporary caller parameters
@@ -328,22 +328,22 @@ namespace ff {
     unsigned ff_encoding_cache::size() const { return m_imp->cache.size() + m_imp->purified.size(); }
     void ff_encoding_cache::reset() { m_imp->reset(); }
 
-    field_problem::field_problem(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache *cache, basis_cache *basis) {
+    solver::solver(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache *cache, basis_cache *basis) {
         if (cache && (cache->m_imp->field != s || &cache->m_imp->pins.get_manager() != &m))
             throw default_exception("finite-field encoding cache belongs to a different manager or field");
         m_imp = std::make_unique<imp>(m, s, p, cache ? cache->m_imp.get() : nullptr);
         if (m_imp->options.ff_basis_cache())
             m_imp->algebra.set_basis_cache(basis);
     }
-    field_problem::~field_problem() = default;
-    void field_problem::add(expr *a, expr *b, bool equality) {
+    solver::~solver() = default;
+    void solver::add(expr *a, expr *b, bool equality) {
         if (m_imp->checked)
             throw default_exception("finite-field solver problem has already been checked");
         if (a->get_sort() != m_imp->local.field || b->get_sort() != m_imp->local.field)
             throw default_exception("finite-field solver constraint has the wrong field");
         m_imp->add(a, b, equality);
     }
-    lbool field_problem::check() {
+    lbool solver::check() {
         if (m_imp->checked)
             throw default_exception("finite-field solver problem has already been checked");
         m_imp->checked = true;
@@ -379,27 +379,27 @@ namespace ff {
         }
         return m_imp->result = result;
     }
-    rational field_problem::value(expr *term) {
+    rational solver::value(expr *term) {
         if (m_imp->result != l_true)
             throw default_exception("finite-field candidate is unavailable");
         if (term->get_sort() != m_imp->local.field)
             throw default_exception("finite-field candidate term has the wrong field");
         return m_imp->evaluate(term);
     }
-    expr *field_problem::premise(unsigned index) const { return m_imp->premises.get(index); }
-    std::set<unsigned> const &field_problem::conflict() const {
+    expr *solver::premise(unsigned index) const { return m_imp->premises.get(index); }
+    std::set<unsigned> const &solver::conflict() const {
         SASSERT(m_imp->result == l_false);
         return m_imp->conflict;
     }
-    void field_problem::collect_statistics(statistics &st) const {
+    void solver::collect_statistics(statistics &st) const {
         m_imp->algebra.collect_statistics(st);
         st.update("ff bit facts", m_imp->bit_facts);
         st.update("ff encode seconds", m_imp->encode_time.get_seconds());
         st.update("ff solve seconds", m_imp->solve_time.get_seconds());
         st.update("ff validate seconds", m_imp->validate_time.get_seconds());
     }
-    bool field_problem::encoding_limit_hit() const {
+    bool solver::encoding_limit_hit() const {
         return m_imp->encoding && m_imp->algebra.polynomial_limit_hit();
     }
-    unsigned field_problem::encoding_steps() const { return m_imp->algebra.steps(); }
+    unsigned solver::encoding_steps() const { return m_imp->algebra.steps(); }
 } // namespace ff
