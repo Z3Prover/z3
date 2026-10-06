@@ -133,8 +133,8 @@ namespace smt {
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
             setup_QF_FPBV();
-        else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
-            setup_strings();
+        else if (m_logic == "QF_S")
+            setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
         else
@@ -181,8 +181,8 @@ namespace smt {
                  setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
-            else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
-                setup_strings();
+            else if (m_logic == "QF_S")
+                setup_QF_S();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);
             else if (m_logic == "AUFLIRA")
@@ -562,15 +562,12 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_fpa, m_context));
     }
 
-    void setup::setup_strings() {
+    void setup::setup_QF_S() {
         if (m_params.m_string_solver == "seq") {
             setup_unknown();
         }
         else if (m_params.m_string_solver == "nseq") {
-            if (m_logic == "QF_SLIA")
-                setup_unknown();
-            else
-                setup_nseq();
+            setup_nseq();
         }
         else if (m_params.m_string_solver == "char") {
             setup_QF_BV();
