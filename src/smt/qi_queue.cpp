@@ -38,7 +38,8 @@ namespace smt {
         m_parser(m),
         m_evaluator(m),
         m_subst(m),
-        m_instances(m) {
+        m_instances(m),
+        m_persistent_instances(m) {
         init_parser_vars();
         m_vals.resize(15, 0.0f);
     }
@@ -144,7 +145,7 @@ namespace smt {
               }
               tout << "\n";);
         TRACE(new_entries_bug, tout << "[qi:insert]\n";);
-        m_new_entries.push_back(entry(f, cost, generation));
+        m_new_entries.push_back(entry(f, cost, generation, pat == nullptr));
     }
 
     void qi_queue::instantiate() {
@@ -288,6 +289,11 @@ namespace smt {
             lemma = m.mk_or(m.mk_not(q), s_instance);
         }
         m_instances.push_back(lemma);
+        // keep model-based instances (they are expensive to rediscover and MBQI may not
+        // reproduce them), and pattern-based ones up to a budget
+        bool persist = ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances;
+        if (persist)
+            m_persistent_instances.push_back(lemma);
         proof_ref pr1(m);
         unsigned proof_id = 0;
         if (m.proofs_enabled()) {
@@ -314,6 +320,8 @@ namespace smt {
                 pr1                 = m.mk_modus_ponens(qi_pr, tr);
             }
             m_instances.push_back(pr1);
+            if (persist)
+                m_persistent_instances.push_back(pr1);
         }
         else if (m_context.clause_proof_active()) {
             expr_ref_vector bindings_e(m), args(m);
@@ -393,6 +401,7 @@ namespace smt {
         m_new_entries.reset();
         m_delayed_entries.reset();
         m_instances.reset();
+        m_persistent_instances.reset();
         m_scopes.reset();
     }
 

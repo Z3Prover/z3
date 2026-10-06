@@ -59,11 +59,13 @@ namespace smt {
             float         m_cost;
             unsigned      m_generation:31;
             unsigned      m_instantiated:1;
-            entry(fingerprint * f, float c, unsigned g):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false) {}
+            unsigned      m_model_based:1; // produced by model-based quantifier instantiation (no pattern)
+            entry(fingerprint * f, float c, unsigned g, bool mb = false):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false), m_model_based(mb) {}
         };
         svector<entry>                m_new_entries;
         svector<entry>                m_delayed_entries;
         expr_ref_vector               m_instances;
+        expr_ref_vector               m_persistent_instances;
         unsigned_vector               m_instantiated_trail;
         struct scope {
             unsigned   m_delayed_entries_lim;
@@ -97,6 +99,10 @@ namespace smt {
         void reset();
         void display_delayed_instances_stats(std::ostream & out) const;
         void collect_statistics(::statistics & st) const;
+        // instances (lemmas of the form (or (not q) inst)) produced so far in the current search,
+        // interleaved with their proofs when proofs are enabled
+        // model-based instances produced since the last call, kept across backtracking (see context::check)
+        void collect_instances(expr_ref_vector & out) { out.append(m_persistent_instances); m_persistent_instances.reset(); }
         void register_on_binding(std::function<bool(quantifier* q, expr* e)> & on_binding) {
             m_on_binding = on_binding;
         }

@@ -94,6 +94,7 @@ namespace smt {
         void display_stats(std::ostream & out, quantifier * q) const;
 
         void collect_statistics(::statistics & st) const;
+        void collect_instances(expr_ref_vector & out);
         void reset_statistics();
 
         void register_on_binding(std::function<bool(quantifier*, expr*)> & f);

@@ -591,6 +591,10 @@ namespace smt {
     void quantifier_manager::display(std::ostream & out) const {
     }
 
+    void quantifier_manager::collect_instances(expr_ref_vector & out) {
+        m_imp->m_qi_queue.collect_instances(out);
+    }
+
     void quantifier_manager::collect_statistics(::statistics & st) const {
         m_imp->m_qi_queue.collect_statistics(st);
         m_imp->m_plugin->collect_statistics(st);

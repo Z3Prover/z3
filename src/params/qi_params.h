@@ -40,6 +40,7 @@ struct qi_params {
     bool               m_qi_lazy_quick_checker = true;
     bool               m_qi_promote_unsat = true;
     unsigned           m_qi_max_instances = UINT_MAX;
+    unsigned           m_qi_max_persistent_instances = 1000; // pattern-based instances re-asserted at base level on research
     bool               m_qi_lazy_instantiation = false;
     bool               m_qi_conservative_final_check = false;
     bool               m_qe_lite = false;

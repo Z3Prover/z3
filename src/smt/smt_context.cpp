@@ -3829,8 +3829,34 @@ namespace smt {
             return p(asms);
         }
         lbool r = l_undef;
+        // Quantifier instances derived during a search are asserted at the search level and
+        // are lost when a theory asks to research (e.g. theory_recfun after raising its
+        // unfolding depth). They are consequences of the asserted quantifiers, so they can be
+        // re-asserted at base level for the next search; otherwise model-based quantifier
+        // instantiation starts from scratch and may never converge.
+        expr_ref_vector saved_instances(m);
+        bool research = false;
         do {
             pop_to_base_lvl();
+            if (!saved_instances.empty()) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.research :re-asserting-instances " << saved_instances.size() << ")\n";);
+                expr* lemma = nullptr;
+                for (expr* e : saved_instances) {
+                    if (m.is_proof(e)) {
+                        if (lemma) {
+                            m_asserted_formulas.assert_expr(lemma, to_app(e));
+                            lemma = nullptr;
+                        }
+                        continue;
+                    }
+                    if (lemma)
+                        m_asserted_formulas.assert_expr(lemma);
+                    lemma = e;
+                }
+                if (lemma)
+                    m_asserted_formulas.assert_expr(lemma);
+                saved_instances.reset();
+            }
             expr_ref_vector asms(m, num_assumptions, assumptions);
             try {
                 internalize_assertions();
@@ -3843,8 +3869,11 @@ namespace smt {
             TRACE(before_search, display(tout););
             r = search();
             r = mk_unsat_core(r);        
+            research = should_research(r);
+            if (research) 
+                m_qmanager->collect_instances(saved_instances);
         }
-        while (should_research(r));
+        while (research);
         r = check_finalize(r);
         return r;
     }
