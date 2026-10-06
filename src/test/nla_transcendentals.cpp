@@ -224,6 +224,21 @@ void test_exp_negative_twenty() {
     Z3_del_context(ctx);
 }
 
+void test_exp_enclosure_does_not_certify_sat() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic ALL)\n"
+        "(assert (= (exp (- 20.0)) 0.1))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response == "sat\n")
+        std::cout << response << "\n";
+    VERIFY(response != "sat\n");
+    Z3_del_context(ctx);
+}
+
 void test_pi_positive_sat() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -245,6 +260,7 @@ void test_nla_transcendentals() {
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
     test_exp_negative_twenty();
+    test_exp_enclosure_does_not_certify_sat();
     test_pi_positive_sat();
 }
 

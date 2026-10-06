@@ -944,7 +944,7 @@ lbool core::check_transcendentals_and_finish() {
             return l_undef;
         }
     }
-    return l_true;
+    return l_undef;
 }
 
 // True iff the current (rational) assignment satisfies both the registered
