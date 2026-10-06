@@ -60,7 +60,9 @@ namespace nla {
         return m_core->is_monic_var(v);
     }
     
-    bool solver::need_check() { return m_core->has_relevant_monomial(); }
+    bool solver::need_check() {
+        return m_core->has_relevant_monomial() || !m_core->get_transcendentals().empty();
+    }
     
     lbool solver::check(unsigned level) {
         return m_core->check(level);

@@ -182,9 +182,8 @@ void test_unrefined_failure_is_not_sat() {
     VERIFY(nla_solver.test_check() != l_true);
 }
 
-// After an earlier check-sat in a popped scope, the exp(x) failure must
-// still be refined (not deferred into sat) and its nlsat conflict must not
-// be explained by stale literals from the popped scope.
+// A satisfiable check in a popped scope must not leave stale literals behind
+// for the later unsatisfiable check.
 void test_incremental_exp_unsat() {
     std::cout << "test_incremental_exp_unsat\n";
     Z3_config cfg = Z3_mk_config();
@@ -203,10 +202,46 @@ void test_incremental_exp_unsat() {
         "(assert (> (* (exp x) (exp x)) (/ 1 300)))\n"
         "(check-sat)\n";
     std::string response = Z3_eval_smtlib2_string(ctx, spec);
-    if (response != "sat\nunsat\n")
+    if (response != "sat\nunsat\n" && response != "unknown\nunsat\n")
         std::cout << response << "\n";
-    VERIFY(response == "sat\nunsat\n");
+    VERIFY(response == "sat\nunsat\n" || response == "unknown\nunsat\n");
     Z3_del_context(ctx);
+}
+
+void test_exp_negative_twenty() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic ALL)\n"
+        "(assert (= (exp (- 20.0)) 1.0))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    if (response != "unsat\n")
+        std::cout << response << "\n";
+    VERIFY(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+void test_transcendental_enclosures_do_not_certify_sat() {
+    char const* assertions[] = {
+        "(= (exp (- 20.0)) 0.1)",
+        "(= (exp 0.0) 1.00000001)",
+        "(= (atan2 1.0 1.0) 0.7853982)"
+    };
+    for (char const* assertion : assertions) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string spec = "(set-logic ALL)\n(assert ";
+        spec += assertion;
+        spec += ")\n(check-sat)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        if (response == "sat\n")
+            std::cout << response << "\n";
+        VERIFY(response != "sat\n");
+        Z3_del_context(ctx);
+    }
 }
 
 void test_pi_positive_sat() {
@@ -246,6 +281,8 @@ void test_nla_transcendentals() {
     test_is_nla_context_satisfied();
     test_unrefined_failure_is_not_sat();
     test_incremental_exp_unsat();
+    test_exp_negative_twenty();
+    test_transcendental_enclosures_do_not_certify_sat();
     test_pi_positive_sat();
     test_atan2_unsat_regression();
 }

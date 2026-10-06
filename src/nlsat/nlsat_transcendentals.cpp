@@ -147,6 +147,12 @@ namespace nlsat {
             // exp(arg) >= 1+arg, i.e. NOT(val - arg < 1).
             literal lit = ~linear_literal(s, val, rational(1), arg, rational(-1), atom::LT, rational(1));
             s.mk_clause(1, &lit, nullptr);
+            // exp(arg) < 1 whenever arg < 0.
+            literal lits[2] = {
+                ~bound_literal(s, arg, atom::LT, rational(0)),
+                bound_literal(s, val, atom::LT, rational(1))
+            };
+            s.mk_clause(2, lits, nullptr);
             break;
         }
         case transcendental_op_kind::LOG: {
