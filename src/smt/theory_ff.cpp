@@ -297,12 +297,46 @@ namespace smt {
         // the conventions assumed for theory solvers to receive the solver state based
         // on the assign_eh, new_eq_eh and new_diseq_eh callbacks.
 
+        #if 0
+        // NSB: can we do this instead?
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            enode *n = get_enode(v);
+            if (!ctx.is_relevant(n))
+                continue;
+            if (bv_fields.contains(n->get_sort()))
+                continue;
+            problem(n->get_sort());
+            ptr_vector<enode> &terms = terms_by_sort.insert_if_not_there(n->get_sort(), ptr_vector<enode>());
+            if (!model_terms.contains(n)) {
+                model_terms.insert(n);
+                terms.push_back(n);
+            }
+        }
+
+        for (auto [v1, v2] : eqs) {
+            enode *n1 = get_enode(v1), *n2 = get_enode(v2);
+            if (bv_fields.contains(n1->get_sort()))
+                continue;
+            SASSERT(ctx.is_relevant(n1) && ctx.is_relevant(n2));
+            add(n1->get_sort(), n1->get_expr(), n2->get_expr(), true);
+        }
+
+        for (auto [v1, v2] : diseqs) {
+            enode *n1 = get_enode(v1), *n2 = get_enode(v2);
+            if (bv_fields.contains(n1->get_sort()))
+                continue;
+            SASSERT(ctx.is_relevant(n1) && ctx.is_relevant(n2));
+            add(n1->get_sort(), n1->get_expr(), n2->get_expr(), false);
+        }
+        #endif
+
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);
             enode *root = n->get_root();
             if (!ctx.is_relevant(n) && !ctx.is_relevant(root))
                 continue;
-            if (bv_fields.contains(n->get_sort())) continue;
+            if (bv_fields.contains(n->get_sort())) 
+                continue;
             problem(n->get_sort());
             ptr_vector<enode> &terms = terms_by_sort.insert_if_not_there(n->get_sort(), ptr_vector<enode>());
             // Record both the term and its root since either may be relevant.
