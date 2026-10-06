@@ -65,7 +65,8 @@ separately from verified results.
 
 ### First matrix run (2026-09-25)
 
-`examples/python/proof_matrix.py` implements the runner. A canary of 86
+`scripts/proofs/proof_matrix.py` in Z3Prover/z3test implements the runner
+(moved there from `examples/python/` in Z3Prover/z3#11008). A canary of 86
 single-query benchmarks (z3test regressions plus small local SMT-LIB samples in
 QF_UF, QF_LIA, QF_LRA/QF_RDL, QF_NIA, QF_AUFLIA/QF_ALIA) produced these
 findings:
@@ -109,7 +110,7 @@ findings:
 
 The array proof-logging fix merged as Z3Prover/z3#10922 without a test, and the
 canary set of the first run existed only as session files. Both are now in the
-repository under `examples/python/proof_canaries/`:
+z3test repository under `regressions/proofs/canaries/`:
 
 - `array_axiom_log.smt2` is the four-line reproducer from the PR. The
   end-to-end test in `test_proof_matrix.py` asserts that both clause-log cells
