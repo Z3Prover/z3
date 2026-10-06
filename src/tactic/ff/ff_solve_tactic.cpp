@@ -23,10 +23,10 @@ Author:
 #include "math/ff/ff_polynomial.h"
 #include "model/model_evaluator.h"
 #include "util/stopwatch.h"
+#include <cstring>
 #include <memory>
 #include "params/smt_params_helper.hpp"
 #include <unordered_map>
-#include <set>
 
 namespace {
     struct field_problem {
@@ -154,8 +154,7 @@ namespace {
         // explicit Booleanity for every free variable (except in F2).
         bool small_bits(goal const &g, model_ref &mdl, lbool &status) {
             ff_util ff(m);
-            // NSB review: use expr_mark for seen and bits.
-            std::set<expr *> bits, seen;
+            expr_mark bits, seen;
             expr_ref_vector vars(m);
             ptr_vector<expr> todo;
             unsigned cap = std::min(p.get_uint("ff.enum_bits", 8), 12u);
@@ -170,9 +169,9 @@ namespace {
                         return is_uninterp_const(v) && ff.is_mul(t, x, y) && x == v && y == v;
                     };
                     if (is_square(a, b))
-                        bits.insert(a);
+                        bits.mark(a);
                     if (is_square(b, a))
-                        bits.insert(b);
+                        bits.mark(b);
                 }
                 todo.push_back(g.form(i));
             }
@@ -181,22 +180,21 @@ namespace {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 expr *e = todo.back();
                 todo.pop_back();
-                if (!seen.insert(e).second)
+                if (seen.is_marked(e))
                     continue;
+                seen.mark(e);
                 if (!is_app(e))
                     return false;
                 if (is_uninterp_const(e)) {
                     // F_2 already has exactly these two elements; in any larger
                     // field every enumerated variable needs its own bit premise.
-                    if (!ff.is_ff(e) || (!bits.contains(e) && ff.modulus(e->get_sort()) != rational(2)))
+                    if (!ff.is_ff(e) || (!bits.is_marked(e) && ff.modulus(e->get_sort()) != rational(2)))
                         return false;
                     vars.push_back(e);
                     if (vars.size() > cap)
                         return false;
                 }
-                // NSB review: use ff.interp(e)
-                else if (to_app(e)->get_family_id() != ff.get_fid() &&
-                         to_app(e)->get_family_id() != m.get_basic_family_id())
+                else if (!ff.is_interp(e) && to_app(e)->get_family_id() != m.get_basic_family_id())
                     return false;
                 for (expr *arg : *to_app(e))
                     todo.push_back(arg);
@@ -247,47 +245,24 @@ namespace {
         void updt_params(params_ref const &q) override {
             p.append(q);
         }
-        // NSB code review: retrieve parameter descriptions directly from the modules that instantiate them.
-        // For example ff_f4. Having them declare out of band here is too fragile.
+        // The algebra engine reads all of its "ff.*" options through
+        // smt_params_helper (params/smt_params_helper.hpp), which is the
+        // single source of truth for their defaults and descriptions.
+        // Filter that module's descriptors down to the "ff." prefix instead
+        // of hand-duplicating them here, which drifts out of sync whenever a
+        // module (e.g. ff_f4) adds, removes, or re-documents a parameter.
         void collect_param_descrs(param_descrs &ds) override {
-            ds.insert("ff.max_steps", CPK_UINT, "maximum modular algebra operations before exact BV fallback",
-                      "2000000");
-            ds.insert("ff.max_terms", CPK_UINT, "maximum terms in an expanded field polynomial", "4096");
-            ds.insert("ff.bit_propagation", CPK_BOOL, "repeat no-wrap bit-sum propagation after algebraic elimination", "true");
-            ds.insert("ff.batch", CPK_BOOL, "batch small-field critical pairs using sparse modular elimination", "true");
-            ds.insert("ff.sparse_witness", CPK_BOOL, "try bounded univariate slices for underdetermined systems", "true");
-            ds.insert("ff.disjunctive_bits", CPK_BOOL, "rewrite disjunctive Boolean field domains as polynomial equations", "true");
-            ds.insert("ff.linear_split", CPK_BOOL, "exchange bounded linear and nonlinear basis consequences before elimination", "false");
-            ds.insert("ff.basis_bits", CPK_BOOL, "recover Boolean domains and digit equalities from basis consequences", "false");
-            ds.insert("ff.compact_matrix", CPK_BOOL, "use packed sparse matrix rows and smaller critical-pair batches", "false");
-            ds.insert("ff.model_search", CPK_BOOL, "derive bounded quotient minimal polynomials and diversify witness probes", "true");
-            ds.insert("ff.root_completion", CPK_BOOL, "derive bounded quotient minimal polynomials without extra witness probes", "false");
-            ds.insert("ff.quotient_field", CPK_BOOL, "adjoin bounded quotient reductions of finite-field Frobenius axioms", "false");
-            ds.insert("ff.bit_bounds", CPK_BOOL, "propagate Boolean digits using no-wrap signed interval bounds", "true");
-            ds.insert("ff.adaptive_reduction", CPK_BOOL, "fall back to scalar basis reduction when a matrix exceeds its storage budget", "false");
-            ds.insert("ff.lazy_matrix", CPK_BOOL, "retain matrix reducers as basis references and monomial multipliers", "false");
-            ds.insert("ff.sparse_matrix_reducers", CPK_BOOL, "prefer fewer-term basis rows during matrix symbolic preprocessing", "false");
-            ds.insert("ff.fused_reduction", CPK_BOOL, "add scalar reducer multiples directly without temporary polynomials", "false");
-            ds.insert("ff.adaptive_matrix", CPK_BOOL, "allow more symbolic matrix reducers within a bounded storage allowance", "false");
-            ds.insert("ff.adaptive_basis", CPK_BOOL, "admit larger bases within storage bounds and compact retired pair records", "false");
-            ds.insert("ff.basis_max_bytes", CPK_UINT, "estimated retained basis storage with adaptive_basis (capped at 1 GiB)", "16777216");
-            ds.insert("ff.bounded_elimination", CPK_BOOL, "retain nonlinear definitions when substitution predicts polynomial growth", "false");
-            ds.insert("ff.sugar_pairs", CPK_BOOL, "rank critical pairs by propagated sugar degree in all field sizes", "false");
-            ds.insert("ff.gm_pairs", CPK_BOOL, "install critical pairs using minimal lcm and strict chain criteria", "false");
-            ds.insert("ff.div_masks", CPK_BOOL, "filter reducer divisibility tests using support masks", "false");
-            ds.insert("ff.geobucket", CPK_BOOL, "accumulate scalar polynomial reductions in geometric buckets", "false");
-            ds.insert("ff.small_coefficients", CPK_BOOL, "use exact machine arithmetic for small-field polynomial coefficients", "false");
-            ds.insert("ff.compact_retry", CPK_BOOL, "retry the algebra tactic with compact definitions after an encoding size limit", "true");
-            ds.insert("ff.compact_encoding", CPK_BOOL, "retain compact definitions when polynomial expansion would grow", "false");
+            param_descrs all;
+            smt_params_helper::collect_param_descrs(all);
+            for (unsigned i = 0; i < all.size(); ++i) {
+                symbol name = all.get_param_name(i);
+                if (strncmp(name.bare_str(), "ff.", 3) != 0)
+                    continue;
+                ds.insert(name, all.get_kind(name), all.get_descr(name), all.get_default(name));
+            }
+            // ff.enum_bits is read directly by this tactic (small_bits) and
+            // has no other owning module to source its description from.
             ds.insert("ff.enum_bits", CPK_UINT, "maximum residual bit inputs to enumerate (capped at 12)", "8");
-            ds.insert("ff.f4", CPK_BOOL, "use the fixed-width F4 backend with zero-dimensional model construction", "true");
-            ds.insert("ff.f4_max_quotient", CPK_UINT, "largest quotient-ring dimension explored by F4 model construction", "1024");
-            ds.insert("ff.f4_budget", CPK_UINT, "F4 work units allowed per unit of ff.max_steps", "40");
-            ds.insert("ff.f4_slice", CPK_UINT, "random x = r slices tried per level on positive-dimensional ideals in F4 model construction (SAT only)", "4");
-            ds.insert("ff.f4_value_split", CPK_BOOL, "in F4 model construction over small fields, enumerate the values of a free variable", "false");
-            ds.insert("ff.f4_short_budget", CPK_UINT, "F4 work units per unit of ff.max_steps on circuit-like systems (many Boolean variables)", "1");
-            ds.insert("ff.tiny", CPK_BOOL, "complete finite-domain search with forward checking over fields with p < 64", "true");
-            ds.insert("ff.tiny_budget", CPK_UINT, "tiny-field search work units per unit of ff.max_steps", "200");
         }
         void collect_statistics(statistics &st) const override {
             st.copy(m_stats);
