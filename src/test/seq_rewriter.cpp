@@ -128,6 +128,56 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_nested_extract_prefix_of_suffix() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        app_ref s(m.mk_const("s", seq_sort), m);
+        for (unsigned size : {0u, 1u, 2u, 4u}) {
+            expr_ref value(su.str.mk_empty(seq_sort), m);
+            if (is_string)
+                value = su.str.mk_string(zstring("abcd").extract(0, size));
+            else
+                for (unsigned i = 0; i < size; ++i)
+                    value = su.str.mk_concat(value, su.str.mk_unit(a.mk_int(i)));
+            rw(value);
+            for (unsigned offset : {1u, 3u}) {
+                for (unsigned multiple : {1u, 2u}) {
+                    for (unsigned drop : {1u, 2u}) {
+                        expr_ref inner(su.str.mk_substr(s, a.mk_int(offset),
+                            a.mk_sub(a.mk_mul(a.mk_int(multiple), su.str.mk_length(s)), a.mk_int(offset))), m);
+                        expr_ref nested(su.str.mk_substr(inner, a.mk_int(0),
+                            a.mk_sub(su.str.mk_length(inner), a.mk_int(drop))), m);
+                        rw(nested);
+                        expr_ref flat(su.str.mk_substr(s, a.mk_int(offset),
+                            a.mk_sub(a.mk_sub(su.str.mk_length(s), a.mk_int(offset)), a.mk_int(drop))), m);
+                        rw(flat);
+                        ENSURE(nested == flat);
+                        unsigned suffix_size = size > offset ? size - offset : 0;
+                        unsigned prefix_size = suffix_size > drop ? suffix_size - drop : 0;
+                        expr_ref expected(su.str.mk_substr(value, a.mk_int(offset), a.mk_int(prefix_size)), m);
+                        rw(expected);
+
+                        smt_params sp;
+                        smt::context ctx(m, sp);
+                        ctx.assert_expr(m.mk_eq(s, value));
+                        ctx.push();
+                        ctx.assert_expr(m.mk_eq(nested, expected));
+                        ENSURE(ctx.check() == l_true);
+                        ctx.pop(1);
+                        ctx.assert_expr(m.mk_not(m.mk_eq(nested, expected)));
+                        ENSURE(ctx.check() == l_false);
+                    }
+                }
+            }
+        }
+    }
+}
+
 static void tst_length_coherence_guards() {
     for (unsigned hi : {2u, 3u}) {
         ast_manager m;
@@ -196,6 +246,7 @@ static void tst_length_coherence_guards() {
 
 void tst_seq_rewriter() {
     tst_eq_skolem_arity();
+    tst_nested_extract_prefix_of_suffix();
     tst_length_coherence_guards();
     ast_manager m;
     reg_decl_plugins(m);
