@@ -1649,41 +1649,52 @@ void theory_seq::init_length_limit_for_contains(expr* c) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
-    if (m_util.str.is_concat(s)) {
-        for (expr* e : *to_app(s))
-            add_length_limit(e, k, is_searching);
-        return;
-    }
-    if (m_util.str.is_unit(s))
-        return;
-    if (m_util.str.is_empty(s))
-        return;
+    // Walk s (and, through skolems, terms reachable from it) with an
+    // explicit worklist instead of recursing into str.++/skolem arguments:
+    // a sequence built from many concatenations (e.g. by repeated
+    // quantifier instantiation of `s ++ s`) could otherwise drive recursion
+    // deep enough to overflow the native stack (#11042).
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (m_util.str.is_concat(e)) {
+            for (expr* arg : *to_app(e))
+                todo.push_back(arg);
+            continue;
+        }
+        if (m_util.str.is_unit(e))
+            continue;
+        if (m_util.str.is_empty(e))
+            continue;
 
-    if (m_sk.is_skolem(s)) {
-        for (expr* e : *to_app(s))
-            if (m_util.is_seq(e) || m_sk.is_skolem(e))
-                add_length_limit(e, k, is_searching);
-        return;        
-    }
+        if (m_sk.is_skolem(e)) {
+            for (expr* arg : *to_app(e))
+                if (m_util.is_seq(arg) || m_sk.is_skolem(arg))
+                    todo.push_back(arg);
+            continue;
+        }
 
-    expr_ref lim_e = m_ax.add_length_limit(s, k);
-    unsigned k0 = 0;
-    if (m_length_limit_map.find(s, k0)) {
-        SASSERT(k0 != 0);
-        if (k <= k0)
-            return;
-    }
-    m_length_limit_map.insert(s, k);
-    m_length_limit.push_back(lim_e);    
-    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length_limit));    
-    if (k0 != 0) {
-        m_trail_stack.push(remove_obj_map<expr, unsigned>(m_length_limit_map, s, k0));
-    }
-    m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, s));
-    if (is_searching) {
-        expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
-        auto p0 = ~mk_literal(dlimit);
-        add_axiom(p0, mk_literal(lim_e));
+        expr_ref lim_e = m_ax.add_length_limit(e, k);
+        unsigned k0 = 0;
+        if (m_length_limit_map.find(e, k0)) {
+            SASSERT(k0 != 0);
+            if (k <= k0)
+                continue;
+        }
+        m_length_limit_map.insert(e, k);
+        m_length_limit.push_back(lim_e);
+        m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length_limit));
+        if (k0 != 0) {
+            m_trail_stack.push(remove_obj_map<expr, unsigned>(m_length_limit_map, e, k0));
+        }
+        m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, e));
+        if (is_searching) {
+            expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
+            auto p0 = ~mk_literal(dlimit);
+            add_axiom(p0, mk_literal(lim_e));
+        }
     }
 }
 

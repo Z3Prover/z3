@@ -732,30 +732,34 @@ bool seq_decl_plugin::is_unique_value(app* e) const {
 }
 
 bool seq_decl_plugin::is_value(app* e) const {
-    while (true) {
-        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
-            m_manager->is_value(e->get_arg(0))) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT)) {
-            bool first = true;
-            for (expr* arg : *e) {
-                if (first) {
-                    first = false;
-                }
-                else if (is_app(arg) && !is_value(to_app(arg))) {
+    // Use an explicit worklist instead of recursing into concat arguments:
+    // a long chain of str.++ (e.g. from repeated quantifier instantiation)
+    // can otherwise drive recursion deep enough to overflow the native
+    // stack (#11042), regardless of whether the chain is left- or
+    // right-associated.
+    ptr_vector<app> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        app* a = todo.back();
+        todo.pop_back();
+        if (is_app_of(a, m_family_id, OP_SEQ_EMPTY)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_STRING_CONST)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_UNIT) &&
+            m_manager->is_value(a->get_arg(0))) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_CONCAT)) {
+            for (expr* arg : *a) {
+                if (!is_app(arg))
                     return false;
-                }
+                todo.push_back(to_app(arg));
             }
-            if (!is_app(e->get_arg(0))) return false;            
-            e = to_app(e->get_arg(0));
             continue;
         }
         return false;
     }
+    return true;
 }
 
 bool seq_decl_plugin::is_model_value(app* e) const {
@@ -938,24 +942,40 @@ app* seq_util::str::mk_nth_c(expr* s, unsigned i) const {
 }
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
-    expr* e1, *e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    // Flatten with an explicit worklist instead of recursing on the left
+    // child: a chain of concatenations deep enough (e.g. from repeated
+    // quantifier instantiation of `s ++ s`) can otherwise overflow the
+    // native stack (#11042).
+    ptr_vector<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, *e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
 void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
-    expr* e1, * e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    ptr_vector<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, * e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
