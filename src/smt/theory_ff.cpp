@@ -297,7 +297,7 @@ namespace smt {
         // the conventions assumed for theory solvers to receive the solver state based
         // on the assign_eh, new_eq_eh and new_diseq_eh callbacks.
 
-        #if 0
+#if 0
         // NSB: can we do this instead?
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);
@@ -328,7 +328,8 @@ namespace smt {
             SASSERT(ctx.is_relevant(n1) && ctx.is_relevant(n2));
             add(n1->get_sort(), n1->get_expr(), n2->get_expr(), false);
         }
-        #endif
+
+#else
 
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);
@@ -365,6 +366,7 @@ namespace smt {
             if (value != l_undef)
                 add(a->get_sort(), a, b, value == l_true);
         }
+#endif
         for (auto &kv : fields) {
             sort *s = &kv.get_key();
             auto &pp = kv.m_value;
