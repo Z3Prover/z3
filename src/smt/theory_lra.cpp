@@ -2337,17 +2337,14 @@ public:
             auto atom = m_delay_ineqs[m_delay_ineqs_qhead];
             ctx().push_trail(value_trail(m_delay_ineqs_qhead));
             expr *x, *y;
-            if (a.is_le(atom, x, y)) {
+            bool is_le = a.is_le(atom, x, y);
+            if (is_le || a.is_ge(atom, x, y)) {
+                auto zero = a.mk_numeral(rational(0), a.is_int(x->get_sort()));
+                auto normalized = is_le ? a.mk_le(a.mk_sub(x, y), zero) : a.mk_ge(a.mk_sub(x, y), zero);
                 auto lit1 = mk_literal(atom);
-                auto lit2 = mk_literal(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
+                auto lit2 = mk_literal(normalized);
                 mk_axiom(~lit1, lit2);
-                mk_axiom(lit1, ~lit2);                
-            }
-            else if (a.is_ge(atom, x, y)) {
-                auto lit1 = mk_literal(atom);
-                auto lit2 = mk_literal(a.mk_ge(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
-                mk_axiom(~lit1, lit2);
-                mk_axiom(lit1, ~lit2);                
+                mk_axiom(lit1, ~lit2);
             }
             else {
                 UNREACHABLE();
