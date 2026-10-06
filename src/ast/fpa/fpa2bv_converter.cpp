@@ -2314,7 +2314,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     SASSERT(m_bv_util.get_bv_size(shift) == sbits);
 
     expr_ref e_shift(m);
-    e_shift = (ebits + 2 <= sbits + 1) ? m_bv_util.mk_extract(ebits + 1, 0, shift) :
+    e_shift = (ebits + 2 <= sbits) ? m_bv_util.mk_extract(ebits + 1, 0, shift) :
                                          m_bv_util.mk_sign_extend((ebits + 2) - (sbits), shift);
     SASSERT(m_bv_util.get_bv_size(e_shift) == ebits + 2);
     res_exp = m_bv_util.mk_bv_add(m_bv_util.mk_zero_extend(2, res_exp), e_shift);
@@ -3573,11 +3573,11 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
         shift = m_bv_util.mk_zero_extend(big_sig_sz-ebits-2, shift);
     else if (ebits+2 > big_sig_sz) {
         expr_ref upper(m);
-        upper = m_bv_util.mk_extract(big_sig_sz, ebits+2, shift);
-        shift = m_bv_util.mk_extract(ebits+1, 0, shift);
+        upper = m_bv_util.mk_extract(ebits+1, big_sig_sz, shift);
+        shift = m_bv_util.mk_extract(big_sig_sz-1, 0, shift);
         shift = m.mk_ite(m.mk_eq(upper, m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(upper))),
                          shift,
-                         m_bv_util.mk_numeral(big_sig_sz-1, ebits+2));
+                         m_bv_util.mk_numeral(big_sig_sz-1, big_sig_sz));
     }
     dbg_decouple("fpa2bv_to_bv_shift_uncapped", shift);
     SASSERT(m_bv_util.get_bv_size(shift) == m_bv_util.get_bv_size(big_sig));
