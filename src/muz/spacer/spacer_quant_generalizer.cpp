@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 
+#include <tuple>
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
 #include "muz/spacer/spacer_manager.h"
@@ -50,7 +51,8 @@ struct index_lt_proc {
         bool is_num2 = m_arith.is_numeral(b, val2);
 
         if (is_num1 && is_num2) {
-            return val1 < val2;
+            return std::tuple<rational const&, unsigned>(val1, a->get_id()) <
+                   std::tuple<rational const&, unsigned>(val2, b->get_id());
         }
         else if (is_num1 != is_num2) {
             return is_num1;
@@ -68,7 +70,8 @@ struct index_lt_proc {
         }
 
         if (is_num1 && is_num2) {
-            return val1 < val2;
+            return std::tuple<rational const&, unsigned>(val1, a->get_id()) <
+                   std::tuple<rational const&, unsigned>(val2, b->get_id());
         }
         else if (is_num1 != is_num2) {
             return is_num1;

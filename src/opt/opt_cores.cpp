@@ -65,7 +65,9 @@ namespace opt {
      * weighted soft constraints are treated as multi-sets.
      */
     vector<weighted_core> const& cores::disjoint_cores() {
-        std::sort(m_cores.begin(), m_cores.end(), [&](weighted_core const& c1, weighted_core const& c2) { return c1.m_core.size() < c2.m_core.size(); });
+        std::sort(m_cores.begin(), m_cores.end(), [](weighted_core const& c1, weighted_core const& c2) {
+            return core_lt{}(c1.m_core, c2.m_core);
+        });
         vector<weighted_core> result;
         for (auto const& [core, w] : m_cores) {
             rational weight = core_weight(core);

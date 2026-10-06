@@ -28,6 +28,7 @@ Author:
 #include "solver/parallel_params.hpp"
 
 #include <cmath>
+#include <tuple>
 #include <mutex>
 #include <condition_variable>
 
@@ -1576,7 +1577,7 @@ namespace smt {
         };
 
         auto rank_of = [&](bb_candidate const& c) {
-            return c.age * std::log2(2.0 + c.hits);
+            return std::tuple(c.age * std::log2(2.0 + c.hits), c.lit->get_id());
         };
 
         for (auto const& c : bb_candidates) {
