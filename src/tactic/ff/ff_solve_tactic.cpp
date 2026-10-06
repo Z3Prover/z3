@@ -15,7 +15,7 @@ Author:
     Romain Soulat
 
 --*/
-#include "math/ff/ff_params.h"
+#include "ast/ff/ff_field_problem.h"
 #include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactical.h"
 #include "ast/ff_decl_plugin.h"
@@ -26,119 +26,53 @@ Author:
 #include <cstring>
 #include <memory>
 #include "params/smt_params_helper.hpp"
-#include <unordered_map>
 
 namespace {
-    struct field_problem {
+    // Goal dependencies and exported declarations belong to this frontend.
+    // Normalization, polynomial encoding and model reconstruction are shared
+    // with theory_ff through ff::field_problem.
+    struct field_goal {
         ast_manager &m;
         ff_util ff;
-        smt_params_helper options;
-        ff::engine algebra;
+        ff::field_problem problem;
+        expr_mark seen;
         expr_ref_vector variables;
-        obj_map<expr, ff::polynomial> cache;
-        std::vector<ff::polynomial> eqs, neqs;
         std::vector<expr_dependency *> dependencies;
-        field_problem(ast_manager &m, sort *s, params_ref const &p)
-            : m(m), ff(m), options(p),
-              algebra(ff.modulus(s), m.limit(), options.ff_max_steps(), options.ff_max_terms(), options.ff_bit_propagation(),
-                                       options.ff_batch(), options.ff_sparse_witness()),
-              variables(m) {
-                ff::configure_engine(algebra, options);
 
-            }
-        ff::polynomial compact(ff::polynomial f, bool force = false) {
-            if (!algebra.compact_encoding || f.empty()) return f;
-            // Preserve affine packs for bit propagation. Introduce a wire only
-            // for nonlinear growth, or before a product would exceed the bound.
-            if (!force && (f.begin()->first.size() <= 1 || (f.size() <= 64 && f.begin()->first.size() <= 32))) return f;
-            if (f.size() == 1 && f.begin()->first.size() <= 1) return f;
-            // z=f is a definitional extension: each original assignment has
-            // exactly one value of the fresh z. The equation needs no asserted
-            // premise, and later conflicts still depend on the original facts.
-            // Bound local expansion structurally, independent of field or input.
-            unsigned v = variables.size();
-            variables.push_back(nullptr);
-            auto z = algebra.variable(v);
-            eqs.push_back(algebra.add(z, f, rational(-1)));
-            algebra.definition_variables.insert(v);
-            return z;
-        }
-        ff::polynomial const &encode(expr *root) {
+        field_goal(ast_manager &m, sort *s, params_ref const &p)
+            : m(m), ff(m), problem(m, s, p), variables(m) {}
+
+        void collect_variables(expr *root) {
             ptr_vector<expr> todo;
             todo.push_back(root);
             while (!todo.empty()) {
                 if (!m.inc())
                     throw ff::exhausted();
                 expr *e = todo.back();
-                if (cache.contains(e)) {
-                    todo.pop_back();
-                    continue;
-                }
-                if (!is_app(e))
-                    throw tactic_exception("ff-solve requires quantifier-free field terms");
-                app *a = to_app(e);
-                if (!ff.is_ff(e))
-                    throw tactic_exception("ff-solve requires field terms");
-                if (a->get_family_id() != ff.get_fid() && !is_uninterp_const(a))
-                    throw tactic_exception("ff-solve: unsupported term; use ff2bv");
-                bool ready = true;
-                for (expr *arg : *a)
-                    if (!cache.contains(arg)) {
-                        todo.push_back(arg);
-                        ready = false;
-                    }
-                if (!ready)
-                    continue;
-                ff::polynomial f;
-                rational value;
-                if (ff.is_numeral(e, value))
-                    f = algebra.constant(value);
-                else if (is_uninterp_const(a)) {
-                    f = algebra.variable(variables.size());
-                    variables.push_back(a);
-                }
-                else if (ff.is_neg(a))
-                    f = algebra.scale(cache.find(a->get_arg(0)), rational(-1));
-                else if (ff.is_add(a) || ff.is_mul(a) || ff.is_bitsum(a)) {
-                    bool mul = ff.is_mul(a);
-                    f = algebra.constant(rational(mul ? 1 : 0));
-                    rational weight(1);
-                    for (expr *arg : *a) {
-                        auto const &b = cache.find(arg);
-                        if (mul && algebra.compact_encoding && f.size() && b.size() > 256 / f.size()) {
-                            // Definitional abstraction happens before the
-                            // Cartesian product, not after a size exception.
-                            f = compact(std::move(f), true);
-                            auto operand = compact(b, true);
-                            f = algebra.mul(f, operand);
-                        }
-                        else f = mul ? algebra.mul(f, b) : algebra.add(std::move(f), b, weight);
-                        f = compact(std::move(f));
-                        if (ff.is_bitsum(a))
-                            weight = mod(weight * rational(2), ff.modulus(e->get_sort()));
-                    }
-                }
-                else throw tactic_exception("ff-solve: unsupported operator");
-                cache.insert(e, std::move(f));
                 todo.pop_back();
+                if (seen.is_marked(e))
+                    continue;
+                seen.mark(e);
+                if (!is_app(e) || !ff.is_ff(e))
+                    throw tactic_exception("ff-solve requires quantifier-free field terms");
+                if (is_uninterp_const(e))
+                    variables.push_back(e);
+                else if (ff.is_interp(e))
+                    for (expr *arg : *to_app(e))
+                        todo.push_back(arg);
+                else
+                    // Unlike theory_ff, this frontend has no equality engine
+                    // to justify congruence or other-theory semantics.
+                    throw tactic_exception("ff-solve: unsupported term; use ff2bv");
             }
-            return cache.find(root);
         }
+
         void add(expr *a, expr *b, bool equality, expr_dependency *dep) {
-            auto lhs = encode(a);  // copy: encoding b can rehash the cache
-            auto rhs = encode(b);
-            auto f = algebra.add(std::move(lhs), rhs, rational(-1));
-            if (dep)
-                f.dependencies.insert(dependencies.size());
+            collect_variables(a);
+            collect_variables(b);
+            problem.add(a, b, equality);
             dependencies.push_back(dep);
-            (equality ? eqs : neqs).push_back(std::move(f));
         }
-
-        unsigned bit_facts = 0;
-        void decompose_bitsums() {
-            bit_facts = algebra.propagate_bits(eqs);
-        }
-
     };
     class ff_solve_tactic : public tactic {
         ast_manager &m;
@@ -146,7 +80,6 @@ namespace {
         statistics m_stats;
         bool m_encoding_size_failure = false;
         unsigned m_encoding_work = 0;
-        stopwatch m_encode_time, m_solve_time, m_validate_time;
 
         // After wire elimination, a large circuit may have just a few bit
         // inputs left. Evaluate its shared DAG instead of expanding it into
@@ -266,15 +199,9 @@ namespace {
         }
         void collect_statistics(statistics &st) const override {
             st.copy(m_stats);
-            st.update("ff encode seconds", m_encode_time.get_seconds());
-            st.update("ff solve seconds", m_solve_time.get_seconds());
-            st.update("ff validate seconds", m_validate_time.get_seconds());
         }
         void reset_statistics() override {
             m_stats.reset();
-            m_encode_time.reset();
-            m_solve_time.reset();
-            m_validate_time.reset();
         }
         void operator()(goal_ref const &g, goal_ref_buffer &result) override {
             try { solve_goal(g, result); }
@@ -321,29 +248,26 @@ namespace {
                 result.push_back(g.get());
                 return;
             }
-            obj_map<sort, std::unique_ptr<field_problem>> fields;
+            obj_map<sort, std::unique_ptr<field_goal>> fields;
             m_stats.update("ff algebra calls", 1u);
             // Retain work from unsuccessful alternatives and budget exhaustion.
             on_scope_exit collect([&]() {
                 for (auto const &kv : fields) {
                     auto const &q = kv.get_value();
-                    q->algebra.collect_statistics(m_stats);
-                    m_stats.update("ff bit facts", q->bit_facts);
+                    q->problem.collect_statistics(m_stats);
                 }
             });
-            auto field = [&](sort *s) -> field_problem & {
-                auto &q = fields.insert_if_not_there(s, std::unique_ptr<field_problem>());
+            auto field = [&](sort *s) -> field_goal & {
+                auto &q = fields.insert_if_not_there(s, std::unique_ptr<field_goal>());
                 if (!q)
-                    q = std::make_unique<field_problem>(m, s, p);
+                    q = std::make_unique<field_goal>(m, s, p);
                 return *q;
             };
             expr_dependency_ref deps(m), conflict(m);
             bool unsat = false, unknown = false;
             model_ref mdl = alloc(model, m);
-            bool encoding = true;
             try {
                 {
-                    scoped_watch watch(m_encode_time);
                     for (unsigned i = 0; i < g->size(); ++i) {
                         deps = m.mk_join(deps, g->dep(i));
                         expr *f = g->form(i), *a = nullptr, *b = nullptr;
@@ -364,41 +288,39 @@ namespace {
                         else
                             throw tactic_exception("ff-solve requires a conjunction of field literals");
                     }
-                    for (auto &kv : fields)
-                        kv.m_value->decompose_bitsums();
                 }
-                encoding = false;
-                scoped_watch watch(m_solve_time);
                 for (auto &kv : fields) {
                     sort *s = &kv.get_key();
                     auto &q = kv.m_value;
                     if (unsat)
                         break;
-                    std::vector<rational> values(q->variables.size(), rational(0));
-                    lbool status = q->algebra.solve(q->eqs, q->neqs, values);
+                    lbool status = q->problem.check();
                     unsat |= status == l_false;
                     if (status == l_false)
-                        for (unsigned j : q->algebra.conflict())
+                        for (unsigned j : q->problem.conflict())
                             conflict = m.mk_join(conflict, q->dependencies[j]);
                     unknown |= status == l_undef;
                     if (status == l_true)
-                        for (unsigned i = 0; i < values.size(); ++i)
-                            if (q->variables.get(i)) mdl->register_decl(to_app(q->variables.get(i))->get_decl(), ff.mk_numeral(values[i], s));
+                        for (expr *v : q->variables)
+                            mdl->register_decl(to_app(v)->get_decl(), ff.mk_numeral(q->problem.value(v), s));
                 }
             } catch (ff::exhausted const &) {
-                if (encoding)
-                    for (auto const &kv : fields) {
-                        auto const &q = kv.get_value();
-                        m_encoding_size_failure |= q->algebra.polynomial_limit_hit();
-                        m_encoding_work = std::max(m_encoding_work, q->algebra.steps());
-                    }
+                for (auto const &kv : fields) {
+                    auto const &q = kv.get_value();
+                    m_encoding_size_failure |= q->problem.encoding_limit_hit();
+                    m_encoding_work = std::max(m_encoding_work, q->problem.encoding_steps());
+                }
                 m_stats.update("ff budget exhausted", 1u);
                 throw tactic_exception("ff-solve algebra budget exhausted");
             }
             if (!unsat && unknown)
                 throw tactic_exception("ff-solve requires complete BV fallback");
             if (!unsat) {
-                scoped_watch watch(m_validate_time);
+                stopwatch validation;
+                scoped_watch watch(validation);
+                on_scope_exit collect_validation([&]() {
+                    m_stats.update("ff validate seconds", validation.get_current_seconds());
+                });
                 // Check the original AST too, independently of polynomial conversion.
                 model_evaluator eval(*mdl);
                 for (unsigned i = 0; i < g->size(); ++i) {

@@ -25,7 +25,7 @@ CORE = [
 PROOFS = ['test_ff_certificates.py', 'test_ff_proof_pipeline.py', 'test_ff_boolean_proof.py']
 CLI = {'test_qfff.py', 'test_ff_backend_recovery.py', 'test_ff_integration.py'}
 EXTERNAL = {'test_ff_proof_pipeline.py', 'test_ff_boolean_proof.py'}
-NATIVE = ['ff_domain', 'finite_field', 'ast', 'smt_context', 'smt2print_parse', 'api', 'arith_rewriter']
+NATIVE = ['ff_solver', 'ff_domain', 'finite_field', 'ast', 'smt_context', 'smt2print_parse', 'api', 'arith_rewriter']
 
 
 def positive(value):

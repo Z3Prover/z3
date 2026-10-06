@@ -12,12 +12,21 @@ assigned field equality/disequality atoms. Foreign field-valued applications
 are atomic algebraic variables; their arguments and interpretation remain with
 the owning theories. There is no eager bit-vector encoding on this path.
 
-Acyclic field wire definitions are substituted through a shared expression DAG.
-Canonical field rewriting identifies equivalent circuit expressions without
-expanding every wire into a polynomial. Cyclic and competing definitions remain
-constraints. Residual equations use the existing bounded modular algebra engine.
-SAT values are reconstructed through the DAG and checked against the collected
-constraints before the model is accepted.
+The SMT plugin and `ff-solve` tactic both use `ff::field_problem` in `ast/ff`.
+It applies standard rewriting and `solve-eqs` to a private dependent-expression
+state before encoding residual equations for the bounded modular algebra engine.
+Candidate digit variables are preserved during substitution to retain explicit
+bit-domain constraints. This is a cost heuristic, not an assumption of Booleanity.
+The standard model reconstruction trail restores eliminated variables; every
+original field constraint is checked before exposing candidate values.
+
+A problem represents one conjunction of signed field equalities. Only pinned,
+pure term encodings may be cached across checks. Foreign field-valued terms are
+purified to opaque constants; the SMT frontend supplies their interface facts
+and validates model arrangements. The standalone tactic accepts only field
+operators and free field constants, exports models for all original variables,
+and maps conflict indices back to goal dependencies. It retains the small-bit
+shortcut, compact-encoding retry and proof-mode rejection.
 
 Each algebraic input has an explicit equality or disequality premise. Conflict
 provenance produces a conditional theory lemma, with all substituted definitions

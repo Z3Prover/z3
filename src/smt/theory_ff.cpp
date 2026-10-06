@@ -278,13 +278,11 @@ namespace smt {
             {
                 auto &shared = encodings.insert_if_not_there(s, std::unique_ptr<ff::ff_encoding_cache>());
                 if (!shared)
-                    shared = std::make_unique<ff::ff_encoding_cache>(m);
-                if (shared->cache.size() > 200000)
+                    shared = std::make_unique<ff::ff_encoding_cache>(m, s);
+                if (shared->size() > 200000)
                     shared->reset();
-                p = std::make_unique<ff::field_problem>(m, s, ctx.get_params(), shared.get());
+                p = std::make_unique<ff::field_problem>(m, s, ctx.get_params(), shared.get(), &memo);
             }
-            if (p->options.ff_basis_cache())
-                p->algebra.set_basis_cache(&memo);
             return *p;
         };
         auto add = [&](sort *s, expr *a, expr *b, bool equality) {
@@ -339,9 +337,7 @@ namespace smt {
             if (bv_fields.contains(s)) continue;
             auto &p = *pp;
             try {
-                p.prepare();
-                std::vector<rational> values(p.num_variables);
-                lbool result = p.algebra.solve(p.eqs, p.neqs, values);
+                lbool result = p.check();
                 if (result == l_undef)
                     throw ff::exhausted();
                 if (result == l_false) {
@@ -349,8 +345,8 @@ namespace smt {
                     // These premises can't hold simultaneously, so their negated
                     // disjunction is field-valid; this is an explanation, not a
                     // v2 proof certificate.
-                    for (unsigned d : p.algebra.conflict())
-                        clause.push_back(m.mk_not(p.premises.get(d)));
+                    for (unsigned d : p.conflict())
+                        clause.push_back(m.mk_not(p.premise(d)));
                     // Preserve the exact SAT atoms; rewriting could produce an
                     // atom already assigned the opposite value, repeating this
                     // final check indefinitely.
@@ -359,13 +355,8 @@ namespace smt {
                     return FC_CONTINUE;
                 }
                 std::map<rational, enode *> representatives;
-                // Check original inputs as well as the engine's residual
-                // polynomial check; sampling only supplies SAT witnesses.
-                for (auto [a, b, equality] : p.inputs)
-                    if ((p.evaluate(a, values) == p.evaluate(b, values)) != equality)
-                        throw ff::exhausted();
                 for (enode *n : terms_by_sort.insert_if_not_there(s, ptr_vector<enode>())) {
-                    rational value = p.evaluate(n->get_expr(), values);
+                    rational value = p.value(n->get_expr());
                     native_values.insert(n->get_expr(), value);
                     // Only roots shared with another theory need an arrangement;
                     // private terms are already checked by algebra, and arranging

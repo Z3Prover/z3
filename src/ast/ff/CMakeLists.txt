@@ -3,6 +3,8 @@ z3_add_component(ff_ast
     ff_field_problem.cpp
   COMPONENT_DEPENDENCIES
     ast
+    simplifiers
+    model
     rewriter
     ff
     params
