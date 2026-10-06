@@ -2,7 +2,10 @@
 
 See [`REPORT.md`](REPORT.md) for the top-level index of this F*
 formal-verification audit series; see [`SEQ_REPORT.md`](SEQ_REPORT.md)
-for the companion sequence-theory audit this one is modeled on.
+for the companion sequence-theory audit this one is modeled on; see
+[`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) for a follow-up audit
+of the `to_fp`-from-Real rounding encoding against currently open
+issues/PRs (#10881/#10931, #10888/#10938).
 
 This report accompanies:
 
