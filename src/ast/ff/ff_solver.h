@@ -51,16 +51,22 @@ namespace ff {
         solver(ast_manager &m, sort *field, params_ref const &p,
                       ff_encoding_cache *cache = nullptr, basis_cache *basis = nullptr);
         ~solver();
-        void add(expr *a, expr *b, bool equality);
+        void add(expr *a, expr *b, bool equality, v_dependency *d);
         // May throw exhausted on resource limits, just like the algebra engine.
         // SAT candidates are rechecked against every supplied original constraint.
         lbool check();
         rational value(expr *term);
-        expr *premise(unsigned index) const;
-        // Exact input indices supporting UNSAT. These are explanations, NOT
-        // checked proof objects. A future evidence recorder must also certify
+        // Exposes the manager that every dependency leaf passed to add() must
+        // come from, and that conflict()'s pointer can be linearized with.
+        // Callers may use their own opaque pointers (e.g. expr_dependency*) as
+        // leaf values directly; this is also the manager threaded through the
+        // solver's own polynomial/engine arithmetic, so no translation layer
+        // sits between a caller's dependency and the conflict it may appear in.
+        v_dependency_manager &dep_manager() const;
+        // Exact input dependencies supporting UNSAT. This is an explanation, NOT
+        // a checked proof object. A future evidence recorder must also certify
         // normalization, substitution and the frontend's premise justifications.
-        std::set<unsigned> const &conflict() const;
+        v_dependency *conflict() const;
         void collect_statistics(statistics &st) const;
         // True only when encoding (not search) exceeded the polynomial limit.
         bool encoding_limit_hit() const;
