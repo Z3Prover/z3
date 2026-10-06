@@ -1,0 +1,9 @@
+z3_add_component(ff_ast
+  SOURCES
+    ff_field_problem.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    rewriter
+    ff
+    params
+)

@@ -60,6 +60,7 @@ z3_add_component(ast
 
 add_subdirectory(converters)
 add_subdirectory(euf)
+add_subdirectory(ff)
 add_subdirectory(fpa)
 add_subdirectory(macros)
 add_subdirectory(normal_forms)

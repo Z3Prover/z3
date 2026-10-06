@@ -22,6 +22,7 @@ Author:
 
 #include "smt/smt_theory.h"
 #include "math/ff/ff_polynomial.h"
+#include "ast/ff/ff_field_problem.h"
 #include "ast/ff_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -30,7 +31,6 @@ Author:
 #include <memory>
 
 namespace smt {
-    struct ff_encoding_cache;
     // Ground theory combination using modular algebra and model arrangements,
     // with an exact bounded BV representation when algebra is inconclusive.
     // Original field sorts/terms stay in the equality engine, so arrays,
@@ -49,7 +49,7 @@ namespace smt {
         obj_hashtable<sort> bv_fields; // fallback is local to a field, never the whole context
         void refresh_bv_fields();
         ff::basis_cache memo;
-        obj_map<sort, std::unique_ptr<ff_encoding_cache>> encodings;
+        obj_map<sort, std::unique_ptr<ff::ff_encoding_cache>> encodings;
         obj_hashtable<expr> constrained;
         // Deduplicates root-splitting by the merged terms' original operands,
         // which are already kept alive by their enodes.

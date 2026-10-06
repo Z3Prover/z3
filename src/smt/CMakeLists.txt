@@ -83,6 +83,7 @@ z3_add_component(smt
     bit_blaster
     cmd_context
     ff
+    ff_ast
     fpa
     grobner
     nlsat
