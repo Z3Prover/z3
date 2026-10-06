@@ -2443,7 +2443,9 @@ namespace smt {
         m_analyzer(alloc(quantifier_analyzer, *this, m)),
         m_auf_solver(alloc(auf_solver, m)),
         m_dependencies(m),
-        m_new_constraints(m) {
+        m_new_constraints(m),
+        m_autil(m),
+        m_array_candidates(m) {
     }
 
     model_finder::~model_finder() {
@@ -2599,6 +2601,7 @@ namespace smt {
        of all ground formulas asserted into the logical context.
     */
     void model_finder::fix_model(proto_model* m) {
+        m_curr_model = m;
         if (m_quantifiers.empty())
             return;
         ptr_vector<quantifier> qs;
@@ -2660,7 +2663,96 @@ namespace smt {
         if (t != nullptr) {
             generation = s->get_generation(t);
         }
+        else if (m_autil.is_array(val->get_sort())) {
+            // store candidates offered by restrict_sks_to_inst_set
+            for (auto const& [cand_val, cand_term] : m_array_candidate2term) 
+                if (cand_val->get_sort() == val->get_sort() && mdl.are_equal(cand_val, val)) 
+                    return cand_term;
+        }
         return t;
+    }
+
+    /**
+       \brief Besides the arrays of its instantiation set, an array-sorted variable may be
+       instantiated with a finite modification store(A, i, v) of such an array A, where i is
+       taken from the instantiation sets of the other variables of q with the index sort and
+       v from the ground subterms of q of the value sort (and the instantiation sets of the
+       other variables of that sort). This is the model-based counterpart of an instance
+       "the known function A modified at the points the quantifier talks about"; e.g. a
+       hypothesis forall f x. P(f) => 0 < f[x] is refuted by f := store(g, x, 0) when the
+       problem supplies an array g with P(g), while the array value produced by the
+       auxiliary solver, as a lambda over model values, cannot be related to g.
+       Candidate values are asserted as further disjuncts of the restriction and mapped back
+       to their terms by get_inv.
+    */
+    void model_finder::add_array_store_candidates(quantifier* q, unsigned i, expr* sk, instantiation_set const* s, expr_ref_vector& eqs) {
+        sort* asrt = sk->get_sort();
+        if (!m_curr_model || get_array_arity(asrt) != 1)
+            return;
+        sort* isrt = get_array_domain(asrt, 0);
+        sort* vsrt = get_array_range(asrt);
+        unsigned num_decls = q->get_num_decls();
+        // base arrays: the (non-lambda) elements of the instantiation set of the variable
+        expr_ref_vector base_vals(m), base_terms(m), idx_vals(m), idx_terms(m), val_vals(m), val_terms(m);
+        for (auto const& [val, term] : s->get_inv_map()) 
+            if (val->get_sort() == asrt && !is_lambda(term) && base_vals.size() < 4) {
+                base_vals.push_back(val);
+                base_terms.push_back(term);
+            }
+        if (base_vals.empty())
+            return;
+        auto collect_from_var_sets = [&](sort* srt, expr_ref_vector& vals, expr_ref_vector& terms, unsigned limit) {
+            for (unsigned j = 0; j < num_decls && vals.size() < limit; ++j) {
+                if (j == i || q->get_decl_sort(num_decls - j - 1) != srt)
+                    continue;
+                instantiation_set const* sj = get_uvar_inst_set(q, j);
+                if (!sj)
+                    continue;
+                for (auto const& [val, term] : sj->get_inv_map()) {
+                    if (vals.size() >= limit)
+                        break;
+                    if (val->get_sort() == srt && !is_lambda(term)) {
+                        vals.push_back(val);
+                        terms.push_back(term);
+                    }
+                }
+            }
+        };
+        collect_from_var_sets(isrt, idx_vals, idx_terms, 8);
+        if (idx_vals.empty())
+            return;
+        // value candidates: ground subterms of the quantifier body of the value sort
+        obj_hashtable<expr> seen;
+        for (expr* t : subterms::all(expr_ref(q->get_expr(), m))) {
+            if (val_vals.size() >= 8)
+                break;
+            if (!is_app(t) || t->get_sort() != vsrt || !is_ground(t) || seen.contains(t))
+                continue;
+            seen.insert(t);
+            expr_ref v(m);
+            if (!m_curr_model->eval(t, v, true) || !m.is_value(v))
+                continue;
+            val_vals.push_back(v);
+            val_terms.push_back(t);
+        }
+        collect_from_var_sets(vsrt, val_vals, val_terms, 8);
+        if (val_vals.empty())
+            return;
+        for (unsigned b = 0; b < base_vals.size(); ++b) 
+            for (unsigned k = 0; k < idx_vals.size(); ++k) 
+                for (unsigned l = 0; l < val_vals.size(); ++l) {
+                    expr* vargs[3] = { base_vals.get(b), idx_vals.get(k), val_vals.get(l) };
+                    expr* targs[3] = { base_terms.get(b), idx_terms.get(k), val_terms.get(l) };
+                    expr_ref cand_val(m_autil.mk_store(3, vargs), m);
+                    expr_ref cand_term(m_autil.mk_store(3, targs), m);
+                    if (m_array_candidate2term.contains(cand_val))
+                        continue;
+                    m_array_candidates.push_back(cand_val);
+                    m_array_candidates.push_back(cand_term);
+                    m_array_candidate2term.insert(cand_val, cand_term);
+                    eqs.push_back(m.mk_eq(sk, cand_val));
+                    TRACE(model_finder, tout << "store candidate " << cand_term << "\n";);
+                }
     }
 
     /**
@@ -2713,6 +2805,36 @@ namespace smt {
                 }
                 asserted_something = true;
             }
+        }
+        return asserted_something;
+    }
+
+    /**
+       \brief Second restriction, used when restricting the skolems to the instantiation sets
+       produced no counterexample: array-sorted skolems are restricted to finite modifications
+       store(A, i, v) of the arrays of their instantiation set (see add_array_store_candidates).
+       Return true if something was asserted.
+    */
+    bool model_finder::restrict_sks_to_store_candidates(context* aux_ctx, quantifier* q, expr_ref_vector const& sks) {
+        m_array_candidates.reset();
+        m_array_candidate2term.reset();
+        bool asserted_something = false;
+        unsigned num_decls = q->get_num_decls();
+        for (unsigned i = 0; i < num_decls; ++i) {
+            expr* sk = sks.get(sks.size() - i - 1);
+            if (!m_autil.is_array(sk->get_sort()))
+                continue;
+            instantiation_set const* s = get_uvar_inst_set(q, i);
+            if (s == nullptr || s->get_inv_map().empty())
+                continue;
+            expr_ref_vector eqs(m);
+            add_array_store_candidates(q, i, sk, s, eqs);
+            if (eqs.empty())
+                continue;
+            expr_ref new_cnstr(m.mk_or(eqs), m);
+            TRACE(model_finder, tout << "assert_store_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+            aux_ctx->assert_expr(new_cnstr);
+            asserted_something = true;
         }
         return asserted_something;
     }

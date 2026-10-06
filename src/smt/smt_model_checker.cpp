@@ -24,6 +24,12 @@ Revision History:
 
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
@@ -224,9 +230,12 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
-        expr_ref_vector bindings(m);
+        expr_ref_vector bindings(m), alternatives(m), alternatives2(m);
+        ptr_vector<func_decl> bases(num_decls, (func_decl*)nullptr);
         expr_ref def(m);
         bindings.resize(num_decls);
+        alternatives.resize(num_decls);
+        alternatives2.resize(num_decls);
         unsigned max_generation = 0;
         for (unsigned i = 0; i < num_decls; ++i) {
             expr * sk = sks.get(num_decls - i - 1);
@@ -267,7 +276,30 @@ namespace smt {
             }
             func_decl * f = nullptr;
             expr_ref sk_term(sk_value, m);
+            if (!autil.is_as_array(sk_value)) {
+                // array values nested in the binding (e.g. inside a datatype constructor)
+                expr_ref conv = as_array_to_stores(sk_value, cex);
+                if (conv != sk_value) {
+                    conv = replace_value_from_ctx(conv);
+                    if (contains_model_value(conv))
+                        conv = replace_model_values(conv);
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :nested-array-value-as-stores " << q->get_qid() << " " << mk_pp(conv, m) << ")\n");
+                    sk_term = conv;
+                    sk_value = conv;
+                }
+            }
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
+                // Besides the lambda built from the interpretation (below), also instantiate with
+                // the same modifications applied to an array term of the main context, if any.
+                func_decl * base = nullptr;
+                expr_ref store_term = mk_store_instance(f, cex, base);
+
+                if (base)
+                    bases[num_decls - i - 1] = base;
+                if (store_term) {
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :array-store-instance " << q->get_qid() << " " << mk_pp(store_term, m) << ")\n");
+                    alternatives[num_decls - i - 1] = store_term;
+                }
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 unsigned arity = f->get_arity();
                 if (arity > 1) {
@@ -304,7 +336,435 @@ namespace smt {
         TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n");
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation);
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (alternatives.get(i)) {
+                expr_ref_vector alt_bindings(bindings);
+                alt_bindings[i] = alternatives.get(i);
+                add_instance(q, alt_bindings, max_generation);
+            }
+            if (alternatives2.get(i)) {
+                expr_ref_vector alt_bindings(bindings);
+                alt_bindings[i] = alternatives2.get(i);
+                add_instance(q, alt_bindings, max_generation);
+            }
+        }
+        // Array variables: the lambdas of the quantifier that mention the variable (e.g. a
+        // canonicalisation lambda (x) -> ite(guard(x), f[x], default)), closed by the bindings of
+        // the other variables and with the occurrences of f replaced by a ground value of the
+        // quantifier, are natural candidates for f: they are the functions the quantifier itself
+        // considers, constant on their domain.
+        bool q_has_lambda = false;
+        for (expr * t : subterms::all(expr_ref(q->get_expr(), m)))
+            if (is_lambda(t)) { q_has_lambda = true; break; }
+        if (q_has_lambda) {
+            expr_ref_vector vals(m);
+            for (unsigned i = 0; i < num_decls; ++i) {
+                sort * asrt = bindings.get(i)->get_sort();
+                if (!autil.is_array(asrt))
+                    continue;
+                sort * vsrt = get_array_range(asrt);
+                vals.reset();
+                obj_hashtable<expr> seen;
+                for (expr * t : subterms::all(expr_ref(q->get_expr(), m))) {
+                    if (vals.size() >= 4)
+                        break;
+                    if (is_app(t) && is_ground(t) && t->get_sort() == vsrt && !seen.contains(t)) {
+                        seen.insert(t);
+                        vals.push_back(t);
+                    }
+                }
+                if (vals.empty())
+                    continue;
+                // instantiate the body with a placeholder for position i and collect the closed
+                // lambdas that apply the placeholder
+                expr_ref placeholder(m.mk_fresh_const("mbqi_f", asrt), m);
+                expr_ref_vector subst(bindings);
+                subst[i] = placeholder;
+                expr_ref body_inst = instantiate(m, q, subst.data());
+                unsigned num_lambdas = 0;
+                for (expr * t : subterms::all(body_inst)) {
+                    if (!is_lambda(t))
+                        continue;
+                    if (t->get_sort() != asrt || has_free_vars(t) || num_lambdas >= 2)
+                        continue;
+                    ptr_vector<expr> sels;
+                    for (expr * u : subterms::all(expr_ref(to_quantifier(t)->get_expr(), m)))
+                        if (autil.is_select(u) && to_app(u)->get_arg(0) == placeholder)
+                            sels.push_back(u);
+                    if (sels.empty())
+                        continue;
+                    ++num_lambdas;
+                    for (expr * v : vals) {
+                        // replace every select(placeholder, ...) in the lambda by v
+                        struct sel_cfg : default_rewriter_cfg {
+                            array_util & a; expr * ph; expr * v;
+                            sel_cfg(array_util & a, expr * ph, expr * v): a(a), ph(ph), v(v) {}
+                            br_status reduce_app(func_decl * f, unsigned n, expr * const * args, expr_ref & result, proof_ref & pr) {
+                                if (a.is_select(f) && n > 0 && args[0] == ph) { result = v; return BR_DONE; }
+                                return BR_FAILED;
+                            }
+                        };
+                        sel_cfg cfg(autil, placeholder, v);
+                        rewriter_tpl<sel_cfg> rw(m, false, cfg);
+                        expr_ref cand(m);
+                        rw(t, cand);
+                        if (!is_lambda(cand) || occurs(placeholder, to_quantifier(cand)->get_expr()))
+                            continue;
+                        expr_ref_vector alt_bindings(bindings);
+                        alt_bindings[i] = cand;
+                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :lambda-instance " << q->get_qid() << " " << mk_pp(cand, m) << ")\n");
+                        add_instance(q, alt_bindings, max_generation);
+                    }
+                }
+            }
+        }
+        // Datatype variables whose binding carries an array inside a constructor (e.g. a boxed
+        // function mk(f)): also instantiate with the array replaced by the constant functions
+        // (const v) for the ground values v of the quantifier, the analogue for boxed functions
+        // of the constant-function instances above.
+        {
+            datatype::util dtu(m);
+            for (unsigned i = 0; i < num_decls; ++i) {
+                expr * b = bindings.get(i);
+                if (!dtu.is_datatype(b->get_sort()) || !is_app(b) || !dtu.is_constructor(to_app(b)))
+                    continue;
+                app * cons = to_app(b);
+                for (unsigned k = 0; k < cons->get_num_args(); ++k) {
+                    expr * arg = cons->get_arg(k);
+                    sort * asrt = arg->get_sort();
+                    if (!autil.is_array(asrt))
+                        continue;
+                    sort * vsrt = get_array_range(asrt);
+                    expr_ref_vector vals(m);
+                    obj_hashtable<expr> seen;
+                    for (expr * t : subterms::all(expr_ref(q->get_expr(), m))) {
+                        if (vals.size() >= 4)
+                            break;
+                        if (is_app(t) && is_ground(t) && t->get_sort() == vsrt && !seen.contains(t)) {
+                            seen.insert(t);
+                            vals.push_back(t);
+                        }
+                    }
+                    for (expr * v : vals) {
+                        expr_ref_vector cargs(m);
+                        for (unsigned j = 0; j < cons->get_num_args(); ++j)
+                            cargs.push_back(j == k ? autil.mk_const_array(asrt, v) : cons->get_arg(j));
+                        expr_ref alt(m.mk_app(cons->get_decl(), cargs.size(), cargs.data()), m);
+                        expr_ref_vector alt_bindings(bindings);
+                        alt_bindings[i] = alt;
+                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :boxed-const-instance " << q->get_qid() << " " << mk_pp(alt, m) << ")\n");
+                        add_instance(q, alt_bindings, max_generation);
+                    }
+                }
+            }
+        }
+        // Array variables constrained pointwise by a canonicity guard
+        //    forall x. ite(G(x), P(f[x]), f[x] = d)     (or  (not G(x)) => f[x] = d)
+        // are instantiated with the guarded constant functions (lambda (x) (ite G(x) v d)) for
+        // the ground values v of the quantifier: the shape such a quantifier admits.
+        for (unsigned i = 0; i < num_decls; ++i) {
+            sort * asrt = bindings.get(i)->get_sort();
+            if (!autil.is_array(asrt) || get_array_arity(asrt) != 1)
+                continue;
+            // only when the problem offers no array of that sort to modify (otherwise the
+            // store instances above are the better candidates)
+            bool has_ctx_array = false;
+            for (unsigned c = 0; c < m_curr_model->get_num_constants() && !has_ctx_array; ++c)
+                if (m_curr_model->get_constant(c)->get_range() == asrt && !m_curr_model->get_constant(c)->is_skolem())
+                    has_ctx_array = true;
+            if (has_ctx_array)
+                continue;
+            sort * vsrt = get_array_range(asrt);
+            expr_ref placeholder(m.mk_fresh_const("mbqi_g", asrt), m);
+            expr_ref_vector subst(bindings);
+            subst[i] = placeholder;
+            expr_ref body_inst = instantiate(m, q, subst.data());
+            expr_ref_vector vals(m);
+            obj_hashtable<expr> seen;
+            for (expr * t : subterms::all(expr_ref(q->get_expr(), m))) {
+                if (vals.size() >= 4) break;
+                if (is_app(t) && is_ground(t) && t->get_sort() == vsrt && !seen.contains(t)) { seen.insert(t); vals.push_back(t); }
+            }
+            // also ground terms of the codomain sort present in the context (e.g. the inhabitant
+            // coerce(unit) of an uninterpreted codomain sort), skipping invented elements and skolems
+            for (enode * n : m_context->enodes()) {
+                if (vals.size() >= 6) break;
+                expr * e = n->get_expr();
+                if (e->get_sort() != vsrt || !is_app(e) || !is_ground(e) || seen.contains(e))
+                    continue;
+                bool clean = true;
+                for (expr * u : subterms::all(expr_ref(e, m)))
+                    if (is_app(u) && (to_app(u)->get_decl()->is_skolem() || to_app(u)->get_decl()->get_name().str().compare(0, 5, "elem!") == 0 || to_app(u)->get_decl()->get_name().str().compare(0, 2, "k!") == 0)) { clean = false; break; }
+                if (!clean) continue;
+                seen.insert(e); vals.push_back(e);
+            }
+            if (vals.empty())
+                continue;
+            unsigned num_found = 0;
+            sort * dom = get_array_domain(asrt, 0);
+            for (expr * t : subterms::all(body_inst)) {
+                if (num_found >= 2)
+                    break;
+                // The guard shape appears either under the nested quantifier (positive occurrence)
+                // or, after skolemisation, applied to a skolem term of the index sort.
+                expr * ib = t;
+                bool under_forall = false;
+                if (is_forall(t)) {
+                    quantifier * inner = to_quantifier(t);
+                    if (inner->get_num_decls() != 1 || inner->get_decl_sort(0) != dom)
+                        continue;
+                    ib = inner->get_expr();
+                    under_forall = true;
+                }
+                else if (!m.is_ite(t) && !m.is_or(t) && !m.is_implies(t))
+                    continue;
+                expr * G = nullptr, * eq = nullptr, * c = nullptr, * a = nullptr, * b = nullptr;
+                if (m.is_ite(ib, c, a, b)) { G = c; eq = b; }
+                else if (m.is_implies(ib, c, a) && m.is_not(c, c)) { G = c; eq = a; }
+                else if (m.is_or(ib) && to_app(ib)->get_num_args() == 2) {
+                    expr * o0 = to_app(ib)->get_arg(0), * o1 = to_app(ib)->get_arg(1);
+                    if (m.is_eq(o1) && m.is_not(o0, c)) { G = c; eq = o1; }
+                    else if (m.is_eq(o0) && m.is_not(o1, c)) { G = c; eq = o0; }
+                    else if (m.is_eq(o1)) { G = o0; eq = o1; }
+                    else if (m.is_eq(o0)) { G = o1; eq = o0; }
+                }
+                expr * lhs = nullptr, * rhs = nullptr, * d = nullptr, * idx = nullptr;
+                if (!G || !eq || !m.is_eq(eq, lhs, rhs))
+                    continue;
+                if (autil.is_select(lhs) && to_app(lhs)->get_arg(0) == placeholder && to_app(lhs)->get_num_args() == 2) { d = rhs; idx = to_app(lhs)->get_arg(1); }
+                else if (autil.is_select(rhs) && to_app(rhs)->get_arg(0) == placeholder && to_app(rhs)->get_num_args() == 2) { d = lhs; idx = to_app(rhs)->get_arg(1); }
+                if (!d || occurs(placeholder, d) || !is_ground(d))
+                    continue;
+                if (under_forall ? !is_var(idx) : !is_ground(idx))
+                    continue;
+                // guard as a function of the index: G[idx := x]
+                expr_ref Gx(G, m);
+                if (!under_forall) {
+                    expr_safe_replace rep(m);
+                    rep.insert(idx, m.mk_var(0, dom));
+                    rep(G, Gx);
+                }
+                if (occurs(placeholder, Gx))
+                    continue;
+                ++num_found;
+                // bindings that are fresh elements invented by the model finder (elem!k) carry no
+                // information; use a constant of the context of that sort instead when there is one
+                expr_ref_vector fixed(bindings);
+                expr_ref repaired_G(Gx, m);
+                {
+                    expr_safe_replace rep(m);
+                    bool any = false;
+                    for (unsigned j = 0; j < num_decls; ++j) {
+                        expr * bj = bindings.get(j);
+                        if (!is_app(bj) || to_app(bj)->get_num_args() != 0 || !m.is_uninterp(bj->get_sort()))
+                            continue;
+                        std::string bn = to_app(bj)->get_decl()->get_name().str();
+                        if (bn.compare(0, 5, "elem!") != 0)
+                            continue;
+                        // any ground term of the context of that sort that is not itself an
+                        // invented element or skolem (e.g. coerce(unit))
+                        for (enode * n : m_context->enodes()) {
+                            expr * e = n->get_expr();
+                            if (e->get_sort() != bj->get_sort() || !is_app(e) || !is_ground(e))
+                                continue;
+                            func_decl * fd = to_app(e)->get_decl();
+                            std::string fn = fd->get_name().str();
+                            if (fd->is_skolem() || fn.compare(0, 5, "elem!") != 0 == false || fn.compare(0, 3, "sk!") == 0 || fn.compare(0, 2, "k!") == 0)
+                                continue;
+                            bool clean = true;
+                            for (expr * u : subterms::all(expr_ref(e, m)))
+                                if (is_app(u) && (to_app(u)->get_decl()->is_skolem() || to_app(u)->get_decl()->get_name().str().compare(0, 5, "elem!") == 0)) { clean = false; break; }
+                            if (!clean)
+                                continue;
+                            expr_ref ct(e, m);
+                            fixed[j] = ct;
+                            rep.insert(bj, ct);
+                            any = true;
+                            break;
+                        }
+                    }
+                    if (any)
+                        rep(Gx, repaired_G);
+                }
+                bool has_invented = false;
+                for (unsigned j = 0; j < num_decls && !has_invented; ++j) {
+                    expr * bj = fixed.get(j);
+                    if (is_app(bj) && to_app(bj)->get_num_args() == 0 && to_app(bj)->get_decl()->get_name().str().compare(0, 5, "elem!") == 0)
+                        has_invented = true;
+                }
+                if (has_invented)
+                    continue;
+                for (expr * v : vals) {
+                    if (v == d) continue;
+                    expr_ref lam_body(m.mk_ite(repaired_G, v, d), m);
+                    symbol nm("x");
+                    expr_ref cand(m.mk_lambda(1, &dom, &nm, lam_body), m);
+                    if (has_free_vars(cand))
+                        continue;
+                    expr_ref_vector alt_bindings(fixed);
+                    alt_bindings[i] = cand;
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :guarded-lambda-instance " << q->get_qid() << " " << mk_pp(cand, m) << ")\n");
+                    add_instance(q, alt_bindings, max_generation);
+                }
+            }
+        }
+        // Array variables: also the context array modified at the points the instance binds
+        // the other variables to, with the ground values of the quantifier. In a model the
+        // interpretation of the context array is arbitrary away from the instantiated points,
+        // so a modification refuting the quantifier in the problem need not refute it in the
+        // model; these instances are the natural candidates regardless.
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (!bases[i])
+                continue;
+            sort * asrt = bases[i]->get_range();
+            if (get_array_arity(asrt) != 1)
+                continue;
+            sort * isrt = get_array_domain(asrt, 0);
+            sort * vsrt = get_array_range(asrt);
+            expr_ref_vector vals(m);
+            obj_hashtable<expr> seen;
+            for (expr * t : subterms::all(expr_ref(q->get_expr(), m))) {
+                if (vals.size() >= 4)
+                    break;
+                if (is_app(t) && is_ground(t) && t->get_sort() == vsrt && !seen.contains(t)) {
+                    seen.insert(t);
+                    vals.push_back(t);
+                }
+            }
+            expr_ref base(m.mk_const(bases[i]), m);
+            for (unsigned j = 0; j < num_decls; ++j) {
+                if (j == i || bindings.get(j)->get_sort() != isrt)
+                    continue;
+                for (expr * v : vals) {
+                    expr * args[3] = { base, bindings.get(j), v };
+                    expr_ref_vector alt_bindings(bindings);
+                    alt_bindings[i] = autil.mk_store(3, args);
+                    add_instance(q, alt_bindings, max_generation);
+                }
+            }
+        }
         return true;
+    }
+
+    /**
+       \brief Given the array value as-array[f] of a skolem in the counterexample model cex,
+       build the term store(A, i1, v1, ..., in, vn) where A is an array constant of the main
+       context with the same sort and (i_k, v_k) are the entries of the interpretation of f
+       on which A (in the current model) differs. The term agrees with the counterexample on
+       all points the counterexample cares about (its entries); outside of them it follows A.
+       Unlike the lambda built from the interpretation it is expressed with terms of the main
+       context, so the array theory can relate it to A by extensionality (e.g. the instance
+       "modify the known function at one point") and no lambda is introduced as argument of
+       uninterpreted (skolem) functions, on which the array theory is incomplete.
+       Returns null when there is no such A.
+    */
+    expr_ref model_checker::mk_store_instance(func_decl * f, model * cex, func_decl *& base) {
+        expr_ref result(m);
+        base = nullptr;
+        func_interp * fi = cex->get_func_interp(f);
+        if (!fi || f->get_arity() == 0)
+            return result;
+        array_util autil(m);
+        sort * arr_sort = autil.mk_array_sort(f->get_arity(), f->get_domain(), f->get_range());
+        func_decl * best = nullptr;
+        unsigned best_cost = UINT_MAX;
+        unsigned num_consts = m_curr_model->get_num_constants();
+        for (unsigned i = 0; i < num_consts; ++i) {
+            func_decl * c = m_curr_model->get_constant(i);
+            if (c->get_range() != arr_sort || c->is_skolem())
+                continue;
+            expr * val = m_curr_model->get_const_interp(c);
+            func_decl * g = nullptr;
+            func_interp * fa = (val && autil.is_as_array(val, g)) ? m_curr_model->get_func_interp(g) : nullptr;
+            unsigned cost = 0;
+            for (unsigned k = 0; k < fi->num_entries(); ++k) {
+                func_entry const * e = fi->get_entry(k);
+                func_entry * ea = fa ? fa->get_entry(e->get_args()) : nullptr;
+                if (!ea || ea->get_result() != e->get_result())
+                    ++cost;
+            }
+            if (cost < best_cost) {
+                best = c;
+                best_cost = cost;
+            }
+        }
+        if (!best)
+            return result;
+        base = best;
+        result = m.mk_const(best);
+        expr * val = m_curr_model->get_const_interp(best);
+        func_decl * g = nullptr;
+        func_interp * fa = (val && autil.is_as_array(val, g)) ? m_curr_model->get_func_interp(g) : nullptr;
+        unsigned arity = f->get_arity();
+        expr_ref_vector args(m);
+        for (unsigned k = 0; k < fi->num_entries(); ++k) {
+            func_entry const * e = fi->get_entry(k);
+            func_entry * ea = fa ? fa->get_entry(e->get_args()) : nullptr;
+            if (ea && ea->get_result() == e->get_result())
+                continue;
+            args.reset();
+            args.push_back(result);
+            args.append(arity, e->get_args());
+            args.push_back(e->get_result());
+            result = autil.mk_store(args);
+        }
+        result = replace_value_from_ctx(result);
+        if (contains_model_value(result))
+            result = replace_model_values(result);
+        return result;
+    }
+
+    /**
+       \brief Replace every array model value as-array[f] occurring in e (also nested inside
+       datatype values) whose interpretation in cex is a finite table with a default by the term
+       store(...(store (const default) i1 v1)... in vn). Unlike a lambda, such a term is fully
+       supported by the array theory wherever it occurs (e.g. as argument of a constructor or of an
+       uninterpreted function), so the instance does not make the theory give up on the model.
+       Model values in indices and values are mapped to terms of the context as usual.
+       Returns e itself when nothing was converted.
+    */
+    expr_ref model_checker::as_array_to_stores(expr * e, model * cex) {
+        struct aa_cfg : default_rewriter_cfg {
+            model_checker & mc; model * cex; array_util autil; bool changed = false; bool failed = false;
+            aa_cfg(model_checker & mc, model * cex): mc(mc), cex(cex), autil(mc.m) {}
+            bool get_subst(expr * e, expr* & t, proof *& pr) {
+                t = nullptr; pr = nullptr;
+                func_decl * f = nullptr;
+                if (!autil.is_as_array(e, f))
+                    return false;
+                func_interp * fi = cex->get_func_interp(f);
+                if (!fi || !fi->get_else()) { failed = true; return false; }
+                sort * asrt = e->get_sort();
+                unsigned arity = f->get_arity();
+                expr_ref r(autil.mk_const_array(asrt, fi->get_else()), mc.m);
+                expr_ref_vector args(mc.m);
+                for (unsigned i = 0; i < fi->num_entries(); ++i) {
+                    func_entry const * en = fi->get_entry(i);
+                    args.reset();
+                    args.push_back(r);
+                    args.append(arity, en->get_args());
+                    args.push_back(en->get_result());
+                    r = autil.mk_store(args);
+                }
+                changed = true;
+                t = r;
+                mc.m_pinned_exprs.push_back(r);
+                return true;
+            }
+        };
+        aa_cfg cfg(*this, cex);
+        rewriter_tpl<aa_cfg> rw(m, false, cfg);
+        expr_ref result(m);
+        rw(e, result);
+        // nested as-array values inside the stores are converted by the traversal of the
+        // rewriter; repeat while something changes (values of entries may be arrays too)
+        for (unsigned k = 0; k < 3 && cfg.changed; ++k) {
+            cfg.changed = false;
+            expr_ref r2(m);
+            rw(result, r2);
+            result = r2;
+        }
+        return result;
     }
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
@@ -399,33 +859,45 @@ namespace smt {
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex);
 
-        // try to find new instances using instantiation sets.
-        m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
-
         unsigned num_new_instances = 0;
 
-        while (true) {
-            flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
-            flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
-            lbool r = m_aux_context->check();
-            TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
-            if (r != l_true)
-                break;
-            model_ref cex;
-            m_aux_context->get_model(cex);
-            
-            if (!add_instance(q, cex.get(), sks, true)) {
-                break;
+        auto restricted_search = [&]() {
+            while (true) {
+                flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+                flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
+                lbool r = m_aux_context->check();
+                TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
+                if (r != l_true)
+                    break;
+                model_ref cex;
+                m_aux_context->get_model(cex);
+                
+                if (!add_instance(q, cex.get(), sks, true)) {
+                    break;
+                }
+                num_new_instances++;
+                if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
+                    TRACE(model_checker, tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
+                    // add_blocking_clause failed... stop the search for new counter-examples...
+                    break;
+                }
             }
-            num_new_instances++;
-            if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
-                TRACE(model_checker, tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
-                // add_blocking_clause failed... stop the search for new counter-examples...
-                break;
-            }
+        };
+
+        // try to find new instances using instantiation sets.
+        {
+            scoped_ctx_push _push_inst_sets(m_aux_context.get());
+            m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
+            restricted_search();
         }
 
         if (num_new_instances == 0) {
+            // no counterexample within the instantiation sets: try array variables as finite
+            // modifications store(A, i, v) of the arrays of their instantiation sets. Instances
+            // found here are added in addition to the complete counterexample below.
+            scoped_ctx_push _push_stores(m_aux_context.get());
+            if (m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks)) 
+                restricted_search();
             // failed to create instances when restricting to inst sets... then use result of the complete model check
             TRACE(model_checker, tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
             add_instance(q, complete_cex.get(), sks, false);
