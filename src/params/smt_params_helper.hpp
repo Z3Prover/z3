@@ -69,6 +69,7 @@ Abstract:
   DOUBLE_(qi_lazy_threshold,                       "qi.lazy_threshold",                       20.0,                     "threshold for lazy quantifier instantiation") \
   STRING_(qi_cost,                                 "qi.cost",                                 "(+ weight generation)",  "expression specifying what is the cost of a given quantifier instantiation") \
   UINT_  (qi_max_multi_patterns,                   "qi.max_multi_patterns",                   0,                        "specify the number of extra multi patterns") \
+  BOOL_  (qi_update_generation,                    "qi.update_generation",                    true,                     "lower the generation of an already-internalized term when it is re-internalized at a lower generation (e.g., by a quantifier instantiation). when false, a term keeps the generation assigned at its first internalization") \
   UINT_  (qi_quick_checker,                        "qi.quick_checker",                        0,                        "specify quick checker mode, 0 - no quick checker, 1 - using unsat instances, 2 - using both unsat and no-sat instances") \
   BOOL_  (induction,                               "induction",                               false,                    "enable generation of induction lemmas") \
   BOOL_  (bv_reflect,                              "bv.reflect",                              true,                     "create enode for every bit-vector term") \
