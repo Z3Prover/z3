@@ -1750,12 +1750,13 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_RANGE: {
             // A concrete range [lo, hi] with lo <= hi is non-empty and classical.
             zstring slo, shi;
-            if (u.str.is_string(e->get_arg(0), slo) && slo.length() == 1 &&
-                u.str.is_string(e->get_arg(1), shi) && shi.length() == 1 &&
+            bool interpreted = u.str.is_string(e->get_arg(0), slo) &&
+                u.str.is_string(e->get_arg(1), shi);
+            if (interpreted && slo.length() == 1 && shi.length() == 1 &&
                 slo[0] <= shi[0])
                 return info(true, l_false, 1, 1, true);
-            // Symbolic or unknown: not classical
-            return info(true, l_false, 1, 1, false);
+            // Symbolic bounds are not suitable for ground-regex reasoning.
+            return info(interpreted, l_false, 1, 1, false);
         }
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:

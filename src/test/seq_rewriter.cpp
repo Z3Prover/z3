@@ -471,6 +471,26 @@ void tst_seq_rewriter() {
             ENSURE(res == l_false);
         }
 
+        // 22. Symbolic range equality must not use the ground-regex shortcut.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref lo(m.mk_fresh_const("lo", str_sort), m);
+            app_ref hi(m.mk_fresh_const("hi", str_sort), m);
+            expr_ref b_str(su.str.mk_string(zstring('b')), m);
+            expr_ref c_str(su.str.mk_string(zstring('c')), m);
+            expr_ref symbolic_range(su.re.mk_range(lo, hi), m);
+            expr_ref concrete_range(su.re.mk_range(b_str, c_str), m);
+            ENSURE(!su.re.is_ground(symbolic_range));
+            ENSURE(su.re.is_ground(concrete_range));
+            ctx.assert_expr(m.mk_eq(lo, b_str));
+            ctx.assert_expr(m.mk_eq(hi, c_str));
+            ctx.assert_expr(m.mk_eq(symbolic_range, concrete_range));
+            lbool res = ctx.check();
+            std::cout << "symbolic range equality sat: " << res << "\n";
+            ENSURE(res == l_true);
+        }
+
         // 21. sat: (str.in_re "a" (re.++ re.all (re.range s "c")))
         //     Regression for nested symbolic re.range under re.++.
         //     The string "a" satisfies the regex when s = "a":
