@@ -23,6 +23,7 @@ Notes:
 #include "util/uint_set.h"
 #include "util/heap.h"
 #include "util/map.h"
+#include <tuple>
 
 template<class T>
 class max_cliques : public T {
@@ -86,7 +87,8 @@ class max_cliques : public T {
         u_map<uint_set>& conns;
         compare_degree(u_map<uint_set>& conns): conns(conns) {}
         bool operator()(unsigned x, unsigned y) const {
-            return conns[x].num_elems() < conns[y].num_elems();
+            return std::tuple{conns[x].num_elems(), x} <
+                   std::tuple{conns[y].num_elems(), y};
         }
     };
 
@@ -177,7 +179,10 @@ public:
             for (unsigned n : conns[v])
                 if (todo.contains(n))
                     next.push_back(n);
-            std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) { return conns[a].num_elems() < conns[b].num_elems(); });
+            std::sort(next.begin(), next.end(), [&](unsigned a, unsigned b) {
+                return std::tuple{conns[a].num_elems(), a} <
+                       std::tuple{conns[b].num_elems(), b};
+            });
             for (unsigned x : next) {
                 bool all = heap.contains(x);
                 for (unsigned y : am1) {

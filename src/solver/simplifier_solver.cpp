@@ -161,6 +161,7 @@ class simplifier_solver : public solver {
     }
 
     void flush(expr_ref_vector& assumptions) {
+        m_cached_model = nullptr;
         unsigned qhead = m_preprocess_state.qhead();
         expr_ref_vector orig_assumptions(assumptions);
         m_core_replace.reset();

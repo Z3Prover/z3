@@ -2160,6 +2160,10 @@ public:
     }
 
     literal mk_literal(nla::ineq const& ineq) {
+        // The bound constraints created for an nla lemma atom are tagged
+        // auxiliary: nra_solver uses the tag to tell lemma-derived bounds,
+        // whose constants may be LP-vertex artifacts, from input constraints.
+        lp::lar_solver::scoped_auxiliary _sa(lp());
         bool is_lower = true, pos = true, is_eq = false;
         switch (ineq.cmp()) {
         case lp::LE:
@@ -2242,8 +2246,6 @@ public:
     }
 
     final_check_status check_nla(unsigned level) {
-        // TODO - enable or remove if found useful internals are corrected:
-        // lp::lar_solver::scoped_auxiliary _sa(lp()); // new atoms are auxilairy and are not used in nra_solver
         if (!m.inc()) {
             TRACE(arith, tout << "canceled\n";);
             return FC_GIVEUP;            
@@ -2334,8 +2336,6 @@ public:
         for (; m_delay_ineqs_qhead < m_delay_ineqs.size() && !ctx().inconsistent() && m.inc(); ++m_delay_ineqs_qhead) {
             auto atom = m_delay_ineqs[m_delay_ineqs_qhead];
             ctx().push_trail(value_trail(m_delay_ineqs_qhead));
-            if (!ctx().is_relevant(atom))
-                continue;
             expr *x, *y;
             if (a.is_le(atom, x, y)) {
                 auto lit1 = mk_literal(atom);

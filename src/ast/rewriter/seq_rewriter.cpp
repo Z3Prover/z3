@@ -450,27 +450,64 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     bool isc1 = str().is_string(a, s1) && m_coalesce_chars;
     bool isc2 = str().is_string(b, s2) && m_coalesce_chars;
 
+    // Fast path: neither argument needs restructuring. Falling through to
+    // BR_FAILED here (as before) lets the OP_SEQ_CONCAT case in mk_app_core
+    // still try lift_ites_throttled on plain, already-flat concatenations.
+    if (!(isc1 && isc2) &&
+        !str().is_concat(a) &&
+        !str().is_empty(a) &&
+        !str().is_empty(b) &&
+        !(isc1 && str().is_concat(b, c, d) && str().is_string(c, s2)))
+        return BR_FAILED;
+
     if (isc1 && isc2) {
         result = str().mk_string(s1 + s2);
         return BR_DONE;
     }
-    if (str().is_concat(a, c, d)) {
-        result = mk_seq_concat(c, mk_seq_concat(d, b));
+
+    // General case: a and/or b need restructuring (one of them is a
+    // concatenation, empty, or coalescable with the other). Flatten both
+    // into their constituent elements with an explicit worklist instead of
+    // recursively decomposing the str.++ tree: a long chain of
+    // concatenations (e.g. from repeated quantifier instantiation of
+    // `s ++ s`) previously drove mutual recursion between the two
+    // mk_seq_concat overloads deep enough to overflow the native stack
+    // (#11042). Elements are then coalesced in a single linear pass and the
+    // right-associated chain is rebuilt with a plain loop.
+    ptr_vector<expr> es, todo;
+    todo.push_back(b);
+    todo.push_back(a);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (str().is_concat(e, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (str().is_empty(e))
+            continue;
+        es.push_back(e);
+    }
+    if (es.empty()) {
+        result = str().mk_empty(a->get_sort());
         return BR_DONE;
     }
-    if (str().is_empty(a)) {
-        result = b;
-        return BR_DONE;
+    unsigned j = 0;
+    for (unsigned i = 0; i < es.size(); ++i) {
+        zstring t1, t2;
+        if (j > 0 && m_coalesce_chars && str().is_string(es.get(j - 1), t1) && str().is_string(es.get(i), t2))
+            es[j - 1] = str().mk_string(t1 + t2);
+        else
+            es[j++] = es.get(i);
     }
-    if (str().is_empty(b)) {
-        result = a;
-        return BR_DONE;
-    }
-    if (isc1 && str().is_concat(b, c, d) && str().is_string(c, s2)) {
-        result = mk_seq_concat(str().mk_string(s1 + s2), d);
-        return BR_DONE;
-    }
-    return BR_FAILED;
+    es.shrink(j);
+    expr_ref cur(es.back(), m());
+    for (unsigned i = es.size() - 1; i-- > 0; )
+        cur = str().mk_concat(es.get(i), cur);
+    result = cur;
+    return BR_DONE;
 }
 
 bool seq_rewriter::mk_seq_reverse(expr* s, expr_ref& result) {
@@ -1018,7 +1055,8 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) &&
         is_prefix(a, b, c) && is_suffix(a1, b1, c1)) {
         expr_ref q(m_autil.mk_sub(c, str().mk_length(a)), m());
-        result = str().mk_substr(a1, b1, m_autil.mk_add(c1, q));
+        expr_ref suffix_length(m_autil.mk_sub(str().mk_length(a1), b1), m());
+        result = str().mk_substr(a1, b1, m_autil.mk_add(suffix_length, q));
         return BR_REWRITE3;
     }
 

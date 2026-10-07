@@ -128,8 +128,126 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_nested_extract_prefix_of_suffix() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        app_ref s(m.mk_const("s", seq_sort), m);
+        for (unsigned size : {0u, 1u, 2u, 4u}) {
+            expr_ref value(su.str.mk_empty(seq_sort), m);
+            if (is_string)
+                value = su.str.mk_string(zstring("abcd").extract(0, size));
+            else
+                for (unsigned i = 0; i < size; ++i)
+                    value = su.str.mk_concat(value, su.str.mk_unit(a.mk_int(i)));
+            rw(value);
+            for (unsigned offset : {1u, 3u}) {
+                for (unsigned multiple : {1u, 2u}) {
+                    for (unsigned drop : {1u, 2u}) {
+                        expr_ref inner(su.str.mk_substr(s, a.mk_int(offset),
+                            a.mk_sub(a.mk_mul(a.mk_int(multiple), su.str.mk_length(s)), a.mk_int(offset))), m);
+                        expr_ref nested(su.str.mk_substr(inner, a.mk_int(0),
+                            a.mk_sub(su.str.mk_length(inner), a.mk_int(drop))), m);
+                        rw(nested);
+                        expr_ref flat(su.str.mk_substr(s, a.mk_int(offset),
+                            a.mk_sub(a.mk_sub(su.str.mk_length(s), a.mk_int(offset)), a.mk_int(drop))), m);
+                        rw(flat);
+                        ENSURE(nested == flat);
+                        unsigned suffix_size = size > offset ? size - offset : 0;
+                        unsigned prefix_size = suffix_size > drop ? suffix_size - drop : 0;
+                        expr_ref expected(su.str.mk_substr(value, a.mk_int(offset), a.mk_int(prefix_size)), m);
+                        rw(expected);
+
+                        smt_params sp;
+                        smt::context ctx(m, sp);
+                        ctx.assert_expr(m.mk_eq(s, value));
+                        ctx.push();
+                        ctx.assert_expr(m.mk_eq(nested, expected));
+                        ENSURE(ctx.check() == l_true);
+                        ctx.pop(1);
+                        ctx.assert_expr(m.mk_not(m.mk_eq(nested, expected)));
+                        ENSURE(ctx.check() == l_false);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void tst_length_coherence_guards() {
+    for (unsigned hi : {2u, 3u}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util su(m);
+        arith_util a(m);
+        th_rewriter rw(m);
+        seq::skolem sk(m, rw);
+        app_ref base(m.mk_const("base", su.str.mk_string_sort()), m);
+        // Tail skolems bypass fixed-length expansion and exercise length coherence.
+        expr_ref x(sk.mk_tail(base, a.mk_int(0)));
+        expr_ref len(su.str.mk_length(x), m);
+        expr_ref low(a.mk_ge(len, a.mk_int(2)), m);
+        expr_ref high(a.mk_le(len, a.mk_int(hi)), m);
+        expr_ref tail(sk.mk_tail(base, a.mk_int(2)));
+        expr_ref empty(su.str.mk_empty(x->get_sort()), m);
+        expr_ref conclusion(m);
+        if (hi == 2)
+            conclusion = sk.mk_eq(tail, empty);
+        else
+            conclusion = a.mk_le(su.str.mk_length(tail), a.mk_int(hi - 2));
+        expr_ref not_low(m.mk_not(low), m), not_high(m.mk_not(high), m);
+        bool found = false;
+        user_propagator::on_clause_eh_t on_clause =
+            [&](void*, expr*, unsigned, unsigned const*, unsigned n, expr* const* lits) {
+                bool has_low = false, has_high = false, has_conclusion = false;
+                for (unsigned i = 0; i < n; ++i) {
+                    has_low |= lits[i] == not_low;
+                    has_high |= lits[i] == not_high;
+                    has_conclusion |= lits[i] == conclusion;
+                }
+                // Upper tail bounds require both bounds on the original sequence.
+                if (has_high && has_conclusion) {
+                    ENSURE(has_low);
+                    found = true;
+                }
+            };
+        smt_params sp;
+        smt::context ctx(m, sp);
+        ctx.register_on_clause(nullptr, on_clause);
+        ctx.assert_expr(low);
+        ctx.assert_expr(high);
+        ENSURE(ctx.check() == l_true);
+        ENSURE(found);
+
+        ctx.push();
+        ctx.assert_expr(a.mk_lt(len, a.mk_int(2)));
+        ENSURE(ctx.check() == l_false);
+        ctx.pop(1);
+        ENSURE(ctx.check() == l_true);
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref len(su.str.mk_length(x), m);
+    smt_params sp;
+    smt::context ctx(m, sp);
+    ctx.assert_expr(a.mk_ge(len, a.mk_int(2)));
+    ENSURE(ctx.check() == l_true);
+    ctx.assert_expr(a.mk_gt(len, a.mk_int(2)));
+    ENSURE(ctx.check() == l_true);
+}
+
 void tst_seq_rewriter() {
     tst_eq_skolem_arity();
+    tst_nested_extract_prefix_of_suffix();
+    tst_length_coherence_guards();
     ast_manager m;
     reg_decl_plugins(m);
     th_rewriter rw(m);

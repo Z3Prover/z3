@@ -492,6 +492,7 @@ class pred_transformer {
     scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
     pob_manager                         m_pobs;            // proof obligations created so far
+    unsigned                     m_next_pob_id = 0;
     frames                       m_frames;          // frames with lemmas
     reach_fact_ref_vector        m_reach_facts;     // reach facts
     unsigned                     m_rf_init_sz;      // number of reach fact from INIT
@@ -624,6 +625,8 @@ class pred_transformer {
     reach_fact *get_last_rf() const { return m_reach_facts.back(); }
     expr *get_last_rf_tag() const;
 
+    unsigned next_pob_id() { return m_next_pob_id++; }
+
     pob *mk_pob(pob *parent, unsigned level, unsigned depth, expr *post,
                 app_ref_vector const &b) {
         return m_pobs.mk_pob(parent, level, depth, post, b);
@@ -730,6 +733,7 @@ class pob {
     // TBD: remove this
     friend class context;
     unsigned m_ref_count;
+    unsigned m_id; // creation order within the predicate transformer
     /// parent node
     pob_ref          m_parent;
     /// predicate transformer
@@ -856,6 +860,7 @@ public:
 
     unsigned level() const { return m_level; }
     unsigned depth() const { return m_depth; }
+    unsigned get_id() const { return m_id; }
     unsigned desired_level() const { return m_desired_level; }
     void set_desired_level(unsigned v) { m_desired_level = v; }
     unsigned width() const { return m_kids.size(); }

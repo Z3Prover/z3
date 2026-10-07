@@ -65,8 +65,53 @@ static bool get_uint_stat(statistics const& st, char const* key, unsigned& value
     return false;
 }
 
+static void check_array_domain(char const* input, lbool expected) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
+    for (expr* a : cmd.assertions())
+        slv->assert_expr(a);
+    VERIFY(expected == slv->check_sat(0, nullptr));
+}
+
+static void check_symbolic_regex_substring() {
+    for (unsigned relevancy : {0u, 2u}) {
+        for (char const* word : {"x", "xy"}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(
+                std::string("(set-logic QF_SLIA)\n")
+                + "(declare-const t String)\n"
+                + "(declare-const i Int)\n"
+                + "(assert (distinct (str.substr t i 2) \"\"))\n"
+                + "(assert (str.in_re \"" + word
+                + "\" (re.++ (str.to_re (str.substr t i 2)) re.allchar)))\n");
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_uint("relevancy", relevancy);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            lbool expected = !strcmp(word, "x") ? l_false : l_true;
+            VERIFY(expected == slv->check_sat(0, nullptr));
+
+            slv->push();
+            slv->assert_expr(m.mk_not(cmd.assertions()[0]));
+            VERIFY(l_false == slv->check_sat(0, nullptr));
+            slv->pop(1);
+            VERIFY(expected == slv->check_sat(0, nullptr));
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_symbolic_regex_substring();
+
     smt_params params;
 
     ast_manager m;
@@ -380,6 +425,55 @@ void tst_smt_context()
     check_sat_smt_model(
         "(assert (= (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)\n"
         "           (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1) #b1 #b0)))\n");
+
+    // Regression (issue #11069): an uninterpreted array domain may be a singleton.
+    char const* const_array =
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array S (_ BitVec 8))) #x01)))\n";
+    check_array_domain(const_array, l_true);
+    std::string two_elements = std::string(const_array) +
+        "(declare-const t S)\n(assert (distinct s t))\n";
+    check_array_domain(two_elements.c_str(), l_false);
+
+    char const* quantified_arrays =
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(declare-const a (Array S (_ BitVec 2)))\n"
+        "(declare-const b (Array S (_ BitVec 2)))\n"
+        "(assert (forall ((x S)) (= (select a x) #b00)))\n"
+        "(assert (forall ((x S)) (= (select b x) #b01)))\n"
+        "(assert (= (store a s #b01) (store b s #b01)))\n";
+    check_array_domain(quantified_arrays, l_true);
+    two_elements = std::string(quantified_arrays) +
+        "(declare-const t S)\n(assert (distinct s t))\n";
+    check_array_domain(two_elements.c_str(), l_false);
+
+    check_array_domain(
+        "(declare-datatype S ((s)))\n"
+        "(assert (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array S (_ BitVec 8))) #x01)))\n", l_true);
+    check_array_domain(
+        "(declare-const s Int)\n"
+        "(assert (= (store ((as const (Array Int (_ BitVec 8))) #x00) s #x01)\n"
+        "           ((as const (Array Int (_ BitVec 8))) #x01)))\n", l_false);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store (store ((as const (Array S Bool (_ BitVec 8))) #x00)\n"
+        "                         s false #x01) s true #x01)\n"
+        "           ((as const (Array S Bool (_ BitVec 8))) #x01)))\n", l_true);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(declare-const s S)\n"
+        "(assert (= (store ((as const (Array S Int (_ BitVec 8))) #x00) s 0 #x01)\n"
+        "           ((as const (Array S Int (_ BitVec 8))) #x01)))\n", l_false);
+    check_array_domain(
+        "(declare-sort S 0)\n"
+        "(assert (forall ((s S))\n"
+        "  (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
+        "     ((as const (Array S (_ BitVec 8))) #x01))))\n", l_true);
 
     // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
     // internalized in a gate context by the ite-term axioms, and must still be merged
