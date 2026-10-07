@@ -3063,10 +3063,11 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
                 m.mk_implies(m.mk_not(m.mk_or(r_is_nan, r_is_inf)), rounding_cond));
 
             // rounding never changes the sign
-            auto gt = au.mk_gt(x, zero);
-            auto lt = au.mk_lt(x, zero);
-            m_extra_assertions.push_back(m.mk_implies(gt, m.mk_eq(r_sgn, bv0)));
-            m_extra_assertions.push_back(m.mk_implies(lt, m.mk_eq(r_sgn, bv1)));
+            expr_ref x_is_pos(m), x_is_neg(m);
+            x_is_pos = au.mk_gt(x, zero);
+            x_is_neg = au.mk_lt(x, zero);
+            m_extra_assertions.push_back(m.mk_implies(x_is_pos, m.mk_eq(r_sgn, bv0)));
+            m_extra_assertions.push_back(m.mk_implies(x_is_neg, m.mk_eq(r_sgn, bv1)));
         }
 
         // Directed rounding overflows immediately beyond the largest finite value.
