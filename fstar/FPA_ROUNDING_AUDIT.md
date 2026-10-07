@@ -9,17 +9,31 @@ see `Z3FpaRoundingAudit.fst`) that the **existing** (currently merged,
 on `master`) encoding fails that condition, while the **new** encoding
 proposed by two independent open PRs restores it.
 
-## Open issues (label `Floats`)
+**Status update (latest session, `master` at commit `ed51897f8`):**
+PR #10888 has **merged**; issues #10881, #9953, and #10931 are now
+**closed** (verified fixed and closed this session; #10931's repro was
+independently re-run and confirmed `sat`/`model_validate`-clean). PR
+#10938 is **closed, unmerged** (superseded by #10888 landing). Two
+*new* bugs were found and fixed this session, outside the rounding
+encoding above: issue **#7842** (NaN cross-theory congruence, fixed in
+`theory_fpa.cpp::relevant_eh`, see `Z3FpaNanWrap.fst`) and issue
+**#10176** (sign-of-`fp.to_real` nonlinear-arithmetic incompleteness,
+fixed in `fpa2bv_converter.cpp::mk_to_real`, see
+`Z3FpaToRealSign.fst`) — both fixes opened as **PR #11088**, detailed
+in new sections below. Issue **#7431** still awaits merge of the
+already-opened fix PR #11086.
+
+## Issues (label `Floats`)
 
 | # | Title | Status |
 |---|---|---|
-| [#10931](https://github.com/Z3Prover/z3/issues/10931) | Unsound unsat: `to_fp` from a symbolic Real loses the rounding carry into the next binade | open, has fix PR #10938 |
-| [#10881](https://github.com/Z3Prover/z3/issues/10881) | False `unsat` for inexact symbolic Real-to-binary64 rounding | open, has fix PR #10888 |
-| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | open |
-| [#9953](https://github.com/Z3Prover/z3/issues/9953) | [Refutational Soundness Bug] Incorrect UNSAT in Float32 FP/Real round-trip arithmetic | open |
-| [#8052](https://github.com/Z3Prover/z3/issues/8052) | Unsat only with unnecessary asserts, else unknown | open |
-| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | open |
-| [#7431](https://github.com/Z3Prover/z3/issues/7431) | Invalid model issue on float formula | open |
+| [#10931](https://github.com/Z3Prover/z3/issues/10931) | Unsound unsat: `to_fp` from a symbolic Real loses the rounding carry into the next binade | **closed** (fixed by #10888, re-verified and closed this session) |
+| [#10881](https://github.com/Z3Prover/z3/issues/10881) | False `unsat` for inexact symbolic Real-to-binary64 rounding | **closed** (fixed by merged PR #10888) |
+| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | open; fix PR #11088 opened, not yet merged |
+| [#9953](https://github.com/Z3Prover/z3/issues/9953) | [Refutational Soundness Bug] Incorrect UNSAT in Float32 FP/Real round-trip arithmetic | **closed** (fixed by #10888, verified and closed this session) |
+| [#8052](https://github.com/Z3Prover/z3/issues/8052) | Unsat only with unnecessary asserts, else unknown | open (out of scope, not a soundness bug) |
+| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | open; fix PR #11088 opened, not yet merged |
+| [#7431](https://github.com/Z3Prover/z3/issues/7431) | Invalid model issue on float formula | open; fix PR #11086 opened, not yet merged |
 
 **#10931 and #10881 are the same root cause**: both trace to the single
 exact round-trip equality `m.mk_eq(m_util.mk_to_real(result), x)` in
@@ -292,4 +306,101 @@ term). It proves:
   (raw `(fp ...)` terms reaching UF arguments directly still slip
   through) — **this issue remains open and unresolved in the codebase**,
   this audit only establishes that the proposed fix *shape* is correct.
+
+## Fix implemented: NaN wrap canonicalization (issue #7842, `Z3FpaNanWrap.fst`)
+
+Follow-up session: traced the exact mechanism in `theory_fpa.cpp::
+relevant_eh` (the "general"/opaque-term branch: a non-FPA-family
+relevant term `n`, e.g. a datatype selector result, gets a *fresh,
+unconstrained* `(sgn,exp,sig)` triple via `convert(n)`, wrapped via
+`m_converter.wrap(n)`; a literal `(_ NaN eb sb)` numeral instead gets
+`mk_nan`'s single *fixed* bit pattern `sign=0, exponent=all-1s,
+significand=1`). `theory_datatypes`' congruence closure then compares
+these `wrap(...)` bit-vectors with ordinary, FP-oblivious equality —
+exactly the gap `Z3FpaNanCongruence.fst` modeled abstractly.
+
+`Z3FpaNanWrap.fst` refines that model to the concrete bit level
+(`pow2`-based triples/`concat`), proving: (a) the defect concretely —
+two distinct, both-valid-NaN triples yield different `concat`/wrap
+values; (b) the fix — asserting `is_nan_triple t ==> t == canonical_nan`
+once per relevant term — collapses every NaN triple's wrapped value to
+one fixed bit pattern; (c) the fix is satisfiable (admits the canonical
+witness); (d) the fix is conservative — leaves every non-NaN triple's
+constraints untouched (`lemma_fix_is_conservative`), addressing the
+thread's "pairwise-equality causes exponential blowup" concern by
+construction: it is a *unary*, per-term canonicalization, not a
+pairwise axiom.
+
+**C++ fix** (`theory_fpa.cpp::relevant_eh`, general branch, after the
+existing `wrap(n) = concat(...)` assertion): computes the is-NaN
+condition directly from the already-extracted `(sgn,exp,sig)` bv
+components (`exponent = all-1s /\ significand != 0`) and asserts
+
+```cpp
+assert_cnstr(m.mk_implies(is_nan_conv, m.mk_eq(wrapped, canon_nan_wrapped)));
+```
+
+where `canon_nan_wrapped` is built as a raw bv-numeral concatenation
+matching `mk_nan`'s fixed choice (`sign=0, exponent=all-1s,
+significand=1`) directly — *not* via a second `convert()`/`wrap()`
+round-trip through `m_fpa_util.mk_is_nan`/`mk_nan`, which was tried
+first and found to reintroduce a (non-deterministic, optimizer- and
+instrumentation-sensitive) crash by re-entering the FPA-to-BV
+conversion/caching machinery from inside `relevant_eh` itself; building
+the canonical bits directly from already-computed BV terms avoids any
+such re-entrancy.
+
+**Verified**: both the datatype repro from the issue and the sibling
+"raw FP result from a UF reaching another theory" variant the issue
+thread flagged as *still broken* under a prior partial community fix
+now both return `unsat` with `model_validate=true` clean (this fix, at
+the general `relevant_eh` branch, covers both — a UF application's
+result is likewise "non-FPA-family", so it takes the same code path).
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
+(combined with the #10176 fix below).
+
+`fpa2bv_converter::mk_to_real` (the FP->Real direction, a different
+function from the Real->FP rounding encoding audited above) computes
+the float's real value as `(sgn=1 ? -1 : 1) * rsig * 2^exp2` (or its
+reciprocal for negative `exp2`), using `m_arith_util.mk_power`/`mk_div`
+over a symbolic exponent. `rsig` is always in `[1,2)`, so the result's
+*sign* is already fully determined by `sgn` alone, for *any* positive
+power-of-two factor — but only by re-deriving that fact through the
+nonlinear `mk_power`/`mk_div` terms. The issue's repro composes this
+`to_real` result through `fp.roundToIntegral` and (arithmetic) `to_int`
+with a free `Int F <= 0`: the mathematical spec forces the whole
+expression non-positive, yet Z3 answered `sat` with an invalid model
+(`model_validate=true` rejected it) — the nonlinear-arithmetic core
+failed to re-derive the sign fact through that composition.
+
+`Z3FpaToRealSign.fst` proves, treating a symbolic power of two
+abstractly as any strictly positive real (the only fact the argument
+needs — it does not re-verify `mk_power`'s own bit-level correctness):
+(1) `mk_to_real`'s result is sign-determined by `sgn` alone, for every
+positive power-of-two factor (`lemma_to_real_sign_pos`/`_neg`); (2) that
+sign-determinism composes soundly through any "never increases" pair of
+maps (modeling RTN rounding and `to_int`'s floor) applied to a
+non-positive input (`repro_is_unsat`), confirming the repro is
+mathematically `unsat`, matching cvc5's verdict; (3) the proposed fix —
+asserting the sign fact as a redundant linear implication — is a true,
+non-restricting consequence of the existing encoding for every valid
+`(sgn, rsig, pw)` (`fix_holds`), so it cannot shrink the solution space,
+only give the arithmetic core a direct linear shortcut in place of the
+nonlinear reasoning it was failing at.
+
+**C++ fix** (`fpa2bv_converter.cpp::mk_to_real`, right after `result` is
+assembled): mirrors the already-merged "rounding never changes the
+sign" helper in the opposite-direction `mk_to_fp_real` (PR #10888) —
+
+```cpp
+m_extra_assertions.push_back(m.mk_implies(m.mk_and(not_special, sgn_is_1), m_arith_util.mk_lt(result, zero)));
+m_extra_assertions.push_back(m.mk_implies(m.mk_and(not_special, m.mk_not(sgn_is_1)), m_arith_util.mk_gt(result, zero)));
+```
+
+**Verified**: the 6-line repro and both variants from the issue (pinned
+rounding direction, integer form) now return `unsat` deterministically
+in well under a second (previously a fast unsound `sat`, or — on
+current `master`, after #10888 — a many-minutes-long non-termination).
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
+(combined with the #7842 fix above).
 
