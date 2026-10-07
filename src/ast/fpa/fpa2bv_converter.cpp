@@ -3093,8 +3093,9 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         // solver chose -0.
         expr_ref pzero(m);
         mk_pzero(result->get_sort(), pzero);
-        auot e1 = m.mk_eq(x, zero);
-        m_extra_assertions.push_back(m.mk_implies(eq1, m.mk_eq(result, pzero)));
+        expr_ref x_is_zero(m);
+        x_is_zero = m.mk_eq(x, zero);
+        m_extra_assertions.push_back(m.mk_implies(x_is_zero, m.mk_eq(result, pzero)));
     }
 
     SASSERT(is_well_sorted(m, result));
