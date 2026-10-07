@@ -292,7 +292,7 @@ namespace smt {
         // reproduce them), and pattern-based ones up to a budget
         bool persist = ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances;
         if (persist)
-            m_persistent_instances.push_back({ expr_ref(lemma, m), expr_ref(m) });
+            m_persistent_instances.push_back({ expr_ref(lemma, m), app_ref(m) });
         proof_ref pr1(m);
         unsigned proof_id = 0;
         if (m.proofs_enabled()) {
@@ -320,7 +320,7 @@ namespace smt {
             }
             m_instances.push_back(pr1);
             if (persist)
-                m_persistent_instances.back().second = expr_ref(pr1.get(), m);
+                m_persistent_instances.back().second = pr1;
         }
         else if (m_context.clause_proof_active()) {
             expr_ref_vector bindings_e(m), args(m);

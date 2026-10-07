@@ -3834,7 +3834,7 @@ namespace smt {
         // unfolding depth). They are consequences of the asserted quantifiers, so they can be
         // re-asserted at base level for the next search; otherwise model-based quantifier
         // instantiation starts from scratch and may never converge.
-        vector<std::pair<expr_ref, expr_ref>> saved_instances;
+        vector<std::pair<expr_ref, app_ref>> saved_instances;
         bool research = false;
         do {
             pop_to_base_lvl();
@@ -3842,7 +3842,7 @@ namespace smt {
                 IF_VERBOSE(10, verbose_stream() << "(smt.research :re-asserting-instances " << saved_instances.size() << ")\n";);
                 for (auto const& [lemma, pr] : saved_instances) {
                     if (pr)
-                        m_asserted_formulas.assert_expr(lemma, to_app(pr.get()));
+                        m_asserted_formulas.assert_expr(lemma, pr.get());
                     else
                         m_asserted_formulas.assert_expr(lemma);
                 }
