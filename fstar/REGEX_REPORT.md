@@ -309,3 +309,56 @@ every operation sound against `Z3RegexTheory.fst`'s `lang`:
   is left as future work.
 
 `Z3LenAbsTheory.fst` compiles cleanly with zero admits.
+
+## Addendum: `la : len_abs` field added to `rex::info`/`Z3RegexInfo.fst`
+
+`Z3RegexInfo.fst`'s `info` record now carries a `la : len_abs` field
+alongside `min_length`/`max_length`, and `info_sound` additionally
+requires `la_sound i.la l`. Breaking the resulting circular
+dependency (`Z3LenAbsTheory.fst` needs `ebound`/the `re_pow`-length
+lemmas that used to live in `Z3RegexInfo.fst`, while `Z3RegexInfo.fst`
+now needs `len_abs`) required extracting that shared machinery into a
+new leaf module **`Z3RegexBounds.fst`** (`ebound`, `eb_le/add/max/
+min/scale`, `lemma_len_concat`, `lemma_len_reverse`,
+`lemma_pow_min_length`/`lemma_pow_max_length`/etc.), which both
+`Z3RegexInfo.fst` and `Z3LenAbsTheory.fst` now depend on independently.
+
+Precision achieved per combinator, mirroring `len_abs.cpp`'s own
+formulas:
+
+- **Full precision** (same generality as `len_abs.cpp`'s own
+  combinators): `concat` (`la_concat`), `union`/`xor`'s underlying
+  union/`ite`'s `orelse` (`la_unite`), `opt` (`la_opt`).
+- **Sound but potentially loose periodicity**: `star`/`plus`/`loop`
+  use a new, purely computable helper `la_period_for_star` that picks
+  period `g = la_lo` when the sub-expression's `la` is already an
+  exact singleton (e.g. from a literal `Re_seq_to_re`), recovering the
+  header's own `(a^4)*`-style precision in that case, and falls back
+  to the always-safe `g = 1` (no periodicity gained) otherwise --
+  `len_abs::gcd()`'s general multi-residue period search is not
+  reconstructed.
+- **Sound via monotonicity only** (no periodicity precision):
+  `complement` (`la_trivial`, a plain interval with no residues
+  tracked), `inter` (`la_meet` applied to both operands after
+  narrowing each to the shared result language via subset
+  reasoning), `diff` (reuses the left operand's `la` as-is, since
+  `re_diff l1 l2 subseteq l1`).
+- `reverse` passes `i.la` through unchanged (sound since
+  `len (reverse w) == len w`, `Z3RegexBounds.fst`'s
+  `lemma_len_reverse`).
+
+The key enabling lemma for the monotonicity cases is
+`lemma_la_sound_monotone` (new, in `Z3LenAbsTheory.fst`): an
+abstraction sound for `l` remains sound for any `l' subseteq l`.
+Applied with `Z3RegexTheory.fst`'s definitional unfoldings of
+`re_inter`/`re_diff`/`re_xor` (all plain, non-opaque `let`s), this
+lets `inter`/`diff`/`xor`/`orelse` reuse `concat`/`union`-level
+combinators without needing dedicated `len_abs` operators for
+intersection or difference.
+
+All `lemma_sound_X` lemmas were extended to additionally discharge
+the new `la_sound` conjunct of `info_sound`, and
+`lemma_compute_info_sound`/`lemma_compute_info_interpreted_sound`
+required no structural changes. `Z3RegexBounds.fst`,
+`Z3LenAbsTheory.fst`, and `Z3RegexInfo.fst` all compile cleanly from a
+fresh `.checked` state with zero admits.

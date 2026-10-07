@@ -66,7 +66,7 @@ module Z3LenAbsTheory
 
 open Z3SeqTheory
 open Z3RegexTheory
-open Z3RegexInfo
+open Z3RegexBounds
 module Classical = FStar.Classical
 module ML = FStar.Math.Lemmas
 
@@ -103,6 +103,17 @@ let gamma (a:len_abs) (n:nat) : prop =
 let la_sound (#a:eqtype) (abs:len_abs) (l:lang a) : prop =
   forall (w:seq a). mem w l ==> gamma abs (len w)
 
+(* Monotonicity: an abstraction sound for `l` remains sound for any
+   `l'` whose words are a subset of `l`'s -- used throughout
+   `Z3RegexInfo.fst` to carry a sub-expression's `la` field through
+   combinators (`inter`/`diff`/`xor`) whose result language is a
+   subset of an operand's, without needing a dedicated `len_abs`
+   combinator for each one. *)
+let lemma_la_sound_monotone (#a:eqtype) (abs:len_abs) (l l':lang a)
+  : Lemma (requires la_sound abs l /\ (forall (w:seq a). mem w l' ==> mem w l))
+          (ensures la_sound abs l')
+  = ()
+
 (* ----------------------------------------------------------------- *)
 (* `empty`/`exact`                                                    *)
 (* ----------------------------------------------------------------- *)
@@ -112,6 +123,19 @@ let la_empty : len_abs = { la_lo = 1; la_hi = Bound 0; la_period = 1; la_residue
 let lemma_gamma_empty (n:nat) : Lemma (~(gamma la_empty n)) = ()
 
 let la_exact (n:nat) : len_abs = { la_lo = n; la_hi = Bound n; la_period = 1; la_residues = (fun _ -> False) }
+
+(* A non-periodic abstraction carrying only a plain `[lo, hi]` bound
+   -- the `len_abs` analogue of `Z3RegexInfo.fst`'s own
+   `min_length`/`max_length` pair, used wherever no periodicity is
+   tracked (e.g. `complement`, or any interval already established by
+   other means). *)
+let la_trivial (lo:nat) (hi:ebound) : len_abs =
+  { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False) }
+
+let lemma_la_trivial_sound (#a:eqtype) (lo:nat) (hi:ebound) (l:lang a)
+  : Lemma (requires forall (w:seq a). mem w l ==> lo <= len w /\ eb_le (len w) hi)
+          (ensures la_sound (la_trivial lo hi) l)
+  = ()
 
 let lemma_gamma_exact (n m:nat) : Lemma (gamma (la_exact n) m <==> m == n) = ()
 
@@ -245,6 +269,31 @@ let lemma_only_multiples_of_period (abs:len_abs)
   : Lemma (requires abs.la_period > 1 /\ (forall (r:nat). 0 < r /\ r < abs.la_period ==> ~(abs.la_residues r)))
           (ensures only_multiples_of abs abs.la_period)
   = ()
+
+(* A fully computable, always-safe choice of `g` for `star`/`plus`/
+   `loop`, usable directly by `Z3RegexInfo.fst`'s `compute_info`
+   (which cannot carry explicit proof terms): if `abs` is a
+   *singleton* (`la_lo == la_hi`, as e.g. a literal `seq.to_re` of a
+   fixed string gives via `la_exact`), every length it contains is
+   trivially a multiple of that one value, so `g = la_lo` is sound
+   and exactly recovers the header's own motivating precision for
+   patterns like `(a^4)*` (whose operand's `la` is the singleton
+   `la_exact 4`). Otherwise `g = 1` (no constraint) is the safe
+   default -- the real `len_abs::gcd()`'s general multi-residue
+   algorithm is not reconstructed here, see the module header. *)
+let la_period_for_star (abs:len_abs) : pos =
+  match abs.la_hi with
+  | Bound h -> if h = abs.la_lo && abs.la_lo > 0 then abs.la_lo else 1
+  | Infinite -> 1
+
+let lemma_la_period_for_star (abs:len_abs)
+  : Lemma (only_multiples_of abs (la_period_for_star abs))
+  = match abs.la_hi with
+    | Bound h -> if h = abs.la_lo && abs.la_lo > 0 then begin
+                   let aux (n:nat) : Lemma (requires gamma abs n) (ensures n % (la_period_for_star abs) == 0) = () in
+                   Classical.forall_intro (Classical.move_requires aux)
+                 end
+    | Infinite -> ()
 
 (* Sum of two multiples of `g` is a multiple of `g`. *)
 let lemma_mod_add_zero (g:pos) (m n:nat)
