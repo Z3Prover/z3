@@ -566,7 +566,7 @@ namespace smt {
                     rep.insert(idx, m.mk_var(0, dom));
                     rep(G, Gx);
                 }
-                if (occurs(placeholder, Gx) || has_free_vars(Gx) != under_forall)
+                if (occurs(placeholder, Gx))
                     continue;
                 ++num_found;
                 // bindings that are fresh elements invented by the model finder (elem!k) carry no
@@ -836,6 +836,7 @@ namespace smt {
             return;
         }
         for (unsigned i = 0; i < bindings.size(); ++i) {
+            // bindings[i] has the sort of the i-th declared variable (see assert_neg_q_m / add_instance)
             expr* b = bindings.get(i);
             sort* expected = q->get_decl_sort(i);
             if (!b || b->get_sort() != expected || has_free_vars(b) || !is_well_sorted_quiet(m, b)) {
