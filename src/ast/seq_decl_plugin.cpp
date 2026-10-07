@@ -1749,11 +1749,21 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.opt();
         case OP_RE_RANGE: {
             // A concrete range [lo, hi] with lo <= hi is non-empty and classical.
-            zstring slo, shi;
-            bool interpreted = u.str.is_string(e->get_arg(0), slo) &&
-                u.str.is_string(e->get_arg(1), shi);
-            if (interpreted && slo.length() == 1 && shi.length() == 1 &&
-                slo[0] <= shi[0])
+            // A bound is concrete either as a length-1 string literal, or as the
+            // equivalent (seq.unit (_ Char c)) term -- the shape produced internally,
+            // e.g., during derivative/complement processing.
+            auto get_char = [&](expr* b, unsigned& code) {
+                zstring s;
+                expr* unit_arg = nullptr;
+                if (u.str.is_string(b, s) && s.length() == 1) {
+                    code = s[0];
+                    return true;
+                }
+                return u.str.is_unit(b, unit_arg) && u.is_const_char(unit_arg, code);
+            };
+            unsigned clo = 0, chi = 0;
+            bool interpreted = get_char(e->get_arg(0), clo) && get_char(e->get_arg(1), chi);
+            if (interpreted && clo <= chi)
                 return info(true, l_false, 1, 1, true);
             // Symbolic bounds are not suitable for ground-regex reasoning.
             return info(interpreted, l_false, 1, 1, false);
