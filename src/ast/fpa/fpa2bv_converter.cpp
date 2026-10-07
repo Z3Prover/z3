@@ -3063,8 +3063,10 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
                 m.mk_implies(m.mk_not(m.mk_or(r_is_nan, r_is_inf)), rounding_cond));
 
             // rounding never changes the sign
-            m_extra_assertions.push_back(m.mk_implies(au.mk_gt(x, zero), m.mk_eq(r_sgn, bv0)));
-            m_extra_assertions.push_back(m.mk_implies(au.mk_lt(x, zero), m.mk_eq(r_sgn, bv1)));
+            auto gt = au.mk_gt(x, zero);
+            auto lt = au.mk_lt(x, zero);
+            m_extra_assertions.push_back(m.mk_implies(gt, m.mk_eq(r_sgn, bv0)));
+            m_extra_assertions.push_back(m.mk_implies(lt, m.mk_eq(r_sgn, bv1)));
         }
 
         // Directed rounding overflows immediately beyond the largest finite value.
@@ -3082,11 +3084,18 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         m_extra_assertions.push_back(implies_gt_max_real);
         m_extra_assertions.push_back(implies_lt_min_real);
 
-        // x = 0 -> result = +0/-0
-        expr_ref pzero(m), nzero(m);
+        // A real number has no sign to round "toward" or "away from", so
+        // converting the mathematical value 0 must always yield +0, under
+        // every rounding mode (unlike `x = 0` for a *result* that is itself
+        // floating-point-valued, there is no `-0` case to consider here).
+        // See issue #7431: the previous constraint allowed either +0 or -0,
+        // which was satisfiable but produced an invalid model whenever the
+        // solver chose -0.
+        expr_ref pzero(m);
         mk_pzero(result->get_sort(), pzero);
-        mk_nzero(result->get_sort(), nzero);
-        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_or(m.mk_eq(result, pzero), m.mk_eq(result, nzero))));
+        expr_ref x_is_zero(m);
+        x_is_zero = m.mk_eq(x, zero);
+        m_extra_assertions.push_back(m.mk_implies(x_is_zero, m.mk_eq(result, pzero)));
     }
 
     SASSERT(is_well_sorted(m, result));
