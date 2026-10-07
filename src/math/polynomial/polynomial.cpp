@@ -7329,7 +7329,10 @@ namespace polynomial {
                 if (v != x)
                     var_by_deg.push_back(std::make_pair(degree(p, v), v));
             std::sort(var_by_deg.begin(), var_by_deg.end(),
-                      [](auto const& a, auto const& b) { return a.first > b.first; });
+                      [](auto const& a, auto const& b) {
+                          return std::tuple{a.first, a.second} >
+                                 std::tuple{b.first, b.second};
+                      });
             for (auto const& [d, v] : var_by_deg)
                 if (d > 1) main_vars.push_back(v);
 
