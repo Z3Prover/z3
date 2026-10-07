@@ -509,7 +509,10 @@ namespace smt {
                             unsigned sbits = m_bv_util.get_bv_size(sig_c);
                             expr_ref top_exp(m_bv_util.mk_numeral(rational::power_of_two(ebits) - 1, ebits), m);
                             expr_ref sig_zero(m_bv_util.mk_numeral(0, sbits), m);
-                            expr_ref is_nan_conv(m.mk_and(m.mk_eq(exp_c, top_exp), m.mk_not(m.mk_eq(sig_c, sig_zero))), m);
+                            expr_ref exp_is_all_ones(m.mk_eq(exp_c, top_exp), m);
+                            expr_ref sig_is_zero(m.mk_eq(sig_c, sig_zero), m);
+                            expr_ref sig_is_nonzero(m.mk_not(sig_is_zero), m);
+                            expr_ref is_nan_conv(m.mk_and(exp_is_all_ones, sig_is_nonzero), m);
                             // Canonical NaN bits, matching fpa2bv_converter::mk_nan's
                             // fixed choice exactly (sign=0, exponent=all-1s,
                             // significand=1): built directly as bv numerals instead of
