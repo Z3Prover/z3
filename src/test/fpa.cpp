@@ -79,10 +79,55 @@ static void test_significand_out_of_range() {
     Z3_del_context(ctx);
 }
 
-static void test_to_fp_real_zero_sign() {
+static void test_inexact_symbolic_to_fp_real() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
+      // Converting a symbolic real to a float is inexact in general; requiring an
+    // exact round-trip used to produce a spurious unsat.
+    char const* inexact_spec =
+        "(set-logic ALL)\n"
+        "(declare-const x Real)\n"
+        "(declare-const rounded (_ FloatingPoint 5 11))\n"
+        "(assert (not (fp.isNaN rounded)))\n"
+        "(assert (not (fp.isInfinite rounded)))\n"
+        "(assert (fp.eq rounded ((_ to_fp 5 11) RNE x)))\n"
+        "(assert (distinct (fp.to_real rounded) x))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, inexact_spec);
+    if (response.find("sat") == std::string::npos || response.find("unsat") != std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    // The rounding of a symbolic real still has to agree with the rounding of the
+    // corresponding numeral, for every rounding mode.
+    char const* rounding_spec =
+        "(reset)\n"
+        "(declare-const y Real)\n"
+        "(assert (= y (/ 23.0 128.0)))\n"
+        "(assert (or (not (= ((_ to_fp 3 4) RNE y) ((_ to_fp 3 4) RNE (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RNA y) ((_ to_fp 3 4) RNA (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTP y) ((_ to_fp 3 4) RTP (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTN y) ((_ to_fp 3 4) RTN (/ 23.0 128.0))))\n"
+        "            (not (= ((_ to_fp 3 4) RTZ y) ((_ to_fp 3 4) RTZ (/ 23.0 128.0))))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, rounding_spec);
+
+      if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+    Z3_del_context(ctx);
+}
+
+static void test_to_fp_real_zero_sign() {
+
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
 
     // Converting the mathematical real 0 must always yield +0, never -0,
     // regardless of rounding mode: a real number carries no sign bit for
@@ -97,11 +142,12 @@ static void test_to_fp_real_zero_sign() {
         "(check-sat)\n";
 
     std::string response = Z3_eval_smtlib2_string(ctx, zero_spec);
+
     if (response.find("unsat") == std::string::npos)
         std::cout << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
 
-    // The original #7431 reproducer uses a *symbolic* free real `v`; whether
+      // The original #7431 reproducer uses a *symbolic* free real `v`; whether
     // that query is `sat` in general additionally depends on the (separate,
     // still-open) symbolic-rounding completeness bug tracked by issues
     // #10881/#10931. This test only re-checks the invalid-model regression
@@ -121,6 +167,20 @@ static void test_to_fp_real_zero_sign() {
     ENSURE(response.find("unsat") == std::string::npos);
     ENSURE(response.find("sat") != std::string::npos);
 
+    // Rounding toward zero saturates at the largest finite value.
+    char const* overflow_spec =
+        "(reset)\n"
+        "(declare-const z Real)\n"
+        "(assert (= z 1000.0))\n"
+        "(assert (not (= ((_ to_fp 3 4) RTZ z) ((_ to_fp 3 4) RTZ 15.0))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, overflow_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+
     Z3_del_context(ctx);
 }
 
@@ -129,4 +189,5 @@ void tst_fpa() {
     test_is_inf_large_significand();
     test_significand_out_of_range();
     test_to_fp_real_zero_sign();
+    test_inexact_symbolic_to_fp_real();
 }
