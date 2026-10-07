@@ -83,7 +83,8 @@ static void test_inexact_symbolic_to_fp_real() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-      // Converting a symbolic real to a float is inexact in general; requiring an
+
+    // Converting a symbolic real to a float is inexact in general; requiring an
     // exact round-trip used to produce a spurious unsat.
     char const* inexact_spec =
         "(set-logic ALL)\n"
@@ -115,19 +116,16 @@ static void test_inexact_symbolic_to_fp_real() {
         "(check-sat)\n";
 
     response = Z3_eval_smtlib2_string(ctx, rounding_spec);
-
-      if (response.find("unsat") == std::string::npos)
+    if (response.find("unsat") == std::string::npos)
         std::cout << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
     Z3_del_context(ctx);
 }
 
 static void test_to_fp_real_zero_sign() {
-
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
-
 
     // Converting the mathematical real 0 must always yield +0, never -0,
     // regardless of rounding mode: a real number carries no sign bit for
@@ -142,12 +140,11 @@ static void test_to_fp_real_zero_sign() {
         "(check-sat)\n";
 
     std::string response = Z3_eval_smtlib2_string(ctx, zero_spec);
-
     if (response.find("unsat") == std::string::npos)
         std::cout << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
 
-      // The original #7431 reproducer uses a *symbolic* free real `v`; whether
+    // The original #7431 reproducer uses a *symbolic* free real `v`; whether
     // that query is `sat` in general additionally depends on the (separate,
     // still-open) symbolic-rounding completeness bug tracked by issues
     // #10881/#10931. This test only re-checks the invalid-model regression
@@ -179,7 +176,6 @@ static void test_to_fp_real_zero_sign() {
     if (response.find("unsat") == std::string::npos)
         std::cout << response << "\n";
     ENSURE(response.find("unsat") != std::string::npos);
-
 
     Z3_del_context(ctx);
 }
