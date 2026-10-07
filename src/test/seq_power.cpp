@@ -51,24 +51,58 @@ static void tst_power_rewriter() {
     ENSURE(x3 == seq.str.mk_concat(x, seq.str.mk_concat(x, x)));
 
     // (x^k)^l = x^(k*l)
-    ENSURE(simp(power(powi(x, 100), a.mk_int(3))) == simp(powi(x, 300)));
-    ENSURE(simp(power(power(x, n), a.mk_int(3))) == simp(power(x, a.mk_mul(a.mk_int(3), n))));
+    {
+        expr_ref x100 = powi(x, 100);
+        expr_ref three(a.mk_int(3), m);
+        expr_ref lhs = simp(power(x100, three));
+        expr_ref rhs = simp(powi(x, 300));
+        ENSURE(lhs == rhs);
+    }
+    {
+        expr_ref xn = power(x, n);
+        expr_ref three(a.mk_int(3), m);
+        expr_ref lhs = simp(power(xn, three));
+        expr_ref rhs = simp(power(x, a.mk_mul(three, n)));
+        ENSURE(lhs == rhs);
+    }
 
     // the length of an unexpanded power is still known
     expr_ref big = simp(powi(x, 1000));
-    ENSURE(simp(expr_ref(seq.str.mk_length(big), m)) ==
-           simp(expr_ref(a.mk_mul(a.mk_int(1000), seq.str.mk_length(x)), m)));
+    {
+        expr_ref lhs = simp(expr_ref(seq.str.mk_length(big), m));
+        expr_ref thousand(a.mk_int(1000), m);
+        expr_ref len_x(seq.str.mk_length(x), m);
+        expr_ref rhs = simp(expr_ref(a.mk_mul(thousand, len_x), m));
+        ENSURE(lhs == rhs);
+    }
 
     // symbolic exponents are not touched
     ENSURE(seq.str.is_power(simp(power(x, n))));
 
     // equality rewrites for powers
-    ENSURE(simp(expr_ref(m.mk_eq(power(x, n), emp), m)) ==
-           simp(expr_ref(m.mk_or(a.mk_le(n, a.mk_int(0)), m.mk_eq(x, emp)), m)));
-    ENSURE(simp(expr_ref(m.mk_eq(power(x, n), power(x, k)), m)) ==
-           simp(expr_ref(m.mk_or(m.mk_eq(x, emp),
-                                 m.mk_and(a.mk_le(n, a.mk_int(0)), a.mk_le(k, a.mk_int(0))),
-                                 m.mk_and(a.mk_lt(a.mk_int(0), n), a.mk_lt(a.mk_int(0), k), m.mk_eq(n, k))), m)));
+    {
+        expr_ref lhs = simp(expr_ref(m.mk_eq(power(x, n), emp), m));
+        expr_ref nonpositive(a.mk_le(n, a.mk_int(0)), m);
+        expr_ref empty(m.mk_eq(x, emp), m);
+        expr_ref rhs = simp(expr_ref(m.mk_or(nonpositive, empty), m));
+        ENSURE(lhs == rhs);
+    }
+    {
+        expr_ref xn = power(x, n);
+        expr_ref xk = power(x, k);
+        expr_ref lhs = simp(expr_ref(m.mk_eq(xn, xk), m));
+        expr_ref empty(m.mk_eq(x, emp), m);
+        expr_ref zero(a.mk_int(0), m);
+        expr_ref n_nonpositive(a.mk_le(n, zero), m);
+        expr_ref k_nonpositive(a.mk_le(k, zero), m);
+        expr_ref both_nonpositive(m.mk_and(n_nonpositive, k_nonpositive), m);
+        expr_ref n_positive(a.mk_lt(zero, n), m);
+        expr_ref k_positive(a.mk_lt(zero, k), m);
+        expr_ref equal(m.mk_eq(n, k), m);
+        expr_ref positive_equal(m.mk_and(n_positive, k_positive, equal), m);
+        expr_ref rhs = simp(expr_ref(m.mk_or(empty, both_nonpositive, positive_equal), m));
+        ENSURE(lhs == rhs);
+    }
 }
 
 static lbool check(ast_manager& m, expr_ref_vector const& fmls) {
@@ -92,30 +126,54 @@ static void tst_power_solver() {
     expr_ref_vector fmls(m);
 
     // "ab"^n = "abab" has the solution n = 2
-    fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("abab"))));
+    {
+        expr_ref lhs(seq.str.mk_power(ab, n), m);
+        expr_ref rhs(seq.str.mk_string(zstring("abab")), m);
+        fmls.push_back(m.mk_eq(lhs, rhs));
+    }
     ENSURE(check(m, fmls) == l_true);
 
     // the length of "ab"^n is even
     fmls.reset();
-    fmls.push_back(m.mk_eq(seq.str.mk_power(ab, n), seq.str.mk_string(zstring("aba"))));
+    {
+        expr_ref lhs(seq.str.mk_power(ab, n), m);
+        expr_ref rhs(seq.str.mk_string(zstring("aba")), m);
+        fmls.push_back(m.mk_eq(lhs, rhs));
+    }
     ENSURE(check(m, fmls) == l_false);
 
     // x^n is empty for n <= 0
     fmls.reset();
     fmls.push_back(a.mk_le(n, a.mk_int(0)));
-    fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("a"))));
+    {
+        expr_ref lhs(seq.str.mk_power(x, n), m);
+        expr_ref rhs(seq.str.mk_string(zstring("a")), m);
+        fmls.push_back(m.mk_eq(lhs, rhs));
+    }
     ENSURE(check(m, fmls) == l_false);
 
     // x^n = "aaaa" with |x| = 2 has the solution x = "aa", n = 2
     fmls.reset();
-    fmls.push_back(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_string(zstring("aaaa"))));
-    fmls.push_back(m.mk_eq(seq.str.mk_length(x), a.mk_int(2)));
+    {
+        expr_ref lhs(seq.str.mk_power(x, n), m);
+        expr_ref rhs(seq.str.mk_string(zstring("aaaa")), m);
+        fmls.push_back(m.mk_eq(lhs, rhs));
+    }
+    {
+        expr_ref lhs(seq.str.mk_length(x), m);
+        expr_ref rhs(a.mk_int(2), m);
+        fmls.push_back(m.mk_eq(lhs, rhs));
+    }
     ENSURE(check(m, fmls) == l_true);
 
     // the unfolding is exact for a fixed exponent
     fmls.reset();
     fmls.push_back(a.mk_eq(n, a.mk_int(3)));
-    fmls.push_back(m.mk_not(m.mk_eq(seq.str.mk_power(x, n), seq.str.mk_concat(x, seq.str.mk_concat(x, x)))));
+    {
+        expr_ref lhs(seq.str.mk_power(x, n), m);
+        expr_ref rhs(seq.str.mk_concat(x, seq.str.mk_concat(x, x)), m);
+        fmls.push_back(m.mk_not(m.mk_eq(lhs, rhs)));
+    }
     ENSURE(check(m, fmls) == l_false);
 }
 

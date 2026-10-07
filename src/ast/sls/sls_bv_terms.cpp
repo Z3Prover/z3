@@ -71,10 +71,15 @@ namespace sls {
         expr_ref absx = br.mk_ite(signx, bvr.mk_bv_neg(x), x);
         expr_ref absy = br.mk_ite(signy, bvr.mk_bv_neg(y), y);
         expr_ref d = expr_ref(bv.mk_bv_udiv(absx, absy), m);
-        expr_ref r = br.mk_ite(br.mk_eq_rw(signx, signy), d, bvr.mk_bv_neg(d));
-        r = br.mk_ite(br.mk_eq_rw(z, y),
-                br.mk_ite(signx, o, n1),
-                     br.mk_ite(br.mk_eq_rw(x, z), z, r));
+        expr_ref r(m);
+        {
+            expr_ref same_sign = br.mk_eq_rw(signx, signy);
+            r = br.mk_ite(same_sign, d, bvr.mk_bv_neg(d));
+        }
+        expr_ref zero_y = br.mk_eq_rw(z, y);
+        expr_ref div0 = br.mk_ite(signx, o, n1);
+        expr_ref div = br.mk_ite(br.mk_eq_rw(x, z), z, r);
+        r = br.mk_ite(zero_y, div0, div);
         return r;
     }
 
@@ -90,15 +95,25 @@ namespace sls {
         bv_rewriter bvr(m);
         unsigned sz = bv.get_bv_size(x);
         expr_ref z(bv.mk_zero(sz), m);
-        expr_ref abs_x = br.mk_ite(bvr.mk_sle(z, x), x, bvr.mk_bv_neg(x));
-        expr_ref abs_y = br.mk_ite(bvr.mk_sle(z, y), y, bvr.mk_bv_neg(y));
+        expr_ref x_nonnegative = bvr.mk_sle(z, x);
+        expr_ref neg_x = bvr.mk_bv_neg(x);
+        expr_ref abs_x = br.mk_ite(x_nonnegative, x, neg_x);
+        expr_ref y_nonnegative = bvr.mk_sle(z, y);
+        expr_ref neg_y = bvr.mk_bv_neg(y);
+        expr_ref abs_y = br.mk_ite(y_nonnegative, y, neg_y);
         expr_ref u = bvr.mk_bv_urem(abs_x, abs_y);
-        expr_ref r(m);
-        r = br.mk_ite(br.mk_eq_rw(u, z), z,
-                br.mk_ite(br.mk_eq_rw(y, z), x,
-                    br.mk_ite(br.mk_and(bvr.mk_sle(z, x), bvr.mk_sle(z, y)), u,
-                        br.mk_ite(bvr.mk_sle(z, x), bvr.mk_bv_add(y, u),
-                            br.mk_ite(bv.mk_sle(z, y), bvr.mk_bv_sub(y, u), bvr.mk_bv_neg(u))))));
+        expr_ref u_is_zero = br.mk_eq_rw(u, z);
+        expr_ref y_is_zero = br.mk_eq_rw(y, z);
+        expr_ref both_nonnegative = br.mk_and(x_nonnegative, y_nonnegative);
+        expr_ref y_plus_u = bvr.mk_bv_add(y, u);
+        expr_ref y_nonnegative_raw(bv.mk_sle(z, y), m);
+        expr_ref y_minus_u = bvr.mk_bv_sub(y, u);
+        expr_ref neg_u = bvr.mk_bv_neg(u);
+        expr_ref r = br.mk_ite(y_nonnegative_raw, y_minus_u, neg_u);
+        r = br.mk_ite(x_nonnegative, y_plus_u, r);
+        r = br.mk_ite(both_nonnegative, u, r);
+        r = br.mk_ite(y_is_zero, x, r);
+        r = br.mk_ite(u_is_zero, z, r);
         return r;
     }
 
@@ -109,7 +124,8 @@ namespace sls {
         bool_rewriter br(m);
         bv_rewriter bvr(m);
         expr_ref z(bv.mk_zero(bv.get_bv_size(x)), m);
-        r = br.mk_ite(br.mk_eq_rw(y, z), x, bvr.mk_bv_sub(x, bvr.mk_bv_mul(y, mk_sdiv(x, y)))); 
+        expr_ref zero_y = br.mk_eq_rw(y, z);
+        r = br.mk_ite(zero_y, x, bvr.mk_bv_sub(x, bvr.mk_bv_mul(y, mk_sdiv(x, y))));
         return r;
     }
 

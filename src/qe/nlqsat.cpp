@@ -655,16 +655,19 @@ namespace qe {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
-                        paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
-                                                  m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
-                                                  m.mk_eq(divs[i].name, divs[j].name)));
+                        expr_ref diff_den(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)), m);
+                        expr_ref diff_num(m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), m);
+                        expr_ref same_value(m.mk_eq(divs[i].name, divs[j].name), m);
+                        paxioms.push_back(m.mk_or(diff_den, diff_num, same_value));
                     }
                 }
                 expr_ref body(arith.mk_real(0), m);
                 expr_ref v0(m.mk_var(0, arith.mk_real()), m);
                 expr_ref v1(m.mk_var(1, arith.mk_real()), m);
                 for (auto const& p : divs) {
-                    body = m.mk_ite(m.mk_and(m.mk_eq(v0, p.num), m.mk_eq(v1, p.den)), p.name, body);
+                    expr_ref same_num(m.mk_eq(v0, p.num), m);
+                    expr_ref same_den(m.mk_eq(v1, p.den), m);
+                    body = m.mk_ite(m.mk_and(same_num, same_den), p.name, body);
                 }
                 m_div_mc->add(arith.mk_div0(), body);
             }

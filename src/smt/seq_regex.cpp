@@ -953,8 +953,10 @@ namespace smt {
             r = r2;
         else if (re().is_empty(r2))
             r = r1;
-        else 
-            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        else {
+            expr_ref diff(re().mk_diff(r1, r2), m);
+            r = re().mk_union(diff, re().mk_diff(r2, r1));
+        }
         rewrite(r);
         return r;
     }

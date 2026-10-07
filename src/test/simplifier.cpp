@@ -345,7 +345,9 @@ static void test_recfun_finder() {
     expr_ref fx(m.mk_app(f, x.get()), m);
     expr_ref xm1(a.mk_sub(x, one), m);
     expr_ref rec(m.mk_app(f, xm1.get()), m);
-    expr_ref body(m.mk_ite(m.mk_eq(x, zero), zero, a.mk_add(one, rec)), m);
+    expr_ref condition(m.mk_eq(x, zero), m);
+    expr_ref else_value(a.mk_add(one, rec), m);
+    expr_ref body(m.mk_ite(condition, zero, else_value), m);
     expr_ref eq(m.mk_eq(fx, body), m);
     symbol x_name("x");
     quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
@@ -499,7 +501,9 @@ static void test_solve_eqs_proof_scope() {
         arith_util a(m);
         expr_ref x(m.mk_const("x", a.mk_int()), m);
         expr_ref y(m.mk_const("y", a.mk_int()), m);
-        expr_ref equation(m.mk_eq(a.mk_add(x, y), a.mk_int(0)), m);
+        expr_ref lhs(a.mk_add(x, y), m);
+        expr_ref rhs(a.mk_int(0), m);
+        expr_ref equation(m.mk_eq(lhs, rhs), m);
         base_dependent_expr_state st(m);
         st.add(dependent_expr(m, equation, proofs ? m.mk_asserted(equation) : nullptr, nullptr));
         euf::solve_eqs solve(m, st);

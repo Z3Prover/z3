@@ -165,7 +165,11 @@ static void tst_arithmetic_scope_exits() {
             expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
             expr_ref zero(a.mk_numeral(rational(0), false), m);
             s.assert_expr(a.mk_le(x, a.mk_numeral(rational(3), false)));
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(2), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             solver::scoped_push caller_scope(s);
             s.assert_expr(a.mk_ge(x, zero));
             ENSURE(s.check_sat(0, nullptr) == l_true);
@@ -239,7 +243,11 @@ static void tst_dual_bound_premises() {
             s.assert_expr(a.mk_ge(x, zero));
             s.assert_expr(a.mk_ge(y, zero));
             s.assert_expr(a.mk_le(y, one));
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(3), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(3), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             expr_ref cap(equality ? m.mk_eq(x, y) : a.mk_le(x, one), m);
             // With conditional=false, cap is a hard constraint and max x = 1.
             if (conditional) {
@@ -256,7 +264,11 @@ static void tst_dual_bound_premises() {
                 // Therefore the accepted hint 1 must not be returned as a
                 // global upper bound: it depends on the temporary assumption b.
                 s.assert_expr(m.mk_implies(b, cap));
-                s.assert_expr(m.mk_implies(m.mk_not(b), equality ? m.mk_eq(x, a.mk_mul(two, y)) : a.mk_le(x, two)));
+                {
+                    expr_ref lhs(m.mk_not(b), m);
+                    expr_ref rhs(equality ? m.mk_eq(x, a.mk_mul(two, y)) : a.mk_le(x, two), m);
+                    s.assert_expr(m.mk_implies(lhs, rhs));
+                }
             }
             else
                 s.assert_expr(cap);
@@ -328,12 +340,20 @@ static void tst_dual_bound_cancellation() {
         if (conditional) {
             expr_ref b(m.mk_const(symbol("b"), m.mk_bool_sort()), m);
             s.assert_expr(m.mk_implies(b, region == 2 ? m.mk_eq(x, y) : a.mk_le(x, one)));
-            s.assert_expr(m.mk_implies(m.mk_not(b), region == 2 ? m.mk_eq(x, one) : a.mk_le(x, y)));
+            {
+                expr_ref lhs1(m.mk_not(b), m);
+                expr_ref rhs1(region == 2 ? m.mk_eq(x, one) : a.mk_le(x, y), m);
+                s.assert_expr(m.mk_implies(lhs1, rhs1));
+            }
         }
         else
             s.assert_expr(a.mk_le(x, one));
         s.assert_expr(a.mk_le(y, one));
-        s.assert_expr(a.mk_le(a.mk_add(a.mk_mul(x, x), a.mk_mul(y, y)), one));
+        {
+            expr_ref lhs1(a.mk_mul(x, x), m);
+            expr_ref rhs1(a.mk_mul(y, y), m);
+            s.assert_expr(a.mk_le(a.mk_add(lhs1, rhs1), one));
+        }
         solver::scoped_push caller_scope(s);
         ENSURE(s.check_sat(0, nullptr) == l_true);
         model_ref mdl;
@@ -434,7 +454,11 @@ static void tst_dual_bound_probe_exits() {
         s.assert_expr(a.mk_ge(x, zero));
         s.assert_expr(a.mk_le(a.mk_mul(x, x), two));
         s.assert_expr(m.mk_implies(b, a.mk_le(x, one)));
-        s.assert_expr(m.mk_implies(m.mk_not(b), a.mk_le(x, two)));
+        {
+            expr_ref lhs(m.mk_not(b), m);
+            expr_ref rhs(a.mk_le(x, two), m);
+            s.assert_expr(m.mk_implies(lhs, rhs));
+        }
         solver::scoped_push caller_scope(s);
         expr* assumption = b;
         ENSURE(s.check_sat(1, &assumption) == l_true);
@@ -999,7 +1023,11 @@ static void tst_lex_box_search() {
     s.assert_expr(a.mk_ge(x, zero));
     s.assert_expr(a.mk_ge(y, zero));
     solver::scoped_push problem_scope(s);
-    s.assert_expr(a.mk_le(a.mk_add(x, y), a.mk_numeral(rational(5), false)));
+    {
+        expr_ref lhs(a.mk_add(x, y), m);
+        expr_ref rhs(a.mk_numeral(rational(5), false), m);
+        s.assert_expr(a.mk_le(lhs, rhs));
+    }
     ENSURE(s.check_sat(0, nullptr) == l_true);
     model_ref mdl;
     s.get_model(mdl);
@@ -1357,7 +1385,11 @@ static params_ref refuted_hint_params() {
 // maximum is sqrt(2).
 static void assert_refuted_hint_problem(refuted_hint_run& r) {
     r.s.assert_expr(r.a.mk_le(r.x, r.a.mk_numeral(rational(3), false)));
-    r.s.assert_expr(r.a.mk_le(r.a.mk_mul(r.x, r.x), r.a.mk_numeral(rational(2), false)));
+    {
+        expr_ref lhs(r.a.mk_mul(r.x, r.x), r.m);
+        expr_ref rhs(r.a.mk_numeral(rational(2), false), r.m);
+        r.s.assert_expr(r.a.mk_le(lhs, rhs));
+    }
 }
 
 // Register x as the objective and seed its lower bound from the model of an
@@ -1521,7 +1553,11 @@ static void tst_search_scope_exits() {
             opt::optsmt optimizer(m, ctx);
             expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
             expr_ref zero(a.mk_numeral(rational(0), false), m);
-            s.assert_expr(a.mk_le(a.mk_mul(x, x), a.mk_numeral(rational(2), false)));
+            {
+                expr_ref lhs(a.mk_mul(x, x), m);
+                expr_ref rhs(a.mk_numeral(rational(2), false), m);
+                s.assert_expr(a.mk_le(lhs, rhs));
+            }
             // Put x >= 0 in a scope that must survive the optimization call.
             // After the search, this must still be the only open scope.
             solver::scoped_push caller_scope(s);

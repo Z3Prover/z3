@@ -38,7 +38,11 @@ void tst_expr_substitution() {
     expr_ref   new_a(m);
     proof_ref  pr(m);
     x = m.mk_const(symbol("x"), bv.mk_sort(8));
-    a = mk_bv_and(bv, mk_bv_xor(bv, x,bv.mk_numeral(8,8)), mk_bv_xor(bv,x,x));
+    {
+        expr_ref rhs(mk_bv_xor(bv, x, bv.mk_numeral(8, 8)), m);
+        expr_ref third(mk_bv_xor(bv, x, x), m);
+        a = mk_bv_and(bv, rhs, third);
+    }
     b = x;
     c = bv.mk_bv_sub(x, bv.mk_numeral(4, 8));
 

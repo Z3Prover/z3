@@ -246,7 +246,9 @@ namespace smt {
         expr_ref eq(m.mk_eq(e1, e2), m);
         literal l       = ~mk_literal(eq);
         std::function<expr*(void)> logfn = [&]() {
-            return m.mk_implies(m.mk_eq(mk_bit2bool(e1, idx), m.mk_not(mk_bit2bool(e2, idx))), m.mk_not(eq));
+            expr_ref bit1(mk_bit2bool(e1, idx), m);
+            expr_ref antecedent(m.mk_eq(bit1, m.mk_not(mk_bit2bool(e2, idx))), m);
+            return m.mk_implies(antecedent, m.mk_not(eq));
         };
         scoped_trace_stream ts(*this, logfn);
         ctx.mk_th_axiom(get_id(), 1, &l);
@@ -461,7 +463,8 @@ namespace smt {
             e2 = mk_bit2bool(o2, i);
             literal eq = mk_eq(e1, e2, true);
             std::function<expr*()> logfn = [&]() {
-                return m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_not(ctx.bool_var2expr(oeq.var())));
+                expr_ref negated_eq(m.mk_not(ctx.bool_var2expr(eq.var())), m);
+                return m.mk_implies(negated_eq, m.mk_not(ctx.bool_var2expr(oeq.var())));
             };
             scoped_trace_stream st(*this, logfn);
             ctx.mk_th_axiom(get_id(),  l1, ~l2, ~eq);

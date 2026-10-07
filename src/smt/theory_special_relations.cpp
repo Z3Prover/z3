@@ -803,7 +803,9 @@ namespace smt {
         r.pop(1);
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        result = arith.mk_ge(m.mk_app(fn,m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
+        expr_ref lhs(m.mk_app(fn, m.mk_var(0, *ty)), m);
+        expr_ref rhs(m.mk_app(fn, m.mk_var(1, *ty)), m);
+        result = arith.mk_ge(lhs, rhs);
         return result;
     }
 
@@ -823,7 +825,9 @@ namespace smt {
         }
         fi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(fn, fi);
-        result = m.mk_eq(m.mk_app(fn, m.mk_var(0, *ty)), m.mk_app(fn, m.mk_var(1, *ty)));
+        expr_ref lhs(m.mk_app(fn, m.mk_var(0, *ty)), m);
+        expr_ref rhs(m.mk_app(fn, m.mk_var(1, *ty)), m);
+        result = m.mk_eq(lhs, rhs);
         return result;
     }
 
@@ -848,8 +852,13 @@ namespace smt {
         hifi->set_else(arith.mk_numeral(rational(0), true));
         mg.get_model().register_decl(lofn, lofi);
         mg.get_model().register_decl(hifn, hifi);
-        result = m.mk_and(arith.mk_le(m.mk_app(lofn, m.mk_var(0, *ty)), m.mk_app(lofn, m.mk_var(1, *ty))),
-                          arith.mk_le(m.mk_app(hifn, m.mk_var(1, *ty)), m.mk_app(hifn, m.mk_var(0, *ty))));
+        expr_ref lo0(m.mk_app(lofn, m.mk_var(0, *ty)), m);
+        expr_ref lo1(m.mk_app(lofn, m.mk_var(1, *ty)), m);
+        expr_ref lower(arith.mk_le(lo0, lo1), m);
+        expr_ref hi1(m.mk_app(hifn, m.mk_var(1, *ty)), m);
+        expr_ref hi0(m.mk_app(hifn, m.mk_var(0, *ty)), m);
+        expr_ref upper(arith.mk_le(hi1, hi0), m);
+        result = m.mk_and(lower, upper);
         return result;
     }
 
@@ -922,18 +931,18 @@ namespace smt {
             sort* dom[2] = { s, listS };
             recfun::promise_def mem = p.ensure_def(symbol(member), 2, dom, m.mk_bool_sort(), true);
             memf = mem.get_def()->get_decl();
-            
+
             var_ref xV(m.mk_var(1, s), m);
             var_ref SV(m.mk_var(0, listS), m);
             var_ref yV(m), vV(m), wV(m);
-            
+
             expr* x = xV, *S = SV;
             expr_ref mem_body(m);
-            mem_body = m.mk_ite(m.mk_app(is_nil, S), 
-                                F,
-                                m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
-                                         T,
-                                         m.mk_app(memf, x, m.mk_app(tl, S))));            
+            expr_ref empty(m.mk_app(is_nil, S), m);
+            expr_ref is_head(m.mk_eq(m.mk_app(hd, S), x), m);
+            expr_ref in_tail(m.mk_app(memf, x, m.mk_app(tl, S)), m);
+            expr_ref nonempty(m.mk_ite(is_head, T, in_tail), m);
+            mem_body = m.mk_ite(empty, F, nonempty);
             recfun_replace rep(m);
             var* vars[2] = { xV, SV };
             p.set_definition(rep, mem, false, 2, vars, mem_body);
@@ -953,9 +962,13 @@ namespace smt {
             var_ref SV(m.mk_var(1, listS), m);
             var_ref tupV(m.mk_var(0, tup), m);
             expr* a = aV, *b = bV, *A = AV, *S = SV, *t = tupV;
-            next_body = m.mk_ite(m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S))), 
-                                 m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t))),
-                                 t);
+            expr_ref in_frontier(m.mk_app(memf, a, A), m);
+            expr_ref not_visited(m.mk_not(m.mk_app(memf, b, S)), m);
+            expr_ref advance(m.mk_and(in_frontier, not_visited), m);
+            expr_ref frontier(m.mk_app(cons, b, m.mk_app(fst, t)), m);
+            expr_ref visited(m.mk_app(cons, b, m.mk_app(snd, t)), m);
+            expr_ref updated(m.mk_app(pair, frontier.get(), visited.get()), m);
+            next_body = m.mk_ite(advance, updated, t);
 
             recfun_replace rep(m);
             var* vars[5] = { aV, bV, AV, SV, tupV };
@@ -987,10 +1000,12 @@ namespace smt {
             expr_ref Ap(m.mk_app(fst, connected_body.get()), m);
             expr_ref Sp(m.mk_app(snd, connected_body.get()), m);
 
-            connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
-                                      m.mk_ite(m.mk_app(memf, dst, Ap), T,
-                                               m.mk_app(connectedf, Ap, dst, Sp)));
-            
+            expr_ref empty(m.mk_eq(Ap, nilc), m);
+            expr_ref reached(m.mk_app(memf, dst, Ap), m);
+            expr_ref recurse(m.mk_app(connectedf, Ap, dst, Sp), m);
+            expr_ref nonempty(m.mk_ite(reached, T, recurse), m);
+            connected_body = m.mk_ite(empty, F, nonempty);
+
             TRACE(special_relations, tout << connected_body << "\n";);
             recfun_replace rep(m);
             var* vars[3] = { AV, dstV, SV };

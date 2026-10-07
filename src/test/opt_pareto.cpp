@@ -96,8 +96,12 @@ static void tst_nearly_tied_front(bool reuse_nlsat_solver) {
     ctx.add_hard_constraint(a.mk_gt(r3, zero));
     // The choices are (sqrt(2), sqrt(3) - eps) and (sqrt(2) - eps, sqrt(3)).
     // Each is better in one coordinate and worse in the other.
-    expr_ref pt1(m.mk_and(m.mk_eq(x, r2), m.mk_eq(w, a.mk_sub(r3, eps))), m);
-    expr_ref pt2(m.mk_and(m.mk_eq(x, a.mk_sub(r2, eps)), m.mk_eq(w, r3)), m);
+    expr_ref lhs(m.mk_eq(x, r2), m);
+    expr_ref rhs(m.mk_eq(w, a.mk_sub(r3, eps)), m);
+    expr_ref pt1(m.mk_and(lhs, rhs), m);
+    expr_ref lhs1(m.mk_eq(x, a.mk_sub(r2, eps)), m);
+    expr_ref rhs1(m.mk_eq(w, r3), m);
+    expr_ref pt2(m.mk_and(lhs1, rhs1), m);
     ctx.add_hard_constraint(m.mk_or(pt1, pt2));
     ctx.add_objective(to_app(x.get()), true);
     ctx.add_objective(to_app(w.get()), true);
@@ -125,8 +129,12 @@ static void tst_uf_fallback(bool reuse_nlsat_solver) {
     expr_ref zero(a.mk_numeral(rational(0), false), m);
     expr_ref one(a.mk_numeral(rational(1), false), m);
     // Maximizing both coordinates makes (1, 0) and (0, 1) incomparable.
-    expr_ref pt1(m.mk_and(m.mk_eq(x, one), m.mk_eq(w, zero)), m);
-    expr_ref pt2(m.mk_and(m.mk_eq(x, zero), m.mk_eq(w, one)), m);
+    expr_ref lhs(m.mk_eq(x, one), m);
+    expr_ref rhs(m.mk_eq(w, zero), m);
+    expr_ref pt1(m.mk_and(lhs, rhs), m);
+    expr_ref lhs1(m.mk_eq(x, zero), m);
+    expr_ref rhs1(m.mk_eq(w, one), m);
+    expr_ref pt2(m.mk_and(lhs1, rhs1), m);
     ctx.add_hard_constraint(m.mk_or(pt1, pt2));
     // f(x) >= 0 is satisfiable at either point, but is outside pure NRA.
     ctx.add_hard_constraint(a.mk_ge(m.mk_app(f, x.get()), zero));
@@ -165,7 +173,11 @@ static void tst_finite_front(bool reuse_nlsat_solver) {
     for (unsigned i = 0; i <= bound; ++i)
         choices.push_back(m.mk_eq(x, a.mk_numeral(rational(i), false)));
     ctx.add_hard_constraint(m.mk_or(choices.size(), choices.data()));
-    ctx.add_hard_constraint(m.mk_eq(a.mk_add(x, y), a.mk_numeral(rational(bound), false)));
+    {
+        expr_ref lhs(a.mk_add(x, y), m);
+        expr_ref rhs(a.mk_numeral(rational(bound), false), m);
+        ctx.add_hard_constraint(m.mk_eq(lhs, rhs));
+    }
     ctx.add_objective(to_app(x.get()), true);
     ctx.add_objective(to_app(y.get()), true);
     // Require 13 SAT models, each feasible and previously unseen; order is irrelevant.
@@ -205,7 +217,11 @@ static void tst_mixed_directions(bool reuse_nlsat_solver) {
     expr_ref y(m.mk_const("y", a.mk_real()), m);
     expr_ref two(a.mk_numeral(rational(2), false), m);
     // The feasible points are (2, -2) and (-2, 2).
-    ctx.add_hard_constraint(m.mk_or(m.mk_eq(x, two), m.mk_eq(x, a.mk_uminus(two))));
+    {
+        expr_ref lhs(m.mk_eq(x, two), m);
+        expr_ref rhs(m.mk_eq(x, a.mk_uminus(two)), m);
+        ctx.add_hard_constraint(m.mk_or(lhs, rhs));
+    }
     ctx.add_hard_constraint(m.mk_eq(y, a.mk_uminus(x)));
     // Maximizing x and minimizing y both favor (2, -2), which dominates (-2, 2).
     ctx.add_objective(to_app(x.get()), true);
@@ -432,7 +448,11 @@ static void tst_sampled_fronts(unsigned first_seed, unsigned last_seed) {
             expr_ref scale(a.mk_numeral(rational(1), false), m);
             if (seed & 4) {
                 scale = m.mk_const("scale", a.mk_real());
-                ctx.add_hard_constraint(m.mk_eq(a.mk_mul(scale, scale), a.mk_numeral(rational(2), false)));
+                {
+                    expr_ref lhs(a.mk_mul(scale, scale), m);
+                    expr_ref rhs(a.mk_numeral(rational(2), false), m);
+                    ctx.add_hard_constraint(m.mk_eq(lhs, rhs));
+                }
                 ctx.add_hard_constraint(a.mk_gt(scale, a.mk_numeral(rational(0), false)));
             }
             auto coordinate = [&](int k) {
@@ -440,8 +460,11 @@ static void tst_sampled_fronts(unsigned first_seed, unsigned last_seed) {
             };
             // Admit exactly the scaled sample points, with the chosen min/max directions.
             expr_ref_vector choices(m), asms(m);
-            for (point const& p : points)
-                choices.push_back(m.mk_and(m.mk_eq(x, coordinate(p.x)), m.mk_eq(y, coordinate(p.y))));
+            for (point const &p : points) {
+                expr_ref x_eq(m.mk_eq(x, coordinate(p.x)), m);
+                expr_ref y_eq(m.mk_eq(y, coordinate(p.y)), m);
+                choices.push_back(m.mk_and(x_eq, y_eq));
+            }
             ctx.add_hard_constraint(m.mk_or(choices.size(), choices.data()));
             ctx.add_objective(to_app(x.get()), max_x);
             ctx.add_objective(to_app(y.get()), max_y);
@@ -486,8 +509,15 @@ static void tst_assumption_fallback() {
     expr_ref zero(a.mk_numeral(rational(0), false), m);
     expr_ref one(a.mk_numeral(rational(1), false), m);
     // Without assumptions, the max/max front consists of (0, 1) and (1, 0).
-    ctx.add_hard_constraint(m.mk_or(m.mk_and(m.mk_eq(x, zero), m.mk_eq(y, one)),
-                                    m.mk_and(m.mk_eq(x, one), m.mk_eq(y, zero))));
+    {
+        expr_ref lhs(m.mk_eq(x, zero), m);
+        expr_ref rhs(m.mk_eq(y, one), m);
+        expr_ref lhs1(m.mk_and(lhs, rhs), m);
+        expr_ref lhs2(m.mk_eq(x, one), m);
+        expr_ref rhs1(m.mk_eq(y, zero), m);
+        expr_ref rhs2(m.mk_and(lhs2, rhs1), m);
+        ctx.add_hard_constraint(m.mk_or(lhs1, rhs2));
+    }
     ctx.add_objective(to_app(x.get()), true);
     ctx.add_objective(to_app(y.get()), true);
     expr_ref_vector asms(m);

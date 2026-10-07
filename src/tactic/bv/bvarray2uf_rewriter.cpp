@@ -149,7 +149,8 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
             expr_ref body(m_manager);
-            body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
+            expr_ref lhs(m_manager.mk_app(f_t, x.get()), m_manager);
+            body = m_manager.mk_eq(lhs, m_manager.mk_app(f_s, x.get()));
 
             result = m_manager.mk_forall(1, sorts, names, body);
             res = BR_DONE;
@@ -295,8 +296,8 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         new_args.push_back(m_manager.mk_app(ss[i].get(), x.get()));
 
                     expr_ref body(m_manager);
-                    body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                           m_manager.mk_app(map_f, num, new_args.data()));
+                    expr_ref lhs(m_manager.mk_app(f_t, x.get()), m_manager);
+                    body = m_manager.mk_eq(lhs, m_manager.mk_app(map_f, num, new_args.data()));
 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);
@@ -330,9 +331,10 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
                         expr_ref body(m_manager);
-                        body = m_manager.mk_or(m_manager.mk_eq(x, i),
-                                               m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                                               m_manager.mk_app(f_s, x.get())));
+                        expr_ref same_index(m_manager.mk_eq(x, i), m_manager);
+                        expr_ref lhs(m_manager.mk_app(f_t, x.get()), m_manager);
+                        expr_ref rhs(m_manager.mk_app(f_s, x.get()), m_manager);
+                        body = m_manager.mk_or(same_index, m_manager.mk_eq(lhs, rhs));
 
                         expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                         extra_assertions.push_back(frllx);

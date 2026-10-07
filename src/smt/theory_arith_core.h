@@ -565,7 +565,10 @@ namespace smt {
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
             one        = m_util.mk_int(1);
-            abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
+            {
+                expr_ref negative(m_util.mk_lt(divisor, zero), m);
+                abs_divisor = m_util.mk_sub(m.mk_ite(negative, m_util.mk_sub(zero, divisor), divisor), one);
+            }
             s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
             qr          = m_util.mk_add(m_util.mk_mul(divisor, div), mod);

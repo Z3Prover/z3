@@ -199,9 +199,11 @@ class lemma {
 
 struct lemma_lt_proc {
     bool operator()(lemma *a, lemma *b) {
-        return (a->level() < b->level()) ||
-               (a->level() == b->level() &&
-                ast_lt_proc()(a->get_expr(), b->get_expr()));
+        if (a->level() != b->level())
+            return a->level() < b->level();
+        expr* lhs = a->get_expr();
+        expr* rhs = b->get_expr();
+        return ast_lt_proc()(lhs, rhs);
     }
 };
 
