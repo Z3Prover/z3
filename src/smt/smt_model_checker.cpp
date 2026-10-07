@@ -269,6 +269,17 @@ namespace smt {
             expr_ref sk_term(sk_value, m);
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
+                unsigned arity = f->get_arity();
+                if (arity > 1) {
+                    // func_interp::get_interp() refers to argument i as (:var i), whereas the lambda
+                    // (lambda ((x_0 S_0) .. (x_{n-1} S_{n-1})) body) built below refers to x_i as
+                    // (:var n-1-i): reverse the variable indices (the two coincide for arity 1).
+                    expr_ref_vector rev(m);
+                    for (unsigned j = 0; j < arity; ++j)
+                        rev.push_back(m.mk_var(arity - 1 - j, f->get_domain(j)));
+                    var_subst vs(m, false);
+                    body = vs(body, rev.size(), rev.data());
+                }
                 body = replace_value_from_ctx(body);
                 if (contains_model_value(body)) {
                     // The array interpretation refers to model values that have no
