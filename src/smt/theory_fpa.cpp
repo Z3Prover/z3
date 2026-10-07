@@ -486,6 +486,43 @@ namespace smt {
                             cc = m_bv_util.mk_concat({conv_a->get_arg(0), conv_a->get_arg(1), conv_a->get_arg(2)});
                             assert_cnstr(m.mk_eq(wrapped, cc));
                             assert_cnstr(mk_side_conditions());
+
+                            // Canonicalize NaN bit patterns across the FP/other-theory
+                            // boundary (issue #7842). `conv_e`'s (sgn,exp,sig) triple is
+                            // only constrained by predicates that mention `n` (e.g.
+                            // `fp.isNaN` fixes just "exponent = all-1s, significand !=
+                            // 0"), leaving `wrapped` free to take on any of many
+                            // distinct bit patterns that are all "NaN" but not
+                            // syntactically/semantically equal as bit-vectors -- exactly
+                            // the raw bit-vector equality that datatype/UF/array
+                            // congruence closure falls back on when `n` is nested inside
+                            // another theory's term (e.g. a datatype selector result).
+                            // Forcing every NaN's wrapped representation to one fixed,
+                            // canonical bit pattern (the same one `mk_nan` always
+                            // produces for literal `(_ NaN eb sb)` numerals) makes that
+                            // congruence closure correct "for free", with no FP-theory-
+                            // specific reasoning required downstream. See
+                            // fstar/Z3FpaNanWrap.fst for the formal argument.
+                            expr* exp_c = conv_a->get_arg(1);
+                            expr* sig_c = conv_a->get_arg(2);
+                            unsigned ebits = m_bv_util.get_bv_size(exp_c);
+                            unsigned sbits = m_bv_util.get_bv_size(sig_c);
+                            expr_ref top_exp(m_bv_util.mk_numeral(rational::power_of_two(ebits) - 1, ebits), m);
+                            expr_ref sig_zero(m_bv_util.mk_numeral(0, sbits), m);
+                            expr_ref exp_is_all_ones(m.mk_eq(exp_c, top_exp), m);
+                            expr_ref sig_is_zero(m.mk_eq(sig_c, sig_zero), m);
+                            expr_ref sig_is_nonzero(m.mk_not(sig_is_zero), m);
+                            expr_ref is_nan_conv(m.mk_and(exp_is_all_ones, sig_is_nonzero), m);
+                            // Canonical NaN bits, matching fpa2bv_converter::mk_nan's
+                            // fixed choice exactly (sign=0, exponent=all-1s,
+                            // significand=1): built directly as bv numerals instead of
+                            // via a second convert()/wrap() round-trip, to avoid
+                            // re-entering the FPA-to-BV conversion/caching machinery
+                            // from inside relevant_eh.
+                            expr_ref canon_sgn(m_bv_util.mk_numeral(0, 1), m);
+                            expr_ref canon_sig(m_bv_util.mk_numeral(1, sbits), m);
+                            expr_ref canon_nan_wrapped(m_bv_util.mk_concat({canon_sgn, top_exp, canon_sig}), m);
+                            assert_cnstr(m.mk_implies(is_nan_conv, m.mk_eq(wrapped, canon_nan_wrapped)));
                         }
                     }
                 }

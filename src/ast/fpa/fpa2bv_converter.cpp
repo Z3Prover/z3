@@ -3253,6 +3253,24 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     result = m.mk_ite(x_is_inf, unspec, result);
     result = m.mk_ite(x_is_nan, unspec, result);
 
+    // Redundant, purely linear sign-of-the-result fact (issue #10176): the
+    // bit-precise encoding above already fully determines `result`'s sign via
+    // `sgn_is_1`, but only after the backend's arithmetic core reconstructs
+    // it through the nonlinear `mk_power`/`mk_div` terms in `two_exp2`. That
+    // reconstruction is where soundness was observed to fail when `to_real`
+    // feeds into further nonlinear-looking arithmetic (e.g. `to_int`). Stating
+    // the sign fact directly, in terms of the bit-level `sgn`, gives the
+    // arithmetic core a cheap, exact, and already-implied shortcut that does
+    // not require reasoning about powers of two at all.
+    expr_ref not_special(m);
+    not_special = m.mk_not(m.mk_or(x_is_nan, x_is_inf, x_is_zero));
+    expr_ref negative_sign(m.mk_and(not_special, sgn_is_1), m);
+    expr_ref negative_result(m_arith_util.mk_lt(result, zero), m);
+    m_extra_assertions.push_back(m.mk_implies(negative_sign, negative_result));
+    expr_ref positive_sign(m.mk_and(not_special, m.mk_not(sgn_is_1)), m);
+    expr_ref positive_result(m_arith_util.mk_gt(result, zero), m);
+    m_extra_assertions.push_back(m.mk_implies(positive_sign, positive_result));
+
     SASSERT(is_well_sorted(m, result));
 }
 
