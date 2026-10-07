@@ -116,8 +116,23 @@ let is_re_op (f:func_decl) (op:re_op) : bool =
    only. `seq_lit a` pairs such an interpretation with the fixed
    element-value embedding `to_elt` it uses for character/element
    literals, since `value` (Z3AstTheory's semantic domain) is left
-   abstract there but must coincide with `Z3RegexTheory.seq a` here. *)
+   abstract there but must coincide with `Z3RegexTheory.seq a` here.
+
+   `classify` additionally distinguishes *literal* leaves (concrete
+   sequence constants, e.g. `m.is_value(e->get_arg(0))` for
+   `seq.to_re`'s argument, or `u.str.is_string(...)` for `re.range`'s
+   endpoints in seq_decl_plugin.cpp) from *symbolic* leaves (an
+   arbitrary expression whose value is model-dependent, e.g. a free
+   sequence variable): `classify e = Some w` means `e` is recognized
+   as the literal `w`, invariant across every interpretation;
+   `classify e = None` means `e`'s denotation is only ever available
+   through `leaf_interp`, which may differ between interpretations.
+   This distinction is exactly what `seq_util::rex::info::interpreted`
+   (`is_ground`) is meant to track -- see Z3RegexInfo.fst and
+   PR #11091 / issue #11090, where a symbolic `re.range` endpoint was
+   incorrectly reported as if it were always literal. *)
 noeq type seq_lit (a:eqtype) = {
+  classify    : expr -> option (seq a);
   leaf_interp : interpretation (seq a);
   (* A total order on elements, standing in for the 8-bit bit-vector
      numeral order `seq_decl_plugin.cpp` uses to interpret `re.range`'s
@@ -127,9 +142,35 @@ noeq type seq_lit (a:eqtype) = {
   char_le     : a -> a -> bool;
 }
 
-(* Evaluate a ground leaf expression to the sequence it denotes. *)
+(* Evaluate a leaf expression to the sequence it denotes: a
+   classified literal is returned directly (the same value under any
+   `seq_lit` agreeing on `classify`, by construction); otherwise fall
+   back to `leaf_interp`, which is where model-dependence can enter. *)
 let eval_leaf (#a:eqtype) (sl:seq_lit a) (e:expr) : seq a =
-  eval sl.leaf_interp e (fun _ -> empty)
+  match sl.classify e with
+  | Some w -> w
+  | None -> eval sl.leaf_interp e (fun _ -> empty)
+
+(* `e` is a ground (literal, model-independent) leaf under `sl`. *)
+let is_ground_leaf (#a:eqtype) (sl:seq_lit a) (e:expr) : bool =
+  Some? (sl.classify e)
+
+(* Two `seq_lit`s classify every expression identically, i.e. they
+   agree on which leaves are literal (and which literal value) --
+   they may still disagree on `leaf_interp` for symbolic leaves,
+   modeling two different models/interpretations of the same
+   symbolic constants. *)
+let same_classification (#a:eqtype) (sl sl':seq_lit a) : prop =
+  forall (e:expr). sl.classify e == sl'.classify e
+
+(* If `e` is a ground leaf under `sl` (hence, by `same_classification`,
+   under `sl'` too), both evaluate it to the exact same sequence --
+   the key fact underlying why `interpreted`/`is_ground` expressions
+   denote a fixed, model-independent language. *)
+let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
+  : Lemma (requires same_classification sl sl' /\ is_ground_leaf sl e)
+          (ensures eval_leaf sl e == eval_leaf sl' e)
+  = ()
 
 (* A character range test, taken as the two endpoint sequences
    already evaluated to ground words: `x` is "in range" iff `wl`,

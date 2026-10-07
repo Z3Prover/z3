@@ -123,3 +123,60 @@ regex-sorted expressions is modeled and proved sound in
 `re.union`, `re.inter` (`conj`), `re.diff`, `re.^xor` (`xor_`), and
 both forms of `re.loop` (unbounded-lower-bound-only and
 `{lo, hi}`-bounded).
+
+## Addendum: `info.interpreted`/`is_ground` and PR #11091
+
+`seq_util::rex::info` has a fifth field, `interpreted`, exposed as
+`rex::is_ground(e) = get_info(e).interpreted`
+(`seq_decl_plugin.h:672`), and relied on by `seq_rewriter.cpp`'s
+`mk_eq_core` to gate a ground-regex bisimulation shortcut for regex
+equality (`re().is_ground(l) && re().is_ground(r)` before running
+`seq::regex_bisim`). The original four-file formalization above
+proved soundness of `nullable`/`min_length`/`max_length` but did not
+model `interpreted` at all — it could not have caught
+[PR #11091](https://github.com/Z3Prover/z3/pull/11091)
+("Keep symbolic regex ranges out of ground equivalence checks",
+fixing [issue #11090](https://github.com/Z3Prover/z3/issues/11090)),
+which fixes exactly that field: a symbolic `re.range lo hi`
+(non-literal endpoints) was unconditionally reported as
+`interpreted = true`, letting the ground-bisimulation shortcut
+incorrectly decide an equality between a symbolic range and a
+concrete one that could in fact be satisfiable (reported repro:
+`lo = "b"`, `hi = "c"`, `(= (re.range lo hi) (re.range "b" "c"))`
+reduced to `false` when it is actually `sat`).
+
+This has since been added:
+
+- `Z3RegexExprTheory.fst`'s `seq_lit` now carries a `classify : expr
+  -> option (seq a)` field distinguishing literal leaves
+  (`classify e = Some w`, standing in for `m.is_value`/
+  `u.str.is_string`) from symbolic ones (`classify e = None`,
+  denotation only available via `leaf_interp`, which may vary by
+  model). `eval_leaf` dispatches through `classify` first, so a
+  literal's value is, by construction, the same under any `seq_lit`
+  agreeing on `classify` (`lemma_eval_leaf_ground`).
+- `Z3RegexInfo.fst`'s `info` record gained an `interpreted:bool`
+  field, propagated through every combinator exactly as `classical`
+  already was (conjunction for binary operators, pass-through for
+  unary ones), and computed at the two leaf cases that can actually
+  be symbolic: `Re_range` (`is_ground_leaf sl lo && is_ground_leaf sl
+  hi` -- the corrected formula) and `Re_seq_to_re`
+  (`is_ground_leaf sl s`).
+- `lemma_compute_info_interpreted_sound`, a second main theorem (by
+  the same structural induction as `lemma_compute_info_sound`,
+  reusing a small suite of new `lemma_*_cong` language-congruence
+  lemmas for `Z3RegexTheory`'s combinators), proves: for any two
+  `seq_lit`s agreeing on leaf classification (`compatible`),
+  `compute_info`'s `interpreted` flag agrees between them, and
+  whenever it is `true`, `to_lang` denotes *equivalent* languages
+  under both -- i.e. `interpreted` really does certify
+  model-independence.
+
+**Direct confirmation the model catches this bug class**: reverting
+`compute_info`'s `Re_range` case to the old unconditional
+`interpreted = true` (instead of the corrected
+`is_ground_leaf sl lo && is_ground_leaf sl hi`) was checked to make
+`lemma_compute_info_interpreted_sound` **fail to verify** (F* reports
+`Assertion failed` at exactly that case), confirming the
+formalization is precise enough to reject the PR #11091 bug and
+accept its fix.
