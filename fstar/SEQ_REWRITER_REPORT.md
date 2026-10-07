@@ -42,6 +42,11 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
   extract/substr, at/nth, contains, prefix/suffix, replace, reverse,
   power, unit, and the recursive-unrolling helpers
   first/rest/last/butlast.
+- `mk_seq_map`/`mk_seq_mapi`/`mk_seq_foldl`/`mk_seq_foldli`
+  (`seq_rewriter.cpp:2117-2199`): the empty/singleton/concat-distribute
+  rewrite rules for all four higher-order sequence operators,
+  modeling the Z3 Array-sort function argument `f` as an arbitrary
+  F* function.
 - `OP_SEQ_IN_RE` (`mk_str_in_regexp`, `seq_rewriter.cpp:3396-3527`):
   the base-language cases, the `str.to_re`/empty-string/opt/
   prefix-suffix algebraic rewrites, and the ground-string
@@ -56,8 +61,7 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
 - Sequences are modeled as F* lists over an abstract `eqtype` element
   (no separate character/string distinction), so char-level coalescing
   (`seq.unit` -> string constant) is not modeled anywhere in this report.
-- `replace_all`, `replace_re`, `replace_re_all`, `last_index`, and
-  `map`/`mapi`.
+- `replace_all`, `replace_re`, `replace_re_all`, `last_index`.
 - The concat-boundary decomposition logic inside `mk_seq_at`,
   `mk_seq_contains`, `mk_seq_prefix`, `mk_seq_suffix`, and
   `mk_seq_extract` (walking a `str.++` tree element-by-element).
@@ -78,7 +82,7 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
 | `mk_seq_unit` | 420-432 | — | char->string literal coalescing (not applicable to the abstract model) |
 | `mk_seq_concat` | 441-513 | `lemma_concat_assoc`, `lemma_concat_empty_r`, `lemma_concat_empty_l` | literal-coalescing / iterative-flattening implementation detail (engineering, not a new semantic law) |
 | `mk_seq_reverse` | 513-543 | `lemma_reverse_unit`, `lemma_reverse_concat`, `lemma_reverse_reverse` | — |
-| `mk_seq_length` | 543-607 | `lemma_len_concat`, `lemma_len_unit`, `lemma_len_empty`, `lemma_len_power`, `lemma_len_extract_nat` (general position), `lemma_len_extract_from_zero` (exact rule: `len(extract(x,0,z)) = min(z,len(x))`) | length-through-`replace` (`len(y)=len(z) ==> len(replace(x,y,z))=len(x)`) and length-through-`map`/`mapi` -- out of scope (`map`/`mapi`/char-level `replace` length-preservation not modeled) |
+| `mk_seq_length` | 543-607 | `lemma_len_concat`, `lemma_len_unit`, `lemma_len_empty`, `lemma_len_power`, `lemma_len_extract_nat` (general position), `lemma_len_extract_from_zero` (exact rule: `len(extract(x,0,z)) = min(z,len(x))`), `lemma_len_map` (`len(map(f,s)) = len(s)`) | length-through-`replace` (`len(y)=len(z) ==> len(replace(x,y,z))=len(x)`) -- out of scope (char-level `replace` length-preservation not modeled) |
 | `mk_seq_power` | 607-653 | `lemma_power_nonpos`, `lemma_power_one`, `lemma_power_mul` (+ `lemma_power_nat_add` helper) | concrete numeral expansion / bounded unrolling (engineering) |
 | `mk_seq_first` | 653-680 | `lemma_first_of_extract` | — |
 | `mk_seq_rest` | 681-699 | `lemma_rest_of_extract` (a corollary of extract composition) | — |
@@ -91,6 +95,10 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
 | `mk_seq_prefix` | 2254-2389 | `lemma_prefix_empty`, `lemma_prefix_of_empty`, `lemma_prefix_reflexive`, `lemma_prefix_concat_intro` | the recursive literal-splitting algorithm (bulk of the function) |
 | `mk_seq_suffix` | 2389-2466 | `lemma_suffix_empty`, `lemma_suffix_concat_intro` | same kind of literal-splitting detail, dualized |
 | `mk_seq_replace` | 1813-1928 | `lemma_replace_empty_pat`, `lemma_replace_eq`, `lemma_replace_not_contains` | the "found occurrence -> splice" step is captured definitionally, not as a separately derived lemma |
+| `mk_seq_map` | 2117-2137 | `lemma_map_empty`, `lemma_map_unit`, `lemma_map_concat`, `lemma_len_map`, `lemma_nth_map` | `f` is modeled as an arbitrary total F* function; this is sound since the rewrite only ever *applies* `f` (never inspects it), matching how `array.mk_select` opaquely applies the Z3 array value `f` |
+| `mk_seq_mapi` | 2139-2159 | `lemma_mapi_empty`, `lemma_mapi_unit`, `lemma_mapi_concat` | same `f`-as-function abstraction as `mk_seq_map` |
+| `mk_seq_foldl` | 2161-2179 | `lemma_fold_left_empty`, `lemma_fold_left_unit`, `lemma_fold_left_concat` | same `f`-as-function abstraction |
+| `mk_seq_foldli` | 2181-2199 | `lemma_fold_lefti_empty`, `lemma_fold_lefti_unit`, `lemma_fold_lefti_concat` | same `f`-as-function abstraction |
 | `mk_seq_last_index`, `mk_seq_replace_all`, `mk_seq_replace_re`, `mk_seq_replace_re_all` | 1540-1813, 1928-2250 | — | out of scope (iterative/regex) |
 | all `mk_re_*` except `mk_str_in_regexp` | ~half the file | — | out of scope except as covered by Part 2 below |
 
@@ -105,6 +113,22 @@ reduced directly to the pre-existing `lemma_extract_compose`, while
 `first`/`last` needed the new `lemma_nth_extract_nat`/
 `lemma_len_extract_nat` facts plus an auxiliary non-emptiness lemma
 `lemma_extract_nat_nonempty`.
+
+`map`/`mapi`/`fold_left`/`fold_lefti` (`seq.map`/`seq.mapi`/
+`seq.foldl`/`seq.foldli`, `OP_SEQ_MAP`/`OP_SEQ_MAPI`/`OP_SEQ_FOLDL`/
+`OP_SEQ_FOLDLI`) were added in a still later pass: `Z3SeqTheory.fst`
+gained four new recursively-defined combinators modeling these
+operators abstractly (the Z3 Array-sort function argument `f` is
+modeled as an arbitrary F* function of matching arity/order, since the
+rewrite rules only ever *apply* `f` via `array.mk_select` and never
+inspect it), and `Z3SeqRewrites.fst` proves each of `mk_seq_map`'s/
+`mk_seq_mapi`'s/`mk_seq_foldl`'s/`mk_seq_foldli`'s three rewrite cases
+(empty, singleton/`unit`, and the recursive `str.++`-distributing
+case) as a lemma, plus the auxiliary `len(map(f,s)) = len(s)` and
+`nth_i(map(f,s),i) = f(nth_i(s,i))` facts documented in `mk_seq_map`'s
+doc comment. `mapi`/`foldli`'s indexed-concat lemmas needed to thread
+the index arithmetic `i + len(s)` through the induction, matching the
+`j = i + len(s1)` computation at seq_rewriter.cpp:2152/2194.
 
 ### Remaining gaps (hardest, left for future work)
 

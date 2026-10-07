@@ -548,3 +548,112 @@ and lemma_prefix_concat_intro_contains_absurd (#a:eqtype) (s pat:seq a)
   : Lemma (requires is_prefix pat s /\ (~ (contains s pat == true)))
           (ensures False)
   = ()
+
+(* ================================================================= *)
+(* map / mapi / fold_left / fold_lefti                                 *)
+(*                                                                      *)
+(* seq_rewriter::mk_seq_map/mapi/foldl/foldli, seq_rewriter.cpp:        *)
+(*   mk_seq_map    2117-2137                                            *)
+(*   mk_seq_mapi   2139-2159                                            *)
+(*   mk_seq_foldl  2161-2179                                            *)
+(*   mk_seq_foldli 2181-2199                                            *)
+(* ================================================================= *)
+
+(* ---- map ---- *)
+
+(* map(f, []) = []. (mk_seq_map, seq_rewriter.cpp:2118-2121) *)
+let lemma_map_empty (#a #b:eqtype) (f:a -> b)
+  : Lemma (ensures map f empty == (empty <: seq b))
+  = ()
+
+(* map(f, [x]) = [f(x)]. (mk_seq_map, seq_rewriter.cpp:2123-2128) *)
+let lemma_map_unit (#a #b:eqtype) (f:a -> b) (x:a)
+  : Lemma (ensures map f (unit x) == unit (f x))
+  = ()
+
+(* map(f, s ++ t) = map(f, s) ++ map(f, t).
+   (mk_seq_map, seq_rewriter.cpp:2129-2134) *)
+let rec lemma_map_concat (#a #b:eqtype) (f:a -> b) (s t:seq a)
+  : Lemma (ensures map f (concat s t) == concat (map f s) (map f t))
+          (decreases s)
+  = match s with
+    | [] -> ()
+    | _ :: s' -> lemma_map_concat f s' t
+
+(* len(map(f, s)) = len(s). (doc comment, seq_rewriter.cpp:2113) *)
+let rec lemma_len_map (#a #b:eqtype) (f:a -> b) (s:seq a)
+  : Lemma (ensures len (map f s) = len s)
+  = match s with
+    | [] -> ()
+    | _ :: s' -> lemma_len_map f s'
+
+(* nth_i(map(f,s), i) = f(nth_i(s, i)). (doc comment, seq_rewriter.cpp:2114) *)
+let rec lemma_nth_map (#a #b:eqtype) (f:a -> b) (s:seq a) (i:nat{i < len s})
+  : Lemma (requires True)
+          (ensures len (map f s) = len s /\ nth (map f s) i == f (nth s i))
+  = lemma_len_map f s;
+    match s with
+    | x :: s' -> if i = 0 then () else lemma_nth_map f s' (i - 1)
+
+(* ---- mapi ---- *)
+
+(* mapi(f, i, []) = []. (mk_seq_mapi, seq_rewriter.cpp:2140-2143) *)
+let lemma_mapi_empty (#a #b:eqtype) (f:int -> a -> b) (i:int)
+  : Lemma (ensures mapi f i empty == (empty <: seq b))
+  = ()
+
+(* mapi(f, i, [x]) = [f(i,x)]. (mk_seq_mapi, seq_rewriter.cpp:2145-2149) *)
+let lemma_mapi_unit (#a #b:eqtype) (f:int -> a -> b) (i:int) (x:a)
+  : Lemma (ensures mapi f i (unit x) == unit (f i x))
+  = ()
+
+(* mapi(f, i, s ++ t) = mapi(f, i, s) ++ mapi(f, i + len(s), t).
+   (mk_seq_mapi, seq_rewriter.cpp:2151-2156) *)
+let rec lemma_mapi_concat (#a #b:eqtype) (f:int -> a -> b) (i:int) (s t:seq a)
+  : Lemma (ensures mapi f i (concat s t) == concat (mapi f i s) (mapi f (i + len s) t))
+          (decreases s)
+  = match s with
+    | [] -> ()
+    | _ :: s' -> lemma_mapi_concat f (i + 1) s' t
+
+(* ---- fold_left ---- *)
+
+(* foldl(f, b, []) = b. (mk_seq_foldl, seq_rewriter.cpp:2162-2165) *)
+let lemma_fold_left_empty (#a #b:eqtype) (f:b -> a -> b) (b0:b)
+  : Lemma (ensures fold_left f b0 empty == b0)
+  = ()
+
+(* foldl(f, b, [x]) = f(b, x). (mk_seq_foldl, seq_rewriter.cpp:2167-2171) *)
+let lemma_fold_left_unit (#a #b:eqtype) (f:b -> a -> b) (b0:b) (x:a)
+  : Lemma (ensures fold_left f b0 (unit x) == f b0 x)
+  = ()
+
+(* foldl(f, b, s ++ t) = foldl(f, foldl(f, b, s), t).
+   (mk_seq_foldl, seq_rewriter.cpp:2173-2176) *)
+let rec lemma_fold_left_concat (#a #b:eqtype) (f:b -> a -> b) (b0:b) (s t:seq a)
+  : Lemma (ensures fold_left f b0 (concat s t) == fold_left f (fold_left f b0 s) t)
+          (decreases s)
+  = match s with
+    | [] -> ()
+    | x :: s' -> lemma_fold_left_concat f (f b0 x) s' t
+
+(* ---- fold_lefti ---- *)
+
+(* foldli(f, i, b, []) = b. (mk_seq_foldli, seq_rewriter.cpp:2182-2185) *)
+let lemma_fold_lefti_empty (#a #b:eqtype) (f:int -> b -> a -> b) (i:int) (b0:b)
+  : Lemma (ensures fold_lefti f i b0 empty == b0)
+  = ()
+
+(* foldli(f, i, b, [x]) = f(i, b, x). (mk_seq_foldli, seq_rewriter.cpp:2187-2191) *)
+let lemma_fold_lefti_unit (#a #b:eqtype) (f:int -> b -> a -> b) (i:int) (b0:b) (x:a)
+  : Lemma (ensures fold_lefti f i b0 (unit x) == f i b0 x)
+  = ()
+
+(* foldli(f, i, b, s ++ t) = foldli(f, i + len(s), foldli(f, i, b, s), t).
+   (mk_seq_foldli, seq_rewriter.cpp:2193-2197) *)
+let rec lemma_fold_lefti_concat (#a #b:eqtype) (f:int -> b -> a -> b) (i:int) (b0:b) (s t:seq a)
+  : Lemma (ensures fold_lefti f i b0 (concat s t) == fold_lefti f (i + len s) (fold_lefti f i b0 s) t)
+          (decreases s)
+  = match s with
+    | [] -> ()
+    | x :: s' -> lemma_fold_lefti_concat f (i + 1) (f i b0 x) s' t
