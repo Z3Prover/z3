@@ -648,7 +648,7 @@ static void test_ff_f4_guards() {
     ff::f4_config cfg;
     ff::f4_stats stats;
     std::vector<rational> values{rational(42)};
-    v_dependency *core = deps.mk_leaf(99);
+    v_dependency *core = deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(99)));
     auto charge = [](unsigned) {};
     cfg.max_vars = 1;
     ENSURE(ff::f4_solve(deps, rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_undef);
@@ -726,7 +726,7 @@ static void test_ff_f4() {
                     std::sort(mon.begin(), mon.end());
                     builder.add_term(f, mon, rational(next() % prime));
                 }
-                f.dependencies = deps.mk_join(f.dependencies, deps.mk_leaf(dep));
+                f.dependencies = deps.mk_join(f.dependencies, deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(dep))));
                 return f;
             };
             std::vector<ff::polynomial> eqs, neqs;
