@@ -15,23 +15,25 @@ previously lived at the end of [`REGEX_REPORT.md`](REGEX_REPORT.md)
 (which remains the report for `seq_decl_plugin.cpp`'s `get_info`/
 `rex::info` static-analysis abstraction, a different subject).
 
-Four theory/proof files, two independent layers:
+Three independent layers, five proof files:
 
 | Layer | Theory file | Proof file | Subject |
 |---|---|---|---|
 | Sequence core | [`Z3SeqTheory.fst`](Z3SeqTheory.fst) | [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst) | `mk_seq_*` functions |
 | Regex membership | [`Z3RegexTheory.fst`](Z3RegexTheory.fst) (+ [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)) | [`Z3SeqDerive.fst`](Z3SeqDerive.fst), [`Z3RegexMembership.fst`](Z3RegexMembership.fst) | `mk_str_in_regexp` / `seq_derive.cpp`'s `derive_core` |
+| Regex algebra | [`Z3RegexTheory.fst`](Z3RegexTheory.fst) | [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst) | `mk_re_*` functions dispatched from `mk_app_core` |
 
 Toolchain used: [F*](https://github.com/FStarLang/FStar) `v2026.09.27`
 (Windows x64) with Z3 `4.13.3` as the SMT backend (F* pins an exact Z3
 version; this is independent of the Z3 binary built from this
-repository). All four files type-check and discharge all verification
+repository). All five proof files type-check and discharge all verification
 conditions with **no `admit`/`assume`/axioms**:
 
 ```
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3SeqRewrites.fst
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3SeqDerive.fst
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3RegexMembership.fst
+C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3RegexRewrites.fst
 ```
 
 ## Scope
@@ -72,6 +74,66 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
   `replace_all`-based rewrite, `can_be_member` length pruning) and all
   other `mk_re_*` regex-algebra simplifications beyond `mk_str_in_regexp`
   itself.
+
+## `mk_app_core` dispatch coverage
+
+`seq_rewriter::mk_app_core` (`seq_rewriter.cpp:154-369`) is the single
+entry point that dispatches every seq/regex builtin to its `mk_*`
+handler. The table below lists **every** method it dispatches to, and
+for each one: whether it is covered by this report, and exactly what
+part of the code that coverage corresponds to.
+
+**Sequence/string family:**
+
+| Dispatched method | Covered? | What is verified |
+|---|---|---|
+| `mk_seq_unit` | partial | see Part 1 (`mk_seq_unit` row) |
+| `mk_seq_concat` | yes | associativity, empty-unit identities (Part 1) |
+| `mk_seq_length` | yes | concat/unit/empty/power/extract/map length laws (Part 1) |
+| `mk_seq_power` | yes | non-positive/one/multiplicative-exponent cases (Part 1) |
+| `mk_seq_extract` | partial | degenerate-bound and composition cases only (Part 1) |
+| `mk_seq_contains` | partial | empty-needle/haystack and extract-derived cases (Part 1) |
+| `mk_seq_at` | partial | out-of-bounds and in-range cases (Part 1) |
+| `mk_seq_nth` / `mk_seq_nth_i` | partial | unit and extract-shift cases (Part 1) |
+| `mk_seq_prefix` | partial | empty/reflexive/concat-intro cases (Part 1) |
+| `mk_seq_suffix` | partial | empty/concat-intro cases (Part 1) |
+| `mk_seq_index` | no | not modeled (position-search, not yet formalized) |
+| `mk_seq_last_index` | no | out of scope (Part 1) |
+| `mk_seq_replace` | partial | empty-pattern/trivial-equality/not-found cases (Part 1) |
+| `mk_seq_replace_all` | no | out of scope (Part 1) |
+| `mk_seq_map` | yes | empty/unit/concat-distribute cases (Part 1) |
+| `mk_seq_mapi` | yes | empty/unit/concat-distribute + index arithmetic (Part 1) |
+| `mk_seq_foldl` | yes | empty/unit/concat-distribute cases (Part 1) |
+| `mk_seq_foldli` | yes | empty/unit/concat-distribute + index arithmetic (Part 1) |
+| `mk_seq_replace_re` | no | out of scope |
+| `mk_seq_replace_re_all` | no | out of scope |
+| `mk_str_to_regexp` | yes | `lemma_in_re_to_re` (Part 2, via `mk_str_in_regexp`) |
+| `mk_str_in_regexp` | partial | base cases, `to_re`/empty-string/opt/prefix/suffix rewrites, ground-string derivative chase (Part 2) |
+| `mk_str_le` / `mk_str_lt` | no | not modeled (needs a lexicographic-order theory) |
+| `mk_str_from_code` / `mk_str_to_code` | no | not modeled |
+| `mk_str_is_digit` | no | not modeled |
+| `mk_str_units` | no | not modeled |
+| `mk_str_itos` / `mk_str_stoi` | no | not modeled (integer/string conversion) |
+| `mk_str_ubv2s` / `mk_str_sbv2s` | no | not modeled (bit-vector/string conversion) |
+
+**Regex family (all dispatched from `mk_app_core`, all proved in Part
+3 / [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst) unless noted):**
+
+| Dispatched method | Covered? | What is verified |
+|---|---|---|
+| `mk_re_plus` | yes | `emp+=emp`/`all+=all`/`eps+=eps`/`a*+=a*` -- the 4 "clean algebraic" branches (nested-loop arithmetic branch not applicable here) |
+| `mk_re_star` | yes | `emp*`/`all*`/`.+*`/`eps*`/`a+*=a*`/`a**=a*`/`(eps\|a)*=a*`/`(a*\|b)*=(a\|b)*`/`(a*b*)*=(a\|b)*` -- 9 of its ~11 branches; info-dependent `min_length`/subset-detection branches not covered |
+| `mk_re_opt` | yes | definitional identity with `re_union(epsilon,a)`, already established in `Z3RegexTheory.fst` |
+| `mk_re_reverse` | yes | push-through for concat/star/plus/union/inter/diff/xor/complement/opt/loop/double-reverse -- 12 of its ~15 branches; `ite` and literal-string-data branches not covered |
+| `mk_re_union0` / `mk_re_union` | partial | idempotence, empty/full absorption, `a*\|eps=a*`, complement absorption; `try_collapse_re_union`/AC-normalization/`ite`-hoisting not covered |
+| `mk_re_complement` | partial | both De Morgan directions, empty/full swap, double-complement, `~eps = Sigma-char+`; `ite`-hoisting not covered |
+| `mk_re_inter0` / `mk_re_inter` | partial | idempotence, empty/full absorption, complement absorption; `try_collapse_re_inter`/AC-normalization/`ite`-hoisting not covered |
+| `mk_re_diff` | yes (via citation) | `a\b = a & ~b`, exactly `lemma_diff_is_inter_compl` in `Z3RegexTheory.fst`; the `range_predicate` fast path not covered |
+| `mk_re_xor0` / `mk_re_xor` | yes | self-xor/empty-identity/full-identity/complement-distribution (all 3 directions); AC-normalization not covered |
+| `mk_re_loop` | partial | `lo>hi` emptiness, `loop 0 0 = eps`, `loop 1 1 = a`, `loop 0 unbounded = a*`; nested-loop combination arithmetic not covered |
+| `mk_re_power` | yes (via citation) | reduces to `mk_re_loop`'s `lo=hi` case, i.e. `lemma_loop_exact` |
+| `mk_re_range` | partial | inverted-range-emptiness and singleton-range identity, stated against an abstract `in_range` predicate; concrete-literal extraction and symbolic length-pruning not covered |
+| `mk_re_concat` | partial | `all.all=all`, empty absorption, epsilon unit (via citation), literal concatenation, `a*.a*=a*`, `a*.a=a.a*`; `rex::info`-dependent absorption rules, loop-addition combination, and `ite`-hoisting not covered |
 
 ## Part 1: sequence core (`Z3SeqRewrites.fst`)
 
@@ -228,13 +290,79 @@ shape to:
   lemmas (`lemma_star_unfold`, `lemma_plus_is_concat_star`, etc.)
   already certify the underlying language identities.
 
+## Part 3: regex algebra (`Z3RegexRewrites.fst`)
+
+[`Z3RegexRewrites.fst`](Z3RegexRewrites.fst) proves that the `mk_re_*`
+rewrite rules dispatched from `mk_app_core` preserve the `lang a`
+semantics defined in [`Z3RegexTheory.fst`](Z3RegexTheory.fst), i.e.
+that each rewrite is a sound language-equivalence (`equiv`), not just
+a syntactic transformation. Scope follows the same "breadth over
+completeness" policy as Parts 1-2: every function dispatched on
+regex arguments is covered for its "clean algebraic" branches
+(identities, absorptions, idempotences, De Morgan laws, push-through
+rules); branches that depend on `rex::info`'s `min_length`/`nullable`
+static analysis, on `is_subset`/`merge_regex_sets`/`try_collapse_re_*`
+syntactic-subset detection, or that are pure term-restructuring
+(`ite`-hoisting, AC-normalization, concat flattening) are explicitly
+listed as not covered per function below.
+
+Two new reusable building blocks, beyond what `Z3RegexTheory.fst`
+already supplied, carry most of the proof weight:
+
+- **Pointwise monotonicity** (`lemma_pow_mono`, `lemma_star_mono`,
+  `lemma_concat_mono`/`lemma_concat_congr`): lifts a per-word language
+  containment/equivalence fact through `re_pow`/`re_star`/`re_concat`.
+  This is the generic "closed language absorbs its own
+  repetitions/unions" argument used throughout `mk_re_star` (e.g.
+  `(a*|b)* == (a|b)*`) and `mk_re_reverse`.
+- **`lemma_reverse_pow`** (`reverse(L^n) == (reverse L)^n`): generalizes
+  `Z3RegexTheory.fst`'s existing `lemma_reverse_concat_lang` (one
+  concatenation) to `n` repetitions by induction, via
+  `lemma_pow_add` reassociation (since `re_pow` is left-recursive, the
+  naive witness swap produces the wrong concatenation order and must
+  be corrected with the already-proved pow-addition identity). This is
+  the key lemma behind `mk_re_reverse`'s star/plus/loop cases.
+- **`lemma_star_pow_comm`** (`L* . L^n == L^n . L*`): a general
+  commutativity fact (both sides describe "n-or-more copies of L"),
+  needed because `re_loop_lo` is defined `pow . star` but reversing a
+  concatenation naturally produces `star . pow`.
+
+### Coverage by function
+
+| `seq_rewriter.cpp` function | Lines | Lemma(s) in [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst) | Not covered |
+|---|---|---|---|
+| `mk_re_plus` | 4319-4349 | `lemma_re_plus_empty`, `lemma_re_plus_full`, `lemma_re_plus_epsilon`, `lemma_re_plus_star_idem` | — (all 4 branches covered) |
+| `mk_re_star` | 4165-4242 | `lemma_re_star_full`, `lemma_re_star_allchar`, `lemma_re_star_empty`, `lemma_re_star_epsilon`, `lemma_re_star_plus_idem`, `lemma_re_star_star_idem`, `lemma_re_star_union_epsilon`, `lemma_re_star_union_star_absorb`, `lemma_re_star_concat_star_star` | the `(Sigma*.S)* = eps\|Sigma*.S` rule (associativity-heavy, deferred); `min_length`/subset-detection branches; `ite`-hoisting |
+| `mk_re_opt` | 4349-end | (cites `Z3RegexTheory.fst`'s `lemma_opt_is_loop_0_1`; `re_opt` is definitionally `re_union(epsilon,l)`) | — |
+| `mk_re_reverse` | 2876-2969 | `lemma_reverse_pow`, `lemma_reverse_star`, `lemma_reverse_plus`, `lemma_reverse_union`, `lemma_reverse_inter`, `lemma_reverse_diff`, `lemma_reverse_xor`, `lemma_reverse_complement`, `lemma_reverse_opt`, `lemma_reverse_loop`, `lemma_reverse_loop_lo` (+ cites `lemma_reverse_concat_lang`/`lemma_reverse_reverse_lang` from `Z3RegexTheory.fst`) | the `ite`-tree branch; the `is_full_seq`/`is_empty`/`is_range`/`is_full_char`/`is_of_pred` self-invariant branches (need `len w=1 ==> reverse w==w`, not formalized); literal-string-data branches (`to_re(reverse string)`, no string-literal type in this model) |
+| `mk_re_union0` / `mk_re_union` | 3814-3872 | `lemma_union_idem`, `lemma_union_empty_l/r`, `lemma_union_full_l/r`, `lemma_union_absorb_subset`, `lemma_re_union_star_epsilon`, `lemma_union_compl_full` | `try_collapse_re_union`/`mk_regex_union_normalize` (AC-normalization, syntactic subset detection via `is_subset`/`merge_regex_sets`); `ite`-hoisting |
+| `mk_re_complement` | 3880-3924 | `lemma_inter_union_compl_demorgan` (dual of `Z3RegexTheory.fst`'s `lemma_union_inter_compl_demorgan`), `lemma_compl_empty`, `lemma_compl_full`, `lemma_compl_epsilon_is_plus_allchar` (+ cites `lemma_compl_compl`) | `ite`-hoisting |
+| `mk_re_inter0` / `mk_re_inter` | 3924-3981 | `lemma_inter_idem`, `lemma_inter_empty_l/r`, `lemma_inter_full_l/r`, `lemma_inter_compl_empty` | `try_collapse_re_inter`/`mk_regex_inter_normalize`; `ite`-hoisting |
+| `mk_re_diff` | 3981-4010 | (cites `Z3RegexTheory.fst`'s `lemma_diff_is_inter_compl` directly -- it literally *is* `mk_re_diff`'s fallback definition) | the `range_predicate_to_regex`/`regex_to_range_predicate` fast path (needs the `mk_re_range` element-ordering model) |
+| `mk_re_xor0` / `mk_re_xor` | 4010-4080 | `lemma_xor_self_empty`, `lemma_xor_empty_l/r`, `lemma_xor_full_l/r`, `lemma_xor_compl_compl`, `lemma_xor_compl_l`, `lemma_xor_compl_r` | expression-id-based AC normalization (term-ordering, no language content) |
+| `mk_re_loop` | 4080-4148 | `lemma_loop_empty_inverted`, `lemma_loop_0_0`, `lemma_loop_1_1`, `lemma_loop_lo_zero_is_star` (+ cites `Z3RegexTheory.fst`'s `lemma_loop_exact`/`lemma_loop_lo_def`) | nested-loop combination (`(loop (loop a lo) lo2) = (loop a lo*lo2)` and its bounded variant -- needs a `pow`-multiplication lemma not yet written); `UINT_MAX` overflow guards (machine arithmetic, no language content) |
+| `mk_re_power` | 4148-4165 | (reduces definitionally to `mk_re_loop`'s `lo=hi` case, i.e. `lemma_loop_exact`) | — |
+| `mk_re_range` | 4242-4319 | `lemma_range_empty_of_unsat`, `lemma_range_singleton` (both stated against an abstract `in_range` predicate, since this model has no concrete character-order theory) | concrete-literal extraction (`zstring`/`str().is_unit`/`m_util.is_const_char`); `min_length`/`max_length` symbolic-bound emptiness pruning |
+| `mk_re_concat` | 3588-3813 | `lemma_concat_full_full`, `lemma_concat_empty_lang_l/r`, `lemma_concat_to_re`, `lemma_concat_star_star_self`, `lemma_concat_star_self_comm` (+ cites `Z3RegexTheory.fst`'s `lemma_concat_unit_l/r` for the epsilon-unit branches) | the `rex::info`/`accepts_empty_word`/`starts_with_full_seq`/`ends_with_full_seq`/`all_inter_arms_end_with_full_seq` branches (need `rex::info` static analysis, not modeled here); loop-addition combination (subset direction is easy via `lemma_pow_concat_intro` generalized to ranges, converse direction needs nat-arithmetic case splitting, not yet written); `ite`-hoisting; the final concat-flattening re-association (bookkeeping, not a semantic law) |
+
+All lemmas above compile with **zero `admit`/`assume`**; a full clean
+recompile of all 24 `.fst` files in this directory (deleting every
+`.checked` file first) succeeds with no errors.
+
 ## Summary
 
-All four files (`Z3SeqTheory.fst`, `Z3SeqRewrites.fst`,
-`Z3SeqDerive.fst`, `Z3RegexMembership.fst`) compile cleanly from a
-fresh `.checked` state with zero admits. Together they cover roughly
-the full "pure sequence" half of `seq_rewriter.cpp` plus a
-representative slice of its one regex/sequence bridge function
-(`mk_str_in_regexp`); the regex-algebra half of the file (`mk_re_*`)
-and the concat-boundary decomposition logic throughout the sequence
-core remain the two largest open areas.
+All seven proof/theory files for `seq_rewriter.cpp`
+(`Z3SeqTheory.fst`, `Z3SeqRewrites.fst`, `Z3SeqDerive.fst`,
+`Z3RegexMembership.fst`, `Z3RegexTheory.fst`, `Z3RegexExprTheory.fst`,
+`Z3RegexRewrites.fst`) compile cleanly from a fresh `.checked` state
+with zero admits. Together they cover the full "pure sequence" half of
+`seq_rewriter.cpp`, a representative slice of its one regex/sequence
+bridge function (`mk_str_in_regexp`), and the "clean algebraic" core
+of every `mk_re_*` regex-algebra function dispatched from
+`mk_app_core`. The three largest remaining open areas are: (1) the
+concat-boundary decomposition logic throughout the sequence core
+(`mk_seq_at`/`contains`/`prefix`/`suffix`/`extract`'s `str.++`-tree
+walks), (2) the `rex::info`/`is_subset`/`try_collapse_re_*` syntactic
+and static-analysis machinery that backs the more aggressive `mk_re_*`
+simplifications, and (3) nested-loop/range arithmetic combination
+rules (`mk_re_loop`'s and `mk_re_concat`'s loop-addition branches).
