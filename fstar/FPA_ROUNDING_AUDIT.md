@@ -9,19 +9,18 @@ see `Z3FpaRoundingAudit.fst`) that the **existing** (currently merged,
 on `master`) encoding fails that condition, while the **new** encoding
 proposed by two independent open PRs restores it.
 
-**Status update (latest session, `master` at commit `ed51897f8`):**
-PR #10888 has **merged**; issues #10881, #9953, and #10931 are now
-**closed** (verified fixed and closed this session; #10931's repro was
-independently re-run and confirmed `sat`/`model_validate`-clean). PR
-#10938 is **closed, unmerged** (superseded by #10888 landing). Two
-*new* bugs were found and fixed this session, outside the rounding
-encoding above: issue **#7842** (NaN cross-theory congruence, fixed in
-`theory_fpa.cpp::relevant_eh`, see `Z3FpaNanWrap.fst`) and issue
-**#10176** (sign-of-`fp.to_real` nonlinear-arithmetic incompleteness,
-fixed in `fpa2bv_converter.cpp::mk_to_real`, see
-`Z3FpaToRealSign.fst`) — both fixes opened as **PR #11088**, detailed
-in new sections below. Issue **#7431** still awaits merge of the
-already-opened fix PR #11086.
+**Status update (latest session, `master` at commit `57e1b5f93`):**
+All five tracked issues are now **closed**. PR #10888 **merged**,
+closing #10881/#9953/#10931. PR #11086 **merged**, closing #7431
+(zero-sign fix). PR #11088 **merged**, closing #7842 (NaN cross-theory
+congruence, `theory_fpa.cpp::relevant_eh`, see `Z3FpaNanWrap.fst`) and
+#10176 (sign-of-`fp.to_real` nonlinear-arithmetic incompleteness,
+`fpa2bv_converter.cpp::mk_to_real`, see `Z3FpaToRealSign.fst`) —
+#10176 did not auto-close via the merge and was closed manually with
+an explanatory comment. PR #10938 remains **closed, unmerged**
+(superseded by #10888). Permanent regression tests for #7842/#10176
+were added to `src/test/fpa.cpp` as part of #11088. No open
+Floats-labeled issues remain from this audit as of this update.
 
 ## Issues (label `Floats`)
 
@@ -29,11 +28,11 @@ already-opened fix PR #11086.
 |---|---|---|
 | [#10931](https://github.com/Z3Prover/z3/issues/10931) | Unsound unsat: `to_fp` from a symbolic Real loses the rounding carry into the next binade | **closed** (fixed by #10888, re-verified and closed this session) |
 | [#10881](https://github.com/Z3Prover/z3/issues/10881) | False `unsat` for inexact symbolic Real-to-binary64 rounding | **closed** (fixed by merged PR #10888) |
-| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | open; fix PR #11088 opened, not yet merged |
+| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | **closed** (fixed by #11088, merged; closed manually with explanatory comment) |
 | [#9953](https://github.com/Z3Prover/z3/issues/9953) | [Refutational Soundness Bug] Incorrect UNSAT in Float32 FP/Real round-trip arithmetic | **closed** (fixed by #10888, verified and closed this session) |
 | [#8052](https://github.com/Z3Prover/z3/issues/8052) | Unsat only with unnecessary asserts, else unknown | open (out of scope, not a soundness bug) |
-| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | open; fix PR #11088 opened, not yet merged |
-| [#7431](https://github.com/Z3Prover/z3/issues/7431) | Invalid model issue on float formula | open; fix PR #11086 opened, not yet merged |
+| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | **closed** (fixed by #11088, merged; auto-closed) |
+| [#7431](https://github.com/Z3Prover/z3/issues/7431) | Invalid model issue on float formula | **closed** (fixed by #11086, merged; auto-closed) |
 
 **#10931 and #10881 are the same root cause**: both trace to the single
 exact round-trip equality `m.mk_eq(m_util.mk_to_real(result), x)` in
@@ -356,8 +355,10 @@ thread flagged as *still broken* under a prior partial community fix
 now both return `unsat` with `model_validate=true` clean (this fix, at
 the general `relevant_eh` branch, covers both — a UF application's
 result is likewise "non-FPA-family", so it takes the same code path).
-Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
-(combined with the #10176 fix below).
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **Fixed,
+merged in PR #11088** (combined with the #10176 fix below); issue
+#7842 auto-closed on merge. Permanent regression test added in
+`src/test/fpa.cpp`.
 
 `fpa2bv_converter::mk_to_real` (the FP->Real direction, a different
 function from the Real->FP rounding encoding audited above) computes
@@ -401,6 +402,9 @@ m_extra_assertions.push_back(m.mk_implies(m.mk_and(not_special, m.mk_not(sgn_is_
 rounding direction, integer form) now return `unsat` deterministically
 in well under a second (previously a fast unsound `sat`, or — on
 current `master`, after #10888 — a many-minutes-long non-termination).
-Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
-(combined with the #7842 fix above).
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **Fixed,
+merged in PR #11088** (combined with the #7842 fix above); issue
+#10176 closed manually with an explanatory comment (did not
+auto-close via the merge). Permanent regression test added in
+`src/test/fpa.cpp`.
 
