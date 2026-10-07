@@ -53,6 +53,7 @@ open Z3SeqTheory
 open Z3RegexTheory
 open Z3AstTheory
 open Z3RegexExprTheory
+open Z3BasicExprTheory
 module Classical = FStar.Classical
 
 (* ----------------------------------------------------------------- *)
@@ -304,6 +305,38 @@ let info_loop (i1:info) (lo:nat) (hi:ebound) : info =
     max_length = (match hi with Bound h -> eb_scale h i1.max_length | Infinite -> Infinite);
     classical = i1.classical; interpreted = i1.interpreted }
 
+(*
+  `info::orelse` (seq_decl_plugin.cpp, ~line 2023): used for the
+  `(ite c t f)` case in `mk_info_rec`, where `t`/`f` are regex-sorted
+  and `c`'s truth value is NOT known statically (`get_info` is a
+  purely syntactic analysis, sound for *every* model). Unlike
+  `info_union`/`info_concat` etc. -- which combine the info of two
+  sub-languages that are BOTH actually present in the result -- here
+  exactly ONE of `i1`/`i2` describes the actual (model-dependent)
+  language, and `compute_info` cannot tell which, so:
+    - `nullable` only commits if *both* branches agree (an "OR" of
+      possibilities would be unsound: if `i1.nullable = LFalse` and
+      `i2.nullable = LTrue`, the real answer is "maybe", not "true"
+      merely because one branch happens to be nullable);
+    - `min_length`/`max_length` must soundly bound *either* branch,
+      so they are the union of the two intervals (smaller min, larger
+      max) -- the same formula `info_union` uses for that part;
+    - `interpreted` is conservatively `false` always, matching the
+      real code's hardcoded choice (with a `// TBD` comment noting
+      the precise rule depends on whether `c` and both `t`/`f`
+      branches are themselves interpreted -- not attempted here,
+      mirroring the real code's own incompleteness).
+*)
+let info_orelse (i1 i2:info) : info =
+  let n =
+    if i1.nullable = LTrue && i2.nullable = LTrue then LTrue
+    else if i1.nullable = LFalse && i2.nullable = LFalse then LFalse
+    else LUndef
+  in
+  { nullable = n; min_length = (if i1.min_length <= i2.min_length then i1.min_length else i2.min_length);
+    max_length = eb_max i1.max_length i2.max_length; classical = i1.classical && i2.classical;
+    interpreted = false }
+
 (* ----------------------------------------------------------------- *)
 (* compute_info: structural recursion over `App` nodes, mirroring      *)
 (* `mk_info_rec`'s dispatch on `decl_kind` exactly, and `to_lang`'s     *)
@@ -404,6 +437,13 @@ let rec compute_info (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot (option info) (de
          if lo >= 0 && hi >= lo then (match compute_info sl r with Some i -> Some (info_loop i lo (Bound hi)) | None -> None)
          else None
        | _ -> None)
+    else if is_basic_op f Op_ite then
+      (match args with
+       | [_c; t; fe] ->
+         (match compute_info sl t, compute_info sl fe with
+          | Some i1, Some i2 -> Some (info_orelse i1 i2)
+          | _, _ -> None)
+       | _ -> None)
     else None
 
 (* ----------------------------------------------------------------- *)
@@ -477,6 +517,20 @@ let lemma_sound_concat (#a:eqtype) (l1 l2:lang a) (i1 i2:info)
 let lemma_sound_union (#a:eqtype) (l1 l2:lang a) (i1 i2:info)
   : Lemma (requires info_sound i1 l1 /\ info_sound i2 l2)
           (ensures info_sound (info_union i1 i2) (re_union l1 l2))
+  = ()
+
+(* Unlike every other `lemma_sound_X`, `info_orelse`'s soundness is
+   NOT stated against a single combined language: `(ite c t f)`'s
+   actual denotation (under a fixed `sl`) is exactly `l1` or exactly
+   `l2` (whichever `eval_cond sl c` picks out, Z3RegexExprTheory.fst),
+   never a union of both. What is true -- and all that is needed,
+   since `compute_info` cannot evaluate `c` -- is that `info_orelse
+   i1 i2` is simultaneously a sound summary of *either* branch
+   individually, so it remains sound whichever one a fixed model
+   actually selects. *)
+let lemma_sound_orelse (#a:eqtype) (l1 l2:lang a) (i1 i2:info)
+  : Lemma (requires info_sound i1 l1 /\ info_sound i2 l2)
+          (ensures info_sound (info_orelse i1 i2) l1 /\ info_sound (info_orelse i1 i2) l2)
   = ()
 
 let lemma_sound_inter (#a:eqtype) (l1 l2:lang a) (i1 i2:info)
@@ -692,6 +746,15 @@ let rec lemma_compute_info_sound (#a:eqtype) (sl:seq_lit a) (e:expr)
               | _, _ -> ())
            end
          | _, _ -> ())
+      else if is_basic_op f Op_ite then
+        (match args with
+         | [c; t; fe] ->
+           lemma_compute_info_sound sl t;
+           lemma_compute_info_sound sl fe;
+           (match compute_info sl t, to_lang sl t, compute_info sl fe, to_lang sl fe with
+            | Some i1, Some l1, Some i2, Some l2 -> lemma_sound_orelse l1 l2 i1 i2
+            | _, _, _, _ -> ())
+         | _ -> ())
       else ()
 
 (* ----------------------------------------------------------------- *)
@@ -973,5 +1036,17 @@ let rec lemma_compute_info_interpreted_sound (#a:eqtype) (sl sl':seq_lit a) (e:e
               | _, _, _ -> ())
            end
          | _, _ -> ())
+      else if is_basic_op f Op_ite then
+        (* `interpreted = false` always for `info_orelse` (the
+           deliberately conservative choice `info::orelse` itself
+           makes), so the language-equivalence consequent is vacuous
+           here; only the `Some`/`None` agreement between `sl`/`sl'`
+           needs establishing, which follows from the two recursive
+           calls' own (`same_interpreted`) guarantees. *)
+        (match args with
+         | [_c; t; fe] ->
+           lemma_compute_info_interpreted_sound sl sl' t;
+           lemma_compute_info_interpreted_sound sl sl' fe
+         | _ -> ())
       else ()
 

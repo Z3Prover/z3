@@ -36,6 +36,7 @@ module Z3RegexExprTheory
 open Z3AstTheory
 open Z3SeqTheory
 open Z3RegexTheory
+open Z3BasicExprTheory
 module Classical = FStar.Classical
 
 (* ----------------------------------------------------------------- *)
@@ -140,6 +141,23 @@ noeq type seq_lit (a:eqtype) = {
      its own, so this is supplied per-instantiation rather than
      assumed as an axiom. *)
   char_le     : a -> a -> bool;
+  (* A ground propositional interpretation used only to evaluate the
+     *condition* of an `(ite c t f)` node where `t`/`f` are
+     regex-sorted (`u.m.is_ite(e, c, t, f)` in `mk_info_rec`, the one
+     fallback case handled outside the main `seq_op_kind` switch, see
+     Z3RegexInfo.fst). `c` is assumed closed and is evaluated via
+     `Z3BasicExprTheory.eval_bool` instantiated at `value = bool`: any
+     atom `c` is not itself built from (and/or/not/implies/xor/=/
+     distinct/ite) -- e.g. an uninterpreted Boolean constant, or an
+     opaque predicate over some other sort entirely, such as a string
+     equality -- is treated as an atomic proposition whose truth
+     `cond_interp` assigns directly (`uninterp_app`/`interp_app`
+     returning the Boolean outright). Modeling conditions that
+     themselves mix *sequence*-level reasoning with Boolean structure
+     beyond this -- e.g. `=`/`distinct` between genuinely `seq a`
+     arguments -- is out of scope here; such sub-conditions are simply
+     atoms as far as `cond_interp` is concerned. *)
+  cond_interp : interpretation bool;
 }
 
 (* Evaluate a leaf expression to the sequence it denotes: a
@@ -171,6 +189,12 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
   : Lemma (requires same_classification sl sl' /\ is_ground_leaf sl e)
           (ensures eval_leaf sl e == eval_leaf sl' e)
   = ()
+
+(* The concrete truth value `sl` assigns to a (closed) Bool-sorted
+   condition expression, used to pick the actual branch of an
+   `(ite c t f)` node -- see `cond_interp`'s doc comment above. *)
+let eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : bool =
+  eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false)
 
 (* A character range test, taken as the two endpoint sequences
    already evaluated to ground words: `x` is "in range" iff `wl`,
@@ -285,6 +309,26 @@ let rec to_lang (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot (option (lang a)) (dec
        | [r], [lo; hi] ->
          if lo >= 0 && hi >= lo then (match to_lang sl r with Some l -> Some (re_loop l lo hi) | None -> None)
          else None
+       | _ -> None)
+    else if is_basic_op f Op_ite then
+      (* `u.m.is_ite(e, c, t, f)`'s fallback, outside the `seq_op_kind`
+         switch: the actual (model-dependent) denotation is whichever
+         one of `t`/`f` the condition `c` picks out under `sl`, not a
+         combination of both -- contrast with `compute_info`'s
+         `info_orelse`, which (mirroring the real static analysis)
+         cannot evaluate `c` and so must soundly cover both branches
+         at once. Both `t` and `fe` are required to be *recognized*
+         regex expressions regardless of which one `eval_cond` picks
+         (an ill-formed `ite` is not well-sorted in the first place,
+         whichever branch a given model happens to select), so that
+         "`e` is recognized" agrees with `compute_info`'s own
+         requirement that *both* sub-infos be available -- `compute_info`
+         cannot evaluate `c` to only demand the chosen branch. *)
+      (match args with
+       | [c; t; fe] ->
+         (match to_lang sl t, to_lang sl fe with
+          | Some l1, Some l2 -> Some (if eval_cond sl c then l1 else l2)
+          | _, _ -> None)
        | _ -> None)
     else None
 
