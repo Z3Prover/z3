@@ -3063,8 +3063,10 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
                 m.mk_implies(m.mk_not(m.mk_or(r_is_nan, r_is_inf)), rounding_cond));
 
             // rounding never changes the sign
-            m_extra_assertions.push_back(m.mk_implies(au.mk_gt(x, zero), m.mk_eq(r_sgn, bv0)));
-            m_extra_assertions.push_back(m.mk_implies(au.mk_lt(x, zero), m.mk_eq(r_sgn, bv1)));
+            auto gt = au.mk_gt(x, zero);
+            auto lt = au.mk_lt(x, zero);
+            m_extra_assertions.push_back(m.mk_implies(gt, m.mk_eq(r_sgn, bv0)));
+            m_extra_assertions.push_back(m.mk_implies(lt, m.mk_eq(r_sgn, bv1)));
         }
 
         // Directed rounding overflows immediately beyond the largest finite value.
@@ -3091,7 +3093,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         // solver chose -0.
         expr_ref pzero(m);
         mk_pzero(result->get_sort(), pzero);
-        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_eq(result, pzero)));
+        auot e1 = m.mk_eq(x, zero);
+        m_extra_assertions.push_back(m.mk_implies(eq1, m.mk_eq(result, pzero)));
     }
 
     SASSERT(is_well_sorted(m, result));
