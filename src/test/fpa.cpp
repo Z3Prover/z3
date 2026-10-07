@@ -79,8 +79,54 @@ static void test_significand_out_of_range() {
     Z3_del_context(ctx);
 }
 
+static void test_to_fp_real_zero_sign() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Converting the mathematical real 0 must always yield +0, never -0,
+    // regardless of rounding mode: a real number carries no sign bit for
+    // the rounding mode to act on. This used to produce an invalid model
+    // (issue #7431) because the old encoding allowed either +0 or -0 when
+    // the input was exactly 0.
+    char const* zero_spec =
+        "(set-logic ALL)\n"
+        "(declare-const v Real)\n"
+        "(assert (= v 0.0))\n"
+        "(assert (= ((_ to_fp 2 6) RTZ v) (fp (_ bv1 1) (_ bv0 2) (_ bv0 5))))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, zero_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    // The original #7431 reproducer uses a *symbolic* free real `v`; whether
+    // that query is `sat` in general additionally depends on the (separate,
+    // still-open) symbolic-rounding completeness bug tracked by issues
+    // #10881/#10931. This test only re-checks the invalid-model regression
+    // above. As a sanity check that negative-zero results are still
+    // reachable at all post-fix, a concrete small negative numeral (which
+    // goes through the unrelated, already-correct numeral-rounding code
+    // path) must still round to -0 under RTZ.
+    char const* numeral_spec =
+        "(reset)\n"
+        "(set-logic ALL)\n"
+        "(assert (= ((_ to_fp 2 6) RTZ (- 0.0001)) (fp (_ bv1 1) (_ bv0 2) (_ bv0 5))))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, numeral_spec);
+    if (response.find("unsat") != std::string::npos || response.find("sat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
+    test_to_fp_real_zero_sign();
 }
