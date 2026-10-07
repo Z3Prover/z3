@@ -238,7 +238,7 @@ namespace smt {
                     quantifier_manager::log_justification_to_root(out, substituted, already_visited, ctx, get_manager());
                 }
             }
-            out << "[new-match] " << static_cast<void *>(nullptr) << " " << family_name << "#" << axiom_id << " " << family_name << "#" << pattern_id;
+            out << "[new-match] 0x0 " << family_name << "#" << axiom_id << " " << family_name << "#" << pattern_id;
             for (unsigned i = 0; i < num_bindings; ++i) {
                 out << " #" << bindings[i]->get_id();
             }
@@ -254,7 +254,7 @@ namespace smt {
             }
         }
         out << "\n";
-        out << "[instance] " << static_cast<void *>(nullptr) << " #" << r->get_id() << "\n";
+        out << "[instance] 0x0 #" << r->get_id() << "\n";
         out.flush();
     }
 
