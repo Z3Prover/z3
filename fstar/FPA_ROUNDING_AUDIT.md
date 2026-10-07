@@ -9,7 +9,7 @@ see `Z3FpaRoundingAudit.fst`) that the **existing** (currently merged,
 on `master`) encoding fails that condition, while the **new** encoding
 proposed by two independent open PRs restores it.
 
-**Status update (latest session, `master` at commit `8f621dca1`):**
+**Status update (latest session, `master` at commit `ed51897f8`):**
 PR #10888 has **merged**; issues #10881, #9953, and #10931 are now
 **closed** (verified fixed and closed this session; #10931's repro was
 independently re-run and confirmed `sat`/`model_validate`-clean). PR
