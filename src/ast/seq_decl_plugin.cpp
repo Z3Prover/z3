@@ -1973,7 +1973,14 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
     if (is_known()) {
         if (rhs.is_known()) {
             info r(interpreted & rhs.interpreted,
-                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
+                // Soundness: Lambda(r \ s) is nullable only if Lambda(r) is nullable (it is a
+                // subset of Lambda(r)), so the only way to conclude l_false is nullable == l_false.
+                // rhs.nullable == l_false alone does NOT force non-nullability: e.g. r is a
+                // symbolic sequence with unknown nullability (l_undef) and s has nullable == l_false;
+                // if r happens to denote the empty word, r \ s is nullable, so l_false would be
+                // unsound here. (Previously this disjunct read
+                // `nullable == l_false || rhs.nullable == l_false`, which was unsound.)
+                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false) ? l_false : l_undef)),
                 0, 0,
                 false);
             // Lambda(r \ s) is contained in Lambda(r), so the lhs abstraction carries over.

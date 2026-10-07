@@ -28,6 +28,7 @@ verification conditions with no `admit`/`assume`/axioms.
 | Floating point | [`FPA_REPORT.md`](FPA_REPORT.md) | `Z3FpaTheory.fst`, `Z3FpaConverter.fst` | `Z3FpaRewrites.fst`, `Z3FpaConverter.fst` | `src/ast/rewriter/fpa_rewriter.cpp`, `src/ast/fpa/fpa2bv_converter.cpp` |
 | FP rounding (issue/PR audit) | [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) | `Z3FpaConverter.fst` | `Z3FpaRoundingAudit.fst`, `Z3FpaRoundingBits.fst`, `Z3FpaZeroSign.fst`, `Z3FpaNanCongruence.fst`, `Z3FpaNanWrap.fst`, `Z3FpaToRealSign.fst` | `mk_to_fp_real`, `mk_to_real`, `theory_fpa::relevant_eh`, and FP/datatype model construction (all tracked issues now closed: #10881/#10931/#9953 via merged PR #10888; #7431 via merged PR #11086; #7842/#10176 via merged PR #11088) |
 | MPF library | [`MPF_REPORT.md`](MPF_REPORT.md) | `Z3MpfTheory.fst` | `Z3MpfTheory.fst`, `Z3MpfRound.fst`, `Z3MpfExact.fst` | `src/util/mpf.h`/`mpf.cpp` (arbitrary-precision IEEE-754 library) |
+| Regex/AST (`rex::info`) | [`REGEX_REPORT.md`](REGEX_REPORT.md) | `Z3RegexTheory.fst`, `Z3AstTheory.fst`, `Z3RegexExprTheory.fst` | `Z3RegexInfo.fst` | `src/ast/seq_decl_plugin.cpp`'s `get_info`/`mk_info_rec`/`rex::info` (found and fixed a soundness bug in `info::diff`'s nullable computation) |
 
 See each linked report for the full scope decision, function-by-function
 coverage table, notable results, and remaining gaps for that audit.
