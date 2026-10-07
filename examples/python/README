@@ -19,7 +19,10 @@ Native Boolean proof certificates
 proof_certificate.py exports a native Z3 proof DAG as JSON. It is a first
 milestone toward independent proof checking, not a Lean proof or a verified
 unsat verdict. Every bundle explicitly has verification = "unverified".
-It uses a separate proof-enabled context and does not change global settings.
+For propositional input it uses the legacy proof objects in a separate
+proof-enabled context and does not change global settings. For linear real
+arithmetic it rebuilds the sat.smt clause log instead; see "Linear real
+arithmetic through the clause log" below.
 
 Build the local Python bindings and examples:
 
@@ -60,9 +63,12 @@ and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's
 scanner. Nonstandard block comments are rejected.
 
 Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
-xor, Boolean equality/distinct, and Boolean ite. Quantifiers, uninterpreted
-function applications, arithmetic, bit-vectors, arrays, and pseudo-Boolean
-operators are outside this milestone. Definitions are expanded by Z3's parser.
+xor, Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
+variables and numerals, sums, differences, negation, multiplication by a
+constant, division by a nonzero constant, and the atoms <=, <, >=, >, =, and
+distinct over Real terms. Quantifiers, uninterpreted function applications,
+integer arithmetic, arithmetic ite, nonlinear terms, bit-vectors, arrays, and
+pseudo-Boolean operators are rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
@@ -72,7 +78,7 @@ Bundle format, version 1
     format          "z3-native-proof-dag"
     format_version  1
     z3_version      producer's full Z3 version
-    fragment        "propositional"
+    fragment        "propositional" or "qf_lra"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -89,9 +95,15 @@ all their arguments, including their conclusions. Declaration kinds are the
 Z3_OP_* API constants, not a new set of logical rules.
 
 This version supports application nodes with Bool/Proof sorts and declarations
-without parameters. Other native shapes are rejected, never serialized
-incompletely. The root is required to conclude false, but checking that shape
-does not establish proof correctness.
+without parameters. The qf_lra fragment additionally uses the Real sort,
+numeral declarations whose name is the exact rational value, the arithmetic
+operators and predicates listed above, and th-lemma declarations whose
+parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",
+"tseitin", "smt", or the exporter's own "cnf") followed, for the first three,
+by one nonnegative rational coefficient per literal of the lemma clause.
+Other native shapes are rejected, never serialized incompletely. The root is
+required to conclude false, but checking that shape does not establish proof
+correctness.
 
 The exporter itself does not verify inference rules. A separate, deliberately
 limited Lean reconstruction path is now available below. Theory support and
@@ -101,6 +113,63 @@ Run the focused regression suite with the local bindings:
 
     PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
         -p test_proof_certificate.py
+
+Linear real arithmetic through the clause log
+--------------------------------------------
+
+The proof objects of the smt core (sat.smt=false) record theory_lra's
+arithmetic conflicts as (_ th-lemma arith) without Farkas coefficients, so
+they cannot be replayed.
+The sat.smt core's clause log carries them: each inferred clause comes with a
+hint such as (farkas 1 $11 2 $17 1 $21). proof_certificate.py therefore drives
+the z3 executable for arithmetic input and rebuilds the log into the same DAG
+format:
+
+    PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
+        --z3 build/z3 input.smt2 > proof.json
+
+--core auto (the default) uses the legacy proof object for propositional input
+and the clause log otherwise; --core clause-log forces the log for Boolean
+input too. --z3 defaults to $Z3_EXE, then build/z3 next to this checkout, then
+z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
+with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
+bound_simplifier disabled, because the log starts after preprocessing and
+bound_simplifier runs solve_eqs internally regardless of its own option.
+
+proof_clause_log.py replays the log with exact bookkeeping and never trusts a
+step:
+
+  - Each assumed clause is tied to an original assertion: the identical
+    formula is asserted directly; an equivalent formula or conjunct is bridged
+    by and-elim, rewrite, and mp; a formula that merely implies the clause,
+    which happens when preprocessing splits an xor or an equivalence into
+    several clauses, is bridged by a th-lemma with hint "cnf" and one
+    unit-resolution. Clauses with true, not false, or complementary literals
+    are def-axiom nodes. Nothing else is accepted as an assumption.
+  - farkas, bound, implied-eq, and euf hints list literals that are jointly
+    contradictory; the exporter emits one th-lemma concluding the clause of
+    their complements, after checking farkas and bound coefficients with exact
+    rational arithmetic. Equality literals in these hints carry placeholder
+    coefficients, so their multipliers are solved for by Gaussian elimination,
+    as Z3's own checker does. implied-eq ends in a disequality, not an
+    inequality to sum: its shape is checked in Python and Lean proves that
+    the preceding literals imply the complementary equality. tseitin hints
+    list a gate clause and become def-axiom nodes. A bare smt hint claims the
+    logged clause outright and becomes a th-lemma with hint "smt".
+  - alldiff hints list clauses from internalizing distinct. Like assumed
+    clauses, they must be derived from the original assertions; the hint
+    itself never authorizes a theorem.
+  - rup inferences and every logged clause that differs from its hint's lemma
+    are derived by unit propagation over the live clause database, including
+    the Tseitin definitions of compound Boolean atoms that Z3's checker also
+    uses implicitly. The derivation is emitted as hypothesis, unit-resolution,
+    and lemma nodes, so the reconstructor needs no new Boolean rules.
+  - del steps remove clauses from the database. If the log never derives the
+    empty clause, because the contradiction was found while asserting, the
+    empty clause is derived from the assumptions or tied to the assertions.
+
+The exporter's own checks only fail early with a clear message; Lean remains
+the arbiter.
 
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
@@ -155,9 +224,11 @@ enumerating assignments to nested atoms. Unsupported or malformed clauses fail
 explicitly, even when unused in the final refutation. This is not a general
 propositional tautology prover, and fresh-symbol definitions remain unsupported.
 
-Other proof rules, including rewrite*, mp~, definition introduction,
-and theory lemmas, fail explicitly. Consequently, many
-otherwise propositional Z3 refutations are still unsupported.
+th-lemma nodes and arithmetic rewrites are proved by Lean's grind tactic
+after unfolding the formula and term definitions they mention; see the
+arithmetic section below. Other proof rules, including rewrite*, mp~, and
+definition introduction, fail explicitly. Consequently, some otherwise
+propositional Z3 refutations are still unsupported.
 
 Install the pinned Lean toolchain as described in lean/README.md. The Boolean
 inputs live in Z3Prover/z3test under regressions/proofs/lean/; the commands
@@ -202,6 +273,39 @@ or a solver call. The case count is exponential in a rewrite's atom count;
 large rewrites can exceed Lean's normal resource limits and fail without
 publishing a proof.
 
+Arithmetic in Lean
+------------------
+
+For qf_lra certificates every formula definition takes a second argument
+_vars : Nat -> Rat, Real variables become term definitions over it, numerals
+become exact Rat literals, and the theorem reads
+
+    theorem unsat (_atoms : Nat -> Prop) (_vars : Nat -> Rat)
+        (_h0 : formula_k _atoms _vars) ... : False
+
+Real variables are encoded as Rat. This is sound for the supported fragment:
+a system of linear constraints with rational coefficients has a real solution
+if and only if it has a rational one, so unsatisfiability over Rat is
+unsatisfiability over the reals. The exporter rejects nonlinear terms, which
+is the precondition of that argument; extending the fragment must revisit
+this encoding.
+
+Each th-lemma and each rewrite whose equivalence mentions arithmetic is proved
+in a private theorem by unfolding its definitions and calling grind, whose
+linear-arithmetic and propositional procedures produce a kernel-checked proof.
+Before Lean runs, the reconstructor re-derives the recorded farkas and bound
+combination with exact rationals and rejects coefficients that do not refute
+the lemma's literals. grind does not always combine equalities whose constants
+are fractions, so the generated proof first states each fractional atom's
+denominator-free form as an implication that grind proves, then calls grind
+on the lemma; a false helper fails rather than weakening anything.
+
+Lean core's Rat library itself depends on propext, Classical.choice, and
+Quot.sound, so arithmetic theorems necessarily report those three standard
+axioms. The propositional slice remains axiom-free. Long refutations elaborate
+under set_option maxRecDepth 100000; this is an elaborator limit, not a trust
+setting.
+
 Classical Boolean rewrites, double-negation cancellation in not-or-elim,
 def-axiom clauses, and classical steps in lemma discharge use local decidability
 witnesses.
@@ -226,12 +330,14 @@ including order and duplicates. Matching text or result = "unsat" alone does not
 authorize a proof. The consumer reparses with Z3's SMT-LIB parser but does not
 run Z3's solver search.
 
-Parsing and the Python translation of Boolean expressions into Lean propositions
-remain trusted frontend components, not formally verified implementations.
-Lean checks the reconstructed theorem, Boolean gate-clause lemmas, and rewrite
-truth tables relative to that encoding. Boolean equality is encoded as Iff, and
-Boolean xor/ite/distinct as their logical definitions. This is not yet a fully
-formalized SMT-LIB frontend.
+Parsing and the Python translation of Boolean expressions and linear
+arithmetic into Lean propositions remain trusted frontend components, not
+formally verified implementations. Lean checks the reconstructed theorem,
+Boolean gate-clause lemmas, rewrite truth tables, and the grind-proved
+arithmetic lemmas relative to that encoding. Boolean equality is encoded as
+Iff, Boolean xor/ite/distinct as their logical definitions, and Real as Rat
+under the linearity argument above. This is not yet a fully formalized SMT-LIB
+frontend.
 
 The JSON bundle remains marked unverified: successful reconstruction produces
 a separate Lean proof artifact rather than changing the producer's claim.
@@ -314,6 +420,9 @@ Include the real Lean integration tests when the pinned toolchain is installed:
 
     PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
         -p 'test_proof_to_lean*.py'
+
+test_proof_to_lean_arith.py covers the qf_lra slice end to end and needs the
+z3 executable as well; it is skipped when none is found.
 
 These run in a Lean-enabled Ubuntu CMake CI configuration, not the dependency-free
 build-script job.

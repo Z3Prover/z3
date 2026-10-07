@@ -470,6 +470,71 @@ preserve the original assertion boundary; checking a SAT proof of an unrelated
 or unverified CNF is insufficient. The audit continues to report failure when
 required execution evidence or checked proofs are absent.
 
+## QF_LRA slice through the clause log (2026-10-06)
+
+Milestone 3 now has a working linear real arithmetic slice. It deliberately
+uses the `sat.smt` clause log rather than the smt core's proof objects, because
+`theory_lra` records its arithmetic conflicts there as `(_ th-lemma arith)`
+with no Farkas coefficients: `set_conflict_or_lemma` passes a parameter vector
+that is only ever reset. The clause log carries them, for example
+`(farkas 1 $11 2 $17 1 $21)`, and its hints are already validated by the C++
+checker in the matrix. `proof_clause_log.py` rebuilds the log into the
+existing certificate format, so the Boolean reconstruction is reused
+unchanged: theory hints become `th-lemma` nodes, Tseitin hints become
+`def-axiom` nodes, and reverse-unit-propagation steps become explicit
+hypothesis/unit-resolution/lemma chains. Lean proves each theory lemma and each
+arithmetic rewrite with `grind` over a `Rat` encoding of the Real variables,
+after the reconstructor has re-derived the recorded Farkas combination with
+exact rationals.
+
+Findings from building and running it:
+
+- **`bound_simplifier` defeats the no-preprocessing cell.** With `solve_eqs`,
+  `propagate_values`, and `elim_unconstrained` disabled, `bound_simplifier`
+  (on by default) still runs `solve_eqs` and `propagate_values` internally,
+  so assumed clauses can combine several assertions. The exporter disables it
+  too; the companion matrix update disables it in `smt-clause-log-nopp` as well.
+- **Equality coefficients in `farkas` hints are placeholders.** A hint
+  listing an equality with coefficient 1 may need multiplier 15 to cancel;
+  Z3's checker solves for equality multipliers rather than reading them, and
+  the exporter and reconstructor now do the same by Gaussian elimination.
+- **Hint conventions differ.** `farkas`, `bound`, `implied-eq`, and `euf` list
+  jointly contradictory literals; `tseitin` lists the gate clause itself;
+  `smt` carries no literals. A clause-log consumer must know which is which.
+  An `implied-eq` ends in a disequality: Python checks the shape and Lean
+  proves the implied equality, rather than summing the disequality as a
+  Farkas constraint. `alldiff` clauses must be tied to the original `distinct`
+  assertion, never trusted as unconditional theory lemmas.
+- **Z3's RUP check is Tseitin-aware.** `rup` steps may rely on the definitions
+  of compound Boolean atoms that are never logged as clauses; the replayer
+  adds those gate clauses as `def-axiom` nodes.
+- **Preprocessing splits assertions.** An `xor` or Boolean equality becomes
+  several clauses, and a contradiction found while asserting produces an
+  empty or truncated log. Such clauses are tied to the assertions by a `cnf`
+  theory lemma that Lean proves, which keeps the theorem's hypotheses equal to
+  the original assertions.
+- **`grind` and fractional equalities.** Lean 4.34's `grind` proves the lemmas
+  once denominators are cleared but not always with fractional constants in
+  equalities; stating each fractional atom's scaled form as a helper
+  implication restores completeness on every instance tried.
+- **Real as Rat.** Lean core has no `Real`; the encoding is sound for linear
+  constraints with rational coefficients and is stated at the trust boundary.
+  Lean core's own `Rat` lemmas depend on the three standard axioms, so the
+  arithmetic slice cannot be axiom-free regardless of the tactic used.
+- **Scaling.** Random QF_LRA instances up to 24 variables and 140 constraints
+  (about 2,400 DAG nodes, 525 proof steps) export in under a second and check
+  in about three seconds once `maxRecDepth` is raised; the earlier ~500-step
+  elaboration cliff was the default recursion limit, not the kernel.
+
+The companion matrix update is
+[Z3Prover/z3test#77](https://github.com/Z3Prover/z3test/pull/77): it adds the
+clause-log `--lean` cell and eight QF_LRA inputs, including implied equality,
+n-ary `distinct`, and fractional unary-negation regressions.
+
+Still open for this slice: real SMT-LIB QF_LRA benchmarks (the canary list has
+two unsat instances, both trivial), `smt` hints have not been observed on the
+inputs tried, and QF_LIA needs `cut` hints that the C++ checker never accepts.
+
 ## Arithmetic proof infrastructure
 
 The arithmetic proof infrastructure is slightly broken and must be repaired

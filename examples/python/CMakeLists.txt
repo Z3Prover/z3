@@ -6,11 +6,13 @@ set(python_example_files
   mus/marco.py
   mus/mss.py
   proof_certificate.py
+  proof_clause_log.py
   proof_preprocessing.py
   proof_to_lean.py
   socrates.py
   test_proof_certificate.py
   test_proof_to_lean.py
+  test_proof_to_lean_arith.py
   test_proof_to_lean_integration.py
   visitor.py
 )
