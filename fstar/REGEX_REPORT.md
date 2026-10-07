@@ -248,9 +248,10 @@ zero admits after this extension.
 
 - The legacy arg-based `re.loop` form (bounds passed as ordinary
   `expr` arguments rather than `func_decl` parameters).
-- `len_abs` is now formalized separately, see the next addendum below
-  (not yet wired back into `compute_info`'s own `info` record, which
-  still only tracks a plain `[min_length, max_length]` interval).
+- `len_abs` is now formalized separately (see the `len_abs` addendum
+  below) **and** wired back into `compute_info`'s own `info` record
+  as a `la : len_abs` field alongside `[min_length, max_length]` (see
+  the "`la : len_abs` field added to `rex::info`" addendum below).
 - `is_known()`/`unknown_info` partial-info propagation for binary
   combinators (simplified throughout to strict all-or-nothing `None`
   propagation).
@@ -522,3 +523,103 @@ was abandoned in favor of this simpler, still mathematically
 meaningful certificate-checking form). `Z3LenAbsTheory.fst` compiles
 cleanly from a fresh `.checked` state with zero admits; no other file
 needed any change.
+
+## Addendum: `OP_SEQ_IN_RE` membership and symbolic derivatives (`src/ast/rewriter/seq_derive.cpp`)
+
+Two new files extend the project past `Z3RegexExprTheory.fst`'s
+explicit scoping-out of `str.in_re` ("left for a higher-level theory
+of asserts", see that file's header), and formalize the mathematical
+content of `src/ast/rewriter/seq_derive.cpp`'s symbolic (Brzozowski)
+derivative engine:
+
+| File | Contents |
+|---|---|
+| [`Z3SeqDerive.fst`](Z3SeqDerive.fst) | `deriv`/`is_nullable`/`derivs`: the denotational (residual-language) derivative, and lemmas showing it satisfies exactly the recursive equations `seq_derive.cpp`'s `derive_core` dispatches on, one lemma per `re().is_X(r, ...)` branch |
+| [`Z3RegexMembership.fst`](Z3RegexMembership.fst) | `in_re`: formalizes `OP_SEQ_IN_RE` and certifies a representative set of `seq_rewriter.cpp`'s `mk_str_in_regexp` rewrite rules against it |
+
+**`Z3SeqDerive.fst`.** `deriv c l` is *defined* as the residual
+language `{ w | c::w in L(l) }` (not an operational/syntactic
+construction), and `is_nullable l` as `mem empty l`. On top of this,
+one lemma per `derive_core` case certifies the engine's recursive
+equations are exactly the true residual-language identities:
+
+- Base cases (`seq_derive.cpp:176-198`): `lemma_deriv_empty`,
+  `lemma_deriv_epsilon`, `lemma_deriv_full`, `lemma_deriv_allchar`,
+  `lemma_deriv_of_pred` (covers `re.range` too, since `re.range` is a
+  `re_of_pred` instance), `lemma_deriv_to_re`.
+- Boolean combinators (`seq_derive.cpp:228-267,318-324`):
+  `lemma_deriv_union`, `lemma_deriv_xor`, `lemma_deriv_inter`,
+  `lemma_deriv_complement`, `lemma_deriv_diff`.
+- Concatenation (`seq_derive.cpp:201-224`): `lemma_deriv_concat`,
+  stated as a single pointwise iff using a new `guarded` combinator
+  (`guarded p l = fun w -> p /\ mem w l`) that uniformly covers
+  `derive_core`'s three-way split on whether `is_nullable(r1)` is
+  concretely true, concretely false, or left as a symbolic `ite`
+  guard.
+- Star/plus/opt (`seq_derive.cpp:268-284`): `lemma_deriv_star` (proved
+  by a dedicated structural induction, `lemma_deriv_pow_star`, over
+  the repetition count -- `re_star`'s own `exists n` definition is not
+  *definitionally* a concatenation the way `re_concat` is, so a single
+  `elim_concat` unfold does not suffice), `lemma_deriv_plus` (reduces
+  to the star formula: expanding `r1+ == r1 . r1*` via
+  `lemma_deriv_concat` produces an extra `is_nullable`-guarded
+  disjunct that `lemma_deriv_star` shows is already subsumed by the
+  first one), `lemma_deriv_opt`.
+- `lemma_derivs_correct`: the ground-string correctness theorem --
+  `mem w l <==> is_nullable (derivs w l)` -- justifying
+  `mk_str_in_regexp`'s "Just check membership" loop
+  (`seq_rewriter.cpp:3443-3463`, `r := mk_derivative(ch, r)` then
+  consult `get_info(r).nullable`).
+
+**`Z3RegexMembership.fst`.** Names `str.in_re`'s own denotation
+`in_re w l = mem w l`, then certifies, at the `lang a` level
+`Z3RegexExprTheory.to_lang` already maps each regex shape to:
+
+- `lemma_in_re_empty`/`lemma_in_re_full`: `re.none`/`re.all`
+  (`seq_rewriter.cpp:3401-3408`).
+- `lemma_in_re_to_re`: `(str.to_re s)` via `lift_str_from_to_re`
+  (`seq_rewriter.cpp:3480-3483,3547-3556`).
+- `lemma_in_re_empty_string`: the empty-string case reduces to
+  nullability (`seq_rewriter.cpp:3514-3519`).
+- `lemma_in_re_ground`: restates `Z3SeqDerive.lemma_derivs_correct`
+  under the `in_re` name.
+- `lemma_in_re_opt`: the `b1?`/`eps|b1`/`b1|eps` ITE rewrite
+  (`seq_rewriter.cpp:3505-3512`), via a small `lemma_len_zero_iff_empty`
+  bridging lemma (`str.len a = 0 <=> a = ""`).
+- `lemma_in_re_prefix`/`lemma_in_re_suffix`: the
+  `(str.to_re e) ++ re.all` / `re.all ++ (str.to_re e)` rewrites to
+  `str.prefixof`/`str.suffixof` (`seq_rewriter.cpp:3486-3493`), reusing
+  `Z3SeqRewrites.fst`'s existing `is_prefix`/`is_suffix` reconstruction
+  lemmas (`lemma_prefix_concat_intro`, `lemma_prefix_extract_reconstruct`,
+  `lemma_suffix_concat_intro`) plus a reverse/concat round-trip for the
+  suffix direction.
+
+**Not covered** (documented here rather than silently dropped):
+
+- The ITE-tree hoisting, path/interval pruning, cofactor/minterm
+  enumeration, and memoization machinery that is the actual bulk of
+  `seq_derive.cpp`'s code (`apply_ite`/`hoist_ite`/`get_cofactors*`/
+  the `m_*cache` fields): a performance/representation layer over the
+  mathematically-sound recursive equations above, not itself a
+  soundness obligation.
+- `re.loop`'s derivative (`seq_derive.cpp:286-316`, both the
+  parameterized and legacy arg-based forms) and `re.reverse`'s
+  (`seq_derive.cpp:333-337`, normalize-then-derive) and `ite(c,r1,r2)`'s
+  (`seq_derive.cpp:324-328`, straightforward but not yet restated here).
+- `mk_str_in_regexp`'s remaining rewrites: the symbolic-bound
+  `re.range` reformulation into `str.len`/`str.<=` constraints
+  (`seq_rewriter.cpp:3410-3441`, needs a lexicographic-order theory),
+  the `str.replace_all` character-substitution rewrite
+  (`seq_rewriter.cpp:3466-3476`), and the `can_be_member`-based
+  length-pruning fast path (`seq_rewriter.cpp:3521-3524`, a natural
+  future bridge to `Z3LenAbsTheory.fst`/`Z3RegexBounds.fst`'s
+  `min_length`/`max_length` machinery, not yet wired up).
+- `seq_rewriter.cpp`'s broader regex-algebra simplifications beyond
+  `mk_str_in_regexp` (e.g. `mk_re_concat`'s ACI/dot-star-absorption
+  rewrites) remain covered only to the extent `Z3RegexTheory.fst`'s
+  pre-existing `equiv` lemmas (`lemma_star_unfold`,
+  `lemma_plus_is_concat_star`, etc.) already certify the underlying
+  language identities.
+
+All 23 `.fst` files (two new, twenty-one pre-existing) compile cleanly
+from a fresh `.checked` state with zero admits.
