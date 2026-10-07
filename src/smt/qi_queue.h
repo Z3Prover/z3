@@ -65,7 +65,7 @@ namespace smt {
         svector<entry>                m_new_entries;
         svector<entry>                m_delayed_entries;
         expr_ref_vector               m_instances;
-        expr_ref_vector               m_persistent_instances;
+        vector<std::pair<expr_ref, expr_ref>> m_persistent_instances; // (lemma, proof); proof is null when proofs are disabled
         unsigned_vector               m_instantiated_trail;
         struct scope {
             unsigned   m_delayed_entries_lim;
@@ -100,9 +100,9 @@ namespace smt {
         void display_delayed_instances_stats(std::ostream & out) const;
         void collect_statistics(::statistics & st) const;
         // instances (lemmas of the form (or (not q) inst)) produced so far in the current search,
-        // interleaved with their proofs when proofs are enabled
+        // paired with their proofs when proofs are enabled (proof component is null otherwise).
         // model-based instances produced since the last call, kept across backtracking (see context::check)
-        void collect_instances(expr_ref_vector & out) { out.append(m_persistent_instances); m_persistent_instances.reset(); }
+        void collect_instances(vector<std::pair<expr_ref, expr_ref>> & out) { out.append(m_persistent_instances); m_persistent_instances.reset(); }
         void register_on_binding(std::function<bool(quantifier* q, expr* e)> & on_binding) {
             m_on_binding = on_binding;
         }
