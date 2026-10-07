@@ -2743,8 +2743,19 @@ namespace smt {
                 for (unsigned l = 0; l < val_vals.size(); ++l) {
                     expr* vargs[3] = { base_vals.get(b), idx_vals.get(k), val_vals.get(l) };
                     expr* targs[3] = { base_terms.get(b), idx_terms.get(k), val_terms.get(l) };
-                    expr_ref cand_val(m_autil.mk_store(3, vargs), m);
-                    expr_ref cand_term(m_autil.mk_store(3, targs), m);
+                    expr_ref cand_val(m), cand_term(m);
+                    try {
+                        cand_val = m_autil.mk_store(3, vargs);
+                        cand_term = m_autil.mk_store(3, targs);
+                    }
+                    catch (ast_exception & ex) {
+                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidate-failed " << ex.what() << " base " << mk_pp(base_terms.get(b), m) << " idx " << mk_pp(idx_terms.get(k), m) << " val " << mk_pp(val_terms.get(l), m) << ")\n";);
+                        continue;
+                    }
+                    if (has_free_vars(cand_term) || has_free_vars(cand_val)) {
+                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidate-free-vars " << mk_pp(cand_term, m) << ")\n";);
+                        continue;
+                    }
                     if (m_array_candidate2term.contains(cand_val))
                         continue;
                     m_array_candidates.push_back(cand_val);
@@ -2833,6 +2844,10 @@ namespace smt {
                 continue;
             expr_ref new_cnstr(m.mk_or(eqs), m);
             TRACE(model_finder, tout << "assert_store_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+            if (has_free_vars(new_cnstr)) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidates-skipped :free-vars " << mk_pp(new_cnstr, m) << ")\n";);
+                continue;
+            }
             aux_ctx->assert_expr(new_cnstr);
             asserted_something = true;
         }

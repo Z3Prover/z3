@@ -27,6 +27,7 @@ Revision History:
 #include "ast/occurs.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/has_free_vars.h"
+#include "ast/well_sorted.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/var_subst.h"
@@ -278,7 +279,9 @@ namespace smt {
             expr_ref sk_term(sk_value, m);
             if (!autil.is_as_array(sk_value)) {
                 // array values nested in the binding (e.g. inside a datatype constructor)
-                expr_ref conv = as_array_to_stores(sk_value, cex);
+                expr_ref conv(m);
+                try { conv = as_array_to_stores(sk_value, cex); }
+                catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed nested-as-array " << ex.what() << ")\n";); conv = sk_value; }
                 if (conv != sk_value) {
                     conv = replace_value_from_ctx(conv);
                     if (contains_model_value(conv))
@@ -292,7 +295,9 @@ namespace smt {
                 // Besides the lambda built from the interpretation (below), also instantiate with
                 // the same modifications applied to an array term of the main context, if any.
                 func_decl * base = nullptr;
-                expr_ref store_term = mk_store_instance(f, cex, base);
+                expr_ref store_term(m);
+                try { store_term = mk_store_instance(f, cex, base); }
+                catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-instance " << ex.what() << ")\n";); base = nullptr; }
 
                 if (base)
                     bases[num_decls - i - 1] = base;
@@ -348,6 +353,7 @@ namespace smt {
                 add_instance(q, alt_bindings, max_generation);
             }
         }
+        try {
         // Array variables: the lambdas of the quantifier that mention the variable (e.g. a
         // canonicalisation lambda (x) -> ite(guard(x), f[x], default)), closed by the bindings of
         // the other variables and with the occurrences of f replaced by a ground value of the
@@ -418,6 +424,11 @@ namespace smt {
                 }
             }
         }
+        }
+        catch (ast_exception & ex) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed lambda-instances " << ex.what() << ")\n";);
+        }
+        try {
         // Datatype variables whose binding carries an array inside a constructor (e.g. a boxed
         // function mk(f)): also instantiate with the array replaced by the constant functions
         // (const v) for the ground values v of the quantifier, the analogue for boxed functions
@@ -458,6 +469,11 @@ namespace smt {
                 }
             }
         }
+        }
+        catch (ast_exception & ex) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed boxed-functions " << ex.what() << ")\n";);
+        }
+        try {
         // Array variables constrained pointwise by a canonicity guard
         //    forall x. ite(G(x), P(f[x]), f[x] = d)     (or  (not G(x)) => f[x] = d)
         // are instantiated with the guarded constant functions (lambda (x) (ite G(x) v d)) for
@@ -537,14 +553,20 @@ namespace smt {
                     continue;
                 if (under_forall ? !is_var(idx) : !is_ground(idx))
                     continue;
-                // guard as a function of the index: G[idx := x]
+                // guard as a function of the index: G[idx := x]; the substitution of a bound
+                // variable is only valid when the guard contains no binders of its own
                 expr_ref Gx(G, m);
+                bool g_has_binders = false;
+                for (expr * u : subterms::all(expr_ref(G, m)))
+                    if (is_quantifier(u)) { g_has_binders = true; break; }
+                if (g_has_binders)
+                    continue;
                 if (!under_forall) {
                     expr_safe_replace rep(m);
                     rep.insert(idx, m.mk_var(0, dom));
                     rep(G, Gx);
                 }
-                if (occurs(placeholder, Gx))
+                if (occurs(placeholder, Gx) || has_free_vars(Gx) != under_forall)
                     continue;
                 ++num_found;
                 // bindings that are fresh elements invented by the model finder (elem!k) carry no
@@ -608,6 +630,11 @@ namespace smt {
                 }
             }
         }
+        }
+        catch (ast_exception & ex) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed guarded-lambdas " << ex.what() << ")\n";);
+        }
+        try {
         // Array variables: also the context array modified at the points the instance binds
         // the other variables to, with the ground values of the quantifier. In a model the
         // interpretation of the context array is arbitrary away from the instantiated points,
@@ -642,6 +669,10 @@ namespace smt {
                     add_instance(q, alt_bindings, max_generation);
                 }
             }
+        }
+        }
+        catch (ast_exception & ex) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-at-bindings " << ex.what() << ")\n";);
         }
         return true;
     }
@@ -767,8 +798,51 @@ namespace smt {
         return result;
     }
 
+    // well-sortedness check that does not print warnings (is_well_sorted does)
+    static bool is_well_sorted_quiet(ast_manager & m, expr * e) {
+        ptr_vector<expr> todo;
+        ast_mark visited;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr * t = todo.back(); todo.pop_back();
+            if (visited.is_marked(t)) continue;
+            visited.mark(t, true);
+            if (is_quantifier(t)) { todo.push_back(to_quantifier(t)->get_expr()); continue; }
+            if (!is_app(t)) continue;
+            app * a = to_app(t);
+            func_decl * d = a->get_decl();
+            unsigned n = a->get_num_args();
+            if (d->get_arity() == n) {
+                for (unsigned i = 0; i < n; ++i)
+                    if (a->get_arg(i)->get_sort() != d->get_domain(i))
+                        return false;
+            }
+            else if (d->is_associative() || m.is_eq(d) || m.is_distinct(d) || d->get_arity() == 0) {
+                for (unsigned i = 1; i < n; ++i)
+                    if ((m.is_eq(d) || m.is_distinct(d)) && a->get_arg(i)->get_sort() != a->get_arg(0)->get_sort())
+                        return false;
+            }
+            for (expr * arg : *a) todo.push_back(arg);
+        }
+        return true;
+    }
+
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
+        // Instances built from counterexample values and context terms must be well formed:
+        // one closed binding of the declared sort per variable.
+        if (q->get_num_decls() != bindings.size()) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :skip-instance " << q->get_qid() << " :reason arity " << bindings.size() << " vs " << q->get_num_decls() << ")\n");
+            return;
+        }
+        for (unsigned i = 0; i < bindings.size(); ++i) {
+            expr* b = bindings.get(i);
+            sort* expected = q->get_decl_sort(i);
+            if (!b || b->get_sort() != expected || has_free_vars(b) || !is_well_sorted_quiet(m, b)) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :skip-instance " << q->get_qid() << " :var " << i << " :reason " << (!b ? "null" : b->get_sort() != expected ? "sort" : has_free_vars(b) ? "free-vars" : "ill-sorted") << " "; if (b) verbose_stream() << mk_pp(b, m); verbose_stream() << ")\n");
+                return;
+            }
+        }
         IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance " << q->get_qid(); for (expr* b : bindings) verbose_stream() << " [" << mk_pp(b, m) << "]"; verbose_stream() << ")\n");
         unsigned offset = m_pinned_exprs.size();
         m_pinned_exprs.append(bindings);
@@ -836,6 +910,22 @@ namespace smt {
     */
 
     bool model_checker::check(quantifier * q) {
+        try {
+            return check_core(q);
+        }
+        catch (ast_exception & ex) {
+            // The candidate model can be ill-formed when a theory gave up on it (see
+            // context::restart); treat the quantifier as unchecked rather than failing the search.
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-failed " << q->get_qid() << " " << ex.what() << ")\n";);
+            return false;
+        }
+        catch (default_exception & ex) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-failed " << q->get_qid() << " " << ex.what() << ")\n";);
+            return false;
+        }
+    }
+
+    bool model_checker::check_core(quantifier * q) {
         SASSERT(!m_aux_context->relevancy());
         scoped_ctx_push _push(m_aux_context.get());
 
@@ -843,8 +933,10 @@ namespace smt {
         TRACE(model_checker, tout << "model checking:\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage neg-q " << q->get_qid() << ")\n";);
         if (!assert_neg_q_m(flat_q, sks))
             return false;
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage complete-check " << q->get_qid() << ")\n";);
         TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
         flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
@@ -884,6 +976,7 @@ namespace smt {
             }
         };
 
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage restricted " << q->get_qid() << ")\n";);
         // try to find new instances using instantiation sets.
         {
             scoped_ctx_push _push_inst_sets(m_aux_context.get());
@@ -896,7 +989,11 @@ namespace smt {
             // modifications store(A, i, v) of the arrays of their instantiation sets. Instances
             // found here are added in addition to the complete counterexample below.
             scoped_ctx_push _push_stores(m_aux_context.get());
-            if (m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks)) 
+            bool restricted = false;
+            try { restricted = m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks); }
+            catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-candidates " << ex.what() << ")\n";); }
+            catch (default_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-candidates-assert " << ex.what() << ")\n";); }
+            if (restricted) 
                 restricted_search();
             // failed to create instances when restricting to inst sets... then use result of the complete model check
             TRACE(model_checker, tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
@@ -930,6 +1027,7 @@ namespace smt {
         if (!m_fparams) {
             m_fparams = alloc(smt_params, m_context->get_fparams());
             m_fparams->m_relevancy_lvl = 0; // no relevancy since the model checking problems are quantifier free
+            m_fparams->m_mbqi_instances_after_giveup = false; // the auxiliary context checks candidate models only
             m_fparams->m_case_split_strategy = CS_ACTIVITY; // avoid warning messages about smt.case_split >= 3.
             m_fparams->m_axioms2files = false;
             m_fparams->m_lemmas2console = false;
