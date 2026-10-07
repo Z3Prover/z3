@@ -255,10 +255,11 @@ zero admits after this extension.
   combinators (simplified throughout to strict all-or-nothing `None`
   propagation).
 - Conditions mixing genuine sequence-level equalities (`=`/`distinct`
-  between `seq a` terms) with Boolean structure: `eval_cond` treats
-  any atom it does not itself recognize as basic-family as an opaque
-  proposition, rather than connecting back into `Z3RegexExprTheory`'s
-  own sequence semantics.
+  between `seq a` terms) with Boolean structure are now wired to real
+  sequence semantics by `eval_cond`, see the addendum below; any atom
+  still not recognized as a basic-family connective or a sequence-
+  sorted `=`/`distinct` remains an opaque proposition via
+  `cond_interp`.
 
 ## Addendum: `len_abs` (`src/util/len_abs.h`/`.cpp`) and `Z3LenAbsTheory.fst`
 
@@ -422,3 +423,64 @@ carries `la_mult_sound i.la`, and all call sites into
 automatic unfolding of these transparent `prop`-valued `let`s. Both
 `Z3LenAbsTheory.fst` and `Z3RegexInfo.fst` compile cleanly from a
 fresh `.checked` state with zero admits.
+
+## Addendum: `eval_cond` wired to real sequence equalities (`Z3RegexExprTheory.fst`)
+
+Closes the "conditions mixing genuine sequence-level equalities with
+Boolean structure" gap listed above: previously `eval_cond` (used by
+`to_lang`'s `(ite c t f)` case to pick the actual, model-dependent
+branch) evaluated its condition `c` entirely via
+`Z3BasicExprTheory.eval_bool sl.cond_interp ...`, which is
+monomorphic in a single `value:eqtype` for the whole condition tree
+(instantiated at `value = bool` here) -- so a subterm `(= s1 s2)`
+where `s1`, `s2 : seq a` could only ever be treated as an *opaque*
+Boolean atom by `cond_interp`, never as a real sequence equality,
+even though `Z3RegexExprTheory.fst` already has its own sound notion
+of sequence equality via `eval_leaf`.
+
+`eval_cond` is now a recursive function in its own right (mirroring
+`eval_bool`'s structural recursion over `and`/`or`/`not`/`implies`/
+`xor`/`ite`/`true`/`false`, via the mutually-recursive helpers
+`eval_cond_and`/`eval_cond_or`), with two new cases:
+
+- `(= x y)` where both `x` and `y` are recognized as sequence-sorted
+  (`is_seq_sorted`, a new predicate comparing `get_sort` against a
+  dedicated marker `seq_sort : sort`, analogous to
+  `Z3AstTheory.bool_sort`/`lambda_sort`) is evaluated as
+  `eval_leaf sl x = eval_leaf sl y` -- real `seq a` equality.
+- `(distinct x1 ... xn)` where the (well-sorted, hence uniformly
+  sorted) arguments are sequence-sorted is evaluated as
+  `all_distinct` over their `eval_leaf`-images.
+
+Any node `eval_cond` does not itself recognize this way -- an
+`=`/`distinct` between non-sequence-sorted arguments, an arity
+mismatch, an uninterpreted Boolean atom, or an application from
+another family entirely -- falls back to the previous
+`eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false)` path
+unchanged, so this is a strict extension, not a behavior change, for
+every condition that does not itself contain a sequence-sorted
+equality/distinctness.
+
+Four new lemmas state and check the soundness payoff:
+
+- `lemma_eval_cond_eq`: a seq-sorted equality condition really does
+  reduce to `eval_leaf`-based sequence equality (a definitional
+  sanity check).
+- `lemma_eval_cond_eq_ground`/`lemma_eval_cond_distinct_ground`: the
+  key soundness property -- a seq-sorted equality/distinctness
+  condition between two *ground* leaves (`is_ground_leaf`) gets the
+  exact same truth value under any two `seq_lit`s that agree on
+  classification (`same_classification`), regardless of how they
+  otherwise interpret symbolic leaves or `cond_interp`'s atoms. This
+  lifts `lemma_eval_leaf_ground`'s model-independence guarantee for
+  bare leaves through `eval_cond`, via direct appeal to
+  `lemma_eval_leaf_ground` on each argument.
+- `lemma_eval_cond_distinct_pairwise`: `distinct` between seq-sorted
+  arguments really does demand sequence inequality, mirroring
+  `Z3BasicExprTheory.lemma_eval_bool_distinct_pairwise`.
+
+`eval_cond`'s type signature (`seq_lit a -> expr -> bool`) is
+unchanged, so `to_lang`'s `Op_ite` case and `Z3RegexInfo.fst`'s
+`compute_info`/`lemma_compute_info_sound` required **no changes**.
+All files compile cleanly from a fresh `.checked` state with zero
+admits.

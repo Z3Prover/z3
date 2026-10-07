@@ -141,22 +141,20 @@ noeq type seq_lit (a:eqtype) = {
      its own, so this is supplied per-instantiation rather than
      assumed as an axiom. *)
   char_le     : a -> a -> bool;
-  (* A ground propositional interpretation used only to evaluate the
+  (* A ground propositional interpretation used to evaluate the
      *condition* of an `(ite c t f)` node where `t`/`f` are
      regex-sorted (`u.m.is_ite(e, c, t, f)` in `mk_info_rec`, the one
      fallback case handled outside the main `seq_op_kind` switch, see
-     Z3RegexInfo.fst). `c` is assumed closed and is evaluated via
-     `Z3BasicExprTheory.eval_bool` instantiated at `value = bool`: any
-     atom `c` is not itself built from (and/or/not/implies/xor/=/
-     distinct/ite) -- e.g. an uninterpreted Boolean constant, or an
-     opaque predicate over some other sort entirely, such as a string
-     equality -- is treated as an atomic proposition whose truth
-     `cond_interp` assigns directly (`uninterp_app`/`interp_app`
-     returning the Boolean outright). Modeling conditions that
-     themselves mix *sequence*-level reasoning with Boolean structure
-     beyond this -- e.g. `=`/`distinct` between genuinely `seq a`
-     arguments -- is out of scope here; such sub-conditions are simply
-     atoms as far as `cond_interp` is concerned. *)
+     Z3RegexInfo.fst), via `eval_cond` below. `c` is assumed closed.
+     `eval_cond` recognizes the propositional connectives
+     (and/or/not/implies/xor/ite) structurally, and additionally
+     recognizes `=`/`distinct` between genuinely `seq a`-sorted
+     arguments (`is_seq_sorted`) as real sequence
+     equality/distinctness via `eval_leaf`; any other atom -- e.g. an
+     uninterpreted Boolean constant, or an opaque predicate/equality
+     over some other sort entirely -- is treated as atomic and
+     assigned its truth value directly by `cond_interp`
+     (`uninterp_app`/`interp_app`). *)
   cond_interp : interpretation bool;
 }
 
@@ -190,11 +188,143 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
           (ensures eval_leaf sl e == eval_leaf sl' e)
   = ()
 
+(* ----------------------------------------------------------------- *)
+(* Sequence-aware condition evaluation                                 *)
+(* ----------------------------------------------------------------- *)
+
+(* A dedicated marker sort, analogous to `Z3AstTheory.bool_sort`/
+   `lambda_sort`, standing in for Z3's real `seq_sort`/string sort: an
+   expression is recognized as genuinely sequence-valued here by
+   comparing its `get_sort` against this marker. This is exactly the
+   missing piece `cond_interp`'s doc comment above flagged: without
+   it, `=`/`distinct` between `seq a`-sorted arguments cannot be told
+   apart from equality/distinctness between any other (opaque) sort,
+   since `Z3BasicExprTheory.eval_bool` is monomorphic in a single
+   `value:eqtype` for an entire condition tree and so cannot itself
+   recurse into real `seq a` semantics mid-tree. *)
+let seq_sort : sort = { sort_name = "Seq" }
+
+let is_seq_sorted (e:expr) : bool = sort_eq (get_sort e) seq_sort
+
+(* `eval_leaf`, mapped down a list of (assumed sequence-sorted)
+   arguments -- used by `eval_cond`'s `distinct` case below. *)
+let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a) =
+  match args with
+  | [] -> []
+  | x :: rest -> eval_leaf sl x :: eval_leaf_list sl rest
+
 (* The concrete truth value `sl` assigns to a (closed) Bool-sorted
    condition expression, used to pick the actual branch of an
-   `(ite c t f)` node -- see `cond_interp`'s doc comment above. *)
-let eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : bool =
-  eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false)
+   `(ite c t f)` node -- see `cond_interp`'s doc comment above.
+
+   This mirrors `Z3BasicExprTheory.eval_bool`'s own structural
+   recursion over the propositional connectives (`and`/`or`/`not`/
+   `implies`/`xor`/`ite`/`true`/`false`), but additionally recognizes
+   `(= x y)`/`(distinct x1 ... xn)` nodes whose arguments are
+   sequence-sorted (`is_seq_sorted`): those are evaluated via
+   `eval_leaf` -- real `seq a` equality -- rather than folded into the
+   opaque `cond_interp` atom path. Any node this recursion does not
+   itself recognize (an `=`/`distinct` between non-sequence-sorted
+   arguments, an arity mismatch, an uninterpreted Boolean atom, or an
+   application from another family entirely) falls back to
+   `cond_interp` via `eval_bool`, exactly as the previous, simpler
+   definition of `eval_cond` always did. *)
+let rec eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot bool (decreases e) =
+  let fallback () = eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false) in
+  match e with
+  | Var _ _ | Quantifier _ _ _ -> fallback ()
+  | App f args ->
+    if is_basic_op f Op_true then true
+    else if is_basic_op f Op_false then false
+    else if is_basic_op f Op_not then
+      (match args with
+       | [x] -> not (eval_cond sl x)
+       | _ -> fallback ())
+    else if is_basic_op f Op_and then eval_cond_and sl args
+    else if is_basic_op f Op_or then eval_cond_or sl args
+    else if is_basic_op f Op_implies then
+      (match args with
+       | [x; y] -> (not (eval_cond sl x)) || eval_cond sl y
+       | _ -> fallback ())
+    else if is_basic_op f Op_xor then
+      (match args with
+       | [x; y] -> eval_cond sl x <> eval_cond sl y
+       | _ -> fallback ())
+    else if is_basic_op f Op_ite then
+      (match args with
+       | [c; t; fe] -> if eval_cond sl c then eval_cond sl t else eval_cond sl fe
+       | _ -> fallback ())
+    else if is_basic_op f Op_eq then
+      (match args with
+       | [x; y] ->
+         if is_seq_sorted x && is_seq_sorted y
+         then eval_leaf sl x = eval_leaf sl y
+         else fallback ()
+       | _ -> fallback ())
+    else if is_basic_op f Op_distinct then
+      (match args with
+       | x :: _ -> if is_seq_sorted x then all_distinct (eval_leaf_list sl args) else fallback ()
+       | _ -> fallback ())
+    else fallback ()
+
+and eval_cond_and (#a:eqtype) (sl:seq_lit a) (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> true
+  | x :: rest -> eval_cond sl x && eval_cond_and sl rest
+
+and eval_cond_or (#a:eqtype) (sl:seq_lit a) (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | x :: rest -> eval_cond sl x || eval_cond_or sl rest
+
+(* ----------------------------------------------------------------- *)
+(* Soundness of the sequence-aware equality/distinctness cases          *)
+(* ----------------------------------------------------------------- *)
+
+(* Sanity check: a seq-sorted equality condition really does reduce to
+   real sequence equality via `eval_leaf`, not some opaque atom. *)
+let lemma_eval_cond_eq (#a:eqtype) (sl:seq_lit a)
+    (f_eq:func_decl{is_basic_op f_eq Op_eq}) (x y:expr)
+  : Lemma (requires is_seq_sorted x /\ is_seq_sorted y)
+          (ensures eval_cond sl (App f_eq [x; y]) == (eval_leaf sl x = eval_leaf sl y))
+  = ()
+
+(* Soundness payoff: a seq-sorted equality condition between two
+   *ground* leaves (`is_ground_leaf`) gets the exact same truth value
+   under any two `seq_lit`s that agree on classification, regardless
+   of how they otherwise interpret symbolic leaves or `cond_interp`'s
+   atoms -- i.e. such a condition is genuinely model-independent, the
+   same guarantee `lemma_eval_leaf_ground` gives for bare leaves,
+   lifted through `eval_cond`. *)
+let lemma_eval_cond_eq_ground (#a:eqtype) (sl sl':seq_lit a)
+    (f_eq:func_decl{is_basic_op f_eq Op_eq}) (x y:expr)
+  : Lemma (requires same_classification sl sl' /\
+                    is_seq_sorted x /\ is_seq_sorted y /\
+                    is_ground_leaf sl x /\ is_ground_leaf sl y)
+          (ensures eval_cond sl (App f_eq [x; y]) == eval_cond sl' (App f_eq [x; y]))
+  = lemma_eval_leaf_ground sl sl' x;
+    lemma_eval_leaf_ground sl sl' y
+
+(* `distinct` really does demand pairwise sequence inequality when its
+   arguments are sequence-sorted, mirroring
+   `Z3BasicExprTheory.lemma_eval_bool_distinct_pairwise`. *)
+let lemma_eval_cond_distinct_pairwise (#a:eqtype) (sl:seq_lit a)
+    (f_di:func_decl{is_basic_op f_di Op_distinct}) (x y:expr)
+  : Lemma (requires is_seq_sorted x /\ eval_cond sl (App f_di [x; y]))
+          (ensures eval_leaf sl x <> eval_leaf sl y)
+  = ()
+
+(* The `distinct` analogue of `lemma_eval_cond_eq_ground`: a seq-sorted
+   distinctness condition between two ground leaves is likewise
+   model-independent. *)
+let lemma_eval_cond_distinct_ground (#a:eqtype) (sl sl':seq_lit a)
+    (f_di:func_decl{is_basic_op f_di Op_distinct}) (x y:expr)
+  : Lemma (requires same_classification sl sl' /\
+                    is_seq_sorted x /\
+                    is_ground_leaf sl x /\ is_ground_leaf sl y)
+          (ensures eval_cond sl (App f_di [x; y]) == eval_cond sl' (App f_di [x; y]))
+  = lemma_eval_leaf_ground sl sl' x;
+    lemma_eval_leaf_ground sl sl' y
 
 (* A character range test, taken as the two endpoint sequences
    already evaluated to ground words: `x` is "in range" iff `wl`,
