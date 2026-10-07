@@ -3,8 +3,8 @@
 See [`REPORT.md`](REPORT.md) for the top-level index of this F*
 formal-verification audit series.
 
-This report accompanies `Z3SeqTheory.fst` (axiomatization) and
-`Z3SeqRewrites.fst` (proofs), which formalize and mechanically verify
+This report accompanies [`Z3SeqTheory.fst`](Z3SeqTheory.fst) (axiomatization) and
+[`Z3SeqRewrites.fst`](Z3SeqRewrites.fst) (proofs), which formalize and mechanically verify
 a subset of the rewrite rules implemented in
 `src/ast/rewriter/seq_rewriter.cpp`.
 
@@ -36,7 +36,7 @@ character/string distinction), so char-level coalescing
 
 ## Coverage by function
 
-| `seq_rewriter.cpp` function | Lines | Lemma(s) in `Z3SeqRewrites.fst` | Gaps / not proved |
+| `seq_rewriter.cpp` function | Lines | Lemma(s) in [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst) | Gaps / not proved |
 |---|---|---|---|
 | `mk_seq_unit` | 420-432 | — | char→string literal coalescing (not applicable to the abstract model) |
 | `mk_seq_concat` | 441-513 | `lemma_concat_assoc`, `lemma_concat_empty_r`, `lemma_concat_empty_l` | literal-coalescing / iterative-flattening implementation detail (engineering, not a new semantic law) |
@@ -62,7 +62,7 @@ Bold rows mark the gaps closed in this update.
 ## What was added in this update
 
 Starting from the previously-identified "easy gaps", the following
-were added to `Z3SeqRewrites.fst` and proved:
+were added to [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst) and proved:
 
 1. **`lemma_len_extract_nat`** / **`lemma_len_extract_from_zero`** —
    the general law `len(extract(s,pos,ln)) = min(ln, len(s) - pos)`,

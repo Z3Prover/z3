@@ -528,6 +528,54 @@ let lemma_la_concat_sound (#a:eqtype) (abs1 abs2:len_abs) (l1 l2:lang a)
     lemma_la_mult_concat abs1 abs2
 
 (* ----------------------------------------------------------------- *)
+(* A general multi-residue `gcd` certificate                          *)
+(* ----------------------------------------------------------------- *)
+
+(* The general form of the structural fact `la_mult_sound` already
+   requires of `la_mult` (`period % g == 0` and every present residue
+   is a multiple of `g`), exposed here as its own reusable lemma, with
+   `g` an arbitrary caller-supplied candidate rather than only ever
+   `abs.la_period` itself (`lemma_only_multiples_of_period`'s "only
+   residue 0" case) or `abs.la_mult` (`la_period_for_star`'s
+   compositionally-propagated single divisor). This is exactly what
+   `len_abs::gcd()`'s real scanning algorithm computes a *witness*
+   for, generalized to *arbitrary* residue patterns (e.g. period 6,
+   residues `{2, 4}`, true gcd 2 -- a shape with more than one
+   residue and no residue equal to 0, so neither
+   `lemma_only_multiples_of_period` nor any single-divisor
+   `la_mult`-style propagation from one sub-expression can derive it).
+   Checking a *given* candidate `g` this way is exactly the soundness
+   obligation the real scan's output must discharge; *finding* the
+   tightest such `g` automatically from `(lo, hi, period, residues)`
+   alone would additionally require `residues` to be decidable (the
+   real `uint64_t` bitmask `len_abs.cpp` actually uses, but not part
+   of this module's abstract `residue_set = nat -> prop`), so remains
+   future work -- see `lemma_la_gcd_worked_example` below for a
+   concrete instance where this lemma recovers the real gcd `2` by
+   hand, exactly reproducing what a genuine scan would discover. *)
+let lemma_only_multiples_of_scan (abs:len_abs) (g:pos)
+  : Lemma (requires abs.la_period % g == 0 /\
+                    (forall (r:nat). r < abs.la_period ==> abs.la_residues r ==> r % g == 0))
+          (ensures only_multiples_of abs g)
+  = let aux (n:nat) : Lemma (requires gamma abs n) (ensures n % g == 0) =
+      lemma_mod_via_period abs.la_period g n
+    in
+    Classical.forall_intro (Classical.move_requires aux)
+
+(* The worked example: period 6, residues `{2, 4}` (e.g. the lengths
+   of some `l1 . l2`-style combination where neither operand's own
+   `la_mult` was known) -- a genuinely multi-residue shape with true
+   gcd 2, verified here via `lemma_only_multiples_of_scan` rather than
+   via any single-divisor `la_mult` propagation, in the same spirit as
+   `len_abs.h`'s own motivating `(aa)*|(aaa)*` example. *)
+let la_gcd_example : len_abs =
+  { la_lo = 0; la_hi = Infinite; la_period = 6; la_residues = (fun r -> r == 2 \/ r == 4); la_mult = 0 }
+
+let lemma_la_gcd_worked_example ()
+  : Lemma (only_multiples_of la_gcd_example 2)
+  = lemma_only_multiples_of_scan la_gcd_example 2
+
+(* ----------------------------------------------------------------- *)
 (* `star`/`plus`/`loop`: sound for any externally-justified gcd `g`    *)
 (* ----------------------------------------------------------------- *)
 

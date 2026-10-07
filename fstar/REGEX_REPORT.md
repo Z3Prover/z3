@@ -13,12 +13,12 @@ Six theory files, built up in layers:
 
 | File | Contents |
 |---|---|
-| `Z3RegexTheory.fst` | Regular languages over an abstract alphabet as predicates `seq a -> prop`: union, intersection, complement, concat, star/plus/opt/loop, reverse, and ~20 proven algebraic lemmas (associativity, De Morgan, double-complement, star-unfold, etc.) |
-| `Z3AstTheory.fst` | A minimal model of Z3's AST: `sort`, `func_decl` (with an `int_params:list int` field for `re.loop`'s bounds), `expr` (`Var`/`App`/`Quantifier` with de Bruijn indices), well-sortedness, closedness, and a denotational `eval` parameterized by an abstract `interpretation` |
-| `Z3BasicExprTheory.fst` | Recognizers and a denotational `eval_bool` for the `basic_family_id` propositional connectives, equality/distinctness, and `ite` (`src/ast/ast.h`, `enum basic_op_kind`) |
-| `Z3RegexExprTheory.fst` | `to_lang`: connects `App` nodes built from the regex-relevant subset of `seq_op_kind` (`src/ast/seq_decl_plugin.h`) to `Z3RegexTheory`'s `lang`, dispatching on `decl_kind` exactly as `mk_info_rec` does, plus a regex-sorted `ite` case built on `Z3BasicExprTheory` |
-| `Z3RegexInfo.fst` | `compute_info`: a formal model of `rex::info`/`get_info`, and `lemma_compute_info_sound`/`lemma_compute_info_interpreted_sound`, the main soundness theorems |
-| `Z3LenAbsTheory.fst` | `len_abs`: a formalization of `src/util/len_abs.h`/`.cpp`'s ultimately-periodic length-set abstraction, and soundness proofs for `unite`/`meet`/`opt`/`concat`/`star`/`plus`/`loop` against `Z3RegexTheory`'s `lang` |
+| [`Z3RegexTheory.fst`](Z3RegexTheory.fst) | Regular languages over an abstract alphabet as predicates `seq a -> prop`: union, intersection, complement, concat, star/plus/opt/loop, reverse, and ~20 proven algebraic lemmas (associativity, De Morgan, double-complement, star-unfold, etc.) |
+| [`Z3AstTheory.fst`](Z3AstTheory.fst) | A minimal model of Z3's AST: `sort`, `func_decl` (with an `int_params:list int` field for `re.loop`'s bounds), `expr` (`Var`/`App`/`Quantifier` with de Bruijn indices), well-sortedness, closedness, and a denotational `eval` parameterized by an abstract `interpretation` |
+| [`Z3BasicExprTheory.fst`](Z3BasicExprTheory.fst) | Recognizers and a denotational `eval_bool` for the `basic_family_id` propositional connectives, equality/distinctness, and `ite` (`src/ast/ast.h`, `enum basic_op_kind`) |
+| [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) | `to_lang`: connects `App` nodes built from the regex-relevant subset of `seq_op_kind` (`src/ast/seq_decl_plugin.h`) to `Z3RegexTheory`'s `lang`, dispatching on `decl_kind` exactly as `mk_info_rec` does, plus a regex-sorted `ite` case built on `Z3BasicExprTheory` |
+| [`Z3RegexInfo.fst`](Z3RegexInfo.fst) | `compute_info`: a formal model of `rex::info`/`get_info`, and `lemma_compute_info_sound`/`lemma_compute_info_interpreted_sound`, the main soundness theorems |
+| [`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst) | `len_abs`: a formalization of `src/util/len_abs.h`/`.cpp`'s ultimately-periodic length-set abstraction, and soundness proofs for `unite`/`meet`/`opt`/`concat`/`star`/`plus`/`loop` against `Z3RegexTheory`'s `lang` |
 
 All six files type-check and discharge all verification conditions
 with **no `admit`/`assume`/axioms**:
@@ -46,7 +46,7 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3R
   `seq_rewriter.cpp` to a fixed `OP_RE_CONCAT` chain) and
   `OP_RE_DERIVATIVE` (an internal Brzozowski-derivative helper) are
   omitted: neither contributes a new combinator beyond what
-  `Z3RegexTheory.fst` already models.
+  [`Z3RegexTheory.fst`](Z3RegexTheory.fst) already models.
 - `OP_SEQ_IN_RE`/membership constraints and the general string-valued
   sequence operators (`OP_SEQ_CONCAT`, `OP_SEQ_AT`, etc.) are not
   modeled; this file is purely about expressions of *regex sort*.
@@ -92,7 +92,7 @@ this bug.
 
 ### The fix
 
-`compute_info`'s `info_diff` (`Z3RegexInfo.fst`) uses the corrected
+`compute_info`'s `info_diff` ([`Z3RegexInfo.fst`](Z3RegexInfo.fst)) uses the corrected
 formula, proved sound (`lemma_sound_diff`):
 
 ```fstar
@@ -149,7 +149,7 @@ reduced to `false` when it is actually `sat`).
 
 This has since been added:
 
-- `Z3RegexExprTheory.fst`'s `seq_lit` now carries a `classify : expr
+- [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)'s `seq_lit` now carries a `classify : expr
   -> option (seq a)` field distinguishing literal leaves
   (`classify e = Some w`, standing in for `m.is_value`/
   `u.str.is_string`) from symbolic ones (`classify e = None`,
@@ -157,7 +157,7 @@ This has since been added:
   model). `eval_leaf` dispatches through `classify` first, so a
   literal's value is, by construction, the same under any `seq_lit`
   agreeing on `classify` (`lemma_eval_leaf_ground`).
-- `Z3RegexInfo.fst`'s `info` record gained an `interpreted:bool`
+- [`Z3RegexInfo.fst`](Z3RegexInfo.fst)'s `info` record gained an `interpreted:bool`
   field, propagated through every combinator exactly as `classical`
   already was (conjunction for binary operators, pass-through for
   unary ones), and computed at the two leaf cases that can actually
@@ -183,7 +183,7 @@ This has since been added:
 formalization is precise enough to reject the PR #11091 bug and
 accept its fix.
 
-## Addendum: `ite` (`info::orelse`) and `Z3BasicExprTheory.fst`
+## Addendum: `ite` (`info::orelse`) and [`Z3BasicExprTheory.fst`](Z3BasicExprTheory.fst)
 
 `mk_info_rec`'s main dispatch is a `switch` on
 `to_app(e)->get_decl_kind()` guarded by `e->get_family_id() ==
@@ -195,7 +195,7 @@ is a generic AST-level recognizer from the *basic* family
 (`src/ast/ast.h`, `basic_family_id`/`enum basic_op_kind`), modeling
 this case needed a new, independent theory of that family:
 
-- **`Z3BasicExprTheory.fst`** (new file): recognizers (`is_basic_op`,
+- **[`Z3BasicExprTheory.fst`](Z3BasicExprTheory.fst)** (new file): recognizers (`is_basic_op`,
   `decl_kind_of`, mirroring `OP_TRUE`..`OP_IMPLIES`'s declaration
   order exactly, index 0-9) and a denotational evaluator `eval_bool`
   for the propositional connectives (`and`/`or`/`not`/`implies`/
@@ -205,7 +205,7 @@ this case needed a new, independent theory of that family:
   `value:eqtype`), truth constants, and `ite` (for genuinely
   Bool-sorted `ite`, as opposed to the regex-sorted case below).
   Compiles standalone with zero admits.
-- **`Z3RegexExprTheory.fst`**: `seq_lit` gained a `cond_interp :
+- **[`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)**: `seq_lit` gained a `cond_interp :
   interpretation bool` field and `eval_cond`, used only to give a
   regex-sorted `ite`'s *condition* `c` a concrete truth value (`c` is
   assumed closed; atoms not themselves built from basic connectives
@@ -217,7 +217,7 @@ this case needed a new, independent theory of that family:
   model happens to select) and then picks the one `eval_cond` selects
   -- the actual, model-dependent denotation is always exactly one
   branch, never a combination of both.
-- **`Z3RegexInfo.fst`**: a new combinator `info_orelse`, mirroring
+- **[`Z3RegexInfo.fst`](Z3RegexInfo.fst)**: a new combinator `info_orelse`, mirroring
   `info::orelse`'s real formula precisely -- unlike `info_union`
   (which combines two sub-languages that are *both* actually present
   in the result), here exactly one of `i1`/`i2` describes the real
@@ -240,8 +240,8 @@ this case needed a new, independent theory of that family:
   were extended with this case (the latter trivially, since
   `interpreted = false` unconditionally for `ite`).
 
-All three files (`Z3BasicExprTheory.fst`,
-`Z3RegexExprTheory.fst`, `Z3RegexInfo.fst`) still compile cleanly with
+All three files ([`Z3BasicExprTheory.fst`](Z3BasicExprTheory.fst),
+[`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst), [`Z3RegexInfo.fst`](Z3RegexInfo.fst)) still compile cleanly with
 zero admits after this extension.
 
 ### Still out of scope
@@ -261,7 +261,7 @@ zero admits after this extension.
   sorted `=`/`distinct` remains an opaque proposition via
   `cond_interp`.
 
-## Addendum: `len_abs` (`src/util/len_abs.h`/`.cpp`) and `Z3LenAbsTheory.fst`
+## Addendum: `len_abs` (`src/util/len_abs.h`/`.cpp`) and [`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst)
 
 `len_abs` is a separate, lower-level abstraction than `rex::info`'s
 plain `[min_length, max_length]` interval: an *ultimately periodic*
@@ -271,15 +271,15 @@ reasoning beyond what a bare interval can express (its header's own
 motivating example: `(a^4)*` has length interval `[0, oo)` but every
 accepted word's length is actually a multiple of 4).
 
-**`Z3LenAbsTheory.fst`** (new file) formalizes this domain and proves
-every operation sound against `Z3RegexTheory.fst`'s `lang`:
+**[`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst)** (new file) formalizes this domain and proves
+every operation sound against [`Z3RegexTheory.fst`](Z3RegexTheory.fst)'s `lang`:
 
 - `residue_set = nat -> prop` and `len_abs { la_lo; la_hi; la_period;
   la_residues }` model `len_abs.h`'s `(lo, hi, period, residues)`
   fields directly; `gamma` is the concrete set of lengths an
   abstraction denotes, and `la_sound abs l` ("every length `l`'s
   words have is in `gamma abs`") is the periodic-domain analogue of
-  `Z3RegexInfo.fst`'s `info_sound`.
+  [`Z3RegexInfo.fst`](Z3RegexInfo.fst)'s `info_sound`.
 - `la_unite`/`la_meet`/`la_opt`/`la_concat` are formalized in full
   generality (arbitrary periods/residues on both operands) and proved
   sound (`lemma_la_unite_sound`, `lemma_la_meet_sound`,
@@ -291,7 +291,7 @@ every operation sound against `Z3RegexTheory.fst`'s `lang`:
   simplification, never a soundness risk. `la_concat`'s residue
   convolution is expressed as a genuine existential (`exists i j. ...`),
   proved via `Classical.exists_intro`/`exists_elim`, the same idiom
-  `Z3RegexTheory.fst`'s own `re_concat` is built on.
+  [`Z3RegexTheory.fst`](Z3RegexTheory.fst)'s own `re_concat` is built on.
 - `la_star`/`la_plus`/`la_loop` (`lemma_la_star_sound`,
   `lemma_la_plus_sound`, `lemma_la_loop_bounded_sound`,
   `lemma_la_loop_lo_sound`) are sound for *any* period `g` the caller
@@ -309,20 +309,20 @@ every operation sound against `Z3RegexTheory.fst`'s `lang`:
   case (e.g. `(aa)*|(aaa)*`'s period-6, residues `{0,2,3,4}`, gcd 1)
   is left as future work.
 
-`Z3LenAbsTheory.fst` compiles cleanly with zero admits.
+[`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst) compiles cleanly with zero admits.
 
-## Addendum: `la : len_abs` field added to `rex::info`/`Z3RegexInfo.fst`
+## Addendum: `la : len_abs` field added to `rex::info`/[`Z3RegexInfo.fst`](Z3RegexInfo.fst)
 
-`Z3RegexInfo.fst`'s `info` record now carries a `la : len_abs` field
+[`Z3RegexInfo.fst`](Z3RegexInfo.fst)'s `info` record now carries a `la : len_abs` field
 alongside `min_length`/`max_length`, and `info_sound` additionally
 requires `la_sound i.la l`. Breaking the resulting circular
-dependency (`Z3LenAbsTheory.fst` needs `ebound`/the `re_pow`-length
-lemmas that used to live in `Z3RegexInfo.fst`, while `Z3RegexInfo.fst`
+dependency ([`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst) needs `ebound`/the `re_pow`-length
+lemmas that used to live in [`Z3RegexInfo.fst`](Z3RegexInfo.fst), while [`Z3RegexInfo.fst`](Z3RegexInfo.fst)
 now needs `len_abs`) required extracting that shared machinery into a
-new leaf module **`Z3RegexBounds.fst`** (`ebound`, `eb_le/add/max/
+new leaf module **[`Z3RegexBounds.fst`](Z3RegexBounds.fst)** (`ebound`, `eb_le/add/max/
 min/scale`, `lemma_len_concat`, `lemma_len_reverse`,
 `lemma_pow_min_length`/`lemma_pow_max_length`/etc.), which both
-`Z3RegexInfo.fst` and `Z3LenAbsTheory.fst` now depend on independently.
+[`Z3RegexInfo.fst`](Z3RegexInfo.fst) and [`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst) now depend on independently.
 
 Precision achieved per combinator, mirroring `len_abs.cpp`'s own
 formulas:
@@ -345,13 +345,13 @@ formulas:
   reasoning), `diff` (reuses the left operand's `la` as-is, since
   `re_diff l1 l2 subseteq l1`).
 - `reverse` passes `i.la` through unchanged (sound since
-  `len (reverse w) == len w`, `Z3RegexBounds.fst`'s
+  `len (reverse w) == len w`, [`Z3RegexBounds.fst`](Z3RegexBounds.fst)'s
   `lemma_len_reverse`).
 
 The key enabling lemma for the monotonicity cases is
-`lemma_la_sound_monotone` (new, in `Z3LenAbsTheory.fst`): an
+`lemma_la_sound_monotone` (new, in [`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst)): an
 abstraction sound for `l` remains sound for any `l' subseteq l`.
-Applied with `Z3RegexTheory.fst`'s definitional unfoldings of
+Applied with [`Z3RegexTheory.fst`](Z3RegexTheory.fst)'s definitional unfoldings of
 `re_inter`/`re_diff`/`re_xor` (all plain, non-opaque `let`s), this
 lets `inter`/`diff`/`xor`/`orelse` reuse `concat`/`union`-level
 combinators without needing dedicated `len_abs` operators for
@@ -360,15 +360,15 @@ intersection or difference.
 All `lemma_sound_X` lemmas were extended to additionally discharge
 the new `la_sound` conjunct of `info_sound`, and
 `lemma_compute_info_sound`/`lemma_compute_info_interpreted_sound`
-required no structural changes. `Z3RegexBounds.fst`,
-`Z3LenAbsTheory.fst`, and `Z3RegexInfo.fst` all compile cleanly from a
+required no structural changes. [`Z3RegexBounds.fst`](Z3RegexBounds.fst),
+[`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst), and [`Z3RegexInfo.fst`](Z3RegexInfo.fst) all compile cleanly from a
 fresh `.checked` state with zero admits.
 
 ## Addendum: generalizing `la_period_for_star` via a new `la_mult` field
 
 The previous addendum's `la_period_for_star` only recovered a
 nontrivial period (`g = la_lo`) for the narrow "exact singleton"
-case. `Z3LenAbsTheory.fst`'s `len_abs` record now carries an extra
+case. [`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst)'s `len_abs` record now carries an extra
 `la_mult : nat` field (`0` ~ "no extra fact known", else a value such
 that every length the abstraction contains is provably a multiple of
 `la_mult`), propagated compositionally through `unite`/`meet`/
@@ -416,15 +416,15 @@ Key design points:
   when `mult` divides `period`, via `FStar.Math.Lemmas.lemma_div_mod`
   + `modulo_modulo_lemma`).
 
-`Z3RegexInfo.fst` required **no changes**: its existing `info_sound`
+[`Z3RegexInfo.fst`](Z3RegexInfo.fst) required **no changes**: its existing `info_sound`
 hypothesis already implies `la_sound i.la l`, which now transitively
 carries `la_mult_sound i.la`, and all call sites into
 `lemma_la_period_for_star` continue to typecheck unchanged via F*'s
 automatic unfolding of these transparent `prop`-valued `let`s. Both
-`Z3LenAbsTheory.fst` and `Z3RegexInfo.fst` compile cleanly from a
+[`Z3LenAbsTheory.fst`](Z3LenAbsTheory.fst) and [`Z3RegexInfo.fst`](Z3RegexInfo.fst) compile cleanly from a
 fresh `.checked` state with zero admits.
 
-## Addendum: `eval_cond` wired to real sequence equalities (`Z3RegexExprTheory.fst`)
+## Addendum: `eval_cond` wired to real sequence equalities ([`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst))
 
 Closes the "conditions mixing genuine sequence-level equalities with
 Boolean structure" gap listed above: previously `eval_cond` (used by
@@ -435,7 +435,7 @@ monomorphic in a single `value:eqtype` for the whole condition tree
 (instantiated at `value = bool` here) -- so a subterm `(= s1 s2)`
 where `s1`, `s2 : seq a` could only ever be treated as an *opaque*
 Boolean atom by `cond_interp`, never as a real sequence equality,
-even though `Z3RegexExprTheory.fst` already has its own sound notion
+even though [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) already has its own sound notion
 of sequence equality via `eval_leaf`.
 
 `eval_cond` is now a recursive function in its own right (mirroring
@@ -480,7 +480,45 @@ Four new lemmas state and check the soundness payoff:
   `Z3BasicExprTheory.lemma_eval_bool_distinct_pairwise`.
 
 `eval_cond`'s type signature (`seq_lit a -> expr -> bool`) is
-unchanged, so `to_lang`'s `Op_ite` case and `Z3RegexInfo.fst`'s
+unchanged, so `to_lang`'s `Op_ite` case and [`Z3RegexInfo.fst`](Z3RegexInfo.fst)'s
 `compute_info`/`lemma_compute_info_sound` required **no changes**.
 All files compile cleanly from a fresh `.checked` state with zero
 admits.
+
+## Addendum: a general multi-residue `gcd` soundness certificate (`Z3LenAbsTheory.fst`)
+
+Partially closes the "real multi-residue `gcd()` scan" gap noted in
+the `len_abs` addendum above: `la_mult`'s combinators only ever
+*propagate* a single divisor fact compositionally (`ngcd` of two
+already-known `la_mult`s), so a shape like period 6, residues `{2,
+4}` -- true gcd 2, but built from no single already-periodic
+sub-expression, and with no residue equal to 0 -- was previously
+undiscoverable.
+
+New lemma `lemma_only_multiples_of_scan` generalizes
+`lemma_only_multiples_of_period` (previously restricted to "the only
+possible residue is 0") to an *arbitrary* caller-supplied candidate
+`g`: given `abs.la_period % g == 0` and every residue `abs` actually
+admits is itself a multiple of `g`, `only_multiples_of abs g` holds
+-- exactly the soundness obligation the real `len_abs::gcd()`'s
+scanning algorithm's output must discharge, now available as a
+standalone, reusable tool rather than only ever being invoked
+implicitly with `g = abs.la_period` or `g = abs.la_mult`. New
+worked example `la_gcd_example`/`lemma_la_gcd_worked_example`
+verifies this recovers the true gcd `2` for the period-6,
+residues-`{2,4}` shape above by hand -- exactly what a genuine
+multi-residue scan would discover, and exactly what single-divisor
+`la_mult` propagation cannot derive.
+
+*Automatically discovering* the tightest such `g` from an arbitrary
+`(lo, hi, period, residues)` alone remains unimplemented: it would
+additionally require `residue_set = nat -> prop` to be decidable (the
+real `uint64_t` bitmask `len_abs.cpp` actually uses), which is a
+representation change out of scope for this pass (an earlier attempt
+at a fully computable `gcd_scan`/`la_gcd_scan` fold, built on this
+module's existing `unfold`-marked `ngcd`, proved soundness-correct
+but ran into severe SMT-side blowup from `ngcd`'s forced inlining and
+was abandoned in favor of this simpler, still mathematically
+meaningful certificate-checking form). `Z3LenAbsTheory.fst` compiles
+cleanly from a fresh `.checked` state with zero admits; no other file
+needed any change.

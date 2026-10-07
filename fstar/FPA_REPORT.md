@@ -9,11 +9,11 @@ issues/PRs (#10881/#10931, #10888/#10938).
 
 This report accompanies:
 
-- `Z3FpaTheory.fst` — value-level axiomatization of IEEE-754 special
+- [`Z3FpaTheory.fst`](Z3FpaTheory.fst) — value-level axiomatization of IEEE-754 special
   values (NaN / signed Infinity / signed Zero / opaque finite payload).
-- `Z3FpaRewrites.fst` — proofs of the symbolic rewrite rules of
+- [`Z3FpaRewrites.fst`](Z3FpaRewrites.fst) — proofs of the symbolic rewrite rules of
   `src/ast/rewriter/fpa_rewriter.cpp` against that theory.
-- `Z3FpaConverter.fst` — bit-pattern-level axiomatization and proofs
+- [`Z3FpaConverter.fst`](Z3FpaConverter.fst) — bit-pattern-level axiomatization and proofs
   for the classification logic and the bias/unbias exponent encoding
   of `src/ast/fpa/fpa2bv_converter.cpp`.
 
@@ -90,7 +90,7 @@ how the seq audit excluded Brzozowski-derivative regex automata.
 
 ## Coverage: `fpa_rewriter.cpp`
 
-| Function | Lines | Lemma(s) in `Z3FpaRewrites.fst` | Gaps / not proved |
+| Function | Lines | Lemma(s) in [`Z3FpaRewrites.fst`](Z3FpaRewrites.fst) | Gaps / not proved |
 |---|---|---|---|
 | `mk_add` | 265-285 | — | bit-precise rounding / constant folding (out of scope) |
 | `mk_sub` | 286-292 | `lemma_sub_is_add_neg` (`a - b = a + (-b)`, `add` abstract) | — |
@@ -104,7 +104,7 @@ how the seq audit excluded Brzozowski-derivative regex automata.
 | `mk_gt` | 619-624 | `lemma_gt_is_flipped_lt` | — |
 | `mk_le` | 624-639 | `lemma_le_nan` | `le`'s non-NaN cases are not individually broken out by the code (only `lt`/`gt` have explicit infinity branches); our `le` definition is total but only the NaN rule is claimed as "proved against the code" |
 | `mk_ge` | 639-644 | `lemma_ge_is_flipped_le` | — |
-| `mk_is_zero`/`is_nzero`/`is_pzero` | 644-677 | (not separately proved at the value level: these are definitional unfoldings of `is_zero`/`is_pzero`/`is_nzero` in `Z3FpaTheory.fst`, matching the code 1:1) | — |
+| `mk_is_zero`/`is_nzero`/`is_pzero` | 644-677 | (not separately proved at the value level: these are definitional unfoldings of `is_zero`/`is_pzero`/`is_nzero` in [`Z3FpaTheory.fst`](Z3FpaTheory.fst), matching the code 1:1) | — |
 | `mk_is_nan` | 677-712 | (definitional, as above) | — |
 | `mk_is_inf` | 712-767 | (definitional, as above) | — |
 | `mk_is_normal` / `mk_is_subnormal` | 767-833 | `lemma_classes_exhaustive`, `lemma_classes_disjoint` (parametrized by abstract magnitude classifier) | the `to_fp(rm, to_real(int))` overflow special case (needs bit-precise reasoning, out of scope) |
@@ -114,7 +114,7 @@ how the seq audit excluded Brzozowski-derivative regex automata.
 
 ## Coverage: `fpa2bv_converter.cpp`
 
-| Function | Lines | Lemma(s) in `Z3FpaConverter.fst` | Gaps / not proved |
+| Function | Lines | Lemma(s) in [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | Gaps / not proved |
 |---|---|---|---|
 | `mk_is_nan` | 3760-3772 | (definitional: `is_nan`) + `lemma_classes_exhaustive`/`disjoint` | — |
 | `mk_is_inf` | 3775-3786 | (definitional: `is_inf`) | — |
@@ -155,8 +155,8 @@ how the seq audit excluded Brzozowski-derivative regex automata.
    encoding, not a restatement of the code.
 
 3. **Classification is a clean 5-way partition.** Both the value-level
-   theory (`Z3FpaTheory.fst`, parametrized by an abstract subnormal
-   classifier) and the bit-level theory (`Z3FpaConverter.fst`, fully
+   theory ([`Z3FpaTheory.fst`](Z3FpaTheory.fst), parametrized by an abstract subnormal
+   classifier) and the bit-level theory ([`Z3FpaConverter.fst`](Z3FpaConverter.fst), fully
    concrete) prove that NaN / Infinity / Zero / Subnormal / Normal are
    mutually exclusive and jointly exhaustive — i.e. the five
    `fpa2bv_converter.cpp` classification predicates never overlap and
@@ -180,7 +180,7 @@ how the seq audit excluded Brzozowski-derivative regex automata.
   `mk_is_inf_of_int`) needs bit-precise exponent-range reasoning tied
   to a specific `(ebits, sbits)` format and the magnitude of the
   integer literal; scoped out, but the abstract magnitude-classifier
-  parametrization in `Z3FpaTheory.fst` was specifically designed so
+  parametrization in [`Z3FpaTheory.fst`](Z3FpaTheory.fst) was specifically designed so
   this could be filled in later without re-deriving the
   exhaustiveness/disjointness lemmas.
 - **Concat-boundary-style case splits.** Unlike `seq_rewriter.cpp`,
