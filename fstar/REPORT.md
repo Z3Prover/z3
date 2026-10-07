@@ -26,7 +26,7 @@ verification conditions with no `admit`/`assume`/axioms.
 |---|---|---|---|---|
 | Sequences | [`SEQ_REPORT.md`](SEQ_REPORT.md) | `Z3SeqTheory.fst` | `Z3SeqRewrites.fst` | `src/ast/rewriter/seq_rewriter.cpp` |
 | Floating point | [`FPA_REPORT.md`](FPA_REPORT.md) | `Z3FpaTheory.fst`, `Z3FpaConverter.fst` | `Z3FpaRewrites.fst`, `Z3FpaConverter.fst` | `src/ast/rewriter/fpa_rewriter.cpp`, `src/ast/fpa/fpa2bv_converter.cpp` |
-| FP rounding (issue/PR audit) | [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) | `Z3FpaConverter.fst` | `Z3FpaRoundingAudit.fst`, `Z3FpaRoundingBits.fst`, `Z3FpaZeroSign.fst`, `Z3FpaNanCongruence.fst`, `Z3FpaNanWrap.fst`, `Z3FpaToRealSign.fst` | `mk_to_fp_real`, `mk_to_real`, `theory_fpa::relevant_eh`, and FP/datatype model construction (issues #10881/#10931/#9953 closed via merged PR #10888; #7842/#10176 fixed this session, not yet merged; #7431 fix PR #11086 open) |
+| FP rounding (issue/PR audit) | [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) | `Z3FpaConverter.fst` | `Z3FpaRoundingAudit.fst`, `Z3FpaRoundingBits.fst`, `Z3FpaZeroSign.fst`, `Z3FpaNanCongruence.fst`, `Z3FpaNanWrap.fst`, `Z3FpaToRealSign.fst` | `mk_to_fp_real`, `mk_to_real`, `theory_fpa::relevant_eh`, and FP/datatype model construction (issues #10881/#10931/#9953 closed via merged PR #10888; #7842/#10176 fix PR #11088 open; #7431 fix PR #11086 open) |
 | MPF library | [`MPF_REPORT.md`](MPF_REPORT.md) | `Z3MpfTheory.fst` | `Z3MpfTheory.fst`, `Z3MpfRound.fst`, `Z3MpfExact.fst` | `src/util/mpf.h`/`mpf.cpp` (arbitrary-precision IEEE-754 library) |
 
 See each linked report for the full scope decision, function-by-function

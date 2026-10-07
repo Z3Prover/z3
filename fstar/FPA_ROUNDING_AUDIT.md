@@ -19,8 +19,9 @@ encoding above: issue **#7842** (NaN cross-theory congruence, fixed in
 `theory_fpa.cpp::relevant_eh`, see `Z3FpaNanWrap.fst`) and issue
 **#10176** (sign-of-`fp.to_real` nonlinear-arithmetic incompleteness,
 fixed in `fpa2bv_converter.cpp::mk_to_real`, see
-`Z3FpaToRealSign.fst`) — both detailed in new sections below. Issue
-**#7431** still awaits merge of the already-opened fix PR #11086.
+`Z3FpaToRealSign.fst`) — both fixes opened as **PR #11088**, detailed
+in new sections below. Issue **#7431** still awaits merge of the
+already-opened fix PR #11086.
 
 ## Issues (label `Floats`)
 
@@ -28,10 +29,10 @@ fixed in `fpa2bv_converter.cpp::mk_to_real`, see
 |---|---|---|
 | [#10931](https://github.com/Z3Prover/z3/issues/10931) | Unsound unsat: `to_fp` from a symbolic Real loses the rounding carry into the next binade | **closed** (fixed by #10888, re-verified and closed this session) |
 | [#10881](https://github.com/Z3Prover/z3/issues/10881) | False `unsat` for inexact symbolic Real-to-binary64 rounding | **closed** (fixed by merged PR #10888) |
-| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | open; fix implemented and verified this session, not yet merged (see below) |
+| [#10176](https://github.com/Z3Prover/z3/issues/10176) | [Solution Soundness Bug] Incorrect SAT in Float32 FP/Real round-trip arithmetic | open; fix PR #11088 opened, not yet merged |
 | [#9953](https://github.com/Z3Prover/z3/issues/9953) | [Refutational Soundness Bug] Incorrect UNSAT in Float32 FP/Real round-trip arithmetic | **closed** (fixed by #10888, verified and closed this session) |
 | [#8052](https://github.com/Z3Prover/z3/issues/8052) | Unsat only with unnecessary asserts, else unknown | open (out of scope, not a soundness bug) |
-| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | open; fix implemented and verified this session, not yet merged (see below) |
+| [#7842](https://github.com/Z3Prover/z3/issues/7842) | Incorrect model | open; fix PR #11088 opened, not yet merged |
 | [#7431](https://github.com/Z3Prover/z3/issues/7431) | Invalid model issue on float formula | open; fix PR #11086 opened, not yet merged |
 
 **#10931 and #10881 are the same root cause**: both trace to the single
@@ -355,10 +356,8 @@ thread flagged as *still broken* under a prior partial community fix
 now both return `unsat` with `model_validate=true` clean (this fix, at
 the general `relevant_eh` branch, covers both — a UF application's
 result is likewise "non-FPA-family", so it takes the same code path).
-Full `test-z3 /a` suite: 111/111 passing, no regressions. **Not yet
-merged** (local branch, see commit history for this session).
-
-## Fix implemented: `fp.to_real` sign nonlinear-arithmetic gap (issue #10176, `Z3FpaToRealSign.fst`)
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
+(combined with the #10176 fix below).
 
 `fpa2bv_converter::mk_to_real` (the FP->Real direction, a different
 function from the Real->FP rounding encoding audited above) computes
@@ -402,6 +401,6 @@ m_extra_assertions.push_back(m.mk_implies(m.mk_and(not_special, m.mk_not(sgn_is_
 rounding direction, integer form) now return `unsat` deterministically
 in well under a second (previously a fast unsound `sat`, or — on
 current `master`, after #10888 — a many-minutes-long non-termination).
-Full `test-z3 /a` suite: 111/111 passing, no regressions. **Not yet
-merged** (local branch, see commit history for this session).
+Full `test-z3 /a` suite: 111/111 passing, no regressions. **PR #11088**
+(combined with the #7842 fix above).
 
