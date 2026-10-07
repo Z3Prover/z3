@@ -67,8 +67,97 @@ module Z3LenAbsTheory
 open Z3SeqTheory
 open Z3RegexTheory
 open Z3RegexBounds
+open FStar.Math.Euclid
 module Classical = FStar.Classical
 module ML = FStar.Math.Lemmas
+
+#set-options "--z3rlimit 40"
+
+(* ----------------------------------------------------------------- *)
+(* A plain, non-negative `gcd` on `nat`, and the divisibility-chaining *)
+(* lemmas needed to propagate a per-operand periodicity fact through  *)
+(* `unite`/`meet`/`concat`'s combined residue sets below -- this is    *)
+(* the number-theoretic core of `len_abs::gcd()`'s *use*, even though  *)
+(* the scanning algorithm that *computes* the tightest such value is   *)
+(* still not reconstructed (see `la_period_for_star` further down).    *)
+(* ----------------------------------------------------------------- *)
+
+let gcd_witness (a b:nat) : int =
+  let (_, _, d) = euclid_gcd a b in d
+
+let lemma_gcd_witness_is_gcd (a b:nat) : Lemma (is_gcd a b (gcd_witness a b)) = ()
+
+unfold let ngcd (a b:nat) : nat =
+  let d = gcd_witness a b in
+  if d >= 0 then d else -d
+
+let lemma_is_gcd_negate (a b d:int)
+  : Lemma (requires is_gcd a b d) (ensures is_gcd a b (-d))
+  = let aux (x:int) : Lemma (requires x `divides` a /\ x `divides` b) (ensures x `divides` (-d)) =
+      divides_minus x d
+    in
+    divides_opp d a;
+    divides_opp d b;
+    Classical.forall_intro (Classical.move_requires aux)
+
+#push-options "--z3rlimit 50"
+let lemma_ngcd_is_gcd (a b:nat) : Lemma (is_gcd a b (ngcd a b))
+  = lemma_gcd_witness_is_gcd a b;
+    let d = gcd_witness a b in
+    if d < 0 then lemma_is_gcd_negate a b d
+#pop-options
+
+(* `ngcd a b` divides any `m` that `a` (resp. `b`) itself divides --
+   used to propagate "every length is a multiple of `mult_a`" (or
+   `mult_b`) facts down to "... a multiple of `ngcd mult_a mult_b`". *)
+let lemma_ngcd_dvd_chain_l (am bm:pos) (m:nat)
+  : Lemma (requires ngcd am bm > 0 /\ m % am == 0) (ensures m % (ngcd am bm) == 0)
+  = lemma_ngcd_is_gcd am bm;
+    mod_divides m am;
+    divides_transitive (ngcd am bm) am m;
+    divides_mod m (ngcd am bm)
+
+let lemma_ngcd_dvd_chain_r (am bm:pos) (m:nat)
+  : Lemma (requires ngcd am bm > 0 /\ m % bm == 0) (ensures m % (ngcd am bm) == 0)
+  = lemma_ngcd_is_gcd am bm;
+    mod_divides m bm;
+    divides_transitive (ngcd am bm) bm m;
+    divides_mod m (ngcd am bm)
+
+(* If `ngcd am bm` divides a period `pa` (witnessed by `pa % am == 0`),
+   it divides any product `pa * pc` too -- used to show the combined
+   period `pa * pb` of `unite`/`meet`/`concat`'s result remains a
+   multiple of the chosen combined `mult`. *)
+let lemma_ngcd_dvd_period_l (am bm:pos) (pa pc:pos)
+  : Lemma (requires ngcd am bm > 0 /\ pa % am == 0)
+          (ensures (pa * pc) % (ngcd am bm) == 0)
+  = lemma_ngcd_dvd_chain_l am bm pa;
+    mod_divides pa (ngcd am bm);
+    divides_mult_right pc pa (ngcd am bm);
+    divides_mod (pc * pa) (ngcd am bm)
+
+let lemma_ngcd_dvd_period_r (am bm:pos) (pb pc:pos)
+  : Lemma (requires ngcd am bm > 0 /\ pb % bm == 0)
+          (ensures (pc * pb) % (ngcd am bm) == 0)
+  = lemma_ngcd_dvd_chain_r am bm pb;
+    mod_divides pb (ngcd am bm);
+    divides_mult_right pc pb (ngcd am bm);
+    divides_mod (pc * pb) (ngcd am bm)
+
+(* `(n % period) % mult == n % mult`, given `mult` divides `period` --
+   the standard "project a finer modulus through a coarser one"
+   identity, used to go from a residue-level fact (about `n % period`)
+   to an `n`-level one (about `n` itself). *)
+let lemma_mod_via_period (period mult:pos) (n:int)
+  : Lemma (requires period % mult == 0)
+          (ensures (n % period) % mult == n % mult)
+  = ML.lemma_div_mod period mult;
+    ML.modulo_modulo_lemma n mult (period / mult)
+
+(* Sum of two multiples of `g` is a multiple of `g`. *)
+let lemma_mod_add_zero (g:pos) (m n:nat)
+  : Lemma (requires m % g == 0 /\ n % g == 0) (ensures (m + n) % g == 0)
+  = ML.modulo_distributivity m n g
 
 (* ----------------------------------------------------------------- *)
 (* The abstract domain                                                 *)
@@ -89,6 +178,18 @@ noeq type len_abs = {
      `m_residues` once `m_period > 1`). *)
   la_period   : pos;
   la_residues : residue_set;
+  (* `0` ~ "no extra fact known"; else a value such that every length
+     `a` contains is provably a multiple of `la_mult` -- a single
+     extra divisibility fact, tracked alongside the main
+     `(lo,hi,period,residues)` quadruple, that generalizes
+     `la_period_for_star`'s old "exact singleton" special case to any
+     chain of `unite`/`meet`/`concat`/`star`/`plus`/`loop` of
+     already-periodic sub-expressions (see `la_mult_sound` below).
+     This does *not* reconstruct `len_abs::gcd()`'s real multi-residue
+     scan (which can find periods like `6` for `(aa)*|(aaa)*`'s
+     `{0,2,3,4}` from first principles); it only ever propagates a
+     *single* divisor fact compositionally. *)
+  la_mult     : nat;
 }
 
 (* The concrete set of lengths `a` soundly contains, verbatim from
@@ -97,11 +198,38 @@ let gamma (a:len_abs) (n:nat) : prop =
   a.la_lo <= n /\ eb_le n a.la_hi /\
   (a.la_period <= 1 \/ a.la_residues (n % a.la_period))
 
+(* The fact `len_abs::gcd()` is relied on to establish: every length
+   `abs` contains is a multiple of `g`. (Relocated above `la_sound` so
+   `la_mult_sound` below can refer to it.) *)
+let only_multiples_of (abs:len_abs) (g:pos) : prop =
+  forall (n:nat). gamma abs n ==> n % g == 0
+
+(* Soundness of the extra `la_mult` divisibility fact. Deliberately
+   stated at two different levels depending on `la_period`:
+   - `la_period > 1`: a purely *structural*, window-independent fact
+     about the residue formula itself (quantified over `r < period`,
+     not over `gamma`/reachability) -- needed because `unite`/
+     `meet`/`concat`'s combined residue formulas can admit lengths
+     outside either operand's original `[lo,hi]` window, so a
+     window-level (`only_multiples_of`) argument alone can't be
+     transported compositionally across these binary combinators.
+   - `la_period <= 1`: no residue formula is tracked at all, so we
+     fall back to the simpler window-level `only_multiples_of`,
+     sufficient for the non-periodic base cases (`la_exact`). *)
+let la_mult_sound (abs:len_abs) : prop =
+  abs.la_mult > 0 ==>
+    (if abs.la_period > 1 then
+       abs.la_period % abs.la_mult == 0 /\
+       (forall (r:nat). r < abs.la_period ==> abs.la_residues r ==> r % abs.la_mult == 0)
+     else
+       only_multiples_of abs abs.la_mult)
+
 (* "Soundness" of a `len_abs` relative to a language `l`: every word
-   `l` accepts has a length `a` contains -- the length-set analogue of
-   `info_sound` (Z3RegexInfo.fst), generalized to the periodic domain. *)
+   `l` accepts has a length `a` contains, and the extra `la_mult` fact
+   (if any) soundly holds -- the length-set analogue of `info_sound`
+   (Z3RegexInfo.fst), generalized to the periodic domain. *)
 let la_sound (#a:eqtype) (abs:len_abs) (l:lang a) : prop =
-  forall (w:seq a). mem w l ==> gamma abs (len w)
+  (forall (w:seq a). mem w l ==> gamma abs (len w)) /\ la_mult_sound abs
 
 (* Monotonicity: an abstraction sound for `l` remains sound for any
    `l'` whose words are a subset of `l`'s -- used throughout
@@ -118,11 +246,15 @@ let lemma_la_sound_monotone (#a:eqtype) (abs:len_abs) (l l':lang a)
 (* `empty`/`exact`                                                    *)
 (* ----------------------------------------------------------------- *)
 
-let la_empty : len_abs = { la_lo = 1; la_hi = Bound 0; la_period = 1; la_residues = (fun _ -> False) }
+let la_empty : len_abs = { la_lo = 1; la_hi = Bound 0; la_period = 1; la_residues = (fun _ -> False); la_mult = 0 }
 
 let lemma_gamma_empty (n:nat) : Lemma (~(gamma la_empty n)) = ()
 
-let la_exact (n:nat) : len_abs = { la_lo = n; la_hi = Bound n; la_period = 1; la_residues = (fun _ -> False) }
+(* Every length this abstraction contains is exactly `n`, so (for
+   `n > 0`) it is trivially a multiple of `n` itself -- the simplest
+   non-zero `la_mult` fact, and exactly what lets `la_period_for_star`
+   recover the header's `(a^4)*` motivating case. *)
+let la_exact (n:nat) : len_abs = { la_lo = n; la_hi = Bound n; la_period = 1; la_residues = (fun _ -> False); la_mult = n }
 
 (* A non-periodic abstraction carrying only a plain `[lo, hi]` bound
    -- the `len_abs` analogue of `Z3RegexInfo.fst`'s own
@@ -130,7 +262,7 @@ let la_exact (n:nat) : len_abs = { la_lo = n; la_hi = Bound n; la_period = 1; la
    tracked (e.g. `complement`, or any interval already established by
    other means). *)
 let la_trivial (lo:nat) (hi:ebound) : len_abs =
-  { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False) }
+  { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False); la_mult = 0 }
 
 let lemma_la_trivial_sound (#a:eqtype) (lo:nat) (hi:ebound) (l:lang a)
   : Lemma (requires forall (w:seq a). mem w l ==> lo <= len w /\ eb_le (len w) hi)
@@ -147,11 +279,70 @@ let la_unite (a b:len_abs) : len_abs =
   let lo = if a.la_lo <= b.la_lo then a.la_lo else b.la_lo in
   let hi = eb_max a.la_hi b.la_hi in
   if a.la_period <= 1 || b.la_period <= 1 then
-    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False) }
+    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False); la_mult = 0 }
   else
     let q = a.la_period * b.la_period in
+    let mult = if a.la_mult > 0 && b.la_mult > 0 then ngcd a.la_mult b.la_mult else 0 in
     { la_lo = lo; la_hi = hi; la_period = q;
-      la_residues = (fun r -> a.la_residues (r % a.la_period) \/ b.la_residues (r % b.la_period)) }
+      la_residues = (fun r -> a.la_residues (r % a.la_period) \/ b.la_residues (r % b.la_period));
+      la_mult = mult }
+
+(* Shared structural argument for `unite`'s/`meet`'s/`concat`'s `la_mult`:
+   a length `r` that is known reachable via `abs1`'s own residue
+   formula at `r % abs1.la_period` is a multiple of `abs1.la_mult`
+   (straight from `abs1`'s own `la_mult_sound`), hence also a multiple
+   of `ngcd abs1.la_mult abs2.la_mult`. *)
+let lemma_mult_via_residue_l (abs1 abs2:len_abs) (r:nat)
+  : Lemma (requires la_mult_sound abs1 /\ abs1.la_period > 1 /\ abs1.la_mult > 0 /\ abs2.la_mult > 0 /\
+                    ngcd abs1.la_mult abs2.la_mult > 0 /\ abs1.la_residues (r % abs1.la_period))
+          (ensures r % (ngcd abs1.la_mult abs2.la_mult) == 0)
+  = lemma_mod_via_period abs1.la_period abs1.la_mult r;
+    lemma_ngcd_dvd_chain_l abs1.la_mult abs2.la_mult r
+
+let lemma_mult_via_residue_r (abs1 abs2:len_abs) (r:nat)
+  : Lemma (requires la_mult_sound abs2 /\ abs2.la_period > 1 /\ abs1.la_mult > 0 /\ abs2.la_mult > 0 /\
+                    ngcd abs1.la_mult abs2.la_mult > 0 /\ abs2.la_residues (r % abs2.la_period))
+          (ensures r % (ngcd abs1.la_mult abs2.la_mult) == 0)
+  = lemma_mod_via_period abs2.la_period abs2.la_mult r;
+    lemma_ngcd_dvd_chain_r abs1.la_mult abs2.la_mult r
+
+(* `la_mult_sound` of the combined period `q = p1 * p2`, whenever both
+   operands' own `la_mult` facts are known. *)
+let lemma_mult_period_combined (abs1 abs2:len_abs)
+  : Lemma (requires la_mult_sound abs1 /\ la_mult_sound abs2 /\
+                    abs1.la_period > 1 /\ abs2.la_period > 1 /\
+                    abs1.la_mult > 0 /\ abs2.la_mult > 0 /\ ngcd abs1.la_mult abs2.la_mult > 0)
+          (ensures (abs1.la_period * abs2.la_period) % (ngcd abs1.la_mult abs2.la_mult) == 0)
+  = lemma_ngcd_dvd_period_l abs1.la_mult abs2.la_mult abs1.la_period abs2.la_period
+
+(* `la_mult_sound` of `la_unite`'s result, isolated as its own lemma
+   (rather than inlined into `lemma_la_unite_sound`) so the SMT query
+   stays small and focused. *)
+#push-options "--fuel 4 --ifuel 4 --z3rlimit 100"
+let lemma_la_mult_unite (abs1 abs2:len_abs)
+  : Lemma (requires la_mult_sound abs1 /\ la_mult_sound abs2)
+          (ensures la_mult_sound (la_unite abs1 abs2))
+  = if abs1.la_period > 1 && abs2.la_period > 1 && abs1.la_mult > 0 && abs2.la_mult > 0
+       && ngcd abs1.la_mult abs2.la_mult > 0 then begin
+      let q = abs1.la_period * abs2.la_period in
+      let mult = ngcd abs1.la_mult abs2.la_mult in
+      lemma_mult_period_combined abs1 abs2;
+      let aux (r:nat)
+        : Lemma (requires r < q /\ (abs1.la_residues (r % abs1.la_period) \/ abs2.la_residues (r % abs2.la_period)))
+                (ensures r % mult == 0) =
+        if abs1.la_residues (r % abs1.la_period) then lemma_mult_via_residue_l abs1 abs2 r
+        else lemma_mult_via_residue_r abs1 abs2 r
+      in
+      Classical.forall_intro (Classical.move_requires aux);
+      ML.lemma_mult_lt_left abs1.la_period 1 abs2.la_period;
+      assert (q > 1);
+      assert ((la_unite abs1 abs2).la_period == q);
+      assert ((la_unite abs1 abs2).la_mult == mult);
+      assert (forall (r:nat). (la_unite abs1 abs2).la_residues r <==>
+                              (abs1.la_residues (r % abs1.la_period) \/ abs2.la_residues (r % abs2.la_period)));
+      assert (forall (r:nat). r < q ==> (la_unite abs1 abs2).la_residues r ==> r % mult == 0)
+    end
+#pop-options
 
 let lemma_la_unite_sound (#a:eqtype) (abs1 abs2:len_abs) (l1 l2:lang a)
   : Lemma (requires la_sound abs1 l1 /\ la_sound abs2 l2)
@@ -165,7 +356,8 @@ let lemma_la_unite_sound (#a:eqtype) (abs1 abs2:len_abs) (l1 l2:lang a)
           ML.modulo_modulo_lemma (len w) abs2.la_period abs1.la_period
       end
     in
-    Classical.forall_intro (Classical.move_requires goal)
+    Classical.forall_intro (Classical.move_requires goal);
+    lemma_la_mult_unite abs1 abs2
 
 (* ----------------------------------------------------------------- *)
 (* `meet`                                                             *)
@@ -175,11 +367,38 @@ let la_meet (a b:len_abs) : len_abs =
   let lo = if a.la_lo >= b.la_lo then a.la_lo else b.la_lo in
   let hi = eb_min a.la_hi b.la_hi in
   if a.la_period <= 1 || b.la_period <= 1 then
-    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False) }
+    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False); la_mult = 0 }
   else
     let q = a.la_period * b.la_period in
+    let mult = if a.la_mult > 0 && b.la_mult > 0 then ngcd a.la_mult b.la_mult else 0 in
     { la_lo = lo; la_hi = hi; la_period = q;
-      la_residues = (fun r -> a.la_residues (r % a.la_period) /\ b.la_residues (r % b.la_period)) }
+      la_residues = (fun r -> a.la_residues (r % a.la_period) /\ b.la_residues (r % b.la_period));
+      la_mult = mult }
+
+(* `la_mult_sound` of `la_meet`'s result, isolated as its own lemma. *)
+#push-options "--fuel 4 --ifuel 4 --z3rlimit 100"
+let lemma_la_mult_meet (abs1 abs2:len_abs)
+  : Lemma (requires la_mult_sound abs1 /\ la_mult_sound abs2)
+          (ensures la_mult_sound (la_meet abs1 abs2))
+  = if abs1.la_period > 1 && abs2.la_period > 1 && abs1.la_mult > 0 && abs2.la_mult > 0
+       && ngcd abs1.la_mult abs2.la_mult > 0 then begin
+      let q = abs1.la_period * abs2.la_period in
+      let mult = ngcd abs1.la_mult abs2.la_mult in
+      lemma_mult_period_combined abs1 abs2;
+      let aux (r:nat)
+        : Lemma (requires r < q /\ (abs1.la_residues (r % abs1.la_period) /\ abs2.la_residues (r % abs2.la_period)))
+                (ensures r % mult == 0) =
+        lemma_mult_via_residue_l abs1 abs2 r
+      in
+      Classical.forall_intro (Classical.move_requires aux);
+      ML.lemma_mult_lt_left abs1.la_period 1 abs2.la_period;
+      assert (q > 1);
+      assert ((la_meet abs1 abs2).la_period == q);
+      assert ((la_meet abs1 abs2).la_mult == mult);
+      assert (forall (r:nat). (la_meet abs1 abs2).la_residues r <==>
+                              (abs1.la_residues (r % abs1.la_period) /\ abs2.la_residues (r % abs2.la_period)))
+    end
+#pop-options
 
 (* `meet` is sound for intersecting two abstractions of *the same*
    language: both bound/period/residue constraints survive, exactly
@@ -194,7 +413,8 @@ let lemma_la_meet_sound (#a:eqtype) (abs1 abs2:len_abs) (l:lang a)
         ML.modulo_modulo_lemma (len w) abs2.la_period abs1.la_period
       end
     in
-    Classical.forall_intro (Classical.move_requires goal)
+    Classical.forall_intro (Classical.move_requires goal);
+    lemma_la_mult_meet abs1 abs2
 
 (* ----------------------------------------------------------------- *)
 (* `opt`                                                              *)
@@ -202,12 +422,27 @@ let lemma_la_meet_sound (#a:eqtype) (abs1 abs2:len_abs) (l:lang a)
 
 let la_opt (a:len_abs) : len_abs =
   { la_lo = 0; la_hi = a.la_hi; la_period = a.la_period;
-    la_residues = (fun r -> r == 0 \/ a.la_residues r) }
+    la_residues = (fun r -> r == 0 \/ a.la_residues r);
+    (* `la_opt`'s claimed set at `la_period <= 1` is the *whole*
+       `[lo,hi]` interval (no periodicity filter), not just `{0, lo}`
+       -- so `a`'s `la_mult` cannot be soundly reused there (e.g.
+       `opt(exact n)`'s set is `[0,n]`, not uniformly divisible by
+       `n`). Only propagate when `a` itself is genuinely periodic. *)
+    la_mult = (if a.la_period > 1 then a.la_mult else 0) }
+
+let lemma_la_mult_opt (abs:len_abs)
+  : Lemma (requires la_mult_sound abs) (ensures la_mult_sound (la_opt abs))
+  = if abs.la_period > 1 && abs.la_mult > 0 then begin
+      let aux (r:nat) : Lemma (requires r < abs.la_period /\ (r == 0 \/ abs.la_residues r))
+                               (ensures r % abs.la_mult == 0) = () in
+      Classical.forall_intro (Classical.move_requires aux)
+    end
 
 let lemma_la_opt_sound (#a:eqtype) (abs:len_abs) (l:lang a)
   : Lemma (requires la_sound abs l) (ensures la_sound (la_opt abs) (re_opt l))
   = let goal (w:seq a) : Lemma (requires mem w (re_opt l)) (ensures gamma (la_opt abs) (len w)) = () in
-    Classical.forall_intro (Classical.move_requires goal)
+    Classical.forall_intro (Classical.move_requires goal);
+    lemma_la_mult_opt abs
 
 (* ----------------------------------------------------------------- *)
 (* `concat`                                                           *)
@@ -220,14 +455,55 @@ let la_concat (a b:len_abs) : len_abs =
   let lo = a.la_lo + b.la_lo in
   let hi = eb_add a.la_hi b.la_hi in
   if a.la_period <= 1 || b.la_period <= 1 then
-    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False) }
+    { la_lo = lo; la_hi = hi; la_period = 1; la_residues = (fun _ -> False); la_mult = 0 }
   else
     let q = a.la_period * b.la_period in
     let conv (r:nat) : prop =
       exists (i:nat) (j:nat).
         i < q /\ j < q /\ a.la_residues (i % a.la_period) /\ b.la_residues (j % b.la_period) /\ (i + j) % q == r
     in
-    { la_lo = lo; la_hi = hi; la_period = q; la_residues = conv }
+    let mult = if a.la_mult > 0 && b.la_mult > 0 then ngcd a.la_mult b.la_mult else 0 in
+    { la_lo = lo; la_hi = hi; la_period = q; la_residues = conv; la_mult = mult }
+
+#push-options "--fuel 4 --ifuel 4 --z3rlimit 100"
+let lemma_la_mult_concat (abs1 abs2:len_abs)
+  : Lemma (requires la_mult_sound abs1 /\ la_mult_sound abs2)
+          (ensures la_mult_sound (la_concat abs1 abs2))
+  = if abs1.la_period > 1 && abs2.la_period > 1 && abs1.la_mult > 0 && abs2.la_mult > 0
+       && ngcd abs1.la_mult abs2.la_mult > 0 then begin
+      let q = abs1.la_period * abs2.la_period in
+      let mult = ngcd abs1.la_mult abs2.la_mult in
+      lemma_mult_period_combined abs1 abs2;
+      let aux (r:nat)
+        : Lemma (requires r < q /\
+                          (exists (i:nat) (j:nat).
+                             i < q /\ j < q /\ abs1.la_residues (i % abs1.la_period) /\
+                             abs2.la_residues (j % abs2.la_period) /\ (i + j) % q == r))
+                (ensures r % mult == 0) =
+        Classical.exists_elim (r % mult == 0)
+          #nat #(fun i -> exists (j:nat). j < q /\ i < q /\
+                    abs1.la_residues (i % abs1.la_period) /\ abs2.la_residues (j % abs2.la_period) /\ (i + j) % q == r)
+          () (fun i ->
+            Classical.exists_elim (r % mult == 0)
+              #nat #(fun j -> j < q /\ i < q /\
+                        abs1.la_residues (i % abs1.la_period) /\ abs2.la_residues (j % abs2.la_period) /\ (i + j) % q == r)
+              () (fun j ->
+                lemma_mult_via_residue_l abs1 abs2 i;
+                lemma_mult_via_residue_r abs1 abs2 j;
+                lemma_mod_add_zero mult i j;
+                lemma_mod_via_period q mult (i + j)))
+      in
+      Classical.forall_intro (Classical.move_requires aux);
+      ML.lemma_mult_lt_left abs1.la_period 1 abs2.la_period;
+      assert (q > 1);
+      assert ((la_concat abs1 abs2).la_period == q);
+      assert ((la_concat abs1 abs2).la_mult == mult);
+      assert (forall (r:nat). (la_concat abs1 abs2).la_residues r <==>
+                              (exists (i:nat) (j:nat).
+                                 i < q /\ j < q /\ abs1.la_residues (i % abs1.la_period) /\
+                                 abs2.la_residues (j % abs2.la_period) /\ (i + j) % q == r))
+    end
+#pop-options
 
 let lemma_la_concat_sound (#a:eqtype) (abs1 abs2:len_abs) (l1 l2:lang a)
   : Lemma (requires la_sound abs1 l1 /\ la_sound abs2 l2)
@@ -248,16 +524,12 @@ let lemma_la_concat_sound (#a:eqtype) (abs1 abs2:len_abs) (l1 l2:lang a)
             exists (j':nat). j' < q /\ i' < q /\ abs1.la_residues (i' % abs1.la_period) /\ abs2.la_residues (j' % abs2.la_period) /\ (i' + j') % q == (len w) % q) i
         end)
     in
-    Classical.forall_intro (Classical.move_requires goal)
+    Classical.forall_intro (Classical.move_requires goal);
+    lemma_la_mult_concat abs1 abs2
 
 (* ----------------------------------------------------------------- *)
 (* `star`/`plus`/`loop`: sound for any externally-justified gcd `g`    *)
 (* ----------------------------------------------------------------- *)
-
-(* The fact `len_abs::gcd()` is relied on to establish: every length
-   `abs` contains is a multiple of `g`. *)
-let only_multiples_of (abs:len_abs) (g:pos) : prop =
-  forall (n:nat). gamma abs n ==> n % g == 0
 
 (* Discharges `only_multiples_of` for exactly `len_abs.h`'s own
    motivating shape: an abstraction whose only possible residue is 0
@@ -272,33 +544,29 @@ let lemma_only_multiples_of_period (abs:len_abs)
 
 (* A fully computable, always-safe choice of `g` for `star`/`plus`/
    `loop`, usable directly by `Z3RegexInfo.fst`'s `compute_info`
-   (which cannot carry explicit proof terms): if `abs` is a
-   *singleton* (`la_lo == la_hi`, as e.g. a literal `seq.to_re` of a
-   fixed string gives via `la_exact`), every length it contains is
-   trivially a multiple of that one value, so `g = la_lo` is sound
-   and exactly recovers the header's own motivating precision for
-   patterns like `(a^4)*` (whose operand's `la` is the singleton
-   `la_exact 4`). Otherwise `g = 1` (no constraint) is the safe
-   default -- the real `len_abs::gcd()`'s general multi-residue
-   algorithm is not reconstructed here, see the module header. *)
+   (which cannot carry explicit proof terms): `abs`'s own `la_mult`
+   field, whenever it carries a nontrivial (`>1`) fact -- this
+   generalizes the old "exact singleton" special case to any chain of
+   `unite`/`meet`/`concat`/`star`/`plus`/`loop` of already-periodic
+   sub-expressions that `la_mult_sound` has propagated a divisor fact
+   through (e.g. `la_exact n`, or `unite (la_exact n) (la_exact m)`'s
+   `ngcd n m`). Falls back to `1` (no constraint) otherwise -- the
+   real `len_abs::gcd()`'s general multi-residue scan (able to find,
+   e.g., period `6` for `(aa)*|(aaa)*`'s residues `{0,2,3,4}` from
+   first principles) is still not reconstructed here. *)
 let la_period_for_star (abs:len_abs) : pos =
-  match abs.la_hi with
-  | Bound h -> if h = abs.la_lo && abs.la_lo > 0 then abs.la_lo else 1
-  | Infinite -> 1
+  if abs.la_mult > 1 then abs.la_mult else 1
 
 let lemma_la_period_for_star (abs:len_abs)
-  : Lemma (only_multiples_of abs (la_period_for_star abs))
-  = match abs.la_hi with
-    | Bound h -> if h = abs.la_lo && abs.la_lo > 0 then begin
-                   let aux (n:nat) : Lemma (requires gamma abs n) (ensures n % (la_period_for_star abs) == 0) = () in
-                   Classical.forall_intro (Classical.move_requires aux)
-                 end
-    | Infinite -> ()
-
-(* Sum of two multiples of `g` is a multiple of `g`. *)
-let lemma_mod_add_zero (g:pos) (m n:nat)
-  : Lemma (requires m % g == 0 /\ n % g == 0) (ensures (m + n) % g == 0)
-  = ML.modulo_distributivity m n g
+  : Lemma (requires la_mult_sound abs) (ensures only_multiples_of abs (la_period_for_star abs))
+  = if abs.la_mult > 1 then begin
+      if abs.la_period > 1 then begin
+        let aux (n:nat) : Lemma (requires gamma abs n) (ensures n % abs.la_mult == 0) =
+          lemma_mod_via_period abs.la_period abs.la_mult n
+        in
+        Classical.forall_intro (Classical.move_requires aux)
+      end
+    end
 
 (* Every member of `re_pow l n` has a length that is a multiple of
    `g`, given `abs` soundly bounds `l` and every length `abs` contains
@@ -319,7 +587,8 @@ let rec lemma_pow_gcd_period (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a)
 
 let la_star (a:len_abs) (g:pos) : len_abs =
   let hi = (match a.la_hi with Bound 0 -> Bound 0 | _ -> Infinite) in
-  { la_lo = 0; la_hi = hi; la_period = g; la_residues = (fun r -> r == 0) }
+  { la_lo = 0; la_hi = hi; la_period = g; la_residues = (fun r -> r == 0);
+    la_mult = (if g > 1 then g else 0) }
 
 let lemma_la_star_sound (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a)
   : Lemma (requires la_sound abs l /\ only_multiples_of abs g)
@@ -338,7 +607,8 @@ let lemma_la_star_sound (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a)
 
 let la_plus (a:len_abs) (g:pos) : len_abs =
   let hi = (match a.la_hi with Bound 0 -> Bound 0 | _ -> Infinite) in
-  { la_lo = a.la_lo; la_hi = hi; la_period = g; la_residues = (fun r -> r == 0) }
+  { la_lo = a.la_lo; la_hi = hi; la_period = g; la_residues = (fun r -> r == 0);
+    la_mult = (if g > 1 then g else 0) }
 
 let lemma_la_plus_sound (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a)
   : Lemma (requires la_sound abs l /\ only_multiples_of abs g)
@@ -361,7 +631,8 @@ let lemma_la_plus_sound (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a)
 let la_loop (a:len_abs) (g:pos) (lo:nat) (hi:ebound) : len_abs =
   let lo' = lo * a.la_lo in
   let hi' = (match hi with Bound h -> eb_scale h a.la_hi | Infinite -> Infinite) in
-  { la_lo = lo'; la_hi = hi'; la_period = g; la_residues = (fun r -> r == 0) }
+  { la_lo = lo'; la_hi = hi'; la_period = g; la_residues = (fun r -> r == 0);
+    la_mult = (if g > 1 then g else 0) }
 
 let lemma_la_loop_bounded_sound (#a:eqtype) (abs:len_abs) (g:pos) (l:lang a) (lo hi:nat)
   : Lemma (requires la_sound abs l /\ only_multiples_of abs g)

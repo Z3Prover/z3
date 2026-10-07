@@ -362,3 +362,63 @@ the new `la_sound` conjunct of `info_sound`, and
 required no structural changes. `Z3RegexBounds.fst`,
 `Z3LenAbsTheory.fst`, and `Z3RegexInfo.fst` all compile cleanly from a
 fresh `.checked` state with zero admits.
+
+## Addendum: generalizing `la_period_for_star` via a new `la_mult` field
+
+The previous addendum's `la_period_for_star` only recovered a
+nontrivial period (`g = la_lo`) for the narrow "exact singleton"
+case. `Z3LenAbsTheory.fst`'s `len_abs` record now carries an extra
+`la_mult : nat` field (`0` ~ "no extra fact known", else a value such
+that every length the abstraction contains is provably a multiple of
+`la_mult`), propagated compositionally through `unite`/`meet`/
+`concat`/`opt`/`star`/`plus`/`loop`, so that chains of these
+combinators over already-periodic sub-expressions (not just literal
+singletons) can now justify a nontrivial `g` for `star`/`plus`/`loop`.
+
+This generalizes, but deliberately does **not** reconstruct,
+`len_abs::gcd()`'s real multi-residue scan: it only ever tracks a
+*single* divisor fact per abstraction, propagated via a plain
+non-negative `ngcd` (built on `FStar.Math.Euclid.euclid_gcd`), so a
+shape like `(aa)*|(aaa)*` (period 6, residues `{0,2,3,4}`, for which
+the real algorithm can derive a tighter periodicity than any single
+`la_mult` value captures) still has no path to a nonzero `la_mult`
+under this design.
+
+Key design points:
+
+- **Soundness invariant `la_mult_sound`** is split by `la_period`:
+  for `la_period > 1`, it is a purely *structural*, window-independent
+  fact about the residue formula itself (`la_period % la_mult == 0`
+  and `forall r < la_period. la_residues r ==> r % la_mult == 0`),
+  deliberately avoiding any reference to `la_lo`/`la_hi` -- needed
+  because `unite`/`meet`/`concat`'s combined residue formulas can
+  admit lengths outside either operand's original window, so a
+  window-level argument alone isn't compositional across these binary
+  combinators. For `la_period <= 1`, it falls back to the simpler,
+  window-level `only_multiples_of` (sufficient for `la_exact n`, which
+  sets `la_mult = n`).
+- `la_unite`/`la_meet`/`la_concat` propagate `la_mult = ngcd
+  mult_a mult_b` when both operands have `period > 1` and a known
+  nonzero `la_mult`; `la_opt` propagates `a.la_mult` only when `a`
+  itself is already periodic (its `la_period <= 1` set is the *whole*
+  `[lo,hi]` interval, not a finite residue set, so reusing `la_mult`
+  there would be unsound); `la_star`/`la_plus`/`la_loop` set `la_mult
+  = g` directly (already proven a valid period via
+  `only_multiples_of`).
+- `la_period_for_star abs` is now simply `abs.la_mult` when `> 1`,
+  else `1` -- replacing the old singleton-only special case.
+- New reusable number-theoretic lemmas: `ngcd`/`lemma_ngcd_is_gcd`
+  (built from `FStar.Math.Euclid.euclid_gcd`, handling its
+  up-to-sign witness via `lemma_is_gcd_negate`), `lemma_ngcd_dvd_chain_l/_r`
+  and `lemma_ngcd_dvd_period_l/_r` (divisibility chaining through a
+  gcd), and `lemma_mod_via_period` (`(n % period) % mult == n % mult`
+  when `mult` divides `period`, via `FStar.Math.Lemmas.lemma_div_mod`
+  + `modulo_modulo_lemma`).
+
+`Z3RegexInfo.fst` required **no changes**: its existing `info_sound`
+hypothesis already implies `la_sound i.la l`, which now transitively
+carries `la_mult_sound i.la`, and all call sites into
+`lemma_la_period_for_star` continue to typecheck unchanged via F*'s
+automatic unfolding of these transparent `prop`-valued `let`s. Both
+`Z3LenAbsTheory.fst` and `Z3RegexInfo.fst` compile cleanly from a
+fresh `.checked` state with zero admits.
