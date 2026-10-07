@@ -493,7 +493,7 @@ Findings from building and running it:
   `propagate_values`, and `elim_unconstrained` disabled, `bound_simplifier`
   (on by default) still runs `solve_eqs` and `propagate_values` internally,
   so assumed clauses can combine several assertions. The exporter disables it
-  too; the matrix's `smt-clause-log-nopp` cell should as well.
+  too; the companion matrix update disables it in `smt-clause-log-nopp` as well.
 - **Equality coefficients in `farkas` hints are placeholders.** A hint
   listing an equality with coefficient 1 may need multiplier 15 to cancel;
   Z3's checker solves for equality multipliers rather than reading them, and
@@ -501,6 +501,10 @@ Findings from building and running it:
 - **Hint conventions differ.** `farkas`, `bound`, `implied-eq`, and `euf` list
   jointly contradictory literals; `tseitin` lists the gate clause itself;
   `smt` carries no literals. A clause-log consumer must know which is which.
+  An `implied-eq` ends in a disequality: Python checks the shape and Lean
+  proves the implied equality, rather than summing the disequality as a
+  Farkas constraint. `alldiff` clauses must be tied to the original `distinct`
+  assertion, never trusted as unconditional theory lemmas.
 - **Z3's RUP check is Tseitin-aware.** `rup` steps may rely on the definitions
   of compound Boolean atoms that are never logged as clauses; the replayer
   adds those gate clauses as `def-axiom` nodes.
@@ -522,11 +526,14 @@ Findings from building and running it:
   in about three seconds once `maxRecDepth` is raised; the earlier ~500-step
   elaboration cliff was the default recursion limit, not the kernel.
 
-Still open for this slice: a `--lean` cell for the clause log in the z3test
-matrix, real SMT-LIB QF_LRA benchmarks (the canary list has two unsat
-instances, both trivial), `implied-eq` and `smt` hints have not been observed
-on the inputs tried, and QF_LIA needs `cut` hints that the C++ checker never
-accepts.
+The companion matrix update is
+[Z3Prover/z3test#77](https://github.com/Z3Prover/z3test/pull/77): it adds the
+clause-log `--lean` cell and eight QF_LRA inputs, including implied equality,
+n-ary `distinct`, and fractional unary-negation regressions.
+
+Still open for this slice: real SMT-LIB QF_LRA benchmarks (the canary list has
+two unsat instances, both trivial), `smt` hints have not been observed on the
+inputs tried, and QF_LIA needs `cut` hints that the C++ checker never accepts.
 
 ## Arithmetic proof infrastructure
 

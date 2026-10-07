@@ -6,6 +6,7 @@
 # Lean toolchain.
 ############################################
 import copy
+from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
@@ -213,6 +214,25 @@ class TestArithmeticValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("have _s", text)  # fractional atoms get scaling helpers
 
+    def test_unary_minus_negates_variable_coefficients(self):
+        source = "(declare-const x Real)(assert (> (- x) (/ 1.0 2.0)))(assert (>= x 0.0))"
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        node = next(i for i in range(len(graph.nodes))
+                    if graph.kind(i) == z3.Z3_OP_UMINUS
+                    and graph.kind(graph.arguments(i)[0]) == z3.Z3_OP_UNINTERPRETED)
+        terms = {}
+        self.assertEqual(proof_to_lean._linear_term(graph, node, Fraction(1), terms), 0)
+        self.assertEqual(terms, {graph.arguments(node)[0]: Fraction(-1)})
+
+    def test_implied_equality_requires_an_equality_conclusion(self):
+        certificate = copy.deepcopy(self.certificate)
+        for declaration in certificate["declarations"]:
+            if declaration["name"] == "th-lemma":
+                declaration["parameters"][0] = "implied-eq"
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "must end in a Real equality"):
+            proof_to_lean.reconstruct(self.source, certificate)
+
 
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
 class TestArithmeticLeanIntegration(unittest.TestCase):
@@ -254,6 +274,38 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 source = "\n".join(line for line in source.splitlines() if "set-option" not in line) + "\n"
                 certificate, _ = self.check(source)
                 self.assertEqual(certificate["fragment"], "propositional")
+
+    def test_implied_equality_distinct_and_unary_minus(self):
+        for source in [
+            "(declare-const x Real)(declare-const y Real)"
+            "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))",
+            "(declare-const x Real)(declare-const y Real)(declare-const z Real)"
+            "(assert (distinct x y z))(assert (= x y))",
+            "(declare-const x Real)(assert (> (- x) (/ 1.0 2.0)))(assert (>= x 0.0))",
+        ]:
+            with self.subTest(source=source):
+                self.check(source)
+
+    def test_invalid_implied_equality_never_publishes_a_proof(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        equality = next(index for index, raw in enumerate(certificate["nodes"])
+                        if certificate["declarations"][raw["declaration"]]["kind"] == z3.Z3_OP_EQ
+                        and all(certificate["declarations"][certificate["nodes"][arg]["declaration"]]["kind"]
+                                == z3.Z3_OP_UNINTERPRETED for arg in raw["arguments"]))
+        certificate["declarations"].append({
+            "kind": z3.Z3_OP_PR_TH_LEMMA, "name": "th-lemma", "domain": ["Bool"],
+            "range": "Proof", "parameters": ["implied-eq", "1"],
+        })
+        certificate["nodes"].append({"declaration": len(certificate["declarations"]) - 1,
+                                     "arguments": [equality]})
+        certificate["rule_counts"]["th-lemma"] += 1
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            with self.assertRaises(subprocess.CalledProcessError):
+                proof_to_lean.check_and_write(source, certificate, output)
+            self.assertFalse(output.exists())
 
     def test_random_instances_with_learned_clauses_and_deletions(self):
         checked = 0

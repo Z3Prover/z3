@@ -547,6 +547,49 @@ class TestClauseLogReplay(unittest.TestCase):
         certificate = self.replay(_LRA, log)
         self.assertEqual(certificate["rule_counts"]["lemma"], 2)
 
+    def test_implied_equality_hints_end_in_a_disequality(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))")
+        log = """\
+(declare-fun x () Real)
+(declare-fun y () Real)
+(define-const $1 Bool (<= x y))
+(define-const $2 Bool (>= x y))
+(define-const $3 Bool (= x y))
+(assume $1)
+(assume $2)
+(assume (not $3))
+(define-const $4 Proof (implied-eq 1 $1 1 $2 1 (not $3)))
+(infer (not $1) (not $2) $3 $4)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        hints = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual(hints, [["implied-eq", "1", "1", "1"]])
+        malformed = log.replace("(implied-eq 1 $1 1 $2 1 (not $3))", "(implied-eq 1 $1 1 $2 1 $3)")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "must end in a Real disequality"):
+            self.replay(source, malformed)
+
+    def test_alldiff_clauses_are_bound_to_original_assertions(self):
+        declarations = "(declare-const x Real)(declare-const y Real)(declare-const z Real)"
+        source = declarations + "(assert (distinct x y z))(assert (= x y))"
+        log = """\
+(declare-fun x () Real)
+(declare-fun y () Real)
+(define-const $1 Bool (= x y))
+(define-const $2 Proof (alldiff (not $1)))
+(infer (not $1) $2)
+(assume $1)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+        hints = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual(hints, [["cnf"]])
+        self.assertNotIn("def-axiom", certificate["rule_counts"])
+        unrelated = declarations + "(assert (= x y))(assert (>= z 0.0))"
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
+            self.replay(unrelated, log)
+
     def test_bad_hints_and_logs_are_rejected(self):
         cases = [
             (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(farkas 1 $11 1 $17 1 $21)"), "do not refute"),

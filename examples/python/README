@@ -151,9 +151,14 @@ step:
     their complements, after checking farkas and bound coefficients with exact
     rational arithmetic. Equality literals in these hints carry placeholder
     coefficients, so their multipliers are solved for by Gaussian elimination,
-    as Z3's own checker does. tseitin hints list a gate clause and become
-    def-axiom nodes. A bare smt hint claims the logged clause outright and
-    becomes a th-lemma with hint "smt".
+    as Z3's own checker does. implied-eq ends in a disequality, not an
+    inequality to sum: its shape is checked in Python and Lean proves that
+    the preceding literals imply the complementary equality. tseitin hints
+    list a gate clause and become def-axiom nodes. A bare smt hint claims the
+    logged clause outright and becomes a th-lemma with hint "smt".
+  - alldiff hints list clauses from internalizing distinct. Like assumed
+    clauses, they must be derived from the original assertions; the hint
+    itself never authorizes a theorem.
   - rup inferences and every logged clause that differs from its hint's lemma
     are derived by unit propagation over the live clause database, including
     the Tseitin definitions of compound Boolean atoms that Z3's checker also

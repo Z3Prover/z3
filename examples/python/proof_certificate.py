@@ -44,10 +44,9 @@ _ARITH_NAMES = {
     z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*",
     z3.Z3_OP_DIV: "/",
 }
-# Clause-log hints accepted as theory lemmas. Each becomes one th-lemma node
-# whose conclusion negates the hint literals; Lean must prove that clause.
+# Clause-log hint encodings; replay handles each hint's clause convention.
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
-_LITERAL_HINTS = ("euf", "tseitin", "smt")
+_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"

@@ -897,7 +897,7 @@ def _linear_term(graph, node, scale, terms):
         return (_linear_term(graph, arguments[0], scale, terms)
                 + sum((_linear_term(graph, arg, -scale, terms) for arg in arguments[1:]), Fraction(0)))
     if kind == z3.Z3_OP_UMINUS:
-        return -_linear_term(graph, arguments[0], scale, terms)
+        return _linear_term(graph, arguments[0], -scale, terms)
     if kind == z3.Z3_OP_MUL:
         constants, variable = [], None
         for arg in arguments:
@@ -962,7 +962,7 @@ def _polarity_constraint(graph, literal, polarity):
 
 
 def _check_th_lemma(graph, node):
-    """Check that farkas-style coefficients refute the lemma's literals before calling Lean."""
+    """Check Farkas combinations and implied-equality shapes before calling Lean."""
     parameters = graph.decl(node).parameters
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
@@ -971,11 +971,22 @@ def _check_th_lemma(graph, node):
     if len(coefficients) != len(literals):
         raise ReconstructionError("th-lemma %s has %d coefficients for %d literals at node %d" % (
             parameters[0], len(coefficients), len(literals), node))
+    if parameters[0] == "implied-eq":
+        if not literals:
+            raise ReconstructionError("implied-eq th-lemma must end in a Real equality")
+        equality, polarity = literals[-1], True
+        while graph.kind(equality) == z3.Z3_OP_NOT:
+            equality, polarity = graph.arguments(equality)[0], not polarity
+        if (not polarity or graph.kind(equality) != z3.Z3_OP_EQ
+                or not graph.is_real(graph.arguments(equality)[0])):
+            raise ReconstructionError("implied-eq th-lemma must end in a Real equality")
+        _atom_constraint(graph, equality)
+        literals, coefficients = literals[:-1], coefficients[:-1]
     constraints = []
     for coefficient, literal in zip(coefficients, literals):
         relation, terms, constant = _linear_constraint(graph, literal)
         constraints.append((coefficient, relation, terms, constant))
-    if not linear_combination_refutes(constraints):
+    if parameters[0] != "implied-eq" and not linear_combination_refutes(constraints):
         raise ReconstructionError("th-lemma %s coefficients do not refute its literals at node %d" % (
             parameters[0], node))
 

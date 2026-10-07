@@ -319,12 +319,20 @@ def _constraint(literal):
 
 
 def check_linear_hint(name, pairs):
-    """Reject farkas and bound hints whose combination is not a contradiction."""
+    """Check Farkas combinations and the shape of implied-equality hints."""
+    if name == "implied-eq":
+        atom, polarity = _strip(pairs[-1][1])
+        if polarity or not z3.is_eq(atom) or not z3.is_real(atom.arg(0)):
+            raise ProofExportError("implied-eq hint must end in a Real disequality")
+        _constraint(atom)
+        pairs = pairs[:-1]
     constraints = []
     for coefficient, literal in pairs:
         relation, terms, constant = _constraint(literal)
         constraints.append((coefficient, relation, terms, constant))
-    if not linear_combination_refutes(constraints):
+    # Implied equality is not a Farkas contradiction: Lean proves that the
+    # preceding literals imply the equality complementary to the last literal.
+    if name != "implied-eq" and not linear_combination_refutes(constraints):
         raise ProofExportError("%s hint coefficients do not refute its literals" % name)
 
 
@@ -572,17 +580,19 @@ class _Replay:
 
         farkas, bound, implied-eq, and euf hints list literals that are jointly
         contradictory, so the lemma is the clause of their complements. tseitin
-        hints list the gate clause itself and become def-axiom nodes. A bare
-        smt hint claims the logged clause is a theory tautology. Whenever the
-        lemma differs from the logged clause, the latter is derived from the
-        lemma and the clause database by unit propagation.
+        hints list the gate clause itself and become def-axiom nodes. alldiff
+        clauses must follow from the original assertions, not from the hint.
+        A bare smt hint claims the logged clause is a theory tautology. Whenever
+        the lemma differs from the logged clause, the latter is derived from
+        the lemma and the clause database by unit propagation.
         """
         if hint is None:
             return self.rup(literals)
         name, pairs = hint
-        if name == "tseitin":
+        if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
-            declaration = self.def_axiom
+            lemma = (self.assume(lemma_literals) if name == "alldiff" else
+                     self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))]))
         else:
             if name in _COEFFICIENT_HINTS:
                 check_linear_hint(name, pairs)
@@ -592,7 +602,7 @@ class _Replay:
             lemma_literals = (list(literals) if name == "smt"
                               else [_complement(literal) for _, literal in pairs])
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
-        lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
+            lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
         if {_key(literal) for literal in lemma_literals} == {_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
