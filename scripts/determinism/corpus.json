@@ -102,6 +102,7 @@
     {"file": "regressions/smt2/re.smt2", "category": "strings-sequences"},
     {"file": "regressions/smt2/string13.smt2", "category": "strings-sequences"},
     {"file": "regressions/smt2/issue2301.smt2", "category": "strings-sequences"},
-    {"file": "regressions/smt2/3911.smt2", "category": "strings-sequences"}
+    {"file": "regressions/smt2/3911.smt2", "category": "strings-sequences"},
+    {"file": "cases/random-seed.smt2", "category": "parameters", "source": "local"}
   ]
 }
