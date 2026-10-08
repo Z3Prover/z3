@@ -1773,6 +1773,74 @@ static void tst_infinity_and_epsilon() {
     }
 }
 
+// After an unbounded lexicographic objective, a later objective takes the
+// limit of its optima as the unbounded objective grows. With y <= 10 and
+// x >= y the limit of y is 10 and the next objective z <= y - 3 gives 7.
+// A limit that is itself infinite keeps a sound interval and the sat status.
+static void tst_lex_after_unbounded() {
+    for (bool minimize_first : {false, true}) {
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y"), z = f.real("z");
+        f.add(Z3_mk_le(f.ctx, y, f.num(10)));
+        f.add(minimize_first ? Z3_mk_le(f.ctx, f.sum(x, y), f.num(0)) : Z3_mk_ge(f.ctx, x, y));
+        f.add(Z3_mk_le(f.ctx, z, f.sub(y, f.num(3))));
+        unsigned hx = f.objective(x, !minimize_first);
+        unsigned hy = f.objective(y);
+        unsigned hz = f.objective(z);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, minimize_first ? -1 : 1, 0, 0);
+        ensure_finite_bounds(f, hy, f.num(10), Z3_INT_SORT);
+        ensure_finite_bounds(f, hz, f.num(7), Z3_INT_SORT);
+        ensure_model_value(f, y, f.num(10));
+        ensure_model_value(f, z, f.num(7));
+    }
+    {
+        // A region with a larger y but bounded x does not raise the limit.
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y");
+        Z3_ast b = Z3_mk_const(f.ctx, f.symbol("b"), Z3_mk_bool_sort(f.ctx));
+        Z3_ast capped[] = {Z3_mk_le(f.ctx, y, f.num(20)), Z3_mk_le(f.ctx, x, f.num(100))};
+        f.add(Z3_mk_implies(f.ctx, b, Z3_mk_and(f.ctx, 2, capped)));
+        f.add(Z3_mk_implies(f.ctx, Z3_mk_not(f.ctx, b), Z3_mk_le(f.ctx, y, f.num(10))));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, f.num(10), Z3_INT_SORT);
+    }
+    {
+        // Integer objectives: the strict trial is the next integer.
+        opt_fixture f;
+        Z3_sort ints = Z3_mk_int_sort(f.ctx);
+        Z3_ast x = Z3_mk_const(f.ctx, f.symbol("x"), ints);
+        Z3_ast y = Z3_mk_const(f.ctx, f.symbol("y"), ints);
+        f.add(Z3_mk_le(f.ctx, y, Z3_mk_int(f.ctx, 10, ints)));
+        f.add(Z3_mk_ge(f.ctx, x, y));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        ensure_finite_bounds(f, hy, Z3_mk_int(f.ctx, 10, ints), Z3_INT_SORT);
+    }
+    {
+        // y >= x grows with x: the limit +oo is not certified, the interval stays sound.
+        opt_fixture f;
+        Z3_ast x = f.real("x"), y = f.real("y");
+        f.add(Z3_mk_ge(f.ctx, y, x));
+        unsigned hx = f.objective(x);
+        unsigned hy = f.objective(y);
+        ENSURE(f.check() == Z3_L_TRUE);
+        ensure_symbolic_bounds(f, hx, 1, 0, 0);
+        Z3_ast lo = scalar_bound(f, hy, true);
+        ENSURE(Z3_is_numeral_ast(f.ctx, lo) && Z3_algebraic_is_pos(f.ctx, lo));
+        Z3_ast_vector v = Z3_optimize_get_upper_as_vector(f.ctx, f.opt, hy);
+        ENSURE(v && Z3_get_error_code(f.ctx) == Z3_OK);
+        Z3_ast_vector_inc_ref(f.ctx, v);
+        ensure_value(f, Z3_ast_vector_get(f.ctx, v, 0), f.num(1));
+        Z3_ast_vector_dec_ref(f.ctx, v);
+    }
+}
+
 static void tst_symba_bounds() {
     // An integer slack selects theory_inf_arith instead of the pure-LRA
     // shortcut, so these cases exercise SYMBA's vector-bound updates.
@@ -1847,6 +1915,8 @@ void tst_opt_bounds() {
     tst_multiobjective(false);
     tst_multiobjective(true);
     tst_lex_box_search();
+    std::cout << "opt_bounds: lexicographic objectives after an unbounded objective\n";
+    tst_lex_after_unbounded();
     std::cout << "opt_bounds: finite open bounds and polynomial objectives\n";
     tst_open_bounds();
     tst_open_polynomial_objectives();
