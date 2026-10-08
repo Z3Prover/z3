@@ -28,6 +28,7 @@ jobs:
       matrix:
         include:
           - {profile: gcc, os: ubuntu-24.04}
+          - {profile: gcc-unsigned-char, os: ubuntu-24.04}
           - {profile: clang, os: ubuntu-24.04}
           - {profile: libcxx, os: ubuntu-24.04}
           - {profile: libcxx-random, os: ubuntu-24.04}
@@ -172,7 +173,7 @@ jobs:
       - name: Compare repetitions and configurations
         run: |
           python3 scripts/determinism/run.py compare --input reports --out comparison \
-            --profiles gcc clang libcxx libcxx-random apple-clang msvc
+            --profiles gcc gcc-unsigned-char clang libcxx libcxx-random apple-clang msvc
 
       - name: Publish job summary
         if: always()

@@ -202,7 +202,8 @@ namespace lp {
 
         bool is_integer(std::string & s) {
             if (s.empty()) return false;
-            return atoi(s.c_str()) != 0 || isdigit(s.c_str()[0]);
+            // A signed char may be negative; isdigit accepts only unsigned-char values or EOF.
+            return atoi(s.c_str()) != 0 || isdigit(static_cast<unsigned char>(s.c_str()[0]));
         }
 
         void add_complex_sum_elem(formula_constraint & c, lisp_elem & el) {

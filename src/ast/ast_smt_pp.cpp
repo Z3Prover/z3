@@ -84,8 +84,9 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
 }
 
 bool smt_renaming::is_legal(char c) {
+    // A signed char may be negative; isalnum accepts only unsigned-char values or EOF.
     return c == '.' || c == '_' || c == '\''
-        || c == '?' || c == '!' || isalnum(c);
+        || c == '?' || c == '!' || isalnum(static_cast<unsigned char>(c));
 }
 
 bool smt_renaming::is_special(char const* s) {
@@ -103,7 +104,8 @@ bool smt_renaming::is_special(char const* s) {
 
 bool smt_renaming::is_numerical(char const* s) {
     while (*s) {
-        if (!isdigit(*s)) {
+        // A signed char may be negative; isdigit accepts only unsigned-char values or EOF.
+        if (!isdigit(static_cast<unsigned char>(*s))) {
             return false;
         }
         ++s;
