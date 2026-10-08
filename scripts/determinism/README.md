@@ -32,7 +32,7 @@ the corpus to preserve the same line endings on every OS. The workflow does this
 repositories. The PowerShell equivalent of reading the revision is
 `$revision = (Get-Content scripts/determinism/corpus.json -Raw | ConvertFrom-Json).revision`.
 
-On Linux, run all four configurations with a total of eight build jobs:
+On Linux, run all five configurations with a total of eight build jobs:
 
 ```sh
 python3 scripts/determinism/run.py matrix \
@@ -42,13 +42,15 @@ python3 scripts/determinism/run.py matrix \
 The configurations are:
 
 - `gcc`: GCC with libstdc++.
+- `gcc-unsigned-char`: the same GCC with `-funsigned-char`, testing the opposite
+  signedness from the default on the Linux x64 CI runner.
 - `clang`: Clang with the selected GCC's libstdc++ headers.
 - `libcxx`: Clang with libc++.
 - `libcxx-random`: Clang with libc++'s unspecified-order randomization, seed 1.
 - `apple-clang`: macOS Apple Clang and the system libc++.
 - `msvc`: Windows MSVC and the Microsoft C++ standard library, using Ninja.
 
-The local default is the four Linux profiles on Linux, `apple-clang` on macOS,
+The local default is the five Linux profiles on Linux, `apple-clang` on macOS,
 and `msvc` on Windows. For macOS, install Ninja and optionally ccache with Homebrew,
 then run:
 
@@ -66,7 +68,7 @@ python scripts/determinism/run.py matrix --suite ../z3test --profiles msvc
 `--msvc` selects another `cl.exe` path within that developer environment. Executable
 names, process termination, UTF-8 metadata and artifact paths are handled per OS.
 Reports from different machines can be copied into one directory and passed to
-`compare --profiles gcc clang libcxx libcxx-random apple-clang msvc`; every named
+`compare --profiles gcc gcc-unsigned-char clang libcxx libcxx-random apple-clang msvc`; every named
 configuration must be present and use the same source, corpus and run settings.
 
 Compilers are configurable; `--gcc g++-16 --clang clang++-22` works on hosts
@@ -162,11 +164,12 @@ some versions of that document.
 ## GitHub Actions
 
 `.github/workflows/determinism.yml` runs on every PR, pushes to master, and manual
-dispatch. Six parallel jobs run 100 inputs twice each (1,200 executions):
+dispatch.
 
 | Runner | Configuration |
 |---|---|
 | Ubuntu 24.04, x64 | GCC 14 / libstdc++ |
+| Ubuntu 24.04, x64 | GCC 14 / libstdc++, `-funsigned-char` |
 | Ubuntu 24.04, x64 | Clang 18 / libstdc++ |
 | Ubuntu 24.04, x64 | Clang 18 / libc++ 18 |
 | Ubuntu 24.04, x64 | Clang 18 / libc++ 18, randomized sorting seed 1 |
@@ -178,7 +181,7 @@ Compiler/package updates within these runner images remain possible;
 compiler and host versions are recorded. macOS also adds ARM64 coverage, while
 Windows exercises its LLP64 data model and a different standard library.
 
-The Linux comparison job checks that all six complete result sets exist, verifies their
+The Linux comparison job checks that all seven complete result sets exist, verifies their
 provenance and output hashes, and fails on any difference beyond CRLF/LF line endings. It writes a job
 summary with expandable first differences and retains raw runs and build logs as
 artifacts. Fork PRs use the ordinary read-only `pull_request` workflow. Pushes to master also warm the caches
