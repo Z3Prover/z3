@@ -4041,8 +4041,29 @@ namespace smt {
 
         reset_model();
 
-        if (m_last_search_failure != OK) 
-            return false;
+        bool force_restart = false;
+        if (m_last_search_failure != OK) {
+            // A theory gave up (e.g. the array theory on a lambda passed to an uninterpreted
+            // function), so the candidate model is not trusted for a sat answer. Quantifiers may
+            // nevertheless be refuted by instances obtained from that (approximate) model:
+            // let model-based quantifier instantiation produce them before giving up.
+            if (m_last_search_failure == THEORY && status != l_false && !inconsistent() &&
+                m_fparams.m_mbqi_instances_after_giveup &&
+                m_qmanager->has_quantifiers() && m_qmanager->model_based()) {
+                mk_proto_model();
+                if (m_proto_model.get() &&
+                    m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value()) == quantifier_manager::RESTART) {
+                    IF_VERBOSE(2, verbose_stream() << "(smt.mbqi :instances-after-theory-giveup)\n";);
+                    m_last_search_failure = OK;
+                    status = l_undef;
+                    force_restart = true;
+                }
+                else 
+                    return false;
+            }
+            else
+                return false;
+        }
         if (status == l_false) 
             return false;
         if (status == l_true && !m_qmanager->has_quantifiers() && !has_lambda()) 
@@ -4073,7 +4094,7 @@ namespace smt {
             return false;
         }
         inc_limits();
-        if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
+        if (force_restart || status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
             SASSERT(!inconsistent());
             log_stats();
             // execute the restart
