@@ -30,5 +30,7 @@ verification conditions with no `admit`/`assume`/axioms.
 | MPF library | [`MPF_REPORT.md`](MPF_REPORT.md) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst), [`Z3MpfRound.fst`](Z3MpfRound.fst), [`Z3MpfExact.fst`](Z3MpfExact.fst) | `src/util/mpf.h`/`mpf.cpp` (arbitrary-precision IEEE-754 library) |
 | Regex/AST (`rex::info`) | [`REGEX_REPORT.md`](REGEX_REPORT.md) | [`Z3RegexTheory.fst`](Z3RegexTheory.fst), [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) | [`Z3RegexInfo.fst`](Z3RegexInfo.fst) | `src/ast/seq_decl_plugin.cpp`'s `get_info`/`mk_info_rec`/`rex::info` (found and fixed a soundness bug in `info::diff`'s nullable computation) |
 
+| Non-linear arithmetic (NLA) lemmas | [`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md) | — (lemmas stated directly over `FStar.Real`/`int`) | [`Z3NlArith.fst`](Z3NlArith.fst) | `src/math/lp/nla_basics_lemmas.cpp`, `nla_order_lemmas.cpp`, `nla_monotone_lemmas.cpp`, `nla_tangent_lemmas.cpp`, `nla_powers.cpp`, `nla_divisions.cpp`, `nla_transcendentals.cpp` (47 lemmas verified; unlike the other audits above, 9 of them rest on explicitly-labeled, standard real-analysis `assume`s for `exp`/`log`/`sin`/`cos`/`atan2`, since those functions aren't part of a decidable SMT theory) |
+
 See each linked report for the full scope decision, function-by-function
 coverage table, notable results, and remaining gaps for that audit.

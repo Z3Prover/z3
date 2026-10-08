@@ -2,7 +2,7 @@
 
 ## Scope
 
-This report documents an F* formalization (`fstar/Z3NlArith.fst`) of the
+This report documents an F* formalization ([`Z3NlArith.fst`](Z3NlArith.fst)) of the
 mathematical tautologies underlying the lemma-generation code in Z3's
 non-linear arithmetic (NLA) solver, located in `src/math/lp/nla_*.cpp`.
 
@@ -21,7 +21,7 @@ theories of linear/non-linear real and integer arithmetic).
 - F* `2026.09.27` (Windows x86_64 release) and its bundled Z3 `4.15.3`
   were downloaded from the official `FStarLang/FStar` GitHub releases
   and used standalone (no project build system required).
-- `fstar/Z3NlArith.fst` was verified with:
+- [`Z3NlArith.fst`](Z3NlArith.fst) was verified with:
   ```
   fstar.exe Z3NlArith.fst --z3rlimit 40
   ```
