@@ -766,24 +766,22 @@ class smt2_printer {
             unsigned len;
             SASSERT(it < end);
             format * fname = m_env.pp_fdecl(t->get_decl(), len);
+            format_ref heading(mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)), fm());
+            format_ref body(fm());
             if (len > MAX_INDENT) {
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             mk_indent(m(), SMALL_INDENT, mk_compose(m(),
-                                                                                     mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                     mk_string(m(), ")")))));
+                format_ref rest(mk_seq<format**, f2f>(m(), it, end, f2f()), fm());
+                format_ref close(mk_string(m(), ")"), fm());
+                body = mk_indent(m(), SMALL_INDENT, mk_compose(m(), rest, close));
             }
             else {
                 format * first = *it;
                 ++it;
-                f = mk_group(m(), mk_compose(m(),
-                                             mk_indent(m(), 1, mk_compose(m(), mk_string(m(), "("), fname)),
-                                             mk_indent(m(), len + 2, mk_compose(m(),
-                                                                                mk_string(m(), " "),
-                                                                                first,
-                                                                                mk_seq<format**, f2f>(m(), it, end, f2f()),
-                                                                                mk_string(m(), ")")))));
+                format_ref space(mk_string(m(), " "), fm());
+                format_ref rest(mk_seq<format**, f2f>(m(), it, end, f2f()), fm());
+                format_ref close(mk_string(m(), ")"), fm());
+                body = mk_indent(m(), len + 2, mk_compose(m(), space, first, rest, close));
             }
+            f = mk_group(m(), mk_compose(m(), heading, body));
         }
         info f_info(0, 1, 1);
         info * it2  = m_info_stack.begin() + fr.m_spos;
