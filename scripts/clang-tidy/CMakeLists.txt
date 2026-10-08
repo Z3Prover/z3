@@ -12,7 +12,7 @@ if(NOT tidy_version_status EQUAL 0 OR NOT tidy_version STREQUAL LLVM_PACKAGE_VER
   message(FATAL_ERROR "clang-tidy must match LLVM ${LLVM_PACKAGE_VERSION}; got '${tidy_version_output}'")
 endif()
 
-add_library(Z3TidyModule MODULE Z3Module.cpp AstArgumentOrderCheck.cpp)
+add_library(Z3TidyModule MODULE Z3Module.cpp AstArgumentOrderCheck.cpp CharSignednessCheck.cpp)
 target_compile_features(Z3TidyModule PRIVATE cxx_std_17)
 target_include_directories(Z3TidyModule SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
 target_compile_options(Z3TidyModule PRIVATE -Wall -Wextra)

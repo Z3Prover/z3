@@ -1,8 +1,8 @@
-name: AST Order PR Comment
+name: Determinism Linter PR Comment
 
 on:
   workflow_run:
-    workflows: [AST Order Warning Report]
+    workflows: [Determinism Linter, AST Order Warning Report]
     types: [completed]
 
 permissions: {}
