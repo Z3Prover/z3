@@ -356,7 +356,26 @@ class DagBuilder:
             self._expression_nodes[expr.get_id()] = self.node(declaration, arguments)
         return self._expression_nodes[root.get_id()]
 
-    def certificate(self, source, fragment, assertions, root):
+    def certificate(self, source, fragment, assertions, root, compact=False):
+        nodes, declarations, counts = self.nodes, self.declarations, self.rule_counts
+        if compact:
+            needed, pending = set(), list(assertions) + [root]
+            while pending:
+                node = pending.pop()
+                if node not in needed:
+                    needed.add(node)
+                    pending.extend(nodes[node]["arguments"])
+            node_ids = {node: index for index, node in enumerate(sorted(needed))}
+            used_decls = sorted({nodes[node]["declaration"] for node in needed})
+            decl_ids = {decl: index for index, decl in enumerate(used_decls)}
+            declarations = [declarations[decl] for decl in used_decls]
+            nodes = [{"declaration": decl_ids[nodes[node]["declaration"]],
+                      "arguments": [node_ids[arg] for arg in nodes[node]["arguments"]]}
+                     for node in sorted(needed)]
+            assertions = [node_ids[node] for node in assertions]
+            root = node_ids[root]
+            counts = Counter(declarations[node["declaration"]]["name"] for node in nodes
+                             if declarations[node["declaration"]]["range"] == "Proof")
         return {
             "format": "z3-native-proof-dag",
             "format_version": 1,
@@ -365,11 +384,11 @@ class DagBuilder:
             "result": "unsat",
             "verification": "unverified",
             "source_smt2": source,
-            "declarations": self.declarations,
-            "nodes": self.nodes,
+            "declarations": declarations,
+            "nodes": nodes,
             "assertions": list(assertions),
             "proof": root,
-            "rule_counts": dict(sorted(self.rule_counts.items())),
+            "rule_counts": dict(sorted(counts.items())),
         }
 
 
@@ -491,7 +510,10 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     try:
         text = proof_clause_log.run_clause_log(
             z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
+        text = proof_clause_log.trim_clause_log(z3_executable or default_z3_executable(), text, timeout)
         return proof_clause_log.build_certificate(source, fragment, assertions, text, context)
+    except subprocess.TimeoutExpired:
+        raise ProofExportError("native proof trimming timed out") from None
     except proof_clause_log.ProofExportError as error:
         # Running this file as a script imports it twice; unify the error class.
         raise ProofExportError(str(error)) from None
