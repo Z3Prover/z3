@@ -531,7 +531,7 @@ namespace sat {
     unsigned ddfw::select_random_true_clause() {
         unsigned num_clauses = m_clauses.size();        
         for (unsigned i = 0; i < num_clauses; ++i) {
-            unsigned idx = (m_rand() * m_rand()) % num_clauses;
+            unsigned idx = m_rand.next_uint32() % num_clauses;
             auto & cn = m_clauses[idx];
             if (cn.is_true() && cn.m_weight >= m_init_weight) 
                 return idx;
@@ -750,4 +750,3 @@ namespace sat {
     }
 
 }
-
