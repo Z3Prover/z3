@@ -3813,7 +3813,7 @@ namespace smt {
     }
 
     void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
-        unsigned sz = theory_assumption.size();
+        unsigned sz = theory_assumptions.size();
         for (theory* th : m_theory_set) {            
             th->add_theory_assumptions(theory_assumptions);
         }
