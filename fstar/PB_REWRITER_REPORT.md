@@ -10,13 +10,14 @@ inequality `c_1*l_1 + ... + c_n*l_n (>=|<=|=) k` over Boolean literals with
 rational coefficients — into a normal form (unit coefficients where
 possible, merged/coalesced literals, detected tautologies/contradictions)
 and, when the result is small or structurally simple enough, directly into
-a Boolean combination (`mk_or`/`mk_and`) of the literals. This is a
-**first pass**: it formalizes the central truth-preserving identities that
-justify `unique`/`normalize`'s core steps and `mk_app_core`'s two
-"special case" final rewrites, deferring the gcd-based cutting-plane
-reduction, the coefficient-range normalization heuristic, and the general
-(non-unit) slack-based conjunction/disjunction/recursive construction to a
-follow-up pass.
+a Boolean combination (`mk_or`/`mk_and`) of the literals. The first pass
+formalized the central truth-preserving identities that justify
+`unique`/`normalize`'s core steps and `mk_app_core`'s two "special case"
+final rewrites; a follow-up pass then added `normalize`'s gcd-based
+cutting-plane reduction, its coefficient-range normalization heuristic,
+and the degenerate all-coefficients-equal-`k` special case. The general
+(non-unit) slack-based conjunction/disjunction/recursive construction in
+`mk_app_core` remains deferred (see "Not yet covered" below).
 
 Proof file: [`Z3PbTheory.fst`](Z3PbTheory.fst).
 
@@ -53,16 +54,12 @@ assignment, used as the natural upper bound on `pb_sum`.
 | `normalize` ("tight inequality", `sum == k`) / `mk_app_core` (`slack == k`, `all_unit && k == sz`, `mk_and`) | `pb_sum >= coeff_sum <=> all literals true` (strictly positive coefficients) | `lemma_tight_iff_all_true` | ✅ |
 | `mk_app_core` (`all_unit && k.is_one()`, `mk_or`) | `pb_sum >= 1 <=> some literal true` (unit coefficients) | `lemma_unit_at_least_one` | ✅ |
 | `normalize` ("ensure the largest coefficient is not larger than `k`") | capping one term's coefficient down to `k` preserves the constraint's truth value against a nonnegative remainder | `lemma_cap_single` / `lemma_cap_head` | ✅ |
+| `normalize` (`g.is_zero()` branch: all coefficients equal `k`) | `sum k*l_i >= k <=> any_true args` (`k > 0`), generalizing the unit case to an arbitrary positive common coefficient | `lemma_all_coeff_eq_at_least_one` (uses `all_coeff_eq`, `lemma_all_coeff_eq_nonneg`) | ✅ |
+| `normalize` (coefficient-range heuristic, `k/n <= ... < k/(n-1)`) | if every coefficient lies in `[lo,hi]` and `n*hi < k <= (n+1)*lo`, then `pb_sum >= k <=> count_true >= n+1` — justifies collapsing every coefficient to `1` and `k` to `n+1` | `lemma_range_collapse` (uses `count_true`, `all_in_range`, `lemma_pb_sum_le_max_count`, `lemma_pb_sum_ge_min_count`) | ✅ |
+| `normalize` (gcd-based cutting-plane reduction, `g = gcd(...)`) | for `g > 1`, `k > 0`, with every coefficient either `== k` or an exact multiple of `g`: `pb_sum args >= k <=> pb_sum (cut_args g k args) >= ceil_div k g`, where `cut_args` replaces each `c == k` coefficient by `ceil_div k g` and each other coefficient `c` by `c / g` | `lemma_cutting_plane` (uses `ceil_div`, `lemma_ceil_div_spec`/`lemma_ceil_div_iff`, `cut_coeff`/`cut_args`, `cuttable`, `k_true_count`/`rest_sum`, `lemma_pb_sum_decompose`, `lemma_cut_pb_sum_decompose`, `lemma_rest_sum_multiple_of_g`, `lemma_mod_add_zero`, `lemma_k_true_count_nonneg`) | ✅ |
 
-## Not yet covered (deferred to follow-up passes)
+## Not yet covered (deferred to a future follow-up pass)
 
-- **gcd-based cutting-plane reduction** (`normalize`'s `g = gcd(...)`
-  step, e.g. `5x + 5y + 2z + 2u >= 5` → `3x + 3y + z + u >= 3`): a genuine
-  Diophantine strengthening argument (dividing by the gcd of "slack"
-  coefficients and taking a ceiling on `k`), not yet modeled.
-- **Coefficient-range normalization** (the `k/n <= ... < k/(n-1)` heuristic
-  collapsing all coefficients to `1` when they all fall in a provably-safe
-  range): not yet modeled.
 - **`mk_app_core`'s general (non-unit) case**: the iterative loop
   computing `slack`, forcing literals into `conj` when `slack < c_i + k`
   (so the literal *must* be true for satisfiability), collecting
@@ -83,11 +80,13 @@ assignment, used as the natural upper bound on `pb_sum`.
 
 ## Summary
 
-This first pass proves 8 lemmas establishing that the core
-normalization steps of `unique`/`normalize` and the two Boolean-result
-special cases of `mk_app_core` (`mk_or` for unit/`k=1`, `mk_and` for
-tight/`k=sz` constraints) preserve the truth value of the PB constraint
-for every Boolean assignment. The gcd-based cutting-plane reduction, the
-coefficient-range heuristic, and the general slack-based
-conjunction/disjunction/recursive construction are catalogued above for a
-follow-up pass.
+This file proves 11 top-level theorems (plus supporting helper lemmas
+and predicates) establishing that the core normalization steps of
+`unique`/`normalize`, the two Boolean-result special cases of
+`mk_app_core` (`mk_or` for unit/`k=1`, `mk_and` for tight/`k=sz`
+constraints), the degenerate all-coefficients-equal-`k` special case,
+the coefficient-range heuristic, and the gcd-based cutting-plane
+reduction all preserve the truth value of the PB constraint for every
+Boolean assignment. Only `mk_app_core`'s general slack-based
+conjunction/disjunction/recursive construction remains catalogued above
+as deferred to a future follow-up pass.
