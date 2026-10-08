@@ -4069,22 +4069,19 @@ namespace smt {
             // function), so the candidate model is not trusted for a sat answer. Quantifiers may
             // nevertheless be refuted by instances obtained from that (approximate) model:
             // let model-based quantifier instantiation produce them before giving up.
-            if (m_last_search_failure == THEORY && status != l_false && !inconsistent() &&
+            bool can_retry_with_mbqi = m_last_search_failure == THEORY && status != l_false && !inconsistent() &&
                 m_fparams.m_mbqi_instances_after_giveup &&
-                m_qmanager->has_quantifiers() && m_qmanager->model_based()) {
-                mk_proto_model();
-                if (m_proto_model.get() &&
-                    m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value()) == quantifier_manager::RESTART) {
-                    IF_VERBOSE(2, verbose_stream() << "(smt.mbqi :instances-after-theory-giveup)\n";);
-                    m_last_search_failure = OK;
-                    status = l_undef;
-                    force_restart = true;
-                }
-                else 
-                    return false;
-            }
-            else
+                m_qmanager->has_quantifiers() && m_qmanager->model_based();
+            if (!can_retry_with_mbqi)
                 return false;
+            mk_proto_model();
+            if (!m_proto_model.get() ||
+                m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value()) != quantifier_manager::RESTART)
+                return false;
+            IF_VERBOSE(2, verbose_stream() << "(smt.mbqi :instances-after-theory-giveup)\n";);
+            m_last_search_failure = OK;
+            status = l_undef;
+            force_restart = true;
         }
         if (status == l_false) 
             return false;
