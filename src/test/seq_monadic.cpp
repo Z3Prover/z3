@@ -71,7 +71,9 @@ class seq_monadic_test {
     expr_ref dotstar() { return expr_ref(re().mk_full_seq(m_re), m); }
     expr_ref rng(char lo, char hi) {
         char sl[2] = { lo, 0 }, sh[2] = { hi, 0 };
-        return expr_ref(re().mk_range(u.str.mk_string(zstring(sl)), u.str.mk_string(zstring(sh))), m);
+        expr_ref lhs(u.str.mk_string(zstring(sl)), m);
+        expr_ref rhs(u.str.mk_string(zstring(sh)), m);
+        return expr_ref(re().mk_range(lhs, rhs), m);
     }
     expr_ref loop(expr* r, unsigned lo, unsigned hi) { return expr_ref(re().mk_loop(r, lo, hi), m); }
 
@@ -612,45 +614,116 @@ public:
         std::cout << "=== seq_monadic: single-variable membership (x.a.x in R) ===\n";
 
         // sanity
-        check("(a|b)*        x.a.x", xwx(x, "a"), star(alt(a, b)), l_true);
-        check("b*            x.a.x", xwx(x, "a"), star(b), l_false);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.a.x", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(b);
+            check("b*            x.a.x", rhs1, third, l_false);
+        }
         check("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, l_true);
         check("x in (a|b)*        ", x, star(alt(a, b)), l_true);
-        check("x in b* (x=aa)     ", xwx(x, "a"), star(b), l_false);
-        check("non-ground regex guard", sword("z"), star(re().mk_to_re(x)), l_undef);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(b);
+            check("x in b* (x=aa)     ", rhs1, third, l_false);
+        }
+        {
+            auto rhs1 = sword("z");
+            auto third = star(re().mk_to_re(x));
+            check("non-ground regex guard", rhs1, third, l_undef);
+        }
 
         // ALT = (a|b)* & ~(Sig*aaSig*) & ~(Sig*bbSig*)  (strictly alternating)
-        expr_ref altre = inter(star(alt(a, b)), inter(comp(saas), comp(sbbs)));
+        auto lhs = star(alt(a, b));
+        auto lhs1 = comp(saas);
+        auto rhs1 = comp(sbbs);
+        auto rhs2 = inter(lhs1, rhs1);
+        expr_ref altre = inter(lhs, rhs2);
         check("ALT           x.a.x", xwx(x, "a"), altre, l_true);
 
         // R*.S complement family
-        check("~(a*.b)       x.a.x", xwx(x, "a"), comp(cat(star(a), b)), l_true);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = comp(cat(star(a), b));
+            check("~(a*.b)       x.a.x", rhs1, third, l_true);
+        }
 
         // L3-02 ~((ab)*.~((ab)*))   -> unsat (odd length)
-        check("L3-02         x.a.x", xwx(x, "a"),
-              comp(cat(star(ab), comp(star(ab)))), l_false);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(ab);
+            auto rhs2 = comp(star(ab));
+            auto third = comp(cat(lhs, rhs2));
+            check("L3-02         x.a.x", rhs1, third, l_false);
+        }
 
         // L3-03 ~(a*.~(b*.~((ab)*)))  -> sat
-        check("L3-03         x.a.x", xwx(x, "a"),
-              comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), l_true);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check("L3-03         x.a.x", rhs1, third, l_true);
+        }
 
         std::cout << "=== seq_monadic: multi-variable ===\n";
         expr_ref y = var("y");
-        check("(a|b)*        x.a.y", xay(x, y), star(alt(a, b)), l_true);
-        check("b*            x.a.y", xay(x, y), star(b), l_false);
-        check("L3-02         x.a.y", xay(x, y), comp(cat(star(ab), comp(star(ab)))), l_true);
-        check("L3-03         x.a.y", xay(x, y),
-              comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), l_true);
-        check("empty ~Sig*   x.y.x", xyx(x, y), comp(dotstar()), l_false);
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(b);
+            check("b*            x.a.y", rhs1, third, l_false);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto lhs = star(ab);
+            auto rhs2 = comp(star(ab));
+            auto third = comp(cat(lhs, rhs2));
+            check("L3-02         x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check("L3-03         x.a.y", rhs1, third, l_true);
+        }
+        {
+            auto rhs1 = xyx(x, y);
+            auto third = comp(dotstar());
+            check("empty ~Sig*   x.y.x", rhs1, third, l_false);
+        }
         check("Sig*          x.y.x", xyx(x, y), dotstar(), l_true);
-        check("(a|b)*        x.y.x", xyx(x, y), star(alt(a, b)), l_true);
+        {
+            auto rhs1 = xyx(x, y);
+            auto third = star(alt(a, b));
+            check("(a|b)*        x.y.x", rhs1, third, l_true);
+        }
 
         std::cout << "=== seq_monadic: per-variable constraints ===\n";
-        expr_ref digitp = cat(rng('0', '9'), star(rng('0', '9')));   // [0-9]+
+        auto lhs2 = rng('0', '9');
+        auto rhs3 = star(rng('0', '9'));
+        expr_ref digitp = cat(lhs2, rhs3);  // [0-9]+
         obj_map<expr, expr*> ve;
         ve.insert(y, digitp);
         // y must be in the (a|b)* tail AND in [0-9]+  -> empty -> unsat
-        check_extra("(a|b)* & y in[0-9]+ x.a.y", xay(x, y), star(alt(a, b)), ve, l_false);
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check_extra("(a|b)* & y in[0-9]+ x.a.y", rhs1, third, ve, l_false);
+        }
         // y any digits, x/'a' anything -> sat
         check_extra("Sig*   & y in[0-9]+ x.a.y", xay(x, y), dotstar(), ve, l_true);
 
@@ -676,12 +749,31 @@ public:
         // ---- elements that actually satisfies the membership (not a predicate).
         std::cout << "=== seq_monadic: witness extraction (char) ===\n";
         obj_map<expr, expr*> nove;
-        check_witness("(a|b)*        x.a.x", xwx(x, "a"), star(alt(a, b)), nove);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = star(alt(a, b));
+            check_witness("(a|b)*        x.a.x", rhs1, third, nove);
+        }
         check_witness("Sig*aaSig*    x.a.x", xwx(x, "a"), saas, nove);      // forces nonempty x
-        check_witness("~(a*.b)       x.a.x", xwx(x, "a"), comp(cat(star(a), b)), nove);
-        check_witness("L3-03         x.a.x", xwx(x, "a"),
-                      comp(cat(star(a), comp(cat(star(b), comp(star(ab)))))), nove);
-        check_witness("(a|b)*        x.a.y", xay(x, y), star(alt(a, b)), nove);
+        {
+            auto rhs1 = xwx(x, "a");
+            auto third = comp(cat(star(a), b));
+            check_witness("~(a*.b)       x.a.x", rhs1, third, nove);
+        }
+        {
+            auto rhs1 = xwx(x, "a");
+            auto lhs = star(a);
+            auto lhs1 = star(b);
+            auto rhs2 = comp(star(ab));
+            auto rhs3 = comp(cat(lhs1, rhs2));
+            auto third = comp(cat(lhs, rhs3));
+            check_witness("L3-03         x.a.x", rhs1, third, nove);
+        }
+        {
+            auto rhs1 = xay(x, y);
+            auto third = star(alt(a, b));
+            check_witness("(a|b)*        x.a.y", rhs1, third, nove);
+        }
         check_witness("Sig*          x.y.x", xyx(x, y), dotstar(), nove);
         check_witness("Sig* & y[0-9]+ x.a.y", xay(x, y), dotstar(), ve);    // ve: y in [0-9]+
         check_witness("[0-9]{2}&x[0-9]+ y[0-9]* x.y.x", xyx(x, y), loop22, ve2);
@@ -947,9 +1039,13 @@ public:
             expr_ref sig_plus(cat(dot(), dotstar()), m);
             expr_ref has_cc(cat(dotstar(), cat(cc, dotstar())), m);
             expr_ref two_cc(cat(dotstar(), cat(cc, cat(sig_plus, cat(cc, dotstar())))), m);
-            expr_ref hexcol(star(alt(rng('0', '9'),
-                                 alt(rng('A', 'F'),
-                                 alt(rng('a', 'f'), word(":"))))), m);
+            auto lhs3 = rng('0', '9');
+            auto lhs4 = rng('A', 'F');
+            auto lhs5 = rng('a', 'f');
+            auto rhs4 = word(":");
+            auto rhs5 = alt(lhs5, rhs4);
+            auto rhs6 = alt(lhs4, rhs5);
+            expr_ref hexcol(star(alt(lhs3, rhs6)), m);
             expr_ref R6(inter(has_cc, inter(comp(two_cc), hexcol)), m);
             check_bounded("ipv6: x.y.x in R, |x|>=1, |y|>=1", [&] {
                 m_mon.add(t_xyx, R6, nullptr);
@@ -980,7 +1076,11 @@ public:
             expr_ref at(u.str.mk_at(y, i), m);
             expr_ref_vector assertions(m);
             assertions.push_back(m.mk_eq(at, u.str.mk_empty(m_str)));
-            assertions.push_back(re().mk_in_re(sword("z"), star(re().mk_to_re(at))));
+            {
+                auto lhs = sword("z");
+                auto rhs1 = star(re().mk_to_re(at));
+                assertions.push_back(re().mk_in_re(lhs, rhs1));
+            }
             check_smt("non-ground regex issue 10492", assertions, l_false);
         }
         if (m_mode == seq::transition_mode::brzozowski_tm)
@@ -1003,12 +1103,15 @@ public:
             expr_ref k = var("issue_10379_k");
             expr_ref k0(u.str.mk_at(k, zero), m);
             expr_ref mod00(ar2.mk_mod(zero, zero), m);
-            expr_ref inner_cond(re().mk_in_re(sword("1"), re().mk_to_re(k)), m);
-            expr_ref inner(m.mk_ite(
-                inner_cond,
-                sconcat(sword("n"), k0),
-                u.str.mk_substr(k, zero, mod00)), m);
-            expr_ref outer_regex(cat(re().mk_to_re(k0), rng('a', 'z')), m);
+            auto lhs6 = sword("1");
+            expr_ref rhs7(re().mk_to_re(k), m);
+            expr_ref inner_cond(re().mk_in_re(lhs6, rhs7), m);
+            auto then_value = sconcat(sword("n"), k0);
+            expr_ref else_value(u.str.mk_substr(k, zero, mod00), m);
+            expr_ref inner(m.mk_ite(inner_cond, then_value, else_value), m);
+            expr_ref lhs7(re().mk_to_re(k0), m);
+            auto rhs8 = rng('a', 'z');
+            expr_ref outer_regex(cat(lhs7, rhs8), m);
             expr_ref outer_cond(re().mk_in_re(inner, outer_regex), m);
             expr_ref rhs(m.mk_ite(outer_cond, k0, u.str.mk_substr(k, zero, zero)), m);
             expr_ref_vector assertions(m);
@@ -1090,29 +1193,57 @@ public:
             // path is empty, which the replay has to handle as well as any other.
             check_enumerate("x in (a|b)*", ms1(x, star(alt(a, b))), 1, l_true);
             // Two occurrences: one branch per live state x can drive the automaton to.
-            check_enumerate("x.a.x in (a|b)*", ms1(xwx(x, "a"), star(alt(a, b))), 1, l_true);
+            {
+                auto lhs = xwx(x, "a");
+                auto rhs1 = star(alt(a, b));
+                check_enumerate("x.a.x in (a|b)*", ms1(lhs, rhs1), 1, l_true);
+            }
             // Only one of x's two continuations survives here: after the other one the
             // constant `a` has no derivative, so the branch is refuted rather than reported.
-            check_enumerate("x.a.y in (ab)*", ms1(xay(x, y), star(ab)), 1, l_true);
+            {
+                auto lhs = xay(x, y);
+                auto rhs1 = star(ab);
+                check_enumerate("x.a.y in (ab)*", ms1(lhs, rhs1), 1, l_true);
+            }
             // The union keeps several states live at both variables, so the enumeration
             // has to resume repeatedly -- and every branch it reports must be a new one.
-            check_enumerate("x.y.x in (a|b|bba)*",
-                            ms1(xyx(x, y), star(alt(alt(a, b), word("bba")))), 4, l_true);
+            {
+                auto lhs = xyx(x, y);
+                auto lhs1 = alt(a, b);
+                auto rhs1 = word("bba");
+                auto rhs2 = star(alt(lhs1, rhs1));
+                check_enumerate("x.y.x in (a|b|bba)*", ms1(lhs, rhs2), 4, l_true);
+            }
             // Unsat: no branch at all, and the drain is clean, which is what makes "the
             // enumerator ran out" usable as a refutation.
-            check_enumerate("x.a.x in b*", ms1(xwx(x, "a"), star(b)), 0, l_false);
+            {
+                auto lhs = xwx(x, "a");
+                auto rhs1 = star(b);
+                check_enumerate("x.a.x in b*", ms1(lhs, rhs1), 0, l_false);
+            }
             // Two memberships sharing a variable: branches over the joint decomposition.
             {
                 vector<std::pair<expr*, expr*>> ms;
-                ms.push_back(std::make_pair((expr*)xay(x, y).get(), (expr*)star(ab).get()));
-                ms.push_back(std::make_pair((expr*)x.get(), (expr*)star(cat(a, b)).get()));
+                expr_ref term = xay(x, y);
+                expr_ref language = star(ab);
+                ms.push_back(std::make_pair(term.get(), language.get()));
+                ms.push_back(std::make_pair(x.get(), language.get()));
                 check_enumerate("x.a.y in (ab)* & x in (ab)*", ms, 1, l_true);
             }
             // Every branch, collapsed to concrete words, really does satisfy the
             // membership -- decided by the engine on the ground term, without views.
-            check_enumerate_words("words: x.a.x in (a|b)*", xwx(x, "a"), star(alt(a, b)), 1);
-            check_enumerate_words("words: x.y.x in (a|b|bba)*", xyx(x, y),
-                                  star(alt(alt(a, b), word("bba"))), 4);
+            {
+                auto rhs1 = xwx(x, "a");
+                auto third = star(alt(a, b));
+                check_enumerate_words("words: x.a.x in (a|b)*", rhs1, third, 1);
+            }
+            {
+                auto rhs1 = xyx(x, y);
+                auto lhs = alt(a, b);
+                auto rhs2 = word("bba");
+                auto third = star(alt(lhs, rhs2));
+                check_enumerate_words("words: x.y.x in (a|b|bba)*", rhs1, third, 4);
+            }
             check_enumerate_words("words: x.a.y in Sig*aaSig*", xay(x, y), saas, 1);
         }
 
@@ -1188,7 +1319,9 @@ public:
             ms.push_back(std::make_pair((expr*)x.get(), (expr*)abStar.get()));
             check_budget_sweep("x.y.x in Sig* aa Sig* & x in (ab)* (sat)", ms, l_true);
 
-            expr_ref t5 = sconcat(x, sconcat(sword("a"), sconcat(x, sconcat(sword("a"), x))));
+            auto lhs8 = sword("a");
+            auto rhs9 = sconcat(x, sconcat(sword("a"), x));
+            expr_ref t5 = sconcat(x, sconcat(lhs8, rhs9));
             expr_ref abS(star(alt(a, b)), m);
             ms.reset();
             ms.push_back(std::make_pair((expr*)t5.get(), (expr*)saas.get()));

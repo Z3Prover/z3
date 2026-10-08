@@ -450,15 +450,14 @@ namespace mbp {
 
         expr_ref from_def(u_map<row> const& def_vars, opt::model_based_opt::def const& d, bool is_int, ptr_vector<expr> const& index2expr) {
             if (d.is_add()) {
-                return expr_ref(
-                    a.mk_add(from_def(def_vars, *d.to_add().x, is_int, index2expr),
-                             from_def(def_vars, *d.to_add().y, is_int, index2expr)), m); 
-
+                auto x = from_def(def_vars, *d.to_add().x, is_int, index2expr);
+                auto y = from_def(def_vars, *d.to_add().y, is_int, index2expr);
+                return expr_ref(a.mk_add(x, y), m);
             }
             if (d.is_mul()) {
-                return expr_ref(
-                    a.mk_mul(from_def(def_vars, *d.to_mul().x, is_int, index2expr),
-                        from_def(def_vars, *d.to_mul().y, is_int, index2expr)), m);
+                auto x = from_def(def_vars, *d.to_mul().x, is_int, index2expr);
+                auto y = from_def(def_vars, *d.to_mul().y, is_int, index2expr);
+                return expr_ref(a.mk_mul(x, y), m);
             }
             if (d.is_const()) 
                 return expr_ref(a.mk_numeral(d.to_const().c, is_int), m);
@@ -576,9 +575,12 @@ namespace mbp {
                 case opt::t_lt: t = a.mk_lt(t, s); break;
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
-                case opt::t_divides:
-                    t = a.mk_eq(a.mk_mod(t, a.mk_int(r.m_mod)), a.mk_int(0));
+                case opt::t_divides: {
+                    expr_ref remainder(a.mk_mod(t, a.mk_int(r.m_mod)), m);
+                    expr_ref zero(a.mk_int(0), m);
+                    t = a.mk_eq(remainder, zero);
                     break;
+                }
                 default:
                     UNREACHABLE();
                     break;

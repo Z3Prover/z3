@@ -469,11 +469,13 @@ namespace seq {
         expr_ref_vector conds(m);
         expr_ref zero(m_autil.mk_int(0), m);
         if (!u().str.is_unit_string(lo, c_lo)) {
-            conds.push_back(m.mk_eq(u().str.mk_length(lo), m_autil.mk_int(1)));
+            expr_ref len(u().str.mk_length(lo), m);
+            conds.push_back(m.mk_eq(len, m_autil.mk_int(1)));
             c_lo = u().str.mk_nth_i(lo, zero);
         }
         if (!u().str.is_unit_string(hi, c_hi)) {
-            conds.push_back(m.mk_eq(u().str.mk_length(hi), m_autil.mk_int(1)));
+            expr_ref len(u().str.mk_length(hi), m);
+            conds.push_back(m.mk_eq(len, m_autil.mk_int(1)));
             c_hi = u().str.mk_nth_i(hi, zero);
         }
         conds.push_back(m_util.mk_le(c_lo, m_ele));
@@ -543,17 +545,20 @@ namespace seq {
         expr_ref result(m);
         if (re().is_concat(r, r1, r2) ||
             re().is_intersection(r, r1, r2)) {
-            m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
+            expr_ref nullable1 = is_nullable(r1);
+            m_br.mk_and(nullable1, is_nullable(r2), result);
         }
         else if (re().is_union(r, r1, r2)) {
-            m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
+            expr_ref nullable1 = is_nullable(r1);
+            m_br.mk_or(nullable1, is_nullable(r2), result);
         }
         else if (re().is_diff(r, r1, r2)) {
             m_br.mk_not(is_nullable(r2), result);
             m_br.mk_and(result, is_nullable(r1), result);
         }
         else if (re().is_xor(r, r1, r2)) {
-            m_br.mk_xor(is_nullable(r1), is_nullable(r2), result);
+            expr_ref nullable1 = is_nullable(r1);
+            m_br.mk_xor(nullable1, is_nullable(r2), result);
         }
         else if (re().is_star(r) ||
             re().is_opt(r) ||
@@ -582,13 +587,15 @@ namespace seq {
             result = is_nullable(r1);
         }
         else if (m.is_ite(r, cond, r1, r2)) {
-            m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
+            expr_ref nullable1 = is_nullable(r1);
+            m_br.mk_ite(cond, nullable1, is_nullable(r2), result);
         }
         else if (m_util.is_re(r, seq_sort)) {
             result = is_nullable_symbolic_regex(r, seq_sort);
         }
         else if (u().str.is_concat(r, r1, r2)) {
-            m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
+            expr_ref nullable1 = is_nullable(r1);
+            m_br.mk_and(nullable1, is_nullable(r2), result);
         }
         else if (u().str.is_empty(r)) {
             result = m.mk_true();

@@ -251,7 +251,9 @@ br_status finite_set_rewriter::mk_map(expr * f, expr * set, expr_ref & result) {
     }
     expr *s = nullptr, *t = nullptr;
     if (u.is_union(set, s, t)) {
-        result = u.mk_union(u.mk_map(f, s), u.mk_map(f, t));
+        expr_ref lhs(u.mk_map(f, s), m);
+        expr_ref rhs(u.mk_map(f, t), m);
+        result = u.mk_union(lhs, rhs);
         return BR_REWRITE2;
     }
     return BR_FAILED;
@@ -270,22 +272,29 @@ br_status finite_set_rewriter::mk_filter(expr * p, expr * set, expr_ref & result
     expr *x = nullptr;
     if (u.is_singleton(set, x)) {
         array_util autil(m);
-        result = m.mk_ite(autil.mk_select(p, x), set, u.mk_empty(set->get_sort()));
+        expr_ref pred(autil.mk_select(p, x), m);
+        result = m.mk_ite(pred, set, u.mk_empty(set->get_sort()));
         return BR_REWRITE2;
     }
     expr *s = nullptr, *t = nullptr;
     if (u.is_union(set, s, t)) {
-        result = u.mk_union(u.mk_filter(p, s), u.mk_filter(p, t));
+        expr_ref lhs(u.mk_filter(p, s), m);
+        expr_ref rhs(u.mk_filter(p, t), m);
+        result = u.mk_union(lhs, rhs);
         return BR_REWRITE2;
     }
     // set.filter is a pointwise restriction, so it distributes over
     // set.intersect and set.difference.
     if (u.is_intersect(set, s, t)) {
-        result = u.mk_intersect(u.mk_filter(p, s), u.mk_filter(p, t));
+        expr_ref lhs(u.mk_filter(p, s), m);
+        expr_ref rhs(u.mk_filter(p, t), m);
+        result = u.mk_intersect(lhs, rhs);
         return BR_REWRITE2;
     }
     if (u.is_difference(set, s, t)) {
-        result = u.mk_difference(u.mk_filter(p, s), u.mk_filter(p, t));
+        expr_ref lhs(u.mk_filter(p, s), m);
+        expr_ref rhs(u.mk_filter(p, t), m);
+        result = u.mk_difference(lhs, rhs);
         return BR_REWRITE2;
     }
     return BR_FAILED;

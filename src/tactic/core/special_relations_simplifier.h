@@ -67,7 +67,11 @@ class special_relations_simplifier : public dependent_expr_simplifier {
         expr* pats[1]  = { pat };
         expr* pats0[1] = { pat0 };
 
-        fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
+        {
+            expr_ref lhs(m.mk_not(Rxy), m);
+            expr_ref rhs(m.mk_not(Ryz), m);
+            fml = m.mk_or(lhs, rhs, Rxz);
+        }
         q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
         register_pattern(m_pm.initialize(q), sr_transitive);
         fml = m.mk_or(mk_not(Rxy & Ryz), Rxz);
@@ -81,7 +85,11 @@ class special_relations_simplifier : public dependent_expr_simplifier {
         fml = m.mk_or(nRxy, nRyx, m.mk_eq(x, y));
         q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
         register_pattern(m_pm.initialize(q), sr_antisymmetric);
-        fml = m.mk_or(mk_not(Rxy & Ryx), m.mk_eq(x, y));
+        {
+            auto lhs = mk_not(Rxy & Ryx);
+            expr_ref rhs(m.mk_eq(x, y), m);
+            fml = m.mk_or(lhs, rhs);
+        }
         q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
         register_pattern(m_pm.initialize(q), sr_antisymmetric);
 

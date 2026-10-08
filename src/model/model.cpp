@@ -505,7 +505,9 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition, 
             }
             else if (bv.is_bit2bool(t)) {
                 unsigned idx = f->get_parameter(0).get_int();
-                new_t = m.mk_eq(bv.mk_extract(idx, idx, args[0]), bv.mk_numeral(1, 1));
+                expr_ref bit(bv.mk_extract(idx, idx, args[0]), m);
+                expr_ref one(bv.mk_numeral(1, 1), m);
+                new_t = m.mk_eq(bit, one);
             }
 #if 0
             else if (is_uninterp_const(a) && !get_const_interp(f)) {
@@ -627,7 +629,11 @@ void model::add_rec_funs() {
         expr_safe_replace subst(m);
         unsigned arity = f->get_arity();
         for (unsigned i = 0; i < arity; ++i) {
-            subst.insert(m.mk_var(arity - i - 1, f->get_domain(i)), m.mk_var(i, f->get_domain(i)));            
+            {
+                expr_ref lhs(m.mk_var(arity - i - 1, f->get_domain(i)), m);
+                expr_ref rhs1(m.mk_var(i, f->get_domain(i)), m);
+                subst.insert(lhs, rhs1);
+            }
         }
         expr_ref bodyr(m);
         subst(rhs, bodyr);

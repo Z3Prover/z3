@@ -157,7 +157,11 @@ static void tst_prove_unbounded() {
     expr_ref_vector mixed(m);
     mixed.push_back(m.mk_eq(a.mk_mul(x, a.mk_sub(a.mk_to_real(n), one)), one));
     mixed.push_back(a.mk_gt(n, a.mk_int(0)));
-    mixed.push_back(a.mk_lt(a.mk_mul(n, n), a.mk_int(2)));
+    {
+        expr_ref lhs(a.mk_mul(n, n), m);
+        expr_ref rhs(a.mk_int(2), m);
+        mixed.push_back(a.mk_lt(lhs, rhs));
+    }
     ENSURE(opt.prove_unbounded(mixed, x, rational(0)) == l_undef);
 }
 
@@ -218,7 +222,11 @@ static void tst_can_approach_from_below() {
     ensure_exact(m, a.mk_lt(a.mk_mul(above, above), two));
 
     expr_ref_vector rational_limit(m);
-    rational_limit.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(4)));
+    {
+        expr_ref lhs(a.mk_mul(x, x), m);
+        expr_ref rhs(a.mk_real(4), m);
+        rational_limit.push_back(a.mk_lt(lhs, rhs));
+    }
     ENSURE(opt.can_approach_from_below(rational_limit, x, rational(0), two) == l_true);
 
     expr_ref negative_root = exact_root(m, 2, 2, true);
@@ -254,7 +262,9 @@ static void tst_projected_limits() {
 
     // The disconnected point must not prevent discovering the separate feasible ray.
     expr_ref point(m.mk_eq(x, zero), m);
-    expr_ref ray(m.mk_and(m.mk_eq(a.mk_mul(x, y), one), a.mk_gt(y, zero)), m);
+    expr_ref lhs(m.mk_eq(a.mk_mul(x, y), one), m);
+    expr_ref rhs(a.mk_gt(y, zero), m);
+    expr_ref ray(m.mk_and(lhs, rhs), m);
     hard.reset();
     hard.push_back(m.mk_or(point, ray));
     ENSURE(opt.prove_unbounded(hard, x, rational(0)) == l_true);
@@ -308,7 +318,11 @@ static void tst_open_proof_budget() {
         arith_util a(m);
         expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
         expr_ref_vector hard(m);
-        hard.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(2)));
+        {
+            expr_ref lhs(a.mk_mul(x, x), m);
+            expr_ref rhs(a.mk_real(2), m);
+            hard.push_back(a.mk_lt(lhs, rhs));
+        }
         expr_ref expected = exact_root(m, 2);
         params_ref p;
         opt::nlsat_opt opt(m, p);
@@ -382,7 +396,9 @@ static void tst_approach_outside_fragment() {
     ENSURE(opt.can_approach_from_below(hard, x, rational(0), x) == l_undef);
     ENSURE(opt.can_approach_from_below(hard, x, rational(0), nullptr) == l_undef);
 
-    func_decl_ref f(m.mk_func_decl(symbol("f"), a.mk_real(), a.mk_real()), m);
+    sort_ref rhs(a.mk_real(), m);
+    sort_ref third(a.mk_real(), m);
+    func_decl_ref f(m.mk_func_decl(symbol("f"), rhs, third), m);
     expr_ref fx(m.mk_app(f, x.get()), m);
     ENSURE(opt.can_approach_from_below(hard, fx, rational(0), two) == l_undef);
     hard.push_back(a.mk_lt(fx, two));
@@ -392,7 +408,11 @@ static void tst_approach_outside_fragment() {
     expr_ref_vector mixed(m);
     mixed.push_back(a.mk_lt(x, a.mk_to_real(n)));
     mixed.push_back(a.mk_lt(n, a.mk_int(2)));
-    mixed.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(4)));
+    {
+        expr_ref lhs(a.mk_mul(x, x), m);
+        expr_ref rhs(a.mk_real(4), m);
+        mixed.push_back(a.mk_lt(lhs, rhs));
+    }
     ENSURE(opt.can_approach_from_below(mixed, x, rational(0), two) == l_undef);
     ENSURE(opt.can_approach_from_below(mixed, n, rational(0), two) == l_undef);
 }
@@ -408,7 +428,11 @@ static void tst_approach_resource_scopes() {
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref root = exact_root(m, 2);
     expr_ref_vector hard(m);
-    hard.push_back(a.mk_lt(a.mk_mul(x, x), a.mk_real(2)));
+    {
+        expr_ref lhs(a.mk_mul(x, x), m);
+        expr_ref rhs(a.mk_real(2), m);
+        hard.push_back(a.mk_lt(lhs, rhs));
+    }
     params_ref p;
     opt::nlsat_opt opt(m, p);
     uint64_t start = m.limit().count();
@@ -444,7 +468,11 @@ static void tst_cubic_roots() {
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref two(a.mk_numeral(rational(2), false), m);
     expr_ref_vector hard(m);
-    hard.push_back(m.mk_eq(a.mk_mul(x, a.mk_mul(x, x)), a.mk_mul(two, x)));
+    {
+        expr_ref lhs(a.mk_mul(x, a.mk_mul(x, x)), m);
+        expr_ref rhs(a.mk_mul(two, x), m);
+        hard.push_back(m.mk_eq(lhs, rhs));
+    }
     params_ref p;
     opt::nlsat_opt opt(m, p);
     opt::nlsat_opt::result res(m);

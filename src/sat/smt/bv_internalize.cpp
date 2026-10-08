@@ -653,7 +653,9 @@ namespace bv {
             SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
             expr_ref no_ovfl(bv.mk_bvsmul_no_ovfl(arg0, arg1), m);
             expr_ref no_udfl(bv.mk_bvsmul_no_udfl(arg0, arg1), m);
-            def_expr = m.mk_or(m.mk_not(no_ovfl), m.mk_not(no_udfl));
+            expr_ref overflow(m.mk_not(no_ovfl), m);
+            expr_ref underflow(m.mk_not(no_udfl), m);
+            def_expr = m.mk_or(overflow, underflow);
             break;
         }
         case OP_BUADD_OVFL: {
@@ -713,7 +715,9 @@ namespace bv {
             unsigned sz = bv.get_bv_size(arg0);
             expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
             expr_ref minusOne(bv.mk_numeral(rational::power_of_two(sz) - 1, sz), m);
-            def_expr = m.mk_and(m.mk_eq(arg0, minSigned.get()), m.mk_eq(n->get_arg(1), minusOne.get()));
+            expr_ref a_is_min(m.mk_eq(arg0, minSigned.get()), m);
+            expr_ref b_is_minus_one(m.mk_eq(n->get_arg(1), minusOne.get()), m);
+            def_expr = m.mk_and(a_is_min, b_is_minus_one);
             break;
         }
         case OP_BNEG_OVFL: {

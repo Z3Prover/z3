@@ -259,7 +259,11 @@ namespace smt {
         unsigned p = 0;
         arith_util a(m);
         for (auto b : bits) {
-            sum.push_back(m.mk_ite(b, a.mk_int(1 << p), a.mk_int(0)));
+            {
+                expr_ref then_value(a.mk_int(1 << p), m);
+                expr_ref else_value(a.mk_int(0), m);
+                sum.push_back(m.mk_ite(b, then_value, else_value));
+            }
             p++;
         }
         expr_ref sum_bits(a.mk_add(sum), m);

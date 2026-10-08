@@ -2668,11 +2668,16 @@ public:
             if (m_arith.is_int(a)) return a;
             // round to nearest even
             expr_ref i(m_arith.mk_to_int(a), m);
-            expr_ref half(m_arith.mk_add(m_arith.mk_to_real(i), m_arith.mk_numeral(rational(1, 2), false)), m);
+            expr_ref real_i(m_arith.mk_to_real(i), m);
+            expr_ref half(m_arith.mk_add(real_i, m_arith.mk_numeral(rational(1, 2), false)), m);
             expr_ref i1(m_arith.mk_add(i, m_arith.mk_int(1)), m);
-            expr_ref is_even(m.mk_eq(m_arith.mk_mod(i, m_arith.mk_int(2)), m_arith.mk_int(0)), m);
-            return expr_ref(m.mk_ite(m_arith.mk_gt(a, half), i1,
-                           m.mk_ite(m.mk_eq(a, half), m.mk_ite(is_even, i, i1), i)), m);
+            expr_ref remainder(m_arith.mk_mod(i, m_arith.mk_int(2)), m);
+            expr_ref is_even(m.mk_eq(remainder, m_arith.mk_int(0)), m);
+            expr_ref above_half(m_arith.mk_gt(a, half), m);
+            expr_ref at_half(m.mk_eq(a, half), m);
+            expr_ref nearest_even(m.mk_ite(is_even, i, i1), m);
+            expr_ref round_down(m.mk_ite(at_half, nearest_even, i), m);
+            return expr_ref(m.mk_ite(above_half, i1, round_down), m);
         }};
         m_ops["$to_int"] = { false, 0, false, [&](expr_ref_vector const& args) -> expr_ref {
             check_arith_arity(args, 1, "$to_int");
@@ -2718,7 +2723,8 @@ public:
             if (!m_arith.is_int_real(a))
                 throw parse_error("$abs expects arithmetic argument");
             expr_ref zero(m_arith.is_int(a) ? m_arith.mk_int(0) : m_arith.mk_numeral(rational(0), false), m);
-            return expr_ref(m.mk_ite(m_arith.mk_ge(a, zero), a, expr_ref(m_arith.mk_uminus(a), m)), m);
+            expr_ref nonnegative(m_arith.mk_ge(a, zero), m);
+            return expr_ref(m.mk_ite(nonnegative, a, expr_ref(m_arith.mk_uminus(a), m)), m);
         }};
         m_ops["$true"] = { false, 0, false, [&](expr_ref_vector const&) -> expr_ref {
             return expr_ref(m.mk_true(), m);
@@ -2729,28 +2735,44 @@ public:
 
         // Infix logical operators (token-based, matched by token_to_op_name)
         m_ops["<=>"] = { true, PREC_IFF, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_iff(ensure_bool(args[0]), ensure_bool(args[1])), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_iff(lhs, rhs), m);
         }};
         m_ops["<~>"] = { true, PREC_IFF, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_iff(ensure_bool(args[0]), ensure_bool(args[1]))), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_not(m.mk_iff(lhs, rhs)), m);
         }};
         m_ops["=>"] = { true, PREC_IMPLIES, true, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_implies(ensure_bool(args[0]), ensure_bool(args[1])), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_implies(lhs, rhs), m);
         }};
         m_ops["<="] = { true, PREC_IMPLIES, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_implies(ensure_bool(args[1]), ensure_bool(args[0])), m);
+            expr_ref lhs = ensure_bool(args[1]);
+            expr_ref rhs = ensure_bool(args[0]);
+            return expr_ref(m.mk_implies(lhs, rhs), m);
         }};
         m_ops["|"] = { true, PREC_OR, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_or(ensure_bool(args[0]), ensure_bool(args[1])), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_or(lhs, rhs), m);
         }};
         m_ops["~|"] = { true, PREC_OR, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_or(ensure_bool(args[0]), ensure_bool(args[1]))), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_not(m.mk_or(lhs, rhs)), m);
         }};
         m_ops["&"] = { true, PREC_AND, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_and(ensure_bool(args[0]), ensure_bool(args[1])), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_and(lhs, rhs), m);
         }};
         m_ops["~&"] = { true, PREC_AND, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_and(ensure_bool(args[0]), ensure_bool(args[1]))), m);
+            expr_ref lhs = ensure_bool(args[0]);
+            expr_ref rhs = ensure_bool(args[1]);
+            return expr_ref(m.mk_not(m.mk_and(lhs, rhs)), m);
         }};
         m_ops["="] = { true, PREC_EQ, false, [&](expr_ref_vector const& args) -> expr_ref {
             expr_ref lhs(args[0], m);

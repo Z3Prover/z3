@@ -449,8 +449,9 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (common > 0) {
-            result = m_util.mk_ule(concat(numa - common, a->get_args() + common),
-                                   concat(numb - common, b->get_args() + common));
+            expr_ref lhs(concat(numa - common, a->get_args() + common), m);
+            expr_ref rhs(concat(numb - common, b->get_args() + common), m);
+            result = m_util.mk_ule(lhs, rhs);
             return BR_REWRITE2;
         }
     }
@@ -471,8 +472,9 @@ br_status bv_rewriter::rw_leq_concats(bool is_signed, expr * _a, expr * _b, expr
             return BR_DONE;
         }
         if (new_numa != numa) {
-            result = is_signed ? m_util.mk_sle(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()))
-                               : m_util.mk_ule(concat(new_numa, a->get_args()), concat(new_numb, b->get_args()));
+            expr_ref lhs(concat(new_numa, a->get_args()), m);
+            expr_ref rhs(concat(new_numb, b->get_args()), m);
+            result = is_signed ? m_util.mk_sle(lhs, rhs) : m_util.mk_ule(lhs, rhs);
             return BR_REWRITE2;
         }
     }

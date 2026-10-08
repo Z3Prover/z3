@@ -183,23 +183,65 @@ static void tst_is_extended_numeral() {
     expr_ref t(m);
     t = a.mk_real(7);
     ENSURE(a.is_extended_numeral(t, n) && n == 7);
-    t = a.mk_div(a.mk_uminus(a.mk_real(1)), a.mk_div(a.mk_real(2), a.mk_uminus(a.mk_real(4))));
+    {
+        expr_ref lhs(a.mk_uminus(a.mk_real(1)), m);
+        expr_ref lhs1(a.mk_real(2), m);
+        expr_ref rhs(a.mk_uminus(a.mk_real(4)), m);
+        expr_ref rhs1(a.mk_div(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
     ENSURE(a.is_extended_numeral(t, n) && n == 2);
     t = a.mk_to_real(a.mk_uminus(a.mk_int(3)));
     ENSURE(a.is_extended_numeral(t, n) && n == -3);
-    t = a.mk_to_int(a.mk_div(a.mk_real(-7), a.mk_real(3)));
+    {
+        expr_ref lhs(a.mk_real(-7), m);
+        expr_ref rhs(a.mk_real(3), m);
+        t = a.mk_to_int(a.mk_div(lhs, rhs));
+    }
     ENSURE(a.is_extended_numeral(t, n) && n == -3);
-    t = a.mk_to_real(a.mk_to_int(a.mk_div(a.mk_real(7), a.mk_real(3))));
+    {
+        expr_ref lhs(a.mk_real(7), m);
+        expr_ref rhs(a.mk_real(3), m);
+        t = a.mk_to_real(a.mk_to_int(a.mk_div(lhs, rhs)));
+    }
     ENSURE(a.is_extended_numeral(t, n) && n == 2);
-    t = a.mk_div(a.mk_real(1), a.mk_real(0));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(0), m);
+        t = a.mk_div(lhs, rhs);
+    }
     ENSURE(!a.is_extended_numeral(t, n));
-    t = a.mk_div(a.mk_real(1), a.mk_uminus(a.mk_real(0)));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref rhs(a.mk_uminus(a.mk_real(0)), m);
+        t = a.mk_div(lhs, rhs);
+    }
     ENSURE(!a.is_extended_numeral(t, n));
-    t = a.mk_div(a.mk_real(1), a.mk_div(a.mk_real(1), a.mk_real(0)));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref lhs1(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(0), m);
+        expr_ref rhs1(a.mk_div(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
     ENSURE(!a.is_extended_numeral(t, n));
-    t = a.mk_div(a.mk_real(1), a.mk_add(a.mk_real(1), a.mk_real(-1)));
+    {
+        expr_ref lhs(a.mk_real(1), m);
+        expr_ref lhs1(a.mk_real(1), m);
+        expr_ref rhs(a.mk_real(-1), m);
+        expr_ref rhs1(a.mk_add(lhs1, rhs), m);
+        t = a.mk_div(lhs, rhs1);
+    }
     ENSURE(!a.is_extended_numeral(t, n));
-    t = a.mk_sub(a.mk_mul(a.mk_real(2), a.mk_real(3)), a.mk_add(a.mk_real(1), a.mk_real(2)));
+    {
+        expr_ref lhs(a.mk_real(2), m);
+        expr_ref rhs(a.mk_real(3), m);
+        expr_ref lhs1(a.mk_mul(lhs, rhs), m);
+        expr_ref lhs2(a.mk_real(1), m);
+        expr_ref rhs1(a.mk_real(2), m);
+        expr_ref rhs2(a.mk_add(lhs2, rhs1), m);
+        t = a.mk_sub(lhs1, rhs2);
+    }
     ENSURE(a.is_extended_numeral(t, n) && n == 3);
     t = a.mk_uminus(m.mk_const(symbol("x"), a.mk_real()));
     ENSURE(!a.is_extended_numeral(t, n));
@@ -213,8 +255,11 @@ static void tst_is_extended_numeral() {
         t = a.mk_div(t, a.mk_real(1));
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
     t = a.mk_real(1);
-    for (unsigned i = 0; i < 20000; ++i)
-        t = a.mk_div(a.mk_add(t, a.mk_real(0)), a.mk_real(1));
+    for (unsigned i = 0; i < 20000; ++i) {
+        expr_ref lhs(a.mk_add(t, a.mk_real(0)), m);
+        expr_ref rhs(a.mk_real(1), m);
+        t = a.mk_div(lhs, rhs);
+    }
     ENSURE(a.is_extended_numeral(t, n) && n == 1);
     for (unsigned i = 0; i < 20000; ++i)
         t = a.mk_to_real(a.mk_to_int(t));
@@ -222,7 +267,11 @@ static void tst_is_extended_numeral() {
 
     expr_ref x(m.mk_const(symbol("x"), a.mk_real()), m);
     expr_ref_vector lits(m);
-    lits.push_back(a.mk_ge(a.mk_mul(t, x), a.mk_real(1)));
+    {
+        expr_ref lhs(a.mk_mul(t, x), m);
+        expr_ref rhs(a.mk_real(1), m);
+        lits.push_back(a.mk_ge(lhs, rhs));
+    }
     lits.push_back(a.mk_le(x, a.mk_real(0)));
     arith::theory_checker checker(m);
     ENSURE(checker.check(mk_farkas(m, ints(m, {1, 1}), lits)));

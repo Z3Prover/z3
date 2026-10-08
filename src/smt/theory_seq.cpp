@@ -619,8 +619,9 @@ expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
 
 void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
     m_sk.decompose(e, head, tail);
-    add_axiom(~mk_eq_empty(e), mk_eq_empty(tail));;
-    add_axiom(mk_eq_empty(e), mk_eq(e, mk_concat(head, tail), false));
+    literal is_empty = mk_eq_empty(e);
+    add_axiom(~is_empty, mk_eq_empty(tail));
+    add_axiom(is_empty, mk_eq(e, mk_concat(head, tail), false));
 }
 
 /*
@@ -1315,11 +1316,14 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
         expr_ref len_s = mk_len(s);
         literal len_s_gt_l = m_ax.mk_ge(mk_sub(len_s, l), 1);
         switch (ctx.get_assignment(len_s_gt_l)) {
-        case l_true:
-            len = mk_sub(mk_sub(len_s, l), m_autil.mk_int(1));
+        case l_true: {
+            expr_ref remaining = mk_sub(len_s, l);
+            expr_ref one(m_autil.mk_int(1), m);
+            len = mk_sub(remaining, one);
             lits.push_back(len_s_gt_l);
             TRACE(seq, ctx.display_literals_verbose(tout << "tail length " << len << "\n", lits) << "\n";);
             return true;
+        }
         case l_false:
             len = m_autil.mk_int(0);
             lits.push_back(~len_s_gt_l);
@@ -2406,7 +2410,9 @@ expr_ref theory_seq::elim_skolem(expr* e) {
             y = cache[y];
             auto mk_max = [&](expr* x, expr* y) { return m.mk_ite(m_autil.mk_ge(x, y), x, y); };
             result = m_util.str.mk_length(x);
-            result = m_util.str.mk_substr(x, mk_max(y,m_autil.mk_int(0)), m_autil.mk_sub(result, y));
+            expr_ref offset(mk_max(y, m_autil.mk_int(0)), m);
+            expr_ref length(m_autil.mk_sub(result, y), m);
+            result = m_util.str.mk_substr(x, offset, length);
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();            
@@ -2440,7 +2446,13 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         }
         if (m_sk.is_first(a, x) && cache.contains(x)) {
             x = cache[x];
-            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            {
+                expr_ref rhs(m_autil.mk_int(0), m);
+                expr_ref lhs(m_util.str.mk_length(x), m);
+                expr_ref rhs1(m_autil.mk_int(1), m);
+                expr_ref third(m_autil.mk_sub(lhs, rhs1), m);
+                result = m_util.str.mk_substr(x, rhs, third);
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2448,7 +2460,11 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         }
         if (m_sk.is_last(a, x) && cache.contains(x)) {
             x = cache[x];
-            result = m_util.str.mk_nth(x, m_autil.mk_sub(m_util.str.mk_length(x), m_autil.mk_int(1)));
+            {
+                expr_ref lhs(m_util.str.mk_length(x), m);
+                expr_ref rhs(m_autil.mk_int(1), m);
+                result = m_util.str.mk_nth(x, m_autil.mk_sub(lhs, rhs));
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2457,7 +2473,11 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         if (m_sk.is_indexof_left(a, x, y) && cache.contains(x) && cache.contains(y)) {
             x = cache[x];
             y = cache[y];
-            result = m_util.str.mk_substr(x, m_autil.mk_int(0), m_util.str.mk_index(x, y, m_autil.mk_int(0)));
+            {
+                expr_ref rhs(m_autil.mk_int(0), m);
+                expr_ref third(m_util.str.mk_index(x, y, m_autil.mk_int(0)), m);
+                result = m_util.str.mk_substr(x, rhs, third);
+            }
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();
@@ -2466,7 +2486,9 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         if (m_sk.is_indexof_right(a, x, y) && cache.contains(x) && cache.contains(y)) {
             x = cache[x];
             y = cache[y];
-            expr_ref offset(m_autil.mk_add(m_util.str.mk_length(y), m_util.str.mk_index(x, y, m_autil.mk_int(0))), m);
+            expr_ref length(m_util.str.mk_length(y), m);
+            expr_ref index(m_util.str.mk_index(x, y, m_autil.mk_int(0)), m);
+            expr_ref offset(m_autil.mk_add(length, index), m);
             result = m_util.str.mk_substr(x, offset, m_util.str.mk_length(x));
             trail.push_back(result);
             cache.insert(a, result);
