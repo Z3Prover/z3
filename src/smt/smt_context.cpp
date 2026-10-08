@@ -3813,9 +3813,11 @@ namespace smt {
     }
 
     void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
-        for (theory* th : m_theory_set) {
+        unsigned sz = theory_assumption.size();
+        for (theory* th : m_theory_set) {            
             th->add_theory_assumptions(theory_assumptions);
         }
+        m_has_research_theories |= sz < theory_assumptions.size();
     }
 
     lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
