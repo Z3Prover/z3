@@ -291,7 +291,7 @@ namespace smt {
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          vector<std::tuple<enode *, enode *>> & used_enodes) {
+                          vector<std::tuple<enode *, enode *>> & used_enodes, bool mbqi_instance) {
 
             // Try higher-order refinement first
             if (pat && m_plugin->refine_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes))
@@ -329,7 +329,7 @@ namespace smt {
                 if (has_trace_stream()) {
                     log_add_instance(f, q, pat, num_bindings, bindings, trace_used_enodes);
                 }
-                m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
+                m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation, mbqi_instance); // TODO
                 m_num_instances++;
             }
 
@@ -499,8 +499,8 @@ namespace smt {
                                           unsigned max_generation,
                                           unsigned min_top_generation,
                                           unsigned max_top_generation,
-                                          vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_imp->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes);
+                                          vector<std::tuple<enode *, enode *>> & used_enodes, bool mbqi_instance) {
+        return m_imp->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes, mbqi_instance);
     }
 
     bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {

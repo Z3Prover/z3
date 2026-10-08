@@ -59,7 +59,7 @@ namespace smt {
             float         m_cost;
             unsigned      m_generation:31;
             unsigned      m_instantiated:1;
-            unsigned      m_model_based:1; // produced by model-based quantifier instantiation (no pattern)
+            unsigned      m_model_based:1; // produced by model-based quantifier instantiation
             entry(fingerprint * f, float c, unsigned g, bool mb = false):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false), m_model_based(mb) {}
         };
         svector<entry>                m_new_entries;
@@ -89,7 +89,7 @@ namespace smt {
            \brief Insert a new quantifier in the queue, f contains the quantifier and bindings.
            f->get_data() is the quantifier.
         */
-        void insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation);
+        void insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, bool mbqi_instance = false);
         void instantiate();
         bool has_work() const { return !m_new_entries.empty(); }
         void init_search_eh();

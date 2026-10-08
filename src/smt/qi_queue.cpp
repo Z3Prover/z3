@@ -133,7 +133,7 @@ namespace smt {
         return std::max(generation + 1, static_cast<unsigned>(r));
     }
 
-    void qi_queue::insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation) {
+    void qi_queue::insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, bool mbqi_instance) {
         quantifier * q         = static_cast<quantifier*>(f->get_data());
         float cost             = get_cost(q, pat, generation, min_top_generation, max_top_generation);
         TRACE(qi_queue_detail,
@@ -144,7 +144,7 @@ namespace smt {
               }
               tout << "\n";);
         TRACE(new_entries_bug, tout << "[qi:insert]\n";);
-        m_new_entries.push_back(entry(f, cost, generation, pat == nullptr));
+        m_new_entries.push_back(entry(f, cost, generation, mbqi_instance));
     }
 
     void qi_queue::instantiate() {
@@ -290,7 +290,8 @@ namespace smt {
         m_instances.push_back(lemma);
         // keep model-based instances (they are expensive to rediscover and MBQI may not
         // reproduce them), and pattern-based ones up to a budget
-        bool persist = ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances;
+        bool persist = m_params.m_qi_persist_instances &&
+            (ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances);
         if (persist)
             m_persistent_instances.push_back({ expr_ref(lemma, m), app_ref(m) });
         proof_ref pr1(m);

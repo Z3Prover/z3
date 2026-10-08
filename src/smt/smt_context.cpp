@@ -1898,9 +1898,9 @@ namespace smt {
 
     bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
         unsigned max_generation,
-                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
+                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes, bool mbqi_instance) {
         return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
-            max_generation, min_top_generation, max_top_generation, used_enodes);
+            max_generation, min_top_generation, max_top_generation, used_enodes, mbqi_instance);
     }
 
     void context::rescale_bool_var_activity() {
