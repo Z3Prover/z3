@@ -1,6 +1,6 @@
 # F* Formalization of `src/ast/rewriter/seq_rewriter.cpp` — Coverage Report
 
-See [`REPORT.md`](REPORT.md) for the top-level index of this F*
+See [`README.md`](README.md) for the top-level index of this F*
 formal-verification audit series.
 
 This is the self-contained report for **all** `seq_rewriter.cpp`

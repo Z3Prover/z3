@@ -157,7 +157,7 @@ All lemmas in [`Z3MpfExact.fst`](Z3MpfExact.fst) are proved with no `admit`/`ass
   mpf.cpp:1723-1777) and **`to_sbv_mpq`/`to_ieee_bv_mpz`** — not
   examined.
 
-See [`REPORT.md`](REPORT.md) for the index of all audits in this
+See [`README.md`](README.md) for the index of all audits in this
 series, and [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) for the
 earlier, narrower audit of the `fpa2bv_converter.cpp` rounding
 encoding that this one both reuses (`val_of`) and extends (directed
