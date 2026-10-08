@@ -203,11 +203,15 @@ def run(args, entries):
     if not cases or len({c['file'] for c in cases}) != len(cases):
         raise ValueError('the corpus must be nonempty, with unique input paths')
     inputs = []
+    roots = {'suite': args.suite, 'local': args.corpus.parent}
     for case in cases:
         name = Path(case['file'])
+        source = case.get('source', 'suite')
+        if source not in roots:
+            raise ValueError(f'unknown input source: {source}')
         if name.is_absolute() or '..' in name.parts:
-            raise ValueError(f'input must be relative to the suite: {name}')
-        inputs.append((args.suite / name).read_bytes())
+            raise ValueError(f'input must be relative to its source: {name}')
+        inputs.append((roots[source] / name).read_bytes())
     common = ['-smt2', 'input.smt2', 'trace=true', 'trace_file_name=ast.trace',
               '-v:' + str(args.verbosity), 'suppress_platform_verbose=true',
               'parallel.enable=false', 'smt.threads=1', 'sat.threads=1',

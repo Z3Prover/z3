@@ -108,8 +108,10 @@ manifest of the same form. Editing a testcase does not require updating its entr
 To use newer testcases in CI, update the pinned revision; add or remove paths when
 changing which cases run.
 
+The manifest also includes miscellaneous testcases from `cases/`.
+
 Every run uses a fresh process, a private directory, identical input bytes,
-fixed solver seeds, single-threaded solving, and `LC_ALL=C`. Three files are
+fixed default solver seeds, single-threaded solving, and `LC_ALL=C`. Three files are
 compared separately: `ast.trace`, `stdout`, and `stderr`. Normal verbosity defaults
 to zero; structured tracing is still enabled. `--verbosity 10` enables additional
 diagnostics, but some diagnostic paths still print time/memory or iterate unordered
@@ -163,8 +165,7 @@ some versions of that document.
 
 ## GitHub Actions
 
-`.github/workflows/determinism.yml` runs on every PR, pushes to master, and manual
-dispatch.
+`.github/workflows/determinism.yml` runs on every PR, pushes to master, and manual dispatch.
 
 | Runner | Configuration |
 |---|---|
