@@ -21,8 +21,8 @@ coverage for the previously-unaudited `finite_set_rewriter.cpp`.
 | `m_fs_rw` | `finite_set_rewriter.cpp` | ✅ newly covered (this report) | below + [`Z3FiniteSetTheory.fst`](Z3FiniteSetTheory.fst) |
 | `m_dl_rw` | `dl_rewriter.cpp` | ⚪ reviewed, trivial | below |
 | `m_char_rw` | `char_rewriter.cpp` | ⚪ reviewed, trivial | below |
-| `m_pb_rw` | `pb_rewriter.cpp` | ❌ not covered | below |
-| `m_rec_rw` | `recfun_rewriter.cpp` | ❌ not covered | below |
+| `m_pb_rw` | `pb_rewriter.cpp` | ✅ covered (first pass) | [`PB_REWRITER_REPORT.md`](../PB_REWRITER_REPORT.md) |
+| `m_rec_rw` | `recfun_rewriter.cpp` | ✅ covered (termination argument) | [`RECFUN_REWRITER_REPORT.md`](../RECFUN_REWRITER_REPORT.md) |
 
 ## `finite_set_rewriter.cpp` — newly formalized
 
@@ -107,38 +107,30 @@ two bounded naturals" / "check a numeral falls in `['0','9']`". As with
 restate integer facts already decided natively; reviewed in full, no
 soundness-relevant content beyond bounded-integer comparison.
 
-## `pb_rewriter.cpp` — not covered (future follow-up pass)
+## `pb_rewriter.cpp` — now covered (first pass)
 
-301 lines implementing pseudo-Boolean (`at-least-k`/`at-most-k`/PB
-`<=`/`>=`/`=`) constraint normalization: coefficient/literal sorting and
-merging (`pb_ast_rewriter_util`), PB-to-LIA translation
-(`translate_pb2lia`), and various strength-reduction/simplification passes
-over `(c1*l1 + c2*l2 + ... op k)` constraints. This is a sizable, genuinely
-new theory (linear integer arithmetic over 0/1-valued literals with
-coefficient arithmetic) that was not in scope for this pass; a faithful
-treatment needs its own rational-coefficient PB-constraint model (a
-natural next follow-up pass, analogous in scope to the bit-vector/array
-audits already done).
+See [`PB_REWRITER_REPORT.md`](../PB_REWRITER_REPORT.md) and
+[`Z3PbTheory.fst`](Z3PbTheory.fst) for the full write-up: formalizes the
+core truth-preserving normalization identities (negative-coefficient
+literal flip, trivial-true/trivial-false detection, tight-inequality →
+all-literals-true, unit-coefficient → at-least-one-true, single-term
+coefficient capping), deferring the gcd-based cutting-plane reduction and
+the general slack-based conjunction/disjunction construction to a further
+follow-up.
 
-## `recfun_rewriter.cpp` — not covered (future follow-up pass)
+## `recfun_rewriter.cpp` — now covered (termination argument)
 
-132 lines implementing recursive-function unfolding
-(`mk_app_core` substitutes a recursive function's body for a call whose
-arguments are either all values or decompose one constructor at a time)
-plus a termination side-condition (`is_decreasing_arg`) that restricts
-*which* argument position may trigger unfolding, so as to guarantee the
-unfolding process terminates (does not loop rebuilding the same
-constructor term indirectly through other accessors). The substitution
-step itself is ordinary capture-avoiding substitution (already a standard,
-soundness-obvious operation, not specific to this file), but
-`is_decreasing_arg`'s termination argument is a genuinely interesting,
-non-trivial invariant (a well-founded "argument strictly decreases through
-accessors across every recursive call" condition) that would benefit from
-a dedicated formalization in a future follow-up pass — deferred here for
-scope reasons.
+See [`RECFUN_REWRITER_REPORT.md`](../RECFUN_REWRITER_REPORT.md) and
+[`Z3RecfunTheory.fst`](Z3RecfunTheory.fst) for the full write-up:
+formalizes the structural-descent fact (`is_decreasing_arg`'s accessor
+chains strictly shrink a structural size measure, so no infinite
+unfolding sequence can exist) that certifies termination of recursive
+function unfolding; the substitution step itself reuses
+`Z3SimplifierTheory.fst`'s generic substitution-congruence lemma.
 
 ## Verification status
 
 `Z3FiniteSetTheory.fst` compiles cleanly with `fstar.exe` (Z3 4.13.3
 backend), zero `admit`/`assume`, as part of the project's full
-clean-recompile check.
+clean-recompile check. `Z3PbTheory.fst` and `Z3RecfunTheory.fst` (added in
+a follow-up pass) likewise compile cleanly with zero `admit`/`assume`.
