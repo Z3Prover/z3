@@ -65,6 +65,8 @@ Abstract:
   BOOL_  (qi_profile,                              "qi.profile",                              false,                    "profile quantifier instantiation") \
   UINT_  (qi_profile_freq,                         "qi.profile_freq",                         UINT_MAX,                 "how frequent results are reported by qi.profile") \
   UINT_  (qi_max_instances,                        "qi.max_instances",                        UINT_MAX,                 "maximum number of quantifier instantiations") \
+  BOOL_  (qi_persist_instances,                     "qi.persist_instances",                     false,                    "re-assert the quantifier instances produced by model-based instantiation (and up to qi.max_persistent_instances pattern-based ones) at base level when a theory requests a re-search, e.g. after a recursive function unfolding depth increase") \
+  UINT_  (qi_max_persistent_instances,              "qi.max_persistent_instances",              1000,                     "maximal number of pattern-based quantifier instances re-asserted on a re-search when qi.persist_instances is set") \
   DOUBLE_(qi_eager_threshold,                      "qi.eager_threshold",                      10.0,                     "threshold for eager quantifier instantiation") \
   DOUBLE_(qi_lazy_threshold,                       "qi.lazy_threshold",                       20.0,                     "threshold for lazy quantifier instantiation") \
   STRING_(qi_cost,                                 "qi.cost",                                 "(+ weight generation)",  "expression specifying what is the cost of a given quantifier instantiation") \

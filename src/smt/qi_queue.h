@@ -59,11 +59,13 @@ namespace smt {
             float         m_cost;
             unsigned      m_generation:31;
             unsigned      m_instantiated:1;
-            entry(fingerprint * f, float c, unsigned g):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false) {}
+            unsigned      m_model_based:1; // produced by model-based quantifier instantiation
+            entry(fingerprint * f, float c, unsigned g, bool mb = false):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false), m_model_based(mb) {}
         };
         svector<entry>                m_new_entries;
         svector<entry>                m_delayed_entries;
         expr_ref_vector               m_instances;
+        vector<std::pair<expr_ref, app_ref>> m_persistent_instances; // (lemma, proof); proof is null when proofs are disabled
         unsigned_vector               m_instantiated_trail;
         struct scope {
             unsigned   m_delayed_entries_lim;
@@ -87,7 +89,7 @@ namespace smt {
            \brief Insert a new quantifier in the queue, f contains the quantifier and bindings.
            f->get_data() is the quantifier.
         */
-        void insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation);
+        void insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, bool mbqi_instance = false);
         void instantiate();
         bool has_work() const { return !m_new_entries.empty(); }
         void init_search_eh();
@@ -97,6 +99,10 @@ namespace smt {
         void reset();
         void display_delayed_instances_stats(std::ostream & out) const;
         void collect_statistics(::statistics & st) const;
+        // instances (lemmas of the form (or (not q) inst)) produced so far in the current search,
+        // paired with their proofs when proofs are enabled (proof component is null otherwise).
+        // model-based instances produced since the last call, kept across backtracking (see context::check)
+        void collect_instances(vector<std::pair<expr_ref, app_ref>> & out) { out.append(m_persistent_instances); m_persistent_instances.reset(); }
         void register_on_binding(std::function<bool(quantifier* q, expr* e)> & on_binding) {
             m_on_binding = on_binding;
         }
