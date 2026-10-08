@@ -9,10 +9,12 @@ arithmetic tautologies underlying two of Z3's core term-rewriting engines:
   `bool_rewriter.h` (AND/OR/NOT/ITE/EQ/DISTINCT/XOR/IMPLIES/NAND/NOR/GE2
   simplification rules).
 - [`Z3ArithRewriter.fst`](Z3ArithRewriter.fst),
-  [`Z3ArithRewriterPower.fst`](Z3ArithRewriterPower.fst), and
-  [`Z3ArithRewriterCast.fst`](Z3ArithRewriterCast.fst) —
+  [`Z3ArithRewriterPower.fst`](Z3ArithRewriterPower.fst),
+  [`Z3ArithRewriterCast.fst`](Z3ArithRewriterCast.fst), and
+  [`Z3ArithRewriterOrder.fst`](Z3ArithRewriterOrder.fst) —
   `src/ast/rewriter/arith_rewriter.cpp` / `arith_rewriter.h` (div/idiv/mod/rem,
-  abs, power, and to_int/to_real/is_int simplification rules).
+  abs, power, to_int/to_real/is_int, and comparison-operator (`<`/`>`/`=`/ite-
+  lifting/floor-bridging/mod-bound) simplification rules).
 
 Every `mk_*_core` rewrite rule in these files replaces one term by another
 that is claimed to denote the same value under every model. The F* files
@@ -82,6 +84,19 @@ integer and real arithmetic.
 
 21 lemmas in total, all verified.
 
+### `Z3ArithRewriterOrder.fst`
+
+| C++ source rule | F* lemmas |
+|---|---|
+| `mk_lt_core` / `mk_gt_core` (defined via `not(le)`) | `lt_as_not_le`, `gt_as_not_le` |
+| `mk_eq_core`'s `m_eq2ineq` branch (antisymmetry of order) | `eq_as_ineqs` |
+| `mk_le_ge_eq_core`'s ite-hoisting branches | `ite_lift_le`, `ite_lift_ge`, `ite_lift_eq` |
+| `mk_le_ge_eq_core`'s `to_int` bridging branch (floor characterization) | `to_int_le_iff`, `to_int_ge_iff`, `to_int_eq_iff` |
+| `is_bound`'s mod-range constant-folding shortcuts | `mod_ge_zero_true`, `mod_le_neg_false`, `mod_le_ge_modulus_true`, `mod_le_modulus_minus_one`, `mod_ge_too_large_false` |
+| `is_separated`'s nonneg/nonpos-summand bound | `nonneg_summand_le_false`, `nonpos_summand_ge_false` |
+
+13 lemmas in total, all verified.
+
 ## What was verified (and what wasn't)
 
 **Verified, from first principles:**
@@ -135,6 +150,35 @@ integer and real arithmetic.
     properties pre-proved; the lemmas are then immediate logical
     consequences of the four `assume`d axioms, analogous to how the NLA
     report treats `exp`/`log`/`sin`/`cos` as axiomatized.
+12. **`<`/`>` as derived connectives** — `mk_lt_core`/`mk_gt_core` literally
+    rewrite `(< a b)` to `(not (<= b a))` and `(> a b)` to `(not (<= a b))`;
+    both are proved from trichotomy of the real order.
+13. **`eq` as a conjunction of inequalities** (`m_eq2ineq`) — `a = b` iff
+    `a <= b /\ b <= a`, the antisymmetry of `<=`.
+14. **Lifting a comparison through an `ite`** — `(if c then t else e) <= k`
+    (resp. `>= k`, `= k`) equals `if c then (t <= k) else (e <= k)`
+    *unconditionally*; the rewriter's `ref_count == 1` guard on this rule
+    is purely a term-size heuristic, not a soundness side-condition, which
+    the proof confirms by discharging both branches with a plain case
+    split on `c`.
+15. **The `to_int`/comparison bridging identities** — `to_int(t) <= n` iff
+    `t < to_real(n+1)`, `to_int(t) >= n` iff `to_real(n) <= t`, and
+    `to_int(t) = n` iff `to_real(n) <= t < to_real(n+1)`: these are exactly
+    the floor-function characterization that lets `mk_le_ge_eq_core`
+    rewrite a `to_int`-headed inequality into a pure real inequality.
+    Proved from an `assume`d floor-defining inequality plus monotonicity of
+    `to_real`, each used only at the two concrete instantiations the proof
+    needs (not as a blanket quantified axiom).
+16. **`is_bound`'s mod-range shortcuts** — `mod(x,b) >= 0` is always true;
+    `mod(x,b) <= c` is false for `c < 0` and true for `c >= b`; and
+    `mod(x,b) <= b-1` always holds. All five are direct corollaries of the
+    Euclidean remainder range `0 <= mod(x,b) < b` already proved as
+    `mod_range` in `Z3ArithRewriter.fst`.
+17. **`is_separated`'s summand-bound facts** — if every non-numeral summand
+    of a sum is known non-negative (resp. non-positive), the sum is
+    bounded below (resp. above) by its numeral part alone, which is what
+    lets `is_separated` certify `(<= (+ c x) k) = false` once `c > k` (and
+    the dual `>=` case).
 
 **Explicitly out of scope, and why:**
 
@@ -153,13 +197,18 @@ integer and real arithmetic.
   rather than formalized.
 - **`decompose_ite`** is a structural search utility (find an ITE subterm)
   with no semantic content of its own.
-- **`cancel_monomials`, `is_bound`/`factor_le_ge_eq`, `elim_to_real`,
-  `get_range`** (`arith_rewriter.cpp`, generic `poly_rewriter`
-  infrastructure and `mk_le_ge_eq_core`'s helpers) implement polynomial
-  normalization / bound-propagation *search*, analogous to the NLA
-  report's treatment of Gröbner-basis reduction and interval propagation
-  as out of scope: their soundness reduces to linear-arithmetic facts
-  already standard and not specific to this rewriter.
+- **`cancel_monomials`, `factor_le_ge_eq`, `elim_to_real`, `get_range`,
+  `get_coeffs_gcd`/`div_polynomial` (GCD rounding)** (`arith_rewriter.cpp`,
+  generic `poly_rewriter` infrastructure and `mk_le_ge_eq_core`'s
+  remaining helpers beyond the to_int-bridging and ite-lifting branches
+  formalized above) implement polynomial normalization / bound-propagation
+  *search*, analogous to the NLA report's treatment of Gröbner-basis
+  reduction and interval propagation as out of scope: their soundness
+  reduces to linear-arithmetic facts already standard and not specific to
+  this rewriter. (`is_bound`'s mod-range shortcuts and `is_separated`'s
+  summand-bound facts *are* now formalized in `Z3ArithRewriterOrder.fst`,
+  as the two parts of these functions whose content is a standalone
+  arithmetic tautology rather than search.)
 - **`mk_sin_core`/`mk_cos_core`/`mk_tan_core`/`mk_asin_core`/
   `mk_acos_core`/`mk_atan_core`/`mk_sinh_core`/`mk_cosh_core`/
   `mk_tanh_core`** and the `is_pi_multiple`/`is_pi_offset` family
@@ -188,10 +237,11 @@ integer and real arithmetic.
 | `Z3ArithRewriter.fst` | `arith_rewriter.cpp`/`.h` div/idiv/mod/rem/abs | 12 | ✅ |
 | `Z3ArithRewriterPower.fst` | `arith_rewriter.cpp` `mk_power_core` | 5 | ✅ |
 | `Z3ArithRewriterCast.fst` | `arith_rewriter.cpp` to_int/to_real/is_int | 4 | ✅ |
+| `Z3ArithRewriterOrder.fst` | `arith_rewriter.cpp` lt/gt/eq2ineq/ite-lifting/to_int-bridging/is_bound/is_separated | 13 | ✅ |
 
 ## Conclusion
 
-All 53 lemmas across the four files type-check and are discharged by F*'s
+All 66 lemmas across the five files type-check and are discharged by F*'s
 SMT backend with no `admit`/`sorry`, confirming that every formalized
 `bool_rewriter`/`arith_rewriter` rewrite rule encodes a genuine semantic
 tautology (propositional, Euclidean-arithmetic, or power/coercion
