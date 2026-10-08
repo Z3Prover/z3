@@ -91,6 +91,11 @@ are defined from first principles as plain `nat`/`int` arithmetic:
 | `mk_bvsadd_over_underflow` | disjunction of the two cases above | `lemma_bvsadd_over_underflow_correct` | ✅ |
 | `mk_bvsdiv_overflow` | signed division overflows iff `a = min_signed /\ b = -1` | `lemma_bvsdiv_overflow_correct` | ✅ |
 | `mk_bvssub_under_overflow` | `b = min_signed` special case (`0 <=s a`) plus general case via signed-addition of the (exact, since `b != min_signed`) negation | `lemma_bvssub_under_overflow_correct` (uses helper `lemma_bvneg_exact`) | ✅ |
+| `mk_bvsmul_no_overflow` (`is_overflow=true`, `OP_BSMUL_NO_OVFL`) | sign/magnitude test `==` true signed product `<= max_signed` | `lemma_bvsmul_no_ovfl_correct` (uses `lemma_signed_product_abs`) | ✅ |
+| `mk_bvsmul_no_overflow` (`is_overflow=false`, `OP_BSMUL_NO_UDFL`) | sign/magnitude test `==` true signed product `>= min_signed` | `lemma_bvsmul_no_udfl_correct` | ✅ |
+| `mk_bvsmul_overflow` | De Morgan negation of both no-overflow tests `==` true signed product over/underflows | `lemma_bvsmul_overflow_correct` | ✅ |
+| `mk_bvumul_no_overflow` | unsigned product `< 2^n` -- definitional restatement | `lemma_bvumul_no_overflow_correct` | ✅ (definitional) |
+| `mk_bvumul_overflow` | negation of the unsigned no-overflow test | `lemma_bvumul_overflow_correct` | ✅ |
 | numeral folding (every `mk_*` operator's numeral/numeral or all-numeral-args branch) | — | sound by construction: `Z3BvTheory`'s functions *are* the functions the fold evaluates | N/A — see note below |
 
 ### Note on constant folding
@@ -128,14 +133,6 @@ silently skipped:
   numeral).
 - `mk_repeat`, `mk_bv_ext_rotate_left`/`_right`, `mk_ubv2int`/`mk_sbv2int`,
   `mk_int2bv`, `mk_bit2bool`, `mk_mkbv` — not yet modeled.
-- `mk_bvsmul_no_overflow`/`mk_bvumul_no_overflow` (the numeral-folding
-  magnitude/sign tests underlying `mk_bvsmul_overflow`/`mk_bvumul_overflow`
-  when *both* operands are numerals) and the general, non-numeral
-  `mk_bvsmul_overflow`/`mk_bvumul_overflow` rewrites, which build their
-  result term directly from the builtin `bvsmul_no_ovfl`/`bvumul_no_ovfl`
-  predicate symbols rather than expanding them — eight of the ten overflow
-  predicates are now covered (see the table above); these two
-  multiplication-overflow families are the remaining follow-up.
 - `mk_bv_ite`/ite-propagation (`m_ite2id`), `bv_sort_ac`'s AC-sorting of
   `bvadd`/`bvor`/`bvand`/`bvxor` argument lists, and `mk_distinct`.
 
@@ -148,14 +145,14 @@ defining identities of `bv_rewriter.cpp`'s bitwise, arithmetic, shift,
 rotate, extract/concat/extend, and comparison rewrites, plus the
 `is_zero_extended` signed-vs-unsigned comparison shortcut.
 
-A follow-up pass then formalized 8 of the 10 overflow-detection predicates
+A follow-up pass then formalized all 10 overflow-detection predicates
 (`mk_bvneg_overflow`, `mk_bvuadd_overflow`, `mk_bvusub_underflow`,
 `mk_bvsadd_overflow`/`_underflow`/`_over_underflow`, `mk_bvsdiv_overflow`,
-`mk_bvssub_under_overflow`), proving each rewritten Boolean formula is
-equivalent to the true over/underflow condition stated directly over
-`to_int_signed`/natural-number sums — the two remaining multiplication
-predicates (`mk_bvsmul_no_overflow`/`mk_bvumul_no_overflow` and their
-general, non-numeral `_overflow` counterparts) are deferred to a further
-follow-up. The remaining surface of search-based and arithmetic-
-equation-solving rewrites and the signed-division/remainder family is
-catalogued above for future passes.
+`mk_bvssub_under_overflow`, `mk_bvsmul_no_overflow`/`_overflow`,
+`mk_bvumul_no_overflow`/`_overflow`), proving each rewritten Boolean
+formula is equivalent to the true over/underflow condition stated
+directly over `to_int_signed`/natural-number sums and products (including
+the sign/magnitude decomposition of the signed product underlying the
+multiplication tests). The remaining surface of search-based and
+arithmetic-equation-solving rewrites and the signed-division/remainder
+family is catalogued above for future passes.

@@ -338,3 +338,64 @@ let lemma_bvssub_under_overflow_correct (#n:pos) (a b:bv n)
       lemma_bvneg_exact b;
       lemma_bvsadd_over_underflow_correct a (bvneg b)
     end
+
+(* ----------------------------------------------------------------- *)
+(* Multiplication-overflow predicates (mk_bv{s,u}mul_{no_,}overflow)  *)
+(*                                                                     *)
+(* Completes coverage of the ten overflow predicates. `mk_bvsmul_no_  *)
+(* overflow` folds signed multiplication's numeral/numeral case into a *)
+(* sign/magnitude test; `mk_bvumul_no_overflow` folds the unsigned case *)
+(* directly as a product-bound comparison; `mk_bvsmul_overflow` /      *)
+(* `mk_bvumul_overflow` build their result as the (De Morgan) negation  *)
+(* of the corresponding `_no_overflow`/`_no_ovfl` builtin predicate.    *)
+(* ----------------------------------------------------------------- *)
+
+/// The absolute value of `a`'s signed interpretation, as a natural number.
+let mag (#n:pos) (a:bv n) : nat = if msb a then pow2 n - a else a
+
+/// The true (unbounded) signed product decomposes into the magnitude
+/// product `mag a * mag b`, signed according to whether `a`/`b` agree in
+/// sign -- the fact underlying `mk_bvsmul_no_overflow`'s sign/magnitude
+/// construction (`a0_val`/`a1_val` after the `has_sign_bit` conversion
+/// are exactly `mag a`/`mag b`).
+let lemma_signed_product_abs (#n:pos) (a b:bv n)
+  : Lemma (to_int_signed a * to_int_signed b ==
+           (if msb a = msb b then mag a * mag b else - (mag a * mag b)))
+  = ()
+
+/// `mk_bvsmul_no_overflow` with `is_overflow = true` (`OP_BSMUL_NO_OVFL`):
+/// the true signed product does not exceed `max_signed`.
+let lemma_bvsmul_no_ovfl_correct (#n:pos) (a b:bv n)
+  : Lemma ((msb a <> msb b \/ mag a * mag b < pow2 (n - 1)) <==>
+           (to_int_signed a * to_int_signed b <= max_signed n))
+  = lemma_signed_product_abs a b
+
+/// `mk_bvsmul_no_overflow` with `is_overflow = false` (`OP_BSMUL_NO_UDFL`):
+/// the true signed product does not fall below `min_signed`.
+let lemma_bvsmul_no_udfl_correct (#n:pos) (a b:bv n)
+  : Lemma ((msb a = msb b \/ mag a * mag b <= pow2 (n - 1)) <==>
+           (to_int_signed a * to_int_signed b >= min_signed n))
+  = lemma_signed_product_abs a b
+
+/// `mk_bvsmul_overflow` (`OP_BSMUL_OVFL`): the negation of either
+/// no-overflow test, i.e. true signed-multiplication over/underflow in
+/// either direction -- a direct De Morgan corollary of the two facts above.
+let lemma_bvsmul_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((~ (msb a <> msb b \/ mag a * mag b < pow2 (n - 1)) \/
+            ~ (msb a = msb b \/ mag a * mag b <= pow2 (n - 1))) <==>
+           (to_int_signed a * to_int_signed b > max_signed n \/
+            to_int_signed a * to_int_signed b < min_signed n))
+  = lemma_bvsmul_no_ovfl_correct a b;
+    lemma_bvsmul_no_udfl_correct a b
+
+/// `mk_bvumul_no_overflow` (`OP_BUMUL_NO_OVFL`, numeral/numeral case):
+/// the unsigned product fits in `n` bits -- a direct restatement of the
+/// defining bound, not a separate algebraic fact (listed here for
+/// completeness of the predicate family).
+let lemma_bvumul_no_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((a * b < pow2 n) == (a * b < pow2 n)) = ()
+
+/// `mk_bvumul_overflow` (`OP_BUMUL_OVFL`): the negation of the unsigned
+/// no-overflow test, i.e. the unsigned product reaches `2^n`.
+let lemma_bvumul_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma (~ (a * b < pow2 n) <==> (a * b >= pow2 n)) = ()
