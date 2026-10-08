@@ -1,6 +1,6 @@
 # F* Formalization of Z3's FPA Rewriter/Converter — Coverage Report
 
-See [`REPORT.md`](REPORT.md) for the top-level index of this F*
+See [`README.md`](README.md) for the top-level index of this F*
 formal-verification audit series; see [`SEQ_REWRITER_REPORT.md`](SEQ_REWRITER_REPORT.md)
 for the companion sequence-theory audit this one is modeled on; see
 [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) for a follow-up audit

@@ -164,7 +164,9 @@ public:
 
             expr_ref v(m.mk_fresh_const(x->get_decl()->get_name(), m.mk_bool_sort()), m);
             if (last_v) axioms.push_back(m.mk_implies(v, last_v));
-            xs.push_back(m.mk_ite(v, a.mk_int(1), a.mk_int(0)));
+            expr_ref one(a.mk_int(1), m);
+            expr_ref zero(a.mk_int(0), m);
+            xs.push_back(m.mk_ite(v, one, zero));
             m_mc->hide(v);
             last_v = v;
         }
@@ -265,7 +267,9 @@ public:
             return m_pb.mk_eq(sz, weights, args, w);
         }
         else {
-            return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
+            expr_ref ge(mk_ge(sz, weights, args, w), m);
+            expr_ref le(mk_le(sz, weights, args, w), m);
+            return m.mk_and(ge, le);
         }
     }
 

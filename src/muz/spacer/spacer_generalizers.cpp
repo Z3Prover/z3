@@ -251,8 +251,11 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     expr_ref_vector eqs(m);
     for (unsigned i = 0, sz = vsymbs.size(); i < sz; ++i) {
         for (unsigned j = i + 1; j < sz; ++j) {
-            eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)),
-                                  m.mk_const(vsymbs.get(j))));
+            {
+                expr_ref lhs(m.mk_const(vsymbs.get(i)), m);
+                expr_ref rhs(m.mk_const(vsymbs.get(j)), m);
+                eqs.push_back(m.mk_eq(lhs, rhs));
+            }
         }
     }
 

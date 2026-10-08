@@ -89,21 +89,21 @@ namespace format_ns {
     template<typename It, typename ToDoc>
     format * mk_seq1(ast_manager & m, It const & begin, It const & end, ToDoc proc, char const * header, 
                      char const * lp = "(", char const * rp = ")") {
-        if (begin == end)
-            return mk_compose(m, mk_string(m, lp), mk_string(m, header), mk_string(m, rp));
+        format_ref open(mk_string(m, lp), fm(m));
+        format_ref name(mk_string(m, header), fm(m));
+        if (begin == end) {
+            format_ref close(mk_string(m, rp), fm(m));
+            return mk_compose(m, open, name, close);
+        }
         unsigned indent = static_cast<unsigned>(strlen(lp) + strlen(header) + 1);
         It it = begin;
-        format * first  = proc(*it);
+        format_ref first(proc(*it), fm(m));
         ++it;
-        return mk_group(m, mk_compose(m, 
-                                      mk_string(m, lp), 
-                                      mk_string(m, header), 
-                                      mk_indent(m, indent, 
-                                                mk_compose(m, 
-                                                           mk_string(m, " "),
-                                                           first,
-                                                           mk_seq(m, it, end, proc),
-                                                           mk_string(m, rp)))));
+        format_ref space(mk_string(m, " "), fm(m));
+        format_ref rest(mk_seq(m, it, end, proc), fm(m));
+        format_ref close(mk_string(m, rp), fm(m));
+        format_ref body(mk_compose(m, space, first, rest, close), fm(m));
+        return mk_group(m, mk_compose(m, open, name, mk_indent(m, indent, body)));
     }
 
     template<typename It, typename ToDoc>
@@ -123,14 +123,17 @@ namespace format_ns {
     template<typename It, typename ToDoc>
     format * mk_seq2(ast_manager & m, It const & begin, It const & end, ToDoc proc, char const * header, 
                      unsigned indent = FORMAT_DEFAULT_INDENT, char const * lp = "(", char const * rp = ")") {
-        
-        if (begin == end)
-            return mk_compose(m, mk_string(m, lp), mk_string(m, header), mk_string(m, rp));
-        return mk_group(m, mk_compose(m,
-                                      mk_indent(m, static_cast<unsigned>(strlen(lp)),
-                                                mk_compose(m, mk_string(m, lp), mk_string(m, header))),
-                                      mk_indent(m, indent,
-                                                mk_compose(m, mk_seq(m, begin, end, proc), mk_string(m, rp)))));
+        format_ref open(mk_string(m, lp), fm(m));
+        format_ref name(mk_string(m, header), fm(m));
+        if (begin == end) {
+            format_ref close(mk_string(m, rp), fm(m));
+            return mk_compose(m, open, name, close);
+        }
+        format_ref heading(mk_indent(m, static_cast<unsigned>(strlen(lp)), mk_compose(m, open, name)), fm(m));
+        format_ref elements(mk_seq(m, begin, end, proc), fm(m));
+        format_ref close(mk_string(m, rp), fm(m));
+        format_ref body(mk_indent(m, indent, mk_compose(m, elements, close)), fm(m));
+        return mk_group(m, mk_compose(m, heading, body));
     }
 
     /**
@@ -145,23 +148,28 @@ namespace format_ns {
     format * mk_seq3(ast_manager & m, It const & begin, It const & end, ToDoc proc, char const * header, unsigned i = 1,
                      unsigned indent = FORMAT_DEFAULT_INDENT, char const * lp = "(", char const * rp = ")") {
         SASSERT(i >= 1);
-        if (begin == end)
-            return mk_compose(m, mk_string(m, lp), mk_string(m, header), mk_string(m, rp));
+        format_ref open(mk_string(m, lp), fm(m));
+        format_ref name(mk_string(m, header), fm(m));
+        if (begin == end) {
+            format_ref close(mk_string(m, rp), fm(m));
+            return mk_compose(m, open, name, close);
+        }
         unsigned idx = 0;
         It end1 = begin;
         for (;end1 != end && idx < i; ++end1, ++idx)
             ;
         It it = begin;
-        format * first = proc(*it);
+        format_ref first(proc(*it), fm(m));
         ++it;
-        return mk_group(m, 
-                        mk_compose(m, 
-                                   mk_compose(m, mk_string(m, lp), mk_string(m, header)),
-                                   mk_group(m, mk_indent(m, static_cast<unsigned>(strlen(header) + strlen(lp) + 1),
-                                                         mk_compose(m, mk_string(m, " "), first, 
-                                                                    mk_seq(m, it, end1, proc)))),
-                                   mk_indent(m, indent, mk_seq(m, end1, end, proc)),
-                                   mk_string(m, rp)));
+        format_ref heading(mk_compose(m, open, name), fm(m));
+        format_ref space(mk_string(m, " "), fm(m));
+        format_ref first_line(mk_seq(m, it, end1, proc), fm(m));
+        format_ref group(mk_group(m, mk_indent(m, static_cast<unsigned>(strlen(header) + strlen(lp) + 1),
+                                               mk_compose(m, space, first, first_line))),
+                         fm(m));
+        format_ref rest(mk_indent(m, indent, mk_seq(m, end1, end, proc)), fm(m));
+        format_ref close(mk_string(m, rp), fm(m));
+        return mk_group(m, mk_compose(m, heading, group, rest, close));
     }
 
     /**
@@ -173,17 +181,20 @@ namespace format_ns {
     template<typename It, typename ToDoc>
     format * mk_seq4(ast_manager & m, It const & begin, It const & end, ToDoc proc, unsigned indent = FORMAT_DEFAULT_INDENT, 
                      char const * lp = "(", char const * rp = ")") {
-        if (begin == end)
-            return mk_compose(m, mk_string(m, lp), mk_string(m, rp));
+        format_ref open(mk_string(m, lp), fm(m));
+        if (begin == end) {
+            format_ref close(mk_string(m, rp), fm(m));
+            return mk_compose(m, open, close);
+        }
         unsigned indent1 = static_cast<unsigned>(strlen(lp));
         It it = begin;
-        format * first = proc(*it);
+        format_ref first(proc(*it), fm(m));
         ++it;
-        return mk_group(m, mk_compose(m,
-                                      mk_indent(m, indent1, mk_compose(m, mk_string(m, lp), first)),
-                                      mk_indent(m, indent, mk_compose(m, 
-                                                                      mk_seq(m, it, end, proc), 
-                                                                      mk_string(m, rp)))));
+        format_ref heading(mk_indent(m, indent1, mk_compose(m, open, first)), fm(m));
+        format_ref rest(mk_seq(m, it, end, proc), fm(m));
+        format_ref close(mk_string(m, rp), fm(m));
+        format_ref body(mk_indent(m, indent, mk_compose(m, rest, close)), fm(m));
+        return mk_group(m, mk_compose(m, heading, body));
     }
 
     /**

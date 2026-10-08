@@ -383,7 +383,8 @@ namespace smt {
         ctx.mark_as_relevant(sel1_eq_sel2);
         if (m.has_trace_stream()) {
             app_ref body(m);
-            body = m.mk_implies(m.mk_not(ctx.bool_var2expr(n1_eq_n2.var())), m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var())));
+            expr_ref antecedent(m.mk_not(ctx.bool_var2expr(n1_eq_n2.var())), m);
+            body = m.mk_implies(antecedent, m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var())));
             log_axiom_instantiation(body);
         }
         assert_axiom(n1_eq_n2, ~sel1_eq_sel2);

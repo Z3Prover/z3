@@ -1898,9 +1898,9 @@ namespace smt {
 
     bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
         unsigned max_generation,
-                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
+                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes, bool mbqi_instance) {
         return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
-            max_generation, min_top_generation, max_top_generation, used_enodes);
+            max_generation, min_top_generation, max_top_generation, used_enodes, mbqi_instance);
     }
 
     void context::rescale_bool_var_activity() {
@@ -3813,9 +3813,11 @@ namespace smt {
     }
 
     void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
-        for (theory* th : m_theory_set) {
+        unsigned sz = theory_assumptions.size();
+        for (theory* th : m_theory_set) {            
             th->add_theory_assumptions(theory_assumptions);
         }
+        m_has_research_theories |= sz < theory_assumptions.size();
     }
 
     lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
@@ -3829,8 +3831,25 @@ namespace smt {
             return p(asms);
         }
         lbool r = l_undef;
+        // Quantifier instances derived during a search are asserted at the search level and
+        // are lost when a theory asks to research (e.g. theory_recfun after raising its
+        // unfolding depth). They are consequences of the asserted quantifiers, so they can be
+        // re-asserted at base level for the next search; otherwise model-based quantifier
+        // instantiation starts from scratch and may never converge.
+        vector<std::pair<expr_ref, app_ref>> saved_instances;
+        bool research = false;
         do {
             pop_to_base_lvl();
+            if (!saved_instances.empty()) {
+                IF_VERBOSE(10, verbose_stream() << "(smt.research :re-asserting-instances " << saved_instances.size() << ")\n";);
+                for (auto const& [lemma, pr] : saved_instances) {
+                    if (pr)
+                        m_asserted_formulas.assert_expr(lemma, pr.get());
+                    else
+                        m_asserted_formulas.assert_expr(lemma);
+                }
+                saved_instances.reset();
+            }
             expr_ref_vector asms(m, num_assumptions, assumptions);
             try {
                 internalize_assertions();
@@ -3843,8 +3862,11 @@ namespace smt {
             TRACE(before_search, display(tout););
             r = search();
             r = mk_unsat_core(r);        
+            research = should_research(r);
+            if (research) 
+                m_qmanager->collect_instances(saved_instances);
         }
-        while (should_research(r));
+        while (research);
         r = check_finalize(r);
         return r;
     }

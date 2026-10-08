@@ -287,8 +287,11 @@ namespace mbp {
             };
 
             // `first` is a value, different from 0
-            res = m.mk_and(m.mk_eq(second, a.mk_idiv(lhs, first)),
-                           m.mk_eq(a.mk_int(0), a.mk_mod(lhs, first)));
+            expr_ref quotient_eq(m.mk_eq(second, a.mk_idiv(lhs, first)), m);
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref remainder(a.mk_mod(lhs, first), m);
+            expr_ref remainder_eq(m.mk_eq(zero, remainder), m);
+            res = m.mk_and(quotient_eq, remainder_eq);
 
             return true;
         }

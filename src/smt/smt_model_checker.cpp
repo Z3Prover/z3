@@ -620,7 +620,7 @@ namespace smt {
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
                           );
-                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy);
+                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy, true /* model-based */);
                 TRACE(model_checker_bug_detail, tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }

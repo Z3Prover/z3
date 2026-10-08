@@ -328,12 +328,14 @@ void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term,
         minus_one = m_arith.mk_numeral(rational(-1), is_int);
 
         // term+1 -> var+1  if term is a number
+        expr_ref plus_one(m_arith.mk_numeral(val + 1, is_int), m);
         sub.insert(
-            m_arith.mk_numeral(val + 1, is_int),
+            plus_one,
             m_arith.mk_add(var, m_arith.mk_numeral(rational(1), is_int)));
         // -term-1 -> -1*var + -1  if term is a number
+        expr_ref neg_plus_one(m_arith.mk_numeral(-1*val + -1, is_int), m);
         sub.insert(
-            m_arith.mk_numeral(-1*val + -1, is_int),
+            neg_plus_one,
             m_arith.mk_add (m_arith.mk_mul (minus_one, var), minus_one));
     }
 
@@ -549,10 +551,9 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         TRACE(spacer_qgen,
               tout << "mod=" << mod << " init=" << init << " stride=" << stride << "\n";
               tout.flush(););
-        abs_cube.push_back
-            (m.mk_eq(m_arith.mk_mod(var,
-                                    m_arith.mk_numeral(rational(stride), true)),
-                     m_arith.mk_numeral(rational(mod), true)));}
+        expr_ref remainder(m_arith.mk_mod(var, m_arith.mk_numeral(rational(stride), true)), m);
+        abs_cube.push_back(m.mk_eq(remainder, m_arith.mk_numeral(rational(mod), true)));
+    }
 
     // skolemize
     expr_ref gnd(m);

@@ -584,7 +584,8 @@ namespace smtfd {
                 if (e1 != e2) m_args.push_back(m.mk_eq(e1, e2));
             }            
             TRACE(smtfd_verbose, tout << "diff: " << mk_bounded_pp(f1.m_t, m, 2) << " " << mk_bounded_pp(f2.m_t, m, 2) << "\n";);
-            m_context.add(m.mk_implies(mk_and(m_args), m.mk_eq(f1.m_t, f2.m_t)), __FUNCTION__);
+            expr_ref premise = mk_and(m_args);
+            m_context.add(m.mk_implies(premise, m.mk_eq(f1.m_t, f2.m_t)), __FUNCTION__);
         }
 
         std::ostream& display(std::ostream& out) {
@@ -1008,14 +1009,22 @@ namespace smtfd {
             expr_ref val1 = eval_abs(t);
             expr_ref val2 = eval_abs(val);
             if (val1 != val2 && !m.is_false(eqV)) {
-                m_context.add(m.mk_implies(mk_and(eqs), m.mk_eq(t, val)), __FUNCTION__);
+                {
+                    auto lhs = mk_and(eqs);
+                    expr_ref rhs(m.mk_eq(t, val), m);
+                    m_context.add(m.mk_implies(lhs, rhs), __FUNCTION__);
+                }
             }
             
             app_ref sel(m_autil.mk_select(m_args), m);
             val2 = eval_abs(sel);
             if (val1 != val2 && !m.is_true(eqV)) {
-                TRACE(smtfd, tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);                
-                m_context.add(m.mk_or(m.mk_eq(sel, t), mk_and(eqs)), __FUNCTION__);
+                TRACE(smtfd, tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);
+                {
+                    expr_ref lhs(m.mk_eq(sel, t), m);
+                    auto rhs = mk_and(eqs);
+                    m_context.add(m.mk_or(lhs, rhs), __FUNCTION__);
+                }
                 m_pinned.push_back(sel);
                 insert_select(sel);
             }
@@ -1178,7 +1187,9 @@ namespace smtfd {
             expr_ref a1(m_autil.mk_select(args), m);
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
-            expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
+            expr_ref lhs(m.mk_eq(a1, b1), m);
+            expr_ref rhs(m.mk_eq(a, b), m);
+            expr_ref ext(m.mk_iff(lhs, rhs), m);
             // The arrays have different abstract values but identical observed reads.
             // Evaluating a newly abstracted equality here can hide the violation.
             TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);

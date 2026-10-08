@@ -881,10 +881,17 @@ struct aig_manager::imp {
             }
             expr * r;
             if (m.is_not_eq(t, e)) {
-                r = ast_mng.mk_iff(get_cached(c), get_cached(t));
+                {
+                    expr_ref lhs(get_cached(c), ast_mng);
+                    expr_ref rhs(get_cached(t), ast_mng);
+                    r = ast_mng.mk_iff(lhs, rhs);
+                }
             }
             else { 
-                r = ast_mng.mk_ite(get_cached(c), get_cached(t), get_cached(e));
+                expr_ref condition(get_cached(c), ast_mng);
+                expr_ref then_expr(get_cached(t), ast_mng);
+                expr_ref else_expr(get_cached(e), ast_mng);
+                r = ast_mng.mk_ite(condition, then_expr, else_expr);
             }
             cache_result(n, r);
             TRACE(aig2expr, tout << "caching ITE/IFF "; m.display_ref(tout, n); tout << "\n";);

@@ -67,7 +67,10 @@ namespace datalog {
         m_relation->add_fact(f);
         m_relation->to_formula(fml1);
         m_fml = m.mk_or(m_fml, mk_eq(f));        
-        check_equiv("add_fact", ground(m_fml), ground(fml1));
+        {
+            expr_ref lhs = ground(m_fml);
+            check_equiv("add_fact", lhs, ground(fml1));
+        }
         m_fml = fml1;
     }
     void check_relation::add_new_fact(const relation_fact & f) {
@@ -75,7 +78,10 @@ namespace datalog {
         m_relation->add_new_fact(f);
         m_relation->to_formula(fml1);
         m_fml = m.mk_or(m_fml, mk_eq(f));
-        check_equiv("add_fact", ground(m_fml), ground(fml1));
+        {
+            expr_ref lhs = ground(m_fml);
+            check_equiv("add_fact", lhs, ground(fml1));
+        }
         m_fml = fml1;
     }
     bool check_relation::empty() const {
@@ -103,7 +109,8 @@ namespace datalog {
         fml1 = mk_eq(f);
         fml2 = m.mk_and(m_fml, fml1);
         if (result) {
-            check_equiv("contains fact", ground(fml1), ground(fml2));            
+            expr_ref lhs = ground(fml1);
+            check_equiv("contains fact", lhs, ground(fml2));
         }
         else if (!m.is_false(m_fml)) {
             check_equiv("contains fact", ground(fml2), m.mk_false());            
@@ -116,7 +123,8 @@ namespace datalog {
         result->m_relation = m_relation->clone();
         result->m_relation->to_formula(result->m_fml);
         if (m_fml != result->m_fml) {
-            check_equiv("clone", ground(m_fml), ground(result->m_fml));
+            expr_ref lhs = ground(m_fml);
+            check_equiv("clone", lhs, ground(result->m_fml));
         }
         return result;
     }
@@ -127,7 +135,8 @@ namespace datalog {
         result->m_relation->to_formula(result->m_fml);
         expr_ref fml(m);
         fml = m.mk_not(m_fml);
-        check_equiv("complement", ground(fml), ground(result->m_fml));
+        expr_ref lhs = ground(fml);
+        check_equiv("complement", lhs, ground(result->m_fml));
         return result;
     }
     void check_relation::to_formula(expr_ref& fml) const {
@@ -533,7 +542,8 @@ namespace datalog {
             unsigned c1 = m_cols[0];
             for (unsigned i = 1; i < m_cols.size(); ++i) {
                 unsigned c2 = m_cols[i];
-                conds.push_back(m.mk_eq(m.mk_var(c1, sig[c1]), m.mk_var(c2, sig[c2])));
+                var_ref lhs(m.mk_var(c1, sig[c1]), m);
+                conds.push_back(m.mk_eq(lhs, m.mk_var(c2, sig[c2])));
             }
             cond = mk_and(conds);
             r.consistent_formula();
@@ -642,7 +652,8 @@ namespace datalog {
             expr_ref fml = t.m_fml;
             t.rb().to_formula(t.m_fml);
             fml = p.m.mk_and(fml, p.m.mk_eq(p.m.mk_var(m_col, t.get_signature()[m_col]), m_val));
-            p.check_equiv("filter_equal", t.ground(fml), t.ground(t.m_fml));
+            expr_ref lhs = t.ground(fml);
+            p.check_equiv("filter_equal", lhs, t.ground(t.m_fml));
         }
     };
     relation_mutator_fn * check_relation_plugin::mk_filter_equal_fn(

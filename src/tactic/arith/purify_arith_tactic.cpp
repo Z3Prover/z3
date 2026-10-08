@@ -331,13 +331,15 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * y = args[1];
             // y = 0 \/ y*k = x
-            push_cnstr(OR(EQ(y, mk_real_zero()),
+            expr_ref y_is_zero(EQ(y, mk_real_zero()), m());
+            push_cnstr(OR(y_is_zero,
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
             rational r;
             if (complete()) {
                 // y != 0 \/ k = div-0(x)
-                push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
+                expr_ref y_is_nonzero(NOT(y_is_zero), m());
+                push_cnstr(OR(y_is_nonzero,
                               EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
@@ -375,24 +377,28 @@ struct purify_arith_proc {
             //       y < 0 implies k2 < -y  --->  y >= 0 \/ k2 < -y
             //     
             expr * zero = mk_int_zero();
-            push_cnstr(OR(EQ(y, zero), EQ(x, u().mk_add(u().mk_mul(k1, y), k2))));
+            expr_ref y_is_zero(EQ(y, zero), m());
+            push_cnstr(OR(y_is_zero, EQ(x, u().mk_add(u().mk_mul(k1, y), k2))));
             push_cnstr_pr(result_pr, mod_pr);
 
-            push_cnstr(OR(EQ(y, zero), u().mk_le(zero, k2)));
+            push_cnstr(OR(y_is_zero, u().mk_le(zero, k2)));
             push_cnstr_pr(mod_pr);
 
-            push_cnstr(OR(u().mk_le(y, zero), u().mk_lt(k2, y)));
+            expr_ref y_le_zero(u().mk_le(y, zero), m());
+            push_cnstr(OR(y_le_zero, u().mk_lt(k2, y)));
             push_cnstr_pr(mod_pr);
 
-            push_cnstr(OR(u().mk_ge(y, zero), u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
+            expr_ref y_ge_zero(u().mk_ge(y, zero), m());
+            push_cnstr(OR(y_ge_zero, u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
             push_cnstr_pr(mod_pr);
 
             rational r;
             if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
+                expr_ref y_is_nonzero(NOT(y_is_zero), m());
+                push_cnstr(OR(y_is_nonzero, EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
+                push_cnstr(OR(y_is_nonzero, EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
             m_idivs.push_back(bin_def(x, y, k1));
@@ -421,7 +427,9 @@ struct purify_arith_proc {
             expr * x = args[0];
             // x - to-real(k) >= 0
             
-            expr * diff = u().mk_add(x, u().mk_mul(u().mk_numeral(rational(-1), false), u().mk_to_real(k)));
+            expr_ref minus_one(u().mk_numeral(rational(-1), false), m());
+            expr_ref real_k(u().mk_to_real(k), m());
+            expr * diff = u().mk_add(x, u().mk_mul(minus_one, real_k));
             push_cnstr(u().mk_ge(diff, mk_real_zero()));
             push_cnstr_pr(result_pr);
             
@@ -463,9 +471,11 @@ struct purify_arith_proc {
                 }
 
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
-                push_cnstr(OR(EQ(x, zero), EQ(k, one)));
+                expr_ref x_is_zero(EQ(x, zero), m());
+                push_cnstr(OR(x_is_zero, EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, p0)));
+                expr_ref x_is_nonzero(NOT(x_is_zero), m());
+                push_cnstr(OR(x_is_nonzero, EQ(k, p0)));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
@@ -482,12 +492,13 @@ struct purify_arith_proc {
                     SASSERT(n.is_even());
                     // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
                     // when n is even
-                    push_cnstr(OR(NOT(u().mk_ge(x, zero)),
-                                  AND(EQ(x, u().mk_power(k, u().mk_numeral(n, false))),
-                                      u().mk_ge(k, zero))));
+                    expr_ref x_ge_zero(u().mk_ge(x, zero), m());
+                    expr_ref x_lt_zero(NOT(x_ge_zero), m());
+                    expr_ref root_eq(EQ(x, u().mk_power(k, u().mk_numeral(n, false))), m());
+                    push_cnstr(OR(x_lt_zero, AND(root_eq, u().mk_ge(k, zero))));
                     push_cnstr_pr(result_pr);
 
-                    push_cnstr(OR(u().mk_ge(x, zero),
+                    push_cnstr(OR(x_ge_zero,
                                   EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
                     push_cnstr_pr(result_pr);
                 }
@@ -540,7 +551,9 @@ struct purify_arith_proc {
                 }
             }
             SASSERT(args.size() >= 2);
-            push_cnstr(EQ(u().mk_add(args.size(), args.data()), mk_real_zero()));
+            expr_ref sum(u().mk_add(args.size(), args.data()), m());
+            expr_ref zero(mk_real_zero(), m());
+            push_cnstr(EQ(sum, zero));
             push_cnstr_pr(result_pr);
             push_cnstr(u().mk_lt(u().mk_numeral(lower, false), k));
             push_cnstr_pr(result_pr);
@@ -555,14 +568,20 @@ struct purify_arith_proc {
                 app_ref t(m().mk_app(f, theta), m());
                 mk_def_proof(result, t, result_pr);
                 cache_result(t, result, result_pr);
-                push_cnstr(EQ(mk_real_one(), u().mk_add(u().mk_mul(x, x), u().mk_mul(y, y))));
+                expr_ref one(mk_real_one(), m());
+                expr_ref x_squared(u().mk_mul(x, x), m());
+                expr_ref y_squared(u().mk_mul(y, y), m());
+                push_cnstr(EQ(one, u().mk_add(x_squared, y_squared)));
                 push_cnstr_pr(result_pr);
                 return BR_DONE;
             }
             else {
                 expr_ref s(u().mk_sin(theta), m());
                 expr_ref c(u().mk_cos(theta), m());
-                expr_ref axm(EQ(mk_real_one(), u().mk_add(u().mk_mul(s, s), u().mk_mul(c, c))), m());
+                expr_ref one(mk_real_one(), m());
+                expr_ref s_squared(u().mk_mul(s, s), m());
+                expr_ref c_squared(u().mk_mul(c, c), m());
+                expr_ref axm(EQ(one, u().mk_add(s_squared, c_squared)), m());
                 push_cnstr(axm);
                 push_cnstr_pr(m().mk_asserted(axm));
                 return BR_FAILED;
@@ -600,19 +619,22 @@ struct purify_arith_proc {
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
             // -1 <= x <= 1 implies sin(k) = x, -pi/2 <= k <= pi/2
-            push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
-                             NOT(u().mk_le(x, one))),
-                          AND(EQ(x, u().mk_sin(k)),
-                              AND(u().mk_ge(k, mpi2),
-                                  u().mk_le(k, pi2)))));
+            expr_ref x_ge_mone(u().mk_ge(x, mone), m());
+            expr_ref x_lt_mone(NOT(x_ge_mone), m());
+            expr_ref x_le_one(u().mk_le(x, one), m());
+            expr_ref outside_domain(OR(x_lt_mone, NOT(x_le_one)), m());
+            expr_ref sin_eq(EQ(x, u().mk_sin(k)), m());
+            expr_ref k_ge_mpi2(u().mk_ge(k, mpi2), m());
+            push_cnstr(OR(outside_domain,
+                          AND(sin_eq, AND(k_ge_mpi2, u().mk_le(k, pi2)))));
             push_cnstr_pr(result_pr);
             if (complete()) {
                 // x < -1       implies k = asin_u(x) 
                 // x >  1       implies k = asin_u(x) 
-                push_cnstr(OR(u().mk_ge(x, mone),
+                push_cnstr(OR(x_ge_mone,
                               EQ(k, u().mk_u_asin(x))));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(u().mk_le(x, one),
+                push_cnstr(OR(x_le_one,
                               EQ(k, u().mk_u_asin(x))));
                 push_cnstr_pr(result_pr);
             }
@@ -642,19 +664,22 @@ struct purify_arith_proc {
             expr * pi    = u().mk_pi();
             expr * zero  = u().mk_numeral(rational(0), false);
             // -1 <= x <= 1 implies cos(k) = x, 0 <= k <= pi
-            push_cnstr(OR(OR(NOT(u().mk_ge(x, mone)),
-                             NOT(u().mk_le(x, one))),
-                          AND(EQ(x, u().mk_cos(k)),
-                              AND(u().mk_ge(k, zero),
-                                  u().mk_le(k, pi)))));
+            expr_ref x_ge_mone(u().mk_ge(x, mone), m());
+            expr_ref x_lt_mone(NOT(x_ge_mone), m());
+            expr_ref x_le_one(u().mk_le(x, one), m());
+            expr_ref outside_domain(OR(x_lt_mone, NOT(x_le_one)), m());
+            expr_ref cos_eq(EQ(x, u().mk_cos(k)), m());
+            expr_ref k_ge_zero(u().mk_ge(k, zero), m());
+            push_cnstr(OR(outside_domain,
+                          AND(cos_eq, AND(k_ge_zero, u().mk_le(k, pi)))));
             push_cnstr_pr(result_pr);
             if (complete()) {
                 // x < -1       implies k = acos_u(x) 
                 // x >  1       implies k = acos_u(x) 
-                push_cnstr(OR(u().mk_ge(x, mone),
+                push_cnstr(OR(x_ge_mone,
                               EQ(k, u().mk_u_acos(x))));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(u().mk_le(x, one),
+                push_cnstr(OR(x_le_one,
                               EQ(k, u().mk_u_acos(x))));
                 push_cnstr_pr(result_pr);
             }
@@ -678,9 +703,9 @@ struct purify_arith_proc {
             // tan(k) = x, -pi/2 < k < pi/2
             expr * pi2   = u().mk_mul(u().mk_numeral(rational(1,2), false), u().mk_pi());
             expr * mpi2  = u().mk_mul(u().mk_numeral(rational(-1,2), false), u().mk_pi());
-            push_cnstr(AND(EQ(x, u().mk_tan(k)),
-                           AND(u().mk_gt(k, mpi2),
-                               u().mk_lt(k, pi2))));
+            expr_ref tan_eq(EQ(x, u().mk_tan(k)), m());
+            expr_ref k_gt_mpi2(u().mk_gt(k, mpi2), m());
+            push_cnstr(AND(tan_eq, AND(k_gt_mpi2, u().mk_lt(k, pi2))));
             push_cnstr_pr(result_pr);
             return BR_DONE;
         }
@@ -804,27 +829,27 @@ struct purify_arith_proc {
             auto const& p1 = divs[i];
             for (unsigned j = i + 1; j < divs.size(); ++j) {
                 auto const& p2 = divs[j];
-                m_goal.assert_expr(m().mk_implies(
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref same_x(m().mk_eq(p1.x, p2.x), m());
+                expr_ref same_args(m().mk_and(same_x, m().mk_eq(p1.y, p2.y)), m());
+                m_goal.assert_expr(m().mk_implies(same_args, m().mk_eq(p1.d, p2.d)));
             }
         }
         for (unsigned i = 0; i < mods.size(); ++i) {
             auto const& p1 = mods[i];
             for (unsigned j = i + 1; j < mods.size(); ++j) {
                 auto const& p2 = mods[j];
-                m_goal.assert_expr(m().mk_implies(
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref same_x(m().mk_eq(p1.x, p2.x), m());
+                expr_ref same_args(m().mk_and(same_x, m().mk_eq(p1.y, p2.y)), m());
+                m_goal.assert_expr(m().mk_implies(same_args, m().mk_eq(p1.d, p2.d)));
             }
         }
         for (unsigned i = 0; i < idivs.size(); ++i) {
             auto const& p1 = idivs[i];
             for (unsigned j = i + 1; j < idivs.size(); ++j) {
                 auto const& p2 = idivs[j];
-                m_goal.assert_expr(m().mk_implies(
-                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
-                                       m().mk_eq(p1.d, p2.d)));
+                expr_ref same_x(m().mk_eq(p1.x, p2.x), m());
+                expr_ref same_args(m().mk_and(same_x, m().mk_eq(p1.y, p2.y)), m());
+                m_goal.assert_expr(m().mk_implies(same_args, m().mk_eq(p1.d, p2.d)));
             }
         }
         
@@ -843,7 +868,8 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_real()), m());
                 expr_ref v1(m().mk_var(1, u().mk_real()), m());
                 for (auto const& p : divs) {
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref same_x(m().mk_eq(v0, p.x), m());
+                    body = m().mk_ite(m().mk_and(same_x, m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_div0(), body);
             }
@@ -852,11 +878,13 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : mods) {
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref same_x(m().mk_eq(v0, p.x), m());
+                    body = m().mk_ite(m().mk_and(same_x, m().mk_eq(v1, p.y)), p.d, body);
                 }
                 
                 fmc->add(u().mk_mod0(), body);
-                body = m().mk_ite(u().mk_ge(v1, u().mk_int(0)), body, u().mk_uminus(body));
+                expr_ref nonneg(u().mk_ge(v1, u().mk_int(0)), m());
+                body = m().mk_ite(nonneg, body, u().mk_uminus(body));
                 fmc->add(u().mk_rem0(), body);
             }
             if (!idivs.empty()) {
@@ -864,7 +892,8 @@ struct purify_arith_proc {
                 expr_ref v0(m().mk_var(0, u().mk_int()), m());
                 expr_ref v1(m().mk_var(1, u().mk_int()), m());
                 for (auto const& p : idivs) {
-                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                    expr_ref same_x(m().mk_eq(v0, p.x), m());
+                    body = m().mk_ite(m().mk_and(same_x, m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_idiv0(), body);
             }
@@ -879,8 +908,10 @@ struct purify_arith_proc {
             generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");
             mc = concat(mc.get(), emc);
             for (auto const& kv : m_sin_cos) {
+                expr_ref nonneg(u().mk_ge(kv.m_value.first, mk_real_zero()), m());
+                expr_ref acos(u().mk_acos(kv.m_value.second), m());
                 emc->add(kv.m_key->get_decl(), 
-                            m().mk_ite(u().mk_ge(kv.m_value.first, mk_real_zero()), u().mk_acos(kv.m_value.second), 
+                            m().mk_ite(nonneg, acos,
                                        u().mk_add(u().mk_acos(u().mk_uminus(kv.m_value.second)), u().mk_pi())));
             }
 

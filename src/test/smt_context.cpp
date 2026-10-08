@@ -384,7 +384,9 @@ void tst_smt_context()
         expr_ref x(m.mk_var(0, s), m);
         expr_ref first(m.mk_eq(x, a.mk_int(0)), m);
         expr_ref second(m.mk_eq(x, a.mk_int(1)), m);
-        expr_ref body(m.mk_not(m.mk_or(m.mk_not(first), m.mk_not(second))), m);
+        expr_ref lhs(m.mk_not(first), m);
+        expr_ref rhs1(m.mk_not(second), m);
+        expr_ref body(m.mk_not(m.mk_or(lhs, rhs1)), m);
         quantifier_ref q(m.mk_forall(1, &s, &name, body), m);
         distribute_forall distribute(m);
         expr_ref result(m);

@@ -29,6 +29,10 @@
      is_suffix ~  (seq.suffixof p s) / (str.suffixof p s)
      contains  ~  (seq.contains s t) / (str.contains s t)
      replace   ~  (seq.replace s pat rep) / (str.replace s pat rep)
+     map       ~  (seq.map f s)
+     mapi      ~  (seq.mapi f i s)
+     fold_left ~  (seq.foldl f b s)
+     fold_lefti ~ (seq.foldli f i b s)
 *)
 module Z3SeqTheory
 
@@ -157,3 +161,45 @@ let rec replace (#a:eqtype) (s pat rep:seq a) : seq a =
     match s with
     | [] -> []
     | x :: s' -> x :: replace s' pat rep
+
+(* ----------------------------------------------------------------- *)
+(* map / mapi / fold_left / fold_lefti                                 *)
+(*                                                                      *)
+(* These model (seq.map f s), (seq.mapi f i s), (seq.foldl f b s),      *)
+(* (seq.foldli f i b s) (OP_SEQ_MAP/MAPI/FOLDL/FOLDLI,                  *)
+(* seq_decl_plugin.h:60-63). In Z3 `f` (and `f` applied to a running    *)
+(* index, for the `i`-suffixed variants) is an uninterpreted Z3 Array   *)
+(* sort value selected via `array.mk_select`; here it is simply an      *)
+(* arbitrary F* function, which is a sound abstraction of "any          *)
+(* function value" since the rewrite rules below never inspect `f`'s   *)
+(* internals -- they only ever apply it (via `select`) to concrete      *)
+(* element/index arguments, exactly as modeled by ordinary function     *)
+(* application below.                                                   *)
+(* ----------------------------------------------------------------- *)
+
+(* map f s : apply f to every element of s, left to right. *)
+let rec map (#a #b:eqtype) (f:a -> b) (s:seq a) : seq b =
+  match s with
+  | [] -> []
+  | x :: s' -> f x :: map f s'
+
+(* mapi f i s : apply f to every element of s together with its        *)
+(* position, counting up from the starting index i. *)
+let rec mapi (#a #b:eqtype) (f:int -> a -> b) (i:int) (s:seq a) : Tot (seq b) (decreases s) =
+  match s with
+  | [] -> []
+  | x :: s' -> f i x :: mapi f (i + 1) s'
+
+(* fold_left f b0 s : left fold of f over s starting from accumulator  *)
+(* b0, i.e. f(...f(f(b0,s_0),s_1)...,s_{n-1}). *)
+let rec fold_left (#a #b:eqtype) (f:b -> a -> b) (b0:b) (s:seq a) : Tot b (decreases s) =
+  match s with
+  | [] -> b0
+  | x :: s' -> fold_left f (f b0 x) s'
+
+(* fold_lefti f i b0 s : indexed left fold, counting the running index *)
+(* up from i as fold_left does with the accumulator. *)
+let rec fold_lefti (#a #b:eqtype) (f:int -> b -> a -> b) (i:int) (b0:b) (s:seq a) : Tot b (decreases s) =
+  match s with
+  | [] -> b0
+  | x :: s' -> fold_lefti f (i + 1) (f i b0 x) s'

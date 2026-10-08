@@ -106,21 +106,47 @@ public:
         check_witness("a.a.b*", cat(a, cat(a, star(b))), 2);
         check_witness("(ab)*|b", alt(star(ab), b), 0);
         check_witness("~(a*)", comp(star(a)), 1);            // any single non-a character
-        check_witness("(aa)* & a*", inter(star(cat(a, a)), star(a)), 0);
+        {
+            auto lhs = star(cat(a, a));
+            auto rhs = star(a);
+            check_witness("(aa)* & a*", inter(lhs, rhs), 0);
+        }
 
         std::cout << "=== regex_witness: empty languages ===\n";
         check_empty("re.none", none());
-        check_empty("a* & ~(a*)", inter(star(a), comp(star(a))));
-        check_empty("(aa)* & a(aa)*", inter(star(cat(a, a)), cat(a, star(cat(a, a)))));
+        {
+            auto lhs = star(a);
+            auto rhs = comp(star(a));
+            check_empty("a* & ~(a*)", inter(lhs, rhs));
+        }
+        {
+            auto lhs = star(cat(a, a));
+            auto rhs = cat(a, star(cat(a, a)));
+            check_empty("(aa)* & a(aa)*", inter(lhs, rhs));
+        }
         check_empty("~(Sigma*)", comp(dotstar()));
 
         std::cout << "=== regex_witness: intersections ===\n";
-        report("a* & ~(a*)", m_wit.intersect_nonempty(star(a), comp(star(a))), l_false);
-        report("(a|b)* & ~(a*)", m_wit.intersect_nonempty(star(alt(a, b)), comp(star(a))), l_true);
-        report("Sigma*.ab & ab.Sigma*",
-               m_wit.intersect_nonempty(cat(dotstar(), ab), cat(ab, dotstar())), l_true);
-        report("a.Sigma* & Sigma*.b & b.Sigma*",
-               m_wit.intersect_nonempty(cat(a, dotstar()), cat(b, dotstar())), l_false);
+        {
+            auto lhs = star(a);
+            auto rhs = comp(star(a));
+            report("a* & ~(a*)", m_wit.intersect_nonempty(lhs, rhs), l_false);
+        }
+        {
+            auto lhs = star(alt(a, b));
+            auto rhs = comp(star(a));
+            report("(a|b)* & ~(a*)", m_wit.intersect_nonempty(lhs, rhs), l_true);
+        }
+        {
+            auto lhs = cat(dotstar(), ab);
+            auto rhs = cat(ab, dotstar());
+            report("Sigma*.ab & ab.Sigma*", m_wit.intersect_nonempty(lhs, rhs), l_true);
+        }
+        {
+            auto lhs = cat(a, dotstar());
+            auto rhs = cat(b, dotstar());
+            report("a.Sigma* & Sigma*.b & b.Sigma*", m_wit.intersect_nonempty(lhs, rhs), l_false);
+        }
         std::cout << "=== regex_witness: state bound ===\n";
         {
             unsigned const saved = m_wit.max_states();
