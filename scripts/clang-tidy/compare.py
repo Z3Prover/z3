@@ -8,14 +8,14 @@ from difflib import SequenceMatcher
 import json
 import pathlib
 import re
-
-CHECK = "z3-ast-argument-order"
+from checks import CHECKS
 
 
 def read_summary(path):
     summary = json.loads(path.read_text())
-    if summary["check"] != CHECK:
-        raise ValueError("unexpected clang-tidy check")
+    checks = summary["checks"]
+    if not checks or len(checks) != len(set(checks)) or not set(checks) <= set(CHECKS):
+        raise ValueError("unexpected clang-tidy checks")
     units = summary["translation_units"]
     scope = summary.get("scope")
     if scope is not None:
@@ -31,13 +31,15 @@ def read_summary(path):
             any(unit["returncode"] != 0 for unit in units)):
         raise ValueError(f"{path}: scan is incomplete; refusing to compare warning counts")
     # Deduplicate header diagnostics shared by several translation units.
-    warnings = {(w["file"], w["line"], w["column"], w["message"])
+    warnings = {(w["file"], w["line"], w["column"], w["message"], w["check"])
                 for w in summary["warnings"]}
+    if any(w[4] not in checks for w in warnings):
+        raise ValueError("diagnostic from an unselected check")
     for file, *_ in warnings:
         p = pathlib.PurePosixPath(file)
         if p.is_absolute() or ".." in p.parts or any(ord(c) < 32 for c in file):
             raise ValueError("expected checkout-relative diagnostic paths; use --source-root")
-    return summary["clang_tidy_version"], warnings, scope
+    return summary["clang_tidy_version"], warnings, scope, sorted(checks)
 
 
 def warning_diff(base, head, base_source=None, head_source=None):
@@ -55,31 +57,38 @@ def warning_diff(base, head, base_source=None, head_source=None):
                               for a, b, size in SequenceMatcher(None, old, new, autojunk=False).get_matching_blocks()
                               for i in range(size)}
     added, removed = set(head), []
-    for file, line, column, message in sorted(base):
+    for file, line, column, message, check in sorted(base):
         new_line = line_maps[file].get(line) if file in line_maps else line
-        match = (file, new_line, column, message)
+        match = (file, new_line, column, message, check)
         if match in added:
             added.remove(match)
         else:
-            removed.append((file, line, column, message))
+            removed.append((file, line, column, message, check))
     def diagnostic(w):
-        return dict(zip(("file", "line", "column", "message"), w))
+        return dict(zip(("file", "line", "column", "message", "check"), w))
     return {"removed": [diagnostic(w) for w in removed],
             "added": [diagnostic(w) for w in sorted(added)]}
 
 
 def compare(base_path, head_path, base_sha, head_sha, tested_sha=None, base_source=None, head_source=None):
     tested_sha = tested_sha or head_sha
-    head_version, head_warnings, head_scope = read_summary(head_path)
+    head_version, head_warnings, head_scope, head_checks = read_summary(head_path)
     head = Counter(w[0] for w in head_warnings)
+    head_by_check = Counter(w[4] for w in head_warnings)
+    checks = [{"name": check, "base": None, "head": head_by_check[check]} for check in head_checks]
     scope = {} if head_scope is None else {"scope": {"mode": head_scope["mode"],
         "base_units": None, "base_total": None,
         "head_units": head_scope["selected"], "head_total": head_scope["total"]}}
     if not base_path:
-        return {"schema_version": 1, "head_sha": head_sha, "tested_sha": tested_sha, "base_sha": None,
-                "head_count": sum(head.values()), "base_count": None, "files": [], **scope}
-    base_version, base_warnings, base_scope = read_summary(base_path)
+        return {"schema_version": 2, "head_sha": head_sha, "tested_sha": tested_sha, "base_sha": None,
+                "head_count": sum(head.values()), "base_count": None, "files": [], "checks": checks, **scope}
+    base_version, base_warnings, base_scope, base_checks = read_summary(base_path)
     base = Counter(w[0] for w in base_warnings)
+    if base_checks != head_checks:
+        raise ValueError("base and head scans used different checks")
+    base_by_check = Counter(w[4] for w in base_warnings)
+    for check in checks:
+        check["base"] = base_by_check[check["name"]]
     if base_version != head_version:
         raise ValueError("base and head scans used different clang-tidy versions")
     if bool(base_scope) != bool(head_scope) or base_scope and (
@@ -91,9 +100,9 @@ def compare(base_path, head_path, base_sha, head_sha, tested_sha=None, base_sour
         scope["scope"].update(base_units=base_scope["selected"], base_total=base_scope["total"])
     files = [{"path": path, "base": base[path], "head": head[path]}
              for path in sorted(base.keys() | head.keys()) if base[path] != head[path]]
-    return {"schema_version": 1, "base_sha": base_sha, "head_sha": head_sha, "tested_sha": tested_sha,
+    return {"schema_version": 2, "base_sha": base_sha, "head_sha": head_sha, "tested_sha": tested_sha,
             "base_count": sum(base.values()), "head_count": sum(head.values()), "files": files,
-            "warning_diff": warning_diff(base_warnings, head_warnings, base_source, head_source), **scope}
+            "checks": checks, "warning_diff": warning_diff(base_warnings, head_warnings, base_source, head_source), **scope}
 
 
 def main():
@@ -121,7 +130,11 @@ def main():
     if "scope" in report:
         scope = report["scope"]
         print(f"Scan scope: {scope['mode']}; {scope['head_units']}/{scope['head_total']} head translation units")
-    print(f"AST argument-order warnings: {report['head_count']}")
+    for check in report["checks"]:
+        print(f"{check['name']} warnings: {check['head']}" +
+              (f" (base: {check['base']}; change: {check['head'] - check['base']:+d})"
+               if check["base"] is not None else ""))
+    print(f"Total warnings: {report['head_count']}")
     if report["base_count"] is not None:
         print(f"Base: {report['base_count']}; change: {report['head_count'] - report['base_count']:+d}")
 

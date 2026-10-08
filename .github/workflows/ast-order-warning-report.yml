@@ -1,4 +1,7 @@
-name: AST Order Warning Report
+name: Determinism Linter
+
+# All warning types share one clang-tidy invocation per translation unit.
+# See scripts/clang-tidy/README.md.
 
 on:
   pull_request:
@@ -17,7 +20,7 @@ concurrency:
 
 jobs:
   scan:
-    name: AST order (${{ matrix.revision }})
+    name: Determinism linter (${{ matrix.revision }})
     runs-on: ubuntu-24.04
     timeout-minutes: 160
     strategy:
@@ -75,7 +78,7 @@ jobs:
           # must not share a key with full reports or with another PR's scope.
           scope="full-$SCAN_SHA"
           if [[ -n "$PR_BASE_SHA" ]]; then scope="pr-$PR_BASE_SHA-$TESTED_SHA-$REVISION"; fi
-          echo "key=ast-order-v2-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:?}-llvm21.1.8-$CHECKER_HASH-$scope" >> "$GITHUB_OUTPUT"
+          echo "key=z3-lint-v3-$RUNNER_OS-$RUNNER_ARCH-${ImageVersion:?}-llvm21.1.8-$CHECKER_HASH-$scope" >> "$GITHUB_OUTPUT"
 
       # Only successful jobs save a cache; PR caches remain scoped to that PR.
       - name: Restore a completed scan
@@ -146,7 +149,7 @@ jobs:
             --head-source "$head_source" --head-build "$head_build" \
             --jobs "$(nproc)" --output ast-order-selection.json
 
-      - name: Report AST argument-order warnings
+      - name: Run the determinism linter
         if: steps.scan-cache.outputs.cache-hit != 'true'
         run: |
           rm -rf ast-order-report

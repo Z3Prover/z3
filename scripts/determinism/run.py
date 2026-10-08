@@ -24,7 +24,7 @@ if os.name != 'nt':
     import resource
 
 HERE = Path(__file__).resolve().parent
-LINUX_PROFILES = ('gcc', 'clang', 'libcxx', 'libcxx-random')
+LINUX_PROFILES = ('gcc', 'gcc-unsigned-char', 'clang', 'libcxx', 'libcxx-random')
 PROFILES = (*LINUX_PROFILES, 'apple-clang', 'msvc')
 CHANNELS = ('ast.trace', 'stdout', 'stderr')
 MAX_FILE_BYTES = 128 * 1024 * 1024
@@ -76,7 +76,8 @@ def build(args, profile, jobs):
     directory = args.work.resolve() / profile
     directory.mkdir(parents=True, exist_ok=True)
     source = args.source.resolve()
-    selected = args.msvc if profile == 'msvc' else args.gcc if profile == 'gcc' else args.clang
+    selected = (args.msvc if profile == 'msvc' else
+                args.gcc if profile in ('gcc', 'gcc-unsigned-char') else args.clang)
     compiler = shutil.which(selected)
     if not compiler:
         raise ValueError(f'compiler not found for {profile}')
@@ -85,6 +86,8 @@ def build(args, profile, jobs):
     flags, link_flags = [], []
     if profile == 'msvc':
         flags.append('/utf-8')
+    if profile == 'gcc-unsigned-char':
+        flags.append('-funsigned-char')
     if profile == 'clang':
         # Use the same libstdc++ headers as the selected GCC, even if a newer
         # GCC installation is also visible to Clang on this host.

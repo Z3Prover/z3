@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Loaded from the default branch by the privileged workflow, never from a PR.
 const fs = require('node:fs');
+// Keep the markers so the combined report updates existing PR comments.
 const MARKER = '<!-- z3-ast-argument-order -->';
 const RUN_MARKER = /<!-- z3-ast-order-run:(\d+):(\d+) -->/;
 const EDITED_MARKER = /^(<!-- z3-ast-argument-order -->\n)\*\*EDITED: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC\*\*\n\n/;
@@ -16,10 +17,29 @@ function readReport(file) {
     const stat = fs.lstatSync(file);
     if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('Invalid comparison artifact');
     const r = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (r.schema_version !== 1 || !SHA.test(r.head_sha) || !SHA.test(r.tested_sha) || !count(r.head_count) ||
+    if (![1, 2].includes(r.schema_version) || !SHA.test(r.head_sha) || !SHA.test(r.tested_sha) || !count(r.head_count) ||
         !Array.isArray(r.files) || r.files.length > 10000 ||
         !(r.base_sha === null && r.base_count === null || SHA.test(r.base_sha) && count(r.base_count))) {
         throw new Error('Invalid comparison schema');
+    }
+    // Older AST-only runs may finish after this workflow is updated.
+    if (r.schema_version === 1) {
+        r.checks = [{name: 'z3-ast-argument-order', base: r.base_count, head: r.head_count}];
+    }
+    if (!Array.isArray(r.checks) || !r.checks.length || r.checks.length > 32) {
+        throw new Error('Invalid check counts');
+    }
+    const checks = new Map();
+    for (const c of r.checks) {
+        if (!c || typeof c.name !== 'string' || !/^z3-[a-z0-9-]{1,80}$/.test(c.name) || checks.has(c.name) ||
+            !count(c.head) || (r.base_count === null ? c.base !== null : !count(c.base))) {
+            throw new Error('Invalid check counts');
+        }
+        checks.set(c.name, c);
+    }
+    if (r.checks.reduce((n, c) => n + c.head, 0) !== r.head_count ||
+        r.base_count !== null && r.checks.reduce((n, c) => n + c.base, 0) !== r.base_count) {
+        throw new Error('Inconsistent check counts');
     }
     if (r.scope !== undefined) {
         const s = r.scope;
@@ -51,7 +71,7 @@ function readReport(file) {
     }
     // Optional for artifacts produced by workflows already in flight.
     if (r.warning_diff !== undefined) {
-        const diff = r.warning_diff, deltas = new Map();
+        const diff = r.warning_diff, deltas = new Map(), removed = new Map(), added = new Map();
         if (r.base_count === null || !diff || !Array.isArray(diff.removed) || !Array.isArray(diff.added) ||
             diff.removed.length > r.base_count || diff.added.length > r.head_count ||
             diff.removed.length + diff.added.length > 10000 ||
@@ -64,7 +84,11 @@ function readReport(file) {
                 if (!w || !relativePath(w.file) || !count(w.line) || !w.line || !count(w.column) || !w.column ||
                     typeof w.message !== 'string' || !w.message.length || w.message.length > 4096 ||
                     /[\x00-\x1f\x7f]/.test(w.message)) throw new Error('Invalid warning diagnostic');
-                const key = JSON.stringify([w.file, w.line, w.column, w.message]);
+                if (r.schema_version === 1) w.check = 'z3-ast-argument-order';
+                if (!checks.has(w.check)) throw new Error('Unknown diagnostic check');
+                const totals = sign === -1 ? removed : added;
+                totals.set(w.check, (totals.get(w.check) || 0) + 1);
+                const key = JSON.stringify([w.file, w.line, w.column, w.message, w.check]);
                 if (seen.has(key)) throw new Error('Duplicate warning diagnostic');
                 seen.add(key);
                 deltas.set(w.file, (deltas.get(w.file) || 0) + sign);
@@ -75,12 +99,18 @@ function readReport(file) {
             deltas.delete(f.path);
         }
         if ([...deltas.values()].some(n => n !== 0)) throw new Error('Inconsistent warning diff');
+        for (const c of checks.values()) {
+            const before = removed.get(c.name) || 0, after = added.get(c.name) || 0;
+            if (before > c.base || after > c.head || after - before !== c.head - c.base) {
+                throw new Error('Inconsistent per-check warning diff');
+            }
+        }
     }
     return r;
 }
 
 function render(r) {
-    const lines = ['### AST argument-order warnings', ''];
+    const lines = ['### Determinism warnings', ''];
     if (r.scope) {
         const s = r.scope;
         if (s.base_units === 0 && s.head_units === 0) lines.push('No C++ translation units are affected by this PR.', '');
@@ -90,11 +120,19 @@ function render(r) {
             lines.push(`${s.mode === 'affected' ? 'Warnings in affected files' : 'Full scan'} (${sides}).`, '');
         }
     }
-    if (r.base_count === null) lines.push(`Warnings: **${r.head_count}** (\`${r.head_sha.slice(0, 12)}\`).`);
+    if (r.base_count === null) {
+        lines.push(`Warnings: **${r.head_count}** (\`${r.head_sha.slice(0, 12)}\`).`, '',
+                   '| Warning type | Warnings |', '| --- | ---: |');
+        for (const c of r.checks) lines.push(`| \`${c.name}\` | ${c.head} |`);
+    }
     else {
         lines.push(`Base: **${r.base_count}** → PR: **${r.head_count}**; change: **${signed(r.head_count - r.base_count)}**.`, '',
                    `Base \`${r.base_sha.slice(0, 12)}\`; head \`${r.head_sha.slice(0, 12)}\`.`);
         if (r.tested_sha !== r.head_sha) lines.push(`Tested the PR merged into its base (\`${r.tested_sha.slice(0, 12)}\`).`);
+        lines.push('', '| Warning type | Base | PR | Change |', '| --- | ---: | ---: | ---: |');
+        for (const c of r.checks) {
+            lines.push(`| \`${c.name}\` | ${c.base} | ${c.head} | ${signed(c.head - c.base)} |`);
+        }
         if (r.files.length) {
             lines.push('', '| File | Base | PR | Change |', '| --- | ---: | ---: | ---: |');
             for (const f of r.files.slice(0, 30)) {
@@ -109,7 +147,7 @@ function render(r) {
             for (const [warnings, sign] of [[r.warning_diff.removed, '-'], [r.warning_diff.added, '+']]) {
                 for (const w of warnings) {
                     ++total;
-                    const line = `${sign} ${w.file}:${w.line}:${w.column}: warning: ${w.message} [z3-ast-argument-order]`;
+                    const line = `${sign} ${w.file}:${w.line}:${w.column}: warning: ${w.message} [${w.check}]`;
                     if (diff.length < 100 && length + line.length + 1 <= 12000) {
                         diff.push(line);
                         length += line.length + 1;
@@ -164,7 +202,7 @@ async function post({github, context, core, reportPath}) {
         }
         const url = `${context.serverUrl}/${owner}/${repo}/actions/runs/${run.id}`;
         const text = report ? render(report) :
-            '### AST argument-order warnings\n\nComparison unavailable: a build, scan, or report step failed. No warning delta is reported.';
+            '### Determinism warnings\n\nComparison unavailable: a build, scan, or report step failed. No warning delta is reported.';
         const body = `${MARKER}\n${text}\n\n[CI run and diagnostics](${url})\n<!-- z3-ast-order-run:${run.id}:${run.run_attempt} -->`;
         const comments = await github.paginate(github.rest.issues.listComments,
                                               {owner, repo, issue_number: pr.number, per_page: 100});
