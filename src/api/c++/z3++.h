@@ -4831,6 +4831,13 @@ namespace z3 {
             p->m_decide_eh(val, bit, is_pos);
         }
 
+        static void explain_eh(void* _p, Z3_solver_callback cb, Z3_ast _conseq, unsigned tag) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            expr conseq(p->ctx(), _conseq);
+            p->explain(conseq, tag);
+        }
+
         static bool on_binding_eh(void* _p, Z3_solver_callback cb, Z3_ast _q, Z3_ast _inst) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
@@ -4982,6 +4989,32 @@ namespace z3 {
         virtual void decide(expr const& /*val*/, unsigned /*bit*/, bool /*is_pos*/) {}
 
         virtual bool on_binding(expr const& /*q*/, expr const& /*inst*/) { return true; }
+
+        /**
+           \brief lazy justification (experimental): called when the solver needs the reason
+           of a consequence propagated with \c propagate_lazy.  Must call \c justify.
+        */
+        virtual void explain(expr const& /*conseq*/, unsigned /*tag*/) {}
+
+        bool propagate_lazy(expr const& conseq, unsigned tag) {
+            assert(cb);
+            return Z3_solver_propagate_consequence_lazy(ctx(), cb, conseq, tag, explain_eh);
+        }
+
+        void justify(expr_vector const& fixed) {
+            assert(cb);
+            array<Z3_ast> _fixed(fixed);
+            Z3_solver_propagate_justify(ctx(), cb, _fixed.size(), _fixed.ptr(), 0, nullptr, nullptr);
+        }
+
+        void justify(expr_vector const& fixed, expr_vector const& lhs, expr_vector const& rhs) {
+            assert(cb);
+            assert(lhs.size() == rhs.size());
+            array<Z3_ast> _fixed(fixed);
+            array<Z3_ast> _lhs(lhs);
+            array<Z3_ast> _rhs(rhs);
+            Z3_solver_propagate_justify(ctx(), cb, _fixed.size(), _fixed.ptr(), _lhs.size(), _lhs.ptr(), _rhs.ptr());
+        }
 
         bool next_split(expr const& e, unsigned idx, Z3_lbool phase) {
             assert(cb);

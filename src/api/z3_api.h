@@ -1480,6 +1480,7 @@ Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
 Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast t));
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
+Z3_DECLARE_CLOSURE(Z3_explain_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast conseq, unsigned tag));
 Z3_DECLARE_CLOSURE(Z3_on_binding_eh, bool, (void* ctx, Z3_solver_callback cb, Z3_ast q, Z3_ast inst));
 Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
@@ -7421,6 +7422,27 @@ extern "C" {
        def_API('Z3_solver_propagate_decide', VOID, (_in(CONTEXT), _in(SOLVER), _fnptr(Z3_decide_eh)))
     */
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh);
+
+    /**
+       \brief propagate a consequence with a lazy justification (experimental).
+       The literal \c conseq is assigned without a reason; the reason is requested only
+       when the solver needs it (conflict analysis) by calling \c explain_eh with
+       \c conseq and the user-supplied \c tag.  The handler must answer by calling
+       \ref Z3_solver_propagate_justify with registered expressions that were fixed, and
+       equalities between registered expressions that held, *before* the consequence was
+       propagated.  This is not checked: a reason that depends on the consequence makes
+       conflict analysis fail.  The handler must not propagate, raise a conflict or register
+       expressions.  With proofs enabled, \c explain_eh is called immediately.
+       Unlike \ref Z3_solver_propagate_consequence, no clause is added: the consequence is lost
+       when the solver backtracks below the level at which it was propagated.
+       Returns false if the consequence is already true.
+    */
+    bool Z3_API Z3_solver_propagate_consequence_lazy(Z3_context c, Z3_solver_callback cb, Z3_ast conseq, unsigned tag, Z3_explain_eh explain_eh);
+
+    /**
+       \brief supply the reason of a lazy propagation; only valid inside an explain callback.
+    */
+    void Z3_API Z3_solver_propagate_justify(Z3_context c, Z3_solver_callback cb, unsigned num_fixed, Z3_ast const* fixed, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs);
 
 
     /**

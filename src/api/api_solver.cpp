@@ -1220,6 +1220,21 @@ extern "C" {
         Z3_CATCH;
     }
 
+    bool Z3_API Z3_solver_propagate_consequence_lazy(Z3_context c, Z3_solver_callback s, Z3_ast conseq, unsigned tag, Z3_explain_eh explain_eh) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        user_propagator::explain_eh_t explain_fn = (void(*)(void*, user_propagator::callback*, expr*, unsigned))explain_eh;
+        return reinterpret_cast<user_propagator::callback*>(s)->propagate_lazy_cb(to_expr(conseq), tag, explain_fn);
+        Z3_CATCH_RETURN(false);
+    }
+
+    void Z3_API Z3_solver_propagate_justify(Z3_context c, Z3_solver_callback s, unsigned num_fixed, Z3_ast const* fixed_ids, unsigned num_eqs, Z3_ast const* eq_lhs, Z3_ast const* eq_rhs) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        reinterpret_cast<user_propagator::callback*>(s)->justify_cb(num_fixed, (expr* const*)fixed_ids, num_eqs, (expr* const*)eq_lhs, (expr* const*)eq_rhs);
+        Z3_CATCH;
+    }
+
     void Z3_API Z3_solver_propagate_on_binding(Z3_context c, Z3_solver s, Z3_on_binding_eh binding_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();

@@ -24,6 +24,7 @@ Notes:
 
 #include "util/uint_set.h"
 #include "smt/smt_theory.h"
+#include "smt/smt_justification.h"
 #include "solver/solver.h"
 
 namespace smt {
@@ -35,6 +36,9 @@ namespace smt {
             svector<std::pair<expr*, expr*>>       m_eqs;
             literal_vector                         m_lits;
             theory_var                             m_var = null_theory_var;            
+            bool                                   m_lazy = false;
+            unsigned                               m_tag = 0;
+            user_propagator::explain_eh_t          m_explain;
             prop_info(unsigned num_fixed, expr* const* fixed_ids,
                       unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr_ref const& c):
                 m_ids(num_fixed, fixed_ids),
@@ -50,7 +54,32 @@ namespace smt {
                 
         };
 
+        // lazily justified propagations of the current search branch
+        struct lazy_entry {
+            expr*          m_conseq;
+            unsigned       m_tag;
+            user_propagator::explain_eh_t m_explain;
+            bool           m_explained = false;
+            literal_vector m_lits;
+            enode_pair_vector m_eqs;
+        };
+
+        class lazy_justification : public justification {
+            theory_user_propagator& m_th;
+            unsigned                m_idx;
+        public:
+            lazy_justification(theory_user_propagator& th, unsigned idx): m_th(th), m_idx(idx) {}
+            void get_antecedents(conflict_resolution& cr) override;
+            theory_id get_from_theory() const override { return m_th.get_id(); }
+            // not used with proofs enabled: propagate_lazy then adds a lemma (proof generation
+            // would wait forever for a proof object)
+            proof* mk_proof(conflict_resolution& cr) override { return nullptr; }
+            char const* get_name() const override { return "user-propagate-lazy"; }
+        };
+
         struct stats {
+            unsigned m_num_lazy_propagations;
+            unsigned m_num_lazy_explanations;
             unsigned m_num_propagations;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
@@ -89,6 +118,10 @@ namespace smt {
         vector<expr_ref_vector> m_clauses_to_replay;
         unsigned                m_replay_qhead = 0;
         obj_hashtable<expr>   m_add_expr_fresh;
+        vector<lazy_entry>     m_lazy;
+        unsigned_vector        m_lazy_lim;
+        ptr_vector<expr>       m_just_ids;
+        svector<std::pair<expr*, expr*>> m_just_eqs;
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }
@@ -101,6 +134,9 @@ namespace smt {
 
         void propagate_consequence(prop_info const& prop);
         void propagate_new_fixed(prop_info const& prop);
+        literal mk_conseq_literal(expr* conseq);
+        void propagate_lazy(prop_info const& prop);
+        void explain_lazy(unsigned idx);
         
         bool_var enode_to_bool(enode* n, unsigned bit);
 
@@ -139,6 +175,8 @@ namespace smt {
         bool propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs, expr* conseq) override;
         void register_cb(expr* e) override;
         bool next_split_cb(expr* e, unsigned idx, lbool phase) override;
+        bool propagate_lazy_cb(expr* conseq, unsigned tag, user_propagator::explain_eh_t const& explain) override;
+        void justify_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
         void decide(bool_var& var, bool& is_pos);

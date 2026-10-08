@@ -21,6 +21,7 @@ Author:
 #include "smt/theory_user_propagator.h"
 #include "smt/smt_context.h"
 #include "ast/ast_ll_pp.h"
+#include "smt/smt_conflict_resolution.h"
 
 using namespace smt;
 
@@ -41,6 +42,7 @@ void theory_user_propagator::force_push() {
         theory::push_scope_eh();
         m_prop_lim.push_back(m_prop.size());
         m_to_add_lim.push_back(m_to_add.size());
+        m_lazy_lim.push_back(m_lazy.size());
         m_push_eh(m_user_context, this);
     }
 }
@@ -101,6 +103,108 @@ bool theory_user_propagator::propagate_cb(
         return false;
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, _conseq));
     return true;
+}
+
+bool theory_user_propagator::propagate_lazy_cb(expr* conseq, unsigned tag, user_propagator::explain_eh_t const& explain) {
+    expr_ref _conseq(conseq, m);
+    ctx.get_rewriter()(conseq, _conseq);
+    if (m.is_true(_conseq))
+        return false;
+    if (!m.is_false(_conseq))
+        ctx.mark_as_relevant((expr*)_conseq);
+    if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true)
+        return false;
+    prop_info p(0, nullptr, 0, nullptr, nullptr, _conseq);
+    p.m_lazy = true;
+    p.m_tag = tag;
+    p.m_explain = explain;
+    m_prop.push_back(p);
+    return true;
+}
+
+void theory_user_propagator::justify_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs) {
+    for (unsigned i = 0; i < num_fixed; ++i)
+        m_just_ids.push_back(fixed_ids[i]);
+    for (unsigned i = 0; i < num_eqs; ++i)
+        m_just_eqs.push_back({ lhs[i], rhs[i] });
+}
+
+// ask the user for the reason of lazy entry idx (once) and store it as literals
+void theory_user_propagator::explain_lazy(unsigned idx) {
+    if (m_lazy[idx].m_explained)
+        return;
+    m_just_ids.reset();
+    m_just_eqs.reset();
+    try {
+        m_lazy[idx].m_explain(m_user_context, this, m_lazy[idx].m_conseq, m_lazy[idx].m_tag);
+    }
+    catch (...) {
+        throw default_exception("Exception thrown in \"explain\"-callback");
+    }
+    ++m_stats.m_num_lazy_explanations;
+    lazy_entry& e = m_lazy[idx];
+    e.m_lits.reset();
+    e.m_eqs.reset();
+    for (expr* id : m_just_ids)
+        e.m_lits.append(m_id2justification[expr2var(id)]);
+    for (auto const& [a, b] : m_just_eqs)
+        if (a != b)
+            e.m_eqs.push_back(enode_pair(get_enode(expr2var(a)), get_enode(expr2var(b))));
+    // the same checks as propagate_consequence; the order (antecedents assigned before the
+    // consequence) is not checked, see Z3_solver_propagate_consequence_lazy
+    DEBUG_CODE(for (expr* id : m_just_ids) VERIFY(m_fixed.contains(expr2var(id))););
+    DEBUG_CODE(for (literal l : e.m_lits) VERIFY(ctx.get_assignment(l) == l_true););
+    DEBUG_CODE(for (auto const& [a, b] : e.m_eqs) VERIFY(a->get_root() == b->get_root()););
+    e.m_explained = true;
+}
+
+void theory_user_propagator::lazy_justification::get_antecedents(conflict_resolution& cr) {
+    m_th.explain_lazy(m_idx);
+    for (literal l : m_th.m_lazy[m_idx].m_lits)
+        cr.mark_literal(l);
+    for (auto const& [a, b] : m_th.m_lazy[m_idx].m_eqs)
+        cr.mark_eq(a, b);
+}
+
+// assign the consequence with a lazy justification (no clause); if it is already false,
+// the reason is needed immediately and a conflict is raised
+void theory_user_propagator::propagate_lazy(prop_info const& prop) {
+    // prop is an element of m_prop: internalizing the consequence can run the created
+    // callback, which may append to m_prop, so copy what is needed first
+    lazy_entry entry{ prop.m_conseq, prop.m_tag, prop.m_explain };
+    literal lit = mk_conseq_literal(prop.m_conseq);
+    ctx.mark_as_relevant(lit);
+    lbool val = ctx.get_assignment(lit);
+    if (val == l_true)
+        return;
+    unsigned idx = m_lazy.size();
+    m_lazy.push_back(entry);
+    ++m_stats.m_num_lazy_propagations;
+    if (val == l_false) {
+        explain_lazy(idx);
+        m_lits.reset();
+        m_lits.append(m_lazy[idx].m_lits);
+        m_lits.push_back(~lit);
+        justification* js = ctx.mk_justification(
+            ext_theory_conflict_justification(get_id(), ctx, m_lits.size(), m_lits.data(),
+                                              m_lazy[idx].m_eqs.size(), m_lazy[idx].m_eqs.data(), 0, nullptr));
+        ctx.set_conflict(js);
+        return;
+    }
+    if (m.proofs_enabled()) {
+        // proof generation needs the lemma "reason => conseq" as a clause: explain now
+        explain_lazy(idx);
+        m_lits.reset();
+        for (literal l : m_lazy[idx].m_lits)
+            m_lits.push_back(~l);
+        for (auto const& [a, b] : m_lazy[idx].m_eqs)
+            m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+        m_lits.push_back(lit);
+        ctx.mk_th_lemma(get_id(), m_lits);
+        return;
+    }
+    justification* js = ctx.mk_justification(lazy_justification(*this, idx));
+    ctx.assign(lit, b_justification(js));
 }
 
 void theory_user_propagator::register_cb(expr* e) {
@@ -277,11 +381,25 @@ void theory_user_propagator::pop_scope_eh(unsigned num_scopes) {
     old_sz = m_to_add_lim.size() - num_scopes;
     m_to_add.shrink(m_to_add_lim[old_sz]);
     m_to_add_lim.shrink(old_sz);
+    old_sz = m_lazy_lim.size() - num_scopes;
+    m_lazy.shrink(m_lazy_lim[old_sz]);
+    m_lazy_lim.shrink(old_sz);
     m_pop_eh(m_user_context, this, num_scopes);
 }
 
 bool theory_user_propagator::can_propagate() {
     return m_qhead < m_prop.size() || m_to_add_qhead < m_to_add.size() || m_replay_qhead < m_clauses_to_replay.size();
+}
+
+// quantified consequences are named by a fresh literal
+literal theory_user_propagator::mk_conseq_literal(expr* conseq) {
+    if (!has_quantifiers(conseq))
+        return mk_literal(conseq);
+    expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
+    expr_ref eq(m.mk_eq(fn, conseq), m);
+    ctx.assert_expr(eq);
+    ctx.internalize_assertions();
+    return mk_literal(fn);
 }
 
 void theory_user_propagator::propagate_consequence(prop_info const& prop) {
@@ -314,16 +432,7 @@ void theory_user_propagator::propagate_consequence(prop_info const& prop) {
         for (auto const& [a,b] : m_eqs)
             m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
         
-        literal lit; 
-        if (has_quantifiers(prop.m_conseq)) {
-            expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
-            expr_ref eq(m.mk_eq(fn, prop.m_conseq), m);
-            ctx.assert_expr(eq);
-            ctx.internalize_assertions();
-            lit = mk_literal(fn);
-        }
-        else 
-            lit = mk_literal(prop.m_conseq);
+        literal lit = mk_conseq_literal(prop.m_conseq);
         ctx.mark_as_relevant(lit);
 
         m_lits.push_back(lit);
@@ -376,7 +485,9 @@ void theory_user_propagator::propagate() {
     qhead = m_qhead;
     while (qhead < m_prop.size() && !ctx.inconsistent()) {
         auto const& prop = m_prop[qhead];
-        if (prop.m_var == null_theory_var)
+        if (prop.m_lazy)
+            propagate_lazy(prop);
+        else if (prop.m_var == null_theory_var)
             propagate_consequence(prop);
         else
             propagate_new_fixed(prop);
@@ -422,6 +533,8 @@ bool theory_user_propagator::internalize_term(app* term) {
 
 void theory_user_propagator::collect_statistics(::statistics& st) const {
     st.update("user-propagations", m_stats.m_num_propagations);
+    st.update("user-lazy-propagations", m_stats.m_num_lazy_propagations);
+    st.update("user-lazy-explanations", m_stats.m_num_lazy_explanations);
     st.update("user-watched", get_num_vars());
 }
 

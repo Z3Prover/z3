@@ -6,12 +6,23 @@
 
 namespace user_propagator {
 
+    class callback;
+    // lazy justification: invoked when the solver needs the reason of a lazily propagated
+    // literal (conflict analysis); the handler must answer by calling justify_cb
+    typedef std::function<void(void*, callback*, expr*, unsigned)>           explain_eh_t;
+
     class callback {
     public:
         virtual ~callback() = default;
         virtual bool propagate_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs, expr* conseq) = 0;
         virtual void register_cb(expr* e) = 0;
         virtual bool next_split_cb(expr* e, unsigned idx, lbool phase) = 0;
+        virtual bool propagate_lazy_cb(expr* conseq, unsigned tag, explain_eh_t const& explain) {
+            throw default_exception("lazy propagation is only supported by the SMT core user propagator");
+        }
+        virtual void justify_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* eq_lhs, expr* const* eq_rhs) {
+            throw default_exception("lazy propagation is only supported by the SMT core user propagator");
+        }
     };
     
     class context_obj {
