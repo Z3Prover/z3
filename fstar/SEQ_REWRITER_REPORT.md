@@ -388,10 +388,14 @@ explicit construction rather than classical existence reasoning.
 | `extract_prefix_axiom` / `extract_suffix_axiom` | 338-369 | (special cases of `lemma_extract_axiom_general` at `i=0` resp. `l = len s - i`; not yet restated as standalone corollaries) | — |
 | `prefix_axiom` | 1321-1356 | `lemma_prefix_mismatch` (+ helper `mismatch`/`lemma_mismatch_correct`) | the `len s > len t` guard side (trivially discharges the clause, no content); the single-character (`max_length <= 1`) fast path in `tightest_prefix` |
 | `suffix_axiom` | 1286-1319 | `lemma_suffix_mismatch` (derived from `lemma_prefix_mismatch` via `reverse`) | same as `prefix_axiom` |
-| `indexof_axiom` / `last_indexof_axiom` | 431-577 | not covered | the full `indexof`/`last_indexof` semantics (smallest/largest valid occurrence position) -- needs a `index_of` model function in `Z3SeqTheory.fst`, not yet added |
-| `replace_axiom` / `replace_all_axiom` | 578-605, 1144-1199 | not covered | `replace`/`replace_all` already have `lang`-level definitions and partial lemmas in `Z3SeqRewrites.fst` (`lemma_replace_empty_pat`, `lemma_replace_eq`, `lemma_replace_not_contains`), but the axiom-clause form (Skolem decomposition) is not yet restated |
+| `indexof_axiom` | 431-561 | see Part 5 (`Z3SeqIndexOf.fst`): `lemma_indexof_ge_m1`, `lemma_indexof_not_contains`, `lemma_indexof_empty_t`, `lemma_indexof_empty_pat`, `lemma_indexof_decompose`, `lemma_indexof_offset_ge_len_nonempty`, `lemma_indexof_offset_eq_len_empty_pat`, `lemma_indexof_offset_neg`, `lemma_indexof_offset_shift` | — |
+| `last_indexof_axiom` | 563-608 | see Part 5: `lemma_last_indexof_not_contains`, `lemma_last_indexof_empty_t`, `lemma_last_indexof_empty_pat`, `lemma_last_indexof_decompose` | the "no later occurrence" maximality side-condition (`~contains(s_tail++y, s)`) is not separately restated -- `last_occ`'s definition already structurally enforces maximality (it always prefers a later recursive match), so this is implicit, not an open gap |
+| `replace_axiom` | 628-658 | see Part 5: `lemma_replace_axiom_decompose` (+ `lemma_replace_at_first_occ`) | — |
+| `replace_all_axiom` | 1325-1379 | not applicable | the C++ implementation unconditionally throws `default_exception("no support for replace-all")` (line 1354); the real recursive logic is dead code guarded by `#if 0` (1355-1378) and never compiled/executed, so there is no shipped behavior to formalize |
 | `replace_re_axiom` / `replace_re_all_axiom` | 1122-1213 | not covered | needs `seq_derive.cpp`-style regex-membership bridging, not yet done for this module |
-| `itos_axiom` / `stoi_axiom` / `stoi_axiom_re` | 678-829 | not covered | needs a `string <-> int` conversion model (digit decomposition), not yet built |
+| `itos_axiom` / `stoi_axiom` | ~701-825 | see Part 5 (`Z3StoiTheory.fst`): `lemma_itos_empty_iff_neg`, `lemma_itos_zero`, `lemma_itos_no_leading_zero`, `lemma_stoi_ge_m1`, `lemma_stoi_empty`, `lemma_stoi_nonneg_implies_first_digit`, `lemma_itos_stoi_round_trip` | — |
+| `stoi_axiom_re` | ~826-875 | not covered | a regex-membership-based variant encoding of `stoi(s) >= 0 <=> s in [0-9]+`; would need bridging to `Z3RegexMembership.fst`'s `in_re`, not yet done |
+| `stoi_axiom(e,k)` / exact-length overloads | ~876-end | not covered | these only refine *how* `stoi`/`itos` are computed incrementally (a Skolemized bounded-unrolling scheme), not *what* they compute; `Z3StoiTheory.fst`'s `stoi_core`/`itos` already pin down the latter |
 | `ubv2s_axiom` / `ubv2s_len_axiom` / `ubv2ch_axiom` | 830-963 | not covered | needs a bit-vector-to-string model, not yet built |
 | `is_digit_axiom` / `str_to_code_axiom` / `str_from_code_axiom` / `lt_axiom` / `le_axiom` | 978-1121 | not covered | needs a character-order/digit theory, not yet built (see `mk_re_range`'s abstract `in_range` predicate in `Z3RegexRewrites.fst` for a possible starting point) |
 | `power_axiom` / `power_unfold_axiom` | 1232-1277 | not covered | `power` already has full `lang`-level lemmas in `Z3SeqRewrites.fst` (`lemma_len_power`, `lemma_power_nat_add`, etc.); the axiom-clause form is not yet restated |
@@ -400,30 +404,84 @@ explicit construction rather than classical existence reasoning.
 
 All lemmas above compile with **zero `admit`/`assume`**.
 
+## Part 5: `indexof`/`last_indexof`/`replace`/`itos`/`stoi` soundness (`Z3SeqIndexOf.fst`, `Z3StoiTheory.fst`)
+
+Two more `seq_axioms.cpp` installments, continuing Part 4's methodology
+but each needing its own ground-truth model beyond what
+`Z3SeqTheory.fst`/`Z3SeqRewrites.fst` already provide.
+
+**[`Z3SeqIndexOf.fst`](Z3SeqIndexOf.fst)** models "first/last occurrence
+of a pattern in a sequence" directly (`first_occ`/`last_occ`, returning
+`option nat`), rather than reconstructing it solely from Skolem
+witnesses. `index_of`/`last_index_of` (the `str.indexof`/
+`str.last_indexof` ground truth) are built on top. A shared helper,
+`lemma_is_prefix_at_decompose`, proves that an occurrence at position
+`k` always decomposes the sequence as `(take t k) ++ pat ++ (drop t
+(k + len pat))`; it is reused for both the first- and last-occurrence
+developments. `last_occ` is defined as a direct right-to-left scan
+(preferring a later match over an earlier one found by its own
+recursive call), not via `reverse`, keeping its proofs structurally
+parallel to `first_occ`'s. `replace_axiom`'s hard clause is handled by
+`lemma_replace_at_first_occ`, which shows `replace`'s existing
+leftmost-match recursive definition (`Z3SeqTheory.fst`) always matches
+at the `first_occ` position, so no separate replace-specific
+occurrence search is needed.
+
+**[`Z3StoiTheory.fst`](Z3StoiTheory.fst)** models decimal digit
+strings concretely: `digit = d:int{0<=d<=9}`, `digits_of_nat`/
+`nat_of_digits` give the MSB-first round-trip between a `nat` and its
+canonical spelling (`lemma_digits_of_nat_round_trip`), and
+`lemma_digits_of_nat_head_nonzero` proves the canonical spelling of a
+positive number never starts with a leading `0`. `stoi_core` is a
+generic left-to-right parser parametrized by an abstract
+`is_digit`/`digit_val` pair (mirroring Z3's `is_digit`/
+`mk_digit2int`), so `stoi_axiom`'s basic clauses are proved once, for
+any element type. Instantiating `stoi_core` at `a := digit` gives
+`stoi_d`, and `lemma_itos_stoi_round_trip` connects the two sides:
+`stoi_d (itos n) == n` for `n >= 0`.
+
+### Coverage by function
+
+| `seq_axioms.cpp` function | Lines | Lemma(s) | Not covered |
+|---|---|---|---|
+| `indexof_axiom` | 431-561 | `lemma_indexof_ge_m1`, `lemma_indexof_not_contains`, `lemma_indexof_empty_t`, `lemma_indexof_empty_pat`, `lemma_indexof_decompose`, `lemma_indexof_offset_ge_len_nonempty`, `lemma_indexof_offset_eq_len_empty_pat`, `lemma_indexof_offset_neg`, `lemma_indexof_offset_shift` | — |
+| `last_indexof_axiom` | 563-608 | `lemma_last_indexof_not_contains`, `lemma_last_indexof_empty_t`, `lemma_last_indexof_empty_pat`, `lemma_last_indexof_decompose` | the `~contains(s_tail++y,s)` maximality side-condition is not separately restated (implicit in `last_occ`'s definition, not an open gap) |
+| `replace_axiom` | 628-658 | `lemma_replace_axiom_decompose`, `lemma_replace_at_first_occ` | — |
+| `replace_all_axiom` | 1325-1379 | not applicable | dead code (unconditionally throws, see Part 4 table) |
+| `itos_axiom` | ~755-795 | `lemma_itos_empty_iff_neg`, `lemma_itos_len_nonneg`, `lemma_itos_zero`, `lemma_itos_no_leading_zero`, `lemma_itos_stoi_round_trip` | — |
+| `stoi_axiom` | ~796-825 | `lemma_stoi_ge_m1`, `lemma_stoi_empty`, `lemma_stoi_nonneg_implies_first_digit` | — |
+| `stoi_axiom_re` | ~826-875 | not covered | regex-membership variant of `stoi_axiom`; would need `Z3RegexMembership.fst` bridging |
+| `stoi_axiom(e,k)` / `itos_axiom(s,k)` | ~876-end | not covered | bounded-unrolling refinement of *how* the same values are computed, not *what* they compute |
+
+All lemmas above compile with **zero `admit`/`assume`**.
+
 ## Summary
 
 All eight proof/theory files for the sequence/regex subsystem
 (`Z3SeqTheory.fst`, `Z3SeqRewrites.fst`, `Z3SeqDerive.fst`,
 `Z3RegexMembership.fst`, `Z3RegexTheory.fst`, `Z3RegexExprTheory.fst`,
-`Z3RegexRewrites.fst`, `Z3SeqAxioms.fst`) compile cleanly from a fresh
-`.checked` state with zero admits. Together they cover the full "pure
-sequence" half of `seq_rewriter.cpp`, a representative slice of its
-one regex/sequence bridge function (`mk_str_in_regexp`), the "clean
-algebraic" core of every `mk_re_*` regex-algebra function dispatched
-from `mk_app_core`, and a first installment of `seq_axioms.cpp`'s
-quantifier-instantiation axioms (the positional-access core: `str.at`,
-`str.nth_i`, `str.extract` and its tail/drop_last specializations,
-`str.unit` injectivity, and the `str.prefixof`/`str.suffixof` tightest-
-counterexample axioms). The largest remaining open areas are: (1) the
-concat-boundary decomposition logic throughout the sequence core
-(`mk_seq_at`/`contains`/`prefix`/`suffix`/`extract`'s `str.++`-tree
-walks), (2) the `rex::info`/`is_subset`/`try_collapse_re_*` syntactic
-and static-analysis machinery that backs the more aggressive `mk_re_*`
+`Z3RegexRewrites.fst`, `Z3SeqAxioms.fst`), plus the two newer
+`seq_axioms.cpp` installments (`Z3SeqIndexOf.fst`, `Z3StoiTheory.fst`),
+compile cleanly from a fresh `.checked` state with zero admits.
+Together they cover the full "pure sequence" half of
+`seq_rewriter.cpp`, a representative slice of its one regex/sequence
+bridge function (`mk_str_in_regexp`), the "clean algebraic" core of
+every `mk_re_*` regex-algebra function dispatched from `mk_app_core`,
+and the bulk of `seq_axioms.cpp`'s quantifier-instantiation axioms: the
+positional-access core (`str.at`, `str.nth_i`, `str.extract` and its
+tail/drop_last specializations, `str.unit` injectivity, the
+`str.prefixof`/`str.suffixof` tightest-counterexample axioms), the
+occurrence-search core (`str.indexof`, `str.last_indexof`,
+`str.replace`), and the string/integer conversion core
+(`str.to_int`/`int.to_str`'s `itos_axiom`/`stoi_axiom`). The largest
+remaining open areas are: (1) the concat-boundary decomposition logic
+throughout the sequence core (`mk_seq_at`/`contains`/`prefix`/
+`suffix`/`extract`'s `str.++`-tree walks), (2) the
+`rex::info`/`is_subset`/`try_collapse_re_*` syntactic and
+static-analysis machinery that backs the more aggressive `mk_re_*`
 simplifications, (3) nested-loop/range arithmetic combination rules
 (`mk_re_loop`'s and `mk_re_concat`'s loop-addition branches), and (4)
-`seq_axioms.cpp`'s string/integer conversion, bit-vector, and
-character-order axioms (`str.to_int`/`int.to_str`, `ubv2s`/`ubv2ch`,
-`is_digit`/`str.to_code`/`<`/`<=`), none of which yet have a model in
-this project, plus its `str.indexof`/`str.replace[_all]` axioms, which
-need new `index_of`/richer `replace`-decomposition lemmas beyond what
-`Z3SeqRewrites.fst` already provides.
+`seq_axioms.cpp`'s remaining bit-vector and character-order axioms
+(`ubv2s`/`ubv2ch`, `is_digit`/`str.to_code`/`<`/`<=`) and its
+regex-membership-based `stoi_axiom_re`/bounded-unrolling overloads,
+none of which yet have a model in this project.
