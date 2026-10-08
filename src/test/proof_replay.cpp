@@ -17,6 +17,7 @@ Abstract:
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/extra_cmds/proof_cmds.h"
 #include "parsers/smt2/smt2parser.h"
+#include "sat/sat_proof_trim.h"
 #include "sat/smt/arith_theory_checker.h"
 #include <iostream>
 #include <sstream>
@@ -277,7 +278,33 @@ static void tst_is_extended_numeral() {
     ENSURE(checker.check(mk_farkas(m, ints(m, {1, 1}), lits)));
 }
 
+static void tst_trim_satisfied_clause() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal p(trim.mk_var(), false), q(trim.mk_var(), false), r(trim.mk_var(), false);
+    auto assume = [&](unsigned id, std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+        trim.assume(id);
+    };
+    assume(0, {p});
+    assume(1, {~q});
+    assume(2, {p, q, r}); // Already satisfied: it must not propagate r.
+    assume(3, {~r});
+    assume(4, {~p});
+    trim.init_clause();
+    trim.infer(5);
+    auto core = trim.trim();
+    ENSURE(core.size() == 3);
+    ENSURE(core[0].first == 0);
+    ENSURE(core[1].first == 4);
+    ENSURE(core[2].first == 5);
+}
+
 void tst_proof_replay() {
+    tst_trim_satisfied_clause();
     tst_is_extended_numeral();
     tst_checker_nary_mul();
     tst_checker_printed_numerals();
