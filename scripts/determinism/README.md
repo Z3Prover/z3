@@ -181,7 +181,17 @@ Windows exercises its LLP64 data model and a different standard library.
 The Linux comparison job checks that all six complete result sets exist, verifies their
 provenance and output hashes, and fails on any difference beyond CRLF/LF line endings. It writes a job
 summary with expandable first differences and retains raw runs and build logs as
-artifacts. Fork PRs use the ordinary read-only `pull_request` workflow; no privileged
-reporting workflow or PR comment is needed. Pushes to master also warm the caches
+artifacts. Fork PRs use the ordinary read-only `pull_request` workflow. Pushes to master also warm the caches
 that later PRs can restore. macOS and Windows results are compared directly with
 the Linux GCC baseline as well as with their own second runs.
+
+When a PR run fails or times out, `determinism-comment.yml` posts a comment linking
+to that run's summary, logs and artifacts. Later failures update the same comment
+with an **EDITED** date and the failed commit. Successful and cancelled runs do not
+post comments; an existing comment remains a record of the linked failure.
+Runs for an outdated PR head are skipped.
+
+The comment workflow uses `workflow_run` so it can comment on fork PRs. It must
+be present on the repository's default branch before comments will run. It uses
+only GitHub run/PR metadata, without checking out PR code or downloading artifacts,
+and only its reporting job receives `pull-requests: write` permission.
