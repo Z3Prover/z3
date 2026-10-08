@@ -214,3 +214,127 @@ let lemma_sle_zero_extend
     assert (not (msb b));
     assert (to_int_signed a == a);
     assert (to_int_signed b == b)
+
+(* ----------------------------------------------------------------- *)
+(* Overflow-detection predicates (mk_bv*_overflow family)              *)
+(*                                                                     *)
+(* bv_rewriter.cpp's ten overflow predicates rewrite a `(_ bvXXXovfl a *)
+(* b)` application into a Boolean *formula* over `a`/`b` that is       *)
+(* claimed to characterize the true arithmetic overflow/underflow      *)
+(* condition. This section proves that claim: each rewritten formula  *)
+(* is shown equivalent to the corresponding "true" over/underflow      *)
+(* condition stated directly over the (unbounded) two's-complement     *)
+(* integer values `to_int_signed a`/`to_int_signed b`.                 *)
+(* ----------------------------------------------------------------- *)
+
+/// The largest / smallest representable signed `n`-bit integer.
+let max_signed (n:pos) : int = pow2 (n - 1) - 1
+let min_signed (n:pos) : int = - (pow2 (n - 1))
+
+/// Every `n`-bit value's signed interpretation lies in `[min_signed, max_signed]`.
+let to_int_signed_range (#n:pos) (a:bv n) : Lemma (min_signed n <= to_int_signed a /\ to_int_signed a <= max_signed n) = ()
+
+/// `mk_bvneg_overflow`: negation overflows iff `a` is the minimal signed
+/// value (the only value whose negation, `-min_signed = 2^(n-1)`, is not
+/// itself representable).
+let lemma_bvneg_overflow_correct (#n:pos) (a:bv n)
+  : Lemma ((to_int_signed a == min_signed n) <==> (a == pow2 (n - 1)))
+  = ()
+
+/// `mk_bvuadd_overflow`: zero-extend both operands by one bit, add at the
+/// wider width, and test the newly-introduced top bit -- this exactly
+/// detects whether the *unbounded* natural-number sum `a + b` reaches
+/// `2^n`, i.e. true unsigned-addition overflow.
+let lemma_bvuadd_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma (bv_extract n n (bvadd (bv_zero_extend 1 a) (bv_zero_extend 1 b)) ==
+           (if a + b >= pow2 n then 1 else 0))
+  = let a' : bv (n+1) = bv_zero_extend 1 a in
+    let b' : bv (n+1) = bv_zero_extend 1 b in
+    assert (a' == a);
+    assert (b' == b);
+    FStar.Math.Lemmas.pow2_double_sum n;
+    FStar.Math.Lemmas.small_mod (a + b) (pow2 (n+1));
+    assert (bvadd a' b' == a + b)
+
+/// `mk_bvusub_underflow`: `a <u b` is, by definition, exactly unsigned
+/// subtraction underflow (the borrow case).
+let lemma_bvusub_underflow_correct (#n:pos) (a b:bv n)
+  : Lemma (bv_ult a b == (a < b)) = ()
+
+/// `mk_bvsadd_overflow`: both operands strictly positive (signed) yet the
+/// wrapped sum is non-positive (signed) -- exactly signed-addition
+/// *positive* overflow, i.e. the true integer sum exceeds `max_signed`.
+/// (Overflow of a signed sum can only occur when both operands share a
+/// sign: if the true sum `to_int_signed a + to_int_signed b` exceeds
+/// `max_signed n`, both addends must individually be positive, since each
+/// lies in `[min_signed n, max_signed n]` and a non-positive addend would
+/// force the other to exceed `max_signed n` on its own, which is
+/// impossible by `to_int_signed_range`.)
+let lemma_bvsadd_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((bv_slt 0 a /\ bv_slt 0 b /\ bv_sle (bvadd a b) 0) <==>
+           (to_int_signed a + to_int_signed b > max_signed n))
+  = to_int_signed_range a;
+    to_int_signed_range b;
+    if a + b >= pow2 n then FStar.Math.Lemmas.small_mod (a + b - pow2 n) (pow2 n)
+    else FStar.Math.Lemmas.small_mod (a + b) (pow2 n);
+    assert (bvadd a b == (if a + b >= pow2 n then a + b - pow2 n else a + b))
+
+/// `mk_bvsadd_underflow` (used only via `mk_bvsadd_over_underflow`): both
+/// operands strictly negative yet the wrapped sum is non-negative --
+/// signed-addition *negative* underflow, symmetric to the overflow case.
+let lemma_bvsadd_underflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((bv_slt a 0 /\ bv_slt b 0 /\ bv_sle 0 (bvadd a b)) <==>
+           (to_int_signed a + to_int_signed b < min_signed n))
+  = to_int_signed_range a;
+    to_int_signed_range b;
+    if a + b >= pow2 n then FStar.Math.Lemmas.small_mod (a + b - pow2 n) (pow2 n)
+    else FStar.Math.Lemmas.small_mod (a + b) (pow2 n);
+    assert (bvadd a b == (if a + b >= pow2 n then a + b - pow2 n else a + b))
+
+/// `mk_bvsadd_over_underflow`: the disjunction of the two cases above --
+/// signed-addition overflow in *either* direction.
+let lemma_bvsadd_over_underflow_correct (#n:pos) (a b:bv n)
+  : Lemma (((bv_slt 0 a /\ bv_slt 0 b /\ bv_sle (bvadd a b) 0) \/
+            (bv_slt a 0 /\ bv_slt b 0 /\ bv_sle 0 (bvadd a b))) <==>
+           (to_int_signed a + to_int_signed b > max_signed n \/
+            to_int_signed a + to_int_signed b < min_signed n))
+  = lemma_bvsadd_overflow_correct a b;
+    lemma_bvsadd_underflow_correct a b
+
+/// `mk_bvsdiv_overflow`: signed division overflows in exactly the single
+/// edge case `a = min_signed /\ b = -1` (negating `min_signed` -- the only
+/// case where `|dividend / divisor|` is not representable).
+let lemma_bvsdiv_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((a == pow2 (n - 1) /\ b == FStar.UInt.ones n) <==>
+           (to_int_signed a == min_signed n /\ to_int_signed b == -1))
+  = ()
+
+/// Negation is exact (does not wrap) whenever its argument is not the
+/// minimal signed value -- the companion fact `mk_bvssub_under_overflow`
+/// relies on to reduce signed subtraction to signed addition of a negation.
+let lemma_bvneg_exact (#n:pos) (b:bv n{b <> pow2 (n - 1)})
+  : Lemma (to_int_signed (bvneg b) == - (to_int_signed b))
+  = if b = 0 then ()
+    else FStar.Math.Lemmas.small_mod (pow2 n - b) (pow2 n)
+
+/// `mk_bvssub_under_overflow`: signed subtraction `a - b` over/underflows.
+/// The rewritten formula special-cases `b = min_signed` (whose negation
+/// itself would overflow) by testing `0 <=s a` directly, and otherwise
+/// delegates to the signed-addition over/underflow test on `a + (-b)`,
+/// which is sound because negating a non-minimal `b` is exact
+/// (`lemma_bvneg_exact`).
+let lemma_bvssub_under_overflow_correct (#n:pos) (a b:bv n)
+  : Lemma ((if b = pow2 (n - 1) then bv_sle 0 a
+            else let nb = bvneg b in
+                 (bv_slt 0 a /\ bv_slt 0 nb /\ bv_sle (bvadd a nb) 0) \/
+                 (bv_slt a 0 /\ bv_slt nb 0 /\ bv_sle 0 (bvadd a nb)))
+           <==>
+           (to_int_signed a - to_int_signed b > max_signed n \/
+            to_int_signed a - to_int_signed b < min_signed n))
+  = to_int_signed_range a;
+    to_int_signed_range b;
+    if b = pow2 (n - 1) then ()
+    else begin
+      lemma_bvneg_exact b;
+      lemma_bvsadd_over_underflow_correct a (bvneg b)
+    end

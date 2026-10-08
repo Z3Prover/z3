@@ -83,6 +83,14 @@ are defined from first principles as plain `nat`/`int` arithmetic:
 | `mk_sign_extend` | `k = 0` is identity | `lemma_sign_extend_zero` | ✅ |
 | `mk_ult`, `mk_slt` | defined via `NOT ∘ mk_ule`/`mk_sle` | `lemma_ult_def`, `lemma_slt_def` | ✅ |
 | `mk_leq_core` (`is_zero_extended` fast path) | `(zero_extend x) <=_s (zero_extend y) == x <=_u y` | `lemma_sle_zero_extend` | ✅ |
+| `mk_bvneg_overflow` | negation overflows iff `a = min_signed` | `lemma_bvneg_overflow_correct` | ✅ |
+| `mk_bvuadd_overflow` | zero-extend-add-extract construction detects true unsigned-sum `>= 2^n` | `lemma_bvuadd_overflow_correct` | ✅ |
+| `mk_bvusub_underflow` | `a <u b` is exactly unsigned-subtraction underflow | `lemma_bvusub_underflow_correct` | ✅ |
+| `mk_bvsadd_overflow` | both operands signed-positive and wrapped sum signed-non-positive `==` true signed sum `> max_signed` | `lemma_bvsadd_overflow_correct` | ✅ |
+| `mk_bvsadd_underflow` | both operands signed-negative and wrapped sum signed-non-negative `==` true signed sum `< min_signed` | `lemma_bvsadd_underflow_correct` | ✅ |
+| `mk_bvsadd_over_underflow` | disjunction of the two cases above | `lemma_bvsadd_over_underflow_correct` | ✅ |
+| `mk_bvsdiv_overflow` | signed division overflows iff `a = min_signed /\ b = -1` | `lemma_bvsdiv_overflow_correct` | ✅ |
+| `mk_bvssub_under_overflow` | `b = min_signed` special case (`0 <=s a`) plus general case via signed-addition of the (exact, since `b != min_signed`) negation | `lemma_bvssub_under_overflow_correct` (uses helper `lemma_bvneg_exact`) | ✅ |
 | numeral folding (every `mk_*` operator's numeral/numeral or all-numeral-args branch) | — | sound by construction: `Z3BvTheory`'s functions *are* the functions the fold evaluates | N/A — see note below |
 
 ### Note on constant folding
@@ -120,12 +128,14 @@ silently skipped:
   numeral).
 - `mk_repeat`, `mk_bv_ext_rotate_left`/`_right`, `mk_ubv2int`/`mk_sbv2int`,
   `mk_int2bv`, `mk_bit2bool`, `mk_mkbv` — not yet modeled.
-- The ten overflow-detection predicates (`mk_bvsmul_no_overflow`,
-  `mk_bvumul_no_overflow`, `mk_bvsmul_overflow`, `mk_bvumul_overflow`,
-  `mk_bvsdiv_overflow`, `mk_bvuadd_overflow`, `mk_bvsadd_over_underflow`,
-  `mk_bvusub_underflow`, `mk_bvssub_under_overflow`, `mk_bvneg_overflow`) —
-  each encodes a specific arithmetic side-condition as a boolean formula;
-  none proved yet.
+- `mk_bvsmul_no_overflow`/`mk_bvumul_no_overflow` (the numeral-folding
+  magnitude/sign tests underlying `mk_bvsmul_overflow`/`mk_bvumul_overflow`
+  when *both* operands are numerals) and the general, non-numeral
+  `mk_bvsmul_overflow`/`mk_bvumul_overflow` rewrites, which build their
+  result term directly from the builtin `bvsmul_no_ovfl`/`bvumul_no_ovfl`
+  predicate symbols rather than expanding them — eight of the ten overflow
+  predicates are now covered (see the table above); these two
+  multiplication-overflow families are the remaining follow-up.
 - `mk_bv_ite`/ite-propagation (`m_ite2id`), `bv_sort_ac`'s AC-sorting of
   `bvadd`/`bvor`/`bvand`/`bvxor` argument lists, and `mk_distinct`.
 
@@ -136,7 +146,16 @@ This first pass establishes a reusable, from-scratch bit-vector semantics
 proved `FStar.UInt` lemma library, and proves ~25 lemmas covering the core
 defining identities of `bv_rewriter.cpp`'s bitwise, arithmetic, shift,
 rotate, extract/concat/extend, and comparison rewrites, plus the
-`is_zero_extended` signed-vs-unsigned comparison shortcut. The large
-remaining surface of search-based and arithmetic-equation-solving rewrites,
-overflow predicates, and the signed-division family is catalogued above for
-follow-up passes.
+`is_zero_extended` signed-vs-unsigned comparison shortcut.
+
+A follow-up pass then formalized 8 of the 10 overflow-detection predicates
+(`mk_bvneg_overflow`, `mk_bvuadd_overflow`, `mk_bvusub_underflow`,
+`mk_bvsadd_overflow`/`_underflow`/`_over_underflow`, `mk_bvsdiv_overflow`,
+`mk_bvssub_under_overflow`), proving each rewritten Boolean formula is
+equivalent to the true over/underflow condition stated directly over
+`to_int_signed`/natural-number sums — the two remaining multiplication
+predicates (`mk_bvsmul_no_overflow`/`mk_bvumul_no_overflow` and their
+general, non-numeral `_overflow` counterparts) are deferred to a further
+follow-up. The remaining surface of search-based and arithmetic-
+equation-solving rewrites and the signed-division/remainder family is
+catalogued above for future passes.
