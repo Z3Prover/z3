@@ -290,7 +290,9 @@ namespace smt {
         m_instances.push_back(lemma);
         // keep model-based instances (they are expensive to rediscover and MBQI may not
         // reproduce them), and pattern-based ones up to a budget
-        bool persist = m_params.m_qi_persist_instances &&
+        // instances are recorded for re-assertion only when a theory that can request a
+        // re-search is present (strings, recursive functions); other problems are unaffected
+        bool persist = m_params.m_qi_persist_instances && m_context.has_research_theory() &&
             (ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances);
         if (persist)
             m_persistent_instances.push_back({ expr_ref(lemma, m), app_ref(m) });
