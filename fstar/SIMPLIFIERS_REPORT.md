@@ -99,7 +99,7 @@ re-proved three times, since re-proving would only re-derive
 | `fold_unfold.cpp` | 365 | Recursive-function fold/unfold rewriting, relates to `recfun_rewriter.cpp` (deferred in `OTHER_TH_REWRITER_REPORT.md`). |
 | `recfun_finder.cpp` | 483 | Recursive-function definition discovery (a syntactic classification pass, not a rewrite). |
 | `linear_equation.cpp` | 257 | Linear-arithmetic equation normal-form bookkeeping (Gaussian-elimination-style). |
-| `model_reconstruction_trail.cpp` | 259 | Bookkeeping to reconstruct a model for the original formula from a model of the simplified one — correctness of *this* is actually the most important cross-cutting property of the whole directory (every simplifier above needs its reconstruction step to be inverse-correct), and is the natural top priority for the next follow-up pass. |
+| `model_reconstruction_trail.cpp` | 259 | **Partially covered** — see [`MODEL_RECONSTRUCTION_REPORT.md`](MODEL_RECONSTRUCTION_REPORT.md): the arity-0 eliminated-constant case (`is_def()`, the shape `propagate_values.cpp`/`solve_eqs.cpp`/`solve_context_eqs.cpp`/`extract_eqs.cpp` actually produce) is now proved in `Z3ModelReconstructionTheory.fst` (`lemma_model_reconstruction`); the ground-substitution case (`is_subst()`) was already covered by `lemma_subst_cong`. Deferred: arity->0 function definitions (De Bruijn shifting under binders), "loose" re-insertion entries, `hide_trail`, and whole-trail composition. |
 | `dependent_expr_state.cpp` | 133 | Generic container/dependency-tracking infrastructure shared by all simplifiers above (not itself a semantic rewrite). |
 | `randomizer.cpp` | 12 | Test-only shuffling utility, no semantic content. |
 
