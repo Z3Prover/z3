@@ -277,11 +277,8 @@ namespace sat {
 
     void bcd::init_rbits() {
         m_rbits.reset();        
-        for (unsigned i = 0; i < s.num_vars(); ++i) {
-            uint64_t lo = s.rand()() + (s.rand()() << 16ull);
-            uint64_t hi = s.rand()() + (s.rand()() << 16ull);
-            m_rbits.push_back(lo + (hi << 32ull));
-        }
+        for (unsigned i = 0; i < s.num_vars(); ++i)
+            m_rbits.push_back(s.rand().next_uint64());
     }
     
     uint64_t bcd::eval_clause(clause const& cls) const {

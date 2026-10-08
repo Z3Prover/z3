@@ -20,6 +20,24 @@ The check follows known allocator entry points and visible wrapper definitions.
 It can miss indirect and out-of-line calls, and may warn about calls that only
 allocate conditionally. Use `NOLINT(z3-ast-argument-order)` for justified exceptions.
 
+## Random draw order
+
+`z3-random-order` warns when separate arguments or operands may consume random
+state in an unspecified order, for example:
+
+```cpp
+unsigned mask = (rng() << 16) | rng();
+f(rand(), rand());
+```
+
+Draw the values in separate statements. The check recognizes C random functions,
+Z3's `random_gen`, standard C++ random engines, and visible wrappers around them.
+It respects C++17 sequencing, including braced initializers, shifts, short-circuit
+operators and comma expressions. Like the AST check, it can miss indirect or
+out-of-line wrappers. It conservatively warns even when calls use independent
+generators or only draw conditionally; it does not prove that the generators alias.
+Use `NOLINT(z3-random-order)` for justified exceptions. No automatic fixes are offered.
+
 ## Plain char signedness
 
 `z3-char-signedness` warns about implicitly converting known negative values to

@@ -187,7 +187,7 @@ namespace smtfd {
                 if (bw >= 24) {
                     throw default_exception("number of allowed bits for variables exceeded");
                 }
-                unsigned n = (m_rand() << 16) | m_rand();
+                unsigned n = m_rand.next_uint32();
                 expr* num = m_butil.mk_numeral(n, bw);
                 expr* e = m_butil.mk_bv_xor({num, m.mk_fresh_const(name, m_butil.mk_sort(bw))});
                 return m_butil.mk_concat(e, m_butil.mk_numeral(0, 24 - bw));
