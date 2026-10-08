@@ -60,13 +60,25 @@
        `find_fst_non_empty_var` (1185-1395): representative-selection
        and nth-decomposition heuristics tied to the egraph, not
        sequence-level soundness questions.
-     - `check_parikh`, `check_length_coherence[0]`,
-       `propagate_length_coherence` (971-1152): Parikh-vector and
-       length-arithmetic reasoning that integrates with `theory_arith`;
-       out of scope for a `seq a`-only development.
+     - `check_parikh`, `check_length_coherence[0]` (1071-1152):
+       Parikh-vector and length-arithmetic reasoning that integrates
+       with `theory_arith`; out of scope for a `seq a`-only
+       development.
      - `branch_unit_variable` (498-512): delegates entirely to the
        separate `seq::eq_solver` class (`m_eq.branch`), not defined in
        this file.
+
+   Also covered (a historical soundness bug, issue #11013 / PR #11015):
+
+     - `propagate_length_coherence` (971-1027): the current (fixed)
+       code's two upper-bound clauses are proved sound
+       (`lemma_propagate_length_coherence_hi_eq_lo`,
+       `lemma_propagate_length_coherence_hi_gt_lo`), and
+       `lemma_propagate_length_coherence_buggy_counterexample` exhibits
+       a concrete countermodel showing the *pre-fix* code (which
+       omitted the `~low` guard, i.e. dropped the `len e >= lo`
+       hypothesis) asserted clauses that are not valid -- confirming
+       the bug the issue reported.
 *)
 module Z3SeqEqSolver
 
@@ -179,3 +191,57 @@ let lemma_len_based_split_offset_pos (#a:eqtype) (x11 x12 y11 y12:seq a) (offset
     lemma_len_drop x11 (len y11);
     lemma_concat_assoc y11 (drop x11 (len y11)) x12;
     lemma_concat_left_cancel y11 (concat (drop x11 (len y11)) x12) y12
+
+(* ================================================================= *)
+(* propagate_length_coherence, seq_eq_solver.cpp:971-1027              *)
+(*                                                                       *)
+(* Historical soundness bug: issue #11013, fixed by PR #11015           *)
+(* (commit d35dc0838). The code decomposes a variable `e` into `lo`     *)
+(* explicit head elements plus a leftover Skolem "tail" term `seq`, but *)
+(* the only axiom linking `seq` back to the real value of `e` is the    *)
+(* *guarded* clause `~low \/ e == concat(heads, seq)`, where `low` is   *)
+(* the literal for `len e >= lo`. So `seq` only means `drop e lo` in    *)
+(* branches where `low` holds -- it is a free, unconstrained term       *)
+(* whenever `low` is false. The pre-fix code asserted two further       *)
+(* clauses about `seq` (forcing it empty, or bounding its length)       *)
+(* *without* that same `~low` guard, i.e. as unconditional claims about *)
+(* a sometimes-free term: unsound. The lemmas below prove the fixed     *)
+(* (guarded) clauses sound, and exhibit a concrete countermodel          *)
+(* showing the pre-fix (unguarded) clause is not valid.                  *)
+(* ================================================================= *)
+
+(* Fixed code, `hi = lo` branch: guarded by `low` (`len e >= lo`) and
+   the upper bound `len e <= hi = lo`, these pin `len e == lo` exactly,
+   so the decomposition's remainder is empty. *)
+let lemma_propagate_length_coherence_hi_eq_lo (#a:eqtype) (e:seq a) (lo:nat)
+  : Lemma (requires len e >= lo /\ len e <= lo)
+          (ensures drop e lo == empty)
+  = lemma_drop_all e
+
+(* Fixed code, `hi > lo` branch: guarded by `low` and the upper bound
+   `len e <= hi`, the remainder's length is bounded by `hi - lo`. *)
+let lemma_propagate_length_coherence_hi_gt_lo (#a:eqtype) (e:seq a) (lo hi:nat)
+  : Lemma (requires len e >= lo /\ len e <= hi /\ lo < hi)
+          (ensures len (drop e lo) <= hi - lo)
+  = lemma_len_drop e lo
+
+(* The bug: dropping the `~low` guard turns "`len e <= hi` implies
+   `seq == empty`" (the `hi = lo` clause, specialized here to
+   `lo = hi = 1`) into an unconditional claim about the free Skolem
+   `seq`. Countermodel: take `e := empty` (too short: `len e = 0 < lo`,
+   so `low` is false and the decomposition's linking equation never
+   fires) paired with an arbitrary nonempty stand-in `s` for `seq`.
+   Then the pre-fix clause's stated hypothesis `len e <= hi` holds
+   while its conclusion `s == empty` fails -- exactly the unsoundness
+   the issue reported. The fixed code's `~low` guard is what excludes
+   this countermodel: here `low` (`len e >= lo`) does not hold, so the
+   guarded clause makes no claim about `s` at all. *)
+let lemma_propagate_length_coherence_buggy_counterexample ()
+  : Lemma (let e : seq int = empty in
+           let s : seq int = unit 1 in
+           let lo = 1 in let hi = 1 in
+           len e <= hi              // pre-fix hypothesis holds ...
+           /\ ~ (len e >= lo)       // ... yet `low` is false: the
+                                    //     decomposition premise never held ...
+           /\ s <> empty)           // ... so the pre-fix conclusion can fail.
+  = ()
