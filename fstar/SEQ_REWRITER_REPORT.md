@@ -8,25 +8,29 @@ coverage across the project: the "sequence core" (concatenation,
 length, extract, at/nth, contains, prefix/suffix, replace, reverse,
 power) and the `OP_SEQ_IN_RE` (`str.in_re`) membership rewrites,
 together with `src/ast/rewriter/seq_derive.cpp`'s symbolic-derivative
-engine that `mk_str_in_regexp` relies on for ground-string membership.
-It supersedes and absorbs `SEQ_REPORT.md` (now
+engine that `mk_str_in_regexp` relies on for ground-string membership,
+and `src/ast/seq/seq_axioms.cpp`'s quantifier-instantiation axioms (a
+distinct module: it does not rewrite terms, but asserts ground clauses
+that pin down "complex" sequence operations in terms of "basic" ones
+for the solver core). It supersedes and absorbs `SEQ_REPORT.md` (now
 removed) and the `OP_SEQ_IN_RE`/`seq_derive.cpp` addendum that
 previously lived at the end of [`REGEX_REPORT.md`](REGEX_REPORT.md)
 (which remains the report for `seq_decl_plugin.cpp`'s `get_info`/
 `rex::info` static-analysis abstraction, a different subject).
 
-Three independent layers, five proof files:
+Four independent layers, six proof files:
 
 | Layer | Theory file | Proof file | Subject |
 |---|---|---|---|
 | Sequence core | [`Z3SeqTheory.fst`](Z3SeqTheory.fst) | [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst) | `mk_seq_*` functions |
 | Regex membership | [`Z3RegexTheory.fst`](Z3RegexTheory.fst) (+ [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst)) | [`Z3SeqDerive.fst`](Z3SeqDerive.fst), [`Z3RegexMembership.fst`](Z3RegexMembership.fst) | `mk_str_in_regexp` / `seq_derive.cpp`'s `derive_core` |
 | Regex algebra | [`Z3RegexTheory.fst`](Z3RegexTheory.fst) | [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst) | `mk_re_*` functions dispatched from `mk_app_core` |
+| Axiom soundness | [`Z3SeqTheory.fst`](Z3SeqTheory.fst) (+ [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst)) | [`Z3SeqAxioms.fst`](Z3SeqAxioms.fst) | `seq::axioms` (`src/ast/seq/seq_axioms.cpp`) |
 
 Toolchain used: [F*](https://github.com/FStarLang/FStar) `v2026.09.27`
 (Windows x64) with Z3 `4.13.3` as the SMT backend (F* pins an exact Z3
 version; this is independent of the Z3 binary built from this
-repository). All five proof files type-check and discharge all verification
+repository). All six proof files type-check and discharge all verification
 conditions with **no `admit`/`assume`/axioms**:
 
 ```
@@ -34,6 +38,7 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3S
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3SeqDerive.fst
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3RegexMembership.fst
 C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3RegexRewrites.fst
+C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3SeqAxioms.fst
 ```
 
 ## Scope
@@ -349,20 +354,76 @@ All lemmas above compile with **zero `admit`/`assume`**; a full clean
 recompile of all 24 `.fst` files in this directory (deleting every
 `.checked` file first) succeeds with no errors.
 
+## Part 4: axiom soundness (`Z3SeqAxioms.fst`)
+
+[`Z3SeqAxioms.fst`](Z3SeqAxioms.fst) covers a different C++ module
+from Parts 1-3: `src/ast/seq/seq_axioms.cpp` (the `seq::axioms`
+class). This module does not rewrite terms -- it emits ground clauses
+(asserted directly to the SAT/SMT core, with fresh Skolem constants
+for existentials) that axiomatize "complex" string operations
+(`str.extract`, `str.at`, `str.prefixof`/`str.suffixof`, ...) in terms
+of "basic" ones (`str.++`, `str.len`, `str.nth_i`, equality).
+Soundness of such an axiom means the clause, restated at the `seq a`
+level of [`Z3SeqTheory.fst`](Z3SeqTheory.fst) with real existentials in
+place of Skolem constants, is a theorem -- not an independent
+assumption. This is a first installment; see "Not covered" below for
+the remaining axiom-generating functions.
+
+A new general-purpose building block introduced here: `mismatch p s`
+(a computable function, not just an existence proof) returns the
+first index where two sequences disagree, used to prove the
+`str.prefixof`/`str.suffixof` "tightest counterexample" axioms by
+explicit construction rather than classical existence reasoning.
+
+### Coverage by function
+
+| `seq_axioms.cpp` function | Lines | Lemma(s) in [`Z3SeqAxioms.fst`](Z3SeqAxioms.fst) | Not covered |
+|---|---|---|---|
+| `unit_axiom` | 1214-1218 | `lemma_unit_injective` | — |
+| `at_axiom` | 606-644 | `lemma_at_decompose` (+ cites `lemma_at_oob`/`lemma_at_in_range` from `Z3SeqRewrites.fst`) | the literal-position fast path (`a.is_numeral(i,...)`, an unrolled special case of the same fact) |
+| `nth_axiom` | 654-677 | `lemma_nth_axiom_sound` (restates `lemma_at_in_range`) | the ground-string literal fast path (`seq.str.is_string`) |
+| `tail_axiom` / `drop_last_axiom` | 265-280 | (both reduce to `lemma_at_decompose` at `i=0` resp. `i = len s - 1`, combined with `lemma_drop_all`) | `is_tail`/`is_drop_last` pattern-matching itself (syntactic dispatch, not a soundness question) |
+| `length_axiom`, `str.extract` branch | 1368-1407 | `lemma_length_axiom_extract` | the `unit`/`empty`/`concat`/`string`-literal branches (trivial rewrite-to-self, already covered by `Z3SeqRewrites.fst`'s `lemma_len_concat`/`lemma_len_unit`/`lemma_len_empty`) and the fallback `n >= 0` branch (trivial, `len` is `nat`-valued) |
+| `extract_axiom`, general case | 196-261 | `lemma_extract_axiom_general` (all 5 length/reconstruction clauses) | — |
+| `extract_prefix_axiom` / `extract_suffix_axiom` | 338-369 | (special cases of `lemma_extract_axiom_general` at `i=0` resp. `l = len s - i`; not yet restated as standalone corollaries) | — |
+| `prefix_axiom` | 1321-1356 | `lemma_prefix_mismatch` (+ helper `mismatch`/`lemma_mismatch_correct`) | the `len s > len t` guard side (trivially discharges the clause, no content); the single-character (`max_length <= 1`) fast path in `tightest_prefix` |
+| `suffix_axiom` | 1286-1319 | `lemma_suffix_mismatch` (derived from `lemma_prefix_mismatch` via `reverse`) | same as `prefix_axiom` |
+| `indexof_axiom` / `last_indexof_axiom` | 431-577 | not covered | the full `indexof`/`last_indexof` semantics (smallest/largest valid occurrence position) -- needs a `index_of` model function in `Z3SeqTheory.fst`, not yet added |
+| `replace_axiom` / `replace_all_axiom` | 578-605, 1144-1199 | not covered | `replace`/`replace_all` already have `lang`-level definitions and partial lemmas in `Z3SeqRewrites.fst` (`lemma_replace_empty_pat`, `lemma_replace_eq`, `lemma_replace_not_contains`), but the axiom-clause form (Skolem decomposition) is not yet restated |
+| `replace_re_axiom` / `replace_re_all_axiom` | 1122-1213 | not covered | needs `seq_derive.cpp`-style regex-membership bridging, not yet done for this module |
+| `itos_axiom` / `stoi_axiom` / `stoi_axiom_re` | 678-829 | not covered | needs a `string <-> int` conversion model (digit decomposition), not yet built |
+| `ubv2s_axiom` / `ubv2s_len_axiom` / `ubv2ch_axiom` | 830-963 | not covered | needs a bit-vector-to-string model, not yet built |
+| `is_digit_axiom` / `str_to_code_axiom` / `str_from_code_axiom` / `lt_axiom` / `le_axiom` | 978-1121 | not covered | needs a character-order/digit theory, not yet built (see `mk_re_range`'s abstract `in_range` predicate in `Z3RegexRewrites.fst` for a possible starting point) |
+| `power_axiom` / `power_unfold_axiom` | 1232-1277 | not covered | `power` already has full `lang`-level lemmas in `Z3SeqRewrites.fst` (`lemma_len_power`, `lemma_power_nat_add`, etc.); the axiom-clause form is not yet restated |
+| `unroll_not_contains` | 1409-1426 | not covered | an inductive "no occurrence at any offset" unrolling scheme; should follow directly from `contains`'s recursive definition, not yet done |
+| `length_limit` | 1427-end | not covered | a simple length-upper-bound clause; trivial but not yet restated |
+
+All lemmas above compile with **zero `admit`/`assume`**.
+
 ## Summary
 
-All seven proof/theory files for `seq_rewriter.cpp`
+All eight proof/theory files for the sequence/regex subsystem
 (`Z3SeqTheory.fst`, `Z3SeqRewrites.fst`, `Z3SeqDerive.fst`,
 `Z3RegexMembership.fst`, `Z3RegexTheory.fst`, `Z3RegexExprTheory.fst`,
-`Z3RegexRewrites.fst`) compile cleanly from a fresh `.checked` state
-with zero admits. Together they cover the full "pure sequence" half of
-`seq_rewriter.cpp`, a representative slice of its one regex/sequence
-bridge function (`mk_str_in_regexp`), and the "clean algebraic" core
-of every `mk_re_*` regex-algebra function dispatched from
-`mk_app_core`. The three largest remaining open areas are: (1) the
+`Z3RegexRewrites.fst`, `Z3SeqAxioms.fst`) compile cleanly from a fresh
+`.checked` state with zero admits. Together they cover the full "pure
+sequence" half of `seq_rewriter.cpp`, a representative slice of its
+one regex/sequence bridge function (`mk_str_in_regexp`), the "clean
+algebraic" core of every `mk_re_*` regex-algebra function dispatched
+from `mk_app_core`, and a first installment of `seq_axioms.cpp`'s
+quantifier-instantiation axioms (the positional-access core: `str.at`,
+`str.nth_i`, `str.extract` and its tail/drop_last specializations,
+`str.unit` injectivity, and the `str.prefixof`/`str.suffixof` tightest-
+counterexample axioms). The largest remaining open areas are: (1) the
 concat-boundary decomposition logic throughout the sequence core
 (`mk_seq_at`/`contains`/`prefix`/`suffix`/`extract`'s `str.++`-tree
 walks), (2) the `rex::info`/`is_subset`/`try_collapse_re_*` syntactic
 and static-analysis machinery that backs the more aggressive `mk_re_*`
-simplifications, and (3) nested-loop/range arithmetic combination
-rules (`mk_re_loop`'s and `mk_re_concat`'s loop-addition branches).
+simplifications, (3) nested-loop/range arithmetic combination rules
+(`mk_re_loop`'s and `mk_re_concat`'s loop-addition branches), and (4)
+`seq_axioms.cpp`'s string/integer conversion, bit-vector, and
+character-order axioms (`str.to_int`/`int.to_str`, `ubv2s`/`ubv2ch`,
+`is_digit`/`str.to_code`/`<`/`<=`), none of which yet have a model in
+this project, plus its `str.indexof`/`str.replace[_all]` axioms, which
+need new `index_of`/richer `replace`-decomposition lemmas beyond what
+`Z3SeqRewrites.fst` already provides.
