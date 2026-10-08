@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.21'
 
@@ -34,7 +34,7 @@ jobs:
           python3 mk_go_doc.py --output-dir=api/html/go --go-api-path=../src/api/go
 
       - name: Upload Go Documentation
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: go-docs
           path: doc/api/html/go/
@@ -46,15 +46,15 @@ jobs:
     needs: build-go-docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup node
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "lts/*"
 
       # Setup OCaml via action
-      - uses: ocaml/setup-ocaml@v3
+      - uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
         with:
           ocaml-compiler: 5
           opam-disable-sandboxing: true
@@ -92,7 +92,7 @@ jobs:
            ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/src/api/ml ../build-x64/src/api/ml/z3enums.mli ../src/api/ml/z3.mli
 
       - name: Setup emscripten
-        uses: mymindstorm/setup-emsdk@v16
+        uses: mymindstorm/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           no-install: true
           version: ${{env.EM_VERSION}}
@@ -123,13 +123,13 @@ jobs:
            python3 mk_api_doc.py --js --go --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
 
       - name: Download Go Documentation
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: go-docs
           path: doc/api/html/go/
 
       - name: Deploy to z3prover.github.io
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
           external_repository: Z3Prover/z3prover.github.io

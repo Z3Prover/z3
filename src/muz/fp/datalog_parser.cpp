@@ -178,7 +178,7 @@ public:
    
     bool operator()() { return m_line_reader(); }
 
-    char get() {
+    int get() {
         if (!m_line) {
             if (m_line_reader.eof()) {
                 return EOF;
@@ -189,7 +189,7 @@ public:
             m_line = nullptr;
             return '\n';
         }
-        char result = m_line[0];
+        int result = static_cast<unsigned char>(m_line[0]);
         ++m_line;
         return result;
     }

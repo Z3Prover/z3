@@ -18,10 +18,10 @@ jobs:
   build-pyodide:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build Pyodide wheel
-        uses: pypa/cibuildwheel@v4.2.1
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         with:
           # The Python bindings live in a subdirectory of the repo.
           package-dir: src/api/python
@@ -33,7 +33,7 @@ jobs:
           # here — a JS-EH -fexceptions value conflicts with the wasm-EH ABI.
 
       - name: Store Pyodide wheel
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pyodide-wheel
           path: wheelhouse/*.whl
@@ -48,10 +48,10 @@ jobs:
       id-token: write  # trusted publishing (OIDC), no API token needed
     steps:
       - name: Download Pyodide wheel
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pyodide-wheel
           path: dist/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

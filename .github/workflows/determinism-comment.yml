@@ -27,7 +27,7 @@ jobs:
       # This workflow runs from the default branch. Do not check out PR code or
       # execute anything from run artifacts with its write token.
       - name: Report the failed determinism run
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const run = context.payload.workflow_run;

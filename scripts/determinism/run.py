@@ -24,7 +24,7 @@ if os.name != 'nt':
     import resource
 
 HERE = Path(__file__).resolve().parent
-LINUX_PROFILES = ('gcc', 'clang', 'libcxx', 'libcxx-random')
+LINUX_PROFILES = ('gcc', 'gcc-unsigned-char', 'clang', 'libcxx', 'libcxx-random')
 PROFILES = (*LINUX_PROFILES, 'apple-clang', 'msvc')
 CHANNELS = ('ast.trace', 'stdout', 'stderr')
 MAX_FILE_BYTES = 128 * 1024 * 1024
@@ -76,7 +76,8 @@ def build(args, profile, jobs):
     directory = args.work.resolve() / profile
     directory.mkdir(parents=True, exist_ok=True)
     source = args.source.resolve()
-    selected = args.msvc if profile == 'msvc' else args.gcc if profile == 'gcc' else args.clang
+    selected = (args.msvc if profile == 'msvc' else
+                args.gcc if profile in ('gcc', 'gcc-unsigned-char') else args.clang)
     compiler = shutil.which(selected)
     if not compiler:
         raise ValueError(f'compiler not found for {profile}')
@@ -85,6 +86,8 @@ def build(args, profile, jobs):
     flags, link_flags = [], []
     if profile == 'msvc':
         flags.append('/utf-8')
+    if profile == 'gcc-unsigned-char':
+        flags.append('-funsigned-char')
     if profile == 'clang':
         # Use the same libstdc++ headers as the selected GCC, even if a newer
         # GCC installation is also visible to Clang on this host.
@@ -200,11 +203,15 @@ def run(args, entries):
     if not cases or len({c['file'] for c in cases}) != len(cases):
         raise ValueError('the corpus must be nonempty, with unique input paths')
     inputs = []
+    roots = {'suite': args.suite, 'local': args.corpus.parent}
     for case in cases:
         name = Path(case['file'])
+        source = case.get('source', 'suite')
+        if source not in roots:
+            raise ValueError(f'unknown input source: {source}')
         if name.is_absolute() or '..' in name.parts:
-            raise ValueError(f'input must be relative to the suite: {name}')
-        inputs.append((args.suite / name).read_bytes())
+            raise ValueError(f'input must be relative to its source: {name}')
+        inputs.append((roots[source] / name).read_bytes())
     common = ['-smt2', 'input.smt2', 'trace=true', 'trace_file_name=ast.trace',
               '-v:' + str(args.verbosity), 'suppress_platform_verbose=true',
               'parallel.enable=false', 'smt.threads=1', 'sat.threads=1',

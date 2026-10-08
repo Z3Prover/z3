@@ -28,6 +28,7 @@ jobs:
       matrix:
         include:
           - {profile: gcc, os: ubuntu-24.04}
+          - {profile: gcc-unsigned-char, os: ubuntu-24.04}
           - {profile: clang, os: ubuntu-24.04}
           - {profile: libcxx, os: ubuntu-24.04}
           - {profile: libcxx-random, os: ubuntu-24.04}
@@ -45,11 +46,11 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -64,7 +65,7 @@ jobs:
               output.write(f'revision={revision}\n')
           PY
 
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Z3Prover/z3test
           ref: ${{ steps.corpus.outputs.revision }}
@@ -94,7 +95,7 @@ jobs:
         run: choco install ccache --yes --no-progress
 
       - name: Restore compiler cache
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: determinism-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.profile }}-${{ hashFiles('scripts/determinism/run.py') }}-${{ github.sha }}
@@ -130,7 +131,7 @@ jobs:
 
       - name: Upload raw runs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: determinism-runs-${{ matrix.profile }}
           path: reports
@@ -139,7 +140,7 @@ jobs:
 
       - name: Upload build logs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: determinism-build-${{ matrix.profile }}
           path: |
@@ -159,11 +160,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v8.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: determinism-runs-*
           path: reports
@@ -172,7 +173,7 @@ jobs:
       - name: Compare repetitions and configurations
         run: |
           python3 scripts/determinism/run.py compare --input reports --out comparison \
-            --profiles gcc clang libcxx libcxx-random apple-clang msvc
+            --profiles gcc gcc-unsigned-char clang libcxx libcxx-random apple-clang msvc
 
       - name: Publish job summary
         if: always()
@@ -183,7 +184,7 @@ jobs:
             echo 'Comparison could not complete. Check the build and run jobs for missing or invalid artifacts.' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: determinism-comparison

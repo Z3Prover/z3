@@ -19,11 +19,11 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Cache ccache (shared across runs)
       - name: Cache ccache
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
@@ -31,7 +31,7 @@ jobs:
             ${{ runner.os }}-ccache-
 
       # Setup OCaml via action (handles opam caching internally)
-      - uses: ocaml/setup-ocaml@v3
+      - uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
         with:
           ocaml-compiler: ${{ matrix.ocaml-version }}
           opam-disable-sandboxing: true
