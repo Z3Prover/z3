@@ -48,6 +48,7 @@ struct qi_params {
 
     bool               m_mbqi = true;
     unsigned           m_mbqi_max_cexs = 1;
+    bool               m_mbqi_instances_after_giveup = true; // internal: let MBQI continue after a theory gave up (disabled in MBQI's auxiliary context)
     unsigned           m_mbqi_max_cexs_incr = 1;
     unsigned           m_mbqi_max_iterations = 1000;
     bool               m_mbqi_trace = false;
