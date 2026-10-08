@@ -1,0 +1,80 @@
+name: Solver determinism PR comment
+
+# See scripts/determinism/README.md for reporting behavior.
+
+on:
+  workflow_run:
+    workflows: [Solver determinism]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: determinism-comment-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      (github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'timed_out')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write
+    steps:
+      # This workflow runs from the default branch. Do not check out PR code or
+      # execute anything from run artifacts with its write token.
+      - name: Report the failed determinism run
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const {owner, repo} = context.repo;
+            if (!run.head_repository || run.repository.full_name !== `${owner}/${repo}` ||
+                run.path.split('@')[0] !== '.github/workflows/determinism.yml') return;
+
+            // Fork runs can have an empty pull_requests array. Find candidates
+            // through GitHub, then verify their repository and current head.
+            const candidates = run.pull_requests?.length ? run.pull_requests :
+              await github.paginate(github.rest.pulls.list, {
+                owner, repo, state: 'open', per_page: 100,
+                head: `${run.head_repository.owner.login}:${run.head_branch}`
+              });
+            const marker = '<!-- z3-determinism-failure -->';
+            const runMarker = /<!-- z3-determinism-run:(\d+):(\d+) -->/;
+            const url = `${context.serverUrl}/${owner}/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt}`;
+            for (const candidate of candidates) {
+              const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: candidate.number});
+              if (pr.state !== 'open' || pr.base.repo.full_name !== `${owner}/${repo}` ||
+                  pr.head.repo?.id !== run.head_repository.id || pr.head.sha !== run.head_sha) {
+                core.info(`Skipping stale or unrelated run for #${pr.number}`);
+                continue;
+              }
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: pr.number, per_page: 100
+              });
+              const previous = comments.find(c => c.user?.login === 'github-actions[bot]' &&
+                c.user.type === 'Bot' && c.body?.startsWith(marker));
+              const oldRun = previous?.body.match(runMarker);
+              // Avoid duplicate notifications and an older run overwriting a newer one.
+              if (oldRun && (Number(oldRun[1]) > run.id ||
+                  Number(oldRun[1]) === run.id && Number(oldRun[2]) >= run.run_attempt)) continue;
+
+              const date = new Date().toISOString().slice(0, 19).replace('T', ' ');
+              const body = [
+                marker,
+                ...(previous ? [`**EDITED: ${date} UTC**`, ''] : []),
+                '### Solver determinism failed', '',
+                `The run for commit \`${run.head_sha.slice(0, 12)}\` ${run.conclusion === 'timed_out' ? 'timed out' : 'failed'}.`, '',
+                `[View the run, comparison summary, and diagnostic artifacts](${url}).`, '',
+                'Check the comparison summary for trace differences, or the failed build/run job if comparison could not complete.',
+                `<!-- z3-determinism-run:${run.id}:${run.run_attempt} -->`
+              ].join('\n');
+              if (previous) {
+                await github.rest.issues.updateComment({owner, repo, comment_id: previous.id, body});
+              } else {
+                await github.rest.issues.createComment({owner, repo, issue_number: pr.number, body});
+              }
+            }
