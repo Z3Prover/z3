@@ -29,6 +29,7 @@ add_executable(test-z3
   chashtable.cpp
   check_assumptions.cpp
   cnf_backbones.cpp
+  context_params.cpp
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
