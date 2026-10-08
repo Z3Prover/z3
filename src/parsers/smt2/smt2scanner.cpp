@@ -381,9 +381,11 @@ namespace smt2 {
 
     char const * scanner::cached_str(unsigned begin, unsigned end) {
         m_cache_result.reset();
-        while (begin < end && isspace(m_cache[begin]))
+        // A signed char may be negative; isspace accepts only unsigned-char values or EOF.
+        while (begin < end && isspace(static_cast<unsigned char>(m_cache[begin])))
             begin++;
-        while (begin < end && isspace(m_cache[end-1]))
+        // The trailing byte also needs conversion to avoid a negative isspace argument.
+        while (begin < end && isspace(static_cast<unsigned char>(m_cache[end-1])))
             end--;
         for (unsigned i = begin; i < end; ++i)
             m_cache_result.push_back(m_cache[i]);
