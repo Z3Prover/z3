@@ -55,8 +55,13 @@ place. This is the precise soundness content of
 
 Case 2 is already covered (no new work needed: `lemma_subst_cong` *is* the
 soundness argument for `is_subst()` entries, with the roles of "formula"
-and "term being eliminated" matching exactly). Case 1 with arity `> 0` and
-case 3 are deferred (see below).
+and "term being eliminated" matching exactly). A follow-up pass (below)
+extends case 1 to arity `n > 0`, scoped to `def` quantifier-free and every
+occurrence of `f` applied to closed/ground arguments — the shape actually
+produced by `reduce_args_simplifier.cpp` (see the sibling
+`LEIBNIZ_SIMPLIFIER_REPORT.md` for the unrelated `leibniz_simplifier.cpp`
+formalization). Case 1's fully general binder-crossing sub-case, and case
+3, remain deferred (see below).
 
 ## Model
 
@@ -95,7 +100,87 @@ New in `Z3ModelReconstructionTheory.fst`:
   iterates the trail — reconstructs a model of the fully original,
   pre-simplification problem from a model of the final simplified one.
 
-### A subtlety the proof had to get right
+### Follow-up pass: arity-`n` definitions (`reduce_args_simplifier.cpp`)
+
+`reduce_args_simplifier.cpp` is an Ackermann-style arity-reduction
+simplifier: it replaces each application of `f` (arity `n > 0`) with a
+fresh arity-0 constant, recording the original `f` together with a
+`def` built from nested `ite`/equality chains over the distinct
+"unique value" argument tuples seen during the run, and schedules that
+`def` as an `is_def()` trail entry of `f`'s *original* arity — exactly
+the deferred row-3 case above, but under two restrictions that hold
+for every definition this simplifier (and `propagate_values.cpp`-style
+sites) actually produces: `def` is quantifier-free, and `f` is only
+ever applied, throughout the host formula, to closed/ground argument
+expressions (no occurrence of `f` depends on an enclosing quantifier's
+own bound variable). These two restrictions are exactly what sidesteps
+needing general capture-avoiding/de-Bruijn-shifting substitution:
+`def` never needs internal reindexing (no binders inside it to cross),
+and the arguments substituted in for its formals are always insertable
+at any depth unchanged (closed terms don't care about depth, the same
+principle already used for `lemma_closed_eval_env_irrelevant`).
+
+New in `Z3ModelReconstructionTheory.fst` for this case:
+
+- `no_quantifier`/`no_quantifier_args`: `def` contains no `Quantifier`
+  node at all (syntactic side-condition capturing the restriction
+  above).
+- `inst subs def`/`inst_list subs args`: depth-0 flat substitution,
+  replacing `def`'s `Var idx _` formal-parameter references with
+  `subs`'s corresponding expressions — sound only because
+  `no_quantifier def` means `inst` never has to cross a binder.
+  `lemma_inst_eval`/`lemma_inst_eval_defargs` is the
+  substitution-evaluation commutation theorem (`eval i (inst subs def)
+  rho == eval i def (shift (eval_args i subs rho) rho)`), and
+  `lemma_inst_closed`/`lemma_inst_closed_defargs` shows `inst`'s result
+  is always absolutely closed given closed `subs`.
+- `only_closed_f_args`/`only_closed_f_args_args`: the "every occurrence
+  of `f` is applied to closed arguments" side-condition on the host
+  expression `e`, recursively, at any nesting depth (including under
+  `e`'s own quantifiers).
+- `expand_macro`/`expand_macro_args`: the syntactic "eliminate `f`"
+  rewrite itself, recursively replacing every `App f args` (args
+  themselves first recursively expanded, bottom-up) with `inst
+  args' def` — the arity-`n` counterpart of `Z3SimplifierTheory.subst`,
+  specialized to this one-symbol/function-macro shape.
+  `lemma_closed_at_monotone`/`lemma_expand_macro_closed`(`_args`) show
+  `expand_macro` preserves closedness at any ambient quantifier depth
+  (needed for nested `f`-occurrences inside another occurrence's own
+  arguments, or beneath `e`'s own quantifiers, to still meet
+  `lemma_inst_eval`'s closedness hypothesis once their own arguments
+  have been expanded).
+- `macro_interp_n i0 def rho0`: the arity-`n` generalization of
+  `macro_interp` — unlike the arity-0 version (which ignores its
+  argument list entirely, since it is always `[]`), this closure
+  genuinely uses its `list value` argument, binding `def`'s `n` formal
+  parameters to it via `shift`.
+- `lemma_model_reconstruction_n`/`lemma_model_reconstruction_n_args`:
+  the main theorem, generalizing `lemma_model_reconstruction` from
+  "eliminated constant" to "eliminated function of ground-argument
+  occurrences":
+  ```
+  eval (update_interp i0 f (macro_interp_n i0 def rho0)) e rho
+    == eval i0 (expand_macro f def e) rho
+  ```
+  under `no_quantifier def`, `closed_at n def` (`n = f`'s arity),
+  `wf e`, and `only_closed_f_args f e`. The proof reuses the same
+  `rho0`/`rho` two-environment-parameter discipline as the arity-0
+  case (`rho0` fixed throughout, seeding `macro_interp_n`; `rho` the
+  one actually shifted when recursing under `e`'s own quantifiers), for
+  the same function-extensionality reason, plus
+  `lemma_closed_eval_env_irrelevant` to bridge the "wrong" `rho0`-tail
+  of the extended model's lookup against the `rho`-tail of the direct
+  `inst`-based evaluation (both agree on the first `n` slots that
+  `closed_at n def` actually lets `def` see).
+
+The genuinely excluded sub-case — `f` applied to an argument that
+itself depends on an *enclosing* quantifier's own bound variable, e.g.
+`forall x. f(x, g(x))` — is not produced by `reduce_args_simplifier.cpp`
+or `propagate_values.cpp`-style call sites (both only ever introduce
+`is_def()` entries for closed/ground occurrences) and remains deferred,
+narrowed down from "all arity `> 0`" to just this one sub-case.
+
+## A subtlety the proof had to get right
 
 An initial attempt built the extended interpretation `i1` once at the top
 of the induction using the *same* environment variable that also gets
@@ -118,25 +203,28 @@ any need for function extensionality.
 |---|---|---|---|---|
 | 1 | `is_subst()` (`expr_replacer`, ground substitution) | reconstructing a model by inverting a closed-term-for-closed-term substitution | `Z3SimplifierTheory.lemma_subst_cong` (already proved; applies directly) | ✅ |
 | 2 | `is_def()`, arity 0 (`macro_replacer`, eliminated constant) | extending a model of the simplified problem by assigning the eliminated constant's definition reconstructs a model of the original problem | `lemma_model_reconstruction`, `lemma_model_reconstruction_args` | ✅ |
-| 3 | `is_def()`, arity > 0 (eliminated function symbol with formal parameters) | same, generalized to functions: requires De Bruijn-index shifting of `def` when inlined under nested binders (`f(t1,...,tn)` occurring under a quantifier needs `def`'s formal-parameter references renumbered relative to that quantifier's own bound variables) | — | ❌ deferred |
+| 3 | `is_def()`, arity > 0, `def` quantifier-free and every `f`-occurrence's arguments closed (`reduce_args_simplifier.cpp`'s actual shape) | same, generalized to functions whose occurrences are always ground-applied | `lemma_model_reconstruction_n`, `lemma_model_reconstruction_n_args` | ✅ |
+| 3' | `is_def()`, arity > 0, `f` applied to an argument depending on an enclosing quantifier's own bound variable (e.g. `forall x. f(x, g(x))`) | same, fully general (needs capture-avoiding/de-Bruijn-shifting substitution of `def` under binders) | — | ❌ deferred |
 | 4 | "loose" entries (`is_loose_subst()`/`is_loose_constraint()`/general) | correctness of *re-inserting* a removed formula instead of extending the model, when its free variables become newly relevant during replay | — | ❌ deferred |
 | 5 | `hide_trail` entries | a hidden symbol must not be reported in the externally-visible model | — | ❌ deferred (no semantic content beyond "don't report `f`"; not a soundness-relevant rewrite) |
-| 6 | `get_model_converter`/`append`'s chaining of successive trail entries into one `generic_model_converter` | composing `lemma_model_reconstruction` along a whole trail (a `list` of `(f, def)` pairs applied in sequence) reconstructs a model for the whole original problem | — | ❌ deferred (a straightforward `List.Tot.fold`-style iteration of the single-entry lemma already proved; not yet spelled out as its own lemma) |
+| 6 | `get_model_converter`/`append`'s chaining of successive trail entries into one `generic_model_converter` | composing `lemma_model_reconstruction`/`lemma_model_reconstruction_n` along a whole trail (a `list` of `(f, def)` pairs applied in sequence) reconstructs a model for the whole original problem | — | ❌ deferred (a straightforward `List.Tot.fold`-style iteration of the single-entry lemmas already proved; not yet spelled out as its own lemma) |
 
-2/6 rows covered (the two that matter most in practice: the already-proved
-ground-substitution case, and the new arity-0 definition case), zero
-`admit`/`assume`.
+3/7 rows covered (the ground-substitution case, the arity-0 definition
+case, and now the arity-`n`-with-ground-occurrences definition case —
+together the shapes actually produced by every `.cpp` simplifier site
+surveyed so far), zero `admit`/`assume`.
 
 ## Not covered (deferred, documented for a later follow-up pass)
 
-- **Arity-`n > 0` macro definitions** (row 3): the real soundness content
-  generalizing `lemma_model_reconstruction` is unchanged (evaluate `def`
-  with formals bound to actuals, under the model built so far), but
-  *stating* it precisely requires a capture-avoiding "instantiate formals
-  `Var 0..n-1` with the actual argument expressions, shifting any of
-  `def`'s own de Bruijn indices that cross a binder" operation — a small
-  but real additional piece of substitution machinery beyond what
-  `Z3SimplifierTheory.subst`'s ground, non-shifting substitution provides.
+- **Binder-crossing arity-`n` occurrences** (row 3'): the real
+  soundness content is unchanged from row 3 (evaluate `def` with
+  formals bound to actuals, under the model built so far), but
+  *stating* it precisely for arguments that themselves reference an
+  enclosing quantifier's bound variables requires a capture-avoiding
+  "instantiate formals, shifting any of the substituted argument's own
+  de Bruijn indices that cross a binder" operation — real additional
+  substitution machinery beyond what `inst`'s depth-0, no-shift
+  substitution provides. Not produced by any surveyed `.cpp` site.
 - **Loose re-insertion entries** (row 4): this is a *scheduling* soundness
   argument ("is it still safe to treat this symbol as fully eliminated, or
   must the original constraint be re-examined because a newly-visible
