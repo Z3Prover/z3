@@ -34,25 +34,38 @@ C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe Z3S
 
 ## Coverage by function
 
-| `seq_eq_solver.cpp` function | Lines | Lemma(s) in `Z3SeqEqSolver.fst` | Not covered |
-|---|---|---|---|
-| `branch_variable_eq` / `find_branch_candidate` | 797-910 | `lemma_branch_variable_eq_characterization` (+ helpers `lemma_concat_prefix_decompose`, `lemma_take_concat_self`, `lemma_drop_concat_self`) | the "occurs check" early exit (`if (l == rs.get(j)) return false;`) is a syntactic self-reference/search-pruning optimization over *terms*, not a fact about sequences |
-| `len_based_split` | 128-243 | `lemma_concat_eq_same_len_prefix` (offset = 0 case), `lemma_len_based_split_offset_pos` (offset > 0 case; offset < 0 is the same lemma with `(x11,x12)`/`(y11,y12)` swapped, by symmetry) | — |
-| `has_len_offset` | 128-160 | not covered | purely an egraph lookup (`m_offset_eq`) for a length relationship already established elsewhere; no new soundness content beyond what `len_based_split` already covers |
-| `branch_variable` / `branch_variable_mb` | 244-306 | not covered | solver-level dispatch/heuristic scheduling (which rule to try, in what order); no independent soundness content |
-| `is_complex` | 307-329 | not covered | a heuristic predicate (variable-count threshold) selecting when a rule applies, not a soundness question |
-| `split_lengths` | 330-421 | not covered | a length-arithmetic case split (`Xa = bYc` decomposition driven by model length values) layered on top of the same prefix facts as `len_based_split`; not yet restated as its own lemma |
-| `branch_ternary_variable[_rhs/_lhs]` / `branch_quat_variable` / `can_align_from_lhs`/`can_align_from_rhs` / `mk_alignment` | 513-796 | not covered | solving `x1 ++ xs ++ x2 = y1 ++ ys ++ y2` for two interior unit-pieces needs a Fine-and-Wilf-style "can two local windows overlap" theory, substantially more machinery than the prefix/length facts above |
-| `can_be_equal` | 910-934 | not covered | a cheap *necessary* (not sufficient) syntactic pruning test over terms that may contain unresolved variables (`m.are_distinct`/`m.are_equal`); needs a two-sorted ground/variable term model, not just `seq a` |
-| `assume_equality` / `add_consequence` | 92-107, 935-970 | not covered | solver plumbing (literal/clause bookkeeping), not an independent soundness claim |
-| `propagate_length_coherence` | 971-1027 | `lemma_propagate_length_coherence_hi_eq_lo`, `lemma_propagate_length_coherence_hi_gt_lo` (+ `lemma_propagate_length_coherence_buggy_counterexample`, a historical-soundness-bug case study — see below) | the Parikh-vector bookkeeping (`elems`/`xs` accounting) feeding the guard literal `low` itself is not restated, only the two downstream upper-bound clauses it guards |
-| `check_length_coherence[0]` / `check_parikh` | 1028-1135 | not covered | Parikh-vector and length-arithmetic reasoning integrating with `theory_arith`; out of scope for a `seq a`-only development |
-| `reduce_length_eq` / `is_unit_eq` | 1136-1184 | not covered | syntactic dispatch/fast-path detection, not a soundness question |
-| `solve_nth_eq` | 1185-1254 | not covered | nth-decomposition heuristic tied to the egraph |
-| `find_better_rep` / `find_fst_non_empty_idx` / `find_fst_non_empty_var` | 1255-end | not covered | representative-selection heuristics, not sequence-level soundness questions |
-| `branch_unit_variable` | 498-512 | not covered | delegates entirely to the separate `seq::eq_solver` class (`m_eq.branch`), not defined in this file |
+This table lists every site in `seq_eq_solver.cpp` that generates a
+theory axiom/clause (`add_axiom`), a propagation (`propagate_lit`/
+`propagate_eq`/`propagate_is_conc`), a new equation fed back into the
+solver (`m_eqs.push_back`/`add_solution`), or a branching hint
+(`assume_equality`), together with its verification status.
 
-All lemmas above compile with **zero `admit`/`assume`**.
+| `seq_eq_solver.cpp` function | Lines | Verified? | Lemma(s) / rationale |
+|---|---|---|---|
+| `branch_variable_eq` / `find_branch_candidate` | 797-910 | ✅ | `lemma_branch_variable_eq_characterization` (+ helpers `lemma_concat_prefix_decompose`, `lemma_take_concat_self`, `lemma_drop_concat_self`) |
+| `len_based_split` | 128-243 | ✅ | `lemma_concat_eq_same_len_prefix` (offset = 0), `lemma_len_based_split_offset_pos` (offset > 0; offset < 0 by symmetry) |
+| `propagate_length_coherence` | 971-1027 | ✅ | `lemma_propagate_length_coherence_decompose` (main linking clause), `lemma_propagate_length_coherence_hi_eq_lo`/`hi_gt_lo` (guarded upper-bound clauses); see also the soundness-bug case study below |
+| `check_length_coherence` (the `lo = 1` fallback) | 1036-1043 | ✅ | `lemma_check_length_coherence_decompose` |
+| `set_empty` (theory_seq.cpp helper, called from `split_lengths`) | — | ✅ | `lemma_len_zero_is_empty` |
+| `branch_binary_variable` | 459-490 | ✅ | length-difference propagation: `lemma_len_concat_eq_diff`; the `|x| > |ys|` Skolem split: instance of `lemma_len_based_split_offset_pos` (no new lemma) |
+| `split_lengths` | 330-416 | ✅ | unit-`Y` case: instance of `lemma_concat_eq_same_len_prefix`; general case: `lemma_split_lengths_decompose` (+ new helper `lemma_take_all`) |
+| `solve_nth_eq` | 1185-1221 | ✅ | instance of `at_axiom`/`nth_axiom`'s decomposition, already proved in `Z3SeqAxioms.fst` (`lemma_at_decompose`, `lemma_nth_axiom_sound`); no new lemma needed |
+| `assume_equality` (and its call sites in `propagate_length_coherence`, `check_length_coherence0`, `branch_variable_eq`) | 935-970 | N/A | *not* an axiom: calls `ctx.assume_eq`, a branching hint the SAT core may still backtrack, so it carries no soundness obligation |
+| `branch_variable_mb`'s `propagate_eq(lnl, lnr)` | 300 | N/A (trivial) | `len(concat ls) == len(concat rs)` given `concat ls == concat rs`: trivial congruence of `len`, not restated as a lemma |
+| `has_len_offset` | 128-160 | ❌ | purely an egraph lookup (`m_offset_eq`) for a length relationship already established elsewhere; no new soundness content |
+| `branch_variable` / `branch_variable_mb` (dispatch) | 244-306 | ❌ | solver-level scheduling (which rule to try, in what order); no independent soundness content |
+| `is_complex` | 307-329 | ❌ | heuristic predicate (variable-count threshold), not a soundness question |
+| `branch_ternary_variable[_rhs/_lhs]` / `branch_quat_variable` / `can_align_from_lhs`/`can_align_from_rhs` / `mk_alignment` | 513-796 | ❌ | solving `x1 ++ xs ++ x2 = y1 ++ ys ++ y2` for two interior unit-pieces needs a Fine-and-Wilf-style "can two local windows overlap" theory, substantially more machinery than the prefix/length facts above |
+| `can_be_equal` | 910-934 | ❌ | a cheap *necessary* (not sufficient) syntactic pruning test over terms that may contain unresolved variables (`m.are_distinct`/`m.are_equal`); needs a two-sorted ground/variable term model, not just `seq a` |
+| the "occurs check" early exit in `find_branch_candidate` | ~870 | ❌ | a syntactic self-reference/search-pruning optimization over *terms*, not a fact about sequences |
+| `add_consequence` | 92-107 | ❌ | generic clause-emission plumbing (linearizes dependencies into literals); not an independent soundness claim beyond its caller's own justification |
+| `check_parikh` | 1071-1105 | ❌ | Parikh-vector encoding that integrates with `theory_arith`; out of scope for a `seq a`-only development |
+| `reduce_length_eq` / `is_unit_eq` | 1136-1184 | ❌ | syntactic dispatch/fast-path detection; `reduce_length_eq`'s 3-argument workhorse isn't even defined in this file |
+| `find_better_rep` | 1259-1310ish (`#if 0`) | ❌ (dead code) | disabled in the source (`#if 0`); not currently compiled or executable |
+| `find_fst_non_empty_idx` / `find_fst_non_empty_var` | ~1310-end | ❌ | representative-selection heuristics tied to the egraph, not sequence-level soundness questions |
+| `branch_unit_variable` | 498-512 | ❌ | delegates entirely to the separate `seq::eq_solver` class (`m_eq.branch`), not defined in this file |
+
+All ✅ lemmas above compile with **zero `admit`/`assume`**.
 
 ## Case study: a found-and-confirmed soundness bug (`propagate_length_coherence`)
 
@@ -94,26 +107,45 @@ for the nullability soundness bug found in `info::diff` during the
 
 ## Summary
 
-The two case-split rules with the cleanest purely-`seq a`-level
-combinatorial justification -- `branch_variable_eq`'s prefix-guessing
-search and `len_based_split`'s length-aligned decomposition -- are now
-formalized and proved sound and complete against the `seq a` ground
-truth, reusing `Z3SeqRewrites.fst`/`Z3SeqAxioms.fst`'s existing
-take/drop/concat lemmas plus two new small building blocks
+Every site in `seq_eq_solver.cpp` that generates a theory axiom,
+propagation, or new equation is now accounted for. The rules with a
+clean, purely `seq a`-level combinatorial or arithmetic justification
+-- `branch_variable_eq`'s prefix-guessing search, `len_based_split`'s
+length-aligned decomposition, `propagate_length_coherence`'s linking
+and upper-bound clauses, `check_length_coherence`'s single-element
+fallback, `set_empty`, `branch_binary_variable`'s length-difference
+propagation and Skolem split, `split_lengths`'s decomposition, and
+`solve_nth_eq` -- are all formalized and proved sound, reusing
+`Z3SeqRewrites.fst`/`Z3SeqAxioms.fst`'s existing take/drop/concat
+lemmas plus a handful of new small building blocks
 (`lemma_take_concat_self`/`lemma_drop_concat_self`/
-`lemma_take_concat_le`/`lemma_concat_left_cancel`). `propagate_length_
-coherence`'s two guarded upper-bound clauses are also formalized and
-proved sound, with a companion lemma confirming (via a concrete
-countermodel) that the pre-fix, unguarded version of one of those
-clauses -- a real soundness bug, issue #11013/PR #11015 -- was indeed
-not valid. The remaining rules
-in this file fall into three categories that are deliberately left
-unformalized: (1) rules needing a richer *overlap* theory
-(`branch_ternary_variable`/`branch_quat_variable`'s "can two local
-windows of a word equation overlap" reasoning -- a Fine-and-Wilf-style
-development, substantially more work than what's here), (2) rules
-needing a two-sorted *term* model distinguishing ground pieces from
-unresolved variables (`can_be_equal`'s pruning test, the occurs-check
-search optimization), and (3) solver plumbing and heuristics with no
-independent soundness content of their own (scheduling, representative
-selection, Parikh/length-arithmetic integration with `theory_arith`).
+`lemma_take_concat_le`/`lemma_concat_left_cancel`/`lemma_take_all`/
+`lemma_len_concat_eq_diff`/`lemma_len_zero_is_empty`). Several of these
+sites turned out to be direct instances of lemmas already proved for a
+different function (`branch_binary_variable`'s Skolem split and
+`split_lengths`' unit-`Y` case reuse `len_based_split`'s lemmas;
+`solve_nth_eq` reuses `seq_axioms.cpp`'s `at_axiom`/`nth_axiom`
+decomposition from `Z3SeqAxioms.fst`), so no new lemma was needed for
+them. `propagate_length_coherence`'s formalization also doubles as a
+case study of a real, historical soundness bug (issue #11013/PR
+#11015): see above.
+
+One important non-soundness-claim clarification: `assume_equality`
+(and its several call sites) is *not* an axiom or propagation at all
+-- it calls `ctx.assume_eq`, which only suggests a branch for the SAT
+core's decision procedure to explore and which the solver remains free
+to backtrack from. It therefore carries no soundness obligation, unlike
+`add_axiom`/`propagate_lit`/`propagate_eq`, which assert hard,
+irrevocable consequences.
+
+The remaining rules in this file fall into three categories that are
+deliberately left unformalized: (1) rules needing a richer *overlap*
+theory (`branch_ternary_variable`/`branch_quat_variable`'s "can two
+local windows of a word equation overlap" reasoning -- a
+Fine-and-Wilf-style development, substantially more work than what's
+here), (2) rules needing a two-sorted *term* model distinguishing
+ground pieces from unresolved variables (`can_be_equal`'s pruning
+test, the occurs-check search optimization), and (3) solver plumbing
+and heuristics with no independent soundness content of their own
+(scheduling, representative selection, dead code, Parikh/
+length-arithmetic integration with `theory_arith`).
