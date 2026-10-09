@@ -20,6 +20,8 @@ Author:
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 namespace seq {
 
@@ -169,7 +171,14 @@ namespace seq {
         model_ref md = m_model;
         if (!md && !m_solver.get_model(md))
             return false;
-        return a.is_numeral((*md)(e), v);
+        expr_ref r = (*md)(e);
+        expr_safe_replace sub(m);
+        expr* x, *y;
+        for (expr* t : subterms::all(r))
+            if (m.is_eq(t, x, y) && x != y && m.is_value(x) && m.is_value(y) && (m.is_model_value(x) || m.is_model_value(y)))
+                sub.insert(t, m.mk_false());
+        sub(r);
+        return a.is_numeral((*md)(r), v);
     }
 
     lbool solver_facet::implies(expr* c, eq_tree::dep_tracker* core) const {
