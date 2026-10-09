@@ -60,6 +60,7 @@ module Z3ProofJustifications
 
 open Z3AstTheory
 open Z3ProofTheory
+module Classical = FStar.Classical
 
 (* ----------------------------------------------------------------- *)
 (* Structural recognizers, keyed by `decl_name` (same style as         *)
@@ -144,14 +145,23 @@ let rec blit_eval (v:expr -> bool) (e:expr) : Tot bool (decreases e) =
        else if f.decl_name = "=" then blit_eval v a = blit_eval v b
        else if f.decl_name = "~" then blit_eval v a = blit_eval v b
        else if f.decl_name = "or" then bclause_eval v args
+       else if f.decl_name = "and" then band_eval v args
        else v e
-     | _ -> if f.decl_name = "or" then bclause_eval v args else v e)
+     | _ ->
+       if f.decl_name = "or" then bclause_eval v args
+       else if f.decl_name = "and" then band_eval v args
+       else v e)
   | _ -> v e
 
 and bclause_eval (v:expr -> bool) (lits:list expr) : Tot bool (decreases lits) =
   match lits with
   | [] -> false
   | l :: lits' -> blit_eval v l || bclause_eval v lits'
+
+and band_eval (v:expr -> bool) (lits:list expr) : Tot bool (decreases lits) =
+  match lits with
+  | [] -> true
+  | l :: lits' -> blit_eval v l && band_eval v lits'
 
 (* `is_complement n1 n2` is sound: complementary literals always take
    opposite truth values, for every atom valuation. This is the one
@@ -290,3 +300,64 @@ let lemma_mp_reflexivity_shortcut (v:expr -> bool) (f1 t:expr)
   : Lemma (requires f1 = t /\ blit_eval v f1)
           (ensures blit_eval v t)
   = ()
+
+(* ----------------------------------------------------------------- *)
+(* `PR_AND_ELIM` / `PR_NOT_OR_ELIM`                                     *)
+(* ----------------------------------------------------------------- *)
+
+(* Unlike `PR_TH_LEMMA`/`PR_DEF_AXIOM`/`PR_QUANT_INST` (trusted leaves
+   with no checked semantic content -- `check1_basic` accepts any
+   well-typed fact), `PR_AND_ELIM` (proof_checker.cpp:386-396) and
+   `PR_NOT_OR_ELIM` (proof_checker.cpp:397-412) have real, checked
+   acceptance conditions: a structural membership test. Both are used
+   by clausification/CNF-conversion code (`nnf.cpp`,
+   `asserted_formulas.cpp`) and are genuine propositional inference
+   rules, so -- like `PR_MODUS_PONENS`/`PR_UNIT_RESOLUTION` above --
+   they are proved fully semantically sound here, reusing the same
+   `blit_eval` two-valued model (now extended with `and`, via
+   `band_eval`). *)
+
+(* `check1_basic`'s `PR_AND_ELIM` case: `p1` proves `(and t1 .. tn)`;
+   `p` may conclude any `fact` that is literally one of the `ti`
+   (`for (expr* t : terms) if (t == fact) return true;`). Semantically:
+   a conjunction holding means every conjunct holds. *)
+let rec lemma_band_eval_mem_sound (v:expr -> bool) (lits:list expr) (fact:expr)
+  : Lemma (requires band_eval v lits /\ List.Tot.memP fact lits)
+          (ensures blit_eval v fact)
+          (decreases lits)
+  = match lits with
+    | [] -> ()
+    | l :: lits' -> if l = fact then () else lemma_band_eval_mem_sound v lits' fact
+
+let lemma_and_elim_sound (v:expr -> bool) (terms:list expr) (fact:expr)
+  : Lemma (requires band_eval v terms /\ List.Tot.memP fact terms)
+          (ensures blit_eval v fact)
+  = lemma_band_eval_mem_sound v terms fact
+
+(* `check1_basic`'s `PR_NOT_OR_ELIM` case: `p1` proves
+   `(not (or t1 .. tn))`; `p` may conclude any `fact` such that
+   `match_negated(ti, fact)` holds for some `ti` -- exactly this
+   file's `is_complement` (both check "one side is the structural
+   negation of the other"). Semantically: `not (or t1 .. tn)` holding
+   means every `ti` is false, so `ti`'s complement (`fact`) is true,
+   by `lemma_is_complement_sound`. *)
+let rec lemma_bclause_eval_false_mem_sound (v:expr -> bool) (lits:list expr) (t:expr)
+  : Lemma (requires ~(bclause_eval v lits) /\ List.Tot.memP t lits)
+          (ensures ~(blit_eval v t))
+          (decreases lits)
+  = match lits with
+    | [] -> ()
+    | l :: lits' -> if l = t then () else lemma_bclause_eval_false_mem_sound v lits' t
+
+let lemma_not_or_elim_sound (v:expr -> bool) (terms:list expr) (fact:expr)
+  : Lemma (requires ~(bclause_eval v terms) /\
+                    (exists (t:expr). List.Tot.memP t terms /\ is_complement t fact))
+          (ensures blit_eval v fact)
+  = Classical.exists_elim (blit_eval v fact)
+      #expr
+      #(fun t -> List.Tot.memP t terms /\ is_complement t fact)
+      ()
+      (fun t ->
+        lemma_bclause_eval_false_mem_sound v terms t;
+        lemma_is_complement_sound v t fact)
+

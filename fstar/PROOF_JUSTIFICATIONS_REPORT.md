@@ -1,4 +1,4 @@
-# Proof justifications audit: `smt_justification.cpp`'s `PR_MODUS_PONENS`/`PR_UNIT_RESOLUTION`
+# Proof justifications audit: `smt_justification.cpp`'s `PR_MODUS_PONENS`/`PR_UNIT_RESOLUTION`, and `PR_AND_ELIM`/`PR_NOT_OR_ELIM`
 
 ## Scope
 
@@ -13,6 +13,11 @@ exclusively — `ast_manager::mk_modus_ponens` (`PR_MODUS_PONENS`/
 (`PR_UNIT_RESOLUTION`) — and proves them *semantically* sound (not
 just well-formed), since both are purely propositional inference rules
 whose validity does not depend on which theory the literals come from.
+It additionally covers two further propositional elimination rules
+used by CNF-conversion/clausification code (`PR_AND_ELIM`/
+`PR_NOT_OR_ELIM`), selected because — unlike most of the remaining
+proof kinds surveyed below — `check1_basic` gives them real, checked
+semantic content rather than accepting any well-typed fact outright.
 
 New file: **`Z3ProofJustifications.fst`** (builds on `Z3ProofTheory.fst`
 and `Z3AstTheory.fst`). Zero `admit`/`assume`.
@@ -26,11 +31,11 @@ instead combine arbitrary Boolean facts (an implication's consequent,
 a clause's residual literal disjunction), so they don't fit that
 type. Rather than generalize `Z3ProofTheory.fst`'s representation
 (a large, invasive change), this file works directly over a small,
-self-contained propositional sub-language (`not`/`or`/`implies`/`=`/`~`
-(`oeq`)/`true`/`false` applied to opaque `expr` atoms) with a concrete
-two-valued semantics, `blit_eval`/`bclause_eval` — the same scope
-restriction `BOOL_ARITH_REWRITER_REPORT.md` uses for its own
-closed-form `bool`/`int` lemmas. Atoms are assigned truth by an
+self-contained propositional sub-language (`not`/`and`/`or`/`implies`/
+`=`/`~` (`oeq`)/`true`/`false` applied to opaque `expr` atoms) with a
+concrete two-valued semantics, `blit_eval`/`bclause_eval`/`band_eval`
+— the same scope restriction `BOOL_ARITH_REWRITER_REPORT.md` uses for
+its own closed-form `bool`/`int` lemmas. Atoms are assigned truth by an
 arbitrary, uninterpreted `v : expr -> bool`, standing in for
 `Z3AstTheory.fst`'s richer `eval i e rho : value`; every lemma below
 is universally quantified over `v`, so nothing depends on a particular
@@ -47,10 +52,13 @@ choice of atom valuation.
 | `mk_modus_ponens`, `is_eq(f2)` case | `lemma_mp_eq_sound` | ✅ (treated as iff, matching `is_iff`'s Bool-sort guard) |
 | `mk_modus_ponens`, `is_oeq(f2)` case | `lemma_mp_oeq_sound` | ✅ |
 | `mk_modus_ponens`'s `is_reflexivity(p2)` short-circuit (ast.cpp:2764) | `lemma_mp_reflexivity_shortcut` | ✅ shown as a direct corollary of `lemma_mp_eq_sound` at `t1 = t2` |
+| `check1_basic`'s `PR_AND_ELIM` case (proof_checker.cpp:386-396): membership test on a conjunction's conjuncts | `lemma_and_elim_sound` (via `lemma_band_eval_mem_sound`) | ✅ a true conjunction makes every one of its conjuncts true |
+| `check1_basic`'s `PR_NOT_OR_ELIM` case (proof_checker.cpp:397-412): `match_negated` membership test on a negated disjunction's disjuncts | `lemma_not_or_elim_sound` (via `lemma_bclause_eval_false_mem_sound`) | ✅ a false disjunction makes every one of its disjuncts false, hence every disjunct's complement true |
 
-7/7 target properties proved.
 
-## `smt_justification.cpp` call-site mapping
+9/9 target properties proved.
+
+## `smt_justification.cpp`/CNF-conversion call-site mapping
 
 | Function | Combinators used | Covered by |
 |---|---|---|
@@ -59,6 +67,7 @@ choice of atom valuation.
 | `eq_root_propagation_justification::mk_proof` | `mk_rewrite` + `mk_modus_ponens` | `lemma_mp_eq_sound` |
 | `mp_iff_justification::mk_proof` | `mk_symmetry`/`mk_congruence` (already covered) composed with `mk_modus_ponens` | `lemma_mp_eq_sound` / `lemma_mp_implies_sound` depending on `l.sign()` |
 | `theory_axiom_justification`, `theory_propagation_justification`, `theory_conflict_justification`, `ext_*_justification`, `theory_lemma_justification` | `mk_th_lemma` only | **Not covered** — see below |
+| CNF-conversion/clausification sites building `mk_and_elim`/`mk_not_or_elim` (e.g. `nnf.cpp`, `asserted_formulas.cpp`) | `ast_manager::mk_and_elim`, `ast_manager::mk_not_or_elim` | `lemma_and_elim_sound`, `lemma_not_or_elim_sound` |
 
 ## Not yet covered (deferred)
 
@@ -74,9 +83,24 @@ choice of atom valuation.
   out of scope for the same reason — there is no generic combinator
   here to verify, only theory-specific lemma content (already the
   subject of the `SEQ_EQ_SOLVER_REPORT.md`-style per-theory audits).
-- **`PR_HYPER_RESOLVE`**, **`PR_QUANT_INST`**, **`PR_SKOLEMIZE`**: used
-  elsewhere (quantifier instantiation / Skolemization, not in
-  `smt_justification.cpp`), not modeled by this file.
+- **`PR_HYPER_RESOLVE`**: a strict generalization of `PR_UNIT_RESOLUTION`
+  to multiple clause premises simultaneously, used only by the Datalog/
+  PDR/Spacer engine (`src/muz/**`) and `ast/proofs/proof_utils.cpp`,
+  not `smt_justification.cpp`. Deferred: beyond positional/substitution
+  bookkeeping (quantifier instantiation at each premise), even
+  `check1_basic`'s own check (proof_checker.cpp:775-830) does not fully
+  self-validate it -- it builds an `iff` side condition and defers its
+  truth to an external decision procedure rather than checking it
+  inline, making a faithful formalization substantially larger in
+  scope than the combinators covered here.
+- **`PR_QUANT_INST`**, **`PR_SKOLEMIZE`**, **`PR_DEF_AXIOM`**,
+  **`PR_NNF_POS`/`PR_NNF_NEG`**: per `check1_basic`
+  (proof_checker.cpp:671-680, 719-726, 771-774), these are either
+  entirely trusted (`PR_DEF_AXIOM`/`PR_NNF_POS`/`PR_NNF_NEG`/
+  `PR_QUANT_INST` all unconditionally `return true` for any well-typed
+  fact — explicitly marked `// TBD` in two of these cases in the C++
+  source) or only partially checked (`PR_SKOLEMIZE`). None have
+  non-trivial semantic content to formalize against today's checker.
 - The `ast_mark`-based clause-literal de-duplication in the real
   `mk_unit_resolution` (an allocation optimization with no semantic
   effect, since `bclause_eval`'s `||` is idempotent on repeated
