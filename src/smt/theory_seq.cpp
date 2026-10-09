@@ -2311,10 +2311,8 @@ app* theory_seq::mk_value(expr* e) {
             if (m_util.str.is_string(fresh, s) && lower_bound2(e, lo) && lo.is_pos() &&
                 lo.is_unsigned() && lo.get_unsigned() <= max_pad && rational(s.length()) < lo) {
                 std::string padded = s.encode();
-                unsigned need = lo.get_unsigned();
-                while (padded.length() < need)
-                    padded += "a";
-                fresh = m_util.str.mk_string(zstring(padded.c_str()));
+                padded.resize(lo.get_unsigned(), 'a');
+                fresh = m_util.str.mk_string(zstring(padded));
             }
             result = fresh;
         }
