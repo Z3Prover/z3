@@ -305,6 +305,7 @@ namespace opt {
         lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);        
         lbool execute_maxsat(symbol const& s, bool committed, bool scoped);
         lbool execute_lex();
+        lbool execute_lex_after_unbounded(unsigned unbounded_index);
         lbool execute_box();
         lbool execute_pareto();
         solver* mk_pareto_solver();
