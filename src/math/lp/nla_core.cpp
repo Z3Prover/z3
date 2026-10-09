@@ -930,6 +930,7 @@ lbool core::check_transcendentals_and_finish() {
             // flag so the rest of the solver keeps reading the
             // ordinary LP assignment.
             set_use_nra_model(false);
+            return l_undef;
         }
         else {
             // bounded_nlsat gave up (resource limit) rather than

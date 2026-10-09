@@ -75,6 +75,7 @@ Notes:
 #include "opt/maxcore.h"
 #include "opt/totalizer.h"
 #include <iostream>
+#include <tuple>
 
 using namespace opt;
 
@@ -563,7 +564,10 @@ public:
             expr_ref s(e, m);
             soft.push_back({s, tt, tt, w});
         }
-        std::sort(soft.begin(), soft.end(), [](auto const &a, auto const &b) { return a.weight > b.weight; });
+        std::sort(soft.begin(), soft.end(), [](auto const &a, auto const &b) {
+            return std::tuple<rational const&, unsigned>{a.weight, a.soft->get_id()} >
+                   std::tuple<rational const&, unsigned>{b.weight, b.soft->get_id()};
+        });
         remove_soft(core, m_asms);
         expr_ref fml(m), conj(m), disj(m), c(m), a(m);
         IF_VERBOSE(2, verbose_stream() << "(opt.maxresw core weights:";

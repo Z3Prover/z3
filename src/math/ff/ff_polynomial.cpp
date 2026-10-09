@@ -112,7 +112,7 @@ namespace ff {
         // Booleanity and the no-wrap bound are essential premises.
         std::set<unsigned> bits;
         std::map<unsigned, rational> constants;
-        std::map<unsigned, std::set<unsigned>> bit_deps, constant_deps;
+        std::map<unsigned, v_dependency *> bit_deps, constant_deps;
         rational const &prime = p;
         for (auto const &f : eqs) {
             tick();
@@ -144,7 +144,7 @@ namespace ff {
                 tick();
                 rational lo(0), hi(0), offset(0);
                 std::vector<std::pair<unsigned, rational>> terms;
-                auto deps = f.dependencies;
+                v_dependency *support = f.dependencies;
                 bool valid = true;
                 for (auto const &[mon, coeff] : f) {
                     tick();
@@ -153,11 +153,11 @@ namespace ff {
                     unsigned v = mon[0];
                     if (constants.contains(v)) {
                         offset += coeff * constants.at(v);
-                        deps.insert(constant_deps.at(v).begin(), constant_deps.at(v).end());
+                        support = m_deps.mk_join(support, constant_deps.at(v));
                         continue;
                     }
                     if (!bits.contains(v)) { valid = false; break; }
-                    deps.insert(bit_deps.at(v).begin(), bit_deps.at(v).end());
+                    support = m_deps.mk_join(support, bit_deps.at(v));
                     rational c = coeff > div(p, rational(2)) ? coeff - p : coeff;
                     terms.emplace_back(v, c);
                     if (c.is_neg()) lo += c; else hi += c;
@@ -178,7 +178,7 @@ namespace ff {
                     if (zero && one) continue;
                     polynomial fact = !zero && !one ? constant(rational(1)) :
                         add(variable(v), constant(zero ? rational(0) : rational(-1)));
-                    fact.dependencies = deps;
+                    fact.dependencies = support;
                     facts.push_back(std::move(fact));
                     ++m_bound_facts;
                 }
@@ -238,16 +238,14 @@ namespace ff {
                     // Substitute a value justified by a retained equality;
                     // a pinned output may expose an otherwise hidden sum.
                     offset += coeff * it->second;
-                    auto const &used = constant_deps.at(v);
-                    premises.insert(used.begin(), used.end());
+                    premises = m_deps.mk_join(premises, constant_deps.at(v));
                     continue;
                 }
                 if (!bits.contains(v)) {
                     valid = false;
                     break;
                 }
-                auto const &used = bit_deps.at(v);
-                premises.insert(used.begin(), used.end());
+                premises = m_deps.mk_join(premises, bit_deps.at(v));
                 bool neg = coeff > div(prime, rational(2));
                 // c and -(p-c) denote the same field coefficient. Accept
                 // only signed powers of two, with one bit per position on
@@ -309,7 +307,7 @@ namespace ff {
             // The equation, used pins and participating digit domains suffice
             // for the no-wrap deduction. Unrelated equations are not premises.
             for (unsigned i = first; i < eqs.size(); ++i)
-                eqs[i].dependencies.insert(premises.begin(), premises.end());
+                eqs[i].dependencies = m_deps.mk_join(eqs[i].dependencies, premises);
         }
         unsigned added = eqs.size() - before_bounds;
         m_bit_facts += added;
@@ -320,7 +318,7 @@ namespace ff {
 
     void engine::split_consequences(std::vector<polynomial> &eqs) {
         if (work + 1 >= max_work) return;
-        engine probe(p, limit, std::min(50000u, (max_work - work) / 16), std::min(max_terms, 512u),
+        engine probe(m_deps, p, limit, std::min(50000u, (max_work - work) / 16), std::min(max_terms, 512u),
                      false, batch_enabled, false);
         configure_probe(probe);
         std::vector<polynomial> linear, nonlinear, facts;
@@ -392,7 +390,7 @@ namespace ff {
                 r = add(std::move(r), it->second.normal, -c);
                 relation = add(std::move(relation), it->second.relation, -c);
             }
-            relation.dependencies.insert(r.dependencies.begin(), r.dependencies.end());
+            relation.dependencies = m_deps.mk_join(relation.dependencies, r.dependencies);
             if (r.empty()) {
                 // The same row operations act on normal forms of 1,x,... and
                 // their formal powers. A zero row therefore witnesses an ideal
@@ -587,7 +585,7 @@ namespace ff {
         return f;
     }
     polynomial engine::add(polynomial a, polynomial const &b, rational const &c) {
-        a.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
+        a.dependencies = m_deps.mk_join(a.dependencies, b.dependencies);
         a.sugar = std::max(a.sugar, b.sugar);
         rational scalar = small_coefficients ? coefficient_residue(c) : c;
         for (auto const &[mon, coeff] : b)
@@ -608,7 +606,7 @@ namespace ff {
         // Merging preserves multiplicities, using commutativity but not x^2=x.
         polynomial out;
         out.dependencies = a.dependencies;
-        out.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
+        out.dependencies = m_deps.mk_join(out.dependencies, b.dependencies);
         out.sugar = a.sugar + b.sugar;
         for (auto const &[ma, ca] : a)
             for (auto const &[mb, cb] : b) {
@@ -749,7 +747,7 @@ namespace ff {
                 unsigned j = find_reducer(mon, q);
                 if (j == bs.size()) { add_term(rem, mon, coeff); continue; }
                 auto const &b = bs[j];
-                rem.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
+                rem.dependencies = m_deps.mk_join(rem.dependencies, b.dependencies);
                 rem.sugar = std::max(rem.sugar, b.sugar + static_cast<unsigned>(q.size()));
                 rational factor = coefficient_residue(-coeff * inverse(b.begin()->second));
                 polynomial tail;
@@ -775,7 +773,7 @@ namespace ff {
             }
             else {
                 auto const &b = bs[j];
-                rem.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
+                rem.dependencies = m_deps.mk_join(rem.dependencies, b.dependencies);
                 rem.sugar = std::max(rem.sugar, b.sugar + static_cast<unsigned>(q.size()));
                 if (fused_reduction) {
                     ++m_fused_reductions;
@@ -834,8 +832,10 @@ namespace ff {
             // tree-node links/alignment and
             // premise nodes. Coefficients are canonical <2^32 here; the term
             // allowance includes rational and small-integer backing storage.
+            // Dependency pointers join existing nodes in O(1); charge one
+            // join-node allowance rather than scanning the provenance DAG.
             charge(3, sizeof(polynomial));
-            charge(f.dependencies.size(), 64);
+            charge(f.dependencies ? 1 : 0, 64);
         };
         auto charge_term = [&](monomial const &mon) {
             charge(1, 128);
@@ -998,7 +998,7 @@ namespace ff {
         if (compact_matrix) {
             struct packed_row {
                 std::vector<std::pair<unsigned, uint64_t>> coefficients;
-                std::set<unsigned> dependencies;
+                v_dependency *dependencies = nullptr;
                 unsigned sugar = 0;
             };
             std::map<unsigned, packed_row> pivots;
@@ -1017,7 +1017,7 @@ namespace ff {
                     auto it = pivots.find(lead);
                     if (it == pivots.end()) break;
                     auto const &pivot = it->second;
-                    row.dependencies.insert(pivot.dependencies.begin(), pivot.dependencies.end());
+                    row.dependencies = m_deps.mk_join(row.dependencies, pivot.dependencies);
                     row.sugar = std::max(row.sugar, pivot.sugar);
                     std::vector<std::pair<unsigned, uint64_t>> next;
                     next.reserve(row.coefficients.size() + pivot.coefficients.size());
@@ -1055,12 +1055,13 @@ namespace ff {
                 }
                 // Bound allocated row capacity, not just live terms. A packed
                 // coefficient pair uses 16 bytes rather than an allocated tree
-                // node; provenance still uses tree nodes and is charged at 48.
+                // node; a dependency join is an O(1) node, charged once rather
+                // than by provenance-set size.
                 coefficient_bytes += 16 * row.coefficients.capacity();
-                dependency_bytes += 48 * row.dependencies.size();
+                dependency_bytes += row.dependencies ? 48 : 0;
                 m_peak_matrix_coefficient_bytes = std::max(m_peak_matrix_coefficient_bytes, coefficient_bytes);
                 m_peak_matrix_dependency_bytes = std::max(m_peak_matrix_dependency_bytes, dependency_bytes);
-                stored += 16 * row.coefficients.capacity() + 48 * row.dependencies.size();
+                stored += 16 * row.coefficients.capacity() + (row.dependencies ? 48 : 0);
                 if (stored > static_cast<size_t>(max_terms) * 64 * 48) {
                     ++m_matrix_pivot_exhaustions;
                     ++m_matrix_exhaustions; throw exhausted();
@@ -1073,7 +1074,7 @@ namespace ff {
         }
         struct sparse_row {
             std::map<unsigned, uint64_t> coefficients;
-            std::set<unsigned> dependencies;
+            v_dependency *dependencies = nullptr;
             unsigned sugar = 0;
         };
         std::map<unsigned, sparse_row> pivots;
@@ -1094,7 +1095,7 @@ namespace ff {
                 if (it == pivots.end())
                     break;
                 auto const &pivot = it->second;
-                row.dependencies.insert(pivot.dependencies.begin(), pivot.dependencies.end());
+                row.dependencies = m_deps.mk_join(row.dependencies, pivot.dependencies);
                 row.sugar = std::max(row.sugar, pivot.sugar);
                 for (auto const &[c, value] : pivot.coefficients) {
                     tick();
@@ -1136,12 +1137,13 @@ namespace ff {
             }
             // The existing tree-row budget counts coefficient and premise
             // nodes together. Report its two components at 48 bytes per node,
-            // matching the packed-row policy; these are estimates, not RSS.
+            // matching the packed-row policy; a dependency join is a single
+            // O(1) node rather than scaling with provenance-set size.
             coefficient_bytes += 48 * row.coefficients.size();
-            dependency_bytes += 48 * row.dependencies.size();
+            dependency_bytes += row.dependencies ? 48 : 0;
             m_peak_matrix_coefficient_bytes = std::max(m_peak_matrix_coefficient_bytes, coefficient_bytes);
             m_peak_matrix_dependency_bytes = std::max(m_peak_matrix_dependency_bytes, dependency_bytes);
-            stored += row.coefficients.size() + row.dependencies.size();
+            stored += row.coefficients.size() + (row.dependencies ? 1 : 0);
             if (stored > static_cast<size_t>(max_terms) * 64) {
                 ++m_matrix_pivot_exhaustions;
                 ++m_matrix_exhaustions;
@@ -1162,7 +1164,9 @@ namespace ff {
             size_t terms = 0, storage = 0;
             for (auto const &f : polys) {
                 terms += f.size();
-                storage += f.size() + f.dependencies.size();
+                // A dependency join is a single O(1) node regardless of how
+                // many leaves it reaches; charge one unit, not a leaf count.
+                storage += f.size() + (f.dependencies ? 1 : 0);
                 for (auto const &[mon, coefficient] : f)
                     storage += mon.size();
                 // Bound provenance and monomial storage as well as term count;
@@ -1172,13 +1176,27 @@ namespace ff {
             }
             return true;
         };
+        // Pointer identity does not establish dependency equality: mk_leaf/
+        // mk_join are not interned, so logically identical provenance can be
+        // reached through distinct pointers. Compare the linearized leaf
+        // values instead.
+        auto same_dependencies = [&](v_dependency *a, v_dependency *b) {
+            if (a == b) return true;
+            vector<void *, false> va, vb;
+            m_deps.linearize(a, va);
+            m_deps.linearize(b, vb);
+            if (va.size() != vb.size()) return false;
+            std::sort(va.begin(), va.end());
+            std::sort(vb.begin(), vb.end());
+            return va == vb;
+        };
         if (memo) {
             for (auto const &entry : memo->entries) {
                 if (entry.prime != p || entry.input.size() != eqs.size())
                     continue;
                 bool same = true;
                 for (unsigned i = 0; i < eqs.size() && same; ++i)
-                    same = entry.input[i] == eqs[i] && entry.input[i].dependencies == eqs[i].dependencies;
+                    same = entry.input[i] == eqs[i] && same_dependencies(entry.input[i].dependencies, eqs[i].dependencies);
                 // Exact polynomial equality, field modulus and premise-index
                 // equality make the cached ideal and its provenance reusable.
                 // No approximate fingerprint can establish a cache hit.
@@ -1340,7 +1358,7 @@ namespace ff {
                     check_pair_storage();
                 }
                 if (adaptive_basis) {
-                    size_t bytes = 64 * f.dependencies.size();
+                    size_t bytes = f.dependencies ? 64 : 0;
                     size_t coefficient_bytes = 2 * (static_cast<size_t>(p.get_num_bits()) / 8 + (p.get_num_bits() % 8 != 0));
                     for (auto const &[mon, coefficient] : f) {
                         tick();
@@ -1370,7 +1388,7 @@ namespace ff {
                             continue;
                         polynomial old = std::move(bs[j]);
                         bs[j].clear();
-                        bs[j].dependencies.clear();
+                        bs[j].dependencies = nullptr;
                         --active_basis;
                         if (adaptive_basis) { basis_payload -= basis_sizes[j]; basis_sizes[j] = 0; ++retired_since_compaction; }
                         pending.push_back(reduce(std::move(old), bs));
@@ -1792,7 +1810,7 @@ namespace ff {
                         auto sliced_eqs = slice(eqs), sliced_neqs = slice(neqs);
                         if (work + 1 >= stop)
                             break;
-                        engine probe(p, limit, std::min(8192u, stop - work - 1), max_terms, bit_propagation, batch_enabled, false);
+                        engine probe(m_deps, p, limit, std::min(8192u, stop - work - 1), max_terms, bit_propagation, batch_enabled, false);
                         configure_probe(probe);
                         std::vector<rational> trial(values.size());
                         lbool status = l_undef;
@@ -1846,7 +1864,7 @@ namespace ff {
             cfg.slice_attempts = f4_slice;
             f4_stats fst;
             std::vector<rational> trial(values.size());
-            std::set<unsigned> core;
+            v_dependency *core = nullptr;
             std::vector<polynomial> reduced;
             lbool r = l_undef;
             // F4 counts sparse row operations, which are much coarser than the
@@ -1878,7 +1896,7 @@ namespace ff {
                     throw exhausted();
             };
             try {
-                r = f4_solve(p, eqs, neqs, static_cast<unsigned>(values.size()), trial, core, cfg, fst, charge,
+                r = f4_solve(m_deps, p, eqs, neqs, static_cast<unsigned>(values.size()), trial, core, cfg, fst, charge,
                              &reduced);
             }
             catch (exhausted const &) {
@@ -1901,7 +1919,7 @@ namespace ff {
             }
             if (r == l_false) {
                 ++f4_unsat;
-                m_conflict = std::move(core);
+                m_conflict = core;
                 return l_false;
             }
             ++f4_undef;
@@ -1913,7 +1931,7 @@ namespace ff {
         if (!have_basis)
             basis(eqs);
         if (quotient_field && depth == 0 && work < max_work) {
-            engine probe(p, limit, std::min(50000u, (max_work - work) / 16),
+            engine probe(m_deps, p, limit, std::min(50000u, (max_work - work) / 16),
                          std::min(max_terms, 512u), false, batch_enabled, false);
             configure_probe(probe);
             auto completed = eqs;
@@ -1958,7 +1976,7 @@ namespace ff {
                 });
             }
             if (!has_univariate) {
-                engine probe(p, limit, std::min(30000u, (max_work - std::min(work, max_work)) / 16), max_terms,
+                engine probe(m_deps, p, limit, std::min(30000u, (max_work - std::min(work, max_work)) / 16), max_terms,
                              false, batch_enabled, false);
                 configure_probe(probe);
                 polynomial relation;
@@ -2026,7 +2044,7 @@ namespace ff {
                 split_roots(roots, v, candidates);
             }
             bool unknown = false;
-            auto core = f.dependencies;
+            v_dependency *core = f.dependencies;
             for (auto const &r : candidates) {
                 auto branch = eqs;
                 branch.push_back(add(variable(v), constant(-r)));
@@ -2037,9 +2055,9 @@ namespace ff {
                 }
                 unknown |= status == l_undef;
                 if (status == l_false)
-                    core.insert(m_conflict.begin(), m_conflict.end());
+                    core = m_deps.mk_join(core, m_conflict);
             }
-            m_conflict = std::move(core);
+            m_conflict = core;
             return unknown ? l_undef : l_false;
         }
         if (!neqs.empty()) {
@@ -2076,7 +2094,7 @@ namespace ff {
             for (unsigned trial = 0; trial < 3; ++trial)
                 for (unsigned v : vars) {
                     if (work + 1 >= stop) break;
-                    engine probe(p, limit, std::min(12000u, stop - work - 1), max_terms,
+                    engine probe(m_deps, p, limit, std::min(12000u, stop - work - 1), max_terms,
                                  bit_propagation, batch_enabled, false);
                     configure_probe(probe);
                     auto branch = eqs;
@@ -2168,11 +2186,11 @@ namespace ff {
         }
         if (r == l_false) {
             ++tiny_unsat;
-            m_conflict.clear();
+            m_conflict = nullptr;
             for (auto const &f : eqs)
-                m_conflict.insert(f.dependencies.begin(), f.dependencies.end());
+                m_conflict = m_deps.mk_join(m_conflict, f.dependencies);
             for (auto const &f : neqs)
-                m_conflict.insert(f.dependencies.begin(), f.dependencies.end());
+                m_conflict = m_deps.mk_join(m_conflict, f.dependencies);
             return l_false;
         }
         ++tiny_undef;

@@ -34,32 +34,61 @@ Author:
 #include <iostream>
 
 namespace ff {
+    // Test-only helpers bridging the old set<unsigned>-based fixtures to the
+    // pointer-based dependency representation: build/compare leaf sets
+    // without requiring every test to hand-roll linearize/sort/compare.
+    // Ids are encoded as void* leaf values (v_dependency_manager's key type).
+    static void *dep_key(unsigned i) { return reinterpret_cast<void *>(static_cast<uintptr_t>(i)); }
+    static unsigned dep_id(void *p) { return static_cast<unsigned>(reinterpret_cast<uintptr_t>(p)); }
+    static v_dependency *dep_set(v_dependency_manager &dm, std::initializer_list<unsigned> ids) {
+        v_dependency *d = nullptr;
+        for (unsigned i : ids) d = dm.mk_join(d, dm.mk_leaf(dep_key(i)));
+        return d;
+    }
+    static void dep_insert(v_dependency_manager &dm, v_dependency *&d, unsigned i) {
+        d = dm.mk_join(d, dm.mk_leaf(dep_key(i)));
+    }
+    static std::set<unsigned> dep_linearize(v_dependency_manager &dm, v_dependency *d) {
+        vector<void *, false> ptrs;
+        dm.linearize(d, ptrs);
+        std::set<unsigned> idxs;
+        for (void *p : ptrs) idxs.insert(dep_id(p));
+        return idxs;
+    }
+    static bool dep_eq(v_dependency_manager &dm, v_dependency *a, v_dependency *b) {
+        return dep_linearize(dm, a) == dep_linearize(dm, b);
+    }
+    static bool dep_contains(v_dependency_manager &dm, v_dependency *d, unsigned i) {
+        return dm.contains(d, dep_key(i));
+    }
+
     struct test_engine {
         static void adaptive_basis_storage() {
             for (rational const &prime : {rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
                 reslimit limit;
-                engine builder(prime, limit, 10000000);
+                v_dependency_manager deps;
+                engine builder(deps, prime, limit, 10000000);
                 std::vector<polynomial> input;
                 for (unsigned i = 0; i < 300; ++i) {
-                    auto f = builder.variable(i); f.dependencies.insert(i); input.push_back(f);
+                    auto f = builder.variable(i); dep_insert(deps, f.dependencies, i); input.push_back(f);
                 }
-                engine bounded(prime, limit, 10000000);
+                engine bounded(deps, prime, limit, 10000000);
                 auto original = input;
                 bool failed = false;
                 try { bounded.basis(original); } catch (exhausted const &) { failed = true; }
                 ENSURE(failed && bounded.m_active_basis_exhaustions == 1 && original == input);
                 for (bool gm : {false, true}) {
-                    engine extended(prime, limit, 10000000);
+                    engine extended(deps, prime, limit, 10000000);
                     extended.adaptive_basis = true; extended.gm_pairs = gm;
                     auto actual = input; extended.basis(actual);
                     // Independent monic variables already form a Groebner basis:
                     // every pair is coprime and the exact ideal is unchanged.
                     ENSURE(actual == input && extended.m_peak_active_basis == 300);
                     ENSURE(extended.m_peak_basis_bytes > 0 && extended.m_basis_exhaustions == 0);
-                    for (unsigned i = 0; i < actual.size(); ++i) ENSURE(actual[i].dependencies == input[i].dependencies);
+                    for (unsigned i = 0; i < actual.size(); ++i) ENSURE(dep_eq(deps, actual[i].dependencies, input[i].dependencies));
                 }
                 for (bool pairs : {false, true}) {
-                    engine guarded(prime, limit, 1000000);
+                    engine guarded(deps, prime, limit, 1000000);
                     guarded.adaptive_basis = true;
                     if (pairs) guarded.m_pair_storage_limit = 256;
                     else guarded.set_basis_storage_limit(256);
@@ -76,45 +105,47 @@ namespace ff {
                 for (unsigned i = 0; i < 80; ++i) {
                     auto x = builder.variable(i);
                     auto f = builder.add(builder.mul(x, x), x, rational(-1));
-                    f.dependencies.insert(i); retirement.push_back(f);
+                    dep_insert(deps, f.dependencies, i); retirement.push_back(f);
                 }
                 for (unsigned i = 0; i < 80; ++i) {
-                    auto x = builder.variable(i); x.dependencies.insert(80+i); retirement.push_back(x);
+                    auto x = builder.variable(i); dep_insert(deps, x.dependencies, 80+i); retirement.push_back(x);
                 }
-                engine old(prime, limit, 10000000), compact(prime, limit, 10000000);
+                engine old(deps, prime, limit, 10000000), compact(deps, prime, limit, 10000000);
                 compact.adaptive_basis = true;
                 auto expected = retirement, actual = retirement;
                 old.basis(expected); compact.basis(actual);
                 ENSURE(actual == expected);
                 ENSURE(compact.m_pair_compactions == (prime.is_unsigned() ? 1u : 0u));
                 ENSURE(prime.is_unsigned() ? compact.m_discarded_pairs > 0 : compact.m_discarded_pairs == 0);
-                for (unsigned i = 0; i < actual.size(); ++i) ENSURE(actual[i].dependencies == expected[i].dependencies);
+                for (unsigned i = 0; i < actual.size(); ++i) ENSURE(dep_eq(deps, actual[i].dependencies, expected[i].dependencies));
                 std::cout << "Adaptive basis: 300 rows, independent storage guards/reuse, exact stale-pair compaction\n";
             }
         }
         static void sparse_matrix_selection() {
             reslimit limit;
-            engine reference(rational(7), limit, 10000000, 4096, false, false, false);
+            v_dependency_manager deps;
+            engine reference(deps, rational(7), limit, 10000000, 4096, false, false, false);
             auto x = reference.variable(10), z = reference.variable(20);
             auto dense = reference.add(reference.add(reference.add(x, reference.variable(5)),
                                                      reference.variable(4)), reference.variable(3));
             auto sparse = reference.add(x, reference.variable(0));
             auto tied = reference.add(x, reference.variable(1));
             auto input = reference.mul(x, z);
-            dense.dependencies = {0}; sparse.dependencies = {1}; input.dependencies = {2}; tied.dependencies = {3};
+            dense.dependencies = dep_set(deps, {0}); sparse.dependencies = dep_set(deps, {1});
+            input.dependencies = dep_set(deps, {2}); tied.dependencies = dep_set(deps, {3});
             sparse.sugar = 7;
             std::vector<polynomial> bs{dense, sparse, tied};
             // Matrix outputs are made monic after elimination.
             auto expected = reference.mul(reference.variable(0), z);
             for (bool packed : {false, true}) for (bool lazy : {false, true}) {
-                engine old(rational(7), limit, 1000000), chosen(rational(7), limit, 1000000);
+                engine old(deps, rational(7), limit, 1000000), chosen(deps, rational(7), limit, 1000000);
                 old.compact_matrix = chosen.compact_matrix = packed;
                 old.lazy_matrix = chosen.lazy_matrix = lazy;
                 chosen.sparse_matrix_reducers = true;
                 auto before = old.batch_reduce({input}, bs), after = chosen.batch_reduce({input}, bs);
                 ENSURE(before.size() == 1 && before.front().size() == 3);
                 ENSURE(after.size() == 1 && after.front() == expected);
-                ENSURE(after.front().dependencies == std::set<unsigned>({1, 2}));
+                ENSURE(dep_linearize(deps, after.front().dependencies) == std::set<unsigned>({1, 2}));
                 ENSURE(after.front().sugar == 8 && chosen.m_sparse_matrix_reducers == 1);
                 ENSURE(chosen.m_peak_matrix_columns == 2 && old.m_peak_matrix_columns == 4);
                 // Choice may change the remainder, but it must preserve the
@@ -135,24 +166,25 @@ namespace ff {
             for (rational const &prime : {rational(7), rational("4294967291"), rational("18446744073709551629")})
                 for (bool small : {false, true}) {
                     reslimit limit;
-                    engine builder(prime, limit, 10000000);
+                    v_dependency_manager deps;
+                    engine builder(deps, prime, limit, 10000000);
                     auto x = builder.variable(2), y = builder.variable(1), z = builder.variable(0);
                     std::vector<polynomial> bs{
                         builder.add(builder.scale(builder.mul(x, x), rational(3)), y),
                         builder.add(builder.scale(builder.mul(y, y), rational(2)), z),
                         builder.add(builder.mul(z, z), builder.constant(rational(-1)))};
-                    for (unsigned i = 0; i < bs.size(); ++i) { bs[i].dependencies.insert(i); bs[i].sugar += 5; }
+                    for (unsigned i = 0; i < bs.size(); ++i) { dep_insert(deps, bs[i].dependencies, i); bs[i].sugar += 5; }
                     for (unsigned degree = 2; degree < 12; ++degree) {
                         polynomial f;
                         builder.add_term(f, monomial(degree, 2), prime - rational(1));
                         builder.add_term(f, monomial(degree - 1, 1), prime - rational(2));
                         builder.add_term(f, {0, 1, 2}, rational(3));
-                        f.dependencies.insert(3);
-                        engine eager(prime, limit, 10000000), fused(prime, limit, 10000000);
+                        dep_insert(deps, f.dependencies, 3);
+                        engine eager(deps, prime, limit, 10000000), fused(deps, prime, limit, 10000000);
                         eager.small_coefficients = fused.small_coefficients = small;
                         fused.fused_reduction = true;
                         auto expected = eager.reduce(f, bs), actual = fused.reduce(f, bs);
-                        ENSURE(actual == expected && actual.dependencies == expected.dependencies);
+                        ENSURE(actual == expected && dep_eq(deps, actual.dependencies, expected.dependencies));
                         ENSURE(actual.sugar == expected.sugar && fused.m_fused_reductions > 0);
                         ENSURE(fused.steps() < eager.steps());
                     }
@@ -161,7 +193,8 @@ namespace ff {
         }
         static void work_accounting() {
             reslimit limit;
-            engine e(rational(7), limit, 3);
+            v_dependency_manager deps;
+            engine e(deps, rational(7), limit, 3);
             e.tick();
             bool failed = false;
             try {
@@ -188,29 +221,30 @@ namespace ff {
         }
         static void minimal_polynomial_provenance() {
             reslimit limit;
-            engine builder(rational(5), limit, 1000000, 4096, false, false, false);
+            v_dependency_manager deps;
+            engine builder(deps, rational(5), limit, 1000000, 4096, false, false, false);
             auto x = builder.variable(0), y = builder.variable(1), z = builder.variable(2);
             auto first = builder.add(builder.mul(x, x), y, rational(-1));
             auto second = builder.add(builder.mul(y, y), builder.constant(rational(-1)));
             auto unrelated = builder.add(builder.mul(z, z), z, rational(-1));
-            first.dependencies.insert(0);
-            second.dependencies.insert(1);
-            unrelated.dependencies.insert(2);
+            dep_insert(deps, first.dependencies, 0);
+            dep_insert(deps, second.dependencies, 1);
+            dep_insert(deps, unrelated.dependencies, 2);
             // Pairwise relatively-prime leading powers x^2,y^2,z^2 give a
             // zero-dimensional basis. The x-coordinate has minimal polynomial
             // x^4-1, whose derivation needs the first two equations only.
             std::vector<polynomial> input{first, second, unrelated};
-            engine extraction(rational(5), limit, 1000000, 4096, false, false, false);
+            engine extraction(deps, rational(5), limit, 1000000, 4096, false, false, false);
             auto relation = extraction.minimal_polynomial(0, input);
             ENSURE(!relation.empty() && extraction.m_minpolys == 1);
-            ENSURE(relation.dependencies == std::set<unsigned>({0, 1}));
+            ENSURE(dep_linearize(deps, relation.dependencies) == std::set<unsigned>({0, 1}));
             polynomial expected;
             builder.add_term(expected, {0, 0, 0, 0}, rational(1));
             builder.add_term(expected, {}, rational(-1));
             ENSURE(relation == expected);
             // Independently rebuild a scalar basis using just the reported
             // premises and reversed input order, then check ideal membership.
-            engine reference(rational(5), limit, 1000000, 4096, false, false, false);
+            engine reference(deps, rational(5), limit, 1000000, 4096, false, false, false);
             std::vector<polynomial> selected{second, first};
             reference.basis(selected);
             ENSURE(reference.reduce(relation, selected).empty());
@@ -240,20 +274,21 @@ namespace ff {
         }
         static void minimal_polynomial_guard_budget() {
             reslimit construction;
-            engine builder(rational(7), construction);
+            v_dependency_manager deps;
+            engine builder(deps, rational(7), construction);
             auto mixed = builder.add(builder.mul(builder.variable(0), builder.variable(1)),
                                      builder.constant(rational(-1)));
             // This leading ideal is not zero-dimensional. Its guard used to
             // return before any arithmetic tick, ignoring even cancellation.
             reslimit local_limit;
-            engine local(rational(7), local_limit, 0);
+            engine local(deps, rational(7), local_limit, 0);
             bool exhausted = false;
             try { local.minimal_polynomial(0, {mixed}); }
             catch (ff::exhausted const &) { exhausted = true; }
             ENSURE(exhausted && local.steps() == 1 && !local_limit.is_canceled());
             ENSURE(local.m_local_work_exhaustions == 1 && local.m_shared_limit_exhaustions == 0);
             reslimit canceled_limit;
-            engine canceled(rational(7), canceled_limit, 100);
+            engine canceled(deps, rational(7), canceled_limit, 100);
             canceled_limit.cancel();
             exhausted = false;
             try { canceled.minimal_polynomial(0, {mixed}); }
@@ -264,23 +299,24 @@ namespace ff {
         }
         static void lazy_matrix_equivalence() {
             reslimit limit;
-            engine builder(rational(7), limit, 10000000);
+            v_dependency_manager deps;
+            engine builder(deps, rational(7), limit, 10000000);
             polynomial divisor, input;
             for (unsigned v = 0; v < 20; ++v) builder.add_term(divisor, {v}, rational(1));
-            divisor.dependencies = {1, 3};
-            input.dependencies = {2};
+            divisor.dependencies = dep_set(deps, {1, 3});
+            input.dependencies = dep_set(deps, {2});
             for (unsigned v = 100; v < 150; ++v) builder.add_term(input, {19, v}, rational(1));
             for (bool packed : {false, true}) {
-                engine eager(rational(7), limit, 10000000);
+                engine eager(deps, rational(7), limit, 10000000);
                 eager.adaptive_matrix = true;
                 eager.compact_matrix = packed;
                 auto expected = eager.batch_reduce({input}, {divisor});
-                engine lazy(rational(7), limit, 10000000);
+                engine lazy(deps, rational(7), limit, 10000000);
                 lazy.adaptive_matrix = lazy.lazy_matrix = true;
                 lazy.compact_matrix = packed;
                 auto actual = lazy.batch_reduce({input}, {divisor});
                 ENSURE(actual == expected && actual.size() == 1);
-                ENSURE(actual.front().dependencies == std::set<unsigned>({1, 2, 3}));
+                ENSURE(dep_linearize(deps, actual.front().dependencies) == std::set<unsigned>({1, 2, 3}));
                 ENSURE(actual.front().sugar == expected.front().sugar);
                 ENSURE(lazy.m_peak_matrix_symbolic_bytes < eager.m_peak_matrix_symbolic_bytes);
                 ENSURE(lazy.m_peak_matrix_reducers == eager.m_peak_matrix_reducers);
@@ -297,12 +333,13 @@ namespace ff {
         }
         static void matrix_limit_diagnostics() {
             reslimit limit;
-            engine builder(rational(7), limit, 1000000);
+            v_dependency_manager deps;
+            engine builder(deps, rational(7), limit, 1000000);
             auto x = builder.variable(4), y = builder.variable(3), z = builder.variable(2);
             auto a = builder.variable(1), b = builder.variable(0);
             // Five symbolic columns exceed 4*max_terms before elimination.
             auto wide = builder.add(builder.add(builder.add(builder.add(x, y), z), a), b);
-            engine columns(rational(7), limit, 1000000, 1);
+            engine columns(deps, rational(7), limit, 1000000, 1);
             bool exhausted = false;
             try { columns.batch_reduce({wide}, {}); }
             catch (ff::exhausted const &) { exhausted = true; }
@@ -313,36 +350,39 @@ namespace ff {
                 // from the second row produces four nonzero terms.
                 auto first = builder.add(builder.add(x, y), z);
                 auto second = builder.add(builder.add(x, a), b);
-                engine growth(rational(7), limit, 1000000, 3);
+                engine growth(deps, rational(7), limit, 1000000, 3);
                 growth.compact_matrix = compact;
                 exhausted = false;
                 try { growth.batch_reduce({first, second}, {}); }
                 catch (ff::exhausted const &) { exhausted = true; }
                 ENSURE(exhausted && growth.m_matrix_row_exhaustions == 1);
                 ENSURE(growth.m_peak_matrix_row_terms == 4 && growth.m_matrix_exhaustions == 1);
-                // A short row can exhaust retained storage through provenance
-                // alone. Report both components of the shared budget honestly.
+                // A short row carrying a widely-supported dependency used to
+                // exhaust retained pivot storage through provenance alone.
                 auto supported = x;
-                for (unsigned i = 0; i < 200; ++i) supported.dependencies.insert(i);
-                engine provenance(rational(7), limit, 1000000, 2);
+                for (unsigned i = 0; i < 200; ++i) dep_insert(deps, supported.dependencies, i);
+                engine provenance(deps, rational(7), limit, 1000000, 2);
                 provenance.compact_matrix = compact;
-                exhausted = false;
-                try { provenance.batch_reduce({supported}, {}); }
-                catch (ff::exhausted const &) { exhausted = true; }
-                ENSURE(exhausted && provenance.m_matrix_pivot_exhaustions == 1);
-                ENSURE(provenance.m_peak_matrix_dependency_bytes == 200 * 48);
-                ENSURE(provenance.m_peak_matrix_coefficient_bytes < provenance.m_peak_matrix_dependency_bytes);
-                ENSURE(provenance.m_matrix_exhaustions == 1);
+                // A dependency join is now a single O(1) node charged a fixed
+                // 48 bytes, regardless of how many leaves were folded into it
+                // (unlike the old set<unsigned>, whose storage scaled with
+                // provenance breadth): a single short row carrying a 200-leaf
+                // dependency no longer exhausts retained storage by itself.
+                auto reduced = provenance.batch_reduce({supported}, {});
+                ENSURE(reduced.size() == 1 && dep_linearize(deps, reduced.front().dependencies).size() == 200);
+                ENSURE(provenance.m_peak_matrix_dependency_bytes == 48);
+                ENSURE(provenance.m_matrix_exhaustions == 0 && provenance.m_matrix_pivot_exhaustions == 0);
             }
             std::cout << "Matrix guard diagnostics: columns, row growth and provenance-dominated storage in both representations\n";
         }
         static void adaptive_matrix_storage() {
             reslimit limit;
-            engine builder(rational(7), limit, 10000000, 4096, false, false, false);
+            v_dependency_manager deps;
+            engine builder(deps, rational(7), limit, 10000000, 4096, false, false, false);
             auto divisor = builder.add(builder.variable(0), builder.constant(rational(-1)));
-            divisor.dependencies.insert(0);
+            dep_insert(deps, divisor.dependencies, 0);
             polynomial input, expected;
-            input.dependencies.insert(1);
+            dep_insert(deps, input.dependencies, 1);
             for (unsigned v = 1; v <= 1100; ++v) {
                 builder.add_term(input, {0, v}, rational(1));
                 builder.add_term(expected, {v}, rational(1));
@@ -350,7 +390,7 @@ namespace ff {
             // The old cap must still reject the 1025th reducer. Opting in
             // admits 1100 short reducers with ample storage, for both matrix
             // representations; no pair selection or benchmark shape is involved.
-            engine bounded(rational(7), limit, 10000000, 4096, false, true, false);
+            engine bounded(deps, rational(7), limit, 10000000, 4096, false, true, false);
             bool exhausted = false;
             try { bounded.batch_reduce({input}, {divisor}); }
             catch (ff::exhausted const &) { exhausted = true; }
@@ -358,14 +398,14 @@ namespace ff {
             ENSURE(bounded.m_extra_matrix_reducers == 0);
             ENSURE(bounded.m_matrix_reducer_exhaustions == 1 && bounded.m_peak_matrix_reducers == 1025);
             for (bool compact : {false, true}) for (bool lazy : {false, true}) {
-                engine extended(rational(7), limit, 10000000, 4096, false, true, false);
+                engine extended(deps, rational(7), limit, 10000000, 4096, false, true, false);
                 extended.adaptive_matrix = true;
                 extended.compact_matrix = compact;
                 extended.lazy_matrix = lazy;
                 auto actual = extended.batch_reduce({input}, {divisor});
                 ENSURE(actual.size() == 1 && actual.front() == expected);
                 ENSURE(extended.m_extra_matrix_reducers == 76);
-                ENSURE(actual.front().dependencies == std::set<unsigned>({0, 1}));
+                ENSURE(dep_linearize(deps, actual.front().dependencies) == std::set<unsigned>({0, 1}));
                 // Independently check both generated ideals using scalar
                 // reduction. The matrix row must remain equivalent to the
                 // original row in the presence of the retained old basis.
@@ -394,7 +434,7 @@ namespace ff {
                 mon[0] = 0;
                 builder.add_term(wide, mon, rational(1));
             }
-            engine storage(rational(7), limit, 10000000, 4096, false, true, false);
+            engine storage(deps, rational(7), limit, 10000000, 4096, false, true, false);
             storage.adaptive_matrix = true;
             exhausted = false;
             try { storage.batch_reduce({wide}, {divisor}); }
@@ -418,48 +458,49 @@ static void test_ff_basis_optimizations() {
     for (char const *prime : {"7", "4294967291", "4294967311", "21888242871839275222246405745257275088548364400416034343698204186575808495617"}) {
         for (unsigned trial = 0; trial < 16; ++trial) {
             reslimit lim;
-            ff::engine reference(rational(prime), lim, 10000000, 4096, false, false, false);
-            std::vector<ff::polynomial> input;
-            for (unsigned i = 0; i < 3; ++i) {
-                ff::polynomial f;
-                for (unsigned j = 0; j < 5; ++j) {
-                    ff::monomial m;
-                    unsigned degree = random() % 3;
-                    for (unsigned k = 0; k < degree; ++k) m.push_back(random() % 3);
-                    std::sort(m.begin(), m.end());
-                    reference.add_term(f, m, rational(1 + random() % 19));
+                v_dependency_manager deps;
+                ff::engine reference(deps, rational(prime), lim, 10000000, 4096, false, false, false);
+                std::vector<ff::polynomial> input;
+                for (unsigned i = 0; i < 3; ++i) {
+                    ff::polynomial f;
+                    for (unsigned j = 0; j < 5; ++j) {
+                        ff::monomial m;
+                        unsigned degree = random() % 3;
+                        for (unsigned k = 0; k < degree; ++k) m.push_back(random() % 3);
+                        std::sort(m.begin(), m.end());
+                        reference.add_term(f, m, rational(1 + random() % 19));
+                    }
+                    ff::dep_insert(deps, f.dependencies, i);
+                    input.push_back(std::move(f));
                 }
-                f.dependencies.insert(i);
-                input.push_back(std::move(f));
-            }
-            auto expected = input;
-            reference.basis(expected);
-            for (unsigned mode = 0; mode < 18; ++mode) {
-                ff::engine e(rational(prime), lim, 10000000, 4096, false, mode != 7, false);
-                e.sugar_pairs = mode == 0 || mode >= 5;
-                e.gm_pairs = mode == 1 || (mode >= 5 && mode != 16);
-                e.div_masks = mode == 2 || mode >= 5;
-                e.geobucket = mode == 3 || mode >= 5;
-                e.small_coefficients = mode == 4 || mode >= 5;
-                e.compact_matrix = mode == 6 || mode == 9 || mode == 11 || mode == 13 || mode == 15;
-                e.lazy_matrix = mode == 8 || mode == 9 || mode >= 14;
-                e.sparse_matrix_reducers = mode >= 12 && mode < 16;
-                e.adaptive_basis = mode >= 16;
-                e.fused_reduction = mode == 10 || mode == 11;
-                e.adaptive_matrix = mode >= 8;
-                e.adaptive_reduction = mode >= 5;
-                auto actual = input;
-                e.basis(actual);
-                for (auto const &f : input) ENSURE(reference.reduce(f, actual).empty());
-                for (auto const &f : actual) {
-                    ENSURE(reference.reduce(f, expected).empty());
-                    // Rebuild just the reported premises with the reference
-                    // algorithm, so dependency tracking is checked independently.
-                    std::vector<ff::polynomial> premises;
-                    for (unsigned d : f.dependencies) { ENSURE(d < input.size()); premises.push_back(input[d]); }
-                    reference.basis(premises);
-                    ENSURE(reference.reduce(f, premises).empty());
-                }
+                auto expected = input;
+                reference.basis(expected);
+                for (unsigned mode = 0; mode < 18; ++mode) {
+                    ff::engine e(deps, rational(prime), lim, 10000000, 4096, false, mode != 7, false);
+                    e.sugar_pairs = mode == 0 || mode >= 5;
+                    e.gm_pairs = mode == 1 || (mode >= 5 && mode != 16);
+                    e.div_masks = mode == 2 || mode >= 5;
+                    e.geobucket = mode == 3 || mode >= 5;
+                    e.small_coefficients = mode == 4 || mode >= 5;
+                    e.compact_matrix = mode == 6 || mode == 9 || mode == 11 || mode == 13 || mode == 15;
+                    e.lazy_matrix = mode == 8 || mode == 9 || mode >= 14;
+                    e.sparse_matrix_reducers = mode >= 12 && mode < 16;
+                    e.adaptive_basis = mode >= 16;
+                    e.fused_reduction = mode == 10 || mode == 11;
+                    e.adaptive_matrix = mode >= 8;
+                    e.adaptive_reduction = mode >= 5;
+                    auto actual = input;
+                    e.basis(actual);
+                    for (auto const &f : input) ENSURE(reference.reduce(f, actual).empty());
+                    for (auto const &f : actual) {
+                        ENSURE(reference.reduce(f, expected).empty());
+                        // Rebuild just the reported premises with the reference
+                        // algorithm, so dependency tracking is checked independently.
+                        std::vector<ff::polynomial> premises;
+                        for (unsigned d : ff::dep_linearize(deps, f.dependencies)) { ENSURE(d < input.size()); premises.push_back(input[d]); }
+                        reference.basis(premises);
+                        ENSURE(reference.reduce(f, premises).empty());
+                    }
                 for (unsigned i = 0; i < actual.size(); ++i)
                     for (unsigned j = 0; j < i; ++j) {
                         auto const &a = actual[i], &b = actual[j];
@@ -483,7 +524,8 @@ static void test_ff_basis_optimizations() {
 
 static void test_ff_scalar_recovery() {
     reslimit limit;
-    ff::engine e(rational(7), limit, 2000000, 8, false, true, false);
+    v_dependency_manager deps;
+    ff::engine e(deps, rational(7), limit, 2000000, 8, false, true, false);
     e.adaptive_reduction = true;
     e.geobucket = true;
     e.div_masks = true;
@@ -503,7 +545,7 @@ static void test_ff_scalar_recovery() {
     for (unsigned i = 0; i < st.size(); ++i)
         if (std::string(st.get_key(i)) == "ff scalar fallbacks") recovered = st.get_uint_value(i) > 0;
     ENSURE(recovered);
-    ff::engine reference(rational(7), limit, 10000000, 4096, false, false, false);
+    ff::engine reference(deps, rational(7), limit, 10000000, 4096, false, false, false);
     auto expected = input;
     reference.basis(expected);
     for (auto const &f : actual) ENSURE(reference.reduce(f, expected).empty());
@@ -514,7 +556,8 @@ static void test_ff_scalar_recovery() {
 static void test_certificates() {
     for (rational const &prime : {rational(2), rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
         reslimit limit;
-        ff::engine e(prime, limit, 1000000);
+        v_dependency_manager deps;
+        ff::engine e(deps, prime, limit, 1000000);
         auto x = e.variable(0), y = e.variable(1), one = e.constant(rational(1));
         std::vector<ff::polynomial> equations{e.add(e.mul(x, y), one, rational(-1)),
             e.add(e.mul(x, e.add(y, one)), one, rational(-1))};
@@ -539,7 +582,8 @@ static void test_certificates() {
     // More independent rows than the retained basis cap, followed by a
     // contradiction: fallback can change order without changing input IDs.
     reslimit limit;
-    ff::engine maker(rational(7), limit, 1000000);
+    v_dependency_manager deps;
+    ff::engine maker(deps, rational(7), limit, 1000000);
     std::vector<ff::polynomial> equations;
     for (unsigned i = 0; i < 257; ++i) equations.push_back(maker.variable(i));
     equations.push_back(maker.constant(rational(1)));
@@ -549,7 +593,7 @@ static void test_certificates() {
     ENSURE(proof.nodes[0].kind == ff::certificate::rule::input && proof.nodes[0].left == 257);
     // With a fresh budget the fallback could prove this immediately. It must
     // instead retain work spent by the failed original-order attempt.
-    ff::engine bounded(rational(7), limit, 1000);
+    ff::engine bounded(deps, rational(7), limit, 1000);
     bool exhausted = false;
     try { ff::certify(bounded, equations, proof); } catch (ff::exhausted const &) { exhausted = true; }
     ENSURE(exhausted && bounded.steps() >= 1000 && bounded.steps() <= 1002);
@@ -596,35 +640,36 @@ static void check_field_arithmetic(rational const &p, unsigned rounds) {
 
 static void test_ff_f4_guards() {
     reslimit limit;
-    ff::engine e(rational(7), limit);
+    v_dependency_manager deps;
+    ff::engine e(deps, rational(7), limit);
     auto x = e.variable(0);
     auto eq = e.add(x, e.constant(rational(-1)));
-    eq.dependencies.insert(17);
+    ff::dep_insert(deps, eq.dependencies, 17);
     ff::f4_config cfg;
     ff::f4_stats stats;
     std::vector<rational> values{rational(42)};
-    std::set<unsigned> core{99};
+    v_dependency *core = deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(99)));
     auto charge = [](unsigned) {};
     cfg.max_vars = 1;
-    ENSURE(ff::f4_solve(rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_undef);
-    ENSURE(values[0] == rational(42) && core == std::set<unsigned>{99});
+    ENSURE(ff::f4_solve(deps, rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_undef);
+    ENSURE(values[0] == rational(42) && ff::dep_linearize(deps, core) == std::set<unsigned>{99});
     cfg.max_vars = 2;
-    ENSURE(ff::f4_solve(rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_true);
+    ENSURE(ff::f4_solve(deps, rational(7), {}, {x}, 1, values, core, cfg, stats, charge) == l_true);
     ENSURE(!values[0].is_zero());
     cfg.max_monomials = 1;
     bool stopped = false;
-    try { ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge); }
+    try { ff::f4_solve(deps, rational(7), {eq}, {}, 1, values, core, cfg, stats, charge); }
     catch (ff::exhausted const &) { stopped = true; }
     ENSURE(stopped);
     cfg.max_monomials = 1024;
-    ENSURE(ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
+    ENSURE(ff::f4_solve(deps, rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
     ENSURE(values[0].is_one());
     // Do not allow the input conversion to wrap a uint16 exponent to zero:
     // x^65536 = 0 has a solution; truncation would turn it into 1 = 0.
     ff::polynomial high;
     high.emplace(ff::monomial(65536, 0), rational(1));
     stopped = false;
-    try { ff::f4_solve(rational(7), {high}, {}, 1, values, core, cfg, stats, charge); }
+    try { ff::f4_solve(deps, rational(7), {high}, {}, 1, values, core, cfg, stats, charge); }
     catch (ff::exhausted const &) { stopped = true; }
     ENSURE(stopped);
     ff::polynomial many;
@@ -633,12 +678,12 @@ static void test_ff_f4_guards() {
     stopped = false;
     unsigned callbacks = 0;
     try {
-        ff::f4_solve(rational(7), {many}, {}, 1, values, core, cfg, stats,
+        ff::f4_solve(deps, rational(7), {many}, {}, 1, values, core, cfg, stats,
                      [&](unsigned) { ++callbacks; throw ff::exhausted(); });
     }
     catch (ff::exhausted const &) { stopped = true; }
     ENSURE(stopped && callbacks == 1);
-    ENSURE(ff::f4_solve(rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
+    ENSURE(ff::f4_solve(deps, rational(7), {eq}, {}, 1, values, core, cfg, stats, charge) == l_true);
     std::cout << "F4 guards: auxiliary variables, monomial admission, exponent overflow, cancellation and reuse\n";
 }
 
@@ -659,7 +704,8 @@ static void test_ff_f4() {
     // exclude every assignment (so the conflict clause is valid).
     for (unsigned prime : {3u, 5u, 7u}) {
         reslimit limit;
-        ff::engine builder(rational(prime), limit, 100000000);
+        v_dependency_manager deps;
+        ff::engine builder(deps, rational(prime), limit, 100000000);
         uint64_t state = 12345 + prime;
         auto next = [&]() {
             state ^= state << 13;
@@ -680,7 +726,7 @@ static void test_ff_f4() {
                     std::sort(mon.begin(), mon.end());
                     builder.add_term(f, mon, rational(next() % prime));
                 }
-                f.dependencies.insert(dep);
+                f.dependencies = deps.mk_join(f.dependencies, deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(dep))));
                 return f;
             };
             std::vector<ff::polynomial> eqs, neqs;
@@ -689,11 +735,11 @@ static void test_ff_f4() {
             for (unsigned i = 0; i < nn; ++i)
                 neqs.push_back(random_poly(ne + i));
             std::vector<rational> values(nv, rational(0));
-            std::set<unsigned> core;
+            v_dependency *core = nullptr;
             ff::f4_config cfg;
             ff::f4_stats st;
             auto charge = [](unsigned) {};
-            lbool r = ff::f4_solve(rational(prime), eqs, neqs, nv, values, core, cfg, st, charge);
+            lbool r = ff::f4_solve(deps, rational(prime), eqs, neqs, nv, values, core, cfg, st, charge);
             auto eval = [&](ff::polynomial const &f, std::vector<rational> const &a) {
                 rational acc(0);
                 for (auto const &[mon, c] : f) {
@@ -709,6 +755,7 @@ static void test_ff_f4() {
             unsigned total = 1;
             for (unsigned i = 0; i < nv; ++i)
                 total *= prime;
+            std::set<unsigned> core_idxs = ff::dep_linearize(deps, core);
             for (unsigned code = 0; code < total; ++code) {
                 unsigned c = code;
                 for (unsigned i = 0; i < nv; ++i, c /= prime)
@@ -717,13 +764,13 @@ static void test_ff_f4() {
                 for (unsigned i = 0; i < eqs.size(); ++i) {
                     bool holds = eval(eqs[i], a).is_zero();
                     ok &= holds;
-                    if (core.contains(i))
+                    if (core_idxs.contains(i))
                         core_ok &= holds;
                 }
                 for (unsigned i = 0; i < neqs.size(); ++i) {
                     bool holds = !eval(neqs[i], a).is_zero();
                     ok &= holds;
-                    if (core.contains(ne + i))
+                    if (core_idxs.contains(ne + i))
                         core_ok &= holds;
                 }
                 any |= ok;
@@ -746,16 +793,17 @@ static void test_ff_f4() {
     {
         rational p("21888242871839275222246405745257275088548364400416034343698204186575808495617");
         reslimit limit;
-        ff::engine e(p, limit);
+        v_dependency_manager deps;
+        ff::engine e(deps, p, limit);
         auto x = e.variable(0), y = e.variable(1);
         auto f = e.add(e.mul(x, y), e.constant(rational(-6)));
         auto g = e.add(e.add(x, y), e.constant(rational(-5)));
         std::vector<rational> values(2, rational(0));
-        std::set<unsigned> core;
+        v_dependency *core = nullptr;
         ff::f4_config cfg;
         ff::f4_stats st;
         auto charge = [](unsigned) {};
-        ENSURE(ff::f4_solve(p, {f, g}, {}, 2, values, core, cfg, st, charge) == l_true);
+        ENSURE(ff::f4_solve(deps, p, {f, g}, {}, 2, values, core, cfg, st, charge) == l_true);
         ENSURE(mod(values[0] * values[1], p) == rational(6) && mod(values[0] + values[1], p) == rational(5));
         ENSURE(st.m_minpolys >= 1);
         // x^2 = 3 has no root when 3 is a quadratic non-residue; BN254 - 1 is
@@ -775,10 +823,10 @@ static void test_ff_f4() {
             r += rational(1);
         }
         auto h = e.add(e.mul(x, x), e.constant(-r));
-        h.dependencies.insert(7);
-        core.clear();
-        ENSURE(ff::f4_solve(p, {h}, {}, 2, values, core, cfg, st, charge) == l_false);
-        ENSURE(core == std::set<unsigned>({7}));
+        ff::dep_insert(deps, h.dependencies, 7);
+        core = nullptr;
+        ENSURE(ff::f4_solve(deps, p, {h}, {}, 2, values, core, cfg, st, charge) == l_false);
+        ENSURE(ff::dep_linearize(deps, core) == std::set<unsigned>({7}));
     }
 }
 
@@ -787,10 +835,11 @@ static void test_ff_f4() {
     ff::f4_config cfg;
     ff::f4_stats stats;
     std::vector<rational> values{rational(42)};
-    std::set<unsigned> core{7};
+    v_dependency_manager deps;
+    v_dependency *core = deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(7)));
     ENSURE(!ff::f4_supported(rational(7)));
-    ENSURE(ff::f4_solve(rational(7), {}, {}, 1, values, core, cfg, stats, [](unsigned) {}) == l_undef);
-    ENSURE(values[0] == rational(42) && core == std::set<unsigned>{7});
+    ENSURE(ff::f4_solve(deps, rational(7), {}, {}, 1, values, core, cfg, stats, [](unsigned) {}) == l_undef);
+    ENSURE(values[0] == rational(42) && ff::dep_linearize(deps, core) == std::set<unsigned>{7});
     ENSURE(stats.m_unsupported == 1);
 }
 #endif
@@ -1077,7 +1126,8 @@ void tst_finite_field() {
         // Exhaustively check quadratic roots and coupled systems, including
         // systems with roots only in extension fields.
         for (unsigned a = 0; a < prime; ++a) {
-            ff::engine e(rational(prime), limit, 1000000);
+            v_dependency_manager deps;
+            ff::engine e(deps, rational(prime), limit, 1000000);
             auto x = e.variable(0), y = e.variable(1);
             auto square = e.add(e.mul(x, x), e.constant(-rational(a)));
             auto sum = e.add(e.add(x, y), e.constant(rational(-1)));
@@ -1100,26 +1150,30 @@ void tst_finite_field() {
             for (unsigned b = 0; b < prime; ++b)
                 for (unsigned c = 0; c < prime; ++c) {
                     reslimit l;
-                    ff::engine algebra(rational(prime), l, 1000000);
+                    v_dependency_manager deps;
+                    auto leaf = [&](unsigned i) { return deps.mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(i))); };
+                    ff::engine algebra(deps, rational(prime), l, 1000000);
                     auto x = algebra.variable(0), y = algebra.variable(1);
                     auto product = algebra.add(algebra.mul(x, y), algebra.constant(-rational(a)));
                     auto sum = algebra.add(algebra.add(x, y), algebra.constant(-rational(b)));
                     auto neq = algebra.add(x, algebra.constant(-rational(c)));
-                    product.dependencies.insert(0);
-                    sum.dependencies.insert(1);
-                    neq.dependencies.insert(2);
+                    product.dependencies = deps.mk_join(product.dependencies, leaf(0));
+                    sum.dependencies = deps.mk_join(sum.dependencies, leaf(1));
+                    neq.dependencies = deps.mk_join(neq.dependencies, leaf(2));
                     std::vector<rational> values(2, rational(0));
                     auto status = algebra.solve({product, sum}, {neq}, values);
                     if (status == l_false) {
-                        auto const &core = algebra.conflict();
+                        auto const core = algebra.conflict();
+                        auto has = [&](unsigned i) { return deps.contains(core, reinterpret_cast<void *>(static_cast<uintptr_t>(i))); };
                         for (unsigned u = 0; u < prime; ++u)
                             for (unsigned v = 0; v < prime; ++v)
-                                ENSURE(!((!core.contains(0) || u * v % prime == a) &&
-                                         (!core.contains(1) || (u + v) % prime == b) && (!core.contains(2) || u != c)));
+                                ENSURE(!((!has(0) || u * v % prime == a) &&
+                                         (!has(1) || (u + v) % prime == b) && (!has(2) || u != c)));
                     }
                 }
     reslimit limit;
-    ff::engine e(rational("21888242871839275222246405745257275088548364400416034343698204186575808495617"), limit);
+    v_dependency_manager top_deps;
+    ff::engine e(top_deps, rational("21888242871839275222246405745257275088548364400416034343698204186575808495617"), limit);
     auto x = e.variable(0), y = e.variable(1);
     // Conflicting polynomial ideals, not just constant propagation.
     auto f = e.add(e.mul(x, y), e.constant(rational(-1)));
@@ -1127,7 +1181,8 @@ void tst_finite_field() {
     std::vector<rational> values(2, rational(0));
     ENSURE(e.solve({f, g}, {}, values) == l_false);
     // Algebra resource exhaustion is an explicit fallback request.
-    ff::engine bounded(rational(7), limit, 0);
+    v_dependency_manager bounded_deps;
+    ff::engine bounded(bounded_deps, rational(7), limit, 0);
     bool exhausted = false;
     try {
         bounded.variable(0);

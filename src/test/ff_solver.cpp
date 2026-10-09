@@ -20,6 +20,41 @@ Abstract:
 #include "tactic/tactic.h"
 
 namespace {
+    // Test-only convenience wrapper: assigns each add() call a dependency
+    // leaf encoding its chronological index as a void* key, and tracks the
+    // literal premise expression so tests can translate a returned conflict
+    // core back to formulas and indices.
+    class test_problem {
+        ast_manager &m;
+        ff::solver core_;
+        expr_ref_vector premises_;
+    public:
+        test_problem(ast_manager &m, sort *s, params_ref const &p,
+                     ff::ff_encoding_cache *cache = nullptr, ff::basis_cache *basis = nullptr)
+            : m(m), core_(m, s, p, cache, basis), premises_(m) {}
+        void add(expr *a, expr *b, bool equality) {
+            expr_ref premise(m.mk_eq(a, b), m);
+            if (!equality) premise = m.mk_not(premise);
+            v_dependency *d = core_.dep_manager().mk_leaf(reinterpret_cast<void *>(static_cast<uintptr_t>(premises_.size())));
+            core_.add(a, b, equality, d);
+            premises_.push_back(premise);
+        }
+        lbool check() { return core_.check(); }
+        rational value(expr *term) { return core_.value(term); }
+        expr *premise(unsigned index) const { return premises_.get(index); }
+        std::set<unsigned> conflict() const {
+            vector<void *, false> ptrs;
+            core_.dep_manager().linearize(core_.conflict(), ptrs);
+            std::set<unsigned> result;
+            for (void *ptr : ptrs)
+                result.insert(static_cast<unsigned>(reinterpret_cast<uintptr_t>(ptr)));
+            return result;
+        }
+        void collect_statistics(statistics &st) const { core_.collect_statistics(st); }
+        bool encoding_limit_hit() const { return core_.encoding_limit_hit(); }
+        unsigned encoding_steps() const { return core_.encoding_steps(); }
+    };
+
     bool holds(ast_manager &m, expr *formula, expr *x, expr *y, unsigned a, unsigned b) {
         ff_util ff(m);
         expr_safe_replace subst(m);
@@ -55,7 +90,7 @@ namespace {
                         params_ref params;
                         params.set_bool("ff.compact_encoding", compact);
                         params.set_bool("solve_eqs", preprocess);
-                        ff::solver core(m, field, params, &cache, &basis);
+                        test_problem core(m, field, params, &cache, &basis);
                         expr_ref ca(ff.mk_numeral(rational(a), field), m);
                         expr_ref cb(ff.mk_numeral(rational(b), field), m);
                         core.add(product, ca, true);
@@ -108,7 +143,7 @@ namespace {
         ff::basis_cache basis;
         params_ref params;
         {
-            ff::solver core(m, field, params, &cache, &basis);
+            test_problem core(m, field, params, &cache, &basis);
             core.add(y, square, true);
             core.add(z, ff.mk_add(y, one), true);
             core.add(x, zero, true);
@@ -119,7 +154,7 @@ namespace {
             ENSURE(core.conflict().size() == 4);
         }
         {
-            ff::solver core(m, field, params, &cache, &basis);
+            test_problem core(m, field, params, &cache, &basis);
             core.add(z, zero, true);
             ENSURE(core.check() == l_true && core.value(z).is_zero());
             bool rejected = false;
@@ -128,7 +163,7 @@ namespace {
             ENSURE(rejected);
         }
         bool rejected = false;
-        try { ff::solver wrong(m, other, params, &cache); }
+        try { test_problem wrong(m, other, params, &cache); }
         catch (default_exception const &) { rejected = true; }
         ENSURE(rejected);
         // Foreign terms are opaque field leaves, including non-field arguments.
@@ -137,13 +172,13 @@ namespace {
         func_decl_ref f(m.mk_func_decl(symbol("f"), 1, domain, field), m);
         expr_ref a(m.mk_app(f, m.mk_true()), m), b(m.mk_app(f, m.mk_false()), m);
         {
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             core.add(a, zero, true); core.add(b, one, true);
             ENSURE(core.check() == l_true);
             ENSURE(core.value(a).is_zero() && core.value(b).is_one());
         }
         {
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             core.add(a, zero, true); core.add(b, one, true); core.add(a, b, true);
             ENSURE(core.check() == l_false);
             ENSURE(core.conflict().size() == 3);
@@ -151,7 +186,7 @@ namespace {
         // A canceled check exposes no candidate; a fresh problem can reuse the
         // pure cache after cancellation is reset, without any stale assertions.
         {
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             core.add(x, zero, true);
             m.limit().inc_cancel();
             try { core.check(); } catch (ff::exhausted const &) {}
@@ -160,7 +195,7 @@ namespace {
             try { core.value(x); } catch (default_exception const &) { unavailable = true; }
             ENSURE(unavailable);
         }
-        ff::solver recovered(m, field, params, &cache);
+        test_problem recovered(m, field, params, &cache);
         recovered.add(x, one, true);
         ENSURE(recovered.check() == l_true && recovered.value(x).is_one());
     }
@@ -182,7 +217,7 @@ namespace {
             // Generic solve-eqs must discharge this without invoking algebra.
             // Using the input formulas themselves as dependency labels freezes
             // x and y and prevents the required substitutions.
-            ff::solver core(m, field, no_algebra, &cache);
+            test_problem core(m, field, no_algebra, &cache);
             core.add(x, zero, true);
             core.add(y, ff.mk_add(x, one), true);
             core.add(y, one, false);
@@ -195,7 +230,7 @@ namespace {
         for (unsigned value = 0; value < 7; ++value) {
             // Only pure encodings survive. New assignments reconstruct fresh
             // values for eliminated variables and the same opaque ITE leaf.
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             expr_ref n(ff.mk_numeral(rational(value), field), m);
             core.add(x, n, true);
             core.add(y, ff.mk_add(ff.mk_mul(x, x), one), true);
@@ -208,12 +243,12 @@ namespace {
         {
             // The field solver treats a foreign term as opaque; it must not
             // substitute inside the ITE and silently change its identity.
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             core.add(x, zero, true);
             core.add(leaf, one, true);
             ENSURE(core.check() == l_true && core.value(leaf).is_one());
             // The frontend's selected-branch equality rules out this candidate.
-            ff::solver combined(m, field, params, &cache);
+            test_problem combined(m, field, params, &cache);
             combined.add(x, zero, true);
             combined.add(leaf, one, true);
             combined.add(leaf, x, true);
@@ -222,7 +257,7 @@ namespace {
         }
         {
             // Inconsistent cyclic definitions cannot be eliminated together.
-            ff::solver core(m, field, params, &cache);
+            test_problem core(m, field, params, &cache);
             core.add(x, ff.mk_add(y, one), true);
             core.add(y, ff.mk_add(x, one), true);
             ENSURE(core.check() == l_false);
@@ -240,7 +275,7 @@ namespace {
         params_ref params;
         params.set_uint("ff.max_steps", 1000);
         for (bool factored : {false, true}) {
-            ff::solver core(m, field, params);
+            test_problem core(m, field, params);
             expr_ref_vector xs(m), ys(m), left(m), right(m);
             for (unsigned i = 0; i < 4; ++i) {
                 expr_ref x(m.mk_fresh_const("bit.x", field), m);
@@ -266,7 +301,7 @@ namespace {
         {
             // The domain detector may match a polynomial identity. Preservation
             // must never turn that heuristic match into a Boolean assumption.
-            ff::solver core(m, field, params);
+            test_problem core(m, field, params);
             expr_ref x(m.mk_const("not.a.bit", field), m);
             expr_ref square(ff.mk_mul(x, x), m);
             expr_ref two(ff.mk_numeral(rational(2), field), m);

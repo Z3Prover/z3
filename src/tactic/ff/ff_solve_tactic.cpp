@@ -37,7 +37,6 @@ namespace {
         ff::solver problem;
         expr_mark seen;
         expr_ref_vector variables;
-        std::vector<expr_dependency *> dependencies;
 
         static params_ref algebra_params(params_ref const &p) {
             params_ref result(p);
@@ -79,8 +78,8 @@ namespace {
         void add(expr *a, expr *b, bool equality, expr_dependency *dep) {
             collect_variables(a);
             collect_variables(b);
-            problem.add(a, b, equality);
-            dependencies.push_back(dep);
+            v_dependency *d = problem.dep_manager().mk_leaf(static_cast<void *>(dep));
+            problem.add(a, b, equality, d);
         }
     };
     class ff_solve_tactic : public tactic {
@@ -305,9 +304,12 @@ namespace {
                         break;
                     lbool status = q->problem.check();
                     unsat |= status == l_false;
-                    if (status == l_false)
-                        for (unsigned j : q->problem.conflict())
-                            conflict = m.mk_join(conflict, q->dependencies[j]);
+                    if (status == l_false) {
+                        vector<void *, false> ptrs;
+                        q->problem.dep_manager().linearize(q->problem.conflict(), ptrs);
+                        for (void *ptr : ptrs)
+                            conflict = m.mk_join(conflict, static_cast<expr_dependency *>(ptr));
+                    }
                     unknown |= status == l_undef;
                     if (status == l_true)
                         for (expr *v : q->variables)

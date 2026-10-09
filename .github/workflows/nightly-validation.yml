@@ -372,10 +372,10 @@ jobs:
               }
           }
           EOF
-          javac -cp "$Z3_DIR/bin/com.microsoft.z3.jar" VersionCheck.java
+          javac -cp "$Z3_DIR/java/com.microsoft.z3.jar" VersionCheck.java
           env -u LD_LIBRARY_PATH java \
             -Djava.library.path="$Z3_DIR/bin" \
-            -cp ".:$Z3_DIR/bin/com.microsoft.z3.jar" VersionCheck
+            -cp ".:$Z3_DIR/java/com.microsoft.z3.jar" VersionCheck
 
   validate-exe-macos-x64:
     name: "Validate executable on macOS x64"

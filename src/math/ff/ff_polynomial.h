@@ -21,6 +21,7 @@ Author:
 #include "util/rlimit.h"
 #include "util/lbool.h"
 #include "util/statistics.h"
+#include "util/dependency.h"
 #include <map>
 #include <vector>
 #include <set>
@@ -33,9 +34,11 @@ namespace ff {
         }
     };
     struct polynomial : public std::map<monomial, rational, monomial_order> {
-        // Input-constraint provenance for conflict clauses. This is not a proof:
-        // v2 additionally needs the polynomial multipliers witnessing each step.
-        std::set<unsigned> dependencies;
+        // Input-constraint provenance for conflict clauses: an opaque,
+        // O(1)-joinable dependency DAG (see util/dependency.h), whose leaves
+        // are caller-chosen premise labels. This is not a proof: v2
+        // additionally needs the polynomial multipliers witnessing each step.
+        v_dependency *dependencies = nullptr;
         // Degree of the homogenized computation, including cancelled terms.
         // This is scheduling metadata only, never an algebraic premise.
         unsigned sugar = 0;
@@ -43,15 +46,23 @@ namespace ff {
     struct exhausted {};
     // Exact, bounded memoization of basis computations. Entries contain only
     // polynomial data and numeric premise indices, never context-owned ASTs.
-    struct basis_cache {
+    // Dependency pointers stored in entries are allocated from this cache's
+    // own manager, which outlives any single engine/solver call; a solver
+    // sharing this cache must route all of its dependency construction
+    // through manager() so that cached pointers never outlive their region.
+    class basis_cache {
+        v_dependency_manager m_deps;
+    public:
         struct entry {
             rational prime;
             std::vector<polynomial> input, output;
         };
         std::vector<entry> entries;
         unsigned hits = 0, misses = 0;
+        v_dependency_manager &manager() { return m_deps; }
         void clear() {
             entries.clear();
+            m_deps.reset();
         }
     };
 
@@ -66,6 +77,12 @@ namespace ff {
         // unrelated Groebner pair schedule deciding whether the cap is reached.
         friend struct test_engine;
         friend class certificate_builder;
+        // All dependency joins/leaves/linearizations for this engine (and any
+        // probe engines it spawns, see configure_probe) go through this
+        // manager. When a basis_cache is installed (set_basis_cache), the
+        // caller must pass that cache's manager() here, so cached entries'
+        // dependency pointers and this engine's pointers share one region.
+        v_dependency_manager &m_deps;
         rational p;
         reslimit &limit;
         unsigned work = 0, max_work, max_terms;
@@ -117,7 +134,7 @@ namespace ff {
         size_t m_peak_matrix_symbolic_bytes = 0, m_peak_matrix_coefficient_bytes = 0, m_peak_matrix_dependency_bytes = 0;
         std::vector<polynomial> batch_reduce(std::vector<polynomial> const &rows,
                                              std::vector<polynomial> const &basis);
-        std::set<unsigned> m_conflict;
+        v_dependency *m_conflict = nullptr;
         unsigned m_deferred_eliminations = 0, m_scalar_fallbacks = 0, m_gm_skips = 0, m_mask_skips = 0, m_bucket_reductions = 0, m_small_products = 0;
         rational coefficient_product(rational const &a, rational const &b);
         rational coefficient_residue(rational const &a);
@@ -170,10 +187,11 @@ namespace ff {
         uint64_t f4_steps = 0;
         unsigned f4_calls = 0, f4_sat = 0, f4_unsat = 0, f4_undef = 0;
         std::vector<unsigned> f4_counters = std::vector<unsigned>(11, 0);
-        engine(rational const &p, reslimit &limit, unsigned max_work = 200000, unsigned max_terms = 4096,
-               bool bit_propagation = true, bool batch_enabled = true, bool sparse_enabled = true)
-            : p(p), limit(limit), max_work(max_work), max_terms(max_terms), bit_propagation(bit_propagation),
-              batch_enabled(batch_enabled), sparse_enabled(sparse_enabled) {}
+        engine(v_dependency_manager &deps, rational const &p, reslimit &limit, unsigned max_work = 200000,
+               unsigned max_terms = 4096, bool bit_propagation = true, bool batch_enabled = true,
+               bool sparse_enabled = true)
+            : m_deps(deps), p(p), limit(limit), max_work(max_work), max_terms(max_terms),
+              bit_propagation(bit_propagation), batch_enabled(batch_enabled), sparse_enabled(sparse_enabled) {}
         void add_term(polynomial &f, monomial const &mon, rational const &c);
         polynomial constant(rational const &c);
         polynomial variable(unsigned v);
@@ -195,8 +213,11 @@ namespace ff {
         }
         lbool solve(std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                     std::vector<rational> &values);
-        std::set<unsigned> const &conflict() const {
+        v_dependency *conflict() const {
             return m_conflict;
+        }
+        v_dependency_manager &dep_manager() const {
+            return m_deps;
         }
         bool polynomial_limit_hit() const { return m_term_exhaustions != 0; }
         unsigned steps() const {

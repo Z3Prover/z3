@@ -50,13 +50,22 @@ namespace ff {
         ff_util ff;
         params_ref params; // options borrows this, including for temporary caller parameters
         smt_params_helper options;
+        // Fallback dependency manager, used only when no basis_cache is
+        // supplied. When one is supplied, deps aliases its manager() instead,
+        // so cached entries' dependency pointers remain valid for as long as
+        // the cache itself is (see ff_polynomial.h's basis_cache comment).
+        // This is also the single manager every caller-supplied dependency
+        // (add()'s 4th argument) must come from: it is threaded directly
+        // into algebra/polynomial internals with no index translation layer.
+        v_dependency_manager local_deps;
+        v_dependency_manager &deps;
         ff::engine algebra;
         ff_encoding_cache::imp local;
         ff_encoding_cache::imp &enc;
         obj_map<expr, ff::polynomial> &cache;
         unsigned &num_variables;
         std::vector<ff::polynomial> eqs, neqs;
-        expr_ref_vector premises, labels;
+        expr_ref_vector labels;
         std::vector<rational> values;
         bool checked = false, encoding = false;
         unsigned bit_facts = 0;
@@ -65,21 +74,30 @@ namespace ff {
         struct constraint {
             expr *a, *b;
             bool equality;
+            v_dependency *d;
         };
         std::vector<constraint> inputs;
         obj_map<expr, unsigned> &variable_ids;
         base_dependent_expr_state state;
-        obj_map<expr, unsigned> premise_ids;
-        std::set<unsigned> conflict;
+        // Maps a solve_eqs premise label to the original caller-supplied
+        // dependency it stands for, so preprocessing-derived support can be
+        // joined straight from deps, with no internal index translation.
+        obj_map<expr, v_dependency *> premise_ids;
+        v_dependency *conflict = nullptr;
         model_ref candidate;
         scoped_ptr<model_evaluator> evaluator;
 
-        imp(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache::imp *shared)
-            : m(m), ff(m), params(p), options(params), algebra(ff.modulus(s), m.limit(), options.ff_max_steps(),
+        static v_dependency_manager &pick_deps(basis_cache *basis, v_dependency_manager &local) {
+            return basis ? basis->manager() : local;
+        }
+
+        imp(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache::imp *shared, basis_cache *basis)
+            : m(m), ff(m), params(p), options(params), deps(pick_deps(basis, local_deps)),
+              algebra(deps, ff.modulus(s), m.limit(), options.ff_max_steps(),
                                    options.ff_max_terms(), options.ff_bit_propagation(),
                                    options.ff_batch(), options.ff_sparse_witness()),
               local(m, s), enc(shared && !options.ff_compact_encoding() ? *shared : local),
-              cache(enc.cache), num_variables(enc.num_variables), premises(m), labels(m),
+              cache(enc.cache), num_variables(enc.num_variables), labels(m),
               variable_ids(enc.variable_ids), state(m) {
             ff::configure_engine(algebra, options);
         }
@@ -128,22 +146,22 @@ namespace ff {
             return enc.purified.find(root);
         }
 
-        void dependencies(expr_dependency *dep, std::set<unsigned> &out) {
+        void dependencies(expr_dependency *dep, v_dependency *&out) {
             ptr_vector<expr> leaves;
             m.linearize(dep, leaves);
             for (expr *leaf : leaves) {
-                unsigned index;
-                if (!premise_ids.find(leaf, index))
+                v_dependency *d;
+                if (!premise_ids.find(leaf, d))
                     throw default_exception("unexpected finite-field preprocessing dependency");
-                out.insert(index);
+                out = deps.mk_join(out, d);
             }
         }
 
-        void encode_constraint(expr *a, expr *b, bool equality, std::set<unsigned> support) {
+        void encode_constraint(expr *a, expr *b, bool equality, v_dependency *support) {
             auto lhs = encode(a);
             auto rhs = encode(b);
             auto poly = algebra.add(std::move(lhs), rhs, rational(-1));
-            poly.dependencies = std::move(support);
+            poly.dependencies = support;
             (equality ? eqs : neqs).push_back(std::move(poly));
         }
 
@@ -152,25 +170,25 @@ namespace ff {
                 // Tactic pipelines already own preprocessing. Keep branch
                 // literals in their original shape and retain their direct
                 // support instead of rebuilding a second substitution state.
-                for (unsigned i = 0; i < inputs.size(); ++i) {
-                    auto [a, b, equality] = inputs[i];
+                for (auto const &[a, b, equality, d] : inputs) {
                     expr *lhs = purify(a), *rhs = purify(b);
-                    encode_constraint(lhs, rhs, equality, {i});
+                    encode_constraint(lhs, rhs, equality, d);
                 }
                 return;
             }
             for (unsigned i = 0; i < inputs.size(); ++i) {
-                auto [a, b, equality] = inputs[i];
+                auto const &[a, b, equality, d] = inputs[i];
                 expr *lhs = purify(a), *rhs = purify(b);
                 expr_ref f(m.mk_eq(lhs, rhs), m);
                 if (!equality)
                     f = m.mk_not(f);
                 // Dependency leaves are labels, not formulas: solve-eqs freezes
                 // symbols in dependency leaves. Keep the original signed atom
-                // in premises, and use a fresh Boolean label for its index.
+                // in premises, and map its label straight to the caller's own
+                // dependency, with no internal index translation.
                 expr_ref label(m.mk_fresh_const("ff.premise", m.mk_bool_sort()), m);
                 labels.push_back(label);
-                premise_ids.insert(label, i);
+                premise_ids.insert(label, d);
                 state.add(dependent_expr(m, f, nullptr, m.mk_leaf(label)));
             }
             // Process the current assignment, not the original Boolean formula.
@@ -207,9 +225,9 @@ namespace ff {
                 bool equality = !m.is_not(f, f);
                 if (!m.is_eq(f, a, b) || !ff.is_ff(a))
                     throw ff::exhausted();
-                std::set<unsigned> support;
+                v_dependency *support = nullptr;
                 dependencies(d.dep(), support);
-                encode_constraint(a, b, equality, std::move(support));
+                encode_constraint(a, b, equality, support);
             }
         }
 
@@ -313,12 +331,8 @@ namespace ff {
             return cache.find(root);
         }
 
-        void add(expr *a, expr *b, bool equality) {
-            expr_ref premise(m.mk_eq(a, b), m);
-            if (!equality)
-                premise = m.mk_not(premise);
-            premises.push_back(premise);
-            inputs.push_back({a, b, equality});
+        void add(expr *a, expr *b, bool equality, v_dependency *d) {
+            inputs.push_back({a, b, equality, d});
         }
     };
 
@@ -331,17 +345,19 @@ namespace ff {
     solver::solver(ast_manager &m, sort *s, params_ref const &p, ff_encoding_cache *cache, basis_cache *basis) {
         if (cache && (cache->m_imp->field != s || &cache->m_imp->pins.get_manager() != &m))
             throw default_exception("finite-field encoding cache belongs to a different manager or field");
-        m_imp = std::make_unique<imp>(m, s, p, cache ? cache->m_imp.get() : nullptr);
-        if (m_imp->options.ff_basis_cache())
+        smt_params_helper probe(p);
+        basis_cache *effective_basis = probe.ff_basis_cache() ? basis : nullptr;
+        m_imp = std::make_unique<imp>(m, s, p, cache ? cache->m_imp.get() : nullptr, effective_basis);
+        if (effective_basis)
             m_imp->algebra.set_basis_cache(basis);
     }
     solver::~solver() = default;
-    void solver::add(expr *a, expr *b, bool equality) {
+    void solver::add(expr *a, expr *b, bool equality, v_dependency *d) {
         if (m_imp->checked)
             throw default_exception("finite-field solver problem has already been checked");
         if (a->get_sort() != m_imp->local.field || b->get_sort() != m_imp->local.field)
             throw default_exception("finite-field solver constraint has the wrong field");
-        m_imp->add(a, b, equality);
+        m_imp->add(a, b, equality, d);
     }
     lbool solver::check() {
         if (m_imp->checked)
@@ -373,7 +389,7 @@ namespace ff {
             m_imp->reconstruct();
             // Definitions extend the residual model. Validate the original problem,
             // not only residual polynomials, before exposing any candidate values.
-            for (auto [a, b, equality] : m_imp->inputs)
+            for (auto const &[a, b, equality, d] : m_imp->inputs)
                 if ((m_imp->evaluate(a) == m_imp->evaluate(b)) != equality)
                     return l_undef;
         }
@@ -386,8 +402,8 @@ namespace ff {
             throw default_exception("finite-field candidate term has the wrong field");
         return m_imp->evaluate(term);
     }
-    expr *solver::premise(unsigned index) const { return m_imp->premises.get(index); }
-    std::set<unsigned> const &solver::conflict() const {
+    v_dependency_manager &solver::dep_manager() const { return m_imp->deps; }
+    v_dependency *solver::conflict() const {
         SASSERT(m_imp->result == l_false);
         return m_imp->conflict;
     }

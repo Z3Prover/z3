@@ -74,7 +74,8 @@ namespace {
                 auto const &prime = field.modulus(s);
                 if (prime.get_num_bits() > 4096)
                     throw cmd_exception("ff-certify modulus exceeds the certificate profile");
-                ff::engine arithmetic(prime, m.limit(), m_params.get_uint("max_steps", 2000000),
+                v_dependency_manager deps;
+                ff::engine arithmetic(deps, prime, m.limit(), m_params.get_uint("max_steps", 2000000),
                                       m_params.get_uint("max_terms", 4096), false, false, false);
                 ptr_vector<expr> variables;
                 std::unordered_map<expr *, ff::polynomial> cache;

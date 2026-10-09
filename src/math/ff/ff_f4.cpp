@@ -1249,20 +1249,25 @@ namespace ff {
 
         // ------------------------------------------------------------------
         template <class F>
-        lbool solve_with(F const &f, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
-                         unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
-                         f4_config const &cfg, f4_stats &st, std::function<void(unsigned)> const &charge,
-                         std::vector<polynomial> *reduced_basis) {
+        lbool solve_with(v_dependency_manager &dep_mgr, F const &f, std::vector<polynomial> const &eqs,
+                         std::vector<polynomial> const &neqs, unsigned num_vars, std::vector<rational> &values,
+                         v_dependency *&conflict, f4_config const &cfg, f4_stats &st,
+                         std::function<void(unsigned)> const &charge, std::vector<polynomial> *reduced_basis) {
             using E = typename F::elem;
             // Dense renumbering of variables and premises.
-            std::unordered_map<unsigned, unsigned> var_index, dep_index;
-            std::vector<unsigned> var_of, dep_of;
+            std::unordered_map<unsigned, unsigned> var_index;
+            std::unordered_map<void *, unsigned> dep_index;
+            std::vector<unsigned> var_of;
+            std::vector<void *> dep_of;
+            vector<void *, false> leaves;
             auto scan = [&](polynomial const &p) {
                 for (auto const &[mon, c] : p)
                     for (unsigned v : mon)
                         if (var_index.emplace(v, static_cast<unsigned>(var_of.size())).second)
                             var_of.push_back(v);
-                for (unsigned d : p.dependencies)
+                leaves.reset();
+                dep_mgr.linearize(p.dependencies, leaves);
+                for (void *d : leaves)
                     if (dep_index.emplace(d, static_cast<unsigned>(dep_of.size())).second)
                         dep_of.push_back(d);
             };
@@ -1292,7 +1297,9 @@ namespace ff {
             f4_solver<F> S(f, M, cfg, st, charge);
             auto convert = [&](polynomial const &p, int rabinowitsch) {
                 poly<F> q;
-                for (unsigned d : p.dependencies)
+                leaves.reset();
+                dep_mgr.linearize(p.dependencies, leaves);
+                for (void *d : leaves)
                     q.dep.add(dep_index.at(d));
                 std::vector<std::pair<unsigned, E>> terms;
                 for (auto const &[mon, c] : p) {
@@ -1338,12 +1345,12 @@ namespace ff {
                 input.push_back(convert(neqs[i], static_cast<int>(n_orig + i)));
             }
             auto export_deps = [&](deps const &d) {
-                d.for_each([&](unsigned i) { conflict.insert(dep_of[i]); });
+                d.for_each([&](unsigned i) { conflict = dep_mgr.mk_join(conflict, dep_mgr.mk_leaf(dep_of[i])); });
             };
             std::vector<poly<F>> basis;
             deps ud;
             if (!S.groebner(std::move(input), basis, ud)) {
-                conflict.clear();
+                conflict = nullptr;
                 export_deps(ud);
                 return l_false;
             }
@@ -1360,7 +1367,7 @@ namespace ff {
                         std::sort(mon.begin(), mon.end());
                         out.emplace(std::move(mon), f.to(g.coefs[k]));
                     }
-                    g.dep.for_each([&](unsigned i) { out.dependencies.insert(dep_of[i]); });
+                    g.dep.for_each([&](unsigned i) { out.dependencies = dep_mgr.mk_join(out.dependencies, dep_mgr.mk_leaf(dep_of[i])); });
                     reduced_basis->push_back(std::move(out));
                 }
             }
@@ -1368,7 +1375,7 @@ namespace ff {
             deps cd;
             lbool r = S.model(basis, vals, cd, 0);
             if (r == l_false) {
-                conflict.clear();
+                conflict = nullptr;
                 export_deps(cd);
                 return l_false;
             }
@@ -1398,20 +1405,20 @@ namespace ff {
         }
     }  // namespace
 
-    lbool f4_solve(rational const &p, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
-                   unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
-                   f4_config const &cfg, f4_stats &stats, std::function<void(unsigned)> const &charge,
-                   std::vector<polynomial> *reduced_basis) {
+    lbool f4_solve(v_dependency_manager &dep_mgr, rational const &p, std::vector<polynomial> const &eqs,
+                   std::vector<polynomial> const &neqs, unsigned num_vars, std::vector<rational> &values,
+                   v_dependency *&conflict, f4_config const &cfg, f4_stats &stats,
+                   std::function<void(unsigned)> const &charge, std::vector<polynomial> *reduced_basis) {
         if (field64::fits(p)) {
             field64 f(p);
-            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, charge, reduced_basis);
+            return solve_with(dep_mgr, f, eqs, neqs, num_vars, values, conflict, cfg, stats, charge, reduced_basis);
         }
         if (field256::fits(p)) {
             field256 f(p);
             // Four-limb arithmetic costs several times a one-limb operation;
             // weigh the work units so budgets track time across fields.
             std::function<void(unsigned)> weighted = [&](unsigned k) { charge(4 * k); };
-            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, weighted, reduced_basis);
+            return solve_with(dep_mgr, f, eqs, neqs, num_vars, values, conflict, cfg, stats, weighted, reduced_basis);
         }
         ++stats.m_unsupported;
         return l_undef;
@@ -1419,9 +1426,9 @@ namespace ff {
 #else
     bool f4_supported(rational const &) { return false; }
 
-    lbool f4_solve(rational const &, std::vector<polynomial> const &, std::vector<polynomial> const &,
-                   unsigned, std::vector<rational> &, std::set<unsigned> &,
-                   f4_config const &, f4_stats &stats, std::function<void(unsigned)> const &,
+    lbool f4_solve(v_dependency_manager &, rational const &, std::vector<polynomial> const &,
+                   std::vector<polynomial> const &, unsigned, std::vector<rational> &,
+                   v_dependency *&, f4_config const &, f4_stats &stats, std::function<void(unsigned)> const &,
                    std::vector<polynomial> *) {
         ++stats.m_unsupported;
         return l_undef;

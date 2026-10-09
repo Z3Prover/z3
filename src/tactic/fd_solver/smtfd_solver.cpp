@@ -149,13 +149,14 @@ namespace smtfd {
         ast_manager&    m;
         stats&          m_stats;
         expr_ref_vector m_abs, m_rep, m_atoms, m_atom_defs; // abstraction and representation maps
+        expr_ref_vector m_distincts; // source nodes aliased to expanded abstractions
         array_util      m_autil;
         bv_util         m_butil;
         pb_util         m_pb;
         ptr_vector<expr> m_args, m_todo;
         unsigned        m_nv;
         unsigned_vector m_abs_trail, m_rep_trail, m_nv_trail;
-        unsigned_vector m_abs_lim, m_rep_lim, m_atoms_lim;
+        unsigned_vector m_abs_lim, m_rep_lim, m_atoms_lim, m_distincts_lim;
         random_gen      m_rand;
         
         void pop(unsigned n, expr_ref_vector& v, unsigned_vector& trail, unsigned_vector& lim) {
@@ -222,6 +223,7 @@ namespace smtfd {
             m_rep(m),
             m_atoms(m),
             m_atom_defs(m),
+            m_distincts(m),
             m_autil(m),
             m_butil(m),
             m_pb(m),
@@ -247,6 +249,7 @@ namespace smtfd {
             m_abs_lim.push_back(m_abs_trail.size());
             m_rep_lim.push_back(m_rep_trail.size());
             m_atoms_lim.push_back(m_atoms.size());
+            m_distincts_lim.push_back(m_distincts.size());
             m_nv_trail.push_back(m_nv);
         }
 
@@ -255,6 +258,8 @@ namespace smtfd {
             pop(n, m_rep, m_rep_trail, m_rep_lim);
             m_atoms.shrink(m_atoms_lim[m_atoms_lim.size() - n]);
             m_atoms_lim.shrink(m_atoms_lim.size() - n);
+            m_distincts.shrink(m_distincts_lim[m_distincts_lim.size() - n]);
+            m_distincts_lim.shrink(m_distincts_lim.size() - n);
             m_nv = m_nv_trail[m_nv_trail.size() - n];
             m_nv_trail.shrink(m_nv_trail.size() - n);
         }
@@ -285,6 +290,7 @@ namespace smtfd {
         expr* abs(expr* e) {
             expr* r = try_abs(e);
             if (r) return r;
+            expr_ref_vector expanded_distincts(m);
             m_todo.push_back(e);
             family_id bvfid = m_butil.get_fid();
             family_id bfid  = m.get_basic_family_id();
@@ -293,6 +299,21 @@ namespace smtfd {
                 expr* t = m_todo.back();
                 r = try_abs(t);
                 if (r) {
+                    m_todo.pop_back();
+                    continue;
+                }
+                if (m.is_distinct(t)) {
+                    // Refine the individual disequalities, including under negation.
+                    app* a = to_app(t);
+                    expr_ref expanded(m.mk_distinct_expanded(a->get_num_args(), a->get_args()), m);
+                    r = try_abs(expanded);
+                    if (!r) {
+                        expanded_distincts.push_back(expanded);
+                        m_todo.push_back(expanded);
+                        continue;
+                    }
+                    push_trail(m_abs, m_abs_trail, t, r);
+                    m_distincts.push_back(t);
                     m_todo.pop_back();
                     continue;
                 }
@@ -314,9 +335,6 @@ namespace smtfd {
                     family_id fid = a->get_family_id();
                     if (m.is_eq(a)) {
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
-                    }
-                    else if (m.is_distinct(a)) {
-                        r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
                         r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
@@ -374,6 +392,9 @@ namespace smtfd {
         app*       m_t;
         sort*      m_s;
         unsigned   m_val_offset;
+
+        // Array identity selects the table; only the indices form its keys.
+        unsigned first_arg() const { return is_func_decl(m_f) ? 0 : 1; }
     };
 
     class theory_plugin;
@@ -686,9 +707,9 @@ namespace smtfd {
     }
 
     bool f_app_eq::operator()(f_app const& a, f_app const& b) const {
-        if (a.m_f != b.m_f) 
+        if (a.m_t->get_decl() != b.m_t->get_decl())
             return false;
-        for (unsigned i = 0; i < a.m_t->get_num_args(); ++i) {
+        for (unsigned i = a.first_arg(); i < a.m_t->get_num_args(); ++i) {
             if (p.values().get(a.m_val_offset+i) != p.values().get(b.m_val_offset+i)) 
                 return false;
             if (a.m_t->get_arg(i)->get_sort() != b.m_t->get_arg(i)->get_sort())
@@ -698,7 +719,8 @@ namespace smtfd {
     }
 
     unsigned f_app_hash::operator()(f_app const& a) const {
-        return get_composite_hash(p.values().data() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
+        unsigned first = a.first_arg();
+        return get_composite_hash(p.values().data() + a.m_val_offset + first, a.m_t->get_num_args() - first, *this, *this);
     }
     
     class basic_plugin : public theory_plugin {
@@ -1157,10 +1179,10 @@ namespace smtfd {
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
             expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
-            if (!m.is_true(eval_abs(ext))) {
-                TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
-                m_context.add(ext, __FUNCTION__);            
-            }
+            // The arrays have different abstract values but identical observed reads.
+            // Evaluating a newly abstracted equality here can hide the violation.
+            TRACE(smtfd, tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
+            m_context.add(ext, __FUNCTION__);
         }
 
         expr_ref mk_array_value(table& t) {
@@ -1634,7 +1656,8 @@ namespace smtfd {
                 TRACE(smtfd, tout << "flush: " << m_assertions_qhead << " " << mk_bounded_pp(fml, m, 3) << "\n";);
                 fml = abs(fml);
                 m_fd_sat_solver->assert_expr(fml);                
-                fml = m.mk_not(m.mk_and(toggle, fml));
+                // The toggle represents all assertions flushed so far.
+                fml = m.mk_iff(toggle, fml);
                 m_fd_core_solver->assert_expr(fml);
                 flush_atom_defs();
             }
@@ -1668,10 +1691,13 @@ namespace smtfd {
             if (r == l_false) {
                 m_fd_core_solver->get_unsat_core(core);
                 TRACE(smtfd, display(tout << core << "\n"););
-                SASSERT(asms.contains(m_toggles.back()));
-                SASSERT(core.contains(m_toggles.back()));
-                core.erase(m_toggles.back());
+                expr_ref not_toggle(m.mk_not(m_toggles.back()), m);
+                SASSERT(asms.contains(not_toggle));
+                SASSERT(core.contains(not_toggle));
+                core.erase(not_toggle.get());
                 rep(core);
+                // Core minimization may drop assumptions that still constrain this check.
+                core.append(num_assumptions, assumptions);
             }
             return r;
         }
@@ -1775,7 +1801,7 @@ namespace smtfd {
 
         void init_model_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
             asms.reset();
-            asms.push_back(m_toggles.back());
+            asms.push_back(m.mk_not(m_toggles.back()));
             for (unsigned i = 0; i < sz; ++i) {
                 asms.push_back(abs(user_asms[i]));
             }
@@ -1937,7 +1963,8 @@ namespace smtfd {
                 // phase 2: find prime implicate over FD (abstraction)
                 r = get_prime_implicate(num_assumptions, assumptions, core);
                 if (r != l_false) {
-                    break;
+                    // A satisfying abstraction alone does not establish satisfiability.
+                    return l_undef;
                 }
              
                 // phase 3: check if prime implicate is really valid, or add theory lemmas until there is a theory core

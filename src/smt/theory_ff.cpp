@@ -282,6 +282,10 @@ namespace smt {
         native_values.reset();
         bool arranged = false;
         obj_map<sort, std::unique_ptr<ff::solver>> fields;
+        // Premise exprs pinned here only to keep them alive; each premise is
+        // tracked as a v_dependency leaf keyed by its own expr* pointer, so no
+        // separate per-sort index bookkeeping is needed.
+        expr_ref_vector all_premises(m);
         obj_map<sort, ptr_vector<enode>> terms_by_sort;
         auto problem = [&](sort *s) -> ff::solver & {
             auto &p = fields.insert_if_not_there(s, std::unique_ptr<ff::solver>());
@@ -298,7 +302,17 @@ namespace smt {
         };
         auto add = [&](sort *s, expr *a, expr *b, bool equality) {
             if (bv_fields.contains(s)) return;
-            try { problem(s).add(a, b, equality); }
+            auto &solv = problem(s);
+            expr_ref premise(m.mk_eq(a, b), m);
+            if (!equality)
+                premise = m.mk_not(premise);
+            // The leaf's payload is the premise expr itself; all_premises
+            // keeps it referenced for as long as the conflict might name it.
+            v_dependency *d = solv.dep_manager().mk_leaf(static_cast<void *>(premise.get()));
+            try {
+                solv.add(a, b, equality, d);
+                all_premises.push_back(premise);
+            }
             catch (ff::exhausted const &) { bv_fields.insert(s); ++fallbacks; }
         };
         obj_hashtable<enode> model_terms;
@@ -392,8 +406,10 @@ namespace smt {
                     // These premises can't hold simultaneously, so their negated
                     // disjunction is field-valid; this is an explanation, not a
                     // v2 proof certificate.
-                    for (unsigned d : p.conflict())
-                        clause.push_back(m.mk_not(p.premise(d)));
+                    vector<void *, false> ptrs;
+                    p.dep_manager().linearize(p.conflict(), ptrs);
+                    for (void *ptr : ptrs)
+                        clause.push_back(m.mk_not(static_cast<expr *>(ptr)));
                     // Preserve the exact SAT atoms; rewriting could produce an
                     // atom already assigned the opposite value, repeating this
                     // final check indefinitely.

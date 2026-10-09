@@ -62,11 +62,13 @@ namespace ff {
     };
 
     // `charge(k)` is called with a non-negative amount of work; it may throw
-    // ff::exhausted to stop the computation.
-    lbool f4_solve(rational const &p, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
-                   unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
-                   f4_config const &cfg, f4_stats &stats, std::function<void(unsigned)> const &charge,
-                   std::vector<polynomial> *reduced_basis = nullptr);
+    // ff::exhausted to stop the computation. `deps` is the dependency manager
+    // shared with the calling engine (and, when a basis_cache is installed,
+    // with the cache); every leaf built for `conflict` must come from it.
+    lbool f4_solve(v_dependency_manager &deps, rational const &p, std::vector<polynomial> const &eqs,
+                   std::vector<polynomial> const &neqs, unsigned num_vars, std::vector<rational> &values,
+                   v_dependency *&conflict, f4_config const &cfg, f4_stats &stats,
+                   std::function<void(unsigned)> const &charge, std::vector<polynomial> *reduced_basis = nullptr);
 
     bool f4_supported(rational const &p);
 }  // namespace ff
