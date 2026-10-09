@@ -85,6 +85,7 @@ namespace smt {
         }
         bool internalize_term(app *e) override;
         void apply_sort_cnstr(enode *n, sort *s) override;
+        void internalize_eq_eh(app *atom, bool_var v) override;
         void relevant_eh(expr *e) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var, theory_var) override;

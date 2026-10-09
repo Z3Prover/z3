@@ -138,6 +138,17 @@ namespace smt {
         }
     }
 
+    // Term ITEs (and other FF-sorted terms whose creation bypasses
+    // apply_sort_cnstr, see context::internalize_term) can reach an equality
+    // atom without ever owning a theory variable. Force one on both sides
+    // here so new_eq_eh/new_diseq_eh still fire once this atom is (un)decided.
+    void theory_ff::internalize_eq_eh(app *atom, bool_var) {
+        expr *lhs = nullptr, *rhs = nullptr;
+        VERIFY(m.is_eq(atom, lhs, rhs));
+        apply_sort_cnstr(ctx.get_enode(lhs), lhs->get_sort());
+        apply_sort_cnstr(ctx.get_enode(rhs), rhs->get_sort());
+    }
+
     void theory_ff::new_eq_eh(theory_var v1, theory_var v2) {
         eqs.push_back({v1, v2});
         ctx.push_trail(push_back_vector<svector<std::pair<theory_var, theory_var>>>(eqs));
