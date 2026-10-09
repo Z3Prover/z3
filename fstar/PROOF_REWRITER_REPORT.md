@@ -23,19 +23,23 @@ This report covers:
 1. A proof-term calculus, `Z3ProofTheory.fst`, modeling the fragment of
    `basic_op_kind` that `rewriter_def.h` actually constructs
    (`PR_REFLEXIVITY`/`PR_SYMMETRY`/`PR_TRANSITIVITY`/`PR_MONOTONICITY`/
-   `PR_REWRITE`), together with a well-formedness/conclusion-extraction
-   judgment (`fact`) designed to agree with `proof_checker::
-   check1_basic`.
+   `PR_REWRITE`, plus the compound binder-crossing shape `QuantIntro`
+   for `PR_BIND`+`PR_QUANT_INTRO`), together with a well-formedness/
+   conclusion-extraction judgment (`fact`) designed to agree with
+   `proof_checker::check1_basic`.
 2. Smart constructors (`mk_refl`/`mk_sym`/`mk_trans`/`mk_congr`/
-   `mk_rewrite_leaf`) reproducing `ast_manager::mk_reflexivity`/
-   `mk_symmetry`/`mk_transitivity`/`mk_congruence`
-   (`mk_monotonicity`)/`mk_rewrite` exactly (including
-   `mk_transitivity`'s double-negation "fixup" special case), proved to
-   always produce well-formed output from well-formed input.
+   `mk_rewrite_leaf`/`mk_quant_intro`) reproducing `ast_manager::
+   mk_reflexivity`/`mk_symmetry`/`mk_transitivity`/`mk_congruence`
+   (`mk_monotonicity`)/`mk_rewrite`/(`mk_bind_proof`+`mk_quant_intro`)
+   exactly (including `mk_transitivity`'s double-negation "fixup"
+   special case), proved to always produce well-formed output from
+   well-formed input.
 3. A soundness theorem (`lemma_proof_sound`): under *any* denotational
    interpretation of terms (`Z3AstTheory.fst`'s `interpretation`/
-   `eval`), a well-formed proof tree whose `PR_REWRITE` leaves are all
-   individually sound denotes a true equation.
+   `eval`) satisfying `quant_extensional`, a well-formed proof tree
+   whose `PR_REWRITE` leaves are all individually sound (and whose
+   `QuantIntro` nodes wrap a sound child proof) denotes a true
+   equation.
 4. A site-by-site mapping of every proof-term-constructing call in
    `rewriter_def.h` to the lemma that establishes it is well-formed.
 
@@ -56,15 +60,18 @@ Type-checks and discharges all verification conditions with **no
 
 - Terms (`expr`) and their semantics (`interpretation value`/`eval`)
   are reused unchanged from `Z3AstTheory.fst`.
-- `proof` models exactly the five `basic_op_kind`s `rewriter_def.h`
-  constructs: `Refl e` (`PR_REFLEXIVITY`), `Sym p` (`PR_SYMMETRY`),
-  `Trans p1 p2` (`PR_TRANSITIVITY`), `Congr f args1 args2 prfs`
-  (`PR_MONOTONICITY`, always instantiated at `R = eq` since
-  `rewriter_def.h` only ever calls `mk_congruence`, never
+- `proof` models the five `basic_op_kind`s `rewriter_def.h` constructs
+  outside quantifiers: `Refl e` (`PR_REFLEXIVITY`), `Sym p`
+  (`PR_SYMMETRY`), `Trans p1 p2` (`PR_TRANSITIVITY`), `Congr f args1
+  args2 prfs` (`PR_MONOTONICITY`, always instantiated at `R = eq`
+  since `rewriter_def.h` only ever calls `mk_congruence`, never
   `mk_oeq_congruence`), and `Rewrite s t` (`PR_REWRITE`, the trusted
-  leaf). `oeq`-flavored facts, and the `PR_BIND`/`PR_QUANT_INTRO`
-  kinds used only when rewriting fires underneath a binder, are out of
-  scope (see "Not yet covered").
+  leaf) — plus a sixth, compound constructor, `QuantIntro qk
+  bound_sorts p`, modeling `PR_BIND` composed with `PR_QUANT_INTRO`
+  exactly as `process_quantifier` builds them together
+  (`mk_quant_intro(q, new_q, mk_bind_proof(q, m_pr))`), for rewrites
+  that fire underneath a quantifier's binder. `oeq`-flavored facts are
+  out of scope (see "Not yet covered").
 - `fact : proof -> option (expr & expr)` returns `Some (a, b)` (the
   conclusion `a = b`) exactly when `proof_checker::check1_basic` would
   accept the corresponding real proof term, and `None` otherwise.
@@ -152,15 +159,57 @@ interpretation (trivially true for the standard two-valued Boolean
 semantics `bool_rewriter.cpp` implements, see `BOOL_REWRITER_REPORT.md`
 §`mk_not`), not an independent axiom of this file.
 
-## Not yet covered
+## `PR_BIND`/`PR_QUANT_INTRO` (binder-crossing rewrites)
 
-- **`PR_BIND`/`PR_QUANT_INTRO`** (`ast_manager::mk_bind_proof`/
-  `mk_quant_intro`, used only by `rewriter_tpl::process_quantifier`
-  when a rewrite fires underneath a quantifier's binder): these
-  additionally need to reason about `Z3AstTheory.fst`'s
-  `interp_quant`/environment-shifting machinery, which this file does
-  not yet connect to the proof calculus. Deferred to a follow-up pass.
-- **`oeq`-flavored facts** (`mk_oeq_reflexivity`/`mk_oeq_rewrite`/
+`process_quantifier`'s `ProofGen` branch (`rewriter_def.h`, ~lines
+580–597) only reaches this case `if (q != new_q)`: if the body's own
+recursively-computed proof `m_pr` is non-null, it builds `m_pr =
+mk_quant_intro(q, new_q, mk_bind_proof(q, m_pr))`; if `m_pr` was null
+(nothing semantically changed, e.g. only patterns differ), it instead
+falls back to the already-covered `mk_rewrite(q, new_q)`. This file's
+`QuantIntro qk bound_sorts p` models the first case as a single
+compound node (not two) — `mk_bind_proof`'s own contribution is purely
+a *representational* re-expression of `p` as a lambda-tagged term (so
+that the real `PR_QUANT_INTRO` node's premise is recognizable via
+`is_lambda`), not an independent semantic step, so introducing a
+separate `Bind` constructor here would add representation detail with
+no corresponding soundness obligation.
+
+Critically, `proof_checker::check1_basic`'s `PR_QUANT_INTRO` case
+(lines 336–367) has *two* accepted shapes: the shape `rewriter_def.h`
+actually produces (premise or conclusion fact is a raw `is_lambda(...)`
+term) is accepted **unconditionally** — the kernel's own checker does
+not verify binder-crossing quantifier introduction at all in this
+path; it is architecturally a second, distinct kind of trusted leaf,
+parallel to but independent from `PR_REWRITE`. (The checker's other
+shape — both facts `iff`/`oeq` between literal, already-related
+quantifiers — is fully structural, but is never what `rewriter_def.h`
+itself constructs.)
+
+This file does **not** take the kernel's unconditional-accept shortcut.
+Instead, `QuantIntro`'s `fact` case requires the wrapped child's own
+`fact p1 = Some (body1, body2)` (the equation between the two
+quantifiers' literal, still-bound bodies) and derives `fact
+(QuantIntro qk bound_sorts p1) = Some (Quantifier qk bound_sorts body1,
+Quantifier qk bound_sorts body2)`. Its contribution to
+`lemma_proof_sound` is to **re-invoke** `p1`'s own soundness — not at
+the ambient environment `rho`, but at every environment `shift vs rho`
+for an arbitrary bound-variable assignment `vs` (valid because
+`all_leaves_sound`/`fact` are properties of the proof tree alone,
+independent of which environment `lemma_proof_sound` is later invoked
+at) — and then close the `Quantifier` case of `eval` via
+`quant_extensional i` (now an added hypothesis of `lemma_proof_sound`,
+harmless for every other case since they never produce a `Quantifier`
+node). This is exactly the semantic content, and exactly the proof
+technique, of `lemma_pr_quant_intro` in
+[`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst)
+(which independently formalizes the *fully-structural*,
+non-lambda-wrapped shape of `PR_QUANT_INTRO` that some other,
+non-`rewriter_def.h` caller could in principle construct) — reused
+here, rather than re-derived, as the justification for why trusting
+`QuantIntro`'s wrapped child suffices.
+
+## Not yet covered (`mk_oeq_reflexivity`/`mk_oeq_rewrite`/
   `mk_oeq_congruence`/`PR_IFF_OEQ`/`PR_MODUS_PONENS_OEQ`): never
   constructed by `rewriter_def.h` itself (only by other call sites in
   Z3, e.g. the simplifier/preprocessing pipeline's "observational
@@ -184,13 +233,13 @@ semantics `bool_rewriter.cpp` implements, see `BOOL_REWRITER_REPORT.md`
 
 ## Summary
 
-This report proves 6 top-level smart-constructor well-formedness
-lemmas plus the central soundness theorem (`lemma_proof_sound`, with
-2 supporting helper lemmas), covering every proof-term-constructing
-call site in `src/ast/rewriter/rewriter_def.h` (and the quantifier
-path in `process_quantifier` up to, but not including, the binder-
-crossing `PR_BIND`/`PR_QUANT_INTRO` kinds). Combined with this
-project's existing per-plugin rewrite-correctness reports (which
-separately establish that every `PR_REWRITE` leaf's `(s, t)` pair is
-semantically valid), this gives an end-to-end soundness argument for
-proof terms produced during ordinary Z3 rewriting.
+This report proves 7 top-level smart-constructor well-formedness
+lemmas plus the central soundness theorem (`lemma_proof_sound`, with 2
+supporting helper lemmas), covering every proof-term-constructing call
+site in `src/ast/rewriter/rewriter_def.h`, **including** the
+quantifier/binder-crossing `PR_BIND`/`PR_QUANT_INTRO` path in
+`process_quantifier`. Combined with this project's existing per-plugin
+rewrite-correctness reports (which separately establish that every
+`PR_REWRITE` leaf's `(s, t)` pair is semantically valid), this gives an
+end-to-end soundness argument for proof terms produced during ordinary
+Z3 rewriting, quantified rewrites included.

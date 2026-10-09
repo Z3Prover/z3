@@ -23,11 +23,18 @@
        at a `PR_REWRITE` node whose soundness is established
        separately, by each plugin's own rewrite-correctness audit --
        e.g. `BOOL_REWRITER_REPORT.md`, `ARITH_REWRITER_REPORT.md`,
-       `BV_REWRITER_REPORT.md`, `SEQ_REWRITE_REPORT.md`, etc.).
-       `PR_BIND`/`PR_QUANT_INTRO` (used only by
-       `rewriter_tpl::process_quantifier`, for rewrites that fire
-       underneath a binder) are noted but not modeled here -- see
-       PROOF_REWRITER_REPORT.md's "Not yet covered" section.
+       `BV_REWRITER_REPORT.md`, `SEQ_REWRITE_REPORT.md`, etc.), plus a
+       sixth, compound shape, `QuantIntro`, modeling `PR_BIND`
+       composed with `PR_QUANT_INTRO` exactly as
+       `rewriter_tpl::process_quantifier` builds them together
+       (`mk_quant_intro(q, new_q, mk_bind_proof(q, m_pr))`) for
+       rewrites that fire underneath a binder. Z3's own
+       `proof_checker::check1_basic` accepts this real (lambda-
+       wrapped) shape *unconditionally*, as a second, distinct kind of
+       trusted leaf alongside `PR_REWRITE` (see `QuantIntro`'s
+       docstring below); this file instead *derives* its soundness
+       from the wrapped child proof's own soundness, rather than
+       trusting it blindly.
 
      - *Well-formedness semantics* for each kind: `src/ast/proofs/
        proof_checker.cpp`'s `proof_checker::check1_basic`, the
@@ -98,12 +105,24 @@ let is_not_not (e:expr) : option expr =
    called from `rewriter_def.h`, only their plain `eq` counterparts,
    so `oeq` is out of scope for this file -- see
    PROOF_REWRITER_REPORT.md). *)
+(* `QuantIntro qk bound_sorts p` models the compound shape
+   `rewriter_tpl::process_quantifier` actually builds --
+   `mk_quant_intro(q1, q2, mk_bind_proof(q1, p))` -- as a single
+   constructor rather than two (see "PR_BIND/PR_QUANT_INTRO" below for
+   why `PR_BIND`'s own lambda-reification wrapper needs no separate
+   node here). `p`'s fact is the equation between the two quantifiers'
+   literal (still-bound, de-Bruijn-indexed) *bodies*; `QuantIntro`'s
+   own fact is the corresponding equation between the two whole
+   quantifiers, same `qk`/`bound_sorts` on both sides (exactly what
+   `rewriter_def.h` ever constructs: `q`/`new_q` always agree on kind
+   and bound sorts, differing only in body/patterns). *)
 type proof =
   | Refl    : e:expr -> proof
   | Sym     : p:proof -> proof
   | Trans   : p1:proof -> p2:proof -> proof
   | Congr   : f:func_decl -> args1:list expr -> args2:list expr -> prfs:list proof -> proof
   | Rewrite : s:expr -> t:expr -> proof
+  | QuantIntro : qk:quantifier_kind -> bound_sorts:list sort -> p:proof -> proof
 
 (* ----------------------------------------------------------------- *)
 (* `fact`: well-formedness + conclusion extraction, mirroring          *)
@@ -169,6 +188,10 @@ let rec fact (p:proof) : Tot (option (expr & expr)) (decreases p) =
     then Some (App f args1, App f args2)
     else None
   | Rewrite s t -> Some (s, t)
+  | QuantIntro qk bound_sorts p1 ->
+    (match fact p1 with
+     | Some (body1, body2) -> Some (Quantifier qk bound_sorts body1, Quantifier qk bound_sorts body2)
+     | None -> None)
 
 and facts_of (prfs:list proof) : Tot (list (option (expr & expr))) (decreases prfs) =
   match prfs with
@@ -239,6 +262,25 @@ let mk_congr (f:func_decl) (args1 args2:list expr) (prfs:list proof) : proof =
    *proof-calculus* layer on top. *)
 let mk_rewrite_leaf (s t:expr) : proof = Rewrite s t
 
+(* `ast_manager::mk_bind_proof` + `ast_manager::mk_quant_intro`, taken
+   together as the one compound shape `process_quantifier` ever
+   builds. `mk_bind_proof(q, p)` itself constructs no new *semantic*
+   content -- it only re-expresses `p` as a term (`mk_lambda(decls,
+   p)`) so that `mk_quant_intro` can later be given a single `proof*`
+   that packages "a proof, for each assignment of the bound
+   variables" (this file does not model that intermediate
+   lambda-term representation explicitly; see `QuantIntro`'s own
+   docstring above for why one constructor suffices). `mk_quant_intro`
+   itself only has a real `SASSERT` precondition
+   (`q1->get_num_decls() == q2->get_num_decls()`, i.e. same arity/
+   bound sorts), always satisfied at this call site since `q`/`new_q`
+   are built by `update_quantifier` from the same `q`, never changing
+   its bound-variable declarations -- modeled here by `bound_sorts`
+   simply being shared between both sides of `fact`'s conclusion,
+   rather than separately parameterized and equality-checked. *)
+let mk_quant_intro (qk:quantifier_kind) (bound_sorts:list sort) (p:proof) : proof =
+  QuantIntro qk bound_sorts p
+
 (* ----------------------------------------------------------------- *)
 (* Smart constructors are well-formed by construction                  *)
 (* ----------------------------------------------------------------- *)
@@ -303,6 +345,12 @@ let lemma_mk_rewrite_wf (s t:expr)
   : Lemma (fact (mk_rewrite_leaf s t) == Some (s, t))
   = ()
 
+let lemma_mk_quant_intro_wf (qk:quantifier_kind) (bound_sorts:list sort) (p:proof) (body1 body2:expr)
+  : Lemma (requires fact p == Some (body1, body2))
+          (ensures fact (mk_quant_intro qk bound_sorts p) ==
+                   Some (Quantifier qk bound_sorts body1, Quantifier qk bound_sorts body2))
+  = ()
+
 (* ----------------------------------------------------------------- *)
 (* Semantics and soundness                                             *)
 (* ----------------------------------------------------------------- *)
@@ -322,6 +370,7 @@ let rec all_leaves_sound (#value:Type) (i:interpretation value) (p:proof) : Tot 
   | Trans p1 p2 -> all_leaves_sound i p1 /\ all_leaves_sound i p2
   | Congr _ _ _ prfs -> all_leaves_sound_list i prfs
   | Rewrite s t -> (forall (rho:env value). eval i s rho == eval i t rho)
+  | QuantIntro _ _ p1 -> all_leaves_sound i p1
 
 and all_leaves_sound_list (#value:Type) (i:interpretation value) (prfs:list proof) : Tot prop (decreases prfs) =
   match prfs with
@@ -346,6 +395,7 @@ let rec proof_size (p:proof) : nat =
   | Trans p1 p2 -> 1 + proof_size p1 + proof_size p2
   | Congr _ _ _ prfs -> 1 + proof_list_size prfs
   | Rewrite _ _ -> 1
+  | QuantIntro _ _ p1 -> 1 + proof_size p1
 
 and proof_list_size (prfs:list proof) : nat =
   match prfs with
@@ -360,7 +410,7 @@ and proof_list_size (prfs:list proof) : nat =
    exactly the `PR_REFLEXIVITY`/`PR_SYMMETRY`/`PR_TRANSITIVITY`/
    `PR_MONOTONICITY`/`PR_REWRITE` fragment `rewriter_def.h` uses. *)
 let rec lemma_proof_sound (#value:Type) (i:interpretation value) (p:proof) (rho:env value)
-  : Lemma (requires Some? (fact p) /\ all_leaves_sound i p)
+  : Lemma (requires Some? (fact p) /\ all_leaves_sound i p /\ quant_extensional i)
           (ensures (let Some (a, b) = fact p in eval i a rho == eval i b rho))
           (decreases %[proof_size p; 0])
   = match p with
@@ -369,6 +419,25 @@ let rec lemma_proof_sound (#value:Type) (i:interpretation value) (p:proof) (rho:
     | Trans p1 p2 -> lemma_proof_sound i p1 rho; lemma_proof_sound i p2 rho
     | Congr f args1 args2 prfs -> lemma_congr_args_sound i args1 args2 prfs rho
     | Rewrite _ _ -> ()
+    | QuantIntro qk bound_sorts p1 ->
+      (* `p1`'s fact (recovered under `Some? (fact p)`'s refinement on
+         `QuantIntro`, i.e. `fact p1 = Some (body1, body2)`) relates
+         the two quantifiers' literal, still-bound bodies. Unlike the
+         other cases, the obligation isn't "evaluate at `rho`" but
+         "evaluate at every `rho` extended by an assignment of the
+         bound variables" -- exactly `lemma_pr_quant_intro`'s premise
+         in `Z3PreprocessingProofTheory.fst`, and discharged the same
+         way: invoke `lemma_proof_sound` on `p1` itself, once per
+         extended environment (sound to do, since `all_leaves_sound`
+         is a property of the proof tree alone, not of which
+         environment it's instantiated at), then close the
+         `Quantifier` case of `eval` via `quant_extensional i`. *)
+      let (body1, body2) = (match fact p1 with Some (b1, b2) -> (b1, b2)) in
+      let aux (vs:list value{List.Tot.length vs = List.Tot.length bound_sorts})
+        : Lemma (eval i body1 (shift vs rho) == eval i body2 (shift vs rho))
+        = lemma_proof_sound i p1 (shift vs rho)
+      in
+      FStar.Classical.forall_intro aux
 
 (* If `find_matching_fact` succeeds against `facts_of prfs`, the
    premise that established that fact is reachable inside `prfs` and
@@ -379,7 +448,7 @@ let rec lemma_proof_sound (#value:Type) (i:interpretation value) (p:proof) (rho:
    needs to walk `prfs` and `facts_of prfs` in lockstep to recover
    *which* proof justified the match and invoke its own soundness. *)
 and lemma_find_matching_sound (#value:Type) (i:interpretation value) (a1 a2:expr) (prfs:list proof) (rho:env value)
-  : Lemma (requires find_matching_fact a1 a2 (facts_of prfs) /\ all_leaves_sound_list i prfs)
+  : Lemma (requires find_matching_fact a1 a2 (facts_of prfs) /\ all_leaves_sound_list i prfs /\ quant_extensional i)
           (ensures eval i a1 rho == eval i a2 rho)
           (decreases %[proof_list_size prfs; 0])
   = match prfs with
@@ -399,7 +468,7 @@ and lemma_find_matching_sound (#value:Type) (i:interpretation value) (a1 a2:expr
    `lemma_proof_sound` needs, since `eval` of an `App` depends on its
    arguments' list of denotations only. *)
 and lemma_congr_args_sound (#value:Type) (i:interpretation value) (args1 args2:list expr) (prfs:list proof) (rho:env value)
-  : Lemma (requires congr_matched args1 args2 (facts_of prfs) /\ all_leaves_sound_list i prfs)
+  : Lemma (requires congr_matched args1 args2 (facts_of prfs) /\ all_leaves_sound_list i prfs /\ quant_extensional i)
           (ensures eval_args i args1 rho == eval_args i args2 rho)
           (decreases %[proof_list_size prfs; List.Tot.length args1])
   = match args1, args2 with
