@@ -161,6 +161,7 @@ namespace smt {
         // The cursor is trailed so backtracking replays literals in sync
         // with solver_facet's backend scopes.
         void flush_assigned_literals();
+        expr_ref_vector tokenize(seq::eq_tree::dep_tracker& dep, expr* e);
 
         // Propagate e1 = e2 into the SMT core, justified by `lit`.
         bool propagate_eq(literal lit, expr* e1, expr* e2);

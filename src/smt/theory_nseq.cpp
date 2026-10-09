@@ -288,6 +288,13 @@ namespace smt {
     // Equality / disequality notifications
     // -----------------------------------------------------------------------
 
+    // Root substitutions also apply to constraints that arrive after them.
+    expr_ref_vector theory_nseq::tokenize(seq::eq_tree::dep_tracker& dep, expr* e) {
+        expr_ref_vector out(m);
+        m_ambient->eq_facet(*m_root).eliminate(m_ambient->tokenize(e), out, &dep);
+        return out;
+    }
+
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
@@ -299,8 +306,8 @@ namespace smt {
             m_ambient->req_facet(*m_root).add_req(e1, e2, true, dep);
         }
         if (m_seq.is_seq(e1)) {
-            expr_ref_vector lhs = m_ambient->tokenize(e1);
-            expr_ref_vector rhs = m_ambient->tokenize(e2);
+            expr_ref_vector lhs = tokenize(dep, e1);
+            expr_ref_vector rhs = tokenize(dep, e2);
             m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
         }
     }
@@ -316,8 +323,8 @@ namespace smt {
             m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
         }
         if (m_seq.is_seq(e1)) {
-            expr_ref_vector lhs = m_ambient->tokenize(e1);
-            expr_ref_vector rhs = m_ambient->tokenize(e2);
+            expr_ref_vector lhs = tokenize(dep, e1);
+            expr_ref_vector rhs = tokenize(dep, e2);
             m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
         }
     }
@@ -341,7 +348,7 @@ namespace smt {
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
             expr* re = is_true ? e2 : m_seq.re.mk_complement(e2);
             seq::view mv = seq::view::membership(re, m);
-            expr_ref_vector ts = m_ambient->tokenize(e1);
+            expr_ref_vector ts = tokenize(dep, e1);
             // str_mem keeps the complemented regex alive.
             m_ambient->mem_facet(*m_root).add(seq::str_mem(m, ts, mv, dep));
             return;
@@ -354,8 +361,8 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                expr_ref_vector lhs = m_ambient->tokenize(e2);
-                expr_ref_vector rhs = m_ambient->tokenize(e1);
+                expr_ref_vector lhs = tokenize(dep, e2);
+                expr_ref_vector rhs = tokenize(dep, e1);
                 rhs.push_back(f); // fresh existential
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
@@ -371,10 +378,10 @@ namespace smt {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
                 expr* f = m_ambient->eq_facet(*m_root).mk_fresh_var(e2->get_sort());
-                expr_ref_vector lhs = m_ambient->tokenize(e2);
+                expr_ref_vector lhs = tokenize(dep, e2);
                 expr_ref_vector rhs(m);
                 rhs.push_back(f); // fresh existential
-                rhs.append(m_ambient->tokenize(e1));
+                rhs.append(tokenize(dep, e1));
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else
@@ -389,16 +396,16 @@ namespace smt {
                 // contains(e1,e2) => e1 = x ++ e2 ++ y
                 expr* x = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
                 expr* y = m_ambient->eq_facet(*m_root).mk_fresh_var(e1->get_sort());
-                expr_ref_vector lhs = m_ambient->tokenize(e1);
+                expr_ref_vector lhs = tokenize(dep, e1);
                 expr_ref_vector rhs(m);
                 rhs.push_back(x); // fresh existentials
-                rhs.append(m_ambient->tokenize(e2));
+                rhs.append(tokenize(dep, e2));
                 rhs.push_back(y);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
             }
             else {
                 // not contains(e1,e2) is tracked by ncontains_facet.
-                m_ambient->ncontains_facet(*m_root).add_ncontains(e1, e2, dep);
+                m_ambient->ncontains_facet(*m_root).add_ncontains(tokenize(dep, e1), tokenize(dep, e2), dep);
             }
             return;
         }
@@ -409,8 +416,8 @@ namespace smt {
             bool strict = m_seq.str.is_lt(e);
             unsigned idx = mk_dep(assumption(lit));
             seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-            expr_ref_vector lhs = m_ambient->tokenize(is_true ? e1 : e2);
-            expr_ref_vector rhs = m_ambient->tokenize(is_true ? e2 : e1);
+            expr_ref_vector lhs = tokenize(dep, is_true ? e1 : e2);
+            expr_ref_vector rhs = tokenize(dep, is_true ? e2 : e1);
             m_ambient->lex_facet(*m_root).add_lex(lhs, rhs, is_true ? strict : !strict, dep);
             return;
         }
@@ -423,8 +430,8 @@ namespace smt {
             if (is_true) {
                 unsigned idx = mk_dep(assumption(lit));
                 seq::eq_tree::dep_tracker dep = m_tree.dep_mgr().mk_leaf(idx);
-                expr_ref_vector lhs = m_ambient->tokenize(e1);
-                expr_ref_vector rhs = m_ambient->tokenize(e2);
+                expr_ref_vector lhs = tokenize(dep, e1);
+                expr_ref_vector rhs = tokenize(dep, e2);
                 m_ambient->eq_facet(*m_root).add_equation(lhs, rhs, dep);
                 propagate_eq(lit, e1, e2);
             }
@@ -801,6 +808,13 @@ namespace smt {
                 for (auto const& p : m_ambient->power_facet(node).powers())
                     if (m_ambient->solver_facet(node).value(p.m_n, v))
                         assumptions.push_back(m.mk_eq(p.m_n, m_autil.mk_numeral(v, true)));
+                // Likewise for the lengths of uninterpreted stoi arguments, so stoi coherence runs
+                // at the leaf's lengths. The model evaluator interprets other sequence terms.
+                for (auto const& [t, k] : m_ambient->stoi_facet(node).terms()) {
+                    expr_ref len(m_seq.str.mk_length(to_app(t)->get_arg(0)), m);
+                    if (is_uninterp(to_app(t)->get_arg(0)) && m_ambient->solver_facet(node).value(len, v))
+                        assumptions.push_back(m.mk_eq(len, m_autil.mk_numeral(v, true)));
+                }
                 for (expr* a : assumptions) {
                     literal lit = mk_literal(a);
                     bool_var bv = lit.var();

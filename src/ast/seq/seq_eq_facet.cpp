@@ -38,7 +38,7 @@ namespace seq {
     }
 
     void eq_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
-        m_subst.push_back(subst_entry(m, var, repl));
+        m_subst.push_back(subst_entry(m, var, repl, subst_dep));
         m_trail.push(push_back_trail<subst_entry>(m_subst));
         for (unsigned i = 0; i < m_eqs.size(); ++i) {
             if (!m_eqs[i].active())
@@ -98,11 +98,13 @@ namespace seq {
                 out.push_back(&eq);
     }
 
-    bool eq_facet::get_subst(expr* var, expr_ref_vector& out) const {
+    bool eq_facet::get_subst(expr* var, expr_ref_vector& out, eq_tree::dep_tracker* dep) const {
         for (unsigned i = m_subst.size(); i-- > 0; ) {
             if (m_subst[i].m_var == var) {
                 out.reset();
                 out.append(m_subst[i].m_repl);
+                if (dep)
+                    *dep = m_dm.mk_join(*dep, m_subst[i].m_dep);
                 return true;
             }
         }
@@ -115,7 +117,7 @@ namespace seq {
         eliminate(in, out);
     }
 
-    void eq_facet::eliminate(expr_ref_vector const& in, expr_ref_vector& out) const {
+    void eq_facet::eliminate(expr_ref_vector const& in, expr_ref_vector& out, eq_tree::dep_tracker* dep) const {
         out.reset();
         ptr_vector<expr> todo;
         obj_hashtable<expr> on_stack;
@@ -130,7 +132,7 @@ namespace seq {
             todo.pop_back();
             on_stack.remove(t);
             expr_ref_vector repl(m);
-            if (get_subst(t, repl) && !on_stack.contains(t)) {
+            if (!on_stack.contains(t) && get_subst(t, repl, dep)) {
                 for (unsigned i = repl.size(); i-- > 0; )
                     push_token(repl.get(i));
             }

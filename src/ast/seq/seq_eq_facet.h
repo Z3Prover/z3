@@ -130,8 +130,9 @@ namespace seq {
         struct subst_entry {
             expr_ref         m_var;
             expr_ref_vector  m_repl;
-            subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl) :
-                m_var(var, m), m_repl(repl) {}
+            eq_tree::dep_tracker m_dep;
+            subst_entry(ast_manager& m, expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker dep) :
+                m_var(var, m), m_repl(repl), m_dep(dep) {}
         };
         struct equation : public stx::constraint_i {
             expr_ref_vector      m_lhs;
@@ -192,9 +193,9 @@ namespace seq {
 
         // Append-only substitution table used during model construction.
         // Walking it backwards yields the newest active binding.
-        bool get_subst(expr* var, expr_ref_vector& out) const;
+        bool get_subst(expr* var, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;
         void eliminate(expr* e, expr_ref_vector& out) const;
-        void eliminate(expr_ref_vector const& in, expr_ref_vector& out) const;
+        void eliminate(expr_ref_vector const& in, expr_ref_vector& out, eq_tree::dep_tracker* dep = nullptr) const;
 
         // Allocate a fresh opaque variable token of `s`'s sort.
         expr* mk_fresh_var(sort* s) { return m.mk_fresh_const("t", s); }
