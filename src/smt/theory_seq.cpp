@@ -2298,8 +2298,26 @@ app* theory_seq::mk_value(expr* e) {
     // value from the factory. See issue #9063.
     if (m_util.is_seq(result) && !m.is_value(result)) {
         expr_ref fresh(m_factory->get_fresh_value(result->get_sort()), m);
-        if (fresh)
+        if (fresh) {
+            // The fresh value is picked without regard to constraints that may
+            // already have been derived on the length of e (e.g. via solved
+            // equalities feeding into arithmetic bounds). If a positive length
+            // lower bound is known, pad the (string) fresh value so the model
+            // does not contradict it. This avoids producing models that fail
+            // str.len lower bound constraints established elsewhere (#7664).
+            zstring s;
+            rational lo;
+            unsigned const max_pad = 1 << 16;
+            if (m_util.str.is_string(fresh, s) && lower_bound2(e, lo) && lo.is_pos() &&
+                lo.is_unsigned() && lo.get_unsigned() <= max_pad && rational(s.length()) < lo) {
+                std::string padded = s.encode();
+                unsigned need = lo.get_unsigned();
+                while (padded.length() < need)
+                    padded += "a";
+                fresh = m_util.str.mk_string(zstring(padded.c_str()));
+            }
             result = fresh;
+        }
     }
     m_factory->add_trail(result);
     TRACE(seq, tout << mk_pp(e, m) << " -> " << result << "\n";);
