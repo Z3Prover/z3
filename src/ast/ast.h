@@ -1561,8 +1561,8 @@ protected:
     proof_gen_mode            m_proof_mode;
     bool                      m_int_real_coercions; // If true, use hack that automatically introduces to_int/to_real when needed.
     ast_table                 m_ast_table;
-    id_gen                    m_expr_id_gen;
-    id_gen                    m_decl_id_gen;
+    ordered_id_gen            m_expr_id_gen;
+    ordered_id_gen            m_decl_id_gen;
     sort *                    m_bool_sort;
     sort *                    m_proof_sort;
     app *                     m_true;
