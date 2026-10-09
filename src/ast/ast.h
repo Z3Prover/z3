@@ -1192,7 +1192,7 @@ enum basic_op_kind {
     PR_ASSUMPTION_ADD, PR_TH_ASSUMPTION_ADD, PR_LEMMA_ADD, PR_TH_LEMMA_ADD, PR_REDUNDANT_DEL, PR_CLAUSE_TRAIL,
 
     PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
-    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
+    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, PR_DEMODULATION, LAST_BASIC_PR
 };
 
 class basic_decl_plugin : public decl_plugin {
@@ -1232,6 +1232,7 @@ protected:
     ptr_vector<func_decl> m_distributivity_decls;
     ptr_vector<func_decl> m_assoc_flat_decls;
     ptr_vector<func_decl> m_rewrite_star_decls;
+    ptr_vector<func_decl> m_demodulation_decls;
 
     func_decl * m_hypothesis_decl = nullptr;
     func_decl * m_iff_true_decl = nullptr;
@@ -2438,6 +2439,7 @@ public:
     proof * mk_rewrite(expr * s, expr * t);
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+    proof * mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs);
     proof * mk_bind_proof(quantifier * q, proof * p);
     proof * mk_pull_quant(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);

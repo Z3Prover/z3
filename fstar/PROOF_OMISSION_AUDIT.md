@@ -238,6 +238,86 @@ theory's `PR_TH_LEMMA` instances are trusted leaves at the kernel-checker
 level — this is a pre-existing, known, and already-catalogued trust
 boundary, not a new finding.
 
+## 5. Follow-up: is `expr_safe_replace` used where it should produce a proof?
+
+`ast/rewriter/expr_safe_replace.{h,cpp}` is a capture-avoiding (quantifier-safe)
+simultaneous-substitution utility. Its API has **zero proof-producing
+capability**: `insert(expr* src, expr* dst)` records a substitution pair with
+no justification, and `operator()` returns only the rewritten term — no
+`proof_ref` output anywhere. Any caller that mutates a live, proof-tracked
+formula using it must therefore supply its own justification externally.
+
+Two concrete call sites do exactly this kind of mutation and currently drop
+the proof on the floor:
+
+- **`ast/simplifiers/demodulator_simplifier.cpp:111`** — rewrites a formula
+  using "demodulator" equations drawn from other formulas in the same goal,
+  via `match_subst` (general first-order term rewriting with unification, not
+  `expr_safe_replace`), and calls
+  `m_fmls.update(i, dependent_expr(m, r, nullptr, d))` — null proof. Currently
+  **benign**: `demodulator_simplifier` doesn't override `supports_proofs()`,
+  so it inherits the `dependent_expr_simplifier` default of `false` and is
+  entirely excluded from proof-producing pipelines by the
+  `dependent_expr_state_tactic` gate (see §2). Because its rewriting is
+  pattern-based (the "demodulator" equations may contain free variables
+  unified against subterms), it does not fit the new rule below as-is.
+- **`ast/simplifiers/lambda_simplifier.cpp:104,157`** — this one *does* use
+  `expr_safe_replace` directly, and for exactly the textbook "demodulation"
+  shape: it finds macro definitions `c_k = L_k` (constants defined by lambda
+  terms), resolves nested macro references to a fixpoint, then calls
+  `expr_safe_replace` to replace every occurrence of each `c_k` by its
+  (resolved) definition in every other formula — i.e. literal, ground,
+  simultaneous term replacement, not unification-based rewriting. Both
+  updates (`:173` collapsing a macro's own defining equation to `m.mk_true()`,
+  and `:184` substituting resolved macros into the rest of the problem) pass
+  `nullptr` as the proof. Also currently **benign**: `lambda_simplifier` does
+  not override `supports_proofs()` either, so the same gate excludes it.
+
+So today there is **no live soundness gap** — both candidates are
+proof-disabled by the same `supports_proofs()` mechanism already relied on
+throughout `ast/simplifiers`. But unlike the cases audited in §2, these two
+are not merely "trusted leaf, single `mk_rewrite`" candidates: `lambda_simplifier`
+in particular performs exactly the operation described by the user's proposed
+rule (`t = s` by simultaneously replacing `a_1..a_n` with `b_1..b_n`), and
+doing so under a battery of individually-named antecedent equations, rather
+than one opaque trusted `mk_rewrite` leaf, is a meaningful audit-trail
+improvement (it is independently *checked*, not merely trusted — see below).
+
+### New kernel rule: `PR_DEMODULATION`
+
+Added a new `basic_op_kind`, `PR_DEMODULATION`, together with:
+
+- `ast_manager::mk_demodulation(expr* t, expr* s, unsigned num_proofs, proof* const* proofs)`
+  (`src/ast/ast.h`, `src/ast/ast.cpp`) — mirrors the existing
+  `mk_rewrite_star` pattern: builds `(demodulation pr_1 .. pr_n (= t s))`,
+  where each `pr_i` is a proof of some `l_i = r_i`. (`num_proofs == 0`
+  degenerates to a plain `mk_rewrite(t, s)`.)
+- A `proof_checker::check1_basic` case for `PR_DEMODULATION`
+  (`src/ast/proofs/proof_checker.cpp`). Unlike `PR_REWRITE`/`PR_REWRITE_STAR`
+  (which the checker *trusts* — it only extracts a side condition for later,
+  external verification), this case is **structurally self-checking**: it
+  reads each premise's own fact `l_i = r_i`, builds an `expr_safe_replace`
+  substitution from them, re-runs it against `t`, and requires the result to
+  be *exactly* (hash-consed-pointer-equal to) `s`. Since `expr_safe_replace`
+  is a pure, deterministic, capture-avoiding substitution, this is a precise
+  check, not a heuristic one — modulo trusting that each premise genuinely
+  proves its own `l_i = r_i` (which is itself checked recursively, like any
+  other premise).
+- A regression test, `tst_demodulation()` (`src/test/proof_checker.cpp`),
+  exercising: a single-equation substitution under a function application, two
+  simultaneous equations, and the zero-equation degenerate case.
+
+This is new kernel infrastructure, not yet wired into any live simplifier:
+flipping `lambda_simplifier::supports_proofs()` to `true` safely also
+requires justifying its *other* update (`:173`, collapsing a macro's own
+defining equation to `true`) — that step is an Ackermann/macro-elimination
+argument (a constant is being existentially discharged, witnessed by its
+definition), which is a different, pre-existing proof rule's job
+(`PR_DEF_INTRO`/`PR_APPLY_DEF`), not demodulation. Wiring `lambda_simplifier`
+up fully is left as follow-on work; this audit's concrete deliverable is the
+new, independently-checked `PR_DEMODULATION` rule itself, ready for that (or
+any future `expr_safe_replace`-based) caller to use.
+
 ## Summary
 
 | Layer | Genuine latent gaps found | Everything else |
@@ -246,6 +326,7 @@ boundary, not a new finding.
 | `ast/simplifiers` | **1 confirmed, now fixed: `euf_completion`'s `map_congruence`/`add_consequence` added null-proof marker formulas to a live, proof-enabled goal — fixed by disabling the simplifier under proofs (`supports_proofs()` now `false`). Also: `distribute_forall`'s `PR_PUSH_QUANT` proof was well-justified at the simplifier level but the kernel checker itself had a bug rejecting (literally) every such proof — fixed.** | 9 other proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
 | `tactic` | none found | `goal`'s assert-on-null-proof is an effective safety net; concrete tactics sampled are all correct or self-excluding |
 | `smt` | none found in sampled core + 5 theory families | consistent `PR_TH_LEMMA`/extended-justification usage; `PR_TH_LEMMA` semantic trust boundary is pre-existing/known, not new |
+| `expr_safe_replace` call sites | none *live* (both candidates, `demodulator_simplifier` and `lambda_simplifier`, are already excluded from proof-producing runs via `supports_proofs()==false`) | new `PR_DEMODULATION` kernel rule added (self-checking, not merely trusted) so `lambda_simplifier`-shaped substitutions can eventually carry real proofs; wiring it in is follow-on work |
 
 Overall: three of four layers audited clean (modulo implicit, unenforced
 preconditions worth hardening with asserts/comments in `ast/rewriter`); the

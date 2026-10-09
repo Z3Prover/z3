@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 #define IS_EQUIV(_e_) m.is_eq(_e_)
 
@@ -471,6 +472,38 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             return true;
         }
         IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m););
+        return false;
+    }
+    case PR_DEMODULATION: {
+        // `t1 = t2` (or `t1 <~> t2`) holds because `t2` is obtained from `t1`
+        // by simultaneously replacing every occurrence of `l_i` by `r_i`,
+        // for each premise proof of `l_i = r_i` (i = 1..n). Re-run the
+        // substitution here and compare the result structurally against
+        // `t2`: since `expr_safe_replace` is a pure, capture-avoiding
+        // rewrite, this is a precise (not merely plausible) check, modulo
+        // trusting that each premise genuinely proves its own `l_i = r_i`
+        // fact (checked recursively like any other premise).
+        if (match_fact(p, fact) &&
+            match_equiv(fact, t1, t2)) {
+            expr_safe_replace sub(m);
+            bool all_eqs = true;
+            for (proof* pr : proofs) {
+                expr* eq_fact = nullptr, *l = nullptr, *r = nullptr;
+                if (!match_fact(pr, eq_fact) || !match_equiv(eq_fact, l, r)) {
+                    all_eqs = false;
+                    break;
+                }
+                sub.insert(l, r);
+            }
+            if (all_eqs) {
+                expr_ref t1_subst(t1, m);
+                sub(t1_subst);
+                if (t1_subst.get() == t2)
+                    return true;
+            }
+        }
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality by demodulation:\n" << mk_bounded_pp(p, m););
+        UNREACHABLE();
         return false;
     }
     case PR_PULL_QUANT: {

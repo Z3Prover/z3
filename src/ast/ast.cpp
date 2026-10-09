@@ -794,6 +794,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
+    case PR_DEMODULATION:                 return mk_proof_decl("demodulation", k, num_parents, m_demodulation_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
     case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
     case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
@@ -2966,6 +2967,17 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(s, t));
     return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.data());
+}
+
+proof * ast_manager::mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs) {
+    if (proofs_disabled())
+        return nullptr;
+    if (num_proofs == 0)
+        return mk_rewrite(t, s);
+    ptr_buffer<expr> args;
+    args.append(num_proofs, (expr* const *) proofs);
+    args.push_back(mk_eq(t, s));
+    return mk_app(basic_family_id, PR_DEMODULATION, args.size(), args.data());
 }
 
 proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
