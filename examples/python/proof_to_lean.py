@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,8 @@ _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
 _HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf")
 _FRAGMENTS = ("propositional", "qf_lra")
+_OUTLINE_PROOF_STEPS = 2000
+_NORMALIZED_REWRITE_ATOMS = 16
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
     z3.Z3_OP_PR_TH_LEMMA: ("th-lemma", 0),
@@ -717,7 +720,9 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     ]
     if graph.arithmetic:
         lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
-    lines.append("  grind")
+    # Large Boolean/arithmetic rewrites can require more than grind's default
+    # nine case splits, even though every arithmetic atom remains linear.
+    lines.append("  grind (splits := 64)")
     return lines, "(%s_%d _atoms%s)" % (prefix, node, graph.valuation)
 
 
@@ -727,7 +732,14 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None):
     _equivalence(graph, conclusion, "rewrite")
     reachable, arithmetic = _reachable(graph, conclusion)
     if arithmetic:
-        lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices)
+        atoms = [formula for formula in sorted(reachable)
+                 if graph.kind(formula) in _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ}
+                 and graph.arguments(formula) and graph.is_real(graph.arguments(formula)[0])]
+        distinct = any(graph.kind(formula) == z3.Z3_OP_DISTINCT for formula in reachable)
+        if len(atoms) > _NORMALIZED_REWRITE_ATOMS and not distinct:
+            lines, term = _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices)
+        else:
+            lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices)
         return lines, set(), term
     atoms = sorted(atom_indices[graph.nodes[formula].declaration]
                    for formula in reachable if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED)
@@ -748,6 +760,170 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None):
     lines.append("  all_goals exact of_decide_eq_true rfl")
     term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
     return lines, atoms, term
+
+
+def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices):
+    """Separate linear atom normalization from propositional rewrite search."""
+    def numeral(value):
+        return ("((%d : Rat))" % value.numerator if value.denominator == 1 else
+                "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator))
+
+    canonical, normalized_atoms, rewrites, lines = {}, {}, [], [
+        "", "set_option maxHeartbeats 1000000 in",
+        "set_option linter.unnecessarySimpa false in",
+        "private theorem rewrite_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
+        "    : %s := by" % _formula(graph, graph.conclusion(node)),
+    ]
+    for atom in atoms:
+        relation, terms, constant = _atom_constraint(graph, atom)
+        negated = relation == "<"
+        if negated:
+            terms, constant, relation = {var: -value for var, value in terms.items()}, -constant, "<="
+        if terms:
+            first = min(terms, key=lambda var: variable_indices[graph.nodes[var].declaration])
+            scale = terms[first] if relation == "=" else abs(terms[first])
+            terms, constant = {var: value / scale for var, value in terms.items()}, constant / scale
+        ordered = tuple(sorted((variable_indices[graph.nodes[var].declaration], value)
+                               for var, value in terms.items()))
+        key = relation, ordered, constant
+        scale = 1
+        for value in [value for _, value in ordered] + [constant]:
+            scale = scale * value.denominator // _gcd(scale, value.denominator)
+        parts = ["(%s * _vars %d)" % (numeral(value * scale), var) for var, value in ordered]
+        parts.append(numeral(constant * scale))
+        expression = "(%s %s ((0 : Rat)))" % (" + ".join(parts), relation)
+        if not ordered:
+            holds = constant == 0 if relation == "=" else constant <= 0
+            expression = "True" if holds != negated else "False"
+            negated = False
+        name = canonical.get(key) if ordered else expression
+        if name is None:
+            name = "_atom%d" % len(canonical)
+            canonical[key] = name
+            lines.append("  let %s : Prop := %s" % (name, expression))
+        target = "(Not %s)" % name if negated else name
+        normalized_atoms[atom] = target
+        expanded = "(Not %s)" % expression if negated else expression
+        rewrite = "_norm%d" % atom
+        rewrites.append(rewrite)
+        lines.extend([
+            "  have %s : %s <-> %s := by" % (rewrite, _formula(graph, atom), target),
+            "    change %s <-> %s" % (_inline(graph, atom, atom_indices, variable_indices), expanded),
+            "    grind",
+        ])
+    definitions = ["formula_%d" % formula for formula in sorted(reachable, reverse=True)
+                   if not graph.is_real(formula) and formula not in atoms]
+    rendered = dict(normalized_atoms)
+
+    def boolean(formula):
+        if formula not in rendered:
+            body = _formula_body(graph, formula, atom_indices)
+            if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED:
+                body = "(" + body + ")"
+            for arg in graph.arguments(formula):
+                body = body.replace(_formula(graph, arg), boolean(arg))
+            rendered[formula] = body
+        return rendered[formula]
+
+    names = list(canonical.values())
+    structures = {}
+
+    def structure(formula):
+        if formula in structures:
+            return structures[formula]
+        kind = graph.kind(formula)
+        if formula not in normalized_atoms and kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
+            result = ("and" if kind == z3.Z3_OP_AND else "or",
+                      tuple(structure(arg) for arg in graph.arguments(formula)))
+        elif formula not in normalized_atoms and kind == z3.Z3_OP_NOT:
+            result = ("not", structure(graph.arguments(formula)[0]))
+        else:
+            atom = normalized_atoms.get(formula)
+            if atom is not None and atom.startswith("(Not ") and atom.endswith(")"):
+                result = ("not", ("atom", atom[5:-1]))
+            else:
+                result = ("atom", boolean(formula))
+        structures[formula] = result
+        return result
+
+    left, right = graph.arguments(graph.conclusion(node))
+    forward = _propositional_implication(structure(left), structure(right))
+    backward = _propositional_implication(structure(right), structure(left))
+    boolean_lemma = [
+        "", "set_option maxHeartbeats 1000000 in",
+        "private theorem normalized_rewrite_%d (_atoms : Nat -> Prop)%s" % (
+            node, "".join(" (%s : Prop)" % name for name in names)),
+        "    : %s :=" % boolean(graph.conclusion(node)),
+    ]
+    if forward is not None and backward is not None:
+        boolean_lemma.append("  Iff.intro %s %s" % (forward, backward))
+    else:
+        boolean_lemma.append("  by grind (splits := 64)")
+    lines.append("  simpa only [%s] using (normalized_rewrite_%d _atoms %s)" % (
+        ", ".join(definitions + rewrites), node, " ".join(names)))
+    return boolean_lemma + lines, "(rewrite_%d _atoms%s)" % (node, graph.valuation)
+
+
+def _propositional_implication(source, target):
+    """Build an and/or implication by projection and case analysis, without enumerating atoms."""
+    budget = 4096
+
+    def prove(goal, facts):
+        if goal in facts:
+            return facts[goal]
+        kind, args = goal
+        if kind == "and":
+            proofs = [prove(arg, facts) for arg in args]
+            if all(proof is not None for proof in proofs):
+                return _fold("And.intro", proofs, "True.intro")
+        elif kind == "or":
+            for position, arg in enumerate(args):
+                proof = prove(arg, facts)
+                if proof is not None:
+                    return _inject(position, len(args), proof)
+        elif args == "True":
+            return "True.intro"
+        return None
+
+    def derive(pending, facts, depth):
+        nonlocal budget
+        budget -= 1
+        if budget < 0:
+            return None
+        branches = []
+        while pending:
+            formula, proof = pending.pop()
+            facts[formula] = proof
+            kind, args = formula
+            if kind == "and":
+                pending.extend((arg, _project(i, len(args), proof)) for i, arg in enumerate(args))
+            elif kind == "or":
+                if not args:
+                    return "(False.elim %s)" % proof
+                branches.append((args, proof))
+            elif args == "False":
+                return "(False.elim %s)" % proof
+        result = prove(target, facts)
+        if result is not None:
+            return result
+        if not branches:
+            return None
+        args, proof = branches.pop()
+        rest = [(("or", children), evidence) for children, evidence in branches]
+        proofs = []
+        for i, arg in enumerate(args):
+            name = "_case%d_%d" % (depth, i)
+            result = derive(rest + [(arg, name)], dict(facts), depth + 1)
+            if result is None:
+                return None
+            proofs.append("(fun %s => %s)" % (name, result))
+        result = proofs[-1]
+        for branch in reversed(proofs[:-1]):
+            result = "(fun _tail => Or.elim _tail %s %s)" % (branch, result)
+        return "(%s %s)" % (result, proof)
+
+    result = derive([(source, "_value")], {}, 0)
+    return None if result is None else "(fun _value => %s)" % result
 
 
 def _gate_contradiction(graph, formula, truth, proof, fact):
@@ -1089,6 +1265,42 @@ def _lemma(graph, terms, node, hypotheses):
         _formula(graph, conclusion), conclusion, contradiction)), decidable
 
 
+def _outline_steps(graph, steps, dependencies, signature):
+    """Check shared proof subgraphs separately instead of one enormous nested term."""
+    uses = Counter(premise for node in steps for premise in graph.arguments(node)[:-1])
+    boundaries = {node for node in steps if uses[node] > 1} | {graph.proof}
+    inputs = _fold("And", [_formula(graph, node) for node in graph.assertions], "True")
+    lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    for root in sorted(boundaries):
+        local, external, pending = set(), set(), [root]
+        while pending:
+            node = pending.pop()
+            if node != root and node in boundaries:
+                external.add(node)
+            elif node not in local:
+                local.add(node)
+                pending.extend(graph.arguments(node)[:-1])
+        body = [line for node in sorted(local) for line in steps[node]]
+        decidable = sorted(set(re.findall(r"\b_df?\d+\b", "\n".join(body))))
+        result = _formula(graph, graph.conclusion(root))
+        for hypothesis in reversed(dependencies[root]):
+            result = "(%s -> %s)" % (_formula(graph, hypothesis), result)
+        lines.extend([
+            "", "set_option maxRecDepth 100000 in",
+            "private theorem proof_step_%d %s" % (root, signature),
+            "    (_inputs : Inputs _atoms%s) : %s :=" % (graph.valuation, result),
+        ])
+        for name in decidable:
+            formula = (_formula(graph, int(name[3:])) if name.startswith("_df")
+                       else "(_atoms %d)" % int(name[2:]))
+            lines.append("  let %s : Decidable %s := Classical.propDecidable %s" % (name, formula, formula))
+        for node in sorted(external):
+            lines.append("  let _step_%d := proof_step_%d _atoms%s _inputs" % (node, node, graph.valuation))
+        lines.extend(body)
+        lines.append("  _step_%d" % root)
+    return lines
+
+
 def reconstruct(source, certificate):
     """Return Lean source; callers must check it before claiming verification."""
     graph = _validate_graph(source, certificate)
@@ -1133,7 +1345,10 @@ def reconstruct(source, certificate):
     assumptions = {}
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
+    outline = (graph.arithmetic
+               and sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS)
     steps = []
+    step_blocks = {}
     hypothesis_formulas, dependencies = {}, {}
     for node in range(len(graph.nodes)):
         if graph.decl(node).range != "Proof":
@@ -1146,7 +1361,8 @@ def reconstruct(source, certificate):
         if graph.kind(node) == z3.Z3_OP_PR_ASSERTED:
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
-            term = "_h%d" % assumptions[terms[conclusion]]
+            position = assumptions[terms[conclusion]]
+            term = (_project(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
         elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
@@ -1185,6 +1401,7 @@ def reconstruct(source, certificate):
         # Abstract open DAG nodes so shared subproofs can be discharged independently.
         parameters = "".join(" (_hyp%d : %s)" % (hypothesis, _formula(graph, hypothesis))
                              for hypothesis in dependencies[node])
+        begin = len(steps)
         steps.append("  let _step_%d%s : %s :=" % (node, parameters, _formula(graph, conclusion)))
         if graph.kind(node) != z3.Z3_OP_PR_LEMMA:
             for premise in dict.fromkeys(premises):
@@ -1192,9 +1409,12 @@ def reconstruct(source, certificate):
                     arguments = "".join(" _hyp%d" % hypothesis for hypothesis in dependencies[premise])
                     steps.append("    let _step_%d := _step_%d%s" % (premise, premise, arguments))
         steps.append("    " + term)
+        step_blocks[node] = steps[begin:]
     if dependencies[graph.proof]:
         raise ReconstructionError("the root proof has undischarged hypotheses")
-    if decidable_atoms or decidable_formulas:
+    if outline:
+        lines.extend(_outline_steps(graph, step_blocks, dependencies, signature))
+    elif decidable_atoms or decidable_formulas:
         # A continuation ending in False can eliminate the temporary decidability
         # assumptions constructively, preserving the original theorem statement.
         lines.extend([
@@ -1209,12 +1429,17 @@ def reconstruct(source, certificate):
     for position, assertion in enumerate(graph.assertions):
         lines.append("    (_h%d : %s)" % (position, _formula(graph, assertion)))
     lines.append("    : False :=")
-    for atom in sorted(decidable_atoms):
-        lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
-    for formula in sorted(decidable_formulas):
-        lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(graph, formula), formula))
-    lines.extend(steps)
-    lines.extend(["  _step_%d" % graph.proof, "", "end " + namespace, ""])
+    if outline:
+        inputs = _fold("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
+        lines.append("  proof_step_%d _atoms%s %s" % (graph.proof, graph.valuation, inputs))
+    else:
+        for atom in sorted(decidable_atoms):
+            lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))
+        for formula in sorted(decidable_formulas):
+            lines.append("  refute_with_decidable %s fun _df%d =>" % (_formula(graph, formula), formula))
+        lines.extend(steps)
+        lines.append("  _step_%d" % graph.proof)
+    lines.extend(["", "end " + namespace, ""])
     return "\n".join(lines)
 
 

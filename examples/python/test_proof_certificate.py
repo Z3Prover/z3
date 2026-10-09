@@ -464,6 +464,46 @@ class TestClauseLogReplay(unittest.TestCase):
         for index, node in enumerate(certificate["nodes"]):
             self.assertTrue(all(argument < index for argument in node["arguments"]))
 
+    def test_euf_congruence_annotations_are_not_assumptions(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (= x y))(assert (<= x 0.0))(assert (not (<= y 0.0)))")
+        log = """\
+(declare-fun x () Real)
+(declare-fun y () Real)
+(define-const $1 Bool (= x y))
+(define-const $2 Bool (<= x 0.0))
+(define-const $3 Bool (<= y 0.0))
+(define-const $4 Proof (cc (= $2 $3)))
+(assume $1)
+(assume $2)
+(assume (not $3))
+(define-const $5 Proof (euf $1 $2 (not $3) $4))
+(infer (not $1) (not $2) $3 $5)
+(infer rup)
+"""
+        for name in ("cc", "comm"):
+            with self.subTest(annotation=name):
+                certificate = self.replay(source, log.replace("(cc ", "(%s " % name))
+                hints = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
+                self.assertEqual(hints, [["euf"]])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "malformed euf congruence"):
+            self.replay(source, log.replace("(cc (= $2 $3))", "(cc true)"))
+
+    def test_assumption_index_normalizes_boolean_constants_without_search(self):
+        source = ("(declare-const x Real)"
+                  "(assert (and true (or false (<= (+ (* 1.0 x) 0.0) 1.0))))")
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        replay = proof_clause_log._Replay(source, fragment, assertions, context)
+        x = z3.Real("x", context)
+        with patch.object(replay, "_valid", side_effect=AssertionError("unnecessary solver search")):
+            replay.assume([x <= 1])
+            index = replay.assumptions_by_key
+            cache_size = len(replay.normalizer.cache)
+            replay.assume([x <= 1])
+        self.assertIs(replay.assumptions_by_key, index)
+        self.assertEqual(len(replay.normalizer.cache), cache_size)
+
     def test_rewritten_assumptions_are_tied_to_their_assertions(self):
         source = ("(declare-const x Real)(declare-const y Real)"
                   "(assert (and (> x 5.0) (< y 2.0)))(assert (= x (+ y 1.0)))")
@@ -650,6 +690,87 @@ class TestClauseLogReplay(unittest.TestCase):
             input=_LRA, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["fragment"], "qf_lra")
+
+
+_DEPENDENCY_LOG = """\
+(declare-fun p () Bool)
+(declare-fun q () Bool)
+(declare-fun rup () Proof)
+(define-const d0 Proof (deps 0))
+(define-const d1 Proof (deps 1))
+(define-const d2 Proof (deps 2))
+(define-const d3 Proof (deps 3 4))
+(define-const d4 Proof (deps 4 0 1))
+(define-const d5 Proof (deps 5 3))
+(assume p d0)
+(assume (not p) d1)
+(assume q d2)
+(infer rup d3)
+(infer rup d4)
+(infer rup d5)
+"""
+
+
+class TestClauseLogDependencies(unittest.TestCase):
+    def test_dependency_core_orders_forward_references_and_keeps_assertion_roots(self):
+        core = proof_clause_log._dependency_core(_DEPENDENCY_LOG)
+        self.assertNotIn("(assume q", core)
+        self.assertLess(core.index("(infer rup d4)"), core.index("(infer rup d3)"))
+        source = "(declare-const p Bool)(declare-const q Bool)(assert p)(assert (not p))(assert q)"
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, core, context)
+        self.assertEqual(len(certificate["assertions"]), 3)
+        reachable, pending = set(), certificate["assertions"] + [certificate["proof"]]
+        while pending:
+            node = pending.pop()
+            if node not in reachable:
+                reachable.add(node)
+                pending.extend(certificate["nodes"][node]["arguments"])
+        self.assertEqual(len(reachable), len(certificate["nodes"]))
+
+    def test_invalid_dependency_graphs_are_rejected(self):
+        for bad, message in [
+            (_DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 3)"), "cyclic"),
+            (_DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 99)"), "undefined clause"),
+            (_DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 -1)"), "malformed"),
+            (_DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 0)"), "duplicate"),
+            (_DEPENDENCY_LOG.replace("(infer rup d5)", "(infer p rup d5)"), "final empty"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    proof_clause_log._dependency_core(bad)
+
+    def test_dependencies_do_not_authorize_invalid_rup(self):
+        log = _DEPENDENCY_LOG.replace("(assume (not p) d1)", "(assume q d1)")
+        source = "(declare-const p Bool)(declare-const q Bool)(assert p)(assert q)"
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not derivable"):
+            proof_clause_log.build_certificate(source, fragment, assertions,
+                                                proof_clause_log._dependency_core(log), context)
+
+    def test_small_logs_do_not_invoke_native_trimming(self):
+        with patch.object(proof_clause_log.subprocess, "run", side_effect=AssertionError("native trimming")):
+            self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
+
+    def test_trimming_errors_and_diagnostics_are_visible(self):
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            failed = subprocess.CompletedProcess([], 1, "", "trimmer failed")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=failed):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "trimmer failed"):
+                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+            warned = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG, "diagnostic")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=warned):
+                with self.assertWarnsRegex(RuntimeWarning, "diagnostic"):
+                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimmed_certificate_replays(self):
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            certificate = proof_certificate.export_clause_log_certificate(_LRA)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertEqual(len(certificate["assertions"]), 4)
 
 
 if __name__ == "__main__":
