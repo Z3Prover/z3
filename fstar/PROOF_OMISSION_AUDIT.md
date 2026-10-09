@@ -147,14 +147,22 @@ and stripped by a caller that already knows to disregard them (no such
 caller was found in this repository; they appear to be intended as
 side-channel introspection output, e.g. for a "show me the congruence
 classes/instances found" feature, but nothing currently filters them out of
-the live goal before any downstream proof-validity check). **Recommended
-follow-up**: either (i) don't route these through `m_fmls.add` at all (keep
-them in a side list exposed via a dedicated accessor, consistent with their
-apparent reporting-only purpose), or (ii) attach a real justification
-(reflexivity/`mk_true`-style trivial proof is not correct here since these
-are genuinely new, non-tautological marker atoms — the honest fix is (i)).
-This was **not** patched as part of this report (scope: catalogue, not fix);
-flagging for a decision on which remediation to apply.
+the live goal before any downstream proof-validity check). **Fixed**: `euf_completion::supports_proofs()`
+(`src/ast/simplifiers/euf_completion.h:237`) now returns `false` instead of
+`true`. Since `dependent_expr_state_tactic::operator()`
+(`tactic/dependent_expr_state_tactic.h:133`) only runs a simplifier under a
+proof-enabled goal when `supports_proofs()` is `true`
+(`if (!in->proofs_enabled() || m_simp->supports_proofs()) m_simp->reduce();`),
+this disables `euf_completion` (and the `"euf-completion"` tactic/simplifier
+built on top of it) entirely whenever proofs are required, consistent with
+how every other simplifier in this directory that cannot honestly justify
+its output is already handled. Verified: `ninja -C build shell test-z3`
+rebuilds cleanly; all 112 unit tests pass;
+`(check-sat-using (then euf-completion smt))` under
+`(set-option :produce-proofs true)` still returns `unsat` on a quantifier-free
+congruence-closure example (the `euf-completion` step is now a no-op under
+proofs and `smt` alone closes the goal), confirming no regression to the
+non-proof-producing use case and no crash/exception from the new gate.
 
 ## 3. `src/tactic`
 
@@ -216,7 +224,7 @@ boundary, not a new finding.
 | Layer | Genuine latent gaps found | Everything else |
 |---|---|---|
 | `ast/rewriter` (specialized) | none confirmed reachable; `distribute_forall`/`factor_equivs`/`inj_axiom`/`quant_hoist`/`recfun_replace`/`seq_derive`/`expr_safe_replace` rely on *callers* staying proof-disabled (implicit, not enforced) | trusted-leaf `mk_rewrite` pattern (consistent w/ existing audit), 2 deliberately-guarded (`pb2bv_rewriter`, `macro_replacer`) |
-| `ast/simplifiers` | **1 confirmed: `euf_completion`'s `map_congruence`/`add_consequence` add null-proof marker formulas to a live, proof-enabled goal** | 10 proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
+| `ast/simplifiers` | **1 confirmed, now fixed: `euf_completion`'s `map_congruence`/`add_consequence` added null-proof marker formulas to a live, proof-enabled goal — fixed by disabling the simplifier under proofs (`supports_proofs()` now `false`)** | 10 proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
 | `tactic` | none found | `goal`'s assert-on-null-proof is an effective safety net; concrete tactics sampled are all correct or self-excluding |
 | `smt` | none found in sampled core + 5 theory families | consistent `PR_TH_LEMMA`/extended-justification usage; `PR_TH_LEMMA` semantic trust boundary is pre-existing/known, not new |
 
