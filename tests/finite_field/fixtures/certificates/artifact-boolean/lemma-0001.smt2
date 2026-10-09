@@ -1,7 +1,0 @@
-(set-logic QF_FF)
-(declare-const ff_proof_v2 (_ FiniteField 7))
-(declare-const ff_proof_v5 (_ FiniteField 7))
-(declare-const ff_proof_w7 (_ FiniteField 7))
-(assert (= ff_proof_v2 ff_proof_v5))
-(assert (= (ff.add (ff.mul (ff.add ff_proof_v2 (ff.neg (as ff0 (_ FiniteField 7)))) ff_proof_w7) (as ff6 (_ FiniteField 7))) (as ff0 (_ FiniteField 7))))
-(assert (= ff_proof_v5 (as ff0 (_ FiniteField 7))))

@@ -31,10 +31,10 @@ Its output object is replaced only on success, including after cancellation.
 The ordinary solver has no new recording branch or per-polynomial proof data.
 
 ```sh
-build-ff-cmake/z3 tests/finite_field/fixtures/certificates/large-prime.smt2 > /tmp/large.ffcert
-python3 scripts/ff_certificate.py tests/finite_field/fixtures/certificates/large-prime.smt2 \
+build-ff-cmake/z3 z3test/regressions/finite_field/fixtures/certificates/large-prime.smt2 > /tmp/large.ffcert
+python3 scripts/ff_certificate.py z3test/regressions/finite_field/fixtures/certificates/large-prime.smt2 \
   /tmp/large.ffcert --export-alethe /tmp/large.alethe
-python3 scripts/ff_certificate.py tests/finite_field/fixtures/certificates/large-prime.smt2 \
+python3 scripts/ff_certificate.py z3test/regressions/finite_field/fixtures/certificates/large-prime.smt2 \
   /tmp/large.alethe --alethe
 ```
 
