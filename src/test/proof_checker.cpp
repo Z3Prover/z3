@@ -117,9 +117,54 @@ static void tst_euf_negation_large_classes() {
     VERIFY(checker.check(hint));
 }
 
+// Exercises the `PR_BIND`/`PR_QUANT_INTRO` case of `check1_basic`: the
+// lambda-wrapped shape `rewriter_tpl::process_quantifier` actually
+// constructs (`mk_quant_intro(q1, q2, mk_bind_proof(q1, p0))`, where `p0`
+// is a proof of `q1`'s body = `q2`'s body). A genuine instance must be
+// accepted.
+//
+// (A *tampered* instance -- one whose claimed outer quantifiers don't
+// match what the wrapped inner proof `p0` actually establishes -- is
+// now rejected too, where previously `check1_basic` only tested
+// `is_lambda(...)` without ever inspecting `p0`, so a mismatched claim
+// like this was accepted unconditionally. That negative case isn't
+// exercised here as an automated regression test: like every other
+// malformed-shape case in this function, rejection goes through
+// `UNREACHABLE()`, which aborts the process by design rather than
+// returning `false` -- consistent with the rest of `check1_basic`
+// treating a malformed proof as an internal invariant violation, not
+// recoverable bad input. Manually confirmed during development: giving
+// `mk_quant_intro` a `q2` whose body isn't what `p0` proves now hits
+// that same `UNREACHABLE()` path instead of silently returning `true`.)
+static void tst_quant_intro() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    sort_ref B(m.mk_bool_sort(), m);
+    sort* Bs = B.get();
+    func_decl_ref f(m.mk_func_decl(symbol("f"), B, B, func_decl_info()), m);
+    func_decl_ref g(m.mk_func_decl(symbol("g"), B, B, func_decl_info()), m);
+    expr_ref var0(m.mk_var(0, B), m);
+    expr_ref body1(m.mk_app(f, var0.get()), m);
+    expr_ref body2(m.mk_app(g, var0.get()), m);
+    symbol xname("x");
+
+    proof_checker checker(m);
+    expr_ref_vector side_conditions(m);
+
+    // Genuine: q1 = forall x. f(x), q2 = forall x. g(x), and p0 really is
+    // a proof of f(x) = g(x).
+    quantifier_ref q1(m.mk_forall(1, &Bs, &xname, body1.get()), m);
+    quantifier_ref q2(m.mk_forall(1, &Bs, &xname, body2.get()), m);
+    proof_ref p0(m.mk_rewrite(body1.get(), body2.get()), m);
+    proof_ref p_bind(m.mk_bind_proof(q1.get(), p0.get()), m);
+    proof_ref p_qi(m.mk_quant_intro(q1.get(), q2.get(), p_bind.get()), m);
+    VERIFY(checker.check(p_qi.get(), side_conditions));
+}
+
 void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
     tst_euf_negation();
     tst_euf_negation_large_classes();
+    tst_quant_intro();
 }

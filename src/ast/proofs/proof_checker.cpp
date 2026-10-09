@@ -337,19 +337,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
-            (is_lambda(fact) || is_lambda(fml)))
-            return true;
-
-        if (match_proof(p, p1) &&
-            match_fact(p, fact) &&
-            match_fact(p1, fml) &&
             (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2)) &&
-            (match_iff(fml, s1, s2) || match_oeq(fml, s1, s2)) &&
-            m.is_oeq(fact) == m.is_oeq(fml) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
-            to_quantifier(t1)->get_expr() == s1 &&
-            to_quantifier(t2)->get_expr() == s2 &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
             to_quantifier(t1)->get_kind() == to_quantifier(t2)->get_kind()) {
             quantifier* q1 = to_quantifier(t1);
@@ -361,17 +351,62 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     return false;
                 }
             }
-            return true;
+            // Shape 1 (the one `rewriter_tpl::process_quantifier` actually
+            // produces, via `mk_quant_intro(q1, q2, mk_bind_proof(q1, p0))`):
+            // `p1` is a `PR_BIND` node whose fact `fml` is a lambda term
+            // binding `q1`'s variables over a *proof* `p0` of `q1`'s body =
+            // `q2`'s body. Unwrap it and verify `p0` genuinely establishes
+            // that equation (previously this was accepted unconditionally
+            // the moment either side was any lambda, without ever looking
+            // at `p0`'s own fact), then schedule `p0` itself to be checked
+            // recursively -- `p0` is not a structural "parent" of `p1`
+            // (`mk_bind_proof`'s lambda-wrapping hides it from
+            // `get_parents`), so without this it would never be visited by
+            // `check`'s worklist at all.
+            if (is_lambda(fml)) {
+                quantifier* lam = to_quantifier(fml);
+                expr* p0_expr = lam->get_expr();
+                if (!m.is_proof(p0_expr)) {
+                    UNREACHABLE();
+                    return false;
+                }
+                proof* p0 = to_app(p0_expr);
+                if (!match_fact(p0, fml0) ||
+                    !(match_iff(fml0, r1, r2) || match_oeq(fml0, r1, r2)) ||
+                    r1 != q1->get_expr() ||
+                    r2 != q2->get_expr()) {
+                    UNREACHABLE();
+                    return false;
+                }
+                add_premise(p0);
+                return true;
+            }
+            // Shape 2: `p1`'s own fact directly (without lambda-wrapping)
+            // relates the two quantifiers' bodies -- the fully-structural
+            // shape some other, non-`rewriter_def.h` caller could in
+            // principle construct.
+            if ((match_iff(fml, s1, s2) || match_oeq(fml, s1, s2)) &&
+                m.is_oeq(fact) == m.is_oeq(fml) &&
+                q1->get_expr() == s1 &&
+                q2->get_expr() == s2) {
+                return true;
+            }
         }
         UNREACHABLE();
         return false;
     }
-    case PR_BIND:
+    case PR_BIND: {
         // it is a lambda expression returning a proof object.
-        if (!is_lambda(to_app(p)->get_arg(0)))
+        expr* b = to_app(p)->get_arg(0);
+        if (!is_lambda(b))
             return false;
-        // check that body is a proof object.
-        return true;
+        // check that body is a fact-bearing proof object. (`PR_QUANT_INTRO`'s
+        // lambda-wrapped case above is responsible for checking *which*
+        // equation this proof establishes, and for recursively scheduling
+        // it; this local check only confirms the type-level shape.)
+        expr* p0_expr = to_quantifier(b)->get_expr();
+        return m.is_proof(p0_expr) && m.has_fact(to_app(p0_expr));
+    }
 
     case PR_DISTRIBUTIVITY: {
         if (match_fact(p, fact) &&

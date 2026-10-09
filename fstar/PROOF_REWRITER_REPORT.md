@@ -209,7 +209,52 @@ non-`rewriter_def.h` caller could in principle construct) — reused
 here, rather than re-derived, as the justification for why trusting
 `QuantIntro`'s wrapped child suffices.
 
-## Not yet covered (`mk_oeq_reflexivity`/`mk_oeq_rewrite`/
+### Kernel hardening: `proof_checker::check1_basic`'s own `PR_QUANT_INTRO`/`PR_BIND` check
+
+The investigation above surfaced a real gap in Z3's own self-checker,
+not just a gap in this audit, so it was fixed directly in
+`src/ast/proofs/proof_checker.cpp`:
+
+- Previously, the lambda-wrapped shape was accepted the instant
+  *either* side was `is_lambda(...)`, without ever looking at `fact`'s
+  own shape (it didn't even require `fact` to be an `iff`/`oeq`
+  between two quantifiers) or at the wrapped proof `p0`'s content.
+  Worse, `p0` was never added to the checker's worklist at all (it
+  isn't a structural "parent" of the `PR_BIND` node in
+  `get_parents`'s sense, since `mk_lambda`'s array-sort wrapping hides
+  it), so even a fully recursive proof-check driver would silently
+  skip verifying it.
+- The fix: `PR_QUANT_INTRO` now always requires `fact` to be an
+  `iff`/`oeq` between two structurally-compatible quantifiers `q1`/`q2`
+  (same kind, same bound-variable sorts — previously only checked in
+  the *other*, non-lambda branch); for the lambda-wrapped shape, it
+  additionally unwraps the lambda to recover `p0`, requires `p0`'s own
+  fact to be exactly the equation between `q1`'s and `q2`'s bodies, and
+  schedules `p0` via `add_premise` so it is itself recursively checked.
+  `PR_BIND`'s own case was similarly strengthened to confirm its
+  wrapped body is a fact-bearing proof object.
+- Verified: `cmake`+`ninja` rebuild of `shell`/`test-z3` is clean; all
+  112 existing unit tests still pass; a live `(get-proof)` run over a
+  quantified `unsat` query whose proof contains a real
+  `quant-intro`/`proof-bind` node still produces output unchanged (the
+  fix doesn't reject any genuine proof `rewriter_def.h` produces); a
+  new `tst_quant_intro` unit test
+  (`src/test/proof_checker.cpp`) builds a genuine `mk_quant_intro(q1,
+  q2, mk_bind_proof(q1, p0))` instance and confirms `proof_checker::
+  check` accepts it. A deliberately *tampered* instance (claiming
+  `q2`'s body is unrelated to what `p0` actually proves) was manually
+  confirmed to now be rejected — it hits the same `UNREACHABLE()`-based
+  rejection path used by every other malformed-shape case in this
+  function (by design, not included as an automated regression test,
+  since that path aborts the process rather than returning `false`,
+  consistent with the rest of `check1_basic` treating a malformed proof
+  as an internal invariant violation rather than recoverable bad
+  input); prior to this fix, that same construction was silently
+  accepted.
+
+## Not yet covered
+
+- **`oeq`-flavored facts** (`mk_oeq_reflexivity`/`mk_oeq_rewrite`/
   `mk_oeq_congruence`/`PR_IFF_OEQ`/`PR_MODUS_PONENS_OEQ`): never
   constructed by `rewriter_def.h` itself (only by other call sites in
   Z3, e.g. the simplifier/preprocessing pipeline's "observational
