@@ -1,0 +1,11 @@
+z3_add_component(ff_ast
+  SOURCES
+    ff_solver.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    simplifiers
+    model
+    rewriter
+    ff
+    params
+)

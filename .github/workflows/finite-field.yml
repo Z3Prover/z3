@@ -1,0 +1,63 @@
+name: Finite-field regressions
+
+on:
+  pull_request:
+    paths: ['src/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
+  push:
+    branches: ['codex/qf-ff', 'codex/qf-ff-alethe-backend', 'master']
+    paths: ['src/**', 'scripts/**', 'cmake/**', 'CMakeLists.txt', '.github/workflows/finite-field.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ff-regressions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Check out pinned finite-field regression harness
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: Z3Prover/z3test
+          ref: cb0b0d1e036ad30d27112ab7bfc02bf48fc9c0fb
+          path: z3test
+          sparse-checkout: regressions/finite_field
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev
+          python -m pip install 'cmake>=3.30,<4' ninja
+      - name: Check runner failure handling
+        run: python z3test/regressions/finite_field/test_ff_runner.py
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_PYTHON_BINDINGS=ON -DZ3_FF_TEST_DIR="$GITHUB_WORKSPACE/z3test/regressions/finite_field"
+          cmake --build build --target z3 libz3 test-z3 test-ff-api build_z3_python_bindings --parallel 2
+      - name: Run solver, integration and public API tests
+        run: python z3test/regressions/finite_field/run_tests.py --source . --build build --suite core --out test-results/core
+      - name: Build pinned proof checkers
+        run: python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
+      - name: Run certificate and rejection tests
+        run: >-
+          python z3test/regressions/finite_field/run_tests.py --source . --build build --suite proofs
+          --carcara proof-checkers/carcara --ffpacheck proof-checkers/ffpacheck
+          --out test-results/proofs
+      - name: Upload test logs and checker provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finite-field-test-results
+          path: |
+            test-results/
+            proof-checkers/versions.json
+            proof-checkers/binaries.json
+          if-no-files-found: warn

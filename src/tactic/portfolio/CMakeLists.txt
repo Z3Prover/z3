@@ -2,11 +2,13 @@ z3_add_component(portfolio
   SOURCES
     euf_completion_tactic.cpp
     default_tactic.cpp
+    ff_tactic.cpp
     smt_strategic_solver.cpp
     solver2lookahead.cpp
     solver_subsumption_tactic.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
+    ff_tactics
     fp
     fpa_tactics
     qe

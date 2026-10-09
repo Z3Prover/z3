@@ -35,6 +35,7 @@ Revision History:
 #include "model/model_evaluator.h"
 #include "model/array_factory.h"
 #include "model/value_factory.h"
+#include "model/ff_factory.h"
 #include "model/seq_factory.h"
 #include "model/datatype_factory.h"
 #include "model/numeral_factory.h"
@@ -109,6 +110,7 @@ value_factory* model::get_factory(sort* s) {
         m_factories.register_plugin(alloc(array_factory, m, *this));
         m_factories.register_plugin(alloc(datatype_factory, m, *this));
         m_factories.register_plugin(alloc(bv_factory, m));
+        m_factories.register_plugin(alloc(ff_factory, m));
         m_factories.register_plugin(alloc(arith_factory, m));
         m_factories.register_plugin(alloc(seq_factory, m, su.get_family_id(), *this));
         m_factories.register_plugin(alloc(fpa_value_factory, m, fu.get_family_id()));
