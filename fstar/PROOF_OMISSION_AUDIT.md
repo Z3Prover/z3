@@ -106,6 +106,25 @@ simplifier under a proof-producing goal if it overrides this to `true`
   `solve_context_eqs.cpp:285`, and more). None of this is reachable under
   proofs, by construction of the orchestration gate — **(a)**.
 
+### Follow-up finding: `distribute_forall`'s `PR_PUSH_QUANT` — checker bug, confirmed and fixed
+
+`distribute_forall_simplifier` itself correctly combines its own new
+`mk_push_quant` proof with the dependent_expr's incoming proof via `mp`
+(`distribute_forall.cpp:103`), so it was initially classified clean here.
+However, a closer look at whether the proof it *produces* is actually
+well-formed (i.e. whether `proof_checker::check1_basic`'s `PR_PUSH_QUANT`
+case would accept it) found a genuine, independent bug in the checker
+itself: the success path had no `return true` at all (falling through
+unconditionally to the shared `UNREACHABLE(); return false;` tail), so
+*every* `PR_PUSH_QUANT` proof — even a textbook-correct one — was
+rejected; and the checker only ever matched the `and`-shaped
+`forall`/`and` conjunction, never the dual `exists`/`or` shape
+`distribute_forall_simplifier` also produces. **Fixed** in
+`src/ast/proofs/proof_checker.cpp`'s `PR_PUSH_QUANT` case (now accepts
+both shapes, checks quantifier-kind agreement too, and `return true`s on
+success); see `PREPROCESSING_PROOFS_REPORT.md`'s "Kernel hardening"
+note for the full writeup and the new `tst_push_quant` regression test.
+
 ### Finding: `euf_completion.cpp` — genuine latent gap, confirmed
 
 `euf_completion` (`src/ast/simplifiers/euf_completion.h:237`) **does** claim
@@ -224,7 +243,7 @@ boundary, not a new finding.
 | Layer | Genuine latent gaps found | Everything else |
 |---|---|---|
 | `ast/rewriter` (specialized) | none confirmed reachable; `distribute_forall`/`factor_equivs`/`inj_axiom`/`quant_hoist`/`recfun_replace`/`seq_derive`/`expr_safe_replace` rely on *callers* staying proof-disabled (implicit, not enforced) | trusted-leaf `mk_rewrite` pattern (consistent w/ existing audit), 2 deliberately-guarded (`pb2bv_rewriter`, `macro_replacer`) |
-| `ast/simplifiers` | **1 confirmed, now fixed: `euf_completion`'s `map_congruence`/`add_consequence` added null-proof marker formulas to a live, proof-enabled goal — fixed by disabling the simplifier under proofs (`supports_proofs()` now `false`)** | 10 proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
+| `ast/simplifiers` | **1 confirmed, now fixed: `euf_completion`'s `map_congruence`/`add_consequence` added null-proof marker formulas to a live, proof-enabled goal — fixed by disabling the simplifier under proofs (`supports_proofs()` now `false`). Also: `distribute_forall`'s `PR_PUSH_QUANT` proof was well-justified at the simplifier level but the kernel checker itself had a bug rejecting (literally) every such proof — fixed.** | 9 other proof-aware passes correctly justify every rewrite; ~45 others are unreachable under proofs via the `supports_proofs()` gate |
 | `tactic` | none found | `goal`'s assert-on-null-proof is an effective safety net; concrete tactics sampled are all correct or self-excluding |
 | `smt` | none found in sampled core + 5 theory families | consistent `PR_TH_LEMMA`/extended-justification usage; `PR_TH_LEMMA` semantic trust boundary is pre-existing/known, not new |
 

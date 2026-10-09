@@ -237,6 +237,65 @@ unmodified and reusable by every other audit that imports it.
   matter if composing thousands of them across a real preprocessing
   pipeline could still drift.
 
+### Kernel hardening: `proof_checker::check1_basic`'s `PR_PUSH_QUANT` case was dead-rejecting everything
+
+Re-examining this rule's *actual* checker code (as opposed to the
+semantic claim formalized above, which was always true) while auditing
+`distribute_forall` on request turned up a genuine, independent bug in
+`src/ast/proofs/proof_checker.cpp`, now fixed:
+
+- The old code's success path (`match_proof`/`match_fact`/`match_iff`/
+  `match_and` on both sides + a per-conjunct `for` loop checking each
+  `terms2[i]` is a matching quantifier over `terms1[i]`) had **no
+  `return true` anywhere** — after the loop finished without hitting
+  its internal early `return false`, control simply fell out of the
+  `if` block into the function's shared `UNREACHABLE(); return false;`
+  tail. That means **every** `PR_PUSH_QUANT` proof, including a
+  perfectly well-formed one, was unconditionally rejected (aborting
+  the process via `UNREACHABLE()`, per this function's convention) —
+  the structural check computed the right answer and then discarded
+  it. This had gone unnoticed because nothing in this project's test
+  suite previously round-tripped a real `PR_PUSH_QUANT` node through
+  `proof_checker::check`.
+- Separately, the old code only ever matched the `and`-shaped
+  conjunction (`match_and` on both sides of the `iff`) — but
+  `distribute_forall_simplifier` (`src/ast/simplifiers/
+  distribute_forall.cpp:72-76`) also produces the dual `exists`/`or`
+  shape (`(exists X (or F1 .. Fn)) <-> (or (exists X F1) .. (exists X
+  Fn))`), which `match_and` can never match, so that shape was
+  (silently, via the same dead `UNREACHABLE()` fall-through) also
+  always rejected.
+- The fix accepts whichever connective (`and` or `or`) the outer
+  quantifier's body actually uses, requires the *same* connective on
+  the right-hand side, additionally checks each `terms2[i]`'s
+  quantifier *kind* matches the outer quantifier's kind (`forall` vs.
+  `exists` — not checked at all previously, a latent soundness gap in
+  its own right since nothing stopped a proof from claiming a
+  `forall`-to-`exists` "distribution"), and `return true`s on success
+  instead of falling through.
+- Verified: `ninja -C build shell test-z3` rebuilds cleanly, all 112
+  unit tests pass, and a new `tst_push_quant`
+  (`src/test/proof_checker.cpp`) constructs genuine instances of both
+  the `forall`/`and` and `exists`/`or` shapes via the real
+  `ast_manager::mk_push_quant` and confirms `proof_checker::check`
+  now accepts both (previously both would have aborted the process).
+  A live `(check-sat-using (then distribute-forall smt))` run under
+  `(set-option :produce-proofs true)` over a quantified `unsat` query
+  still returns `unsat`, confirming no regression to real end-to-end
+  proof production (this path doesn't itself call `proof_checker` by
+  default, so it was unaffected by the bug, but remains a useful
+  smoke test that the fix doesn't reject genuine Z3-produced proofs).
+- This is now the second time auditing a `rewriter_def.h`-adjacent
+  proof-production path against `check1_basic` as "ground truth" (see
+  `PROOF_REWRITER_REPORT.md`'s `PR_QUANT_INTRO`/`PR_BIND` kernel-
+  hardening note for the first) has found that the *semantic* claim
+  F* independently verifies was always true, while Z3's own kernel
+  checker had a structural bug preventing it from ever actually
+  confirming that — i.e. the F* audit's "cross-checked against
+  `proof_checker.cpp` as ground truth" methodology is doing real work
+  catching bugs in the ground truth itself, not just in the rewriters
+  being audited.
+
 ## Deferred / out of scope
 
 - **`rewriter_tpl`'s own internal proof-term construction**

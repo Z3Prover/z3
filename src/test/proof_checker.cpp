@@ -161,10 +161,61 @@ static void tst_quant_intro() {
     VERIFY(checker.check(p_qi.get(), side_conditions));
 }
 
+// Exercises the `PR_PUSH_QUANT` case of `check1_basic`: the shape
+// `distribute_forall_simplifier::rw_cfg::reduce_quantifier` actually
+// constructs via `mk_push_quant(old_q, result)`, for both
+// `(forall X (and F1 .. Fn)) <-> (and (forall X F1) .. (forall X Fn))`
+// and `(exists X (or F1 .. Fn)) <-> (or (exists X F1) .. (exists X Fn))`.
+// Prior to this fix, `check1_basic`'s `PR_PUSH_QUANT` case had no
+// `return true` on the success path at all (it fell through to the
+// shared `UNREACHABLE(); return false;` tail unconditionally), so *every*
+// `PR_PUSH_QUANT` proof -- even a well-formed one -- was rejected; and it
+// only ever matched the `and`-shaped case, so the `exists`/`or` shape
+// that `distribute_forall_simplifier` also produces was entirely
+// unhandled.
+static void tst_push_quant() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    sort_ref B(m.mk_bool_sort(), m);
+    sort* Bs = B.get();
+    func_decl_ref f(m.mk_func_decl(symbol("f"), B, B, func_decl_info()), m);
+    func_decl_ref g(m.mk_func_decl(symbol("g"), B, B, func_decl_info()), m);
+    expr_ref var0(m.mk_var(0, B), m);
+    expr_ref f0(m.mk_app(f, var0.get()), m);
+    expr_ref g0(m.mk_app(g, var0.get()), m);
+    symbol xname("x");
+
+    proof_checker checker(m);
+    expr_ref_vector side_conditions(m);
+
+    // (forall x (and (f x) (g x))) <-> (and (forall x (f x)) (forall x (g x)))
+    {
+        expr_ref body(m.mk_and(f0.get(), g0.get()), m);
+        quantifier_ref q(m.mk_forall(1, &Bs, &xname, body.get()), m);
+        quantifier_ref qf(m.mk_forall(1, &Bs, &xname, f0.get()), m);
+        quantifier_ref qg(m.mk_forall(1, &Bs, &xname, g0.get()), m);
+        expr_ref result(m.mk_and(qf.get(), qg.get()), m);
+        proof_ref pr(m.mk_push_quant(q.get(), result.get()), m);
+        VERIFY(checker.check(pr.get(), side_conditions));
+    }
+
+    // (exists x (or (f x) (g x))) <-> (or (exists x (f x)) (exists x (g x)))
+    {
+        expr_ref body(m.mk_or(f0.get(), g0.get()), m);
+        quantifier_ref q(m.mk_exists(1, &Bs, &xname, body.get()), m);
+        quantifier_ref qf(m.mk_exists(1, &Bs, &xname, f0.get()), m);
+        quantifier_ref qg(m.mk_exists(1, &Bs, &xname, g0.get()), m);
+        expr_ref result(m.mk_or(qf.get(), qg.get()), m);
+        proof_ref pr(m.mk_push_quant(q.get(), result.get()), m);
+        VERIFY(checker.check(pr.get(), side_conditions));
+    }
+}
+
 void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
     tst_euf_negation();
     tst_euf_negation_large_classes();
     tst_quant_intro();
+    tst_push_quant();
 }

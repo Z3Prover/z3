@@ -485,24 +485,28 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_PUSH_QUANT: {
+        // Two shapes are produced by distribute_forall_simplifier:
+        //   (forall X (and F1 .. Fn)) <-> (and (forall X F1) .. (forall X Fn))
+        //   (exists X (or  F1 .. Fn)) <-> (or  (exists X F1) .. (exists X Fn))
+        // Match whichever connective (and/or) the outer quantifier's body
+        // uses, and require the same connective on both sides of the iff.
         if (match_proof(p) &&
             match_fact(p, fact) &&
             match_iff(fact, t1, t2) &&
             is_quantifier(t1) &&
-            match_and(to_quantifier(t1)->get_expr(), terms1) &&
-            match_and(t2, terms2) &&
+            ((match_and(to_quantifier(t1)->get_expr(), terms1) && match_and(t2, terms2)) ||
+             (match_or(to_quantifier(t1)->get_expr(), terms1) && match_or(t2, terms2))) &&
             terms1.size() == terms2.size()) {
             quantifier * q1 = to_quantifier(t1);
-            for (unsigned i = 0; i < terms1.size(); ++i) {
-                if (is_quantifier(terms2[i]) &&
-                    to_quantifier(terms2[i])->get_expr() == terms1[i] &&
-                    to_quantifier(terms2[i])->get_num_decls() == q1->get_num_decls()) {
-                    // ok.
-                }
-                else {
-                    return false;
-                }
+            bool ok = true;
+            for (unsigned i = 0; ok && i < terms1.size(); ++i) {
+                ok = is_quantifier(terms2[i]) &&
+                     to_quantifier(terms2[i])->get_expr() == terms1[i] &&
+                     to_quantifier(terms2[i])->get_kind() == q1->get_kind() &&
+                     to_quantifier(terms2[i])->get_num_decls() == q1->get_num_decls();
             }
+            if (ok)
+                return true;
         }
         UNREACHABLE();
         return false;
