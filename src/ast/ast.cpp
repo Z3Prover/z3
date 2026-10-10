@@ -1900,6 +1900,9 @@ app * ast_manager::mk_app(symbol const& name, unsigned n, expr* const* args, sor
 
 
 sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
+    if (info)
+        if (decl_plugin *p = get_plugin(info->get_family_id()))
+            p->m_has_sorts = true;
     unsigned sz      = sort::get_obj_size();
     void * mem       = allocate_node(sz);
     sort * new_node  = new (mem) sort(name, info);

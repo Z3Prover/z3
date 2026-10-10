@@ -23,6 +23,8 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_model_finder.h"
 #include "ast/for_each_expr.h"
+#include "ast/ff_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 
 #include <iostream>
 
@@ -286,6 +288,7 @@ namespace smt {
        \remark pr is 0 if proofs are disabled.
     */
     void context::internalize_assertion(expr * n, proof * pr, unsigned generation) {
+        ensure_field_theory(n);
         TRACE(internalize_assertion, tout << mk_pp(n, m) << "\n";); 
         TRACE(internalize_assertion_ll, tout << mk_ll_pp(n, m) << "\n";); 
         TRACE(generation, tout << "generation: " << m_generation << "\n";);
@@ -394,7 +397,39 @@ namespace smt {
         }
     }
 
+    void context::ensure_field_theory(expr *e) {
+        family_id fid = m.get_family_id("ff");
+        if (m_theories.get_plugin(fid)) return;
+        auto *plugin = static_cast<ff_decl_plugin *>(m.get_plugin(fid));
+        if (!plugin || !plugin->has_sorts()) return;
+        // Inspect signatures as well as ground terms: array extensionality and
+        // datatype selectors may create the first field-valued term later.
+        ptr_vector<sort> pending;
+        auto visit = [&](expr *n) {
+            pending.push_back(n->get_sort());
+            if (is_quantifier(n))
+                for (unsigned i = 0; i < to_quantifier(n)->get_num_decls(); ++i)
+                    pending.push_back(to_quantifier(n)->get_decl_sort(i));
+        };
+        for_each_expr(visit, e);
+        obj_hashtable<sort> seen;
+        datatype_util dt(m);
+        while (!pending.empty()) {
+            sort *s = pending.back(); pending.pop_back();
+            if (!seen.insert_if_not_there(s)) continue;
+            if (s->get_family_id() == fid) { m_setup.setup_ff(); return; }
+            for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
+                parameter const &p = s->get_parameter(i);
+                if (p.is_ast() && is_sort(p.get_ast())) pending.push_back(to_sort(p.get_ast()));
+            }
+            if (dt.is_datatype(s))
+                for (func_decl *c : *dt.get_datatype_constructors(s))
+                    for (unsigned i = 0; i < c->get_arity(); ++i) pending.push_back(c->get_domain(i));
+        }
+    }
+
     void context::internalize(expr * n, bool gate_ctx, unsigned generation) {
+        ensure_field_theory(n);
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
         internalize_rec(n, gate_ctx);
@@ -413,6 +448,7 @@ namespace smt {
        - gate_ctx is true if the expression is in the context of a logical gate.
     */
     void context::internalize(expr * n, bool gate_ctx) {
+        ensure_field_theory(n);
         if (memory::above_high_watermark())
             throw oom_exception();
         internalize_deep(n);
@@ -442,6 +478,7 @@ namespace smt {
     }
 
     void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
+        for (unsigned i = 0; i < num_exprs; ++i) ensure_field_theory(exprs[i]);
         internalize_deep(exprs, num_exprs);
         for (unsigned i = 0; i < num_exprs; ++i) 
             internalize_rec(exprs[i], gate_ctx);

@@ -39,6 +39,7 @@ Revision History:
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
+#include "smt/theory_ff.h"
 #include "smt/theory_polymorphism.h"
 #include "smt/theory_finite_set.h"
 #include "util/manage_warnings.h"
@@ -71,6 +72,12 @@ namespace smt {
         }
         setup_card();
         setup_sls();
+
+    }
+
+    void setup::setup_ff() {
+        setup_bv();
+        m_context.register_plugin(alloc(theory_ff, m_context));
     }
 
     void setup::setup_default() {

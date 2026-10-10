@@ -1,0 +1,7 @@
+(set-logic QF_FF)
+(define-sort F () (_ FiniteField 21888242871839275222246405745257275088548364400416034343698204186575808495617))
+(declare-const x F)
+(declare-const y F)
+(assert (= (ff.mul x y) (as ff1 F)))
+(assert (= (ff.mul x (ff.add y (as ff1 F))) (as ff1 F)))
+(ff-certify)

@@ -113,6 +113,7 @@ add_executable(test-z3
   pdd.cpp
   pdd_solver.cpp
   permutation.cpp
+  finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp
   polynorm.cpp
@@ -185,3 +186,13 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
+
+# Exercise the public C++ API against this build, including Release builds.
+add_executable(test-ff-api EXCLUDE_FROM_ALL
+  "${PROJECT_SOURCE_DIR}/tests/finite_field/api_smoke.cpp")
+target_link_libraries(test-ff-api PRIVATE libz3)
+if (MSVC)
+  target_compile_options(test-ff-api PRIVATE /UNDEBUG)
+else()
+  target_compile_options(test-ff-api PRIVATE -UNDEBUG)
+endif()

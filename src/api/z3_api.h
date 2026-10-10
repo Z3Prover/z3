@@ -152,6 +152,7 @@ typedef enum
     Z3_RE_SORT,
     Z3_CHAR_SORT,
     Z3_TYPE_VAR,
+    Z3_FINITE_FIELD_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1358,7 +1359,13 @@ typedef enum {
     Z3_OP_INTERNAL,
     Z3_OP_RECURSIVE,
 
-    Z3_OP_UNINTERPRETED
+    Z3_OP_UNINTERPRETED,
+
+    Z3_OP_FF_NUM = 0xd000,
+    Z3_OP_FF_ADD,
+    Z3_OP_FF_MUL,
+    Z3_OP_FF_NEG,
+    Z3_OP_FF_BITSUM
 } Z3_decl_kind;
 
 /**
@@ -1992,6 +1999,32 @@ extern "C" {
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
     Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size);
+
+    /** \brief Create a prime-field sort. Large moduli undergo probable-prime screening.
+        def_API('Z3_mk_finite_field_sort', SORT, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_sort Z3_API Z3_mk_finite_field_sort(Z3_context c, Z3_string prime);
+    /** \brief Return the decimal modulus of a finite-field sort.
+        def_API('Z3_get_finite_field_sort_size', STRING, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_string Z3_API Z3_get_finite_field_sort_size(Z3_context c, Z3_sort s);
+    /** \brief Sum at least two elements of the same prime field.
+        def_API('Z3_mk_ff_add', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_add(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Multiply at least two elements of the same prime field.
+        def_API('Z3_mk_ff_mul', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_mul(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Additive inverse in a prime field.
+        def_API('Z3_mk_ff_neg', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_neg(Z3_context c, Z3_ast a);
+    /** \brief Weighted sum a0 + 2*a1 + 4*a2 + ... (does not constrain arguments to bits).
+        def_API('Z3_mk_ff_bitsum', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_bitsum(Z3_context c, unsigned n, Z3_ast const args[]);
+
 
     /**
        \brief Create an array type.
