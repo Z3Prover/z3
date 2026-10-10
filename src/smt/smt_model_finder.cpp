@@ -2722,13 +2722,12 @@ namespace smt {
         if (idx_vals.empty())
             return;
         // value candidates: ground subterms of the quantifier body of the value sort
-        obj_hashtable<expr> seen;
-        for (expr* t : subterms::all(expr_ref(q->get_expr(), m))) {
+        // (subterms::ground does not enter binders and enumerates each subterm once)
+        for (expr* t : subterms::ground(expr_ref(q->get_expr(), m))) {
             if (val_vals.size() >= 8)
                 break;
-            if (!is_app(t) || t->get_sort() != vsrt || !is_ground(t) || seen.contains(t))
+            if (!is_app(t) || t->get_sort() != vsrt)
                 continue;
-            seen.insert(t);
             expr_ref v(m);
             if (!m_curr_model->eval(t, v, true) || !m.is_value(v))
                 continue;
@@ -2741,21 +2740,12 @@ namespace smt {
         for (unsigned b = 0; b < base_vals.size(); ++b) 
             for (unsigned k = 0; k < idx_vals.size(); ++k) 
                 for (unsigned l = 0; l < val_vals.size(); ++l) {
+                    // base, index and value are closed terms of the right sorts by construction
+                    // (instantiation-set elements and ground subterms of the quantifier)
                     expr* vargs[3] = { base_vals.get(b), idx_vals.get(k), val_vals.get(l) };
                     expr* targs[3] = { base_terms.get(b), idx_terms.get(k), val_terms.get(l) };
-                    expr_ref cand_val(m), cand_term(m);
-                    try {
-                        cand_val = m_autil.mk_store(3, vargs);
-                        cand_term = m_autil.mk_store(3, targs);
-                    }
-                    catch (ast_exception & ex) {
-                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidate-failed " << ex.what() << " base " << mk_pp(base_terms.get(b), m) << " idx " << mk_pp(idx_terms.get(k), m) << " val " << mk_pp(val_terms.get(l), m) << ")\n";);
-                        continue;
-                    }
-                    if (has_free_vars(cand_term) || has_free_vars(cand_val)) {
-                        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidate-free-vars " << mk_pp(cand_term, m) << ")\n";);
-                        continue;
-                    }
+                    expr_ref cand_val(m_autil.mk_store(3, vargs), m);
+                    expr_ref cand_term(m_autil.mk_store(3, targs), m);
                     if (m_array_candidate2term.contains(cand_val))
                         continue;
                     m_array_candidates.push_back(cand_val);
@@ -2844,10 +2834,6 @@ namespace smt {
                 continue;
             expr_ref new_cnstr(m.mk_or(eqs), m);
             TRACE(model_finder, tout << "assert_store_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
-            if (has_free_vars(new_cnstr)) {
-                IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :store-candidates-skipped :free-vars " << mk_pp(new_cnstr, m) << ")\n";);
-                continue;
-            }
             aux_ctx->assert_expr(new_cnstr);
             asserted_something = true;
         }

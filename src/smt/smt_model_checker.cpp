@@ -279,9 +279,7 @@ namespace smt {
             expr_ref sk_term(sk_value, m);
             if (!autil.is_as_array(sk_value)) {
                 // array values nested in the binding (e.g. inside a datatype constructor)
-                expr_ref conv(m);
-                try { conv = as_array_to_stores(sk_value, cex); }
-                catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed nested-as-array " << ex.what() << ")\n";); conv = sk_value; }
+                expr_ref conv = as_array_to_stores(sk_value, cex);
                 if (conv != sk_value) {
                     conv = replace_value_from_ctx(conv);
                     if (contains_model_value(conv))
@@ -295,9 +293,7 @@ namespace smt {
                 // Besides the lambda built from the interpretation (below), also instantiate with
                 // the same modifications applied to an array term of the main context, if any.
                 func_decl * base = nullptr;
-                expr_ref store_term(m);
-                try { store_term = mk_store_instance(f, cex, base); }
-                catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-instance " << ex.what() << ")\n";); base = nullptr; }
+                expr_ref store_term = mk_store_instance(f, cex, base);
 
                 if (base)
                     bases[num_decls - i - 1] = base;
@@ -353,7 +349,6 @@ namespace smt {
                 add_instance(q, alt_bindings, max_generation);
             }
         }
-        try {
         // Array variables: the lambdas of the quantifier that mention the variable (e.g. a
         // canonicalisation lambda (x) -> ite(guard(x), f[x], default)), closed by the bindings of
         // the other variables and with the occurrences of f replaced by a ground value of the
@@ -424,11 +419,6 @@ namespace smt {
                 }
             }
         }
-        }
-        catch (ast_exception & ex) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed lambda-instances " << ex.what() << ")\n";);
-        }
-        try {
         // Datatype variables whose binding carries an array inside a constructor (e.g. a boxed
         // function mk(f)): also instantiate with the array replaced by the constant functions
         // (const v) for the ground values v of the quantifier, the analogue for boxed functions
@@ -469,11 +459,6 @@ namespace smt {
                 }
             }
         }
-        }
-        catch (ast_exception & ex) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed boxed-functions " << ex.what() << ")\n";);
-        }
-        try {
         // Array variables constrained pointwise by a canonicity guard
         //    forall x. ite(G(x), P(f[x]), f[x] = d)     (or  (not G(x)) => f[x] = d)
         // are instantiated with the guarded constant functions (lambda (x) (ite G(x) v d)) for
@@ -630,11 +615,6 @@ namespace smt {
                 }
             }
         }
-        }
-        catch (ast_exception & ex) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed guarded-lambdas " << ex.what() << ")\n";);
-        }
-        try {
         // Array variables: also the context array modified at the points the instance binds
         // the other variables to, with the ground values of the quantifier. In a model the
         // interpretation of the context array is arbitrary away from the instantiated points,
@@ -669,10 +649,6 @@ namespace smt {
                     add_instance(q, alt_bindings, max_generation);
                 }
             }
-        }
-        }
-        catch (ast_exception & ex) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-at-bindings " << ex.what() << ")\n";);
         }
         return true;
     }
@@ -911,22 +887,6 @@ namespace smt {
     */
 
     bool model_checker::check(quantifier * q) {
-        try {
-            return check_core(q);
-        }
-        catch (ast_exception & ex) {
-            // The candidate model can be ill-formed when a theory gave up on it (see
-            // context::restart); treat the quantifier as unchecked rather than failing the search.
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-failed " << q->get_qid() << " " << ex.what() << ")\n";);
-            return false;
-        }
-        catch (default_exception & ex) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-failed " << q->get_qid() << " " << ex.what() << ")\n";);
-            return false;
-        }
-    }
-
-    bool model_checker::check_core(quantifier * q) {
         SASSERT(!m_aux_context->relevancy());
         scoped_ctx_push _push(m_aux_context.get());
 
@@ -990,11 +950,7 @@ namespace smt {
             // modifications store(A, i, v) of the arrays of their instantiation sets. Instances
             // found here are added in addition to the complete counterexample below.
             scoped_ctx_push _push_stores(m_aux_context.get());
-            bool restricted = false;
-            try { restricted = m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks); }
-            catch (ast_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-candidates " << ex.what() << ")\n";); }
-            catch (default_exception & ex) { IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance-construction-failed store-candidates-assert " << ex.what() << ")\n";); }
-            if (restricted) 
+            if (m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks)) 
                 restricted_search();
             // failed to create instances when restricting to inst sets... then use result of the complete model check
             TRACE(model_checker, tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
