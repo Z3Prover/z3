@@ -17,6 +17,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/lambda_simplifier.h"
+#include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 
@@ -534,6 +536,65 @@ static void test_flatten_suffix_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+// Exercises `lambda_simplifier`'s new proof production end-to-end:
+// - a chain of two nested macros (c2's body mentions c1), so `resolve`
+//   actually builds a `PR_DEMODULATION` + transitivity chain;
+// - a macro's own defining equation gets collapsed to `true` via
+//   `PR_IFF_TRUE`;
+// - a separate use-site formula gets rewritten by substituting the fully
+//   resolved macro bodies, combined with the `th_rewriter`'s own proof.
+// `check_simplifier_proofs` independently re-checks every resulting proof
+// object via `proof_checker` (including, for `PR_DEMODULATION`, actually
+// re-deriving the substitution and comparing results structurally).
+static void test_lambda_simplifier_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    array_util au(m);
+    arith_util a(m);
+    sort* I = a.mk_int();
+    sort* arr = au.mk_array_sort(I, I);
+
+    expr_ref c1(m.mk_const("c1", arr), m);
+    expr_ref c2(m.mk_const("c2", arr), m);
+    expr_ref y(m.mk_const("y", I), m);
+    symbol xn("x");
+
+    // c1 = (lambda ((x Int)) 0)
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref lam1(m.mk_lambda(1, &I, &xn, zero.get()), m);
+    expr_ref def1(m.mk_eq(c1.get(), lam1.get()), m);
+
+    // c2 = (lambda ((x Int)) (select c1 x))   -- nested macro reference
+    expr_ref sel_c1x(au.mk_select(c1.get(), m.mk_var(0, I)), m);
+    expr_ref lam2(m.mk_lambda(1, &I, &xn, sel_c1x.get()), m);
+    expr_ref def2(m.mk_eq(c2.get(), lam2.get()), m);
+
+    // use site: (select c2 y) = 0
+    expr_ref use(m.mk_eq(au.mk_select(c2.get(), y.get()), zero.get()), m);
+
+    expr_ref_vector assertions(m);
+    assertions.push_back(def1);
+    assertions.push_back(def2);
+    assertions.push_back(use);
+
+    base_dependent_expr_state st(m);
+    for (expr* f : assertions)
+        st.add(dependent_expr(m, f, m.mk_asserted(f), nullptr));
+
+    lambda_simplifier lam_simp(m, params_ref(), st);
+    ENSURE(lam_simp.supports_proofs());
+    lam_simp.reduce();
+
+    // both macro-defining equations collapse to `true`.
+    ENSURE(m.is_true(st[0].fml()));
+    ENSURE(m.is_true(st[1].fml()));
+    // the use site got rewritten (beta-reduced/simplified) away from its
+    // original shape.
+    ENSURE(st[2].fml() != use.get());
+
+    check_simplifier_proofs(m, st, assertions);
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -547,4 +608,5 @@ void tst_simplifier() {
     test_solve_eqs_proof_scope();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
+    test_lambda_simplifier_proofs();
 }

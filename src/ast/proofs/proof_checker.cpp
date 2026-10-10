@@ -338,7 +338,17 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
-            (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2)) &&
+            // `mk_iff(q1, q2)` (and `mk_oeq`) use the generic polymorphic
+            // `=` decl for *any* sort, not just Bool: ordinary
+            // `forall`/`exists` always have a Bool body, so this is a
+            // genuine Boolean iff, but `PR_QUANT_INTRO` is also used over
+            // `lambda` terms (also represented as `quantifier` nodes) whose
+            // body -- and hence `q1`/`q2` themselves -- can be of any sort
+            // (e.g. an array/function sort). `match_iff` alone rejects
+            // that case (it requires its first argument to be Bool), so a
+            // plain `match_eq` fallback is needed to cover non-Boolean
+            // lambda-to-lambda equalities.
+            (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2) || match_eq(fact, t1, t2)) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
@@ -373,7 +383,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 }
                 proof* p0 = to_app(p0_expr);
                 if (!match_fact(p0, fml0) ||
-                    !(match_iff(fml0, r1, r2) || match_oeq(fml0, r1, r2)) ||
+                    // same non-Bool-body caveat as above: `q1`/`q2`'s
+                    // bodies (and hence `r1`/`r2`) need not be Bool-sorted.
+                    !(match_iff(fml0, r1, r2) || match_oeq(fml0, r1, r2) || match_eq(fml0, r1, r2)) ||
                     r1 != q1->get_expr() ||
                     r2 != q2->get_expr()) {
                     UNREACHABLE();
@@ -386,7 +398,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // relates the two quantifiers' bodies -- the fully-structural
             // shape some other, non-`rewriter_def.h` caller could in
             // principle construct.
-            if ((match_iff(fml, s1, s2) || match_oeq(fml, s1, s2)) &&
+            if ((match_iff(fml, s1, s2) || match_oeq(fml, s1, s2) || match_eq(fml, s1, s2)) &&
                 m.is_oeq(fact) == m.is_oeq(fml) &&
                 q1->get_expr() == s1 &&
                 q2->get_expr() == s2) {
@@ -489,7 +501,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             bool all_eqs = true;
             for (proof* pr : proofs) {
                 expr* eq_fact = nullptr, *l = nullptr, *r = nullptr;
-                if (!match_fact(pr, eq_fact) || !match_equiv(eq_fact, l, r)) {
+                if (!pr || !match_fact(pr, eq_fact) || !match_equiv(eq_fact, l, r)) {
                     all_eqs = false;
                     break;
                 }
