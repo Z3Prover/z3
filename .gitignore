@@ -126,3 +126,5 @@ bazel-*
 .deeptest/
 tptp_test/
 tptp_benchmarks/
+# Local-only artifacts from a reverted experiment (kept on disk, not tracked)
+fstar/rewrite_rule_bench/

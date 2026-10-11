@@ -3,6 +3,17 @@
 See [`README.md`](README.md) for the top-level index of this F*
 formal-verification audit series.
 
+> **Status update (post-hoc):** the `th_rewriter_cfg::reduce_app` tagging
+> call site described below has since been **reverted from master** — the
+> `mk_rewrite(s, t, rule)` overload and `get_rewrite_rule` accessor remain
+> in `src/ast/ast.h`/`ast.cpp` (harmless, unused), but ordinary term
+> rewrites are no longer tagged by current `z3.exe` builds. The 7 SMT-LIB2
+> benchmarks and their captured `(get-proof)` output are kept locally only
+> (`fstar/rewrite_rule_bench/`, git-ignored, not in this repository) rather
+> than deleted. Everything below describes the point-in-time result that
+> was achieved and independently validated while the tagging code was in
+> place; it is not a description of current master's behavior.
+
 ## Motivation
 
 [`PROOF_REWRITER_REPORT.md`](PROOF_REWRITER_REPORT.md) established that

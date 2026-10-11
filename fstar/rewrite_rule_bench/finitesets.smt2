@@ -1,5 +1,0 @@
-(set-option :produce-proofs true)
-(declare-const s (FiniteSet Int))
-(assert (not (= (set.union s (as set.empty (FiniteSet Int))) s)))
-(check-sat)
-(get-proof)

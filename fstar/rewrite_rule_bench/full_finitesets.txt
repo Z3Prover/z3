@@ -1,8 +1,0 @@
-unsat
-((proof
-(let ((@x32 (monotonicity ((_ rewrite finite_set:set.union) (= (set.union s (as set.empty (FiniteSet Int))) s)) (= (= (set.union s (as set.empty (FiniteSet Int))) s) (= s s)))))
-(let ((@x36 (trans @x32 ((_ rewrite basic:=) (= (= s s) true)) (= (= (set.union s (as set.empty (FiniteSet Int))) s) true))))
-(let ((@x39 (monotonicity @x36 (= (not (= (set.union s (as set.empty (FiniteSet Int))) s)) (not true)))))
-(let ((@x43 (trans @x39 ((_ rewrite basic:not) (= (not true) false)) (= (not (= (set.union s (as set.empty (FiniteSet Int))) s)) false))))
-(mp (asserted (not (= (set.union s (as set.empty (FiniteSet Int))) s))) @x43 false)))))))
-

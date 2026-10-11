@@ -1,7 +1,0 @@
-unsat
-((proof
-(let ((@x32 (monotonicity ((_ rewrite arith:div) (= (div a 1) a)) (= (= (div a 1) a) (= a a)))))
-(let ((@x36 (trans @x32 ((_ rewrite basic:=) (= (= a a) true)) (= (= (div a 1) a) true))))
-(let ((@x43 (trans (monotonicity @x36 (= (not (= (div a 1) a)) (not true))) ((_ rewrite basic:not) (= (not true) false)) (= (not (= (div a 1) a)) false))))
-(mp (asserted (not (= (div a 1) a))) @x43 false))))))
-

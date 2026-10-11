@@ -1,8 +1,0 @@
-unsat
-((proof
-(let ((@x32 (monotonicity ((_ rewrite basic:and) (= (and p (not p)) false)) (= (= (and p (not p)) false) (= false false)))))
-(let ((@x36 (trans @x32 ((_ rewrite basic:=) (= (= false false) true)) (= (= (and p (not p)) false) true))))
-(let ((@x39 (monotonicity @x36 (= (not (= (and p (not p)) false)) (not true)))))
-(let ((@x43 (trans @x39 ((_ rewrite basic:not) (= (not true) false)) (= (not (= (and p (not p)) false)) false))))
-(mp (asserted (not (= (and p (not p)) false))) @x43 false)))))))
-

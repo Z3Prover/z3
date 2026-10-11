@@ -1,6 +1,0 @@
-(set-option :produce-proofs true)
-(declare-const x Int)
-(declare-const y Int)
-(assert (not (= (+ (* 2 x) (* 3 x)) (* 5 x))))
-(check-sat)
-(get-proof)

@@ -1,9 +1,0 @@
-unsat
-((proof
-(let ((?x30 (* 5 x)))
-(let (($x31 (= (+ (* 2 x) (* 3 x)) ?x30)))
-(let (($x32 (not $x31)))
-(let ((@x42 (trans (monotonicity ((_ rewrite arith:+) $x31) (= $x31 (= ?x30 ?x30))) ((_ rewrite basic:=) (= (= ?x30 ?x30) true)) (= $x31 true))))
-(let ((@x49 (trans (monotonicity @x42 (= $x32 (not true))) ((_ rewrite basic:not) (= (not true) false)) (= $x32 false))))
-(mp (asserted $x32) @x49 false))))))))
-

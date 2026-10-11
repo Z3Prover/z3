@@ -1,5 +1,0 @@
-(set-option :produce-proofs true)
-(declare-const a Int)
-(assert (not (= (div a 1) a)))
-(check-sat)
-(get-proof)

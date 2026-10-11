@@ -1,6 +1,0 @@
-(set-option :produce-proofs true)
-(declare-const s String)
-(declare-const t String)
-(assert (not (= (str.++ "" s) s)))
-(check-sat)
-(get-proof)

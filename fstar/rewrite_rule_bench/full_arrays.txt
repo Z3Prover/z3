@@ -1,8 +1,0 @@
-unsat
-((proof
-(let ((@x34 (monotonicity ((_ rewrite array:select) (= (select (store a i v) i) v)) (= (= (select (store a i v) i) v) (= v v)))))
-(let ((@x38 (trans @x34 ((_ rewrite basic:=) (= (= v v) true)) (= (= (select (store a i v) i) v) true))))
-(let ((@x41 (monotonicity @x38 (= (not (= (select (store a i v) i) v)) (not true)))))
-(let ((@x45 (trans @x41 ((_ rewrite basic:not) (= (not true) false)) (= (not (= (select (store a i v) i) v)) false))))
-(mp (asserted (not (= (select (store a i v) i) v))) @x45 false)))))))
-
