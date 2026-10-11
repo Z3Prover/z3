@@ -368,6 +368,64 @@ It is a genuine demonstration that real Z3-produced equational proof
 fragments fit this model exactly, not a general-purpose proof importer
 for arbitrary Z3 refutations.
 
+### Extending to arbitrary `.smt2` files
+
+`tools/extract_z3_proof.py` now also accepts an optional positional
+argument: a path to an `.smt2` file whose assertions are jointly
+unsatisfiable. Usage:
+
+```
+python extract_z3_proof.py [smt2-file] [--check] [--out FILE.fst]
+```
+
+With a path given, the script parses the file with
+`z3.parse_smt2_file`, loads the assertions into a fresh `z3.Solver()`
+(with proof production enabled first, as before), calls `check()`, and
+-- if the result is anything other than `unsat` -- reports clearly
+that no refutation proof exists to extract (rather than crashing on a
+missing `.proof()`). On `unsat`, the rest of the pipeline
+(`find_equational_root` / `Converter` / `generate`) runs unchanged. The
+built-in `not(not(x)) == x` example remains the default when no path
+is given.
+
+Two real `.smt2` files were used to exercise this path end-to-end,
+both committed under `tools/` together with their generated/checked
+snapshots:
+
+* `tools/test_not_not.smt2` (`(assert (xor (not (not x)) x))`) --
+  produces the same 4-node equational subtree as the built-in example,
+  now driven entirely by parsing a file instead of building the
+  formula in Python. Snapshot: `Z3ExtractedProof_FromFile.fst`.
+* `tools/test_bvand_self.smt2` (`(assert (not (= (bvand y y) y)))`) --
+  a larger, independently-interesting case: Z3's real proof for this
+  one is a 12-proof-node / 11-expr-node equational subtree (rewriting
+  `bvand y y` down through `bvnot (bvor (bvnot y) (bvnot y))` to `y`,
+  via De Morgan's law on bitvectors), still landing entirely inside the
+  equational fragment. Snapshot: `Z3ExtractedProof_Bv.fst`.
+
+Both snapshots pass `--check` (`fstar.exe` reports `All verification
+conditions discharged successfully`), but the larger one surfaced a
+real issue worth recording: F*'s default `--fuel 2 --ifuel 2` /
+`--z3rlimit` budget was not enough for the SMT solver to unfold
+`fact`/`congr_matched`/`find_matching_fact`'s recursion all the way
+through a 12-node proof when the `Some? (fact extracted_proof)` goal
+was asked for directly inside the Pulse function's generated
+verification condition. The fix applied to the generator's template
+(affecting every generated file, not just the larger example):
+1. wrap the generated `lemma_extracted_proof_wellformed`/
+   `check_extracted` pair in `#push-options "--z3rlimit 60 --fuel 4
+   --ifuel 4" ... #pop-options`, and
+2. prove `lemma_extracted_proof_wellformed` by `assert_norm` (full
+   normalization, not SMT-driven unfolding) rather than bare `()`, and
+   **explicitly call it as the first statement of `check_extracted`**
+   so the Pulse function's own VC gets `Some? (fact extracted_proof)`
+   as an already-proven hypothesis instead of having to re-derive it
+   from scratch under the Pulse encoding's own fuel budget.
+
+This is a verification-engineering fix (how the already-correct fact
+gets communicated to the SMT solver), not a change to the checker's
+soundness argument -- `check_proof`'s own internal logic is untouched.
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in
@@ -403,8 +461,10 @@ for arbitrary Z3 refutations.
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
 | [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
-| [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object, extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
+| [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
+| [`tools/test_not_not.smt2`](tools/test_not_not.smt2), [`Z3ExtractedProof_FromFile.fst`](Z3ExtractedProof_FromFile.fst) | Same `not(not(x)) == x` example, but driven from an `.smt2` file path instead of a built-in Python formula |
+| [`tools/test_bvand_self.smt2`](tools/test_bvand_self.smt2), [`Z3ExtractedProof_Bv.fst`](Z3ExtractedProof_Bv.fst) | A larger `.smt2`-driven example (`bvand y y == y`), 12 proof nodes / 11 expr nodes, that surfaced and validated the fuel/`assert_norm` fix described above |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
