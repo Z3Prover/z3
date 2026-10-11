@@ -344,11 +344,10 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // genuine Boolean iff, but `PR_QUANT_INTRO` is also used over
             // `lambda` terms (also represented as `quantifier` nodes) whose
             // body -- and hence `q1`/`q2` themselves -- can be of any sort
-            // (e.g. an array/function sort). `match_iff` alone rejects
-            // that case (it requires its first argument to be Bool), so a
-            // plain `match_eq` fallback is needed to cover non-Boolean
-            // lambda-to-lambda equalities.
-            (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2) || match_eq(fact, t1, t2)) &&
+            // (e.g. an array/function sort). `match_eq` alone (OP_EQ with no
+            // sort restriction) already covers the Boolean-iff case, so
+            // `match_iff` adds nothing here and is omitted.
+            (match_oeq(fact, t1, t2) || match_eq(fact, t1, t2)) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
@@ -384,8 +383,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 proof* p0 = to_app(p0_expr);
                 if (!match_fact(p0, fml0) ||
                     // same non-Bool-body caveat as above: `q1`/`q2`'s
-                    // bodies (and hence `r1`/`r2`) need not be Bool-sorted.
-                    !(match_iff(fml0, r1, r2) || match_oeq(fml0, r1, r2) || match_eq(fml0, r1, r2)) ||
+                    // bodies (and hence `r1`/`r2`) need not be Bool-sorted;
+                    // `match_eq` alone already subsumes `match_iff`.
+                    !(match_oeq(fml0, r1, r2) || match_eq(fml0, r1, r2)) ||
                     r1 != q1->get_expr() ||
                     r2 != q2->get_expr()) {
                     UNREACHABLE();
@@ -397,8 +397,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // Shape 2: `p1`'s own fact directly (without lambda-wrapping)
             // relates the two quantifiers' bodies -- the fully-structural
             // shape some other, non-`rewriter_def.h` caller could in
-            // principle construct.
-            if ((match_iff(fml, s1, s2) || match_oeq(fml, s1, s2) || match_eq(fml, s1, s2)) &&
+            // principle construct. `match_eq` alone already subsumes
+            // `match_iff`.
+            if ((match_oeq(fml, s1, s2) || match_eq(fml, s1, s2)) &&
                 m.is_oeq(fact) == m.is_oeq(fml) &&
                 q1->get_expr() == s1 &&
                 q2->get_expr() == s2) {
