@@ -41,6 +41,7 @@ let int_s = s "Int"
 let bool_s = s "Bool"
 let bv_s = s "BV32"
 let seq_s = s "SeqInt"
+let arr_s = s "ArrayIntInt"
 
 let konst (name:string) (rng:sort) : func_decl =
   { decl_name = name; domain = []; range = rng; interp = None; int_params = [] }
@@ -52,6 +53,9 @@ let binary (name:string) (d1 d2 rng:sort) : func_decl =
 let c0 (f:func_decl) : expr = App f []
 let c1 (f:func_decl) (a:expr) : expr = App f [a]
 let c2 (f:func_decl) (a b:expr) : expr = App f [a; b]
+let c3 (f:func_decl) (a b c:expr) : expr = App f [a; b; c]
+let ternary (name:string) (d1 d2 d3 rng:sort) : func_decl =
+  { decl_name = name; domain = [d1; d2; d3]; range = rng; interp = None; int_params = [] }
 
 (* ----------------------------------------------------------------- *)
 (* Test 1: `bool_rewriter` -- double-negation elimination               *)
@@ -152,7 +156,31 @@ let lemma_nl_arith_leaf_fact ()
   = ()
 
 (* ----------------------------------------------------------------- *)
-(* Test 6: `PR_BIND`+`PR_QUANT_INTRO` -- a rewrite firing under a       *)
+(* Test 6: `array_rewriter` -- `select(store(a,i,v),i) = v`             *)
+(*   (ARRAY_REWRITER_REPORT.md / `Z3ArrayTheory.lemma_select_store_same`,*)
+(*    and the exact fact `fstar/rewrite_rule_bench/arrays.smt2`'s real   *)
+(*    `array:select` proof tag extracted, before that tagging          *)
+(*    mechanism was reverted from master -- see                        *)
+(*    `REWRITE_RULE_TAGS_REPORT.md`). As with every other theory in     *)
+(*    this file, the leaf is trusted by the checker, not re-derived;    *)
+(*    `Z3ArrayTheory.fst`'s own report is what separately establishes   *)
+(*    its semantic soundness.                                          *)
+(* ----------------------------------------------------------------- *)
+
+let a_arr = c0 (konst "a" arr_s)
+let i_i = c0 (konst "i" int_s)
+let v_i = c0 (konst "v" int_s)
+let store_d = ternary "store" arr_s int_s int_s arr_s
+let select_d = binary "select" arr_s int_s int_s
+let store_aiv = c3 store_d a_arr i_i v_i
+let array_leaf : proof = mk_rewrite_leaf (c2 select_d store_aiv i_i) v_i
+
+let lemma_array_leaf_fact ()
+  : Lemma (fact array_leaf == Some (c2 select_d store_aiv i_i, v_i))
+  = ()
+
+(* ----------------------------------------------------------------- *)
+(* Test 7: `PR_BIND`+`PR_QUANT_INTRO` -- a rewrite firing under a       *)
 (* `forall` binder (`rewriter_tpl::process_quantifier`'s shape)        *)
 (* ----------------------------------------------------------------- *)
 
@@ -162,6 +190,45 @@ let lemma_quant_leaf_fact ()
   : Lemma (fact quant_leaf ==
            Some (Quantifier Forall_k [int_s] (c2 plus_d x_i zero),
                  Quantifier Forall_k [int_s] x_i))
+  = ()
+
+(* ----------------------------------------------------------------- *)
+(* Displaying the trusted leaves: every `Rewrite s t` node reachable    *)
+(* inside a proof is exactly the obligation `all_leaves_sound`         *)
+(* (`Z3ProofTheory.fst`) quantifies over and the checker itself never   *)
+(* re-derives (see the previous discussion). `collect_rewrite_leaves`   *)
+(* makes that set concrete and inspectable, instead of leaving it       *)
+(* implicit inside a `forall`/`prop`.                                   *)
+(* ----------------------------------------------------------------- *)
+
+let rec collect_rewrite_leaves (p:proof) : Tot (list (expr & expr)) (decreases p) =
+  match p with
+  | Refl _ -> []
+  | Sym p1 -> collect_rewrite_leaves p1
+  | Trans p1 p2 -> collect_rewrite_leaves p1 @ collect_rewrite_leaves p2
+  | Congr _ _ _ prfs -> collect_rewrite_leaves_list prfs
+  | Rewrite s t -> [(s, t)]
+  | QuantIntro _ _ p1 -> collect_rewrite_leaves p1
+and collect_rewrite_leaves_list (prfs:list proof) : Tot (list (expr & expr)) (decreases prfs) =
+  match prfs with
+  | [] -> []
+  | p :: prfs' -> collect_rewrite_leaves p @ collect_rewrite_leaves_list prfs'
+
+(* The array example (`Test 6`) is a single, bare `Rewrite` node, so it
+   has exactly one trusted leaf: the whole fact itself. *)
+let lemma_array_leaf_trusted_leaves ()
+  : Lemma (collect_rewrite_leaves array_leaf == [(c2 select_d store_aiv i_i, v_i)])
+  = ()
+
+(* For contrast: `mixed_chain` (Test 4) is a 3-step `Trans` combining
+   leaves from three different theories, so it has three trusted
+   leaves, each the real responsibility of its own theory's rewriter
+   report, not of this file or the checker. *)
+let lemma_mixed_chain_trusted_leaves ()
+  : Lemma (collect_rewrite_leaves mixed_chain ==
+           [ (c2 cat_d (c2 cat_d a_sq b_sq) c_sq, c2 cat_d a_sq (c2 cat_d b_sq c_sq));
+             (c2 cat_d a_sq (c2 cat_d b_sq c_sq), x_b);
+             (c1 not_d (c1 not_d x_b), x_b) ])
   = ()
 
 (* ----------------------------------------------------------------- *)
@@ -200,6 +267,10 @@ fn test_all_theories ()
   run_one mixed_chain (Some (c2 cat_d (c2 cat_d a_sq b_sq) c_sq, c1 not_d (c1 not_d x_b)));
   lemma_nl_arith_leaf_fact ();
   run_one nl_arith_leaf (Some (mono_lhs, mono_rhs));
+  lemma_array_leaf_fact ();
+  run_one array_leaf (Some (c2 select_d store_aiv i_i, v_i));
+  lemma_array_leaf_trusted_leaves ();
+  lemma_mixed_chain_trusted_leaves ();
   lemma_quant_leaf_fact ();
   run_one quant_leaf (Some (Quantifier Forall_k [int_s] (c2 plus_d x_i zero),
                             Quantifier Forall_k [int_s] x_i));
@@ -216,6 +287,8 @@ fn test_checker_accepts ()
   assert (pure (b2 == true));
   let b3 = checker_accepts quant_leaf;
   assert (pure (b3 == true));
+  let b4 = checker_accepts array_leaf;
+  assert (pure (b4 == true));
 }
 
 (* ----------------------------------------------------------------- *)

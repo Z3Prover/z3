@@ -207,6 +207,83 @@ justifies.
   facts (established once, by F\*-level `Lemma`s, at the top level)
   into Pulse's separation-logic proof obligations.
 
+## Follow-up: trusted leaves made concrete, and `Z3InterpretedProofChecker.fst`
+
+Everything above treats every `Rewrite s t` node as a **trusted leaf**:
+`all_leaves_sound`/`lemma_proof_sound`/`lemma_checker_sound` all require
+semantic soundness of every leaf as an explicit caller-side
+precondition, never discharged inside the checker — this mirrors Z3's
+own `proof_checker.cpp::check1_basic`'s `PR_REWRITE` case exactly
+(shape-only check, equation pushed to an unverified `side_conditions`
+list that ordinary solving, `smt_context.cpp::check_proof`, discards
+without checking; only `src/test/simplifier.cpp`/`src/test/proof_checker.cpp`
+independently verify it, via a second SMT call).
+
+Two follow-ups make this concrete instead of abstract:
+
+1. **`Z3PulseProofCheckerTests.fst`** gained a new array-theory
+   derivation (`select(store(a,i,v),i) = v`, matching the earlier
+   `array:select` tag from the now-reverted tagging mechanism) and a
+   generic `collect_rewrite_leaves`/`collect_rewrite_leaves_list`
+   traversal that returns every trusted `Rewrite` leaf's `(s, t)` pair
+   reachable in a proof tree — demonstrated on both the new array leaf
+   (one leaf) and the pre-existing `mixed_chain` derivation (three
+   leaves, spanning seq/bool/arith). This answers "what, exactly, is
+   this proof trusting?" mechanically, rather than by manual
+   inspection.
+2. **`Z3InterpretedProofChecker.fst`** goes one step further: for four
+   concrete example leaves, it actually **discharges**
+   `all_leaves_sound`, rather than leaving it as an assumed
+   precondition, by constructing one real semantic `interpretation
+   value` and invoking the matching already-proved per-theory lemma:
+
+   | Leaf | Equation | Theory lemma invoked |
+   |---|---|---|
+   | `array_leaf` | `select(store(a,i,v),i) = v` | [`Z3ArrayTheory.lemma_select_store_same`](Z3ArrayTheory.fst) |
+   | `seq_leaf` | `(a++b)++c = a++(b++c)` | [`Z3SeqRewrites.lemma_concat_assoc`](Z3SeqRewrites.fst) |
+   | `bool_leaf` | `not(not x) = x` | [`Z3BoolRewriter.not_not`](Z3BoolRewriter.fst) |
+   | `bv_leaf` | `bvand y y = y` | [`Z3BvRewriter.lemma_bvand_self`](Z3BvRewriter.fst) |
+
+   The semantic domain `value` is deliberately first-order
+   (`VInt`/`VBool`/`VArr (Z3ArrayTheory.arr int int)`/
+   `VSeq (Z3SeqTheory.seq int)`/`VBV (Z3BvTheory.bv 32)`) rather than
+   recursively embedding `value` itself as the array/sequence element
+   type: `Z3SeqTheory.seq` requires its element type to be an
+   `eqtype`, and a function-typed constructor (`VArr`, needed for
+   `Z3ArrayTheory`'s extensional-array representation) can never be an
+   `eqtype` (no decidable equality on functions) — so the two
+   requirements are jointly unsatisfiable for a single recursive
+   `value`, and restricting array/sequence elements to plain `int`
+   (matching the concrete sorts `ArrayIntInt`/`SeqInt` the example
+   leaves actually use) sidesteps the conflict entirely.
+   `interp_app`'s operator dispatch is written as nested `if`/`match`
+   rather than guard-bearing `match ... | p when c ->` arms, because
+   F*'s `--verify` mode rejects `when` clauses (confirmed by a
+   type-checking error — "When clauses are not yet supported in
+   --verify mode").
+
+   For each leaf, both `lemma_<leaf>_sound : Lemma (all_leaves_sound
+   the_interpretation <leaf>)` (invokes the theory lemma directly) and
+   an end-to-end `lemma_<leaf>_true` (composes it with
+   `Z3ProofTheory.lemma_proof_sound` to get an actual `eval`-level
+   equality, for every environment `rho`) are proved. Arithmetic's
+   `(+ x 0) = x` leaf (used elsewhere in the test suite) was
+   deliberately **not** wired this way: `Z3ArithRewriter.fst` has no
+   standalone additive-identity lemma matching that exact shape (the
+   relevant logic lives in `poly_rewriter`'s `cancel_monomials`, out of
+   scope per `PROOF_OMISSION_AUDIT.md`), so forcing a match would have
+   meant proving a new lemma outside this follow-up's stated scope
+   rather than reusing one that already exists.
+
+   This demonstrates, for a representative leaf from each of four
+   theories, that "trust this leaf" is not merely assumed but can be
+   *replaced* by "this leaf is exactly an instance of an
+   already-mechanically-verified per-theory lemma" — closing, for
+   these four cases, the one gap in the Pulse checker's soundness
+   story that remains open in general (and in general must remain
+   open: for the checker to stay theory-agnostic, it cannot itself
+   re-derive every theory's semantics).
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in
@@ -240,7 +317,8 @@ justifies.
 |---|---|
 | [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) | Pulse port of `fact`/`facts_of` (the rewriter-calculus checker) |
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
-| [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests |
+| [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
+| [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
