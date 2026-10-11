@@ -148,8 +148,9 @@ namespace datalog {
                 case BIT_x:
                     if (!is_x) {
                         SASSERT(p.bv.is_bv_sort(get_signature()[i]));
-                        conjs.push_back(m.mk_eq(p.bv.mk_extract(j-1-lo,lo1-lo,v),
-                                                p.bv.mk_numeral(r,j-lo1)));
+                        expr_ref bits(p.bv.mk_extract(j-1-lo, lo1-lo, v), m);
+                        expr_ref num(p.bv.mk_numeral(r, j-lo1), m);
+                        conjs.push_back(m.mk_eq(bits, num));
                     }
                     is_x = true;
                     break;

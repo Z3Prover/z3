@@ -20,6 +20,7 @@ Notes:
 #include "util/gparams.h"
 #include "util/params.h"
 #include "params/context_params.h"
+#include <charconv>
 
 context_params::context_params() {
     updt_params();
@@ -40,15 +41,16 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
 }
 
 void context_params::set_uint(unsigned & opt, char const * param, char const * value) {
-    char *endptr;
-    long val = strtol(value, &endptr, 10);
-    opt = static_cast<unsigned>(val);
-
-    if (!*value || *endptr) {
+    // Parse directly as unsigned: long is only 32 bits on Windows.
+    unsigned val;
+    char const* end = value + strlen(value);
+    auto [ptr, ec] = std::from_chars(value, end, val);
+    if (ec != std::errc() || ptr != end) {
         std::stringstream strm;
         strm << "invalid value '" << value << "' for unsigned int parameter '" << param << "'";
         throw default_exception(strm.str());
     }
+    opt = val;
 }
 
 static void lower_case(std::string& p) {

@@ -18,6 +18,7 @@ Revision History:
 --*/
 
 #include <cmath>
+#include <tuple>
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "smt/smt_lookahead.h"
@@ -60,7 +61,8 @@ namespace smt {
         compare(context& ctx): ctx(ctx) {}
 
         bool operator()(bool_var v1, bool_var v2) const {
-            return ctx.get_activity(v1) > ctx.get_activity(v2);
+            return std::tuple{-ctx.get_activity(v1), v1} <
+                   std::tuple{-ctx.get_activity(v2), v2};
         }
     };
     

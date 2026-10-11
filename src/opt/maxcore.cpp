@@ -75,6 +75,7 @@ Notes:
 #include "opt/maxcore.h"
 #include "opt/totalizer.h"
 #include <iostream>
+#include <tuple>
 
 using namespace opt;
 
@@ -265,6 +266,9 @@ public:
             case l_undef:
                 return l_undef;
             }
+            // LNS can replace assumptions, so run it only after consuming the core.
+            if (m_lower < m_upper)
+                improve_model(m_model);
         }
         found_optimum();
         trace();
@@ -305,6 +309,8 @@ public:
             case l_undef:
                 return l_undef;
             }
+            if (m_lower < m_upper)
+                improve_model(m_model);
         }
         m_lower = m_upper;
         trace();
@@ -563,7 +569,10 @@ public:
             expr_ref s(e, m);
             soft.push_back({s, tt, tt, w});
         }
-        std::sort(soft.begin(), soft.end(), [](auto const &a, auto const &b) { return a.weight > b.weight; });
+        std::sort(soft.begin(), soft.end(), [](auto const &a, auto const &b) {
+            return std::tuple<rational const&, unsigned>{a.weight, a.soft->get_id()} >
+                   std::tuple<rational const&, unsigned>{b.weight, b.soft->get_id()};
+        });
         remove_soft(core, m_asms);
         expr_ref fml(m), conj(m), disj(m), c(m), a(m);
         IF_VERBOSE(2, verbose_stream() << "(opt.maxresw core weights:";
@@ -678,7 +687,6 @@ public:
     void process_unsat(vector<weighted_core> const& cores) {
         for (auto const & c : cores)
             process_unsat(c.m_core, c.m_weight);
-        improve_model(m_model);
     }
 
     void update_model(expr* def, expr* value) {
@@ -913,7 +921,6 @@ public:
 
     obj_map<expr, expr*>      m_at_mostk;
     obj_map<expr, bound_info> m_bounds;
-    rational                  m_unfold_upper;
     obj_map<expr, totalizer*> m_totalizers;
 
     expr* mk_atmost_tot(expr_ref_vector const& es, unsigned bound, rational const& weight) {
@@ -975,7 +982,6 @@ public:
             expr_ref_vector es(m, b.es.size(), b.es.data());
             expr* amk = mk_atmost(es, b.k + 1, b.weight);
             new_assumption(amk, b.weight);
-            m_unfold_upper -= b.weight;
         }
     }
 
@@ -987,7 +993,6 @@ public:
         weaken_bounds(core);
 
         if (core.size() > 1) {
-            m_unfold_upper += rational(core.size() - 2) * weight;
             expr* am = mk_atmost(ncore, 1, weight);
             new_assumption(am, weight);
         }
@@ -1012,7 +1017,6 @@ public:
             expr_ref_vector ncore(m);
             for (expr* f : us) 
                 ncore.push_back(mk_not(m, f));
-            m_unfold_upper += rational(us.size() - 1) * weight;
             expr* am = mk_atmost(ncore, 0, weight);
             new_assumption(am, weight);
         }            
@@ -1073,8 +1077,10 @@ public:
             return;
         model_ref mdl;
         s().get_model(mdl);
-        if (mdl)
+        if (mdl) {
+            improve_model(mdl);
             update_assignment(mdl);
+        }
     }
 
 
@@ -1110,7 +1116,8 @@ public:
     }
 
     rational cost(model& mdl) {
-        rational upper = m_unfold_upper;
+        // Core relaxations do not change the cost of the original soft constraints.
+        rational upper(0);
         for (soft& s : m_soft)
             if (!mdl.is_true(s.s))
                 upper += s.weight;
@@ -1118,7 +1125,6 @@ public:
     }
 
     void update_assignment(model_ref & mdl) {
-        improve_model(mdl);
         mdl->set_model_completion(true);
         unsigned correction_set_size = 0;
         for (expr* a : m_asms)
@@ -1214,7 +1220,6 @@ public:
         add_upper_bound_block();
         m_csmodel = nullptr;
         m_correction_set_size = 0;
-        m_unfold_upper = 0;
         m_at_mostk.reset();
         m_bounds.reset();
         for (auto& [k,t] : m_totalizers)

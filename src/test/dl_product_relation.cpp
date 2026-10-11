@@ -310,10 +310,16 @@ namespace datalog {
         r41->add_fact(f7797);
         r41->add_fact(f7997);
 
-        app_ref cond(m.mk_and(
-                m.mk_not(m.mk_eq(m.mk_var(1,byte_srt), m.mk_var(2,byte_srt))), //#1!=#2
-                m.mk_not(m.mk_eq(m.mk_var(3,byte_srt), m.mk_var(2,byte_srt)))  //#3!=#2
-            ), m);
+        expr_ref lhs(m.mk_var(1, byte_srt), m);
+        expr_ref rhs(m.mk_var(2, byte_srt), m);
+        expr_ref lhs1(m.mk_not(m.mk_eq(lhs, rhs)), m);
+        expr_ref lhs2(m.mk_var(3, byte_srt), m);
+        expr_ref rhs1(m.mk_var(2, byte_srt), m);
+        expr_ref rhs2(m.mk_not(m.mk_eq(lhs2, rhs1)), m);
+        app_ref cond(m.mk_and(lhs1,  // #1!=#2
+                              rhs2   // #3!=#2
+                              ),
+                     m);
         scoped_ptr<relation_mutator_fn> i_filter = rmgr.mk_filter_interpreted_fn(*r41, cond);
         (*i_filter)(*r41);
 

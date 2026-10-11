@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include <tuple>
 #include "util/lbool.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/expr_functors.h"
@@ -414,7 +415,7 @@ namespace mbp {
 
         struct compare_nd {
             bool operator()(std::pair<unsigned, app*> const& x, std::pair<unsigned, app*> const& y) const {
-                return x < y;
+                return std::tuple(x.first, x.second->get_id()) < std::tuple(y.first, y.second->get_id());
             }
         };
 
@@ -868,8 +869,8 @@ namespace mbp {
             SASSERT(xs.size() == ys.size() && !xs.empty());
             expr_ref result(mk_lt(xs.back(), ys.back()), m);
             for (unsigned i = xs.size()-1; i-- > 0; ) {
-                result = m.mk_or(mk_lt(xs[i], ys[i]),
-                                 m.mk_and(m.mk_eq(xs[i], ys[i]), result));
+                expr_ref lt(mk_lt(xs[i], ys[i]), m);
+                result = m.mk_or(lt, m.mk_and(m.mk_eq(xs[i], ys[i]), result));
             }
             return result;
         }

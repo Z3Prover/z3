@@ -1013,10 +1013,11 @@ class arith_project_util {
             } else {
                 expr_ref_vector lits(m);
                 // num_val | (t1 - t2)
-                lits.push_back(
-                    m.mk_eq(a.mk_mod(a.mk_sub(t1, t2),
-                                     a.mk_numeral(num_val, a.mk_int())),
-                            z));
+                {
+                    expr_ref lhs(a.mk_sub(t1, t2), m);
+                    expr_ref rhs(a.mk_numeral(num_val, a.mk_int()), m);
+                    lits.push_back(m.mk_eq(a.mk_mod(lhs, rhs), z));
+                }
                 // 0 <= t2
                 lits.push_back(a.mk_le(z, t2));
                 // t2 < abs (num_val)

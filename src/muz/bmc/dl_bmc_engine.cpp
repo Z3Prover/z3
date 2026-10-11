@@ -231,7 +231,8 @@ namespace datalog {
         expr_ref eval_q(model_ref& model, func_decl* f, unsigned i) {
             func_decl_ref fn = mk_q_func_decl(f);
             expr_ref t(m);
-            t = m.mk_app(mk_q_func_decl(f).get(), mk_q_num(i));
+            expr_ref index = mk_q_num(i);
+            t = m.mk_app(fn.get(), index.get());
             return (*model)(t);
         }
 
@@ -273,7 +274,11 @@ namespace datalog {
                 rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
-                    rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level).get());
+                    {
+                        auto lhs = mk_q_rule(pred, i);
+                        expr_ref rhs(mk_q_num(level).get(), m);
+                        rule_i = m.mk_app(lhs.get(), rhs);
+                    }
                     TRACE(bmc, rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                     if (m.is_true(eval_q(md, rule_i, level))) {
                         r = rls[i];

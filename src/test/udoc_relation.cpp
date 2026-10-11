@@ -344,7 +344,11 @@ public:
             var_ref v2(m.mk_var(2, m.mk_bool_sort()),m);
             app_ref cond1(m);
             t1 = mk_full(sig3);
-            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
+            {
+                expr_ref lhs(m.mk_eq(v0, v1), m);
+                expr_ref rhs(m.mk_eq(v0, v2), m);
+                cond1 = m.mk_or(lhs, rhs);
+            }
             apply_filter(*t1, cond1);
             t1->deallocate();
         }
@@ -358,7 +362,11 @@ public:
             var_ref v1(m.mk_var(1, bv.mk_sort(1)),m);
             var_ref v2(m.mk_var(2, bv.mk_sort(1)),m);
             app_ref cond1(m);
-            cond1 = m.mk_or(m.mk_eq(v0,v1),m.mk_eq(v0,v2));
+            {
+                expr_ref lhs(m.mk_eq(v0, v1), m);
+                expr_ref rhs(m.mk_eq(v0, v2), m);
+                cond1 = m.mk_or(lhs, rhs);
+            }
             t1 = mk_full(sig3);
             apply_filter(*t1, cond1);
             t1->deallocate();
@@ -377,24 +385,69 @@ public:
         conds.push_back(m.mk_eq(v0, v2));
         conds.push_back(m.mk_not(m.mk_eq(v0, v2)));
         conds.push_back(m.mk_eq(v0, bv.mk_numeral(rational(2), 3)));
-        cond1 = m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2));
+        {
+            auto lhs = ex(2, 1, v0);
+            expr_ref rhs(bv.mk_numeral(rational(3), 2), m);
+            cond1 = m.mk_eq(lhs, rhs);
+        }
         conds.push_back(cond1);
         conds.push_back(m.mk_or(cond1,m.mk_eq(v3,v4)));
-        conds.push_back(m.mk_eq(ex(2,1,v3),ex(1,0,v4)));
-        conds.push_back(m.mk_or(cond1,m.mk_eq(ex(2,1,v3),ex(1,0,v4))));
-        conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v0,v4)));
-        conds.push_back(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4)));
-        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),ex(1,0,v2)),m.mk_eq(v3,v4)));
-        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
-                                m.mk_eq(v3,v4)));
-        conds.push_back(m.mk_or(m.mk_eq(ex(2,1,v0),bv.mk_numeral(rational(3),2)), 
-                                m.mk_eq(v3,bv.mk_numeral(rational(3),3))));
-        conds.push_back(m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(5),3)), 
-                                m.mk_eq(v3,bv.mk_numeral(rational(5),3))));
-        conds.push_back(m.mk_or(m.mk_eq(v0,bv.mk_numeral(rational(7),3)), 
-                                m.mk_eq(v3,bv.mk_numeral(rational(7),3))));
-        conds.push_back(m.mk_not(m.mk_or(m.mk_eq(v0,v2),m.mk_eq(v3,v4))));
-
+        {
+            auto lhs = ex(2, 1, v3);
+            auto rhs = ex(1, 0, v4);
+            conds.push_back(m.mk_eq(lhs, rhs));
+        }
+        {
+            auto lhs = ex(2, 1, v3);
+            auto rhs = ex(1, 0, v4);
+            conds.push_back(m.mk_or(cond1, m.mk_eq(lhs, rhs)));
+        }
+        {
+            expr_ref lhs(m.mk_eq(v0, v2), m);
+            expr_ref rhs(m.mk_eq(v0, v4), m);
+            conds.push_back(m.mk_or(lhs, rhs));
+        }
+        {
+            expr_ref lhs(m.mk_eq(v0, v2), m);
+            expr_ref rhs(m.mk_eq(v3, v4), m);
+            conds.push_back(m.mk_or(lhs, rhs));
+        }
+        {
+            auto lhs = ex(2, 1, v0);
+            auto rhs = ex(1, 0, v2);
+            expr_ref lhs1(m.mk_eq(lhs, rhs), m);
+            expr_ref rhs1(m.mk_eq(v3, v4), m);
+            conds.push_back(m.mk_or(lhs1, rhs1));
+        }
+        {
+            auto lhs = ex(2, 1, v0);
+            expr_ref rhs(bv.mk_numeral(rational(3), 2), m);
+            expr_ref lhs1(m.mk_eq(lhs, rhs), m);
+            expr_ref rhs1(m.mk_eq(v3, v4), m);
+            conds.push_back(m.mk_or(lhs1, rhs1));
+        }
+        {
+            auto lhs = ex(2, 1, v0);
+            expr_ref rhs(bv.mk_numeral(rational(3), 2), m);
+            expr_ref lhs1(m.mk_eq(lhs, rhs), m);
+            expr_ref rhs1(m.mk_eq(v3, bv.mk_numeral(rational(3), 3)), m);
+            conds.push_back(m.mk_or(lhs1, rhs1));
+        }
+        {
+            expr_ref lhs(m.mk_eq(v0, bv.mk_numeral(rational(5), 3)), m);
+            expr_ref rhs(m.mk_eq(v3, bv.mk_numeral(rational(5), 3)), m);
+            conds.push_back(m.mk_or(lhs, rhs));
+        }
+        {
+            expr_ref lhs(m.mk_eq(v0, bv.mk_numeral(rational(7), 3)), m);
+            expr_ref rhs(m.mk_eq(v3, bv.mk_numeral(rational(7), 3)), m);
+            conds.push_back(m.mk_or(lhs, rhs));
+        }
+        {
+            expr_ref lhs(m.mk_eq(v0, v2), m);
+            expr_ref rhs(m.mk_eq(v3, v4), m);
+            conds.push_back(m.mk_not(m.mk_or(lhs, rhs)));
+        }
 
         // filter_interpreted
         {

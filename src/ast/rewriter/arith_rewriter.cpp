@@ -1854,13 +1854,15 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         // (^ (^ t y2) y) --> (^ t (* y2 y))  If y2 > 0 && y != 0 && y and y2 are integers
         rational y2;
         if (m_util.is_numeral(arg11, y2) && y2.is_int() && y2.is_pos()) {
-            result = m_util.mk_power(ensure_real(arg10), m_util.mk_numeral(y*y2, false));
+            expr_ref base(ensure_real(arg10), m);
+            result = m_util.mk_power(base, m_util.mk_numeral(y*y2, false));
             return BR_REWRITE2;
         }
     }
 
     if (is_num_y && y.is_minus_one()) {        
-        result = m_util.mk_div(m_util.mk_real(1), ensure_real(arg1));
+        expr_ref one(m_util.mk_real(1), m);
+        result = m_util.mk_div(one, ensure_real(arg1));
         {
             auto _seq1812_0 = m.mk_eq(arg1, m_util.mk_numeral(rational(0), m_util.is_int(arg1)));
             auto _seq1812_1 = m_util.mk_real(0);
@@ -1885,8 +1887,9 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     if (is_num_y && !y.is_int() && !numerator(y).is_one()) {
         {
-            auto _seq1830_0 =
-                m_util.mk_power(ensure_real(arg1), m_util.mk_numeral(rational(1) / denominator(y), false));
+            expr_ref lhs(ensure_real(arg1), m);
+            expr_ref rhs(m_util.mk_numeral(rational(1) / denominator(y), false), m);
+            auto _seq1830_0 = m_util.mk_power(lhs, rhs);
             auto _seq1830_1 = m_util.mk_numeral(numerator(y), false);
             result = m_util.mk_power(_seq1830_0, _seq1830_1);
         }

@@ -401,13 +401,21 @@ public:
         app_ref filter4(fsets.mk_filter(p, fsets.mk_intersect(sym_set, sym_set2)), m);
         st = rw.mk_app_core(filter4->get_decl(), filter4->get_num_args(), filter4->get_args(), result);
         ENSURE(st == BR_REWRITE2);
-        ENSURE(result == fsets.mk_intersect(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+        {
+            expr_ref lhs(fsets.mk_filter(p, sym_set), m);
+            expr_ref rhs(fsets.mk_filter(p, sym_set2), m);
+            ENSURE(result == fsets.mk_intersect(lhs, rhs));
+        }
 
         // set.filter(p, difference(s, t)) -> difference(filter(p, s), filter(p, t))
         app_ref filter5(fsets.mk_filter(p, fsets.mk_difference(sym_set, sym_set2)), m);
         st = rw.mk_app_core(filter5->get_decl(), filter5->get_num_args(), filter5->get_args(), result);
         ENSURE(st == BR_REWRITE2);
-        ENSURE(result == fsets.mk_difference(fsets.mk_filter(p, sym_set), fsets.mk_filter(p, sym_set2)));
+        {
+            expr_ref lhs(fsets.mk_filter(p, sym_set), m);
+            expr_ref rhs(fsets.mk_filter(p, sym_set2), m);
+            ENSURE(result == fsets.mk_difference(lhs, rhs));
+        }
 
         // set.map does not distribute over intersect or difference
         app_ref map4(fsets.mk_map(f, fsets.mk_intersect(singleton_five, sym_set)), m);

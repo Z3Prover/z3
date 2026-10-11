@@ -333,7 +333,7 @@ namespace opt {
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
-    opt_solver::maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds, bool probe_bound) {
+    maximize_result opt_solver::maximize_objective(unsigned i, expr_ref& blocker, bool dual_bounds, bool probe_bound) {
         smt::theory_var v = m_objective_vars[i];
         m_model = nullptr;
         blocker = nullptr;

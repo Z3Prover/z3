@@ -359,8 +359,9 @@ void expand_literals(ast_manager &m, expr_ref_vector &conjs) {
             rational two(2);
             for (unsigned j = 0; j < bv_size; ++j) {
                 parameter p(j);
-                expr *e = m.mk_eq(m.mk_app(bv.get_family_id(), OP_BIT1),
-                                  bv.mk_extract(j, j, c));
+                expr_ref one(m.mk_app(bv.get_family_id(), OP_BIT1), m);
+                expr_ref bit(bv.mk_extract(j, j, c), m);
+                expr *e = m.mk_eq(one, bit);
                 if ((r % two).is_zero()) { e = m.mk_not(e); }
                 r = div(r, two);
                 if (j == 0) 

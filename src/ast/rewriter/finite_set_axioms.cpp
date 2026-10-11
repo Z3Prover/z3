@@ -256,8 +256,9 @@ void finite_set_axioms::in_range_axiom(expr* r) {
     expr_ref lo_le_hi(a.mk_le(_seq0, _seq1), m);
     m_rewriter(lo_le_hi);
 
-    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(lo, r));
-    add_binary("range-bounds", r, nullptr, m.mk_not(lo_le_hi), u.mk_in(hi, r));
+    expr_ref not_lo_le_hi(m.mk_not(lo_le_hi), m);
+    add_binary("range-bounds", r, nullptr, not_lo_le_hi, u.mk_in(lo, r));
+    add_binary("range-bounds", r, nullptr, not_lo_le_hi, u.mk_in(hi, r));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(hi, a.mk_int(1)), r)));
     add_unit("range-bounds", r, m.mk_not(u.mk_in(a.mk_add(lo, a.mk_int(-1)), r)));
 }

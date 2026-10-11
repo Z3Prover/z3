@@ -226,14 +226,21 @@ namespace {
         battery.push_back(u.re.mk_plus(a));                            // a+
         battery.push_back(u.re.mk_opt(a));                             // a?
         battery.push_back(u.re.mk_star(u.re.mk_concat(a, a)));         // (aa)*
-        battery.push_back(u.re.mk_union(u.re.mk_star(u.re.mk_concat(a, a)),
-                                        u.re.mk_star(u.re.mk_concat(a, u.re.mk_concat(a, a)))));
+        {
+            expr_ref lhs(u.re.mk_star(u.re.mk_concat(a, a)), m);
+            expr_ref rhs(u.re.mk_star(u.re.mk_concat(a, u.re.mk_concat(a, a))), m);
+            battery.push_back(u.re.mk_union(lhs, rhs));
+        }
         battery.push_back(u.re.mk_inter(dot, u.re.mk_complement(a)));  // . & ~a
         battery.push_back(u.re.mk_complement(a));                      // ~a
         battery.push_back(u.re.mk_complement(u.re.mk_star(a)));        // ~(a*)
         battery.push_back(u.re.mk_diff(dot, a));                       // . \ a
         battery.push_back(u.re.mk_concat(u.re.mk_star(a), b));         // a* b
-        battery.push_back(u.re.mk_inter(u.re.mk_star(a), u.re.mk_complement(u.re.mk_concat(a, a))));
+        {
+            expr_ref lhs(u.re.mk_star(a), m);
+            expr_ref rhs(u.re.mk_complement(u.re.mk_concat(a, a)), m);
+            battery.push_back(u.re.mk_inter(lhs, rhs));
+        }
         battery.push_back(dot);
         battery.push_back(all);
         battery.push_back(u.re.mk_empty(re_sort));

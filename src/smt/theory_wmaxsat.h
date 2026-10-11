@@ -128,6 +128,8 @@ namespace smt {
         public:
             compare_cost(theory_wmaxsat& t):m_th(t) {}
             bool operator() (theory_var v, theory_var w) const { 
+                if (m_th.m_mpz.eq(m_th.m_zweights[v], m_th.m_zweights[w]))
+                    return v > w;
                 return m_th.m_mpz.gt(m_th.m_zweights[v], m_th.m_zweights[w]); 
             }
         };

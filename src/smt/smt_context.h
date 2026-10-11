@@ -1084,6 +1084,7 @@ namespace smt {
         unsigned           m_luby_idx;
         double             m_agility;
         unsigned           m_lemma_gc_threshold;
+        bool               m_has_research_theories = false;
 
         void assign_core(literal l, b_justification j, bool decision = false);
         void trace_assign(literal l, b_justification j, bool decision) const;
@@ -1139,8 +1140,12 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
+        // true if a theory that can request a re-search (should_research) is registered:
+        // currently the recursive-function and sequence theories.
+        bool has_research_theories() const { return m_has_research_theories; }
+
         bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, 
-            unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
+            unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/, bool mbqi_instance = false);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
 

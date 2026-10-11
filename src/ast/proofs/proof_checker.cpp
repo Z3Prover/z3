@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 #define IS_EQUIV(_e_) m.is_eq(_e_)
 
@@ -337,19 +338,18 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
-            (is_lambda(fact) || is_lambda(fml)))
-            return true;
-
-        if (match_proof(p, p1) &&
-            match_fact(p, fact) &&
-            match_fact(p1, fml) &&
-            (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2)) &&
-            (match_iff(fml, s1, s2) || match_oeq(fml, s1, s2)) &&
-            m.is_oeq(fact) == m.is_oeq(fml) &&
+            // `mk_iff(q1, q2)` (and `mk_oeq`) use the generic polymorphic
+            // `=` decl for *any* sort, not just Bool: ordinary
+            // `forall`/`exists` always have a Bool body, so this is a
+            // genuine Boolean iff, but `PR_QUANT_INTRO` is also used over
+            // `lambda` terms (also represented as `quantifier` nodes) whose
+            // body -- and hence `q1`/`q2` themselves -- can be of any sort
+            // (e.g. an array/function sort). `match_eq` alone (OP_EQ with no
+            // sort restriction) already covers the Boolean-iff case, so
+            // `match_iff` adds nothing here and is omitted.
+            (match_oeq(fact, t1, t2) || match_eq(fact, t1, t2)) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
-            to_quantifier(t1)->get_expr() == s1 &&
-            to_quantifier(t2)->get_expr() == s2 &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
             to_quantifier(t1)->get_kind() == to_quantifier(t2)->get_kind()) {
             quantifier* q1 = to_quantifier(t1);
@@ -361,17 +361,66 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     return false;
                 }
             }
-            return true;
+            // Shape 1 (the one `rewriter_tpl::process_quantifier` actually
+            // produces, via `mk_quant_intro(q1, q2, mk_bind_proof(q1, p0))`):
+            // `p1` is a `PR_BIND` node whose fact `fml` is a lambda term
+            // binding `q1`'s variables over a *proof* `p0` of `q1`'s body =
+            // `q2`'s body. Unwrap it and verify `p0` genuinely establishes
+            // that equation (previously this was accepted unconditionally
+            // the moment either side was any lambda, without ever looking
+            // at `p0`'s own fact), then schedule `p0` itself to be checked
+            // recursively -- `p0` is not a structural "parent" of `p1`
+            // (`mk_bind_proof`'s lambda-wrapping hides it from
+            // `get_parents`), so without this it would never be visited by
+            // `check`'s worklist at all.
+            if (is_lambda(fml)) {
+                quantifier* lam = to_quantifier(fml);
+                expr* p0_expr = lam->get_expr();
+                if (!m.is_proof(p0_expr)) {
+                    UNREACHABLE();
+                    return false;
+                }
+                proof* p0 = to_app(p0_expr);
+                if (!match_fact(p0, fml0) ||
+                    // same non-Bool-body caveat as above: `q1`/`q2`'s
+                    // bodies (and hence `r1`/`r2`) need not be Bool-sorted;
+                    // `match_eq` alone already subsumes `match_iff`.
+                    !(match_oeq(fml0, r1, r2) || match_eq(fml0, r1, r2)) ||
+                    r1 != q1->get_expr() ||
+                    r2 != q2->get_expr()) {
+                    UNREACHABLE();
+                    return false;
+                }
+                add_premise(p0);
+                return true;
+            }
+            // Shape 2: `p1`'s own fact directly (without lambda-wrapping)
+            // relates the two quantifiers' bodies -- the fully-structural
+            // shape some other, non-`rewriter_def.h` caller could in
+            // principle construct. `match_eq` alone already subsumes
+            // `match_iff`.
+            if ((match_oeq(fml, s1, s2) || match_eq(fml, s1, s2)) &&
+                m.is_oeq(fact) == m.is_oeq(fml) &&
+                q1->get_expr() == s1 &&
+                q2->get_expr() == s2) {
+                return true;
+            }
         }
         UNREACHABLE();
         return false;
     }
-    case PR_BIND:
+    case PR_BIND: {
         // it is a lambda expression returning a proof object.
-        if (!is_lambda(to_app(p)->get_arg(0)))
+        expr* b = to_app(p)->get_arg(0);
+        if (!is_lambda(b))
             return false;
-        // check that body is a proof object.
-        return true;
+        // check that body is a fact-bearing proof object. (`PR_QUANT_INTRO`'s
+        // lambda-wrapped case above is responsible for checking *which*
+        // equation this proof establishes, and for recursively scheduling
+        // it; this local check only confirms the type-level shape.)
+        expr* p0_expr = to_quantifier(b)->get_expr();
+        return m.is_proof(p0_expr) && m.has_fact(to_app(p0_expr));
+    }
 
     case PR_DISTRIBUTIVITY: {
         if (match_fact(p, fact) &&
@@ -438,6 +487,38 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m););
         return false;
     }
+    case PR_DEMODULATION: {
+        // `t1 = t2` (or `t1 <~> t2`) holds because `t2` is obtained from `t1`
+        // by simultaneously replacing every occurrence of `l_i` by `r_i`,
+        // for each premise proof of `l_i = r_i` (i = 1..n). Re-run the
+        // substitution here and compare the result structurally against
+        // `t2`: since `expr_safe_replace` is a pure, capture-avoiding
+        // rewrite, this is a precise (not merely plausible) check, modulo
+        // trusting that each premise genuinely proves its own `l_i = r_i`
+        // fact (checked recursively like any other premise).
+        if (match_fact(p, fact) &&
+            match_equiv(fact, t1, t2)) {
+            expr_safe_replace sub(m);
+            bool all_eqs = true;
+            for (proof* pr : proofs) {
+                expr* eq_fact = nullptr, *l = nullptr, *r = nullptr;
+                if (!pr || !match_fact(pr, eq_fact) || !match_equiv(eq_fact, l, r)) {
+                    all_eqs = false;
+                    break;
+                }
+                sub.insert(l, r);
+            }
+            if (all_eqs) {
+                expr_ref t1_subst(t1, m);
+                sub(t1_subst);
+                if (t1_subst.get() == t2)
+                    return true;
+            }
+        }
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality by demodulation:\n" << mk_bounded_pp(p, m););
+        UNREACHABLE();
+        return false;
+    }
     case PR_PULL_QUANT: {
         if (match_proof(p) &&
             match_fact(p, fact) &&
@@ -450,24 +531,28 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_PUSH_QUANT: {
+        // Two shapes are produced by distribute_forall_simplifier:
+        //   (forall X (and F1 .. Fn)) <-> (and (forall X F1) .. (forall X Fn))
+        //   (exists X (or  F1 .. Fn)) <-> (or  (exists X F1) .. (exists X Fn))
+        // Match whichever connective (and/or) the outer quantifier's body
+        // uses, and require the same connective on both sides of the iff.
         if (match_proof(p) &&
             match_fact(p, fact) &&
             match_iff(fact, t1, t2) &&
             is_quantifier(t1) &&
-            match_and(to_quantifier(t1)->get_expr(), terms1) &&
-            match_and(t2, terms2) &&
+            ((match_and(to_quantifier(t1)->get_expr(), terms1) && match_and(t2, terms2)) ||
+             (match_or(to_quantifier(t1)->get_expr(), terms1) && match_or(t2, terms2))) &&
             terms1.size() == terms2.size()) {
             quantifier * q1 = to_quantifier(t1);
-            for (unsigned i = 0; i < terms1.size(); ++i) {
-                if (is_quantifier(terms2[i]) &&
-                    to_quantifier(terms2[i])->get_expr() == terms1[i] &&
-                    to_quantifier(terms2[i])->get_num_decls() == q1->get_num_decls()) {
-                    // ok.
-                }
-                else {
-                    return false;
-                }
+            bool ok = true;
+            for (unsigned i = 0; ok && i < terms1.size(); ++i) {
+                ok = is_quantifier(terms2[i]) &&
+                     to_quantifier(terms2[i])->get_expr() == terms1[i] &&
+                     to_quantifier(terms2[i])->get_kind() == q1->get_kind() &&
+                     to_quantifier(terms2[i])->get_num_decls() == q1->get_num_decls();
             }
+            if (ok)
+                return true;
         }
         UNREACHABLE();
         return false;

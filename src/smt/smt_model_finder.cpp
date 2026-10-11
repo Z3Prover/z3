@@ -36,6 +36,7 @@ Revision History:
 #include "ast/rewriter/term_enumeration.h"
 #include "model/model_pp.h"
 #include "model/model_macro_solver.h"
+#include "model/arith_value_order.h"
 #include "smt/smt_model_finder.h"
 #include "smt/smt_context.h"
 #include "tactic/tactic_exception.h"
@@ -869,10 +870,11 @@ namespace smt {
                 }
             };
 
-            void sort_values(node* n, ptr_buffer<expr>& values) {
+            bool sort_values(node* n, ptr_buffer<expr>& values) {
                 sort* s = n->get_sort();
                 if (m_arith.is_int(s) || m_arith.is_real(s)) {
-                    std::sort(values.begin(), values.end(), numeral_lt<arith_util>(m_arith));
+                    // Projection intervals require numeric order, including algebraic values.
+                    return arith_value_order(m_arith).sort(values.size(), values.data());
                 }
                 else if (!n->is_signed_proj()) {
                     std::sort(values.begin(), values.end(), numeral_lt<bv_util>(m_bv));
@@ -880,6 +882,7 @@ namespace smt {
                 else {
                     std::sort(values.begin(), values.end(), signed_bv_lt(m_bv, m_bv.get_bv_size(s)));
                 }
+                return true;
             }
 
             void mk_mono_proj(node* n) {
@@ -887,7 +890,9 @@ namespace smt {
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
                 if (values.empty()) return;
-                sort_values(n, values);
+                // Leave the argument unchanged if its values cannot be ordered numerically.
+                if (!sort_values(n, values))
+                    return;
                 sort* s = n->get_sort();
                 bool is_arith = m_arith.is_int(s) || m_arith.is_real(s);
                 bool is_signed = n->is_signed_proj();

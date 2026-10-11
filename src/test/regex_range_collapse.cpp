@@ -92,8 +92,12 @@ namespace {
         // Disjoint union: (a..z) | (0..9)
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'z')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, '0'), mk_singleton_str(u, '9')), m);
+            auto lhs = mk_singleton_str(u, 'a');
+            auto rhs = mk_singleton_str(u, 'z');
+            expr_ref r1(u.re.mk_range(lhs, rhs), m);
+            auto lhs1 = mk_singleton_str(u, '0');
+            auto rhs1 = mk_singleton_str(u, '9');
+            expr_ref r2(u.re.mk_range(lhs1, rhs1), m);
             expr_ref un(u.re.mk_union(r1, r2), m);
             check(regex_to_range_predicate(u, un, p) && p.num_ranges() == 2,
                   "(a-z)|(0-9) -> 2 ranges");
@@ -104,8 +108,12 @@ namespace {
         // Overlapping union: (a..c) | (b..f) -> (a..f)
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'c')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, 'b'), mk_singleton_str(u, 'f')), m);
+            auto lhs2 = mk_singleton_str(u, 'a');
+            auto rhs2 = mk_singleton_str(u, 'c');
+            expr_ref r1(u.re.mk_range(lhs2, rhs2), m);
+            auto lhs3 = mk_singleton_str(u, 'b');
+            auto rhs3 = mk_singleton_str(u, 'f');
+            expr_ref r2(u.re.mk_range(lhs3, rhs3), m);
             expr_ref un(u.re.mk_union(r1, r2), m);
             check(regex_to_range_predicate(u, un, p) && p.num_ranges() == 1 &&
                   p[0].first == 'a' && p[0].second == 'f',
@@ -114,8 +122,12 @@ namespace {
         // Adjacent union: (a..c) | (d..f) -> (a..f) (canonical predicate merges adjacent)
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'c')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, 'd'), mk_singleton_str(u, 'f')), m);
+            auto lhs4 = mk_singleton_str(u, 'a');
+            auto rhs4 = mk_singleton_str(u, 'c');
+            expr_ref r1(u.re.mk_range(lhs4, rhs4), m);
+            auto lhs5 = mk_singleton_str(u, 'd');
+            auto rhs5 = mk_singleton_str(u, 'f');
+            expr_ref r2(u.re.mk_range(lhs5, rhs5), m);
             expr_ref un(u.re.mk_union(r1, r2), m);
             check(regex_to_range_predicate(u, un, p) && p.num_ranges() == 1 &&
                   p[0].first == 'a' && p[0].second == 'f',
@@ -124,8 +136,12 @@ namespace {
         // Disjoint intersection: (a..z) & (0..9) -> empty
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'z')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, '0'), mk_singleton_str(u, '9')), m);
+            auto lhs6 = mk_singleton_str(u, 'a');
+            auto rhs6 = mk_singleton_str(u, 'z');
+            expr_ref r1(u.re.mk_range(lhs6, rhs6), m);
+            auto lhs7 = mk_singleton_str(u, '0');
+            auto rhs7 = mk_singleton_str(u, '9');
+            expr_ref r2(u.re.mk_range(lhs7, rhs7), m);
             expr_ref ix(u.re.mk_inter(r1, r2), m);
             check(regex_to_range_predicate(u, ix, p) && p.is_empty(),
                   "(a-z)&(0-9) -> empty");
@@ -133,8 +149,12 @@ namespace {
         // Overlapping intersection: (a..f) & (c..z) -> (c..f)
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'f')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, 'c'), mk_singleton_str(u, 'z')), m);
+            auto lhs8 = mk_singleton_str(u, 'a');
+            auto rhs8 = mk_singleton_str(u, 'f');
+            expr_ref r1(u.re.mk_range(lhs8, rhs8), m);
+            auto lhs9 = mk_singleton_str(u, 'c');
+            auto rhs9 = mk_singleton_str(u, 'z');
+            expr_ref r2(u.re.mk_range(lhs9, rhs9), m);
             expr_ref ix(u.re.mk_inter(r1, r2), m);
             check(regex_to_range_predicate(u, ix, p) && p.num_ranges() == 1 &&
                   p[0].first == 'c' && p[0].second == 'f',
@@ -144,7 +164,9 @@ namespace {
         // (it operates over Σ*), so it must NOT be translated.
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'z')), m);
+            auto lhs10 = mk_singleton_str(u, 'a');
+            auto rhs10 = mk_singleton_str(u, 'z');
+            expr_ref r1(u.re.mk_range(lhs10, rhs10), m);
             expr_ref cmp(u.re.mk_complement(r1), m);
             check(!regex_to_range_predicate(u, cmp, p),
                   "re.comp of range is NOT translatable (sequence-level complement)");
@@ -152,8 +174,12 @@ namespace {
         // Diff: (a..f) \ (c..z) -> (a..b)
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'f')), m);
-            expr_ref r2(u.re.mk_range(mk_singleton_str(u, 'c'), mk_singleton_str(u, 'z')), m);
+            auto lhs11 = mk_singleton_str(u, 'a');
+            auto rhs11 = mk_singleton_str(u, 'f');
+            expr_ref r1(u.re.mk_range(lhs11, rhs11), m);
+            auto lhs12 = mk_singleton_str(u, 'c');
+            auto rhs12 = mk_singleton_str(u, 'z');
+            expr_ref r2(u.re.mk_range(lhs12, rhs12), m);
             expr_ref df(u.re.mk_diff(r1, r2), m);
             check(regex_to_range_predicate(u, df, p) && p.num_ranges() == 1 &&
                   p[0].first == 'a' && p[0].second == 'b',
@@ -162,7 +188,9 @@ namespace {
         // Negative: re.* of a range is NOT a char class
         {
             range_predicate p(M);
-            expr_ref r1(u.re.mk_range(mk_singleton_str(u, 'a'), mk_singleton_str(u, 'z')), m);
+            auto lhs13 = mk_singleton_str(u, 'a');
+            auto rhs13 = mk_singleton_str(u, 'z');
+            expr_ref r1(u.re.mk_range(lhs13, rhs13), m);
             expr_ref star(u.re.mk_star(r1), m);
             check(!regex_to_range_predicate(u, star, p),
                   "re.* of range not translatable");

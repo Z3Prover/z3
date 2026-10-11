@@ -33,6 +33,7 @@ Notes:
 #include "util/common_msgs.h"
 #include "opt/optsmt.h"
 #include "opt/opt_geometric.h"
+#include "opt/opt_search.h"
 #include "opt/opt_nlsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_context.h"
@@ -191,15 +192,9 @@ namespace opt {
 
         geometric_step step;
         scoped_pushes scopes(*m_s);
+        objective_search search(upper(obj_index));
         inf_eps last_objective = inf_eps(rational(-1), inf_rational(0));
         inf_eps const infty(rational(1), inf_rational(0));
-        // Upper bounds established along the way for a real-valued objective
-        // that the arithmetic solver could not optimize directly (nonlinear
-        // constraints, mod, to_int, ...): the least hint that check_bound
-        // refuted, and the value of the last model-derived step that turned
-        // out infeasible. Both are sound: 'obj >= value' has no model.
-        inf_eps refuted_hint = infty;
-        inf_eps step_bound = infty;
         bool last_bound_valid = true;
         unsigned climb_rounds = 0;
         unsigned unbounded_check_rounds = 8;
@@ -218,17 +213,11 @@ namespace opt {
             if (is_sat == l_true) {                
                 // Once a finite cap is known, leave refinement to the normal
                 // search instead of perturbing it with more certification probes.
-                bool probe_bound = !std::min(upper(obj_index), refuted_hint).is_finite();
+                bool probe_bound = !search.upper().is_finite();
                 auto result = m_s->maximize_objective(obj_index, bound, m_dual_bounds && !is_int, probe_bound);
                 last_bound_valid = result.bound_valid;
-                // Search scopes only impose lower cuts on this objective. A
-                // finite LP optimum satisfies them, so excluded values cannot
-                // exceed its certified rational upper bound.
-                if (result.upper_bound && inf_eps(*result.upper_bound) < upper(obj_index))
-                    m_upper[obj_index] = inf_eps(*result.upper_bound);
-                step_bound = infty;
-                if (!result.bound_valid && result.hint_status == l_false && result.hint.is_finite())
-                    refuted_hint = std::min(refuted_hint, result.hint);
+                search.update(result);
+                m_upper[obj_index] = search.upper();
                 m_s->get_model(m_model);
                 SASSERT(m_model);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
@@ -245,7 +234,7 @@ namespace opt {
                 // objectives can show the same pattern, so limit the query by
                 // deterministic resource count and exponentially back off
                 // inconclusive retries.
-                if (is_int || refuted_hint.is_finite())
+                if (is_int || search.upper().is_finite())
                     climb_rounds = 0;
                 else if (m_optsmt_nlsat && ++climb_rounds >= unbounded_check_rounds) {
                     climb_rounds = 0;
@@ -269,7 +258,7 @@ namespace opt {
                 if (!result.bound_valid || step.value() > rational::one() || (obj == last_objective && is_int)) {
                     scopes.push();
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
-                    step_bound = obj + inf_eps(step.value());
+                    search.enter_region(obj + inf_eps(step.value()));
                 }
                 last_objective = obj;
                 if (bound == last_bound) {
@@ -293,32 +282,38 @@ namespace opt {
                         // branch below with the best proven bound.
                         scopes.push();
                         bound = m_s->mk_ge(obj_index, obj + inf_eps(step.value()));
-                        step_bound = obj + inf_eps(step.value());
+                        search.enter_region(obj + inf_eps(step.value()));
                     }
                     if (bound == last_bound)
                         break;
                 }
+                // A validated blocker can discard better values than the
+                // enclosing trial cut without introducing another scope.
+                search.exclude_below(std::max(obj, lower(obj_index)));
                 m_s->assert_expr(bound);
                 last_bound = bound;
             }
             else if (is_sat == l_false && step.value() > rational::one()) {
                 step.reset();
                 scopes.pop();
+                search.leave_region(is_sat);
+                m_upper[obj_index] = search.upper();
             }
             else {
+                if (is_sat == l_false) {
+                    search.refute_region();
+                    m_upper[obj_index] = search.upper();
+                }
                 if (((is_sat == l_false && !last_bound_valid) || is_sat == l_undef) && !is_int && m_lower[obj_index].is_finite()) {
                     // A real-valued objective whose last step was the
                     // model-derived fallback: the failed step only shows
-                    // obj < step_bound, it does not make the model value
+                    // the trial region is empty, it does not make the model value
                     // optimal. Close or narrow the gap by bisection instead of
                     // reporting the lower bound as the optimum.
-                    // An undecided trial is not an upper-bound certificate.
-                    inf_eps hi = std::min(upper(obj_index), refuted_hint);
-                    if (is_sat == l_false)
-                        hi = std::min(hi, step_bound);
+                    inf_eps hi = search.upper();
                     if (lower(obj_index) < hi) {
                         scopes.reset();
-                        m_upper[obj_index] = hi;
+                        search.reset_regions();
                         bool smt_gave_up = is_sat == l_undef;
                         is_sat = refine_real_objective(obj_index, is_maximize, hi, smt_gave_up);
                     }
@@ -520,8 +515,9 @@ namespace opt {
        \brief Search the interval [m_lower[idx], hi] for the optimum of a
        real-valued objective when the arithmetic solver cannot push it
        (nonlinear constraints, mod, to_int, ...). Both endpoints are sound:
-       the lower bound is attained by m_best_model and no model satisfies
-       obj >= hi. Alternates two queries (GOMT F-Sat / F-Close / F-Split):
+       the lower bound is backed by m_best_model and hi is a certified upper
+       bound, not necessarily a refuted threshold. Alternates two queries
+       (GOMT F-Sat / F-Close / F-Split):
          - obj > lo: unsat proves lo optimal; sat raises lo to the new model;
          - obj >= (lo + hi)/2: unsat lowers hi; sat raises lo.
        Returns l_true with m_lower = m_upper when the optimum is proven, and
@@ -533,6 +529,7 @@ namespace opt {
         inf_eps lo = lower(idx);
         inf_eps const eps(rational(0), inf_rational(rational(0), rational(1)));
         SASSERT(lo.is_finite() && hi.is_finite() && lo < hi);
+        objective_search search(hi);
         IF_VERBOSE(2, verbose_stream() << "(optsmt bisect [" << lo << ", " << hi << "])\n");
         bool strict = true;
         lbool result = l_undef;
@@ -545,12 +542,16 @@ namespace opt {
             lbool is_sat;
             {
                 solver::scoped_push scope(*m_s);
+                search.enter_region(strict ? lo : bound);
                 m_s->assert_expr(m_s->mk_ge(idx, bound));
                 is_sat = m_s->check_sat(0, nullptr);
                 TRACE(opt, tout << "bisect " << (strict ? "strict " : "mid ") << bound << " " << is_sat << "\n";);
                 if (is_sat == l_true)
                     m_s->get_model(m_model);
             }
+            search.leave_region(is_sat);
+            hi = search.upper();
+            m_upper[idx] = hi;
             // Publish an improved model only after removing the probe bound.
             if (is_sat == l_true) {
                 if (!m_model)
@@ -573,11 +574,9 @@ namespace opt {
             else if (is_sat == l_false) {
                 if (strict) {
                     // no model is strictly better than the best model.
-                    hi = lo;
                     result = l_true;
                     break;
                 }
-                hi = bound;
             }
             else
                 break;

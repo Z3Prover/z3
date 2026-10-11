@@ -25,6 +25,7 @@ Notes:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "model/model_macro_solver.h"
+#include "model/arith_value_order.h"
 #include "sat/smt/q_model_fixer.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
@@ -32,20 +33,11 @@ Notes:
 
 namespace q {
 
-    template<typename U>
-    static bool lt(U const& u, expr* x, expr* y) {
-        rational v1, v2;
-        if (u.is_numeral(x, v1) && u.is_numeral(y, v2))
-            return v1 < v2;
-        else
-            return x->get_id() < y->get_id();
-    }
-
     class arith_projection : public projection_function {
         arith_util   a;
     public:
         arith_projection(ast_manager& m) : projection_function(m), a(m) {}
-        bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
+        bool operator()(expr* e1, expr* e2) const override { return arith_value_order(a)(e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
 
@@ -53,7 +45,12 @@ namespace q {
         bv_util bvu;
     public:
         ubv_projection(ast_manager& m) : projection_function(m), bvu(m) {}
-        bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
+        bool operator()(expr* e1, expr* e2) const override {
+            rational v1, v2;
+            if (bvu.is_numeral(e1, v1) && bvu.is_numeral(e2, v2))
+                return v1 < v2;
+            return e1->get_id() < e2->get_id();
+        }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }
     };
 
@@ -195,7 +192,14 @@ namespace q {
             bool operator()(expr* a, expr* b) const { return (*p)(a, b); }
         };
         lt _lt(proj);
-        std::sort(values.data(), values.data() + values.size(), _lt);
+        arith_util a(m);
+        // These values are cut points for numeric interval tests below.
+        if (a.is_int_real(srt)) {
+            if (!arith_value_order(a).sort(values.size(), values.data()))
+                return expr_ref(m.mk_var(idx, srt), m);
+        }
+        else
+            std::sort(values.data(), values.data() + values.size(), _lt);
         unsigned j = 0;
         for (unsigned i = 0; i < values.size(); ++i)
             if (i == 0 || values.get(i - 1) != values.get(i))
@@ -284,6 +288,13 @@ namespace q {
         unsigned sz = md->values.size();
         if (sz <= 1)
             return;
+
+        arith_util a(m);
+        if (a.is_int_real(value) && !arith_value_order(a).is_supported(value)) {
+            // Without an exact ordering, fix the argument instead of guessing its interval.
+            lits.push_back(m.mk_eq(t->get_arg(i), value));
+            return;
+        }
 
         //
         // md->values are sorted

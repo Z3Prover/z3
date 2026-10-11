@@ -1024,8 +1024,9 @@ void term_graph::to_lits(expr_ref_vector &lits, bool all_equalities,
 
     // TODO: use seen to prevent duplicate disequalities
     for (auto p : m_deq_pairs) {
-        lits.push_back(mk_neq(m, mk_app(p.first->get_expr()),
-                              mk_app(p.second->get_expr())));
+        expr_ref lhs = mk_app(p.first->get_expr());
+        expr_ref rhs = mk_app(p.second->get_expr());
+        lits.push_back(mk_neq(m, lhs, rhs));
     }
 
     for (auto t : m_deq_distinct) {

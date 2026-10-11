@@ -227,7 +227,8 @@ namespace datalog {
                 for (unsigned j = 0; j < args1.size(); ++j) {
                     eqs.push_back(m.mk_eq(args1[j], args2[j]));
                 }
-                conjs.push_back(m.mk_implies(m.mk_and(eqs), m.mk_eq(v1, v2)));
+                expr_ref same_indices(m.mk_and(eqs), m);
+                conjs.push_back(m.mk_implies(same_indices, m.mk_eq(v1, v2)));
             }
         }
         body = m.mk_and(conjs);        

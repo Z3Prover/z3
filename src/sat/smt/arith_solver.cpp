@@ -1472,6 +1472,8 @@ namespace arith {
     }
     
     sat::literal solver::mk_ineq_literal(nla::ineq const& ineq) {
+        // see theory_lra::mk_literal(nla::ineq const&)
+        lp::lar_solver::scoped_auxiliary _sa(lp());
         bool is_lower = true, sign = true, is_eq = false;
         switch (ineq.cmp()) {
         case lp::LE: is_lower = false; sign = false; break;

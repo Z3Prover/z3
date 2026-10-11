@@ -36,6 +36,7 @@ Notes:
 #include "util/common_msgs.h"
 #include <memory>
 #include <numeric>
+#include <tuple>
 
 namespace polynomial {
 
@@ -118,7 +119,8 @@ namespace polynomial {
 
         struct lt_degree {
             bool operator()(power const & p1, power const & p2) {
-                return p1.degree() < p2.degree();
+                return std::tuple{p1.degree(), p1.get_var()} <
+                       std::tuple{p2.degree(), p2.get_var()};
             }
         };
     };
@@ -7327,7 +7329,10 @@ namespace polynomial {
                 if (v != x)
                     var_by_deg.push_back(std::make_pair(degree(p, v), v));
             std::sort(var_by_deg.begin(), var_by_deg.end(),
-                      [](auto const& a, auto const& b) { return a.first > b.first; });
+                      [](auto const& a, auto const& b) {
+                          return std::tuple{a.first, a.second} >
+                                 std::tuple{b.first, b.second};
+                      });
             for (auto const& [d, v] : var_by_deg)
                 if (d > 1) main_vars.push_back(v);
 

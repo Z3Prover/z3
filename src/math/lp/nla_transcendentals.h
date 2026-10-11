@@ -33,28 +33,10 @@ Description:
   account for floating point round-off, and checks whether the output
   value is within a delta-tolerance of the (inflated) function value.
 
-  - If it is, the application is treated as consistent and is not an
-    obstacle to reporting the current assignment as a model.
-  - If it is not, the check derives a genuine conflict lemma rather
-    than a plain case split, following the shape of the "TRA
-    refinement" step of the paper (their Algorithm 2, also
-    implemented in the Yices-TRA prototype's
-    src/mcsat/na/na_plugin_explain.c): it brackets the current value
-    of the input variable in a small rational box [lo,hi], computes a
-    (floating point, safety-inflated) enclosure [flo,fhi] of op over
-    that box, and asserts the implication
-        (arg < lo \/ arg > hi \/ flo <= val <= fhi)
-    as a lemma via lemma_builder. This is a real conflict clause (all
-    disjuncts are false in the current model, since arg is inside the
-    box while val is outside its image), so unlike a case split it
-    directly refines the NRA abstraction and can be reused/subsumed
-    like any other nla lemma, instead of merely nudging the search.
-    The box is intentionally tiny (governed by
-    arith.nl.transcendental_tolerance) so that the endpoint-sampling
-    used to compute [flo,fhi] stays close to monotonic between lo and
-    hi; this is an engineering approximation, not a certified interval
-    enclosure (Yices-TRA uses arbitrary-precision interval arithmetic
-    via the ARB library for that).
+  - A value within floating-point round-off is treated as consistent.
+    A value outside that bound is recorded for nlsat refinement, even if
+    it is still within the configured delta tolerance; delta tolerance
+    alone does not certify a model.
 
   This check is unsound-incomplete "on purpose": it never returns
   l_false, and accepting an assignment as consistent within delta does
@@ -72,7 +54,7 @@ Description:
   certificate, and it duplicated exact, terminating refinement that
   nlsat now performs itself (see nlsat/nlsat_transcendentals.h/.cpp,
   in particular its Taylor/Maclaurin brackets for exp/log/atan/sin/cos).
-  Instead, a delta-check failure here is only recorded
+  Instead, a value outside the round-off bound is only recorded
   (has_observed_failure); core::check_transcendentals_and_finish uses
   that, together with should_run_bounded_nlsat()'s backoff scheduler,
   to hand the problem to nra_solver/nlsat, whose own

@@ -1007,25 +1007,24 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     }
     expr_ref len_e = mk_len(e);
     if (upper_bound(len_e, hi)) {
-        // len(e) <= hi => len(tail) <= hi - lo
+        // lo <= len(e) <= hi => len(seq) <= hi - lo
         expr_ref high1(m_autil.mk_le(len_e, m_autil.mk_numeral(hi, true)), m);
         if (hi == lo) {
             auto p0 = ~mk_literal(high1);
-            add_axiom(p0, mk_seq_eq(seq, emp));
+            add_axiom(~low, p0, mk_seq_eq(seq, emp));
             added = true;
         }
         else {
             expr_ref high2(m_autil.mk_le(mk_len(seq), m_autil.mk_numeral(hi-lo, true)), m);
             literal h2 = mk_literal(high2);
             if (ctx.get_assignment(h2) != l_true) {
-                add_axiom(~mk_literal(high1), h2);
+                add_axiom(~low, ~mk_literal(high1), h2);
                 added = true;
             }
         }
     }
     else {
-        assume_equality(seq, emp);
-        added = true;
+        added |= assume_equality(seq, emp);
     }
     return added;
 }

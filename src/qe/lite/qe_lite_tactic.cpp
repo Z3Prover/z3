@@ -1312,7 +1312,7 @@ namespace fm {
             for (unsigned i = 0; i < c1.m_num_lits; ++i) {
                 literal l = c1.m_lits[i];
                 bvar b    = lit2bvar(l);
-                char s    = sign(l) ? -1 : 1;
+                int s     = sign(l) ? -1 : 1;
                 if (m_bvar2sign[b] != s) {
                     failed = true;
                     break;

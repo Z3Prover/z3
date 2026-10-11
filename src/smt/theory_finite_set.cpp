@@ -891,7 +891,9 @@ namespace smt {
                     hi = std::get<0>(elems[j + 1]);
                     ++j;
                 }
-                auto new_range = th.u.mk_range(a.mk_int(lo), a.mk_int(hi));
+                expr_ref lhs(a.mk_int(lo), th.get_manager());
+                expr_ref rhs(a.mk_int(hi), th.get_manager());
+                auto new_range = th.u.mk_range(lhs, rhs);
                 range = range ? th.u.mk_union(range, new_range) : new_range;
             }
             return range ? range : th.u.mk_empty(n->get_sort());        

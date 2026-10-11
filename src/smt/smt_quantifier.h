@@ -63,7 +63,8 @@ namespace smt {
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          vector<std::tuple<enode *, enode *>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
+                          vector<std::tuple<enode *, enode *>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/,
+                          bool mbqi_instance = false);
         bool add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation = 0);
 
         void init_search_eh();
@@ -94,6 +95,7 @@ namespace smt {
         void display_stats(std::ostream & out, quantifier * q) const;
 
         void collect_statistics(::statistics & st) const;
+        void collect_instances(vector<std::pair<expr_ref, app_ref>> & out);
         void reset_statistics();
 
         void register_on_binding(std::function<bool(quantifier*, expr*)> & f);

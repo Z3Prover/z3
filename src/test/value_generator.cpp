@@ -46,7 +46,11 @@ static void tst1_vg() {
     list(100, m, int_seq);
 
     sort_ref as(m);
-    as = ar.mk_array_sort(a.mk_int(), a.mk_int());
+    {
+        sort_ref lhs(a.mk_int(), m);
+        sort_ref rhs(a.mk_int(), m);
+        as = ar.mk_array_sort(lhs, rhs);
+    }
     list(100, m, as);
     as = ar.mk_array_sort(m.mk_bool_sort(), a.mk_int());
     list(100, m, as);

@@ -41,10 +41,16 @@ void tst_rational(ast_manager& m) {
     ENSURE(!value.exact_finite());
     ENSURE(value.is_finite() && !value.has_infinitesimal());
     ENSURE(a.is_int(value.to_expr()));
-    ensure_equal(m, value.to_expr(), a.mk_int(0));
+    {
+        expr_ref actual = value.to_expr();
+        ensure_equal(m, actual, a.mk_int(0));
+    }
 
     value = opt::inf_eps(rational(7, 3));
-    ensure_equal(m, value.to_expr(), a.mk_real(rational(7, 3)));
+    {
+        expr_ref actual = value.to_expr();
+        ensure_equal(m, actual, a.mk_real(rational(7, 3)));
+    }
     expr_ref_vector coefficients(m);
     value.to_exprs(coefficients);
     ENSURE(coefficients.size() == 3);
@@ -66,7 +72,12 @@ void tst_rational(ast_manager& m) {
     ENSURE(!value.exact_finite() && !value.is_finite());
     opt::objective_value adjusted = value.adjusted(rational(3), true);
     expr_ref oo(m.mk_const(symbol("oo"), a.mk_int()), m);
-    ensure_equal(m, adjusted.to_expr(), a.mk_add(a.mk_uminus(oo), a.mk_int(3)));
+    {
+        expr_ref lhs(a.mk_uminus(oo), m);
+        expr_ref rhs(a.mk_int(3), m);
+        expr_ref actual = adjusted.to_expr();
+        ensure_equal(m, actual, a.mk_add(lhs, rhs));
+    }
     ENSURE(adjusted.rational_bound().get_infinity() == rational(-1));
     ENSURE(adjusted != value);
     value.reset();
@@ -94,7 +105,10 @@ void tst_algebraic(ast_manager& m) {
     ENSURE(lower == upper);
     ENSURE(lower.rational_bound() == opt::inf_eps(rational(7, 5)));
     opt::objective_value adjusted = lower.adjusted(rational(3), true);
-    ensure_equal(m, adjusted.to_expr(), a.mk_sub(a.mk_real(3), root));
+    {
+        expr_ref actual = adjusted.to_expr();
+        ensure_equal(m, actual, a.mk_sub(a.mk_real(3), root));
+    }
     ENSURE(adjusted.rational_bound() == opt::inf_eps(rational(8, 5)));
     ENSURE(adjusted != lower);
 
@@ -134,13 +148,19 @@ void tst_open(ast_manager& m) {
     opt::objective_value value(m);
     value.set_exact(opt::inf_eps(rational(0), inf_rational(rational(1), rational(-1))), root);
     ENSURE(value.is_finite() && value.has_infinitesimal());
-    ensure_equal(m, value.to_expr(), a.mk_sub(root, epsilon));
+    {
+        expr_ref actual = value.to_expr();
+        ensure_equal(m, actual, a.mk_sub(root, epsilon));
+    }
     opt::objective_value closed(m);
     closed.set_exact(opt::inf_eps(rational(1)), root);
     ENSURE(value != closed);
 
     opt::objective_value adjusted = value.adjusted(rational(3), true);
-    ensure_equal(m, adjusted.to_expr(), a.mk_add(a.mk_sub(a.mk_real(3), root), epsilon));
+    {
+        expr_ref actual = adjusted.to_expr();
+        ensure_equal(m, actual, a.mk_add(a.mk_sub(a.mk_real(3), root), epsilon));
+    }
     ENSURE(adjusted.rational_bound().get_infinitesimal() == rational(1));
     expr_ref_vector coefficients(m);
     adjusted.to_exprs(coefficients);

@@ -755,7 +755,11 @@ void doc_manager::project_rename(expr_ref& fml, bit_vector const& to_delete) {
     expr_safe_replace rep(m);
     for (unsigned i = 0, j = 0; i < num_tbits(); ++i) {
         if (!to_delete.get(i)) {
-            rep.insert(mk_var(m, j), mk_var(m, i));
+            {
+                auto lhs = mk_var(m, j);
+                auto rhs = mk_var(m, i);
+                rep.insert(lhs, rhs);
+            }
             ++j;
         }
     }

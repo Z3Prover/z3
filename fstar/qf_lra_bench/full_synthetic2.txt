@@ -1,0 +1,11 @@
+unsat
+((set-logic QF_LRA)
+(proof
+(let (($x31 (<= (+ (* 2.0 x) (* 3.0 y)) 5.0)))
+(let ((@x32 (asserted $x31)))
+(let (($x36 (>= y 1.0)))
+(let ((@x37 (asserted $x36)))
+(let (($x33 (>= x 2.0)))
+(let ((@x34 (asserted $x33)))
+((_ th-lemma arith farkas 2 3 1) @x34 @x37 @x32 false)))))))))
+

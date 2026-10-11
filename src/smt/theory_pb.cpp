@@ -1628,9 +1628,11 @@ namespace smt {
             result = m.mk_or(args);
             break;
         }
-        case b_justification::BIN_CLAUSE:
-            result = m.mk_or(literal2expr(conseq), literal2expr(~js.get_literal()));
+        case b_justification::BIN_CLAUSE: {
+            app_ref consequent = literal2expr(conseq);
+            result = m.mk_or(consequent, literal2expr(~js.get_literal()));
             break;
+        }
         case b_justification::AXIOM:
             break;
         case b_justification::JUSTIFICATION: {

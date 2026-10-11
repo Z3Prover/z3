@@ -234,7 +234,13 @@ namespace euf {
         void collect_statistics(statistics& st) const override;
         void reset_statistics() override { m_stats.reset(); }
         void updt_params(params_ref const& p) override;
-        bool supports_proofs() const override { return true; }
+        // `map_congruence`/`add_consequence` add new `(congruence ...)`/
+        // `(consequence ...)` marker formulas to the live goal with a null
+        // proof (see euf_completion.cpp), so this simplifier does not
+        // actually produce a justification for every formula it adds;
+        // disable it entirely whenever proofs are required rather than
+        // silently drop a proof obligation.
+        bool supports_proofs() const override { return false; }
 
         trail_stack& get_trail() override { return m_trail;}
         region& get_region() override { return m_trail.get_region(); }

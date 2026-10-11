@@ -102,6 +102,8 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
+        if (!m_fparams.m_qi_update_generation)
+            return;
         // We don't support patterns with equality so there is no need to track generations for them.
         if (e->is_eq())
             return;

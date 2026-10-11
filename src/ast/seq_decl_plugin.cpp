@@ -732,30 +732,34 @@ bool seq_decl_plugin::is_unique_value(app* e) const {
 }
 
 bool seq_decl_plugin::is_value(app* e) const {
-    while (true) {
-        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
-            m_manager->is_value(e->get_arg(0))) 
-            return true;
-        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT)) {
-            bool first = true;
-            for (expr* arg : *e) {
-                if (first) {
-                    first = false;
-                }
-                else if (is_app(arg) && !is_value(to_app(arg))) {
+    // Use an explicit worklist instead of recursing into concat arguments:
+    // a long chain of str.++ (e.g. from repeated quantifier instantiation)
+    // can otherwise drive recursion deep enough to overflow the native
+    // stack (#11042), regardless of whether the chain is left- or
+    // right-associated.
+    ptr_vector<app> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        app* a = todo.back();
+        todo.pop_back();
+        if (is_app_of(a, m_family_id, OP_SEQ_EMPTY)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_STRING_CONST)) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_UNIT) &&
+            m_manager->is_value(a->get_arg(0))) 
+            continue;
+        if (is_app_of(a, m_family_id, OP_SEQ_CONCAT)) {
+            for (expr* arg : *a) {
+                if (!is_app(arg))
                     return false;
-                }
+                todo.push_back(to_app(arg));
             }
-            if (!is_app(e->get_arg(0))) return false;            
-            e = to_app(e->get_arg(0));
             continue;
         }
         return false;
     }
+    return true;
 }
 
 bool seq_decl_plugin::is_model_value(app* e) const {
@@ -938,24 +942,40 @@ app* seq_util::str::mk_nth_c(expr* s, unsigned i) const {
 }
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
-    expr* e1, *e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    // Flatten with an explicit worklist instead of recursing on the left
+    // child: a chain of concatenations deep enough (e.g. from repeated
+    // quantifier instantiation of `s ++ s`) can otherwise overflow the
+    // native stack (#11042).
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, *e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
 void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
-    expr* e1, * e2;
-    while (is_concat(e, e1, e2)) {
-        get_concat(e1, es);
-        e = e2;
-    }
-    if (!is_empty(e)) {
-        es.push_back(e);
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        expr* cur = todo.back();
+        todo.pop_back();
+        expr* e1, * e2;
+        if (is_concat(cur, e1, e2)) {
+            todo.push_back(e2);
+            todo.push_back(e1);
+            continue;
+        }
+        if (!is_empty(cur))
+            es.push_back(cur);
     }
 }
 
@@ -1729,13 +1749,24 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
             return i1.opt();
         case OP_RE_RANGE: {
             // A concrete range [lo, hi] with lo <= hi is non-empty and classical.
-            zstring slo, shi;
-            if (u.str.is_string(e->get_arg(0), slo) && slo.length() == 1 &&
-                u.str.is_string(e->get_arg(1), shi) && shi.length() == 1 &&
-                slo[0] <= shi[0])
+            // A bound is concrete either as a length-1 string literal, or as the
+            // equivalent (seq.unit (_ Char c)) term -- the shape produced internally,
+            // e.g., during derivative/complement processing.
+            auto get_char = [&](expr* b, unsigned& code) {
+                zstring s;
+                expr* unit_arg = nullptr;
+                if (u.str.is_string(b, s) && s.length() == 1) {
+                    code = s[0];
+                    return true;
+                }
+                return u.str.is_unit(b, unit_arg) && u.is_const_char(unit_arg, code);
+            };
+            unsigned clo = 0, chi = 0;
+            bool interpreted = get_char(e->get_arg(0), clo) && get_char(e->get_arg(1), chi);
+            if (interpreted && clo <= chi)
                 return info(true, l_false, 1, 1, true);
-            // Symbolic or unknown: not classical
-            return info(true, l_false, 1, 1, false);
+            // Symbolic bounds are not suitable for ground-regex reasoning.
+            return info(interpreted, l_false, 1, 1, false);
         }
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
@@ -1953,7 +1984,14 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
     if (is_known()) {
         if (rhs.is_known()) {
             info r(interpreted & rhs.interpreted,
-                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
+                // Soundness: Lambda(r \ s) is nullable only if Lambda(r) is nullable (it is a
+                // subset of Lambda(r)), so the only way to conclude l_false is nullable == l_false.
+                // rhs.nullable == l_false alone does NOT force non-nullability: e.g. r is a
+                // symbolic sequence with unknown nullability (l_undef) and s has nullable == l_false;
+                // if r happens to denote the empty word, r \ s is nullable, so l_false would be
+                // unsound here. (Previously this disjunct read
+                // `nullable == l_false || rhs.nullable == l_false`, which was unsound.)
+                ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false) ? l_false : l_undef)),
                 0, 0,
                 false);
             // Lambda(r \ s) is contained in Lambda(r), so the lhs abstraction carries over.

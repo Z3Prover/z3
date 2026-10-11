@@ -247,8 +247,7 @@ namespace smt {
             app_ref acc_own(m.mk_app(acc1, own), m);
             assert_eq_axiom(arg, acc_own, is_con); 
         }
-        // update_field is identity if 'n' is not created by a matching constructor.        
-        app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_expr(), arg1)), m);
+        // update_field is identity if 'n' is not created by a matching constructor.
         assert_eq_axiom(n, arg1, ~is_con);
 
         app_ref n_is_con(m.mk_app(rec, own), m);

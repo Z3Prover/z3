@@ -40,8 +40,12 @@ namespace arith {
         }
         else {
             expr_ref to_r(a.mk_to_real(n), m);
-            expr_ref lo(a.mk_le(a.mk_sub(to_r, x), a.mk_real(0)), m);
-            expr_ref hi(a.mk_ge(a.mk_sub(x, to_r), a.mk_real(1)), m);
+            expr_ref lhs(a.mk_sub(to_r, x), m);
+            expr_ref rhs(a.mk_real(0), m);
+            expr_ref lo(a.mk_le(lhs, rhs), m);
+            expr_ref lhs1(a.mk_sub(x, to_r), m);
+            expr_ref rhs1(a.mk_real(1), m);
+            expr_ref hi(a.mk_ge(lhs1, rhs1), m);
             literal llo = mk_literal(lo);
             literal lhi = mk_literal(hi);
             add_clause(llo);
@@ -155,7 +159,9 @@ namespace arith {
 
 
             expr_ref mone(a.mk_int(-1), m);
-            expr_ref abs_q(m.mk_ite(a.mk_ge(q, zero), q, a.mk_uminus(q)), m);
+            expr_ref non_negative(a.mk_ge(q, zero), m);
+            expr_ref neg_q(a.mk_uminus(q), m);
+            expr_ref abs_q(m.mk_ite(non_negative, q, neg_q), m);
             literal eqz = mk_literal(m.mk_eq(q, zero));
             literal mod_ge_0 = mk_literal(a.mk_ge(mod, zero));
             literal mod_lt_q = mk_literal(a.mk_le(a.mk_sub(mod, abs_q), mone));
@@ -262,7 +268,8 @@ namespace arith {
         // x mod 2^{i + 1} >= 2^i means the i'th bit is 1.
         auto bitof = [&](expr* x, unsigned i) { 
             expr_ref r(m);
-            r = a.mk_ge(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), a.mk_int(rational::power_of_two(i)));
+            expr_ref low_bits(a.mk_mod(x, a.mk_int(rational::power_of_two(i+1))), m);
+            r = a.mk_ge(low_bits, a.mk_int(rational::power_of_two(i)));
             return mk_literal(r);
         };
 
@@ -272,12 +279,22 @@ namespace arith {
                 bool xb = valx.get_bit(i);
                 bool yb = valy.get_bit(i);
                 bool nb = valn.get_bit(i);
-                if (xb && yb && !nb)
-                    add_clause(~bitof(x, i), ~bitof(y, i), bitof(n, i));
-                else if (nb && !xb)
-                    add_clause(~bitof(n, i), bitof(x, i));
-                else if (nb && !yb)
-                    add_clause(~bitof(n, i), bitof(y, i));
+                if (xb && yb && !nb) {
+                    literal xbit = bitof(x, i);
+                    literal ybit = bitof(y, i);
+                    literal nbit = bitof(n, i);
+                    add_clause(~xbit, ~ybit, nbit);
+                }
+                else if (nb && !xb) {
+                    literal nbit = bitof(n, i);
+                    literal xbit = bitof(x, i);
+                    add_clause(~nbit, xbit);
+                }
+                else if (nb && !yb) {
+                    literal nbit = bitof(n, i);
+                    literal ybit = bitof(y, i);
+                    add_clause(~nbit, ybit);
+                }
                 else
                     continue;
                 return false;
@@ -288,7 +305,9 @@ namespace arith {
             if (valy >= sz || valy == 0)
                 return true;
             unsigned k = valy.get_unsigned();
-            sat::literal eq = eq_internalize(n, a.mk_mod(a.mk_mul(_x, a.mk_int(rational::power_of_two(k))), a.mk_int(N)));
+            expr_ref lhs(a.mk_mul(_x, a.mk_int(rational::power_of_two(k))), m);
+            expr_ref rhs(a.mk_int(N), m);
+            sat::literal eq = eq_internalize(n, a.mk_mod(lhs, rhs));
             if (s().value(eq) == l_true)
                 return true;            
             add_clause(~eq_internalize(y, a.mk_int(k)), eq);
@@ -319,7 +338,11 @@ namespace arith {
             case l_true:
                 // x < 0 & y = k -> n = (x div 2^k - 2^{N-k}) mod 2^N
                 xdiv2k = a.mk_idiv(x, a.mk_int(rational::power_of_two(k)));
-                eq = eq_internalize(n, a.mk_mod(a.mk_add(xdiv2k, a.mk_int(-rational::power_of_two(sz - k))), a.mk_int(N)));
+                {
+                    expr_ref lhs(a.mk_add(xdiv2k, a.mk_int(-rational::power_of_two(sz - k))), m);
+                    expr_ref rhs(a.mk_int(N), m);
+                    eq = eq_internalize(n, a.mk_mod(lhs, rhs));
+                }
                 if (s().value(eq) == l_true)
                     return true;
                 break;
@@ -376,23 +399,47 @@ namespace arith {
         else if (a.is_shl(n)) {
             // y >= sz => n = 0
             // y = 0 => n = x
-            add_clause(~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
-            add_clause(~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+            literal large_shift = mk_literal(a.mk_ge(y, a.mk_int(sz)));
+            literal result_zero = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            add_clause(~large_shift, result_zero);
+            literal zero_shift = mk_literal(a.mk_eq(y, a.mk_int(0)));
+            literal unchanged = mk_literal(m.mk_eq(n, x));
+            add_clause(~zero_shift, unchanged);
         }
         else if (a.is_lshr(n)) {
             // y >= sz => n = 0
             // y = 0 => n = x
-            add_clause(~mk_literal(a.mk_ge(y, a.mk_int(sz))), mk_literal(m.mk_eq(n, a.mk_int(0))));
-            add_clause(~mk_literal(a.mk_eq(y, a.mk_int(0))), mk_literal(m.mk_eq(n, x)));
+            literal large_shift = mk_literal(a.mk_ge(y, a.mk_int(sz)));
+            literal result_zero = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            add_clause(~large_shift, result_zero);
+            literal zero_shift = mk_literal(a.mk_eq(y, a.mk_int(0)));
+            literal unchanged = mk_literal(m.mk_eq(n, x));
+            add_clause(~zero_shift, unchanged);
         }
         else if (a.is_ashr(n)) {
             // y >= sz & x < 2^{sz-1} => n = 0
             // y >= sz & x >= 2^{sz-1} => n = -1
             // y = 0 => n = x
             auto signx = mk_literal(a.mk_ge(x, a.mk_int(N/2)));
-            add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), signx, mk_literal(m.mk_eq(n, a.mk_int(0))));
-            add_clause(~mk_literal(a.mk_ge(a.mk_mod(y, a.mk_int(N)), a.mk_int(sz))), ~signx, mk_literal(m.mk_eq(n, a.mk_int(N-1))));
-            add_clause(~mk_literal(a.mk_eq(a.mk_mod(y, a.mk_int(N)), a.mk_int(0))), mk_literal(m.mk_eq(n, x)));            
+            literal large_shift;
+            {
+                expr_ref amount(a.mk_mod(y, a.mk_int(N)), m);
+                large_shift = mk_literal(a.mk_ge(amount, a.mk_int(sz)));
+            }
+            literal result_zero = mk_literal(m.mk_eq(n, a.mk_int(0)));
+            add_clause(~large_shift, signx, result_zero);
+            {
+                expr_ref lhs(a.mk_mod(y, a.mk_int(N)), m);
+                expr_ref rhs(a.mk_int(sz), m);
+                literal large_shift = mk_literal(a.mk_ge(lhs, rhs));
+                literal result_minus_one = mk_literal(m.mk_eq(n, a.mk_int(N - 1)));
+                add_clause(~large_shift, ~signx, result_minus_one);
+            }
+            expr_ref lhs(a.mk_mod(y, a.mk_int(N)), m);
+            expr_ref rhs(a.mk_int(0), m);
+            literal zero_shift = mk_literal(a.mk_eq(lhs, rhs));
+            literal unchanged = mk_literal(m.mk_eq(n, x));
+            add_clause(~zero_shift, unchanged);
         }
         else
             UNREACHABLE();

@@ -411,7 +411,8 @@ namespace sls {
         }
         expr_ref sel1(a.mk_select(args1), m);
         expr_ref sel2(a.mk_select(args2), m);
-        bool r = ctx.add_constraint(m.mk_implies(m.mk_eq(sel1, sel2), m.mk_eq(x, y)));
+        expr_ref select_eq(m.mk_eq(sel1, sel2), m);
+        bool r = ctx.add_constraint(m.mk_implies(select_eq, m.mk_eq(x, y)));
         if (r)
             ++m_stats.m_num_axioms;        
         return r;

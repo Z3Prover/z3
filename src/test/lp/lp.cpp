@@ -1093,16 +1093,22 @@ void test_int_set() {
     std::cout << "done test_int_set\n";
 }
 
+static rational random_rational() {
+    unsigned num = my_random() % 100;
+    unsigned den = 1 + my_random() % 100;
+    return rational(num, den);
+}
+
 void test_rationals_no_numeric_pairs() {
     stopwatch sw;
 
     vector<mpq> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<mpq> x;
     for (unsigned j = 0; j < 10; ++j)
-        x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        x.push_back(random_rational());
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
@@ -1128,11 +1134,11 @@ void test_rationals_no_numeric_pairs_plus() {
 
     vector<mpq> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<mpq> x;
     for (unsigned j = 0; j < 10; ++j)
-        x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
+        x.push_back(random_rational());
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
@@ -1158,12 +1164,12 @@ void test_rationals() {
 
     vector<rational> c;
     for (unsigned j = 0; j < 10; ++j)
-        c.push_back(rational(my_random() % 100, 1 + my_random() % 100));
+        c.push_back(random_rational());
 
     vector<numeric_pair<rational>> x;
     for (unsigned j = 0; j < 10; ++j)
         x.push_back(numeric_pair<rational>(
-            rational(my_random() % 100, 1 + my_random() % 100)));
+            random_rational()));
 
     std::cout << "x = ";
     print_vector(x, std::cout);

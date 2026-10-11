@@ -140,3 +140,6 @@ tptp_benchmarks/
 /tmp-bibtex.log
 /doc/qf-ff-round6-performance.svg
 /doc/qf-ff-round7-performance.svg
+
+# Local-only artifacts from a reverted experiment (kept on disk, not tracked)
+fstar/rewrite_rule_bench/

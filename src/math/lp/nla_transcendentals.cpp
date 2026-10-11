@@ -379,12 +379,14 @@ namespace nla {
         double fv = std::atan2(y, x);
         if (!std::isfinite(fv))
             return false; // (0,0): undefined, not this check's responsibility.
-        double tolerance = c.params().arith_nl_transcendental_tolerance();
         // atan2 has a branch cut, so its derivative is unbounded near
         // x < 0, y ~ 0 (val jumps by ~2*pi there); use a generous margin
         // rather than attempting a tight closed-form error bound.
-        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv)) + tolerance;
+        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
         if (std::fabs(v - fv) <= err)
+            return false;
+        ++m_num_failures;
+        if (std::fabs(v - fv) <= err + c.params().arith_nl_transcendental_tolerance())
             return false;
         // Coarse case-split fallback on sign(x), rather than a full 2D
         // box-refinement enclosure (atan2's branch structure makes a tight
@@ -424,20 +426,12 @@ namespace nla {
             // OP_U_ASIN/OP_U_ACOS out-of-domain operators, or domain
             // constraints) is expected to handle it.
             return false;
-        double tolerance = c.params().arith_nl_transcendental_tolerance();
-        double err = error_bound(a.op, x, fx) + tolerance;
+        double err = error_bound(a.op, x, fx);
         if (std::fabs(y - fx) <= err)
-            return false; // consistent within tolerance
+            return false;
 
-        // A genuine delta-check failure. Rather than constructing our own
-        // reactive polynomial/box-exclusion lemma here - a floating point
-        // sampling process that can nudge the LP assignment indefinitely
-        // without ever producing a certificate (see the module comment) -
-        // just record that a failure was observed and let nlsat settle the
-        // application exactly: should_run_bounded_nlsat(), gated on
-        // has_observed_failure(), hands the problem to nra_solver/nlsat,
-        // whose own nlsat_transcendentals engine refines the polynomial
-        // constraints for arg/val internally (see nlsat_transcendentals.*).
+        // The delta tolerance can guide refinement, but only floating-point
+        // round-off is small enough to certify this assignment as consistent.
         ++m_num_failures;
         TRACE(nla_solver, tout << op_name(a.op) << "(" << xr << ") = " << yr
                                << " but floating point evaluation gives " << fx
@@ -458,8 +452,8 @@ namespace nla {
                 return;
     }
 
-    // Sanity-checks nra_solver's (nlsat's) own model against the plain
-    // delta-tolerance used by check_app, reading the actual algebraic
+    // Sanity-checks nra_solver's (nlsat's) own model against floating-point
+    // round-off, reading the actual algebraic
     // witness (via core::nra_model_bound) rather than the stale plain-LP
     // core::val. nlsat_transcendentals already refines each application's
     // polynomial constraints exactly before nlsat reports l_true, so this
@@ -469,7 +463,6 @@ namespace nla {
         core& c = m_core;
         if (!c.use_nra_model())
             return false;
-        double tolerance = c.params().arith_nl_transcendental_tolerance();
         for (auto const& a : m_apps) {
             rational xlo, xhi, ylo, yhi;
             c.nra_model_bound(a.arg, xlo, xhi);
@@ -479,8 +472,23 @@ namespace nla {
             double fx = eval(a.op, x);
             if (!std::isfinite(fx))
                 continue; // outside op's domain: not this check's responsibility.
-            double err = error_bound(a.op, x, fx) + tolerance;
+            double err = error_bound(a.op, x, fx);
             if (std::fabs(y - fx) > err)
+                return false;
+        }
+        for (auto const& a : m_atan2_apps) {
+            rational ylo, yhi, xlo, xhi, vlo, vhi;
+            c.nra_model_bound(a.y, ylo, yhi);
+            c.nra_model_bound(a.x, xlo, xhi);
+            c.nra_model_bound(a.val, vlo, vhi);
+            double y = ((ylo + yhi) / 2).get_double();
+            double x = ((xlo + xhi) / 2).get_double();
+            double v = ((vlo + vhi) / 2).get_double();
+            double fv = std::atan2(y, x);
+            if (!std::isfinite(fv))
+                continue;
+            double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
+            if (std::fabs(v - fv) > err)
                 return false;
         }
         return true;

@@ -133,7 +133,7 @@ namespace smt {
         return std::max(generation + 1, static_cast<unsigned>(r));
     }
 
-    void qi_queue::insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation) {
+    void qi_queue::insert(fingerprint * f, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, bool mbqi_instance) {
         quantifier * q         = static_cast<quantifier*>(f->get_data());
         float cost             = get_cost(q, pat, generation, min_top_generation, max_top_generation);
         TRACE(qi_queue_detail,
@@ -144,7 +144,7 @@ namespace smt {
               }
               tout << "\n";);
         TRACE(new_entries_bug, tout << "[qi:insert]\n";);
-        m_new_entries.push_back(entry(f, cost, generation));
+        m_new_entries.push_back(entry(f, cost, generation, mbqi_instance));
     }
 
     void qi_queue::instantiate() {
@@ -288,6 +288,14 @@ namespace smt {
             lemma = m.mk_or(m.mk_not(q), s_instance);
         }
         m_instances.push_back(lemma);
+        // keep model-based instances (they are expensive to rediscover and MBQI may not
+        // reproduce them), and pattern-based ones up to a budget
+        // instances are recorded for re-assertion only when a theory that can request a
+        // re-search is present (strings, recursive functions); other problems are unaffected
+        bool persist = m_params.m_qi_persist_instances && m_context.has_research_theories() &&
+            (ent.m_model_based || m_persistent_instances.size() < m_params.m_qi_max_persistent_instances);
+        if (persist)
+            m_persistent_instances.push_back({ expr_ref(lemma, m), app_ref(m) });
         proof_ref pr1(m);
         unsigned proof_id = 0;
         if (m.proofs_enabled()) {
@@ -314,6 +322,8 @@ namespace smt {
                 pr1                 = m.mk_modus_ponens(qi_pr, tr);
             }
             m_instances.push_back(pr1);
+            if (persist)
+                m_persistent_instances.back().second = pr1;
         }
         else if (m_context.clause_proof_active()) {
             expr_ref_vector bindings_e(m), args(m);
@@ -393,6 +403,7 @@ namespace smt {
         m_new_entries.reset();
         m_delayed_entries.reset();
         m_instances.reset();
+        m_persistent_instances.reset();
         m_scopes.reset();
     }
 

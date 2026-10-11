@@ -17,6 +17,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/simplifiers/solve_eqs.h"
+#include "ast/simplifiers/lambda_simplifier.h"
+#include "ast/array_decl_plugin.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 
@@ -345,7 +347,9 @@ static void test_recfun_finder() {
     expr_ref fx(m.mk_app(f, x.get()), m);
     expr_ref xm1(a.mk_sub(x, one), m);
     expr_ref rec(m.mk_app(f, xm1.get()), m);
-    expr_ref body(m.mk_ite(m.mk_eq(x, zero), zero, a.mk_add(one, rec)), m);
+    expr_ref condition(m.mk_eq(x, zero), m);
+    expr_ref else_value(a.mk_add(one, rec), m);
+    expr_ref body(m.mk_ite(condition, zero, else_value), m);
     expr_ref eq(m.mk_eq(fx, body), m);
     symbol x_name("x");
     quantifier_ref q(m.mk_forall(1, &int_sort, &x_name, eq), m);
@@ -499,7 +503,9 @@ static void test_solve_eqs_proof_scope() {
         arith_util a(m);
         expr_ref x(m.mk_const("x", a.mk_int()), m);
         expr_ref y(m.mk_const("y", a.mk_int()), m);
-        expr_ref equation(m.mk_eq(a.mk_add(x, y), a.mk_int(0)), m);
+        expr_ref lhs(a.mk_add(x, y), m);
+        expr_ref rhs(a.mk_int(0), m);
+        expr_ref equation(m.mk_eq(lhs, rhs), m);
         base_dependent_expr_state st(m);
         st.add(dependent_expr(m, equation, proofs ? m.mk_asserted(equation) : nullptr, nullptr));
         euf::solve_eqs solve(m, st);
@@ -530,6 +536,115 @@ static void test_flatten_suffix_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+// Exercises `lambda_simplifier`'s new proof production end-to-end:
+// - a chain of two nested macros (c2's body mentions c1), so `resolve`
+//   actually builds a `PR_DEMODULATION` + transitivity chain;
+// - a macro's own defining equation gets collapsed to `true` via
+//   `PR_IFF_TRUE`;
+// - a separate use-site formula gets rewritten by substituting the fully
+//   resolved macro bodies, combined with the `th_rewriter`'s own proof.
+// `check_simplifier_proofs` independently re-checks every resulting proof
+// object via `proof_checker` (including, for `PR_DEMODULATION`, actually
+// re-deriving the substitution and comparing results structurally).
+static void test_lambda_simplifier_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    array_util au(m);
+    arith_util a(m);
+    sort* I = a.mk_int();
+    sort* arr = au.mk_array_sort(I, I);
+
+    expr_ref c1(m.mk_const("c1", arr), m);
+    expr_ref c2(m.mk_const("c2", arr), m);
+    expr_ref y(m.mk_const("y", I), m);
+    symbol xn("x");
+
+    // c1 = (lambda ((x Int)) 0)
+    expr_ref zero(a.mk_int(0), m);
+    expr_ref lam1(m.mk_lambda(1, &I, &xn, zero.get()), m);
+    expr_ref def1(m.mk_eq(c1.get(), lam1.get()), m);
+
+    // c2 = (lambda ((x Int)) (select c1 x))   -- nested macro reference
+    expr_ref sel_c1x(au.mk_select(c1.get(), m.mk_var(0, I)), m);
+    expr_ref lam2(m.mk_lambda(1, &I, &xn, sel_c1x.get()), m);
+    expr_ref def2(m.mk_eq(c2.get(), lam2.get()), m);
+
+    // use site: (select c2 y) = 0
+    expr_ref use(m.mk_eq(au.mk_select(c2.get(), y.get()), zero.get()), m);
+
+    expr_ref_vector assertions(m);
+    assertions.push_back(def1);
+    assertions.push_back(def2);
+    assertions.push_back(use);
+
+    base_dependent_expr_state st(m);
+    for (expr* f : assertions)
+        st.add(dependent_expr(m, f, m.mk_asserted(f), nullptr));
+
+    lambda_simplifier lam_simp(m, params_ref(), st);
+    ENSURE(lam_simp.supports_proofs());
+    lam_simp.reduce();
+
+    // both macro-defining equations collapse to `true`.
+    ENSURE(m.is_true(st[0].fml()));
+    ENSURE(m.is_true(st[1].fml()));
+    // the use site got rewritten (beta-reduced/simplified) away from its
+    // original shape.
+    ENSURE(st[2].fml() != use.get());
+
+    check_simplifier_proofs(m, st, assertions);
+}
+
+// Exercises `demodulator_simplifier`'s new proof production end-to-end:
+// - the demodulator `forall x. f(x) = x + 1` justifies rewriting a ground
+//   use site `f(2) != 3` down to `false` via a `PR_QUANT_INST` instance
+//   combined (via unit resolution and congruence/transitivity) with the
+//   th_rewriter's own arithmetic normalization proof;
+// - a second, `not`-shaped demodulator (`forall x. not p(x) <-> x > 0`,
+//   i.e. one of `demodulator_util::is_demodulator`'s reshaped cases) is
+//   also exercised, forcing `mk_instance_proof`'s `mk_rewrite` bridge path.
+// `check_simplifier_proofs` independently re-checks every resulting proof
+// object via `proof_checker`.
+static void test_demodulator_simplifier_proofs() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    arith_util a(m);
+    sort* I = a.mk_int();
+    sort* dom1[1] = { I };
+    func_decl_ref f(m.mk_func_decl(symbol("f"), 1, dom1, I), m);
+    symbol xn("x");
+
+    // forall x. f(x) = x + 1
+    var_ref x(m.mk_var(0, I), m);
+    expr_ref one(a.mk_int(1), m);
+    expr_ref fx(m.mk_app(f, x.get()), m);
+    expr_ref rhs(a.mk_add(x, one), m);
+    expr_ref def(m.mk_eq(fx, rhs), m);
+    quantifier_ref q(m.mk_forall(1, &I, &xn, def), m);
+
+    // use site: not (f(2) = 3)   -- should rewrite to `false`.
+    expr_ref two(a.mk_int(2), m);
+    expr_ref three(a.mk_int(3), m);
+    expr_ref f2(m.mk_app(f, two.get()), m);
+    expr_ref use(m.mk_not(m.mk_eq(f2, three)), m);
+
+    expr_ref_vector assertions(m);
+    assertions.push_back(q);
+    assertions.push_back(use);
+
+    base_dependent_expr_state st(m);
+    demodulator_simplifier demod(m, params_ref(), st);
+    ENSURE(demod.supports_proofs());
+    st.add(dependent_expr(m, q, m.mk_asserted(q), nullptr));
+    demod.reduce();
+    st.advance_qhead();
+    st.add(dependent_expr(m, use, m.mk_asserted(use), nullptr));
+    demod.reduce();
+
+    ENSURE(m.is_false(st[1].fml()));
+    check_simplifier_proofs(m, st, assertions);
+}
+
 void tst_simplifier() {
 
     test_array();
@@ -543,4 +658,6 @@ void tst_simplifier() {
     test_solve_eqs_proof_scope();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
+    test_lambda_simplifier_proofs();
+    test_demodulator_simplifier_proofs();
 }

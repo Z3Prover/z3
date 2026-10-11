@@ -122,8 +122,8 @@ namespace sat {
                     in_coi |= m_in_coi.contains(lit.index());                
             else if (js.is_binary_clause())
                 in_coi = m_in_coi.contains(js.get_literal().index());
-            else if (js.is_none()) {                
-                verbose_stream() << "none " << js << "\n";
+            else if (js.is_none()) {
+                IF_VERBOSE(10, verbose_stream() << "none " << js << "\n");
             }
             else if (js.is_ext_justification()) {
                 verbose_stream() << js << "\n";
@@ -373,6 +373,8 @@ namespace sat {
             unsigned undef_idx = m_clause.size();
             for (unsigned i = 0; i < m_clause.size(); ++i) {
                 sat::literal lit = (*cl)[i];
+                if (s.value(lit) == l_true)
+                    return false;
                 if (s.value(lit) != l_undef)
                     continue;
                 if (undef_idx < m_clause.size())

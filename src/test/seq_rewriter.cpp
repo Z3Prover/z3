@@ -91,11 +91,17 @@ static void tst_nested_sequence_assumptions() {
             sp.m_random_seed = seed;
             smt::context ctx(m, sp);
 
-            ctx.assert_expr(m.mk_not(m.mk_eq(
-                su.str.mk_unit(one), su.str.mk_substr(z, zero, one))));
+            {
+                expr_ref lhs(su.str.mk_unit(one), m);
+                expr_ref rhs(su.str.mk_substr(z, zero, one), m);
+                ctx.assert_expr(m.mk_not(m.mk_eq(lhs, rhs)));
+            }
             ctx.assert_expr(m.mk_eq(l5, l0));
-            ctx.assert_expr(m.mk_not(m.mk_eq(
-                su.str.mk_substr(z, n, one), su.str.mk_unit(zero))));
+            {
+                expr_ref lhs(su.str.mk_substr(z, n, one), m);
+                expr_ref rhs(su.str.mk_unit(zero), m);
+                ctx.assert_expr(m.mk_not(m.mk_eq(lhs, rhs)));
+            }
             ctx.assert_expr(m.mk_eq(
                 l4, m.mk_eq(x, su.str.mk_concat(xp, su.str.mk_unit(z)))));
             expr* first[] = {l1, l3, l5};
@@ -128,8 +134,144 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_nested_extract_prefix_of_suffix() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        app_ref s(m.mk_const("s", seq_sort), m);
+        for (unsigned size : {0u, 1u, 2u, 4u}) {
+            expr_ref value(su.str.mk_empty(seq_sort), m);
+            if (is_string)
+                value = su.str.mk_string(zstring("abcd").extract(0, size));
+            else
+                for (unsigned i = 0; i < size; ++i)
+                    value = su.str.mk_concat(value, su.str.mk_unit(a.mk_int(i)));
+            rw(value);
+            for (unsigned offset : {1u, 3u}) {
+                for (unsigned multiple : {1u, 2u}) {
+                    for (unsigned drop : {1u, 2u}) {
+                        expr_ref rhs(a.mk_int(offset), m);
+                        expr_ref lhs(a.mk_int(multiple), m);
+                        expr_ref rhs1(su.str.mk_length(s), m);
+                        expr_ref lhs1(a.mk_mul(lhs, rhs1), m);
+                        expr_ref rhs2(a.mk_int(offset), m);
+                        expr_ref third(a.mk_sub(lhs1, rhs2), m);
+                        expr_ref inner(su.str.mk_substr(s, rhs, third), m);
+                        expr_ref rhs3(a.mk_int(0), m);
+                        expr_ref lhs2(su.str.mk_length(inner), m);
+                        expr_ref rhs4(a.mk_int(drop), m);
+                        expr_ref third1(a.mk_sub(lhs2, rhs4), m);
+                        expr_ref nested(su.str.mk_substr(inner, rhs3, third1), m);
+                        rw(nested);
+                        expr_ref rhs5(a.mk_int(offset), m);
+                        expr_ref lhs3(su.str.mk_length(s), m);
+                        expr_ref rhs6(a.mk_int(offset), m);
+                        expr_ref lhs4(a.mk_sub(lhs3, rhs6), m);
+                        expr_ref rhs7(a.mk_int(drop), m);
+                        expr_ref third2(a.mk_sub(lhs4, rhs7), m);
+                        expr_ref flat(su.str.mk_substr(s, rhs5, third2), m);
+                        rw(flat);
+                        ENSURE(nested == flat);
+                        unsigned suffix_size = size > offset ? size - offset : 0;
+                        unsigned prefix_size = suffix_size > drop ? suffix_size - drop : 0;
+                        expr_ref rhs8(a.mk_int(offset), m);
+                        expr_ref third3(a.mk_int(prefix_size), m);
+                        expr_ref expected(su.str.mk_substr(value, rhs8, third3), m);
+                        rw(expected);
+
+                        smt_params sp;
+                        smt::context ctx(m, sp);
+                        ctx.assert_expr(m.mk_eq(s, value));
+                        ctx.push();
+                        ctx.assert_expr(m.mk_eq(nested, expected));
+                        ENSURE(ctx.check() == l_true);
+                        ctx.pop(1);
+                        ctx.assert_expr(m.mk_not(m.mk_eq(nested, expected)));
+                        ENSURE(ctx.check() == l_false);
+                    }
+                }
+            }
+        }
+    }
+}
+
+static void tst_length_coherence_guards() {
+    for (unsigned hi : {2u, 3u}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util su(m);
+        arith_util a(m);
+        th_rewriter rw(m);
+        seq::skolem sk(m, rw);
+        app_ref base(m.mk_const("base", su.str.mk_string_sort()), m);
+        // Tail skolems bypass fixed-length expansion and exercise length coherence.
+        expr_ref x(sk.mk_tail(base, a.mk_int(0)));
+        expr_ref len(su.str.mk_length(x), m);
+        expr_ref low(a.mk_ge(len, a.mk_int(2)), m);
+        expr_ref high(a.mk_le(len, a.mk_int(hi)), m);
+        expr_ref tail(sk.mk_tail(base, a.mk_int(2)));
+        expr_ref empty(su.str.mk_empty(x->get_sort()), m);
+        expr_ref conclusion(m);
+        if (hi == 2)
+            conclusion = sk.mk_eq(tail, empty);
+        else {
+            expr_ref lhs(su.str.mk_length(tail), m);
+            expr_ref rhs(a.mk_int(hi - 2), m);
+            conclusion = a.mk_le(lhs, rhs);
+        }
+        expr_ref not_low(m.mk_not(low), m), not_high(m.mk_not(high), m);
+        bool found = false;
+        user_propagator::on_clause_eh_t on_clause =
+            [&](void*, expr*, unsigned, unsigned const*, unsigned n, expr* const* lits) {
+                bool has_low = false, has_high = false, has_conclusion = false;
+                for (unsigned i = 0; i < n; ++i) {
+                    has_low |= lits[i] == not_low;
+                    has_high |= lits[i] == not_high;
+                    has_conclusion |= lits[i] == conclusion;
+                }
+                // Upper tail bounds require both bounds on the original sequence.
+                if (has_high && has_conclusion) {
+                    ENSURE(has_low);
+                    found = true;
+                }
+            };
+        smt_params sp;
+        smt::context ctx(m, sp);
+        ctx.register_on_clause(nullptr, on_clause);
+        ctx.assert_expr(low);
+        ctx.assert_expr(high);
+        ENSURE(ctx.check() == l_true);
+        ENSURE(found);
+
+        ctx.push();
+        ctx.assert_expr(a.mk_lt(len, a.mk_int(2)));
+        ENSURE(ctx.check() == l_false);
+        ctx.pop(1);
+        ENSURE(ctx.check() == l_true);
+    }
+
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    app_ref x(m.mk_const("x", su.str.mk_string_sort()), m);
+    expr_ref len(su.str.mk_length(x), m);
+    smt_params sp;
+    smt::context ctx(m, sp);
+    ctx.assert_expr(a.mk_ge(len, a.mk_int(2)));
+    ENSURE(ctx.check() == l_true);
+    ctx.assert_expr(a.mk_gt(len, a.mk_int(2)));
+    ENSURE(ctx.check() == l_true);
+}
+
 void tst_seq_rewriter() {
     tst_eq_skolem_arity();
+    tst_nested_extract_prefix_of_suffix();
+    tst_length_coherence_guards();
     ast_manager m;
     reg_decl_plugins(m);
     th_rewriter rw(m);
@@ -139,7 +281,9 @@ void tst_seq_rewriter() {
     sort* re_sort  = su.re.mk_re(str_sort);
 
     auto range = [&](unsigned lo, unsigned hi) -> expr_ref {
-        return expr_ref(su.re.mk_range(mk_str(m, su, lo), mk_str(m, su, hi)), m);
+        auto lhs = mk_str(m, su, lo);
+        auto rhs = mk_str(m, su, hi);
+        return expr_ref(su.re.mk_range(lhs, rhs), m);
     };
 
     // Arbitrary regex variable for downstream tests.
@@ -170,7 +314,9 @@ void tst_seq_rewriter() {
     // 3. Range intersection: overlapping → smaller range
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_inter(range('a', 'z'), range('f', 'k')), m);
+        auto lhs1 = range('a', 'z');
+        auto rhs = range('f', 'k');
+        expr_ref e(su.re.mk_inter(lhs1, rhs), m);
         rw(e);
         std::cout << "range inter overlapping: " << mk_pp(e, m) << "\n";
         unsigned lo = 0, hi = 0;
@@ -181,7 +327,9 @@ void tst_seq_rewriter() {
     // 4. Range intersection: disjoint → re.none
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_inter(range('a', 'f'), range('k', 'z')), m);
+        auto lhs2 = range('a', 'f');
+        auto rhs1 = range('k', 'z');
+        expr_ref e(su.re.mk_inter(lhs2, rhs1), m);
         rw(e);
         std::cout << "range inter disjoint: " << mk_pp(e, m) << "\n";
         ENSURE(su.re.is_empty(e));
@@ -191,7 +339,9 @@ void tst_seq_rewriter() {
     // 5. Range intersection: touching at boundary → singleton (str.to_re "f")
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_inter(range('a', 'f'), range('f', 'z')), m);
+        auto lhs3 = range('a', 'f');
+        auto rhs2 = range('f', 'z');
+        expr_ref e(su.re.mk_inter(lhs3, rhs2), m);
         rw(e);
         std::cout << "range inter touching: " << mk_pp(e, m) << "\n";
         expr* inner = nullptr;
@@ -202,7 +352,9 @@ void tst_seq_rewriter() {
     // 6. Range union: overlapping → merged range
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_union(range('a', 'f'), range('e', 'k')), m);
+        auto lhs4 = range('a', 'f');
+        auto rhs3 = range('e', 'k');
+        expr_ref e(su.re.mk_union(lhs4, rhs3), m);
         rw(e);
         std::cout << "range union overlapping: " << mk_pp(e, m) << "\n";
         unsigned lo = 0, hi = 0;
@@ -213,7 +365,9 @@ void tst_seq_rewriter() {
     // 7. Range union: adjacent → merged range
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_union(range('a', 'f'), range('g', 'k')), m);
+        auto lhs5 = range('a', 'f');
+        auto rhs4 = range('g', 'k');
+        expr_ref e(su.re.mk_union(lhs5, rhs4), m);
         rw(e);
         std::cout << "range union adjacent: " << mk_pp(e, m) << "\n";
         unsigned lo = 0, hi = 0;
@@ -224,7 +378,9 @@ void tst_seq_rewriter() {
     // 8. Range union: disjoint → stays as union
     // -----------------------------------------------------------------------
     {
-        expr_ref e(su.re.mk_union(range('a', 'c'), range('m', 'z')), m);
+        auto lhs6 = range('a', 'c');
+        auto rhs5 = range('m', 'z');
+        expr_ref e(su.re.mk_union(lhs6, rhs5), m);
         rw(e);
         std::cout << "range union disjoint (stays as union): " << mk_pp(e, m) << "\n";
         ENSURE(!su.re.is_range(e));
@@ -316,7 +472,11 @@ void tst_seq_rewriter() {
             smt::context ctx(m, sp);
             app_ref x(m.mk_fresh_const("x", str_sort), m);
             ctx.assert_expr(su.re.mk_in_re(x, su.re.mk_range(x, x)));
-            ctx.assert_expr(m.mk_eq(su.str.mk_length(x), a_util.mk_int(1)));
+            {
+                expr_ref lhs1(su.str.mk_length(x), m);
+                expr_ref rhs(a_util.mk_int(1), m);
+                ctx.assert_expr(m.mk_eq(lhs1, rhs));
+            }
             lbool res = ctx.check();
             std::cout << "symbolic range solver sat (len=1): " << res << "\n";
             ENSURE(res == l_true);
@@ -329,7 +489,11 @@ void tst_seq_rewriter() {
             smt::context ctx(m, sp);
             app_ref x(m.mk_fresh_const("x", str_sort), m);
             ctx.assert_expr(su.re.mk_in_re(x, su.re.mk_range(x, x)));
-            ctx.assert_expr(m.mk_eq(su.str.mk_length(x), a_util.mk_int(2)));
+            {
+                expr_ref lhs1(su.str.mk_length(x), m);
+                expr_ref rhs(a_util.mk_int(2), m);
+                ctx.assert_expr(m.mk_eq(lhs1, rhs));
+            }
             lbool res = ctx.check();
             std::cout << "symbolic range solver unsat (len=2): " << res << "\n";
             ENSURE(res == l_false);
@@ -351,6 +515,26 @@ void tst_seq_rewriter() {
             lbool res = ctx.check();
             std::cout << "symbolic range solver inverted bounds unsat: " << res << "\n";
             ENSURE(res == l_false);
+        }
+
+        // 22. Symbolic range equality must not use the ground-regex shortcut.
+        {
+            smt_params sp;
+            smt::context ctx(m, sp);
+            app_ref lo(m.mk_fresh_const("lo", str_sort), m);
+            app_ref hi(m.mk_fresh_const("hi", str_sort), m);
+            expr_ref b_str(su.str.mk_string(zstring('b')), m);
+            expr_ref c_str(su.str.mk_string(zstring('c')), m);
+            expr_ref symbolic_range(su.re.mk_range(lo, hi), m);
+            expr_ref concrete_range(su.re.mk_range(b_str, c_str), m);
+            ENSURE(!su.re.is_ground(symbolic_range));
+            ENSURE(su.re.is_ground(concrete_range));
+            ctx.assert_expr(m.mk_eq(lo, b_str));
+            ctx.assert_expr(m.mk_eq(hi, c_str));
+            ctx.assert_expr(m.mk_eq(symbolic_range, concrete_range));
+            lbool res = ctx.check();
+            std::cout << "symbolic range equality sat: " << res << "\n";
+            ENSURE(res == l_true);
         }
 
         // 21. sat: (str.in_re "a" (re.++ re.all (re.range s "c")))
@@ -671,13 +855,17 @@ void tst_seq_rewriter() {
         app_ref y(m.mk_fresh_const("y", seq_int_sort), m);
         expr_ref len_y(su.str.mk_length(y), m);
         expr_ref unit_len_y(su.str.mk_unit(len_y), m);
-        expr_ref unit_ite(su.str.mk_unit(m.mk_ite(x, a_util.mk_int(0), a_util.mk_int(1))), m);
+        expr_ref then_value(a_util.mk_int(0), m);
+        expr_ref else_value(a_util.mk_int(1), m);
+        expr_ref unit_ite(su.str.mk_unit(m.mk_ite(x, then_value, else_value)), m);
         expr_ref unit_1(su.str.mk_unit(a_util.mk_int(1)), m);
         expr_ref unit_0(su.str.mk_unit(a_util.mk_int(0)), m);
         expr_ref_vector concat_args(m);
         concat_args.push_back(unit_len_y).push_back(unit_ite).push_back(unit_1).push_back(unit_0);
         expr_ref base(su.str.mk_concat(concat_args, seq_int_sort), m);
-        expr_ref extracted(su.str.mk_substr(base, a_util.mk_int(2), a_util.mk_int(2)), m);
+        expr_ref rhs6(a_util.mk_int(2), m);
+        expr_ref third(a_util.mk_int(2), m);
+        expr_ref extracted(su.str.mk_substr(base, rhs6, third), m);
 
         smt_params sp;
         smt::context ctx(m, sp);

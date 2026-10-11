@@ -46,12 +46,36 @@ namespace datalog {
         app_ref cond1(ast_m), cond2(ast_m), cond3(ast_m);
         app_ref cond4(ast_m), cond5(ast_m), cond6(ast_m);
         app_ref num1(ast_m);
-        cond1 = autil.mk_le(ast_m.mk_var(0, int_sort), autil.mk_numeral(rational(0), true));
-        cond2 = autil.mk_le(ast_m.mk_var(1, int_sort), autil.mk_numeral(rational(1), true));
-        cond3 = autil.mk_le(ast_m.mk_var(2, int_sort), autil.mk_numeral(rational(2), true));
-        cond4 = autil.mk_ge(ast_m.mk_var(0, int_sort), autil.mk_numeral(rational(0), true));
-        cond5 = autil.mk_ge(ast_m.mk_var(1, int_sort), autil.mk_numeral(rational(0), true));
-        cond6 = autil.mk_ge(ast_m.mk_var(2, int_sort), autil.mk_numeral(rational(5), true));
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond1 = autil.mk_le(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(1, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(1), true), ast_m);
+            cond2 = autil.mk_le(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(2, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(2), true), ast_m);
+            cond3 = autil.mk_le(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond4 = autil.mk_ge(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(1, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond5 = autil.mk_ge(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(2, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(5), true), ast_m);
+            cond6 = autil.mk_ge(lhs, rhs);
+        }
         num1 = autil.mk_numeral(rational(4), true);
         i2.filter_interpreted(cond1);
         i2.display(std::cout);
@@ -152,18 +176,58 @@ namespace datalog {
         app_ref cond1(ast_m), cond2(ast_m), cond3(ast_m);
         app_ref cond4(ast_m), cond5(ast_m), cond6(ast_m);
         app_ref num1(ast_m);
-        cond1 = autil.mk_lt(ast_m.mk_var(0, int_sort), autil.mk_numeral(rational(0), true));
-        cond2 = autil.mk_lt(ast_m.mk_var(1, int_sort), autil.mk_numeral(rational(1), true));
-        cond3 = autil.mk_lt(ast_m.mk_var(2, int_sort), ast_m.mk_var(3, int_sort));
-        cond4 = autil.mk_ge(ast_m.mk_var(0, int_sort), autil.mk_numeral(rational(0), true));
-        cond5 = autil.mk_ge(ast_m.mk_var(1, int_sort), autil.mk_numeral(rational(0), true));
-        cond6 = autil.mk_ge(ast_m.mk_var(2, int_sort), autil.mk_numeral(rational(5), true));
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond1 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(1, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(1), true), ast_m);
+            cond2 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(2, int_sort), ast_m);
+            expr_ref rhs(ast_m.mk_var(3, int_sort), ast_m);
+            cond3 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond4 = autil.mk_ge(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(1, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(0), true), ast_m);
+            cond5 = autil.mk_ge(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(2, int_sort), ast_m);
+            expr_ref rhs(autil.mk_numeral(rational(5), true), ast_m);
+            cond6 = autil.mk_ge(lhs, rhs);
+        }
 
         app_ref lt_x0x1(ast_m), lt_x1x2(ast_m), lt_x0x3(ast_m), lt_x0x2(ast_m);
-        lt_x0x1 = autil.mk_lt(ast_m.mk_var(0, int_sort), ast_m.mk_var(1, int_sort));
-        lt_x1x2 = autil.mk_lt(ast_m.mk_var(1, int_sort), ast_m.mk_var(2, int_sort));
-        lt_x0x2 = autil.mk_lt(ast_m.mk_var(0, int_sort), ast_m.mk_var(2, int_sort));
-        lt_x0x3 = autil.mk_lt(ast_m.mk_var(0, int_sort), ast_m.mk_var(3, int_sort));
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(ast_m.mk_var(1, int_sort), ast_m);
+            lt_x0x1 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(1, int_sort), ast_m);
+            expr_ref rhs(ast_m.mk_var(2, int_sort), ast_m);
+            lt_x1x2 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(ast_m.mk_var(2, int_sort), ast_m);
+            lt_x0x2 = autil.mk_lt(lhs, rhs);
+        }
+        {
+            expr_ref lhs(ast_m.mk_var(0, int_sort), ast_m);
+            expr_ref rhs(ast_m.mk_var(3, int_sort), ast_m);
+            lt_x0x3 = autil.mk_lt(lhs, rhs);
+        }
 
         num1 = autil.mk_numeral(rational(4), true);
         

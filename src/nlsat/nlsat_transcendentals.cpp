@@ -19,7 +19,6 @@ Author:
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include <cmath>
-#include <limits>
 
 namespace nlsat {
 
@@ -148,6 +147,12 @@ namespace nlsat {
             // exp(arg) >= 1+arg, i.e. NOT(val - arg < 1).
             literal lit = ~linear_literal(s, val, rational(1), arg, rational(-1), atom::LT, rational(1));
             s.mk_clause(1, &lit, nullptr);
+            // exp(arg) < 1 whenever arg < 0.
+            literal lits[2] = {
+                ~bound_literal(s, arg, atom::LT, rational(0)),
+                bound_literal(s, val, atom::LT, rational(1))
+            };
+            s.mk_clause(2, lits, nullptr);
             break;
         }
         case transcendental_op_kind::LOG: {
@@ -415,12 +420,9 @@ namespace nlsat {
 
     // atan2(y, x): the exact fact sign(val) == sign(y) whenever y != 0 (atan2's
     // quadrant selection never flips the sign of the result relative to y),
-    // checked first (exact, no floating point involved); then a float-based
-    // delta-check against std::atan2(y, x) with a widening box-exclusion
-    // fallback lemma (a 2D analogue of refine_app's box-exclusion, since
-    // atan2's branch cut near x<0,y~0 makes a closed-form enclosure like
-    // interval_eval substantially more involved) - ported from
-    // nla::transcendentals::check_atan2.
+    // checked first (exact, no floating point involved); then check the
+    // output against quadrant-wide bounds on a widened input box. These
+    // bounds are deliberately coarse, but are valid throughout the box.
     bool transcendentals::refine_atan2(unsigned idx) {
         atan2_app const& a = m_atan2_apps[idx];
         anum const& yv = s.value(a.y);
@@ -442,22 +444,9 @@ namespace nlsat {
             s.mk_clause(2, lits, nullptr);
             return true;
         }
-        rational yl, yu, xl, xu, vl, vu;
+        rational yl, yu, xl, xu;
         s.am().get_interval(yv, yl, yu, 64);
         s.am().get_interval(xv, xl, xu, 64);
-        s.am().get_interval(vv, vl, vu, 64);
-        double y = ((yl + yu) / rational(2)).get_double();
-        double x = ((xl + xu) / rational(2)).get_double();
-        double v = ((vl + vu) / rational(2)).get_double();
-        double fv = std::atan2(y, x);
-        if (!std::isfinite(fv))
-            return false; // (0,0): undefined, not this check's responsibility.
-        // Same generous margin as nla::transcendentals::check_atan2: atan2's
-        // derivative is unbounded near the branch cut (x < 0, y ~ 0), so a
-        // tight closed-form error bound is not attempted here.
-        double err = 4096.0 * std::numeric_limits<double>::epsilon() * std::max(1.0, std::fabs(fv));
-        if (std::fabs(v - fv) <= err)
-            return false;
         // Widen the (possibly zero-width) y/x intervals before excluding
         // them, same rationale and exponential-retry growth as refine_app.
         rational ymid = (yl + yu) / rational(2); if (ymid.is_neg()) ymid = -ymid;
@@ -467,16 +456,44 @@ namespace nlsat {
         rational rdelta = rational(1, 1000000) * scale * growth;
         rational ylo = yl - rdelta, yhi = yu + rdelta;
         rational xlo = xl - rdelta, xhi = xu + rdelta;
-        rational rv = to_rational(v);
+
+        // Use outward rational bounds for pi. A box crossing either axis can
+        // span the atan2 branch cut, so only refine boxes wholly within one
+        // open quadrant.
+        rational pi_lo("3.14159265358979"), pi_hi("3.14159265358980");
+        rational lower, upper;
+        if (ylo.is_pos() && xlo.is_pos()) {
+            lower = rational(0);
+            upper = pi_hi / rational(2);
+        }
+        else if (ylo.is_pos() && xhi.is_neg()) {
+            lower = pi_lo / rational(2);
+            upper = pi_hi;
+        }
+        else if (yhi.is_neg() && xhi.is_neg()) {
+            lower = -pi_hi;
+            upper = -pi_lo / rational(2);
+        }
+        else if (yhi.is_neg() && xlo.is_pos()) {
+            lower = -pi_hi / rational(2);
+            upper = rational(0);
+        }
+        else
+            return false;
+
+        bool below = s.am().lt(vv, lower.to_mpq());
+        bool above = s.am().gt(vv, upper.to_mpq());
+        if (!below && !above)
+            return false;
         literal_vector lemma;
         lemma.push_back(bound_literal(s, a.y, atom::LT, ylo));
         lemma.push_back(bound_literal(s, a.y, atom::GT, yhi));
         lemma.push_back(bound_literal(s, a.x, atom::LT, xlo));
         lemma.push_back(bound_literal(s, a.x, atom::GT, xhi));
-        if (v < fv)
-            lemma.push_back(~bound_literal(s, a.val, atom::LT, rv)); // val >= rv
+        if (below)
+            lemma.push_back(~bound_literal(s, a.val, atom::LT, lower)); // val >= lower
         else
-            lemma.push_back(~bound_literal(s, a.val, atom::GT, rv)); // val <= rv
+            lemma.push_back(~bound_literal(s, a.val, atom::GT, upper)); // val <= upper
         s.mk_clause(lemma.size(), lemma.data(), nullptr);
         ++m_retry_atan2[idx];
         return true;
@@ -542,4 +559,3 @@ namespace nlsat {
         return added;
     }
 }
-

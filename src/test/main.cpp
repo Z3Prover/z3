@@ -68,6 +68,7 @@
     X(list) \
     X(len_abs) \
     X(small_object_allocator) \
+    X(context_params) \
     X(timeout) \
     X(proof_checker) \
     X(proof_replay) \

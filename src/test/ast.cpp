@@ -17,6 +17,9 @@ Revision History:
 
 --*/
 #include "ast/ast.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include <sstream>
 
 static void tst1() {
     ast_manager m;
@@ -141,6 +144,38 @@ struct foo {
     bool           m_val2:1;
 };
 
+static void tst_smt2_format_order(char const* name, unsigned arity) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    sort* b = m.mk_bool_sort();
+    expr_ref a(m.mk_const(symbol("a"), b), m);
+    expr_ref c(m.mk_const(symbol("c"), b), m);
+    sort* domain[] = { b, b };
+    expr* args[] = { a, c };
+    func_decl_ref decl(m.mk_func_decl(symbol(name), arity, domain, b), m);
+    expr_ref e(m.mk_app(decl, arity, args), m);
+    smt2_pp_environment_dbg env(m);
+    params_ref p;
+    format_ns::format_ref result(format_ns::fm(m));
+    sbuffer<symbol> var_names;
+    mk_smt2_format(e, env, p, 0, nullptr, result, var_names);
+
+    app* composed = to_app(result->get_arg(1));
+    app* heading = to_app(composed->get_arg(0));
+    app* body = to_app(composed->get_arg(1));
+    app* elements = to_app(body->get_arg(0));
+    app* rest = to_app(elements->get_arg(strlen(name) > 16 ? 0 : 2));
+    app* close = to_app(elements->get_arg(elements->get_num_args() - 1));
+    ENSURE(heading->get_id() < rest->get_id());
+    ENSURE(heading->get_id() < body->get_id());
+    ENSURE(rest->get_id() < close->get_id());
+
+    std::ostringstream out;
+    ast_smt2_pp(out, e, env);
+    std::string expected = std::string("(") + name + " a" + (arity == 2 ? " c)" : ")");
+    ENSURE(out.str() == expected);
+}
+
 void tst_ast() {
     TRACE(ast, 
           tout << "sizeof(ast):  " << sizeof(ast) << "\n";
@@ -153,5 +188,9 @@ void tst_ast() {
     tst3();
     tst4();
     tst5();
+    tst_smt2_format_order("f", 1);
+    tst_smt2_format_order("f", 2);
+    tst_smt2_format_order("long_function_name", 1);
+    tst_smt2_format_order("long_function_name", 2);
 }
 

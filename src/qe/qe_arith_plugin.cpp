@@ -395,7 +395,9 @@ namespace qe {
                 }
             }
             else {
-                return m.mk_ite(m_arith.mk_le(mk_zero(e), e), e, m_arith.mk_uminus(e));
+                expr_ref condition(m_arith.mk_le(mk_zero(e), e), m);
+                expr_ref else_value(m_arith.mk_uminus(e), m);
+                return m.mk_ite(condition, e, else_value);
             }
         }
 
