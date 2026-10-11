@@ -3,6 +3,7 @@ rebase.cmd
 reports/
 crashes/
 *.pyc
+src/test/ff_benchmarks/
 *.pyo
 # Ignore callgrind files
 callgrind.out.*
