@@ -284,6 +284,90 @@ Two follow-ups make this concrete instead of abstract:
    open: for the checker to stay theory-agnostic, it cannot itself
    re-derive every theory's semantics).
 
+## Follow-up: running the checker on a real Z3-produced proof
+
+Everything above (and every proof derivation `Z3PulseProofCheckerTests
+.fst` exercises) is **hand-transcribed**: an engineer picks a theory
+lemma and writes the corresponding `proof` literal directly in F*. A
+natural next question: can the checker be run on a proof Z3 *itself*
+actually produced, rather than one written by hand to match?
+
+`tools/extract_z3_proof.py` answers this directly, using Z3's own
+Python front-end (`z3` / z3py):
+
+1. Builds a tiny example with proof production enabled
+   (`z3.set_param("proof", True)`) and refutes the negation of
+   `not(not(x)) == x`:
+   ```python
+   s.add(z3.Xor(z3.Not(z3.Not(x)), x)); s.check()   # unsat
+   pf = s.proof()                                    # a real ExprRef proof DAG
+   ```
+2. Walks down from the real proof's root (here, a top-level `mp` node
+   wrapping an `asserted` premise and an equational premise) to find
+   the first descendant whose own Z3 proof-rule kind is in the
+   equational fragment `Z3ProofTheory.fst` models
+   (`Z3_OP_PR_REFLEXIVITY`/`SYMMETRY`/`TRANSITIVITY`/`MONOTONICITY`/
+   `REWRITE`(`_STAR`)/`QUANT_INTRO`). For this example, real Z3
+   internal preprocessing happens to produce **exactly**:
+   ```
+   trans(
+     monotonicity( rewrite( not(not(x)) = x ),            (* a real not_not rewrite *)
+                   xor(not(not(x)), x) = xor(x, x) ),
+     rewrite( xor(x, x) = false ) )                        (* a real xor-self rewrite *)
+   ```
+   -- a `Trans(Congr(xor, ...), Rewrite(...))` shape that maps onto
+   `Z3ProofTheory.fst`'s calculus **exactly**, not approximately: every
+   `rewrite` leaf transcribed really is a `PR_REWRITE` leaf Z3's own
+   kernel accepted, every `monotonicity`/`transitivity` node really is
+   what `Congr`/`Trans` model.
+3. Pretty-prints that subtree, node-by-node (memoized by Z3's own
+   internal AST id, so hash-consed sharing is preserved), into literal
+   `sort`/`func_decl`/`expr`/`proof` F* definitions, producing a
+   complete, self-contained, auto-generated module
+   (`Z3ExtractedProof.fst`, committed as a snapshot of this run --
+   regenerate it by rerunning the script) ending in a Pulse `fn
+   check_extracted ()` that calls `check_proof`/`checker_accepts` on
+   the result.
+4. Shells out to `fstar.exe` (`--check` flag) to actually run the
+   Pulse-verified checker on the generated file and reports the
+   verdict back to the Python caller -- there is no other way to "run"
+   a Pulse program; F* type-checking a `#lang-pulse` `fn` body *is*
+   executing its verification.
+
+Any proof node *within* the extracted subtree that is not in the
+equational fragment (did not occur for this example, since the
+`trans`/`monotonicity`/`rewrite` nodes above have no further premises
+beyond other equational nodes/leaves) falls back to a documented,
+clearly-non-semantic representational bridge: `Rewrite a b` if the
+node's own conclusion already is an equation/`iff`, else `Rewrite F
+true_marker` for a bare formula `F` (`true_marker` is just an
+uninterpreted Bool constant -- this does not assert `F` is true in any
+interpretation, it only lets the structural checker treat "some other
+kind of derivation step occurred here" uniformly as one more trusted
+leaf, exactly as every `PR_REWRITE` leaf already is).
+
+**Result, actually run**: `python extract_z3_proof.py --check` ->
+`fstar.exe` reports `Verified module: Z3ExtractedProof / All
+verification conditions discharged successfully` -- the Pulse checker
+genuinely accepts this real, Z3-produced (not hand-authored) proof
+object, and (via `lemma_checker_sound`, transitively) its conclusion
+`xor(not(not(x)), x) = false` is sound given `all_leaves_sound`
+(discharged here the same way as any other leaf -- `not_not` and
+`xor`-self-elimination are exactly the kind of leaf
+`BOOL_ARITH_REWRITER_REPORT.md` already independently audits).
+
+**Scope of this follow-up, precisely**: a full `(get-proof)` output for
+a realistic `check-sat` is dominated by inferential rules (`asserted`,
+`hypothesis`, `mp`, `unit-resolution`, `th-lemma`, `hyper-resolve`, ...)
+this checker's calculus does not model at all (see
+`PROOF_JUSTIFICATIONS_REPORT.md`/`PREPROCESSING_PROOFS_REPORT.md` for
+the separate files that model some of those). This script does not
+attempt to convert those; it deliberately picks out the purely
+equational *subtree*, which is exactly this checker's stated scope.
+It is a genuine demonstration that real Z3-produced equational proof
+fragments fit this model exactly, not a general-purpose proof importer
+for arbitrary Z3 refutations.
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in
@@ -319,6 +403,8 @@ Two follow-ups make this concrete instead of abstract:
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
 | [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
+| [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object, extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
+| [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
