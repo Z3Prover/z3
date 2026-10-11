@@ -302,14 +302,12 @@ namespace smt {
             catch (ff::exhausted const &) { bv_fields.insert(s); ++fallbacks; }
         };
         obj_hashtable<enode> model_terms;
-        // NSB review: this was previous updated to use eqs and diseqs instead of 
-        // reproducing equalities from the E-graph.
-        // Accessing get_num_b_internalized and get_assigment is not following
-        // the conventions assumed for theory solvers to receive the solver state based
-        // on the assign_eh, new_eq_eh and new_diseq_eh callbacks.
-
-#if 0
-        // NSB: can we do this instead?
+        // Forward each relevant variable's equality to its current union-find
+        // root (not just the pairs recorded by new_eq_eh/new_diseq_eh): this
+        // surfaces ground simplifications - e.g. a variable merged to a
+        // constant root - that the incremental eqs/diseqs log alone would
+        // only pick up on a later call, which otherwise starves the Groebner
+        // engine of resolved facts and causes it to exhaust its budget.
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);
             if (!ctx.is_relevant(n))
@@ -322,14 +320,9 @@ namespace smt {
                 model_terms.insert(n);
                 terms.push_back(n);
             }
-        }
-
-        for (auto [v1, v2] : eqs) {
-            enode *n1 = get_enode(v1), *n2 = get_enode(v2);
-            if (bv_fields.contains(n1->get_sort()))
-                continue;
-            SASSERT(ctx.is_relevant(n1) && ctx.is_relevant(n2));
-            add(n1->get_sort(), n1->get_expr(), n2->get_expr(), true);
+            enode *root = n->get_root();
+            if (n != root && !bv_fields.contains(root->get_sort()))
+                add(n->get_sort(), n->get_expr(), root->get_expr(), true);
         }
 
         for (auto [v1, v2] : diseqs) {
@@ -340,44 +333,6 @@ namespace smt {
             add(n1->get_sort(), n1->get_expr(), n2->get_expr(), false);
         }
 
-#else
-
-        for (unsigned v = 0; v < get_num_vars(); ++v) {
-            enode *n = get_enode(v);
-            enode *root = n->get_root();
-            if (!ctx.is_relevant(n) && !ctx.is_relevant(root))
-                continue;
-            if (bv_fields.contains(n->get_sort())) 
-                continue;
-            problem(n->get_sort());
-            ptr_vector<enode> &terms = terms_by_sort.insert_if_not_there(n->get_sort(), ptr_vector<enode>());
-            // Record both the term and its root since either may be relevant.
-            for (enode *term : {n, root})
-                if (!model_terms.contains(term)) {
-                    model_terms.insert(term);
-                    terms.push_back(term);
-                }
-            // A class root may inherit its field variable from another member.
-            if (n != root)
-                add(n->get_sort(), n->get_expr(), root->get_expr(), true);
-        }
-        // Term ITEs need not own a field theory variable, so equality callbacks
-        // alone miss their selected-branch equalities. Retain the assigned atoms
-        // as premises, including disequalities chosen by the SAT search.
-
-        // NSB code review: the above comment doesnt make sense.
-        // The code below just looks for equality atoms that get assigned to true or false.
-        // The new_eq_eh and new_diseq_eh callbacks should be used for this.
-        for (unsigned i = 0; i < ctx.get_num_b_internalized(); ++i) {
-            expr *e = ctx.get_b_internalized(i);
-            expr *a, *b;
-            if (!m.is_eq(e, a, b) || !ff.is_ff(a) || !ctx.is_relevant(e))
-                continue;
-            lbool value = ctx.get_assignment(e);
-            if (value != l_undef)
-                add(a->get_sort(), a, b, value == l_true);
-        }
-#endif
         for (auto &kv : fields) {
             sort *s = &kv.get_key();
             auto &pp = kv.m_value;
