@@ -1,0 +1,7 @@
+(set-option :produce-proofs true)
+(declare-const a (Array Int Int))
+(declare-const i Int)
+(declare-const v Int)
+(assert (not (= (select (store a i v) i) v)))
+(check-sat)
+(get-proof)

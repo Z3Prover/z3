@@ -645,6 +645,21 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m().trace_stream().flush();
     }
 
+    // Tag an otherwise-untagged `BR_DONE` rewrite with a `family:decl-name`
+    // symbol identifying which theory rewriter's simplification fired
+    // (e.g. "basic:and", "arith:<=", "array:select", "datatype:is-cons",
+    // "finite_set:member", "seq:str.replace"), so that downstream proof
+    // consumers (e.g. the F* rewriter-correctness audits) can match this
+    // `PR_REWRITE` leaf against the specific proven lemma it corresponds
+    // to, instead of only an opaque, unlabeled `(s = t)` equation.
+    proof_ref tag_rewrite(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+        if (m().proofs_disabled())
+            return proof_ref(m());
+        app_ref old_t(m().mk_app(f, num, args), m());
+        std::string tag = std::string(m().get_family_name(f->get_family_id()).bare_str()) + ":" + f->get_name().bare_str();
+        return proof_ref(m().mk_rewrite(old_t, result, symbol(tag.c_str())), m());
+    }
+
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         br_status st = reduce_app_core(f, num, args, result);
@@ -660,6 +675,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                    tout << "---------->\n" << mk_ismt2_pp(result, m()) << "\n";);
             return st;
         }
+        if (st == BR_DONE && !result_pr)
+            result_pr = tag_rewrite(f, num, args, result);
         if (m_push_ite_bv || m_push_ite_arith) {
             if (st == BR_FAILED)
                 st = push_ite(f, num, args, result);
@@ -675,6 +692,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (st == BR_FAILED && f->get_family_id() == null_family_id && is_partial_eq(f)) {
             st = m_ar_rw.mk_app_core(f,  num, args, result);
         }
+        if (st == BR_DONE && !result_pr)
+            result_pr = tag_rewrite(f, num, args, result);
 
         CTRACE(th_rewriter_step, st != BR_FAILED,
                tout << f->get_name() << "\n";

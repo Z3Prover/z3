@@ -2437,6 +2437,8 @@ public:
     proof * mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof * p);
     proof * mk_distributivity(expr * s, expr * r);
     proof * mk_rewrite(expr * s, expr * t);
+    proof * mk_rewrite(expr * s, expr * t, symbol const & rule);
+    symbol get_rewrite_rule(proof const * p) const;
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs);

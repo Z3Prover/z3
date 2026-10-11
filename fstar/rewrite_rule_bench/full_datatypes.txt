@@ -1,0 +1,8 @@
+unsat
+((proof
+(let ((@x33 (monotonicity ((_ rewrite datatype:hd) (= (hd (cons x l)) x)) (= (= (hd (cons x l)) x) (= x x)))))
+(let ((@x37 (trans @x33 ((_ rewrite basic:=) (= (= x x) true)) (= (= (hd (cons x l)) x) true))))
+(let ((@x40 (monotonicity @x37 (= (not (= (hd (cons x l)) x)) (not true)))))
+(let ((@x44 (trans @x40 ((_ rewrite basic:not) (= (not true) false)) (= (not (= (hd (cons x l)) x)) false))))
+(mp (asserted (not (= (hd (cons x l)) x))) @x44 false)))))))
+

@@ -1,0 +1,7 @@
+(set-option :produce-proofs true)
+(declare-datatypes ((Lst 0)) (((nil) (cons (hd Int) (tl Lst)))))
+(declare-const x Int)
+(declare-const l Lst)
+(assert (not (= (hd (cons x l)) x)))
+(check-sat)
+(get-proof)

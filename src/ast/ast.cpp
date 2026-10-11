@@ -735,6 +735,9 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
     case PR_HYPER_RESOLVE: {
         return mk_proof_decl("hyper-res", k, num_parameters, params, num_parents);
     }
+    case PR_REWRITE: {
+        return mk_proof_decl("rewrite", k, num_parameters, params, num_parents);
+    }
     default:
         UNREACHABLE();
         return nullptr;
@@ -2952,6 +2955,28 @@ proof * ast_manager::mk_rewrite(expr * s, expr * t) {
     if (proofs_disabled())
         return nullptr;
     return mk_app(basic_family_id, PR_REWRITE, mk_eq(s, t));
+}
+
+proof * ast_manager::mk_rewrite(expr * s, expr * t, symbol const & rule) {
+    if (proofs_disabled())
+        return nullptr;
+    if (rule.is_null())
+        return mk_rewrite(s, t);
+    parameter p(rule);
+    expr * fact = mk_eq(s, t);
+    return mk_app(basic_family_id, PR_REWRITE, 1, &p, 1, &fact);
+}
+
+symbol ast_manager::get_rewrite_rule(proof const * p) const {
+    if (!p || !is_app(p))
+        return symbol::null;
+    app const * a = to_app(p);
+    if (a->get_decl_kind() != PR_REWRITE || a->get_decl()->get_num_parameters() == 0)
+        return symbol::null;
+    parameter const & prm = a->get_decl()->get_parameter(0);
+    if (!prm.is_symbol())
+        return symbol::null;
+    return prm.get_symbol();
 }
 
 proof * ast_manager::mk_oeq_rewrite(expr * s, expr * t) {
