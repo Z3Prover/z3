@@ -77,6 +77,6 @@ fn check_extracted ()
    type-check. *)
 #push-options "--z3rlimit 60 --fuel 4 --ifuel 4"
 let lemma_unmatched_count_cross_checked ()
-  : Lemma (FStar.List.Tot.length (collect_unmatched extracted_proof) == 1)
-  = assert_norm (FStar.List.Tot.length (collect_unmatched extracted_proof) == 1)
+  : Lemma (FStar.List.Tot.length (collect_unmatched extracted_proof) == 0)
+  = assert_norm (FStar.List.Tot.length (collect_unmatched extracted_proof) == 0)
 #pop-options

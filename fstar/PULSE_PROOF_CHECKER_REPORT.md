@@ -609,8 +609,8 @@ proof. `tools/extract_z3_proof.py` now closes that gap:
   so the log's "matched" vs. "unmatched" split is mechanically tied to
   `Z3PatternMatchedProofChecker.fst`'s soundness proof, not merely
   asserted by the extraction script.
-* **`interp` tagging.** The six matchers require `func_decl.interp =
-  Some op_X` (not just the right `decl_name`/arity); `Converter.func_decl`
+* **`interp` tagging.** The six theory-specific matchers require
+  `func_decl.interp = Some op_X` (not just the right `decl_name`/arity); `Converter.func_decl`
   now tags declarations matching one of the six known interpreted ops
   (`not`, `select`, `store`, `bvand`, `seq.++`) at their expected arity,
   leaving everything else `interp = None` (safely covered by
@@ -650,6 +650,27 @@ j))` discharged by `unit-resolution`), not a `PR_REWRITE` node at all,
 so the fact never even reaches the rewrite-matcher machinery; the one
 `Rewrite` leaf that *is* logged for this example is an unrelated
 trivial self-rewrite of the asserted hypothesis.
+
+## A seventh, general-purpose matcher: reflexivity
+
+`Rewrite s t` leaves where `s` and `t` are the *same* `expr` (e.g. the
+`select_store_diff` example above actually surfaces one: its sole
+`Rewrite` leaf is `(not (= i j)) == (not (= i j))`, Z3's own self-
+rewrite of the asserted hypothesis) are sound for *any* theory and
+*any* interpretation, by plain reflexivity of `==`: `eval i s rho` and
+`eval i t rho` apply the same `eval` function to the same argument
+`s` (since `s` and `t` are the same term), so they are trivially equal
+-- no theory lemma, sort check, or side condition is needed at all.
+This is now the seventh matcher, `reflexivity_leaf_ok`/
+`lemma_reflexivity_leaf_sound` (checked first, since it's the cheapest
+and most general), wired into `try_match_leaf`/`all_matched`/
+`collect_unmatched` exactly like the six theory-specific matchers, and
+mirrored in `classify_rewrite`'s Python side. Re-running the
+`select_store_diff` example confirms it: the previously-unmatched
+reflexive leaf is now reported `[reflexivity] (not (= i j)) == (not (=
+i j))`, with 0 leftover unmatched leaves, and the cross-check
+`assert_norm` still passes -- i.e. F\*'s real, proven
+`collect_unmatched` independently agrees.
 
 ## Scope and limitations
 

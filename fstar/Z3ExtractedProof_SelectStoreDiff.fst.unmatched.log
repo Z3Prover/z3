@@ -1,7 +1,9 @@
 Rewrite-rule matching log for assertions from tools\test_select_store_diff.smt2
 Total Rewrite leaves examined: 1
-Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): 0
-Unmatched (not verified by any known rewrite-rule lemma): 1
+Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): 1
+Unmatched (not verified by any known rewrite-rule lemma): 0
 
--- UNVERIFIED leaves (no matching lemma found) --
-  (not (= i j))  ==  (not (= i j))
+-- Matched leaves --
+  [reflexivity] (not (= i j))  ==  (not (= i j))
+
+(none -- every Rewrite leaf in this proof matched a verified lemma)

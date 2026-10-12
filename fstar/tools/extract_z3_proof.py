@@ -113,9 +113,13 @@ def _is_app_of(e, kind):
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
-    """Returns the matched pattern's name (one of the six below) if
-       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s six
+    """Returns the matched pattern's name (one of the seven below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s seven
        schemas for *arbitrary* sub-expressions, else `None`."""
+    # s = s (reflexivity): sound for any theory/sort, no theory lemma
+    # needed -- see Z3PatternMatchedProofChecker.fst section 4g.
+    if s.eq(t):
+        return "reflexivity"
     # select(store(a,i,x),i) = x
     if (_is_app_of(s, z3.Z3_OP_SELECT) and s.num_args() == 2 and
             _is_app_of(s.arg(0), z3.Z3_OP_STORE) and s.arg(0).num_args() == 3 and

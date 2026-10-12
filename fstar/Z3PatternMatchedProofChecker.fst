@@ -16,23 +16,25 @@
    *arbitrary* sub-expressions (not just literal named constants),
    automatically proving `all_leaves_sound` for that leaf by invoking
    the matching theory lemma on whatever values those sub-expressions
-   denote. Six patterns are covered this way (§4):
-   `select(store(a,i,x),i) = x`, `store(store(a,i,x),i,y) =
-   store(a,i,y)`, `store(a,i,select(a,i)) = a`
-   (`Z3ArrayTheory.lemma_select_store_same`/`lemma_store_same_twice`/
+   denote. Seven patterns are covered this way (§4):
+   `s = s` for any syntactically-identical `expr` `s` (reflexivity --
+   needs no theory lemma, no sort side condition, and holds for any
+   interpretation/theory whatsoever), `select(store(a,i,x),i) = x`,
+   `store(store(a,i,x),i,y) = store(a,i,y)`, `store(a,i,select(a,i)) =
+   a` (`Z3ArrayTheory.lemma_select_store_same`/`lemma_store_same_twice`/
    `lemma_store_redundant`), `(a++b)++c = a++(b++c)`
    (`Z3SeqRewrites.lemma_concat_assoc`), `not(not(x)) = x`
    (`Z3BoolRewriter.not_not`), and `bvand(y,y) = y`
    (`Z3BvRewriter.lemma_bvand_self`).
 
-   Not every `Rewrite` leaf fits one of these six schemas -- Z3's
+   Not every `Rewrite` leaf fits one of these seven schemas -- Z3's
    rewriters encode many more rewrite rules than this (or any single
    bounded) pattern library can realistically enumerate. Rather than
    either trusting the whole proof tree unconditionally
    (`all_leaves_sound`, the pre-existing baseline) or rejecting
    anything not recognized (`all_matched`, all-or-nothing, §6), §7
    adds a *partial* mode: `collect_unmatched` walks a proof tree and
-   returns the exact list of `Rewrite` leaves none of the six matchers
+   returns the exact list of `Rewrite` leaves none of the seven matchers
    recognize, and `lemma_partial_proof_true` proves the whole
    derivation's conclusion true *given only* that the collected
    leftover leaves are semantically sound -- i.e. every already-matched
@@ -231,8 +233,8 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
       lemma_eval_shape_args args' rho
 
 (* ----------------------------------------------------------------- *)
-(* 4. The matcher *library*: six structural recognizers, one per       *)
-(*    already-proven rewrite-rule lemma that (a) needs no semantic     *)
+(* 4. The matcher *library*: seven structural recognizers. Six are one  *)
+(*    per already-proven rewrite-rule lemma that (a) needs no semantic  *)
 (*    side condition beyond shapes (contrast `lemma_select_store_diff`,*)
 (*    `lemma_store_commute`: both require `i <> j`, which is            *)
 (*    unsatisfiable for any two distinct named constants under          *)
@@ -241,15 +243,18 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
 (*    interpreted ops `Z3InterpretedProofChecker.fst` already gives     *)
 (*    real semantics to (`select`/`store`/`not`/`plus`/`bvand`/`concat`,*)
 (*    i.e. no new `const`/`ite`/`map` operator semantics is added       *)
-(*    here). Every leftover array/seq/bool/bv lemma this file does      *)
-(*    *not* match (`lemma_select_const`, `lemma_select_ite`,            *)
+(*    here). The seventh, reflexivity (`s = s`), needs no theory lemma  *)
+(*    or interpreted op at all -- it is sound for *any* `expr`, under   *)
+(*    *any* interpretation, by construction (see §4g below for the      *)
+(*    justification). Every leftover array/seq/bool/bv lemma this file  *)
+(*    does *not* match (`lemma_select_const`, `lemma_select_ite`,       *)
 (*    `lemma_select_lambda`, `lemma_lambda_eta`, `lemma_select_map1/2`, *)
 (*    `lemma_map2_store/const/lambda`, `lemma_array_extensionality`,    *)
 (*    the `set_*` lemmas, `lemma_eq_const_*`, and anything from         *)
 (*    `Z3SeqAxioms`/`Z3SeqDerive`/`Z3ArithRewriter`/etc. not already     *)
 (*    wired into `the_interpretation`) is not silently ignored: §5-6    *)
-(*    below turn every `Rewrite` leaf that fails all six matchers into  *)
-(*    an explicit, collected *leftover proof obligation* instead.       *)
+(*    below turn every `Rewrite` leaf that fails all seven matchers     *)
+(*    into an explicit, collected *leftover proof obligation* instead.  *)
 (* ----------------------------------------------------------------- *)
 
 (* 4a. `select(store(a,idx,x),idx) = x` -- `Z3ArrayTheory.lemma_select_store_same`. *)
@@ -471,13 +476,40 @@ let lemma_bvand_self_leaf_sound (s t:expr)
       FStar.Classical.forall_intro aux
     | _ -> ()
 
+(* 4g. Reflexivity: `s = t` (as *syntactically identical* `expr`
+       values). Unlike the six theory-specific schemas above, this one
+       needs no sort/shape side condition and no theory lemma at all:
+       if a `Rewrite` leaf's two sides are literally the same `expr`,
+       then `eval i s rho` and `eval i t rho` are the same application
+       of `eval` to the same argument, so they are equal by plain
+       reflexivity of `==` -- true for *any* interpretation `i`, *any*
+       theory/sort, and *any* environment `rho`, not just the fixed
+       `the_interpretation` this file otherwise targets. This covers
+       `Rewrite` leaves Z3 emits for no-op normalization steps (the
+       rewriter re-derives an already-fully-simplified term) and is
+       the simplest possible instance of the general principle that a
+       `Rewrite` leaf asserts an *equation*, and every equation is
+       trivially valid when both sides denote the same term. *)
+
+let reflexivity_leaf_ok (s t:expr) : bool = s = t
+
+let lemma_reflexivity_leaf_sound (s t:expr)
+  : Lemma (requires reflexivity_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = let aux (rho:env value)
+      : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+      = ()
+    in
+    FStar.Classical.forall_intro aux
+
 (* ----------------------------------------------------------------- *)
 (* 5. The combinator: try every matcher above in turn, and the          *)
 (*    corresponding "matched implies sound" lemma (a case split over    *)
-(*    the six, invoking whichever matcher actually fired).              *)
+(*    the seven, invoking whichever matcher actually fired).            *)
 (* ----------------------------------------------------------------- *)
 
 let try_match_leaf (s t:expr) : bool =
+  reflexivity_leaf_ok s t ||
   select_store_same_leaf_ok s t ||
   store_same_twice_leaf_ok s t ||
   store_redundant_leaf_ok s t ||
@@ -488,7 +520,8 @@ let try_match_leaf (s t:expr) : bool =
 let lemma_try_match_leaf_sound (s t:expr)
   : Lemma (requires try_match_leaf s t)
           (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
-  = if select_store_same_leaf_ok s t then lemma_select_store_same_leaf_sound s t
+  = if reflexivity_leaf_ok s t then lemma_reflexivity_leaf_sound s t
+    else if select_store_same_leaf_ok s t then lemma_select_store_same_leaf_sound s t
     else if store_same_twice_leaf_ok s t then lemma_store_same_twice_leaf_sound s t
     else if store_redundant_leaf_ok s t then lemma_store_redundant_leaf_sound s t
     else if concat_assoc_leaf_ok s t then lemma_concat_assoc_leaf_sound s t
@@ -498,7 +531,7 @@ let lemma_try_match_leaf_sound (s t:expr)
 (* ----------------------------------------------------------------- *)
 (* 6. "Fully matched" mode: a decidable whole-proof-tree checker         *)
 (*    mirroring `all_leaves_sound`'s own recursion, requiring *every*    *)
-(*    `Rewrite` leaf to fit one of the six schemas above.                *)
+(*    `Rewrite` leaf to fit one of the seven schemas above.              *)
 (* ----------------------------------------------------------------- *)
 
 let rec all_matched (p:proof) : Tot bool (decreases p) =
