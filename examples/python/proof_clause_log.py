@@ -20,6 +20,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import warnings
 
 import z3
 
@@ -30,6 +31,7 @@ from proof_certificate import (
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _RESULTS = ("sat", "unsat", "unknown")
+_TRIM_THRESHOLD = 1_000_000
 
 
 def run_clause_log(z3_executable, assertion_text, timeout=None):
@@ -82,6 +84,96 @@ def _sexpressions(text):
     if len(stack) != 1:
         raise ProofExportError("unterminated clause log")
     return stack[0]
+
+
+def _dependency_numbers(sexpr):
+    if (not isinstance(sexpr, list) or len(sexpr) < 2 or sexpr[0] != "deps"
+            or any(not isinstance(value, str) or not value.isdecimal() for value in sexpr[1:])):
+        raise ProofExportError("malformed clause dependency annotation")
+    return int(sexpr[1]), tuple(int(value) for value in sexpr[2:])
+
+
+def _dependency_core(text):
+    """Select the final empty clause's dependency closure, keeping proof hints."""
+    commands = _sexpressions(text)
+    definitions, entries = {}, {}
+    last = None
+    for command in commands:
+        if not command:
+            raise ProofExportError("empty command in trimmed clause log")
+        if command[0] == "define-const":
+            if len(command) != 4 or not isinstance(command[1], str) or command[1] in definitions:
+                raise ProofExportError("malformed or duplicate trimmed-log definition")
+            definitions[command[1]] = command
+        elif command[0] in ("assume", "infer"):
+            if len(command) < 2 or not isinstance(command[-1], str):
+                raise ProofExportError("missing trimmed-log dependency annotation")
+            definition = definitions.get(command[-1])
+            if definition is None or definition[2] != "Proof":
+                raise ProofExportError("undefined trimmed-log dependency annotation")
+            ident, dependencies = _dependency_numbers(definition[3])
+            if ident in entries:
+                raise ProofExportError("duplicate clause dependency identifier")
+            entries[ident] = command, dependencies
+            last = ident
+        elif command[0] != "declare-fun":
+            raise ProofExportError("unsupported trimmed-log command: %s" % command[0])
+    if last is None or entries[last][0][0] != "infer" or len(entries[last][0]) != 3:
+        raise ProofExportError("trimmed clause log has no final empty clause")
+    needed, visiting, ordered, pending = set(), set(), [], [(last, False)]
+    while pending:
+        ident, expanded = pending.pop()
+        if expanded:
+            visiting.remove(ident)
+            needed.add(ident)
+            ordered.append(ident)
+        elif ident not in needed:
+            if ident not in entries:
+                raise ProofExportError("undefined clause dependency: %d" % ident)
+            if ident in visiting:
+                raise ProofExportError("cyclic clause dependencies")
+            visiting.add(ident)
+            pending.append((ident, True))
+            pending.extend((dep, False) for dep in reversed(entries[ident][1]))
+    required, pending = set(), [entries[ident][0] for ident in needed]
+    while pending:
+        part = pending.pop()
+        if isinstance(part, list):
+            pending.extend(part)
+        elif part in definitions and part not in required:
+            required.add(part)
+            pending.append(definitions[part][3])
+
+    def render(expr):
+        return "(" + " ".join(render(arg) if isinstance(arg, list) else arg for arg in expr) + ")"
+
+    result = []
+    for command in commands:
+        if command[0] == "declare-fun":
+            result.append(render(command))
+        elif command[0] == "define-const" and command[1] in required:
+            result.append(render(command))
+    result.extend(render(entries[ident][0]) for ident in ordered)
+    return "\n".join(result) + "\n"
+
+
+def trim_clause_log(z3_executable, text, timeout=None):
+    """Reduce large logs with untrusted native dependencies; replay checks every retained step."""
+    if len(text) < _TRIM_THRESHOLD:
+        return text
+    with tempfile.TemporaryDirectory(prefix="z3_clause_trim_") as directory:
+        source = Path(directory) / "proof.smt2"
+        source.write_text(text, encoding="utf-8")
+        try:
+            run = subprocess.run([str(z3_executable), "-smt2", "solver.proof.trim=true", str(source)],
+                                 capture_output=True, text=True, timeout=timeout)
+        except OSError as error:
+            raise ProofExportError("cannot run native proof trimming: %s" % error) from error
+        if run.returncode or "(error" in run.stdout:
+            raise ProofExportError("native proof trimming failed: %s" % (run.stderr + run.stdout)[-2000:])
+        if run.stderr.strip():
+            warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
+        return _dependency_core(run.stdout)
 
 
 def _symbol(token):
@@ -209,7 +301,16 @@ class _Terms:
             pairs = [(_number(arguments[index]), self.build(arguments[index + 1]))
                      for index in range(0, len(arguments), 2)]
         elif name in _LITERAL_HINTS:
-            pairs = [(Fraction(1), self.build(argument)) for argument in arguments]
+            pairs = []
+            for argument in arguments:
+                auxiliary = self.hints.get(argument) if isinstance(argument, str) else argument
+                if name == "euf" and isinstance(auxiliary, list) and auxiliary[:1] in (["cc"], ["comm"]):
+                    if len(auxiliary) != 2 or not z3.is_eq(self.build(auxiliary[1])):
+                        raise ProofExportError("malformed euf congruence hint")
+                    # These are proof annotations, not premises. Lean must derive
+                    # the contradiction from the Boolean literals alone.
+                    continue
+                pairs.append((Fraction(1), self.build(argument)))
         else:
             raise ProofExportError("unsupported clause-log hint: %s" % name)
         if not pairs and name != "smt":
@@ -218,6 +319,13 @@ class _Terms:
             if not z3.is_bool(literal):
                 raise ProofExportError("%s hint literal is not Boolean" % name)
         return name, pairs
+
+    def dependencies(self, sexpr):
+        if isinstance(sexpr, str) and sexpr in self.hints:
+            hint = self.hints[sexpr]
+            if isinstance(hint, list) and hint[:1] == ["deps"]:
+                return _dependency_numbers(hint)
+        return None
 
 
 def _strip(literal):
@@ -340,15 +448,19 @@ class _Normalizer:
     """Canonical keys for Boolean formulas over linear atoms, used to match assumptions."""
 
     def __init__(self):
-        self.cache = {}  # AST identifier -> (expression kept alive, key)
+        self.cache = {}  # (AST identifier, polarity) -> (expression kept alive, key)
 
     def key(self, expr):
-        cached = self.cache.get(expr.get_id())
-        if cached is None:
-            cached = self.cache[expr.get_id()] = (expr, self._key(expr, True))
-        return cached[1]
+        return self._key(expr, True)
 
     def _key(self, expr, polarity):
+        index = expr.get_id(), polarity
+        cached = self.cache.get(index)
+        if cached is None:
+            cached = self.cache[index] = (expr, self._compute_key(expr, polarity))
+        return cached[1]
+
+    def _compute_key(self, expr, polarity):
         kind = expr.decl().kind()
         if kind == z3.Z3_OP_NOT:
             return self._key(expr.arg(0), not polarity)
@@ -358,12 +470,22 @@ class _Normalizer:
             else:
                 tag = "or"
             parts = set()
+            identity = ("true",) if tag == "and" else ("false",)
+            absorbing = ("false",) if tag == "and" else ("true",)
             for child in expr.children():
                 child_key = self._key(child, polarity)
+                if child_key == absorbing:
+                    return absorbing
+                if child_key == identity:
+                    continue
                 if child_key[0] == tag:
                     parts.update(child_key[1])
                 else:
                     parts.add(child_key)
+            if not parts:
+                return identity
+            if len(parts) == 1:
+                return next(iter(parts))
             return (tag, tuple(sorted(parts, key=repr)))
         if kind == z3.Z3_OP_IMPLIES:
             return self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)
@@ -416,13 +538,21 @@ class _Replay:
         self.dag = DagBuilder()
         self.assertion_nodes = [self.dag.expression(expr) for expr in self.assertions]
         self.normalizer = _Normalizer()
+        self.assertions_by_id = {expr.get_id(): expr for expr in self.assertions}
+        self.assumption_sources = [(assertion, conjunct, path) for assertion in self.assertions
+                                   for conjunct, path in _conjuncts(assertion)]
+        self.assumptions_by_key = None
         self.clauses = {}        # entry id -> (proof node, literal expressions)
+        self.clause_keys = {}    # entry id -> precomputed literal keys for propagation
+        self.literal_keys = {}   # AST id -> (literal kept alive, key)
         self.by_key = {}         # frozenset of literal keys -> [entry ids]
         self.occurrences = {}    # atom id -> set of entry ids
         self.units = {}          # atom id -> entry id of a unit clause
         self.empty = set()       # entry ids of empty clauses
         self.next_entry = 0
         self.root = None
+        self.logged_clauses = {}
+        self.trimmed = False
         self.asserted = self.dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
         self.hypothesis = self.dag.rule(z3.Z3_OP_PR_HYPOTHESIS, "hypothesis", 0)
         self.lemma = self.dag.rule(z3.Z3_OP_PR_LEMMA, "lemma", 1)
@@ -431,6 +561,7 @@ class _Replay:
         self.and_elim = self.dag.rule(z3.Z3_OP_PR_AND_ELIM, "and-elim", 1)
         self.def_axiom = self.dag.rule(z3.Z3_OP_PR_DEF_AXIOM, "def-axiom", 0)
         self.gates = {}          # atom id -> atom, kept alive because z3 reuses identifiers
+        self.gate_entries = {}   # atom id -> independently justified gate clauses
         self.alive = []          # every literal referenced by identifier-keyed tables
 
     # -- Boolean gate definitions ----------------------------------------
@@ -467,9 +598,10 @@ class _Replay:
             else:
                 continue
             pending.extend(args)
+            entries = self.gate_entries[atom.get_id()] = []
             for clause in clauses:
                 node = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(clause))])
-                self.add_clause(node, clause)
+                entries.append(self.add_clause(node, clause))
 
     # -- clause database -------------------------------------------------
 
@@ -480,12 +612,20 @@ class _Replay:
             return literals[0]
         return z3.Or(*literals)
 
+    def literal_key(self, literal):
+        ident = literal.get_id()
+        cached = self.literal_keys.get(ident)
+        if cached is None:
+            cached = self.literal_keys[ident] = literal, _key(literal)
+        return cached[1]
+
     def add_clause(self, node, literals):
         entry = self.next_entry
         self.next_entry += 1
         self.alive.extend(literals)
         self.clauses[entry] = (node, literals)
-        keys = frozenset(_key(literal) for literal in literals)
+        self.clause_keys[entry] = tuple(self.literal_key(literal) for literal in literals)
+        keys = frozenset(self.clause_keys[entry])
         self.by_key.setdefault(keys, []).append(entry)
         for atom, _ in keys:
             self.occurrences.setdefault(atom, set()).add(entry)
@@ -496,12 +636,13 @@ class _Replay:
         return entry
 
     def delete_clause(self, literals):
-        keys = frozenset(_key(literal) for literal in literals)
+        keys = frozenset(self.literal_key(literal) for literal in literals)
         entries = self.by_key.get(keys)
         if not entries:
             return  # Deleting an absent clause does not affect soundness.
         entry = entries.pop()
         _, stored = self.clauses.pop(entry)
+        self.clause_keys.pop(entry)
         self.empty.discard(entry)
         for atom, _ in keys:
             self.occurrences[atom].discard(entry)
@@ -526,23 +667,25 @@ class _Replay:
         formula = self.clause_formula(literals)
         if _tautology(literals):
             return self.dag.node(self.def_axiom, [self.dag.expression(formula)])
+        assertion = self.assertions_by_id.get(formula.get_id())
+        if assertion is not None:
+            return self.dag.node(self.asserted, [self.dag.expression(assertion)])
         target = self.normalizer.key(formula)
-        for assertion in self.assertions:
-            if assertion.get_id() == formula.get_id():
-                return self.dag.node(self.asserted, [self.dag.expression(assertion)])
-        for assertion in self.assertions:
-            for conjunct, path in _conjuncts(assertion):
-                if self.normalizer.key(conjunct) == target:
-                    return self._derive_assumption(assertion, path, conjunct, formula)
-        for assertion in self.assertions:
-            for conjunct, path in _conjuncts(assertion):
-                if self._valid(conjunct == formula):
-                    return self._derive_assumption(assertion, path, conjunct, formula)
-        for assertion in self.assertions:
-            for conjunct, path in _conjuncts(assertion):
-                if self._valid(z3.Implies(conjunct, formula)):
-                    source = self._derive_assumption(assertion, path, conjunct, conjunct)
-                    return self._cnf_lemma([(source, conjunct)], literals)
+        if self.assumptions_by_key is None:
+            self.assumptions_by_key = {}
+            for source in self.assumption_sources:
+                self.assumptions_by_key.setdefault(self.normalizer.key(source[1]), source)
+        source = self.assumptions_by_key.get(target)
+        if source is not None:
+            assertion, conjunct, path = source
+            return self._derive_assumption(assertion, path, conjunct, formula)
+        for assertion, conjunct, path in self.assumption_sources:
+            if self._valid(conjunct == formula):
+                return self._derive_assumption(assertion, path, conjunct, formula)
+        for assertion, conjunct, path in self.assumption_sources:
+            if self._valid(z3.Implies(conjunct, formula)):
+                source = self._derive_assumption(assertion, path, conjunct, conjunct)
+                return self._cnf_lemma([(source, conjunct)], literals)
         # Preprocessing may combine several assertions, for example into the empty clause.
         if self.assertions and self._valid(z3.Implies(z3.And(*self.assertions), formula)):
             sources = [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
@@ -575,7 +718,7 @@ class _Replay:
 
     # -- inferences ------------------------------------------------------
 
-    def infer(self, literals, hint):
+    def infer(self, literals, hint, dependencies=None):
         """Justify one logged clause.
 
         farkas, bound, implied-eq, and euf hints list literals that are jointly
@@ -587,7 +730,7 @@ class _Replay:
         the lemma and the clause database by unit propagation.
         """
         if hint is None:
-            return self.rup(literals)
+            return self.rup(literals, dependencies)
         name, pairs = hint
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
@@ -603,31 +746,55 @@ class _Replay:
                               else [_complement(literal) for _, literal in pairs])
             declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, parameters)
             lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
-        if {_key(literal) for literal in lemma_literals} == {_key(literal) for literal in literals}:
+        if {self.literal_key(literal) for literal in lemma_literals} == {self.literal_key(literal) for literal in literals}:
             return lemma, lemma_literals
         entry = self.add_clause(lemma, lemma_literals)
         try:
-            return self.rup(literals)
+            return self.rup(literals, None if dependencies is None else dependencies + [entry])
         finally:
             self.delete_clause(self.clauses[entry][1]) if entry in self.clauses else None
 
-    def rup(self, literals):
+    def rup(self, literals, dependencies=None):
         """Derive a clause by unit propagation, as hypotheses, resolutions, and a lemma."""
         assigned = {}  # atom id -> (polarity, proof node)
         queue = []
+        units, empty, occurrences = self.units, self.empty, self.occurrences
+        if dependencies is not None:
+            units, empty, occurrences = {}, set(), {}
+            selected = set(dependencies)
+            pending = ([self.literal_key(literal)[0] for literal in literals]
+                       + [key[0] for entry in selected for key in self.clause_keys[entry]])
+            seen = set()
+            while pending:
+                atom = pending.pop()
+                if atom in seen:
+                    continue
+                seen.add(atom)
+                for entry in self.gate_entries.get(atom, ()):
+                    if entry not in selected:
+                        selected.add(entry)
+                        pending.extend(key[0] for key in self.clause_keys[entry])
+            for entry in sorted(selected):
+                _, stored = self.clauses[entry]
+                if not stored:
+                    empty.add(entry)
+                elif len(stored) == 1:
+                    units.setdefault(self.clause_keys[entry][0][0], entry)
+                for atom, _ in self.clause_keys[entry]:
+                    occurrences.setdefault(atom, set()).add(entry)
 
         def assign(atom, polarity, node):
             assigned[atom] = (polarity, node)
             queue.append(atom)
 
         conflict = None
-        if self.empty:
-            conflict = self.clauses[min(self.empty)][0]
+        if empty:
+            conflict = self.clauses[min(empty)][0]
         for literal in literals:
             if conflict is not None:
                 break
             complement = _complement(literal)
-            atom, polarity = _key(complement)
+            atom, polarity = self.literal_key(complement)
             node = self.dag.node(self.hypothesis, [self.dag.expression(complement)])
             if atom in assigned:
                 if assigned[atom][0] != polarity:
@@ -636,22 +803,21 @@ class _Replay:
                     break
                 continue
             assign(atom, polarity, node)
-        for atom, entry in list(self.units.items()):
+        for atom, entry in list(units.items()):
             if conflict is not None:
                 break
             node, stored = self.clauses[entry]
-            polarity = _key(stored[0])[1]
+            polarity = self.clause_keys[entry][0][1]
             if atom not in assigned:
                 assign(atom, polarity, node)
             elif assigned[atom][0] != polarity:
                 conflict = self._resolve(node, [assigned[atom][1]], stored, [])
         while conflict is None and queue:
             atom = queue.pop()
-            for entry in list(self.occurrences.get(atom, ())):
+            for entry in list(occurrences.get(atom, ())):
                 node, stored = self.clauses[entry]
                 false_nodes, open_literal, open_key = [], None, None
-                for literal in stored:
-                    key = _key(literal)
+                for literal, key in zip(stored, self.clause_keys[entry]):
                     state = assigned.get(key[0])
                     if state is None:
                         if open_key is not None and open_key != key:
@@ -692,6 +858,16 @@ class _Replay:
             if not command or not isinstance(command[0], str):
                 raise ProofExportError("malformed clause log command")
             head = command[0]
+            annotation, dependencies = None, None
+            if head in ("assume", "infer") and len(command) > 1:
+                annotation = terms.dependencies(command[-1])
+                if annotation is not None:
+                    self.trimmed = True
+                    ident, ids = annotation
+                    if ident in self.logged_clauses or any(i not in self.logged_clauses for i in ids):
+                        raise ProofExportError("duplicate or forward clause dependency")
+                    dependencies = [self.logged_clauses[i] for i in ids]
+                    command = command[:-1]
             if head == "declare-fun":
                 if len(command) != 4 or not isinstance(command[1], str):
                     raise ProofExportError("malformed declaration in the clause log")
@@ -709,7 +885,7 @@ class _Replay:
                 node = self.assume(literals)
                 for literal in literals:
                     self.ensure_gates(literal)
-                self.add_clause(node, literals)
+                entry = self.add_clause(node, literals)
             elif head == "infer":
                 if len(command) < 2:
                     raise ProofExportError("malformed inference in the clause log")
@@ -717,16 +893,18 @@ class _Replay:
                 literals = [terms.build(part) for part in command[1:-1]]
                 for literal in literals + ([pair[1] for pair in hint[1]] if hint else []):
                     self.ensure_gates(literal)
-                node, stored = self.infer(literals, hint)
+                node, stored = self.infer(literals, hint, dependencies)
                 if not literals:
                     self.root = node
-                self.add_clause(node, stored)
+                entry = self.add_clause(node, stored)
             elif head == "del":
                 self.delete_clause([terms.build(part) for part in command[1:]])
             elif head in ("proofs", "set-option", "set-info", "set-logic"):
                 continue
             else:
                 raise ProofExportError("unsupported clause log command: %s" % head)
+            if annotation is not None:
+                self.logged_clauses[annotation[0]] = entry
         if self.root is None:
             # A contradiction found while asserting or during preprocessing is not
             # logged as an inference, and the log may even be empty. Derive the
@@ -735,7 +913,8 @@ class _Replay:
                 self.root, _ = self.rup([])
             except ProofExportError:
                 self.root = self.assume([])
-        return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root)
+        return self.dag.certificate(self.source, self.fragment, self.assertion_nodes, self.root,
+                                    compact=self.trimmed)
 
 
 def build_certificate(source, fragment, assertions, text, context):

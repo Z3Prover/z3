@@ -69,6 +69,10 @@ checks.** Add the seven `.smt2` examples from
 | UF | `20170428-Barrett-cdt-cade2015-nada-afp-abstract_completeness-x2015_09_10_16_59_39_090_1045351.smt_in.smt2` |
 | UFLIA | `boogie-AdditiveMethods_AdditiveMethods..ctor.smt2` |
 
+The LassoRanker QF_LRA example is now available as the optional, manual
+certification benchmark described below; the other six examples remain
+planned extensions. It is not run by PR CI or scheduled/nightly builds.
+
 These examples require support beyond Boolean variables: equality and
 uninterpreted functions, linear real or integer arithmetic, and, for UF and
 UFLIA, quantifiers. Before enabling each file, check that Z3 can read it,
@@ -536,6 +540,50 @@ two unsat instances, both trivial), `smt` hints have not been observed on the
 inputs tried, and QF_LIA needs `cut` hints that the C++ checker never accepts.
 
 ## Arithmetic proof infrastructure
+
+### Real QF_LRA hardening (2026-10-07)
+
+The planned LassoRanker example contains 1,463 Real variables and 105 original
+assertions. Its source is pinned in z3test under
+`regressions/proofs/lean/real/`, unchanged and with its upstream license.
+A proof-free run reports unsat in about one second, while the no-preprocessing
+clause log contains about 600,000 inferences and 39 MB of text. Replaying the
+whole log in Python exceeds the small-canary budget.
+
+The exporter now reduces large logs using native dependency annotations,
+validates the dependency graph, and reconstructs the selected refutation.
+Every retained step is still checked, and all original assertions remain in
+the certificate. Cached normalization and literal keys avoid repeated AST
+traversals. EUF cc/comm annotations are recognized without turning their
+conclusions into assumptions.
+
+This exercise exposed a native proof-trimmer defect: when adding a clause
+with one unassigned literal, it failed to check whether another literal was
+already true. It could therefore propagate from a satisfied clause and
+produce an invalid dependency core. The minimized case is `p`, `not q`,
+`p or q or r`, `not r`, `not p`; only the final `not p` contradicts the
+preceding assertions. The trimmer must not propagate `r` from the satisfied
+third clause. Native and external replay regressions cover this case.
+
+The reconstructed certificate has about 67,000 nodes and 41,000 proof steps,
+so a single deeply nested Lean term is unsuitable. Arithmetic proof DAGs are
+outlined at shared subproofs into independently checked lemmas with explicit
+input and hypothesis scopes. Large arithmetic rewrites normalize each atom
+separately, then reconstruct and/or rearrangements over abstract propositions.
+This avoids sending large Boolean equivalences back through arithmetic search.
+
+The complete reconstructed LassoRanker refutation was accepted by the pinned
+Lean kernel with `--trust=0` and warnings treated as errors. The final matrix
+run reports `lean-verified`, with 109 seconds for certificate production and
+830 seconds for reconstruction and Lean checking. All 105 original assertions
+and the input, raw log, reduced log, certificate, and checked proof hashes were
+retained and verified. The generated source is approximately 89 MB, so
+this is a correctness milestone, not yet an efficient large-benchmark checker.
+Because this cost is unsuitable for routine CI, LassoRanker is manual-only:
+neither PR CI nor scheduled/nightly builds run it. An explicit invocation of
+the matrix runner selects the file and its production/checking budgets.
+Automatic CI retains the small examples and minimized regressions, with their
+existing budgets and strict rejection policy unchanged.
 
 The arithmetic proof infrastructure is slightly broken and must be repaired
 before milestone 3 can claim checked arithmetic. Known defects:

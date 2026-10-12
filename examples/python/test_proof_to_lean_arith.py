@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import z3
 
@@ -285,6 +286,75 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.check(source)
+
+    def test_native_dependency_core_is_checked_in_lean(self):
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            self.check(Z3TEST_LRA_INPUTS["lra_farkas"])
+
+    def test_outlined_proofs_preserve_original_assertions_and_scopes(self):
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0):
+            for name in ("lra_farkas", "lra_fractions", "lra_boolean_structure", "lra_split_assertion"):
+                with self.subTest(input=name):
+                    self.check(Z3TEST_LRA_INPUTS[name])
+
+    def test_normalized_rewrites_are_checked_atom_by_atom(self):
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
+            for name in ("lra_farkas", "lra_boolean_structure", "lra_split_assertion"):
+                with self.subTest(input=name):
+                    self.check(Z3TEST_LRA_INPUTS[name])
+
+    def test_large_rewrite_is_structural_not_a_truth_table(self):
+        context = z3.Context()
+        variables = [z3.Real("x%d" % i, context) for i in range(24)]
+        atoms = [z3.Not(var < 0) if i % 3 == 0 else var <= 0
+                 for i, var in enumerate(variables)]
+        original = z3.Or(z3.And(*atoms[:12]), z3.And(*atoms[12:]))
+        rewritten = z3.Or(z3.And(*reversed(atoms[12:])), z3.And(*reversed(atoms[:12])))
+        assertions = [original, z3.Not(rewritten)]
+        solver = z3.Solver(ctx=context)
+        solver.add(assertions)
+        source = solver.to_smt2()
+        dag = proof_certificate.DagBuilder()
+        roots = [dag.expression(assertion) for assertion in assertions]
+        asserted = dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
+        first = dag.node(asserted, [roots[0]])
+        rewrite = dag.node(dag.rule(z3.Z3_OP_PR_REWRITE, "rewrite", 0),
+                           [dag.expression(original == rewritten)])
+        mp = dag.node(dag.rule(z3.Z3_OP_PR_MODUS_PONENS, "mp", 2),
+                      [first, rewrite, dag.expression(rewritten)])
+        negated = dag.node(asserted, [roots[1]])
+        root = dag.node(dag.rule(z3.Z3_OP_PR_UNIT_RESOLUTION, "unit-resolution", 2),
+                        [mp, negated, dag.expression(z3.BoolVal(False, context))])
+        certificate = dag.certificate(source, "qf_lra", roots, root)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("normalized_rewrite_", text)
+        self.assertNotIn("of_decide_eq_true", text)
+        with tempfile.TemporaryDirectory() as directory:
+            proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
+
+    def test_euf_congruence_annotation_cannot_supply_a_missing_equality(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (<= x 0.0))(assert (not (<= y 0.0)))")
+        log = """\
+(declare-fun x () Real)
+(declare-fun y () Real)
+(define-const a Bool (<= x 0.0))
+(define-const b Bool (<= y 0.0))
+(define-const c Proof (cc (= a b)))
+(assume a)
+(assume (not b))
+(define-const h Proof (euf a (not b) c))
+(infer (not a) b h)
+(infer rup)
+"""
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, log, context)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            with self.assertRaises(subprocess.CalledProcessError):
+                proof_to_lean.check_and_write(source, certificate, output)
+            self.assertFalse(output.exists())
 
     def test_invalid_implied_equality_never_publishes_a_proof(self):
         source = ("(declare-const x Real)(declare-const y Real)"

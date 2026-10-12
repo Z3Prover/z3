@@ -168,6 +168,18 @@ step:
     empty clause, because the contradiction was found while asserting, the
     empty clause is derived from the assumptions or tied to the assertions.
 
+Logs of at least 1 MB are reduced with Z3's native proof trimmer before replay.
+The exporter follows the final empty clause's dependency graph, checks it for
+missing references and cycles, and replays every retained inference using the
+listed premises and independently proved Boolean gate clauses. These
+dependencies are untrusted hints, not proof rules. Incorrect trimming must
+fail replay or Lean checking. The compact exported DAG keeps every original
+assertion, even if its proof is outside the selected refutation.
+
+EUF hints can also contain cc/comm congruence annotations. These are not
+additional assumptions: the exported lemma contains only the actual Boolean
+literals, and Lean independently proves their inconsistency.
+
 The exporter's own checks only fail early with a clear message; Lean remains
 the arbiter.
 
@@ -293,6 +305,10 @@ this encoding.
 Each th-lemma and each rewrite whose equivalence mentions arithmetic is proved
 in a private theorem by unfolding its definitions and calling grind, whose
 linear-arithmetic and propositional procedures produce a kernel-checked proof.
+Large rewrites first prove a normalized form for each arithmetic atom, then
+prove the Boolean equivalence separately over abstract propositions. And/or
+rearrangements use projections and case analysis instead of enumerating all
+truth assignments or repeatedly invoking arithmetic during Boolean search.
 Before Lean runs, the reconstructor re-derives the recorded farkas and bound
 combination with exact rationals and rejects coefficients that do not refute
 the lemma's literals. grind does not always combine equalities whose constants
@@ -305,6 +321,13 @@ Quot.sound, so arithmetic theorems necessarily report those three standard
 axioms. The propositional slice remains axiom-free. Long refutations elaborate
 under set_option maxRecDepth 100000; this is an elaborator limit, not a trust
 setting.
+
+Arithmetic DAGs with more than 2,000 proof steps are split into separately
+checked lemmas at shared subproofs. Each lemma receives the original assertions
+as one conjunction and abstracts its open hypotheses explicitly. The final
+unsat theorem still takes exactly the original assertions; these arithmetic
+lemmas may use classical decidability, within the already documented standard
+axiom boundary. The Boolean-only, axiom-free path is unchanged.
 
 Classical Boolean rewrites, double-negation cancellation in not-or-elim,
 def-axiom clauses, and classical steps in lemma discharge use local decidability
