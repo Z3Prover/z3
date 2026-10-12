@@ -30,6 +30,59 @@ static void test_rem_subnormal_divisor() {
     Z3_del_context(ctx);
 }
 
+static void test_round_to_integral_subnormal() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* constant_spec =
+        "(simplify (fp.roundToIntegral RNE (fp #b0 #b00 #b01)))\n"
+        "(simplify (fp.roundToIntegral RNA (fp #b0 #b00 #b01)))\n"
+        "(simplify (fp.roundToIntegral RNA (fp #b1 #b00 #b01)))\n"
+        "(simplify (fp.roundToIntegral RNE (fp #b0 #b00 #b10)))\n"
+        "(simplify (fp.roundToIntegral RNA (fp #b0 #b00 #b10)))\n"
+        "(simplify (fp.roundToIntegral RNA (fp #b1 #b00 #b10)))\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, constant_spec);
+    if (response.find("(_ +zero 2 3)") == std::string::npos ||
+        response.find("(_ -zero 2 3)") == std::string::npos ||
+        response.find("(fp #b0 #b01 #b00)") == std::string::npos ||
+        response.find("(fp #b1 #b01 #b00)") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("(_ +zero 2 3)") != std::string::npos);
+    ENSURE(response.find("(_ -zero 2 3)") != std::string::npos);
+    ENSURE(response.find("(fp #b0 #b01 #b00)") != std::string::npos);
+    ENSURE(response.find("(fp #b1 #b01 #b00)") != std::string::npos);
+
+    char const* solver_spec =
+        "(reset)\n"
+        "(declare-const x (_ FloatingPoint 2 3))\n"
+        "(declare-const y (_ FloatingPoint 2 3))\n"
+        "(declare-const z (_ FloatingPoint 2 3))\n"
+        "(declare-const w (_ FloatingPoint 2 3))\n"
+        "(assert (= x (fp #b0 #b00 #b01)))\n"
+        "(assert (= y (fp #b1 #b00 #b01)))\n"
+        "(assert (= z (fp #b0 #b00 #b10)))\n"
+        "(assert (= w (fp #b1 #b00 #b10)))\n"
+        "(assert (= (fp.roundToIntegral RNE x) (_ +zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNA x) (_ +zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNE y) (_ -zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNA y) (_ -zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNE z) (_ +zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNA z) (fp #b0 #b01 #b00)))\n"
+        "(assert (= (fp.roundToIntegral RNE w) (_ -zero 2 3)))\n"
+        "(assert (= (fp.roundToIntegral RNA w) (fp #b1 #b01 #b00)))\n"
+        "(check-sat)\n"
+        "(check-sat-using (then fpa2bv smt))\n";
+
+    response = Z3_eval_smtlib2_string(ctx, solver_spec);
+    if (response.find("sat\nsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("sat\nsat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 static void test_is_inf_large_significand() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -182,6 +235,7 @@ static void test_to_fp_real_zero_sign() {
 
 void tst_fpa() {
     test_rem_subnormal_divisor();
+    test_round_to_integral_subnormal();
     test_is_inf_large_significand();
     test_significand_out_of_range();
     test_to_fp_real_zero_sign();

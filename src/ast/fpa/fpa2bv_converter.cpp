@@ -2228,17 +2228,20 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     mk_one(s, one_1, none);
     mk_ite(sgn_eq_1, none, pone, xone);
 
-    expr_ref pow_2_sbitsm1(m), m1(m);
+    expr_ref pow_2_sbitsm1(m), m1(m), actual_exp(m), actual_exp_ext(m), lz_ext(m);
     pow_2_sbitsm1 = m_bv_util.mk_numeral(fu().fm().m_powers2(sbits - 1), sbits);
-    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits));
+    actual_exp_ext = m_bv_util.mk_sign_extend(1, a_exp);
+    lz_ext = m_bv_util.mk_zero_extend(1, a_lz);
+    actual_exp = m_bv_util.mk_bv_sub(actual_exp_ext, lz_ext);
+    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits + 1));
     m_simp.mk_eq(a_sig, pow_2_sbitsm1, t1);
-    m_simp.mk_eq(a_exp, m1, t2);
+    m_simp.mk_eq(actual_exp, m1, t2);
     m_simp.mk_and(t1, t2, tie);
     dbg_decouple("fpa2bv_r2i_c42_tie", tie);
 
     m_simp.mk_and(tie, rm_is_rte, c421);
     m_simp.mk_and(tie, rm_is_rta, c422);
-    c423 = m_bv_util.mk_sle(a_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits)));
+    c423 = m_bv_util.mk_sle(actual_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits + 1)));
 
     dbg_decouple("fpa2bv_r2i_c421", c421);
     dbg_decouple("fpa2bv_r2i_c422", c422);

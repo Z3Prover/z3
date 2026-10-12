@@ -1077,13 +1077,17 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         }
         else {
             SASSERT(rm == MPF_ROUND_NEAREST_TEVEN || rm == MPF_ROUND_NEAREST_TAWAY);
-            bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
+            scoped_mpf a(*this);
+            set(a, x);
+            unpack(a, true);
+            bool tie = a.exponent() == -1 &&
+                m_mpz_manager.eq(a.significand(), m_powers2(x.sbits - 1));
             TRACE(mpf_dbg, tout << "tie = " << tie << std::endl;);
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else if (tie && rm == MPF_ROUND_NEAREST_TAWAY)
                 mk_one(x.ebits, x.sbits, x.sign, o);
-            else if (x.exponent < -1)
+            else if (a.exponent() < -1)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else
                 mk_one(x.ebits, x.sbits, x.sign, o);
