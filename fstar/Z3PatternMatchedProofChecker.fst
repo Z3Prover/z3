@@ -16,7 +16,7 @@
    *arbitrary* sub-expressions (not just literal named constants),
    automatically proving `all_leaves_sound` for that leaf by invoking
    the matching theory lemma on whatever values those sub-expressions
-   denote. Ten patterns are covered this way (§4):
+   denote. Eleven patterns are covered this way (§4):
    `s = s` for any syntactically-identical `expr` `s` (reflexivity --
    needs no theory lemma, no sort side condition, and holds for any
    interpretation/theory whatsoever), `select(store(a,i,x),i) = x`,
@@ -32,21 +32,25 @@
    (`Z3ArrayTheory.lemma_select_store_diff`, whenever `i`/`j` are
    themselves distinctly-named 0-ary uninterpreted Int constants --
    see §4i below for how the previously-unsatisfiable `i <> j` side
-   condition is now discharged), and `store(store(a,i,x),j,y) =
+   condition is now discharged), `store(store(a,i,x),j,y) =
    store(store(a,j,y),i,x)` for `i <> j` (`store_commute`, §4j,
    `Z3ArrayTheory.lemma_store_commute` -- the index-swap twin of
    `select_store_diff`, discharged the same way, and the dominant
-   previously-unmatched shape in the QF_AX benchmark corpus).
+   previously-unmatched shape in the QF_AX benchmark corpus), and an
+   arbitrary-length chain of nested `store`s against *any* reordering
+   of the same `(index,value)` updates with pairwise-distinct indices
+   (`store_perm`, §4k, `Z3ArrayTheory.lemma_apply_updates_set_eq` --
+   `store_commute` is this theorem's `n = 2` special case).
 
-   Not every `Rewrite` leaf fits one of these ten schemas -- Z3's
+   Not every `Rewrite` leaf fits one of these eleven schemas -- Z3's
    rewriters encode many more rewrite rules than this (or any single
    bounded) pattern library can realistically enumerate. Rather than
    either trusting the whole proof tree unconditionally
    (`all_leaves_sound`, the pre-existing baseline) or rejecting
    anything not recognized (`all_matched`, all-or-nothing, §6), §7
    adds a *partial* mode: `collect_unmatched` walks a proof tree and
-   returns the exact list of `Rewrite` leaves none of the ten matchers
-   recognize, and `lemma_partial_proof_true` proves the whole
+   returns the exact list of `Rewrite` leaves none of the eleven
+   matchers recognize, and `lemma_partial_proof_true` proves the whole
    derivation's conclusion true *given only* that the collected
    leftover leaves are semantically sound -- i.e. every already-matched
    leaf, however many or however deeply nested, needs no further
@@ -266,8 +270,8 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
       lemma_eval_shape_args args' rho
 
 (* ----------------------------------------------------------------- *)
-(* 4. The matcher *library*: ten structural recognizers. Six are one    *)
-(*    per already-proven rewrite-rule lemma that needs no semantic      *)
+(* 4. The matcher *library*: eleven structural recognizers. Six are     *)
+(*    one per already-proven rewrite-rule lemma that needs no semantic  *)
 (*    side condition beyond shapes, and is expressible purely with the  *)
 (*    six interpreted ops `Z3InterpretedProofChecker.fst` already gives *)
 (*    real semantics to (`select`/`store`/`not`/`plus`/`bvand`/         *)
@@ -280,7 +284,10 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
 (*    tenth, `select_store_diff` (§4i) and `store_commute` (§4j), *do*   *)
 (*    need a genuine semantic side condition (`i <> j`), both           *)
 (*    discharged via the same injective-naming model fix described in   *)
-(*    the module docstring. Every leftover array/seq/bool/bv lemma      *)
+(*    the module docstring. The eleventh, `store_perm` (§4k),           *)
+(*    generalizes `store_commute` to an arbitrary-length chain of       *)
+(*    nested `store`s against any pairwise-distinct-index reordering.   *)
+(*    Every leftover array/seq/bool/bv lemma                            *)
 (*    this file does *not* match (`lemma_select_const`,                 *)
 (*    `lemma_select_ite`, `lemma_select_lambda`, `lemma_lambda_eta`,     *)
 (*    `lemma_select_map1/2`, `lemma_map2_store/const/lambda`,           *)
@@ -288,7 +295,7 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
 (*    `lemma_eq_const_*`, and anything from                              *)
 (*    `Z3SeqAxioms`/`Z3SeqDerive`/`Z3ArithRewriter`/etc. not already     *)
 (*    wired into `the_interpretation`) is not silently ignored: §5-6    *)
-(*    below turn every `Rewrite` leaf that fails all ten matchers       *)
+(*    below turn every `Rewrite` leaf that fails all eleven matchers    *)
 (*    into an explicit, collected *leftover proof obligation* instead.  *)
 (* ----------------------------------------------------------------- *)
 
@@ -710,10 +717,360 @@ let lemma_store_commute_leaf_sound (s t:expr)
     | _, _ -> ()
 #pop-options
 
+(* 4k. **The general multi-level store-permutation theorem.** Rather
+       than a fixed two-level swap (`store_commute`, §4j), this matcher
+       recognizes an arbitrary-length chain
+       `store(store(...store(a,i1,x1)...),i_{n-1},x_{n-1}),in,xn)`
+       against *any* reordering of the same `(index,value)` updates
+       with pairwise-distinct indices, via
+       `Z3ArrayTheory.lemma_apply_updates_set_eq`. `store_commute` is
+       the `n = 2` special case of this theorem. *)
+
+/// Peel nested `store` applications off the *outside* of `e`,
+/// collecting each layer's `(index, value)` pair. The outermost
+/// `store` is applied *last*, so recursing into the base array first
+/// and appending `(i,x)` at the *end* of the recursive result matches
+/// `Z3ArrayTheory.apply_updates`'s left-to-right, head-applied-first
+/// fold convention. A non-`store` node is the chain's base, with no
+/// pairs of its own.
+let rec flatten_store (e:expr) : Tot (expr & list (expr & expr)) (decreases e) =
+  match e with
+  | App f [a; i; x] ->
+    if Some? f.interp && Some?.v f.interp = op_store
+    then let (base, us) = flatten_store a in (base, us @ [(i, x)])
+    else (e, [])
+  | _ -> (e, [])
+
+/// Every `(index,value)` pair in a flattened update list is itself a
+/// well-formed, closed, quantifier-free Int-sorted pair of
+/// sub-expressions -- the per-pair well-formedness obligation
+/// `lemma_eval_shape` needs to be invokable at each level.
+let pairs_wf (us:list (expr & expr)) : prop =
+  forall (p:(expr & expr)). mem p us ==>
+    wf (fst p) /\ closed (fst p) /\ decls_ok (fst p) /\ no_quant (fst p) /\ sort_eq (get_sort (fst p)) int_s /\
+    wf (snd p) /\ closed (snd p) /\ decls_ok (snd p) /\ no_quant (snd p) /\ sort_eq (get_sort (snd p)) int_s
+
+/// `i` is a distinctly-named uninterpreted constant from the index of
+/// every pair in `us` (a one-against-the-rest check; folded over all
+/// positions by `pairwise_distinct_keys` below to get a full all-pairs
+/// check).
+let rec all_const_distinct_from (i:expr) (us:list (expr & expr)) : Tot bool (decreases us) =
+  match us with
+  | [] -> true
+  | (j, _) :: rest ->
+    is_uninterp_const i && is_uninterp_const j && const_name i <> const_name j &&
+    all_const_distinct_from i rest
+
+/// Every index in `us` is a distinctly-named uninterpreted constant
+/// from every *other* index in `us` -- the syntactic side condition
+/// generalizing `select_store_diff`/`store_commute`'s single `i <> j`
+/// to an arbitrary-length chain.
+let rec pairwise_distinct_keys (us:list (expr & expr)) : Tot bool (decreases us) =
+  match us with
+  | [] -> true
+  | (i, _) :: rest -> all_const_distinct_from i rest && pairwise_distinct_keys rest
+
+let rec all_mem (us1 us2:list (expr & expr)) : Tot bool (decreases us1) =
+  match us1 with
+  | [] -> true
+  | p :: rest -> mem p us2 && all_mem rest us2
+
+/// `us1` and `us2` contain exactly the same set of `(index,value)`
+/// pairs (order- and multiplicity-independent, since
+/// `pairwise_distinct_keys` below separately rules out duplicate
+/// indices).
+let same_update_set (us1 us2:list (expr & expr)) : bool =
+  all_mem us1 us2 && all_mem us2 us1
+
+let match_store_perm (s t:expr) : option (expr & list (expr & expr) & list (expr & expr)) =
+  let (base_s, us_s) = flatten_store s in
+  let (base_t, us_t) = flatten_store t in
+  if base_s = base_t && length us_s >= 2 && length us_s = length us_t &&
+     pairwise_distinct_keys us_s && pairwise_distinct_keys us_t &&
+     same_update_set us_s us_t
+  then Some (base_s, us_s, us_t)
+  else None
+
+let store_perm_leaf_ok (s t:expr) : bool =
+  match match_store_perm s t with
+  | None -> false
+  | Some (base, us_s, us_t) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t
+
+/// Evaluate a list of `(index,value)` expression pairs into the
+/// `(int & int)` pairs `Z3ArrayTheory.apply_updates` folds over.
+let rec eval_pairs (rho:env value) (us:list (expr & expr)) : Tot (list (int & int)) (decreases us) =
+  match us with
+  | [] -> []
+  | (i, x) :: rest ->
+    (match eval the_interpretation i rho, eval the_interpretation x rho with
+     | VInt iv, VInt xv -> (iv, xv) :: eval_pairs rho rest
+     | _, _ -> (0, 0) :: eval_pairs rho rest)
+
+let rec lemma_mem_append_elim (#a:eqtype) (x:a) (l1 l2:list a)
+  : Lemma (requires mem x (l1 @ l2)) (ensures mem x l1 \/ mem x l2) (decreases l1)
+  = match l1 with
+    | [] -> ()
+    | h :: t -> if h = x then () else lemma_mem_append_elim x t l2
+
+/// Propagates `wf`/`closed`/`decls_ok`/`no_quant` (and, via
+/// `decl_shape_ok`'s fixed `op_store` domain, the sort facts
+/// `pairs_wf` needs) from a store-chain expression down to its
+/// flattened base and every `(index,value)` pair -- all for free by
+/// unfolding `wf`/`decls_ok`'s own compositional definitions one
+/// `App` layer at a time, mirroring `flatten_store`'s recursion.
+/// The one structural fact `lemma_flatten_store_wf`'s base case needs
+/// but cannot derive on its own: if `e`'s chain has peeled off at
+/// least one `store` layer, `e` itself must have taken the "it *is* a
+/// `store` application" branch of `flatten_store`'s own case split
+/// (the other two branches always return an *empty* pair list), so
+/// `decls_ok`'s `op_store` domain/range fact (`decl_shape_ok`) gives
+/// `sort_eq (get_sort e) arr_s` for free. A direct, non-recursive
+/// unfolding of `flatten_store` once -- no induction needed.
+let lemma_flatten_nonempty_sort (e:expr)
+  : Lemma (requires decls_ok e /\ Cons? (snd (flatten_store e)))
+          (ensures sort_eq (get_sort e) arr_s)
+  = match e with
+    | App f [a; i; x] -> ()
+    | _ -> ()
+
+#push-options "--z3rlimit 60"
+let rec lemma_flatten_store_wf (s:expr)
+  : Lemma (requires wf s /\ closed s /\ decls_ok s /\ no_quant s /\ sort_eq (get_sort s) arr_s)
+          (ensures (let (base, us) = flatten_store s in
+                       wf base /\ closed base /\ decls_ok base /\ no_quant base /\
+                       sort_eq (get_sort base) arr_s /\ pairs_wf us))
+          (decreases s)
+  = match s with
+    | App f [a; i; x] ->
+      if Some? f.interp && Some?.v f.interp = op_store then begin
+        lemma_flatten_store_wf a;
+        let (base, us_a) = flatten_store a in
+        let aux (p:(expr & expr))
+          : Lemma (requires mem p (us_a @ [(i, x)]))
+                     (ensures wf (fst p) /\ closed (fst p) /\ decls_ok (fst p) /\ no_quant (fst p) /\
+                              sort_eq (get_sort (fst p)) int_s /\
+                              wf (snd p) /\ closed (snd p) /\ decls_ok (snd p) /\ no_quant (snd p) /\
+                              sort_eq (get_sort (snd p)) int_s)
+          = lemma_mem_append_elim p us_a [(i, x)]
+        in
+        FStar.Classical.forall_intro (FStar.Classical.move_requires aux)
+      end
+      else ()
+    | _ -> ()
+#pop-options
+
+/// `eval_pairs` commutes with list append -- needed because
+/// `flatten_store`'s recursive case builds `us_a @ [(i,x)]` while
+/// `apply_updates`'s connecting lemma
+/// (`Z3ArrayTheory.lemma_apply_updates_append`) is stated over the
+/// already-*evaluated* `eval_pairs rho us_a @ [(iv,xv)]`.
+let rec lemma_eval_pairs_append (rho:env value) (us1 us2:list (expr & expr))
+  : Lemma (ensures eval_pairs rho (us1 @ us2) == eval_pairs rho us1 @ eval_pairs rho us2)
+          (decreases us1)
+  = match us1 with
+    | [] -> ()
+    | p :: rest -> lemma_eval_pairs_append rho rest us2
+
+/// Connects `eval` of a genuine store-chain expression to
+/// `Z3ArrayTheory.apply_updates`: `eval s rho` denotes
+/// `VArr (apply_updates a0 (eval_pairs rho us))` whenever `eval base
+/// rho = VArr a0`, where `(base, us) = flatten_store s`. Proved by
+/// induction mirroring `flatten_store`'s own recursion, using
+/// `Z3ArrayTheory.lemma_apply_updates_append` to connect one more
+/// peeled `store` layer to one more folded update.
+#push-options "--z3rlimit 100"
+let rec lemma_eval_store_chain (s:expr) (rho:env value)
+  : Lemma (requires wf s /\ closed s /\ decls_ok s /\ no_quant s)
+          (ensures (let (base, us) = flatten_store s in
+                       match eval the_interpretation base rho with
+                       | VArr a0 -> eval the_interpretation s rho == VArr (Z3ArrayTheory.apply_updates a0 (eval_pairs rho us))
+                       | _ -> True))
+          (decreases s)
+  = match s with
+    | App f [a; i; x] ->
+      if Some? f.interp && Some?.v f.interp = op_store then begin
+        lemma_eval_shape i rho;
+        lemma_eval_shape x rho;
+        lemma_eval_store_chain a rho;
+        let (base, us_a) = flatten_store a in
+        (match eval the_interpretation base rho with
+         | VArr a0 ->
+           (match eval the_interpretation i rho, eval the_interpretation x rho with
+            | VInt iv, VInt xv ->
+              Z3ArrayTheory.lemma_apply_updates_append a0 (eval_pairs rho us_a) iv xv;
+              lemma_eval_pairs_append rho us_a [(i, x)]
+            | _, _ -> ())
+         | _ -> ())
+      end
+      else ()
+    | _ -> ()
+#pop-options
+
+(* The semantic (evaluated-`int`-pair) counterpart of
+   `pairwise_distinct_keys`/`same_update_set`, bridged to the
+   syntactic checks via `lemma_string_key_distinct` (the same
+   injective-naming fact `select_store_diff`/`store_commute` already
+   rely on) -- needed to supply
+   `Z3ArrayTheory.lemma_apply_updates_set_eq`'s `key_distinct_hyp`/
+   `same_set` witnesses. *)
+
+let rec all_index_distinct_from (k:int) (ps:list (int & int)) : Tot bool (decreases ps) =
+  match ps with
+  | [] -> true
+  | (i, _) :: rest -> k <> i && all_index_distinct_from k rest
+
+let rec distinct_indices (ps:list (int & int)) : Tot bool (decreases ps) =
+  match ps with
+  | [] -> true
+  | (i, _) :: rest -> all_index_distinct_from i rest && distinct_indices rest
+
+let rec lemma_all_index_distinct_from_not_mem (k:int) (ps:list (int & int))
+  : Lemma (requires all_index_distinct_from k ps)
+          (ensures forall (y:int). ~(mem (k, y) ps))
+          (decreases ps)
+  = match ps with
+    | [] -> ()
+    | (i, _) :: rest -> lemma_all_index_distinct_from_not_mem k rest
+
+let rec lemma_distinct_indices_unique (ps:list (int & int)) (k x1 x2:int)
+  : Lemma (requires distinct_indices ps /\ mem (k, x1) ps /\ mem (k, x2) ps)
+          (ensures x1 == x2)
+          (decreases ps)
+  = match ps with
+    | (i, x) :: rest ->
+      if i = k
+      then lemma_all_index_distinct_from_not_mem k rest
+      else lemma_distinct_indices_unique rest k x1 x2
+
+let rec lemma_all_const_distinct_from_eval (i:expr) (iv:int) (rest:list (expr & expr)) (rho:env value)
+  : Lemma (requires all_const_distinct_from i rest /\ pairs_wf rest /\
+                        sort_eq (get_sort i) int_s /\
+                        eval the_interpretation i rho == VInt iv)
+          (ensures all_index_distinct_from iv (eval_pairs rho rest))
+          (decreases rest)
+  = match rest with
+    | [] -> ()
+    | (j, y) :: rest' ->
+      lemma_all_const_distinct_from_eval i iv rest' rho;
+      assert (mem (j, y) rest);
+      assert (wf j /\ closed j /\ decls_ok j /\ no_quant j /\ sort_eq (get_sort j) int_s /\
+              wf y /\ closed y /\ decls_ok y /\ no_quant y);
+      lemma_eval_shape j rho;
+      lemma_eval_shape y rho;
+      (match i, j with
+       | App fi [], App fj [] ->
+         lemma_string_key_distinct fi.decl_name fj.decl_name;
+         (match eval the_interpretation i rho, eval the_interpretation j rho with
+          | VInt iv', VInt jv -> assert (iv == iv' /\ iv <> jv)
+          | _, _ -> ())
+       | _, _ -> ())
+
+#push-options "--z3rlimit 60"
+let rec lemma_eval_pairs_distinct_indices (us:list (expr & expr)) (rho:env value)
+  : Lemma (requires pairwise_distinct_keys us /\ pairs_wf us)
+          (ensures distinct_indices (eval_pairs rho us))
+          (decreases us)
+  = match us with
+    | [] -> ()
+    | (i, x) :: rest ->
+      lemma_eval_pairs_distinct_indices rest rho;
+      assert (mem (i, x) ((i, x) :: rest));
+      assert (wf i /\ closed i /\ decls_ok i /\ no_quant i /\ sort_eq (get_sort i) int_s /\
+              wf x /\ closed x /\ decls_ok x /\ no_quant x);
+      lemma_eval_shape i rho;
+      lemma_eval_shape x rho;
+      (match eval the_interpretation i rho with
+       | VInt iv -> lemma_all_const_distinct_from_eval i iv rest rho
+       | _ -> ())
+#pop-options
+
+let store_perm_distinct (us:list (expr & expr){pairwise_distinct_keys us /\ pairs_wf us}) (rho:env value)
+  : Z3ArrayTheory.key_distinct_hyp int int (eval_pairs rho us)
+  = lemma_eval_pairs_distinct_indices us rho;
+    fun (k:int) (x1:int) (x2:int) -> lemma_distinct_indices_unique (eval_pairs rho us) k x1 x2
+
+let rec lemma_mem_eval_pairs_intro (us:list (expr & expr)) (rho:env value) (i x:expr) (iv xv:int)
+  : Lemma (requires pairs_wf us /\ mem (i, x) us /\
+                        eval the_interpretation i rho == VInt iv /\ eval the_interpretation x rho == VInt xv)
+          (ensures mem (iv, xv) (eval_pairs rho us))
+          (decreases us)
+  = match us with
+    | (i', x') :: rest ->
+      if i' = i && x' = x then ()
+      else begin
+        assert (mem (i', x') ((i', x') :: rest));
+        assert (wf i' /\ closed i' /\ decls_ok i' /\ no_quant i' /\
+                wf x' /\ closed x' /\ decls_ok x' /\ no_quant x');
+        lemma_eval_shape i' rho;
+        lemma_eval_shape x' rho;
+        lemma_mem_eval_pairs_intro rest rho i x iv xv
+      end
+
+let rec lemma_eval_pairs_mem_transfer (us_s us_t:list (expr & expr)) (rho:env value) (k x:int)
+  : Lemma (requires pairs_wf us_s /\ pairs_wf us_t /\ all_mem us_s us_t /\ mem (k, x) (eval_pairs rho us_s))
+          (ensures mem (k, x) (eval_pairs rho us_t))
+          (decreases us_s)
+  = match us_s with
+    | (i, xe) :: rest ->
+      assert (mem (i, xe) ((i, xe) :: rest));
+      assert (wf i /\ closed i /\ decls_ok i /\ no_quant i /\
+              wf xe /\ closed xe /\ decls_ok xe /\ no_quant xe);
+      lemma_eval_shape i rho;
+      lemma_eval_shape xe rho;
+      (match eval the_interpretation i rho, eval the_interpretation xe rho with
+       | VInt iv, VInt xv ->
+         if iv = k && xv = x
+         then lemma_mem_eval_pairs_intro us_t rho i xe iv xv
+         else lemma_eval_pairs_mem_transfer rest us_t rho k x
+       | _, _ -> ())
+
+let store_perm_same_set
+    (us_s us_t:list (expr & expr){pairs_wf us_s /\ pairs_wf us_t /\ all_mem us_s us_t /\ all_mem us_t us_s})
+    (rho:env value) (p:(int & int))
+  : Lemma (mem p (eval_pairs rho us_s) <==> mem p (eval_pairs rho us_t))
+  = let (k, x) = p in
+    let f1 () : Lemma (requires mem (k, x) (eval_pairs rho us_s)) (ensures mem (k, x) (eval_pairs rho us_t))
+      = lemma_eval_pairs_mem_transfer us_s us_t rho k x
+    in
+    let f2 () : Lemma (requires mem (k, x) (eval_pairs rho us_t)) (ensures mem (k, x) (eval_pairs rho us_s))
+      = lemma_eval_pairs_mem_transfer us_t us_s rho k x
+    in
+    FStar.Classical.move_requires f1 ();
+    FStar.Classical.move_requires f2 ()
+
+#push-options "--z3rlimit 150"
+let lemma_store_perm_leaf_sound (s t:expr)
+  : Lemma (requires store_perm_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match match_store_perm s t with
+    | Some (base, us_s, us_t) ->
+      lemma_flatten_nonempty_sort s;
+      lemma_flatten_nonempty_sort t;
+      lemma_flatten_store_wf s;
+      lemma_flatten_store_wf t;
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape base rho;
+          lemma_eval_store_chain s rho;
+          lemma_eval_store_chain t rho;
+          (match eval the_interpretation base rho with
+           | VArr a0 ->
+                let same_set = store_perm_same_set us_s us_t rho in
+                let distinct_s = store_perm_distinct us_s rho in
+                let distinct_t = store_perm_distinct us_t rho in
+                Z3ArrayTheory.lemma_apply_updates_set_eq a0 (eval_pairs rho us_s) (eval_pairs rho us_t)
+                                                          same_set distinct_s distinct_t
+           | _ -> ())
+      in
+      FStar.Classical.forall_intro aux
+    | None -> ()
+#pop-options
+
 (* ----------------------------------------------------------------- *)
 (* 5. The combinator: try every matcher above in turn, and the          *)
 (*    corresponding "matched implies sound" lemma (a case split over    *)
-(*    the ten, invoking whichever matcher actually fired).              *)
+(*    the eleven, invoking whichever matcher actually fired).           *)
 (* ----------------------------------------------------------------- *)
 
 let try_match_leaf (s t:expr) : bool =
@@ -726,7 +1083,8 @@ let try_match_leaf (s t:expr) : bool =
   bvand_self_leaf_ok s t ||
   eq_symm_leaf_ok s t ||
   select_store_diff_leaf_ok s t ||
-  store_commute_leaf_ok s t
+  store_commute_leaf_ok s t ||
+  store_perm_leaf_ok s t
 
 let lemma_try_match_leaf_sound (s t:expr)
   : Lemma (requires try_match_leaf s t)
@@ -740,12 +1098,13 @@ let lemma_try_match_leaf_sound (s t:expr)
     else if bvand_self_leaf_ok s t then lemma_bvand_self_leaf_sound s t
     else if eq_symm_leaf_ok s t then lemma_eq_symm_leaf_sound s t
     else if select_store_diff_leaf_ok s t then lemma_select_store_diff_leaf_sound s t
-    else lemma_store_commute_leaf_sound s t
+    else if store_commute_leaf_ok s t then lemma_store_commute_leaf_sound s t
+    else lemma_store_perm_leaf_sound s t
 
 (* ----------------------------------------------------------------- *)
 (* 6. "Fully matched" mode: a decidable whole-proof-tree checker         *)
 (*    mirroring `all_leaves_sound`'s own recursion, requiring *every*    *)
-(*    `Rewrite` leaf to fit one of the ten schemas above.                *)
+(*    `Rewrite` leaf to fit one of the eleven schemas above.            *)
 (* ----------------------------------------------------------------- *)
 
 let rec all_matched (p:proof) : Tot bool (decreases p) =
@@ -1042,5 +1401,47 @@ let lemma_sc_leaf_true (rho:env value)
   : Lemma (eval the_interpretation sc_s rho == eval the_interpretation sc_t rho)
   = lemma_sc_leaf_matched ();
     lemma_matched_proof_true sc_leaf rho
+
+(* ----------------------------------------------------------------- *)
+(* 12. Demonstration 5: `store_perm`, the general multi-level           *)
+(*     store-permutation theorem (§4k) that `store_commute` is the      *)
+(*     `n = 2` special case of. `i_c`/`j_c`/`k_c` are three              *)
+(*     distinctly-named 0-ary Int constants, so a *three*-level chain   *)
+(*     `store(store(store(a_c2,i_c,x_c),j_c,y_c),k_c,z_c)` is matched    *)
+(*     against *two* different reorderings of the same three updates:   *)
+(*     `store(store(store(a_c2,k_c,z_c),i_c,x_c),j_c,y_c)` (a cyclic     *)
+(*     rotation) and `store(store(store(a_c2,j_c,y_c),k_c,z_c),i_c,x_c)` *)
+(*     (the other cyclic rotation) -- neither of which is a single       *)
+(*     adjacent-pair swap, so `store_commute` alone could not have       *)
+(*     matched either. *)
+(* ----------------------------------------------------------------- *)
+
+let k_c = c0 (konst "k" int_s)
+let z_c = c0 (konst "z" int_s)
+
+let sp3_base : expr = c3 store_d (c3 store_d (c3 store_d a_c2 i_c x_c) j_c y_c) k_c z_c
+let sp3_rot1 : expr = c3 store_d (c3 store_d (c3 store_d a_c2 k_c z_c) i_c x_c) j_c y_c
+let sp3_rot2 : expr = c3 store_d (c3 store_d (c3 store_d a_c2 j_c y_c) k_c z_c) i_c x_c
+
+let sp3_leaf_1 : proof = mk_rewrite_leaf sp3_base sp3_rot1
+let sp3_leaf_2 : proof = mk_rewrite_leaf sp3_base sp3_rot2
+
+let lemma_sp3_leaf_1_matched ()
+  : Lemma (all_matched sp3_leaf_1)
+  = ()
+
+let lemma_sp3_leaf_2_matched ()
+  : Lemma (all_matched sp3_leaf_2)
+  = ()
+
+let lemma_sp3_leaf_1_true (rho:env value)
+  : Lemma (eval the_interpretation sp3_base rho == eval the_interpretation sp3_rot1 rho)
+  = lemma_sp3_leaf_1_matched ();
+    lemma_matched_proof_true sp3_leaf_1 rho
+
+let lemma_sp3_leaf_2_true (rho:env value)
+  : Lemma (eval the_interpretation sp3_base rho == eval the_interpretation sp3_rot2 rho)
+  = lemma_sp3_leaf_2_matched ();
+    lemma_matched_proof_true sp3_leaf_2 rho
 
 

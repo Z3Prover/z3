@@ -98,6 +98,193 @@ let lemma_store_commute (#idx:eqtype) (#v:Type) (a:arr idx v) (i j:idx) (x y:v)
   : Lemma (requires i <> j) (ensures store (store a i x) j y == store (store a j y) i x)
   = assert (feq (store (store a i x) j y) (store (store a j y) i x))
 
+(* ----------------------------------------------------------------- *)
+(* A general multi-level store-permutation theorem                     *)
+(* ----------------------------------------------------------------- *)
+
+(* `lemma_store_commute` above is the n=2 instance of a much more
+   general fact: a *chain* of `store`s with pairwise-distinct indices
+   denotes the same array no matter what order the individual
+   `(index, value)` updates are applied in. This section proves that
+   general theorem, modelling a store-chain
+   `store(store(...store(a,i1,x1)...),i_{n-1},x_{n-1}),in,xn)` as
+   folding a list of updates `[(i1,x1); ...; (in,xn)]` (head = applied
+   first/innermost, matching how nested `store` expressions are built)
+   onto a base array `a`. *)
+
+/// Fold a list of `(index,value)` updates onto `a`, left-to-right,
+/// exactly mirroring how nested `store(store(...store(a,i1,x1)...)
+/// ,in,xn)` is built: the head of the list is the *innermost* (first
+/// applied) `store`, so later entries can overwrite earlier ones at
+/// the same index.
+let rec apply_updates (#idx:eqtype) (#v:Type) (a:arr idx v) (us:list (idx & v)) : Tot (arr idx v) (decreases us) =
+  match us with
+  | [] -> a
+  | (i, x) :: rest -> apply_updates (store a i x) rest
+
+/// `apply_updates a us` is itself a well-formed (restricted) array
+/// value, just like its base `a` -- needed to let the extensionality
+/// axiom's SMT pattern fire on `apply_updates a us1`/`...us2` below,
+/// since (unlike `store`/`const_arr`, which are literally one `on`
+/// unfold away from that pattern) `apply_updates` is not syntactically
+/// in `on_domain` form while `us` is an abstract list. Proved by
+/// induction so each recursive call re-introduces its `a` argument as
+/// a *fresh* binder (which does carry its restricted-type refinement,
+/// via `lemma_on_domain_refl` below -- a `let rec`'s own parameters
+/// otherwise don't expose their refinement to the SMT encoding the
+/// way a plain function call's do).
+let lemma_on_domain_refl (#idx:eqtype) (#v:Type) (a:arr idx v)
+  : Lemma (on_domain idx a == a) = ()
+
+let rec lemma_apply_updates_restricted (#idx:eqtype) (#v:Type) (a:arr idx v) (us:list (idx & v))
+  : Lemma (ensures on_domain idx (apply_updates a us) == apply_updates a us)
+          (decreases us)
+  = lemma_on_domain_refl a;
+    match us with
+    | [] -> ()
+    | (i, x) :: rest -> lemma_apply_updates_restricted (store a i x) rest
+
+/// The value a key `k` ends up with after folding `us` onto some base
+/// array: the *last* (most-overriding) entry of `us` whose index is
+/// `k`, if any.
+let rec last_match (#idx:eqtype) (#v:Type) (k:idx) (us:list (idx & v)) : option v =
+  match us with
+  | [] -> None
+  | (i, x) :: rest ->
+    (match last_match k rest with
+     | Some x' -> Some x'
+     | None -> if i = k then Some x else None)
+
+/// Pointwise characterization of `apply_updates`: selecting at `k`
+/// after folding `us` onto `a` gives `last_match k us`'s answer (or
+/// falls back to `select a k` if no entry of `us` touches `k`). Holds
+/// unconditionally -- no distinctness needed, this is simply the
+/// semantics of fold-left `store`.
+let rec lemma_select_apply_updates (#idx:eqtype) (#v:Type) (a:arr idx v) (us:list (idx & v)) (k:idx)
+  : Lemma (ensures select (apply_updates a us) k ==
+                   (match last_match k us with Some x -> x | None -> select a k))
+          (decreases us)
+  = match us with
+    | [] -> ()
+    | (i, x) :: rest ->
+      lemma_select_apply_updates (store a i x) rest k;
+      (match last_match k rest with
+       | Some x' -> ()
+       | None -> if i = k then () else ())
+
+/// An explicit witness, for a fixed `us`, that every occurrence of a
+/// given index in `us` carries the same value. Passed around as a
+/// first-class lemma (rather than stated as a bare `forall`) so every
+/// call site instantiates it explicitly instead of relying on the SMT
+/// solver to guess a multi-variable quantifier instantiation.
+let key_distinct_hyp (idx:eqtype) (v:eqtype) (us:list (idx & v)) =
+  i:idx -> x1:v -> x2:v ->
+  Lemma (requires FStar.List.Tot.mem (i, x1) us /\ FStar.List.Tot.mem (i, x2) us) (ensures x1 == x2)
+
+/// Restrict a `key_distinct_hyp` for `(i0,x0) :: us` down to `us`
+/// (dropping the head only shrinks the set of pairs the hypothesis is
+/// asked about, so the same witness function works unchanged).
+let restrict_key_distinct_hyp (#idx:eqtype) (#v:eqtype) (i0:idx) (x0:v) (us:list (idx & v))
+                               (distinct: key_distinct_hyp idx v ((i0, x0) :: us))
+  : key_distinct_hyp idx v us
+  = fun i x1 x2 -> distinct i x1 x2
+
+/// If `last_match k us` is defined, its value really occurs as a pair
+/// in `us`. Unconditional.
+let rec lemma_last_match_mem (#idx:eqtype) (#v:eqtype) (k:idx) (us:list (idx & v))
+  : Lemma (ensures (match last_match k us with
+                     | Some x -> FStar.List.Tot.mem (k, x) us
+                     | None -> True))
+          (decreases us)
+  = match us with
+    | [] -> ()
+    | (i, x) :: rest -> lemma_last_match_mem k rest
+
+/// Converse direction, under key-uniqueness: if `(k,x)` occurs
+/// anywhere in `us`, `last_match k us` must be exactly `Some x`.
+let rec lemma_mem_last_match (#idx:eqtype) (#v:eqtype) (us:list (idx & v))
+                              (distinct: key_distinct_hyp idx v us) (k:idx) (x:v)
+  : Lemma (requires FStar.List.Tot.mem (k, x) us) (ensures last_match k us == Some x)
+          (decreases us)
+  = match us with
+    | [] -> ()
+    | (i, y) :: rest ->
+      if FStar.List.Tot.mem (k, x) rest
+      then lemma_mem_last_match rest (restrict_key_distinct_hyp i y rest distinct) k x
+      else begin
+        (* (k,x) must then be the head pair, i.e. i == k /\ y == x. *)
+        assert (i == k /\ y == x);
+        lemma_last_match_mem k rest;
+        (* If `last_match k rest = Some z`, then `mem (k,z) rest`; key-
+           uniqueness of `us` at index `k` (via `distinct`) then forces
+           `z == x`, contradicting `~(mem (k,x) rest)`. So `last_match
+           k rest` must be `None`, and the result follows. *)
+        match last_match k rest with
+        | Some z -> distinct k z x
+        | None -> ()
+      end
+
+/// If `us1` and `us2` contain the same set of `(index,value)` pairs
+/// and each has pairwise-distinct keys, `last_match` agrees on every
+/// key -- hence (by `lemma_select_apply_updates`) so does `select
+/// (apply_updates a us1)`/`select (apply_updates a us2)`.
+let lemma_last_match_eq (#idx:eqtype) (#v:eqtype) (us1 us2:list (idx & v))
+                         (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.mem p us1 <==> FStar.List.Tot.mem p us2)))
+                         (distinct1: key_distinct_hyp idx v us1)
+                         (distinct2: key_distinct_hyp idx v us2)
+                         (k:idx)
+  : Lemma (last_match k us1 == last_match k us2)
+  = match last_match k us1, last_match k us2 with
+    | Some x1, Some x2 ->
+      lemma_last_match_mem k us1; lemma_last_match_mem k us2;
+      same_set (k, x1); same_set (k, x2);
+      distinct2 k x1 x2
+    | Some x1, None ->
+      lemma_last_match_mem k us1;
+      same_set (k, x1);
+      lemma_mem_last_match us2 distinct2 k x1
+    | None, Some x2 ->
+      lemma_last_match_mem k us2;
+      same_set (k, x2);
+      lemma_mem_last_match us1 distinct1 k x2
+    | None, None -> ()
+
+/// **The general multi-level store-permutation theorem.** If `us1`
+/// and `us2` are two orderings of the *same set* of `(index,value)`
+/// updates, each internally key-distinct, folding either one onto any
+/// base array `a` gives the same result. `lemma_store_commute` above
+/// is the special case `us1 = [(i,x);(j,y)]`, `us2 = [(j,y);(i,x)]`.
+let lemma_apply_updates_set_eq (#idx:eqtype) (#v:eqtype) (a:arr idx v) (us1 us2:list (idx & v))
+                                (same_set: (p:(idx & v) -> Lemma (FStar.List.Tot.mem p us1 <==> FStar.List.Tot.mem p us2)))
+                                (distinct1: key_distinct_hyp idx v us1)
+                                (distinct2: key_distinct_hyp idx v us2)
+  : Lemma (apply_updates a us1 == apply_updates a us2)
+  = let pointwise (k:idx)
+      : Lemma (select (apply_updates a us1) k == select (apply_updates a us2) k)
+      = lemma_select_apply_updates a us1 k;
+        lemma_select_apply_updates a us2 k;
+        lemma_last_match_eq us1 us2 same_set distinct1 distinct2 k
+    in
+    FStar.Classical.forall_intro pointwise;
+    let r1 = apply_updates a us1 in
+    let r2 = apply_updates a us2 in
+    lemma_apply_updates_restricted a us1;
+    lemma_apply_updates_restricted a us2;
+    assert (feq r1 r2);
+    extensionality idx (fun _ -> v) r1 r2
+
+/// `apply_updates a (us @ [(ik,xk)]) == store (apply_updates a us) ik
+/// xk` -- unfolds one `store` layer off the *end* of an update chain,
+/// the fact the matcher's structural recursion (which peels nested
+/// `store`s from the *outside* in) needs to connect `eval` of a real
+/// store-chain expression to `apply_updates`.
+let rec lemma_apply_updates_append (#idx:eqtype) (#v:Type) (a:arr idx v) (us:list (idx & v)) (ik:idx) (xk:v)
+  : Lemma (ensures apply_updates a (us @ [(ik, xk)]) == store (apply_updates a us) ik xk)
+          (decreases us)
+  = match us with
+    | [] -> ()
+    | (i, x) :: rest -> lemma_apply_updates_append (store a i x) rest ik xk
+
 /// `store(a,I,select(a,I)) = a` -- `mk_store_core`'s
 /// "writing back the value already there" identity.
 let lemma_store_redundant (#idx:eqtype) (#v:Type) (a:arr idx v) (i:idx)

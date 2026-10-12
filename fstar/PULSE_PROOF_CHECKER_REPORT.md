@@ -745,6 +745,48 @@ gap would need a structurally different kind of matcher (one that
 recurses into the `array-ext` witness itself), not another one-step
 lemma.
 
+## An eleventh matcher: `store_perm`, a general multi-level theorem
+
+Rather than add another fixed-shape equation, `Z3ArrayTheory.fst` was
+extended with a genuinely *general* theorem: for an arbitrary-length
+chain of `n` nested `store`s on pairwise-distinct (named, uninterpreted)
+indices, the final array depends only on the *set* of (index, value)
+updates, not the order they were applied in
+(`lemma_apply_updates_set_eq`, built over `apply_updates`/`last_match`
+association-list semantics). `store_commute`'s fixed two-level swap is
+exactly this theorem's `n = 2` special case.
+
+The new matcher, `store_perm`, flattens both sides of a `Rewrite s t`
+leaf into `(base, [(index, value), ...])` pairs (`flatten_store`),
+checks the two chains share a base, have equal length `>= 2`, carry
+pairwise-distinct named-constant indices on each side, and the same
+*set* of (index, value) pairs -- then discharges the leaf through
+`lemma_apply_updates_set_eq` via a chain of append/evaluation
+bookkeeping lemmas (`lemma_eval_pairs_append`, `lemma_eval_store_chain`,
+`lemma_flatten_store_wf`). It is now the eleventh matcher in
+`try_match_leaf`. It typechecks cleanly, fires on a hand-built 3-level
+store chain under two different cyclic rotations
+(`Z3PatternMatchedProofChecker.fst` section 12, "Demonstration 5" --
+`sp3_leaf_1`/`sp3_leaf_2`, neither matchable by `store_commute` alone),
+and all 9 pre-existing `Z3ExtractedProof*.fst` snapshots still verify
+with no regressions. The Python mirror in `extract_z3_proof.py`
+(`_match_store_perm`, `_flatten_store`, `_pairwise_distinct_keys`,
+`_same_update_set`) was updated to match and is cross-checked against the
+real F* matcher on every generated benchmark file via `assert_norm`.
+
+Unlike `store_commute`, re-running the full QF_AX corpus with this
+eleventh matcher is a small but **positive** result: it finds one
+genuine match, `cvc/read5.smt2`'s leaf
+`(store (store (store S aaa vvv) a v) aa vv) = (store (store (store S a
+v) aa vv) aaa vvv)` -- a literal 3-level store-chain reordering with no
+intervening `select`/congruence steps. This confirms the generalization
+pays off on real proof output in at least one case, even though the
+corpus's dominant `storecomm_*` family remains out of reach for the
+reason explained above (its permutation reasoning is buried inside an
+opaque `array-ext` witness-skolemization step, not a literal `store`
+chain). See `QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "Update 3" section for
+the full before/after numbers.
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in

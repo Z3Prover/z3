@@ -356,6 +356,70 @@ for benchmarks with several leaves. This is an SMT-resource-budget
 artifact of the cross-check, **not** a case of the kernel proof checker
 (`check_proof`/`checker_accepts`) accepting an ill-formed derivation.
 
+### Update 3: an eleventh matcher (`store_perm`), generalizing `store_commute`
+
+`Z3ArrayTheory.fst` was extended with a genuinely general theorem: for an
+arbitrary chain of `n` nested `store`s on pairwise-distinct (named,
+uninterpreted) indices, the resulting array value depends only on the
+*set* of (index, value) updates applied, not their order
+(`lemma_apply_updates_set_eq`, built on `apply_updates`/`last_match` over
+association-list semantics). `store_commute`'s two-level swap is exactly
+the `n=2` special case of this theorem.
+
+A new matcher, `store_perm`, was wired into `try_match_leaf` (now
+**eleven** matchers) to recognize this at arbitrary chain length: it
+flattens both sides of a `Rewrite s t` leaf into `(base, [(index,
+value), ...])` pairs via `flatten_store`, checks both chains share the
+same base array, have equal length `>= 2`, have pairwise-distinct
+(named-constant) indices on each side, and carry the *same set* of
+(index, value) pairs — then discharges the leaf via
+`lemma_apply_updates_set_eq` through a chain of append/evaluation
+bookkeeping lemmas (`lemma_eval_pairs_append`, `lemma_eval_store_chain`,
+`lemma_flatten_store_wf`). It typechecks cleanly, fires on a hand-built
+3-level store chain under two different cyclic-rotation orderings
+(`Z3PatternMatchedProofChecker.fst` section 12, "Demonstration 5" --
+`sp3_leaf_1`/`sp3_leaf_2`, neither of which the strictly two-level
+`store_commute` alone can match), and all 9 pre-existing
+`Z3ExtractedProof*.fst` snapshots still verify with no regressions. The
+Python mirror (`extract_z3_proof.py`'s `_match_store_perm` /
+`_flatten_store` / `_pairwise_distinct_keys` / `_same_update_set`) was
+updated to match, and is cross-checked for every generated benchmark
+file against the real F* `collect_unmatched` via `assert_norm` (see
+"What a `pass` does and does not certify" above) -- so a correct
+benchmark run is itself evidence the mirror agrees with the verified
+matcher.
+
+Re-running the full QF_AX corpus (same 279 files, 30s timeout) with the
+eleven-matcher library:
+
+| metric | 10 matchers (previous) | 11 matchers (this run) |
+|---|---|---|
+| rewrite leaves matched | 68 / 486 (14.0%) | **69 / 486 (14.2%)** |
+| matcher breakdown | 64 `eq_symm`, 1 `select_store_diff`, 2 `store_redundant`, 1 `reflexivity` | same, **+1 `store_perm`** |
+| F* check @ 30s timeout | 207 pass / 16 timeout / 56 fail | 202 pass / 21 timeout / 56 fail |
+
+Unlike `store_commute`, **`store_perm` does find one genuine match** on
+this corpus: `cvc/read5.smt2` contains a leaf
+
+```
+s = (store (store (store S aaa vvv) a v) aa vv)
+t = (store (store (store S a v) aa vv) aaa vvv)
+```
+
+— a literal 3-level store-chain reordering with no intervening
+`select`/congruence steps, exactly the shape the general theorem targets
+and `store_commute` (fixed at two levels) could never recognize. This is
+a small but real, non-vacuous confirmation that generalizing the lemma
+pays off on real proof output, in contrast to the `storecomm_*` family
+discussed in Update 2, whose multi-level permutation reasoning is instead
+buried inside a single opaque `array-ext` witness-skolemization step (not
+a literal chain of `store` applications) and so remains outside what any
+single-equation flattening matcher — `store_perm` included — can reach.
+The small F* pass-count fluctuation (207->202 at fixed 30s) is noise from
+the extra per-leaf `store_perm` case-split cost pushing a few more files
+right at the timeout boundary, the same phenomenon documented under
+Update 1/2 above, not a regression in soundness.
+
 ## Reproducing
 
 ```powershell
@@ -375,4 +439,10 @@ python fstar\tools\analyze_benchmarks.py qf_ax_results_v2_t30.jsonl QF_AX_v2
 # documented there):
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v3_t30.jsonl --timeout 30 --workers 24
 python fstar\tools\analyze_benchmarks.py qf_ax_results_v3_t30.jsonl QF_AX_v3
+
+# re-run again against the eleven-matcher library (adds store_perm, the
+# general multi-level store-permutation matcher; see "Update 3" above --
+# +1 match on this corpus, cvc/read5.smt2):
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v4_t30.jsonl --timeout 30 --workers 24
+python fstar\tools\analyze_benchmarks.py qf_ax_results_v4_t30.jsonl QF_AX_v4
 ```

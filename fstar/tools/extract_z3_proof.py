@@ -113,8 +113,8 @@ def _is_app_of(e, kind):
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
-    """Returns the matched pattern's name (one of the ten below) if
-       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s ten
+    """Returns the matched pattern's name (one of the eleven below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s eleven
        schemas for *arbitrary* sub-expressions, else `None`."""
     # s = s (reflexivity): sound for any theory/sort, no theory lemma
     # needed -- see Z3PatternMatchedProofChecker.fst section 4g.
@@ -189,6 +189,62 @@ def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
             z3.is_const(s.arg(1)) and s.arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
             s.arg(0).arg(1).decl().name() != s.arg(1).decl().name()):
         return "store_commute"
+    # An arbitrary-length chain of nested `store`s against *any*
+    # reordering of the same `(index,value)` updates, provided every
+    # index is a distinctly-named 0-ary uninterpreted constant --
+    # mirrors Z3PatternMatchedProofChecker.fst's `store_perm_leaf_ok`
+    # (§4k), the general theorem `store_commute` is the `n = 2` special
+    # case of. Peels nested `store` applications off the outside of
+    # each side (`flatten_store`), then checks: same base array, at
+    # least two updates, equal-length chains, every index on each side
+    # pairwise distinct by name, and the two update lists contain
+    # exactly the same set of `(index,value)` pairs (order-independent).
+    if _match_store_perm(s, t) is not None:
+        return "store_perm"
+    return None
+
+
+def _flatten_store(e: z3.ExprRef):
+    """Peels nested `store` applications off the outside of `e`,
+       returning `(base, [(index, value), ...])` with the outermost
+       `store`'s pair appended last -- mirrors
+       Z3PatternMatchedProofChecker.fst's `flatten_store`."""
+    pairs = []
+    while _is_app_of(e, z3.Z3_OP_STORE) and e.num_args() == 3:
+        pairs.append((e.arg(1), e.arg(2)))
+        e = e.arg(0)
+    pairs.reverse()
+    return e, pairs
+
+
+def _is_named_uninterp_const(e: z3.ExprRef) -> bool:
+    return z3.is_const(e) and e.decl().kind() == z3.Z3_OP_UNINTERPRETED
+
+
+def _pairwise_distinct_keys(pairs) -> bool:
+    names = []
+    for (idx, _) in pairs:
+        if not _is_named_uninterp_const(idx):
+            return False
+        names.append(idx.decl().name())
+    return len(names) == len(set(names))
+
+
+def _same_update_set(pairs1, pairs2) -> bool:
+    def mem(p, ps):
+        return any(p[0].eq(q[0]) and p[1].eq(q[1]) for q in ps)
+    return (len(pairs1) == len(pairs2) and
+            all(mem(p, pairs2) for p in pairs1) and
+            all(mem(p, pairs1) for p in pairs2))
+
+
+def _match_store_perm(s: z3.ExprRef, t: z3.ExprRef):
+    base_s, us_s = _flatten_store(s)
+    base_t, us_t = _flatten_store(t)
+    if (base_s.eq(base_t) and len(us_s) >= 2 and len(us_s) == len(us_t) and
+            _pairwise_distinct_keys(us_s) and _pairwise_distinct_keys(us_t) and
+            _same_update_set(us_s, us_t)):
+        return (base_s, us_s, us_t)
     return None
 
 
