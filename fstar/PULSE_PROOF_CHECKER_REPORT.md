@@ -630,12 +630,26 @@ proof. `tools/extract_z3_proof.py` now closes that gap:
 
 New end-to-end examples exercising all six matchers via real Z3
 proofs: `not(not(x))==x` (`not_not`, pre-existing), `(select (store a
-i v) i)==v` (`select_store_same`), `(seq.++ (seq.++ a b) c) == (seq.++
-a (seq.++ b c))` (`concat_assoc`), and `bvand y y == y` (which Z3
-proves via De Morgan expansion rather than the literal `bvand_self`
-schema -- a genuine example of the "accumulate unmatched, don't
-reject" path, since `store_same_twice`/`store_redundant` also remain
-unexercised by any committed example so far).
+i v) i)==v` (`select_store_same`), `(store (store a i x) i y) ==
+(store a i y)` (`store_same_twice`), `(store a i (select a i)) == a`
+(`store_redundant`), `(seq.++ (seq.++ a b) c) == (seq.++ a (seq.++ b
+c))` (`concat_assoc`), and `bvand y y == y` (which Z3 proves via De
+Morgan expansion rather than the literal `bvand_self` schema -- a
+genuine example of the "accumulate unmatched, don't reject" path).
+
+A further example, `(select (store a i x) j) == (select a j)` under
+hypothesis `i <> j` (`select_store_diff`), demonstrates an array
+rewrite that is **deliberately not wired in**: this schema needs an
+`i <> j` side condition that `the_interpretation`'s model can't
+discharge generically (documented as a known limitation in
+`Z3PatternMatchedProofChecker.fst` section 4a), so no
+`match_select_store_diff` exists. Inspecting the raw Z3 proof confirms
+this isn't merely an unmatched shape -- Z3 proves it via `PR_TH_LEMMA`
+(a theory lemma over `(or (= i j) (select (store a i x) j) = (select a
+j))` discharged by `unit-resolution`), not a `PR_REWRITE` node at all,
+so the fact never even reaches the rewrite-matcher machinery; the one
+`Rewrite` leaf that *is* logged for this example is an unrelated
+trivial self-rewrite of the asserted hypothesis.
 
 ## Scope and limitations
 
@@ -682,6 +696,9 @@ unexercised by any committed example so far).
 | [`tools/test_bvand_self.smt2`](tools/test_bvand_self.smt2), [`Z3ExtractedProof_Bv.fst`](Z3ExtractedProof_Bv.fst) | A larger `.smt2`-driven example (`bvand y y == y`), 12 proof nodes / 11 expr nodes, that surfaced and validated the fuel/`assert_norm` fix described above; also an example where the matcher log reports *unmatched* leaves, since Z3 proves this via De Morgan expansion rather than the literal `bvand_self` schema |
 | [`tools/test_select_store.smt2`](tools/test_select_store.smt2), [`Z3ExtractedProof_ArrayExample.fst`](Z3ExtractedProof_ArrayExample.fst) | `(select (store a i v) i) == v`, exercising the `select_store_same` matcher and multi-argument-array sort extraction |
 | [`tools/test_concat_assoc.smt2`](tools/test_concat_assoc.smt2), [`Z3ExtractedProof_Seq.fst`](Z3ExtractedProof_Seq.fst) | `(seq.++ (seq.++ a b) c) == (seq.++ a (seq.++ b c))`, exercising the `concat_assoc` matcher and `Seq(Int)` sort naming |
+| [`tools/test_store_same_twice.smt2`](tools/test_store_same_twice.smt2), [`Z3ExtractedProof_StoreSameTwice.fst`](Z3ExtractedProof_StoreSameTwice.fst) | `(store (store a i x) i y) == (store a i y)`, exercising the `store_same_twice` matcher |
+| [`tools/test_store_redundant.smt2`](tools/test_store_redundant.smt2), [`Z3ExtractedProof_StoreRedundant.fst`](Z3ExtractedProof_StoreRedundant.fst) | `(store a i (select a i)) == a`, exercising the `store_redundant` matcher |
+| [`tools/test_select_store_diff.smt2`](tools/test_select_store_diff.smt2), [`Z3ExtractedProof_SelectStoreDiff.fst`](Z3ExtractedProof_SelectStoreDiff.fst) | `(select (store a i x) j) == (select a j)` under `i <> j` -- a rewrite that is *not* wired into any matcher (no `i <> j` side-condition support); Z3 in fact proves it via `PR_TH_LEMMA`, not `PR_REWRITE`, so it never reaches the matcher at all |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
