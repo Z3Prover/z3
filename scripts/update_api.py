@@ -893,6 +893,9 @@ def mk_java(java_src, java_dir, package_name):
                 java_wrapper.write('  jenv->ReleaseStringUTFChars(a%s, _a%s);\n' % (i, i));
             i = i + 1
         # return
+        if name == 'Z3_mk_context' or name == 'Z3_mk_context_rc':
+            java_wrapper.write('  if (result != 0)\n')
+            java_wrapper.write('      Z3_set_error_handler(result, Z3JavaErrorHandler);\n')
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:

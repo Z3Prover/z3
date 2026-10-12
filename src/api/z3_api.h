@@ -1654,6 +1654,7 @@ extern "C" {
          Z3 will return the same pointer twice.
 
        \sa Z3_del_context
+       \sa Z3_set_error_handler
 
        def_API('Z3_mk_context', CONTEXT, (_in(CONFIG),))
     */
@@ -1678,6 +1679,9 @@ extern "C" {
        - All main interaction with Z3 happens in the context of a \c Z3_context.
        - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
+
+       \sa Z3_del_context
+       \sa Z3_set_error_handler
 
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
@@ -6267,9 +6271,22 @@ extern "C" {
        and will be called in this case.  To disable the use of the
        error handler, simply register with \c h=NULL.
 
+       By default, newly created contexts install an internal default error
+       handler that prints the error message and terminates the process via
+       \c exit(1). While suitable for standalone CLI programs, calling
+       raw \c exit() is unsafe when Z3 is invoked from within a managed
+       runtime environment (such as Java/JNI under Android ART or the JVM,
+       or .NET/CLR) or multi-threaded embedders: process termination can race
+       with background runtime threads (e.g., JIT compilation or GC threads),
+       producing crashes (SIGSEGV) in unrelated runtime threads. Embedders
+       in managed runtimes should always register their own error handler or
+       disable it by passing \c h=NULL and inspecting #Z3_get_error_code.
+
        \warning Log files, created using #Z3_open_log, may be potentially incomplete/incorrect if error handlers are used.
 
        \sa Z3_get_error_code
+       \sa Z3_mk_context
+       \sa Z3_mk_context_rc
     */
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h);
 
