@@ -85,18 +85,66 @@ UF_INPUTS = {
 (assert (distinct f (b d c)))
 (check-sat)
 """,
+    # ite over the sort: as an equality side, nested, under a function, inside
+    # distinct and a predicate, with constants, equalities, and predicates as conditions.
+    "uf_ite": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun p (U) Bool)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const q Bool)
+(assert (= c (ite q a b)))
+(assert (or (not q) (p (ite q a c))))
+(assert (not (p a)))
+(assert (or q (distinct (f (ite (p a) b c)) (f b) (f a))))
+(check-sat)
+""",
+    # Z3 internalizes the distinct after asserting q, so its alldiff clauses
+    # mention a instead of the ite; the replay ties them to the distinct and q
+    # together with a cnf lemma.
+    "uf_ite_alldiff": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun g (U U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const q Bool)
+(assert q)
+(assert (= c a))
+(assert (distinct (g c a) (ite (not q) b a) c))
+(check-sat)
+""",
 }
 
 
-def random_instance(seed, constants=5, constraints=14, depth=2):
-    """A random QF_UF problem with Boolean structure; callers filter for unsat ones."""
+def random_instance(seed, constants=5, constraints=14, depth=2, ite=0.0):
+    """A random QF_UF problem with Boolean structure; callers filter for unsat ones.
+
+    With a positive ite probability, that share of the compound terms are ite
+    terms over the sort, under equality, predicate, and Boolean-variable
+    conditions.
+    """
     generator = random.Random(seed)
     lines = ["(set-logic QF_UF)", "(declare-sort U 0)"]
     lines += ["(declare-fun c%d () U)" % i for i in range(constants)]
     lines += ["(declare-fun f (U) U)", "(declare-fun g (U U) U)", "(declare-fun p (U) Bool)",
               "(declare-const q Bool)"]
 
+    def condition(d):
+        roll = generator.random()
+        if roll < 0.3:
+            return "q" if roll < 0.15 else "(not q)"
+        if roll < 0.7:
+            return "(= %s %s)" % (term(d), term(d))
+        return "(p %s)" % term(d)
+
     def term(d):
+        if d > 0 and ite and generator.random() < ite:
+            return "(ite %s %s %s)" % (condition(d - 1), term(d - 1), term(d - 1))
         roll = generator.random()
         if d == 0 or roll < 0.4:
             return "c%d" % generator.randrange(constants)
@@ -294,7 +342,9 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_eq = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["U", "U"]
         for certificate, message in [
             (mutate(is_f, domain=["Bool"]), "unsupported uninterpreted-sort declaration"),
-            (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["Bool", "U", "U"]), "unsupported uninterpreted-sort"),
+            (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["U", "U", "U"]), "invalid uninterpreted-sort ite"),
+            (mutate(is_f, kind=z3.Z3_OP_ITE, name="ite", domain=["Bool", "U", "U"]), "invalid uninterpreted-sort ite"),
+            (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["Bool", "U", "U"]), "wrong number of arguments"),
             (mutate(is_f, kind=z3.Z3_OP_ADD, name="+", domain=["U", "U"]), "unsupported uninterpreted-sort"),
             (mutate(is_p, domain=["Bool"]), "cannot mix argument sorts"),
             (mutate(is_p, domain=["U", "U"]), "wrong number of arguments"),
@@ -324,6 +374,60 @@ class TestUninterpretedValidation(unittest.TestCase):
                                      "arguments": proofs[:1] * 2})
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot mix argument sorts"):
             proof_to_lean.reconstruct(self.source, certificate)
+
+    def test_ite_over_the_sort_is_classical_ite_with_gate_lemmas(self):
+        source = UF_INPUTS["uf_ite"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE]
+        self.assertEqual(len(ites), 3)
+        self.assertEqual({graph.decl(node).domain for node in ites}, {("Bool", "U", "U")})
+        text = proof_to_lean.reconstruct(source, certificate)
+        # Every ite term is Lean's ite over _U with the classical instance, so its
+        # definition and the definitions containing it are noncomputable.
+        for node in ites:
+            self.assertIn("noncomputable def term_%d " % node, text)
+            self.assertIn(": _U := (@ite _U (formula_%d _atoms%s) (Classical.propDecidable _) " % (
+                graph.arguments(node)[0], proof_to_lean._UF_ARGUMENTS), text)
+        containing = [node for node in range(len(graph.nodes))
+                      if graph.is_term(node) and graph.kind(node) != z3.Z3_OP_ITE
+                      and any(arg in ites for arg in graph.arguments(node))]
+        self.assertTrue(containing)
+        for node in containing:
+            self.assertIn("noncomputable def term_%d " % node, text)
+        self.assertNotIn("Rat", text)
+        # The gate clauses are def-axiom nodes proved by splitting on the condition.
+        self.assertGreaterEqual(certificate["rule_counts"]["def-axiom"], 2)
+        self.assertIn("(ite_eq_left _hc)", text)
+        self.assertIn("(ite_eq_right _hnc)", text)
+        self.assertNotIn("have _g", text)  # no arithmetic branch helpers
+        # A gate clause naming the wrong branch is rejected before Lean runs.
+        gate = next(node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                    and any(graph.kind(lit) == z3.Z3_OP_EQ for lit in graph.clause(graph.conclusion(node))))
+        clause = graph.clause(graph.conclusion(gate))
+        equality = next(lit for lit in clause if graph.kind(lit) == z3.Z3_OP_EQ)
+        left, right = graph.arguments(equality)
+        ite = left if graph.kind(left) == z3.Z3_OP_ITE else right
+        branch = right if ite == left else left
+        condition, then_branch, else_branch = graph.arguments(ite)
+        other = else_branch if branch == then_branch else then_branch
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][equality]["arguments"] = [ite if arg == ite else other for arg in (left, right)]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+            proof_to_lean.reconstruct(source, tampered)
+
+    def test_alldiff_clauses_simplified_under_a_unit_get_a_cnf_lemma(self):
+        source = UF_INPUTS["uf_ite_alldiff"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertTrue(cnf)
+        for node in cnf:
+            # The lemma is over the implying assertions only, never all of them.
+            literals = graph.clause(graph.conclusion(node))
+            self.assertLess(len(literals), len(graph.assertions) + 1)
+        proof_to_lean.reconstruct(source, certificate)
 
     def test_quoted_sort_names_are_kept(self):
         source = ("(declare-sort |my sort| 0)(declare-fun a () |my sort|)(declare-fun b () |my sort|)"
@@ -407,6 +511,21 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertGreaterEqual(_unsat_core_size(source), 4, "re-pick seed %d" % seed)
                 certificate, _ = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
+
+    # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least six
+    # assertions and whose refutation reasons through ite terms; pinned like
+    # LEARNED_CLAUSE_SEEDS.
+    ITE_SEEDS = (873, 1467, 1975)
+
+    def test_random_instances_with_ite_terms(self):
+        for seed in self.ITE_SEEDS:
+            source = random_instance(seed, ite=0.4)
+            with self.subTest(seed=seed):
+                self.assertIn("(ite ", source)
+                self.assertGreaterEqual(_unsat_core_size(source), 6, "re-pick seed %d" % seed)
+                certificate, _ = self.check(source)
+                self.assertIn("def-axiom", certificate["rule_counts"])  # ite gate clauses
+                self.assertIn("@ite _U", proof_to_lean.reconstruct(source, certificate))
 
     def test_long_refutations_are_outlined_into_bounded_lemmas(self):
         # Seven levels give about 1,600 proof steps; as one nested term the main

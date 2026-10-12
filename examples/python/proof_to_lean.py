@@ -51,9 +51,9 @@ _FIXED_ARITY = {
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
-# A Real ite is the one arithmetic term with a Boolean argument; Lean's ite
-# needs a decidability instance, which the classical one provides. The
-# arithmetic slice already depends on the standard axioms through Rat.
+# An ite is the one Real or uninterpreted-sort term with a Boolean argument;
+# Lean's ite needs a decidability instance, which the classical one provides.
+# Both slices already depend on the standard axioms, through Rat and grind.
 _REAL_ITE_DOMAIN = ("Bool", "Real", "Real")
 _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
@@ -229,8 +229,11 @@ def _declaration(raw, sort):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
     if raw["range"] == sort:
-        # Only constants and functions inhabit the uninterpreted sort: no ite, no definitions.
-        if kind != z3.Z3_OP_UNINTERPRETED or any(argument != sort for argument in domain):
+        # Constants, functions, and ite inhabit the uninterpreted sort: no definitions.
+        if kind == z3.Z3_OP_ITE:
+            if name != "if" or domain != ("Bool", sort, sort):
+                raise ReconstructionError("invalid uninterpreted-sort ite declaration")
+        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument != sort for argument in domain):
             raise ReconstructionError("unsupported uninterpreted-sort declaration: %s" % name)
     elif raw["range"] == "Real":
         if kind == z3.Z3_OP_ITE:
@@ -482,7 +485,8 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
     if kind == z3.Z3_OP_ITE:
         # The instance's proposition is inferred from the condition.
-        return "(@ite Rat %s (Classical.propDecidable _) %s %s)" % (
+        return "(@ite %s %s (Classical.propDecidable _) %s %s)" % (
+            "Rat" if graph.is_real(node) else "_U",
             formula(arguments[0]), term(arguments[1]), term(arguments[2]))
     args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
@@ -1131,11 +1135,21 @@ def _gate_contradiction(graph, formula, truth, proof, fact):
             return "(%s (Or.inl (And.intro %s %s)))" % (proof, pos[0], pos[1])
         if not truth and neg[0] and pos[2]:
             return "(%s (Or.inr (And.intro %s %s)))" % (proof, neg[0], pos[2])
+        # Z3 also records the two condition-free gate clauses: both branches
+        # false refutes the ite, both true establishes it (constructively,
+        # since a true then-branch turns the first disjunct's refutation into
+        # a refutation of the condition).
+        if truth and neg[1] and neg[2]:
+            return ("(Or.elim %s (fun _pair => %s (And.right _pair))"
+                    " (fun _pair => %s (And.right _pair)))") % (proof, neg[1], neg[2])
+        if not truth and pos[1] and pos[2]:
+            return "(%s (Or.inr (And.intro (fun _cond => %s (Or.inl (And.intro _cond %s))) %s)))" % (
+                proof, proof, pos[1], pos[2])
     return None
 
 
 def _ite_gate_lemma(graph, terms, node):
-    """Prove a clause tying a Real ite to one branch, or return None for other clauses.
+    """Prove a clause tying a Real or uninterpreted-sort ite to one branch, or return None.
 
     The two gate clauses of (ite c a b) are (not c) or (ite c a b) = a and
     c or (ite c a b) = b, with either equality orientation, in any literal
@@ -1145,7 +1159,7 @@ def _ite_gate_lemma(graph, terms, node):
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
     for position, literal in enumerate(literals):
-        if graph.kind(literal) != z3.Z3_OP_EQ or not graph.is_real(graph.arguments(literal)[0]):
+        if graph.kind(literal) != z3.Z3_OP_EQ or not graph.is_term(graph.arguments(literal)[0]):
             continue
         left, right = graph.arguments(literal)
         for ite, branch, flipped in ((left, right, False), (right, left, True)):

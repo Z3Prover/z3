@@ -471,6 +471,107 @@ _UF_LOG = """\
 (infer rup)
 """
 
+_UF_ITE = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const p Bool)
+(assert (= c (ite p a b)))
+(assert (not (= (f c) (f a))))
+(assert (not (= (f c) (f b))))
+(check-sat)
+"""
+# The clause log for _UF_ITE: the ite over the sort is tied to its branches
+# by tseitin clauses, exactly as a Real ite, and is otherwise an opaque element.
+_UF_ITE_LOG = """\
+(declare-fun p () Bool)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(define-const $9 U (ite p a b))
+(define-const $19 Bool (= $9 a))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $18 Bool (not p))
+(define-const $21 Proof (tseitin $18 $19))
+(infer (not p) $19 $21)
+(define-const $20 Bool (= $9 b))
+(define-const $22 Proof (tseitin p $20))
+(infer p $20 $22)
+(declare-fun c () U)
+(define-const $10 Bool (= c $9))
+(assume $10)
+(declare-fun f (U) U)
+(define-const $12 U (f a))
+(define-const $11 U (f c))
+(define-const $13 Bool (= $11 $12))
+(assume (not $13))
+(define-const $15 U (f b))
+(define-const $16 Bool (= $11 $15))
+(assume (not $16))
+(declare-fun euf (Bool Bool Bool Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $23 Proof (cc $16))
+(define-const $17 Bool (not $16))
+(define-const $24 Proof (euf $17 $10 $20 $23))
+(infer (not $10) (not $20) $16 $24)
+(declare-fun rup () Proof)
+(infer (not $20) $16 rup)
+(infer (not $20) rup)
+(infer p rup)
+(infer $19 rup)
+(define-const $26 Proof (cc $13))
+(define-const $14 Bool (not $13))
+(define-const $27 Proof (euf $14 $10 $19 $26))
+(infer (not $10) (not $19) $13 $27)
+(infer $13 rup)
+(infer rup)
+"""
+
+_UF_ITE_ALLDIFF = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun g (U U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const q Bool)
+(assert q)
+(assert (= c a))
+(assert (distinct (g c a) (ite (not q) b a) c))
+(check-sat)
+"""
+# The clause log for _UF_ITE_ALLDIFF: Z3 internalizes the distinct after q is
+# asserted, so its alldiff clauses mention a where the input has the ite, and
+# the last one is the empty clause because (= c a) is already asserted.
+_UF_ITE_ALLDIFF_LOG = """\
+(declare-fun q () Bool)
+(assume q)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun c () U)
+(define-const $8 Bool (= c a))
+(assume $8)
+(declare-fun g (U U) U)
+(define-const $9 U (g c a))
+(define-const $22 Bool (= $9 a))
+(declare-fun alldiff (Bool) Proof)
+(define-const $17 Bool (not $22))
+(define-const $20 Proof (alldiff $17))
+(infer (not $22) $20)
+(define-const $24 Bool (= $9 c))
+(define-const $23 Bool (not $24))
+(define-const $25 Proof (alldiff $23))
+(infer (not $24) $25)
+(define-const $26 Bool (not $8))
+(define-const $27 Proof (alldiff $26))
+(infer $27)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+
 
 def _z3_available():
     try:
@@ -516,15 +617,23 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(self.classify(chained), "qf_uf")
         # A declared sort that no assertion uses does not change the fragment.
         self.assertEqual(self.classify("(declare-sort U 0)(declare-const p Bool)(assert p)"), "propositional")
+        # An ite over the sort, nested and under any supported condition, stays in the fragment;
+        # an ite is also enough to use the sort.
+        ite = ("(declare-sort U 0)(declare-fun a () U)(declare-fun f (U) U)(declare-fun p (U) Bool)"
+               "(declare-const q Bool)(assert (not (= (ite (and q (p a)) (f a) (ite (= a (f a)) a (f (f a)))) a)))")
+        self.assertEqual(self.classify(ite), "qf_uf")
+        self.assertEqual(self.classify("(declare-sort U 0)(declare-fun a () U)(declare-const q Bool)"
+                                       "(assert (not (= (ite q a a) a)))"), "qf_uf")
         declarations = "(declare-sort U 0)(declare-sort V 0)(declare-fun a () U)(declare-fun v () V)"
         for source, message in [
             (declarations + "(assert (and (= a a) (= v v)))", "only one uninterpreted sort"),
             (declarations + "(declare-fun h (U) V)(assert (= (h a) v))", "only one uninterpreted sort"),
+            (declarations + "(declare-const p Bool)(assert (and (= a a) (= (ite p v v) v)))",
+             "only one uninterpreted sort"),
             (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
             (declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))", "functions over Bool"),
             (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
             (declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))", "functions over Real"),
-            (declarations + "(declare-const p Bool)(assert (= (ite p a a) a))", "operator over an uninterpreted sort"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
         ]:
             with self.subTest(source=source):
@@ -788,6 +897,61 @@ class TestClauseLogReplay(unittest.TestCase):
         quoted = self.replay(re.sub(r"\bU\b", "|my sort|", _UF), re.sub(r"\bU\b", "|my sort|", _UF_LOG))
         self.assertEqual({d["range"] for d in quoted["declarations"]}, {"Bool", "my sort", "Proof"})
         self.assertEqual(quoted["rule_counts"], certificate["rule_counts"])
+
+    def test_ite_over_the_uninterpreted_sort_in_the_clause_log(self):
+        certificate = self.replay(_UF_ITE, _UF_ITE_LOG)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["def-axiom"], 2)  # the two ite gate clauses
+        self.assertEqual(counts["th-lemma"], 2)   # the two euf hints
+        ite = [d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ITE]
+        self.assertEqual([(d["name"], d["domain"], d["range"]) for d in ite], [("if", ["Bool", "U", "U"], "U")])
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "U", "Proof"})
+        # The gate clauses are def-axiom nodes, not assumptions and not theory lemmas, so
+        # a log that never records them still replays: rup steps find them as gates.
+        trimmed = _UF_ITE_LOG.replace("(infer (not p) $19 $21)\n", "").replace("(infer p $20 $22)\n", "")
+        self.assertEqual(self.replay(_UF_ITE, trimmed)["rule_counts"], counts)
+        # The log's ite must be built from declared symbols with the input's sort.
+        for log, message in [
+            (_UF_ITE_LOG.replace("(ite p a b)", "(ite q a b)"), "undeclared or fresh symbol"),
+            (_UF_ITE_LOG.replace("(ite p a b)", "(ite a a b)"), "ill-sorted application of ite"),
+            (_UF_ITE_LOG.replace("(ite p a b)", "(ite p a p)"), "ill-sorted application of ite"),
+            (_UF_ITE_LOG.replace("(define-const $9 U (ite p a b))", "(define-const $9 Bool (ite p a b))"),
+             "has sort U, declared Bool"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_UF_ITE, log)
+
+    def test_alldiff_clauses_simplified_under_a_unit_are_tied_to_their_sources(self):
+        certificate = self.replay(_UF_ITE_ALLDIFF, _UF_ITE_ALLDIFF_LOG)
+        declarations = certificate["declarations"]
+        hints = [tuple(d["parameters"]) for d in declarations if d["name"] == "th-lemma"]
+        self.assertEqual(set(hints), {("cnf",)})
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        self.assertNotIn("def-axiom", certificate["rule_counts"])
+        # Each cnf lemma negates an unsat core of the assertions, not all of them:
+        # (not (= (g c a) a)) follows from the distinct and q alone.
+        nodes = certificate["nodes"]
+        for index, node in enumerate(nodes):
+            if declarations[node["declaration"]]["name"] == "th-lemma":
+                clause = nodes[node["arguments"][0]]
+                literals = clause["arguments"] if declarations[clause["declaration"]]["name"] == "or" else [clause]
+                self.assertLessEqual(len(literals), 3, "cnf lemma %d over all assertions" % index)
+        # The empty alldiff clause's literal (not (= c a)) is the negation of an
+        # assertion; it stays a literal of the lemma instead of being resolved away.
+        empty = [index for index, node in enumerate(nodes)
+                 if declarations[node["declaration"]]["name"] == "unit-resolution"
+                 and declarations[nodes[node["arguments"][-1]]["declaration"]]["name"] == "false"]
+        self.assertTrue(empty)
+        # Without q the input is satisfiable and no assertion subset implies the
+        # empty clause's literal, so the replay rejects the log instead of guessing.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original assertion"):
+            self.replay(_UF_ITE_ALLDIFF.replace("(assert q)\n", ""), _UF_ITE_ALLDIFF_LOG.replace("(assume q)\n", ""))
+        # A core check cut off by the resource limit is reported as such, not as a mismatch.
+        with patch.object(proof_clause_log, "_RLIMIT", 1):
+            with self.assertRaisesRegex(proof_certificate.ProofExportError, "resource limit reached"):
+                self.replay(_UF_ITE_ALLDIFF, _UF_ITE_ALLDIFF_LOG)
 
     def test_deleted_and_repeated_empty_clauses_are_handled(self):
         log = _LRA_LOG.replace("(infer rup)\n", "(del (not $11) (not $17) (not $21))\n(infer rup)\n(infer rup)\n")

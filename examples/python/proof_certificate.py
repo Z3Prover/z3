@@ -187,6 +187,16 @@ def is_uninterpreted_sort(sort):
     return sort.kind() == z3.Z3_UNINTERPRETED_SORT
 
 
+def _require_single_sort(candidate, sort):
+    """Check that an uninterpreted sort is the one sort of the input so far; return it."""
+    if candidate.name() in _RESERVED_SORTS:
+        raise ProofExportError("unsupported uninterpreted sort name: %s" % candidate.name())
+    if sort is not None and not candidate.eq(sort):
+        raise ProofExportError("only one uninterpreted sort is supported, not %s and %s" % (
+            sort.name(), candidate.name()))
+    return candidate
+
+
 def _require_uninterpreted_signature(decl, sort):
     """Check a function or predicate over the single uninterpreted sort; return that sort."""
     sorts = [decl.domain(i) for i in range(decl.arity())]
@@ -196,12 +206,7 @@ def _require_uninterpreted_signature(decl, sort):
         if not is_uninterpreted_sort(candidate):
             raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
                 candidate, decl.name()))
-        if candidate.name() in _RESERVED_SORTS:
-            raise ProofExportError("unsupported uninterpreted sort name: %s" % candidate.name())
-        if sort is not None and not candidate.eq(sort):
-            raise ProofExportError("only one uninterpreted sort is supported, not %s and %s" % (
-                sort.name(), candidate.name()))
-        sort = candidate
+        sort = _require_single_sort(candidate, sort)
     return sort
 
 
@@ -230,9 +235,14 @@ def classify_fragment(assertions):
             arithmetic = True
             _require_linear_real(expr)
         elif is_uninterpreted_sort(expr.sort()):
-            if decl.kind() != z3.Z3_OP_UNINTERPRETED:
+            # Constants, function applications, and ite, whose branches are
+            # terms of the sort and whose condition is any formula.
+            if decl.kind() == z3.Z3_OP_UNINTERPRETED:
+                sort = _require_uninterpreted_signature(decl, sort)
+            elif decl.kind() == z3.Z3_OP_ITE:
+                sort = _require_single_sort(expr.sort(), sort)
+            else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
-            sort = _require_uninterpreted_signature(decl, sort)
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())

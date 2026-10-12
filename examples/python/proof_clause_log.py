@@ -33,6 +33,8 @@ from proof_certificate import (
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _RESULTS = ("sat", "unsat", "unknown")
 _TRIM_THRESHOLD = 1_000_000
+# Resource limit of the bounded solver calls that tie assumed clauses to assertions.
+_RLIMIT = 200000
 
 
 def run_clause_log(z3_executable, assertion_text, timeout=None):
@@ -250,13 +252,14 @@ class _Terms:
             raise ProofExportError("unsupported application head in the clause log")
         count = len(arguments)
         function = self.functions.get(_symbol(head))
-        if function is not None:
-            if function.arity() != count:
-                raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
-            try:
-                return function(*arguments)
-            except z3.Z3Exception:
-                raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
+        if function is not None and function.arity() != count:
+            raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
+        try:
+            return function(*arguments) if function is not None else self._apply(head, count, arguments)
+        except z3.Z3Exception:
+            raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
+
+    def _apply(self, head, count, arguments):
         if head == "not" and count == 1:
             return z3.Not(arguments[0])
         if head == "or":
@@ -592,8 +595,9 @@ class _Replay:
         Z3's clause-log checker propagates through such definitions implicitly,
         so the log's rup steps may rely on them. Each gate clause is justified
         as a def-axiom, which the reconstructor proves independently. A Real
-        ite term inside an arithmetic atom gets the two clauses relating it to
-        its branches, which the log also records as tseitin inferences.
+        or uninterpreted-sort ite term inside an atom gets the two clauses
+        relating it to its branches, which the log also records as tseitin
+        inferences.
         """
         pending = [literal]
         while pending:
@@ -602,7 +606,7 @@ class _Replay:
                 continue
             self.gates[atom.get_id()] = atom
             kind, args = atom.decl().kind(), atom.children()
-            if z3.is_real(atom):
+            if not z3.is_bool(atom):
                 clauses = []
                 if kind == z3.Z3_OP_ITE:
                     clauses = [[z3.Not(args[0]), atom == args[1]], [args[0], atom == args[2]]]
@@ -611,10 +615,9 @@ class _Replay:
                     node = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(clause))])
                     self.add_clause(node, clause)
                 continue
-            if not z3.is_bool(atom):
-                continue
-            if kind in _ARITH_PREDICATES or (kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and z3.is_real(args[0])):
-                pending.extend(args)
+            if (kind in _ARITH_PREDICATES or kind == z3.Z3_OP_UNINTERPRETED
+                    or (kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and not z3.is_bool(args[0]))):
+                pending.extend(args)  # Theory atoms: look for ite terms inside.
                 continue
             if kind == z3.Z3_OP_OR:
                 clauses = [[z3.Not(atom)] + args] + [[atom, z3.Not(arg)] for arg in args]
@@ -722,15 +725,46 @@ class _Replay:
             if self._valid(z3.Implies(conjunct, formula)):
                 source = self._derive_assumption(assertion, path, conjunct, conjunct)
                 return self._cnf_lemma([(source, conjunct)], literals)
-        # Preprocessing may combine several assertions, for example into the empty clause.
-        if self.assertions and self._valid(z3.Implies(z3.And(*self.assertions), formula)):
-            sources = [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
-                       for assertion in dict.fromkeys(self.assertions, None)]
+        # Preprocessing may combine several assertions, for example into the
+        # empty clause, or simplify an ite inside one assertion under a unit
+        # asserted by another.
+        sources = self._implying_assertions(formula)
+        if sources is not None:
             return self._cnf_lemma(sources, literals)
         raise ProofExportError("assumed clause does not match any original assertion: %s" % formula)
 
+    def _implying_assertions(self, formula):
+        """Return (asserted node, assertion) pairs for an unsat core of assertions implying formula, or None.
+
+        The core keeps the cnf lemma small: Lean must prove it, and for an
+        unsatisfiable input every clause follows from all assertions together.
+        """
+        assertions = list(dict.fromkeys(self.assertions, None))
+        if not assertions:
+            return None
+        solver = z3.Solver(ctx=self.context)
+        solver.set("rlimit", _RLIMIT)
+        tracking = [z3.FreshBool("cnf_source", self.context) for _ in assertions]
+        for literal, assertion in zip(tracking, assertions):
+            solver.assert_and_track(assertion, literal)
+        solver.add(z3.Not(formula))
+        result = solver.check()
+        if result == z3.unknown:
+            # This is the last resort, so a cut-off check must not read as a mismatch.
+            raise ProofExportError("resource limit reached while tying an assumed clause to the assertions: %s"
+                                   % formula)
+        if result != z3.unsat:
+            return None
+        core = {literal.get_id() for literal in solver.unsat_core()}
+        return [(self.dag.node(self.asserted, [self.dag.expression(assertion)]), assertion)
+                for literal, assertion in zip(tracking, assertions) if literal.get_id() in core]
+
     def _cnf_lemma(self, sources, literals):
         """Derive a clause from source formulas that imply it, through a cnf theory lemma."""
+        # A source whose negation is already a literal of the clause stays a
+        # literal: resolving it away would also remove it from the clause.
+        clause_keys = {_key(literal) for literal in literals}
+        sources = [(node, formula) for node, formula in sources if _key(z3.Not(formula)) not in clause_keys]
         declaration = self.dag.rule(z3.Z3_OP_PR_TH_LEMMA, "th-lemma", 0, [_CNF_HINT])
         lemma_literals = [z3.Not(formula) for _, formula in sources] + list(literals)
         lemma = self.dag.node(declaration, [self.dag.expression(self.clause_formula(lemma_literals))])
@@ -739,7 +773,7 @@ class _Replay:
 
     def _valid(self, claim):
         solver = z3.Solver(ctx=self.context)
-        solver.set("rlimit", 200000)
+        solver.set("rlimit", _RLIMIT)
         solver.add(z3.Not(claim))
         return solver.check() == z3.unsat
 

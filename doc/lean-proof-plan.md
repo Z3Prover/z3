@@ -581,7 +581,7 @@ each, and reports the three standard axioms. Python checks only shapes for
 `euf` hints, so a false `euf` lemma is rejected by Lean alone (covered by a
 tampering test). Still rejected: a second uninterpreted sort, mixing the sort
 with arithmetic (QF_UFLRA), functions with Bool or Real arguments or results,
-and `ite` over the sort.
+and `ite` over the sort (the last accepted since 2026-10-12, see below).
 
 **Long refutations in every fragment (2026-10-12).** The lemma outlining
 added for LassoRanker applied only to arithmetic certificates with more than
@@ -600,6 +600,30 @@ checks in 3 s (the 8-level one, 3,827 nodes, in 5 s; previously a failure),
 the 6-level one drops from 15 s to 2 s, and pigeonhole-5 checks in 3 s;
 pigeonhole-6 (8,693 steps, 3,071 lemmas) checks in about 90 s. Covered by
 `test_proof_to_lean_uf.py` and `test_proof_to_lean_integration.py`.
+
+**`ite` over the uninterpreted sort (2026-10-12).** The QF_UF slice rejected
+every input with an `ite` whose branches have the uninterpreted sort, although
+the clause log treats it exactly like a Real `ite`: the `euf` core keeps the
+term opaque and records `(not c) ∨ (ite c a b) = a` and `c ∨ (ite c a b) = b`
+as `tseitin` inferences. The exporter now classifies such inputs as `qf_uf`,
+the replay adds the gate clauses as `def-axiom` nodes for `ite` terms found
+inside equalities, `distinct`, and predicate applications, and the
+reconstructor renders the term as Lean's `ite` over `_U` with the classical
+instance and proves the gates with `ite_eq_left`/`ite_eq_right` as before.
+`grind` splits on the `ite` inside `euf` lemmas and rewrites without help.
+Random instances with nested `ite` terms exposed two older gaps that the new
+inputs hit often: Z3 also records the two condition-free Boolean `ite` gate
+clauses (`(or (not (ite p q r)) q r)` and `(or (ite p q r) (not q) (not r))`),
+which the def-axiom checker rejected; and when `q` is asserted, Z3
+internalizes a later `distinct` with `(ite (not q) b a)` already replaced by
+`a`, so its `alldiff` clauses follow only from the `distinct` together with
+`q`. The replay's last-resort `cnf` lemma now negates an unsat core of the
+assertions instead of all of them, and keeps a clause literal that is already
+the negation of a source as a literal (resolving it away produced a
+unit-resolution the reconstructor rejected). 20 of 400 random stress
+instances failed before these fixes, none after. Still rejected: a second
+sort, QF_UFLRA, and Bool or Real arguments or results of uninterpreted
+functions.
 
 ## Arithmetic proof infrastructure
 

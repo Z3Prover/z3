@@ -69,10 +69,11 @@ variables and numerals, sums, differences, negation, multiplication by a
 constant, division by a nonzero constant, Real-valued ite whose condition is
 any supported formula, and the atoms <=, <, >=, >, =, and distinct over Real
 terms. The qf_uf fragment adds one uninterpreted sort with constants,
-functions, and predicates whose arguments all have that sort, and the atoms =
-and distinct over its terms; it cannot be combined with arithmetic, and a
+functions, and predicates whose arguments all have that sort, ite terms over
+the sort whose condition is any supported formula, and the atoms = and
+distinct over its terms; it cannot be combined with arithmetic, and a
 second uninterpreted sort, functions with Bool or Real arguments or results,
-ite over the sort, and one symbol name declared with several signatures
+and one symbol name declared with several signatures
 (Z3 accepts such overloading; the certificate binds symbols by name) are
 rejected. Quantifiers, integer arithmetic,
 nonlinear terms, bit-vectors, arrays, and pseudo-Boolean operators are
@@ -156,8 +157,12 @@ step:
     by and-elim, rewrite, and mp; a formula that merely implies the clause,
     which happens when preprocessing splits an xor or an equivalence into
     several clauses, is bridged by a th-lemma with hint "cnf" and one
-    unit-resolution. Clauses with true, not false, or complementary literals
-    are def-axiom nodes. Nothing else is accepted as an assumption.
+    unit-resolution. When no single assertion implies the clause (Z3 found a
+    contradiction while asserting, or simplified an ite inside one assertion
+    under a unit asserted by another, which shows in alldiff clauses), the
+    cnf lemma is over an unsat core of the assertions. Clauses with true, not
+    false, or complementary literals are def-axiom nodes. Nothing else is
+    accepted as an assumption.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact
@@ -209,7 +214,10 @@ declares the sort and the functions it uses, which must be the input's own;
 function applications are rebuilt with the input's declarations, so a wrong
 arity or an ill-sorted argument is rejected. Equality conflicts arrive as
 euf hints, distinct as alldiff clauses, and the Boolean structure as tseitin
-and rup steps, exactly as for arithmetic; no new hint kind is involved.
+and rup steps, exactly as for arithmetic; no new hint kind is involved. An
+ite term over the sort is an opaque element for the euf core, tied to its
+branches by the same two gate clauses as a Real ite, which the replay adds
+as def-axiom nodes.
 
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
@@ -384,7 +392,9 @@ an interpretation of the uninterpreted sort:
 
 Constants become _elems i, an application f(a, b) becomes _funs j [a, b], and
 a predicate application becomes _preds k [a, b]; equality and distinct are
-Lean's = on _U. The theorem quantifies over every type and every indexed
+Lean's = on _U, and an ite over the sort is Lean's ite over _U with the
+classical instance, as for Real (its gate clauses are proved the same way).
+The theorem quantifies over every type and every indexed
 family of functions, so a model of the SMT-LIB input (a nonempty domain with
 one function per symbol) is one instance of it: the encoding over-approximates
 the class of models and is therefore sound for unsatisfiability. Nothing

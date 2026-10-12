@@ -12,9 +12,10 @@ proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
 `ite` terms, whose gate clauses are proved with `ite_eq_left` and
 `ite_eq_right`. For quantifier-free uninterpreted functions over one sort
 (QF_UF) the sort becomes a type variable with indexed families of constants,
-functions, and predicates over argument lists, and `grind`'s congruence
-closure proves the `euf` lemmas. Other native proof rules are still
-unsupported.
+functions, and predicates over argument lists, `ite` terms over the sort are
+Lean's `ite` with their gate clauses proved as for Real, and `grind`'s
+congruence closure proves the `euf` lemmas. Other native proof rules are
+still unsupported.
 
 ## Check a native Z3 refutation
 
