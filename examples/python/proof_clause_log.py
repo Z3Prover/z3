@@ -26,7 +26,8 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, constant_value, linear_combination_refutes, numeral_value,
+    _NO_PREPROCESSING, _TOKEN, constant_value, is_uninterpreted_sort, linear_combination_refutes,
+    numeral_value,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -205,14 +206,21 @@ class _Terms:
         self.defined = {}
         self.hints = {}
         self.constants = {}
+        self.functions = {}  # uninterpreted functions and predicates of the input, by name
+        self.sorts = set()   # names of the input's uninterpreted sorts
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
             if expr.get_id() in seen:
                 continue
             seen.add(expr.get_id())
-            if z3.is_const(expr) and expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
-                self.constants[str(expr.decl().name())] = expr
+            if is_uninterpreted_sort(expr.sort()):
+                self.sorts.add(expr.sort().name())
+            if expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
+                if z3.is_const(expr):
+                    self.constants[str(expr.decl().name())] = expr
+                else:
+                    self.functions[str(expr.decl().name())] = expr.decl()
             pending.extend(expr.children())
 
     def _subtract(self, arguments):
@@ -241,6 +249,14 @@ class _Terms:
         if not isinstance(head, str):
             raise ProofExportError("unsupported application head in the clause log")
         count = len(arguments)
+        function = self.functions.get(_symbol(head))
+        if function is not None:
+            if function.arity() != count:
+                raise ProofExportError("wrong number of arguments for %s in the clause log" % head)
+            try:
+                return function(*arguments)
+            except z3.Z3Exception:
+                raise ProofExportError("ill-sorted application of %s in the clause log" % head) from None
         if head == "not" and count == 1:
             return z3.Not(arguments[0])
         if head == "or":
@@ -280,7 +296,7 @@ class _Terms:
             self.hints[name] = sexpr
             return
         expr = self.build(sexpr)
-        if str(expr.sort()) != sort:
+        if str(expr.sort()) != _symbol(sort):  # The log quotes sort names the way it quotes symbols.
             raise ProofExportError("definition %s has sort %s, declared %s" % (name, expr.sort(), sort))
         self.defined[name] = expr
 
@@ -889,12 +905,23 @@ class _Replay:
                     dependencies = [self.logged_clauses[i] for i in ids]
                     command = command[:-1]
             if head == "declare-fun":
-                if len(command) != 4 or not isinstance(command[1], str):
+                if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], list):
                     raise ProofExportError("malformed declaration in the clause log")
                 if command[3] == "Proof":
                     continue
-                if command[2] != [] or _symbol(command[1]) not in terms.constants:
+                name = _symbol(command[1])
+                if command[2] == []:
+                    declared = name in terms.constants
+                else:
+                    declared = name in terms.functions and terms.functions[name].arity() == len(command[2])
+                if not declared:
                     raise ProofExportError("the clause log declares a symbol absent from the input: %s"
+                                           % command[1])
+            elif head == "declare-sort":
+                if len(command) != 3 or not isinstance(command[1], str) or command[2] != "0":
+                    raise ProofExportError("malformed sort declaration in the clause log")
+                if _symbol(command[1]) not in terms.sorts:
+                    raise ProofExportError("the clause log declares a sort absent from the input: %s"
                                            % command[1])
             elif head == "define-const":
                 if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], str):

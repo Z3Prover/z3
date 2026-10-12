@@ -564,6 +564,25 @@ integer coefficients when a branch has fractions, proved by `ite_eq_left` and
 `ite_eq_right`. Random instances with `ite` terms verify end to end; integer
 `ite` and `ite` with nonlinear branches stay rejected.
 
+**QF_UF through the clause log (2026-10-11).** Inputs over one uninterpreted
+sort with constants, functions, and predicates are now certified end to end.
+The clause log needs nothing new: the sort and the functions it uses are
+declared in the log (and must be the input's own, with the input's arities),
+equality conflicts arrive as `euf` hints with `cc` claims, `distinct` as
+`alldiff` clauses, and the Boolean structure as `tseitin` and `rup` steps.
+In Lean the sort is a type variable `_U` and the symbols are indexed families
+`_elems : Nat -> _U`, `_funs : Nat -> List _U -> _U`, and
+`_preds : Nat -> List _U -> Prop`, so one theorem signature serves every
+arity; the theorem quantifies over all such interpretations, which include
+every model of the input, so it is sound for unsatisfiability. `grind`'s
+congruence closure proves every `euf` lemma and every rewrite over the sort
+tried, including through `List.cons` applications, in well under a second
+each, and reports the three standard axioms. Python checks only shapes for
+`euf` hints, so a false `euf` lemma is rejected by Lean alone (covered by a
+tampering test). Still rejected: a second uninterpreted sort, mixing the sort
+with arithmetic (QF_UFLRA), functions with Bool or Real arguments or results,
+and `ite` over the sort.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)
