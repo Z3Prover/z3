@@ -123,6 +123,76 @@ of the original matcher set); this experiment is the first concrete,
 large-scale evidence of how much of real-world QF_AX proof content it would
 cover if added.
 
+### Update: two new matchers (`eq_symm`, `select_store_diff`) and a re-run
+
+Following the above finding (34/483 unmatched leaves are literal equality
+orientation swaps, and the module's own documented "known limitation" is
+`select_store_diff`), `Z3PatternMatchedProofChecker.fst` was extended from
+seven to **nine** matchers:
+
+- **`eq_symm`**: `(= a b) = (= b a)`, for any two same-sorted sub-expressions
+  `a`/`b`. Needed a new interpreted operator, `op_eq` (polymorphic: domain
+  `[s;s]` for any sort `s`, range `Bool`), given semantics
+  `value_eq_sym : value -> value -> bool` in
+  `Z3InterpretedProofChecker.fst`; soundness is just one symmetry lemma
+  (`lemma_value_eq_sym_symmetric`), no theory lemma needed.
+- **`select_store_diff`**: `select(store(a,i,x),j) = select(a,j)` for `i <>
+  j` (`Z3ArrayTheory.lemma_select_store_diff`), the pattern the module
+  docstring previously documented as unsupported. Its side condition `i <>
+  j` is a genuine *semantic* fact, not a shape fact, and was unsatisfiable
+  for any two named constants under the old `uninterp_app` (every 0-ary
+  constant of a sort denoted the *same* fixed value, regardless of name).
+  The fix: `uninterp_app` now injects distinct `decl_name` strings to
+  distinct `VInt`s, via an injective `string -> nat` encoding
+  (`string_key`, base-`0x110001` positional encoding over
+  `FStar.String.list_of_string`, injectivity proved by straightforward
+  structural induction) — so two distinctly-*named* 0-ary uninterpreted Int
+  constants are now provably unequal, and `select_store_diff` matches
+  whenever `i`/`j` are themselves such constants (compound index
+  expressions, e.g. `i+1` vs `j`, remain out of reach and unmatched, same
+  as before).
+
+Both matchers, the `op_eq` operator, and the `uninterp_app` model change
+typecheck cleanly (`Z3InterpretedProofChecker.fst` and
+`Z3PatternMatchedProofChecker.fst` both still fully verify, including two
+new live in-source demonstrations exercising each new matcher directly), and
+all 8 pre-existing `Z3ExtractedProof*.fst` snapshots still verify with no
+regressions.
+
+Re-running the full QF_AX corpus (same 279 files) with the updated,
+nine-matcher library:
+
+| metric | baseline (7 matchers) | updated (9 matchers) |
+|---|---|---|
+| rewrite leaves matched | 3 / 486 (0.6%) | **68 / 486 (14.0%)** |
+| matcher breakdown | 2 `store_redundant`, 1 `reflexivity` | 64 `eq_symm`, 1 `select_store_diff`, 2 `store_redundant`, 1 `reflexivity` |
+| F* check @ 10s timeout | 197 pass / 72 timeout / 10 fail | 12 pass / 263 timeout / 4 fail |
+| F* check @ 30s timeout | *(not run)* | 204 pass (73.1%) / 20 timeout / 55 fail |
+| fully verified (pass + 0 unmatched leaves) | 1 / 279 | 1 / 279 |
+
+Two takeaways:
+
+1. **The matcher coverage genuinely improved**: `eq_symm` alone accounts for
+   64 previously-unmatched leaves (far more than the 34 originally sampled,
+   since the corpus-wide count is higher than the single-shape sample
+   suggested), and `select_store_diff` fires for real at least once in this
+   corpus (not just in the hand-built in-source demonstration) — concrete
+   confirmation the injective-naming model fix is not merely a theoretical
+   nicety.
+2. **Honest cost**: at the *same* 10-second timeout used for the baseline,
+   `pass` collapsed from 197 to 12 — the nine-way `try_match_leaf` case
+   split plus the extra `string_key`/`value_eq_sym` reasoning make the
+   independent `lemma_unmatched_count_cross_checked` recomputation (see
+   "What a `pass` does and does not certify" above) noticeably more
+   expensive per file, and most files now blow the fixed ~7-10s F*
+   start-up budget before finishing that recomputation. Raising the
+   timeout to 30 seconds recovers (and slightly exceeds) the baseline pass
+   rate (204/279 = 73.1% vs 197/279 = 70.6%), and the 55 `fail` cases at
+   30s were manually confirmed (by inspecting `stderr_tail`) to be the
+   same non-unsoundness root cause documented above — SMT-budget
+   (`--z3rlimit 60 --fuel 4 --ifuel 4`) exhaustion of the cross-check
+   assertion, not a problem with `check_proof`/`checker_accepts` itself.
+
 ## QF_UF results (4361 unsat benchmarks)
 
 | Z3 phase | result |
@@ -241,4 +311,9 @@ python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_resu
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_results.jsonl --timeout 10 --workers 28
 python fstar\tools\analyze_benchmarks.py qf_ax_results.jsonl QF_AX
 python fstar\tools\analyze_benchmarks.py qf_uf_results.jsonl QF_UF
+
+# re-run QF_AX against the updated nine-matcher library, at the higher
+# timeout the extra per-leaf reasoning now needs (see "Update" above):
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v2_t30.jsonl --timeout 30 --workers 24
+python fstar\tools\analyze_benchmarks.py qf_ax_results_v2_t30.jsonl QF_AX_v2
 ```

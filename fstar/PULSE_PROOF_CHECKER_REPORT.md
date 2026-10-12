@@ -428,21 +428,18 @@ deliberately unmatched since `const` has no assigned semantics.
 that single leftover fact as a hypothesis — the matched leaf requires
 no further trust.
 
-**Known limitation, flagged rather than solved**: two companion
-patterns are *not* among the six matchers and so always fall to the
-leftover list: `select(store(a,i,x),j) = select(a,j)` for `i <> j`
-(`Z3ArrayTheory.lemma_select_store_diff`) and
-`store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for `i <> j`
-(`Z3ArrayTheory.lemma_store_commute`).
-`Z3InterpretedProofChecker.uninterp_app`/`default_value` maps *every*
-uninterpreted 0-ary constant of a given sort to the *same* value
-regardless of name, so two syntactically distinct named Int constants
-currently always denote the identical `VInt`, making the semantic side
-condition `i <> j` unsatisfiable for any two currently-expressible
-named constants under this interpretation. Supporting this pattern
-generically would require `uninterp_app` to inject distinct constant
-names to distinct values (e.g. hashing `decl_name`), which is left as
-future work rather than attempted here.
+**Update -- `select_store_diff` is now solved, `store_commute` remains
+open**: `Z3InterpretedProofChecker.uninterp_app` now injects distinct
+`decl_name` strings to distinct `VInt`s (an injective `string -> nat`
+encoding, `string_key`, proved injective by structural induction over
+`FStar.String.list_of_string`), so two distinctly-*named* 0-ary
+uninterpreted Int constants are provably unequal. This is strong enough
+to add `select_store_diff` as a tenth -- see below, "ninth" after
+`eq_symm` -- matcher: `select(store(a,i,x),j) = select(a,j)` is matched
+whenever `i`/`j` are themselves such constants. `store_commute`
+(`store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for `i <> j`)
+remains unmatched: it needs the same semantic side condition but a
+larger rewrite shape this task did not add a matcher for.
 
 ## Follow-up: running the checker on a real Z3-produced proof
 
@@ -671,6 +668,54 @@ reflexive leaf is now reported `[reflexivity] (not (= i j)) == (not (=
 i j))`, with 0 leftover unmatched leaves, and the cross-check
 `assert_norm` still passes -- i.e. F\*'s real, proven
 `collect_unmatched` independently agrees.
+
+## An eighth and ninth matcher: `eq_symm` and `select_store_diff`
+
+Two more matchers were added afterwards, bringing the library to nine:
+
+* **`eq_symm`**: `(= a b) = (= b a)`, for any two same-sorted
+  sub-expressions. This needed a new interpreted operator, `op_eq`
+  (polymorphic -- `decl_shape_ok` now accepts `domain = [d;d]` for
+  *any* sort `d`, `range = Bool`), given semantics `value_eq_sym :
+  value -> value -> bool` (total; `VArr`'s function type has no
+  decidable equality, so two array-valued arguments are soundly
+  reported unequal, an under-approximation never exercised by any
+  `op_eq` leaf this checker actually sees). Soundness needs no theory
+  lemma, just `lemma_value_eq_sym_symmetric`. This directly addresses
+  a shape observed at scale in the QF_AX benchmark corpus (see
+  `QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "= ... -> = ..." outer-shape
+  bucket): orientation-swapped equality leaves from `array-ext`-derived
+  goals.
+* **`select_store_diff`**: `select(store(a,i,x),j) = select(a,j)` for
+  `i <> j` -- the pattern flagged as a known limitation above. Solved
+  via a model fix: `Z3InterpretedProofChecker.uninterp_app` now
+  special-cases 0-ary, Int-sorted uninterpreted constants, injecting
+  their `decl_name` through an injective `string -> nat` encoding
+  (`string_key`: a base-`0x110001` positional encoding over
+  `FStar.String.list_of_string`, `0x110001` chosen because it exceeds
+  every Unicode scalar value `FStar.Char.int_of_char` can return;
+  injectivity proved by one straightforward structural induction, no
+  extra hints needed) instead of the old fixed `default_value` for
+  every constant of a sort. Two distinctly-named constants are now
+  *provably* distinct `VInt`s (`lemma_string_key_distinct`), which is
+  exactly what `Z3ArrayTheory.lemma_select_store_diff`'s `i <> j`
+  hypothesis needs whenever `i`/`j` are themselves such constants
+  (compound index expressions, e.g. `i+1` vs `j`, remain unmatched).
+  Changing `uninterp_app` required a matching update to
+  `lemma_eval_shape`'s uninterpreted-application case (a new
+  `lemma_uninterp_app_shape_ok`, case-splitting the same way
+  `uninterp_app` itself does) to keep the central type-soundness
+  induction correct; both files still typecheck cleanly, and all
+  pre-existing `Z3ExtractedProof*.fst` snapshots still verify with no
+  regressions. Two new in-source demonstrations (`ssd_leaf`/
+  `eqsym_leaf` in `Z3PatternMatchedProofChecker.fst` section 10) show
+  each matcher firing on constructed, non-literal examples, and
+  re-running the full QF_AX corpus confirms `select_store_diff` fires
+  for real at least once outside any hand-built example (see
+  `QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "Update" section for the full
+  before/after numbers, including an honest cost: the extra
+  nine-matcher reasoning needs roughly 3x the per-file F* budget the
+  baseline experiment used before most files reliably `pass`).
 
 ## Scope and limitations
 

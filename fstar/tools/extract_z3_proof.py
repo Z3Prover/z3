@@ -113,8 +113,8 @@ def _is_app_of(e, kind):
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
-    """Returns the matched pattern's name (one of the seven below) if
-       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s seven
+    """Returns the matched pattern's name (one of the nine below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s nine
        schemas for *arbitrary* sub-expressions, else `None`."""
     # s = s (reflexivity): sound for any theory/sort, no theory lemma
     # needed -- see Z3PatternMatchedProofChecker.fst section 4g.
@@ -155,6 +155,25 @@ def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
     if (_is_app_of(s, z3.Z3_OP_BAND) and s.num_args() == 2 and
             s.arg(0).eq(s.arg(1)) and t.eq(s.arg(0))):
         return "bvand_self"
+    # (= a b) = (= b a) -- symmetry of equality, any sort.
+    if (_is_app_of(s, z3.Z3_OP_EQ) and s.num_args() == 2 and
+            _is_app_of(t, z3.Z3_OP_EQ) and t.num_args() == 2 and
+            s.arg(0).eq(t.arg(1)) and s.arg(1).eq(t.arg(0))):
+        return "eq_symm"
+    # select(store(a,i,x),j) = select(a,j), i <> j -- only matched when
+    # `i`/`j` are themselves distinctly-*named* 0-ary uninterpreted Int
+    # constants (mirrors Z3PatternMatchedProofChecker.fst's
+    # `select_store_diff_leaf_ok`'s decidable, purely syntactic side
+    # condition; compound index expressions are intentionally left
+    # unmatched, same as the F* checker).
+    if (_is_app_of(s, z3.Z3_OP_SELECT) and s.num_args() == 2 and
+            _is_app_of(s.arg(0), z3.Z3_OP_STORE) and s.arg(0).num_args() == 3 and
+            _is_app_of(t, z3.Z3_OP_SELECT) and t.num_args() == 2 and
+            s.arg(0).arg(0).eq(t.arg(0)) and s.arg(1).eq(t.arg(1)) and
+            z3.is_const(s.arg(0).arg(1)) and s.arg(0).arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
+            z3.is_const(s.arg(1)) and s.arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
+            s.arg(0).arg(1).decl().name() != s.arg(1).decl().name()):
+        return "select_store_diff"
     return None
 
 
@@ -217,15 +236,15 @@ class Converter:
     # `fact`/`check_proof` never consult `interp`/`domain`, only
     # `decl_name`+structural shape, so leaving every func_decl
     # uninterpreted (`interp = None`) is a faithful simplification for
-    # *those*. But `Z3PatternMatchedProofChecker.fst`'s six rewrite-rule
+    # *those*. But `Z3PatternMatchedProofChecker.fst`'s rewrite-rule
     # matchers additionally require the specific interpreted tag
-    # (`op_not`/`op_select`/`op_store`/`op_bvand`/`op_concat`) to be set
-    # before they will recognize a leaf's shape at all (`decl_shape_ok`),
-    # so any z3 declaration whose kind is one of those six ops, applied
-    # at the arity that op expects, is tagged accordingly here -- every
-    # other declaration (including `op_plus`, not needed by any of the
-    # six matchers) stays `None`, so `decl_shape_ok`'s `None -> true`
-    # case covers it with no change in behavior.
+    # (`op_not`/`op_select`/`op_store`/`op_bvand`/`op_concat`/`op_eq`)
+    # to be set before they will recognize a leaf's shape at all
+    # (`decl_shape_ok`), so any z3 declaration whose kind is one of
+    # those seven ops, applied at the arity that op expects, is tagged
+    # accordingly here -- every other declaration (including `op_plus`,
+    # not needed by any matcher) stays `None`, so `decl_shape_ok`'s
+    # `None -> true` case covers it with no change in behavior.
     def func_decl(self, d: z3.FuncDeclRef, arity: int) -> str:
         key = (d.name(), arity)
         if key in self.decl_cache:
@@ -245,6 +264,8 @@ class Converter:
             tag = "op_bvand"
         elif kind == z3.Z3_OP_SEQ_CONCAT and arity == 2:
             tag = "op_concat"
+        elif kind == z3.Z3_OP_EQ and arity == 2:
+            tag = "op_eq"
         interp = ("Some %s" % tag) if tag is not None else "None"
         self.decl_lines.append(
             'let %s : func_decl = { decl_name = "%s"; domain = [%s]; range = %s; '

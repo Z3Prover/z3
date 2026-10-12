@@ -25,7 +25,7 @@ let srt_1 : sort = BaseSort "Bool"
 
 let fd_0 : func_decl = { decl_name = "i"; domain = []; range = srt_0; interp = None; int_params = [] }
 let fd_1 : func_decl = { decl_name = "j"; domain = []; range = srt_0; interp = None; int_params = [] }
-let fd_2 : func_decl = { decl_name = "="; domain = [srt_0; srt_0]; range = srt_1; interp = None; int_params = [] }
+let fd_2 : func_decl = { decl_name = "="; domain = [srt_0; srt_0]; range = srt_1; interp = Some op_eq; int_params = [] }
 let fd_3 : func_decl = { decl_name = "not"; domain = [srt_1]; range = srt_1; interp = Some op_not; int_params = [] }
 
 let e_0 : expr = App fd_0 []
