@@ -24,7 +24,7 @@ Abstract:
   BOOL_  (ff_root_split,                           "ff.root_split",                           true,                     "emit bounded finite-field factor and square-root case splits") \
   BOOL_  (ff_bit_propagation, "ff.bit_propagation", true, "repeat no-wrap bit-sum propagation after algebraic elimination") \
   BOOL_  (ff_boolean_split, "ff.boolean_split", false, "expose Boolean field domains to SAT (may change branching substantially)") \
-  BOOL_  (ff_factor_split, "ff.factor_split", false, "case-split equations whose monomials share a common symbolic factor, generalizing the literal top-level product-is-zero rule (may change branching substantially)") \
+  BOOL_  (ff_factor_split, "ff.factor_split", true, "case-split equations whose monomials share a common symbolic factor, generalizing the literal top-level product-is-zero rule (may change branching substantially)") \
   BOOL_  (ff_batch, "ff.batch", true, "batch small-field critical pairs using sparse modular elimination") \
   BOOL_  (ff_sparse_witness, "ff.sparse_witness", true, "try bounded univariate slices for underdetermined systems") \
   BOOL_  (ff_disjunctive_bits, "ff.disjunctive_bits", true, "rewrite disjunctive Boolean field domains as polynomial equations") \
