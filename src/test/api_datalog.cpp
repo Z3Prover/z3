@@ -19,6 +19,27 @@ Notes:
 #include "api/z3.h"
 #include "util/trace.h"
 #include "util/debug.h"
+#include <cstring>
+
+static Z3_lbool run_fixedpoint(Z3_context ctx, char const* benchmark, Z3_params params) {
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(ctx);
+    ENSURE(fp != nullptr);
+    Z3_fixedpoint_inc_ref(ctx, fp);
+    Z3_fixedpoint_set_params(ctx, fp, params);
+
+    Z3_ast_vector queries = Z3_fixedpoint_from_string(ctx, fp, benchmark);
+    ENSURE(queries != nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    ENSURE(Z3_ast_vector_size(ctx, queries) == 1);
+    Z3_set_error_handler(ctx, [](Z3_context, Z3_error_code) {});
+    Z3_lbool result = Z3_fixedpoint_query(ctx, fp, Z3_ast_vector_get(ctx, queries, 0));
+    Z3_error_code error = Z3_get_error_code(ctx);
+    ENSURE(error == Z3_OK ||
+           (error == Z3_EXCEPTION &&
+            std::strcmp(Z3_get_error_msg(ctx, error), "max. resource limit exceeded") == 0));
+    Z3_fixedpoint_dec_ref(ctx, fp);
+    return result;
+}
 
 void tst_api_datalog() {
     Z3_config cfg = Z3_mk_config();
@@ -71,27 +92,29 @@ void tst_api_datalog() {
         Z3_del_config(cfg2);
 
         char const* chc =
-            "(set-logic HORN)\n"
-            "(set-option :fp.engine spacer)\n"
-            "(set-option :fp.spacer.random_seed 51)\n"
-            "(set-option :timeout 2000)\n"
             "(declare-datatypes ((L 0)) (((cons (hd Int) (tl L)) (nil))))\n"
-            "(declare-fun reva (L L L) Bool)\n"
-            "(assert (forall ((a L)) (reva nil a a)))\n"
-            "(assert (forall ((x L) (acc L) (r L) (h Int))\n"
+            "(declare-rel reva (L L L))\n"
+            "(declare-rel fail ())\n"
+            "(rule (forall ((a L)) (reva nil a a)))\n"
+            "(rule (forall ((x L) (acc L) (r L) (h Int))\n"
             "  (=> (reva x (cons h acc) r)\n"
             "      (reva (cons h x) acc r))))\n"
-            "(assert (forall ((B L) (C L) (D L) (E L) (F L))\n"
+            "(rule (forall ((B L) (C L) (D L) (E L) (F L))\n"
             "  (=> (and (reva B C D)\n"
             "           (reva D nil E)\n"
             "           (reva C B F)\n"
             "           (not (= E F)))\n"
-            "      false)))\n"
-            "(check-sat)\n";
+            "      fail)))\n"
+            "(query fail)\n";
 
-        Z3_string response = Z3_eval_smtlib2_string(ctx2, chc);
-        ENSURE(response != nullptr);
-        ENSURE(Z3_get_error_code(ctx2) == Z3_OK);
+        Z3_params params = Z3_mk_params(ctx2);
+        Z3_params_inc_ref(ctx2, params);
+        Z3_params_set_symbol(ctx2, params, Z3_mk_string_symbol(ctx2, "engine"),
+                            Z3_mk_string_symbol(ctx2, "spacer"));
+        Z3_params_set_uint(ctx2, params, Z3_mk_string_symbol(ctx2, "spacer.random_seed"), 51);
+        Z3_params_set_uint(ctx2, params, Z3_mk_string_symbol(ctx2, "rlimit"), 100000);
+        (void)run_fixedpoint(ctx2, chc, params);
+        Z3_params_dec_ref(ctx2, params);
         Z3_del_context(ctx2);
     }
 
@@ -102,16 +125,13 @@ void tst_api_datalog() {
         Z3_del_config(cfg3);
 
         char const* chc = R"(
-(set-logic HORN)
-(set-option :fp.xform.inline_eager false)
-(set-option :fp.spacer.native_mbp false)
-(set-option :fp.spacer.reach_dnf false)
-(declare-fun a (Int Bool Int Bool) Bool)
-(declare-fun c (Int Int Bool Bool Int Int Int Int Bool Bool Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool) Bool)
-(declare-fun d (Bool Bool Bool Int Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool) Bool)
-(declare-fun e (Int Int Bool Bool Int Int Int Int Bool Bool Bool Bool) Bool)
-(assert (forall ((ef Int) (eaa Int) (eabacad Bool) (eabacg Bool)) (=> eabacad (a eaa eabacg ef eabacad))))
-(assert
+(declare-rel a (Int Bool Int Bool))
+(declare-rel c (Int Int Bool Bool Int Int Int Int Bool Bool Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool))
+(declare-rel d (Bool Bool Bool Int Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool Int Int Bool Bool Int Int Int Int Bool Bool Bool))
+(declare-rel e (Int Int Bool Bool Int Int Int Int Bool Bool Bool Bool))
+(declare-rel fail ())
+(rule (forall ((ef Int) (eaa Int) (eabacad Bool) (eabacg Bool)) (=> eabacad (a eaa eabacg ef eabacad))))
+(rule
  (forall ((no Int)
      (naf Int)
      (nphl Bool)
@@ -137,7 +157,7 @@ void tst_api_datalog() {
  (=> (a nzeaa nzeabacg nzef nzeabacad)
   (c naf nzeaa nzeabacg nyacg nrsag nrsah nrst nrsai nrsuacg nphl nphiacg no nzef
   nzeabacad nyacad nrsv nrsw nrsx nrsaj nrsuacad nphq nphiacad))))
-(assert
+(rule
  (forall ((nak Bool)
      (nal Bool)
      (nam Bool)
@@ -172,7 +192,7 @@ void tst_api_datalog() {
   (let ((ay (= naw ax)))
   (=> ay (d nak nal nam ninit_invalid_s naw naf nzeaa nzeabacg nyacg nrsag nrsah nrst nrsai
       nrsuacg nphl nphiacg nat nzeav nzeabacj nyacj nrsaq nrsar nrsas nrs__synapse_5_x nrsuacj nphae nphiacj))))))
-(assert
+(rule
  (forall ((naf Int)
      (nzeaa Int)
      (nzeabacg Bool)
@@ -216,7 +236,7 @@ void tst_api_datalog() {
   (d nak nal nam ninit_invalid_s naw no nzef nzeabacad nyacad nrsv nrsw nrsx nrsaj nrsuacad nphq
   nphiacad nat nzeav nzeabacj nyacj nrsaq nrsar nrsas nrs__synapse_5_x nrsuacj nphae nphiacj)
   (e nat nzeav nzeabacj nyacj nrsaq nrsar nrsas nrs__synapse_5_x nrsuacj nphae nphiacj naw))))
-(assert
+(rule
  (forall ((naw Bool)
      (nat Int)
      (nzeav Int)
@@ -229,13 +249,21 @@ void tst_api_datalog() {
      (nrsuacj Bool)
      (nphae Bool)
      (nphiacj Bool))
- (not (e nat nzeav nzeabacj nyacj nrsaq nrsar nrsas nrs__synapse_5_x nrsuacj nphae nphiacj naw))))
-(check-sat)
+ (=> (e nat nzeav nzeabacj nyacj nrsaq nrsar nrsas nrs__synapse_5_x nrsuacj nphae nphiacj naw)
+     fail)))
+(query fail)
 )";
 
-        Z3_string response = Z3_eval_smtlib2_string(ctx3, chc);
-        ENSURE(response != nullptr);
-        ENSURE(Z3_get_error_code(ctx3) == Z3_OK);
+        Z3_params params = Z3_mk_params(ctx3);
+        Z3_params_inc_ref(ctx3, params);
+        Z3_params_set_symbol(ctx3, params, Z3_mk_string_symbol(ctx3, "engine"),
+                            Z3_mk_string_symbol(ctx3, "spacer"));
+        Z3_params_set_bool(ctx3, params, Z3_mk_string_symbol(ctx3, "xform.inline_eager"), false);
+        Z3_params_set_bool(ctx3, params, Z3_mk_string_symbol(ctx3, "spacer.native_mbp"), false);
+        Z3_params_set_bool(ctx3, params, Z3_mk_string_symbol(ctx3, "spacer.reach_dnf"), false);
+        Z3_params_set_uint(ctx3, params, Z3_mk_string_symbol(ctx3, "rlimit"), 100000);
+        (void)run_fixedpoint(ctx3, chc, params);
+        Z3_params_dec_ref(ctx3, params);
         Z3_del_context(ctx3);
     }
 
