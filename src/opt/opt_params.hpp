@@ -22,6 +22,7 @@ Abstract:
   BOOL_  (optsmt_dual_bounds,              "optsmt_dual_bounds",              true,      "retain exact rational nonlinear relaxation upper bounds, independently of hint attainability") \
   UINT_  (optsmt_dual_bound_rlimit,        "optsmt_dual_bound_rlimit",        100,       "resource limit for a cross-branch nonlinear bound probe while no finite upper bound is known (0 disables the extra check)") \
   UINT_  (optsmt_nlsat_supremum_rlimit,    "optsmt_nlsat_supremum_rlimit",    100000,    "resource limit for certifying finite open suprema with native nlsat projection (0 disables the extra check)") \
+  BOOL_  (optsmt_lex_after_unbounded,      "optsmt_lex_after_unbounded",      true,      "after an unbounded lexicographic objective, determine later arithmetic objectives as the limits of their optima; false leaves them as unrestricted intervals") \
   BOOL_  (pareto_nlsat,                    "pareto_nlsat",                    true,      "enumerate Pareto fronts of pure NRA problems over an nlsat-backed solver, comparing objectives against exact algebraic model values instead of rounded isolating-interval endpoints") \
   BOOL_  (pareto_nlsat_reuse,              "pareto_nlsat_reuse",              true,      "reuse nlsat clauses across Pareto checks on polynomial real problems; false keeps the exact solver that starts each check from scratch") \
   UINT_  (pareto_nlsat_max_lemmas,         "pareto_nlsat_max_lemmas",         128,       "maximum number of independent learned clauses retained between Pareto climbs; shorter clauses are preferred") \

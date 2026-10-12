@@ -614,10 +614,12 @@ namespace opt {
             objective const& o = m_objectives[i];
             bool is_last = i + 1 == sz;            
             r = execute(o, i + 1 < sz, sc && !is_last);
-            if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_value(i).is_finite()) {
-                return r;
-            }
-            if (r == l_true && o.m_type == O_MAXIMIZE && !get_upper_value(i).is_finite()) {
+            bool unbounded =
+                (o.m_type == O_MINIMIZE && !get_lower_value(i).is_finite()) ||
+                (o.m_type == O_MAXIMIZE && !get_upper_value(i).is_finite());
+            if (r == l_true && unbounded) {
+                if (!is_last)
+                    r = execute_lex_after_unbounded(i);
                 return r;
             }
             if (r == l_true && i + 1 < sz) {
@@ -627,6 +629,37 @@ namespace opt {
         DEBUG_CODE(if (r == l_true) validate_lex(););
         return r;
     }    
+
+    // Objective unbounded_index has no finite optimum. Each later arithmetic
+    // objective takes the limit of its optima as that objective grows without
+    // bound. A determined limit is committed before the next objective; an
+    // objective left with an interval ends the search, and the later
+    // objectives keep their unrestricted intervals.
+    lbool context::execute_lex_after_unbounded(unsigned unbounded_index) {
+        unsigned sz = m_objectives.size();
+        unsigned u = m_objectives[unbounded_index].m_index;
+        for (unsigned j = unbounded_index + 1; j < sz; ++j) {
+            objective const& o = m_objectives[j];
+            if (o.m_type == O_MAXSMT)
+                return l_true;
+            lbool r = m_optsmt.lex_after_unbounded(u, o.m_index, o.m_type == O_MAXIMIZE);
+            model_ref mdl;
+            svector<symbol> labels;
+            m_optsmt.get_model(mdl, labels);
+            if (mdl) {
+                m_model = mdl;
+                m_labels = labels;
+            }
+            if (r != l_true)
+                return r;
+            if (j + 1 < sz) {
+                if (get_lower_value(j) != get_upper_value(j))
+                    return l_true;
+                m_optsmt.commit_assignment(o.m_index);
+            }
+        }
+        return l_true;
+    }
 
     lbool context::execute_box() {
         if (m_box_index < m_box_models.size()) {
