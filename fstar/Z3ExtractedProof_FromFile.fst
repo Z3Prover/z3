@@ -39,21 +39,26 @@ let p_3 : proof = Trans p_1 p_2
 let extracted_proof : proof = p_3
 
 (* The checker does not merely accept `extracted_proof` -- it computes
-   its exact conclusion via `fact`, which we also print/assert here. *)
+   its exact conclusion via `fact`, which we also print/assert here.
+   Larger extracted proofs can need more SMT budget than F*'s
+   defaults to unfold the structural `fact`/`congr_matched`
+   recursion all the way down, so we bump both here. *)
+#push-options "--z3rlimit 60 --fuel 4 --ifuel 4"
 let lemma_extracted_proof_wellformed ()
   : Lemma (Some? (fact extracted_proof))
-  = ()
+  = assert_norm (Some? (fact extracted_proof))
 
 fn check_extracted ()
   requires emp
   ensures emp
 {
-  let ctr = Pulse.Lib.Reference.alloc 0;
+  lemma_extracted_proof_wellformed ();
+  let mut ctr = 0;
   let o = check_proof extracted_proof ctr;
   let n = !ctr;
-  Pulse.Lib.Reference.free ctr;
   assert (pure (n == proof_size extracted_proof));
   assert (pure (Some? o));
   let ok = checker_accepts extracted_proof;
   assert (pure (ok == true));
 }
+#pop-options

@@ -193,12 +193,23 @@ justifies.
   sum-type tag combination).
 * `Pulse.Lib.Reference.alloc`/`free` are flagged `@@deprecated`
   ("unsound, only use for model implementations" — a warning, not an
-  error); the "proper" alternative is the scoped, closure-based
-  `with_local`. This project's self-contained convenience wrappers
-  (`checker_accepts`, the test file's `run_one`) are exactly the kind
-  of standalone/model usage that deprecation notice has in mind, and
-  were left using `alloc`/`free` with a justifying comment rather than
-  adopting the more complex `with_local` API.
+  error). **Update**: this project no longer uses them. Pulse's
+  surface sugar `let mut x = <init-expr>;` (confirmed against F\*'s own
+  test suite, `pulse/test/bug-reports/Bug431.fst`) desugars to
+  `with_local` (the non-deprecated, scoped-allocation primitive
+  `alloc`/`free` are themselves implemented in terms of) and
+  automatically reclaims the binding at the end of its enclosing
+  scope — strictly simpler than calling `with_local` directly with an
+  explicit closure, and with no deprecation warning. Every
+  `checker_accepts`/`run_one`/`run_parsed`-style self-contained
+  convenience wrapper in this project (`Z3PulseProofChecker.fst`,
+  `Z3PulseProofCheckerTests.fst`, `Z3PulseLraCheckerTests.fst`,
+  `Z3PulseLraCheckerParsed.fst`, and the `tools/extract_z3_proof.py`
+  generator template) was converted from `let ctr =
+  Pulse.Lib.Reference.alloc 0; ... Pulse.Lib.Reference.free ctr;` to
+  `let mut ctr = 0;` with no corresponding `free` (the compiler inserts
+  it), and all re-verify cleanly with zero `alloc`/`free` deprecation
+  warnings.
 * A plain top-level F\* `Lemma` can be invoked as an ordinary statement
   inside a Pulse `fn` body (confirmed via a disposable probe); its
   postcondition then becomes an ambient fact available to later
@@ -443,11 +454,14 @@ soundness argument -- `check_proof`'s own internal logic is untouched.
   `PROOF_JUSTIFICATIONS_REPORT.md` — this follow-up adds an imperative
   implementation layer under the *existing* scope, it does not expand
   which proof rules have been formalized at all.
-* **`alloc`/`free` deprecation**: accepted as a documented tradeoff for
-  the self-contained convenience wrappers (see "Pulse lessons" above);
-  not a soundness gap in the proved specifications themselves, since
-  Pulse's separation-logic VCs for `pts_to`/ownership are still fully
-  discharged around every `alloc`/`free` pair used.
+* **`alloc`/`free` deprecation**: **resolved** (see "Pulse lessons"
+  above) -- every `alloc`/`free` pair in this project's Pulse files was
+  replaced with Pulse's `let mut` scoped-local sugar (built on the
+  non-deprecated `with_local`), and all files re-verify with zero
+  `alloc`/`free` deprecation warnings. This was always a verification-
+  engineering concern, not a soundness gap: Pulse's separation-logic
+  VCs for `pts_to`/ownership were already fully discharged around
+  every `alloc`/`free` pair even before this change.
 * **No OCaml/C extraction was attempted** — this is a verified-model
   exercise within F\*/Pulse's own type checker, not a build-integration
   change to Z3's actual `proof_checker.cpp`; nothing in
@@ -469,5 +483,5 @@ soundness argument -- `check_proof`'s own internal logic is untouched.
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
 errors; remaining diagnostics are pre-existing unrelated warnings from
-`Z3AstTheory.fst` plus the expected `alloc`/`free` deprecation
-warnings discussed above.
+`Z3AstTheory.fst` (the `alloc`/`free` deprecation warnings previously
+noted here no longer occur -- see "Pulse lessons" above).

@@ -276,8 +276,14 @@ fn check_proof_list (ps:list proof) (ctr:ref int)
   }
 }
 
-(* Self-contained entry point: allocates its own step counter, checks
-   `p`, reports whether it is well-formed, and discards the counter.
+(* Self-contained entry point: checks `p` against a freshly-scoped
+   local counter and reports whether it is well-formed. Uses Pulse's
+   `let mut` scoped-local-binding sugar (built on `with_local`, which
+   is *not* deprecated) rather than raw `Reference.alloc`/`free`
+   directly: `with_local`/`let mut` thread the counter's full
+   permission linearly through the body and reclaim it automatically
+   at the end of scope, so there is no window where an unsound
+   freestanding `alloc`/`free` pair has to be trusted by hand.
    (Callers who want the node-visit count -- e.g. to compare against
    an expected proof-size budget, the way a real checker might guard
    against pathologically large proof objects -- should call
@@ -287,9 +293,8 @@ fn checker_accepts (p:proof)
   returns ok:bool
   ensures pure (ok == Some? (fact p))
 {
-  let ctr = Pulse.Lib.Reference.alloc 0;
+  let mut ctr = 0;
   let o = check_proof p ctr;
-  Pulse.Lib.Reference.free ctr;
   match o {
     Some _ -> { true }
     None -> { false }

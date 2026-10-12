@@ -72,10 +72,9 @@ fn check_extracted ()
   ensures emp
 {
   lemma_extracted_proof_wellformed ();
-  let ctr = Pulse.Lib.Reference.alloc 0;
+  let mut ctr = 0;
   let o = check_proof extracted_proof ctr;
   let n = !ctr;
-  Pulse.Lib.Reference.free ctr;
   assert (pure (n == proof_size extracted_proof));
   assert (pure (Some? o));
   let ok = checker_accepts extracted_proof;

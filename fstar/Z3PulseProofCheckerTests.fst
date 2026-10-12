@@ -243,10 +243,9 @@ fn run_one (p:proof) (expected:option (expr & expr))
   requires pure (fact p == expected)
   ensures emp
 {
-  let ctr = Pulse.Lib.Reference.alloc 0;
+  let mut ctr = 0;
   let o = check_proof p ctr;
   let n = !ctr;
-  Pulse.Lib.Reference.free ctr;
   assert (pure (n == proof_size p));
   assert (pure (o == expected));
 }

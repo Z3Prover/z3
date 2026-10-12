@@ -84,9 +84,8 @@ fn run_parsed (cert:list cert_entry) (expected:option int)
   requires pure (farkas_decide cert == expected)
   ensures emp
 {
-  let ctr = Pulse.Lib.Reference.alloc 0;
+  let mut ctr = 0;
   let o = check_farkas_decide cert ctr;
-  Pulse.Lib.Reference.free ctr;
   assert (pure (o == expected));
 }
 
