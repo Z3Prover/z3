@@ -359,12 +359,18 @@ axioms. The propositional slice remains axiom-free. Long refutations elaborate
 under set_option maxRecDepth 100000; this is an elaborator limit, not a trust
 setting.
 
-Arithmetic DAGs with more than 2,000 proof steps are split into separately
-checked lemmas at shared subproofs. Each lemma receives the original assertions
-as one conjunction and abstracts its open hypotheses explicitly. The final
-unsat theorem still takes exactly the original assertions; these arithmetic
-lemmas may use classical decidability, within the already documented standard
-axiom boundary. The Boolean-only, axiom-free path is unchanged.
+Refutations with more than 500 proof steps, in every fragment, are split into
+separately checked lemmas: one at each shared subproof, and one whenever a
+chain would otherwise nest more than 500 steps, because a single nested term
+elaborates superlinearly and exhausts Lean's default heartbeat budget between
+1,000 and 2,000 steps. Each lemma receives the original assertions as one
+conjunction and abstracts its open hypotheses explicitly; steps the root never
+uses are not outlined. The final unsat theorem still takes exactly the original
+assertions. Arithmetic and uninterpreted-sort lemmas may use classical
+decidability, within the already documented standard axiom boundary.
+Propositional lemmas instead take the decidability witnesses they need as
+parameters, which the final theorem introduces constructively as described
+below, so the propositional slice stays axiom-free at every size.
 
 Uninterpreted functions in Lean
 -------------------------------

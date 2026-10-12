@@ -583,6 +583,24 @@ tampering test). Still rejected: a second uninterpreted sort, mixing the sort
 with arithmetic (QF_UFLRA), functions with Bool or Real arguments or results,
 and `ite` over the sort.
 
+**Long refutations in every fragment (2026-10-12).** The lemma outlining
+added for LassoRanker applied only to arithmetic certificates with more than
+2,000 steps, and only at shared subproofs. A 7-level QF_UF equality diamond
+(1,606 steps) and the propositional pigeonhole principle for five holes
+(1,644 steps) both failed in `theorem unsat` with `maximum number of
+heartbeats (200000)`: one nested term of `let`-bound steps elaborates
+superlinearly, and the `maxHeartbeats` raise covers only the `grind` lemmas.
+Outlining now applies to every fragment above 500 steps, cuts a chain at
+every 500 nested steps even without sharing, and ignores steps the root never
+uses. The arithmetic and uninterpreted slices keep their classical witnesses
+inside the lemmas; propositional lemmas take their decidability witnesses as
+parameters, introduced constructively by the main theorem, so the
+propositional slice reports no axioms at any size. The 7-level diamond now
+checks in 3 s (the 8-level one, 3,827 nodes, in 5 s; previously a failure),
+the 6-level one drops from 15 s to 2 s, and pigeonhole-5 checks in 3 s;
+pigeonhole-6 (8,693 steps, 3,071 lemmas) checks in about 90 s. Covered by
+`test_proof_to_lean_uf.py` and `test_proof_to_lean_integration.py`.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)
@@ -612,7 +630,9 @@ third clause. Native and external replay regressions cover this case.
 The reconstructed certificate has about 67,000 nodes and 41,000 proof steps,
 so a single deeply nested Lean term is unsuitable. Arithmetic proof DAGs are
 outlined at shared subproofs into independently checked lemmas with explicit
-input and hypothesis scopes. Large arithmetic rewrites normalize each atom
+input and hypothesis scopes (since 2026-10-12 every fragment above 500 steps
+is outlined, and chains are also cut every 500 nested steps; see "Long
+refutations in every fragment" above). Large arithmetic rewrites normalize each atom
 separately, then reconstruct and/or rearrangements over abstract propositions.
 This avoids sending large Boolean equivalences back through arithmetic search.
 

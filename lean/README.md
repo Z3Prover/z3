@@ -82,7 +82,10 @@ discharges all hypotheses of its contradiction, including in nested and shared
 subproofs; a final proof with any open hypothesis is rejected.
 Temporary decidability witnesses for rewrites, double-negation cancellation,
 gate clauses, and learned clauses are eliminated constructively from the
-refutation, so they do not become extra theorem hypotheses. Large rewrite truth
+refutation, so they do not become extra theorem hypotheses. Refutations longer
+than 500 steps are split into separately checked `private theorem`s of at most
+500 nested steps each, in every fragment; propositional lemmas receive their
+witnesses as parameters so the split proof stays axiom-free. Large rewrite truth
 tables can exceed Lean's resource limits; failures never publish a proof.
 Parsing and SMT-to-Lean statement translation remain trusted frontend components.
 See [the exporter documentation](../examples/python/README) for the exact scope

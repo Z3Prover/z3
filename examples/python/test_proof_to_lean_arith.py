@@ -448,6 +448,25 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 with self.subTest(input=name):
                     self.check(Z3TEST_LRA_INPUTS[name])
 
+    def test_small_chunks_cut_arithmetic_lemmas_everywhere(self):
+        # Force chunk boundaries inside Farkas, gate-clause, and Rat-valued ite
+        # subproofs; every chunk must still be a closed lemma under the
+        # standard axioms, with the classical witnesses local to each lemma.
+        from test_proof_to_lean_uf import outlined_lemma_sizes, _proof_steps
+        inputs = {name: Z3TEST_LRA_INPUTS[name] for name in ("lra_boolean_structure", "lra_split_assertion")}
+        inputs.update(ITE_INPUTS)
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            for name, source in inputs.items():
+                with self.subTest(input=name):
+                    certificate, report = self.check(source)
+                    self.assertIn(_STANDARD_AXIOMS, report)
+                    text = proof_to_lean.reconstruct(source, certificate)
+                    sizes = outlined_lemma_sizes(text)
+                    self.assertLessEqual(max(sizes), 3)
+                    self.assertEqual(sum(sizes), _proof_steps(certificate))
+                    self.assertNotIn("refute_with_decidable", text)
+
     def test_normalized_rewrites_are_checked_atom_by_atom(self):
         with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
             for name in ("lra_farkas", "lra_boolean_structure", "lra_split_assertion"):
@@ -551,6 +570,37 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
 
     def test_random_instances_with_ite_terms(self):
         self.check_random_unsat_instances(ite=True)
+
+    def test_long_arithmetic_refutation_is_outlined_by_default(self):
+        # The first random ite instance above the threshold is outlined without
+        # any override: chunk cuts fall inside Farkas and Rat-valued ite
+        # subproofs, and the classical witnesses stay local to each lemma.
+        from test_proof_to_lean_uf import outlined_lemma_sizes, _proof_steps
+        for seed in range(1, 200):
+            source = random_instance(seed, 6, 14, ite=True)
+            if "(ite " not in source:
+                continue
+            context = z3.Context()
+            solver = z3.Solver(ctx=context)
+            solver.add(z3.parse_smt2_string(source, ctx=context))
+            if solver.check() != z3.unsat:
+                continue
+            certificate = proof_certificate.export_clause_log_certificate(source)
+            steps = sum(1 for node in certificate["nodes"]
+                        if certificate["declarations"][node["declaration"]]["range"] == "Proof")
+            if steps > proof_to_lean._OUTLINE_PROOF_STEPS:
+                break
+        else:
+            self.fail("no random ite instance exceeds the outlining threshold")
+        certificate, report = self.check(source)
+        self.assertIn(_STANDARD_AXIOMS, report)
+        text = proof_to_lean.reconstruct(source, certificate)
+        sizes = outlined_lemma_sizes(text)
+        self.assertGreater(len(sizes), 1)
+        self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
+        self.assertEqual(sum(sizes), _proof_steps(certificate))
+        self.assertIn("Classical.propDecidable", text)
+        self.assertNotIn("refute_with_decidable", text)
 
     def check_random_unsat_instances(self, ite):
         checked = 0

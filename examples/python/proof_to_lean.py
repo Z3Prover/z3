@@ -59,7 +59,12 @@ _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
 _HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf")
 _FRAGMENTS = ("propositional", "qf_lra", "qf_uf")
-_OUTLINE_PROOF_STEPS = 2000
+# Refutations with more proof steps than this are split into separately
+# checked lemmas, none nesting more than _OUTLINE_CHUNK_STEPS steps: one
+# nested term elaborates superlinearly and exhausts the default heartbeat
+# budget between 1,000 and 2,000 steps.
+_OUTLINE_PROOF_STEPS = 500
+_OUTLINE_CHUNK_STEPS = 500
 _NORMALIZED_REWRITE_ATOMS = 16
 _RESERVED_SORTS = ("Bool", "Real", "Proof")
 # The uninterpreted sort is a type variable; its constants, functions, and
@@ -1458,12 +1463,63 @@ def _lemma(graph, terms, node, hypotheses):
         _formula(graph, conclusion), conclusion, contradiction)), decidable
 
 
+def _outline_boundaries(graph):
+    """Return the steps checked as separate lemmas: shared subproofs and chunk ends.
+
+    A subproof used by several steps is checked once. A long chain without
+    sharing is cut whenever a step would otherwise nest more than
+    _OUTLINE_CHUNK_STEPS steps, so each lemma stays within the elaborator's
+    default heartbeat budget. Only steps the root uses are outlined; the log
+    may record derivations the refutation never needs. Arguments precede
+    their node, so one increasing pass sees every premise's final size before
+    its consumer.
+    """
+    reachable, pending = set(), [graph.proof]
+    while pending:
+        node = pending.pop()
+        if node not in reachable:
+            reachable.add(node)
+            pending.extend(graph.arguments(node)[:-1])
+    uses = Counter(premise for node in reachable for premise in graph.arguments(node)[:-1])
+    boundaries = {node for node in reachable if uses[node] > 1} | {graph.proof}
+    size = {}
+    for node in sorted(reachable):
+        total = 1
+        for premise in graph.arguments(node)[:-1]:
+            if premise in boundaries:
+                continue
+            if total + size[premise] > _OUTLINE_CHUNK_STEPS:
+                boundaries.add(premise)  # used once: nothing else counted it
+            else:
+                total += size[premise]
+        size[node] = total
+    return boundaries
+
+
+def _witness_key(name):
+    """Order decidability witnesses: atoms (_dN) before formulas (_dfN), by node."""
+    formula = name.startswith("_df")
+    return (formula, int(name[3 if formula else 2:]))
+
+
+def _witness_formula(graph, name):
+    return _formula(graph, int(name[3:])) if name.startswith("_df") else "(_atoms %d)" % int(name[2:])
+
+
 def _outline_steps(graph, steps, dependencies, signature):
-    """Check shared proof subgraphs separately instead of one enormous nested term."""
-    uses = Counter(premise for node in steps for premise in graph.arguments(node)[:-1])
-    boundaries = {node for node in steps if uses[node] > 1} | {graph.proof}
+    """Check proof subgraphs separately instead of one enormous nested term.
+
+    Returns the Lean lines and the decidability witnesses the root lemma takes
+    as parameters. The arithmetic and uninterpreted slices already report the
+    standard axioms, so their lemmas take classical witnesses locally; the
+    propositional slice stays axiom-free by receiving every witness as a
+    parameter that the main theorem introduces constructively.
+    """
+    classical = bool(graph.arithmetic or graph.sort)
+    boundaries = _outline_boundaries(graph)
     inputs = _fold("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
+    witnesses = {}
     for root in sorted(boundaries):
         local, external, pending = set(), set(), [root]
         while pending:
@@ -1474,24 +1530,35 @@ def _outline_steps(graph, steps, dependencies, signature):
                 local.add(node)
                 pending.extend(graph.arguments(node)[:-1])
         body = [line for node in sorted(local) for line in steps[node]]
-        decidable = sorted(set(re.findall(r"\b_df?\d+\b", "\n".join(body))))
+        decidable = set(re.findall(r"\b_df?\d+\b", "\n".join(body)))
+        if not classical:
+            for node in external:
+                decidable.update(witnesses[node])
+        witnesses[root] = sorted(decidable, key=_witness_key)
         result = _formula(graph, graph.conclusion(root))
         for hypothesis in reversed(dependencies[root]):
             result = "(%s -> %s)" % (_formula(graph, hypothesis), result)
         lines.extend([
             "", "set_option maxRecDepth 100000 in",
             "private theorem proof_step_%d %s" % (root, signature),
-            "    (_inputs : Inputs _atoms%s) : %s :=" % (graph.valuation, result),
+            "    (_inputs : Inputs _atoms%s)" % graph.valuation,
         ])
-        for name in decidable:
-            formula = (_formula(graph, int(name[3:])) if name.startswith("_df")
-                       else "(_atoms %d)" % int(name[2:]))
-            lines.append("  let %s : Decidable %s := Classical.propDecidable %s" % (name, formula, formula))
+        if classical:
+            lines.append("    : %s :=" % result)
+            for name in witnesses[root]:
+                formula = _witness_formula(graph, name)
+                lines.append("  let %s : Decidable %s := Classical.propDecidable %s" % (name, formula, formula))
+        else:
+            lines.extend("    (%s : Decidable %s)" % (name, _witness_formula(graph, name))
+                         for name in witnesses[root])
+            lines.append("    : %s :=" % result)
         for node in sorted(external):
-            lines.append("  let _step_%d := proof_step_%d _atoms%s _inputs" % (node, node, graph.valuation))
+            arguments = "" if classical else "".join(" " + name for name in witnesses[node])
+            lines.append("  let _step_%d := proof_step_%d _atoms%s _inputs%s" % (
+                node, node, graph.valuation, arguments))
         lines.extend(body)
         lines.append("  _step_%d" % root)
-    return lines
+    return lines, ([] if classical else witnesses[graph.proof])
 
 
 def reconstruct(source, certificate):
@@ -1549,8 +1616,7 @@ def reconstruct(source, certificate):
     assumptions = {}
     for position, assertion in enumerate(graph.assertions):
         assumptions.setdefault(terms[assertion], position)
-    outline = (graph.arithmetic
-               and sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS)
+    outline = sum(graph.decl(n).range == "Proof" for n in range(len(graph.nodes))) > _OUTLINE_PROOF_STEPS
     steps = []
     step_blocks = {}
     hypothesis_formulas, dependencies = {}, {}
@@ -1616,9 +1682,11 @@ def reconstruct(source, certificate):
         step_blocks[node] = steps[begin:]
     if dependencies[graph.proof]:
         raise ReconstructionError("the root proof has undischarged hypotheses")
+    witnesses = []
     if outline:
-        lines.extend(_outline_steps(graph, step_blocks, dependencies, signature))
-    elif decidable_atoms or decidable_formulas:
+        outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature)
+        lines.extend(outlined)
+    if witnesses or (not outline and (decidable_atoms or decidable_formulas)):
         # A continuation ending in False can eliminate the temporary decidability
         # assumptions constructively, preserving the original theorem statement.
         lines.extend([
@@ -1634,8 +1702,11 @@ def reconstruct(source, certificate):
         lines.append("    (_h%d : %s)" % (position, _formula(graph, assertion)))
     lines.append("    : False :=")
     if outline:
+        for name in witnesses:
+            lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
         inputs = _fold("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
-        lines.append("  proof_step_%d _atoms%s %s" % (graph.proof, graph.valuation, inputs))
+        lines.append("  proof_step_%d _atoms%s %s%s" % (
+            graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
     else:
         for atom in sorted(decidable_atoms):
             lines.append("  refute_with_decidable (_atoms %d) fun _d%d =>" % (atom, atom))

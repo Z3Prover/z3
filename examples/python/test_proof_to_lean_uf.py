@@ -9,10 +9,12 @@ import copy
 import hashlib
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import z3
 
@@ -130,6 +132,41 @@ def random_instance(seed, constants=5, constraints=14, depth=2):
             lines.append("(assert %s)" % literal())
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
+
+
+def equality_diamond(levels):
+    """A chain of equality diamonds: x_i = x_{i+1} through y_i or through z_i.
+
+    Z3's refutation grows exponentially with the number of levels, so a few
+    levels give a refutation far longer than the outlining threshold.
+    """
+    lines = ["(set-logic QF_UF)", "(declare-sort U 0)"]
+    lines += ["(declare-fun x%d () U)" % i for i in range(levels + 1)]
+    lines += ["(declare-fun y%d () U)" % i for i in range(levels)]
+    lines += ["(declare-fun z%d () U)" % i for i in range(levels)]
+    for i in range(levels):
+        lines.append("(assert (or (and (= x%d y%d) (= y%d x%d)) (and (= x%d z%d) (= z%d x%d))))" % (
+            i, i, i, i + 1, i, i, i, i + 1))
+    lines.append("(assert (not (= x0 x%d)))" % levels)
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def outlined_lemma_sizes(text):
+    """Proof steps defined inside each outlined lemma (bindings of other lemmas carry no type)."""
+    return [len(re.findall(r"^  let _step_\d+ (?!:=)", block, re.MULTILINE))
+            for block in text.split("private theorem proof_step_")[1:]]
+
+
+def _proof_steps(certificate):
+    """Proof steps reachable from the root; unused gate clauses are still checked as lemmas."""
+    reachable, pending = set(), [certificate["proof"]]
+    while pending:
+        node = pending.pop()
+        if node not in reachable:
+            reachable.add(node)
+            pending.extend(certificate["nodes"][node]["arguments"][:-1])
+    return len(reachable)
 
 
 def _unsat_core_size(source):
@@ -370,6 +407,33 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertGreaterEqual(_unsat_core_size(source), 4, "re-pick seed %d" % seed)
                 certificate, _ = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
+
+    def test_long_refutations_are_outlined_into_bounded_lemmas(self):
+        # Seven levels give about 1,600 proof steps; as one nested term the main
+        # theorem exhausts Lean's default heartbeat budget, outlined it checks
+        # in a few seconds.
+        source = equality_diamond(7)
+        certificate, report = self.check(source)
+        self.assertGreater(_proof_steps(certificate), proof_to_lean._OUTLINE_PROOF_STEPS)
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        text = proof_to_lean.reconstruct(source, certificate)
+        sizes = outlined_lemma_sizes(text)
+        self.assertGreater(len(sizes), 1)
+        self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
+        self.assertEqual(sum(sizes), _proof_steps(certificate))
+        self.assertIn("  proof_step_%d _atoms%s " % (certificate["proof"], proof_to_lean._UF_ARGUMENTS), text)
+
+    def test_small_chunks_cut_every_lemma_shape(self):
+        # Force boundaries inside lemma subproofs, between shared steps, and at
+        # the root; every chunk must still be a closed lemma Lean accepts.
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            for name, source in UF_INPUTS.items():
+                with self.subTest(name=name):
+                    certificate, _ = self.check(source)
+                    sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+                    self.assertLessEqual(max(sizes), 3)
+                    self.assertEqual(sum(sizes), _proof_steps(certificate))
 
     def test_tampered_euf_lemmas_never_publish_a_proof(self):
         source = UF_INPUTS["uf_congruence"]
