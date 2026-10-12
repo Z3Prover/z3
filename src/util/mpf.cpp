@@ -1077,13 +1077,37 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         }
         else {
             SASSERT(rm == MPF_ROUND_NEAREST_TEVEN || rm == MPF_ROUND_NEAREST_TAWAY);
-            bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
+            // `x.exponent`/`x.significand` directly give the half/tie
+            // classification below for a *normal* `x` (hidden bit implicit,
+            // `x.significand` holding the fraction alone). A *denormal* `x`
+            // instead always carries the fixed sentinel
+            // `x.exponent == mk_bot_exp(x.ebits)`, regardless of its real
+            // magnitude, because there is no hidden bit to normalize it
+            // against. For formats where that sentinel is not far below -1
+            // (e.g. `x.ebits == 2`, where `mk_bot_exp(2) == -1` coincides
+            // with the tie exponent tested here), comparing it directly
+            // misclassifies subnormals that are nowhere near a tie -- e.g.
+            // the FP(2,3) value 1/4 was incorrectly rounded up to 1 instead
+            // of down to 0 (see GitHub issue #11139). Renormalize a scratch
+            // copy first (inserting the hidden bit, exactly as `unpack`
+            // would) so the tests below see the true exponent and a
+            // hidden-bit-stripped residual significand.
+            mpf_exp_t eff_exponent = x.exponent;
+            scoped_mpz eff_significand(m_mpz_manager);
+            m_mpz_manager.set(eff_significand, x.significand);
+            if (is_denormal(x)) {
+                eff_exponent = mk_min_exp(x.ebits);
+                renormalize(x.ebits, x.sbits, eff_exponent, eff_significand);
+                if (!m_mpz_manager.is_zero(eff_significand))
+                    m_mpz_manager.sub(eff_significand, m_powers2(x.sbits - 1), eff_significand);
+            }
+            bool tie = m_mpz_manager.is_zero(eff_significand) && eff_exponent == -1;
             TRACE(mpf_dbg, tout << "tie = " << tie << std::endl;);
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else if (tie && rm == MPF_ROUND_NEAREST_TAWAY)
                 mk_one(x.ebits, x.sbits, x.sign, o);
-            else if (x.exponent < -1)
+            else if (eff_exponent < -1)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else
                 mk_one(x.ebits, x.sbits, x.sign, o);

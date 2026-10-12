@@ -19,6 +19,7 @@ Two theory/proof files are added:
 | [`Z3MpfTheory.fst`](Z3MpfTheory.fst) | Exponent landmarks (`mk_bot_exp`/`mk_top_exp`/`mk_min_exp`/`mk_max_exp`, `bias_exp`/`unbias_exp`), classification predicates (`is_zero`/`is_denormal`/`is_normal`/`is_nan`/`is_inf`), and the rational value semantics of `to_rational`. |
 | [`Z3MpfRound.fst`](Z3MpfRound.fst) | The rounding-*decision* logic inside `mpf_manager::round` (mpf.cpp:2055-2061), proved correct against an independent IEEE-754 ground truth, for all five rounding modes. |
 | [`Z3MpfExact.fst`](Z3MpfExact.fst) | **End-to-end extension**: proves the "truncate an unbounded-precision intermediate value down to a fixed width, keeping a single sticky bit" technique used throughout `add_sub`/`mul`/`div`/`round` loses *no* rounding-relevant information, and composes this with [`Z3MpfRound.fst`](Z3MpfRound.fst)'s decision-table theorem into one capstone theorem covering the whole truncate-then-round pipeline, not just the final 3-bit decision in isolation. |
+| [`Z3MpfRoundToIntegral.fst`](Z3MpfRoundToIntegral.fst) | **Issue #11139 fix**: formalizes `round_to_integral`'s nearest-mode denormal decision, both before and after the fix for [Z3Prover/z3#11139](https://github.com/Z3Prover/z3/issues/11139); see [`FP_ROUND_TO_INTEGRAL_REPORT.md`](FP_ROUND_TO_INTEGRAL_REPORT.md). |
 
 ## Function-by-function coverage
 
@@ -36,7 +37,8 @@ Two theory/proof files are added:
 | `unpack` | 1932-1955 | **Not proved** — the hidden-bit insertion (normal case) is a one-line fact (`add 2^(sbits-1)`), but the subnormal renormalization loop (shifting until the significand reaches full width, decrementing the exponent each step) is iterative bit-shifting mechanics, same category as the `round` shift distance above. |
 | `mul` — exact pre-round product | 586-654 | **Proved** ([`Z3MpfExact.fst`](Z3MpfExact.fst), `lemma_mul_round_correct`): the arbitrary-precision integer product of two unpacked significands loses no information at all before the single deliberate truncation at mpf.cpp:650-654 — so `mul`'s only information loss is exactly one instance of the already-proved truncate-with-sticky-bit pattern, and the capstone theorem applies directly to the *exact* mathematical product. |
 | `add_sub` — alignment-shift-then-add strategy | 475-575 | **Proved exact** ([`Z3MpfExact.fst`](Z3MpfExact.fst), `lemma_add_commutes_with_truncation`): the code shifts *one* operand then adds the other and folds the sticky bit into the *sum*, rather than the conceptually simpler "shift, fold, then add"; this lemma proves the two strategies are equivalent (the remainder of `m*2^n + t` by `2^n` does not depend on `m`), so `add_sub`'s specific implementation order introduces no extra error beyond the one truncation already covered by the capstone theorem. |
-| `div`, `fma`, `sqrt`, `round_to_integral`, `rem`/`partial_remainder`, `renormalize` | 664-1690, 1269-1452 | **Not proved** — `div`'s quotient computation (mpf.cpp:694-696) is itself a truncating division with *no* remainder tracked at that step (only the second, explicit truncation at 697-699 keeps a sticky bit); this likely composes with the already-proved machinery via the same nested-floor-division reasoning as `lemma_add_commutes_with_truncation`, but that composition was not carried out here. `fma`/`sqrt`/`round_to_integral`/`rem` were read but not formalized. |
+| `div`, `fma`, `sqrt`, `rem`/`partial_remainder`, `renormalize` | 664-1690, 1269-1452 | **Not proved** — `div`'s quotient computation (mpf.cpp:694-696) is itself a truncating division with *no* remainder tracked at that step (only the second, explicit truncation at 697-699 keeps a sticky bit); this likely composes with the already-proved machinery via the same nested-floor-division reasoning as `lemma_add_commutes_with_truncation`, but that composition was not carried out here. `fma`/`sqrt`/`rem` were read but not formalized. |
+| `round_to_integral` — nearest-mode denormal decision (tie/below-half test) | mpf.cpp ~1052+ | **Proved** ([`Z3MpfRoundToIntegral.fst`](Z3MpfRoundToIntegral.fst), see [`FP_ROUND_TO_INTEGRAL_REPORT.md`](FP_ROUND_TO_INTEGRAL_REPORT.md)): [Z3Prover/z3#11139](https://github.com/Z3Prover/z3/issues/11139) reported that this test, which compared a denormal's *stored* (un-renormalized) exponent directly against the literal `-1`/`< -1`, misclassified every nonzero denormal of a 2-exponent-bit format (the stored sentinel exponent for such formats happens to equal `-1`). Confirmed the bug is real (`lemma_old_decision_wrong_11139`), confirmed it is the *only* case affected (`lemma_old_decision_correct_for_ebits_ge_3`, matching the issue's reported scope exactly), fixed both `mpf.cpp` and `fpa2bv_converter.cpp` to renormalize before comparing, and proved the fixed decision is correct for every denormal of every format (`lemma_new_decision_correct`). |
 
 ## Notable result: the `round()` decision-table theorem
 
@@ -151,8 +153,13 @@ All lemmas in [`Z3MpfExact.fst`](Z3MpfExact.fst) are proved with no `admit`/`ass
   composes correctly via the same nested-floor-division reasoning as
   `lemma_add_commutes_with_truncation`/`lemma_fold_compose`, but that
   specific composition was not carried out here.
-- **`fma`/`sqrt`/`round_to_integral`/`rem`/`partial_remainder`/
-  `renormalize`** — read but not formalized at all.
+- **`fma`/`sqrt`/`rem`/`partial_remainder`/
+  `renormalize`** — read but not formalized at all. (`round_to_integral`'s
+  nearest-mode denormal decision is now covered — see
+  [`Z3MpfRoundToIntegral.fst`](Z3MpfRoundToIntegral.fst) and
+  [`FP_ROUND_TO_INTEGRAL_REPORT.md`](FP_ROUND_TO_INTEGRAL_REPORT.md) —
+  but `round_to_integral`'s other branches, e.g. directed-mode handling
+  and the magnitude-`>= 1` case, are not.)
 - **`to_double`/`to_float`** (raw IEEE bit-pattern packing,
   mpf.cpp:1723-1777) and **`to_sbv_mpq`/`to_ieee_bv_mpz`** — not
   examined.
