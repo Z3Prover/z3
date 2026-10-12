@@ -49,6 +49,10 @@ _FIXED_ARITY = {
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
+# A Real ite is the one arithmetic term with a Boolean argument; Lean's ite
+# needs a decidability instance, which the classical one provides. The
+# arithmetic slice already depends on the standard axioms through Rat.
+_REAL_ITE_DOMAIN = ("Bool", "Real", "Real")
 _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
 _HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf")
@@ -192,6 +196,10 @@ def _declaration(raw):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
     if raw["range"] == "Real":
+        if kind == z3.Z3_OP_ITE:
+            if name != "if" or domain != _REAL_ITE_DOMAIN:
+                raise ReconstructionError("invalid arithmetic ite declaration")
+            return _Declaration(kind, name, domain, raw["range"], parameters)
         if kind == z3.Z3_OP_ANUM:
             try:
                 Fraction(name)
@@ -363,7 +371,7 @@ def _formula(graph, node):
 
 
 def _term(node):
-    return "(term_%d _vars)" % node
+    return "(term_%d _atoms _vars)" % node
 
 
 def _valuation_binder(graph):
@@ -377,9 +385,12 @@ def _infix(operator, arguments):
     return result
 
 
-def _term_body(graph, node, variable_indices):
+def _term_body(graph, node, variable_indices, term=None, formula=None):
+    """Render a Real node; term and formula render its children (defaults: by definition name)."""
+    term = (lambda child: _term(child)) if term is None else term
+    formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
-    args = [_term(arg) for arg in graph.arguments(node)]
+    arguments = graph.arguments(node)
     if kind == z3.Z3_OP_UNINTERPRETED:
         return "_vars %d" % variable_indices[graph.nodes[node].declaration]
     if kind == z3.Z3_OP_ANUM:
@@ -387,16 +398,24 @@ def _term_body(graph, node, variable_indices):
         if value.denominator == 1:
             return "((%d : Rat))" % value.numerator
         return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
+    if kind == z3.Z3_OP_ITE:
+        # The instance's proposition is inferred from the condition.
+        return "(@ite Rat %s (Classical.propDecidable _) %s %s)" % (
+            formula(arguments[0]), term(arguments[1]), term(arguments[2]))
+    args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
     return _infix(_REAL_NAMES[kind], args)
 
 
-def _formula_body(graph, node, atom_indices):
+def _formula_body(graph, node, atom_indices, term=None, formula=None):
+    """Render a Bool node; term and formula render its children (defaults: by definition name)."""
+    term = (lambda child: _term(child)) if term is None else term
+    formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
     arguments = graph.arguments(node)
     if arguments and graph.is_real(arguments[0]):
-        args = [_term(arg) for arg in arguments]
+        args = [term(arg) for arg in arguments]
         if kind in _ARITH_PREDICATE_NAMES:
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
@@ -406,7 +425,7 @@ def _formula_body(graph, node, atom_indices):
                      for index, left in enumerate(args) for right in args[index + 1:]]
             return _fold("And", pairs, "True")
         raise ReconstructionError("unsupported arithmetic atom")
-    args = [_formula(graph, arg) for arg in arguments]
+    args = [formula(arg) for arg in arguments]
     if kind == z3.Z3_OP_UNINTERPRETED:
         return "_atoms %d" % atom_indices[graph.nodes[node].declaration]
     if kind == z3.Z3_OP_TRUE:
@@ -647,24 +666,11 @@ def _reachable(graph, conclusion):
 
 def _inline(graph, node, atom_indices, variable_indices):
     """Render a formula or term with every definition expanded, as unfold would."""
-    kind = graph.kind(node)
-    arguments = graph.arguments(node)
+    def child(sub):
+        return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
     if graph.is_real(node):
-        if kind == z3.Z3_OP_UNINTERPRETED:
-            return "_vars %d" % variable_indices[graph.nodes[node].declaration]
-        if kind == z3.Z3_OP_ANUM:
-            return _term_body(graph, node, variable_indices)
-        args = [_inline(graph, arg, atom_indices, variable_indices) for arg in arguments]
-        if kind == z3.Z3_OP_UMINUS:
-            return "(-%s)" % args[0]
-        return _infix(_REAL_NAMES[kind], args)
-    if arguments and graph.is_real(arguments[0]):
-        args = [_inline(graph, arg, atom_indices, variable_indices) for arg in arguments]
-        if kind in _ARITH_PREDICATE_NAMES:
-            return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
-        if kind == z3.Z3_OP_EQ:
-            return "(%s = %s)" % tuple(args)
-    raise ReconstructionError("only arithmetic atoms are rendered inline")
+        return _term_body(graph, node, variable_indices, child, child)
+    return _formula_body(graph, node, atom_indices, child, child)
 
 
 def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
@@ -681,16 +687,62 @@ def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
                 or (kind not in _ARITH_PREDICATE_NAMES and kind != z3.Z3_OP_EQ)):
             continue
         relation, terms, constant = _atom_constraint(graph, formula)
-        scale = 1
-        for value in list(terms.values()) + [constant]:
-            scale = scale * value.denominator // _gcd(scale, value.denominator)
+        scale = _common_denominator(terms, constant)
         if scale == 1:
             continue
-        parts = ["((%d : Rat)) * _vars %d" % (terms[variable] * scale, variable_indices[graph.nodes[variable].declaration])
-                 for variable in sorted(terms, key=lambda v: variable_indices[graph.nodes[v].declaration])]
-        parts.append("((%d : Rat))" % (constant * scale))
         helpers.append("  have _s%d : %s -> (%s %s ((0 : Rat))) := by grind" % (
-            formula, _inline(graph, formula, atom_indices, variable_indices), " + ".join(parts), relation))
+            formula, _inline(graph, formula, atom_indices, variable_indices),
+            _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), relation))
+    return helpers
+
+
+def _common_denominator(terms, constant):
+    scale = 1
+    for value in list(terms.values()) + [constant]:
+        scale = scale * value.denominator // _gcd(scale, value.denominator)
+    return scale
+
+
+def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices):
+    """Render scale * (terms + constant) with integer coefficients, as grind's linear module wants it."""
+    # The linear form's variables are Real variables and opaque ite terms.
+    parts = ["((%d : Rat)) * %s" % (terms[variable] * scale, _inline(graph, variable, atom_indices, variable_indices))
+             for variable in sorted(terms)]
+    parts.append("((%d : Rat))" % (constant * scale))
+    return " + ".join(parts)
+
+
+def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
+    """State the branch equalities of every reachable Real ite, denominator-free.
+
+    grind splits on an ite term by itself, but when the selected branch is a
+    fractional numeral or a term with fractional coefficients it does not
+    combine the resulting equality with its linear facts, just as with
+    fractional atoms. Each helper gives one branch equality under the condition
+    or its negation, scaled to integer coefficients, so grind can use it.
+    """
+    helpers = []
+    for node in sorted(reachable):
+        if not graph.is_real(node) or graph.kind(node) != z3.Z3_OP_ITE:
+            continue
+        condition, then_branch, else_branch = graph.arguments(node)
+
+        def inline(sub):
+            return "(%s)" % _inline(graph, sub, atom_indices, variable_indices)
+
+        for side, branch, hypothesis, lemma in (
+                (0, then_branch, inline(condition), "ite_eq_left"),
+                (1, else_branch, "(Not %s)" % inline(condition), "ite_eq_right")):
+            terms = {}
+            constant = _linear_term(graph, branch, Fraction(1), terms)
+            scale = _common_denominator(terms, constant)
+            if scale == 1:
+                helpers.append("  have _g%d_%d : %s -> %s = %s := fun _h => %s _h" % (
+                    node, side, hypothesis, inline(node), inline(branch), lemma))
+            else:
+                helpers.append("  have _g%d_%d : %s -> ((%d : Rat)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
+                    node, side, hypothesis, scale, inline(node),
+                    _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), lemma))
     return helpers
 
 
@@ -720,6 +772,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     ]
     if graph.arithmetic:
         lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
+        lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
     # Large Boolean/arithmetic rewrites can require more than grind's default
     # nine case splits, even though every arithmetic atom remains linear.
     lines.append("  grind (splits := 64)")
@@ -993,8 +1046,63 @@ def _gate_contradiction(graph, formula, truth, proof, fact):
     return None
 
 
+def _ite_gate_lemma(graph, terms, node):
+    """Prove a clause tying a Real ite to one branch, or return None for other clauses.
+
+    The two gate clauses of (ite c a b) are (not c) or (ite c a b) = a and
+    c or (ite c a b) = b, with either equality orientation, in any literal
+    order, and possibly weakened. The proof splits on a decidability witness
+    for c and rewrites the ite with ite_eq_left or ite_eq_right.
+    """
+    conclusion = graph.conclusion(node)
+    literals = graph.clause(conclusion)
+    for position, literal in enumerate(literals):
+        if graph.kind(literal) != z3.Z3_OP_EQ or not graph.is_real(graph.arguments(literal)[0]):
+            continue
+        left, right = graph.arguments(literal)
+        for ite, branch, flipped in ((left, right, False), (right, left, True)):
+            if graph.kind(ite) != z3.Z3_OP_ITE:
+                continue
+            condition, then_branch, else_branch = graph.arguments(ite)
+            if terms[branch] == terms[then_branch]:
+                equation, guard_polarity = "(ite_eq_left _hc)", False
+            elif terms[branch] == terms[else_branch]:
+                equation, guard_polarity = "(ite_eq_right _hnc)", True
+            else:
+                continue
+            if flipped:
+                equation = "(Eq.symm %s)" % equation
+            for guard_position, guard in enumerate(literals):
+                if guard_polarity:
+                    matches = terms[guard] == terms[condition]
+                else:
+                    matches = (graph.kind(guard) == z3.Z3_OP_NOT
+                               and terms[graph.arguments(guard)[0]] == terms[condition])
+                if not matches:
+                    continue
+                equation = _inject(position, len(literals), equation)
+                if guard_polarity:
+                    cases = (_inject(guard_position, len(literals), "_hc"), equation)
+                else:
+                    cases = (equation, _inject(guard_position, len(literals), "_hnc"))
+                lines = [
+                    "",
+                    "private theorem def_axiom_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
+                    "    [_df%d : Decidable %s]" % (condition, _formula(graph, condition)),
+                    "    : %s :=" % _formula(graph, conclusion),
+                    "  @Decidable.byCases %s _ _df%d (fun _hc => %s) (fun _hnc => %s)" % (
+                        _formula(graph, condition), condition, cases[0], cases[1]),
+                ]
+                term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, condition)
+                return lines, {condition}, term
+    return None
+
+
 def _def_axiom_lemma(graph, terms, node):
     """Prove a Boolean gate clause independently of all input assertions."""
+    gate = _ite_gate_lemma(graph, terms, node)
+    if gate is not None:
+        return gate
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
     facts, formulas, steps, support = {}, {}, [], {conclusion}
@@ -1059,12 +1167,16 @@ def _def_axiom_lemma(graph, terms, node):
 
 
 def _linear_term(graph, node, scale, terms):
-    """Accumulate the linear form of a Real node into terms; return its constant part."""
+    """Accumulate the linear form of a Real node into terms; return its constant part.
+
+    Variables and Real ite terms are the atoms of the linear form; an ite is
+    opaque to Farkas reasoning and tied to its branches by gate clauses.
+    """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
     if kind == z3.Z3_OP_ANUM:
         return scale * Fraction(graph.decl(node).name)
-    if kind == z3.Z3_OP_UNINTERPRETED:
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
         terms[node] = terms.get(node, Fraction(0)) + scale
         return Fraction(0)
     if kind == z3.Z3_OP_ADD:
@@ -1075,18 +1187,16 @@ def _linear_term(graph, node, scale, terms):
     if kind == z3.Z3_OP_UMINUS:
         return _linear_term(graph, arguments[0], -scale, terms)
     if kind == z3.Z3_OP_MUL:
-        constants, variable = [], None
+        variable = None
         for arg in arguments:
-            factor = _linear_term(graph, arg, Fraction(1), {})
-            if _reachable(graph, arg)[1] and any(graph.kind(f) == z3.Z3_OP_UNINTERPRETED
-                                                  for f in _reachable(graph, arg)[0]):
+            factor_terms = {}
+            factor = _linear_term(graph, arg, Fraction(1), factor_terms)
+            if factor_terms:
                 if variable is not None:
                     raise ReconstructionError("nonlinear multiplication in a theory lemma")
                 variable = arg
             else:
-                constants.append(factor)
-        for constant in constants:
-            scale *= constant
+                scale *= factor
         if variable is None:
             return scale
         return _linear_term(graph, variable, scale, terms)
@@ -1318,10 +1428,14 @@ def reconstruct(source, certificate):
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
     lines.extend(["namespace " + namespace, ""])
     signature = "(_atoms : Nat -> Prop)" + (" (_vars : Nat -> Rat)" if graph.arithmetic else "")
+    classical = set()  # Real nodes containing an ite: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
         if graph.is_real(node):
-            lines.append("def term_%d (_vars : Nat -> Rat) : Rat := %s" % (
-                node, _term_body(graph, node, variable_indices)))
+            if graph.kind(node) == z3.Z3_OP_ITE or any(arg in classical for arg in graph.arguments(node)):
+                classical.add(node)
+            lines.append("%sdef term_%d %s : Rat := %s" % (
+                "noncomputable " if node in classical else "", node, signature,
+                _term_body(graph, node, variable_indices)))
         elif graph.decl(node).range == "Bool":
             lines.append("def formula_%d %s : Prop := %s" % (
                 node, signature, _formula_body(graph, node, atom_indices)))

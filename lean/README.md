@@ -8,8 +8,9 @@ Boolean `monotonicity`, `and-elim`, and `not-or-elim`, with scoped `hypothesis`
 and `lemma` proofs and supported Boolean `def-axiom` clauses. For quantifier-free
 linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
 `bound`, `implied-eq`, `euf`, `smt`, or `cnf` hints and arithmetic rewrites,
-proved by `grind` over a `Rat` encoding of the Real variables. Other native
-proof rules are still unsupported.
+proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
+`ite` terms, whose gate clauses are proved with `ite_eq_left` and
+`ite_eq_right`. Other native proof rules are still unsupported.
 
 ## Check a native Z3 refutation
 

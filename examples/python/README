@@ -65,10 +65,11 @@ scanner. Nonstandard block comments are rejected.
 Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
 xor, Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
 variables and numerals, sums, differences, negation, multiplication by a
-constant, division by a nonzero constant, and the atoms <=, <, >=, >, =, and
-distinct over Real terms. Quantifiers, uninterpreted function applications,
-integer arithmetic, arithmetic ite, nonlinear terms, bit-vectors, arrays, and
-pseudo-Boolean operators are rejected. Definitions are expanded by Z3's parser.
+constant, division by a nonzero constant, Real-valued ite whose condition is
+any supported formula, and the atoms <=, <, >=, >, =, and distinct over Real
+terms. Quantifiers, uninterpreted function applications, integer arithmetic,
+nonlinear terms, bit-vectors, arrays, and pseudo-Boolean operators are
+rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
@@ -153,9 +154,18 @@ step:
     coefficients, so their multipliers are solved for by Gaussian elimination,
     as Z3's own checker does. implied-eq ends in a disequality, not an
     inequality to sum: its shape is checked in Python and Lean proves that
-    the preceding literals imply the complementary equality. tseitin hints
-    list a gate clause and become def-axiom nodes. A bare smt hint claims the
-    logged clause outright and becomes a th-lemma with hint "smt".
+    the preceding literals imply the complementary equality. euf hints may
+    also carry congruence claims (cc (= a b)) or (comm (= a b)) that guide
+    Z3's checker; they are not literals of the lemma and are dropped after a
+    shape check, since Lean's grind performs its own congruence closure.
+    tseitin hints list a gate clause and become def-axiom nodes. A bare smt
+    hint claims the logged clause outright and becomes a th-lemma with hint
+    "smt".
+  - A Real ite term is an opaque variable in every Farkas combination, as in
+    Z3's arithmetic solver. Its two gate clauses, (not c) or (ite c a b) = a
+    and c or (ite c a b) = b, are added as def-axiom nodes and also arrive as
+    tseitin inferences; Lean proves them directly from a decidability witness
+    for c with ite_eq_left and ite_eq_right.
   - alldiff hints list clauses from internalizing distinct. Like assumed
     clauses, they must be derived from the original assertions; the hint
     itself never authorizes a theorem.
@@ -300,7 +310,11 @@ a system of linear constraints with rational coefficients has a real solution
 if and only if it has a rational one, so unsatisfiability over Rat is
 unsatisfiability over the reals. The exporter rejects nonlinear terms, which
 is the precondition of that argument; extending the fragment must revisit
-this encoding.
+this encoding. A Real ite becomes Lean's ite over Rat with the classical
+decidability instance for its condition, so the term definitions that contain
+one are noncomputable; the argument above still applies, because under each
+fixed valuation of the conditions the constraints are linear. Every term
+definition takes the atom valuation as well as the Rat valuation.
 
 Each th-lemma and each rewrite whose equivalence mentions arithmetic is proved
 in a private theorem by unfolding its definitions and calling grind, whose
@@ -314,7 +328,12 @@ combination with exact rationals and rejects coefficients that do not refute
 the lemma's literals. grind does not always combine equalities whose constants
 are fractions, so the generated proof first states each fractional atom's
 denominator-free form as an implication that grind proves, then calls grind
-on the lemma; a false helper fails rather than weakening anything.
+on the lemma; a false helper fails rather than weakening anything. For the
+same reason each Real ite reachable from the lemma gets its two branch
+equalities, under the condition and under its negation, stated the same way
+(scaled to integer coefficients when a branch has fractions) and proved with
+ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
+ite, in which case these are the only facts tying the ite to its branches.
 
 Lean core's Rat library itself depends on propext, Classical.choice, and
 Quot.sound, so arithmetic theorems necessarily report those three standard

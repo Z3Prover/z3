@@ -358,6 +358,62 @@ _LRA_LOG = """\
 """
 
 
+_ITE = """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const p Bool)
+(assert (> (ite p x y) 3.0))
+(assert (< x 1.0))
+(assert (< y 2.0))
+(check-sat)
+"""
+# The clause log for _ITE: the Real ite is tied to its branches by tseitin
+# clauses and otherwise treated as an opaque arithmetic variable.
+_ITE_LOG = """\
+(declare-fun p () Bool)
+(declare-fun x () Real)
+(declare-fun y () Real)
+(define-const $8 Real (ite p x y))
+(define-const $25 Bool (= $8 x))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $24 Bool (not p))
+(define-const $27 Proof (tseitin $24 $25))
+(infer (not p) $25 $27)
+(define-const $26 Bool (= $8 y))
+(define-const $28 Proof (tseitin p $26))
+(infer p $26 $28)
+(define-const $15 Bool (<= $8 3.0))
+(assume (not $15))
+(define-const $17 Bool (<= 1.0 x))
+(assume (not $17))
+(define-const $19 Bool (<= 2.0 y))
+(assume (not $19))
+(define-const $29 Bool (= y $8))
+(declare-fun farkas (Int Bool Int Bool Int Bool) Proof)
+(define-const $16 Bool (not $15))
+(define-const $20 Bool (not $19))
+(define-const $30 Proof (farkas 1 $29 1 $20 1 $16))
+(infer $19 $15 (not $29) $30)
+(declare-fun euf (Bool Bool) Proof)
+(define-const $31 Bool (not $29))
+(define-const $32 Proof (euf $31 $26))
+(infer (not $26) $29 $32)
+(declare-fun rup () Proof)
+(infer (not $26) rup)
+(infer p rup)
+(infer $25 rup)
+(define-const $34 Bool (= x $8))
+(define-const $18 Bool (not $17))
+(define-const $35 Proof (farkas 1 $34 1 $18 1 $16))
+(infer $17 $15 (not $34) $35)
+(define-const $36 Bool (not $34))
+(define-const $37 Proof (euf $36 $25))
+(infer (not $25) $34 $37)
+(infer rup)
+"""
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -376,6 +432,10 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(self.classify(_LRA), "qf_lra")
         mixed = "(declare-const p Bool)(declare-const x Real)(assert (or p (< (/ x 2.0) (- 1.5))))"
         self.assertEqual(self.classify(mixed), "qf_lra")
+        # A Real ite with linear branches is a linear term; the condition may be any formula.
+        ite = ("(declare-const p Bool)(declare-const x Real)"
+               "(assert (> (* 2.0 (ite (and p (< x 1.0)) x (ite p 1.0 (- x)))) 2.0))")
+        self.assertEqual(self.classify(ite), "qf_lra")
 
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
@@ -383,7 +443,8 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
             ("(declare-const x Int)(assert (> x 1))", "unsupported sort"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (f x) 1.0))", "uninterpreted functions"),
-            ("(declare-const p Bool)(declare-const x Real)(assert (> (ite p x 1.0) 2.0))", "ite"),
+            ("(declare-const p Bool)(declare-const x Real)(assert (> (* x (ite p x 1.0)) 2.0))", "nonlinear"),
+            ("(declare-const p Bool)(declare-const x Real)(assert (> (/ 1.0 (ite p x 1.0)) 2.0))", "division"),
         ]:
             with self.subTest(source=source):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
@@ -578,6 +639,39 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertGreaterEqual(counts["def-axiom"], 1)
         self.assertNotIn("th-lemma", counts)
         self.assertEqual(counts["lemma"], 1)
+
+    def test_real_ite_terms_are_opaque_in_hints_and_get_gate_clauses(self):
+        certificate = self.replay(_ITE, _ITE_LOG)
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["th-lemma"], 4)  # two farkas and two euf hints
+        self.assertEqual(counts["def-axiom"], 2)  # the two ite gate clauses
+        ite = [d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ITE]
+        self.assertEqual([(d["name"], d["domain"], d["range"]) for d in ite], [("if", ["Bool", "Real", "Real"], "Real")])
+        # A combination that refutes only if the ite were replaced by a branch is not a Farkas proof.
+        log = _ITE_LOG.replace("(farkas 1 $29 1 $20 1 $16)", "(farkas 1 $20 1 $16)")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "do not refute"):
+            self.replay(_ITE, log)
+        # The log's ite must be built from declared symbols like any other term.
+        log = _ITE_LOG.replace("(ite p x y)", "(ite q x y)")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "undeclared or fresh symbol"):
+            self.replay(_ITE, log)
+
+    def test_congruence_claims_in_euf_hints_are_not_literals(self):
+        # Z3 guides its own checker with (cc (= a b)) or (comm (= a b)) proof
+        # arguments; the lemma clause consists of the Boolean arguments only.
+        claim = ("(declare-fun cc (Bool) Proof)\n(define-const $40 Bool (= $29 $26))\n"
+                 "(define-const $41 Proof (cc $40))\n")
+        log = _ITE_LOG.replace("(define-const $32 Proof (euf $31 $26))",
+                               claim + "(define-const $32 Proof (euf $31 $26 $41 (comm (= $29 $26))))")
+        certificate = self.replay(_ITE, log)
+        self.assertEqual(certificate["rule_counts"], self.replay(_ITE, _ITE_LOG)["rule_counts"])
+        for broken in ["(cc $15)", "(cc $40 $40)", "(cc)"]:
+            with self.subTest(broken=broken):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "malformed euf congruence"):
+                    self.replay(_ITE, log.replace("(cc $40)", broken))
+        # Only euf hints carry claims; in any other literal hint they are not literals either.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "undeclared or fresh symbol"):
+            self.replay(_ITE, log.replace("(tseitin $24 $25)", "(tseitin $24 $25 $41)"))
 
     def test_deleted_and_repeated_empty_clauses_are_handled(self):
         log = _LRA_LOG.replace("(infer rup)\n", "(del (not $11) (not $17) (not $21))\n(infer rup)\n(infer rup)\n")
