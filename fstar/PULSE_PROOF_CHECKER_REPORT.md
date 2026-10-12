@@ -295,6 +295,89 @@ Two follow-ups make this concrete instead of abstract:
    open: for the checker to stay theory-agnostic, it cannot itself
    re-derive every theory's semantics).
 
+## Follow-up: `Z3PatternMatchedProofChecker.fst` — select-store as a pattern, not an example
+
+`Z3InterpretedProofChecker.fst`'s four leaves above are each a single,
+literal, hand-picked instance of a theory lemma (named constants `a`,
+`i`, `v`, ...) — proving each one sound is a one-line call into the
+matching lemma only because the sub-expressions' shapes are "obviously"
+right by construction. `Z3PatternMatchedProofChecker.fst` generalizes
+one of those four patterns, `select(store(a,i,x),i) = x`
+(`Z3ArrayTheory.lemma_select_store_same`), into a genuine **pattern-
+matching compiler**: a decidable recognizer that accepts this schema
+for *arbitrary* array/index/value sub-expressions `a`/`idx`/`x` — not
+just literal named constants — and automatically discharges
+`all_leaves_sound` for any `Rewrite` leaf (however deeply `a`/`idx`/`x`
+are nested) by invoking `Z3ArrayTheory.lemma_select_store_same` under
+the hood.
+
+**No Meta-F*/tactics are needed.** `expr`/`func_decl`/`sort` have no
+function-typed fields anywhere (`func_decl.interp : option decl_kind`
+is a plain integer tag, not a semantic function), so `expr` has
+decidable structural equality and admits genuinely general, decidable
+pattern matching in plain F*. The design:
+
+- **`decl_shape_ok`/`decls_ok`** — `Z3AstTheory.wf` only checks that an
+  `App`'s args match its *own* declared domain; it says nothing about
+  whether a given `f.interp = Some k` tag is consistent with the
+  specific domain/range `Z3InterpretedProofChecker.interp_app` actually
+  expects for that `k` (that binding is this project's own choice, not
+  anything `Z3AstTheory.fst` enforces). `decl_shape_ok` closes this
+  gap with a finite case-split over the six interpreted ops
+  (`op_not`/`op_plus`/`op_select`/`op_store`/`op_bvand`/`op_concat`);
+  `decls_ok` extends it recursively over a whole expression.
+- **`shape_ok`/`lemma_eval_shape`** — the central structural "type
+  soundness" lemma: a well-formed, `decls_ok`, closed, quantifier-free
+  expression's value (under `the_interpretation`) always has the
+  constructor shape (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) its declared
+  sort promises, proved once by induction over `expr`. This is the
+  piece that makes matching *arbitrary* sub-expressions sound:
+  `interp_app`'s dispatch (e.g. `op_select`'s
+  `match args with | [VArr a; VInt i] -> ... | _ -> VInt 0`) silently
+  falls back to a dummy value for ill-shaped arguments, so recognizing
+  `select(store(a,i,x),i)` generically is only sound once `a`/`i`/`x`
+  are *guaranteed* — not merely assumed — to evaluate to the right
+  shapes.
+- **`match_select_store_same`/`select_store_same_leaf_ok`** — a purely
+  structural matcher (decidable `expr` equality, checking `f.interp`
+  tags and that the two index sub-expressions are syntactically
+  identical) plus the side conditions (`wf`/`closed`/`decls_ok`/sort
+  checks on the matched pieces) needed for `lemma_eval_shape` to apply.
+- **`all_matched`/`lemma_all_matched_sound`** — a decidable, whole-
+  proof-tree checker mirroring `all_leaves_sound`'s own recursion
+  structure, calling the matcher at every `Rewrite` leaf, with a
+  soundness proof composing `lemma_select_store_same_leaf_sound` at
+  each one.
+- **`lemma_matched_proof_true`** — the end-to-end theorem: any proof
+  tree the structural checker accepts (`Some? (fact p)`) whose
+  `Rewrite` leaves all fit the select-store-same schema (`all_matched
+  p`) denotes a *true* equation under `the_interpretation`, composing
+  `lemma_all_matched_sound` with `Z3ProofTheory.lemma_proof_sound` —
+  with no hand-wired, per-example trust needed for this pattern,
+  however deeply nested.
+
+**Demonstrated on a new, non-trivial example**, distinct from
+`Z3InterpretedProofChecker.array_leaf`'s literal named constants:
+`select(store(f(x), i+i, g(y)), i+i) = g(y)`, where `f`/`g` are
+uninterpreted functions and `i+i` is a *compound* index expression
+(not a named constant). `lemma_nested_leaf_true` proves this leaf's
+equation holds under `the_interpretation`, via `all_matched
+nested_leaf` alone — no new per-leaf lemma call was written for this
+specific example, unlike every leaf in `Z3InterpretedProofChecker.fst`.
+
+**Known limitation, flagged rather than solved**: the companion
+pattern `select(store(a,i,x),j) = select(a,j)` for `i <> j`
+(`Z3ArrayTheory.lemma_select_store_diff`) is *not* generalized here.
+`Z3InterpretedProofChecker.uninterp_app`/`default_value` maps *every*
+uninterpreted 0-ary constant of a given sort to the *same* value
+regardless of name, so two syntactically distinct named Int constants
+currently always denote the identical `VInt`, making the semantic side
+condition `i <> j` unsatisfiable for any two currently-expressible
+named constants under this interpretation. Supporting this pattern
+generically would require `uninterp_app` to inject distinct constant
+names to distinct values (e.g. hashing `decl_name`), which is left as
+future work rather than attempted here.
+
 ## Follow-up: running the checker on a real Z3-produced proof
 
 Everything above (and every proof derivation `Z3PulseProofCheckerTests
@@ -475,6 +558,7 @@ soundness argument -- `check_proof`'s own internal logic is untouched.
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
 | [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
+| [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Generalizes the array leaf above into a decidable pattern-matching compiler: recognizes `select(store(a,i,x),i) = x` for *arbitrary* nested `a`/`i`/`x` sub-expressions (not just named constants) and auto-discharges `all_leaves_sound` via a structural "type soundness" lemma plus `Z3ArrayTheory.lemma_select_store_same` |
 | [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
 | [`tools/test_not_not.smt2`](tools/test_not_not.smt2), [`Z3ExtractedProof_FromFile.fst`](Z3ExtractedProof_FromFile.fst) | Same `not(not(x)) == x` example, but driven from an `.smt2` file path instead of a built-in Python formula |
