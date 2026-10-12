@@ -1,0 +1,11 @@
+Rewrite-rule matching log for assertions from tools\test_bvand_self.smt2
+Total Rewrite leaves examined: 5
+Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): 0
+Unmatched (not verified by any known rewrite-rule lemma): 5
+
+-- UNVERIFIED leaves (no matching lemma found) --
+  (bvand y y)  ==  (bvnot (bvor (bvnot y) (bvnot y)))
+  (bvor (bvnot y) (bvnot y))  ==  (bvnot y)
+  (bvnot (bvnot y))  ==  y
+  (= y y)  ==  true
+  (not true)  ==  false

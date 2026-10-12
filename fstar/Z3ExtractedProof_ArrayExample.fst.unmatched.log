@@ -1,0 +1,11 @@
+Rewrite-rule matching log for assertions from tools\test_select_store.smt2
+Total Rewrite leaves examined: 3
+Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): 1
+Unmatched (not verified by any known rewrite-rule lemma): 2
+
+-- Matched leaves --
+  [select_store_same] (select (store a i v) i)  ==  v
+
+-- UNVERIFIED leaves (no matching lemma found) --
+  (= v v)  ==  true
+  (not true)  ==  false

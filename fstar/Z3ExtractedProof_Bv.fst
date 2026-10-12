@@ -8,7 +8,7 @@
    `tools/extract_z3_proof.py`. Regenerate it by rerunning that script;
    do not hand-edit.
 
-   Example: assertions from test_bvand_self.smt2
+   Example: assertions from tools\test_bvand_self.smt2
 *)
 module Z3ExtractedProof_Bv
 #lang-pulse
@@ -16,14 +16,16 @@ open Pulse.Lib.Pervasives
 open Z3AstTheory
 open Z3ProofTheory
 open Z3PulseProofChecker
+open Z3InterpretedProofChecker
+open Z3PatternMatchedProofChecker
 
 
 let srt_0 : sort = BaseSort "Bool"
-let srt_1 : sort = BaseSort "bv"
+let srt_1 : sort = BaseSort "BV32"
 
-let fd_0 : func_decl = { decl_name = "not"; domain = [srt_0]; range = srt_0; interp = None; int_params = [] }
+let fd_0 : func_decl = { decl_name = "not"; domain = [srt_0]; range = srt_0; interp = Some op_not; int_params = [] }
 let fd_1 : func_decl = { decl_name = "y"; domain = []; range = srt_1; interp = None; int_params = [] }
-let fd_2 : func_decl = { decl_name = "bvand"; domain = [srt_1; srt_1]; range = srt_1; interp = None; int_params = [] }
+let fd_2 : func_decl = { decl_name = "bvand"; domain = [srt_1; srt_1]; range = srt_1; interp = Some op_bvand; int_params = [] }
 let fd_3 : func_decl = { decl_name = "="; domain = [srt_1; srt_1]; range = srt_0; interp = None; int_params = [] }
 let fd_4 : func_decl = { decl_name = "true"; domain = []; range = srt_0; interp = None; int_params = [] }
 let fd_5 : func_decl = { decl_name = "bvnot"; domain = [srt_1]; range = srt_1; interp = None; int_params = [] }
@@ -80,4 +82,23 @@ fn check_extracted ()
   let ok = checker_accepts extracted_proof;
   assert (pure (ok == true));
 }
+#pop-options
+
+(* Pattern-matching cross-check: `collect_unmatched` (already proven
+   sound -- `lemma_partial_proof_true` in
+   Z3PatternMatchedProofChecker.fst) is the trusted, independent
+   source of truth for which `Rewrite` leaves of this extracted proof
+   fit one of the six verified rewrite-rule schemas; `tools/
+   extract_z3_proof.py` separately mirrors the same six matchers in
+   Python purely to produce a human-readable log (see the
+   --log output / *.unmatched.log). This assertion forces F* to
+   recompute `collect_unmatched` on the *real* checker and confirms
+   its leftover count agrees with the Python log's count -- if the
+   Python mirror were ever wrong or out of sync with the verified
+   matcher library, this assertion (not just the log) would fail to
+   type-check. *)
+#push-options "--z3rlimit 60 --fuel 4 --ifuel 4"
+let lemma_unmatched_count_cross_checked ()
+  : Lemma (FStar.List.Tot.length (collect_unmatched extracted_proof) == 5)
+  = assert_norm (FStar.List.Tot.length (collect_unmatched extracted_proof) == 5)
 #pop-options

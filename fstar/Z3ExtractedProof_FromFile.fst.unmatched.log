@@ -1,0 +1,10 @@
+Rewrite-rule matching log for assertions from tools\test_not_not.smt2
+Total Rewrite leaves examined: 2
+Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): 1
+Unmatched (not verified by any known rewrite-rule lemma): 1
+
+-- Matched leaves --
+  [not_not] (not (not x))  ==  x
+
+-- UNVERIFIED leaves (no matching lemma found) --
+  (xor x x)  ==  false

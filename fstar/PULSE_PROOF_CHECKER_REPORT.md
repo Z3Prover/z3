@@ -586,6 +586,57 @@ This is a verification-engineering fix (how the already-correct fact
 gets communicated to the SMT solver), not a change to the checker's
 soundness argument -- `check_proof`'s own internal logic is untouched.
 
+## Wiring the rewrite-rule matcher into the extraction pipeline
+
+`Z3PatternMatchedProofChecker.fst`'s `collect_unmatched` (see above) is
+proven sound, but until this follow-up it only ever ran over
+hand-constructed F\* `proof`/`expr` terms inside that file's own
+demonstrations -- it had never been pointed at a real Z3-extracted
+proof. `tools/extract_z3_proof.py` now closes that gap:
+
+* **Python-side mirror.** `classify_rewrite(s, t)` re-implements the
+  same six pattern tests (`select_store_same`, `store_same_twice`,
+  `store_redundant`, `concat_assoc`, `not_not`, `bvand_self`) directly
+  over z3's own `ExprRef` ASTs (via `decl().kind()` checks), at every
+  site a `Rewrite` leaf is produced during conversion. This mirror is
+  *not* trusted on its own -- it only drives a human-readable log.
+* **Cross-check, not re-trust.** The generated `.fst` file
+  additionally does `open Z3PatternMatchedProofChecker` and emits
+  `assert_norm (FStar.List.Tot.length (collect_unmatched
+  extracted_proof) == N)`, where `N` is the Python mirror's own
+  unmatched count. If the Python classification ever disagrees with
+  the real, proven F\* matcher, this assertion fails to type-check --
+  so the log's "matched" vs. "unmatched" split is mechanically tied to
+  `Z3PatternMatchedProofChecker.fst`'s soundness proof, not merely
+  asserted by the extraction script.
+* **`interp` tagging.** The six matchers require `func_decl.interp =
+  Some op_X` (not just the right `decl_name`/arity); `Converter.func_decl`
+  now tags declarations matching one of the six known interpreted ops
+  (`not`, `select`, `store`, `bvand`, `seq.++`) at their expected arity,
+  leaving everything else `interp = None` (safely covered by
+  `decl_shape_ok`'s `None -> true` case) exactly as before.
+* **Sort naming fixes.** `Converter.sort` special-cases `BitVecSort`
+  (`"BV%d" % s.size()`, since `.name()` loses the width) and
+  `Seq(Int)` (`"SeqInt"`, since `.name()` loses the element sort) to
+  match the literal sort names `Z3InterpretedProofChecker.fst` expects;
+  it also fixes a pre-existing bug where the array-sort branch called
+  a nonexistent `ArraySortRef.arity()` (replaced with the raw C API
+  `Z3_get_array_arity`), which had silently blocked every array-sort
+  extraction until now.
+* **Log output.** `--log <file>` (default `<out>.unmatched.log`) lists
+  every `Rewrite` leaf seen, either tagged with the matched pattern
+  name or marked unverified with its `.sexpr()` text, plus a
+  matched/unmatched summary count.
+
+New end-to-end examples exercising all six matchers via real Z3
+proofs: `not(not(x))==x` (`not_not`, pre-existing), `(select (store a
+i v) i)==v` (`select_store_same`), `(seq.++ (seq.++ a b) c) == (seq.++
+a (seq.++ b c))` (`concat_assoc`), and `bvand y y == y` (which Z3
+proves via De Morgan expansion rather than the literal `bvand_self`
+schema -- a genuine example of the "accumulate unmatched, don't
+reject" path, since `store_same_twice`/`store_redundant` also remain
+unexercised by any committed example so far).
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in
@@ -628,7 +679,9 @@ soundness argument -- `check_proof`'s own internal logic is untouched.
 | [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
 | [`tools/test_not_not.smt2`](tools/test_not_not.smt2), [`Z3ExtractedProof_FromFile.fst`](Z3ExtractedProof_FromFile.fst) | Same `not(not(x)) == x` example, but driven from an `.smt2` file path instead of a built-in Python formula |
-| [`tools/test_bvand_self.smt2`](tools/test_bvand_self.smt2), [`Z3ExtractedProof_Bv.fst`](Z3ExtractedProof_Bv.fst) | A larger `.smt2`-driven example (`bvand y y == y`), 12 proof nodes / 11 expr nodes, that surfaced and validated the fuel/`assert_norm` fix described above |
+| [`tools/test_bvand_self.smt2`](tools/test_bvand_self.smt2), [`Z3ExtractedProof_Bv.fst`](Z3ExtractedProof_Bv.fst) | A larger `.smt2`-driven example (`bvand y y == y`), 12 proof nodes / 11 expr nodes, that surfaced and validated the fuel/`assert_norm` fix described above; also an example where the matcher log reports *unmatched* leaves, since Z3 proves this via De Morgan expansion rather than the literal `bvand_self` schema |
+| [`tools/test_select_store.smt2`](tools/test_select_store.smt2), [`Z3ExtractedProof_ArrayExample.fst`](Z3ExtractedProof_ArrayExample.fst) | `(select (store a i v) i) == v`, exercising the `select_store_same` matcher and multi-argument-array sort extraction |
+| [`tools/test_concat_assoc.smt2`](tools/test_concat_assoc.smt2), [`Z3ExtractedProof_Seq.fst`](Z3ExtractedProof_Seq.fst) | `(seq.++ (seq.++ a b) c) == (seq.++ a (seq.++ b c))`, exercising the `concat_assoc` matcher and `Seq(Int)` sort naming |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero

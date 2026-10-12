@@ -90,6 +90,70 @@ def fstar_ident(prefix, n):
     return "%s%d" % (prefix, n)
 
 
+# --------------------------------------------------------------------
+# Python-side mirror of `Z3PatternMatchedProofChecker.fst`'s six
+# structural rewrite-rule matchers (`match_select_store_same`,
+# `match_store_same_twice`, `match_store_redundant`,
+# `match_concat_assoc`, `match_not_not`, `match_bvand_self`), applied
+# directly to the *original* z3 ASTs (before F* conversion) so that a
+# human-readable log can be produced without round-tripping through
+# `fstar.exe`. This mirror is deliberately *not* trusted on its own:
+# `generate()` below also emits, into the produced `.fst` file, a call
+# to the real, proven `collect_unmatched` and an `assert_norm` that its
+# length equals this script's own unmatched count -- if the two
+# disagree (e.g. this mirror is buggy, or out of sync with the F*
+# matcher library), the generated file simply fails to type-check,
+# so the log's "matched"/"unmatched" classification is mechanically
+# cross-checked against the verified matcher, not merely asserted by
+# this script.
+# --------------------------------------------------------------------
+
+def _is_app_of(e, kind):
+    return z3.is_app(e) and e.num_args() > 0 and e.decl().kind() == kind
+
+
+def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
+    """Returns the matched pattern's name (one of the six below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s six
+       schemas for *arbitrary* sub-expressions, else `None`."""
+    # select(store(a,i,x),i) = x
+    if (_is_app_of(s, z3.Z3_OP_SELECT) and s.num_args() == 2 and
+            _is_app_of(s.arg(0), z3.Z3_OP_STORE) and s.arg(0).num_args() == 3 and
+            s.arg(0).arg(1).eq(s.arg(1)) and t.eq(s.arg(0).arg(2))):
+        return "select_store_same"
+    # store(store(a,i,x),i,y) = store(a,i,y)
+    if (_is_app_of(s, z3.Z3_OP_STORE) and s.num_args() == 3 and
+            _is_app_of(s.arg(0), z3.Z3_OP_STORE) and s.arg(0).num_args() == 3 and
+            _is_app_of(t, z3.Z3_OP_STORE) and t.num_args() == 3 and
+            s.arg(0).arg(1).eq(s.arg(1)) and s.arg(1).eq(t.arg(1)) and
+            s.arg(0).arg(0).eq(t.arg(0)) and s.arg(2).eq(t.arg(2))):
+        return "store_same_twice"
+    # store(a,i,select(a,i)) = a
+    if (_is_app_of(s, z3.Z3_OP_STORE) and s.num_args() == 3 and
+            _is_app_of(s.arg(2), z3.Z3_OP_SELECT) and s.arg(2).num_args() == 2 and
+            s.arg(0).eq(s.arg(2).arg(0)) and s.arg(1).eq(s.arg(2).arg(1)) and
+            t.eq(s.arg(0))):
+        return "store_redundant"
+    # (a++b)++c = a++(b++c)
+    if (_is_app_of(s, z3.Z3_OP_SEQ_CONCAT) and s.num_args() == 2 and
+            _is_app_of(s.arg(0), z3.Z3_OP_SEQ_CONCAT) and s.arg(0).num_args() == 2 and
+            _is_app_of(t, z3.Z3_OP_SEQ_CONCAT) and t.num_args() == 2 and
+            _is_app_of(t.arg(1), z3.Z3_OP_SEQ_CONCAT) and t.arg(1).num_args() == 2 and
+            s.arg(0).arg(0).eq(t.arg(0)) and s.arg(0).arg(1).eq(t.arg(1).arg(0)) and
+            s.arg(1).eq(t.arg(1).arg(1))):
+        return "concat_assoc"
+    # not(not(x)) = x
+    if (_is_app_of(s, z3.Z3_OP_NOT) and s.num_args() == 1 and
+            _is_app_of(s.arg(0), z3.Z3_OP_NOT) and s.arg(0).num_args() == 1 and
+            t.eq(s.arg(0).arg(0))):
+        return "not_not"
+    # bvand(y,y) = y
+    if (_is_app_of(s, z3.Z3_OP_BAND) and s.num_args() == 2 and
+            s.arg(0).eq(s.arg(1)) and t.eq(s.arg(0))):
+        return "bvand_self"
+    return None
+
+
 class Converter:
     def __init__(self):
         self.sort_lines = []
@@ -101,35 +165,63 @@ class Converter:
         self.expr_cache = {}   # z3 ast id -> ident
         self.proof_cache = {}  # z3 ast id -> ident
         self.true_marker_emitted = False
+        self.rewrite_log = []  # list of (s:ExprRef, t:ExprRef, matched_name:str|None)
 
     # ---- sorts -----------------------------------------------------
+    # Z3InterpretedProofChecker.fst's six interpreted ops are tied to
+    # specific, literal sort names (`int_s = BaseSort "Int"`, `bool_s =
+    # BaseSort "Bool"`, `bv_s = BaseSort "BV32"`, `seq_s = BaseSort
+    # "SeqInt"`, `arr_s = ArraySort [int_s] int_s`). `z3.SortRef.name()`
+    # already agrees for Int/Bool/Array, but reports plain "bv"/"Seq"
+    # for bit-vector/sequence sorts (losing the width/element type), so
+    # those two are special-cased here to the exact literal strings
+    # the matcher library expects -- purely a naming fix, changing
+    # nothing semantic.
     def sort(self, s: z3.SortRef) -> str:
-        name = s.name()
+        if s.kind() == z3.Z3_BV_SORT:
+            name = "BV%d" % s.size()
+        elif s.kind() == z3.Z3_SEQ_SORT and s.basis().kind() == z3.Z3_INT_SORT:
+            name = "SeqInt"
+        else:
+            name = s.name()
         if name in self.sort_cache:
             return self.sort_cache[name]
-        ident = fstar_ident("srt_", len(self.sort_cache))
         if s.kind() == z3.Z3_ARRAY_SORT:
-            # Multi-argument arrays expose domain_n()/domain(i); plain
-            # single-index arrays only expose domain(). Prefer the
-            # former when available so Z3's own multi-dimensional
-            # arrays round-trip into `ArraySort`'s `list sort` domain.
-            if hasattr(s, "domain_n"):
-                dom = [self.sort(s.domain_n(i)) for i in range(s.arity())]
-            else:
-                dom = [self.sort(s.domain())]
+            # Multi-argument arrays expose `domain_n(i)` but not a
+            # Python-level `arity()`; the arity itself has to come from
+            # the raw C API (`Z3_get_array_arity`) instead. Computed
+            # *before* `ident` below: this recurses into `self.sort()`
+            # for the domain/range sorts, which can itself grow
+            # `self.sort_cache` (e.g. for `Array(Int,Int)`, discovering
+            # and interning the shared `Int` sort) -- `ident` must be
+            # allocated only once that settles, or it can collide with
+            # an identifier a nested recursive call already claimed.
+            arity = z3.z3core.Z3_get_array_arity(s.ctx_ref(), s.ast)
+            dom = [self.sort(s.domain_n(i)) for i in range(arity)]
             rng = self.sort(s.range())
+            ident = fstar_ident("srt_", len(self.sort_cache))
             self.sort_lines.append(
                 "let %s : sort = ArraySort [%s] %s" % (ident, "; ".join(dom), rng)
             )
         else:
+            ident = fstar_ident("srt_", len(self.sort_cache))
             self.sort_lines.append('let %s : sort = BaseSort "%s"' % (ident, name))
         self.sort_cache[name] = ident
         return ident
 
-    # ---- func_decls (always emitted as uninterpreted: `fact`/        -
-    # `check_proof` never consult `interp`/`domain`, only `decl_name`  -
-    # +structural shape, so this is a faithful, lossless-for-our-      -
-    # purposes simplification) ---------------------------------------
+    # ---- func_decls ----------------------------------------------------
+    # `fact`/`check_proof` never consult `interp`/`domain`, only
+    # `decl_name`+structural shape, so leaving every func_decl
+    # uninterpreted (`interp = None`) is a faithful simplification for
+    # *those*. But `Z3PatternMatchedProofChecker.fst`'s six rewrite-rule
+    # matchers additionally require the specific interpreted tag
+    # (`op_not`/`op_select`/`op_store`/`op_bvand`/`op_concat`) to be set
+    # before they will recognize a leaf's shape at all (`decl_shape_ok`),
+    # so any z3 declaration whose kind is one of those six ops, applied
+    # at the arity that op expects, is tagged accordingly here -- every
+    # other declaration (including `op_plus`, not needed by any of the
+    # six matchers) stays `None`, so `decl_shape_ok`'s `None -> true`
+    # case covers it with no change in behavior.
     def func_decl(self, d: z3.FuncDeclRef, arity: int) -> str:
         key = (d.name(), arity)
         if key in self.decl_cache:
@@ -137,10 +229,23 @@ class Converter:
         ident = fstar_ident("fd_", len(self.decl_cache))
         dom = [self.sort(d.domain(i)) for i in range(arity)]
         rng = self.sort(d.range())
+        tag = None
+        kind = d.kind()
+        if kind == z3.Z3_OP_NOT and arity == 1:
+            tag = "op_not"
+        elif kind == z3.Z3_OP_SELECT and arity == 2:
+            tag = "op_select"
+        elif kind == z3.Z3_OP_STORE and arity == 3:
+            tag = "op_store"
+        elif kind == z3.Z3_OP_BAND and arity == 2:
+            tag = "op_bvand"
+        elif kind == z3.Z3_OP_SEQ_CONCAT and arity == 2:
+            tag = "op_concat"
+        interp = ("Some %s" % tag) if tag is not None else "None"
         self.decl_lines.append(
             'let %s : func_decl = { decl_name = "%s"; domain = [%s]; range = %s; '
-            'interp = None; int_params = [] }'
-            % (ident, d.name(), "; ".join(dom), rng)
+            'interp = %s; int_params = [] }'
+            % (ident, d.name(), "; ".join(dom), rng, interp)
         )
         self.decl_cache[key] = ident
         return ident
@@ -199,9 +304,16 @@ class Converter:
            formula `F` to `Rewrite F true_marker` (see module docstring)."""
         concl = p.arg(p.num_args() - 1)
         if z3.is_eq(concl) or (z3.is_app(concl) and concl.decl().kind() == z3.Z3_OP_IFF):
-            s = self.expr(concl.arg(0))
-            t = self.expr(concl.arg(1))
+            s_ast, t_ast = concl.arg(0), concl.arg(1)
+            self.rewrite_log.append((s_ast, t_ast, classify_rewrite(s_ast, t_ast)))
+            s = self.expr(s_ast)
+            t = self.expr(t_ast)
         else:
+            # A bare formula bridged via `true_marker`: never fits any
+            # of the six equational schemas, so it is always logged as
+            # unmatched (there is no lemma library for "this was some
+            # other, non-equational derivation step").
+            self.rewrite_log.append((concl, None, None))
             s = self.expr(concl)
             fd = self.true_marker()
             t_ident = fstar_ident("e_", len(self.expr_cache))
@@ -249,8 +361,10 @@ class Converter:
                 % (ident, f, args1, args2, "; ".join(prfs))
             )
         elif kind in (z3.Z3_OP_PR_REWRITE, z3.Z3_OP_PR_REWRITE_STAR):
-            s = self.expr(concl.arg(0))
-            t = self.expr(concl.arg(1))
+            s_ast, t_ast = concl.arg(0), concl.arg(1)
+            self.rewrite_log.append((s_ast, t_ast, classify_rewrite(s_ast, t_ast)))
+            s = self.expr(s_ast)
+            t = self.expr(t_ast)
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append("let %s : proof = Rewrite %s %s" % (ident, s, t))
         elif kind == z3.Z3_OP_PR_QUANT_INTRO:
@@ -314,11 +428,13 @@ open Pulse.Lib.Pervasives
 open Z3AstTheory
 open Z3ProofTheory
 open Z3PulseProofChecker
+open Z3InterpretedProofChecker
+open Z3PatternMatchedProofChecker
 
 """
 
 
-def generate(module_name, example_desc, conv: Converter, root_ident: str) -> str:
+def generate(module_name, example_desc, conv: Converter, root_ident: str, unmatched_count: int) -> str:
     out = [FSTAR_HEADER % {"module_name": module_name, "example_desc": example_desc}]
     out.extend(conv.sort_lines)
     out.append("")
@@ -357,6 +473,30 @@ def generate(module_name, example_desc, conv: Converter, root_ident: str) -> str
     out.append("  let ok = checker_accepts extracted_proof;")
     out.append("  assert (pure (ok == true));")
     out.append("}")
+    out.append("#pop-options")
+    out.append("")
+    out.append(
+        "(* Pattern-matching cross-check: `collect_unmatched` (already proven\n"
+        "   sound -- `lemma_partial_proof_true` in\n"
+        "   Z3PatternMatchedProofChecker.fst) is the trusted, independent\n"
+        "   source of truth for which `Rewrite` leaves of this extracted proof\n"
+        "   fit one of the six verified rewrite-rule schemas; `tools/\n"
+        "   extract_z3_proof.py` separately mirrors the same six matchers in\n"
+        "   Python purely to produce a human-readable log (see the\n"
+        "   --log output / *.unmatched.log). This assertion forces F* to\n"
+        "   recompute `collect_unmatched` on the *real* checker and confirms\n"
+        "   its leftover count agrees with the Python log's count -- if the\n"
+        "   Python mirror were ever wrong or out of sync with the verified\n"
+        "   matcher library, this assertion (not just the log) would fail to\n"
+        "   type-check. *)"
+    )
+    out.append("#push-options \"--z3rlimit 60 --fuel 4 --ifuel 4\"")
+    out.append(
+        "let lemma_unmatched_count_cross_checked ()\n"
+        "  : Lemma (FStar.List.Tot.length (collect_unmatched extracted_proof) == %d)\n"
+        "  = assert_norm (FStar.List.Tot.length (collect_unmatched extracted_proof) == %d)"
+        % (unmatched_count, unmatched_count)
+    )
     out.append("#pop-options")
     out.append("")
     return "\n".join(out)
@@ -402,6 +542,9 @@ def main():
                           "unsatisfiable; if omitted, uses the built-in "
                           "not(not(x)) == x example")
     ap.add_argument("--out", default="Z3ExtractedProof.fst")
+    ap.add_argument("--log", default=None,
+                     help="path to write the rewrite-rule matching log "
+                          "(default: <out>.unmatched.log)")
     ap.add_argument("--check", action="store_true",
                      help="shell out to fstar.exe and run the Pulse checker on the result")
     ap.add_argument("--fstar", default=r"C:\fstar\fstar\bin\fstar.exe")
@@ -423,8 +566,39 @@ def main():
 
     conv = Converter()
     root_ident = conv.proof(root)
+
+    matched = [(s, t, name) for (s, t, name) in conv.rewrite_log if name is not None]
+    unmatched = [(s, t) for (s, t, name) in conv.rewrite_log if name is None]
+    print("Rewrite leaves: %d total, %d matched a verified lemma, %d unmatched"
+          % (len(conv.rewrite_log), len(matched), len(unmatched)))
+
+    log_path = args.log or (args.out + ".unmatched.log")
+    with open(log_path, "w") as f:
+        f.write("Rewrite-rule matching log for %s\n" % desc)
+        f.write("Total Rewrite leaves examined: %d\n" % len(conv.rewrite_log))
+        f.write("Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): %d\n"
+                % len(matched))
+        f.write("Unmatched (not verified by any known rewrite-rule lemma): %d\n\n"
+                % len(unmatched))
+        if matched:
+            f.write("-- Matched leaves --\n")
+            for s, t, name in matched:
+                f.write("  [%s] %s  ==  %s\n" % (name, s.sexpr(), t.sexpr()))
+            f.write("\n")
+        if unmatched:
+            f.write("-- UNVERIFIED leaves (no matching lemma found) --\n")
+            for s, t in unmatched:
+                if t is None:
+                    f.write("  %s   (non-equational derivation step, bridged via true_marker)\n"
+                            % s.sexpr())
+                else:
+                    f.write("  %s  ==  %s\n" % (s.sexpr(), t.sexpr()))
+        else:
+            f.write("(none -- every Rewrite leaf in this proof matched a verified lemma)\n")
+    print("Wrote matching log to", log_path)
+
     module_name = os.path.splitext(os.path.basename(args.out))[0]
-    text = generate(module_name, desc, conv, root_ident)
+    text = generate(module_name, desc, conv, root_ident, len(unmatched))
     with open(args.out, "w") as f:
         f.write(text)
     print("Wrote", args.out, "(%d proof node(s), %d expr node(s))"
