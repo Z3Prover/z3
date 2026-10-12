@@ -97,6 +97,12 @@ namespace api {
         }
     }
 
+    // Note: default_error_handler prints to stdout and calls exit(1).
+    // In managed runtime environments (e.g. JVM, Android ART, CLR) or embedded
+    // multi-threaded contexts, calling raw exit() is unsafe because it races with
+    // runtime background threads (e.g. JIT/GC threads) during teardown, causing
+    // SIGSEGV in unrelated threads. Embedders and language bindings should install
+    // custom error handlers or set the handler to NULL and inspect Z3_get_error_code().
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
         printf("Error: %s\n", Z3_get_error_msg(ctx, c));
         exit(1);

@@ -388,6 +388,50 @@ void test_strict_real_maximize_disjunction() {
     Z3_del_context(ctx);
 }
 
+static Z3_context g_last_error_ctx = nullptr;
+static Z3_error_code g_last_error_code = Z3_OK;
+static int g_error_handler_calls = 0;
+
+static void custom_test_error_handler(Z3_context c, Z3_error_code e) {
+    g_last_error_ctx = c;
+    g_last_error_code = e;
+    g_error_handler_calls++;
+}
+
+static void test_error_handler() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Test 1: Disabling error handler with nullptr prevents exit(1) and records error code
+    Z3_set_error_handler(ctx, nullptr);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    // Provoke an invalid argument error (asserting null formula triggers CHECK_FORMULA)
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    // Explicit error setting also works with nullptr handler
+    Z3_set_error(ctx, Z3_PARSER_ERROR);
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+
+    // Test 2: Custom error handler is invoked with expected arguments
+    g_last_error_ctx = nullptr;
+    g_last_error_code = Z3_OK;
+    g_error_handler_calls = 0;
+
+    Z3_set_error_handler(ctx, custom_test_error_handler);
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(g_error_handler_calls == 1);
+    ENSURE(g_last_error_ctx == ctx);
+    ENSURE(g_last_error_code == Z3_INVALID_ARG);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
 // The QF_NRA regression for #10505 lives in tst_upolynomial(). Driving it
 // through Z3_solver_check is not reproducible: the QF_NRA portfolio is a
 // sequence of try_for() tactics guarded by wall-clock timeouts and a probe on
@@ -405,6 +449,7 @@ void tst_api() {
     test_optimize_arith_params();
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
+    test_error_handler();
 }
 
 void test_max_rev() {
