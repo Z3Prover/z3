@@ -46,6 +46,7 @@ namespace smt {
         unsigned axioms = 0;
         unsigned native_checks = 0, native_conflicts = 0, arrangements = 0, fallbacks = 0;
         unsigned root_clauses = 0;
+        unsigned factor_split_candidates = 0;
         obj_hashtable<sort> bv_fields; // fallback is local to a field, never the whole context
         void refresh_bv_fields();
         ff::basis_cache memo;
@@ -67,6 +68,7 @@ namespace smt {
         void assert_axiom(expr *e, bool simplify = true);
         void constrain(expr *e);
         expr_ref square_root_term(expr *e);
+        bool factor_split(expr *a, expr *b, expr_ref_vector &branches);
         bool propagate_roots();
         final_check_status check_native();
         final_check_status final_check_eh(unsigned) override;
@@ -112,6 +114,7 @@ namespace smt {
             st.update("ff arrangements", arrangements);
             st.update("ff bv fallbacks", fallbacks);
             st.update("ff root clauses", root_clauses);
+            st.update("ff factor split candidates", factor_split_candidates);
             st.update("ff normalization cache entries", root_norm_pins.size() / 2);
             st.update("ff basis cache hits", memo.hits);
             st.update("ff basis cache misses", memo.misses);

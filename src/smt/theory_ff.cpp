@@ -173,6 +173,159 @@ namespace smt {
         return result;
     }
 
+    // Generalizes the literal top-level zero-product rule: flatten a-b into
+    // monomials (coefficient x sorted atomic-factor multiset), then take the
+    // multiset-intersection of every nonzero-coefficient monomial's factors
+    // as a common factor. a-b = factor * remainder by construction (the
+    // common multiset is a sub-multiset of every included monomial's
+    // factors), so asserting factor=0 or remainder=0 is equivalent to a=b.
+    // Always counts the candidate in factor_split_candidates; only builds
+    // and returns branches when smt.ff.factor_split enables asserting the
+    // split, so the counter measures how often this fires even while the
+    // rule stays disabled.
+    bool theory_ff::factor_split(expr *a, expr *b, expr_ref_vector &branches) {
+        sort *s = a->get_sort();
+        rational const &p = ff.modulus(s);
+        vector<std::pair<rational, ptr_vector<expr>>> monomials;
+        bool overflow = false;
+        // Hard cap on total node visits, independent of the final monomial
+        // count: shared sub-terms (e.g. from let-bound definitions) are
+        // revisited once per occurrence, so a DAG with heavy internal sharing
+        // could otherwise blow up this walk long before 200 monomials are
+        // produced.
+        unsigned steps = 0;
+        const unsigned max_steps = 20000;
+        auto flatten = [&](expr *root, rational sign) {
+            ptr_vector<expr> todo_e;
+            vector<rational> todo_s;
+            todo_e.push_back(root);
+            todo_s.push_back(sign);
+            while (!todo_e.empty()) {
+                if (overflow || monomials.size() > 200 || ++steps > max_steps) {
+                    overflow = true;
+                    return;
+                }
+                expr *e = todo_e.back();
+                rational sg = todo_s.back();
+                todo_e.pop_back();
+                todo_s.pop_back();
+                expr *x = nullptr;
+                rational c;
+                if (ff.is_add(e)) {
+                    for (expr *arg : *to_app(e)) {
+                        todo_e.push_back(arg);
+                        todo_s.push_back(sg);
+                    }
+                }
+                else if (ff.is_neg(e, x)) {
+                    todo_e.push_back(x);
+                    todo_s.push_back(-sg);
+                }
+                else if (ff.is_numeral(e, c)) {
+                    rational coeff = (sg * c) % p;
+                    if (coeff.is_neg())
+                        coeff += p;
+                    if (!coeff.is_zero())
+                        monomials.push_back({coeff, ptr_vector<expr>()});
+                }
+                else {
+                    ptr_vector<expr> factors;
+                    rational coeff(1);
+                    ptr_vector<expr> todo_f;
+                    todo_f.push_back(e);
+                    while (!todo_f.empty()) {
+                        if (factors.size() > 8 || ++steps > max_steps) {
+                            overflow = true;
+                            return;
+                        }
+                        expr *f = todo_f.back();
+                        todo_f.pop_back();
+                        rational fc;
+                        if (ff.is_mul(f)) {
+                            for (expr *arg : *to_app(f))
+                                todo_f.push_back(arg);
+                        }
+                        else if (ff.is_numeral(f, fc))
+                            coeff *= fc;
+                        else
+                            factors.push_back(f);
+                    }
+                    std::sort(factors.begin(), factors.end(), [](expr *x, expr *y) { return x->get_id() < y->get_id(); });
+                    coeff = (sg * coeff) % p;
+                    if (coeff.is_neg())
+                        coeff += p;
+                    if (!coeff.is_zero())
+                        monomials.push_back({coeff, factors});
+                }
+            }
+        };
+        flatten(a, rational(1));
+        flatten(b, rational(-1));
+        if (overflow || monomials.empty() || monomials.size() > 200)
+            return false;
+        ptr_vector<expr> common = monomials[0].second;
+        for (unsigned i = 1; i < monomials.size() && !common.empty(); ++i) {
+            ptr_vector<expr> const &factors = monomials[i].second;
+            if (factors.empty()) {
+                // A pure-constant monomial shares no factor with anything;
+                // the running intersection collapses to empty, not "stale".
+                common.reset();
+                break;
+            }
+            ptr_vector<expr> remaining = factors, kept;
+            for (expr *f : common) {
+                auto it = std::find(remaining.begin(), remaining.end(), f);
+                if (it != remaining.end()) {
+                    kept.push_back(f);
+                    remaining.erase(it);
+                }
+            }
+            common = kept;
+        }
+        if (common.empty())
+            return false;
+        ++factor_split_candidates;
+        TRACE(ff_root_split_miss,
+              tout << "common factor " << mk_pp(common[0], m) << " in "
+                   << mk_pp(a, m) << " = " << mk_pp(b, m) << "\n";);
+        if (!smt_params_helper(ctx.get_params()).ff_factor_split())
+            return false;
+        // Build factor = product(common) and remainder = sum over monomials
+        // of coeff * product(factors with one copy of each common element
+        // removed).
+        auto build_term = [&](rational const &coeff, ptr_vector<expr> const &factors) -> expr * {
+            expr_ref_vector args(m);
+            if (!coeff.is_one() || factors.empty())
+                args.push_back(ff.mk_numeral(coeff, s));
+            for (expr *f : factors)
+                args.push_back(f);
+            return args.size() == 1 ? args.get(0) : ff.mk_mul(args);
+        };
+        expr_ref factor_expr(build_term(rational(1), common), m);
+        expr_ref_vector remainder_terms(m);
+        // The running intersection in `common` is a genuine sub-multiset of
+        // every monomial's factors by construction; std::find should always
+        // succeed. Guard anyway (bail out rather than erase end()) so a
+        // future change to the intersection logic fails safe in Release
+        // builds, where SASSERT is compiled out.
+        for (auto &[coeff, factors] : monomials) {
+            ptr_vector<expr> residual = factors;
+            for (expr *f : common) {
+                auto it = std::find(residual.begin(), residual.end(), f);
+                if (it == residual.end())
+                    return false;
+                residual.erase(it);
+            }
+            remainder_terms.push_back(build_term(coeff, residual));
+        }
+        expr_ref remainder(m);
+        remainder = remainder_terms.size() == 1 ? remainder_terms.get(0) : ff.mk_add(remainder_terms);
+        expr_ref zero(ff.mk_numeral(rational(0), s), m);
+        branches.push_back(m.mk_eq(factor_expr, zero));
+        branches.push_back(m.mk_eq(remainder, zero));
+        return true;
+    }
+
     bool theory_ff::propagate_roots() {
         if (!smt_params_helper(ctx.get_params()).ff_root_split())
             return false;
@@ -242,12 +395,16 @@ namespace smt {
             }
             else {
                 expr_ref lhs = square_root_term(a), rhs = square_root_term(b);
-                if (!lhs || !rhs || (lhs == a && rhs == b))
-                    continue;
-                // A^2=B^2 iff (A-B)*(A+B)=0, hence A=B or A=-B.
-                branches.push_back(m.mk_eq(lhs, rhs));
-                expr_ref neg(ff.mk_neg(rhs), m);
-                branches.push_back(m.mk_eq(lhs, neg));
+                if (!lhs || !rhs || (lhs == a && rhs == b)) {
+                    if (!factor_split(a, b, branches))
+                        continue;
+                }
+                else {
+                    // A^2=B^2 iff (A-B)*(A+B)=0, hence A=B or A=-B.
+                    branches.push_back(m.mk_eq(lhs, rhs));
+                    expr_ref neg(ff.mk_neg(rhs), m);
+                    branches.push_back(m.mk_eq(lhs, neg));
+                }
             }
             if (branches.empty())
                 continue;
