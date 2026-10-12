@@ -896,7 +896,7 @@ def mk_java(java_src, java_dir, package_name):
         if name == 'Z3_mk_context' or name == 'Z3_mk_context_rc':
             # Z3JavaErrorHandler is defined in NativeStatic.txt which is prepended to Native.cpp
             java_wrapper.write('  if (result != 0)\n')
-            java_wrapper.write('      Z3_set_error_handler(result, Z3JavaErrorHandler); // Defined in NativeStatic.txt\n')
+            java_wrapper.write('      Z3_set_error_handler((Z3_context) result, Z3JavaErrorHandler); // Defined in NativeStatic.txt\n')
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:
