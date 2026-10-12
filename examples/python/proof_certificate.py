@@ -1,10 +1,10 @@
 ############################################
 # Copyright (c) 2026 Microsoft Corporation
 #
-# Export native Boolean and linear real arithmetic refutations for
-# independent proof consumers.
+# Export native Boolean, linear real arithmetic, and uninterpreted-function
+# refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional or QF_LRA SMT-LIB problem."""
+"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem."""
 
 import argparse
 from collections import Counter
@@ -28,8 +28,11 @@ _TOKEN = re.compile(
     re.DOTALL,
 )
 _ASSERTION_COMMANDS = {
-    "set-logic", "set-info", "declare-const", "declare-fun", "define-fun", "assert",
+    "set-logic", "set-info", "declare-sort", "declare-const", "declare-fun", "define-fun", "assert",
 }
+# Certificate sort names with a fixed meaning; an uninterpreted sort keeps its
+# own name, which Z3's parser already keeps distinct from the built-in sorts.
+_RESERVED_SORTS = ("Bool", "Real", "Proof")
 _BOOLEAN_OPERATORS = {
     z3.Z3_OP_TRUE, z3.Z3_OP_FALSE, z3.Z3_OP_NOT, z3.Z3_OP_AND, z3.Z3_OP_OR,
     z3.Z3_OP_IMPLIES, z3.Z3_OP_XOR, z3.Z3_OP_IFF, z3.Z3_OP_EQ,
@@ -114,6 +117,8 @@ def _assertion_commands(source):
             if name == "set-option":
                 if tokens != ["(", "set-option", ":produce-proofs", "true", ")"]:
                     raise ProofExportError("only (set-option :produce-proofs true) is supported")
+            elif name == "declare-sort" and tokens[3:] not in ([")"], ["0", ")"]):
+                raise ProofExportError("only uninterpreted sorts of arity 0 are supported")
             else:
                 commands.append(text)
         else:
@@ -178,9 +183,31 @@ def _require_linear_real(expr):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 
 
+def is_uninterpreted_sort(sort):
+    return sort.kind() == z3.Z3_UNINTERPRETED_SORT
+
+
+def _require_uninterpreted_signature(decl, sort):
+    """Check a function or predicate over the single uninterpreted sort; return that sort."""
+    sorts = [decl.domain(i) for i in range(decl.arity())]
+    if decl.range().kind() != z3.Z3_BOOL_SORT:
+        sorts.append(decl.range())
+    for candidate in sorts:
+        if not is_uninterpreted_sort(candidate):
+            raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
+                candidate, decl.name()))
+        if candidate.name() in _RESERVED_SORTS:
+            raise ProofExportError("unsupported uninterpreted sort name: %s" % candidate.name())
+        if sort is not None and not candidate.eq(sort):
+            raise ProofExportError("only one uninterpreted sort is supported, not %s and %s" % (
+                sort.name(), candidate.name()))
+        sort = candidate
+    return sort
+
+
 def classify_fragment(assertions):
-    """Return "propositional" or "qf_lra", rejecting everything else."""
-    pending, seen, arithmetic = list(assertions), set(), False
+    """Return "propositional", "qf_lra", or "qf_uf", rejecting everything else."""
+    pending, seen, arithmetic, sort = list(assertions), set(), False, None
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
@@ -192,25 +219,35 @@ def classify_fragment(assertions):
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 if decl.arity() != 0:
-                    raise ProofExportError("uninterpreted functions are not supported: %s" % decl.name())
+                    sort = _require_uninterpreted_signature(decl, sort)
             elif decl.kind() in _ARITH_PREDICATES:
                 arithmetic = True
             elif decl.kind() not in _BOOLEAN_OPERATORS:
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
-            if decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and not z3.is_bool(expr.arg(0)):
+            if decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and z3.is_real(expr.arg(0)):
                 arithmetic = True
         elif z3.is_real(expr):
             arithmetic = True
             _require_linear_real(expr)
+        elif is_uninterpreted_sort(expr.sort()):
+            if decl.kind() != z3.Z3_OP_UNINTERPRETED:
+                raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
+            sort = _require_uninterpreted_signature(decl, sort)
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
+    if sort is not None:
+        if arithmetic:
+            raise ProofExportError("mixing uninterpreted sorts with arithmetic is not supported")
+        return "qf_uf"
     return "qf_lra" if arithmetic else "propositional"
 
 
 def _require_propositional(assertions):
-    if classify_fragment(assertions) != "propositional":
-        raise ProofExportError("arithmetic requires the clause-log exporter (fragment qf_lra)")
+    fragment = classify_fragment(assertions)
+    if fragment != "propositional":
+        raise ProofExportError("%s requires the clause-log exporter (fragment %s)" % (
+            "arithmetic" if fragment == "qf_lra" else "uninterpreted functions", fragment))
 
 
 def parse_propositional_assertions(source, context):
@@ -299,6 +336,8 @@ class DagBuilder:
 
     def sort_name(self, sort):
         name = self._SORTS.get(sort.kind())
+        if name is None and is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
+            name = sort.name()  # The certificate keeps the input's own sort name.
         if name is None:
             raise ProofExportError("unsupported native proof sort: %s" % sort)
         return name
@@ -328,7 +367,7 @@ class DagBuilder:
         return index
 
     def expression(self, root):
-        """Add a Bool or Real z3 expression and return its node index."""
+        """Add a Bool, Real, or uninterpreted-sort z3 expression and return its node index."""
         pending = [(root, False)]
         while pending:
             expr, expanded = pending.pop()

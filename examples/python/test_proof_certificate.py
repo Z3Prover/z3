@@ -6,6 +6,7 @@
 from fractions import Fraction
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -414,6 +415,63 @@ _ITE_LOG = """\
 """
 
 
+_UF = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-fun f (U) U)
+(declare-fun g (U U) U)
+(declare-fun p (U) Bool)
+(assert (= a b))
+(assert (or (not (= (f a) (f b))) (p (g a c))))
+(assert (not (p (g b c))))
+(check-sat)
+"""
+# The clause log for _UF: euf hints list jointly contradictory literals and
+# carry (cc ...) congruence claims as Proof-sorted arguments.
+_UF_LOG = """\
+(declare-sort U 0)
+(declare-fun b () U)
+(declare-fun a () U)
+(define-const $7 Bool (= a b))
+(assume $7)
+(declare-fun f (U) U)
+(define-const $9 U (f b))
+(define-const $8 U (f a))
+(define-const $10 Bool (= $8 $9))
+(declare-fun p (U) Bool)
+(declare-fun g (U U) U)
+(declare-fun c () U)
+(define-const $13 U (g a c))
+(define-const $14 Bool (p $13))
+(assume (not $10) $14)
+(define-const $16 U (g b c))
+(define-const $17 Bool (p $16))
+(assume (not $17))
+(declare-fun euf (Bool Bool Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $19 Bool (= $9 $8))
+(define-const $20 Proof (cc $19))
+(define-const $11 Bool (not $10))
+(define-const $21 Proof (euf $11 $7 $20))
+(infer (not $7) $10 $21)
+(declare-fun rup () Proof)
+(infer $10 rup)
+(declare-fun euf (Bool Bool Bool Proof Proof) Proof)
+(define-const $25 Bool (= $14 $17))
+(define-const $26 Proof (cc $25))
+(define-const $23 Bool (= $16 $13))
+(define-const $24 Proof (cc $23))
+(define-const $18 Bool (not $17))
+(define-const $27 Proof (euf $14 $7 $18 $24 $26))
+(infer (not $7) $17 (not $14) $27)
+(infer (not $14) rup)
+(infer rup)
+"""
+
+
 def _z3_available():
     try:
         return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
@@ -450,9 +508,34 @@ class TestFragmentClassification(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.classify(source)
 
+    def test_uninterpreted_function_inputs_are_classified(self):
+        self.assertEqual(self.classify(_UF), "qf_uf")
+        # (declare-sort U) without an arity, chained equality, and distinct over the sort.
+        chained = ("(declare-sort U)(declare-fun b (U U) U)(declare-fun c () U)(declare-fun d () U)"
+                   "(declare-fun e () U)(assert (= e d (b e c)))(assert (distinct e (b d c)))")
+        self.assertEqual(self.classify(chained), "qf_uf")
+        # A declared sort that no assertion uses does not change the fragment.
+        self.assertEqual(self.classify("(declare-sort U 0)(declare-const p Bool)(assert p)"), "propositional")
+        declarations = "(declare-sort U 0)(declare-sort V 0)(declare-fun a () U)(declare-fun v () V)"
+        for source, message in [
+            (declarations + "(assert (and (= a a) (= v v)))", "only one uninterpreted sort"),
+            (declarations + "(declare-fun h (U) V)(assert (= (h a) v))", "only one uninterpreted sort"),
+            (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
+            (declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))", "functions over Bool"),
+            (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
+            (declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))", "functions over Real"),
+            (declarations + "(declare-const p Bool)(assert (= (ite p a a) a))", "operator over an uninterpreted sort"),
+            ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
+        ]:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.classify(source)
+
     def test_legacy_exporter_still_rejects_arithmetic(self):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log"):
             proof_certificate.export_certificate(_LRA)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log.*qf_uf"):
+            proof_certificate.export_certificate(_UF)
 
 
 class TestLinearCombination(unittest.TestCase):
@@ -672,6 +755,39 @@ class TestClauseLogReplay(unittest.TestCase):
         # Only euf hints carry claims; in any other literal hint they are not literals either.
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "undeclared or fresh symbol"):
             self.replay(_ITE, log.replace("(tseitin $24 $25)", "(tseitin $24 $25 $41)"))
+
+    def test_uninterpreted_functions_in_the_clause_log(self):
+        certificate = self.replay(_UF, _UF_LOG)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["th-lemma"], 2)  # the two euf hints, their cc claims dropped
+        self.assertEqual(counts["asserted"], 3)
+        self.assertNotIn("def-axiom", counts)
+        signatures = {(d["name"], tuple(d["domain"]), d["range"]) for d in certificate["declarations"]
+                      if d["kind"] == z3.Z3_OP_UNINTERPRETED}
+        self.assertEqual(signatures, {("a", (), "U"), ("b", (), "U"), ("c", (), "U"), ("f", ("U",), "U"),
+                                      ("g", ("U", "U"), "U"), ("p", ("U",), "Bool")})
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "U", "Proof"})
+        equality = [d for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_EQ]
+        self.assertEqual([tuple(d["domain"]) for d in equality], [("U", "U")])
+        for log, message in [
+            (_UF_LOG.replace("(declare-fun f (U) U)", "(declare-fun h (U) U)"), "absent from the input"),
+            (_UF_LOG.replace("(declare-fun f (U) U)", "(declare-fun f (U U) U)"), "absent from the input"),
+            (_UF_LOG.replace("(declare-fun f (U) U)", "(declare-fun f U U)"), "malformed declaration"),
+            (_UF_LOG.replace("(declare-sort U 0)", "(declare-sort V 0)"), "sort absent from the input"),
+            (_UF_LOG.replace("(declare-sort U 0)", "(declare-sort U 1)"), "malformed sort declaration"),
+            (_UF_LOG.replace("(f b)", "(f b a)"), "wrong number of arguments"),
+            (_UF_LOG.replace("(g b c)", "(g b $7)"), "ill-sorted application"),
+            (_UF_LOG.replace("(g b c)", "(h b c)"), "unsupported operator in the clause log"),
+            (_UF_LOG.replace("(define-const $9 U (f b))", "(define-const $9 Bool (f b))"), "has sort U, declared Bool"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_UF, log)
+        # The log quotes a sort name the way it quotes symbols; the certificate keeps the bare name.
+        quoted = self.replay(re.sub(r"\bU\b", "|my sort|", _UF), re.sub(r"\bU\b", "|my sort|", _UF_LOG))
+        self.assertEqual({d["range"] for d in quoted["declarations"]}, {"Bool", "my sort", "Proof"})
+        self.assertEqual(quoted["rule_counts"], certificate["rule_counts"])
 
     def test_deleted_and_repeated_empty_clauses_are_handled(self):
         log = _LRA_LOG.replace("(infer rup)\n", "(del (not $11) (not $17) (not $21))\n(infer rup)\n(infer rup)\n")
