@@ -30,7 +30,7 @@ let fd_2 : func_decl = { decl_name = "i"; domain = []; range = srt_1; interp = N
 let fd_3 : func_decl = { decl_name = "v"; domain = []; range = srt_1; interp = None; int_params = [] }
 let fd_4 : func_decl = { decl_name = "store"; domain = [srt_2; srt_1; srt_1]; range = srt_2; interp = Some op_store; int_params = [] }
 let fd_5 : func_decl = { decl_name = "select"; domain = [srt_2; srt_1]; range = srt_1; interp = Some op_select; int_params = [] }
-let fd_6 : func_decl = { decl_name = "="; domain = [srt_1; srt_1]; range = srt_0; interp = None; int_params = [] }
+let fd_6 : func_decl = { decl_name = "="; domain = [srt_1; srt_1]; range = srt_0; interp = Some op_eq; int_params = [] }
 let fd_7 : func_decl = { decl_name = "true"; domain = []; range = srt_0; interp = None; int_params = [] }
 let fd_8 : func_decl = { decl_name = "false"; domain = []; range = srt_0; interp = None; int_params = [] }
 

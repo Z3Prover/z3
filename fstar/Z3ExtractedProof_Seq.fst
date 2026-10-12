@@ -28,7 +28,7 @@ let fd_1 : func_decl = { decl_name = "a"; domain = []; range = srt_1; interp = N
 let fd_2 : func_decl = { decl_name = "b"; domain = []; range = srt_1; interp = None; int_params = [] }
 let fd_3 : func_decl = { decl_name = "seq.++"; domain = [srt_1; srt_1]; range = srt_1; interp = Some op_concat; int_params = [] }
 let fd_4 : func_decl = { decl_name = "c"; domain = []; range = srt_1; interp = None; int_params = [] }
-let fd_5 : func_decl = { decl_name = "="; domain = [srt_1; srt_1]; range = srt_0; interp = None; int_params = [] }
+let fd_5 : func_decl = { decl_name = "="; domain = [srt_1; srt_1]; range = srt_0; interp = Some op_eq; int_params = [] }
 let fd_6 : func_decl = { decl_name = "true"; domain = []; range = srt_0; interp = None; int_params = [] }
 let fd_7 : func_decl = { decl_name = "false"; domain = []; range = srt_0; interp = None; int_params = [] }
 

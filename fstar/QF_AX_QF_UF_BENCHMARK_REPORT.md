@@ -193,7 +193,60 @@ Two takeaways:
    (`--z3rlimit 60 --fuel 4 --ifuel 4`) exhaustion of the cross-check
    assertion, not a problem with `check_proof`/`checker_accepts` itself.
 
-## QF_UF results (4361 unsat benchmarks)
+### Update 2: a tenth matcher (`store_commute`) and a re-run
+
+The matcher library was extended once more, from nine to **ten**, adding
+`store_commute`: `store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for
+`i <> j` (`Z3ArrayTheory.lemma_store_commute`) — the index-swap twin of
+`select_store_diff`, using the same injective-naming side-condition
+discharge. It typechecks cleanly, fires on a hand-built single-level
+example (`tools/test_store_commute.smt2`'s extracted proof, checked
+in-source as `sc_leaf` in `Z3PatternMatchedProofChecker.fst` section 11),
+and all 9 pre-existing `Z3ExtractedProof*.fst` snapshots still verify with
+no regressions.
+
+Re-running the full QF_AX corpus (same 279 files, 30s timeout) with the
+ten-matcher library:
+
+| metric | 9 matchers (previous) | 10 matchers (this run) |
+|---|---|---|
+| rewrite leaves matched | 68 / 486 (14.0%) | **68 / 486 (14.0%, unchanged)** |
+| matcher breakdown | 64 `eq_symm`, 1 `select_store_diff`, 2 `store_redundant`, 1 `reflexivity` | same, **0 `store_commute`** |
+| F* check @ 30s timeout | 204 pass / 20 timeout / 55 fail | 207 pass / 16 timeout / 56 fail |
+
+**`store_commute` adds zero matches on this corpus** — a negative result,
+worth stating plainly rather than glossing over. Inspecting an actual
+unmatched leaf from the `storecomm_*` family explains why:
+
+```
+s = i10
+t = (let ((a!1 (store (store (store (store a1 i1 e1) i2 e2) i3 e3) i4 e4))
+          (a!3 (store (store (store (store a1 i10 e10) i5 e5) i3 e3) i8 e8)))
+     (let ((a!2 (store (store (store (store a!1 i5 e5) i6 e6) i7 e7) i8 e8))
+           (a!4 (store (store (store (store a!3 i9 e9) i4 e4) i2 e2) i7 e7)))
+       ((_ array-ext 0)
+         (store (store a!2 i9 e9) i10 e10)
+         (store (store a!4 i6 e6) i1 e1))))
+```
+
+Z3's `storecomm_*` proofs resolve an entire multi-level (4+ nested
+`store`s) index permutation in one leap, from a bare atom (`i10`, an
+`array-ext` skolem witness index) directly to a giant `(_ array-ext 0)`
+witness term — a single theory-lemma-level step, not a chain of adjacent
+one-step swaps. No literal `Rewrite` leaf in these proofs has the flat
+`store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` two-level shape any
+*single-step* matcher (this one included) can recognize; the
+commutativity reasoning here happens entirely inside Z3's array theory
+solver, not in the externally-visible rewrite-proof term. Confirming
+`store_commute` is sound and *does* fire on genuinely shaped input
+(§ demonstration above) was still worthwhile — it closes the gap for any
+proof that *does* emit the one-step shape literally (e.g. from a
+different array-theory configuration or solver) — but it does not, by
+itself, explain the dominant `storecomm_*` family's unmatched leaves in
+this particular corpus. The honest remaining gap there is multi-level
+array-permutation congruence, which would need a genuinely different kind
+of matcher (one that recurses into the `array-ext` witness structure
+itself) rather than another single-equation lemma.
 
 | Z3 phase | result |
 |---|---|
@@ -316,4 +369,10 @@ python fstar\tools\analyze_benchmarks.py qf_uf_results.jsonl QF_UF
 # timeout the extra per-leaf reasoning now needs (see "Update" above):
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v2_t30.jsonl --timeout 30 --workers 24
 python fstar\tools\analyze_benchmarks.py qf_ax_results_v2_t30.jsonl QF_AX_v2
+
+# re-run again against the ten-matcher library (adds store_commute; see
+# "Update 2" above -- 0 additional matches on this corpus, root cause
+# documented there):
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v3_t30.jsonl --timeout 30 --workers 24
+python fstar\tools\analyze_benchmarks.py qf_ax_results_v3_t30.jsonl QF_AX_v3
 ```

@@ -717,6 +717,34 @@ Two more matchers were added afterwards, bringing the library to nine:
   nine-matcher reasoning needs roughly 3x the per-file F* budget the
   baseline experiment used before most files reliably `pass`).
 
+## A tenth matcher: `store_commute`, and a negative result
+
+A tenth matcher, `store_commute`, was added afterwards:
+`store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for `i <> j`
+(`Z3ArrayTheory.lemma_store_commute`) -- the index-swap twin of
+`select_store_diff`, discharging the same `i <> j` side condition the
+same way (`i`/`j` must be two distinctly-named 0-ary uninterpreted Int
+constants). It typechecks cleanly, fires on a hand-built,
+single-level in-source demonstration (`sc_leaf`,
+`Z3PatternMatchedProofChecker.fst` section 11, built from
+`tools/test_store_commute.smt2`), and all 9 pre-existing
+`Z3ExtractedProof*.fst` snapshots still verify with no regressions.
+
+Re-running the full QF_AX corpus, however, is a **negative result**:
+`store_commute` matches **zero** additional leaves. The corpus's
+dominant unmatched family, `storecomm_*`, proves an entire
+multi-level (4+ nested `store`s) index permutation in a single leap --
+from a bare atom straight to a giant `(_ array-ext 0)` witness term --
+inside Z3's array theory solver itself, not as a chain of adjacent
+one-step swaps. No literal `Rewrite` leaf in those proofs has the flat
+two-level shape any single-equation matcher (this one included) can
+recognize. This is reported plainly rather than glossed over: see
+`QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "Update 2" section for the
+concrete unmatched leaf that demonstrates it, and for why closing this
+gap would need a structurally different kind of matcher (one that
+recurses into the `array-ext` witness itself), not another one-step
+lemma.
+
 ## Scope and limitations
 
 * **Not covered by a Pulse checker**: the rule families in

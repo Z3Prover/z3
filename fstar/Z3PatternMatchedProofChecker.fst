@@ -16,7 +16,7 @@
    *arbitrary* sub-expressions (not just literal named constants),
    automatically proving `all_leaves_sound` for that leaf by invoking
    the matching theory lemma on whatever values those sub-expressions
-   denote. Nine patterns are covered this way (§4):
+   denote. Ten patterns are covered this way (§4):
    `s = s` for any syntactically-identical `expr` `s` (reflexivity --
    needs no theory lemma, no sort side condition, and holds for any
    interpretation/theory whatsoever), `select(store(a,i,x),i) = x`,
@@ -28,20 +28,24 @@
    (`Z3BvRewriter.lemma_bvand_self`), `(= a b) = (= b a)` (`eq_symm`,
    symmetry of the new `op_eq` interpreted operator -- needs no theory
    lemma, just `Z3InterpretedProofChecker.lemma_value_eq_sym_symmetric`),
-   and `select(store(a,i,x),j) = select(a,j)` for `i <> j`
+   `select(store(a,i,x),j) = select(a,j)` for `i <> j`
    (`Z3ArrayTheory.lemma_select_store_diff`, whenever `i`/`j` are
    themselves distinctly-named 0-ary uninterpreted Int constants --
    see §4i below for how the previously-unsatisfiable `i <> j` side
-   condition is now discharged).
+   condition is now discharged), and `store(store(a,i,x),j,y) =
+   store(store(a,j,y),i,x)` for `i <> j` (`store_commute`, §4j,
+   `Z3ArrayTheory.lemma_store_commute` -- the index-swap twin of
+   `select_store_diff`, discharged the same way, and the dominant
+   previously-unmatched shape in the QF_AX benchmark corpus).
 
-   Not every `Rewrite` leaf fits one of these nine schemas -- Z3's
+   Not every `Rewrite` leaf fits one of these ten schemas -- Z3's
    rewriters encode many more rewrite rules than this (or any single
    bounded) pattern library can realistically enumerate. Rather than
    either trusting the whole proof tree unconditionally
    (`all_leaves_sound`, the pre-existing baseline) or rejecting
    anything not recognized (`all_matched`, all-or-nothing, §6), §7
    adds a *partial* mode: `collect_unmatched` walks a proof tree and
-   returns the exact list of `Rewrite` leaves none of the nine matchers
+   returns the exact list of `Rewrite` leaves none of the ten matchers
    recognize, and `lemma_partial_proof_true` proves the whole
    derivation's conclusion true *given only* that the collected
    leftover leaves are semantically sound -- i.e. every already-matched
@@ -66,20 +70,22 @@
    induction -- and the whole matcher -- is plain, decidable F*
    structural recursion; no tactics are required.
 
-   Known limitation (documented, and now *partially* addressed by
-   §4i): the companion pattern `select(store(a,i,x),j) = select(a,j)`
-   for `i <> j` (`Z3ArrayTheory.lemma_select_store_diff`) requires a
-   genuine semantic disequality `i <> j`, not just a shape fact. Under
-   the old `uninterp_app` (every 0-ary constant of a sort denoted the
-   *same* fixed value), this was unsatisfiable for *any* two named
-   constants. `uninterp_app` now injects distinct `decl_name`s to
-   distinct `VInt`s (`string_key`/`lemma_string_key_distinct`), so
-   `select_store_diff` (§4i) can discharge `i <> j` whenever `i`/`j`
-   are themselves distinctly-named 0-ary uninterpreted Int constants.
-   Compound index expressions (e.g. `i+1` vs `j`) are still out of
-   reach -- a semantic disequality for those cannot be derived from
-   syntax alone under this model -- and remain an unmatched, collected
-   leaf.
+   Known limitation (documented, and now *fully* addressed by §4i/
+   §4j for named constants): the companion patterns
+   `select(store(a,i,x),j) = select(a,j)` and
+   `store(store(a,i,x),j,y) = store(store(a,j,y),i,x)`, both for `i <>
+   j` (`Z3ArrayTheory.lemma_select_store_diff`/`lemma_store_commute`),
+   require a genuine semantic disequality `i <> j`, not just a shape
+   fact. Under the old `uninterp_app` (every 0-ary constant of a sort
+   denoted the *same* fixed value), this was unsatisfiable for *any*
+   two named constants. `uninterp_app` now injects distinct
+   `decl_name`s to distinct `VInt`s (`string_key`/
+   `lemma_string_key_distinct`), so both matchers can discharge `i <>
+   j` whenever `i`/`j` are themselves distinctly-named 0-ary
+   uninterpreted Int constants. Compound index expressions (e.g.
+   `i+1` vs `j`) are still out of reach -- a semantic disequality for
+   those cannot be derived from syntax alone under this model -- and
+   remain an unmatched, collected leaf.
 *)
 module Z3PatternMatchedProofChecker
 
@@ -260,30 +266,29 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
       lemma_eval_shape_args args' rho
 
 (* ----------------------------------------------------------------- *)
-(* 4. The matcher *library*: nine structural recognizers. Six are one   *)
-(*    per already-proven rewrite-rule lemma that (a) needs no semantic  *)
-(*    side condition beyond shapes (contrast `lemma_store_commute`,     *)
-(*    which also requires `i <> j`, still unmatched here), and (b) is   *)
-(*    expressible purely with the six interpreted ops                   *)
-(*    `Z3InterpretedProofChecker.fst` already gives real semantics to   *)
-(*    (`select`/`store`/`not`/`plus`/`bvand`/`concat`, i.e. no new       *)
-(*    `const`/`ite`/`map` operator semantics is added here). The         *)
-(*    seventh, reflexivity (`s = s`), needs no theory lemma or           *)
-(*    interpreted op at all -- it is sound for *any* `expr`, under       *)
-(*    *any* interpretation, by construction (see §4g below for the      *)
-(*    justification). The eighth, `eq_symm` (§4h), needs only the new    *)
-(*    `op_eq` operator's symmetry, no theory lemma. The ninth,           *)
-(*    `select_store_diff` (§4i), *does* need a genuine semantic side     *)
-(*    condition (`i <> j`), discharged via the injective-naming model   *)
-(*    fix described in the module docstring. Every leftover array/seq/  *)
-(*    bool/bv lemma this file does *not* match (`lemma_select_const`,   *)
+(* 4. The matcher *library*: ten structural recognizers. Six are one    *)
+(*    per already-proven rewrite-rule lemma that needs no semantic      *)
+(*    side condition beyond shapes, and is expressible purely with the  *)
+(*    six interpreted ops `Z3InterpretedProofChecker.fst` already gives *)
+(*    real semantics to (`select`/`store`/`not`/`plus`/`bvand`/         *)
+(*    `concat`, i.e. no new `const`/`ite`/`map` operator semantics is    *)
+(*    added here). The seventh, reflexivity (`s = s`), needs no theory  *)
+(*    lemma or interpreted op at all -- it is sound for *any* `expr`,    *)
+(*    under *any* interpretation, by construction (see §4g below for    *)
+(*    the justification). The eighth, `eq_symm` (§4h), needs only the   *)
+(*    new `op_eq` operator's symmetry, no theory lemma. The ninth and    *)
+(*    tenth, `select_store_diff` (§4i) and `store_commute` (§4j), *do*   *)
+(*    need a genuine semantic side condition (`i <> j`), both           *)
+(*    discharged via the same injective-naming model fix described in   *)
+(*    the module docstring. Every leftover array/seq/bool/bv lemma      *)
+(*    this file does *not* match (`lemma_select_const`,                 *)
 (*    `lemma_select_ite`, `lemma_select_lambda`, `lemma_lambda_eta`,     *)
 (*    `lemma_select_map1/2`, `lemma_map2_store/const/lambda`,           *)
 (*    `lemma_array_extensionality`, the `set_*` lemmas,                  *)
-(*    `lemma_eq_const_*`, `lemma_store_commute`, and anything from       *)
+(*    `lemma_eq_const_*`, and anything from                              *)
 (*    `Z3SeqAxioms`/`Z3SeqDerive`/`Z3ArithRewriter`/etc. not already     *)
 (*    wired into `the_interpretation`) is not silently ignored: §5-6    *)
-(*    below turn every `Rewrite` leaf that fails all nine matchers      *)
+(*    below turn every `Rewrite` leaf that fails all ten matchers       *)
 (*    into an explicit, collected *leftover proof obligation* instead.  *)
 (* ----------------------------------------------------------------- *)
 
@@ -645,10 +650,70 @@ let lemma_select_store_diff_leaf_sound (s t:expr)
     | _, _ -> ()
 #pop-options
 
+(* 4j. `store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for
+       `i <> j` -- `Z3ArrayTheory.lemma_store_commute`, the index-swap
+       twin of `select_store_diff` (§4i): same genuine semantic side
+       condition `i <> j`, discharged the same way (`i`/`j` must be
+       two distinctly-named 0-ary uninterpreted Int constants, via
+       the injective-naming `uninterp_app`/`string_key` model fix).
+       This was the dominant unmatched shape in the QF_AX benchmark
+       corpus (`storecomm_*`, multi-level store-commutativity chains
+       collapse to repeated one-step applications of this rule). *)
+
+let match_store_commute (s t:expr) : option (expr & expr & expr & expr & expr) =
+  match s, t with
+  | App f_sto1 [App f_sto2 [a; i; x]; j; y], App f_sto3 [App f_sto4 [a'; j'; y']; i'; x'] ->
+    if Some? f_sto1.interp && Some?.v f_sto1.interp = op_store &&
+       Some? f_sto2.interp && Some?.v f_sto2.interp = op_store &&
+       Some? f_sto3.interp && Some?.v f_sto3.interp = op_store &&
+       Some? f_sto4.interp && Some?.v f_sto4.interp = op_store &&
+       a = a' && i = i' && j = j' && x = x' && y = y'
+    then Some (a, i, x, j, y)
+    else None
+  | _, _ -> None
+
+let store_commute_leaf_ok (s t:expr) : bool =
+  match match_store_commute s t with
+  | None -> false
+  | Some (a, i, x, j, y) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort a) arr_s && sort_eq (get_sort i) int_s &&
+    sort_eq (get_sort x) int_s && sort_eq (get_sort j) int_s && sort_eq (get_sort y) int_s &&
+    is_uninterp_const i && is_uninterp_const j && const_name i <> const_name j
+
+#push-options "--z3rlimit 100"
+let lemma_store_commute_leaf_sound (s t:expr)
+  : Lemma (requires store_commute_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App f_sto1 [App f_sto2 [a; i; x]; j; y], App f_sto3 [App f_sto4 [a'; j'; y']; i'; x'] ->
+      assert (a = a' && i = i' && j = j' && x = x' && y = y');
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape a rho;
+          lemma_eval_shape i rho;
+          lemma_eval_shape x rho;
+          lemma_eval_shape j rho;
+          lemma_eval_shape y rho;
+          (match i, j with
+           | App fi [], App fj [] ->
+             lemma_string_key_distinct fi.decl_name fj.decl_name;
+             (match eval the_interpretation a rho, eval the_interpretation i rho,
+                    eval the_interpretation x rho, eval the_interpretation j rho,
+                    eval the_interpretation y rho with
+              | VArr av, VInt iv, VInt xv, VInt jv, VInt yv ->
+                Z3ArrayTheory.lemma_store_commute av iv jv xv yv
+              | _, _, _, _, _ -> ())
+           | _, _ -> ())
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
 (* ----------------------------------------------------------------- *)
 (* 5. The combinator: try every matcher above in turn, and the          *)
 (*    corresponding "matched implies sound" lemma (a case split over    *)
-(*    the nine, invoking whichever matcher actually fired).             *)
+(*    the ten, invoking whichever matcher actually fired).              *)
 (* ----------------------------------------------------------------- *)
 
 let try_match_leaf (s t:expr) : bool =
@@ -660,7 +725,8 @@ let try_match_leaf (s t:expr) : bool =
   not_not_leaf_ok s t ||
   bvand_self_leaf_ok s t ||
   eq_symm_leaf_ok s t ||
-  select_store_diff_leaf_ok s t
+  select_store_diff_leaf_ok s t ||
+  store_commute_leaf_ok s t
 
 let lemma_try_match_leaf_sound (s t:expr)
   : Lemma (requires try_match_leaf s t)
@@ -673,12 +739,13 @@ let lemma_try_match_leaf_sound (s t:expr)
     else if not_not_leaf_ok s t then lemma_not_not_leaf_sound s t
     else if bvand_self_leaf_ok s t then lemma_bvand_self_leaf_sound s t
     else if eq_symm_leaf_ok s t then lemma_eq_symm_leaf_sound s t
-    else lemma_select_store_diff_leaf_sound s t
+    else if select_store_diff_leaf_ok s t then lemma_select_store_diff_leaf_sound s t
+    else lemma_store_commute_leaf_sound s t
 
 (* ----------------------------------------------------------------- *)
 (* 6. "Fully matched" mode: a decidable whole-proof-tree checker         *)
 (*    mirroring `all_leaves_sound`'s own recursion, requiring *every*    *)
-(*    `Rewrite` leaf to fit one of the nine schemas above.               *)
+(*    `Rewrite` leaf to fit one of the ten schemas above.                *)
 (* ----------------------------------------------------------------- *)
 
 let rec all_matched (p:proof) : Tot bool (decreases p) =
@@ -952,5 +1019,28 @@ let lemma_eqsym_leaf_true (rho:env value)
   : Lemma (eval the_interpretation eqsym_s rho == eval the_interpretation eqsym_t rho)
   = lemma_eqsym_leaf_matched ();
     lemma_matched_proof_true eqsym_leaf rho
+
+(* ----------------------------------------------------------------- *)
+(* 11. Demonstration 4: `store_commute`, the index-swap twin of          *)
+(*     `select_store_diff` added afterwards. `i_c`/`j_c` are the same    *)
+(*     two distinctly-named 0-ary Int constants, so                      *)
+(*     `store(store(a_c2,i_c,x_c),j_c,y_c) =                             *)
+(*     store(store(a_c2,j_c,y_c),i_c,x_c)` is matched -- the dominant     *)
+(*     previously-unmatched shape in the QF_AX benchmark corpus          *)
+(*     (`storecomm_*`).                                                  *)
+(* ----------------------------------------------------------------- *)
+
+let sc_s : expr = c3 store_d (c3 store_d a_c2 i_c x_c) j_c y_c
+let sc_t : expr = c3 store_d (c3 store_d a_c2 j_c y_c) i_c x_c
+let sc_leaf : proof = mk_rewrite_leaf sc_s sc_t
+
+let lemma_sc_leaf_matched ()
+  : Lemma (all_matched sc_leaf)
+  = ()
+
+let lemma_sc_leaf_true (rho:env value)
+  : Lemma (eval the_interpretation sc_s rho == eval the_interpretation sc_t rho)
+  = lemma_sc_leaf_matched ();
+    lemma_matched_proof_true sc_leaf rho
 
 

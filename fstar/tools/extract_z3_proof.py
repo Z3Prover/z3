@@ -113,8 +113,8 @@ def _is_app_of(e, kind):
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
-    """Returns the matched pattern's name (one of the nine below) if
-       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s nine
+    """Returns the matched pattern's name (one of the ten below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s ten
        schemas for *arbitrary* sub-expressions, else `None`."""
     # s = s (reflexivity): sound for any theory/sort, no theory lemma
     # needed -- see Z3PatternMatchedProofChecker.fst section 4g.
@@ -174,6 +174,21 @@ def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
             z3.is_const(s.arg(1)) and s.arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
             s.arg(0).arg(1).decl().name() != s.arg(1).decl().name()):
         return "select_store_diff"
+    # store(store(a,i,x),j,y) = store(store(a,j,y),i,x), i <> j -- the
+    # index-swap twin of select_store_diff, same side condition and same
+    # syntactic-distinctness restriction (mirrors
+    # Z3PatternMatchedProofChecker.fst's `store_commute_leaf_ok`).
+    if (_is_app_of(s, z3.Z3_OP_STORE) and s.num_args() == 3 and
+            _is_app_of(s.arg(0), z3.Z3_OP_STORE) and s.arg(0).num_args() == 3 and
+            _is_app_of(t, z3.Z3_OP_STORE) and t.num_args() == 3 and
+            _is_app_of(t.arg(0), z3.Z3_OP_STORE) and t.arg(0).num_args() == 3 and
+            s.arg(0).arg(0).eq(t.arg(0).arg(0)) and
+            s.arg(0).arg(1).eq(t.arg(1)) and s.arg(1).eq(t.arg(0).arg(1)) and
+            s.arg(0).arg(2).eq(t.arg(2)) and s.arg(2).eq(t.arg(0).arg(2)) and
+            z3.is_const(s.arg(0).arg(1)) and s.arg(0).arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
+            z3.is_const(s.arg(1)) and s.arg(1).decl().kind() == z3.Z3_OP_UNINTERPRETED and
+            s.arg(0).arg(1).decl().name() != s.arg(1).decl().name()):
+        return "store_commute"
     return None
 
 

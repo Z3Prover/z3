@@ -1,13 +1,19 @@
-; select_store_diff -- the array rewrite that `select(store(a,i,x),j) =
-; select(a,j)` requires `i <> j`, and is documented (but deliberately
-; NOT implemented) in Z3PatternMatchedProofChecker.fst section 4a as a
-; known limitation: `the_interpretation` maps all same-sort named
-; constants to the same semantic value, so a generic "i <> j" side
-; condition can't be discharged by the model this checker uses. There
-; is no `match_select_store_diff`/`select_store_diff_leaf_ok` in
-; Z3PatternMatchedProofChecker.fst, so any `Rewrite` leaf shaped like
-; this will always be logged as unmatched, regardless of what Z3
-; actually proves it with.
+; select_store_diff -- the array rewrite `select(store(a,i,x),j) =
+; select(a,j)` for `i <> j`. This pattern *is* now a verified matcher
+; (Z3PatternMatchedProofChecker.fst section 4i,
+; `match_select_store_diff`/`select_store_diff_leaf_ok`), added after an
+; `uninterp_app` model fix (distinctly-named 0-ary constants now denote
+; distinct values, via an injective string encoding). This *specific*
+; example, however, still logs its single Rewrite leaf as matched by
+; `reflexivity`, not `select_store_diff`: Z3's own proof search discharges
+; the array fact here via `PR_TH_LEMMA` (a theory-lemma proof step this
+; checker trusts unconditionally -- it is outside the `Rewrite`-leaf
+; matcher's scope entirely), and the only literal `Rewrite` leaf left over
+; is Z3's self-rewrite of the asserted `(not (= i j))` hypothesis. See
+; `Z3ExtractedProof_SelectStoreDiff.fst.unmatched.log` for the generated
+; proof's actual leaf. `select_store_diff` *does* fire for real on other
+; proofs, confirmed on the QF_AX SMT-LIB benchmark corpus (see
+; QF_AX_QF_UF_BENCHMARK_REPORT.md).
 (declare-const a (Array Int Int))
 (declare-const i Int)
 (declare-const j Int)
