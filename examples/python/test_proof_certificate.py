@@ -471,6 +471,76 @@ _UF_LOG = """\
 (infer rup)
 """
 
+_UF_TWO_SORTS = """\
+(set-logic QF_UF)
+(declare-sort A 0)
+(declare-sort B 0)
+(declare-fun a1 () A)
+(declare-fun a2 () A)
+(declare-fun b () B)
+(declare-fun f (A) B)
+(declare-fun g (B A) A)
+(declare-fun p (B) Bool)
+(declare-const q Bool)
+(assert (= (f a1) b))
+(assert (or q (= (f a2) b)))
+(assert (not q))
+(assert (or (not (= (f a1) (f a2))) (p (f (g b a1)))))
+(assert (not (p (f (g (f a1) a1)))))
+(check-sat)
+"""
+# The clause log for _UF_TWO_SORTS: every sort is declared, and the functions
+# between sorts are declared and applied exactly as functions over one sort.
+_UF_TWO_SORTS_LOG = """\
+(declare-sort B 0)
+(declare-sort A 0)
+(declare-fun b () B)
+(declare-fun f (A) B)
+(declare-fun a1 () A)
+(define-const $6 B (f a1))
+(define-const $8 Bool (= $6 b))
+(assume $8)
+(declare-fun a2 () A)
+(define-const $11 B (f a2))
+(define-const $12 Bool (= $11 b))
+(assume $12)
+(declare-fun q () Bool)
+(assume (not q))
+(define-const $15 Bool (= $6 $11))
+(declare-fun p (B) Bool)
+(declare-fun g (B A) A)
+(define-const $17 A (g b a1))
+(define-const $18 B (f $17))
+(define-const $19 Bool (p $18))
+(assume (not $15) $19)
+(define-const $21 A (g $6 a1))
+(define-const $22 B (f $21))
+(define-const $23 Bool (p $22))
+(assume (not $23))
+(declare-fun euf (Bool Bool Bool Proof) Proof)
+(declare-fun comm (Bool) Proof)
+(define-const $27 Bool (= $15 $12))
+(define-const $25 Proof (comm $27))
+(define-const $16 Bool (not $15))
+(define-const $28 Proof (euf $16 $8 $12 $25))
+(infer (not $8) (not $12) $15 $28)
+(declare-fun rup () Proof)
+(infer $15 rup)
+(declare-fun euf (Bool Bool Bool Proof Proof Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $34 Bool (= $19 $23))
+(define-const $35 Proof (cc $34))
+(define-const $32 Bool (= $22 $18))
+(define-const $33 Proof (cc $32))
+(define-const $30 Bool (= $17 $21))
+(define-const $31 Proof (cc $30))
+(define-const $24 Bool (not $23))
+(define-const $36 Proof (euf $19 $8 $24 $31 $33 $35))
+(infer (not $8) $23 (not $19) $36)
+(infer (not $19) rup)
+(infer rup)
+"""
+
 _UF_ITE = """\
 (set-logic QF_UF)
 (declare-sort U 0)
@@ -624,17 +694,35 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(self.classify(ite), "qf_uf")
         self.assertEqual(self.classify("(declare-sort U 0)(declare-fun a () U)(declare-const q Bool)"
                                        "(assert (not (= (ite q a a) a)))"), "qf_uf")
+        # Several uninterpreted sorts, with functions between them, predicates
+        # over several of them, and ite over each, are one fragment.
         declarations = "(declare-sort U 0)(declare-sort V 0)(declare-fun a () U)(declare-fun v () V)"
+        for source in [
+            declarations + "(assert (and (= a a) (= v v)))",
+            declarations + "(declare-fun h (U) V)(assert (= (h a) v))",
+            declarations + "(declare-fun h (V U) U)(declare-fun r (U V) Bool)(assert (and (= (h v a) a) (r a v)))",
+            declarations + "(declare-const p Bool)(assert (and (= a a) (= (ite p v v) v)))",
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), "qf_uf")
         for source, message in [
-            (declarations + "(assert (and (= a a) (= v v)))", "only one uninterpreted sort"),
-            (declarations + "(declare-fun h (U) V)(assert (= (h a) v))", "only one uninterpreted sort"),
-            (declarations + "(declare-const p Bool)(assert (and (= a a) (= (ite p v v) v)))",
-             "only one uninterpreted sort"),
             (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
+            (declarations + "(declare-fun h (U) V)(declare-const x Real)(assert (and (= (h a) v) (> x 1.0)))",
+             "mixing uninterpreted sorts"),
             (declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))", "functions over Bool"),
             (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
             (declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))", "functions over Real"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
+            # Z3 accepts one name declared with several signatures and tells the
+            # declarations apart by sort; the certificate binds symbols by name.
+            (declarations + "(declare-fun a () V)(declare-fun h (U) V)(assert (= (h (as a U)) (as a V)))",
+             "several signatures: a"),
+            (declarations + "(declare-fun r (U) Bool)(declare-fun r (V) Bool)(assert (and (r a) (r v)))",
+             "several signatures: r"),
+            ("(declare-sort U 0)(declare-fun a () U)(declare-fun f (U) U)(declare-fun f (U U) U)"
+             "(assert (= (f a) (f a a)))", "several signatures: f"),
+            ("(declare-const x Bool)(declare-const x Real)(assert (and (as x Bool) (> (as x Real) 1.0)))",
+             "several signatures: x"),
         ]:
             with self.subTest(source=source):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
@@ -897,6 +985,33 @@ class TestClauseLogReplay(unittest.TestCase):
         quoted = self.replay(re.sub(r"\bU\b", "|my sort|", _UF), re.sub(r"\bU\b", "|my sort|", _UF_LOG))
         self.assertEqual({d["range"] for d in quoted["declarations"]}, {"Bool", "my sort", "Proof"})
         self.assertEqual(quoted["rule_counts"], certificate["rule_counts"])
+
+    def test_several_uninterpreted_sorts_in_the_clause_log(self):
+        certificate = self.replay(_UF_TWO_SORTS, _UF_TWO_SORTS_LOG)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        # Two euf hints, plus a cnf lemma: Z3 assumed (= (f a2) b) with q already false.
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 3)
+        self.assertEqual({tuple(d["parameters"]) for d in certificate["declarations"] if d["name"] == "th-lemma"},
+                         {("euf",), ("cnf",)})
+        # The certificate keeps every sort name: declarations stay many-sorted.
+        signatures = {(d["name"], tuple(d["domain"]), d["range"]) for d in certificate["declarations"]
+                      if d["kind"] == z3.Z3_OP_UNINTERPRETED}
+        self.assertEqual(signatures, {("a1", (), "A"), ("a2", (), "A"), ("b", (), "B"), ("f", ("A",), "B"),
+                                      ("g", ("B", "A"), "A"), ("p", ("B",), "Bool"), ("q", (), "Bool")})
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "A", "B", "Proof"})
+        self.assertEqual({tuple(d["domain"]) for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_EQ},
+                         {("B", "B")})
+        for log, message in [
+            (_UF_TWO_SORTS_LOG.replace("(declare-sort A 0)", "(declare-sort C 0)"), "sort absent from the input"),
+            (_UF_TWO_SORTS_LOG.replace("(f a1)", "(f b)"), "ill-sorted application"),
+            (_UF_TWO_SORTS_LOG.replace("(g b a1)", "(g a1 b)"), "ill-sorted application"),
+            (_UF_TWO_SORTS_LOG.replace("(define-const $6 B (f a1))", "(define-const $6 A (f a1))"),
+             "has sort B, declared A"),
+            (_UF_TWO_SORTS_LOG.replace("(= $6 b)", "(= $6 a1)"), "ill-sorted application"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_UF_TWO_SORTS, log)
 
     def test_ite_over_the_uninterpreted_sort_in_the_clause_log(self):
         certificate = self.replay(_UF_ITE, _UF_ITE_LOG)

@@ -10,9 +10,11 @@ linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
 `bound`, `implied-eq`, `euf`, `smt`, or `cnf` hints and arithmetic rewrites,
 proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
 `ite` terms, whose gate clauses are proved with `ite_eq_left` and
-`ite_eq_right`. For quantifier-free uninterpreted functions over one sort
-(QF_UF) the sort becomes a type variable with indexed families of constants,
-functions, and predicates over argument lists, `ite` terms over the sort are
+`ite_eq_right`. For quantifier-free uninterpreted functions (QF_UF) the
+uninterpreted sorts become one type variable with indexed families of
+constants, functions, and predicates over argument lists (one carrier for
+every sort is sound for unsatisfiability; the exporter README gives the
+argument), `ite` terms over a sort are
 Lean's `ite` with their gate clauses proved as for Real, and `grind`'s
 congruence closure proves the `euf` lemmas. Other native proof rules are
 still unsupported.
