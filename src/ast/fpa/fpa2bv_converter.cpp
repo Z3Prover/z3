@@ -2228,20 +2228,32 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     mk_one(s, one_1, none);
     mk_ite(sgn_eq_1, none, pone, xone);
 
-    expr_ref pow_2_sbitsm1(m), m1(m), actual_exp(m), actual_exp_ext(m), lz_ext(m);
+    expr_ref pow_2_sbitsm1(m), m1(m), normal_tie(m), denormal_tie(m), denormal_lt_half(m);
     pow_2_sbitsm1 = m_bv_util.mk_numeral(fu().fm().m_powers2(sbits - 1), sbits);
-    actual_exp_ext = m_bv_util.mk_sign_extend(1, a_exp);
-    lz_ext = m_bv_util.mk_zero_extend(1, a_lz);
-    actual_exp = m_bv_util.mk_bv_sub(actual_exp_ext, lz_ext);
-    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits + 1));
+    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits));
     m_simp.mk_eq(a_sig, pow_2_sbitsm1, t1);
-    m_simp.mk_eq(actual_exp, m1, t2);
-    m_simp.mk_and(t1, t2, tie);
+    m_simp.mk_eq(a_exp, m1, t2);
+    m_simp.mk_and(t1, t2, normal_tie);
+
+    denormal_tie = m.mk_false();
+    denormal_lt_half = m.mk_true();
+    if (ebits == 2) {
+        expr_ref raw_sgn(m), raw_exp(m), raw_sig(m), half_sig(m);
+        split_fp(x, raw_sgn, raw_exp, raw_sig);
+        half_sig = m_bv_util.mk_numeral(fu().fm().m_powers2(sbits - 2), sbits - 1);
+        m_simp.mk_eq(raw_sig, half_sig, denormal_tie);
+        expr_ref half_le_sig(m);
+        half_le_sig = m_bv_util.mk_ule(half_sig, raw_sig);
+        m_simp.mk_not(half_le_sig, denormal_lt_half);
+    }
+    m_simp.mk_or(normal_tie, denormal_tie, tie);
     dbg_decouple("fpa2bv_r2i_c42_tie", tie);
 
     m_simp.mk_and(tie, rm_is_rte, c421);
     m_simp.mk_and(tie, rm_is_rta, c422);
-    c423 = m_bv_util.mk_sle(actual_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits + 1)));
+    expr_ref normal_lt_half(m);
+    normal_lt_half = m_bv_util.mk_sle(a_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits)));
+    m_simp.mk_ite(x_is_denormal, denormal_lt_half, normal_lt_half, c423);
 
     dbg_decouple("fpa2bv_r2i_c421", c421);
     dbg_decouple("fpa2bv_r2i_c422", c422);

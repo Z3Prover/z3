@@ -60,10 +60,12 @@ static void test_round_to_integral_subnormal() {
         "(declare-const y (_ FloatingPoint 2 3))\n"
         "(declare-const z (_ FloatingPoint 2 3))\n"
         "(declare-const w (_ FloatingPoint 2 3))\n"
+        "(declare-const v (_ FloatingPoint 2 6))\n"
         "(assert (= x (fp #b0 #b00 #b01)))\n"
         "(assert (= y (fp #b1 #b00 #b01)))\n"
         "(assert (= z (fp #b0 #b00 #b10)))\n"
         "(assert (= w (fp #b1 #b00 #b10)))\n"
+        "(assert (= v (fp #b0 #b00 #b00010)))\n"
         "(assert (= (fp.roundToIntegral RNE x) (_ +zero 2 3)))\n"
         "(assert (= (fp.roundToIntegral RNA x) (_ +zero 2 3)))\n"
         "(assert (= (fp.roundToIntegral RNE y) (_ -zero 2 3)))\n"
@@ -72,6 +74,8 @@ static void test_round_to_integral_subnormal() {
         "(assert (= (fp.roundToIntegral RNA z) (fp #b0 #b01 #b00)))\n"
         "(assert (= (fp.roundToIntegral RNE w) (_ -zero 2 3)))\n"
         "(assert (= (fp.roundToIntegral RNA w) (fp #b1 #b01 #b00)))\n"
+        "(assert (= (fp.roundToIntegral RNE v) (_ +zero 2 6)))\n"
+        "(assert (= (fp.roundToIntegral RNA v) (_ +zero 2 6)))\n"
         "(check-sat)\n"
         "(check-sat-using (then fpa2bv smt))\n";
 
