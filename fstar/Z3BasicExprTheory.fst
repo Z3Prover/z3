@@ -119,7 +119,7 @@ let rec eval_bool (#value:eqtype) (i:interpretation value) (to_bool:value -> boo
   : Tot bool (decreases e)
   = match e with
     | Var _ _ -> to_bool (eval i e rho)
-    | Quantifier _ _ _ -> to_bool (eval i e rho)
+    | Quantifier _ _ _ _ -> to_bool (eval i e rho)
     | App f args ->
       if is_basic_op f Op_true then true
       else if is_basic_op f Op_false then false

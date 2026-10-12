@@ -18,7 +18,7 @@ open Z3ProofTheory
 open Z3PulseProofChecker
 
 
-let srt_0 : sort = { sort_name = "Bool" }
+let srt_0 : sort = BaseSort "Bool"
 
 let fd_0 : func_decl = { decl_name = "xor"; domain = [srt_0; srt_0]; range = srt_0; interp = None; int_params = [] }
 let fd_1 : func_decl = { decl_name = "x"; domain = []; range = srt_0; interp = None; int_params = [] }

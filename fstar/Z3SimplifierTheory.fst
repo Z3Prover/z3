@@ -147,7 +147,7 @@ let rec subst (e old_ new_ : expr) : expr =
   else match e with
        | Var _ _ -> e
        | App f args -> App f (subst_args args old_ new_)
-       | Quantifier qk bound_sorts body -> Quantifier qk bound_sorts (subst body old_ new_)
+       | Quantifier qk bound_sorts qsort body -> Quantifier qk bound_sorts qsort (subst body old_ new_)
 
 and subst_args (args:list expr) (old_ new_ : expr) : list expr =
   match args with
@@ -175,7 +175,7 @@ let rec lemma_subst_cong
     else match e with
          | Var _ _ -> ()
          | App f args -> lemma_subst_cong_args i args old_ new_ rho
-         | Quantifier qk bound_sorts body ->
+         | Quantifier qk bound_sorts _ body ->
            let n = List.Tot.length bound_sorts in
            let aux (vs:list value{List.Tot.length vs = n})
              : Lemma (eval i (subst body old_ new_) (shift vs rho) == eval i body (shift vs rho))

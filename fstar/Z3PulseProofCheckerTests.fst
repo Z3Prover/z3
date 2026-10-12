@@ -36,12 +36,12 @@ open Z3PulseProofChecker
 (* only their names and arities matter to `fact`/`check_proof`)        *)
 (* ----------------------------------------------------------------- *)
 
-let s (n:string) : sort = { sort_name = n }
+let s (n:string) : sort = BaseSort n
 let int_s = s "Int"
 let bool_s = s "Bool"
 let bv_s = s "BV32"
 let seq_s = s "SeqInt"
-let arr_s = s "ArrayIntInt"
+let arr_s : sort = ArraySort [int_s] int_s
 
 let konst (name:string) (rng:sort) : func_decl =
   { decl_name = name; domain = []; range = rng; interp = None; int_params = [] }
@@ -188,8 +188,8 @@ let quant_leaf : proof = mk_quant_intro Forall_k [int_s] arith_leaf
 
 let lemma_quant_leaf_fact ()
   : Lemma (fact quant_leaf ==
-           Some (Quantifier Forall_k [int_s] (c2 plus_d x_i zero),
-                 Quantifier Forall_k [int_s] x_i))
+           Some (Quantifier Forall_k [int_s] bool_s (c2 plus_d x_i zero),
+                 Quantifier Forall_k [int_s] bool_s x_i))
   = ()
 
 (* ----------------------------------------------------------------- *)
@@ -271,8 +271,8 @@ fn test_all_theories ()
   lemma_array_leaf_trusted_leaves ();
   lemma_mixed_chain_trusted_leaves ();
   lemma_quant_leaf_fact ();
-  run_one quant_leaf (Some (Quantifier Forall_k [int_s] (c2 plus_d x_i zero),
-                            Quantifier Forall_k [int_s] x_i));
+  run_one quant_leaf (Some (Quantifier Forall_k [int_s] bool_s (c2 plus_d x_i zero),
+                            Quantifier Forall_k [int_s] bool_s x_i));
 }
 
 (* `checker_accepts`'s boolean-only interface, exercised the same way. *)

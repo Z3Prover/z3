@@ -108,7 +108,21 @@ class Converter:
         if name in self.sort_cache:
             return self.sort_cache[name]
         ident = fstar_ident("srt_", len(self.sort_cache))
-        self.sort_lines.append('let %s : sort = { sort_name = "%s" }' % (ident, name))
+        if s.kind() == z3.Z3_ARRAY_SORT:
+            # Multi-argument arrays expose domain_n()/domain(i); plain
+            # single-index arrays only expose domain(). Prefer the
+            # former when available so Z3's own multi-dimensional
+            # arrays round-trip into `ArraySort`'s `list sort` domain.
+            if hasattr(s, "domain_n"):
+                dom = [self.sort(s.domain_n(i)) for i in range(s.arity())]
+            else:
+                dom = [self.sort(s.domain())]
+            rng = self.sort(s.range())
+            self.sort_lines.append(
+                "let %s : sort = ArraySort [%s] %s" % (ident, "; ".join(dom), rng)
+            )
+        else:
+            self.sort_lines.append('let %s : sort = BaseSort "%s"' % (ident, name))
         self.sort_cache[name] = ident
         return ident
 
@@ -150,11 +164,17 @@ class Converter:
         if z3.is_quantifier(e):
             bound_sorts = [self.sort(e.var_sort(i)) for i in range(e.num_vars())]
             body = self.expr(e.body())
-            qk = "Forall_k" if e.is_forall() else "Exists_k"
+            if e.is_lambda():
+                qk = "Lambda_k"
+                body_sort = self.sort(e.body().sort())
+                qsort = "(ArraySort [%s] %s)" % ("; ".join(bound_sorts), body_sort)
+            else:
+                qk = "Forall_k" if e.is_forall() else "Exists_k"
+                qsort = '(BaseSort "Bool")'
             ident = fstar_ident("e_", len(self.expr_cache))
             self.expr_lines.append(
-                "let %s : expr = Quantifier %s [%s] %s"
-                % (ident, qk, "; ".join(bound_sorts), body)
+                "let %s : expr = Quantifier %s [%s] %s %s"
+                % (ident, qk, "; ".join(bound_sorts), qsort, body)
             )
         elif z3.is_var(e):
             idx = z3.get_var_index(e)

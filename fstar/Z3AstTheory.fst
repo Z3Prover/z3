@@ -67,11 +67,30 @@ module Z3AstTheory
 (* Sorts                                                               *)
 (* ----------------------------------------------------------------- *)
 
-(* A sort is modeled abstractly by its name; `sort_eq` stands in for
-   Z3's hash-consing-based pointer equality on `sort*`. *)
-type sort = { sort_name : string }
+(* A sort is either a flat, name-identified "base" sort (modeling
+   every non-array sort abstractly by its name, standing in for Z3's
+   hash-consing-based pointer equality on `sort*`), or an `(Array dom1
+   ... domN range)` sort built from an arbitrary (possibly multi-
+   argument) list of domain (index) sorts and a range (value) sort,
+   mirroring `array_decl_plugin.h`'s actual `ARRAY_SORT` family, whose
+   `get_array_arity()` is in general `> 1` (e.g. `(Array Int Int
+   Bool)`, a two-index Boolean-valued array) -- not just the
+   single-index case. *)
+type sort =
+  | BaseSort  : name:string -> sort
+  | ArraySort : domain:list sort -> range:sort -> sort
 
-let sort_eq (s1 s2:sort) : bool = s1.sort_name = s2.sort_name
+let rec sort_eq (s1 s2:sort) : Tot bool (decreases s1) =
+  match s1, s2 with
+  | BaseSort n1, BaseSort n2 -> n1 = n2
+  | ArraySort d1 r1, ArraySort d2 r2 -> sort_list_eq d1 d2 && sort_eq r1 r2
+  | _, _ -> false
+
+and sort_list_eq (l1 l2:list sort) : Tot bool (decreases l1) =
+  match l1, l2 with
+  | [], [] -> true
+  | a :: l1', b :: l2' -> sort_eq a b && sort_list_eq l1' l2'
+  | _, _ -> false
 
 (* ----------------------------------------------------------------- *)
 (* Function declarations                                              *)
@@ -120,31 +139,49 @@ type quantifier_kind =
    (`m_idx`), so `Quantifier` need not carry substitution machinery of
    its own: `Var i` inside a quantifier's body refers to the i-th
    enclosing binder (0 = innermost), as in `src/ast/ast.h`'s
-   `var(unsigned idx, sort * s)`. *)
+   `var(unsigned idx, sort * s)`.
+
+   `qsort` is `quantifier::m_sort` (`class quantifier : public expr`
+   caches its own sort at construction time, exactly like every other
+   `ast` node, rather than recomputing it structurally on every
+   `get_sort()` call): `Bool` for `forall_k`/`exists_k`, or the
+   `(Array bound_sorts range)` sort of the function space `body`
+   denotes, for `lambda_k`. Carrying it explicitly (rather than, as a
+   prior version of this file did, hard-wiring an opaque placeholder
+   sort for every lambda regardless of its actual bound/body sorts)
+   lets `wf` (below) state the real invariant `mk_quantifier` enforces
+   -- `qsort` is *exactly* determined by `qk`/`bound_sorts`/`body`,
+   never an independent, freely-chosen field. *)
 type expr =
   | Var        : idx:nat -> s:sort -> expr
   | App        : decl:func_decl -> args:list expr -> expr
-  | Quantifier : qk:quantifier_kind -> bound_sorts:list sort -> body:expr -> expr
+  | Quantifier : qk:quantifier_kind -> bound_sorts:list sort -> qsort:sort -> body:expr -> expr
 
 (* ----------------------------------------------------------------- *)
 (* Sort of an expression (mirrors `expr::get_sort()`)                  *)
 (* ----------------------------------------------------------------- *)
 
-(* Quantifiers (forall/exists) are always Bool-sorted; a lambda's sort
-   would be an array sort built from `bound_sorts` and the body's
-   sort, which is not needed downstream, so `lambda_sort` stands in
-   for it uninterpreted. *)
-let bool_sort : sort = { sort_name = "Bool" }
-let lambda_sort : sort = { sort_name = "Lambda" }
+let bool_sort : sort = BaseSort "Bool"
+
+(* The sort a quantifier node of kind `qk`, bound bariable sorts
+   `bound_sorts`, and body sort `body_sort` must carry: `Bool` for
+   `forall_k`/`exists_k`, matching that Z3's `forall`/`exists` are
+   always Boolean-sorted; the `(Array dom1 ... domN range)` sort of
+   the function space `bound_sorts -> body_sort` for `lambda_k`,
+   matching `array_decl_plugin.h`'s multi-argument `ARRAY_SORT`
+   family that `mk_lambda_core` actually builds (e.g. two bound
+   variables produce a two-index array sort, not merely a single
+   opaque "Lambda" marker). *)
+let quant_sort (qk:quantifier_kind) (bound_sorts:list sort) (body_sort:sort) : sort =
+  match qk with
+  | Forall_k | Exists_k -> bool_sort
+  | Lambda_k -> ArraySort bound_sorts body_sort
 
 let get_sort (e:expr) : sort =
   match e with
   | Var _ s -> s
   | App f _ -> f.range
-  | Quantifier qk _ _ ->
-    (match qk with
-     | Forall_k | Exists_k -> bool_sort
-     | Lambda_k -> lambda_sort)
+  | Quantifier _ _ qsort _ -> qsort
 
 (* ----------------------------------------------------------------- *)
 (* Well-sortedness                                                     *)
@@ -166,12 +203,18 @@ let rec sorts_match (args:list expr) (dom:list sort) : bool =
    `n`, matching that Z3 permits (but `ast_manager` never
    constructs) free variables in a standalone `expr*`; well-formed
    *closed* expressions are additionally required to have no `Var`
-   nodes at all, via `closed` below. *)
+   nodes at all, via `closed` below. A `Quantifier`'s own `qsort`
+   field must additionally agree with `quant_sort` applied to its
+   `qk`/`bound_sorts`/body sort -- the invariant `mk_quantifier`
+   enforces by construction (it is never a freely-chosen tag, matching
+   that `quantifier::m_sort` is always computed from exactly these
+   three pieces, never supplied independently). *)
 let rec wf (e:expr) : bool =
   match e with
   | Var _ _ -> true
   | App f args -> sorts_match args f.domain && wf_args args
-  | Quantifier _ _ body -> wf body
+  | Quantifier qk bound_sorts qsort body ->
+    wf body && sort_eq qsort (quant_sort qk bound_sorts (get_sort body))
 
 and wf_args (args:list expr) : bool =
   match args with
@@ -188,7 +231,7 @@ let rec closed_at (depth:nat) (e:expr) : Tot bool (decreases e) =
   match e with
   | Var idx _ -> idx < depth
   | App _ args -> closed_at_args depth args
-  | Quantifier _ bound_sorts body -> closed_at (depth + List.Tot.length bound_sorts) body
+  | Quantifier _ bound_sorts _ body -> closed_at (depth + List.Tot.length bound_sorts) body
 and closed_at_args (depth:nat) (args:list expr) : Tot bool (decreases args) =
   match args with
   | [] -> true
@@ -246,7 +289,7 @@ let rec eval (#value:Type) (i:interpretation value) (e:expr) (rho:env value) : v
   | App f args ->
     let vs = eval_args i args rho in
     if Some? f.interp then i.interp_app f vs else i.uninterp_app f vs
-  | Quantifier qk bound_sorts body ->
+  | Quantifier qk bound_sorts _ body ->
     i.interp_quant qk bound_sorts (fun vs -> eval i body (shift vs rho))
 
 and eval_args (#value:Type) (i:interpretation value) (args:list expr) (rho:env value) : list value =
@@ -289,7 +332,7 @@ let rec lemma_closed_eval_env_irrelevant (#value:Type) (i:interpretation value)
   = match e with
     | Var idx _ -> ()
     | App f args -> lemma_closed_eval_args_env_irrelevant i args depth rho1 rho2
-    | Quantifier qk bound_sorts body ->
+    | Quantifier qk bound_sorts _ body ->
       let n = List.Tot.length bound_sorts in
       let aux (vs:list value{List.Tot.length vs = n})
         : Lemma (eval i body (shift vs rho1) == eval i body (shift vs rho2))

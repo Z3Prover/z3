@@ -67,12 +67,11 @@ let op_concat : decl_kind = 6
    any well-sorted choice of witness works; picking one fixed default
    per sort is the simplest one that type-checks. *)
 let default_value (s:sort) : value =
-  match s.sort_name with
-  | "Bool" -> VBool false
-  | "BV32" -> VBV 0
-  | "SeqInt" -> VSeq []
-  | "ArrayIntInt" -> VArr (on int (fun _ -> 0))
-  | _ (* "Int" and anything else *) -> VInt 0
+  if sort_eq s (BaseSort "Bool") then VBool false
+  else if sort_eq s (BaseSort "BV32") then VBV 0
+  else if sort_eq s (BaseSort "SeqInt") then VSeq []
+  else if sort_eq s (ArraySort [BaseSort "Int"] (BaseSort "Int")) then VArr (on int (fun _ -> 0))
+  else (* "Int" and anything else *) VInt 0
 
 let interp_app (f:func_decl{Some? f.interp}) (args:list value) : value =
   let k = Some?.v f.interp in
@@ -132,12 +131,12 @@ let lemma_quant_extensional ()
 (* proofs below -- stated explicitly here only for documentation.      *)
 (* ----------------------------------------------------------------- *)
 
-let s (n:string) : sort = { sort_name = n }
+let s (n:string) : sort = BaseSort n
 let int_s = s "Int"
 let bool_s = s "Bool"
 let bv_s = s "BV32"
 let seq_s = s "SeqInt"
-let arr_s = s "ArrayIntInt"
+let arr_s = ArraySort [int_s] int_s
 
 let konst (name:string) (rng:sort) : func_decl =
   { decl_name = name; domain = []; range = rng; interp = None; int_params = [] }

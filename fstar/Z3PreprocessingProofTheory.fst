@@ -167,14 +167,14 @@ let lemma_pr_monotonicity
 /// by the identical proof pattern `Z3AstTheory.lemma_closed_eval_env_irrelevant`
 /// already uses for its own `Quantifier` case.
 let lemma_pr_quant_intro
-    (#value:Type) (i:interpretation value) (qk:quantifier_kind) (bound_sorts:list sort)
+    (#value:Type) (i:interpretation value) (qk:quantifier_kind) (bound_sorts:list sort) (qsort:sort)
     (body1 body2:expr) (rho:env value)
   : Lemma
       (requires
          quant_extensional i /\
          (forall (vs:list value{List.Tot.length vs = List.Tot.length bound_sorts}).
             eval i body1 (shift vs rho) == eval i body2 (shift vs rho)))
-      (ensures eval i (Quantifier qk bound_sorts body1) rho == eval i (Quantifier qk bound_sorts body2) rho)
+      (ensures eval i (Quantifier qk bound_sorts qsort body1) rho == eval i (Quantifier qk bound_sorts qsort body2) rho)
   = let aux (vs:list value{List.Tot.length vs = List.Tot.length bound_sorts})
       : Lemma (eval i body1 (shift vs rho) == eval i body2 (shift vs rho))
       = ()

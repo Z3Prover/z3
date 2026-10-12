@@ -105,7 +105,7 @@ let rec decls_ok (e:expr) : Tot bool (decreases e) =
   match e with
   | Var _ _ -> true
   | App f args -> decl_shape_ok f && decls_ok_args args
-  | Quantifier _ _ body -> decls_ok body
+  | Quantifier _ _ _ body -> decls_ok body
 
 and decls_ok_args (args:list expr) : Tot bool (decreases args) =
   match args with
@@ -119,7 +119,7 @@ let rec no_quant (e:expr) : Tot bool (decreases e) =
   match e with
   | Var _ _ -> true
   | App _ args -> no_quant_args args
-  | Quantifier _ _ _ -> false
+  | Quantifier _ _ _ _ -> false
 
 and no_quant_args (args:list expr) : Tot bool (decreases args) =
   match args with
@@ -134,13 +134,11 @@ and no_quant_args (args:list expr) : Tot bool (decreases args) =
 (* ----------------------------------------------------------------- *)
 
 let shape_ok (v:value) (srt:sort) : bool =
-  match srt.sort_name with
-  | "Bool" -> VBool? v
-  | "BV32" -> VBV? v
-  | "SeqInt" -> VSeq? v
-  | "ArrayIntInt" -> VArr? v
-  | "Lambda" -> true
-  | _ (* "Int" and anything else *) -> VInt? v
+  if sort_eq srt bool_s then VBool? v
+  else if sort_eq srt bv_s then VBV? v
+  else if sort_eq srt seq_s then VSeq? v
+  else if sort_eq srt arr_s then VArr? v
+  else (* "Int" and anything else *) VInt? v
 
 let rec shapes_ok (vs:list value) (srts:list sort) : Tot bool (decreases vs) =
   match vs, srts with
@@ -170,12 +168,11 @@ let rec lemma_shapes_ok_sorts_match (args:list expr) (dom:list sort) (vs:list va
 
 let lemma_default_value_shape_ok (srt:sort)
   : Lemma (shape_ok (default_value srt) srt)
-  = match srt.sort_name with
-    | "Bool" -> ()
-    | "BV32" -> ()
-    | "SeqInt" -> ()
-    | "ArrayIntInt" -> ()
-    | _ -> ()
+  = if sort_eq srt bool_s then ()
+    else if sort_eq srt bv_s then ()
+    else if sort_eq srt seq_s then ()
+    else if sort_eq srt arr_s then ()
+    else ()
 
 (* ----------------------------------------------------------------- *)
 (* 3. The central structural "type soundness" lemma: a well-formed,     *)
@@ -189,7 +186,7 @@ let rec lemma_eval_shape (e:expr) (rho:env value)
           (decreases e)
   = match e with
     | Var _ _ -> ()        (* impossible: `closed e` forbids any `Var` here *)
-    | Quantifier _ _ _ -> () (* impossible: ruled out by `no_quant e` *)
+    | Quantifier _ _ _ _ -> () (* impossible: ruled out by `no_quant e` *)
     | App f args ->
       lemma_eval_shape_args args rho;
       let vs = eval_args the_interpretation args rho in
@@ -314,6 +311,7 @@ let store_same_twice_leaf_ok (s t:expr) : bool =
     sort_eq (get_sort a) arr_s && sort_eq (get_sort i) int_s &&
     sort_eq (get_sort x) int_s && sort_eq (get_sort y) int_s
 
+#push-options "--z3rlimit 50"
 let lemma_store_same_twice_leaf_sound (s t:expr)
   : Lemma (requires store_same_twice_leaf_ok s t)
           (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
@@ -333,6 +331,7 @@ let lemma_store_same_twice_leaf_sound (s t:expr)
       in
       FStar.Classical.forall_intro aux
     | _, _ -> ()
+#pop-options
 
 (* 4c. `store(a,idx,select(a,idx)) = a` -- `Z3ArrayTheory.lemma_store_redundant`. *)
 

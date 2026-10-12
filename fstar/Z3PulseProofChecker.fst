@@ -213,8 +213,8 @@ fn rec check_either (x:proof_or_list) (ctr:ref int)
             RNode o -> {
               match o {
                 Some pr -> {
-                  RNode (Some (Quantifier qk bound_sorts (fst pr),
-                                Quantifier qk bound_sorts (snd pr)))
+                  RNode (Some (Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort (fst pr))) (fst pr),
+                                Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort (snd pr))) (snd pr)))
                 }
                 None -> { RNode None }
               }
