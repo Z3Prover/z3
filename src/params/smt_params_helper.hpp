@@ -43,13 +43,13 @@ Abstract:
   BOOL_  (ff_adaptive_basis, "ff.adaptive_basis", false, "admit larger bases within storage bounds and compact retired pair records") \
   UINT_  (ff_basis_max_bytes, "ff.basis_max_bytes", 16777216, "estimated retained basis storage with adaptive_basis (capped at 1 GiB)") \
   BOOL_  (ff_bounded_elimination, "ff.bounded_elimination", false, "retain nonlinear definitions when substitution predicts polynomial growth") \
-  BOOL_  (ff_sugar_pairs, "ff.sugar_pairs", false, "rank critical pairs by propagated sugar degree in all field sizes") \
-  BOOL_  (ff_gm_pairs, "ff.gm_pairs", false, "install critical pairs using minimal lcm and strict chain criteria") \
+  BOOL_  (ff_sugar_pairs, "ff.sugar_pairs", true, "rank critical pairs by propagated sugar degree in all field sizes") \
+  BOOL_  (ff_gm_pairs, "ff.gm_pairs", true, "install critical pairs using minimal lcm and strict chain criteria") \
   BOOL_  (ff_div_masks, "ff.div_masks", false, "filter reducer divisibility tests using support masks") \
   BOOL_  (ff_geobucket, "ff.geobucket", false, "accumulate scalar polynomial reductions in geometric buckets") \
   BOOL_  (ff_small_coefficients, "ff.small_coefficients", false, "use exact machine arithmetic for small-field polynomial coefficients") \
   BOOL_  (ff_compact_retry, "ff.compact_retry", true, "retry the algebra tactic with compact definitions after an encoding size limit") \
-  BOOL_  (ff_compact_encoding, "ff.compact_encoding", false, "retain compact definitions when polynomial expansion would grow") \
+  BOOL_  (ff_compact_encoding, "ff.compact_encoding", true, "retain compact definitions when polynomial expansion would grow") \
   BOOL_  (ff_basis_cache, "ff.basis_cache", true, "reuse exact bounded finite-field bases across native checks") \
   UINT_  (ff_max_steps,                            "ff.max_steps",                            2000000,                  "maximum native finite-field algebra operations before exact BV fallback") \
   BOOL_  (ff_f4, "ff.f4", true, "use the fixed-width F4 backend with zero-dimensional model construction") \
