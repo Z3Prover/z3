@@ -36,7 +36,8 @@ _BOOLEAN_OPERATORS = {
     z3.Z3_OP_DISTINCT, z3.Z3_OP_ITE,
 }
 # Linear real arithmetic: atoms over Real terms built from variables, numerals,
-# sums, differences, negation, scaling by a numeral, and division by a numeral.
+# sums, differences, negation, scaling by a numeral, division by a numeral,
+# and Real-valued ite, whose value is a linear term under either branch.
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
@@ -173,9 +174,7 @@ def _require_linear_real(expr):
         divisor = constant_value(expr.arg(1))
         if divisor is None or divisor == 0:
             raise ProofExportError("division is supported only by a nonzero constant")
-    elif kind == z3.Z3_OP_ITE:
-        raise ProofExportError("arithmetic ite is not supported")
-    elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS):
+    elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_ITE):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 
 
@@ -200,8 +199,6 @@ def classify_fragment(assertions):
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
             if decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and not z3.is_bool(expr.arg(0)):
                 arithmetic = True
-            elif decl.kind() == z3.Z3_OP_ITE and not z3.is_bool(expr.arg(1)):
-                raise ProofExportError("arithmetic ite is not supported")
         elif z3.is_real(expr):
             arithmetic = True
             _require_linear_real(expr)
