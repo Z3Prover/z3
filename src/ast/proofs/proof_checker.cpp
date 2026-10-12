@@ -346,8 +346,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // body -- and hence `q1`/`q2` themselves -- can be of any sort
             // (e.g. an array/function sort). `match_eq` alone (OP_EQ with no
             // sort restriction) already covers the Boolean-iff case, so
-            // `match_iff` adds nothing here and is omitted.
-            (match_oeq(fact, t1, t2) || match_eq(fact, t1, t2)) &&
+            // `match_iff` adds nothing here and is omitted; `match_equiv`
+            // is exactly `match_oeq(...) || match_eq(...)`.
+            match_equiv(fact, t1, t2) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
@@ -384,8 +385,8 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 if (!match_fact(p0, fml0) ||
                     // same non-Bool-body caveat as above: `q1`/`q2`'s
                     // bodies (and hence `r1`/`r2`) need not be Bool-sorted;
-                    // `match_eq` alone already subsumes `match_iff`.
-                    !(match_oeq(fml0, r1, r2) || match_eq(fml0, r1, r2)) ||
+                    // `match_equiv` already subsumes `match_iff`.
+                    !match_equiv(fml0, r1, r2) ||
                     r1 != q1->get_expr() ||
                     r2 != q2->get_expr()) {
                     UNREACHABLE();
@@ -397,9 +398,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // Shape 2: `p1`'s own fact directly (without lambda-wrapping)
             // relates the two quantifiers' bodies -- the fully-structural
             // shape some other, non-`rewriter_def.h` caller could in
-            // principle construct. `match_eq` alone already subsumes
+            // principle construct. `match_equiv` already subsumes
             // `match_iff`.
-            if ((match_oeq(fml, s1, s2) || match_eq(fml, s1, s2)) &&
+            if (match_equiv(fml, s1, s2) &&
                 m.is_oeq(fact) == m.is_oeq(fml) &&
                 q1->get_expr() == s1 &&
                 q2->get_expr() == s2) {
