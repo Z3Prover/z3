@@ -295,21 +295,41 @@ Two follow-ups make this concrete instead of abstract:
    open: for the checker to stay theory-agnostic, it cannot itself
    re-derive every theory's semantics).
 
-## Follow-up: `Z3PatternMatchedProofChecker.fst` — select-store as a pattern, not an example
+## Follow-up: `Z3PatternMatchedProofChecker.fst` — rewrite rules as patterns, not examples
 
 `Z3InterpretedProofChecker.fst`'s four leaves above are each a single,
 literal, hand-picked instance of a theory lemma (named constants `a`,
 `i`, `v`, ...) — proving each one sound is a one-line call into the
 matching lemma only because the sub-expressions' shapes are "obviously"
 right by construction. `Z3PatternMatchedProofChecker.fst` generalizes
-one of those four patterns, `select(store(a,i,x),i) = x`
-(`Z3ArrayTheory.lemma_select_store_same`), into a genuine **pattern-
-matching compiler**: a decidable recognizer that accepts this schema
-for *arbitrary* array/index/value sub-expressions `a`/`idx`/`x` — not
-just literal named constants — and automatically discharges
-`all_leaves_sound` for any `Rewrite` leaf (however deeply `a`/`idx`/`x`
-are nested) by invoking `Z3ArrayTheory.lemma_select_store_same` under
-the hood.
+this into a genuine **pattern-matching compiler**: a decidable
+recognizer library, one recognizer per already-proven rewrite-rule
+lemma, each accepting its schema for *arbitrary* sub-expressions — not
+just literal named constants — and automatically discharging
+`all_leaves_sound` for any `Rewrite` leaf (however deeply its pieces
+are nested) by invoking the matching theory lemma under the hood.
+
+**Six patterns are covered**, spanning four theories, chosen because
+each is expressible using only the six operators
+(`op_not`/`op_plus`/`op_select`/`op_store`/`op_bvand`/`op_concat`)
+`the_interpretation` already gives semantics to, and none needs a
+semantic side condition requiring two named constants to be
+*provably distinct* (see the standing limitation below):
+
+| Pattern | Lemma |
+|---|---|
+| `select(store(a,i,x),i) = x` | `Z3ArrayTheory.lemma_select_store_same` |
+| `store(store(a,i,x),i,y) = store(a,i,y)` | `Z3ArrayTheory.lemma_store_same_twice` |
+| `store(a,i,select(a,i)) = a` | `Z3ArrayTheory.lemma_store_redundant` |
+| `(a++b)++c = a++(b++c)` | `Z3SeqRewrites.lemma_concat_assoc` |
+| `not(not(x)) = x` | `Z3BoolRewriter.not_not` |
+| `bvand(y,y) = y` | `Z3BvRewriter.lemma_bvand_self` |
+
+`try_match_leaf` (§5) is the boolean OR of the six individual matchers,
+with its own soundness lemma (`lemma_try_match_leaf_sound`) composing
+whichever one of the six fired; `all_matched`/`lemma_matched_proof_true`
+(§6) lift this, unchanged in shape from the original single-pattern
+design, to whole proof trees.
 
 **No Meta-F*/tactics are needed.** `expr`/`func_decl`/`sort` have no
 function-typed fields anywhere (`func_decl.interp : option decl_kind`
@@ -365,9 +385,55 @@ equation holds under `the_interpretation`, via `all_matched
 nested_leaf` alone — no new per-leaf lemma call was written for this
 specific example, unlike every leaf in `Z3InterpretedProofChecker.fst`.
 
-**Known limitation, flagged rather than solved**: the companion
-pattern `select(store(a,i,x),j) = select(a,j)` for `i <> j`
-(`Z3ArrayTheory.lemma_select_store_diff`) is *not* generalized here.
+**Partial mode: leftover proof obligations for unmatched leaves.**
+`all_matched` is all-or-nothing: a single `Rewrite` leaf not fitting
+any of the six schemas (e.g. anything built from `select_const`,
+`ite`, `map`, set operations, or extensionality — none of which
+`the_interpretation` gives semantics to) makes `all_matched` reject the
+*whole* proof tree, even if every other leaf, however deeply nested,
+matches cleanly. §7 adds a middle ground between "trust everything"
+(`all_leaves_sound`) and "match everything or reject" (`all_matched`):
+
+- **`collect_unmatched`/`collect_unmatched_list`** walk a proof tree
+  with exactly `all_leaves_sound`'s own recursion structure and return
+  the list of `(s,t)` pairs for every `Rewrite` leaf none of the six
+  matchers recognizes — the already-matched leaves, however many,
+  contribute nothing to this list.
+- **`leftover_sound`** is the prop that every `(s,t)` pair in such a
+  list genuinely denotes a true equation under `the_interpretation`
+  (for every environment).
+- **`lemma_collect_unmatched_sound`** is the key theorem:
+  `leftover_sound (collect_unmatched p) ==> all_leaves_sound p` — i.e.
+  supplying semantic soundness for just the leftover list suffices to
+  establish soundness for the *entire* tree, matched leaves included.
+  Splitting this fact correctly across `Trans`/`Cong`'s two recursive
+  sub-proofs needed explicit list-membership helper lemmas
+  (`lemma_mem_app_left`/`lemma_mem_app_right`/
+  `lemma_leftover_sound_append_split`) over the `@`-concatenated
+  leftover lists.
+- **`lemma_partial_proof_true`** composes this with
+  `Z3ProofTheory.lemma_proof_sound`: given only `leftover_sound
+  (collect_unmatched p)`, the whole derivation's top-level equation is
+  true.
+
+**Demonstrated with a mixed example** (`mixed_leaf`, §9): a `Trans` of
+two leaves sharing an intermediate expression `mid = select(const(c),i)`
+— the first, `select(store(f(x),i,mid),i) = mid`, is a genuine (if
+unusually shaped) instance of the already-matched select-store-same
+pattern; the second, `mid = c` (`Z3ArrayTheory.lemma_select_const`), is
+deliberately unmatched since `const` has no assigned semantics.
+`lemma_mixed_leftover_is_exactly_select_const` confirms
+`collect_unmatched` isolates *exactly* that one unmatched pair, and
+`lemma_mixed_proof_true` proves the composed equation true given only
+that single leftover fact as a hypothesis — the matched leaf requires
+no further trust.
+
+**Known limitation, flagged rather than solved**: two companion
+patterns are *not* among the six matchers and so always fall to the
+leftover list: `select(store(a,i,x),j) = select(a,j)` for `i <> j`
+(`Z3ArrayTheory.lemma_select_store_diff`) and
+`store(store(a,i,x),j,y) = store(store(a,j,y),i,x)` for `i <> j`
+(`Z3ArrayTheory.lemma_store_commute`).
 `Z3InterpretedProofChecker.uninterp_app`/`default_value` maps *every*
 uninterpreted 0-ary constant of a given sort to the *same* value
 regardless of name, so two syntactically distinct named Int constants
@@ -558,7 +624,7 @@ soundness argument -- `check_proof`'s own internal logic is untouched.
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
 | [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
-| [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Generalizes the array leaf above into a decidable pattern-matching compiler: recognizes `select(store(a,i,x),i) = x` for *arbitrary* nested `a`/`i`/`x` sub-expressions (not just named constants) and auto-discharges `all_leaves_sound` via a structural "type soundness" lemma plus `Z3ArrayTheory.lemma_select_store_same` |
+| [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Decidable pattern-matching compiler recognizing six rewrite-rule schemas across array/seq/bool/bv theories for *arbitrary* nested sub-expressions (not just named constants), auto-discharging `all_leaves_sound` via a structural "type soundness" lemma plus the matching theory lemma; also provides a "partial" mode (`collect_unmatched`/`lemma_partial_proof_true`) that reduces an unrecognized leaf's proof obligation to an explicit, minimal leftover-fact list instead of rejecting the whole proof |
 | [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |
 | [`tools/test_not_not.smt2`](tools/test_not_not.smt2), [`Z3ExtractedProof_FromFile.fst`](Z3ExtractedProof_FromFile.fst) | Same `not(not(x)) == x` example, but driven from an `.smt2` file path instead of a built-in Python formula |
