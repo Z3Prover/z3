@@ -10773,6 +10773,11 @@ def _to_float_str(val, exp=0):
         inx = val.find("*(2**")
         if inx == -1:
             res = val
+            if exp != 0:
+                inx = val.lower().find("p")
+                if inx != -1:
+                    res = val[:inx]
+                    exp = int(val[inx + 1:]) + int(exp)
         elif val[-1] == ")":
             res = val[0:inx]
             exp = str(int(val[inx + 5:-1]) + int(exp))
@@ -10884,6 +10889,12 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     1.25*(2**5)
     >>> FPVal("1.25*(2**4)", -4, Float32())
     1.25
+    >>> FPVal("1p2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1P2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1.5p-2", 2, Float32())
+    1.5
     >>> FPVal(1.5, 0, Float32())
     1.5
     >>> FPVal(1.5, fps=Float32())
