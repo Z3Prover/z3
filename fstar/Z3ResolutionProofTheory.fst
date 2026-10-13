@@ -340,6 +340,24 @@ let lemma_array_ext_sound (#idx:eqtype) (#v:Type) (a b:Z3ArrayTheory.arr idx v)
 (* ----------------------------------------------------------------- *)
 (* `rproof`: a proof-term data structure, mirroring                    *)
 (* `Z3ProofTheory.proof`/`fact`/`all_leaves_sound` one layer up.        *)
+(*                                                                      *)
+(* Round 2 (see RESOLUTION_CHECKER_SCOPE.md / RESOLUTION_CHECKER_REPORT.md): *)
+(* promotes `unit_resolve`/`and_elim`/`not_or_elim` from standalone      *)
+(* lemmas into first-class `rproof` constructors (`RUnitRes`,           *)
+(* `RNotOrElim`; `RAndElim` was already first-class since round 1), so   *)
+(* a single `rproof` term can represent an entire resolution            *)
+(* refutation end-to-end, not just the propositional glue around one    *)
+(* equational-rewrite island. Also adds `PR_HYPOTHESIS`/`PR_LEMMA`       *)
+(* (`Hyp`/`Lemma`) with explicit hypothesis-closure bookkeeping          *)
+(* (`hyps_closed`): every `Hyp a` leaf reachable in a proof must be a    *)
+(* member of the ambient hypothesis list `lemma_rproof_sound_hyps` is    *)
+(* given, *except* inside a `RLemma fact_ pf_false` node, which           *)
+(* discharges its own, locally-scoped hypothesis `(not fact_)` and is    *)
+(* unconditionally sound regardless of the ambient hypotheses -- this    *)
+(* closes exactly the gap `proof_checker.cpp` itself leaves as a         *)
+(* comment ("TBD all branches with hypotheses must be closed by a        *)
+(* later lemma"). The original no-open-hypotheses top-level theorem is   *)
+(* recovered as `lemma_rproof_sound := lemma_rproof_sound_hyps ... []`.   *)
 (* ----------------------------------------------------------------- *)
 
 noeq
@@ -366,6 +384,42 @@ type rproof =
      unconditional-trust pattern for `PR_DEF_AXIOM`/`PR_TH_LEMMA`/
      `PR_QUANT_INST`. *)
   | Trusted     : tag:string -> concl:expr -> rproof
+  (* `PR_UNIT_RESOLUTION`: `clause_pf` proves the disjunction `(or
+     disj)` (`or_f` carries the `"or"`-named declaration used to
+     rebuild it); `units` is the list of unit-resolvent facts, each
+     paired with the `rproof` that establishes it. The conclusion is
+     the residual clause after resolving every unit fact against
+     `disj` (`unit_resolve`, already proved sound above), re-wrapped
+     in `(or ...)` (our own convention for the 0-/1-element cases too,
+     since `or_sound` is defined uniformly for every arity -- see
+     `lemma_unit_resolution_sound`'s own docstring on what an empty
+     residual clause means). *)
+  | RUnitRes    : or_f:func_decl -> disj:clause -> clause_pf:rproof -> units:list (expr & rproof) -> rproof
+  (* `PR_NOT_OR_ELIM`: `premise` proves `(not (or disj))` (`disj`
+     recovered structurally from `premise`'s own fact, not stored as a
+     separate field -- same minimal style as `RIffFalse`); `t` is any
+     member of `disj`; conclusion is `(not t)`. *)
+  | RNotOrElim  : t:expr -> premise:rproof -> rproof
+  (* `PR_HYPOTHESIS`: assumes `a` outright, licensed only when `a` is a
+     member of the ambient hypothesis list threaded through
+     `lemma_rproof_sound_hyps` (`hyps_closed`). *)
+  | Hyp         : a:expr -> rproof
+  (* `PR_LEMMA`: `pf_false` must prove `False` (`= false_expr`) under
+     exactly the single local hypothesis `(not fact_)`
+     (`hyps_closed pf_false [mk_not_expr fact_]`, checked inside
+     `all_rtrusted_sound`, *not* against the ambient `hyps` the
+     `Lemma` node itself is embedded under -- it is a self-contained,
+     locally-closed sub-derivation); the conclusion is `fact_`,
+     unconditionally -- classical proof by contradiction. *)
+  | RLemma      : fact_:expr -> pf_false:rproof -> rproof
+
+(* `not`, as a canonical `func_decl` (only its `decl_name`/`interp`
+   matter to `not_sound`/`eval`, never object identity -- see
+   `Z3ProofTheory.is_not`, which is likewise purely name-driven). *)
+let not_decl : func_decl =
+  { decl_name = "not"; domain = [bool_sort]; range = bool_sort; interp = Some op_not; int_params = [] }
+let mk_not_expr (a:expr) : expr = App not_decl [a]
+
 let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
   match p with
   | REq s t p1 -> if fact p1 = Some (s, t) then Some (mk_eq_expr s t) else None
@@ -395,6 +449,36 @@ let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
         | None -> None)
      | None -> None)
   | Trusted tag concl -> Some concl
+  | RUnitRes or_f disj clause_pf units ->
+    (match rfact clause_pf with
+     | Some (App f args) ->
+       if f = or_f && f.decl_name = "or" && args = disj && rfacts_match units
+       then Some (App or_f (unit_resolve disj (lits_of units)))
+       else None
+     | _ -> None)
+  | RNotOrElim t premise ->
+    (match rfact premise with
+     | Some (App f [App orf args]) ->
+       if f.decl_name = "not" && orf.decl_name = "or" && List.Tot.mem t args
+       then Some (App f [t]) else None
+     | _ -> None)
+  | Hyp a -> Some a
+  | RLemma fact_ pf_false ->
+    if rfact pf_false = Some false_expr then Some fact_ else None
+
+(* `facts_of`-style companions for `RUnitRes`'s `units` list: whether
+   every `(lit, pf)` pair's `pf` actually establishes exactly `lit`
+   (`rfacts_match`), and the flattened list of resolvent literals
+   itself (`lits_of`, the argument `unit_resolve` is folded over). *)
+and rfacts_match (units:list (expr & rproof)) : Tot bool (decreases units) =
+  match units with
+  | [] -> true
+  | (lit, pf) :: rest -> (rfact pf = Some lit) && rfacts_match rest
+
+and lits_of (units:list (expr & rproof)) : Tot (list expr) (decreases units) =
+  match units with
+  | [] -> []
+  | (lit, _) :: rest -> lit :: lits_of rest
 
 let rec all_rtrusted_sound (i:interpretation value) (p:rproof) : Tot prop (decreases p) =
   match p with
@@ -405,49 +489,243 @@ let rec all_rtrusted_sound (i:interpretation value) (p:rproof) : Tot prop (decre
   | RIffTrue _ premise -> all_rtrusted_sound i premise
   | RIffFalse _ premise -> all_rtrusted_sound i premise
   | Trusted _ concl -> (forall (rho:env value). eval i concl rho == VBool true)
+  (* `wf_clause` is the semantic well-sortedness side condition
+     `lemma_unit_resolution_sound` needs on its initial clause -- see
+     that lemma's own precondition -- recorded here exactly like
+     `RCommute`'s commutativity obligation, as an explicit, caller-
+     discharged fact rather than something silently assumed. *)
+  | RUnitRes _ disj clause_pf units ->
+    all_rtrusted_sound i clause_pf /\ all_rtrusted_sound_units i units /\
+    (forall (rho:env value). wf_clause i rho disj)
+  | RNotOrElim t premise ->
+    all_rtrusted_sound i premise /\ (forall (rho:env value). VBool? (eval i t rho))
+  | Hyp _ -> True
+  | RLemma fact_ pf_false ->
+    all_rtrusted_sound i pf_false /\ hyps_closed pf_false [mk_not_expr fact_] /\
+    (forall (rho:env value). VBool? (eval i fact_ rho))
 
-(* The composed soundness theorem: a well-formed `rproof` (`Some? (rfact
-   p)`), all of whose leaves are sound (`all_rtrusted_sound`), under an
-   interpretation that interprets `not`/`and`/`implies`/`=` the
-   standard way and respects quantifier-extensionality, denotes a true
-   fact, for every environment. *)
-let rec lemma_rproof_sound (i:interpretation value) (p:rproof) (rho:env value)
-  : Lemma (requires Some? (rfact p) /\ all_rtrusted_sound i p /\
-                    not_sound i /\ and_sound i /\ implies_sound i /\
+and all_rtrusted_sound_units (i:interpretation value) (units:list (expr & rproof)) : Tot prop (decreases units) =
+  match units with
+  | [] -> True
+  | (_, pf) :: rest -> all_rtrusted_sound i pf /\ all_rtrusted_sound_units i rest
+
+(* `hyps_closed p hyps`: every `Hyp a` leaf reachable in `p` (other
+   than inside a `Lemma` node's own locally-closed sub-derivation,
+   which is self-contained and checked separately via
+   `all_rtrusted_sound`'s `Lemma` case) has its assumed fact `a` as a
+   member of the ambient `hyps` list -- i.e. no proof is accepted with
+   a dangling, un-discharged hypothesis. *)
+and hyps_closed (p:rproof) (hyps:list expr) : Tot prop (decreases p) =
+  match p with
+  | REq _ _ _ -> True
+  | RAndElim _ _ _ premise -> hyps_closed premise hyps
+  | RModusPonens _ _ _ pf_a pf_imp -> hyps_closed pf_a hyps /\ hyps_closed pf_imp hyps
+  | RCommute _ _ _ -> True
+  | RIffTrue _ premise -> hyps_closed premise hyps
+  | RIffFalse _ premise -> hyps_closed premise hyps
+  | Trusted _ _ -> True
+  | RUnitRes _ _ clause_pf units -> hyps_closed clause_pf hyps /\ hyps_closed_units units hyps
+  | RNotOrElim _ premise -> hyps_closed premise hyps
+  | Hyp a -> List.Tot.memP a hyps
+  | RLemma _ _ -> True
+
+and hyps_closed_units (units:list (expr & rproof)) (hyps:list expr) : Tot prop (decreases units) =
+  match units with
+  | [] -> True
+  | (_, pf) :: rest -> hyps_closed pf hyps /\ hyps_closed_units rest hyps
+
+(* Pure size metrics, purely to justify termination of the mutually
+   recursive soundness lemmas below -- same role as `Z3ProofTheory.
+   fst`'s `proof_size`/`proof_list_size`. *)
+let rec rproof_size (p:rproof) : nat =
+  match p with
+  | REq _ _ _ -> 1
+  | RAndElim _ _ _ premise -> 1 + rproof_size premise
+  | RModusPonens _ _ _ pf_a pf_imp -> 1 + rproof_size pf_a + rproof_size pf_imp
+  | RCommute _ _ _ -> 1
+  | RIffTrue _ premise -> 1 + rproof_size premise
+  | RIffFalse _ premise -> 1 + rproof_size premise
+  | Trusted _ _ -> 1
+  | RUnitRes _ _ clause_pf units -> 1 + rproof_size clause_pf + runits_size units
+  | RNotOrElim _ premise -> 1 + rproof_size premise
+  | Hyp _ -> 1
+  | RLemma _ pf_false -> 1 + rproof_size pf_false
+
+and runits_size (units:list (expr & rproof)) : nat =
+  match units with
+  | [] -> 0
+  | (_, pf) :: rest -> 1 + rproof_size pf + runits_size rest
+
+(* `PR_LEMMA`'s classical proof-by-contradiction step, factored out of
+   the main mutual-recursion group since it needs no further recursion
+   into `rproof` itself -- just the *already established* fact that
+   `pf_false` is sound under the single hypothesis `(not fact_)`
+   (`hyp_implies_false`, supplied by the caller, `lemma_rproof_sound_hyps`'s
+   own `Lemma` case, exactly where that fact is available). Classically
+   case-splits on whether `(not fact_)` actually holds at `rho`: if it
+   does, `hyp_implies_false` forces `false_expr` true, contradicting
+   `false_sound`; if it doesn't, `not_sound` plus the `VBool?`
+   well-sortedness side condition forces `fact_` itself true. *)
+let lemma_lemma_sound (i:interpretation value) (rho:env value) (fact_:expr)
+                       (hyp_implies_false:squash (conj_holds i rho [mk_not_expr fact_] ==> lit_true i rho false_expr))
+  : Lemma (requires false_sound i /\ not_sound i /\ VBool? (eval i fact_ rho))
+          (ensures lit_true i rho fact_)
+  = let goal () : prop = lit_true i rho fact_ in
+    FStar.Classical.excluded_middle (conj_holds i rho [mk_not_expr fact_]);
+    FStar.Classical.or_elim #(conj_holds i rho [mk_not_expr fact_])
+                            #(~(conj_holds i rho [mk_not_expr fact_])) #goal
+      (fun (_:squash (conj_holds i rho [mk_not_expr fact_])) ->
+         (* `false_expr` ends up true, contradicting `false_sound`. *)
+         match eval i false_expr rho with
+         | VBool b -> ()
+         | _ -> ())
+      (fun (_:squash (~(conj_holds i rho [mk_not_expr fact_]))) ->
+         (* `~(not fact_)`, so by `not_sound`, `eval i fact_ rho =!=
+            VBool false`; combined with `VBool?`, it must be `VBool
+            true`. *)
+         match eval i fact_ rho with
+         | VBool b -> ()
+         | _ -> ())
+
+(* `a`'s membership in `hyps` plus `hyps`'s conjunction holding
+   directly yields `a` itself -- the semantic content `Hyp` licenses. *)
+let rec lemma_conj_mem (i:interpretation value) (rho:env value) (hyps:list expr) (a:expr)
+  : Lemma (requires List.Tot.memP a hyps)
+          (ensures conj_holds i rho hyps ==> lit_true i rho a)
+          (decreases hyps)
+  = match hyps with
+    | [] -> ()
+    | h :: hyps' -> if h = a then () else lemma_conj_mem i rho hyps' a
+
+(* The composed soundness theorem, relative to an explicit ambient
+   hypothesis list `hyps` (every `Hyp` leaf not under a `Lemma` must be
+   licensed by membership in `hyps`, `hyps_closed`): a well-formed
+   `rproof` (`Some? (rfact p)`), all of whose non-hypothesis leaves are
+   sound (`all_rtrusted_sound`), under an interpretation that
+   interprets `not`/`and`/`or`/`implies`/`=` the standard way and
+   respects quantifier-extensionality, denotes a true fact *whenever
+   its ambient hypotheses do* -- for every environment. The original,
+   no-open-hypotheses theorem is `lemma_rproof_sound := 
+   lemma_rproof_sound_hyps ... []` below. *)
+let rec lemma_rproof_sound_hyps (i:interpretation value) (p:rproof) (rho:env value) (hyps:list expr)
+  : Lemma (requires Some? (rfact p) /\ all_rtrusted_sound i p /\ hyps_closed p hyps /\
+                    not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
                     eq_sound i /\ true_sound i /\ false_sound i /\
                     quant_extensional i)
-          (ensures lit_true i rho (Some?.v (rfact p)))
-          (decreases p)
+          (ensures conj_holds i rho hyps ==> lit_true i rho (Some?.v (rfact p)))
+          (decreases rproof_size p)
   = match p with
-    | REq s t p1 -> lemma_proof_sound i p1 rho
+    | REq s t p1 ->
+      lemma_proof_sound i p1 rho;
+      let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_eq_expr s t)) = () in
+      FStar.Classical.impl_intro aux
     | RAndElim and_f conj t premise ->
-      lemma_rproof_sound i premise rho;
+      lemma_rproof_sound_hyps i premise rho hyps;
       (match rfact premise with
        | Some (App f args) ->
          FStar.List.Tot.Properties.mem_memP t conj;
-         lemma_and_elim_sound i rho conj t
+         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho t) =
+           lemma_and_elim_sound i rho conj t
+         in FStar.Classical.impl_intro aux
        | _ -> ())
     | RModusPonens a b imp_f pf_a pf_imp ->
-      lemma_rproof_sound i pf_a rho;
-      lemma_rproof_sound i pf_imp rho;
+      lemma_rproof_sound_hyps i pf_a rho hyps;
+      lemma_rproof_sound_hyps i pf_imp rho hyps;
       (match rfact pf_a, rfact pf_imp with
        | Some a', Some (App f [a2; b2]) ->
-         lemma_mp_sound i rho a b
+         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho b) =
+           lemma_mp_sound i rho a b
+         in FStar.Classical.impl_intro aux
        | _, _ -> ())
-    | RCommute f s t -> ()
+    | RCommute f s t ->
+      let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_eq_expr (App f [s; t]) (App f [t; s]))) = () in
+      FStar.Classical.impl_intro aux
     | RIffTrue a premise ->
-      lemma_rproof_sound i premise rho;
+      lemma_rproof_sound_hyps i premise rho hyps;
       (match rfact premise with
-       | Some a' -> lemma_iff_true_sound i rho a
+       | Some a' ->
+         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_iff_expr a true_expr)) =
+           lemma_iff_true_sound i rho a
+         in FStar.Classical.impl_intro aux
        | None -> ())
     | RIffFalse a premise ->
-      lemma_rproof_sound i premise rho;
+      lemma_rproof_sound_hyps i premise rho hyps;
       (match rfact premise with
        | Some a' ->
          (match a' with
           | App f [a0] ->
-            if f.decl_name = "not" then lemma_iff_false_sound i rho a
+            if f.decl_name = "not" then
+              let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (mk_iff_expr a false_expr)) =
+                lemma_iff_false_sound i rho a
+              in FStar.Classical.impl_intro aux
             else ()
           | _ -> ())
        | None -> ())
-    | Trusted _ _ -> ()
+    | Trusted _ concl ->
+      let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho concl) = () in
+      FStar.Classical.impl_intro aux
+    | RUnitRes or_f disj clause_pf units ->
+      lemma_rproof_sound_hyps i clause_pf rho hyps;
+      (match rfact clause_pf with
+       | Some (App f args) ->
+         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (App or_f (unit_resolve disj (lits_of units)))) =
+           let fmls_aux (q:literal)
+             : Lemma (requires List.Tot.memP q (lits_of units)) (ensures lit_true i rho q)
+             = lemma_units_sound_hyps i rho hyps units q
+           in
+           FStar.Classical.forall_intro (FStar.Classical.move_requires fmls_aux);
+           lemma_unit_resolution_sound i rho disj (lits_of units)
+         in FStar.Classical.impl_intro aux
+       | _ -> ())
+    | RNotOrElim t premise ->
+      lemma_rproof_sound_hyps i premise rho hyps;
+      (match rfact premise with
+       | Some (App f [App orf args]) ->
+         FStar.List.Tot.Properties.mem_memP t args;
+         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (App f [t])) =
+           lemma_not_or_elim_sound i rho args t
+         in FStar.Classical.impl_intro aux
+       | _ -> ())
+    | Hyp a ->
+      let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho a) =
+        lemma_conj_mem i rho hyps a
+      in FStar.Classical.impl_intro aux
+    | RLemma fact_ pf_false ->
+      lemma_rproof_sound_hyps i pf_false rho [mk_not_expr fact_];
+      let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho fact_) =
+        lemma_lemma_sound i rho fact_ ()
+      in FStar.Classical.impl_intro aux
+
+(* `RUnitRes`'s per-literal lookup into `units`: if `q` is (the fact
+   of) some pair in `units`, and `units` is itself well-formed
+   (`rfacts_match`) and sound (`all_rtrusted_sound_units`,
+   `hyps_closed_units`), then `q` holds whenever the ambient `hyps`
+   do -- found by walking `units` and delegating to that pair's own
+   `rproof`'s soundness via `lemma_rproof_sound_hyps` once the matching
+   element is found. *)
+and lemma_units_sound_hyps (i:interpretation value) (rho:env value) (hyps:list expr)
+                            (units:list (expr & rproof)) (q:expr)
+  : Lemma (requires rfacts_match units /\ all_rtrusted_sound_units i units /\
+                    hyps_closed_units units hyps /\ List.Tot.memP q (lits_of units) /\
+                    not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
+                    eq_sound i /\ true_sound i /\ false_sound i /\
+                    quant_extensional i)
+          (ensures conj_holds i rho hyps ==> lit_true i rho q)
+          (decreases runits_size units)
+  = match units with
+    | [] -> ()
+    | (lit, pf) :: rest ->
+      if lit = q then lemma_rproof_sound_hyps i pf rho hyps
+      else lemma_units_sound_hyps i rho hyps rest q
+
+(* The original, no-open-hypotheses top-level theorem (round 1's
+   signature, preserved as a convenience corollary): a well-formed,
+   fully self-contained `rproof` (no `Hyp` leaves outside of
+   `Lemma`-closed sub-derivations) denotes a true fact, unconditionally. *)
+let lemma_rproof_sound (i:interpretation value) (p:rproof) (rho:env value)
+  : Lemma (requires Some? (rfact p) /\ all_rtrusted_sound i p /\ hyps_closed p [] /\
+                    not_sound i /\ and_sound i /\ or_sound i /\ implies_sound i /\
+                    eq_sound i /\ true_sound i /\ false_sound i /\
+                    quant_extensional i)
+          (ensures lit_true i rho (Some?.v (rfact p)))
+  = lemma_rproof_sound_hyps i p rho []

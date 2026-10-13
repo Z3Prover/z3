@@ -187,3 +187,78 @@ per the table above, then reports, per benchmark set, the fraction of
 total proof nodes and the fraction of *benchmark files* whose entire
 proof is within Tier 1 ∪ Tier 2 (i.e. nothing structurally unmodeled).
 See `RESOLUTION_CHECKER_REPORT.md` for results.
+
+## Round 2 candidates (status: done)
+
+Round 2 promotes the three standalone lemmas named in the "remain open"
+note above into first-class `rproof` constructors, and adds explicit
+hypothesis-discharge bookkeeping, closing the gap `proof_checker.cpp`
+itself flags ("all branches with hypotheses must be closed by a later
+lemma"):
+
+- `RUnitRes : or_f:func_decl -> disj:clause -> clause_pf:rproof ->
+  units:list (expr & rproof) -> rproof` — `PR_UNIT_RESOLUTION`.
+  `clause_pf` proves `(or disj)`; `units` pairs each unit-resolvent
+  literal with the sub-`rproof` establishing it; the conclusion is the
+  residual clause from `unit_resolve` (already proved sound in round
+  1), re-wrapped in `(or ...)`. Checked via a new 3-way mutual
+  recursion `rfact`/`rfacts_match`/`lits_of` (mirroring
+  `Z3ProofTheory.fst`'s `fact`/`facts_of`), and a matching
+  `all_rtrusted_sound_units`/`hyps_closed_units` pair.
+- `RNotOrElim : t:expr -> premise:rproof -> rproof` — `PR_NOT_OR_ELIM`.
+  `disj` is *not* stored as a field; it is recovered structurally by
+  pattern-matching `premise`'s own fact `(not (or disj))` — the same
+  "minimal field" style `RIffFalse` already used in round 1.
+- `Hyp : a:expr -> rproof` — `PR_HYPOTHESIS`. Licensed only when `a` is
+  a member of the ambient hypothesis list threaded through the new
+  `hyps_closed p hyps` side condition.
+- `RLemma : fact_:expr -> pf_false:rproof -> rproof` — `PR_LEMMA`.
+  Classical proof by contradiction: `pf_false` must prove `false_expr`
+  under *exactly* the single local hypothesis `(not fact_)`
+  (`hyps_closed pf_false [mk_not_expr fact_]`, checked as a side
+  condition in `all_rtrusted_sound`, not against the ambient ⁠`hyps`
+  the `RLemma` node is itself embedded under — it is a self-contained,
+  locally closed sub-derivation). Conclusion is `fact_`, unconditionally.
+
+The top-level theorem generalizes from `lemma_rproof_sound i p rho`
+(no open hypotheses) to `lemma_rproof_sound_hyps i p rho hyps`, with
+conclusion `conj_holds i rho hyps ==> lit_true i rho (Some?.v (rfact
+p))` — an implication rather than a bare fact, needed so `RLemma`'s
+hypothetical reasoning threads through. `lemma_rproof_sound` is kept
+as a convenience corollary: `lemma_rproof_sound_hyps i p rho []`
+(trivial, since `conj_holds i rho [] == True`).
+
+Lessons learned debugging this round:
+
+1. **Never name an `rproof` constructor `Lemma`.** F*'s `Lemma`
+   effect/type is a bare, unqualified top-level identifier; a
+   same-named data constructor shadows it completely, and every
+   subsequent `: Lemma (requires ...) (ensures ...)` signature in the
+   file fails to parse with confusing, unrelated-looking errors
+   ("Expected type `Z3AstTheory.expr` but ... has type `Prims.prop`",
+   "Expected type `rproof` but ... has type `Prims.prop`") rather than
+   a shadowing complaint. Renamed to `RLemma` (matching the existing
+   `R`-prefixed-constructor convention) and the errors vanished
+   immediately.
+2. **`Classical.impl_intro : (squash p -> Lemma q) -> Lemma (p ==> q)`**
+   is the right tool to thread the ambient `hyps` hypothesis through
+   every branch of `lemma_rproof_sound_hyps` uniformly: each branch
+   wraps its (otherwise unchanged, round-1-style) proof body in `let
+   aux (_:squash (conj_holds i rho hyps)) : Lemma (post) = <old body>
+   in Classical.impl_intro aux`, with no need to restructure any
+   individual branch's internal reasoning.
+3. The `RLemma` case's own soundness obligation is checked via a
+   standalone (non-mutually-recursive) helper, `lemma_lemma_sound`,
+   taking the *already-established* fact
+   `conj_holds i rho [mk_not_expr fact_] ==> lit_true i rho false_expr`
+   (obtained by the caller via a prior call to
+   `lemma_rproof_sound_hyps i pf_false rho [mk_not_expr fact_]`) as an
+   explicit `squash`-typed argument, then classically case-splits
+   (`Classical.excluded_middle`/`or_elim`, same idiom as round 1's
+   `lemma_clause_shrink`) on whether `(not fact_)` holds at `rho`.
+4. Compiled clean on the first attempt after the naming fix — no
+   further SMT-side tuning (triggers, fuel/ifuel) was needed beyond
+   what round 1 already established.
+
+Verified: `fstar.exe --query_stats Z3ResolutionProofTheory.fst` — 0
+errors, "All verification conditions discharged successfully".
