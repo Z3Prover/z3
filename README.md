@@ -34,9 +34,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 |-------------|---------------|----------------|---------------|----------------|
 | [![MSVC Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml) | [![MSVC Clang-CL Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml) | [![Build and Cache Z3](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml) | [![Memory Safety Analysis](https://github.com/Z3Prover/z3/actions/workflows/memory-safety.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety.yml) | [![Mark PRs Ready for Review](https://github.com/Z3Prover/z3/actions/workflows/mark-prs-ready-for-review.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/mark-prs-ready-for-review.yml) |
 
-| Clang-Tidy Warning Report | Code Coverage |
-|----------------------------|----------------|
-| [![Clang-Tidy Warning Report](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml) | [![Code Coverage](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml) |
+| Clang-Tidy Warning Report |
+|----------------------------|
+| [![Clang-Tidy Warning Report](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml) |
 
 ### Manual & Release Workflows
 | Documentation | Release Build | WASM Release |
