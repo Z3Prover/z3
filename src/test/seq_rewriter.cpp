@@ -134,6 +134,73 @@ static void tst_nested_sequence_assumptions() {
     }
 }
 
+static void tst_extract_length_products() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    arith_util a(m);
+    th_rewriter rw(m);
+    expr_ref one(a.mk_int(1), m);
+    app_ref count(m.mk_const("count", a.mk_int()), m);
+    for (bool is_string : {true, false}) {
+        sort_ref seq_sort(is_string ? su.str.mk_string_sort() : su.str.mk_seq(a.mk_int()), m);
+        app_ref s(m.mk_const("s", seq_sort), m);
+        app_ref t(m.mk_const("t", seq_sort), m);
+        expr_ref len(su.str.mk_length(s), m);
+        expr_ref empty(su.str.mk_empty(seq_sort), m);
+        for (unsigned power : {1u, 2u, 3u}) {
+            for (unsigned coefficient : {1u, 2u, 11u}) {
+                expr_ref offset(a.mk_int(coefficient), m);
+                for (unsigned i = 0; i < power; ++i)
+                    offset = a.mk_mul(offset, len);
+                expr* sizes[] = {one, count};
+                for (expr* size : sizes) {
+                    expr_ref extracted(su.str.mk_substr(s, offset, size), m);
+                    rw(extracted);
+                    ENSURE(extracted == empty);
+                }
+            }
+        }
+
+        expr_ref other_len(su.str.mk_length(t), m);
+        expr_ref square(a.mk_mul(len, len), m);
+        expr_ref shifted(a.mk_sub(square, one), m);
+        expr_ref_vector offsets(m);
+        offsets.push_back(a.mk_mul(len, other_len));
+        offsets.push_back(a.mk_mul(len, count));
+        offsets.push_back(a.mk_mul(a.mk_int(0), len));
+        offsets.push_back(shifted);
+        expr_ref value(is_string ? su.str.mk_string("a") : su.str.mk_unit(one), m);
+        for (expr* offset : offsets) {
+            expr_ref extracted(su.str.mk_substr(s, offset, one), m);
+            rw(extracted);
+            ENSURE(extracted != empty);
+            smt_params sp;
+            smt::context ctx(m, sp);
+            ctx.assert_expr(m.mk_eq(s, value));
+            ctx.assert_expr(m.mk_eq(t, empty));
+            ctx.assert_expr(m.mk_eq(count, a.mk_int(0)));
+            ctx.assert_expr(m.mk_eq(extracted, value));
+            ENSURE(ctx.check() == l_true);
+        }
+
+        if (is_string) {
+            expr_ref extracted(su.str.mk_substr(s, square, len), m);
+            expr_ref regex(su.re.mk_to_re(extracted), m);
+            regex = su.re.mk_plus(regex);
+            expr_ref digits(su.str.mk_itos(len), m);
+            expr_ref membership(su.re.mk_in_re(digits, regex), m);
+            for (unsigned seed : {0u, 1u, 10u}) {
+                smt_params sp;
+                sp.m_random_seed = seed;
+                smt::context ctx(m, sp);
+                ctx.assert_expr(membership);
+                ENSURE(ctx.check() == l_false);
+            }
+        }
+    }
+}
+
 static void tst_nested_extract_prefix_of_suffix() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -269,6 +336,7 @@ static void tst_length_coherence_guards() {
 }
 
 void tst_seq_rewriter() {
+    tst_extract_length_products();
     tst_eq_skolem_arity();
     tst_nested_extract_prefix_of_suffix();
     tst_length_coherence_guards();
