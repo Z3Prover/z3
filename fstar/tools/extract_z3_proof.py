@@ -62,6 +62,7 @@ same toolchain invocation used throughout `fstar/`) to actually run
 the Pulse checker on the generated file and reports the verdict.
 """
 import argparse
+import json as json_mod
 import os
 import subprocess
 import sys
@@ -298,8 +299,22 @@ class Converter:
         self.decl_cache = {}   # (name, arity) -> ident
         self.expr_cache = {}   # z3 ast id -> ident
         self.proof_cache = {}  # z3 ast id -> ident
+        # JSON-parallel node pools (see Z3ProofJson.fst's doc comment for the
+        # schema). Each list's *index* is exactly the integer every
+        # "<prefix>_N" F*-identifier above already encodes in its own name
+        # (`_idx` below just extracts that N), so no separate bookkeeping is
+        # needed to keep the two representations' node numbering in sync --
+        # they are emitted from the very same call sites, one node at a time.
+        self.sort_json = []
+        self.decl_json = []
+        self.expr_json = []
+        self.proof_json = []
         self.true_marker_emitted = False
         self.rewrite_log = []  # list of (s:ExprRef, t:ExprRef, matched_name:str|None)
+
+    @staticmethod
+    def _idx(ident: str) -> int:
+        return int(ident.rsplit("_", 1)[1])
 
     # ---- sorts -----------------------------------------------------
     # Z3InterpretedProofChecker.fst's six interpreted ops are tied to
@@ -337,10 +352,31 @@ class Converter:
             self.sort_lines.append(
                 "let %s : sort = ArraySort [%s] %s" % (ident, "; ".join(dom), rng)
             )
+            self.sort_json.append({"kind": "array", "dom": [self._idx(d) for d in dom], "rng": self._idx(rng)})
         else:
             ident = fstar_ident("srt_", len(self.sort_cache))
             self.sort_lines.append('let %s : sort = BaseSort "%s"' % (ident, name))
+            self.sort_json.append({"kind": "base", "name": name})
         self.sort_cache[name] = ident
+        return ident
+
+    def mk_array_sort(self, dom_idents, rng_ident):
+        """Register a *new* array sort directly from already-interned
+           domain/range idents, for the one case (a `lambda`'s own
+           `qsort`) that does not go through a `z3.SortRef` -- see
+           `expr()`'s `Quantifier`/`Lambda_k` case below. Never deduped
+           against `sort_cache` (two structurally-identical lambda
+           qsorts simply get two separate entries); this is a strict
+           behavioral no-op versus the prior code, which inlined a
+           fresh, equally undeduped literal every time instead."""
+        ident = fstar_ident("srt_", len(self.sort_cache))
+        self.sort_lines.append(
+            "let %s : sort = ArraySort [%s] %s" % (ident, "; ".join(dom_idents), rng_ident)
+        )
+        self.sort_json.append(
+            {"kind": "array", "dom": [self._idx(d) for d in dom_idents], "rng": self._idx(rng_ident)}
+        )
+        self.sort_cache[ident] = ident
         return ident
 
     # ---- func_decls ----------------------------------------------------
@@ -389,19 +425,37 @@ class Converter:
             'interp = %s; int_params = [] }'
             % (ident, d.name(), "; ".join(dom), rng, interp)
         )
+        self.decl_json.append({
+            "name": d.name(),
+            "domain": [self._idx(s) for s in dom],
+            "range": self._idx(rng),
+            "interp": tag,
+            "int_params": [],
+        })
         self.decl_cache[key] = ident
         return ident
 
     def true_marker(self) -> str:
         if not self.true_marker_emitted:
             bool_s = self.sort(z3.BoolSort())
+            # Assigned through the same numeric `fd_N` sequence/cache as
+            # every other declaration (keyed under a key no real z3
+            # FuncDeclRef can ever produce) purely so its JSON array
+            # position matches its ident's trailing number, exactly like
+            # every other declaration -- `_idx` below relies on that.
+            ident = fstar_ident("fd_", len(self.decl_cache))
             self.decl_lines.append(
-                'let fd_true_marker : func_decl = '
+                'let %s : func_decl = '
                 '{ decl_name = "true_marker"; domain = []; range = %s; '
-                'interp = None; int_params = [] }' % bool_s
+                'interp = None; int_params = [] }' % (ident, bool_s)
             )
+            self.decl_json.append({
+                "name": "true_marker", "domain": [], "range": self._idx(bool_s),
+                "interp": None, "int_params": [],
+            })
+            self.decl_cache[("__true_marker__", 0)] = ident
             self.true_marker_emitted = True
-        return "fd_true_marker"
+        return self.decl_cache[("__true_marker__", 0)]
 
     # ---- expressions -------------------------------------------------
     def expr(self, e: z3.ExprRef) -> str:
@@ -413,21 +467,29 @@ class Converter:
             body = self.expr(e.body())
             if e.is_lambda():
                 qk = "Lambda_k"
+                qk_json = "lambda"
                 body_sort = self.sort(e.body().sort())
-                qsort = "(ArraySort [%s] %s)" % ("; ".join(bound_sorts), body_sort)
+                qsort = self.mk_array_sort(bound_sorts, body_sort)
             else:
                 qk = "Forall_k" if e.is_forall() else "Exists_k"
-                qsort = '(BaseSort "Bool")'
+                qk_json = "forall" if e.is_forall() else "exists"
+                qsort = self.sort(z3.BoolSort())
             ident = fstar_ident("e_", len(self.expr_cache))
             self.expr_lines.append(
                 "let %s : expr = Quantifier %s [%s] %s %s"
                 % (ident, qk, "; ".join(bound_sorts), qsort, body)
             )
+            self.expr_json.append({
+                "kind": "quant", "qk": qk_json,
+                "bound_sorts": [self._idx(s) for s in bound_sorts],
+                "qsort": self._idx(qsort), "body": self._idx(body),
+            })
         elif z3.is_var(e):
             idx = z3.get_var_index(e)
             s = self.sort(e.sort())
             ident = fstar_ident("e_", len(self.expr_cache))
             self.expr_lines.append("let %s : expr = Var %d %s" % (ident, idx, s))
+            self.expr_json.append({"kind": "var", "idx": idx, "sort": self._idx(s)})
         else:
             args = [self.expr(e.arg(i)) for i in range(e.num_args())]
             d = self.func_decl(e.decl(), e.num_args())
@@ -435,6 +497,9 @@ class Converter:
             self.expr_lines.append(
                 "let %s : expr = App %s [%s]" % (ident, d, "; ".join(args))
             )
+            self.expr_json.append({
+                "kind": "app", "decl": self._idx(d), "args": [self._idx(a) for a in args],
+            })
         self.expr_cache[key] = ident
         return ident
 
@@ -460,9 +525,11 @@ class Converter:
             fd = self.true_marker()
             t_ident = fstar_ident("e_", len(self.expr_cache))
             self.expr_lines.append("let %s : expr = App %s []" % (t_ident, fd))
+            self.expr_json.append({"kind": "app", "decl": self._idx(fd), "args": []})
             t = t_ident
         ident = fstar_ident("p_", len(self.proof_cache))
         self.proof_lines.append("let %s : proof = Rewrite %s %s" % (ident, s, t))
+        self.proof_json.append({"kind": "rewrite", "s": self._idx(s), "t": self._idx(t)})
         return ident
 
     def proof(self, p: z3.ExprRef, depth=0, max_depth=200) -> str:
@@ -482,26 +549,35 @@ class Converter:
             e = self.expr(concl.arg(0))
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append("let %s : proof = Refl %s" % (ident, e))
+            self.proof_json.append({"kind": "refl", "e": self._idx(e)})
         elif kind == z3.Z3_OP_PR_SYMMETRY:
             p1 = self.proof(premises[0], depth + 1, max_depth)
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append("let %s : proof = Sym %s" % (ident, p1))
+            self.proof_json.append({"kind": "sym", "p": self._idx(p1)})
         elif kind in (z3.Z3_OP_PR_TRANSITIVITY, z3.Z3_OP_PR_TRANSITIVITY_STAR) and len(premises) == 2:
             p1 = self.proof(premises[0], depth + 1, max_depth)
             p2 = self.proof(premises[1], depth + 1, max_depth)
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append("let %s : proof = Trans %s %s" % (ident, p1, p2))
+            self.proof_json.append({"kind": "trans", "p1": self._idx(p1), "p2": self._idx(p2)})
         elif kind == z3.Z3_OP_PR_MONOTONICITY:
             lhs, rhs = concl.arg(0), concl.arg(1)
             f = self.func_decl(lhs.decl(), lhs.num_args())
-            args1 = "; ".join(self.expr(lhs.arg(i)) for i in range(lhs.num_args()))
-            args2 = "; ".join(self.expr(rhs.arg(i)) for i in range(rhs.num_args()))
+            args1 = [self.expr(lhs.arg(i)) for i in range(lhs.num_args())]
+            args2 = [self.expr(rhs.arg(i)) for i in range(rhs.num_args())]
             prfs = [self.proof(pr, depth + 1, max_depth) for pr in premises]
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append(
                 "let %s : proof = Congr %s [%s] [%s] [%s]"
-                % (ident, f, args1, args2, "; ".join(prfs))
+                % (ident, f, "; ".join(args1), "; ".join(args2), "; ".join(prfs))
             )
+            self.proof_json.append({
+                "kind": "congr", "decl": self._idx(f),
+                "args1": [self._idx(a) for a in args1],
+                "args2": [self._idx(a) for a in args2],
+                "prfs": [self._idx(pr) for pr in prfs],
+            })
         elif kind in (z3.Z3_OP_PR_REWRITE, z3.Z3_OP_PR_REWRITE_STAR):
             s_ast, t_ast = concl.arg(0), concl.arg(1)
             self.rewrite_log.append((s_ast, t_ast, classify_rewrite(s_ast, t_ast)))
@@ -509,6 +585,7 @@ class Converter:
             t = self.expr(t_ast)
             ident = fstar_ident("p_", len(self.proof_cache))
             self.proof_lines.append("let %s : proof = Rewrite %s %s" % (ident, s, t))
+            self.proof_json.append({"kind": "rewrite", "s": self._idx(s), "t": self._idx(t)})
         elif kind == z3.Z3_OP_PR_QUANT_INTRO:
             q1 = concl.arg(0)
             bound_sorts = [self.sort(q1.var_sort(i)) for i in range(q1.num_vars())]
@@ -519,6 +596,11 @@ class Converter:
                 "let %s : proof = QuantIntro %s [%s] %s"
                 % (ident, qk, "; ".join(bound_sorts), p1)
             )
+            self.proof_json.append({
+                "kind": "quant_intro", "qk": "forall" if q1.is_forall() else "exists",
+                "bound_sorts": [self._idx(s) for s in bound_sorts],
+                "p": self._idx(p1),
+            })
         else:
             ident = self.opaque_leaf(p)
         self.proof_cache[key] = ident
@@ -645,6 +727,97 @@ def generate(module_name, example_desc, conv: Converter, root_ident: str, unmatc
     return "\n".join(out)
 
 
+def build_proof_doc(conv: Converter, root_ident: str, unmatched_count: int) -> dict:
+    """Assemble the top-level JSON document (see `Z3ProofJson.fst`'s
+       module docstring for the exact schema) from a `Converter`'s
+       already-populated `*_json` node pools. `root` is just
+       `Converter._idx(root_ident)` -- the root proof node's position
+       in `proof_json`, exactly like every other cross-array index in
+       this schema."""
+    return {
+        "sorts": conv.sort_json,
+        "decls": conv.decl_json,
+        "exprs": conv.expr_json,
+        "proofs": conv.proof_json,
+        "root": conv._idx(root_ident),
+        "unmatched_count": unmatched_count,
+    }
+
+
+JSON_INSTANCE_HEADER = """(*
+   %(module_name)s.fst -- AUTO-GENERATED by tools/extract_z3_proof.py --json
+
+   Unlike the full-source `.fst` files this script can also generate
+   (see `generate()`/`FSTAR_HEADER` above), this file does NOT spell
+   the extracted proof out as F* syntax at all: it is just one JSON
+   *string* literal plus a couple of calls into the already-compiled
+   `Z3ProofJson`/`Z3PulseProofCheckerJson` checker library. The intent
+   is that library's dependency stack (`Z3AstTheory`/`Z3ValueTheory`/
+   `Z3ProofTheory`/`Z3InterpretedProofChecker`/
+   `Z3PatternMatchedProofChecker`/`Z3PulseProofChecker`/`Z3ProofJson`/
+   `Z3PulseProofCheckerJson`) is compiled exactly once and its
+   `.checked` files never need to change from one proof to the next;
+   each new proof only costs F* one string-constant elaboration plus
+   one function call, not a fresh multi-hundred-`let`-binding term
+   tree. Regenerate by rerunning the script; do not hand-edit.
+
+   Example: %(example_desc)s
+*)
+module %(module_name)s
+#lang-pulse
+open Pulse.Lib.Pervasives
+open Z3ProofJson
+open Z3PulseProofCheckerJson
+
+"""
+
+
+def fstar_string_literal(s: str) -> str:
+    """Escape a Python string for embedding as an F* string literal.
+       F* string syntax only needs `\\\\` and `\\"` escaped (the JSON
+       payload itself already carries its *own* `\\"`/`\\\\` escapes for
+       its nested string fields -- this is the outer, second layer of
+       escaping needed because the whole JSON document is itself being
+       embedded as one F* string)."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def generate_json_instance(module_name: str, example_desc: str, doc: dict) -> str:
+    payload = json_mod.dumps(doc, separators=(",", ":"))
+    out = [JSON_INSTANCE_HEADER % {"module_name": module_name, "example_desc": example_desc}]
+    out.append('let proof_json : string = "%s"' % fstar_string_literal(payload))
+    out.append("")
+    out.append(
+        "(* `lemma_proof_json_sound`/`lemma_proof_json_partial_sound`\n"
+        "   (Z3PulseProofCheckerJson.fst) are the pure corollaries that make\n"
+        "   this assertion meaningful: if it type-checks, the JSON above both\n"
+        "   parses to a well-formed proof *and* every one of its `Rewrite`\n"
+        "   leaves matched a verified lemma in `Z3PatternMatchedProofChecker\n"
+        "   .fst` (the strict, `all_matched` reading -- use\n"
+        "   `check_proof_json_wf`/`lemma_proof_json_partial_sound` instead for\n"
+        "   proofs with leftover unmatched leaves, in the \"partial\" checker\n"
+        "   mode used elsewhere in this project). *)"
+    )
+    out.append("#push-options \"--z3rlimit 60 --fuel 4 --ifuel 4\"")
+    out.append(
+        "let lemma_proof_json_wellformed ()\n"
+        "  : Lemma (check_proof_json_wf proof_json)\n"
+        "  = assert_norm (check_proof_json_wf proof_json)"
+    )
+    out.append("")
+    out.append("fn check_extracted ()")
+    out.append("  requires emp")
+    out.append("  ensures emp")
+    out.append("{")
+    out.append("  lemma_proof_json_wellformed ();")
+    out.append("  let ok = check_proof_json proof_json;")
+    out.append("  assert (pure (ok == true));")
+    out.append("}")
+    out.append("#pop-options")
+    out.append("")
+    return "\n".join(out)
+
+
 def build_example():
     """`not(not(x)) == x`, refuted by negating it (`Xor`), with proof
        production enabled -- see module docstring for why Z3's real
@@ -692,6 +865,15 @@ def main():
                      help="shell out to fstar.exe and run the Pulse checker on the result")
     ap.add_argument("--fstar", default=r"C:\fstar\fstar\bin\fstar.exe")
     ap.add_argument("--z3-smt", default=r"C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe")
+    ap.add_argument("--json", action="store_true",
+                     help="also emit a JSON proof document + a tiny JSON-instance "
+                          ".fst file (see Z3ProofJson.fst/Z3PulseProofCheckerJson.fst) "
+                          "instead of (in addition to) the full per-proof .fst source")
+    ap.add_argument("--json-out", default=None,
+                     help="path for the JSON proof document (default: <out>.json)")
+    ap.add_argument("--json-fst-out", default=None,
+                     help="path for the JSON-instance .fst file (default: <out without "
+                          ".fst>Json.fst)")
     args = ap.parse_args()
 
     if args.smt2_file is not None:
@@ -716,7 +898,7 @@ def main():
           % (len(conv.rewrite_log), len(matched), len(unmatched)))
 
     log_path = args.log or (args.out + ".unmatched.log")
-    with open(log_path, "w") as f:
+    with open(log_path, "w", encoding="utf-8") as f:
         f.write("Rewrite-rule matching log for %s\n" % desc)
         f.write("Total Rewrite leaves examined: %d\n" % len(conv.rewrite_log))
         f.write("Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): %d\n"
@@ -742,22 +924,43 @@ def main():
 
     module_name = os.path.splitext(os.path.basename(args.out))[0]
     text = generate(module_name, desc, conv, root_ident, len(unmatched))
-    with open(args.out, "w") as f:
+    with open(args.out, "w", encoding="utf-8") as f:
         f.write(text)
     print("Wrote", args.out, "(%d proof node(s), %d expr node(s))"
           % (len(conv.proof_lines), len(conv.expr_lines)))
 
+    check_targets = [args.out]
+    if args.json:
+        doc = build_proof_doc(conv, root_ident, len(unmatched))
+        json_out = args.json_out or (args.out + ".json")
+        with open(json_out, "w", encoding="utf-8") as f:
+            json_mod.dump(doc, f, separators=(",", ":"))
+        print("Wrote", json_out, "(%d sort(s), %d decl(s), %d expr(s), %d proof(s))"
+              % (len(doc["sorts"]), len(doc["decls"]), len(doc["exprs"]), len(doc["proofs"])))
+
+        json_fst_out = args.json_fst_out or (
+            os.path.splitext(args.out)[0] + "Json.fst"
+        )
+        json_module_name = os.path.splitext(os.path.basename(json_fst_out))[0]
+        json_text = generate_json_instance(json_module_name, desc, doc)
+        with open(json_fst_out, "w", encoding="utf-8") as f:
+            f.write(json_text)
+        print("Wrote", json_fst_out, "(JSON-instance file, %d bytes of embedded JSON)"
+              % len(json_mod.dumps(doc, separators=(",", ":"))))
+        check_targets.append(json_fst_out)
+
     if args.check:
-        print("Invoking the Pulse-verified checker via fstar.exe ...")
-        cmd = [args.fstar, "--smt", args.z3_smt, args.out]
-        res = subprocess.run(cmd, cwd=".", capture_output=True, text=True)
-        print(res.stdout[-4000:])
-        print(res.stderr[-2000:])
-        if res.returncode == 0 and "All verification conditions discharged successfully" in res.stdout:
-            print("PASS: the Pulse proof checker accepted the extracted Z3 proof.")
-        else:
-            print("FAIL: fstar.exe did not fully verify the generated file.", file=sys.stderr)
-            sys.exit(1)
+        for target in check_targets:
+            print("Invoking the Pulse-verified checker via fstar.exe on", target, "...")
+            cmd = [args.fstar, "--smt", args.z3_smt, target]
+            res = subprocess.run(cmd, cwd=".", capture_output=True, text=True)
+            print(res.stdout[-4000:])
+            print(res.stderr[-2000:])
+            if res.returncode == 0 and "All verification conditions discharged successfully" in res.stdout:
+                print("PASS: the Pulse proof checker accepted the extracted Z3 proof (%s)." % target)
+            else:
+                print("FAIL: fstar.exe did not fully verify %s." % target, file=sys.stderr)
+                sys.exit(1)
 
 
 if __name__ == "__main__":
