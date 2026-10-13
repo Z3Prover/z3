@@ -180,10 +180,46 @@ static void test_to_fp_real_zero_sign() {
     Z3_del_context(ctx);
 }
 
+static void test_to_fp_real_int_symbolic_rtn() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* equivalence_spec =
+        "(set-logic ALL)\n"
+        "(declare-const m RoundingMode)\n"
+        "(assert (not (= ((_ to_fp 5 11) m (- 0.1))\n"
+        "                ((_ to_fp 5 11) m (- 0.1) 0))))\n"
+        "(check-sat)\n";
+
+    std::string response = Z3_eval_smtlib2_string(ctx, equivalence_spec);
+    if (response.find("unsat") == std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") != std::string::npos);
+
+    char const* rtn_spec =
+        "(reset)\n"
+        "(set-logic ALL)\n"
+        "(declare-const m RoundingMode)\n"
+        "(assert (distinct m RNE RNA RTP RTZ))\n"
+        "(assert (= ((_ to_fp 5 11) m (- 0.1) 0)\n"
+        "           (fp #b1 #b01011 #b1001100111)))\n"
+        "(check-sat)\n";
+
+    response = Z3_eval_smtlib2_string(ctx, rtn_spec);
+    if (response.find("sat") == std::string::npos || response.find("unsat") != std::string::npos)
+        std::cout << response << "\n";
+    ENSURE(response.find("unsat") == std::string::npos);
+    ENSURE(response.find("sat") != std::string::npos);
+
+    Z3_del_context(ctx);
+}
+
 void tst_fpa() {
     test_rem_subnormal_divisor();
     test_is_inf_large_significand();
     test_significand_out_of_range();
     test_to_fp_real_zero_sign();
     test_inexact_symbolic_to_fp_real();
+    test_to_fp_real_int_symbolic_rtn();
 }
