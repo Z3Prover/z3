@@ -957,7 +957,20 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         return BR_REWRITE_FULL;
     }
 
-    if (m_util.is_const(lhs1) && m_util.is_const(rhs1)) {
+    // Stores indexed by model values are evaluated in a fixed finite universe;
+    // expanding them into lambdas would only produce quantifiers.
+    auto has_value_indices = [&](expr* e) {
+        for (; m_util.is_store(e); e = to_app(e)->get_arg(0)) {
+            app* st = to_app(e);
+            for (unsigned i = 1; i + 1 < st->get_num_args(); ++i)
+                if (!m().is_value(st->get_arg(i)))
+                    return false;
+        }
+        return true;
+    };
+
+    if (m_util.is_const(lhs1) && m_util.is_const(rhs1) &&
+        !(has_value_indices(lhs) && has_value_indices(rhs))) {
         for (unsigned i = 0; i < get_array_arity(lhs->get_sort()); ++i) {
             if (m().is_uninterp(get_array_domain(lhs->get_sort(), i))) {
                 // The stores may cover the entire uninterpreted domain.

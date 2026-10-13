@@ -477,6 +477,25 @@ void tst_smt_context()
         "  (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
         "     ((as const (Array S (_ BitVec 8))) #x01))))\n", l_true);
 
+    // Regression (issue #11156): MBQI must not give up on array model values over uninterpreted sorts.
+    check_array_domain(
+        "(declare-datatypes ((x5 0)) (((x3) (x4))))\n"
+        "(declare-sort x31)\n"
+        "(declare-datatypes ((x36 0)) (((x35))))\n"
+        "(declare-sort x6)\n"
+        "(declare-datatypes ((x29 0)) (((x28 (x23 x5)))))\n"
+        "(declare-sort x30)\n"
+        "(declare-datatypes ((x45 0)) (((x44 (x38 x5) (x39 x6) (x40 x6) (x41 x6) (x42 x36) (x43 x31)))))\n"
+        "(declare-fun x63 () x30)\n"
+        "(declare-fun x70 () (Array x30 x45))\n"
+        "(declare-fun x68 () (Array x30 x45))\n"
+        "(declare-fun z3name!0 (x30) x29)\n"
+        "(declare-fun l51 () Bool)\n"
+        "(assert (= l51 (forall ((x73 x30)) (or (= x3 (x23 (z3name!0 x73))) (= x3 (x38 (select x70 x73)))))))\n"
+        "(assert (not (= x70 (store x70 x63 (x44 x4 (x39 (select x70 x63)) (x40 (select x70 x63)) (x41 (select x70 x63)) (x42 (select x70 x63)) (x43 (select x70 x63)))))))\n"
+        "(assert (not (= x70 x68)))\n"
+        "(assert l51)\n", l_true);
+
     // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
     // internalized in a gate context by the ite-term axioms, and must still be merged
     // with true/false when it occurs as an argument of an uninterpreted function.
