@@ -280,6 +280,72 @@ instances while reducing or postponing them when:
 - the previous calls did not refute or commit a witness;
 - string/integer terms still determine the required lengths.
 
+## Three-way QF_SLIA and regex follow-up
+
+The comparable 10-second QF_SLIA runs are:
+
+| Branch | Report | SAT | UNSAT | Timeout | Unknown | Errors |
+|---|---|---:|---:|---:|---:|---:|
+| `c3mv` | `run-1155` | 15,037 | 31,675 | 28,606 | 3,280 | 5,813 |
+| `z3-tacas` | `run-1156` | 26,485 | 31,786 | 13,226 | 12,786 | 128 |
+| `master` with `seq` | `run-1157` | 44,842 | 32,312 | 7,076 | 181 | 0 |
+
+All three use `-T:10` and model validation. The main QF_SLIA deficit is SAT
+coverage, not throughput on cases solved by both:
+
+- versus `z3-tacas`, `c3mv` is about 5.4% faster geometrically on 43,697
+  jointly solved instances, but loses 6,203 `z3-tacas` SAT results to timeout;
+- versus `master`, `c3mv` is about 13.0% faster geometrically on 45,752
+  jointly solved instances, but loses 22,392 master SAT results to timeout;
+- Reynolds PyEx and Kaluza remain the dominant QF_SLIA coverage gaps.
+
+The directly comparable regex runs are `run-1151` (`c3mv`) and `run-1152`
+(`z3-tacas`), both over 2,711 inputs with a 10-second timeout:
+
+| Branch | SAT | UNSAT | Timeout | Unknown |
+|---|---:|---:|---:|---:|
+| `c3mv` | 1,196 | 431 | 1,080 | 4 |
+| `z3-tacas` | 1,195 | 1,165 | 351 | 0 |
+
+Of these, 731 cases are `z3-tacas` UNSAT but `c3mv` timeout. They are
+concentrated in ClemensRegex generated split-membership formulas. The master
+regex report `run-1125` covers only 1,986 inputs, so only its 1,521 matched
+rows should be compared; among those, 144 master UNSAT results become c3mv
+timeouts.
+
+### Implemented regex improvement
+
+The generated split-membership formulas add definitional equations such as:
+
+```text
+x1 = sp1_a ++ sp1_b
+x0 = sp2_a ++ sp2_b
+```
+
+The memberships alone can often be refuted quickly. Previously,
+`eq_propagation` substituted these definitions before `mem_leaf_split` ran,
+expanding two membership variables into four fresh variables and causing an
+exponential monadic search.
+
+`theory_nseq` now performs the existing dependency-tracked, refutation-only
+monadic root check before equation propagation. When the check can consume
+the root memberships, it replaces the first in-search root ask rather than
+duplicating it. It is gated by the existing `seq.monadic_leaf` and
+`seq.monadic_leaf_root` parameters.
+
+On `split_membership_tiny_unsat_0003.smt2`:
+
+| Configuration | Result | Median time | DFS nodes |
+|---|---|---:|---:|
+| root check disabled | UNSAT | about 4.5s | 50,796 |
+| pre-propagation root check | UNSAT | about 0.05s | 0 |
+
+On a sample of 12 cases that were `z3-tacas` UNSAT and old-c3mv timeout, the
+new check solved 8 within 0.04-0.27 seconds under a 3-second limit. The four
+remaining timeouts are length-heavy formulas whose refutations require
+arithmetic integration rather than membership-only reasoning. A
+representative generated SAT case remained at about 0.04 seconds.
+
 ## Recommended A/B experiments
 
 Use identical options for all runs:

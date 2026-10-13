@@ -127,6 +127,31 @@ namespace {
         }, 16) == stx::search_result::sat);
     }
 
+    static void tst_root_refute_before_equation_substitution() {
+        fixture f;
+        sort* s = f.u.str.mk_string_sort();
+        expr_ref X(f.m.mk_fresh_const("X", s), f.m);
+        expr_ref Y(f.m.mk_fresh_const("Y", s), f.m);
+        expr_ref A(f.m.mk_fresh_const("A", s), f.m);
+        expr_ref B(f.m.mk_fresh_const("B", s), f.m);
+        expr_ref term(f.u.str.mk_concat(X, Y), f.m);
+        expr_ref a(f.u.str.mk_string(zstring("a")), f.m);
+        expr_ref b(f.u.str.mk_string(zstring("b")), f.m);
+        expr_ref re_a(f.u.re.mk_to_re(a), f.m);
+        expr_ref re_b(f.u.re.mk_to_re(b), f.m);
+        auto& ef = f.root->facet_as<seq::eq_facet>(f.eq_id);
+        auto& mf = f.root->facet_as<seq::mem_facet>(f.mem_id);
+        ef.add_equation(X, f.u.str.mk_concat(A, B));
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re_a, f.m)));
+        mf.add(seq::str_mem(f.m, term, seq::view::membership(re_b, f.m)));
+
+        seq::mem_leaf_split precheck(f.m, f.u, f.rw, f.ac);
+        seq::eq_tree::dep_tracker dep = nullptr;
+        bool checked = false;
+        ENSURE(precheck.root_refute(mf, dep, checked) == l_false);
+        ENSURE(checked);
+    }
+
     static void tst_symbolic_unit_derivative_not_rejected() {
         fixture f;
         sort* s = f.u.str.mk_string_sort();
@@ -255,6 +280,7 @@ void tst_seq_mem_facet() {
     tst_dead_unsat();
     tst_single_var_sat();
     tst_two_var_monadic_sat();
+    tst_root_refute_before_equation_substitution();
     tst_symbolic_unit_derivative_not_rejected();
     tst_power_peel_mem_split();
     std::cout << "seq_mem_facet: all tests passed\n";

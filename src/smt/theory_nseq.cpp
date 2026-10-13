@@ -769,8 +769,18 @@ namespace smt {
         flush_assigned_literals();
         // Instantiate any newly enabled stoi coherence axioms first.
         bool stoi_progress = !check_stoi_coherence();
+        bool root_asked = false;
+        if (m_mem_leaf &&
+            m_ambient->fparams().m_seq_monadic_leaf &&
+            m_ambient->fparams().m_seq_monadic_leaf_root) {
+            seq::eq_tree::dep_tracker dep = nullptr;
+            if (m_mem_leaf->root_refute(m_ambient->mem_facet(*m_root), dep, root_asked) == l_false) {
+                report_conflict(dep);
+                return FC_CONTINUE;
+            }
+        }
         if (m_mem_leaf)
-            m_mem_leaf->reset_root_ask();
+            m_mem_leaf->reset_root_ask(root_asked);
         // Skip depth bounds that cannot cover the freshly flushed work.
         m_tree.set_min_search_depth(m_lits_qhead);
         stx::search_result res;

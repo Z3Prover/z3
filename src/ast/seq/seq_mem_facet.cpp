@@ -969,6 +969,22 @@ namespace seq {
         return true;
     }
 
+    lbool mem_leaf_split::root_refute(mem_facet const& mf, eq_tree::dep_tracker& dep, bool& checked) {
+        unsigned asked = m_stats.m_num_asked;
+        unsigned cache_hits = m_stats.m_num_cache_hits;
+        lbool r = ask(mf, m_budget_root, dep, nullptr);
+        checked = asked != m_stats.m_num_asked || cache_hits != m_stats.m_num_cache_hits;
+        if (checked)
+            m_stats.m_num_root_asked++;
+        if (r == l_false) {
+            SASSERT(checked);
+            m_stats.m_num_root_refuted++;
+            m_stats.m_num_refuted++;
+            return l_false;
+        }
+        return l_undef;
+    }
+
     scoped_ptr<eq_tree::split_iterator_i> mem_leaf_split::split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) {
         has_more = false;
         committed = false;

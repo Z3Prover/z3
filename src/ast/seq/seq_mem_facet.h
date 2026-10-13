@@ -539,6 +539,8 @@ namespace seq {
             unsigned m_num_refuted = 0;
             unsigned m_num_committed = 0;
             unsigned m_num_cache_hits = 0;
+            unsigned m_num_root_asked = 0;
+            unsigned m_num_root_refuted = 0;
             void reset() { *this = stats(); }
         };
         stats m_stats;
@@ -608,15 +610,22 @@ namespace seq {
         char const* name() const override { return "mem-leaf"; }
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
 
-        // Called before each outer search to re-enable the root-only
-        // refutation ask, even while equations are pending.
-        void reset_root_ask() { m_pending_visits = 0; }
+        // Refutation-only check on the original root memberships. This is
+        // called before equation propagation can expand variables into
+        // concatenations and make the same monadic check much more costly.
+        lbool root_refute(mem_facet const& mf, eq_tree::dep_tracker& dep, bool& checked);
+
+        // Called before each outer search. If `already_asked` is true, the
+        // pre-propagation root check replaces the first in-search ask.
+        void reset_root_ask(bool already_asked = false) { m_pending_visits = already_asked ? 1 : 0; }
 
         void collect_statistics(::statistics& st) const override {
             st.update("seq-mem-leaf num asked", m_stats.m_num_asked);
             st.update("seq-mem-leaf num refuted", m_stats.m_num_refuted);
             st.update("seq-mem-leaf num committed", m_stats.m_num_committed);
             st.update("seq-mem-leaf num cache hits", m_stats.m_num_cache_hits);
+            st.update("seq-mem-leaf num root asked", m_stats.m_num_root_asked);
+            st.update("seq-mem-leaf num root refuted", m_stats.m_num_root_refuted);
         }
         void reset_statistics() override { m_stats.reset(); }
     };
