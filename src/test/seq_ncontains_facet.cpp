@@ -22,6 +22,8 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_ncontains_facet.h"
+#include "ast/seq/seq_skolem.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "smt/seq_solver_facet.h"
 #include <iostream>
 
@@ -130,6 +132,23 @@ namespace {
         ENSURE(fx.tree.solve() == stx::search_result::unsat);
     }
 
+    // An indexof-style guarded equation can contain self-referential
+    // skolems, so equation propagation cannot substitute X. The exposed
+    // literal still directly contradicts not-contains(X, "=").
+    static void tst_ncontains_conflicts_with_cyclic_equation() {
+        fixture fx;
+        th_rewriter rw(fx.m);
+        seq::skolem sk(fx.m, rw);
+        expr_ref X(fx.m.mk_fresh_const("X", fx.s), fx.m);
+        expr_ref eq(fx.u.str.mk_string(zstring("=")), fx.m);
+        expr_ref lhs(sk.mk_indexof_left(X, eq), fx.m);
+        expr_ref rhs(sk.mk_indexof_right(X, eq), fx.m);
+        expr_ref decomposition(fx.u.str.mk_concat(lhs, eq, rhs), fx.m);
+        fx.root->facet_as<seq::eq_facet>(fx.eq_id).add_equation(X, decomposition);
+        fx.root->facet_as<seq::ncontains_facet>(fx.nc_id).add_ncontains(X, eq);
+        ENSURE(fx.tree.solve() == stx::search_result::unsat);
+    }
+
 } // namespace
 
 void tst_seq_ncontains_facet() {
@@ -139,5 +158,6 @@ void tst_seq_ncontains_facet() {
     tst_ncontains_ground_occurrence_unsat();
     tst_ncontains_resolved_by_substitution_unsat();
     tst_ncontains_match_not_at_first_position_unsat();
+    tst_ncontains_conflicts_with_cyclic_equation();
     std::cout << "seq_ncontains_facet: all tests passed\n";
 }

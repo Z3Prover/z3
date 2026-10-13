@@ -137,9 +137,28 @@ namespace seq {
         return undef ? l_undef : l_true;
     }
 
+    static bool contains_tokens(expr_ref_vector const& haystack, expr_ref_vector const& needle) {
+        if (needle.empty())
+            return true;
+        if (haystack.size() < needle.size())
+            return false;
+        for (unsigned i = 0; i + needle.size() <= haystack.size(); ++i) {
+            bool match = true;
+            for (unsigned j = 0; j < needle.size(); ++j)
+                if (haystack.get(i + j) != needle.get(j)) {
+                    match = false;
+                    break;
+                }
+            if (match)
+                return true;
+        }
+        return false;
+    }
+
     stx::simplify_result ncontains_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         auto& f = ac.ncontains_facet_ref();
+        auto& ef = ac.eq_facet_ref();
         auto& sf = ac.solver_facet_ref();
         m_stats.m_num_propagate++;
 
@@ -159,6 +178,23 @@ namespace seq {
             if (nc.m_needle.empty()) {
                 n.set_conflict(stx::br_plugin_base, nc.m_dep);
                 return stx::simplify_result::conflict;
+            }
+
+            // If an active equation exposes the forbidden needle as a
+            // syntactic infix of this exact haystack, the negative
+            // containment is already inconsistent. This also handles
+            // guarded indexof decompositions whose self-referential
+            // skolems prevent ordinary variable substitution.
+            for (auto const& eq : ef.equations()) {
+                if (!eq.active())
+                    continue;
+                bool conflict =
+                    (eq.m_lhs == nc.m_haystack && contains_tokens(eq.m_rhs, nc.m_needle)) ||
+                    (eq.m_rhs == nc.m_haystack && contains_tokens(eq.m_lhs, nc.m_needle));
+                if (conflict) {
+                    n.set_conflict(stx::br_plugin_base, f.dm().mk_join(nc.m_dep, eq.m_dep));
+                    return stx::simplify_result::conflict;
+                }
             }
 
             // Try every token-aligned starting position of the needle in the

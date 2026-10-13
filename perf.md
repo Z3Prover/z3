@@ -1,6 +1,322 @@
 # QF_SLIA Performance: `c3mv` versus `master`
 
-Benchmark comparison:
+## Latest directly comparable update: run 1174 versus run 1173
+
+The newest directly comparable QF_SLIA reports are:
+
+| Branch | Report | Commit | Date | Options |
+|---|---|---|---|---|
+| `c3mv` | `run-1174-qf-slia-c3mv-stats.md` | `34125a907` | 2026-10-13 21:51 UTC | `-T:5 model_validate=true` |
+| `master` | `run-1173-qf-slia-master-stats.md` | `570f56aaa` | 2026-10-13 19:39 UTC | `-T:5 model_validate=true` |
+
+Both reports cover the same 84,411 inputs. Unlike the earlier comparison
+below, timeout and model-validation settings are identical.
+
+| Result | `master` | `c3mv` | Difference |
+|---|---:|---:|---:|
+| SAT | 44,013 | 23,413 | -20,600 |
+| UNSAT | 32,263 | 31,922 | -341 |
+| Timeout | 7,955 | 23,925 | +15,970 |
+| Unknown | 180 | 4,854 | +4,674 |
+| Error | 0 | 297 | +297 |
+| Solved | 76,276 | 55,335 | -20,941 |
+
+The dominant transitions are:
+
+| `master` to `c3mv` | Count |
+|---|---:|
+| SAT to timeout | 17,027 |
+| SAT to unknown | 4,289 |
+| UNSAT to timeout | 500 |
+| UNSAT to unknown | 316 |
+| SAT to invalid model | 248 |
+| Timeout to SAT | 923 |
+| Timeout to UNSAT | 475 |
+
+On the 53,896 instances solved by both, `c3mv` is now 6.85% slower by
+geometric mean, with a median ratio of 1.057. Total time rises from 21,606
+seconds to 23,141 seconds. Memory is effectively unchanged: the geometric
+mean ratio is 0.984 and the median ratio is 1.005.
+
+### Latest bottleneck ranking
+
+#### 1. PyEx `httplib2`: exponential equation/disequality search
+
+Reynolds PyEx remains by far the largest coverage loss:
+
+| Family | `master` solved | `c3mv` solved | Net |
+|---|---:|---:|---:|
+| `zz/httplib2` | 9,649 | 1,406 | -8,243 |
+| `z3/httplib2` | 5,178 | 670 | -4,508 |
+| `td/httplib2` | 4,194 | 793 | -3,401 |
+| all PyEx | 20,821 | 3,892 | -16,929 |
+
+These are mostly easy SAT instances for `master`: 17,027 master-SAT inputs
+time out in `c3mv`. A representative `httplib2-entry-disposition` instance
+reaches the five-second limit with:
+
+```text
+4,106 DFS nodes
+870 Nielsen splits
+192 disequality splits
+2,819 equation-propagation progress steps
+maximum search depth 97
+445 constraints retained in the search store
+```
+
+The formula repeatedly applies `contains`, `substr`, and `str.at` to the same
+prefix of one string. The current encoding turns these correlated tests into
+many independent equation and disequality choices. The first improvement
+target should be sharing/canonicalizing repeated substring and character
+decompositions, followed by stronger subsumption or caching of equivalent
+equation states. Branch ordering alone is unlikely to recover 16,929 solves
+without reducing the state space.
+
+##### `httplib2` proof and model deep dive
+
+Running both solvers from the same `c3mv` executable isolates the algorithmic
+gap:
+
+| Representative | legacy `seq` | `nseq` before direct inference |
+|---|---:|---:|
+| master-easy SAT | SAT in about 0.02s | unknown in 7.93s |
+| master-easy UNSAT | UNSAT in about 0.09s | UNSAT in 2.32s |
+
+The SAT instance has a tiny model:
+
+```smt2
+value2 = "F\u{9}"
+key2 = "cache-control"
+```
+
+There is no SAT proof in the refutation sense; the evidence is this witness.
+The constraints require `value2` to contain `F`, end in TAB, avoid the other
+tested characters, comma, and `"="`, and be nonempty. `"F<TAB>"` is the
+minimal witness.
+
+The UNSAT instance has a small decisive proof core. Let:
+
+```smt2
+i = str.indexof(value1, "=", 0)
+p = str.substr(value1, 0, i)
+q = str.substr(p, 0, str.len(p) - 1)
+```
+
+The input implies:
+
+```smt2
+i >= 0
+str.len(q) > 0
+str.at(q, 0) = CR
+str.at(p, 0) != CR
+```
+
+Because nonempty `q` is `p` with only its last character removed,
+`str.at(q,0) = str.at(p,0)`, yielding the contradiction. Legacy `seq`
+produces a 34 KB proof whose final conflict is exactly the equality and
+disequality of this first character.
+
+This proof can be simulated by `nseq`. The reduced proof core is solved in
+about 0.02 seconds, and proof-enabled `nseq` emits a 4.8 KB proof using the
+same sequence decomposition, `str.at`, and length lemmas. The gap is
+therefore proof discovery, not missing proof expressiveness.
+
+Two concrete discovery/completion problems were identified:
+
+1. The shared indexof axiom creates a guarded internal equation:
+
+   ```text
+   value2 = idx.l(value2,"=") ++ "=" ++ idx.r(value2,"=")
+   ```
+
+   Internal `seq.eq` atoms are phase-selected true. Even when
+   `indexof(value2,"=",0) = -1` and `not contains(value2,"=")`, SAT may first
+   assign this irrelevant guarded equation true. Legacy `seq` rejects it
+   cheaply. `nseq` previously sent it through thousands of Nielsen steps.
+
+2. After the guarded equation is rejected, the SAT leaf still contains
+   self-decompositions such as:
+
+   ```text
+   value2 = unit(nth_i(value2,0)) ++ tail(value2,0)
+   value2 = unit(nth_i(value2,0)) ++ unit(nth_i(value2,1))
+            ++ tail(value2,1)
+   ```
+
+   With `str.len(value2) = 2`, arithmetic already fixes
+   `nth_i(value2,0) = 'F'`, `nth_i(value2,1) = TAB`, and the final tail
+   length to zero. Nevertheless, `nseq` returns unknown because it requires
+   every residual equation and negative-containment obligation to be
+   syntactically discharged. Adding the explicit witness
+   `value2 = "F\u{9}"` returns SAT immediately.
+
+A dependency-preserving cross-facet rule was added for the first problem:
+`not contains(H,N)` conflicts immediately with an active equation
+`H = U ++ N ++ V`, including cyclic indexof-skolem equations that cannot be
+handled by ordinary variable substitution. On the representative SAT case
+this reduces:
+
+```text
+Nielsen splits: 1,212 -> 282
+DFS nodes:       5,769 -> 3,904
+time:            7.93s -> 2.47s
+```
+
+It does not by itself recover SAT. In a sample of 12 master-easy SAT cases,
+several five-second timeouts became 2-3 second unknowns, but none reached a
+complete model.
+
+A model-guided split was also prototyped. It read sequence lengths and
+`nth_i` values from the stable arithmetic model, tried the corresponding
+concrete string, and used `s != candidate` as an exhaustive fallback.
+The eager version caused severe UNSAT-search regressions. Restricting it to
+fully valued negative-containment haystacks and one candidate per variable
+avoided the regression, but the representative still returned unknown and
+became slightly slower (about 2.62s versus 2.47s). The heuristic was therefore
+removed rather than retained as speculative overhead.
+
+The next required simulation of legacy `seq` is a SAT-completion phase that
+validates a complete candidate model rather than enumerating candidates in
+the symbolic search:
+
+- construct sequence values from fixed `nth_i` characters and arithmetic
+  lengths;
+- erase or validate zero-length residual tails only after the arithmetic
+  model is stable;
+- validate pending negative-containment constraints against the candidate
+  value instead of requiring complete symbolic unrolling;
+- accept the leaf when the constructed witness satisfies all original
+  constraints, or learn a blocking conflict otherwise.
+
+#### 2. Kaluza SAT unknowns: empty-sided disequality completion
+
+Kaluza loses 1,688 net solves. The most actionable subset is 1,141
+`kaluza/sat` instances that change from SAT to unknown. A representative
+input reduces completely to:
+
+```smt2
+(declare-fun x () String)
+(assert (not (= x "")))
+(check-sat)
+```
+
+The final search state contains only:
+
+```text
+deq_facet:
+  "" != x
+```
+
+`deq_facet::simplify` deliberately leaves this active, but
+`deq_split::split` skips every disequality for which either side is empty.
+The search therefore has no applicable split and returns a genuine unknown.
+
+Root disequality notification now completes an empty-sided disequality with
+a positive length constraint. For `"" != x`, it adds
+`0 < str.len(x)` with the original dependency instead of retaining the
+redundant disequality. There is no equal-length alternative because equal
+length would make both sides empty and violate the disequality. The
+representative now returns model-validated SAT immediately in one DFS node.
+
+Disequalities that become empty-sided only after internal substitution still
+need the same completion inside `deq_facet`; the current change addresses the
+large root-level Kaluza pattern directly.
+
+#### 3. `addStrings` and related SLIA: eager character bit-blasting
+
+The largest full-string/integer losses include:
+
+| Family | Net solved loss |
+|---|---:|
+| trauc `addStrings` | -439 |
+| cvc4 `addStrings` | -301 |
+| cvc4 `add_binary` | -208 |
+| z3seq `add_binary` | -150 |
+
+A representative trauc `addStrings` timeout does almost no nseq search. At
+five seconds it has:
+
+```text
+1,844,501 Boolean variables
+3,209,999 clauses
+11,393 seq-char2bit conversions
+about 1.21 GB peak memory
+1 nseq final check
+```
+
+The formula repeatedly applies `str.at`, `str.substr`, and `str.to_int` to
+single-character strings. The bottleneck is therefore eager or duplicated
+character-bit encoding before productive word-equation search begins.
+Priorities are:
+
+- memoize generated `char.bit` atoms and their defining clauses;
+- share repeated `nth_i`/digit constraints;
+- avoid bit-blasting symbolic characters until a digit or range predicate
+  requires it;
+- delay full `str.to_int` expansion until lengths and Boolean branches make
+  the term relevant.
+
+#### 4. Transformed z3str2: repeated higher-order decompositions
+
+Transformed z3str2 loses 910 net solves. A representative unknown reaches
+maximum search depth 100 with five equations, four memberships, three
+`str.to_int` terms, and 575 arithmetic/character constraints still active.
+The state retains several overlapping decompositions:
+
+```text
+x = unit(nth_i(x,0)) ++ tail(x,0)
+x = unit(nth_i(x,0)) ++ unit(nth_i(x,1)) ++ tail(x,1)
+...
+```
+
+It performs 105 DFS nodes, eight Nielsen splits, and twelve monadic
+membership splits before giving up. This is not primarily a regex issue.
+Equivalent `str.at`/`tail` decompositions need to be shared or subsumed, and
+the `str.at`/`str.to_int` encoding should avoid reintroducing progressively
+longer prefixes of the same string as independent equations.
+
+#### 5. Invalid models: search snapshot and outer arithmetic disagree
+
+All 297 errors are invalid-model failures; 248 are SAT on `master`. They are
+concentrated in Kaluza `unsat/big` and several Leetcode/string-integer
+families.
+
+In representative Kaluza input `15574.corecstrs.readable.smt2`, the selected
+search snapshot constructs a 17-character value for `T4_13`, while the outer
+model assigns its asserted length variable `I0_13` the value 7. The model
+also assigns:
+
+```text
+T_SELECT_3 = true
+PCTEMP_LHS_3 = 17
+I0_13 = 7
+PCTEMP_LHS_2 = 0
+```
+
+which falsifies the active branch equality
+`PCTEMP_LHS_3 = I0_13 + PCTEMP_LHS_2`.
+
+This indicates that model construction uses branch-local string equations
+from the SAT snapshot without ensuring that all branch-local arithmetic
+constraints are reflected in the outer SMT model. A SAT snapshot should not
+be accepted until its arithmetic values agree with the outer model, or the
+necessary arithmetic equalities/bounds should be propagated back before
+model construction.
+
+### Recommended implementation order from the latest run
+
+1. Generalize empty-sided disequality completion after substitution and rerun
+   the 1,141 Kaluza SAT-to-unknown cases.
+2. Fix SAT-snapshot/outer-arithmetic model synchronization; invalid models
+   make SAT coverage measurements unreliable.
+3. Deduplicate and delay character-bit encoding for `str.at`/`str.to_int`.
+4. Canonicalize repeated `substr`/`str.at`/`tail` decompositions.
+5. Add equation-state subsumption and improve branch selection for PyEx
+   `httplib2`.
+
+## Earlier run-1166 analysis
+
+Earlier benchmark comparison:
 
 <https://z3prover.github.io/coz3/compare_stats.html?a=run-1166-qf-slia-c3mv-20260930-stats.md&b=run-0907-qf-slia-master-stats.md>
 

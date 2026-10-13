@@ -96,6 +96,7 @@ namespace seq {
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() const { return u; }
+        eq_tree::dep_manager_t& dm() const { return m_dm; }
 
         // Trailed add.
         void add_ncontains(expr_ref_vector const& h, expr_ref_vector const& n, eq_tree::dep_tracker dep = nullptr) {

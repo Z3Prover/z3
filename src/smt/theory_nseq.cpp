@@ -323,6 +323,16 @@ namespace smt {
             m_ambient->req_facet(*m_root).add_req(e1, e2, false, dep);
         }
         if (m_seq.is_seq(e1)) {
+            expr* other = nullptr;
+            if (m_seq.str.is_empty(e1))
+                other = e2;
+            else if (m_seq.str.is_empty(e2))
+                other = e1;
+            if (other) {
+                m_ambient->solver_facet(*m_root).add_constraint(
+                    m_autil.mk_gt(m_seq.str.mk_length(other), m_autil.mk_int(0)), dep);
+                return;
+            }
             expr_ref_vector lhs = tokenize(dep, e1);
             expr_ref_vector rhs = tokenize(dep, e2);
             m_ambient->deq_facet(*m_root).add_disequation(lhs, rhs, dep);
