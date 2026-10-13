@@ -189,7 +189,7 @@ static void test_to_fp_real_int_symbolic_rtn() {
         "(set-logic ALL)\n"
         "(declare-const m RoundingMode)\n"
         "(assert (not (= ((_ to_fp 5 11) m (- 0.1))\n"
-        "                ((_ to_fp 5 11) m (- 0.1) 0)))\n"
+        "                ((_ to_fp 5 11) m (- 0.1) 0))))\n"
         "(check-sat)\n";
 
     std::string response = Z3_eval_smtlib2_string(ctx, equivalence_spec);
