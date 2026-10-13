@@ -106,23 +106,17 @@ bool theory_user_propagator::propagate_cb(
 }
 
 bool theory_user_propagator::propagate_lazy_cb(expr* conseq, unsigned tag, user_propagator::explain_eh_t const& explain) {
-    expr_ref _conseq(conseq, m);
-    ctx.get_rewriter()(conseq, _conseq);
-    if (m.is_true(_conseq))
+    if (!propagate_cb(0, nullptr, 0, nullptr, nullptr, conseq))
         return false;
-    if (!m.is_false(_conseq))
-        ctx.mark_as_relevant((expr*)_conseq);
-    if (ctx.lit_internalized(_conseq) && ctx.get_assignment(ctx.get_literal(_conseq)) == l_true)
-        return false;
-    prop_info p(0, nullptr, 0, nullptr, nullptr, _conseq);
+    prop_info& p = m_prop.back();
     p.m_lazy = true;
     p.m_tag = tag;
     p.m_explain = explain;
-    m_prop.push_back(p);
     return true;
 }
 
 void theory_user_propagator::justify_cb(unsigned num_fixed, expr* const* fixed_ids, unsigned num_eqs, expr* const* lhs, expr* const* rhs) {
+    m_justified = true;
     for (unsigned i = 0; i < num_fixed; ++i)
         m_just_ids.push_back(fixed_ids[i]);
     for (unsigned i = 0; i < num_eqs; ++i)
@@ -135,16 +129,19 @@ void theory_user_propagator::explain_lazy(unsigned idx) {
         return;
     m_just_ids.reset();
     m_just_eqs.reset();
+    m_justified = false;
     try {
         m_lazy[idx].m_explain(m_user_context, this, m_lazy[idx].m_conseq, m_lazy[idx].m_tag);
     }
     catch (...) {
         throw default_exception("Exception thrown in \"explain\"-callback");
     }
+    // an empty reason turns the consequence into an axiom: a valid consequence has to be
+    // stated by calling justify without antecedents
+    if (!m_justified)
+        throw default_exception("the \"explain\"-callback did not call justify");
     ++m_stats.m_num_lazy_explanations;
     lazy_entry& e = m_lazy[idx];
-    e.m_lits.reset();
-    e.m_eqs.reset();
     for (expr* id : m_just_ids)
         e.m_lits.append(m_id2justification[expr2var(id)]);
     for (auto const& [a, b] : m_just_eqs)
@@ -166,45 +163,32 @@ void theory_user_propagator::lazy_justification::get_antecedents(conflict_resolu
         cr.mark_eq(a, b);
 }
 
-// assign the consequence with a lazy justification (no clause); if it is already false,
-// the reason is needed immediately and a conflict is raised
+// assign the consequence with a lazy justification (no clause)
 void theory_user_propagator::propagate_lazy(prop_info const& prop) {
     // prop is an element of m_prop: internalizing the consequence can run the created
     // callback, which may append to m_prop, so copy what is needed first
     lazy_entry entry{ prop.m_conseq, prop.m_tag, prop.m_explain };
     literal lit = mk_conseq_literal(prop.m_conseq);
     ctx.mark_as_relevant(lit);
-    lbool val = ctx.get_assignment(lit);
-    if (val == l_true)
+    if (ctx.get_assignment(lit) == l_true)
         return;
     unsigned idx = m_lazy.size();
     m_lazy.push_back(entry);
     ++m_stats.m_num_lazy_propagations;
-    if (val == l_false) {
-        explain_lazy(idx);
-        m_lits.reset();
-        m_lits.append(m_lazy[idx].m_lits);
-        m_lits.push_back(~lit);
-        justification* js = ctx.mk_justification(
-            ext_theory_conflict_justification(get_id(), ctx, m_lits.size(), m_lits.data(),
-                                              m_lazy[idx].m_eqs.size(), m_lazy[idx].m_eqs.data(), 0, nullptr));
-        ctx.set_conflict(js);
-        return;
-    }
+    justification* js;
     if (m.proofs_enabled()) {
-        // proof generation needs the lemma "reason => conseq" as a clause: explain now
+        // lazy_justification cannot produce a proof: explain now
         explain_lazy(idx);
-        m_lits.reset();
-        for (literal l : m_lazy[idx].m_lits)
-            m_lits.push_back(~l);
-        for (auto const& [a, b] : m_lazy[idx].m_eqs)
-            m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-        m_lits.push_back(lit);
-        ctx.mk_th_lemma(get_id(), m_lits);
-        return;
+        lazy_entry const& e = m_lazy[idx];
+        js = ctx.mk_justification(ext_theory_propagation_justification(get_id(), ctx, e.m_lits.size(), e.m_lits.data(),
+                                                                        e.m_eqs.size(), e.m_eqs.data(), lit));
     }
-    justification* js = ctx.mk_justification(lazy_justification(*this, idx));
-    ctx.assign(lit, b_justification(js));
+    else
+        js = ctx.mk_justification(lazy_justification(*this, idx));
+    if (lit == false_literal)
+        ctx.set_conflict(js);
+    else
+        ctx.assign(lit, b_justification(js));   // a conflict if lit is false
 }
 
 void theory_user_propagator::register_cb(expr* e) {

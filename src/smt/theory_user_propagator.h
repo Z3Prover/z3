@@ -71,8 +71,7 @@ namespace smt {
             lazy_justification(theory_user_propagator& th, unsigned idx): m_th(th), m_idx(idx) {}
             void get_antecedents(conflict_resolution& cr) override;
             theory_id get_from_theory() const override { return m_th.get_id(); }
-            // not used with proofs enabled: propagate_lazy then adds a lemma (proof generation
-            // would wait forever for a proof object)
+            // not used with proofs enabled (proof generation would wait forever for a proof object)
             proof* mk_proof(conflict_resolution& cr) override { return nullptr; }
             char const* get_name() const override { return "user-propagate-lazy"; }
         };
@@ -122,6 +121,7 @@ namespace smt {
         unsigned_vector        m_lazy_lim;
         ptr_vector<expr>       m_just_ids;
         svector<std::pair<expr*, expr*>> m_just_eqs;
+        bool                   m_justified = false;   // justify was called in the current explain callback
 
         expr* var2expr(theory_var v) { return m_var2expr.get(v); }
         theory_var expr2var(expr* e) { check_defined(e); return m_expr2var[e->get_id()]; }

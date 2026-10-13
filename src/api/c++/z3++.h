@@ -4992,7 +4992,9 @@ namespace z3 {
 
         /**
            \brief lazy justification (experimental): called when the solver needs the reason
-           of a consequence propagated with \c propagate_lazy.  Must call \c justify.
+           of a consequence propagated with \c propagate_lazy.  Must call \c justify
+           (without antecedents if the consequence is valid); the default implementation
+           does not, so the check fails with an error if it is not overridden.
         */
         virtual void explain(expr const& /*conseq*/, unsigned /*tag*/) {}
 

@@ -7426,13 +7426,16 @@ extern "C" {
     /**
        \brief propagate a consequence with a lazy justification (experimental).
        The literal \c conseq is assigned without a reason; the reason is requested only
-       when the solver needs it (conflict analysis) by calling \c explain_eh with
-       \c conseq and the user-supplied \c tag.  The handler must answer by calling
-       \ref Z3_solver_propagate_justify with registered expressions that were fixed, and
-       equalities between registered expressions that held, *before* the consequence was
-       propagated.  This is not checked: a reason that depends on the consequence makes
-       conflict analysis fail.  The handler must not propagate, raise a conflict or register
-       expressions.  With proofs enabled, \c explain_eh is called immediately.
+       when the solver needs it (conflict analysis) by calling \c explain_eh with the
+       user-supplied \c tag and the consequence as rewritten by the solver (it can differ
+       syntactically from \c conseq, so use \c tag to identify it).  The handler must answer
+       by calling \ref Z3_solver_propagate_justify with registered expressions that were fixed,
+       and equalities between registered expressions that held, *before* the consequence was
+       propagated.  justify has to be called at least once, without antecedents if the
+       consequence is valid.  The antecedents themselves are not checked: a reason that does
+       not hold, or that depends on the consequence, makes conflict analysis fail.  The
+       handler must not propagate, raise a conflict or register expressions.  With proofs
+       enabled, \c explain_eh is called immediately.
        Unlike \ref Z3_solver_propagate_consequence, no clause is added: the consequence is lost
        when the solver backtracks below the level at which it was propagated.
        Returns false if the consequence is already true.
