@@ -111,9 +111,72 @@ static void test_to_sbv_mpq() {
     ENSURE(fm.mpq_manager().is_zero(r));
 }
 
+static void test_set_extreme_exponents() {
+    mpf_manager fm;
+    scoped_mpf a(fm), expected(fm);
+    scoped_mpz exponent(fm.mpz_manager());
+    scoped_mpq significand(fm.mpq_manager());
+    mpf_rounding_mode modes[] = {
+        MPF_ROUND_NEAREST_TEVEN, MPF_ROUND_NEAREST_TAWAY,
+        MPF_ROUND_TOWARD_POSITIVE, MPF_ROUND_TOWARD_NEGATIVE,
+        MPF_ROUND_TOWARD_ZERO
+    };
+    char const * exponents[] = {
+        "2147483647", "2147483648", "3000000000",
+        "9223372036854775807", "9223372036854775808",
+        "18446744073709551616"
+    };
+    for (auto rm : modes) {
+        for (bool sign : { false, true }) {
+            fm.mpq_manager().set(significand, sign ? -1 : 1);
+            for (auto e : exponents) {
+                fm.mpz_manager().set(exponent, e);
+                fm.set(a, 11, 53, rm, exponent, significand);
+                bool finite = rm == MPF_ROUND_TOWARD_ZERO ||
+                    rm == (sign ? MPF_ROUND_TOWARD_POSITIVE : MPF_ROUND_TOWARD_NEGATIVE);
+                if (finite)
+                    fm.mk_max_value(11, 53, sign, expected);
+                else
+                    fm.mk_inf(11, 53, sign, expected);
+                ENSURE(fm.eq(a, expected));
+                ENSURE(fm.is_neg(a) == sign);
+
+                fm.mpz_manager().neg(exponent);
+                fm.set(a, 11, 53, rm, exponent, significand);
+                bool subnormal = rm ==
+                    (sign ? MPF_ROUND_TOWARD_NEGATIVE : MPF_ROUND_TOWARD_POSITIVE);
+                fm.set(expected, 11, 53, sign, fm.mk_bot_exp(11), subnormal ? 1 : 0);
+                ENSURE(fm.eq(a, expected));
+                ENSURE(fm.is_neg(a) == sign);
+            }
+        }
+    }
+
+    for (bool sign : { false, true }) {
+        fm.set(a, 11, 53, MPF_ROUND_NEAREST_TEVEN,
+               sign ? "-1p-3000000000" : "1p-3000000000");
+        ENSURE(fm.is_zero(a));
+        ENSURE(fm.is_neg(a) == sign);
+
+        fm.mpq_manager().set(significand, sign ? -1 : 1);
+        for (int64_t e : { INT64_C(-3000000000), INT64_C(3000000000) }) {
+            fm.mpz_manager().set(exponent, e);
+            fm.set(a, 63, 53, MPF_ROUND_NEAREST_TEVEN, exponent, significand);
+            fm.set(expected, 63, 53, sign, e, 0);
+            ENSURE(fm.eq(a, expected));
+        }
+    }
+
+    fm.mpq_manager().set(significand, 0);
+    fm.mpz_manager().set(exponent, "-18446744073709551616");
+    fm.set(a, 11, 53, MPF_ROUND_NEAREST_TEVEN, exponent, significand);
+    ENSURE(fm.is_zero(a));
+}
+
 void tst_mpf() {
     // enable_trace("mpf_mul_bug");
     bug_set_int();
     bug_set_double();
     test_to_sbv_mpq();
+    test_set_extreme_exponents();
 }
