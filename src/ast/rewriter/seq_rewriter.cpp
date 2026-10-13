@@ -980,14 +980,14 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         expr* base = nullptr;
         rational factor;
         ptr_buffer<expr> todo;
-        expr_mark visited;
+        obj_hashtable<expr> visited;
         todo.push_back(b);
         while (!todo.empty()) {
             expr* arg = todo.back();
             todo.pop_back();
-            if (visited.is_marked(arg))
+            if (visited.contains(arg))
                 continue;
-            visited.mark(arg);
+            visited.insert(arg);
             if (m_autil.is_mul(arg)) {
                 for (expr* e : *to_app(arg))
                     todo.push_back(e);
