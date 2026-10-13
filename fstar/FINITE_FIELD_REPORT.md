@@ -14,12 +14,20 @@ branch:
 - `src/smt/theory_ff.cpp`
 - `src/tactic/ff/ff_{solve,sat,unique,simplify,2bv}_tactic.cpp`
 
-`Z3FiniteFieldTheory.fst` models the semantic kernel shared by these modules
+`Z3FiniteFieldTheory.fst` models the algebraic kernel shared by these modules
 and mechanically verifies the field rewrites, sparse-polynomial operations,
 ideal-preserving reduction, S-polynomials, ideal-membership certificates,
-Rabinowitsch completion, finite-field equations, root splitting, exhaustive
-finite-domain reasoning, candidate validation, theory arrangements, and the
-canonical encoding equality used by the bit-vector bridge.
+Rabinowitsch completion, finite-field equations, root splitting, candidate
+validation, theory arrangements, and the canonical encoding equality used by
+the bit-vector bridge.
+
+`Z3FiniteFieldSearch.fst` is a second-stage audit of the preprocessing and
+search code around that kernel. It adds executable models and 35 verified
+lemmas for polynomial substitution, equality and disequality preservation,
+affine elimination/model restoration, binary no-wrap reasoning, exhaustive
+assignment construction over `F_p^n`, forward domain filtering, branch
+closure, dependency-core lifting, learned blocking clauses, and checked
+SAT/UNSAT/unknown results.
 
 ## Result
 
@@ -117,6 +125,34 @@ F* coverage: `certificate`, `lemma_certificate_sound`, and
   abstract field operations. Unsupported native-width configurations fall
   back instead of manufacturing an answer.
 
+Second-stage F* coverage:
+
+- `substitute_monomial` and `substitute_poly` implement the same
+  `c*m*v^d -> c*m*value^d` transformation as
+  `ff::engine::substitute`.
+- `lemma_eval_substitute_monomial` and `lemma_eval_substitute_poly` prove
+  that syntactic substitution equals evaluation in an environment updated
+  with the definition's value.
+- `lemma_substituted_system_model` and
+  `lemma_substituted_disequalities_model` cover both `=0` and `!=0`
+  constraints.
+- `lemma_elimination_model_extension` and
+  `lemma_elimination_problem_extension` prove the saved definition extends a
+  residual model to a model of the pre-elimination problem.
+- `verified_preprocess`, `elimination_preprocess`, and
+  `compose_preprocess` package each stage with its reconstruction theorem and
+  mechanically prove that a sequence of stages rebuilds models in reverse
+  transformation order, matching the C++ restoration loop.
+- `lemma_binary_bound`, `lemma_binary_injective`,
+  `lemma_no_wrap_mod_injective`, and
+  `lemma_no_wrap_binary_injective` justify digit equality only when every
+  digit is Boolean and both integer packs lie below the modulus.
+- `assignments`, `lemma_assignments_complete`, and
+  `lemma_exhaustive_search_unsat` construct and prove completeness of the
+  Cartesian product searched by `ff_tiny`.
+- `lemma_filter_retains_solution` proves forward filtering cannot remove a
+  satisfying value from the remaining variable's domain.
+
 ### SMT theory and tactics
 
 - `theory_ff` keeps shared terms in the equality engine, requests
@@ -138,18 +174,47 @@ F* coverage: `lemma_validated_candidate_is_model`,
 `lemma_canonical_encoding_equality`, together with the rewrite and polynomial
 lemmas above.
 
+Second-stage F* coverage:
+
+- Premises and Boolean branches are represented by numeric IDs interpreted
+  through a predicate table, matching the dependency indices and signed atoms
+  carried by the C++ frontends.
+- `lemma_dependency_core_unsat` proves that inconsistency of a reported
+  subset is sufficient to refute the full input conjunction.
+- `lemma_unsat_core_blocking_clause` proves the learned `ff-sat` clause is
+  exactly the negation of an inconsistent branch conjunction and therefore
+  cannot block a combined model.
+- `lemma_all_branches_closed` proves root/value/Boolean splitting may report
+  UNSAT only after every covering branch is UNSAT. Any incomplete or
+  exhausted branch prevents this conclusion.
+- `lemma_validated_sat_result`, `lemma_checked_unsat_result`, and
+  `lemma_unknown_is_safe` package the public three-way result contract:
+  SAT carries a checked witness, UNSAT carries a checked dependency core, and
+  stopping early yields only `unknown`.
+- The bounded factor-split accounting added after the first audit controls
+  whether an already-valid field clause is attempted; exhausting that local
+  allowance emits no clause and has no semantic effect.
+
 ## Mechanical verification
 
-The audit file contains no `admit`, `assume`, or declared axiom. It was
+The audit files contain no `admit`, `assume`, or declared axiom. They were
 verified locally with F* `v2026.08.16` and the pinned Z3 `4.13.3` backend:
 
 ```text
 Verified module: Z3FiniteFieldTheory
 All verification conditions discharged successfully
+Verified module: Z3FiniteFieldSearch
+All verification conditions discharged successfully
 ```
 
 Implementation refinements not modeled directly are monomial ordering,
 hash/cache layout, sparse/dense matrix storage, Montgomery limb arithmetic,
-pair scheduling, and resource accounting. Their audit obligation is that they
-implement or select among the proved semantic operations; they are not used
-as independent logical assumptions.
+pair scheduling, and resource accounting. The second-stage audit also leaves
+the low-level correctness of the SAT CNF encoder, `ff_unique`'s union-find
+storage, `ff_tiny`'s bitmask/trail implementation, and the C++ loops'
+refinement to the pure recursive models as source-review obligations. Their
+logical contracts are now proved: retained domains preserve every solution,
+complete enumeration justifies UNSAT, all split branches must close, cores
+must be subsets of original premises, and SAT models must pass original-input
+validation. None of these implementation details is used as an independent
+algebraic assumption.
