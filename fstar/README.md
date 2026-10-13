@@ -58,3 +58,47 @@ real-analysis facts about `exp`/`log`/`sin`/`cos`/`atan2` (see
 
 See each linked report for the full scope decision, function-by-function
 coverage table, notable results, and remaining gaps for that audit.
+
+## Road map: the proof-checker file layers
+
+The "Resolution/clausal proof-step checker" and "Pulse-verified proof
+checker" audits above are actually one connected stack of ~20 files
+that grew incrementally across several follow-up rounds and aren't
+individually visible in the per-audit table. This section is a
+dependency-ordered road map of that stack — each layer only opens
+modules from layers above it, never below, and no two files on the
+same layer depend on each other.
+
+**Layer 0 — core AST and semantic-value domain** (no proof concepts yet):
+* [`Z3AstTheory.fst`](Z3AstTheory.fst) — the shared `expr`/`func_decl`/`sort` AST, `wf`/`closed`/`closed_at`, the generic `interpretation value` record and `eval`.
+* [`Z3ValueTheory.fst`](Z3ValueTheory.fst) — the concrete `value` domain (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) every checker below evaluates into, plus every `op_*` `decl_kind` constant (`op_select`, `op_store`, `op_concat`, `op_eq`, the literal ops, `op_seq_unit`, ...).
+
+**Layer 1 — the equational proof calculus** (proves `s = t` facts; a `Rewrite` leaf is a *caller obligation*, not something this layer discharges):
+* [`Z3ProofTheory.fst`](Z3ProofTheory.fst) — `proof` (`Sym`/`Trans`/`Congr`/`Rewrite`/`QuantIntro`), `fact`/`facts_of`, `all_leaves_sound`, `lemma_proof_sound`.
+* [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) — `mk_modus_ponens`/`mk_unit_resolution` smart constructors and their full semantic soundness, plus `PR_AND_ELIM`/`PR_NOT_OR_ELIM`.
+* [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) / [`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst) — the substitution-congruence/distributivity primitives, and the preprocessing-specific kernel rules (`PR_COMMUTATIVITY`, `PR_QUANT_INTRO`, `PR_PUSH_QUANT`, ...) built on them.
+
+**Layer 2 — concrete interpretation, and automatically discharging/synthesizing `Rewrite` leaves**:
+* [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) — `the_interpretation : interpretation value`, composing each theory's own `interp_app` plus a local `core_interp_app` for bool/arith/`eq`/literal ops.
+* [`Z3ArrayInterp.fst`](Z3ArrayInterp.fst), [`Z3SeqInterp.fst`](Z3SeqInterp.fst), [`Z3BvInterp.fst`](Z3BvInterp.fst) — thin per-theory `interp_app` companions to `Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`.
+* [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) — **verification mode**: `match_x`/`lemma_x_leaf_sound`, eleven decidable recognizers that auto-discharge `all_leaves_sound` for a candidate `Rewrite s t` leaf; also `is_unique_value`/`unique_value_key`/`provably_distinct`, the general literal/sequence-literal distinctness predicate used by the index-disequality-gated matchers (`select_store_diff`, `store_commute`, `store_perm`).
+* [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) — **synthesis mode**, the complementary direction: `apply_lemma_x : expr -> option expr` computes the rewritten side from just one input expression (instead of verifying a given pair), for ten of the eleven patterns above (`store_perm` excluded — see its module docstring for why it isn't expressible as a function); each file also exports `apply_lemmas`/`is_rewrite`.
+
+**Layer 3 — the clausal/resolution layer, built on top of layer 1**:
+* [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) — `rproof` (`REq`/`RAndElim`/`RModusPonens`/`RCommute`/`RIffTrue`/`RIffFalse`/`RUnitRes`/`RNotOrElim`/`Hyp`/`RLemma`/`Trusted`), one level above `Z3ProofTheory.proof` the same way `Congr`/`Rewrite` sit above bare `interpretation`; `REq` is the seam embedding a whole `Z3ProofTheory.proof` as one resolution-level fact, so its `Rewrite` leaves are exactly what layer 2 above is for. See [`RESOLUTION_CHECKER_SCOPE.md`](RESOLUTION_CHECKER_SCOPE.md) for the full rule-by-rule tiering.
+
+**Layer 4 — executable (Pulse) re-implementations of layers 1/3**, same specifications, genuinely imperative/heap-mutating programs instead of pure functions:
+* [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) — Pulse port of `fact`/`facts_of`/`all_leaves_sound`.
+* [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) — Pulse port of modus-ponens/unit-resolution.
+* [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) — cross-theory sample derivations run through both, including rejection tests and `collect_rewrite_leaves`.
+
+**Layer 5 — a parallel, domain-specific instance of the same "theory + executable checker + Pulse port + real-proof parser" pattern**, for LRA Farkas certificates rather than rewrite/resolution steps:
+* [`Z3LraFarkasTheory.fst`](Z3LraFarkasTheory.fst), [`Z3PulseLraChecker.fst`](Z3PulseLraChecker.fst), [`Z3PulseLraCheckerTests.fst`](Z3PulseLraCheckerTests.fst), [`Z3PulseLraCheckerParsed.fst`](Z3PulseLraCheckerParsed.fst).
+
+**Layer 6 — real-Z3-proof extraction and tooling**, feeding genuine proof objects into layer 2/4 instead of hand-written examples:
+* [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) — drives Z3's Python front-end, extracts the equational subtree of a real proof object, and pretty-prints `proof`/`expr` F* literals.
+* `Z3ExtractedProof*.fst` (e.g. [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst), [`Z3ExtractedProof_Bv.fst`](Z3ExtractedProof_Bv.fst), [`Z3ExtractedProof_Seq.fst`](Z3ExtractedProof_Seq.fst), ...) and the `tools/test_*.smt2` files that generate them — committed snapshots of that pipeline's output, one per exercised rewrite/matcher family.
+
+Build/typecheck any single file in this stack with the same command
+given at the top of this README; F* resolves the layering above
+automatically from each file's own `open` declarations.
