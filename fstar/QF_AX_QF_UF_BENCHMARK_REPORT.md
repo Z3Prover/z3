@@ -420,6 +420,154 @@ the extra per-leaf `store_perm` case-split cost pushing a few more files
 right at the timeout boundary, the same phenomenon documented under
 Update 1/2 above, not a regression in soundness.
 
+## Round 2 revisit: 100-file samples, the `is_unique_value` generalization, and the trusted-kernel/cross-check split
+
+This section revisits the experiment after two changes made later in the
+project: the matcher library grew from seven to **eleven** patterns (adding
+`eq_symm`, `select_store_diff`, `store_commute`, `store_perm`), and the
+distinctness side condition those last three depend on was generalized from
+an ad-hoc "two differently-*named* uninterpreted constants" check to the
+general, semantically-justified `is_unique_value`/`provably_distinct`
+predicate (see `PULSE_PROOF_CHECKER_REPORT.md`'s "twelfth generalization"
+section). Since full reruns of the whole corpus take a while, this round
+instead samples **the first 100 `unsat`-annotated files (alphabetically) from
+each logic** — fast enough to run at both the original 10s timeout and a more
+generous 30s timeout in the same session, which turns out to be essential for
+correctly separating "didn't finish in time" from "finished and found a real
+gap" (see below).
+
+**Sampling caveat**: QF_AX's first 100 files alphabetically are entirely the
+`cvc/read5.smt2` file plus the `storecomm` stress-test family (deep nested
+`store`-chain reordering benchmarks) — this is *not* a representative
+cross-section of QF_AX (contrast the full 279-file run above, which found
+this family to be the single largest unmatched-leaf source but not the only
+content). QF_UF's first 100 are from `20170829-Rodin` and
+`2018-Goel-hwbench`, a more typical mix.
+
+### Headline result: the trusted kernel accepted every sampled proof
+
+`Z3PulseProofChecker.check_proof`/`checker_accepts` — the actual
+soundness-critical obligation (does this `Sym`/`Trans`/`Congr`/`Rewrite`
+composition, interpreted via `Z3InterpretedProofChecker`'s concrete
+per-theory semantics, really derive the claimed equation?) — **accepted
+100/100 QF_AX and 98/98 QF_UF** extracted proof DAGs (the other 2 QF_UF files
+had no equational content at all: pure resolution/CNF `unsat` proofs, outside
+this pipeline's scope by design, same as always). This was confirmed by
+inspecting every `fstar_check: fail` outcome's F* output directly: in all 23
+QF_AX failures, exactly one error was reported, always at
+`lemma_unmatched_count_cross_checked` (the *cross-check* assertion described
+above under "What a `pass` does and does not certify") — never at
+`check_extracted`/`lemma_extracted_proof_wellformed`. So "fail" here means
+*the bookkeeping sanity check about which leaves are matched couldn't be
+confirmed*, not that an unsound step was accepted.
+
+| | QF_AX (100 files) | QF_UF (100 files) |
+|---|---|---|
+| `z3_no_proof`/`z3_with_proof` | 100/100 `unsat`, <30ms each | 100/100 `unsat`, <2s each |
+| `fstar_check` @ 10s timeout | 6 pass / 93 timeout / 1 fail | 34 pass / 64 timeout / 2 no-proof-content |
+| `fstar_check` @ 30s timeout | 77 pass / 23 fail / 0 timeout | 98 pass / 2 no-proof-content |
+| trusted-kernel (`check_proof`) acceptance | **100/100** | **98/98** |
+| rewrite leaves matched / total | 23 / 155 (22 `eq_symm`, 1 `store_perm`) | 82 / 167 (71 `reflexivity`, 6 `not_not`, 5 `eq_symm`) |
+| files with **zero** unmatched leaves (fully end-to-end verified) | 0 / 100 | 44 / 98 |
+
+The 10s-vs-30s gap (93 timeouts collapsing to 77 passes + 23 fails once given
+enough wall-clock time) reconfirms this project's standing finding: F* /
+Pulse's own per-invocation start-up cost (reloading this whole dependency
+stack) dominates small-file latency far more than the benchmark's own size,
+so a strict 10s budget mostly measures *that*, not provability.
+
+### The 23 QF_AX `fail` cases: two distinct, now-understood root causes
+
+Directly probing two representative failing files (`storecomm_t1_np_nf_ai_
+00010_004.cvc.smt2`, 2 leaves, and `cvc/read5.smt2`, 2 leaves) by hand-editing
+the generated `.fst` to ask about each leaf's `try_match_leaf` value and the
+exact unmatched count in isolation (bypassing the harness's fixed 30s/`
+--z3rlimit 60 --fuel 4 --ifuel 4` budget entirely) found:
+
+1. **`cvc/read5.smt2` (1 of the 23): a stale Python mirror, not a checker
+   bug.** This file's one `store_perm`-classified leaf uses `Index`-sorted
+   (abstract, uninterpreted) index constants (`aaa`/`a`/`aa`), which are
+   genuinely *not* `is_unique_value` (that predicate is `false` on any
+   `App f args` whose `f.interp = None`, i.e. any uninterpreted/free
+   constant, by construction — see `Z3PatternMatchedProofChecker.fst`'s
+   `is_unique_value`). So the real, trusted `store_perm_leaf_ok` cannot and
+   does not match this leaf. `tools/extract_z3_proof.py`'s Python mirror,
+   however, still uses its original, simpler criterion ("two distinctly-
+   *named* 0-ary uninterpreted constants") for `select_store_diff`/
+   `store_commute`/`store_perm`, predating the `is_unique_value`
+   generalization — so it reports a match the real checker now (correctly)
+   refuses. **This is an honest soundness tightening, not a regression in
+   correctness**: naming two free constants differently never semantically
+   guarantees they denote different domain elements without an explicit
+   hypothesis saying so, so the old Python-mirrored criterion was always an
+   unjustified shortcut; `is_unique_value` only accepts distinctness that is
+   syntactically self-evident (literal numerals/BV constants/booleans/
+   sequence-of-unit literals). The practical upshot: **on corpora like QF_AX
+   where array indices are abstract/free-sort constants (the overwhelmingly
+   common case, not literal integers), `select_store_diff`/`store_commute`/
+   `store_perm`'s distinctness gate can now never fire** — their matching
+   power, as measured by the original "68/486" and "+1 (`store_perm`)"
+   headline numbers earlier in this report, no longer applies to the
+   current, more conservative checker. (The Python mirror should eventually
+   be updated to mirror `is_unique_value` exactly, so its log output and the
+   type-checked cross-check stay in agreement — not done here, since it
+   affects only logging/reporting, never the trusted kernel.)
+
+2. **The other 22: a genuine F*-normalizer/SMT scalability wall, not a
+   budget-tuning problem.** For the `storecomm` family's deeper chains (one
+   `select` peeled through up to ~9 nested, otherwise-irrelevant `store`s),
+   neither `assert_norm (try_match_leaf s t == true)` nor `== false` could be
+   discharged — **even after manually raising the probe to `--z3rlimit 2000
+   --fuel 20 --ifuel 20`** (33x/5x/5x the generated template's defaults).
+   This rules out "just needs a bigger timeout": the cost driver is the
+   *size of the expression tree* embedded in a single `Rewrite` leaf (the
+   nested-store chain), not the leaf *count* (these files have only 2–4
+   leaves total) — `try_match_leaf`'s eleven-way disjunction, each clause
+   doing its own `flatten_store`/structural-equality walk over that chain,
+   appears to blow up combinatorially for F*'s normalizer well before SMT's
+   own resource counter is the bottleneck. This is the same phenomenon the
+   original (`v1`) run's "fail" cases were attributed to, now confirmed by
+   direct experiment rather than inference.
+
+### What remains unmatched, and why
+
+* **QF_AX** (132/155 unmatched leaves, every sampled file has ≥1): the
+  dominant shape is *"select a value through an N-level nested `store`
+  chain where the target index differs from all N update indices"*
+  (`(select (store (store ... a i1 v1) ... iN vN) j)`, `j` distinct from
+  every `ik`) — this is semantically a chained generalization of
+  `select_store_diff`, but **no current matcher recognizes it**:
+  `select_store_same`/`store_redundant` only peel exactly one `store` level,
+  and `store_perm` requires a full chain-vs-chain reordering (both sides
+  still full chains), not a single final `select`. This is a clearly scoped,
+  not-yet-attempted twelfth matcher (`select_store_diff_chain`, say),
+  distinct from the `store_commute`/`store_perm` family already covered.
+* **QF_UF** (85/167 unmatched leaves across 98 files; 44/98 files are fully
+  clean): unchanged from the original full-corpus finding — propositional
+  CNF/Tseitin normalization (`(and ...)`/`(or (not ...) (not ...))`
+  rewritten forms of named sub-formula definitions) and EUF
+  congruence-closure facts, neither of which this project's matcher family
+  (which targets array/seq/bv/bool *algebraic identities*, not clausal
+  normal-form transformations) is designed to cover.
+
+### Bottom line
+
+*Fully proved*: the core equational-proof-composition kernel
+(`Z3ProofTheory`'s `proof` type checked against `Z3InterpretedProofChecker`'s
+concrete semantics via `Z3PulseProofChecker.check_proof`) — every real Z3
+proof DAG extracted from both 100-file samples composes soundly; 44/98 QF_UF
+files are additionally *fully* verified end-to-end (zero remaining trusted
+leaves). *Gaps*: (1) a not-yet-written chained `select`-through-`store`-chain
+matcher would close most of QF_AX's remaining leaves; (2) CNF/Tseitin and EUF
+congruence facts remain outside this project's rewrite-matcher scope for
+QF_UF; (3) the three distinctness-gated matchers (`select_store_diff`/
+`store_commute`/`store_perm`) are now sound but essentially unreachable on
+corpora using abstract/free-sort array indices, which is most of QF_AX; (4)
+the auto-generated template's fixed SMT/normalization budget cannot certify
+its own bookkeeping cross-check on deep nested-`store` expressions no matter
+how high it is raised, which is a proof-engineering problem in its own right
+(the cross-check needs a smarter/staged proof, not just more fuel).
+
 ## Reproducing
 
 ```powershell
@@ -445,4 +593,13 @@ python fstar\tools\analyze_benchmarks.py qf_ax_results_v3_t30.jsonl QF_AX_v3
 # +1 match on this corpus, cvc/read5.smt2):
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v4_t30.jsonl --timeout 30 --workers 24
 python fstar\tools\analyze_benchmarks.py qf_ax_results_v4_t30.jsonl QF_AX_v4
+
+# Round 2 revisit (100-file samples, eleven-matcher library, generalized
+# is_unique_value distinctness; see "Round 2 revisit" above):
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100.jsonl --timeout 10 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100.jsonl --timeout 10 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\analyze_benchmarks.py qf_ax_100_t30.jsonl QF_AX_round2
+python fstar\tools\analyze_benchmarks.py qf_uf_100_t30.jsonl QF_UF_round2
 ```
