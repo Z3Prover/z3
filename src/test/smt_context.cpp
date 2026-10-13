@@ -355,6 +355,7 @@ void tst_smt_context()
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.params().set_rlimit(1000000);
         std::istringstream is(
+            "(set-option :smt.distribute_forall true)\n"
             "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun c () (Array (_ BitVec 11) (_ BitVec 16)))\n"
@@ -475,6 +476,37 @@ void tst_smt_context()
         "(assert (forall ((s S))\n"
         "  (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
         "     ((as const (Array S (_ BitVec 8))) #x01))))\n", l_true);
+
+    // Regression (issue #11155): forall distribution can make this benchmark
+    // incomplete with MBQI disabled.
+    {
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::istringstream is(
+            "(set-option :smt.auto-config false)\n"
+            "(set-option :smt.mbqi false)\n"
+            "(set-option :smt.ematching true)\n"
+            "(set-option :smt.macro-finder true)\n"
+            "(set-option :smt.pull_nested_quantifiers false)\n"
+            "(set-option :smt.distribute_forall false)\n"
+            "(set-option :unsat_core true)\n"
+            "(declare-sort elem 0)\n"
+            "(define-sort list () (Seq elem))\n"
+            "(declare-fun inset (elem list) Bool)\n"
+            "(assert (! (forall ((a elem) (x list))\n"
+            "  (! (= (inset a x) (seq.contains (seq.unit a) x)) :pattern (inset a x)))\n"
+            "  :named elem-def))\n"
+            "(assert (! (forall ((x list))\n"
+            "  (= (= x (as seq.empty (Seq elem)))\n"
+            "     (not (exists ((a elem)) (inset a x)))))\n"
+            "  :named list--some-element))\n"
+            "(assert (! (not (forall ((a elem) (b elem) (x list))\n"
+            "  (= (inset a (seq.++ (seq.unit b) x))\n"
+            "     (or (= a b) (inset a x))))) :named goal))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_unsat);
+    }
 
     // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
     // internalized in a gate context by the ite-term axioms, and must still be merged
