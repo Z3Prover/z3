@@ -58,8 +58,10 @@ valuation and depends on the three standard axioms through Lean core's `Rat`
 library; the Boolean slice stays axiom-free. See the exporter documentation
 for the Real-as-Rat trust statement. A QF_UF input goes through the same two
 commands; its theorem quantifies over `(_U : Type) (_elems : Nat -> _U)
-(_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)` instead of
-`_vars`, and `grind`'s congruence proofs report the same three axioms.
+(_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)
+(_bool : Prop -> _U)` instead of `_vars` (Boolean arguments of functions and
+predicates are injected into `_U` by `_bool`), and `grind`'s congruence
+proofs report the same three axioms.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

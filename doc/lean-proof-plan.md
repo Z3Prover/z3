@@ -651,7 +651,46 @@ reconstructor parses the input itself, by the binder), the binder requires
 every bound declaration to carry the input's full signature and interns
 terms with their sort, and a declaration over an uninterpreted sort that no
 node uses is rejected. Still rejected: QF_UFLRA and Bool or Real arguments
-or results of uninterpreted functions.
+or results of uninterpreted functions (Bool accepted since 2026-10-12, see
+below).
+
+**Bool arguments of uninterpreted functions (2026-10-12).** Functions and
+predicates with Bool arguments (`(declare-fun f (Bool) U)`, `(declare-fun r
+(Bool U) Bool)`, `(declare-fun p (Bool) Bool)`) were rejected at the
+exporter; they are common in hardware-derived QF_UF benchmarks. The clause
+log treats a Boolean argument like any other enode: once the SAT solver
+assigns it, the egraph merges it with `true` or `false`, and the `euf` hint
+lists the Boolean literal among its premises, so `(f q) = (f r)` follows from
+`q`, `r`, and congruence. Lean renders a Boolean argument `p` as `_bool p`
+for one more quantified map `_bool : Prop -> _U`: Bool is one more sort in
+the disjoint-union instance, and `grind` proves the lemmas through the
+congruence `p <-> q -> _bool p = _bool q` (via `propext`); nothing states
+that `_bool True` and `_bool False` differ, and no inference needs it. The
+egraph does know that every Boolean argument is `true` or `false` once the
+SAT solver assigns it, and `cnf` lemmas combining preprocessed assertions
+rest on that without naming the literal, so each `grind` lemma first states
+excluded middle for every Boolean argument it reaches (5 of 40 random
+instances failed in `grind` before this, none after). Two
+findings about Z3's sat.smt core shaped the slice: (1) a unit asserted at
+level 0 is substituted into the arguments before internalization (`(f q)`
+is logged as `(f true)`), which the replay's existing `cnf` fallback ties to
+the unit and the assertion; and (2) a Boolean unit makes goal2sat log its
+internal `true` variable, which has no expression, as a fresh constant
+`k!0` assumed as a unit clause. The second affected plain QF_UF inputs with
+a negated unit assertion as well (`(assert (not s))` with `s` elsewhere),
+which the exporter rejected as a fresh symbol; empirically the phantom
+appears for inputs without a `set-logic` line and not for the same
+assertions under `(set-logic QF_UF)`, so the inputs that test it carry no
+`set-logic` line and the live tests check the raw log for `k!0` before
+checking that the certificate has none. The replay now drops assumed
+or deleted clauses over such phantom constants (sound: dropping a clause
+only removes support for later propagation) and still rejects any inference
+or definition mentioning one. Functions whose arguments are all Bool are
+accepted only together with an uninterpreted sort: without one the sat.smt
+core Ackermannizes them with fresh symbols the log cannot be tied to the
+input, so the exporter rejects that case explicitly. Two documented inputs
+and five pinned random instances verify end to end under the standard
+axioms. Still rejected: QF_UFLRA and Real arguments or results.
 
 ## Arithmetic proof infrastructure
 

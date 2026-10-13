@@ -924,6 +924,14 @@ class _Replay:
 
     def run(self, text):
         terms = _Terms(self.context, self.assertions)
+        # Boolean variables of the sat core that have no expression are logged
+        # as fresh constants k!<n>, for example goal2sat's internal true literal
+        # when a Boolean unit is asserted. The clauses assuming them are not
+        # tied to any assertion and are dropped; dropping a clause only
+        # removes support for later propagation steps, so every remaining
+        # inference is still justified, and any inference mentioning such a
+        # literal is rejected when it is built.
+        phantoms = set()
         for command in _sexpressions(text):
             if not command or not isinstance(command[0], str):
                 raise ProofExportError("malformed clause log command")
@@ -948,6 +956,9 @@ class _Replay:
                     declared = name in terms.constants
                 else:
                     declared = name in terms.functions and terms.functions[name].arity() == len(command[2])
+                if not declared and command[2] == [] and command[3] == "Bool" and name.startswith("k!"):
+                    phantoms.add(name)
+                    continue
                 if not declared:
                     raise ProofExportError("the clause log declares a symbol absent from the input: %s"
                                            % command[1])
@@ -961,6 +972,12 @@ class _Replay:
                 if len(command) != 4 or not isinstance(command[1], str) or not isinstance(command[2], str):
                     raise ProofExportError("malformed definition in the clause log")
                 terms.define(command[1], command[2], command[3])
+            elif head in ("assume", "del") and phantoms and any(
+                    isinstance(part, str) and _symbol(part) in phantoms
+                    or isinstance(part, list) and part[:1] == ["not"] and len(part) == 2
+                    and isinstance(part[1], str) and _symbol(part[1]) in phantoms
+                    for part in command[1:]):
+                continue  # a clause over a phantom literal is never tied to an assertion
             elif head == "assume":
                 literals = [terms.build(part) for part in command[1:]]
                 node = self.assume(literals)

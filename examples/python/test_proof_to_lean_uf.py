@@ -7,6 +7,7 @@
 ############################################
 import copy
 import hashlib
+import json
 from pathlib import Path
 import random
 import re
@@ -21,6 +22,7 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_clause_log
 import proof_to_lean
 
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
@@ -156,7 +158,122 @@ UF_INPUTS = {
 (assert (not (r a2 (f a1))))
 (check-sat)
 """,
+    # Bool arguments and results: a function and a predicate over Bool, a
+    # function and a predicate mixing Bool with the sort, with Boolean
+    # variables, a conjunction, a predicate application, and an equality (in
+    # both orientations) as arguments, all decided during search.
+    "uf_bool_args": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun f (Bool) U)
+(declare-fun g (U Bool) U)
+(declare-fun p (Bool) Bool)
+(declare-fun r (Bool U) Bool)
+(declare-const q Bool)
+(declare-const s Bool)
+(assert (or s q))
+(assert (or (not s) q))
+(assert (= (f q) (g a (and q s))))
+(assert (or (not (= (f true) (g a s))) (r (= a b) (f (p q)))))
+(assert (not (r (= b a) (f (p true)))))
+(check-sat)
+""",
+    # Bool arguments fixed at level 0: Z3 internalizes (f q) and (r s b) with
+    # the units substituted, assumes its true literal, and logs its internal
+    # true variable as the phantom constant k!0; t is decided during search.
+    # No set-logic line: with (set-logic QF_UF) the sat.smt core logs no
+    # phantom for this input, and the live test below checks the raw log.
+    "uf_bool_args_units": """\
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun f (Bool) U)
+(declare-fun r (Bool U) Bool)
+(declare-const q Bool)
+(declare-const s Bool)
+(declare-const t Bool)
+(declare-const u Bool)
+(assert q)
+(assert (not s))
+(assert (or u t))
+(assert (or (not u) t))
+(assert (= (f q) a))
+(assert (r s b))
+(assert (or (not (r false b)) (not (= (f t) a))))
+(check-sat)
+""",
 }
+
+
+def random_bool_argument_instance(seed, constants=3, constraints=14, depth=2):
+    """A random QF_UF problem whose functions and predicates take Bool arguments.
+
+    Conditions (Boolean variables, constants, equalities, predicate
+    applications, and a predicate over Bool) appear as arguments of a
+    function over Bool, a function mixing the sort with Bool, and a predicate
+    mixing Bool with the sort; callers filter for unsat instances.
+    """
+    generator = random.Random(seed)
+    lines = ["(set-logic QF_UF)", "(declare-sort U 0)"]
+    lines += ["(declare-fun c%d () U)" % i for i in range(constants)]
+    lines += ["(declare-fun f (U) U)", "(declare-fun h (Bool) U)", "(declare-fun g (U Bool) U)",
+              "(declare-fun p (U) Bool)", "(declare-fun pb (Bool) Bool)", "(declare-fun r (Bool U) Bool)",
+              "(declare-const q Bool)", "(declare-const s Bool)"]
+
+    def condition(d):
+        roll = generator.random()
+        if roll < 0.3:
+            return generator.choice(["q", "(not q)", "s", "(not s)", "true", "false"])
+        if roll < 0.6:
+            return "(= %s %s)" % (term(d), term(d))
+        if roll < 0.8:
+            return "(p %s)" % term(d)
+        if d > 0:
+            return "(pb %s)" % condition(d - 1)
+        return "q"
+
+    def term(d):
+        roll = generator.random()
+        if d == 0 or roll < 0.35:
+            return "c%d" % generator.randrange(constants)
+        if roll < 0.55:
+            return "(f %s)" % term(d - 1)
+        if roll < 0.8:
+            return "(h %s)" % condition(d - 1)
+        return "(g %s %s)" % (term(d - 1), condition(d - 1))
+
+    def atom():
+        roll = generator.random()
+        if roll < 0.45:
+            return "(= %s %s)" % (term(depth), term(depth))
+        if roll < 0.6:
+            return "(p %s)" % term(depth)
+        if roll < 0.8:
+            return "(r %s %s)" % (condition(depth - 1), term(depth))
+        if roll < 0.9:
+            return "(pb %s)" % condition(depth - 1)
+        return generator.choice(["q", "s"])
+
+    def literal():
+        formula = atom()
+        return formula if generator.random() < 0.5 else "(not %s)" % formula
+
+    for _ in range(constraints):
+        roll = generator.random()
+        if roll < 0.35:
+            lines.append("(assert (or %s %s))" % (literal(), literal()))
+        elif roll < 0.5:
+            lines.append("(assert (=> %s %s))" % (literal(), literal()))
+        elif roll < 0.6:
+            lines.append("(assert (and %s %s))" % (literal(), literal()))
+        elif roll < 0.7:
+            lines.append("(assert (= %s %s))" % (literal(), literal()))
+        else:
+            lines.append("(assert %s)" % literal())
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
 
 
 def random_sorted_instance(seed, sorts=3, constants=2, constraints=16, depth=2, ite=0.3):
@@ -455,12 +572,14 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_p = lambda d: d["name"] == "p" and d["kind"] == z3.Z3_OP_UNINTERPRETED
         is_eq = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["U", "U"]
         for certificate, message in [
-            (mutate(is_f, domain=["Bool"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Bool"]), "wrong argument sort"),  # f is applied to an element
+            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["U", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="ite", domain=["Bool", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["Bool", "U", "U"]), "wrong number of arguments"),
             (mutate(is_f, kind=z3.Z3_OP_ADD, name="+", domain=["U", "U"]), "unsupported uninterpreted-sort"),
-            (mutate(is_p, domain=["Bool"]), "cannot mix argument sorts"),
+            (mutate(is_p, domain=["Bool"]), "wrong argument sort"),  # p is applied to an element
+            (mutate(is_p, domain=["Real"]), "unsupported predicate declaration"),
             (mutate(is_p, domain=["U", "U"]), "wrong number of arguments"),
             (mutate(is_eq, domain=["U", "Bool"]), "cannot mix argument sorts"),
             (mutate(is_eq, domain=["Bool", "Bool"]), "wrong argument sort"),
@@ -543,6 +662,96 @@ class TestUninterpretedValidation(unittest.TestCase):
             self.assertLess(len(literals), len(graph.assertions) + 1)
         proof_to_lean.reconstruct(source, certificate)
 
+    def test_boolean_arguments_are_injected_into_the_carrier(self):
+        source = UF_INPUTS["uf_bool_args"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        signatures = {(d["name"], tuple(d["domain"]), d["range"]) for d in certificate["declarations"]
+                      if d["kind"] == z3.Z3_OP_UNINTERPRETED and d["domain"]}
+        self.assertEqual(signatures, {("f", ("Bool",), "U"), ("g", ("U", "Bool"), "U"),
+                                      ("p", ("Bool",), "Bool"), ("r", ("Bool", "U"), "Bool")})
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertEqual(graph.sorts, ("U",))
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("(_bool : Prop -> _U)", proof_to_lean._UF_BINDERS)
+        self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UF_BINDERS, text)
+        self.assertIn("-- Boolean arguments of functions and predicates are injected into _U by _bool.", text)
+        # Every Boolean argument is rendered as _bool applied to its formula, in
+        # the argument position its declaration gives it.
+        applications = [node for node in range(len(graph.nodes))
+                        if graph.kind(node) == z3.Z3_OP_UNINTERPRETED and "Bool" in graph.decl(node).domain]
+        self.assertTrue(applications)
+        for node in applications:
+            decl = graph.decl(node)
+            expected = ", ".join(
+                "(_bool (formula_%d _atoms%s))" % (arg, proof_to_lean._UF_ARGUMENTS) if sort == "Bool"
+                else "(term_%d _atoms%s)" % (arg, proof_to_lean._UF_ARGUMENTS)
+                for arg, sort in zip(graph.arguments(node), decl.domain))
+            family = "_funs" if decl.range == "U" else "_preds"
+            self.assertRegex(text, r"%s \d+ \[%s\]" % (family, re.escape(expected)))
+        self.assertNotIn("_bool True", text)   # true and false are formulas like any other
+        self.assertIn("(_bool (formula_", text)
+        self.assertNotIn("Rat", text)
+        # Every grind lemma offers the two cases of each Boolean argument it
+        # reaches, since Z3's egraph assigns every such argument true or false.
+        lemmas = [block for block in text.split("\nprivate theorem ")[1:] if "grind" in block]
+        self.assertTrue(lemmas)
+        for block in lemmas:
+            unfolded = set(re.search(r"\n  unfold (.*)\n", block).group(1).split())
+            expected = {arg for node in applications
+                        if ("term_%d" if graph.is_term(node) else "formula_%d") % node in unfolded
+                        for arg, sort in zip(graph.arguments(node), graph.decl(node).domain)
+                        if sort == "Bool" and graph.kind(arg) not in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE)}
+            found = {int(name) for name in re.findall(r"have _b(\d+) : Or \(", block)}
+            self.assertEqual(found, expected, block[:200])
+        # A Bool argument position is checked like any other: swapping the
+        # arguments of r, or declaring f over the sort, leaves the graph ill-sorted.
+        r = next(node for node in applications if graph.decl(node).name == "r")
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][r]["arguments"] = list(reversed(tampered["nodes"][r]["arguments"]))
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong argument sort"):
+            proof_to_lean.reconstruct(source, tampered)
+        tampered = copy.deepcopy(certificate)
+        for declaration in _declarations(tampered, lambda d: d["name"] == "f" and d["kind"] == z3.Z3_OP_UNINTERPRETED):
+            declaration["domain"] = ["U"]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong argument sort"):
+            proof_to_lean.reconstruct(source, tampered)
+        # The binder requires the input's signature: a certificate for the same
+        # text with f declared over the sort cannot be bound to this input.
+        rebound = source.replace("(declare-fun f (Bool) U)", "(declare-fun f (U) U)")
+        for application, replacement in (("(f q)", "(f a)"), ("(f true)", "(f a)"),
+                                         ("(f (p q))", "(f b)"), ("(f (p true))", "(f b)")):
+            rebound = rebound.replace(application, replacement)
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
+            proof_to_lean.reconstruct(rebound, dict(certificate, source_smt2=rebound))
+        # A predicate over Bool alone needs the sort: without it the exporter
+        # rejects the input, and so does the binder for a certificate claiming qf_uf.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "over Bool alone"):
+            proof_certificate.export_clause_log_certificate(
+                "(declare-fun p (Bool) Bool)(declare-const q Bool)(assert (p q))(assert (not (p q)))")
+
+    def test_level_zero_units_inside_boolean_arguments(self):
+        source = UF_INPUTS["uf_bool_args_units"]
+        # The live run must exercise the phantom path: Z3's raw log declares
+        # its internal true variable as k!0 and assumes it as a unit clause.
+        log = proof_clause_log.run_clause_log(proof_certificate.default_z3_executable(),
+                                              proof_certificate._assertion_commands(source))
+        self.assertIn("(declare-fun k!0 () Bool)", log)
+        self.assertRegex(log, r"\(assume (\(not )?k!0\)?\)")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        hints = [graph.decl(node).parameters for node in _th_lemma_nodes(certificate)]
+        # Z3 substituted q and s into (f q) and (r s b): those assumptions are
+        # tied to the units and the assertions by cnf lemmas; the phantom k!0
+        # unit and the assumed true literal leave no trace but a def-axiom.
+        self.assertIn(("cnf",), hints)
+        self.assertIn(("euf",), hints)
+        self.assertIn("def-axiom", certificate["rule_counts"])
+        self.assertFalse([d for d in certificate["declarations"] if d["name"].startswith("k!")])
+        self.assertNotIn("k!", json.dumps(certificate))
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("(_bool (formula_", text)
+
     def test_quoted_sort_names_are_kept(self):
         source = ("(declare-sort |my sort| 0)(declare-fun a () |my sort|)(declare-fun b () |my sort|)"
                   "(declare-fun f (|my sort|) |my sort|)(assert (= a b))(assert (not (= (f a) (f b))))")
@@ -590,7 +799,8 @@ class TestUninterpretedValidation(unittest.TestCase):
             # must be well-sorted.
             (mutate(is_eq_b, domain=["A", "B"]), "cannot mix argument sorts"),
             (mutate(is_f, domain=["B"]), "wrong argument sort"),
-            (mutate(is_f, domain=["Bool"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Bool"]), "wrong argument sort"),
+            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_g, domain=["A", "B"]), "wrong argument sort"),
             (mutate(is_g, range="B"), "wrong argument sort"),
             (mutate(is_b, range="A"), "wrong argument sort"),
@@ -786,6 +996,22 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 text = proof_to_lean.reconstruct(source, certificate)
                 self.assertIn('-- Uninterpreted sorts "S0", "S1", "S2" are the one type _U', text)
+
+    # Seeds of random_bool_argument_instance(seed) whose unsat core has at
+    # least four assertions; pinned like LEARNED_CLAUSE_SEEDS (the generator
+    # is sat-heavy: the first three are all such seeds below 400). The last
+    # two have lemmas that grind proves only with the explicit case splits on
+    # Boolean arguments, as Z3 combined assertions without naming the literal.
+    BOOL_ARGUMENT_SEEDS = (4, 98, 347, 1639, 2088)
+
+    def test_random_instances_with_boolean_arguments(self):
+        for seed in self.BOOL_ARGUMENT_SEEDS:
+            source = random_bool_argument_instance(seed)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 4, "re-pick seed %d" % seed)
+                certificate, _ = self.check(source)
+                self.assertIn("th-lemma", certificate["rule_counts"])
+                self.assertIn("(_bool (formula_", proof_to_lean.reconstruct(source, certificate))
 
     def test_long_refutations_are_outlined_into_bounded_lemmas(self):
         # Seven levels give about 1,600 proof steps; as one nested term the main

@@ -642,6 +642,96 @@ _UF_ITE_ALLDIFF_LOG = """\
 (infer rup)
 """
 
+_UF_BOOL_ARGS = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun f (Bool) U)
+(declare-const q Bool)
+(declare-const r Bool)
+(declare-const s Bool)
+(assert q)
+(assert (= (f q) a))
+(assert (or s r))
+(assert (or (not s) r))
+(assert (not (= (f r) a)))
+(check-sat)
+"""
+# The clause log for _UF_BOOL_ARGS: with q asserted, Z3 internalizes (f q) as
+# (f true) and assumes the true literal itself; r is decided during search and
+# the euf hint lists it as a premise of the congruence (f r) = (f true).
+_UF_BOOL_ARGS_LOG = """\
+(declare-fun q () Bool)
+(assume q)
+(assume true)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun f (Bool) U)
+(define-const $18 U (f true))
+(define-const $19 Bool (= $18 a))
+(assume $19)
+(declare-fun s () Bool)
+(declare-fun r () Bool)
+(assume s r)
+(assume (not s) r)
+(define-const $14 U (f r))
+(define-const $15 Bool (= $14 a))
+(assume (not $15))
+(declare-fun rup () Proof)
+(infer r rup)
+(declare-fun euf (Bool Bool Bool Proof Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $23 Bool (= $19 $15))
+(define-const $24 Proof (cc $23))
+(define-const $21 Bool (= $14 $18))
+(define-const $22 Proof (cc $21))
+(define-const $16 Bool (not $15))
+(define-const $25 Proof (euf $19 $16 r $22 $24))
+(infer (not $19) $15 (not r) $25)
+(infer rup)
+"""
+
+_UF_NEGATIVE_UNIT = """\
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun p (U) Bool)
+(declare-const s Bool)
+(assert (or s (p a)))
+(assert (not s))
+(assert (= a b))
+(assert (not (p b)))
+(check-sat)
+"""
+# The clause log for _UF_NEGATIVE_UNIT: the negated unit makes the sat core
+# log its internal true literal, a Boolean variable without an expression,
+# as the fresh constant k!0; the clause assuming it is used by nothing. The
+# input carries no set-logic line: with (set-logic QF_UF) the same
+# assertions are logged without the phantom.
+_UF_NEGATIVE_UNIT_LOG = """\
+(declare-sort U 0)
+(declare-fun p (U) Bool)
+(declare-fun a () U)
+(define-const $7 Bool (p a))
+(assume $7)
+(declare-fun k!0 () Bool)
+(assume k!0)
+(declare-fun b () U)
+(define-const $11 Bool (= a b))
+(assume $11)
+(define-const $12 Bool (p b))
+(assume (not $12))
+(declare-fun euf (Bool Bool Bool Proof) Proof)
+(declare-fun cc (Bool) Proof)
+(define-const $16 Bool (= $12 $7))
+(define-const $17 Proof (cc $16))
+(define-const $13 Bool (not $12))
+(define-const $18 Proof (euf $13 $7 $11 $17))
+(infer $12 (not $7) (not $11) $18)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+
 
 def _z3_available():
     try:
@@ -705,12 +795,25 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uf")
+        # Functions and predicates may take Bool arguments, including formulas,
+        # once the input uses a sort; a Bool-only signature is not enough.
+        for source in [
+            declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))",
+            declarations + "(declare-fun h (U Bool) V)(declare-fun r (Bool) Bool)"
+                           "(assert (= (h a (r (= v v))) v))",
+            declarations + "(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (and (= a a) (r p (not p))))",
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), "qf_uf")
         for source, message in [
             (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
+            ("(declare-fun r (Bool) Bool)(declare-const p Bool)(assert (r p))", "over Bool alone"),
+            ("(declare-sort U 0)(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (r p p))",
+             "over Bool alone"),
             (declarations + "(declare-fun h (U) V)(declare-const x Real)(assert (and (= (h a) v) (> x 1.0)))",
              "mixing uninterpreted sorts"),
-            (declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))", "functions over Bool"),
             (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
+            (declarations + "(declare-fun r (Bool Real) Bool)(assert (r true 1.0))", "functions over Real"),
             (declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))", "functions over Real"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
             # Z3 accepts one name declared with several signatures and tells the
@@ -1038,6 +1141,58 @@ class TestClauseLogReplay(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.replay(_UF_ITE, log)
 
+    def test_boolean_arguments_in_the_clause_log(self):
+        certificate = self.replay(_UF_BOOL_ARGS, _UF_BOOL_ARGS_LOG)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        counts = certificate["rule_counts"]
+        self.assertEqual(counts["asserted"], 5)
+        self.assertEqual(counts["def-axiom"], 1)  # (assume true) is a tautology
+        f = [d for d in certificate["declarations"] if d["name"] == "f" and d["kind"] == z3.Z3_OP_UNINTERPRETED]
+        self.assertEqual([(d["domain"], d["range"]) for d in f], [(["Bool"], "U")])
+        # (= (f true) a) is not an assertion: it is (= (f q) a) under the unit q,
+        # tied to both by a cnf lemma; the euf hint becomes the other th-lemma.
+        self.assertEqual(sorted(tuple(d["parameters"]) for d in certificate["declarations"] if d["name"] == "th-lemma"),
+                         [("cnf",), ("euf",)])
+        self.assertEqual(counts["th-lemma"], 2)
+        # Without the tautological unit the certificate only loses the def-axiom.
+        trimmed = self.replay(_UF_BOOL_ARGS, _UF_BOOL_ARGS_LOG.replace("(assume true)\n", ""))
+        self.assertEqual(trimmed["rule_counts"], {k: v for k, v in counts.items() if k != "def-axiom"})
+        for log, message in [
+            (_UF_BOOL_ARGS_LOG.replace("(f true)", "(f a)"), "ill-sorted application of f"),
+            (_UF_BOOL_ARGS_LOG.replace("(f r)", "(f r r)"), "wrong number of arguments"),
+            (_UF_BOOL_ARGS_LOG.replace("(define-const $14 U (f r))", "(define-const $14 Bool (f r))"),
+             "has sort U, declared Bool"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_UF_BOOL_ARGS, log)
+
+    def test_phantom_literals_of_the_sat_core_are_dropped(self):
+        certificate = self.replay(_UF_NEGATIVE_UNIT, _UF_NEGATIVE_UNIT_LOG)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 4)
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 2)  # euf, and cnf for (p a) under (not s)
+        self.assertFalse([d for d in certificate["declarations"] if d["name"].startswith("k!")])
+        # Only nullary Bool constants named k!<n> are phantoms, and only in
+        # assumed or deleted clauses: an inference over one is rejected.
+        for log, message in [
+            (_UF_NEGATIVE_UNIT_LOG.replace("(infer rup)", "(infer k!0 rup)\n(infer rup)"), "undeclared or fresh symbol"),
+            (_UF_NEGATIVE_UNIT_LOG.replace("(define-const $7 Bool (p a))", "(define-const $7 Bool (and k!0 (p a)))"),
+             "undeclared or fresh symbol"),
+            (_UF_NEGATIVE_UNIT_LOG.replace("(declare-fun k!0 () Bool)", "(declare-fun k!0 () U)"),
+             "absent from the input"),
+            (_UF_NEGATIVE_UNIT_LOG.replace("(declare-fun k!0 () Bool)", "(declare-fun k!0 (Bool) Bool)"),
+             "absent from the input"),
+            (_UF_NEGATIVE_UNIT_LOG.replace("k!0", "j!0"), "absent from the input"),
+            (_UF_NEGATIVE_UNIT_LOG.replace("(assume k!0)", "(assume (not k!0))"), None),
+            (_UF_NEGATIVE_UNIT_LOG.replace("(assume k!0)", "(assume k!0 $7)\n(del k!0 $7)"), None),
+        ]:
+            with self.subTest(message=message, log=log):
+                if message is None:
+                    self.assertEqual(self.replay(_UF_NEGATIVE_UNIT, log)["rule_counts"], certificate["rule_counts"])
+                else:
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                        self.replay(_UF_NEGATIVE_UNIT, log)
+
     def test_alldiff_clauses_simplified_under_a_unit_are_tied_to_their_sources(self):
         certificate = self.replay(_UF_ITE_ALLDIFF, _UF_ITE_ALLDIFF_LOG)
         declarations = certificate["declarations"]
@@ -1168,6 +1323,14 @@ class TestClauseLogReplay(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
             proof_certificate.export_clause_log_certificate(
                 "(declare-const x Real)(assert (> x 1.0))")
+        # A negated unit makes the sat core log its internal true variable as
+        # the phantom k!0; the raw log shows it and the certificate does not.
+        log = proof_clause_log.run_clause_log(proof_certificate.default_z3_executable(),
+                                              proof_certificate._assertion_commands(_UF_NEGATIVE_UNIT))
+        self.assertIn("(declare-fun k!0 () Bool)", log)
+        certificate = proof_certificate.export_clause_log_certificate(_UF_NEGATIVE_UNIT)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertNotIn("k!", json.dumps(certificate))
         # Boolean input through the clause log, selected explicitly.
         result = subprocess.run(
             [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "-"],

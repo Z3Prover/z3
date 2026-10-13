@@ -201,11 +201,18 @@ def _require_uninterpreted_sort(candidate, sorts):
 
 
 def _require_uninterpreted_signature(decl, sorts):
-    """Check that a function or predicate ranges over uninterpreted sorts only."""
+    """Check that a function or predicate ranges over uninterpreted sorts and Bool only.
+
+    Arguments may be Bool as well as uninterpreted sorts (Lean injects a
+    Boolean argument into the carrier); the result is Bool or a sort. Real
+    arguments or results are rejected.
+    """
     candidates = [decl.domain(i) for i in range(decl.arity())]
     if decl.range().kind() != z3.Z3_BOOL_SORT:
         candidates.append(decl.range())
     for candidate in candidates:
+        if candidate.kind() == z3.Z3_BOOL_SORT:
+            continue
         if not is_uninterpreted_sort(candidate):
             raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
                 candidate, decl.name()))
@@ -227,6 +234,7 @@ def _require_unique_symbol(decl, symbols):
 def classify_fragment(assertions):
     """Return "propositional", "qf_lra", or "qf_uf", rejecting everything else."""
     pending, seen, arithmetic, sorts, symbols = list(assertions), set(), False, set(), {}
+    boolean_functions = []  # uninterpreted functions whose signature mentions no sort
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
@@ -241,6 +249,8 @@ def classify_fragment(assertions):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 if decl.arity() != 0:
                     _require_uninterpreted_signature(decl, sorts)
+                    if all(decl.domain(i).kind() == z3.Z3_BOOL_SORT for i in range(decl.arity())):
+                        boolean_functions.append(decl.name())
             elif decl.kind() in _ARITH_PREDICATES:
                 arithmetic = True
             elif decl.kind() not in _BOOLEAN_OPERATORS:
@@ -266,6 +276,12 @@ def classify_fragment(assertions):
         if arithmetic:
             raise ProofExportError("mixing uninterpreted sorts with arithmetic is not supported")
         return "qf_uf"
+    if boolean_functions:
+        # Without an uninterpreted sort Z3's sat.smt core does not run the
+        # euf solver on these: it Ackermannizes them with fresh symbols the
+        # clause log cannot be tied to the input.
+        raise ProofExportError("uninterpreted functions over Bool alone are not supported without an "
+                               "uninterpreted sort: %s" % boolean_functions[0])
     return "qf_lra" if arithmetic else "propositional"
 
 

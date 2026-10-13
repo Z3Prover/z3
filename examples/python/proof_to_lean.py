@@ -74,8 +74,14 @@ _RESERVED_SORTS = ("Bool", "Real", "Proof")
 # its carriers as _U, since every ground term keeps its sort and equality is
 # only ever stated between terms of one sort (the certificate keeps the sort
 # names, and the proof graph is checked to be well-sorted before rendering).
-_UF_BINDERS = " (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)"
-_UF_ARGUMENTS = " _U _elems _funs _preds"
+# A Boolean argument of a function or predicate is injected into _U by the
+# quantified map _bool, so Bool is treated as one more sort: a model's Bool
+# carrier joins the disjoint union and _bool picks its two values. Nothing
+# asserts that _bool True and _bool False differ, and nothing needs to: euf
+# lemmas only use the congruence p = q -> _bool p = _bool q.
+_UF_BINDERS = (" (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)"
+               " (_bool : Prop -> _U)")
+_UF_ARGUMENTS = " _U _elems _funs _preds _bool"
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
     z3.Z3_OP_PR_TH_LEMMA: ("th-lemma", 0),
@@ -231,11 +237,11 @@ def _declaration(raw, sorts):
     parameters = _parameters(kind, name, raw["parameters"])
     if raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no definitions.
-        # A function may take arguments of any uninterpreted sort, never Bool or Real.
+        # A function may take arguments of any uninterpreted sort or Bool, never Real.
         if kind == z3.Z3_OP_ITE:
             if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
                 raise ReconstructionError("invalid uninterpreted-sort ite declaration")
-        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in sorts for argument in domain):
+        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in sorts + ("Bool",) for argument in domain):
             raise ReconstructionError("unsupported uninterpreted-sort declaration: %s" % name)
     elif raw["range"] == "Real":
         if kind == z3.Z3_OP_ITE:
@@ -262,9 +268,10 @@ def _declaration(raw, sorts):
             if kind != z3.Z3_OP_UNINTERPRETED and _BOOL_NAMES.get(kind) != name:
                 raise ReconstructionError("unsupported Boolean declaration: %s" % name)
             if kind == z3.Z3_OP_UNINTERPRETED and domain:
-                # A predicate ranges over the uninterpreted sorts only.
-                if any(argument not in sorts for argument in domain):
-                    raise ReconstructionError("Boolean declarations cannot mix argument sorts")
+                # A predicate ranges over the uninterpreted sorts and Bool; the
+                # exporter admits it only when the input also uses a sort.
+                if not sorts or any(argument not in sorts + ("Bool",) for argument in domain):
+                    raise ReconstructionError("unsupported predicate declaration: %s" % name)
             else:
                 argument_sort = "Bool"
                 if kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and domain and domain[0] != "Proof":
@@ -495,6 +502,16 @@ def _infix(operator, arguments):
     return result
 
 
+def _application_arguments(graph, arguments, term, formula):
+    """Render the argument list of a function or predicate over the uninterpreted sorts.
+
+    A Boolean argument is injected into the carrier by _bool; its formula is
+    rendered as a Prop.
+    """
+    return "[%s]" % ", ".join(term(arg) if graph.is_term(arg) else "(_bool %s)" % formula(arg)
+                              for arg in arguments)
+
+
 def _term_body(graph, node, variable_indices, term=None, formula=None):
     """Render a Real or uninterpreted-sort node; term and formula render its children.
 
@@ -511,7 +528,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
             return "_vars %d" % index
         if not arguments:
             return "_elems %d" % index
-        return "_funs %d [%s]" % (index, ", ".join(term(arg) for arg in arguments))
+        return "_funs %d %s" % (index, _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
         value = Fraction(graph.decl(node).name)
         if value.denominator == 1:
@@ -537,10 +554,11 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
     arguments = graph.arguments(node)
+    if kind == z3.Z3_OP_UNINTERPRETED and arguments:
+        return "_preds %d %s" % (atom_indices[graph.nodes[node].declaration],
+                                 _application_arguments(graph, arguments, term, formula))
     if arguments and graph.is_term(arguments[0]):
         args = [term(arg) for arg in arguments]
-        if kind == z3.Z3_OP_UNINTERPRETED:
-            return "_preds %d [%s]" % (atom_indices[graph.nodes[node].declaration], ", ".join(args))
         if kind in _ARITH_PREDICATE_NAMES and graph.is_real(arguments[0]):
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
@@ -777,14 +795,20 @@ def _not_or_elim(graph, terms, node):
 
 
 def _reachable(graph, conclusion):
-    """Return the formula and term nodes reachable from a conclusion, and whether any is a theory term."""
+    """Return the formula and term nodes reachable from a conclusion, and whether any is a theory node.
+
+    Theory nodes are Real and uninterpreted-sort terms and predicate
+    applications (which may take Boolean arguments only); a conclusion without
+    them is purely propositional over the atoms.
+    """
     reachable, pending, theory = set(), [conclusion], False
     while pending:
         formula = pending.pop()
         if formula in reachable:
             continue
         reachable.add(formula)
-        theory = theory or graph.is_term(formula)
+        theory = (theory or graph.is_term(formula)
+                  or (graph.kind(formula) == z3.Z3_OP_UNINTERPRETED and bool(graph.arguments(formula))))
         pending.extend(graph.arguments(formula))
     return reachable, theory
 
@@ -899,10 +923,36 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     if graph.arithmetic:
         lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
         lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
+    if graph.sorts:
+        lines.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     # Large Boolean/arithmetic rewrites can require more than grind's default
     # nine case splits, even though every arithmetic atom remains linear.
     lines.append("  grind (splits := 64)")
     return lines, "(%s_%d _atoms%s)" % (prefix, node, graph.valuation)
+
+
+def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
+    """State excluded middle for every formula that is a Boolean argument of an application.
+
+    Z3's egraph merges each Boolean argument with true or false as soon as
+    the SAT solver assigns it, so its lemmas may rest on the two cases of an
+    argument that no premise mentions, for example when preprocessing
+    combined several assertions. grind splits on disjunctions in context but
+    not on arbitrary propositions, so each case split is offered explicitly;
+    from either case it derives _bool p = _bool True or _bool p = _bool False
+    by congruence.
+    """
+    arguments = set()
+    for node in sorted(reachable):
+        if graph.kind(node) == z3.Z3_OP_UNINTERPRETED:
+            arguments.update(argument for argument in graph.arguments(node)
+                             if not graph.is_term(argument)
+                             and graph.kind(argument) not in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE))
+    helpers = []
+    for argument in sorted(arguments):
+        formula = _inline(graph, argument, atom_indices, variable_indices)
+        helpers.append("  have _b%d : Or (%s) (Not (%s)) := Classical.em _" % (argument, formula, formula))
+    return helpers
 
 
 def _rewrite_lemma(graph, node, atom_indices, variable_indices=None):
@@ -1636,6 +1686,8 @@ def reconstruct(source, certificate):
         # of the theorem over the disjoint union of its carriers.
         lines.append("-- Uninterpreted sorts %s are the one type _U; functions and predicates take argument lists."
                      % ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.sorts))
+    if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
+        lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
     lines.extend(["namespace " + namespace, ""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Real nodes containing an ite: their classical instance is noncomputable.
