@@ -402,13 +402,6 @@ expr_pattern_match::initialize(char const * spec_string) {
     m_instrs.push_back(instr(BACKTRACK));
 
     std::istringstream is(spec_string);
-    // This context is an internal helper used to parse the pattern database.
-    // It must not be a *main* context: a main context installs itself as the
-    // process-wide verbose stream on construction and restores std::cerr on
-    // destruction. Pattern inference runs inside the solver, so with
-    // parallel.enable=true every worker thread reaches this point
-    // concurrently and the main-context flag turns a thread-local parse into a
-    // data race on (and a clobbering of) global stream state.
     cmd_context      ctx(false, &m_manager);
     bool ps = ctx.print_success_enabled();
     ctx.set_print_success(false);
