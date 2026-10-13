@@ -670,7 +670,7 @@ successfully").
 | unmatched leaves | 85 | **24** |
 | `fstar_check` pass / no-proof-content | 98 / 2 | 98 / 2 (unchanged — no regressions) |
 | trusted-kernel (`check_proof`) acceptance | 98/98 | **98/98** |
-| files with zero unmatched leaves | 44/98 | **(see below)** |
+| files with zero unmatched leaves | 44/98 | **77/98** |
 
 Every one of the 98 extracted proofs still passes end-to-end — the three new
 matchers add real coverage without touching the soundness of any
@@ -693,3 +693,55 @@ tautologies at all and are correctly outside this checker's scope, plus a
 small number of nested/compound shapes needing `Congr`-level (not purely
 leaf-level) reasoning — a natural next target if QF_UF coverage is revisited
 again.
+
+## Round 4: independent re-check (fresh 100-file samples, current code)
+
+Re-ran both 100-file samples end-to-end from scratch (fresh `z3.Solver()`
+calls, fresh proof extraction, fresh `fstar.exe` invocations — not a replay
+of Round 2/3's saved data) against the current fourteen-matcher
+`Z3PatternMatchedProofChecker.fst`, to confirm the Round 3 numbers are
+reproducible and to get the still-missing QF_AX zero-unmatched-leaves count:
+
+```
+python tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_round4.jsonl --timeout 30 --limit 100 --workers 8
+python tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100_round4.jsonl --timeout 30 --limit 100 --workers 8
+```
+
+| | QF_UF (100 files) | QF_AX (100 files) |
+|---|---|---|
+| `z3_no_proof`/`z3_with_proof` | 100/100 `unsat` | 100/100 `unsat` |
+| proof extracted | 98/100 (2: no equational root found) | 100/100 |
+| `fstar_check` | 98 `pass`, 0 `fail`, 2 no-attempt | 77 `pass`, 23 `fail` |
+| rewrite leaves matched/total | **143/167** (identical to Round 3) | 23/155 (`eq_symm`=22, `store_perm`=1) |
+| files with zero unmatched leaves | **77/98** | **0/100** |
+
+QF_UF's numbers reproduce Round 3 exactly (same 143/167 matched, same
+`demorgan_and`=32/`eq_not`=28/`implies_as_or`=1/`reflexivity`=71/`not_not`=6/
+`eq_symm`=5 histogram), confirming the three new matchers are deterministic
+and stable across independent runs, and fills in the previously-missing
+"files with zero unmatched leaves" datapoint: **77/98** QF_UF files in this
+sample are now fully, end-to-end verified with zero trusted leftovers (up
+from 44/98 pre-Round-3).
+
+QF_AX's gap is **unchanged and unrelated** to the Round 3 Boolean matchers
+(QF_AX is a pure array-theory corpus with essentially no Boolean-connective
+rewrite leaves to match): this sample's 132 unmatched leaves are
+overwhelmingly long, non-adjacent `store`/`select` chains over 4+ array
+updates (e.g. `(let ((a!1 (store (store (store (store a ...)))))) ...)`,
+25+5 occurrences) that the existing `store_perm`/`select_store_*` matchers
+don't reach (those recognize a *bounded*, small number of permuted/redundant
+stores, not an arbitrary-length chain), plus a long tail of plain hypothesis
+variable renamings (`i10`/`i28`/`a_19`/...) that, like QF_UF's
+`pure_rename`, are not tautologies and are correctly out of scope. The 23
+`fail` outcomes are (as in Round 2) `z3rlimit`/`fuel` budget exhaustion of
+the `lemma_unmatched_count_cross_checked` recomputation on these
+leaf-heavy/trust-heavy proofs within the 30s F* timeout, not the kernel
+checker (`check_proof`) accepting something it shouldn't.
+
+**Bottom line (Round 4)**: the Round 3 QF_UF improvement is confirmed
+reproducible on an independent run (143/167 matched, 77/98 fully verified).
+QF_AX's open gap is unchanged and is specifically a **multi-store-chain**
+coverage gap (not a regression, not a QF_UF-type Boolean-connective gap) —
+the natural next matcher-library target if QF_AX is revisited, requiring a
+chained `select`-through-an-arbitrary-length-`store`-sequence schema rather
+than the current fixed-arity `store_perm`/`select_store_same` matchers.
