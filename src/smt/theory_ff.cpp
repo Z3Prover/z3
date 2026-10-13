@@ -179,11 +179,13 @@ namespace smt {
     // as a common factor. a-b = factor * remainder by construction (the
     // common multiset is a sub-multiset of every included monomial's
     // factors), so asserting factor=0 or remainder=0 is equivalent to a=b.
-    // Always counts the candidate in factor_split_candidates; only builds
-    // and returns branches when smt.ff.factor_split enables asserting the
-    // split, so the counter measures how often this fires even while the
-    // rule stays disabled.
+    // Count factor candidates even when splitting is disabled. Once a search
+    // has emitted its split budget, skip the potentially expensive flattening
+    // walk altogether; the candidate statistic then stops at that point.
     bool theory_ff::factor_split(expr *a, expr *b, expr_ref_vector &branches) {
+        smt_params_helper params(ctx.get_params());
+        if (params.ff_factor_split() && factor_split_clauses >= params.ff_max_factor_splits())
+            return false;
         sort *s = a->get_sort();
         rational const &p = ff.modulus(s);
         vector<std::pair<rational, ptr_vector<expr>>> monomials;
@@ -288,7 +290,7 @@ namespace smt {
         TRACE(ff_root_split_miss,
               tout << "common factor " << mk_pp(common[0], m) << " in "
                    << mk_pp(a, m) << " = " << mk_pp(b, m) << "\n";);
-        if (!smt_params_helper(ctx.get_params()).ff_factor_split())
+        if (!params.ff_factor_split())
             return false;
         // Build factor = product(common) and remainder = sum over monomials
         // of coeff * product(factors with one copy of each common element
@@ -377,6 +379,7 @@ namespace smt {
             if (!m.is_eq(normalized, a, b))
                 continue;
             expr_ref_vector branches(m);
+            bool factor_clause = false;
             rational c;
             if (!digit && ff.is_numeral(a, c) && c.is_zero())
                 std::swap(a, b);
@@ -398,6 +401,7 @@ namespace smt {
                 if (!lhs || !rhs || (lhs == a && rhs == b)) {
                     if (!factor_split(a, b, branches))
                         continue;
+                    factor_clause = true;
                 }
                 else {
                     // A^2=B^2 iff (A-B)*(A+B)=0, hence A=B or A=-B.
@@ -429,6 +433,8 @@ namespace smt {
             // Assert the original equality, not just the sampled roots.
             assert_axiom(m.mk_or(clause.size(), clause.data()), false);
             ++root_clauses;
+            if (factor_clause)
+                ++factor_split_clauses;
             changed = true;
         }
         return changed;
@@ -603,6 +609,7 @@ namespace smt {
         constrained.reset();
         split_atoms.reset();
         bv_fields.reset();
+        factor_split_clauses = 0;
     }
 
     void theory_ff::init_model(model_generator &mg) {

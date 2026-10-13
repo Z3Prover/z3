@@ -47,6 +47,7 @@ namespace smt {
         unsigned native_checks = 0, native_conflicts = 0, arrangements = 0, fallbacks = 0;
         unsigned root_clauses = 0;
         unsigned factor_split_candidates = 0;
+        unsigned factor_split_clauses = 0;
         obj_hashtable<sort> bv_fields; // fallback is local to a field, never the whole context
         void refresh_bv_fields();
         ff::basis_cache memo;
@@ -79,6 +80,7 @@ namespace smt {
             // bridge definition. Retry all live definitions on the next check.
             constrained.reset();
             split_atoms.reset();
+            factor_split_clauses = 0;
             refresh_bv_fields();
         }
 
@@ -115,6 +117,7 @@ namespace smt {
             st.update("ff bv fallbacks", fallbacks);
             st.update("ff root clauses", root_clauses);
             st.update("ff factor split candidates", factor_split_candidates);
+            st.update("ff factor split clauses", factor_split_clauses);
             st.update("ff normalization cache entries", root_norm_pins.size() / 2);
             st.update("ff basis cache hits", memo.hits);
             st.update("ff basis cache misses", memo.misses);

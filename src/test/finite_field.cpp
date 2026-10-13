@@ -973,6 +973,40 @@ static void test_ff_factor_split_lifetime() {
     ENSURE(ff_stat(ctx, "ff root clauses") > 0);
 }
 
+static void test_ff_factor_split_budget() {
+    for (unsigned limit : {0u, 4u, 16u}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        ff_util ff(m);
+        sort_ref field(ff.mk_sort(rational(7)), m);
+        expr_ref zero(ff.mk_numeral(rational(0), field), m);
+        smt_params sp;
+        smt::context ctx(m, sp);
+        ctx.set_logic(symbol("QF_FF"));
+        params_ref params;
+        params.set_bool("ff.factor_split", true);
+        params.set_uint("ff.max_factor_splits", limit);
+        ctx.updt_params(params);
+        unsigned checks = limit == 4 ? 2 : 1;
+        for (unsigned repeat = 0; repeat < checks; ++repeat) {
+            ctx.push();
+            for (unsigned i = 0; i < 10; ++i) {
+                std::string suffix = std::to_string(i);
+                expr_ref x(m.mk_const(symbol(("budget-x-" + suffix).c_str()), field), m);
+                expr_ref y(m.mk_const(symbol(("budget-y-" + suffix).c_str()), field), m);
+                expr_ref z(m.mk_const(symbol(("budget-z-" + suffix).c_str()), field), m);
+                expr_ref xy(ff.mk_mul(x, y), m);
+                expr_ref xyz(ff.mk_mul(xy, z), m);
+                expr_ref equation(m.mk_eq(ff.mk_add(xy, xyz), zero), m);
+                ctx.assert_expr(equation);
+            }
+            ENSURE(ctx.check() == l_true);
+            ENSURE(ff_stat(ctx, "ff factor split clauses") == std::min(limit, 10u));
+            ctx.pop(1);
+        }
+    }
+}
+
 // Substituting a wire into another assertion must retain the defining
 // equation as a premise, including transitive definitions and shared terms.
 static void test_ff_wire_dependencies() {
@@ -1075,6 +1109,7 @@ void tst_finite_field() {
     test_ff_nested_zero_test();
     test_ff_integration();
     test_ff_factor_split_lifetime();
+    test_ff_factor_split_budget();
     test_ff_tiny();
     test_ff_f4();
     test_certificates();
