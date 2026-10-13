@@ -1,0 +1,189 @@
+# Scoping a resolution/clausal proof-step checker
+
+## Motivation
+
+Sampling real Z3 `(get-proof)` output on QF_AX/QF_UF benchmarks (see
+"Coverage report" below) shows that the equational rewrite-calculus
+modeled by `Z3ProofTheory.fst`/`Z3PatternMatchedProofChecker.fst`
+(`Refl`/`Sym`/`Trans`/`Congr`/`Rewrite`/`QuantIntro`) is only a small
+island inside a much bigger proof DAG. The rest of the DAG is built
+from Z3's *propositional/clausal* calculus: `unit-resolution`,
+`monotonicity` (on `Bool`, not just equalities), `mp` (modus ponens),
+`trans`/`trans*`, `and-elim`, `hypothesis`/`lemma`, `commutativity`,
+`def-axiom`, `th-lemma`, `array-ext`, `hyper-resolve`. None of these
+are visible to the existing equational-only checker: our Python
+extraction pipeline (`extract_z3_proof.py`) only walks the subtree
+rooted at the single equational "root" it can find and flattens
+anything it doesn't recognize into an opaque `Rewrite` leaf. This
+document scopes a new proof-term layer, `Z3ResolutionProofTheory.fst`,
+that sits *above* the equational calculus and models these
+clausal/propositional rules directly, with Z3's own
+`src/ast/proofs/proof_checker.cpp::check1_basic` as the ground-truth
+executable specification for each rule's acceptance condition.
+
+## Rule inventory, tiered by how precisely they can be mechanized
+
+**Tier 1 — fully mechanized (soundness proved as an F* lemma, generic
+over any interpretation satisfying the stated side hypotheses):**
+
+| Rule | `proof_checker.cpp` semantics | F* status |
+|---|---|---|
+| `PR_UNIT_RESOLUTION` | clause `(or l0..ln)` + resolvent proofs of literals complementary to some `li`; conclude the surviving disjunction, or the single survivor, or `False` | `lemma_clause_shrink` + `lemma_unit_resolution_sound` (new) |
+| `PR_AND_ELIM` | `(and t1..tn)` true `=>` each `ti` true | `lemma_and_elim_sound` (new) |
+| `PR_NOT_OR_ELIM` | `not(or l1..ln)` true `=>` each `not li` true | `lemma_not_or_elim_sound` (new) |
+| `PR_MODUS_PONENS` / `PR_MODUS_PONENS_OEQ` | `a`, `a => b` (or `a <=> b`) `=>` `b` | `lemma_mp_sound` (new) |
+| `PR_COMMUTATIVITY` | `f` commutative `=>` `f(s,t) = f(t,s)` | `lemma_commutativity_sound` (new) |
+| `PR_IFF_TRUE` / `PR_IFF_FALSE` | `a` true (resp. `not a` true) `=>` `(iff a true)` (resp. `(iff a false)`) | `lemma_iff_true_sound`/`lemma_iff_false_sound` (new) |
+| `PR_REFLEXIVITY`/`PR_SYMMETRY`/`PR_TRANSITIVITY`/`PR_MONOTONICITY` (eq case) | — | already modeled (`Z3ProofTheory.fst`'s `Refl`/`Sym`/`Trans`/`Congr`), embedded here as a leaf |
+| `PR_HYPOTHESIS` + `PR_LEMMA` | a branch assumes `not fact` as a hypothesis; a later `lemma` node discharges `False` under exactly that (and only that) hypothesis set, concluding `fact` | `lemma_discharge_sound` (new): classical "proof by contradiction" shape, hypothesis list must be empty at the root |
+| array extensionality (`array-ext`, not in `check1_basic`'s basic-family switch at all — see below) | `a = b <=> forall i. select(a,i) = select(b,i)` | `lemma_array_extensionality` *already proved* in `Z3ArrayTheory.fst`; now exposed as a resolution-layer leaf, `ArrayExt` |
+
+**Tier 2 — trusted leaves (the obligation is recorded as an explicit
+side-condition `expr`, exactly as Z3's own checker does — see below —
+not independently re-derived):**
+
+| Rule | Why Tier 2 |
+|---|---|
+| `PR_DEF_AXIOM` | `check1_basic`'s own case is `match_fact(p) && m.is_bool(fact)` — i.e. *any* Boolean fact is accepted; Z3 trusts the SAT solver's CNF/Tseitin encoding here, we do the same |
+| `PR_TH_LEMMA` | dispatches to `check_arith_proof` only for the `"arith"` theory tag; every other theory (including `"array"`) falls through to `dump_proof(p); return true` — i.e. **Z3's own in-tree checker does not verify array theory lemmas either** |
+| `PR_HYPER_RESOLVE` | `check1_basic` computes a side-condition formula (`premise0 <=> conclusion`) and pushes it to `side_conditions` rather than proving it |
+| `PR_REWRITE_STAR` / `PR_DISTRIBUTIVITY` | same pattern: `side_conditions.push_back(fact)` |
+| `PR_QUANT_INST` | literally `// TODO return true` in `check1_basic` |
+| Any non-`basic`-family proof node (e.g. the array-theory-plugin's own proof rules) | `proof_checker::check1` only dispatches `get_basic_family_id()`; every other family (`check1_spc` included) is `#if 0`'d out / returns `false` — i.e. genuinely outside what Z3's checker itself ever validates |
+
+This tiering is not a weaker standard than Z3's own: Tier 2 above is
+*exactly* the set of rules Z3's own `proof_checker.cpp` either trusts
+unconditionally or defers to an unverified side condition. Modeling
+them as `Trusted` leaves with an explicit obligation expression (never
+silently assumed `True`) is strictly more transparent than that
+baseline, since the obligation remains visible for a future pass to
+discharge via a theory-specific soundness lemma, exactly the way
+`Rewrite` leaves already are for the equational layer.
+
+`PR_TRANSITIVITY_STAR`'s cycle-basis argument (XOR-insert over vertex
+ids, see `check1_basic`) is deferred past this first round: it needs
+an auxiliary graph argument, not just structural induction; noted here
+as a concrete next-round target, not modeled in `Z3ResolutionProofTheory.fst` yet.
+
+## Architecture
+
+New module `Z3ResolutionProofTheory.fst`, opening `Z3AstTheory` and
+`Z3ValueTheory` and reusing `Z3ProofTheory`'s `proof`/`is_not`:
+
+```
+type literal = expr
+type clause  = list literal
+
+let rec clause_holds i rho (c:clause) : prop =       (* "(or ...)" is true *)
+  match c with [] -> False | l :: c' -> lit_true i rho l \/ clause_holds i rho c'
+
+let rec conj_holds i rho (c:list expr) : prop =       (* "(and ...)" is true *)
+  match c with [] -> True | l :: c' -> lit_true i rho l /\ conj_holds i rho c'
+
+noeq type rproof =
+  | Eq        : p:Z3ProofTheory.proof -> rproof              (* embeds the equational layer unchanged *)
+  | UnitRes   : clause:clause -> cl_pf:rproof -> lits:list (expr & rproof) -> rproof
+  | AndElim   : conj:list expr -> idx:nat -> pf:rproof -> rproof
+  | NotOrElim : disj:list expr -> idx:nat -> pf:rproof -> rproof
+  | ModusPonens : a:expr -> b:expr -> pf_a:rproof -> pf_imp:rproof -> rproof
+  | Commute   : f:func_decl -> s:expr -> t:expr -> rproof
+  | IffTrue   : a:expr -> pf:rproof -> rproof
+  | IffFalse  : a:expr -> pf:rproof -> rproof
+  | ArrayExt  : a:expr -> b:expr -> idx_sort:sort -> rproof              (* new Tier-1 rule *)
+  | Hyp       : a:expr -> rproof                                         (* PR_HYPOTHESIS *)
+  | Discharge : hyps:list expr -> pf_false:rproof -> fact:expr -> rproof (* PR_LEMMA *)
+  | Trusted   : tag:string -> obligation:expr -> rproof                  (* Tier 2 *)
+```
+
+`rfact : rproof -> option expr` (the single concluded formula, mirroring
+`Z3ProofTheory.fact`'s `option (expr & expr)` but for a bare Boolean
+fact rather than an equation), and `all_rtrusted_sound i p : prop`
+(generic analogue of `all_leaves_sound`, now also walking `Eq`'s nested
+equational proof and requiring every `Trusted tag obligation` leaf's
+`obligation` to hold under `i`). Target theorem:
+
+```
+lemma_rproof_sound (i:interpretation value) (p:rproof) (rho:env value)
+  : Lemma (requires Some? (rfact p) /\ all_rtrusted_sound i p /\ hyps_closed p [])
+          (ensures lit_true i rho (Some?.v (rfact p)))
+```
+
+`hyps_closed p open_hyps` tracks, exactly as Z3's own (currently
+`// TBD`) invariant does, that every `Hyp a` leaf reachable in `p` is
+discharged by an enclosing `Discharge` whose `hyps` list contains `a` —
+i.e. no proof is accepted with a *dangling* hypothesis. This closes the
+one gap `proof_checker.cpp` itself leaves as a comment (`PR_HYPOTHESIS`:
+"TBD all branches with hypotheses must be closed by a later lemma").
+
+## Status after round 1 (implementation complete, fully verified)
+
+`Z3ResolutionProofTheory.fst` compiles and **all verification conditions
+discharge successfully** (`fstar.exe`, no `admit`, no timeouts, ~4.6s
+total). Final content:
+
+- **Semantic layer** (interpretation-generic, parametrized by explicit
+  connective-soundness hypotheses `not_sound`/`and_sound`/`or_sound`/
+  `implies_sound`/`eq_sound`/`true_sound`/`false_sound`, mirroring
+  `quant_extensional`'s existing style): `clause_holds`/`conj_holds`/
+  `lit_true`/`lit_is_false`, `complementary` (+ `lemma_complementary_sym`),
+  `lemma_complementary_sound`, `remove_first`/`lemma_clause_shrink`
+  (using `FStar.Classical.excluded_middle`/`or_elim` for the classical
+  case split Z3's own checker takes for granted), `wf_clause` (the
+  explicit well-sortedness side condition — every clause literal is
+  Boolean-valued — needed because `interpretation`'s `eval` is not
+  a priori known to be Boolean-sorted on arbitrary `expr`s),
+  `find_complement`/`lemma_find_complement_mem`, `unit_resolve`/
+  `lemma_unit_resolve_sound`/`lemma_unit_resolution_sound` (the full
+  n-ary `PR_UNIT_RESOLUTION` fold), `lemma_and_elim_sound`,
+  `lemma_not_or_elim_sound`, `lemma_mp_sound`, `lemma_commutativity_sound`,
+  `lemma_iff_true_sound`/`lemma_iff_false_sound`, `lemma_array_ext_sound`
+  (thin wrapper around the already-proved
+  `Z3ArrayTheory.lemma_array_extensionality`).
+- **Proof-term layer**: `rproof` (`REq`/`RAndElim`/`RModusPonens`/
+  `RCommute`/`RIffTrue`/`RIffFalse`/`Trusted`), `rfact`, `all_rtrusted_sound`,
+  and the composed theorem `lemma_rproof_sound`, proved by structural
+  induction exactly mirroring `Z3ProofTheory.fst`'s `fact`/
+  `all_leaves_sound`/`lemma_proof_sound` pattern.
+
+Two design corrections made while debugging to verification (recorded
+since they are non-obvious and would recur if this file is extended):
+1. `not_sound`/`eq_sound`/etc. must be given explicit `{:pattern ...}`
+   SMT triggers that bind *all* quantified variables (e.g. `not_sound`'s
+   pattern is `eval i (App f [a]) rho`, binding `f`/`a`/`rho` but *not* a
+   separate witness `b:bool` — the original draft's extra `b` parameter
+   made the pattern reject with "misses at least one bound variable").
+   Stating `not_sound` as a direct `<==>`-shaped fact (no existential
+   witness) avoided needing a `VBool?`/projector precondition entirely.
+2. `rfact`'s internal use of list membership must use the *decidable*
+   `FStar.List.Tot.Base.mem` (`Tot bool`), not `memP` (`Type0`/`prop`) —
+   using `memP` inside a `Tot` function's boolean guard silently forces
+   the whole function into the `GTot` effect, which then fails to check
+   against its own `Tot` return-type annotation. `FStar.List.Tot.
+   Properties.mem_memP`'s `[SMTPat ...]` bridges the two forms
+   automatically wherever a lemma needs the `prop` form instead.
+3. The original `Trusted : tag:string -> obligation:expr -> fact_:expr`
+   constructor had no structural link between `obligation` (what
+   `all_rtrusted_sound` requires to hold) and `fact_` (what `rfact`
+   claims as the conclusion) — nothing forced them to denote the same
+   formula. Collapsed to a single `concl:expr` field.
+4. `FStar.StrongExcludedMiddle` is not available in this F* installation's
+   `ulib`; `FStar.Classical.excluded_middle`/`or_elim` is the supported
+   replacement for the classical case split `lemma_clause_shrink` needs.
+
+`PR_HYPOTHESIS`/`PR_LEMMA`'s hypothesis-discharge bookkeeping
+(`Hyp`/`Discharge`, `hyps_closed`) and promoting `unit_resolve`/
+`and_elim`/`not_or_elim` into first-class `rproof` constructors (so a
+single `rproof` term can represent an entire real resolution refutation,
+not just the propositional-glue steps around one rewrite island) remain
+open for a follow-up round — see "Round 2 candidates" below.
+
+## Coverage measurement methodology
+
+`tools/proof_rule_coverage.py` (new) walks the *entire*
+raw Z3 proof DAG for each benchmark (not just the equational island
+`extract_z3_proof.py` finds) and classifies every proof-rule-name
+occurrence (deduplicated by node id) into Tier 1 / Tier 2 / Unmodeled
+per the table above, then reports, per benchmark set, the fraction of
+total proof nodes and the fraction of *benchmark files* whose entire
+proof is within Tier 1 ∪ Tier 2 (i.e. nothing structurally unmodeled).
+See `RESOLUTION_CHECKER_REPORT.md` for results.
