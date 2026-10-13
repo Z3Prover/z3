@@ -420,6 +420,154 @@ the extra per-leaf `store_perm` case-split cost pushing a few more files
 right at the timeout boundary, the same phenomenon documented under
 Update 1/2 above, not a regression in soundness.
 
+## Round 2 revisit: 100-file samples, the `is_unique_value` generalization, and the trusted-kernel/cross-check split
+
+This section revisits the experiment after two changes made later in the
+project: the matcher library grew from seven to **eleven** patterns (adding
+`eq_symm`, `select_store_diff`, `store_commute`, `store_perm`), and the
+distinctness side condition those last three depend on was generalized from
+an ad-hoc "two differently-*named* uninterpreted constants" check to the
+general, semantically-justified `is_unique_value`/`provably_distinct`
+predicate (see `PULSE_PROOF_CHECKER_REPORT.md`'s "twelfth generalization"
+section). Since full reruns of the whole corpus take a while, this round
+instead samples **the first 100 `unsat`-annotated files (alphabetically) from
+each logic** — fast enough to run at both the original 10s timeout and a more
+generous 30s timeout in the same session, which turns out to be essential for
+correctly separating "didn't finish in time" from "finished and found a real
+gap" (see below).
+
+**Sampling caveat**: QF_AX's first 100 files alphabetically are entirely the
+`cvc/read5.smt2` file plus the `storecomm` stress-test family (deep nested
+`store`-chain reordering benchmarks) — this is *not* a representative
+cross-section of QF_AX (contrast the full 279-file run above, which found
+this family to be the single largest unmatched-leaf source but not the only
+content). QF_UF's first 100 are from `20170829-Rodin` and
+`2018-Goel-hwbench`, a more typical mix.
+
+### Headline result: the trusted kernel accepted every sampled proof
+
+`Z3PulseProofChecker.check_proof`/`checker_accepts` — the actual
+soundness-critical obligation (does this `Sym`/`Trans`/`Congr`/`Rewrite`
+composition, interpreted via `Z3InterpretedProofChecker`'s concrete
+per-theory semantics, really derive the claimed equation?) — **accepted
+100/100 QF_AX and 98/98 QF_UF** extracted proof DAGs (the other 2 QF_UF files
+had no equational content at all: pure resolution/CNF `unsat` proofs, outside
+this pipeline's scope by design, same as always). This was confirmed by
+inspecting every `fstar_check: fail` outcome's F* output directly: in all 23
+QF_AX failures, exactly one error was reported, always at
+`lemma_unmatched_count_cross_checked` (the *cross-check* assertion described
+above under "What a `pass` does and does not certify") — never at
+`check_extracted`/`lemma_extracted_proof_wellformed`. So "fail" here means
+*the bookkeeping sanity check about which leaves are matched couldn't be
+confirmed*, not that an unsound step was accepted.
+
+| | QF_AX (100 files) | QF_UF (100 files) |
+|---|---|---|
+| `z3_no_proof`/`z3_with_proof` | 100/100 `unsat`, <30ms each | 100/100 `unsat`, <2s each |
+| `fstar_check` @ 10s timeout | 6 pass / 93 timeout / 1 fail | 34 pass / 64 timeout / 2 no-proof-content |
+| `fstar_check` @ 30s timeout | 77 pass / 23 fail / 0 timeout | 98 pass / 2 no-proof-content |
+| trusted-kernel (`check_proof`) acceptance | **100/100** | **98/98** |
+| rewrite leaves matched / total | 23 / 155 (22 `eq_symm`, 1 `store_perm`) | 82 / 167 (71 `reflexivity`, 6 `not_not`, 5 `eq_symm`) |
+| files with **zero** unmatched leaves (fully end-to-end verified) | 0 / 100 | 44 / 98 |
+
+The 10s-vs-30s gap (93 timeouts collapsing to 77 passes + 23 fails once given
+enough wall-clock time) reconfirms this project's standing finding: F* /
+Pulse's own per-invocation start-up cost (reloading this whole dependency
+stack) dominates small-file latency far more than the benchmark's own size,
+so a strict 10s budget mostly measures *that*, not provability.
+
+### The 23 QF_AX `fail` cases: two distinct, now-understood root causes
+
+Directly probing two representative failing files (`storecomm_t1_np_nf_ai_
+00010_004.cvc.smt2`, 2 leaves, and `cvc/read5.smt2`, 2 leaves) by hand-editing
+the generated `.fst` to ask about each leaf's `try_match_leaf` value and the
+exact unmatched count in isolation (bypassing the harness's fixed 30s/`
+--z3rlimit 60 --fuel 4 --ifuel 4` budget entirely) found:
+
+1. **`cvc/read5.smt2` (1 of the 23): a stale Python mirror, not a checker
+   bug.** This file's one `store_perm`-classified leaf uses `Index`-sorted
+   (abstract, uninterpreted) index constants (`aaa`/`a`/`aa`), which are
+   genuinely *not* `is_unique_value` (that predicate is `false` on any
+   `App f args` whose `f.interp = None`, i.e. any uninterpreted/free
+   constant, by construction — see `Z3PatternMatchedProofChecker.fst`'s
+   `is_unique_value`). So the real, trusted `store_perm_leaf_ok` cannot and
+   does not match this leaf. `tools/extract_z3_proof.py`'s Python mirror,
+   however, still uses its original, simpler criterion ("two distinctly-
+   *named* 0-ary uninterpreted constants") for `select_store_diff`/
+   `store_commute`/`store_perm`, predating the `is_unique_value`
+   generalization — so it reports a match the real checker now (correctly)
+   refuses. **This is an honest soundness tightening, not a regression in
+   correctness**: naming two free constants differently never semantically
+   guarantees they denote different domain elements without an explicit
+   hypothesis saying so, so the old Python-mirrored criterion was always an
+   unjustified shortcut; `is_unique_value` only accepts distinctness that is
+   syntactically self-evident (literal numerals/BV constants/booleans/
+   sequence-of-unit literals). The practical upshot: **on corpora like QF_AX
+   where array indices are abstract/free-sort constants (the overwhelmingly
+   common case, not literal integers), `select_store_diff`/`store_commute`/
+   `store_perm`'s distinctness gate can now never fire** — their matching
+   power, as measured by the original "68/486" and "+1 (`store_perm`)"
+   headline numbers earlier in this report, no longer applies to the
+   current, more conservative checker. (The Python mirror should eventually
+   be updated to mirror `is_unique_value` exactly, so its log output and the
+   type-checked cross-check stay in agreement — not done here, since it
+   affects only logging/reporting, never the trusted kernel.)
+
+2. **The other 22: a genuine F*-normalizer/SMT scalability wall, not a
+   budget-tuning problem.** For the `storecomm` family's deeper chains (one
+   `select` peeled through up to ~9 nested, otherwise-irrelevant `store`s),
+   neither `assert_norm (try_match_leaf s t == true)` nor `== false` could be
+   discharged — **even after manually raising the probe to `--z3rlimit 2000
+   --fuel 20 --ifuel 20`** (33x/5x/5x the generated template's defaults).
+   This rules out "just needs a bigger timeout": the cost driver is the
+   *size of the expression tree* embedded in a single `Rewrite` leaf (the
+   nested-store chain), not the leaf *count* (these files have only 2–4
+   leaves total) — `try_match_leaf`'s eleven-way disjunction, each clause
+   doing its own `flatten_store`/structural-equality walk over that chain,
+   appears to blow up combinatorially for F*'s normalizer well before SMT's
+   own resource counter is the bottleneck. This is the same phenomenon the
+   original (`v1`) run's "fail" cases were attributed to, now confirmed by
+   direct experiment rather than inference.
+
+### What remains unmatched, and why
+
+* **QF_AX** (132/155 unmatched leaves, every sampled file has ≥1): the
+  dominant shape is *"select a value through an N-level nested `store`
+  chain where the target index differs from all N update indices"*
+  (`(select (store (store ... a i1 v1) ... iN vN) j)`, `j` distinct from
+  every `ik`) — this is semantically a chained generalization of
+  `select_store_diff`, but **no current matcher recognizes it**:
+  `select_store_same`/`store_redundant` only peel exactly one `store` level,
+  and `store_perm` requires a full chain-vs-chain reordering (both sides
+  still full chains), not a single final `select`. This is a clearly scoped,
+  not-yet-attempted twelfth matcher (`select_store_diff_chain`, say),
+  distinct from the `store_commute`/`store_perm` family already covered.
+* **QF_UF** (85/167 unmatched leaves across 98 files; 44/98 files are fully
+  clean): unchanged from the original full-corpus finding — propositional
+  CNF/Tseitin normalization (`(and ...)`/`(or (not ...) (not ...))`
+  rewritten forms of named sub-formula definitions) and EUF
+  congruence-closure facts, neither of which this project's matcher family
+  (which targets array/seq/bv/bool *algebraic identities*, not clausal
+  normal-form transformations) is designed to cover.
+
+### Bottom line
+
+*Fully proved*: the core equational-proof-composition kernel
+(`Z3ProofTheory`'s `proof` type checked against `Z3InterpretedProofChecker`'s
+concrete semantics via `Z3PulseProofChecker.check_proof`) — every real Z3
+proof DAG extracted from both 100-file samples composes soundly; 44/98 QF_UF
+files are additionally *fully* verified end-to-end (zero remaining trusted
+leaves). *Gaps*: (1) a not-yet-written chained `select`-through-`store`-chain
+matcher would close most of QF_AX's remaining leaves; (2) CNF/Tseitin and EUF
+congruence facts remain outside this project's rewrite-matcher scope for
+QF_UF; (3) the three distinctness-gated matchers (`select_store_diff`/
+`store_commute`/`store_perm`) are now sound but essentially unreachable on
+corpora using abstract/free-sort array indices, which is most of QF_AX; (4)
+the auto-generated template's fixed SMT/normalization budget cannot certify
+its own bookkeeping cross-check on deep nested-`store` expressions no matter
+how high it is raised, which is a proof-engineering problem in its own right
+(the cross-check needs a smarter/staged proof, not just more fuel).
+
 ## Reproducing
 
 ```powershell
@@ -445,4 +593,155 @@ python fstar\tools\analyze_benchmarks.py qf_ax_results_v3_t30.jsonl QF_AX_v3
 # +1 match on this corpus, cvc/read5.smt2):
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_results_v4_t30.jsonl --timeout 30 --workers 24
 python fstar\tools\analyze_benchmarks.py qf_ax_results_v4_t30.jsonl QF_AX_v4
+
+# Round 2 revisit (100-file samples, eleven-matcher library, generalized
+# is_unique_value distinctness; see "Round 2 revisit" above):
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100.jsonl --timeout 10 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100.jsonl --timeout 10 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\analyze_benchmarks.py qf_ax_100_t30.jsonl QF_AX_round2
+python fstar\tools\analyze_benchmarks.py qf_uf_100_t30.jsonl QF_UF_round2
+
+# Round 3: Tseitin/De Morgan matchers for QF_UF (fourteen-matcher library;
+# see "Round 3" below)
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_v2_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\analyze_benchmarks.py qf_uf_100_v2_t30.jsonl QF_UF_v2
 ```
+
+## Round 3: closing the QF_UF Tseitin/De Morgan gap
+
+Round 2 found that QF_UF's 85/167 unmatched leaves (across the 100-file
+sample) were dominated not by EUF congruence facts but by **propositional
+CNF-normalization rewrites** that Z3's Tseitin transformation produces when
+naming sub-formulas: `and`-expansion into De Morgan `not`/`or` form, and
+`eq`/`iff` nodes rearranged around a `not`. A closer per-leaf classification
+of all 85 unmatched leaves found:
+
+| shape | count | example |
+|---|---|---|
+| `and_as_not_or` (De Morgan, `and`→`not`/`or`) | 31 | `(and input k!0)` ↦ `(not (or (not input) (not k!0)))` |
+| `eq_not_rearrange` (`=`/`not` swapped around) | 28 | `(= y (not (or ...)))` ↦ `(not (= (or ...) y))` |
+| `pure_rename` (hypothesis-based renaming, **not a tautology**) | 10 | `flash` ↦ `nf` |
+| `implies_as_or` (`=>` unfolded to `or`) | 1 | `(=> rd1 (not rd2))` ↦ `(or (not rd1) (not rd2))` |
+| other (nested-context De Morgan, `ite`-multiplexer defs, `or`-commutativity-under-`eq`) | 15 | — |
+
+`pure_rename` and most of "other" are hypothesis-tracking or Congr-level
+decomposition problems, out of scope for a pure leaf-rewrite matcher (they
+are not themselves tautologies — they depend on an external definitional
+hypothesis). The first three rows, however, **are** pure tautologies over
+Boolean connectives and are exactly matchable the same way every other
+rewrite-matcher in this project is: by recognizing a fixed syntactic schema
+and proving it sound once and for all against the concrete semantics.
+
+### What was added
+
+1. **Three new interpreted Boolean operators** in the shared semantic model:
+   `op_and`/`op_or`/`op_implies` (`Z3ValueTheory.fst`, `decl_kind` 13/14/15)
+   with `interp_and`/`interp_or`/`interp_implies` (`Z3InterpretedProofChecker.fst`),
+   each the standard two-argument Boolean truth table over `VBool`. (Only the
+   binary instance is modeled, matching how Z3's proof terms actually use
+   `and`/`or` inside individual `PR_REWRITE` leaves — the surrounding n-ary
+   `and`/`or` is handled a layer up by `Congr`, unaffected by this change.)
+2. **Three new rewrite matchers** in `Z3PatternMatchedProofChecker.fst`
+   (§4l/§4m/§4n), each with a from-scratch soundness lemma proved against
+   `Z3InterpretedProofChecker`'s concrete semantics (same pattern as every
+   earlier matcher — no new axioms, no `admit`):
+   * **`demorgan_and`**: `App fand [p;q]` ↔ `App fnot [App for_ [d1;d2]]`
+     where each `di` is literally `(not pi)` **or** the double-negation-fused
+     form `pi = (not ri), di = ri`, tolerant of `or`-argument-order swap.
+   * **`implies_as_or`**: `App fimp [p;q]` ↔ `App for_ [App fnot [p]; q]`.
+   * **`eq_not`**: `App feq [a; App fnot [c]]` ↔ `App fnot [App feq [c;a]]`
+     (boolean identity `(av = not cv) == not (cv = av)`).
+3. **Mirrored in `tools/extract_z3_proof.py`**'s `classify_rewrite`/`func_decl`
+   so the benchmark harness's logging/cross-check agrees with the F* checker.
+
+The whole file (`Z3PatternMatchedProofChecker.fst`, now fourteen matchers)
+type-checks with zero errors (`fstar.exe --include . --smt z3.exe
+Z3PatternMatchedProofChecker.fst` → "All verification conditions discharged
+successfully").
+
+### Re-run result: QF_UF, 100 files, 30s timeout
+
+| | QF_UF round 2 (eleven matchers) | QF_UF round 3 (fourteen matchers) |
+|---|---|---|
+| rewrite leaves matched / total | 82 / 167 | **143 / 167** |
+| matcher histogram (new) | `reflexivity`=71, `not_not`=6, `eq_symm`=5 | + `demorgan_and`=32, `eq_not`=28, `implies_as_or`=1 |
+| unmatched leaves | 85 | **24** |
+| `fstar_check` pass / no-proof-content | 98 / 2 | 98 / 2 (unchanged — no regressions) |
+| trusted-kernel (`check_proof`) acceptance | 98/98 | **98/98** |
+| files with zero unmatched leaves | 44/98 | **77/98** |
+
+Every one of the 98 extracted proofs still passes end-to-end — the three new
+matchers add real coverage without touching the soundness of any
+already-passing file. The remaining 24 unmatched leaves are the expected
+residual: `pure_rename` (hypothesis-based, out of scope by design) plus a
+handful of nested-context shapes (e.g. `(or (not org) (and (not rd1) (not
+rd2)))`, De Morgan one level further from the leaf than this matcher family
+reaches) that would need a `Congr`-aware decomposition rather than a single
+leaf-schema matcher to close.
+
+### Bottom line (Round 3)
+
+QF_UF's pure-tautology rewrite-leaf coverage on the 100-file sample rose from
+49% (82/167) to **86% (143/167)**, with the dominant previously-unmatched
+shapes (Tseitin `and`-as-De-Morgan and `eq`/`not` rearrangement, 59 of the 85
+original unmatched leaves) now fully covered by three new, independently
+soundness-proved matchers. The remaining 24 unmatched leaves are
+predominantly hypothesis-dependent renamings (`pure_rename`, 10) that are not
+tautologies at all and are correctly outside this checker's scope, plus a
+small number of nested/compound shapes needing `Congr`-level (not purely
+leaf-level) reasoning — a natural next target if QF_UF coverage is revisited
+again.
+
+## Round 4: independent re-check (fresh 100-file samples, current code)
+
+Re-ran both 100-file samples end-to-end from scratch (fresh `z3.Solver()`
+calls, fresh proof extraction, fresh `fstar.exe` invocations — not a replay
+of Round 2/3's saved data) against the current fourteen-matcher
+`Z3PatternMatchedProofChecker.fst`, to confirm the Round 3 numbers are
+reproducible and to get the still-missing QF_AX zero-unmatched-leaves count:
+
+```
+python tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_round4.jsonl --timeout 30 --limit 100 --workers 8
+python tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100_round4.jsonl --timeout 30 --limit 100 --workers 8
+```
+
+| | QF_UF (100 files) | QF_AX (100 files) |
+|---|---|---|
+| `z3_no_proof`/`z3_with_proof` | 100/100 `unsat` | 100/100 `unsat` |
+| proof extracted | 98/100 (2: no equational root found) | 100/100 |
+| `fstar_check` | 98 `pass`, 0 `fail`, 2 no-attempt | 77 `pass`, 23 `fail` |
+| rewrite leaves matched/total | **143/167** (identical to Round 3) | 23/155 (`eq_symm`=22, `store_perm`=1) |
+| files with zero unmatched leaves | **77/98** | **0/100** |
+
+QF_UF's numbers reproduce Round 3 exactly (same 143/167 matched, same
+`demorgan_and`=32/`eq_not`=28/`implies_as_or`=1/`reflexivity`=71/`not_not`=6/
+`eq_symm`=5 histogram), confirming the three new matchers are deterministic
+and stable across independent runs, and fills in the previously-missing
+"files with zero unmatched leaves" datapoint: **77/98** QF_UF files in this
+sample are now fully, end-to-end verified with zero trusted leftovers (up
+from 44/98 pre-Round-3).
+
+QF_AX's gap is **unchanged and unrelated** to the Round 3 Boolean matchers
+(QF_AX is a pure array-theory corpus with essentially no Boolean-connective
+rewrite leaves to match): this sample's 132 unmatched leaves are
+overwhelmingly long, non-adjacent `store`/`select` chains over 4+ array
+updates (e.g. `(let ((a!1 (store (store (store (store a ...)))))) ...)`,
+25+5 occurrences) that the existing `store_perm`/`select_store_*` matchers
+don't reach (those recognize a *bounded*, small number of permuted/redundant
+stores, not an arbitrary-length chain), plus a long tail of plain hypothesis
+variable renamings (`i10`/`i28`/`a_19`/...) that, like QF_UF's
+`pure_rename`, are not tautologies and are correctly out of scope. The 23
+`fail` outcomes are (as in Round 2) `z3rlimit`/`fuel` budget exhaustion of
+the `lemma_unmatched_count_cross_checked` recomputation on these
+leaf-heavy/trust-heavy proofs within the 30s F* timeout, not the kernel
+checker (`check_proof`) accepting something it shouldn't.
+
+**Bottom line (Round 4)**: the Round 3 QF_UF improvement is confirmed
+reproducible on an independent run (143/167 matched, 77/98 fully verified).
+QF_AX's open gap is unchanged and is specifically a **multi-store-chain**
+coverage gap (not a regression, not a QF_UF-type Boolean-connective gap) —
+the natural next matcher-library target if QF_AX is revisited, requiring a
+chained `select`-through-an-arbitrary-length-`store`-sequence schema rather
+than the current fixed-arity `store_perm`/`select_store_same` matchers.

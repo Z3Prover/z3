@@ -136,6 +136,23 @@ let interp_num_int (int_params:list int) : value =
   | [v] -> VInt v
   | _ -> VInt 0
 
+(* Binary `and`/`or`/`=>`; see `Z3ValueTheory.op_and`/`op_or`/
+   `op_implies`'s docstring. *)
+let interp_and (args:list value) : value =
+  match args with
+  | [VBool a; VBool b] -> VBool (a && b)
+  | _ -> VInt 0
+
+let interp_or (args:list value) : value =
+  match args with
+  | [VBool a; VBool b] -> VBool (a || b)
+  | _ -> VInt 0
+
+let interp_implies (args:list value) : value =
+  match args with
+  | [VBool a; VBool b] -> VBool ((not a) || b)
+  | _ -> VInt 0
+
 (* "Core" dispatch (bool/arith/`eq`/literals); tried only after every
    theory's own `interp_app` has already had a chance to claim `k`. *)
 let core_interp_app (k:decl_kind) (int_params:list int) (args:list value) : value =
@@ -145,6 +162,9 @@ let core_interp_app (k:decl_kind) (int_params:list int) (args:list value) : valu
   else if k = op_true then interp_true ()
   else if k = op_false then interp_false ()
   else if k = op_num_int then interp_num_int int_params
+  else if k = op_and then interp_and args
+  else if k = op_or then interp_or args
+  else if k = op_implies then interp_implies args
   (* Unreachable for every well-sorted term built below; `eval`'s type
      does not statically rule it out (see `Z3AstTheory.fst`'s own
      comment on `interp_app`/`uninterp_app` being total on `list

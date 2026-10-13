@@ -320,10 +320,9 @@ void tst_smt_context()
             "  (= (length lindx2) 11)\n"
             "  (forall ((i Int)) (=> (and (<= 3 i) (<= i 25)) (= (select indx1 i) (- 1))))))\n");
         VERIFY(parse_smt2_commands(cmd, is));
-        ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
-        for (expr* a : cmd.assertions())
-            slv->assert_expr(a);
-        VERIFY(l_true == slv->check_sat(0, nullptr));
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
     }
 
     check_sat_smt_recfun(
@@ -356,6 +355,7 @@ void tst_smt_context()
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.params().set_rlimit(1000000);
         std::istringstream is(
+            "(set-option :smt.distribute_forall true)\n"
             "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun c () (Array (_ BitVec 11) (_ BitVec 16)))\n"

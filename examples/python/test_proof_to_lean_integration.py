@@ -1123,6 +1123,40 @@ class TestProofToLeanIntegration(unittest.TestCase):
             self.assertIn("assertions do not match", result.stderr)
             self.assertFalse(output.exists())
 
+    def test_outlined_propositional_refutations_stay_axiom_free(self):
+        # Outlined lemmas receive their decidability witnesses as parameters;
+        # the main theorem introduces them constructively, so no outlined
+        # propositional theorem uses Classical.propDecidable.
+        inputs = [LITERAL, CLAUSE, REWRITE, STRUCTURAL, BRANCHING, XOR, NESTED] + [
+            "\n".join(line for line in source.splitlines() if "set-option" not in line) + "\n"
+            for source in Z3TEST_LEAN_INPUTS.values()]
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            for source in inputs:
+                with self.subTest(source=source):
+                    text = self.check(source, proof_certificate.export_certificate(source))
+                    self.assertIn("private theorem proof_step_", text)
+                    self.assertNotIn("Classical", text)
+
+    def test_long_propositional_refutation_is_outlined(self):
+        # The pigeonhole principle for five holes: about 1,600 proof steps, which
+        # exhaust Lean's default heartbeat budget as one nested term.
+        holes = 5
+        source = "".join("(declare-const p%d_%d Bool)" % (p, h) for p in range(holes + 1) for h in range(holes))
+        source += "".join("(assert (or %s))" % " ".join("p%d_%d" % (p, h) for h in range(holes))
+                          for p in range(holes + 1))
+        source += "".join("(assert (or (not p%d_%d) (not p%d_%d)))" % (p, h, q, h)
+                          for h in range(holes) for p in range(holes + 1) for q in range(p + 1, holes + 1))
+        certificate = proof_certificate.export_certificate(source)
+        steps = sum(1 for node in certificate["nodes"]
+                    if certificate["declarations"][node["declaration"]]["range"] == "Proof")
+        self.assertGreater(steps, 2 * proof_to_lean._OUTLINE_PROOF_STEPS)
+        text = self.check(source, certificate)
+        self.assertNotIn("Classical", text)
+        self.assertIn("  refute_with_decidable", text)
+        closing = text.rstrip().splitlines()[-3]  # the main theorem's body, before "end"
+        self.assertRegex(closing, r"^  proof_step_%d _atoms \(And\.intro .*\)( _df?\d+)+$" % certificate["proof"])
+
 
 if __name__ == "__main__":
     unittest.main()

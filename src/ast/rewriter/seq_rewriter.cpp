@@ -973,6 +973,37 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         result = str().mk_empty(a_sort);
         return BR_DONE;
     }
+
+    // For integer n >= 0, c*n^k >= n when c >= 1 and k >= 1.
+    if (m_autil.is_mul(b)) {
+        bool has_length = false, out_of_bounds = true;
+        expr* base = nullptr;
+        rational factor;
+        ptr_buffer<expr> todo;
+        obj_hashtable<expr> visited;
+        todo.push_back(b);
+        while (!todo.empty()) {
+            expr* arg = todo.back();
+            todo.pop_back();
+            if (visited.contains(arg))
+                continue;
+            visited.insert(arg);
+            if (m_autil.is_mul(arg)) {
+                for (expr* e : *to_app(arg))
+                    todo.push_back(e);
+            }
+            else if (str().is_length(arg, base) && base == a)
+                has_length = true;
+            else if (!m_autil.is_numeral(arg, factor) || factor < 1) {
+                out_of_bounds = false;
+                break;
+            }
+        }
+        if (has_length && out_of_bounds) {
+            result = str().mk_empty(a_sort);
+            return BR_DONE;
+        }
+    }
     
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();

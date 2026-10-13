@@ -42,14 +42,14 @@
    (`store_perm`, §4k, `Z3ArrayTheory.lemma_apply_updates_set_eq` --
    `store_commute` is this theorem's `n = 2` special case).
 
-   Not every `Rewrite` leaf fits one of these eleven schemas -- Z3's
+   Not every `Rewrite` leaf fits one of these fourteen schemas -- Z3's
    rewriters encode many more rewrite rules than this (or any single
    bounded) pattern library can realistically enumerate. Rather than
    either trusting the whole proof tree unconditionally
    (`all_leaves_sound`, the pre-existing baseline) or rejecting
    anything not recognized (`all_matched`, all-or-nothing, §6), §7
    adds a *partial* mode: `collect_unmatched` walks a proof tree and
-   returns the exact list of `Rewrite` leaves none of the eleven
+   returns the exact list of `Rewrite` leaves none of the fourteen
    matchers recognize, and `lemma_partial_proof_true` proves the whole
    derivation's conclusion true *given only* that the collected
    leftover leaves are semantically sound -- i.e. every already-matched
@@ -136,6 +136,10 @@ let decl_shape_ok (f:func_decl) : bool =
     else if k = op_false then f.domain = [] && sort_eq f.range bool_s
     else if k = op_num_int then f.domain = [] && sort_eq f.range int_s && length f.int_params = 1
     else if k = op_num_bv then f.domain = [] && sort_eq f.range bv_s && length f.int_params = 1
+    else if k = op_seq_unit then f.domain = [int_s] && sort_eq f.range seq_s
+    else if k = op_and then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
+    else if k = op_or then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
+    else if k = op_implies then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
     else false (* some other interpreted op: not trusted by this file *)
 
 let rec decls_ok (e:expr) : Tot bool (decreases e) =
@@ -275,6 +279,22 @@ let rec lemma_eval_shape (e:expr) (rho:env value)
            (match f.int_params with [v] -> () | _ -> ())
          else if k = op_num_bv then
            (match f.int_params with [v] -> () | _ -> ())
+         else if k = op_seq_unit then
+           (match vs with
+            | [VInt x] -> ()
+            | _ -> ())
+         else if k = op_and then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
+         else if k = op_or then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
+         else if k = op_implies then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
          else ()) (* `decl_shape_ok f` is `false` here: contradiction *)
 
 and lemma_eval_shape_args (args:list expr) (rho:env value)
@@ -288,7 +308,7 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
       lemma_eval_shape_args args' rho
 
 (* ----------------------------------------------------------------- *)
-(* 4. The matcher *library*: eleven structural recognizers. Six are     *)
+(* 4. The matcher *library*: fourteen structural recognizers. Six are     *)
 (*    one per already-proven rewrite-rule lemma that needs no semantic  *)
 (*    side condition beyond shapes, and is expressible purely with the  *)
 (*    six interpreted ops `Z3InterpretedProofChecker.fst` already gives *)
@@ -313,7 +333,7 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
 (*    `lemma_eq_const_*`, and anything from                              *)
 (*    `Z3SeqAxioms`/`Z3SeqDerive`/`Z3ArithRewriter`/etc. not already     *)
 (*    wired into `the_interpretation`) is not silently ignored: §5-6    *)
-(*    below turn every `Rewrite` leaf that fails all eleven matchers    *)
+(*    below turn every `Rewrite` leaf that fails all fourteen matchers    *)
 (*    into an explicit, collected *leftover proof obligation* instead.  *)
 (* ----------------------------------------------------------------- *)
 
@@ -695,12 +715,209 @@ let bv_num_value (e:expr{is_bv_num_const e}) : Z3BvTheory.bv 32 =
 let is_int_uninterp_const (e:expr) : bool =
   is_uninterp_const e && sort_eq (get_sort e) int_s
 
+(* ----------------------------------------------------------------- *)
+(* `is_unique_value`: a general, *recursive* syntactic notion of       *)
+(* "ground value literal", generalizing the four separate ad-hoc       *)
+(* literal predicates above (`is_bool_true_const`/`is_bool_false_const`/*)
+(* `is_int_num_const`/`is_bv_num_const`) into a single inductive        *)
+(* definition, extended one level deeper to cover sequence literals     *)
+(* too (`seq.unit`/`op_concat` trees over unique-value elements --      *)
+(* this project's one concrete stand-in for "an algebraic datatype      *)
+(* constructor applied to unique-value arguments": a sequence is        *)
+(* exactly the free list datatype, `nil`/`cons` relabelled `empty`/     *)
+(* `unit ++ concat`, and `is_unique_value`'s structure below is          *)
+(* written so it extends verbatim to any further constructor-shaped     *)
+(* interpreted op added later -- see the note after                     *)
+(* `lemma_unique_value_distinct` below). A `true`/`false`/numeral/BV-    *)
+(* numeral/sequence-of-units expression is "unique" in the sense that    *)
+(* its *semantic* identity is entirely determined by its own syntactic   *)
+(* payload, never by a free/symbolic choice the way an uninterpreted     *)
+(* constant's denotation is (contrast `is_int_uninterp_const` just       *)
+(* above, whose distinctness instead rests on *injective naming*, not    *)
+(* on each constant's value being syntactically transparent). *)
+let rec is_unique_value (e:expr) : Tot bool (decreases e) =
+  match e with
+  | App f args ->
+    (match f.interp with
+     | None -> false
+     | Some k ->
+       (k = op_num_int && args = [] && length f.int_params = 1) ||
+       (k = op_num_bv && args = [] && length f.int_params = 1) ||
+       (k = op_true && args = []) ||
+       (k = op_false && args = []) ||
+       (k = op_seq_unit && (match args with [x] -> is_unique_value x | _ -> false)) ||
+       (k = op_concat && (match args with [x; y] -> is_unique_value x && is_unique_value y | _ -> false)))
+  | _ -> false
+
+(* `lit_value`: a small, plain (fully `eqtype`) semantic domain for
+   *just* the shapes `is_unique_value` recognizes -- `Int`/`BV32`/
+   `Bool`/`Seq Int` literal payloads, but *not* a sequence-literal's
+   own `expr`-level tree shape. This distinction matters: comparing
+   two sequence literals by their *tree* shape (e.g. "both built from
+   `op_concat`, with pointwise-equal sub-literals") is unsound, since
+   `concat` is associative -- `concat(unit 1, concat(unit 2, unit 3))`
+   and `concat(concat(unit 1, unit 2), unit 3)` are two different
+   expression trees denoting the *same* list `[1;2;3]`. Decoding every
+   unique-value expression down to its flattened `lit_value` payload
+   first (`unique_value_key`, below) and comparing *those* sidesteps
+   the issue entirely: `LSeq`'s payload is an actual `list int`,
+   compared with plain structural list equality, so differently
+   -associated but equal-valued concat trees correctly collapse to the
+   same `LSeq`. *)
+type lit_value =
+  | LInt  : int -> lit_value
+  | LBV   : Z3BvTheory.bv 32 -> lit_value
+  | LBool : bool -> lit_value
+  | LSeq  : list int -> lit_value
+
+(* `unique_value_key` is total on *every* `expr` (not just ones
+   satisfying `is_unique_value`): ill-shaped/non-literal input simply
+   decodes to an arbitrary fixed default (`LInt 0`), exactly mirroring
+   how `Z3InterpretedProofChecker.fst`'s own `interp_*` dispatchers
+   handle out-of-shape arguments -- callers only ever rely on this
+   decoding's *meaning* once `is_unique_value e` holds (see
+   `lemma_eval_unique_value_key` below). *)
+let rec unique_value_key (e:expr) : Tot lit_value (decreases e) =
+  match e with
+  | App f [] ->
+    (match f.interp with
+     | Some k ->
+       if k = op_num_int then LInt (match f.int_params with [v] -> v | _ -> 0)
+       else if k = op_num_bv then LBV (bv32_value (match f.int_params with [v] -> v | _ -> 0))
+       else if k = op_true then LBool true
+       else if k = op_false then LBool false
+       else LInt 0
+     | None -> LInt 0)
+  | App f [x] ->
+    if Some? f.interp && Some?.v f.interp = op_seq_unit then
+      (match unique_value_key x with LInt v -> LSeq [v] | _ -> LSeq [])
+    else LInt 0
+  | App f [x; y] ->
+    if Some? f.interp && Some?.v f.interp = op_concat then
+      (match unique_value_key x, unique_value_key y with
+       | LSeq a, LSeq b -> LSeq (Z3SeqTheory.concat a b)
+       | _, _ -> LSeq [])
+    else LInt 0
+  | _ -> LInt 0
+
+(* `unique_value_eq`: whether two `is_unique_value` expressions denote
+   the *same* value, decided from their flattened decoded payloads
+   (`unique_value_key`), never from `decl_name`/raw `expr` identity or
+   from tree shape -- see `lit_value`'s own docstring just above for
+   why the naive tree-shape version is unsound for `op_concat`. *)
+let unique_value_eq (s t:expr) : bool = unique_value_key s = unique_value_key t
+
+(* The companion value-level decoding, `lit_to_value`, and the central
+   bridge lemma: whenever `e` is a unique value (and well-formed/
+   closed/`decls_ok`/quantifier-free), its actual `eval` *is* (not
+   merely "agrees with") `lit_to_value (unique_value_key e)` -- proved
+   by structural induction on `e`, mirroring `unique_value_key`'s own
+   recursion: the four literal cases unfold directly from
+   `interp_num_int`/`interp_num_bv`/`interp_true`/`interp_false`'s own
+   definitions; `op_seq_unit`/`op_concat` unfold `Z3SeqTheory.unit`/
+   `concat` (literally `fun x -> [x]`/list append) against the
+   recursively-obtained sub-decodings. *)
+let lit_to_value (lv:lit_value) : value =
+  match lv with
+  | LInt n -> VInt n
+  | LBV b -> VBV b
+  | LBool b -> VBool b
+  | LSeq l -> VSeq l
+
+let rec lemma_eval_unique_value_key (e:expr) (rho:env value)
+  : Lemma (requires is_unique_value e /\ wf e /\ closed e /\ decls_ok e /\ no_quant e)
+          (ensures eval the_interpretation e rho == lit_to_value (unique_value_key e))
+          (decreases e)
+  = match e with
+    | App f args ->
+      (match f.interp with
+       | Some k ->
+         if args = [] then () (* op_num_int/op_num_bv/op_true/op_false: direct unfold *)
+         else if k = op_seq_unit then
+           (match args with
+            | [x] ->
+              (* `decl_shape_ok f` (from `decls_ok e`) pins `f.domain`
+                 to `[int_s]`, so `wf e`'s `sorts_match` obligation
+                 forces `get_sort x = int_s`; `lemma_eval_shape` then
+                 forces `eval x rho` to actually be a `VInt`, which is
+                 what lets us rule out the `LBV`/`LBool`/`LSeq`
+                 branches of `unique_value_key x` below (each would
+                 force `eval x rho`, via the IH, to be a
+                 non-`VInt` `lit_to_value` payload -- contradicting
+                 the shape fact -- so only `LInt` survives). *)
+              lemma_eval_unique_value_key x rho;
+              lemma_eval_shape x rho;
+              (match unique_value_key x with
+               | LInt v -> ()
+               | LBV _ -> ()
+               | LBool _ -> ()
+               | LSeq _ -> ())
+            | _ -> ())
+         else if k = op_concat then
+           (match args with
+            | [x; y] ->
+              (* Same reasoning, twice over: `f.domain = [seq_s; seq_s]`
+                 forces both `x` and `y` to be `VSeq`-shaped, ruling
+                 out every `unique_value_key` case but `LSeq` for
+                 each. *)
+              lemma_eval_unique_value_key x rho;
+              lemma_eval_shape x rho;
+              lemma_eval_unique_value_key y rho;
+              lemma_eval_shape y rho;
+              (match unique_value_key x, unique_value_key y with
+               | LSeq a, LSeq b -> ()
+               | LSeq a, _ -> ()
+               | _, LSeq b -> ()
+               | _, _ -> ())
+            | _ -> ())
+         else ()
+       | None -> ())
+    | _ -> ()
+
+(* The general soundness theorem `is_unique_value` is for: two
+   *different* (`not (unique_value_eq s t)`) unique-value expressions
+   always denote different values. Immediate from
+   `lemma_eval_unique_value_key` plus `lit_to_value`'s injectivity
+   (different `lit_value` constructors decode to different `value`
+   constructors; equal constructors with unequal payloads decode to
+   unequal payloads) -- both automatic from `lit_to_value`'s own
+   match structure, needing no further lemma. *)
+let lemma_unique_value_distinct (s t:expr) (rho:env value)
+  : Lemma (requires is_unique_value s /\ is_unique_value t /\ not (unique_value_eq s t) /\
+                    wf s /\ closed s /\ decls_ok s /\ no_quant s /\
+                    wf t /\ closed t /\ decls_ok t /\ no_quant t)
+          (ensures eval the_interpretation s rho =!= eval the_interpretation t rho)
+  = lemma_eval_unique_value_key s rho;
+    lemma_eval_unique_value_key t rho
+
+(* Note on extending `is_unique_value` to genuine multi-constructor
+   algebraic datatypes (not just the two-constructor `seq`
+   free-list special case above): this project's concrete `value`
+   domain (`Z3ValueTheory.value`) has no dedicated datatype-constructor
+   case (no `VDT`), so there is nothing for a hypothetical `op_ctor`
+   disjunct to soundly interpret yet. Were one added (an `interp_app`
+   case tagging a family of declarations as mutually-disjoint,
+   pairwise-injective constructors, exactly mirroring how `op_seq_unit`/
+   `op_concat` are mutually-disjoint and `Z3SeqTheory.unit`/`concat`
+   are each injective above), `is_unique_value`/`lit_value`/
+   `unique_value_key`/`lemma_eval_unique_value_key` would extend by
+   the same recipe used for `op_seq_unit`/`op_concat`: (1) a disjunct
+   in `is_unique_value` requiring the tag plus all constructor
+   arguments to themselves be unique values; (2) a `lit_value` case
+   (e.g. `LCtor : ctor_id:int -> list lit_value -> lit_value`) that
+   `unique_value_key` decodes a constructor application into
+   (recording *both* the discriminating constructor identity and the
+   recursively-decoded arguments, so `=` on `lit_value` directly
+   reproduces the "distinct constructors never collide; same
+   constructor needs some differing argument" rule the module
+   docstring describes); and (3) a matching `lit_to_value` case,
+   discharged the same way `op_ctor` would need its own fresh `VDT`-
+   like `value` constructor and a `ctor_sound`-style injectivity/
+   disjointness hypothesis on `interp_app`. *)
+
 let provably_distinct (a b:expr) : bool =
   (is_int_uninterp_const a && is_int_uninterp_const b && const_name a <> const_name b) ||
-  (is_bool_true_const a && is_bool_false_const b) ||
-  (is_bool_false_const a && is_bool_true_const b) ||
-  (is_int_num_const a && is_int_num_const b && int_num_value a <> int_num_value b) ||
-  (is_bv_num_const a && is_bv_num_const b && bv_num_value a <> bv_num_value b)
+  (is_unique_value a && is_unique_value b && not (unique_value_eq a b))
 
 (* The soundness bridge: whenever `provably_distinct a b` holds (and
    `a`/`b` are themselves well-formed, closed, `decls_ok`,
@@ -720,6 +937,8 @@ let lemma_provably_distinct_sound (a b:expr) (rho:env value)
       (match a, b with
        | App fa [], App fb [] -> lemma_string_key_distinct fa.decl_name fb.decl_name
        | _, _ -> ())
+    else if is_unique_value a && is_unique_value b && not (unique_value_eq a b) then
+      lemma_unique_value_distinct a b rho
     else ()
 
 let match_select_store_diff (s t:expr) : option (expr & expr & expr & expr) =
@@ -1173,9 +1392,199 @@ let lemma_store_perm_leaf_sound (s t:expr)
 #pop-options
 
 (* ----------------------------------------------------------------- *)
+(* 4l. `(and p q) = (not (or (not p) (not q)))` -- De Morgan for a      *)
+(*     binary `and`, the single dominant unmatched `Rewrite` shape in  *)
+(*     the QF_UF benchmark corpus's Tseitin/NNF normalization (31/85   *)
+(*     unmatched leaves in the 100-file sample; see                    *)
+(*     `QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "Round 2" section). Needs   *)
+(*     no theory lemma -- just `op_and`/`op_or`/`op_not`'s own          *)
+(*     Boolean semantics -- but two wrinkles any literal "same-shape"   *)
+(*     matcher like `eq_symm`'s would miss: Z3 frequently (a) swaps the *)
+(*     `or`'s two disjuncts (`or` is commutative, and its rewriter       *)
+(*     doesn't always preserve `and`'s original argument order), and    *)
+(*     (b) fuses a resulting double negation away in the same step      *)
+(*     (`(and p (not r))` rewrites straight to `(not (or (not p) r))`,  *)
+(*     not the unfused `(not (or (not p) (not (not r))))`). `neg_in_t`  *)
+(*     below recognizes *both* forms a disjunct may take: literally     *)
+(*     `(not p)`, or -- when `p` itself is already `(not r)` -- the      *)
+(*     bare, double-negation-eliminated `r`.                            *)
+(* ----------------------------------------------------------------- *)
+
+(* Does `d` (one of `t`'s two `or`-disjuncts) denote the negation of
+   `p` (one of `s`'s two `and`-conjuncts), allowing for Z3 fusing away
+   a resulting double negation? *)
+let neg_in_t (d p:expr) : bool =
+  (match d with
+   | App fd [p'] -> Some? fd.interp && Some?.v fd.interp = op_not && p' = p
+   | _ -> false) ||
+  (match p with
+   | App fp [r] -> Some? fp.interp && Some?.v fp.interp = op_not && d = r
+   | _ -> false)
+
+let lemma_neg_in_t_sound (d p:expr) (rho:env value)
+  : Lemma (requires neg_in_t d p /\
+                    wf d /\ closed d /\ decls_ok d /\ no_quant d /\ sort_eq (get_sort d) bool_s /\
+                    wf p /\ closed p /\ decls_ok p /\ no_quant p /\ sort_eq (get_sort p) bool_s)
+          (ensures VBool? (eval the_interpretation d rho) /\ VBool? (eval the_interpretation p rho) /\
+                   (match eval the_interpretation d rho, eval the_interpretation p rho with
+                    | VBool dv, VBool pv -> dv == not pv
+                    | _, _ -> True))
+  = lemma_eval_shape d rho;
+    lemma_eval_shape p rho;
+    if (match d with | App fd [p'] -> Some? fd.interp && Some?.v fd.interp = op_not && p' = p | _ -> false)
+    then ()
+    else
+      (match p with
+       | App fp [r] -> lemma_eval_shape r rho
+       | _ -> ())
+
+let match_demorgan_and (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App fand [p; q], App fnot [App for_ [d1; d2]] ->
+    if Some? fand.interp && Some?.v fand.interp = op_and &&
+       Some? fnot.interp && Some?.v fnot.interp = op_not &&
+       Some? for_.interp && Some?.v for_.interp = op_or &&
+       ((neg_in_t d1 p && neg_in_t d2 q) || (neg_in_t d1 q && neg_in_t d2 p))
+    then Some (p, q)
+    else None
+  | _, _ -> None
+
+let demorgan_and_leaf_ok (s t:expr) : bool =
+  match match_demorgan_and s t with
+  | None -> false
+  | Some (p, q) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort p) bool_s && sort_eq (get_sort q) bool_s
+
+#push-options "--z3rlimit 150"
+let lemma_demorgan_and_leaf_sound (s t:expr)
+  : Lemma (requires demorgan_and_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App fand [p; q], App fnot [App for_ [d1; d2]] ->
+      assert (Some? fand.interp && Some?.v fand.interp = op_and);
+      assert (Some? fnot.interp && Some?.v fnot.interp = op_not);
+      assert (Some? for_.interp && Some?.v for_.interp = op_or);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape p rho;
+          lemma_eval_shape q rho;
+          lemma_eval_shape d1 rho;
+          lemma_eval_shape d2 rho;
+          if neg_in_t d1 p && neg_in_t d2 q then begin
+            lemma_neg_in_t_sound d1 p rho;
+            lemma_neg_in_t_sound d2 q rho
+          end else begin
+            lemma_neg_in_t_sound d1 q rho;
+            lemma_neg_in_t_sound d2 p rho
+          end
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
+(* 4m. `(p => q) = (not p) \/ q` -- implication elimination, Z3's       *)
+(*     standard preprocessing step for every `=>` it sees (1/85          *)
+(*     unmatched QF_UF leaves in the sample; small but free given 4l's  *)
+(*     `op_and`/`op_or`/`op_not` plumbing is already in place). No        *)
+(*     side condition beyond Bool-sortedness. *)
+(* ----------------------------------------------------------------- *)
+
+let match_implies_as_or (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App fimp [p; q], App for_ [App fnot [p']; q'] ->
+    if Some? fimp.interp && Some?.v fimp.interp = op_implies &&
+       Some? for_.interp && Some?.v for_.interp = op_or &&
+       Some? fnot.interp && Some?.v fnot.interp = op_not &&
+       p' = p && q' = q
+    then Some (p, q)
+    else None
+  | _, _ -> None
+
+let implies_as_or_leaf_ok (s t:expr) : bool =
+  match match_implies_as_or s t with
+  | None -> false
+  | Some (p, q) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort p) bool_s && sort_eq (get_sort q) bool_s
+
+#push-options "--z3rlimit 100"
+let lemma_implies_as_or_leaf_sound (s t:expr)
+  : Lemma (requires implies_as_or_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App fimp [p; q], App for_ [App fnot [p']; q'] ->
+      assert (Some? fimp.interp && Some?.v fimp.interp = op_implies);
+      assert (Some? for_.interp && Some?.v for_.interp = op_or);
+      assert (Some? fnot.interp && Some?.v fnot.interp = op_not);
+      assert (p' = p && q' = q);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape p rho;
+          lemma_eval_shape q rho
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
+(* 4n. `(a = (not c)) = (not (= c a))` -- `eq_symm` combined with an    *)
+(*     equality-vs-disequality rearrangement, for Bool-sorted `a`/`c`:  *)
+(*     `a = not c` holds exactly when `a <> c`, i.e. exactly when        *)
+(*     `not (c = a)` holds (using both symmetry and totality of Boolean  *)
+(*     equality). The second-most-common unmatched QF_UF shape (28/85   *)
+(*     in the sample) -- this is how Z3 commonly records negated          *)
+(*     Tseitin definitional equalities (`x = not DEF`) as `not (DEF =    *)
+(*     x)` during CNF conversion. *)
+(* ----------------------------------------------------------------- *)
+
+let match_eq_not (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App feq1 [a; App fnot1 [c]], App fnot2 [App feq2 [c'; a']] ->
+    if Some? feq1.interp && Some?.v feq1.interp = op_eq &&
+       Some? fnot1.interp && Some?.v fnot1.interp = op_not &&
+       Some? fnot2.interp && Some?.v fnot2.interp = op_not &&
+       Some? feq2.interp && Some?.v feq2.interp = op_eq &&
+       c' = c && a' = a
+    then Some (a, c)
+    else None
+  | _, _ -> None
+
+let eq_not_leaf_ok (s t:expr) : bool =
+  match match_eq_not s t with
+  | None -> false
+  | Some (a, c) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort a) bool_s && sort_eq (get_sort c) bool_s
+
+#push-options "--z3rlimit 100"
+let lemma_eq_not_leaf_sound (s t:expr)
+  : Lemma (requires eq_not_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App feq1 [a; App fnot1 [c]], App fnot2 [App feq2 [c'; a']] ->
+      assert (Some? feq1.interp && Some?.v feq1.interp = op_eq);
+      assert (Some? fnot1.interp && Some?.v fnot1.interp = op_not);
+      assert (Some? fnot2.interp && Some?.v fnot2.interp = op_not);
+      assert (Some? feq2.interp && Some?.v feq2.interp = op_eq);
+      assert (c' = c && a' = a);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape a rho;
+          lemma_eval_shape c rho;
+          (match eval the_interpretation a rho, eval the_interpretation c rho with
+           | VBool av, VBool cv -> ()
+           | _, _ -> ())
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
 (* 5. The combinator: try every matcher above in turn, and the          *)
 (*    corresponding "matched implies sound" lemma (a case split over    *)
-(*    the eleven, invoking whichever matcher actually fired).           *)
+(*    the fourteen, invoking whichever matcher actually fired).         *)
 (* ----------------------------------------------------------------- *)
 
 let try_match_leaf (s t:expr) : bool =
@@ -1189,7 +1598,10 @@ let try_match_leaf (s t:expr) : bool =
   eq_symm_leaf_ok s t ||
   select_store_diff_leaf_ok s t ||
   store_commute_leaf_ok s t ||
-  store_perm_leaf_ok s t
+  store_perm_leaf_ok s t ||
+  demorgan_and_leaf_ok s t ||
+  implies_as_or_leaf_ok s t ||
+  eq_not_leaf_ok s t
 
 let lemma_try_match_leaf_sound (s t:expr)
   : Lemma (requires try_match_leaf s t)
@@ -1204,12 +1616,15 @@ let lemma_try_match_leaf_sound (s t:expr)
     else if eq_symm_leaf_ok s t then lemma_eq_symm_leaf_sound s t
     else if select_store_diff_leaf_ok s t then lemma_select_store_diff_leaf_sound s t
     else if store_commute_leaf_ok s t then lemma_store_commute_leaf_sound s t
-    else lemma_store_perm_leaf_sound s t
+    else if store_perm_leaf_ok s t then lemma_store_perm_leaf_sound s t
+    else if demorgan_and_leaf_ok s t then lemma_demorgan_and_leaf_sound s t
+    else if implies_as_or_leaf_ok s t then lemma_implies_as_or_leaf_sound s t
+    else lemma_eq_not_leaf_sound s t
 
 (* ----------------------------------------------------------------- *)
 (* 6. "Fully matched" mode: a decidable whole-proof-tree checker         *)
 (*    mirroring `all_leaves_sound`'s own recursion, requiring *every*    *)
-(*    `Rewrite` leaf to fit one of the eleven schemas above.            *)
+(*    `Rewrite` leaf to fit one of the fourteen schemas above.            *)
 (* ----------------------------------------------------------------- *)
 
 let rec all_matched (p:proof) : Tot bool (decreases p) =

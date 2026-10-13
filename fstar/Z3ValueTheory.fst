@@ -89,3 +89,29 @@ let op_true : decl_kind = 8
 let op_false : decl_kind = 9
 let op_num_int : decl_kind = 10
 let op_num_bv : decl_kind = 11
+
+(* `seq.unit`: wraps a single `Int` element into the length-1
+   sequence containing it (`Z3SeqTheory.unit`). Added so that
+   `is_unique_value` (`Z3PatternMatchedProofChecker.fst`) can
+   recognize sequence *literals* -- i.e. values built purely from
+   `seq.unit`/`op_concat` applied to unique-value elements, with no
+   uninterpreted sub-term anywhere -- as themselves unique values,
+   mirroring how `op_num_int`/`op_num_bv`/`op_true`/`op_false` already
+   let literal Int/BV/Bool constants be recognized. *)
+let op_seq_unit : decl_kind = 12
+
+(* Binary Boolean connectives `and`/`or`/`=>`, added so the QF_UF
+   benchmark corpus's dominant unmatched `Rewrite` shapes -- Z3's own
+   Tseitin/NNF-style De Morgan (`(and a b) = (not (or (not a) (not
+   b)))`) and implication-elimination (`(a => b) = (or (not a) b)`)
+   normalizations -- can be recognized as genuine tautologies (see
+   `Z3PatternMatchedProofChecker.fst`'s `demorgan_and_leaf_ok`/
+   `implies_as_or_leaf_ok`). Z3's real `and`/`or` are n-ary; only the
+   binary (arity-2) instance is modeled here, matching every `and`/`or`
+   application actually observed in the sampled proofs this was added
+   for -- `decl_shape_ok` rejects any other arity, so a wider `and`/`or`
+   application simply stays uninterpreted (`None`), same as any other
+   not-yet-modeled op. *)
+let op_and : decl_kind = 13
+let op_or : decl_kind = 14
+let op_implies : decl_kind = 15
