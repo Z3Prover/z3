@@ -876,14 +876,16 @@ static void test_ff_tiny() {
     ENSURE(sat > 50 && unsat > 50);
 }
 
+static double ff_stat(smt::context &ctx, char const *key) {
+    statistics stats;
+    ctx.collect_statistics(stats);
+    for (unsigned i = 0; i < stats.size(); ++i)
+        if (std::string(stats.get_key(i)) == key)
+            return stats.is_uint(i) ? double(stats.get_uint_value(i)) : stats.get_double_value(i);
+    return 0.0;
+}
+
 static void test_ff_integration() {
-    auto stat = [](smt::context &ctx, char const *key) {
-        statistics stats; ctx.collect_statistics(stats);
-        for (unsigned i = 0; i < stats.size(); ++i)
-            if (std::string(stats.get_key(i)) == key)
-                return stats.is_uint(i) ? double(stats.get_uint_value(i)) : stats.get_double_value(i);
-        return 0.0;
-    };
     ast_manager m; reg_decl_plugins(m); ff_util ff(m);
     // An unrelated field sort in the same manager must not install extra
     // theories in a field-free QF_UF context. A logic that does not mention
@@ -906,17 +908,17 @@ static void test_ff_integration() {
     params_ref tiny; tiny.set_uint("ff.max_steps", 0); fctx.updt_params(tiny);
     fctx.push();
     fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
-    ENSURE(stat(fctx, "ff bv fallbacks") > 0);
-    double checks = stat(fctx, "ff native checks");
+    ENSURE(ff_stat(fctx, "ff bv fallbacks") > 0);
+    double checks = ff_stat(fctx, "ff native checks");
     fctx.pop(1);
-    ENSURE(stat(fctx, "ff normalization cache entries") == 0);
+    ENSURE(ff_stat(fctx, "ff normalization cache entries") == 0);
     params_ref normal; normal.set_uint("ff.max_steps", 2000000); fctx.updt_params(normal);
     fctx.push(); fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
-    ENSURE(stat(fctx, "ff native checks") > checks);
+    ENSURE(ff_stat(fctx, "ff native checks") > checks);
     // No new bridge axioms: the popped bridge did not permanently disable native solving.
-    double axioms = stat(fctx, "ff combination axioms");
+    double axioms = ff_stat(fctx, "ff combination axioms");
     fctx.pop(1); fctx.push(); fctx.assert_expr(eq); ENSURE(fctx.check() == l_true);
-    ENSURE(stat(fctx, "ff combination axioms") == axioms);
+    ENSURE(ff_stat(fctx, "ff combination axioms") == axioms);
     fctx.pop(1);
     // Algebra remains usable with BV disabled; an inconclusive algebra result
     // must return unknown instead of sending field definitions to a dummy theory.
@@ -937,10 +939,38 @@ static void test_ff_integration() {
         params_ref bounded; bounded.set_uint("ff.max_terms", 2); mixed.updt_params(bounded);
         for (expr *a : commands.assertions()) mixed.assert_expr(a);
         ENSURE(mixed.check() == l_false);
-        ENSURE(stat(mixed, "ff native conflicts") > 0);
-        ENSURE(stat(mixed, "ff combination axioms") < 4);
+        ENSURE(ff_stat(mixed, "ff native conflicts") > 0);
+        ENSURE(ff_stat(mixed, "ff combination axioms") < 4);
     }
     std::cout << "FF integration: logic-gated registration, scoped fallback, disabled BV and independent fields\n";
+}
+
+static void test_ff_factor_split_lifetime() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    ff_util ff(m);
+    sort_ref field(ff.mk_sort(rational(3)), m);
+    expr_ref x(m.mk_const("factor-x", field), m);
+    expr_ref y(m.mk_const("factor-y", field), m);
+    expr_ref z(m.mk_const("factor-z", field), m);
+    expr_ref xy(ff.mk_mul(x, y), m);
+    expr_ref xyz(ff.mk_mul(xy, z), m);
+    expr_ref zero(ff.mk_numeral(rational(0), field), m);
+    expr_ref equation(m.mk_eq(ff.mk_add(xy, xyz), zero), m);
+    smt_params sp;
+    smt::context ctx(m, sp);
+    ctx.set_logic(symbol("QF_FF"));
+    params_ref params;
+    params.set_bool("ff.factor_split", true);
+    ctx.updt_params(params);
+    for (unsigned i = 0; i < 2; ++i) {
+        ctx.push();
+        ctx.assert_expr(equation);
+        ENSURE(ctx.check() == l_true);
+        ctx.pop(1);
+    }
+    ENSURE(ff_stat(ctx, "ff factor split candidates") > 0);
+    ENSURE(ff_stat(ctx, "ff root clauses") > 0);
 }
 
 // Substituting a wire into another assertion must retain the defining
@@ -1044,6 +1074,7 @@ void tst_finite_field() {
     test_ff_wire_dependencies();
     test_ff_nested_zero_test();
     test_ff_integration();
+    test_ff_factor_split_lifetime();
     test_ff_tiny();
     test_ff_f4();
     test_certificates();

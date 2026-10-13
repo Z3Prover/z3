@@ -293,13 +293,13 @@ namespace smt {
         // Build factor = product(common) and remainder = sum over monomials
         // of coeff * product(factors with one copy of each common element
         // removed).
-        auto build_term = [&](rational const &coeff, ptr_vector<expr> const &factors) -> expr * {
+        auto build_term = [&](rational const &coeff, ptr_vector<expr> const &factors) -> expr_ref {
             expr_ref_vector args(m);
             if (!coeff.is_one() || factors.empty())
                 args.push_back(ff.mk_numeral(coeff, s));
             for (expr *f : factors)
                 args.push_back(f);
-            return args.size() == 1 ? args.get(0) : ff.mk_mul(args);
+            return expr_ref(args.size() == 1 ? args.get(0) : ff.mk_mul(args), m);
         };
         expr_ref factor_expr(build_term(rational(1), common), m);
         expr_ref_vector remainder_terms(m);
