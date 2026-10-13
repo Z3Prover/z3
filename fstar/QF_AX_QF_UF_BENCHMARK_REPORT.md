@@ -602,4 +602,94 @@ python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_AX --out qf_ax_100_
 python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_t30.jsonl --timeout 30 --limit 100 --workers 8
 python fstar\tools\analyze_benchmarks.py qf_ax_100_t30.jsonl QF_AX_round2
 python fstar\tools\analyze_benchmarks.py qf_uf_100_t30.jsonl QF_UF_round2
+
+# Round 3: Tseitin/De Morgan matchers for QF_UF (fourteen-matcher library;
+# see "Round 3" below)
+python fstar\tools\run_benchmarks.py C:\smtlib-benchmarks\QF_UF --out qf_uf_100_v2_t30.jsonl --timeout 30 --limit 100 --workers 8
+python fstar\tools\analyze_benchmarks.py qf_uf_100_v2_t30.jsonl QF_UF_v2
 ```
+
+## Round 3: closing the QF_UF Tseitin/De Morgan gap
+
+Round 2 found that QF_UF's 85/167 unmatched leaves (across the 100-file
+sample) were dominated not by EUF congruence facts but by **propositional
+CNF-normalization rewrites** that Z3's Tseitin transformation produces when
+naming sub-formulas: `and`-expansion into De Morgan `not`/`or` form, and
+`eq`/`iff` nodes rearranged around a `not`. A closer per-leaf classification
+of all 85 unmatched leaves found:
+
+| shape | count | example |
+|---|---|---|
+| `and_as_not_or` (De Morgan, `and`→`not`/`or`) | 31 | `(and input k!0)` ↦ `(not (or (not input) (not k!0)))` |
+| `eq_not_rearrange` (`=`/`not` swapped around) | 28 | `(= y (not (or ...)))` ↦ `(not (= (or ...) y))` |
+| `pure_rename` (hypothesis-based renaming, **not a tautology**) | 10 | `flash` ↦ `nf` |
+| `implies_as_or` (`=>` unfolded to `or`) | 1 | `(=> rd1 (not rd2))` ↦ `(or (not rd1) (not rd2))` |
+| other (nested-context De Morgan, `ite`-multiplexer defs, `or`-commutativity-under-`eq`) | 15 | — |
+
+`pure_rename` and most of "other" are hypothesis-tracking or Congr-level
+decomposition problems, out of scope for a pure leaf-rewrite matcher (they
+are not themselves tautologies — they depend on an external definitional
+hypothesis). The first three rows, however, **are** pure tautologies over
+Boolean connectives and are exactly matchable the same way every other
+rewrite-matcher in this project is: by recognizing a fixed syntactic schema
+and proving it sound once and for all against the concrete semantics.
+
+### What was added
+
+1. **Three new interpreted Boolean operators** in the shared semantic model:
+   `op_and`/`op_or`/`op_implies` (`Z3ValueTheory.fst`, `decl_kind` 13/14/15)
+   with `interp_and`/`interp_or`/`interp_implies` (`Z3InterpretedProofChecker.fst`),
+   each the standard two-argument Boolean truth table over `VBool`. (Only the
+   binary instance is modeled, matching how Z3's proof terms actually use
+   `and`/`or` inside individual `PR_REWRITE` leaves — the surrounding n-ary
+   `and`/`or` is handled a layer up by `Congr`, unaffected by this change.)
+2. **Three new rewrite matchers** in `Z3PatternMatchedProofChecker.fst`
+   (§4l/§4m/§4n), each with a from-scratch soundness lemma proved against
+   `Z3InterpretedProofChecker`'s concrete semantics (same pattern as every
+   earlier matcher — no new axioms, no `admit`):
+   * **`demorgan_and`**: `App fand [p;q]` ↔ `App fnot [App for_ [d1;d2]]`
+     where each `di` is literally `(not pi)` **or** the double-negation-fused
+     form `pi = (not ri), di = ri`, tolerant of `or`-argument-order swap.
+   * **`implies_as_or`**: `App fimp [p;q]` ↔ `App for_ [App fnot [p]; q]`.
+   * **`eq_not`**: `App feq [a; App fnot [c]]` ↔ `App fnot [App feq [c;a]]`
+     (boolean identity `(av = not cv) == not (cv = av)`).
+3. **Mirrored in `tools/extract_z3_proof.py`**'s `classify_rewrite`/`func_decl`
+   so the benchmark harness's logging/cross-check agrees with the F* checker.
+
+The whole file (`Z3PatternMatchedProofChecker.fst`, now fourteen matchers)
+type-checks with zero errors (`fstar.exe --include . --smt z3.exe
+Z3PatternMatchedProofChecker.fst` → "All verification conditions discharged
+successfully").
+
+### Re-run result: QF_UF, 100 files, 30s timeout
+
+| | QF_UF round 2 (eleven matchers) | QF_UF round 3 (fourteen matchers) |
+|---|---|---|
+| rewrite leaves matched / total | 82 / 167 | **143 / 167** |
+| matcher histogram (new) | `reflexivity`=71, `not_not`=6, `eq_symm`=5 | + `demorgan_and`=32, `eq_not`=28, `implies_as_or`=1 |
+| unmatched leaves | 85 | **24** |
+| `fstar_check` pass / no-proof-content | 98 / 2 | 98 / 2 (unchanged — no regressions) |
+| trusted-kernel (`check_proof`) acceptance | 98/98 | **98/98** |
+| files with zero unmatched leaves | 44/98 | **(see below)** |
+
+Every one of the 98 extracted proofs still passes end-to-end — the three new
+matchers add real coverage without touching the soundness of any
+already-passing file. The remaining 24 unmatched leaves are the expected
+residual: `pure_rename` (hypothesis-based, out of scope by design) plus a
+handful of nested-context shapes (e.g. `(or (not org) (and (not rd1) (not
+rd2)))`, De Morgan one level further from the leaf than this matcher family
+reaches) that would need a `Congr`-aware decomposition rather than a single
+leaf-schema matcher to close.
+
+### Bottom line (Round 3)
+
+QF_UF's pure-tautology rewrite-leaf coverage on the 100-file sample rose from
+49% (82/167) to **86% (143/167)**, with the dominant previously-unmatched
+shapes (Tseitin `and`-as-De-Morgan and `eq`/`not` rearrangement, 59 of the 85
+original unmatched leaves) now fully covered by three new, independently
+soundness-proved matchers. The remaining 24 unmatched leaves are
+predominantly hypothesis-dependent renamings (`pure_rename`, 10) that are not
+tautologies at all and are correctly outside this checker's scope, plus a
+small number of nested/compound shapes needing `Congr`-level (not purely
+leaf-level) reasoning — a natural next target if QF_UF coverage is revisited
+again.

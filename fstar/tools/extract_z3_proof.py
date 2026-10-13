@@ -113,8 +113,8 @@ def _is_app_of(e, kind):
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
-    """Returns the matched pattern's name (one of the eleven below) if
-       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s eleven
+    """Returns the matched pattern's name (one of the fourteen below) if
+       `(s, t)` fits one of `Z3PatternMatchedProofChecker.fst`'s fourteen
        schemas for *arbitrary* sub-expressions, else `None`."""
     # s = s (reflexivity): sound for any theory/sort, no theory lemma
     # needed -- see Z3PatternMatchedProofChecker.fst section 4g.
@@ -201,7 +201,47 @@ def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
     # exactly the same set of `(index,value)` pairs (order-independent).
     if _match_store_perm(s, t) is not None:
         return "store_perm"
+    # (and p q) = (not (or (not p) (not q))) -- De Morgan for a binary
+    # `and`, tolerating Z3 both commuting the `or`'s two disjuncts and
+    # fusing away a resulting double negation (mirrors
+    # Z3PatternMatchedProofChecker.fst's `demorgan_and_leaf_ok`/
+    # `neg_in_t`).
+    if (_is_app_of(s, z3.Z3_OP_AND) and s.num_args() == 2 and
+            _is_app_of(t, z3.Z3_OP_NOT) and t.num_args() == 1 and
+            _is_app_of(t.arg(0), z3.Z3_OP_OR) and t.arg(0).num_args() == 2):
+        p, q = s.arg(0), s.arg(1)
+        d1, d2 = t.arg(0).arg(0), t.arg(0).arg(1)
+        if ((_neg_in_t(d1, p) and _neg_in_t(d2, q)) or
+                (_neg_in_t(d1, q) and _neg_in_t(d2, p))):
+            return "demorgan_and"
+    # (p => q) = (not p) \/ q -- implication elimination.
+    if (_is_app_of(s, z3.Z3_OP_IMPLIES) and s.num_args() == 2 and
+            _is_app_of(t, z3.Z3_OP_OR) and t.num_args() == 2 and
+            _is_app_of(t.arg(0), z3.Z3_OP_NOT) and t.arg(0).num_args() == 1 and
+            t.arg(0).arg(0).eq(s.arg(0)) and t.arg(1).eq(s.arg(1))):
+        return "implies_as_or"
+    # (a = (not c)) = (not (= c a)) -- eq_symm combined with an
+    # equality/disequality rearrangement for Bool-sorted a/c (mirrors
+    # Z3PatternMatchedProofChecker.fst's `eq_not_leaf_ok`).
+    if (_is_app_of(s, z3.Z3_OP_EQ) and s.num_args() == 2 and
+            _is_app_of(s.arg(1), z3.Z3_OP_NOT) and s.arg(1).num_args() == 1 and
+            _is_app_of(t, z3.Z3_OP_NOT) and t.num_args() == 1 and
+            _is_app_of(t.arg(0), z3.Z3_OP_EQ) and t.arg(0).num_args() == 2 and
+            t.arg(0).arg(0).eq(s.arg(1).arg(0)) and t.arg(0).arg(1).eq(s.arg(0))):
+        return "eq_not"
     return None
+
+
+def _neg_in_t(d: z3.ExprRef, p: z3.ExprRef) -> bool:
+    """Does `d` denote the negation of `p`, either literally (`d = (not
+       p)`) or, when `p` itself is `(not r)`, as the bare,
+       double-negation-eliminated `r` (`d = r`)? Mirrors
+       Z3PatternMatchedProofChecker.fst's `neg_in_t`."""
+    if _is_app_of(d, z3.Z3_OP_NOT) and d.num_args() == 1 and d.arg(0).eq(p):
+        return True
+    if _is_app_of(p, z3.Z3_OP_NOT) and p.num_args() == 1 and d.eq(p.arg(0)):
+        return True
+    return False
 
 
 def _flatten_store(e: z3.ExprRef):
@@ -337,6 +377,12 @@ class Converter:
             tag = "op_concat"
         elif kind == z3.Z3_OP_EQ and arity == 2:
             tag = "op_eq"
+        elif kind == z3.Z3_OP_AND and arity == 2:
+            tag = "op_and"
+        elif kind == z3.Z3_OP_OR and arity == 2:
+            tag = "op_or"
+        elif kind == z3.Z3_OP_IMPLIES and arity == 2:
+            tag = "op_implies"
         interp = ("Some %s" % tag) if tag is not None else "None"
         self.decl_lines.append(
             'let %s : func_decl = { decl_name = "%s"; domain = [%s]; range = %s; '

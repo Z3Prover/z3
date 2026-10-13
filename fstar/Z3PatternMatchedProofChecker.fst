@@ -42,14 +42,14 @@
    (`store_perm`, §4k, `Z3ArrayTheory.lemma_apply_updates_set_eq` --
    `store_commute` is this theorem's `n = 2` special case).
 
-   Not every `Rewrite` leaf fits one of these eleven schemas -- Z3's
+   Not every `Rewrite` leaf fits one of these fourteen schemas -- Z3's
    rewriters encode many more rewrite rules than this (or any single
    bounded) pattern library can realistically enumerate. Rather than
    either trusting the whole proof tree unconditionally
    (`all_leaves_sound`, the pre-existing baseline) or rejecting
    anything not recognized (`all_matched`, all-or-nothing, §6), §7
    adds a *partial* mode: `collect_unmatched` walks a proof tree and
-   returns the exact list of `Rewrite` leaves none of the eleven
+   returns the exact list of `Rewrite` leaves none of the fourteen
    matchers recognize, and `lemma_partial_proof_true` proves the whole
    derivation's conclusion true *given only* that the collected
    leftover leaves are semantically sound -- i.e. every already-matched
@@ -137,6 +137,9 @@ let decl_shape_ok (f:func_decl) : bool =
     else if k = op_num_int then f.domain = [] && sort_eq f.range int_s && length f.int_params = 1
     else if k = op_num_bv then f.domain = [] && sort_eq f.range bv_s && length f.int_params = 1
     else if k = op_seq_unit then f.domain = [int_s] && sort_eq f.range seq_s
+    else if k = op_and then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
+    else if k = op_or then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
+    else if k = op_implies then f.domain = [bool_s; bool_s] && sort_eq f.range bool_s
     else false (* some other interpreted op: not trusted by this file *)
 
 let rec decls_ok (e:expr) : Tot bool (decreases e) =
@@ -280,6 +283,18 @@ let rec lemma_eval_shape (e:expr) (rho:env value)
            (match vs with
             | [VInt x] -> ()
             | _ -> ())
+         else if k = op_and then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
+         else if k = op_or then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
+         else if k = op_implies then
+           (match vs with
+            | [VBool a; VBool b] -> ()
+            | _ -> ())
          else ()) (* `decl_shape_ok f` is `false` here: contradiction *)
 
 and lemma_eval_shape_args (args:list expr) (rho:env value)
@@ -293,7 +308,7 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
       lemma_eval_shape_args args' rho
 
 (* ----------------------------------------------------------------- *)
-(* 4. The matcher *library*: eleven structural recognizers. Six are     *)
+(* 4. The matcher *library*: fourteen structural recognizers. Six are     *)
 (*    one per already-proven rewrite-rule lemma that needs no semantic  *)
 (*    side condition beyond shapes, and is expressible purely with the  *)
 (*    six interpreted ops `Z3InterpretedProofChecker.fst` already gives *)
@@ -318,7 +333,7 @@ and lemma_eval_shape_args (args:list expr) (rho:env value)
 (*    `lemma_eq_const_*`, and anything from                              *)
 (*    `Z3SeqAxioms`/`Z3SeqDerive`/`Z3ArithRewriter`/etc. not already     *)
 (*    wired into `the_interpretation`) is not silently ignored: §5-6    *)
-(*    below turn every `Rewrite` leaf that fails all eleven matchers    *)
+(*    below turn every `Rewrite` leaf that fails all fourteen matchers    *)
 (*    into an explicit, collected *leftover proof obligation* instead.  *)
 (* ----------------------------------------------------------------- *)
 
@@ -1377,9 +1392,199 @@ let lemma_store_perm_leaf_sound (s t:expr)
 #pop-options
 
 (* ----------------------------------------------------------------- *)
+(* 4l. `(and p q) = (not (or (not p) (not q)))` -- De Morgan for a      *)
+(*     binary `and`, the single dominant unmatched `Rewrite` shape in  *)
+(*     the QF_UF benchmark corpus's Tseitin/NNF normalization (31/85   *)
+(*     unmatched leaves in the 100-file sample; see                    *)
+(*     `QF_AX_QF_UF_BENCHMARK_REPORT.md`'s "Round 2" section). Needs   *)
+(*     no theory lemma -- just `op_and`/`op_or`/`op_not`'s own          *)
+(*     Boolean semantics -- but two wrinkles any literal "same-shape"   *)
+(*     matcher like `eq_symm`'s would miss: Z3 frequently (a) swaps the *)
+(*     `or`'s two disjuncts (`or` is commutative, and its rewriter       *)
+(*     doesn't always preserve `and`'s original argument order), and    *)
+(*     (b) fuses a resulting double negation away in the same step      *)
+(*     (`(and p (not r))` rewrites straight to `(not (or (not p) r))`,  *)
+(*     not the unfused `(not (or (not p) (not (not r))))`). `neg_in_t`  *)
+(*     below recognizes *both* forms a disjunct may take: literally     *)
+(*     `(not p)`, or -- when `p` itself is already `(not r)` -- the      *)
+(*     bare, double-negation-eliminated `r`.                            *)
+(* ----------------------------------------------------------------- *)
+
+(* Does `d` (one of `t`'s two `or`-disjuncts) denote the negation of
+   `p` (one of `s`'s two `and`-conjuncts), allowing for Z3 fusing away
+   a resulting double negation? *)
+let neg_in_t (d p:expr) : bool =
+  (match d with
+   | App fd [p'] -> Some? fd.interp && Some?.v fd.interp = op_not && p' = p
+   | _ -> false) ||
+  (match p with
+   | App fp [r] -> Some? fp.interp && Some?.v fp.interp = op_not && d = r
+   | _ -> false)
+
+let lemma_neg_in_t_sound (d p:expr) (rho:env value)
+  : Lemma (requires neg_in_t d p /\
+                    wf d /\ closed d /\ decls_ok d /\ no_quant d /\ sort_eq (get_sort d) bool_s /\
+                    wf p /\ closed p /\ decls_ok p /\ no_quant p /\ sort_eq (get_sort p) bool_s)
+          (ensures VBool? (eval the_interpretation d rho) /\ VBool? (eval the_interpretation p rho) /\
+                   (match eval the_interpretation d rho, eval the_interpretation p rho with
+                    | VBool dv, VBool pv -> dv == not pv
+                    | _, _ -> True))
+  = lemma_eval_shape d rho;
+    lemma_eval_shape p rho;
+    if (match d with | App fd [p'] -> Some? fd.interp && Some?.v fd.interp = op_not && p' = p | _ -> false)
+    then ()
+    else
+      (match p with
+       | App fp [r] -> lemma_eval_shape r rho
+       | _ -> ())
+
+let match_demorgan_and (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App fand [p; q], App fnot [App for_ [d1; d2]] ->
+    if Some? fand.interp && Some?.v fand.interp = op_and &&
+       Some? fnot.interp && Some?.v fnot.interp = op_not &&
+       Some? for_.interp && Some?.v for_.interp = op_or &&
+       ((neg_in_t d1 p && neg_in_t d2 q) || (neg_in_t d1 q && neg_in_t d2 p))
+    then Some (p, q)
+    else None
+  | _, _ -> None
+
+let demorgan_and_leaf_ok (s t:expr) : bool =
+  match match_demorgan_and s t with
+  | None -> false
+  | Some (p, q) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort p) bool_s && sort_eq (get_sort q) bool_s
+
+#push-options "--z3rlimit 150"
+let lemma_demorgan_and_leaf_sound (s t:expr)
+  : Lemma (requires demorgan_and_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App fand [p; q], App fnot [App for_ [d1; d2]] ->
+      assert (Some? fand.interp && Some?.v fand.interp = op_and);
+      assert (Some? fnot.interp && Some?.v fnot.interp = op_not);
+      assert (Some? for_.interp && Some?.v for_.interp = op_or);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape p rho;
+          lemma_eval_shape q rho;
+          lemma_eval_shape d1 rho;
+          lemma_eval_shape d2 rho;
+          if neg_in_t d1 p && neg_in_t d2 q then begin
+            lemma_neg_in_t_sound d1 p rho;
+            lemma_neg_in_t_sound d2 q rho
+          end else begin
+            lemma_neg_in_t_sound d1 q rho;
+            lemma_neg_in_t_sound d2 p rho
+          end
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
+(* 4m. `(p => q) = (not p) \/ q` -- implication elimination, Z3's       *)
+(*     standard preprocessing step for every `=>` it sees (1/85          *)
+(*     unmatched QF_UF leaves in the sample; small but free given 4l's  *)
+(*     `op_and`/`op_or`/`op_not` plumbing is already in place). No        *)
+(*     side condition beyond Bool-sortedness. *)
+(* ----------------------------------------------------------------- *)
+
+let match_implies_as_or (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App fimp [p; q], App for_ [App fnot [p']; q'] ->
+    if Some? fimp.interp && Some?.v fimp.interp = op_implies &&
+       Some? for_.interp && Some?.v for_.interp = op_or &&
+       Some? fnot.interp && Some?.v fnot.interp = op_not &&
+       p' = p && q' = q
+    then Some (p, q)
+    else None
+  | _, _ -> None
+
+let implies_as_or_leaf_ok (s t:expr) : bool =
+  match match_implies_as_or s t with
+  | None -> false
+  | Some (p, q) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort p) bool_s && sort_eq (get_sort q) bool_s
+
+#push-options "--z3rlimit 100"
+let lemma_implies_as_or_leaf_sound (s t:expr)
+  : Lemma (requires implies_as_or_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App fimp [p; q], App for_ [App fnot [p']; q'] ->
+      assert (Some? fimp.interp && Some?.v fimp.interp = op_implies);
+      assert (Some? for_.interp && Some?.v for_.interp = op_or);
+      assert (Some? fnot.interp && Some?.v fnot.interp = op_not);
+      assert (p' = p && q' = q);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape p rho;
+          lemma_eval_shape q rho
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
+(* 4n. `(a = (not c)) = (not (= c a))` -- `eq_symm` combined with an    *)
+(*     equality-vs-disequality rearrangement, for Bool-sorted `a`/`c`:  *)
+(*     `a = not c` holds exactly when `a <> c`, i.e. exactly when        *)
+(*     `not (c = a)` holds (using both symmetry and totality of Boolean  *)
+(*     equality). The second-most-common unmatched QF_UF shape (28/85   *)
+(*     in the sample) -- this is how Z3 commonly records negated          *)
+(*     Tseitin definitional equalities (`x = not DEF`) as `not (DEF =    *)
+(*     x)` during CNF conversion. *)
+(* ----------------------------------------------------------------- *)
+
+let match_eq_not (s t:expr) : option (expr & expr) =
+  match s, t with
+  | App feq1 [a; App fnot1 [c]], App fnot2 [App feq2 [c'; a']] ->
+    if Some? feq1.interp && Some?.v feq1.interp = op_eq &&
+       Some? fnot1.interp && Some?.v fnot1.interp = op_not &&
+       Some? fnot2.interp && Some?.v fnot2.interp = op_not &&
+       Some? feq2.interp && Some?.v feq2.interp = op_eq &&
+       c' = c && a' = a
+    then Some (a, c)
+    else None
+  | _, _ -> None
+
+let eq_not_leaf_ok (s t:expr) : bool =
+  match match_eq_not s t with
+  | None -> false
+  | Some (a, c) ->
+    wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
+    sort_eq (get_sort a) bool_s && sort_eq (get_sort c) bool_s
+
+#push-options "--z3rlimit 100"
+let lemma_eq_not_leaf_sound (s t:expr)
+  : Lemma (requires eq_not_leaf_ok s t)
+          (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
+  = match s, t with
+    | App feq1 [a; App fnot1 [c]], App fnot2 [App feq2 [c'; a']] ->
+      assert (Some? feq1.interp && Some?.v feq1.interp = op_eq);
+      assert (Some? fnot1.interp && Some?.v fnot1.interp = op_not);
+      assert (Some? fnot2.interp && Some?.v fnot2.interp = op_not);
+      assert (Some? feq2.interp && Some?.v feq2.interp = op_eq);
+      assert (c' = c && a' = a);
+      let aux (rho:env value)
+        : Lemma (eval the_interpretation s rho == eval the_interpretation t rho)
+        = lemma_eval_shape a rho;
+          lemma_eval_shape c rho;
+          (match eval the_interpretation a rho, eval the_interpretation c rho with
+           | VBool av, VBool cv -> ()
+           | _, _ -> ())
+      in
+      FStar.Classical.forall_intro aux
+    | _, _ -> ()
+#pop-options
+
+(* ----------------------------------------------------------------- *)
 (* 5. The combinator: try every matcher above in turn, and the          *)
 (*    corresponding "matched implies sound" lemma (a case split over    *)
-(*    the eleven, invoking whichever matcher actually fired).           *)
+(*    the fourteen, invoking whichever matcher actually fired).         *)
 (* ----------------------------------------------------------------- *)
 
 let try_match_leaf (s t:expr) : bool =
@@ -1393,7 +1598,10 @@ let try_match_leaf (s t:expr) : bool =
   eq_symm_leaf_ok s t ||
   select_store_diff_leaf_ok s t ||
   store_commute_leaf_ok s t ||
-  store_perm_leaf_ok s t
+  store_perm_leaf_ok s t ||
+  demorgan_and_leaf_ok s t ||
+  implies_as_or_leaf_ok s t ||
+  eq_not_leaf_ok s t
 
 let lemma_try_match_leaf_sound (s t:expr)
   : Lemma (requires try_match_leaf s t)
@@ -1408,12 +1616,15 @@ let lemma_try_match_leaf_sound (s t:expr)
     else if eq_symm_leaf_ok s t then lemma_eq_symm_leaf_sound s t
     else if select_store_diff_leaf_ok s t then lemma_select_store_diff_leaf_sound s t
     else if store_commute_leaf_ok s t then lemma_store_commute_leaf_sound s t
-    else lemma_store_perm_leaf_sound s t
+    else if store_perm_leaf_ok s t then lemma_store_perm_leaf_sound s t
+    else if demorgan_and_leaf_ok s t then lemma_demorgan_and_leaf_sound s t
+    else if implies_as_or_leaf_ok s t then lemma_implies_as_or_leaf_sound s t
+    else lemma_eq_not_leaf_sound s t
 
 (* ----------------------------------------------------------------- *)
 (* 6. "Fully matched" mode: a decidable whole-proof-tree checker         *)
 (*    mirroring `all_leaves_sound`'s own recursion, requiring *every*    *)
-(*    `Rewrite` leaf to fit one of the eleven schemas above.            *)
+(*    `Rewrite` leaf to fit one of the fourteen schemas above.            *)
 (* ----------------------------------------------------------------- *)
 
 let rec all_matched (p:proof) : Tot bool (decreases p) =

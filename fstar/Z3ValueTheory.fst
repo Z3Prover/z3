@@ -99,3 +99,19 @@ let op_num_bv : decl_kind = 11
    mirroring how `op_num_int`/`op_num_bv`/`op_true`/`op_false` already
    let literal Int/BV/Bool constants be recognized. *)
 let op_seq_unit : decl_kind = 12
+
+(* Binary Boolean connectives `and`/`or`/`=>`, added so the QF_UF
+   benchmark corpus's dominant unmatched `Rewrite` shapes -- Z3's own
+   Tseitin/NNF-style De Morgan (`(and a b) = (not (or (not a) (not
+   b)))`) and implication-elimination (`(a => b) = (or (not a) b)`)
+   normalizations -- can be recognized as genuine tautologies (see
+   `Z3PatternMatchedProofChecker.fst`'s `demorgan_and_leaf_ok`/
+   `implies_as_or_leaf_ok`). Z3's real `and`/`or` are n-ary; only the
+   binary (arity-2) instance is modeled here, matching every `and`/`or`
+   application actually observed in the sampled proofs this was added
+   for -- `decl_shape_ok` rejects any other arity, so a wider `and`/`or`
+   application simply stays uninterpreted (`None`), same as any other
+   not-yet-modeled op. *)
+let op_and : decl_kind = 13
+let op_or : decl_kind = 14
+let op_implies : decl_kind = 15
