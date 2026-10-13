@@ -128,3 +128,8 @@ tptp_test/
 tptp_benchmarks/
 # Local-only artifacts from a reverted experiment (kept on disk, not tracked)
 fstar/rewrite_rule_bench/
+
+# Intermediate build products of fstar/tools/build_ocaml_checker.ps1
+# (regenerated from source every time; see fstar/OCAML_CHECKER_REPORT.md)
+fstar/build_cache/
+fstar/build_extract/

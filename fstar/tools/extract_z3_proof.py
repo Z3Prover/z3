@@ -60,6 +60,15 @@ no refutation proof to extract from a `sat` result).
 With `--check`, additionally shells out to `fstar.exe` (path below,
 same toolchain invocation used throughout `fstar/`) to actually run
 the Pulse checker on the generated file and reports the verdict.
+
+With `--fast-check` (requires `--json`), instead pipes the generated
+JSON proof document to the precompiled, standalone native checker
+executable (see `fstar/OCAML_CHECKER_REPORT.md`) via WSL. This does
+NOT invoke fstar.exe, does NOT write/compile any new `.fst` file for
+the check itself, and does NOT run the SMT solver: the executable is
+built once (`fstar/tools/build_ocaml_checker.ps1`) from the extracted
+OCaml form of the same Pulse-verified checker and simply interprets
+the JSON directly, typically in single-digit milliseconds per proof.
 """
 import argparse
 import json as json_mod
@@ -851,6 +860,32 @@ def build_from_file(path: str):
     return "assertions from %s" % path, s.proof()
 
 
+def to_wsl_path(windows_path: str) -> str:
+    """Converts an absolute Windows path (e.g. C:\\foo\\bar.json) into the
+    corresponding /mnt/c/... path WSL sees the same file under."""
+    abspath = os.path.abspath(windows_path)
+    drive, rest = os.path.splitdrive(abspath)
+    drive_letter = drive.rstrip(":").lower()
+    rest = rest.replace("\\", "/").lstrip("/")
+    return "/mnt/%s/%s" % (drive_letter, rest)
+
+
+def run_fast_check(checker_exe: str, json_out: str) -> bool:
+    """Runs the precompiled standalone checker executable (built by
+    fstar/tools/build_ocaml_checker.ps1) inside WSL against an already-
+    written JSON proof document, with no fstar.exe/SMT-solver involved.
+    Returns True iff the checker printed ACCEPT and exited 0."""
+    wsl_json_path = to_wsl_path(json_out)
+    cmd = ["wsl", "-e", "bash", "-c",
+           "%s %s" % (checker_exe, wsl_json_path)]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    out = res.stdout.strip()
+    print(out)
+    if res.stderr.strip():
+        print(res.stderr.strip(), file=sys.stderr)
+    return res.returncode == 0 and out == "ACCEPT"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("smt2_file", nargs="?", default=None,
@@ -863,6 +898,13 @@ def main():
                           "(default: <out>.unmatched.log)")
     ap.add_argument("--check", action="store_true",
                      help="shell out to fstar.exe and run the Pulse checker on the result")
+    ap.add_argument("--fast-check", action="store_true",
+                     help="pipe the JSON proof doc (requires --json) to the precompiled "
+                          "native checker executable via WSL instead of invoking fstar.exe; "
+                          "does not write or compile any .fst file for the check itself")
+    ap.add_argument("--checker-exe", default="~/z3checker/checker",
+                     help="path (inside WSL) to the compiled checker executable built by "
+                          "fstar/tools/build_ocaml_checker.ps1")
     ap.add_argument("--fstar", default=r"C:\fstar\fstar\bin\fstar.exe")
     ap.add_argument("--z3-smt", default=r"C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe")
     ap.add_argument("--json", action="store_true",
@@ -948,6 +990,18 @@ def main():
         print("Wrote", json_fst_out, "(JSON-instance file, %d bytes of embedded JSON)"
               % len(json_mod.dumps(doc, separators=(",", ":"))))
         check_targets.append(json_fst_out)
+
+    if args.fast_check:
+        if not args.json:
+            print("--fast-check requires --json (no JSON proof document was written)",
+                  file=sys.stderr)
+            sys.exit(1)
+        print("Invoking the precompiled native checker (no fstar.exe, no SMT) on", json_out, "...")
+        if run_fast_check(args.checker_exe, json_out):
+            print("PASS: the precompiled checker accepted the extracted Z3 proof (%s)." % json_out)
+        else:
+            print("FAIL: the precompiled checker rejected %s." % json_out, file=sys.stderr)
+            sys.exit(1)
 
     if args.check:
         for target in check_targets:
