@@ -961,6 +961,72 @@ rule out the sub-expression's `unique_value_key` landing in the
 `Int`, so `lemma_eval_shape` forces its decoded key to be `LInt`, not
 `LBV`/`LBool`/`LSeq`) before the final distinctness corollary.
 
+## Rewrite steps as *synthesis*, not just verification: the `Z3<Theory>Embed.fst` family
+
+Every matcher described above (§4) answers a *verification* question:
+"given both sides `s`/`t` of a candidate `Rewrite` leaf, is this an
+instance of lemma `x`?" Five new files — `Z3ArrayEmbed.fst`,
+`Z3SeqEmbed.fst`, `Z3BoolEmbed.fst`, `Z3BvEmbed.fst`,
+`Z3CoreEmbed.fst` — answer the complementary *synthesis* question:
+"given only one side `t`, what does lemma `x` say it equals?" Each
+exports, per covered lemma `lemma_x : a = b` (with side condition
+`cond(a,b)`):
+
+```
+apply_lemma_x : expr -> option expr
+```
+
+such that `Some s = apply_lemma_x t` implies `cond(eval t, eval s)`
+holds and `eval t == eval s` — proved (`lemma_apply_lemma_x_sound`)
+by re-using exactly the same shape/sort/side-condition checks and
+`lemma_eval_shape`/theory-lemma dispatch already in each `match_x`
+pattern, just with the equality-with-`t`'s-other-side check removed
+and the matched right-hand sub-expression returned directly instead.
+Each file also exports:
+
+* `apply_lemmas : expr -> list expr` — every successful single-step
+  rewrite of `t` by one of that file's lemmas.
+* `is_rewrite : expr -> expr -> bool` — `is_rewrite t s` holds iff
+  some `apply_lemma_x` in that file maps `t` to `s`, with its own
+  soundness corollary `lemma_is_rewrite_sound` (case-split over which
+  disjunct fired, dispatching to that lemma's own soundness proof).
+
+**Coverage**: ten of the eleven §4 patterns get an `apply_lemma_x`
+(`Z3ArrayEmbed.fst`: `select_store_same`, `store_same_twice`,
+`store_redundant`, `select_store_diff`, `store_commute`;
+`Z3SeqEmbed.fst`: `concat_assoc`; `Z3BoolEmbed.fst`: `not_not`;
+`Z3BvEmbed.fst`: `bvand_self`; `Z3CoreEmbed.fst`: `reflexivity`,
+`eq_symm`). **The eleventh, `store_perm`, is deliberately excluded**:
+it is not a function of its input in the first place.
+`Z3ArrayTheory.lemma_apply_updates_set_eq` proves an `n`-level nested
+`store` chain with pairwise-distinct indices equal to *any* of the
+`n!` reorderings of the same updates, not one canonical target, so no
+single `s` can be returned from an `expr -> option expr` signature.
+(`store_commute` is `store_perm`'s `n = 2` special case, where there
+*is* a unique "other" order to swap to — hence it alone, among the
+distinctness-side-conditioned patterns, gets an `apply_lemma_x`.)
+
+**A genuine, non-mechanical proof bug surfaced along the way**: an
+initial draft of the aggregate `lemma_apply_lemmas_sound` (one
+"everything in `apply_lemmas t` is sound" lemma per file, stated as a
+`forall s. mem s (apply_lemmas t) ==> ...`) failed to verify —
+"incomplete quantifiers"/timeouts, because discharging a `forall`
+over `mem`-in-a-list-built-by-`@`/`match` needs genuine list-structure
+reasoning the individual per-lemma soundness facts don't supply by
+themselves. The fix was to define `is_rewrite` directly as an
+explicit five-way (or two-way, etc.) *disjunction* of
+`apply_lemma_x t = Some s` facts instead of `mem s (apply_lemmas t)`:
+logically equivalent, but its own soundness lemma is then a plain
+`if`/`else if` case split, each branch an immediate call to that
+lemma's own already-proven `lemma_apply_lemma_x_sound` — no `mem`/list
+reasoning required at all. `apply_lemmas` itself is kept only as the
+convenient "list of what fired" enumeration the task asked for; its
+soundness is witnessed per-element by `is_rewrite`'s corollary, not by
+a separate blanket lemma over the list.
+
+All five files verify with zero errors ("All verification conditions
+discharged successfully" for each).
+
 ## Files
 
 | File | Role |
@@ -981,6 +1047,11 @@ rule out the sub-expression's `unique_value_key` landing in the
 | [`tools/test_store_same_twice.smt2`](tools/test_store_same_twice.smt2), [`Z3ExtractedProof_StoreSameTwice.fst`](Z3ExtractedProof_StoreSameTwice.fst) | `(store (store a i x) i y) == (store a i y)`, exercising the `store_same_twice` matcher |
 | [`tools/test_store_redundant.smt2`](tools/test_store_redundant.smt2), [`Z3ExtractedProof_StoreRedundant.fst`](Z3ExtractedProof_StoreRedundant.fst) | `(store a i (select a i)) == a`, exercising the `store_redundant` matcher |
 | [`tools/test_select_store_diff.smt2`](tools/test_select_store_diff.smt2), [`Z3ExtractedProof_SelectStoreDiff.fst`](Z3ExtractedProof_SelectStoreDiff.fst) | `(select (store a i x) j) == (select a j)` under `i <> j` -- a rewrite that is *not* wired into any matcher (no `i <> j` side-condition support); Z3 in fact proves it via `PR_TH_LEMMA`, not `PR_REWRITE`, so it never reaches the matcher at all |
+| [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst) | `apply_lemma_x : expr -> option expr` rewrite-*synthesis* functions for `select_store_same`/`store_same_twice`/`store_redundant`/`select_store_diff`/`store_commute`, plus `apply_lemmas`/`is_rewrite` |
+| [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst) | Same, for `concat_assoc` |
+| [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst) | Same, for `not_not` |
+| [`Z3BvEmbed.fst`](Z3BvEmbed.fst) | Same, for `bvand_self` |
+| [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) | Same, for the two theory-agnostic matchers, `reflexivity` and `eq_symm` |
 
 All three files type-check cleanly with the standard toolchain
 invocation (`fstar.exe --smt <z3 4.13.3 binary> <File>.fst`), with zero
