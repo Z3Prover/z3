@@ -64,6 +64,48 @@ let op_concat : decl_kind = 6
    rewrite matcher can be proved sound without any new model axioms. *)
 let op_eq : decl_kind = 7
 
+(* Literal constants: `true`/`false` (`OP_TRUE`/`OP_FALSE`) and
+   0-ary numeral applications (`OP_NUM`-family: `Z3_mk_int`/
+   `Z3_mk_numeral`, bit-vector numerals, ...). Added so `provably_distinct`
+   below can discriminate *literal* constants by their actual decoded
+   value rather than by the (sort-restricted, Int-only) injective-naming
+   trick `uninterp_app` already relies on for free/symbolic 0-ary
+   constants -- see the docstring before `provably_distinct` in
+   `Z3PatternMatchedProofChecker.fst` for why that distinction matters
+   (the naming trick is only sound for an *infinite* sort; `Bool`/`BVn`
+   are finite, so two differently-*named* Bool/BV constants can never
+   be assumed pairwise distinct, but two differently-*valued* Bool/BV
+   *literals* always are). A numeral's literal value is carried in
+   `func_decl.int_params` (already used by `re.loop`'s bounds), one
+   element: `[v]`. *)
+let op_true : decl_kind = 8
+let op_false : decl_kind = 9
+let op_num_int : decl_kind = 10
+let op_num_bv : decl_kind = 11
+
+(* The exact reduction `interp_app`'s `op_num_bv` case applies to a raw
+   `int_params` value to land in `bv 32 = k:nat{k < pow2 32}`; exposed
+   here (not just inlined in `interp_app`) so `Z3PatternMatchedProofChecker`'s
+   `provably_distinct` can compare *post-reduction* values -- two BV
+   literal `func_decl`s with different raw `int_params` but the same
+   value mod 2^32 denote the *same* bit-vector, so distinctness must be
+   decided on `bv32_value`, never on the raw parameter.
+
+   NB: this just re-exports `Z3BvTheory.bv_of_int` under a 32-specific
+   name. Re-deriving `FStar.UInt.to_uint_t`'s range fact *inline*,
+   directly inside `interp_app`'s large case-split, was observed to
+   make Z3's automatic search pathologically slow (unmodified file:
+   ~15s; with the reduction expanded inline: did not finish within
+   tens of minutes) -- almost certainly because that case-split's
+   single VC then has to carry `FStar.UInt`/`pow2`'s machinery
+   alongside every *other* branch's (array/seq/bv) facts at once.
+   Defining the conversion as its own already-checked top-level
+   function in `Z3BvTheory.fst` (right next to its other `bv`
+   conversions, where the same facts are already established quickly)
+   and calling it here only by its *type*, not its *body*, avoids that
+   blowup entirely. *)
+let bv32_value (v:int) : Z3BvTheory.bv 32 = Z3BvTheory.bv_of_int v
+
 (* ----------------------------------------------------------------- *)
 (* An injective `string -> nat` encoding, used only so that two        *)
 (* *distinctly-named* 0-ary uninterpreted Int constants (e.g. `i`/`j`  *)
@@ -138,36 +180,77 @@ let default_value (s:sort) : value =
   else if sort_eq s (ArraySort [BaseSort "Int"] (BaseSort "Int")) then VArr (on int (fun _ -> 0))
   else (* "Int" and anything else *) VInt 0
 
+(* Each decl_kind's interpretation is its own small, independently-
+   checked top-level function (rather than one branch in a single
+   monolithic if/elif chain). `interp_app` itself then only has to
+   typecheck a trivial dispatch -- one standalone `Lemma`-free
+   application per branch -- instead of a single VC that would
+   otherwise have to carry *every* theory's facts (array/seq/bv/bool)
+   at once. This also makes any one theory's future extension (e.g.
+   another numeral kind) only as expensive to verify as that one
+   function, not the whole dispatcher. *)
+let interp_not (args:list value) : value =
+  match args with
+  | [VBool b] -> VBool (not b)
+  | _ -> VInt 0
+
+let interp_plus (args:list value) : value =
+  match args with
+  | [VInt a; VInt b] -> VInt (a + b)
+  | _ -> VInt 0
+
+let interp_select (args:list value) : value =
+  match args with
+  | [VArr a; VInt i] -> VInt (Z3ArrayTheory.select a i)
+  | _ -> VInt 0
+
+let interp_store (args:list value) : value =
+  match args with
+  | [VArr a; VInt i; VInt x] -> VArr (Z3ArrayTheory.store a i x)
+  | _ -> VInt 0
+
+let interp_bvand (args:list value) : value =
+  match args with
+  | [VBV a; VBV b] -> VBV (Z3BvTheory.bvand a b)
+  | _ -> VInt 0
+
+let interp_concat (args:list value) : value =
+  match args with
+  | [VSeq s; VSeq t] -> VSeq (Z3SeqTheory.concat s t)
+  | _ -> VInt 0
+
+let interp_eq (args:list value) : value =
+  match args with
+  | [a; b] -> VBool (value_eq_sym a b)
+  | _ -> VInt 0
+
+let interp_true () : value = VBool true
+
+let interp_false () : value = VBool false
+
+let interp_num_int (int_params:list int) : value =
+  match int_params with
+  | [v] -> VInt v
+  | _ -> VInt 0
+
+let interp_num_bv (int_params:list int) : value =
+  match int_params with
+  | [v] -> VBV (bv32_value v)
+  | _ -> VInt 0
+
 let interp_app (f:func_decl{Some? f.interp}) (args:list value) : value =
   let k = Some?.v f.interp in
-  if k = op_not then
-    match args with
-    | [VBool b] -> VBool (not b)
-    | _ -> VInt 0
-  else if k = op_plus then
-    match args with
-    | [VInt a; VInt b] -> VInt (a + b)
-    | _ -> VInt 0
-  else if k = op_select then
-    match args with
-    | [VArr a; VInt i] -> VInt (Z3ArrayTheory.select a i)
-    | _ -> VInt 0
-  else if k = op_store then
-    match args with
-    | [VArr a; VInt i; VInt x] -> VArr (Z3ArrayTheory.store a i x)
-    | _ -> VInt 0
-  else if k = op_bvand then
-    match args with
-    | [VBV a; VBV b] -> VBV (Z3BvTheory.bvand a b)
-    | _ -> VInt 0
-  else if k = op_concat then
-    match args with
-    | [VSeq s; VSeq t] -> VSeq (Z3SeqTheory.concat s t)
-    | _ -> VInt 0
-  else if k = op_eq then
-    match args with
-    | [a; b] -> VBool (value_eq_sym a b)
-    | _ -> VInt 0
+  if k = op_not then interp_not args
+  else if k = op_plus then interp_plus args
+  else if k = op_select then interp_select args
+  else if k = op_store then interp_store args
+  else if k = op_bvand then interp_bvand args
+  else if k = op_concat then interp_concat args
+  else if k = op_eq then interp_eq args
+  else if k = op_true then interp_true ()
+  else if k = op_false then interp_false ()
+  else if k = op_num_int then interp_num_int f.int_params
+  else if k = op_num_bv then interp_num_bv f.int_params
   (* Unreachable for every well-sorted term built below; `eval`'s type
      does not statically rule it out (see `Z3AstTheory.fst`'s own
      comment on `interp_app`/`uninterp_app` being total on `list

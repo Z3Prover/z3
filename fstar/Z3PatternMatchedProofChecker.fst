@@ -75,7 +75,8 @@
    structural recursion; no tactics are required.
 
    Known limitation (documented, and now *fully* addressed by §4i/
-   §4j for named constants): the companion patterns
+   §4j/§4k for named constants *and* literal numerals -- see
+   `provably_distinct` right before §4i): the companion patterns
    `select(store(a,i,x),j) = select(a,j)` and
    `store(store(a,i,x),j,y) = store(store(a,j,y),i,x)`, both for `i <>
    j` (`Z3ArrayTheory.lemma_select_store_diff`/`lemma_store_commute`),
@@ -84,9 +85,14 @@
    denoted the *same* fixed value), this was unsatisfiable for *any*
    two named constants. `uninterp_app` now injects distinct
    `decl_name`s to distinct `VInt`s (`string_key`/
-   `lemma_string_key_distinct`), so both matchers can discharge `i <>
-   j` whenever `i`/`j` are themselves distinctly-named 0-ary
-   uninterpreted Int constants. Compound index expressions (e.g.
+   `lemma_string_key_distinct`), and `Z3InterpretedProofChecker.fst`
+   separately gives `true`/`false`/Int-numeral/BV-numeral *literals*
+   real, name-independent denotations, so `provably_distinct`
+   discharges `i <> j` whenever `i`/`j` are *either* two
+   distinctly-named 0-ary uninterpreted Int constants *or* two
+   literal numerals (Int or BV) with different decoded values --
+   demonstrated on literals in §13 (`lit_ssd_leaf`/`lit_bv_leaf`).
+   Compound index expressions (e.g.
    `i+1` vs `j`) are still out of reach -- a semantic disequality for
    those cannot be derived from syntax alone under this model -- and
    remain an unmatched, collected leaf.
@@ -124,6 +130,10 @@ let decl_shape_ok (f:func_decl) : bool =
       (match f.domain with
        | [d1; d2] -> sort_eq d1 d2 && sort_eq f.range bool_s
        | _ -> false)
+    else if k = op_true then f.domain = [] && sort_eq f.range bool_s
+    else if k = op_false then f.domain = [] && sort_eq f.range bool_s
+    else if k = op_num_int then f.domain = [] && sort_eq f.range int_s && length f.int_params = 1
+    else if k = op_num_bv then f.domain = [] && sort_eq f.range bv_s && length f.int_params = 1
     else false (* some other interpreted op: not trusted by this file *)
 
 let rec decls_ok (e:expr) : Tot bool (decreases e) =
@@ -257,6 +267,12 @@ let rec lemma_eval_shape (e:expr) (rho:env value)
            (match vs with
             | [a; b] -> ()
             | _ -> ())
+         else if k = op_true then ()
+         else if k = op_false then ()
+         else if k = op_num_int then
+           (match f.int_params with [v] -> () | _ -> ())
+         else if k = op_num_bv then
+           (match f.int_params with [v] -> () | _ -> ())
          else ()) (* `decl_shape_ok f` is `false` here: contradiction *)
 
 and lemma_eval_shape_args (args:list expr) (rho:env value)
@@ -610,6 +626,89 @@ let const_name (e:expr{is_uninterp_const e}) : string =
   match e with
   | App f [] -> f.decl_name
 
+(* `provably_distinct` generalizes the single case above (two
+   distinctly-named 0-ary *uninterpreted* Int constants) to *literal*
+   constants as well: `true`/`false` (`op_true`/`op_false`), two Int
+   numerals with different raw values (`op_num_int`), and two BV
+   numerals with different *post-`bv32_value`-reduction* values
+   (`op_num_bv` -- two different raw `int_params` can denote the same
+   bit-vector mod 2^32, so distinctness must be decided on the
+   reduced value, never the raw parameter). Unlike the
+   uninterpreted-constant case (sound only because `Int` is an
+   *infinite* sort -- see the module docstring's discussion of why
+   the naming trick cannot be used for `Bool`/`BVn`), literal
+   distinctness is sound for *any* sort, finite or not: a literal's
+   denotation is a fixed, name-independent function of its own
+   decoded payload (`interp_true`/`interp_false`/`interp_num_int`/
+   `interp_num_bv`), not a free/symbolic choice, so two literals
+   decoding to different payloads can never collide under any
+   interpretation. *)
+
+let is_bool_true_const (e:expr) : bool =
+  match e with
+  | App f [] -> Some? f.interp && Some?.v f.interp = op_true
+  | _ -> false
+
+let is_bool_false_const (e:expr) : bool =
+  match e with
+  | App f [] -> Some? f.interp && Some?.v f.interp = op_false
+  | _ -> false
+
+let is_int_num_const (e:expr) : bool =
+  match e with
+  | App f [] -> Some? f.interp && Some?.v f.interp = op_num_int && length f.int_params = 1
+  | _ -> false
+
+let int_num_value (e:expr{is_int_num_const e}) : int =
+  match e with
+  | App f [] -> List.Tot.hd f.int_params
+
+let is_bv_num_const (e:expr) : bool =
+  match e with
+  | App f [] -> Some? f.interp && Some?.v f.interp = op_num_bv && length f.int_params = 1
+  | _ -> false
+
+let bv_num_value (e:expr{is_bv_num_const e}) : Z3BvTheory.bv 32 =
+  match e with
+  | App f [] -> bv32_value (List.Tot.hd f.int_params)
+
+(* The uninterpreted-constant disjunct additionally requires an
+   `Int`-sorted range: `uninterp_app` only injects a name-dependent
+   (hence provably-distinct-by-name) `VInt` for 0-ary, `Int`-sorted
+   declarations -- every other uninterpreted constant (e.g. two
+   differently-named `Bool` constants) gets the *same*
+   name-independent `default_value`, so two such constants can
+   *not* be assumed distinct. *)
+let is_int_uninterp_const (e:expr) : bool =
+  is_uninterp_const e && sort_eq (get_sort e) int_s
+
+let provably_distinct (a b:expr) : bool =
+  (is_int_uninterp_const a && is_int_uninterp_const b && const_name a <> const_name b) ||
+  (is_bool_true_const a && is_bool_false_const b) ||
+  (is_bool_false_const a && is_bool_true_const b) ||
+  (is_int_num_const a && is_int_num_const b && int_num_value a <> int_num_value b) ||
+  (is_bv_num_const a && is_bv_num_const b && bv_num_value a <> bv_num_value b)
+
+(* The soundness bridge: whenever `provably_distinct a b` holds (and
+   `a`/`b` are themselves well-formed, closed, `decls_ok`,
+   quantifier-free sub-expressions -- the same shape hypotheses
+   `lemma_eval_shape` needs), their *denotations* under
+   `the_interpretation` actually differ. This is the one lemma every
+   matcher needing a semantic index-disequality side condition
+   (`select_store_diff`, `store_commute`, `store_perm`) now calls,
+   replacing the previous ad-hoc inline `lemma_string_key_distinct`
+   invocation at each call site. *)
+let lemma_provably_distinct_sound (a b:expr) (rho:env value)
+  : Lemma (requires provably_distinct a b /\
+                    wf a /\ closed a /\ decls_ok a /\ no_quant a /\
+                    wf b /\ closed b /\ decls_ok b /\ no_quant b)
+          (ensures eval the_interpretation a rho =!= eval the_interpretation b rho)
+  = if is_int_uninterp_const a && is_int_uninterp_const b && const_name a <> const_name b then
+      (match a, b with
+       | App fa [], App fb [] -> lemma_string_key_distinct fa.decl_name fb.decl_name
+       | _, _ -> ())
+    else ()
+
 let match_select_store_diff (s t:expr) : option (expr & expr & expr & expr) =
   match s, t with
   | App f_sel1 [App f_sto [a; i; x]; j], App f_sel2 [a'; j'] ->
@@ -628,7 +727,7 @@ let select_store_diff_leaf_ok (s t:expr) : bool =
     wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
     sort_eq (get_sort a) arr_s && sort_eq (get_sort i) int_s &&
     sort_eq (get_sort x) int_s && sort_eq (get_sort j) int_s &&
-    is_uninterp_const i && is_uninterp_const j && const_name i <> const_name j
+    provably_distinct i j
 
 #push-options "--z3rlimit 80"
 let lemma_select_store_diff_leaf_sound (s t:expr)
@@ -643,15 +742,12 @@ let lemma_select_store_diff_leaf_sound (s t:expr)
           lemma_eval_shape i rho;
           lemma_eval_shape x rho;
           lemma_eval_shape j rho;
-          (match i, j with
-           | App fi [], App fj [] ->
-             lemma_string_key_distinct fi.decl_name fj.decl_name;
-             (match eval the_interpretation a rho, eval the_interpretation i rho,
-                    eval the_interpretation x rho, eval the_interpretation j rho with
-              | VArr av, VInt iv, VInt xv, VInt jv ->
-                Z3ArrayTheory.lemma_select_store_diff av iv jv xv
-              | _, _, _, _ -> ())
-           | _, _ -> ())
+          lemma_provably_distinct_sound i j rho;
+          (match eval the_interpretation a rho, eval the_interpretation i rho,
+                 eval the_interpretation x rho, eval the_interpretation j rho with
+           | VArr av, VInt iv, VInt xv, VInt jv ->
+             Z3ArrayTheory.lemma_select_store_diff av iv jv xv
+           | _, _, _, _ -> ())
       in
       FStar.Classical.forall_intro aux
     | _, _ -> ()
@@ -686,7 +782,7 @@ let store_commute_leaf_ok (s t:expr) : bool =
     wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
     sort_eq (get_sort a) arr_s && sort_eq (get_sort i) int_s &&
     sort_eq (get_sort x) int_s && sort_eq (get_sort j) int_s && sort_eq (get_sort y) int_s &&
-    is_uninterp_const i && is_uninterp_const j && const_name i <> const_name j
+    provably_distinct i j
 
 #push-options "--z3rlimit 100"
 let lemma_store_commute_leaf_sound (s t:expr)
@@ -702,16 +798,13 @@ let lemma_store_commute_leaf_sound (s t:expr)
           lemma_eval_shape x rho;
           lemma_eval_shape j rho;
           lemma_eval_shape y rho;
-          (match i, j with
-           | App fi [], App fj [] ->
-             lemma_string_key_distinct fi.decl_name fj.decl_name;
-             (match eval the_interpretation a rho, eval the_interpretation i rho,
-                    eval the_interpretation x rho, eval the_interpretation j rho,
-                    eval the_interpretation y rho with
-              | VArr av, VInt iv, VInt xv, VInt jv, VInt yv ->
-                Z3ArrayTheory.lemma_store_commute av iv jv xv yv
-              | _, _, _, _, _ -> ())
-           | _, _ -> ())
+          lemma_provably_distinct_sound i j rho;
+          (match eval the_interpretation a rho, eval the_interpretation i rho,
+                 eval the_interpretation x rho, eval the_interpretation j rho,
+                 eval the_interpretation y rho with
+           | VArr av, VInt iv, VInt xv, VInt jv, VInt yv ->
+             Z3ArrayTheory.lemma_store_commute av iv jv xv yv
+           | _, _, _, _, _ -> ())
       in
       FStar.Classical.forall_intro aux
     | _, _ -> ()
@@ -750,15 +843,16 @@ let pairs_wf (us:list (expr & expr)) : prop =
     wf (fst p) /\ closed (fst p) /\ decls_ok (fst p) /\ no_quant (fst p) /\ sort_eq (get_sort (fst p)) int_s /\
     wf (snd p) /\ closed (snd p) /\ decls_ok (snd p) /\ no_quant (snd p) /\ sort_eq (get_sort (snd p)) int_s
 
-/// `i` is a distinctly-named uninterpreted constant from the index of
-/// every pair in `us` (a one-against-the-rest check; folded over all
-/// positions by `pairwise_distinct_keys` below to get a full all-pairs
-/// check).
+/// `i` is `provably_distinct` (§4i's generalized distinctness
+/// recognizer -- named constants *or* literal numerals) from the
+/// index of every pair in `us` (a one-against-the-rest check; folded
+/// over all positions by `pairwise_distinct_keys` below to get a
+/// full all-pairs check).
 let rec all_const_distinct_from (i:expr) (us:list (expr & expr)) : Tot bool (decreases us) =
   match us with
   | [] -> true
   | (j, _) :: rest ->
-    is_uninterp_const i && is_uninterp_const j && const_name i <> const_name j &&
+    provably_distinct i j &&
     all_const_distinct_from i rest
 
 /// Every index in `us` is a distinctly-named uninterpreted constant
@@ -945,6 +1039,7 @@ let rec lemma_distinct_indices_unique (ps:list (int & int)) (k x1 x2:int)
 
 let rec lemma_all_const_distinct_from_eval (i:expr) (iv:int) (rest:list (expr & expr)) (rho:env value)
   : Lemma (requires all_const_distinct_from i rest /\ pairs_wf rest /\
+                        wf i /\ closed i /\ decls_ok i /\ no_quant i /\
                         sort_eq (get_sort i) int_s /\
                         eval the_interpretation i rho == VInt iv)
           (ensures all_index_distinct_from iv (eval_pairs rho rest))
@@ -958,12 +1053,9 @@ let rec lemma_all_const_distinct_from_eval (i:expr) (iv:int) (rest:list (expr & 
               wf y /\ closed y /\ decls_ok y /\ no_quant y);
       lemma_eval_shape j rho;
       lemma_eval_shape y rho;
-      (match i, j with
-       | App fi [], App fj [] ->
-         lemma_string_key_distinct fi.decl_name fj.decl_name;
-         (match eval the_interpretation i rho, eval the_interpretation j rho with
-          | VInt iv', VInt jv -> assert (iv == iv' /\ iv <> jv)
-          | _, _ -> ())
+      lemma_provably_distinct_sound i j rho;
+      (match eval the_interpretation i rho, eval the_interpretation j rho with
+       | VInt iv', VInt jv -> assert (iv == iv' /\ iv <> jv)
        | _, _ -> ())
 
 #push-options "--z3rlimit 60"
@@ -1426,6 +1518,10 @@ let sp3_rot2 : expr = c3 store_d (c3 store_d (c3 store_d a_c2 j_c y_c) k_c z_c) 
 let sp3_leaf_1 : proof = mk_rewrite_leaf sp3_base sp3_rot1
 let sp3_leaf_2 : proof = mk_rewrite_leaf sp3_base sp3_rot2
 
+(* `provably_distinct`'s 5-way disjunction (vs. the single
+   named-constant case these demos previously decided) needs more
+   fuel to unfold through at proof time than the default. *)
+#push-options "--z3rlimit 150"
 let lemma_sp3_leaf_1_matched ()
   : Lemma (all_matched sp3_leaf_1)
   = ()
@@ -1433,6 +1529,7 @@ let lemma_sp3_leaf_1_matched ()
 let lemma_sp3_leaf_2_matched ()
   : Lemma (all_matched sp3_leaf_2)
   = ()
+#pop-options
 
 let lemma_sp3_leaf_1_true (rho:env value)
   : Lemma (eval the_interpretation sp3_base rho == eval the_interpretation sp3_rot1 rho)
@@ -1443,5 +1540,66 @@ let lemma_sp3_leaf_2_true (rho:env value)
   : Lemma (eval the_interpretation sp3_base rho == eval the_interpretation sp3_rot2 rho)
   = lemma_sp3_leaf_2_matched ();
     lemma_matched_proof_true sp3_leaf_2 rho
+
+(* ----------------------------------------------------------------- *)
+(* 13. Demonstration 6: `provably_distinct` on *literal* constants,     *)
+(*     not just distinctly-named uninterpreted ones. `num 3`/`num 5`   *)
+(*     are two `op_num_int` literal applications with different raw     *)
+(*     `int_params`, so `select(store(a_c2,num3,x_c),num5) =            *)
+(*     select(a_c2,num5)` is matched by `select_store_diff` purely      *)
+(*     from the two literals' *values*, with no name-based reasoning    *)
+(*     (`lemma_string_key_distinct`) involved at all -- exercising the   *)
+(*     `is_int_num_const`/`int_num_value` disjunct of `provably_distinct`*)
+(*     that §4i/§4j's demos (`ssd_leaf`/`sc_leaf`, named constants only) *)
+(*     never touch. A second instance, `bv3`/`bv5` (`op_num_bv`),       *)
+(*     shows the same for bit-vector numerals (compared *post*          *)
+(*     `bv32_value` reduction).                                         *)
+(* ----------------------------------------------------------------- *)
+
+let num_d (v:int) : func_decl =
+  { decl_name = "num"; domain = []; range = int_s; interp = Some op_num_int; int_params = [v] }
+let num3 : expr = c0 (num_d 3)
+let num5 : expr = c0 (num_d 5)
+
+let lit_ssd_s : expr = c2 select_d (c3 store_d a_c2 num3 x_c) num5
+let lit_ssd_t : expr = c2 select_d a_c2 num5
+let lit_ssd_leaf : proof = mk_rewrite_leaf lit_ssd_s lit_ssd_t
+
+let lemma_lit_ssd_leaf_matched ()
+  : Lemma (all_matched lit_ssd_leaf)
+  = ()
+
+let lemma_lit_ssd_leaf_true (rho:env value)
+  : Lemma (eval the_interpretation lit_ssd_s rho == eval the_interpretation lit_ssd_t rho)
+  = lemma_lit_ssd_leaf_matched ();
+    lemma_matched_proof_true lit_ssd_leaf rho
+
+let bv_d (v:int) : func_decl =
+  { decl_name = "bvnum"; domain = []; range = bv_s; interp = Some op_num_bv; int_params = [v] }
+let bv3 : expr = c0 (bv_d 3)
+let bv5 : expr = c0 (bv_d 5)
+
+(* `(= bv3 bv5) = (= bv5 bv3)`, `eq_symm` over `op_eq` applied to two
+   literal bit-vector numerals -- demonstrates `provably_distinct`'s
+   `is_bv_num_const` disjunct is a genuine, exercised fact (not just a
+   decidable definition that happens to typecheck): `bv3 <> bv5`
+   witnesses `3 <> 5 (mod 2^32)` post-`bv32_value` reduction. *)
+let eq_bv_d : func_decl = { decl_name = "="; domain = [bv_s; bv_s]; range = bool_s; interp = Some op_eq; int_params = [] }
+let lit_bv_s : expr = c2 eq_bv_d bv3 bv5
+let lit_bv_t : expr = c2 eq_bv_d bv5 bv3
+let lit_bv_leaf : proof = mk_rewrite_leaf lit_bv_s lit_bv_t
+
+let lemma_lit_bv_distinct ()
+  : Lemma (provably_distinct bv3 bv5)
+  = ()
+
+let lemma_lit_bv_leaf_matched ()
+  : Lemma (all_matched lit_bv_leaf)
+  = ()
+
+let lemma_lit_bv_leaf_true (rho:env value)
+  : Lemma (eval the_interpretation lit_bv_s rho == eval the_interpretation lit_bv_t rho)
+  = lemma_lit_bv_leaf_matched ();
+    lemma_matched_proof_true lit_bv_leaf rho
 
 

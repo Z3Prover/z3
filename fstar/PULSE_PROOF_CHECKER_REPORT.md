@@ -789,6 +789,52 @@ the full before/after numbers.
 
 ## Scope and limitations
 
+* **`provably_distinct` now covers literal constants, not just named
+  ones.** `Z3InterpretedProofChecker.fst` gained four new interpreted
+  ops -- `op_true`/`op_false` (`OP_TRUE`/`OP_FALSE`) and two
+  `OP_NUM`-family numeral ops, `op_num_int`/`op_num_bv` (a numeral's
+  decoded value is carried in `func_decl.int_params`, mirroring how
+  `re.loop`'s bounds are already represented) -- each with its own
+  small, independently-verified interpretation function
+  (`interp_true`/`interp_false`/`interp_num_int`/`interp_num_bv`).
+  `Z3PatternMatchedProofChecker.fst`'s `provably_distinct (a b:expr) :
+  bool` generalizes the pre-existing injective-naming trick
+  (`is_uninterp_const`/`const_name`/`string_key`, sound only because
+  `Int` is an *infinite* sort) with four more disjuncts: `true`
+  vs. `false`, two Int numerals with different raw values, and two BV
+  numerals with different values *after* `bv32_value`'s mod-2^32
+  reduction (two different raw `int_params` can denote the same
+  bit-vector). Literal distinctness is sound for *any* sort, finite or
+  not, because a literal's denotation is a fixed function of its own
+  payload, never a free/symbolic choice -- unlike named constants,
+  where the naming trick is deliberately restricted to `Int`.
+  `lemma_provably_distinct_sound` is the one soundness lemma every
+  matcher needing a semantic index-disequality side condition
+  (`select_store_diff`, `store_commute`, `store_perm`'s
+  `all_const_distinct_from`) now calls, replacing the previous
+  ad-hoc inline `lemma_string_key_distinct` invocation duplicated at
+  each call site. A new demonstration (§13, `lit_ssd_leaf`) matches
+  `select(store(a,3,x),5) = select(a,5)` -- literal Int numerals, not
+  named constants -- via `select_store_diff`, and `lit_bv_leaf` does
+  the analogous thing for two BV numerals via `eq_symm`.
+* **Performance lesson (verification-engineering, not soundness):**
+  adding the BV-numeral reduction (`bv32_value`, now
+  `Z3BvTheory.bv_of_int`) as one more branch *inline inside*
+  `Z3InterpretedProofChecker.fst`'s single, monolithic `interp_app`
+  if/elif dispatcher caused a severe (multi-hour) verification hang --
+  confirmed, via `--z3rlimit`/`--z3cliopt timeout=...`, to be in F*'s
+  own SMT-query-*construction* phase (building one giant combined VC
+  mixing array/seq/bv/bool facts), not in Z3's search. The fix was
+  decomposing `interp_app` into eleven small, independently-checked
+  top-level helper functions (`interp_not`, `interp_plus`, ...,
+  `interp_num_bv`), each only ever typechecking its own op's VC, with
+  `interp_app` reduced to a trivial dispatcher. This restored the
+  file's verification time to its original ~15s baseline (in fact
+  slightly faster). The general lesson: when one function's body
+  touches many different theories' lemmas/types at once, prefer many
+  small single-theory helper functions over one large combined
+  `if`/`match` chain, even when the combined chain is logically
+  simpler to read.
 * **Not covered by a Pulse checker**: the rule families in
   `Z3PreprocessingProofTheory.fst` (`PR_COMMUTATIVITY`,
   `PR_QUANT_INTRO` over non-rewriter-calculus shapes, `PR_PUSH_QUANT`,
