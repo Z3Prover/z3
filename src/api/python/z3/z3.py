@@ -10761,7 +10761,7 @@ def _to_float_str(val, exp=0):
             num = v[0]
             den = v[1]
             rvs = str(num) + "/" + str(den)
-            res = rvs + "p" + _to_int_str(exp)
+            res = rvs
     elif isinstance(val, bool):
         if val:
             res = "1.0"
@@ -10773,6 +10773,11 @@ def _to_float_str(val, exp=0):
         inx = val.find("*(2**")
         if inx == -1:
             res = val
+            if exp != 0:
+                inx = val.lower().find("p")
+                if inx != -1:
+                    res = val[:inx]
+                    exp = int(val[inx + 1:]) + int(exp)
         elif val[-1] == ")":
             res = val[0:inx]
             exp = str(int(val[inx + 5:-1]) + int(exp))
@@ -10783,7 +10788,7 @@ def _to_float_str(val, exp=0):
     if exp == 0:
         return res
     else:
-        return res + "p" + exp
+        return res + "p" + str(exp)
 
 
 def fpNaN(s):
@@ -10853,7 +10858,8 @@ def fpZero(s, negative):
 
 
 def FPVal(sig, exp=None, fps=None, ctx=None):
-    """Return a floating-point value of value `val` and sort `fps`.
+    """Return a floating-point value of value `sig * 2**exp` and sort `fps`.
+    If `exp=None`, then the exponent is zero.
     If `ctx=None`, then the global context is used.
 
     >>> v = FPVal(20.0, FPSort(8, 24))
@@ -10873,6 +10879,32 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     +0.0
     >>> FPVal(+0.0, FPSort(8, 24))
     +0.0
+    >>> FPVal(1.0, 3, Float32())
+    1*(2**3)
+    >>> FPVal(1, 3, Float32())
+    1*(2**3)
+    >>> FPVal("1.5", -2, Float32())
+    1.5*(2**-2)
+    >>> FPVal("1.25*(2**4)", 1, Float32())
+    1.25*(2**5)
+    >>> FPVal("1.25*(2**4)", -4, Float32())
+    1.25
+    >>> FPVal("1p2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1P2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1.5p-2", 2, Float32())
+    1.5
+    >>> FPVal(1.5, 0, Float32())
+    1.5
+    >>> FPVal(1.5, fps=Float32())
+    1.5
+    >>> [FPVal(v, 3, Float32()) for v in
+    ...  [float("nan"), float("inf"), float("-inf"), 0.0, -0.0]]
+    [NaN, +oo, -oo, +0.0, -0.0]
+    >>> [FPVal(v, -2, Float32()) for v in
+    ...  ["NaN", "+oo", "-oo", "+0.0", "-0.0"]]
+    [NaN, +oo, -oo, +0.0, -0.0]
     """
     ctx = _get_ctx(ctx)
     if is_fp_sort(exp):
@@ -10895,7 +10927,7 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     elif val == "-oo" or val == "-inf" or val == "-Inf":
         return fpMinusInfinity(fps)
     else:
-        return FPNumRef(Z3_mk_numeral(ctx.ref(), val, fps.ast), ctx)
+        return FPNumRef(Z3_mk_numeral(ctx.ref(), _to_float_str(sig, exp), fps.ast), ctx)
 
 
 def FP(name, fpsort, ctx=None):
