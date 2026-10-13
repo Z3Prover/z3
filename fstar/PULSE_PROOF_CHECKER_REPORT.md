@@ -835,6 +835,49 @@ the full before/after numbers.
   small single-theory helper functions over one large combined
   `if`/`match` chain, even when the combined chain is logically
   simpler to read.
+* **`interp_app` is now dispatched per-theory, not as one monolithic
+  function.** `value` (the `VInt`/`VBool`/`VArr`/`VSeq`/`VBV` semantic
+  domain) and every `op_*` decl_kind constant moved out of
+  `Z3InterpretedProofChecker.fst` into a new, dependency-free leaf
+  module, `Z3ValueTheory.fst`. Each existing base theory file
+  (`Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`) itself stays
+  untouched -- still pure `arr`/`seq`/`bv`-plus-lemmas, with no notion
+  of `value` at all, since `value` is defined *over* those theories'
+  types and a module defining `arr`/`seq`/`bv` cannot also depend on
+  `value` without a circular module dependency. Instead, three new
+  thin companion modules -- `Z3ArrayInterp.fst`, `Z3SeqInterp.fst`,
+  `Z3BvInterp.fst` -- each depend on both `Z3ValueTheory.fst` and
+  their own base theory file, and each expose one
+  `interp_app (k:decl_kind) (int_params:list int) (args:list value) :
+  option value`: `Some v` for any `decl_kind` that theory owns
+  (array: `op_select`/`op_store`; seq: `op_concat`; bv:
+  `op_bvand`/`op_num_bv`, the latter needing `bv32_value` -- also
+  moved here, next to its one use site), `None` otherwise.
+  `Z3InterpretedProofChecker.fst`'s top-level `interp_app` is now a
+  short composition: try `Z3ArrayInterp.interp_app`, then
+  `Z3SeqInterp.interp_app`, then `Z3BvInterp.interp_app`, then a local
+  `core_interp_app` for the remaining bool/arith/`eq`/literal ops
+  (`op_not`/`op_plus`/`op_eq`/`op_true`/`op_false`/`op_num_int`, which
+  have no dedicated theory file of their own), then a total fallback.
+  This mirrors the same "small, independently-checked pieces, trivial
+  composition" shape as the earlier eleven-helper-function
+  decomposition (previous bullet): each theory's interpretation is now
+  owned, re-verified, and extensible independently of every other
+  theory's, and none of this changed any lemma's *statement* -- only
+  which module proves/hosts it. Downstream consumers
+  (`Z3PatternMatchedProofChecker.fst` and all nine
+  `Z3ExtractedProof*.fst` files, plus the `tools/extract_z3_proof.py`
+  generator template) needed one mechanical addition, `open
+  Z3ValueTheory`, since F* does not transitively re-export `open`ed
+  names. Re-verified end to end with no new hangs: `Z3ValueTheory.fst`
+  (~2s), each of `Z3ArrayInterp.fst`/`Z3SeqInterp.fst`/`Z3BvInterp.fst`
+  (~1.6s each), `Z3InterpretedProofChecker.fst` (~8s, unchanged from
+  before this refactor), `Z3PatternMatchedProofChecker.fst` (~3.5
+  minutes, in line with its pre-refactor time; one lemma,
+  `lemma_concat_assoc_leaf_sound`, needed its `--z3rlimit` raised to
+  50 to absorb the extra `Some`/`None` unfolding the new composed
+  dispatcher requires), and all nine `Z3ExtractedProof*.fst` files
+  (~9s each).
 * **Not covered by a Pulse checker**: the rule families in
   `Z3PreprocessingProofTheory.fst` (`PR_COMMUTATIVITY`,
   `PR_QUANT_INTRO` over non-rewriter-calculus shapes, `PR_PUSH_QUANT`,
@@ -870,7 +913,9 @@ the full before/after numbers.
 | [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) | Pulse port of `fact`/`facts_of` (the rewriter-calculus checker) |
 | [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) | Pulse decision procedures for modus ponens / unit resolution |
 | [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) | Cross-theory sample derivations, run through both checkers above, including rejection tests, plus an array-theory derivation and a generic trusted-`Rewrite`-leaf collector (`collect_rewrite_leaves`) |
-| [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly |
+| [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) | Discharges (rather than assumes) `all_leaves_sound` for 4 example leaves (array/seq/bool/bv), by constructing a real semantic `interpretation value` and invoking the matching per-theory lemma directly; its top-level `interp_app` composes each theory's own `interp_app` (below) plus a local `core_interp_app` for bool/arith/`eq`/literal ops |
+| [`Z3ValueTheory.fst`](Z3ValueTheory.fst) | The shared `value` semantic domain (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) and every `op_*` decl_kind constant, factored out so each theory's own `interp_app` module (below) can depend on it without a circular module dependency on its base theory file |
+| [`Z3ArrayInterp.fst`](Z3ArrayInterp.fst), [`Z3SeqInterp.fst`](Z3SeqInterp.fst), [`Z3BvInterp.fst`](Z3BvInterp.fst) | Thin, `value`-level companions to `Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`, each exposing one theory-scoped `interp_app (k:decl_kind) (int_params:list int) (args:list value) : option value` (`Some` iff that theory owns `k`) that `Z3InterpretedProofChecker.fst`'s top-level dispatcher tries in turn |
 | [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Decidable pattern-matching compiler recognizing six rewrite-rule schemas across array/seq/bool/bv theories for *arbitrary* nested sub-expressions (not just named constants), auto-discharging `all_leaves_sound` via a structural "type soundness" lemma plus the matching theory lemma; also provides a "partial" mode (`collect_unmatched`/`lemma_partial_proof_true`) that reduces an unrecognized leaf's proof obligation to an explicit, minimal leftover-fact list instead of rejecting the whole proof |
 | [`tools/extract_z3_proof.py`](tools/extract_z3_proof.py) | Uses Z3's Python front-end to produce a real proof object (from a built-in example or an arbitrary `.smt2` file path), extracts its equational subtree, pretty-prints it into `proof`/`expr` F* literals, and shells out to `fstar.exe` to run the Pulse checker on it |
 | [`Z3ExtractedProof.fst`](Z3ExtractedProof.fst) | Auto-generated (regenerate via `python tools/extract_z3_proof.py --out Z3ExtractedProof.fst`) -- the literal transcription of a real Z3 proof object produced for `not(not(x)) == x`, committed as a snapshot of the pipeline's output |

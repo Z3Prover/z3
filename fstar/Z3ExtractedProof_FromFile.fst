@@ -14,6 +14,7 @@ module Z3ExtractedProof_FromFile
 #lang-pulse
 open Pulse.Lib.Pervasives
 open Z3AstTheory
+open Z3ValueTheory
 open Z3ProofTheory
 open Z3PulseProofChecker
 open Z3InterpretedProofChecker

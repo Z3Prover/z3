@@ -101,7 +101,9 @@ module Z3PatternMatchedProofChecker
 
 open Z3AstTheory
 open Z3ProofTheory
+open Z3ValueTheory
 open Z3InterpretedProofChecker
+open Z3BvInterp
 open FStar.List.Tot
 
 (* ----------------------------------------------------------------- *)
@@ -452,6 +454,16 @@ let concat_assoc_leaf_ok (s t:expr) : bool =
     wf s && wf t && closed s && closed t && decls_ok s && decls_ok t && no_quant s && no_quant t &&
     sort_eq (get_sort a) seq_s && sort_eq (get_sort b) seq_s && sort_eq (get_sort c) seq_s
 
+(* Needs extra budget past the default `--z3rlimit`: unfolding `eval`
+   through `interp_app`'s now-per-theory-dispatched composition (tries
+   `Z3ArrayInterp.interp_app`, then `Z3SeqInterp.interp_app`, ... before
+   falling through) costs a bit more than the old flat if/elif chain
+   did, for each of the four nested `concat` applications here. Raise
+   `--z3rlimit` only (not `--fuel`/`--ifuel`): an earlier attempt
+   elsewhere in this file at pinning a fixed `--fuel` override
+   disabled F*'s automatic fuel-escalation retry and made things
+   worse -- see `provably_distinct`'s analogous `#push-options` above. *)
+#push-options "--z3rlimit 50"
 let lemma_concat_assoc_leaf_sound (s t:expr)
   : Lemma (requires concat_assoc_leaf_ok s t)
           (ensures all_leaves_sound the_interpretation (mk_rewrite_leaf s t))
@@ -468,6 +480,7 @@ let lemma_concat_assoc_leaf_sound (s t:expr)
       in
       FStar.Classical.forall_intro aux
     | _, _ -> ()
+#pop-options
 
 (* 4e. `not(not(x)) = x` -- `Z3BoolRewriter.not_not`. *)
 

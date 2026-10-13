@@ -24,87 +24,14 @@ module Z3InterpretedProofChecker
 open FStar.FunctionalExtensionality
 open Z3AstTheory
 open Z3ProofTheory
+open Z3ValueTheory
 
-(* ----------------------------------------------------------------- *)
-(* A concrete semantic domain covering every theory exercised here:    *)
-(* Int/Bool (arith/bool), an array from Int to Int                     *)
-(* (`Z3ArrayTheory.arr int int`, matching SMT-LIB's `(Array Int Int)`), *)
-(* a sequence of Int (`Z3SeqTheory.seq int`, matching `(Seq Int)`), and *)
-(* a 32-bit bitvector (`Z3BvTheory.bv 32`). Kept at `int`/`int`         *)
-(* element/index types rather than the fully generic `value` itself,   *)
-(* deliberately: embedding `value` as an array/sequence *element* type  *)
-(* would make `value` need to be an `eqtype` (`Z3SeqTheory.seq`         *)
-(* requires `a:eqtype`), which a function-typed constructor (`VArr`)    *)
-(* can never satisfy (no decidable equality on functions) -- so this    *)
-(* domain is deliberately first-order/non-recursive, matching exactly   *)
-(* the sorts the example leaves below actually use.                     *)
-(* ----------------------------------------------------------------- *)
-
-noeq
-type value =
-  | VInt  : int -> value
-  | VBool : bool -> value
-  | VArr  : Z3ArrayTheory.arr int int -> value
-  | VSeq  : Z3SeqTheory.seq int -> value
-  | VBV   : Z3BvTheory.bv 32 -> value
-
-(* `decl_kind` is `int` (`Z3AstTheory.fst`); these are the handful of
-   interpreted operators this file gives real semantics to. Every
-   other symbol used by the example leaves (named constants like `a`,
-   `i`, `v`, `x`, `y`, ...) stays uninterpreted, exactly as in
-   `Z3PulseProofCheckerTests.fst`. *)
-let op_not : decl_kind = 1
-let op_plus : decl_kind = 2
-let op_select : decl_kind = 3
-let op_store : decl_kind = 4
-let op_bvand : decl_kind = 5
-let op_concat : decl_kind = 6
-(* Polymorphic equality (any sort `s`, `domain = [s;s]`, `range = Bool`).
-   Added together with the injective-naming fix below so an `eq_symm`
-   rewrite matcher can be proved sound without any new model axioms. *)
-let op_eq : decl_kind = 7
-
-(* Literal constants: `true`/`false` (`OP_TRUE`/`OP_FALSE`) and
-   0-ary numeral applications (`OP_NUM`-family: `Z3_mk_int`/
-   `Z3_mk_numeral`, bit-vector numerals, ...). Added so `provably_distinct`
-   below can discriminate *literal* constants by their actual decoded
-   value rather than by the (sort-restricted, Int-only) injective-naming
-   trick `uninterp_app` already relies on for free/symbolic 0-ary
-   constants -- see the docstring before `provably_distinct` in
-   `Z3PatternMatchedProofChecker.fst` for why that distinction matters
-   (the naming trick is only sound for an *infinite* sort; `Bool`/`BVn`
-   are finite, so two differently-*named* Bool/BV constants can never
-   be assumed pairwise distinct, but two differently-*valued* Bool/BV
-   *literals* always are). A numeral's literal value is carried in
-   `func_decl.int_params` (already used by `re.loop`'s bounds), one
-   element: `[v]`. *)
-let op_true : decl_kind = 8
-let op_false : decl_kind = 9
-let op_num_int : decl_kind = 10
-let op_num_bv : decl_kind = 11
-
-(* The exact reduction `interp_app`'s `op_num_bv` case applies to a raw
-   `int_params` value to land in `bv 32 = k:nat{k < pow2 32}`; exposed
-   here (not just inlined in `interp_app`) so `Z3PatternMatchedProofChecker`'s
-   `provably_distinct` can compare *post-reduction* values -- two BV
-   literal `func_decl`s with different raw `int_params` but the same
-   value mod 2^32 denote the *same* bit-vector, so distinctness must be
-   decided on `bv32_value`, never on the raw parameter.
-
-   NB: this just re-exports `Z3BvTheory.bv_of_int` under a 32-specific
-   name. Re-deriving `FStar.UInt.to_uint_t`'s range fact *inline*,
-   directly inside `interp_app`'s large case-split, was observed to
-   make Z3's automatic search pathologically slow (unmodified file:
-   ~15s; with the reduction expanded inline: did not finish within
-   tens of minutes) -- almost certainly because that case-split's
-   single VC then has to carry `FStar.UInt`/`pow2`'s machinery
-   alongside every *other* branch's (array/seq/bv) facts at once.
-   Defining the conversion as its own already-checked top-level
-   function in `Z3BvTheory.fst` (right next to its other `bv`
-   conversions, where the same facts are already established quickly)
-   and calling it here only by its *type*, not its *body*, avoids that
-   blowup entirely. *)
-let bv32_value (v:int) : Z3BvTheory.bv 32 = Z3BvTheory.bv_of_int v
+(* `value` and every `op_*` decl_kind constant used below now live in
+   `Z3ValueTheory.fst` (see that file's docstring for why): this is
+   what lets `Z3ArrayInterp.fst`/`Z3SeqInterp.fst`/`Z3BvInterp.fst`
+   each expose their own theory-scoped `interp_app` without a circular
+   module dependency on this file. `bv32_value` similarly moved to
+   `Z3BvInterp.fst`, next to the one `op_num_bv` case that needs it. *)
 
 (* ----------------------------------------------------------------- *)
 (* An injective `string -> nat` encoding, used only so that two        *)
@@ -180,15 +107,11 @@ let default_value (s:sort) : value =
   else if sort_eq s (ArraySort [BaseSort "Int"] (BaseSort "Int")) then VArr (on int (fun _ -> 0))
   else (* "Int" and anything else *) VInt 0
 
-(* Each decl_kind's interpretation is its own small, independently-
-   checked top-level function (rather than one branch in a single
-   monolithic if/elif chain). `interp_app` itself then only has to
-   typecheck a trivial dispatch -- one standalone `Lemma`-free
-   application per branch -- instead of a single VC that would
-   otherwise have to carry *every* theory's facts (array/seq/bv/bool)
-   at once. This also makes any one theory's future extension (e.g.
-   another numeral kind) only as expensive to verify as that one
-   function, not the whole dispatcher. *)
+(* Each "core" decl_kind (bool/arith/`eq`/literal ops with no dedicated
+   theory file of their own) still gets its own small, independently-
+   checked top-level function here, same rationale as before. Array/
+   seq/bv ops now live in their own theory-scoped `interp_app`
+   (`Z3ArrayInterp.fst`/`Z3SeqInterp.fst`/`Z3BvInterp.fst`). *)
 let interp_not (args:list value) : value =
   match args with
   | [VBool b] -> VBool (not b)
@@ -197,26 +120,6 @@ let interp_not (args:list value) : value =
 let interp_plus (args:list value) : value =
   match args with
   | [VInt a; VInt b] -> VInt (a + b)
-  | _ -> VInt 0
-
-let interp_select (args:list value) : value =
-  match args with
-  | [VArr a; VInt i] -> VInt (Z3ArrayTheory.select a i)
-  | _ -> VInt 0
-
-let interp_store (args:list value) : value =
-  match args with
-  | [VArr a; VInt i; VInt x] -> VArr (Z3ArrayTheory.store a i x)
-  | _ -> VInt 0
-
-let interp_bvand (args:list value) : value =
-  match args with
-  | [VBV a; VBV b] -> VBV (Z3BvTheory.bvand a b)
-  | _ -> VInt 0
-
-let interp_concat (args:list value) : value =
-  match args with
-  | [VSeq s; VSeq t] -> VSeq (Z3SeqTheory.concat s t)
   | _ -> VInt 0
 
 let interp_eq (args:list value) : value =
@@ -233,29 +136,41 @@ let interp_num_int (int_params:list int) : value =
   | [v] -> VInt v
   | _ -> VInt 0
 
-let interp_num_bv (int_params:list int) : value =
-  match int_params with
-  | [v] -> VBV (bv32_value v)
-  | _ -> VInt 0
-
-let interp_app (f:func_decl{Some? f.interp}) (args:list value) : value =
-  let k = Some?.v f.interp in
+(* "Core" dispatch (bool/arith/`eq`/literals); tried only after every
+   theory's own `interp_app` has already had a chance to claim `k`. *)
+let core_interp_app (k:decl_kind) (int_params:list int) (args:list value) : value =
   if k = op_not then interp_not args
   else if k = op_plus then interp_plus args
-  else if k = op_select then interp_select args
-  else if k = op_store then interp_store args
-  else if k = op_bvand then interp_bvand args
-  else if k = op_concat then interp_concat args
   else if k = op_eq then interp_eq args
   else if k = op_true then interp_true ()
   else if k = op_false then interp_false ()
-  else if k = op_num_int then interp_num_int f.int_params
-  else if k = op_num_bv then interp_num_bv f.int_params
+  else if k = op_num_int then interp_num_int int_params
   (* Unreachable for every well-sorted term built below; `eval`'s type
      does not statically rule it out (see `Z3AstTheory.fst`'s own
      comment on `interp_app`/`uninterp_app` being total on `list
      value` of unconstrained length), so a total fallback is required. *)
   else VInt 0
+
+(* The top-level dispatcher: each theory is tried in turn via its own
+   `interp_app`, which returns `Some v` only for the `decl_kind`s it
+   owns; the first theory to claim `k` wins, and `core_interp_app`
+   (bool/arith/`eq`/literals) is the final fallback before the total
+   default. This mirrors the same "small, independently-checked
+   pieces, trivial composition" shape as the per-op decomposition
+   above/below it (and the reason this refactor was requested: so each
+   theory's interpretation is owned, extended, and re-verified
+   independently of every other theory's). *)
+let interp_app (f:func_decl{Some? f.interp}) (args:list value) : value =
+  let k = Some?.v f.interp in
+  match Z3ArrayInterp.interp_app k f.int_params args with
+  | Some v -> v
+  | None ->
+  match Z3SeqInterp.interp_app k f.int_params args with
+  | Some v -> v
+  | None ->
+  match Z3BvInterp.interp_app k f.int_params args with
+  | Some v -> v
+  | None -> core_interp_app k f.int_params args
 
 (* 0-ary, Int-sorted uninterpreted constants are now injected via
    `string_key` into *distinct* `VInt`s whenever they have *distinct*
