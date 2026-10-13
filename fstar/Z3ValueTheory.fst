@@ -89,3 +89,13 @@ let op_true : decl_kind = 8
 let op_false : decl_kind = 9
 let op_num_int : decl_kind = 10
 let op_num_bv : decl_kind = 11
+
+(* `seq.unit`: wraps a single `Int` element into the length-1
+   sequence containing it (`Z3SeqTheory.unit`). Added so that
+   `is_unique_value` (`Z3PatternMatchedProofChecker.fst`) can
+   recognize sequence *literals* -- i.e. values built purely from
+   `seq.unit`/`op_concat` applied to unique-value elements, with no
+   uninterpreted sub-term anywhere -- as themselves unique values,
+   mirroring how `op_num_int`/`op_num_bv`/`op_true`/`op_false` already
+   let literal Int/BV/Bool constants be recognized. *)
+let op_seq_unit : decl_kind = 12

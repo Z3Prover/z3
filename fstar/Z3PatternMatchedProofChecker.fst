@@ -136,6 +136,7 @@ let decl_shape_ok (f:func_decl) : bool =
     else if k = op_false then f.domain = [] && sort_eq f.range bool_s
     else if k = op_num_int then f.domain = [] && sort_eq f.range int_s && length f.int_params = 1
     else if k = op_num_bv then f.domain = [] && sort_eq f.range bv_s && length f.int_params = 1
+    else if k = op_seq_unit then f.domain = [int_s] && sort_eq f.range seq_s
     else false (* some other interpreted op: not trusted by this file *)
 
 let rec decls_ok (e:expr) : Tot bool (decreases e) =
@@ -275,6 +276,10 @@ let rec lemma_eval_shape (e:expr) (rho:env value)
            (match f.int_params with [v] -> () | _ -> ())
          else if k = op_num_bv then
            (match f.int_params with [v] -> () | _ -> ())
+         else if k = op_seq_unit then
+           (match vs with
+            | [VInt x] -> ()
+            | _ -> ())
          else ()) (* `decl_shape_ok f` is `false` here: contradiction *)
 
 and lemma_eval_shape_args (args:list expr) (rho:env value)
@@ -695,12 +700,209 @@ let bv_num_value (e:expr{is_bv_num_const e}) : Z3BvTheory.bv 32 =
 let is_int_uninterp_const (e:expr) : bool =
   is_uninterp_const e && sort_eq (get_sort e) int_s
 
+(* ----------------------------------------------------------------- *)
+(* `is_unique_value`: a general, *recursive* syntactic notion of       *)
+(* "ground value literal", generalizing the four separate ad-hoc       *)
+(* literal predicates above (`is_bool_true_const`/`is_bool_false_const`/*)
+(* `is_int_num_const`/`is_bv_num_const`) into a single inductive        *)
+(* definition, extended one level deeper to cover sequence literals     *)
+(* too (`seq.unit`/`op_concat` trees over unique-value elements --      *)
+(* this project's one concrete stand-in for "an algebraic datatype      *)
+(* constructor applied to unique-value arguments": a sequence is        *)
+(* exactly the free list datatype, `nil`/`cons` relabelled `empty`/     *)
+(* `unit ++ concat`, and `is_unique_value`'s structure below is          *)
+(* written so it extends verbatim to any further constructor-shaped     *)
+(* interpreted op added later -- see the note after                     *)
+(* `lemma_unique_value_distinct` below). A `true`/`false`/numeral/BV-    *)
+(* numeral/sequence-of-units expression is "unique" in the sense that    *)
+(* its *semantic* identity is entirely determined by its own syntactic   *)
+(* payload, never by a free/symbolic choice the way an uninterpreted     *)
+(* constant's denotation is (contrast `is_int_uninterp_const` just       *)
+(* above, whose distinctness instead rests on *injective naming*, not    *)
+(* on each constant's value being syntactically transparent). *)
+let rec is_unique_value (e:expr) : Tot bool (decreases e) =
+  match e with
+  | App f args ->
+    (match f.interp with
+     | None -> false
+     | Some k ->
+       (k = op_num_int && args = [] && length f.int_params = 1) ||
+       (k = op_num_bv && args = [] && length f.int_params = 1) ||
+       (k = op_true && args = []) ||
+       (k = op_false && args = []) ||
+       (k = op_seq_unit && (match args with [x] -> is_unique_value x | _ -> false)) ||
+       (k = op_concat && (match args with [x; y] -> is_unique_value x && is_unique_value y | _ -> false)))
+  | _ -> false
+
+(* `lit_value`: a small, plain (fully `eqtype`) semantic domain for
+   *just* the shapes `is_unique_value` recognizes -- `Int`/`BV32`/
+   `Bool`/`Seq Int` literal payloads, but *not* a sequence-literal's
+   own `expr`-level tree shape. This distinction matters: comparing
+   two sequence literals by their *tree* shape (e.g. "both built from
+   `op_concat`, with pointwise-equal sub-literals") is unsound, since
+   `concat` is associative -- `concat(unit 1, concat(unit 2, unit 3))`
+   and `concat(concat(unit 1, unit 2), unit 3)` are two different
+   expression trees denoting the *same* list `[1;2;3]`. Decoding every
+   unique-value expression down to its flattened `lit_value` payload
+   first (`unique_value_key`, below) and comparing *those* sidesteps
+   the issue entirely: `LSeq`'s payload is an actual `list int`,
+   compared with plain structural list equality, so differently
+   -associated but equal-valued concat trees correctly collapse to the
+   same `LSeq`. *)
+type lit_value =
+  | LInt  : int -> lit_value
+  | LBV   : Z3BvTheory.bv 32 -> lit_value
+  | LBool : bool -> lit_value
+  | LSeq  : list int -> lit_value
+
+(* `unique_value_key` is total on *every* `expr` (not just ones
+   satisfying `is_unique_value`): ill-shaped/non-literal input simply
+   decodes to an arbitrary fixed default (`LInt 0`), exactly mirroring
+   how `Z3InterpretedProofChecker.fst`'s own `interp_*` dispatchers
+   handle out-of-shape arguments -- callers only ever rely on this
+   decoding's *meaning* once `is_unique_value e` holds (see
+   `lemma_eval_unique_value_key` below). *)
+let rec unique_value_key (e:expr) : Tot lit_value (decreases e) =
+  match e with
+  | App f [] ->
+    (match f.interp with
+     | Some k ->
+       if k = op_num_int then LInt (match f.int_params with [v] -> v | _ -> 0)
+       else if k = op_num_bv then LBV (bv32_value (match f.int_params with [v] -> v | _ -> 0))
+       else if k = op_true then LBool true
+       else if k = op_false then LBool false
+       else LInt 0
+     | None -> LInt 0)
+  | App f [x] ->
+    if Some? f.interp && Some?.v f.interp = op_seq_unit then
+      (match unique_value_key x with LInt v -> LSeq [v] | _ -> LSeq [])
+    else LInt 0
+  | App f [x; y] ->
+    if Some? f.interp && Some?.v f.interp = op_concat then
+      (match unique_value_key x, unique_value_key y with
+       | LSeq a, LSeq b -> LSeq (Z3SeqTheory.concat a b)
+       | _, _ -> LSeq [])
+    else LInt 0
+  | _ -> LInt 0
+
+(* `unique_value_eq`: whether two `is_unique_value` expressions denote
+   the *same* value, decided from their flattened decoded payloads
+   (`unique_value_key`), never from `decl_name`/raw `expr` identity or
+   from tree shape -- see `lit_value`'s own docstring just above for
+   why the naive tree-shape version is unsound for `op_concat`. *)
+let unique_value_eq (s t:expr) : bool = unique_value_key s = unique_value_key t
+
+(* The companion value-level decoding, `lit_to_value`, and the central
+   bridge lemma: whenever `e` is a unique value (and well-formed/
+   closed/`decls_ok`/quantifier-free), its actual `eval` *is* (not
+   merely "agrees with") `lit_to_value (unique_value_key e)` -- proved
+   by structural induction on `e`, mirroring `unique_value_key`'s own
+   recursion: the four literal cases unfold directly from
+   `interp_num_int`/`interp_num_bv`/`interp_true`/`interp_false`'s own
+   definitions; `op_seq_unit`/`op_concat` unfold `Z3SeqTheory.unit`/
+   `concat` (literally `fun x -> [x]`/list append) against the
+   recursively-obtained sub-decodings. *)
+let lit_to_value (lv:lit_value) : value =
+  match lv with
+  | LInt n -> VInt n
+  | LBV b -> VBV b
+  | LBool b -> VBool b
+  | LSeq l -> VSeq l
+
+let rec lemma_eval_unique_value_key (e:expr) (rho:env value)
+  : Lemma (requires is_unique_value e /\ wf e /\ closed e /\ decls_ok e /\ no_quant e)
+          (ensures eval the_interpretation e rho == lit_to_value (unique_value_key e))
+          (decreases e)
+  = match e with
+    | App f args ->
+      (match f.interp with
+       | Some k ->
+         if args = [] then () (* op_num_int/op_num_bv/op_true/op_false: direct unfold *)
+         else if k = op_seq_unit then
+           (match args with
+            | [x] ->
+              (* `decl_shape_ok f` (from `decls_ok e`) pins `f.domain`
+                 to `[int_s]`, so `wf e`'s `sorts_match` obligation
+                 forces `get_sort x = int_s`; `lemma_eval_shape` then
+                 forces `eval x rho` to actually be a `VInt`, which is
+                 what lets us rule out the `LBV`/`LBool`/`LSeq`
+                 branches of `unique_value_key x` below (each would
+                 force `eval x rho`, via the IH, to be a
+                 non-`VInt` `lit_to_value` payload -- contradicting
+                 the shape fact -- so only `LInt` survives). *)
+              lemma_eval_unique_value_key x rho;
+              lemma_eval_shape x rho;
+              (match unique_value_key x with
+               | LInt v -> ()
+               | LBV _ -> ()
+               | LBool _ -> ()
+               | LSeq _ -> ())
+            | _ -> ())
+         else if k = op_concat then
+           (match args with
+            | [x; y] ->
+              (* Same reasoning, twice over: `f.domain = [seq_s; seq_s]`
+                 forces both `x` and `y` to be `VSeq`-shaped, ruling
+                 out every `unique_value_key` case but `LSeq` for
+                 each. *)
+              lemma_eval_unique_value_key x rho;
+              lemma_eval_shape x rho;
+              lemma_eval_unique_value_key y rho;
+              lemma_eval_shape y rho;
+              (match unique_value_key x, unique_value_key y with
+               | LSeq a, LSeq b -> ()
+               | LSeq a, _ -> ()
+               | _, LSeq b -> ()
+               | _, _ -> ())
+            | _ -> ())
+         else ()
+       | None -> ())
+    | _ -> ()
+
+(* The general soundness theorem `is_unique_value` is for: two
+   *different* (`not (unique_value_eq s t)`) unique-value expressions
+   always denote different values. Immediate from
+   `lemma_eval_unique_value_key` plus `lit_to_value`'s injectivity
+   (different `lit_value` constructors decode to different `value`
+   constructors; equal constructors with unequal payloads decode to
+   unequal payloads) -- both automatic from `lit_to_value`'s own
+   match structure, needing no further lemma. *)
+let lemma_unique_value_distinct (s t:expr) (rho:env value)
+  : Lemma (requires is_unique_value s /\ is_unique_value t /\ not (unique_value_eq s t) /\
+                    wf s /\ closed s /\ decls_ok s /\ no_quant s /\
+                    wf t /\ closed t /\ decls_ok t /\ no_quant t)
+          (ensures eval the_interpretation s rho =!= eval the_interpretation t rho)
+  = lemma_eval_unique_value_key s rho;
+    lemma_eval_unique_value_key t rho
+
+(* Note on extending `is_unique_value` to genuine multi-constructor
+   algebraic datatypes (not just the two-constructor `seq`
+   free-list special case above): this project's concrete `value`
+   domain (`Z3ValueTheory.value`) has no dedicated datatype-constructor
+   case (no `VDT`), so there is nothing for a hypothetical `op_ctor`
+   disjunct to soundly interpret yet. Were one added (an `interp_app`
+   case tagging a family of declarations as mutually-disjoint,
+   pairwise-injective constructors, exactly mirroring how `op_seq_unit`/
+   `op_concat` are mutually-disjoint and `Z3SeqTheory.unit`/`concat`
+   are each injective above), `is_unique_value`/`lit_value`/
+   `unique_value_key`/`lemma_eval_unique_value_key` would extend by
+   the same recipe used for `op_seq_unit`/`op_concat`: (1) a disjunct
+   in `is_unique_value` requiring the tag plus all constructor
+   arguments to themselves be unique values; (2) a `lit_value` case
+   (e.g. `LCtor : ctor_id:int -> list lit_value -> lit_value`) that
+   `unique_value_key` decodes a constructor application into
+   (recording *both* the discriminating constructor identity and the
+   recursively-decoded arguments, so `=` on `lit_value` directly
+   reproduces the "distinct constructors never collide; same
+   constructor needs some differing argument" rule the module
+   docstring describes); and (3) a matching `lit_to_value` case,
+   discharged the same way `op_ctor` would need its own fresh `VDT`-
+   like `value` constructor and a `ctor_sound`-style injectivity/
+   disjointness hypothesis on `interp_app`. *)
+
 let provably_distinct (a b:expr) : bool =
   (is_int_uninterp_const a && is_int_uninterp_const b && const_name a <> const_name b) ||
-  (is_bool_true_const a && is_bool_false_const b) ||
-  (is_bool_false_const a && is_bool_true_const b) ||
-  (is_int_num_const a && is_int_num_const b && int_num_value a <> int_num_value b) ||
-  (is_bv_num_const a && is_bv_num_const b && bv_num_value a <> bv_num_value b)
+  (is_unique_value a && is_unique_value b && not (unique_value_eq a b))
 
 (* The soundness bridge: whenever `provably_distinct a b` holds (and
    `a`/`b` are themselves well-formed, closed, `decls_ok`,
@@ -720,6 +922,8 @@ let lemma_provably_distinct_sound (a b:expr) (rho:env value)
       (match a, b with
        | App fa [], App fb [] -> lemma_string_key_distinct fa.decl_name fb.decl_name
        | _, _ -> ())
+    else if is_unique_value a && is_unique_value b && not (unique_value_eq a b) then
+      lemma_unique_value_distinct a b rho
     else ()
 
 let match_select_store_diff (s t:expr) : option (expr & expr & expr & expr) =

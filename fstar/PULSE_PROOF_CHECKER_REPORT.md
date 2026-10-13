@@ -906,6 +906,61 @@ the full before/after numbers.
   change to Z3's actual `proof_checker.cpp`; nothing in
   `src/ast/proofs/proof_checker.cpp` was modified.
 
+## A twelfth generalization: `is_unique_value`, a general distinctness predicate
+
+The literal-distinctness disjuncts of `provably_distinct` described
+above (`true`/`false`, Int numerals, BV numerals) were four separate
+ad-hoc cases. `Z3PatternMatchedProofChecker.fst` now has a single
+recursive predicate, `is_unique_value : expr -> bool`, generalizing
+all four into one definition and extending it one level deeper to
+sequence literals: an expression is a "unique value" if it is a
+`true`/`false` constant, an Int or BV numeral, or a `seq.unit`/`++`
+(`op_concat`) tree built entirely from unique-value elements — this
+project's concrete stand-in for "an algebraic datatype constructor
+applied to unique-value arguments" (a sequence is exactly the free
+list datatype, `nil`/`cons` relabelled `empty`/`unit`+`concat`).
+
+The soundness property proved is exactly the one requested: for any
+`s`, `t` satisfying `is_unique_value`, `is_unique_value s /\
+is_unique_value t /\ not (unique_value_eq s t) ==> eval s rho =!=
+eval t rho` (`lemma_unique_value_distinct`) — i.e. two *syntactically
+different* unique values are always *semantically distinct*, no
+matter which sort they inhabit. `provably_distinct` now dispatches to
+this lemma (alongside the pre-existing, separately-sound, injective
+*named*-uninterpreted-constant disjunct restricted to `Int`), so every
+matcher with a semantic index-disequality side condition
+(`select_store_diff`, `store_commute`, `store_perm`) transparently
+gains sequence-literal disequality for free, with no changes to the
+matchers themselves.
+
+**Design note — why comparing value expressions by raw tree shape is
+unsound.** A first attempt compared two sequence-literal expressions
+by their `App`-tree shape (same op at each node, pointwise-equal
+children). This is **unsound**: `concat` is associative, so
+`concat(unit 1, concat(unit 2, unit 3))` and `concat(concat(unit 1,
+unit 2), unit 3)` are different expression trees denoting the *same*
+list `[1;2;3]` — tree-shape comparison would (wrongly) report them as
+distinct, which would make the "distinct" conclusion of a congruence
+lemma built on top of it unsound. The fix: never compare literal
+*expressions* structurally when the underlying operator has a
+non-trivial equational law (associativity here); instead, decode every
+unique-value expression down to a flat, literal *semantic* payload
+first. `unique_value_key : expr -> lit_value` does this (`lit_value =
+LInt int | LBV (bv 32) | LBool bool | LSeq (list int)`, with `LSeq`
+built via `Z3SeqTheory.concat`, the *same* function `interp_concat`
+itself calls — not a different, extensionally-equal-but-not-
+definitionally-equal list operation like `List.Tot.append`, which
+would otherwise force an extra bridging lemma). `unique_value_eq s t`
+is then plain decidable equality of two `lit_value`s, and the central
+bridge lemma `lemma_eval_unique_value_key` shows `eval e rho ==
+lit_to_value (unique_value_key e)` whenever `is_unique_value e` holds
+— proved by structural induction, using `lemma_eval_shape` (the
+file's existing sort/shape-soundness lemma) at each recursive step to
+rule out the sub-expression's `unique_value_key` landing in the
+"wrong" `lit_value` case (e.g. a `seq.unit`'s argument must have sort
+`Int`, so `lemma_eval_shape` forces its decoded key to be `LInt`, not
+`LBV`/`LBool`/`LSeq`) before the final distinctness corollary.
+
 ## Files
 
 | File | Role |
