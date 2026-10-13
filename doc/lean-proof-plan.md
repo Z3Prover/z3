@@ -692,6 +692,31 @@ input, so the exporter rejects that case explicitly. Two documented inputs
 and five pinned random instances verify end to end under the standard
 axioms. Still rejected: QF_UFLRA and Real arguments or results.
 
+**Legacy core proof objects (2026-10-13).** The theory slices above all read
+the `sat.smt=true` clause log. The legacy smt core (`sat.smt=false`) is the
+default and the one most users run, and with `produce-proofs` it emits a
+complete proof object for every logic, so it has to be a supported proof
+producer for theories too, not only for propositional input as today
+(`--core legacy` rejects anything else). What the legacy proof object has
+that the log does not: complete equality proofs (`congruence`,
+`transitivity`, `symmetry`, `monotonicity` built by conflict resolution) and
+the preprocessing steps (`rewrite`, `solve-eqs`), which the log starts
+after. What it lacks: `theory_lra` reports an arithmetic conflict as a bare
+`th-lemma arith` because `set_conflict_or_lemma` resets its parameter vector
+and never fills it, so there are no Farkas coefficients to check; the older
+`theory_arith` (`smt.arith.solver=2`) does record them. Decision: both cores
+are in scope, and the regression matrix keeps a `legacy-proof-object` cell
+per fragment next to the clause-log cell. Two backlog items follow: a QF_UF
+slice over legacy proof objects (Python and Lean only: lift the
+propositional restriction, extend `trans`/`symm`/`monotonicity` from Boolean
+equivalences to sort-valued equalities), and a C++ change so `theory_lra`
+fills the `th-lemma` parameters with Farkas coefficients from the LP
+explanation, after which the exporter's existing `th-lemma` node and
+`_check_th_lemma` verify them unchanged. The "inventory for milestone 3"
+noted in the first matrix run (`arith`, `arith farkas`, `arith
+assign-bounds`, `arith triangle-eq`) is the list of legacy lemma kinds that
+second item must map or reject explicitly.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)
