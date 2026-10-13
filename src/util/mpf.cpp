@@ -266,8 +266,9 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         // Check that 1.0 <= sig < 2.0
         SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
-        if (m_mpz_manager.is_int64(exp) &&
-            m_mpz_manager.get_int64(exp) > mk_max_exp(ebits)) {
+        scoped_mpz exp_bound(m_mpz_manager);
+        m_mpz_manager.set(exp_bound, mk_max_exp(ebits));
+        if (m_mpz_manager.gt(exp, exp_bound)) {
             mk_round_inf(rm, o);
             return;
         }
@@ -288,12 +289,11 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         TRACE(mpf_dbg, tout << "sig = " << m_mpz_manager.to_string(o.significand) <<
                                  " exp = " << o.exponent << std::endl;);
 
-        if (m_mpz_manager.is_small(exp)) {
-            o.exponent = m_mpz_manager.get_int64(exp);
-            round(rm, o);
-        }
-        else
-            mk_inf(ebits, sbits, o.sign, o);
+        // Exponents below this bound all round identically because round() caps the shift.
+        mpf_exp_t min_exp = mk_min_exp(ebits) - static_cast<mpf_exp_t>(sbits) - 4;
+        m_mpz_manager.set(exp_bound, min_exp);
+        o.exponent = m_mpz_manager.lt(exp, exp_bound) ? min_exp : m_mpz_manager.get_int64(exp);
+        round(rm, o);
     }
 
     TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
