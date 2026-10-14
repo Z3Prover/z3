@@ -115,6 +115,31 @@ i.e. no proof is accepted with a *dangling* hypothesis. This closes the
 one gap `proof_checker.cpp` itself leaves as a comment (`PR_HYPOTHESIS`:
 "TBD all branches with hypotheses must be closed by a later lemma").
 
+## Executable integration
+
+`tools/extract_z3_proof.py --full-proof` exports the complete ground DAG
+to `Z3ResolutionProofJson.fst`'s native-checker path, including resolution,
+MP (including `mp~`), `iff~`, congruence, and hypothesis discharge.
+Both `refl` (Z3's emitted spelling) and `reflexivity` check reflexivity.
+The decoder uses `Z3UnifiedProof.fst`'s common proof nodes with tagged
+`Holds`, `Equal`, and `Observational` judgments. It no longer wraps
+already-checked facts in synthetic legacy proofs. The unified inference
+and scoped-node checkers have common soundness theorems, reusing the
+existing theory-specific semantic lemmas. Legacy recursive proof types
+remain available but are not constructed by this full-DAG path.
+Observational equality retains its separate `~`/`op_oeq` representation
+and `Observational` judgment. `mp~` checks its own
+relation; `iff~` is an explicit one-way bridge from Boolean equality.
+Observational symmetry/transitivity/congruence never yield ordinary
+equality. The ground semantic theorem covers observation-preserving
+steps; general naming/Skolemization witnesses are not silently assumed.
+`RUnitRes` accepts scalar and
+empty-clause representations as well as reordered/weakened consequences
+that retain every surviving literal. Unsupported rules and rewrites
+remain explicit obligations (`PARTIAL`, exit 3); they are not certified
+by rule-name classification. See `OCAML_CHECKER_REPORT.md` for usage.
+The default extractor mode remains the legacy equational fragment.
+
 ## Status after round 1 (implementation complete, fully verified)
 
 `Z3ResolutionProofTheory.fst` compiles and **all verification conditions

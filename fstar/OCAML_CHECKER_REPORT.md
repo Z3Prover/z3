@@ -192,6 +192,97 @@ The pre-existing `--check` flag (which does still shell out to `fstar.exe`
 per proof) is left unchanged, so both the slow/fully-from-source path and
 the fast/precompiled path remain available for cross-checking.
 
+## Full ground refutations (`--full-proof`)
+
+The default, legacy equational-fragment workflow remains unchanged.
+The extractor also supports a separate `resolution-v1` document format
+that preserves the complete ground refutation DAG:
+
+```powershell
+python fstar\tools\extract_z3_proof.py problem.smt2 --full-proof --fast-check --json-out proof.json
+```
+
+This format uses the same sort/declaration/expression pools, plus
+`assertions` (expression indices), a `proofs` array of
+`{"kind": ..., "conclusion": <expr index>, "premises": [<earlier proof index>, ...]}`,
+and a `root` proof index. Unsupported steps have kind `trusted` and
+retain their original rule name in `rule`; they are not disguised as
+equational rewrite leaves.
+
+`Z3ResolutionProofJson.fst` decodes each node into
+`Z3UnifiedProof.fst`'s common `proof_node` representation. Its conclusions
+and checked premises carry one of three distinct judgments:
+`Holds A`, `Equal s t`, or `Observational s t`. Equality conclusions
+are classified uniformly whether produced by resolution, MP, or an
+equational rule. A single kernel handles inference, hypothesis scopes,
+and explicit obligations, without manufacturing `Rewrite`, `Trusted`,
+or `REq` wrappers around previously checked premises.
+This allows congruence to consume equalities derived by `mp` or
+`unit-resolution`. It also handles equality paths for `trans*`, checks
+asserted leaves against the declared inputs, tracks hypotheses per
+derivation, and requires a `false` root with no open hypotheses.
+The new path is ground-only: quantified/free-variable expressions are
+rejected rather than silently treated as ground terms.
+
+`RUnitRes` now checks a stated consequence instead of requiring a
+syntactically rewrapped residual. A residual `[C]` may conclude `C` or
+`(or C)`, including when `C` is itself a disjunction. An empty residual
+may conclude `false` or `(or)`. Reordering and sound weakening are
+accepted provided every surviving literal is covered. Resolving a
+formula directly against its negation also works when that formula is
+a disjunction. The resolution soundness theorem covers these
+representations; dropping a surviving literal is still rejected.
+
+The executable distinguishes:
+
+- `ACCEPT`, exit 0: a closed refutation with no unverified leaf obligations.
+- `PARTIAL N`, exit 3: the derivation and hypothesis scopes checked, but
+  `N` rewrite/unsupported-rule obligations remain unverified.
+- `REJECT`, exit 1: malformed data, invalid inference, undeclared input,
+  a non-false root, or an open hypothesis.
+
+Full-proof mode conservatively counts **every rewrite** as an obligation;
+Python-side matcher classifications do not silently discharge it.
+The ground Boolean rules `mp~` and `iff~` are checked, not trusted.
+Z3's emitted `refl` name is also recognized as reflexivity (the older
+`reflexivity` spelling remains accepted).
+Observational equality `(~ A B)` is preserved with its own `op_oeq` tag
+and the unified kernel's distinct `Observational` judgment.
+It is proof-only: it cannot be asserted as an ordinary Boolean fact,
+embedded inside a Boolean expression, or consumed by ordinary equality
+congruence/resolution. `mp~` requires `~`, whereas ordinary `mp` rejects it.
+The explicit `iff~` bridge converts `(= A B)` to `(~ A B)`, not conversely.
+Observational reflexivity, symmetry, transitivity, paths, and Boolean
+congruence retain `~` conclusions; mixed transitivity can promote Boolean
+equality premises through that one-way bridge without ever producing `=`.
+
+The ground observational theory proves observation preservation and derives
+equisatisfiability for this checked subset. It does **not** identify Z3's
+general equivalence modulo naming with same-model Boolean equality:
+naming/Skolemization needs model-extension and freshness witnesses and
+remains an explicit obligation, as do unverified NNF steps. Non-Boolean
+observational equalities and quantified expressions remain outside this
+ground checker. General commutativity side conditions also remain obligations.
+Legacy equational-mode `ACCEPT` still has its original, structural-only
+meaning and must not be mistaken for certification of an UNSAT refutation.
+
+`Z3UnifiedProof.lemma_check_step_sound` covers the common inference
+checker; `lemma_check_node_sound` composes it with asserted inputs,
+scoped premises, hypothesis discharge, and explicit rewrite/unsupported
+obligations. Both distinguish equality semantics from observational
+semantics. The original `proof`, `rproof`, and `oproof` types remain
+available to existing standalone/legacy callers, but the full-DAG checker
+no longer constructs them. Theory-specific soundness lemmas remain in
+their existing modules.
+
+Rebuild once with `fstar\tools\build_ocaml_checker.ps1`. The script now
+extracts both checker roots and derives the WSL source paths from the
+checkout instead of assuming `C:\z3fstar`. Its optional `-CacheDir`
+reuses existing caches while still checking source/dependency freshness.
+Focused tests are `Z3ResolutionProofCheckerTests.fst` and
+`tools\test_extract_z3_proof.py`; set `Z3_FSTAR_CHECKER` to the native
+executable to include the latter's end-to-end tests.
+
 ## What this does and does not establish
 
 This executable is only as trustworthy as the F*/Pulse verification that

@@ -6,13 +6,12 @@
 .DESCRIPTION
   This is a two-phase pipeline:
 
-    Phase 1 (Windows, fstar.exe): type-check Z3PulseProofCheckerJson.fst
-    and its whole dependency graph, caching a `.checked` file per module
+    Phase 1 (Windows, fstar.exe): type-check the equational and resolution
+    JSON checkers and their dependencies, caching a `.checked` file per module
     (fstar.exe's OCaml-extraction backend requires every module --
     including the one being extracted, not just its dependencies -- to
     already have a `.checked` file on disk, so this is done bottom-up,
-    one module at a time, retried over a few passes since the exact
-    topological order isn't hand-maintained here). Then re-invoke
+    one module at a time). Then re-invoke
     fstar.exe with `--codegen OCaml` against those caches to produce a
     plain `.ml` file per module under `--odir`.
 
@@ -35,64 +34,63 @@
       required, since the hand-written runtime shim has zero external
       dependencies).
 
-.PARAMETER OutExe
+.PARAMETER WslBuildDir
   Where to copy the built executable *inside WSL* (default:
   ~/z3checker/checker). Printed at the end as a `wsl <path>` command.
+
+.PARAMETER CacheDir
+  Optional existing F* cache directory. Modules are still checked for
+  source/dependency changes before extraction.
 #>
 param(
   [string]$FstarExe = "C:\fstar\fstar\bin\fstar.exe",
   [string]$Z3Exe = "C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe",
   [string]$OpamSwitch = "fstar53",
-  [string]$WslBuildDir = "~/z3checker"
+  [string]$WslBuildDir = "~/z3checker",
+  [string]$CacheDir = ""
 )
 
 $ErrorActionPreference = "Continue"
 $fstarDir = Split-Path -Parent $PSScriptRoot  # .../fstar
 Push-Location $fstarDir
 try {
-  $cacheDir = Join-Path $fstarDir "build_cache"
+  if (-not $CacheDir) { $CacheDir = Join-Path $fstarDir "build_cache" }
   $extractDir = Join-Path $fstarDir "build_extract"
-  New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
+  New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
   New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
 
-  # Full dependency closure of Z3PulseProofCheckerJson.fst, in an order
-  # that happens to let each module's dependencies become available
-  # within a few passes (fstar.exe reports, but does not auto-resolve,
-  # "checked file X does not exist" when writing a `.checked` for a
-  # module whose dependency wasn't *already* cached in an earlier
-  # invocation).
+  # Dependencies must be cached before their dependents are extracted.
   $modules = @(
     "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
     "Z3ValueTheory.fst", "Z3ProofTheory.fst", "Z3ArrayInterp.fst",
     "Z3SeqInterp.fst", "Z3BvInterp.fst", "Z3BoolRewriter.fst", "Z3BvRewriter.fst",
     "Z3SeqRewrites.fst", "Z3InterpretedProofChecker.fst",
     "Z3PatternMatchedProofChecker.fst", "Z3PulseProofChecker.fst",
-    "Z3ProofJson.fst", "Z3PulseProofCheckerJson.fst"
+    "Z3ProofJson.fst", "Z3PulseProofCheckerJson.fst",
+    "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
+    "Z3UnifiedProof.fst", "Z3ResolutionProofJson.fst"
   )
 
-  Write-Host "=== Phase 1a: type-check + cache (up to 5 passes) ==="
-  for ($pass = 1; $pass -le 5; $pass++) {
-    $remaining = 0
-    foreach ($f in $modules) {
-      $chk = Join-Path $cacheDir ($f -replace '\.fst$', '.fst.checked')
-      if (Test-Path $chk) { continue }
-      $remaining++
-      & $FstarExe --cache_checked_modules --cache_dir $cacheDir --include $cacheDir --smt $Z3Exe $f 2>&1 |
-        Select-String -Pattern "Verified module|^\* Error" | ForEach-Object { "  [$f] $_" }
-    }
-    if ($remaining -eq 0) { break }
+  Write-Host "=== Phase 1a: type-check + cache ==="
+  foreach ($f in $modules) {
+    & $FstarExe --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe $f 2>&1 |
+      ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $f" }
   }
-  $missing = $modules | Where-Object { -not (Test-Path (Join-Path $cacheDir ($_ -replace '\.fst$', '.fst.checked'))) }
+  $missing = $modules | Where-Object { -not (Test-Path (Join-Path $CacheDir ($_ -replace '\.fst$', '.fst.checked'))) }
   if ($missing) { throw "Failed to cache: $($missing -join ', ')" }
 
   Write-Host "=== Phase 1b: extract to OCaml ==="
   $modNames = ($modules | ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  & $FstarExe --codegen OCaml --cache_dir $cacheDir --include $cacheDir --odir $extractDir `
-      --extract $modNames Z3PulseProofCheckerJson.fst
-  if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed" }
+  foreach ($root in @("Z3PulseProofCheckerJson.fst", "Z3ResolutionProofJson.fst")) {
+    & $FstarExe --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
+        --extract $modNames $root
+    if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $root" }
+  }
 
   Write-Host "=== Phase 2: compile in WSL ==="
-  $wslFstarDir = "/mnt/c/z3fstar/fstar"
+  $drive = $fstarDir.Substring(0, 1).ToLowerInvariant()
+  $wslFstarDir = "/mnt/$drive/" + $fstarDir.Substring(3).Replace('\', '/')
   $order = @(
     "prims.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml", "fStar_Char.ml",
     "fStar_UInt32.ml", "fStar_UInt.ml", "fStar_String.ml", "fStar_FunctionalExtensionality.ml",
@@ -101,15 +99,17 @@ try {
     "Z3ProofTheory.ml", "Z3BoolRewriter.ml", "Z3BvRewriter.ml", "Z3SeqRewrites.ml",
     "Z3BvInterp.ml", "Z3SeqInterp.ml", "Z3ArrayInterp.ml", "Z3InterpretedProofChecker.ml",
     "Z3PatternMatchedProofChecker.ml", "Z3PulseProofChecker.ml", "Z3ProofJson.ml",
-    "Z3PulseProofCheckerJson.ml", "main.ml"
+    "Z3PulseProofCheckerJson.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
+    "Z3UnifiedProof.ml",
+    "Z3ResolutionProofJson.ml", "main.ml"
   )
   $orderStr = $order -join " "
   $script = @"
 set -e
 export PATH="`$HOME/bin:`$PATH"
 mkdir -p $WslBuildDir
-cp $wslFstarDir/ocaml_runtime/*.ml $WslBuildDir/
-cp $wslFstarDir/build_extract/*.ml $WslBuildDir/
+cp "$wslFstarDir"/ocaml_runtime/*.ml $WslBuildDir/
+cp "$wslFstarDir"/build_extract/*.ml $WslBuildDir/
 cd $WslBuildDir
 eval `$(opam env --switch=$OpamSwitch)
 ocamlfind ocamlopt $orderStr -o checker
@@ -118,7 +118,7 @@ echo BUILD_OK
   $scriptPath = Join-Path $fstarDir "build_wsl_tmp.sh"
   $unixScript = $script -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($scriptPath, $unixScript, (New-Object System.Text.UTF8Encoding($false)))
-  wsl -e bash /mnt/c/z3fstar/fstar/build_wsl_tmp.sh
+  wsl -e bash "$wslFstarDir/build_wsl_tmp.sh"
   Remove-Item $scriptPath -ErrorAction SilentlyContinue
   if ($LASTEXITCODE -ne 0) { throw "WSL compile failed" }
 

@@ -6,10 +6,8 @@
      checker <path/to.json>  reads it from the given file instead
 
    Exit code 0 means `Z3PulseProofCheckerJson.check_proof_json` on the
-   input returned `true` (the document parsed and its root proof is
-   well-formed per `Z3ProofTheory.fact`/`Z3PulseProofChecker.check_
-   proof`); exit code 1 means it returned `false`; exit code 2 means
-   the input could not even be read. *)
+   input returned `true`; exit code 1 rejects, 2 reports unreadable
+   input, and 3 reports a valid resolution DAG with unverified leaves. *)
 
 let read_all (ic : Stdlib.in_channel) : Prims.string =
   let buf = Stdlib.Buffer.create 4096 in
@@ -33,10 +31,20 @@ let () =
         Stdlib.prerr_endline "usage: checker [path/to/proof.json]";
         Stdlib.exit 2
   in
-  let ok = Z3PulseProofCheckerJson.check_proof_json input in
-  if ok then (
-    Stdlib.print_endline "ACCEPT";
-    Stdlib.exit 0)
-  else (
-    Stdlib.print_endline "REJECT";
-    Stdlib.exit 1)
+  let resolution = Z3ResolutionProofJson.check_resolution_json input in
+  if resolution > 0 then (
+    Stdlib.Printf.printf "PARTIAL %d\n" resolution;
+    Stdlib.exit 3)
+  else
+    let ok =
+      if resolution = 0 then true
+      else if resolution = -2 then
+        Z3PulseProofCheckerJson.check_proof_json input
+      else false
+    in
+    if ok then (
+      Stdlib.print_endline "ACCEPT";
+      Stdlib.exit 0)
+    else (
+      Stdlib.print_endline "REJECT";
+      Stdlib.exit 1)

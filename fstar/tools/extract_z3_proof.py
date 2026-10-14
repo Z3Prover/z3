@@ -67,6 +67,12 @@ run the SMT solver: the executable is built once
 of the same Pulse-verified checker and simply interprets the JSON
 directly, typically in single-digit milliseconds per proof.
 
+`--full-proof` instead exports the complete ground refutation DAG,
+including resolution, mp, congruence and hypothesis discharge. Unsupported
+rules and all rewrite leaves remain explicit obligations: a structurally
+valid full derivation with such obligations reports PARTIAL (exit 3),
+not a certified UNSAT result. The default equational mode is unchanged.
+
 `--emit-json-fst` additionally writes a tiny JSON-instance `.fst` file
 wrapping the same JSON document, purely as an artifact for manually
 cross-validating against a real `fstar.exe` invocation during
@@ -307,8 +313,8 @@ class Converter:
         self.decl_lines = []
         self.expr_lines = []
         self.proof_lines = []
-        self.sort_cache = {}   # sort name -> ident
-        self.decl_cache = {}   # (name, arity) -> ident
+        self.sort_cache = {}   # Z3 sort identity -> ident
+        self.decl_cache = {}   # (Z3 declaration identity, application arity) -> ident
         self.expr_cache = {}   # z3 ast id -> ident
         self.proof_cache = {}  # z3 ast id -> ident
         # JSON-parallel node pools (see Z3ProofJson.fst's doc comment for the
@@ -339,14 +345,15 @@ class Converter:
     # the matcher library expects -- purely a naming fix, changing
     # nothing semantic.
     def sort(self, s: z3.SortRef) -> str:
+        key = s.get_id()
         if s.kind() == z3.Z3_BV_SORT:
             name = "BV%d" % s.size()
         elif s.kind() == z3.Z3_SEQ_SORT and s.basis().kind() == z3.Z3_INT_SORT:
             name = "SeqInt"
         else:
             name = s.name()
-        if name in self.sort_cache:
-            return self.sort_cache[name]
+        if key in self.sort_cache:
+            return self.sort_cache[key]
         if s.kind() == z3.Z3_ARRAY_SORT:
             # Multi-argument arrays expose `domain_n(i)` but not a
             # Python-level `arity()`; the arity itself has to come from
@@ -369,7 +376,7 @@ class Converter:
             ident = fstar_ident("srt_", len(self.sort_cache))
             self.sort_lines.append('let %s : sort = BaseSort "%s"' % (ident, name))
             self.sort_json.append({"kind": "base", "name": name})
-        self.sort_cache[name] = ident
+        self.sort_cache[key] = ident
         return ident
 
     def mk_array_sort(self, dom_idents, rng_ident):
@@ -405,7 +412,7 @@ class Converter:
     # not needed by any matcher) stays `None`, so `decl_shape_ok`'s
     # `None -> true` case covers it with no change in behavior.
     def func_decl(self, d: z3.FuncDeclRef, arity: int) -> str:
-        key = (d.name(), arity)
+        key = (d.get_id(), arity)
         if key in self.decl_cache:
             return self.decl_cache[key]
         ident = fstar_ident("fd_", len(self.decl_cache))
@@ -646,6 +653,93 @@ def find_equational_root(p: z3.ExprRef, max_depth=50):
     return None
 
 
+class ResolutionConverter(Converter):
+    """Export the complete ground proof DAG without erasing derived facts."""
+
+    SUPPORTED_RULES = {
+        "asserted", "hypothesis", "lemma", "mp", "mp~", "unit-resolution",
+        "and-elim", "not-or-elim", "iff-true", "iff-false", "iff~",
+        "refl", "reflexivity", "symm", "trans", "trans*", "monotonicity", "rewrite",
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.trusted_log = []
+
+    def func_decl(self, d: z3.FuncDeclRef, arity: int) -> str:
+        if d.kind() == z3.Z3_OP_OEQ and (
+                arity != 2 or any(d.domain(i).kind() != z3.Z3_BOOL_SORT for i in range(arity))):
+            raise ValueError("Full-proof mode requires Boolean observational equality")
+        ident = super().func_decl(d, arity)
+        tags = {
+            z3.Z3_OP_TRUE: "op_true",
+            z3.Z3_OP_FALSE: "op_false",
+            z3.Z3_OP_AND: "op_and",
+            z3.Z3_OP_OR: "op_or",
+            z3.Z3_OP_OEQ: "op_oeq",
+        }
+        if d.kind() in tags:
+            self.decl_json[self._idx(ident)]["interp"] = tags[d.kind()]
+        return ident
+
+    def proof(self, root: z3.ExprRef) -> str:
+        stack = [(root, False)]
+        scheduled = set()
+        while stack:
+            node, ready = stack.pop()
+            key = node.get_id()
+            if key in self.proof_cache:
+                continue
+            premises = [
+                child for child in node.children()
+                if child.sort().kind() == 1000
+            ]
+            if not ready:
+                if key in scheduled:
+                    continue
+                scheduled.add(key)
+                stack.append((node, True))
+                stack.extend((child, False) for child in reversed(premises))
+                continue
+            conclusion = node.arg(node.num_args() - 1)
+            if not z3.is_bool(conclusion):
+                raise ValueError("Full-proof mode requires Boolean conclusions: %s"
+                                 % node.decl().name())
+            rule = str(node.decl().name())
+            kind = rule if rule in self.SUPPORTED_RULES else "trusted"
+            entry = {
+                "kind": kind,
+                "conclusion": self._idx(self.expr(conclusion)),
+                "premises": [self._idx(self.proof_cache[p.get_id()])
+                             for p in premises],
+            }
+            if kind == "trusted":
+                entry["rule"] = rule
+                self.trusted_log.append((rule, conclusion))
+            elif kind == "rewrite":
+                self.rewrite_log.append((
+                    conclusion.arg(0), conclusion.arg(1),
+                    classify_rewrite(conclusion.arg(0), conclusion.arg(1)),
+                ))
+            ident = fstar_ident("rp_", len(self.proof_json))
+            self.proof_cache[key] = ident
+            self.proof_json.append(entry)
+        return self.proof_cache[root.get_id()]
+
+
+def build_resolution_doc(conv: ResolutionConverter, root_ident: str, assertions) -> dict:
+    assertion_ids = [conv._idx(conv.expr(a)) for a in assertions]
+    return {
+        "format": "resolution-v1",
+        "sorts": conv.sort_json,
+        "decls": conv.decl_json,
+        "exprs": conv.expr_json,
+        "proofs": conv.proof_json,
+        "root": conv._idx(root_ident),
+        "assertions": assertion_ids,
+    }
+
+
 # NOTE: FSTAR_HEADER/generate() below produce the full hand-written-F*-
 # syntax `.fst` form of an extracted proof, checked by directly
 # invoking fstar.exe. This script's own CLI (`main()`) no longer uses
@@ -884,11 +978,11 @@ def to_wsl_path(windows_path: str) -> str:
     return "/mnt/%s/%s" % (drive_letter, rest)
 
 
-def run_fast_check(checker_exe: str, json_out: str) -> bool:
+def run_fast_check(checker_exe: str, json_out: str) -> str:
     """Runs the precompiled standalone checker executable (built by
     fstar/tools/build_ocaml_checker.ps1) inside WSL against an already-
     written JSON proof document, with no fstar.exe/SMT-solver involved.
-    Returns True iff the checker printed ACCEPT and exited 0."""
+    Distinguishes checked proofs, conditional proofs, and rejection."""
     wsl_json_path = to_wsl_path(json_out)
     cmd = ["wsl", "-e", "bash", "-c",
            "%s %s" % (checker_exe, wsl_json_path)]
@@ -897,7 +991,11 @@ def run_fast_check(checker_exe: str, json_out: str) -> bool:
     print(out)
     if res.stderr.strip():
         print(res.stderr.strip(), file=sys.stderr)
-    return res.returncode == 0 and out == "ACCEPT"
+    if res.returncode == 0 and out == "ACCEPT":
+        return "accept"
+    if res.returncode == 3 and out.startswith("PARTIAL "):
+        return "partial"
+    return "reject"
 
 
 def main():
@@ -920,6 +1018,12 @@ def main():
                           "fstar/tools/build_ocaml_checker.ps1")
     ap.add_argument("--json-out", default=None,
                      help="path for the JSON proof document (default: <out>.json)")
+    ap.add_argument("--full-proof", action="store_true",
+                     help="export/check the complete ground refutation, including "
+                          "resolution, mp, hypothesis discharge and congruence; "
+                          "report unverified leaves as explicit obligations")
+    ap.add_argument("--timeout", type=float, default=10,
+                     help="solver timeout in seconds for --full-proof (default: 10)")
     ap.add_argument("--emit-json-fst", action="store_true",
                      help="also write a JSON-instance .fst file (see Z3ProofJson.fst/ "
                           "Z3PulseProofCheckerJson.fst) wrapping the JSON document, for "
@@ -930,20 +1034,41 @@ def main():
                           "given (default: <out without .fst>Json.fst)")
     args = ap.parse_args()
 
-    if args.smt2_file is not None:
+    if args.full_proof:
+        if args.timeout <= 0:
+            ap.error("--timeout must be positive")
+        if args.emit_json_fst:
+            ap.error("--emit-json-fst is only supported for equational documents")
+        ctx = z3.Context(proof=True)
+        solver = z3.Solver(ctx=ctx)
+        solver.set(timeout=max(1, int(args.timeout * 1000)))
+        if args.smt2_file is not None:
+            solver.add(z3.parse_smt2_file(args.smt2_file, ctx=ctx))
+            desc = "assertions from %s" % args.smt2_file
+        else:
+            x = z3.Bool("x", ctx=ctx)
+            solver.add(z3.Xor(z3.Not(z3.Not(x)), x))
+            desc = "not(not(x)) == x (via Xor refutation)"
+        result = solver.check()
+        if result != z3.unsat:
+            reason = solver.reason_unknown() if result == z3.unknown else str(result)
+            raise SystemExit("No UNSAT proof: %s" % reason)
+        pf = solver.proof()
+    elif args.smt2_file is not None:
         desc, pf = build_from_file(args.smt2_file)
     else:
         desc, pf = build_example()
     print("Z3 (python front-end) produced a proof for:", desc)
 
-    root = find_equational_root(pf)
+    root = pf if args.full_proof else find_equational_root(pf)
     if root is None:
         print("No equational subtree found in this proof; nothing to convert.", file=sys.stderr)
         sys.exit(1)
-    print("Equational-fragment root found: %s (kind=%d), %d arg(s)"
-          % (root.decl().name(), root.decl().kind(), root.num_args()))
+    print("%s root: %s (kind=%d), %d arg(s)"
+          % ("Full-proof" if args.full_proof else "Equational-fragment",
+             root.decl().name(), root.decl().kind(), root.num_args()))
 
-    conv = Converter()
+    conv = ResolutionConverter() if args.full_proof else Converter()
     root_ident = conv.proof(root)
 
     matched = [(s, t, name) for (s, t, name) in conv.rewrite_log if name is not None]
@@ -974,9 +1099,18 @@ def main():
                     f.write("  %s  ==  %s\n" % (s.sexpr(), t.sexpr()))
         else:
             f.write("(none -- every Rewrite leaf in this proof matched a verified lemma)\n")
+        if args.full_proof:
+            f.write("\n-- Other unverified proof-rule obligations --\n")
+            for rule, conclusion in conv.trusted_log:
+                f.write("  [%s] %s\n" % (rule, conclusion.sexpr()))
     print("Wrote matching log to", log_path)
 
-    doc = build_proof_doc(conv, root_ident, len(unmatched))
+    doc = (build_resolution_doc(conv, root_ident, solver.assertions())
+           if args.full_proof else build_proof_doc(conv, root_ident, len(unmatched)))
+    if args.full_proof:
+        print("Full-DAG rule obligations: %d; rewrite obligations: %d "
+              "(all rewrites remain explicit obligations in full-proof mode)"
+              % (len(conv.trusted_log), len(conv.rewrite_log)))
     json_out = args.json_out or (args.out + ".json")
     with open(json_out, "w", encoding="utf-8") as f:
         json_mod.dump(doc, f, separators=(",", ":"))
@@ -997,8 +1131,14 @@ def main():
 
     if args.fast_check:
         print("Invoking the precompiled native checker (no fstar.exe, no SMT) on", json_out, "...")
-        if run_fast_check(args.checker_exe, json_out):
+        status = run_fast_check(args.checker_exe, json_out)
+        if status == "accept":
             print("PASS: the precompiled checker accepted the extracted Z3 proof (%s)." % json_out)
+        elif status == "partial":
+            print("PARTIAL: the full derivation checked, but unverified leaf "
+                  "obligations remain; this is not an independently certified "
+                  "UNSAT proof.", file=sys.stderr)
+            sys.exit(3)
         else:
             print("FAIL: the precompiled checker rejected %s." % json_out, file=sys.stderr)
             sys.exit(1)

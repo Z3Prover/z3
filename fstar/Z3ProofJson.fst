@@ -323,6 +323,7 @@ let decl_kind_of_tag (tag:string) : option decl_kind =
   else if tag = "op_and" then Some op_and
   else if tag = "op_or" then Some op_or
   else if tag = "op_implies" then Some op_implies
+  else if tag = "op_oeq" then Some op_oeq
   else None
 
 let decode_interp (fields:list (string & json)) : option (option decl_kind) =

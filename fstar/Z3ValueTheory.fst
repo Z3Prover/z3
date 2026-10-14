@@ -115,3 +115,6 @@ let op_seq_unit : decl_kind = 12
 let op_and : decl_kind = 13
 let op_or : decl_kind = 14
 let op_implies : decl_kind = 15
+
+(* Proof-only observational equivalence, not an executable Boolean op. *)
+let op_oeq : decl_kind = 16

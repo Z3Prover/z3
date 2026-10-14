@@ -30,11 +30,8 @@
       `fact`/`all_leaves_sound`/`lemma_proof_sound` exactly. This
       currently covers `PR_MODUS_PONENS`, `PR_AND_ELIM`,
       `PR_COMMUTATIVITY`, `PR_IFF_TRUE`/`PR_IFF_FALSE`, the equational
-      calculus re-exposed as a Boolean `=`-fact (`REq`), and Tier-2
-      `Trusted` leaves. `PR_UNIT_RESOLUTION`/`PR_NOT_OR_ELIM`/
-      `PR_HYPOTHESIS`/`PR_LEMMA` are proved as standalone lemmas above
-      but not yet wired into the `rproof` constructor set -- see
-      "Status after round 1" in `RESOLUTION_CHECKER_SCOPE.md`.
+      calculus re-exposed as a Boolean `=`-fact (`REq`), unit
+      resolution, hypothesis discharge, and explicit `Trusted` leaves.
 *)
 module Z3ResolutionProofTheory
 
@@ -98,7 +95,7 @@ let or_sound (i:interpretation value) : prop =
 let implies_sound (i:interpretation value) : prop =
   forall (f:func_decl) (a b:expr) (rho:env value).
     {:pattern (eval i (App f [a; b]) rho)}
-    f.decl_name == "implies" ==>
+    (f.decl_name == "implies" \/ f.decl_name == "=>") ==>
     (eval i (App f [a; b]) rho == VBool true <==> (lit_true i rho a ==> lit_true i rho b))
 
 let eq_sound (i:interpretation value) : prop =
@@ -314,6 +311,88 @@ let mk_iff_expr (a b:expr) : expr = App (eq_decl bool_sort) [a; b]
 let true_expr : expr = App ({ decl_name = "true"; domain = []; range = bool_sort; interp = Some op_true; int_params = [] }) []
 let false_expr : expr = App ({ decl_name = "false"; domain = []; range = bool_sort; interp = Some op_false; int_params = [] }) []
 
+let formula_clause (e:expr) : clause =
+  match e with
+  | App f args ->
+    if f.decl_name = "or" then args
+    else if f.decl_name = "false" && args = [] then []
+    else [e]
+  | _ -> [e]
+
+let consequence_covers (concl lit:expr) : bool =
+  lit = concl ||
+  (match concl with
+   | App f args -> f.decl_name = "or" && List.Tot.mem lit args
+   | _ -> false)
+
+let rec clause_consequence (residual:clause) (concl:expr) : Tot bool (decreases residual) =
+  match residual with
+  | [] -> true
+  | l :: rest -> consequence_covers concl l && clause_consequence rest concl
+
+let resolution_residual (c:expr) (units:list literal) : clause =
+  match units with
+  | [u] ->
+    if complementary c u then []
+    else unit_resolve (formula_clause c) units
+  | _ -> unit_resolve (formula_clause c) units
+
+let rec lemma_clause_member (i:interpretation value) (rho:env value) (c:clause) (l:expr)
+  : Lemma (requires List.Tot.memP l c /\ lit_true i rho l)
+          (ensures clause_holds i rho c)
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | h :: rest -> if h = l then () else lemma_clause_member i rho rest l
+
+let lemma_formula_clause (i:interpretation value) (rho:env value) (e:expr)
+  : Lemma (requires lit_true i rho e /\ or_sound i /\ false_sound i)
+          (ensures clause_holds i rho (formula_clause e))
+  = match e with
+    | App f args -> ()
+    | _ -> ()
+
+let lemma_consequence_covers (i:interpretation value) (rho:env value) (concl lit:expr)
+  : Lemma (requires consequence_covers concl lit /\ lit_true i rho lit /\ or_sound i)
+          (ensures lit_true i rho concl)
+  = if lit = concl then ()
+    else match concl with
+         | App f args ->
+           FStar.List.Tot.Properties.mem_memP lit args;
+           lemma_clause_member i rho args lit
+         | _ -> ()
+
+let rec lemma_clause_consequence (i:interpretation value) (rho:env value) (c:clause) (concl:expr)
+  : Lemma (requires clause_holds i rho c /\ clause_consequence c concl /\ or_sound i)
+          (ensures lit_true i rho concl)
+          (decreases c)
+  = match c with
+    | [] -> ()
+    | l :: rest ->
+      FStar.Classical.excluded_middle (lit_true i rho l);
+      FStar.Classical.or_elim #(lit_true i rho l) #(~(lit_true i rho l))
+        #(fun () -> lit_true i rho concl)
+        (fun _ -> lemma_consequence_covers i rho concl l)
+        (fun _ -> lemma_clause_consequence i rho rest concl)
+
+let lemma_resolution_residual_sound (i:interpretation value) (rho:env value)
+                                    (c:expr) (units:list literal)
+  : Lemma (requires lit_true i rho c /\ not_sound i /\ or_sound i /\ false_sound i /\
+                    wf_clause i rho (formula_clause c) /\
+                    (forall (u:literal). List.Tot.memP u units ==> lit_true i rho u))
+          (ensures clause_holds i rho (resolution_residual c units))
+  = match units with
+    | [u] ->
+      if complementary c u then
+        (lemma_complementary_sym c u;
+         lemma_complementary_sound i rho u c)
+      else
+        (lemma_formula_clause i rho c;
+         lemma_unit_resolution_sound i rho (formula_clause c) units)
+    | _ ->
+      lemma_formula_clause i rho c;
+      lemma_unit_resolution_sound i rho (formula_clause c) units
+
 let lemma_iff_true_sound (i:interpretation value) (rho:env value) (a:expr)
   : Lemma (requires lit_true i rho a /\ eq_sound i /\ true_sound i)
           (ensures eval i (mk_iff_expr a true_expr) rho == VBool true)
@@ -384,17 +463,10 @@ type rproof =
      unconditional-trust pattern for `PR_DEF_AXIOM`/`PR_TH_LEMMA`/
      `PR_QUANT_INST`. *)
   | Trusted     : tag:string -> concl:expr -> rproof
-  (* `PR_UNIT_RESOLUTION`: `clause_pf` proves the disjunction `(or
-     disj)` (`or_f` carries the `"or"`-named declaration used to
-     rebuild it); `units` is the list of unit-resolvent facts, each
-     paired with the `rproof` that establishes it. The conclusion is
-     the residual clause after resolving every unit fact against
-     `disj` (`unit_resolve`, already proved sound above), re-wrapped
-     in `(or ...)` (our own convention for the 0-/1-element cases too,
-     since `or_sound` is defined uniformly for every arity -- see
-     `lemma_unit_resolution_sound`'s own docstring on what an empty
-     residual clause means). *)
-  | RUnitRes    : or_f:func_decl -> disj:clause -> clause_pf:rproof -> units:list (expr & rproof) -> rproof
+  (* The stated consequence must contain every surviving literal.
+     In particular, [C] may conclude C (even when C is itself an or),
+     and an empty residual may conclude false. *)
+  | RUnitRes    : concl:expr -> clause_pf:rproof -> units:list (expr & rproof) -> rproof
   (* `PR_NOT_OR_ELIM`: `premise` proves `(not (or disj))` (`disj`
      recovered structurally from `premise`'s own fact, not stored as a
      separate field -- same minimal style as `RIffFalse`); `t` is any
@@ -433,7 +505,7 @@ let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
     (match rfact pf_a, rfact pf_imp with
      | Some a', Some (App f [a2; b2]) ->
        if a' = a && a2 = a && b2 = b && f = imp_f &&
-          (imp_f.decl_name = "implies" || imp_f.decl_name = "=")
+          (imp_f.decl_name = "implies" || imp_f.decl_name = "=>" || imp_f.decl_name = "=")
        then Some b else None
      | _, _ -> None)
   | RCommute f s t -> Some (mk_eq_expr (App f [s; t]) (App f [t; s]))
@@ -449,11 +521,12 @@ let rec rfact (p:rproof) : Tot (option expr) (decreases p) =
         | None -> None)
      | None -> None)
   | Trusted tag concl -> Some concl
-  | RUnitRes or_f disj clause_pf units ->
+  | RUnitRes concl clause_pf units ->
     (match rfact clause_pf with
-     | Some (App f args) ->
-       if f = or_f && f.decl_name = "or" && args = disj && rfacts_match units
-       then Some (App or_f (unit_resolve disj (lits_of units)))
+     | Some c ->
+       if rfacts_match units &&
+          clause_consequence (resolution_residual c (lits_of units)) concl
+       then Some concl
        else None
      | _ -> None)
   | RNotOrElim t premise ->
@@ -494,9 +567,12 @@ let rec all_rtrusted_sound (i:interpretation value) (p:rproof) : Tot prop (decre
      that lemma's own precondition -- recorded here exactly like
      `RCommute`'s commutativity obligation, as an explicit, caller-
      discharged fact rather than something silently assumed. *)
-  | RUnitRes _ disj clause_pf units ->
+  | RUnitRes _ clause_pf units ->
     all_rtrusted_sound i clause_pf /\ all_rtrusted_sound_units i units /\
-    (forall (rho:env value). wf_clause i rho disj)
+    (forall (rho:env value).
+       match rfact clause_pf with
+       | Some c -> wf_clause i rho (formula_clause c)
+       | None -> False)
   | RNotOrElim t premise ->
     all_rtrusted_sound i premise /\ (forall (rho:env value). VBool? (eval i t rho))
   | Hyp _ -> True
@@ -524,7 +600,7 @@ and hyps_closed (p:rproof) (hyps:list expr) : Tot prop (decreases p) =
   | RIffTrue _ premise -> hyps_closed premise hyps
   | RIffFalse _ premise -> hyps_closed premise hyps
   | Trusted _ _ -> True
-  | RUnitRes _ _ clause_pf units -> hyps_closed clause_pf hyps /\ hyps_closed_units units hyps
+  | RUnitRes _ clause_pf units -> hyps_closed clause_pf hyps /\ hyps_closed_units units hyps
   | RNotOrElim _ premise -> hyps_closed premise hyps
   | Hyp a -> List.Tot.memP a hyps
   | RLemma _ _ -> True
@@ -546,7 +622,7 @@ let rec rproof_size (p:rproof) : nat =
   | RIffTrue _ premise -> 1 + rproof_size premise
   | RIffFalse _ premise -> 1 + rproof_size premise
   | Trusted _ _ -> 1
-  | RUnitRes _ _ clause_pf units -> 1 + rproof_size clause_pf + runits_size units
+  | RUnitRes _ clause_pf units -> 1 + rproof_size clause_pf + runits_size units
   | RNotOrElim _ premise -> 1 + rproof_size premise
   | Hyp _ -> 1
   | RLemma _ pf_false -> 1 + rproof_size pf_false
@@ -664,17 +740,18 @@ let rec lemma_rproof_sound_hyps (i:interpretation value) (p:rproof) (rho:env val
     | Trusted _ concl ->
       let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho concl) = () in
       FStar.Classical.impl_intro aux
-    | RUnitRes or_f disj clause_pf units ->
+    | RUnitRes concl clause_pf units ->
       lemma_rproof_sound_hyps i clause_pf rho hyps;
       (match rfact clause_pf with
-       | Some (App f args) ->
-         let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho (App or_f (unit_resolve disj (lits_of units)))) =
+       | Some c ->
+        let aux (_:squash (conj_holds i rho hyps)) : Lemma (lit_true i rho concl) =
            let fmls_aux (q:literal)
              : Lemma (requires List.Tot.memP q (lits_of units)) (ensures lit_true i rho q)
              = lemma_units_sound_hyps i rho hyps units q
            in
            FStar.Classical.forall_intro (FStar.Classical.move_requires fmls_aux);
-           lemma_unit_resolution_sound i rho disj (lits_of units)
+           lemma_resolution_residual_sound i rho c (lits_of units);
+           lemma_clause_consequence i rho (resolution_residual c (lits_of units)) concl
          in FStar.Classical.impl_intro aux
        | _ -> ())
     | RNotOrElim t premise ->
