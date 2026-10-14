@@ -11,6 +11,10 @@ reasoning and deep-input support. The results and narrower profile documented
 below describe the second milestone; the CLI automatically selects the new
 profile for inputs outside the legacy literal-conjunction path.
 
+The [F4 extension](QF_FF_F4_CERTIFICATES.md) adds bounded proof-producing F4
+search with scalar fallback through the same export/checking contract. The
+scalar-only reconstruction described below is the historical second milestone.
+
 ## Run and independently recheck
 
 Build the external checkers using
