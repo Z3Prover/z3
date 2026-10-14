@@ -32,6 +32,7 @@ Notes:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/ff_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/der.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -56,6 +57,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     seq_rewriter        m_seq_rw;
     char_rewriter       m_char_rw;
     recfun_rewriter     m_rec_rw;
+    ff_rewriter m_ff_rw;
     finite_set_rewriter m_fs_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
@@ -242,6 +244,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_char_rw.mk_app_core(f, num, args, result);
         if (fid == m_rec_rw.get_fid())
             return m_rec_rw.mk_app_core(f, num, args, result);
+        if (fid == m_ff_rw.get_fid())
+            return m_ff_rw.mk_app_core(f, num, args, result);
         if (fid == m_fs_rw.get_fid())
             return m_fs_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
@@ -708,6 +712,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_seq_rw.mk_eq_core(a, b, result);
         else if (s_fid == m_fs_rw.get_fid())
             st = m_fs_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_ff_rw.get_fid())
+            st = m_ff_rw.mk_eq_core(a, b, result);
         if (st != BR_FAILED)
             return st;
         st = extended_bv_eq(a, b, result);
@@ -977,7 +983,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_seq_rw(m, p),
         m_char_rw(m),
-        m_rec_rw(m), 
+        m_rec_rw(m),
+        m_ff_rw(m),
         m_fs_rw(m),
         m_a_util(m),
         m_bv_util(m),

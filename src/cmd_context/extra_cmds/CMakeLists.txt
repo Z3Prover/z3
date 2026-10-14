@@ -2,10 +2,12 @@ z3_add_component(extra_cmds
   SOURCES
     dbg_cmds.cpp
     polynomial_cmds.cpp
+    ff_certificate_cmds.cpp
     subpaving_cmds.cpp
     proof_cmds.cpp
   COMPONENT_DEPENDENCIES
     arith_tactics
     cmd_context
+    ff
     subpaving_tactic
 )

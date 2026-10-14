@@ -1,4 +1,5 @@
 add_subdirectory(dd)
+add_subdirectory(ff)
 add_subdirectory(grobner)
 add_subdirectory(hilbert)
 add_subdirectory(interval)

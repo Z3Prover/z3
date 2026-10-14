@@ -113,6 +113,9 @@ add_executable(test-z3
   pdd.cpp
   pdd_solver.cpp
   permutation.cpp
+  ff_domain.cpp
+  ff_solver.cpp
+  finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp
   polynorm.cpp
@@ -185,3 +188,19 @@ add_executable(test-z3
 )
 target_link_libraries(test-z3 PRIVATE
   z3_common ${z3_test_deps})
+
+# External finite-field regressions live in z3test. The dedicated CI job pins
+# its checkout and supplies this path; ordinary Z3 builds need no test checkout.
+set(Z3_FF_TEST_DIR "" CACHE PATH "z3test/regressions/finite_field directory")
+if (Z3_FF_TEST_DIR)
+  if (NOT EXISTS "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+    message(FATAL_ERROR "Z3_FF_TEST_DIR must contain api_smoke.cpp")
+  endif()
+  add_executable(test-ff-api EXCLUDE_FROM_ALL "${Z3_FF_TEST_DIR}/api_smoke.cpp")
+  target_link_libraries(test-ff-api PRIVATE libz3)
+  if (MSVC)
+    target_compile_options(test-ff-api PRIVATE /UNDEBUG)
+  else()
+    target_compile_options(test-ff-api PRIVATE -UNDEBUG)
+  endif()
+endif()

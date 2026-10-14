@@ -1,3 +1,4 @@
+#include "tactic/portfolio/ff_tactic.h"
 /*++
 Copyright (c) 2012 Microsoft Corporation
 
@@ -21,6 +22,9 @@ Notes:
 #include "solver/combined_solver.h"
 #include "solver/tactic2solver.h"
 #include "tactic/tactical.h"
+#include "tactic/probe.h"
+#include "ast/for_each_expr.h"
+#include "ast/ff_decl_plugin.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "tactic/smtlogics/qflia_tactic.h"
 #include "tactic/smtlogics/qfnia_tactic.h"
@@ -34,6 +38,9 @@ Notes:
 #include "tactic/smtlogics/qfidl_tactic.h"
 #include "tactic/smtlogics/nra_tactic.h"
 #include "tactic/portfolio/default_tactic.h"
+#include "solver/smt_logics.h"
+#include "tactic/ff/ff_solve_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/fd_solver/fd_solver.h"
 #include "tactic/fd_solver/smtfd_solver.h"
 #include "tactic/ufbv/ufbv_tactic.h"
@@ -64,7 +71,19 @@ public:
     }
 };
 
+
+
+static tactic *mk_ff_tactic(ast_manager &m, params_ref const &p) {
+    // Let native SMT reasoning handle residual field goals before its exact
+    // BV fallback, preserving shared equalities and lazy Boolean choices.
+    return annotate_tactic("ff-tactic",
+                            and_then(mk_ff_unique_tactic(m, p), mk_ff_simplify_tactic(m, p),
+                                     or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_ff_smt_tactic(m, p))));
+}
+
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
+    if (smt_logics::logic_is_ff(logic))
+        return mk_ff_tactic(m, p);
     if (logic=="QF_UF")
         return mk_qfuf_tactic(m, p);
     else if (logic=="QF_BV")
@@ -185,8 +204,12 @@ public:
         if (!t) {
             t = mk_tactic_for_logic(m, p, l);
         }
+        // Preserve native equality/Boolean reasoning on residual field goals;
+    // the field theory itself supplies exact BV fallback when needed.
+    if (smt_logics::logic_is_ff(l))
+            return mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l);
         return mk_combined_solver(mk_tactic2solver(m, t.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, l),
-                                  mk_solver_for_logic(m, p, l), 
+                                  mk_solver_for_logic(m, p, l),
                                   p);
     }
     
@@ -198,5 +221,3 @@ public:
 solver_factory * mk_smt_strategic_solver_factory(symbol const & logic) {
     return alloc(smt_strategic_solver_factory, logic);
 }
-
-
