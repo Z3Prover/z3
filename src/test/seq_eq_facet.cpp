@@ -23,6 +23,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_assumption_facet.h"
+#include "ast/seq/seq_ncontains_facet.h"
 #include "smt/seq_solver_facet.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
@@ -99,6 +100,83 @@ namespace {
         expr_ref lhs(u.str.mk_concat(X, a), m);
         expr_ref rhs(u.str.mk_concat(a, X), m);
         ENSURE(solve_eq(m, u, lhs, rhs) == stx::search_result::sat);
+    }
+
+    static void tst_model_completion_records_string_witness() {
+        ast_manager m;
+        reg_decl_plugins(m);
+        seq_util u(m);
+        arith_util a(m);
+        sort* s = u.str.mk_string_sort();
+        expr_ref X(m.mk_fresh_const("X", s), m);
+        expr_ref T(m.mk_fresh_const("T", s), m);
+        expr_ref K(m.mk_fresh_const("K", s), m);
+        expr_ref nth0(u.str.mk_nth_i(X, a.mk_int(0)), m);
+        expr_ref nth1(u.str.mk_nth_i(X, a.mk_int(1)), m);
+        expr_ref unit0(u.str.mk_unit(nth0), m);
+        expr_ref unit1(u.str.mk_unit(nth1), m);
+        expr* rhs_args[3] = { unit0, unit1, T };
+        expr_ref rhs(u.str.mk_concat(3, rhs_args, s), m);
+
+        trail_stack tr;
+        seq::eq_tree tree(tr, m.limit());
+        auto* root = tree.mk_root();
+        seq::sub_solver solver(m, a, tree.dep_mgr());
+        stx::facet_id eq_id = tree.register_facet<seq::eq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id deq_id = tree.register_facet<seq::deq_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id arith_id = tree.register_facet<seq::solver_facet>(*root, m, u, solver);
+        stx::facet_id nc_id = tree.register_facet<seq::ncontains_facet>(*root, m, u, tree.dep_mgr());
+        stx::facet_id assumption_id = tree.register_facet<seq::assumption_facet>(*root, m);
+
+        seq::null_ambient_context<seq::eq_tree::dep_tracker> ac(m, u, tr);
+        ac.set_eq_id(eq_id);
+        ac.set_deq_id(deq_id);
+        ac.set_arith_id(arith_id);
+        ac.set_ncontains_id(nc_id);
+        ac.set_assumption_id(assumption_id);
+        tree.set_ambient_context(&ac);
+
+        auto& ef = root->facet_as<seq::eq_facet>(eq_id);
+        auto& sf = root->facet_as<seq::solver_facet>(arith_id);
+        auto& nf = root->facet_as<seq::ncontains_facet>(nc_id);
+        auto& asf = root->facet_as<seq::assumption_facet>(assumption_id);
+        ef.add_equation(X, rhs);
+        sf.add_constraint(m.mk_eq(u.str.mk_length(X), a.mk_int(2)));
+        sf.add_constraint(m.mk_eq(u.str.mk_length(T), a.mk_int(0)));
+        expr_ref c0(u.str.mk_char('F'), m);
+        expr_ref c1(u.str.mk_char(9), m);
+        expr_ref e0(m.mk_eq(nth0, c0), m);
+        expr_ref e1(m.mk_eq(nth1, c1), m);
+        sf.add_constraint(e0);
+        sf.add_constraint(e1);
+        asf.add_assumption(e0, ac);
+        asf.add_assumption(e1, ac);
+        expr_ref comma(u.str.mk_string(zstring(",")), m);
+        expr_ref equals(u.str.mk_string(zstring("=")), m);
+        nf.add_ncontains(X, comma);
+        nf.add_ncontains(K, equals);
+
+        tree.add_propagation_plugin(alloc(seq::eq_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::arith_propagation, m, u));
+        tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, u, a));
+        tree.add_completion_plugin(alloc(seq::model_completion_split, m, u));
+
+        ENSURE(tree.solve() == stx::search_result::sat);
+        auto* snap = tree.sat_snapshot();
+        ENSURE(snap != nullptr);
+        auto const& assumptions = snap->facet_as<seq::assumption_facet>(assumption_id).assumptions();
+        unsigned expected_codes[2] = { 'F', 9 };
+        zstring expected(2, expected_codes);
+        bool found = false;
+        for (auto const& [assumption, dep] : assumptions) {
+            expr* lhs = nullptr, *rhs_value = nullptr;
+            zstring str;
+            if (m.is_eq(assumption, lhs, rhs_value) && lhs == X && u.str.is_string(rhs_value, str) && str == expected) {
+                found = true;
+                break;
+            }
+        }
+        ENSURE(found);
     }
 
     // Shared variable forced equal to two different constants.
@@ -516,6 +594,7 @@ void tst_seq_eq_facet() {
     tst_trivial_sat();
     tst_symbol_clash_unsat();
     tst_commute_sat();
+    tst_model_completion_records_string_witness();
     tst_branch_then_unsat();
     tst_depth_cutoff();
     tst_deq_trivial_sat();

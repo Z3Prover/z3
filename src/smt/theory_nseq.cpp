@@ -181,6 +181,7 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_split, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_peel_mem, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::deq_split, m, m_seq));
+        m_tree.add_completion_plugin(alloc(seq::model_completion_split, m, m_seq));
 
         m_tree.set_max_search_depth(100);
 

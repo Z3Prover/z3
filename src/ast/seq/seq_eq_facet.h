@@ -466,4 +466,34 @@ namespace seq {
         void reset_statistics() override { m_stats.reset(); }
     };
 
+    // Terminal model-completion step. It is invoked only after every
+    // ordinary split plugin has declined the leaf. Sequence terms with a
+    // finite value in the local model (or the empty default for unconstrained
+    // terms) are equated to that value as branch-local assumptions and
+    // substituted through all facets.
+    class model_completion_split : public eq_tree::split_plugin_i {
+        ast_manager& m;
+        seq_util&    u;
+        struct stats {
+            unsigned m_num_splits = 0;
+            void reset() { *this = stats(); }
+        };
+        stats m_stats;
+
+        class iterator : public eq_tree::split_iterator_i {
+            eq_tree::node& m_n;
+            bool m_pending = true;
+        public:
+            explicit iterator(eq_tree::node& n) : m_n(n) {}
+            bool next(eq_tree::edge& out) override;
+        };
+
+    public:
+        model_completion_split(ast_manager& m, seq_util& u) : m(m), u(u) {}
+        char const* name() const override { return "model-completion"; }
+        scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
+        void collect_statistics(::statistics& st) const override { st.update("seq-model-completion num splits", m_stats.m_num_splits); }
+        void reset_statistics() override { m_stats.reset(); }
+    };
+
 } // namespace seq

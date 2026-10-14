@@ -510,6 +510,7 @@ namespace stx {
         unsigned                              m_next_facet_id = 0;
         scoped_ptr_vector<propagation_plugin_i> m_prop_plugins;  // owned
         scoped_ptr_vector<split_plugin_i>       m_split_plugins; // owned
+        scoped_ptr_vector<split_plugin_i>       m_completion_plugins; // owned, tried only after ordinary splits are exhausted
         scoped_ptr<node>                      m_root;
         trail_stack&                            m_trail;
         reslimit&                               m_limit;
@@ -993,6 +994,21 @@ namespace stx {
         }
 
         bool extend_node(node& n, dfs_frame& frame, edge& out) {
+            auto try_completion = [&]() {
+                for (auto* sp : m_completion_plugins) {
+                    m_stats.m_split_counts[sp->name()]++;
+                    bool has_more = false;
+                    bool committed = false;
+                    scoped_push guard(*this);
+                    auto it = sp->split(n, 0, out, has_more, committed);
+                    if (committed) {
+                        guard.release();
+                        frame.m_iter = std::move(it);
+                        return true;
+                    }
+                }
+                return false;
+            };
             for (unsigned cost = 0; cost <= m_max_cost; ++cost) {
                 bool any_offer = false;
                 for (auto* sp : m_split_plugins) {
@@ -1014,9 +1030,9 @@ namespace stx {
                         any_offer = true;
                 }
                 if (!any_offer)
-                    return false;
+                    return try_completion();
             }
-            return false;
+            return try_completion();
         }
 
         bool advance_iter(split_iterator_i& iter, edge& out) {
@@ -1174,6 +1190,7 @@ namespace stx {
 
         void add_propagation_plugin(propagation_plugin_i* p) { m_prop_plugins.push_back(p); }
         void add_split_plugin(split_plugin_i* p) { m_split_plugins.push_back(p); }
+        void add_completion_plugin(split_plugin_i* p) { m_completion_plugins.push_back(p); }
 
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
         void set_max_cost(unsigned c) { m_max_cost = c; }
@@ -1223,6 +1240,8 @@ namespace stx {
                 p->collect_statistics(st);
             for (auto* sp : m_split_plugins)
                 sp->collect_statistics(st);
+            for (auto* sp : m_completion_plugins)
+                sp->collect_statistics(st);
         }
 
         // Reset both the engine's own stats struct and every registered
@@ -1232,6 +1251,8 @@ namespace stx {
             for (auto* p : m_prop_plugins)
                 p->reset_statistics();
             for (auto* sp : m_split_plugins)
+                sp->reset_statistics();
+            for (auto* sp : m_completion_plugins)
                 sp->reset_statistics();
         }
 

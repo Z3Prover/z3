@@ -43,6 +43,7 @@ namespace seq {
 
         ast_manager& m;
         vector<std::pair<expr_ref, dep_tracker_t>> m_assumptions;
+        bool m_model_completion_blocked = false;
 
         void cache_assumption(expr* a, dep_tracker_t dep) {
             m_assumptions.push_back({ expr_ref(a, m), dep });
@@ -66,11 +67,19 @@ namespace seq {
         }
 
         vector<std::pair<expr_ref, dep_tracker_t>> const& assumptions() const { return m_assumptions; }
+        bool model_completion_blocked() const { return m_model_completion_blocked; }
+        void block_model_completion() {
+            if (m_model_completion_blocked)
+                return;
+            m_trail.push(value_trail<bool>(m_model_completion_blocked));
+            m_model_completion_blocked = true;
+        }
 
         // -- stx::facet_i --
         facet_i* clone(trail_stack& trail) const override {
             assumption_facet* f = alloc(assumption_facet, trail, m);
             f->m_assumptions.append(m_assumptions);
+            f->m_model_completion_blocked = m_model_completion_blocked;
             return f;
         }
         bool is_satisfied() const override { return true; } // never blocks satisfiability on its own

@@ -181,6 +181,14 @@ namespace seq {
         return a.is_numeral((*md)(r), v);
     }
 
+    bool solver_facet::value(expr* e, expr_ref& v) const {
+        model_ref md = m_model;
+        if (!md && !m_solver.get_model(md))
+            return false;
+        v = (*md)(e);
+        return v.get() != nullptr;
+    }
+
     lbool solver_facet::implies(expr* c, eq_tree::dep_tracker* core) const {
         expr_ref pin(c, m);
         m_solver.push();

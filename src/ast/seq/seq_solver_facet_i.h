@@ -62,6 +62,8 @@ namespace seq {
         virtual lbool implies(expr* c, eq_tree::dep_tracker* core = nullptr) const = 0;
         // numeral value of `e` in the arithmetic model: the live one, or the one captured at a sat leaf
         virtual bool value(expr* e, rational& v) const = 0;
+        // General value of `e` in the same model, used by terminal model completion.
+        virtual bool value(expr* e, expr_ref& v) const = 0;
     };
 
 } // namespace seq

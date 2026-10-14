@@ -139,6 +139,7 @@ namespace seq {
         // Probe whether `c` is implied without permanently asserting it.
         lbool implies(expr* c, eq_tree::dep_tracker* core = nullptr) const override;
         bool value(expr* e, rational& v) const override;
+        bool value(expr* e, expr_ref& v) const override;
         std::ostream& display(std::ostream& out) const override;
     };
 

@@ -17,7 +17,11 @@ Author:
 
 --*/
 #include "ast/seq/seq_eq_facet.h"
+#include "ast/seq/seq_assumption_facet.h"
+#include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_solver_facet_i.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_pp.h"
 #include "ast/occurs.h"
 #include <algorithm>
@@ -1016,6 +1020,192 @@ namespace seq {
 
         out = eq_tree::edge("diseq split", m_dep, true, 0);
         return true;
+    }
+
+    // -- model_completion_split --
+
+    bool model_completion_split::iterator::next(eq_tree::edge& out) {
+        if (!m_pending)
+            return false;
+        m_pending = false;
+        get_ambient(m_n).assumption_facet_ref().block_model_completion();
+        out = eq_tree::edge("model-completion-fallback", nullptr, true, 0);
+        return true;
+    }
+
+    scoped_ptr<eq_tree::split_iterator_i> model_completion_split::split(
+        eq_tree::node& n, unsigned, eq_tree::edge& out, bool& has_more, bool& committed) {
+        has_more = false;
+        committed = false;
+        auto ac = get_ambient(n);
+        auto& asf = ac.assumption_facet_ref();
+        if (asf.model_completion_blocked())
+            return nullptr;
+
+        ptr_vector<expr> vars;
+        auto add_var = [&](expr* e) {
+            expr* ch = nullptr;
+            if (u.str.is_unit(e, ch)) {
+                if (!u.is_const_char(ch) && !vars.contains(e))
+                    vars.push_back(e);
+                return;
+            }
+            if (ac.is_var(e) && u.is_string(e->get_sort()) && !m.is_value(e) && !vars.contains(e))
+                vars.push_back(e);
+        };
+        for (auto const& eq : ac.eq_facet_ref().equations()) {
+            if (!eq.active())
+                continue;
+            for (expr* t : eq.m_lhs) add_var(t);
+            for (expr* t : eq.m_rhs) add_var(t);
+        }
+        for (auto const& dq : ac.deq_facet_ref().disequations()) {
+            if (!dq.active())
+                continue;
+            for (expr* t : dq.m_lhs) add_var(t);
+            for (expr* t : dq.m_rhs) add_var(t);
+        }
+        for (auto const& nc : ac.ncontains_facet_ref().ncontains()) {
+            if (!nc.active())
+                continue;
+            for (expr* t : nc.m_haystack) add_var(t);
+            for (expr* t : nc.m_needle) add_var(t);
+        }
+
+        struct candidate {
+            expr_ref var;
+            expr_ref value;
+            expr_ref_vector tokens;
+            candidate(ast_manager& m, expr* v, expr* val, expr_ref_vector const& ts) :
+                var(v, m), value(val, m), tokens(ts) {}
+        };
+        vector<candidate> candidates;
+        auto& sf = ac.solver_facet_ref();
+        constexpr unsigned max_completion_length = 256;
+        auto add_model_candidate = [&](expr* var, expr* preferred) {
+            expr_ref value(m);
+            zstring str;
+            if (preferred && u.str.is_string(preferred, str))
+                value = preferred;
+            else {
+                rational len;
+                expr_ref len_var(u.str.mk_length(var), m);
+                if (!sf.value(len_var, len)) {
+                    value = u.str.mk_empty(var->get_sort());
+                    expr_ref_vector tokens(m);
+                    u.str.get_concat_units(value, tokens);
+                    candidates.push_back(candidate(m, var, value, tokens));
+                    return true;
+                }
+                if (!len.is_unsigned() || len > rational(max_completion_length))
+                    return false;
+                unsigned n = len.get_unsigned();
+                svector<unsigned> chars;
+                svector<bool> fixed;
+                chars.resize(n, 0);
+                fixed.resize(n, false);
+                for (auto const& [a, dep] : asf.assumptions()) {
+                    expr* lhs = nullptr, *rhs = nullptr;
+                    if (!m.is_eq(a, lhs, rhs))
+                        continue;
+                    expr* s = nullptr;
+                    unsigned idx = 0, ch = 0;
+                    if (u.str.is_nth_i(lhs, s, idx) && s == var && idx < n && u.is_const_char(rhs, ch)) {
+                        chars[idx] = ch;
+                        fixed[idx] = true;
+                    }
+                    else if (u.str.is_nth_i(rhs, s, idx) && s == var && idx < n && u.is_const_char(lhs, ch)) {
+                        chars[idx] = ch;
+                        fixed[idx] = true;
+                    }
+                }
+                for (unsigned i = 0; i < n; ++i) {
+                    if (fixed[i])
+                        continue;
+                    expr_ref nth(u.str.mk_nth_i(var, sf.get_arith_util().mk_int(i)), m);
+                    expr_ref ch_value(m);
+                    unsigned ch = 0;
+                    if (!sf.value(nth, ch_value) || !u.is_const_char(ch_value, ch))
+                        return false;
+                    chars[i] = ch;
+                }
+                value = u.str.mk_string(zstring(chars.size(), chars.data()));
+            }
+            expr_ref_vector tokens(m);
+            u.str.get_concat_units(value, tokens);
+            candidates.push_back(candidate(m, var, value, tokens));
+            return true;
+        };
+
+        // First value user-level string constants directly from the local
+        // model. Dependent terms such as tail(s,k) are rewritten from these
+        // values in the second pass, rather than independently guessed.
+        expr_substitution subst(m);
+        for (expr* var : vars) {
+            if (!is_uninterp_const(var) || !add_model_candidate(var, nullptr))
+                continue;
+            subst.insert(var, candidates.back().value);
+        }
+
+        scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m, false);
+        replacer->set_substitution(&subst);
+        th_rewriter rw(m);
+        for (expr* var : vars) {
+            if (is_uninterp_const(var))
+                continue;
+            expr* ch = nullptr;
+            if (u.str.is_unit(var, ch)) {
+                expr_ref ch_value(m);
+                unsigned code = 0;
+                bool found = false;
+                for (auto const& [a, dep] : asf.assumptions()) {
+                    expr* lhs = nullptr, *rhs = nullptr;
+                    if (!m.is_eq(a, lhs, rhs))
+                        continue;
+                    if (lhs == ch && u.is_const_char(rhs, code)) {
+                        ch_value = rhs;
+                        found = true;
+                        break;
+                    }
+                    if (rhs == ch && u.is_const_char(lhs, code)) {
+                        ch_value = lhs;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    found = sf.value(ch, ch_value) && u.is_const_char(ch_value, code);
+                if (found) {
+                    expr_ref value(u.str.mk_string(zstring(1, &code)), m);
+                    add_model_candidate(var, value);
+                    continue;
+                }
+            }
+            expr_ref replaced(m), reduced(m);
+            (*replacer)(var, replaced);
+            rw(replaced, reduced);
+            add_model_candidate(var, reduced);
+        }
+        if (candidates.empty())
+            return nullptr;
+
+        // A model candidate is attempted at most once per path. If it does
+        // not close the leaf, the explicit fallback preserves unknown
+        // instead of repeatedly proposing equivalent assumptions.
+        asf.block_model_completion();
+        eq_tree::dep_tracker joined = nullptr;
+        for (auto const& c : candidates) {
+            expr_ref assumption(m.mk_eq(c.var, c.value), m);
+            eq_tree::dep_tracker dep = asf.add_assumption(assumption, ac.context());
+            joined = ac.eq_facet_ref().dm().mk_join(joined, dep);
+            broadcast_subst(n, c.var, c.tokens, dep);
+        }
+
+        out = eq_tree::edge("model-completion", joined, true, 0);
+        has_more = true;
+        committed = true;
+        m_stats.m_num_splits++;
+        return alloc(iterator, n);
     }
 
 } // namespace seq

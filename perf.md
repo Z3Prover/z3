@@ -166,27 +166,35 @@ It does not by itself recover SAT. In a sample of 12 master-easy SAT cases,
 several five-second timeouts became 2-3 second unknowns, but none reached a
 complete model.
 
-A model-guided split was also prototyped. It read sequence lengths and
-`nth_i` values from the stable arithmetic model, tried the corresponding
-concrete string, and used `s != candidate` as an exhaustive fallback.
-The eager version caused severe UNSAT-search regressions. Restricting it to
-fully valued negative-containment haystacks and one candidate per variable
-avoided the regression, but the representative still returned unknown and
-became slightly slower (about 2.62s versus 2.47s). The heuristic was therefore
-removed rather than retained as speculative overhead.
+A first model-guided split prototype read sequence lengths and `nth_i`
+values, guessed a concrete string, and used `s != candidate` as an exhaustive
+fallback. It did not close the representative and caused search regressions,
+so candidate enumeration was removed.
 
-The next required simulation of legacy `seq` is a SAT-completion phase that
-validates a complete candidate model rather than enumerating candidates in
-the symbolic search:
+The replacement is a terminal model-completion step that runs only after
+ordinary propagation and splitting are exhausted. It assigns finite-valued
+sequence tokens their leaf-model values, records each sequence equality in
+the assumption facet, and substitutes the values through every facet. If the
+candidate closes the leaf, the search returns SAT and `theory_nseq` promotes
+the equalities to SMT assumptions before accepting the model. If completion
+fails, a branch-local fallback preserves `unknown` rather than deriving
+UNSAT.
 
-- construct sequence values from fixed `nth_i` characters and arithmetic
-  lengths;
-- erase or validate zero-length residual tails only after the arithmetic
-  model is stable;
-- validate pending negative-containment constraints against the candidate
-  value instead of requiring complete symbolic unrolling;
-- accept the leaf when the constructed witness satisfies all original
-  constraints, or learn a blocking conflict otherwise.
+On the representative, this recovers the expected witness
+`value2 = "F\u{9}"` and changes the result from unknown in about 2.44s to
+model-validated SAT in about 0.05s. The representative UNSAT case remains
+UNSAT in about 2.29s. On the 12-case master-easy SAT sample, 10 cases now
+return validated SAT in 0.05-0.17s; one remains unknown and one times out.
+
+Further SAT-completion work should:
+
+- diagnose the one remaining unknown and one timeout in the 12-case sample;
+- extend completion beyond bounded strings when large or non-string
+  sequences have compact model values;
+- materialize values required by residual membership or lexicographic
+  obligations, not only equation/disequality/negative-containment tokens;
+- reduce repeated outer final checks when several model assumptions can be
+  asserted together.
 
 #### 2. Kaluza SAT unknowns: empty-sided disequality completion
 
