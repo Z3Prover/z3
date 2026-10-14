@@ -94,25 +94,45 @@ proof node in any sampled file.
 
 ## What remains open (round 2 candidates, unchanged from the scope doc)
 
+**Correction (see "Update: round 2 reclassification" below): items 1
+and 2 below are in fact already done.** `Z3ResolutionProofTheory.fst`
+already implements `RUnitRes`/`RAndElim`/`RNotOrElim` as first-class
+`rproof` constructors, and `Hyp`/`RLemma` + `hyps_closed`/
+`hyps_closed_units` bookkeeping, per `RESOLUTION_CHECKER_SCOPE.md`'s
+"Round 2 candidates (status: done)" section — this was simply not yet
+reflected in `tools/proof_rule_coverage.py`'s Tier 1/Tier 2
+classification (which only tallies rule *names*, not whether an actual
+`rproof` term was constructed and checked). That classification has
+now been updated accordingly (`hypothesis`/`lemma` moved Tier 2→Tier
+1). Only item 3 below remains genuinely open.
+
 Coverage being 100% at the *rule-name* classification level does not
 mean the whole proof is independently re-derived — it means every node
 is in Tier 1 (mechanized) or Tier 2 (explicitly, transparently trusted,
 matching Z3's own trust boundary). The highest-value next steps,
 per `RESOLUTION_CHECKER_SCOPE.md`'s "Round 2 candidates":
 
-1. **Promote `unit_resolve`/`and_elim`/`not_or_elim` to first-class
-   `rproof` constructors** so a single `rproof` term can represent an
-   entire resolution refutation end-to-end (not just the propositional
-   glue around one equational-rewrite island) — directly enables
-   replaying the Tier-1-classified 77–93% of real proof nodes above
-   through the actual checker rather than only classifying their rule
-   names.
-2. **`Hyp`/`Discharge`/`hyps_closed` hypothesis-scoping bookkeeping**
-   for `PR_HYPOTHESIS`/`PR_LEMMA` — closes the one gap
-   `proof_checker.cpp` itself leaves as a comment ("TBD all branches
-   with hypotheses must be closed by a later lemma"), and would let a
-   `hypothesis`/`lemma` pair currently sitting in Tier 2 move to Tier 1
-   when its hypothesis is in fact locally discharged.
+1. ~~**Promote `unit_resolve`/`and_elim`/`not_or_elim` to first-class
+   `rproof` constructors**~~ — **done**: `RUnitRes`/`RAndElim`/
+   `RNotOrElim` already exist in `Z3ResolutionProofTheory.fst`, so a
+   single `rproof` term can represent an entire resolution refutation
+   end-to-end (not just the propositional glue around one
+   equational-rewrite island). What is *not* yet done is a
+   JSON schema + Python extraction pipeline that walks a real Z3
+   proof's entire DAG and actually *constructs* such an `rproof` term
+   (mirroring `Z3ProofJson.fst`/`extract_z3_proof.py` for the
+   equational layer) — `proof_rule_coverage.py` still only classifies
+   rule *names*, it does not build and check real `rproof` terms. That
+   pipeline remains the concrete next deliverable.
+2. ~~**`Hyp`/`Discharge`/`hyps_closed` hypothesis-scoping bookkeeping**~~
+   — **done**: `Hyp`/`RLemma` + `hyps_closed`/`hyps_closed_units`
+   already exist and are wired through `lemma_rproof_sound_hyps`,
+   closing the exact gap `proof_checker.cpp` itself leaves as a
+   comment ("TBD all branches with hypotheses must be closed by a
+   later lemma"). `PR_HYPOTHESIS` only discharges when the assumed
+   formula is a member of the ambient hypothesis list, and `PR_LEMMA`
+   requires `pf_false` to close `False` under exactly the single local
+   hypothesis `(not fact_)` — both now classified Tier 1.
 3. Narrowing Tier 2 further for `"array"`-tagged `th-lemma`/`def-axiom`
    nodes specifically (since QF_AX is the set where Tier 2 share is
    highest) by matching their conclusion shape against the array
@@ -171,4 +191,66 @@ The round-2 candidates above remain open and unchanged by this re-run;
 it reconfirms the *coverage* claim (no unmodeled rules) rather than
 addressing the *depth* gap (Tier 2 nodes are trusted, not
 independently re-derived).
+
+## Update: round 2 reclassification + re-run on 100 files/set
+
+`RESOLUTION_CHECKER_SCOPE.md` records that Round 2 (promoting
+`unit_resolve`/`and_elim`/`not_or_elim` to first-class `rproof`
+constructors, plus `Hyp`/`RLemma` + `hyps_closed`/`hyps_closed_units`
+hypothesis-scoping bookkeeping) was already fully implemented and
+verified in `Z3ResolutionProofTheory.fst` in an earlier session, but
+`tools/proof_rule_coverage.py`'s Tier 1/Tier 2 classification had not
+been updated to reflect it: `"hypothesis"` and `"lemma"` were still
+listed in `TIER2` even though `Hyp`/`RLemma` now mechanically check
+them (an assumed hypothesis must actually be a member of the ambient
+hypothesis list; a `lemma` node's `pf_false` must close `False` under
+exactly its own local `(not fact_)` hypothesis — neither is a silently
+trusted leaf any more). `proof_rule_coverage.py` has been updated to
+move both into `TIER1`, and the 100-file-per-set evaluation was rerun:
+
+### QF_AX (100 files sampled, 57 produced an `unsat` proof)
+
+| | nodes | share |
+|---|---:|---:|
+| Tier 1 | 365,064 | 84.5% |
+| Tier 2 | 67,202 | 15.5% |
+| Unmodeled | 0 | 0.0% |
+
+**File-level coverage: 57 / 57 (100%)**
+
+### QF_UF (100 files sampled, 52 produced an `unsat` proof)
+
+| | nodes | share |
+|---|---:|---:|
+| Tier 1 | 5,025,347 | 94.2% |
+| Tier 2 | 311,423 | 5.8% |
+| Unmodeled | 0 | 0.0% |
+
+**File-level coverage: 52 / 52 (100%)**
+
+Tier 1 share rises on both sets purely from this reclassification
+(QF_AX 78.3%→84.5%, QF_UF 92.1%→94.2%), with the same file set and the
+same zero-unmodeled-nodes result as before — `hypothesis`/`lemma`
+nodes are common enough in real QF_AX/QF_UF proofs that this is a
+meaningful, not cosmetic, shift. **What this does and does not mean:**
+it does not mean an actual `rproof` term has been built and checked
+for any of these 109 real benchmark proofs — `proof_rule_coverage.py`
+still only classifies rule *names* via the raw Z3 proof-DAG walk, it
+does not invoke `Z3ResolutionProofTheory.fst`'s decoder/checker on
+real proof data (no JSON schema or extraction pipeline for `rproof`
+exists yet, unlike the equational layer's `Z3ProofJson.fst`/
+`extract_z3_proof.py`). That remains the concrete next deliverable for
+closing the gap between "every node's rule name has *some* mechanized
+counterpart" and "this specific proof was fully, mechanically
+re-checked end-to-end."
+
+**Bottom line on "fully checked vs. requires trusted rules" for these
+109 real `unsat` proofs**: every one of them still requires Tier 2
+(`Trusted`) leaves — `th-lemma`/`def-axiom`/`quant-inst`/`hyper-res`/
+`asserted`/… remain in Tier 2 by design (matching Z3's own
+`proof_checker.cpp` trust boundary), and no file in either sample has
+zero Tier 2 nodes. None of the 109 proofs are "fully checked" in the
+strict zero-trusted-leaf sense; all of them are "Tier 1 ∪ Tier 2
+complete" (no rule name outside this project's modeled vocabulary),
+with Tier 1 now covering 84.5%/94.2% of nodes respectively.
 

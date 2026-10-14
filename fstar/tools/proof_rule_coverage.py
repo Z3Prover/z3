@@ -9,12 +9,20 @@ proof-rule-name occurrence into:
                calculus: Refl/Sym/Trans/Congr) or
                Z3ResolutionProofTheory.fst (resolution/propositional
                layer: unit-resolution, and-elim, not-or-elim, mp,
-               commutativity, iff-true/iff-false, array-ext).
+               commutativity, iff-true/iff-false, array-ext,
+               hypothesis, lemma -- the last two since "Round 2": see
+               `Hyp`/`RLemma` + `hyps_closed`/`hyps_closed_units` in
+               Z3ResolutionProofTheory.fst, confirmed already fully
+               implemented and verified per
+               RESOLUTION_CHECKER_SCOPE.md's "Round 2 candidates
+               (status: done)" section).
   Tier 2     - modeled as an explicit `Trusted` leaf, matching the
                exact boundary Z3's own src/ast/proofs/proof_checker.cpp
                itself trusts without full verification (th-lemma for
-               non-arith theories, def-axiom, hypothesis/lemma
-               scoping, quant-inst, hyper-res, asserted input leaves).
+               non-arith theories, def-axiom, quant-inst, hyper-res,
+               asserted input leaves -- "asserted" stays Tier 2 because
+               it is the user's own top-level input assumption, not a
+               derived step with a soundness obligation to recheck).
   Unmodeled  - rule names this project's F* checker has no
                representation for at all yet.
 
@@ -32,12 +40,21 @@ TIER1 = {
     "reflexivity", "symm", "trans", "monotonicity",
     "unit-resolution", "and-elim", "not-or-elim", "mp", "mp~",
     "commutativity", "iff-true", "iff-false", "array-ext",
+    # Round 2 (`Hyp`/`RLemma` constructors + `hyps_closed`/
+    # `hyps_closed_units` bookkeeping in Z3ResolutionProofTheory.fst):
+    # `PR_HYPOTHESIS` only discharges when the assumed formula is
+    # actually a member of the ambient hypothesis list threaded
+    # through `lemma_rproof_sound_hyps`, and `PR_LEMMA` is a genuine
+    # classical proof-by-contradiction (`pf_false` must close `False`
+    # under exactly the single local hypothesis `(not fact_)`) -- both
+    # are mechanically checked, not silently trusted.
+    "hypothesis", "lemma",
 }
 # `trans*` bundles an un-reconstructed cycle/XOR-vertex argument
 # (proof_checker.cpp's own PR_TRANSITIVITY_STAR handling) -- not yet
 # mechanized, so it stays out of TIER1 even though plain `trans` is.
 TIER2 = {
-    "th-lemma", "def-axiom", "hypothesis", "lemma", "quant-inst",
+    "th-lemma", "def-axiom", "quant-inst",
     "hyper-res", "asserted", "trans*", "rewrite", "rewrite*",
     "quant-intro", "distributivity", "nnf-pos", "nnf-neg", "skolemize",
     "pull-quant", "push-quant", "elim-unused", "der", "apply-def",
