@@ -39,8 +39,10 @@ Author:
 #include <functional>
 
 namespace ff {
+    struct certificate;
 
     struct f4_config {
+        unsigned max_certificate_nodes = 100000; // bounded optional PAC derivation DAG
         unsigned max_quotient_dim = 1024;    // largest quotient explored by model construction
         unsigned max_basis = 50000;          // basis elements before giving up
         unsigned max_pairs_per_step = 2048;  // critical pairs per F4 matrix
@@ -66,7 +68,10 @@ namespace ff {
     lbool f4_solve(rational const &p, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                    unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
                    f4_config const &cfg, f4_stats &stats, std::function<void(unsigned)> const &charge,
-                   std::vector<polynomial> *reduced_basis = nullptr);
+                   std::vector<polynomial> *reduced_basis = nullptr, certificate *proof = nullptr);
 
+    // Proof mode accepts equations only, derives 1 by ideal operations and
+    // skips model/root/field-closure reasoning. It replaces proof only on
+    // success; unknown or exhaustion never exports partial evidence.
     bool f4_supported(rational const &p);
 }  // namespace ff

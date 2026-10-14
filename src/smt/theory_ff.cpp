@@ -546,6 +546,12 @@ namespace smt {
             catch (ff::exhausted const &) {
                 // A local algebra limit shouldn't hide a conflict in another field.
                 if (m.limit().is_canceled()) return FC_GIVEUP;
+                IF_VERBOSE(2, {
+                    verbose_stream() << "(ff.native-exhausted)\n";
+                    ::statistics st;
+                    p.collect_statistics(st);
+                    st.display_smt2(verbose_stream());
+                });
                 bv_fields.insert(s);
                 ++fallbacks;
             }
@@ -565,6 +571,41 @@ namespace smt {
         if (!m.inc()) return FC_GIVEUP;
         if (!bv_fields.empty() && ctx.get_fparams().m_bv_mode == bv_solver_id::BS_NO_BV)
             return FC_GIVEUP;
+        unsigned limit = bv_fields.empty() ? 0 : smt_params_helper(ctx.get_params()).ff_bv_fallback_limit();
+        if (limit) {
+            // Estimate the exact encoding before building it: each relevant term of a
+            // fallback field needs a bit-vector of the field's width, and a product of
+            // two non-constant terms a width x width multiplier. Large field
+            // encodings may exceed practical memory budgets; decline them when
+            // requested instead of constructing an encoding above the limit.
+            uint64_t cost = 0;
+            for (unsigned v = 0; v < get_num_vars(); ++v) {
+                enode *n = get_enode(v);
+                if (!bv_fields.contains(n->get_sort()) || !ctx.is_relevant(n))
+                    continue;
+                uint64_t w = ff.modulus(n->get_sort()).get_num_bits();
+                expr *e = n->get_expr();
+                unsigned symbolic = 0;
+                if (is_app_of(e, ff.get_fid(), OP_FF_MUL))
+                    for (expr *arg : *to_app(e))
+                        symbolic += !ff.is_numeral(arg);
+                // Saturate at limit + 1 before multiplying. This is only an
+                // admission heuristic: exceeding it declines fallback, never
+                // establishes a field fact. Keep accounting safe even for very
+                // wide sorts or high-arity products.
+                uint64_t remaining = uint64_t(limit) - cost;
+                if (w > remaining ||
+                    (symbolic >= 2 && (w > remaining / w ||
+                                      symbolic - 1 > remaining / (w * w)))) {
+                    cost = uint64_t(limit) + 1;
+                    break;
+                }
+                cost += symbolic >= 2 ? w * w * (symbolic - 1) : w;
+            }
+            IF_VERBOSE(2, verbose_stream() << "(ff.bv-fallback :cost " << cost << " :limit " << limit << ")\n");
+            if (cost > limit)
+                return FC_GIVEUP;
+        }
         unsigned before = axioms;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);

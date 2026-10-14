@@ -18,6 +18,7 @@ Author:
 #include "math/ff/ff_polynomial.h"
 #include "math/ff/ff_tiny.h"
 #include "math/ff/ff_f4.h"
+#include "math/ff/ff_certificate.h"
 #include <algorithm>
 #include <iterator>
 #include <set>
@@ -525,12 +526,12 @@ namespace ff {
         if (++work > max_work) {
             ++m_step_exhaustions;
             ++m_local_work_exhaustions;
-            throw exhausted();
+            throw exhausted{"polynomial-work"};
         }
         if (!limit.inc()) {
             ++m_step_exhaustions;
             ++m_shared_limit_exhaustions;
-            throw exhausted();
+            throw exhausted{"canceled"};
         }
     }
     rational engine::coefficient_residue(rational const &a) {
@@ -555,6 +556,7 @@ namespace ff {
         rational value = coefficient_residue(c);
         if (value.is_zero())
             return;
+        f.derivation = ~0u;
         auto it = f.find(mon);
         if (it == f.end())
             f.emplace(mon, value);
@@ -573,7 +575,7 @@ namespace ff {
             m_polynomial_terms_exhaustions += f.size() > max_terms;
             m_monomial_degree_exhaustions += mon.size() > 1024;
             ++m_term_exhaustions;
-            throw exhausted();
+            throw exhausted{f.size() > max_terms ? "polynomial-terms" : "monomial-degree"};
         }
     }
     polynomial engine::constant(rational const &c) {
@@ -586,12 +588,25 @@ namespace ff {
         add_term(f, {v}, rational(1));
         return f;
     }
+    unsigned engine::proof_multiply(unsigned id, rational const &c, monomial const &mon) {
+        return m_proof && id != ~0u ? m_proof->multiply(id, mod(c, p), mon) : ~0u;
+    }
+    unsigned engine::proof_add(unsigned a, unsigned b) {
+        return m_proof && a != ~0u && b != ~0u ? m_proof->add(a, b) : ~0u;
+    }
     polynomial engine::add(polynomial a, polynomial const &b, rational const &c) {
+        unsigned derivation = ~0u;
+        if (m_proof) {
+            if (b.empty() || mod(c, p).is_zero()) derivation = a.derivation;
+            else if (a.empty()) derivation = proof_multiply(b.derivation, c, {});
+            else derivation = proof_add(a.derivation, proof_multiply(b.derivation, c, {}));
+        }
         a.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
         a.sugar = std::max(a.sugar, b.sugar);
         rational scalar = small_coefficients ? coefficient_residue(c) : c;
         for (auto const &[mon, coeff] : b)
             add_term(a, mon, coefficient_product(coeff, scalar));
+        a.derivation = derivation;
         return a;
     }
     polynomial engine::scale(polynomial a, rational const &c) {
@@ -601,6 +616,7 @@ namespace ff {
         rational scalar = small_coefficients ? coefficient_residue(c) : c;
         for (auto const &[mon, coeff] : a)
             add_term(out, mon, coefficient_product(coeff, scalar));
+        out.derivation = proof_multiply(a.derivation, c, {});
         return out;
     }
     polynomial engine::mul(polynomial const &a, polynomial const &b) {
@@ -616,6 +632,15 @@ namespace ff {
                 std::merge(ma.begin(), ma.end(), mb.begin(), mb.end(), std::back_inserter(mon));
                 add_term(out, mon, coefficient_product(ca, cb));
             }
+        if (m_proof && (a.derivation != ~0u || b.derivation != ~0u)) {
+            auto const &proved = a.derivation != ~0u ? a : b;
+            auto const &factor = a.derivation != ~0u ? b : a;
+            for (auto const &[mon, c] : factor) {
+                unsigned id = proof_multiply(proved.derivation, c, mon);
+                out.derivation = out.derivation == ~0u ? id : proof_add(out.derivation, id);
+            }
+            if (factor.empty()) out.derivation = proof_multiply(proved.derivation, rational(0), {});
+        }
         return out;
     }
     rational engine::inverse(rational a) {
@@ -696,6 +721,16 @@ namespace ff {
         polynomial rem;
         rem.dependencies = f.dependencies;
         rem.sugar = f.sugar;
+        unsigned derivation = f.derivation;
+        auto *trace = m_proof;
+        // Moving terms between accumulators is bookkeeping, not addition of
+        // zero equations. Record only exact reductions of remainder + f.
+        flet<polynomial_observer*> suspend(m_proof, nullptr);
+        auto record_reduction = [&](polynomial const &b, rational const &c, monomial const &q) {
+            if (!trace) return;
+            derivation = derivation == ~0u || b.derivation == ~0u ? ~0u :
+                trace->add(derivation, trace->multiply(b.derivation, mod(c, p), q));
+        };
         std::vector<uint64_t> masks;
         if (div_masks)
             for (auto const &b : bs) masks.push_back(b.empty() ? 0 : support_mask(b.begin()->first));
@@ -752,6 +787,7 @@ namespace ff {
                 rem.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
                 rem.sugar = std::max(rem.sugar, b.sugar + static_cast<unsigned>(q.size()));
                 rational factor = coefficient_residue(-coeff * inverse(b.begin()->second));
+                record_reduction(b, factor, q);
                 polynomial tail;
                 // The leading term has already been removed. Add only the
                 // negative multiple of the tail: exactly the same reduction.
@@ -762,6 +798,7 @@ namespace ff {
                 }
                 put(std::move(tail));
             }
+            rem.derivation = derivation;
             return rem;
         }
         while (!f.empty()) {
@@ -777,6 +814,9 @@ namespace ff {
                 auto const &b = bs[j];
                 rem.dependencies.insert(b.dependencies.begin(), b.dependencies.end());
                 rem.sugar = std::max(rem.sugar, b.sugar + static_cast<unsigned>(q.size()));
+                // The proof denotes remainder + active accumulator in all
+                // storage variants, including fused updates and geobuckets.
+                if (trace) record_reduction(b, -coeff * inverse(b.begin()->second), q);
                 if (fused_reduction) {
                     ++m_fused_reductions;
                     tick(); // Formation of the scalar monomial multiplier.
@@ -800,6 +840,7 @@ namespace ff {
                 }
             }
         }
+        rem.derivation = derivation;
         return rem;
     }
     std::vector<polynomial> engine::batch_reduce(std::vector<polynomial> const &rows,
@@ -958,6 +999,7 @@ namespace ff {
                         if (bounded_symbolic) charge_term(product);
                         add_term(row, product, coefficient);
                     }
+                    row.derivation = proof_multiply(b.derivation, rational(1), factor);
                     discover(row);
                     reducers.push_back(std::move(row));
                 }
@@ -1000,6 +1042,7 @@ namespace ff {
                 std::vector<std::pair<unsigned, uint64_t>> coefficients;
                 std::set<unsigned> dependencies;
                 unsigned sugar = 0;
+                unsigned derivation = ~0u;
             };
             std::map<unsigned, packed_row> pivots;
             std::vector<polynomial> out;
@@ -1008,6 +1051,7 @@ namespace ff {
                 ++m_matrix_rows;
                 packed_row row;
                 row.dependencies = f.dependencies;
+                row.derivation = factor ? proof_multiply(f.derivation, rational(1), *factor) : f.derivation;
                 row.sugar = f.sugar + (factor ? static_cast<unsigned>(factor->size()) : 0);
                 for (auto const &[mon, c] : f) row.coefficients.emplace_back(column_index(mon, factor), c.get_uint64());
                 m_peak_matrix_row_terms = std::max(m_peak_matrix_row_terms, row.coefficients.size());
@@ -1019,6 +1063,8 @@ namespace ff {
                     auto const &pivot = it->second;
                     row.dependencies.insert(pivot.dependencies.begin(), pivot.dependencies.end());
                     row.sugar = std::max(row.sugar, pivot.sugar);
+                    if (m_proof) row.derivation = proof_add(row.derivation,
+                        proof_multiply(pivot.derivation, -rational(factor), {}));
                     std::vector<std::pair<unsigned, uint64_t>> next;
                     next.reserve(row.coefficients.size() + pivot.coefficients.size());
                     unsigned i = 0, j = 0;
@@ -1046,11 +1092,13 @@ namespace ff {
                 if (row.coefficients.empty()) return;
                 uint64_t inv = inverse(rational(row.coefficients.front().second)).get_uint64();
                 for (auto &[column, c] : row.coefficients) { tick(); c = c * inv % prime; }
+                row.derivation = proof_multiply(row.derivation, rational(inv), {});
                 if (emit) {
                     polynomial f;
                     f.dependencies = row.dependencies;
                     f.sugar = row.sugar;
                     for (auto const &[column, c] : row.coefficients) add_term(f, monomials[column], rational(c));
+                    f.derivation = row.derivation;
                     out.push_back(std::move(f));
                 }
                 // Bound allocated row capacity, not just live terms. A packed
@@ -1075,6 +1123,7 @@ namespace ff {
             std::map<unsigned, uint64_t> coefficients;
             std::set<unsigned> dependencies;
             unsigned sugar = 0;
+            unsigned derivation = ~0u;
         };
         std::map<unsigned, sparse_row> pivots;
         std::vector<polynomial> out;
@@ -1083,6 +1132,7 @@ namespace ff {
             ++m_matrix_rows;
             sparse_row row;
             row.dependencies = f.dependencies;
+            row.derivation = factor ? proof_multiply(f.derivation, rational(1), *factor) : f.derivation;
             row.sugar = f.sugar + (factor ? static_cast<unsigned>(factor->size()) : 0);
             for (auto const &[mon, coefficient] : f)
                 row.coefficients.emplace(column_index(mon, factor), coefficient.get_uint64());
@@ -1096,6 +1146,8 @@ namespace ff {
                 auto const &pivot = it->second;
                 row.dependencies.insert(pivot.dependencies.begin(), pivot.dependencies.end());
                 row.sugar = std::max(row.sugar, pivot.sugar);
+                if (m_proof) row.derivation = proof_add(row.derivation,
+                    proof_multiply(pivot.derivation, -rational(factor), {}));
                 for (auto const &[c, value] : pivot.coefficients) {
                     tick();
                     // Both operands are <p<2^32, so their product fits uint64.
@@ -1123,15 +1175,17 @@ namespace ff {
                 tick();
                 value = value * inv % prime;
             }
+            row.derivation = proof_multiply(row.derivation, rational(inv), {});
             // Row addition and nonzero scaling preserve the ideal generated
-            // together with the retained old basis. Track exactly the rows used
-            // in each reduction; certificates can record their multipliers in v2.
+            // together with the retained old basis. Proof handles record the
+            // exact pivot multiples and normalization in both row layouts.
             if (emit) {
                 polynomial result;
                 result.dependencies = row.dependencies;
                 result.sugar = row.sugar;
                 for (auto const &[column, value] : row.coefficients)
                     add_term(result, monomials[column], rational(value));
+                result.derivation = row.derivation;
                 out.push_back(std::move(result));
             }
             // The existing tree-row budget counts coefficient and premise
@@ -1157,6 +1211,9 @@ namespace ff {
     void engine::basis(std::vector<polynomial> &eqs) {
         scoped_work accounting(*this, pair_work);
         ++m_basis_calls;
+        // A cached dependency core is not a cached derivation. Until cache
+        // entries own replayable evidence, proof mode must reject that path.
+        if (m_proof && memo) throw exhausted();
         std::vector<polynomial> cache_input;
         auto cacheable = [](std::vector<polynomial> const &polys) {
             size_t terms = 0, storage = 0;
@@ -1565,12 +1622,16 @@ namespace ff {
         throw exhausted();
     }
 
-    lbool engine::solve_core(std::vector<polynomial> eqs, std::vector<polynomial> neqs, std::vector<rational> &values,
-                             unsigned depth) {
-        if (depth > 32)
-            return l_undef;
-        if (linear_split && depth == 0) split_consequences(eqs);
-        std::vector<std::pair<unsigned, polynomial>> defs;
+    lbool engine::eliminate(std::vector<polynomial> &eqs, std::vector<polynomial> &neqs,
+                             std::vector<std::pair<unsigned, polynomial>> &defs,
+                             elimination_observer *observer) {
+        // Disequalities require witness equations in the certificate caller.
+        // Never run an unrecorded disequality substitution in tracing mode.
+        if (observer && !neqs.empty()) return l_undef;
+        // The observer records a complete substitution identity. Internal
+        // definition construction and accumulator updates are not independent
+        // equations equal to zero and must not receive arithmetic proof IDs.
+        flet<polynomial_observer*> suspend(m_proof, nullptr);
         // Sparse occurrence indices avoid rescanning every circuit equation after
         // each wire elimination. Requeue only constraints whose polynomial changed.
         using uses = std::map<unsigned, std::set<unsigned>>;
@@ -1685,6 +1746,8 @@ namespace ff {
                                 if (grows(neqs[j])) { costly = true; break; }
                         if (costly) { ++m_deferred_eliminations; continue; }
                     }
+                    // Keep the coefficient before clearing its owning row.
+                    rational pivot = coeff;
                     defs.emplace_back(v, def);
                     ++m_eliminations;
                     index(eq_uses, f, i, false);
@@ -1692,7 +1755,9 @@ namespace ff {
                     auto affected = eq_uses[v];
                     for (unsigned j : affected) {
                         index(eq_uses, eqs[j], j, false);
+                        unsigned proof = observer ? observer->substitution(j, i, eqs[j], v, def, pivot) : ~0u;
                         eqs[j] = substitute(eqs[j], v, def);
+                        eqs[j].derivation = proof;
                         index(eq_uses, eqs[j], j, true);
                         pending.emplace(eqs[j].size(), j, ++revision[j]);
                     }
@@ -1714,6 +1779,7 @@ namespace ff {
             // new facts arise; never infer digit equality without Boolean domains
             // and an interval smaller than the field. The original tactic did this
             // only before elimination, missing later circuit layers.
+            if (observer) break;
             unsigned first = eqs.size();
             if (!bit_propagation || !propagate_bits(eqs))
                 break;
@@ -1722,6 +1788,24 @@ namespace ff {
                 index(eq_uses, eqs[i], i, true);
                 pending.emplace(eqs[i].size(), i, 0);
             }
+        }
+        return l_undef;
+    }
+
+    lbool engine::solve_core(std::vector<polynomial> eqs, std::vector<polynomial> neqs, std::vector<rational> &values,
+                             unsigned depth) {
+        if (depth > 32)
+            return l_undef;
+        // Until branch hypotheses and split-consequence lemmas are recorded,
+        // proof mode must not enter those inference paths.
+        if (m_proof && (depth != 0 || linear_split || !neqs.empty() || !m_elimination_proof)) return l_undef;
+        if (linear_split && depth == 0) split_consequences(eqs);
+        std::vector<std::pair<unsigned, polynomial>> defs;
+        if (eliminate(eqs, neqs, defs, m_elimination_proof) == l_false) {
+            if (!m_proof) return l_false;
+            for (auto const &f : eqs)
+                if (f.size() == 1 && f.begin()->first.empty() && m_proof->contradiction(f)) return l_false;
+            return l_undef;
         }
         // 0=0 is true, but a disequality simplified to 0!=0 is a conflict.
         std::erase_if(eqs, [](auto const &f) { return f.empty(); });
@@ -1737,6 +1821,7 @@ namespace ff {
                 values[i->first] = evaluate(i->second, values);
         };
         if (eqs.empty()) {
+            if (m_proof) return l_undef;
             // A verified witness is sufficient; failed sampling never means UNSAT.
             for (unsigned trial = 0; trial < 32; ++trial) {
                 for (auto &v : values)
@@ -1754,7 +1839,7 @@ namespace ff {
             }
             return l_undef;
         }
-        if ((sparse_enabled || model_search) && depth == 0) {
+        if (!m_proof && (sparse_enabled || model_search) && depth == 0) {
             std::set<unsigned> active;
             for (auto const &f : eqs)
                 for (auto const &[mon, coefficient] : f)
@@ -1822,7 +1907,7 @@ namespace ff {
                 }
             }
         }
-        if (tiny_search && depth == 0 && p < rational(64) && !eqs.empty()) {
+        if (!m_proof && tiny_search && depth == 0 && p < rational(64) && !eqs.empty()) {
             lbool r = tiny_solve(eqs, neqs, values);
             if (r == l_true) {
                 restore();
@@ -1841,6 +1926,7 @@ namespace ff {
             // replacement for the legacy basis computation below.
             ++f4_calls;
             f4_config cfg;
+            if (m_proof) cfg.max_certificate_nodes = m_proof->remaining_nodes();
             cfg.max_quotient_dim = f4_max_quotient;
             cfg.value_split = f4_value_split;
             cfg.slice_attempts = f4_slice;
@@ -1874,12 +1960,16 @@ namespace ff {
                 f4_work += k;
                 if (f4_work > stop)
                     throw exhausted();
-                if (!limit.inc())
-                    throw exhausted();
+                if (m_proof) {
+                    for (unsigned i = 0; i < std::max(k, 1u); ++i) tick();
+                }
+                else if (!limit.inc()) throw exhausted();
             };
+            certificate native_proof;
             try {
                 r = f4_solve(p, eqs, neqs, static_cast<unsigned>(values.size()), trial, core, cfg, fst, charge,
-                             &reduced);
+                             &reduced, m_proof ? &native_proof : nullptr);
+                if (r == l_false && m_proof && !m_proof->import_f4(native_proof, eqs)) r = l_undef;
             }
             catch (exhausted const &) {
                 r = l_undef;
@@ -1912,6 +2002,13 @@ namespace ff {
         }
         if (!have_basis)
             basis(eqs);
+        if (m_proof) {
+            for (auto const &f : eqs)
+                if (f.size() == 1 && f.begin()->first.empty() && m_proof->contradiction(f)) return l_false;
+            // Remaining UNSAT paths require finite-field axioms or exhaustive
+            // branch coverage; an unrecorded root computation is not a proof.
+            return l_undef;
+        }
         if (quotient_field && depth == 0 && work < max_work) {
             engine probe(p, limit, std::min(50000u, (max_work - work) / 16),
                          std::min(max_terms, 512u), false, batch_enabled, false);
