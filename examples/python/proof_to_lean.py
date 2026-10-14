@@ -8,7 +8,7 @@
 Boolean steps become explicit Lean proof terms. Arithmetic atoms are encoded
 over Rat, and theory lemmas and arithmetic rewrites are discharged by Lean's
 grind tactic after a Python pre-check of the recorded Farkas combination.
-An uninterpreted sort becomes a type variable with constants, functions, and
+The uninterpreted sorts become one type variable with constants, functions, and
 predicates over argument lists; grind's congruence closure proves euf lemmas.
 """
 
@@ -51,9 +51,9 @@ _FIXED_ARITY = {
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
-# A Real ite is the one arithmetic term with a Boolean argument; Lean's ite
-# needs a decidability instance, which the classical one provides. The
-# arithmetic slice already depends on the standard axioms through Rat.
+# An ite is the one Real or uninterpreted-sort term with a Boolean argument;
+# Lean's ite needs a decidability instance, which the classical one provides.
+# Both slices already depend on the standard axioms, through Rat and grind.
 _REAL_ITE_DOMAIN = ("Bool", "Real", "Real")
 _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
@@ -67,11 +67,21 @@ _OUTLINE_PROOF_STEPS = 500
 _OUTLINE_CHUNK_STEPS = 500
 _NORMALIZED_REWRITE_ATOMS = 16
 _RESERVED_SORTS = ("Bool", "Real", "Proof")
-# The uninterpreted sort is a type variable; its constants, functions, and
+# The uninterpreted sorts are one type variable; constants, functions, and
 # predicates are indexed families over argument lists, so one signature serves
-# every arity. Quantifying over all such interpretations covers every model.
-_UF_BINDERS = " (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)"
-_UF_ARGUMENTS = " _U _elems _funs _preds"
+# every arity and every sort. Quantifying over all such interpretations covers
+# every model: a many-sorted model is one instance with the disjoint union of
+# its carriers as _U, since every ground term keeps its sort and equality is
+# only ever stated between terms of one sort (the certificate keeps the sort
+# names, and the proof graph is checked to be well-sorted before rendering).
+# A Boolean argument of a function or predicate is injected into _U by the
+# quantified map _bool, so Bool is treated as one more sort: a model's Bool
+# carrier joins the disjoint union and _bool picks its two values. Nothing
+# asserts that _bool True and _bool False differ, and nothing needs to: euf
+# lemmas only use the congruence p = q -> _bool p = _bool q.
+_UF_BINDERS = (" (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)"
+               " (_bool : Prop -> _U)")
+_UF_ARGUMENTS = " _U _elems _funs _preds _bool"
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
     z3.Z3_OP_PR_TH_LEMMA: ("th-lemma", 0),
@@ -148,12 +158,12 @@ class _Graph:
     assertions: tuple
     proof: int
     arithmetic: bool = False
-    sort: str = None  # the uninterpreted sort name, if any
+    sorts: tuple = ()  # the uninterpreted sort names, sorted
 
     @property
     def valuation(self):
         """Extra Lean arguments of every formula: the Rat valuation or the uninterpreted interpretation."""
-        return " _vars" if self.arithmetic else _UF_ARGUMENTS if self.sort else ""
+        return " _vars" if self.arithmetic else _UF_ARGUMENTS if self.sorts else ""
 
     def is_real(self, node):
         return self.decl(node).range == "Real"
@@ -204,33 +214,34 @@ def _parameters(kind, name, parameters):
     return tuple(parameters)
 
 
-def _uninterpreted_sort(raws):
-    """Return the one uninterpreted sort named by the declarations, or None."""
+def _uninterpreted_sorts(raws):
+    """Return the uninterpreted sort names used by the declarations, sorted."""
     sorts = set()
     for raw in raws:
         if type(raw) is dict:
             sorts.update(sort for sort in [raw.get("range")] + _list(raw.get("domain", []), "declaration domain")
                          if type(sort) is str and sort not in _RESERVED_SORTS)
-    if len(sorts) > 1:
-        raise ReconstructionError("only one uninterpreted sort is supported")
-    sort = sorts.pop() if sorts else None
-    if sort == "":
+    if "" in sorts:
         raise ReconstructionError("invalid uninterpreted sort name")
-    return sort
+    return tuple(sorted(sorts))
 
 
-def _declaration(raw, sort):
+def _declaration(raw, sorts):
     _fields(raw, ("kind", "name", "domain", "range", "parameters"), "declaration")
     kind, name = raw["kind"], raw["name"]
     domain = tuple(_list(raw["domain"], "declaration domain"))
-    sorts = _RESERVED_SORTS + ((sort,) if sort else ())
+    known = _RESERVED_SORTS + sorts
     if (type(kind) is not int or type(name) is not str
-            or raw["range"] not in sorts or any(argument not in sorts for argument in domain)):
+            or raw["range"] not in known or any(argument not in known for argument in domain)):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
-    if raw["range"] == sort:
-        # Only constants and functions inhabit the uninterpreted sort: no ite, no definitions.
-        if kind != z3.Z3_OP_UNINTERPRETED or any(argument != sort for argument in domain):
+    if raw["range"] in sorts:
+        # Constants, functions, and ite inhabit an uninterpreted sort: no definitions.
+        # A function may take arguments of any uninterpreted sort or Bool, never Real.
+        if kind == z3.Z3_OP_ITE:
+            if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
+                raise ReconstructionError("invalid uninterpreted-sort ite declaration")
+        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in sorts + ("Bool",) for argument in domain):
             raise ReconstructionError("unsupported uninterpreted-sort declaration: %s" % name)
     elif raw["range"] == "Real":
         if kind == z3.Z3_OP_ITE:
@@ -256,15 +267,19 @@ def _declaration(raw, sort):
         else:
             if kind != z3.Z3_OP_UNINTERPRETED and _BOOL_NAMES.get(kind) != name:
                 raise ReconstructionError("unsupported Boolean declaration: %s" % name)
-            argument_sort = "Bool"
-            if kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and domain and domain[0] != "Proof":
-                # Equality and distinct compare terms of one sort: Bool, Real, or the
-                # uninterpreted sort. Proof terms are never compared.
-                argument_sort = domain[0]
-            elif kind == z3.Z3_OP_UNINTERPRETED and domain:
-                argument_sort = sort  # A predicate ranges over the uninterpreted sort only.
-            if any(argument != argument_sort for argument in domain):
-                raise ReconstructionError("Boolean declarations cannot mix argument sorts")
+            if kind == z3.Z3_OP_UNINTERPRETED and domain:
+                # A predicate ranges over the uninterpreted sorts and Bool; the
+                # exporter admits it only when the input also uses a sort.
+                if not sorts or any(argument not in sorts + ("Bool",) for argument in domain):
+                    raise ReconstructionError("unsupported predicate declaration: %s" % name)
+            else:
+                argument_sort = "Bool"
+                if kind in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and domain and domain[0] != "Proof":
+                    # Equality and distinct compare terms of one sort: Bool, Real, or
+                    # one uninterpreted sort. Proof terms are never compared.
+                    argument_sort = domain[0]
+                if any(argument != argument_sort for argument in domain):
+                    raise ReconstructionError("Boolean declarations cannot mix argument sorts")
             expected = _FIXED_ARITY.get(kind)
             if kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
                 expected = 2  # Native associative declarations have a binary domain.
@@ -304,8 +319,8 @@ def _validate_graph(source, certificate):
     if type(certificate["source_smt2"]) is not str or certificate["source_smt2"] != source:
         raise ReconstructionError("certificate source does not match the original input")
     raw_declarations = _list(certificate["declarations"], "declarations")
-    sort = _uninterpreted_sort(raw_declarations)
-    declarations = tuple(_declaration(raw, sort) for raw in raw_declarations)
+    sorts = _uninterpreted_sorts(raw_declarations)
+    declarations = tuple(_declaration(raw, sorts) for raw in raw_declarations)
     nodes, counts = [], Counter()
     for index, raw in enumerate(_list(certificate["nodes"], "nodes")):
         _fields(raw, ("declaration", "arguments"), "node")
@@ -328,17 +343,24 @@ def _validate_graph(source, certificate):
         nodes.append(_Node(declaration, arguments))
         if decl.range == "Proof":
             counts[decl.name] += 1
+    used = {node.declaration for node in nodes}
+    if any(index not in used and set(decl.domain + (decl.range,)) & set(sorts)
+           for index, decl in enumerate(declarations)):
+        # The exporters apply every symbol they declare (only proof rules are
+        # pre-declared), so the sort set is exactly the sorts the proof graph uses
+        # and cannot be padded to match an input the certificate was not built from.
+        raise ReconstructionError("unused declaration over an uninterpreted sort")
     assertions = tuple(_index(arg, len(nodes), "assertion")
                        for arg in _list(certificate["assertions"], "assertions"))
     root = _index(certificate["proof"], len(nodes), "proof")
     arithmetic = any(decl.range == "Real" for decl in declarations)
     if arithmetic and certificate["fragment"] == "propositional":
         raise ReconstructionError("propositional certificates cannot contain arithmetic")
-    if arithmetic and sort:
+    if arithmetic and sorts:
         raise ReconstructionError("certificates cannot mix arithmetic with an uninterpreted sort")
-    if (sort is not None) != (certificate["fragment"] == "qf_uf"):
+    if bool(sorts) != (certificate["fragment"] == "qf_uf"):
         raise ReconstructionError("only qf_uf certificates declare an uninterpreted sort, and they must use it")
-    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sort)
+    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts)
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
     if graph.decl(root).range != "Proof" or graph.kind(graph.conclusion(root)) != z3.Z3_OP_FALSE:
@@ -352,31 +374,44 @@ def _validate_graph(source, certificate):
 
 
 # Symbol tables of a certificate, by (range sort class, has arguments): Boolean
-# atoms, Real variables, elements of the uninterpreted sort, functions into it,
-# and predicates over it. Each table maps a name to its declaration.
+# atoms, Real variables, elements of the uninterpreted sorts, functions into
+# them, and predicates over them. Each table maps a name to its declaration.
 _SYMBOL_TABLES = {
     ("Bool", False): "atoms", ("Real", False): "variables", ("sort", False): "elements",
     ("sort", True): "functions", ("Bool", True): "predicates",
 }
 
 
-def _symbol_table(range_name, arity, sort):
-    return _SYMBOL_TABLES.get(("sort" if range_name == sort else range_name, arity > 0))
+def _symbol_table(range_name, arity, sorts):
+    return _SYMBOL_TABLES.get(("sort" if range_name in sorts else range_name, arity > 0))
+
+
+def _sort_name(sort):
+    """The certificate's name for a sort of the original input."""
+    kind = sort.kind()
+    return "Bool" if kind == z3.Z3_BOOL_SORT else "Real" if kind == z3.Z3_REAL_SORT else sort.name()
 
 
 def _bind_input(source, graph, fragment=None):
-    """Compare exact structures using hash-consing, not a digest or solver check."""
+    """Compare exact structures using hash-consing, not a digest or solver check.
+
+    Symbols are bound by name, so each name must denote one symbol of the input
+    (Z3 accepts overloading by sort; the frontend rejects it and this check is
+    repeated here) and the certificate's declaration must carry that symbol's
+    full signature. Interned terms also carry their sort, so terms of different
+    sorts never compare equal even though Lean renders every sort as _U.
+    """
     context = z3.Context(proof=False)
     original, original_fragment = parse_assertions(source, context)
     if fragment is None:
-        fragment = "qf_lra" if graph.arithmetic else "qf_uf" if graph.sort else "propositional"
+        fragment = "qf_lra" if graph.arithmetic else "qf_uf" if graph.sorts else "propositional"
     if original_fragment != fragment:
         raise ReconstructionError("the input is in fragment %s, not %s" % (original_fragment, fragment))
     interned, terms = {}, {}
     tables = {table: {} for table in _SYMBOL_TABLES.values()}
 
-    def intern(kind, name, children):
-        key = (kind, name, tuple(children))
+    def intern(kind, name, range_name, children):
+        key = (kind, name, range_name, tuple(children))
         return interned.setdefault(key, len(interned))
 
     for index, node in enumerate(graph.nodes):
@@ -386,7 +421,7 @@ def _bind_input(source, graph, fragment=None):
         name = ""
         if decl.kind == z3.Z3_OP_UNINTERPRETED:
             name = decl.name
-            table = _symbol_table(decl.range, len(decl.domain), graph.sort)
+            table = _symbol_table(decl.range, len(decl.domain), graph.sorts)
             if table is None:
                 raise ReconstructionError("unsupported symbol signature: %s" % name)
             if name in tables[table] and tables[table][name] != node.declaration:
@@ -397,10 +432,10 @@ def _bind_input(source, graph, fragment=None):
             tables[table][name] = node.declaration
         elif decl.kind == z3.Z3_OP_ANUM:
             name = str(Fraction(decl.name))
-        terms[index] = intern(decl.kind, name, (terms[arg] for arg in node.arguments))
+        terms[index] = intern(decl.kind, name, decl.range, (terms[arg] for arg in node.arguments))
 
     original_terms, original_sorts = {}, set()
-    original_symbols = {table: set() for table in tables}
+    original_symbols = {table: {} for table in tables}  # name -> (domain, range)
     pending = [(expr, False) for expr in reversed(list(original))]
     while pending:
         expr, expanded = pending.pop()
@@ -410,22 +445,31 @@ def _bind_input(source, graph, fragment=None):
             pending.append((expr, True))
             pending.extend((child, False) for child in reversed(expr.children()))
             continue
-        decl, name = expr.decl(), ""
+        decl, name, range_name = expr.decl(), "", _sort_name(expr.sort())
         if is_uninterpreted_sort(expr.sort()):
-            original_sorts.add(expr.sort().name())
+            original_sorts.add(range_name)
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             name = str(decl.name())
-            range_name = "Real" if z3.is_real(expr) else "Bool" if z3.is_bool(expr) else graph.sort
-            original_symbols[_symbol_table(range_name, decl.arity(), graph.sort)].add(name)
+            table = _symbol_table(range_name, decl.arity(), graph.sorts)
+            if table is None:
+                raise ReconstructionError("certificate sort does not match the original input")
+            signature = (tuple(_sort_name(decl.domain(i)) for i in range(decl.arity())), range_name)
+            if original_symbols[table].setdefault(name, signature) != signature:
+                raise ReconstructionError("symbol declared with several signatures: %s" % name)
         elif decl.kind() == z3.Z3_OP_ANUM:
             name = str(numeral_value(expr))
         original_terms[expr.get_id()] = intern(
-            decl.kind(), name, (original_terms[child.get_id()] for child in expr.children()))
-    if original_sorts != ({graph.sort} if graph.sort else set()):
+            decl.kind(), name, range_name, (original_terms[child.get_id()] for child in expr.children()))
+    if original_sorts != set(graph.sorts):
         raise ReconstructionError("certificate sort does not match the original input")
-    if (any(set(tables[table]) != original_symbols[table] for table in tables)
-            or [terms[arg] for arg in graph.assertions]
-            != [original_terms[expr.get_id()] for expr in original]):
+    if any(set(tables[table]) != set(original_symbols[table]) for table in tables):
+        raise ReconstructionError("certificate assertions do not match the original input")
+    for table, symbols in tables.items():
+        for name, declaration in symbols.items():
+            decl = graph.declarations[declaration]
+            if (decl.domain, decl.range) != original_symbols[table][name]:
+                raise ReconstructionError("certificate symbol signature does not match the original input: %s" % name)
+    if [terms[arg] for arg in graph.assertions] != [original_terms[expr.get_id()] for expr in original]:
         raise ReconstructionError("certificate assertions do not match the original input")
     return terms, tables
 
@@ -448,7 +492,7 @@ def _term(graph, node):
 
 
 def _valuation_binder(graph):
-    return " (_vars : Nat -> Rat)" if graph.arithmetic else _UF_BINDERS if graph.sort else ""
+    return " (_vars : Nat -> Rat)" if graph.arithmetic else _UF_BINDERS if graph.sorts else ""
 
 
 def _infix(operator, arguments):
@@ -456,6 +500,16 @@ def _infix(operator, arguments):
     for argument in arguments[1:]:
         result = "(%s %s %s)" % (result, operator, argument)
     return result
+
+
+def _application_arguments(graph, arguments, term, formula):
+    """Render the argument list of a function or predicate over the uninterpreted sorts.
+
+    A Boolean argument is injected into the carrier by _bool; its formula is
+    rendered as a Prop.
+    """
+    return "[%s]" % ", ".join(term(arg) if graph.is_term(arg) else "(_bool %s)" % formula(arg)
+                              for arg in arguments)
 
 
 def _term_body(graph, node, variable_indices, term=None, formula=None):
@@ -474,7 +528,7 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
             return "_vars %d" % index
         if not arguments:
             return "_elems %d" % index
-        return "_funs %d [%s]" % (index, ", ".join(term(arg) for arg in arguments))
+        return "_funs %d %s" % (index, _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
         value = Fraction(graph.decl(node).name)
         if value.denominator == 1:
@@ -482,7 +536,8 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
         return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
     if kind == z3.Z3_OP_ITE:
         # The instance's proposition is inferred from the condition.
-        return "(@ite Rat %s (Classical.propDecidable _) %s %s)" % (
+        return "(@ite %s %s (Classical.propDecidable _) %s %s)" % (
+            "Rat" if graph.is_real(node) else "_U",
             formula(arguments[0]), term(arguments[1]), term(arguments[2]))
     args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
@@ -499,10 +554,11 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     formula = (lambda child: _formula(graph, child)) if formula is None else formula
     kind = graph.kind(node)
     arguments = graph.arguments(node)
+    if kind == z3.Z3_OP_UNINTERPRETED and arguments:
+        return "_preds %d %s" % (atom_indices[graph.nodes[node].declaration],
+                                 _application_arguments(graph, arguments, term, formula))
     if arguments and graph.is_term(arguments[0]):
         args = [term(arg) for arg in arguments]
-        if kind == z3.Z3_OP_UNINTERPRETED:
-            return "_preds %d [%s]" % (atom_indices[graph.nodes[node].declaration], ", ".join(args))
         if kind in _ARITH_PREDICATE_NAMES and graph.is_real(arguments[0]):
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
@@ -739,14 +795,20 @@ def _not_or_elim(graph, terms, node):
 
 
 def _reachable(graph, conclusion):
-    """Return the formula and term nodes reachable from a conclusion, and whether any is a theory term."""
+    """Return the formula and term nodes reachable from a conclusion, and whether any is a theory node.
+
+    Theory nodes are Real and uninterpreted-sort terms and predicate
+    applications (which may take Boolean arguments only); a conclusion without
+    them is purely propositional over the atoms.
+    """
     reachable, pending, theory = set(), [conclusion], False
     while pending:
         formula = pending.pop()
         if formula in reachable:
             continue
         reachable.add(formula)
-        theory = theory or graph.is_term(formula)
+        theory = (theory or graph.is_term(formula)
+                  or (graph.kind(formula) == z3.Z3_OP_UNINTERPRETED and bool(graph.arguments(formula))))
         pending.extend(graph.arguments(formula))
     return reachable, theory
 
@@ -861,10 +923,36 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     if graph.arithmetic:
         lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
         lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
+    if graph.sorts:
+        lines.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     # Large Boolean/arithmetic rewrites can require more than grind's default
     # nine case splits, even though every arithmetic atom remains linear.
     lines.append("  grind (splits := 64)")
     return lines, "(%s_%d _atoms%s)" % (prefix, node, graph.valuation)
+
+
+def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
+    """State excluded middle for every formula that is a Boolean argument of an application.
+
+    Z3's egraph merges each Boolean argument with true or false as soon as
+    the SAT solver assigns it, so its lemmas may rest on the two cases of an
+    argument that no premise mentions, for example when preprocessing
+    combined several assertions. grind splits on disjunctions in context but
+    not on arbitrary propositions, so each case split is offered explicitly;
+    from either case it derives _bool p = _bool True or _bool p = _bool False
+    by congruence.
+    """
+    arguments = set()
+    for node in sorted(reachable):
+        if graph.kind(node) == z3.Z3_OP_UNINTERPRETED:
+            arguments.update(argument for argument in graph.arguments(node)
+                             if not graph.is_term(argument)
+                             and graph.kind(argument) not in (z3.Z3_OP_TRUE, z3.Z3_OP_FALSE))
+    helpers = []
+    for argument in sorted(arguments):
+        formula = _inline(graph, argument, atom_indices, variable_indices)
+        helpers.append("  have _b%d : Or (%s) (Not (%s)) := Classical.em _" % (argument, formula, formula))
+    return helpers
 
 
 def _rewrite_lemma(graph, node, atom_indices, variable_indices=None):
@@ -1131,11 +1219,21 @@ def _gate_contradiction(graph, formula, truth, proof, fact):
             return "(%s (Or.inl (And.intro %s %s)))" % (proof, pos[0], pos[1])
         if not truth and neg[0] and pos[2]:
             return "(%s (Or.inr (And.intro %s %s)))" % (proof, neg[0], pos[2])
+        # Z3 also records the two condition-free gate clauses: both branches
+        # false refutes the ite, both true establishes it (constructively,
+        # since a true then-branch turns the first disjunct's refutation into
+        # a refutation of the condition).
+        if truth and neg[1] and neg[2]:
+            return ("(Or.elim %s (fun _pair => %s (And.right _pair))"
+                    " (fun _pair => %s (And.right _pair)))") % (proof, neg[1], neg[2])
+        if not truth and pos[1] and pos[2]:
+            return "(%s (Or.inr (And.intro (fun _cond => %s (Or.inl (And.intro _cond %s))) %s)))" % (
+                proof, proof, pos[1], pos[2])
     return None
 
 
 def _ite_gate_lemma(graph, terms, node):
-    """Prove a clause tying a Real ite to one branch, or return None for other clauses.
+    """Prove a clause tying a Real or uninterpreted-sort ite to one branch, or return None.
 
     The two gate clauses of (ite c a b) are (not c) or (ite c a b) = a and
     c or (ite c a b) = b, with either equality orientation, in any literal
@@ -1145,7 +1243,7 @@ def _ite_gate_lemma(graph, terms, node):
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
     for position, literal in enumerate(literals):
-        if graph.kind(literal) != z3.Z3_OP_EQ or not graph.is_real(graph.arguments(literal)[0]):
+        if graph.kind(literal) != z3.Z3_OP_EQ or not graph.is_term(graph.arguments(literal)[0]):
             continue
         left, right = graph.arguments(literal)
         for ite, branch, flipped in ((left, right, False), (right, left, True)):
@@ -1515,7 +1613,7 @@ def _outline_steps(graph, steps, dependencies, signature):
     propositional slice stays axiom-free by receiving every witness as a
     parameter that the main theorem introduces constructively.
     """
-    classical = bool(graph.arithmetic or graph.sort)
+    classical = bool(graph.arithmetic or graph.sorts)
     boundaries = _outline_boundaries(graph)
     inputs = _fold("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
@@ -1580,9 +1678,16 @@ def reconstruct(source, certificate):
             lines.append("-- %s %d: %s" % (label, indices[table][decl], json.dumps(name, ensure_ascii=True)))
     if graph.arithmetic:
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
-    if graph.sort:
+    if len(graph.sorts) == 1:
         lines.append("-- Uninterpreted sort %s is the type _U; functions and predicates take argument lists."
-                     % json.dumps(graph.sort, ensure_ascii=True))
+                     % json.dumps(graph.sorts[0], ensure_ascii=True))
+    elif graph.sorts:
+        # One carrier for every sort is sound: a many-sorted model is an instance
+        # of the theorem over the disjoint union of its carriers.
+        lines.append("-- Uninterpreted sorts %s are the one type _U; functions and predicates take argument lists."
+                     % ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.sorts))
+    if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
+        lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
     lines.extend(["namespace " + namespace, ""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Real nodes containing an ite: their classical instance is noncomputable.

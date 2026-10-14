@@ -68,13 +68,19 @@ xor, Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
 variables and numerals, sums, differences, negation, multiplication by a
 constant, division by a nonzero constant, Real-valued ite whose condition is
 any supported formula, and the atoms <=, <, >=, >, =, and distinct over Real
-terms. The qf_uf fragment adds one uninterpreted sort with constants,
-functions, and predicates whose arguments all have that sort, and the atoms =
-and distinct over its terms; it cannot be combined with arithmetic, and a
-second uninterpreted sort, functions with Bool or Real arguments or results,
-ite over the sort, and one symbol name declared with several signatures
-(Z3 accepts such overloading; the certificate binds symbols by name) are
-rejected. Quantifiers, integer arithmetic,
+terms. The qf_uf fragment adds any number of uninterpreted sorts with
+constants, functions, and predicates whose arguments have uninterpreted
+sorts or Bool (functions may map between sorts; a Bool argument is any
+supported formula), ite terms over a sort whose condition is any supported
+formula, and the atoms = and distinct over terms of one sort; it cannot be
+combined with arithmetic, functions with Real arguments or results are
+rejected, and functions whose arguments are all Bool are accepted only when
+the assertions also use an uninterpreted sort (otherwise Z3's sat.smt core
+Ackermannizes them with fresh symbols). One symbol name declared with
+several signatures is rejected in every fragment: Z3 accepts such overloading
+and tells the declarations apart by sort, but the certificate binds symbols
+by name, so classification fails for the exporter and again for the
+reconstructor, which parses the input itself. Quantifiers, integer arithmetic,
 nonlinear terms, bit-vectors, arrays, and pseudo-Boolean operators are
 rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
@@ -109,10 +115,12 @@ operators and predicates listed above, and th-lemma declarations whose
 parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",
 "tseitin", "smt", or the exporter's own "cnf") followed, for the first three,
 by one nonnegative rational coefficient per literal of the lemma clause.
-The qf_uf fragment uses the input's uninterpreted sort under its own name
+The qf_uf fragment uses the input's uninterpreted sorts under their own names
 (never Bool, Real, or Proof) for constants, function declarations whose
-domain and range are that sort, predicate declarations over it, and equality
-and distinct declarations over it.
+range is one of those sorts and whose domain consists of those sorts and
+Bool, predicate declarations over the same domains, and equality and
+distinct declarations over one of the sorts; the certificate stays
+many-sorted even though Lean sees one type (see below).
 Other native shapes are rejected, never serialized incompletely. The root is
 required to conclude false, but checking that shape does not establish proof
 correctness.
@@ -156,8 +164,12 @@ step:
     by and-elim, rewrite, and mp; a formula that merely implies the clause,
     which happens when preprocessing splits an xor or an equivalence into
     several clauses, is bridged by a th-lemma with hint "cnf" and one
-    unit-resolution. Clauses with true, not false, or complementary literals
-    are def-axiom nodes. Nothing else is accepted as an assumption.
+    unit-resolution. When no single assertion implies the clause (Z3 found a
+    contradiction while asserting, or simplified an ite inside one assertion
+    under a unit asserted by another, which shows in alldiff clauses), the
+    cnf lemma is over an unsat core of the assertions. Clauses with true, not
+    false, or complementary literals are def-axiom nodes. Nothing else is
+    accepted as an assumption.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact
@@ -188,6 +200,14 @@ step:
   - del steps remove clauses from the database. If the log never derives the
     empty clause, because the contradiction was found while asserting, the
     empty clause is derived from the assumptions or tied to the assertions.
+  - The sat core logs Boolean variables that have no expression, such as
+    goal2sat's internal true literal when a unit is asserted, as nullary Bool
+    constants k!<n> absent from the input. Assumed and deleted clauses over
+    such a phantom are dropped silently: they are tied to no assertion, and
+    dropping a clause can only remove support for a later rup step, which
+    then fails explicitly. An inference or definition that mentions a phantom
+    is rejected as a fresh symbol, as is any other symbol absent from the
+    input.
 
 Logs of at least 1 MB are reduced with Z3's native proof trimmer before replay.
 The exporter follows the final empty clause's dependency graph, checks it for
@@ -209,7 +229,10 @@ declares the sort and the functions it uses, which must be the input's own;
 function applications are rebuilt with the input's declarations, so a wrong
 arity or an ill-sorted argument is rejected. Equality conflicts arrive as
 euf hints, distinct as alldiff clauses, and the Boolean structure as tseitin
-and rup steps, exactly as for arithmetic; no new hint kind is involved.
+and rup steps, exactly as for arithmetic; no new hint kind is involved. An
+ite term over the sort is an opaque element for the euf core, tied to its
+branches by the same two gate clauses as a Real ite, which the replay adds
+as def-axiom nodes.
 
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
@@ -376,20 +399,45 @@ Uninterpreted functions in Lean
 -------------------------------
 
 For qf_uf certificates every definition takes, instead of the Rat valuation,
-an interpretation of the uninterpreted sort:
+an interpretation of the uninterpreted sorts, all rendered as one type _U:
 
     theorem unsat (_atoms : Nat -> Prop) (_U : Type) (_elems : Nat -> _U)
         (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)
-        (_h0 : formula_k _atoms _U _elems _funs _preds) ... : False
+        (_bool : Prop -> _U)
+        (_h0 : formula_k _atoms _U _elems _funs _preds _bool) ... : False
 
 Constants become _elems i, an application f(a, b) becomes _funs j [a, b], and
 a predicate application becomes _preds k [a, b]; equality and distinct are
-Lean's = on _U. The theorem quantifies over every type and every indexed
+Lean's = on _U, and an ite over the sort is Lean's ite over _U with the
+classical instance, as for Real (its gate clauses are proved the same way).
+A Boolean argument p of a function or predicate becomes _bool p, so f(a, p)
+is _funs j [a, _bool p]. The theorem quantifies over every type and every indexed
 family of functions, so a model of the SMT-LIB input (a nonempty domain with
 one function per symbol) is one instance of it: the encoding over-approximates
 the class of models and is therefore sound for unsatisfiability. Nothing
 relates different indices or different argument lengths, which is exactly the
-freedom uninterpreted symbols have. euf th-lemmas and rewrites over the sort
+freedom uninterpreted symbols have. An input with several uninterpreted sorts
+is rendered over the same single _U, which is sound for the same reason: a
+many-sorted model is an instance of the theorem whose _U is the disjoint
+union of the carriers, with each symbol interpreted as in the model on
+arguments of its own sorts (and arbitrarily elsewhere). Bool is one more
+such sort: its two values join the disjoint union and _bool maps a true
+proposition to one and a false one to the other (the instance picks _bool
+classically). Every ground term
+then denotes its value in the model, and since well-sorted inputs only
+compare terms of one sort, every assertion keeps its truth value. Nothing
+states that _bool True and _bool False differ, and no Z3 inference needs it:
+the euf lemmas over Boolean arguments use only the congruence
+p <-> q -> _bool p = _bool q, which grind proves through propext, together
+with the two cases of each Boolean argument (Z3's egraph assigns every one
+true or false), which each grind lemma states as Classical.em first. This
+presumes that each symbol name denotes one many-sorted symbol of the input,
+which is why overloading a name across sorts is rejected (see above): the
+reconstructor binds symbols by name, requires each bound declaration to
+carry the input's full signature (argument and result sorts), interns terms
+together with their sort, and checks that the certificate is well-sorted
+with respect to the input's own sort names before collapsing them, so an
+ill-sorted proof graph is rejected rather than rendered. euf th-lemmas and rewrites over the sorts
 are proved by grind, whose congruence closure handles the list applications;
 Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
@@ -426,7 +474,7 @@ checks the reconstructed theorem, Boolean gate-clause lemmas, rewrite truth
 tables, and the grind-proved arithmetic and euf lemmas relative to that
 encoding. Boolean equality is encoded as Iff, Boolean xor/ite/distinct as
 their logical definitions, Real as Rat under the linearity argument above,
-and an uninterpreted sort as a universally quantified type with indexed
+and the uninterpreted sorts as one universally quantified type with indexed
 function families. This is not yet a fully formalized SMT-LIB frontend.
 
 The JSON bundle remains marked unverified: successful reconstruction produces

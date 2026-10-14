@@ -581,7 +581,7 @@ each, and reports the three standard axioms. Python checks only shapes for
 `euf` hints, so a false `euf` lemma is rejected by Lean alone (covered by a
 tampering test). Still rejected: a second uninterpreted sort, mixing the sort
 with arithmetic (QF_UFLRA), functions with Bool or Real arguments or results,
-and `ite` over the sort.
+and `ite` over the sort (the last accepted since 2026-10-12, see below).
 
 **Long refutations in every fragment (2026-10-12).** The lemma outlining
 added for LassoRanker applied only to arithmetic certificates with more than
@@ -600,6 +600,97 @@ checks in 3 s (the 8-level one, 3,827 nodes, in 5 s; previously a failure),
 the 6-level one drops from 15 s to 2 s, and pigeonhole-5 checks in 3 s;
 pigeonhole-6 (8,693 steps, 3,071 lemmas) checks in about 90 s. Covered by
 `test_proof_to_lean_uf.py` and `test_proof_to_lean_integration.py`.
+
+**`ite` over the uninterpreted sort (2026-10-12).** The QF_UF slice rejected
+every input with an `ite` whose branches have the uninterpreted sort, although
+the clause log treats it exactly like a Real `ite`: the `euf` core keeps the
+term opaque and records `(not c) ∨ (ite c a b) = a` and `c ∨ (ite c a b) = b`
+as `tseitin` inferences. The exporter now classifies such inputs as `qf_uf`,
+the replay adds the gate clauses as `def-axiom` nodes for `ite` terms found
+inside equalities, `distinct`, and predicate applications, and the
+reconstructor renders the term as Lean's `ite` over `_U` with the classical
+instance and proves the gates with `ite_eq_left`/`ite_eq_right` as before.
+`grind` splits on the `ite` inside `euf` lemmas and rewrites without help.
+Random instances with nested `ite` terms exposed two older gaps that the new
+inputs hit often: Z3 also records the two condition-free Boolean `ite` gate
+clauses (`(or (not (ite p q r)) q r)` and `(or (ite p q r) (not q) (not r))`),
+which the def-axiom checker rejected; and when `q` is asserted, Z3
+internalizes a later `distinct` with `(ite (not q) b a)` already replaced by
+`a`, so its `alldiff` clauses follow only from the `distinct` together with
+`q`. The replay's last-resort `cnf` lemma now negates an unsat core of the
+assertions instead of all of them, and keeps a clause literal that is already
+the negation of a source as a literal (resolving it away produced a
+unit-resolution the reconstructor rejected). 20 of 400 random stress
+instances failed before these fixes, none after. Still rejected: a second
+sort (accepted since 2026-10-12, see below), QF_UFLRA, and Bool or Real
+arguments or results of uninterpreted functions.
+
+**Several uninterpreted sorts (2026-10-12).** Inputs over more than one
+uninterpreted sort were rejected at the exporter, although Z3's clause log
+declares every sort and treats functions between sorts like any other. The
+exporter now classifies any number of sorts as `qf_uf` and the certificate
+keeps every sort name, so the reconstructor checks the proof graph is
+well-sorted (functions and predicates take uninterpreted-sort arguments
+only, equality and `distinct` compare one sort, every application matches
+its declaration) and `_bind_input` checks the sort set against the input.
+Lean renders all sorts as the one type `_U`: a many-sorted model is an
+instance of the theorem over the disjoint union of its carriers, every
+ground term keeps its value, and well-sorted inputs only compare terms of
+one sort, so the collapsed theorem implies unsatisfiability of the
+many-sorted input. The two documented two-sort inputs and 19 random
+three-sort instances with `ite` terms (unsat cores of 3 to 5 assertions)
+verify end to end under the standard axioms; three are pinned in
+`test_proof_to_lean_uf.py`. Review of this change found that the binder
+matched symbols by name alone while Z3 accepts one name declared with several
+signatures (`(declare-fun c () A) (declare-fun c () B)`, applied as
+`(as c A)`): the honest refutation of a one-sort input could be rebound to a
+satisfiable two-sort input whose assertions print identically, once an
+unused declaration padded the certificate's sort set. Overloaded names are
+now rejected by `classify_fragment` (so by the exporter and, since the
+reconstructor parses the input itself, by the binder), the binder requires
+every bound declaration to carry the input's full signature and interns
+terms with their sort, and a declaration over an uninterpreted sort that no
+node uses is rejected. Still rejected: QF_UFLRA and Bool or Real arguments
+or results of uninterpreted functions (Bool accepted since 2026-10-12, see
+below).
+
+**Bool arguments of uninterpreted functions (2026-10-12).** Functions and
+predicates with Bool arguments (`(declare-fun f (Bool) U)`, `(declare-fun r
+(Bool U) Bool)`, `(declare-fun p (Bool) Bool)`) were rejected at the
+exporter; they are common in hardware-derived QF_UF benchmarks. The clause
+log treats a Boolean argument like any other enode: once the SAT solver
+assigns it, the egraph merges it with `true` or `false`, and the `euf` hint
+lists the Boolean literal among its premises, so `(f q) = (f r)` follows from
+`q`, `r`, and congruence. Lean renders a Boolean argument `p` as `_bool p`
+for one more quantified map `_bool : Prop -> _U`: Bool is one more sort in
+the disjoint-union instance, and `grind` proves the lemmas through the
+congruence `p <-> q -> _bool p = _bool q` (via `propext`); nothing states
+that `_bool True` and `_bool False` differ, and no inference needs it. The
+egraph does know that every Boolean argument is `true` or `false` once the
+SAT solver assigns it, and `cnf` lemmas combining preprocessed assertions
+rest on that without naming the literal, so each `grind` lemma first states
+excluded middle for every Boolean argument it reaches (5 of 40 random
+instances failed in `grind` before this, none after). Two
+findings about Z3's sat.smt core shaped the slice: (1) a unit asserted at
+level 0 is substituted into the arguments before internalization (`(f q)`
+is logged as `(f true)`), which the replay's existing `cnf` fallback ties to
+the unit and the assertion; and (2) a Boolean unit makes goal2sat log its
+internal `true` variable, which has no expression, as a fresh constant
+`k!0` assumed as a unit clause. The second affected plain QF_UF inputs with
+a negated unit assertion as well (`(assert (not s))` with `s` elsewhere),
+which the exporter rejected as a fresh symbol; empirically the phantom
+appears for inputs without a `set-logic` line and not for the same
+assertions under `(set-logic QF_UF)`, so the inputs that test it carry no
+`set-logic` line and the live tests check the raw log for `k!0` before
+checking that the certificate has none. The replay now drops assumed
+or deleted clauses over such phantom constants (sound: dropping a clause
+only removes support for later propagation) and still rejects any inference
+or definition mentioning one. Functions whose arguments are all Bool are
+accepted only together with an uninterpreted sort: without one the sat.smt
+core Ackermannizes them with fresh symbols the log cannot be tied to the
+input, so the exporter rejects that case explicitly. Two documented inputs
+and five pinned random instances verify end to end under the standard
+axioms. Still rejected: QF_UFLRA and Real arguments or results.
 
 ## Arithmetic proof infrastructure
 

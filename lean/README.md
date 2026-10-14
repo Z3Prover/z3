@@ -10,11 +10,14 @@ linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
 `bound`, `implied-eq`, `euf`, `smt`, or `cnf` hints and arithmetic rewrites,
 proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
 `ite` terms, whose gate clauses are proved with `ite_eq_left` and
-`ite_eq_right`. For quantifier-free uninterpreted functions over one sort
-(QF_UF) the sort becomes a type variable with indexed families of constants,
-functions, and predicates over argument lists, and `grind`'s congruence
-closure proves the `euf` lemmas. Other native proof rules are still
-unsupported.
+`ite_eq_right`. For quantifier-free uninterpreted functions (QF_UF) the
+uninterpreted sorts become one type variable with indexed families of
+constants, functions, and predicates over argument lists (one carrier for
+every sort is sound for unsatisfiability; the exporter README gives the
+argument), `ite` terms over a sort are
+Lean's `ite` with their gate clauses proved as for Real, and `grind`'s
+congruence closure proves the `euf` lemmas. Other native proof rules are
+still unsupported.
 
 ## Check a native Z3 refutation
 
@@ -55,8 +58,10 @@ valuation and depends on the three standard axioms through Lean core's `Rat`
 library; the Boolean slice stays axiom-free. See the exporter documentation
 for the Real-as-Rat trust statement. A QF_UF input goes through the same two
 commands; its theorem quantifies over `(_U : Type) (_elems : Nat -> _U)
-(_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)` instead of
-`_vars`, and `grind`'s congruence proofs report the same three axioms.
+(_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)
+(_bool : Prop -> _U)` instead of `_vars` (Boolean arguments of functions and
+predicates are injected into `_U` by `_bool`), and `grind`'s congruence
+proofs report the same three axioms.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

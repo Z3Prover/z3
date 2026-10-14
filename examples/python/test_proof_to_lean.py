@@ -158,6 +158,9 @@ DEF_AXIOM_CLAUSES = [
     "(or (not (ite p q r)) p r)",
     "(or (ite p q r) (not p) (not q))",
     "(or (ite p q r) p (not r))",
+    # The two condition-free ite gates Z3's sat.smt core also records.
+    "(or (not (ite p q r)) q r)",
+    "(or (ite p q r) (not q) (not r))",
 ]
 
 
