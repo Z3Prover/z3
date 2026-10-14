@@ -24,9 +24,9 @@ benchmark runner on this host used a local `ps` process-inspection shim because
 whole-pipeline supervisor times should not be used for a speed claim against
 the earlier run. Earlier measurements below describe their historical revisions.
 
-The regression suite used for this validation comes from the certificate branch.
-Upstream keeps finite-field regressions in `Z3Prover/z3test`; the new proof tests
-must be migrated there before the port can claim the same coverage in CI.
+The new proof regressions were migrated to the separate `z3test` repository
+and validated there (40/40 checks). The fork CI pins their exact test commit;
+moving that pin to `Z3Prover/z3test` requires separate upstream review.
 
 ## Evidence and acceptance
 
