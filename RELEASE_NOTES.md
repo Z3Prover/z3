@@ -1,7 +1,13 @@
 RELEASE NOTES
 
-Version 5.2.0
+Version 5.3.0
 ==============
+
+This release contains substantial contributions:
+- The build system is updated and consolidated to use CMake exclusively. Thanks to Alex Reinking
+- It includes a first version of a Finite Field theory solver. Thanks to Romain Soulat.
+
+
 - Add QF_FF (finite field) logic support, imported from the community branch
   RSoulatIOHK/z3:codex/qf-ff. Thanks to Romain Soulat.
   https://github.com/Z3Prover/z3/pull/11019, https://github.com/Z3Prover/z3/pull/11020
@@ -126,6 +132,11 @@ Version 5.2.0
 - Reject backslash in quoted symbols per the SMT-LIB 2.5+ spec, and reject loose de
   Bruijn variables in constant-based quantifiers.
   https://github.com/Z3Prover/z3/pull/10869, https://github.com/Z3Prover/z3/pull/10617
+
+
+Version 5.2.0
+==============
+ - skipped because npmjs uses z3-solver with 5.2.0 already.
 
 Version 5.1.0
 ==============
