@@ -7,7 +7,8 @@ reconstructor now handles `asserted`, `unit-resolution`, `mp`, and Boolean
 Boolean `monotonicity`, `and-elim`, and `not-or-elim`, with scoped `hypothesis`
 and `lemma` proofs and supported Boolean `def-axiom` clauses. For quantifier-free
 linear real arithmetic it also handles `th-lemma` nodes carrying `farkas`,
-`bound`, `implied-eq`, `euf`, `smt`, or `cnf` hints and arithmetic rewrites,
+`bound`, `implied-eq`, `triangle-eq`, `euf`, `smt`, or `cnf` hints (with or
+without premises) and arithmetic rewrites,
 proved by `grind` over a `Rat` encoding of the Real variables, and Real-valued
 `ite` terms, whose gate clauses are proved with `ite_eq_left` and
 `ite_eq_right`. For quantifier-free uninterpreted functions (QF_UF) the
@@ -65,7 +66,11 @@ proofs report the same three axioms. A QF_UF certificate from the legacy
 proof object (`proof_certificate.py --core legacy`) carries the smt core's
 own equality proofs instead of `euf` hints; its `trans`, `symm`, and
 `monotonicity` steps become `Eq.trans`, `Eq.symm`, and `congrArg` terms over
-`_U`, checked by Lean's type checker without `grind`.
+`_U`, checked by Lean's type checker without `grind`. A QF_LRA certificate
+from the legacy proof object carries `theory_lra`'s Farkas coefficients as
+`th-lemma` parameters; each such step is stated as the implication from its
+premises, re-derived in Python and proved by `grind`, and congruence through
+an arithmetic operator is a `grind` lemma over the argument equalities.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

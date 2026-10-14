@@ -59,6 +59,19 @@ _LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"
+# Hints of the legacy core's (_ th-lemma arith <hint> coefficients...) steps
+# and the certificate hint each becomes. theory_lra labels LP conflicts
+# farkas, bound propagations bound, and equality propagations implied-eq, with
+# one coefficient per premise and per literal of the concluding clause;
+# arith_eq_adapter's axioms tying an equality to its two inequalities are
+# triangle-eq. The older theory_arith, which the smt core still selects for
+# difference-logic input, labels its propagations assign-bounds and
+# eq-propagate and weights the antecedents only, so the propagated literal's
+# weight of 1 is added here. Integer rules (gomory-cut, gcd-test) are rejected.
+_LEGACY_HINTS = {
+    "farkas": "farkas", "bound": "bound", "assign-bounds": "bound",
+    "implied-eq": "implied-eq", "eq-propagate": "implied-eq", "triangle-eq": "triangle-eq",
+}
 # The clause log starts after preprocessing, so every pass that rewrites one
 # assertion using another is disabled. bound_simplifier runs solve_eqs and
 # propagate_values internally regardless of their own options.
@@ -294,14 +307,12 @@ def _require_legacy_fragment(assertions):
     """Return the fragment if the legacy proof object can certify it.
 
     The legacy core's equality proofs (congruence, transitivity, symmetry) are
-    complete, so propositional and QF_UF input is supported; its arithmetic
-    conflicts are bare th-lemma steps without Farkas coefficients, so QF_LRA
-    needs the clause log.
+    complete, and theory_lra records the Farkas coefficients of its conflicts
+    and bound propagations as th-lemma parameters, so every classified
+    fragment is supported; a th-lemma without coefficients is rejected when
+    the proof is encoded.
     """
-    fragment = classify_fragment(assertions)
-    if fragment == "qf_lra":
-        raise ProofExportError("arithmetic requires the clause-log exporter (fragment %s)" % fragment)
-    return fragment
+    return classify_fragment(assertions)
 
 
 def parse_legacy_assertions(source, context):
@@ -324,6 +335,39 @@ def parse_assertions(source, context):
     return assertions, classify_fragment(assertions)
 
 
+def _th_lemma_parameters(decl, premises):
+    """Return the certificate parameters of a native th-lemma declaration applied to premises.
+
+    The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
+    the certificate, farkas and bound coefficients weight the premises in
+    order and then the literals of the concluding clause; implied-eq and
+    triangle-eq steps carry none, since Lean proves those implications
+    outright. Only magnitudes enter a Farkas combination (theory_arith records
+    the sign of the row coefficient), and the reconstructor re-derives the
+    combination, so the coefficients are hints, not trusted. A bare
+    (_ th-lemma arith) records no evidence and is rejected.
+    """
+    parameters = decl.params()
+    if len(parameters) < 2 or parameters[0] != "arith" or parameters[1] not in _LEGACY_HINTS:
+        raise ProofExportError("th-lemma without a replayable theory hint: %s" % " ".join(
+            str(parameter) for parameter in parameters))
+    coefficients = []
+    for parameter in parameters[2:]:
+        try:
+            coefficients.append(abs(Fraction(str(parameter))))
+        except (ValueError, ZeroDivisionError):
+            raise ProofExportError("th-lemma coefficient is not a rational: %s" % parameter) from None
+    hint = _LEGACY_HINTS[parameters[1]]
+    if parameters[1] == "assign-bounds" and coefficients:
+        # theory_arith weights the antecedents only. The propagated literal
+        # has weight 1; it is the first clause literal when the step has no
+        # premises and the conclusion when it has.
+        coefficients = coefficients + [Fraction(1)] if premises else [Fraction(1)] + coefficients
+    if hint == "implied-eq":
+        coefficients = []  # never summed; the reconstructor checks shapes and Lean proves the equality
+    return [hint] + [str(coefficient) for coefficient in coefficients]
+
+
 def _encode_proof(assertions, proof):
     declarations, nodes = [], []
     declaration_ids, node_ids = {}, {}
@@ -333,6 +377,8 @@ def _encode_proof(assertions, proof):
     def sort_name(sort):
         if sort.kind() == z3.Z3_BOOL_SORT:
             return "Bool"
+        if sort.kind() == z3.Z3_REAL_SORT:
+            return "Real"
         if sort.eq(proof_sort):
             return "Proof"
         if is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
@@ -353,15 +399,20 @@ def _encode_proof(assertions, proof):
             continue
         decl = expr.decl()
         if decl.get_id() not in declaration_ids:
-            if decl.params():
+            name, parameters = str(decl.name()), []
+            if decl.kind() == z3.Z3_OP_ANUM:
+                name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
+            elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
+                parameters = _th_lemma_parameters(decl, expr.num_args() - 1)
+            elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             declaration_ids[decl.get_id()] = len(declarations)
             declarations.append({
                 "kind": decl.kind(),
-                "name": str(decl.name()),
+                "name": name,
                 "domain": [sort_name(decl.domain(i)) for i in range(decl.arity())],
                 "range": sort_name(decl.range()),
-                "parameters": [],
+                "parameters": parameters,
             })
         node_ids[expr.get_id()] = len(nodes)
         nodes.append({
@@ -569,7 +620,8 @@ def export_certificate(source):
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
     This is the legacy proof-object path (the smt core, sat.smt=false) and
-    supports propositional and QF_UF input; arithmetic needs the clause log.
+    supports propositional, QF_UF, and QF_LRA input; theory_lra's th-lemma
+    steps carry their Farkas coefficients as declaration parameters.
     """
     context = z3.Context(proof=True)
     assertions, _ = parse_legacy_assertions(source, context)
@@ -623,7 +675,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
-                        help="proof source: the legacy proof object (propositional or QF_UF input) or the "
+                        help="proof source: the legacy proof object (propositional, QF_UF, or QF_LRA input) or the "
                              "sat.smt clause log via the z3 executable (default: legacy when propositional, "
                              "clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")

@@ -218,6 +218,7 @@ class theory_lra::imp {
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
     vector<parameter>            m_bound_params;
+    vector<parameter>            m_implied_eq_params;
     std_vector<lp::implied_bound>   m_implied_bounds;
     lp::lp_bound_propagator<imp> m_bp;
 
@@ -954,7 +955,7 @@ public:
         m_bound_params.push_back(parameter(m_farkas));
         m_bound_params.push_back(parameter(rational(1)));
         m_bound_params.push_back(parameter(rational(1)));
-
+        m_implied_eq_params.push_back(parameter(symbol("implied-eq")));
     }
         
     ~imp() {
@@ -2592,6 +2593,7 @@ public:
                 reset_evidence();
                 m_explanation.clear();
                 lp().explain_implied_bound(be, m_bp);
+                set_proof_params("bound", true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
@@ -2651,7 +2653,8 @@ public:
         ++m_stats.m_bound_propagations1;
         reset_evidence();
         m_explanation.clear();
-        lp().explain_implied_bound(be, m_bp);                       
+        lp().explain_implied_bound(be, m_bp);
+        set_proof_params("bound", true);
         ctx().mark_as_relevant(bound);
         assign(bound, m_core, m_eqs, m_params);              
     }
@@ -3643,10 +3646,14 @@ public:
     void assign_eq(theory_var v1, theory_var v2) {
         enode* x = get_enode(v1);
         enode* y = get_enode(v2);
-        justification* js = 
+        // The proof object labels the step implied-eq; the Lean reconstructor
+        // proves the equality from the premises and reads no coefficients.
+        unsigned num_params = proofs_enabled() ? m_implied_eq_params.size() : 0;
+        justification* js =
             ctx().mk_justification(
                 ext_theory_eq_propagation_justification(
-                    get_id(), ctx(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y));
+                    get_id(), ctx(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y,
+                    num_params, m_implied_eq_params.data()));
         
         TRACE(arith,
               for (auto c : m_core) 
@@ -3761,6 +3768,39 @@ public:
         m_params.reset();
     }
 
+    // Record the Farkas coefficients of m_explanation as th-lemma parameters
+    // for the proof object: the hint name, one coefficient per literal of
+    // m_core, one per equality of m_eqs (the order in which the justification
+    // lists its premises), and 1 for a propagated consequent. Call it after
+    // set_evidence has filled m_core and m_eqs from exactly this explanation
+    // (set_evidence skips the same constraint indices). Without coefficients
+    // a proof consumer cannot replay the step.
+    void set_proof_params(char const* hint, bool with_consequent) {
+        m_params.reset();
+        if (!proofs_enabled())
+            return;
+        vector<parameter> eq_params;
+        m_params.push_back(parameter(symbol(hint)));
+        for (auto ev : m_explanation) {
+            if (ev.ci() == UINT_MAX)
+                continue;
+            switch (m_constraint_sources.get(ev.ci(), null_source)) {
+            case inequality_source:
+                m_params.push_back(parameter(abs(ev.coeff())));
+                break;
+            case equality_source:
+                eq_params.push_back(parameter(abs(ev.coeff())));
+                break;
+            default:
+                break;
+            }
+        }
+        m_params.append(eq_params);
+        if (with_consequent)
+            m_params.push_back(parameter(rational(1)));
+        SASSERT(m_params.size() == 1 + m_core.size() + m_eqs.size() + (with_consequent ? 1 : 0));
+    }
+
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
 
     void set_evidence(u_dependency* dep, literal_vector& core, svector<enode_pair>& eqs) {
@@ -3821,14 +3861,15 @@ public:
         // lp().shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
+        for (auto ev : m_explanation)
+            set_evidence(ev.ci(), m_core, m_eqs);
+        if (is_conflict && core.empty())
+            set_proof_params("farkas", false);
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
               tout << "\n";
               display_evidence(tout << core << " ", m_explanation););
-        for (auto ev : m_explanation) 
-            set_evidence(ev.ci(), m_core, m_eqs);
-
 
         if (params().m_arith_validate)
             VERIFY(validate_conflict());

@@ -57,7 +57,9 @@ _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, 
 _REAL_ITE_DOMAIN = ("Bool", "Real", "Real")
 _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf")
+# triangle-eq: the legacy core's axioms tying a Real equality to its two
+# inequalities, proved by grind like every other theory tautology.
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq")
 _FRAGMENTS = ("propositional", "qf_lra", "qf_uf")
 # Refutations with more proof steps than this are split into separately
 # checked lemmas, none nesting more than _OUTLINE_CHUNK_STEPS steps: one
@@ -84,7 +86,6 @@ _UF_BINDERS = (" (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U)
 _UF_ARGUMENTS = " _U _elems _funs _preds _bool"
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
-    z3.Z3_OP_PR_TH_LEMMA: ("th-lemma", 0),
     z3.Z3_OP_PR_HYPOTHESIS: ("hypothesis", 0),
     z3.Z3_OP_PR_LEMMA: ("lemma", 1),
     z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
@@ -113,6 +114,9 @@ _VARIADIC_PROOF_RULES = {
     z3.Z3_OP_PR_UNIT_RESOLUTION: ("unit-resolution", 1),
     z3.Z3_OP_PR_MONOTONICITY: ("monotonicity", 0),
     z3.Z3_OP_PR_TRANSITIVITY_STAR: ("trans*", 0),
+    # A clause-log th-lemma has no premises; the legacy core's lists the
+    # literals and equalities its conflict or propagation rests on.
+    z3.Z3_OP_PR_TH_LEMMA: ("th-lemma", 0),
 }
 
 
@@ -822,6 +826,10 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
     equality and distinct over terms through congruence of Eq, and an ite term
     through ite_congr_classical. A Boolean argument of an application is
     injected by _bool, so its equivalence becomes an equality by propext.
+    Congruence through an arithmetic operator or comparison (the legacy core
+    normalizes Real atoms inside their assertions) is a grind lemma taking the
+    argument equalities as premises. Returns the Lean term, whether
+    ite_congr_classical is used, and the lines of any lemma to emit.
     """
     left, right = _equivalence(graph, graph.conclusion(node), "monotonicity")
     left_args, right_args = graph.arguments(left), graph.arguments(right)
@@ -843,7 +851,7 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
             raise ReconstructionError("monotonicity is missing an argument equivalence at node %d" % node)
     if not left_args:
         # Both sides are the same constant (identical declaration, no arguments).
-        return "(%s.refl %s)" % (_relation(graph, left), _side(graph, left)), False
+        return "(%s.refl %s)" % (_relation(graph, left), _side(graph, left)), False, []
     kind = graph.kind(left)
     if kind == z3.Z3_OP_UNINTERPRETED:
         # Function or predicate application: every element of the argument
@@ -852,22 +860,28 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
                     for first, argument in zip(left_args, arguments)]
         if graph.is_term(left):
             return "(congrArg (_funs %d) %s)" % (variable_indices[graph.nodes[left].declaration],
-                                                 _list_congruence(elements)), False
+                                                 _list_congruence(elements)), False, []
         return "(Iff.of_eq (congrArg (_preds %d) %s))" % (atom_indices[graph.nodes[left].declaration],
-                                                           _list_congruence(elements)), False
+                                                           _list_congruence(elements)), False, []
     if graph.is_term(left):
-        if kind != z3.Z3_OP_ITE:
-            raise ReconstructionError("unsupported term congruence at node %d" % node)
-        return "(ite_congr_classical %s %s %s)" % tuple(arguments), True
+        if kind == z3.Z3_OP_ITE:
+            return "(ite_congr_classical %s %s %s)" % tuple(arguments), True, []
+        if graph.is_real(left) and kind in _REAL_NAMES:
+            lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
+            return term, False, lines
+        raise ReconstructionError("unsupported term congruence at node %d" % node)
     if graph.is_term(left_args[0]):
         if kind == z3.Z3_OP_EQ:
-            return _term_equality_congruence(*arguments), False
+            return _term_equality_congruence(*arguments), False, []
         if kind == z3.Z3_OP_DISTINCT:
             pairs = ["(not_congr %s)" % _term_equality_congruence(first, second)
                      for index, first in enumerate(arguments) for second in arguments[index + 1:]]
-            return _fold("and_congr", pairs, "(Iff.refl True)"), False
+            return _fold("and_congr", pairs, "(Iff.refl True)"), False, []
+        if graph.is_real(left_args[0]) and kind in _ARITH_PREDICATE_NAMES:
+            lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
+            return term, False, lines
         raise ReconstructionError("unsupported atom congruence at node %d" % node)
-    return _congruence_term(kind, arguments), False
+    return _congruence_term(kind, arguments), False, []
 
 
 def _and_elim(graph, terms, node):
@@ -1016,17 +1030,24 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     grind decides linear arithmetic over ordered fields, congruence closure
     over uninterpreted functions, and propositional structure; the Lean kernel
     checks the proof it produces. Lean core's Rat library already depends on
-    the standard axioms, so arithmetic lemmas do too.
+    the standard axioms, so arithmetic lemmas do too. A step with premises
+    (the legacy core's th-lemma and arithmetic monotonicity) is stated as the
+    implication from the premise conclusions and applied to their steps.
     """
     conclusion = graph.conclusion(node)
+    premises = graph.arguments(node)[:-1]
     reachable, _ = _reachable(graph, conclusion)
+    for premise in premises:
+        reachable |= _reachable(graph, graph.conclusion(premise))[0]
     definitions = ["%s_%d" % ("term" if graph.is_term(formula) else "formula", formula)
                    for formula in sorted(reachable, reverse=True)]
+    statement = " -> ".join([_formula(graph, graph.conclusion(premise)) for premise in premises]
+                            + [_formula(graph, conclusion)])
     lines = [
         "",
         "set_option maxHeartbeats 1000000 in",
         "private theorem %s_%d (_atoms : Nat -> Prop)%s" % (prefix, node, _valuation_binder(graph)),
-        "    : %s := by" % _formula(graph, conclusion),
+        "    : %s := by" % statement,
         "  unfold " + " ".join(definitions),
     ]
     if graph.arithmetic:
@@ -1037,7 +1058,8 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     # Large Boolean/arithmetic rewrites can require more than grind's default
     # nine case splits, even though every arithmetic atom remains linear.
     lines.append("  grind (splits := 64)")
-    return lines, "(%s_%d _atoms%s)" % (prefix, node, graph.valuation)
+    return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
+                                          "".join(" _step_%d" % premise for premise in premises))
 
 
 def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
@@ -1591,15 +1613,31 @@ def _polarity_constraint(graph, literal, polarity):
 
 
 def _check_th_lemma(graph, node):
-    """Check Farkas combinations and implied-equality shapes before calling Lean."""
+    """Check Farkas combinations and implied-equality shapes before calling Lean.
+
+    A clause-log th-lemma has no premises and its coefficients weight the
+    complements of the clause literals. A legacy th-lemma lists the literals
+    and equalities theory_lra's conflict or propagation rests on as premises
+    and concludes false, the propagated literal, or the implied equality; the
+    coefficients weight the premises first, then the clause literals. Lean
+    proves the implication from the premises either way.
+    """
     parameters = graph.decl(node).parameters
+    premises = [graph.conclusion(premise) for premise in graph.arguments(node)[:-1]]
+    literals = list(graph.clause(graph.conclusion(node)))
+    if parameters[0] == "triangle-eq":
+        _check_triangle_eq(graph, node, premises, literals)
+        return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
-    literals = graph.clause(graph.conclusion(node))
     coefficients = [Fraction(parameter) for parameter in parameters[1:]]
-    if len(coefficients) != len(literals):
-        raise ReconstructionError("th-lemma %s has %d coefficients for %d literals at node %d" % (
-            parameters[0], len(coefficients), len(literals), node))
+    if parameters[0] == "implied-eq" and premises and not coefficients:
+        # The legacy core records none, and implied-eq coefficients are never
+        # summed: only the literal shapes are checked below.
+        coefficients = [Fraction(1)] * (len(premises) + len(literals))
+    if len(coefficients) != len(premises) + len(literals):
+        raise ReconstructionError("th-lemma %s has %d coefficients for %d premises and %d clause literals at node %d" % (
+            parameters[0], len(coefficients), len(premises), len(literals), node))
     if parameters[0] == "implied-eq":
         if not literals:
             raise ReconstructionError("implied-eq th-lemma must end in a Real equality")
@@ -1612,12 +1650,38 @@ def _check_th_lemma(graph, node):
         _atom_constraint(graph, equality)
         literals, coefficients = literals[:-1], coefficients[:-1]
     constraints = []
-    for coefficient, literal in zip(coefficients, literals):
-        relation, terms, constant = _linear_constraint(graph, literal)
+    for coefficient, premise in zip(coefficients, premises):
+        relation, terms, constant = _atom_constraint(graph, premise)  # a premise holds
+        constraints.append((coefficient, relation, terms, constant))
+    for coefficient, literal in zip(coefficients[len(premises):], literals):
+        relation, terms, constant = _linear_constraint(graph, literal)  # a clause literal is denied
         constraints.append((coefficient, relation, terms, constant))
     if parameters[0] != "implied-eq" and not linear_combination_refutes(constraints):
         raise ReconstructionError("th-lemma %s coefficients do not refute its literals at node %d" % (
             parameters[0], node))
+
+
+def _check_triangle_eq(graph, node, premises, literals):
+    """A legacy axiom relating a Real equality to inequalities: one equality literal, linear atoms otherwise.
+
+    arith_eq_adapter emits (or (not (= s t)) (<= (- s t) 0)), its >= twin,
+    and (or (= s t) (not (<= ...)) (not (>= ...))). Only the shape is
+    checked here; grind proves the clause.
+    """
+    if premises or len(literals) < 2:
+        raise ReconstructionError("triangle-eq th-lemma must be a clause without premises at node %d" % node)
+    equalities = 0
+    for literal in literals:
+        atom = literal
+        while graph.kind(atom) == z3.Z3_OP_NOT:
+            atom = graph.arguments(atom)[0]
+        if graph.kind(atom) == z3.Z3_OP_EQ and graph.arguments(atom) and graph.is_real(graph.arguments(atom)[0]):
+            _atom_constraint(graph, atom)
+            equalities += 1
+        else:
+            _linear_constraint(graph, literal)
+    if equalities != 1:
+        raise ReconstructionError("triangle-eq th-lemma must contain exactly one Real equality at node %d" % node)
 
 
 def _resolution(graph, terms, node):
@@ -1920,8 +1984,9 @@ def reconstruct(source, certificate):
         elif graph.kind(node) == z3.Z3_OP_PR_TRANSITIVITY_STAR:
             term = _transitivity_star(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_MONOTONICITY:
-            term, uses_ite = _monotonicity(graph, terms, node, atom_indices, variable_indices)
+            term, uses_ite, lemma = _monotonicity(graph, terms, node, atom_indices, variable_indices)
             ite_congruence = ite_congruence or uses_ite
+            lines.extend(lemma)  # emitted before the theorem, like every other private lemma
         elif graph.kind(node) == z3.Z3_OP_PR_COMMUTATIVITY:
             term = _commutativity(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_AND_ELIM:

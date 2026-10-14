@@ -19,11 +19,12 @@ Native Boolean proof certificates
 proof_certificate.py exports a native Z3 proof DAG as JSON. It is a first
 milestone toward independent proof checking, not a Lean proof or a verified
 unsat verdict. Every bundle explicitly has verification = "unverified".
-For propositional and QF_UF input it can use the legacy proof objects of the
-smt core in a separate proof-enabled context, without changing global
-settings. For linear real arithmetic it rebuilds the sat.smt clause log
-instead, which is also available for the other fragments; see "Linear real
-arithmetic through the clause log" below.
+For propositional, QF_UF, and QF_LRA input it can use the legacy proof
+objects of the smt core in a separate proof-enabled context, without changing
+global settings. For linear real arithmetic it rebuilds the sat.smt clause
+log by default, which is also available for the other fragments; see "Linear
+real arithmetic through the clause log" and "Linear real arithmetic through
+the legacy proof object" below.
 
 Build the local Python bindings and examples:
 
@@ -138,21 +139,19 @@ Run the focused regression suite with the local bindings:
 Linear real arithmetic through the clause log
 --------------------------------------------
 
-The proof objects of the smt core (sat.smt=false) record theory_lra's
-arithmetic conflicts as (_ th-lemma arith) without Farkas coefficients, so
-they cannot be replayed.
-The sat.smt core's clause log carries them: each inferred clause comes with a
-hint such as (farkas 1 $11 2 $17 1 $21). proof_certificate.py therefore drives
-the z3 executable for arithmetic input and rebuilds the log into the same DAG
-format:
+The sat.smt core's clause log carries Farkas coefficients for every
+arithmetic inference: each inferred clause comes with a hint such as
+(farkas 1 $11 2 $17 1 $21). proof_certificate.py drives the z3 executable for
+arithmetic input by default and rebuilds the log into the same DAG format
+(the smt core's proof object is the alternative; see the next section):
 
     PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
         --z3 build/z3 input.smt2 > proof.json
 
 --core auto (the default) uses the legacy proof object for propositional input
 and the clause log otherwise; --core clause-log forces the log for Boolean
-input too, and --core legacy the proof object for QF_UF input (arithmetic
-stays rejected there). --z3 defaults to $Z3_EXE, then build/z3 next to this
+input too, and --core legacy the proof object for QF_UF and QF_LRA input.
+--z3 defaults to $Z3_EXE, then build/z3 next to this
 checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
 bound_simplifier disabled, because the log starts after preprocessing and
@@ -251,9 +250,44 @@ accepts the same rules over terms of a sort as over Boolean formulas; see
 emits for this fragment beyond the Boolean slice: rewrites between terms
 (for example (= (ite true a b) a)), the commutativity rule, congruence
 through ite terms and distinct, and def-axiom gate clauses pairing a distinct
-with its expansion into disequalities. The two cores are not interchangeable
-on QF_LRA: theory_lra's legacy th-lemma steps carry no Farkas coefficients
-(see above), so arithmetic still requires the clause log.
+with its expansion into disequalities.
+
+Linear real arithmetic through the legacy proof object
+------------------------------------------------------
+
+theory_lra records the evidence of each LP conflict and bound propagation as
+th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
+(_ th-lemma arith bound c1 ... cn 1) for a propagated bound literal, and
+(_ th-lemma arith implied-eq) for a propagated equality (the coefficients are
+the Farkas multipliers of the LP explanation, one per premise in the order
+the step lists them; before 2026-10-14 the parameter vector was reset and
+never filled, which is why arithmetic needed the clause log). Unlike a
+clause-log th-lemma, a legacy th-lemma has premises: the literals and
+equalities the step rests on, each with its own proof, and it concludes
+false, the propagated literal, or the implied equality. The certificate keeps
+the hint and the normalized coefficients as the declaration's parameters
+(premises first, then the literals of the concluding clause) and drops the
+leading "arith" symbol. Two more legacy shapes are accepted: triangle-eq,
+arith_eq_adapter's axioms tying (= s t) to (<= (- s t) 0) and (>= (- s t) 0),
+and the parameters of the older theory_arith, which the smt core still
+selects for difference-logic-shaped input: assign-bounds (a propagation
+weighting the antecedents only, with signed coefficients) becomes bound with
+the propagated literal's weight 1 added, eq-propagate becomes implied-eq, and
+only magnitudes are kept. A th-lemma whose hint is none of these, including
+a bare (_ th-lemma arith) and the integer rules, is rejected at export.
+
+The reconstructor re-derives every farkas and bound combination from the
+premises and the clause with exact rationals before Lean runs, checks the
+shapes of implied-eq and triangle-eq steps, and states each th-lemma as the
+implication from its premises, proved by grind and applied to the premise
+steps. Congruence through an arithmetic operator or comparison (monotonicity
+over +, *, -, /, <=, <, >=, >), which the smt core's rewriting of atoms
+produces, is a grind lemma taking the argument equalities as premises; the
+other monotonicity shapes keep their explicit terms. Inputs with Real ite
+terms are rejected on this path: the smt core names each ite term by an
+intro-def step, a fresh definition the certificate cannot tie to the input,
+so --core auto keeps the clause log for arithmetic. Inputs in which Z3
+rewrites the ite away (a comparison pushed through the ite) are certified.
 
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
@@ -312,10 +346,12 @@ explicitly, even when unused in the final refutation. This is not a general
 propositional tautology prover, and fresh-symbol definitions remain unsupported.
 
 th-lemma nodes and arithmetic rewrites are proved by Lean's grind tactic
-after unfolding the formula and term definitions they mention; see the
-arithmetic section below. Other proof rules, including rewrite*, mp~, and
-definition introduction, fail explicitly. Consequently, some otherwise
-propositional Z3 refutations are still unsupported.
+after unfolding the formula and term definitions they mention; a th-lemma
+with premises (the legacy core's) is stated as the implication from its
+premises and applied to their steps; see the arithmetic sections. Other
+proof rules, including rewrite*, mp~, and definition introduction, fail
+explicitly. Consequently, some otherwise propositional Z3 refutations are
+still unsupported.
 
 Install the pinned Lean toolchain as described in lean/README.md. The Boolean
 inputs live in Z3Prover/z3test under regressions/proofs/lean/; the commands

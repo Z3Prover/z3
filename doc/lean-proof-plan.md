@@ -745,6 +745,36 @@ three assertions, and the 5- and 7-level diamonds (the latter outlined,
 for `theory_lra`, and a `uf_*.smt2` set in z3test for a legacy QF_UF matrix
 cell.
 
+**QF_LRA over legacy proof objects (2026-10-14).** The second item is done.
+`theory_lra` now fills the `th-lemma` parameters it used to reset: an LP
+conflict carries `farkas` with the explanation's multipliers, one per
+premise in the order the justification lists them (literals, then
+equalities); a bound propagation from the LP carries `bound` with the same
+multipliers and 1 for the consequent, mirroring the sat.smt `bound` hint
+(the fresh bound literals of `smt.arith.propagation_mode=2` included); an
+equality propagation is labelled `implied-eq`. Scanning the proofs showed
+two more producers on the same inputs: `arith_eq_adapter`'s `triangle-eq`
+axioms, and the older `theory_arith`, which the smt core still selects for
+difference-logic-shaped input and whose `assign-bounds` steps weight the
+antecedents only with signed coefficients. The exporter accepts `qf_lra` on
+the legacy path, maps these conventions to the certificate's `farkas`,
+`bound`, `implied-eq`, and `triangle-eq` hints (premises first, then clause
+literals, magnitudes only), and rejects a bare `(_ th-lemma arith)` or an
+integer rule. The reconstructor re-derives each combination with the
+premises as held constraints, states a `th-lemma` with premises as the
+implication from them, proved by `grind`, and proves congruence through
+arithmetic operators and comparisons (new in legacy proofs, since the smt
+core rewrites atoms inside assertions) by `grind` over the argument
+equalities. All eight documented QF_LRA inputs, 188 random instances (up to
+571 steps, 4.4 s), ten difference-logic inputs, and the three rewritten-ite
+inputs verify under the standard axioms from the legacy proof object. Still
+rejected on this path: Real `ite` terms, which the smt core names by
+`intro-def` (a fresh definition; the first candidate for the next legacy
+item), so `--core auto` keeps the clause log for arithmetic and the matrix
+compares both cores. No input tried produced a legacy `implied-eq` step, so
+that shape is covered by the exporter's mapping and the reconstructor's
+shape check only.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

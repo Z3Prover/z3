@@ -30,6 +30,30 @@ _CONTRADICTION = """\
 """
 
 
+def _proof_nodes(proof):
+    """Every proof step reachable from a native proof object."""
+    seen, pending, nodes = set(), [proof], []
+    while pending:
+        node = pending.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if z3.is_app(node) and node.sort().eq(proof.sort()):
+            nodes.append(node)
+            pending.extend(node.children())
+    return nodes
+
+
+class _FakeDecl:
+    """Stands in for a native th-lemma declaration with the given parameters."""
+
+    def __init__(self, parameters):
+        self._parameters = parameters
+
+    def params(self):
+        return self._parameters
+
+
 class TestProofCertificate(unittest.TestCase):
     def assert_well_formed(self, certificate):
         declarations = certificate["declarations"]
@@ -221,10 +245,10 @@ class TestProofCertificate(unittest.TestCase):
         with self.assertRaises(z3.Z3Exception):
             proof_certificate.export_certificate("(assert undeclared)")
 
-    def test_nonpropositional_input_is_rejected_even_with_false(self):
+    def test_unsupported_input_is_rejected_even_with_false(self):
         problems = [
             "(declare-const x Int)(assert (= x 0))",
-            "(declare-const x Real)(assert (< x 0.0))",
+            "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
             "(declare-fun f (Bool) Bool)(assert (f true))",
@@ -831,11 +855,74 @@ class TestFragmentClassification(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.classify(source)
 
-    def test_legacy_exporter_still_rejects_arithmetic(self):
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log"):
-            proof_certificate.export_certificate(_LRA)
+    def test_legacy_exporter_exports_linear_real_arithmetic(self):
+        # theory_lra records the Farkas coefficients of its LP conflicts as
+        # th-lemma parameters, which the certificate keeps as the hint and its
+        # coefficients; numerals are declared by value like the clause log does.
+        certificate = proof_certificate.export_certificate(_LRA)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        declarations = certificate["declarations"]
+        th_lemmas = [(d, [n for n in certificate["nodes"] if declarations[n["declaration"]] is d])
+                     for d in declarations if d["name"] == "th-lemma"]
+        self.assertTrue(th_lemmas)
+        for declaration, nodes in th_lemmas:
+            self.assertEqual(declaration["range"], "Proof")
+            self.assertEqual(declaration["domain"][-1], "Bool")
+            self.assertTrue(all(sort == "Proof" for sort in declaration["domain"][:-1]))
+            self.assertIn(declaration["parameters"][0], ("farkas", "bound"))
+            coefficients = [Fraction(c) for c in declaration["parameters"][1:]]
+            self.assertTrue(all(c > 0 for c in coefficients))
+            for node in nodes:
+                premises = node["arguments"][:-1]
+                conclusion = certificate["nodes"][node["arguments"][-1]]
+                clause = (0 if declarations[conclusion["declaration"]]["kind"] == z3.Z3_OP_FALSE
+                          else len(conclusion["arguments"]) if declarations[conclusion["declaration"]]["kind"] == z3.Z3_OP_OR
+                          else 1)
+                self.assertEqual(len(coefficients), len(premises) + clause)
+        # Numerals are declared by value (the exact set depends on the smt
+        # core's rewriting of the assertions, so only the form is checked).
+        numerals = {d["name"] for d in declarations if d["kind"] == z3.Z3_OP_ANUM}
+        self.assertTrue(numerals)
+        self.assertEqual({str(Fraction(name)) for name in numerals}, numerals)
+        self.assertTrue(all(d["range"] == "Real" for d in declarations if d["kind"] == z3.Z3_OP_ANUM))
+        self.assertTrue(all(d["parameters"] == [] for d in declarations if d["name"] != "th-lemma"))
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uf"):
             proof_certificate.parse_propositional_assertions(_UF, z3.Context())
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_lra"):
+            proof_certificate.parse_propositional_assertions(_LRA, z3.Context())
+
+    def test_legacy_th_lemma_parameters_are_validated(self):
+        context = z3.Context(proof=True)
+        x = z3.Real("x", ctx=context)
+        solver = z3.Solver(ctx=context)
+        solver.add(x > 1, x < 0)
+        self.assertEqual(solver.check(), z3.unsat)
+        proof = solver.proof()
+        th_lemma = next(node for node in _proof_nodes(proof) if node.decl().name() == "th-lemma")
+        self.assertEqual([str(p) for p in th_lemma.decl().params()][:2], ["arith", "farkas"])
+        # A th-lemma declaration with a hint the reconstructor cannot replay is rejected at export.
+        arith = th_lemma.decl().params()[0]
+        for parameters, message in [
+            ([], "without a replayable theory hint"),
+            (["arith"], "without a replayable theory hint"),
+            (["arith", "nla", 1], "without a replayable theory hint"),
+            (["arith", "gomory-cut", 1], "without a replayable theory hint"),
+            (["farkas", "arith", 1], "without a replayable theory hint"),
+            (["arith", "farkas", "x"], "not a rational"),
+        ]:
+            with self.subTest(parameters=parameters):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    proof_certificate._th_lemma_parameters(_FakeDecl(parameters), 2)
+        parameters = proof_certificate._th_lemma_parameters
+        self.assertEqual(parameters(_FakeDecl([arith, "farkas", 1, "1/2"]), 2), ["farkas", "1", "1/2"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "bound", "2", "1"]), 1), ["bound", "2", "1"])
+        # theory_arith's sign and antecedent-only conventions are normalized.
+        self.assertEqual(parameters(_FakeDecl(["arith", "farkas", "-1", "2"]), 2), ["farkas", "1", "2"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "assign-bounds", "-1", "1"]), 0), ["bound", "1", "1", "1"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "assign-bounds", "3", "1"]), 2), ["bound", "3", "1", "1"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "implied-eq"]), 3), ["implied-eq"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "eq-propagate", "1", "1"]), 2), ["implied-eq"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "triangle-eq"]), 0), ["triangle-eq"])
 
     def test_legacy_exporter_exports_uninterpreted_functions(self):
         # The smt core's proof object carries complete equality proofs, so QF_UF
