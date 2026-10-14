@@ -23,6 +23,80 @@ except `Z3NlArith.fst`, whose 9 `assume`s are explicitly-labeled
 real-analysis facts about `exp`/`log`/`sin`/`cos`/`atan2` (see
 [`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md)).
 
+## Bounded Boolean equivalence
+
+`Z3BoundedBoolEquiv.fst` operates directly on `Z3AstTheory.expr`.
+Its executable entry point is:
+
+```fstar
+bounded_bool_equiv :
+  depth:nat -> width:nat -> s:Z3AstTheory.expr -> t:Z3AstTheory.expr -> bool
+```
+
+It recognizes constants, n-ary `and`/`or`/`xor`, and unary `not`/binary
+`implies`/Boolean `eq` by `Z3BasicExprTheory.decl_kind_of` tags in
+`func_decl.interp`, not by declaration names. This is the basic-family
+encoding, not the separate `Z3ValueTheory` proof-checker tag encoding.
+The declaration's domain, range, arity, parameters, and argument sorts
+must match a Boolean operation; unrecognized or malformed applications,
+non-Boolean equality, variables, and quantifiers are opaque. Quantifier
+bodies are not traversed. Nonidentical non-Boolean inputs return `false`.
+
+`depth` bounds candidate discovery and connective expansion. First,
+`candidate_nodes` collects the outer structure of each input up to and
+including nodes at that depth, without entering opaque nodes.
+`common_boundaries` intersects these candidates using structural equality.
+Each skeleton then stops at its first shared candidate, before inspecting
+children, regardless of the remaining depth at that occurrence. Thus the
+outermost shared subtrees become common atoms even when they occur at
+different depths. Constants are excluded from boundary discovery and remain
+constants; unmatched nodes at the depth cutoff remain opaque atoms.
+
+For example, with a shared arbitrarily deep `A`, depth 3 abstracts
+`(and (or (and A y) z) y)` and `(and y (or A z))` using just `A`, `y`, and
+`z`, rather than expanding `A` on one side. The internal
+`cut_with_boundaries` function supports any chosen boundary list, and
+`lemma_cut_at_boundary` verifies that a selected node is always atomic.
+
+`width` caps the number of distinct variables in the resulting combined
+frontier, not the number of discovered candidates or internal AST nodes.
+The checker streams at most `2^width` truth-table rows using the same
+assignment for both expressions, stopping at the first disagreement.
+Identical expressions succeed immediately, including when both bounds
+are zero. Discovery is depth-bounded but not breadth-bounded. Structural
+equality itself can inspect deep subtree contents: this recursive AST
+representation has no constant-time node-identity operation.
+
+`lemma_bounded_bool_equiv_sound` proves that `true` implies equal
+`Z3AstTheory.eval` results under any interpretation and variable environment
+satisfying `boolean_semantics`. This supplies the ordinary one-layer
+Boolean evaluation laws and a faithful Boolean representation: the generic
+`Z3AstTheory.interpretation` deliberately leaves operator meanings abstract.
+The contract does not assert equivalence of the inputs or correctness of the
+checker. `boolean_interpretation` constructs a standard Boolean-valued
+interpretation from any fallback interpretation, and
+`lemma_boolean_interpretation_semantics` proves that it satisfies the
+contract. `lemma_bounded_bool_equiv_boolean_sound` consequently needs only
+a successful checker result to prove native evaluation equality for those
+interpretations. All these proofs are free of axioms and admitted obligations.
+
+`false` means equivalence was not established: a width overflow, a depth
+cutoff, or an opaque shared boundary can reject semantically equivalent
+expressions. The outermost-boundary policy deliberately does not expand
+a selected atom to exploit relationships with its descendants. For example,
+`(or A p)` versus `A`, with `A = (or p q)`, is not established after freezing
+`A`: treating `A` and `p` independently loses the implication `p => A`.
+`Z3BoundedBoolEquivTests.fst` checks all connectives, empty n-ary operators,
+shared cutoff expressions, budget exhaustion, negative cases, depths 3-6,
+and a ten-variable/1,024-row comparison, as well as native AST classification,
+opaque theory predicates/quantifiers, malformed applications, and the
+native evaluation theorem. Shared-boundary regressions cover unequal
+occurrence depths, a forty-layer/ten-variable shared subtree abstracted
+to one atom, root-to-descendant matching, nested common candidates,
+discovery bounds, and native evaluation soundness of the resulting
+three-atom comparison. Verify the tests with the command above, adding
+`--include C:\z3\fstar`.
+
 ## Audits
 
 | Audit | Report | Theory file(s) | Proof file(s) | Subject |
