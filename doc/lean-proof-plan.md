@@ -717,6 +717,34 @@ noted in the first matrix run (`arith`, `arith farkas`, `arith
 assign-bounds`, `arith triangle-eq`) is the list of legacy lemma kinds that
 second item must map or reject explicitly.
 
+**QF_UF over legacy proof objects (2026-10-14).** The first of the two items
+is done, in Python and Lean only. `export_certificate` (`--core legacy`)
+accepts QF_UF input and keeps the input's sort names in the certificate;
+`--core auto` still picks the clause log for anything but propositional
+input, so the matrix compares both cores on the same inputs. Scanning the
+legacy proofs of 348 unsat QF_UF instances (the documented inputs, equality
+diamonds, and the four random generators) gave the rule inventory the
+reconstructor had to learn: `trans`, `symm`, `trans*`, and `monotonicity`
+over sort-valued equalities (860 monotonicity steps, with heads `not`, `=`,
+`ite` over a sort, `distinct`, `or`, `and`, `=>`, functions, and predicates),
+`commutativity` (new rule), rewrites between terms (`(ite true a b)` to `a`,
+branch swaps under a negated condition), 234 identity rewrites, and
+`def-axiom` clauses pairing `distinct` with its conjunction of disequalities.
+Every premise of every monotonicity step was forward-oriented, so the
+Boolean rule's orientation requirement is kept. The equality rules are
+explicit Lean terms (`Eq.trans`, `Eq.symm`, `congrArg` over argument lists,
+`propext` for `_bool` arguments, a per-file `ite_congr_classical` lemma for
+`ite` terms); only the non-identity rewrites go to `grind`, and refutations
+without one depend on `propext` alone. One elaboration pitfall: `congr`
+against a `formula_N` application unifies its metavariable head with the
+definition's last argument instead of unfolding, so equality congruence is
+composed from `Eq.trans` like the Boolean `Iff` congruence. All ten
+documented QF_UF inputs, 109 random instances with unsat cores of at least
+three assertions, and the 5- and 7-level diamonds (the latter outlined,
+1,230 steps) verify under the standard axioms. Not done: the C++ Farkas item
+for `theory_lra`, and a `uf_*.smt2` set in z3test for a legacy QF_UF matrix
+cell.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

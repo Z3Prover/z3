@@ -19,10 +19,11 @@ Native Boolean proof certificates
 proof_certificate.py exports a native Z3 proof DAG as JSON. It is a first
 milestone toward independent proof checking, not a Lean proof or a verified
 unsat verdict. Every bundle explicitly has verification = "unverified".
-For propositional input it uses the legacy proof objects in a separate
-proof-enabled context and does not change global settings. For linear real
-arithmetic and for uninterpreted functions it rebuilds the sat.smt clause log
-instead; see "Linear real arithmetic through the clause log" below.
+For propositional and QF_UF input it can use the legacy proof objects of the
+smt core in a separate proof-enabled context, without changing global
+settings. For linear real arithmetic it rebuilds the sat.smt clause log
+instead, which is also available for the other fragments; see "Linear real
+arithmetic through the clause log" below.
 
 Build the local Python bindings and examples:
 
@@ -150,8 +151,9 @@ format:
 
 --core auto (the default) uses the legacy proof object for propositional input
 and the clause log otherwise; --core clause-log forces the log for Boolean
-input too. --z3 defaults to $Z3_EXE, then build/z3 next to this checkout, then
-z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
+input too, and --core legacy the proof object for QF_UF input (arithmetic
+stays rejected there). --z3 defaults to $Z3_EXE, then build/z3 next to this
+checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
 bound_simplifier disabled, because the log starts after preprocessing and
 bound_simplifier runs solve_eqs internally regardless of its own option.
@@ -234,24 +236,46 @@ ite term over the sort is an opaque element for the euf core, tied to its
 branches by the same two gate clauses as a Real ite, which the replay adds
 as def-axiom nodes.
 
+Uninterpreted functions through the legacy proof object
+-------------------------------------------------------
+
+The smt core's conflict resolution records complete equality proofs, so a
+QF_UF refutation from the legacy proof object (--core legacy, or
+export_certificate) needs no theory hint at all: every equality between
+terms is derived by trans, trans*, symm, and monotonicity steps, with the
+preprocessing rewrites the clause log never sees. The certificate format is
+unchanged (the same declarations and nodes as a clause-log certificate, with
+rule counts over the native rules instead of th-lemma). The reconstructor
+accepts the same rules over terms of a sort as over Boolean formulas; see
+"Uninterpreted functions in Lean" for the Lean terms. Shapes the legacy core
+emits for this fragment beyond the Boolean slice: rewrites between terms
+(for example (= (ite true a b) a)), the commutativity rule, congruence
+through ite terms and distinct, and def-axiom gate clauses pairing a distinct
+with its expansion into disequalities. The two cores are not interchangeable
+on QF_LRA: theory_lra's legacy th-lemma steps carry no Farkas coefficients
+(see above), so arithmetic still requires the clause log.
+
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
 
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
 It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
-trans*, iff-true, iff-false, Boolean monotonicity, and-elim, not-or-elim,
-hypothesis, and lemma proof nodes.
+trans*, iff-true, iff-false, Boolean monotonicity, commutativity, and-elim,
+not-or-elim, hypothesis, and lemma proof nodes.
 It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
-Boolean equivalences. Each rewrite must conclude a Boolean equality/equivalence
-and is checked independently of the input hypotheses by a Lean truth table.
+Boolean equivalences. Each rewrite must conclude an equality or equivalence and
+is checked independently of the input hypotheses: a Boolean rewrite by a Lean
+truth table, a theory rewrite by grind, and a rewrite between two identical
+sides by Iff.refl or Eq.refl in place (see "Uninterpreted functions in Lean").
 
 refl, symm, and trans check Boolean equivalence endpoints and compose Lean's
 logical rules. monotonicity checks identical application heads and arities,
 and requires an oriented equivalence for every changed argument. Unchanged
 arguments need no premise; repeated arguments can share evidence. Congruence
 covers all supported Boolean connectives using direct proof terms, not truth
-tables or propositional extensionality. and-elim selects an immediate conjunct.
+tables or propositional extensionality. commutativity proves (= (f a b) (f b
+a)) for equality, equivalence, and, or, and xor. and-elim selects an immediate conjunct.
 not-or-elim selects the complement of an immediate disjunct, including native
 double-negation cancellation.
 
@@ -442,6 +466,24 @@ are proved by grind, whose congruence closure handles the list applications;
 Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
 three standard axioms as the arithmetic slice.
+
+The equality rules of a legacy proof object are explicit Lean terms over the
+carrier, checked by Lean's type checker without grind: refl, symm, trans, and
+trans* between terms are Eq.refl, Eq.symm, and Eq.trans (between formulas
+they stay Iff); monotonicity through a function or predicate is congrArg on
+the equality of the argument lists, built from one List.cons congruence per
+argument, with a Boolean argument's equivalence turned into an equality of
+_bool applications by propext; monotonicity of equality and distinct over
+terms composes Eq.trans in both directions; monotonicity through an ite term
+uses a private lemma ite_congr_classical, stated once per file by cases on
+propext of the condition equivalence; commutativity of a term equality is
+Iff.intro Eq.symm Eq.symm. Python checks the endpoints of every such step as
+for the Boolean rules, and a rewrite between two identical formulas or terms
+is Iff.refl or Eq.refl in place. The remaining rewrites of a legacy QF_UF
+proof (ite simplification, distinct expansion, Boolean simplification over
+term atoms) are grind lemmas as for the clause log, and a def-axiom clause
+may pair a distinct with the conjunction of its disequalities, which unfold
+to the same Lean proposition.
 
 Classical Boolean rewrites, double-negation cancellation in not-or-elim,
 def-axiom clauses, and classical steps in lemma discharge use local decidability

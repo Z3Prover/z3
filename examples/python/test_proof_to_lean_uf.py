@@ -924,6 +924,267 @@ class TestUninterpretedValidation(unittest.TestCase):
             proof_to_lean.reconstruct(source, swapped)
 
 
+class TestLegacyProofObjectValidation(unittest.TestCase):
+    """QF_UF certificates from the smt core's proof object: equality rules over the carrier, without Lean."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = UF_INPUTS["uf_congruence"]
+        cls.certificate = proof_certificate.export_certificate(cls.source)
+        cls.graph = proof_to_lean._validate_graph(cls.source, cls.certificate)
+        cls.terms, _ = proof_to_lean._bind_input(cls.source, cls.graph, "qf_uf")
+
+    def nodes(self, kind, graph=None):
+        graph = self.graph if graph is None else graph
+        return [node for node in range(len(graph.nodes)) if graph.kind(node) == kind]
+
+    def term_steps(self, kind, graph=None):
+        """Proof nodes of this rule whose conclusion relates terms of the sort."""
+        graph = self.graph if graph is None else graph
+        return [node for node in self.nodes(kind, graph)
+                if graph.is_term(graph.arguments(graph.conclusion(node))[0])]
+
+    def test_equality_steps_become_eq_terms(self):
+        certificate, graph, terms = self.certificate, self.graph, self.terms
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        counts = certificate["rule_counts"]
+        # Conflict resolution proves every equality: no theory lemma is left to grind.
+        self.assertNotIn("th-lemma", counts)
+        for rule in ("monotonicity", "trans", "rewrite", "mp"):
+            self.assertIn(rule, counts)
+        self.assertEqual(graph.sorts, ("U",))
+        text = proof_to_lean.reconstruct(self.source, certificate)
+        self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UF_BINDERS, text)
+        # Congruence through a function goes through the equality of its
+        # argument list, through a predicate it yields an Iff; Boolean
+        # transitivity stays Iff.trans.
+        self.assertIn("(Iff.trans _step_", text)
+        self.assertRegex(text, r"\(congrArg \(_funs \d+\) \(congr \(congrArg List\.cons ")
+        self.assertRegex(text, r"\(Iff\.of_eq \(congrArg \(_preds \d+\) \(congr \(congrArg List\.cons ")
+        self.assertIn("(Eq.refl (term_", text)  # an unchanged argument
+        self.assertNotIn("ite_congr_classical", text)  # stated only when an ite term is rewritten
+        # The identity rewrite the legacy core records for each assertion is
+        # Iff.refl in place; the other rewrites are grind lemmas.
+        identity = [node for node in self.nodes(z3.Z3_OP_PR_REWRITE)
+                    if len({terms[side] for side in graph.arguments(graph.conclusion(node))}) == 1]
+        self.assertTrue(identity)
+        self.assertEqual(text.count("private theorem rewrite_"), counts["rewrite"] - len(identity))
+        for node in identity:
+            side = graph.arguments(graph.conclusion(node))[0]
+            self.assertIn("    (Iff.refl %s)" % proof_to_lean._formula(graph, side), text)
+            self.assertNotIn("rewrite_%d " % node, text)
+        self.assertNotIn("sorry", text)
+        self.assertNotIn("axiom ", text)
+        # A chain of equalities over the sort: trans and trans* compose
+        # Eq.trans, symm is Eq.symm.
+        source = UF_INPUTS["uf_chained_equality"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, graph))
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_SYMMETRY, graph))
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("(Eq.trans _step_", text)
+        self.assertIn("(Eq.symm _step_", text)
+        source = UF_INPUTS["uf_diamond"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY_STAR, graph))
+        self.assertIn("(Eq.trans _step_", proof_to_lean.reconstruct(source, certificate))
+
+    def tampered(self, certificate=None):
+        certificate = copy.deepcopy(self.certificate if certificate is None else certificate)
+
+        def declaration(kind, name, domain, range_name="Bool"):
+            raw = {"kind": kind, "name": name, "domain": list(domain), "range": range_name, "parameters": []}
+            if raw not in certificate["declarations"]:
+                certificate["declarations"].append(raw)
+            return certificate["declarations"].index(raw)
+
+        def node(decl, arguments):
+            certificate["nodes"].append({"declaration": decl, "arguments": list(arguments)})
+            if certificate["declarations"][decl]["range"] == "Proof":
+                name = certificate["declarations"][decl]["name"]
+                certificate["rule_counts"][name] = certificate["rule_counts"].get(name, 0) + 1
+            return len(certificate["nodes"]) - 1
+
+        return certificate, declaration, node
+
+    def test_tampered_equality_steps_are_rejected_before_lean(self):
+        graph, terms = self.graph, self.terms
+        # trans with a middle term that does not match, and symm with the wrong premise.
+        chained = UF_INPUTS["uf_chained_equality"]
+        chained_certificate = proof_certificate.export_certificate(chained)
+        chained_graph = proof_to_lean._validate_graph(chained, chained_certificate)
+        trans = self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, chained_graph)[0]
+        certificate, _, _ = self.tampered(chained_certificate)
+        first, second, conclusion = chained_graph.arguments(trans)
+        certificate["nodes"][trans]["arguments"] = [first, first, conclusion]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect trans premises"):
+            proof_to_lean.reconstruct(chained, certificate)
+        symm = self.term_steps(z3.Z3_OP_PR_SYMMETRY, chained_graph)[0]
+        premise = chained_graph.arguments(symm)[0]
+        other = next(node for node in range(symm) if chained_graph.decl(node).range == "Proof"
+                     and chained_graph.conclusion(node) != chained_graph.conclusion(premise))
+        certificate, _, _ = self.tampered(chained_certificate)
+        certificate["nodes"][symm]["arguments"] = [other, chained_graph.conclusion(symm)]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect symm premises|symm requires"):
+            proof_to_lean.reconstruct(chained, certificate)
+        # Every proof node is checked, reachable from the root or not: a
+        # monotonicity step appended with the same premises but a conclusion
+        # whose changed argument has no premise, or whose sides have different
+        # heads, is rejected.
+        mono = self.term_steps(z3.Z3_OP_PR_MONOTONICITY)[0]
+        premises = list(graph.arguments(mono)[:-1])
+        left, right = graph.arguments(graph.conclusion(mono))
+        elements = [n for n in range(len(graph.nodes)) if graph.is_term(n) and not graph.arguments(n)]
+        certificate, declaration, node = self.tampered()
+        unrelated = next(e for e in elements
+                         if terms[e] not in {terms[arg] for arg in graph.arguments(left) + graph.arguments(right)})
+        changed = node(graph.nodes[right].declaration, [unrelated] + list(graph.arguments(right)[1:]))
+        equality = node(graph.nodes[graph.conclusion(mono)].declaration, [left, changed])
+        node(graph.nodes[mono].declaration, premises + [equality])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "missing an argument equivalence"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        certificate, declaration, node = self.tampered()
+        equality = node(graph.nodes[graph.conclusion(mono)].declaration, [left, elements[0]])
+        node(graph.nodes[mono].declaration, premises + [equality])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "matching heads and arities"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        # A premise-less monotonicity step between a constant and itself (never
+        # emitted by Z3) is Eq.refl over the sort, not an ill-typed Iff.refl.
+        certificate, declaration, node = self.tampered()
+        constant = node(graph.nodes[graph.conclusion(mono)].declaration, [elements[0], elements[0]])
+        trivial = node(declaration(z3.Z3_OP_PR_MONOTONICITY, "monotonicity", ["Bool"], "Proof"), [constant])
+        text = proof_to_lean.reconstruct(self.source, certificate)
+        step = text.split("let _step_%d " % trivial, 1)[1].split("let _step_", 1)[0]
+        self.assertIn("(Eq.refl %s)" % proof_to_lean._term(graph, elements[0]), step)
+        self.assertNotIn("Iff.refl", step)
+        # commutativity must swap the two arguments of one application, and
+        # mp needs an implication or Boolean equivalence, never a term equality.
+        certificate, declaration, node = self.tampered()
+        same = node(declaration(z3.Z3_OP_EQ, "=", ["Bool", "Bool"]), [graph.conclusion(mono), graph.conclusion(mono)])
+        node(declaration(z3.Z3_OP_PR_COMMUTATIVITY, "commutativity", ["Bool"], "Proof"), [same])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "commutativity requires"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        certificate, declaration, node = self.tampered()
+        asserted = next(n for n in self.nodes(z3.Z3_OP_PR_ASSERTED)
+                        if graph.is_term(graph.arguments(graph.conclusion(n))[0]))
+        term_equality = graph.conclusion(asserted)
+        node(declaration(z3.Z3_OP_PR_MODUS_PONENS, "mp", ["Proof", "Proof", "Bool"], "Proof"),
+             [asserted, asserted, graph.arguments(term_equality)[1]])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong argument sort|mp requires"):
+            proof_to_lean.reconstruct(self.source, certificate)
+
+    def test_ite_distinct_and_term_rewrites(self):
+        # The legacy core rewrites ite terms, states congruence through ite
+        # terms and through distinct, and pairs distinct with its expansion
+        # into disequalities in def-axiom clauses.
+        source = UF_INPUTS["uf_ite"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("private theorem ite_congr_classical"), 1)
+        self.assertIn("(ite_congr_classical ", text)
+        self.assertIn("(and_congr (not_congr (Iff.intro (fun _h => Eq.trans", text)
+        self.assertIn("def-axiom", certificate["rule_counts"])
+        distinct_gates = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                          and any(graph.kind(literal) == z3.Z3_OP_NOT
+                                  and graph.kind(graph.arguments(literal)[0]) == z3.Z3_OP_DISTINCT
+                                  for literal in graph.clause(graph.conclusion(node)))]
+        self.assertTrue(distinct_gates)
+        for node in distinct_gates:
+            self.assertIn("private theorem def_axiom_%d " % node, text)
+        source = UF_INPUTS["uf_ite_alldiff"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        term_rewrites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
+                         and graph.is_term(graph.arguments(graph.conclusion(node))[0])]
+        self.assertTrue(term_rewrites)
+        for node in term_rewrites:
+            self.assertIn("private theorem rewrite_%d " % node, text)  # a grind lemma over the terms
+        self.assertIn("commutativity", proof_certificate.export_certificate(UF_INPUTS["uf_bool_args"])["rule_counts"])
+        self.assertIn("(Iff.intro Eq.symm Eq.symm)",
+                      proof_to_lean.reconstruct(UF_INPUTS["uf_bool_args"],
+                                                proof_certificate.export_certificate(UF_INPUTS["uf_bool_args"])))
+
+
+class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
+    """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
+
+    def check(self, source):
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            proof_to_lean.check_and_write(source, certificate, output)
+            text = output.read_text()
+            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
+            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+            self.assertIn(proof_to_lean._UF_BINDERS, statement)
+            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return certificate, " ".join(result.stdout.split())
+
+    def assert_standard_axioms(self, report):
+        axioms = report.split("depends on axioms: [", 1)[1].split("]", 1)[0]
+        self.assertTrue({name.strip() for name in axioms.split(",")} <= {"propext", "Classical.choice", "Quot.sound"},
+                        axioms)
+
+    def test_documented_uf_inputs_verify_through_the_legacy_core(self):
+        for name, source in UF_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertIn("monotonicity", certificate["rule_counts"])
+                self.assert_standard_axioms(report)
+
+    # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least
+    # three assertions and whose legacy refutations have the most congruence
+    # steps (30 to 84 monotonicity steps, through ite terms); pinned like
+    # LEARNED_CLAUSE_SEEDS in TestUninterpretedLeanIntegration.
+    ITE_SEEDS = (54, 62, 137)
+
+    def test_random_instances_through_the_legacy_core(self):
+        for seed in self.ITE_SEEDS:
+            source = random_instance(seed, ite=0.4)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 3, "re-pick seed %d" % seed)
+                certificate, report = self.check(source)
+                self.assertGreaterEqual(certificate["rule_counts"]["monotonicity"], 10)
+                self.assert_standard_axioms(report)
+        for seed in (98,):  # random_bool_argument_instance: _bool arguments under congruence
+            source = random_bool_argument_instance(seed)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 3, "re-pick seed %d" % seed)
+                certificate, report = self.check(source)
+                self.assertIn("(congrArg _bool (propext ", proof_to_lean.reconstruct(source, certificate))
+                self.assert_standard_axioms(report)
+
+    def test_long_legacy_refutations_are_outlined(self):
+        source = equality_diamond(7)
+        certificate, report = self.check(source)
+        self.assertGreater(_proof_steps(certificate), proof_to_lean._OUTLINE_PROOF_STEPS)
+        self.assert_standard_axioms(report)
+        sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+        self.assertGreater(len(sizes), 1)
+        self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
+        self.assertEqual(sum(sizes), _proof_steps(certificate))
+
+    def test_small_chunks_cut_every_legacy_lemma_shape(self):
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            for name in ("uf_ite", "uf_bool_args", "uf_diamond"):
+                source = UF_INPUTS[name]
+                with self.subTest(name=name):
+                    certificate, _ = self.check(source)
+                    sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+                    self.assertLessEqual(max(sizes), 3)
+                    self.assertEqual(sum(sizes), _proof_steps(certificate))
+
+
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
 class TestUninterpretedLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""

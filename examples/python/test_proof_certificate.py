@@ -834,8 +834,28 @@ class TestFragmentClassification(unittest.TestCase):
     def test_legacy_exporter_still_rejects_arithmetic(self):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log"):
             proof_certificate.export_certificate(_LRA)
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause-log.*qf_uf"):
-            proof_certificate.export_certificate(_UF)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uf"):
+            proof_certificate.parse_propositional_assertions(_UF, z3.Context())
+
+    def test_legacy_exporter_exports_uninterpreted_functions(self):
+        # The smt core's proof object carries complete equality proofs, so QF_UF
+        # goes through the legacy path too; the certificate keeps the sort name.
+        certificate = proof_certificate.export_certificate(_UF)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertEqual(certificate["result"], "unsat")
+        self.assertEqual(certificate["verification"], "unverified")
+        declarations = certificate["declarations"]
+        self.assertEqual({d["range"] for d in declarations} - {"Bool", "Proof"}, {"U"})
+        self.assertEqual({(d["name"], tuple(d["domain"]), d["range"]) for d in declarations
+                          if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {("a", (), "U"), ("b", (), "U"), ("c", (), "U"), ("f", ("U",), "U"),
+                          ("g", ("U", "U"), "U"), ("p", ("U",), "Bool")})
+        self.assertTrue(all(d["parameters"] == [] for d in declarations))
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        root = certificate["nodes"][certificate["proof"]]
+        self.assertEqual(declarations[root["declaration"]]["range"], "Proof")
+        conclusion = certificate["nodes"][root["arguments"][-1]]
+        self.assertEqual(declarations[conclusion["declaration"]]["kind"], z3.Z3_OP_FALSE)
 
 
 class TestLinearCombination(unittest.TestCase):

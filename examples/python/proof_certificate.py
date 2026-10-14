@@ -4,7 +4,12 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem."""
+"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem.
+
+Two proof sources: the legacy proof object of the smt core (propositional and
+QF_UF input) and the sat.smt clause log (every fragment, the only source with
+Farkas coefficients for QF_LRA).
+"""
 
 import argparse
 from collections import Counter
@@ -285,17 +290,31 @@ def classify_fragment(assertions):
     return "qf_lra" if arithmetic else "propositional"
 
 
-def _require_propositional(assertions):
+def _require_legacy_fragment(assertions):
+    """Return the fragment if the legacy proof object can certify it.
+
+    The legacy core's equality proofs (congruence, transitivity, symmetry) are
+    complete, so propositional and QF_UF input is supported; its arithmetic
+    conflicts are bare th-lemma steps without Farkas coefficients, so QF_LRA
+    needs the clause log.
+    """
     fragment = classify_fragment(assertions)
-    if fragment != "propositional":
-        raise ProofExportError("%s requires the clause-log exporter (fragment %s)" % (
-            "arithmetic" if fragment == "qf_lra" else "uninterpreted functions", fragment))
+    if fragment == "qf_lra":
+        raise ProofExportError("arithmetic requires the clause-log exporter (fragment %s)" % fragment)
+    return fragment
+
+
+def parse_legacy_assertions(source, context):
+    """Parse the assertion snapshot for the legacy proof object, with its fragment name."""
+    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
+    return assertions, _require_legacy_fragment(assertions)
 
 
 def parse_propositional_assertions(source, context):
-    """Parse the supported assertion snapshot without running solver search."""
-    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
-    _require_propositional(assertions)
+    """Parse a propositional assertion snapshot without running solver search."""
+    assertions, fragment = parse_legacy_assertions(source, context)
+    if fragment != "propositional":
+        raise ProofExportError("uninterpreted functions are not propositional (fragment %s)" % fragment)
     return assertions
 
 
@@ -316,6 +335,8 @@ def _encode_proof(assertions, proof):
             return "Bool"
         if sort.eq(proof_sort):
             return "Proof"
+        if is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
+            return sort.name()  # The certificate keeps the input's own sort name.
         raise ProofExportError("unsupported native proof sort: %s" % sort)
 
     roots = list(assertions) + [proof]
@@ -534,7 +555,7 @@ def _certificate_from_proof(source, assertions, proof):
         "format": "z3-native-proof-dag",
         "format_version": 1,
         "z3_version": z3.get_full_version(),
-        "fragment": "propositional",
+        "fragment": _require_legacy_fragment(assertions),
         "result": "unsat",
         "verification": "unverified",
         "source_smt2": source,
@@ -547,10 +568,11 @@ def export_certificate(source):
 
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
-    This is the legacy proof-object path and supports propositional input.
+    This is the legacy proof-object path (the smt core, sat.smt=false) and
+    supports propositional and QF_UF input; arithmetic needs the clause log.
     """
     context = z3.Context(proof=True)
-    assertions = parse_propositional_assertions(source, context)
+    assertions, _ = parse_legacy_assertions(source, context)
     solver = z3.Solver(ctx=context)
     solver.add(assertions)
     result = solver.check()
@@ -601,8 +623,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
-                        help="proof source: the legacy proof object (propositional input only) or the "
-                             "sat.smt clause log via the z3 executable (default: legacy when propositional)")
+                        help="proof source: the legacy proof object (propositional or QF_UF input) or the "
+                             "sat.smt clause log via the z3 executable (default: legacy when propositional, "
+                             "clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()

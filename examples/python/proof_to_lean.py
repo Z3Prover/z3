@@ -97,7 +97,18 @@ _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_IFF_FALSE: ("iff-false", 1),
     z3.Z3_OP_PR_AND_ELIM: ("and-elim", 1),
     z3.Z3_OP_PR_NOT_OR_ELIM: ("not-or-elim", 1),
+    z3.Z3_OP_PR_COMMUTATIVITY: ("commutativity", 0),
 }
+# Congruence of the classical ite over the carrier, stated once per file when
+# a monotonicity step rewrites an ite term (the legacy core's conflict
+# resolution does; the clause log never derives equalities between terms).
+_ITE_CONGRUENCE = (
+    "",
+    "private theorem ite_congr_classical {_U : Type} {_c _c' : Prop} {_a _b _a' _b' : _U}",
+    "    (_hc : Iff _c _c') (_ha : _a = _a') (_hb : _b = _b')",
+    "    : @ite _U _c (Classical.propDecidable _c) _a _b = @ite _U _c' (Classical.propDecidable _c') _a' _b' := by",
+    "  cases propext _hc; cases _ha; cases _hb; rfl",
+)
 _VARIADIC_PROOF_RULES = {
     z3.Z3_OP_PR_UNIT_RESOLUTION: ("unit-resolution", 1),
     z3.Z3_OP_PR_MONOTONICITY: ("monotonicity", 0),
@@ -617,6 +628,8 @@ def _modus_ponens(graph, terms, node):
     if kind not in (z3.Z3_OP_IMPLIES, z3.Z3_OP_EQ, z3.Z3_OP_IFF):
         raise ReconstructionError("mp requires an implication or Boolean equivalence at node %d" % node)
     antecedent, consequent = graph.arguments(relation)
+    if graph.is_term(antecedent):
+        raise ReconstructionError("mp requires an implication or Boolean equivalence at node %d" % node)
     if (terms[graph.conclusion(premise)] != terms[antecedent]
             or terms[conclusion] != terms[consequent]):
         raise ReconstructionError("incorrect mp antecedent or conclusion at node %d" % node)
@@ -626,31 +639,74 @@ def _modus_ponens(graph, terms, node):
 
 
 def _equivalence(graph, formula, rule):
+    """Return the two sides of a Boolean equivalence or of an equality between terms.
+
+    Boolean equivalences are Lean Iff, term equalities Lean Eq; the two never
+    mix (the graph is checked to be well-sorted), so a rule's Lean term is
+    chosen by the sort of the sides.
+    """
     if graph.kind(formula) not in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
-        raise ReconstructionError("%s requires a Boolean equivalence at node %d" % (rule, formula))
+        raise ReconstructionError("%s requires an equivalence or equality at node %d" % (rule, formula))
     return graph.arguments(formula)
+
+
+def _relation(graph, side):
+    """The Lean namespace of refl, symm, and trans for sides of this sort."""
+    return "Eq" if graph.is_term(side) else "Iff"
+
+
+def _side(graph, side):
+    return _term(graph, side) if graph.is_term(side) else _formula(graph, side)
 
 
 def _equivalence_step(graph, terms, node):
     rule = graph.decl(node).name
     left, right = _equivalence(graph, graph.conclusion(node), rule)
     premises = graph.arguments(node)[:-1]
+    relation = _relation(graph, left)
     if graph.kind(node) == z3.Z3_OP_PR_REFLEXIVITY:
         valid = terms[left] == terms[right]
-        term = "(Iff.refl %s)" % _formula(graph, left)
+        term = "(%s.refl %s)" % (relation, _side(graph, left))
     elif graph.kind(node) == z3.Z3_OP_PR_SYMMETRY:
         first, second = _equivalence(graph, graph.conclusion(premises[0]), rule)
         valid = terms[left] == terms[second] and terms[right] == terms[first]
-        term = "(Iff.symm _step_%d)" % premises[0]
+        term = "(%s.symm _step_%d)" % (relation, premises[0])
     else:
         first, middle = _equivalence(graph, graph.conclusion(premises[0]), rule)
         other_middle, last = _equivalence(graph, graph.conclusion(premises[1]), rule)
         valid = (terms[left] == terms[first] and terms[middle] == terms[other_middle]
                  and terms[right] == terms[last])
-        term = "(Iff.trans _step_%d _step_%d)" % tuple(premises)
+        term = "(%s.trans _step_%d _step_%d)" % ((relation,) + tuple(premises))
     if not valid:
         raise ReconstructionError("incorrect %s premises or conclusion at node %d" % (rule, node))
     return term
+
+
+def _commutativity(graph, terms, node):
+    """(= (f a b) (f b a)) for a commutative head: equality, equivalence, and, or, xor."""
+    left, right = _equivalence(graph, graph.conclusion(node), "commutativity")
+    kind, arguments = graph.kind(left), graph.arguments(left)
+    if (graph.nodes[left].declaration != graph.nodes[right].declaration or len(arguments) != 2
+            or [terms[arg] for arg in graph.arguments(right)] != [terms[arg] for arg in reversed(arguments)]):
+        raise ReconstructionError("commutativity requires one binary application with swapped arguments at node %d"
+                                  % node)
+    if kind == z3.Z3_OP_EQ and graph.is_term(arguments[0]):
+        return "(Iff.intro Eq.symm Eq.symm)"
+    if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        return "(Iff.intro Iff.symm Iff.symm)"
+    if kind == z3.Z3_OP_AND:
+        direction = "(fun _h => And.intro (And.right _h) (And.left _h))"
+        return "(Iff.intro %s %s)" % (direction, direction)
+    if kind == z3.Z3_OP_OR:
+        direction = "(fun _h => Or.elim _h Or.inr Or.inl)"
+        return "(Iff.intro %s %s)" % (direction, direction)
+    if kind == z3.Z3_OP_XOR:
+        # xor is (p and not q) or (not p and q); swapping p and q swaps the
+        # disjuncts and the conjuncts of each.
+        direction = ("(fun _h => Or.elim _h (fun _pair => Or.inr (And.intro (And.right _pair) (And.left _pair)))"
+                     " (fun _pair => Or.inl (And.intro (And.right _pair) (And.left _pair))))")
+        return "(Iff.intro %s %s)" % (direction, direction)
+    raise ReconstructionError("commutativity over a non-commutative operator at node %d" % node)
 
 
 def _iff_constant(graph, terms, node):
@@ -690,18 +746,19 @@ def _transitivity_star(graph, terms, node):
     if target not in parents:
         raise ReconstructionError("trans* has no equivalence path between its endpoints at node %d" % node)
 
+    relation = _relation(graph, left)
     path = []
     current = target
     while current != start:
         current, premise, reverse = parents[current]
         term = "_step_%d" % premise
-        path.append("(Iff.symm %s)" % term if reverse else term)
+        path.append("(%s.symm %s)" % (relation, term) if reverse else term)
     if not path:
-        return "(Iff.refl %s)" % _formula(graph, left)
+        return "(%s.refl %s)" % (relation, _side(graph, left))
     path.reverse()
     # Balance the composition to avoid deeply nested Lean terms on long paths.
     while len(path) > 1:
-        path = ["(Iff.trans %s %s)" % (path[index], path[index + 1])
+        path = ["(%s.trans %s %s)" % (relation, path[index], path[index + 1])
                 if index + 1 < len(path) else path[index]
                 for index in range(0, len(path), 2)]
     return path[0]
@@ -738,7 +795,34 @@ def _congruence_term(kind, arguments):
     raise ReconstructionError("unsupported Boolean congruence")
 
 
-def _monotonicity(graph, terms, node):
+def _term_equality_congruence(left, right):
+    """(a = b) <-> (a' = b') from a = a' and b = b', over the carrier.
+
+    Composed from Eq.trans like _iff_congruence rather than through congr,
+    whose conclusion has a metavariable head that Lean would unify with the
+    formula definition's last argument instead of unfolding it.
+    """
+    return ("(Iff.intro (fun _h => Eq.trans (Eq.symm %s) (Eq.trans _h %s))"
+            " (fun _h => Eq.trans %s (Eq.trans _h (Eq.symm %s))))" % (left, right, left, right))
+
+
+def _list_congruence(arguments):
+    """[a1, ..., an] = [a1', ..., an'] from one equality per element."""
+    result = "(Eq.refl [])"
+    for argument in reversed(arguments):
+        result = "(congr (congrArg List.cons %s) %s)" % (argument, result)
+    return result
+
+
+def _monotonicity(graph, terms, node, atom_indices, variable_indices):
+    """Congruence: equal arguments give equal applications, Boolean or over the carrier.
+
+    Boolean connectives compose their Lean congruence lemmas; applications of
+    functions and predicates go through the equality of their argument lists,
+    equality and distinct over terms through congruence of Eq, and an ite term
+    through ite_congr_classical. A Boolean argument of an application is
+    injected by _bool, so its equivalence becomes an equality by propext.
+    """
     left, right = _equivalence(graph, graph.conclusion(node), "monotonicity")
     left_args, right_args = graph.arguments(left), graph.arguments(right)
     if (graph.nodes[left].declaration != graph.nodes[right].declaration
@@ -750,15 +834,40 @@ def _monotonicity(graph, terms, node):
         evidence.setdefault((terms[first], terms[second]), premise)
     arguments = []
     for first, second in zip(left_args, right_args):
+        relation = _relation(graph, first)
         if terms[first] == terms[second]:
-            arguments.append("(Iff.refl %s)" % _formula(graph, first))
+            arguments.append("(%s.refl %s)" % (relation, _side(graph, first)))
         elif (terms[first], terms[second]) in evidence:
             arguments.append("_step_%d" % evidence[terms[first], terms[second]])
         else:
             raise ReconstructionError("monotonicity is missing an argument equivalence at node %d" % node)
     if not left_args:
-        return "(Iff.refl %s)" % _formula(graph, left)
-    return _congruence_term(graph.kind(left), arguments)
+        # Both sides are the same constant (identical declaration, no arguments).
+        return "(%s.refl %s)" % (_relation(graph, left), _side(graph, left)), False
+    kind = graph.kind(left)
+    if kind == z3.Z3_OP_UNINTERPRETED:
+        # Function or predicate application: every element of the argument
+        # list is a term or an injected Boolean argument.
+        elements = ["(congrArg _bool (propext %s))" % argument if not graph.is_term(first) else argument
+                    for first, argument in zip(left_args, arguments)]
+        if graph.is_term(left):
+            return "(congrArg (_funs %d) %s)" % (variable_indices[graph.nodes[left].declaration],
+                                                 _list_congruence(elements)), False
+        return "(Iff.of_eq (congrArg (_preds %d) %s))" % (atom_indices[graph.nodes[left].declaration],
+                                                           _list_congruence(elements)), False
+    if graph.is_term(left):
+        if kind != z3.Z3_OP_ITE:
+            raise ReconstructionError("unsupported term congruence at node %d" % node)
+        return "(ite_congr_classical %s %s %s)" % tuple(arguments), True
+    if graph.is_term(left_args[0]):
+        if kind == z3.Z3_OP_EQ:
+            return _term_equality_congruence(*arguments), False
+        if kind == z3.Z3_OP_DISTINCT:
+            pairs = ["(not_congr %s)" % _term_equality_congruence(first, second)
+                     for index, first in enumerate(arguments) for second in arguments[index + 1:]]
+            return _fold("and_congr", pairs, "(Iff.refl True)"), False
+        raise ReconstructionError("unsupported atom congruence at node %d" % node)
+    return _congruence_term(kind, arguments), False
 
 
 def _and_elim(graph, terms, node):
@@ -955,11 +1064,22 @@ def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
     return helpers
 
 
-def _rewrite_lemma(graph, node, atom_indices, variable_indices=None):
-    """Generate a Lean lemma checking every truth assignment by kernel reduction."""
+def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None):
+    """Generate a Lean lemma checking every truth assignment by kernel reduction.
+
+    Theory rewrites go to grind, except that a rewrite between two identical
+    formulas (the legacy core records one per assertion) is Iff.refl.
+    """
     conclusion = graph.conclusion(node)
-    _equivalence(graph, conclusion, "rewrite")
+    left, right = _equivalence(graph, conclusion, "rewrite")
     reachable, theory = _reachable(graph, conclusion)
+    if theory and terms is not None and terms[left] == terms[right]:
+        return [], set(), "(%s.refl %s)" % (_relation(graph, left), _side(graph, left))
+    if graph.is_term(left):
+        # A rewrite between terms (the legacy core simplifies ite terms, for
+        # example (ite true a b) to a): a theory tautology for grind.
+        lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices)
+        return lines, set(), term
     if theory:
         atoms = [formula for formula in sorted(reachable)
                  if graph.kind(formula) in _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ}
@@ -1284,6 +1404,39 @@ def _ite_gate_lemma(graph, terms, node):
     return None
 
 
+def _gate_key(graph, terms, node, cache):
+    """A key identifying formulas whose Lean renderings are definitionally equal.
+
+    distinct over terms unfolds to the same right-nested conjunction of
+    disequalities as the and of (not (= ...)) atoms the legacy core pairs it
+    with in its gate clauses, and a nested conjunction renders like a flat
+    one; everything else is identified by its interned structure.
+    """
+    if node in cache:
+        return cache[node]
+    kind, arguments = graph.kind(node), graph.arguments(node)
+    if kind == z3.Z3_OP_DISTINCT and arguments and graph.is_term(arguments[0]):
+        conjuncts = [("not", ("eq", terms[left], terms[right]))
+                     for index, left in enumerate(arguments) for right in arguments[index + 1:]]
+    elif kind == z3.Z3_OP_AND:
+        conjuncts = [_gate_key(graph, terms, argument, cache) for argument in arguments]
+    elif kind == z3.Z3_OP_NOT:
+        conjuncts = None
+        key = ("not", _gate_key(graph, terms, arguments[0], cache))
+    elif kind == z3.Z3_OP_EQ and arguments and graph.is_term(arguments[0]):
+        conjuncts = None
+        key = ("eq", terms[arguments[0]], terms[arguments[1]])
+    else:
+        conjuncts = None
+        key = ("atom", terms[node])
+    if conjuncts is not None:
+        key = ("true",)
+        for conjunct in reversed(conjuncts):
+            key = conjunct if key == ("true",) else ("and", conjunct, key)
+    cache[node] = key
+    return key
+
+
 def _def_axiom_lemma(graph, terms, node):
     """Prove a Boolean gate clause independently of all input assertions."""
     gate = _ite_gate_lemma(graph, terms, node)
@@ -1291,7 +1444,11 @@ def _def_axiom_lemma(graph, terms, node):
         return gate
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
-    facts, formulas, steps, support = {}, {}, [], {conclusion}
+    facts, formulas, steps, support, keys = {}, {}, [], {conclusion}, {}
+
+    def fact_key(formula, truth):
+        return _gate_key(graph, terms, formula, keys), truth
+
     for position, literal in enumerate(literals):
         evidence = "_lit%d" % position
         steps.append("  let %s : Not %s := fun _value => _not_clause %s" % (
@@ -1304,7 +1461,7 @@ def _def_axiom_lemma(graph, terms, node):
                 evidence = "(@Decidable.byContradiction %s _df%d %s)" % (
                     _formula(graph, formula), formula, evidence)
             truth = not truth
-        key = terms[formula], truth
+        key = fact_key(formula, truth)
         facts.setdefault(key, evidence)
         formulas.setdefault(key, formula)
 
@@ -1313,7 +1470,7 @@ def _def_axiom_lemma(graph, terms, node):
         while graph.kind(formula) == z3.Z3_OP_NOT:
             negations.append(truth)
             formula, truth = graph.arguments(formula)[0], not truth
-        evidence = facts.get((terms[formula], truth))
+        evidence = facts.get(fact_key(formula, truth))
         if evidence is None:
             if graph.kind(formula) == z3.Z3_OP_TRUE and truth:
                 evidence = "True.intro"
@@ -1709,7 +1866,7 @@ def reconstruct(source, certificate):
             lines.extend(lemma)
             th_lemmas[node] = term
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
-            lemma, support, term = _rewrite_lemma(graph, node, atom_indices, variable_indices)
+            lemma, support, term = _rewrite_lemma(graph, node, atom_indices, variable_indices, terms)
             lines.extend(lemma)
             decidable_atoms.update(support)
             rewrites[node] = term
@@ -1725,6 +1882,7 @@ def reconstruct(source, certificate):
     steps = []
     step_blocks = {}
     hypothesis_formulas, dependencies = {}, {}
+    ite_congruence = False
     for node in range(len(graph.nodes)):
         if graph.decl(node).range != "Proof":
             continue
@@ -1762,7 +1920,10 @@ def reconstruct(source, certificate):
         elif graph.kind(node) == z3.Z3_OP_PR_TRANSITIVITY_STAR:
             term = _transitivity_star(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_MONOTONICITY:
-            term = _monotonicity(graph, terms, node)
+            term, uses_ite = _monotonicity(graph, terms, node, atom_indices, variable_indices)
+            ite_congruence = ite_congruence or uses_ite
+        elif graph.kind(node) == z3.Z3_OP_PR_COMMUTATIVITY:
+            term = _commutativity(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_AND_ELIM:
             term = _and_elim(graph, terms, node)
         elif graph.kind(node) == z3.Z3_OP_PR_NOT_OR_ELIM:
@@ -1787,6 +1948,8 @@ def reconstruct(source, certificate):
         step_blocks[node] = steps[begin:]
     if dependencies[graph.proof]:
         raise ReconstructionError("the root proof has undischarged hypotheses")
+    if ite_congruence:
+        lines.extend(_ITE_CONGRUENCE)
     witnesses = []
     if outline:
         outlined, witnesses = _outline_steps(graph, step_blocks, dependencies, signature)

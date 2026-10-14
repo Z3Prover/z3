@@ -61,7 +61,11 @@ commands; its theorem quantifies over `(_U : Type) (_elems : Nat -> _U)
 (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)
 (_bool : Prop -> _U)` instead of `_vars` (Boolean arguments of functions and
 predicates are injected into `_U` by `_bool`), and `grind`'s congruence
-proofs report the same three axioms.
+proofs report the same three axioms. A QF_UF certificate from the legacy
+proof object (`proof_certificate.py --core legacy`) carries the smt core's
+own equality proofs instead of `euf` hints; its `trans`, `symm`, and
+`monotonicity` steps become `Eq.trans`, `Eq.symm`, and `congrArg` terms over
+`_U`, checked by Lean's type checker without `grind`.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's
