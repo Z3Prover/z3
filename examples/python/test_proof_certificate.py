@@ -251,7 +251,7 @@ class TestProofCertificate(unittest.TestCase):
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
-            "(declare-fun f (Bool) Bool)(assert (f true))",
+            "(declare-fun f (Bool) Bool)(declare-const x Real)(assert (and (f true) (> x 1.0)))",
             "(assert (forall ((p Bool)) p))",
             "(declare-const p Bool)(assert ((_ at-most 1) p))",
         ]
@@ -451,6 +451,18 @@ _UF = """\
 (assert (= a b))
 (assert (or (not (= (f a) (f b))) (p (g a c))))
 (assert (not (p (g b c))))
+(check-sat)
+"""
+# Uninterpreted predicates over Bool without any uninterpreted sort.
+_BOOLEAN_PREDICATES = """\
+(declare-fun r (Bool) Bool)
+(declare-fun s (Bool Bool) Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (= p q))
+(assert (or (r p) (s p q)))
+(assert (not (r q)))
+(assert (not (s q q)))
 (check-sat)
 """
 # The clause log for _UF: euf hints list jointly contradictory literals and
@@ -819,21 +831,22 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uf")
-        # Functions and predicates may take Bool arguments, including formulas,
-        # once the input uses a sort; a Bool-only signature is not enough.
+        # Functions and predicates may take Bool arguments, including formulas;
+        # predicates over Bool alone are the fragment without a sort.
         for source in [
             declarations + "(declare-fun h (Bool) U)(assert (= (h true) a))",
             declarations + "(declare-fun h (U Bool) V)(declare-fun r (Bool) Bool)"
                            "(assert (= (h a (r (= v v))) v))",
             declarations + "(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (and (= a a) (r p (not p))))",
+            "(declare-fun r (Bool) Bool)(declare-const p Bool)(assert (r p))",
+            "(declare-sort U 0)(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (r p p))",
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uf")
         for source, message in [
             (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
-            ("(declare-fun r (Bool) Bool)(declare-const p Bool)(assert (r p))", "over Bool alone"),
-            ("(declare-sort U 0)(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (r p p))",
-             "over Bool alone"),
+            ("(declare-fun r (Bool) Bool)(declare-const x Real)(assert (r (> x 1.0)))",
+             "mixing uninterpreted functions over Bool with arithmetic"),
             (declarations + "(declare-fun h (U) V)(declare-const x Real)(assert (and (= (h a) v) (> x 1.0)))",
              "mixing uninterpreted sorts"),
             (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
@@ -943,6 +956,40 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(declarations[root["declaration"]]["range"], "Proof")
         conclusion = certificate["nodes"][root["arguments"][-1]]
         self.assertEqual(declarations[conclusion["declaration"]]["kind"], z3.Z3_OP_FALSE)
+
+    def test_boolean_predicates_without_a_sort_need_the_legacy_core(self):
+        # The sat.smt core Ackermannizes predicates over Bool alone (or decides
+        # the input before logging), so only the legacy proof object certifies
+        # them; --core auto selects it, and the clause log rejects the input.
+        context = z3.Context()
+        for source, legacy in [
+            (_BOOLEAN_PREDICATES, True),
+            ("(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (r p (not p)))(assert (not (r p (not p))))",
+             True),
+            (_UF, False),
+            ("(declare-sort U 0)(declare-fun a () U)(declare-fun r (Bool) Bool)(assert (r (= a a)))", False),
+            (_CONTRADICTION, False),
+            (_LRA, False),
+        ]:
+            with self.subTest(source=source):
+                assertions, fragment = proof_certificate.parse_assertions(source, context)
+                self.assertEqual(proof_certificate.requires_legacy_core(assertions, fragment), legacy)
+                if legacy:
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError, "Ackermannized.*--core legacy"):
+                        proof_certificate.parse_clause_log_assertions(source, context)
+                else:
+                    proof_certificate.parse_clause_log_assertions(source, context)
+        certificate = proof_certificate.export_certificate(_BOOLEAN_PREDICATES)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        declarations = certificate["declarations"]
+        self.assertEqual({d["range"] for d in declarations}, {"Bool", "Proof"})
+        self.assertEqual({(d["name"], tuple(d["domain"]), d["range"]) for d in declarations
+                          if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {("r", ("Bool",), "Bool"), ("s", ("Bool", "Bool"), "Bool"),
+                          ("p", (), "Bool"), ("q", (), "Bool")})
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uf"):
+            proof_certificate.parse_propositional_assertions(_BOOLEAN_PREDICATES, context)
 
 
 class TestLinearCombination(unittest.TestCase):
@@ -1449,6 +1496,22 @@ class TestClauseLogReplay(unittest.TestCase):
             input=_LRA, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["fragment"], "qf_lra")
+        # Predicates over Bool alone: --core auto takes the legacy proof object
+        # (no th-lemma, monotonicity steps), and the clause log is refused.
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "-"],
+            input=_BOOLEAN_PREDICATES, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        certificate = json.loads(result.stdout)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "-"],
+            input=_BOOLEAN_PREDICATES, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--core legacy", result.stderr)
+        self.assertEqual(result.stdout, "")
 
 
 _DEPENDENCY_LOG = """\

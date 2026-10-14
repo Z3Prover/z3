@@ -290,17 +290,51 @@ def classify_fragment(assertions):
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
-    if sorts:
+    if sorts or boolean_functions:
         if arithmetic:
-            raise ProofExportError("mixing uninterpreted sorts with arithmetic is not supported")
+            raise ProofExportError("mixing uninterpreted %s with arithmetic is not supported" % (
+                "sorts" if sorts else "functions over Bool"))
+        # Predicates over Bool alone are the qf_uf fragment without a sort: the
+        # Lean encoding injects their arguments into the carrier like any other
+        # Bool argument. Only the legacy proof object certifies them, see
+        # requires_legacy_core.
         return "qf_uf"
-    if boolean_functions:
-        # Without an uninterpreted sort Z3's sat.smt core does not run the
-        # euf solver on these: it Ackermannizes them with fresh symbols the
-        # clause log cannot be tied to the input.
-        raise ProofExportError("uninterpreted functions over Bool alone are not supported without an "
-                               "uninterpreted sort: %s" % boolean_functions[0])
     return "qf_lra" if arithmetic else "propositional"
+
+
+def _uses_uninterpreted_sort(assertions):
+    """Return whether any subterm of the assertions has an uninterpreted sort."""
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen:
+            continue
+        seen.add(expr.get_id())
+        if is_uninterpreted_sort(expr.sort()):
+            return True
+        pending.extend(expr.children())
+    return False
+
+
+def requires_legacy_core(assertions, fragment):
+    """Return whether only the legacy proof object can certify the input.
+
+    Without an uninterpreted sort Z3's sat.smt core does not run the euf
+    solver on uninterpreted predicates over Bool: it Ackermannizes them with
+    fresh symbols the clause log cannot be tied to the input, or decides the
+    problem before logging anything. The smt core's proof object proves their
+    congruences with monotonicity steps like any other predicate's.
+    """
+    return fragment == "qf_uf" and not _uses_uninterpreted_sort(assertions)
+
+
+def parse_clause_log_assertions(source, context):
+    """Parse the assertion snapshot for the clause log, with its fragment name."""
+    assertions, fragment = parse_assertions(source, context)
+    if requires_legacy_core(assertions, fragment):
+        raise ProofExportError("uninterpreted functions over Bool alone are Ackermannized by the sat.smt core "
+                               "and need the legacy proof object (--core legacy)")
+    return assertions, fragment
 
 
 def _require_legacy_fragment(assertions):
@@ -658,7 +692,7 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     """
     import proof_clause_log
     context = z3.Context()
-    assertions, fragment = parse_assertions(source, context)
+    assertions, fragment = parse_clause_log_assertions(source, context)
     try:
         text = proof_clause_log.run_clause_log(
             z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
@@ -676,8 +710,8 @@ def main():
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
                         help="proof source: the legacy proof object (propositional, QF_UF, or QF_LRA input) or the "
-                             "sat.smt clause log via the z3 executable (default: legacy when propositional, "
-                             "clause log otherwise)")
+                             "sat.smt clause log via the z3 executable (default: legacy when propositional or "
+                             "for uninterpreted predicates over Bool without a sort, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()
@@ -689,8 +723,9 @@ def main():
                 source = stream.read()
         core = args.core
         if core == "auto":
-            _, fragment = parse_assertions(source, z3.Context())
-            core = "legacy" if fragment == "propositional" else "clause-log"
+            assertions, fragment = parse_assertions(source, z3.Context())
+            core = ("legacy" if fragment == "propositional" or requires_legacy_core(assertions, fragment)
+                    else "clause-log")
         if core == "legacy":
             certificate = export_certificate(source)
         else:

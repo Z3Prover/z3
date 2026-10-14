@@ -775,6 +775,32 @@ compares both cores. No input tried produced a legacy `implied-eq` step, so
 that shape is covered by the exporter's mapping and the reconstructor's
 shape check only.
 
+**Uninterpreted predicates over Bool without a sort (2026-10-14).** The
+Bool-argument note of 2026-10-12 left `(declare-fun r (Bool) Bool)` with no
+uninterpreted sort in the assertions rejected on every path, because the
+sat.smt core Ackermannizes such predicates: its log declares fresh symbols
+(`r!1`, `k!2`) for the applications, or is empty when the input is decided
+before search. The legacy proof object has no such gap: `(= (r p) (r q))`
+is a `monotonicity` step from `(= p q)`, with `iff-true`/`iff-false` under a
+`hypothesis` when it splits on an argument, all rules the reconstructor
+already checks. The exporter now classifies these inputs as `qf_uf` (an
+input mixing them with arithmetic stays rejected), `--core auto` selects the
+legacy proof object for them (`requires_legacy_core`), and `--core
+clause-log` rejects them explicitly instead of failing on the fresh symbols.
+The reconstructor keys the qf_uf encoding on "uses a sort or an
+uninterpreted predicate" rather than on the sort set: the theorem takes the
+same `_U`, `_elems`, `_funs`, `_preds`, `_bool` binders with no sort name in
+the certificate, `_U` carries nothing but the injected Boolean arguments,
+and the header says so. Five documented inputs (congruence, a binary
+predicate, a split on `true`/`false`, nested applications with `xor`, a
+Boolean `ite` argument) and 247 random instances of a new generator (129
+small, 118 with five variables, twenty constraints, and depth-3 arguments)
+verify under `propext` alone with no failure; three seeds with 33
+to 41 monotonicity steps are pinned in `test_proof_to_lean_uf.py`, and
+`test_proof_certificate.py` checks the classification, the routing, and the
+clause-log rejection. Still rejected: Bool-only predicates together with
+arithmetic (the qf_lra encoding has no predicate family).
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

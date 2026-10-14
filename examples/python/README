@@ -75,10 +75,12 @@ constants, functions, and predicates whose arguments have uninterpreted
 sorts or Bool (functions may map between sorts; a Bool argument is any
 supported formula), ite terms over a sort whose condition is any supported
 formula, and the atoms = and distinct over terms of one sort; it cannot be
-combined with arithmetic, functions with Real arguments or results are
-rejected, and functions whose arguments are all Bool are accepted only when
-the assertions also use an uninterpreted sort (otherwise Z3's sat.smt core
-Ackermannizes them with fresh symbols). One symbol name declared with
+combined with arithmetic, and functions with Real arguments or results are
+rejected. Predicates whose arguments are all Bool are the qf_uf fragment
+even without any uninterpreted sort; they are certified only through the
+legacy proof object, which --core auto selects for them, because Z3's
+sat.smt core Ackermannizes them with fresh symbols the clause log cannot be
+tied to the input (--core clause-log rejects them). One symbol name declared with
 several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
@@ -149,7 +151,8 @@ arithmetic input by default and rebuilds the log into the same DAG format
         --z3 build/z3 input.smt2 > proof.json
 
 --core auto (the default) uses the legacy proof object for propositional input
-and the clause log otherwise; --core clause-log forces the log for Boolean
+and for uninterpreted predicates over Bool without a sort, and the clause log
+otherwise; --core clause-log forces the log for Boolean
 input too, and --core legacy the proof object for QF_UF and QF_LRA input.
 --z3 defaults to $Z3_EXE, then build/z3 next to this
 checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
@@ -251,6 +254,16 @@ emits for this fragment beyond the Boolean slice: rewrites between terms
 (for example (= (ite true a b) a)), the commutativity rule, congruence
 through ite terms and distinct, and def-axiom gate clauses pairing a distinct
 with its expansion into disequalities.
+
+Uninterpreted predicates over Bool alone, (declare-fun r (Bool) Bool) with no
+uninterpreted sort in the assertions, are certified only on this path: the
+sat.smt core Ackermannizes them with fresh symbols (r!1, k!2) or decides the
+input before it logs a clause, while the smt core's proof object proves
+(= (r p) (r q)) by monotonicity from (= p q) like any other congruence, with
+iff-true, iff-false, and hypothesis steps when it splits on an argument. The
+certificate is a qf_uf certificate without sort names; Lean uses the same
+encoding, with the carrier _U holding nothing but the injected Boolean
+arguments (see "Uninterpreted functions in Lean").
 
 Linear real arithmetic through the legacy proof object
 ------------------------------------------------------
@@ -483,7 +496,9 @@ union of the carriers, with each symbol interpreted as in the model on
 arguments of its own sorts (and arbitrarily elsewhere). Bool is one more
 such sort: its two values join the disjoint union and _bool maps a true
 proposition to one and a false one to the other (the instance picks _bool
-classically). Every ground term
+classically). A certificate whose only uninterpreted symbols are predicates
+over Bool uses the same binders with no sort at all: _U carries the two
+Boolean values, _elems and _funs are never applied. Every ground term
 then denotes its value in the model, and since well-sorted inputs only
 compare terms of one sort, every assertion keeps its truth value. Nothing
 states that _bool True and _bool False differ, and no Z3 inference needs it:

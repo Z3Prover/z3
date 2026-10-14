@@ -174,11 +174,15 @@ class _Graph:
     proof: int
     arithmetic: bool = False
     sorts: tuple = ()  # the uninterpreted sort names, sorted
+    # Whether the proof uses an uninterpreted sort or an uninterpreted predicate
+    # over Bool alone: either takes the qf_uf encoding (a Bool-only predicate's
+    # arguments are injected into the otherwise unused carrier).
+    uninterpreted: bool = False
 
     @property
     def valuation(self):
         """Extra Lean arguments of every formula: the Rat valuation or the uninterpreted interpretation."""
-        return " _vars" if self.arithmetic else _UF_ARGUMENTS if self.sorts else ""
+        return " _vars" if self.arithmetic else _UF_ARGUMENTS if self.uninterpreted else ""
 
     def is_real(self, node):
         return self.decl(node).range == "Real"
@@ -283,9 +287,9 @@ def _declaration(raw, sorts):
             if kind != z3.Z3_OP_UNINTERPRETED and _BOOL_NAMES.get(kind) != name:
                 raise ReconstructionError("unsupported Boolean declaration: %s" % name)
             if kind == z3.Z3_OP_UNINTERPRETED and domain:
-                # A predicate ranges over the uninterpreted sorts and Bool; the
-                # exporter admits it only when the input also uses a sort.
-                if not sorts or any(argument not in sorts + ("Bool",) for argument in domain):
+                # A predicate ranges over the uninterpreted sorts and Bool,
+                # possibly over Bool alone.
+                if any(argument not in sorts + ("Bool",) for argument in domain):
                     raise ReconstructionError("unsupported predicate declaration: %s" % name)
             else:
                 argument_sort = "Bool"
@@ -371,11 +375,13 @@ def _validate_graph(source, certificate):
     arithmetic = any(decl.range == "Real" for decl in declarations)
     if arithmetic and certificate["fragment"] == "propositional":
         raise ReconstructionError("propositional certificates cannot contain arithmetic")
-    if arithmetic and sorts:
-        raise ReconstructionError("certificates cannot mix arithmetic with an uninterpreted sort")
-    if bool(sorts) != (certificate["fragment"] == "qf_uf"):
-        raise ReconstructionError("only qf_uf certificates declare an uninterpreted sort, and they must use it")
-    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts)
+    uninterpreted = bool(sorts) or any(decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain for decl in declarations)
+    if arithmetic and uninterpreted:
+        raise ReconstructionError("certificates cannot mix arithmetic with uninterpreted sorts or functions")
+    if uninterpreted != (certificate["fragment"] == "qf_uf"):
+        raise ReconstructionError("only qf_uf certificates declare an uninterpreted sort or function, "
+                                  "and they must use one")
+    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted)
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
     if graph.decl(root).range != "Proof" or graph.kind(graph.conclusion(root)) != z3.Z3_OP_FALSE:
@@ -419,7 +425,7 @@ def _bind_input(source, graph, fragment=None):
     context = z3.Context(proof=False)
     original, original_fragment = parse_assertions(source, context)
     if fragment is None:
-        fragment = "qf_lra" if graph.arithmetic else "qf_uf" if graph.sorts else "propositional"
+        fragment = "qf_lra" if graph.arithmetic else "qf_uf" if graph.uninterpreted else "propositional"
     if original_fragment != fragment:
         raise ReconstructionError("the input is in fragment %s, not %s" % (original_fragment, fragment))
     interned, terms = {}, {}
@@ -507,7 +513,7 @@ def _term(graph, node):
 
 
 def _valuation_binder(graph):
-    return " (_vars : Nat -> Rat)" if graph.arithmetic else _UF_BINDERS if graph.sorts else ""
+    return " (_vars : Nat -> Rat)" if graph.arithmetic else _UF_BINDERS if graph.uninterpreted else ""
 
 
 def _infix(operator, arguments):
@@ -1053,7 +1059,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     if graph.arithmetic:
         lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
         lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.sorts:
+    if graph.uninterpreted:
         lines.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
     # Large Boolean/arithmetic rewrites can require more than grind's default
     # nine case splits, even though every arithmetic atom remains linear.
@@ -1834,7 +1840,7 @@ def _outline_steps(graph, steps, dependencies, signature):
     propositional slice stays axiom-free by receiving every witness as a
     parameter that the main theorem introduces constructively.
     """
-    classical = bool(graph.arithmetic or graph.sorts)
+    classical = bool(graph.arithmetic or graph.uninterpreted)
     boundaries = _outline_boundaries(graph)
     inputs = _fold("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
@@ -1907,6 +1913,8 @@ def reconstruct(source, certificate):
         # of the theorem over the disjoint union of its carriers.
         lines.append("-- Uninterpreted sorts %s are the one type _U; functions and predicates take argument lists."
                      % ", ".join(json.dumps(sort, ensure_ascii=True) for sort in graph.sorts))
+    elif graph.uninterpreted:
+        lines.append("-- No uninterpreted sort: the type _U carries only the Boolean arguments of the predicates.")
     if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
         lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
     lines.extend(["namespace " + namespace, ""])

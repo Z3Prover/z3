@@ -66,7 +66,10 @@ proofs report the same three axioms. A QF_UF certificate from the legacy
 proof object (`proof_certificate.py --core legacy`) carries the smt core's
 own equality proofs instead of `euf` hints; its `trans`, `symm`, and
 `monotonicity` steps become `Eq.trans`, `Eq.symm`, and `congrArg` terms over
-`_U`, checked by Lean's type checker without `grind`. A QF_LRA certificate
+`_U`, checked by Lean's type checker without `grind`; an input whose only
+uninterpreted symbols are predicates over Bool (no sort) takes the same
+binders, with `_U` holding nothing but the injected Boolean arguments, and
+is certified from the legacy proof object only. A QF_LRA certificate
 from the legacy proof object carries `theory_lra`'s Farkas coefficients as
 `th-lemma` parameters; each such step is stated as the implication from its
 premises, re-derived in Python and proved by `grind`, and congruence through
