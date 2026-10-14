@@ -42,6 +42,7 @@ namespace euf {
             imitate_s, 
             eq_s,
             ite_s,
+            store_s,
             done_s
         };
         state m_state = state::init_s;
@@ -72,6 +73,9 @@ namespace euf {
         bool is_ite() const {
             return m_state == state::ite_s;
         }
+        bool is_store() const {
+            return m_state == state::store_s;
+        }
         void set_project() {
             set_state(state::project_s);
         }
@@ -83,6 +87,9 @@ namespace euf {
         }
         void set_ite() {
             set_state(state::ite_s);
+        }
+        void set_store() {
+            set_state(state::store_s);
         }
         void set_term(expr *t) {
             m_t = t;
@@ -362,6 +369,7 @@ namespace euf {
         bool             m_match_limit_reached = false;
         mutable array_rewriter   m_rewriter;
         array_util       m_array;
+        arith_util       m_arith;
         obj_map<app, app*>     m_pat2hopat, m_hopat2pat;
         obj_map<quantifier, quantifier*> m_q2hoq, m_hoq2q;
         obj_map<app, expr_free_vars> m_hopat2free_vars;
@@ -419,6 +427,44 @@ namespace euf {
         bool process_eq(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
 
         bool process_ite(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
+        // Last-resort inference for `select(F, idx...) ~ t` where F is a flex
+        // array-valued meta-variable, `idx` is already ground, and `t` is a
+        // ground value. Rather than inventing a fresh constant/ite-shaped
+        // array (as project/imitate/eq/ite would), anchor F to an existing
+        // ground array term of the same sort (queried via m_enum_terms, e.g.
+        // an asserted array constant) and bind
+        //   F -> store(anchor, idx, t)
+        // This directly produces the kind of witness (`store(g, a, 0)`-like)
+        // that counterexample-guided instantiation would derive from a
+        // model, without requiring model access: `select` over `store`
+        // satisfies the needed equation definitionally, by the ground
+        // array theory's own store axiom, once the ground solver checks the
+        // proposed instance. Tried after eq/ite since it is purely a
+        // heuristic fallback with no structural justification from the
+        // pattern itself.
+        bool process_store(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t);
+
+        // Returns true if `e` is a sub-goal that syntactic matching can never
+        // decide: a bare (nested) quantifier, or an equation whose one side
+        // is a meta-variable occurring (modulo de Bruijn shift) free inside
+        // the other side (an occurs-check failure, e.g. the self-referential
+        // "canonical form" equations produced by inlined define-funs such as
+        // `f = lambda y. ite(c y, select f y, d)`). ho_matcher only proposes
+        // candidate instantiations - the ground solver validates whatever
+        // instance is ultimately produced - so treating such a conjunct as a
+        // don't-care placeholder rather than hard-failing is a safe (never
+        // unsound) relaxation, not a soundness-relevant decision.
+        bool is_undecidable_conjunct(expr *e, unsigned pat_offset) const;
+
+        // Bridges an arithmetic comparison atom whose one side is a ground
+        // numeral and whose other side is `select(F, idx...)` for a flex
+        // array-valued meta-variable F, matched against true/false, into a
+        // concrete equation `select(F, idx...) ~ witness`, which the existing
+        // flex-select-head machinery (process_project/imitation/eq/ite) can
+        // then solve by binding F. Returns true if such a bridging subgoal
+        // was pushed.
+        bool process_arith_select(match_goal &wi, expr *p, expr *t);
 
         bool block_inference(match_goal const& wi);
 
@@ -489,6 +535,7 @@ namespace euf {
             m_unitary(m),
             m_rewriter(m),
             m_array(m),
+            m_arith(m),
             m_ho_patterns(m),
             m_ho_qs(m)
         {
