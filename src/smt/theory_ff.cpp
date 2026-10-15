@@ -25,6 +25,7 @@ Author:
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
 #include "ast/ff/ff_solver.h"
+#include "ast/ff/ff_evidence.h"
 #include "params/smt_params_helper.hpp"
 #include <memory>
 
@@ -77,7 +78,7 @@ namespace smt {
         return expr_ref(m.mk_app(wraps.find(e->get_sort()), e), m);
     }
 
-    void theory_ff::assert_axiom(expr *e, bool simplify) {
+    void theory_ff::assert_axiom(expr *e, bool simplify, app *evidence) {
         expr_ref axiom(e, m);
         if (simplify)
             rw(axiom);
@@ -88,7 +89,14 @@ namespace smt {
         ctx.internalize(axiom, false);
         literal lit = ctx.get_literal(axiom);
         ctx.mark_as_relevant(lit);
-        ctx.mk_th_axiom(get_id(), 1, &lit);
+        if (m.proofs_enabled()) {
+            if (!evidence)
+                throw default_exception("finite-field lemma requires recorded evidence");
+            auto proof = ff::mk_refutation_lemma(m, axiom, evidence);
+            ctx.mk_clause(1, &lit, alloc(justification_proof_wrapper, ctx, proof, false), CLS_TH_AXIOM);
+        }
+        else
+            ctx.mk_th_axiom(get_id(), 1, &lit);
         ++axioms;
     }
 
@@ -431,7 +439,16 @@ namespace smt {
             if (satisfied)
                 continue;
             // Assert the original equality, not just the sampled roots.
-            assert_axiom(m.mk_or(clause.size(), clause.data()), false);
+            app_ref evidence(m);
+            if (m.proofs_enabled()) {
+                expr_ref_vector premises(m);
+                for (expr *lit : clause)
+                    premises.push_back(mk_not(m, lit));
+                try { evidence = ff::record_refutation(m, premises, ctx.get_params()); }
+                catch (ff::exhausted const &) { continue; }
+                if (!evidence) continue;
+            }
+            assert_axiom(m.mk_or(clause.size(), clause.data()), false, evidence);
             ++root_clauses;
             if (factor_clause)
                 ++factor_split_clauses;
@@ -443,7 +460,7 @@ namespace smt {
     final_check_status theory_ff::check_native() {
         ++native_checks;
         native_values.reset();
-        bool arranged = false;
+        bool arranged = false, incomplete = false;
         obj_map<sort, std::unique_ptr<ff::solver>> fields;
         obj_map<sort, ptr_vector<enode>> terms_by_sort;
         auto problem = [&](sort *s) -> ff::solver & {
@@ -462,7 +479,10 @@ namespace smt {
         auto add = [&](sort *s, expr *a, expr *b, bool equality) {
             if (bv_fields.contains(s)) return;
             try { problem(s).add(a, b, equality); }
-            catch (ff::exhausted const &) { bv_fields.insert(s); ++fallbacks; }
+            catch (ff::exhausted const &) {
+                if (m.proofs_enabled()) incomplete = true;
+                else { bv_fields.insert(s); ++fallbacks; }
+            }
         };
         obj_hashtable<enode> model_terms;
         // Forward each relevant variable's equality to its current union-find
@@ -502,7 +522,7 @@ namespace smt {
             if (bv_fields.contains(s)) continue;
             auto &p = *pp;
             try {
-                lbool result = p.check();
+                lbool result = p.check(m.proofs_enabled());
                 if (result == l_undef)
                     throw ff::exhausted();
                 if (result == l_false) {
@@ -515,7 +535,7 @@ namespace smt {
                     // Preserve the exact SAT atoms; rewriting could produce an
                     // atom already assigned the opposite value, repeating this
                     // final check indefinitely.
-                    assert_axiom(m.mk_or(clause), false);
+                    assert_axiom(m.mk_or(clause), false, p.evidence());
                     ++native_conflicts;
                     return FC_CONTINUE;
                 }
@@ -552,18 +572,16 @@ namespace smt {
                     p.collect_statistics(st);
                     st.display_smt2(verbose_stream());
                 });
-                bv_fields.insert(s);
-                ++fallbacks;
+                if (m.proofs_enabled()) incomplete = true;
+                else { bv_fields.insert(s); ++fallbacks; }
             }
         }
-        return arranged ? FC_CONTINUE : FC_DONE;
+        return arranged ? FC_CONTINUE : incomplete ? FC_GIVEUP : FC_DONE;
     }
 
     final_check_status theory_ff::final_check_eh(unsigned) {
         if (!get_num_vars())
             return FC_DONE;
-        if (m.proofs_enabled())
-            throw default_exception("finite-field combination certificates are not supported in v1");
         if (propagate_roots())
             return FC_CONTINUE;
         final_check_status status = check_native();
