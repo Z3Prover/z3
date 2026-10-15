@@ -55,8 +55,8 @@ Z3_string Z3_API Z3_get_finite_field_sort_size(Z3_context c, Z3_sort s) {
     Z3_CATCH_RETURN("");
 }
 
-MK_NARY(Z3_mk_ff_add, mk_c(c)->get_ff_fid(), OP_FF_ADD, SKIP);
-MK_NARY(Z3_mk_ff_mul, mk_c(c)->get_ff_fid(), OP_FF_MUL, SKIP);
-MK_NARY(Z3_mk_ff_bitsum, mk_c(c)->get_ff_fid(), OP_FF_BITSUM, SKIP);
-MK_UNARY(Z3_mk_ff_neg, mk_c(c)->get_ff_fid(), OP_FF_NEG, SKIP);
+MK_NARY(Z3_mk_ff_add, mk_c(c)->get_ff_fid(), OP_FF_ADD, SKIP)
+MK_NARY(Z3_mk_ff_mul, mk_c(c)->get_ff_fid(), OP_FF_MUL, SKIP)
+MK_NARY(Z3_mk_ff_bitsum, mk_c(c)->get_ff_fid(), OP_FF_BITSUM, SKIP)
+MK_UNARY(Z3_mk_ff_neg, mk_c(c)->get_ff_fid(), OP_FF_NEG, SKIP)
 }

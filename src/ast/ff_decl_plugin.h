@@ -135,9 +135,9 @@ public:
     bool is_bitsum(expr const *e) const {
         return is_app_of(e, m_fid, OP_FF_BITSUM);
     }
-    MATCH_BINARY(is_add);
-    MATCH_BINARY(is_mul);
-    MATCH_UNARY(is_neg);
+    MATCH_BINARY(is_add)
+    MATCH_BINARY(is_mul)
+    MATCH_UNARY(is_neg)
 
     // true if e is an FF-interpreted operator (add/mul/neg/bitsum/numeral).
     bool is_interp(expr *e) const {

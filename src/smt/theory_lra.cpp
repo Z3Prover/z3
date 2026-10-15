@@ -3776,18 +3776,18 @@ public:
             literal lit = m_inequalities[idx];
             SASSERT(lit != null_literal);
             core.push_back(lit);
-            break;
+            return;
         }
         case equality_source: {
             [[maybe_unused]] auto [n1, n2] = m_equalities[idx];
             SASSERT(n1 != nullptr);
             SASSERT(n2 != nullptr);
             m_eqs.push_back(m_equalities[idx]);          
-            break;
+            return;
         }
         case definition_source: {
             // skip definitions (these are treated as hard constraints)
-            break;
+            return;
         }
         case null_source:
             // idx has no theory_lra-tracked source: a genuine, permanent
@@ -3795,11 +3795,9 @@ public:
             // sub-module (e.g. nla_transcendentals' range axioms) rather
             // than derived from a boolean literal/equality. There is
             // nothing to explain back to the SAT core.
-            break;
-        default:
-            UNREACHABLE();
-            break;
+            return;
         }
+        UNREACHABLE();
     }
 
     void get_infeasibility_explanation_and_set_conflict() {

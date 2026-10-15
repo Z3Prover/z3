@@ -1822,7 +1822,7 @@ def def_APIs(api_files):
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
   log_h.write('#include\"api/z3.h\"\n')
-  log_h.write('#ifdef __GNUC__\n')
+  log_h.write('#if defined(__GNUC__) || defined(__clang__)\n')
   log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
   log_h.write('#else\n')
   log_h.write('#define _Z3_UNUSED\n')

@@ -19,6 +19,8 @@ Abstract:
 #include <memory>
 
 namespace ff {
+    class solver;
+
     // Pure term encodings only; no assertions, assignments or conflict evidence.
     // A cache belongs to one manager/field. It pins its keys and may be shared
     // across sequential checks/scopes. Do not reset it while a solver borrows it.

@@ -104,11 +104,13 @@ namespace ff {
         elem inv(elem a) const {
             // Invert the plain residue with extended Euclid, then return to Montgomery form.
             uint64_t plain = redc(a);
-            __int128 t = 0, nt = 1, r = m_p, nr = plain;
+            __int128 t = 0, nt = 1;
+            uint64_t r = m_p, nr = plain;
             while (nr != 0) {
-                __int128 q = r / nr, tmp;
-                tmp = t - q * nt; t = nt; nt = tmp;
-                tmp = r - q * nr; r = nr; nr = tmp;
+                // Only the coefficients need 128 bits, not the division.
+                uint64_t q = r / nr, rem = r - q * nr;
+                __int128 tmp = t - q * nt; t = nt; nt = tmp;
+                r = nr; nr = rem;
             }
             if (t < 0)
                 t += m_p;
