@@ -207,6 +207,115 @@ UF_INPUTS = {
 }
 
 
+# Uninterpreted predicates over Bool without any uninterpreted sort. The
+# sat.smt core Ackermannizes these (or decides them before logging), so only
+# the legacy proof object certifies them; Lean uses the qf_uf encoding with
+# the carrier _U holding nothing but the injected Boolean arguments.
+BOOLEAN_PREDICATE_INPUTS = {
+    # One congruence step through a Boolean equality.
+    "bp_congruence": """\
+(declare-fun r (Bool) Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (= p q))
+(assert (r p))
+(assert (not (r q)))
+(check-sat)
+""",
+    # A binary predicate, symmetric arguments, a trans step and a rewrite.
+    "bp_binary": """\
+(declare-fun r (Bool Bool) Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const s Bool)
+(assert (or (r p q) (r q p)))
+(assert (not (r s s)))
+(assert (= p s))
+(assert (= q s))
+(check-sat)
+""",
+    # Case split on the argument: iff-true / iff-false under hypothesis.
+    "bp_constants": """\
+(declare-fun r (Bool) Bool)
+(declare-const p Bool)
+(assert (r p))
+(assert (not (r true)))
+(assert (not (r false)))
+(check-sat)
+""",
+    # Nested applications, xor, and a set-logic line.
+    "bp_nested": """\
+(set-logic QF_UF)
+(declare-fun r (Bool) Bool)
+(declare-fun s (Bool Bool) Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (=> p q))
+(assert (=> q p))
+(assert (xor (r (r p)) (r (r q))))
+(assert (or (s p (r q)) (s q (r p))))
+(assert (not (s q (r q))))
+(check-sat)
+""",
+    # A Boolean ite as the argument: def-axiom gate clauses.
+    "bp_ite": """\
+(declare-fun r (Bool) Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const t Bool)
+(assert (r (ite t p q)))
+(assert (not (r p)))
+(assert (not (r q)))
+(check-sat)
+""",
+}
+
+
+def random_boolean_predicate_instance(seed, variables=3, constraints=10, depth=2):
+    """A random problem over Boolean variables and two predicates over Bool alone.
+
+    Arguments are variables, constants, nested applications, negations,
+    equivalences, and Boolean ite terms; callers filter for unsat instances.
+    """
+    generator = random.Random(seed)
+    names = ["b%d" % i for i in range(variables)]
+    lines = ["(declare-fun r (Bool) Bool)", "(declare-fun s (Bool Bool) Bool)"]
+    lines += ["(declare-const %s Bool)" % name for name in names]
+
+    def formula(d):
+        roll = generator.random()
+        if d == 0 or roll < 0.3:
+            return generator.choice(names + ["true", "false"])
+        if roll < 0.55:
+            return "(r %s)" % formula(d - 1)
+        if roll < 0.75:
+            return "(s %s %s)" % (formula(d - 1), formula(d - 1))
+        if roll < 0.85:
+            return "(not %s)" % formula(d - 1)
+        if roll < 0.92:
+            return "(= %s %s)" % (formula(d - 1), formula(d - 1))
+        return "(ite %s %s %s)" % (formula(d - 1), formula(d - 1), formula(d - 1))
+
+    def literal():
+        result = formula(depth)
+        return result if generator.random() < 0.5 else "(not %s)" % result
+
+    for _ in range(constraints):
+        roll = generator.random()
+        if roll < 0.35:
+            lines.append("(assert (or %s %s))" % (literal(), literal()))
+        elif roll < 0.5:
+            lines.append("(assert (=> %s %s))" % (literal(), literal()))
+        elif roll < 0.6:
+            lines.append("(assert (and %s %s))" % (literal(), literal()))
+        elif roll < 0.7:
+            lines.append("(assert (= %s %s))" % (literal(), literal()))
+        else:
+            lines.append("(assert %s)" % literal())
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
 def random_bool_argument_instance(seed, constants=3, constraints=14, depth=2):
     """A random QF_UF problem whose functions and predicates take Bool arguments.
 
@@ -724,11 +833,68 @@ class TestUninterpretedValidation(unittest.TestCase):
             rebound = rebound.replace(application, replacement)
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
             proof_to_lean.reconstruct(rebound, dict(certificate, source_smt2=rebound))
-        # A predicate over Bool alone needs the sort: without it the exporter
-        # rejects the input, and so does the binder for a certificate claiming qf_uf.
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "over Bool alone"):
+        # A predicate over Bool alone is Ackermannized by the sat.smt core: the
+        # clause-log exporter rejects it (the legacy proof object certifies it).
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "over Bool alone.*--core legacy"):
             proof_certificate.export_clause_log_certificate(
                 "(declare-fun p (Bool) Bool)(declare-const q Bool)(assert (p q))(assert (not (p q)))")
+
+    def test_boolean_predicates_without_a_sort_use_the_carrier_encoding(self):
+        source = BOOLEAN_PREDICATE_INPUTS["bp_nested"]
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "Proof"})
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertEqual(graph.sorts, ())
+        self.assertTrue(graph.uninterpreted)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UF_BINDERS, text)
+        self.assertIn("-- No uninterpreted sort: the type _U carries only the Boolean arguments of the predicates.",
+                      text)
+        self.assertIn("-- Boolean arguments of functions and predicates are injected into _U by _bool.", text)
+        self.assertNotIn("-- Uninterpreted sort", text)
+        # Every application is a predicate over injected Boolean arguments; the
+        # element and function families are never applied, and nothing is a term.
+        applications = [node for node in range(len(graph.nodes))
+                        if graph.kind(node) == z3.Z3_OP_UNINTERPRETED and graph.decl(node).domain]
+        self.assertTrue(applications)
+        for node in applications:
+            expected = ", ".join("(_bool (formula_%d _atoms%s))" % (arg, proof_to_lean._UF_ARGUMENTS)
+                                 for arg in graph.arguments(node))
+            self.assertRegex(text, r"_preds \d+ \[%s\]" % re.escape(expected))
+        self.assertNotRegex(text, r"_elems \d|_funs \d|\bterm_\d")
+        self.assertNotIn("Rat", text)
+        # Congruence through a Boolean argument is congrArg over _bool via propext.
+        self.assertGreaterEqual(certificate["rule_counts"]["monotonicity"], 3)
+        self.assertIn("(Iff.of_eq (congrArg (_preds ", text)
+        self.assertIn("(congrArg _bool (propext ", text)
+        # The fragment must be qf_uf and nothing else: relabeling is rejected both
+        # ways, and the input must declare the predicates with these signatures.
+        for fragment in ("propositional", "qf_lra"):
+            relabeled = copy.deepcopy(certificate)
+            relabeled["fragment"] = fragment
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+                proof_to_lean.reconstruct(source, relabeled)
+        tampered = copy.deepcopy(certificate)
+        for declaration in _declarations(tampered, lambda d: d["name"] == "r" and d["kind"] == z3.Z3_OP_UNINTERPRETED):
+            declaration["domain"] = ["U"]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong argument sort"):
+            proof_to_lean.reconstruct(source, tampered)
+        rebound = source.replace("(declare-fun r (Bool) Bool)", "(declare-fun r (Bool Bool) Bool)")
+        rebound = rebound.replace("(r (r p))", "(r p p)").replace("(r (r q))", "(r q q)")
+        rebound = rebound.replace("(r q)", "(r q q)").replace("(r p)", "(r p p)")
+        with self.assertRaises(proof_to_lean.ReconstructionError):
+            proof_to_lean.reconstruct(rebound, dict(certificate, source_smt2=rebound))
+        # A Boolean-variable input with the same text shape binds nothing: the
+        # certificate's predicates are not the input's atoms.
+        atoms = source.replace("(declare-fun r (Bool) Bool)", "(declare-const rp Bool)").replace(
+            "(declare-fun s (Bool Bool) Bool)", "(declare-const sq Bool)")
+        atoms = re.sub(r"\(r \(r [pq]\)\)", "rp", atoms)
+        atoms = re.sub(r"\(s [pq] \(r [pq]\)\)", "sq", atoms)
+        atoms = re.sub(r"\(r [pq]\)", "rp", atoms)
+        self.assertNotIn("(r ", atoms)
+        with self.assertRaises(proof_to_lean.ReconstructionError):
+            proof_to_lean.reconstruct(atoms, dict(certificate, source_smt2=atoms))
 
     def test_level_zero_units_inside_boolean_arguments(self):
         source = UF_INPUTS["uf_bool_args_units"]
@@ -922,6 +1088,295 @@ class TestUninterpretedValidation(unittest.TestCase):
         self.assertEqual(proof_to_lean._validate_graph(source, swapped).sorts, ("A", "B"))
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "signature does not match"):
             proof_to_lean.reconstruct(source, swapped)
+
+
+class TestLegacyProofObjectValidation(unittest.TestCase):
+    """QF_UF certificates from the smt core's proof object: equality rules over the carrier, without Lean."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = UF_INPUTS["uf_congruence"]
+        cls.certificate = proof_certificate.export_certificate(cls.source)
+        cls.graph = proof_to_lean._validate_graph(cls.source, cls.certificate)
+        cls.terms, _ = proof_to_lean._bind_input(cls.source, cls.graph, "qf_uf")
+
+    def nodes(self, kind, graph=None):
+        graph = self.graph if graph is None else graph
+        return [node for node in range(len(graph.nodes)) if graph.kind(node) == kind]
+
+    def term_steps(self, kind, graph=None):
+        """Proof nodes of this rule whose conclusion relates terms of the sort."""
+        graph = self.graph if graph is None else graph
+        return [node for node in self.nodes(kind, graph)
+                if graph.is_term(graph.arguments(graph.conclusion(node))[0])]
+
+    def test_equality_steps_become_eq_terms(self):
+        certificate, graph, terms = self.certificate, self.graph, self.terms
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        counts = certificate["rule_counts"]
+        # Conflict resolution proves every equality: no theory lemma is left to grind.
+        self.assertNotIn("th-lemma", counts)
+        for rule in ("monotonicity", "trans", "rewrite", "mp"):
+            self.assertIn(rule, counts)
+        self.assertEqual(graph.sorts, ("U",))
+        text = proof_to_lean.reconstruct(self.source, certificate)
+        self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UF_BINDERS, text)
+        # Congruence through a function goes through the equality of its
+        # argument list, through a predicate it yields an Iff; Boolean
+        # transitivity stays Iff.trans.
+        self.assertIn("(Iff.trans _step_", text)
+        self.assertRegex(text, r"\(congrArg \(_funs \d+\) \(congr \(congrArg List\.cons ")
+        self.assertRegex(text, r"\(Iff\.of_eq \(congrArg \(_preds \d+\) \(congr \(congrArg List\.cons ")
+        self.assertIn("(Eq.refl (term_", text)  # an unchanged argument
+        self.assertNotIn("ite_congr_classical", text)  # stated only when an ite term is rewritten
+        # The identity rewrite the legacy core records for each assertion is
+        # Iff.refl in place; the other rewrites are grind lemmas.
+        identity = [node for node in self.nodes(z3.Z3_OP_PR_REWRITE)
+                    if len({terms[side] for side in graph.arguments(graph.conclusion(node))}) == 1]
+        self.assertTrue(identity)
+        self.assertEqual(text.count("private theorem rewrite_"), counts["rewrite"] - len(identity))
+        for node in identity:
+            side = graph.arguments(graph.conclusion(node))[0]
+            self.assertIn("    (Iff.refl %s)" % proof_to_lean._formula(graph, side), text)
+            self.assertNotIn("rewrite_%d " % node, text)
+        self.assertNotIn("sorry", text)
+        self.assertNotIn("axiom ", text)
+        # A chain of equalities over the sort: trans and trans* compose
+        # Eq.trans, symm is Eq.symm.
+        source = UF_INPUTS["uf_chained_equality"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, graph))
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_SYMMETRY, graph))
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("(Eq.trans _step_", text)
+        self.assertIn("(Eq.symm _step_", text)
+        source = UF_INPUTS["uf_diamond"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY_STAR, graph))
+        self.assertIn("(Eq.trans _step_", proof_to_lean.reconstruct(source, certificate))
+
+    def tampered(self, certificate=None):
+        certificate = copy.deepcopy(self.certificate if certificate is None else certificate)
+
+        def declaration(kind, name, domain, range_name="Bool"):
+            raw = {"kind": kind, "name": name, "domain": list(domain), "range": range_name, "parameters": []}
+            if raw not in certificate["declarations"]:
+                certificate["declarations"].append(raw)
+            return certificate["declarations"].index(raw)
+
+        def node(decl, arguments):
+            certificate["nodes"].append({"declaration": decl, "arguments": list(arguments)})
+            if certificate["declarations"][decl]["range"] == "Proof":
+                name = certificate["declarations"][decl]["name"]
+                certificate["rule_counts"][name] = certificate["rule_counts"].get(name, 0) + 1
+            return len(certificate["nodes"]) - 1
+
+        return certificate, declaration, node
+
+    def test_tampered_equality_steps_are_rejected_before_lean(self):
+        graph, terms = self.graph, self.terms
+        # trans with a middle term that does not match, and symm with the wrong premise.
+        chained = UF_INPUTS["uf_chained_equality"]
+        chained_certificate = proof_certificate.export_certificate(chained)
+        chained_graph = proof_to_lean._validate_graph(chained, chained_certificate)
+        trans = self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, chained_graph)[0]
+        certificate, _, _ = self.tampered(chained_certificate)
+        first, second, conclusion = chained_graph.arguments(trans)
+        certificate["nodes"][trans]["arguments"] = [first, first, conclusion]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect trans premises"):
+            proof_to_lean.reconstruct(chained, certificate)
+        symm = self.term_steps(z3.Z3_OP_PR_SYMMETRY, chained_graph)[0]
+        premise = chained_graph.arguments(symm)[0]
+        other = next(node for node in range(symm) if chained_graph.decl(node).range == "Proof"
+                     and chained_graph.conclusion(node) != chained_graph.conclusion(premise))
+        certificate, _, _ = self.tampered(chained_certificate)
+        certificate["nodes"][symm]["arguments"] = [other, chained_graph.conclusion(symm)]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect symm premises|symm requires"):
+            proof_to_lean.reconstruct(chained, certificate)
+        # Every proof node is checked, reachable from the root or not: a
+        # monotonicity step appended with the same premises but a conclusion
+        # whose changed argument has no premise, or whose sides have different
+        # heads, is rejected.
+        mono = self.term_steps(z3.Z3_OP_PR_MONOTONICITY)[0]
+        premises = list(graph.arguments(mono)[:-1])
+        left, right = graph.arguments(graph.conclusion(mono))
+        elements = [n for n in range(len(graph.nodes)) if graph.is_term(n) and not graph.arguments(n)]
+        certificate, declaration, node = self.tampered()
+        unrelated = next(e for e in elements
+                         if terms[e] not in {terms[arg] for arg in graph.arguments(left) + graph.arguments(right)})
+        changed = node(graph.nodes[right].declaration, [unrelated] + list(graph.arguments(right)[1:]))
+        equality = node(graph.nodes[graph.conclusion(mono)].declaration, [left, changed])
+        node(graph.nodes[mono].declaration, premises + [equality])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "missing an argument equivalence"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        certificate, declaration, node = self.tampered()
+        equality = node(graph.nodes[graph.conclusion(mono)].declaration, [left, elements[0]])
+        node(graph.nodes[mono].declaration, premises + [equality])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "matching heads and arities"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        # A premise-less monotonicity step between a constant and itself (never
+        # emitted by Z3) is Eq.refl over the sort, not an ill-typed Iff.refl.
+        certificate, declaration, node = self.tampered()
+        constant = node(graph.nodes[graph.conclusion(mono)].declaration, [elements[0], elements[0]])
+        trivial = node(declaration(z3.Z3_OP_PR_MONOTONICITY, "monotonicity", ["Bool"], "Proof"), [constant])
+        text = proof_to_lean.reconstruct(self.source, certificate)
+        step = text.split("let _step_%d " % trivial, 1)[1].split("let _step_", 1)[0]
+        self.assertIn("(Eq.refl %s)" % proof_to_lean._term(graph, elements[0]), step)
+        self.assertNotIn("Iff.refl", step)
+        # commutativity must swap the two arguments of one application, and
+        # mp needs an implication or Boolean equivalence, never a term equality.
+        certificate, declaration, node = self.tampered()
+        same = node(declaration(z3.Z3_OP_EQ, "=", ["Bool", "Bool"]), [graph.conclusion(mono), graph.conclusion(mono)])
+        node(declaration(z3.Z3_OP_PR_COMMUTATIVITY, "commutativity", ["Bool"], "Proof"), [same])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "commutativity requires"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        certificate, declaration, node = self.tampered()
+        asserted = next(n for n in self.nodes(z3.Z3_OP_PR_ASSERTED)
+                        if graph.is_term(graph.arguments(graph.conclusion(n))[0]))
+        term_equality = graph.conclusion(asserted)
+        node(declaration(z3.Z3_OP_PR_MODUS_PONENS, "mp", ["Proof", "Proof", "Bool"], "Proof"),
+             [asserted, asserted, graph.arguments(term_equality)[1]])
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong argument sort|mp requires"):
+            proof_to_lean.reconstruct(self.source, certificate)
+
+    def test_ite_distinct_and_term_rewrites(self):
+        # The legacy core rewrites ite terms, states congruence through ite
+        # terms and through distinct, and pairs distinct with its expansion
+        # into disequalities in def-axiom clauses.
+        source = UF_INPUTS["uf_ite"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("private theorem ite_congr_classical"), 1)
+        self.assertIn("(ite_congr_classical ", text)
+        self.assertIn("(and_congr (not_congr (Iff.intro (fun _h => Eq.trans", text)
+        self.assertIn("def-axiom", certificate["rule_counts"])
+        distinct_gates = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                          and any(graph.kind(literal) == z3.Z3_OP_NOT
+                                  and graph.kind(graph.arguments(literal)[0]) == z3.Z3_OP_DISTINCT
+                                  for literal in graph.clause(graph.conclusion(node)))]
+        self.assertTrue(distinct_gates)
+        for node in distinct_gates:
+            self.assertIn("private theorem def_axiom_%d " % node, text)
+        source = UF_INPUTS["uf_ite_alldiff"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        term_rewrites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
+                         and graph.is_term(graph.arguments(graph.conclusion(node))[0])]
+        self.assertTrue(term_rewrites)
+        for node in term_rewrites:
+            self.assertIn("private theorem rewrite_%d " % node, text)  # a grind lemma over the terms
+        self.assertIn("commutativity", proof_certificate.export_certificate(UF_INPUTS["uf_bool_args"])["rule_counts"])
+        self.assertIn("(Iff.intro Eq.symm Eq.symm)",
+                      proof_to_lean.reconstruct(UF_INPUTS["uf_bool_args"],
+                                                proof_certificate.export_certificate(UF_INPUTS["uf_bool_args"])))
+
+
+class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
+    """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
+
+    def check(self, source):
+        certificate = proof_certificate.export_certificate(source)
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            proof_to_lean.check_and_write(source, certificate, output)
+            text = output.read_text()
+            namespace = "Z3Proofs.NativeCertificate.p" + hashlib.sha256(source.encode()).hexdigest()
+            statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
+            self.assertEqual(statement.count("    (_h"), len(certificate["assertions"]))
+            self.assertIn(proof_to_lean._UF_BINDERS, statement)
+            output.write_text(text + "\n#print axioms %s.unsat\n" % namespace)
+            result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return certificate, " ".join(result.stdout.split())
+
+    def assert_standard_axioms(self, report):
+        axioms = report.split("depends on axioms: [", 1)[1].split("]", 1)[0]
+        self.assertTrue({name.strip() for name in axioms.split(",")} <= {"propext", "Classical.choice", "Quot.sound"},
+                        axioms)
+
+    def test_documented_uf_inputs_verify_through_the_legacy_core(self):
+        for name, source in UF_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertIn("monotonicity", certificate["rule_counts"])
+                self.assert_standard_axioms(report)
+
+    # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least
+    # three assertions and whose legacy refutations have the most congruence
+    # steps (30 to 84 monotonicity steps, through ite terms); pinned like
+    # LEARNED_CLAUSE_SEEDS in TestUninterpretedLeanIntegration.
+    ITE_SEEDS = (54, 62, 137)
+
+    def test_random_instances_through_the_legacy_core(self):
+        for seed in self.ITE_SEEDS:
+            source = random_instance(seed, ite=0.4)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 3, "re-pick seed %d" % seed)
+                certificate, report = self.check(source)
+                self.assertGreaterEqual(certificate["rule_counts"]["monotonicity"], 10)
+                self.assert_standard_axioms(report)
+        for seed in (98,):  # random_bool_argument_instance: _bool arguments under congruence
+            source = random_bool_argument_instance(seed)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 3, "re-pick seed %d" % seed)
+                certificate, report = self.check(source)
+                self.assertIn("(congrArg _bool (propext ", proof_to_lean.reconstruct(source, certificate))
+                self.assert_standard_axioms(report)
+
+    # Seeds of random_boolean_predicate_instance(seed) whose unsat core has at
+    # least three assertions and whose legacy refutations have the most
+    # congruence steps through Boolean arguments.
+    BOOLEAN_PREDICATE_SEEDS = (116, 245, 347)
+
+    def test_boolean_predicates_without_a_sort_verify_through_the_legacy_core(self):
+        for name, source in BOOLEAN_PREDICATE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertNotIn("declare-sort", source)
+                self.assertIn("monotonicity", certificate["rule_counts"])
+                self.assertIn("(congrArg _bool (propext ", proof_to_lean.reconstruct(source, certificate))
+                self.assert_standard_axioms(report)
+        for seed in self.BOOLEAN_PREDICATE_SEEDS:
+            source = random_boolean_predicate_instance(seed)
+            with self.subTest(seed=seed):
+                self.assertGreaterEqual(_unsat_core_size(source), 3, "re-pick seed %d" % seed)
+                certificate, report = self.check(source)
+                self.assertGreaterEqual(certificate["rule_counts"]["monotonicity"], 3)
+                self.assert_standard_axioms(report)
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            source = BOOLEAN_PREDICATE_INPUTS["bp_ite"]
+            certificate, _ = self.check(source)
+            sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+            self.assertLessEqual(max(sizes), 3)
+            self.assertEqual(sum(sizes), _proof_steps(certificate))
+
+    def test_long_legacy_refutations_are_outlined(self):
+        source = equality_diamond(7)
+        certificate, report = self.check(source)
+        self.assertGreater(_proof_steps(certificate), proof_to_lean._OUTLINE_PROOF_STEPS)
+        self.assert_standard_axioms(report)
+        sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+        self.assertGreater(len(sizes), 1)
+        self.assertLessEqual(max(sizes), proof_to_lean._OUTLINE_CHUNK_STEPS)
+        self.assertEqual(sum(sizes), _proof_steps(certificate))
+
+    def test_small_chunks_cut_every_legacy_lemma_shape(self):
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
+                patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
+            for name in ("uf_ite", "uf_bool_args", "uf_diamond"):
+                source = UF_INPUTS[name]
+                with self.subTest(name=name):
+                    certificate, _ = self.check(source)
+                    sizes = outlined_lemma_sizes(proof_to_lean.reconstruct(source, certificate))
+                    self.assertLessEqual(max(sizes), 3)
+                    self.assertEqual(sum(sizes), _proof_steps(certificate))
 
 
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")

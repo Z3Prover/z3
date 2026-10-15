@@ -4,7 +4,12 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem."""
+"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem.
+
+Two proof sources: the legacy proof object of the smt core (propositional and
+QF_UF input) and the sat.smt clause log (every fragment, the only source with
+Farkas coefficients for QF_LRA).
+"""
 
 import argparse
 from collections import Counter
@@ -54,6 +59,19 @@ _LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"
+# Hints of the legacy core's (_ th-lemma arith <hint> coefficients...) steps
+# and the certificate hint each becomes. theory_lra labels LP conflicts
+# farkas, bound propagations bound, and equality propagations implied-eq, with
+# one coefficient per premise and per literal of the concluding clause;
+# arith_eq_adapter's axioms tying an equality to its two inequalities are
+# triangle-eq. The older theory_arith, which the smt core still selects for
+# difference-logic input, labels its propagations assign-bounds and
+# eq-propagate and weights the antecedents only, so the propagated literal's
+# weight of 1 is added here. Integer rules (gomory-cut, gcd-test) are rejected.
+_LEGACY_HINTS = {
+    "farkas": "farkas", "bound": "bound", "assign-bounds": "bound",
+    "implied-eq": "implied-eq", "eq-propagate": "implied-eq", "triangle-eq": "triangle-eq",
+}
 # The clause log starts after preprocessing, so every pass that rewrites one
 # assertion using another is disabled. bound_simplifier runs solve_eqs and
 # propagate_values internally regardless of their own options.
@@ -272,30 +290,76 @@ def classify_fragment(assertions):
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
-    if sorts:
+    if sorts or boolean_functions:
         if arithmetic:
-            raise ProofExportError("mixing uninterpreted sorts with arithmetic is not supported")
+            raise ProofExportError("mixing uninterpreted %s with arithmetic is not supported" % (
+                "sorts" if sorts else "functions over Bool"))
+        # Predicates over Bool alone are the qf_uf fragment without a sort: the
+        # Lean encoding injects their arguments into the carrier like any other
+        # Bool argument. Only the legacy proof object certifies them, see
+        # requires_legacy_core.
         return "qf_uf"
-    if boolean_functions:
-        # Without an uninterpreted sort Z3's sat.smt core does not run the
-        # euf solver on these: it Ackermannizes them with fresh symbols the
-        # clause log cannot be tied to the input.
-        raise ProofExportError("uninterpreted functions over Bool alone are not supported without an "
-                               "uninterpreted sort: %s" % boolean_functions[0])
     return "qf_lra" if arithmetic else "propositional"
 
 
-def _require_propositional(assertions):
-    fragment = classify_fragment(assertions)
-    if fragment != "propositional":
-        raise ProofExportError("%s requires the clause-log exporter (fragment %s)" % (
-            "arithmetic" if fragment == "qf_lra" else "uninterpreted functions", fragment))
+def _uses_uninterpreted_sort(assertions):
+    """Return whether any subterm of the assertions has an uninterpreted sort."""
+    pending, seen = list(assertions), set()
+    while pending:
+        expr = pending.pop()
+        if expr.get_id() in seen:
+            continue
+        seen.add(expr.get_id())
+        if is_uninterpreted_sort(expr.sort()):
+            return True
+        pending.extend(expr.children())
+    return False
+
+
+def requires_legacy_core(assertions, fragment):
+    """Return whether only the legacy proof object can certify the input.
+
+    Without an uninterpreted sort Z3's sat.smt core does not run the euf
+    solver on uninterpreted predicates over Bool: it Ackermannizes them with
+    fresh symbols the clause log cannot be tied to the input, or decides the
+    problem before logging anything. The smt core's proof object proves their
+    congruences with monotonicity steps like any other predicate's.
+    """
+    return fragment == "qf_uf" and not _uses_uninterpreted_sort(assertions)
+
+
+def parse_clause_log_assertions(source, context):
+    """Parse the assertion snapshot for the clause log, with its fragment name."""
+    assertions, fragment = parse_assertions(source, context)
+    if requires_legacy_core(assertions, fragment):
+        raise ProofExportError("uninterpreted functions over Bool alone are Ackermannized by the sat.smt core "
+                               "and need the legacy proof object (--core legacy)")
+    return assertions, fragment
+
+
+def _require_legacy_fragment(assertions):
+    """Return the fragment if the legacy proof object can certify it.
+
+    The legacy core's equality proofs (congruence, transitivity, symmetry) are
+    complete, and theory_lra records the Farkas coefficients of its conflicts
+    and bound propagations as th-lemma parameters, so every classified
+    fragment is supported; a th-lemma without coefficients is rejected when
+    the proof is encoded.
+    """
+    return classify_fragment(assertions)
+
+
+def parse_legacy_assertions(source, context):
+    """Parse the assertion snapshot for the legacy proof object, with its fragment name."""
+    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
+    return assertions, _require_legacy_fragment(assertions)
 
 
 def parse_propositional_assertions(source, context):
-    """Parse the supported assertion snapshot without running solver search."""
-    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
-    _require_propositional(assertions)
+    """Parse a propositional assertion snapshot without running solver search."""
+    assertions, fragment = parse_legacy_assertions(source, context)
+    if fragment != "propositional":
+        raise ProofExportError("uninterpreted functions are not propositional (fragment %s)" % fragment)
     return assertions
 
 
@@ -303,6 +367,39 @@ def parse_assertions(source, context):
     """Parse the assertion snapshot and return it with its fragment name."""
     assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
     return assertions, classify_fragment(assertions)
+
+
+def _th_lemma_parameters(decl, premises):
+    """Return the certificate parameters of a native th-lemma declaration applied to premises.
+
+    The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
+    the certificate, farkas and bound coefficients weight the premises in
+    order and then the literals of the concluding clause; implied-eq and
+    triangle-eq steps carry none, since Lean proves those implications
+    outright. Only magnitudes enter a Farkas combination (theory_arith records
+    the sign of the row coefficient), and the reconstructor re-derives the
+    combination, so the coefficients are hints, not trusted. A bare
+    (_ th-lemma arith) records no evidence and is rejected.
+    """
+    parameters = decl.params()
+    if len(parameters) < 2 or parameters[0] != "arith" or parameters[1] not in _LEGACY_HINTS:
+        raise ProofExportError("th-lemma without a replayable theory hint: %s" % " ".join(
+            str(parameter) for parameter in parameters))
+    coefficients = []
+    for parameter in parameters[2:]:
+        try:
+            coefficients.append(abs(Fraction(str(parameter))))
+        except (ValueError, ZeroDivisionError):
+            raise ProofExportError("th-lemma coefficient is not a rational: %s" % parameter) from None
+    hint = _LEGACY_HINTS[parameters[1]]
+    if parameters[1] == "assign-bounds" and coefficients:
+        # theory_arith weights the antecedents only. The propagated literal
+        # has weight 1; it is the first clause literal when the step has no
+        # premises and the conclusion when it has.
+        coefficients = coefficients + [Fraction(1)] if premises else [Fraction(1)] + coefficients
+    if hint == "implied-eq":
+        coefficients = []  # never summed; the reconstructor checks shapes and Lean proves the equality
+    return [hint] + [str(coefficient) for coefficient in coefficients]
 
 
 def _encode_proof(assertions, proof):
@@ -314,8 +411,12 @@ def _encode_proof(assertions, proof):
     def sort_name(sort):
         if sort.kind() == z3.Z3_BOOL_SORT:
             return "Bool"
+        if sort.kind() == z3.Z3_REAL_SORT:
+            return "Real"
         if sort.eq(proof_sort):
             return "Proof"
+        if is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
+            return sort.name()  # The certificate keeps the input's own sort name.
         raise ProofExportError("unsupported native proof sort: %s" % sort)
 
     roots = list(assertions) + [proof]
@@ -332,15 +433,20 @@ def _encode_proof(assertions, proof):
             continue
         decl = expr.decl()
         if decl.get_id() not in declaration_ids:
-            if decl.params():
+            name, parameters = str(decl.name()), []
+            if decl.kind() == z3.Z3_OP_ANUM:
+                name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
+            elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
+                parameters = _th_lemma_parameters(decl, expr.num_args() - 1)
+            elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             declaration_ids[decl.get_id()] = len(declarations)
             declarations.append({
                 "kind": decl.kind(),
-                "name": str(decl.name()),
+                "name": name,
                 "domain": [sort_name(decl.domain(i)) for i in range(decl.arity())],
                 "range": sort_name(decl.range()),
-                "parameters": [],
+                "parameters": parameters,
             })
         node_ids[expr.get_id()] = len(nodes)
         nodes.append({
@@ -534,7 +640,7 @@ def _certificate_from_proof(source, assertions, proof):
         "format": "z3-native-proof-dag",
         "format_version": 1,
         "z3_version": z3.get_full_version(),
-        "fragment": "propositional",
+        "fragment": _require_legacy_fragment(assertions),
         "result": "unsat",
         "verification": "unverified",
         "source_smt2": source,
@@ -547,10 +653,12 @@ def export_certificate(source):
 
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
-    This is the legacy proof-object path and supports propositional input.
+    This is the legacy proof-object path (the smt core, sat.smt=false) and
+    supports propositional, QF_UF, and QF_LRA input; theory_lra's th-lemma
+    steps carry their Farkas coefficients as declaration parameters.
     """
     context = z3.Context(proof=True)
-    assertions = parse_propositional_assertions(source, context)
+    assertions, _ = parse_legacy_assertions(source, context)
     solver = z3.Solver(ctx=context)
     solver.add(assertions)
     result = solver.check()
@@ -584,7 +692,7 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     """
     import proof_clause_log
     context = z3.Context()
-    assertions, fragment = parse_assertions(source, context)
+    assertions, fragment = parse_clause_log_assertions(source, context)
     try:
         text = proof_clause_log.run_clause_log(
             z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
@@ -601,8 +709,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
-                        help="proof source: the legacy proof object (propositional input only) or the "
-                             "sat.smt clause log via the z3 executable (default: legacy when propositional)")
+                        help="proof source: the legacy proof object (propositional, QF_UF, or QF_LRA input) or the "
+                             "sat.smt clause log via the z3 executable (default: legacy when propositional or "
+                             "for uninterpreted predicates over Bool without a sort, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()
@@ -614,8 +723,9 @@ def main():
                 source = stream.read()
         core = args.core
         if core == "auto":
-            _, fragment = parse_assertions(source, z3.Context())
-            core = "legacy" if fragment == "propositional" else "clause-log"
+            assertions, fragment = parse_assertions(source, z3.Context())
+            core = ("legacy" if fragment == "propositional" or requires_legacy_core(assertions, fragment)
+                    else "clause-log")
         if core == "legacy":
             certificate = export_certificate(source)
         else:

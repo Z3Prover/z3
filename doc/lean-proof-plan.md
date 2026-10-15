@@ -692,6 +692,115 @@ input, so the exporter rejects that case explicitly. Two documented inputs
 and five pinned random instances verify end to end under the standard
 axioms. Still rejected: QF_UFLRA and Real arguments or results.
 
+**Legacy core proof objects (2026-10-13).** The theory slices above all read
+the `sat.smt=true` clause log. The legacy smt core (`sat.smt=false`) is the
+default and the one most users run, and with `produce-proofs` it emits a
+complete proof object for every logic, so it has to be a supported proof
+producer for theories too, not only for propositional input as today
+(`--core legacy` rejects anything else). What the legacy proof object has
+that the log does not: complete equality proofs (`congruence`,
+`transitivity`, `symmetry`, `monotonicity` built by conflict resolution) and
+the preprocessing steps (`rewrite`, `solve-eqs`), which the log starts
+after. What it lacks: `theory_lra` reports an arithmetic conflict as a bare
+`th-lemma arith` because `set_conflict_or_lemma` resets its parameter vector
+and never fills it, so there are no Farkas coefficients to check; the older
+`theory_arith` (`smt.arith.solver=2`) does record them. Decision: both cores
+are in scope, and the regression matrix keeps a `legacy-proof-object` cell
+per fragment next to the clause-log cell. Two backlog items follow: a QF_UF
+slice over legacy proof objects (Python and Lean only: lift the
+propositional restriction, extend `trans`/`symm`/`monotonicity` from Boolean
+equivalences to sort-valued equalities), and a C++ change so `theory_lra`
+fills the `th-lemma` parameters with Farkas coefficients from the LP
+explanation, after which the exporter's existing `th-lemma` node and
+`_check_th_lemma` verify them unchanged. The "inventory for milestone 3"
+noted in the first matrix run (`arith`, `arith farkas`, `arith
+assign-bounds`, `arith triangle-eq`) is the list of legacy lemma kinds that
+second item must map or reject explicitly.
+
+**QF_UF over legacy proof objects (2026-10-14).** The first of the two items
+is done, in Python and Lean only. `export_certificate` (`--core legacy`)
+accepts QF_UF input and keeps the input's sort names in the certificate;
+`--core auto` still picks the clause log for anything but propositional
+input, so the matrix compares both cores on the same inputs. Scanning the
+legacy proofs of 348 unsat QF_UF instances (the documented inputs, equality
+diamonds, and the four random generators) gave the rule inventory the
+reconstructor had to learn: `trans`, `symm`, `trans*`, and `monotonicity`
+over sort-valued equalities (860 monotonicity steps, with heads `not`, `=`,
+`ite` over a sort, `distinct`, `or`, `and`, `=>`, functions, and predicates),
+`commutativity` (new rule), rewrites between terms (`(ite true a b)` to `a`,
+branch swaps under a negated condition), 234 identity rewrites, and
+`def-axiom` clauses pairing `distinct` with its conjunction of disequalities.
+Every premise of every monotonicity step was forward-oriented, so the
+Boolean rule's orientation requirement is kept. The equality rules are
+explicit Lean terms (`Eq.trans`, `Eq.symm`, `congrArg` over argument lists,
+`propext` for `_bool` arguments, a per-file `ite_congr_classical` lemma for
+`ite` terms); only the non-identity rewrites go to `grind`, and refutations
+without one depend on `propext` alone. One elaboration pitfall: `congr`
+against a `formula_N` application unifies its metavariable head with the
+definition's last argument instead of unfolding, so equality congruence is
+composed from `Eq.trans` like the Boolean `Iff` congruence. All ten
+documented QF_UF inputs, 109 random instances with unsat cores of at least
+three assertions, and the 5- and 7-level diamonds (the latter outlined,
+1,230 steps) verify under the standard axioms. Not done: the C++ Farkas item
+for `theory_lra`, and a `uf_*.smt2` set in z3test for a legacy QF_UF matrix
+cell.
+
+**QF_LRA over legacy proof objects (2026-10-14).** The second item is done.
+`theory_lra` now fills the `th-lemma` parameters it used to reset: an LP
+conflict carries `farkas` with the explanation's multipliers, one per
+premise in the order the justification lists them (literals, then
+equalities); a bound propagation from the LP carries `bound` with the same
+multipliers and 1 for the consequent, mirroring the sat.smt `bound` hint
+(the fresh bound literals of `smt.arith.propagation_mode=2` included); an
+equality propagation is labelled `implied-eq`. Scanning the proofs showed
+two more producers on the same inputs: `arith_eq_adapter`'s `triangle-eq`
+axioms, and the older `theory_arith`, which the smt core still selects for
+difference-logic-shaped input and whose `assign-bounds` steps weight the
+antecedents only with signed coefficients. The exporter accepts `qf_lra` on
+the legacy path, maps these conventions to the certificate's `farkas`,
+`bound`, `implied-eq`, and `triangle-eq` hints (premises first, then clause
+literals, magnitudes only), and rejects a bare `(_ th-lemma arith)` or an
+integer rule. The reconstructor re-derives each combination with the
+premises as held constraints, states a `th-lemma` with premises as the
+implication from them, proved by `grind`, and proves congruence through
+arithmetic operators and comparisons (new in legacy proofs, since the smt
+core rewrites atoms inside assertions) by `grind` over the argument
+equalities. All eight documented QF_LRA inputs, 188 random instances (up to
+571 steps, 4.4 s), ten difference-logic inputs, and the three rewritten-ite
+inputs verify under the standard axioms from the legacy proof object. Still
+rejected on this path: Real `ite` terms, which the smt core names by
+`intro-def` (a fresh definition; the first candidate for the next legacy
+item), so `--core auto` keeps the clause log for arithmetic and the matrix
+compares both cores. No input tried produced a legacy `implied-eq` step, so
+that shape is covered by the exporter's mapping and the reconstructor's
+shape check only.
+
+**Uninterpreted predicates over Bool without a sort (2026-10-14).** The
+Bool-argument note of 2026-10-12 left `(declare-fun r (Bool) Bool)` with no
+uninterpreted sort in the assertions rejected on every path, because the
+sat.smt core Ackermannizes such predicates: its log declares fresh symbols
+(`r!1`, `k!2`) for the applications, or is empty when the input is decided
+before search. The legacy proof object has no such gap: `(= (r p) (r q))`
+is a `monotonicity` step from `(= p q)`, with `iff-true`/`iff-false` under a
+`hypothesis` when it splits on an argument, all rules the reconstructor
+already checks. The exporter now classifies these inputs as `qf_uf` (an
+input mixing them with arithmetic stays rejected), `--core auto` selects the
+legacy proof object for them (`requires_legacy_core`), and `--core
+clause-log` rejects them explicitly instead of failing on the fresh symbols.
+The reconstructor keys the qf_uf encoding on "uses a sort or an
+uninterpreted predicate" rather than on the sort set: the theorem takes the
+same `_U`, `_elems`, `_funs`, `_preds`, `_bool` binders with no sort name in
+the certificate, `_U` carries nothing but the injected Boolean arguments,
+and the header says so. Five documented inputs (congruence, a binary
+predicate, a split on `true`/`false`, nested applications with `xor`, a
+Boolean `ite` argument) and 247 random instances of a new generator (129
+small, 118 with five variables, twenty constraints, and depth-3 arguments)
+verify under `propext` alone with no failure; three seeds with 33
+to 41 monotonicity steps are pinned in `test_proof_to_lean_uf.py`, and
+`test_proof_certificate.py` checks the classification, the routing, and the
+clause-log rejection. Still rejected: Bool-only predicates together with
+arithmetic (the qf_lra encoding has no predicate family).
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

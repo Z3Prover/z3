@@ -19,10 +19,12 @@ Native Boolean proof certificates
 proof_certificate.py exports a native Z3 proof DAG as JSON. It is a first
 milestone toward independent proof checking, not a Lean proof or a verified
 unsat verdict. Every bundle explicitly has verification = "unverified".
-For propositional input it uses the legacy proof objects in a separate
-proof-enabled context and does not change global settings. For linear real
-arithmetic and for uninterpreted functions it rebuilds the sat.smt clause log
-instead; see "Linear real arithmetic through the clause log" below.
+For propositional, QF_UF, and QF_LRA input it can use the legacy proof
+objects of the smt core in a separate proof-enabled context, without changing
+global settings. For linear real arithmetic it rebuilds the sat.smt clause
+log by default, which is also available for the other fragments; see "Linear
+real arithmetic through the clause log" and "Linear real arithmetic through
+the legacy proof object" below.
 
 Build the local Python bindings and examples:
 
@@ -73,10 +75,12 @@ constants, functions, and predicates whose arguments have uninterpreted
 sorts or Bool (functions may map between sorts; a Bool argument is any
 supported formula), ite terms over a sort whose condition is any supported
 formula, and the atoms = and distinct over terms of one sort; it cannot be
-combined with arithmetic, functions with Real arguments or results are
-rejected, and functions whose arguments are all Bool are accepted only when
-the assertions also use an uninterpreted sort (otherwise Z3's sat.smt core
-Ackermannizes them with fresh symbols). One symbol name declared with
+combined with arithmetic, and functions with Real arguments or results are
+rejected. Predicates whose arguments are all Bool are the qf_uf fragment
+even without any uninterpreted sort; they are certified only through the
+legacy proof object, which --core auto selects for them, because Z3's
+sat.smt core Ackermannizes them with fresh symbols the clause log cannot be
+tied to the input (--core clause-log rejects them). One symbol name declared with
 several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
@@ -137,21 +141,21 @@ Run the focused regression suite with the local bindings:
 Linear real arithmetic through the clause log
 --------------------------------------------
 
-The proof objects of the smt core (sat.smt=false) record theory_lra's
-arithmetic conflicts as (_ th-lemma arith) without Farkas coefficients, so
-they cannot be replayed.
-The sat.smt core's clause log carries them: each inferred clause comes with a
-hint such as (farkas 1 $11 2 $17 1 $21). proof_certificate.py therefore drives
-the z3 executable for arithmetic input and rebuilds the log into the same DAG
-format:
+The sat.smt core's clause log carries Farkas coefficients for every
+arithmetic inference: each inferred clause comes with a hint such as
+(farkas 1 $11 2 $17 1 $21). proof_certificate.py drives the z3 executable for
+arithmetic input by default and rebuilds the log into the same DAG format
+(the smt core's proof object is the alternative; see the next section):
 
     PYTHONPATH=build/python python3 examples/python/proof_certificate.py \
         --z3 build/z3 input.smt2 > proof.json
 
 --core auto (the default) uses the legacy proof object for propositional input
-and the clause log otherwise; --core clause-log forces the log for Boolean
-input too. --z3 defaults to $Z3_EXE, then build/z3 next to this checkout, then
-z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
+and for uninterpreted predicates over Bool without a sort, and the clause log
+otherwise; --core clause-log forces the log for Boolean
+input too, and --core legacy the proof object for QF_UF and QF_LRA input.
+--z3 defaults to $Z3_EXE, then build/z3 next to this
+checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
 bound_simplifier disabled, because the log starts after preprocessing and
 bound_simplifier runs solve_eqs internally regardless of its own option.
@@ -234,24 +238,91 @@ ite term over the sort is an opaque element for the euf core, tied to its
 branches by the same two gate clauses as a Real ite, which the replay adds
 as def-axiom nodes.
 
+Uninterpreted functions through the legacy proof object
+-------------------------------------------------------
+
+The smt core's conflict resolution records complete equality proofs, so a
+QF_UF refutation from the legacy proof object (--core legacy, or
+export_certificate) needs no theory hint at all: every equality between
+terms is derived by trans, trans*, symm, and monotonicity steps, with the
+preprocessing rewrites the clause log never sees. The certificate format is
+unchanged (the same declarations and nodes as a clause-log certificate, with
+rule counts over the native rules instead of th-lemma). The reconstructor
+accepts the same rules over terms of a sort as over Boolean formulas; see
+"Uninterpreted functions in Lean" for the Lean terms. Shapes the legacy core
+emits for this fragment beyond the Boolean slice: rewrites between terms
+(for example (= (ite true a b) a)), the commutativity rule, congruence
+through ite terms and distinct, and def-axiom gate clauses pairing a distinct
+with its expansion into disequalities.
+
+Uninterpreted predicates over Bool alone, (declare-fun r (Bool) Bool) with no
+uninterpreted sort in the assertions, are certified only on this path: the
+sat.smt core Ackermannizes them with fresh symbols (r!1, k!2) or decides the
+input before it logs a clause, while the smt core's proof object proves
+(= (r p) (r q)) by monotonicity from (= p q) like any other congruence, with
+iff-true, iff-false, and hypothesis steps when it splits on an argument. The
+certificate is a qf_uf certificate without sort names; Lean uses the same
+encoding, with the carrier _U holding nothing but the injected Boolean
+arguments (see "Uninterpreted functions in Lean").
+
+Linear real arithmetic through the legacy proof object
+------------------------------------------------------
+
+theory_lra records the evidence of each LP conflict and bound propagation as
+th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
+(_ th-lemma arith bound c1 ... cn 1) for a propagated bound literal, and
+(_ th-lemma arith implied-eq) for a propagated equality (the coefficients are
+the Farkas multipliers of the LP explanation, one per premise in the order
+the step lists them; before 2026-10-14 the parameter vector was reset and
+never filled, which is why arithmetic needed the clause log). Unlike a
+clause-log th-lemma, a legacy th-lemma has premises: the literals and
+equalities the step rests on, each with its own proof, and it concludes
+false, the propagated literal, or the implied equality. The certificate keeps
+the hint and the normalized coefficients as the declaration's parameters
+(premises first, then the literals of the concluding clause) and drops the
+leading "arith" symbol. Two more legacy shapes are accepted: triangle-eq,
+arith_eq_adapter's axioms tying (= s t) to (<= (- s t) 0) and (>= (- s t) 0),
+and the parameters of the older theory_arith, which the smt core still
+selects for difference-logic-shaped input: assign-bounds (a propagation
+weighting the antecedents only, with signed coefficients) becomes bound with
+the propagated literal's weight 1 added, eq-propagate becomes implied-eq, and
+only magnitudes are kept. A th-lemma whose hint is none of these, including
+a bare (_ th-lemma arith) and the integer rules, is rejected at export.
+
+The reconstructor re-derives every farkas and bound combination from the
+premises and the clause with exact rationals before Lean runs, checks the
+shapes of implied-eq and triangle-eq steps, and states each th-lemma as the
+implication from its premises, proved by grind and applied to the premise
+steps. Congruence through an arithmetic operator or comparison (monotonicity
+over +, *, -, /, <=, <, >=, >), which the smt core's rewriting of atoms
+produces, is a grind lemma taking the argument equalities as premises; the
+other monotonicity shapes keep their explicit terms. Inputs with Real ite
+terms are rejected on this path: the smt core names each ite term by an
+intro-def step, a fresh definition the certificate cannot tie to the input,
+so --core auto keeps the clause log for arithmetic. Inputs in which Z3
+rewrites the ite away (a comparison pushed through the ite) are certified.
+
 Reconstruct and check a Boolean proof in Lean
 -------------------------------------------
 
 proof_to_lean.py consumes the original SMT-LIB file and its native JSON bundle.
 It supports asserted, unit-resolution, mp, Boolean rewrite, refl, symm, trans,
-trans*, iff-true, iff-false, Boolean monotonicity, and-elim, not-or-elim,
-hypothesis, and lemma proof nodes.
+trans*, iff-true, iff-false, Boolean monotonicity, commutativity, and-elim,
+not-or-elim, hypothesis, and lemma proof nodes.
 It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
-Boolean equivalences. Each rewrite must conclude a Boolean equality/equivalence
-and is checked independently of the input hypotheses by a Lean truth table.
+Boolean equivalences. Each rewrite must conclude an equality or equivalence and
+is checked independently of the input hypotheses: a Boolean rewrite by a Lean
+truth table, a theory rewrite by grind, and a rewrite between two identical
+sides by Iff.refl or Eq.refl in place (see "Uninterpreted functions in Lean").
 
 refl, symm, and trans check Boolean equivalence endpoints and compose Lean's
 logical rules. monotonicity checks identical application heads and arities,
 and requires an oriented equivalence for every changed argument. Unchanged
 arguments need no premise; repeated arguments can share evidence. Congruence
 covers all supported Boolean connectives using direct proof terms, not truth
-tables or propositional extensionality. and-elim selects an immediate conjunct.
+tables or propositional extensionality. commutativity proves (= (f a b) (f b
+a)) for equality, equivalence, and, or, and xor. and-elim selects an immediate conjunct.
 not-or-elim selects the complement of an immediate disjunct, including native
 double-negation cancellation.
 
@@ -288,10 +359,12 @@ explicitly, even when unused in the final refutation. This is not a general
 propositional tautology prover, and fresh-symbol definitions remain unsupported.
 
 th-lemma nodes and arithmetic rewrites are proved by Lean's grind tactic
-after unfolding the formula and term definitions they mention; see the
-arithmetic section below. Other proof rules, including rewrite*, mp~, and
-definition introduction, fail explicitly. Consequently, some otherwise
-propositional Z3 refutations are still unsupported.
+after unfolding the formula and term definitions they mention; a th-lemma
+with premises (the legacy core's) is stated as the implication from its
+premises and applied to their steps; see the arithmetic sections. Other
+proof rules, including rewrite*, mp~, and definition introduction, fail
+explicitly. Consequently, some otherwise propositional Z3 refutations are
+still unsupported.
 
 Install the pinned Lean toolchain as described in lean/README.md. The Boolean
 inputs live in Z3Prover/z3test under regressions/proofs/lean/; the commands
@@ -423,7 +496,9 @@ union of the carriers, with each symbol interpreted as in the model on
 arguments of its own sorts (and arbitrarily elsewhere). Bool is one more
 such sort: its two values join the disjoint union and _bool maps a true
 proposition to one and a false one to the other (the instance picks _bool
-classically). Every ground term
+classically). A certificate whose only uninterpreted symbols are predicates
+over Bool uses the same binders with no sort at all: _U carries the two
+Boolean values, _elems and _funs are never applied. Every ground term
 then denotes its value in the model, and since well-sorted inputs only
 compare terms of one sort, every assertion keeps its truth value. Nothing
 states that _bool True and _bool False differ, and no Z3 inference needs it:
@@ -442,6 +517,24 @@ are proved by grind, whose congruence closure handles the list applications;
 Python only checks shapes for these hints, so a false euf lemma is caught by
 Lean alone and the file is not published. grind's proofs here report the same
 three standard axioms as the arithmetic slice.
+
+The equality rules of a legacy proof object are explicit Lean terms over the
+carrier, checked by Lean's type checker without grind: refl, symm, trans, and
+trans* between terms are Eq.refl, Eq.symm, and Eq.trans (between formulas
+they stay Iff); monotonicity through a function or predicate is congrArg on
+the equality of the argument lists, built from one List.cons congruence per
+argument, with a Boolean argument's equivalence turned into an equality of
+_bool applications by propext; monotonicity of equality and distinct over
+terms composes Eq.trans in both directions; monotonicity through an ite term
+uses a private lemma ite_congr_classical, stated once per file by cases on
+propext of the condition equivalence; commutativity of a term equality is
+Iff.intro Eq.symm Eq.symm. Python checks the endpoints of every such step as
+for the Boolean rules, and a rewrite between two identical formulas or terms
+is Iff.refl or Eq.refl in place. The remaining rewrites of a legacy QF_UF
+proof (ite simplification, distinct expansion, Boolean simplification over
+term atoms) are grind lemmas as for the clause log, and a def-axiom clause
+may pair a distinct with the conjunction of its disequalities, which unfold
+to the same Lean proposition.
 
 Classical Boolean rewrites, double-negation cancellation in not-or-elim,
 def-axiom clauses, and classical steps in lemma discharge use local decidability
