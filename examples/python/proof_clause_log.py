@@ -520,8 +520,11 @@ class _Normalizer:
             return self._atom(expr, polarity)
         if kind == z3.Z3_OP_DISTINCT and z3.is_real(expr.arg(0)) and expr.num_args() == 2:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
+        # Structural key: a numeral (as a function argument) is identified by
+        # its value, an uninterpreted symbol by its name.
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
-                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED else "")
+                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED
+                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
         return positive if polarity else ("not", positive)
 
     def _atom(self, expr, polarity):

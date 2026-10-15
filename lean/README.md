@@ -73,7 +73,14 @@ is certified from the legacy proof object only. A QF_LRA certificate
 from the legacy proof object carries `theory_lra`'s Farkas coefficients as
 `th-lemma` parameters; each such step is stated as the implication from its
 premises, re-derived in Python and proved by `grind`, and congruence through
-an arithmetic operator is a `grind` lemma over the argument equalities.
+an arithmetic operator is a `grind` lemma over the argument equalities. A
+QF_UFLRA input (uninterpreted sorts or functions mixed with linear real
+arithmetic) takes both the `_vars` valuation and the `_U` binders, plus
+`(_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)`: a Real argument of a
+function or predicate is injected into `_U` by `_real`, and a function with a
+Real result is the family `_rfuns`, whose applications are the atoms of the
+linear forms; both cores certify it (predicates over Bool alone applied to
+Real atoms only from the legacy proof object).
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

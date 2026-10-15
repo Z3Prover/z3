@@ -335,10 +335,10 @@ class TestArithmeticValidation(unittest.TestCase):
         certificate["fragment"] = "qf_lia"
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported certificate header"):
             proof_to_lean.reconstruct(self.source, certificate)
-        # A Boolean certificate claiming the arithmetic fragment is rejected at binding.
+        # A Boolean certificate claiming the arithmetic fragment declares no Real symbol.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")
         boolean["fragment"] = "qf_lra"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "fragment propositional"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "qf_lra certificates must contain arithmetic"):
             proof_to_lean.reconstruct("(declare-const p Bool)(assert p)(assert (not p))", boolean)
         # Renaming a variable breaks the binding to the input even when the text is updated.
         renamed = self.source.replace("(declare-const z Real)", "(declare-const w Real)").replace("z)", "w)")

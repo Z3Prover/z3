@@ -4,11 +4,11 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, or QF_UF SMT-LIB problem.
+"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_UF, or QF_UFLRA SMT-LIB problem.
 
-Two proof sources: the legacy proof object of the smt core (propositional and
-QF_UF input) and the sat.smt clause log (every fragment, the only source with
-Farkas coefficients for QF_LRA).
+Two proof sources: the legacy proof object of the smt core and the sat.smt
+clause log, both for every fragment (predicates over Bool without any other
+theory term only through the legacy proof object).
 """
 
 import argparse
@@ -185,11 +185,8 @@ def constant_value(expr):
 def _require_linear_real(expr):
     """Reject Real terms outside the linear fragment with constant coefficients."""
     kind = expr.decl().kind()
-    if kind == z3.Z3_OP_UNINTERPRETED:
-        if expr.decl().arity() != 0:
-            raise ProofExportError("uninterpreted functions are not supported: %s" % expr.decl().name())
-    elif kind == z3.Z3_OP_ANUM:
-        pass
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM):
+        pass  # Variables and applications of uninterpreted functions are the atoms of linear forms.
     elif kind == z3.Z3_OP_MUL:
         if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
             raise ProofExportError("nonlinear multiplication is not supported")
@@ -219,22 +216,26 @@ def _require_uninterpreted_sort(candidate, sorts):
 
 
 def _require_uninterpreted_signature(decl, sorts):
-    """Check that a function or predicate ranges over uninterpreted sorts and Bool only.
+    """Check that a function or predicate ranges over uninterpreted sorts, Bool, and Real only.
 
-    Arguments may be Bool as well as uninterpreted sorts (Lean injects a
-    Boolean argument into the carrier); the result is Bool or a sort. Real
-    arguments or results are rejected.
+    Arguments may be Bool or Real as well as uninterpreted sorts (Lean injects
+    a Boolean or Real argument into the carrier); the result is Bool, Real, or
+    a sort. Returns whether the signature mentions Real, which makes the input
+    QF_UFLRA.
     """
-    candidates = [decl.domain(i) for i in range(decl.arity())]
-    if decl.range().kind() != z3.Z3_BOOL_SORT:
-        candidates.append(decl.range())
+    candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
+    real = False
     for candidate in candidates:
         if candidate.kind() == z3.Z3_BOOL_SORT:
+            continue
+        if candidate.kind() == z3.Z3_REAL_SORT:
+            real = True
             continue
         if not is_uninterpreted_sort(candidate):
             raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
                 candidate, decl.name()))
         _require_uninterpreted_sort(candidate, sorts)
+    return real
 
 
 def _require_unique_symbol(decl, symbols):
@@ -250,9 +251,9 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", or "qf_uf", rejecting everything else."""
+    """Return "propositional", "qf_lra", "qf_uf", or "qf_uflra", rejecting everything else."""
     pending, seen, arithmetic, sorts, symbols = list(assertions), set(), False, set(), {}
-    boolean_functions = []  # uninterpreted functions whose signature mentions no sort
+    functions = False  # whether any uninterpreted function or predicate is applied
     while pending:
         expr = pending.pop()
         if expr.get_id() in seen:
@@ -263,12 +264,12 @@ def classify_fragment(assertions):
         decl = expr.decl()
         if decl.kind() == z3.Z3_OP_UNINTERPRETED:
             _require_unique_symbol(decl, symbols)
+            if decl.arity() != 0:
+                functions = True
+                arithmetic = _require_uninterpreted_signature(decl, sorts) or arithmetic
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-                if decl.arity() != 0:
-                    _require_uninterpreted_signature(decl, sorts)
-                    if all(decl.domain(i).kind() == z3.Z3_BOOL_SORT for i in range(decl.arity())):
-                        boolean_functions.append(decl.name())
+                pass
             elif decl.kind() in _ARITH_PREDICATES:
                 arithmetic = True
             elif decl.kind() not in _BOOLEAN_OPERATORS:
@@ -281,29 +282,27 @@ def classify_fragment(assertions):
         elif is_uninterpreted_sort(expr.sort()):
             # Constants, function applications, and ite, whose branches are
             # terms of the sort and whose condition is any formula.
-            if decl.kind() == z3.Z3_OP_UNINTERPRETED:
-                _require_uninterpreted_signature(decl, sorts)
-            elif decl.kind() == z3.Z3_OP_ITE:
+            if decl.kind() in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
                 _require_uninterpreted_sort(expr.sort(), sorts)
             else:
                 raise ProofExportError("unsupported operator over an uninterpreted sort: %s" % decl.name())
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
-    if sorts or boolean_functions:
-        if arithmetic:
-            raise ProofExportError("mixing uninterpreted %s with arithmetic is not supported" % (
-                "sorts" if sorts else "functions over Bool"))
+    if sorts or functions:
+        # Uninterpreted sorts and functions mixed with linear real arithmetic
+        # are QF_UFLRA: the Lean encoding carries the Rat valuation next to the
+        # carrier, into which Real arguments are injected like Bool ones.
         # Predicates over Bool alone are the qf_uf fragment without a sort: the
         # Lean encoding injects their arguments into the carrier like any other
         # Bool argument. Only the legacy proof object certifies them, see
         # requires_legacy_core.
-        return "qf_uf"
+        return "qf_uflra" if arithmetic else "qf_uf"
     return "qf_lra" if arithmetic else "propositional"
 
 
-def _uses_uninterpreted_sort(assertions):
-    """Return whether any subterm of the assertions has an uninterpreted sort."""
+def _uses_theory_terms(assertions):
+    """Return whether any subterm has an uninterpreted sort or applies a function whose signature mentions Real."""
     pending, seen = list(assertions), set()
     while pending:
         expr = pending.pop()
@@ -312,6 +311,10 @@ def _uses_uninterpreted_sort(assertions):
         seen.add(expr.get_id())
         if is_uninterpreted_sort(expr.sort()):
             return True
+        decl = expr.decl()
+        if decl.kind() == z3.Z3_OP_UNINTERPRETED and decl.arity() and any(
+                sort.kind() == z3.Z3_REAL_SORT for sort in [decl.domain(i) for i in range(decl.arity())] + [decl.range()]):
+            return True
         pending.extend(expr.children())
     return False
 
@@ -319,13 +322,14 @@ def _uses_uninterpreted_sort(assertions):
 def requires_legacy_core(assertions, fragment):
     """Return whether only the legacy proof object can certify the input.
 
-    Without an uninterpreted sort Z3's sat.smt core does not run the euf
-    solver on uninterpreted predicates over Bool: it Ackermannizes them with
-    fresh symbols the clause log cannot be tied to the input, or decides the
-    problem before logging anything. The smt core's proof object proves their
-    congruences with monotonicity steps like any other predicate's.
+    Without an uninterpreted sort or a function over Real, Z3's sat.smt core
+    does not run the euf solver on uninterpreted predicates over Bool: it
+    Ackermannizes them with fresh symbols the clause log cannot be tied to
+    the input, or decides the problem before logging anything. The smt core's
+    proof object proves their congruences with monotonicity steps like any
+    other predicate's.
     """
-    return fragment == "qf_uf" and not _uses_uninterpreted_sort(assertions)
+    return fragment in ("qf_uf", "qf_uflra") and not _uses_theory_terms(assertions)
 
 
 def parse_clause_log_assertions(source, context):
@@ -333,6 +337,7 @@ def parse_clause_log_assertions(source, context):
     assertions, fragment = parse_assertions(source, context)
     if requires_legacy_core(assertions, fragment):
         raise ProofExportError("uninterpreted functions over Bool alone are Ackermannized by the sat.smt core "
+                               "without an uninterpreted sort or a function over Real "
                                "and need the legacy proof object (--core legacy)")
     return assertions, fragment
 
@@ -654,8 +659,8 @@ def export_certificate(source):
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
     This is the legacy proof-object path (the smt core, sat.smt=false) and
-    supports propositional, QF_UF, and QF_LRA input; theory_lra's th-lemma
-    steps carry their Farkas coefficients as declaration parameters.
+    supports propositional, QF_UF, QF_LRA, and QF_UFLRA input; theory_lra's
+    th-lemma steps carry their Farkas coefficients as declaration parameters.
     """
     context = z3.Context(proof=True)
     assertions, _ = parse_legacy_assertions(source, context)
@@ -709,9 +714,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", help="SMT-LIB input file, or - for standard input")
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
-                        help="proof source: the legacy proof object (propositional, QF_UF, or QF_LRA input) or the "
-                             "sat.smt clause log via the z3 executable (default: legacy when propositional or "
-                             "for uninterpreted predicates over Bool without a sort, clause log otherwise)")
+                        help="proof source: the legacy proof object (propositional, QF_UF, QF_LRA, or QF_UFLRA "
+                             "input) or the sat.smt clause log via the z3 executable (default: legacy when "
+                             "propositional or for uninterpreted predicates over Bool without a sort or a function "
+                             "over Real, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()

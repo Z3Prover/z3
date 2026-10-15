@@ -628,12 +628,12 @@ class TestUninterpretedValidation(unittest.TestCase):
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
             with self.subTest(fragment=fragment):
-                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
                     proof_to_lean.reconstruct(self.source, certificate)
         # A Boolean certificate claiming qf_uf has no sort to declare.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")
         boolean["fragment"] = "qf_uf"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
             proof_to_lean.reconstruct("(declare-const p Bool)(assert p)(assert (not p))", boolean)
 
         def rename_sort(certificate, new_name, only_first=False):
@@ -682,13 +682,15 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_eq = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["U", "U"]
         for certificate, message in [
             (mutate(is_f, domain=["Bool"]), "wrong argument sort"),  # f is applied to an element
-            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Real"]), "wrong argument sort"),  # a legal (QF_UFLRA) domain, but f takes an element
+            (mutate(is_f, domain=["Proof"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["U", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="ite", domain=["Bool", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["Bool", "U", "U"]), "wrong number of arguments"),
             (mutate(is_f, kind=z3.Z3_OP_ADD, name="+", domain=["U", "U"]), "unsupported uninterpreted-sort"),
             (mutate(is_p, domain=["Bool"]), "wrong argument sort"),  # p is applied to an element
-            (mutate(is_p, domain=["Real"]), "unsupported predicate declaration"),
+            (mutate(is_p, domain=["Real"]), "wrong argument sort"),
+            (mutate(is_p, domain=["Proof"]), "unsupported predicate declaration"),
             (mutate(is_p, domain=["U", "U"]), "wrong number of arguments"),
             (mutate(is_eq, domain=["U", "Bool"]), "cannot mix argument sorts"),
             (mutate(is_eq, domain=["Bool", "Bool"]), "wrong argument sort"),
@@ -873,7 +875,7 @@ class TestUninterpretedValidation(unittest.TestCase):
         for fragment in ("propositional", "qf_lra"):
             relabeled = copy.deepcopy(certificate)
             relabeled["fragment"] = fragment
-            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
                 proof_to_lean.reconstruct(source, relabeled)
         tampered = copy.deepcopy(certificate)
         for declaration in _declarations(tampered, lambda d: d["name"] == "r" and d["kind"] == z3.Z3_OP_UNINTERPRETED):
@@ -961,12 +963,13 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_eq_b = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["B", "B"]
         for mutated, message in [
             # Equality and distinct compare terms of one sort; functions and predicates
-            # take arguments of the uninterpreted sorts only, and every application
-            # must be well-sorted.
+            # take arguments of the uninterpreted sorts, Bool, and Real (never Proof),
+            # and every application must be well-sorted.
             (mutate(is_eq_b, domain=["A", "B"]), "cannot mix argument sorts"),
             (mutate(is_f, domain=["B"]), "wrong argument sort"),
             (mutate(is_f, domain=["Bool"]), "wrong argument sort"),
-            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Real"]), "wrong argument sort"),
+            (mutate(is_f, domain=["Proof"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_g, domain=["A", "B"]), "wrong argument sort"),
             (mutate(is_g, range="B"), "wrong argument sort"),
             (mutate(is_b, range="A"), "wrong argument sort"),

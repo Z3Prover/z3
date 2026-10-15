@@ -251,7 +251,7 @@ class TestProofCertificate(unittest.TestCase):
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
-            "(declare-fun f (Bool) Bool)(declare-const x Real)(assert (and (f true) (> x 1.0)))",
+            "(declare-fun f (Int) Bool)(declare-const x Real)(assert (and (f 1) (> x 1.0)))",
             "(assert (forall ((p Bool)) p))",
             "(declare-const p Bool)(assert ((_ at-most 1) p))",
         ]
@@ -463,6 +463,27 @@ _BOOLEAN_PREDICATES = """\
 (assert (or (r p) (s p q)))
 (assert (not (r q)))
 (assert (not (s q q)))
+(check-sat)
+"""
+# QF_UFLRA: an uninterpreted sort next to Real variables, functions between
+# the sort and Real, a Real-valued function, and a predicate over Real.
+_UFLRA = """\
+(set-logic QF_UFLRA)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun f (Real) Real)
+(declare-fun g (U) Real)
+(declare-fun h (Real) U)
+(declare-fun q (Real) Bool)
+(declare-const x Real)
+(declare-const y Real)
+(assert (= a b))
+(assert (<= x y))
+(assert (>= x y))
+(assert (or (> (g a) (+ (g b) 1.0)) (q (f x))))
+(assert (or (not (q (f y))) (not (= (h x) (h y))) (< (f (g a)) 0.0)))
+(assert (>= (f (g b)) 0.0))
 (check-sat)
 """
 # The clause log for _UF: euf hints list jointly contradictory literals and
@@ -797,7 +818,9 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
             ("(declare-const x Int)(assert (> x 1))", "unsupported sort"),
-            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (f x) 1.0))", "uninterpreted functions"),
+            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "functions over Int"),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", "nonlinear"),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (/ 1.0 (f x)) 1.0))", "division"),
             ("(declare-const p Bool)(declare-const x Real)(assert (> (* x (ite p x 1.0)) 2.0))", "nonlinear"),
             ("(declare-const p Bool)(declare-const x Real)(assert (> (/ 1.0 (ite p x 1.0)) 2.0))", "division"),
         ]:
@@ -843,15 +866,27 @@ class TestFragmentClassification(unittest.TestCase):
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uf")
+        # Uninterpreted sorts or functions together with linear real arithmetic
+        # are QF_UFLRA: functions and predicates may take and return Real, and
+        # a function whose signature mentions Real makes the input arithmetic
+        # even without any Real atom.
+        for source in [
+            declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))",
+            "(declare-fun r (Bool) Bool)(declare-const x Real)(assert (r (> x 1.0)))",
+            declarations + "(declare-fun h (U) V)(declare-const x Real)(assert (and (= (h a) v) (> x 1.0)))",
+            declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))",
+            declarations + "(declare-fun r (Bool Real) Bool)(assert (r true 1.0))",
+            declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))",
+            "(declare-fun f (Real) Real)(declare-const x Real)(assert (> (f (f x)) (+ (f x) 1.0)))",
+            "(declare-fun f (Real Real) Real)(declare-fun q (Real) Bool)(assert (q (f 1.0 2.0)))",
+            declarations + "(declare-fun h (Real) U)(declare-const p Bool)(assert (= (ite p (h 1.0) a) a))",
+            "(declare-fun h (Bool) Real)(declare-const p Bool)(assert (= (h p) (h (not p))))",
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), "qf_uflra")
         for source, message in [
-            (declarations + "(declare-const x Real)(assert (and (= a a) (> x 1.0)))", "mixing uninterpreted sorts"),
-            ("(declare-fun r (Bool) Bool)(declare-const x Real)(assert (r (> x 1.0)))",
-             "mixing uninterpreted functions over Bool with arithmetic"),
-            (declarations + "(declare-fun h (U) V)(declare-const x Real)(assert (and (= (h a) v) (> x 1.0)))",
-             "mixing uninterpreted sorts"),
-            (declarations + "(declare-fun h (U) Real)(assert (> (h a) 1.0))", "uninterpreted functions"),
-            (declarations + "(declare-fun r (Bool Real) Bool)(assert (r true 1.0))", "functions over Real"),
-            (declarations + "(declare-fun q (Real) Bool)(assert (q 1.0))", "functions over Real"),
+            (declarations + "(declare-fun h (U) Int)(assert (= (h a) (h a)))", "functions over Int"),
+            ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* (f x) (f x)) 1.0))", "nonlinear"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
             # Z3 accepts one name declared with several signatures and tells the
             # declarations apart by sort; the certificate binds symbols by name.
@@ -970,6 +1005,15 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-sort U 0)(declare-fun a () U)(declare-fun r (Bool) Bool)(assert (r (= a a)))", False),
             (_CONTRADICTION, False),
             (_LRA, False),
+            # QF_UFLRA: Bool-only predicates over Real atoms are Ackermannized too;
+            # a sort-valued term or a function over Real runs the euf solver.
+            ("(declare-fun r (Bool) Bool)(declare-const x Real)(assert (r (< x 1.0)))(assert (not (r (< x 1.0))))",
+             True),
+            ("(declare-fun r (Bool) Bool)(declare-fun q (Real) Bool)(declare-const x Real)"
+             "(assert (and (r (q x)) (not (q x))))", False),
+            ("(declare-sort U 0)(declare-fun a () U)(declare-fun r (Bool) Bool)(declare-const x Real)"
+             "(assert (and (r (= a a)) (> x 1.0)))", False),
+            (_UFLRA, False),
         ]:
             with self.subTest(source=source):
                 assertions, fragment = proof_certificate.parse_assertions(source, context)
@@ -990,6 +1034,45 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertIn("monotonicity", certificate["rule_counts"])
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uf"):
             proof_certificate.parse_propositional_assertions(_BOOLEAN_PREDICATES, context)
+
+    def test_legacy_exporter_exports_uninterpreted_functions_with_arithmetic(self):
+        # QF_UFLRA through the legacy proof object: the sort name is kept, the
+        # functions keep their Real arguments and results, numerals are declared
+        # by value, and theory_lra's th-lemma steps carry their coefficients.
+        certificate = proof_certificate.export_certificate(_UFLRA)
+        self.assertEqual(certificate["fragment"], "qf_uflra")
+        declarations = certificate["declarations"]
+        self.assertEqual({d["range"] for d in declarations} - {"Bool", "Proof"}, {"U", "Real"})
+        self.assertEqual({(d["name"], tuple(d["domain"]), d["range"]) for d in declarations
+                          if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {("a", (), "U"), ("b", (), "U"), ("x", (), "Real"), ("y", (), "Real"),
+                          ("f", ("Real",), "Real"), ("g", ("U",), "Real"), ("h", ("Real",), "U"), ("q", ("Real",), "Bool")})
+        self.assertLessEqual({"0", "1"}, {d["name"] for d in declarations if d["kind"] == z3.Z3_OP_ANUM})
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        hints = set()
+        for declaration in declarations:
+            if declaration["name"] == "th-lemma":
+                hints.add(declaration["parameters"][0])
+                self.assertIn(declaration["parameters"][0], ("farkas", "bound", "implied-eq"))
+                self.assertTrue(all(Fraction(c) > 0 for c in declaration["parameters"][1:]))
+                if declaration["parameters"][0] == "implied-eq":
+                    # theory_lra's equality propagation x = y from x <= y and
+                    # x >= y, needed here for the congruence (h x) = (h y):
+                    # premises, no coefficients, and a Real equality as conclusion.
+                    self.assertEqual(declaration["parameters"], ["implied-eq"])
+                    self.assertGreaterEqual(len(declaration["domain"]), 3)
+                    for node in certificate["nodes"]:
+                        if declarations[node["declaration"]] is declaration:
+                            conclusion = certificate["nodes"][node["arguments"][-1]]
+                            self.assertEqual(declarations[conclusion["declaration"]]["name"], "=")
+                            self.assertEqual(declarations[conclusion["declaration"]]["domain"], ["Real", "Real"])
+                else:
+                    # One coefficient per premise and per literal of the concluding clause.
+                    self.assertGreaterEqual(len(declaration["parameters"]) - 1, len(declaration["domain"]) - 1)
+        self.assertIn("implied-eq", hints)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uflra"):
+            proof_certificate.parse_propositional_assertions(_UFLRA, z3.Context())
 
 
 class TestLinearCombination(unittest.TestCase):
