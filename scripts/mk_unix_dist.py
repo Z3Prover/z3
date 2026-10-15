@@ -235,7 +235,8 @@ def mk_build_dir():
                 cmd.append(' -DCMAKE_OSX_ARCHITECTURES=x86_64')
         cmd.append(' -DZ3_USE_LIB_GMP=OFF')
         cmd.append(' -DBUILD_SHARED_LIBS=ON')
-        cmd.append(' -DCMAKE_BUILD_TYPE=RelWithDebInfo')
+        cmd.append(' -DCMAKE_BUILD_TYPE=Release')
+        cmd.append(' -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON')
         # mk_nuget_task.py expects libz3.{so,dylib} directly under bin/, matching
         # the flat layout the legacy dist scripts always produced. Overriding
         # CMAKE_INSTALL_LIBDIR (scoped to this throwaway packaging build tree
