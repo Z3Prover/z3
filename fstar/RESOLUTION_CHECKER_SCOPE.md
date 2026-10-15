@@ -45,7 +45,7 @@ not independently re-derived):**
 | Rule | Why Tier 2 |
 |---|---|
 | `PR_DEF_AXIOM` | `check1_basic`'s own case is `match_fact(p) && m.is_bool(fact)` — i.e. *any* Boolean fact is accepted; Z3 trusts the SAT solver's CNF/Tseitin encoding here, we do the same |
-| `PR_TH_LEMMA` | dispatches to `check_arith_proof` only for the `"arith"` theory tag; every other theory (including `"array"`) falls through to `dump_proof(p); return true` — i.e. **Z3's own in-tree checker does not verify array theory lemmas either** |
+| `PR_TH_LEMMA` outside the checked array fragment below | dispatches to `check_arith_proof` only for the `"arith"` theory tag; every other theory (including `"array"`) falls through to `dump_proof(p); return true` — i.e. **Z3's own in-tree checker does not verify array theory lemmas either** |
 | `PR_HYPER_RESOLVE` | `check1_basic` computes a side-condition formula (`premise0 <=> conclusion`) and pushes it to `side_conditions` rather than proving it |
 | `PR_REWRITE_STAR` / `PR_DISTRIBUTIVITY` | same pattern: `side_conditions.push_back(fact)` |
 | `PR_QUANT_INST` | literally `// TODO return true` in `check1_basic` |
@@ -171,6 +171,39 @@ declarations, sorts, and exact swapped endpoints; its soundness follows
 from standard theory semantics, not an assumed commutativity property.
 Unsupported theories remain obligations in exported documents.
 The default extractor mode remains the legacy equational fragment.
+
+### Checked SMT array theory instances
+
+`Z3ArrayTheory.fst` now covers the store, extensionality, lambda,
+congruence, constant, as-array, n-ary map, default, and choice axiom
+schemas instantiated by `src\smt\theory_array_base.cpp` and
+`theory_array_full.cpp`, with explicit witness/freshness conditions.
+Multi-index mathematical instances use tuple indices. Default-store
+invariance is conditional on a fresh epsilon index; the singleton and
+finite non-singleton cases have separate lemmas. An extensionality
+index must witness an actual difference, and choice requires a
+satisfying value only when the predicate is satisfiable.
+
+`Z3ArrayLemma.fst` promotes three premise-free `th-lemma` schemas from
+pending obligations to checked nodes: read-over-write at the written
+index, guarded read-over-write at another index, and the extensionality
+clause using the built-in difference index. It checks full operator
+declarations and sorts, not merely names or the proof-rule label.
+The `array-ext` declaration carries `op_array_ext`; uninterpreted
+lookalikes and arbitrary/unrelated witnesses remain obligations.
+`lemma_array_lemma_sound` composes the array lemmas with the shared
+kernel's explicit `array_model` interpretation contract.
+
+Native matching currently covers flat one-dimensional arrays of
+non-Boolean scalar indices/elements in the existing `VArr`/`VInt`
+semantics. The broader mathematical schemas do not imply executable
+support for Boolean/nested/multi-index arrays, map/default/choice, or
+quantified expressions. These remain unsupported or pending, and
+`def-axiom` trust is unchanged. See `OCAML_CHECKER_REPORT.md` for the
+axiom-to-lemma catalog and paired evaluation: QF_AX increases from
+1 to 70 accepted proofs and QF_AUFLIA from 1 to 28 per 100 sampled files.
+The associated proved `not-or-elim` polarity correction also removes
+structural rejections in the arithmetic samples.
 
 ## Status after round 1 (implementation complete, fully verified)
 

@@ -191,6 +191,26 @@ class ExtractionTests(unittest.TestCase):
         self.assertEqual(len(arrays), 2)
         self.assertNotEqual(arrays[0], arrays[1])
 
+    def test_array_lemma_classification_checks_instances_not_rule_names(self):
+        ctx = z3.Context()
+        index, element = z3.DeclareSort("Index", ctx), z3.DeclareSort("Element", ctx)
+        a, b = z3.Consts("a b", z3.ArraySort(index, element))
+        i, j = z3.Consts("i j", index)
+        v = z3.Const("v", element)
+        stored = z3.Store(a, i, v)
+        witness = z3.Ext(a, b)
+        for conclusion, expected in (
+                (z3.Select(stored, i) == v, "array_read_over_write_same"),
+                (z3.Or(i == j, z3.Select(stored, j) == z3.Select(a, j)),
+                 "array_read_over_write_other"),
+                (z3.Or(a == b, z3.Not(z3.Select(a, witness) == z3.Select(b, witness))),
+                 "array_extensionality"),
+                (z3.Select(stored, j) == v, None),
+                (z3.Or(i != j, z3.Select(stored, j) == z3.Select(a, j)), None),
+                (z3.Or(a == b, z3.Not(z3.Select(a, i) == z3.Select(b, i))), None)):
+            with self.subTest(conclusion=str(conclusion)):
+                self.assertEqual(extractor.classify_array_lemma(conclusion), expected)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -755,6 +775,66 @@ class NativeCheckerTests(unittest.TestCase):
         c = Certificate()
         root = c.node("trusted", z3.BoolVal(False, c.ctx), rule="th-lemma")
         self.check(c.document(root), 3)
+
+    def test_not_or_elimination_handles_both_literal_polarities(self):
+        for form in ("positive", "negative", "equality", "unrelated"):
+            with self.subTest(form=form):
+                c = Certificate()
+                p, q, r = z3.Bools("p q r", c.ctx)
+                x, y = z3.Ints("x y", c.ctx)
+                target = z3.Not(p) if form == "negative" else x == y if form == "equality" else p
+                selected = p if form == "negative" else z3.Not(target)
+                premise = c.asserted(z3.Not(z3.Or(selected, q)))
+                result = r if form == "unrelated" else target
+                leaf = c.node("not-or-elim", result, [premise])
+                opposite = c.asserted(z3.Not(result))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [leaf, opposite])
+                self.check(c.document(root), 1 if form == "unrelated" else 0)
+
+    def test_array_theory_lemma_instances_are_checked(self):
+        for form in ("same", "same_reversed", "other", "other_reordered", "ext",
+                     "ext_reordered", "wrong_index", "wrong_guard", "wrong_base",
+                     "arbitrary_witness", "unrelated_witness", "wrong_tag",
+                     "unexpected_premise", "uninterpreted_select", "uninterpreted_ext"):
+            with self.subTest(form=form):
+                c = Certificate()
+                index = z3.DeclareSort("Index", c.ctx)
+                element = z3.DeclareSort("Element", c.ctx)
+                a, b, d = z3.Consts("a b d", z3.ArraySort(index, element))
+                i, j = z3.Consts("i j", index)
+                v = z3.Const("v", element)
+                stored = z3.Store(a, i, v)
+                if form in ("same", "same_reversed", "wrong_index", "wrong_tag",
+                            "unexpected_premise", "uninterpreted_select"):
+                    selected = z3.Select(stored, j if form == "wrong_index" else i)
+                    conclusion = v == selected if form == "same_reversed" else selected == v
+                elif form in ("other", "other_reordered", "wrong_guard", "wrong_base"):
+                    guard = i != j if form == "wrong_guard" else i == j
+                    base = d if form == "wrong_base" else a
+                    result = z3.Select(stored, j) == z3.Select(base, j)
+                    conclusion = (z3.Or(z3.Select(base, j) == z3.Select(stored, j), j == i)
+                                  if form == "other_reordered" else z3.Or(guard, result))
+                else:
+                    witness = (z3.Function("array-ext", a.sort(), a.sort(), index)(a, b)
+                               if form == "uninterpreted_ext" else
+                               i if form == "arbitrary_witness" else
+                               z3.Ext(a, d) if form == "unrelated_witness" else z3.Ext(a, b))
+                    opposite = z3.Not(z3.Select(a, witness) == z3.Select(b, witness))
+                    conclusion = (z3.Or(opposite, b == a) if form == "ext_reordered"
+                                  else z3.Or(a == b, opposite))
+                premises = [c.asserted(z3.BoolVal(True, c.ctx))] if form == "unexpected_premise" else []
+                leaf = c.node("trusted", conclusion, premises,
+                              rule="arith" if form == "wrong_tag" else "th-lemma")
+                opposite = c.asserted(z3.Not(conclusion))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [leaf, opposite])
+                document = c.document(root)
+                if form == "uninterpreted_select":
+                    for declaration in document["decls"]:
+                        if declaration["name"] == "select":
+                            declaration["interp"] = None
+                valid = form in ("same", "same_reversed", "other", "other_reordered",
+                                 "ext", "ext_reordered")
+                self.check(document, 0 if valid else 3, obligations=None if valid else 1)
 
     def test_unverified_observational_steps_remain_partial(self):
         c = Certificate()

@@ -63,6 +63,15 @@ let lemma_unit_cannot_drop_survivor ()
   = assert_norm (not (checked_consequence "unit-resolution" r [disj; np]) /\
                  not (checked_consequence "unit-resolution" false_expr [disj; np]))
 
+let lemma_not_or_elimination_preserves_literal_polarity ()
+  : Lemma (checked_consequence "not-or-elim" p [mk_not_expr (App or_decl [np; q])] /\
+           checked_consequence "not-or-elim" np [mk_not_expr disj] /\
+           not (checked_consequence "not-or-elim" r [mk_not_expr disj]))
+  = assert_norm (
+      checked_consequence "not-or-elim" p [mk_not_expr (App or_decl [np; q])] /\
+      checked_consequence "not-or-elim" np [mk_not_expr disj] /\
+      not (checked_consequence "not-or-elim" r [mk_not_expr disj]))
+
 let lemma_mp_checks_both_facts ()
   : Lemma (checked_consequence "mp" q [p; mk_iff_expr p q] /\
            not (checked_consequence "mp" q [r; mk_iff_expr p q]) /\

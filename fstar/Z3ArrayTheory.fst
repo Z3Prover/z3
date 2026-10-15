@@ -426,3 +426,142 @@ let lemma_eq_const_lambda (#idx:eqtype) (#v:Type) (c:v) (f:idx -> v)
 let lemma_eq_lambda_lambda (#idx:eqtype) (#v:Type) (f g:idx -> v)
   : Lemma ((on idx f == on idx g) <==> (forall i. f i == g i))
   = lemma_array_extensionality (on idx f) (on idx g)
+
+(* Ground instances emitted by src/smt/theory_array_base.cpp. An index
+   may itself be a tuple, covering the multi-index array operators. *)
+let lemma_store_axiom2 (#idx:eqtype) (#v:Type) (a:arr idx v) (i j:idx) (x:v)
+  : Lemma (i == j \/ select (store a i x) j == select a j)
+  = if i = j then () else lemma_select_store_diff a i j x
+
+let lemma_store_axiom2_coordinate (#idx #coordinate:eqtype) (#v:Type)
+                                 (project:idx -> coordinate)
+                                 (a:arr idx v) (i j:idx) (x:v)
+  : Lemma (requires project i <> project j)
+          (ensures select (store a i x) j == select a j)
+  = lemma_select_store_diff a i j x
+
+let lemma_select_congruent (#idx:eqtype) (#v:Type) (a b:arr idx v) (i:idx)
+  : Lemma (requires a == b) (ensures select a i == select b i)
+  = ()
+
+let lemma_extensionality_witness (#idx:eqtype) (#v:Type) (a b:arr idx v)
+  : Lemma (a == b \/ (exists (k:idx). ~(select a k == select b k)))
+  = lemma_array_extensionality a b
+
+let extensionality_index (#idx:eqtype) (#v:Type) (a b:arr idx v) (k:idx) : prop =
+  ~(a == b) ==> ~(select a k == select b k)
+
+let lemma_extensionality_index_exists (#idx:eqtype) (#v:Type)
+                                     (inhabitant:idx) (a b:arr idx v)
+  : Lemma (exists (k:idx). extensionality_index a b k)
+  = lemma_extensionality_witness a b;
+    FStar.Classical.excluded_middle (a == b);
+    if a == b then
+      FStar.Classical.exists_intro (extensionality_index a b) inhabitant
+    else ()
+
+let lemma_extensionality_axiom (#idx:eqtype) (#v:Type) (a b:arr idx v) (k:idx)
+  : Lemma (requires extensionality_index a b k)
+          (ensures a == b \/ ~(select a k == select b k))
+  = ()
+
+(* Pointwise constructors used by theory_array_full.cpp. *)
+let as_array (#idx:eqtype) (#v:Type) (f:idx -> v) : arr idx v = on idx f
+
+let lemma_select_as_array (#idx:eqtype) (#v:Type) (f:idx -> v) (i:idx)
+  : Lemma (select (as_array f) i == f i)
+  = ()
+
+let rec select_arrays (#idx:eqtype) (#v:Type) (arrays:list (arr idx v)) (i:idx)
+  : Tot (list v) (decreases arrays) =
+  match arrays with
+  | [] -> []
+  | a :: rest -> select a i :: select_arrays rest i
+
+let map_n (#idx:eqtype) (#v #w:Type) (f:list v -> w) (arrays:list (arr idx v))
+  : arr idx w = on idx (fun i -> f (select_arrays arrays i))
+
+let lemma_select_map_n (#idx:eqtype) (#v #w:Type)
+                       (f:list v -> w) (arrays:list (arr idx v)) (i:idx)
+  : Lemma (select (map_n f arrays) i == f (select_arrays arrays i))
+  = ()
+
+(* Defaults at a shared epsilon give the finite-domain and lambda/map
+   instances. Store invariance additionally needs epsilon to be fresh;
+   it is not an identity at an arbitrary fixed index. *)
+let array_default (#idx:eqtype) (#v:Type) (epsilon:idx) (a:arr idx v) : v =
+  select a epsilon
+
+let lemma_default_const (#idx:eqtype) (#v:Type) (epsilon:idx) (x:v)
+  : Lemma (array_default epsilon (const_arr x) == x)
+  = lemma_select_const x epsilon
+
+let lemma_default_as_array (#idx:eqtype) (#v:Type) (epsilon:idx) (f:idx -> v)
+  : Lemma (array_default epsilon (as_array f) == f epsilon)
+  = lemma_select_as_array f epsilon
+
+let lemma_default_lambda (#idx:eqtype) (#v:Type) (epsilon:idx) (body:idx -> v)
+  : Lemma (array_default epsilon (on idx body) == body epsilon)
+  = lemma_select_lambda body epsilon
+
+let lemma_default_map_n (#idx:eqtype) (#v #w:Type) (epsilon:idx)
+                        (f:list v -> w) (arrays:list (arr idx v))
+  : Lemma (array_default epsilon (map_n f arrays) ==
+           f (select_arrays arrays epsilon))
+  = lemma_select_map_n f arrays epsilon
+
+let lemma_default_store_fresh (#idx:eqtype) (#v:Type)
+                             (epsilon:idx) (a:arr idx v) (i:idx) (x:v)
+  : Lemma (requires epsilon <> i)
+          (ensures array_default epsilon (store a i x) == array_default epsilon a)
+  = lemma_select_store_diff a i epsilon x
+
+let lemma_default_store_singleton (#idx:eqtype) (#v:Type)
+                                 (epsilon:idx) (a:arr idx v) (i:idx) (x:v)
+  : Lemma (requires forall (j:idx). j == i)
+          (ensures array_default epsilon (store a i x) == x)
+  = lemma_select_store_same a i x
+
+let diagonal (#idx:eqtype) (p q i:idx) : idx = if i = p then q else p
+
+let lemma_diagonal_fresh (#idx:eqtype) (p q i:idx)
+  : Lemma (requires p <> q) (ensures diagonal p q i <> i)
+  = ()
+
+let lemma_default_store_finite (#idx:eqtype) (#v:Type)
+                              (epsilon p q:idx) (a:arr idx v) (i:idx) (x:v)
+  : Lemma (requires p <> q)
+          (ensures
+            array_default epsilon (store a i x) == select (store a i x) epsilon /\
+            array_default epsilon a == select a epsilon /\
+            select (store a i x) (diagonal p q i) == select a (diagonal p q i))
+  = lemma_diagonal_fresh p q i;
+    lemma_select_store_diff a i (diagonal p q i) x
+
+let rec integer_epsilon (indices:list int) : Tot int (decreases indices) =
+  match indices with
+  | [] -> 0
+  | i :: rest ->
+    let bound = integer_epsilon rest in
+    (if i > bound then i else bound) + 1
+
+let rec lemma_integer_epsilon_fresh (indices:list int) (i:int)
+  : Lemma (requires FStar.List.Tot.mem i indices)
+          (ensures i < integer_epsilon indices)
+          (decreases indices)
+  = match indices with
+    | [] -> ()
+    | j :: rest -> if i = j then () else lemma_integer_epsilon_fresh rest i
+
+let lemma_choice_witness (#idx:eqtype) (inhabitant:idx) (predicate:arr idx bool)
+  : Lemma (exists (c:idx). forall (i:idx). select predicate i ==> select predicate c)
+  = FStar.Classical.excluded_middle (exists (i:idx). select predicate i);
+    if exists (i:idx). select predicate i then ()
+    else
+      FStar.Classical.exists_intro
+        (fun c -> forall (i:idx). select predicate i ==> select predicate c) inhabitant
+
+let lemma_choice_axiom (#idx:eqtype) (predicate:arr idx bool) (choice:idx) (i:idx)
+  : Lemma (requires (exists (j:idx). select predicate j) ==> select predicate choice)
+          (ensures select predicate i ==> select predicate choice)
+  = ()

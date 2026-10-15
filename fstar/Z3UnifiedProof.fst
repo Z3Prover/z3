@@ -9,6 +9,7 @@ open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 open Z3Commutativity
 open Z3BooleanRewrite
+open Z3ArrayLemma
 module L = FStar.List.Tot
 
 type judgment =
@@ -216,10 +217,11 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
          | AndElimination, [App f args] ->
            f.decl_name = "and" && L.mem target args
          | NotOrElimination, [App f [App g args]] ->
-           (match is_not target with
-            | Some t -> f.decl_name = "not" && g.decl_name = "or" &&
-                        get_sort t = bool_sort && L.mem t args && target = App f [t]
-            | None -> false)
+           f.decl_name = "not" && g.decl_name = "or" &&
+           (L.mem (mk_not_expr target) args ||
+            (match is_not target with
+             | Some t -> get_sort t = bool_sort && L.mem t args && target = App f [t]
+             | None -> false))
          | IffTrue, [a] -> target = mk_iff_expr a true_expr
          | IffFalse, [n] ->
            (match is_not n with
@@ -278,6 +280,11 @@ let rec remaining_hypotheses (hyps:list expr) (concl:expr)
 
 let false_judgment (j:judgment) : bool = j = Holds false_expr
 
+let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
+  match kind, facts, proposition concl with
+  | Unverified tag, [], Some e -> tag = "th-lemma" && array_lemma e
+  | _, _, _ -> false
+
 let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
   : option (checked_fact & nat) =
   let facts = premise_judgments node.premises in
@@ -303,7 +310,7 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ -> accept hyps 1
+    | Unverified _ -> accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule ->
       if facts = [] && Some? (relational node.conclusion)
       then accept hyps (if check_step RewriteRule node.conclusion facts then 0 else 1)
@@ -329,7 +336,7 @@ let rec judgments_hold (i:interpretation value) (rho:env value) (js:list judgmen
 let model_sound (i:interpretation value) : prop =
   boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
   implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i /\
-  arithmetic_model i
+  arithmetic_model i /\ array_model i
 
 let lemma_proposition_sound (i:interpretation value) (rho:env value) (j:judgment)
   : Lemma (requires eq_sound i /\ Some? (proposition j))
@@ -525,11 +532,17 @@ let lemma_logical_step_sound (i:interpretation value) (rho:env value)
             FStar.List.Tot.Properties.mem_memP (Some?.v (proposition concl)) args;
             lemma_and_elim_sound i rho args (Some?.v (proposition concl))
           | NotOrElimination, [App f [App g args]] ->
-            (match is_not (Some?.v (proposition concl)) with
-             | Some t ->
-               FStar.List.Tot.Properties.mem_memP t args;
-               lemma_not_or_elim_sound i rho args t
-             | None -> ())
+            let target = Some?.v (proposition concl) in
+            if L.mem (mk_not_expr target) args then (
+              FStar.List.Tot.Properties.mem_memP (mk_not_expr target) args;
+              lemma_not_or_elim_sound i rho args (mk_not_expr target);
+              match eval i target rho with VBool _ -> () | _ -> ())
+            else
+              (match is_not target with
+               | Some t ->
+                 FStar.List.Tot.Properties.mem_memP t args;
+                 lemma_not_or_elim_sound i rho args t
+               | None -> ())
           | IffTrue, [a] -> lemma_iff_true_sound i rho a
           | IffFalse, [n] ->
             (match is_not n with
@@ -678,8 +691,9 @@ let node_obligation (i:interpretation value) (rho:env value) (strict:bool) (node
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
   | Unverified _ ->
-    conj_holds i rho (premise_hypotheses node.premises) ==>
-    judgment_holds i rho node.conclusion
+    not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
+    (conj_holds i rho (premise_hypotheses node.premises) ==>
+     judgment_holds i rho node.conclusion)
   | _ -> True
 
 let lemma_check_node_sound (i:interpretation value) (rho:env value)
@@ -699,7 +713,12 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
           FStar.List.Tot.Properties.mem_memP node.conclusion assertions;
           lemma_judgment_member i rho assertions node.conclusion)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ -> ()
+      | Unverified _ ->
+        if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
+          lemma_proposition_sound i rho node.conclusion;
+          match proposition node.conclusion with
+          | Some e -> lemma_array_lemma_sound i rho e
+          | None -> ())
       | RewriteRule ->
         if check_step RewriteRule node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho RewriteRule node.conclusion (premise_judgments node.premises)

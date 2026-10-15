@@ -120,3 +120,4 @@ let op_implies : decl_kind = 15
 let op_oeq : decl_kind = 16
 
 let op_mul : decl_kind = 17
+let op_array_ext : decl_kind = 18

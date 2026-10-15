@@ -359,6 +359,7 @@ let decl_kind_of_tag (tag:string) : option decl_kind =
   else if tag = "op_mul" then Some op_mul
   else if tag = "op_select" then Some op_select
   else if tag = "op_store" then Some op_store
+  else if tag = "op_array_ext" then Some op_array_ext
   else if tag = "op_bvand" then Some op_bvand
   else if tag = "op_concat" then Some op_concat
   else if tag = "op_eq" then Some op_eq

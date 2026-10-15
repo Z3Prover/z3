@@ -407,6 +407,136 @@ ground checker.
 Legacy equational-mode `ACCEPT` still has its original, structural-only
 meaning and must not be mistaken for certification of an UNSAT refutation.
 
+### SMT array axioms and checked theory lemmas (2026-10-14)
+
+`Z3ArrayTheory.fst` establishes the axiom schemas instantiated by
+`src\smt\theory_array_base.cpp` and `theory_array_full.cpp`. Arrays are
+extensional functions; a multi-index array is represented by a tuple index.
+The mathematical coverage is broader than the executable matching fragment:
+
+| SMT instantiation | Formal result in `Z3ArrayTheory` |
+|---|---|
+| Store axiom 1, reading at the written index | `lemma_select_store_same` |
+| Store axiom 2, reading at another index | `lemma_select_store_diff`, `lemma_store_axiom2`; `lemma_store_axiom2_coordinate` covers each multi-index disequality guard |
+| Lambda beta reduction; select congruence | `lemma_select_lambda`, `lemma_select_congruent` |
+| Extensionality and its Skolem index | `lemma_array_extensionality`, `lemma_extensionality_witness`, `lemma_extensionality_index_exists`, `lemma_extensionality_axiom` |
+| Select of constant, as-array, and n-ary map | `lemma_select_const`, `lemma_select_as_array`, `lemma_select_map_n` |
+| Default of constant, as-array, lambda, and n-ary map | `lemma_default_const`, `lemma_default_as_array`, `lemma_default_lambda`, `lemma_default_map_n` |
+| Default of store: singleton, finite non-singleton, fresh-index cases | `lemma_default_store_singleton`, `lemma_default_store_finite`, `lemma_default_store_fresh` |
+| Epsilon/diagonal witnesses | `lemma_diagonal_fresh`, `lemma_integer_epsilon_fresh` |
+| Choice of a satisfying predicate index when one exists | `lemma_choice_witness`, `lemma_choice_axiom` |
+
+The default model uses a shared epsilon index. Store-default invariance
+requires that epsilon differ from the stored index: it is **not** proved
+as an unconditional identity at an arbitrary fixed index. The singleton
+case instead returns the stored value. The finite non-singleton case
+establishes the two default/select identities and equality of reads at a
+diagonal index different from the write. For integer indices, a finite
+list of written indices has an explicitly constructed fresh epsilon.
+Extensionality likewise requires a genuine difference witness, not an
+arbitrarily chosen index; witness existence is proved for inhabited index
+sorts. The as-array default instantiator is currently disabled in C++,
+but its mathematical schema is included.
+
+The new `Z3ArrayLemma.fst` recognizes premise-free `th-lemma` conclusions:
+
+```text
+select(store(a, i, v), i) = v
+(i = j) or (select(store(a, i, v), j) = select(a, j))
+(a = b) or not(select(a, array-ext(a, b)) = select(b, array-ext(a, b)))
+```
+
+Equality orientation and the two clause literals may be swapped.
+Declarations, operator tags, arities, argument/result sorts, base arrays,
+indices, and witness arguments must all match. `array-ext` has a distinct
+`op_array_ext` tag; an uninterpreted function with that name, an unrelated
+array pair, or an arbitrary witness does not discharge the obligation.
+The native checker is authoritative; Python classification is only a
+diagnostic mirror. Unsupported instances remain `PARTIAL`, not silently
+trusted. The current executable fragment covers one-dimensional flat
+arrays with non-Boolean scalar index and element sorts, using the existing
+`VArr`/`VInt` value representation. Boolean-valued, nested, multi-index,
+map/default/choice, and quantified array instances are not newly accepted
+by these rules.
+
+`lemma_array_lemma_sound` derives the matched conclusions from the proved
+array theory and standard select/store/difference-witness semantics.
+`Z3UnifiedProof.model_sound` includes this explicit `array_model`
+interpretation contract, just as it includes Boolean and arithmetic
+semantics. Matched nodes contribute zero pending obligations; other
+theory leaves retain their original obligation. The default `def-axiom`
+trust policy is unchanged.
+
+The broader evaluation also exposed a tightly related structural-rule
+gap: `not-or-elim` now accepts a positive literal when the disjunction
+contains its negation, as well as the previously supported negative
+conclusion. Both polarities have F* soundness and regression checks;
+unrelated conclusions are rejected.
+
+#### Seven downloaded logics and paired coverage
+
+The official SMT-LIB 2025 non-incremental archives were downloaded from
+[Zenodo record 16740866](https://zenodo.org/records/16740866), verified
+against their published MD5 checksums, and extracted under
+`C:\smtlib-benchmarks`. Each logic's sample is
+`random.Random(42).sample(sorted(UNSAT_annotated_paths), 100)`, with input
+SHA-256 hashes retained in the manifest.
+
+Proof generation/export ran once, using 32 workers, a 10-second
+proof-generation limit and a separate 60-second export watchdog.
+The table compares the frozen previous native checker with the new one
+on those archived DAGs, at 32 workers and 10 seconds per check. It also
+includes the existing QF_AX sample, without rerunning proof search.
+All 109 certificates containing an untagged `array-ext` declaration were
+re-exported and checked to be structurally identical to their archived
+documents after erasing **only** the new built-in operator tag. Source
+and replacement hashes are retained; the other 511 certificates are
+unchanged.
+
+| Logic (100 selected each) | Proved UNSAT | Exported | ACCEPT before / after | PARTIAL before / after | REJECT before / after | Checker timeout before / after |
+|---|---:|---:|---:|---:|---:|---:|
+| QF_LIA | 79 | 69 | 5 / 12 | 25 / 51 | 33 / 0 | 6 / 6 |
+| QF_LRA | 58 | 55 | 2 / 3 | 28 / 52 | 25 / 0 | 0 / 0 |
+| QF_IDL | 48 | 25 | 1 / 2 | 19 / 20 | 2 / 0 | 3 / 3 |
+| QF_UFLIA | 97 | 95 | 3 / 3 | 80 / 92 | 12 / 0 | 0 / 0 |
+| QF_AUFLIA | 100 | 100 | 1 / 28 | 87 / 63 | 4 / 0 | 8 / 9 |
+| AUFLIA | 91 | 91 | 0 / 0 | 0 / 0 | 91 / 91 | 0 / 0 |
+| UFLIA | 86 | 86 | 0 / 0 | 0 / 0 | 86 / 86 | 0 / 0 |
+| QF_AX | 100 | 99 | 1 / 70 | 81 / 12 | 0 / 0 | 17 / 17 |
+
+All 177 quantified exports are rejected by the ground-only decoder;
+they are not counted as verified. Files that did not export are not
+checked. Seven exports failed through Python expression-recursion limits
+(three QF_LIA, four QF_IDL); the other missing exports timed out.
+The original baseline driver's two reported diagnostic errors
+(`QF_LIA_017`, `QF_LRA_023`) were mismatches between Python's predicted
+obligation count and the native `PARTIAL` count, not native errors.
+The paired table records actual native protocol results, with no such
+errors. Timeout counts can vary from earlier runs.
+
+Across the seven new logic samples, accepted refutations increase from
+12 to 48. Including QF_AX, they increase from 13 to 118, with no
+accepted-proof regressions. On the **same 82 QF_AX proofs validated in
+both phases**, pending obligations fall from 7,599 to 24; all remaining
+obligations are array rewrites, rather than array `th-lemma` instances.
+The same 87 mutually validated QF_AUFLIA proofs fall from 10,765 to
+5,133 obligations. The other logics' mutually validated sets keep the
+same obligation totals; the `not-or-elim` correction enables additional
+proofs to pass structural checking. These remain conditional
+refutations under the documented trusted-definition policy, not a
+claim of independently checked CNF definitions.
+
+The manifests, download metadata/checksums, baseline results, proof
+documents, retag-equivalence checks, and paired native outputs remain in
+`C:\smtlib-benchmarks\proof_check_seven_20261014`, principally
+`baseline`, `tagged_certificates`, and `array_extension_final`.
+The previous/current native SHA-256 hashes for this paired run are
+`25e359134f83972e7de8c5fd97cd15b30380cb12c1ff160d63113e491f992cd0`
+and `f5ea8d56d71b5c1e6f5910488fd575a871f10a040e33e82e204c7e5e6589a4f5`.
+All checker verification conditions and the F* regression module pass;
+43 Python/exporter/native tests cover valid and malformed array
+instances, witness spoofing, and both `not-or-elim` polarities.
+
 ### Definitional axioms and original assertions
 
 `def-axiom` is a trusted, premise-free ordinary Boolean leaf by default;

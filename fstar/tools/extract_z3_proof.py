@@ -856,6 +856,7 @@ class ResolutionConverter(Converter):
     def __init__(self):
         super().__init__()
         self.trusted_log = []
+        self.checked_theory_log = []
 
     def func_decl(self, d: z3.FuncDeclRef, arity: int) -> str:
         if d.kind() == z3.Z3_OP_OEQ and (
@@ -868,6 +869,7 @@ class ResolutionConverter(Converter):
             z3.Z3_OP_AND: "op_and",
             z3.Z3_OP_OR: "op_or",
             z3.Z3_OP_OEQ: "op_oeq",
+            z3.Z3_OP_ARRAY_EXT: "op_array_ext",
         }
         if (arity == 2 and d.range().kind() == z3.Z3_INT_SORT
                 and all(d.domain(i).kind() == z3.Z3_INT_SORT for i in range(arity))):
@@ -911,7 +913,12 @@ class ResolutionConverter(Converter):
             }
             if kind == "trusted":
                 entry["rule"] = rule
-                self.trusted_log.append((rule, conclusion))
+                schema = (classify_array_lemma(conclusion)
+                          if rule == "th-lemma" and not premises else None)
+                if schema:
+                    self.checked_theory_log.append((rule, conclusion, schema))
+                else:
+                    self.trusted_log.append((rule, conclusion))
             elif kind == "rewrite":
                 self.rewrite_log.append((
                     conclusion.arg(0), conclusion.arg(1),
@@ -934,6 +941,68 @@ def supported_commutativity(conclusion: z3.ExprRef) -> bool:
     kind = a.decl().kind()
     return (kind in (z3.Z3_OP_EQ, z3.Z3_OP_AND, z3.Z3_OP_OR)
             or (kind in (z3.Z3_OP_ADD, z3.Z3_OP_MUL) and z3.is_int(a)))
+
+
+def classify_array_lemma(conclusion: z3.ExprRef):
+    """Diagnostic mirror of Z3ArrayLemma; the native checker is authoritative."""
+    def flat_scalar_array(a):
+        sort = a.sort()
+        return (sort.kind() == z3.Z3_ARRAY_SORT
+                and sort.domain().kind() not in (z3.Z3_ARRAY_SORT, z3.Z3_BOOL_SORT)
+                and sort.range().kind() not in (z3.Z3_ARRAY_SORT, z3.Z3_BOOL_SORT))
+
+    def read(e):
+        return (e.children() if z3.is_select(e) and e.num_args() == 2
+                and flat_scalar_array(e.arg(0)) else None)
+
+    def write(e):
+        return (e.children() if z3.is_store(e) and e.num_args() == 3
+                and flat_scalar_array(e.arg(0)) else None)
+
+    def pair(a, b, x, y):
+        return (a.eq(x) and b.eq(y)) or (a.eq(y) and b.eq(x))
+
+    def same(a, b):
+        selected = read(a)
+        stored = write(selected[0]) if selected else None
+        return stored is not None and selected[1].eq(stored[1]) and b.eq(stored[2])
+
+    def other(guard, a, b):
+        left, right = read(a), read(b)
+        stored = write(left[0]) if left else None
+        return (z3.is_eq(guard) and stored is not None and right is not None
+                and stored[0].eq(right[0]) and left[1].eq(right[1])
+                and pair(guard.arg(0), guard.arg(1), stored[1], left[1]))
+
+    def ext(a, b, x, y):
+        left, right = read(x), read(y)
+        if not (left and right and a.eq(left[0]) and b.eq(right[0])
+                and left[1].eq(right[1])):
+            return False
+        index = left[1]
+        return (z3.is_app(index) and index.decl().kind() == z3.Z3_OP_ARRAY_EXT
+                and index.num_args() == 2
+                and pair(index.arg(0), index.arg(1), a, b))
+
+    def clause(p, q):
+        if z3.is_eq(q):
+            a, b = q.children()
+            if other(p, a, b) or other(p, b, a):
+                return "array_read_over_write_other"
+        elif z3.is_eq(p) and z3.is_not(q) and z3.is_eq(q.arg(0)):
+            a, b = p.children()
+            x, y = q.arg(0).children()
+            if ext(a, b, x, y) or ext(b, a, x, y):
+                return "array_extensionality"
+        return None
+
+    if z3.is_eq(conclusion):
+        a, b = conclusion.children()
+        return "array_read_over_write_same" if same(a, b) or same(b, a) else None
+    if z3.is_or(conclusion) and conclusion.num_args() == 2:
+        p, q = conclusion.children()
+        return clause(p, q) or clause(q, p)
+    return None
 
 
 def build_resolution_doc(conv: ResolutionConverter, root_ident: str, assertions,
@@ -1329,6 +1398,9 @@ def main():
         else:
             f.write("(none -- every Rewrite leaf in this proof matched a verified lemma)\n")
         if args.full_proof:
+            f.write("\n-- Checked theory lemmas (diagnostic mirror) --\n")
+            for rule, conclusion, schema in conv.checked_theory_log:
+                f.write("  [%s/%s] %s\n" % (rule, schema, conclusion.sexpr()))
             f.write("\n-- Other unverified proof-rule obligations --\n")
             for rule, conclusion in conv.trusted_log:
                 f.write("  [%s] %s\n" % (rule, conclusion.sexpr()))
@@ -1344,6 +1416,8 @@ def main():
         print("Full-DAG rule obligations: %d; rewrite obligations: %d "
               "(verified structural rules and bounded Boolean equivalence)"
               % (len(conv.trusted_log), rewrite_obligations))
+        print("Array theory lemmas matched by verified rules (diagnostic mirror): %d"
+              % len(conv.checked_theory_log))
     json_out = args.json_out or (args.out + ".json")
     with open(json_out, "w", encoding="utf-8") as f:
         json_mod.dump(doc, f, separators=(",", ":"))
