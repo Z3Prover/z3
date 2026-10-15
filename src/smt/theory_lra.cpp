@@ -297,6 +297,7 @@ class theory_lra::imp {
     } 
 
     void found_underspecified(expr* n) {
+        expr* term = n;
         if (a.is_underspecified(n)) {
             TRACE(arith, tout << "Unhandled: " << mk_pp(n, m) << "\n";);
             ctx().push_trail(push_back_vector<ptr_vector<app>>(m_underspecified));
@@ -322,7 +323,7 @@ class theory_lra::imp {
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
-            ctx().mark_as_relevant(lit);
+            ctx().add_relevancy_dependency(term, ctx().bool_var2expr(lit.var()));
             ctx().assign(lit, nullptr);
         }
 
