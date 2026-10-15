@@ -25,7 +25,8 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: RSoulatIOHK/z3test
-          ref: a7a2c982587edc7692c7b33933ab529dfe811f92
+          # Includes proof-mode expectations for integrated QF_FF solving.
+          ref: 7e039842d473091c0706b899e57e2a17c6cbb9c9
           path: z3test
           sparse-checkout: regressions/finite_field
       - uses: actions/setup-python@v7
