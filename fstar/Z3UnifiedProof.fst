@@ -7,6 +7,8 @@ open Z3ValueTheory
 open Z3ProofTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
+open Z3Commutativity
+open Z3BooleanRewrite
 module L = FStar.List.Tot
 
 type judgment =
@@ -16,6 +18,7 @@ type judgment =
 
 type rule =
   | Asserted
+  | DefAxiom
   | Hypothesis
   | LemmaRule
   | Unverified : name:string -> rule
@@ -25,6 +28,7 @@ type rule =
   | Transitivity
   | TransitivityPath
   | Congruence
+  | Commutativity
   | ModusPonens
   | ObservationalMP
   | IffObservational
@@ -37,6 +41,13 @@ type rule =
 type relation =
   | Equality
   | Observation
+
+let identity_rewrite (x:expr) : option expr = Some x
+
+let lemma_identity_rewrite_sound (i:interpretation value) (rho:env value) (x y:expr)
+  : Lemma (requires identity_rewrite x == Some y)
+          (ensures eval i x rho == eval i y rho)
+  = ()
 
 let proof_relation (e:expr) : bool =
   match e with
@@ -148,6 +159,10 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   | Some (r, a, b) ->
     (match kind with
      | Reflexivity -> facts = [] && a = b
+     | RewriteRule ->
+       facts = [] && (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
+                      boolean_equiv 8 10 a b)
+     | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
         | [j] ->
@@ -263,7 +278,7 @@ let rec remaining_hypotheses (hyps:list expr) (concl:expr)
 
 let false_judgment (j:judgment) : bool = j = Holds false_expr
 
-let check_node (assertions:list judgment) (node:proof_node)
+let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
   : option (checked_fact & nat) =
   let facts = premise_judgments node.premises in
   let hyps = premise_hypotheses node.premises in
@@ -273,6 +288,10 @@ let check_node (assertions:list judgment) (node:proof_node)
     match node.kind with
     | Asserted ->
       if facts = [] && Some? (proposition node.conclusion) && L.mem node.conclusion assertions
+      then accept [] 0 else None
+    | DefAxiom ->
+      if facts = [] && Some? (proposition node.conclusion) &&
+         (not strict || L.mem node.conclusion assertions)
       then accept [] 0 else None
     | Hypothesis ->
       (match facts, proposition node.conclusion with
@@ -286,8 +305,14 @@ let check_node (assertions:list judgment) (node:proof_node)
        | _, _ -> None)
     | Unverified _ -> accept hyps 1
     | RewriteRule ->
-      if facts = [] && Some? (relational node.conclusion) then accept hyps 1 else None
+      if facts = [] && Some? (relational node.conclusion)
+      then accept hyps (if check_step RewriteRule node.conclusion facts then 0 else 1)
+      else None
     | _ -> if check_step node.kind node.conclusion facts then accept hyps 0 else None
+
+let check_node (assertions:list judgment) (node:proof_node)
+  : option (checked_fact & nat) =
+  check_node_with_inputs false assertions node
 
 let judgment_holds (i:interpretation value) (rho:env value) (j:judgment) : prop =
   match j with
@@ -303,7 +328,8 @@ let rec judgments_hold (i:interpretation value) (rho:env value) (js:list judgmen
 
 let model_sound (i:interpretation value) : prop =
   boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
-  implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i
+  implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i /\
+  arithmetic_model i
 
 let lemma_proposition_sound (i:interpretation value) (rho:env value) (j:judgment)
   : Lemma (requires eq_sound i /\ Some? (proposition j))
@@ -426,6 +452,11 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
     | None -> ()
     | Some (r, a, b) ->
       (match kind with
+       | RewriteRule ->
+         if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
+         else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
+         else lemma_boolean_equiv_sound 8 10 i rho a b
+       | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with
           | [p; q] ->
@@ -639,27 +670,39 @@ let rec lemma_boolean_premises (ps:list checked_fact)
       lemma_boolean_premises rest;
       lemma_boolean_union p.hypotheses (premise_hypotheses rest)
 
-let node_obligation (i:interpretation value) (rho:env value) (node:proof_node) : prop =
+let node_obligation (i:interpretation value) (rho:env value) (strict:bool) (node:proof_node) : prop =
   match node.kind with
-  | Unverified _ | RewriteRule ->
+  | DefAxiom -> if strict then True else judgment_holds i rho node.conclusion
+  | RewriteRule ->
+    not (check_step RewriteRule node.conclusion (premise_judgments node.premises)) ==>
+    (conj_holds i rho (premise_hypotheses node.premises) ==>
+     judgment_holds i rho node.conclusion)
+  | Unverified _ ->
     conj_holds i rho (premise_hypotheses node.premises) ==>
     judgment_holds i rho node.conclusion
   | _ -> True
 
 let lemma_check_node_sound (i:interpretation value) (rho:env value)
-                           (assertions:list judgment) (node:proof_node)
+                           (strict:bool) (assertions:list judgment) (node:proof_node)
   : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
-                    premises_sound i rho node.premises /\ node_obligation i rho node /\
-                    Some? (check_node assertions node))
-          (ensures scoped_holds i rho (fst (Some?.v (check_node assertions node))))
-  = let aux (_:squash (conj_holds i rho (fst (Some?.v (check_node assertions node))).hypotheses))
+                    premises_sound i rho node.premises /\ node_obligation i rho strict node /\
+                    Some? (check_node_with_inputs strict assertions node))
+          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))))
+  = let aux (_:squash (conj_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))).hypotheses))
       : Lemma (judgment_holds i rho node.conclusion) =
       match node.kind with
       | Asserted ->
         FStar.List.Tot.Properties.mem_memP node.conclusion assertions;
         lemma_judgment_member i rho assertions node.conclusion
+      | DefAxiom ->
+        if strict then (
+          FStar.List.Tot.Properties.mem_memP node.conclusion assertions;
+          lemma_judgment_member i rho assertions node.conclusion)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | RewriteRule -> ()
+      | Unverified _ -> ()
+      | RewriteRule ->
+        if check_step RewriteRule node.conclusion (premise_judgments node.premises)
+        then lemma_check_step_sound i rho RewriteRule node.conclusion (premise_judgments node.premises)
       | LemmaRule ->
         lemma_proposition_sound i rho node.conclusion;
         lemma_boolean_premises node.premises;
@@ -679,9 +722,11 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
     in FStar.Classical.impl_intro aux
 
 let lemma_obligation_free_node_sound (i:interpretation value) (rho:env value)
-                                     (assertions:list judgment) (node:proof_node)
+                                     (strict:bool) (assertions:list judgment) (node:proof_node)
   : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
-                    premises_sound i rho node.premises /\ Some? (check_node assertions node) /\
-                    snd (Some?.v (check_node assertions node)) == 0)
-          (ensures scoped_holds i rho (fst (Some?.v (check_node assertions node))))
-  = lemma_check_node_sound i rho assertions node
+                    premises_sound i rho node.premises /\
+                    (node.kind == DefAxiom /\ not strict ==> judgment_holds i rho node.conclusion) /\
+                    Some? (check_node_with_inputs strict assertions node) /\
+                    snd (Some?.v (check_node_with_inputs strict assertions node)) == 0)
+          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))))
+  = lemma_check_node_sound i rho strict assertions node

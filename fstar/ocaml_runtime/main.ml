@@ -19,19 +19,27 @@ let read_all (ic : Stdlib.in_channel) : Prims.string =
   Stdlib.Buffer.contents buf
 
 let () =
+  let strict, args =
+    match Stdlib.Array.to_list Stdlib.Sys.argv with
+    | _ :: "--check-original-assertions" :: rest -> true, rest
+    | _ :: rest -> false, rest
+    | [] -> false, []
+  in
   let input =
-    match Stdlib.Sys.argv with
-    | [| _ |] -> read_all Stdlib.stdin
-    | [| _; path |] ->
+    match args with
+    | [] -> read_all Stdlib.stdin
+    | [path] ->
         let ic = Stdlib.open_in_bin path in
         let s = read_all ic in
         Stdlib.close_in ic;
         s
     | _ ->
-        Stdlib.prerr_endline "usage: checker [path/to/proof.json]";
+        Stdlib.prerr_endline
+          "usage: checker [--check-original-assertions] [path/to/proof.json]";
         Stdlib.exit 2
   in
-  let resolution = Z3ResolutionProofJson.check_resolution_json input in
+  let resolution =
+    Z3ResolutionProofJson.check_resolution_json_with_inputs strict input in
   if resolution > 0 then (
     Stdlib.Printf.printf "PARTIAL %d\n" resolution;
     Stdlib.exit 3)

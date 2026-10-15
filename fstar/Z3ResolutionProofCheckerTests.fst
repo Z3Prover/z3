@@ -6,7 +6,10 @@ open Z3ProofTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 open Z3UnifiedProof
+open Z3Commutativity
+open Z3BooleanRewrite
 open Z3ResolutionProofJson
+module Json = Z3ProofJson
 
 let atom (name:string) : expr =
   App { decl_name = name; domain = []; range = bool_sort;
@@ -21,6 +24,22 @@ let q = atom "q"
 let r = atom "r"
 let disj = App or_decl [p; q]
 let np = mk_not_expr p
+
+let lemma_shared_legacy_proofs_use_cached_results ()
+  : Lemma (
+      let leaf = Json.cached_refl p in
+      let shared = Json.cached_trans leaf leaf in
+      let valid = Json.cached_trans shared shared in
+      let bad = Json.cached_trans leaf (Json.cached_refl q) in
+      let invalid = Json.cached_trans bad bad in
+      valid.result == Some (p, p) /\ invalid.result == None)
+  = assert_norm (
+      let leaf = Json.cached_refl p in
+      let shared = Json.cached_trans leaf leaf in
+      let valid = Json.cached_trans shared shared in
+      let bad = Json.cached_trans leaf (Json.cached_refl q) in
+      let invalid = Json.cached_trans bad bad in
+      valid.result == Some (p, p) /\ invalid.result == None)
 
 let lemma_unit_literal_consequence ()
   : Lemma (rfact (RUnitRes q (Trusted "clause" disj)
@@ -116,3 +135,96 @@ let lemma_unified_discharge_keeps_the_equality_tag ()
         { conclusion = Holds false_expr; hypotheses = [mk_not_expr (mk_eq_expr p q)] } in
       check_node [] { kind = LemmaRule; conclusion = Equal p q; premises = [contradiction] } ==
         Some ({ conclusion = Equal p q; hypotheses = [] }, 0))
+
+let lemma_commutativity_is_a_checked_binary_rule ()
+  : Lemma (
+      checked_consequence "commutativity" (mk_eq_expr (App or_decl [p; q]) (App or_decl [q; p])) [] /\
+      checked_consequence "commutativity" (mk_eq_expr (mk_eq_expr p q) (mk_eq_expr q p)) [] /\
+      not (checked_consequence "commutativity" (mk_eq_expr (App or_decl [p; q]) (App or_decl [p; p])) []))
+  = assert_norm (
+      checked_consequence "commutativity" (mk_eq_expr (App or_decl [p; q]) (App or_decl [q; p])) [] /\
+      checked_consequence "commutativity" (mk_eq_expr (mk_eq_expr p q) (mk_eq_expr q p)) [] /\
+      not (checked_consequence "commutativity" (mk_eq_expr (App or_decl [p; q]) (App or_decl [p; p])) []))
+
+let lemma_def_axiom_trust_is_separate_from_strict_inputs ()
+  : Lemma (
+      let node = { kind = DefAxiom; conclusion = Holds p; premises = [] } in
+      Some? (check_node_with_inputs false [] node) /\
+      check_node_with_inputs true [] node == None /\
+      Some? (check_node_with_inputs true [Holds p] node))
+  = assert_norm (
+      let node = { kind = DefAxiom; conclusion = Holds p; premises = [] } in
+      Some? (check_node_with_inputs false [] node) /\
+      check_node_with_inputs true [] node == None /\
+      Some? (check_node_with_inputs true [Holds p] node))
+
+let lemma_identity_rewrite_discharges_only_identical_endpoints ()
+  : Lemma (
+      check_node [] { kind = RewriteRule; conclusion = Equal p p; premises = [] } ==
+        Some ({ conclusion = Equal p p; hypotheses = [] }, 0) /\
+      check_node [] { kind = RewriteRule; conclusion = Equal p q; premises = [] } ==
+        Some ({ conclusion = Equal p q; hypotheses = [] }, 1) /\
+      checked_consequence "rewrite" (mk_oeq_expr p p) [] /\
+      not (checked_consequence "rewrite" (mk_oeq_expr p q) []))
+  = assert_norm (
+      check_node [] { kind = RewriteRule; conclusion = Equal p p; premises = [] } ==
+        Some ({ conclusion = Equal p p; hypotheses = [] }, 0) /\
+      check_node [] { kind = RewriteRule; conclusion = Equal p q; premises = [] } ==
+        Some ({ conclusion = Equal p q; hypotheses = [] }, 1) /\
+      checked_consequence "rewrite" (mk_oeq_expr p p) [] /\
+      not (checked_consequence "rewrite" (mk_oeq_expr p q) []))
+
+let lemma_nary_boolean_flattening_preserves_operands ()
+  : Lemma (
+      let nested = App or_decl [App or_decl [p; q]; r] in
+      let flat = App (connective_decl Disjunction [p; q; r]) [p; q; r] in
+      let reordered = App (connective_decl Disjunction [r; q; p]) [r; q; p] in
+      flatten_rewrite nested == Some flat /\
+      flatten_rewrite nested <> Some reordered /\
+      checked_consequence "rewrite" (mk_eq_expr nested flat) [] /\
+      checked_consequence "rewrite" (mk_eq_expr nested reordered) [])
+  = assert_norm (
+      let nested = App or_decl [App or_decl [p; q]; r] in
+      let flat = App (connective_decl Disjunction [p; q; r]) [p; q; r] in
+      let reordered = App (connective_decl Disjunction [r; q; p]) [r; q; p] in
+      flatten_rewrite nested == Some flat /\
+      flatten_rewrite nested <> Some reordered /\
+      checked_consequence "rewrite" (mk_eq_expr nested flat) [] /\
+      checked_consequence "rewrite" (mk_eq_expr nested reordered) [])
+
+let bool_app (op:connective) (args:list expr) : expr =
+  App (connective_decl op args) args
+
+let lemma_contextual_boolean_reductions ()
+  : Lemma (
+      boolean_equiv 8 10
+        (bool_app Conjunction [bool_app Disjunction [p; p]; q; true_expr])
+        (bool_app Conjunction [q; p]) /\
+      boolean_equiv 8 10 (bool_app Conjunction [p; bool_app Disjunction [p; q]]) p /\
+      boolean_equiv 8 10
+        (bool_app Disjunction [bool_app Conjunction [p; np; r]; q]) q /\
+      boolean_equiv 8 10 (mk_not_expr (bool_app Conjunction [p; q; r]))
+        (bool_app Disjunction [np; mk_not_expr q; mk_not_expr r]))
+  = assert_norm (
+      boolean_equiv 8 10
+        (bool_app Conjunction [bool_app Disjunction [p; p]; q; true_expr])
+        (bool_app Conjunction [q; p]) /\
+      boolean_equiv 8 10 (bool_app Conjunction [p; bool_app Disjunction [p; q]]) p /\
+      boolean_equiv 8 10
+        (bool_app Disjunction [bool_app Conjunction [p; np; r]; q]) q /\
+      boolean_equiv 8 10 (mk_not_expr (bool_app Conjunction [p; q; r]))
+        (bool_app Disjunction [np; mk_not_expr q; mk_not_expr r]))
+
+let lemma_boolean_truth_table_checks_distribution_not_atom_identities ()
+  : Lemma (
+      boolean_equiv 8 10 (bool_app Conjunction [p; bool_app Disjunction [q; r]])
+        (bool_app Disjunction [bool_app Conjunction [p; q]; bool_app Conjunction [p; r]]) /\
+      boolean_equiv 8 10 (mk_eq_expr p p) true_expr /\
+      not (boolean_equiv 8 10 p q) /\
+      not (boolean_equiv 8 10 (bool_app Conjunction [p; q]) (bool_app Disjunction [p; q])))
+  = assert_norm (
+      boolean_equiv 8 10 (bool_app Conjunction [p; bool_app Disjunction [q; r]])
+        (bool_app Disjunction [bool_app Conjunction [p; q]; bool_app Conjunction [p; r]]) /\
+      boolean_equiv 8 10 (mk_eq_expr p p) true_expr /\
+      not (boolean_equiv 8 10 p q) /\
+      not (boolean_equiv 8 10 (bool_app Conjunction [p; q]) (bool_app Disjunction [p; q])))

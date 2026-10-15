@@ -224,6 +224,58 @@ derivation, and requires a `false` root with no open hypotheses.
 The new path is ground-only: quantified/free-variable expressions are
 rejected rather than silently treated as ground terms.
 
+### At-most-once DAG checking and indexed caches
+
+Both native JSON checking paths process each proof-array entry at most
+once, in topological order. Caches are keyed by the entry's integer ID,
+not by recursively hashing its proof term. A shared premise retrieves its
+already-computed result; it never recursively checks the premise again.
+Self references, forward references, negative indices, and dangling
+references are rejected. Cache state starts empty for each document.
+
+The full-proof path already cached `checked_fact` values, including their
+hypothesis scopes. The legacy JSON path now does the same bottom-up
+computation through `cached_proof`, whose F* refinement proves
+`result == fact term` for every cached success **and failure**. The
+refinement and its proof are erased during extraction: no recursive
+`fact` call is executed to establish or retrieve a cached result.
+The Pulse JSON wrapper consumes this result while retaining its previous
+postcondition. The separate in-memory `Z3PulseProofChecker.check_proof`
+tree API is unchanged; the native JSON CLI no longer invokes that
+recursive tree traversal.
+
+The shared persistent binary-trie cache also indexes decoded expressions.
+References now take `O(log ID)` lookup time, and expression accumulation
+uses list prepend rather than repeatedly copying a growing prefix.
+`lemma_index_put` proves that insertion stores the requested key and
+leaves all other lookups unchanged. The full-proof speedups below come
+from this indexing change, not from adding a proof cache where one
+already existed.
+
+The following are medians of three alternating before/after runs on
+identical certificates in WSL. Timings include native process startup,
+JSON parsing, decoding, and checking, but exclude Z3 proof generation,
+F* compilation, and WSL startup. `/usr/bin/time` also records peak RSS.
+
+| Certificate | Proof nodes | Before | After | Speedup |
+|---|---:|---:|---:|---:|
+| `dead_dnd001` | 32,679 | 1.410 s | 0.608 s | 2.32x |
+| `QF_UF_006` (`gensys_brn1083`) | 26,446 | 1.010 s | 0.508 s | 1.99x |
+| `QF_UF_094` (`NEQ031_size7`) | 94,000 | 22.552 s | 15.231 s | 1.48x |
+| `QF_UF_015` (Sokoban) | 11,714 | 70.305 s | 3.216 s | 21.86x |
+| Legacy shared transitivity DAG, depth 40 | 41 | timeout at 5 s | 0.108 s | >46x |
+
+The legacy synthetic DAG has over two trillion node occurrences when
+unfolded as a tree, but just 41 indexed proof nodes. Its baseline timing
+is a timeout, not a completed run. On `dead_dnd001`, median peak RSS also
+drops from 123.7 MiB to 99.5 MiB. All 58 exported QF_UF certificates now
+report `ACCEPT` within a 30-second per-proof limit; the slowest takes
+14.9 seconds in the four-worker recheck. Acceptance policies and proof
+obligation counts are unchanged. Detailed timing/RSS samples and corpus
+results are retained under ignored `build_extract` artifacts
+`proof_once_benchmarks.json`, `proof_once_benchmarks.db`, and
+`proof_once_corpus.json`.
+
 `RUnitRes` now checks a stated consequence instead of requiring a
 syntactically rewrapped residual. A residual `[C]` may conclude `C` or
 `(or C)`, including when `C` is itself a disjunction. An empty residual
@@ -236,13 +288,102 @@ representations; dropping a surviving literal is still rejected.
 The executable distinguishes:
 
 - `ACCEPT`, exit 0: a closed refutation with no unverified leaf obligations.
+  This is relative to the explicit trust policy for definitional axioms below.
 - `PARTIAL N`, exit 3: the derivation and hypothesis scopes checked, but
   `N` rewrite/unsupported-rule obligations remain unverified.
 - `REJECT`, exit 1: malformed data, invalid inference, undeclared input,
   a non-false root, or an open hypothesis.
 
-Full-proof mode conservatively counts **every rewrite** as an obligation;
-Python-side matcher classifications do not silently discharge it.
+Full-proof mode discharges syntactically reflexive rewrites using the
+verified total identity rule `identity_rewrite x = Some x`, and n-ary
+Boolean `and`/`or` flattening using `Z3BooleanRewrite.flatten_rewrite`.
+Flattening recursively splices occurrences of the same connective into
+one ordered argument list, preserving duplicates and leaving different
+connectives opaque. It supports empty and singleton nested applications;
+the result is still an application of the original connective.
+The declarations, operator tags, domains, Boolean operands, and result
+sort are checked. Reordering, deduplication, and reverse reassociation
+are not licensed by this rule.
+
+`lemma_flatten_rewrite_sound` derives semantic equality from the standard
+n-ary conjunction/disjunction semantics, using proofs that flattening
+preserves their argument-list meanings.
+
+`Z3BooleanNormalForm.fst` additionally proves n-ary De Morgan and
+double-negation normalization, implication elimination, contextual
+associativity/commutativity/idempotence, singleton collapse, Boolean
+constant/complement elimination, and absorption (`a /\ (a \/ b) = a`
+and its dual). Structural normalization traverses the recognized Boolean
+fragment without a truth-table width limit; recursive set comparison has
+fuel 32. `Z3BooleanRewrite.fst` also proves reflexive equality of any sort
+reduces to `true`, including inside Boolean contexts.
+
+When these structural rules do not suffice, a depth-8, width-10 Boolean
+skeleton uses shared subexpressions as opaque boundaries and checks at
+most 1,024 truth-table rows. This reuses the verified generic truth-table
+engine in `Z3BoundedBoolEquiv.fst`, **not** its differently numbered
+`Z3BasicExprTheory` classifier. A canonical native-tag classifier and
+`lemma_boolean_cut_sound` connect the skeleton to the existing standard
+Boolean semantics; `lemma_boolean_equiv_sound` proves the resulting
+semantic equality. Non-Boolean theory atoms remain opaque except for the
+proved reflexive-equality rule. Budget exhaustion means unverified, not
+equivalent; no runtime solver call or additional trust assumption is used.
+
+These rewrite checks apply to ordinary equality or Boolean observational
+equivalence without changing either relation. Other rewrites remain
+obligations; Python-side classifications are diagnostic mirrors, not the
+acceptance authority. The legacy equational matcher inventory is unchanged.
+
+On `QG-classification\loops6\dead_dnd001.smt2`, all 1,058 rewrite leaves
+are now discharged (previously 310 remained after identity and flattening).
+Rechecking the 58 successfully exported QF_UF proofs from the existing
+seed-42, 100-file sample discharges all 47,776 rewrite leaves. Before
+indexed caches, eight workers and a 30-second per-proof checking limit
+gave 57 `ACCEPT` results and one timeout; that last proof (`QF_UF_015`,
+Sokoban) reported `ACCEPT` in 70.1 seconds with a 120-second limit.
+The other 42 sampled
+files did not previously produce exported proofs and are not counted as
+checked successes. These results remain relative to the default def-axiom
+trust policy, not independent validation of those definitions.
+
+#### Fresh QF_UF/QF_AX evaluation (2026-10-14)
+
+A complete rerun used the same seed-42 manifest and SHA-256-checked input
+files: 100 UNSAT-annotated benchmarks per logic, 32 workers, a 10-second
+proof-generation wall-clock limit, a separate 60-second export watchdog,
+and a 10-second native-checker limit. Unlike the 58-certificate recheck
+above, this reran proof generation and export as well.
+
+| Logic | Proved UNSAT | Exported | ACCEPT | PARTIAL | Checker timeout | Not checked |
+|---|---:|---:|---:|---:|---:|---:|
+| QF_UF | 93 | 57 | 56 | 0 | 1 | 43 |
+| QF_AX | 100 | 99 | 1 | 83 | 15 | 1 |
+
+QF_UF had seven proof-generation timeouts and 36 export timeouts; QF_AX
+had one export timeout. There were no checker rejects or errors. The
+remaining QF_UF checker timeout was `QF_UF_094` (`NEQ031_size7.smt2`);
+the prior 30-second recheck and the fresh 10-second evaluation therefore
+measure different limits and workloads.
+
+The 56 accepted QF_UF proofs contained 1,350,973 DAG nodes and no pending
+obligations. The 84 validated QF_AX derivations contained 285,459 nodes
+and 8,055 pending obligations: 8,031 `th-lemma` and 24 unsupported rewrites.
+These counts cover only `ACCEPT`/`PARTIAL` results, not timed-out proofs.
+All `ACCEPT` results remain conditional on the default trusted
+`def-axiom` policy.
+
+For comparison, the previous full-proof evaluation with the same limits
+gave QF_UF 1 `ACCEPT`, 48 `PARTIAL`, and 9 checker timeouts from 58 exports;
+QF_AX had 83 `PARTIAL` and 16 checker timeouts from 99 exports.
+Its validated proofs retained 32,101 QF_UF rewrite obligations and
+23,226 QF_AX obligations. Validated sets differ between runs, so aggregate
+obligation counts are not a paired per-proof comparison.
+
+The rerun took 187.5 seconds. Its manifest, per-file proofs, phase timings,
+checker outputs, source/binary hashes, summary, CSV, and SQLite benchmark
+log are retained locally in
+`C:\smtlib-benchmarks\proof_check_full_20261014_2054\full`.
+
 The ground Boolean rules `mp~` and `iff~` are checked, not trusted.
 Z3's emitted `refl` name is also recognized as reflexivity (the older
 `reflexivity` spelling remains accepted).
@@ -262,13 +403,66 @@ general equivalence modulo naming with same-model Boolean equality:
 naming/Skolemization needs model-extension and freshness witnesses and
 remains an explicit obligation, as do unverified NNF steps. Non-Boolean
 observational equalities and quantified expressions remain outside this
-ground checker. General commutativity side conditions also remain obligations.
+ground checker.
 Legacy equational-mode `ACCEPT` still has its original, structural-only
 meaning and must not be mistaken for certification of an UNSAT refutation.
 
+### Definitional axioms and original assertions
+
+`def-axiom` is a trusted, premise-free ordinary Boolean leaf by default;
+it contributes zero pending obligations. This trusts Z3's generated
+definitions, rather than independently proving their validity. The
+soundness theorem retains an explicit truth hypothesis for these leaves.
+Ordinary `asserted` leaves always require exact membership in the document's
+original assertions.
+
+To additionally require each **entire def-axiom conclusion** to match an
+original assertion:
+
+```powershell
+python fstar\tools\extract_z3_proof.py problem.smt2 --full-proof --check-original-assertions --fast-check
+wsl -e bash -c '~/z3checker/checker --check-original-assertions proof.json'
+```
+
+The document field `"check_original_assertions": true` enables the same
+policy; omission or `false` selects default trust. The native CLI flag
+cannot be disabled by document metadata. Strict checking applies even to
+older `{"kind":"trusted","rule":"def-axiom",...}` encodings. It rejects
+typical Tseitin clauses that are generated rather than supplied as input;
+it does not attempt to map those clauses back to parts of assertions.
+Membership is structural, not logical equivalence. The caller must supply
+the actual original assertions; the checker does not authenticate the
+document's input list against an external SMT file. The strict native flag
+rejects legacy equational documents, which have no original-input policy.
+
+### Verified binary commutativity
+
+`Z3Commutativity.fst` checks precisely `(op x y) = (op y x)` with the same
+validated declaration on both sides, matching argument sorts, and no
+premises. Supported operators are polymorphic equality (`op_eq`), Boolean
+`and`/`or`, and `Int` `+`/`*` (`op_plus`/`op_mul`). Equality includes
+uninterpreted, array, and Boolean operand sorts. The inference concludes
+ordinary equality, never observational equivalence.
+
+`lemma_eq_commutativity` and `lemma_commutativity_step_sound` derive the
+result from standard equality/Boolean semantics.
+`lemma_add_commutativity`, `lemma_mul_commutativity`, and
+`lemma_arithmetic_commutativity` prove the integer cases from standard
+integer evaluation, not a caller-supplied commutativity axiom. The generic
+model hypothesis requires arithmetic declarations to implement integer
+addition or multiplication over the shared `VInt` value representation
+(with the existing interpreter's total fallback on non-integer values).
+Only structural matching executes in the native checker;
+it does not evaluate or multiply input numerals.
+
+The exporter keeps unsupported commutative theories (`Real`, bit-vector
+arithmetic, etc.) and non-binary shapes as explicit obligations. A document
+that labels an unsupported or malformed step as checked `commutativity`
+is rejected; an uninterpreted symbol or spoofed name/tag is not sufficient.
+
 `Z3UnifiedProof.lemma_check_step_sound` covers the common inference
 checker; `lemma_check_node_sound` composes it with asserted inputs,
-scoped premises, hypothesis discharge, and explicit rewrite/unsupported
+scoped premises, hypothesis discharge, trusted definitions, and explicit rewrite/unsupported
 obligations. Both distinguish equality semantics from observational
 semantics. The original `proof`, `rproof`, and `oproof` types remain
 available to existing standalone/legacy callers, but the full-DAG checker

@@ -62,6 +62,61 @@ class Certificate:
 
 
 class ExtractionTests(unittest.TestCase):
+    def test_boolean_flatten_classification_is_specific_to_full_proofs(self):
+        ctx = z3.Context()
+        p, q, r = z3.Bools("p q r", ctx)
+        for op, name in ((z3.And, "and_flatten"), (z3.Or, "or_flatten")):
+            with self.subTest(op=name):
+                left, right = op(op(p, q), r), op(p, q, r)
+                self.assertEqual(extractor.classify_full_rewrite(left, right), name)
+                self.assertIsNone(extractor.classify_rewrite(left, right))
+                self.assertEqual(extractor.classify_full_rewrite(left, op(r, q, p)),
+                                 "boolean_equiv")
+
+    def test_real_definition_and_commutativity_rules_are_not_obligations(self):
+        ctx = z3.Context(proof=True)
+        p, q, r = z3.Bools("p q r", ctx)
+        x, y = z3.Consts("x y", z3.DeclareSort("U", ctx))
+        for assertions, required in (
+                ([z3.Or(z3.And(p, q), r), z3.Not(p), z3.Not(r)], "def-axiom"),
+                ([z3.Or(x == y, p), z3.Not(y == x), z3.Not(p)], "commutativity")):
+            with self.subTest(rule=required):
+                solver = z3.Solver(ctx=ctx)
+                solver.add(*assertions)
+                self.assertEqual(solver.check(), z3.unsat)
+                converter = extractor.ResolutionConverter()
+                root = converter.proof(solver.proof())
+                doc = extractor.build_resolution_doc(converter, root, solver.assertions())
+                self.assertIn(required, {node["kind"] for node in doc["proofs"]})
+                self.assertNotIn(required, {rule for rule, _ in converter.trusted_log})
+                if os.environ.get("Z3_FSTAR_CHECKER"):
+                    pending = len(converter.trusted_log) + sum(
+                        name not in extractor.FULL_PROOF_REWRITES
+                        for _, _, name in converter.rewrite_log)
+                    NativeCheckerTests().check(doc, 3 if pending else 0,
+                                               obligations=pending if pending else None)
+                    if required == "def-axiom":
+                        NativeCheckerTests().check(doc, 1, strict=True)
+
+    def test_commutativity_support_is_theory_and_shape_specific(self):
+        ctx = z3.Context()
+        x, y = z3.Ints("x y", ctx)
+        p, q = z3.Bools("p q", ctx)
+        r, s = z3.Reals("r s", ctx)
+        f = z3.Function("f", x.sort(), x.sort(), x.sort())
+        for a, b, supported in (
+                (x == y, y == x, True),
+                (x + y, y + x, True),
+                (x * y, y * x, True),
+                (z3.And(p, q), z3.And(q, p), True),
+                (z3.Or(p, q), z3.Or(q, p), True),
+                (r + s, s + r, False),
+                (x - y, y - x, False),
+                (f(x, y), f(y, x), False),
+                (x + y, x + x, False)):
+            with self.subTest(a=str(a), b=str(b)):
+                self.assertEqual(extractor.supported_commutativity(a == b), supported)
+
     def test_nnf_proof_preserves_observational_equality(self):
         ctx = z3.Context(proof=True)
         p, q = z3.Bools("p q", ctx)
@@ -140,10 +195,15 @@ class ExtractionTests(unittest.TestCase):
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
 class NativeCheckerTests(unittest.TestCase):
-    def check(self, document, expected, obligations=None):
+    def check(self, document, expected, obligations=None, strict=False):
         checker = os.environ["Z3_FSTAR_CHECKER"]
         command = (["wsl", "-e", "bash", "-c", checker] if os.name == "nt"
                    else [os.path.expanduser(checker)])
+        if strict:
+            if os.name == "nt":
+                command[-1] += " --check-original-assertions"
+            else:
+                command.append("--check-original-assertions")
         result = subprocess.run(command, input=json.dumps(document),
                                 capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, expected,
@@ -152,6 +212,283 @@ class NativeCheckerTests(unittest.TestCase):
                          {0: "ACCEPT", 1: "REJECT", 3: "PARTIAL"}[expected])
         if obligations is not None:
             self.assertEqual(result.stdout.strip(), "PARTIAL %d" % obligations)
+
+    def test_identity_rewrites_are_discharged_for_all_sorts(self):
+        for form in ("bool", "int", "uf", "array", "application", "observational"):
+            with self.subTest(form=form):
+                c = Certificate()
+                p, q = z3.Bools("p q", c.ctx)
+                sort = {"int": z3.IntSort(c.ctx),
+                        "uf": z3.DeclareSort("U", c.ctx),
+                        "array": z3.ArraySort(z3.IntSort(c.ctx), z3.BoolSort(c.ctx))}
+                term = (z3.Const("x", sort[form]) if form in sort else
+                        z3.Or(p, q) if form == "application" else p)
+                if form == "observational":
+                    rewrite = c.node("rewrite", c.oeq(term, term))
+                    original = c.asserted(term)
+                    result = c.node("mp~", term, [original, rewrite])
+                    opposite = c.asserted(z3.Not(term))
+                else:
+                    equality = term == term
+                    result = c.node("rewrite", equality)
+                    opposite = c.asserted(z3.Not(equality))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                              [result, opposite])
+                self.check(c.document(root), 0)
+
+    def test_unsupported_rewrites_remain_obligations(self):
+        for form in ("distinct", "dropped"):
+            with self.subTest(form=form):
+                c = Certificate()
+                p, q, r = z3.Bools("p q r", c.ctx)
+                left, right = ((p, q) if form == "distinct" else
+                               (z3.Or(z3.Or(p, q), r), z3.Or(q, p)))
+                equality = left == right
+                rewrite = c.node("rewrite", equality)
+                opposite = c.asserted(z3.Not(equality))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                              [rewrite, opposite])
+                self.check(c.document(root), 3, obligations=1)
+
+    def test_nary_boolean_flattening_preserves_order_and_other_connectives(self):
+        for op, other in ((z3.And, z3.Or), (z3.Or, z3.And)):
+            for form in ("nested", "empty", "singleton", "mixed", "duplicates",
+                         "observational"):
+                with self.subTest(op=op.__name__, form=form):
+                    c = Certificate()
+                    p, q, r, s = z3.Bools("p q r s", c.ctx)
+                    empty = op(c.ctx)
+                    left, right = {
+                        "nested": (op(op(p, q), op(r, op(s))), op(p, q, r, s)),
+                        "empty": (op(empty, p, op(q, empty)), op(p, q)),
+                        "singleton": (op(op(p), q), op(p, q)),
+                        "mixed": (op(other(p, q), op(r, s)), op(other(p, q), r, s)),
+                        "duplicates": (op(op(p, p), q), op(p, p, q)),
+                        "observational": (op(op(p, q), r), op(p, q, r)),
+                    }[form]
+                    if form == "observational":
+                        rewrite = c.node("rewrite", c.oeq(left, right))
+                        original = c.asserted(left)
+                        result = c.node("mp~", right, [original, rewrite])
+                        opposite = c.asserted(z3.Not(right))
+                    else:
+                        equality = left == right
+                        result = c.node("rewrite", equality)
+                        opposite = c.asserted(z3.Not(equality))
+                    root = c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                                  [result, opposite])
+                    self.check(c.document(root), 0)
+
+    def test_flattening_does_not_license_other_rewrites_or_spoofed_operators(self):
+        for op, other in ((z3.And, z3.Or), (z3.Or, z3.And)):
+            for form in ("drop", "reorder", "deduplicate", "other", "reverse",
+                         "uninterpreted", "spoofed_tag", "spoofed_name"):
+                with self.subTest(op=op.__name__, form=form):
+                    c = Certificate()
+                    p, q, r = z3.Bools("p q r", c.ctx)
+                    left = op(op(p, q), r)
+                    right = {"drop": op(p, q), "reorder": op(r, q, p),
+                             "deduplicate": op(p, q, r), "other": other(p, q, r),
+                             "reverse": op(op(p, q), r)}.get(form, op(p, q, r))
+                    if form == "deduplicate":
+                        left = op(op(p, p), q, r)
+                    elif form == "reverse":
+                        left = op(p, q, r)
+                    elif form == "uninterpreted":
+                        f = z3.Function("f", p.sort(), p.sort(), p.sort())
+                        left, right = f(f(p, q), r), f(p, f(q, r))
+                    equality = left == right
+                    rewrite = c.node("rewrite", equality)
+                    opposite = c.asserted(z3.Not(equality))
+                    root = c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                                  [rewrite, opposite])
+                    doc = c.document(root)
+                    if form in ("spoofed_tag", "spoofed_name"):
+                        for decl in doc["decls"]:
+                            if decl["name"] == op.__name__.lower():
+                                if form == "spoofed_tag":
+                                    decl["interp"] = "op_or" if op == z3.And else "op_and"
+                                else:
+                                    decl["name"] = "fake"
+                    if form in ("reorder", "deduplicate", "reverse"):
+                        self.check(doc, 0)
+                    else:
+                        self.check(doc, 1 if form == "spoofed_tag" else 3,
+                                   obligations=None if form == "spoofed_tag" else 1)
+
+    def test_boolean_normalization_and_truth_table_rewrites(self):
+        for form in ("demorgan", "contextual", "aci", "contradiction", "identity",
+                     "implies", "boolean_eq", "distribution", "opaque", "shared",
+                     "absorption_and", "absorption_or", "wide_complement",
+                     "wide_identity", "singleton", "contextual_eq_reflexive"):
+            with self.subTest(form=form):
+                c = Certificate()
+                ps = z3.Bools(" ".join("p%d" % i for i in range(20)), c.ctx)
+                p, q, r = ps[:3]
+                u, v = z3.Consts("u v", z3.DeclareSort("U", c.ctx))
+                shared = z3.And(*ps)
+                left, right = {
+                    "demorgan": (z3.And(*ps), z3.Not(z3.Or(*[z3.Not(a) for a in ps]))),
+                    "contextual": (z3.Or(z3.And(p, z3.And(q, r)), shared),
+                                   z3.Or(z3.And(p, q, r), shared)),
+                    "aci": (z3.Or(p, q, p, r), z3.Or(r, p, q)),
+                    "contradiction": (z3.And(p, z3.Not(p), q), z3.BoolVal(False, c.ctx)),
+                    "identity": (z3.Or(z3.BoolVal(False, c.ctx), p), p),
+                    "implies": (z3.Implies(p, q), z3.Or(z3.Not(p), q)),
+                    "boolean_eq": (p == q, z3.Or(z3.And(p, q),
+                                               z3.And(z3.Not(p), z3.Not(q)))),
+                    "distribution": (z3.And(p, z3.Or(q, r)),
+                                     z3.Or(z3.And(p, q), z3.And(p, r))),
+                    "opaque": (z3.And(u == v, z3.Not(u == v)), z3.BoolVal(False, c.ctx)),
+                    "shared": (z3.Not(z3.Not(shared)), shared),
+                    "absorption_and": (z3.And(*ps, z3.Or(p, q)), shared),
+                    "absorption_or": (z3.Or(*ps, z3.And(p, q)), z3.Or(*ps)),
+                    "wide_complement": (z3.Or(z3.And(p, z3.Not(p), *ps), q), q),
+                    "wide_identity": (z3.And(*ps, z3.BoolVal(True, c.ctx)), shared),
+                    "singleton": (z3.Or(*[p] * 20), p),
+                    "contextual_eq_reflexive": (z3.And(u == u, *ps), shared),
+                }[form]
+                self.assertEqual(extractor.classify_full_rewrite(left, right), "boolean_equiv")
+                equality = left == right
+                rewrite = c.node("rewrite", equality)
+                opposite = c.asserted(z3.Not(equality))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [rewrite, opposite])
+                self.check(c.document(root), 0)
+
+    def test_boolean_fallback_budget_and_nonboolean_atoms(self):
+        for form in ("width", "depth", "opaque", "not_equivalent"):
+            with self.subTest(form=form):
+                c = Certificate()
+                ps = z3.Bools(" ".join("p%d" % i for i in range(11)), c.ctx)
+                p, q = ps[:2]
+                u, v = z3.Consts("u v", z3.DeclareSort("U", c.ctx))
+                deep = z3.And(p, z3.Or(q, ps[2]))
+                deep_other = z3.Or(z3.And(p, q), z3.And(p, ps[2]))
+                for _ in range(12):
+                    deep = z3.Not(deep)
+                    deep_other = z3.Not(deep_other)
+                left, right = {
+                    "width": (z3.And(p, z3.Or(*ps[1:])),
+                              z3.Or(*[z3.And(p, a) for a in ps[1:]])),
+                    "depth": (deep, deep_other),
+                    "opaque": (u == v, v == u),
+                    "not_equivalent": (z3.Implies(p, q), z3.Implies(q, p)),
+                }[form]
+                self.assertFalse(extractor._bounded_boolean_equiv(left, right))
+                equality = left == right
+                rewrite = c.node("rewrite", equality)
+                opposite = c.asserted(z3.Not(equality))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [rewrite, opposite])
+                self.check(c.document(root), 3, obligations=1)
+
+    def test_equality_reflexivity_simplifies_at_any_sort(self):
+        for form in ("bool", "int", "uf", "array"):
+            with self.subTest(form=form):
+                c = Certificate()
+                sort = {"bool": z3.BoolSort(c.ctx), "int": z3.IntSort(c.ctx),
+                        "uf": z3.DeclareSort("U", c.ctx),
+                        "array": z3.ArraySort(z3.IntSort(c.ctx), z3.BoolSort(c.ctx))}[form]
+                x = z3.Const("x", sort)
+                equality = (x == x) == z3.BoolVal(True, c.ctx)
+                self.assertEqual(extractor.classify_full_rewrite(
+                    equality.arg(0), equality.arg(1)), "eq_reflexive")
+                rewrite = c.node("rewrite", equality)
+                opposite = c.asserted(z3.Not(equality))
+                root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [rewrite, opposite])
+                self.check(c.document(root), 0)
+
+    def test_identity_rewrite_still_requires_a_relational_leaf(self):
+        for form in ("nonrelational", "premise"):
+            with self.subTest(form=form):
+                c = Certificate()
+                p = z3.Bool("p", c.ctx)
+                premises = [c.asserted(p)] if form == "premise" else []
+                c.node("rewrite", p == p if form == "premise" else p, premises)
+                root = c.asserted(z3.BoolVal(False, c.ctx))
+                self.check(c.document(root), 1)
+
+    def test_def_axiom_trust_and_original_assertion_membership(self):
+        for old_tag in (False, True):
+            for strict in (False, True):
+                for matching in (False, True):
+                    with self.subTest(old_tag=old_tag, strict=strict, matching=matching):
+                        c = Certificate()
+                        p = z3.Bool("p", c.ctx)
+                        axiom = c.node("trusted" if old_tag else "def-axiom", p,
+                                       **({"rule": "def-axiom"} if old_tag else {}))
+                        if matching:
+                            c.assertions.append(p)
+                        opposite = c.asserted(z3.Not(p))
+                        root = c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                                      [axiom, opposite])
+                        doc = c.document(root)
+                        doc["check_original_assertions"] = strict
+                        self.check(doc, 1 if strict and not matching else 0)
+                        if not strict and not matching:
+                            self.check(doc, 1, strict=True)
+
+    def test_def_axiom_must_be_an_ordinary_leaf(self):
+        for form in ("premise", "observational", "malformed_policy"):
+            with self.subTest(form=form):
+                c = Certificate()
+                p, q = z3.Bools("p q", c.ctx)
+                fact = c.oeq(p, q) if form == "observational" else p
+                premises = [c.asserted(p)] if form == "premise" else []
+                c.node("def-axiom", fact, premises)
+                root = c.asserted(z3.BoolVal(False, c.ctx))
+                doc = c.document(root)
+                if form == "malformed_policy":
+                    doc["check_original_assertions"] = "false"
+                self.check(doc, 1)
+
+    def test_binary_commutativity_checks_operators_sorts_and_endpoints(self):
+        for form in ("eq_uf", "eq_bool", "eq_array", "add", "mul", "and", "or",
+                     "subtract", "uninterpreted", "wrong_endpoint", "different_decl",
+                     "real_add", "nary", "premise", "spoofed_tag", "spoofed_name",
+                     "observational"):
+            with self.subTest(form=form):
+                c = Certificate()
+                x, y = z3.Ints("x y", c.ctx)
+                p, q = z3.Bools("p q", c.ctx)
+                if form.startswith("eq_"):
+                    sort = {"eq_uf": z3.DeclareSort("U", c.ctx),
+                            "eq_bool": z3.BoolSort(c.ctx),
+                            "eq_array": z3.ArraySort(x.sort(), x.sort())}[form]
+                    a, b = z3.Consts("a b", sort)
+                    left, right = a == b, b == a
+                elif form in ("and", "or", "observational"):
+                    op = z3.Or if form == "or" else z3.And
+                    left, right = op(p, q), op(q, p)
+                elif form == "real_add":
+                    a, b = z3.Reals("a b", c.ctx)
+                    left, right = a + b, b + a
+                elif form == "subtract":
+                    left, right = x - y, y - x
+                elif form == "uninterpreted":
+                    f = z3.Function("f", x.sort(), x.sort(), x.sort())
+                    left, right = f(x, y), f(y, x)
+                elif form == "mul":
+                    left, right = x * y, y * x
+                elif form == "nary":
+                    left, right = z3.Sum(x, y, x), z3.Sum(y, x, x)
+                else:
+                    left = x + y
+                    right = (x + x if form == "wrong_endpoint" else
+                             y * x if form == "different_decl" else y + x)
+                equality = c.oeq(left, right) if form == "observational" else left == right
+                premises = [c.asserted(p)] if form == "premise" else []
+                commute = c.node("commutativity", equality, premises)
+                opposite = c.asserted(z3.Not(equality)) if form != "observational" else c.asserted(p)
+                root = (c.asserted(z3.BoolVal(False, c.ctx)) if form == "observational"
+                        else c.node("unit-resolution", z3.BoolVal(False, c.ctx),
+                                    [commute, opposite]))
+                doc = c.document(root)
+                if form in ("spoofed_tag", "spoofed_name"):
+                    decl = next(d for d in doc["decls"] if d["name"] == "+")
+                    decl["interp" if form == "spoofed_tag" else "name"] = (
+                        "op_eq" if form == "spoofed_tag" else "fake_plus")
+                valid = form in ("eq_uf", "eq_bool", "eq_array", "add", "mul", "and", "or")
+                self.check(doc, 0 if valid else 1)
 
     def test_resolution_consequences(self):
         for form in ("literal", "singleton_or", "nested_or", "reordered",
@@ -431,7 +768,7 @@ class NativeCheckerTests(unittest.TestCase):
         self.check(c.document(root), 3, obligations=1)
 
     def test_invalid_or_dangling_dependencies_are_rejected(self):
-        for invalid in ("undeclared_assertion", "hypothesis", "forward", "negative"):
+        for invalid in ("undeclared_assertion", "hypothesis", "forward", "negative", "self"):
             with self.subTest(invalid=invalid):
                 c = Certificate()
                 false = z3.BoolVal(False, c.ctx)
@@ -441,7 +778,7 @@ class NativeCheckerTests(unittest.TestCase):
                     root = c.node("hypothesis", false)
                 else:
                     root = c.node("unit-resolution", false,
-                                  [1 if invalid == "forward" else -1])
+                                  [1 if invalid == "forward" else 0 if invalid == "self" else -1])
                 self.check(c.document(root), 1)
 
     def test_false_cannot_be_spoofed_by_an_uninterpreted_declaration(self):
@@ -472,6 +809,50 @@ class NativeCheckerTests(unittest.TestCase):
         root = converter.proof(extractor.find_equational_root(proof))
         unmatched = sum(name is None for _, _, name in converter.rewrite_log)
         self.check(extractor.build_proof_doc(converter, root, unmatched), 0)
+
+    def test_full_shared_dag_counts_a_shared_obligation_once(self):
+        c = Certificate()
+        p, q = z3.Bools("p q", c.ctx)
+        leaf = c.node("rewrite", p == q)
+        reverse = c.node("symm", q == p, [leaf])
+        shared = c.node("trans", p == p, [leaf, reverse])
+        for _ in range(40):
+            shared = c.node("trans", p == p, [shared, shared])
+        opposite = c.asserted(z3.Not(p == p))
+        root = c.node("unit-resolution", z3.BoolVal(False, c.ctx), [shared, opposite])
+        self.check(c.document(root), 3, obligations=1)
+
+    def test_legacy_shared_dag_caches_success_and_failure(self):
+        for form in ("valid", "invalid", "unused_invalid", "self", "forward", "negative"):
+            with self.subTest(form=form):
+                doc = {
+                    "sorts": [{"kind": "base", "name": "Bool"}],
+                    "decls": [{"name": name, "domain": [], "range": 0, "interp": None}
+                              for name in ("p", "q")],
+                    "exprs": [{"kind": "app", "decl": i, "args": []} for i in range(2)],
+                    "proofs": [{"kind": "refl", "e": 0}, {"kind": "refl", "e": 1}],
+                    "root": 0,
+                    "unmatched_count": 0,
+                }
+                proofs = doc["proofs"]
+                proofs.append({"kind": "trans", "p1": 0, "p2": 1 if form != "valid" else 0})
+                if form in ("self", "forward", "negative"):
+                    proofs[-1]["p1"] = {"self": 2, "forward": 3, "negative": -1}[form]
+                for _ in range(40):
+                    previous = len(proofs) - 1
+                    proofs.append({"kind": "trans", "p1": previous, "p2": previous})
+                if form != "unused_invalid":
+                    doc["root"] = len(proofs) - 1
+                self.check(doc, 0 if form in ("valid", "unused_invalid") else 1)
+
+    def test_expression_cache_rejects_invalid_references(self):
+        for index in (-1, 0, 1):
+            with self.subTest(index=index):
+                c = Certificate()
+                root = c.asserted(z3.BoolVal(False, c.ctx))
+                doc = c.document(root)
+                doc["exprs"][0]["args"] = [index]
+                self.check(doc, 1)
 
 
 if __name__ == "__main__":

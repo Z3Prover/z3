@@ -9,33 +9,9 @@ open Z3ObservationalEquality
 open Z3UnifiedProof
 open Z3ProofJson
 
-noeq
-type index_tree (a:Type) =
-  | Empty : index_tree a
-  | Branch : option a -> index_tree a -> index_tree a -> index_tree a
-
-let rec index_get (#a:Type) (tree:index_tree a) (key:nat)
-  : Tot (option a) (decreases key) =
-  match tree with
-  | Empty -> None
-  | Branch value left right ->
-    if key = 0 then value
-    else if key % 2 = 1 then index_get left ((key - 1) / 2)
-    else index_get right ((key - 1) / 2)
-
-let rec index_put (#a:Type) (tree:index_tree a) (key:nat) (value:a)
-  : Tot (index_tree a) (decreases key) =
-  let old, left, right =
-    match tree with
-    | Empty -> None, Empty, Empty
-    | Branch old left right -> old, left, right
-  in
-  if key = 0 then Branch (Some value) left right
-  else if key % 2 = 1 then Branch old (index_put left ((key - 1) / 2) value) right
-  else Branch old left (index_put right ((key - 1) / 2) value)
-
 let rule_of_name (name:string) : option rule =
   if name = "asserted" then Some Asserted
+  else if name = "def-axiom" then Some DefAxiom
   else if name = "hypothesis" then Some Hypothesis
   else if name = "lemma" then Some LemmaRule
   else if name = "rewrite" then Some RewriteRule
@@ -44,6 +20,7 @@ let rule_of_name (name:string) : option rule =
   else if name = "trans" then Some Transitivity
   else if name = "trans*" then Some TransitivityPath
   else if name = "monotonicity" then Some Congruence
+  else if name = "commutativity" then Some Commutativity
   else if name = "mp" then Some ModusPonens
   else if name = "mp~" then Some ObservationalMP
   else if name = "iff~" then Some IffObservational
@@ -59,30 +36,32 @@ let checked_consequence (kind:string) (concl:expr) (facts:list expr) : bool =
   | Some r, Some j, Some js -> check_step r j js
   | _, _, _ -> false
 
-let decode_node (exprs:list expr) (assertions:list judgment)
+let decode_node (strict:bool) (exprs:index_tree expr) (assertions:list judgment)
                 (prev:index_tree checked_fact) (j:json)
   : option (checked_fact & nat) =
   json_obj j >>= (fun fields ->
   json_field fields "kind" >>= json_str >>= (fun kind ->
-  json_field fields "conclusion" >>= json_int >>= nth_opt exprs >>= classify_fact >>= (fun concl ->
+  json_field fields "conclusion" >>= json_int >>= index_find exprs >>= classify_fact >>= (fun concl ->
   json_field fields "premises" >>= json_arr >>= opt_map json_int >>= (fun indices ->
   opt_map (fun (i:int) -> if i < 0 then None else index_get prev i) indices >>= (fun nodes ->
   let parsed_rule =
     if kind = "trusted" then
-      json_field fields "rule" >>= json_str >>= (fun tag -> Some (Unverified tag))
+      json_field fields "rule" >>= json_str >>= (fun tag ->
+        Some (if tag = "def-axiom" then DefAxiom else Unverified tag))
     else rule_of_name kind
   in
   parsed_rule >>= (fun r ->
-  check_node assertions { kind = r; conclusion = concl; premises = nodes }))))))
+  check_node_with_inputs strict assertions { kind = r; conclusion = concl; premises = nodes }))))))
 
-let rec decode_nodes (exprs:list expr) (assertions:list judgment)
+let rec decode_nodes (strict:bool) (exprs:index_tree expr) (assertions:list judgment)
                      (acc:index_tree checked_fact) (next:nat) (trusted:nat) (js:list json)
   : Tot (option (index_tree checked_fact & nat)) (decreases js) =
   match js with
   | [] -> Some (acc, trusted)
   | j :: rest ->
-    decode_node exprs assertions acc j >>= (fun nt ->
-    decode_nodes exprs assertions (index_put acc next (fst nt))
+    (* Premises are cached checked facts, never recursively checked nodes. *)
+    decode_node strict exprs assertions acc j >>= (fun nt ->
+    decode_nodes strict exprs assertions (index_put acc next (fst nt))
                  (next + 1) (trusted + snd nt) rest)
 
 let rec ground_exprs (exprs:list expr) : Tot bool (decreases exprs) =
@@ -121,30 +100,38 @@ let rec logical_decls (decls:list func_decl) : Tot bool (decreases decls) =
   | [] -> true
   | d :: rest -> logical_decl d && logical_decls rest
 
-let decode_resolution_doc (fields:list (string & json)) : option nat =
+let decode_resolution_doc (force_strict:bool) (fields:list (string & json)) : option nat =
+  (match json_field fields "check_original_assertions" with
+   | None -> Some force_strict
+   | Some (JBool b) -> Some (force_strict || b)
+   | Some _ -> None) >>= (fun strict ->
   json_field fields "sorts" >>= json_arr >>= decode_sorts [] >>= (fun sorts ->
   json_field fields "decls" >>= json_arr >>= decode_decls sorts [] >>= (fun decls ->
   if not (logical_decls decls) then None else
-  json_field fields "exprs" >>= json_arr >>= decode_exprs sorts decls [] >>= (fun exprs ->
-  if not (ground_exprs exprs) then None else
-  json_field fields "assertions" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt exprs) >>= (fun assertions ->
+  json_field fields "exprs" >>= json_arr >>= decode_indexed_exprs sorts decls Empty 0 [] >>= (fun decoded ->
+  let exprs = fst decoded in
+  if not (ground_exprs (snd decoded)) then None else
+  json_field fields "assertions" >>= json_arr >>= opt_map json_int >>= opt_map (index_find exprs) >>= (fun assertions ->
   if not (ordinary_facts assertions) then None else
   opt_map classify_fact assertions >>= (fun inputs ->
-  json_field fields "proofs" >>= json_arr >>= decode_nodes exprs inputs Empty 0 0 >>= (fun result ->
+  json_field fields "proofs" >>= json_arr >>= decode_nodes strict exprs inputs Empty 0 0 >>= (fun result ->
   json_field fields "root" >>= json_int >>= (fun root ->
   if root < 0 then None else
   index_get (fst result) root >>= (fun node ->
   if false_judgment node.conclusion && node.hypotheses = [] then Some (snd result)
-  else None))))))))
+  else None)))))))))
 
 (* -2 selects the legacy equational decoder; -1 rejects. A nonnegative
    result counts explicit, still-unverified leaf obligations. *)
-let check_resolution_json (s:string) : int =
+let check_resolution_json_with_inputs (force_strict:bool) (s:string) : int =
   match parse_json s with
   | Some (JObj fields) ->
     (match json_field fields "format" with
-     | None -> -2
+     | None -> if force_strict then -1 else -2
      | Some (JStr "resolution-v1") ->
-       (match decode_resolution_doc fields with Some n -> n | None -> -1)
+       (match decode_resolution_doc force_strict fields with Some n -> n | None -> -1)
      | Some _ -> -1)
   | _ -> -1
+
+let check_resolution_json (s:string) : int =
+  check_resolution_json_with_inputs false s

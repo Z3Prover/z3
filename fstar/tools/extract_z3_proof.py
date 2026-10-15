@@ -69,9 +69,17 @@ directly, typically in single-digit milliseconds per proof.
 
 `--full-proof` instead exports the complete ground refutation DAG,
 including resolution, mp, congruence and hypothesis discharge. Unsupported
-rules and all rewrite leaves remain explicit obligations: a structurally
+rules and unsupported rewrite leaves remain explicit obligations: a structurally
 valid full derivation with such obligations reports PARTIAL (exit 3),
 not a certified UNSAT result. The default equational mode is unchanged.
+Definitional axioms are trusted by default. With --check-original-assertions,
+their entire conclusions must match supplied input assertions, just like
+ordinary asserted leaves. Binary commutativity for equality, Boolean and/or,
+and Int addition/multiplication is checked by verified inference rules.
+Identity and order-preserving n-ary Boolean and/or flattening rewrites
+are discharged by the full-proof checker, along with verified Boolean
+normalization and bounded Boolean equivalence. Other rewrite matches
+are diagnostic.
 
 `--emit-json-fst` additionally writes a tiny JSON-instance `.fst` file
 wrapping the same JSON document, purely as an artifact for manually
@@ -104,6 +112,9 @@ EQUATIONAL_KINDS = {
     z3.Z3_OP_PR_QUANT_INTRO,
 }
 
+FULL_PROOF_REWRITES = {"reflexivity", "and_flatten", "or_flatten",
+                       "eq_reflexive", "boolean_equiv"}
+
 
 def fstar_ident(prefix, n):
     return "%s%d" % (prefix, n)
@@ -129,6 +140,26 @@ def fstar_ident(prefix, n):
 
 def _is_app_of(e, kind):
     return z3.is_app(e) and e.num_args() > 0 and e.decl().kind() == kind
+
+
+def _boolean_flatten(s, t):
+    if not (z3.is_app(s) and z3.is_app(t)
+            and s.decl().kind() in (z3.Z3_OP_AND, z3.Z3_OP_OR)
+            and s.decl().kind() == t.decl().kind()):
+        return None
+    kind = s.decl().kind()
+    flat = []
+    stack = list(reversed(s.children()))
+    while stack:
+        arg = stack.pop()
+        if z3.is_app(arg) and arg.decl().kind() == kind:
+            stack.extend(reversed(arg.children()))
+        else:
+            flat.append(arg)
+    if (len(flat) == t.num_args()
+            and all(a.eq(b) for a, b in zip(flat, t.children()))):
+        return "and_flatten" if kind == z3.Z3_OP_AND else "or_flatten"
+    return None
 
 
 def classify_rewrite(s: z3.ExprRef, t: z3.ExprRef):
@@ -261,6 +292,165 @@ def _neg_in_t(d: z3.ExprRef, p: z3.ExprRef) -> bool:
     if _is_app_of(p, z3.Z3_OP_NOT) and p.num_args() == 1 and d.eq(p.arg(0)):
         return True
     return False
+
+
+def classify_full_rewrite(s: z3.ExprRef, t: z3.ExprRef):
+    if s.eq(t):
+        return "reflexivity"
+    if z3.is_eq(s) and s.arg(0).eq(s.arg(1)) and z3.is_true(t):
+        return "eq_reflexive"
+    return (_boolean_flatten(s, t)
+            or ("boolean_equiv" if _bounded_boolean_equiv(s, t) else None)
+            or classify_rewrite(s, t))
+
+
+def _bounded_boolean_equiv(s, t, depth=8, width=10):
+    """Diagnostic mirror of verified structural and bounded Boolean checking."""
+    if not (z3.is_bool(s) and z3.is_bool(t)):
+        return False
+    connectives = {z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT,
+                   z3.Z3_OP_IMPLIES, z3.Z3_OP_EQ}
+    constants = {z3.Z3_OP_TRUE, z3.Z3_OP_FALSE}
+
+    def kind(e):
+        if not z3.is_app(e):
+            return None
+        k = e.decl().kind()
+        if k in constants or (k in connectives
+                              and all(z3.is_bool(a) for a in e.children())):
+            return k
+        return None
+
+    def nodes(e, remaining):
+        k = kind(e)
+        if k in constants:
+            return set()
+        result = {e.get_id()}
+        if remaining and k is not None:
+            for a in e.children():
+                result.update(nodes(a, remaining - 1))
+        return result
+
+    boundaries = nodes(s, depth) & nodes(t, depth)
+    atoms = {}
+
+    def cut(e, remaining, shared):
+        k = kind(e)
+        if z3.is_eq(e) and e.arg(0).eq(e.arg(1)):
+            return z3.Z3_OP_TRUE, []
+        if e.get_id() in shared or k is None or (not remaining and k not in constants):
+            return ("atom", atoms.setdefault(e.get_id(), len(atoms)))
+        return (k, [cut(a, remaining - 1, shared) for a in e.children()])
+
+    def normalize(e, negative=False):
+        k, args = e
+        if k == "atom":
+            return (z3.Z3_OP_NOT, [e]) if negative else e
+        if k in constants:
+            return ((z3.Z3_OP_FALSE if k == z3.Z3_OP_TRUE else z3.Z3_OP_TRUE)
+                    if negative else k, [])
+        if k == z3.Z3_OP_NOT:
+            return normalize(args[0], not negative)
+        if k == z3.Z3_OP_EQ:
+            result = (k, [normalize(a) for a in args])
+            return (z3.Z3_OP_NOT, [result]) if negative else result
+        if k == z3.Z3_OP_IMPLIES:
+            op = z3.Z3_OP_AND if negative else z3.Z3_OP_OR
+            children = [normalize(args[0], not negative), normalize(args[1], negative)]
+        else:
+            op = ({z3.Z3_OP_AND: z3.Z3_OP_OR, z3.Z3_OP_OR: z3.Z3_OP_AND}[k]
+                  if negative else k)
+            children = [normalize(a, negative) for a in args]
+        joined = []
+        for child in children:
+            joined.extend(child[1] if child[0] == op else [child])
+        unit = (z3.Z3_OP_TRUE if op == z3.Z3_OP_AND else z3.Z3_OP_FALSE, [])
+        zero = (z3.Z3_OP_FALSE if op == z3.Z3_OP_AND else z3.Z3_OP_TRUE, [])
+        other = z3.Z3_OP_OR if op == z3.Z3_OP_AND else z3.Z3_OP_AND
+
+        def absorbed(x, ys):
+            return x[0] == other and any(a in ys for a in x[1])
+
+        def complementary(x, y):
+            if x[0] == z3.Z3_OP_NOT:
+                return x[1][0] == y
+            return y[0] == z3.Z3_OP_NOT and x == y[1][0]
+
+        reduced = []
+        for x in reversed(joined):
+            if x == unit:
+                continue
+            if x == zero or reduced == [zero] or any(complementary(x, y) for y in reduced):
+                reduced = [zero]
+            elif x not in reduced and not absorbed(x, reduced):
+                reduced = [x] + [y for y in reduced if not absorbed(y, [x])]
+        return unit if not reduced else reduced[0] if len(reduced) == 1 else (op, reduced)
+
+    def shape_equal(a, b, fuel=32):
+        if a == b:
+            return True
+        if not fuel or a[0] != b[0]:
+            return False
+        k, xs = a
+        ys = b[1]
+        if k == z3.Z3_OP_NOT:
+            return shape_equal(xs[0], ys[0], fuel - 1)
+        if k == z3.Z3_OP_EQ:
+            return ((shape_equal(xs[0], ys[0], fuel - 1)
+                     and shape_equal(xs[1], ys[1], fuel - 1))
+                    or (shape_equal(xs[0], ys[1], fuel - 1)
+                        and shape_equal(xs[1], ys[0], fuel - 1)))
+        if k in (z3.Z3_OP_AND, z3.Z3_OP_OR) and fuel >= 2:
+            return (all(any(shape_equal(x, y, fuel - 2) for y in ys) for x in xs)
+                    and all(any(shape_equal(y, x, fuel - 2) for x in xs) for y in ys))
+        return False
+
+    def height(e):
+        return (1 + max((height(a) for a in e.children()), default=0)
+                if kind(e) is not None else 0)
+
+    if shape_equal(normalize(cut(s, height(s), set())),
+                   normalize(cut(t, height(t), set()))):
+        return True
+    atoms.clear()
+    cs, ct = cut(s, depth, boundaries), cut(t, depth, boundaries)
+    if shape_equal(normalize(cs), normalize(ct)):
+        return True
+    if len(atoms) > width:
+        return False
+    rows = 1 << len(atoms)
+    mask = (1 << rows) - 1
+    values = [sum(1 << row for row in range(rows) if row & (1 << a))
+              for a in range(len(atoms))]
+
+    def evaluate(e):
+        k, args = e
+        if k == "atom":
+            return values[args]
+        vs = [evaluate(a) for a in args]
+        if k == z3.Z3_OP_TRUE:
+            return mask
+        if k == z3.Z3_OP_FALSE:
+            return 0
+        if k == z3.Z3_OP_AND:
+            result = mask
+            for v in vs:
+                result &= v
+            return result
+        if k == z3.Z3_OP_OR:
+            result = 0
+            for v in vs:
+                result |= v
+            return result
+        if k == z3.Z3_OP_NOT:
+            return mask ^ vs[0]
+        if k == z3.Z3_OP_IMPLIES:
+            return (mask ^ vs[0]) | vs[1]
+        if k == z3.Z3_OP_EQ:
+            return mask ^ vs[0] ^ vs[1]
+        raise AssertionError("Unexpected Boolean skeleton operator")
+
+    return evaluate(cs) == evaluate(ct)
 
 
 def _flatten_store(e: z3.ExprRef):
@@ -660,6 +850,7 @@ class ResolutionConverter(Converter):
         "asserted", "hypothesis", "lemma", "mp", "mp~", "unit-resolution",
         "and-elim", "not-or-elim", "iff-true", "iff-false", "iff~",
         "refl", "reflexivity", "symm", "trans", "trans*", "monotonicity", "rewrite",
+        "def-axiom", "commutativity",
     }
 
     def __init__(self):
@@ -678,6 +869,9 @@ class ResolutionConverter(Converter):
             z3.Z3_OP_OR: "op_or",
             z3.Z3_OP_OEQ: "op_oeq",
         }
+        if (arity == 2 and d.range().kind() == z3.Z3_INT_SORT
+                and all(d.domain(i).kind() == z3.Z3_INT_SORT for i in range(arity))):
+            tags.update({z3.Z3_OP_ADD: "op_plus", z3.Z3_OP_MUL: "op_mul"})
         if d.kind() in tags:
             self.decl_json[self._idx(ident)]["interp"] = tags[d.kind()]
         return ident
@@ -707,6 +901,8 @@ class ResolutionConverter(Converter):
                                  % node.decl().name())
             rule = str(node.decl().name())
             kind = rule if rule in self.SUPPORTED_RULES else "trusted"
+            if rule == "commutativity" and not supported_commutativity(conclusion):
+                kind = "trusted"
             entry = {
                 "kind": kind,
                 "conclusion": self._idx(self.expr(conclusion)),
@@ -719,7 +915,7 @@ class ResolutionConverter(Converter):
             elif kind == "rewrite":
                 self.rewrite_log.append((
                     conclusion.arg(0), conclusion.arg(1),
-                    classify_rewrite(conclusion.arg(0), conclusion.arg(1)),
+                    classify_full_rewrite(conclusion.arg(0), conclusion.arg(1)),
                 ))
             ident = fstar_ident("rp_", len(self.proof_json))
             self.proof_cache[key] = ident
@@ -727,7 +923,21 @@ class ResolutionConverter(Converter):
         return self.proof_cache[root.get_id()]
 
 
-def build_resolution_doc(conv: ResolutionConverter, root_ident: str, assertions) -> dict:
+def supported_commutativity(conclusion: z3.ExprRef) -> bool:
+    if not z3.is_eq(conclusion):
+        return False
+    a, b = conclusion.children()
+    if not (z3.is_app(a) and z3.is_app(b)
+            and a.num_args() == b.num_args() == 2 and a.decl().eq(b.decl())
+            and a.arg(0).eq(b.arg(1)) and a.arg(1).eq(b.arg(0))):
+        return False
+    kind = a.decl().kind()
+    return (kind in (z3.Z3_OP_EQ, z3.Z3_OP_AND, z3.Z3_OP_OR)
+            or (kind in (z3.Z3_OP_ADD, z3.Z3_OP_MUL) and z3.is_int(a)))
+
+
+def build_resolution_doc(conv: ResolutionConverter, root_ident: str, assertions,
+                         check_original_assertions=False) -> dict:
     assertion_ids = [conv._idx(conv.expr(a)) for a in assertions]
     return {
         "format": "resolution-v1",
@@ -737,6 +947,7 @@ def build_resolution_doc(conv: ResolutionConverter, root_ident: str, assertions)
         "proofs": conv.proof_json,
         "root": conv._idx(root_ident),
         "assertions": assertion_ids,
+        "check_original_assertions": check_original_assertions,
     }
 
 
@@ -1022,6 +1233,10 @@ def main():
                      help="export/check the complete ground refutation, including "
                           "resolution, mp, hypothesis discharge and congruence; "
                           "report unverified leaves as explicit obligations")
+    ap.add_argument("--check-original-assertions", action="store_true",
+                     help="with --full-proof, require entire def-axiom conclusions "
+                          "to match original assertions instead of trusting them; "
+                          "ordinary asserted leaves always require membership")
     ap.add_argument("--timeout", type=float, default=10,
                      help="solver timeout in seconds for --full-proof (default: 10)")
     ap.add_argument("--emit-json-fst", action="store_true",
@@ -1034,6 +1249,8 @@ def main():
                           "given (default: <out without .fst>Json.fst)")
     args = ap.parse_args()
 
+    if args.check_original_assertions and not args.full_proof:
+        ap.error("--check-original-assertions requires --full-proof")
     if args.full_proof:
         if args.timeout <= 0:
             ap.error("--timeout must be positive")
@@ -1071,8 +1288,13 @@ def main():
     conv = ResolutionConverter() if args.full_proof else Converter()
     root_ident = conv.proof(root)
 
-    matched = [(s, t, name) for (s, t, name) in conv.rewrite_log if name is not None]
-    unmatched = [(s, t) for (s, t, name) in conv.rewrite_log if name is None]
+    def supported_rewrite(name):
+        return name in FULL_PROOF_REWRITES if args.full_proof else name is not None
+
+    matched = [(s, t, name) for (s, t, name) in conv.rewrite_log if supported_rewrite(name)]
+    unmatched = [(s, t) for (s, t, name) in conv.rewrite_log if not supported_rewrite(name)]
+    rewrite_obligations = sum(name not in FULL_PROOF_REWRITES
+                              for _, _, name in conv.rewrite_log)
     print("Rewrite leaves: %d total, %d matched a verified lemma, %d unmatched"
           % (len(conv.rewrite_log), len(matched), len(unmatched)))
 
@@ -1080,10 +1302,17 @@ def main():
     with open(log_path, "w", encoding="utf-8") as f:
         f.write("Rewrite-rule matching log for %s\n" % desc)
         f.write("Total Rewrite leaves examined: %d\n" % len(conv.rewrite_log))
-        f.write("Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): %d\n"
+        f.write(("Matched a verified full-proof rule (diagnostic mirror): %d\n"
+                 if args.full_proof else
+                 "Matched a verified lemma (trusted via Z3PatternMatchedProofChecker.fst): %d\n")
                 % len(matched))
         f.write("Unmatched (not verified by any known rewrite-rule lemma): %d\n\n"
                 % len(unmatched))
+        if args.full_proof:
+            f.write("Full-proof checking discharges identity, Boolean flattening, equality "
+                    "reflexivity, Boolean normalization and bounded Boolean equivalence; "
+                    "other Python matcher classifications are diagnostic.\n"
+                    "Pending rewrite obligations: %d\n\n" % rewrite_obligations)
         if matched:
             f.write("-- Matched leaves --\n")
             for s, t, name in matched:
@@ -1105,12 +1334,16 @@ def main():
                 f.write("  [%s] %s\n" % (rule, conclusion.sexpr()))
     print("Wrote matching log to", log_path)
 
-    doc = (build_resolution_doc(conv, root_ident, solver.assertions())
+    doc = (build_resolution_doc(conv, root_ident, solver.assertions(),
+                               args.check_original_assertions)
            if args.full_proof else build_proof_doc(conv, root_ident, len(unmatched)))
     if args.full_proof:
+        print("Def-axiom policy: %s"
+              % ("exact original-assertion membership" if args.check_original_assertions
+                 else "trusted leaves (ACCEPT is relative to this trust policy)"))
         print("Full-DAG rule obligations: %d; rewrite obligations: %d "
-              "(all rewrites remain explicit obligations in full-proof mode)"
-              % (len(conv.trusted_log), len(conv.rewrite_log)))
+              "(verified structural rules and bounded Boolean equivalence)"
+              % (len(conv.trusted_log), rewrite_obligations))
     json_out = args.json_out or (args.out + ".json")
     with open(json_out, "w", encoding="utf-8") as f:
         json_mod.dump(doc, f, separators=(",", ":"))

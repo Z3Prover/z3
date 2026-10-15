@@ -68,6 +68,8 @@ try {
     "Z3PatternMatchedProofChecker.fst", "Z3PulseProofChecker.fst",
     "Z3ProofJson.fst", "Z3PulseProofCheckerJson.fst",
     "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
+    "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
+    "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
     "Z3UnifiedProof.fst", "Z3ResolutionProofJson.fst"
   )
 
@@ -100,7 +102,8 @@ try {
     "Z3BvInterp.ml", "Z3SeqInterp.ml", "Z3ArrayInterp.ml", "Z3InterpretedProofChecker.ml",
     "Z3PatternMatchedProofChecker.ml", "Z3PulseProofChecker.ml", "Z3ProofJson.ml",
     "Z3PulseProofCheckerJson.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
-    "Z3UnifiedProof.ml",
+    "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
+    "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3UnifiedProof.ml",
     "Z3ResolutionProofJson.ml", "main.ml"
   )
   $orderStr = $order -join " "

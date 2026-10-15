@@ -1,11 +1,10 @@
 (*
    Z3PulseProofCheckerJson.fst
 
-   The Pulse (imperative, separation-logic-verified) entry point that
-   ties `Z3ProofJson.fst`'s pure JSON parser/decoder to the
-   already-audited checking pipeline (`Z3PulseProofChecker.fst`'s
-   `checker_accepts`/`check_proof`, `Z3PatternMatchedProofChecker.fst`'s
-   `collect_unmatched`/matcher library). This is the one module every
+   The Pulse entry point for `Z3ProofJson.fst`'s verified, bottom-up
+   JSON checker and the existing semantic soundness lemmas
+   (`Z3PatternMatchedProofChecker.fst`'s `collect_unmatched`/matcher
+   library). This is the one module every
    per-proof "instance" file (see `tools/extract_z3_proof.py`'s
    `--json` mode) actually calls; it, together with every module it
    depends on, is compiled and `.checked`-cached *once* -- a new proof
@@ -15,8 +14,9 @@
 
    `run_proof_json`/`check_proof_json` are the imperative (Pulse)
    counterpart of `Z3ProofJson.fst`'s pure `check_proof_json_wf`; they
-   additionally run the *real* Pulse-verified traversal
-   (`Z3PulseProofChecker.check_proof`) over the decoded proof, so that
+   consume a cached result proved equal to `fact` of the decoded proof,
+   rather than revisiting shared subproofs with a recursive traversal.
+   Thus
    (combined with `lemma_proof_json_sound`/`lemma_proof_json_cross_
    checked` below) a caller gets the same end-to-end guarantee the old
    per-proof `.fst`-generation path gave (`lemma_extracted_proof_
@@ -86,10 +86,9 @@ let proof_json_unmatched_count_matches (s:string) : bool =
 (* 2. The Pulse entry point                                             *)
 (* ----------------------------------------------------------------- *)
 
-(* Parses `s`, and if it decodes to a well-formed proof document, runs
-   the genuinely imperative Pulse checker (`check_proof`, with its own
-   node-visit-counter bookkeeping, exactly as every other caller of
-   `Z3PulseProofChecker.fst` does) over the decoded root proof.
+(* Parses and checks `s` bottom-up, once per proof-array entry. Cached
+   successes and failures have the refinement `result == fact term`;
+   using a shared premise never traverses that premise again.
    Returns `None` if `s` does not even parse/decode to a well-formed
    proof, `Some (Some? (fact p))` otherwise -- i.e. "did this string
    describe a proof at all" is distinguished from "was that proof
@@ -101,11 +100,10 @@ fn run_proof_json (s:string)
                        | Some (p, _) -> Some (Some? (fact p))
                        | None -> None))
 {
-  match parse_proof_doc s {
+  match parse_checked_proof_doc s {
     Some pr -> {
       let p = fst pr;
-      let mut ctr = 0;
-      let o = check_proof p ctr;
+      let o = p.result;
       match o {
         Some _ -> { Some true }
         None -> { Some false }

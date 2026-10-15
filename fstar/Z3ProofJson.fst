@@ -128,6 +128,7 @@ noeq
 type json =
   | JNull : json
   | JInt  : int -> json
+  | JBool : bool -> json
   | JStr  : string -> json
   | JArr  : list json -> json
   | JObj  : list (string & json) -> json
@@ -192,6 +193,8 @@ let rec parse_value (fuel:nat) (cs:list FStar.Char.char) : Tot (option (json & l
      | Some (kvs, rest) -> Some (JObj kvs, rest)
      | None -> None)
   | 'n' :: 'u' :: 'l' :: 'l' :: cs' -> Some (JNull, cs')
+  | 't' :: 'r' :: 'u' :: 'e' :: cs' -> Some (JBool true, cs')
+  | 'f' :: 'a' :: 'l' :: 's' :: 'e' :: cs' -> Some (JBool false, cs')
   | cs' -> parse_number cs'
 
 and take_string (fuel:nat) (cs:list FStar.Char.char) (acc:list FStar.Char.char) : Tot (option (string & list FStar.Char.char)) (decreases fuel) =
@@ -277,6 +280,49 @@ let rec nth_opt (#a:Type) (l:list a) (i:int) : Tot (option a) (decreases l) =
   | [] -> None
   | x :: xs -> if i = 0 then Some x else if i < 0 then None else nth_opt xs (i - 1)
 
+(* Persistent numeric caches keep proof identity explicit and permit
+   logarithmic reference lookup without hashing recursive proof terms. *)
+noeq
+type index_tree (a:Type) =
+  | Empty : index_tree a
+  | Branch : option a -> index_tree a -> index_tree a -> index_tree a
+
+let rec index_get (#a:Type) (tree:index_tree a) (key:nat)
+  : Tot (option a) (decreases key) =
+  match tree with
+  | Empty -> None
+  | Branch value left right ->
+    if key = 0 then value
+    else if key % 2 = 1 then index_get left ((key - 1) / 2)
+    else index_get right ((key - 1) / 2)
+
+let rec index_put (#a:Type) (tree:index_tree a) (key:nat) (value:a)
+  : Tot (index_tree a) (decreases key) =
+  let old, left, right =
+    match tree with
+    | Empty -> None, Empty, Empty
+    | Branch old left right -> old, left, right
+  in
+  if key = 0 then Branch (Some value) left right
+  else if key % 2 = 1 then Branch old (index_put left ((key - 1) / 2) value) right
+  else Branch old left (index_put right ((key - 1) / 2) value)
+
+let index_find (#a:Type) (tree:index_tree a) (key:int) : option a =
+  if key < 0 then None else index_get tree key
+
+let rec lemma_index_put (#a:Type) (tree:index_tree a) (key:nat) (value:a) (query:nat)
+  : Lemma (index_get (index_put tree key value) query ==
+           (if query = key then Some value else index_get tree query))
+          (decreases key) =
+  if key = 0 || query = 0 then ()
+  else
+    let left, right =
+      match tree with Empty -> Empty, Empty | Branch _ left right -> left, right
+    in
+    if key % 2 = query % 2 then
+      lemma_index_put (if key % 2 = 1 then left else right)
+        ((key - 1) / 2) value ((query - 1) / 2)
+
 let rec json_field (fields:list (string & json)) (name:string) : Tot (option json) (decreases fields) =
   match fields with
   | [] -> None
@@ -310,6 +356,7 @@ let rec decode_sorts (acc:list sort) (js:list json) : Tot (option (list sort)) (
 let decl_kind_of_tag (tag:string) : option decl_kind =
   if tag = "op_not" then Some op_not
   else if tag = "op_plus" then Some op_plus
+  else if tag = "op_mul" then Some op_mul
   else if tag = "op_select" then Some op_select
   else if tag = "op_store" then Some op_store
   else if tag = "op_bvand" then Some op_bvand
@@ -359,7 +406,8 @@ let quantifier_kind_of_tag (s:string) : option quantifier_kind =
   else if s = "lambda" then Some Lambda_k
   else None
 
-let decode_expr_one (sorts:list sort) (decls:list func_decl) (prev:list expr) (j:json) : option expr =
+let decode_expr_with (sorts:list sort) (decls:list func_decl)
+                     (previous:int -> option expr) (j:json) : option expr =
   json_obj j >>= (fun fields ->
   json_field fields "kind" >>= json_str >>= (fun kind ->
   if kind = "var" then
@@ -368,15 +416,18 @@ let decode_expr_one (sorts:list sort) (decls:list func_decl) (prev:list expr) (j
     if idx >= 0 then Some (Var idx s) else None))
   else if kind = "app" then
     json_field fields "decl" >>= json_int >>= nth_opt decls >>= (fun d ->
-    json_field fields "args" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt prev) >>= (fun args ->
+    json_field fields "args" >>= json_arr >>= opt_map json_int >>= opt_map previous >>= (fun args ->
     Some (App d args)))
   else if kind = "quant" then
     json_field fields "qk" >>= json_str >>= quantifier_kind_of_tag >>= (fun qk ->
     json_field fields "bound_sorts" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt sorts) >>= (fun bs ->
     json_field fields "qsort" >>= json_int >>= nth_opt sorts >>= (fun qs ->
-    json_field fields "body" >>= json_int >>= nth_opt prev >>= (fun body ->
+    json_field fields "body" >>= json_int >>= previous >>= (fun body ->
     Some (Quantifier qk bs qs body)))))
   else None))
+
+let decode_expr_one (sorts:list sort) (decls:list func_decl) (prev:list expr) (j:json) : option expr =
+  decode_expr_with sorts decls (nth_opt prev) j
 
 let rec decode_exprs (sorts:list sort) (decls:list func_decl) (acc:list expr) (js:list json)
   : Tot (option (list expr)) (decreases js) =
@@ -384,40 +435,130 @@ let rec decode_exprs (sorts:list sort) (decls:list func_decl) (acc:list expr) (j
   | [] -> Some acc
   | j :: js' -> decode_expr_one sorts decls acc j >>= (fun e -> decode_exprs sorts decls (acc @ [e]) js')
 
-let decode_proof_one (sorts:list sort) (decls:list func_decl) (exprs:list expr) (prev:list proof) (j:json)
-  : option proof =
+let rec decode_indexed_exprs (sorts:list sort) (decls:list func_decl)
+                            (acc:index_tree expr) (next:nat) (rev:list expr) (js:list json)
+  : Tot (option (index_tree expr & list expr)) (decreases js) =
+  match js with
+  | [] -> Some (acc, rev)
+  | j :: rest ->
+    decode_expr_with sorts decls (index_find acc) j >>= (fun e ->
+    decode_indexed_exprs sorts decls (index_put acc next e) (next + 1) (e :: rev) rest)
+
+noeq
+type proof_builders (a:Type) = {
+  refl: expr -> a;
+  sym: a -> a;
+  trans: a -> a -> a;
+  congr: func_decl -> list expr -> list expr -> list a -> a;
+  rewrite: expr -> expr -> a;
+  quant_intro: quantifier_kind -> list sort -> a -> a;
+}
+
+let decode_proof_with (#a:Type) (build:proof_builders a)
+                      (sorts:list sort) (decls:list func_decl)
+                      (expressions:int -> option expr) (previous:int -> option a) (j:json)
+  : option a =
   json_obj j >>= (fun fields ->
   json_field fields "kind" >>= json_str >>= (fun kind ->
   if kind = "refl" then
-    json_field fields "e" >>= json_int >>= nth_opt exprs >>= (fun e -> Some (Refl e))
+    json_field fields "e" >>= json_int >>= expressions >>= (fun e -> Some (build.refl e))
   else if kind = "sym" then
-    json_field fields "p" >>= json_int >>= nth_opt prev >>= (fun p -> Some (Sym p))
+    json_field fields "p" >>= json_int >>= previous >>= (fun p -> Some (build.sym p))
   else if kind = "trans" then
-    json_field fields "p1" >>= json_int >>= nth_opt prev >>= (fun p1 ->
-    json_field fields "p2" >>= json_int >>= nth_opt prev >>= (fun p2 ->
-    Some (Trans p1 p2)))
+    json_field fields "p1" >>= json_int >>= previous >>= (fun p1 ->
+    json_field fields "p2" >>= json_int >>= previous >>= (fun p2 ->
+    Some (build.trans p1 p2)))
   else if kind = "congr" then
     json_field fields "decl" >>= json_int >>= nth_opt decls >>= (fun f ->
-    json_field fields "args1" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt exprs) >>= (fun args1 ->
-    json_field fields "args2" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt exprs) >>= (fun args2 ->
-    json_field fields "prfs" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt prev) >>= (fun prfs ->
-    Some (Congr f args1 args2 prfs)))))
+    json_field fields "args1" >>= json_arr >>= opt_map json_int >>= opt_map expressions >>= (fun args1 ->
+    json_field fields "args2" >>= json_arr >>= opt_map json_int >>= opt_map expressions >>= (fun args2 ->
+    json_field fields "prfs" >>= json_arr >>= opt_map json_int >>= opt_map previous >>= (fun prfs ->
+    Some (build.congr f args1 args2 prfs)))))
   else if kind = "rewrite" then
-    json_field fields "s" >>= json_int >>= nth_opt exprs >>= (fun s ->
-    json_field fields "t" >>= json_int >>= nth_opt exprs >>= (fun t ->
-    Some (Rewrite s t)))
+    json_field fields "s" >>= json_int >>= expressions >>= (fun s ->
+    json_field fields "t" >>= json_int >>= expressions >>= (fun t ->
+    Some (build.rewrite s t)))
   else if kind = "quant_intro" then
     json_field fields "qk" >>= json_str >>= quantifier_kind_of_tag >>= (fun qk ->
     json_field fields "bound_sorts" >>= json_arr >>= opt_map json_int >>= opt_map (nth_opt sorts) >>= (fun bs ->
-    json_field fields "p" >>= json_int >>= nth_opt prev >>= (fun p ->
-    Some (QuantIntro qk bs p))))
+    json_field fields "p" >>= json_int >>= previous >>= (fun p ->
+    Some (build.quant_intro qk bs p))))
   else None))
+
+let tree_builders : proof_builders proof =
+  { refl = Refl; sym = Sym; trans = Trans; congr = Congr;
+    rewrite = Rewrite; quant_intro = QuantIntro }
+
+let decode_proof_one (sorts:list sort) (decls:list func_decl) (exprs:list expr) (prev:list proof) (j:json)
+  : option proof =
+  decode_proof_with tree_builders sorts decls (nth_opt exprs) (nth_opt prev) j
 
 let rec decode_proofs (sorts:list sort) (decls:list func_decl) (exprs:list expr) (acc:list proof) (js:list json)
   : Tot (option (list proof)) (decreases js) =
   match js with
   | [] -> Some acc
   | j :: js' -> decode_proof_one sorts decls exprs acc j >>= (fun p -> decode_proofs sorts decls exprs (acc @ [p]) js')
+
+(* The refinement is erased: no recursive call to fact is extracted. *)
+type cached_proof = {
+  term: proof;
+  result: r:option (expr & expr){r == fact term};
+}
+
+let cached_refl (e:expr) : cached_proof =
+  { term = Refl e; result = Some (e, e) }
+
+let cached_sym (p:cached_proof) : cached_proof =
+  { term = Sym p.term;
+    result = (match p.result with Some (a, b) -> Some (b, a) | None -> None) }
+
+let cached_trans (p q:cached_proof) : cached_proof =
+  { term = Trans p.term q.term;
+    result = (match p.result, q.result with
+              | Some (a, b), Some (c, d) -> if b = c then Some (a, d) else None
+              | _, _ -> None) }
+
+let rec cached_terms (ps:list cached_proof) : Tot (list proof) (decreases ps) =
+  match ps with [] -> [] | p :: rest -> p.term :: cached_terms rest
+
+let rec cached_results (ps:list cached_proof)
+  : Tot (list (option (expr & expr))) (decreases ps) =
+  match ps with [] -> [] | p :: rest -> p.result :: cached_results rest
+
+let rec lemma_cached_results (ps:list cached_proof)
+  : Lemma (cached_results ps == facts_of (cached_terms ps)) (decreases ps) =
+  match ps with [] -> () | _ :: rest -> lemma_cached_results rest
+
+let cached_congr (f:func_decl) (xs ys:list expr) (ps:list cached_proof) : cached_proof =
+  lemma_cached_results ps;
+  { term = Congr f xs ys (cached_terms ps);
+    result = (if FStar.List.Tot.length xs = FStar.List.Tot.length ys &&
+                 congr_matched xs ys (cached_results ps)
+              then Some (App f xs, App f ys) else None) }
+
+let cached_rewrite (s t:expr) : cached_proof =
+  { term = Rewrite s t; result = Some (s, t) }
+
+let cached_quant_intro (qk:quantifier_kind) (bs:list sort) (p:cached_proof) : cached_proof =
+  { term = QuantIntro qk bs p.term;
+    result = (match p.result with
+              | Some (a, b) ->
+                Some (Quantifier qk bs (quant_sort qk bs (get_sort a)) a,
+                      Quantifier qk bs (quant_sort qk bs (get_sort b)) b)
+              | None -> None) }
+
+let cached_builders : proof_builders cached_proof =
+  { refl = cached_refl; sym = cached_sym; trans = cached_trans; congr = cached_congr;
+    rewrite = cached_rewrite; quant_intro = cached_quant_intro }
+
+let rec decode_checked_proofs (sorts:list sort) (decls:list func_decl) (exprs:index_tree expr)
+                              (acc:index_tree cached_proof) (next:nat) (js:list json)
+  : Tot (option (index_tree cached_proof)) (decreases js) =
+  match js with
+  | [] -> Some acc
+  | j :: rest ->
+    decode_proof_with cached_builders sorts decls (index_find exprs) (index_find acc) j >>= (fun p ->
+    decode_checked_proofs sorts decls exprs (index_put acc next p) (next + 1) rest)
 
 (* ----------------------------------------------------------------- *)
 (* 5. Top-level document decode                                       *)
@@ -432,20 +573,26 @@ let rec decode_proofs (sorts:list sort) (decls:list func_decl) (exprs:list expr)
    `Z3PatternMatchedProofChecker.fst`'s `collect_unmatched`, exactly
    as the old `.fst`-generation path's `lemma_unmatched_count_cross_
    checked` did). *)
-let decode_doc (j:json) : option (proof & int) =
+let decode_checked_doc (j:json) : option (cached_proof & int) =
   json_obj j >>= (fun fields ->
   json_field fields "sorts" >>= json_arr >>= decode_sorts [] >>= (fun sorts ->
   json_field fields "decls" >>= json_arr >>= decode_decls sorts [] >>= (fun decls ->
-  json_field fields "exprs" >>= json_arr >>= decode_exprs sorts decls [] >>= (fun exprs ->
-  json_field fields "proofs" >>= json_arr >>= decode_proofs sorts decls exprs [] >>= (fun proofs ->
-  json_field fields "root" >>= json_int >>= nth_opt proofs >>= (fun root ->
+  json_field fields "exprs" >>= json_arr >>= decode_indexed_exprs sorts decls Empty 0 [] >>= (fun exprs ->
+  json_field fields "proofs" >>= json_arr >>= decode_checked_proofs sorts decls (fst exprs) Empty 0 >>= (fun proofs ->
+  json_field fields "root" >>= json_int >>= index_find proofs >>= (fun root ->
   json_field fields "unmatched_count" >>= json_int >>= (fun n ->
   Some (root, n))))))))
 
-let parse_proof_doc (s:string) : option (proof & int) =
+let decode_doc (j:json) : option (proof & int) =
+  decode_checked_doc j >>= (fun (root, n) -> Some (root.term, n))
+
+let parse_checked_proof_doc (s:string) : option (cached_proof & int) =
   match parse_json s with
-  | Some j -> decode_doc j
+  | Some j -> decode_checked_doc j
   | None -> None
+
+let parse_proof_doc (s:string) : option (proof & int) =
+  parse_checked_proof_doc s >>= (fun (root, n) -> Some (root.term, n))
 
 (* ----------------------------------------------------------------- *)
 (* 6. Pure, self-contained top-level entry points                     *)
@@ -459,6 +606,6 @@ let parse_proof_doc (s:string) : option (proof & int) =
    end-to-end soundness-composed entry point that also discharges
    that via `Z3PatternMatchedProofChecker.fst`'s matcher library. *)
 let check_proof_json_wf (s:string) : bool =
-  match parse_proof_doc s with
-  | Some (p, _) -> Some? (fact p)
+  match parse_checked_proof_doc s with
+  | Some (p, _) -> Some? p.result
   | None -> false

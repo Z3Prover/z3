@@ -118,3 +118,5 @@ let op_implies : decl_kind = 15
 
 (* Proof-only observational equivalence, not an executable Boolean op. *)
 let op_oeq : decl_kind = 16
+
+let op_mul : decl_kind = 17

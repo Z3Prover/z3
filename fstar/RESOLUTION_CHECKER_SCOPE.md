@@ -60,6 +60,13 @@ baseline, since the obligation remains visible for a future pass to
 discharge via a theory-specific soundness lemma, exactly the way
 `Rewrite` leaves already are for the equational layer.
 
+The executable's `def-axiom` policy now trusts premise-free Boolean leaves
+without counting them as pending obligations. The optional
+`--check-original-assertions` mode instead requires exact membership of
+each whole conclusion in the supplied original assertions. This differs
+from independently validating Tseitin transformations; the default
+soundness theorem explicitly assumes trusted definitions hold.
+
 `PR_TRANSITIVITY_STAR`'s cycle-basis argument (XOR-insert over vertex
 ids, see `check1_basic`) is deferred past this first round: it needs
 an auxiliary graph argument, not just structural induction; noted here
@@ -135,9 +142,34 @@ equality. The ground semantic theorem covers observation-preserving
 steps; general naming/Skolemization witnesses are not silently assumed.
 `RUnitRes` accepts scalar and
 empty-clause representations as well as reordered/weakened consequences
-that retain every surviving literal. Unsupported rules and rewrites
-remain explicit obligations (`PARTIAL`, exit 3); they are not certified
-by rule-name classification. See `OCAML_CHECKER_REPORT.md` for usage.
+that retain every surviving literal. The total identity rewrite rule
+discharges syntactically identical endpoints. Verified n-ary Boolean
+`and`/`or` flattening splices nested occurrences of the same connective
+without changing operand order or multiplicity. The additional verified
+Boolean normalizer proves n-ary De Morgan, implication elimination,
+double negation, contextual ACI, singleton collapse, constants,
+complements, and absorption. Reflexive equality reduces to `true` at
+any sort. A native-tag Boolean skeleton also connects the verified
+general-purpose truth-table checker to the kernel, with depth 8 and at
+most 10 opaque atoms (1,024 rows); structural normalization has no atom
+limit and uses fuel 32 for contextual set comparison. No equality of
+distinct non-Boolean theory atoms is assumed. Unsupported rules,
+non-equivalences, and checks exceeding the supported fragment/budgets
+remain explicit obligations (`PARTIAL`, exit 3); rule-name classification
+does not certify them. See `OCAML_CHECKER_REPORT.md` for usage, the
+58-proof QF_UF recheck, and the fresh 100-file-per-logic QF_UF/QF_AX
+evaluation with separate proving, export, and checking limits.
+Both native JSON formats cache per-node results by numeric proof ID and
+never recursively recheck shared premises. The legacy cache's result is
+F*-proved equal to `fact` of its stored proof, including failed results;
+the full-proof cache retains each fact's hypothesis scope. Expressions
+also use an indexed cache instead of linear prefix lookups. References
+must point backward, so cycles and incomplete-cache hits are rejected.
+`commutativity` is checked by `Z3Commutativity.fst` for binary equality,
+Boolean `and`/`or`, and `Int` addition/multiplication. The checker validates
+declarations, sorts, and exact swapped endpoints; its soundness follows
+from standard theory semantics, not an assumed commutativity property.
+Unsupported theories remain obligations in exported documents.
 The default extractor mode remains the legacy equational fragment.
 
 ## Status after round 1 (implementation complete, fully verified)
