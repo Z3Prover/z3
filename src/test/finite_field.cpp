@@ -648,6 +648,7 @@ static void test_ff_f4() {
     // 2^63 (general CIOS path) and BN254 / BLS12-381 (no-carry path).
     check_field_arithmetic<ff::field64>(rational(2147483647), 2000);
     check_field_arithmetic<ff::field64>(rational::power_of_two(61) - rational(1), 2000);
+    check_field_arithmetic<ff::field64>(rational::power_of_two(63) - rational(25), 2000);
     check_field_arithmetic<ff::field64>(rational(7), 200);
     check_field_arithmetic<ff::field256>(
         rational("21888242871839275222246405745257275088548364400416034343698204186575808495617"), 2000);
