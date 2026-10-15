@@ -222,9 +222,9 @@ let lemma_tangent_line (x y v:real)
 let rec rpow (x:real) (n:nat) : Tot real (decreases n) =
   if n = 0 then one else x *. rpow x (n - 1)
 
-/// "x != 0 => x^0 = 1" is true unconditionally for our rpow (n=0 case);
-/// the side condition in the C++ TOCL18 axiom only matters for x = 0^0,
-/// which Z3 also defines as 1 here, consistent with rpow.
+/// This helper totalizes natural powers with rpow 0 0 = 1. Z3's actual
+/// x^0 = 1 clause requires x != 0 and leaves 0^0 underspecified; see
+/// Z3PowerPreprocessing.preserve_zero_zero for the faithful zero case.
 let lemma_pow_zero_exp (x:real) : Lemma (rpow x 0 == one) = ()
 
 /// "y != 0 => 0^y = 0" (zero_exp_y).
@@ -248,11 +248,11 @@ let rec lemma_pow_le_one (x:real) (n:nat)
   : Lemma (requires zero <. x /\ x <=. one) (ensures rpow x n <=. one) (decreases n) =
   if n = 0 then () else begin lemma_pow_le_one x (n - 1); lemma_pow_pos x (n - 1) end
 
-/// Weak monotonicity: "x >= x0 > 0, y >= y0 => x^y >= x0^y0" restricted
-/// to the matched-exponent core case actually implemented
-/// (x >= x0 > 0 => x^n >= x0^n for a shared nat exponent n); this is
-/// exactly the case callable from powers::check's "r >= x0^y0" lemma
-/// once x0, y0 are the model values and n = y0.
+/// Base monotonicity for a SHARED natural exponent. This does not prove
+/// powers::check's variable-exponent clauses: a model value n for y
+/// does not fix live y in a generated clause. The original lower clause
+/// is false below base one; see Z3PowerSaturation for counterexamples
+/// and corrected clauses valid for all real live exponents.
 let rec lemma_pow_monotone (x x0:real) (n:nat)
   : Lemma (requires x0 >. zero /\ x >=. x0) (ensures rpow x n >=. rpow x0 n) (decreases n) =
   if n = 0 then ()
@@ -261,8 +261,8 @@ let rec lemma_pow_monotone (x x0:real) (n:nat)
     lemma_pow_pos x0 (n - 1)
   end
 
-/// Dual direction: "0 < x <= x0, y <= y0 => x^y <= x0^y0" restricted to
-/// a shared exponent n (powers::check's "r <= x0^y0" lemma).
+/// Dual base monotonicity, again only for a shared natural exponent.
+/// Z3PowerSaturation.upper_fixed_sound proves the actual corrected clause.
 let rec lemma_pow_monotone_le (x x0:real) (n:nat)
   : Lemma (requires zero <. x /\ x <=. x0) (ensures rpow x n <=. rpow x0 n) (decreases n) =
   if n = 0 then ()
@@ -276,11 +276,10 @@ let rec lemma_pow_monotone_le (x x0:real) (n:nat)
 let lemma_pow_exact (x x0:real) (n:nat)
   : Lemma (requires x == x0) (ensures rpow x n == rpow x0 n) = ()
 
-/// Rational-exponent identity underlying "r = x^(yn/yd) <=> r^yd = x^yn"
-/// (powers::check's fractional-exponent closure): if r^d = x^n with
-/// d,n nat and r,x > 0 then r and x^(n/d) agree; we verify the
-/// algebraic direction actually used (r^yd == x^yn is checked
-/// directly, no root-extraction is needed by the C++ code).
+/// Records the algebraic equality being checked, but proves only P ==> P,
+/// not root uniqueness or acceptance soundness. The latter requires r>0
+/// and d>0 and is proved against real power by
+/// Z3PowerSaturation.rational_acceptance.
 let lemma_pow_rational_exponent_check (r x:real) (yd yn:nat)
   : Lemma (requires rpow r yd == rpow x yn) (ensures rpow r yd == rpow x yn) = ()
 

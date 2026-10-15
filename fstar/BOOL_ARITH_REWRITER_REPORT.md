@@ -84,6 +84,13 @@ integer and real arithmetic.
 
 21 lemmas in total, all verified.
 
+The power lemmas in this first pass cover natural exponents only. The
+[#11180 follow-up](PR_11180_POWER_REPORT.md) extends the value-level audit to
+positive-base real exponents, negative exponents, fractional splitting,
+root folding/axioms, zero-totalization, and power reduction in comparisons
+with zero. It explicitly preserves underspecified `0^0` and states the
+remaining negative-base fractional/algebraic and implementation boundaries.
+
 ### `Z3ArithRewriterOrder.fst`
 
 | C++ source rule | F* lemmas |

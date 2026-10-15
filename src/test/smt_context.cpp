@@ -108,8 +108,37 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_real_power_bounds() {
+    for (unsigned seed = 0; seed < 8; ++seed) {
+        for (char const* input : {
+                "(declare-const y Real)\n"
+                "(assert (>= y 1))\n"
+                "(assert (< (^ (/ 1 2) y) (/ 1 2)))\n",
+                "(declare-const y Real)\n"
+                "(assert (> y 0))\n"
+                "(assert (<= y 1))\n"
+                "(assert (> (^ (/ 1 2) y) (/ 1 2)))\n"}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", true);
+            p.set_uint("random_seed", seed);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            slv->push();
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            // General real powers may return unknown, but must not refute these witnesses.
+            VERIFY(l_false != slv->check_sat(0, nullptr));
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_real_power_bounds();
     check_symbolic_regex_substring();
 
     smt_params params;

@@ -16,6 +16,15 @@ standalone lemma and has them **mechanically verified** by F*'s type
 checker (which in turn discharges the proof obligations to Z3's own
 theories of linear/non-linear real and integer arithmetic).
 
+**Power-scope correction (#11180):** the statements in the original power
+section use a shared natural exponent, not the live real exponent in the
+emitted C++ clauses. They therefore did not validate those clauses; both
+original bound clauses are unsound. The targeted
+[`PR_11180_POWER_REPORT.md`](PR_11180_POWER_REPORT.md) gives checked
+counterexamples, corrected variable-exponent clauses, and their proofs.
+The rational-exponent lemma here merely restates its premise; the new audit
+proves positive-root uniqueness and acceptance against actual real power.
+
 ## Method
 
 - F* `2026.09.27` (Windows x86_64 release) and its bundled Z3 `4.15.3`
@@ -44,7 +53,7 @@ theories of linear/non-linear real and integer arithmetic).
 | `nla_order_lemmas.cpp` | `a > b & c > 0 => ac > bc` and its variants (order lemmas on monic factorizations) | `lemma_order_strict_pos`, `lemma_order_strict_neg`, `lemma_order_nonstrict_pos`, `lemma_order_divide_common_factor`, `lemma_order_cancel_pos`, `lemma_order_cancel_neg`, `lemma_order_eq_cancel` |
 | `nla_monotone_lemmas.cpp` | Bounding `|m|` by the product of bounds on its factors | `lemma_monotone_upper_nonneg`, `lemma_monotone_upper_abs`, `lemma_monotone_lower_abs` |
 | `nla_tangent_lemmas.cpp` | McCormick tangent-plane relaxation of `z = xy` | `lemma_mccormick_lower`, `lemma_mccormick_lower2`, `lemma_mccormick_upper`, `lemma_mccormick_upper2`, `lemma_tangent_line` |
-| `nla_powers.cpp` | TOCL-2018-style exponentiation axioms for fixed/related bases and exponents | `lemma_pow_zero_exp`, `lemma_zero_pow`, `lemma_pow_pos`, `lemma_pow_gt_one`, `lemma_pow_le_one`, `lemma_pow_monotone`, `lemma_pow_monotone_le`, `lemma_pow_exact`, `lemma_pow_rational_exponent_check` |
+| `nla_powers.cpp` | Natural-exponent algebraic helpers only; not a validation of the original variable-exponent clauses (see the #11180 audit) | `lemma_pow_zero_exp`, `lemma_zero_pow`, `lemma_pow_pos`, `lemma_pow_gt_one`, `lemma_pow_le_one`, `lemma_pow_monotone`, `lemma_pow_monotone_le`, `lemma_pow_exact`, `lemma_pow_rational_exponent_check` |
 | `nla_divisions.cpp` | Monotonicity of real division; Euclidean floor-division bounds; modulo congruence/linear-divisibility closure | `lemma_div_monotone1/2/3`, `lemma_bounded_division_upper`, `lemma_bounded_division_lower`, `lemma_mod_congruence`, `lemma_linear_divisibility` |
 | `nla_transcendentals.cpp` | Linear majorants/minorants and sign/monotonicity facts for `exp`, `log`, `sin`, `cos`, `atan2` | `lemma_exp_lower_bound`, `lemma_exp_monotone`, `lemma_log_upper_bound`, `lemma_log_monotone`, `lemma_sin_pos`, `lemma_sin_neg`, `lemma_cos_pos`, `lemma_atan2_pos`, `lemma_atan2_neg` |
 
@@ -76,9 +85,10 @@ being an ordered field / Euclidean domain):**
 4. **Integer powers** (§5): `x^0 = 1`, `0^y = 0` (`y != 0`), `x > 0 =>
    x^y > 0`, `x > 1 => x^y > 1`, and both directions of monotonicity
    (`x >= x0 > 0 => x^n >= x0^n`, `0 < x <= x0 => x^n <= x0^n`) are
-   proved by structural induction on the natural-number exponent,
-   matching the base cases and inductive step the solver's C++
-   `powers::check` relies on when the exponent is concrete.
+   proved by structural induction on a **shared** natural-number exponent.
+   These do not justify clauses relating a live exponent `y` to a model
+   numeral `n`. Also, this helper's `0^0 = 1` is not Z3's underspecified
+   `0^0`; the source's zero-exponent axiom excludes base zero.
 5. **Division and modulo** (§6): the three monotonicity schemas from
    `divisions::check`'s `monotonicity1/2/3` lambdas are proved directly
    over reals. The floor-division bound lemmas
@@ -134,9 +144,9 @@ from analysis):**
 
 All 47 cataloged lemmas type-check and are verified by F*/Z3 with no
 unproved obligations beyond the nine explicitly-documented
-transcendental-function axioms. This confirms that the algebraic
-reasoning embedded in Z3's `nla_*` lemma generators — as summarized by
-the comments and lemma names in the C++ source — is sound: every
-conflict/propagation clause these generators can emit is a genuine
-tautology of real (or, for `div`/`mod`, integer) arithmetic, and can
-therefore never rule out a correct model.
+transcendental-function axioms. This verifies the stated mathematical
+lemmas, not every clause the C++ generators can emit. In particular the
+original power-clause correspondence was too weak and missed the soundness
+bug documented in [`PR_11180_POWER_REPORT.md`](PR_11180_POWER_REPORT.md).
+That follow-up proves the corrected variable-exponent bounds and records
+the remaining real-analysis obligation for the separate growth clause.
