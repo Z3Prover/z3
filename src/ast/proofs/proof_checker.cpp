@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "ast/proofs/proof_checker.h"
+#include "ast/ff/ff_evidence.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt_pp.h"
@@ -848,6 +849,8 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     case PR_TH_LEMMA: {
         SASSERT(p->get_decl()->get_num_parameters() > 0);
         SASSERT(p->get_decl()->get_parameter(0).is_symbol());
+        if (symbol("ff") == p->get_decl()->get_parameter(0).get_symbol())
+            return ff::check_refutation_lemma(m, p);
         if (symbol("arith") == p->get_decl()->get_parameter(0).get_symbol()) {
             return check_arith_proof(p);
         }

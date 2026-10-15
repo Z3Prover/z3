@@ -1821,8 +1821,10 @@ namespace ff {
                 values[i->first] = evaluate(i->second, values);
         };
         if (eqs.empty()) {
-            if (m_proof) return l_undef;
-            // A verified witness is sufficient; failed sampling never means UNSAT.
+            // SAT needs no refutation certificate. The candidate is checked
+            // against every original polynomial in solve() and against the
+            // original AST assignments by the proof-enabled frontend.
+            // Failed sampling remains inconclusive.
             for (unsigned trial = 0; trial < 32; ++trial) {
                 for (auto &v : values)
                     v = trial < 2 ? rational(trial) : random_value();

@@ -4,4 +4,5 @@ z3_add_component(proofs
     proof_utils.cpp
   COMPONENT_DEPENDENCIES
     rewriter
+    ff_ast
 )

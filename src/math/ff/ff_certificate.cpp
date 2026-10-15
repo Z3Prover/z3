@@ -404,6 +404,39 @@ namespace ff {
         }
     public:
         certificate_builder(engine &e, unsigned max_nodes) : e(e), max_nodes(std::min(max_nodes, 100000u)) {}
+        lbool run_native(std::vector<polynomial> const &equations, std::vector<rational> &values,
+                         certificate &out, bool native_unique, bool native_branches) {
+            input_count = equations.size();
+            auto input = equations;
+            unsigned variables = 0;
+            for (unsigned i = 0; i < input.size(); ++i) {
+                input[i].derivation = record({certificate::rule::input, i, 0, rational(1), {}});
+                for (auto const &[mon, c] : input[i]) for (unsigned v : mon) {
+                    e.tick();
+                    if (v >= 100000) throw exhausted();
+                    variables = std::max(variables, v + 1);
+                }
+            }
+            if (native_unique) {
+                auto residual = input;
+                if (unique(residual, variables, native_branches)) {
+                    finish_native(out);
+                    return l_false;
+                }
+                // Retain original definitions for candidate reconstruction. The
+                // uniqueness pass can add consequences but is not a model trail.
+                for (unsigned i = 0; i < residual.size(); ++i)
+                    if (!residual[i].empty() && residual[i] != input[i])
+                        input.push_back(std::move(residual[i]));
+            }
+            for (auto const &f : input) elimination_proofs.push_back(f.derivation);
+            values.resize(std::max(values.size(), size_t(variables)));
+            flet<polynomial_observer*> recording(e.m_proof, this);
+            flet<elimination_observer*> substitutions(e.m_elimination_proof, this);
+            auto result = e.solve(input, {}, values);
+            if (result == l_false) finish_native(out);
+            return result;
+        }
         bool run_f4(std::vector<polynomial> const &equations, certificate &out, unsigned allowance) {
             if (e.steps() >= e.max_work) throw exhausted();
             unsigned variables = 0;
@@ -435,31 +468,8 @@ namespace ff {
             // This only changes search order: input nodes retain their original
             // equation indices, and the checker still replays every multiplier.
             if (native) {
-                input_count = equations.size();
-                auto input = equations;
-                unsigned variables = 0;
-                for (unsigned i = 0; i < input.size(); ++i) {
-                    input[i].derivation = record({certificate::rule::input, i, 0, rational(1), {}});
-                    for (auto const &[mon, c] : input[i]) for (unsigned v : mon) {
-                        e.tick();
-                        if (v >= 100000) throw exhausted();
-                        variables = std::max(variables, v + 1);
-                    }
-                }
-                if (native_unique && unique(input, variables, native_branches)) {
-                    finish_native(out);
-                    return true;
-                }
-                for (auto const &f : input) elimination_proofs.push_back(f.derivation);
-                std::vector<rational> values(variables);
-                // The native engine now owns search and backend selection.
-                // Observers only record evidence from its actual operations;
-                // no second basis schedule or root search is reconstructed.
-                flet<polynomial_observer*> recording(e.m_proof, this);
-                flet<elimination_observer*> substitutions(e.m_elimination_proof, this);
-                if (e.solve(input, {}, values) != l_false) return false;
-                finish_native(out);
-                return true;
+                std::vector<rational> values;
+                return run_native(equations, values, out, native_unique, native_branches) == l_false;
             }
             std::vector<std::tuple<unsigned, size_t, unsigned>> order;
             for (unsigned i = 0; i < equations.size(); ++i) {
@@ -496,6 +506,12 @@ namespace ff {
             return false;
         }
     };
+    lbool solve_with_certificate(engine &arithmetic, std::vector<polynomial> const &equations,
+                                 std::vector<rational> &values, certificate &output,
+                                 unsigned max_nodes, bool native_unique, bool native_branches) {
+        return certificate_builder(arithmetic, max_nodes).run_native(
+            equations, values, output, native_unique, native_branches);
+    }
     bool certify(engine &arithmetic, std::vector<polynomial> const &equations,
                  certificate &output, unsigned max_nodes, certificate_backend backend, bool native_unique, bool native_branches) {
         if (backend == certificate_backend::automatic) {
