@@ -339,7 +339,7 @@ class TestArithmeticValidation(unittest.TestCase):
             proof_to_lean.reconstruct(self.source, certificate)
         # The integer fragment is a valid label, but not for Real declarations.
         certificate["fragment"] = "qf_lia"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_lia certificates contain Int"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_lia and qf_uflia certificates contain Int"):
             proof_to_lean.reconstruct(self.source, certificate)
         # A Boolean certificate claiming the arithmetic fragment declares no Real symbol.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")

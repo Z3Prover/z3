@@ -336,7 +336,7 @@ class TestMixedValidation(unittest.TestCase):
         indices = {table: {decl: index for index, decl in enumerate(sorted(symbols.values()))}
                    for table, symbols in tables.items()}
         atom_indices = {**indices["atoms"], **indices["predicates"]}
-        variable_indices = {**indices["variables"], **indices["real_functions"]}
+        variable_indices = {**indices["variables"], **indices["numeric_functions"]}
         reachable = set(range(len(graph.nodes)))
         helpers = proof_to_lean._real_argument_helpers(graph, reachable, atom_indices, variable_indices)
         self.assertEqual(len(helpers), 3, helpers)  # x - y, 2 + 2 = 4, x - x = 0
@@ -396,7 +396,7 @@ class TestMixedValidation(unittest.TestCase):
     def test_fragment_consistency(self):
         for fragment, message in [("qf_uf", "qf_uf certificates cannot contain arithmetic"),
                                   ("propositional", "propositional certificates cannot contain arithmetic"),
-                                  ("qf_lra", "only qf_uf and qf_uflra certificates")]:
+                                  ("qf_lra", "only qf_uf, qf_uflra, and qf_uflia certificates")]:
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
             with self.subTest(fragment=fragment):
@@ -414,7 +414,7 @@ class TestMixedValidation(unittest.TestCase):
         source = Z3TEST_LRA_INPUTS["lra_farkas"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         certificate["fragment"] = "qf_uflra"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
             proof_to_lean.reconstruct(source, certificate)
 
     def test_malformed_mixed_declarations_are_rejected(self):
@@ -426,7 +426,7 @@ class TestMixedValidation(unittest.TestCase):
             proof_to_lean.reconstruct(self.source, certificate)
         for domain, range_name, message in [
             (["Proof"], "Real", "unsupported arithmetic function declaration"),
-            (["Int"], "Bool", "unsupported predicate declaration"),  # Int is a sort, but not an argument here
+            (["Proof"], "Bool", "unsupported predicate declaration"),
             (["BitVec"], "Bool", "invalid native declaration"),
             (["Real", "Proof"], "U", "unsupported uninterpreted-sort declaration"),
         ]:
@@ -449,7 +449,7 @@ class TestMixedValidation(unittest.TestCase):
 
 
 class TestMixedInProcess(unittest.TestCase):
-    """Checks that need neither the z3 executable nor Lean, so they run on every runner."""
+    """Checks that need neither the z3 executable nor Lean (only the Python bindings)."""
 
     def test_numerals_as_arguments_have_distinct_normalizer_keys(self):
         context = z3.Context()

@@ -88,9 +88,15 @@ negation, multiplication by a numeral, Int-valued ite, and the same atoms
 over Int terms; it is certified through the clause log only, and a consumer
 of parse_assertions accepts it explicitly (integer=True, as the exporter
 and the reconstructor do), because its cut steps are certified by Lean
-alone rather than re-derived in Python first. Integer
-division, mod, abs, to_real, to_int, Int mixed with Real (QF_LIRA), and Int
-next to uninterpreted sorts or functions (QF_UFLIA) are rejected explicitly.
+alone rather than re-derived in Python first. The qf_uflia fragment is the
+Int twin of qf_uflra: uninterpreted sorts or functions together with linear
+integer arithmetic, where functions and predicates may take and return Int
+(an application with an Int result is an opaque atom of the linear forms),
+a function whose signature mentions Int makes the input qf_uflia even
+without any Int atom, and a Bool-only predicate over Int atoms belongs here
+too; it shares qf_lia's clause-log-only certification and opt-in. Integer
+division, mod, abs, to_real, to_int, and Int mixed with Real (QF_LIRA, also
+through a function signature such as (Int) Real) are rejected explicitly.
 One symbol name declared with
 several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
@@ -107,7 +113,7 @@ Bundle format, version 1
     format          "z3-native-proof-dag"
     format_version  1
     z3_version      producer's full Z3 version
-    fragment        "propositional", "qf_lra", "qf_lia", "qf_uf", or "qf_uflra"
+    fragment        "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -130,8 +136,8 @@ operators and predicates listed above, and th-lemma declarations whose
 parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",
 "tseitin", "smt", or the exporter's own "cnf") followed, for the first three,
 by one nonnegative rational coefficient per literal of the lemma clause.
-The qf_lia fragment uses the Int sort the same way, with integer numerals,
-no division, and no uninterpreted function over Int; its th-lemma hints
+The qf_lia fragment uses the Int sort the same way, with integer numerals
+and no division; its th-lemma hints
 additionally include "cut" (the integer solver's Gomory cuts and gcd
 conflicts), which carries no coefficients, and a farkas or bound whose
 coefficients did not re-derive the lemma over the tightened and rounded
@@ -145,9 +151,10 @@ distinct declarations over one of the sorts; the certificate stays
 many-sorted even though Lean sees one type (see below). The qf_uflra
 fragment combines both and additionally allows Real in the domain of
 functions and predicates and function declarations with range Real and a
-nonempty domain; a certificate declaring an uninterpreted sort or function
-must be labelled qf_uf or qf_uflra according to whether it contains
-arithmetic, and the reconstructor rejects any other combination.
+nonempty domain; qf_uflia does the same with Int. A certificate declaring
+an uninterpreted sort or function must be labelled qf_uf, qf_uflra, or
+qf_uflia according to whether it contains arithmetic and over which sort,
+and the reconstructor rejects any other combination.
 Other native shapes are rejected, never serialized incompletely. The root is
 required to conclude false, but checking that shape does not establish proof
 correctness.
@@ -176,8 +183,8 @@ arithmetic input by default and rebuilds the log into the same DAG format
 --core auto (the default) uses the legacy proof object for propositional input
 and the clause log otherwise; --core clause-log forces the log for Boolean
 input too, and --core legacy the proof object for QF_UF, QF_LRA, and QF_UFLRA
-input (QF_LIA is rejected there: the legacy core's integer steps are not
-mapped).
+input (QF_LIA and QF_UFLIA are rejected there: the legacy core's integer
+steps are not mapped).
 --z3 defaults to $Z3_EXE, then build/z3 next to this
 checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
@@ -278,7 +285,11 @@ Real ite (the replay's linear forms key such terms by identity), euf hints
 carry the congruences (= (f x) (f y)) from (= x y), and implied-eq hints
 supply the equalities between Real terms that the congruences rest on. Z3's
 rewriter normalizes the arguments before logging ((f (+ x 0.0)) is logged as
-(f x)), which the usual assumption bridging covers with a rewrite. A log
+(f x)), which the usual assumption bridging covers with a rewrite. The same
+holds over Int (QF_UFLIA): an application with an Int result is an opaque
+integer atom, so a strict bound on it is tightened, a cut may run through
+it (2 (f x) = 2 y + 1 is a gcd conflict), and the integer conventions of
+the next paragraph apply unchanged. A log
 that still refers to a fresh symbol is rejected ("declares a symbol absent
 from the input" when the log declares it, "uses an undeclared or fresh
 symbol" when it first appears inside a clause).
@@ -538,7 +549,14 @@ so (< x 5) and (>= x 5) share one atom name, as they share one key in the
 exporter's replay. Known limit: an Int ite nested inside the condition of
 another ite can push omega and grind past the heartbeat budget on the
 th-lemma that reaches it; the certificate is then rejected (no proof is
-published), never misproved.
+published), never misproved. An ite whose two branches are one term,
+(ite c a a), which Z3 keeps when it occurs inside an application or a
+product, gets its two gate clauses and the bare equality (ite c a a) = a
+that Z3 logs as a tseitin step; all three are proved by a case split on c
+with ite_eq_left and ite_eq_right. The lemma does not depend on the
+fragment, but Z3 has only been observed to log these clauses for Int input:
+over Real and the uninterpreted sorts it simplified (ite c a a) away in
+every input tried.
 
 Lean core's Rat library itself depends on propext, Classical.choice, and
 Quot.sound, so arithmetic theorems necessarily report those three standard
@@ -599,7 +617,12 @@ interpretation together, plus two more binders:
 A Real argument x becomes _real x, so Real joins the disjoint union as one
 more carrier, and a function with a Real result is the family _rfuns, so
 (f x) is _rfuns i [_real x], a Rat term that the arithmetic lemmas treat as
-an atom and that congruence closure relates to (f y) once x = y. Nothing
+an atom and that congruence closure relates to (f y) once x = y. A
+qf_uflia certificate takes the same shape over Int: (_vars : Nat -> Int),
+(_int : Int -> _U), and (_ifuns : Nat -> List _U -> Int), with every theory
+lemma, rewrite, and argument-equality helper proved by first | omega | grind
+as for qf_lia (omega reads applications as atoms; grind proves the
+congruences). Nothing
 states that _real is injective and no inference needs it: euf lemmas use
 only the congruence x = y -> _real x = _real y, and a model of the input is
 again one instance (its Real carrier is the Rat component). grind compares
@@ -764,8 +787,9 @@ Include the real Lean integration tests when the pinned toolchain is installed:
         -p 'test_proof_to_lean*.py'
 
 test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_lia.py
-the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice, and
-test_proof_to_lean_uflra.py the qf_uflra slice end to end; all need the z3
+the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice,
+test_proof_to_lean_uflra.py the qf_uflra slice, and
+test_proof_to_lean_uflia.py the qf_uflia slice end to end; all need the z3
 executable as well and are skipped when none is found.
 
 These run in a Lean-enabled Ubuntu CMake CI configuration, not the dependency-free

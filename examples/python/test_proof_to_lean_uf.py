@@ -650,12 +650,12 @@ class TestUninterpretedValidation(unittest.TestCase):
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
             with self.subTest(fragment=fragment):
-                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
                     proof_to_lean.reconstruct(self.source, certificate)
         # A Boolean certificate claiming qf_uf has no sort to declare.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")
         boolean["fragment"] = "qf_uf"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
             proof_to_lean.reconstruct("(declare-const p Bool)(assert p)(assert (not p))", boolean)
 
         def rename_sort(certificate, new_name, only_first=False):
@@ -899,7 +899,7 @@ class TestUninterpretedValidation(unittest.TestCase):
         for fragment in ("propositional", "qf_lra"):
             relabeled = copy.deepcopy(certificate)
             relabeled["fragment"] = fragment
-            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf and qf_uflra certificates"):
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
                 proof_to_lean.reconstruct(source, relabeled)
         tampered = copy.deepcopy(certificate)
         for declaration in _declarations(tampered, lambda d: d["name"] == "r" and d["kind"] == z3.Z3_OP_UNINTERPRETED):

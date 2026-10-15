@@ -4,11 +4,11 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, or QF_UFLRA SMT-LIB problem.
+"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
-clause log, both for every fragment except QF_LIA, which the clause log
-alone certifies.
+clause log, both for every fragment except the integer ones (QF_LIA,
+QF_UFLIA), which the clause log alone certifies.
 """
 
 import argparse
@@ -63,6 +63,9 @@ _ARITH_NAMES = {
 # rounding, so the clause is shape-checked here and proved by Lean alone,
 # like euf.
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
+# The fragments over Int, certified through the clause log and Lean alone
+# (see parse_assertions).
+_INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia")
 _LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
@@ -242,26 +245,30 @@ def _require_uninterpreted_sort(candidate, sorts):
 
 
 def _require_uninterpreted_signature(decl, sorts):
-    """Check that a function or predicate ranges over uninterpreted sorts, Bool, and Real only.
+    """Check that a function or predicate ranges over uninterpreted sorts, Bool, Real, and Int only.
 
-    Arguments may be Bool or Real as well as uninterpreted sorts (Lean injects
-    a Boolean or Real argument into the carrier); the result is Bool, Real, or
-    a sort. Returns whether the signature mentions Real, which makes the input
-    QF_UFLRA.
+    Arguments may be Bool, Real, or Int as well as uninterpreted sorts (Lean
+    injects a Boolean or numeric argument into the carrier); the result is
+    Bool, Real, Int, or a sort. Returns (real, integer): whether the signature
+    mentions Real, which makes the input QF_UFLRA, or Int, which makes it
+    QF_UFLIA (never both: a signature mixing them is rejected by the caller).
     """
     candidates = [decl.domain(i) for i in range(decl.arity())] + [decl.range()]
-    real = False
+    real = integer = False
     for candidate in candidates:
         if candidate.kind() == z3.Z3_BOOL_SORT:
             continue
         if candidate.kind() == z3.Z3_REAL_SORT:
             real = True
             continue
+        if candidate.kind() == z3.Z3_INT_SORT:
+            integer = True
+            continue
         if not is_uninterpreted_sort(candidate):
             raise ProofExportError("uninterpreted functions over %s are not supported: %s" % (
                 candidate, decl.name()))
         _require_uninterpreted_sort(candidate, sorts)
-    return real
+    return real, integer
 
 
 def _require_unique_symbol(decl, symbols):
@@ -277,7 +284,7 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_lia", "qf_uf", or "qf_uflra", rejecting everything else."""
+    """Return "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia", rejecting everything else."""
     pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
     while pending:
@@ -292,7 +299,8 @@ def classify_fragment(assertions):
             _require_unique_symbol(decl, symbols)
             if decl.arity() != 0:
                 functions = True
-                real = _require_uninterpreted_signature(decl, sorts) or real
+                signature_real, signature_integer = _require_uninterpreted_signature(decl, sorts)
+                real, integer = real or signature_real, integer or signature_integer
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 pass
@@ -315,15 +323,15 @@ def classify_fragment(assertions):
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
     if integer:
-        # Linear integer arithmetic on its own: the Lean encoding values the
-        # variables in Int and the integer solver's rounding steps are proved
-        # there. Mixed Int/Real input (QF_LIRA) and integers next to
-        # uninterpreted sorts or functions (QF_UFLIA) have no encoding yet.
+        # Linear integer arithmetic: the Lean encoding values the variables in
+        # Int and the integer solver's rounding steps are proved there, on its
+        # own (QF_LIA) or next to uninterpreted sorts and functions (QF_UFLIA,
+        # the Int valuation next to the carrier, into which Int arguments are
+        # injected like Bool ones). Mixed Int/Real input (QF_LIRA) has no
+        # encoding yet.
         if real:
             raise ProofExportError("mixing integer and real arithmetic is not supported")
-        if sorts or functions:
-            raise ProofExportError("integer arithmetic with uninterpreted sorts or functions is not supported")
-        return "qf_lia"
+        return "qf_uflia" if sorts or functions else "qf_lia"
     if sorts or functions:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
         # are QF_UFLRA: the Lean encoding carries the Rat valuation next to the
@@ -347,7 +355,7 @@ def _require_legacy_fragment(assertions):
     not mapped.
     """
     fragment = classify_fragment(assertions)
-    if fragment == "qf_lia":
+    if fragment in _INTEGER_FRAGMENTS:
         raise ProofExportError("integer arithmetic is certified through the clause log only (--core clause-log)")
     return fragment
 
@@ -369,17 +377,18 @@ def parse_propositional_assertions(source, context):
 def parse_assertions(source, context, integer=False):
     """Parse the assertion snapshot and return it with its fragment name.
 
-    qf_lia is opt-in: the integer solver's cut steps (and Farkas steps resting
-    on cuts) carry no coefficient certificate that the replay can re-derive,
-    so the fragment is certified by Lean alone and a consumer accepts it
-    explicitly. The exporter and the reconstructor do; a harness that
-    classifies input for other proof checkers keeps the previous fragments.
+    The integer fragments (qf_lia, qf_uflia) are opt-in: the integer solver's
+    cut steps (and Farkas steps resting on cuts) carry no coefficient
+    certificate that the replay can re-derive, so they are certified by Lean
+    alone and a consumer accepts them explicitly. The exporter and the
+    reconstructor do; a harness that classifies input for other proof
+    checkers keeps the previous fragments.
     """
     assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
     fragment = classify_fragment(assertions)
-    if fragment == "qf_lia" and not integer:
-        raise ProofExportError("integer arithmetic (qf_lia) is certified through the clause log and Lean alone; "
-                               "the consumer must accept the fragment explicitly")
+    if fragment in _INTEGER_FRAGMENTS and not integer:
+        raise ProofExportError("integer arithmetic (%s) is certified through the clause log and Lean alone; "
+                               "the consumer must accept the fragment explicitly" % fragment)
     return assertions, fragment
 
 

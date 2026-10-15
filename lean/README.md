@@ -85,7 +85,11 @@ clause log only; its theorem quantifies over `_vars : Nat -> Int`, its
 theory lemmas and arithmetic rewrites are proved by `first | omega | grind`,
 and the integer solver's `cut` steps, and Farkas steps whose coefficients
 rest on cuts, reach Lean with their shapes checked only, so `omega` is the
-check for them.
+check for them. A QF_UFLIA input (the same mixed with uninterpreted sorts
+or functions) takes the QF_UFLRA binders over Int instead,
+`(_vars : Nat -> Int)`, `(_int : Int -> _U)`, and
+`(_ifuns : Nat -> List _U -> Int)`, and is certified from the clause log
+only, with `first | omega | grind` for its lemmas and helpers.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

@@ -939,6 +939,47 @@ nested inside another `ite`'s condition can push `omega` and `grind` past
 the heartbeat budget (one such instance in the reviewer's stress run; the
 certificate is rejected, not misproved).
 
+**QF_UFLIA through the clause log (2026-10-15).** Int next to uninterpreted
+sorts or functions was the one combination of certified fragments still
+rejected at the exporter ("integer arithmetic with uninterpreted sorts or
+functions is not supported"; z3test's `regressions/smt2` has Int-only files
+that fail for exactly this reason). The clause log needs nothing new: an
+application with an Int result is an opaque integer atom of the `farkas`,
+`bound`, `implied-eq`, and `cut` hints (a strict bound on it is tightened, a
+gcd conflict runs through it), `euf` carries the congruences, and a 150-seed
+probe in three shapes showed no other hint kind. The exporter classifies
+the input as a sixth fragment `qf_uflia` (opt-in and clause-log-only like
+`qf_lia`; a signature mixing Int and Real, such as `(Int) Real`, is rejected
+as QF_LIRA), the replay already valued numerals in Int and keyed
+applications by identity, and the reconstructor renders the QF_UFLRA
+encoding over Int: `(_vars : Nat -> Int)`, `(_int : Int -> _U)`,
+`(_ifuns : Nat -> List _U -> Int)`, with `first | omega | grind` for every
+lemma, rewrite, and argument-equality helper (`omega` reads applications as
+atoms; a Lean probe of six shapes, Farkas over applications, congruence
+through `_int`, rounding, tightening, normalized arguments, and `ite`
+arguments, passed before any code changed). The stress runs found one
+reconstructor gap that is not integer-specific: an `ite` whose branches are
+one term, `(ite c a a)`, which Z3 keeps inside a product or an application
+and for which it logs both gate clauses and the bare equality
+`(ite c a a) = a` as a tseitin step; the gate lemma tried only the
+then-branch orientation (so the else gate `c or (ite c a a) = a` was
+rejected) and had no case for the unit clause. Both are now proved by a
+case split on `c` with `ite_eq_left` and `ite_eq_right`; the lemma is
+fragment-independent, though Z3 was observed to log these clauses only for
+Int input (over Real and the uninterpreted sorts it simplified the `ite`
+away in every input tried; a hand-added sort-valued unit gate on a QF_UF
+certificate is accepted and Lean-verified). 6 of 38 random `ite` instances
+failed before, none after; the shape is pinned by a documented input and a
+random seed. Twelve documented inputs
+(the Int twins of the QF_UFLRA set, a gcd conflict and tightened and
+rounded bounds through an application, the same-branch `ite`, a Bool-only
+predicate over Int atoms, and one input showing all five hint kinds), eight
+pinned seeds, and 124 random instances (plain, with a sort, with `ite`,
+both) verify under the standard axioms; the QF_LRA and Boolean matrix
+cells and every earlier module verify unchanged. Not done: QF_LIRA, the
+legacy core's integer steps (`--core legacy` rejects both integer
+fragments), and a z3test `uflia_*.smt2` matrix cell.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

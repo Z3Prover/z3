@@ -812,6 +812,27 @@ def _z3_available():
         return False
 
 
+# The Int twin of _UFLRA, plus a gcd conflict through an application: two
+# congruences and Farkas steps over Int-valued applications as opaque atoms.
+_UFLIA = """\
+(set-logic QF_UFLIA)
+(declare-sort U 0)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun f (Int) Int)
+(declare-fun g (U) Int)
+(declare-fun h (Int) U)
+(declare-fun q (Int) Bool)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= a b))
+(assert (<= x y))
+(assert (>= x y))
+(assert (or (> (g a) (+ (g b) 1)) (q (f x))))
+(assert (or (not (q (f y))) (not (= (h x) (h y))) (= (* 2 (f (g a))) (+ (* 2 y) 1))))
+(check-sat)
+"""
+
 # A Gomory cut: rationally feasible, integer infeasible, refuted by one cut
 # hint over the four bounds. The log is the sat.smt core's output verbatim.
 _LIA = """\
@@ -878,20 +899,46 @@ class TestFragmentClassification(unittest.TestCase):
         # An unused Real declaration does not mix the sorts.
         self.assertEqual(self.classify("(declare-const r Real)(declare-const x Int)(assert (> x 1))"), "qf_lia")
 
+    def test_integer_arithmetic_with_uninterpreted_symbols_is_qf_uflia(self):
+        # Uninterpreted sorts or functions together with linear integer
+        # arithmetic are QF_UFLIA, the Int twin of QF_UFLRA: functions and
+        # predicates may take and return Int, a function whose signature
+        # mentions Int makes the input arithmetic even without any Int atom,
+        # and a Bool-only predicate over Int atoms belongs here too.
+        declarations = "(declare-sort U 0)(declare-fun a () U)"
+        for source in [
+            "(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f x) 1))",
+            declarations + "(declare-const x Int)(assert (and (= a a) (> x 1)))",
+            "(declare-fun p (Bool) Bool)(declare-const x Int)(assert (and (p true) (> x 1)))",
+            "(declare-fun r (Bool) Bool)(declare-const x Int)(assert (r (> x 1)))",
+            declarations + "(declare-fun h (U) Int)(assert (= (h a) (h a)))",
+            declarations + "(declare-fun h (Int) U)(declare-fun q (Int) Bool)(assert (and (= (h 1) a) (q 2)))",
+            declarations + "(declare-fun r (Bool Int) Bool)(assert (r true 1))",
+            "(declare-fun f (Int Int) Int)(declare-const x Int)(declare-const p Bool)"
+            "(assert (> (f (ite p x (- x)) (* 2 x)) (f 1 (+ x 1))))",
+            declarations + "(declare-fun h (Int) U)(declare-const p Bool)(assert (= (ite p (h 1) a) a))",
+            "(declare-fun h (Bool) Int)(declare-const p Bool)(assert (distinct (h p) (h (not p)) 3))",
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.classify(source), "qf_uflia")
+        self.assertEqual(self.classify(_UFLIA), "qf_uflia")
+
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
-            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "functions over Int"),
-            # Integer arithmetic stands alone: no Real, no uninterpreted
-            # functions, no integer division, mod, or abs, no conversions.
+            # Integer arithmetic never mixes with Real, not even through a
+            # function signature; no integer division, mod, or abs, no conversions.
+            ("(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))", "mixing integer and real"),
+            # Z3's parser coerces a Real argument of an Int-domain function with to_int.
+            ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "operator: to_int"),
+            ("(declare-fun f (Real) Int)(declare-const x Real)(assert (> (f x) 1))", "mixing integer and real"),
+            ("(declare-fun f (Int) Int)(declare-const x Real)(declare-const y Int)(assert (and (> (f y) 1) (> x 1.0)))",
+             "mixing integer and real"),
             ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))", "unsupported arithmetic operator"),
             ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))", "mixing integer and real"),
-            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f x) 1))", "functions over Int"),
-            ("(declare-sort U 0)(declare-fun a () U)(declare-const x Int)(assert (and (= a a) (> x 1)))",
-             "integer arithmetic with uninterpreted sorts"),
-            ("(declare-fun p (Bool) Bool)(declare-const x Int)(assert (and (p true) (> x 1)))",
-             "integer arithmetic with uninterpreted sorts or functions"),
+            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f (div x 2)) 1))",
+             "unsupported arithmetic operator: div"),
             ("(declare-const x Int)(assert (> (div x 2) 1))", "unsupported arithmetic operator: div"),
             ("(declare-const x Int)(assert (> (mod x 2) 1))", "unsupported arithmetic operator: mod"),
             ("(declare-const x Int)(assert (> (abs x) 1))", "unsupported arithmetic operator: abs"),
@@ -962,7 +1009,8 @@ class TestFragmentClassification(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uflra")
         for source, message in [
-            (declarations + "(declare-fun h (U) Int)(assert (= (h a) (h a)))", "functions over Int"),
+            (declarations + "(declare-fun h (U) Int)(declare-const x Real)(assert (and (= (h a) (h a)) (> x 1.0)))",
+             "mixing integer and real"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* (f x) (f x)) 1.0))", "nonlinear"),
             ("(declare-sort W 1)(declare-fun w () (W Bool))(assert (= w w))", "arity 0"),
             # Z3 accepts one name declared with several signatures and tells the
@@ -989,8 +1037,14 @@ class TestFragmentClassification(unittest.TestCase):
         # opts in to the fragment; by default it stays unsupported, since its
         # cut steps are certified by Lean alone.
         self.assertEqual(proof_certificate.parse_assertions(_LIA, z3.Context(), integer=True)[1], "qf_lia")
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "accept the fragment explicitly"):
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, r"\(qf_lia\).*accept the fragment explicitly"):
             proof_certificate.parse_assertions(_LIA, z3.Context())
+        # The same for integers next to uninterpreted functions.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
+            proof_certificate.export_certificate(_UFLIA)
+        self.assertEqual(proof_certificate.parse_assertions(_UFLIA, z3.Context(), integer=True)[1], "qf_uflia")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, r"\(qf_uflia\).*accept the fragment explicitly"):
+            proof_certificate.parse_assertions(_UFLIA, z3.Context())
 
     def test_legacy_exporter_exports_linear_real_arithmetic(self):
         # theory_lra records the Farkas coefficients of its LP conflicts as
@@ -1826,6 +1880,40 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertNotIn("intro-def", certificate["rule_counts"])
         self.assertIn("monotonicity", certificate["rule_counts"])
         self.assertNotIn("!", json.dumps(certificate["declarations"]))
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_executable_exports_integer_arithmetic_with_uninterpreted_functions(self):
+        # QF_UFLIA through the clause log: the sort name is kept, the functions
+        # keep their Int arguments and results, numerals are Int, and the
+        # integer solver's hints appear next to the euf congruences (the
+        # gcd conflict through (f (g a)) is a cut, kept without coefficients).
+        certificate = proof_certificate.export_clause_log_certificate(_UFLIA)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        declarations = certificate["declarations"]
+        self.assertEqual({d["range"] for d in declarations}, {"Bool", "Int", "U", "Proof"})
+        self.assertEqual({(d["name"], tuple(d["domain"]), d["range"]) for d in declarations
+                          if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {("a", (), "U"), ("b", (), "U"), ("x", (), "Int"), ("y", (), "Int"),
+                          ("f", ("Int",), "Int"), ("g", ("U",), "Int"), ("h", ("Int",), "U"), ("q", ("Int",), "Bool")})
+        self.assertTrue(all(Fraction(d["name"]).denominator == 1 for d in declarations if d["kind"] == z3.Z3_OP_ANUM))
+        hints = {}
+        for declaration in declarations:
+            if declaration["name"] == "th-lemma":
+                hints.setdefault(declaration["parameters"][0], []).append(declaration["parameters"][1:])
+        self.assertLessEqual({"cut", "euf", "farkas"}, set(hints))
+        self.assertEqual(hints["cut"], [[]])
+        self.assertTrue(all(Fraction(c) > 0 for c in sum(hints["farkas"], [])))
+        # --core auto takes the clause log; the legacy proof object rejects Int.
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "-"],
+            input=_UFLIA, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["fragment"], "qf_uflia")
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "legacy", "-"],
+            input=_UFLIA, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("clause log only", result.stderr)
 
 
 _DEPENDENCY_LOG = """\

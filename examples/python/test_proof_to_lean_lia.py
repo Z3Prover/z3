@@ -331,7 +331,10 @@ class TestIntegerValidation(unittest.TestCase):
             (lambda d: d[numeral].update(name="1/2"), "invalid Int numeral declaration"),
             (lambda d: d[predicate].update(domain=["Int", "Real"]), "invalid arithmetic predicate declaration"),
             (lambda d: d[addition].update(kind=z3.Z3_OP_DIV, name="/"), "unsupported arithmetic declaration"),
-            (lambda d: d[variable].update(domain=["Int"]), "unsupported arithmetic function declaration"),
+            # An Int-valued function is a valid declaration since qf_uflia; the
+            # variable's nodes no longer fit it.
+            (lambda d: d[variable].update(domain=["Int"]), "wrong number of arguments"),
+            (lambda d: d[variable].update(domain=["Proof"]), "unsupported arithmetic function declaration"),
         ]:
             tampered = copy.deepcopy(self.gomory)
             mutate(tampered["declarations"])
