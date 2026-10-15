@@ -380,7 +380,7 @@ namespace euf {
             return;
         m_clause.reset();
         for (unsigned i = 0; i < n; ++i) 
-            m_clause.push_back(literal2expr(lits[i]));
+            m_clause.push_back(proof_literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
         m_on_clause(m_on_clause_ctx, hint, 0, nullptr, m_clause.size(), m_clause.data());
     }
@@ -410,7 +410,7 @@ namespace euf {
             return;
         m_clause.reset();
         for (unsigned i = 0; i < n; ++i) 
-            m_clause.push_back(literal2expr(lits[i]));
+            m_clause.push_back(proof_literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
         if (st.is_asserted() || st.is_redundant())
             m_smt_proof_checker.infer(m_clause, hint);
@@ -453,7 +453,7 @@ namespace euf {
     bool solver::visit_clause(std::ostream& out, unsigned n, literal const* lits) {
         expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
-            expr* e = bool_var2expr(lits[i].var());
+            expr* e = proof_var2expr(lits[i].var());
             if (!e) {
                 k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
                 e = k;
@@ -507,7 +507,7 @@ namespace euf {
     std::ostream& solver::display_literals(std::ostream& out, unsigned n, literal const* lits) {
         expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
-            expr* e = bool_var2expr(lits[i].var());
+            expr* e = proof_var2expr(lits[i].var());
             if (!e) {
                 k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
                 e = k;

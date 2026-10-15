@@ -32,6 +32,8 @@ namespace euf {
     public:
         virtual ~theory_checker_plugin() = default;
         virtual bool check(app* jst) = 0;
+        // Evidence-bearing rules must not be replaced by a fresh SMT solve.
+        virtual bool requires_check() const { return false; }
         virtual expr_ref_vector clause(app* jst) = 0;
         virtual void register_plugins(theory_checker& pc) = 0;
         virtual bool vc(app* jst, expr_ref_vector const& clause, expr_ref_vector& v) { v.append(this->clause(jst)); return false; }
@@ -46,6 +48,7 @@ namespace euf {
         theory_checker(ast_manager& m);
         void register_plugin(symbol const& rule, theory_checker_plugin*);
         bool check(expr* jst);
+        bool requires_check(expr* jst);
         expr_ref_vector clause(expr* jst);
         bool vc(expr* jst, expr_ref_vector const& clause, expr_ref_vector& v);
         bool check(expr_ref_vector const& clause, expr* e, expr_ref_vector& units);

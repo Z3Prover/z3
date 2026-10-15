@@ -164,6 +164,10 @@ namespace euf {
         symbol                           m_euf = symbol("euf");
         symbol                           m_smt = symbol("smt");            
         expr_ref_vector                  m_clause;
+        // User-pop unbinds atoms before SAT emits clause deletions. These pins
+        // are proof-only and are released after gc_vars finishes notifications.
+        expr_ref_vector                  m_deleting_atoms;
+        expr_ref_vector                  m_scope_guards;
         expr_ref_vector                  m_expr_args;
         vector<sat::literal_vector>      m_top_level_clauses;
 
@@ -464,6 +468,14 @@ namespace euf {
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
         void set_bool_var2expr(sat::bool_var v, expr* e) { m_var_trail.push_back(v);  m_bool_var2expr.setx(v, e, nullptr); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
+        expr* proof_var2expr(sat::bool_var v) const {
+            expr* e = bool_var2expr(v);
+            return e ? e : v < m_deleting_atoms.size() ? m_deleting_atoms.get(v) : nullptr;
+        }
+        expr_ref proof_literal2expr(sat::literal lit) const {
+            expr* e = proof_var2expr(lit.var());
+            return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m);
+        }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(mk_not(m, e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
 
