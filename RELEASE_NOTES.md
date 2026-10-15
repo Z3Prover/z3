@@ -1,5 +1,35 @@
 RELEASE NOTES
 
+Version 5.3.1
+==============
+
+- Fix unsound nonlinear-arithmetic exponentiation bounds: reverse exponent
+  inequalities for bases below one and guard base-crossing refinements against
+  negative exponents. Add F* counterexamples and soundness proofs for the corrected
+  bounds. Fixes #11179.
+  https://github.com/Z3Prover/z3/commit/caa5da241
+- Extend higher-order quantifier matching to nested Boolean connectives, array-store
+  candidates, and arithmetic comparisons over array selections.
+  https://github.com/Z3Prover/z3/commit/30dd4fe48
+- Extend Lean proof reconstruction to QF_UF and QF_LRA refutations from the legacy
+  SMT proof object, including predicates whose arguments are all Boolean. Record
+  arithmetic conflict and propagation coefficients for exact replay.
+  https://github.com/Z3Prover/z3/pull/11176
+- Extend the F*/Pulse proof checker with unified, scoped proof-DAG checking,
+  memoization, verified Boolean normalization and bounded truth-table rewrites,
+  commutativity rules, and ground array theory-lemma checking. Keep unsupported
+  steps as explicit unverified obligations.
+  https://github.com/Z3Prover/z3/commit/a1636cc9e,
+  https://github.com/Z3Prover/z3/commit/ee33c3f64,
+  https://github.com/Z3Prover/z3/commit/11306ced8
+- Fix excessive Clang-CL warnings and compiler-warning flags leaking into Windows
+  linker options. Avoid an unnecessary signed 128-bit division in finite-field
+  inversion that caused static-link failures.
+  https://github.com/Z3Prover/z3/commit/1414db069
+- Build Unix distribution binaries without embedded debug information to reduce
+  archive size. https://github.com/Z3Prover/z3/pull/11182
+
+
 Version 5.3.0
 ==============
 
