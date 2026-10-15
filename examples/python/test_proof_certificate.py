@@ -465,6 +465,20 @@ _BOOLEAN_PREDICATES = """\
 (assert (not (s q q)))
 (check-sat)
 """
+# QF_UFLRA in which y occurs in a single function argument: the frontend's
+# elim-uncnstr tactic would replace (- x y) by a fresh constant.
+_SINGLE_OCCURRENCE = """\
+(set-logic QF_UFLRA)
+(declare-fun f (Real) Real)
+(declare-fun q (Real) Bool)
+(declare-const x Real)
+(declare-const y Real)
+(assert (q (f (- x y))))
+(assert (or (not (q (f (+ x (* (- 1.0) y))))) (< (f (+ 2.0 2.0)) 4.0)))
+(assert (>= (f 4.0) (f (- x x))))
+(assert (= (f 0.0) 4.0))
+(check-sat)
+"""
 # QF_UFLRA: an uninterpreted sort next to Real variables, functions between
 # the sort and Real, a Real-valued function, and a predicate over Real.
 _UFLRA = """\
@@ -992,37 +1006,10 @@ class TestFragmentClassification(unittest.TestCase):
         conclusion = certificate["nodes"][root["arguments"][-1]]
         self.assertEqual(declarations[conclusion["declaration"]]["kind"], z3.Z3_OP_FALSE)
 
-    def test_boolean_predicates_without_a_sort_need_the_legacy_core(self):
-        # The sat.smt core Ackermannizes predicates over Bool alone (or decides
-        # the input before logging), so only the legacy proof object certifies
-        # them; --core auto selects it, and the clause log rejects the input.
+    def test_boolean_predicates_without_a_sort_export_through_the_legacy_core(self):
+        # Predicates over Bool alone are qf_uf; the smt core's proof object
+        # proves their congruences by monotonicity like any other predicate's.
         context = z3.Context()
-        for source, legacy in [
-            (_BOOLEAN_PREDICATES, True),
-            ("(declare-fun r (Bool Bool) Bool)(declare-const p Bool)(assert (r p (not p)))(assert (not (r p (not p))))",
-             True),
-            (_UF, False),
-            ("(declare-sort U 0)(declare-fun a () U)(declare-fun r (Bool) Bool)(assert (r (= a a)))", False),
-            (_CONTRADICTION, False),
-            (_LRA, False),
-            # QF_UFLRA: Bool-only predicates over Real atoms are Ackermannized too;
-            # a sort-valued term or a function over Real runs the euf solver.
-            ("(declare-fun r (Bool) Bool)(declare-const x Real)(assert (r (< x 1.0)))(assert (not (r (< x 1.0))))",
-             True),
-            ("(declare-fun r (Bool) Bool)(declare-fun q (Real) Bool)(declare-const x Real)"
-             "(assert (and (r (q x)) (not (q x))))", False),
-            ("(declare-sort U 0)(declare-fun a () U)(declare-fun r (Bool) Bool)(declare-const x Real)"
-             "(assert (and (r (= a a)) (> x 1.0)))", False),
-            (_UFLRA, False),
-        ]:
-            with self.subTest(source=source):
-                assertions, fragment = proof_certificate.parse_assertions(source, context)
-                self.assertEqual(proof_certificate.requires_legacy_core(assertions, fragment), legacy)
-                if legacy:
-                    with self.assertRaisesRegex(proof_certificate.ProofExportError, "Ackermannized.*--core legacy"):
-                        proof_certificate.parse_clause_log_assertions(source, context)
-                else:
-                    proof_certificate.parse_clause_log_assertions(source, context)
         certificate = proof_certificate.export_certificate(_BOOLEAN_PREDICATES)
         self.assertEqual(certificate["fragment"], "qf_uf")
         declarations = certificate["declarations"]
@@ -1054,9 +1041,13 @@ class TestFragmentClassification(unittest.TestCase):
         for declaration in declarations:
             if declaration["name"] == "th-lemma":
                 hints.add(declaration["parameters"][0])
-                self.assertIn(declaration["parameters"][0], ("farkas", "bound", "implied-eq"))
+                self.assertIn(declaration["parameters"][0], ("farkas", "bound", "implied-eq", "triangle-eq"))
                 self.assertTrue(all(Fraction(c) > 0 for c in declaration["parameters"][1:]))
-                if declaration["parameters"][0] == "implied-eq":
+                if declaration["parameters"][0] == "triangle-eq":
+                    # arith_eq_adapter's axiom tying x = y to its bounds: no premises, no coefficients.
+                    self.assertEqual(declaration["parameters"], ["triangle-eq"])
+                    self.assertEqual(declaration["domain"], ["Bool"])
+                elif declaration["parameters"][0] == "implied-eq":
                     # theory_lra's equality propagation x = y from x <= y and
                     # x >= y, needed here for the congruence (h x) = (h y):
                     # premises, no coefficients, and a Real equality as conclusion.
@@ -1560,11 +1551,15 @@ class TestClauseLogReplay(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
             proof_certificate.export_clause_log_certificate(
                 "(declare-const x Real)(assert (> x 1.0))")
-        # A negated unit makes the sat core log its internal true variable as
-        # the phantom k!0; the raw log shows it and the certificate does not.
+        # A negated unit used to make the frontend's tactic preamble log the
+        # core's internal true variable as the phantom k!0; with the preamble
+        # bypassed the raw log assumes the unit itself (the replay still drops
+        # clauses over such phantom constants, see
+        # test_phantom_literals_of_the_sat_core_are_dropped).
         log = proof_clause_log.run_clause_log(proof_certificate.default_z3_executable(),
                                               proof_certificate._assertion_commands(_UF_NEGATIVE_UNIT))
-        self.assertIn("(declare-fun k!0 () Bool)", log)
+        self.assertIn("(assume (not s))", log)
+        self.assertNotIn("k!", log)
         certificate = proof_certificate.export_clause_log_certificate(_UF_NEGATIVE_UNIT)
         self.assertEqual(certificate["fragment"], "qf_uf")
         self.assertNotIn("k!", json.dumps(certificate))
@@ -1579,22 +1574,67 @@ class TestClauseLogReplay(unittest.TestCase):
             input=_LRA, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["fragment"], "qf_lra")
-        # Predicates over Bool alone: --core auto takes the legacy proof object
-        # (no th-lemma, monotonicity steps), and the clause log is refused.
+        # Predicates over Bool alone: --core auto takes the clause log like for
+        # any other theory input (euf hints), --core legacy the proof object.
         result = subprocess.run(
             [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "-"],
             input=_BOOLEAN_PREDICATES, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         certificate = json.loads(result.stdout)
         self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertNotIn("monotonicity", certificate["rule_counts"])
+        self.assertNotIn("!", json.dumps(certificate["declarations"]))
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "legacy", "-"],
+            input=_BOOLEAN_PREDICATES, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        certificate = json.loads(result.stdout)
         self.assertIn("monotonicity", certificate["rule_counts"])
         self.assertNotIn("th-lemma", certificate["rule_counts"])
-        result = subprocess.run(
-            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "-"],
-            input=_BOOLEAN_PREDICATES, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("--core legacy", result.stderr)
-        self.assertEqual(result.stdout, "")
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_the_frontend_tactic_preamble_is_bypassed(self):
+        # For a non-incremental check-sat the frontend's combined solver runs
+        # the tactic of the input's logic before either core. Its elim-uncnstr
+        # pass replaces a subterm whose variable occurs nowhere else by a fresh
+        # k!N constant (the smt core's proof names it by intro-def), and its
+        # passes Ackermannize predicates over Bool alone; neither can be tied
+        # to the input. Both exporters send the assertions to the core directly.
+        bypass = "(set-option :combined_solver.ignore_solver1 true)\n"
+        self.assertTrue(proof_certificate._NO_PREPROCESSING.startswith(bypass))
+        z3_executable = proof_certificate.default_z3_executable()
+        for source, fragment in ((_SINGLE_OCCURRENCE, "qf_uflra"), (_BOOLEAN_PREDICATES, "qf_uf")):
+            with self.subTest(source=source):
+                commands = proof_certificate._assertion_commands(source)
+                with patch.object(proof_clause_log, "_NO_PREPROCESSING",
+                                  proof_certificate._NO_PREPROCESSING.replace(bypass, "")):
+                    tactic_log = proof_clause_log.run_clause_log(z3_executable, commands)
+                # This half pins Z3's preamble (elim-uncnstr, Ackermannization),
+                # not the exporter: if it fails, the preamble no longer rewrites
+                # this input and the bypass needs a new witness.
+                self.assertTrue("!" in tactic_log or "(infer" not in tactic_log,
+                                "the tactic preamble (elim-uncnstr / Ackermannization) left the input's symbols "
+                                "intact; pick another witness for the bypass:\n" + tactic_log)
+                log = proof_clause_log.run_clause_log(z3_executable, commands)
+                self.assertIn("(infer", log)
+                self.assertNotIn("!", log)
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], fragment)
+                self.assertIn("th-lemma", certificate["rule_counts"])
+                self.assertNotIn("!", json.dumps(certificate["declarations"]))
+        # The same input through the smt core: the default solver's proof has
+        # the intro-def step, the exporter's has none.
+        context = z3.Context(proof=True)
+        solver = z3.Solver(ctx=context)
+        solver.add(z3.parse_smt2_string(_SINGLE_OCCURRENCE, ctx=context))
+        self.assertEqual(solver.check(), z3.unsat)
+        self.assertIn("intro-def", solver.proof().sexpr())
+        certificate = proof_certificate.export_certificate(_SINGLE_OCCURRENCE)
+        self.assertEqual(certificate["fragment"], "qf_uflra")
+        self.assertNotIn("intro-def", certificate["rule_counts"])
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        self.assertNotIn("!", json.dumps(certificate["declarations"]))
 
 
 _DEPENDENCY_LOG = """\

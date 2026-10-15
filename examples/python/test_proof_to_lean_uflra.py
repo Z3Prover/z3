@@ -8,6 +8,7 @@
 ############################################
 import copy
 import hashlib
+import json
 from pathlib import Path
 import random
 import subprocess
@@ -28,9 +29,7 @@ from test_proof_to_lean_uf import _unsat_core_size, _z3_available, outlined_lemm
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
 
 # Uninterpreted functions mixed with linear real arithmetic. Each input is
-# unsatisfiable; the clause log certifies all of them except the Bool-only
-# predicate over Real atoms, which the sat.smt core Ackermannizes (that one
-# takes the legacy proof object, as --core auto selects).
+# unsatisfiable and both cores certify all of them.
 UFLRA_INPUTS = {
     # Congruence through a Real-valued function, then a Farkas step over the
     # two applications as opaque atoms.
@@ -148,10 +147,40 @@ UFLRA_INPUTS = {
 (assert (<= x (+ y 1.0)))
 (check-sat)
 """,
+    # The same without the two bounds: y occurs in a single function argument,
+    # which the frontend's elim-uncnstr tactic would replace by a fresh constant
+    # (the exporters bypass the tactic preamble).
+    "uflra_single_occurrence": """\
+(set-logic QF_UFLRA)
+(declare-fun f (Real) Real)
+(declare-fun q (Real) Bool)
+(declare-const x Real)
+(declare-const y Real)
+(assert (q (f (- x y))))
+(assert (or (not (q (f (+ x (* (- 1.0) y))))) (< (f (+ 2.0 2.0)) 4.0)))
+(assert (>= (f 4.0) (f (- x x))))
+(assert (= (f 0.0) 4.0))
+(check-sat)
+""",
+    # Real ite terms whose conditions are a Bool variable and a predicate:
+    # no linear atom to key them by, so the argument helpers leave them as
+    # opaque atoms and grind relates the two through (= p (q x)) alone.
+    "uflra_opaque_ite_conditions": """\
+(set-logic QF_UFLRA)
+(declare-fun f (Real) Real)
+(declare-fun q (Real) Bool)
+(declare-const p Bool)
+(declare-const x Real)
+(declare-const y Real)
+(assert (= (f (ite p x y)) 1.0))
+(assert (= (f (ite (q x) x y)) 2.0))
+(assert (= p (q x)))
+(check-sat)
+""",
 }
 
-# A predicate over Bool alone applied to Real atoms: QF_UFLRA that only the
-# legacy proof object certifies (the sat.smt core Ackermannizes it).
+# A predicate over Bool alone applied to Real atoms: QF_UFLRA without a
+# sort or a function over Real, so no euf hint mentions a Real term.
 BOOL_PREDICATE_WITH_ARITHMETIC = """\
 (set-logic QF_UFLRA)
 (declare-fun r (Bool) Bool)
@@ -325,6 +354,45 @@ class TestMixedValidation(unittest.TestCase):
         self.assertTrue(variables_only)
         self.assertTrue(proof_to_lean._linear_over_variables(graph, variables_only))
 
+    def test_ite_arguments_are_keyed_up_to_normalization(self):
+        # Z3 logs (f (ite (> x 0) x (- x))) with the ite in the rewriter's
+        # normal form, (ite (<= x 0) (* -1 x) x); both ite terms get one key
+        # (the non-strict condition, branches swapped), so the lemma states
+        # their equality, which grind proves by splitting the conditions.
+        source = UFLRA_INPUTS["uflra_ite_argument"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE]
+        self.assertEqual(len(ites), 2)
+        self.assertNotEqual(*(graph.arguments(node)[0] for node in ites))  # different conditions
+        keys = {proof_to_lean._real_argument_key(graph, node) for node in ites}
+        self.assertEqual(len(keys), 1)
+        (((kind, condition, then_key, else_key), _),), constant = keys.pop()
+        self.assertEqual((kind, condition[0], constant), ("ite", "<=", 0))
+        self.assertNotEqual(then_key, else_key)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertRegex(text, r"have _r\d+_\d+ : .*@ite Rat .* = .*@ite Rat .* := by grind")
+        # A variable and an application are opaque atoms.
+        opaque = [node for node in range(len(graph.nodes)) if graph.is_real(node)
+                  and graph.kind(node) == z3.Z3_OP_UNINTERPRETED]
+        self.assertTrue(opaque)
+        for node in opaque:
+            self.assertEqual(proof_to_lean._real_atom_key(graph, node), ("atom", node))
+        # So is an ite whose condition is no linear atom (a Bool variable, a
+        # predicate): the two ite terms keep different keys and no helper
+        # states their equality.
+        source = UFLRA_INPUTS["uflra_opaque_ite_conditions"]
+        for certificate in (proof_certificate.export_clause_log_certificate(source),
+                            proof_certificate.export_certificate(source)):
+            graph = proof_to_lean._validate_graph(source, certificate)
+            ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE]
+            self.assertEqual(len(ites), 2)
+            for node in ites:
+                self.assertEqual(graph.kind(graph.arguments(node)[0]), z3.Z3_OP_UNINTERPRETED)
+                self.assertEqual(proof_to_lean._real_atom_key(graph, node), ("atom", node))
+            self.assertEqual(len({proof_to_lean._real_argument_key(graph, node) for node in ites}), 2)
+            self.assertNotIn("have _r", proof_to_lean.reconstruct(source, certificate))
+
     def test_fragment_consistency(self):
         for fragment, message in [("qf_uf", "qf_uf certificates cannot contain arithmetic"),
                                   ("propositional", "propositional certificates cannot contain arithmetic"),
@@ -391,10 +459,15 @@ class TestMixedInProcess(unittest.TestCase):
         self.assertEqual(normalizer.key(q(one)), normalizer.key(q(z3.RealVal("1.0", context))))
         self.assertNotEqual(normalizer.key(q(one)), normalizer.key(z3.Not(q(one))))
 
-    def test_bool_only_predicates_with_arithmetic_need_the_legacy_core(self):
-        # The clause-log rejection is decided from the parsed input, before z3 runs.
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "Ackermannized.*--core legacy"):
-            proof_certificate.export_clause_log_certificate(BOOL_PREDICATE_WITH_ARITHMETIC)
+    def test_bool_only_predicates_with_arithmetic_export_through_both_cores(self):
+        certificate = proof_certificate.export_clause_log_certificate(BOOL_PREDICATE_WITH_ARITHMETIC)
+        self.assertEqual(certificate["fragment"], "qf_uflra")
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertEqual({d["name"] for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {"r", "x", "y"})
+        text = proof_to_lean.reconstruct(BOOL_PREDICATE_WITH_ARITHMETIC, certificate)
+        self.assertIn("No uninterpreted sort", text)
+        self.assertIn(proof_to_lean._UFLRA_BINDERS, text)
         certificate = proof_certificate.export_certificate(BOOL_PREDICATE_WITH_ARITHMETIC)
         self.assertEqual(certificate["fragment"], "qf_uflra")
         text = proof_to_lean.reconstruct(BOOL_PREDICATE_WITH_ARITHMETIC, certificate)
@@ -439,6 +512,13 @@ class TestMixedLeanIntegration(_LeanIntegration):
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 if name == "uflra_normalized_arguments":
                     self.assertIn("have _r", text)
+                if name == "uflra_single_occurrence":
+                    self.assertNotIn("!", json.dumps(certificate["declarations"]))
+
+    def test_bool_only_predicate_over_real_atoms_verifies_through_the_clause_log(self):
+        certificate, text = self.check(BOOL_PREDICATE_WITH_ARITHMETIC)
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertIn("No uninterpreted sort", text)
 
     # Seeds of random_instance whose unsat core has at least three assertions
     # (plain) and the first two such seeds with an uninterpreted sort, pinned

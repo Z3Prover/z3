@@ -1125,13 +1125,16 @@ def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
 
 
 def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
-    """State the equality of Real arguments of applications that have the same linear form.
+    """State the equality of Real arguments of applications that have the same normal form.
 
     grind's congruence closure compares function arguments as terms and its
     linear arithmetic reasons about atoms, so (f (- x y)) and (f (+ x (* -1
-    y))), which Z3's rewriter identifies, stay apart in Lean. Every pair of
-    reachable Real arguments with one linear form gets an explicit equality,
-    which grind proves as an atom and then uses for congruence.
+    y))), which Z3's rewriter identifies, stay apart in Lean, as do (f (ite
+    (> x 0) x (- x))) and (f (ite (<= x 0) (* -1 x) x)), the rewriter's
+    normal form of the same ite. Every pair of reachable Real arguments with
+    one normal form (_real_argument_key) gets an explicit equality, which
+    grind proves on its own (splitting the ite conditions) and then uses for
+    congruence.
     """
     groups = {}
     for node in sorted(reachable):
@@ -1139,10 +1142,7 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
             continue
         for argument in graph.arguments(node):
             if graph.is_real(argument):
-                terms = {}
-                constant = _linear_term(graph, argument, Fraction(1), terms)
-                key = (tuple(sorted((variable, value) for variable, value in terms.items() if value != 0)), constant)
-                members = groups.setdefault(key, [])
+                members = groups.setdefault(_real_argument_key(graph, argument), [])
                 if argument not in members:
                     members.append(argument)
     helpers = []
@@ -1152,6 +1152,38 @@ def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
                 first, second, _inline(graph, first, atom_indices, variable_indices),
                 _inline(graph, second, atom_indices, variable_indices)))
     return helpers
+
+
+def _real_argument_key(graph, node):
+    """The linear form of a Real term, with its ite atoms keyed up to Z3's normalization.
+
+    Variables and applications are atoms of their own; an ite whose condition
+    is a linear atom is keyed by the canonical polarity of that condition
+    (the non-strict comparison, swapping the branches when the condition is
+    the strict complement) and by the keys of its branches. Two terms with
+    one key denote the same value, which grind proves and the helper states.
+    """
+    terms = {}
+    constant = _linear_term(graph, node, Fraction(1), terms)
+    atoms = [(_real_atom_key(graph, atom), value) for atom, value in terms.items() if value != 0]
+    return (tuple(sorted(atoms, key=repr)), constant)
+
+
+def _real_atom_key(graph, atom):
+    if graph.kind(atom) != z3.Z3_OP_ITE:
+        return ("atom", atom)
+    condition, then_branch, else_branch = graph.arguments(atom)
+    try:
+        relation, terms, constant = _polarity_constraint(graph, condition, True)
+    except ReconstructionError:
+        return ("atom", atom)  # a condition that is no linear atom: opaque
+    if relation == "<":
+        relation, constant = "<=", -constant
+        terms = {variable: -value for variable, value in terms.items()}
+        then_branch, else_branch = else_branch, then_branch
+    condition_key = (relation, tuple(sorted(((_real_atom_key(graph, variable), value)
+                                              for variable, value in terms.items()), key=repr)), constant)
+    return ("ite", condition_key, _real_argument_key(graph, then_branch), _real_argument_key(graph, else_branch))
 
 
 def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None):

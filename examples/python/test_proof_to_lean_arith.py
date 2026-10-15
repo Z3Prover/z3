@@ -165,9 +165,11 @@ ITE_REWRITTEN_INPUTS = {
 }
 
 
-# Difference-logic-shaped inputs: the smt core's static features route them
-# to the older theory_arith, whose proof parameters (assign-bounds, signed
-# coefficients, antecedent-only weights) the exporter normalizes.
+# Difference-logic-shaped inputs. The frontend's tactic preamble used to
+# route them to the older theory_arith, whose proof parameters
+# (assign-bounds, signed coefficients, antecedent-only weights) the exporter
+# normalizes; with the preamble bypassed the smt core's theory_lra proves
+# them with bound propagations from premises.
 LEGACY_THEORY_ARITH_INPUTS = {
     "dl_fixed_zero": """\
 (declare-const x Real)
@@ -842,27 +844,33 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
         finally:
             z3.set_param("smt.arith.propagation_mode", 1)
 
-    def test_theory_arith_conventions_are_normalized(self):
+    def test_difference_logic_inputs_use_bound_propagations_from_premises(self):
+        # theory_arith's assign-bounds and eq-propagate conventions are
+        # exercised on constructed declarations in test_proof_certificate.py;
+        # the direct smt core path proves these inputs with theory_lra.
         source = LEGACY_THEORY_ARITH_INPUTS["dl_fixed_zero"]
         certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
         hints = {_th_lemma_parameters(certificate, node)[0] for node in _th_lemma_nodes(certificate)}
         self.assertIn("bound", hints)
         self.assertLessEqual(hints, {"bound", "farkas", "triangle-eq"})
-        normalized = 0
+        propagations = 0
         for node in _th_lemma_nodes(certificate):
             parameters = _th_lemma_parameters(certificate, node)
             if parameters[0] == "triangle-eq":
                 continue
             premises = certificate["nodes"][node]["arguments"][:-1]
-            clause = certificate["nodes"][certificate["nodes"][node]["arguments"][-1]]
-            self.assertEqual(len(parameters) - 1, len(premises) + len(clause["arguments"]))
+            literals = list(graph.clause(graph.conclusion(node)))
+            self.assertEqual(len(parameters) - 1, len(premises) + len(literals))
             self.assertTrue(all(Fraction(c) > 0 for c in parameters[1:]))
-            if parameters[0] == "bound" and not premises:
-                # theory_arith's assign-bounds clause: the propagated literal
-                # comes first and receives the weight 1 the exporter adds.
-                self.assertEqual(parameters[1], "1")
-                normalized += 1
-        self.assertTrue(normalized, "expected theory_arith's assign-bounds steps on difference-logic input")
+            if parameters[0] == "bound":
+                # The propagated bound is a unit clause with the weight 1 for
+                # the consequent after one weight per premise.
+                self.assertTrue(premises)
+                self.assertEqual(len(literals), 1)
+                self.assertEqual(parameters[-1], "1")
+                propagations += 1
+        self.assertTrue(propagations)
         proof_to_lean.reconstruct(source, certificate)
 
     def test_triangle_eq_shape_is_checked(self):
@@ -886,12 +894,18 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "takes no coefficients"):
             proof_to_lean.reconstruct(source, tampered)
 
-    def test_ite_terms_are_rejected_explicitly(self):
-        # The smt core names ite terms by intro-def, a definition the certificate
-        # cannot tie to the input; the clause log certifies these inputs.
-        certificate = proof_certificate.export_certificate(ITE_INPUTS["ite_basic"])
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "intro-def"):
-            proof_to_lean.reconstruct(ITE_INPUTS["ite_basic"], certificate)
+    def test_ite_terms_are_certified_without_definitions(self):
+        # The frontend's tactic preamble used to name ite terms by intro-def,
+        # a definition the certificate cannot tie to the input; the smt core
+        # reached directly keeps the ite terms and proves their gate clauses
+        # as def-axioms.
+        for name, source in ITE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = proof_certificate.export_certificate(source)
+                self.assertNotIn("intro-def", certificate["rule_counts"])
+                self.assertIn("def-axiom", certificate["rule_counts"])
+                self.assertNotIn("!", json.dumps(certificate["declarations"]))
+                proof_to_lean.reconstruct(source, certificate)
 
 
 class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
@@ -901,16 +915,16 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
     check_random_unsat_instances = TestArithmeticLeanIntegration.check_random_unsat_instances
 
     def test_documented_lra_inputs_verify_through_the_legacy_core(self):
-        inputs = dict(Z3TEST_LRA_INPUTS)
-        # Z3 pushes these comparisons through the ite, so no intro-def is
-        # needed (ite_deep_fractions keeps a nested ite and is rejected).
-        inputs.update({name: ITE_REWRITTEN_INPUTS[name] for name in ("ite_half_branch", "ite_divided_branches")})
+        # Real ite terms included: the smt core reached directly keeps them
+        # (no intro-def) and proves their gate clauses as def-axioms.
+        inputs = {**Z3TEST_LRA_INPUTS, **ITE_INPUTS, **ITE_REWRITTEN_INPUTS}
         for name, source in inputs.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source, core="legacy")
                 self.assertEqual(certificate["fragment"], "qf_lra")
                 self.assertIn(_STANDARD_AXIOMS, report)
-                self.assertIn("rewrite", certificate["rule_counts"])  # the preprocessing the clause log never sees
+                if name in Z3TEST_LRA_INPUTS:
+                    self.assertIn("rewrite", certificate["rule_counts"])  # the preprocessing the clause log never sees
 
     def test_bound_propagations_and_theory_arith_inputs_verify(self):
         for name, source in {**LEGACY_BOUND_INPUTS, **LEGACY_THEORY_ARITH_INPUTS}.items():

@@ -846,6 +846,51 @@ sat.smt path's unconstrained-variable simplifier regardless of
 (the legacy core names the term by `intro-def`); plumbing that option
 through `simplifier_solver` is a C++ follow-up.
 
+**The frontend's tactic preamble is bypassed (2026-10-15).** Both limits of
+the previous note had the same cause, and it was not `smt.elim_unconstrained`:
+for a non-incremental `check-sat` Z3's combined solver first runs the tactic
+of the input's logic (`mk_tactic_for_logic`; for QF_UFLRA and for input
+without `set-logic` that is `mk_default_tactic`, whose `mk_preamble_tactic`
+chains `simplify`, `propagate-values`, `ctx-simplify`, `solve-eqs`,
+`lia2card`, and `elim-uncnstr`) and only then the sat.smt core wrapped in
+`simplifier_solver`, which is where the `smt.*` options are read. The
+tactic's `elim-uncnstr` is what replaced `(- x y)` by `k!0` (and, with
+proofs, named it by `intro-def` in the legacy proof object), and the same
+preamble Ackermannized predicates over Bool alone (`r!1`, `k!2`) or decided
+the input before the core logged a clause. Both exporters now set
+`combined_solver.ignore_solver1=true` (the clause-log run through
+`_NO_PREPROCESSING`, the legacy run on its `z3.Solver`), so the assertions
+reach the core directly. Consequences: inputs with a variable in a single
+function argument certify through both cores (`uflra_single_occurrence`),
+predicates over Bool alone certify through the clause log as well as the
+legacy proof object (the `requires_legacy_core` routing and the explicit
+`--core clause-log` rejection of 2026-10-14 are gone; `--core auto` is now
+"legacy for propositional, clause log otherwise"), and inputs the preamble
+used to decide outright have a proof. Every existing documented input, the
+pinned seeds, both matrix cells, 24 random Bool-only predicate instances,
+and random QF_UF and QF_UFLRA instances verify unchanged or newly through
+both cores; `test_proof_certificate.py` pins the mechanism by running the
+log once without the option (fresh symbol or no inference) and once with
+it. The clause log's assumptions now stay closer to the input: the core's
+own `rewriter_simplifier` and `flatten_clauses` still run, but the level-0
+substitution into Boolean arguments and the phantom `k!0` of the 2026-10-12
+note were the preamble's doing and are gone (the replay keeps its phantom
+handling). One new bridge appeared: the core logs a Real `ite` argument in
+the rewriter's normal form (`(ite (<= x 0) (* -1 x) x)` for `(ite (> x 0) x
+(- x))`), which `grind` cannot identify under a function application, so the
+Real-argument helpers of each `grind` lemma key `ite` atoms up to that
+normalization (`_real_argument_key`) and state the equality, which `grind`
+proves on its own (an `ite` whose condition is no linear atom stays an
+opaque atom, `uflra_opaque_ite_conditions`). On the legacy side the proofs changed more: the smt core
+reached directly keeps Real `ite` terms (no `intro-def`), so all seven
+`ite` inputs of `test_proof_to_lean_arith.py` now verify through the legacy
+core too; difference-logic inputs are proved by `theory_lra`'s bound
+propagations rather than `theory_arith`'s `assign-bounds` (the mapping stays,
+exercised on constructed declarations only); and the documented QF_UF
+proofs lost the `trans` and `ite`-congruence steps the preamble's
+simplifier used to cause, so a legacy-only input (`uf_rewritten_ite`) keeps
+those shapes covered.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

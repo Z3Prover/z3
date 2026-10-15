@@ -64,18 +64,29 @@ _CNF_HINT = "cnf"
 # farkas, bound propagations bound, and equality propagations implied-eq, with
 # one coefficient per premise and per literal of the concluding clause;
 # arith_eq_adapter's axioms tying an equality to its two inequalities are
-# triangle-eq. The older theory_arith, which the smt core still selects for
-# difference-logic input, labels its propagations assign-bounds and
-# eq-propagate and weights the antecedents only, so the propagated literal's
-# weight of 1 is added here. Integer rules (gomory-cut, gcd-test) are rejected.
+# triangle-eq. The older theory_arith (smt.arith.solver=2, which the
+# frontend's tactic preamble used to select for difference-logic input)
+# labels its propagations assign-bounds and eq-propagate and weights the
+# antecedents only, so the propagated literal's weight of 1 is added here.
+# Integer rules (gomory-cut, gcd-test) are rejected.
 _LEGACY_HINTS = {
     "farkas": "farkas", "bound": "bound", "assign-bounds": "bound",
     "implied-eq": "implied-eq", "eq-propagate": "implied-eq", "triangle-eq": "triangle-eq",
 }
 # The clause log starts after preprocessing, so every pass that rewrites one
 # assertion using another is disabled. bound_simplifier runs solve_eqs and
-# propagate_values internally regardless of their own options.
+# propagate_values internally regardless of their own options. The smt.*
+# options reach the core's own simplifiers only: for a non-incremental
+# check-sat the frontend's combined solver first runs the tactic of the
+# input's logic (simplify, propagate-values, ctx-simplify, solve-eqs, and
+# elim-uncnstr for logics without a dedicated tactic, QF_UFLRA among them),
+# whose passes ignore the smt.* options, introduce fresh k!N constants for
+# unconstrained subterms, and Ackermannize uninterpreted predicates over
+# Bool. combined_solver.ignore_solver1 sends the assertions to the sat.smt
+# core directly, so the log refers to the input's own symbols. The legacy
+# exporter sets the same option on its solver (see export_certificate).
 _NO_PREPROCESSING = (
+    "(set-option :combined_solver.ignore_solver1 true)\n"
     "(set-option :smt.solve_eqs false)\n(set-option :smt.propagate_values false)\n"
     "(set-option :smt.elim_unconstrained false)\n(set-option :smt.bound_simplifier false)\n"
 )
@@ -295,51 +306,9 @@ def classify_fragment(assertions):
         # carrier, into which Real arguments are injected like Bool ones.
         # Predicates over Bool alone are the qf_uf fragment without a sort: the
         # Lean encoding injects their arguments into the carrier like any other
-        # Bool argument. Only the legacy proof object certifies them, see
-        # requires_legacy_core.
+        # Bool argument.
         return "qf_uflra" if arithmetic else "qf_uf"
     return "qf_lra" if arithmetic else "propositional"
-
-
-def _uses_theory_terms(assertions):
-    """Return whether any subterm has an uninterpreted sort or applies a function whose signature mentions Real."""
-    pending, seen = list(assertions), set()
-    while pending:
-        expr = pending.pop()
-        if expr.get_id() in seen:
-            continue
-        seen.add(expr.get_id())
-        if is_uninterpreted_sort(expr.sort()):
-            return True
-        decl = expr.decl()
-        if decl.kind() == z3.Z3_OP_UNINTERPRETED and decl.arity() and any(
-                sort.kind() == z3.Z3_REAL_SORT for sort in [decl.domain(i) for i in range(decl.arity())] + [decl.range()]):
-            return True
-        pending.extend(expr.children())
-    return False
-
-
-def requires_legacy_core(assertions, fragment):
-    """Return whether only the legacy proof object can certify the input.
-
-    Without an uninterpreted sort or a function over Real, Z3's sat.smt core
-    does not run the euf solver on uninterpreted predicates over Bool: it
-    Ackermannizes them with fresh symbols the clause log cannot be tied to
-    the input, or decides the problem before logging anything. The smt core's
-    proof object proves their congruences with monotonicity steps like any
-    other predicate's.
-    """
-    return fragment in ("qf_uf", "qf_uflra") and not _uses_theory_terms(assertions)
-
-
-def parse_clause_log_assertions(source, context):
-    """Parse the assertion snapshot for the clause log, with its fragment name."""
-    assertions, fragment = parse_assertions(source, context)
-    if requires_legacy_core(assertions, fragment):
-        raise ProofExportError("uninterpreted functions over Bool alone are Ackermannized by the sat.smt core "
-                               "without an uninterpreted sort or a function over Real "
-                               "and need the legacy proof object (--core legacy)")
-    return assertions, fragment
 
 
 def _require_legacy_fragment(assertions):
@@ -665,6 +634,11 @@ def export_certificate(source):
     context = z3.Context(proof=True)
     assertions, _ = parse_legacy_assertions(source, context)
     solver = z3.Solver(ctx=context)
+    # The default solver runs the tactic of the input's logic first (see
+    # _NO_PREPROCESSING); its elim-uncnstr pass names unconstrained subterms
+    # by intro-def steps over fresh k!N constants, which the certificate
+    # rejects. Send the assertions to the smt core directly.
+    solver.set("combined_solver.ignore_solver1", True)
     solver.add(assertions)
     result = solver.check()
     if result == z3.sat:
@@ -689,15 +663,16 @@ def default_z3_executable():
 def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     """Return a native-style proof bundle built from a sat.smt clause log.
 
-    The z3 executable solves the assertions with sat.smt=true and preprocessing
-    disabled, logging every assumed, inferred, and deleted clause. The log is
-    rebuilt into the proof DAG format: theory hints become th-lemma nodes and
+    The z3 executable solves the assertions with sat.smt=true, the frontend's
+    tactic preamble bypassed, and preprocessing disabled (_NO_PREPROCESSING),
+    logging every assumed, inferred, and deleted clause. The log is rebuilt
+    into the proof DAG format: theory hints become th-lemma nodes and
     reverse-unit-propagation steps become explicit resolution chains. The
     bundle is unverified; the Lean reconstructor must check it.
     """
     import proof_clause_log
     context = z3.Context()
-    assertions, fragment = parse_clause_log_assertions(source, context)
+    assertions, fragment = parse_assertions(source, context)
     try:
         text = proof_clause_log.run_clause_log(
             z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
@@ -716,8 +691,7 @@ def main():
     parser.add_argument("--core", choices=("auto", "legacy", "clause-log"), default="auto",
                         help="proof source: the legacy proof object (propositional, QF_UF, QF_LRA, or QF_UFLRA "
                              "input) or the sat.smt clause log via the z3 executable (default: legacy when "
-                             "propositional or for uninterpreted predicates over Bool without a sort or a function "
-                             "over Real, clause log otherwise)")
+                             "propositional, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
     args = parser.parse_args()
@@ -729,9 +703,8 @@ def main():
                 source = stream.read()
         core = args.core
         if core == "auto":
-            assertions, fragment = parse_assertions(source, z3.Context())
-            core = ("legacy" if fragment == "propositional" or requires_legacy_core(assertions, fragment)
-                    else "clause-log")
+            _, fragment = parse_assertions(source, z3.Context())
+            core = "legacy" if fragment == "propositional" else "clause-log"
         if core == "legacy":
             certificate = export_certificate(source)
         else:
