@@ -976,7 +976,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
 
     // For integer n >= 0, c*n^k >= n when c >= 1 and k >= 1.
     if (m_autil.is_mul(b)) {
-        bool has_length = false, out_of_bounds = true;
+        bool has_base_length = false, all_other_factors_ge_one = true;
         expr* base = nullptr;
         rational factor;
         ptr_buffer<expr> todo;
@@ -993,13 +993,13 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
                     todo.push_back(e);
             }
             else if (str().is_length(arg, base) && base == a)
-                has_length = true;
+                has_base_length = true;
             else if (!m_autil.is_numeral(arg, factor) || factor < 1) {
-                out_of_bounds = false;
+                all_other_factors_ge_one = false;
                 break;
             }
         }
-        if (has_length && out_of_bounds) {
+        if (has_base_length && all_other_factors_ge_one) {
             result = str().mk_empty(a_sort);
             return BR_DONE;
         }
