@@ -334,8 +334,12 @@ class TestArithmeticValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "cannot contain arithmetic"):
             proof_to_lean.reconstruct(self.source, certificate)
         certificate = copy.deepcopy(self.certificate)
-        certificate["fragment"] = "qf_lia"
+        certificate["fragment"] = "qf_nia"
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unsupported certificate header"):
+            proof_to_lean.reconstruct(self.source, certificate)
+        # The integer fragment is a valid label, but not for Real declarations.
+        certificate["fragment"] = "qf_lia"
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_lia certificates contain Int"):
             proof_to_lean.reconstruct(self.source, certificate)
         # A Boolean certificate claiming the arithmetic fragment declares no Real symbol.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")
@@ -391,7 +395,7 @@ class TestArithmeticValidation(unittest.TestCase):
         for declaration in certificate["declarations"]:
             if declaration["name"] == "th-lemma":
                 declaration["parameters"][0] = "implied-eq"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "must end in a Real equality"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "must end in an arithmetic equality"):
             proof_to_lean.reconstruct(self.source, certificate)
 
     def test_real_ite_is_an_opaque_linear_atom_with_classical_terms(self):
@@ -399,7 +403,7 @@ class TestArithmeticValidation(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         ite = next(i for i in range(len(graph.nodes)) if graph.kind(i) == z3.Z3_OP_ITE)
-        self.assertTrue(graph.is_real(ite))
+        self.assertTrue(graph.is_arith(ite))
         terms = {}
         self.assertEqual(proof_to_lean._linear_term(graph, ite, Fraction(2), terms), 0)
         self.assertEqual(terms, {ite: Fraction(2)})
@@ -768,7 +772,7 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
             (lambda p: p + ["1"], "coefficients for"),
             (lambda p: ["bound"] + p[1:-1] + [str(Fraction(p[-1]) * 3)], "do not refute"),
             (lambda p: ["triangle-eq"], "without premises"),
-            (lambda p: ["implied-eq"], "must end in a Real equality"),
+            (lambda p: ["implied-eq"], "must end in an arithmetic equality"),
         ]:
             tampered = copy.deepcopy(self.certificate)
             tampered["declarations"][declaration]["parameters"] = mutate(list(parameters))

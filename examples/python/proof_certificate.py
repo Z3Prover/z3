@@ -4,17 +4,18 @@
 # Export native Boolean, linear real arithmetic, and uninterpreted-function
 # refutations for independent proof consumers.
 ############################################
-"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_UF, or QF_UFLRA SMT-LIB problem.
+"""Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, or QF_UFLRA SMT-LIB problem.
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
-clause log, both for every fragment (predicates over Bool without any other
-theory term only through the legacy proof object).
+clause log, both for every fragment except QF_LIA, which the clause log
+alone certifies.
 """
 
 import argparse
 from collections import Counter
 from fractions import Fraction
 import json
+import math
 import os
 import re
 import subprocess
@@ -37,7 +38,7 @@ _ASSERTION_COMMANDS = {
 }
 # Certificate sort names with a fixed meaning; an uninterpreted sort keeps its
 # own name, which Z3's parser already keeps distinct from the built-in sorts.
-_RESERVED_SORTS = ("Bool", "Real", "Proof")
+_RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
 _BOOLEAN_OPERATORS = {
     z3.Z3_OP_TRUE, z3.Z3_OP_FALSE, z3.Z3_OP_NOT, z3.Z3_OP_AND, z3.Z3_OP_OR,
     z3.Z3_OP_IMPLIES, z3.Z3_OP_XOR, z3.Z3_OP_IFF, z3.Z3_OP_EQ,
@@ -46,6 +47,9 @@ _BOOLEAN_OPERATORS = {
 # Linear real arithmetic: atoms over Real terms built from variables, numerals,
 # sums, differences, negation, scaling by a numeral, division by a numeral,
 # and Real-valued ite, whose value is a linear term under either branch.
+# Linear integer arithmetic is the same fragment over Int without division
+# (div, mod, abs, to_real, and to_int are rejected); it never mixes with Real
+# or with uninterpreted sorts and functions.
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
@@ -54,7 +58,11 @@ _ARITH_NAMES = {
     z3.Z3_OP_DIV: "/",
 }
 # Clause-log hint encodings; replay handles each hint's clause convention.
-_COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
+# cut is the integer solver's hint for a Gomory cut or a gcd conflict: its
+# pairs name the bounds the cut rests on, but no coefficients certify the
+# rounding, so the clause is shape-checked here and proved by Lean alone,
+# like euf.
+_COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 _LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
@@ -161,14 +169,16 @@ def _is_numeral(expr):
 
 
 def numeral_value(expr):
-    """Return the exact rational value of a Real numeral."""
+    """Return the exact rational value of a Real or Int numeral."""
     if not _is_numeral(expr):
         raise ProofExportError("expected a numeral")
+    if z3.is_int_value(expr):
+        return Fraction(int(expr.as_string()))
     return Fraction(str(expr.as_fraction()))
 
 
 def constant_value(expr):
-    """Return the rational value of a variable-free Real term, or None."""
+    """Return the rational value of a variable-free Real or Int term, or None."""
     kind = expr.decl().kind()
     if kind == z3.Z3_OP_ANUM:
         return numeral_value(expr)
@@ -193,8 +203,13 @@ def constant_value(expr):
     return values[0] / values[1]
 
 
-def _require_linear_real(expr):
-    """Reject Real terms outside the linear fragment with constant coefficients."""
+def _require_linear_arithmetic(expr):
+    """Reject Real or Int terms outside the linear fragment with constant coefficients.
+
+    Integer division, mod, abs, and the conversions between Int and Real are
+    distinct operators that fall through to the rejection; Real division is
+    the only division accepted.
+    """
     kind = expr.decl().kind()
     if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM):
         pass  # Variables and applications of uninterpreted functions are the atoms of linear forms.
@@ -262,8 +277,8 @@ def _require_unique_symbol(decl, symbols):
 
 
 def classify_fragment(assertions):
-    """Return "propositional", "qf_lra", "qf_uf", or "qf_uflra", rejecting everything else."""
-    pending, seen, arithmetic, sorts, symbols = list(assertions), set(), False, set(), {}
+    """Return "propositional", "qf_lra", "qf_lia", "qf_uf", or "qf_uflra", rejecting everything else."""
+    pending, seen, real, integer, sorts, symbols = list(assertions), set(), False, False, set(), {}
     functions = False  # whether any uninterpreted function or predicate is applied
     while pending:
         expr = pending.pop()
@@ -277,19 +292,18 @@ def classify_fragment(assertions):
             _require_unique_symbol(decl, symbols)
             if decl.arity() != 0:
                 functions = True
-                arithmetic = _require_uninterpreted_signature(decl, sorts) or arithmetic
+                real = _require_uninterpreted_signature(decl, sorts) or real
         if z3.is_bool(expr):
             if decl.kind() == z3.Z3_OP_UNINTERPRETED:
                 pass
-            elif decl.kind() in _ARITH_PREDICATES:
-                arithmetic = True
-            elif decl.kind() not in _BOOLEAN_OPERATORS:
+            elif decl.kind() not in _ARITH_PREDICATES and decl.kind() not in _BOOLEAN_OPERATORS:
                 raise ProofExportError("unsupported propositional operator: %s" % decl.name())
-            if decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT) and z3.is_real(expr.arg(0)):
-                arithmetic = True
-        elif z3.is_real(expr):
-            arithmetic = True
-            _require_linear_real(expr)
+            if decl.kind() in _ARITH_PREDICATES or decl.kind() in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
+                real = real or z3.is_real(expr.arg(0))
+                integer = integer or z3.is_int(expr.arg(0))
+        elif z3.is_arith(expr):
+            real, integer = real or z3.is_real(expr), integer or z3.is_int(expr)
+            _require_linear_arithmetic(expr)
         elif is_uninterpreted_sort(expr.sort()):
             # Constants, function applications, and ite, whose branches are
             # terms of the sort and whose condition is any formula.
@@ -300,6 +314,16 @@ def classify_fragment(assertions):
         else:
             raise ProofExportError("unsupported sort: %s" % expr.sort())
         pending.extend(expr.children())
+    if integer:
+        # Linear integer arithmetic on its own: the Lean encoding values the
+        # variables in Int and the integer solver's rounding steps are proved
+        # there. Mixed Int/Real input (QF_LIRA) and integers next to
+        # uninterpreted sorts or functions (QF_UFLIA) have no encoding yet.
+        if real:
+            raise ProofExportError("mixing integer and real arithmetic is not supported")
+        if sorts or functions:
+            raise ProofExportError("integer arithmetic with uninterpreted sorts or functions is not supported")
+        return "qf_lia"
     if sorts or functions:
         # Uninterpreted sorts and functions mixed with linear real arithmetic
         # are QF_UFLRA: the Lean encoding carries the Rat valuation next to the
@@ -307,8 +331,8 @@ def classify_fragment(assertions):
         # Predicates over Bool alone are the qf_uf fragment without a sort: the
         # Lean encoding injects their arguments into the carrier like any other
         # Bool argument.
-        return "qf_uflra" if arithmetic else "qf_uf"
-    return "qf_lra" if arithmetic else "propositional"
+        return "qf_uflra" if real else "qf_uf"
+    return "qf_lra" if real else "propositional"
 
 
 def _require_legacy_fragment(assertions):
@@ -316,11 +340,16 @@ def _require_legacy_fragment(assertions):
 
     The legacy core's equality proofs (congruence, transitivity, symmetry) are
     complete, and theory_lra records the Farkas coefficients of its conflicts
-    and bound propagations as th-lemma parameters, so every classified
+    and bound propagations as th-lemma parameters, so every real-valued
     fragment is supported; a th-lemma without coefficients is rejected when
-    the proof is encoded.
+    the proof is encoded. Integer arithmetic is certified through the clause
+    log only: the legacy core's integer steps (branches, cuts, gcd tests) are
+    not mapped.
     """
-    return classify_fragment(assertions)
+    fragment = classify_fragment(assertions)
+    if fragment == "qf_lia":
+        raise ProofExportError("integer arithmetic is certified through the clause log only (--core clause-log)")
+    return fragment
 
 
 def parse_legacy_assertions(source, context):
@@ -337,10 +366,21 @@ def parse_propositional_assertions(source, context):
     return assertions
 
 
-def parse_assertions(source, context):
-    """Parse the assertion snapshot and return it with its fragment name."""
+def parse_assertions(source, context, integer=False):
+    """Parse the assertion snapshot and return it with its fragment name.
+
+    qf_lia is opt-in: the integer solver's cut steps (and Farkas steps resting
+    on cuts) carry no coefficient certificate that the replay can re-derive,
+    so the fragment is certified by Lean alone and a consumer accepts it
+    explicitly. The exporter and the reconstructor do; a harness that
+    classifies input for other proof checkers keeps the previous fragments.
+    """
     assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
-    return assertions, classify_fragment(assertions)
+    fragment = classify_fragment(assertions)
+    if fragment == "qf_lia" and not integer:
+        raise ProofExportError("integer arithmetic (qf_lia) is certified through the clause log and Lean alone; "
+                               "the consumer must accept the fragment explicitly")
+    return assertions, fragment
 
 
 def _th_lemma_parameters(decl, premises):
@@ -446,7 +486,7 @@ class DagBuilder:
     hash-consed, so repeated literals, clauses, and steps share one node.
     """
 
-    _SORTS = {z3.Z3_BOOL_SORT: "Bool", z3.Z3_REAL_SORT: "Real"}
+    _SORTS = {z3.Z3_BOOL_SORT: "Bool", z3.Z3_REAL_SORT: "Real", z3.Z3_INT_SORT: "Int"}
 
     def __init__(self):
         self.declarations, self.nodes = [], []
@@ -572,37 +612,127 @@ def linear_combination_refutes(constraints):
             total[variable] = total.get(variable, Fraction(0)) + coefficient * value
         constant += coefficient * offset
         strict = strict or (relation == "<" and coefficient != 0)
-    # Reduce the equalities to row echelon form, then eliminate every pivot
-    # variable from the inequality sum.
+    pivots = _echelon(equalities)
+    if pivots is None:
+        return True  # The equalities alone are inconsistent.
+    total, constant = _eliminate(pivots, total, constant)
+    if total:
+        return False
+    if not any(relation != "=" for _, relation, _, _ in constraints):
+        return False  # Consistent equalities only.
+    return constant > 0 or (strict and constant == 0)
+
+
+def _echelon(equalities):
+    """Reduce (terms, offset) equalities to row echelon form; None if they are inconsistent."""
     pivots = []
     for terms, offset in equalities:
-        terms, offset = dict(terms), offset
-        for pivot, row_terms, row_offset in pivots:
-            factor = terms.get(pivot, Fraction(0))
-            if factor:
-                for variable, value in row_terms.items():
-                    terms[variable] = terms.get(variable, Fraction(0)) - factor * value
-                offset -= factor * row_offset
-        terms = {variable: value for variable, value in terms.items() if value != 0}
+        terms, offset = _eliminate(pivots, dict(terms), offset)
         if not terms:
             if offset != 0:
-                return True  # The equalities alone are inconsistent.
+                return None
             continue
         pivot = min(terms)
         scale = terms[pivot]
         terms = {variable: value / scale for variable, value in terms.items()}
         pivots.append((pivot, terms, offset / scale))
+    return pivots
+
+
+def _eliminate(pivots, terms, constant):
+    """Substitute every pivot variable out of terms + constant; zero coefficients are dropped."""
+    terms = dict(terms)
     for pivot, row_terms, row_offset in pivots:
-        factor = total.get(pivot, Fraction(0))
+        factor = terms.get(pivot, Fraction(0))
         if factor:
             for variable, value in row_terms.items():
-                total[variable] = total.get(variable, Fraction(0)) - factor * value
+                terms[variable] = terms.get(variable, Fraction(0)) - factor * value
             constant -= factor * row_offset
-    if any(value != 0 for value in total.values()):
+    return {variable: value for variable, value in terms.items() if value != 0}, constant
+
+
+def integer_tightened(relation, terms, constant):
+    """Strengthen a strict constraint over integer-valued terms: t < 0 is t + 1 <= 0.
+
+    The step is sound only when every coefficient and the constant are
+    integers, so that t takes integer values; the integer fragment has no
+    division and integer numerals only, and anything else is rejected.
+    """
+    if relation != "<":
+        return relation, terms, constant
+    if constant.denominator != 1 or any(value.denominator != 1 for value in terms.values()):
+        raise ProofExportError("strict integer constraint with fractional coefficients")
+    return "<=", terms, constant + 1
+
+
+def _rounded(terms, constant):
+    """Round sum(terms) + constant <= 0 to the integer lattice.
+
+    With integer coefficients of gcd g and integer-valued variables, the sum
+    is a multiple of g, so the constant can be raised to the next multiple of
+    g and the row divided by g (Z3's checker calls this step cut).
+    """
+    scale = 1
+    for value in list(terms.values()) + [constant]:
+        scale = scale * value.denominator // math.gcd(scale, value.denominator)
+    terms = {variable: value * scale for variable, value in terms.items()}
+    constant *= scale
+    divisor = 0
+    for value in terms.values():
+        divisor = math.gcd(divisor, abs(int(value)))
+    if divisor <= 1:
+        return terms, constant
+    return ({variable: value / divisor for variable, value in terms.items()},
+            Fraction(math.ceil(constant / divisor)))
+
+
+def bound_combination_refutes(constraints):
+    """Decide an integer bound propagation, mirroring Z3's clause-log checker.
+
+    constraints are as in linear_combination_refutes, already tightened to
+    non-strict form, with the denied consequent last. The other inequalities
+    are summed with their coefficients, the equalities eliminated from the
+    sum and from the consequent, the sum rounded to the integer lattice, and
+    the consequent added with the multiplier that cancels one shared
+    variable (Z3 recomputes it rather than reading it from the hint). Every
+    step is a consequence over integer-valued variables, so no variable left
+    and a positive constant is a contradiction.
+    """
+    if len(constraints) < 2 or any(relation == "<" for _, relation, _, _ in constraints):
         return False
-    if not any(relation != "=" for _, relation, _, _ in constraints):
-        return False  # Consistent equalities only.
-    return constant > 0 or (strict and constant == 0)
+    *premises, (_, consequent_relation, consequent_terms, consequent_constant) = constraints
+    if consequent_relation == "=":
+        return False
+    equalities = [(dict(terms), offset) for _, relation, terms, offset in premises if relation == "="]
+    total, constant = {}, Fraction(0)
+    for coefficient, relation, terms, offset in premises:
+        if relation == "=":
+            continue
+        if coefficient < 0:
+            return False
+        for variable, value in terms.items():
+            total[variable] = total.get(variable, Fraction(0)) + coefficient * value
+        constant += coefficient * offset
+    pivots = _echelon(equalities)
+    if pivots is None:
+        return True
+    total, constant = _eliminate(pivots, total, constant)
+    consequent_terms, consequent_constant = _eliminate(pivots, consequent_terms, consequent_constant)
+    if not consequent_terms:
+        return consequent_constant > 0
+    if not total:
+        return constant > 0
+    total, constant = _rounded(total, constant)
+    for variable in sorted(total):
+        if variable not in consequent_terms:
+            continue
+        multiplier = abs(consequent_terms[variable] / total[variable])
+        combined = dict(consequent_terms)
+        for other, value in total.items():
+            combined[other] = combined.get(other, Fraction(0)) + multiplier * value
+        if all(value == 0 for value in combined.values()) and consequent_constant + multiplier * constant > 0:
+            return True
+    return False
 
 
 def _certificate_from_proof(source, assertions, proof):
@@ -672,7 +802,7 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     """
     import proof_clause_log
     context = z3.Context()
-    assertions, fragment = parse_assertions(source, context)
+    assertions, fragment = parse_assertions(source, context, integer=True)
     try:
         text = proof_clause_log.run_clause_log(
             z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
@@ -703,7 +833,7 @@ def main():
                 source = stream.read()
         core = args.core
         if core == "auto":
-            _, fragment = parse_assertions(source, z3.Context())
+            _, fragment = parse_assertions(source, z3.Context(), integer=True)
             core = "legacy" if fragment == "propositional" else "clause-log"
         if core == "legacy":
             certificate = export_certificate(source)

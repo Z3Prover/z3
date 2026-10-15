@@ -537,7 +537,8 @@ n-ary `distinct`, and fractional unary-negation regressions.
 
 Still open for this slice: real SMT-LIB QF_LRA benchmarks (the canary list has
 two unsat instances, both trivial), `smt` hints have not been observed on the
-inputs tried, and QF_LIA needs `cut` hints that the C++ checker never accepts.
+inputs tried, and QF_LIA needs `cut` hints that the C++ checker never accepts
+(QF_LIA certified since 2026-10-15 with Lean proving the cuts; see below).
 
 **Real `ite` terms and congruence claims (2026-10-11).** The exporter rejected
 every QF_LRA input with a Real-valued `ite`, although the clause log handles
@@ -890,6 +891,53 @@ exercised on constructed declarations only); and the documented QF_UF
 proofs lost the `trans` and `ite`-congruence steps the preamble's
 simplifier used to cause, so a legacy-only input (`uf_rewritten_ite`) keeps
 those shapes covered.
+
+**QF_LIA through the clause log (2026-10-15).** Linear integer arithmetic
+was rejected at the exporter ("unsupported sort: Int") although Z3's
+clause log for it differs from the Real case in three conventions only,
+all taken from Z3's own clause-log checker (`arith_theory_checker.h`): the
+numerals are printed without a sort, a strict bound over Int is tightened to
+its non-strict form (`(< t 5)` and `(not (<= 5 t))` both mean `(<= t 4)`),
+and a `bound` combination may be rounded to the integer lattice before the
+propagated literal cancels it. What the C++ checker never accepts, the
+`cut` hints of Gomory cuts and gcd conflicts, needs no certificate in Lean:
+`omega` decides linear integer arithmetic. The exporter now classifies
+Int-only input as a fifth fragment `qf_lia` (Int mixed with Real, with
+uninterpreted sorts or functions, and `div`/`mod`/`abs`/`to_real` stay
+rejected explicitly; the legacy proof object rejects integer input before
+producing a proof, and `parse_assertions` accepts the fragment only when
+the consumer opts in, since z3test's harness expects integer input to stay
+"unsupported" until it adds `lia_*.smt2` inputs), the replay values
+numerals in Int, tightens integer
+constraints in the Farkas checks and in the canonical assumption keys, and
+re-derives `bound` hints with the rounding; the reconstructor values
+`_vars` in `Int`, renders Int numerals and `ite`, and proves every integer
+lemma and rewrite by `first | omega | grind`: grind's `lia` module ran out
+of steps (`liaSteps := 10000`) on Farkas lemmas with several equalities and
+on `ite` splits that `omega` closes in under a second. One policy decision:
+Z3's LP explanations over Int can rest on cuts it made along the way, so a
+`farkas` or `bound` whose coefficients do not refute the tightened literals
+(2 of 1,382 lemmas in a 400-seed sample; Z3's checker fails on them too,
+"maybe follows from a cut") is kept without coefficients, which marks it in
+the certificate as proved by Lean alone like a `cut`; over Real such a hint
+is still rejected, and coefficients that are present must re-derive the
+lemma on both paths. Nine documented inputs (gcd conflict, rounded bounds,
+tightened strict bounds, branch-and-bound shape, a four-literal Gomory cut,
+Boolean structure, Int `ite`, `distinct`, equality elimination), three
+pinned seeds, and 520 random instances (4 to 6 variables, 10 to 16
+constraints, with and without `ite`) verify under the standard axioms; the
+first pass had 2 export rejections and 5 Lean failures, all of the two
+kinds above and none after. Review of the iteration found the
+normalized-rewrite path (more than 16 linear atoms in one rewrite) broken
+over Int, because a tightened strict atom and the bound it contradicts got
+two unrelated names; the atoms are now keyed up to complement as in the
+replay's `_Normalizer`, with a nine-variable, 18-literal input in the test
+module. Not done: QF_LIRA and QF_UFLIA (no mixed encoding), the legacy
+core's integer steps, the `bound` rounding path is exercised by unit tests
+and a pinned log only (no random instance needed it), and an Int `ite`
+nested inside another `ite`'s condition can push `omega` and `grind` past
+the heartbeat budget (one such instance in the reviewer's stress run; the
+certificate is rejected, not misproved).
 
 ## Arithmetic proof infrastructure
 

@@ -79,7 +79,13 @@ arithmetic) takes both the `_vars` valuation and the `_U` binders, plus
 `(_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)`: a Real argument of a
 function or predicate is injected into `_U` by `_real`, and a function with a
 Real result is the family `_rfuns`, whose applications are the atoms of the
-linear forms; both cores certify it, predicates over Bool alone included.
+linear forms; both cores certify it, predicates over Bool alone included. A
+QF_LIA input (linear integer arithmetic on its own) is certified from the
+clause log only; its theorem quantifies over `_vars : Nat -> Int`, its
+theory lemmas and arithmetic rewrites are proved by `first | omega | grind`,
+and the integer solver's `cut` steps, and Farkas steps whose coefficients
+rest on cuts, reach Lean with their shapes checked only, so `omega` is the
+check for them.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's

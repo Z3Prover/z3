@@ -812,9 +812,47 @@ def _z3_available():
         return False
 
 
+# A Gomory cut: rationally feasible, integer infeasible, refuted by one cut
+# hint over the four bounds. The log is the sat.smt core's output verbatim.
+_LIA = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (<= (+ (* 2 x) (* 2 y)) 3))
+(assert (>= (+ (* 2 x) (* 2 y)) 1))
+(assert (>= (- (* 4 x) (* 2 y)) 1))
+(assert (<= (- (* 4 x) (* 2 y)) 3))
+(check-sat)
+"""
+
+_LIA_LOG = """\
+(declare-fun y () Int)
+(declare-fun x () Int)
+(define-const $9 Int (* 2 y))
+(define-const $7 Int (* 2 x))
+(define-const $10 Int (+ $7 $9))
+(define-const $12 Bool (<= $10 3))
+(assume $12)
+(define-const $14 Bool (>= $10 1))
+(assume $14)
+(define-const $24 Int (* (- 2) y))
+(define-const $16 Int (* 4 x))
+(define-const $25 Int (+ $16 $24))
+(define-const $26 Bool (>= $25 1))
+(assume $26)
+(define-const $27 Bool (<= $25 3))
+(assume $27)
+(declare-fun cut (Int Bool Int Bool Int Bool Int Bool) Proof)
+(define-const $31 Proof (cut 1 $12 1 $14 1 $26 1 $27))
+(infer (not $12) (not $14) (not $26) (not $27) $31)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+
+
 class TestFragmentClassification(unittest.TestCase):
     def classify(self, source):
-        assertions, fragment = proof_certificate.parse_assertions(source, z3.Context())
+        assertions, fragment = proof_certificate.parse_assertions(source, z3.Context(), integer=True)
         return fragment
 
     def test_propositional_and_linear_real_inputs_are_classified(self):
@@ -827,12 +865,37 @@ class TestFragmentClassification(unittest.TestCase):
                "(assert (> (* 2.0 (ite (and p (< x 1.0)) x (ite p 1.0 (- x)))) 2.0))")
         self.assertEqual(self.classify(ite), "qf_lra")
 
+    def test_linear_integer_inputs_are_classified(self):
+        self.assertEqual(self.classify("(declare-const x Int)(assert (> x 1))"), "qf_lia")
+        self.assertEqual(self.classify(_LIA), "qf_lia")
+        # Scaling, negation, nested sums, a Boolean condition, an Int ite, and
+        # distinct over Int all stay in the fragment; a numeral comparison too.
+        shapes = ("(declare-const x Int)(declare-const y Int)(declare-const p Bool)"
+                  "(assert (or p (< (- (* 2 x) (- y)) 1)))"
+                  "(assert (= (ite (and p (< x 1)) x (ite p 1 (- x))) (+ y 2)))"
+                  "(assert (distinct x y 3))(assert (<= 1 2))")
+        self.assertEqual(self.classify(shapes), "qf_lia")
+        # An unused Real declaration does not mix the sorts.
+        self.assertEqual(self.classify("(declare-const r Real)(declare-const x Int)(assert (> x 1))"), "qf_lia")
+
     def test_nonlinear_integer_and_other_inputs_are_rejected(self):
         for source, message in [
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
-            ("(declare-const x Int)(assert (> x 1))", "unsupported sort"),
             ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "functions over Int"),
+            # Integer arithmetic stands alone: no Real, no uninterpreted
+            # functions, no integer division, mod, or abs, no conversions.
+            ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))", "unsupported arithmetic operator"),
+            ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))", "mixing integer and real"),
+            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f x) 1))", "functions over Int"),
+            ("(declare-sort U 0)(declare-fun a () U)(declare-const x Int)(assert (and (= a a) (> x 1)))",
+             "integer arithmetic with uninterpreted sorts"),
+            ("(declare-fun p (Bool) Bool)(declare-const x Int)(assert (and (p true) (> x 1)))",
+             "integer arithmetic with uninterpreted sorts or functions"),
+            ("(declare-const x Int)(assert (> (div x 2) 1))", "unsupported arithmetic operator: div"),
+            ("(declare-const x Int)(assert (> (mod x 2) 1))", "unsupported arithmetic operator: mod"),
+            ("(declare-const x Int)(assert (> (abs x) 1))", "unsupported arithmetic operator: abs"),
+            ("(declare-const x Int)(declare-const y Int)(assert (> (* x y) 1))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (/ 1.0 (f x)) 1.0))", "division"),
             ("(declare-const p Bool)(declare-const x Real)(assert (> (* x (ite p x 1.0)) 2.0))", "nonlinear"),
@@ -916,6 +979,18 @@ class TestFragmentClassification(unittest.TestCase):
             with self.subTest(source=source):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.classify(source)
+
+    def test_legacy_exporter_rejects_integer_arithmetic(self):
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
+            proof_certificate.export_certificate(_LIA)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
+            proof_certificate.parse_legacy_assertions(_LIA, z3.Context())
+        # The clause-log classification accepts the input once the consumer
+        # opts in to the fragment; by default it stays unsupported, since its
+        # cut steps are certified by Lean alone.
+        self.assertEqual(proof_certificate.parse_assertions(_LIA, z3.Context(), integer=True)[1], "qf_lia")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "accept the fragment explicitly"):
+            proof_certificate.parse_assertions(_LIA, z3.Context())
 
     def test_legacy_exporter_exports_linear_real_arithmetic(self):
         # theory_lra records the Farkas coefficients of its LP conflicts as
@@ -1106,10 +1181,42 @@ class TestLinearCombination(unittest.TestCase):
         self.assertFalse(proof_certificate.linear_combination_refutes(consistent))
 
 
+    def test_integer_tightening_and_bound_rounding(self):
+        F = Fraction
+        tighten = proof_certificate.integer_tightened
+        # x < 3 over Int is x - 2 <= 0; non-strict constraints are unchanged.
+        self.assertEqual(tighten("<", {"x": F(1)}, F(-3)), ("<=", {"x": F(1)}, F(-2)))
+        self.assertEqual(tighten("<=", {"x": F(1)}, F(-3)), ("<=", {"x": F(1)}, F(-3)))
+        self.assertEqual(tighten("=", {"x": F(1)}, F(-3)), ("=", {"x": F(1)}, F(-3)))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "fractional coefficients"):
+            tighten("<", {"x": F(1, 2)}, F(-3))
+        bound = proof_certificate.bound_combination_refutes
+        # 3x <= 4 propagates x <= 1: the denied consequent is x >= 2, which the
+        # given coefficients (1, 1) do not refute rationally.
+        rounded = [(F(1), "<=", {"x": F(3)}, F(-4)), (F(1), "<=", {"x": F(-1)}, F(2))]
+        self.assertFalse(proof_certificate.linear_combination_refutes(rounded))
+        self.assertTrue(bound(rounded))
+        # A consequent that the rounded bound does not cancel (x <= 0 denied,
+        # so the propagated literal would be x >= 1) is rejected.
+        self.assertFalse(bound([(F(1), "<=", {"x": F(3)}, F(-4)), (F(1), "<=", {"x": F(1)}, F(0))]))
+        # Premises with a shared gcd: 2x + 2y <= 3 rounds to x + y <= 1, denying x + y >= 2.
+        gcd = [(F(1), "<=", {"x": F(2), "y": F(2)}, F(-3)), (F(1), "<=", {"x": F(-1), "y": F(-1)}, F(2))]
+        self.assertTrue(bound(gcd))
+        # An equality is eliminated first: y = x + 1 and 2x + 2y <= 3 give 4x <= 1, so x <= 0.
+        equality = [(F(1), "=", {"y": F(1), "x": F(-1)}, F(-1)), (F(1), "<=", {"x": F(2), "y": F(2)}, F(-3)),
+                    (F(1), "<=", {"x": F(-1)}, F(1))]
+        self.assertTrue(bound(equality))
+        # A consequent over other variables, a strict row, or a negative weight is rejected.
+        self.assertFalse(bound([(F(1), "<=", {"x": F(3)}, F(-4)), (F(1), "<=", {"y": F(-1)}, F(2))]))
+        self.assertFalse(bound([(F(1), "<", {"x": F(3)}, F(-4)), (F(1), "<=", {"x": F(-1)}, F(2))]))
+        self.assertFalse(bound([(F(-1), "<=", {"x": F(3)}, F(-4)), (F(1), "<=", {"x": F(-1)}, F(2))]))
+        self.assertFalse(bound(rounded[:1]))
+
+
 class TestClauseLogReplay(unittest.TestCase):
     def replay(self, source, log):
         context = z3.Context()
-        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        assertions, fragment = proof_certificate.parse_assertions(source, context, integer=True)
         return proof_clause_log.build_certificate(source, fragment, assertions, log, context)
 
     def test_recorded_log_becomes_a_well_formed_dag(self):
@@ -1135,6 +1242,90 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertEqual(certificate["declarations"][conclusion["declaration"]]["kind"], z3.Z3_OP_FALSE)
         for index, node in enumerate(certificate["nodes"]):
             self.assertTrue(all(argument < index for argument in node["arguments"]))
+
+    def test_integer_log_is_replayed_over_int_with_cut_hints(self):
+        certificate = self.replay(_LIA, _LIA_LOG)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        sorts = {d["range"] for d in certificate["declarations"]}
+        self.assertEqual(sorts, {"Bool", "Int", "Proof"})
+        numerals = sorted(d["name"] for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_ANUM)
+        self.assertEqual(numerals, ["1", "2", "3", "4"])  # (- 2) is unary minus applied to 2
+        th_lemma = [d for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual([d["parameters"] for d in th_lemma], [["cut"]])  # no coefficients certify a cut
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 4)
+        # The Real twin of the input never takes a cut, and an Int log cannot
+        # carry a fractional numeral.
+        twin = _LIA.replace(" Int)", " Real)")
+        for digit in "1234":
+            twin = twin.replace(" %s " % digit, " %s.0 " % digit).replace(" %s)" % digit, " %s.0)" % digit)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "cut hint over Real atoms"):
+            self.replay(twin, _LIA_LOG.replace(" Int", " Real"))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "fractional numeral in an integer"):
+            self.replay(_LIA, _LIA_LOG.replace("(<= $10 3)", "(<= $10 3.5)"))
+        # A cut over a Boolean literal has no linear shape.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not an arithmetic atom"):
+            self.replay(_LIA, _LIA_LOG.replace("(cut 1 $12 1 $14", "(cut 1 true 1 $14"))
+        # Relabelled as farkas, the coefficients are summed exactly and do not
+        # refute the literals; over Int that drops them (Lean alone proves the
+        # clause) instead of rejecting the log, as the Real slice would.
+        relabelled = self.replay(_LIA, _LIA_LOG.replace("cut", "farkas"))
+        self.assertEqual([d["parameters"] for d in relabelled["declarations"] if d["name"] == "th-lemma"],
+                         [["farkas"]])
+
+    def test_integer_bound_hints_may_round(self):
+        # 3x <= 4 (logged as x <= 1 by the rewriter normally; here kept as a
+        # term) propagates x <= 1: the bound hint's unit coefficients do not
+        # refute the literals rationally, the rounded combination does.
+        source = "(declare-const x Int)(assert (<= (* 3 x) 4))(assert (>= x 2))"
+        log = """\
+(declare-fun x () Int)
+(define-const $1 Int (* 3 x))
+(define-const $2 Bool (<= $1 4))
+(assume $2)
+(define-const $3 Bool (>= x 2))
+(assume $3)
+(define-const $4 Bool (<= x 1))
+(declare-fun bound (Int Bool Int Bool) Proof)
+(define-const $5 Bool (not $4))
+(define-const $6 Proof (bound 1 $2 1 $5))
+(infer (not $2) $4 $6)
+(declare-fun farkas (Int Bool Int Bool) Proof)
+(define-const $7 Proof (farkas 1 $3 1 $4))
+(infer (not $3) (not $4) $7)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+        certificate = self.replay(source, log)
+
+        def parameters(certificate):
+            return sorted(d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma")
+
+        self.assertEqual(parameters(certificate), [["bound", "1", "1"], ["farkas", "1", "1"]])
+        # A farkas gets no rounding, and a bound whose consequent the rounded
+        # row does not cancel is not certified either: both keep the lemma
+        # but drop the coefficients, leaving the clause to Lean.
+        self.assertEqual(parameters(self.replay(source, log.replace("bound", "farkas"))),
+                         [["farkas"], ["farkas", "1", "1"]])
+        self.assertEqual(parameters(self.replay(source, log.replace("(<= x 1)", "(<= x 0)"))),
+                         [["bound"], ["farkas", "1", "1"]])
+        # The Real twin rejects the same hint outright.
+        real_source = "(declare-const x Real)(assert (<= (* 3.0 x) 4.0))(assert (>= x 2.0))"
+        real_log = """\
+(declare-fun x () Real)
+(define-const $1 Real (* 3.0 x))
+(define-const $2 Bool (<= $1 4.0))
+(assume $2)
+(define-const $3 Bool (>= x 2.0))
+(assume $3)
+(define-const $4 Bool (<= x 1.0))
+(declare-fun bound (Int Bool Int Bool) Proof)
+(define-const $5 Bool (not $4))
+(define-const $6 Proof (bound 1 $2 1 $5))
+(infer (not $2) $4 $6)
+"""
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "bound hint coefficients do not refute"):
+            self.replay(real_source, real_log)
 
     def test_euf_congruence_annotations_are_not_assumptions(self):
         source = ("(declare-const x Real)(declare-const y Real)"
@@ -1479,7 +1670,7 @@ class TestClauseLogReplay(unittest.TestCase):
         hints = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
         self.assertEqual(hints, [["implied-eq", "1", "1", "1"]])
         malformed = log.replace("(implied-eq 1 $1 1 $2 1 (not $3))", "(implied-eq 1 $1 1 $2 1 $3)")
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "must end in a Real disequality"):
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "must end in an arithmetic disequality"):
             self.replay(source, malformed)
 
     def test_alldiff_clauses_are_bound_to_original_assertions(self):

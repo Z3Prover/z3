@@ -82,11 +82,20 @@ opaque atom of the linear forms, as in Z3's arithmetic solver); a function
 whose signature mentions Real makes the input qf_uflra even without any
 Real atom. Predicates whose arguments are all Bool are the qf_uf fragment
 even without any uninterpreted sort (qf_uflra when their arguments are Real
-atoms); both cores certify them. One symbol name declared with
+atoms); both cores certify them. The qf_lia fragment is linear integer
+arithmetic on its own: Int variables and numerals, sums, differences,
+negation, multiplication by a numeral, Int-valued ite, and the same atoms
+over Int terms; it is certified through the clause log only, and a consumer
+of parse_assertions accepts it explicitly (integer=True, as the exporter
+and the reconstructor do), because its cut steps are certified by Lean
+alone rather than re-derived in Python first. Integer
+division, mod, abs, to_real, to_int, Int mixed with Real (QF_LIRA), and Int
+next to uninterpreted sorts or functions (QF_UFLIA) are rejected explicitly.
+One symbol name declared with
 several signatures is rejected in every fragment: Z3 accepts such overloading
 and tells the declarations apart by sort, but the certificate binds symbols
 by name, so classification fails for the exporter and again for the
-reconstructor, which parses the input itself. Quantifiers, integer arithmetic,
+reconstructor, which parses the input itself. Quantifiers,
 nonlinear terms, bit-vectors, arrays, and pseudo-Boolean operators are
 rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
@@ -98,7 +107,7 @@ Bundle format, version 1
     format          "z3-native-proof-dag"
     format_version  1
     z3_version      producer's full Z3 version
-    fragment        "propositional", "qf_lra", "qf_uf", or "qf_uflra"
+    fragment        "propositional", "qf_lra", "qf_lia", "qf_uf", or "qf_uflra"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
@@ -121,6 +130,13 @@ operators and predicates listed above, and th-lemma declarations whose
 parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",
 "tseitin", "smt", or the exporter's own "cnf") followed, for the first three,
 by one nonnegative rational coefficient per literal of the lemma clause.
+The qf_lia fragment uses the Int sort the same way, with integer numerals,
+no division, and no uninterpreted function over Int; its th-lemma hints
+additionally include "cut" (the integer solver's Gomory cuts and gcd
+conflicts), which carries no coefficients, and a farkas or bound whose
+coefficients did not re-derive the lemma over the tightened and rounded
+integer bounds is recorded without coefficients too (see below); a
+certificate never mixes Int with Real declarations.
 The qf_uf fragment uses the input's uninterpreted sorts under their own names
 (never Bool, Real, or Proof) for constants, function declarations whose
 range is one of those sorts and whose domain consists of those sorts and
@@ -160,7 +176,8 @@ arithmetic input by default and rebuilds the log into the same DAG format
 --core auto (the default) uses the legacy proof object for propositional input
 and the clause log otherwise; --core clause-log forces the log for Boolean
 input too, and --core legacy the proof object for QF_UF, QF_LRA, and QF_UFLRA
-input.
+input (QF_LIA is rejected there: the legacy core's integer steps are not
+mapped).
 --z3 defaults to $Z3_EXE, then build/z3 next to this
 checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
@@ -266,6 +283,27 @@ that still refers to a fresh symbol is rejected ("declares a symbol absent
 from the input" when the log declares it, "uses an undeclared or fresh
 symbol" when it first appears inside a clause).
 
+Linear integer arithmetic (QF_LIA) goes through the same clause log with
+three integer-specific conventions, all taken from Z3's own clause-log
+checker. The log prints numerals without a sort, so an integer input values
+them in Int (the exporter never mixes Int with Real). A strict bound over Int
+is tightened to its non-strict form, (< t 5) and (not (<= 5 t)) both to
+(<= t 4), in the Farkas combinations and in the canonical keys that tie
+assumed clauses to assertions, since Z3's rewriter rounds the input's own
+bounds the same way ((<= 1 (* 3 x)) is logged as (>= x 1); the rewrite is
+proved by Lean). A bound hint's combination may be rounded to the integer
+lattice before the propagated literal cancels it, with the literal's
+multiplier recomputed as Z3's checker does. Two hint shapes certify nothing
+beyond the clause: cut, the integer solver's Gomory cuts and gcd conflicts,
+and a farkas or bound whose coefficients do not refute the tightened literals
+even after rounding, which happens when the LP explanation rests on cuts Z3
+made along the way (Z3's checker fails on those too; 2 of 1,382 lemmas in a
+random sample). Over Real such a hint is rejected; over Int the lemma is kept
+without coefficients, which marks it in the certificate as proved by Lean
+alone, and the reconstructor accepts coefficient-free farkas and bound
+th-lemmas in Int certificates only. Coefficients that are present must
+re-derive the lemma on both paths.
+
 Uninterpreted functions through the legacy proof object
 -------------------------------------------------------
 
@@ -317,7 +355,8 @@ input): assign-bounds (a propagation weighting the antecedents only, with
 signed coefficients) becomes bound with the propagated literal's weight 1
 added, eq-propagate becomes implied-eq, and only magnitudes are kept. A
 th-lemma whose hint is none of these, including a bare (_ th-lemma arith)
-and the integer rules, is rejected at export.
+and the integer rules, is rejected at export; integer input is rejected on
+this path before any proof is produced (the clause log certifies it).
 
 The reconstructor re-derives every farkas and bound combination from the
 premises and the clause with exact rationals before Lean runs, checks the
@@ -480,9 +519,31 @@ equalities, under the condition and under its negation, stated the same way
 ite_eq_left and ite_eq_right; Z3's rewriter can push a comparison through an
 ite, in which case these are the only facts tying the ite to its branches.
 
+For qf_lia certificates the second argument is _vars : Nat -> Int, numerals
+are Int literals, an Int ite is Lean's ite over Int with the classical
+instance, and no encoding argument is needed: the variables range over
+exactly the integers. Each th-lemma and arithmetic rewrite is proved by
+first | omega | grind (splits := 64): omega decides linear integer
+arithmetic (ite over Int included) and produces a kernel-checked proof,
+where grind's integer module ran out of steps on Farkas lemmas with several
+equalities and on ite splits; grind still handles goals omega does not read.
+A cut, or a farkas or bound without coefficients (see the clause-log
+section), reaches Lean with its literal shapes checked only; a false one
+fails there and no proof is published. Coefficients that are present are
+re-derived over the tightened integer constraints, with the bound rounding
+of Z3's checker, and rejected when they do not refute the lemma. In a
+rewrite over more than 16 linear atoms (the normalized path above) a
+tightened strict atom is keyed as the negation of the bound it contradicts,
+so (< x 5) and (>= x 5) share one atom name, as they share one key in the
+exporter's replay. Known limit: an Int ite nested inside the condition of
+another ite can push omega and grind past the heartbeat budget on the
+th-lemma that reaches it; the certificate is then rejected (no proof is
+published), never misproved.
+
 Lean core's Rat library itself depends on propext, Classical.choice, and
 Quot.sound, so arithmetic theorems necessarily report those three standard
-axioms. The propositional slice remains axiom-free. Long refutations elaborate
+axioms (Int theorems do as well, through omega and the classical ite
+instance). The propositional slice remains axiom-free. Long refutations elaborate
 under set_option maxRecDepth 100000; this is an elaborator limit, not a trust
 setting.
 
@@ -702,9 +763,10 @@ Include the real Lean integration tests when the pinned toolchain is installed:
     PYTHONPATH=build/python python3 -m unittest discover -s examples/python \
         -p 'test_proof_to_lean*.py'
 
-test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_uf.py
-the qf_uf slice, and test_proof_to_lean_uflra.py the qf_uflra slice end to
-end; all need the z3 executable as well and are skipped when none is found.
+test_proof_to_lean_arith.py covers the qf_lra slice, test_proof_to_lean_lia.py
+the qf_lia slice, test_proof_to_lean_uf.py the qf_uf slice, and
+test_proof_to_lean_uflra.py the qf_uflra slice end to end; all need the z3
+executable as well and are skipped when none is found.
 
 These run in a Lean-enabled Ubuntu CMake CI configuration, not the dependency-free
 build-script job.

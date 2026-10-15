@@ -346,7 +346,7 @@ class TestMixedValidation(unittest.TestCase):
         # atom-normalizing rewrite shape (keyed by variable index) is not used.
         atoms = [node for node in range(len(graph.nodes))
                  if graph.kind(node) in (z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT, z3.Z3_OP_EQ)
-                 and graph.arguments(node) and graph.is_real(graph.arguments(node)[0])]
+                 and graph.arguments(node) and graph.is_arith(graph.arguments(node)[0])]
         self.assertFalse(proof_to_lean._linear_over_variables(graph, atoms))
         variables_only = [atom for atom in atoms
                           if all(graph.kind(v) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(v)
@@ -373,7 +373,7 @@ class TestMixedValidation(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertRegex(text, r"have _r\d+_\d+ : .*@ite Rat .* = .*@ite Rat .* := by grind")
         # A variable and an application are opaque atoms.
-        opaque = [node for node in range(len(graph.nodes)) if graph.is_real(node)
+        opaque = [node for node in range(len(graph.nodes)) if graph.is_arith(node)
                   and graph.kind(node) == z3.Z3_OP_UNINTERPRETED]
         self.assertTrue(opaque)
         for node in opaque:
@@ -426,7 +426,8 @@ class TestMixedValidation(unittest.TestCase):
             proof_to_lean.reconstruct(self.source, certificate)
         for domain, range_name, message in [
             (["Proof"], "Real", "unsupported arithmetic function declaration"),
-            (["Int"], "Bool", "invalid native declaration"),
+            (["Int"], "Bool", "unsupported predicate declaration"),  # Int is a sort, but not an argument here
+            (["BitVec"], "Bool", "invalid native declaration"),
             (["Real", "Proof"], "U", "unsupported uninterpreted-sort declaration"),
         ]:
             with self.subTest(domain=domain, range=range_name):
