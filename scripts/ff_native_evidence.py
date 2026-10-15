@@ -27,8 +27,8 @@ def signed(lit):
 def _encode(evidence):
     """Bind the native definition/input indices and replay through the v1 DAG checker."""
     require(z3.is_app(evidence) and str(evidence.decl().name()) == 'ff-pac'
-            and evidence.num_args() == 2, 'malformed native FF evidence')
-    ps, root = evidence.children()
+            and evidence.num_args() == 3, 'malformed native FF evidence')
+    ps, root, support = evidence.children()
     require(z3.is_app(ps) and str(ps.decl().name()) == 'ff-premises'
             and 0 < ps.num_args() <= 4096, 'malformed native premises')
     first = ps.arg(0)
@@ -101,6 +101,10 @@ def _encode(evidence):
             equations.append(ar.add({(v,) * p: 1}, {(v,): 1}, -1))
             origins.append("fermat")
     require(len(equations) <= 4096, 'external profile equation limit')
+    require(z3.is_app(support) and str(support.decl().name()) == 'ff-support', 'malformed native support')
+    declared = [x.as_long() for x in support.children() if z3.is_int_value(x)]
+    require(len(declared) == support.num_args() and declared == sorted(set(declared))
+            and all(0 <= i < ps.num_args() for i in declared), 'invalid native support')
     nodes, ids, pending = [], {}, [root]
     while pending:
         ar.tick()
@@ -136,6 +140,11 @@ def _encode(evidence):
                 node = ['mul', str(left), str(c), list(map(str, mon))]
         require(len(nodes) < 100000, 'native proof node limit')
         ids[key] = len(nodes); nodes.append(node); pending.pop()
+    inputs = [int(n[1]) for n in nodes if n[0] == 'input']
+    require(all(0 <= i < len(origins) for i in inputs), 'native input index out of range')
+    used = {origins[i] for i in inputs
+            if origins[i] is not None and origins[i] != 'fermat'}
+    require(used == set(declared), 'native support does not match certificate DAG')
     zero = ['as', 'ff0', ['_', 'FiniteField', str(p)]]
     problem = '(set-logic QF_FF)\n' + ''.join(f'(declare-const {v} (_ FiniteField {p}))\n' for v in variables)
     problem += ''.join(fc.sexpr(['assert', ['=', fc.polynomial_term(f, p, variables), zero]]) + '\n' for f in equations)
@@ -169,7 +178,8 @@ def replay_lemma(lemma):
         if z3.is_or(f): todo.extend(f.children())
         elif z3.is_true(f): true = True
         else: literals.add(signed(f))
-    for p in evidence.arg(0).children():
+    for i in (x.as_long() for x in evidence.arg(2).children()):
+        p = evidence.arg(0).arg(i)
         atom, neg = signed(p)
         require(true or (atom, not neg) in literals, 'native lemma removed a certified literal')
     return result

@@ -49,7 +49,8 @@ namespace {
         auto clause = ff::refutation_clause(m, evidence);
         proof_ref_vector parents(m);
         parents.push_back(ff::mk_refutation_lemma(m, mk_or(clause), evidence));
-        parents.append(sources);
+        for (unsigned i : ff::refutation_support(m, evidence))
+            parents.push_back(sources.get(i));
         return proof_ref(m.mk_unit_resolution(parents.size(), parents.data(), m.mk_false()), m);
     }
 

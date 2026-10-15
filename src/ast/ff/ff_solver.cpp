@@ -326,15 +326,15 @@ namespace ff {
             inputs.push_back({a, b, equality});
         }
 
-        std::set<unsigned> evidence_inputs(expr_ref_vector &recorded) {
+        std::vector<unsigned> evidence_inputs(expr_ref_vector &recorded) {
             obj_hashtable<expr> seen;
-            std::set<unsigned> indices;
+            std::vector<unsigned> indices;
             for (unsigned i = 0; i < premises.size(); ++i) {
                 expr *premise = premises.get(i);
                 if (!seen.contains(premise)) {
                     seen.insert(premise);
                     recorded.push_back(premise);
-                    indices.insert(i);
+                    indices.push_back(i);
                 }
             }
             return indices;
@@ -377,7 +377,11 @@ namespace ff {
             auto result = m_imp->recording->check();
             m_imp->proof = m_imp->recording->evidence();
             if (result == l_false)
-                m_imp->proved_conflict = std::move(recorded_indices);
+                // SAT learns only the signed premises actually used by the
+                // recorded PAC refutation; the evidence retains their exact
+                // original positions for independent checking.
+                for (unsigned i : refutation_support(m_imp->m, m_imp->proof))
+                    m_imp->proved_conflict.insert(recorded_indices.at(i));
             return m_imp->result = result;
         }
         try {
@@ -434,7 +438,8 @@ namespace ff {
             auto recorded_indices = m_imp->evidence_inputs(recorded_premises);
             m_imp->proof = record_refutation(m_imp->m, recorded_premises, remaining);
             if (m_imp->proof)
-                m_imp->proved_conflict = std::move(recorded_indices);
+                for (unsigned i : refutation_support(m_imp->m, m_imp->proof))
+                    m_imp->proved_conflict.insert(recorded_indices.at(i));
         }
         if (!m_imp->proof) return false;
         m_imp->result = l_false;

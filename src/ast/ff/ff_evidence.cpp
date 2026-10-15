@@ -7,6 +7,7 @@ Copyright (c) 2026 Romain Soulat
 #include "ast/ast_util.h"
 #include "math/ff/ff_certificate.h"
 #include "math/ff/ff_params.h"
+#include <climits>
 
 namespace ff {
     // A bounded propositional truth table discharges Boolean rearrangements
@@ -153,6 +154,10 @@ namespace ff {
             unsigned variables = 0;
             obj_map<expr, polynomial> terms;
             std::vector<polynomial> equations;
+            // Each equation is either an original signed premise or an
+            // unconditional definition/Fermat axiom. This binding lets the
+            // certificate justify a precise SMT conflict clause.
+            std::vector<unsigned> origins;
             encoding(ast_manager &m, engine &e, sort *field) : m(m), ff(m), e(e), field(field) {}
             polynomial term(expr *root) {
                 ptr_vector<expr> pending;
@@ -200,6 +205,7 @@ namespace ff {
                             throw exhausted();
                         auto v = e.variable(variables++);
                         equations.push_back(e.add(v, f, rational(-1)));
+                        origins.push_back(UINT_MAX);
                         f = std::move(v);
                     }
                     if (variables > 4096 || equations.size() > 8192)
@@ -209,7 +215,8 @@ namespace ff {
                 return terms.find(root);
             }
             void bind(expr_ref_vector const &premises) {
-                for (expr *literal : premises) {
+                for (unsigned premise = 0; premise < premises.size(); ++premise) {
+                    expr *literal = premises.get(premise);
                     bool positive = true;
                     if (m.is_not(literal, literal))
                         positive = false;
@@ -226,6 +233,7 @@ namespace ff {
                         f = e.add(e.mul(e.variable(variables++), f), e.constant(rational(-1)));
                     }
                     equations.push_back(std::move(f));
+                    origins.push_back(premise);
                 }
                 // These are actual field axioms, including extension variables,
                 // not algebraic-closure assumptions. Large fields omit them to
@@ -236,6 +244,7 @@ namespace ff {
                         polynomial f;
                         e.add_term(f, monomial(p.get_unsigned(), v), rational(1));
                         equations.push_back(e.add(std::move(f), e.variable(v), rational(-1)));
+                        origins.push_back(UINT_MAX);
                     }
                 }
             }
@@ -258,7 +267,7 @@ namespace ff {
             return true;
         }
         bool unpack(ast_manager &m, app *proof, expr_ref_vector &premises) {
-            if (!named(proof, "ff-pac", 2))
+            if (!named(proof, "ff-pac", 3))
                 return false;
             expr *ps = proof->get_arg(0);
             if (!is_app(ps) || to_app(ps)->get_name() != symbol("ff-premises"))
@@ -270,9 +279,25 @@ namespace ff {
             }
             return get_field(m, premises) != nullptr;
         }
+        bool support_indices(ast_manager &m, app *proof, unsigned count, std::set<unsigned> &result) {
+            expr *s = proof->get_arg(2);
+            if (!is_app(s) || to_app(s)->get_name() != symbol("ff-support")) return false;
+            arith_util arith(m);
+            unsigned previous = 0;
+            bool first = true;
+            for (expr *arg : *to_app(s)) {
+                unsigned i;
+                if (!get_index(arith, arg, i) || i >= count || (!first && i <= previous)) return false;
+                result.insert(i);
+                previous = i;
+                first = false;
+            }
+            return true;
+        }
     }  // namespace
     static app_ref pack_certificate(ast_manager &m, sort *field,
-                                    expr_ref_vector const &premises, certificate const &cert) {
+                                    expr_ref_vector const &premises, certificate const &cert,
+                                    std::set<unsigned> const &support) {
         arith_util arith(m);
         expr_ref_vector nodes(m);
         auto index = [&](unsigned i) { return arith.mk_int(i); };
@@ -300,8 +325,11 @@ namespace ff {
             nodes.push_back(m.mk_app(symbol(rule), args.size(), args.data(), m.mk_proof_sort()));
         }
         expr_ref ps(m.mk_app(symbol("ff-premises"), premises.size(), premises.data(), m.mk_proof_sort()), m);
-        expr *args[] = {ps, nodes.get(cert.root)};
-        return app_ref(m.mk_app(symbol("ff-pac"), 2, args, m.mk_proof_sort()), m);
+        expr_ref_vector indices(m);
+        for (unsigned i : support) indices.push_back(index(i));
+        expr_ref used(m.mk_app(symbol("ff-support"), indices.size(), indices.data(), m.mk_proof_sort()), m);
+        expr *args[] = {ps, nodes.get(cert.root), used};
+        return app_ref(m.mk_app(symbol("ff-pac"), 3, args, m.mk_proof_sort()), m);
     }
     struct recorded_problem::imp {
         ast_manager &m;
@@ -365,8 +393,19 @@ namespace ff {
         certificate cert;
         p.values.resize(p.encoded.variables);
         p.result = solve_with_certificate(p.algebra, p.encoded.equations, p.values, cert);
-        if (p.result == l_false)
-            p.proof = pack_certificate(p.m, p.field, p.premises, cert);
+        if (p.result == l_false) {
+            std::set<unsigned> support;
+            // finish_native retains only ancestors of the refutation root,
+            // so an input node here is a syntactically used algebraic assumption.
+            // The checker recomputes this set rather than trusting the tag.
+            for (auto const &node : cert.nodes)
+                if (node.kind == certificate::rule::input) {
+                    if (node.left >= p.encoded.origins.size()) throw exhausted();
+                    unsigned origin = p.encoded.origins[node.left];
+                    if (origin != UINT_MAX) support.insert(origin);
+                }
+            p.proof = pack_certificate(p.m, p.field, p.premises, cert, support);
+        }
         if (p.result == l_true) {
             // Validate AST semantics independently of polynomial conversion and
             // after restoring all eliminated definitions, including witnesses.
@@ -405,9 +444,16 @@ namespace ff {
         expr_ref_vector premises(m), clause(m);
         if (!unpack(m, proof, premises))
             return clause;
-        for (expr *p : premises)
-            clause.push_back(mk_not(m, p));
+        for (unsigned i : refutation_support(m, proof))
+            clause.push_back(mk_not(m, premises.get(i)));
         return clause;
+    }
+    std::set<unsigned> refutation_support(ast_manager &m, app *proof) {
+        std::set<unsigned> result;
+        expr_ref_vector premises(m);
+        if (!unpack(m, proof, premises) || !support_indices(m, proof, premises.size(), result))
+            result.clear();
+        return result;
     }
     proof_ref mk_refutation_lemma(ast_manager &m, expr *fact, app *evidence) {
         parameter params[] = {parameter(symbol("pac")), parameter(evidence)};
@@ -457,6 +503,9 @@ namespace ff {
             engine e(ff_util(m).modulus(field), m.limit(), 10000000, 16384, false, false, false);
             encoding encoded(m, e, field);
             encoded.bind(premises);
+            std::set<unsigned> declared;
+            if (!support_indices(m, proof, premises.size(), declared)) return false;
+            std::set<unsigned> used;
             obj_map<expr, polynomial> values;
             ptr_vector<expr> pending;
             pending.push_back(proof->get_arg(1));
@@ -495,6 +544,8 @@ namespace ff {
                     if (!get_index(arith, n->get_arg(0), i) || i >= encoded.equations.size())
                         return false;
                     f = encoded.equations[i];
+                    unsigned origin = encoded.origins[i];
+                    if (origin != UINT_MAX) used.insert(origin);
                 }
                 else if (add)
                     f = e.add(values.find(n->get_arg(0)), values.find(n->get_arg(1)));
@@ -517,7 +568,7 @@ namespace ff {
                 }
                 values.insert(t, std::move(f));
             }
-            return values.find(proof->get_arg(1)) == e.constant(rational(1));
+            return used == declared && values.find(proof->get_arg(1)) == e.constant(rational(1));
         } catch (exhausted const &) {
             return false;
         }

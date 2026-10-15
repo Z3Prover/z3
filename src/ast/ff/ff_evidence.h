@@ -9,6 +9,7 @@ Copyright (c) 2026 Romain Soulat
 #include "util/params.h"
 #include "math/ff/ff_polynomial.h"
 #include <memory>
+#include <set>
 
 namespace ff {
     // Bounded exhaustive propositional checking for native proof obligations.
@@ -38,6 +39,8 @@ namespace ff {
     // Replay only the supplied PAC DAG; do not invoke a solver or reconstruct
     // missing evidence. The premises and all extension equations are rebound.
     bool check_refutation(ast_manager &m, app *evidence);
+    // Indices into the signed premises used by the recorded PAC DAG.
+    std::set<unsigned> refutation_support(ast_manager &m, app *evidence);
     expr_ref_vector refutation_clause(ast_manager &m, app *evidence);
     // Native proof wrapper owns its PAC DAG as an AST declaration parameter.
     proof_ref mk_refutation_lemma(ast_manager &m, expr *fact, app *evidence);

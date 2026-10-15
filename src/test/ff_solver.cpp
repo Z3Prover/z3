@@ -41,6 +41,28 @@ namespace {
         ENSURE(unsat.evidence());
         ENSURE(ff::check_refutation(m, unsat.evidence()));
         ENSURE(unsat.conflict().size() == 2);
+        // A recorded conflict must contain exactly the assumptions used by
+        // its PAC DAG. Irrelevant premises otherwise make theory clauses much
+        // wider and can prevent SAT search from reusing the contradiction.
+        expr_ref y(m.mk_const("proof.y", field), m);
+        ff::solver sparse(m, field, params);
+        sparse.add(x, zero, true);
+        sparse.add(x, one, true);
+        sparse.add(y, zero, true);
+        ENSURE(sparse.check(true) == l_false);
+        ENSURE(ff::check_refutation(m, sparse.evidence()));
+        ENSURE(sparse.conflict() == std::set<unsigned>({0, 1}));
+        ENSURE(ff::refutation_clause(m, sparse.evidence()).size() == 2);
+        app *evidence = sparse.evidence();
+        expr *forged_args[] = {evidence->get_arg(0), evidence->get_arg(1),
+                               m.mk_app(symbol("ff-support"), 0, nullptr, m.mk_proof_sort())};
+        app_ref forged(m.mk_app(symbol("ff-pac"), 3, forged_args, m.mk_proof_sort()), m);
+        ENSURE(!ff::check_refutation(m, forged));
+        arith_util arith(m);
+        expr *all_indices[] = {arith.mk_int(0), arith.mk_int(1), arith.mk_int(2)};
+        forged_args[2] = m.mk_app(symbol("ff-support"), 3, all_indices, m.mk_proof_sort());
+        forged = m.mk_app(symbol("ff-pac"), 3, forged_args, m.mk_proof_sort());
+        ENSURE(!ff::check_refutation(m, forged));
         ff::solver sat(m, field, params);
         sat.add(x, one, true);
         ENSURE(sat.check(true) == l_true);

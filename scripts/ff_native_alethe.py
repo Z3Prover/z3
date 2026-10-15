@@ -339,12 +339,15 @@ class Exporter:
         evidence = proof.decl().params()[2]
         p = int(cert[':modulus']); sort = bp.sort_text(p)
         zero, one = f'(as ff0 {sort})', f'(as ff1 {sort})'
-        assumptions = evidence.arg(0).children()
+        all_assumptions = evidence.arg(0).children()
+        support = {x.as_long() for x in evidence.arg(2).children()}
+        assumptions = [all_assumptions[i] for i in sorted(support)]
         anchor = self.name('field_lemma')
         self.w.emit(f'(anchor :step {anchor})')
-        names = []
-        for a in assumptions:
-            name = self.name('field_assumption'); names.append(name)
+        names = {}
+        for i in sorted(support):
+            a = all_assumptions[i]
+            name = self.name('field_assumption'); names[i] = name
             self.w.emit(f'(assume {name} {self.ref(a)})')
         witnesses = {}
         mapped = []
@@ -362,8 +365,17 @@ class Exporter:
         # other inputs retain their exact polynomial. The unchanged inference
         # DAG is checked by Pacheck in that quotient, including final closure.
         cert = dict(cert)
-        cert[':inputs'] = [[] if origin == 'fermat' else raw
-                           for raw, origin in zip(cert[':inputs'], origins)]
+        # The native DAG uses only supported signed premises. Omit unused
+        # literal equations from the external PAC input so the Alethe subproof
+        # can discharge precisely the clause recorded by Z3.
+        retained = [i for i, origin in enumerate(origins)
+                    if origin is None or origin == 'fermat' or origin in support]
+        renumber = {old: new for new, old in enumerate(retained)}
+        origins = [origins[i] for i in retained]
+        cert[':inputs'] = [([] if origins[new] == 'fermat' else cert[':inputs'][old])
+                           for new, old in enumerate(retained)]
+        cert[':nodes'] = [(['input', str(renumber[int(node[1])])] if node[0] == 'input' else node)
+                          for node in cert[':nodes']]
         for raw, origin in zip(cert[':inputs'], origins):
             value = fc.decode_polynomial(raw, fc.Arithmetic(p), len(mapped))
             poly = fc.sexpr(fc.polynomial_term(value, p, mapped)); polys.append(poly)
@@ -371,7 +383,7 @@ class Exporter:
             if origin is None or origin == 'fermat':
                 # Definitions are identities after substituting original terms.
                 proofs.append(self.step([canonical], 'poly_simp')); continue
-            lit, name = assumptions[origin], names[origin]
+            lit, name = all_assumptions[origin], names[origin]
             eq = lit.arg(0) if z3.is_not(lit) else lit
             a, b = map(self.ref, eq.children()); equation = self.ref(lit)
             if z3.is_not(lit):
@@ -392,7 +404,7 @@ class Exporter:
         self.step([], 'ff_pac', [conversion], [pac])
         self.files[anchor + '.pac'] = pac
         discharged = [f'(not {self.ref(a)})' for a in assumptions] + ['false']
-        self.step(discharged, 'subproof', name=anchor, discharge=names)
+        self.step(discharged, 'subproof', name=anchor, discharge=list(names.values()))
         # Convert the derived clause to the native lemma's (possibly weakened)
         # Boolean fact through an explicit propositional inference.
         clause, unit = self.fold_clause(assumptions, anchor)

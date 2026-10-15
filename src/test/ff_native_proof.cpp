@@ -282,6 +282,35 @@ void tst_ff_native_proof() {
     }
     // The native proof owns the evidence after the solver is destroyed.
     ENSURE(check_native(m, retained) > 0);
+    // The SMT adapter may receive a second, irrelevant field assertion.
+    // Its learned clause must use only the source literals named by PAC.
+    {
+        scoped_ptr<solver> s = mk_smt2_solver(m, params, symbol("QF_FF"));
+        s->assert_expr(m.mk_eq(square, three));
+        s->assert_expr(m.mk_eq(ff.mk_mul(y, y), three));
+        ENSURE(s->check_sat() == l_false);
+        proof *root = s->get_proof();
+        ENSURE(check_native(m, root) > 0);
+        bool narrowed = false;
+        ptr_vector<expr> pending;
+        expr_mark seen;
+        pending.push_back(root);
+        while (!pending.empty()) {
+            expr *step = pending.back(); pending.pop_back();
+            if (seen.is_marked(step)) continue;
+            seen.mark(step, true);
+            if (!is_app(step)) continue;
+            auto *a = to_app(step);
+            if (a->get_family_id() == m.get_basic_family_id() && a->get_decl_kind() == PR_TH_LEMMA &&
+                a->get_decl()->get_parameter(0).get_symbol() == symbol("ff")) {
+                auto *evidence = to_app(a->get_decl()->get_parameter(2).get_ast());
+                narrowed |= to_app(evidence->get_arg(2))->get_num_args() <
+                            to_app(evidence->get_arg(0))->get_num_args();
+            }
+            for (expr *child : *a) pending.push_back(child);
+        }
+        ENSURE(narrowed);
+    }
     // Exercise both the tactic constructor (before it owns a goal) and
     // persistent model-trail substitution replay after a scope boundary.
     for (bool incremental_simplifier : {false, true}) {
