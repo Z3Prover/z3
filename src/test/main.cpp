@@ -131,6 +131,7 @@
     X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
+    X(sat_config) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
