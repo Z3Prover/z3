@@ -337,6 +337,21 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
         }
         else if (argv[i][0] != '"' && (eq_pos = strchr(argv[i], '='))) {
+            std::string parameter_name(argv[i], eq_pos);
+            bool known_parameter = false;
+            try {
+                gparams::get_value(parameter_name.c_str());
+                known_parameter = true;
+            }
+            catch (gparams::exception const&) {
+                // An unknown key may be a filename containing '='.
+            }
+            if (known_parameter) {
+                *eq_pos = 0;
+                gparams::set(argv[i], eq_pos + 1);
+                i++;
+                continue;
+            }
             // If the argument looks like a file path (contains path separators
             // or has a file extension), treat it as a filename rather than
             // a parameter assignment. This handles files with '=' in their names.
