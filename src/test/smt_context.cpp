@@ -136,10 +136,61 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_ground_pattern_subterms() {
+    for (char const* input : {
+            R"(
+                (declare-const a (Array Int Int))
+                (declare-const i Int)
+                (declare-const j Int)
+                (declare-const v Int)
+                (assert (forall ((k Int))
+                    (! (<= (select (store a i v) k) 0)
+                       :pattern ((select (store a i v) k)))))
+                (assert (> (select (store a i v) j) 0))
+            )",
+            R"(
+                (declare-const a (Array Int Int))
+                (assert (not
+                    (forall ((lo Int) (hi Int) (t Int) (left Int) (right Int))
+                        (=>
+                            (forall ((k Int))
+                                (! (=> (and (<= lo k) (< k (+ left 1)))
+                                       (<= (select (store (store a right (select a left))
+                                                          left (select a right)) k) t))
+                                   :pattern ((select (store (store a right (select a left))
+                                                            left (select a right)) k))))
+                            (forall ((k Int))
+                                (=> (and (<= lo k) (< k (+ left 1)))
+                                    (<= (select (store (store a right (select a left))
+                                                       left (select a right)) k) t)))))))
+            )"}) {
+        for (unsigned relevancy : {0u, 2u}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("mbqi", false);
+            p.set_uint("relevancy", relevancy);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i < 2; ++i) {
+                slv->push();
+                for (expr* a : cmd.assertions())
+                    slv->assert_expr(a);
+                VERIFY(l_false == slv->check_sat(0, nullptr));
+                slv->pop(1);
+            }
+            VERIFY(l_true == slv->check_sat(0, nullptr));
+        }
+    }
+}
+
 void tst_smt_context()
 {
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_ground_pattern_subterms();
 
     smt_params params;
 
