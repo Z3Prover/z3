@@ -78,6 +78,7 @@ add_executable(test-z3
   interval.cpp
   karr.cpp
   lcube.cpp
+  lp_evidence.cpp
   len_abs.cpp
   list.cpp
   main.cpp

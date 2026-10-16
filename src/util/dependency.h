@@ -29,14 +29,16 @@ public:
     typedef typename C::allocator     allocator;
 
     class dependency { 
-        unsigned  m_ref_count:30;
+        unsigned  m_ref_count:29;
         unsigned  m_mark:1;
         unsigned  m_leaf:1;
+        unsigned  m_annotated:1;
         friend class dependency_manager;
-        dependency(bool leaf):
+        dependency(bool leaf, bool annotated = false):
             m_ref_count(0),
             m_mark(false),
-            m_leaf(leaf) {
+            m_leaf(leaf),
+            m_annotated(annotated) {
         }
         bool is_marked() const { return m_mark == 1; }
         void mark() { m_mark = true; }
@@ -58,7 +60,7 @@ public:
             else {
                 for (unsigned i = 0; i < 2; ++i) {
                     dependency* child = to_join(d)->m_children[i];
-                    if (!child->is_marked()) {
+                    if (child && !child->is_marked()) {
                         todo.push_back(child);
                         child->mark();
                     }
@@ -80,12 +82,25 @@ public:
 private:
     struct join : public dependency {
         dependency *    m_children[2];
-        join(dependency * d1, dependency * d2):
-            dependency(false) {
+        join(dependency * d1, dependency * d2, bool annotated = false):
+            dependency(false, annotated) {
             m_children[0] = d1;
             m_children[1] = d2;
         }
     };
+
+    struct annotated_join : public join {
+        void const* m_annotation;
+        void const* m_annotation_type;
+        annotated_join(dependency* d, void const* annotation, void const* type):
+            join(d, d, true), m_annotation(annotation), m_annotation_type(type) {}
+    };
+
+    template <typename T>
+    static void const* annotation_type() {
+        static char tag;
+        return &tag;
+    }
     
     struct leaf : public dependency {
         value     m_value;
@@ -127,13 +142,22 @@ private:
             else {
                 for (unsigned i = 0; i < 2; ++i) {
                     dependency * c = to_join(d)->m_children[i];
+                    if (!c)
+                        continue;
                     SASSERT(c->m_ref_count > 0);
                     c->m_ref_count--;
                     if (c->m_ref_count == 0)
                         m_todo.push_back(c);
                 }
-                to_join(d)->~join();
-                m_allocator.deallocate(sizeof(join), to_join(d));
+                if (d->m_annotated) {
+                    auto* a = static_cast<annotated_join*>(d);
+                    a->~annotated_join();
+                    m_allocator.deallocate(sizeof(annotated_join), a);
+                }
+                else {
+                    to_join(d)->~join();
+                    m_allocator.deallocate(sizeof(join), to_join(d));
+                }
             }
         }
     }
@@ -192,6 +216,22 @@ public:
         }
     }
 
+    // The annotation is owned by the caller; dependency traversal only sees d.
+    template <typename T>
+    dependency* mk_annotation(dependency* d, T const* annotation) {
+        void* mem = m_allocator.allocate(sizeof(annotated_join));
+        inc_ref(d); inc_ref(d);
+        return new (mem) annotated_join(d, annotation, annotation_type<T>());
+    }
+
+    template <typename T>
+    static T const* get_annotation(dependency const* d) {
+        if (!d || !d->m_annotated)
+            return nullptr;
+        auto* a = static_cast<annotated_join const*>(d);
+        return a->m_annotation_type == annotation_type<T>() ? static_cast<T const*>(a->m_annotation) : nullptr;
+    }
+
     bool contains(dependency * d, value const & v) {
         if (d) {
             m_todo.reset();
@@ -210,7 +250,7 @@ public:
                 else {
                     for (unsigned i = 0; i < 2; ++i) {
                         dependency * child = to_join(d)->m_children[i];
-                        if (!child->is_marked()) {
+                        if (child && !child->is_marked()) {
                             m_todo.push_back(child);
                             child->mark();
                         }
@@ -339,6 +379,16 @@ public:
     
     dependency * mk_join(dependency * d1, dependency * d2) {
         return m_dep_manager.mk_join(d1, d2);
+    }
+
+    template <typename T>
+    dependency* mk_annotation(dependency* d, T const* annotation) {
+        return m_dep_manager.mk_annotation(d, annotation);
+    }
+
+    template <typename T>
+    static T const* get_annotation(dependency const* d) {
+        return dep_manager::template get_annotation<T>(d);
     }
 
     bool contains(dependency * d, value const & v) {

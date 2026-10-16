@@ -4,6 +4,7 @@ z3_add_component(lp
     dense_matrix.cpp
     dioph_eq.cpp
     emonics.cpp
+    evidence.cpp
     factorization.cpp
     factorization_factory_imp.cpp
     gomory.cpp

@@ -33,6 +33,8 @@
 #include "util/scoped_timer.h"
 #include "util/nat_set.h"
 #include "ast/ast_pp.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
@@ -970,7 +972,7 @@ public:
         if (m_solver) return;
 
         m_model_is_initialized = false;
-        m_solver = alloc(lp::lar_solver); 
+        m_solver = alloc(lp::lar_solver, proofs_enabled());
         // initialize 0, 1 variables:
         get_one(true);
         get_one(false);
@@ -2592,7 +2594,7 @@ public:
                 first = false;
                 reset_evidence();
                 m_explanation.clear();
-                lp().explain_implied_bound(be, m_bp);
+                m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
                 set_proof_params("bound", true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
@@ -2653,7 +2655,7 @@ public:
         ++m_stats.m_bound_propagations1;
         reset_evidence();
         m_explanation.clear();
-        lp().explain_implied_bound(be, m_bp);
+        m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
         set_proof_params("bound", true);
         ctx().mark_as_relevant(bound);
         assign(bound, m_core, m_eqs, m_params);              
@@ -3779,6 +3781,17 @@ public:
         m_params.reset();
         if (!proofs_enabled())
             return;
+        if (!strcmp(hint, "farkas")) {
+            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
+            lp::evidence_manager::proof_expression proof;
+            lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            if (!m_explanation.evidence() ||
+                !lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
+                !proof.check()) {
+                m_params.push_back(parameter(symbol("unsupported")));
+                return;
+            }
+        }
         vector<parameter> eq_params;
         m_params.push_back(parameter(symbol(hint)));
         for (auto ev : m_explanation) {
@@ -3789,7 +3802,7 @@ public:
                 m_params.push_back(parameter(abs(ev.coeff())));
                 break;
             case equality_source:
-                eq_params.push_back(parameter(abs(ev.coeff())));
+                eq_params.push_back(parameter(ev.coeff()));
                 break;
             default:
                 break;
@@ -3799,6 +3812,41 @@ public:
         if (with_consequent)
             m_params.push_back(parameter(rational(1)));
         SASSERT(m_params.size() == 1 + m_core.size() + m_eqs.size() + (with_consequent ? 1 : 0));
+        if (!strcmp(hint, "farkas") && !check_farkas_conflict()) {
+            m_params.reset();
+            m_params.push_back(parameter(symbol("unsupported")));
+        }
+    }
+
+    bool check_farkas_conflict() {
+        proof_checker checker(m);
+        expr_ref sum(m), fact(m);
+        bool strict = false;
+        unsigned index = 1;
+        for (auto lit : m_core) {
+            auto const& coefficient = m_params[index++].get_rational();
+            if (coefficient.is_zero())
+                continue;
+            ctx().literal2expr(lit, fact);
+            if (!is_app(fact) ||
+                !checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
+                return false;
+        }
+        for (auto const& [n1, n2] : m_eqs) {
+            auto const& coefficient = m_params[index++].get_rational();
+            if (coefficient.is_zero())
+                continue;
+            fact = m.mk_eq(n1->get_expr(), n2->get_expr());
+            if (!checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
+                return false;
+        }
+        if (!sum)
+            return false;
+        expr_ref zero(a.mk_numeral(rational(0), sum->get_sort()), m);
+        fact = strict ? a.mk_lt(sum, zero) : a.mk_le(sum, zero);
+        th_rewriter rw(m);
+        rw(fact);
+        return m.is_false(fact);
     }
 
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
@@ -4889,5 +4937,5 @@ lbool theory_lra::check_lp_feasible(vector<std::pair<bool, expr_ref>>& ineqs, li
 template  class lp::lp_bound_propagator<smt::theory_lra::imp>;
 template void lp::lar_solver::propagate_bounds_for_touched_rows<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
 template void lp::lar_solver::check_missed_propagations<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
-template void lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(const lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template u_dependency* lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(const lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
 template unsigned lp::lar_solver::calculate_implied_bounds_for_row<smt::theory_lra::imp>(unsigned, lp::lp_bound_propagator<smt::theory_lra::imp>&);

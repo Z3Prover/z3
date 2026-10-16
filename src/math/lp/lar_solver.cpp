@@ -61,7 +61,7 @@ namespace lp {
         indexed_uint_set m_columns_with_changed_bounds;
         indexed_uint_set m_touched_rows;
         unsigned_vector m_row_bounds_to_replay;
-        u_dependency_manager m_dependencies;
+        evidence_manager m_dependencies;
         svector<constraint_index> m_tmp_dependencies;
         ptr_vector<u_dependency>  m_tmp_witnesses;
 
@@ -95,10 +95,11 @@ namespace lp {
             m_mpq_lar_core_solver.m_r_lower_bounds[j] = b;
         }
         
-        imp(lar_solver& s) : 
+        imp(lar_solver& s, bool proofs) :
             lra(s),
             m_mpq_lar_core_solver(m_settings, s),
-            m_constraints(m_dependencies, s) {}
+            m_constraints(m_dependencies, s),
+            m_dependencies(proofs) {}
 
         void set_column(unsigned j, const column& c) {
             m_columns[j] = c;
@@ -181,19 +182,33 @@ namespace lp {
         void get_infeasibility_explanation_for_inf_sign(
             explanation& exp,
             const vector<std::pair<mpq, unsigned>>& inf_row,
-            int inf_sign) const {
+            int inf_sign) {
+            if (!m_dependencies.enabled()) {
+                for (auto& [coeff, j] : inf_row) {
+                    int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
+                    auto const& ul = m_columns[j];
+                    auto* dep = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
+                    svector<constraint_index> deps;
+                    m_dependencies.linearize(dep, deps);
+                    for (auto ci : deps)
+                        exp.add_pair(ci, coeff);
+                }
+                return;
+            }
+            evidence_manager::recipe proof;
+            proof.kind = evidence_manager::rule::linear;
+            proof.conclusion.contradiction = true;
+            u_dependency* support = nullptr;
             for (auto& [coeff, j]: inf_row) {
                 int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
                 const column& ul = m_columns[j];
 
                 u_dependency* bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-                svector<constraint_index> deps;
-                m_dependencies.linearize(bound_constr_i, deps);
-                for (auto d : deps) {
-                    SASSERT(m_constraints.valid_index(d));
-                    exp.add_pair(d, coeff);
-                }
+                lra.explain_evidence(bound_constr_i, coeff, exp);
+                proof.premises.push_back({bound_constr_i, abs(coeff)});
+                support = m_dependencies.mk_join(support, bound_constr_i);
             }
+            exp.set_evidence(m_dependencies.derive(support, [&] { return std::move(proof); }));
         }        
     }; // imp
     unsigned_vector& lar_solver::row_bounds_to_replay() { return m_imp->m_row_bounds_to_replay; }
@@ -213,8 +228,8 @@ namespace lp {
         m_imp->m_settings.updt_params(_p);
     }
 
-    lar_solver::lar_solver() :
-        m_imp(alloc(imp, *this)) {
+    lar_solver::lar_solver(bool proofs) :
+        m_imp(alloc(imp, *this, proofs)) {
     }
 
     const lar_core_solver& lar_solver::get_core_solver() const {
@@ -496,8 +511,8 @@ namespace lp {
         return m_imp->m_tmp_dependencies;
     }
 
-    const u_dependency_manager& lar_solver::dep_manager() const { return m_imp->m_dependencies; }
-    u_dependency_manager& lar_solver::dep_manager() { return m_imp->m_dependencies; }
+    const evidence_manager& lar_solver::dep_manager() const { return m_imp->m_dependencies; }
+    evidence_manager& lar_solver::dep_manager() { return m_imp->m_dependencies; }
     const constraint_set& lar_solver::constraints() const { return m_imp->m_constraints; }
 
 
@@ -522,11 +537,30 @@ namespace lp {
 
     void lar_solver::fill_explanation_from_crossed_bounds_column(explanation& evidence) const {
         // this is the case when the lower bound is in conflict with the upper one
-        svector<constraint_index> deps;
         SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
-        m_imp->m_dependencies.linearize(m_imp->m_crossed_bounds_deps, deps);
-        for (auto d : deps)
-            evidence.add_pair(d, -numeric_traits<mpq>::one());
+        if (!dep_manager().enabled()) {
+            svector<constraint_index> deps;
+            m_imp->m_dependencies.linearize(m_imp->m_crossed_bounds_deps, deps);
+            for (auto d : deps)
+                evidence.add_pair(d, -numeric_traits<mpq>::one());
+            return;
+        }
+        explain_evidence(m_imp->m_crossed_bounds_deps, mpq(1), evidence);
+        evidence.set_evidence(m_imp->m_crossed_bounds_deps);
+    }
+
+    void lar_solver::explain_evidence(u_dependency* dep, mpq const& coefficient, explanation& ex) const {
+        vector<std::pair<constraint_index, mpq>> weighted;
+        if (dep_manager().enabled() && dep_manager().linearize_coefficients(dep, abs(coefficient), weighted)) {
+            for (auto const& [ci, c] : weighted)
+                ex.add_pair(ci, c);
+        }
+        else {
+            svector<constraint_index> deps;
+            dep_manager().linearize(dep, deps);
+            for (auto ci : deps)
+                ex.add_pair(ci, coefficient);
+        }
     }
 
     void lar_solver::push() {
@@ -646,7 +680,23 @@ namespace lp {
             });
             dep = dep_manager().mk_join(dep, bound_dep);
         }
-        return dep;
+        return dep_manager().derive(dep, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.kind = LE;
+            for (auto const& [c, j] : max_coeffs) {
+                bool upper = c.is_pos();
+                auto* p = upper ? get_column_upper_bound_witness(j) : get_column_lower_bound_witness(j);
+                r.premises.push_back({p, abs(c)});
+                r.conclusion.lhs.push_back({c, j});
+                r.conclusion.rhs += c * (upper ? get_upper_bound(j) : get_lower_bound(j));
+            }
+            if (r.conclusion.rhs.y.is_neg()) {
+                r.conclusion.kind = LT;
+                r.conclusion.rhs.y = mpq(0);
+            }
+            return r;
+        });
     }
     // returns nullptr if the bound is not improved, otherwise returns the witness of the bound
     u_dependency* lar_solver::find_improved_bound(lpvar j, bool lower_bound, mpq& bound) {
@@ -696,7 +746,30 @@ namespace lp {
                   tout << "setting upper bound for " << j << " to " << bound << "\n";
                   if (column_has_upper_bound(j)) tout << "bound was = " << column_upper_bound(j) << "\n";;);
         }   
-        return get_dependencies_of_maximum(max_coeffs);
+        auto* dep = get_dependencies_of_maximum(max_coeffs);
+        if (!dep_manager().enabled())
+            return dep;
+        mpq raw_bound = lower_bound ? -term_max.x : term_max.x;
+        auto* unrounded = dep_manager().derive(dep, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.lhs.push_back({mpq(1), j});
+            r.conclusion.kind = lower_bound ? GE : LE;
+            r.conclusion.rhs = impq(raw_bound);
+            r.premises.push_back({dep, mpq(1)});
+            return r;
+        });
+        if (bound == raw_bound)
+            return unrounded;
+        return dep_manager().derive(unrounded, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::integer_tighten;
+            r.conclusion.lhs.push_back({mpq(1), j});
+            r.conclusion.kind = lower_bound ? GE : LE;
+            r.conclusion.rhs = impq(bound);
+            r.premises.push_back({unrounded, mpq(1)});
+            return r;
+        });
     }
 
     bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -987,12 +1060,22 @@ namespace lp {
         if (column_is_fixed(j))
             return;
 
-        auto explain = [&](constraint_index ci, lp::explanation const& exp) {
+        auto explain = [&](constraint_index ci, lp::explanation const& exp, lpvar j,
+                           lconstraint_kind kind, mpq const& value, u_dependency* assumption) {
             u_dependency* d = nullptr;
             for (auto const& e : exp)
                 if (e.ci() != ci) 
                     d = join_deps(d, dep_manager().mk_leaf(e.ci()));                
-            return d;
+            return dep_manager().derive(d, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::discharge;
+                r.conclusion.lhs.push_back({mpq(1), j});
+                r.conclusion.kind = kind;
+                r.conclusion.rhs = impq(value);
+                r.assumption = assumption;
+                r.premises.push_back({exp.evidence(), mpq(1)});
+                return r;
+            });
         };
 
         if (!column_has_lower_bound(j) || column_lower_bound(j) != get_value(j)) {
@@ -1003,9 +1086,10 @@ namespace lp {
             lp::explanation exp;
             if (r == lp_status::INFEASIBLE) 
                 get_infeasibility_explanation(exp);            
+            auto* assumption = constraints()[ci].dep();
             pop();
             if (r == lp_status::INFEASIBLE) {
-                auto d = explain(ci, exp);
+                auto* d = explain(ci, exp, j, GE, val, assumption);
                 update_column_type_and_bound(j, lconstraint_kind::GE, val, d);
             }
             solve();
@@ -1019,9 +1103,10 @@ namespace lp {
             lp::explanation exp;
             if (r == lp_status::INFEASIBLE) 
                 get_infeasibility_explanation(exp);
+            auto* assumption = constraints()[ci].dep();
             pop();
             if (r == lp_status::INFEASIBLE) {
-                auto d = explain(ci, exp);
+                auto* d = explain(ci, exp, j, LE, val, assumption);
                 update_column_type_and_bound(j, lconstraint_kind::LE, val, d);
             }
             solve();
@@ -1963,6 +2048,8 @@ namespace lp {
         SASSERT(m_imp->m_columns.size() == A_r().column_count());
         local_j = A_r().column_count();
         m_imp->m_columns.push_back(column());
+        if (dep_manager().enabled())
+            dep_manager().register_variable(local_j, is_int);
         trail().push(imp::undo_add_column(*this));
         while (m_imp->m_usage_in_terms.size() <= local_j) 
             m_imp->m_usage_in_terms.push_back(0);
@@ -2095,6 +2182,8 @@ namespace lp {
         column ul(term);
         term->set_j(j); // point from the term to the column
         m_imp->m_columns.push_back(ul);
+        if (dep_manager().enabled())
+            dep_manager().register_variable(j, term_is_int(term), term->coeffs_as_vector());
         m_imp->m_trail.push(imp::undo_add_column(*this));
         add_basic_var_to_core_fields();
          
@@ -2323,7 +2412,18 @@ namespace lp {
         // the kind for integer columns); the infinitesimal part y is carried
         // through unchanged.  y is non-zero only for the delta-rational bounds
         // that validate strict optimization optima, which target real columns.
+        auto original_kind = kind;
         mpq rs = adjust_bound_for_int(j, kind, right_side.x);
+        if (dep_manager().enabled() && (rs != right_side.x || kind != original_kind))
+            dep = dep_manager().derive(dep, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::integer_tighten;
+                r.conclusion.lhs.push_back({mpq(1), j});
+                r.conclusion.kind = kind;
+                r.conclusion.rhs = impq(rs, right_side.y);
+                r.premises.push_back({dep, mpq(1)});
+                return r;
+            });
         impq bound(rs, right_side.y);
         if (column_has_upper_bound(j))
             update_column_type_and_bound_with_ub(j, kind, bound, dep);
@@ -2834,6 +2934,14 @@ namespace lp {
         const auto& ul = m_imp->m_columns[j];
         u_dependency* bdep = lower_bound? ul.lower_bound_witness() : ul.upper_bound_witness();
         m_imp->m_crossed_bounds_deps = dep_manager().mk_join(bdep, dep);
+        m_imp->m_crossed_bounds_deps = dep_manager().derive(m_imp->m_crossed_bounds_deps, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.contradiction = true;
+            r.premises.push_back({bdep, mpq(1)});
+            r.premises.push_back({dep, mpq(1)});
+            return r;
+        });
         SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
         TRACE(dio, tout << "crossed_bound_deps:\n";  print_explanation(tout, flatten(m_imp->m_crossed_bounds_deps)) << "\n";);
     }

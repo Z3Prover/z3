@@ -30,7 +30,7 @@ namespace arith {
         m_bound_terms(m),
         m_bound_predicate(m)
     {
-        m_solver = alloc(lp::lar_solver);
+        m_solver = alloc(lp::lar_solver, ctx.use_drat());
 
         lp().updt_params(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
@@ -1239,7 +1239,16 @@ namespace arith {
     void solver::get_infeasibility_explanation_and_set_conflict() {
         m_explanation.clear();
         lp().get_infeasibility_explanation(m_explanation);
-        set_conflict(hint_type::farkas_h);
+        auto kind = hint_type::farkas_h;
+        if (lp().dep_manager().enabled()) {
+            lp::evidence_manager::proof_expression proof;
+            lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
+            if (!lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
+                !proof.check())
+                kind = hint_type::cut_h;
+        }
+        set_conflict(kind);
     }
 
     void solver::set_conflict(hint_type ty) {

@@ -329,7 +329,28 @@ namespace lp {
                 explain_weighted([&](mpq const&, u_dependency* witness) { ret = lar->join_deps(ret, witness); });
                 return ret;
             };
-            m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain, explain_weighted);
+            if (lar->dep_manager().enabled()) {
+                u_dependency* support = nullptr;
+                lp::evidence_manager::recipe r;
+                r.kind = lp::evidence_manager::rule::linear;
+                r.conclusion.lhs.push_back({mpq(1), bound_j});
+                r.conclusion.kind = is_lower_bound ? (strict ? GT : GE) : (strict ? LT : LE);
+                r.conclusion.rhs = impq(u);
+                explain_weighted([&](mpq const& c, u_dependency* p) {
+                    support = lar->join_deps(support, p);
+                    r.premises.push_back({p, c});
+                });
+                auto* proof = lar->dep_manager().derive(support, [&] { return std::move(r); });
+                auto* recipe = lp::evidence_manager::get_recipe(proof);
+                m_bp.add_bound(u, bound_j, is_lower_bound, strict, [proof]() { return proof; },
+                               [recipe](implied_bound::weighted_consumer const& consume) {
+                                   for (auto const& p : recipe->premises)
+                                       consume(p.coefficient, p.evidence);
+                               });
+            }
+            else {
+                m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain, explain_weighted);
+            }
         }
 
         void advance_u(unsigned j) {
@@ -401,4 +422,3 @@ namespace lp {
         }
     };
 }
-
