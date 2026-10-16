@@ -1058,6 +1058,44 @@ too (kept verbatim as `CONFIGURED_INPUTS` in the test modules); `3282.smt2`
 stays rejected for `rewriter.flat`, `3626.smt2` for
 `combined_solver.ignore_solver1`, and `3732.smt2` for its second query.
 
+**Integer input through the legacy proof object (2026-10-16).** `--core
+legacy` rejected `qf_lia` and `qf_uflia` ("certified through the clause log
+only") because theory_lra's integer steps were not inventoried. A probe over
+the documented inputs and 200 random instances found no integer rule names:
+the legacy core emits the Real hints (`farkas`, `bound`, `implied-eq`,
+`triangle-eq`) over Int, plus three shapes of its own. A bare `(_ th-lemma
+arith)` with premises is a cut (`lia_move::cut` assigns the derived bound
+literal with an empty parameter vector), a bare one without premises is a
+div or mod axiom stated as `(or false l)` and resolved with the unit `true`
+(the `true-axiom` rule), and a lattice conflict (`lia_move::conflict`, for
+example `x + y = 1`, `2x - y = 1`) is labelled `farkas` with coefficients
+that do not refute its premises rationally. The exporter now accepts the
+integer fragments on this path (opt-in as for the clause log,
+`parse_legacy_assertions(..., integer=True)`), keeps the bare steps as the
+`arith` hint, strips the coefficients of a `farkas` or `bound` step over Int
+that do not re-derive (`_integer_coefficients_certify`, the decision the
+clause-log replay makes), and declares Int sorts; the reconstructor accepts
+`arith` lemmas with premises and coefficient-free Int `farkas`/`bound`
+steps with premises (shape-checked, Lean proves them), renders `true-axiom`
+as `True.intro` and lets the unit `true` resolve `false` literals, proves
+congruence through `div`, `mod`, and `abs` as a grind lemma, and checks the
+nonzero-constant-divisor rule on the nodes the theorem states (the
+assertions and their subterms) rather than on every node: Z3's rewriter
+cancels the common factor of `(div (* 2 x) (- 2))` through `(ite (= 0 (-
+2)) (div (* 2 x) 0) (div (* x 1) (- 1)))`, whose dead branch divides by
+zero without reaching the statement (the ite gate helper skips a branch
+without a linear form). All 15 documented QF_LIA and 12 QF_UFLIA inputs
+verify through the legacy core under the standard axioms, as do the random
+instances of every integer generator (see the iteration summary for
+counts). Tests: `test_proof_certificate.py` (legacy integer export,
+coefficient stripping, parameter validation), `test_proof_to_lean_lia.py`
+(`TestLegacyIntegerLeanIntegration`, the `true-axiom` and dead-branch
+validation), `test_proof_to_lean_uflia.py`
+(`TestLegacyIntegerMixedLeanIntegration`). Still open: the matrix runner's
+legacy cell remains propositional-only (z3test change), and no integer
+rule name other than the bare `arith` was observed, so `gomory-cut` and
+`gcd-test` labels stay rejected until an input emits them.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

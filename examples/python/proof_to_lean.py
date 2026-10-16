@@ -125,6 +125,9 @@ _NUMERIC_FUNCTIONS = {"Real": "_rfuns", "Int": "_ifuns"}
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
     z3.Z3_OP_PR_HYPOTHESIS: ("hypothesis", 0),
+    # The legacy core states its theory axioms as (or false l) and resolves
+    # the false literal away with the unit true.
+    z3.Z3_OP_PR_TRUE: ("true-axiom", 0),
     z3.Z3_OP_PR_LEMMA: ("lemma", 1),
     z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
     z3.Z3_OP_PR_REWRITE: ("rewrite", 0),
@@ -472,7 +475,17 @@ def _validate_graph(source, certificate):
                                   "and they contain no other")
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
-    for index in range(len(nodes)):
+    # The theorem states the assertions, so every div and mod they contain
+    # must mean the same in Lean and in SMT-LIB (see _integer_divisor). A
+    # proof step may mention other such terms: Z3's rewriter cancels a common
+    # factor of (div (* 2 x) (- 2)) through (ite (= 0 (- 2)) (div (* 2 x) 0)
+    # (div (* x 1) (- 1))), whose dead branch divides by zero. Lean checks
+    # those steps under its own total division, which proves nothing about
+    # the assertions beyond the theorem.
+    stated = set()
+    for assertion in assertions:
+        stated |= _reachable(graph, assertion)[0]
+    for index in sorted(stated):
         if graph.kind(index) in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
             _integer_divisor(graph, index)
     if graph.decl(root).range != "Proof" or graph.kind(graph.conclusion(root)) != z3.Z3_OP_FALSE:
@@ -991,7 +1004,7 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
     if graph.is_term(left):
         if kind == z3.Z3_OP_ITE:
             return "(ite_congr_classical %s %s %s)" % tuple(arguments), True, []
-        if graph.is_arith(left) and kind in _REAL_NAMES:
+        if graph.is_arith(left) and (kind in _REAL_NAMES or kind in _INT_NAMES):
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
         raise ReconstructionError("unsupported term congruence at node %d" % node)
@@ -1133,7 +1146,13 @@ def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
                 (0, then_branch, inline(condition), "ite_eq_left"),
                 (1, else_branch, "(Not %s)" % inline(condition), "ite_eq_right")):
             terms = {}
-            constant = _linear_term(graph, branch, Fraction(1), terms)
+            try:
+                constant = _linear_term(graph, branch, Fraction(1), terms)
+            except ReconstructionError:
+                # A branch without a linear form, such as the dead branch
+                # dividing by zero in the rewriter's factor cancellation
+                # (see _validate_graph): no helper, grind splits unaided.
+                continue
             scale = _common_denominator(terms, constant)
             if scale == 1:
                 helpers.append("  have _g%d_%d : %s -> %s = %s := fun _h => %s _h" % (
@@ -1900,32 +1919,44 @@ def _check_th_lemma(graph, node):
         _check_triangle_eq(graph, node, premises, literals)
         return
     if parameters[0] == "arith":
-        # The sat.smt arithmetic solver's axioms (div and mod definitions):
-        # a clause of linear arithmetic atoms, each stripped of its negations
-        # here, without premises or coefficients; the theory tactic proves it.
+        # The arithmetic solver's own axioms (div and mod definitions), a
+        # clause of linear arithmetic atoms without premises, and the legacy
+        # core's cuts, the bound a Gomory or Hermite cut derives from the
+        # premises it lists (held linear atoms). No coefficients certify
+        # either; the theory tactic proves the clause or the implication.
         # Unlike the cut path, polarity is ignored: the equality axiom is a
         # positive equality in the clause, which _linear_constraint would
         # refuse as a denied equality, and no combination is formed here.
-        if premises or not literals:
-            raise ReconstructionError("arith th-lemma must be a clause without premises at node %d" % node)
+        if not literals:
+            raise ReconstructionError("arith th-lemma must conclude a clause at node %d" % node)
+        for premise in premises:
+            _atom_constraint(graph, premise)
         for literal in literals:
             atom = literal
             while graph.kind(atom) == z3.Z3_OP_NOT:
                 atom = graph.arguments(atom)[0]
+            if graph.kind(atom) == z3.Z3_OP_FALSE and literal == atom:
+                continue  # The legacy core's axioms are stated as (or false l).
             _atom_constraint(graph, atom)
         return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
     coefficients = [Fraction(parameter) for parameter in parameters[1:]]
     if parameters[0] == "cut" or (parameters[0] in ("farkas", "bound") and graph.numeric == "Int"
-                                  and not coefficients and not premises):
+                                  and not coefficients):
         # An integer cut or gcd conflict, or an integer Farkas or bound step
-        # whose LP explanation rested on cuts: the exporter kept no
-        # coefficients because none certify the rounding, so only the shape
-        # is checked (integer linear atoms) and Lean proves the clause.
-        if graph.numeric != "Int" or premises or coefficients:
+        # whose LP explanation rested on cuts or on the integer lattice
+        # (the legacy core labels a lattice conflict farkas): the exporter
+        # kept no coefficients because none certify the rounding, so only the
+        # shape is checked (integer linear atoms, held premises included) and
+        # Lean proves the clause or the implication.
+        # (A coefficient-free farkas or bound over Real falls through to the
+        # coefficient count check below.)
+        if parameters[0] == "cut" and (graph.numeric != "Int" or coefficients or premises):
             raise ReconstructionError("cut th-lemma requires an Int certificate, no premises, and no coefficients "
                                       "at node %d" % node)
+        for premise in premises:
+            _atom_constraint(graph, premise)
         for literal in literals:
             _linear_constraint(graph, literal)
         return
@@ -2008,6 +2039,10 @@ def _resolution(graph, terms, node):
                 matched_units.add(unit)
             elif graph.kind(literal) == z3.Z3_OP_NOT and terms[graph.arguments(literal)[0]] == terms[fact]:
                 eliminations.setdefault(position, (unit, False))
+                matched_units.add(unit)
+            elif graph.kind(literal) == z3.Z3_OP_FALSE and graph.kind(fact) == z3.Z3_OP_TRUE:
+                # The legacy core's theory axioms (or false l) resolved with
+                # the unit true; a false literal needs no unit (see branch).
                 matched_units.add(unit)
     if set(units) != matched_units:
         raise ReconstructionError("unit-resolution has an unmatched unit at node %d" % node)
@@ -2279,6 +2314,10 @@ def reconstruct(source, certificate):
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
             term = "_hyp%d" % hypothesis
+        elif graph.kind(node) == z3.Z3_OP_PR_TRUE:
+            if graph.kind(conclusion) != z3.Z3_OP_TRUE:
+                raise ReconstructionError("true-axiom must conclude true at node %d" % node)
+            term = "True.intro"
         elif graph.kind(node) == z3.Z3_OP_PR_LEMMA:
             term, support = _lemma(graph, terms, node, dependencies[node])
             decidable_formulas.update(support)

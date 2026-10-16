@@ -513,9 +513,17 @@ class TestIntegerMixedValidation(unittest.TestCase):
                                            "range": "Int", "parameters": []}, ("U",))
         self.assertEqual(decl.domain, ("U", "Bool", "Int"))
 
-    def test_legacy_core_rejects_the_fragment(self):
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
-            proof_certificate.export_certificate(self.source)
+    def test_legacy_core_exports_the_fragment(self):
+        # The legacy proof object certifies the fragment too (since
+        # 2026-10-16): the sort name and the Int declarations are kept, and
+        # the th-lemma hints are the Real ones plus bare arith steps.
+        certificate = proof_certificate.export_certificate(self.source)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        self.assertEqual(certificate["source_smt2"], self.source)
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "Int", "U", "Proof"})
+        self.assertLessEqual(_hints(certificate), {"farkas", "bound", "implied-eq", "triangle-eq", "arith"})
+        self.assertIn("monotonicity", certificate["rule_counts"])
+        self.assertIn("th_lemma", proof_to_lean.reconstruct(self.source, certificate))
 
 
 class TestIntegerMixedInProcess(unittest.TestCase):
@@ -555,8 +563,11 @@ class TestIntegerMixedInProcess(unittest.TestCase):
 class TestIntegerMixedLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
 
-    def check(self, source):
-        certificate = proof_certificate.export_clause_log_certificate(source)
+    def check(self, source, core="clause-log"):
+        if core == "clause-log":
+            certificate = proof_certificate.export_clause_log_certificate(source)
+        else:
+            certificate = proof_certificate.export_certificate(source)
         self.assertEqual(certificate["fragment"], "qf_uflia")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
@@ -572,7 +583,13 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = " ".join(result.stdout.split())
-            self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+            if core == "clause-log":
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+            else:
+                # A legacy refutation by congruence and resolution alone
+                # needs no axiom; otherwise the standard ones.
+                self.assertTrue(".unsat' depends on axioms: " + _STANDARD_AXIOMS in report
+                                or ".unsat' does not depend on any axioms" in report, report)
             return certificate, text
 
     def test_documented_inputs_verify_under_the_standard_axioms(self):
@@ -675,6 +692,49 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                 with self.assertRaises(subprocess.CalledProcessError):
                     proof_to_lean.check_and_write(source, certificate, output)
                 self.assertFalse(output.exists(), "no proof is published when Lean rejects the lemma")
+
+
+class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
+    """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
+
+    check = TestIntegerMixedLeanIntegration.check
+
+    def test_documented_inputs_verify_through_the_legacy_core(self):
+        hints, rules = set(), set()
+        for name, source in UFLIA_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, text = self.check(source, core="legacy")
+                hints |= _hints(certificate)
+                rules |= set(certificate["rule_counts"])
+                if name == "uflia_div_mod":
+                    self.assertIn("arith", _hints(certificate))
+                    self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
+                    self.assertIn(" / ", text)
+                    self.assertIn(" % ", text)
+        self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith"})
+        # The legacy core's congruences are monotonicity steps, never euf hints.
+        self.assertLessEqual({"monotonicity", "true-axiom", "th-lemma", "rewrite"}, rules)
+
+    # Seeds whose legacy proofs need the arithmetic solver (many random
+    # instances are refuted by congruence and resolution alone there): plain
+    # seed 51 has farkas, implied-eq, and triangle-eq steps, seed 7 with a
+    # sort and ite terms farkas and triangle-eq, and division seed 13 the
+    # arith axioms next to bound and farkas steps.
+    LEGACY_SEEDS = ((51, {}), (7, {"with_sort": True, "ite": True}))
+    LEGACY_DIVISION_SEED = 13
+
+    def test_random_instances_through_the_legacy_core(self):
+        from test_proof_to_lean_lia import random_division_instance
+        sources = [random_instance(seed, **options) for seed, options in self.LEGACY_SEEDS]
+        sources.append(random_division_instance(self.LEGACY_DIVISION_SEED, functions=True))
+        hints = set()
+        for source in sources:
+            self.assertIsNotNone(source, "a seed is no longer unsatisfiable")
+            with self.subTest(source=source):
+                certificate, _ = self.check(source, core="legacy")
+                self.assertIn("th-lemma", certificate["rule_counts"])
+                hints |= _hints(certificate)
+        self.assertLessEqual({"farkas", "implied-eq", "triangle-eq", "arith", "bound"}, hints)
 
 
 if __name__ == "__main__":

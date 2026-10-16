@@ -80,16 +80,17 @@ arithmetic) takes both the `_vars` valuation and the `_U` binders, plus
 function or predicate is injected into `_U` by `_real`, and a function with a
 Real result is the family `_rfuns`, whose applications are the atoms of the
 linear forms; both cores certify it, predicates over Bool alone included. A
-QF_LIA input (linear integer arithmetic on its own) is certified from the
-clause log only; its theorem quantifies over `_vars : Nat -> Int`, its
+QF_LIA input (linear integer arithmetic on its own) is certified from both
+cores; its theorem quantifies over `_vars : Nat -> Int`, its
 theory lemmas and arithmetic rewrites are proved by `first | omega | grind`,
 and the integer solver's `cut` steps, its `arith` axioms defining `div` and
-`mod` by a numeral, and Farkas steps whose coefficients rest on cuts, reach
-Lean with their shapes checked only, so that tactic is the check for them
-(`omega` reads `/` and `%` by a positive numeral; an `arith` axiom with a
-negative divisor falls to `grind`).
+`mod` by a numeral, the legacy core's cuts (bare `arith` steps with
+premises) and lattice conflicts (`farkas` without coefficients), and Farkas
+steps whose coefficients rest on cuts, reach Lean with their shapes checked
+only, so that tactic is the check for them (`omega` reads `/` and `%` by a
+positive numeral; an `arith` axiom with a negative divisor falls to `grind`).
 Integer `div` and `mod` are Lean's Euclidean `/` and `%` (nonzero constant
-divisors only; any other is rejected) and `abs` is the classical `ite`
+divisors only in the assertions; any other there is rejected) and `abs` is the classical `ite`
 SMT-LIB defines it as. A QF_UFLIA input (the same mixed with uninterpreted sorts
 or functions) takes the QF_UFLRA binders over Int instead,
 `(_vars : Nat -> Int)`, `(_int : Int -> _U)`, and

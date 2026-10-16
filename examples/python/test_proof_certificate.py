@@ -374,7 +374,7 @@ class TestProofCertificate(unittest.TestCase):
 
     def test_unsupported_input_is_rejected_even_with_false(self):
         problems = [
-            "(declare-const x Int)(assert (= x 0))",
+            "(declare-const x Int)(declare-const y Real)(assert (= (to_real x) y))",
             "(declare-const x Real)(assert (< (* x x) 0.0))",
             "(declare-const x (_ BitVec 8))(assert (= x #x00))",
             "(declare-const a (Array Bool Bool))(assert (select a true))",
@@ -1214,23 +1214,25 @@ class TestFragmentClassification(unittest.TestCase):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.classify(source)
 
-    def test_legacy_exporter_rejects_integer_arithmetic(self):
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
-            proof_certificate.export_certificate(_LIA)
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
-            proof_certificate.parse_legacy_assertions(_LIA, z3.Context())
-        # The clause-log classification accepts the input once the consumer
-        # opts in to the fragment; by default it stays unsupported, since its
-        # cut steps are certified by Lean alone.
-        self.assertEqual(proof_certificate.parse_assertions(_LIA, z3.Context(), integer=True)[1], "qf_lia")
+    def test_integer_fragments_are_opt_in_on_both_paths(self):
+        # Both classifications accept the input once the consumer opts in to
+        # the fragment; by default it stays unsupported, since the integer
+        # solver's cut steps are certified by Lean alone. The exporters opt in.
+        for parse in (proof_certificate.parse_assertions, proof_certificate.parse_legacy_assertions):
+            with self.subTest(parse=parse.__name__):
+                self.assertEqual(parse(_LIA, z3.Context(), integer=True)[1], "qf_lia")
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            r"\(qf_lia\).*accept the fragment explicitly"):
+                    parse(_LIA, z3.Context())
+                # The same for integers next to uninterpreted functions.
+                self.assertEqual(parse(_UFLIA, z3.Context(), integer=True)[1], "qf_uflia")
+                with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                            r"\(qf_uflia\).*accept the fragment explicitly"):
+                    parse(_UFLIA, z3.Context())
         with self.assertRaisesRegex(proof_certificate.ProofExportError, r"\(qf_lia\).*accept the fragment explicitly"):
-            proof_certificate.parse_assertions(_LIA, z3.Context())
-        # The same for integers next to uninterpreted functions.
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "clause log only"):
-            proof_certificate.export_certificate(_UFLIA)
-        self.assertEqual(proof_certificate.parse_assertions(_UFLIA, z3.Context(), integer=True)[1], "qf_uflia")
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, r"\(qf_uflia\).*accept the fragment explicitly"):
-            proof_certificate.parse_assertions(_UFLIA, z3.Context())
+            proof_certificate.parse_propositional_assertions(_LIA, z3.Context())
+        self.assertEqual(proof_certificate.export_certificate(_LIA)["fragment"], "qf_lia")
+        self.assertEqual(proof_certificate.export_certificate(_UFLIA)["fragment"], "qf_uflia")
 
     def test_legacy_exporter_exports_linear_real_arithmetic(self):
         # theory_lra records the Farkas coefficients of its LP conflicts as
@@ -1379,6 +1381,72 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertIn("implied-eq", hints)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "not propositional.*qf_uflra"):
             proof_certificate.parse_propositional_assertions(_UFLRA, z3.Context())
+
+    def test_legacy_exporter_exports_integer_arithmetic(self):
+        # QF_LIA through the legacy proof object: numerals are Int, and the
+        # lattice conflict (x + y = 1 and 2x - y = 1 have no integer solution,
+        # rationally x = 2/3) is a farkas step whose coefficients do not
+        # refute its premises rationally, so the exporter keeps none: the
+        # reconstructor shape-checks it and Lean proves it alone, as for the
+        # clause log's cut hint.
+        certificate = proof_certificate.export_certificate(_LIA)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        declarations = certificate["declarations"]
+        self.assertEqual({d["range"] for d in declarations}, {"Bool", "Int", "Proof"})
+        self.assertTrue(all(d["range"] == "Int" and Fraction(d["name"]).denominator == 1
+                            for d in declarations if d["kind"] == z3.Z3_OP_ANUM))
+        self.assertEqual([d["parameters"] for d in declarations if d["name"] == "th-lemma"], [["farkas"]])
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        # The div and mod definitions are bare (_ th-lemma arith) axioms
+        # stated as (or false l) and resolved with the unit true; the Farkas
+        # conflict over them re-derives and keeps its coefficients.
+        certificate = proof_certificate.export_certificate(_LIA_DIV)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
+        hints = {tuple(d["parameters"]) for d in certificate["declarations"] if d["name"] == "th-lemma"}
+        self.assertIn(("arith",), hints)
+        self.assertTrue(any(h[0] == "farkas" and len(h) > 1 for h in hints), hints)
+        # QF_UFLIA: the sort name and the Int signatures are kept.
+        certificate = proof_certificate.export_certificate(_UFLIA)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        self.assertEqual({(d["name"], tuple(d["domain"]), d["range"]) for d in certificate["declarations"]
+                          if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {("a", (), "U"), ("b", (), "U"), ("x", (), "Int"), ("y", (), "Int"),
+                          ("f", ("Int",), "Int"), ("g", ("U",), "Int"), ("h", ("Int",), "U"), ("q", ("Int",), "Bool")})
+        self.assertLessEqual({d["parameters"][0] for d in certificate["declarations"] if d["name"] == "th-lemma"},
+                             {"farkas", "bound", "implied-eq", "triangle-eq", "arith"})
+
+    def test_legacy_integer_coefficients_are_kept_only_when_they_certify(self):
+        context = z3.Context(proof=True)
+        x, y = z3.Ints("x y", ctx=context)
+        solver = z3.Solver(ctx=context)
+        solver.set("combined_solver.ignore_solver1", True)
+        # Rationally infeasible: the LP conflict's coefficients re-derive.
+        solver.add(x + y <= 1, x + y >= 2)
+        self.assertEqual(solver.check(), z3.unsat)
+        step = next(node for node in _proof_nodes(solver.proof()) if node.decl().name() == "th-lemma")
+        parameters = [str(p) for p in step.decl().params()]
+        self.assertEqual(parameters[:2], ["arith", "farkas"])
+        coefficients = [Fraction(p) for p in parameters[2:]]
+        self.assertTrue(proof_certificate._integer_coefficients_certify(step, "farkas", coefficients))
+        # Wrong coefficients, or the wrong number of them (left to the reconstructor), are not certified.
+        self.assertFalse(proof_certificate._integer_coefficients_certify(step, "farkas", [Fraction(1), Fraction(2)]))
+        self.assertTrue(proof_certificate._integer_coefficients_certify(step, "farkas", coefficients[:1]))
+        # The lattice conflict of _LIA: a rationally feasible explanation.
+        solver = z3.Solver(ctx=context)
+        solver.set("combined_solver.ignore_solver1", True)
+        solver.add(z3.parse_smt2_string(proof_certificate._assertion_commands(_LIA), ctx=context))
+        self.assertEqual(solver.check(), z3.unsat)
+        step = next(node for node in _proof_nodes(solver.proof()) if node.decl().name() == "th-lemma")
+        self.assertEqual(str(step.decl().params()[1]), "farkas")
+        self.assertFalse(proof_certificate._integer_coefficients_certify(
+            step, "farkas", [Fraction(str(p)) for p in step.decl().params()[2:]]))
+        # Real steps are never stripped: the exporter calls this over Int only.
+        self.assertEqual(proof_certificate._th_lemma_parameters(_FakeDecl(["arith"]), 0, integer=True), ["arith"])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+            proof_certificate._th_lemma_parameters(_FakeDecl(["arith"]), 0)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+            proof_certificate._th_lemma_parameters(_FakeDecl(["arith", "gomory-cut", 1]), 1, integer=True)
 
 
 class TestLinearCombination(unittest.TestCase):
@@ -2133,7 +2201,7 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertLessEqual({"cut", "euf", "farkas"}, set(hints))
         self.assertEqual(hints["cut"], [[]])
         self.assertTrue(all(Fraction(c) > 0 for c in sum(hints["farkas"], [])))
-        # --core auto takes the clause log; the legacy proof object rejects Int.
+        # --core auto takes the clause log; --core legacy the proof object.
         result = subprocess.run(
             [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "-"],
             input=_UFLIA, capture_output=True, text=True)
@@ -2142,8 +2210,11 @@ class TestClauseLogReplay(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "legacy", "-"],
             input=_UFLIA, capture_output=True, text=True)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("clause log only", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        certificate = json.loads(result.stdout)
+        self.assertEqual(certificate["fragment"], "qf_uflia")
+        self.assertIn("monotonicity", certificate["rule_counts"])  # the legacy core's congruences
+        self.assertEqual({d["range"] for d in certificate["declarations"]}, {"Bool", "Int", "U", "Proof"})
 
 
 _DEPENDENCY_LOG = """\

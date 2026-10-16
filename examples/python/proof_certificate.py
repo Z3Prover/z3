@@ -7,9 +7,9 @@
 """Export an unverified native proof DAG for one propositional, QF_LRA, QF_LIA, QF_UF, QF_UFLRA, or QF_UFLIA SMT-LIB problem.
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
-clause log, both for every fragment except the integer ones (QF_LIA,
-QF_UFLIA, including div and mod by a numeral and abs), which the clause log
-alone certifies.
+clause log, both for every fragment; the integer ones (QF_LIA, QF_UFLIA,
+including div and mod by a numeral and abs) are opt-in on both, since the
+integer solver's cuts are certified by Lean alone.
 """
 
 import argparse
@@ -121,7 +121,9 @@ _CNF_HINT = "cnf"
 # frontend's tactic preamble used to select for difference-logic input)
 # labels its propagations assign-bounds and eq-propagate and weights the
 # antecedents only, so the propagated literal's weight of 1 is added here.
-# Integer rules (gomory-cut, gcd-test) are rejected.
+# Over Int, theory_lra's cuts and its div/mod axioms are bare (_ th-lemma
+# arith) steps, kept as the arith hint (see _th_lemma_parameters); any other
+# hint name (nla, gomory-cut, gcd-test) is rejected.
 _LEGACY_HINTS = {
     "farkas": "farkas", "bound": "bound", "assign-bounds": "bound",
     "implied-eq": "implied-eq", "eq-propagate": "implied-eq", "triangle-eq": "triangle-eq",
@@ -428,27 +430,28 @@ def classify_fragment(assertions):
     return "qf_lra" if real else "propositional"
 
 
-def _require_legacy_fragment(assertions):
+def _require_legacy_fragment(assertions, integer=False):
     """Return the fragment if the legacy proof object can certify it.
 
     The legacy core's equality proofs (congruence, transitivity, symmetry) are
     complete, and theory_lra records the Farkas coefficients of its conflicts
     and bound propagations as th-lemma parameters, so every real-valued
     fragment is supported; a th-lemma without coefficients is rejected when
-    the proof is encoded. Integer arithmetic is certified through the clause
-    log only: the legacy core's integer steps (branches, cuts, gcd tests) are
-    not mapped.
+    the proof is encoded. The integer fragments are opt-in as in
+    parse_assertions: the integer solver's cuts are bare (_ th-lemma arith)
+    steps without coefficients, certified by Lean alone.
     """
     fragment = classify_fragment(assertions)
-    if fragment in _INTEGER_FRAGMENTS:
-        raise ProofExportError("integer arithmetic is certified through the clause log only (--core clause-log)")
+    if fragment in _INTEGER_FRAGMENTS and not integer:
+        raise ProofExportError("integer arithmetic (%s) is certified by Lean alone; "
+                               "the consumer must accept the fragment explicitly" % fragment)
     return fragment
 
 
-def parse_legacy_assertions(source, context):
+def parse_legacy_assertions(source, context, integer=False):
     """Parse the assertion snapshot for the legacy proof object, with its fragment name."""
     assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
-    return assertions, _require_legacy_fragment(assertions)
+    return assertions, _require_legacy_fragment(assertions, integer)
 
 
 def parse_propositional_assertions(source, context):
@@ -477,7 +480,7 @@ def parse_assertions(source, context, integer=False):
     return assertions, fragment
 
 
-def _th_lemma_parameters(decl, premises):
+def _th_lemma_parameters(decl, premises, integer=False):
     """Return the certificate parameters of a native th-lemma declaration applied to premises.
 
     The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
@@ -487,9 +490,16 @@ def _th_lemma_parameters(decl, premises):
     outright. Only magnitudes enter a Farkas combination (theory_arith records
     the sign of the row coefficient), and the reconstructor re-derives the
     combination, so the coefficients are hints, not trusted. A bare
-    (_ th-lemma arith) records no evidence and is rejected.
+    (_ th-lemma arith) records no evidence: over Real it is rejected; over
+    Int it is theory_lra's own axiom (a div or mod definition, a clause
+    without premises) or a cut (the bound literal a Gomory or Hermite cut
+    derives from the premises it lists), both shape-checked by the
+    reconstructor and proved by Lean alone like the clause log's arith and
+    cut hints.
     """
     parameters = decl.params()
+    if integer and len(parameters) == 1 and parameters[0] == "arith":
+        return ["arith"]
     if len(parameters) < 2 or parameters[0] != "arith" or parameters[1] not in _LEGACY_HINTS:
         raise ProofExportError("th-lemma without a replayable theory hint: %s" % " ".join(
             str(parameter) for parameter in parameters))
@@ -510,7 +520,37 @@ def _th_lemma_parameters(decl, premises):
     return [hint] + [str(coefficient) for coefficient in coefficients]
 
 
-def _encode_proof(assertions, proof):
+def _integer_coefficients_certify(step, hint, coefficients):
+    """Whether a legacy farkas or bound step over Int re-derives from its coefficients.
+
+    theory_lra labels every LP conflict farkas and every LP bound propagation
+    bound, over Int too, where the explanation may rest on bounds the solver
+    tightened to the integer lattice or on a lattice conflict (no integer
+    point on the rationally feasible region), which no rational combination
+    of the premises shows. As for the clause log (check_linear_hint), such a
+    step keeps no coefficients: the reconstructor shape-checks it and Lean
+    proves it alone. A step whose literals are not linear atoms keeps its
+    coefficients, so that the reconstructor rejects it with its own message.
+    """
+    import proof_clause_log
+    premises = [step.arg(index) for index in range(step.num_args() - 1)]
+    conclusion = step.arg(step.num_args() - 1)
+    literals = ([] if z3.is_false(conclusion) else list(conclusion.children()) if z3.is_or(conclusion)
+                else [conclusion])
+    if len(coefficients) != len(premises) + len(literals):
+        return True
+    constraints = []  # _constraint takes a literal that holds: a premise, or a denied clause literal's complement
+    try:
+        for coefficient, premise in zip(coefficients, premises):
+            constraints.append((coefficient,) + proof_clause_log._constraint(premise.arg(premise.num_args() - 1)))
+        for coefficient, literal in zip(coefficients[len(premises):], literals):
+            constraints.append((coefficient,) + proof_clause_log._constraint(proof_clause_log._complement(literal)))
+    except (ProofExportError, proof_clause_log.ProofExportError, z3.Z3Exception):
+        return True
+    return linear_combination_refutes(constraints) or (hint == "bound" and bound_combination_refutes(constraints))
+
+
+def _encode_proof(assertions, proof, integer=False):
     declarations, nodes = [], []
     declaration_ids, node_ids = {}, {}
     rule_counts = Counter()
@@ -521,6 +561,8 @@ def _encode_proof(assertions, proof):
             return "Bool"
         if sort.kind() == z3.Z3_REAL_SORT:
             return "Real"
+        if sort.kind() == z3.Z3_INT_SORT:
+            return "Int"
         if sort.eq(proof_sort):
             return "Proof"
         if is_uninterpreted_sort(sort) and sort.name() not in _RESERVED_SORTS:
@@ -540,15 +582,19 @@ def _encode_proof(assertions, proof):
             pending.extend((child, False) for child in reversed(expr.children()))
             continue
         decl = expr.decl()
-        if decl.get_id() not in declaration_ids:
-            name, parameters = str(decl.name()), []
-            if decl.kind() == z3.Z3_OP_ANUM:
-                name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
-            elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
-                parameters = _th_lemma_parameters(decl, expr.num_args() - 1)
-            elif decl.params():
-                raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
-            declaration_ids[decl.get_id()] = len(declarations)
+        name, parameters = str(decl.name()), []
+        if decl.kind() == z3.Z3_OP_ANUM:
+            name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
+        elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
+            parameters = _th_lemma_parameters(decl, expr.num_args() - 1, integer)
+            if integer and parameters[0] in ("farkas", "bound") and len(parameters) > 1 and \
+                    not _integer_coefficients_certify(expr, parameters[0], [Fraction(c) for c in parameters[1:]]):
+                parameters = parameters[:1]  # One declaration per step shape: Lean alone proves this one.
+        elif decl.params():
+            raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
+        key = (decl.get_id(), tuple(parameters))
+        if key not in declaration_ids:
+            declaration_ids[key] = len(declarations)
             declarations.append({
                 "kind": decl.kind(),
                 "name": name,
@@ -558,7 +604,7 @@ def _encode_proof(assertions, proof):
             })
         node_ids[expr.get_id()] = len(nodes)
         nodes.append({
-            "declaration": declaration_ids[decl.get_id()],
+            "declaration": declaration_ids[key],
             "arguments": [node_ids[child.get_id()] for child in expr.children()],
         })
         if expr.sort().eq(proof_sort):
@@ -833,12 +879,13 @@ def _certificate_from_proof(source, assertions, proof):
     if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
             or not z3.is_false(proof.arg(proof.num_args() - 1))):
         raise ProofExportError("the native proof does not conclude false")
-    certificate = _encode_proof(assertions, proof)
+    fragment = _require_legacy_fragment(assertions, integer=True)
+    certificate = _encode_proof(assertions, proof, fragment in _INTEGER_FRAGMENTS)
     certificate.update({
         "format": "z3-native-proof-dag",
         "format_version": 1,
         "z3_version": z3.get_full_version(),
-        "fragment": _require_legacy_fragment(assertions),
+        "fragment": fragment,
         "result": "unsat",
         "verification": "unverified",
         "source_smt2": source,
@@ -852,11 +899,12 @@ def export_certificate(source):
     The source is one SMT-LIB assertion snapshot with an optional final
     check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
     This is the legacy proof-object path (the smt core, sat.smt=false) and
-    supports propositional, QF_UF, QF_LRA, and QF_UFLRA input; theory_lra's
-    th-lemma steps carry their Farkas coefficients as declaration parameters.
+    supports every fragment; theory_lra's th-lemma steps carry their Farkas
+    coefficients as declaration parameters, except over Int, where cuts, the
+    div/mod axioms, and lattice conflicts carry none and Lean proves them.
     """
     context = z3.Context(proof=True)
-    assertions, _ = parse_legacy_assertions(source, context)
+    assertions, _ = parse_legacy_assertions(source, context, integer=True)
     solver = z3.Solver(ctx=context)
     # The default solver runs the tactic of the input's logic first (see
     # _NO_PREPROCESSING); its elim-uncnstr pass names unconstrained subterms

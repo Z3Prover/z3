@@ -528,13 +528,57 @@ class TestIntegerValidation(unittest.TestCase):
         self.assertRegex(negative_text, r": Int := \(-\(term_\d+ _atoms _vars\)\)")
         self.assertRegex(negative_text, r": Int := \(\(term_\d+ _atoms _vars\) % \(term_\d+ _atoms _vars\)\)")
 
+    def test_legacy_axioms_resolve_with_true_and_dead_branches_may_divide_by_zero(self):
+        # The legacy core states the div and mod axioms as (or false l) and
+        # resolves false away with the unit true (a true-axiom step).
+        source = LIA_INPUTS["lia_div"]
+        certificate = proof_certificate.export_certificate(source)
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+        self.assertIn("True.intro", proof_to_lean.reconstruct(source, certificate))
+        true_axiom = next(index for index, raw in enumerate(nodes)
+                          if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_TRUE)
+        false_node = next(index for index, raw in enumerate(nodes)
+                          if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_FALSE)
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][true_axiom]["arguments"] = [false_node]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "true-axiom must conclude true"):
+            proof_to_lean.reconstruct(source, tampered)
+        # The unit true matches false literals only: resolving it against a
+        # clause without one (a triangle-eq axiom) is rejected.
+        resolution = next(index for index, raw in enumerate(nodes)
+                          if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_UNIT_RESOLUTION
+                          and true_axiom in raw["arguments"])
+        triangle = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["triangle-eq"])
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][resolution]["arguments"][0] = triangle
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "unit-resolution"):
+            proof_to_lean.reconstruct(source, tampered)
+        # Z3's rewriter cancels the common factor of (div (* 2 x3) (- 2))
+        # through an ite whose dead branch is (div (* 2 x3) 0): such a term
+        # may appear in a proof step, never in the assertions the theorem
+        # states (test_integer_division_declarations_and_divisors_are_checked).
+        source = random_division_instance(LEGACY_DIVISION_SEEDS[0])
+        certificate = proof_certificate.export_certificate(source)
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+        zero = next(index for index, d in enumerate(declarations) if d["kind"] == z3.Z3_OP_ANUM and d["name"] == "0")
+        by_zero = [index for index, raw in enumerate(nodes) if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_IDIV
+                   and nodes[raw["arguments"][1]]["declaration"] == zero]
+        self.assertTrue(by_zero, "the dead branch dividing by zero is no longer in the proof")
+        graph = proof_to_lean._validate_graph(source, certificate)
+        stated = set()
+        for assertion in certificate["assertions"]:
+            stated |= proof_to_lean._reachable(graph, assertion)[0]
+        self.assertFalse(stated & set(by_zero))
+        self.assertIn("theorem unsat", proof_to_lean.reconstruct(source, certificate))
+
     def test_arith_th_lemmas_are_shape_checked_and_left_to_lean(self):
         source = LIA_INPUTS["lia_div"]
         exported = proof_certificate.export_clause_log_certificate(source)
         node = next(n for n in _th_lemma_nodes(exported) if _parameters(exported, n) == ["arith"])
         declaration = exported["nodes"][node]["declaration"]
-        # An arith lemma takes no coefficients and no premises, and each of
-        # its literals, under any negations, is a linear arithmetic atom.
+        # An arith lemma takes no coefficients, concludes a clause, and each
+        # of its literals, under any negations, is a linear arithmetic atom;
+        # so is each premise (the legacy core's cuts list theirs).
         tampered = copy.deepcopy(exported)
         tampered["declarations"][declaration]["parameters"] = ["arith", "1"]
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "arith th-lemma takes no coefficients"):
@@ -544,7 +588,7 @@ class TestIntegerValidation(unittest.TestCase):
                           if tampered["declarations"][raw["declaration"]]["kind"] == z3.Z3_OP_FALSE)
         tampered["nodes"].append({"declaration": declaration, "arguments": [false_node]})
         tampered["rule_counts"]["th-lemma"] += 1
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "clause without premises"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "arith th-lemma must conclude a clause"):
             proof_to_lean.reconstruct(source, tampered)
         tampered = copy.deepcopy(exported)
         equivalence = next(index for index, raw in enumerate(tampered["nodes"])
@@ -554,6 +598,19 @@ class TestIntegerValidation(unittest.TestCase):
         tampered["rule_counts"]["th-lemma"] += 1
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "not a linear arithmetic atom"):
             proof_to_lean.reconstruct(source, tampered)
+        tampered = copy.deepcopy(exported)
+        clause_step = next(index for index, raw in enumerate(tampered["nodes"])
+                           if tampered["declarations"][raw["declaration"]]["range"] == "Proof"
+                           and tampered["declarations"][tampered["nodes"][raw["arguments"][-1]]["declaration"]]["kind"]
+                           == z3.Z3_OP_OR)
+        with_premise = len(tampered["declarations"])
+        tampered["declarations"].append({"kind": z3.Z3_OP_PR_TH_LEMMA, "name": "th-lemma",
+                                         "domain": ["Proof", "Bool"], "range": "Proof", "parameters": ["arith"]})
+        tampered["nodes"].append({"declaration": with_premise,
+                                  "arguments": [clause_step, tampered["nodes"][node]["arguments"][-1]]})
+        tampered["rule_counts"]["th-lemma"] += 1
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "not a linear arithmetic atom"):
+            proof_to_lean.reconstruct(source, tampered)  # a premise proving a clause is no held atom
         # Over Real atoms the shape check passes too (grind proves the
         # clause): a farkas lemma relabelled arith loses its coefficients but
         # stays a theory tautology.
@@ -577,7 +634,8 @@ class TestIntegerValidation(unittest.TestCase):
         self.assertEqual(exported["nodes"][exported["nodes"][div_node]["arguments"][1]]["declaration"], three)
         # Lean's / and % are total where SMT-LIB's div and mod by zero are
         # uninterpreted: a zero or nonconstant divisor is rejected on every
-        # node, whether or not a theory lemma mentions it.
+        # node the theorem states (the assertions and their subterms),
+        # whether or not a theory lemma mentions it.
         for mutate, message in [
             (lambda c: c["declarations"][three].update(name="0"), "integer div by a nonconstant or zero"),
             (lambda c: c["nodes"][div_node]["arguments"].__setitem__(1, c["nodes"][div_node]["arguments"][0]),
@@ -644,8 +702,11 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         if not _z3_available():
             raise unittest.SkipTest("the z3 executable is required for the clause log")
 
-    def check(self, source):
-        certificate = proof_certificate.export_clause_log_certificate(source)
+    def check(self, source, core="clause-log"):
+        if core == "clause-log":
+            certificate = proof_certificate.export_clause_log_certificate(source)
+        else:
+            certificate = proof_certificate.export_certificate(source)
         self.assertEqual(certificate["fragment"], "qf_lia")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
@@ -661,7 +722,12 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                                     text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = " ".join(result.stdout.split())
-            self.assertIn(_STANDARD_AXIOMS, report)
+            if core == "clause-log":
+                self.assertIn(_STANDARD_AXIOMS, report)
+            else:
+                # A legacy refutation by rewriting and resolution alone may
+                # need no axiom; otherwise the standard ones.
+                self.assertTrue(_STANDARD_AXIOMS in report or "does not depend on any axioms" in report, report)
             return certificate
 
     def test_documented_lia_inputs_verify_under_the_standard_axioms(self):
@@ -772,6 +838,87 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         certificate["nodes"].append({"declaration": arith, "arguments": [len(certificate["nodes"]) - 1]})
         certificate["rule_counts"]["th-lemma"] += 1
         self.assertIn("th_lemma_%d" % (len(certificate["nodes"]) - 1), proof_to_lean.reconstruct(source, certificate))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            with self.assertRaises(subprocess.CalledProcessError):
+                proof_to_lean.check_and_write(source, certificate, output)
+            self.assertFalse(output.exists())
+
+
+# Seeds of random_division_instance whose legacy proofs exercise what the
+# clause log never shows: seed 77 rewrites (div (+ x3 x3) -2) through an ite
+# whose dead branch is (div (* 2 x3) 0), the rewriter's factor cancellation,
+# and seed 85 has bound propagations and 255 steps.
+LEGACY_DIVISION_SEEDS = (77, 85)
+
+
+class TestLegacyIntegerLeanIntegration(unittest.TestCase):
+    """End-to-end through the smt core's proof object: certificate, Lean reconstruction, kernel check."""
+
+    check = TestIntegerLeanIntegration.check
+
+    def test_documented_lia_inputs_verify_through_the_legacy_core(self):
+        hints = set()
+        for name, source in LIA_INPUTS.items():
+            with self.subTest(name=name):
+                certificate = self.check(source, core="legacy")
+                hints |= _hints(certificate)
+                parameters = [_parameters(certificate, node) for node in _th_lemma_nodes(certificate)]
+                if name == "lia_gomory":
+                    # The lattice conflict: theory_lra labels it farkas with
+                    # coefficients that do not refute the premises rationally,
+                    # so the exporter keeps none and Lean proves it alone.
+                    self.assertEqual(parameters, [["farkas"]] * len(parameters))
+                    self.assertTrue(parameters)
+                if name == "lia_equality_elimination":
+                    # A cut: a bare arith step deriving its bound from the premises it lists.
+                    self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
+                if name in ("lia_div", "lia_mod_sum", "lia_div_sum"):
+                    # The div and mod axioms, stated (or false l) and resolved with the unit true.
+                    self.assertIn("arith", _hints(certificate))
+                    self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
+        # The legacy core's hints: no cut or euf (its congruences are
+        # monotonicity steps), plus the bare arith of its axioms and cuts.
+        self.assertEqual(hints, {"farkas", "bound", "triangle-eq", "arith"})
+
+    def test_pinned_division_instances_verify_through_the_legacy_core(self):
+        for seed in LEGACY_DIVISION_SEEDS:
+            source = random_division_instance(seed)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            with self.subTest(seed=seed):
+                certificate = self.check(source, core="legacy")
+                self.assertIn("th-lemma", certificate["rule_counts"])
+                declarations, nodes = certificate["declarations"], certificate["nodes"]
+                # Both seeds pin the congruence through div (a monotonicity
+                # step equating two div terms, a grind lemma in Lean).
+                congruences = [declarations[nodes[nodes[raw["arguments"][-1]]["arguments"][0]]["declaration"]]["kind"]
+                               for raw in nodes if declarations[raw["declaration"]]["kind"] == z3.Z3_OP_PR_MONOTONICITY
+                               and declarations[nodes[raw["arguments"][-1]]["declaration"]]["kind"] == z3.Z3_OP_EQ]
+                self.assertIn(z3.Z3_OP_IDIV, congruences, "no monotonicity step over div is left in the proof")
+                if seed == 77:
+                    zero = next(index for index, d in enumerate(declarations)
+                                if d["kind"] == z3.Z3_OP_ANUM and d["name"] == "0")
+                    self.assertTrue(any(declarations[raw["declaration"]]["kind"] == z3.Z3_OP_IDIV
+                                        and nodes[raw["arguments"][1]]["declaration"] == zero for raw in nodes),
+                                    "the dead branch dividing by zero is no longer in the proof")
+
+    def test_false_legacy_lemmas_without_coefficients_are_rejected_by_lean(self):
+        # The coefficient-free farkas of the lattice conflict, cut down to two
+        # of its four premises (x + y <= 1 and x + y >= 1 are satisfiable):
+        # the shape check passes, Lean fails, no proof is published.
+        source = LIA_INPUTS["lia_gomory"]
+        certificate = proof_certificate.export_certificate(source)
+        node = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["farkas"])
+        arguments = certificate["nodes"][node]["arguments"]
+        self.assertEqual(len(arguments), 5)
+        certificate["declarations"].append({"kind": z3.Z3_OP_PR_TH_LEMMA, "name": "th-lemma",
+                                            "domain": ["Proof", "Proof", "Bool"], "range": "Proof",
+                                            "parameters": ["farkas"]})
+        certificate["nodes"][node] = {"declaration": len(certificate["declarations"]) - 1,
+                                      "arguments": arguments[:2] + arguments[-1:]}
+        graph = proof_to_lean._validate_graph(source, certificate)
+        proof_to_lean._check_th_lemma(graph, node)
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
             with self.assertRaises(subprocess.CalledProcessError):
