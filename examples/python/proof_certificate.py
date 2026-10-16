@@ -8,7 +8,8 @@
 
 Two proof sources: the legacy proof object of the smt core and the sat.smt
 clause log, both for every fragment except the integer ones (QF_LIA,
-QF_UFLIA), which the clause log alone certifies.
+QF_UFLIA, including div and mod by a numeral and abs), which the clause log
+alone certifies.
 """
 
 import argparse
@@ -47,15 +48,17 @@ _BOOLEAN_OPERATORS = {
 # Linear real arithmetic: atoms over Real terms built from variables, numerals,
 # sums, differences, negation, scaling by a numeral, division by a numeral,
 # and Real-valued ite, whose value is a linear term under either branch.
-# Linear integer arithmetic is the same fragment over Int without division
-# (div, mod, abs, to_real, and to_int are rejected); it never mixes with Real
-# or with uninterpreted sorts and functions.
+# Linear integer arithmetic is the same fragment over Int without Real
+# division, plus the integer div and mod by a nonzero numeral and abs, which
+# are opaque atoms of the linear forms (Z3's arithmetic solver axiomatizes
+# div and mod by explicit clauses, see proof_clause_log, and rewrites abs to
+# an ite); to_real and to_int are rejected, and Int never mixes with Real.
 _ARITH_PREDICATES = {z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT}
 _ARITH_OPERATORS = {z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_MUL, z3.Z3_OP_DIV}
 _ARITH_NAMES = {
     z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">",
     z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*",
-    z3.Z3_OP_DIV: "/",
+    z3.Z3_OP_DIV: "/", z3.Z3_OP_IDIV: "div", z3.Z3_OP_MOD: "mod", z3.Z3_OP_ABS: "abs",
 }
 # Clause-log hint encodings; replay handles each hint's clause convention.
 # cut is the integer solver's hint for a Gomory cut or a gcd conflict: its
@@ -66,7 +69,10 @@ _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # The fragments over Int, certified through the clause log and Lean alone
 # (see parse_assertions).
 _INTEGER_FRAGMENTS = ("qf_lia", "qf_uflia")
-_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff")
+# arith is the hint of the arithmetic solver's own axioms (the div and mod
+# definitions): like euf it lists jointly contradictory literals, and like cut
+# it is shape-checked here and proved by Lean alone.
+_LITERAL_HINTS = ("euf", "tseitin", "smt", "alldiff", "arith")
 # Synthesized by the exporter, not logged by Z3: an original assertion implies
 # one of the clauses it was split into.
 _CNF_HINT = "cnf"
@@ -206,16 +212,35 @@ def constant_value(expr):
     return values[0] / values[1]
 
 
+def integer_divisor(expr):
+    """Return the nonzero constant divisor of an Int div or mod term, rejecting any other.
+
+    SMT-LIB leaves div and mod by zero uninterpreted, while Lean's Int
+    division and remainder are total functions (x / 0 = 0), so a proof over
+    them would cover one interpretation only; a nonconstant divisor is
+    nonlinear. Away from zero the two agree: SMT-LIB's div and mod are
+    Euclidean (0 <= mod < |divisor|), as Lean's Int / and % are.
+    """
+    divisor = constant_value(expr.arg(1))
+    if divisor is None or divisor == 0:
+        raise ProofExportError("integer %s is supported only by a nonzero constant" % expr.decl().name())
+    return divisor
+
+
 def _require_linear_arithmetic(expr):
     """Reject Real or Int terms outside the linear fragment with constant coefficients.
 
-    Integer division, mod, abs, and the conversions between Int and Real are
-    distinct operators that fall through to the rejection; Real division is
-    the only division accepted.
+    Real division is accepted by a nonzero constant, integer div and mod by a
+    nonzero constant, and abs over Int; rem and the conversions between Int
+    and Real are distinct operators that fall through to the rejection.
     """
     kind = expr.decl().kind()
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM):
-        pass  # Variables and applications of uninterpreted functions are the atoms of linear forms.
+    if kind == z3.Z3_OP_ABS and not z3.is_int(expr):
+        # SMT-LIB defines abs on Int only. Z3 accepts a Real abs, which the
+        # reconstructor rejects, so the exporter rejects it as unsupported.
+        raise ProofExportError("unsupported arithmetic operator: abs over Real")
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ANUM, z3.Z3_OP_ABS):
+        pass  # Variables, applications of uninterpreted functions, and abs are the atoms of linear forms.
     elif kind == z3.Z3_OP_MUL:
         if sum(1 for child in expr.children() if constant_value(child) is None) > 1:
             raise ProofExportError("nonlinear multiplication is not supported")
@@ -223,6 +248,8 @@ def _require_linear_arithmetic(expr):
         divisor = constant_value(expr.arg(1))
         if divisor is None or divisor == 0:
             raise ProofExportError("division is supported only by a nonzero constant")
+    elif kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        integer_divisor(expr)
     elif kind not in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_UMINUS, z3.Z3_OP_ITE):
         raise ProofExportError("unsupported arithmetic operator: %s" % expr.decl().name())
 

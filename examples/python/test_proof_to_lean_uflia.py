@@ -175,6 +175,19 @@ UFLIA_INPUTS = {
 (assert (or (not (q (f y))) (not (= (h x) (h y))) (= (* 2 (f (g a))) (+ (* 2 y) 1))))
 (check-sat)
 """,
+    # Integer div and mod by a numeral next to a function: the solver's
+    # arith axioms tie the quotients and remainders to x and y, the euf step
+    # carries the congruence (f x) = (f y).
+    "uflia_div_mod": """\
+(set-logic QF_UFLIA)
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (mod x 2) (mod y 2)))
+(assert (= (div x 2) (div y 2)))
+(assert (not (= (f x) (f y))))
+(check-sat)
+""",
 }
 
 
@@ -574,8 +587,12 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertEqual(_hints(certificate), {"cut", "euf", "farkas", "implied-eq", "bound"})
                 if name == "uflia_same_branch_ite":
                     self.assertIn("def-axiom", certificate["rule_counts"])
+                if name == "uflia_div_mod":
+                    self.assertEqual(_hints(certificate), {"arith", "euf"})
+                    self.assertIn(" / ", text)
+                    self.assertIn(" % ", text)
         # Every hint kind of the slice, plus the exporter's own cnf bridge.
-        self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf"})
+        self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf", "arith"})
 
     # Seeds of random_instance whose unsat core has at least three assertions,
     # pinned so the checked inputs stay the same across Z3 versions: plain,
@@ -603,6 +620,23 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
         self.assertIn("def-axiom", certificate["rule_counts"])
         self.assertTrue(any("(ite_eq_left _hc)" in block and "(ite_eq_right _hnc)" in block
                             for block in text.split("private theorem def_axiom_")[1:]))
+
+    # Seeds of test_proof_to_lean_lia.random_division_instance with a
+    # function: div, mod, and abs atoms under and next to applications, with
+    # bound and cut hints (seed 28 also an implied equality) next to the
+    # arith axioms.
+    DIVISION_SEEDS = (13, 28)
+
+    def test_random_division_instances(self):
+        from test_proof_to_lean_lia import random_division_instance
+        hints = set()
+        for seed in self.DIVISION_SEEDS:
+            source = random_division_instance(seed, functions=True)
+            self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % seed)
+            with self.subTest(seed=seed):
+                certificate, _ = self.check(source)
+                hints |= _hints(certificate)
+        self.assertLessEqual({"arith", "farkas", "bound", "cut", "euf"}, hints)
 
     def test_small_chunks_cut_every_lemma_shape(self):
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \

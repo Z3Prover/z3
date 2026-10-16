@@ -84,8 +84,9 @@ Real atom. Predicates whose arguments are all Bool are the qf_uf fragment
 even without any uninterpreted sort (qf_uflra when their arguments are Real
 atoms); both cores certify them. The qf_lia fragment is linear integer
 arithmetic on its own: Int variables and numerals, sums, differences,
-negation, multiplication by a numeral, Int-valued ite, and the same atoms
-over Int terms; it is certified through the clause log only, and a consumer
+negation, multiplication by a numeral, Int-valued ite, integer div and mod
+by a nonzero numeral (negative too) and abs, and the same atoms over Int
+terms; it is certified through the clause log only, and a consumer
 of parse_assertions accepts it explicitly (integer=True, as the exporter
 and the reconstructor do), because its cut steps are certified by Lean
 alone rather than re-derived in Python first. The qf_uflia fragment is the
@@ -95,7 +96,9 @@ integer arithmetic, where functions and predicates may take and return Int
 a function whose signature mentions Int makes the input qf_uflia even
 without any Int atom, and a Bool-only predicate over Int atoms belongs here
 too; it shares qf_lia's clause-log-only certification and opt-in. Integer
-division, mod, abs, to_real, to_int, and Int mixed with Real (QF_LIRA, also
+div and mod by zero or by a term (SMT-LIB leaves division by zero
+uninterpreted, where Lean's Int division is total; a term divisor is
+nonlinear), rem, to_real, to_int, and Int mixed with Real (QF_LIRA, also
 through a function signature such as (Int) Real) are rejected explicitly.
 One symbol name declared with
 several signatures is rejected in every fragment: Z3 accepts such overloading
@@ -136,10 +139,12 @@ operators and predicates listed above, and th-lemma declarations whose
 parameters name a theory hint ("farkas", "bound", "implied-eq", "euf",
 "tseitin", "smt", or the exporter's own "cnf") followed, for the first three,
 by one nonnegative rational coefficient per literal of the lemma clause.
-The qf_lia fragment uses the Int sort the same way, with integer numerals
-and no division; its th-lemma hints
+The qf_lia fragment uses the Int sort the same way, with integer numerals,
+no Real division, and the declarations div, mod (both over (Int Int)) and
+abs (over (Int)) in its place; its th-lemma hints
 additionally include "cut" (the integer solver's Gomory cuts and gcd
-conflicts), which carries no coefficients, and a farkas or bound whose
+conflicts) and "arith" (the solver's own div and mod axioms), which carry
+no coefficients, and a farkas or bound whose
 coefficients did not re-derive the lemma over the tightened and rounded
 integer bounds is recorded without coefficients too (see below); a
 certificate never mixes Int with Real declarations.
@@ -313,7 +318,18 @@ random sample). Over Real such a hint is rejected; over Int the lemma is kept
 without coefficients, which marks it in the certificate as proved by Lean
 alone, and the reconstructor accepts coefficient-free farkas and bound
 th-lemmas in Int certificates only. Coefficients that are present must
-re-derive the lemma on both paths.
+re-derive the lemma on both paths. Integer div and mod by a numeral k are
+opaque atoms of the linear forms, like ite terms: the arithmetic solver adds
+their defining clauses itself, k (div t k) + (mod t k) = t, (mod t k) >= 0,
+and (mod t k) <= |k| - 1, under the hint arith, whose arguments are the
+negated clause literals (an input mentioning div alone still gets the mod
+atom and all three clauses). An arith hint is shape-checked like a cut
+(every literal an arithmetic atom over linear terms, under any negations)
+and proved by Lean alone; the reconstructor accepts it in Real certificates
+too, where grind would prove it, though Z3 was observed to emit it for
+integer input only. abs never reaches the log: Z3's rewriter replaces
+(abs t) by (ite (>= t 0) t (- t)), and the exporter's rewrite bridge ties
+the assertion to the logged ite, as for any other rewrite.
 
 Uninterpreted functions through the legacy proof object
 -------------------------------------------------------
@@ -533,14 +549,23 @@ ite, in which case these are the only facts tying the ite to its branches.
 For qf_lia certificates the second argument is _vars : Nat -> Int, numerals
 are Int literals, an Int ite is Lean's ite over Int with the classical
 instance, and no encoding argument is needed: the variables range over
-exactly the integers. Each th-lemma and arithmetic rewrite is proved by
+exactly the integers. Integer div and mod by a numeral are Lean's Int / and
+%, which follow the same Euclidean convention as SMT-LIB (the remainder is
+nonnegative and below the divisor's absolute value, for negative divisors
+too), and abs is the ite SMT-LIB defines it as, (if t >= 0 then t else -t)
+with the classical instance. The agreement holds for nonzero divisors only
+(Lean's x / 0 is 0 where SMT-LIB's is any value), so the reconstructor
+rejects every div or mod node whose divisor is not a nonzero constant,
+wherever it occurs; omega reads / and % by a positive numeral directly,
+and leaves them as atoms for a negative divisor, whose arith axioms grind
+proves instead. Each th-lemma and arithmetic rewrite is proved by
 first | omega | grind (splits := 64): omega decides linear integer
 arithmetic (ite over Int included) and produces a kernel-checked proof,
 where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
-A cut, or a farkas or bound without coefficients (see the clause-log
-section), reaches Lean with its literal shapes checked only; a false one
-fails there and no proof is published. Coefficients that are present are
+A cut, an arith axiom, or a farkas or bound without coefficients (see the
+clause-log section), reaches Lean with its literal shapes checked only; a
+false one fails there and no proof is published. Coefficients that are present are
 re-derived over the tightened integer constraints, with the bound rounding
 of Z3's checker, and rejected when they do not refute the lemma. In a
 rewrite over more than 16 linear atoms (the normalized path above) a

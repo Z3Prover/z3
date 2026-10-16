@@ -980,6 +980,50 @@ cells and every earlier module verify unchanged. Not done: QF_LIRA, the
 legacy core's integer steps (`--core legacy` rejects both integer
 fragments), and a z3test `uflia_*.smt2` matrix cell.
 
+**Integer `div`, `mod`, and `abs` (2026-10-15).** Both integer fragments
+rejected `div`, `mod`, and `abs` at the exporter ("unsupported arithmetic
+operator"), although QF_LIA benchmarks use `div` and `mod` by numerals
+routinely. A clause-log probe showed what the sat.smt arithmetic solver
+emits for them: nothing new in the Farkas machinery, since `(div t k)` and
+`(mod t k)` are opaque atoms of the `farkas`, `bound`, `cut`, and
+`implied-eq` hints, plus the solver's own defining clauses `k (div t k) +
+(mod t k) = t`, `(mod t k) >= 0`, `(mod t k) <= |k| - 1` under a hint
+`arith` whose arguments are the negated clause literals (the `name()` of
+the theory solver, which `th_euf_solver::add_clause` records for every
+axiom it adds without a hint of its own; the three clauses appear even when
+the input mentions `div` alone, and for negative `k` too). `abs` never
+reaches the log: the rewriter replaces it by `(ite (>= t 0) t (- t))`, and
+an assertion the rewriter folds outright (`(>= (mod x 5) 5)` becomes
+`false`) is assumed as the empty clause. A Lean probe confirmed that Lean's
+Int `/` and `%` follow SMT-LIB's Euclidean convention, negative divisors
+included, and that `first | omega | grind` proves the axioms and the folded
+facts (`omega` alone reads `/` and `%` by a positive numeral and leaves a
+negative divisor's `t % -3` as an atom, where `grind` closes the goal). Now:
+the exporter accepts `div` and `mod` by a nonzero numeral constant and
+`abs` as atoms of the linear forms (`integer_divisor`; a zero or term
+divisor and `rem` stay rejected), the replay builds the log's `div`, `mod`,
+and `abs` terms, keeps the atoms opaque, and shape-checks `arith` hints
+like `cut` (`check_arith_hint`), and the reconstructor declares `div`,
+`mod`, and `abs` in Int certificates only, renders them as `/`, `%`, and
+the classical `ite` of SMT-LIB's definition, treats them as atoms in the
+Farkas re-derivation, accepts an `arith` th-lemma without premises or
+coefficients whose literals are linear arithmetic atoms (Real certificates
+too, where `grind` proves it), and rejects every `div` or `mod` node whose
+divisor is not a nonzero constant wherever it occurs, because Lean's `x /
+0 = 0` would prove unsatisfiability under one interpretation of SMT-LIB's
+uninterpreted division by zero only. Six documented QF_LIA inputs (`div`
+in a bound conflict, a gcd conflict through `mod`, the folded assertion, a
+negative divisor, `abs`, division of a sum), one QF_UFLIA input, five
+pinned seeds of a new `random_division_instance` generator, and 151 random
+instances (89 QF_LIA, 62 QF_UFLIA, every hint kind observed) verify under
+the standard axioms; the tampering tests cover coefficients on an `arith`
+lemma, a Boolean literal, the empty clause, a zero or variable divisor, a
+Real `div` declaration, a swapped operator in the input, and a false
+`arith` unit lemma that Lean rejects without publishing a proof. Not done:
+`div` and `mod` by a term (nonlinear; Z3 axiomatizes them with `abs` of
+the divisor), `rem`, `to_real`/`to_int`, and the legacy core's integer
+steps.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

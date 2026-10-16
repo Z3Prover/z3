@@ -52,6 +52,14 @@ _FIXED_ARITY = {
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
+# The integer operators, Int certificates only: div and mod by a nonzero
+# numeral are Lean's Euclidean Int division and remainder (/ and %, which
+# agree with SMT-LIB's away from zero; a zero divisor is rejected, see
+# _integer_divisor), abs is the ite SMT-LIB defines it as. All three are
+# opaque atoms of the linear forms; omega reads / and % by a positive
+# numeral and grind proves the axioms of a negative divisor.
+_INT_NAMES = {z3.Z3_OP_IDIV: "div", z3.Z3_OP_MOD: "mod", z3.Z3_OP_ABS: "abs"}
+_INT_ARITY = {z3.Z3_OP_IDIV: 2, z3.Z3_OP_MOD: 2, z3.Z3_OP_ABS: 1}
 # An ite is the one arithmetic or uninterpreted-sort term with a Boolean
 # argument; Lean's ite needs a decidability instance, which the classical one
 # provides. Every theory slice already depends on the standard axioms.
@@ -63,8 +71,10 @@ _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP
 # alone, in Int certificates only.
 _COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # triangle-eq: the legacy core's axioms tying a Real equality to its two
-# inequalities, proved by grind like every other theory tautology.
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq")
+# inequalities, proved by grind like every other theory tautology. arith: the
+# sat.smt arithmetic solver's own axioms (the div and mod definitions), a
+# clause of linear arithmetic atoms without coefficients, proved by Lean.
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith")
 _FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", "qf_uflia")
 # The arithmetic sorts and their Lean carriers: Real variables are valued in
 # Rat (see the exporter README for the soundness argument), Int variables in
@@ -337,11 +347,14 @@ def _declaration(raw, sorts):
             if any(argument not in argument_sorts for argument in domain):
                 raise ReconstructionError("unsupported arithmetic function declaration: %s" % name)
             return _Declaration(kind, name, domain, raw["range"], parameters)
+        elif kind in _INT_NAMES:
+            if _INT_NAMES[kind] != name or numeric != "Int":
+                raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
         elif _REAL_NAMES.get(kind) != name or (kind == z3.Z3_OP_DIV and numeric == "Int"):
             raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
         if any(sort != numeric for sort in domain):
             raise ReconstructionError("arithmetic declarations take %s arguments" % numeric)
-        expected = _REAL_ARITY.get(kind, 2)  # Associative operators have a binary domain.
+        expected = _INT_ARITY.get(kind) or _REAL_ARITY.get(kind, 2)  # Associative operators have a binary domain.
         if len(domain) != expected:
             raise ReconstructionError("invalid arithmetic declaration arity: %s" % name)
     elif raw["range"] == "Bool":
@@ -459,6 +472,9 @@ def _validate_graph(source, certificate):
                                   "and they contain no other")
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
+    for index in range(len(nodes)):
+        if graph.kind(index) in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+            _integer_divisor(graph, index)
     if graph.decl(root).range != "Proof" or graph.kind(graph.conclusion(root)) != z3.Z3_OP_FALSE:
         raise ReconstructionError("the root must be a proof concluding false")
     reported = certificate["rule_counts"]
@@ -659,6 +675,11 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
+    if kind == z3.Z3_OP_ABS:
+        # SMT-LIB's definition; the instance's proposition is inferred from the condition.
+        return "(@ite Int (%s >= ((0 : Int))) (Classical.propDecidable _) %s (-%s))" % (args[0], args[0], args[0])
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        return "(%s %s %s)" % (args[0], "/" if kind == z3.Z3_OP_IDIV else "%", args[1])
     return _infix(_REAL_NAMES[kind], args)
 
 
@@ -1753,16 +1774,20 @@ def _def_axiom_lemma(graph, terms, node):
 
 
 def _linear_term(graph, node, scale, terms):
-    """Accumulate the linear form of a Real node into terms; return its constant part.
+    """Accumulate the linear form of a Real or Int node into terms; return its constant part.
 
-    Variables and Real ite terms are the atoms of the linear form; an ite is
-    opaque to Farkas reasoning and tied to its branches by gate clauses.
+    Variables, ite terms, integer div and mod, and abs are the atoms of the
+    linear form; each is opaque to Farkas reasoning, an ite tied to its
+    branches by gate clauses and a div or mod to its operands by the
+    solver's arith axioms.
     """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
     if kind == z3.Z3_OP_ANUM:
         return scale * Fraction(graph.decl(node).name)
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        _integer_divisor(graph, node)
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS):
         terms[node] = terms.get(node, Fraction(0)) + scale
         return Fraction(0)
     if kind == z3.Z3_OP_ADD:
@@ -1792,6 +1817,23 @@ def _linear_term(graph, node, scale, terms):
             raise ReconstructionError("division by zero in a theory lemma")
         return _linear_term(graph, arguments[0], scale / divisor, terms)
     raise ReconstructionError("unsupported arithmetic term in a theory lemma")
+
+
+def _integer_divisor(graph, node):
+    """Return the nonzero constant divisor of an Int div or mod node, rejecting any other.
+
+    Lean's Int / and % are total (x / 0 = 0) where SMT-LIB leaves div and mod
+    by zero uninterpreted, so a zero divisor would prove the input
+    unsatisfiable under one interpretation only; a nonconstant divisor is
+    nonlinear. _validate_graph applies this to every such node, not only to
+    those under theory lemmas.
+    """
+    terms = {}
+    divisor = _linear_term(graph, graph.arguments(node)[1], Fraction(1), terms)
+    if terms or divisor == 0:
+        raise ReconstructionError("integer %s by a nonconstant or zero divisor at node %d" % (
+            graph.decl(node).name, node))
+    return divisor
 
 
 def _atom_constraint(graph, atom):
@@ -1856,6 +1898,21 @@ def _check_th_lemma(graph, node):
     literals = list(graph.clause(graph.conclusion(node)))
     if parameters[0] == "triangle-eq":
         _check_triangle_eq(graph, node, premises, literals)
+        return
+    if parameters[0] == "arith":
+        # The sat.smt arithmetic solver's axioms (div and mod definitions):
+        # a clause of linear arithmetic atoms, each stripped of its negations
+        # here, without premises or coefficients; the theory tactic proves it.
+        # Unlike the cut path, polarity is ignored: the equality axiom is a
+        # positive equality in the clause, which _linear_constraint would
+        # refuse as a denied equality, and no combination is formed here.
+        if premises or not literals:
+            raise ReconstructionError("arith th-lemma must be a clause without premises at node %d" % node)
+        for literal in literals:
+            atom = literal
+            while graph.kind(atom) == z3.Z3_OP_NOT:
+                atom = graph.arguments(atom)[0]
+            _atom_constraint(graph, atom)
         return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
@@ -2146,6 +2203,8 @@ def reconstruct(source, certificate):
             lines.append("-- %s %d: %s" % (label, indices[table][decl], json.dumps(name, ensure_ascii=True)))
     if graph.arithmetic and graph.numeric == "Int":
         lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
+        if any(decl.kind in _INT_NAMES for decl in graph.declarations):
+            lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
     elif graph.arithmetic:
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
     if graph.arithmetic and graph.uninterpreted:
@@ -2167,10 +2226,10 @@ def reconstruct(source, certificate):
         lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
     lines.extend(["namespace " + namespace, ""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
-    classical = set()  # Real nodes containing an ite: their classical instance is noncomputable.
+    classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
         if graph.is_term(node):
-            if graph.kind(node) == z3.Z3_OP_ITE or any(arg in classical for arg in graph.arguments(node)):
+            if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS) or any(arg in classical for arg in graph.arguments(node)):
                 classical.add(node)
             lines.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,

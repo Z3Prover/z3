@@ -26,8 +26,8 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, bound_combination_refutes, constant_value, integer_tightened,
-    is_uninterpreted_sort, linear_combination_refutes, numeral_value,
+    _NO_PREPROCESSING, _TOKEN, bound_combination_refutes, constant_value, integer_divisor,
+    integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -297,6 +297,11 @@ class _Terms:
             return self._subtract(arguments)
         if head == "/" and count == 2:
             return arguments[0] / arguments[1]
+        if head in ("div", "mod") and count == 2 and all(z3.is_int(argument) for argument in arguments):
+            # z3py builds the integer operators for Int operands: div for /, mod for %.
+            return arguments[0] / arguments[1] if head == "div" else arguments[0] % arguments[1]
+        if head == "abs" and count == 1 and z3.is_int(arguments[0]):
+            return z3.Abs(arguments[0])
         if head in ("<=", "<", ">=", ">") and count == 2:
             left, right = arguments
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
@@ -388,17 +393,21 @@ def _tautology(literals):
 
 
 def _linear(expr, terms=None, scale=Fraction(1)):
-    """Return (variables -> coefficient, constant) for a linear Real term.
+    """Return (variables -> coefficient, constant) for a linear Real or Int term.
 
-    A Real ite term is an opaque variable here, as in Z3's arithmetic solver:
-    the clause log relates it to its branches through explicit gate clauses.
+    An ite term is an opaque variable here, as in Z3's arithmetic solver: the
+    clause log relates it to its branches through explicit gate clauses. So
+    are an integer div or mod by a nonzero numeral, which the solver's arith
+    axioms relate to their operands, and abs.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
     value = constant_value(expr)
     if value is not None:
         return terms, scale * value
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        integer_divisor(expr)
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -507,6 +516,25 @@ def check_linear_hint(name, pairs):
     if not integer:
         raise ProofExportError("%s hint coefficients do not refute its literals" % name)
     return False
+
+
+def check_arith_hint(pairs):
+    """Shape-check the arithmetic solver's axiom hints: every literal is a linear arithmetic atom.
+
+    The sat.smt arithmetic solver labels the clauses it adds on its own arith
+    (the definitions of an integer div and mod by a numeral k: k * (div t k)
+    + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1). The literals are
+    not a Farkas combination, so only their shape is checked (an arithmetic
+    equality or inequality whose sides are linear, with div and mod by a
+    nonzero numeral as atoms); Lean proves the clause. Each literal is
+    checked as its atom, whatever its polarity: the equality axiom reaches
+    the hint as a negated equality, which the combination paths (cut among
+    them) refuse because a disequality cannot be summed, while here nothing
+    is summed and Lean must prove the clause under either polarity.
+    """
+    for _, literal in pairs:
+        atom, _ = _strip(literal)
+        _constraint(atom)
 
 
 class _Normalizer:
@@ -841,13 +869,13 @@ class _Replay:
     def infer(self, literals, hint, dependencies=None):
         """Justify one logged clause.
 
-        farkas, bound, implied-eq, and euf hints list literals that are jointly
-        contradictory, so the lemma is the clause of their complements. tseitin
-        hints list the gate clause itself and become def-axiom nodes. alldiff
-        clauses must follow from the original assertions, not from the hint.
-        A bare smt hint claims the logged clause is a theory tautology. Whenever
-        the lemma differs from the logged clause, the latter is derived from
-        the lemma and the clause database by unit propagation.
+        farkas, bound, implied-eq, euf, and arith hints list literals that are
+        jointly contradictory, so the lemma is the clause of their complements.
+        tseitin hints list the gate clause itself and become def-axiom nodes.
+        alldiff clauses must follow from the original assertions, not from the
+        hint. A bare smt hint claims the logged clause is a theory tautology.
+        Whenever the lemma differs from the logged clause, the latter is
+        derived from the lemma and the clause database by unit propagation.
         """
         if hint is None:
             return self.rup(literals, dependencies)
@@ -857,6 +885,8 @@ class _Replay:
             lemma = (self.assume(lemma_literals) if name == "alldiff" else
                      self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))]))
         else:
+            if name == "arith":
+                check_arith_hint(pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
             if certified or name == "implied-eq":

@@ -871,6 +871,50 @@ _LIA_LOG = """\
 """
 
 
+# Integer div and mod by a numeral: the sat.smt arithmetic solver adds their
+# defining clauses itself (3 (div x 3) + (mod x 3) = x, 0 <= mod x 3 <= 2)
+# under the hint arith, whose argument is the negated clause literal; the
+# euf step carries a comm annotation.
+_LIA_DIV = """\
+(declare-const x Int)
+(assert (not (= x (+ (* 3 (div x 3)) (mod x 3)))))
+(check-sat)
+"""
+
+_LIA_DIV_LOG = """\
+(declare-fun x () Int)
+(define-const $9 Int (mod x 3))
+(define-const $7 Int (div x 3))
+(define-const $8 Int (* 3 $7))
+(define-const $10 Int (+ $8 $9))
+(define-const $17 Bool (= $10 x))
+(declare-fun arith (Bool) Proof)
+(define-const $20 Bool (not $17))
+(define-const $21 Proof (arith $20))
+(infer $17 $21)
+(define-const $18 Bool (>= $9 0))
+(define-const $22 Bool (not $18))
+(define-const $23 Proof (arith $22))
+(infer $18 $23)
+(define-const $24 Bool (<= $9 2))
+(define-const $25 Bool (not $24))
+(define-const $26 Proof (arith $25))
+(infer $24 $26)
+(define-const $11 Bool (= x $10))
+(assume (not $11))
+(declare-fun euf (Bool Bool Proof) Proof)
+(declare-fun comm (Bool) Proof)
+(define-const $27 Bool (= $11 $17))
+(define-const $28 Proof (comm $27))
+(define-const $12 Bool (not $11))
+(define-const $29 Proof (euf $12 $17 $28))
+(infer (not $17) $11 $29)
+(declare-fun rup () Proof)
+(infer $11 rup)
+(infer rup)
+"""
+
+
 class TestFragmentClassification(unittest.TestCase):
     def classify(self, source):
         assertions, fragment = proof_certificate.parse_assertions(source, z3.Context(), integer=True)
@@ -898,6 +942,14 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(self.classify(shapes), "qf_lia")
         # An unused Real declaration does not mix the sorts.
         self.assertEqual(self.classify("(declare-const r Real)(declare-const x Int)(assert (> x 1))"), "qf_lia")
+        # Integer div and mod by a nonzero numeral (negative too, and written
+        # as a negated numeral), of any linear term, variable-free as well,
+        # and abs are opaque atoms of the linear forms.
+        division = ("(declare-const x Int)(declare-const y Int)"
+                    "(assert (= y (div x 3)))(assert (> (mod (+ x y) (- 2)) 0))(assert (< (div (* 2 x) -4) y))"
+                    "(assert (= (mod (abs (- x y)) 7) (div 7 2)))(assert (> (* 2 (div (ite (> x 0) x y) 3)) 1))")
+        self.assertEqual(self.classify(division), "qf_lia")
+        self.assertEqual(self.classify(_LIA_DIV), "qf_lia")
 
     def test_integer_arithmetic_with_uninterpreted_symbols_is_qf_uflia(self):
         # Uninterpreted sorts or functions together with linear integer
@@ -918,6 +970,7 @@ class TestFragmentClassification(unittest.TestCase):
             "(assert (> (f (ite p x (- x)) (* 2 x)) (f 1 (+ x 1))))",
             declarations + "(declare-fun h (Int) U)(declare-const p Bool)(assert (= (ite p (h 1) a) a))",
             "(declare-fun h (Bool) Int)(declare-const p Bool)(assert (distinct (h p) (h (not p)) 3))",
+            "(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f (div x 2)) (mod (f x) 3)))",
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.classify(source), "qf_uflia")
@@ -928,7 +981,7 @@ class TestFragmentClassification(unittest.TestCase):
             ("(declare-const x Real)(assert (> (* x x) 1.0))", "nonlinear"),
             ("(declare-const x Real)(declare-const y Real)(assert (> (/ x y) 1.0))", "division"),
             # Integer arithmetic never mixes with Real, not even through a
-            # function signature; no integer division, mod, or abs, no conversions.
+            # function signature; no conversions.
             ("(declare-fun f (Int) Real)(declare-const x Int)(assert (> (f x) 1.0))", "mixing integer and real"),
             # Z3's parser coerces a Real argument of an Int-domain function with to_int.
             ("(declare-fun f (Int) Real)(declare-const x Real)(assert (> (f x) 1.0))", "operator: to_int"),
@@ -937,11 +990,17 @@ class TestFragmentClassification(unittest.TestCase):
              "mixing integer and real"),
             ("(declare-const x Int)(declare-const y Real)(assert (> (to_real x) y))", "unsupported arithmetic operator"),
             ("(declare-const x Int)(declare-const y Real)(assert (and (> x 1) (> y 1.0)))", "mixing integer and real"),
-            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (f (div x 2)) 1))",
-             "unsupported arithmetic operator: div"),
-            ("(declare-const x Int)(assert (> (div x 2) 1))", "unsupported arithmetic operator: div"),
-            ("(declare-const x Int)(assert (> (mod x 2) 1))", "unsupported arithmetic operator: mod"),
-            ("(declare-const x Int)(assert (> (abs x) 1))", "unsupported arithmetic operator: abs"),
+            # Integer div and mod by zero are uninterpreted in SMT-LIB and
+            # total in Lean, by a term nonlinear; rem is not SMT-LIB.
+            ("(declare-const x Int)(assert (> (div x 0) 1))", "integer div is supported only by a nonzero constant"),
+            ("(declare-const x Int)(assert (> (mod x (- 1 1)) 1))", "integer mod is supported only by a nonzero constant"),
+            ("(declare-const x Int)(declare-const y Int)(assert (> (div x y) 1))",
+             "integer div is supported only by a nonzero constant"),
+            ("(declare-fun f (Int) Int)(declare-const x Int)(assert (> (mod x (f 2)) 1))",
+             "integer mod is supported only by a nonzero constant"),
+            ("(declare-const x Int)(assert (> (rem x 2) 1))", "unsupported arithmetic operator: rem"),
+            # SMT-LIB defines abs on Int only; Z3 accepts it over Real, the reconstructor does not.
+            ("(declare-const x Real)(assert (< (abs x) 0.0))", "unsupported arithmetic operator: abs over Real"),
             ("(declare-const x Int)(declare-const y Int)(assert (> (* x y) 1))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (* x (f x)) 1.0))", "nonlinear"),
             ("(declare-fun f (Real) Real)(declare-const x Real)(assert (> (/ 1.0 (f x)) 1.0))", "division"),
@@ -1326,6 +1385,39 @@ class TestClauseLogReplay(unittest.TestCase):
         relabelled = self.replay(_LIA, _LIA_LOG.replace("cut", "farkas"))
         self.assertEqual([d["parameters"] for d in relabelled["declarations"] if d["name"] == "th-lemma"],
                          [["farkas"]])
+
+    def test_arith_axiom_hints_become_coefficient_free_lemmas(self):
+        certificate = self.replay(_LIA_DIV, _LIA_DIV_LOG)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        names = {d["name"]: d for d in certificate["declarations"] if d["range"] == "Int" and d["domain"]}
+        self.assertEqual(set(names), {"div", "mod", "*", "+"})
+        self.assertEqual((names["div"]["kind"], names["div"]["domain"]), (z3.Z3_OP_IDIV, ["Int", "Int"]))
+        self.assertEqual((names["mod"]["kind"], names["mod"]["domain"]), (z3.Z3_OP_MOD, ["Int", "Int"]))
+        th_lemma = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual(sorted(map(tuple, th_lemma)), [("arith",), ("euf",)])
+        self.assertEqual(certificate["rule_counts"]["th-lemma"], 4)  # three axioms and the euf step
+        # The lemma of an arith hint is the clause of its complements: the
+        # three axioms are the unit clauses themselves.
+        axioms = []
+        for node in certificate["nodes"]:
+            declaration = certificate["declarations"][node["declaration"]]
+            if declaration["parameters"] == ["arith"]:
+                clause = certificate["nodes"][node["arguments"][-1]]
+                axioms.append(certificate["declarations"][clause["declaration"]]["name"])
+        self.assertEqual(sorted(axioms), ["<=", "=", ">="])
+        # The literals must be arithmetic atoms over linear terms: a Boolean
+        # literal, a division by zero or by a term, and an empty hint are
+        # rejected; rem is not an SMT-LIB operator.
+        for tampered, message in [
+            (_LIA_DIV_LOG.replace("(arith $22)", "(arith true)"), "not an arithmetic atom"),
+            (_LIA_DIV_LOG.replace("(div x 3)", "(div x 0)"), "integer div is supported only by a nonzero constant"),
+            (_LIA_DIV_LOG.replace("(mod x 3)", "(mod x x)"), "integer mod is supported only by a nonzero constant"),
+            (_LIA_DIV_LOG.replace("(arith $22)", "(arith)"), "arith hint has no literals"),
+            (_LIA_DIV_LOG.replace("(mod x 3)", "(rem x 3)"), "unsupported operator in the clause log: rem"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_LIA_DIV, tampered)
 
     def test_integer_bound_hints_may_round(self):
         # 3x <= 4 (logged as x <= 1 by the rewriter normally; here kept as a
