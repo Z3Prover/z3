@@ -1,5 +1,11 @@
 # Pulse-verified proof checker
 
+**Tooling update:** the in-memory Pulse checkers and their formal tests
+remain, but the Python exporter, generated proof snapshots, and JSON
+compatibility layer described in historical sections have been removed.
+See [the native checker report](OCAML_CHECKER_REPORT.md) for the current
+single-executable SMT-LIB interface.
+
 ## Goal
 
 Everything in this directory up to this point formalizes proof-term

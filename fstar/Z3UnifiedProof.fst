@@ -14,6 +14,7 @@ module A = Z3ArrayRewrite
 module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
+module AR = Z3ArithmeticRewrite
 module L = FStar.List.Tot
 
 type judgment =
@@ -93,7 +94,7 @@ let well_formed (j:judgment) : bool =
   | Equal a b ->
     get_sort a = get_sort b && not (proof_relation a) && not (proof_relation b)
   | Observational a b ->
-    get_sort a = bool_sort && get_sort b = bool_sort &&
+    get_sort a = get_sort b &&
     not (proof_relation a) && not (proof_relation b)
 
 let rec judgments_wf (js:list judgment) : Tot bool (decreases js) =
@@ -120,7 +121,7 @@ let edge (r:relation) (j:judgment) : option (expr & expr) =
   | Equality, Equal a b -> Some (a, b)
   | Observation, Observational a b -> Some (a, b)
   | Observation, Equal a b ->
-    if get_sort a = bool_sort && get_sort b = bool_sort then Some (a, b) else None
+    if get_sort a = get_sort b then Some (a, b) else None
   | _, _ -> None
 
 let rec matching (r:relation) (a b:expr) (js:list judgment)
@@ -170,7 +171,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | RewriteRule | ApplyDefinition ->
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
-                      boolean_equiv 8 10 a b || A.equivalent 64 a b)
+                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -189,12 +190,12 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | TransitivityPath ->
        all_edges r facts && L.mem b (reachable (L.length facts) r facts [a])
      | Congruence ->
-       (match a, b with
+       a = b || (match a, b with
         | App f xs, App g ys -> f = g && all_edges r facts && arguments_match r xs ys facts
         | _, _ -> false)
      | IffObservational ->
        (match r, facts with
-        | Observation, [Equal s t] -> a = s && b = t
+        | Observation, [Equal s t] -> get_sort a = bool_sort && a = s && b = t
         | _, _ -> false)
      | _ -> false)
 
@@ -476,7 +477,8 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
          else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
-         else A.lemma_equivalent_sound 64 i rho a b
+         else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
+         else AR.lemma_equivalent_with_numeric_model a b i rho
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with
@@ -492,7 +494,7 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          lemma_reachable_sound i rho (L.length facts) r a facts [a];
          FStar.List.Tot.Properties.mem_memP b (reachable (L.length facts) r facts [a])
        | Congruence ->
-         (match a, b with
+         if a = b then () else (match a, b with
           | App f xs, App g ys -> lemma_arguments_sound i rho r xs ys facts
           | _, _ -> ())
        | _ -> ())

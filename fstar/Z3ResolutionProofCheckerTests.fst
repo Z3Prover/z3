@@ -8,8 +8,13 @@ open Z3ObservationalEquality
 open Z3UnifiedProof
 open Z3Commutativity
 open Z3BooleanRewrite
-open Z3ResolutionProofJson
-module Json = Z3ProofJson
+open Z3ProofIndex
+module P = Z3ProofDocument
+
+let checked_consequence (kind:string) (concl:expr) (facts:list expr) : bool =
+  match P.rule_of_name kind, classify_fact concl, opt_map classify_fact facts with
+  | Some r, Some j, Some js -> check_step r j js
+  | _, _, _ -> false
 
 let atom (name:string) : expr =
   App { decl_name = name; domain = []; range = bool_sort;
@@ -24,22 +29,6 @@ let q = atom "q"
 let r = atom "r"
 let disj = App or_decl [p; q]
 let np = mk_not_expr p
-
-let lemma_shared_legacy_proofs_use_cached_results ()
-  : Lemma (
-      let leaf = Json.cached_refl p in
-      let shared = Json.cached_trans leaf leaf in
-      let valid = Json.cached_trans shared shared in
-      let bad = Json.cached_trans leaf (Json.cached_refl q) in
-      let invalid = Json.cached_trans bad bad in
-      valid.result == Some (p, p) /\ invalid.result == None)
-  = assert_norm (
-      let leaf = Json.cached_refl p in
-      let shared = Json.cached_trans leaf leaf in
-      let valid = Json.cached_trans shared shared in
-      let bad = Json.cached_trans leaf (Json.cached_refl q) in
-      let invalid = Json.cached_trans bad bad in
-      valid.result == Some (p, p) /\ invalid.result == None)
 
 let lemma_unit_literal_consequence ()
   : Lemma (rfact (RUnitRes q (Trusted "clause" disj)
@@ -104,6 +93,108 @@ let lemma_oeq_composition_does_not_prove_equality ()
       checked_consequence "trans" (mk_oeq_expr p r) [mk_oeq_expr p q; mk_oeq_expr q r] /\
       checked_consequence "trans" (mk_oeq_expr p r) [mk_iff_expr p q; mk_oeq_expr q r] /\
       not (checked_consequence "trans" (mk_iff_expr p r) [mk_oeq_expr p q; mk_oeq_expr q r]))
+
+let typed_atom (name:string) (s:sort) : expr =
+  App { decl_name = name; domain = []; range = s;
+        interp = None; int_params = [] } []
+
+let lemma_typed_observations_preserve_the_relation ()
+  : Lemma (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let z = typed_atom "z" (BaseSort "Int") in
+      checked_consequence "refl" (mk_oeq_expr x x) [] /\
+      checked_consequence "symm" (mk_oeq_expr y x) [mk_oeq_expr x y] /\
+      checked_consequence "trans" (mk_oeq_expr x z) [mk_eq_expr x y; mk_oeq_expr y z] /\
+      not (checked_consequence "trans" (mk_eq_expr x z) [mk_oeq_expr x y; mk_oeq_expr y z]) /\
+      not (checked_consequence "iff~" (mk_oeq_expr x y) [mk_eq_expr x y]) /\
+      not (checked_consequence "refl" (mk_oeq_expr x p) []))
+  = assert_norm (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let z = typed_atom "z" (BaseSort "Int") in
+      checked_consequence "refl" (mk_oeq_expr x x) [] /\
+      checked_consequence "symm" (mk_oeq_expr y x) [mk_oeq_expr x y] /\
+      checked_consequence "trans" (mk_oeq_expr x z) [mk_eq_expr x y; mk_oeq_expr y z] /\
+      not (checked_consequence "trans" (mk_eq_expr x z) [mk_oeq_expr x y; mk_oeq_expr y z]) /\
+      not (checked_consequence "iff~" (mk_oeq_expr x y) [mk_eq_expr x y]) /\
+      not (checked_consequence "refl" (mk_oeq_expr x p) []))
+
+let lemma_typed_observation_congruence ()
+  : Lemma (
+      let s = ArraySort [BaseSort "Int"] (BaseSort "Real") in
+      let x = typed_atom "a" s in
+      let y = typed_atom "b" s in
+      let f = { decl_name = "observe"; domain = [s]; range = bool_sort;
+                interp = None; int_params = [] } in
+      checked_consequence "monotonicity" (mk_oeq_expr (App f [x]) (App f [y]))
+        [mk_oeq_expr x y] /\
+      checked_consequence "monotonicity" (mk_eq_expr (App f [x]) (App f [x]))
+        [mk_oeq_expr x x] /\
+      not (checked_consequence "monotonicity" (mk_eq_expr (App f [x]) (App f [y]))
+        [mk_oeq_expr x y]) /\
+      not (checked_consequence "rewrite" (mk_oeq_expr x y) []))
+  = assert_norm (
+      let s = ArraySort [BaseSort "Int"] (BaseSort "Real") in
+      let x = typed_atom "a" s in
+      let y = typed_atom "b" s in
+      let f = { decl_name = "observe"; domain = [s]; range = bool_sort;
+                interp = None; int_params = [] } in
+      checked_consequence "monotonicity" (mk_oeq_expr (App f [x]) (App f [y]))
+        [mk_oeq_expr x y] /\
+      checked_consequence "monotonicity" (mk_eq_expr (App f [x]) (App f [x]))
+        [mk_oeq_expr x x] /\
+      not (checked_consequence "monotonicity" (mk_eq_expr (App f [x]) (App f [y]))
+        [mk_oeq_expr x y]) /\
+      not (checked_consequence "rewrite" (mk_oeq_expr x y) []))
+
+let arithmetic_app (name:string) (tag:decl_kind) (s:sort) (args:list expr) : expr =
+  App { decl_name = name; domain = FStar.List.Tot.map get_sort args; range = s;
+        interp = Some tag; int_params = [] } args
+
+let lemma_arithmetic_comparison_rewrites ()
+  : Lemma (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let le = arithmetic_app "<=" op_arith_le bool_sort in
+      let ge = arithmetic_app ">=" op_arith_ge bool_sort in
+      let lt = arithmetic_app "<" op_arith_lt bool_sort in
+      checked_consequence "rewrite" (mk_eq_expr (le [x; x]) true_expr) [] /\
+      checked_consequence "rewrite" (mk_eq_expr (le [x; y]) (ge [y; x])) [] /\
+      checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (mk_not_expr (le [y; x]))) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (le [x; y])) []))
+  = assert_norm (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let le = arithmetic_app "<=" op_arith_le bool_sort in
+      let ge = arithmetic_app ">=" op_arith_ge bool_sort in
+      let lt = arithmetic_app "<" op_arith_lt bool_sort in
+      checked_consequence "rewrite" (mk_eq_expr (le [x; x]) true_expr) [] /\
+      checked_consequence "rewrite" (mk_eq_expr (le [x; y]) (ge [y; x])) [] /\
+      checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (mk_not_expr (le [y; x]))) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (le [x; y])) []))
+
+let lemma_integer_normalization_does_not_infer_real_value_equality ()
+  : Lemma (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let add = arithmetic_app "+" op_arith_add (BaseSort "Int") in
+      let rx = typed_atom "rx" (BaseSort "Real") in
+      let ry = typed_atom "ry" (BaseSort "Real") in
+      let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
+      checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
+      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) []))
+  = assert_norm (
+      let x = typed_atom "x" (BaseSort "Int") in
+      let y = typed_atom "y" (BaseSort "Int") in
+      let add = arithmetic_app "+" op_arith_add (BaseSort "Int") in
+      let rx = typed_atom "rx" (BaseSort "Real") in
+      let ry = typed_atom "ry" (BaseSort "Real") in
+      let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
+      checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
+      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) []))
 
 let lemma_refl_checks_endpoints ()
   : Lemma (checked_consequence "refl" (mk_iff_expr p p) [] /\

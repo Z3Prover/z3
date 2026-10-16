@@ -1,5 +1,10 @@
 # QF_AX / QF_UF benchmark experiment: Z3 performance and rewrite-matcher coverage
 
+**Historical experiment:** the exporter-dependent benchmark runner and
+generated F* proof snapshots have been removed. The measurements below
+are retained; their old exporter commands are no longer supported. See
+[the native checker report](OCAML_CHECKER_REPORT.md) for the current path.
+
 This report documents a large-scale experiment driving the pure-F* Pulse-style
 proof checker (`Z3PulseProofChecker.fst` + `Z3PatternMatchedProofChecker.fst`,
 see [`PULSE_PROOF_CHECKER_REPORT.md`](PULSE_PROOF_CHECKER_REPORT.md)) against

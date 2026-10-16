@@ -33,10 +33,8 @@ let numeric_relation (r:A.relation) (x y:real) : prop =
 
 (* Only the standard interpretation of typed arithmetic operators is assumed;
    no certificate, polynomial, or linearization occurs in this contract. *)
-let numeric_model (i:interpretation value) (nu:value -> real) : prop =
+let numeric_operators (i:interpretation value) (nu:value -> real) : prop =
   (forall (n:int). nu (VInt n) == of_int n) /\
-  (forall (e:expr) (rho:env value).
-    get_sort e == A.int_s ==> VInt? (eval i e rho)) /\
   (forall (e:expr) (rho:env value) (n:int) (d:pos).
     A.numeral e == Some (n, d) ==>
     of_int d *. nu (eval i e rho) == of_int n) /\
@@ -53,6 +51,11 @@ let numeric_model (i:interpretation value) (nu:value -> real) : prop =
   (forall (e a b:expr) (rho:env value) (r:A.relation).
     A.comparison e == Some (r, a, b) /\ r <> A.Eq ==>
     (lit_true i rho e <==> numeric_relation r (nu (eval i a rho)) (nu (eval i b rho))))
+
+let numeric_model (i:interpretation value) (nu:value -> real) : prop =
+  numeric_operators i nu /\
+  (forall (e:expr) (rho:env value).
+    get_sort e == A.int_s ==> VInt? (eval i e rho))
 
 let valuation (i:interpretation value) (nu:value -> real) (rho:env value) : expr -> real =
   fun e -> nu (eval i e rho)
@@ -93,6 +96,9 @@ let rec lemma_sum (ps:list A.poly) (xs:list real) (r:expr -> real)
     lemma_denotes_add p (P.sum rest) x (numeric_sum tail) r
   | _, _ -> ()
 
+let lemma_scaled_product (a b x y:real)
+  : Lemma ((a *. x) *. (b *. y) == (a *. b) *. (x *. y)) = ()
+
 let lemma_denotes_multiply (p q t:A.poly) (x y:real) (r:expr -> real)
   : Lemma (requires denotes p x r /\ denotes q y r /\ P.multiply p q == Some t)
           (ensures denotes t (x *. y) r) =
@@ -101,6 +107,7 @@ let lemma_denotes_multiply (p q t:A.poly) (x y:real) (r:expr -> real)
   assert (of_int t.denom == of_int p.denom *. of_int q.denom);
   assert (P.value p r == of_int p.denom *. x);
   assert (P.value q r == of_int q.denom *. y);
+  lemma_scaled_product (of_int p.denom) (of_int q.denom) x y;
   assert (P.value t r == of_int t.denom *. (x *. y))
 
 let rec lemma_product (ps:list A.poly) (xs:list real) (p:A.poly) (r:expr -> real)
@@ -136,6 +143,10 @@ let lemma_scaled_quotient (a b c x y z:real)
   : Lemma (requires b *. y == c /\ z *. y == x)
           (ensures b *. (a *. x) == (c *. a) *. z) = ()
 
+let lemma_negative_quotient (a b c x z:real)
+  : Lemma (requires b *. (a *. x) == (c *. a) *. z)
+          (ensures (0.0R -. b) *. (a *. x) == ((0.0R -. c) *. a) *. z) = ()
+
 let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
   : Lemma (requires denotes p x r /\ denotes q y r /\
                     A.divide p q == Some t /\ (~(y == 0.0R) ==> z *. y == x))
@@ -148,11 +159,14 @@ let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
   assert (P.value p r == of_int p.denom *. x);
   lemma_scaled_quotient (of_int p.denom) (of_int q.denom) (of_int q.cst) x y z;
   if q.cst > 0 then (
+    assert (t == P.scale q.denom q.cst p);
     P.lemma_scale q.denom q.cst p r;
     assert (t.denom == q.cst * p.denom);
     assert (of_int t.denom == of_int q.cst *. of_int p.denom);
     assert (P.value t r == of_int t.denom *. z))
   else (
+    assert (t == P.scale (-q.denom) (-q.cst) p);
+    lemma_negative_quotient (of_int p.denom) (of_int q.denom) (of_int q.cst) x z;
     P.lemma_scale (-q.denom) (-q.cst) p r;
     assert (t.denom == (-q.cst) * p.denom);
     assert (of_int t.denom == (0.0R -. of_int q.cst) *. of_int p.denom);
@@ -162,7 +176,7 @@ let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
 
 let rec lemma_linearize (fuel:nat) (e:expr) (p:A.poly)
                          (i:interpretation value) (nu:value -> real) (rho:env value)
-  : Lemma (requires numeric_model i nu /\ A.linearize fuel e == Some p)
+  : Lemma (requires numeric_operators i nu /\ A.linearize fuel e == Some p)
           (ensures denotes p (nu (eval i e rho)) (valuation i nu rho))
           (decreases %[fuel; 0]) =
   assert (fuel > 0);
@@ -195,7 +209,7 @@ let rec lemma_linearize (fuel:nat) (e:expr) (p:A.poly)
 
 and lemma_linearize_args (fuel:nat) (args:list expr)
                          (i:interpretation value) (nu:value -> real) (rho:env value)
-  : Lemma (requires numeric_model i nu /\ Some? (A.linearize_args fuel args))
+  : Lemma (requires numeric_operators i nu /\ Some? (A.linearize_args fuel args))
           (ensures denotations (Some?.v (A.linearize_args fuel args))
                                (map nu (eval_args i args rho)) (valuation i nu rho))
           (decreases %[fuel; 1; args]) =
