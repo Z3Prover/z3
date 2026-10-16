@@ -121,3 +121,16 @@ let op_oeq : decl_kind = 16
 
 let op_mul : decl_kind = 17
 let op_array_ext : decl_kind = 18
+let op_ite : decl_kind = 19
+let op_xor : decl_kind = 20
+let op_distinct : decl_kind = 21
+let op_num_rational : decl_kind = 22
+let op_arith_add : decl_kind = 23
+let op_arith_mul : decl_kind = 24
+let op_arith_sub : decl_kind = 25
+let op_arith_div : decl_kind = 26
+let op_arith_le : decl_kind = 27
+let op_arith_lt : decl_kind = 28
+let op_arith_ge : decl_kind = 29
+let op_arith_gt : decl_kind = 30
+let op_to_real : decl_kind = 31

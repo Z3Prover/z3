@@ -29,6 +29,7 @@ let xor (args:list expr) : expr = app Basic.Op_xor args
 let neg (a:expr) : expr = app Basic.Op_not [a]
 let implies (a b:expr) : expr = app Basic.Op_implies [a; b]
 let iff (a b:expr) : expr = app Basic.Op_eq [a; b]
+let cond (c t e:expr) : expr = app Basic.Op_ite [c; t; e]
 
 let p : expr = atom 0
 let q : expr = atom 1
@@ -55,6 +56,16 @@ let test_empty_and_constant () : Lemma True =
   assert_norm (bounded_bool_equiv 1 0 (neg (literal false)) (literal true));
   assert_norm (not (bounded_bool_equiv 0 0 (literal false) (literal true)));
   assert_norm (bounded_bool_equiv 0 0 (conj [p; q]) (conj [p; q]))
+
+let test_boolean_ite () : Lemma True =
+  assert_norm (bounded_bool_equiv 3 3 (cond p q r)
+    (disj [conj [p; q]; conj [neg p; r]]));
+  assert_norm (bounded_bool_equiv 2 2 (cond p q (literal false)) (conj [p; q]));
+  assert_norm (bounded_bool_equiv 2 1 (cond p (literal false) (literal true)) (neg p));
+  assert_norm (not (bounded_bool_equiv 2 3 (cond p q r) (cond p r q)));
+  assert_norm (cut 4 (app Basic.Op_ite [p; q]) = Atom (app Basic.Op_ite [p; q]));
+  assert_norm (cut 4 (cond p q (Ast.Var 0 (Ast.BaseSort "Int"))) =
+    Atom (cond p q (Ast.Var 0 (Ast.BaseSort "Int"))))
 
 let deep : expr = implies (xor [p; q; r]) (conj [p; neg q])
 

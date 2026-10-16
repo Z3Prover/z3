@@ -45,7 +45,7 @@ not independently re-derived):**
 | Rule | Why Tier 2 |
 |---|---|
 | `PR_DEF_AXIOM` | `check1_basic`'s own case is `match_fact(p) && m.is_bool(fact)` — i.e. *any* Boolean fact is accepted; Z3 trusts the SAT solver's CNF/Tseitin encoding here, we do the same |
-| `PR_TH_LEMMA` outside the checked array fragment below | dispatches to `check_arith_proof` only for the `"arith"` theory tag; every other theory (including `"array"`) falls through to `dump_proof(p); return true` — i.e. **Z3's own in-tree checker does not verify array theory lemmas either** |
+| `PR_TH_LEMMA` outside the checked array and arithmetic fragments below | Z3 dispatches arithmetic hints to `check_arith_proof`, but bare `arith` and non-Farkas hints return success unchecked; other theories also fall through to `dump_proof(p); return true`. The F* kernel leaves unsupported instances as explicit obligations. |
 | `PR_HYPER_RESOLVE` | `check1_basic` computes a side-condition formula (`premise0 <=> conclusion`) and pushes it to `side_conditions` rather than proving it |
 | `PR_REWRITE_STAR` / `PR_DISTRIBUTIVITY` | same pattern: `side_conditions.push_back(fact)` |
 | `PR_QUANT_INST` | literally `// TODO return true` in `check1_basic` |
@@ -60,12 +60,22 @@ baseline, since the obligation remains visible for a future pass to
 discharge via a theory-specific soundness lemma, exactly the way
 `Rewrite` leaves already are for the equational layer.
 
-The executable's `def-axiom` policy now trusts premise-free Boolean leaves
-without counting them as pending obligations. The optional
-`--check-original-assertions` mode instead requires exact membership of
-each whole conclusion in the supplied original assertions. This differs
-from independently validating Tseitin transformations; the default
-soundness theorem explicitly assumes trusted definitions hold.
+The executable independently checks `def-axiom` leaves as propositional
+Tseitin tautologies, guarded term-ITE identities, n-ary `distinct` expansion
+clauses, or tautologies after
+expanding accumulated fresh definition witnesses. Unsupported forms remain
+explicit obligations. Its obligation-free soundness theorem does not
+assume these axioms true. Exact input membership applies to `asserted`
+leaves in every full-proof mode, not to `def-axiom` conclusions.
+`--check-original-assertions` retains this policy and additionally requires
+full-proof format. Introduced symbols are checked for absence from every
+original assertion only after checking the complete refutation DAG.
+`Z3BasicExprTheory` supplies the generic n-ary distinct semantics;
+`Z3DistinctAst` validates typed native operator declarations and constructs
+the complete pairwise expansion; `Z3DistinctEmbed` proves the expansion
+and both generated clause directions. This includes empty/unary/binary
+cases and arbitrary homogeneous argument sorts, without assuming
+decidable equality for function-valued semantic objects.
 
 `PR_TRANSITIVITY_STAR`'s cycle-basis argument (XOR-insert over vertex
 ids, see `check1_basic`) is deferred past this first round: it needs
@@ -198,12 +208,36 @@ Native matching currently covers flat one-dimensional arrays of
 non-Boolean scalar indices/elements in the existing `VArr`/`VInt`
 semantics. The broader mathematical schemas do not imply executable
 support for Boolean/nested/multi-index arrays, map/default/choice, or
-quantified expressions. These remain unsupported or pending, and
-`def-axiom` trust is unchanged. See `OCAML_CHECKER_REPORT.md` for the
-axiom-to-lemma catalog and paired evaluation: QF_AX increases from
+quantified expressions. These remain unsupported or pending. See
+`OCAML_CHECKER_REPORT.md` for the separately checked `def-axiom` policy, the
+axiom-to-lemma catalog and historical paired evaluation: QF_AX increases from
 1 to 70 accepted proofs and QF_AUFLIA from 1 to 28 per 100 sampled files.
 The associated proved `not-or-elim` polarity correction also removes
 structural rejections in the arithmetic samples.
+
+### Checked arithmetic theory certificates
+
+`Z3LinearArithmeticTheory.fst`, `Z3LinearArithmeticAst.fst`, and
+`Z3LinearArithmeticEmbed.fst` now connect exact Farkas checking to the
+actual typed AST and unified proof DAG. Raw theory parameters and rational
+coefficients survive export; native checking validates their alignment
+with premises and negated conclusion literals. The semantic bridge proves
+the denominator-scaled linearization invariant, including rational
+arithmetic and integer strict-bound strengthening. Arithmetic steps
+preserve premise hypotheses, and unsupported or unsuccessful certificates
+remain partial rather than silently trusted.
+
+The extracted runtime uses Zarith exact integers. Bare `arith`,
+`assign-bounds`, `triangle-eq`, general integer cuts, and unsupported
+arithmetic rewrites remain obligations. The fresh 900-input cross-cut
+checks 6,660 supplied Farkas nodes, but no additional full acceptance is
+attributable to these nodes because other obligations remain. See
+[ARITHMETIC_CERTIFICATE_REPORT.md](ARITHMETIC_CERTIFICATE_REPORT.md) for
+coverage, timings, concrete producer probes, weighted-dependency losses,
+and the separate evidence needed for integer rounding/Gomory cuts.
+It also records the remaining well-sorted-valuation/model-inhabitance gap
+in the project's global semantic contracts; conditional F* verification
+must not be mistaken for an unconditional SMT-LIB soundness theorem.
 
 ## Status after round 1 (implementation complete, fully verified)
 

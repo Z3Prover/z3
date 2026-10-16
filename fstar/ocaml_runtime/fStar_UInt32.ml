@@ -1,8 +1,5 @@
-(* Stand-in for FStar_UInt32 (OCaml extraction target of
-   FStar.UInt32): represented as a plain Prims.int, so `v` (the
-   "forget the machine-width refinement" projection) is the
-   identity. *)
+(* Character code points use the extracted machine-word representation. *)
 
-type t = Prims.int
+type t = int
 
-let v (x : t) : Prims.int = x
+let v (x : t) : Prims.int = Z.of_int x

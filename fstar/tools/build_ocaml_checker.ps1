@@ -30,9 +30,7 @@
     - WSL with an opam switch named 'fstar53' using OCaml 5.3.0 (the
       OCaml release whose `.cmi` magic number matches this F*
       distribution's own build -- see the report for how this was
-      determined; no opam packages beyond the compiler itself are
-      required, since the hand-written runtime shim has zero external
-      dependencies).
+      determined) and Zarith for the runtime's exact integers.
 
 .PARAMETER WslBuildDir
   Where to copy the built executable *inside WSL* (default:
@@ -69,7 +67,10 @@ try {
     "Z3ProofJson.fst", "Z3PulseProofCheckerJson.fst",
     "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
-    "Z3Commutativity.fst", "Z3BooleanRewrite.fst", "Z3ArrayLemma.fst",
+    "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
+    "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
+    "Z3ArrayRewrite.fst", "Z3Definitions.fst",
+    "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3UnifiedProof.fst", "Z3ResolutionProofJson.fst"
   )
 
@@ -103,7 +104,10 @@ try {
     "Z3PatternMatchedProofChecker.ml", "Z3PulseProofChecker.ml", "Z3ProofJson.ml",
     "Z3PulseProofCheckerJson.ml", "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
-    "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3ArrayLemma.ml", "Z3UnifiedProof.ml",
+    "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
+    "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
+    "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
+    "Z3LinearArithmeticEmbed.ml", "Z3UnifiedProof.ml",
     "Z3ResolutionProofJson.ml", "main.ml"
   )
   $orderStr = $order -join " "
@@ -115,7 +119,7 @@ cp "$wslFstarDir"/ocaml_runtime/*.ml $WslBuildDir/
 cp "$wslFstarDir"/build_extract/*.ml $WslBuildDir/
 cd $WslBuildDir
 eval `$(opam env --switch=$OpamSwitch)
-ocamlfind ocamlopt $orderStr -o checker
+ocamlfind ocamlopt -package zarith -linkpkg $orderStr -o checker
 echo BUILD_OK
 "@
   $scriptPath = Join-Path $fstarDir "build_wsl_tmp.sh"

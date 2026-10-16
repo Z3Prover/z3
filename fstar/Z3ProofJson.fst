@@ -371,6 +371,19 @@ let decl_kind_of_tag (tag:string) : option decl_kind =
   else if tag = "op_and" then Some op_and
   else if tag = "op_or" then Some op_or
   else if tag = "op_implies" then Some op_implies
+  else if tag = "op_ite" then Some op_ite
+  else if tag = "op_xor" then Some op_xor
+  else if tag = "op_distinct" then Some op_distinct
+  else if tag = "op_num_rational" then Some op_num_rational
+  else if tag = "op_arith_add" then Some op_arith_add
+  else if tag = "op_arith_mul" then Some op_arith_mul
+  else if tag = "op_arith_sub" then Some op_arith_sub
+  else if tag = "op_arith_div" then Some op_arith_div
+  else if tag = "op_arith_le" then Some op_arith_le
+  else if tag = "op_arith_lt" then Some op_arith_lt
+  else if tag = "op_arith_ge" then Some op_arith_ge
+  else if tag = "op_arith_gt" then Some op_arith_gt
+  else if tag = "op_to_real" then Some op_to_real
   else if tag = "op_oeq" then Some op_oeq
   else None
 

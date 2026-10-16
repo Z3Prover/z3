@@ -40,13 +40,13 @@ let () =
   in
   let resolution =
     Z3ResolutionProofJson.check_resolution_json_with_inputs strict input in
-  if resolution > 0 then (
-    Stdlib.Printf.printf "PARTIAL %d\n" resolution;
+  if Z.gt resolution Z.zero then (
+    Stdlib.Printf.printf "PARTIAL %s\n" (Z.to_string resolution);
     Stdlib.exit 3)
   else
     let ok =
-      if resolution = 0 then true
-      else if resolution = -2 then
+      if Z.equal resolution Z.zero then true
+      else if Z.equal resolution (Z.of_int (-2)) then
         Z3PulseProofCheckerJson.check_proof_json input
       else false
     in

@@ -20,6 +20,15 @@ type formula (a:Type) =
 type expr = Ast.expr
 type skeleton = formula expr
 
+let boolean_ite (#a:Type) (c t e:formula a) : formula a =
+  match c, t, e with
+  | Bool b, _, _ -> if b then t else e
+  | _, Bool true, _ -> Nary Or [c; e]
+  | _, Bool false, _ -> Nary And [Not c; e]
+  | _, _, Bool true -> Nary Or [Not c; t]
+  | _, _, Bool false -> Nary And [c; t]
+  | _, _, _ -> Nary Or [Nary And [c; t]; Nary And [Not c; e]]
+
 let neutral (op:nary_op) : bool =
   match op with And -> true | Or -> false | Xor -> false
 
@@ -42,6 +51,13 @@ and eval_args (#a:Type) (rho:a -> bool) (op:nary_op)
   | [] -> neutral op
   | x :: xs -> combine op (eval rho x) (eval_args rho op xs)
 
+#push-options "--fuel 6"
+let lemma_boolean_ite_eval (#a:Type) (rho:a -> bool) (c t e:formula a)
+  : Lemma (eval rho (boolean_ite c t e) ==
+           (if eval rho c then eval rho t else eval rho e))
+  = ()
+#pop-options
+
 type bool_op =
   | BTrue
   | BFalse
@@ -49,6 +65,7 @@ type bool_op =
   | BNot
   | BImplies
   | BEq
+  | BIte
   | Opaque
 
 let is_bool (e:expr) : bool = Ast.sort_eq (Ast.get_sort e) Ast.bool_sort
@@ -78,6 +95,7 @@ let classify (f:Ast.func_decl) (arity:nat) : bool_op =
   else if Basic.is_basic_op f Basic.Op_not && arity = 1 then BNot
   else if Basic.is_basic_op f Basic.Op_implies && arity = 2 then BImplies
   else if Basic.is_basic_op f Basic.Op_eq && arity = 2 then BEq
+  else if Basic.is_basic_op f Basic.Op_ite && arity = 3 then BIte
   else Opaque
 
 let classify_app (f:Ast.func_decl) (args:list expr) : bool_op =
@@ -117,6 +135,14 @@ let rec cut_with_boundaries (boundaries:list expr) (depth:nat) (e:expr)
          if depth = 0 then Atom e
          else Eq (cut_with_boundaries boundaries (depth - 1) x)
                  (cut_with_boundaries boundaries (depth - 1) y)
+       | _ -> Atom e)
+    | BIte ->
+      (match args with
+       | [c; t; f] ->
+         if depth = 0 then Atom e
+         else boolean_ite (cut_with_boundaries boundaries (depth - 1) c)
+                          (cut_with_boundaries boundaries (depth - 1) t)
+                          (cut_with_boundaries boundaries (depth - 1) f)
        | _ -> Atom e)
     | Opaque -> Atom e
 
@@ -411,6 +437,27 @@ let rec lemma_cut_with_boundaries_sound (#value:Type)
            lemma_cut_with_boundaries_sound [] 0 i encode decode rho y
          )
        | _ -> ())
+    | BIte ->
+      (match args with
+       | [c; t; fe] ->
+         if depth > 0 then (
+           lemma_classified_args f args;
+           lemma_cut_with_boundaries_sound boundaries (depth - 1)
+             i encode decode rho c;
+           lemma_cut_with_boundaries_sound [] 0 i encode decode rho c;
+           lemma_cut_with_boundaries_sound boundaries (depth - 1)
+             i encode decode rho t;
+           lemma_cut_with_boundaries_sound [] 0 i encode decode rho t;
+           lemma_cut_with_boundaries_sound boundaries (depth - 1)
+             i encode decode rho fe;
+           lemma_cut_with_boundaries_sound [] 0 i encode decode rho fe;
+           lemma_boolean_ite_eval sigma
+             (cut_with_boundaries boundaries (depth - 1) c)
+             (cut_with_boundaries boundaries (depth - 1) t)
+             (cut_with_boundaries boundaries (depth - 1) fe);
+           lemma_boolean_ite_eval sigma (cut 0 c) (cut 0 t) (cut 0 fe)
+         )
+       | _ -> ())
     | Opaque -> ()
 
 and lemma_cut_args_with_boundaries_sound (#value:Type)
@@ -489,6 +536,8 @@ let boolean_interp_app (fallback:Ast.interpretation bool)
     (match vs with [x; y] -> not x || y | _ -> fallback.interp_app f vs)
   | BEq ->
     (match vs with [x; y] -> x = y | _ -> fallback.interp_app f vs)
+  | BIte ->
+    (match vs with [c; t; e] -> if c then t else e | _ -> fallback.interp_app f vs)
   | Opaque -> fallback.interp_app f vs
 
 let boolean_interpretation (fallback:Ast.interpretation bool)
@@ -564,6 +613,16 @@ let lemma_native_boolean_step (fallback:Ast.interpretation bool)
        | [x; y] ->
          lemma_native_cut_zero fallback rho x;
          lemma_native_cut_zero fallback rho y
+       | _ -> ())
+    | BIte ->
+      (match args with
+       | [c; t; e] ->
+         lemma_native_cut_zero fallback rho c;
+         lemma_native_cut_zero fallback rho t;
+         lemma_native_cut_zero fallback rho e;
+         lemma_boolean_ite_eval
+           (ast_valuation (boolean_interpretation fallback) id_bool rho)
+           (cut 0 c) (cut 0 t) (cut 0 e)
        | _ -> ())
     | Opaque -> ()
 

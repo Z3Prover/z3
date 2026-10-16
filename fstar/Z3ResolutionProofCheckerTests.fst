@@ -155,17 +155,25 @@ let lemma_commutativity_is_a_checked_binary_rule ()
       checked_consequence "commutativity" (mk_eq_expr (mk_eq_expr p q) (mk_eq_expr q p)) [] /\
       not (checked_consequence "commutativity" (mk_eq_expr (App or_decl [p; q]) (App or_decl [p; p])) []))
 
-let lemma_def_axiom_trust_is_separate_from_strict_inputs ()
+let lemma_def_axiom_obligations_are_independent_of_input_membership ()
   : Lemma (
       let node = { kind = DefAxiom; conclusion = Holds p; premises = [] } in
-      Some? (check_node_with_inputs false [] node) /\
-      check_node_with_inputs true [] node == None /\
-      Some? (check_node_with_inputs true [Holds p] node))
+      check_node_with_inputs false [] node ==
+        Some ({ conclusion = Holds p; hypotheses = [] }, 1) /\
+      check_node_with_inputs true [Holds p] node ==
+        Some ({ conclusion = Holds p; hypotheses = [] }, 1) /\
+      check_node_with_inputs true [] { node with conclusion = Holds true_expr } ==
+        Some ({ conclusion = Holds true_expr; hypotheses = [] }, 0) /\
+      check_node_with_inputs true [] { node with kind = Asserted } == None)
   = assert_norm (
       let node = { kind = DefAxiom; conclusion = Holds p; premises = [] } in
-      Some? (check_node_with_inputs false [] node) /\
-      check_node_with_inputs true [] node == None /\
-      Some? (check_node_with_inputs true [Holds p] node))
+      check_node_with_inputs false [] node ==
+        Some ({ conclusion = Holds p; hypotheses = [] }, 1) /\
+      check_node_with_inputs true [Holds p] node ==
+        Some ({ conclusion = Holds p; hypotheses = [] }, 1) /\
+      check_node_with_inputs true [] { node with conclusion = Holds true_expr } ==
+        Some ({ conclusion = Holds true_expr; hypotheses = [] }, 0) /\
+      check_node_with_inputs true [] { node with kind = Asserted } == None)
 
 let lemma_identity_rewrite_discharges_only_identical_endpoints ()
   : Lemma (
@@ -204,6 +212,46 @@ let lemma_nary_boolean_flattening_preserves_operands ()
 let bool_app (op:connective) (args:list expr) : expr =
   App (connective_decl op args) args
 
+let lemma_nary_distinct_def_axioms_are_checked ()
+  : Lemma (
+      let d = Z3DistinctAst.mk_distinct_expr bool_sort [p; q; r] in
+      let expanded = Z3DistinctAst.expanded [p; q; r] in
+      let forward = Holds (bool_app Disjunction [mk_not_expr d; expanded]) in
+      let backward = Holds (bool_app Disjunction [d; mk_not_expr expanded]) in
+      check_node [] { kind = DefAxiom; conclusion = forward; premises = [] } ==
+        Some ({ conclusion = forward; hypotheses = [] }, 0) /\
+      check_node [] { kind = DefAxiom; conclusion = backward; premises = [] } ==
+        Some ({ conclusion = backward; hypotheses = [] }, 0))
+  = assert_norm (
+      let d = Z3DistinctAst.mk_distinct_expr bool_sort [p; q; r] in
+      let expanded = Z3DistinctAst.expanded [p; q; r] in
+      let forward = Holds (bool_app Disjunction [mk_not_expr d; expanded]) in
+      let backward = Holds (bool_app Disjunction [d; mk_not_expr expanded]) in
+      check_node [] { kind = DefAxiom; conclusion = forward; premises = [] } ==
+        Some ({ conclusion = forward; hypotheses = [] }, 0) /\
+      check_node [] { kind = DefAxiom; conclusion = backward; premises = [] } ==
+        Some ({ conclusion = backward; hypotheses = [] }, 0))
+
+let lemma_boolean_ite_rewrites_require_boolean_branches_and_builtin_decl ()
+  : Lemma (
+      boolean_equiv 8 10 (App boolean_ite_decl [p; q; r])
+        (bool_app Disjunction [bool_app Conjunction [p; q]; bool_app Conjunction [np; r]]) /\
+      not (boolean_equiv 8 10 (App boolean_ite_decl [p; q; r])
+        (App boolean_ite_decl [p; r; q])) /\
+      native_bool_op { boolean_ite_decl with interp = None } [p; q; r] ==
+        Z3BoundedBoolEquiv.Opaque /\
+      native_bool_op boolean_ite_decl [p; q; Var 0 (BaseSort "Int")] ==
+        Z3BoundedBoolEquiv.Opaque)
+  = assert_norm (
+      boolean_equiv 8 10 (App boolean_ite_decl [p; q; r])
+        (bool_app Disjunction [bool_app Conjunction [p; q]; bool_app Conjunction [np; r]]) /\
+      not (boolean_equiv 8 10 (App boolean_ite_decl [p; q; r])
+        (App boolean_ite_decl [p; r; q])) /\
+      native_bool_op { boolean_ite_decl with interp = None } [p; q; r] ==
+        Z3BoundedBoolEquiv.Opaque /\
+      native_bool_op boolean_ite_decl [p; q; Var 0 (BaseSort "Int")] ==
+        Z3BoundedBoolEquiv.Opaque)
+
 let lemma_contextual_boolean_reductions ()
   : Lemma (
       boolean_equiv 8 10
@@ -237,3 +285,106 @@ let lemma_boolean_truth_table_checks_distribution_not_atom_identities ()
       boolean_equiv 8 10 (mk_eq_expr p p) true_expr /\
       not (boolean_equiv 8 10 p q) /\
       not (boolean_equiv 8 10 (bool_app Conjunction [p; q]) (bool_app Disjunction [p; q])))
+
+module A = Z3ArrayRewrite
+
+let array_sort = ArraySort [BaseSort "I"] (BaseSort "E")
+let array_a = Var 0 array_sort
+let array_i = Var 1 (BaseSort "I")
+let array_j = Var 2 (BaseSort "I")
+let array_v = Var 3 (BaseSort "E")
+let array_w = Var 4 (BaseSort "E")
+let store_decl : func_decl =
+  { decl_name = "store"; domain = [array_sort; BaseSort "I"; BaseSort "E"];
+    range = array_sort; interp = Some op_store; int_params = [] }
+let select_decl : func_decl =
+  { decl_name = "select"; domain = [array_sort; BaseSort "I"];
+    range = BaseSort "E"; interp = Some op_select; int_params = [] }
+let stored = App store_decl [array_a; array_i; array_v]
+let overwritten = App store_decl [stored; array_i; array_w]
+let reduced_store = App store_decl [array_a; array_i; array_w]
+let read_ite = App (A.term_ite_decl (BaseSort "E"))
+  [mk_eq_expr array_i array_j; array_v; App select_decl [array_a; array_j]]
+
+let lemma_contextual_array_rewrites ()
+  : Lemma (
+      A.equivalent 64 overwritten reduced_store /\
+      A.equivalent 64 (App store_decl
+        [array_a; array_i; App select_decl [array_a; array_i]]) array_a /\
+      A.equivalent 64 (App select_decl [stored; array_j]) read_ite /\
+      checked_consequence "rewrite"
+        (mk_eq_expr (mk_not_expr (mk_eq_expr overwritten array_a))
+                    (mk_not_expr (mk_eq_expr reduced_store array_a))) [])
+  = assert_norm (
+      A.equivalent 64 overwritten reduced_store /\
+      A.equivalent 64 (App store_decl
+        [array_a; array_i; App select_decl [array_a; array_i]]) array_a /\
+      A.equivalent 64 (App select_decl [stored; array_j]) read_ite /\
+      checked_consequence "rewrite"
+        (mk_eq_expr (mk_not_expr (mk_eq_expr overwritten array_a))
+                    (mk_not_expr (mk_eq_expr reduced_store array_a))) [])
+
+let lemma_contextual_array_rewrites_reject_invalid_instances ()
+  : Lemma (
+      not (A.equivalent 64 (App select_decl [stored; array_j]) array_v) /\
+      not (A.equivalent 64 (App { store_decl with interp = None }
+        [stored; array_i; array_w]) reduced_store) /\
+      A.ite_parts (App (A.term_ite_decl (BaseSort "E"))
+        [p; array_v; array_i]) == None /\
+      not (A.equivalent 0 overwritten reduced_store))
+  = assert_norm (
+      not (A.equivalent 64 (App select_decl [stored; array_j]) array_v) /\
+      not (A.equivalent 64 (App { store_decl with interp = None }
+        [stored; array_i; array_w]) reduced_store) /\
+      A.ite_parts (App (A.term_ite_decl (BaseSort "E"))
+        [p; array_v; array_i]) == None /\
+      not (A.equivalent 0 overwritten reduced_store))
+
+module Defs = Z3Definitions
+
+let defined_f : func_decl =
+  { decl_name = "defined-f"; domain = [bool_sort]; range = bool_sort;
+    interp = None; int_params = [] }
+let defined_g : func_decl = { defined_f with decl_name = "defined-g" }
+let predicate : func_decl =
+  { decl_name = "predicate"; domain = [bool_sort; bool_sort]; range = bool_sort;
+    interp = None; int_params = [] }
+let capture_body =
+  Quantifier Forall_k [bool_sort] bool_sort
+    (App predicate [Var 1 bool_sort; Var 0 bool_sort])
+let capture_definition : Defs.definition =
+  { symbol = defined_f; variables = [0]; body = capture_body }
+let capture_application =
+  Quantifier Forall_k [bool_sort] bool_sort (App defined_f [Var 0 bool_sort])
+let capture_expected =
+  Quantifier Forall_k [bool_sort] bool_sort capture_body
+
+let lemma_definition_expansion_avoids_variable_capture ()
+  : Lemma (Defs.scoped [] capture_application /\
+           Defs.expand 1 [capture_definition] capture_application == Some capture_expected)
+  = assert_norm (Defs.scoped [] capture_application /\
+                 Defs.expand 1 [capture_definition] capture_application == Some capture_expected)
+
+let lemma_definition_freshness_checks_quantified_original_inputs ()
+  : Lemma (
+      Defs.check_fresh_inputs [capture_definition] [mk_eq_expr p q] /\
+      not (Defs.check_fresh_inputs [capture_definition] [capture_application]) /\
+      Defs.expand_args 1 [capture_definition] [mk_eq_expr p q] == Some [mk_eq_expr p q])
+  = assert_norm (
+      Defs.check_fresh_inputs [capture_definition] [mk_eq_expr p q] /\
+      not (Defs.check_fresh_inputs [capture_definition] [capture_application]) /\
+      Defs.expand_args 1 [capture_definition] [mk_eq_expr p q] == Some [mk_eq_expr p q])
+
+let lemma_recursive_definitions_are_rejected ()
+  : Lemma (
+      let f : Defs.definition =
+        { symbol = defined_f; variables = [0]; body = App defined_g [Var 0 bool_sort] } in
+      let g : Defs.definition =
+        { symbol = defined_g; variables = [0]; body = App defined_f [Var 0 bool_sort] } in
+      not (Defs.acyclic 2 [f; g] [f; g]))
+  = assert_norm (
+      let f : Defs.definition =
+        { symbol = defined_f; variables = [0]; body = App defined_g [Var 0 bool_sort] } in
+      let g : Defs.definition =
+        { symbol = defined_g; variables = [0]; body = App defined_f [Var 0 bool_sort] } in
+      not (Defs.acyclic 2 [f; g] [f; g]))

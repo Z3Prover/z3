@@ -10,6 +10,10 @@ open Z3ObservationalEquality
 open Z3Commutativity
 open Z3BooleanRewrite
 open Z3ArrayLemma
+module A = Z3ArrayRewrite
+module D = Z3Definitions
+module LA = Z3LinearArithmeticAst
+module LE = Z3LinearArithmeticEmbed
 module L = FStar.List.Tot
 
 type judgment =
@@ -20,9 +24,12 @@ type judgment =
 type rule =
   | Asserted
   | DefAxiom
+  | DefinitionIntroduction
+  | ApplyDefinition
   | Hypothesis
   | LemmaRule
   | Unverified : name:string -> rule
+  | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
   | RewriteRule
   | Reflexivity
   | Symmetry
@@ -160,9 +167,10 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   | Some (r, a, b) ->
     (match kind with
      | Reflexivity -> facts = [] && a = b
-     | RewriteRule ->
-       facts = [] && (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
-                      boolean_equiv 8 10 a b)
+     | RewriteRule | ApplyDefinition ->
+       (kind = ApplyDefinition || facts = []) &&
+                     (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
+                      boolean_equiv 8 10 a b || A.equivalent 64 a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -208,6 +216,7 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
       | None -> false
       | Some es ->
         (match kind, es with
+         | DefinitionIntroduction, [] | DefAxiom, [] -> D.tautology 128 target
          | ModusPonens, [a; App f [s; t]] ->
            (f.decl_name = "implies" || f.decl_name = "=>" || f.decl_name = "=") &&
            a = s && target = t
@@ -281,8 +290,9 @@ let rec remaining_hypotheses (hyps:list expr) (concl:expr)
 let false_judgment (j:judgment) : bool = j = Holds false_expr
 
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
-  match kind, facts, proposition concl with
-  | Unverified tag, [], Some e -> tag = "th-lemma" && array_lemma e
+  match kind, proposition concl, propositions facts with
+  | Unverified tag, Some e, Some [] -> tag = "th-lemma" && array_lemma e
+  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es
   | _, _, _ -> false
 
 let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
@@ -297,9 +307,9 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
       if facts = [] && Some? (proposition node.conclusion) && L.mem node.conclusion assertions
       then accept [] 0 else None
     | DefAxiom ->
-      if facts = [] && Some? (proposition node.conclusion) &&
-         (not strict || L.mem node.conclusion assertions)
-      then accept [] 0 else None
+      if facts = [] && Some? (proposition node.conclusion)
+      then accept [] (if check_step DefAxiom node.conclusion facts then 0 else 1)
+      else None
     | Hypothesis ->
       (match facts, proposition node.conclusion with
        | [], Some e -> accept [e] 0
@@ -310,7 +320,8 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ -> accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
+    | Unverified _ | ArithmeticFarkas _ ->
+      accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule ->
       if facts = [] && Some? (relational node.conclusion)
       then accept hyps (if check_step RewriteRule node.conclusion facts then 0 else 1)
@@ -336,7 +347,9 @@ let rec judgments_hold (i:interpretation value) (rho:env value) (js:list judgmen
 let model_sound (i:interpretation value) : prop =
   boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
   implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i /\
-  arithmetic_model i /\ array_model i
+  arithmetic_model i /\ array_model i /\ ite_sound i /\ xor_sound i /\ A.term_ite_sound i /\
+  D.forall_sound i /\ Z3DistinctEmbed.distinct_sound i /\
+  (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu)
 
 let lemma_proposition_sound (i:interpretation value) (rho:env value) (j:judgment)
   : Lemma (requires eq_sound i /\ Some? (proposition j))
@@ -459,10 +472,11 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
     | None -> ()
     | Some (r, a, b) ->
       (match kind with
-       | RewriteRule ->
+       | RewriteRule | ApplyDefinition ->
          if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
-         else lemma_boolean_equiv_sound 8 10 i rho a b
+         else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
+         else A.lemma_equivalent_sound 64 i rho a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with
@@ -518,6 +532,8 @@ let lemma_logical_step_sound (i:interpretation value) (rho:env value)
        | None -> ()
        | Some es ->
          (match kind, es with
+          | DefinitionIntroduction, [] | DefAxiom, [] ->
+            D.lemma_tautology_sound 128 i rho (Some?.v (proposition concl))
           | UnitResolution, c :: units ->
             lemma_boolean_clause i rho (formula_clause c);
             let unit_sound (e:expr)
@@ -685,12 +701,14 @@ let rec lemma_boolean_premises (ps:list checked_fact)
 
 let node_obligation (i:interpretation value) (rho:env value) (strict:bool) (node:proof_node) : prop =
   match node.kind with
-  | DefAxiom -> if strict then True else judgment_holds i rho node.conclusion
+  | DefAxiom ->
+    not (check_step DefAxiom node.conclusion (premise_judgments node.premises)) ==>
+    judgment_holds i rho node.conclusion
   | RewriteRule ->
     not (check_step RewriteRule node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ ->
+  | Unverified _ | ArithmeticFarkas _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -709,15 +727,21 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
         FStar.List.Tot.Properties.mem_memP node.conclusion assertions;
         lemma_judgment_member i rho assertions node.conclusion
       | DefAxiom ->
-        if strict then (
-          FStar.List.Tot.Properties.mem_memP node.conclusion assertions;
-          lemma_judgment_member i rho assertions node.conclusion)
+        if check_step DefAxiom node.conclusion (premise_judgments node.premises)
+        then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ ->
+      | Unverified _ | ArithmeticFarkas _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
+          lemma_premises_sound i rho node.premises;
+          lemma_propositions_sound i rho (premise_judgments node.premises);
           match proposition node.conclusion with
-          | Some e -> lemma_array_lemma_sound i rho e
+          | Some e ->
+            (match node.kind with
+             | ArithmeticFarkas cs ->
+               LE.lemma_check_with_numeric_model cs e
+                 (Some?.v (propositions (premise_judgments node.premises))) i rho
+             | _ -> lemma_array_lemma_sound i rho e)
           | None -> ())
       | RewriteRule ->
         if check_step RewriteRule node.conclusion (premise_judgments node.premises)
@@ -744,7 +768,6 @@ let lemma_obligation_free_node_sound (i:interpretation value) (rho:env value)
                                      (strict:bool) (assertions:list judgment) (node:proof_node)
   : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
                     premises_sound i rho node.premises /\
-                    (node.kind == DefAxiom /\ not strict ==> judgment_holds i rho node.conclusion) /\
                     Some? (check_node_with_inputs strict assertions node) /\
                     snd (Some?.v (check_node_with_inputs strict assertions node)) == 0)
           (ensures scoped_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))))

@@ -4,7 +4,7 @@
    range); this is sufficient for this project's JSON proof-document
    format, which is pure ASCII. *)
 
-let strlen (s : Prims.string) : Prims.int = Stdlib.String.length s
+let strlen (s : Prims.string) : Prims.int = Z.of_int (Stdlib.String.length s)
 
 let list_of_string (s : Prims.string) : FStar_Char.char Prims.list =
   Stdlib.List.init (Stdlib.String.length s) (fun i ->

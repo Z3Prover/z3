@@ -67,14 +67,16 @@ run the SMT solver: the executable is built once
 of the same Pulse-verified checker and simply interprets the JSON
 directly, typically in single-digit milliseconds per proof.
 
-`--full-proof` instead exports the complete ground refutation DAG,
-including resolution, mp, congruence and hypothesis discharge. Unsupported
+`--full-proof` instead exports the complete refutation DAG,
+including resolution, mp, congruence, hypothesis discharge and explicit
+ground/quantified definition introductions. Unsupported
 rules and unsupported rewrite leaves remain explicit obligations: a structurally
 valid full derivation with such obligations reports PARTIAL (exit 3),
 not a certified UNSAT result. The default equational mode is unchanged.
-Definitional axioms are trusted by default. With --check-original-assertions,
-their entire conclusions must match supplied input assertions, just like
-ordinary asserted leaves. Binary commutativity for equality, Boolean and/or,
+Definitional axioms require checked tautologies or fresh definition witnesses;
+unsupported forms remain explicit obligations. Asserted leaves always require
+exact membership in the supplied inputs. --check-original-assertions retains
+this policy and requires full-proof format. Binary commutativity for equality, Boolean and/or,
 and Int addition/multiplication is checked by verified inference rules.
 Identity and order-preserving n-ary Boolean and/or flattening rewrites
 are discharged by the full-proof checker, along with verified Boolean
@@ -92,6 +94,7 @@ import json as json_mod
 import os
 import subprocess
 import sys
+from fractions import Fraction
 
 import z3
 
@@ -113,7 +116,7 @@ EQUATIONAL_KINDS = {
 }
 
 FULL_PROOF_REWRITES = {"reflexivity", "and_flatten", "or_flatten",
-                       "eq_reflexive", "boolean_equiv"}
+                       "eq_reflexive", "boolean_equiv", "contextual_array"}
 
 
 def fstar_ident(prefix, n):
@@ -301,7 +304,86 @@ def classify_full_rewrite(s: z3.ExprRef, t: z3.ExprRef):
         return "eq_reflexive"
     return (_boolean_flatten(s, t)
             or ("boolean_equiv" if _bounded_boolean_equiv(s, t) else None)
+            or ("contextual_array" if _contextual_array_equiv(s, t) else None)
             or classify_rewrite(s, t))
+
+
+def _contextual_array_equiv(s, t, fuel=64):
+    """Diagnostic mirror of Z3ArrayRewrite; native verification is authoritative."""
+    def flat(a):
+        sort = a.sort()
+        return (sort.kind() == z3.Z3_ARRAY_SORT
+                and sort.domain().kind() not in (z3.Z3_ARRAY_SORT, z3.Z3_BOOL_SORT)
+                and sort.range().kind() not in (z3.Z3_ARRAY_SORT, z3.Z3_BOOL_SORT))
+
+    def read(e):
+        return z3.is_select(e) and e.num_args() == 2 and flat(e.arg(0))
+
+    def write(e):
+        return z3.is_store(e) and e.num_args() == 3 and flat(e.arg(0))
+
+    def ite(e):
+        return z3.is_app_of(e, z3.Z3_OP_ITE)
+
+    def contract(e):
+        if write(e):
+            a, k, v = e.children()
+            if write(a) and a.arg(1).eq(k):
+                return z3.Store(a.arg(0), k, v)
+            if read(v) and v.arg(0).eq(a) and v.arg(1).eq(k):
+                return a
+        if read(e):
+            a, k = e.children()
+            if write(a) and a.arg(1).eq(k):
+                return a.arg(2)
+        if ite(e):
+            c, a, b = e.children()
+            if z3.is_true(c) or (z3.is_eq(c) and c.arg(0).eq(c.arg(1))) or a.eq(b):
+                return a
+            if z3.is_false(c):
+                return b
+        return None
+
+    def expand(e):
+        if read(e) and write(e.arg(0)):
+            a, j, v = e.arg(0).children()
+            k = e.arg(1)
+            return z3.If(j == k, v, z3.Select(a, k))
+        return None
+
+    def equivalent(remaining, a, b):
+        if a.eq(b):
+            return True
+        if not remaining or a.sort() != b.sort():
+            return False
+        ca, cb = contract(a), contract(b)
+        if ca is not None:
+            return equivalent(remaining - 1, ca, b)
+        if cb is not None:
+            return equivalent(remaining - 1, a, cb)
+        if (z3.is_app(a) and z3.is_app(b) and a.decl().eq(b.decl())
+                and a.num_args() == b.num_args()
+                and all(equivalent(remaining - 1, x, y)
+                        for x, y in zip(a.children(), b.children()))):
+            return True
+        if (z3.is_eq(a) and z3.is_eq(b)
+                and equivalent(remaining - 1, a.arg(0), b.arg(1))
+                and equivalent(remaining - 1, a.arg(1), b.arg(0))):
+            return True
+        ea, eb = expand(a), expand(b)
+        if ea is not None:
+            return equivalent(remaining - 1, ea, b)
+        if eb is not None:
+            return equivalent(remaining - 1, a, eb)
+        if ite(a):
+            return (equivalent(remaining - 1, a.arg(1), b)
+                    and equivalent(remaining - 1, a.arg(2), b))
+        if ite(b):
+            return (equivalent(remaining - 1, a, b.arg(1))
+                    and equivalent(remaining - 1, a, b.arg(2)))
+        return False
+
+    return equivalent(fuel, s, t)
 
 
 def _bounded_boolean_equiv(s, t, depth=8, width=10):
@@ -309,7 +391,7 @@ def _bounded_boolean_equiv(s, t, depth=8, width=10):
     if not (z3.is_bool(s) and z3.is_bool(t)):
         return False
     connectives = {z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT,
-                   z3.Z3_OP_IMPLIES, z3.Z3_OP_EQ}
+                   z3.Z3_OP_IMPLIES, z3.Z3_OP_EQ, z3.Z3_OP_ITE, z3.Z3_OP_XOR}
     constants = {z3.Z3_OP_TRUE, z3.Z3_OP_FALSE}
 
     def kind(e):
@@ -340,7 +422,22 @@ def _bounded_boolean_equiv(s, t, depth=8, width=10):
             return z3.Z3_OP_TRUE, []
         if e.get_id() in shared or k is None or (not remaining and k not in constants):
             return ("atom", atoms.setdefault(e.get_id(), len(atoms)))
-        return (k, [cut(a, remaining - 1, shared) for a in e.children()])
+        args = [cut(a, remaining - 1, shared) for a in e.children()]
+        if k == z3.Z3_OP_ITE:
+            c, t, f = args
+            if c[0] in constants:
+                return t if c[0] == z3.Z3_OP_TRUE else f
+            if t[0] == z3.Z3_OP_TRUE:
+                return z3.Z3_OP_OR, [c, f]
+            if t[0] == z3.Z3_OP_FALSE:
+                return z3.Z3_OP_AND, [(z3.Z3_OP_NOT, [c]), f]
+            if f[0] == z3.Z3_OP_TRUE:
+                return z3.Z3_OP_OR, [(z3.Z3_OP_NOT, [c]), t]
+            if f[0] == z3.Z3_OP_FALSE:
+                return z3.Z3_OP_AND, [c, t]
+            return (z3.Z3_OP_OR, [(z3.Z3_OP_AND, [c, t]),
+                                  (z3.Z3_OP_AND, [(z3.Z3_OP_NOT, [c]), f])])
+        return k, args
 
     def normalize(e, negative=False):
         k, args = e
@@ -351,7 +448,7 @@ def _bounded_boolean_equiv(s, t, depth=8, width=10):
                     if negative else k, [])
         if k == z3.Z3_OP_NOT:
             return normalize(args[0], not negative)
-        if k == z3.Z3_OP_EQ:
+        if k in (z3.Z3_OP_EQ, z3.Z3_OP_XOR):
             result = (k, [normalize(a) for a in args])
             return (z3.Z3_OP_NOT, [result]) if negative else result
         if k == z3.Z3_OP_IMPLIES:
@@ -448,6 +545,8 @@ def _bounded_boolean_equiv(s, t, depth=8, width=10):
             return (mask ^ vs[0]) | vs[1]
         if k == z3.Z3_OP_EQ:
             return mask ^ vs[0] ^ vs[1]
+        if k == z3.Z3_OP_XOR:
+            return vs[0] ^ vs[1]
         raise AssertionError("Unexpected Boolean skeleton operator")
 
     return evaluate(cs) == evaluate(ct)
@@ -844,13 +943,13 @@ def find_equational_root(p: z3.ExprRef, max_depth=50):
 
 
 class ResolutionConverter(Converter):
-    """Export the complete ground proof DAG without erasing derived facts."""
+    """Export the complete proof DAG without erasing derived facts."""
 
     SUPPORTED_RULES = {
         "asserted", "hypothesis", "lemma", "mp", "mp~", "unit-resolution",
         "and-elim", "not-or-elim", "iff-true", "iff-false", "iff~",
         "refl", "reflexivity", "symm", "trans", "trans*", "monotonicity", "rewrite",
-        "def-axiom", "commutativity",
+        "def-axiom", "commutativity", "intro-def", "apply-def",
     }
 
     def __init__(self):
@@ -863,6 +962,18 @@ class ResolutionConverter(Converter):
                 arity != 2 or any(d.domain(i).kind() != z3.Z3_BOOL_SORT for i in range(arity))):
             raise ValueError("Full-proof mode requires Boolean observational equality")
         ident = super().func_decl(d, arity)
+        if arity == 0 and d.kind() in (z3.Z3_OP_ANUM, z3.Z3_OP_BNUM):
+            # Numeral declarations share a name ("Int", "Real", or "bv").
+            # Preserve their values without assuming arithmetic semantics.
+            declaration = self.decl_json[self._idx(ident)]
+            declaration["name"] = d().sexpr()
+            declaration["int_params"] = [d.kind()]
+            if d.kind() == z3.Z3_OP_ANUM:
+                number = d()
+                n, den = ((number.as_long(), 1) if z3.is_int_value(number)
+                          else (number.numerator_as_long(), number.denominator_as_long()))
+                declaration["interp"] = "op_num_rational"
+                declaration["int_params"] = [n, den]
         tags = {
             z3.Z3_OP_TRUE: "op_true",
             z3.Z3_OP_FALSE: "op_false",
@@ -870,6 +981,19 @@ class ResolutionConverter(Converter):
             z3.Z3_OP_OR: "op_or",
             z3.Z3_OP_OEQ: "op_oeq",
             z3.Z3_OP_ARRAY_EXT: "op_array_ext",
+            z3.Z3_OP_ITE: "op_ite",
+            z3.Z3_OP_XOR: "op_xor",
+            z3.Z3_OP_DISTINCT: "op_distinct",
+            z3.Z3_OP_ADD: "op_arith_add",
+            z3.Z3_OP_MUL: "op_arith_mul",
+            z3.Z3_OP_SUB: "op_arith_sub",
+            z3.Z3_OP_UMINUS: "op_arith_sub",
+            z3.Z3_OP_DIV: "op_arith_div",
+            z3.Z3_OP_LE: "op_arith_le",
+            z3.Z3_OP_LT: "op_arith_lt",
+            z3.Z3_OP_GE: "op_arith_ge",
+            z3.Z3_OP_GT: "op_arith_gt",
+            z3.Z3_OP_TO_REAL: "op_to_real",
         }
         if (arity == 2 and d.range().kind() == z3.Z3_INT_SORT
                 and all(d.domain(i).kind() == z3.Z3_INT_SORT for i in range(arity))):
@@ -913,6 +1037,19 @@ class ResolutionConverter(Converter):
             }
             if kind == "trusted":
                 entry["rule"] = rule
+                if rule == "th-lemma":
+                    params = [str(p) for p in node.decl().params()]
+                    entry["theory_params"] = params
+                    if params[:2] == ["arith", "farkas"]:
+                        try:
+                            coefficients = [Fraction(p) for p in params[2:]]
+                        except (ValueError, ZeroDivisionError) as error:
+                            raise ValueError("Invalid Z3 Farkas coefficient: %r" % params) from error
+                        entry["arithmetic_certificate"] = {
+                            "kind": "farkas",
+                            "origin": "z3",
+                            "coefficients": [[c.numerator, c.denominator] for c in coefficients],
+                        }
                 schema = (classify_array_lemma(conclusion)
                           if rule == "th-lemma" and not premises else None)
                 if schema:
@@ -1299,13 +1436,13 @@ def main():
     ap.add_argument("--json-out", default=None,
                      help="path for the JSON proof document (default: <out>.json)")
     ap.add_argument("--full-proof", action="store_true",
-                     help="export/check the complete ground refutation, including "
-                          "resolution, mp, hypothesis discharge and congruence; "
+                     help="export/check the complete refutation, including "
+                          "resolution, mp, hypothesis discharge, congruence and definitions; "
                           "report unverified leaves as explicit obligations")
     ap.add_argument("--check-original-assertions", action="store_true",
-                     help="with --full-proof, require entire def-axiom conclusions "
-                          "to match original assertions instead of trusting them; "
-                          "ordinary asserted leaves always require membership")
+                     help="require full-proof format with exact original-input "
+                          "membership for asserted leaves (already checked in full-proof mode); "
+                          "def-axiom leaves are independently checked in all modes")
     ap.add_argument("--timeout", type=float, default=10,
                      help="solver timeout in seconds for --full-proof (default: 10)")
     ap.add_argument("--emit-json-fst", action="store_true",
@@ -1379,8 +1516,11 @@ def main():
                 % len(unmatched))
         if args.full_proof:
             f.write("Full-proof checking discharges identity, Boolean flattening, equality "
-                    "reflexivity, Boolean normalization and bounded Boolean equivalence; "
-                    "other Python matcher classifications are diagnostic.\n"
+                    "reflexivity, Boolean normalization, bounded Boolean equivalence, "
+                    "and contextual flat-scalar array rewrites; "
+                    "other Python matcher classifications are diagnostic. "
+                    "Def-axiom obligations are determined by the native checker, "
+                    "not included in these diagnostic counts.\n"
                     "Pending rewrite obligations: %d\n\n" % rewrite_obligations)
         if matched:
             f.write("-- Matched leaves --\n")
@@ -1410,11 +1550,10 @@ def main():
                                args.check_original_assertions)
            if args.full_proof else build_proof_doc(conv, root_ident, len(unmatched)))
     if args.full_proof:
-        print("Def-axiom policy: %s"
-              % ("exact original-assertion membership" if args.check_original_assertions
-                 else "trusted leaves (ACCEPT is relative to this trust policy)"))
-        print("Full-DAG rule obligations: %d; rewrite obligations: %d "
-              "(verified structural rules and bounded Boolean equivalence)"
+        print("Def-axiom policy: checked tautologies and fresh definition witnesses; "
+              "asserted leaves require exact original-assertion membership")
+        print("Other rule obligations: %d; diagnostic rewrite obligations: %d "
+              "(def-axiom obligations are determined by the native checker)"
               % (len(conv.trusted_log), rewrite_obligations))
         print("Array theory lemmas matched by verified rules (diagnostic mirror): %d"
               % len(conv.checked_theory_log))

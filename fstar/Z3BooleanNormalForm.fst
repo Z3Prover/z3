@@ -318,3 +318,116 @@ let lemma_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
   lemma_normalize_sound rho false s;
   lemma_normalize_sound rho false t;
   lemma_shape_equal_sound rho 32 (normalize false s) (normalize false t)
+
+(* Propagate the assumption that every disjunct is false. Unlike a truth
+   table, this handles an arbitrarily wide Tseitin gate without branching. *)
+let rec forced (negative:list formula) (s:formula) (truth:bool)
+  : Tot bool (decreases s) =
+  (if truth then has_complement s negative else mem s negative) ||
+  (match s with
+   | B.Atom _ -> false
+   | B.Bool b -> b = truth
+   | B.Not a -> forced negative a (not truth)
+   | B.Nary B.And args ->
+     if truth then forced_all negative true args else forced_any negative false args
+   | B.Nary B.Or args ->
+     if truth then forced_any negative true args else forced_all negative false args
+   | B.Nary B.Xor [a; b] ->
+     (forced negative a true && forced negative b (not truth)) ||
+     (forced negative a false && forced negative b truth)
+   | B.Nary B.Xor _ -> false
+   | B.Implies a b ->
+     if truth then forced negative a false || forced negative b true
+     else forced negative a true && forced negative b false
+   | B.Eq a b ->
+     (forced negative a true && forced negative b truth) ||
+     (forced negative a false && forced negative b (not truth)))
+
+and forced_all (negative:list formula) (truth:bool) (args:list formula)
+  : Tot bool (decreases args) =
+  match args with
+  | [] -> true
+  | a :: rest -> forced negative a truth && forced_all negative truth rest
+
+and forced_any (negative:list formula) (truth:bool) (args:list formula)
+  : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | a :: rest -> forced negative a truth || forced_any negative truth rest
+
+let rec lemma_forced_sound (rho:Z3AstTheory.expr -> bool)
+                           (negative:list formula) (s:formula) (truth:bool)
+  : Lemma (requires not (B.eval_args rho B.Or negative) /\ forced negative s truth)
+          (ensures B.eval rho s == truth)
+          (decreases s) =
+  if truth && has_complement s negative then lemma_complement_sound rho s negative
+  else if not truth && mem s negative then lemma_member_eval rho s negative
+  else match s with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Not a -> lemma_forced_sound rho negative a (not truth)
+  | B.Nary B.And args ->
+    if truth then lemma_forced_all_sound rho negative true args
+    else lemma_forced_any_sound rho negative false args
+  | B.Nary B.Or args ->
+    if truth then lemma_forced_any_sound rho negative true args
+    else lemma_forced_all_sound rho negative false args
+  | B.Nary B.Xor [a; b] ->
+    if forced negative a true && forced negative b (not truth) then (
+      lemma_forced_sound rho negative a true;
+      lemma_forced_sound rho negative b (not truth))
+    else (
+      lemma_forced_sound rho negative a false;
+      lemma_forced_sound rho negative b truth)
+  | B.Nary B.Xor _ -> ()
+  | B.Implies a b ->
+    if truth then (
+      if forced negative a false then lemma_forced_sound rho negative a false
+      else lemma_forced_sound rho negative b true)
+    else (
+      lemma_forced_sound rho negative a true;
+      lemma_forced_sound rho negative b false)
+  | B.Eq a b ->
+    if forced negative a true && forced negative b truth then (
+      lemma_forced_sound rho negative a true;
+      lemma_forced_sound rho negative b truth)
+    else (
+      lemma_forced_sound rho negative a false;
+      lemma_forced_sound rho negative b (not truth))
+
+and lemma_forced_all_sound (rho:Z3AstTheory.expr -> bool)
+                          (negative:list formula) (truth:bool) (args:list formula)
+  : Lemma (requires not (B.eval_args rho B.Or negative) /\ forced_all negative truth args)
+          (ensures (if truth then B.eval_args rho B.And args
+                    else not (B.eval_args rho B.Or args)))
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_forced_sound rho negative a truth;
+    lemma_forced_all_sound rho negative truth rest
+
+and lemma_forced_any_sound (rho:Z3AstTheory.expr -> bool)
+                          (negative:list formula) (truth:bool) (args:list formula)
+  : Lemma (requires not (B.eval_args rho B.Or negative) /\ forced_any negative truth args)
+          (ensures (if truth then B.eval_args rho B.Or args
+                    else not (B.eval_args rho B.And args)))
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    if forced negative a truth then lemma_forced_sound rho negative a truth
+    else lemma_forced_any_sound rho negative truth rest
+
+let disjuncts (s:formula) : list formula =
+  match s with B.Nary B.Or args -> args | _ -> [s]
+
+let clause_tautology (s:formula) : bool =
+  forced (disjuncts s) s true
+
+let lemma_clause_tautology_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
+  : Lemma (requires clause_tautology s)
+          (ensures B.eval rho s) =
+  FStar.Classical.excluded_middle (B.eval rho s);
+  if not (B.eval rho s) then (
+    (match s with B.Nary B.Or _ -> () | _ -> ());
+    lemma_forced_sound rho (disjuncts s) s true)

@@ -1,28 +1,28 @@
-(* Minimal hand-written stand-in for F*'s "Prims" OCaml-extraction runtime
-   module. Only the identifiers actually referenced by the extracted
-   Z3*.ml files (see extract_full/) are implemented.
-
-   Design choice: "Prims.int" is represented as native OCaml `int`
-   (not an arbitrary-precision Zarith value). This matches the
-   extracted code itself, which applies OCaml's own `+`/`-`/`*`/`/`/
-   `mod`/comparison operators directly to values of type Prims.int
-   (e.g. Z3BvTheory.ml's `a - (Prims.pow2 n)`) -- that only type-checks
-   if Prims.int *is* OCaml's native int. The practical consequence is
-   a 63-bit (signed) ceiling on any integer/bit-vector width handled
-   by this checker; documented as a known limitation. *)
-
-type nonrec int = int
+(* Extracted modules open Prims, so these operators must implement F*'s
+   unbounded integers rather than OCaml's wrapping machine arithmetic. *)
+type int = Z.t
 type nonrec bool = bool
 type nonrec string = string
 type nonrec 'a list = 'a list
 type nat = int
 type pos = int
 
-let int_zero : int = 0
-let int_one : int = 1
+let int_zero : int = Z.zero
+let int_one : int = Z.one
 
-let of_int (n : int) : int = n
+let of_int (n : Stdlib.Int.t) : int = Z.of_int n
+
+let ( + ) = Z.add
+let ( - ) = Z.sub
+let ( * ) = Z.mul
+let ( / ) = Z.ediv
+let ( mod ) = Z.erem
+let ( ~- ) = Z.neg
+let ( < ) a b = Z.compare a b < 0
+let ( <= ) a b = Z.compare a b <= 0
+let ( > ) a b = Z.compare a b > 0
+let ( >= ) a b = Z.compare a b >= 0
 
 let not (b : bool) : bool = Stdlib.not b
 
-let pow2 (n : int) : int = 1 lsl n
+let pow2 (n : int) : int = Z.shift_left Z.one (Z.to_int n)

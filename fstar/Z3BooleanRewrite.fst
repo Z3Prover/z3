@@ -112,6 +112,14 @@ let lemma_flatten_rewrite_sound (i:interpretation value) (rho:env value) (s t:ex
        | _, _ -> ())
     | _ -> ()
 
+let boolean_ite_decl : func_decl =
+  { decl_name = "if"; domain = [bool_sort; bool_sort; bool_sort];
+    range = bool_sort; interp = Some op_ite; int_params = [] }
+
+let boolean_xor_decl : func_decl =
+  { decl_name = "xor"; domain = [bool_sort; bool_sort];
+    range = bool_sort; interp = Some op_xor; int_params = [] }
+
 let native_bool_op (f:func_decl) (args:list expr) : B.bool_op =
   if not (boolean_args args) then B.Opaque
   else if connective_app Conjunction f args then B.BNary B.And
@@ -123,6 +131,8 @@ let native_bool_op (f:func_decl) (args:list expr) : B.bool_op =
           f.domain = [bool_sort; bool_sort] && f.range = bool_sort &&
           f.interp = Some op_implies && f.int_params = [] && length args = 2
   then B.BImplies
+  else if f = boolean_ite_decl && length args = 3 then B.BIte
+  else if f = boolean_xor_decl && length args = 2 then B.BNary B.Xor
   else if f = eq_decl bool_sort && length args = 2 then B.BEq
   else if f = { decl_name = "true"; domain = []; range = bool_sort;
                 interp = Some op_true; int_params = [] } && args = []
@@ -152,6 +162,32 @@ and boolean_nodes_args (depth:nat) (args:list expr)
   | [] -> []
   | a :: rest -> boolean_nodes depth a @ boolean_nodes_args depth rest
 
+let boolean_leaf (e:expr) : bool =
+  match e with
+  | App f args ->
+    (match native_bool_op f args with B.BTrue | B.BFalse | B.Opaque -> true | _ -> false)
+  | _ -> true
+
+let rec boolean_leaves (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> true
+  | a :: rest -> boolean_leaf a && boolean_leaves rest
+
+let rec boolean_frontier (depth:nat) (e:expr) : Tot (list expr) (decreases e) =
+  match e with
+  | App f args ->
+    (match native_bool_op f args with
+     | B.BTrue | B.BFalse | B.Opaque -> []
+     | _ -> if depth = 0 then (if boolean_leaves args then [] else [e])
+            else boolean_args_frontier (depth - 1) args)
+  | _ -> []
+
+and boolean_args_frontier (depth:nat) (args:list expr)
+  : Tot (list expr) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest -> boolean_frontier depth a @ boolean_args_frontier depth rest
+
 let rec boolean_cut (boundaries:list expr) (depth:nat) (e:expr)
   : Tot B.skeleton (decreases e) =
   if reflexive_equality e then B.Bool true
@@ -180,6 +216,13 @@ let rec boolean_cut (boundaries:list expr) (depth:nat) (e:expr)
         | [a; b] -> if depth = 0 then B.Atom e
                     else B.Eq (boolean_cut boundaries (depth - 1) a)
                               (boolean_cut boundaries (depth - 1) b)
+        | _ -> B.Atom e)
+     | B.BIte ->
+       (match args with
+        | [c; t; f] -> if depth = 0 then B.Atom e
+                       else B.boolean_ite (boolean_cut boundaries (depth - 1) c)
+                                          (boolean_cut boundaries (depth - 1) t)
+                                          (boolean_cut boundaries (depth - 1) f)
         | _ -> B.Atom e)
      | _ -> B.Atom e)
   | _ -> B.Atom e
@@ -225,9 +268,23 @@ let bool_value (v:value) : bool =
 let valuation (i:interpretation value) (rho:env value) : expr -> bool =
   fun e -> bool_value (eval i e rho)
 
+let ite_sound (i:interpretation value) : prop =
+  forall (c t e:expr) (rho:env value).
+    {:pattern (eval i (App boolean_ite_decl [c; t; e]) rho)}
+    boolean_args [c; t; e] ==>
+    eval i (App boolean_ite_decl [c; t; e]) rho ==
+      (if bool_value (eval i c rho) then eval i t rho else eval i e rho)
+
+let xor_sound (i:interpretation value) : prop =
+  forall (a b:expr) (rho:env value).
+    {:pattern (eval i (App boolean_xor_decl [a; b]) rho)}
+    boolean_args [a; b] ==>
+    eval i (App boolean_xor_decl [a; b]) rho ==
+      VBool (bool_value (eval i a rho) <> bool_value (eval i b rho))
+
 let boolean_rewrite_model (i:interpretation value) : prop =
   boolean_model i /\ not_sound i /\ and_sound i /\ or_sound i /\
-  implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i
+  implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i /\ ite_sound i /\ xor_sound i
 
 let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
                                 (i:interpretation value) (rho:env value) (e:expr)
@@ -242,6 +299,13 @@ let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
   | App f args ->
     (match native_bool_op f args with
      | B.BTrue | B.BFalse -> ()
+     | B.BNary B.Xor ->
+       (match args with
+        | [a; b] ->
+          if depth > 0 then (
+            lemma_boolean_cut_sound boundaries (depth - 1) i rho a;
+            lemma_boolean_cut_sound boundaries (depth - 1) i rho b)
+        | _ -> ())
      | B.BNary op ->
        if depth > 0 then (
          lemma_boolean_cut_args_sound boundaries (depth - 1) i rho args;
@@ -260,6 +324,20 @@ let rec lemma_boolean_cut_sound (boundaries:list expr) (depth:nat)
             lemma_boolean_cut_sound boundaries (depth - 1) i rho a;
             lemma_boolean_cut_sound boundaries (depth - 1) i rho b;
             match eval i a rho, eval i b rho, eval i e rho with
+            | VBool _, VBool _, VBool _ -> () | _, _, _ -> ())
+        | _ -> ())
+     | B.BIte ->
+       (match args with
+        | [c; t; f] ->
+          if depth > 0 then (
+            lemma_boolean_cut_sound boundaries (depth - 1) i rho c;
+            lemma_boolean_cut_sound boundaries (depth - 1) i rho t;
+            lemma_boolean_cut_sound boundaries (depth - 1) i rho f;
+            B.lemma_boolean_ite_eval (valuation i rho)
+              (boolean_cut boundaries (depth - 1) c)
+              (boolean_cut boundaries (depth - 1) t)
+              (boolean_cut boundaries (depth - 1) f);
+            match eval i c rho, eval i t rho, eval i f rho with
             | VBool _, VBool _, VBool _ -> () | _, _, _ -> ())
         | _ -> ())
      | _ -> ())

@@ -1,5 +1,11 @@
 # Standalone OCaml proof-checker executable
 
+**Latest cross-logic measurements (2026-10-15):**
+[SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reruns 900 inputs
+across nine logics with the checked-definition/`distinct` checker,
+separating full certification, obligations, rejection, and phase costs.
+The measurements below retain their historical configurations and scope.
+
 ## Goal
 
 Every earlier proof-checking harness in this repo (`tools/extract_z3_proof.py
@@ -69,26 +75,27 @@ opam/OCaml are otherwise unavailable natively on Windows:
 
 | File | Provides |
 |---|---|
-| `prims.ml` | `Prims.int`/`bool`/`string`/`list`/`nat`/`pos` as direct aliases to OCaml's own primitive types (`type nonrec int = int`, etc. — `type int = int` alone is rejected by OCaml as a "cyclic type abbreviation"); `int_zero`/`int_one`/`of_int`/`not`/`pow2` |
+| `prims.ml` | Exact `Prims.int`/`nat`/`pos` via Zarith `Z.t`, with arithmetic/comparison operators, Euclidean division/remainder, and `int_zero`/`int_one`/`of_int`/`not`/`pow2`; native `bool`/`string`/`list` aliases |
 | `fStar_Pervasives_Native.ml` | `option` aliased to OCaml's native `option` (`type nonrec 'a option = 'a option = None | Some of 'a`); `fst`/`snd` |
-| `fStar_List_Tot_Base.ml` | `length`/`rev`/`append`/`op_At`/`hd`/`mem`/`index`, thin wrappers over `Stdlib.List` |
-| `fStar_Char.ml` | `char = Prims.int` (a Unicode codepoint, since extracted code pattern-matches character literals as raw integer literals, e.g. `45` for `'-'`); `int_of_char`/`u32_of_char` as identity |
-| `fStar_UInt32.ml` | `t = Prims.int`; `v` as identity |
-| `fStar_UInt.ml` | Fixed-width modular bitvector arithmetic (`logand`/`logor`/`logxor`/`lognot`/`add_mod`/`sub_mod`/`mul_mod`/`udiv`/`mod1`/`shift_left`/`shift_right`/`rotate_left`/`rotate_right`/`zero_extend`/`ones`/`to_uint_t`) via native bitwise ops masked to `(1 lsl n) - 1` |
+| `fStar_List_Tot_Base.ml` | `length`/`rev`/`map`/`append`/`op_At`/`hd`/`mem`/`index`, wrappers over `Stdlib.List` with exact integer conversions |
+| `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |
+| `fStar_UInt32.ml` | Native integer character-facing representation; `v` converts to exact `Prims.int` |
+| `fStar_UInt.ml` | Fixed-width modular arithmetic, masks, shifts, rotations, and bitwise operations via Zarith |
 | `fStar_String.ml` | `strlen`/`list_of_string`/`string_of_list`, byte-wise via `Stdlib.String`/`Stdlib.Char` (sufficient: the JSON proof format is pure ASCII) |
 | `fStar_FunctionalExtensionality.ml` | `restricted_t` as a plain function-type alias (type-level only; never invoked at runtime by this checker) |
 | `pulse_Lib_Reference.ml` | `ref`/`alloc`/`read`/`write` over a native OCaml `ref`, matching the exact (ghost-argument-padded) call shapes the extracted code uses: `alloc () v`, `read r () ()`, `write r v` |
 | `pulse_Lib_Dv.ml` | `unreachable () = Stdlib.failwith "..."` |
 | `main.ml` | CLI entry point: reads JSON from stdin (no args) or a file (one arg), calls `Z3PulseProofCheckerJson.check_proof_json`, prints `ACCEPT`/`REJECT`, exits `0`/`1`/`2` |
 
-**Known limitation**: `Prims.int` is a native 63-bit OCaml `int`, not an
-arbitrary-precision bignum (unlike F*'s own `fstar.cmxa`, which uses
-Zarith). This was a deliberate, necessary choice — the extracted code
-applies native `+`/`-`/`*` operators directly to `Prims.int`-typed values,
-which only type-checks if `Prims.int` really is OCaml's `int` — and is
-harmless for this checker's actual inputs (proof-node/sort/decl counts,
-small bit-vector widths), but would need revisiting (e.g. `Zarith.t`) if
-ever applied to genuinely huge integers or wide (>63-bit) bit-vectors.
+**Exact integers (2026-10-15):** `Prims.int` is now Zarith `Z.t`, not the
+previous 63-bit shim. Extracted modules open `Prims`, allowing its exact
+operators to shadow OCaml's machine-integer operators without editing
+generated code. Arbitrary-size decoded references and arithmetic
+certificates must not wrap. Native character patterns remain a separate
+representation with explicit integer projections. The runtime is still
+handwritten, not formally verified; huge values remain subject to resource
+limits. See [the arithmetic integration report](ARITHMETIC_CERTIFICATE_REPORT.md)
+for the semantic bridge, certificate checks, and measured coverage.
 
 ## Build pipeline (`fstar/tools/build_ocaml_checker.ps1`)
 
@@ -118,8 +125,9 @@ header comment):
    (`ocaml_runtime/*.ml`) and the extracted `.ml` files into a WSL build
    directory, and compiles everything — shim files first, then the
    extracted modules in dependency order, then `main.ml` — into one native
-   executable with `ocamlfind ocamlopt <all files in order> -o checker`.
-   No opam packages beyond the compiler itself are required.
+   executable with
+   `ocamlfind ocamlopt -package zarith -linkpkg <all files in order> -o checker`.
+   The exact integer runtime requires Zarith in the selected opam switch.
 
 Two non-obvious script bugs were found and fixed while validating this
 script end-to-end from a clean state (deleted `build_cache`/`build_extract`
@@ -192,7 +200,7 @@ The pre-existing `--check` flag (which does still shell out to `fstar.exe`
 per proof) is left unchanged, so both the slow/fully-from-source path and
 the fast/precompiled path remain available for cross-checking.
 
-## Full ground refutations (`--full-proof`)
+## Full refutations (`--full-proof`)
 
 The default, legacy equational-fragment workflow remains unchanged.
 The extractor also supports a separate `resolution-v1` document format
@@ -221,8 +229,11 @@ This allows congruence to consume equalities derived by `mp` or
 `unit-resolution`. It also handles equality paths for `trans*`, checks
 asserted leaves against the declared inputs, tracks hypotheses per
 derivation, and requires a `false` root with no open hypotheses.
-The new path is ground-only: quantified/free-variable expressions are
-rejected rather than silently treated as ground terms.
+The checker supports ground inference and explicit ground/quantified
+definition introductions, with capture-avoiding expansion as described
+below. Quantified conclusions and inputs must be well scoped, including
+the sorts of bound variables. Free variables are rejected. This does
+not add general quantifier instantiation or Skolemization inference.
 
 ### At-most-once DAG checking and indexed caches
 
@@ -329,6 +340,44 @@ semantic equality. Non-Boolean theory atoms remain opaque except for the
 proved reflexive-equality rule. Budget exhaustion means unverified, not
 equivalent; no runtime solver call or additional trust assumption is used.
 
+Boolean `ite` is exported with `op_ite` (Z3's declaration name is `if`).
+Both Boolean classifiers require three Boolean arguments and a Boolean
+result. The verified cut lowers it to `and`/`or`/`not`, reducing constant
+conditions or branches directly before normalization. The semantic bridge
+uses an explicit standard `ite_sound` interpretation contract; non-Boolean
+branches and uninterpreted lookalikes remain opaque to this Boolean engine. Depth/atom budgets
+are unchanged. With this support, `cvc\read5.smt2` changes from `PARTIAL 1`
+to `ACCEPT`: all 12 rewrite leaves are discharged, including its nested
+Boolean ITE chain, under the same default trusted-definition policy.
+
+`Z3ArrayRewrite.fst` adds a separate, fuel-64 contextual equality checker:
+
+- `store(store(a, i, v), i, w) = store(a, i, w)`;
+- `store(a, i, select(a, i)) = a`;
+- `select(store(a, i, v), i) = v`;
+- `select(store(a, i, v), j) = if(i = j, v, select(a, j))`.
+
+These identities compose inside applications, nested stores/selects, array
+equalities, and negations. Equality operands may be reversed. Typed ITEs
+with scalar or array branches support constant/reflexive conditions,
+identical branches, and branches independently proved equal to the same
+target. `lemma_equivalent_sound` proves semantic equality by induction
+over the recursion budget and argument lists, reusing `Z3ArrayTheory`'s
+store/select proofs. The additional `term_ite_sound` model contract is
+standard branch-selection semantics, not an assumption that the proposed
+rewrite is valid. Select/store matching retains `Z3ArrayLemma`'s flat,
+single-index, non-Boolean scalar index/element fragment and exact
+declaration, operator-tag, and sort checks. Distinct index names are not
+assumed unequal; fresh names are not assumed to denote their definitions.
+Unsupported instances and budget exhaustion remain obligations.
+
+The full-proof exporter also preserves exact integer, rational, and
+bitvector numeral identities as opaque declarations. Previously, distinct
+numerals could decode to identical declarations (e.g. both named `Int`),
+which contextual ITE branch checking exposed. Their exact printed values
+and numeral-kind parameters now distinguish them; this adds no arithmetic
+reasoning or numeral-value interpretation.
+
 These rewrite checks apply to ordinary equality or Boolean observational
 equivalence without changing either relation. Other rewrites remain
 obligations; Python-side classifications are diagnostic mirrors, not the
@@ -343,8 +392,9 @@ gave 57 `ACCEPT` results and one timeout; that last proof (`QF_UF_015`,
 Sokoban) reported `ACCEPT` in 70.1 seconds with a 120-second limit.
 The other 42 sampled
 files did not previously produce exported proofs and are not counted as
-checked successes. These results remain relative to the default def-axiom
-trust policy, not independent validation of those definitions.
+checked successes. These historical results used the then-default def-axiom
+trust policy, not independent validation of those definitions. See the
+checked-policy recalibration below for current results.
 
 #### Fresh QF_UF/QF_AX evaluation (2026-10-14)
 
@@ -369,7 +419,7 @@ The 56 accepted QF_UF proofs contained 1,350,973 DAG nodes and no pending
 obligations. The 84 validated QF_AX derivations contained 285,459 nodes
 and 8,055 pending obligations: 8,031 `th-lemma` and 24 unsupported rewrites.
 These counts cover only `ACCEPT`/`PARTIAL` results, not timed-out proofs.
-All `ACCEPT` results remain conditional on the default trusted
+These historical `ACCEPT` results were conditional on the then-trusted
 `def-axiom` policy.
 
 For comparison, the previous full-proof evaluation with the same limits
@@ -383,6 +433,96 @@ The rerun took 187.5 seconds. Its manifest, per-file proofs, phase timings,
 checker outputs, source/binary hashes, summary, CSV, and SQLite benchmark
 log are retained locally in
 `C:\smtlib-benchmarks\proof_check_full_20261014_2054\full`.
+
+#### Fresh rerun with array and Boolean ITE checking (2026-10-15)
+
+The same SHA-256-checked, seed-42 sample of 100 files per logic was
+rerun end-to-end after the array and Boolean ITE changes, with unchanged
+32-worker, 10-second proving, 60-second export, and 10-second checking
+limits. Native protocol counts are authoritative; Python obligation
+predictions are retained only as diagnostics.
+
+| Logic | Proved UNSAT | Exported | ACCEPT | PARTIAL | Checker timeout | Not checked |
+|---|---:|---:|---:|---:|---:|---:|
+| QF_UF | 93 | 57 | 56 | 0 | 1 | 43 |
+| QF_AX | 100 | 99 | 71 | 12 | 16 | 1 |
+
+There were no checker rejects, errors, or diagnostic count mismatches.
+QF_UF again had seven proving and 36 export timeouts; QF_AX had one
+export timeout. The QF_UF checker timeout remains `QF_UF_094`.
+The 83 validated QF_AX derivations contain 252,305 DAG nodes, with
+7,782 array theory lemma instances discharged and 24 remaining rewrite
+obligations across the 12 partial proofs. Accepted QF_UF proofs contain
+1,350,973 nodes and no obligations. Acceptance remains relative to the
+unchanged default trusted-definition policy.
+
+The sample does not include `cvc\read5.smt2`; its separately demonstrated
+Boolean ITE improvement is therefore not measured by these counts.
+The earlier array-only paired recheck's 70 QF_AX acceptances and this
+run's 71 should not be interpreted as a controlled ITE-only gain:
+this is fresh proof generation/export, and timeout sets vary.
+
+The run took 189.2 seconds. The 200 per-file outcomes/statistics,
+157 exported proofs, CSV, 200 logged SQLite benchmark runs, original
+manifest, source hashes, working-tree patch, and binary provenance are
+retained in
+`C:\smtlib-benchmarks\proof_check_full_20261015_0345\full`.
+The native binary's SHA-256 is
+`51863acb94708857ff4fbac0a1903c2cb8971288bcba004f383d6e5536a8cda5`.
+
+#### Contextual array rewrite evaluation (2026-10-15)
+
+The frozen binary above and the new binary were run on the **same 157
+byte-identical exported certificates** from the preceding sample, with
+32 workers and a 10-second checking deadline. No proof rewriting,
+re-export, or trusted-definition policy change was involved.
+
+| Logic | Before ACCEPT / PARTIAL | After ACCEPT / PARTIAL | Remaining obligations before / after | Checker timeouts, both |
+|---|---:|---:|---:|---:|
+| QF_UF | 56 / 0 | 56 / 0 | 0 / 0 | 1 |
+| QF_AX | 70 / 12 | 79 / 3 | 24 / 3 | 17 |
+
+Thus **21 of the 24 outstanding rewrite obligations (87.5%)** were
+discharged, making nine previously partial proofs fully accepted under
+the existing trust policy. There were no accepted-proof regressions,
+rejects, or errors. The paired run's timeout set differs slightly from
+the preceding fresh run; coverage comparisons above use only the paired
+results, not the earlier 71-acceptance figure. Across the same 82
+validated QF_AX certificates, summed process wall times were 110.04 s
+before and 110.41 s after (about +0.34% in this single measurement);
+QF_UF was 57.76 s versus 57.70 s. These concurrent process-time sums
+are not end-to-end elapsed times or a statistically established speedup.
+
+A fresh generation/export/check run on the same SHA-256-verified
+100+100-file manifest, with the same 32-worker, 10/60/10-second limits,
+gave:
+
+| Logic | Proved UNSAT | Exported | ACCEPT | PARTIAL | Checker timeout | Not checked |
+|---|---:|---:|---:|---:|---:|---:|
+| QF_UF | 93 | 57 | 56 | 0 | 1 | 43 |
+| QF_AX | 100 | 99 | 79 | 3 | 17 | 1 |
+
+It took 189.9 seconds, with no rejects, errors, or diagnostic count
+mismatches. The 82 validated QF_AX derivations contain 221,215 DAG nodes,
+including 7,575 checked array-theory lemma instances and three remaining
+rewrite obligations. Two (`QF_AX_022`, `QF_AX_041`) introduce `k!0`
+without a checked definition witness; the third (`QF_AX_085`) needs
+stronger guarded-ITE reasoning. They correctly remain `PARTIAL`.
+QF_UF again validates 1,350,973 nodes without obligations.
+
+All 47 Python/exporter/native tests pass, including contextual positive
+cases, reversed rewrites/guards, unsupported array sorts, fresh names,
+unjustified distinct indices, wrong values/bases, recursion-budget
+exhaustion, operator spoofing, ill-sorted ITEs, and distinct numerals.
+The native dependency build and the executable Boolean/full-DAG F*
+regression modules discharge all verification conditions.
+
+Paired results, input hashes, source snapshots, both native binaries, and
+fresh results/proofs/CSV/provenance plus 200 SQLite benchmark records are
+retained under
+`C:\smtlib-benchmarks\proof_check_array_rewrites_20261015_0815`
+(`paired` and `full`). The new native binary's SHA-256 is
+`0cca221826b0ccf2d48d3fe43075290d05cb2d7fc04980ec835a88b3cb904102`.
 
 The ground Boolean rules `mp~` and `iff~` are checked, not trusted.
 Z3's emitted `refl` name is also recognized as reflexivity (the older
@@ -400,10 +540,10 @@ equality premises through that one-way bridge without ever producing `=`.
 The ground observational theory proves observation preservation and derives
 equisatisfiability for this checked subset. It does **not** identify Z3's
 general equivalence modulo naming with same-model Boolean equality:
-naming/Skolemization needs model-extension and freshness witnesses and
-remains an explicit obligation, as do unverified NNF steps. Non-Boolean
-observational equalities and quantified expressions remain outside this
-ground checker.
+naming is handled only through the explicit definition accumulation and
+expansion below, before the observational kernel runs. General
+Skolemization and unverified NNF steps remain obligations. Non-Boolean
+observational equalities remain outside the checked fragment.
 Legacy equational-mode `ACCEPT` still has its original, structural-only
 meaning and must not be mistaken for certification of an UNSAT refutation.
 
@@ -464,8 +604,8 @@ array theory and standard select/store/difference-witness semantics.
 `Z3UnifiedProof.model_sound` includes this explicit `array_model`
 interpretation contract, just as it includes Boolean and arithmetic
 semantics. Matched nodes contribute zero pending obligations; other
-theory leaves retain their original obligation. The default `def-axiom`
-trust policy is unchanged.
+theory leaves retain their original obligation. This array evaluation
+predated the checked `def-axiom` policy described below.
 
 The broader evaluation also exposed a tightly related structural-rule
 gap: `not-or-elim` now accepts a positive literal when the disjunction
@@ -504,7 +644,8 @@ unchanged.
 | UFLIA | 86 | 86 | 0 / 0 | 0 / 0 | 86 / 86 | 0 / 0 |
 | QF_AX | 100 | 99 | 1 / 70 | 81 / 12 | 0 / 0 | 17 / 17 |
 
-All 177 quantified exports are rejected by the ground-only decoder;
+In this historical run, all 177 quantified exports were rejected by the
+then-ground-only decoder;
 they are not counted as verified. Files that did not export are not
 checked. Seven exports failed through Python expression-recursion limits
 (three QF_LIA, four QF_IDL); the other missing exports timed out.
@@ -539,31 +680,240 @@ instances, witness spoofing, and both `not-or-elim` polarities.
 
 ### Definitional axioms and original assertions
 
-`def-axiom` is a trusted, premise-free ordinary Boolean leaf by default;
-it contributes zero pending obligations. This trusts Z3's generated
-definitions, rather than independently proving their validity. The
-soundness theorem retains an explicit truth hypothesis for these leaves.
-Ordinary `asserted` leaves always require exact membership in the document's
-original assertions.
+`def-axiom` is no longer trusted. A premise-free ordinary Boolean leaf
+contributes zero obligations only when its conclusion is independently
+checked: a propositional Tseitin tautology, a guarded term-ITE identity,
+a verified `distinct` expansion clause,
+or a tautology after expanding an accumulated fresh definition witness.
+Other well-formed instances contribute one explicit obligation and yield
+`PARTIAL`, never certified `ACCEPT`. Malformed/non-leaf instances are
+rejected. The obligation-free soundness theorem has no assumption that
+`def-axiom` conclusions are true. The same policy applies to the older
+`{"kind":"trusted","rule":"def-axiom",...}` encoding.
 
-To additionally require each **entire def-axiom conclusion** to match an
-original assertion:
+Only **`asserted` leaves** must match the supplied input assertions.
+Membership is structural, not logical equivalence; generated Tseitin
+clauses need not themselves be inputs. This is checked in every full-proof
+document, with or without:
 
 ```powershell
 python fstar\tools\extract_z3_proof.py problem.smt2 --full-proof --check-original-assertions --fast-check
 wsl -e bash -c '~/z3checker/checker --check-original-assertions proof.json'
 ```
 
-The document field `"check_original_assertions": true` enables the same
-policy; omission or `false` selects default trust. The native CLI flag
-cannot be disabled by document metadata. Strict checking applies even to
-older `{"kind":"trusted","rule":"def-axiom",...}` encodings. It rejects
-typical Tseitin clauses that are generated rather than supplied as input;
-it does not attempt to map those clauses back to parts of assertions.
-Membership is structural, not logical equivalence. The caller must supply
-the actual original assertions; the checker does not authenticate the
-document's input list against an external SMT file. The strict native flag
-rejects legacy equational documents, which have no original-input policy.
+The document field `"check_original_assertions": true` and native CLI flag
+remain compatible, but neither changes the `def-axiom` policy nor adds a
+membership requirement to it. The native flag additionally rejects legacy
+equational documents, which have no original-input policy. A malformed
+metadata field is rejected, and document metadata cannot disable the flag.
+The caller must supply the actual original assertions; the checker does
+not authenticate a JSON input list against an external SMT file.
+
+The source audit followed `mk_clause_def_axiom` and the gate clauses in
+`src\smt\smt_internalizer.cpp:1672-1868`, term ITE clauses at `930-953`,
+distinct expansion at `551-561`, and the weakening/true cases in
+`src\solver\simplifier_solver.cpp:323-332`. The public schemas are
+documented in `src\api\z3_api.h:601-634`.
+`Z3BooleanNormalForm.forced` proves a clause by propagating the assumption
+that all its disjuncts are false; its semantic lemma does not enumerate
+assignments or bound gate arity. A shared Boolean frontier gives consistent
+abstraction at depth three, even when operands occur at different depths.
+One additional level unfolds literal connectives without adding a
+frontier entry per literal of a wide gate.
+Validated operator declarations distinguish built-ins from uninterpreted
+lookalikes. Binary XOR has an explicit `op_xor` tag and standard Boolean
+interpretation contract. Bounded Boolean equivalence remains a fallback
+for formulas within a 128-Boolean-node budget; large unsupported theory
+axioms do not trigger unbounded normal-form work.
+
+The audit also found forms needing more than propositional reasoning.
+Distinct expansion is now checked by the semantic embedding below.
+Remaining unsupported forms include BV `carry`/`xor3` gates
+(`src\smt\theory_bv.cpp:1052-1101`), quasi-macros with fresh else functions
+(`src\ast\macros\quasi_macros.cpp:256-340`), quantified Horn transformations,
+and temporary clauses (`src\smt\smt_context.cpp:3463`). An unsupported
+instance is an obligation, not silently accepted because of its rule tag.
+
+#### Initial checked-policy calibration (2026-10-15, before distinct support)
+
+The paired run rechecked the same 156 successfully exported certificates
+from the existing seed-42, 100-QF_UF/100-QF_AX manifest, without regenerating
+proofs. Both binaries used 32 workers and a 10-second per-proof limit:
+
+| Logic | Policy | ACCEPT | PARTIAL | Checker timeout | Not exported |
+|---|---|---:|---:|---:|---:|
+| QF_UF | Previous trusted axioms | 56 | 0 | 1 | 43 |
+| QF_UF | Independently checked axioms | 54 | 2 | 1 | 43 |
+| QF_AX | Previous trusted axioms | 79 | 3 | 17 | 1 |
+| QF_AX | Independently checked axioms | 79 | 3 | 17 | 1 |
+
+There were no rejects or checker errors. The two formerly accepted UF
+proofs (`QF_UF_001`, `QF_UF_015`) now correctly retain a `distinct`
+expansion obligation rather than relying on the rule's name. The existing
+UF timeout is `QF_UF_094`. The three AX obligations are the previously
+documented unsupported rewrites, not new axiom obligations.
+
+A separate axiom-only calibration retained all 11,416 `def-axiom` leaves
+from all 156 exports, pruned unused expressions, and appended an asserted
+false root solely to exercise every leaf through the native document
+checker. This is an axiom-coverage measurement, **not** an additional set
+of certified input refutations. It checked 11,413 leaves, with three
+explicit obligations and no timeouts, rejects, or errors. The unsupported
+leaves are the actual `distinct`-to-pairwise-disequality expansions at
+arities 9, 209, and 7 in the three UF certificates above. No `intro-def`
+nodes occur in this corpus; fresh Skolem definition witnesses are
+additionally covered by ground/quantified regressions.
+
+The archived jobs, per-proof outcomes, binary provenance, and pruned
+axiom-only certificates are in
+`C:\smtlib-benchmarks\proof_check_array_rewrites_20261015_0815\defaxiom-policy`.
+The previous/final native SHA-256 hashes are
+`d06d634b447037eeb9a336b1c03efb5d050e9802d4784c095b9e6c8345d86513`
+and `b881a4aeca6db0baf20fb43e2afe8718d117c9d59d9568493f4d1cabcf4070c6`.
+All checker verification conditions, the F* regression module, and the
+56-test Python/exporter/native suite pass. Regressions include wide
+compound Tseitin gates, XOR and Boolean/term ITEs, both Boolean definition
+clause orders, ground and quantified Skolem witnesses, missing guards,
+conflicts/cycles, final input freshness, and exact `asserted` membership
+in both CLI modes.
+
+### Verified n-ary distinct expansion
+
+`Z3BasicExprTheory.fst` defines `distinct_from` and `distinct_values` as
+pairwise inequality over arbitrary semantic values, and proves their
+agreement with the existing executable `all_distinct` for equality types.
+The general predicate is important: array-valued semantic objects contain
+functions and do not have decidable F* equality. No assumption that two
+different syntax nodes denote different values is made.
+
+`Z3DistinctAst.fst` adds typed native declarations, constructors,
+recognizers, and the exact expansion from
+`src\ast\ast.cpp:2584-2602`. Zero or one argument expands to `true`;
+two arguments expand to `not (= a b)`; larger arities expand to the flat
+conjunction of every pair `i < j`, in source order. Arguments must have
+one common sort, including Boolean and array sorts. Repeated arguments
+are allowed and correctly make the corresponding disequality false.
+
+`Z3DistinctEmbed.fst` provides `apply_lemma_distinct`, proves that its
+synthesized expansion has the same denotation as the original operator,
+and derives both generated `def-axiom` clauses:
+
+```text
+(or (not (distinct args...)) expansion)
+(or (distinct args...) (not expansion))
+```
+
+Swapped disjuncts and the binary case's simplified double negation are
+recognized. The proof uses only the standard interpretation contract
+for `distinct`, plus the existing Boolean/equality contracts; it does
+not assume the generated clauses true. `Z3Definitions.tautology` invokes
+these rules before propositional abstraction, so neither the truth-table
+width limit nor the fallback budget limits the operator's arity.
+The checker matches the complete canonical pair list, not arbitrary
+subsets or duplicate/mismatched pairs.
+
+The exporter and JSON decoder use the new native `op_distinct` tag.
+Full declarations, homogeneous argument sorts, arity, and empty integer
+parameters are validated. An uninterpreted lookalike is not promoted
+based only on its name. Older documents with an untagged `distinct`
+declaration need re-exporting with the updated exporter.
+
+The paired evaluation used the same archived proof DAGs and limits as
+above. For five affected certificates, nine operator annotations were
+migrated only after matching actual `Z3_OP_DISTINCT` declarations in the
+checksum-verified original parsed inputs, including their complete sort
+signatures. Ambiguous uninterpreted lookalikes are rejected by the migration;
+all other JSON fields and proof DAG nodes are checked unchanged.
+
+| Logic | Before distinct rules: ACCEPT / PARTIAL / timeout | After: ACCEPT / PARTIAL / timeout |
+|---|---:|---:|
+| QF_UF (57 exports) | 54 / 2 / 1 | 56 / 0 / 1 |
+| QF_AX (99 exports) | 79 / 3 / 17 | 79 / 3 / 17 |
+
+Both newly accepted UF proofs now have zero pending obligations. The
+axiom-only calibration checks **all 11,416 leaves in all 156 exports with
+zero obligations**, including the three previously unsupported `distinct`
+expansions. This does not certify the full proofs that still exceed the
+10-second limit. The remaining three AX obligations are unrelated rewrites.
+There are no new rejects, errors, or axiom-only timeouts.
+
+Jobs, authenticated tag migrations, results, and binary provenance are
+archived at
+`C:\smtlib-benchmarks\proof_check_array_rewrites_20261015_0815\distinct-extension`.
+The previous/final native SHA-256 hashes are
+`b881a4aeca6db0baf20fb43e2afe8718d117c9d59d9568493f4d1cabcf4070c6`
+and `b4b430fe820940b03523f2e8ed017ac8c8a952542f5c08e30f6df141e874b593`.
+All theory/embedding/kernel verification conditions and the executable F*
+regression module pass. The 60-test Python/exporter/native suite includes
+actual generated distinct proofs, an expansion-derived refutation,
+arities 0/1/2/3/9/209, Boolean and array arguments, and rejection or explicit
+obligations for malformed declarations, spoofed operators, wrong polarity,
+and missing/duplicated/substituted pairs.
+
+### Accumulated definition introductions and final freshness
+
+`intro-def` and `apply-def` are checked rules, including their older
+`{"kind":"trusted","rule":...}` encodings. The checker first accumulates
+all explicit definition introductions and supported `def-axiom` definition
+witnesses, checks the DAG using their
+expanded expressions, and **only after checking the closed false root**
+checks that none of the introduced function declarations occurs anywhere
+in any original input assertion. The final pass includes unused input
+assertions, nested terms, and quantifier bodies; it compares entire
+function declarations, not textual names, so genuine overloads remain
+distinct. A failed freshness check returns `REJECT`, even when ordinary
+inference checking completed successfully. This also applies in strict
+original-assertion mode.
+
+`Z3Definitions.fst` supports constant definitions, universally quantified
+function definitions, Boolean naming clauses (including positive-only
+definitions), and the two guarded equalities defining a term ITE.
+The function's arguments must be distinct bound variables covering the
+definition's parameters; parameter permutations and nested binders are
+supported. Equations follow Z3's `expression = name` convention; the
+opposite orientation is also recognized when only that side is an
+eligible defining head. Boolean/ITE definitions may quantify their
+conjuncts separately, as `defined_names.cpp` does.
+
+For `def-axiom`, supported witnesses are defining equations, complete
+Boolean/term-ITE definition pairs, and two separate, complementary
+guarded equalities defining the same fresh term. The pair may be
+universally quantified. A lone guarded equality does not introduce a
+definition or establish an arbitrary axiom. Already-checked tautologies
+are not treated as introductions, so ordinary Tseitin operands do not
+acquire an artificial freshness requirement.
+
+Identical repeated introductions are idempotent. Conflicting definitions,
+recursive dependency cycles, ill-sorted or unbound parameters, invalid
+defining clauses, and introductions with premises are rejected. Forward
+dependencies between acyclic definitions are permitted. All proof entries
+are checked, including introductions outside the root's dependency cone.
+
+The implementation uses capture-avoiding, de-Bruijn-indexed expansion,
+not an additional trusted equality or a runtime solver call. An
+`intro-def` fact must become a checked tautology after expansion;
+`apply-def` must become a checked equality or Boolean observational
+equivalence. Universal closure and guarded ITE equalities have separate
+semantic proofs using standard universal-quantifier/ITE interpretation
+contracts. `check_fresh_inputs` has a proved refinement: whenever it
+succeeds, expansion leaves the complete original assertion list
+syntactically unchanged. Thus the checked transformed derivation is a
+refutation of those same inputs, without assuming definitions true in an
+arbitrary unchanged interpretation.
+
+The native dependency build and executable F* regressions pass, including
+capture avoidance, cycle rejection, and freshness under binders. The
+52-test Python/exporter/native suite passes, with positive ground and
+quantified schemas, actual use of accumulated definitions in a refutation,
+and rejection of a fabricated refutation whose original inputs are
+satisfiable. An additional regression checks actual NNF-generated
+`intro-def` nodes; unrelated arithmetic obligations remain explicit.
+
+This support does not infer missing definitions from premise-free
+`rewrite` leaves: the two
+archived array naming obligations still require explicit definition
+witnesses. General `sk`, `quant-inst`, and other quantified proof rules
+have not been newly verified.
 
 ### Verified binary commutativity
 
@@ -609,13 +959,20 @@ executable to include the latter's end-to-end tests.
 
 ## What this does and does not establish
 
+The semantic theorems are conditional on interpretation contracts, not a
+completed end-to-end SMT-LIB soundness theorem. In particular, the existing
+global `boolean_model` ranges over untyped environments and needs a
+well-sorted-valuation restriction before an inhabitance/model-construction
+theorem is possible. The arithmetic report records this remaining formal
+foundation gap separately from the executable certificate results.
+
 This executable is only as trustworthy as the F*/Pulse verification that
 produced the `.ml` files it links, **plus** the hand-written runtime
 shim's faithfulness to the real `Prims`/`FStar_*`/`Pulse_Lib_*` semantics
 those `.ml` files assume. The shim is small and was validated by (a)
 cross-checking its `ACCEPT`/`REJECT` verdict against genuine `fstar.exe`
-verification on real extracted proofs, and (b) the documented 63-bit
-integer-width limitation. It is not itself a formally verified artifact —
+verification on real extracted proofs, and (b) exact-integer and oversized
+reference regressions against the native checker. It is not itself a formally verified artifact —
 unlike `Z3PulseProofCheckerJson.fst` itself, nothing machine-checks that
 `prims.ml`'s `pow2`/`FStar_UInt.ml`'s bitvector ops/etc. actually satisfy
 the specifications the Pulse-verified code was proved against; this is a
