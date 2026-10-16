@@ -60,6 +60,42 @@ _CONFIGURED = """\
 (get-option :produce-models)
 (exit)
 """
+# An incremental script in the shapes z3test's regressions use (incsat.smt2,
+# t143.smt2, unsatcore.smt2, 3732.smt2): push and pop with counts, scoped
+# declarations, assumptions as a check-sat-assuming list and as Z3's
+# check-sat arguments, reset-assertions, and reset. Queries 1, 2, 3, and 5
+# are unsat; 0 and 4 are sat.
+_INCREMENTAL = """\
+(set-logic QF_UF)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(push)
+(declare-const r Bool)
+(assert (not p))
+(assert (=> q r))
+(check-sat)
+(push 2)
+(assert (not r))
+(check-sat)
+(get-model)
+(pop 2)
+(check-sat-assuming ((not r) (not q)))
+(get-proof)
+(pop)
+(check-sat (not p) (not q))
+(get-proof)
+(reset-assertions)
+(check-sat)
+(assert (not p))
+(reset)
+(declare-const p Bool)
+(assert p)
+(assert (not p))
+(check-sat)
+(get-proof)
+(exit)
+"""
 
 
 def _proof_nodes(proof):
@@ -84,6 +120,14 @@ class _FakeDecl:
 
     def params(self):
         return self._parameters
+
+
+def _z3_available():
+    try:
+        return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
+                              capture_output=True).returncode == 0
+    except OSError:
+        return False
 
 
 class TestProofCertificate(unittest.TestCase):
@@ -113,12 +157,13 @@ class TestProofCertificate(unittest.TestCase):
     def test_unsat_certificate_is_explicitly_unverified(self):
         certificate = proof_certificate.export_certificate(_CONTRADICTION)
         self.assertEqual(certificate["format"], "z3-native-proof-dag")
-        self.assertEqual(certificate["format_version"], 1)
+        self.assertEqual(certificate["format_version"], 2)
         self.assertEqual(certificate["z3_version"], z3.get_full_version())
         self.assertEqual(certificate["fragment"], "propositional")
         self.assertEqual(certificate["result"], "unsat")
         self.assertEqual(certificate["verification"], "unverified")
         self.assertEqual(certificate["source_smt2"], _CONTRADICTION)
+        self.assertEqual(certificate["query"], 0)
         self.assertEqual(len(certificate["assertions"]), 2)
         self.assert_well_formed(certificate)
         self.assertEqual(json.loads(json.dumps(certificate)), certificate)
@@ -227,8 +272,7 @@ class TestProofCertificate(unittest.TestCase):
 
     def test_unsupported_commands_are_rejected(self):
         commands = [
-            "(push 1)", "(pop 1)", "(reset)", "(reset-assertions)",
-            "(check-sat-assuming ())", "(get-value (false))", "(eval false)",
+            "(get-value (false))", "(eval false)",
             '(include "other.smt2")', "(minimize 0)", "(define-sort T () Bool)",
             '(set-option :regular-output-channel "output.txt")',
         ]
@@ -292,13 +336,11 @@ class TestProofCertificate(unittest.TestCase):
             ("encoding unicode", "not supported"),
             ("produce-models", "one keyword and one value"),
             ("produce-models true true", "one keyword and one value"),
-            ("produce-models true", "changing the problem after check-sat"),
         ]
         for option, message in cases:
             with self.subTest(option=option):
-                prefix = "(assert false)(check-sat)" if "after check-sat" in message else ""
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
-                    proof_certificate.export_certificate("%s(set-option :%s)(assert false)" % (prefix, option))
+                    proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "one keyword and one value"):
             proof_certificate.export_certificate("(set-option produce-models true)(assert false)")
         # Under smtlib2_compliant Z3's scanner reads -1.0 as the symbol
@@ -320,9 +362,20 @@ class TestProofCertificate(unittest.TestCase):
             ("(get-model)(assert false)", "get-model must occur after check-sat"),
             ("(assert false)(get-unsat-core)", "get-unsat-core must occur after check-sat"),
             ("(assert false)(check-sat-using)", "check-sat-using must name a tactic"),
-            ("(assert false)(check-sat)(check-sat-using smt)", "only one check-sat"),
-            ("(assert false)(check-sat-using smt)(check-sat)", "only one check-sat"),
-            ("(check-sat-using smt)(assert false)", "changing the problem after check-sat"),
+            ("(assert false)(check-sat)(check-sat-using smt)", "has 2 check-sat queries; select one"),
+            ("(assert false)(check-sat-using smt)(check-sat)", "has 2 check-sat queries; select one"),
+            # The snapshot of the only query is empty: the assertion after it
+            # belongs to no query.
+            ("(check-sat-using smt)(assert false)", "sat: no unsat proof"),
+            ("(assert false)(check-sat-assuming false)", "parenthesized list of assumptions"),
+            ("(declare-const p Bool)(assert p)(check-sat-assuming (p) (p))", "parenthesized list of assumptions"),
+            # reset forgets the last result, as in Z3 ("model is not available").
+            ("(assert false)(check-sat)(reset)(get-model)", "get-model must occur after check-sat"),
+            ("(assert false)(push x)", "push takes at most one numeral"),
+            ("(assert false)(pop 2 3)", "pop takes at most one numeral"),
+            ("(assert false)(push)(pop 2)", "pop 2 exceeds the 1 open scope"),
+            ("(assert false)(reset 1)", "reset must have no arguments"),
+            ("(assert false)(reset-assertions 1)", "reset-assertions must have no arguments"),
             ("(assert false)(check-sat-using smt)(get-model a)", "get-model must have no arguments"),
             ("(assert false)(get-info)", "get-info takes one argument"),
             ('(assert false)(echo "a" "b")', "echo takes one argument"),
@@ -354,14 +407,105 @@ class TestProofCertificate(unittest.TestCase):
         suffixes = [
             "(check-sat)(check-sat)", "(get-proof)",
             "(check-sat)(get-proof)(get-proof)",
-            "(check-sat)(assert false)", "(check-sat)(declare-const q Bool)",
-            "(exit)(assert false)", "(check-sat p)",
+            "(exit)(assert false)",
             "(check-sat)(get-proof p)", "(exit now)",
         ]
         for suffix in suffixes:
             with self.subTest(suffix=suffix):
                 with self.assertRaises(proof_certificate.ProofExportError):
                     proof_certificate.export_certificate("(assert false)" + suffix)
+
+    def test_incremental_scripts_certify_one_query(self):
+        # The certificate is about the assertions in scope at one query, with
+        # the query's assumptions; the index is recorded and both cores take it.
+        snapshots = [
+            "(set-logic QF_UF)\n(declare-const p Bool)\n(declare-const q Bool)\n(assert (or p q))\n"
+            "(declare-const r Bool)\n(assert (not p))\n(assert (=> q r))",
+            None, None,
+            "(set-logic QF_UF)\n(declare-const p Bool)\n(declare-const q Bool)\n(assert (or p q))\n"
+            "(assert ( not p ))\n(assert ( not q ))",
+            "(set-logic QF_UF)\n(declare-const p Bool)\n(declare-const q Bool)",
+            "(declare-const p Bool)\n(assert p)\n(assert (not p))",
+        ]
+        snapshots[1] = snapshots[0] + "\n(assert (not r))"
+        snapshots[2] = snapshots[0] + "\n(assert ( not r ))\n(assert ( not q ))"
+        for index, snapshot in enumerate(snapshots):
+            with self.subTest(query=index):
+                self.assertEqual(proof_certificate.query_snapshot(_INCREMENTAL, index), (snapshot, index, 6))
+                if index in (0, 4):
+                    with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
+                        proof_certificate.export_certificate(_INCREMENTAL, index)
+                    continue
+                certificate = proof_certificate.export_certificate(_INCREMENTAL, index)
+                self.assert_well_formed(certificate)
+                self.assertEqual(certificate["query"], index)
+                self.assertEqual(certificate["source_smt2"], _INCREMENTAL)
+                self.assertEqual(certificate["fragment"], "propositional")
+                self.assertEqual(len(certificate["assertions"]), snapshot.count("(assert "))
+        result = self.run_cli("--query", "3", "-", source=_INCREMENTAL)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["query"], 3)
+        # Selecting a query is required when there are several and an error
+        # when it does not exist; a script without any query is query 0 over
+        # its final state.
+        cases = [
+            (None, "has 6 check-sat queries; select one"), (6, "has 6 check-sat queries, so query 6 does not"),
+            (-1, "nonnegative integer"), ("0", "nonnegative integer"), (True, "nonnegative integer"),
+        ]
+        for query, message in cases:
+            with self.subTest(query=query):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    proof_certificate.query_snapshot(_INCREMENTAL, query)
+        self.assertEqual(proof_certificate.query_snapshot("(assert false)"), ("(assert false)", 0, 0))
+        self.assertEqual(proof_certificate.query_snapshot("(assert false)", 0), ("(assert false)", 0, 0))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "has 0 check-sat queries, so query 1"):
+            proof_certificate.query_snapshot("(assert false)", 1)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "has 1 check-sat query, so query 1"):
+            proof_certificate.query_snapshot(_CONTRADICTION, 1)
+        self.assertEqual(proof_certificate.query_snapshot(_CONTRADICTION, 0)[1:], (0, 1))
+        # Declarations are scoped, as in Z3's default: a constant declared
+        # inside a popped scope is unknown afterwards. reset-assertions is
+        # Z3's (cmd_context::reset_assertions), not SMT-LIB's "pop every
+        # scope": the assertions of every scope go, the declarations and the
+        # open scopes stay, and a later pop still drops its scope's
+        # declarations. Z3 answers unsat, unsat, unsat, and "unknown
+        # constant q" to these four scripts.
+        with self.assertRaisesRegex(z3.Z3Exception, "unknown constant q"):
+            proof_certificate.export_certificate("(push)(declare-const q Bool)(assert q)(pop)(assert q)(check-sat)")
+        scoped = ("(declare-const p Bool)(push 1)(declare-const q Bool)(assert q)(reset-assertions)"
+                  "(assert q)(assert (not q))(check-sat)(pop 1)(assert (not p))(assert p)(check-sat)")
+        self.assertEqual(proof_certificate.query_snapshot(scoped, 0),
+                         ("(declare-const p Bool)\n(declare-const q Bool)\n(assert q)\n(assert (not q))", 0, 2))
+        self.assertEqual(proof_certificate.query_snapshot(scoped, 1),
+                         ("(declare-const p Bool)\n(assert (not p))\n(assert p)", 1, 2))
+        for index in (0, 1):
+            self.assert_well_formed(proof_certificate.export_certificate(scoped, index))
+        popped = "(declare-const p Bool)(push)(assert p)(reset-assertions)(pop)(assert (not p))(assert p)(check-sat)"
+        self.assertEqual(proof_certificate.query_snapshot(popped),
+                         ("(declare-const p Bool)\n(assert (not p))\n(assert p)", 0, 1))
+        self.assert_well_formed(proof_certificate.export_certificate(popped))
+        with self.assertRaisesRegex(z3.Z3Exception, "unknown constant q"):
+            proof_certificate.export_certificate("(declare-const p Bool)(push)(declare-const q Bool)(assert p)"
+                                                 "(reset-assertions)(pop)(assert q)(check-sat)")
+        # Z3 still answers get-model after reset-assertions (reset is the one
+        # that forgets the result, see test_query_shapes_are_checked).
+        self.assert_well_formed(proof_certificate.export_certificate(
+            "(assert false)(check-sat)(reset-assertions)(get-model)(get-proof)"))
+        # Assumptions need not be literals: Z3's parser checks them as assertions.
+        assumed = "(declare-const p Bool)(declare-const q Bool)(assert (or p q))(check-sat-assuming ((not (or q p))))"
+        self.assertEqual(proof_certificate.query_snapshot(assumed)[0].splitlines()[-1], "(assert ( not ( or q p ) ))")
+        self.assert_well_formed(proof_certificate.export_certificate(assumed))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
+            proof_certificate.export_certificate("(declare-const p Bool)(assert p)(check-sat-assuming ())")
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_incremental_scripts_certify_one_query_through_the_clause_log(self):
+        certificate = proof_certificate.export_clause_log_certificate(_INCREMENTAL, query=2)
+        self.assertEqual((certificate["query"], certificate["fragment"], len(certificate["assertions"])),
+                         (2, "propositional", 5))
+        result = self.run_cli("--core", "clause-log", "--query", "5", "-", source=_INCREMENTAL)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["query"], 5)
 
     def test_malformed_input_is_rejected(self):
         for source in ["(", ")", "()", "assert false", '(set-info :source "broken)',
@@ -455,8 +599,9 @@ class TestProofCertificate(unittest.TestCase):
     def test_cli_failures_have_no_certificate(self):
         cases = [
             ("(assert true)", "sat:"),
-            ("(check-sat-assuming ())", "unsupported SMT-LIB command"),
+            ("(get-value (false))", "unsupported SMT-LIB command"),
             ("(assert undeclared)", "undeclared"),
+            ("(assert false)(check-sat)(check-sat)", "select one by its zero-based index (--query)"),
         ]
         for source, message in cases:
             with self.subTest(source=source):
@@ -929,14 +1074,6 @@ _UF_NEGATIVE_UNIT_LOG = """\
 (declare-fun rup () Proof)
 (infer rup)
 """
-
-
-def _z3_available():
-    try:
-        return subprocess.run([proof_certificate.default_z3_executable(), "--version"],
-                              capture_output=True).returncode == 0
-    except OSError:
-        return False
 
 
 # The Int twin of _UFLRA, plus a gcd conflict through an application: two

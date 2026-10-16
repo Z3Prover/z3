@@ -54,11 +54,27 @@ The Python entry point is export_certificate(source_smt2).
 Input scope
 -----------
 
-Input is one assertion snapshot, optionally followed by a single check-sat
-or check-sat-using, then get-proof, get-model, get-unsat-core,
-get-assignment, and exit. Declarations, declare-sort with arity 0,
-define-fun, set-logic, set-info, named assertions, and the information
-queries get-info, get-option, and echo are accepted. The certificate is a
+Input is an SMT-LIB script; the certificate is about one check-sat,
+check-sat-using, or check-sat-assuming query of it: the declarations,
+definitions, and assertions in scope at that query, plus the query's
+assumptions (check-sat-assuming's list, or Z3's check-sat with literal
+arguments), each of which becomes one more hypothesis of the theorem. A
+script with one query needs nothing; one with several (incremental scripts
+with push, pop, reset, reset-assertions) names the query by its zero-based
+index (--query N, the query= argument of the Python functions), and the
+certificate records it as "query" so that the reconstructor rebuilds the
+same snapshot from the original script (proof_certificate.query_snapshot).
+push and pop take an optional count, declarations are scoped as in Z3's
+default (a constant declared inside a popped scope is gone with its
+assertions), reset-assertions behaves as in Z3 rather than as SMT-LIB's
+"pop every scope" (it removes every assertion, keeps the declarations and
+the open scopes, and a later pop still drops its scope's declarations),
+and reset clears everything; a script without any query is one query over
+its final state. Queries may be followed by get-proof, get-model, get-unsat-core,
+get-assignment, and the script by exit. Declarations, declare-sort with
+arity 0, define-fun, set-logic, set-info, named assertions, and the
+information queries get-info, get-option, and echo are accepted. The
+certificate is a
 statement about the parsed assertions, checked by Lean, so front matter that
 only configures Z3's output, models, resource limits, or search is ignored:
 the tactic of check-sat-using, the output queries, and the set-option
@@ -73,9 +89,9 @@ changes the scanner and the Int/Real coercions, and rewriter.*) and the
 proof-production and
 preprocessing options the exporter sets itself (sat.smt, solver.proof.*,
 smt.clause_proof, smt.solve_eqs, combined_solver.*) are rejected, as is any
-option not on the allowlist. Queries with assumptions, push/pop, multiple
-queries, commands after a query that change the problem, and other commands
-are rejected rather than ignored.
+option not on the allowlist. A pop beyond the open scopes, a query index the
+script does not have, several queries without an index, define-sort,
+get-value, and other commands are rejected rather than ignored.
 Standard semicolon comments, doubled quotes in strings, and quoted symbols are
 supported. Quoted symbols have no escape mechanism: backslashes are rejected
 and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's
@@ -126,16 +142,18 @@ rejected. Definitions are expanded by Z3's parser.
 Named assertions are retained as formulas, not converted into extra tracking
 assumptions. Declarations unused by the assertions do not affect the fragment.
 
-Bundle format, version 1
+Bundle format, version 2
 -----------------------
 
     format          "z3-native-proof-dag"
-    format_version  1
+    format_version  2
     z3_version      producer's full Z3 version
     fragment        "propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", or "qf_uflia"
     result          "unsat" (the producer's result, not a checked claim)
     verification    "unverified"
     source_smt2     original input text
+    query           zero-based index of the certified check-sat query (0 for a
+                    script with at most one query); version 2 added this field
     declarations    native declaration kind, name, domain, range, parameters
     nodes           native applications: declaration index and argument indices
     assertions      node indices of the parsed assertions, in input order
@@ -204,7 +222,9 @@ arithmetic input by default and rebuilds the log into the same DAG format
 --core auto (the default) uses the legacy proof object for propositional input
 and the clause log otherwise; --core clause-log forces the log for Boolean
 input too, and --core legacy the proof object for QF_UF, QF_LRA, QF_UFLRA,
-QF_LIA, and QF_UFLIA input.
+QF_LIA, and QF_UFLIA input. --query N selects the check-sat query of an
+incremental script (see "Input scope"); both cores solve that query's
+snapshot on its own, non-incrementally.
 --z3 defaults to $Z3_EXE, then build/z3 next to this
 checkout, then z3 on PATH; --timeout bounds the solver run in seconds. The executable runs
 with sat.smt=true and with solve_eqs, propagate_values, elim_unconstrained, and
@@ -830,8 +850,9 @@ propositional fragment.
 Regression coverage includes chained and reversed substitutions, incremental
 assertions, push/pop, query assumptions, context translation, and tracked
 assertions with single or multiple labels. These are checked against explicit
-snapshots of their original active constraints; the exporter still rejects
-incremental SMT-LIB scripts and check-sat-assuming.
+snapshots of their original active constraints; the exporter certifies one
+query of an incremental SMT-LIB script at a time, with the query's
+assumptions as hypotheses (see "Input scope").
 
 Preprocessing-only refutations still need checked evidence connecting them to
 the original assertions. Conversely, a clausal proof after search only proves

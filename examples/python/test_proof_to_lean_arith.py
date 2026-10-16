@@ -519,6 +519,19 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertIn("th-lemma", proof_certificate.export_clause_log_certificate(
             CONFIGURED_INPUTS["strategy-par-or-2"])["rule_counts"])
 
+    def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
+        # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
+        # (push 1), so no index is needed; the unused BitVec constant does
+        # not affect the fragment. The legacy core's proof of this input
+        # rewrites a formula over 17 atoms, which the truth-table proof of
+        # propositional rewrite steps cannot check in time, so the clause log
+        # (a def-axiom and a distinct conflict) is the path for it.
+        from test_proof_to_lean import INCREMENTAL_INPUTS
+        source, query = INCREMENTAL_INPUTS["3632"]
+        certificate, _ = self.check(source)
+        self.assertEqual((certificate["fragment"], certificate["query"], query), ("propositional", 0, 0))
+        self.assertEqual(len(certificate["assertions"]), 2)
+
     def test_implied_equality_distinct_and_unary_minus(self):
         for source in [
             "(declare-const x Real)(declare-const y Real)"

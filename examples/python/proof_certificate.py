@@ -9,7 +9,10 @@
 Two proof sources: the legacy proof object of the smt core and the sat.smt
 clause log, both for every fragment; the integer ones (QF_LIA, QF_UFLIA,
 including div and mod by a numeral and abs) are opt-in on both, since the
-integer solver's cuts are certified by Lean alone.
+integer solver's cuts are certified by Lean alone. An incremental script
+(push, pop, reset, several check-sat queries, assumptions) is certified one
+query at a time: the certificate is about the assertions in scope at the
+selected query (see query_snapshot).
 """
 
 import argparse
@@ -37,6 +40,9 @@ _TOKEN = re.compile(
 _ASSERTION_COMMANDS = {
     "set-logic", "set-info", "declare-sort", "declare-const", "declare-fun", "define-fun", "assert",
 }
+# The queries a certificate can be about; a script may have several (see
+# query_snapshot), and Z3 reads the arguments of check-sat as assumptions.
+_QUERIES = {"check-sat", "check-sat-using", "check-sat-assuming"}
 # Queries that only print: accepted anywhere (one argument), or after the
 # check-sat they report on (no arguments), and dropped like get-proof. The
 # exporter runs its own solver, so they are never answered here.
@@ -187,23 +193,85 @@ def _check_option(tokens):
                                "options are ignored" % tokens[2])
 
 
-def _assertion_commands(source):
-    commands = []
+def _scope_count(tokens):
+    """Return the numeral argument of a push or pop command (1 when absent)."""
+    if len(tokens) == 3:
+        return 1
+    if len(tokens) == 4 and tokens[2].isdigit():
+        return int(tokens[2])
+    raise ProofExportError("%s takes at most one numeral" % tokens[1])
+
+
+def _assumption_commands(tokens):
+    """Return the assumptions of a check-sat query as assert commands.
+
+    check-sat-assuming lists them in parentheses; Z3 also takes them as the
+    arguments of check-sat. The exporter does not restrict them to literals:
+    Z3's parser type-checks each one as an assertion of the snapshot, and the
+    certified theorem states them next to the asserted formulas.
+    """
+    terms = tokens[2:-1]
+    if tokens[1] == "check-sat-assuming":
+        if len(terms) < 2 or terms[0] != "(" or terms[-1] != ")":
+            raise ProofExportError("check-sat-assuming takes a parenthesized list of assumptions")
+        terms = terms[1:-1]
+    commands, start, depth = [], 0, 0
+    for index, token in enumerate(terms):
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+            if depth < 0:
+                # "(check-sat-assuming (p) (q))": the list closed early.
+                raise ProofExportError("check-sat-assuming takes a parenthesized list of assumptions")
+        if depth == 0:
+            commands.append("(assert %s)" % " ".join(terms[start:index + 1]))
+            start = index + 1
+    return commands
+
+
+def query_snapshot(source, query=None):
+    """Return the assertion snapshot of one check-sat query of an SMT-LIB script.
+
+    The result is (commands, index, count): the declarations, definitions,
+    and assertions in scope at the selected query, as SMT-LIB text without
+    the queries, the zero-based index of that query among the script's
+    check-sat, check-sat-using, and check-sat-assuming commands, and the
+    number of such commands. push, pop, reset, and reset-assertions are
+    replayed as Z3 does with its default of scoped declarations: a
+    declaration made inside a popped scope is gone with its assertions,
+    reset-assertions removes every assertion but keeps the declarations and
+    the open scopes (cmd_context::reset_assertions), and reset clears
+    everything. The assumptions
+    of a query are part of its snapshot, so the certified theorem is that
+    the assertions in scope together with the assumptions are contradictory.
+    With query None the script must have at most one query; a script
+    without any is one query over its final state. The certificate records
+    the index, and the reconstructor rebuilds the same snapshot from the
+    original input, so the statement Lean checks is a statement about the
+    selected query, never about the certificate's own copy of it.
+    """
+    if query is not None and (type(query) is not int or query < 0):
+        raise ProofExportError("the query index must be a nonnegative integer")
+    scopes = [[]]
+    snapshot, count = None, 0
     checked, requested_proof, exited = False, False, False
     for tokens, text in _commands(source):
         name = tokens[1]
         if exited:
             raise ProofExportError("commands after exit are not supported")
-        if name in ("check-sat", "check-sat-using"):
-            if checked:
-                raise ProofExportError("only one check-sat query is supported")
-            if name == "check-sat" and tokens != ["(", name, ")"]:
-                raise ProofExportError("check-sat must have no arguments")
+        if name in _QUERIES:
             # The tactic only configures Z3's search; the exporter runs its own
             # solver and Lean checks the result, so it is validated no further.
             if name == "check-sat-using" and len(tokens) < 4:
                 raise ProofExportError("check-sat-using must name a tactic")
-            checked = True
+            if query is None or query == count:
+                commands = [command for scope in scopes for _, command in scope]
+                if name != "check-sat-using":
+                    commands.extend(_assumption_commands(tokens))
+                snapshot = "\n".join(commands)
+            count += 1
+            checked, requested_proof = True, False
         elif name in _RESULT_QUERIES or name == "exit":
             if tokens != ["(", name, ")"]:
                 raise ProofExportError("%s must have no arguments" % name)
@@ -218,19 +286,47 @@ def _assertion_commands(source):
         elif name in _INFORMATION_QUERIES:
             if len(tokens) != 4:
                 raise ProofExportError("%s takes one argument" % name)
-        elif name in _ASSERTION_COMMANDS or name == "set-option":
-            if checked:
-                raise ProofExportError("commands changing the problem after check-sat are not supported")
-            if name == "set-option":
-                _check_option(tokens)
-            elif name == "declare-sort" and tokens[3:] not in ([")"], ["0", ")"]):
+        elif name == "push":
+            scopes.extend([] for _ in range(_scope_count(tokens)))
+        elif name == "pop":
+            depth = _scope_count(tokens)
+            if depth >= len(scopes):
+                raise ProofExportError("pop %d exceeds the %d open scopes" % (depth, len(scopes) - 1))
+            del scopes[len(scopes) - depth:]
+        elif name == "reset":
+            if tokens != ["(", name, ")"]:
+                raise ProofExportError("reset must have no arguments")
+            # Z3 forgets the last result too: get-model after reset fails.
+            scopes, checked, requested_proof = [[]], False, False
+        elif name == "reset-assertions":
+            # As in Z3 (not SMT-LIB's "pop every scope"): the assertions go,
+            # the declarations and the scope stack stay, and a later pop
+            # still drops the declarations of its scope.
+            if tokens != ["(", name, ")"]:
+                raise ProofExportError("reset-assertions must have no arguments")
+            scopes = [[entry for entry in scope if entry[0] != "assert"] for scope in scopes]
+        elif name == "set-option":
+            _check_option(tokens)
+        elif name in _ASSERTION_COMMANDS:
+            if name == "declare-sort" and tokens[3:] not in ([")"], ["0", ")"]):
                 raise ProofExportError("only uninterpreted sorts of arity 0 are supported")
-            else:
-                commands.append(text)
+            scopes[-1].append((name, text))
         else:
             raise ProofExportError("unsupported SMT-LIB command: %s" % name)
-    # Z3's assertion parser ignores queries; validate them before removing them.
-    return "\n".join(commands)
+    if count == 0 and query in (None, 0):
+        # Z3's assertion parser ignores queries; validate them before removing them.
+        return "\n".join(command for scope in scopes for _, command in scope), 0, 0
+    if query is None and count > 1:
+        raise ProofExportError("the script has %d check-sat queries; select one by its zero-based index "
+                               "(--query)" % count)
+    if snapshot is None:
+        raise ProofExportError("the script has %d check-sat %s, so query %d does not exist"
+                               % (count, "query" if count == 1 else "queries", query))
+    return snapshot, (0 if query is None else query), count
+
+
+def _assertion_commands(source, query=None):
+    return query_snapshot(source, query)[0]
 
 
 def _is_numeral(expr):
@@ -448,31 +544,33 @@ def _require_legacy_fragment(assertions, integer=False):
     return fragment
 
 
-def parse_legacy_assertions(source, context, integer=False):
+def parse_legacy_assertions(source, context, integer=False, query=None):
     """Parse the assertion snapshot for the legacy proof object, with its fragment name."""
-    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
+    assertions = z3.parse_smt2_string(_assertion_commands(source, query), ctx=context)
     return assertions, _require_legacy_fragment(assertions, integer)
 
 
-def parse_propositional_assertions(source, context):
+def parse_propositional_assertions(source, context, query=None):
     """Parse a propositional assertion snapshot without running solver search."""
-    assertions, fragment = parse_legacy_assertions(source, context)
+    assertions, fragment = parse_legacy_assertions(source, context, query=query)
     if fragment != "propositional":
         raise ProofExportError("uninterpreted functions are not propositional (fragment %s)" % fragment)
     return assertions
 
 
-def parse_assertions(source, context, integer=False):
+def parse_assertions(source, context, integer=False, query=None):
     """Parse the assertion snapshot and return it with its fragment name.
 
-    The integer fragments (qf_lia, qf_uflia) are opt-in: the integer solver's
+    The snapshot is that of the script's only check-sat query, or of the
+    query selected by its zero-based index (see query_snapshot). The integer
+    fragments (qf_lia, qf_uflia) are opt-in: the integer solver's
     cut steps (and Farkas steps resting on cuts) carry no coefficient
     certificate that the replay can re-derive, so they are certified by Lean
     alone and a consumer accepts them explicitly. The exporter and the
     reconstructor do; a harness that classifies input for other proof
     checkers keeps the previous fragments.
     """
-    assertions = z3.parse_smt2_string(_assertion_commands(source), ctx=context)
+    assertions = z3.parse_smt2_string(_assertion_commands(source, query), ctx=context)
     fragment = classify_fragment(assertions)
     if fragment in _INTEGER_FRAGMENTS and not integer:
         raise ProofExportError("integer arithmetic (%s) is certified through the clause log and Lean alone; "
@@ -694,7 +792,7 @@ class DagBuilder:
             self._expression_nodes[expr.get_id()] = self.node(declaration, arguments)
         return self._expression_nodes[root.get_id()]
 
-    def certificate(self, source, fragment, assertions, root, compact=False):
+    def certificate(self, source, fragment, assertions, root, compact=False, query=0):
         nodes, declarations, counts = self.nodes, self.declarations, self.rule_counts
         if compact:
             needed, pending = set(), list(assertions) + [root]
@@ -716,12 +814,13 @@ class DagBuilder:
                              if declarations[node["declaration"]]["range"] == "Proof")
         return {
             "format": "z3-native-proof-dag",
-            "format_version": 1,
+            "format_version": 2,
             "z3_version": z3.get_full_version(),
             "fragment": fragment,
             "result": "unsat",
             "verification": "unverified",
             "source_smt2": source,
+            "query": query,
             "declarations": declarations,
             "nodes": nodes,
             "assertions": list(assertions),
@@ -875,7 +974,7 @@ def bound_combination_refutes(constraints):
     return False
 
 
-def _certificate_from_proof(source, assertions, proof):
+def _certificate_from_proof(source, assertions, proof, query=0):
     if (not z3.is_app(proof) or z3.is_bool(proof) or proof.num_args() == 0
             or not z3.is_false(proof.arg(proof.num_args() - 1))):
         raise ProofExportError("the native proof does not conclude false")
@@ -883,28 +982,32 @@ def _certificate_from_proof(source, assertions, proof):
     certificate = _encode_proof(assertions, proof, fragment in _INTEGER_FRAGMENTS)
     certificate.update({
         "format": "z3-native-proof-dag",
-        "format_version": 1,
+        "format_version": 2,
         "z3_version": z3.get_full_version(),
         "fragment": fragment,
         "result": "unsat",
         "verification": "unverified",
         "source_smt2": source,
+        "query": query,
     })
     return certificate
 
 
-def export_certificate(source):
+def export_certificate(source, query=None):
     """Return a native proof bundle, not an independently verified verdict.
 
-    The source is one SMT-LIB assertion snapshot with an optional final
-    check-sat/get-proof pair. Unsupported input, sat, and unknown are errors.
+    The source is an SMT-LIB script; the certificate is about the assertion
+    snapshot of its only check-sat query, or of the query selected by its
+    zero-based index (see query_snapshot). Unsupported input, sat, and
+    unknown are errors.
     This is the legacy proof-object path (the smt core, sat.smt=false) and
     supports every fragment; theory_lra's th-lemma steps carry their Farkas
     coefficients as declaration parameters, except over Int, where cuts, the
     div/mod axioms, and lattice conflicts carry none and Lean proves them.
     """
     context = z3.Context(proof=True)
-    assertions, _ = parse_legacy_assertions(source, context, integer=True)
+    assertions, _ = parse_legacy_assertions(source, context, integer=True, query=query)
+    _, index, _ = query_snapshot(source, query)
     solver = z3.Solver(ctx=context)
     # The default solver runs the tactic of the input's logic first (see
     # _NO_PREPROCESSING); its elim-uncnstr pass names unconstrained subterms
@@ -917,7 +1020,7 @@ def export_certificate(source):
         raise ProofExportError("sat: no unsat proof exists")
     if result == z3.unknown:
         raise ProofExportError("unknown: %s" % solver.reason_unknown())
-    return _certificate_from_proof(source, assertions, solver.proof())
+    return _certificate_from_proof(source, assertions, solver.proof(), index)
 
 
 def default_z3_executable():
@@ -932,10 +1035,11 @@ def default_z3_executable():
     return "z3"
 
 
-def export_clause_log_certificate(source, z3_executable=None, timeout=None):
+def export_clause_log_certificate(source, z3_executable=None, timeout=None, query=None):
     """Return a native-style proof bundle built from a sat.smt clause log.
 
-    The z3 executable solves the assertions with sat.smt=true, the frontend's
+    The z3 executable solves the assertions of the selected query (see
+    export_certificate) with sat.smt=true, the frontend's
     tactic preamble bypassed, and preprocessing disabled (_NO_PREPROCESSING),
     logging every assumed, inferred, and deleted clause. The log is rebuilt
     into the proof DAG format: theory hints become th-lemma nodes and
@@ -944,12 +1048,14 @@ def export_clause_log_certificate(source, z3_executable=None, timeout=None):
     """
     import proof_clause_log
     context = z3.Context()
-    assertions, fragment = parse_assertions(source, context, integer=True)
+    assertions, fragment = parse_assertions(source, context, integer=True, query=query)
+    commands, index, _ = query_snapshot(source, query)
     try:
-        text = proof_clause_log.run_clause_log(
-            z3_executable or default_z3_executable(), _assertion_commands(source), timeout)
+        text = proof_clause_log.run_clause_log(z3_executable or default_z3_executable(), commands, timeout)
         text = proof_clause_log.trim_clause_log(z3_executable or default_z3_executable(), text, timeout)
-        return proof_clause_log.build_certificate(source, fragment, assertions, text, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, text, context)
+        certificate["query"] = index
+        return certificate
     except subprocess.TimeoutExpired:
         raise ProofExportError("native proof trimming timed out") from None
     except proof_clause_log.ProofExportError as error:
@@ -966,6 +1072,9 @@ def main():
                              "propositional, clause log otherwise)")
     parser.add_argument("--z3", help="z3 executable for the clause log (default: $Z3_EXE, build/z3, or z3)")
     parser.add_argument("--timeout", type=float, help="seconds allowed for the clause-log solver run")
+    parser.add_argument("--query", type=int,
+                        help="zero-based index of the check-sat query to certify in an incremental script "
+                             "(push, pop, reset, several queries); default: the script's only query")
     args = parser.parse_args()
     try:
         if args.file == "-":
@@ -975,12 +1084,12 @@ def main():
                 source = stream.read()
         core = args.core
         if core == "auto":
-            _, fragment = parse_assertions(source, z3.Context(), integer=True)
+            _, fragment = parse_assertions(source, z3.Context(), integer=True, query=args.query)
             core = "legacy" if fragment == "propositional" else "clause-log"
         if core == "legacy":
-            certificate = export_certificate(source)
+            certificate = export_certificate(source, args.query)
         else:
-            certificate = export_clause_log_certificate(source, args.z3, args.timeout)
+            certificate = export_clause_log_certificate(source, args.z3, args.timeout, args.query)
         json.dump(certificate, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     except (ProofExportError, z3.Z3Exception, OSError, UnicodeError) as error:

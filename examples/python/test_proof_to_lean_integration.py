@@ -22,7 +22,7 @@ import proof_certificate
 import proof_preprocessing
 import proof_to_lean
 from test_proof_to_lean import (
-    BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE,
+    BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
     STRUCTURAL, NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
 )
 
@@ -70,6 +70,27 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 self.assertEqual(certificate["source_smt2"], source)
                 text = self.check(source, certificate)
                 self.assertNotIn("set-option", text.split("theorem unsat", 1)[1])
+
+    def test_incremental_scripts_are_checked_without_axioms(self):
+        # z3test regressions with push/pop, several queries, and assumption
+        # literals, kept verbatim: the theorem is over the assertions in scope
+        # at the selected query (its assumptions included), the Lean file
+        # names the query, and the BitVec constants incsat declares in a later
+        # scope are out of it. (3632, whose only query sits inside a push, is
+        # checked through the clause log in test_proof_to_lean_arith.py: the
+        # legacy core's proof rewrites a formula over 17 atoms, beyond the
+        # truth-table proof of propositional rewrite steps.)
+        expected = {"incsat": ("check-sat 3 of 5", 4), "t143": ("check-sat 2 of 2", 4)}
+        for name, (header, assertions) in expected.items():
+            with self.subTest(name=name):
+                source, query = INCREMENTAL_INPUTS[name]
+                certificate = proof_certificate.export_certificate(source, query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), ("propositional", query))
+                self.assertEqual(certificate["source_smt2"], source)
+                self.assertEqual(len(certificate["assertions"]), assertions)
+                text = self.check(source, certificate)
+                self.assertIn("Certified query: " + header, text)
+                self.assertNotIn("BitVec", text.split("theorem unsat", 1)[1])
 
     def test_documented_boolean_rewrite_example(self):
         source = Z3TEST_LEAN_INPUTS["boolean_rewrite"]

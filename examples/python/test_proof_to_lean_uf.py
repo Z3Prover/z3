@@ -1431,8 +1431,20 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
 class TestUninterpretedLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
 
-    def check(self, source):
-        certificate = proof_certificate.export_clause_log_certificate(source)
+    def test_both_queries_of_an_incremental_input_are_certified(self):
+        # z3test 3732.smt2 asks check-sat and then check-sat-using over the
+        # same assertions; each query is certified on its own.
+        from test_proof_to_lean import INCREMENTAL_INPUTS
+        source, _ = INCREMENTAL_INPUTS["3732"]
+        for query in (0, 1):
+            with self.subTest(query=query):
+                certificate, report = self.check(source, query)
+                self.assertEqual(certificate["query"], query)
+                self.assertEqual(len(certificate["assertions"]), 2)
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def check(self, source, query=None):
+        certificate = proof_certificate.export_clause_log_certificate(source, query=query)
         self.assertEqual(certificate["fragment"], "qf_uf")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"

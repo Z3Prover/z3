@@ -467,7 +467,10 @@ Native checks validate proof conclusions, original assertion leaves, and rewrite
 side conditions. Lean coverage checks complete Boolean refutations, axiom
 dependencies, incremental additions, push/pop, query assumptions, context
 translation, and tracked assertions against explicit original-input snapshots.
-The exporter retains its single-snapshot input restriction.
+The exporter certifies one query of a script at a time: the certificate names
+the query and the reconstructor rebuilds that query's snapshot (scoped
+declarations and assertions plus the query's assumptions) from the original
+script (see the 2026-10-16 note on incremental scripts below).
 
 Preprocessing-only proofs and preprocessing followed by search must both
 preserve the original assertion boundary; checking a SAT proof of an unrelated
@@ -1095,6 +1098,39 @@ validation), `test_proof_to_lean_uflia.py`
 legacy cell remains propositional-only (z3test change), and no integer
 rule name other than the bare `arith` was observed, so `gomory-cut` and
 `gcd-test` labels stay rejected until an input emits them.
+
+**Incremental scripts, one query at a time (2026-10-16).** The frontend
+accepted exactly one `check-sat` and rejected `push`, `pop`, `reset`,
+`reset-assertions`, `check-sat-assuming`, a second query, and any assertion
+after the query; 175 of z3test's 951 `regressions/smt2` files are
+incremental. Now `proof_certificate.query_snapshot(source, query)` replays
+the script with Z3's default scoped declarations (a declaration inside a
+popped scope is gone with its assertions; `reset-assertions` is modelled as
+Z3's `cmd_context::reset_assertions` does it, removing every assertion but
+keeping the declarations and the open scopes, not as SMT-LIB's "pop every
+scope") and returns the
+declarations, definitions, and assertions in scope at the selected query,
+with the query's assumptions (`check-sat-assuming`'s list, or Z3's
+`check-sat` with literal arguments) appended as assertions. A script with
+one query needs no index; several need `--query N` (or `query=` in the
+Python API), and a script without any query is query 0 over its final
+state. Both exporters solve the snapshot non-incrementally and record the
+index as the certificate field `query` (bundle format version 2); the
+reconstructor validates the field, rebuilds the same snapshot from the
+original script, binds the certificate's assertions to it as before, and
+writes the query into the Lean file's header, so the theorem is a
+statement about that query of the script and a certificate pointed at a
+different query is rejected. Verbatim z3test inputs now certified:
+`incsat` (query 2, propositional, BitVec constants in a later scope),
+`t143` (query 1, assumptions through `define-fun`), `3632` (a query inside
+`push 1`), `3732` (both queries, QF_UF), `unsatcore` (both queries,
+QF_UFLIA, an assumption literal). Tests: `test_proof_certificate.py`
+(`_INCREMENTAL`, snapshots, scoping, rejections, CLI), `test_proof_to_lean.py`
+(`INCREMENTAL_INPUTS`, the tampered query index), and the Lean integration
+tests of `test_proof_to_lean_integration.py`, `test_proof_to_lean_uf.py`,
+`test_proof_to_lean_uflia.py`. Still open: `define-sort` (61 of the
+incremental corpus files are rejected for it first) and the
+`global-declarations` option (rejected).
 
 ## Arithmetic proof infrastructure
 

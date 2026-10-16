@@ -563,11 +563,26 @@ class TestIntegerMixedInProcess(unittest.TestCase):
 class TestIntegerMixedLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
 
-    def check(self, source, core="clause-log"):
+    def test_incremental_input_with_an_assumption_is_certified_per_query(self):
+        # z3test unsatcore.smt2: check-sat with the assumption literal
+        # (not bf19), then a plain check-sat; both snapshots are unsat and the
+        # first theorem states the assumption as one more hypothesis.
+        from test_proof_to_lean import INCREMENTAL_INPUTS
+        source, _ = INCREMENTAL_INPUTS["unsatcore"]
+        sizes = {}
+        for query in (0, 1):
+            with self.subTest(query=query):
+                certificate, text = self.check(source, query=query)
+                self.assertEqual(certificate["query"], query)
+                sizes[query] = len(certificate["assertions"])
+                self.assertEqual("Certified query" in text, True)
+        self.assertEqual(sizes, {0: 14, 1: 13})
+
+    def check(self, source, core="clause-log", query=None):
         if core == "clause-log":
-            certificate = proof_certificate.export_clause_log_certificate(source)
+            certificate = proof_certificate.export_clause_log_certificate(source, query=query)
         else:
-            certificate = proof_certificate.export_certificate(source)
+            certificate = proof_certificate.export_certificate(source, query)
         self.assertEqual(certificate["fragment"], "qf_uflia")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"

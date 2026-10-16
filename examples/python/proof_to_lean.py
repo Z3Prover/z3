@@ -29,7 +29,7 @@ import z3
 
 from proof_certificate import (
     ProofExportError, bound_combination_refutes, integer_tightened, is_uninterpreted_sort,
-    linear_combination_refutes, numeral_value, parse_assertions,
+    linear_combination_refutes, numeral_value, parse_assertions, query_snapshot,
 )
 
 
@@ -404,17 +404,19 @@ def _declaration(raw, sorts):
 def _validate_graph(source, certificate):
     _fields(certificate, (
         "format", "format_version", "z3_version", "fragment", "result",
-        "verification", "source_smt2", "declarations", "nodes", "assertions",
+        "verification", "source_smt2", "query", "declarations", "nodes", "assertions",
         "proof", "rule_counts",
     ), "certificate")
     if (certificate["format"] != "z3-native-proof-dag"
             or type(certificate["format_version"]) is not int
-            or certificate["format_version"] != 1
+            or certificate["format_version"] != 2
             or certificate["fragment"] not in _FRAGMENTS
             or certificate["result"] != "unsat"
             or certificate["verification"] != "unverified"
             or type(certificate["z3_version"]) is not str
-            or not certificate["z3_version"]):
+            or not certificate["z3_version"]
+            or type(certificate["query"]) is not int
+            or certificate["query"] < 0):
         raise ReconstructionError("unsupported certificate header")
     if type(certificate["source_smt2"]) is not str or certificate["source_smt2"] != source:
         raise ReconstructionError("certificate source does not match the original input")
@@ -529,9 +531,12 @@ def _sort_name(sort):
     return sort.name()
 
 
-def _bind_input(source, graph, fragment=None):
+def _bind_input(source, graph, fragment=None, query=0):
     """Compare exact structures using hash-consing, not a digest or solver check.
 
+    The input is the assertion snapshot of the certificate's query, rebuilt
+    from the original script (proof_certificate.query_snapshot), so the
+    certificate's copy of the assertions is never trusted.
     Symbols are bound by name, so each name must denote one symbol of the input
     (Z3 accepts overloading by sort; the frontend rejects it and this check is
     repeated here) and the certificate's declaration must carry that symbol's
@@ -539,7 +544,7 @@ def _bind_input(source, graph, fragment=None):
     sorts never compare equal even though Lean renders every sort as _U.
     """
     context = z3.Context(proof=False)
-    original, original_fragment = parse_assertions(source, context, integer=True)
+    original, original_fragment = parse_assertions(source, context, integer=True, query=query)
     if fragment is None:
         fragment = graph.fragment
     if original_fragment != fragment:
@@ -2220,7 +2225,8 @@ def _outline_steps(graph, steps, dependencies, signature):
 def reconstruct(source, certificate):
     """Return Lean source; callers must check it before claiming verification."""
     graph = _validate_graph(source, certificate)
-    terms, tables = _bind_input(source, graph, certificate["fragment"])
+    terms, tables = _bind_input(source, graph, certificate["fragment"], certificate["query"])
+    _, query, queries = query_snapshot(source, certificate["query"])
     # Each symbol table is numbered from zero; a declaration belongs to one table,
     # so the Boolean-valued and term-valued tables can share one index map each.
     indices = {table: {decl: index for index, decl in enumerate(sorted(symbols.values()))}
@@ -2231,6 +2237,11 @@ def reconstruct(source, certificate):
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     namespace = "Z3Proofs.NativeCertificate.p" + digest
     lines = ["import Init", "", "-- Original input SHA-256: " + digest]
+    if queries > 1:
+        # The theorem is about one query of an incremental script: the
+        # assertions in scope at that check-sat, with its assumptions.
+        lines.append("-- Certified query: check-sat %d of %d (zero-based index %d); the assertions below are "
+                     "the ones in scope there, assumptions included." % (query + 1, queries, query))
     for table, label in _TABLE_LABELS.items():
         if table == "numeric_functions":
             label = label % graph.numeric

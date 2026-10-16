@@ -200,6 +200,134 @@ CONFIGURED_INPUTS = {
 ))
 """,
 }
+# Incremental z3test regressions kept verbatim (regressions/smt2; unsatcore
+# without the trailing blanks of two comment lines), with the zero-based
+# index of the unsat query the tests certify: push and pop with scoped
+# declarations, several check-sat queries, Z3's check-sat with assumption
+# literals (defined symbols included), a BitVec constant declared in a scope
+# the certified query does not see, and an unused one.
+INCREMENTAL_INPUTS = {
+    "incsat": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+; test that incremental SAT solver works for QF_BV
+(set-logic QF_BV)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+
+(assert (or p q))
+(check-sat)
+(assert (or (not p) (not q)))
+(check-sat)
+(push)
+(assert p)
+(assert q)
+(check-sat)
+(pop)
+(check-sat)
+
+(declare-const x (_ BitVec 10))
+(declare-const y (_ BitVec 10))
+(declare-const z (_ BitVec 10))
+
+(push)
+(assert (not (= (bvor x y) (bvor y z))))
+(check-sat)
+(pop)""", 2),
+    "t143": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+
+(set-option :produce-models true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(define-fun pOqOr () Bool (or p q r))
+(define-fun np () Bool (not p))
+(define-fun nq () Bool (not q))
+(define-fun nr () Bool (not r))
+(assert pOqOr)
+(check-sat np)
+(assert np)
+(check-sat nq nr)""", 1),
+    "3632": ("""\
+(set-logic QF_BV)
+(set-option :model_validate true)
+(set-option :sat.local_search true)
+(declare-const v0 Bool)
+(declare-const v1 Bool)
+(declare-const v2 Bool)
+(declare-const v4 Bool)
+(declare-const v5 Bool)
+(declare-const v6 Bool)
+(declare-const v7 Bool)
+(declare-const v8 Bool)
+(declare-const v9 Bool)
+(declare-const v10 Bool)
+(declare-const v11 Bool)
+(declare-const v12 Bool)
+(declare-const v13 Bool)
+(declare-const v14 Bool)
+(declare-const v15 Bool)
+(declare-const v16 Bool)
+(declare-const v17 Bool)
+(declare-const bv_20-0 (_ BitVec 20))
+(declare-const v18 Bool)
+(assert (and v16 v5 v17 v4 v1 v15 v16 v9 v18))
+(declare-const v20 Bool)
+(push 1)
+(declare-const v24 Bool)
+(assert (= v14 v9 (=> v18 v24) (and v5 v7 v4 v7 (and v16 v5 v17 v4 v1 v15 v16 v9 v18) v0 v2 v8 v20) (and v7 (distinct v16 v11 v17 v6 v7 v2 v14 v16 v5) v18 v1 v14 v10 v4)))
+;(push 1)
+(check-sat)""", 0),
+    "3732": ("""\
+(declare-sort a)
+(declare-fun b (a a) a)
+(declare-fun c () a)
+(declare-fun d () a)
+(declare-fun e () a)
+(declare-fun f () a)
+(assert (= e d (b e c) f))
+(assert (distinct f (b d c)))
+(check-sat)
+(check-sat-using (then qffd smt))""", 1),
+    "unsatcore": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :produce-unsat-cores true)
+(set-option :produce-models false)
+
+(declare-const start25 Bool)
+(declare-const bf07 Bool)
+(declare-const bf19 Bool)
+(declare-const lt06 Int)
+(declare-const ef08 Int)
+(declare-const ef110 Int)
+
+(declare-fun whileM4 (Int) Int)
+
+(assert start25)
+(assert (=> start25 (distinct lt06 1)))
+(assert (=> start25 (= lt06 (whileM4 0))))
+(assert (=> (not bf07) (= ef08 0)))
+(assert (=> bf07 (= ef08 (whileM4 (+ 0 1)))))
+(assert (=> start25 (not (< (whileM4 0) 1))))
+(assert (=> start25 (= (whileM4 0) ef08)))
+(assert (=> start25 (and (=> bf07 (< 0 1)) (=> (< 0 1) bf07))))
+(assert (=> (not bf19) (= ef110 (+ 0 1))))
+(assert (=> bf19 (= ef110 (whileM4 (+ (+ 0 1) 1)))))
+(assert (=> bf07 (not (< (whileM4 (+ 0 1)) 1))))
+(assert (=> bf07 (= (whileM4 (+ 0 1)) ef110)))
+(assert (=> bf07 (and (=> bf19 (< (+ 0 1) 1)) (=> (< (+ 0 1) 1) bf19))))
+
+; (push)
+(check-sat (not bf19))
+; (pop)
+
+(check-sat)
+""", 0),
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",
@@ -294,9 +422,9 @@ def make_certificate(source, steps):
         certificate["declarations"][certificate["nodes"][node]["declaration"]]["name"]
         for node in proof_nodes))
     certificate.update({
-        "format": "z3-native-proof-dag", "format_version": 1,
+        "format": "z3-native-proof-dag", "format_version": 2,
         "z3_version": z3.get_full_version(), "fragment": "propositional",
-        "result": "unsat", "verification": "unverified", "source_smt2": source,
+        "result": "unsat", "verification": "unverified", "source_smt2": source, "query": 0,
     })
     return certificate
 
@@ -1054,9 +1182,9 @@ class TestProofToLean(unittest.TestCase):
 
     def test_invalid_headers_and_shapes_are_rejected(self):
         mutations = [
-            ("format_version", True), ("format_version", 2), ("result", "sat"),
+            ("format_version", True), ("format_version", 1), ("result", "sat"),
             ("verification", "verified"), ("fragment", "arithmetic"),
-            ("source_smt2", None), ("z3_version", ""),
+            ("source_smt2", None), ("z3_version", ""), ("query", -1), ("query", "0"), ("query", True),
             ("nodes", {}), ("declarations", []), ("assertions", "0"),
             ("proof", True), ("proof", -1), ("rule_counts", {}),
         ]
@@ -1066,6 +1194,23 @@ class TestProofToLean(unittest.TestCase):
                 certificate[field] = value
                 with self.assertRaises(proof_to_lean.ReconstructionError):
                     proof_to_lean.reconstruct(LITERAL, certificate)
+
+    def test_the_certified_query_is_rebuilt_from_the_script(self):
+        # The certificate names the query; the reconstructor rebuilds that
+        # query's snapshot from the original script, so pointing the same
+        # proof at another query (whose assertions differ) or at a query the
+        # script does not have is rejected, and the Lean file names the query.
+        source, query = INCREMENTAL_INPUTS["t143"]
+        certificate = proof_certificate.export_certificate(source, query)
+        self.assertEqual(certificate["query"], 1)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("-- Certified query: check-sat 2 of 2 (zero-based index 1)", text)
+        self.assertNotIn("Certified query", proof_to_lean.reconstruct(LITERAL, self.certificate))
+        for query, error in [(0, proof_to_lean.ReconstructionError), (2, proof_certificate.ProofExportError)]:
+            with self.subTest(query=query):
+                tampered = dict(certificate, query=query)
+                with self.assertRaises(error):
+                    proof_to_lean.reconstruct(source, tampered)
 
     def test_missing_and_unexpected_fields_are_rejected(self):
         for target in ["header", "node", "declaration"]:
