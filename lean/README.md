@@ -104,8 +104,12 @@ explicitly; the producer's `unsat` label is never enough.
 
 The generated theorem derives `False` from the encoded original assertions using
 Lean core proof terms, without any axioms or `sorry`. Boolean rewrites are checked
-by exhaustive cases and kernel reduction, independently of the assertions.
-Structural rules use direct logical proof terms, without truth tables.
+independently of the assertions by a direct proof term: truth values propagate
+through the gates of both sides (one typed `have` per step) and, where that does
+not settle a side, the term splits on an atom with `Decidable.em`; the exhaustive
+truth table over the atoms is only the fallback for an equivalence the prover
+cannot settle. Structural rules use direct logical proof terms, without truth
+tables.
 Condensed transitivity (`trans*`) follows equivalence paths through its supplied
 premises, including reversed and redundant edges, and composes the result with
 `Iff.symm` and `Iff.trans`. It rejects disconnected endpoints and preserves the
@@ -124,8 +128,9 @@ gate clauses, and learned clauses are eliminated constructively from the
 refutation, so they do not become extra theorem hypotheses. Refutations longer
 than 500 steps are split into separately checked `private theorem`s of at most
 500 nested steps each, in every fragment; propositional lemmas receive their
-witnesses as parameters so the split proof stays axiom-free. Large rewrite truth
-tables can exceed Lean's resource limits; failures never publish a proof.
+witnesses as parameters so the split proof stays axiom-free. A rewrite that falls
+back to its truth table can exceed Lean's resource limits; failures never
+publish a proof.
 Parsing and SMT-to-Lean statement translation remain trusted frontend components.
 See [the exporter documentation](../examples/python/README) for the exact scope
 and trust boundary.

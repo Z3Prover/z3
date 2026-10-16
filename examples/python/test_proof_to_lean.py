@@ -720,23 +720,120 @@ class TestProofToLean(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "rewrite requires"):
                     proof_to_lean.reconstruct(source, certificate)
 
-    def test_rewrite_lemmas_share_only_the_needed_atom_cases(self):
+    def test_rewrite_lemmas_take_only_the_decidability_their_proof_uses(self):
+        # A propositional rewrite is a direct proof term: propagation through
+        # the gates plus Decidable.byContradiction and Decidable.em on atoms.
+        # Cancelling a double negation needs p decidable; an implication
+        # rewritten to a clause splits on p (q follows by propagation in
+        # both branches); reordering a conjunction needs nothing; dropping a
+        # double negation whose atom is already known from the conjunction
+        # proposes a Decidable.byContradiction step that is discarded, so
+        # that lemma needs nothing either; the witnesses of q, r, and s,
+        # which no rewrite needs, are never introduced.
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
         source += "(assert (or p q r s))(assert false)"
         certificate = make_certificate(source, [
             ("rewrite", [], "(= (not (not p)) p)"),
             ("rewrite", [], "(= (=> p q) (or q (not p)))"),
+            ("rewrite", [], "(= (and p q r) (and r q p))"),
+            ("rewrite", [], "(= (and p (not (not p))) p)"),
             ("asserted", [], "false"),
         ])
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertEqual(text.count("private theorem rewrite_"), 2)
-        self.assertEqual(text.count("  refute_with_decidable"), 2)
-        self.assertEqual(text.count("cases _d0"), 2)
-        self.assertEqual(text.count("cases _d1"), 1)
-        self.assertNotIn("cases _d2", text)
-        self.assertNotIn("cases _d3", text)
+        self.assertEqual(text.count("private theorem rewrite_"), 4)
+        self.assertEqual(text.count("  exact (Iff.intro (fun (_f1 : "), 4)
+        self.assertNotIn("cases _d", text)
+        self.assertNotIn("of_decide_eq_true", text)
+        self.assertEqual(text.count("  refute_with_decidable"), 1)
+        self.assertEqual(text.count("    [_d0 : Decidable (_atoms 0)]"), 2)
+        self.assertEqual(text.count("Decidable.em (_atoms 0)"), 2)
+        self.assertEqual(text.count("Decidable.byContradiction"), 1)
+        for atom in ("_d1", "_d2", "_d3"):
+            self.assertNotIn(atom, text)
+        for offset in (2, 3):
+            self.assertIn("(@rewrite_%d _atoms)" % (len(certificate["nodes"]) - offset), text)
         statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
         self.assertNotIn("Decidable", statement)
+
+    def test_rewrites_the_prover_cannot_settle_fall_back_to_the_truth_table(self):
+        # An equivalence that does not hold has a satisfying assignment, which
+        # the prover reaches instead of a contradiction; the exhaustive truth
+        # table over every atom is emitted (and Lean rejects it, see
+        # test_lean_rejects_false_rewrites_without_publication). The same
+        # fallback applies when the prover runs out of its step or size
+        # budget on a valid one.
+        source = "(declare-const p Bool)(declare-const q Bool)(assert (or p q))(assert false)"
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (or p q) (and p q))"), ("asserted", [], "false"),
+        ])
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertNotIn("exact (Iff.intro", text)
+        self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
+        self.assertIn("all_goals exact of_decide_eq_true rfl", text)
+        self.assertEqual(text.count("  refute_with_decidable"), 2)
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (and p q) (and q p))"), ("asserted", [], "false"),
+        ])
+        self.assertNotIn("cases _d", proof_to_lean.reconstruct(source, certificate))
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_STEPS", 1):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
+        # Parity (xor-chain reassociation) is settled only by splitting on
+        # every atom, and each split restates the chain's expansion, which
+        # doubles per xor: six atoms stay within the size budget (Lean checks
+        # the 700 KB term in seconds), eight would render over ten megabytes
+        # that Lean rejects on heartbeats only after minutes, so the truth
+        # table is emitted instead and fails fast.
+        for count, direct in ((6, True), (8, False)):
+            with self.subTest(atoms=count):
+                atoms = ["a%d" % index for index in range(count)]
+                left, right = atoms[0], atoms[-1]
+                for atom in atoms[1:]:
+                    left = "(xor %s %s)" % (left, atom)
+                for atom in reversed(atoms[:-1]):
+                    right = "(xor %s %s)" % (atom, right)
+                source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+                source += "(assert (or %s))(assert false)" % " ".join(atoms)
+                certificate = make_certificate(source, [
+                    ("rewrite", [], "(= %s %s)" % (left, right)), ("asserted", [], "false"),
+                ])
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual("exact (Iff.intro" in text, direct)
+                self.assertEqual(text.count("cases _d"), 0 if direct else count)
+                self.assertLess(len(text), 2 * proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+
+    def test_boolean_structures_expand_as_the_lean_rendering_does(self):
+        # xor, Boolean ite, distinct, and and/or of fewer than two arguments
+        # are expanded exactly as _formula_body renders them, so the proof
+        # terms built over the structures type-check against the definitions.
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (or p q r))(assert false)"
+        shapes = ["(xor p q)", "(ite p q r)", "(distinct p q r)", "(and p)",
+                  "(=> p q)", "(= p q)", "(not true)"]
+        certificate = make_certificate(source, [("rewrite", [], "(= %s %s)" % (shape, shape)) for shape in shapes]
+                                       + [("asserted", [], "false")])
+        graph = proof_to_lean._validate_graph(source, certificate)
+        _, tables = proof_to_lean._bind_input(source, graph, "propositional", 0)
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        p, q, r = (("atom", index) for index in range(3))
+        expected = {
+            "(xor p q)": ("or", ("and", p, ("not", q)), ("and", ("not", p), q)),
+            "(ite p q r)": ("or", ("and", p, q), ("and", ("not", p), r)),
+            "(distinct p q r)": ("and", ("not", ("iff", p, q)), ("not", ("iff", p, r)), ("not", ("iff", q, r))),
+            "(and p)": p,
+            "(=> p q)": ("implies", p, q), "(= p q)": ("iff", p, q), "(not true)": ("not", ("true",)),
+        }
+        rewrites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE]
+        for shape, node in zip(shapes, rewrites):
+            with self.subTest(shape=shape):
+                left, right = graph.arguments(graph.conclusion(node))
+                structure = proof_to_lean._boolean_structure(graph, left, atom_indices)
+                self.assertEqual(structure, expected[shape])
+                # The rendering of the structure is the inlined rendering of
+                # the node, up to the parentheses around atoms.
+                inlined = proof_to_lean._inline(graph, left, atom_indices, {})
+                self.assertEqual(proof_to_lean._render_structure(structure).replace("(", "").replace(")", ""),
+                                 inlined.replace("(", "").replace(")", ""))
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"

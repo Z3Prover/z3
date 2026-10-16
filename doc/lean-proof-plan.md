@@ -429,6 +429,7 @@ supported. Two resource cliffs remain, both on the Lean side:
   are structural: identity, and/or flattening, de Morgan, and reordering.
   Prove these schemas directly and keep truth tables only for small rewrites.
   Z3 should also stop emitting identity rewrites from the simplify pass.
+  (Done 2026-10-16: see "Propositional rewrites as direct proof terms" below.)
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
@@ -1131,6 +1132,37 @@ tests of `test_proof_to_lean_integration.py`, `test_proof_to_lean_uf.py`,
 `test_proof_to_lean_uflia.py`. Still open: `define-sort` (61 of the
 incremental corpus files are rejected for it first) and the
 `global-declarations` option (rejected).
+
+**Propositional rewrites as direct proof terms (2026-10-16).** A Boolean
+`rewrite` step was proved by a truth table (a `cases` on every atom's
+decidability witness and `decide` per assignment), exponential in the number
+of atoms: the legacy core's proof of z3test `3632.smt2` flattens conjunctions
+over 13 to 14 atoms and failed on `maxHeartbeats`, so the input was certified
+through the clause log only, and the scaling survey above had listed this
+cliff since 2026-09-25. `proof_to_lean._PropositionalProver` now proves the
+equivalence directly: both sides are read as gates over the atoms (xor, Boolean
+`ite`, and `distinct` expanded exactly as the Lean rendering does), each
+direction assumes one side, propagates truth values through the gates (one
+typed `have` per step, each justified by the immediate operands as the
+def-axiom gate proofs are), and where propagation does not settle the other
+side it splits on an atom with `Decidable.em` until each branch proves the
+side or reaches a contradiction. Double negations are cancelled by
+`Decidable.byContradiction` on atoms only (instance synthesis for a compound
+proposition of 24 atoms fails), so the lemma takes as parameters exactly the
+atoms whose decidability the term uses, the proof stays axiom-free, and the
+refutation keeps eliminating the witnesses constructively. The truth table is
+the fallback for an equivalence the prover cannot settle (a false one, more
+than `_STRUCTURAL_REWRITE_STEPS` steps, or more than
+`_STRUCTURAL_REWRITE_CHARS` rendered characters: each `have` states its full
+proposition, and a parity rewrite over seven atoms renders 2.8 MB that Lean
+rejects on heartbeats only after 25 s, whereas its truth table fails in 4 s),
+and Lean rejects it as before.
+3632 through the legacy core now checks in under a second, axiom-free, as do
+flattening, duplicate removal, de Morgan, implication chains, and
+distributivity over 24 atoms, a Boolean `distinct` over 8, and xor and ite
+nests (`test_wide_boolean_rewrites_are_proved_structurally`). Tests:
+`test_proof_to_lean.py` (needed witnesses, the fallback, the structure
+expansion) and `test_proof_to_lean_integration.py`.
 
 ## Arithmetic proof infrastructure
 

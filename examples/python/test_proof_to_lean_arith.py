@@ -522,10 +522,9 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
     def test_boolean_input_with_a_query_inside_a_scope_through_the_clause_log(self):
         # z3test 3632.smt2 kept verbatim: the only check-sat sits inside
         # (push 1), so no index is needed; the unused BitVec constant does
-        # not affect the fragment. The legacy core's proof of this input
-        # rewrites a formula over 17 atoms, which the truth-table proof of
-        # propositional rewrite steps cannot check in time, so the clause log
-        # (a def-axiom and a distinct conflict) is the path for it.
+        # not affect the fragment. The clause log proves it with a def-axiom
+        # and a distinct conflict (the legacy core's proof, wide rewrites, is
+        # checked in test_proof_to_lean_integration.py).
         from test_proof_to_lean import INCREMENTAL_INPUTS
         source, query = INCREMENTAL_INPUTS["3632"]
         certificate, _ = self.check(source)

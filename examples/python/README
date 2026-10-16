@@ -464,9 +464,11 @@ not-or-elim, hypothesis, and lemma proof nodes.
 It also reconstructs supported Boolean def-axiom clauses.
 mp checks its ordered premises and conclusion, accepting implications and
 Boolean equivalences. Each rewrite must conclude an equality or equivalence and
-is checked independently of the input hypotheses: a Boolean rewrite by a Lean
-truth table, a theory rewrite by grind, and a rewrite between two identical
-sides by Iff.refl or Eq.refl in place (see "Uninterpreted functions in Lean").
+is checked independently of the input hypotheses: a Boolean rewrite by a direct
+proof term (truth values propagated through the gates of both sides, then case
+splits on atoms; an exhaustive truth table only as the fallback), a theory
+rewrite by grind, and a rewrite between two identical sides by Iff.refl or
+Eq.refl in place (see "Uninterpreted functions in Lean").
 
 refl, symm, and trans check Boolean equivalence endpoints and compose Lean's
 logical rules. monotonicity checks identical application heads and arities,

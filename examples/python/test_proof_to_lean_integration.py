@@ -75,12 +75,12 @@ class TestProofToLeanIntegration(unittest.TestCase):
         # z3test regressions with push/pop, several queries, and assumption
         # literals, kept verbatim: the theorem is over the assertions in scope
         # at the selected query (its assumptions included), the Lean file
-        # names the query, and the BitVec constants incsat declares in a later
-        # scope are out of it. (3632, whose only query sits inside a push, is
-        # checked through the clause log in test_proof_to_lean_arith.py: the
-        # legacy core's proof rewrites a formula over 17 atoms, beyond the
-        # truth-table proof of propositional rewrite steps.)
-        expected = {"incsat": ("check-sat 3 of 5", 4), "t143": ("check-sat 2 of 2", 4)}
+        # names the query when there are several, and the BitVec constants
+        # incsat declares in a later scope are out of it. The legacy core's
+        # proof of 3632 (whose only query sits inside a push) rewrites
+        # conjunctions and a distinct over 13 to 14 atoms, which the direct
+        # rewrite proofs settle by propagation alone, without truth tables.
+        expected = {"incsat": ("check-sat 3 of 5", 4), "t143": ("check-sat 2 of 2", 4), "3632": (None, 2)}
         for name, (header, assertions) in expected.items():
             with self.subTest(name=name):
                 source, query = INCREMENTAL_INPUTS[name]
@@ -89,7 +89,13 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 self.assertEqual(certificate["source_smt2"], source)
                 self.assertEqual(len(certificate["assertions"]), assertions)
                 text = self.check(source, certificate)
-                self.assertIn("Certified query: " + header, text)
+                if header is None:
+                    self.assertNotIn("Certified query", text)
+                    self.assertGreaterEqual(certificate["rule_counts"]["rewrite"], 8)
+                    self.assertGreaterEqual(text.count("    [_d"), 13)
+                    self.assertNotIn("cases _d", text)
+                else:
+                    self.assertIn("Certified query: " + header, text)
                 self.assertNotIn("BitVec", text.split("theorem unsat", 1)[1])
 
     def test_documented_boolean_rewrite_example(self):
@@ -888,7 +894,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 declaration["kind"], declaration["name"] = z3.Z3_OP_IFF, "iff"
         self.check(source, certificate)
 
-    def test_boolean_rewrite_truth_tables(self):
+    def test_boolean_rewrite_schemas_are_proved_without_truth_tables(self):
         equivalences = [
             ("(not true)", "false"),
             ("(not false)", "true"),
@@ -915,7 +921,45 @@ class TestProofToLeanIntegration(unittest.TestCase):
         source += "(assert (or p q r))(assert false)"
         steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
         steps.append(("asserted", [], "false"))
-        self.check(source, make_certificate(source, steps))
+        text = self.check(source, make_certificate(source, steps))
+        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertNotIn("cases _d", text)
+
+    def test_wide_boolean_rewrites_are_proved_structurally(self):
+        # The schemas Z3's rewriter applies to wide formulas (flattening,
+        # duplicate removal, de Morgan, implication chains, distributivity,
+        # Boolean distinct, xor and ite nests) over 8 to 24 atoms: a truth
+        # table would enumerate millions of cases, the direct proofs are
+        # linear in the formula or split on a handful of atoms. Every lemma
+        # is axiom-free (check prints the axioms of each rewrite theorem).
+        atoms = ["a%d" % index for index in range(24)]
+        nested = atoms[0]
+        for atom in atoms[1:]:
+            nested = "(and %s %s)" % (atom, nested)
+        chain = atoms[23]
+        for atom in reversed(atoms[:23]):
+            chain = "(=> %s %s)" % (atom, chain)
+        equivalences = [
+            (nested, "(and %s)" % " ".join(atoms)),
+            ("(and %s %s)" % (" ".join(atoms), " ".join(reversed(atoms))), "(and %s)" % " ".join(atoms)),
+            ("(not (and %s))" % " ".join(atoms), "(or %s)" % " ".join("(not %s)" % atom for atom in atoms)),
+            ("(not (or %s))" % " ".join(atoms), "(and %s)" % " ".join("(not %s)" % atom for atom in atoms)),
+            (chain, "(or %s %s)" % (" ".join("(not %s)" % atom for atom in atoms[:23]), atoms[23])),
+            ("(or %s)" % " ".join("(and a0 %s)" % atom for atom in atoms[1:]),
+             "(and a0 (or %s))" % " ".join(atoms[1:])),
+            ("(distinct %s)" % " ".join(atoms[:8]), "false"),
+            ("(xor (xor (xor a0 a1) (xor a2 a3)) (xor a4 a5))", "(xor a0 (xor a1 (xor a2 (xor a3 (xor a4 a5)))))"),
+            ("(ite a0 (ite a1 a2 a3) (ite a1 a4 a5))", "(ite a1 (ite a0 a2 a4) (ite a0 a3 a5))"),
+            ("(= (and %s) (or %s))" % (" ".join(atoms[:6]), " ".join(atoms[:6])),
+             "(or (and %s) (not (or %s)))" % (" ".join(atoms[:6]), " ".join(atoms[:6]))),
+        ]
+        source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+        source += "(assert (or %s))(assert false)" % " ".join(atoms)
+        steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
+        steps.append(("asserted", [], "false"))
+        text = self.check(source, make_certificate(source, steps))
+        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertNotIn("cases _d", text)
 
     def test_lean_rejects_false_rewrites_without_publication(self):
         source = "(declare-const p Bool)(declare-const q Bool)(assert p)(assert (not q))"
