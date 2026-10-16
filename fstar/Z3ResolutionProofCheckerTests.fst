@@ -8,8 +8,13 @@ open Z3ObservationalEquality
 open Z3UnifiedProof
 open Z3Commutativity
 open Z3BooleanRewrite
-open Z3ResolutionProofJson
-module Json = Z3ProofJson
+open Z3ProofIndex
+module P = Z3ProofDocument
+
+let checked_consequence (kind:string) (concl:expr) (facts:list expr) : bool =
+  match P.rule_of_name kind, classify_fact concl, opt_map classify_fact facts with
+  | Some r, Some j, Some js -> check_step r j js
+  | _, _, _ -> false
 
 let atom (name:string) : expr =
   App { decl_name = name; domain = []; range = bool_sort;
@@ -24,22 +29,6 @@ let q = atom "q"
 let r = atom "r"
 let disj = App or_decl [p; q]
 let np = mk_not_expr p
-
-let lemma_shared_legacy_proofs_use_cached_results ()
-  : Lemma (
-      let leaf = Json.cached_refl p in
-      let shared = Json.cached_trans leaf leaf in
-      let valid = Json.cached_trans shared shared in
-      let bad = Json.cached_trans leaf (Json.cached_refl q) in
-      let invalid = Json.cached_trans bad bad in
-      valid.result == Some (p, p) /\ invalid.result == None)
-  = assert_norm (
-      let leaf = Json.cached_refl p in
-      let shared = Json.cached_trans leaf leaf in
-      let valid = Json.cached_trans shared shared in
-      let bad = Json.cached_trans leaf (Json.cached_refl q) in
-      let invalid = Json.cached_trans bad bad in
-      valid.result == Some (p, p) /\ invalid.result == None)
 
 let lemma_unit_literal_consequence ()
   : Lemma (rfact (RUnitRes q (Trusted "clause" disj)

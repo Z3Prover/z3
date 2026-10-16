@@ -1,5 +1,138 @@
 # Standalone OCaml proof-checker executable
 
+## Direct native Z3 integration (2026-10-16)
+
+The executable now accepts **SMT-LIB only**:
+
+```powershell
+.\fstar\tools\build_ocaml_checker.ps1 -RunTests
+'(declare-const p Bool)(assert p)(assert (not p))' |
+  wsl -e bash -c '~/z3checker/checker --stats'
+```
+
+`checker [--stats] [--timeout-ms N] [input.smt2]` reads a file or
+stdin, parses/solves using its linked Z3, marshals the original assertions
+and proof directly into algebraic datatypes, and invokes the extracted
+checker. No Python, JSON construction/parsing, subprocess solver, or
+runtime F* invocation is used. The Python exporter, JSON parser/decoders,
+compatibility CLI, exporter tests/harness, and generated F* proof snapshots
+have been removed. Neither JSON input nor the former `--smt2` and
+`--check-original-assertions` switches are supported.
+
+| Component | Responsibility |
+|---|---|
+| `Z3Native.fsti` | Abstract native AST/sort handles and effectful foreign API declarations |
+| `ocaml_runtime/Z3Native.ml` | Mechanical views over the official Z3 OCaml/C API, solver invocation, exact rational decoding, and native ownership |
+| `Z3NativeProof.fst` | Operator tagging, direct algebraic AST construction, memoized worklist traversal, and original proof-parameter marshaling |
+| `Z3ProofIndex.fst` | Shared persistent numeric caches and verified lookup/update property |
+| `Z3ProofDocument.fst` | Transport-independent definition/scoping/input validation and topological checking through `Z3UnifiedProof` |
+| `ocaml_runtime/Z3NativeMain.ml` | Direct CLI and optional phase/node statistics |
+
+The foreign implementation never constructs a checker AST or a checked
+fact. F* code assigns recognized operator tags from actual native operator
+kinds, not user-supplied printed names. Opaque declarations and nominal
+sorts carry native identity in their names to avoid conflating overloaded
+or parameterized symbols. Exact numerals and Z3's original `arith/farkas`
+parameters are preserved; no certificates are reconstructed.
+
+### Sharing and ownership
+
+One conversion state is created per solve/context. Expression caches are
+keyed by native AST ID, sorts by native sort ID, declarations by native
+declaration ID **and application arity**, and proofs by native proof ID.
+Each expression is constructed once and reused by physical reference,
+including sharing between original assertions and proof conclusions.
+Native owners are retained while these caches exist: otherwise Z3 could
+collect a native object and recycle its numeric ID. Caches never span
+independent contexts.
+
+Explicit worklists process dependencies before parents, avoiding recursive
+unfolding of expression/proof DAGs. Proof entries retain premise indices;
+the checker caches each checked fact rather than rechecking shared
+premises. Definition expansion is still a separate checked transformation.
+Kernel equality/rewriting can inspect recursive expression contents;
+this change is not a constant-time-identity optimization of every kernel
+operation.
+
+### Build, status, and trust boundary
+
+The build script uses CMake to build **static `libz3` and the official
+OCaml bindings from this checkout**, then links them with extracted code
+and Zarith into `checker`. The default native library build directory is
+`~/z3-native-ffi-build`; override with `-Z3BuildDir`. `-WslBuildDir` selects
+the executable output directory, and `-CacheDir` can reuse checked F*
+dependencies. WSL needs an OCaml/opam toolchain, Zarith, CMake, Python 3
+for build-time generation, and a C++20 compiler. Neither a preinstalled
+OCaml Z3 package nor Python Z3 bindings are required.
+
+Extraction has a single root, `Z3NativeProof.fst`, and writes to
+`build_extract/native/`. Compilation copies only the explicitly ordered
+live modules, not globbed outputs from earlier JSON builds. The independent
+in-memory Pulse checkers remain available as formal developments but are
+not linked into this executable.
+
+The resulting executable has no dynamic Z3-library dependency; ordinary
+system C/C++/GMP libraries remain dependencies. Direct execution was also
+checked with an empty environment and a `PATH` containing no tools.
+
+| Exit | Direct-mode output | Meaning |
+|---|---|---|
+| 0 | `ACCEPT` | Obligation-free closed false root |
+| 1 | `REJECT` | Unsupported or invalid certificate shape/inference |
+| 2 | `ERROR ...` on stderr, or argument diagnostic | Input/foreign/resource error |
+| 3 | `PARTIAL n` | Valid derivation with explicit pending leaves, not certified UNSAT |
+| 4 | `SAT` | Solver reports satisfiable; no refutation checked |
+| 5 | `UNKNOWN reason` | Solver did not decide, including timeout |
+
+`--timeout-ms` bounds solving only; zero means unlimited. It does not bound
+marshaling/checking or guarantee a process-wide memory/time limit.
+`--stats` writes solve/marshal/check milliseconds and unique expression,
+declaration, and proof-node counts to stderr, without proof artifacts.
+`checker --version` reports the linked producer version.
+
+The native marshaler is type-checked F* using the `ML` effect and foreign
+handles; **no theorem proves correspondence of the foreign API to Z3's
+semantics**. Native ownership, Z3 parsing/API views, OCaml/C bindings,
+extraction/compiler, and the handwritten runtime remain trusted. The
+shared kernel still checks asserted-input membership, all DAG entries,
+definition freshness against unused as well as used inputs, premise
+ordering, hypothesis discharge, and the closed false root. No foreign tag
+can turn unsupported evidence into a checked inference.
+The semantic-contract inhabitance limitation documented in
+[the arithmetic report](ARITHMETIC_CERTIFICATE_REPORT.md) remains:
+this integration is not an unconditional end-to-end SMT-LIB soundness proof.
+
+`-RunTests` covers physical sharing, repeated proof traversal, a 12,000-layer
+native AST, exact large numerals/rationals, authentic Farkas parameters,
+parameterized declaration identity, binders, strict assertions/scopes,
+malformed coefficients, and rejection of unsupported relations.
+`tools/test_native_checker.py` exercises the direct CLI without importing
+Python Z3; it also checks rejection of the removed protocol/options.
+Run it with `Z3_FSTAR_CHECKER` pointing to the built checker:
+
+```powershell
+$env:Z3_FSTAR_CHECKER = '~/z3checker/checker'
+python -m unittest discover -s fstar\tools -p 'test_native_checker.py'
+```
+
+A direct integration pilot also exercised the fixed `_000` input from each
+of the nine archived SMT-LIB logics: four `ACCEPT`, one `PARTIAL`, and four
+`REJECT`, with no process errors. The largest accepted proof had 396,782
+proof entries and 48,294 unique marshaled expressions. This uses the
+current linked Z3 5.3.1, not the historical cross-cut's Python Z3 5.1.
+The rejected arithmetic samples expose non-Boolean observational equality;
+the quantified samples expose proof-binder lambdas. Those are outside the
+existing kernel's supported judgment shapes. Their actual sorts are
+preserved and rejected by typed validation, never coerced into Boolean
+facts or accepted as trusted theory tags. This pilot is an integration
+check, not an updated coverage estimate.
+
+**Historical material follows.** Its older build commands, runtime details,
+and timing claims describe their recorded configurations, not the current
+statically linked binary. References to the exporter, JSON modules, and
+compatibility commands below refer to deleted code and are not runnable
+instructions.
+
 **Latest cross-logic measurements (2026-10-15):**
 [SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reruns 900 inputs
 across nine logics with the checked-definition/`distinct` checker,

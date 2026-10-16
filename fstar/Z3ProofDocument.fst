@@ -1,0 +1,163 @@
+module Z3ProofDocument
+
+open Z3AstTheory
+open Z3ValueTheory
+open Z3ResolutionProofTheory
+open Z3ObservationalEquality
+open Z3UnifiedProof
+open Z3ProofIndex
+module D = Z3Definitions
+module L = FStar.List.Tot
+
+type entry = {
+  rule: rule;
+  formula: expr;
+  premise_ids: list int;
+}
+
+type document = {
+  declarations: list func_decl;
+  expressions: list expr;
+  assertions: list expr;
+  entries: list entry;
+  root: int;
+}
+
+let rule_of_name (name:string) : option rule =
+  if name = "asserted" then Some Asserted
+  else if name = "def-axiom" then Some DefAxiom
+  else if name = "intro-def" then Some DefinitionIntroduction
+  else if name = "apply-def" then Some ApplyDefinition
+  else if name = "hypothesis" then Some Hypothesis
+  else if name = "lemma" then Some LemmaRule
+  else if name = "rewrite" then Some RewriteRule
+  else if name = "refl" || name = "reflexivity" then Some Reflexivity
+  else if name = "symm" then Some Symmetry
+  else if name = "trans" then Some Transitivity
+  else if name = "trans*" then Some TransitivityPath
+  else if name = "monotonicity" then Some Congruence
+  else if name = "commutativity" then Some Commutativity
+  else if name = "mp" then Some ModusPonens
+  else if name = "mp~" then Some ObservationalMP
+  else if name = "iff~" then Some IffObservational
+  else if name = "unit-resolution" then Some UnitResolution
+  else if name = "and-elim" then Some AndElimination
+  else if name = "not-or-elim" then Some NotOrElimination
+  else if name = "iff-true" then Some IffTrue
+  else if name = "iff-false" then Some IffFalse
+  else None
+
+let rec axiom_branches (entries:list entry) : Tot (list expr) (decreases entries) =
+  match entries with
+  | [] -> []
+  | e :: rest ->
+    let branches = axiom_branches rest in
+    if e.rule = DefAxiom && D.axiom_branch e.formula && not (D.tautology 128 e.formula)
+    then e.formula :: branches else branches
+
+let rec collect_definitions (defs:list D.definition) (branches:list expr) (entries:list entry)
+  : Tot (option (list D.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some defs
+  | e :: rest ->
+    if e.rule <> DefinitionIntroduction && e.rule <> DefAxiom
+    then collect_definitions defs branches rest
+    else if Cons? e.premise_ids || not (D.scoped [] e.formula) then None
+    else
+      let candidate = if e.rule = DefinitionIntroduction then D.definition_of e.formula
+                      else D.axiom_definition e.formula branches in
+      match candidate with
+      | None ->
+        if e.rule = DefinitionIntroduction then None else collect_definitions defs branches rest
+      | Some d ->
+        D.add_definition defs d >>= (fun defs' -> collect_definitions defs' branches rest)
+
+let check_entry (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
+                (prev:index_tree checked_fact) (e:entry)
+  : option (checked_fact & nat) =
+  if bound && not (D.scoped [] e.formula) then None else
+  (if defs = [] then Some e.formula else D.expand (L.length defs) defs e.formula) >>= (fun formula ->
+  if bound && not (D.scoped [] formula) then None else
+  classify_fact formula >>= (fun concl ->
+  opt_map (index_find prev) e.premise_ids >>= (fun premises ->
+  check_node_with_inputs strict assertions
+    { kind = e.rule; conclusion = concl; premises = premises })))
+
+let rec check_entries (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
+                      (acc:index_tree checked_fact) (next trusted:nat) (entries:list entry)
+  : Tot (option (index_tree checked_fact & nat)) (decreases entries) =
+  match entries with
+  | [] -> Some (acc, trusted)
+  | e :: rest ->
+    check_entry strict bound defs assertions acc e >>= (fun nt ->
+    check_entries strict bound defs assertions (index_put acc next (fst nt))
+                  (next + 1) (trusted + snd nt) rest)
+
+let rec ground_exprs (exprs:list expr) : Tot bool (decreases exprs) =
+  match exprs with
+  | [] -> true
+  | App f args :: rest ->
+    sorts_match args f.domain && ordinary_facts args && ground_exprs rest
+  | _ -> false
+
+let rec well_formed_exprs (exprs:list expr) : Tot bool (decreases exprs) =
+  match exprs with
+  | [] -> true
+  | App f args :: rest ->
+    sorts_match args f.domain && ordinary_facts args && well_formed_exprs rest
+  | Quantifier k bs s b :: rest ->
+    s = quant_sort k bs (get_sort b) && (k = Lambda_k || get_sort b = bool_sort) &&
+    ordinary_facts [b] && well_formed_exprs rest
+  | Var _ _ :: rest -> well_formed_exprs rest
+
+let rec scoped_assertions (assertions:list expr) : Tot bool (decreases assertions) =
+  match assertions with
+  | [] -> true
+  | a :: rest -> D.scoped [] a && scoped_assertions rest
+
+let rec boolean_domains (dom:list sort) : Tot bool (decreases dom) =
+  match dom with
+  | [] -> true
+  | s :: rest -> s = bool_sort && boolean_domains rest
+
+let logical_decl (f:func_decl) : bool =
+  if f.decl_name = "not" then
+    f.interp = Some op_not && f.domain = [bool_sort] && f.range = bool_sort
+  else if f.decl_name = "and" || f.decl_name = "or" then
+    f.interp = Some (if f.decl_name = "and" then op_and else op_or) &&
+    boolean_domains f.domain && f.range = bool_sort
+  else if f.decl_name = "implies" || f.decl_name = "=>" then
+    f.interp = Some op_implies && f.domain = [bool_sort; bool_sort] && f.range = bool_sort
+  else if f.decl_name = "=" then
+    (match f.domain with
+     | [s; t] -> s = t && f.interp = Some op_eq && f.range = bool_sort
+     | _ -> false)
+  else if f.decl_name = "xor" then f = Z3BooleanRewrite.boolean_xor_decl
+  else if f.decl_name = "distinct" then Z3DistinctAst.distinct_declaration f
+  else if f.decl_name = "~" then f = oeq_decl
+  else if f.interp = Some op_oeq then false
+  else if f.decl_name = "true" || f.decl_name = "false" then
+    f.interp = Some (if f.decl_name = "true" then op_true else op_false) &&
+    f.domain = [] && f.range = bool_sort
+  else true
+
+let rec logical_decls (decls:list func_decl) : Tot bool (decreases decls) =
+  match decls with
+  | [] -> true
+  | d :: rest -> logical_decl d && logical_decls rest
+
+let check_document (doc:document) : option nat =
+  let bound = not (ground_exprs doc.expressions) in
+  if not (logical_decls doc.declarations) ||
+     (bound && not (well_formed_exprs doc.expressions)) ||
+     not (ordinary_facts doc.assertions) ||
+     (bound && not (scoped_assertions doc.assertions)) then None else
+  collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
+  if not (D.acyclic (L.length defs) defs defs) then None else
+  (if defs = [] then Some doc.assertions else D.expand_args (L.length defs) defs doc.assertions) >>= (fun expanded ->
+  opt_map classify_fact expanded >>= (fun inputs ->
+  check_entries true bound defs inputs Empty 0 0 doc.entries >>= (fun result ->
+  index_find (fst result) doc.root >>= (fun node ->
+  if false_judgment node.conclusion && node.hypotheses = [] &&
+     D.check_fresh_inputs defs doc.assertions
+  then Some (snd result) else None)))))
