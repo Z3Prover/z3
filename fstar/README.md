@@ -1,213 +1,52 @@
-# F* Neuro Formal-Verification Audits of Z3 Modules
+# F* Formalization, Source Audits, and Proof Checking
 
-This directory contains a series of independent F* audits that
-formalize and mechanically verify selected rewrite rules of Z3's
-rewriter/converter source files. Each audit defines a self-contained,
-abstract (never Z3-internal-type-dependent) value-level theory for its
-subject area, proves that the corresponding C++ code's symbolic
-rewrite shortcuts are equal to evaluating that theory, and explicitly
-documents what was judged out of scope (and why).
+This directory contains three related activities:
 
-Toolchain used throughout: [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64) with Z3 `4.13.3` as the SMT backend (F*
-pins an exact Z3 version; this is independent of the Z3 binary built
-from this repository). Typecheck any file with:
+| Activity | Purpose | Details and reports |
+|---|---|---|
+| **1. Formalization of SMT theories** | Define abstract, value-level semantics and mechanically prove theory laws in F*. | [Formalization](FORMALIZATION.md) |
+| **2. Neuro-Formal audits of Z3 source code** | Examine selected C++ implementations against the formalized semantics, verify their semantic obligations, and document findings and scope limits. | [Source audits](SOURCE_AUDITS.md) |
+| **3. Proof checking of Z3 proofs** | Build verified checkers that validate proof steps and certificates using the formalized semantics and lemmas. | [Proof checking](PROOF_CHECKING.md) |
 
+The formalization is the shared foundation. **Source audits and proof
+checking are independent activities**: both depend on the formalization,
+but neither depends on the other.
+
+```text
+                 1. SMT theory formalization
+                          /       \
+                         v         v
+              2. Source audits   3. Proof checking
 ```
-C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe <File>.fst
-```
 
-All `.fst` files in this directory type-check and discharge all
-verification conditions. All are free of `admit`/`assume`/axioms,
-except `Z3NlArith.fst`, whose 9 `assume`s are explicitly-labeled
-real-analysis facts about `exp`/`log`/`sin`/`cos`/`atan2` (see
-[`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md)). `Z3Native.fsti` separately
-declares the foreign Z3 API boundary; its implementation is trusted
-native interoperability, not an arithmetic or proof-validity axiom.
+An audit studies the correctness of selected source-code behavior; a
+checker validates an individual proof against supported rules. An audit
+does not replace checking a proof, and checking a proof does not establish
+correctness of the C++ implementation that produced it. The activity pages
+link the relevant modules, reports, coverage results, and limitations.
+For the current single-executable SMT-LIB workflow, see
+[direct native checking](PROOF_CHECKING.md#extraction-and-execution).
 
-## Direct SMT-LIB checking in one executable
+## Shared toolchain
 
-The extracted checker can link statically with this checkout's Z3 and
-official OCaml bindings. `Z3NativeProof.fst` accesses Z3 through
-`Z3Native.fsti`, marshaling native expressions and proof DAGs directly
-into the checker datatypes. There is **no Python exporter, JSON document,
-or external solver process** in this path.
+The documented toolchain is [F*](https://github.com/FStarLang/FStar)
+`v2026.09.27` (Windows x64), with Z3 `4.13.3` as its SMT backend.
+F* pins an exact Z3 version; this is independent of the Z3 binary built
+from this repository or used to produce proofs for checking.
+
+From this directory, typecheck a module with:
 
 ```powershell
-.\tools\build_ocaml_checker.ps1 -RunTests
-'(declare-const p Bool)(assert p)(assert (not p))' |
-  wsl -e bash -c '~/z3checker/checker --stats'
+C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe --include C:\z3\fstar <File>.fst
 ```
 
-Expression/sort caches use native AST identities; declaration caches also
-include application arity. Worklists traverse shared expression/proof DAGs
-without recursively unfolding them, and repeated expressions reuse the
-same allocated algebraic value. Native owners stay alive for the cache's
-lifetime so Z3 cannot recycle cached IDs.
-
-`Z3ProofDocument.fst` is the typed document checker. The Python exporter,
-JSON parser/decoders, and compatibility CLI have been removed; SMT-LIB is
-the only input format. Unsupported leaves remain `PARTIAL`; unsupported judgment shapes
-reject instead of being relabeled or trusted. See
-[the executable report](OCAML_CHECKER_REPORT.md) for build prerequisites,
-exit codes, the foreign-code trust boundary, and remaining formal limits.
-
-## Bounded Boolean equivalence
-
-`Z3BoundedBoolEquiv.fst` operates directly on `Z3AstTheory.expr`.
-Its executable entry point is:
-
-```fstar
-bounded_bool_equiv :
-  depth:nat -> width:nat -> s:Z3AstTheory.expr -> t:Z3AstTheory.expr -> bool
-```
-
-It recognizes constants, n-ary `and`/`or`/`xor`, and unary `not`/binary
-`implies`/Boolean `eq` by `Z3BasicExprTheory.decl_kind_of` tags in
-`func_decl.interp`, not by declaration names. This is the basic-family
-encoding, not the separate `Z3ValueTheory` proof-checker tag encoding.
-The declaration's domain, range, arity, parameters, and argument sorts
-must match a Boolean operation; unrecognized or malformed applications,
-non-Boolean equality, variables, and quantifiers are opaque. Quantifier
-bodies are not traversed. Nonidentical non-Boolean inputs return `false`.
-
-`depth` bounds candidate discovery and connective expansion. First,
-`candidate_nodes` collects the outer structure of each input up to and
-including nodes at that depth, without entering opaque nodes.
-`common_boundaries` intersects these candidates using structural equality.
-Each skeleton then stops at its first shared candidate, before inspecting
-children, regardless of the remaining depth at that occurrence. Thus the
-outermost shared subtrees become common atoms even when they occur at
-different depths. Constants are excluded from boundary discovery and remain
-constants; unmatched nodes at the depth cutoff remain opaque atoms.
-
-For example, with a shared arbitrarily deep `A`, depth 3 abstracts
-`(and (or (and A y) z) y)` and `(and y (or A z))` using just `A`, `y`, and
-`z`, rather than expanding `A` on one side. The internal
-`cut_with_boundaries` function supports any chosen boundary list, and
-`lemma_cut_at_boundary` verifies that a selected node is always atomic.
-
-`width` caps the number of distinct variables in the resulting combined
-frontier, not the number of discovered candidates or internal AST nodes.
-The checker streams at most `2^width` truth-table rows using the same
-assignment for both expressions, stopping at the first disagreement.
-Identical expressions succeed immediately, including when both bounds
-are zero. Discovery is depth-bounded but not breadth-bounded. Structural
-equality itself can inspect deep subtree contents: this recursive AST
-representation has no constant-time node-identity operation.
-
-`lemma_bounded_bool_equiv_sound` proves that `true` implies equal
-`Z3AstTheory.eval` results under any interpretation and variable environment
-satisfying `boolean_semantics`. This supplies the ordinary one-layer
-Boolean evaluation laws and a faithful Boolean representation: the generic
-`Z3AstTheory.interpretation` deliberately leaves operator meanings abstract.
-The contract does not assert equivalence of the inputs or correctness of the
-checker. `boolean_interpretation` constructs a standard Boolean-valued
-interpretation from any fallback interpretation, and
-`lemma_boolean_interpretation_semantics` proves that it satisfies the
-contract. `lemma_bounded_bool_equiv_boolean_sound` consequently needs only
-a successful checker result to prove native evaluation equality for those
-interpretations. All these proofs are free of axioms and admitted obligations.
-
-`false` means equivalence was not established: a width overflow, a depth
-cutoff, or an opaque shared boundary can reject semantically equivalent
-expressions. The outermost-boundary policy deliberately does not expand
-a selected atom to exploit relationships with its descendants. For example,
-`(or A p)` versus `A`, with `A = (or p q)`, is not established after freezing
-`A`: treating `A` and `p` independently loses the implication `p => A`.
-`Z3BoundedBoolEquivTests.fst` checks all connectives, empty n-ary operators,
-shared cutoff expressions, budget exhaustion, negative cases, depths 3-6,
-and a ten-variable/1,024-row comparison, as well as native AST classification,
-opaque theory predicates/quantifiers, malformed applications, and the
-native evaluation theorem. Shared-boundary regressions cover unequal
-occurrence depths, a forty-layer/ten-variable shared subtree abstracted
-to one atom, root-to-descendant matching, nested common candidates,
-discovery bounds, and native evaluation soundness of the resulting
-three-atom comparison. Verify the tests with the command above, adding
-`--include C:\z3\fstar`.
-
-## Audits
-
-| Audit | Report | Theory file(s) | Proof file(s) | Subject |
-|---|---|---|---|---|
-| Prime finite fields | [`FINITE_FIELD_REPORT.md`](FINITE_FIELD_REPORT.md) | [`Z3FiniteFieldTheory.fst`](Z3FiniteFieldTheory.fst) | [`Z3FiniteFieldTheory.fst`](Z3FiniteFieldTheory.fst), [`Z3FiniteFieldSearch.fst`](Z3FiniteFieldSearch.fst) | `ff_decl_plugin`, `ff_rewriter`, `ast/ff/ff_solver`, `math/ff/ff_*`, `theory_ff`, and `tactic/ff/ff_*` (field operations, polynomial/ideal reasoning, substitution and reverse model restoration, Boolean no-wrap injectivity, complete finite assignment enumeration, domain filtering, branch closure, dependency cores, validated results, arrangements, and BV encoding equality verified; identifies the fixed-base probable-prime check for moduli above `2^64` as an explicit soundness trust boundary) |
-| Sequences / regex membership / regex algebra / axiom soundness | [`SEQ_REWRITER_REPORT.md`](SEQ_REWRITER_REPORT.md) | [`Z3SeqTheory.fst`](Z3SeqTheory.fst), [`Z3RegexTheory.fst`](Z3RegexTheory.fst) | [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst), [`Z3SeqDerive.fst`](Z3SeqDerive.fst), [`Z3RegexMembership.fst`](Z3RegexMembership.fst), [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst), [`Z3SeqAxioms.fst`](Z3SeqAxioms.fst), [`Z3SeqIndexOf.fst`](Z3SeqIndexOf.fst), [`Z3StoiTheory.fst`](Z3StoiTheory.fst) | `src/ast/rewriter/seq_rewriter.cpp`, `src/ast/rewriter/seq_derive.cpp`, `src/ast/seq/seq_axioms.cpp` |
-| Sequence nested-`extract` / `indexof` width audit | [`SEQ_REWRITER_EXTRACT_REPORT.md`](SEQ_REWRITER_EXTRACT_REPORT.md) | — (length-only arithmetic model stated directly over `nat`/`int`) | [`Z3SeqRewriterExtract.fst`](Z3SeqRewriterExtract.fst), [`Z3SeqRewriterIndex.fst`](Z3SeqRewriterIndex.fst) | Focused follow-up audit of `seq_rewriter.cpp`'s nested-`extract` flattening rules and `mk_seq_index`'s concrete-string fast path: confirms the `indexofu`/`int` width mismatch as a genuine bug, but refutes the proposed overlong nested-`extract` bug after proving every actual flattening branch sound and showing the cited witness does not reach one |
-| Floating point | [`FPA_REPORT.md`](FPA_REPORT.md) | [`Z3FpaTheory.fst`](Z3FpaTheory.fst), [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | [`Z3FpaRewrites.fst`](Z3FpaRewrites.fst), [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | `src/ast/rewriter/fpa_rewriter.cpp`, `src/ast/fpa/fpa2bv_converter.cpp` |
-| FP rounding (issue/PR audit) | [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) | [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | [`Z3FpaRoundingAudit.fst`](Z3FpaRoundingAudit.fst), [`Z3FpaRoundingBits.fst`](Z3FpaRoundingBits.fst), [`Z3FpaZeroSign.fst`](Z3FpaZeroSign.fst), [`Z3FpaNanCongruence.fst`](Z3FpaNanCongruence.fst), [`Z3FpaNanWrap.fst`](Z3FpaNanWrap.fst), [`Z3FpaToRealSign.fst`](Z3FpaToRealSign.fst) | `mk_to_fp_real`, `mk_to_real`, `theory_fpa::relevant_eh`, and FP/datatype model construction (all tracked issues now closed: #10881/#10931/#9953 via merged PR #10888; #7431 via merged PR #11086; #7842/#10176 via merged PR #11088) |
-| MPF library | [`MPF_REPORT.md`](MPF_REPORT.md) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst), [`Z3MpfRound.fst`](Z3MpfRound.fst), [`Z3MpfExact.fst`](Z3MpfExact.fst) | `src/util/mpf.h`/`mpf.cpp` (arbitrary-precision IEEE-754 library) |
-| `round_to_integral` denormal bug (issue audit) | [`FP_ROUND_TO_INTEGRAL_REPORT.md`](FP_ROUND_TO_INTEGRAL_REPORT.md) | [`Z3MpfRound.fst`](Z3MpfRound.fst) | [`Z3MpfRoundToIntegral.fst`](Z3MpfRoundToIntegral.fst) | `src/util/mpf.cpp`'s `round_to_integral` and `src/ast/fpa/fpa2bv_converter.cpp`'s `mk_round_to_integral` (confirmed and fixed [Z3Prover/z3#11139](https://github.com/Z3Prover/z3/issues/11139): both mis-rounded every nonzero-significand denormal of 2-exponent-bit formats by comparing a denormal's un-renormalized stored exponent directly against the normal-number tie-test constant) |
-| Regex/AST (`rex::info`) | [`REGEX_REPORT.md`](REGEX_REPORT.md) | [`Z3RegexTheory.fst`](Z3RegexTheory.fst), [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) | [`Z3RegexInfo.fst`](Z3RegexInfo.fst) | `src/ast/seq_decl_plugin.cpp`'s `get_info`/`mk_info_rec`/`rex::info` (found and fixed a soundness bug in `info::diff`'s nullable computation) |
-| Non-linear arithmetic (NLA) lemmas | [`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md) | — (lemmas stated directly over `FStar.Real`/`int`) | [`Z3NlArith.fst`](Z3NlArith.fst) | `src/math/lp/nla_basics_lemmas.cpp`, `nla_order_lemmas.cpp`, `nla_monotone_lemmas.cpp`, `nla_tangent_lemmas.cpp`, `nla_powers.cpp`, `nla_divisions.cpp`, `nla_transcendentals.cpp` (47 lemmas verified; 9 rest on explicitly-labeled real-analysis `assume`s. The original power proofs cover shared natural exponents only, not the variable-exponent clauses; see the #11180 correction below.) |
-| Exponentiation soundness audit (#11180) | [`PR_11180_POWER_REPORT.md`](PR_11180_POWER_REPORT.md) | `FStar.Math.Pow`, [`Z3ArithRewriterPower.fst`](Z3ArithRewriterPower.fst) | [`Z3PowerPreprocessing.fst`](Z3PowerPreprocessing.fst), [`Z3PowerSaturation.fst`](Z3PowerSaturation.fst) | Checks preprocessing identities, root bridges and LP clauses against constructive real power; proves counterexamples to both original bounds and soundness of the corrected clauses for all real live exponents. The separate growth clause has an explicit, unconstructed real-analysis certificate; AST traversal and negative-base fractional/algebraic cases are not fully verified. |
-| Bool/arith rewriters | [`BOOL_ARITH_REWRITER_REPORT.md`](BOOL_ARITH_REWRITER_REPORT.md) | — (lemmas stated directly over `bool`/`int`/`FStar.Real`) | [`Z3BoolRewriter.fst`](Z3BoolRewriter.fst), [`Z3ArithRewriter.fst`](Z3ArithRewriter.fst), [`Z3ArithRewriterPower.fst`](Z3ArithRewriterPower.fst), [`Z3ArithRewriterCast.fst`](Z3ArithRewriterCast.fst), [`Z3ArithRewriterOrder.fst`](Z3ArithRewriterOrder.fst) | `src/ast/rewriter/bool_rewriter.cpp`, `src/ast/rewriter/arith_rewriter.cpp` (66 lemmas verified: AND/OR/NOT/ITE/EQ/DISTINCT/XOR/IMPLIES/NAND/NOR/GE2 propositional identities, div/idiv/mod/rem/abs/power/to_int/to_real/is_int arithmetic identities, and lt/gt/eq2ineq/ite-lifting/to_int-comparison-bridging/is_bound/is_separated comparison-operator identities; the arithmetic lemmas are split across 4 files purely because Z3's combined proof search times out, not because of any change in content) |
-| Sequence equation solving (`theory_seq`) | [`SEQ_EQ_SOLVER_REPORT.md`](SEQ_EQ_SOLVER_REPORT.md) | [`Z3SeqTheory.fst`](Z3SeqTheory.fst) | [`Z3SeqEqSolver.fst`](Z3SeqEqSolver.fst) | `src/smt/seq_eq_solver.cpp` (soundness + completeness of `branch_variable_eq`/`find_branch_candidate`'s prefix-guessing case split and `len_based_split`'s length-aligned decomposition; also confirms a historical soundness bug in `propagate_length_coherence`, issue #11013/PR #11015, via a prove-the-fix/disprove-the-bug countermodel) |
-| Bit-vector rewriter (first pass + overflow-predicate follow-up) | [`BV_REWRITER_REPORT.md`](BV_REWRITER_REPORT.md) | [`Z3BvTheory.fst`](Z3BvTheory.fst) | [`Z3BvRewriter.fst`](Z3BvRewriter.fst) | `src/ast/rewriter/bv_rewriter.cpp` (bit-vector semantics built on `FStar.UInt`, reusing its proved bitwise/shift/rotate lemma library; core bitwise/arithmetic/shift/rotate/extract/concat/extend/comparison identities, the `is_zero_extended` signed-vs-unsigned comparison shortcut, and all 10/10 overflow-detection predicates (`mk_bvneg_overflow`, `mk_bvuadd_overflow`, `mk_bvusub_underflow`, the signed-add family, `mk_bvsdiv_overflow`, `mk_bvssub_under_overflow`, the signed/unsigned multiplication-overflow family) proved equivalent to their true arithmetic over/underflow conditions; the heuristic equation/inequality search rewrites and the signed-division/remainder family are deferred to further follow-up passes) |
-| Datatype rewriter | [`DATATYPE_REWRITER_REPORT.md`](DATATYPE_REWRITER_REPORT.md) | [`Z3DatatypeTheory.fst`](Z3DatatypeTheory.fst) | [`Z3DatatypeTheory.fst`](Z3DatatypeTheory.fst) | `src/ast/rewriter/datatype_rewriter.cpp` (free-algebra model of datatype values; full coverage of `mk_app_core`'s recogniser/is/accessor/update-field cases and `mk_eq_core`'s constructor (in)equality — 14/14 reachable rewrite branches proved) |
-| Array rewriter | [`ARRAY_REWRITER_REPORT.md`](ARRAY_REWRITER_REPORT.md) | [`Z3ArrayTheory.fst`](Z3ArrayTheory.fst) | [`Z3ArrayTheory.fst`](Z3ArrayTheory.fst) | `src/ast/rewriter/array_rewriter.cpp` (extensional-array model via `FStar.FunctionalExtensionality`'s restricted-arrow type, whose `==` is already pointwise-quotiented, matching Z3's array extensionality axiom directly; select/store interactions, array eta-reduction, map-distributes-over-select/store/const/lambda, set union/intersect/complement/difference/subset, and `mk_eq_core`'s const/lambda extensionality cases — 23/23 target rewrite families proved; PEQ bookkeeping, `squash_store`'s n-level search, AC-flattening of and/or maps, and the finite-domain `has_index_set` equality-expansion heuristic are deferred as solver-engineering, not new semantic laws) |
-| Other `th_rewriter.cpp` plugins (survey + finite-set rewriter) | [`OTHER_TH_REWRITER_REPORT.md`](OTHER_TH_REWRITER_REPORT.md) | [`Z3FiniteSetTheory.fst`](Z3FiniteSetTheory.fst) | [`Z3FiniteSetTheory.fst`](Z3FiniteSetTheory.fst) | Full plugin-by-plugin survey of `th_rewriter.cpp`'s 12 theory plugins, cross-referencing prior audits (bool/arith/bv/array/datatype/fpa/seq all already covered); newly formalizes `finite_set_rewriter.cpp` (Z3's `set.*` finite-set sort, modeled via extensionally-quotiented `prop`-valued membership predicates — 26/26 target rewrite families proved); reviews `dl_rewriter.cpp`/`char_rewriter.cpp` as trivial bounded-integer comparisons needing no dedicated lemmas; `pb_rewriter.cpp` and `recfun_rewriter.cpp` now also covered, see their own rows below |
-| Pseudo-Boolean rewriter | [`PB_REWRITER_REPORT.md`](PB_REWRITER_REPORT.md) | [`Z3PbTheory.fst`](Z3PbTheory.fst) | [`Z3PbTheory.fst`](Z3PbTheory.fst) | `src/ast/rewriter/pb_rewriter.cpp` (PB constraints `sum(c_i*l_i) >= k` over integer coefficients; negative-coefficient literal flip, trivial-true/trivial-false detection, tight-inequality ⟺ all-literals-true, unit-coefficient ⟺ at-least-one-true, single-term coefficient capping, the all-coefficients-equal-`k` special case, the coefficient-range collapse heuristic, and the gcd-based cutting-plane reduction all proved truth-preserving — 11 top-level theorems; only `mk_app_core`'s general slack-based conjunction/disjunction/recursive construction remains deferred) |
-| Recursive-function rewriter | [`RECFUN_REWRITER_REPORT.md`](RECFUN_REWRITER_REPORT.md) | [`Z3RecfunTheory.fst`](Z3RecfunTheory.fst) | [`Z3RecfunTheory.fst`](Z3RecfunTheory.fst) | `src/ast/rewriter/recfun_rewriter.cpp` (recursive datatype values with a structural size measure; proves `is_decreasing_arg`'s accessor-chain discipline is a sound termination certificate — accessors strictly shrink size, so no infinite accessor-guarded unfolding sequence can exist; the substitution step itself reuses `Z3SimplifierTheory.fst`'s generic substitution-congruence lemma; the `.cpp`'s own AST-traversal decision procedure for recognizing the pattern is deferred) |
-| `ast/simplifiers` preprocessors (first pass) | [`SIMPLIFIERS_REPORT.md`](SIMPLIFIERS_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst) (pre-existing generic AST model) | [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | Formalizes the two recurring semantic primitives underlying most of the 29 `ast/simplifiers/*.cpp` files: quantifier/connective distributivity (`distribute_forall.cpp`, binary + n-ary, both `forall`/`and` and `exists`/`or`) and ground-term substitution congruence (`propagate_values.cpp`, and by the same lemma `solve_eqs.cpp`/`solve_context_eqs.cpp`/`extract_eqs.cpp`'s substitution-application step) — 5/5 target properties proved; documents a file-by-file follow-up queue for the other 27 files (equation-solving search, unconstrained-variable elimination, congruence closure, interval propagation, bit-blasting, model reconstruction, etc.) |
-| `model_reconstruction_trail.cpp` (follow-up) | [`MODEL_RECONSTRUCTION_REPORT.md`](MODEL_RECONSTRUCTION_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | [`Z3ModelReconstructionTheory.fst`](Z3ModelReconstructionTheory.fst) | The cross-cutting model-reconstruction mechanism every other `ast/simplifiers` preprocessor relies on (`replay`/`get_model_converter`): proves that extending a model of the simplified problem, by assigning an eliminated symbol's interpretation from its definition, reconstructs a model of the original, pre-elimination problem — both the arity-0 eliminated-constant case (`lemma_model_reconstruction`) and its arity-`n` generalization to quantifier-free definitions whose occurrences are always ground-applied (`lemma_model_reconstruction_n`, covering `reduce_args_simplifier.cpp`'s Ackermann-style reduction); the ground-substitution entry kind (`is_subst()`) was already covered by `lemma_subst_cong`. Binder-crossing arity-`n` occurrences (De Bruijn shifting under binders), "loose" re-insertion entries, `hide_trail`, and whole-trail composition are deferred |
-| `leibniz_simplifier.cpp` (follow-up) | [`LEIBNIZ_SIMPLIFIER_REPORT.md`](LEIBNIZ_SIMPLIFIER_REPORT.md) | — (standalone pure-FOL file) | [`Z3LeibnizTheory.fst`](Z3LeibnizTheory.fst) | Despite the name, not a congruence rewrite — formalizes the direct first-order universal-instantiation axiom this simplifier *adds* alongside an existing `forall` (`lemma_forall_instantiate`), plus the specific array/set-indicator witness shape it builds for Boolean-ranged unary array sorts (`lemma_leibniz_array_witness`); de Bruijn reindexing bookkeeping and witness-collection heuristics have no independent soundness content and are not planned for further formalization |
-| Proof terms / `rewriter_def.h`'s proof production | [`PROOF_REWRITER_REPORT.md`](PROOF_REWRITER_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst) (terms/semantics) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst) | `src/ast/ast.h`/`ast.cpp` (the `PR_REFLEXIVITY`/`PR_SYMMETRY`/`PR_TRANSITIVITY`/`PR_MONOTONICITY`/`PR_REWRITE` proof-term calculus plus the compound binder-crossing `PR_BIND`+`PR_QUANT_INTRO` shape, and their `mk_reflexivity`/`mk_symmetry`/`mk_transitivity`/`mk_congruence`/`mk_rewrite`/(`mk_bind_proof`+`mk_quant_intro`) smart constructors, including `mk_transitivity`'s double-negation fixup), cross-checked against `src/ast/proofs/proof_checker.cpp`'s `check1_basic` as ground truth, and `src/ast/rewriter/rewriter_def.h` (every proof-term-constructing call site in the generic bottom-up rewriting engine shared by all theory rewriters, quantifier-crossing rewrites included); proves all 7 smart constructors always produce well-formed output plus an overall soundness theorem (well-formed + sound `PR_REWRITE` leaves + `quant_extensional` ⟹ true conclusion, under any interpretation); all non-`rewriter_def.h` proof kinds (`PR_TH_LEMMA`, `PR_HYPER_RESOLVE`, hypothesis/lemma management, etc.) are deferred to a follow-up pass |
-| Proof terms / `smt_justification.cpp`'s conflict-resolution proof combinators, and `PR_AND_ELIM`/`PR_NOT_OR_ELIM` | [`PROOF_JUSTIFICATIONS_REPORT.md`](PROOF_JUSTIFICATIONS_REPORT.md) | — (standalone propositional sub-language + two-valued semantics) | [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) | `src/ast/ast.cpp`'s `mk_modus_ponens`/`mk_unit_resolution` smart constructors (cross-checked against `proof_checker.cpp`'s `check1_basic` `PR_MODUS_PONENS`/`PR_UNIT_RESOLUTION` cases) and their call sites in `src/smt/smt_justification.cpp` (`unit_resolution_justification`, `eq_conflict_justification`, `eq_root_propagation_justification`, `mp_iff_justification`), plus the CNF-conversion elimination rules `PR_AND_ELIM`/`PR_NOT_OR_ELIM`; proves full semantic soundness (not just well-formedness) of unit resolution's residual-clause computation, modus ponens' three accepted antecedent shapes (`implies`/`=`/`~`), and both elimination rules; `PR_TH_LEMMA` (used by every `theory_*_justification` class, and itself unverified by Z3's own checker outside the `"arith"` family), `PR_HYPER_RESOLVE` (whose own `check1_basic` case defers to an external side-condition check rather than validating inline), and `PR_QUANT_INST`/`PR_SKOLEMIZE`/`PR_DEF_AXIOM`/`PR_NNF_POS`/`PR_NNF_NEG` (trusted/near-trivial in today's checker) are out of scope |
-| Standalone OCaml proof-checker executable | [`OCAML_CHECKER_REPORT.md`](OCAML_CHECKER_REPORT.md) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst), [`Z3UnifiedProof.fst`](Z3UnifiedProof.fst) | [`Z3NativeProof.fst`](Z3NativeProof.fst), [`Z3ProofDocument.fst`](Z3ProofDocument.fst), [`ocaml_runtime/`](ocaml_runtime/), [`tools/build_ocaml_checker.ps1`](tools/build_ocaml_checker.ps1) | Reads SMT-LIB, solves with statically linked Z3, and checks the proof in one executable. F* marshals native ASTs directly into algebraic datatypes with identity caches preserving DAG sharing; no Python exporter, JSON, external solver process, or runtime F* invocation. Unsupported evidence remains partial or rejects; foreign interoperability is an explicit trust boundary. |
-| Preprocessing proof production (`ast/proofs/proof_checker.cpp` + `ast/simplifiers`) | [`PREPROCESSING_PROOFS_REPORT.md`](PREPROCESSING_PROOFS_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | [`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst) | Surveys which of the 34 `ast/simplifiers` files produce `proof*` objects (`supports_proofs()`) and how; independently (re-)formalizes, directly over `Z3AstTheory`'s `eval` rather than `Z3ProofTheory.fst`'s/`Z3ProofJustifications.fst`'s dedicated proof-term datatypes, the kernel inference rules those two reports don't cover (`PR_COMMUTATIVITY`, `PR_QUANT_INTRO`, `PR_PUSH_QUANT` — reusing `Z3SimplifierTheory`'s distributivity lemmas directly, `PR_IFF_TRUE`/`PR_IFF_FALSE`/`PR_IFF_OEQ`), restates the already-covered `PR_REFLEXIVITY`/`SYMMETRY`/`TRANSITIVITY`/`MONOTONICITY`/`AND_ELIM`/`NOT_OR_ELIM`/`MODUS_PONENS`(`_OEQ`) as needed internally (consistent, cross-validating, with `Z3ProofTheory.fst`/`Z3ProofJustifications.fst`'s results), documents `PR_REWRITE`/`PR_DEF_AXIOM` as trusted leaves whose correctness is exactly what every other rewriter audit in this directory establishes, and proves an `ast/simplifiers`-specific pipeline-composition capstone theorem that chained `dependent_expr_simplifier::mp` justifications across a whole preprocessing run preserve soundness end-to-end |
-| Proof production vs. omission, audited across `ast/rewriter`, `ast/simplifiers`, `tactic`, `smt` | [`PROOF_OMISSION_AUDIT.md`](PROOF_OMISSION_AUDIT.md) | — (C++-source catalogue, no new F* theory) | — | A breadth-first, file-by-file catalogue (not a formalization) of every place in these four layers that constructs a proof/justification for a goal/formula transformation vs. silently omits one, classifying each omission as deliberately-guarded, benign/delegated, or a genuine latent gap; finds three of the four layers clean (`tactic`'s `goal::update` assert-on-null-proof acts as an effective runtime safety net the other layers lack); two confirmed findings in `ast/simplifiers`, both fixed (`euf_completion`'s unjustified `(congruence ...)`/`(consequence ...)` marker formulas — now `supports_proofs()==false`; `distribute_forall`'s `PR_PUSH_QUANT` was well-justified but the kernel checker itself rejected every instance — fixed); and a follow-up on whether `expr_safe_replace` is used where it should produce a proof, which adds a new, independently-checked `PR_DEMODULATION` kernel proof rule (`t = s` by simultaneous replacement of `a_i` by `b_i`), wires it into `lambda_simplifier` (now `supports_proofs()==true`), and fixes a second kernel-checker gap it surfaced (`PR_QUANT_INTRO` over non-Boolean-bodied `lambda` quantifiers was unconditionally rejected); a later follow-up wires up `demodulator_simplifier` too (its harder, unification-based per-redex rewriting, justified via `PR_QUANT_INST`+`mk_unit_resolution` plus an `mk_rewrite` reshape bridge), which in turn caught and fixed a locally-scoped-`proof_ref` early-free bug in the new code |
-| Pulse-verified proof checker (executable, stateful decision procedures) | [`PULSE_PROOF_CHECKER_REPORT.md`](PULSE_PROOF_CHECKER_REPORT.md) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst), [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) | [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst), [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst), [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst), [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst), [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) | Re-proves the rewriter calculus and modus-ponens/unit-resolution specifications against imperative, heap-mutating [Pulse](https://github.com/FStarLang/pulse) programs. Cross-theory tests include deliberately malformed derivations. The interpreted and pattern-matched checkers discharge recognized rewrite leaves using semantic lemmas, with explicit obligations for unmatched leaves. These in-memory formal developments remain independent of the native SMT-LIB CLI; their historical Python exporter and generated snapshots have been removed. |
-| Archived JSON proof-document interface (removed) | [`JSON_PROOF_CHECKER_REPORT.md`](JSON_PROOF_CHECKER_REPORT.md) | — | — | Historical design only. The exporter, JSON parser/decoders, and compatibility interface have been removed in favor of direct native marshaling. |
-| Resolution/clausal proof-step checker (`unit-resolution`/`and-elim`/`not-or-elim`/`mp`/`commutativity`/`iff-true`/`iff-false`/array-ext, layered atop the equational calculus) | [`RESOLUTION_CHECKER_REPORT.md`](RESOLUTION_CHECKER_REPORT.md) ([scope doc](RESOLUTION_CHECKER_SCOPE.md)) | [`Z3ArrayTheory.fst`](Z3ArrayTheory.fst) | [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) | `src/ast/proofs/proof_checker.cpp`'s `check1_basic` as ground truth for each clausal/propositional `PR_*` rule; mechanizes `PR_UNIT_RESOLUTION` (full n-ary fold), `PR_AND_ELIM`/`PR_NOT_OR_ELIM`, `PR_MODUS_PONENS`(`_OEQ`), `PR_COMMUTATIVITY`, `PR_IFF_TRUE`/`PR_IFF_FALSE`, and array extensionality as Tier 1 (independently proved sound), while explicitly recording Tier 2 leaves (`PR_DEF_AXIOM`, `PR_TH_LEMMA` outside `"arith"`, `PR_HYPER_RESOLVE`, `PR_REWRITE_STAR`/`PR_DISTRIBUTIVITY`, `PR_QUANT_INST`) as `Trusted` obligations exactly matching what Z3's own checker itself trusts or defers, never silently as `True`; a coverage run over real QF_AX/QF_UF proof DAGs ([`tools/proof_rule_coverage.py`](tools/proof_rule_coverage.py)) found 0 proof-rule occurrences outside this Tier 1 ∪ Tier 2 vocabulary across all sampled unsat proofs (100% file-level coverage on both sets) |
-| LRA Farkas-certificate checker (executable theory + Pulse + real-proof parser) | [`LRA_FARKAS_REPORT.md`](LRA_FARKAS_REPORT.md) | [`Z3LraFarkasTheory.fst`](Z3LraFarkasTheory.fst) | [`Z3PulseLraChecker.fst`](Z3PulseLraChecker.fst), [`Z3PulseLraCheckerTests.fst`](Z3PulseLraCheckerTests.fst), [`Z3PulseLraCheckerParsed.fst`](Z3PulseLraCheckerParsed.fst), [`tools/parse_farkas.py`](tools/parse_farkas.py) | `src/ast/proofs/proof_checker.cpp`'s `check_arith_literal`/`check_arith_proof` (`PR_TH_LEMMA "arith" "farkas"` nodes): a genuinely *executable* decision procedure (`farkas_decide`, computing the refuting constant itself, not checking a supplied witness), mirrored in Pulse and proven equivalent, tested against real QF_LRA benchmarks (`smt.arith.solver=2`) whose proof-output files are mechanically parsed (not hand-transcribed) by `tools/parse_farkas.py`; documents two genuine unchecked-precondition gaps in Z3's own proof checker (the `num_params==1` unconditional-trust path, and equality-literal polarity never being verified) |
-| Archived QF_AX/QF_UF SMT-LIB benchmark experiment | [`QF_AX_QF_UF_BENCHMARK_REPORT.md`](QF_AX_QF_UF_BENCHMARK_REPORT.md) | — (empirical study) | [`tools/analyze_benchmarks.py`](tools/analyze_benchmarks.py) | Historical measurements of Z3 proof-production cost and rewrite-matcher coverage over QF_AX (279) and QF_UF (4,361) inputs. The exporter-dependent runner was removed; the analyzer remains for archived result files. See the report for measurements and subsequent matcher updates. |
-| Rewrite-rule proof-leaf tagging (`PR_REWRITE`, **experimental, reverted from master**) | [`REWRITE_RULE_TAGS_REPORT.md`](REWRITE_RULE_TAGS_REPORT.md) | — (matches lemmas in `Z3BoolRewriter.fst`/`Z3ArithRewriter.fst`/`Z3ArrayTheory.fst`/`Z3DatatypeTheory.fst`/`Z3FiniteSetTheory.fst`/`Z3SeqRewrites.fst`) | [`Z3RewriteRuleTags.fst`](Z3RewriteRuleTags.fst), [`tools/parse_rewrite_tags.py`](tools/parse_rewrite_tags.py) | Explored tagging `PR_REWRITE` leaves with an optional `family:decl-name` rule-tag symbol, populated generically at `th_rewriter_cfg::reduce_app`'s chokepoint (`src/ast/rewriter/th_rewriter.cpp`); the `reduce_app` tagging call site was subsequently **reverted from master** (the `mk_rewrite(s, t, rule)`/`get_rewrite_rule` accessor in `src/ast/ast.h`/`ast.cpp` remains, unused, for possible future reuse). The 7 SMT-LIB2 benchmarks and their captured `(get-proof)` output that this audit's extraction/matching was validated against are kept locally only (`fstar/rewrite_rule_bench/`, git-ignored) and are no longer reproducible against current master's `z3.exe`; the F* lemmas and report describe a point-in-time result, not current behavior |
-
-See each linked report for the full scope decision, function-by-function
-coverage table, notable results, and remaining gaps for that audit.
-
-## Road map: the proof-checker file layers
-
-The "Resolution/clausal proof-step checker" and "Pulse-verified proof
-checker" audits above are actually one connected stack of ~20 files
-that grew incrementally across several follow-up rounds and aren't
-individually visible in the per-audit table. This section is a
-dependency-ordered road map of that stack — each layer only opens
-modules from layers above it, never below, and no two files on the
-same layer depend on each other.
-
-**Layer 0 — core AST and semantic-value domain** (no proof concepts yet):
-* [`Z3AstTheory.fst`](Z3AstTheory.fst) — the shared `expr`/`func_decl`/`sort` AST, `wf`/`closed`/`closed_at`, the generic `interpretation value` record and `eval`.
-* [`Z3ValueTheory.fst`](Z3ValueTheory.fst) — the concrete `value` domain (`VInt`/`VBool`/`VArr`/`VSeq`/`VBV`) every checker below evaluates into, plus every `op_*` `decl_kind` constant (`op_select`, `op_store`, `op_concat`, `op_eq`, the literal ops, `op_seq_unit`, ...).
-
-**Layer 1 — the equational proof calculus** (proves `s = t` facts; a `Rewrite` leaf is a *caller obligation*, not something this layer discharges):
-* [`Z3ProofTheory.fst`](Z3ProofTheory.fst) — `proof` (`Sym`/`Trans`/`Congr`/`Rewrite`/`QuantIntro`), `fact`/`facts_of`, `all_leaves_sound`, `lemma_proof_sound`.
-* [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) — `mk_modus_ponens`/`mk_unit_resolution` smart constructors and their full semantic soundness, plus `PR_AND_ELIM`/`PR_NOT_OR_ELIM`.
-* [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) / [`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst) — the substitution-congruence/distributivity primitives, and the preprocessing-specific kernel rules (`PR_COMMUTATIVITY`, `PR_QUANT_INTRO`, `PR_PUSH_QUANT`, ...) built on them.
-
-**Layer 2 — concrete interpretation, and automatically discharging/synthesizing `Rewrite` leaves**:
-* [`Z3InterpretedProofChecker.fst`](Z3InterpretedProofChecker.fst) — `the_interpretation : interpretation value`, composing each theory's own `interp_app` plus a local `core_interp_app` for bool/arith/`eq`/literal ops.
-* [`Z3ArrayInterp.fst`](Z3ArrayInterp.fst), [`Z3SeqInterp.fst`](Z3SeqInterp.fst), [`Z3BvInterp.fst`](Z3BvInterp.fst) — thin per-theory `interp_app` companions to `Z3ArrayTheory.fst`/`Z3SeqTheory.fst`/`Z3BvTheory.fst`.
-* [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) — **verification mode**: `match_x`/`lemma_x_leaf_sound`, eleven decidable recognizers that auto-discharge `all_leaves_sound` for a candidate `Rewrite s t` leaf; also `is_unique_value`/`unique_value_key`/`provably_distinct`, the general literal/sequence-literal distinctness predicate used by the index-disequality-gated matchers (`select_store_diff`, `store_commute`, `store_perm`).
-* [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) — **synthesis mode**, the complementary direction: `apply_lemma_x : expr -> option expr` computes the rewritten side from just one input expression (instead of verifying a given pair), for ten of the eleven patterns above (`store_perm` excluded — see its module docstring for why it isn't expressible as a function); each file also exports `apply_lemmas`/`is_rewrite`.
-
-**Layer 3 — the clausal/resolution layer, built on top of layer 1**:
-* [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) — `rproof` (`REq`/`RAndElim`/`RModusPonens`/`RCommute`/`RIffTrue`/`RIffFalse`/`RUnitRes`/`RNotOrElim`/`Hyp`/`RLemma`/`Trusted`), one level above `Z3ProofTheory.proof` the same way `Congr`/`Rewrite` sit above bare `interpretation`; `REq` is the seam embedding a whole `Z3ProofTheory.proof` as one resolution-level fact, so its `Rewrite` leaves are exactly what layer 2 above is for. See [`RESOLUTION_CHECKER_SCOPE.md`](RESOLUTION_CHECKER_SCOPE.md) for the full rule-by-rule tiering.
-
-**Layer 4 — executable (Pulse) re-implementations of layers 1/3**, same specifications, genuinely imperative/heap-mutating programs instead of pure functions:
-* [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) — Pulse port of `fact`/`facts_of`/`all_leaves_sound`.
-* [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) — Pulse port of modus-ponens/unit-resolution.
-* [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) — cross-theory sample derivations run through both, including rejection tests and `collect_rewrite_leaves`.
-
-**Layer 5 — a parallel, domain-specific instance of the same "theory + executable checker + Pulse port + real-proof parser" pattern**, for LRA Farkas certificates rather than rewrite/resolution steps:
-* [`Z3LraFarkasTheory.fst`](Z3LraFarkasTheory.fst), [`Z3PulseLraChecker.fst`](Z3PulseLraChecker.fst), [`Z3PulseLraCheckerTests.fst`](Z3PulseLraCheckerTests.fst), [`Z3PulseLraCheckerParsed.fst`](Z3PulseLraCheckerParsed.fst).
-
-**Layer 6 — native Z3 integration**, feeding genuine proof DAGs directly into the typed checker:
-* [`Z3Native.fsti`](Z3Native.fsti), [`ocaml_runtime/Z3Native.ml`](ocaml_runtime/Z3Native.ml) — foreign views over the linked Z3 API.
-* [`Z3NativeProof.fst`](Z3NativeProof.fst) — memoized marshaling into algebraic datatypes, preserving DAG sharing.
-* [`Z3ProofDocument.fst`](Z3ProofDocument.fst), [`Z3ProofIndex.fst`](Z3ProofIndex.fst) — typed topological checking, input/scoping validation, and persistent caches.
-* [`tools/build_ocaml_checker.ps1`](tools/build_ocaml_checker.ps1), [`tools/test_native_checker.py`](tools/test_native_checker.py), [`tools/test_native_bridge.ml`](tools/test_native_bridge.ml) — single-binary build and direct/native regressions. `tools/test_*.smt2` are retained input fixtures; the old exporter and its generated snapshots are removed.
-
-Build/typecheck any single file in this stack with the same command
-given at the top of this README; F* resolves the layering above
-automatically from each file's own `open` declarations.
+Consult each report for its verification results, assumptions, and scope.
+In particular, [`Z3NlArith.fst`](Z3NlArith.fst) uses nine explicitly
+labeled real-analysis assumptions about `exp`/`log`/`sin`/`cos`/`atan2`;
+see the [non-linear arithmetic report](NL_ARITH_REPORT.md).
+[`Z3Native.fsti`](Z3Native.fsti) separately declares the foreign Z3 API
+boundary; its implementation is trusted native interoperability, not an
+arithmetic or proof-validity axiom. The [arithmetic certificate
+report](ARITHMETIC_CERTIFICATE_REPORT.md) documents the remaining
+semantic-model contract limitation; the current checker is not an
+unconditional end-to-end SMT-LIB soundness proof.
