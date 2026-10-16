@@ -1,5 +1,12 @@
 # Checked arithmetic certificates: 2026-10-15
 
+This report preserves the arithmetic-integration evaluation. The subsequent
+[SMT-LIB cross-cut](SMTLIB_CROSSCUT_REPORT.md) records both the native-only
+baseline and the later coverage extensions on the same 900 inputs. The
+native-only baseline retains the arithmetic rules evaluated here; the
+later extension adds checked comparison/integer rewrites and typed
+observational equality, but no new arithmetic producer evidence.
+
 ## Result
 
 Arithmetic Farkas certificates now pass through the full proof exporter,
@@ -130,7 +137,9 @@ trust boundary; the shim itself is not formally verified.
 
 ## SMT-LIB coverage
 
-The sample is unchanged from [the pre-arithmetic cross-cut](SMTLIB_CROSSCUT_REPORT.md):
+The sample is unchanged from the pre-arithmetic cross-cut (preserved in Git
+at `6e2bed21a`; the [cross-cut report](SMTLIB_CROSSCUT_REPORT.md) now contains
+the latest reevaluation):
 100 seed-42, UNSAT-annotated inputs per logic from the locally available
 official SMT-LIB 2025 non-incremental archives. Every selected input's
 SHA-256 was checked. This is a stratified cross-cut, not a population-weighted

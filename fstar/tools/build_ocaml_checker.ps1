@@ -78,6 +78,7 @@ try {
     "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
     "Z3ArrayRewrite.fst", "Z3Definitions.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
+    "Z3ArithmeticRewrite.fst",
     "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   )
@@ -111,7 +112,7 @@ try {
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
     "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
-    "Z3LinearArithmeticEmbed.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
+    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   $orderStr = $order -join " "

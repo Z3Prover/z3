@@ -77,6 +77,30 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertNotIn("JSON", result.stdout)
         self.assertNotIn("--smt2", result.stdout)
 
+    def test_diagnostics_preserve_results_and_count_typed_obligations(self):
+        for source in (
+                "(assert false)",
+                "(declare-const x Real)(declare-const y Real)"
+                "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"):
+            with self.subTest(source=source):
+                plain = self.run_checker(source)
+                diagnostic = self.run_checker(source, "--diagnostics", "--stats")
+                self.assertEqual((diagnostic.returncode, diagnostic.stdout),
+                                 (plain.returncode, plain.stdout), diagnostic.stderr)
+                rows = [line.split("\t") for line in diagnostic.stderr.splitlines()
+                        if line.startswith("obligation\t")]
+                expected = int(plain.stdout.split()[1]) if plain.returncode == 3 else 0
+                self.assertEqual(sum(int(row[2]) for row in rows), expected)
+                self.assertIn("diagnostic\tchecked\tpending=%d\t" % expected, diagnostic.stderr)
+                self.assertRegex(diagnostic.stderr, r"diagnose_ms=\d+\.\d+")
+                if expected:
+                    renamed = self.run_checker(source.replace("x", "a").replace("y", "b"),
+                                               "--diagnostics")
+                    shapes = lambda result: [(row[1], row[2], row[4]) for row in
+                        (line.split("\t") for line in result.stderr.splitlines()
+                         if line.startswith("obligation\t"))]
+                    self.assertEqual(shapes(diagnostic), shapes(renamed))
+
     def test_file_mode_creates_no_proof_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "input.smt2"

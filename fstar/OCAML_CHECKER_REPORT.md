@@ -10,7 +10,7 @@ The executable now accepts **SMT-LIB only**:
   wsl -e bash -c '~/z3checker/checker --stats'
 ```
 
-`checker [--stats] [--timeout-ms N] [input.smt2]` reads a file or
+`checker [--stats] [--diagnostics] [--timeout-ms N] [input.smt2]` reads a file or
 stdin, parses/solves using its linked Z3, marshals the original assertions
 and proof directly into algebraic datatypes, and invokes the extracted
 checker. No Python, JSON construction/parsing, subprocess solver, or
@@ -90,6 +90,48 @@ marshaling/checking or guarantee a process-wide memory/time limit.
 declaration, and proof-node counts to stderr, without proof artifacts.
 `checker --version` reports the linked producer version.
 
+`--diagnostics` adds an optional second checking pass and writes typed
+unmet obligations to stderr, without changing stdout, exit status, or the
+default fast path. Each `obligation` TSV row contains the rule, count, first
+proof-node index, and a bounded sort-aware expression fingerprint; a
+`diagnostic` row records the pending total or the rejection stage. Fingerprint
+keys preserve operator structure, operand sorts, and small exact rationals,
+while alpha-aliasing opaque declarations. They are coarse diagnostic
+groupings, not semantic-equivalence tests or proof evidence. Counts sum to
+the same pending total as the ordinary checker.
+
+### Coverage extensions (2026-10-16)
+
+`Z3ArithmeticRewrite.fst` checks integer affine normalization and numeric
+comparison rewrites: reflexive/constant comparisons, inequality duality,
+strict-comparison negation, and equivalent affine differences. It reuses
+exact polynomial linearization and cancellation rather than trusting
+printed rewrite names. Comparisons retain strictness; malformed operators,
+division by zero, and unrelated nonlinear atoms do not become evidence.
+Real-valued term equality is deliberately not inferred from equality of
+the numeric projection.
+
+The new arithmetic semantic lemmas use `numeric_operators` and local
+value-typing premises for the actual operands. Unlike the older global
+typing contract, these premises do not require every untyped environment
+to give every variable the declared sort. The existing end-to-end wrapper
+still uses the older combined model and retains its foundation gap; this
+is not a completed sorted-model repair or unconditional SMT-LIB theorem.
+
+Typed observational equality now admits matching non-Boolean operand
+sorts. The supported same-model fragment requires value agreement for
+non-Boolean terms, and truth agreement for Boolean terms. Reflexivity,
+symmetry, transitivity, and congruence preserve a distinct `Observational`
+judgment: this evidence never becomes an object-language equality or
+an asserted formula. `iff~` remains Boolean-only. Existing checked
+fresh-definition expansion can make a congruence conclusion syntactically
+reflexive; the checker discharges that identity independently of redundant
+observational premises, without converting those premises into equality.
+Beyond this checked expansion, general naming/model extension still needs
+freshness/model-extension witnesses and is not newly admitted. Input
+membership, definition freshness, premise ordering, scope discharge, and
+the closed false root remain checked.
+
 The native marshaler is type-checked F* using the `ML` effect and foreign
 handles; **no theorem proves correspondence of the foreign API to Z3's
 semantics**. Native ownership, Z3 parsing/API views, OCaml/C bindings,
@@ -105,7 +147,9 @@ this integration is not an unconditional end-to-end SMT-LIB soundness proof.
 `-RunTests` covers physical sharing, repeated proof traversal, a 12,000-layer
 native AST, exact large numerals/rationals, authentic Farkas parameters,
 parameterized declaration identity, binders, strict assertions/scopes,
-malformed coefficients, and rejection of unsupported relations.
+malformed coefficients, typed observational composition and relation
+separation, mixed-sort/declaration rejection, arithmetic rewrite positives
+and negatives, and typed obligation diagnostics.
 `tools/test_native_checker.py` exercises the direct CLI without importing
 Python Z3; it also checks rejection of the removed protocol/options.
 Run it with `Z3_FSTAR_CHECKER` pointing to the built checker:
@@ -120,24 +164,29 @@ of the nine archived SMT-LIB logics: four `ACCEPT`, one `PARTIAL`, and four
 `REJECT`, with no process errors. The largest accepted proof had 396,782
 proof entries and 48,294 unique marshaled expressions. This uses the
 current linked Z3 5.3.1, not the historical cross-cut's Python Z3 5.1.
-The rejected arithmetic samples expose non-Boolean observational equality;
-the quantified samples expose proof-binder lambdas. Those are outside the
-existing kernel's supported judgment shapes. Their actual sorts are
-preserved and rejected by typed validation, never coerced into Boolean
-facts or accepted as trusted theory tags. This pilot is an integration
-check, not an updated coverage estimate.
+The rejected arithmetic samples originally exposed non-Boolean observational
+equality, which the subsequent coverage extension supports in its
+same-model fragment. The quantified samples expose proof-binder lambdas,
+which remain unsupported. Actual operand sorts are preserved, never
+coerced into Boolean facts or accepted as trusted theory tags. This
+historical pilot is an integration check, not an updated coverage estimate.
+
+**Latest cross-logic measurements (2026-10-16):**
+[SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reevaluates the same
+900 inputs using the extended native-only binary: **334 `ACCEPT`,
+254 `PARTIAL`, 143 `REJECT`**, retaining all 231 preceding accepts.
+There are 103 new complete refutations: 96 former partials and seven
+former rejections. Solver/resource limits are reported separately;
+twelve formerly rejected inputs now reach the whole-process watchdog,
+not certification. The report preserves the preceding native rule census,
+phase timings, and matching-version standalone solver baseline. The
+earlier Python/JSON measurements remain archived with explicit caveats.
 
 **Historical material follows.** Its older build commands, runtime details,
 and timing claims describe their recorded configurations, not the current
 statically linked binary. References to the exporter, JSON modules, and
 compatibility commands below refer to deleted code and are not runnable
 instructions.
-
-**Latest cross-logic measurements (2026-10-15):**
-[SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reruns 900 inputs
-across nine logics with the checked-definition/`distinct` checker,
-separating full certification, obligations, rejection, and phase costs.
-The measurements below retain their historical configurations and scope.
 
 ## Goal
 

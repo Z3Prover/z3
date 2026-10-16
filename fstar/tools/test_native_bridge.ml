@@ -113,6 +113,39 @@ let strict_inputs_and_scopes () =
   require (P.check_document { doc with entries = doc.entries @ [invalid] } = None)
     "unreachable malformed proof entry was ignored"
 
+let typed_diagnostics () =
+  let doc = document "(assert false)" in
+  require (P.diagnose_document doc = P.DocumentChecked (Z.zero, []))
+    "complete proof acquired an obligation";
+  let source = (List.hd doc.entries).P.formula in
+  let leaf = { P.rule = U.Unverified "unsupported-theory"; formula = source; premise_ids = [] } in
+  let partial = { doc with entries = [leaf]; root = Z.zero } in
+  (match P.diagnose_document partial with
+   | P.DocumentChecked (pending, [obligation]) ->
+       require (P.check_document partial = Some pending && Z.equal pending Z.one)
+         "diagnostic pending count disagrees with the checker";
+       require (Z.equal obligation.P.obligation_index Z.zero &&
+                obligation.P.obligation_rule = leaf.rule &&
+                obligation.P.obligation_conclusion = U.Holds source &&
+                obligation.P.obligation_premises = [] &&
+                Z.equal obligation.P.obligation_count Z.one)
+         "typed obligation lost its checked context";
+       require (obligation.P.obligation_source == source)
+         "diagnostics rebuilt a marshaled source expression"
+   | _ -> failwith "pending obligation was not reported");
+  let malformed = { partial with entries = [{ leaf with premise_ids = [Z.zero] }] } in
+  (match P.diagnose_document malformed with
+   | P.DocumentRejected (P.ProofEntry, Some index, Some formula) ->
+       require (Z.equal index Z.zero && formula == source && P.check_document malformed = None)
+         "malformed premise reference has an inconsistent diagnostic"
+   | _ -> failwith "malformed premise reference was not diagnosed");
+  let no_input = { doc with assertions = [] } in
+  (match P.diagnose_document no_input with
+   | P.DocumentRejected (P.ProofEntry, Some index, _) ->
+       require (Z.equal index Z.zero && P.check_document no_input = None)
+         "input-membership diagnostic disagrees with the checker"
+   | _ -> failwith "input membership failure was not diagnosed")
+
 let identity_and_binders () =
   let c = context () in
   let inputs = parse c
@@ -140,7 +173,7 @@ let malformed_foreign_certificate () =
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
 
-let unsupported_relations () =
+let typed_observations () =
   let c = context () in
   let source = List.hd (parse c "(declare-const x Int)(assert (= x x))") in
   let st = B.marshal_expressions (B.empty_state ()) [source] in
@@ -153,15 +186,59 @@ let unsupported_relations () =
   require (d.domain = [A.BaseSort "Int"; A.BaseSort "Int"])
     "non-Boolean observational equality was relabeled";
   let formula = A.App (d, [x; x]) in
+  require (U.classify_fact formula = Some (U.Observational (x, x)) &&
+           U.check_step U.Reflexivity (U.Observational (x, x)) [])
+    "typed observational reflexivity was rejected";
+  require (not (U.check_step U.Symmetry (U.Equal (x, x)) [U.Observational (x, x)]))
+    "observational evidence became ordinary equality";
+  require (U.check_step U.Congruence (U.Equal (x, x)) [U.Observational (x, x)])
+    "reflexive congruence rejected a redundant observational premise";
+  let malformed = { d with domain = [A.bool_sort; A.bool_sort] } in
+  require (U.classify_fact (A.App (malformed, [x; x])) = None)
+    "observational declaration accepted mismatched operand sorts";
   let entry = { P.rule = U.Unverified "th-lemma"; formula; premise_ids = [] } in
   let doc = { P.declarations = [d]; expressions = [formula]; assertions = [];
               entries = [entry]; root = Z.zero } in
-  require (P.check_document doc = None) "unsupported relation bypassed typed validation";
+  require (P.check_document doc = None) "observational root certified a refutation";
+  require (P.logical_decl d && not (P.logical_decl { d with interp = None }))
+    "observational declaration validation lost the native tag";
   let lambda = A.Quantifier (A.Lambda_k, [A.BaseSort "Int"],
       A.ArraySort ([A.BaseSort "Int"], A.BaseSort "Int"), x) in
   require (P.check_document { doc with declarations = []; expressions = [lambda];
       entries = [{ entry with formula = lambda }] } = None)
     "non-Boolean proof conclusion was certified"
+
+let arithmetic_rewrites () =
+  let c = context () in
+  let check expected declarations left right =
+    let source = Printf.sprintf "%s(assert (= %s %s))" declarations left right in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let formula = B.cached_expression st (List.hd inputs) in
+    let conclusion = match U.classify_fact formula with
+      | Some j -> j | None -> failwith "expected a typed rewrite conclusion" in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      (Printf.sprintf "incorrect arithmetic rewrite: %s -> %s" left right)
+  in
+  let ints = "(declare-const x Int)(declare-const y Int)" in
+  let reals = "(declare-const x Real)(declare-const y Real)" in
+  check true ints "(<= x x)" "true";
+  check true ints "(<= 0 x)" "(>= x 0)";
+  check true reals "(< x y)" "(not (<= y x))";
+  check true reals "(<= x y)" "(<= (+ x (* (- 1) y)) 0)";
+  check true ints "(- x y)" "(+ x (* (- 1) y))";
+  check true ints "(+ x y)" "(+ y x)";
+  check false ints "(< x y)" "(<= x y)";
+  check false ints "(+ x y)" "(+ x x)";
+  check false reals "(+ x y)" "(+ y x)";
+  check false reals "(<= (/ x 0) y)" "(<= x y)";
+  check false ints "(* x y)" "(+ x y)";
+  let x = A.Var (Z.zero, A.BaseSort "Int") in
+  let malformed = { (Z3ResolutionProofTheory.eq_decl (A.BaseSort "Int"))
+    with decl_name = "<="; interp = None } in
+  require (not (U.check_step U.RewriteRule
+      (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
+    "uninterpreted comparison was treated as arithmetic"
 
 let () =
   ignore (N.version ());
@@ -173,6 +250,8 @@ let () =
      "exact-native-numerals", exact_numerals;
      "authentic-Farkas-parameters", native_farkas;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
+     "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
      "malformed-foreign-certificate", malformed_foreign_certificate;
-     "unsupported-relations-reject", unsupported_relations]
+     "typed-observations-and-root-guard", typed_observations;
+     "checked-arithmetic-rewrites", arithmetic_rewrites]
