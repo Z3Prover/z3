@@ -28,6 +28,38 @@ _CONTRADICTION = """\
 (check-sat)
 (get-proof)
 """
+# Front matter and queries that configure Z3's output, models, and search
+# without changing the assertions, in the shapes z3test's regressions use
+# (3220.smt2, core.smt2, strategy-par-or-2.smt2): a tactic in check-sat-using,
+# a named assertion for the unsat core, and output queries after the check.
+_CONFIGURED = """\
+(set-logic QF_UF)
+(set-option :print-success false)
+(set-option :produce-models true)
+(set-option :produce-unsat-cores true)
+(set-option :produce-proofs false)
+(set-option :proof true)
+(set-option :model_validate true)
+(set-option :model.compact true)
+(set-option :pp.max-depth 100)
+(set-option :auto-config true)
+(set-option :smt.arith.solver 2)
+(set-option :smt.phase-selection 3)
+(set-option :smt.random_seed 7)
+(set-option :sat.local_search true)
+(set-option :timeout 10000)
+(get-info :version)
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(assert (! (and (xor a b) a) :named left))
+(assert b)
+(check-sat-using (par-or (then simplify smt) smt))
+(get-model)
+(get-unsat-core)
+(echo "done")
+(get-option :produce-models)
+(exit)
+"""
 
 
 def _proof_nodes(proof):
@@ -196,15 +228,110 @@ class TestProofCertificate(unittest.TestCase):
     def test_unsupported_commands_are_rejected(self):
         commands = [
             "(push 1)", "(pop 1)", "(reset)", "(reset-assertions)",
-            "(check-sat-assuming ())", "(get-model)", "(get-unsat-core)",
-            '(include "other.smt2")', '(echo "unsat")', "(minimize 0)",
-            "(set-option :produce-proofs false)",
+            "(check-sat-assuming ())", "(get-value (false))", "(eval false)",
+            '(include "other.smt2")', "(minimize 0)", "(define-sort T () Bool)",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
             with self.subTest(command=command):
                 with self.assertRaises(proof_certificate.ProofExportError):
                     proof_certificate.export_certificate(command + "(assert false)")
+
+    def test_configuration_options_and_output_queries_are_ignored(self):
+        # The certificate is a statement about the parsed assertions, so
+        # options that configure output, models, limits, or search (by Z3's
+        # name with - and _ identified, and the pp.* and model.* families), a
+        # tactic in check-sat-using, and output queries leave it unchanged.
+        certificate = proof_certificate.export_certificate(_CONFIGURED)
+        self.assertEqual(certificate["source_smt2"], _CONFIGURED)
+        self.assertEqual(certificate["fragment"], "propositional")
+        self.assert_well_formed(certificate)
+        # The named assertion is the plain term: Z3's parser drops the label.
+        declarations = certificate["declarations"]
+        names = [declarations[certificate["nodes"][node]["declaration"]]["name"]
+                 for node in certificate["assertions"]]
+        self.assertEqual(names, ["and", "b"])
+        self.assertNotIn("left", {declaration["name"] for declaration in declarations})
+        commands = proof_certificate._assertion_commands(_CONFIGURED)
+        self.assertNotIn("set-option", commands)
+        self.assertNotIn("check-sat", commands)
+        self.assertNotIn("get-", commands)
+        self.assertNotIn("echo", commands)
+        self.assertIn("(assert (! (and (xor a b) a) :named left))", commands)
+        for option in ["produce-assignments true", "unsat_core true", "pp.decimal true", "model.v2 true",
+                       "smt.mbqi false", "smt.auto-config false", "nlsat.inline_vars false",
+                       "tactic.default_tactic smt", "rlimit 1000", "random-seed 3", "verbose 1"]:
+            with self.subTest(option=option):
+                proof_certificate.export_certificate("(set-option :%s)(assert false)" % option)
+        for query in ["(check-sat-using smt)(get-model)(get-model)", "(check-sat-using aig)(get-assignment)",
+                      "(check-sat-using (! smt :random-seed 1))(get-proof)(get-unsat-core)(exit)",
+                      '(get-info :status)(echo "x")(check-sat)']:
+            with self.subTest(query=query):
+                proof_certificate.export_certificate("(assert false)" + query)
+
+    def test_options_changing_the_input_or_the_proof_evidence_are_rejected(self):
+        # numeral-as-real, int-real-coercions, smtlib2_compliant, and
+        # rewriter.* change how the input is read; the proof-production and
+        # preprocessing options are the exporter's own (z3test's matrix
+        # harness pins the sat.smt rejection); anything not on the allowlist
+        # is rejected rather than ignored.
+        cases = [
+            ("numeral-as-real true", "changes how the input is read"),
+            ("int-real-coercions false", "changes how the input is read"),
+            ("smtlib2_compliant true", "changes how the input is read"),
+            ("smtlib2-compliant false", "changes how the input is read"),
+            ("rewriter.flat false", "changes how the input is read"),
+            ("rewriter.hi-div0 true", "changes how the input is read"),
+            ("sat.smt true", "option :sat.smt is not supported"),
+            ("smt.clause_proof true", "not supported"),
+            ('solver.proof.log "proof.log"', "not supported"),
+            ("combined_solver.ignore_solver1 true", "not supported"),
+            ("smt.solve_eqs true", "not supported"),
+            ("smt.bound_simplifier false", "not supported"),
+            ("global-declarations true", "not supported"),
+            ("encoding unicode", "not supported"),
+            ("produce-models", "one keyword and one value"),
+            ("produce-models true true", "one keyword and one value"),
+            ("produce-models true", "changing the problem after check-sat"),
+        ]
+        for option, message in cases:
+            with self.subTest(option=option):
+                prefix = "(assert false)(check-sat)" if "after check-sat" in message else ""
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    proof_certificate.export_certificate("%s(set-option :%s)(assert false)" % (prefix, option))
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "one keyword and one value"):
+            proof_certificate.export_certificate("(set-option produce-models true)(assert false)")
+        # Under smtlib2_compliant Z3's scanner reads -1.0 as the symbol
+        # declared below and answers sat; the exporter reads the numeral and
+        # would certify a refutation of a different reading of the input.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError,
+                                    "option :smtlib2_compliant changes how the input is read"):
+            proof_certificate.export_certificate("""\
+(set-option :smtlib2_compliant true)
+(declare-const x Real)
+(declare-const |-1.0| Real)
+(assert (< x -1.0))
+(assert (> x 0.0))
+(check-sat)
+""")
+
+    def test_query_shapes_are_checked(self):
+        cases = [
+            ("(get-model)(assert false)", "get-model must occur after check-sat"),
+            ("(assert false)(get-unsat-core)", "get-unsat-core must occur after check-sat"),
+            ("(assert false)(check-sat-using)", "check-sat-using must name a tactic"),
+            ("(assert false)(check-sat)(check-sat-using smt)", "only one check-sat"),
+            ("(assert false)(check-sat-using smt)(check-sat)", "only one check-sat"),
+            ("(check-sat-using smt)(assert false)", "changing the problem after check-sat"),
+            ("(assert false)(check-sat-using smt)(get-model a)", "get-model must have no arguments"),
+            ("(assert false)(get-info)", "get-info takes one argument"),
+            ('(assert false)(echo "a" "b")', "echo takes one argument"),
+            ("(assert false)(check-sat)(exit)(get-model)", "commands after exit"),
+        ]
+        for source, message in cases:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    proof_certificate.export_certificate(source)
 
     def test_quoted_symbols_match_the_z3_scanner(self):
         for name in ["||", "|p with spaces|", "|p; (push 1)|", "|p\nq|"]:
@@ -1888,6 +2015,17 @@ class TestClauseLogReplay(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "sat: no unsat proof"):
             proof_certificate.export_clause_log_certificate(
                 "(declare-const x Real)(assert (> x 1.0))")
+        # Ignored options, a check-sat-using tactic, and output queries never
+        # reach the executable; the log is produced under the exporter's own
+        # options and the certificate keeps the source verbatim.
+        certificate = proof_certificate.export_clause_log_certificate(_CONFIGURED)
+        self.assertEqual(certificate["fragment"], "propositional")
+        self.assertEqual(certificate["source_smt2"], _CONFIGURED)
+        result = subprocess.run(
+            [sys.executable, str(_EXAMPLES / "proof_certificate.py"), "--core", "clause-log", "-"],
+            input=_CONFIGURED, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["source_smt2"], _CONFIGURED)
         # A negated unit used to make the frontend's tactic preamble log the
         # core's internal true variable as the phantom k!0; with the preamble
         # bypassed the raw log assumes the unit itself (the replay still drops

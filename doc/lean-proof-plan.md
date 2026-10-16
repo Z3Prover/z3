@@ -1024,6 +1024,40 @@ Real `div` declaration, a swapped operator in the input, and a false
 the divisor), `rem`, `to_real`/`to_int`, and the legacy core's integer
 steps.
 
+**Harmless front matter is ignored instead of rejected (2026-10-15).** The
+exporter accepted `(set-option :produce-proofs true)` and nothing else, and
+only `check-sat`, `get-proof`, and `exit` as queries, so z3test regressions
+such as `core.smt2` (`:auto-config`, `:produce-unsat-cores`, a named
+assertion, `get-unsat-core`), `3220.smt2` (`:sat.local_search`,
+`:model_validate`), `z3.4`/`z3.5.smt2` (`:produce-models`), and
+`strategy-par-or-2.smt2` (`check-sat-using (par-or smt ...)`) were rejected
+at the frontend although Z3 solves them and their assertions are in the
+certified fragments; a scan of the 951 `regressions/smt2` inputs (828 of
+them rejected at the frontend) found 36 that pass it once such front matter
+is ignored, 28 of them satisfiable, and 7 unsat ones that export. The
+certificate is a statement about the parsed assertions that
+Lean checks, so an option that only configures Z3's output, model
+production, resource limits, or search cannot change what is certified.
+The exporter now ignores an allowlist of such options (`_IGNORED_OPTIONS`,
+by Z3's parameter name with `-` and `_` identified, plus the `pp.*` and
+`model.*` families), accepts `check-sat-using` with any tactic as the one
+query, the output queries `get-model`, `get-unsat-core`, `get-assignment`
+after it, and `get-info`, `get-option`, `echo` anywhere; none of them reach
+the solver run or the certificate, whose `source_smt2` stays verbatim. It
+still rejects, with messages naming the reason, options that change how
+the input is read (`numeral-as-real`, `int-real-coercions`,
+`smtlib2_compliant`, under which Z3's scanner reads `-1.0` as a symbol and
+Int/Real coercions are off, so a file declaring `|-1.0|` is `sat` for Z3
+and `unsat` for the exporter's reading; and `rewriter.*`), the proof-production
+and preprocessing options the exporter sets itself (`sat.smt`,
+`solver.proof.*`, `smt.clause_proof`, `smt.solve_eqs`,
+`combined_solver.*`; z3test's harness pins the `sat.smt` rejection), and
+every option not on the allowlist. The five regressions above now verify
+through the clause log and the propositional ones through the legacy core
+too (kept verbatim as `CONFIGURED_INPUTS` in the test modules); `3282.smt2`
+stays rejected for `rewriter.flat`, `3626.smt2` for
+`combined_solver.ignore_solver1`, and `3732.smt2` for its second query.
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

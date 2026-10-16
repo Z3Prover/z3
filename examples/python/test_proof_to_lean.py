@@ -132,6 +132,74 @@ Z3TEST_LEAN_INPUTS = {
 (get-proof)
 """,
 }
+# Verbatim copies of z3test regressions/smt2 inputs whose only obstacle was
+# their front matter: options that configure output, models, or search, a
+# tactic in check-sat-using, a named assertion, and an output query. The
+# exporter ignores those and certifies the assertions.
+CONFIGURED_INPUTS = {
+    "3220": """\
+(set-option :sat.local_search true)
+(set-option :model_validate true)
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(assert (and (xor a b) a b))
+(check-sat)
+""",
+    "z3.4": """\
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(define-fun conjecture () Bool
+	(=> (and (=> p q) (=> q r))
+		(=> p r)))
+(assert (not conjecture))
+(check-sat)""",
+    "z3.5": """\
+
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+
+(declare-const a Bool)
+(declare-const b Bool)
+(define-fun demorgan () Bool
+    (= (and a b) (not (or (not a) (not b)))))
+(assert (not demorgan))
+(check-sat)""",
+    "core": """\
+
+; Copyright (c) 2015 Microsoft Corporation
+
+(set-logic QF_LRA)
+(set-option :auto-config true)
+(set-option :produce-unsat-cores true)
+
+(assert (! (= 1 0) :named a))
+
+(check-sat)
+(get-unsat-core)
+""",
+    "strategy-par-or-2": """\
+;; Copyright (c) 2016 Microsoft Corporation
+
+(set-info :source |Written by D. B. Staple for GitHub issue #625.|)
+(set-info :status unsat)
+
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= y (abs x)))
+(assert (distinct y (abs x)))
+(check-sat-using (par-or
+    smt smt smt smt smt
+    smt smt smt smt smt
+    smt smt smt smt smt
+))
+""",
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",

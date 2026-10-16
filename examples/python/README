@@ -54,12 +54,28 @@ The Python entry point is export_certificate(source_smt2).
 Input scope
 -----------
 
-Input is one assertion snapshot, optionally followed by a single check-sat,
-get-proof, and exit. Declarations, declare-sort with arity 0, define-fun,
-set-logic, set-info, and (set-option :produce-proofs true) are accepted.
-Queries with assumptions,
-push/pop, multiple queries, commands after a query that change the problem,
-and other options or commands are rejected rather than ignored.
+Input is one assertion snapshot, optionally followed by a single check-sat
+or check-sat-using, then get-proof, get-model, get-unsat-core,
+get-assignment, and exit. Declarations, declare-sort with arity 0,
+define-fun, set-logic, set-info, named assertions, and the information
+queries get-info, get-option, and echo are accepted. The certificate is a
+statement about the parsed assertions, checked by Lean, so front matter that
+only configures Z3's output, models, resource limits, or search is ignored:
+the tactic of check-sat-using, the output queries, and the set-option
+commands on an allowlist (_IGNORED_OPTIONS in proof_certificate.py:
+produce-models, produce-unsat-cores, produce-proofs, proof, model,
+model_validate, print-success, auto-config, timeout, rlimit, random-seed,
+smt.arith.solver, smt.random_seed, smt.phase_selection, smt.mbqi,
+sat.local_search, and the like, plus the pp.* and model.* families, by Z3's
+parameter names with - and _ identified). Options that change how the input
+is read (numeral-as-real, int-real-coercions, smtlib2_compliant, which
+changes the scanner and the Int/Real coercions, and rewriter.*) and the
+proof-production and
+preprocessing options the exporter sets itself (sat.smt, solver.proof.*,
+smt.clause_proof, smt.solve_eqs, combined_solver.*) are rejected, as is any
+option not on the allowlist. Queries with assumptions, push/pop, multiple
+queries, commands after a query that change the problem, and other commands
+are rejected rather than ignored.
 Standard semicolon comments, doubled quotes in strings, and quoted symbols are
 supported. Quoted symbols have no escape mechanism: backslashes are rejected
 and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's

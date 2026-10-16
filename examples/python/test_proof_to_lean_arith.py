@@ -500,6 +500,25 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 certificate, _ = self.check(source)
                 self.assertEqual(certificate["fragment"], "propositional")
 
+    def test_inputs_with_ignored_options_through_the_clause_log(self):
+        # z3test regressions kept verbatim: output, model, and search options,
+        # a named assertion with get-unsat-core, and a par-or tactic in
+        # check-sat-using are ignored; the executable sees the assertions only.
+        from test_proof_to_lean import CONFIGURED_INPUTS
+        fragments = {"3220": "propositional", "z3.4": "propositional", "z3.5": "propositional",
+                     "core": "qf_lra", "strategy-par-or-2": "qf_lia"}
+        for name, source in CONFIGURED_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertEqual(certificate["fragment"], fragments[name])
+                self.assertEqual(certificate["source_smt2"], source)
+                if fragments[name] != "propositional":
+                    self.assertIn(_STANDARD_AXIOMS, report)
+        # The named (= 1 0) folds to false in the rewriter; the abs conflict
+        # needs the arithmetic solver.
+        self.assertIn("th-lemma", proof_certificate.export_clause_log_certificate(
+            CONFIGURED_INPUTS["strategy-par-or-2"])["rule_counts"])
+
     def test_implied_equality_distinct_and_unary_minus(self):
         for source in [
             "(declare-const x Real)(declare-const y Real)"

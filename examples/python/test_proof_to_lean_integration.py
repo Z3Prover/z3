@@ -22,8 +22,8 @@ import proof_certificate
 import proof_preprocessing
 import proof_to_lean
 from test_proof_to_lean import (
-    BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
-    NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
+    BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE,
+    STRUCTURAL, NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
 )
 
 
@@ -57,6 +57,19 @@ class TestProofToLeanIntegration(unittest.TestCase):
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
+
+    def test_inputs_with_ignored_options_are_checked_without_axioms(self):
+        # z3test regressions whose output, model, and search options used to
+        # be rejected at the frontend: the options never reach the solver or
+        # the certificate, and the theorem is over the assertions alone.
+        for name in ["3220", "z3.4", "z3.5"]:
+            with self.subTest(name=name):
+                source = CONFIGURED_INPUTS[name]
+                certificate = proof_certificate.export_certificate(source)
+                self.assertEqual(certificate["fragment"], "propositional")
+                self.assertEqual(certificate["source_smt2"], source)
+                text = self.check(source, certificate)
+                self.assertNotIn("set-option", text.split("theorem unsat", 1)[1])
 
     def test_documented_boolean_rewrite_example(self):
         source = Z3TEST_LEAN_INPUTS["boolean_rewrite"]

@@ -37,6 +37,42 @@ _TOKEN = re.compile(
 _ASSERTION_COMMANDS = {
     "set-logic", "set-info", "declare-sort", "declare-const", "declare-fun", "define-fun", "assert",
 }
+# Queries that only print: accepted anywhere (one argument), or after the
+# check-sat they report on (no arguments), and dropped like get-proof. The
+# exporter runs its own solver, so they are never answered here.
+_INFORMATION_QUERIES = {"get-info", "get-option", "echo"}
+_RESULT_QUERIES = {"get-proof", "get-model", "get-unsat-core", "get-assignment"}
+# set-option commands accepted and ignored, by Z3's parameter name with "-"
+# and "_" identified. The certificate is a statement about the parsed
+# assertions that Lean checks, so an option that only configures Z3's output,
+# model production, resource limits, or search cannot change what is
+# certified; these are the ones seen in SMT-LIB benchmarks and z3test's
+# regressions. Anything else is rejected rather than ignored: options that
+# change how the input is read (numeral-as-real, int-real-coercions,
+# smtlib2_compliant, which makes Z3's scanner read "-1.0" as a symbol and
+# disables Int/Real coercions, and rewriter.*) would certify a different
+# reading of the input than Z3's, and the proof-production options the
+# exporter sets itself (sat.smt, solver.proof.*, smt.clause_proof, the
+# preprocessing switches of _NO_PREPROCESSING, combined_solver.*) select the
+# evidence the exporter controls.
+_IGNORED_OPTIONS = frozenset({
+    # Output, models, and cores.
+    "print_success", "print_warning", "produce_models", "produce_assignments", "produce_unsat_cores",
+    "unsat_core", "produce_proofs", "proof", "model", "model_validate", "interactive_mode",
+    "verbose", "stats", "type_check",
+    # Resource limits and search configuration.
+    "auto_config", "random_seed", "timeout", "rlimit", "reproducible_resource_limit",
+    "smt.auto_config", "smt.arith.solver", "smt.random_seed", "smt.phase_selection",
+    "smt.arith.random_initial_value", "smt.arith.eager_eq_axioms", "smt.arith.propagation_mode",
+    "smt.mbqi", "smt.ematching", "smt.macro_finder", "smt.relevancy", "smt.theory_aware_branching",
+    "smt.threads", "smt.case_split", "smt.delay_units", "smt.delay_units_threshold",
+    "smt.restart_factor", "smt.restart_strategy", "smt.qi.cost", "smt.qi.eager_threshold",
+    "smt.core.minimize", "sat.local_search", "sat.prob_search", "sat.random_seed",
+    "nlsat.inline_vars", "nlsat.randomize", "parallel.enable", "tactic.default_tactic",
+})
+# Printing and model-presentation families, every member output-only.
+_IGNORED_OPTION_PREFIXES = ("pp.", "model.")
+_INPUT_READING_OPTIONS = ("numeral_as_real", "int_real_coercions", "smtlib2_compliant", "rewriter.")
 # Certificate sort names with a fixed meaning; an uninterpreted sort keeps its
 # own name, which Z3's parser already keeps distinct from the built-in sorts.
 _RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
@@ -137,6 +173,18 @@ def _commands(source):
         raise ProofExportError("unterminated SMT-LIB command")
 
 
+def _check_option(tokens):
+    """Reject a set-option command unless ignoring it leaves the certified statement unchanged."""
+    if len(tokens) != 5 or not tokens[2].startswith(":"):
+        raise ProofExportError("set-option takes one keyword and one value")
+    option = tokens[2][1:].replace("-", "_")
+    if option.startswith(_INPUT_READING_OPTIONS):
+        raise ProofExportError("option %s changes how the input is read and is not supported" % tokens[2])
+    if option not in _IGNORED_OPTIONS and not option.startswith(_IGNORED_OPTION_PREFIXES):
+        raise ProofExportError("option %s is not supported; only output, model, resource, and search "
+                               "options are ignored" % tokens[2])
+
+
 def _assertion_commands(source):
     commands = []
     checked, requested_proof, exited = False, False, False
@@ -144,25 +192,35 @@ def _assertion_commands(source):
         name = tokens[1]
         if exited:
             raise ProofExportError("commands after exit are not supported")
-        if name in ("check-sat", "get-proof", "exit"):
+        if name in ("check-sat", "check-sat-using"):
+            if checked:
+                raise ProofExportError("only one check-sat query is supported")
+            if name == "check-sat" and tokens != ["(", name, ")"]:
+                raise ProofExportError("check-sat must have no arguments")
+            # The tactic only configures Z3's search; the exporter runs its own
+            # solver and Lean checks the result, so it is validated no further.
+            if name == "check-sat-using" and len(tokens) < 4:
+                raise ProofExportError("check-sat-using must name a tactic")
+            checked = True
+        elif name in _RESULT_QUERIES or name == "exit":
             if tokens != ["(", name, ")"]:
                 raise ProofExportError("%s must have no arguments" % name)
-            if name == "check-sat":
-                if checked:
-                    raise ProofExportError("only one check-sat query is supported")
-                checked = True
+            if name == "exit":
+                exited = True
             elif name == "get-proof":
                 if not checked or requested_proof:
                     raise ProofExportError("get-proof must occur once, after check-sat")
                 requested_proof = True
-            else:
-                exited = True
+            elif not checked:
+                raise ProofExportError("%s must occur after check-sat" % name)
+        elif name in _INFORMATION_QUERIES:
+            if len(tokens) != 4:
+                raise ProofExportError("%s takes one argument" % name)
         elif name in _ASSERTION_COMMANDS or name == "set-option":
             if checked:
                 raise ProofExportError("commands changing the problem after check-sat are not supported")
             if name == "set-option":
-                if tokens != ["(", "set-option", ":produce-proofs", "true", ")"]:
-                    raise ProofExportError("only (set-option :produce-proofs true) is supported")
+                _check_option(tokens)
             elif name == "declare-sort" and tokens[3:] not in ([")"], ["0", ")"]):
                 raise ProofExportError("only uninterpreted sorts of arity 0 are supported")
             else:
