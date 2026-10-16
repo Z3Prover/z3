@@ -66,6 +66,9 @@ public:
     }
     
     void add_expl(const explanation& e) {
+        if (e.empty() && !e.m_evidence)
+            return;
+        auto* evidence = empty() && !m_evidence ? e.m_evidence : nullptr;
         if (e.m_vector.empty()) {
             for (constraint_index j : e.m_set)
                 push_back(j);
@@ -75,6 +78,7 @@ public:
                 add_pair(p.first, p.second);
             }
         }
+        m_evidence = evidence;
     }
 
     bool empty() const {  return m_vector.empty() && m_set.empty();  }

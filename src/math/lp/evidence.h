@@ -16,7 +16,17 @@ namespace lp {
     class evidence_manager : public u_dependency_manager {
     public:
         using ref = u_dependency *;
-        enum class rule { input, linear, integer_tighten, discharge, unsupported };
+        enum class rule {
+            input,
+            linear,
+            integer_tighten,
+            integer_lattice,
+            gomory,
+            monomial_substitute,
+            monomial_interval,
+            discharge,
+            unsupported
+        };
 
         struct fact {
             vector<std::pair<mpq, lpvar>> lhs;
@@ -31,6 +41,12 @@ namespace lp {
             premise(ref e, mpq const &c) : evidence(e), coefficient(c) {}
         };
 
+        struct column_bounds {
+            lpvar column;
+            unsigned lower = UINT_MAX;
+            unsigned upper = UINT_MAX;
+        };
+
         struct recipe {
             rule kind = rule::unsupported;
             fact conclusion;
@@ -39,6 +55,12 @@ namespace lp {
             constraint_index input = UINT_MAX;
             unsigned id = 0;
             bool has_fact = false;
+            fact equation;
+            lpvar pivot = UINT_MAX;
+            vector<column_bounds> bounds;
+            unsigned definition = UINT_MAX;
+            lpvar source = UINT_MAX;
+            mpq divisor = mpq(1);
         };
 
         struct proof_step {
@@ -49,6 +71,12 @@ namespace lp {
             constraint_index input = UINT_MAX;
             unsigned assumption = UINT_MAX;
             unsigned id = 0;
+            fact equation;
+            lpvar pivot = UINT_MAX;
+            vector<column_bounds> bounds;
+            unsigned definition = UINT_MAX;
+            lpvar source = UINT_MAX;
+            mpq divisor = mpq(1);
         };
 
         struct variable {
@@ -56,8 +84,14 @@ namespace lp {
             vector<std::pair<mpq, lpvar>> definition;
         };
 
+        struct monomial {
+            lpvar column;
+            unsigned_vector factors;
+        };
+
         struct proof_expression {
             vector<variable> variables;
+            vector<monomial> monomials;
             vector<proof_step> steps;
             unsigned root = UINT_MAX;
             bool complete = true;
@@ -72,6 +106,7 @@ namespace lp {
         unsigned_vector m_variable_scopes;
         unsigned_vector m_current_variables;
         vector<variable> m_variables;
+        vector<monomial> m_monomials;
 
         void snapshot(fact &f) const {
             for (auto &[c, j] : f.lhs) {
@@ -82,6 +117,13 @@ namespace lp {
 
         ref attach(ref support, std::unique_ptr<recipe> r) {
             snapshot(r->conclusion);
+            snapshot(r->equation);
+            if (r->pivot != UINT_MAX)
+                r->pivot = m_current_variables[r->pivot];
+            if (r->source != UINT_MAX)
+                r->source = m_current_variables[r->source];
+            for (auto &bound : r->bounds)
+                bound.column = m_current_variables[bound.column];
             r->id = m_recipes.size();
             auto *p = r.get();
             m_recipes.push_back(std::move(r));
@@ -102,6 +144,7 @@ namespace lp {
             m_variable_scopes.reset();
             m_current_variables.reset();
             m_variables.reset();
+            m_monomials.reset();
             u_dependency_manager::reset();
         }
 
@@ -117,6 +160,23 @@ namespace lp {
             }
             m_current_variables.push_back(m_variables.size());
             m_variables.push_back(std::move(v));
+        }
+
+        void register_monomial(lpvar column, unsigned size, lpvar const *factors) {
+            if (!m_enabled)
+                return;
+            monomial m;
+            m.column = m_current_variables[column];
+            for (unsigned i = 0; i < size; ++i)
+                m.factors.push_back(m_current_variables[factors[i]]);
+            m_monomials.push_back(std::move(m));
+        }
+
+        unsigned monomial_definition(lpvar column) const {
+            for (unsigned i = m_monomials.size(); i-- > 0;)
+                if (m_monomials[i].column == m_current_variables[column])
+                    return i;
+            return UINT_MAX;
         }
 
         ref mk_leaf(unsigned ci) {
@@ -228,6 +288,7 @@ namespace lp {
         void reconstruct(ref root, proof_expression &result) const {
             result = proof_expression();
             result.variables = m_variables;
+            result.monomials = m_monomials;
             if (!root) {
                 result.complete = false;
                 return;
@@ -264,6 +325,12 @@ namespace lp {
                     step.conclusion = r->conclusion;
                     step.input = r->input;
                     step.id = r->id;
+                    step.equation = r->equation;
+                    step.pivot = r->pivot;
+                    step.bounds = r->bounds;
+                    step.definition = r->definition;
+                    step.source = r->source;
+                    step.divisor = r->divisor;
                     for (auto const &p : r->premises) {
                         step.premises.push_back(indices.at(p.evidence));
                         step.coefficients.push_back(p.coefficient);

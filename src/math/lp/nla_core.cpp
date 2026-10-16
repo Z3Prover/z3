@@ -134,6 +134,8 @@ bool core::canonize_sign(const factorization& f) const {
 }
 
 void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
+    if (lra.dep_manager().enabled())
+        lra.dep_manager().register_monomial(v, sz, vs);
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; ++i) {
         m_add_buffer[i] = vs[i];

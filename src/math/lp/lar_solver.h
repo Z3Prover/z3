@@ -410,6 +410,8 @@ public:
 
     void explain_evidence(u_dependency* dep, mpq const& coefficient, explanation& ex) const;
 
+    u_dependency* explain_integer_infeasibility(lar_term const& row, unsigned_vector const& boxed = {});
+
     u_dependency* get_column_upper_bound_witness(unsigned j) const;
     
     const impq& get_upper_bound(lpvar j) const;

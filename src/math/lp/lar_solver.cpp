@@ -563,6 +563,86 @@ namespace lp {
         }
     }
 
+    u_dependency* lar_solver::explain_integer_infeasibility(lar_term const& row, unsigned_vector const& boxed) {
+        if (!dep_manager().enabled())
+            return nullptr;
+        auto bounded = [&](unsigned j) {
+            if (column_is_fixed(j))
+                return true;
+            for (auto k : boxed)
+                if (j == k)
+                    return true;
+            return false;
+        };
+        mpq denominator_lcm(1), divisor(0);
+        for (auto const& p : row)
+            denominator_lcm = lcm(denominator_lcm, denominator(p.coeff()));
+        for (auto const& p : row) {
+            if (bounded(p.j())) {
+                if (!column_has_lower_bound(p.j()) || !column_has_upper_bound(p.j()))
+                    return dep_manager().derive(nullptr, [] { return evidence_manager::recipe(); });
+            }
+            else {
+                if (column_is_real(p.j()))
+                    return dep_manager().derive(nullptr, [] { return evidence_manager::recipe(); });
+                divisor = gcd(divisor, abs(denominator_lcm * p.coeff()));
+            }
+        }
+        mpq scale = divisor.is_zero() ? mpq(1) : denominator_lcm / divisor;
+        auto* identity = dep_manager().derive(nullptr, [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.lhs = row.coeffs_as_vector();
+            return r;
+        });
+        auto bound = [&](bool upper) {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.kind = upper ? LE : GE;
+            r.premises.push_back({identity, upper ? scale : -scale});
+            u_dependency* support = nullptr;
+            for (auto const& p : row) {
+                mpq c = p.coeff() * scale;
+                if (!bounded(p.j())) {
+                    r.conclusion.lhs.push_back({c, p.j()});
+                    continue;
+                }
+                bool use_lower = upper == c.is_pos();
+                auto* dep = use_lower ? get_column_lower_bound_witness(p.j()) : get_column_upper_bound_witness(p.j());
+                r.premises.push_back({dep, abs(c)});
+                support = dep_manager().mk_join(support, dep);
+                r.conclusion.rhs -= c * (use_lower ? get_lower_bound(p.j()) : get_upper_bound(p.j()));
+            }
+            if ((upper && r.conclusion.rhs.y.is_neg()) || (!upper && r.conclusion.rhs.y.is_pos())) {
+                r.conclusion.kind = upper ? LT : GT;
+                r.conclusion.rhs.y = mpq(0);
+            }
+            auto conclusion = r.conclusion;
+            auto* unrounded = dep_manager().derive(support, [&] { return std::move(r); });
+            return dep_manager().derive(unrounded, [&] {
+                evidence_manager::recipe rounded;
+                rounded.kind = evidence_manager::rule::integer_tighten;
+                rounded.conclusion = conclusion;
+                rounded.conclusion.kind = upper ? LE : GE;
+                auto const& value = conclusion.rhs.x;
+                rounded.conclusion.rhs.x = upper ? (conclusion.kind == LT ? ceil(value) - mpq(1) : floor(value))
+                                                : (conclusion.kind == GT ? floor(value) + mpq(1) : ceil(value));
+                rounded.premises.push_back({unrounded, mpq(1)});
+                return rounded;
+            });
+        };
+        auto* lower = bound(false);
+        auto* upper = bound(true);
+        return dep_manager().derive(dep_manager().mk_join(lower, upper), [&] {
+            evidence_manager::recipe r;
+            r.kind = evidence_manager::rule::linear;
+            r.conclusion.contradiction = true;
+            r.premises.push_back({lower, mpq(1)});
+            r.premises.push_back({upper, mpq(1)});
+            return r;
+        });
+    }
+
     void lar_solver::push() {
         m_imp->m_trail.push_scope();
         m_imp->m_simplex_strategy = m_imp->m_settings.simplex_strategy();
