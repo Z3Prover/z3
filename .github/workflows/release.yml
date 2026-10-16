@@ -293,6 +293,16 @@ jobs:
           echo $PATH
           stat /tmp/arm-toolchain/bin/aarch64-none-linux-gnu-gcc
           python scripts/mk_unix_dist.py --assembly-version=${{ env.RELEASE_VERSION }} --nodotnet --arch=arm64
+
+      - name: Validate Linux ARM64 executable architecture
+        run: |
+          set -euo pipefail
+          MACHINE=$(readelf -h build-dist/z3 | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')
+          echo "Executable machine: $MACHINE"
+          if [ "$MACHINE" != "AArch64" ]; then
+            echo "ERROR: Linux ARM64 release executable is not AArch64"
+            exit 1
+          fi
       
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

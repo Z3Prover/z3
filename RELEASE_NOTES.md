@@ -657,6 +657,7 @@ Version 4.12.6
 
 Version 4.12.5
 ==============
+- The Linux ARM64 archive `z3-4.12.5-arm64-glibc-2.35.zip` contains an x86_64 binary.
 - Fixes to pypi setup and build for MacOS distributions
 - A new theory solver "int-blast" enabled by using:
   - sat.smt=true smt.bv.solver=2
