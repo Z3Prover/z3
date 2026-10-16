@@ -885,6 +885,16 @@ class _Replay:
             lemma = (self.assume(lemma_literals) if name == "alldiff" else
                      self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))]))
         else:
+            # The arithmetic solver's axiom for a Real division by a numeral,
+            # q = 0 or q * (p / q) = p, reaches the log with its first literal
+            # as the constant true (the negation of the false disequality
+            # (= q 0), elided from the clause). A true literal adds nothing to
+            # a jointly contradictory set, so it is dropped before the shape
+            # checks, which read linear atoms; a hint of nothing else stays
+            # rejected.
+            pairs = [(coefficient, literal) for coefficient, literal in pairs if not z3.is_true(literal)]
+            if not pairs and name != "smt":
+                raise ProofExportError("%s hint has no literals besides true" % name)
             if name == "arith":
                 check_arith_hint(pairs)
             certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False

@@ -177,6 +177,20 @@ UFLRA_INPUTS = {
 (assert (= p (q x)))
 (check-sat)
 """,
+    # A numeral quotient inside a ground atom next to a conflict at level
+    # zero: the sat.smt arithmetic solver logs its division axiom
+    # 2 * (1 / 2) = 1 under an arith hint whose first literal is the
+    # constant true, which the clause log rejected before.
+    "uflra_division_axiom": """\
+(set-logic QF_UFLRA)
+(declare-fun f (Real) Real)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (< x x))
+(assert (or (< y (f z)) (< (/ 1.0 2.0) 3.0)))
+(check-sat)
+""",
 }
 
 # A predicate over Bool alone applied to Real atoms: QF_UFLRA without a
@@ -515,6 +529,9 @@ class TestMixedLeanIntegration(_LeanIntegration):
                     self.assertIn("have _r", text)
                 if name == "uflra_single_occurrence":
                     self.assertNotIn("!", json.dumps(certificate["declarations"]))
+                if name == "uflra_division_axiom":
+                    self.assertIn(["arith"], [d["parameters"] for d in certificate["declarations"]
+                                              if d["name"] == "th-lemma"])
 
     def test_bool_only_predicate_over_real_atoms_verifies_through_the_clause_log(self):
         certificate, text = self.check(BOOL_PREDICATE_WITH_ARITHMETIC)

@@ -208,6 +208,21 @@ UF_INPUTS = {
 }
 
 
+UF_NEGATED_ITE_CONDITION = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const q Bool)
+(assert (and (not q) q))
+(assert (= c (ite (not q) a b)))
+(assert (= (f c) (ite (not (= a b)) (f a) (f b))))
+(check-sat)
+"""
+
+
 # Shapes only the legacy proof object produces: the smt core's rewriter
 # simplifies (ite true a b) under an ite and a function, recorded as a
 # rewrite, congruence through the ite and the function (ite_congr_classical
@@ -783,6 +798,46 @@ class TestUninterpretedValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
             proof_to_lean.reconstruct(source, tampered)
 
+    def test_ite_gates_with_negated_conditions_split_on_the_negand(self):
+        # The then-gate of (ite (not q) a b) arrives as q or (ite (not q) a b) = a:
+        # the lemma splits on q, proves the condition (not q) in the Not q case
+        # and its negation from q by lifting, never eliminating a double negation.
+        source = UF_NEGATED_ITE_CONDITION
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        gates = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                 and any(graph.kind(lit) == z3.Z3_OP_EQ
+                         and any(graph.kind(arg) == z3.Z3_OP_ITE for arg in graph.arguments(lit))
+                         for lit in graph.clause(graph.conclusion(node)))]
+        self.assertGreaterEqual(len(gates), 4)
+        self.assertIn("(ite_eq_left _hnc)", text)
+        self.assertIn("(ite_eq_right (fun _n0 => _n0 _hc))", text)
+        self.assertNotIn("(ite_eq_left _hc)", text)  # every condition of the input is a negation
+        for gate in gates:
+            header = text.split("private theorem def_axiom_%d " % gate, 1)[1].split(":=", 1)[0]
+            witnesses = [int(part.split(" ", 1)[0]) for part in header.split("[_df")[1:]]
+            self.assertEqual(len(witnesses), 1, header)
+            self.assertNotEqual(graph.kind(witnesses[0]), z3.Z3_OP_NOT)
+        self.assertNotIn("sorry", text)
+        self.assertNotIn("axiom ", text)
+
+        # Flipping a gate's guard must not turn a false clause into an axiom.
+        gate = gates[0]
+        conclusion = graph.conclusion(gate)
+        equality = next(lit for lit in graph.clause(conclusion) if graph.kind(lit) == z3.Z3_OP_EQ)
+        ite = next(arg for arg in graph.arguments(equality) if graph.kind(arg) == z3.Z3_OP_ITE)
+        condition = graph.arguments(ite)[0]
+        core, _ = proof_to_lean._negation_core(graph, condition)
+        guard = next(lit for lit in graph.clause(conclusion) if lit != equality)
+        _, depth = proof_to_lean._negation_core(graph, guard)
+        opposite = core if depth % 2 else condition
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][conclusion]["arguments"] = [
+            opposite if arg == guard else arg for arg in graph.arguments(conclusion)]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+            proof_to_lean.reconstruct(source, tampered)
+
     def test_alldiff_clauses_simplified_under_a_unit_get_a_cnf_lemma(self):
         source = UF_INPUTS["uf_ite_alldiff"]
         certificate = proof_certificate.export_clause_log_certificate(source)
@@ -1355,6 +1410,10 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn("monotonicity", certificate["rule_counts"])
                 self.assert_standard_axioms(report)
 
+    def test_negated_ite_condition_input_verifies_through_the_legacy_core(self):
+        _, report = self.check(UF_NEGATED_ITE_CONDITION)
+        self.assert_standard_axioms(report)
+
     # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least
     # three assertions and whose legacy refutations have the most congruence
     # steps (30 to 84 monotonicity steps, through ite terms); pinned like
@@ -1468,6 +1527,14 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 # grind's congruence closure proofs use the classical axioms Lean core relies on.
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_negated_ite_conditions_verify(self):
+        for depth in (1, 2, 3, 4):
+            condition = "(not " * depth + "q" + ")" * depth
+            source = UF_NEGATED_ITE_CONDITION.replace("(ite (not q) a b)", "(ite %s a b)" % condition)
+            with self.subTest(depth=depth):
+                certificate, _ = self.check(source)
+                self.assertIn("def-axiom", certificate["rule_counts"])
 
     def test_boolean_predicates_without_a_sort_verify_through_the_clause_log(self):
         # The same inputs and seeds as the legacy-core test: the euf solver

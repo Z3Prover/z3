@@ -1997,7 +1997,12 @@ def _ite_gate_lemma(graph, terms, node):
     The two gate clauses of (ite c a b) are (not c) or (ite c a b) = a and
     c or (ite c a b) = b, with either equality orientation, in any literal
     order, and possibly weakened. The proof splits on a decidability witness
-    for c and rewrites the ite with ite_eq_left or ite_eq_right.
+    for the condition's innermost negand p (c itself when it is not a
+    negation) and rewrites the ite with ite_eq_left or ite_eq_right. The
+    split is on p rather than on c because Z3 logs the gates of
+    (ite (not p) a b) with the double negation collapsed, p or ... = a, and
+    because a split on p proves c and (not c) by lifting without eliminating
+    any double negation, so the lemma stays axiom-free.
     """
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
@@ -2009,58 +2014,88 @@ def _ite_gate_lemma(graph, terms, node):
             if graph.kind(ite) != z3.Z3_OP_ITE:
                 continue
             condition, then_branch, else_branch = graph.arguments(ite)
+            core, depth = _negation_core(graph, condition)
             # Both sides are tried when the branches are one term, (ite c a a):
             # the clause may then be either gate, or the bare equality
             # (ite c a a) = a that Z3 logs as a tseitin step, proved by cases
-            # without any guard literal.
-            sides = [(equation, guard_polarity)
-                     for equation, guard_polarity, selected in (("(ite_eq_left _hc)", False, then_branch),
-                                                                ("(ite_eq_right _hnc)", True, else_branch))
+            # without any guard literal. Each side's equation holds in the
+            # case of the split where its witness (c or (not c)) holds: the
+            # one of the parity of that witness's negations over p.
+            sides = [("(%s %s)" % (rule, _lift_negations(parity)), parity)
+                     for rule, parity, selected in (("ite_eq_left", depth, then_branch),
+                                                    ("ite_eq_right", depth + 1, else_branch))
                      if terms[branch] == terms[selected]]
-            for equation, guard_polarity in sides:
-                gate = _ite_gate_case(graph, terms, node, literals, position, condition, equation, guard_polarity, flipped)
+            for equation, parity in sides:
+                gate = _ite_gate_case(graph, terms, node, literals, position, core, equation, parity, flipped)
                 if gate is not None:
                     return gate
             if len(sides) == 2:
-                equations = ["(Eq.symm %s)" % equation if flipped else equation for equation, _ in sides]
-                cases = tuple(_inject(position, len(literals), equation) for equation in equations)
-                return _ite_gate_by_cases(graph, node, condition, cases)
+                cases = [None, None]
+                for equation, parity in sides:
+                    if flipped:
+                        equation = "(Eq.symm %s)" % equation
+                    cases[parity % 2] = _inject(position, len(literals), equation)
+                return _ite_gate_by_cases(graph, node, core, cases)
     return None
 
 
-def _ite_gate_by_cases(graph, node, condition, cases):
-    """The gate lemma as a case split on the condition's decidability witness."""
+def _negation_core(graph, formula):
+    """Return (p, count): the formula under its outermost negations, and how many there were."""
+    count = 0
+    while graph.kind(formula) == z3.Z3_OP_NOT:
+        formula, count = graph.arguments(formula)[0], count + 1
+    return formula, count
+
+
+def _lift_negations(count):
+    """A proof of p under count negations from _hc : p (count even) or _hnc : Not p (count odd).
+
+    Each pair of negations is one application to the hypothesis: from
+    _hc : p, (fun _n0 => _n0 _hc) : Not (Not p). Nothing is eliminated, so no
+    decidability beyond the split's witness is needed.
+    """
+    evidence = "_hc" if count % 2 == 0 else "_hnc"
+    for level in range(count // 2):
+        evidence = "(fun _n%d => _n%d %s)" % (level, level, evidence)
+    return evidence
+
+
+def _ite_gate_by_cases(graph, node, core, cases):
+    """The gate lemma as a case split on the decidability witness of p, the condition's negand.
+
+    cases[0] proves the clause from _hc : p and cases[1] from _hnc : Not p.
+    """
     conclusion = graph.conclusion(node)
     lines = [
         "",
         "private theorem def_axiom_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
-        "    [_df%d : Decidable %s]" % (condition, _formula(graph, condition)),
+        "    [_df%d : Decidable %s]" % (core, _formula(graph, core)),
         "    : %s :=" % _formula(graph, conclusion),
         "  @Decidable.byCases %s _ _df%d (fun _hc => %s) (fun _hnc => %s)" % (
-            _formula(graph, condition), condition, cases[0], cases[1]),
+            _formula(graph, core), core, cases[0], cases[1]),
     ]
-    term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, condition)
-    return lines, {condition}, term
+    term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, core)
+    return lines, {core}, term
 
 
-def _ite_gate_case(graph, terms, node, literals, position, condition, equation, guard_polarity, flipped):
-    """The gate lemma for one orientation of the ite equality, or None when its guard literal is absent."""
+def _ite_gate_case(graph, terms, node, literals, position, core, equation, parity, flipped):
+    """The gate lemma for one orientation of the ite equality, or None when its guard literal is absent.
+
+    The equation holds in the case of parity (negations over p) given; the
+    guard literal is the opposite witness, p under any number of negations
+    of the other parity (Z3 collapses double negations, so (not (not p))
+    arrives as p), and holds in the other case.
+    """
     if flipped:
         equation = "(Eq.symm %s)" % equation
     for guard_position, guard in enumerate(literals):
-        if guard_polarity:
-            matches = terms[guard] == terms[condition]
-        else:
-            matches = (graph.kind(guard) == z3.Z3_OP_NOT
-                       and terms[graph.arguments(guard)[0]] == terms[condition])
-        if not matches:
+        guard_core, guard_depth = _negation_core(graph, guard)
+        if terms[guard_core] != terms[core] or guard_depth % 2 == parity % 2:
             continue
-        equation = _inject(position, len(literals), equation)
-        if guard_polarity:
-            cases = (_inject(guard_position, len(literals), "_hc"), equation)
-        else:
-            cases = (equation, _inject(guard_position, len(literals), "_hnc"))
-        return _ite_gate_by_cases(graph, node, condition, cases)
+        cases = [None, None]
+        cases[parity % 2] = _inject(position, len(literals), equation)
+        cases[guard_depth % 2] = _inject(guard_position, len(literals), _lift_negations(guard_depth))
+        return _ite_gate_by_cases(graph, node, core, cases)
     return None
 
 

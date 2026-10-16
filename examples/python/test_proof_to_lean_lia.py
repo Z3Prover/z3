@@ -767,7 +767,7 @@ class TestIntegerLeanIntegration(unittest.TestCase):
 
     def test_arith_lemmas_over_real_atoms_verify(self):
         # The arith hint is accepted in Real certificates too, where grind
-        # proves the clause (Z3 was observed to emit it for Int input only).
+        # proves the clause; live Real division axioms have separate tests.
         from test_proof_to_lean_arith import Z3TEST_LRA_INPUTS
         source = Z3TEST_LRA_INPUTS["lra_farkas"]
         certificate = proof_certificate.export_clause_log_certificate(source)

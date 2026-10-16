@@ -1164,6 +1164,35 @@ nests (`test_wide_boolean_rewrites_are_proved_structurally`). Tests:
 `test_proof_to_lean.py` (needed witnesses, the fallback, the structure
 expansion) and `test_proof_to_lean_integration.py`.
 
+**Two rejections found by a scaled random stress (2026-10-16).** Random
+instances larger than the pinned seeds (six to seven variables or constants,
+18 to 24 constraints, nesting depth 3, 40 seeds per generator, both cores,
+Lean-checked) found two rejections of inputs Z3 solves; QF_LRA, QF_LIA,
+QF_UFLIA, and QF_UF without `ite` had none. (1) The sat.smt arithmetic
+solver logs its axiom for a Real division by a numeral, `q = 0 or q * (p / q)
+= p`, with its first literal as the constant `true` (the negation of the
+false disequality `(= q 0)`, elided from the clause) when a numeral quotient
+such as `(/ 1.0 2.0)` inside a ground atom is internalized as a term next to
+a conflict at level zero; the replay rejected the hint ("hint literal is not
+an arithmetic atom") on 10 of 23 unsat QF_UFLRA instances through the clause
+log (the legacy core certified them). `infer` now drops `true` literals from
+theory hints before the shape checks (a hint of nothing else stays rejected,
+and `false` is still not an arithmetic atom), and Lean proves the unit
+equality `2 * (1 / 2) = 1` as any `arith` lemma. (2) The gates of an `ite`
+over the uninterpreted sort whose condition is a negation, `(ite (not q) a
+b)`, reach the log with the double negation collapsed, `q or (ite (not q) a
+b) = a`, which `_ite_gate_lemma` did not recognize ("unsupported or invalid
+def-axiom clause") on 5 of 24 unsat QF_UF instances with `ite` terms. The
+gate lemma now splits on the condition's innermost negand and proves the
+condition and its negation by lifting through the negations (`fun _n0 => _n0
+_hc`), so it stays axiom-free and the equally collapsed guards of deeper
+negations are covered too. Tests: `test_proof_certificate.py`
+(`_LRA_DIV_LOG`, the `true` literal of a coefficient hint),
+`test_proof_to_lean_arith.py` (`REAL_DIVISION_AXIOM`, both cores),
+`test_proof_to_lean_uflra.py` (`uflra_division_axiom`),
+`test_proof_to_lean_uf.py` (`UF_NEGATED_ITE_CONDITION`, both cores,
+nested negations, and rejection of a gate with its guard reversed).
+
 ## Arithmetic proof infrastructure
 
 ### Real QF_LRA hardening (2026-10-07)

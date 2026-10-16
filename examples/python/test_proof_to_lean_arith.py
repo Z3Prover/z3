@@ -234,6 +234,21 @@ LEGACY_BOUND_INPUTS = {
 }
 
 
+# A numeral quotient inside a ground atom next to a conflict at level zero:
+# the sat.smt arithmetic solver logs its division axiom 2 * (1 / 2) = 1 under
+# an arith hint whose first literal is the constant true (the exporter's
+# _LRA_DIV_LOG pins the log); the clause log rejected the hint before.
+REAL_DIVISION_AXIOM = """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (< x x))
+(assert (or (< y z) (< (/ 1.0 2.0) 3.0)))
+(check-sat)
+"""
+
+
 def random_instance(seed, variables, constraints, ite=False):
     """A random QF_LRA problem; callers filter for unsat ones."""
     generator = random.Random(seed)
@@ -491,6 +506,12 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
                 self.assertEqual(certificate["fragment"], "qf_lra")
                 self.assertIn(_STANDARD_AXIOMS, report)
                 self.assertIn("th-lemma", certificate["rule_counts"])
+
+    def test_the_real_division_axiom_verifies(self):
+        certificate, report = self.check(REAL_DIVISION_AXIOM)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertIn(["arith"], [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"])
+        self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_boolean_inputs_through_the_clause_log(self):
         from test_proof_to_lean import Z3TEST_LEAN_INPUTS
@@ -960,6 +981,11 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
                 self.assertIn(_STANDARD_AXIOMS, report)
                 if name in Z3TEST_LRA_INPUTS:
                     self.assertIn("rewrite", certificate["rule_counts"])  # the preprocessing the clause log never sees
+
+    def test_the_real_division_axiom_input_verifies_through_the_legacy_core(self):
+        certificate, report = self.check(REAL_DIVISION_AXIOM, core="legacy")
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        self.assertIn(_STANDARD_AXIOMS, report)
 
     def test_bound_propagations_and_theory_arith_inputs_verify(self):
         for name, source in {**LEGACY_BOUND_INPUTS, **LEGACY_THEORY_ARITH_INPUTS}.items():

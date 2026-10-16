@@ -1179,6 +1179,41 @@ _LIA_DIV_LOG = """\
 """
 
 
+# A Real division by a numeral inside a ground atom, next to a conflict at
+# level zero: the sat.smt arithmetic solver logs its axiom q = 0 or
+# q * (p / q) = p for the quotient (/ 1.0 2.0) under the hint arith, with the
+# first literal as the constant true (the negation of the false disequality
+# (= 2.0 0.0), elided from the clause) and the second as the negated equality.
+_LRA_DIV = """\
+(set-logic QF_LRA)
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (< x x))
+(assert (or (< y z) (< (/ 1.0 2.0) 3.0)))
+(check-sat)
+"""
+
+_LRA_DIV_LOG = """\
+(assume (not false))
+(assume)
+(define-const $12 Real (/ 1.0 2.0))
+(define-const $23 Real (* 2.0 $12))
+(define-const $25 Bool (= $23 1.0))
+(declare-fun arith (Bool Bool) Proof)
+(define-const $24 Bool (not $25))
+(define-const $26 Proof (arith true $24))
+(infer $25 $26)
+(declare-fun z () Real)
+(declare-fun y () Real)
+(define-const $9 Bool (< y z))
+(define-const $14 Bool (< $12 3.0))
+(assume $9 $14)
+(declare-fun rup () Proof)
+(infer rup)
+"""
+
+
 class TestFragmentClassification(unittest.TestCase):
     def classify(self, source):
         assertions, fragment = proof_certificate.parse_assertions(source, z3.Context(), integer=True)
@@ -1710,7 +1745,7 @@ class TestClauseLogReplay(unittest.TestCase):
             self.replay(_LIA, _LIA_LOG.replace("(<= $10 3)", "(<= $10 3.5)"))
         # A cut over a Boolean literal has no linear shape.
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "not an arithmetic atom"):
-            self.replay(_LIA, _LIA_LOG.replace("(cut 1 $12 1 $14", "(cut 1 true 1 $14"))
+            self.replay(_LIA, _LIA_LOG.replace("(cut 1 $12 1 $14", "(cut 1 false 1 $14"))
         # Relabelled as farkas, the coefficients are summed exactly and do not
         # refute the literals; over Int that drops them (Lean alone proves the
         # clause) instead of rejecting the log, as the Real slice would.
@@ -1741,7 +1776,8 @@ class TestClauseLogReplay(unittest.TestCase):
         # literal, a division by zero or by a term, and an empty hint are
         # rejected; rem is not an SMT-LIB operator.
         for tampered, message in [
-            (_LIA_DIV_LOG.replace("(arith $22)", "(arith true)"), "not an arithmetic atom"),
+            (_LIA_DIV_LOG.replace("(arith $22)", "(arith true)"), "arith hint has no literals besides true"),
+            (_LIA_DIV_LOG.replace("(arith $22)", "(arith false)"), "not an arithmetic atom"),
             (_LIA_DIV_LOG.replace("(div x 3)", "(div x 0)"), "integer div is supported only by a nonzero constant"),
             (_LIA_DIV_LOG.replace("(mod x 3)", "(mod x x)"), "integer mod is supported only by a nonzero constant"),
             (_LIA_DIV_LOG.replace("(arith $22)", "(arith)"), "arith hint has no literals"),
@@ -1750,6 +1786,36 @@ class TestClauseLogReplay(unittest.TestCase):
             with self.subTest(message=message):
                 with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
                     self.replay(_LIA_DIV, tampered)
+
+    def test_real_division_axiom_hints_drop_their_true_literal(self):
+        certificate = self.replay(_LRA_DIV, _LRA_DIV_LOG)
+        self.assertEqual(certificate["fragment"], "qf_lra")
+        th_lemma = [d["parameters"] for d in certificate["declarations"] if d["name"] == "th-lemma"]
+        self.assertEqual(th_lemma, [["arith"]])
+        # The lemma is the unit equality 2 * (1 / 2) = 1 itself: the true
+        # literal contributes nothing to the contradictory set, so its
+        # complement false is not a literal of the clause.
+        axioms = []
+        for node in certificate["nodes"]:
+            declaration = certificate["declarations"][node["declaration"]]
+            if declaration["parameters"] == ["arith"]:
+                clause = certificate["nodes"][node["arguments"][-1]]
+                axioms.append(certificate["declarations"][clause["declaration"]]["name"])
+        self.assertEqual(axioms, ["="])
+        # Nothing but true is rejected, and false is not an arithmetic atom.
+        for tampered, message in [
+            (_LRA_DIV_LOG.replace("(arith true $24)", "(arith true)"), "arith hint has no literals besides true"),
+            (_LRA_DIV_LOG.replace("(arith true $24)", "(arith false $24)"), "not an arithmetic atom"),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    self.replay(_LRA_DIV, tampered)
+        # A true literal in a coefficient hint goes with its coefficient.
+        padded = _LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(farkas 3 true 1 $11 2 $17 1 $21)")
+        parameters = [[d["parameters"] for d in self.replay(_LRA, log)["declarations"] if d["name"] == "th-lemma"]
+                      for log in (_LRA_LOG, padded)]
+        self.assertEqual(parameters[0], parameters[1])
+        self.assertEqual(parameters[0], [["farkas", "1", "2", "1"]])
 
     def test_integer_bound_hints_may_round(self):
         # 3x <= 4 (logged as x <= 1 by the rewriter normally; here kept as a

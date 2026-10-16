@@ -360,9 +360,12 @@ and (mod t k) <= |k| - 1, under the hint arith, whose arguments are the
 negated clause literals (an input mentioning div alone still gets the mod
 atom and all three clauses). An arith hint is shape-checked like a cut
 (every literal an arithmetic atom over linear terms, under any negations)
-and proved by Lean alone; the reconstructor accepts it in Real certificates
-too, where grind would prove it, though Z3 was observed to emit it for
-integer input only. abs never reaches the log: Z3's rewriter replaces
+and proved by Lean alone. Real division axioms use arith too, for example
+2 * (1 / 2) = 1, sometimes with a true literal standing for an elided
+false clause literal. The replay drops true from the hint's contradictory
+set before checking its arithmetic shape, removing its coefficient too
+when present. An otherwise empty hint is still rejected. abs never reaches
+the log: Z3's rewriter replaces
 (abs t) by (ite (>= t 0) t (- t)), and the exporter's rewrite bridge ties
 the assertion to the logged ite, as for any other rewrite.
 
@@ -642,6 +645,10 @@ with ite_eq_left and ite_eq_right. The lemma does not depend on the
 fragment, but Z3 has only been observed to log these clauses for Int input:
 over Real and the uninterpreted sorts it simplified (ite c a a) away in
 every input tried.
+
+Gate clauses also accept negated conditions whose guards Z3 simplified by
+collapsing double negations. Their proofs split on the innermost condition
+and introduce the required negations, without adding axioms.
 
 Lean core's Rat library itself depends on propext, Classical.choice, and
 Quot.sound, so arithmetic theorems necessarily report those three standard
