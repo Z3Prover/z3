@@ -140,6 +140,67 @@ from analysis):**
   basic polynomial-identity and interval facts already covered above,
   so no separate lemmas were added for them.
 
+## Executable incremental-linearization certificates
+
+`src/math/lp/nla_lemma.cpp` now captures an owned polynomial-refutation
+certificate when arithmetic evidence is enabled. It snapshots the original
+LP explanation facts, the negations of the actual conclusion literals,
+and the frozen linear-variable and monomial definitions. The serialized
+certificate includes these source facts, their premise/conclusion partition,
+the expanded polynomial inputs, the derivation, and the contradictory root.
+It remains usable after the originating LP solver is destroyed.
+
+The independent replay kernel has five rules: input, product, multiplication
+of an equality by an arbitrary polynomial, square nonnegativity, and a
+weighted sum with a nonnegative constant offset. Inequality weights must be
+nonnegative; equality weights may have either sign. A sum containing a
+disequality may contain only one nonzero disequality contribution and
+otherwise only equalities. All polynomial coefficients, certificate weights,
+and offsets are integral after positive denominator clearing. Strictness is
+reconstructed rather than supplied by the producer.
+
+[`Z3NlaLemma.fst`](Z3NlaLemma.fst) supplies an executable counterpart and
+proves `check_sound`: no real assignment can satisfy all of the supplied
+polynomial input facts when the checker accepts the refutation. Its
+polynomial-arithmetic dependency, `Z3LinearArithmeticTheory.fst`, was also
+verified. These proofs add no axioms or admissions.
+[`Z3NlaLemmaTests.fst`](Z3NlaLemmaTests.fst) exercises tangent-plane,
+tangent-line, and square certificates and rejects invalid references,
+negative inequality weights, and cancellation of two disequalities.
+
+The C++ regressions exercise zero/nonzero products, sign, shared-factor
+order, neutral factors, upper/lower monotonicity, repeated-factor squares,
+and tangent lines/planes. They also obtain certificates from the actual
+tangent and monotonicity generators, including non-strict box-corner
+planes, check retained ownership, reject malformed certificates, and
+exercise the proofs-disabled path. Certificate search is bounded and may
+use a separate LP solve; neither replay kernel calls a solver. Search
+failure is explicitly **unsupported**, not an assumed or checked lemma.
+
+All three NLSAT production paths are separately marked **assumed**:
+native theory proofs retain `arith assumed nlsat`, and SAT/EUF hints use
+`nlsat-assumed`. The SAT/EUF log writes these clauses as `assume`, with
+the origin hint retained in a preceding comment; its online proof checker
+also treats them as assumptions instead of rerunning a solver on them.
+Other hint categories do not acquire assumption status.
+Native F* marshaling preserves the origin as
+`Unverified "assumed:nlsat"`, so these leaves remain reported obligations.
+They never acquire polynomial certificates merely because NLSAT produced
+them.
+
+**Remaining correspondence boundary:** the F* soundness theorem starts
+from polynomial facts. The C++ kernel additionally expands frozen LP
+definitions, but this source expansion is not yet formalized in F*.
+The native F* marshaler does not decode the new certificate or prove that
+its inputs are exactly the negation of the original native AST clause.
+Consequently it must not treat the `arith nla` tag as a verified proof
+rule; such native nodes still require obligations. The executable C++ and
+F* kernels are corresponding implementations, not a verified compilation
+of C++ into F*. Integer-only reasoning, variable-exponent identities,
+division/modulo, and transcendental facts not derivable in this ordered-ring
+calculus also remain unsupported by this new certificate path, irrespective
+of whether a separate schema above has already been proved.
+
 ## Conclusion
 
 All 47 cataloged lemmas type-check and are verified by F*/Z3 with no

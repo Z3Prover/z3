@@ -109,6 +109,8 @@ namespace api {
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
+        Z3_proof_check_eh*          m_proof_check_callback = nullptr;
+        void*                      m_proof_check_user_context = nullptr;
 
         Z3_error_code              m_error_code;
         Z3_error_handler *         m_error_handler;
@@ -138,6 +140,9 @@ namespace api {
 
         ast_context_params & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
+        void set_proof_check_callback(void* user_context, Z3_proof_check_eh callback);
+        cmd_context::proof_check_callback get_proof_check_callback();
+        std::string check_proof(proof* pr, Z3_ast_vector assertions);
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }

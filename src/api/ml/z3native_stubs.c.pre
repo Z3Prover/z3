@@ -116,6 +116,8 @@ int compare_pointers(void* pt1, void* pt2) {
 
 /* Context objects */
 
+typedef struct ml_proof_check_ctx ml_proof_check_ctx;
+
 /* The Z3context_plus_data exists exactly once for each context,
    no matter how many custom blocks for that context exist.
    Each custom block only stores a pointer to the corresponding
@@ -125,6 +127,10 @@ int compare_pointers(void* pt1, void* pt2) {
 typedef struct {
   Z3_context ctx;
   _Atomic(unsigned long) obj_count;
+  ml_proof_check_ctx* proof_checker;
+  value proof_check_exception;
+  int proof_check_out_of_memory;
+  char* proof_check_report;
 } Z3_context_plus_data;
 
 /* A context is wrapped to an OCaml value by storing a pointer
@@ -141,6 +147,11 @@ Z3_context_plus Z3_context_plus_mk(Z3_context c) {
      We regard custom blocks that point to a Z3_context_plus structure
      as a usage of this structure. Hence, we assign it a counter of one. */
   r->obj_count = 1;
+  r->proof_checker = NULL;
+  r->proof_check_exception = Val_unit;
+  r->proof_check_out_of_memory = 0;
+  r->proof_check_report = NULL;
+  caml_register_generational_global_root(&r->proof_check_exception);
   return r;
 }
 
@@ -152,6 +163,8 @@ void try_to_delete_context(Z3_context_plus cp) {
   if (cp->obj_count == 0) {
     /* printf("try_to_delete_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
     Z3_del_context(cp->ctx);
+    caml_remove_generational_global_root(&cp->proof_check_exception);
+    free(cp->proof_check_report);
     free(cp);
   }
   /*
@@ -543,4 +556,177 @@ CAMLprim DLL_PUBLIC value n_solver_register_on_clause(value ctx_v, value solver_
   Z3_solver_register_on_clause(cp->ctx, sp->p, (void*)oc, caml_ml_on_clause_eh);
 
   CAMLreturn(Val_unit);
+}
+
+/* The registration token owns the closure root, rather than the context:
+   a closure capturing its context must not create an uncollectable cycle. */
+struct ml_proof_check_ctx {
+  value callback;
+  Z3_context_plus cp;
+  unsigned refs;
+};
+
+typedef struct ml_proof_check_call {
+  ml_proof_check_ctx* checker;
+  Z3_ast proof;
+  Z3_ast_vector assertions;
+  value* callback;
+} ml_proof_check_call;
+
+#ifdef __cplusplus
+static thread_local ml_proof_check_call* current_proof_check = NULL;
+#elif defined(_MSC_VER)
+static __declspec(thread) ml_proof_check_call* current_proof_check = NULL;
+#else
+static _Thread_local ml_proof_check_call* current_proof_check = NULL;
+#endif
+
+static void ml_proof_check_dec_ref(ml_proof_check_ctx* checker) {
+  if (--checker->refs == 0) {
+    Z3_context_plus cp = checker->cp;
+    caml_remove_generational_global_root(&checker->callback);
+    free(checker);
+    cp->obj_count--;
+    try_to_delete_context(cp);
+  }
+}
+
+static void ml_clear_proof_check_callback(Z3_context_plus cp) {
+  ml_proof_check_ctx* old = cp->proof_checker;
+  Z3_set_proof_check_callback(cp->ctx, NULL, NULL);
+  cp->proof_checker = NULL;
+  if (old)
+    caml_modify_generational_global_root(&old->callback, Val_unit);
+}
+
+static void ml_proof_check_finalize(value token) {
+  ml_proof_check_ctx* checker = *(ml_proof_check_ctx**)Data_custom_val(token);
+  if (checker) {
+    if (checker->cp->proof_checker == checker)
+      ml_clear_proof_check_callback(checker->cp);
+    ml_proof_check_dec_ref(checker);
+  }
+}
+
+static struct custom_operations ml_proof_check_custom_ops = {
+  (char*) "Z3 proof checker registration",
+  ml_proof_check_finalize,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default
+};
+
+/* Called from inside caml_callback_exn, so even allocation failures while
+   wrapping inputs cannot unwind across the C++ solver stack. */
+CAMLprim DLL_PUBLIC value n_proof_check_callback_inputs(value unit) {
+  CAMLparam1(unit);
+  CAMLlocal4(result, proof, assertions, callback);
+  ml_proof_check_call* call = current_proof_check;
+  Z3_context_plus cp;
+  if (!call)
+    caml_invalid_argument("no active proof checking callback");
+  cp = call->checker->cp;
+  callback = *call->callback;
+  proof = caml_alloc_custom_mem(&Z3_ast_plus_custom_ops, sizeof(Z3_ast_plus), 8);
+  *(Z3_ast_plus*)Data_custom_val(proof) = Z3_ast_plus_mk(cp, call->proof);
+  assertions = caml_alloc_custom_mem(&Z3_ast_vector_plus_custom_ops, sizeof(Z3_ast_vector_plus), 32);
+  *(Z3_ast_vector_plus*)Data_custom_val(assertions) = Z3_ast_vector_plus_mk(cp, call->assertions);
+  result = caml_alloc_tuple(3);
+  Store_field(result, 0, callback);
+  Store_field(result, 1, proof);
+  Store_field(result, 2, assertions);
+  CAMLreturn(result);
+}
+
+static Z3_string caml_ml_proof_check_eh(void* user, Z3_context c, Z3_ast proof, Z3_ast_vector assertions) {
+  CAMLparam0();
+  CAMLlocal2(result, callback);
+  ml_proof_check_ctx* checker = (ml_proof_check_ctx*)user;
+  Z3_context_plus cp = checker->cp;
+  ml_proof_check_call call = { checker, proof, assertions, &callback };
+  ml_proof_check_call* previous = current_proof_check;
+  char* report;
+  mlsize_t length;
+  assert(c == cp->ctx);
+  if (cp->proof_check_exception != Val_unit || cp->proof_check_out_of_memory)
+    CAMLreturnT(Z3_string, NULL);
+  callback = checker->callback;
+  checker->refs++;
+  current_proof_check = &call;
+  result = caml_callback_exn(*caml_named_value("Z3_PROOF_CHECK_CALLBACK"), Val_unit);
+  current_proof_check = previous;
+  if (Is_exception_result(result)) {
+    caml_modify_generational_global_root(&cp->proof_check_exception, Extract_exception(result));
+    ml_proof_check_dec_ref(checker);
+    CAMLreturnT(Z3_string, NULL);
+  }
+  length = caml_string_length(result);
+  report = (char*)malloc(length + 1);
+  if (!report) {
+    cp->proof_check_out_of_memory = 1;
+    ml_proof_check_dec_ref(checker);
+    CAMLreturnT(Z3_string, NULL);
+  }
+  memcpy(report, String_val(result), length);
+  report[length] = 0;
+  /* This buffer must survive unregistration/collection inside the callback:
+     C++ copies the report only after this function returns. */
+  free(cp->proof_check_report);
+  cp->proof_check_report = report;
+  ml_proof_check_dec_ref(checker);
+  CAMLreturnT(Z3_string, report);
+}
+
+CAMLprim DLL_PUBLIC value n_set_proof_check_callback(value ctx_v, value cb_v) {
+  CAMLparam2(ctx_v, cb_v);
+  CAMLlocal1(token);
+  Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(ctx_v);
+  ml_proof_check_ctx* checker;
+  token = caml_alloc_custom_mem(&ml_proof_check_custom_ops, sizeof(ml_proof_check_ctx*), 64);
+  *(ml_proof_check_ctx**)Data_custom_val(token) = NULL;
+  checker = (ml_proof_check_ctx*)malloc(sizeof(ml_proof_check_ctx));
+  if (!checker)
+    caml_raise_out_of_memory();
+  checker->cp = cp;
+  checker->callback = cb_v;
+  checker->refs = 1;
+  cp->obj_count++;
+  caml_register_generational_global_root(&checker->callback);
+  *(ml_proof_check_ctx**)Data_custom_val(token) = checker;
+  ml_clear_proof_check_callback(cp);
+  cp->proof_checker = checker;
+  Z3_set_proof_check_callback(cp->ctx, checker, caml_ml_proof_check_eh);
+  CAMLreturn(token);
+}
+
+CAMLprim DLL_PUBLIC value n_clear_proof_check_callback(value ctx_v) {
+  CAMLparam1(ctx_v);
+  Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(ctx_v);
+  ml_clear_proof_check_callback(cp);
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim DLL_PUBLIC value n_eval_smtlib2_string(value ctx_v, value input_v) {
+  CAMLparam2(ctx_v, input_v);
+  CAMLlocal2(result, exception);
+  Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(ctx_v);
+  Z3_string output;
+  Z3_error_code ec;
+  output = Z3_eval_smtlib2_string(cp->ctx, String_val(input_v));
+  if (cp->proof_check_exception != Val_unit) {
+    exception = cp->proof_check_exception;
+    caml_modify_generational_global_root(&cp->proof_check_exception, Val_unit);
+    caml_raise(exception);
+  }
+  if (cp->proof_check_out_of_memory) {
+    cp->proof_check_out_of_memory = 0;
+    caml_raise_out_of_memory();
+  }
+  ec = Z3_get_error_code(cp->ctx);
+  if (ec != Z3_OK)
+    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), Z3_get_error_msg(cp->ctx, ec));
+  result = caml_copy_string(output);
+  CAMLreturn(result);
 }

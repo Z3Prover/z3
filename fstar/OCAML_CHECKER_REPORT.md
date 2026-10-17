@@ -28,12 +28,206 @@ have been removed. Neither JSON input nor the former `--smt2` and
 | `Z3ProofDocument.fst` | Transport-independent definition/scoping/input validation and topological checking through `Z3UnifiedProof` |
 | `ocaml_runtime/Z3NativeMain.ml` | Direct CLI and optional phase/node statistics |
 
+### Interactive certifying SMT-LIB session
+
+`checker --interactive [--stats] [--diagnostics] [--timeout-ms N]` reads
+SMT-LIB commands from stdin and evaluates each complete command through
+`Z3_eval_smtlib2_string` on one persistent, proof-enabled context. Commands
+may span lines or share a line. Framing respects comments, quoted symbols,
+and SMT-LIB strings with doubled quotes. Responses are flushed after each
+command, without waiting for EOF. `(exit)` ends the session; a file argument
+other than `-` is not accepted in this mode.
+
+```smt2
+(declare-const p Bool)
+(assert p)
+(check-sat)
+; sat
+(check-sat-assuming ((not p)))
+; unsat
+; proof-check ACCEPT
+(push)
+(assert (not p))
+(check-sat)
+; unsat
+; proof-check ACCEPT
+(pop)
+(check-sat)
+; sat
+(exit)
+```
+
+The runtime registers the extracted F* document checker with
+`Z3_set_proof_check_callback`, using the official OCaml binding's native AST
+and assertion-vector handles. Each UNSAT callback creates a fresh marshaling
+state and runs the same document checker as batch mode. Caches do not span
+checks, including after `pop` or `reset`. Named assertions include their
+guarded formulas and tracking literals, as used in the proof premises.
+`check-sat-using` is also checked; model and unsat-core queries remain available.
+
+Solver replies remain ordinary SMT-LIB. The callback report is emitted as an
+SMT-LIB comment: `; proof-check ACCEPT`, `; proof-check PARTIAL n`, or
+`; proof-check REJECT`. **Only ACCEPT certifies an UNSAT proof under the
+existing checker/trust assumptions.** A preceding `unsat` alone is still the
+producer's answer. NLSAT assumptions and other unsupported leaves remain
+explicit pending obligations, never successful certificates. SAT models are
+not certified.
+
+Each interactive proof check also emits a `; proof-stats` comment by default.
+It reports unique proof-DAG nodes (`proof_nodes`), premise edges
+(`proof_edges`), effective input assertions/assumptions (`assertions`),
+unique marshaled expressions and declarations, pending obligations, and
+solve/marshal/check milliseconds. Counts are per check, not cumulative.
+`proof_nodes` and `proof_edges` count the outer document DAG.
+`binder_nodes` and `binder_edges` separately count the checked DAGs hidden
+inside proof binders, including each certificate's root. These counts are
+per certificate; a certificate root also occurs in the outer DAG.
+Rejected documents report `pending=unknown`, not a misleading zero.
+`--stats` additionally writes the existing batch-compatible timing/size line
+to stderr; `--diagnostics` continues to report typed obligations there.
+
+Proof generation is enabled at startup and restored after `(reset)`, together
+with the command-line timeout. An attempt to disable proof generation reports
+an error and restores it before further commands. Ordinary command errors are
+reported as SMT-LIB errors and the session continues; malformed or truncated
+command framing and resource failures end the session with an error.
+
+At EOF or `(exit)`, exit status is 2 if any command/checker error occurred,
+otherwise 1 if any proof was rejected, otherwise 3 if any proof was partial,
+otherwise 0. SAT and UNKNOWN are normal interactive answers and do not
+themselves make the process fail. These session-wide statuses differ from
+the single-solve batch statuses below.
+
+The OCaml raw API exposes `set_proof_check_callback` returning an opaque
+`proof_check_callback` registration and `clear_proof_check_callback`.
+Callers must keep the registration alive while evaluating commands.
+Replacement/clearing releases the old closure; collecting a registration
+unregisters it if still current. This ownership avoids rooting cycles when
+callbacks capture their context. Borrowed input handles are wrapped with
+the usual OCaml native reference counting and may be retained after return.
+The bridge catches callback exceptions, including input-wrapper allocation
+failures, before unwinding the C++ stack, and re-raises them only after
+`Z3_eval_smtlib2_string` returns. Registrations and contexts must not be used
+concurrently across OCaml domains; recursive evaluation on the same context
+from its callback is not supported.
+
 The foreign implementation never constructs a checker AST or a checked
 fact. F* code assigns recognized operator tags from actual native operator
 kinds, not user-supplied printed names. Opaque declarations and nominal
 sorts carry native identity in their names to avoid conflating overloaded
 or parameterized symbols. Exact numerals and Z3's original `arith/farkas`
 parameters are preserved; no certificates are reconstructed.
+
+NLSAT-origin theory lemmas carry the explicit native parameters
+`arith assumed nlsat`. The foreign view preserves this origin, and the
+typed marshaler records `Unverified "assumed:nlsat"` rather than silently
+classifying it as a generic theory lemma. These nodes retain an obligation
+and cannot establish an obligation-free `ACCEPT`.
+
+The build also extracts the standalone ordered-ring replay kernel
+`Z3NlaLemma`. It does **not** yet connect the serialized `arith nla`
+certificates to native AST clauses. Such nodes remain unverified in this
+document checker; see `NL_ARITH_REPORT.md` for the exact source-expansion
+and clause-correspondence boundaries.
+
+### Binder and quantifier proof support
+
+Native `proof-bind` nodes contain a lambda whose body is a **proof**, not an
+ordinary formula. The foreign view exposes its bound sorts and original
+body proof. `Z3NativeProof.fst` traverses that hidden proof DAG with a
+memoized worklist and constructs a typed binder certificate; it does not
+marshal proof-valued lambdas as object-language assertions.
+
+The unified kernel checks every certificate entry against already checked
+premises. Its soundness invariant is validity under **every environment**,
+not merely the current environment. Only supported, assumption-free steps
+can establish this invariant: asserted formulas, hypotheses, assumed theory
+lemmas, unknown rules, and unsupported rewrites cannot be generalized.
+Quantifier introduction requires matching quantifier kinds, matching bound
+sorts, and an actual checked relation between the two bodies. This covers
+`forall`, `exists`, and term-valued `lambda` congruence, including nested
+binders and observational equality. The congruence-shaped `nnf-pos` case
+uses the same checks. Negative NNF and compositional Boolean NNF are
+checked as described below. A failed certificate leaves an explicit obligation
+on its outer proof step; it never becomes `ACCEPT`.
+
+Constant Boolean quantifiers reduce to their bodies, including the native
+`elim-unused` steps for `forall true` and `exists false`. This is not a
+general implementation of unused-variable elimination.
+
+`Z3QuantifierInstantiation.fst` checks native `quant-inst` clauses using
+Z3's original AST-valued substitution parameters. It validates binding
+arity, sorts, closed arguments, de Bruijn order, and the exact resulting
+body. Its substitution theorem currently covers quantifier-free bodies;
+substitution beneath nested binders remains partial rather than relying
+on unproved capture avoidance. Multi-variable, mixed-sort instantiations
+are supported.
+
+The semantic model premises now explicitly include quantifier
+extensionality, preservation of constant Boolean bodies, universal
+quantifier elimination, and Boolean quantifier truth semantics, in addition
+to the existing universal-introduction premise. F* verifies certificate
+traversal, congruence lifting, substitution, quantifier duality, and the
+integrated node soundness theorems under these premises. These are
+not an unconditional theorem connecting native SMT-LIB quantification to
+the abstract interpretation.
+
+Native and interactive regressions cover arithmetic and Boolean rewrites
+under binders, nested mixed-sort quantifiers, lambda congruence, and genuine
+quantifier instances. Mutations exercise invalid premise/root indices,
+missing or reordered bindings, escaping variables, incorrect instances,
+bound-sort mismatches, and attempted generalization of asserted or
+hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
+16 `ACCEPT` results and one solver `UNKNOWN` at the 10-second timeout.
+
+Remaining quantifier-related obligations include general Skolemization,
+quantifier pulling, general unused-variable elimination,
+nested capture-avoiding instantiation, and lambda extensionality rewrites.
+NLSAT and other previously unsupported theory rules remain partial.
+
+#### Negative NNF checking and evaluation
+
+`Z3QuantifierNnf.fst` defines universal truth and classical existential
+truth over the abstract bound-value environments. From these semantics and
+Boolean negation, it proves both quantifier dualities:
+
+```text
+not (forall xs. body) = exists xs. not body
+not (exists xs. body) = forall xs. not body
+```
+
+The executable does not assume an individual `nnf-neg` step. It checks
+the flipped quantifier kind, unchanged bound sorts, and the supplied
+all-environments proof of the negated body relation. Verified Boolean
+equivalence handles normalized endpoints, including double-negation
+elimination in Z3's XOR-body proofs. Observational premises remain
+observational and cannot establish an ordinary equality.
+
+Boolean `nnf-pos` and `nnf-neg` steps compose their checked premise
+relations through application arguments, including negative occurrences,
+and then invoke the existing verified Boolean equivalence checker.
+Premise replacement does not descend into quantifier bodies; those
+require the explicit binder check. Unsupported steps or Boolean checks
+exceeding their supported fragment retain obligations.
+
+The 2026-10-17 local evaluation used eight native negative-NNF examples:
+plain existential negation, conjunction, disjunction, a Boolean context,
+mixed-sort bindings, implication, XOR, and ITE bodies. All eight returned
+`ACCEPT` in batch and interactive mode. A single timed batch evaluation
+took 539 ms of process wall time in total; the kernel checks summed to
+1.121 ms, with median kernel time 0.131 ms. These are illustrative local
+measurements, not a performance guarantee.
+
+All F*/Pulse verification succeeded with warnings treated as errors;
+26 native bridge test groups and 20 CLI tests passed. Native mutations
+cover wrong polarity/kinds/sorts, missing binders or premises, invalid
+body certificates, hypothesis generalization, and illicit conversion
+from observational relations to ordinary equality. Synthetic certificates
+exercise both dualities and positive/negative Boolean composition.
+The pinned z3test proof corpus remains 16 `ACCEPT` and one solver
+`UNKNOWN` at 10 seconds, with no checker errors. A separate nested
+existential example remains `PARTIAL` solely for `pull-quant`, not
+`nnf-neg`; the residual gap is not silently certified.
 
 ### Sharing and ownership
 
@@ -56,19 +250,58 @@ operation.
 
 ### Build, status, and trust boundary
 
-The build script uses CMake to build **static `libz3` and the official
-OCaml bindings from this checkout**, then links them with extracted code
-and Zarith into `checker`. The default native library build directory is
-`~/z3-native-ffi-build`; override with `-Z3BuildDir`. `-WslBuildDir` selects
-the executable output directory, and `-CacheDir` can reuse checked F*
-dependencies. WSL needs an OCaml/opam toolchain, Zarith, CMake, Python 3
-for build-time generation, and a C++20 compiler. Neither a preinstalled
-OCaml Z3 package nor Python Z3 bindings are required.
+Every invocation first uses CMake to **build and install Windows Z3 from
+this checkout**. The default build directory is `build`, with a local
+installation in `build\install`; override with `-Z3WindowsBuildDir` and
+`-Z3InstallDir`. All F*/Pulse verification, tests, and extraction explicitly
+select that installation's `bin\z3.exe`. The script reports its path and
+version, passing F*'s documented `--z3version` option rather than disabling
+the version check. No downloaded historical solver or incidental `PATH`
+entry selects the verifier. Run in a Windows C++20 developer PowerShell
+with CMake and Python available.
 
-Extraction has a single root, `Z3NativeProof.fst`, and writes to
-`build_extract/native/`. Compilation copies only the explicitly ordered
-live modules, not globbed outputs from earlier JSON builds. The independent
-in-memory Pulse checkers remain available as formal developments but are
+In WSL, the script builds and installs **static `libz3`, Z3's executable,
+and its official OCaml bindings from the same checkout**. The default
+build directory is `~/z3-native-ffi-build` (`-Z3BuildDir`), with installation
+in its `install` subdirectory. Compilation selects the installed OCaml
+module directory and puts the installed library directory first for native
+linking. The installed WSL solver's version is also printed.
+`-WslBuildDir` selects the checker output directory. WSL requires the
+OCaml/opam toolchain, Zarith, CMake, Python 3 for code generation, and a
+C++20 compiler; no preinstalled OCaml Z3 package is used.
+
+For a build with a fresh proof cache:
+
+```powershell
+.\fstar\tools\build_ocaml_checker.ps1 `
+  -CacheDir 'C:\z3fstar\fstar\build_cache_pr11208_current_z3' `
+  -WslBuildDir '~/z3checker-pr11208-latest' -RunTests
+```
+
+Use a fresh cache when measuring verification with a different SMT version;
+otherwise unchanged modules may reuse previously checked artifacts. On
+PR #11208 plus the current master fixes, the complete native pipeline and
+proof regressions verify with the installed, source-built Z3 5.3.1.
+`-RunTests` also verifies the resolution and polynomial-certificate
+regressions and the in-memory Pulse equality, justification, and Farkas
+checkers and tests before running native bridge and CLI tests.
+Explicit integer-to-real identities and polynomial row/cross
+proof steps make the arithmetic lemmas robust to the current solver's
+automation, without changing their specifications or runtime rules.
+
+The PR's new producer-side Farkas validation initially returned `UNKNOWN`
+when rational weights were applied to integer premises. Validation now
+clears all denominators with one positive common scale, matching the
+legacy proof checker's treatment of integer coefficients. Exported weights
+and checker acceptance rules are unchanged. A native regression exercises
+the affected integer search; the frozen pre-fix executable returns
+`UNKNOWN`, while the corrected producer returns `SAT`. The current
+[cross-cut results](SMTLIB_CROSSCUT_REPORT.md) retain both producer runs.
+
+Extraction has the roots `Z3NativeProof.fst` and `Z3NlaLemma.fst`, and
+writes to `build_extract/native/`. Compilation copies only the explicitly
+ordered live modules, not globbed outputs from earlier JSON builds. The
+independent in-memory Pulse checkers are verified by `-RunTests` but are
 not linked into this executable.
 
 The resulting executable has no dynamic Z3-library dependency; ordinary
@@ -108,8 +341,9 @@ strict-comparison negation, and equivalent affine differences. It reuses
 exact polynomial linearization and cancellation rather than trusting
 printed rewrite names. Comparisons retain strictness; malformed operators,
 division by zero, and unrelated nonlinear atoms do not become evidence.
-Real-valued term equality is deliberately not inferred from equality of
-the numeric projection.
+At this baseline, real-valued term equality was deliberately not inferred
+from equality of the numeric projection; the following extension adds the
+necessary explicit model law.
 
 The new arithmetic semantic lemmas use `numeric_operators` and local
 value-typing premises for the actual operands. Unlike the older global
@@ -152,6 +386,61 @@ separation, mixed-sort/declaration rejection, arithmetic rewrite positives
 and negatives, and typed obligation diagnostics.
 `tools/test_native_checker.py` exercises the direct CLI without importing
 Python Z3; it also checks rejection of the removed protocol/options.
+
+### Real affine and equality coverage (2026-10-17)
+
+The eight `PARTIAL` cases in workflow run `39021665839` require real affine
+term normalization, arithmetic equality normalization/decomposition,
+supplied `arith/bound` coefficients, and checked triangle-equality clauses.
+`Z3ArithmeticRewrite.fst` now checks these term and equality rewrites with
+the existing exact polynomial kernel. An equality splits into non-strict
+bounds only when their normalized polynomials match the equality's
+difference and its negation. Triangle-equality clauses are checked by that
+same decomposition, not accepted because of a theory hint. Strict-bound,
+wrong-variable, and wrong-constant near misses remain unsupported.
+
+Replaying all 17 inputs at the original pinned z3test commit produces
+**16 ACCEPT, 0 PARTIAL, 1 UNKNOWN**: every formerly partial input is
+obligation-free, while LassoRanker still exhausts its 10-second solver
+budget without a proof. This is a separate local replay, not a rerun of
+the historical 900-input cross-cut.
+
+The native API view now preserves `arith/bound` coefficient vectors as
+`ArithmeticFarkas`, whose premise/conclusion alignment and cancellation
+are checked by the same exact kernel as `arith/farkas`. Incorrect weights
+and coefficient counts remain explicit obligations. Assumed NLSAT origins
+still remain assumptions, including on formulas that another rule could
+independently establish.
+
+**Additional semantic premise:** the `value` datatype has no real-number
+constructor. Consequently `numeric_model` now explicitly requires equality
+reflection for Real-sorted expressions: equal numeric projections imply
+equal interpreted values. Operator laws alone do not establish this.
+The real rewrite and numeric equality soundness lemmas are conditional on
+this standard numeric-value model law; it is not an axiom asserting that a
+particular rewrite, certificate, or proof is valid. The existing untyped
+environment/inhabitance gap described above remains unresolved. No
+unconditional end-to-end SMT-LIB soundness claim is made.
+
+### Warning-free verification and extraction (2026-10-17)
+
+The build treats F* warnings and enabled OCaml compiler warnings as errors.
+The two closed-expression invariance lemmas have explicit termination
+measures, and list append sites explicitly open `FStar.List.Tot` rather
+than using deprecated syntax resolution. The refined sequence accessor
+has an explicit impossible empty case, implemented by the runtime as an
+exception rather than a value-producing fallback.
+
+F* 2026.09.27 also emits single-arm constructor projectors whose domain
+refinements disappear in OCaml. `tools/complete_ocaml_projectors.ml` uses
+the matching OCaml compiler's parser/AST/printer to add an `invalid_arg`
+arm only to generated `__proj__` functions matching a constructor of a
+multi-constructor datatype. It operates on staged extracted modules,
+not handwritten runtime or bridge code, and leaves values on the verified
+domain unchanged. It does not disable partial-match warnings or alter
+checker rules. This small extraction adaptation joins the existing
+compiler/runtime trust boundary. Native tests exercise both a valid
+projector and rejecting out-of-domain projector/sequence calls.
 Run it with `Z3_FSTAR_CHECKER` pointing to the built checker:
 
 ```powershell
@@ -173,14 +462,16 @@ historical pilot is an integration check, not an updated coverage estimate.
 
 **Latest cross-logic measurements (2026-10-16):**
 [SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reevaluates the same
-900 inputs using the extended native-only binary: **334 `ACCEPT`,
-254 `PARTIAL`, 143 `REJECT`**, retaining all 231 preceding accepts.
-There are 103 new complete refutations: 96 former partials and seven
-former rejections. Solver/resource limits are reported separately;
-twelve formerly rejected inputs now reach the whole-process watchdog,
-not certification. The report preserves the preceding native rule census,
-phase timings, and matching-version standalone solver baseline. The
-earlier Python/JSON measurements remain archived with explicit caveats.
+900 inputs with PR #11208 plus the producer correction above:
+**334 `ACCEPT`, 242 `PARTIAL`, 142 `REJECT`**, retaining all 334 preceding
+accepts, with no new complete refutations. There are 134 solver unknowns,
+46 whole-process timeouts, and two allocation aborts. Fifteen formerly
+non-unknown outcomes now reach solver timeouts; fewer partials are not
+an improvement in obligation discharge. Native integer evidence export
+and the new polynomial certificate's native AST bridge remain pending.
+The report preserves the initial PR regression, its corrected replay,
+the preceding 103-refutation coverage gain, native rule census, timings,
+and historical solver/Python comparisons with their provenance caveats.
 
 **Historical material follows.** Its older build commands, runtime details,
 and timing claims describe their recorded configurations, not the current
@@ -258,6 +549,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | File | Provides |
 |---|---|
 | `prims.ml` | Exact `Prims.int`/`nat`/`pos` via Zarith `Z.t`, with arithmetic/comparison operators, Euclidean division/remainder, and `int_zero`/`int_one`/`of_int`/`not`/`pow2`; native `bool`/`string`/`list` aliases |
+| `fStar_Pervasives.ml` | `false_elim` raises an explicit exception if an erased F* refinement is violated |
 | `fStar_Pervasives_Native.ml` | `option` aliased to OCaml's native `option` (`type nonrec 'a option = 'a option = None | Some of 'a`); `fst`/`snd` |
 | `fStar_List_Tot_Base.ml` | `length`/`rev`/`map`/`append`/`op_At`/`hd`/`mem`/`index`, wrappers over `Stdlib.List` with exact integer conversions |
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |

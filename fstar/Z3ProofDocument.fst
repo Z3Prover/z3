@@ -30,22 +30,7 @@ let rule_of_name (name:string) : option rule =
   else if name = "apply-def" then Some ApplyDefinition
   else if name = "hypothesis" then Some Hypothesis
   else if name = "lemma" then Some LemmaRule
-  else if name = "rewrite" then Some RewriteRule
-  else if name = "refl" || name = "reflexivity" then Some Reflexivity
-  else if name = "symm" then Some Symmetry
-  else if name = "trans" then Some Transitivity
-  else if name = "trans*" then Some TransitivityPath
-  else if name = "monotonicity" then Some Congruence
-  else if name = "commutativity" then Some Commutativity
-  else if name = "mp" then Some ModusPonens
-  else if name = "mp~" then Some ObservationalMP
-  else if name = "iff~" then Some IffObservational
-  else if name = "unit-resolution" then Some UnitResolution
-  else if name = "and-elim" then Some AndElimination
-  else if name = "not-or-elim" then Some NotOrElimination
-  else if name = "iff-true" then Some IffTrue
-  else if name = "iff-false" then Some IffFalse
-  else None
+  else basic_rule_of_name name
 
 let rec axiom_branches (entries:list entry) : Tot (list expr) (decreases entries) =
   match entries with

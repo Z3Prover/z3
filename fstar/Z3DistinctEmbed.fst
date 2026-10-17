@@ -18,6 +18,34 @@ let embedding_model (i:interpretation value) : prop =
   boolean_model i /\ not_sound i /\ eq_sound i /\ and_sound i /\ or_sound i /\
   true_sound i /\ distinct_sound i
 
+let rec lemma_repeated_value (i:interpretation value) (rho:env value)
+                            (a:expr) (args:list expr)
+  : Lemma (requires FStar.List.Tot.mem a args)
+          (ensures ~(T.distinct_from (eval i a rho) (eval_args i args rho)))
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | b :: rest -> if a <> b then lemma_repeated_value i rho a rest
+
+let rec lemma_duplicate_values (i:interpretation value) (rho:env value) (args:list expr)
+  : Lemma (requires A.has_duplicate args)
+          (ensures ~(T.distinct_values (eval_args i args rho)))
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    if FStar.List.Tot.mem a rest then lemma_repeated_value i rho a rest
+    else lemma_duplicate_values i rho rest
+
+let lemma_duplicate_rewrite_sound (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires boolean_model i /\ false_sound i /\ distinct_sound i /\ A.duplicate_rewrite a b)
+          (ensures eval i a rho == eval i b rho) =
+  match a with
+  | App _ args ->
+    lemma_duplicate_values i rho args;
+    (match eval i a rho with VBool _ -> () | _ -> ())
+  | _ -> ()
+
 let rec lemma_disequalities_from (i:interpretation value) (rho:env value)
                                  (a:expr) (args:list expr)
   : Lemma (requires embedding_model i)

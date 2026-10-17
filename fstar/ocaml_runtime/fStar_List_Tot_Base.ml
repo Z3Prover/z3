@@ -10,4 +10,5 @@ let append (l1 : 'a list) (l2 : 'a list) : 'a list = l1 @ l2
 let op_At (l1 : 'a list) (l2 : 'a list) : 'a list = l1 @ l2
 let hd (l : 'a list) : 'a = Stdlib.List.hd l
 let mem (x : 'a) (l : 'a list) : Prims.bool = Stdlib.List.mem x l
+let for_all (f : 'a -> Prims.bool) (l : 'a list) : Prims.bool = Stdlib.List.for_all f l
 let index (l : 'a list) (i : Prims.int) : 'a = Stdlib.List.nth l (Z.to_int i)
