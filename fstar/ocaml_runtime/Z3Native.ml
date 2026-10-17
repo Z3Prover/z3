@@ -152,7 +152,8 @@ let view_proof a =
     else None in
   let farkas =
     if name = "th-lemma" && count >= 2 &&
-       parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "farkas" then
+       parameter_symbol 0 = Some "arith" &&
+       (parameter_symbol 1 = Some "farkas" || parameter_symbol 1 = Some "bound") then
       Some (List.init (count - 2) (fun i ->
           match parameter_kind (i + 2) with
           | Z3enums.PARAMETER_RATIONAL ->

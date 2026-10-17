@@ -67,6 +67,7 @@ let rec len (#a:eqtype) (s:seq a) : nat =
 (* The defined, in-range element accessor (Z3's seq.nth_i). *)
 let rec nth (#a:eqtype) (s:seq a) (i:nat{i < len s}) : a =
   match s with
+  | [] -> FStar.Pervasives.false_elim ()
   | x :: s' -> if i = 0 then x else nth s' (i - 1)
 
 (* Total accessor: empty outside of range, otherwise a singleton. *)

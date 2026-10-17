@@ -32,10 +32,17 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(result.stderr, r"marshal_ms=\d+\.\d+")
                 self.assertRegex(result.stderr, r"expressions=\d+")
 
-    def test_uncertified_arithmetic_remains_partial(self):
+    def test_linear_arithmetic_is_fully_checked(self):
         result = self.run_checker(
             "(declare-const x Real)(declare-const y Real)"
             "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                         result.stderr)
+
+    def test_uncertified_nonlinear_arithmetic_remains_partial(self):
+        result = self.run_checker(
+            "(declare-const x Real)"
+            "(assert (= (* x x) 2))(assert (= (* x x x) 3))")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
 
@@ -81,7 +88,9 @@ class DirectCheckerTests(unittest.TestCase):
         for source in (
                 "(assert false)",
                 "(declare-const x Real)(declare-const y Real)"
-                "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))"):
+                "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))",
+                "(declare-const x Real)"
+                "(assert (= (* x x) 2))(assert (= (* x x x) 3))"):
             with self.subTest(source=source):
                 plain = self.run_checker(source)
                 diagnostic = self.run_checker(source, "--diagnostics", "--stats")

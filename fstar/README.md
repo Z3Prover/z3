@@ -59,6 +59,9 @@ modules and their tests, extracts and links the native F* checker, and
 runs its bridge/CLI self-tests. The Linux path uses the same
 `tools/build_ocaml_checker.ps1` module lists as the Windows/WSL build,
 with pinned F* `v2026.09.27` and OCaml `5.3.0`.
+F* and enabled OCaml compiler warnings fail the build. Extracted constructor
+projectors receive explicit rejecting out-of-domain arms using OCaml's
+AST, without suppressing partial-match warnings or changing checker rules.
 
 The default corpus is every `.smt2` file recursively under
 `Z3Prover/z3test`'s `regressions/proofs`, including the optional larger

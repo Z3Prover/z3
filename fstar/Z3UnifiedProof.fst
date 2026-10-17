@@ -292,7 +292,8 @@ let false_judgment (j:judgment) : bool = j = Holds false_expr
 
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
-  | Unverified tag, Some e, Some [] -> tag = "th-lemma" && array_lemma e
+  | Unverified tag, Some e, Some [] ->
+    tag = "th-lemma" && (array_lemma e || AR.triangle_equality e)
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es
   | _, _, _ -> false
 
@@ -743,7 +744,9 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
              | ArithmeticFarkas cs ->
                LE.lemma_check_with_numeric_model cs e
                  (Some?.v (propositions (premise_judgments node.premises))) i rho
-             | _ -> lemma_array_lemma_sound i rho e)
+             | _ ->
+               if array_lemma e then lemma_array_lemma_sound i rho e
+               else AR.lemma_triangle_with_numeric_model e i rho)
           | None -> ())
       | RewriteRule ->
         if check_step RewriteRule node.conclusion (premise_judgments node.premises)

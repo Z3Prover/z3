@@ -142,7 +142,7 @@ try {
 
   Write-Host "=== Phase 1a: type-check + cache ==="
   foreach ($f in $modules) {
-    & $FstarExe --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
+    & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
       ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $f" }
   }
@@ -156,7 +156,7 @@ try {
       "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst", "Z3PulseLraCheckerTests.fst"
     )
     foreach ($testModule in $testModules) {
-      & $FstarExe --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
+      & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
           --smt $Z3Exe --z3version $z3Version $testModule
       if ($LASTEXITCODE -ne 0) { throw "F*/Pulse regressions failed: $testModule" }
     }
@@ -166,7 +166,7 @@ try {
   $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
     ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
   foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst")) {
-    & $FstarExe --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
+    & $FstarExe --warn_error '@1..999' --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
         --smt $Z3Exe --z3version $z3Version --extract $modNames $entry
     if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
   }
@@ -182,7 +182,7 @@ try {
     $WslBuildDir = [IO.Path]::GetFullPath($WslBuildDir)
   }
   $order = @(
-    "prims.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
+    "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml",
     "Z3ProofTheory.ml", "Z3ProofIndex.ml",
@@ -195,13 +195,16 @@ try {
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   $orderStr = $order -join " "
+  $extractedOrderStr = ($order | Where-Object {
+    -not (Test-Path (Join-Path (Join-Path $fstarDir "ocaml_runtime") $_))
+  }) -join " "
   $shellBuildDir = if ($WslBuildDir.StartsWith("~/")) { '$HOME/' + $WslBuildDir.Substring(2) } else { $WslBuildDir }
   $testScript = ""
   if ($RunTests) {
     $testOrder = ($order | Where-Object { $_ -ne "main.ml" -and $_ -ne "Z3NativeMain.ml" }) -join " "
     $testScript = @"
 cp "$wslFstarDir/tools/test_native_bridge.ml" .
-ocamlfind ocamlopt -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
+ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
   z3ml.cmxa $testOrder test_native_bridge.ml -o native-tests
 ./native-tests
@@ -234,7 +237,16 @@ cd "$shellBuildDir"
 eval `$(opam env --switch=$OpamSwitch)
 $linkSetup
 "`$z3_install/bin/z3" -version
-ocamlfind ocamlopt -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
+# compiler-libs' Main.cmi must not collide with the checker entry point.
+mkdir -p extraction-tools
+cp "$wslFstarDir/tools/complete_ocaml_projectors.ml" extraction-tools/
+(
+  cd extraction-tools
+  ocamlfind ocamlopt -warn-error +a -package compiler-libs.common -linkpkg \
+    complete_ocaml_projectors.ml -o complete-ocaml-projectors
+)
+./extraction-tools/complete-ocaml-projectors $extractedOrderStr
+ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
   z3ml.cmxa $orderStr -o checker
 $testScript

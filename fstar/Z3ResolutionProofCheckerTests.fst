@@ -174,7 +174,7 @@ let lemma_arithmetic_comparison_rewrites ()
       checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (mk_not_expr (le [y; x]))) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (lt [x; y]) (le [x; y])) []))
 
-let lemma_integer_normalization_does_not_infer_real_value_equality ()
+let lemma_numeric_normalization_checks_both_sorts ()
   : Lemma (
       let x = typed_atom "x" (BaseSort "Int") in
       let y = typed_atom "y" (BaseSort "Int") in
@@ -184,7 +184,8 @@ let lemma_integer_normalization_does_not_infer_real_value_equality ()
       let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
       checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
-      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) []))
+      checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [rx; rx])) []))
   = assert_norm (
       let x = typed_atom "x" (BaseSort "Int") in
       let y = typed_atom "y" (BaseSort "Int") in
@@ -194,7 +195,30 @@ let lemma_integer_normalization_does_not_infer_real_value_equality ()
       let radd = arithmetic_app "+" op_arith_add (BaseSort "Real") in
       checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [y; x])) [] /\
       not (checked_consequence "rewrite" (mk_eq_expr (add [x; y]) (add [x; x])) []) /\
-      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) []))
+      checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [ry; rx])) [] /\
+      not (checked_consequence "rewrite" (mk_eq_expr (radd [rx; ry]) (radd [rx; rx])) []))
+
+let numeric_equality_checks () : bool =
+  let x = typed_atom "x" (BaseSort "Real") in
+  let y = typed_atom "y" (BaseSort "Real") in
+  let le = arithmetic_app "<=" op_arith_le bool_sort in
+  let ge = arithmetic_app ">=" op_arith_ge bool_sort in
+  let lt = arithmetic_app "<" op_arith_lt bool_sort in
+  let bounds = [le [x; y]; ge [x; y]] in
+  let bad_bounds = [lt [x; y]; ge [x; y]] in
+  let conjunction xs =
+    App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Conjunction xs) xs in
+  let triangle xs =
+    let clause = mk_eq_expr x y :: FStar.List.Tot.map mk_not_expr xs in
+    Holds (App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Disjunction clause) clause) in
+  checked_consequence "rewrite" (mk_eq_expr (mk_eq_expr x y) (conjunction bounds)) [] &&
+  not (checked_consequence "rewrite" (mk_eq_expr (mk_eq_expr x y) (conjunction bad_bounds)) []) &&
+  checked_theory_lemma (Unverified "th-lemma") (triangle bounds) [] &&
+  not (checked_theory_lemma (Unverified "th-lemma") (triangle bad_bounds) []) &&
+  not (checked_theory_lemma (Unverified "assumed:nlsat") (triangle bounds) [])
+
+let lemma_numeric_equality_checks () : Lemma (numeric_equality_checks ()) =
+  assert_norm (numeric_equality_checks ())
 
 let lemma_refl_checks_endpoints ()
   : Lemma (checked_consequence "refl" (mk_iff_expr p p) [] /\
