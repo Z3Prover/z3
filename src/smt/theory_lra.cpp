@@ -219,6 +219,7 @@ class theory_lra::imp {
     resource_limit               m_resource_limit;
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
+    symbol                       m_bound;
     vector<parameter>            m_bound_params;
     vector<parameter>            m_implied_eq_params;
     std_vector<lp::implied_bound>   m_implied_bounds;
@@ -948,6 +949,7 @@ public:
         m_solver(nullptr),
         m_resource_limit(*this),
         m_farkas("farkas"),
+        m_bound("bound"),
         m_bp(*this, m_implied_bounds),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
@@ -2595,7 +2597,7 @@ public:
                 reset_evidence();
                 m_explanation.clear();
                 m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
-                set_proof_params("bound", true);
+                set_proof_params(m_bound, true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
@@ -2656,7 +2658,7 @@ public:
         reset_evidence();
         m_explanation.clear();
         m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
-        set_proof_params("bound", true);
+        set_proof_params(m_bound, true);
         ctx().mark_as_relevant(bound);
         assign(bound, m_core, m_eqs, m_params);              
     }
@@ -3777,11 +3779,11 @@ public:
     // set_evidence has filled m_core and m_eqs from exactly this explanation
     // (set_evidence skips the same constraint indices). Without coefficients
     // a proof consumer cannot replay the step.
-    void set_proof_params(char const* hint, bool with_consequent) {
+    void set_proof_params(symbol const& hint, bool with_consequent) {
         m_params.reset();
         if (!proofs_enabled())
             return;
-        if (!strcmp(hint, "farkas")) {
+        if (hint == m_farkas) {
             vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
             lp::evidence_manager::proof_expression proof;
             lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
@@ -3793,7 +3795,7 @@ public:
             }
         }
         vector<parameter> eq_params;
-        m_params.push_back(parameter(symbol(hint)));
+        m_params.push_back(parameter(hint));
         for (auto ev : m_explanation) {
             if (ev.ci() == UINT_MAX)
                 continue;
@@ -3812,7 +3814,7 @@ public:
         if (with_consequent)
             m_params.push_back(parameter(rational(1)));
         SASSERT(m_params.size() == 1 + m_core.size() + m_eqs.size() + (with_consequent ? 1 : 0));
-        if (!strcmp(hint, "farkas") && !check_farkas_conflict()) {
+        if (hint == m_farkas && !check_farkas_conflict()) {
             m_params.reset();
             m_params.push_back(parameter(symbol("unsupported")));
         }
@@ -3913,7 +3915,7 @@ public:
         for (auto ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
         if (is_conflict && core.empty())
-            set_proof_params("farkas", false);
+            set_proof_params(m_farkas, false);
         if (proofs_enabled() && lemma) {
             if (lemma->nlsat_assumed()) {
                 m_params.push_back(parameter(symbol("assumed")));
