@@ -9,6 +9,7 @@ open Z3ProofIndex
 module N = Z3Native
 module P = Z3ProofDocument
 module L = FStar.List.Tot
+module C = Z3LpCertificate
 
 noeq
 type state = {
@@ -16,6 +17,7 @@ type state = {
   declarations: index_tree (index_tree func_decl);
   expressions: index_tree expr;
   proofs: index_tree nat;
+  lp_certificates: index_tree C.certificate;
   (* Z3 can recycle an ID after its last native owner is collected. *)
   retained_asts: list N.ast;
   retained_sorts: list N.native_sort;
@@ -27,6 +29,7 @@ type state = {
 
 let empty_state () : state = {
   sorts = Empty; declarations = Empty; expressions = Empty; proofs = Empty;
+  lp_certificates = Empty;
   retained_asts = []; retained_sorts = [];
   all_declarations = []; all_expressions = []; entries = []; next_proof = 0;
 }
@@ -160,6 +163,25 @@ let rec marshal_expression_jobs (st:state) (jobs:list expression_job) : ML state
 let marshal_expressions (st:state) (es:list N.ast) : ML state =
   marshal_expression_jobs st (L.map (fun e -> VisitExpression e) es)
 
+let rec parameter_expressions (ps:list N.parameter_view) : Tot (list N.ast) (decreases ps) =
+  match ps with
+  | [] -> []
+  | N.ParameterExpression e :: rest -> e :: parameter_expressions rest
+  | _ :: rest -> parameter_expressions rest
+
+let rec marshal_parameters (st:state) (ps:list N.parameter_view) : ML (list C.raw_parameter) =
+  match ps with
+  | [] -> []
+  | p :: rest ->
+    let value =
+      match p with
+      | N.ParameterRational n d -> C.Rational n d
+      | N.ParameterExpression e -> C.Expression (cached_expression st e)
+      | N.ParameterUnsupported -> C.Unsupported
+    in
+    let values = marshal_parameters st rest in
+    value :: values
+
 let coefficient ((n, den):(int & int)) : option Z3LinearArithmeticAst.coefficient =
   if den > 0 then Some (n, den) else None
 
@@ -208,7 +230,16 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
        let children = L.map (fun p -> VisitProof p) view.premises in
        marshal_proof_jobs st (children @ (BuildProof p view :: rest)))
   | BuildProof p view :: rest ->
-    let st = marshal_expressions st [view.conclusion] in
+    let parameters = match view.lp_data with Some (_, ps) -> ps | None -> [] in
+    let st = marshal_expressions st (view.conclusion :: parameter_expressions parameters) in
+    let st =
+      match view.lp_data with
+      | Some ("lp-context", ps) ->
+        let certificate = require_some "Malformed native LP certificate"
+                            (C.decode (marshal_parameters st ps)) in
+        { st with lp_certificates = index_put st.lp_certificates (N.ast_id p) certificate }
+      | _ -> st
+    in
     let formula = cached_expression st view.conclusion in
     let rule = native_rule view formula in
     let premises = cached_premises st view.premises in

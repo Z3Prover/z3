@@ -36,12 +36,19 @@ type expression_view =
   | Quantified : kind:Z3AstTheory.quantifier_kind -> sorts:list native_sort -> body:ast -> expression_view
 
 noeq
+type parameter_view =
+  | ParameterRational : int -> int -> parameter_view
+  | ParameterExpression : ast -> parameter_view
+  | ParameterUnsupported : parameter_view
+
+noeq
 type proof_view = {
   proof_name: string;
   premises: list ast;
   conclusion: ast;
   farkas: option (list (int & int));
   assumed: option string;
+  lp_data: option (string & list parameter_view);
 }
 
 noeq

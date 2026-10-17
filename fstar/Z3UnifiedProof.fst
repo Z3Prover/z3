@@ -15,6 +15,7 @@ module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
+module LP = Z3LpReplay
 module L = FStar.List.Tot
 
 type judgment =
@@ -294,7 +295,9 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
   match kind, proposition concl, propositions facts with
   | Unverified tag, Some e, Some [] ->
     tag = "th-lemma" && (array_lemma e || AR.triangle_equality e)
-  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es
+  | Unverified tag, Some e, Some es ->
+    tag = "arith/lp-integer-tighten" && LP.check_tightening e es
+  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
   | _, _, _ -> false
 
 let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
@@ -742,8 +745,12 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
           | Some e ->
             (match node.kind with
              | ArithmeticFarkas cs ->
-               LE.lemma_check_with_numeric_model cs e
-                 (Some?.v (propositions (premise_judgments node.premises))) i rho
+               if LA.check cs e (Some?.v (propositions (premise_judgments node.premises)))
+               then LE.lemma_check_with_numeric_model cs e
+                      (Some?.v (propositions (premise_judgments node.premises))) i rho
+               else LP.lemma_linear_identity_sound e i rho
+             | Unverified "arith/lp-integer-tighten" ->
+               LP.lemma_tightening_sound e (Some?.v (propositions (premise_judgments node.premises))) i rho
              | _ ->
                if array_lemma e then lemma_array_lemma_sound i rho e
                else AR.lemma_triangle_with_numeric_model e i rho)

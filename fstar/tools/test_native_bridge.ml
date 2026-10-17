@@ -3,6 +3,7 @@ module B = Z3NativeProof
 module P = Z3ProofDocument
 module U = Z3UnifiedProof
 module A = Z3AstTheory
+module C = Z3LpCertificate
 
 let require condition message = if not condition then failwith message
 
@@ -120,15 +121,137 @@ let native_farkas () =
    | Some pending -> require (Z.gt pending baseline) "corrupt candidate weights were trusted"
    | None -> failwith "candidate-weight mutation malformed the proof document")
 
-let native_integer_obligations () =
+let native_integer_tightening () =
   let doc = document
       "(declare-const x Int)(declare-const y Int)(declare-const z Int)\
        (assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))" in
   require (List.exists (fun e -> e.P.rule = U.Unverified "arith/lp-integer-tighten") doc.entries)
     "integer LP inference metadata was hidden";
-  match P.check_document doc with
-  | Some pending -> require (Z.sign pending > 0) "integer LP inference was silently trusted"
-  | None -> failwith "native integer proof document was malformed"
+  require (P.check_document doc = Some Z.zero) "native integer tightening did not replay";
+  let mutated = ref false in
+  let entries = List.map (fun e ->
+      if e.P.rule = U.Unverified "arith/lp-integer-tighten" && not !mutated then begin
+        mutated := true;
+        { e with P.premise_ids = [List.hd e.P.premise_ids] }
+      end else e) doc.entries in
+  require !mutated "native proof contained no integer tightening to mutate";
+  require (match P.check_document { doc with entries } with
+      | Some pending -> Z.sign pending > 0 | None -> true)
+    "integer tightening without its actual premise was certified"
+
+let integer_tightening_candidates () =
+  let c = context () in
+  let check expected declarations premise conclusion =
+    let sources = parse c
+        (declarations ^ "(assert " ^ premise ^ ")(assert " ^ conclusion ^ ")") in
+    let st = B.marshal_expressions (B.empty_state ()) sources in
+    let expressions = List.map (B.cached_expression st) sources in
+    match expressions with
+    | [p; q] ->
+        require (Z3LpReplay.check_tightening q [Z3ResolutionProofTheory.true_expr; p] = expected)
+          ("incorrect integer tightening: " ^ premise ^ " => " ^ conclusion);
+        require (not (Z3LpReplay.check_tightening q [Z3ResolutionProofTheory.false_expr; p]))
+          "integer tightening accepted a malformed context";
+        require (not (Z3LpReplay.check_tightening q []))
+          "integer tightening certified a conclusion without a premise"
+    | _ -> failwith "expected two arithmetic formulas"
+  in
+  let ints = "(declare-const x Int)" in
+  check true ints "(<= (* 2 x) 1)" "(<= x 0)";
+  check true ints "(>= (* 2 x) 1)" "(>= x 1)";
+  check true ints "(<= (* 2 x) (- 1))" "(<= x (- 1))";
+  check true ints "(< (* 2 x) 2)" "(<= x 0)";
+  check true ints "(> (* 2 x) (- 2))" "(>= x 0)";
+  check true ints "(<= (* 2 (to_real x)) 1.0)" "(<= x 0)";
+  check false ints "(<= (* 2 x) 1)" "(<= x (- 1))";
+  check false ints "(>= (* 2 x) 1)" "(>= x 2)";
+  check false ints "(<= (* 2 x) 1)" "(>= x 1)";
+  check false "(declare-const x Real)" "(<= (* 2 x) 1)" "(<= x 0)";
+  check false "(declare-const x Real)" "(>= (* 2 x) 1)" "(>= x 1)";
+  List.iter (fun (source, expected) ->
+      let inputs = parse c ("(declare-const x Int)(assert " ^ source ^ ")") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let formula = B.cached_expression st (List.hd inputs) in
+      require (U.checked_theory_lemma (U.ArithmeticFarkas [Z.zero, Z.one])
+          (Option.get (U.classify_fact formula)) [] = expected)
+        ("incorrect LP identity replay: " ^ source))
+    ["(= (+ x (* (- 1) x)) 0)", true;
+     "(= (+ x (* (- 1) x)) 1)", false;
+     "(= (* x x) x)", false]
+
+let native_lp_certificates () =
+  let assertions, proof = unsat
+      "(declare-const x Int)(declare-const y Int)(declare-const z Int)\
+       (assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))" in
+  let st = B.marshal_expressions (B.empty_state ()) assertions in
+  let st = B.marshal_proof_jobs st [B.VisitProof proof] in
+  let visited = Hashtbl.create 32 in
+  let contexts = ref [] in
+  let rec collect = function
+    | [] -> ()
+    | p :: rest ->
+        let id = N.ast_id p in
+        if Hashtbl.mem visited id then collect rest else begin
+          Hashtbl.add visited id ();
+          let view = N.view_proof p in
+          (match view.lp_data with
+           | Some ("lp-context", ps) -> contexts := (p, ps) :: !contexts
+           | _ -> ());
+          collect (view.premises @ rest)
+        end
+  in
+  collect [proof];
+  require (!contexts <> []) "native LP context parameters were hidden";
+  List.iter (fun (p, parameters) ->
+      let raw = B.marshal_parameters st parameters in
+      let certificate = match C.decode raw with
+        | Some value -> value | None -> failwith "authentic LP context failed to decode" in
+      require (Z3ProofIndex.index_get st.lp_certificates (N.ast_id p) = Some certificate)
+        "decoded certificate was not cached with its native context";
+      require (certificate.variables <> [] && certificate.steps <> [])
+        "native LP certificate lost its variables or steps";
+      let reject raw message = require (C.decode raw = None) message in
+      reject (C.Rational (Z.of_int 2, Z.one) :: List.tl raw) "unknown LP version was accepted";
+      reject (C.Rational (Z.one, Z.zero) :: List.tl raw) "zero denominator was accepted";
+      reject (C.Rational (Z.one, Z.minus_one) :: List.tl raw) "negative denominator was accepted";
+      reject (raw @ [C.Rational (Z.zero, Z.one)]) "trailing LP parameters were accepted";
+      reject (List.rev (List.tl (List.rev raw))) "truncated LP context was accepted";
+      let bad_root = List.rev (C.Rational (Z.of_string "4294967295", Z.one) ::
+                               List.tl (List.rev raw)) in
+      reject bad_root "out-of-range LP root was accepted";
+      let bad_sort = List.map (function
+          | C.Expression _ -> C.Expression Z3ResolutionProofTheory.true_expr
+          | p -> p) raw in
+      reject bad_sort "non-arithmetic LP variable was accepted";
+      let invalid_count = match raw with
+        | version :: _ :: rest ->
+            version :: C.Rational (Z.of_string "4294967295", Z.one) :: rest
+        | _ -> failwith "missing LP header" in
+      reject invalid_count "unbounded LP count was accepted";
+      List.iteri (fun index step ->
+          require (not (C.step_refs (Z.of_int (List.length certificate.variables))
+              (Z.of_int (List.length certificate.monomials)) (Z.of_int index)
+              { step with C.premises = [Z.of_int index, (Z.one, Z.one)] }))
+            "forward LP premise was accepted") certificate.steps;
+      let first = List.hd certificate.steps in
+      let nv = Z.of_int (List.length certificate.variables) in
+      let nm = Z.of_int (List.length certificate.monomials) in
+      let index = Z.of_int (List.length certificate.steps) in
+      let lattice = { first with C.rule = C.IntegerLattice; pivot = Some Z.zero;
+                                 source = None; bounds = [] } in
+      require (C.step_refs nv nm index lattice)
+        "lattice step required the unused monomial source field";
+      let bounds:C.column_bounds list = [{ C.bound_column = Z.zero; lower = Some Z.zero; upper = None }] in
+      require (not (C.step_refs nv nm index { lattice with C.bounds = bounds; premises = [] }))
+        "LP bound index was treated as a global step rather than a premise position")
+    !contexts;
+  require (C.read_uint [C.Rational (Z.minus_one, Z.one)] = None)
+    "negative LP index was accepted";
+  require (C.read_uint [C.Rational (Z.one, Z.of_int 2)] = None)
+    "fractional LP index was accepted";
+  require (C.read_uint [C.Rational (Z.of_string "4294967296", Z.one)] = None)
+    "overflowing LP index was accepted"
+
 let native_bound () =
   let doc = document
       "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
@@ -212,7 +335,7 @@ let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
-               farkas = Some [Z.one, Z.zero]; assumed = None } in
+               farkas = Some [Z.one, Z.zero]; assumed = None; lp_data = None } in
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
@@ -221,7 +344,7 @@ let assumed_nlsat () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
-               farkas = None; assumed = Some "nlsat" } in
+               farkas = None; assumed = Some "nlsat"; lp_data = None } in
   let rule = B.native_rule view Z3ResolutionProofTheory.false_expr in
   require (rule = U.Unverified "assumed:nlsat")
     "native NLSAT assumption lost its origin";
@@ -345,7 +468,9 @@ let () =
      "proof-DAG-cache", proof_cache;
      "exact-native-numerals", exact_numerals;
      "authentic-Farkas-parameters", native_farkas;
-     "explicit-integer-LP-obligations", native_integer_obligations;
+     "checked-native-integer-LP-tightening", native_integer_tightening;
+     "integer-tightening-candidate-mutations", integer_tightening_candidates;
+     "typed-native-LP-certificate-decoding", native_lp_certificates;
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "typed-obligation-diagnostics", typed_diagnostics;

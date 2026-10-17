@@ -26,12 +26,18 @@ type expression_view =
   | Application of declaration * ast list
   | Quantified of Z3AstTheory.quantifier_kind * native_sort list * ast
 
+type parameter_view =
+  | ParameterRational of Z.t * Z.t
+  | ParameterExpression of ast
+  | ParameterUnsupported
+
 type proof_view = {
   proof_name: string;
   premises: ast list;
   conclusion: ast;
   farkas: (Z.t * Z.t) list option;
   assumed: string option;
+  lp_data: (string * parameter_view list) option;
 }
 
 type solve_result =
@@ -181,7 +187,24 @@ let view_proof a =
     else match arithmetic_hint, farkas with
     | Some tag, None when String.starts_with ~prefix:"lp-" tag -> "arith/" ^ tag
     | _ -> name in
-  { proof_name; premises; conclusion; farkas; assumed }
+  let lp_data =
+    match arithmetic_hint with
+    | Some tag when String.starts_with ~prefix:"lp-" tag ->
+        let parameters = List.init (count - 2) (fun offset ->
+            let i = offset + 2 in
+            match parameter_kind i with
+            | Z3enums.PARAMETER_RATIONAL ->
+                let n, den = rational_parameter i in ParameterRational (n, den)
+            | Z3enums.PARAMETER_AST ->
+                let value = Z3native.get_decl_ast_parameter c d i in
+                (match Z3enums.ast_kind_of_int (Z3native.get_ast_kind c value) with
+                 | Z3enums.APP_AST | Z3enums.NUMERAL_AST | Z3enums.VAR_AST
+                 | Z3enums.QUANTIFIER_AST -> ParameterExpression value
+                 | _ -> ParameterUnsupported)
+            | _ -> ParameterUnsupported) in
+        Some (tag, parameters)
+    | _ -> None in
+  { proof_name; premises; conclusion; farkas; assumed; lp_data }
 
 let solve input timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")
