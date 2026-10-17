@@ -924,7 +924,8 @@ namespace {
         }
     }
 
-    void test_native_conflict(char const *assertions, char const *expected, bool nlsat = false) {
+    void test_native_arithmetic(char const *assertions, lbool expected_result, char const *expected = nullptr,
+                                bool nlsat = false) {
         ast_manager m(PGM_ENABLED);
         reg_decl_plugins(m);
         cmd_context cmd(false, &m);
@@ -942,7 +943,9 @@ namespace {
         s->push();
         for (auto *a : cmd.assertions())
             s->assert_expr(a);
-        VERIFY(s->check_sat(0, nullptr) == l_false);
+        VERIFY(s->check_sat(0, nullptr) == expected_result);
+        if (expected_result != l_false)
+            return;
         auto *proof = s->get_proof();
         VERIFY(proof);
         ptr_vector<expr> todo;
@@ -991,11 +994,18 @@ void tst_lp_evidence() {
     test_linearization_certificates();
     test_linearization_producers();
     test_malformed_linearization_certificates();
-    test_native_conflict("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+    test_native_arithmetic("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
                          "(assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))",
-                         "unsupported");
-    test_native_conflict("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
+                         l_false, "unsupported");
+    test_native_arithmetic("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
                          "(assert (= x (* 2 y)))(assert (= y (* 3 z)))(assert (>= z 1))(assert (<= x 5))",
-                         "farkas");
-    test_native_conflict("(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))", "assumed", true);
+                         l_false, "farkas");
+    test_native_arithmetic("(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))",
+                          l_false, "assumed", true);
+    test_native_arithmetic("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+                         "(assert (<= (+ (* (- 4) x) (* (- 5) y) (* 5 z)) (- 2)))"
+                         "(assert (>= (+ (* 2 x) (* 5 y)) (- 3)))"
+                         "(assert (>= (+ (* (- 2) y) (* 5 z)) (- 1)))"
+                         "(assert (<= (+ (* 4 x) (* 5 y) (* (- 3) z)) 3))",
+                         l_true);
 }

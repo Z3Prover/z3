@@ -68,19 +68,58 @@ operation.
 
 ### Build, status, and trust boundary
 
-The build script uses CMake to build **static `libz3` and the official
-OCaml bindings from this checkout**, then links them with extracted code
-and Zarith into `checker`. The default native library build directory is
-`~/z3-native-ffi-build`; override with `-Z3BuildDir`. `-WslBuildDir` selects
-the executable output directory, and `-CacheDir` can reuse checked F*
-dependencies. WSL needs an OCaml/opam toolchain, Zarith, CMake, Python 3
-for build-time generation, and a C++20 compiler. Neither a preinstalled
-OCaml Z3 package nor Python Z3 bindings are required.
+Every invocation first uses CMake to **build and install Windows Z3 from
+this checkout**. The default build directory is `build`, with a local
+installation in `build\install`; override with `-Z3WindowsBuildDir` and
+`-Z3InstallDir`. All F*/Pulse verification, tests, and extraction explicitly
+select that installation's `bin\z3.exe`. The script reports its path and
+version, passing F*'s documented `--z3version` option rather than disabling
+the version check. No downloaded historical solver or incidental `PATH`
+entry selects the verifier. Run in a Windows C++20 developer PowerShell
+with CMake and Python available.
 
-Extraction has a single root, `Z3NativeProof.fst`, and writes to
-`build_extract/native/`. Compilation copies only the explicitly ordered
-live modules, not globbed outputs from earlier JSON builds. The independent
-in-memory Pulse checkers remain available as formal developments but are
+In WSL, the script builds and installs **static `libz3`, Z3's executable,
+and its official OCaml bindings from the same checkout**. The default
+build directory is `~/z3-native-ffi-build` (`-Z3BuildDir`), with installation
+in its `install` subdirectory. Compilation selects the installed OCaml
+module directory and puts the installed library directory first for native
+linking. The installed WSL solver's version is also printed.
+`-WslBuildDir` selects the checker output directory. WSL requires the
+OCaml/opam toolchain, Zarith, CMake, Python 3 for code generation, and a
+C++20 compiler; no preinstalled OCaml Z3 package is used.
+
+For a build with a fresh proof cache:
+
+```powershell
+.\fstar\tools\build_ocaml_checker.ps1 `
+  -CacheDir 'C:\z3fstar\fstar\build_cache_pr11208_current_z3' `
+  -WslBuildDir '~/z3checker-pr11208-latest' -RunTests
+```
+
+Use a fresh cache when measuring verification with a different SMT version;
+otherwise unchanged modules may reuse previously checked artifacts. On
+PR #11208 plus the current master fixes, the complete native pipeline and
+proof regressions verify with the installed, source-built Z3 5.3.1.
+`-RunTests` also verifies the resolution and polynomial-certificate
+regressions and the in-memory Pulse equality, justification, and Farkas
+checkers and tests before running twelve native bridge tests and eight
+CLI tests. Explicit integer-to-real identities and polynomial row/cross
+proof steps make the arithmetic lemmas robust to the current solver's
+automation, without changing their specifications or runtime rules.
+
+The PR's new producer-side Farkas validation initially returned `UNKNOWN`
+when rational weights were applied to integer premises. Validation now
+clears all denominators with one positive common scale, matching the
+legacy proof checker's treatment of integer coefficients. Exported weights
+and checker acceptance rules are unchanged. A native regression exercises
+the affected integer search; the frozen pre-fix executable returns
+`UNKNOWN`, while the corrected producer returns `SAT`. The current
+[cross-cut results](SMTLIB_CROSSCUT_REPORT.md) retain both producer runs.
+
+Extraction has the roots `Z3NativeProof.fst` and `Z3NlaLemma.fst`, and
+writes to `build_extract/native/`. Compilation copies only the explicitly
+ordered live modules, not globbed outputs from earlier JSON builds. The
+independent in-memory Pulse checkers are verified by `-RunTests` but are
 not linked into this executable.
 
 The resulting executable has no dynamic Z3-library dependency; ordinary
@@ -185,14 +224,16 @@ historical pilot is an integration check, not an updated coverage estimate.
 
 **Latest cross-logic measurements (2026-10-16):**
 [SMT-LIB cross-cut report](SMTLIB_CROSSCUT_REPORT.md) reevaluates the same
-900 inputs using the extended native-only binary: **334 `ACCEPT`,
-254 `PARTIAL`, 143 `REJECT`**, retaining all 231 preceding accepts.
-There are 103 new complete refutations: 96 former partials and seven
-former rejections. Solver/resource limits are reported separately;
-twelve formerly rejected inputs now reach the whole-process watchdog,
-not certification. The report preserves the preceding native rule census,
-phase timings, and matching-version standalone solver baseline. The
-earlier Python/JSON measurements remain archived with explicit caveats.
+900 inputs with PR #11208 plus the producer correction above:
+**334 `ACCEPT`, 242 `PARTIAL`, 142 `REJECT`**, retaining all 334 preceding
+accepts, with no new complete refutations. There are 134 solver unknowns,
+46 whole-process timeouts, and two allocation aborts. Fifteen formerly
+non-unknown outcomes now reach solver timeouts; fewer partials are not
+an improvement in obligation discharge. Native integer evidence export
+and the new polynomial certificate's native AST bridge remain pending.
+The report preserves the initial PR regression, its corrected replay,
+the preceding 103-refutation coverage gain, native rule census, timings,
+and historical solver/Python comparisons with their provenance caveats.
 
 **Historical material follows.** Its older build commands, runtime details,
 and timing claims describe their recorded configurations, not the current

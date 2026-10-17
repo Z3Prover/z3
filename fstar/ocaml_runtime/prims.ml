@@ -12,6 +12,8 @@ let int_one : int = Z.one
 
 let of_int (n : Stdlib.Int.t) : int = Z.of_int n
 
+let strcat (a : string) (b : string) : string = a ^ b
+
 let ( + ) = Z.add
 let ( - ) = Z.sub
 let ( * ) = Z.mul

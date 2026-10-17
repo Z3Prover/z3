@@ -3822,9 +3822,12 @@ public:
         proof_checker checker(m);
         expr_ref sum(m), fact(m);
         bool strict = false;
+        rational scale(1);
+        for (unsigned i = 1; i < m_params.size(); ++i)
+            scale = lcm(scale, denominator(m_params[i].get_rational()));
         unsigned index = 1;
         for (auto lit : m_core) {
-            auto const& coefficient = m_params[index++].get_rational();
+            rational coefficient = scale * m_params[index++].get_rational();
             if (coefficient.is_zero())
                 continue;
             ctx().literal2expr(lit, fact);
@@ -3833,7 +3836,7 @@ public:
                 return false;
         }
         for (auto const& [n1, n2] : m_eqs) {
-            auto const& coefficient = m_params[index++].get_rational();
+            rational coefficient = scale * m_params[index++].get_rational();
             if (coefficient.is_zero())
                 continue;
             fact = m.mk_eq(n1->get_expr(), n2->get_expr());

@@ -107,8 +107,14 @@ let lemma_denotes_multiply (p q t:A.poly) (x y:real) (r:expr -> real)
   assert (of_int t.denom == of_int p.denom *. of_int q.denom);
   assert (P.value p r == of_int p.denom *. x);
   assert (P.value q r == of_int q.denom *. y);
-  lemma_scaled_product (of_int p.denom) (of_int q.denom) x y;
-  assert (P.value t r == of_int t.denom *. (x *. y))
+  calc (==) {
+    P.value t r;
+    == {} P.value p r *. P.value q r;
+    == {} (of_int p.denom *. x) *. (of_int q.denom *. y);
+    == { lemma_scaled_product (of_int p.denom) (of_int q.denom) x y }
+      (of_int p.denom *. of_int q.denom) *. (x *. y);
+    == {} of_int t.denom *. (x *. y);
+  }
 
 let rec lemma_product (ps:list A.poly) (xs:list real) (p:A.poly) (r:expr -> real)
   : Lemma (requires denotations ps xs r /\ P.product ps == Some p)

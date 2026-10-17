@@ -28,6 +28,9 @@ let lemma_expand (a b u v:real)
   : Lemma (u *. v +. (b *. u +. a *. (b +. v)) == (a +. u) *. (b +. v)) =
   assert ((a +. u) *. (b +. v) == a *. (b +. v) +. u *. (b +. v));
   assert (u *. (b +. v) == b *. u +. u *. v)
+
+let lemma_cross_step (a b c:real)
+  : Lemma (a *. c +. b *. c == (a +. b) *. c) = ()
 #pop-options
 
 let rec monomial_value (m:monomial) (rho:nat -> real)
@@ -80,37 +83,68 @@ let rec cross (xs ys:list (int & monomial))
   : Tot (list (int & monomial)) (decreases xs) =
   match xs with [] -> [] | (c, m) :: rest -> row c m ys @ cross rest ys
 
+#push-options "--fuel 0 --ifuel 1"
 let rec lemma_row (c:int) (m:monomial) (ys:list (int & monomial)) (rho:nat -> real)
   : Lemma (P.monomial_value (row c m ys) (fun m -> monomial_value m rho) ==
            of_int c *. monomial_value m rho *.
            P.monomial_value ys (fun m -> monomial_value m rho))
           (decreases ys) =
+  let r = fun m -> monomial_value m rho in
   match ys with
-  | [] -> ()
+  | [] ->
+    assert_norm (row c m [] == []);
+    assert_norm (P.monomial_value [] r == 0.0R)
   | (d, n) :: rest ->
-    let r = fun m -> monomial_value m rho in
     lemma_merge m n rho;
     lemma_row c m rest rho;
-    assert (row c m ys == (c * d, merge m n) :: row c m rest);
-    assert (P.monomial_value ys r ==
-            of_int d *. monomial_value n rho +. P.monomial_value rest r);
-    assert (P.monomial_value (row c m ys) r ==
-            of_int (c * d) *. monomial_value (merge m n) rho +.
+    assert_norm (row c m ((d, n) :: rest) == (c * d, merge m n) :: row c m rest);
+    assert_norm (P.monomial_value ((d, n) :: rest) r ==
+            of_int d *. r n +. P.monomial_value rest r);
+    assert_norm (P.monomial_value ((c * d, merge m n) :: row c m rest) r ==
+            of_int (c * d) *. r (merge m n) +.
             P.monomial_value (row c m rest) r);
-    lemma_distribute c d (monomial_value m rho) (monomial_value n rho)
-      (P.monomial_value rest r)
+    calc (==) {
+      P.monomial_value (row c m ys) r;
+      == {} of_int (c * d) *. monomial_value (merge m n) rho +.
+        P.monomial_value (row c m rest) r;
+      == {} of_int (c * d) *. (monomial_value m rho *. monomial_value n rho) +.
+        of_int c *. monomial_value m rho *. P.monomial_value rest r;
+      == { lemma_distribute c d (monomial_value m rho) (monomial_value n rho)
+             (P.monomial_value rest r) }
+        of_int c *. monomial_value m rho *.
+          (of_int d *. monomial_value n rho +. P.monomial_value rest r);
+      == {} of_int c *. monomial_value m rho *. P.monomial_value ys r;
+    }
 
 let rec lemma_cross (xs ys:list (int & monomial)) (rho:nat -> real)
   : Lemma (P.monomial_value (cross xs ys) (fun m -> monomial_value m rho) ==
            P.monomial_value xs (fun m -> monomial_value m rho) *.
            P.monomial_value ys (fun m -> monomial_value m rho))
           (decreases xs) =
+  let r = fun m -> monomial_value m rho in
   match xs with
-  | [] -> ()
+  | [] ->
+    assert_norm (cross [] ys == []);
+    assert_norm (P.monomial_value [] r == 0.0R)
   | (c, m) :: rest ->
-    P.lemma_append (row c m ys) (cross rest ys) (fun m -> monomial_value m rho);
+    P.lemma_append (row c m ys) (cross rest ys) r;
     lemma_row c m ys rho;
-    lemma_cross rest ys rho
+    lemma_cross rest ys rho;
+    assert_norm (cross ((c, m) :: rest) ys == row c m ys @ cross rest ys);
+    assert_norm (P.monomial_value ((c, m) :: rest) r ==
+            of_int c *. r m +. P.monomial_value rest r);
+    calc (==) {
+      P.monomial_value (cross xs ys) r;
+      == {} P.monomial_value (row c m ys) r +. P.monomial_value (cross rest ys) r;
+      == {} (of_int c *. monomial_value m rho) *. P.monomial_value ys r +.
+        P.monomial_value rest r *. P.monomial_value ys r;
+      == { lemma_cross_step (of_int c *. monomial_value m rho)
+             (P.monomial_value rest r) (P.monomial_value ys r) }
+        (of_int c *. monomial_value m rho +. P.monomial_value rest r) *.
+          P.monomial_value ys r;
+      == {} P.monomial_value xs r *. P.monomial_value ys r;
+    }
+#pop-options
 
 [@@"opaque_to_smt"]
 let multiply (p q:poly) : poly =
