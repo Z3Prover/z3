@@ -10,6 +10,7 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
+#include <exception>
 #include "util/uint_set.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
@@ -630,11 +631,12 @@ lemma_builder& lemma_builder::operator|=(ineq const& ineq) {
 }
     
 
-lemma_builder::~lemma_builder() {
+lemma_builder::~lemma_builder() noexcept(false) {
     static int i = 0;
     (void)i;
     (void)name;
-    // code for checking lemma can be added here
+    if (std::uncaught_exceptions() == 0 && c.lra.dep_manager().enabled() && !current().nlsat_assumed())
+        current().set_certificate(lemma_certificate::capture(c.lra, current()));
     if (current().is_conflict()) {
         c.m_conflicts++;
     }

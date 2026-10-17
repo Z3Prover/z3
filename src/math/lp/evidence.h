@@ -133,6 +133,16 @@ namespace lp {
     public:
         explicit evidence_manager(bool enabled = false) : m_enabled(enabled) {}
 
+        fact snapshot_fact(fact f) const {
+            snapshot(f);
+            return f;
+        }
+
+        void snapshot_context(proof_expression& result) const {
+            result.variables = m_variables;
+            result.monomials = m_monomials;
+        }
+
         bool enabled() const {
             return m_enabled;
         }
@@ -287,8 +297,7 @@ namespace lp {
 
         void reconstruct(ref root, proof_expression &result) const {
             result = proof_expression();
-            result.variables = m_variables;
-            result.monomials = m_monomials;
+            snapshot_context(result);
             if (!root) {
                 result.complete = false;
                 return;

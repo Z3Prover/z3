@@ -12,6 +12,7 @@ Copyright (c) 2026 Microsoft Corporation
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver.h"
+#include "sat/smt/arith_solver.h"
 #include <sstream>
 #include <tuple>
 
@@ -705,7 +706,223 @@ namespace {
         VERIFY(proof.check());
     }
 
-    void test_native_conflict(char const *assertions, char const *expected) {
+    void test_linearization_certificates() {
+        for (unsigned category = 0; category < 9; ++category) {
+            std::cout << "linearization certificate category " << category << "\n";
+            std::shared_ptr<nla::lemma_certificate const> saved;
+            {
+                lp::lar_solver s(true);
+                auto x = s.add_var(0, false), y = s.add_var(1, false), z = s.add_var(2, false);
+                auto product = s.add_var(3, false), second = s.add_var(4, false);
+                params_ref params;
+                reslimit limit;
+                nla::core nonlinear(s, params, limit);
+                lp::lpvar factors[] = {x, category == 3 ? z : category == 8 ? x : y};
+                nonlinear.add_monic(product, 2, factors);
+                if (category == 3) {
+                    lp::lpvar other[] = {y, z};
+                    nonlinear.add_monic(second, 2, other);
+                }
+                s.set_column_value_test(x, lp::impq(lp::mpq(category == 5                                     ? -3
+                                                            : category == 1 || category == 2 || category == 3 ? 2
+                                                                                                              : 1)));
+                s.set_column_value_test(y, lp::impq(lp::mpq(category == 1 || category == 2   ? 3
+                                                            : category == 5                  ? 4
+                                                            : category == 4 || category == 6 ? 2
+                                                                                             : 1)));
+                s.set_column_value_test(z, lp::impq(lp::mpq(1)));
+                s.set_column_value_test(product, lp::impq(lp::mpq(category == 0 || category == 3   ? 0
+                                                                  : category == 4                  ? 7
+                                                                  : category >= 5 && category != 6 ? -1
+                                                                                                   : 1)));
+                s.set_column_value_test(second, lp::impq(lp::mpq(1)));
+                {
+                    nla::lemma_builder lemma(nonlinear, "linearization certificate regression");
+                    if (category == 0) {
+                        lemma |= nla::ineq(product, lp::NE, 0);
+                        lemma |= nla::ineq(x, lp::EQ, 0);
+                        lemma |= nla::ineq(y, lp::EQ, 0);
+                    }
+                    else if (category == 1) {
+                        lemma |= nla::ineq(x, lp::NE, 2);
+                        lemma |= nla::ineq(lp::lar_term(product, lp::mpq(-2), y), lp::EQ, 0);
+                    }
+                    else if (category == 2) {
+                        lemma |= nla::ineq(x, lp::LE, 1);
+                        lemma |= nla::ineq(y, lp::LE, 2);
+                        lp::lar_term plane;
+                        plane.add_var(product);
+                        plane.add_monomial(lp::mpq(-2), x);
+                        plane.add_monomial(lp::mpq(-1), y);
+                        lemma |= nla::ineq(plane, lp::GT, -2);
+                    }
+                    else if (category == 3) {
+                        lemma |= nla::ineq(lp::lar_term(x, lp::mpq(-1), y), lp::LE, 0);
+                        lemma |= nla::ineq(z, lp::LE, 0);
+                        lemma |= nla::ineq(lp::lar_term(product, lp::mpq(-1), second), lp::GT, 0);
+                    }
+                    else if (category == 4) {
+                        lemma |= nla::ineq(x, lp::LT, 0);
+                        lemma |= nla::ineq(x, lp::GT, 2);
+                        lemma |= nla::ineq(y, lp::LT, 0);
+                        lemma |= nla::ineq(y, lp::GT, 3);
+                        lemma |= nla::ineq(product, lp::LE, 6);
+                    }
+                    else if (category == 5) {
+                        lemma |= nla::ineq(x, lp::GT, -2);
+                        lemma |= nla::ineq(y, lp::LT, 3);
+                        lemma |= nla::ineq(product, lp::LE, -6);
+                    }
+                    else if (category == 6) {
+                        lemma |= nla::ineq(lp::lar_term(product, lp::mpq(-1), x), lp::NE, 0);
+                        lemma |= nla::ineq(x, lp::EQ, 0);
+                        lemma |= nla::ineq(y, lp::EQ, 1);
+                    }
+                    else if (category == 7) {
+                        lemma |= nla::ineq(x, lp::LE, 0);
+                        lemma |= nla::ineq(y, lp::LE, 0);
+                        lemma |= nla::ineq(product, lp::GT, 0);
+                    }
+                    else
+                        lemma |= nla::ineq(product, lp::GE, 0);
+                }
+                VERIFY(nonlinear.lemmas().size() == 1);
+                saved = nonlinear.lemmas()[0].certificate();
+                VERIFY(saved && saved->check());
+                auto broken = *saved;
+                broken.steps[broken.root].kind = nla::lemma_certificate::rule::input;
+                broken.steps[broken.root].left = 0;
+                VERIFY(!broken.check());
+            }
+            VERIFY(saved->check());
+        }
+        lp::lar_solver s(true);
+        auto x = s.add_var(0, false);
+        params_ref params;
+        reslimit limit;
+        nla::core nonlinear(s, params, limit);
+        {
+            nla::lemma_builder lemma(nonlinear, "assumed NLSAT lemma");
+            lemma.assume_nlsat();
+            lemma |= nla::ineq(x, lp::GE, 1);
+        }
+        VERIFY(nonlinear.lemmas()[0].nlsat_assumed());
+        VERIFY(!nonlinear.lemmas()[0].certificate());
+    }
+
+    void test_linearization_producers() {
+        for (bool proofs : {false, true})
+            for (unsigned category = 0; category < 8; ++category) {
+                lp::lar_solver s(proofs);
+                auto x = s.add_var(0, true), y = s.add_var(1, true), product = s.add_var(2, true);
+                s.activate(s.add_var_bound(x, lp::GE, lp::mpq(1)));
+                s.activate(s.add_var_bound(x, lp::LE, lp::mpq(3)));
+                s.activate(s.add_var_bound(y, lp::GE, lp::mpq(2)));
+                s.activate(s.add_var_bound(y, lp::LE, lp::mpq(4)));
+                s.find_feasible_solution();
+                VERIFY(s.is_feasible());
+                s.set_column_value_test(x, lp::impq(lp::mpq(2)));
+                s.set_column_value_test(y, lp::impq(lp::mpq(3)));
+                s.set_column_value_test(product, lp::impq(lp::mpq(category == 7 ? 30 : category % 2 ? 10 : 1)));
+                params_ref params;
+                params.set_bool("arith.nl.tangents.box_corners", category & 2);
+                reslimit limit;
+                nla::core nonlinear(s, params, limit);
+                lp::lpvar factors[] = {x, y, y};
+                nonlinear.add_monic(product, category >= 6 ? 3 : 2, factors);
+                nonlinear.init_to_refine();
+                if (category < 4) {
+                    nla::tangents producer(&nonlinear);
+                    producer.tangent_lemma();
+                    VERIFY(nonlinear.lemmas().size() >= 3);
+                }
+                else {
+                    nla::monotone producer(&nonlinear);
+                    producer.monotonicity_lemma();
+                    VERIFY(!nonlinear.lemmas().empty());
+                }
+                for (auto const &lemma : nonlinear.lemmas()) {
+                    VERIFY(!lemma.nlsat_assumed());
+                    VERIFY(static_cast<bool>(lemma.certificate()) == proofs);
+                    if (proofs) {
+                        VERIFY(lemma.certificate()->check());
+                        std::ostringstream text;
+                        lemma.certificate()->display(text);
+                        VERIFY(text.str().find("(monomials") != std::string::npos);
+                        VERIFY(text.str().find("(assumptions") != std::string::npos);
+                    }
+                }
+            }
+    }
+
+    void test_malformed_linearization_certificates() {
+        using certificate = nla::lemma_certificate;
+        certificate proof;
+        proof.context.variables.push_back({});
+        manager::fact positive;
+        positive.lhs.push_back({lp::mpq(1), 0});
+        positive.kind = lp::GT;
+        proof.assumptions.push_back(positive);
+        positive.kind = lp::LE;
+        proof.assumptions.push_back(positive);
+        certificate::step input;
+        input.left = 0;
+        proof.steps.push_back(input);
+        input.left = 1;
+        proof.steps.push_back(input);
+        certificate::step sum;
+        sum.kind = certificate::rule::linear;
+        sum.premises = {{0, lp::mpq(1)}, {1, lp::mpq(1)}};
+        proof.steps.push_back(sum);
+        proof.root = 2;
+        VERIFY(proof.check());
+        unsigned category = 0;
+        auto reject = [&](auto mutate) {
+            std::cout << "malformed linearization certificate category " << category++ << "\n";
+            auto broken = proof;
+            mutate(broken);
+            VERIFY(!broken.check());
+        };
+        reject([](auto &p) { p.root = UINT_MAX; });
+        reject([](auto &p) { p.steps[0].left = 2; });
+        reject([](auto &p) { p.steps[2].premises[0].first = 2; });
+        reject([](auto &p) { p.steps[2].premises[0].second = lp::mpq(-1); });
+        reject([](auto &p) { p.steps[2].premises[0].second = lp::mpq(1, 2); });
+        reject([](auto &p) { p.steps[2].offset = lp::mpq(-1); });
+        reject([](auto &p) { p.steps[2].offset = lp::mpq(1, 2); });
+        reject([](auto &p) { p.assumptions[0].rhs.x = lp::mpq(-1); });
+        reject([](auto &p) { p.assumptions[0].lhs[0].second = 1; });
+        reject([](auto &p) {
+            manager::monomial m;
+            m.column = 0;
+            m.factors.push_back(0);
+            p.context.monomials.push_back(m);
+        });
+        reject([](auto &p) {
+            p.context.monomials.push_back({0, unsigned_vector{}});
+            p.context.monomials.push_back({0, unsigned_vector{}});
+        });
+        reject([](auto &p) {
+            p.assumptions[0].kind = lp::NE;
+            p.assumptions[1].kind = lp::NE;
+            p.steps[2].premises[1].second = lp::mpq(-1);
+        });
+        reject([](auto &p) {
+            p.steps[2].kind = certificate::rule::zero_product;
+            p.steps[2].left = 0;
+        });
+        reject([](auto &p) {
+            p.steps[2].kind = certificate::rule::square;
+            p.steps[2].argument = {{{0}, lp::mpq(1, 2)}};
+        });
+        for (auto type : {arith::hint_type::farkas_h, arith::hint_type::nla_h, arith::hint_type::nlsat_assumed_h,
+                          arith::hint_type::nla_unsupported_h}) {
+            arith::arith_proof_hint hint(type, 0, 0, 0, 0, UINT_MAX);
+            VERIFY(hint.is_assumed() == (type == arith::hint_type::nlsat_assumed_h));
+        }
+    }
+
+    void test_native_conflict(char const *assertions, char const *expected, bool nlsat = false) {
         ast_manager m(PGM_ENABLED);
         reg_decl_plugins(m);
         cmd_context cmd(false, &m);
@@ -714,6 +931,11 @@ namespace {
         VERIFY(parse_smt2_commands(cmd, input));
         params_ref params;
         params.set_uint("arith.solver", 6);
+        if (nlsat) {
+            params.set_bool("arith.nl.grobner", false);
+            params.set_bool("arith.nl.tangents", false);
+            params.set_bool("arith.nl.order", false);
+        }
         ref<solver> s = mk_smt2_solver(m, params, symbol::null);
         s->push();
         for (auto *a : cmd.assertions())
@@ -735,8 +957,12 @@ namespace {
                 continue;
             auto *app = to_app(e);
             auto *decl = app->get_decl();
-            if (app->get_decl_kind() == PR_TH_LEMMA && decl->get_num_parameters() >= 2)
-                found |= decl->get_parameter(1).get_symbol() == symbol(expected);
+            if (app->get_decl_kind() == PR_TH_LEMMA && decl->get_num_parameters() >= 2 &&
+                decl->get_parameter(1).get_symbol() == symbol(expected)) {
+                found = true;
+                if (nlsat)
+                    VERIFY(decl->get_num_parameters() == 3 && decl->get_parameter(2).get_symbol() == symbol("nlsat"));
+            }
             for (auto *arg : *app)
                 todo.push_back(arg);
         }
@@ -760,10 +986,14 @@ void tst_lp_evidence() {
     test_affine_monomial_witness();
     test_native_optimized_bound_witnesses();
     test_native_nonlinear_conflict_witness();
+    test_linearization_certificates();
+    test_linearization_producers();
+    test_malformed_linearization_certificates();
     test_native_conflict("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
                          "(assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))",
                          "unsupported");
     test_native_conflict("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
                          "(assert (= x (* 2 y)))(assert (= y (* 3 z)))(assert (>= z 1))(assert (<= x 5))",
                          "farkas");
+    test_native_conflict("(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))", "assumed", true);
 }

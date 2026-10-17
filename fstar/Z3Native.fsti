@@ -41,6 +41,7 @@ type proof_view = {
   premises: list ast;
   conclusion: ast;
   farkas: option (list (int & int));
+  assumed: option string;
 }
 
 noeq

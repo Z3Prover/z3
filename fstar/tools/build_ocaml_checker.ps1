@@ -79,6 +79,7 @@ try {
     "Z3ArrayRewrite.fst", "Z3Definitions.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst",
+    "Z3NlaLemma.fst",
     "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   )
@@ -91,13 +92,19 @@ try {
   }
   $missing = $modules | Where-Object { -not (Test-Path (Join-Path $CacheDir "$_.checked")) }
   if ($missing) { throw "Failed to cache: $($missing -join ', ')" }
+  if ($RunTests) {
+    & $FstarExe --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe Z3NlaLemmaTests.fst
+    if ($LASTEXITCODE -ne 0) { throw "F* nonlinear certificate regressions failed" }
+  }
 
   Write-Host "=== Phase 1b: extract to OCaml ==="
   $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
     ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  & $FstarExe --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
-      --extract $modNames Z3NativeProof.fst
-  if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: Z3NativeProof.fst" }
+  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst")) {
+    & $FstarExe --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
+        --extract $modNames $entry
+    if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
+  }
 
   Write-Host "=== Phase 2: compile in WSL ==="
   $drive = $fstarDir.Substring(0, 1).ToLowerInvariant()
@@ -112,7 +119,7 @@ try {
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
     "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
-    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
+    "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3NlaLemma.ml", "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   $orderStr = $order -join " "
