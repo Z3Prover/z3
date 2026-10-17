@@ -102,7 +102,7 @@ PR #11208 plus the current master fixes, the complete native pipeline and
 proof regressions verify with the installed, source-built Z3 5.3.1.
 `-RunTests` also verifies the resolution and polynomial-certificate
 regressions and the in-memory Pulse equality, justification, and Farkas
-checkers and tests before running twelve native bridge tests and eight
+checkers and tests before running fifteen native bridge tests and nine
 CLI tests. Explicit integer-to-real identities and polynomial row/cross
 proof steps make the arithmetic lemmas robust to the current solver's
 automation, without changing their specifications or runtime rules.
@@ -159,8 +159,9 @@ strict-comparison negation, and equivalent affine differences. It reuses
 exact polynomial linearization and cancellation rather than trusting
 printed rewrite names. Comparisons retain strictness; malformed operators,
 division by zero, and unrelated nonlinear atoms do not become evidence.
-Real-valued term equality is deliberately not inferred from equality of
-the numeric projection.
+At this baseline, real-valued term equality was deliberately not inferred
+from equality of the numeric projection; the following extension adds the
+necessary explicit model law.
 
 The new arithmetic semantic lemmas use `numeric_operators` and local
 value-typing premises for the actual operands. Unlike the older global
@@ -203,6 +204,61 @@ separation, mixed-sort/declaration rejection, arithmetic rewrite positives
 and negatives, and typed obligation diagnostics.
 `tools/test_native_checker.py` exercises the direct CLI without importing
 Python Z3; it also checks rejection of the removed protocol/options.
+
+### Real affine and equality coverage (2026-10-17)
+
+The eight `PARTIAL` cases in workflow run `39021665839` require real affine
+term normalization, arithmetic equality normalization/decomposition,
+supplied `arith/bound` coefficients, and checked triangle-equality clauses.
+`Z3ArithmeticRewrite.fst` now checks these term and equality rewrites with
+the existing exact polynomial kernel. An equality splits into non-strict
+bounds only when their normalized polynomials match the equality's
+difference and its negation. Triangle-equality clauses are checked by that
+same decomposition, not accepted because of a theory hint. Strict-bound,
+wrong-variable, and wrong-constant near misses remain unsupported.
+
+Replaying all 17 inputs at the original pinned z3test commit produces
+**16 ACCEPT, 0 PARTIAL, 1 UNKNOWN**: every formerly partial input is
+obligation-free, while LassoRanker still exhausts its 10-second solver
+budget without a proof. This is a separate local replay, not a rerun of
+the historical 900-input cross-cut.
+
+The native API view now preserves `arith/bound` coefficient vectors as
+`ArithmeticFarkas`, whose premise/conclusion alignment and cancellation
+are checked by the same exact kernel as `arith/farkas`. Incorrect weights
+and coefficient counts remain explicit obligations. Assumed NLSAT origins
+still remain assumptions, including on formulas that another rule could
+independently establish.
+
+**Additional semantic premise:** the `value` datatype has no real-number
+constructor. Consequently `numeric_model` now explicitly requires equality
+reflection for Real-sorted expressions: equal numeric projections imply
+equal interpreted values. Operator laws alone do not establish this.
+The real rewrite and numeric equality soundness lemmas are conditional on
+this standard numeric-value model law; it is not an axiom asserting that a
+particular rewrite, certificate, or proof is valid. The existing untyped
+environment/inhabitance gap described above remains unresolved. No
+unconditional end-to-end SMT-LIB soundness claim is made.
+
+### Warning-free verification and extraction (2026-10-17)
+
+The build treats F* warnings and enabled OCaml compiler warnings as errors.
+The two closed-expression invariance lemmas have explicit termination
+measures, and list append sites explicitly open `FStar.List.Tot` rather
+than using deprecated syntax resolution. The refined sequence accessor
+has an explicit impossible empty case, implemented by the runtime as an
+exception rather than a value-producing fallback.
+
+F* 2026.09.27 also emits single-arm constructor projectors whose domain
+refinements disappear in OCaml. `tools/complete_ocaml_projectors.ml` uses
+the matching OCaml compiler's parser/AST/printer to add an `invalid_arg`
+arm only to generated `__proj__` functions matching a constructor of a
+multi-constructor datatype. It operates on staged extracted modules,
+not handwritten runtime or bridge code, and leaves values on the verified
+domain unchanged. It does not disable partial-match warnings or alter
+checker rules. This small extraction adaptation joins the existing
+compiler/runtime trust boundary. Native tests exercise both a valid
+projector and rejecting out-of-domain projector/sequence calls.
 Run it with `Z3_FSTAR_CHECKER` pointing to the built checker:
 
 ```powershell
@@ -311,6 +367,7 @@ opam/OCaml are otherwise unavailable natively on Windows:
 | File | Provides |
 |---|---|
 | `prims.ml` | Exact `Prims.int`/`nat`/`pos` via Zarith `Z.t`, with arithmetic/comparison operators, Euclidean division/remainder, and `int_zero`/`int_one`/`of_int`/`not`/`pow2`; native `bool`/`string`/`list` aliases |
+| `fStar_Pervasives.ml` | `false_elim` raises an explicit exception if an erased F* refinement is violated |
 | `fStar_Pervasives_Native.ml` | `option` aliased to OCaml's native `option` (`type nonrec 'a option = 'a option = None | Some of 'a`); `fst`/`snd` |
 | `fStar_List_Tot_Base.ml` | `length`/`rev`/`map`/`append`/`op_At`/`hd`/`mem`/`index`, wrappers over `Stdlib.List` with exact integer conversions |
 | `fStar_Char.ml` | Native integer codepoints for extracted raw character patterns; `int_of_char` converts to `Z.t`, while `u32_of_char` retains the native codepoint |

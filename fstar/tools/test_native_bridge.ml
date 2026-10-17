@@ -92,6 +92,15 @@ let native_farkas () =
   require (certs <> []) "real Z3 proof did not marshal supplied Farkas parameters";
   require (List.for_all (List.for_all (fun (_, den) -> Z.sign den > 0)) certs)
     "native Farkas denominator was invalid";
+  require (P.check_document doc = Some Z.zero) "native arithmetic derivation was not fully checked";
+  List.iter (fun coefficients ->
+      let entries = List.map (fun entry -> match entry.P.rule with
+          | U.ArithmeticFarkas cs -> { entry with P.rule = U.ArithmeticFarkas (coefficients cs) }
+          | _ -> entry) doc.entries in
+      require (match P.check_document { doc with entries } with
+          | Some pending -> Z.sign pending > 0
+          | None -> false) "incorrect Farkas weights lost their obligation")
+    [(fun _ -> []); List.map (fun (_, denominator) -> Z.zero, denominator)];
   let baseline = match P.check_document doc with
     | Some pending -> pending
     | None -> failwith "native arithmetic derivation was rejected" in
@@ -120,6 +129,14 @@ let native_integer_obligations () =
   match P.check_document doc with
   | Some pending -> require (Z.sign pending > 0) "integer LP inference was silently trusted"
   | None -> failwith "native integer proof document was malformed"
+let native_bound () =
+  let doc = document
+      "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
+       (assert (or p (<= x (- 6.0))))(assert (=> p (>= (+ x y) 1.5)))\
+       (assert (and (< y (/ 1.0 3.0)) (> x 0.0)))(assert (not (= x 7.0)))\
+       (assert (<= x 1.0))" in
+  require (P.check_document doc = Some Z.zero)
+    "native bound certificate did not replay through exact Farkas checking"
 
 let strict_inputs_and_scopes () =
   let doc = document "(assert false)" in
@@ -270,7 +287,19 @@ let arithmetic_rewrites () =
   check true ints "(+ x y)" "(+ y x)";
   check false ints "(< x y)" "(<= x y)";
   check false ints "(+ x y)" "(+ x x)";
-  check false reals "(+ x y)" "(+ y x)";
+  check true reals "(+ x y)" "(+ y x)";
+  check true reals "(- x y)" "(+ x (* (- 1) y))";
+  check true reals "(- x)" "(* (- 1) x)";
+  check true reals "(* (- 1) 6 x)" "(* (- 6) x)";
+  check true reals "(/ 1 4)" "0.25";
+  check true reals "(= x (+ 1 y))" "(= (+ x (* (- 1) y)) 1)";
+  check true reals "(= x y)" "(and (<= x y) (>= x y))";
+  check true reals "(and (<= x y) (>= x y))" "(= x y)";
+  check true ints "(= x y)" "(and (<= x y) (>= x y))";
+  check false reals "(= x y)" "(and (< x y) (>= x y))";
+  check false reals "(= x y)" "(and (<= x y) (<= x y))";
+  check false reals "(= x (+ 1 y))" "(= (+ x (* (- 1) y)) 2)";
+  check false reals "(+ x y)" "(+ x x)";
   check false reals "(<= (/ x 0) y)" "(<= x y)";
   check false ints "(* x y)" "(+ x y)";
   let x = A.Var (Z.zero, A.BaseSort "Int") in
@@ -279,6 +308,33 @@ let arithmetic_rewrites () =
   require (not (U.check_step U.RewriteRule
       (U.Equal (A.App (malformed, [x; x]), Z3ResolutionProofTheory.true_expr)) []))
     "uninterpreted comparison was treated as arithmetic"
+
+let arithmetic_triangle_clauses () =
+  let c = context () in
+  let check expected clause =
+    let input = List.hd (parse c
+        ("(declare-const x Real)(declare-const y Real)(assert " ^ clause ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [input] in
+    let formula = B.cached_expression st input in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (U.Holds formula) [] = expected)
+      ("incorrect triangle-equality check: " ^ clause);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") (U.Holds formula) []))
+      "an assumed NLSAT origin bypassed obligation tracking"
+  in
+  check true "(or (= x y) (not (<= (- x y) 0)) (not (>= (- x y) 0)))";
+  check false "(or (= x y) (not (< (- x y) 0)) (not (>= (- x y) 0)))";
+  check false "(or (= x y) (not (<= (- x y) 0)) (not (<= (- x y) 0)))";
+  check false "(or (= x (+ 1 y)) (not (<= (- x y) 0)) (not (>= (- x y) 0)))"
+
+let erased_refinement_guards () =
+  require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
+    "constructor projector changed on its valid domain";
+  (match A.__proj__BaseSort__item__name (A.ArraySort ([], A.bool_sort)) with
+   | _ -> failwith "invalid constructor projector returned a value"
+   | exception Invalid_argument _ -> ());
+  (match Z3SeqTheory.nth [] Z.zero with
+   | _ -> failwith "out-of-range sequence access returned a value"
+   | exception Invalid_argument _ -> ())
 
 let () =
   ignore (N.version ());
@@ -290,10 +346,13 @@ let () =
      "exact-native-numerals", exact_numerals;
      "authentic-Farkas-parameters", native_farkas;
      "explicit-integer-LP-obligations", native_integer_obligations;
+     "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
-     "checked-arithmetic-rewrites", arithmetic_rewrites]
+     "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
+     "erased-refinement-runtime-guards", erased_refinement_guards]

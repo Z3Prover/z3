@@ -161,7 +161,7 @@ let view_proof a =
         Z.of_int (Z3native.get_decl_int_parameter c d i), Z.one
     | _ -> fail "Non-rational native arithmetic coefficient" in
   let farkas =
-    if arithmetic_hint = Some "farkas" then
+    if arithmetic_hint = Some "farkas" || arithmetic_hint = Some "bound" then
       Some (List.init (count - 2) (fun i -> rational_parameter (i + 2)))
     else if arithmetic_hint = Some "lp-linear" && count >= 3 then
       (* These are candidate coefficients, not a trusted replay result. The F*
