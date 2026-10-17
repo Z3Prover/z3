@@ -30,14 +30,29 @@ For the current single-executable SMT-LIB workflow, see
 ## Shared toolchain
 
 The documented toolchain is [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64), with Z3 `4.13.3` as its SMT backend.
-F* pins an exact Z3 version; this is independent of the Z3 binary built
-from this repository or used to produce proofs for checking.
+`v2026.09.27` (Windows x64). The proof-checker harness builds and installs
+Z3 from this checkout before verification or testing. F* and Pulse use
+the installed `build\install\bin\z3.exe`, not F*'s historical Z3 4.13.3
+backend or an executable found incidentally on `PATH`. The harness reads
+the installed version and supplies F*'s matching `--z3version` option;
+the version check remains enabled.
 
-From this directory, typecheck a module with:
+From a Windows C++20 developer PowerShell, build and test both the native
+checker and the in-memory Pulse checkers:
 
 ```powershell
-C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe --include C:\z3\fstar <File>.fst
+.\tools\build_ocaml_checker.ps1 -RunTests
+```
+
+The Windows installation is local to the build directory. The native
+OCaml producer is separately built and installed in WSL, then linked
+from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
+After the harness has installed Z3, a standalone module can use it explicitly:
+
+```powershell
+$z3 = Join-Path (Resolve-Path '..') 'build\install\bin\z3.exe'
+$version = [regex]::Match((& $z3 -version), 'Z3 version (\d+\.\d+\.\d+)').Groups[1].Value
+C:\fstar\fstar\bin\fstar.exe --smt $z3 --z3version $version --include $PWD Z3AstTheory.fst
 ```
 
 Consult each report for its verification results, assumptions, and scope.

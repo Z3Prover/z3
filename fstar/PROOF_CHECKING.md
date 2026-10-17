@@ -72,13 +72,23 @@ official OCaml bindings, and checks the resulting proof in one process.
 There is no Python exporter, JSON document, external solver process, or
 runtime F* invocation in this path.
 
-From this directory:
+From this directory, in a Windows C++20 developer PowerShell:
 
 ```powershell
 .\tools\build_ocaml_checker.ps1 -RunTests
 '(declare-const p Bool)(assert p)(assert (not p))' |
   wsl -e bash -c '~/z3checker/checker --stats'
 ```
+
+Every build first builds and installs Windows Z3 from this checkout.
+F* verification, Pulse tests, and extraction explicitly use the installed
+`build\install\bin\z3.exe` and its detected `--z3version`, without disabling
+version checks. `-Z3WindowsBuildDir` and `-Z3InstallDir` change the build
+directory and installation prefix; `-CacheDir` selects the proof cache.
+The WSL producer and official OCaml bindings are also rebuilt and installed
+before linking from that installation. `-RunTests` verifies the F*/Pulse
+regressions and runs native bridge and CLI tests after these installation
+steps. See the [toolchain instructions](OCAML_CHECKER_REPORT.md).
 
 [`Z3NativeProof.fst`](Z3NativeProof.fst) uses native AST identities for
 expression/sort caches; declaration caches also include application arity.
@@ -113,7 +123,7 @@ in the [overview](README.md).
 | Experiment | Report and tools |
 |---|---|
 | Historical QF_AX/QF_UF proof production, rewrite-matcher coverage, timing, and follow-up matchers | [Archived benchmark report](QF_AX_QF_UF_BENCHMARK_REPORT.md); [`tools/analyze_benchmarks.py`](tools/analyze_benchmarks.py) remains for archived results; the exporter-dependent runner was removed. |
-| Nine-logic SMT-LIB cross-cut before and after arithmetic integration | [Baseline cross-cut](SMTLIB_CROSSCUT_REPORT.md), [arithmetic integration results](ARITHMETIC_CERTIFICATE_REPORT.md); these measurements predate the direct native SMT-LIB interface. |
+| Nine-logic SMT-LIB cross-cut, native coverage extensions, and producer updates | [Current cross-cut](SMTLIB_CROSSCUT_REPORT.md) includes the direct native interface; [arithmetic integration results](ARITHMETIC_CERTIFICATE_REPORT.md) preserve the earlier evaluation. |
 | Occurrence coverage of clausal proof rules, distinguishing proved rules from trusted obligations | [Resolution report](RESOLUTION_CHECKER_REPORT.md) and [scope](RESOLUTION_CHECKER_SCOPE.md); [`tools/proof_rule_coverage.py`](tools/proof_rule_coverage.py) |
 | Experimental rewrite-leaf tagging | [Rewrite-rule tags report](REWRITE_RULE_TAGS_REPORT.md); [`Z3RewriteRuleTags.fst`](Z3RewriteRuleTags.fst), [`tools/parse_rewrite_tags.py`](tools/parse_rewrite_tags.py) |
 
