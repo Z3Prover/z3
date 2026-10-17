@@ -22,6 +22,7 @@ Notes:
 
 #include<sstream>
 #include<vector>
+#include<functional>
 #include "util/stopwatch.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
@@ -198,6 +199,8 @@ public:
 
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
+    using proof_check_callback = std::function<std::string(proof*, expr_ref_vector const&)>;
+
     enum status {
         UNSAT, SAT, UNKNOWN
     };
@@ -304,6 +307,7 @@ protected:
     scoped_ptr<solver_factory>   m_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
+    proof_check_callback        m_proof_check_callback;
     ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
@@ -527,6 +531,8 @@ public:
     void push(unsigned n);
     void pop(unsigned n);
     void check_sat(unsigned num_assumptions, expr * const * assumptions);
+    void set_proof_check_callback(proof_check_callback callback) { m_proof_check_callback = std::move(callback); }
+    void check_proof(unsigned num_assumptions = 0, expr* const* assumptions = nullptr);
     void get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq);
     void reset_assertions();
     // display the result produced by a check-sat or check-sat-using commands in the regular stream

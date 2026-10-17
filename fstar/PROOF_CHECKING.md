@@ -107,6 +107,12 @@ An obligation-free closed false root produces `ACCEPT`; unsupported leaves
 remain `PARTIAL`, and unsupported judgment shapes reject rather than being
 relabeled or trusted. See the [executable report](OCAML_CHECKER_REPORT.md)
 for prerequisites, exit codes, statistics, timeouts, and formal limits.
+`--interactive` instead evaluates complete stdin commands on a persistent
+context and checks each UNSAT proof through `Z3_set_proof_check_callback`,
+preserving push/pop, assumptions, and queries. Certification reports are
+SMT-LIB comments, not replacements for the solver's result; only
+`proof-check ACCEPT` is an obligation-free check. See the
+[interactive protocol](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session).
 
 [`tools/test_native_checker.py`](tools/test_native_checker.py) and
 [`tools/test_native_bridge.ml`](tools/test_native_bridge.ml) exercise the

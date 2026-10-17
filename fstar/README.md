@@ -26,6 +26,11 @@ correctness of the C++ implementation that produced it. The activity pages
 link the relevant modules, reports, coverage results, and limitations.
 For the current single-executable SMT-LIB workflow, see
 [direct native checking](PROOF_CHECKING.md#extraction-and-execution).
+For incremental SMT-LIB sessions, run the built executable with
+`--interactive`. It registers the extracted F* checker through Z3's proof
+callback and emits `; proof-check ACCEPT`, `PARTIAL n`, or `REJECT` after
+UNSAT answers. See [interactive mode](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session)
+for protocol, ownership, and certification limits.
 
 ## Shared toolchain
 

@@ -28,6 +28,85 @@ have been removed. Neither JSON input nor the former `--smt2` and
 | `Z3ProofDocument.fst` | Transport-independent definition/scoping/input validation and topological checking through `Z3UnifiedProof` |
 | `ocaml_runtime/Z3NativeMain.ml` | Direct CLI and optional phase/node statistics |
 
+### Interactive certifying SMT-LIB session
+
+`checker --interactive [--stats] [--diagnostics] [--timeout-ms N]` reads
+SMT-LIB commands from stdin and evaluates each complete command through
+`Z3_eval_smtlib2_string` on one persistent, proof-enabled context. Commands
+may span lines or share a line. Framing respects comments, quoted symbols,
+and SMT-LIB strings with doubled quotes. Responses are flushed after each
+command, without waiting for EOF. `(exit)` ends the session; a file argument
+other than `-` is not accepted in this mode.
+
+```smt2
+(declare-const p Bool)
+(assert p)
+(check-sat)
+; sat
+(check-sat-assuming ((not p)))
+; unsat
+; proof-check ACCEPT
+(push)
+(assert (not p))
+(check-sat)
+; unsat
+; proof-check ACCEPT
+(pop)
+(check-sat)
+; sat
+(exit)
+```
+
+The runtime registers the extracted F* document checker with
+`Z3_set_proof_check_callback`, using the official OCaml binding's native AST
+and assertion-vector handles. Each UNSAT callback creates a fresh marshaling
+state and runs the same document checker as batch mode. Caches do not span
+checks, including after `pop` or `reset`. Named assertions include their
+guarded formulas and tracking literals, as used in the proof premises.
+`check-sat-using` is also checked; model and unsat-core queries remain available.
+
+Solver replies remain ordinary SMT-LIB. The callback report is emitted as an
+SMT-LIB comment: `; proof-check ACCEPT`, `; proof-check PARTIAL n`, or
+`; proof-check REJECT`. **Only ACCEPT certifies an UNSAT proof under the
+existing checker/trust assumptions.** A preceding `unsat` alone is still the
+producer's answer. NLSAT assumptions and other unsupported leaves remain
+explicit pending obligations, never successful certificates. SAT models are
+not certified.
+
+Each interactive proof check also emits a `; proof-stats` comment by default.
+It reports unique proof-DAG nodes (`proof_nodes`), premise edges
+(`proof_edges`), effective input assertions/assumptions (`assertions`),
+unique marshaled expressions and declarations, pending obligations, and
+solve/marshal/check milliseconds. Counts are per check, not cumulative.
+Rejected documents report `pending=unknown`, not a misleading zero.
+`--stats` additionally writes the existing batch-compatible timing/size line
+to stderr; `--diagnostics` continues to report typed obligations there.
+
+Proof generation is enabled at startup and restored after `(reset)`, together
+with the command-line timeout. An attempt to disable proof generation reports
+an error and restores it before further commands. Ordinary command errors are
+reported as SMT-LIB errors and the session continues; malformed or truncated
+command framing and resource failures end the session with an error.
+
+At EOF or `(exit)`, exit status is 2 if any command/checker error occurred,
+otherwise 1 if any proof was rejected, otherwise 3 if any proof was partial,
+otherwise 0. SAT and UNKNOWN are normal interactive answers and do not
+themselves make the process fail. These session-wide statuses differ from
+the single-solve batch statuses below.
+
+The OCaml raw API exposes `set_proof_check_callback` returning an opaque
+`proof_check_callback` registration and `clear_proof_check_callback`.
+Callers must keep the registration alive while evaluating commands.
+Replacement/clearing releases the old closure; collecting a registration
+unregisters it if still current. This ownership avoids rooting cycles when
+callbacks capture their context. Borrowed input handles are wrapped with
+the usual OCaml native reference counting and may be retained after return.
+The bridge catches callback exceptions, including input-wrapper allocation
+failures, before unwinding the C++ stack, and re-raises them only after
+`Z3_eval_smtlib2_string` returns. Registrations and contexts must not be used
+concurrently across OCaml domains; recursive evaluation on the same context
+from its callback is not supported.
+
 The foreign implementation never constructs a checker AST or a checked
 fact. F* code assigns recognized operator tags from actual native operator
 kinds, not user-supplied printed names. Opaque declarations and nominal
@@ -102,7 +181,7 @@ PR #11208 plus the current master fixes, the complete native pipeline and
 proof regressions verify with the installed, source-built Z3 5.3.1.
 `-RunTests` also verifies the resolution and polynomial-certificate
 regressions and the in-memory Pulse equality, justification, and Farkas
-checkers and tests before running fifteen native bridge tests and nine
+checkers and tests before running eighteen native bridge tests and seventeen
 CLI tests. Explicit integer-to-real identities and polynomial row/cross
 proof steps make the arithmetic lemmas robust to the current solver's
 automation, without changing their specifications or runtime rules.

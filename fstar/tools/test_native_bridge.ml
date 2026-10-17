@@ -459,6 +459,90 @@ let erased_refinement_guards () =
    | _ -> failwith "out-of-range sequence access returned a value"
    | exception Invalid_argument _ -> ())
 
+let proof_check_callback () =
+  let c = context () in
+  let retained = ref None in
+  let registration = Z3native.set_proof_check_callback c (fun proof assertions ->
+    Gc.compact ();
+    retained := Some (proof, assertions);
+    require (Z3native.ast_vector_size c assertions = 1) "callback lost input assertions";
+    let doc = B.marshal [Z3native.ast_vector_get c assertions 0] proof in
+    require (P.check_document doc = Some Z.zero) "callback proof did not check";
+    "native callback") in
+  require (Z3native.eval_smtlib2_string c
+    "(set-option :produce-proofs true)(assert false)(check-sat)" =
+    "unsat\nnative callback\n") "native callback report was lost";
+  Gc.compact ();
+  (match !retained with
+   | Some (proof, assertions) ->
+       require (Z3native.ast_to_string c proof <> "" &&
+                Z3native.ast_vector_size c assertions = 1)
+         "borrowed callback handles did not retain their owners"
+   | None -> failwith "proof callback did not run");
+  Z3native.clear_proof_check_callback c;
+  require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\n")
+    "cleared callback was still invoked";
+  ignore (Sys.opaque_identity registration)
+
+let proof_callback_exceptions () =
+  let c = context () in
+  ignore (Z3native.eval_smtlib2_string c "(set-option :produce-proofs true)(assert false)");
+  let registration = Z3native.set_proof_check_callback c
+      (fun _ _ -> failwith "proof callback exception") in
+  (match Z3native.eval_smtlib2_string c "(check-sat)(check-sat)" with
+   | _ -> failwith "callback exception was swallowed"
+   | exception Failure message ->
+       require (message = "proof callback exception") "callback exception was replaced");
+  let replacement = Z3native.set_proof_check_callback c (fun _ _ -> "recovered") in
+  require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\nrecovered\n")
+    "callback exception poisoned later evaluations";
+  let invalid = Z3native.set_proof_check_callback c (fun _ _ -> "bad\000report") in
+  (match Z3native.eval_smtlib2_string c "(check-sat)" with
+   | _ -> failwith "embedded null in callback report was truncated"
+   | exception Invalid_argument _ -> ());
+  let oom = Z3native.set_proof_check_callback c (fun _ _ -> raise Out_of_memory) in
+  (match Z3native.eval_smtlib2_string c "(check-sat)" with
+   | _ -> failwith "callback out-of-memory exception was swallowed"
+   | exception Out_of_memory -> ());
+  Z3native.clear_proof_check_callback c;
+  List.iter (fun token -> ignore (Sys.opaque_identity token))
+    [registration; replacement; invalid; oom]
+
+let proof_callback_ownership () =
+  let c = context () in
+  ignore (Z3native.eval_smtlib2_string c "(set-option :produce-proofs true)(assert false)");
+  let old = ref (Some (Z3native.set_proof_check_callback c (fun _ _ -> "old"))) in
+  let replacement = Z3native.set_proof_check_callback c (fun _ _ -> "replacement") in
+  old := None;
+  Gc.compact ();
+  require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\nreplacement\n")
+    "collecting an old registration removed its replacement";
+  Z3native.clear_proof_check_callback c;
+  let owner = ref None in
+  owner := Some (Z3native.set_proof_check_callback c (fun _ _ ->
+    owner := None;
+    Gc.compact ();
+    "collected during callback"));
+  require (Z3native.eval_smtlib2_string c "(check-sat)" =
+    "unsat\ncollected during callback\n") "callback report was freed before native copying";
+  require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\n")
+    "collected registration was not removed";
+  let weak = Weak.create 1 in
+  let register () =
+    let captured = ref c in
+    Weak.set weak 0 (Some captured);
+    Z3native.set_proof_check_callback c (fun _ _ ->
+      ignore (Sys.opaque_identity !captured); "captured context")
+  in
+  let token = register () in
+  Gc.full_major ();
+  require (Weak.check weak 0) "live registration lost its closure";
+  Z3native.clear_proof_check_callback c;
+  Gc.full_major ();
+  require (not (Weak.check weak 0)) "unregistration leaked a closure capturing its context";
+  ignore (Sys.opaque_identity token);
+  ignore (Sys.opaque_identity replacement)
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -480,4 +564,7 @@ let () =
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
      "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
-     "erased-refinement-runtime-guards", erased_refinement_guards]
+     "erased-refinement-runtime-guards", erased_refinement_guards;
+     "native-proof-check-callback", proof_check_callback;
+     "proof-callback-exceptions", proof_callback_exceptions;
+     "proof-callback-ownership", proof_callback_ownership]

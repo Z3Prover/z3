@@ -34,9 +34,32 @@ type fixedpoint = ptr
 type optimize = ptr
 type param_descrs = ptr
 type rcf_num = ptr
+type proof_check_callback = ptr
 
 external set_internal_error_handler : ptr -> unit
   = "n_set_internal_error_handler"
 
 external solver_register_on_clause : context -> solver -> (ast option -> int list -> ast_vector -> unit) -> unit
   = "n_solver_register_on_clause"
+
+(** Keep the returned registration alive while evaluating commands. Collecting
+    it unregisters the checker. Replacement and explicit clearing release the
+    previous closure, including closures that capture their context.
+    Callback exceptions are re-raised after native command evaluation unwinds. *)
+external set_proof_check_callback :
+  context -> (ast -> ast_vector -> string) -> proof_check_callback
+  = "n_set_proof_check_callback"
+
+external clear_proof_check_callback : context -> unit
+  = "n_clear_proof_check_callback"
+
+external proof_check_callback_inputs :
+  unit -> (ast -> ast_vector -> string) * ast * ast_vector
+  = "n_proof_check_callback_inputs"
+
+let () = Callback.register "Z3_PROOF_CHECK_CALLBACK" (fun () ->
+  let callback, proof, assertions = proof_check_callback_inputs () in
+  let report = callback proof assertions in
+  if String.contains report '\000' then
+    invalid_arg "proof checking callback report contains a null character";
+  report)

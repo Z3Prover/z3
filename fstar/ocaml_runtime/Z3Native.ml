@@ -206,7 +206,7 @@ let view_proof a =
     | _ -> None in
   { proof_name; premises; conclusion; farkas; assumed; lp_data }
 
-let solve input timeout_ms =
+let create_context timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")
   then fail "Solver timeout must be between 0 and 4294967295 milliseconds";
   let config = Z3native.mk_config () in
@@ -216,6 +216,10 @@ let solve input timeout_ms =
   Z3native.del_config config;
   Z3native.set_internal_error_handler c;
   Z3native.enable_concurrent_dec_ref c;
+  c
+
+let solve input timeout_ms =
+  let c = create_context timeout_ms in
   let solver = Z3native.mk_solver c in
   let formulas = Z3native.parse_smtlib2_string c input 0 [] [] 0 [] [] in
   let assertions = List.init (Z3native.ast_vector_size c formulas)
