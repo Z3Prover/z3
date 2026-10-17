@@ -525,12 +525,13 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
         if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() &&
             ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
             if (is_eq || !k.is_even()) {
-                if (m_util.is_int(arg0))
+                if (m_util.is_real(arg) && m_util.is_int(arg0))
                     arg0 = m_util.mk_to_real(arg0);
                 new_args.push_back(arg0);
             }
             else {
-                new_args.push_back(m_util.mk_power(arg0, m_util.mk_real(2)));
+                expr_ref two(m_util.mk_numeral(rational(2), m_util.is_int(arg0)), m);
+                new_args.push_back(m_util.mk_power(arg0, two));
             }
         }
         else {
@@ -1095,6 +1096,26 @@ br_status arith_rewriter::mk_add_core(unsigned num_args, expr * const * args, ex
 }
 
 br_status arith_rewriter::mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    if (num_args > 1 && m_util.is_int(args[0])) {
+        for (unsigned i = 0; i < num_args; ++i) {
+            expr* x = nullptr, * y = nullptr;
+            if (!m_util.is_power(args[i], x, y))
+                continue;
+            for (unsigned j = i + 1; j < num_args; ++j) {
+                expr* z = nullptr, * t = nullptr;
+                if (!m_util.is_power(args[j], z, t) || y != t)
+                    continue;
+                expr_ref base(m_util.mk_mul(x, z), m);
+                expr_ref combined(m_util.mk_power(base, y), m);
+                expr_ref_vector factors(m);
+                for (unsigned k = 0; k < num_args; ++k)
+                    if (k != j)
+                        factors.push_back(k == i ? combined.get() : args[k]);
+                result = m_util.mk_mul_simplify(factors);
+                return BR_REWRITE2;
+            }
+        }
+    }
     if (is_anum_simp_target(num_args, args)) {
         expr_ref_buffer new_args(m);
         anum_manager & am = m_util.am();
@@ -1664,8 +1685,10 @@ app* arith_rewriter_core::mk_power(expr* x, rational const& r, sort* s) {
     SASSERT(r.is_unsigned() && r.is_pos());
     bool is_int = m_util.is_int(x);
     app* y = m_util.mk_power(x, m_util.mk_numeral(r, is_int));
-    if (m_util.is_int(s))
+    if (m_util.is_int(s) && m_util.is_real(y))
         y = m_util.mk_to_int(y);
+    else if (m_util.is_real(s) && m_util.is_int(y))
+        y = m_util.mk_to_real(y);
     return y;
 }
 
@@ -1804,6 +1827,66 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     numeral x, y;
     bool is_num_x    = m_util.is_numeral(arg1, x);
     bool is_num_y    = m_util.is_numeral(arg2, y);
+    if (m_util.is_int(arg1)) {
+        if (is_num_y && y.is_neg()) {
+            expr_ref exponent(m_util.mk_int(-y), m);
+            result = m_util.mk_power(arg1, exponent);
+            return BR_REWRITE1;
+        }
+        if ((is_num_y && y.is_zero()) || (is_num_x && x.is_one())) {
+            result = m_util.mk_int(1);
+            return BR_DONE;
+        }
+        if (is_num_y && y.is_one()) {
+            result = arg1;
+            return BR_DONE;
+        }
+        if (is_num_x && is_num_y) {
+            if (x.is_zero() || x.is_minus_one()) {
+                result = m_util.mk_int(x.is_zero() ? rational(0) : y.is_even() ? rational(1) : rational(-1));
+                return BR_DONE;
+            }
+            if (y.is_unsigned() && y.get_unsigned() <= m_max_degree) {
+                result = m_util.mk_int(power(x, y.get_unsigned()));
+                return BR_DONE;
+            }
+        }
+        if (is_num_x && (x.is_zero() || x.is_minus_one())) {
+            expr_ref zero(m_util.mk_int(0), m), one(m_util.mk_int(1), m);
+            expr_ref condition(m), otherwise(m);
+            if (x.is_zero()) {
+                condition = m.mk_eq(arg2, zero);
+                otherwise = zero;
+            }
+            else {
+                expr_ref two(m_util.mk_int(2), m);
+                expr_ref parity(m_util.mk_mod(arg2, two), m);
+                condition = m.mk_eq(parity, zero);
+                otherwise = m_util.mk_int(-1);
+            }
+            result = m.mk_ite(condition, one, otherwise);
+            return BR_REWRITE2;
+        }
+        expr* base = nullptr, * exponent = nullptr;
+        if (m_util.is_uminus(arg2, exponent)) {
+            result = m_util.mk_power(arg1, exponent);
+            return BR_REWRITE1;
+        }
+        if (m_util.is_power(arg1, base, exponent)) {
+            expr_ref product(m_util.mk_mul(exponent, arg2), m);
+            result = m_util.mk_power(base, product);
+            return BR_REWRITE2;
+        }
+        if (is_num_y && y.is_unsigned() && y.get_unsigned() <= m_max_degree &&
+            (m_expand_power || m_som || y.get_unsigned() <= 10)) {
+            expr_ref_vector factors(m);
+            for (unsigned i = 0; i < y.get_unsigned(); ++i)
+                factors.push_back(arg1);
+            result = m_util.mk_mul_simplify(factors);
+            return BR_REWRITE2;
+        }
+        return BR_FAILED;
+    }
     auto ensure_real = [&](expr* e) { return m_util.is_int(e) ? m_util.mk_to_real(e) : e;  };
 
     TRACE(arith, tout << mk_bounded_pp(arg1, m) << " " << mk_bounded_pp(arg2, m) << "\n";);

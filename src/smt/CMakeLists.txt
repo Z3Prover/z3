@@ -2,6 +2,7 @@ z3_add_component(smt
   SOURCES
     arith_eq_adapter.cpp
     arith_eq_solver.cpp
+    arith_swine.cpp
     dyn_ack.cpp
     expr_context_simplifier.cpp
     fingerprints.cpp
