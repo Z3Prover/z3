@@ -118,6 +118,65 @@ describes only that historical implementation.
 certificate examples. Typecheck individual F* modules using the command
 in the [overview](README.md).
 
+## Native LP inference certificates
+
+With proofs enabled, `theory_lra` exports supported
+`lp::evidence_manager::proof_expression` derivations as native proof DAGs,
+not just their flattened dependency sets. The arithmetic `th-lemma` hints
+are `lp-input`, `lp-linear`, `lp-integer-tighten`, `lp-integer-lattice`,
+`lp-gomory`, `lp-monomial-substitute`, `lp-monomial-interval`, and
+`lp-discharge`. Each node carries its step index and has a shared
+`lp-context` node as its first parent. Discharge additionally uses an
+ordinary native `lemma` node to close the temporary hypothesis.
+
+The context proves only `true`. Its declaration parameters carry an
+explicit, versioned certificate; they do not assert its input facts.
+The C++ checker replays the arithmetic rules, validates variable and
+monomial definitions against the actual bound ASTs, and checks every
+native inference's premise and conclusion formulas. Export rejects
+unmatched open inputs, including recycled probe constraints, rather than
+turning them into axioms. Unsupported evidence keeps an explicit
+unsupported hint (or the existing independently checked linear Farkas
+certificate), not a fabricated derivation.
+
+External consumers can obtain the typed parameters through the native
+declaration-parameter APIs. The version-1 context parameter layout, after
+`arith, lp-context`, is:
+
+| Field | Encoding |
+|---|---|
+| Header | Version `1`, variable count. |
+| Each variable | Native expression AST, integer flag, linear definition length, then `(rational coefficient, stable variable index)` pairs. |
+| Monomials | Count, then each column index, factor count, and factor indices. |
+| Steps | Count, then each rule tag, conclusion fact, input index, assumption step, recipe ID, equation fact, pivot, monomial definition index, source, divisor, premise count, `(step, coefficient)` pairs, bound count, and `(column, lower-premise-position, upper-premise-position)` triples. |
+| Root | Root step index. |
+
+A fact contains the relation tag (`0` = `<=`, `1` = `<`, `2` = `=`,
+`3` = `>`, `4` = `>=`), contradiction flag, rational right-hand side,
+infinitesimal component (required to be zero), and a length-prefixed
+linear left-hand side. Rule tags follow the hint order above, starting at
+zero. Absent indices are `4294967295`. Premise references are topological;
+used variable and rule-data references are range checked.
+An `lp-linear` node also supplies local rational weights, after its
+step index: one per arithmetic parent and, for a non-contradiction
+conclusion, one for that conclusion. These account for denominator
+clearing when native integer formulas are emitted.
+
+[`scripts/check_lp_proof.py`](../scripts/check_lp_proof.py) independently
+replays all these arithmetic rules with Python exact rational and ring
+arithmetic. `check_lp_nodes(proof)` takes a native Z3Py proof; it does not
+invoke a solver, simplifier, or the C++ evidence checker. Its command-line
+driver first produces a proof from an SMT-LIB file, then reports checked
+LP nodes separately from **unchecked non-LP nodes**. This is an arithmetic
+subchecker, not a complete SMT proof checker or an F* soundness theorem.
+
+The OCaml native bridge feeds local linear and input-conversion weights
+to the existing verified Farkas kernel, which checks the actual native
+formulas independently of the context certificate. Steps outside that
+kernel's fragment, including integer cuts and monomial rules, remain
+explicit obligations named `arith/lp-...`. Python/C++ replay coverage must
+not be confused with obligation-free F*/Pulse checking.
+
 ## Experiments and coverage
 
 | Experiment | Report and tools |

@@ -150,23 +150,38 @@ let view_proof a =
     if parameter_kind i = Z3enums.PARAMETER_SYMBOL then
       Some (symbol c (Z3native.get_decl_symbol_parameter c d i))
     else None in
+  let arithmetic_hint =
+    if name = "th-lemma" && count >= 2 && parameter_symbol 0 = Some "arith"
+    then parameter_symbol 1 else None in
+  let rational_parameter i =
+    match parameter_kind i with
+    | Z3enums.PARAMETER_RATIONAL ->
+        rational (Z3native.get_decl_rational_parameter c d i)
+    | Z3enums.PARAMETER_INT ->
+        Z.of_int (Z3native.get_decl_int_parameter c d i), Z.one
+    | _ -> fail "Non-rational native arithmetic coefficient" in
   let farkas =
-    if name = "th-lemma" && count >= 2 &&
-       parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "farkas" then
-      Some (List.init (count - 2) (fun i ->
-          match parameter_kind (i + 2) with
-          | Z3enums.PARAMETER_RATIONAL ->
-              rational (Z3native.get_decl_rational_parameter c d (i + 2))
-          | Z3enums.PARAMETER_INT ->
-              Z.of_int (Z3native.get_decl_int_parameter c d (i + 2)), Z.one
-          | _ -> fail "Non-rational native Farkas coefficient"))
+    if arithmetic_hint = Some "farkas" then
+      Some (List.init (count - 2) (fun i -> rational_parameter (i + 2)))
+    else if arithmetic_hint = Some "lp-linear" && count >= 3 then
+      (* These are candidate coefficients, not a trusted replay result. The F*
+         arithmetic kernel checks them against every actual premise/conclusion. *)
+      Some ((Z.zero, Z.one) :: List.init (count - 3) (fun i -> rational_parameter (i + 3)))
+    else if (arithmetic_hint = Some "lp-input" || arithmetic_hint = Some "lp-discharge") &&
+            count = 3 && (List.length premises = 1 || List.length premises = 2) then
+      Some ((Z.zero, Z.one) :: List.init (List.length premises) (fun _ -> Z.one, Z.one))
     else None
   in
   let assumed =
     if name = "th-lemma" && count = 3 &&
        parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "assumed"
     then parameter_symbol 2 else None in
-  { proof_name = name; premises; conclusion; farkas; assumed }
+  let proof_name =
+    if arithmetic_hint = Some "lp-context" then "def-axiom"
+    else match arithmetic_hint, farkas with
+    | Some tag, None when String.starts_with ~prefix:"lp-" tag -> "arith/" ^ tag
+    | _ -> name in
+  { proof_name; premises; conclusion; farkas; assumed }
 
 let solve input timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")

@@ -92,7 +92,34 @@ let native_farkas () =
   require (certs <> []) "real Z3 proof did not marshal supplied Farkas parameters";
   require (List.for_all (List.for_all (fun (_, den) -> Z.sign den > 0)) certs)
     "native Farkas denominator was invalid";
-  require (P.check_document doc <> None) "native arithmetic derivation was rejected"
+  let baseline = match P.check_document doc with
+    | Some pending -> pending
+    | None -> failwith "native arithmetic derivation was rejected" in
+  (match P.diagnose_document doc with
+   | P.DocumentChecked (_, obligations) ->
+       require (List.for_all (fun o -> match o.P.obligation_rule with
+           | U.ArithmeticFarkas _ -> false | _ -> true) obligations)
+         "native arithmetic certificate retained an obligation"
+   | _ -> failwith "native arithmetic diagnostic was rejected");
+  let changed = ref false in
+  let entries = List.map (fun e -> match e.P.rule with
+      | U.ArithmeticFarkas cs when not !changed ->
+          changed := true;
+          { e with rule = U.ArithmeticFarkas (List.map (fun _ -> Z.zero, Z.one) cs) }
+      | _ -> e) doc.entries in
+  (match P.check_document { doc with entries } with
+   | Some pending -> require (Z.gt pending baseline) "corrupt candidate weights were trusted"
+   | None -> failwith "candidate-weight mutation malformed the proof document")
+
+let native_integer_obligations () =
+  let doc = document
+      "(declare-const x Int)(declare-const y Int)(declare-const z Int)\
+       (assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))" in
+  require (List.exists (fun e -> e.P.rule = U.Unverified "arith/lp-integer-tighten") doc.entries)
+    "integer LP inference metadata was hidden";
+  match P.check_document doc with
+  | Some pending -> require (Z.sign pending > 0) "integer LP inference was silently trusted"
+  | None -> failwith "native integer proof document was malformed"
 
 let strict_inputs_and_scopes () =
   let doc = document "(assert false)" in
@@ -262,6 +289,7 @@ let () =
      "proof-DAG-cache", proof_cache;
      "exact-native-numerals", exact_numerals;
      "authentic-Farkas-parameters", native_farkas;
+     "explicit-integer-LP-obligations", native_integer_obligations;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;

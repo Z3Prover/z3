@@ -147,6 +147,9 @@ namespace lp {
             return m_enabled;
         }
 
+        unsigned num_current_variables() const { return m_current_variables.size(); }
+        unsigned variable_id(lpvar column) const { return m_current_variables[column]; }
+
         void reset() {
             m_recipes.reset();
             m_inputs.reset();

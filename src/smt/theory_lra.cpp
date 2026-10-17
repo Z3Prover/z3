@@ -34,6 +34,7 @@
 #include "util/nat_set.h"
 #include "ast/ast_pp.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/proofs/lp_proof.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
@@ -954,7 +955,8 @@ public:
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),
-        m_bound_predicate(m)
+        m_bound_predicate(m),
+        m_lp_proof(m)
     {
         m_bound_params.push_back(parameter(m_farkas));
         m_bound_params.push_back(parameter(rational(1)));
@@ -3765,15 +3767,62 @@ public:
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
+    proof_ref          m_lp_proof;
 
     void reset_evidence() {
         m_core.reset();
         m_eqs.reset();
         m_params.reset();
+        m_lp_proof = nullptr;
     }
 
-    // Record the Farkas coefficients of m_explanation as th-lemma parameters
-    // for the proof object: the hint name, one coefficient per literal of
+    proof_ref mk_lp_proof(lp::evidence_manager::proof_expression const& evidence) {
+        expr_ref_vector variables(m);
+        variables.resize(evidence.variables.size());
+        auto const& deps = lp().dep_manager();
+        for (unsigned j = 0; j < deps.num_current_variables(); ++j) {
+            unsigned v = lp().local_to_external(j);
+            if (v != lp::null_lpvar && v < th.get_num_vars())
+                variables[deps.variable_id(j)] = get_expr(v);
+        }
+        for (unsigned i = 0; i < evidence.variables.size(); ++i) {
+            auto const& v = evidence.variables[i];
+            if (variables.get(i))
+                continue;
+            if (v.definition.empty()) {
+                variables[i] = m.mk_fresh_const("lp", v.is_int ? a.mk_int() : a.mk_real());
+                continue;
+            }
+            expr_ref_vector terms(m);
+            for (auto const& [c, j] : v.definition) {
+                if (j >= i)
+                    return proof_ref(m);
+                expr_ref t(variables.get(j), m);
+                if (!v.is_int && a.is_int(t))
+                    t = a.mk_to_real(t);
+                terms.push_back(a.mk_mul(a.mk_numeral(c, v.is_int), t));
+            }
+            variables[i] = a.mk_add(terms);
+        }
+        proof_ref_vector premises(m), inputs(m);
+        for (auto lit : m_core) {
+            expr_ref fact(m);
+            ctx().literal2expr(lit, fact);
+            premises.push_back(m.mk_hypothesis(fact));
+        }
+        for (auto const& [n1, n2] : m_eqs)
+            premises.push_back(m.mk_hypothesis(m.mk_eq(n1->get_expr(), n2->get_expr())));
+        if (!lp::bind_evidence_inputs(m, evidence, variables, premises, inputs))
+            return proof_ref(m);
+        proof_ref result = lp::mk_evidence_proof(m, evidence, variables, inputs);
+        if (result && !m.is_false(m.get_fact(result)))
+            result = nullptr;
+        return result;
+    }
+
+    // Export the LP derivation when possible. Otherwise record the Farkas
+    // coefficients of m_explanation as th-lemma parameters:
+    // the hint name, one coefficient per literal of
     // m_core, one per equality of m_eqs (the order in which the justification
     // lists its premises), and 1 for a propagated consequent. Call it after
     // set_evidence has filled m_core and m_eqs from exactly this explanation
@@ -3787,6 +3836,11 @@ public:
             vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
             lp::evidence_manager::proof_expression proof;
             lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            if (proof.check()) {
+                m_lp_proof = mk_lp_proof(proof);
+                if (m_lp_proof)
+                    return;
+            }
             if (!m_explanation.evidence() ||
                 !lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
                 !proof.check()) {
@@ -3949,7 +4003,7 @@ public:
                     ext_theory_conflict_justification(
                         get_id(), ctx(),  
                         m_core.size(), m_core.data(), 
-                        m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data())));
+                        m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data(), m_lp_proof)));
         }
         else {
             for (auto const& [n1, n2] : m_eqs) {

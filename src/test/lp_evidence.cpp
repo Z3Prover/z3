@@ -9,6 +9,9 @@ Copyright (c) 2026 Microsoft Corporation
 #include "math/lp/nla_core.h"
 #include "math/lp/monomial_bounds.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/proofs/lp_proof.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/proof_utils.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver.h"
@@ -18,6 +21,105 @@ Copyright (c) 2026 Microsoft Corporation
 
 namespace {
     using manager = lp::evidence_manager;
+
+    void test_export(manager::proof_expression const& e) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref_vector variables(m);
+        for (unsigned i = 0; i < e.variables.size(); ++i) {
+            auto const& v = e.variables[i];
+            expr_ref_vector terms(m);
+            for (auto const& [c, j] : v.definition) {
+                expr_ref t(variables.get(j), m);
+                if (!v.is_int && a.is_int(t))
+                    t = a.mk_to_real(t);
+                terms.push_back(a.mk_mul(a.mk_numeral(c, v.is_int), t));
+            }
+            expr_ref term(terms.empty() ? m.mk_fresh_const("v", v.is_int ? a.mk_int() : a.mk_real())
+                                       : a.mk_add(terms), m);
+            for (auto const& mon : e.monomials)
+                if (mon.column == i) {
+                    expr_ref_vector factors(m);
+                    for (auto j : mon.factors)
+                        factors.push_back(variables.get(j));
+                    term = a.mk_mul(factors);
+                }
+            variables.push_back(term);
+        }
+        proof_ref_vector inputs(m);
+        for (unsigned i = 0; i < e.steps.size(); ++i) {
+            bool assumption = false;
+            for (auto const& s : e.steps)
+                assumption |= s.kind == manager::rule::discharge && s.assumption == i;
+            proof* input = nullptr;
+            if (e.steps[i].kind == manager::rule::input && !assumption) {
+                expr_ref f = lp::evidence_fact(m, e.steps[i].conclusion, variables);
+                input = m.mk_asserted(f);
+            }
+            inputs.push_back(input);
+        }
+        proof_ref p = lp::mk_evidence_proof(m, e, variables, inputs);
+        VERIFY(p);
+        proof_checker checker(m);
+        expr_ref_vector sides(m);
+        VERIFY(checker.check(p, sides));
+        VERIFY(sides.empty());
+        VERIFY(proof_utils::is_closed(m, p));
+        VERIFY(lp::check_evidence_proof(m, p));
+        auto* context = m.get_parent(p, 0);
+        vector<parameter> ps;
+        auto* d = context->get_decl();
+        for (unsigned i = 1; i < d->get_num_parameters(); ++i)
+            ps.push_back(d->get_parameter(i));
+        ps.back() = parameter(rational(UINT_MAX));
+        proof_ref corrupt(m.mk_th_lemma(a.get_family_id(), m.mk_true(), 0, nullptr, ps.size(), ps.data()), m);
+        VERIFY(!lp::check_evidence_proof(m, corrupt));
+        ps.reset();
+        d = p->get_decl();
+        for (unsigned i = 1; i < d->get_num_parameters(); ++i)
+            ps.push_back(d->get_parameter(i));
+        proof_ref_vector parents(m);
+        for (unsigned i = 0; i < m.get_num_parents(p); ++i)
+            parents.push_back(m.get_parent(p, i));
+        corrupt = m.mk_th_lemma(a.get_family_id(), m.mk_not(m.get_fact(p)), parents.size(), parents.data(),
+                                ps.size(), ps.data());
+        VERIFY(!lp::check_evidence_proof(m, corrupt));
+        ps[0] = parameter(symbol("lp-unknown"));
+        corrupt = m.mk_th_lemma(a.get_family_id(), m.get_fact(p), parents.size(), parents.data(),
+                                ps.size(), ps.data());
+        VERIFY(lp::is_evidence_proof(corrupt));
+        VERIFY(!lp::check_evidence_proof(m, corrupt));
+        for (unsigned i = 0; i < inputs.size(); ++i)
+            if (inputs.get(i)) {
+                inputs[i] = m.mk_asserted(m.mk_false());
+                VERIFY(!lp::mk_evidence_proof(m, e, variables, inputs));
+                break;
+            }
+    }
+
+    void test_open_export() {
+        manager evidence(true);
+        evidence.register_variable(0, false);
+        auto* leaf = evidence.mk_leaf(0);
+        manager::fact bound;
+        bound.lhs.push_back({lp::mpq(1), 0});
+        bound.kind = lp::GE;
+        evidence.set_input_fact(leaf, bound);
+        manager::proof_expression e;
+        evidence.reconstruct(leaf, e);
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        arith_util a(m);
+        expr_ref_vector variables(m);
+        variables.push_back(m.mk_const("x", a.mk_real()));
+        proof_ref_vector inputs(m);
+        inputs.push_back(nullptr);
+        VERIFY(!lp::mk_evidence_proof(m, e, variables, inputs));
+        inputs[0] = m.mk_asserted(lp::evidence_fact(m, bound, variables));
+        proof_ref proof = lp::mk_evidence_proof(m, e, variables, inputs);
+        VERIFY(proof && proof_utils::is_closed(m, proof));
+    }
 
     struct counted_dependencies {
         using value = unsigned;
@@ -224,6 +326,7 @@ namespace {
         }
         VERIFY(p.steps[p.steps[p.root].assumption].conclusion.rhs.x == lp::mpq(3));
         VERIFY(p.check());
+        test_export(p);
     }
 
     void test_variable_lifetime() {
@@ -440,6 +543,7 @@ namespace {
             manager::proof_expression proof;
             s.dep_manager().reconstruct(explanation.evidence(), proof);
             VERIFY(proof.check());
+            test_export(proof);
             lp::explanation copied;
             copied.add_expl(explanation);
             VERIFY(copied.evidence() == explanation.evidence());
@@ -480,6 +584,7 @@ namespace {
             manager::proof_expression proof;
             s.dep_manager().reconstruct(witness, proof);
             VERIFY(proof.check());
+            test_export(proof);
             proof.steps[proof.root].divisor = lp::mpq(0);
             VERIFY(!proof.check());
             found = true;
@@ -560,6 +665,7 @@ namespace {
                             continue;
                         s.dep_manager().reconstruct(witness, saved);
                         VERIFY(saved.check());
+                        test_export(saved);
                         lp::explanation explanation, copied;
                         s.explain_evidence(witness, lp::mpq(1), explanation);
                         explanation.set_evidence(witness);
@@ -576,6 +682,7 @@ namespace {
                 saved.steps[saved.root].definition = definition;
             }
             VERIFY(saved.check());
+            test_export(saved);
         }
     }
 
@@ -948,6 +1055,12 @@ namespace {
             return;
         auto *proof = s->get_proof();
         VERIFY(proof);
+        if (expected && symbol(expected) == symbol("lp-linear")) {
+            proof_checker checker(m);
+            expr_ref_vector sides(m);
+            VERIFY(checker.check(proof, sides));
+            VERIFY(proof_utils::is_closed(m, proof));
+        }
         ptr_vector<expr> todo;
         expr_mark visited;
         todo.push_back(proof);
@@ -976,6 +1089,7 @@ namespace {
 }  // namespace
 
 void tst_lp_evidence() {
+    test_open_export();
     test_annotations();
     test_erasure();
     test_shared_weights();
@@ -996,10 +1110,10 @@ void tst_lp_evidence() {
     test_malformed_linearization_certificates();
     test_native_arithmetic("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
                          "(assert (= (+ x (* 2 y)) 0))(assert (= (+ x (* 2 z)) 1))",
-                         l_false, "unsupported");
+                         l_false, "lp-linear");
     test_native_arithmetic("(declare-const x Real)(declare-const y Real)(declare-const z Real)"
                          "(assert (= x (* 2 y)))(assert (= y (* 3 z)))(assert (>= z 1))(assert (<= x 5))",
-                         l_false, "farkas");
+                         l_false, "lp-linear");
     test_native_arithmetic("(declare-const x Real)(assert (= (* x x) 2))(assert (= (* x x x) 3))",
                           l_false, "assumed", true);
     test_native_arithmetic("(declare-const x Int)(declare-const y Int)(declare-const z Int)"
