@@ -324,7 +324,7 @@ class theory_lra::imp {
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
-            ctx().mark_as_relevant(lit);
+            ctx().add_relevancy_dependency(n, ctx().bool_var2expr(lit.var()));
             ctx().assign(lit, nullptr);
         }
 
