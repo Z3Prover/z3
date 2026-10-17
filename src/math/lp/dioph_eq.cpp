@@ -1901,7 +1901,7 @@ namespace lp {
         }
 
         u_dependency* explain_constant_conflict(unsigned j, bool upper, u_dependency* source, u_dependency* support) {
-            if (!lra.dep_manager().enabled())
+            if (!lra.dep_manager().proofs_enabled())
                 return support;
             auto opened = open_ml(m_lspace.m_data);
             auto* identity = lra.dep_manager().derive(nullptr, [&] {
@@ -1945,7 +1945,7 @@ namespace lp {
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
                     }
-                    if (lra.dep_manager().enabled())
+                    if (lra.dep_manager().proofs_enabled())
                         m_infeas_explanation.set_evidence(explain_constant_conflict(j, true, b_dep, dep));
                     return;
                 }
@@ -1960,7 +1960,7 @@ namespace lp {
                     for (constraint_index ci : lra.flatten(dep)) {
                         m_infeas_explanation.push_back(ci);
                     }
-                    if (lra.dep_manager().enabled())
+                    if (lra.dep_manager().proofs_enabled())
                         m_infeas_explanation.set_evidence(explain_constant_conflict(j, false, b_dep, dep));
                 }
             }
@@ -2067,7 +2067,7 @@ namespace lp {
                   print_deps(tout, dep) << std::endl;);
             if (lra.settings().get_cancel_flag())
                 return false;
-            if (lra.dep_manager().enabled())
+            if (lra.dep_manager().proofs_enabled())
                 dep = lra.dep_manager().derive(dep, [&] {
                     evidence_manager::recipe r;
                     r.kind = evidence_manager::rule::integer_lattice;
@@ -2794,7 +2794,7 @@ namespace lp {
                 TRACE(dio, print_entry(m_normalize_conflict_index, tout << "conflict:", true) << std::endl;);
                 for (auto ci : lra.flatten(explain_fixed_in_meta_term(m_l_matrix.m_rows[m_normalize_conflict_index], m_normalize_conflict_gcd)))
                     ex.push_back(ci);
-                if (lra.dep_manager().enabled()) {
+                if (lra.dep_manager().proofs_enabled()) {
                     auto opened = open_ml(m_l_matrix.m_rows[m_normalize_conflict_index]);
                     lar_term identity;
                     for (auto const& p : opened)
@@ -2803,7 +2803,7 @@ namespace lp {
                 }
             } 
             else {
-                if (lra.dep_manager().enabled())
+                if (lra.dep_manager().proofs_enabled())
                     ex = m_infeas_explanation;
                 else
                     for (auto ci : m_infeas_explanation)

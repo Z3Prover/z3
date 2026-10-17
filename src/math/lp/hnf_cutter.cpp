@@ -223,7 +223,7 @@ branch y_i >= ceil(y0_i) is impossible.
         fill_term(f, t);
         k = floor(b[cut_row]);
         upper = true;
-        if (lra.dep_manager().enabled()) {
+        if (lra.dep_manager().proofs_enabled()) {
             u_dependency* support = nullptr;
             for (auto* dep : m_constraints_for_explanation)
                 support = lra.join_deps(support, dep);

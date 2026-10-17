@@ -162,7 +162,7 @@ namespace lp {
         if (!(m_consts / gcds).is_int()) {
             TRACE(gcd_test, tout << "row failed the GCD test:\n"; lia.display_row_info(tout, i););
             fill_explanation_from_fixed_columns(A.m_rows[i]);
-            if (lra.dep_manager().enabled()) {
+            if (lra.dep_manager().proofs_enabled()) {
                 lar_term identity;
                 for (auto const& c : row)
                     identity.add_monomial(c.coeff(), c.var());
@@ -235,7 +235,7 @@ namespace lp {
         
         if (u1 < l1) {
             fill_explanation_from_fixed_columns(row);
-            if (lra.dep_manager().enabled()) {
+            if (lra.dep_manager().proofs_enabled()) {
                 lar_term identity;
                 unsigned_vector boxed;
                 for (auto const& c : row) {
@@ -324,7 +324,7 @@ namespace lp {
             else {
                 fill_explanation_from_fixed_columns(r);
                 fill_explanation_from_fixed_columns(*p.m_row);
-                if (lra.dep_manager().enabled()) {
+                if (lra.dep_manager().proofs_enabled()) {
                     lar_term identity;
                     mpq left, right;
                     for (auto const& c : r)

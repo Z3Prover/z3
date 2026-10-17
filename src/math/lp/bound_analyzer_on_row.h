@@ -329,7 +329,7 @@ namespace lp {
                 explain_weighted([&](mpq const&, u_dependency* witness) { ret = lar->join_deps(ret, witness); });
                 return ret;
             };
-            if (lar->dep_manager().enabled()) {
+            if (lar->dep_manager().proofs_enabled()) {
                 u_dependency* support = nullptr;
                 lp::evidence_manager::recipe r;
                 r.kind = lp::evidence_manager::rule::linear;

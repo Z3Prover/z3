@@ -222,7 +222,7 @@ public:
     template <typename T>
     u_dependency* explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
         ib.explain_weighted([&](mpq const& coeff, u_dependency* dep) {
-            if (dep_manager().enabled()) {
+            if (dep_manager().proofs_enabled()) {
                 explanation ex;
                 explain_evidence(dep, coeff, ex);
                 for (auto ev : ex)
@@ -232,7 +232,7 @@ public:
                 for (auto ci : flatten(dep))
                     bp.consume(coeff, ci);
         });
-        return dep_manager().enabled() ? ib.explain_implied() : nullptr;
+        return dep_manager().proofs_enabled() ? ib.explain_implied() : nullptr;
     }
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);

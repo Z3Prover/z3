@@ -183,7 +183,7 @@ namespace lp {
             explanation& exp,
             const vector<std::pair<mpq, unsigned>>& inf_row,
             int inf_sign) {
-            if (!m_dependencies.enabled()) {
+            if (!m_dependencies.proofs_enabled()) {
                 for (auto& [coeff, j] : inf_row) {
                     int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
                     auto const& ul = m_columns[j];
@@ -538,7 +538,7 @@ namespace lp {
     void lar_solver::fill_explanation_from_crossed_bounds_column(explanation& evidence) const {
         // this is the case when the lower bound is in conflict with the upper one
         SASSERT(m_imp->m_crossed_bounds_deps != nullptr);
-        if (!dep_manager().enabled()) {
+        if (!dep_manager().proofs_enabled()) {
             svector<constraint_index> deps;
             m_imp->m_dependencies.linearize(m_imp->m_crossed_bounds_deps, deps);
             for (auto d : deps)
@@ -551,7 +551,7 @@ namespace lp {
 
     void lar_solver::explain_evidence(u_dependency* dep, mpq const& coefficient, explanation& ex) const {
         vector<std::pair<constraint_index, mpq>> weighted;
-        if (dep_manager().enabled() && dep_manager().linearize_coefficients(dep, abs(coefficient), weighted)) {
+        if (dep_manager().proofs_enabled() && dep_manager().linearize_coefficients(dep, abs(coefficient), weighted)) {
             for (auto const& [ci, c] : weighted)
                 ex.add_pair(ci, c);
         }
@@ -564,7 +564,7 @@ namespace lp {
     }
 
     u_dependency* lar_solver::explain_integer_infeasibility(lar_term const& row, unsigned_vector const& boxed) {
-        if (!dep_manager().enabled())
+        if (!dep_manager().proofs_enabled())
             return nullptr;
         auto bounded = [&](unsigned j) {
             if (column_is_fixed(j))
@@ -827,7 +827,7 @@ namespace lp {
                   if (column_has_upper_bound(j)) tout << "bound was = " << column_upper_bound(j) << "\n";;);
         }   
         auto* dep = get_dependencies_of_maximum(max_coeffs);
-        if (!dep_manager().enabled())
+        if (!dep_manager().proofs_enabled())
             return dep;
         mpq raw_bound = lower_bound ? -term_max.x : term_max.x;
         auto* unrounded = dep_manager().derive(dep, [&] {
@@ -2128,7 +2128,7 @@ namespace lp {
         SASSERT(m_imp->m_columns.size() == A_r().column_count());
         local_j = A_r().column_count();
         m_imp->m_columns.push_back(column());
-        if (dep_manager().enabled())
+        if (dep_manager().proofs_enabled())
             dep_manager().register_variable(local_j, is_int);
         trail().push(imp::undo_add_column(*this));
         while (m_imp->m_usage_in_terms.size() <= local_j) 
@@ -2262,7 +2262,7 @@ namespace lp {
         column ul(term);
         term->set_j(j); // point from the term to the column
         m_imp->m_columns.push_back(ul);
-        if (dep_manager().enabled())
+        if (dep_manager().proofs_enabled())
             dep_manager().register_variable(j, term_is_int(term), term->coeffs_as_vector());
         m_imp->m_trail.push(imp::undo_add_column(*this));
         add_basic_var_to_core_fields();
@@ -2494,7 +2494,7 @@ namespace lp {
         // that validate strict optimization optima, which target real columns.
         auto original_kind = kind;
         mpq rs = adjust_bound_for_int(j, kind, right_side.x);
-        if (dep_manager().enabled() && (rs != right_side.x || kind != original_kind))
+        if (dep_manager().proofs_enabled() && (rs != right_side.x || kind != original_kind))
             dep = dep_manager().derive(dep, [&] {
                 evidence_manager::recipe r;
                 r.kind = evidence_manager::rule::integer_tighten;
