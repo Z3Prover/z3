@@ -31,6 +31,7 @@ type proof_view = {
   premises: ast list;
   conclusion: ast;
   farkas: (Z.t * Z.t) list option;
+  assumed: string option;
 }
 
 type solve_result =
@@ -161,7 +162,11 @@ let view_proof a =
           | _ -> fail "Non-rational native Farkas coefficient"))
     else None
   in
-  { proof_name = name; premises; conclusion; farkas }
+  let assumed =
+    if name = "th-lemma" && count = 3 &&
+       parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "assumed"
+    then parameter_symbol 2 else None in
+  { proof_name = name; premises; conclusion; farkas; assumed }
 
 let solve input timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")

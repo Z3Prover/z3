@@ -35,6 +35,18 @@ sorts carry native identity in their names to avoid conflating overloaded
 or parameterized symbols. Exact numerals and Z3's original `arith/farkas`
 parameters are preserved; no certificates are reconstructed.
 
+NLSAT-origin theory lemmas carry the explicit native parameters
+`arith assumed nlsat`. The foreign view preserves this origin, and the
+typed marshaler records `Unverified "assumed:nlsat"` rather than silently
+classifying it as a generic theory lemma. These nodes retain an obligation
+and cannot establish an obligation-free `ACCEPT`.
+
+The build also extracts the standalone ordered-ring replay kernel
+`Z3NlaLemma`. It does **not** yet connect the serialized `arith nla`
+certificates to native AST clauses. Such nodes remain unverified in this
+document checker; see `NL_ARITH_REPORT.md` for the exact source-expansion
+and clause-correspondence boundaries.
+
 ### Sharing and ownership
 
 One conversion state is created per solve/context. Expression caches are

@@ -242,6 +242,7 @@ namespace euf {
         void display_deleted(std::ostream& out, unsigned n, literal const* lits);
         std::ostream& display_hint(std::ostream& out, expr* proof_hint);
         app_ref status2proof_hint(sat::status st);
+        bool status_is_assumed(sat::status st) const;
 
         // relevancy
         bool is_propagated(sat::literal lit);

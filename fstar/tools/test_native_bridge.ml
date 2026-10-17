@@ -168,10 +168,23 @@ let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
-               farkas = Some [Z.one, Z.zero] } in
+               farkas = Some [Z.one, Z.zero]; assumed = None } in
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
+
+let assumed_nlsat () =
+  let c = context () in
+  let conclusion = List.hd (parse c "(assert false)") in
+  let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
+               farkas = None; assumed = Some "nlsat" } in
+  let rule = B.native_rule view Z3ResolutionProofTheory.false_expr in
+  require (rule = U.Unverified "assumed:nlsat")
+    "native NLSAT assumption lost its origin";
+  let doc = document "(assert false)" in
+  let entry = { P.rule = rule; formula = Z3ResolutionProofTheory.false_expr; premise_ids = [] } in
+  require (P.check_document { doc with assertions = []; entries = [entry]; root = Z.zero } = Some Z.one)
+    "assumed NLSAT lemma was certified without an obligation"
 
 let typed_observations () =
   let c = context () in
@@ -253,5 +266,6 @@ let () =
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
      "malformed-foreign-certificate", malformed_foreign_certificate;
+     "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites]

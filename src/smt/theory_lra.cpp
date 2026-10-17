@@ -2236,7 +2236,7 @@ public:
             auto lit = mk_literal(ineq);
             core.push_back(~lit);
         }
-        set_conflict_or_lemma(core, false);
+        set_conflict_or_lemma(core, false, &l);
     }
 
     void assume_literal(nla::ineq const& i) {
@@ -3899,7 +3899,7 @@ public:
         set_conflict_or_lemma(core, true);
     }
 
-    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
+    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict, nla::lemma const* lemma = nullptr) {
         reset_evidence();
         for (literal lit : core) {
             m_core.push_back(lit);
@@ -3911,6 +3911,22 @@ public:
             set_evidence(ev.ci(), m_core, m_eqs);
         if (is_conflict && core.empty())
             set_proof_params("farkas", false);
+        if (proofs_enabled() && lemma) {
+            if (lemma->nlsat_assumed()) {
+                m_params.push_back(parameter(symbol("assumed")));
+                m_params.push_back(parameter(symbol("nlsat")));
+            }
+            else if (lemma->certificate()) {
+                m_params.push_back(parameter(symbol("nla")));
+                std::ostringstream certificate;
+                lemma->certificate()->display(certificate);
+                m_params.push_back(parameter(symbol(certificate.str())));
+            }
+            else {
+                m_params.push_back(parameter(symbol("unsupported")));
+                m_params.push_back(parameter(symbol("nla")));
+            }
+        }
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
@@ -3941,7 +3957,7 @@ public:
                     return;
             }
             TRACE(arith, ctx().display_literals_verbose(tout, m_core) << "\n";);
-            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
+            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data(), m_params.size(), m_params.data());
         }
     }
 

@@ -32,6 +32,7 @@ z3_add_component(lp
     nla_explanations.cpp
     nla_grobner.cpp
     nla_intervals.cpp
+    nla_lemma.cpp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
     nla_patcher.cpp

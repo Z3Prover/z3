@@ -164,14 +164,15 @@ let coefficient ((n, den):(int & int)) : option Z3LinearArithmeticAst.coefficien
   if den > 0 then Some (n, den) else None
 
 let native_rule (view:N.proof_view) (formula:expr) : ML rule =
-  match view.farkas with
-  | Some coefficients ->
+  match view.assumed, view.farkas with
+  | Some origin, _ -> Unverified ("assumed:" ^ origin)
+  | None, Some coefficients ->
     if view.proof_name <> "th-lemma" then N.fail "Farkas parameters on a non-theory node"
     else
       let coefficients = require_some "Malformed native Farkas certificate"
                                       (opt_map coefficient coefficients) in
       ArithmeticFarkas coefficients
-  | None ->
+  | None, None ->
     match P.rule_of_name view.proof_name with
     | None -> Unverified view.proof_name
     | Some Commutativity ->
