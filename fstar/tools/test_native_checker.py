@@ -8,6 +8,30 @@ import threading
 import unittest
 
 
+NEGATIVE_NNF_CASES = (
+    ("existential", "(declare-fun p (Int) Bool)"
+     "(assert (not (exists ((x Int)) (p x))))(assert (p 0))"),
+    ("conjunction", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(assert (not (exists ((x Int)) (and (p x) (q x)))))"
+     "(assert (p 0))(assert (q 0))"),
+    ("disjunction", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(assert (not (exists ((x Int)) (or (p x) (q x)))))(assert (p 0))"),
+    ("mixed-sort", "(declare-fun p (Int Real) Bool)"
+     "(assert (not (exists ((x Int) (y Real)) (p x y))))(assert (p 3 4.5))"),
+    ("boolean-context", "(declare-fun p (Int) Bool)(declare-const q Bool)"
+     "(assert (not (and (exists ((x Int)) (p x)) q)))(assert (p 0))(assert q)"),
+    ("implication", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(assert (not (exists ((x Int)) (=> (p x) (q x)))))(assert (not (p 0)))"),
+    ("xor", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(assert (not (exists ((x Int)) (xor (p x) (q x)))))"
+     "(assert (p 0))(assert (not (q 0)))"),
+    ("ite", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(declare-fun r (Int) Bool)"
+     "(assert (not (exists ((x Int)) (ite (p x) (q x) (r x)))))"
+     "(assert (p 0))(assert (q 0))"),
+)
+
+
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
 class DirectCheckerTests(unittest.TestCase):
@@ -72,17 +96,26 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
 
-    def test_unsupported_negative_nnf_binder_remains_partial(self):
-        source = ("(declare-fun p (Int) Bool)"
-                  "(assert (not (exists ((x Int)) (p x))))(assert (p 0))")
+    def test_negative_nnf_binder_is_certified(self):
+        for name, source in NEGATIVE_NNF_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
+    def test_nnf_support_does_not_certify_remaining_quantifier_gaps(self):
+        source = ("(declare-fun p (Int Int) Bool)"
+                  "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
+                  "(assert (p 0 1))")
         result = self.run_checker(source, "--diagnostics")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
-        self.assertIn("obligation\tnnf-neg\t", result.stderr)
-        interactive = self.run_checker(source + "(check-sat)", "--interactive")
-        self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
-        self.assertIn("unsat\n; proof-check PARTIAL ", interactive.stdout)
-        self.assertNotIn("ACCEPT", interactive.stdout)
+        self.assertIn("obligation\tpull-quant\t", result.stderr)
+        self.assertNotIn("obligation\tnnf-neg\t", result.stderr)
+        self.assertNotIn("ACCEPT", result.stdout)
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")

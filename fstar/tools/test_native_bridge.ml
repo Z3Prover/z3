@@ -538,6 +538,132 @@ let checked_quantifier_instances () =
   require (not (Z3QuantifierInstantiation.check [zero] formula))
     "nested substitution was accepted without a capture-avoidance proof"
 
+let checked_negative_nnf () =
+  let sources = [
+    "(declare-fun p (Int) Bool)\
+     (assert (not (exists ((x Int)) (p x))))(assert (p 0))";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (not (exists ((x Int)) (and (p x) (q x)))))\
+     (assert (p 0))(assert (q 0))";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (not (exists ((x Int)) (or (p x) (q x)))))\
+     (assert (p 0))";
+    "(declare-fun p (Int Real) Bool)\
+     (assert (not (exists ((x Int) (y Real)) (p x y))))\
+     (assert (p 3 4.5))";
+    "(declare-fun p (Int) Bool)(declare-const q Bool)\
+     (assert (not (and (exists ((x Int)) (p x)) q)))\
+     (assert (p 0))(assert q)";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (not (exists ((x Int)) (=> (p x) (q x)))))\
+     (assert (not (p 0)))";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (not (exists ((x Int)) (xor (p x) (q x)))))\
+     (assert (p 0))(assert (not (q 0)))";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)(declare-fun r (Int) Bool)\
+     (assert (not (exists ((x Int)) (ite (p x) (q x) (r x)))))\
+     (assert (p 0))(assert (q 0))"
+  ] in
+  List.iter (fun source ->
+      let doc = document source in
+      require (P.check_document doc = Some Z.zero)
+        ("negative NNF was not certified: " ^ source);
+      require (List.exists (fun e -> match e.P.rule with
+          | U.QuantifierIntroduction cert ->
+              List.exists (fun e -> e.U.binder_name = "nnf-neg") cert.U.binder_entries
+          | _ -> false) doc.entries) "native regression omitted negative NNF") sources;
+  let doc = document (List.hd sources) in
+  let entry = List.find (fun e -> match e.P.rule with
+      | U.QuantifierIntroduction cert ->
+          (List.nth cert.U.binder_entries (Z.to_int cert.U.binder_root)).U.binder_name = "nnf-neg"
+      | _ -> false) doc.entries in
+  let cert = match entry.P.rule with U.QuantifierIntroduction cert -> cert | _ -> assert false in
+  let root = Z.to_int cert.U.binder_root in
+  let original = List.nth cert.U.binder_entries root in
+  let mutate changed message =
+    let entries = List.mapi (fun index e -> if index = root then changed else e)
+        cert.U.binder_entries in
+    let mutated = { cert with U.binder_entries = entries } in
+    let conclusion = Option.get (U.classify_fact changed.U.binder_formula) in
+    require (not (U.check_binder mutated conclusion)) message
+  in
+  mutate { original with U.binder_name = "nnf-pos" } "negative NNF ignored its polarity";
+  mutate { original with U.binder_sorts = Some [A.BaseSort "Real"] }
+    "negative NNF ignored its binding sorts";
+  mutate { original with U.binder_sorts = None } "negative NNF ignored a missing binder";
+  mutate { original with U.binder_premises = [] } "negative NNF ignored its body proof";
+  mutate { original with U.binder_premises = [Z.minus_one] }
+    "negative NNF trusted a missing premise";
+  (match original.U.binder_formula with
+   | A.App (relation, [A.App (n, [A.Quantifier (kind, bs, _, body) as q]);
+                       A.Quantifier (_, bs', s', target)]) ->
+       let changed left right = { original with U.binder_formula = A.App (relation, [left; right]) } in
+       mutate (changed (A.App (n, [q])) (A.Quantifier (kind, bs', s', target)))
+         "negative NNF did not dualize its quantifier";
+       mutate (changed q (A.Quantifier (Z3QuantifierNnf.dual kind, bs', s', target)))
+         "negative NNF accepted a source without negation";
+       mutate (changed (A.App (n, [q]))
+           (A.Quantifier (Z3QuantifierNnf.dual kind, bs', s', body)))
+         "negative NNF accepted an unnegated body";
+       let conclusion = U.Equal (A.App (n, [q]),
+           A.Quantifier (Z3QuantifierNnf.dual kind, bs', s', target)) in
+       let negative_body = Z3ResolutionProofTheory.mk_not_expr body in
+       require (not (U.binder_negative_quantifier_step bs conclusion
+           [U.Observational (negative_body, target)]))
+         "observational NNF premises silently established ordinary equality";
+       require (U.binder_negative_quantifier_step bs
+           (U.Observational (A.App (n, [q]),
+               A.Quantifier (Z3QuantifierNnf.dual kind, bs', s', target)))
+           [U.Equal (negative_body, target)])
+         "negative NNF did not permit the equality-to-observation bridge"
+   | _ -> failwith "unexpected native negative NNF conclusion");
+  let entries = List.map (fun e ->
+      if e.U.binder_premises = [] then { e with U.binder_name = "hypothesis" } else e)
+      cert.U.binder_entries in
+  require (not (U.check_binder { cert with U.binder_entries = entries }
+      (Option.get (U.classify_fact entry.P.formula))))
+    "negative NNF generalized a hypothesis";
+  let c = context () in
+  List.iter (fun (kind, dual) ->
+      let inputs = parse c (Printf.sprintf
+          "(declare-fun p_%s (Int) Bool)(declare-const q_%s Bool)\
+           (assert (= (not (%s ((x Int)) (p_%s x)))\
+                       (%s ((x Int)) (not (p_%s x)))))\
+           (assert (= (not (and (%s ((x Int)) (p_%s x)) q_%s))\
+                       (or (%s ((x Int)) (not (p_%s x))) (not q_%s))))\
+           (assert (= (and (not (%s ((x Int)) (p_%s x))) q_%s)\
+                       (and (%s ((x Int)) (not (p_%s x))) q_%s)))"
+          kind kind kind kind dual kind kind kind kind dual kind kind
+          kind kind kind dual kind kind) in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let formulas = List.map (B.cached_expression st) inputs in
+      match formulas with
+      | quantum :: negative :: positive :: [] ->
+          let body = match quantum with
+            | A.App (_, [_; A.Quantifier (_, _, _, body)]) -> body
+            | _ -> failwith "unexpected synthetic quantifier duality" in
+          let leaf = { U.binder_name = "refl";
+                       binder_formula = Z3ResolutionProofTheory.mk_eq_expr body body;
+                       binder_premises = []; binder_sorts = None } in
+          let quantified = { U.binder_name = "nnf-neg"; binder_formula = quantum;
+                             binder_premises = [Z.zero];
+                             binder_sorts = Some [A.BaseSort "Int"] } in
+          List.iter (fun (name, formula) ->
+              let root = { U.binder_name = name; binder_formula = formula;
+                           binder_premises = [Z.one]; binder_sorts = None } in
+              let certificate = { U.binder_entries = [leaf; quantified; root];
+                                  binder_root = Z.of_int 2 } in
+              require (U.check_binder certificate (Option.get (U.classify_fact formula)))
+                ("compositional NNF failed for " ^ kind ^ "/" ^ name);
+              let bad = { leaf with U.binder_formula =
+                  Z3ResolutionProofTheory.mk_eq_expr body Z3ResolutionProofTheory.true_expr } in
+              require (not (U.check_binder { certificate with U.binder_entries = [bad; quantified; root] }
+                  (Option.get (U.classify_fact formula))))
+                "compositional NNF trusted an invalid body certificate")
+            ["nnf-neg", negative; "nnf-pos", positive]
+      | _ -> failwith "expected three synthetic NNF formulas")
+    ["forall", "exists"; "exists", "forall"]
+
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
@@ -811,6 +937,7 @@ let () =
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "certified-native-quantifier-instances", checked_quantifier_instances;
+     "certified-negative-NNF", checked_negative_nnf;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;

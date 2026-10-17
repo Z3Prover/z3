@@ -147,7 +147,8 @@ Quantifier introduction requires matching quantifier kinds, matching bound
 sorts, and an actual checked relation between the two bodies. This covers
 `forall`, `exists`, and term-valued `lambda` congruence, including nested
 binders and observational equality. The congruence-shaped `nnf-pos` case
-uses the same checks. A failed certificate leaves an explicit obligation
+uses the same checks. Negative NNF and compositional Boolean NNF are
+checked as described below. A failed certificate leaves an explicit obligation
 on its outer proof step; it never becomes `ACCEPT`.
 
 Constant Boolean quantifiers reduce to their bodies, including the native
@@ -163,10 +164,11 @@ on unproved capture avoidance. Multi-variable, mixed-sort instantiations
 are supported.
 
 The semantic model premises now explicitly include quantifier
-extensionality, preservation of constant Boolean bodies, and universal
-quantifier elimination, in addition to the existing universal-introduction
-premise. F* verifies certificate traversal, congruence lifting, substitution,
-and the integrated node soundness theorems under these premises. These are
+extensionality, preservation of constant Boolean bodies, universal
+quantifier elimination, and Boolean quantifier truth semantics, in addition
+to the existing universal-introduction premise. F* verifies certificate
+traversal, congruence lifting, substitution, quantifier duality, and the
+integrated node soundness theorems under these premises. These are
 not an unconditional theorem connecting native SMT-LIB quantification to
 the abstract interpretation.
 
@@ -179,9 +181,53 @@ hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
 16 `ACCEPT` results and one solver `UNKNOWN` at the 10-second timeout.
 
 Remaining quantifier-related obligations include general Skolemization,
-non-congruence NNF transformations, general unused-variable elimination,
+quantifier pulling, general unused-variable elimination,
 nested capture-avoiding instantiation, and lambda extensionality rewrites.
 NLSAT and other previously unsupported theory rules remain partial.
+
+#### Negative NNF checking and evaluation
+
+`Z3QuantifierNnf.fst` defines universal truth and classical existential
+truth over the abstract bound-value environments. From these semantics and
+Boolean negation, it proves both quantifier dualities:
+
+```text
+not (forall xs. body) = exists xs. not body
+not (exists xs. body) = forall xs. not body
+```
+
+The executable does not assume an individual `nnf-neg` step. It checks
+the flipped quantifier kind, unchanged bound sorts, and the supplied
+all-environments proof of the negated body relation. Verified Boolean
+equivalence handles normalized endpoints, including double-negation
+elimination in Z3's XOR-body proofs. Observational premises remain
+observational and cannot establish an ordinary equality.
+
+Boolean `nnf-pos` and `nnf-neg` steps compose their checked premise
+relations through application arguments, including negative occurrences,
+and then invoke the existing verified Boolean equivalence checker.
+Premise replacement does not descend into quantifier bodies; those
+require the explicit binder check. Unsupported steps or Boolean checks
+exceeding their supported fragment retain obligations.
+
+The 2026-10-17 local evaluation used eight native negative-NNF examples:
+plain existential negation, conjunction, disjunction, a Boolean context,
+mixed-sort bindings, implication, XOR, and ITE bodies. All eight returned
+`ACCEPT` in batch and interactive mode. A single timed batch evaluation
+took 539 ms of process wall time in total; the kernel checks summed to
+1.121 ms, with median kernel time 0.131 ms. These are illustrative local
+measurements, not a performance guarantee.
+
+All F*/Pulse verification succeeded with warnings treated as errors;
+26 native bridge test groups and 20 CLI tests passed. Native mutations
+cover wrong polarity/kinds/sorts, missing binders or premises, invalid
+body certificates, hypothesis generalization, and illicit conversion
+from observational relations to ordinary equality. Synthetic certificates
+exercise both dualities and positive/negative Boolean composition.
+The pinned z3test proof corpus remains 16 `ACCEPT` and one solver
+`UNKNOWN` at 10 seconds, with no checker errors. A separate nested
+existential example remains `PARTIAL` solely for `pull-quant`, not
+`nnf-neg`; the residual gap is not silently certified.
 
 ### Sharing and ownership
 
