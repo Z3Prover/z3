@@ -62,6 +62,8 @@ namespace smt {
         void relevant_eh(expr* e) override;
 
         void init_search_eh() override;
+        void add_theory_assumptions(expr_ref_vector& assumptions) override;
+        bool should_research(expr_ref_vector& core) override;
 
         final_check_status final_check_eh(unsigned) override;
 
