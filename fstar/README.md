@@ -47,6 +47,48 @@ checker and the in-memory Pulse checkers:
 The Windows installation is local to the build directory. The native
 OCaml producer is separately built and installed in WSL, then linked
 from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
+
+### GitHub Actions regression report
+
+**Pulse verification and native checker regressions**
+(`.github/workflows/pulse-checker-regressions.yml`) runs automatically on
+pushes and pull requests changing `fstar/**`, and can also be dispatched
+manually on a branch containing the checker. Automatic runs use the
+default dispatch settings. It builds and installs that checkout's Z3, verifies the Pulse
+modules and their tests, extracts and links the native F* checker, and
+runs its bridge/CLI self-tests. The Linux path uses the same
+`tools/build_ocaml_checker.ps1` module lists as the Windows/WSL build,
+with pinned F* `v2026.09.27` and OCaml `5.3.0`.
+
+The default corpus is every `.smt2` file recursively under
+`Z3Prover/z3test`'s `regressions/proofs`, including the optional larger
+`lean/real` input. Dispatch inputs select the corpus ref/directory, sorted
+case cap (zero means all), solver timeout, whole-case timeout, and total
+test budget. Manifest `.txt` lists and saved `.proof` objects are not
+executed. Inputs are passed unchanged to the native API, which checks the
+parsed final assertion set, not an incremental sequence of commands.
+
+The job summary and downloadable report artifact record resolved producer
+and corpus commits, build/test outcomes, build and per-case wall time,
+available solve/marshal/check timings, and explicit outcome rates.
+`ACCEPT` alone counts as proof-checking success; `PARTIAL`, `REJECT`,
+`SAT`, unknowns, timeouts, and process errors remain separate categories.
+The report is a coverage measurement, not a pass rate for z3test's other
+proof backends. Pulse modules are verified, but the executable benchmarked
+on the corpus uses the extracted F* kernel, **not linked Pulse code**.
+Build/self-test failures and checker errors/crashes/protocol mismatches
+fail the job; unsupported proofs and timeouts are reported without failing
+this coverage-measurement job. The corpus step also has a 35-minute CI
+limit, independent of the configurable budget. Always-run reporting/upload
+steps preserve available results and build logs on failure.
+
+For a local Linux build, activate an OCaml 5.3.0 opam switch with
+`ocamlfind` and `zarith`, then run the same harness with `pwsh`,
+`-FstarExe /path/to/fstar.exe`, `-OpamSwitch <switch>`, and `-RunTests`.
+On Linux, `-Z3WindowsBuildDir` names the local CMake build directory and
+`-WslBuildDir` names the local checker output directory; WSL is not used.
+That one Z3 installation supplies both the verifier and the native link.
+
 After the harness has installed Z3, a standalone module can use it explicitly:
 
 ```powershell

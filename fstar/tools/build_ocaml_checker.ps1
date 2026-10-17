@@ -4,7 +4,7 @@
   described in fstar/OCAML_CHECKER_REPORT.md.
 
 .DESCRIPTION
-  This pipeline first builds and installs the Windows SMT solver:
+  This pipeline runs on Windows (with WSL) or directly on Linux:
 
     Phase 0 (Windows, CMake): build Z3 from this checkout and install it
     under build\install. Every F*/Pulse invocation selects that installed
@@ -59,6 +59,11 @@
 
 .PARAMETER RunTests
   Verify F*/Pulse regressions and execute native bridge and CLI tests.
+
+.PARAMETER BuildJobs
+  Maximum parallel C++ build jobs. On Linux the same Z3 installation is
+  used for verification and native linking; WslBuildDir is a local output
+  directory and Z3BuildDir is unused.
 #>
 param(
   [string]$FstarExe = "C:\fstar\fstar\bin\fstar.exe",
@@ -68,13 +73,16 @@ param(
   [string]$WslBuildDir = "~/z3checker",
   [string]$Z3BuildDir = "~/z3-native-ffi-build",
   [string]$CacheDir = "",
-  [switch]$RunTests
+  [switch]$RunTests,
+  [ValidateRange(1, 256)]
+  [int]$BuildJobs = 16
 )
 
 $ErrorActionPreference = "Continue"
 $fstarDir = Split-Path -Parent $PSScriptRoot  # .../fstar
 $repoDir = Split-Path -Parent $fstarDir
 $originalPath = $env:PATH
+$windowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
 if (-not $Z3WindowsBuildDir) { $Z3WindowsBuildDir = Join-Path $repoDir "build" }
 if (-not $Z3InstallDir) { $Z3InstallDir = Join-Path $Z3WindowsBuildDir "install" }
 $Z3WindowsBuildDir = [IO.Path]::GetFullPath($Z3WindowsBuildDir)
@@ -82,19 +90,29 @@ $Z3InstallDir = [IO.Path]::GetFullPath($Z3InstallDir)
 Push-Location $fstarDir
 try {
   Write-Host "=== Phase 0: build and install the F*/Pulse SMT solver ==="
+  $nativeOptions = @()
+  if (-not $windowsHost) {
+    $nativeOptions = @(
+      "-DBUILD_SHARED_LIBS=OFF", "-DZ3_BUILD_OCAML_BINDINGS=ON",
+      "-DZ3_BUILD_TEST_EXECUTABLES=OFF", "-DZ3_INSTALL_OCAML_BINDINGS=ON",
+      "-DCMAKE_INSTALL_LIBDIR=lib", "-DZ3_OCAML_PACKAGE_INSTALLDIR=lib/ocaml/z3",
+      "-DZ3_OCAML_STUB_INSTALLDIR=lib/ocaml/stublibs"
+    )
+  }
   & cmake -S $repoDir -B $Z3WindowsBuildDir -DCMAKE_BUILD_TYPE=Release `
       "-DCMAKE_INSTALL_PREFIX=$Z3InstallDir" -DZ3_BUILD_EXECUTABLE=ON `
-      "-DCMAKE_INSTALL_PYTHON_PKG_DIR=lib\python"
-  if ($LASTEXITCODE -ne 0) { throw "Windows Z3 configuration failed" }
-  & cmake --build $Z3WindowsBuildDir --config Release --parallel 16
-  if ($LASTEXITCODE -ne 0) { throw "Windows Z3 build failed" }
+      "-DCMAKE_INSTALL_PYTHON_PKG_DIR=$(Join-Path 'lib' 'python')" @nativeOptions
+  if ($LASTEXITCODE -ne 0) { throw "Z3 configuration failed" }
+  & cmake --build $Z3WindowsBuildDir --config Release --parallel $BuildJobs
+  if ($LASTEXITCODE -ne 0) { throw "Z3 build failed" }
   & cmake --install $Z3WindowsBuildDir --config Release
-  if ($LASTEXITCODE -ne 0) { throw "Windows Z3 installation failed" }
-  $Z3Exe = Join-Path $Z3InstallDir "bin\z3.exe"
-  $env:PATH = "$(Join-Path $Z3InstallDir 'bin');$originalPath"
+  if ($LASTEXITCODE -ne 0) { throw "Z3 installation failed" }
+  $binaryName = if ($windowsHost) { "z3.exe" } else { "z3" }
+  $Z3Exe = Join-Path (Join-Path $Z3InstallDir "bin") $binaryName
+  $env:PATH = "$(Join-Path $Z3InstallDir 'bin')$([IO.Path]::PathSeparator)$originalPath"
 
   if (-not $CacheDir) { $CacheDir = Join-Path $fstarDir "build_cache" }
-  $extractDir = Join-Path $fstarDir "build_extract\native"
+  $extractDir = Join-Path (Join-Path $fstarDir "build_extract") "native"
   New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
   New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
 
@@ -153,9 +171,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
   }
 
-  Write-Host "=== Phase 2: compile in WSL ==="
-  $drive = $fstarDir.Substring(0, 1).ToLowerInvariant()
-  $wslFstarDir = "/mnt/$drive/" + $fstarDir.Substring(3).Replace('\', '/')
+  Write-Host "=== Phase 2: compile native checker ==="
+  if ($windowsHost) {
+    $drive = $fstarDir.Substring(0, 1).ToLowerInvariant()
+    $wslFstarDir = "/mnt/$drive/" + $fstarDir.Substring(3).Replace('\', '/')
+  }
+  else {
+    $wslFstarDir = $fstarDir
+    if ($WslBuildDir.StartsWith("~/")) { $WslBuildDir = Join-Path $HOME $WslBuildDir.Substring(2) }
+    $WslBuildDir = [IO.Path]::GetFullPath($WslBuildDir)
+  }
   $order = @(
     "prims.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
@@ -170,6 +195,7 @@ try {
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   $orderStr = $order -join " "
+  $shellBuildDir = if ($WslBuildDir.StartsWith("~/")) { '$HOME/' + $WslBuildDir.Substring(2) } else { $WslBuildDir }
   $testScript = ""
   if ($RunTests) {
     $testOrder = ($order | Where-Object { $_ -ne "main.ml" -and $_ -ne "Z3NativeMain.ml" }) -join " "
@@ -181,19 +207,7 @@ ocamlfind ocamlopt -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" 
 ./native-tests
 "@
   }
-  $script = @"
-set -e
-export PATH="`$HOME/bin:`$PATH"
-mkdir -p $WslBuildDir
-for module in $orderStr; do
-  if [ -f "$wslFstarDir/ocaml_runtime/`$module" ]; then
-    cp "$wslFstarDir/ocaml_runtime/`$module" $WslBuildDir/
-  else
-    cp "$wslFstarDir/build_extract/native/`$module" $WslBuildDir/
-  fi
-done
-cd $WslBuildDir
-eval `$(opam env --switch=$OpamSwitch)
+  $linkSetup = @"
 z3_build=$Z3BuildDir
 z3_install="`$z3_build/install"
 cmake -S "$wslFstarDir/.." -B "`$z3_build" -DCMAKE_BUILD_TYPE=Release \
@@ -201,8 +215,24 @@ cmake -S "$wslFstarDir/.." -B "`$z3_build" -DCMAKE_BUILD_TYPE=Release \
   -DZ3_BUILD_EXECUTABLE=ON -DZ3_BUILD_TEST_EXECUTABLES=OFF -DZ3_INSTALL_OCAML_BINDINGS=ON \
   -DCMAKE_INSTALL_PREFIX="`$z3_install" -DCMAKE_INSTALL_LIBDIR=lib \
   -DZ3_OCAML_PACKAGE_INSTALLDIR=lib/ocaml/z3 -DZ3_OCAML_STUB_INSTALLDIR=lib/ocaml/stublibs
-cmake --build "`$z3_build" --parallel 16
+cmake --build "`$z3_build" --parallel $BuildJobs
 cmake --install "`$z3_build"
+"@
+  if (-not $windowsHost) { $linkSetup = "z3_install=`"$Z3InstallDir`"" }
+  $script = @"
+set -euo pipefail
+export PATH="`$HOME/bin:`$PATH"
+mkdir -p "$shellBuildDir"
+for module in $orderStr; do
+  if [ -f "$wslFstarDir/ocaml_runtime/`$module" ]; then
+    cp "$wslFstarDir/ocaml_runtime/`$module" "$shellBuildDir/"
+  else
+    cp "$wslFstarDir/build_extract/native/`$module" "$shellBuildDir/"
+  fi
+done
+cd "$shellBuildDir"
+eval `$(opam env --switch=$OpamSwitch)
+$linkSetup
 "`$z3_install/bin/z3" -version
 ocamlfind ocamlopt -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
@@ -210,18 +240,20 @@ ocamlfind ocamlopt -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" 
 $testScript
 echo BUILD_OK
 "@
-  $scriptPath = Join-Path $fstarDir "build_wsl_tmp.sh"
+  $scriptPath = Join-Path $extractDir "build_native_tmp.sh"
   $unixScript = $script -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($scriptPath, $unixScript, (New-Object System.Text.UTF8Encoding($false)))
-  wsl -e bash "$wslFstarDir/build_wsl_tmp.sh"
+  if ($windowsHost) { wsl -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh" }
+  else { & bash $scriptPath }
   $wslExitCode = $LASTEXITCODE
   Remove-Item $scriptPath -ErrorAction SilentlyContinue
-  if ($wslExitCode -ne 0) { throw "WSL build, installation, or native tests failed" }
+  if ($wslExitCode -ne 0) { throw "Native build, installation, or tests failed" }
   if ($RunTests) {
     $previousChecker = $env:Z3_FSTAR_CHECKER
     try {
       $env:Z3_FSTAR_CHECKER = "$WslBuildDir/checker"
-      & python (Join-Path $PSScriptRoot "test_native_checker.py")
+      $python = if ($windowsHost) { "python" } else { "python3" }
+      & $python (Join-Path $PSScriptRoot "test_native_checker.py")
       if ($LASTEXITCODE -ne 0) { throw "Native checker CLI tests failed" }
     }
     finally {
@@ -229,7 +261,8 @@ echo BUILD_OK
     }
   }
 
-  Write-Host "=== Done. Run with: wsl $WslBuildDir/checker [path/to/input.smt2] ==="
+  $launcher = if ($windowsHost) { "wsl " } else { "" }
+  Write-Host "=== Done. Run with: $launcher$WslBuildDir/checker [path/to/input.smt2] ==="
 }
 finally {
   $env:PATH = $originalPath

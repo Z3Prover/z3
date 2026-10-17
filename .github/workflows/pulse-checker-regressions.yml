@@ -1,0 +1,161 @@
+name: Pulse verification and native checker regressions
+
+on:
+  push:
+    paths:
+      - 'fstar/**'
+  pull_request:
+    paths:
+      - 'fstar/**'
+  workflow_dispatch:
+    inputs:
+      z3test_ref:
+        description: z3test branch, tag, or commit to test
+        type: string
+        default: master
+      corpus_path:
+        description: Directory in z3test (recursively selects .smt2 files)
+        type: string
+        default: regressions/proofs
+      max_cases:
+        description: Maximum inputs in sorted order (0 means all)
+        type: number
+        default: 0
+      solver_timeout_ms:
+        description: Per-input solving timeout in milliseconds
+        type: number
+        default: 10000
+      case_timeout_seconds:
+        description: Per-input timeout including solving, marshaling, and checking
+        type: number
+        default: 60
+      total_timeout_seconds:
+        description: Whole corpus execution budget in seconds
+        type: number
+        default: 1800
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulse-checker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    env:
+      FSTAR_VERSION: v2026.09.27
+      FSTAR_SHA256: cafbbb8960efeb26f5d30bc447b61ab8a507968948507a2580585afd1397781d
+      OPAM_SWITCH: fstar53
+    steps:
+      - name: Checkout Z3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare report directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/pulse-checker-report"
+          echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-report" >> "$GITHUB_ENV"
+
+      - name: Checkout z3test
+        id: corpus
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Z3Prover/z3test
+          ref: ${{ inputs.z3test_ref || 'master' }}
+          path: z3test
+          persist-credentials: false
+
+      - name: Test the benchmark harness
+        id: harness
+        run: python3 -m unittest discover -s fstar/tools -p test_checker_regressions.py -v
+
+      - name: Install pinned F* and OCaml toolchains
+        id: toolchain
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y cmake g++ libgmp-dev opam pkg-config python3 curl
+          archive="$RUNNER_TEMP/fstar.tar.gz"
+          curl --fail --location --retry 3 \
+            "https://github.com/FStarLang/FStar/releases/download/$FSTAR_VERSION/fstar-$FSTAR_VERSION-Linux-x86_64.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$FSTAR_SHA256" "$archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/fstar-toolchain"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/fstar-toolchain" --strip-components=1
+          "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" --version
+          opam init --disable-sandboxing --bare --yes
+          opam switch create "$OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
+          opam install --switch="$OPAM_SWITCH" ocamlfind zarith --yes
+          opam exec --switch="$OPAM_SWITCH" -- ocamlc -version
+
+      - name: Build Z3, verify Pulse, extract and test the native checker
+        id: build
+        timeout-minutes: 120
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          start=$SECONDS
+          if pwsh -NoProfile -File fstar/tools/build_ocaml_checker.ps1 \
+            -FstarExe "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" \
+            -Z3WindowsBuildDir "$RUNNER_TEMP/checker-z3-build" \
+            -Z3InstallDir "$RUNNER_TEMP/checker-z3-install" \
+            -CacheDir "$RUNNER_TEMP/checker-fstar-cache" \
+            -WslBuildDir "$RUNNER_TEMP/native-checker" \
+            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -RunTests \
+            2>&1 | tee "$REPORT_DIR/build.log"; then
+            status=0
+          else
+            status=$?
+          fi
+          printf '{"wall_seconds":%d,"exit_code":%d,"fstar_version":"%s","ocaml_version":"5.3.0"}\n' \
+            "$((SECONDS - start))" "$status" "$FSTAR_VERSION" > "$REPORT_DIR/build.json"
+          exit "$status"
+
+      - name: Run native checker on the proof corpus
+        id: regressions
+        timeout-minutes: 35
+        env:
+          CORPUS_PATH: ${{ inputs.corpus_path }}
+          MAX_CASES: ${{ inputs.max_cases }}
+          SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
+          CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
+          TOTAL_TIMEOUT_SECONDS: ${{ inputs.total_timeout_seconds }}
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/run_checker_regressions.py run \
+            --checker "$RUNNER_TEMP/native-checker/checker" \
+            --corpus "$GITHUB_WORKSPACE/z3test" --corpus-path "${CORPUS_PATH:-regressions/proofs}" \
+            --corpus-commit "$(git -C z3test rev-parse HEAD)" \
+            --max-cases "${MAX_CASES:-0}" --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+            --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
+            --memory-limit-mb 2048 --output "$REPORT_DIR"
+
+      - name: Publish coverage and timing report
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          CORPUS_OUTCOME: ${{ steps.corpus.outcome }}
+          RUNNER_OUTCOME: ${{ steps.regressions.outcome }}
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          HARNESS_OUTCOME: ${{ steps.harness.outcome }}
+        run: |
+          python3 fstar/tools/run_checker_regressions.py report --output "$REPORT_DIR"
+          cat "$REPORT_DIR/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports, per-case results, and build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.REPORT_DIR }}
+          if-no-files-found: error
+          retention-days: 14
