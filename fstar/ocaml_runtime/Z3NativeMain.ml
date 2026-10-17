@@ -28,6 +28,13 @@ let diagnostic_rule = function
   | Z3UnifiedProof.NotOrElimination -> "not-or-elim"
   | Z3UnifiedProof.IffTrue -> "iff-true"
   | Z3UnifiedProof.IffFalse -> "iff-false"
+  | Z3UnifiedProof.QuantifierIntroduction certificate ->
+      let root = certificate.Z3UnifiedProof.binder_root in
+      if Z.sign root < 0 || not (Z.fits_int root) then "binder"
+      else (match List.nth_opt certificate.Z3UnifiedProof.binder_entries (Z.to_int root) with
+        | Some entry -> entry.Z3UnifiedProof.binder_name
+        | None -> "binder")
+  | Z3UnifiedProof.QuantifierInstantiation _ -> "quant-inst"
 
 let diagnostic_stage = function
   | Z3ProofDocument.LogicalDeclarations -> "logical-declarations"
@@ -149,8 +156,17 @@ let check_proof statistics diagnostics start solved assertions proof =
       Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
     count + List.length entry.Z3ProofDocument.premise_ids) 0 doc.entries in
-  result, Printf.sprintf "%s assertions=%d proof_edges=%d pending=%s"
-    summary (List.length assertions) edges
+  let binder_nodes, binder_edges = List.fold_left (fun (nodes, edges) entry ->
+    match entry.Z3ProofDocument.rule with
+    | Z3UnifiedProof.QuantifierIntroduction certificate ->
+        nodes + List.length certificate.Z3UnifiedProof.binder_entries,
+        List.fold_left (fun count entry ->
+            count + List.length entry.Z3UnifiedProof.binder_premises)
+          edges certificate.Z3UnifiedProof.binder_entries
+    | _ -> nodes, edges) (0, 0) doc.entries in
+  result, Printf.sprintf
+    "%s assertions=%d proof_edges=%d binder_nodes=%d binder_edges=%d pending=%s"
+    summary (List.length assertions) edges binder_nodes binder_edges
     (match result with None -> "unknown" | Some n -> Z.to_string n)
 
 let result_text = function

@@ -416,11 +416,134 @@ let identity_and_binders () =
   require ((List.nth opaque 0).decl_name <> (List.nth opaque 1).decl_name)
     "opaque declaration identity was lost"
 
+let checked_binder_proofs () =
+  let sources = [
+    "(assert (not (forall ((x Int)) (= (+ x 0) x))))";
+    "(declare-fun p (Int) Bool)\
+     (assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))";
+    "(assert (exists ((x Int)) (not (= (+ x 0) x))))";
+    "(assert (not (forall ((x Int)) (forall ((y Real))\
+       (and (= (+ x 0) x) (= (+ y 0.0) y))))))"
+  ] in
+  List.iter (fun source ->
+      let doc = document source in
+      require (List.exists (fun e -> match e.P.rule with
+          | U.QuantifierIntroduction _ -> true | _ -> false) doc.entries)
+        "native quantified regression did not exercise a binder";
+      require (P.check_document doc = Some Z.zero)
+        ("quantified rewriting was not certified: " ^ source)) sources;
+  let doc = document (List.hd sources) in
+  let entry = List.find (fun e -> match e.P.rule with
+      | U.QuantifierIntroduction _ -> true | _ -> false) doc.entries in
+  let certificate = match entry.P.rule with
+    | U.QuantifierIntroduction certificate -> certificate
+    | _ -> assert false in
+  let conclusion = Option.get (U.classify_fact entry.P.formula) in
+  require (U.check_binder certificate conclusion) "valid hidden proof DAG was rejected";
+  let fail certificate message =
+    require (not (U.check_binder certificate conclusion)) message in
+  fail { certificate with U.binder_root = Z.minus_one } "negative binder root was trusted";
+  fail { certificate with U.binder_root = Z.of_int 1000000 } "missing binder root was trusted";
+  fail { certificate with U.binder_entries = List.rev certificate.U.binder_entries }
+    "forward binder premises were trusted";
+  List.iter (fun name ->
+      fail { certificate with U.binder_entries =
+          List.map (fun e -> if e.U.binder_premises = [] then
+              { e with U.binder_name = name } else e) certificate.U.binder_entries }
+        ("binder generalized an unsupported leaf: " ^ name))
+    ["asserted"; "hypothesis"; "unknown"; "assumed:nlsat"];
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_name = "quant-intro" then
+          { e with U.binder_sorts = Some [A.BaseSort "Real"] } else e)
+        certificate.U.binder_entries }
+    "binder generalized across mismatched bound sorts";
+  fail { certificate with U.binder_entries =
+      List.map (fun e -> if e.U.binder_premises <> [] then
+          { e with U.binder_premises = [Z.minus_one] } else e)
+        certificate.U.binder_entries }
+    "binder ignored an invalid premise";
+  let entries = List.map (fun e -> match e.P.rule with
+      | U.QuantifierIntroduction _ ->
+          { e with P.rule = U.QuantifierIntroduction
+              { certificate with U.binder_entries = [] } }
+      | _ -> e) doc.entries in
+  require (match P.check_document { doc with entries } with
+      | Some pending -> Z.sign pending > 0 | None -> false)
+    "unsupported binder proof was certified instead of retaining an obligation";
+  let lambda_doc = document
+      "(assert (not (= (lambda ((x Int)) (+ x 0)) (lambda ((y Int)) y))))" in
+  require (List.exists (fun e ->
+      match e.P.rule, U.classify_fact e.P.formula with
+      | U.QuantifierIntroduction cert,
+        Some (U.Equal (A.Quantifier (A.Lambda_k, _, _, _), _) as conclusion) ->
+          U.check_binder cert conclusion
+      | _ -> false) lambda_doc.entries)
+    "term-valued lambda congruence was not checked"
+
+let checked_quantifier_instances () =
+  let sources = [
+    "(declare-fun p (Int) Bool)(assert (forall ((x Int)) (p (+ x 0))))\
+     (assert (not (p 3)))";
+    "(declare-fun p (Int Real) Bool)\
+     (assert (forall ((x Int) (y Real)) (! (p x y) :pattern ((p x y)))))\
+     (assert (not (p 3 4.5)))";
+    "(declare-fun p (Int) Bool)\
+     (assert (forall ((x Int)) (or (p x) (not (p (+ x 1))))))\
+     (assert (not (p 0)))(assert (p 1))"
+  ] in
+  List.iter (fun source ->
+      let doc = document source in
+      let instances = List.filter_map (fun e -> match e.P.rule with
+          | U.QuantifierInstantiation args -> Some (args, e.P.formula) | _ -> None)
+          doc.entries in
+      require (instances <> []) "native proof omitted instantiation parameters";
+      require (P.check_document doc = Some Z.zero)
+        ("quantifier instance was not certified: " ^ source);
+      List.iter (fun (args, formula) ->
+          require (Z3QuantifierInstantiation.check args formula)
+            "native quantifier substitution was not checked";
+          require (not (Z3QuantifierInstantiation.check [] formula))
+            "missing quantifier bindings were trusted";
+          require (not (Z3QuantifierInstantiation.check (args @ args) formula))
+            "extra quantifier bindings were trusted";
+          require (not (Z3QuantifierInstantiation.check
+              (List.map (fun a -> A.Var (Z.zero, A.get_sort a)) args) formula))
+            "escaping substitution variables were trusted";
+          (match formula with
+           | A.App (f, [negative; _]) ->
+               require (not (Z3QuantifierInstantiation.check args
+                   (A.App (f, [negative; Z3ResolutionProofTheory.false_expr]))))
+                 "an incorrect instantiated body was trusted"
+           | _ -> failwith "unexpected instantiation clause");
+          if List.length args > 1 then
+            require (not (Z3QuantifierInstantiation.check (List.rev args) formula))
+              "native binding order was ignored") instances;
+      let entries = List.map (fun e -> match e.P.rule with
+          | U.QuantifierInstantiation _ -> { e with P.rule = U.QuantifierInstantiation [] }
+          | _ -> e) doc.entries in
+      require (match P.check_document { doc with entries } with
+          | Some pending -> Z.sign pending > 0 | None -> false)
+        "invalid substitutions did not retain an explicit obligation") sources;
+  let c = context () in
+  let inputs = parse c
+      "(declare-fun p (Int Int) Bool)\
+       (assert (or (not (forall ((x Int)) (exists ((y Int)) (p x y))))\
+                   (exists ((y Int)) (p 0 y))))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  let formula = B.cached_expression st (List.hd inputs) in
+  let zero = List.find (function
+      | A.App (d, []) -> d.A.interp = Some Z3ValueTheory.op_num_rational &&
+                        d.A.int_params = [Z.zero; Z.one]
+      | _ -> false) st.all_expressions in
+  require (not (Z3QuantifierInstantiation.check [zero] formula))
+    "nested substitution was accepted without a capture-avoidance proof"
+
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
-               farkas = Some [Z.one, Z.zero]; assumed = None; lp_data = None } in
+               farkas = Some [Z.one, Z.zero]; assumed = None; lp_data = None;
+               binding = None; instantiations = [] } in
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
@@ -429,7 +552,8 @@ let assumed_nlsat () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
-               farkas = None; assumed = Some "nlsat"; lp_data = None } in
+               farkas = None; assumed = Some "nlsat"; lp_data = None;
+               binding = None; instantiations = [] } in
   let rule = B.native_rule view Z3ResolutionProofTheory.false_expr in
   require (rule = U.Unverified "assumed:nlsat")
     "native NLSAT assumption lost its origin";
@@ -685,6 +809,8 @@ let () =
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
+     "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
+     "certified-native-quantifier-instances", checked_quantifier_instances;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;

@@ -214,6 +214,75 @@ let rec cached_premises (st:state) (ps:list N.ast) : ML (list int) =
     index :: indices
 
 noeq
+type binder_job =
+  | VisitBinder : N.ast -> binder_job
+  | BuildBinder : N.ast -> N.proof_view -> list N.ast ->
+                  option (list N.native_sort) -> binder_job
+
+let binder_rule (name:string) : bool =
+  name = "quant-intro" || name = "nnf-pos" || name = "nnf-neg"
+
+let binder_dependencies (view:N.proof_view)
+  : ML (list N.ast & option (list N.native_sort)) =
+  if binder_rule view.proof_name then
+    match view.premises with
+    | [p] ->
+      let bound = N.view_proof p in
+      (match bound.binding with
+       | Some (sorts, body) -> [body], Some sorts
+       | None -> view.premises, None)
+    | _ -> view.premises, None
+  else view.premises, None
+
+let rec cached_binder_premises (cache:index_tree nat) (children:list N.ast) : ML (list int) =
+  match children with
+  | [] -> []
+  | p :: rest ->
+    let id = N.ast_id p in
+    let index = require_some "Native binder proof dependency was not marshaled"
+                             (index_get cache id) in
+    let indices = cached_binder_premises cache rest in
+    index :: indices
+
+let rec marshal_binder_jobs (st:state) (cache:index_tree nat)
+                           (entries:list binder_entry) (next:nat) (jobs:list binder_job)
+  : ML (state & index_tree nat & list binder_entry) =
+  match jobs with
+  | [] -> st, cache, L.rev entries
+  | VisitBinder p :: rest ->
+    (match index_get cache (N.ast_id p) with
+     | Some _ -> marshal_binder_jobs st cache entries next rest
+     | None ->
+       let view = N.view_proof p in
+       let children, sorts = binder_dependencies view in
+       let jobs = L.map (fun p -> VisitBinder p) children @
+                  (BuildBinder p view children sorts :: rest) in
+       marshal_binder_jobs st cache entries next jobs)
+  | BuildBinder p view children sorts :: rest ->
+    let st = marshal_expressions st [view.conclusion] in
+    let sorts, st =
+      match sorts with
+      | None -> None, st
+      | Some sorts ->
+        let sorts, st = marshal_sorts st sorts in Some sorts, st in
+    let premises = cached_binder_premises cache children in
+    let name = match view.assumed with
+               | Some origin -> "assumed:" ^ origin | None -> view.proof_name in
+    let entry = {
+      binder_name = name; binder_formula = cached_expression st view.conclusion;
+      binder_premises = premises; binder_sorts = sorts;
+    } in
+    let st = { st with retained_asts = p :: st.retained_asts } in
+    marshal_binder_jobs st (index_put cache (N.ast_id p) next)
+                       (entry :: entries) (next + 1) rest
+
+let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state) =
+  let st, cache, entries = marshal_binder_jobs st Empty [] 0 [VisitBinder p] in
+  let root = require_some "Native binder proof root was not marshaled"
+                         (index_get cache (N.ast_id p)) in
+  { binder_entries = entries; binder_root = root }, st
+
+noeq
 type proof_job =
   | VisitProof : N.ast -> proof_job
   | BuildProof : N.ast -> N.proof_view -> proof_job
@@ -227,11 +296,13 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
      | Some _ -> marshal_proof_jobs st rest
      | None ->
        let view = N.view_proof p in
-       let children = L.map (fun p -> VisitProof p) view.premises in
+       let children = if binder_rule view.proof_name then []
+                      else L.map (fun p -> VisitProof p) view.premises in
        marshal_proof_jobs st (children @ (BuildProof p view :: rest)))
   | BuildProof p view :: rest ->
     let parameters = match view.lp_data with Some (_, ps) -> ps | None -> [] in
-    let st = marshal_expressions st (view.conclusion :: parameter_expressions parameters) in
+    let st = marshal_expressions st
+      (view.conclusion :: (view.instantiations @ parameter_expressions parameters)) in
     let st =
       match view.lp_data with
       | Some ("lp-context", ps) ->
@@ -241,8 +312,14 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
       | _ -> st
     in
     let formula = cached_expression st view.conclusion in
-    let rule = native_rule view formula in
-    let premises = cached_premises st view.premises in
+    let rule, premises, st =
+      if binder_rule view.proof_name then
+        let certificate, st = marshal_binder st p in
+        QuantifierIntroduction certificate, [], st
+      else if view.proof_name = "quant-inst" then
+        QuantifierInstantiation (cached_expressions st view.instantiations),
+        cached_premises st view.premises, st
+      else native_rule view formula, cached_premises st view.premises, st in
     let entry = { P.rule = rule; P.formula = formula; P.premise_ids = premises } in
     let id = N.ast_id p in
     let st = { st with proofs = index_put st.proofs id st.next_proof;

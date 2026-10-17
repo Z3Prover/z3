@@ -49,6 +49,8 @@ type proof_view = {
   farkas: option (list (int & int));
   assumed: option string;
   lp_data: option (string & list parameter_view);
+  binding: option (list native_sort & ast);
+  instantiations: list ast;
 }
 
 noeq

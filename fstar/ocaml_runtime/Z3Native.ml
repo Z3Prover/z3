@@ -38,6 +38,8 @@ type proof_view = {
   farkas: (Z.t * Z.t) list option;
   assumed: string option;
   lp_data: (string * parameter_view list) option;
+  binding: (native_sort list * ast) option;
+  instantiations: ast list;
 }
 
 type solve_result =
@@ -210,7 +212,23 @@ let view_proof a =
             | _ -> ParameterUnsupported) in
         Some (tag, parameters)
     | _ -> None in
-  { proof_name; premises; conclusion; farkas; assumed; lp_data }
+  let binding =
+    if Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d) = Z3enums.OP_PR_BIND then
+      match args with
+      | [lambda] when Z3native.is_lambda c lambda ->
+          let sorts = List.init (Z3native.get_quantifier_num_bound c lambda)
+              (Z3native.get_quantifier_bound_sort c lambda) in
+          Some (sorts, Z3native.get_quantifier_body c lambda)
+      | _ -> fail "Malformed native proof binder"
+    else None in
+  let instantiations =
+    if Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d) = Z3enums.OP_PR_QUANT_INST then
+      List.init count (fun i ->
+          if parameter_kind i <> Z3enums.PARAMETER_AST then
+            fail "Malformed native quantified instance parameter";
+          Z3native.get_decl_ast_parameter c d i)
+    else [] in
+  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
 
 let create_context timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")

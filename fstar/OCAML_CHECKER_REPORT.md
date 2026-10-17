@@ -78,6 +78,10 @@ It reports unique proof-DAG nodes (`proof_nodes`), premise edges
 (`proof_edges`), effective input assertions/assumptions (`assertions`),
 unique marshaled expressions and declarations, pending obligations, and
 solve/marshal/check milliseconds. Counts are per check, not cumulative.
+`proof_nodes` and `proof_edges` count the outer document DAG.
+`binder_nodes` and `binder_edges` separately count the checked DAGs hidden
+inside proof binders, including each certificate's root. These counts are
+per certificate; a certificate root also occurs in the outer DAG.
 Rejected documents report `pending=unknown`, not a misleading zero.
 `--stats` additionally writes the existing batch-compatible timing/size line
 to stderr; `--diagnostics` continues to report typed obligations there.
@@ -125,6 +129,59 @@ The build also extracts the standalone ordered-ring replay kernel
 certificates to native AST clauses. Such nodes remain unverified in this
 document checker; see `NL_ARITH_REPORT.md` for the exact source-expansion
 and clause-correspondence boundaries.
+
+### Binder and quantifier proof support
+
+Native `proof-bind` nodes contain a lambda whose body is a **proof**, not an
+ordinary formula. The foreign view exposes its bound sorts and original
+body proof. `Z3NativeProof.fst` traverses that hidden proof DAG with a
+memoized worklist and constructs a typed binder certificate; it does not
+marshal proof-valued lambdas as object-language assertions.
+
+The unified kernel checks every certificate entry against already checked
+premises. Its soundness invariant is validity under **every environment**,
+not merely the current environment. Only supported, assumption-free steps
+can establish this invariant: asserted formulas, hypotheses, assumed theory
+lemmas, unknown rules, and unsupported rewrites cannot be generalized.
+Quantifier introduction requires matching quantifier kinds, matching bound
+sorts, and an actual checked relation between the two bodies. This covers
+`forall`, `exists`, and term-valued `lambda` congruence, including nested
+binders and observational equality. The congruence-shaped `nnf-pos` case
+uses the same checks. A failed certificate leaves an explicit obligation
+on its outer proof step; it never becomes `ACCEPT`.
+
+Constant Boolean quantifiers reduce to their bodies, including the native
+`elim-unused` steps for `forall true` and `exists false`. This is not a
+general implementation of unused-variable elimination.
+
+`Z3QuantifierInstantiation.fst` checks native `quant-inst` clauses using
+Z3's original AST-valued substitution parameters. It validates binding
+arity, sorts, closed arguments, de Bruijn order, and the exact resulting
+body. Its substitution theorem currently covers quantifier-free bodies;
+substitution beneath nested binders remains partial rather than relying
+on unproved capture avoidance. Multi-variable, mixed-sort instantiations
+are supported.
+
+The semantic model premises now explicitly include quantifier
+extensionality, preservation of constant Boolean bodies, and universal
+quantifier elimination, in addition to the existing universal-introduction
+premise. F* verifies certificate traversal, congruence lifting, substitution,
+and the integrated node soundness theorems under these premises. These are
+not an unconditional theorem connecting native SMT-LIB quantification to
+the abstract interpretation.
+
+Native and interactive regressions cover arithmetic and Boolean rewrites
+under binders, nested mixed-sort quantifiers, lambda congruence, and genuine
+quantifier instances. Mutations exercise invalid premise/root indices,
+missing or reordered bindings, escaping variables, incorrect instances,
+bound-sort mismatches, and attempted generalization of asserted or
+hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
+16 `ACCEPT` results and one solver `UNKNOWN` at the 10-second timeout.
+
+Remaining quantifier-related obligations include general Skolemization,
+non-congruence NNF transformations, general unused-variable elimination,
+nested capture-avoiding instantiation, and lambda extensionality rewrites.
+NLSAT and other previously unsupported theory rules remain partial.
 
 ### Sharing and ownership
 
@@ -181,8 +238,8 @@ PR #11208 plus the current master fixes, the complete native pipeline and
 proof regressions verify with the installed, source-built Z3 5.3.1.
 `-RunTests` also verifies the resolution and polynomial-certificate
 regressions and the in-memory Pulse equality, justification, and Farkas
-checkers and tests before running eighteen native bridge tests and seventeen
-CLI tests. Explicit integer-to-real identities and polynomial row/cross
+checkers and tests before running native bridge and CLI tests.
+Explicit integer-to-real identities and polynomial row/cross
 proof steps make the arithmetic lemmas robust to the current solver's
 automation, without changing their specifications or runtime rules.
 

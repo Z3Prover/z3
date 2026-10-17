@@ -41,12 +41,48 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
 
+    def test_quantified_rewrites_are_certified_in_both_modes(self):
+        for source in (
+                "(assert (not (forall ((x Int)) (= (+ x 0) x))))",
+                "(declare-fun p (Int) Bool)"
+                "(assert (not (forall ((x Int)) (or (p (+ x 0)) (not (p x))))))",
+                "(assert (exists ((x Int)) (not (= (+ x 0) x))))",
+                "(assert (not (forall ((x Int)) (forall ((y Real))"
+                "(and (= (+ x 0) x) (= (+ y 0.0) y))))))",
+                "(declare-fun p (Int) Bool)"
+                "(assert (forall ((x Int)) (p (+ x 0))))(assert (not (p 3)))",
+                "(declare-fun p (Int Real) Bool)"
+                "(assert (forall ((x Int) (y Real)) (! (p x y) :pattern ((p x y)))))"
+                "(assert (not (p 3 4.5)))"):
+            with self.subTest(source=source):
+                direct = self.run_checker(source, "--diagnostics")
+                self.assertEqual((direct.returncode, direct.stdout.strip()), (0, "ACCEPT"),
+                                 direct.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertRegex(interactive.stdout, r"binder_nodes=\d+ binder_edges=\d+")
+                if source.startswith("(assert (not (forall"):
+                    self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
+
     def test_uncertified_nonlinear_arithmetic_remains_partial(self):
         result = self.run_checker(
             "(declare-const x Real)"
             "(assert (= (* x x) 2))(assert (= (* x x x) 3))")
         self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
         self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+
+    def test_unsupported_negative_nnf_binder_remains_partial(self):
+        source = ("(declare-fun p (Int) Bool)"
+                  "(assert (not (exists ((x Int)) (p x))))(assert (p 0))")
+        result = self.run_checker(source, "--diagnostics")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertIn("obligation\tnnf-neg\t", result.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
+        self.assertIn("unsat\n; proof-check PARTIAL ", interactive.stdout)
+        self.assertNotIn("ACCEPT", interactive.stdout)
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
