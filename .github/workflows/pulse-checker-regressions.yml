@@ -89,7 +89,7 @@ jobs:
             --output "$archive"
           printf '%s  %s\n' "$FSTAR_SHA256" "$archive" | sha256sum --check
           mkdir -p "$RUNNER_TEMP/fstar-toolchain"
-          tar -xzf "$archive" -C "$RUNNER_TEMP/fstar-toolchain" --strip-components=1
+          tar -xzf "$archive" -C "$RUNNER_TEMP/fstar-toolchain" --strip-components=2
           "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" --version
           opam init --disable-sandboxing --bare --yes
           opam switch create "$OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
