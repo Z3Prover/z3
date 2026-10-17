@@ -358,17 +358,16 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             static char const * known_input_extensions[] = {
                 "smt2", "smt", "dimacs", "cnf", "wcnf", "opb", "lp", "log", "drat", "p"
             };
+            // argv[i] and arg are still identical here (neither has been mutated yet),
+            // so a single get_extension() call serves both checks below.
+            char const * arg_ext = get_extension(argv[i]);
             bool is_filepath = strchr(argv[i], '/') || strchr(argv[i], '\\');
-            if (!is_filepath) {
-                char const * ext = get_extension(argv[i]);
-                if (ext)
-                    for (char const * known_ext : known_input_extensions)
-                        if (strcmp(ext, known_ext) == 0) {
-                            is_filepath = true;
-                            break;
-                        }
-            }
-            char const * arg_ext = get_extension(arg);
+            if (!is_filepath && arg_ext)
+                for (char const * known_ext : known_input_extensions)
+                    if (strcmp(arg_ext, known_ext) == 0) {
+                        is_filepath = true;
+                        break;
+                    }
             if (arg_ext && strcmp(arg_ext, "drat") == 0) {
                 g_input_kind = IN_DRAT;
                 g_drat_input_file = arg;
