@@ -389,7 +389,7 @@ namespace nla {
     }
 
     std::shared_ptr<lemma_certificate const> lemma_certificate::capture(lp::lar_solver &solver, lemma const &l) {
-        if (!solver.dep_manager().enabled())
+        if (!solver.dep_manager().proofs_enabled())
             return nullptr;
         auto cert = std::make_shared<lemma_certificate>();
         solver.dep_manager().snapshot_context(cert->context);

@@ -143,7 +143,7 @@ namespace lp {
             result.monomials = m_monomials;
         }
 
-        bool enabled() const {
+        bool proofs_enabled() const {
             return m_enabled;
         }
 

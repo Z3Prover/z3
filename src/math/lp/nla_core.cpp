@@ -135,7 +135,7 @@ bool core::canonize_sign(const factorization& f) const {
 }
 
 void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
-    if (lra.dep_manager().enabled())
+    if (lra.dep_manager().proofs_enabled())
         lra.dep_manager().register_monomial(v, sz, vs);
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; ++i) {
@@ -635,7 +635,7 @@ lemma_builder::~lemma_builder() noexcept(false) {
     static int i = 0;
     (void)i;
     (void)name;
-    if (std::uncaught_exceptions() == 0 && c.lra.dep_manager().enabled() && !current().nlsat_assumed())
+    if (std::uncaught_exceptions() == 0 && c.lra.dep_manager().proofs_enabled() && !current().nlsat_assumed())
         current().set_certificate(lemma_certificate::capture(c.lra, current()));
     if (current().is_conflict()) {
         c.m_conflicts++;

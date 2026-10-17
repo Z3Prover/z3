@@ -338,7 +338,7 @@ namespace nla {
         c().lra.dep_manager().linearize(dep, cs);
         for (auto d : cs)
             exp.add_pair(d, mpq(1));
-        if (c().lra.dep_manager().enabled())
+        if (c().lra.dep_manager().proofs_enabled())
             exp.set_evidence(dep);
         return exp;
     }
@@ -348,7 +348,7 @@ namespace nla {
                                                    u_dependency* support, lpvar target,
                                                    lpvar source, lp::lar_term const* term) {
         auto& manager = c().lra.dep_manager();
-        if (!manager.enabled())
+        if (!manager.proofs_enabled())
             return support;
         lp::evidence_manager::recipe r;
         r.kind = kind;
@@ -395,7 +395,7 @@ namespace nla {
         if (c().var_is_fixed_to_zero(m.var()))
             return false;
         auto* dep = c().lra.get_bound_constraint_witnesses_for_column(fixed_to_zero);
-        if (c().lra.dep_manager().enabled()) {
+        if (c().lra.dep_manager().proofs_enabled()) {
             lp::evidence_manager::fact f;
             f.lhs.push_back({rational(1), m.var()});
             dep = capture_monomial(m, lp::evidence_manager::rule::monomial_substitute, f, dep, m.var());
@@ -412,7 +412,7 @@ namespace nla {
         if (c().var_is_fixed(m.var()) && c().get_lower_bound(m.var()) == k)
             return false;
         auto* dep = explain_fixed(m, k);
-        if (c().lra.dep_manager().enabled()) {
+        if (c().lra.dep_manager().proofs_enabled()) {
             lp::evidence_manager::fact f;
             f.lhs.push_back({rational(1), m.var()});
             f.rhs = lp::impq(k);
@@ -435,7 +435,7 @@ namespace nla {
         coeffs.push_back({rational::one(), m.var()});
         lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         auto* dep = explain_fixed(m, k);
-        if (c().lra.dep_manager().enabled()) {
+        if (c().lra.dep_manager().proofs_enabled()) {
             lp::evidence_manager::fact f;
             f.lhs = coeffs;
             dep = capture_monomial(m, lp::evidence_manager::rule::monomial_substitute, f, dep, m.var());
@@ -792,7 +792,7 @@ namespace nla {
      */
     void monomial_bounds::propagate_lp_bound(bound_proof const& proof, lpvar v, lp::lconstraint_kind cmp, rational const &q, u_dependency *d) {
         SASSERT(cmp != llc::EQ && cmp != llc::NE);
-        if (c().lra.dep_manager().enabled()) {
+        if (c().lra.dep_manager().proofs_enabled()) {
             lp::evidence_manager::fact f;
             f.lhs.push_back({rational(1), v});
             f.kind = cmp;
@@ -802,7 +802,7 @@ namespace nla {
         }
         auto update = [&](lp::lconstraint_kind kind, rational const& value) {
             auto* proof = d;
-            if (c().lra.dep_manager().enabled() && (kind != cmp || value != q))
+            if (c().lra.dep_manager().proofs_enabled() && (kind != cmp || value != q))
                 proof = c().lra.dep_manager().derive(d, [&] {
                     lp::evidence_manager::recipe r;
                     r.kind = lp::evidence_manager::rule::integer_tighten;
@@ -1240,7 +1240,7 @@ namespace nla {
             if (s.column_has_upper_bound(j) && bound >= s.column_upper_bound(j).x)
                 return nullptr;
         }
-        if (s.dep_manager().enabled()) {
+        if (s.dep_manager().proofs_enabled()) {
             auto const& fact = lp::evidence_manager::get_recipe(dep)->conclusion;
             auto kind = is_lower ? llc::GE : llc::LE;
             if (fact.rhs.x != bound || fact.kind != kind)

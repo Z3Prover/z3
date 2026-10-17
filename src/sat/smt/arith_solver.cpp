@@ -1240,7 +1240,7 @@ namespace arith {
         m_explanation.clear();
         lp().get_infeasibility_explanation(m_explanation);
         auto kind = hint_type::farkas_h;
-        if (lp().dep_manager().enabled()) {
+        if (lp().dep_manager().proofs_enabled()) {
             lp::evidence_manager::proof_expression proof;
             lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
             vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;

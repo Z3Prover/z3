@@ -84,6 +84,7 @@ namespace {
         static_assert(sizeof(u_dependency) == sizeof(unsigned));
         static_assert(sizeof(manager::ref) == sizeof(void *));
         manager m;
+        VERIFY(!m.proofs_enabled());
         auto *a = m.mk_leaf(0);
         auto *b = m.mk_leaf(1);
         auto *ab = m.mk_join(a, b);
@@ -110,6 +111,7 @@ namespace {
 
     void test_shared_weights() {
         manager m(true);
+        VERIFY(m.proofs_enabled());
         auto *a = input(m, 0);
         auto *b = input(m, 1);
         auto *ab = linear(m, a, lp::mpq(2), b, lp::mpq(3));

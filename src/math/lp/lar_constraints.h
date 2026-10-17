@@ -123,7 +123,7 @@ class constraint_set {
     constraint_index add(lar_base_constraint* c) {
         constraint_index ci = m_constraints.size();
         m_constraints.push_back(c);
-        if (m_dep_manager.enabled()) {
+        if (m_dep_manager.proofs_enabled()) {
             evidence_manager::fact f;
             f.lhs = c->coeffs();
             f.kind = c->kind();

@@ -58,7 +58,7 @@ struct create_cut {
     }
 
     void capture_evidence() {
-        if (!lia.lra.dep_manager().enabled())
+        if (!lia.lra.dep_manager().proofs_enabled())
             return;
         auto* proof = lia.lra.dep_manager().derive(m_dep, [&] {
             evidence_manager::recipe r;
@@ -99,7 +99,7 @@ struct create_cut {
     }
 
     u_dependency* polarity_evidence(u_dependency* support, bool lower, mpq const& value) {
-        if (!lia.lra.dep_manager().enabled())
+        if (!lia.lra.dep_manager().proofs_enabled())
             return support;
         auto* linear = lia.lra.dep_manager().derive(support, [&] {
             evidence_manager::recipe r;
@@ -205,7 +205,7 @@ struct create_cut {
 
     lia_move report_conflict_from_gomory_cut() {
         SASSERT(m_k.is_pos());
-        if (lia.lra.dep_manager().enabled()) {
+        if (lia.lra.dep_manager().proofs_enabled()) {
             m_dep = nullptr;
             for (auto c : *m_ex)
                 m_dep = lia.lra.join_deps(lia.lra.dep_manager().mk_leaf(c.ci()), m_dep);
