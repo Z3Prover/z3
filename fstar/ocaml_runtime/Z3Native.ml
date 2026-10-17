@@ -169,6 +169,12 @@ let view_proof a =
   let farkas =
     if arithmetic_hint = Some "farkas" || arithmetic_hint = Some "bound" then
       Some (List.init (count - 2) (fun i -> rational_parameter (i + 2)))
+    else if arithmetic_hint = Some "assign-bounds" then
+      let coefficients = List.init (count - 2) (fun i -> rational_parameter (i + 2)) in
+      (* The propagated bound has implicit unit weight. In clausal proofs it
+         precedes the antecedents; otherwise it follows the proof premises. *)
+      Some (if premises = [] then (Z.one, Z.one) :: coefficients
+            else coefficients @ [Z.one, Z.one])
     else if arithmetic_hint = Some "lp-linear" && count >= 3 then
       (* These are candidate coefficients, not a trusted replay result. The F*
          arithmetic kernel checks them against every actual premise/conclusion. *)

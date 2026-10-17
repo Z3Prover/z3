@@ -31,17 +31,6 @@ let lemma_linear_identity_sound (e:expr) (i:interpretation value) (rho:env value
 
 let absolute (n:int) : nat = if n < 0 then -n else n
 
-let rec first_nonzero (ms:list (int & expr))
-  : Tot (option (int & expr)) (decreases ms) =
-  match ms with
-  | [] -> None
-  | (n, e) :: rest -> if n = 0 then first_nonzero rest else Some (n, e)
-
-let rec coefficient (e:expr) (ms:list (int & expr)) : Tot int (decreases ms) =
-  match ms with
-  | [] -> 0
-  | (n, v) :: rest -> if v = e then n else coefficient e rest
-
 (* Candidate generation is deliberately outside the soundness argument.
    Every candidate is replayed against the actual native proof formulas. *)
 let tightening_coefficients (conclusion:expr) (facts:list expr)
@@ -51,8 +40,8 @@ let tightening_coefficients (conclusion:expr) (facts:list expr)
     if context <> true_expr then None else
     A.prepare_literal (1, 1) true premise >>= (fun p ->
     A.prepare_literal (1, 1) false conclusion >>= (fun q ->
-    first_nonzero (P.collect p.poly.mono []) >>= (fun (a, e) ->
-    let b = coefficient e (P.collect q.poly.mono []) in
+    R.first_nonzero (P.collect p.poly.mono []) >>= (fun (a, e) ->
+    let b = R.coefficient e (P.collect q.poly.mono []) in
     if a = 0 || b = 0 || (a > 0) = (b > 0) then None else
     let cs:list A.coefficient =
       [(0, 1); (absolute b * p.poly.denom, 1); (absolute a * q.poly.denom, 1)] in

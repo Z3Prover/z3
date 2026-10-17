@@ -35,6 +35,15 @@ let distinct_parts (e:expr) : option (list expr) =
   | App f args -> if distinct_app f args then Some args else None
   | _ -> None
 
+let rec has_duplicate (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | a :: rest -> L.mem a rest || has_duplicate rest
+
+let duplicate_rewrite (a b:expr) : bool =
+  b = false_expr &&
+  (match distinct_parts a with Some args -> has_duplicate args | None -> false)
+
 let rec disequalities_from (a:expr) (args:list expr)
   : Tot (list expr) (decreases args) =
   match args with

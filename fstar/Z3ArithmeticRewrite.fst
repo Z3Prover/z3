@@ -17,6 +17,26 @@ let zero_polynomial (p:A.poly) : bool =
 let same_polynomial (p q:A.poly) : bool =
   zero_polynomial (P.add p (P.scale (-1) 1 q))
 
+let rec first_nonzero (ms:list (int & expr))
+  : Tot (option (int & expr)) (decreases ms) =
+  match ms with
+  | [] -> None
+  | (n, e) :: rest -> if n = 0 then first_nonzero rest else Some (n, e)
+
+let rec coefficient (e:expr) (ms:list (int & expr)) : Tot int (decreases ms) =
+  match ms with
+  | [] -> 0
+  | (n, v) :: rest -> if v = e then n else coefficient e rest
+
+let proportional_polynomial (positive:bool) (p q:A.poly) : bool =
+  match first_nonzero (P.collect p.mono []) with
+  | Some (a, e) ->
+    let b = coefficient e (P.collect q.mono []) in
+    a <> 0 && b <> 0 && (not positive || (a > 0) = (b > 0)) &&
+    same_polynomial (P.scale b 1 { p with denom = 1 })
+                    (P.scale a 1 { q with denom = 1 })
+  | None -> false
+
 let constant_truth (p:A.contribution) : option bool =
   if P.all_zero (P.collect p.poly.mono [])
   then Some (if p.strict then p.poly.cst < 0 else p.poly.cst <= 0)
@@ -25,7 +45,9 @@ let constant_truth (p:A.contribution) : option bool =
 let same_constraint (p q:A.contribution) : bool =
   match constant_truth p, constant_truth q with
   | Some x, Some y -> x = y
-  | _, _ -> p.strict = q.strict && same_polynomial p.poly q.poly
+  | _, _ ->
+    p.strict = q.strict &&
+    (same_polynomial p.poly q.poly || proportional_polynomial true p.poly q.poly)
 
 let not_decl : func_decl =
   { decl_name = "not"; domain = [bool_sort]; range = bool_sort;
@@ -80,8 +102,17 @@ let equation_of (e:expr) : option A.poly =
 
 let equation_equivalent (a b:expr) : bool =
   match equation_of a, equation_of b with
-  | Some p, Some q -> same_polynomial p q
+  | Some p, Some q ->
+    same_polynomial p q || same_polynomial p (P.scale (-1) 1 q) ||
+    proportional_polynomial false p q
   | _, _ -> false
+
+let constant_equation (e result:expr) : bool =
+  match equation_of e with
+  | Some p ->
+    P.all_zero (P.collect p.mono []) &&
+    result = (if p.cst = 0 then true_expr else false_expr)
+  | None -> false
 
 let split_equation (e bounds:expr) : bool =
   match equation_of e, bounds with
@@ -96,6 +127,13 @@ let split_equation (e bounds:expr) : bool =
 
 let triangle_equality (e:expr) : bool =
   match e with
+  | App f [App nf [eq]; bound] ->
+    B.connective_app B.Disjunction f [App nf [eq]; bound] && nf = not_decl &&
+    (match equation_of eq, constraint_of 16 true bound with
+     | Some p, Some q ->
+       same_constraint q { P.poly = p; strict = false } ||
+       same_constraint q { P.poly = P.scale (-1) 1 p; strict = false }
+     | _, _ -> false)
   | App f [eq; App lf [l]; App uf [u]] ->
     B.connective_app B.Disjunction f [eq; App lf [l]; App uf [u]] &&
     lf = not_decl && uf = not_decl &&
@@ -104,7 +142,8 @@ let triangle_equality (e:expr) : bool =
 
 let equivalent (a b:expr) : bool =
   boolean_equivalent a b || numeric_equivalent a b ||
-  equation_equivalent a b || split_equation a b || split_equation b a
+  equation_equivalent a b || constant_equation a b || constant_equation b a ||
+  split_equation a b || split_equation b a
 
 let lemma_zero_polynomial (p:A.poly) (rho:expr -> real)
   : Lemma (requires zero_polynomial p) (ensures P.value p rho == 0.0R) =
@@ -118,6 +157,56 @@ let lemma_same_polynomial (p q:A.poly) (x y:real) (rho:expr -> real)
   E.lemma_denotes_add p (P.scale (-1) 1 q) x (0.0R -. y) rho;
   lemma_zero_polynomial (P.add p (P.scale (-1) 1 q)) rho;
   assert (of_int (P.add p (P.scale (-1) 1 q)).denom >. 0.0R)
+
+let lemma_denotes_zero (p:A.poly) (x:real) (rho:expr -> real)
+  : Lemma (requires E.denotes p x rho)
+          (ensures P.value p rho == 0.0R <==> x == 0.0R) =
+  assert (of_int p.denom >. 0.0R);
+  assert (P.value p rho == of_int p.denom *. x)
+
+let lemma_scaled_signs (a b x y:real)
+  : Lemma (requires ~(a == 0.0R) /\ ~(b == 0.0R) /\ b *. x == a *. y)
+          (ensures (x == 0.0R <==> y == 0.0R) /\
+                   ((a >. 0.0R <==> b >. 0.0R) ==>
+                    (x <. 0.0R <==> y <. 0.0R) /\
+                    (x <=. 0.0R <==> y <=. 0.0R))) =
+  if a >. 0.0R then () else ()
+
+let lemma_proportional_polynomial (positive:bool) (p q:A.poly) (rho:expr -> real)
+  : Lemma (requires proportional_polynomial positive p q)
+          (ensures (P.value p rho == 0.0R <==> P.value q rho == 0.0R) /\
+                   (positive ==>
+                    (P.value p rho <. 0.0R <==> P.value q rho <. 0.0R) /\
+                    (P.value p rho <=. 0.0R <==> P.value q rho <=. 0.0R))) =
+  let a, e = Some?.v (first_nonzero (P.collect p.mono [])) in
+  let b = coefficient e (P.collect q.mono []) in
+  let raw_p = { p with denom = 1 } in
+  let raw_q = { q with denom = 1 } in
+  let x = P.value p rho in
+  let y = P.value q rho in
+  P.lemma_scale b 1 raw_p rho;
+  P.lemma_scale a 1 raw_q rho;
+  lemma_same_polynomial (P.scale b 1 raw_p) (P.scale a 1 raw_q)
+                        (of_int b *. x) (of_int a *. y) rho;
+  lemma_scaled_signs (of_int a) (of_int b) x y
+
+let lemma_equation_polynomials (p q:A.poly) (rho:expr -> real)
+  : Lemma (requires same_polynomial p q || same_polynomial p (P.scale (-1) 1 q) ||
+                    proportional_polynomial false p q)
+          (ensures P.value p rho == 0.0R <==> P.value q rho == 0.0R) =
+  if proportional_polynomial false p q then lemma_proportional_polynomial false p q rho
+  else (
+    let x = P.value p rho /. of_int p.denom in
+    let y = P.value q rho /. of_int q.denom in
+    assert (of_int p.denom >. 0.0R /\ of_int q.denom >. 0.0R);
+    assert (E.denotes p x rho /\ E.denotes q y rho);
+    if same_polynomial p q then lemma_same_polynomial p q x y rho
+    else (
+      E.lemma_denotes_negative q y rho;
+      lemma_same_polynomial p (P.scale (-1) 1 q) x (0.0R -. y) rho);
+    assert (x == 0.0R <==> y == 0.0R);
+    lemma_denotes_zero p x rho;
+    lemma_denotes_zero q y rho)
 
 let lemma_constant_truth (p:A.contribution) (rho:expr -> real) (b:bool)
   : Lemma (requires constant_truth p == Some b)
@@ -133,11 +222,14 @@ let lemma_same_constraint (p q:A.contribution) (rho:expr -> real)
     lemma_constant_truth p rho x;
     lemma_constant_truth q rho y
   | _, _ ->
-    let x = P.value p.poly rho /. of_int p.poly.denom in
-    let y = P.value q.poly rho /. of_int q.poly.denom in
-    assert (E.denotes p.poly x rho /\ E.denotes q.poly y rho);
-    lemma_same_polynomial p.poly q.poly x y rho;
-    assert (of_int p.poly.denom >. 0.0R /\ of_int q.poly.denom >. 0.0R)
+    if proportional_polynomial true p.poly q.poly then
+      lemma_proportional_polynomial true p.poly q.poly rho
+    else (
+      let x = P.value p.poly rho /. of_int p.poly.denom in
+      let y = P.value q.poly rho /. of_int q.poly.denom in
+      assert (E.denotes p.poly x rho /\ E.denotes q.poly y rho);
+      lemma_same_polynomial p.poly q.poly x y rho;
+      assert (of_int p.poly.denom >. 0.0R /\ of_int q.poly.denom >. 0.0R))
 
 (* These are local value-typing premises, not the global all-environments
    typing contract used by the older embedding. *)
@@ -283,13 +375,26 @@ let lemma_equation_equivalent (a b:expr) (i:interpretation value)
   let rv = E.valuation i nu rho in
   lemma_equation_of a p i nu rho;
   lemma_equation_of b q i nu rho;
-  let x = P.value p rv /. of_int p.denom in
-  let y = P.value q rv /. of_int q.denom in
-  lemma_same_polynomial p q x y rv;
-  assert (of_int p.denom >. 0.0R /\ of_int q.denom >. 0.0R);
+  lemma_equation_polynomials p q rv;
+  assert (lit_true i rho a <==> lit_true i rho b);
   match eval i a rho, eval i b rho with
   | VBool _, VBool _ -> ()
   | _, _ -> ()
+
+let lemma_constant_equation (e result:expr) (i:interpretation value)
+                            (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ eq_sound i /\
+                    Z3ObservationalEquality.boolean_model i /\
+                    true_sound i /\ false_sound i /\ constant_equation e result)
+          (ensures eval i e rho == eval i result rho) =
+  let p = Some?.v (equation_of e) in
+  let rv = E.valuation i nu rho in
+  lemma_equation_of e p i nu rho;
+  P.lemma_collect p.mono [] rv;
+  P.lemma_all_zero (P.collect p.mono []) rv;
+  match eval i e rho with
+  | VBool _ -> ()
+  | _ -> ()
 
 let lemma_split_equation (e bounds:expr) (i:interpretation value)
                          (nu:value -> real) (rho:env value)
@@ -329,6 +434,20 @@ let lemma_triangle_equality (e:expr) (i:interpretation value)
                     Z3ObservationalEquality.boolean_model i /\ triangle_equality e)
           (ensures lit_true i rho e) =
   match e with
+  | App f [App nf [eq]; bound] ->
+    let p = Some?.v (equation_of eq) in
+    let q = Some?.v (constraint_of 16 true bound) in
+    let rv = E.valuation i nu rho in
+    lemma_equation_of eq p i nu rho;
+    lemma_boolean_values 16 true i rho bound;
+    lemma_constraint_of 16 true bound q i nu rho;
+    if same_constraint q { P.poly = p; strict = false }
+    then lemma_same_constraint q { P.poly = p; strict = false } rv
+    else (
+      lemma_same_constraint q { P.poly = P.scale (-1) 1 p; strict = false } rv;
+      P.lemma_scale (-1) 1 p rv);
+    assert (lit_true i rho eq ==> lit_true i rho bound);
+    (match eval i eq rho with VBool _ -> () | _ -> ())
   | App f [eq; App lf [l]; App uf [u]] ->
     let bounds = App (B.connective_decl B.Conjunction [l; u]) [l; u] in
     lemma_split_equation eq bounds i nu rho;
@@ -351,6 +470,8 @@ let lemma_equivalent_with_numeric_model (a b:expr) (i:interpretation value) (rho
       lemma_boolean_equivalent a b i nu rho)
     else if numeric_equivalent a b then lemma_numeric_equivalent a b i nu rho
     else if equation_equivalent a b then lemma_equation_equivalent a b i nu rho
+    else if constant_equation a b then lemma_constant_equation a b i nu rho
+    else if constant_equation b a then lemma_constant_equation b a i nu rho
     else if split_equation a b then lemma_split_equation a b i nu rho
     else lemma_split_equation b a i nu rho
   in

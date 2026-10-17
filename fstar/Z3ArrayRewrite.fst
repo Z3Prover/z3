@@ -55,6 +55,33 @@ let ite_contract (e:expr) : option expr =
     else if c = false_expr then Some u else None
   | None -> None
 
+let ite_merge (e:expr) : option expr =
+  match ite_parts e with
+  | Some (c, t, u) ->
+    (match ite_parts u with
+    | Some (d, a, b) ->
+      if t = a then
+        let condition = App (connective_decl Disjunction [c; d]) [c; d] in
+        Some (App (term_ite_decl (get_sort t)) [condition; t; b])
+      else None
+    | None ->
+      (match ite_parts t with
+       | Some (d, a, b) ->
+         if u = b then
+           let condition = App (connective_decl Conjunction [c; d]) [c; d] in
+           Some (App (term_ite_decl (get_sort a)) [condition; a; u])
+         else None
+       | None -> None))
+  | None -> None
+
+let ite_equivalent (s t:expr) : bool =
+  match ite_parts s, ite_parts t with
+  | Some (c, a, b), Some (d, u, v) ->
+    (a = u && b = v && boolean_equiv 8 10 c d) ||
+    (a = v && b = u &&
+     (c = mk_not_expr d || d = mk_not_expr c || boolean_equiv 8 10 c (mk_not_expr d)))
+  | _, _ -> false
+
 let contract (e:expr) : option expr =
   match store_contract e with
   | Some t -> Some t
@@ -77,6 +104,22 @@ let lemma_ite_parts (i:interpretation value) (rho:env value) (e c t u:expr)
           (ensures eval i e rho ==
                    (if bool_value (eval i c rho) then eval i t rho else eval i u rho))
   = match e with App _ [_; _; _] -> () | _ -> ()
+
+let lemma_ite_equivalent (i:interpretation value) (rho:env value) (s t:expr)
+  : Lemma (requires rewrite_model i /\ ite_equivalent s t)
+          (ensures eval i s rho == eval i t rho) =
+  match ite_parts s, ite_parts t with
+  | Some (c, a, b), Some (d, u, v) ->
+    lemma_ite_parts i rho s c a b;
+    lemma_ite_parts i rho t d u v;
+    if a = u && b = v && boolean_equiv 8 10 c d then
+      lemma_boolean_equiv_sound 8 10 i rho c d
+    else if c <> mk_not_expr d && d <> mk_not_expr c then
+      lemma_boolean_equiv_sound 8 10 i rho c (mk_not_expr d);
+    (match eval i c rho, eval i d rho with
+     | VBool _, VBool _ -> ()
+     | _, _ -> ())
+  | _, _ -> ()
 
 let lemma_store_contract (i:interpretation value) (rho:env value) (e t:expr)
   : Lemma (requires array_model i /\ store_contract e == Some t)
@@ -121,6 +164,36 @@ let lemma_ite_contract (i:interpretation value) (rho:env value) (e t:expr)
         (match c with App _ [_; _] -> () | _ -> ())
     | None -> ()
 
+let lemma_ite_merge_sound (i:interpretation value) (rho:env value) (e t:expr)
+  : Lemma (requires rewrite_model i /\ ite_merge e == Some t)
+          (ensures eval i e rho == eval i t rho) =
+  match ite_parts e with
+  | Some (c, a, b) ->
+      lemma_ite_parts i rho e c a b;
+      (match ite_parts b with
+      | Some (d, u, v) ->
+        let condition = App (connective_decl Disjunction [c; d]) [c; d] in
+        lemma_ite_parts i rho b d u v;
+        lemma_ite_parts i rho t condition a v;
+        assert (lit_true i rho condition <==>
+                (lit_true i rho c \/ lit_true i rho d));
+        (match eval i c rho, eval i d rho, eval i condition rho with
+         | VBool _, VBool _, VBool _ -> ()
+         | _, _, _ -> ())
+      | None ->
+        (match ite_parts a with
+         | Some (d, u, v) ->
+           let condition = App (connective_decl Conjunction [c; d]) [c; d] in
+           lemma_ite_parts i rho a d u v;
+           lemma_ite_parts i rho t condition u b;
+           assert (lit_true i rho condition <==>
+                   (lit_true i rho c /\ lit_true i rho d));
+           (match eval i c rho, eval i d rho, eval i condition rho with
+            | VBool _, VBool _, VBool _ -> ()
+            | _, _, _ -> ())
+         | None -> ()))
+  | None -> ()
+
 let lemma_contract (i:interpretation value) (rho:env value) (e t:expr)
   : Lemma (requires rewrite_model i /\ contract e == Some t)
           (ensures eval i e rho == eval i t rho)
@@ -157,6 +230,8 @@ let rec equivalent (fuel:nat) (s t:expr)
   : Tot bool (decreases %[fuel; 0]) =
   if s = t then true
   else if fuel = 0 || get_sort s <> get_sort t then false
+  else let _ = assert (fuel > 0) in
+  if ite_equivalent s t then true
   else match contract s, contract t with
   | Some a, _ -> equivalent (fuel - 1) a t
   | None, Some b -> equivalent (fuel - 1) s b
@@ -177,6 +252,12 @@ let rec equivalent (fuel:nat) (s t:expr)
       | Some a, _ -> equivalent (fuel - 1) a t
       | None, Some b -> equivalent (fuel - 1) s b
       | None, None ->
+        let merged =
+          match ite_merge s, ite_merge t with
+          | Some a, _ -> equivalent (fuel - 1) a t
+          | None, Some b -> equivalent (fuel - 1) s b
+          | None, None -> false in
+        if merged then true else
         (match ite_parts s, ite_parts t with
          | Some (_, a, b), _ ->
            equivalent (fuel - 1) a t && equivalent (fuel - 1) b t
@@ -197,6 +278,8 @@ let rec lemma_equivalent_sound (fuel:nat) (i:interpretation value) (rho:env valu
           (ensures eval i s rho == eval i t rho)
           (decreases %[fuel; 0]) =
   if s = t || fuel = 0 then ()
+  else let _ = assert (fuel > 0) in
+  if ite_equivalent s t then lemma_ite_equivalent i rho s t
   else match contract s, contract t with
   | Some a, _ ->
     lemma_contract i rho s a;
@@ -236,6 +319,21 @@ let rec lemma_equivalent_sound (fuel:nat) (i:interpretation value) (rho:env valu
         lemma_expand_read i rho t b;
         lemma_equivalent_sound (fuel - 1) i rho s b
       | None, None ->
+        let merged =
+          match ite_merge s, ite_merge t with
+          | Some a, _ -> equivalent (fuel - 1) a t
+          | None, Some b -> equivalent (fuel - 1) s b
+          | None, None -> false in
+        if merged then (
+          match ite_merge s, ite_merge t with
+          | Some a, _ ->
+            lemma_ite_merge_sound i rho s a;
+            lemma_equivalent_sound (fuel - 1) i rho a t
+          | None, Some b ->
+            lemma_ite_merge_sound i rho t b;
+            lemma_equivalent_sound (fuel - 1) i rho s b
+          | None, None -> ())
+        else
         (match ite_parts s, ite_parts t with
          | Some (c, a, b), _ ->
            lemma_ite_parts i rho s c a b;

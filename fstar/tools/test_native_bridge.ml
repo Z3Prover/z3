@@ -139,6 +139,30 @@ let native_integer_tightening () =
       | Some pending -> Z.sign pending > 0 | None -> true)
     "integer tightening without its actual premise was certified"
 
+let distinct_reflexivity () =
+  let c = context () in
+  let check expected declarations left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let formula = B.cached_expression st (List.hd inputs) in
+    let conclusion = Option.get (U.classify_fact formula) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect distinct rewrite: " ^ left ^ " -> " ^ right)
+  in
+  check true "(declare-const x Int)" "(distinct x x)" "false";
+  check true "(declare-const x Int)(declare-const y Int)" "(distinct x y x)" "false";
+  check true "(declare-const x Real)" "(distinct x x)" "false";
+  check true "(declare-sort S 0)(declare-const x S)" "(distinct x x)" "false";
+  check true "(declare-const a (Array Int Int))" "(distinct a a)" "false";
+  check false "(declare-const x Int)(declare-const y Int)" "(distinct x y)" "false";
+  check false "(declare-const x Int)" "(distinct x x)" "true";
+  let x = A.Var (Z.zero, A.BaseSort "Int") in
+  let declaration = Z3DistinctAst.distinct_decl (A.BaseSort "Int") (Z.of_int 2) in
+  let malformed = A.App ({ declaration with A.interp = None }, [x; x]) in
+  require (not (U.check_step U.RewriteRule
+      (U.Equal (malformed, Z3ResolutionProofTheory.false_expr)) []))
+    "an uninterpreted distinct name was trusted"
+
 let integer_tightening_candidates () =
   let c = context () in
   let check expected declarations premise conclusion =
@@ -260,6 +284,67 @@ let native_bound () =
        (assert (<= x 1.0))" in
   require (P.check_document doc = Some Z.zero)
     "native bound certificate did not replay through exact Farkas checking"
+
+let native_assign_bounds () =
+  let text = Buffer.create 1024 in
+  for i = 0 to 4 do
+    Buffer.add_string text (Printf.sprintf "(declare-const x%d Int)" i)
+  done;
+  let add formula = Buffer.add_string text ("(assert " ^ formula ^ ")") in
+  for i = 0 to 3 do
+    add (Printf.sprintf "(>= (- x%d x4) 0)" i);
+    add (Printf.sprintf "(<= (- x%d x4) 3)" i)
+  done;
+  for i = 0 to 3 do
+    for j = i + 1 to 3 do
+      List.iter (fun d ->
+          let numeral = if d < 0 then Printf.sprintf "(- %d)" (-d) else string_of_int d in
+          add (Printf.sprintf "(not (= (- x%d x%d) %s))" i j numeral))
+        [0; j - i; i - j; 4 + i - j; j - i - 4]
+    done
+  done;
+  let assertions, proof = unsat (Buffer.contents text) in
+  let st = B.marshal_expressions (B.empty_state ()) assertions in
+  let st = B.marshal_proof_jobs st [B.VisitProof proof] in
+  let seen = Hashtbl.create 32 in
+  let checked = ref 0 in
+  let rec visit = function
+    | [] -> ()
+    | p :: rest ->
+        let id = N.ast_id p in
+        if Hashtbl.mem seen id then visit rest else begin
+          Hashtbl.add seen id ();
+          let view = N.view_proof p in
+          let c = N.ctx p in
+          let declaration = Z3native.get_app_decl c (Z3native.to_app c p) in
+          let is_assign_bounds =
+            Z3native.get_decl_num_parameters c declaration >= 2 &&
+            Z3enums.parameter_kind_of_int
+              (Z3native.get_decl_parameter_kind c declaration 1) = Z3enums.PARAMETER_SYMBOL &&
+            N.symbol c (Z3native.get_decl_symbol_parameter c declaration 1) = "assign-bounds" in
+          if is_assign_bounds then begin
+            incr checked;
+            let formula = B.cached_expression st view.conclusion in
+            let conclusion = Option.get (U.classify_fact formula) in
+            let facts = List.map (fun p ->
+                Option.get (U.classify_fact (B.cached_expression st (N.view_proof p).conclusion)))
+                view.premises in
+            let rule = B.native_rule view formula in
+            require (U.checked_theory_lemma rule conclusion facts)
+              "authentic assign-bounds weights did not replay";
+            let coefficients = match rule with
+              | U.ArithmeticFarkas cs -> cs
+              | _ -> failwith "assign-bounds parameters were not decoded" in
+            List.iter (fun cs ->
+                require (not (U.checked_theory_lemma (U.ArithmeticFarkas cs) conclusion facts))
+                  "corrupt assign-bounds weights were trusted")
+              [[]; List.map (fun (_, d) -> Z.zero, d) coefficients]
+          end;
+          visit (view.premises @ rest)
+        end
+  in
+  visit [proof];
+  require (!checked > 0) "fixture contained no authentic assign-bounds hints"
 
 let strict_inputs_and_scopes () =
   let doc = document "(assert false)" in
@@ -416,6 +501,41 @@ let arithmetic_rewrites () =
   check true reals "(* (- 1) 6 x)" "(* (- 6) x)";
   check true reals "(/ 1 4)" "0.25";
   check true reals "(= x (+ 1 y))" "(= (+ x (* (- 1) y)) 1)";
+  check true ints "(= 7 8)" "false";
+  check true ints "false" "(= 7 8)";
+  check true reals "(= (/ 1 4) 0.25)" "true";
+  check true reals "(= 0.25 0.5)" "false";
+  check true ints "(= (+ x 2) (+ 2 x))" "true";
+  check false ints "(= 7 8)" "true";
+  check false reals "(= (/ 1 4) 0.25)" "false";
+  check false ints "(= x 7)" "false";
+  check true ints "(= (+ (* (- 1) x) y) 0)" "(= (+ x (* (- 1) y)) 0)";
+  check true reals "(= (+ (* (- 1) x) y) 3)" "(= (+ x (* (- 1) y)) (- 3))";
+  check false reals "(= (+ (* (- 1) x) y) 3)" "(= (+ x (* (- 1) y)) 3)";
+  check true ints "(= (+ (* 6 x) (* 3 y)) 9)" "(= (+ (* 2 x) y) 3)";
+  check true reals "(= (* (- 2) x) 3)" "(= x (- 1.5))";
+  check false ints "(= (+ (* 6 x) (* 3 y)) 9)" "(= (+ (* 2 x) y) 4)";
+  check true reals "(<= (+ 10 (* 6 x)) 40)" "(<= x 5)";
+  check true reals "(<= (* 2 x) 3)" "(<= x 1.5)";
+  check true reals "(< (* (- 2) x) 3)" "(> x (- 1.5))";
+  check true ints "(<= (* 6 x) 18)" "(<= x 3)";
+  check false reals "(<= (* (- 2) x) 3)" "(<= x (- 1.5))";
+  check false reals "(< (* 2 x) 3)" "(<= x 1.5)";
+  check true ints "(ite (not (= x y)) 1 2)" "(ite (= x y) 2 1)";
+  check true reals "(ite (= x y) x y)" "(ite (not (= x y)) y x)";
+  check false ints "(ite (not (= x y)) 1 2)" "(ite (= x y) 1 2)";
+  let branches = "(declare-sort U 0)(declare-const a U)(declare-const b U)\
+                  (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)" in
+  check true branches "(ite p a (ite q a b))" "(ite (or p q) a b)";
+  check true branches "(ite p a (ite q a b))" "(ite p (ite true a b) (ite q a b))";
+  check true branches "(ite (or p q) a b)" "(ite p a (ite q a b))";
+  check true branches "(ite p a (ite q a (ite r a b)))" "(ite (or p (or q r)) a b)";
+  check false branches "(ite p a (ite q b a))" "(ite (or p q) a b)";
+  check false branches "(ite p a (ite q a b))" "(ite (and p q) a b)";
+  check true branches "(ite p (ite q a b) b)" "(ite (and p q) a b)";
+  check true branches "(ite (not p) (ite q a b) b)" "(ite (or p (not q)) b a)";
+  check true branches "(ite (not (and p q)) a b)" "(ite (or (not p) (not q)) a b)";
+  check false branches "(ite (not p) (ite q a b) b)" "(ite (or p q) b a)";
   check true reals "(= x y)" "(and (<= x y) (>= x y))";
   check true reals "(and (<= x y) (>= x y))" "(= x y)";
   check true ints "(= x y)" "(and (<= x y) (>= x y))";
@@ -445,6 +565,10 @@ let arithmetic_triangle_clauses () =
       "an assumed NLSAT origin bypassed obligation tracking"
   in
   check true "(or (= x y) (not (<= (- x y) 0)) (not (>= (- x y) 0)))";
+  check true "(or (not (= x y)) (<= (- x y) 0))";
+  check true "(or (not (= x y)) (>= (- x y) 0))";
+  check false "(or (not (= x y)) (< (- x y) 0))";
+  check false "(or (not (= x y)) (<= (- x y) (- 1)))";
   check false "(or (= x y) (not (< (- x y) 0)) (not (>= (- x y) 0)))";
   check false "(or (= x y) (not (<= (- x y) 0)) (not (<= (- x y) 0)))";
   check false "(or (= x (+ 1 y)) (not (<= (- x y) 0)) (not (>= (- x y) 0)))"
@@ -552,7 +676,9 @@ let () =
      "proof-DAG-cache", proof_cache;
      "exact-native-numerals", exact_numerals;
      "authentic-Farkas-parameters", native_farkas;
+     "certified-assign-bounds-parameters", native_assign_bounds;
      "checked-native-integer-LP-tightening", native_integer_tightening;
+     "certified-duplicate-distinct-rewrites", distinct_reflexivity;
      "integer-tightening-candidate-mutations", integer_tightening_candidates;
      "typed-native-LP-certificate-decoding", native_lp_certificates;
      "authentic-bound-parameters", native_bound;

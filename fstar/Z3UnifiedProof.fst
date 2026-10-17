@@ -172,6 +172,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | RewriteRule | ApplyDefinition ->
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
+                      Z3DistinctAst.duplicate_rewrite a b ||
                       boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
@@ -480,6 +481,8 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
        | RewriteRule | ApplyDefinition ->
          if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
+         else if Z3DistinctAst.duplicate_rewrite a b then
+           Z3DistinctEmbed.lemma_duplicate_rewrite_sound i rho a b
          else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
          else AR.lemma_equivalent_with_numeric_model a b i rho
