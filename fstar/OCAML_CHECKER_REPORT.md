@@ -391,6 +391,83 @@ Kernel equality/rewriting can inspect recursive expression contents;
 this change is not a constant-time-identity optimization of every kernel
 operation.
 
+### Profiling and checked fast paths (2026-10-18)
+
+The native entry point now uses `check_document_indexed` and
+`diagnose_document_indexed`. `Z3ProofSet.fst` builds a tail-recursive,
+persistent hash-bucket index of the expanded input judgments. Every
+bucket lookup still checks structural membership: hash collisions never
+establish equality. The membership theorem holds for every pure
+`judgment -> nat` hash, including a constant hash. The native adapter uses
+OCaml's bounded `Hashtbl.hash`; no new semantic or per-proof axiom is
+introduced. `lemma_check_document_indexed` proves equality with the
+linear document checker, including rejection and pending-obligation
+counts. The original standalone interfaces remain available.
+
+Index construction is skipped when there are at most 16 inputs or at
+most 16 asserted proof entries. This avoids paying setup costs for a
+small proof using only a few of a larger assertion set. The index belongs
+to one document and is never reused across contexts.
+
+Congruence checking first tries matching non-reflexive argument pairs
+against premises in order. A successful ordered match implies the
+original arbitrary-premise match; unsuccessful attempts retain that
+original fallback. `lemma_fast_arguments_match` proves exact Boolean
+equivalence, so reordered premises and previously supported proof shapes
+remain accepted. This removes repeated scans and temporary edge-pair
+allocation on wide producer congruences.
+
+Three alternating before/after runs against baseline `434601e51`, using
+uninstrumented binaries on the same inputs, gave these median kernel
+`check_ms` measurements:
+
+| Input | Proof nodes | Before | After | Speedup |
+|---|---:|---:|---:|---:|
+| Generated 1,500-literal clause and negated units | 3,008 | 81.529 ms | 11.294 ms | 7.22x |
+| Generated 6,000-literal clause and negated units | 12,008 | 1,226.374 ms | 46.470 ms | 26.39x |
+| Generated 800-link UF equality chain | 3,211 | 13.969 ms | 7.290 ms | 1.92x |
+| Generated 3,200-link UF equality chain | 12,811 | 164.353 ms | 33.511 ms | 4.90x |
+| Generated 500-link real inequality chain | 1,507 | 23.672 ms | 20.386 ms | 1.16x |
+| Generated 2,000-link real inequality chain | 6,007 | 285.217 ms | 221.167 ms | 1.29x |
+| Pinned z3test `regressions/smt2/3209.smt2` | 16 | 0.211 ms | 0.218 ms | approximately unchanged |
+
+These exclude solving, marshaling, and process startup. All verdicts and
+proof-node counts matched; five other pinned public regression inputs
+were SAT in both binaries and are not checker-speed measurements. The
+public inputs use z3test commit
+`b8d11d8edb5ebf7d8693fc58b875c6f90720c6c9`. The generated workloads are
+scaling probes, not a substitute for the previously archived SMT-LIB
+certificates, which were unavailable on this host. Raw per-run timings,
+input/binary hashes, and profiles are retained as session artifacts.
+An instrumented allocation comparison on the 1,500-literal probe reduced
+checking allocation from about 100.0 MB to 11.4 MB; its congruence node
+dropped from 90.2 MB to 0.217 MB. These are cumulative allocation samples,
+not peak-memory measurements. After the changes, marshaling dominates
+the UF/Boolean probes, while polynomial/Farkas checking dominates the
+larger real-arithmetic probe.
+
+For function/rule profiling, add `-ProfileChecker` to the build command
+and select a separate `-WslBuildDir`, then run that executable with
+`Z3_FSTAR_PROFILE=1`. Only this optional build instruments the copied
+extracted OCaml sources; normal builds do not link the profiling runtime.
+It emits stderr lines starting with `profile` and a JSON object recording
+the rule/function name, call count, inclusive and exclusive milliseconds,
+and allocated bytes. Selected recursive functions also report visit
+counts. Counters accumulate per process. Allocation is cumulative, not
+peak resident memory; time/allocation include instrumentation overhead,
+so these profiles locate hot paths rather than establish speedups.
+Without the environment variable the profiling build remains silent.
+
+Formal verification/extraction and the 34 native bridge groups and 21 CLI
+tests pass. New mutations cover constant/large hashes, colliding keys,
+duplicate and missing assertions, unchanged pending obligations and
+diagnostics, reordered congruence premises, and missing/reversed
+argument evidence. Profiling-runtime tests check nested accounting,
+return values, exception propagation, and JSON escaping.
+The 23 targeted rule/pulling/negative-NNF examples still all `ACCEPT`.
+The pinned 17-file corpus remains 16 `ACCEPT` and one solver `UNKNOWN`
+(`lra_lassoranker.smt2` at 10 seconds), with no partials or errors.
+
 ### Build, status, and trust boundary
 
 Every invocation first uses CMake to **build and install Windows Z3 from

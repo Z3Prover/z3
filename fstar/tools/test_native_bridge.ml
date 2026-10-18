@@ -26,7 +26,10 @@ let unsat text =
 
 let document text =
   let assertions, proof = unsat text in
-  B.marshal assertions proof
+  let doc = B.marshal assertions proof in
+  require (P.check_document_indexed (fun value -> Z.of_int (Hashtbl.hash value)) doc =
+           P.check_document doc) "indexed and linear checker results differ";
+  doc
 
 let shared_expressions () =
   let c = context () in
@@ -376,6 +379,64 @@ let strict_inputs_and_scopes () =
   let invalid = { hypothesis with rule = U.ModusPonens } in
   require (P.check_document { doc with entries = doc.entries @ [invalid] } = None)
     "unreachable malformed proof entry was ignored"
+
+let indexed_assertion_membership () =
+  let source = List.init 40 (fun i ->
+    Printf.sprintf "(declare-const p%d Bool)(assert p%d)" i i) |>
+    String.concat "" in
+  let doc = document (source ^ "(assert false)") in
+  let doc = { doc with entries = doc.entries @
+    List.map (fun formula -> { P.rule = U.Asserted; formula; premise_ids = [] }) doc.assertions } in
+  require (List.length doc.assertions > 16) "fixture did not exercise the assertion index";
+  require (P.enough_asserted (Z.of_int 17) doc.entries)
+    "fixture had too few asserted leaves to build the index";
+  let false_expr = Z3ResolutionProofTheory.false_expr in
+  let missing = { doc with assertions = List.filter ((<>) false_expr) doc.assertions } in
+  let duplicate = { doc with assertions = List.rev (doc.assertions @ doc.assertions) } in
+  let leaf = { P.rule = U.Unverified "unsupported-index-fixture";
+               formula = false_expr; premise_ids = [] } in
+  let pending = { doc with entries = [leaf]; root = Z.zero } in
+  let forward = { pending with entries = [{ leaf with premise_ids = [Z.zero] }] } in
+  List.iter (fun hash ->
+    List.iter (fun fixture ->
+      require (P.check_document_indexed hash fixture = P.check_document fixture)
+        "indexed membership changed acceptance, rejection, or obligations";
+      require (P.diagnose_document_indexed hash fixture = P.diagnose_document fixture)
+        "indexed membership changed typed diagnostics")
+      [doc; missing; duplicate; pending; forward; { doc with assertions = [] }];
+    require (P.check_document_indexed hash missing = None)
+      "colliding hash certified an unregistered assertion")
+    [(fun _ -> Z.zero); (fun _ -> Z.of_string "999999999999999999999999999999999999999");
+     (fun value -> Z.of_int (Hashtbl.hash value))];
+  let values = [Z.zero; Z.one; Z.one; Z.of_int 65521] in
+  List.iter (fun hash ->
+    let index = Z3ProofSet.of_list hash values in
+    List.iter (fun query ->
+      require (Z3ProofSet.member hash query index = List.mem query values)
+        "hash bucket did not preserve exact membership")
+      [Z.zero; Z.one; Z.of_int 2; Z.of_int 65521])
+    [(fun _ -> Z.zero); (fun value -> value)]
+
+let ordered_congruence_matching () =
+  let atom name = A.App ({
+    A.decl_name = name; domain = []; range = A.BaseSort "Bool";
+    interp = None; int_params = [];
+  }, []) in
+  let x, y, z = atom "x", atom "y", atom "z" in
+  List.iter (fun relation ->
+    List.iter (fun (left, right, facts, expected) ->
+      require (U.fast_arguments_match relation left right facts = expected)
+        "congruence fast path accepted a missing or reversed argument";
+      require (U.fast_arguments_match relation left right facts =
+               U.arguments_match relation left right facts)
+        "congruence fast path changed matching semantics")
+      [([x; y; z], [y; z; z], [U.Equal (x, y); U.Equal (y, z)], true);
+       ([x; y; z], [y; z; z], [U.Equal (y, z); U.Equal (x, y)], true);
+       ([x; y], [y; z], [U.Equal (x, y)], false);
+       ([x], [y], [U.Equal (y, x)], false);
+       ([x], [], [], false);
+       ([x], [x], [], true)])
+    [U.Equality; U.Observation]
 
 let typed_diagnostics () =
   let doc = document "(assert false)" in
@@ -1441,6 +1502,8 @@ let () =
      "typed-native-LP-certificate-decoding", native_lp_certificates;
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
+     "indexed-assertion-membership", indexed_assertion_membership;
+     "ordered-congruence-matching", ordered_congruence_matching;
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;

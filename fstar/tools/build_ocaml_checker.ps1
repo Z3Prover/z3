@@ -60,6 +60,13 @@
 .PARAMETER RunTests
   Verify F*/Pulse regressions and execute native bridge and CLI tests.
 
+.PARAMETER ProfileChecker
+  Instrument copied OCaml sources for per-rule/function time, allocation,
+  and recursive expression-visit counts. Set Z3_FSTAR_PROFILE=1 at runtime
+  to emit JSON records prefixed by "profile" on stderr. Use a separate
+  WslBuildDir; instrumented timings
+  include profiling overhead and are not production performance measurements.
+
 .PARAMETER BuildJobs
   Maximum parallel C++ build jobs. On Linux the same Z3 installation is
   used for verification and native linking; WslBuildDir is a local output
@@ -74,6 +81,7 @@ param(
   [string]$Z3BuildDir = "~/z3-native-ffi-build",
   [string]$CacheDir = "",
   [switch]$RunTests,
+  [switch]$ProfileChecker,
   [ValidateRange(1, 256)]
   [int]$BuildJobs = 16
 )
@@ -127,7 +135,7 @@ try {
   # Dependencies must be cached before their dependents are extracted.
   $modules = @(
     "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
-    "Z3ValueTheory.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst",
+    "Z3ValueTheory.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3ProofSet.fst",
     "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
     "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
@@ -188,7 +196,7 @@ try {
     "prims.ml", "fStar_Pervasives.ml", "fStar_Pervasives_Native.ml", "fStar_List_Tot_Base.ml",
     "fStar_UInt.ml", "fStar_FunctionalExtensionality.ml",
     "Z3AstTheory.ml", "Z3ArrayTheory.ml", "Z3SeqTheory.ml", "Z3BvTheory.ml", "Z3ValueTheory.ml",
-    "Z3ProofTheory.ml", "Z3ProofIndex.ml",
+    "Z3ProofTheory.ml", "Z3ProofIndex.ml", "Z3ProofSet.ml",
     "Z3ResolutionProofTheory.ml", "Z3ObservationalEquality.ml",
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
@@ -202,6 +210,7 @@ try {
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
+  if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
   $orderStr = $order -join " "
   $extractedOrderStr = ($order | Where-Object {
     -not (Test-Path (Join-Path (Join-Path $fstarDir "ocaml_runtime") $_))
@@ -217,6 +226,15 @@ ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install
   z3ml.cmxa $testOrder test_native_bridge.ml -o native-tests
 ./native-tests
 "@
+    if ($ProfileChecker) {
+      $testScript += @"
+
+cp "$wslFstarDir/tools/test_ocaml_profile.ml" .
+ocamlfind ocamlopt -warn-error +a -package unix -linkpkg \
+  Z3Profile.ml test_ocaml_profile.ml -o profile-tests
+Z3_FSTAR_PROFILE=1 ./profile-tests
+"@
+    }
   }
   $linkSetup = @"
 z3_build=$Z3BuildDir
@@ -230,6 +248,18 @@ cmake --build "`$z3_build" --parallel $BuildJobs
 cmake --install "`$z3_build"
 "@
   if (-not $windowsHost) { $linkSetup = "z3_install=`"$Z3InstallDir`"" }
+  $profileScript = ""
+  if ($ProfileChecker) {
+    $profileScript = @"
+cp "$wslFstarDir/tools/instrument_ocaml_checker.ml" extraction-tools/
+(
+  cd extraction-tools
+  ocamlfind ocamlopt -warn-error +a -package compiler-libs.common -linkpkg \
+    instrument_ocaml_checker.ml -o instrument-ocaml-checker
+)
+./extraction-tools/instrument-ocaml-checker $extractedOrderStr
+"@
+  }
   $script = @"
 set -euo pipefail
 export PATH="`$HOME/bin:`$PATH"
@@ -254,6 +284,7 @@ cp "$wslFstarDir/tools/complete_ocaml_projectors.ml" extraction-tools/
     complete_ocaml_projectors.ml -o complete-ocaml-projectors
 )
 ./extraction-tools/complete-ocaml-projectors $extractedOrderStr
+$profileScript
 ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \
   -ccopt "-L`$z3_install/lib" \
   z3ml.cmxa $orderStr -o checker
