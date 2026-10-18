@@ -16,9 +16,12 @@ module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
+module IR = Z3IntegerRewrite
+module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
+module QV = Z3QuantifierVacuity
 module QP = Z3QuantifierPull
 module QR = Z3QuantifierReduce
 module DE = Z3DestructiveEquality
@@ -223,9 +226,13 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
                       Z3DistinctAst.duplicate_rewrite a b ||
+                      Z3DistinctEmbed.expansion_rewrite a b ||
                       constant_quantifier_rewrite a b ||
                       boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
-                      QR.equivalent 64 a b || LR.rewrite a b || TN.equivalent a b)
+                      QR.equivalent 64 a b || LR.rewrite a b ||
+                      CR.equivalent a b || IR.equivalent a b || QV.equivalent 64 a b ||
+                      TN.equivalent a b ||
+                      boolean_search a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -679,6 +686,15 @@ let lemma_constant_quantifier_sound (i:interpretation value) (rho:env value) (a 
       lemma_quantifier_constant i k bs (eval i body rho)
     | _ -> ()
 
+let lemma_relational_value_sound (i:interpretation value) (rho:env value)
+                                 (concl:judgment) (r:relation) (a b:expr)
+  : Lemma (requires well_formed concl /\ relational concl = Some (r, a, b) /\
+                    eval i a rho == eval i b rho)
+          (ensures judgment_holds i rho concl)
+  = match concl with
+    | Equal _ _ | Observational _ _ -> ()
+    | Holds _ -> ()
+
 let lemma_relational_step_sound (i:interpretation value) (rho:env value)
                                 (kind:rule) (concl:judgment) (facts:list judgment)
   : Lemma (requires model_sound i /\ well_formed concl /\ judgments_wf facts /\
@@ -695,17 +711,24 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
        | PushQuantifier -> QR.lemma_push_check i rho a b
        | DestructiveEquality -> DE.lemma_check i rho a b
        | RewriteRule | ApplyDefinition ->
-         if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
+         (if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
          else if Z3DistinctAst.duplicate_rewrite a b then
            Z3DistinctEmbed.lemma_duplicate_rewrite_sound i rho a b
+         else if Z3DistinctEmbed.expansion_rewrite a b then
+           Z3DistinctEmbed.lemma_expansion_rewrite_sound i rho a b
          else if constant_quantifier_rewrite a b then lemma_constant_quantifier_sound i rho a b
          else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
          else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
          else if QR.equivalent 64 a b then QR.lemma_equivalent 64 i rho a b
          else if LR.rewrite a b then LR.lemma_rewrite i rho a b
-         else TN.lemma_equivalent i rho a b
+         else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b
+         else if IR.equivalent a b then IR.lemma_equivalent_sound i rho a b
+         else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
+         else if TN.equivalent a b then TN.lemma_equivalent i rho a b
+         else lemma_boolean_search_sound i rho a b);
+         lemma_relational_value_sound i rho concl r a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with

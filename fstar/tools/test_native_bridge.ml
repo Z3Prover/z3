@@ -156,12 +156,24 @@ let distinct_reflexivity () =
   check true "(declare-const a (Array Int Int))" "(distinct a a)" "false";
   check false "(declare-const x Int)(declare-const y Int)" "(distinct x y)" "false";
   check false "(declare-const x Int)" "(distinct x x)" "true";
+  check true "(declare-const x Int)(declare-const y Int)" "(distinct x y)" "(not (= x y))";
+  check true "(declare-const x Real)(declare-const y Real)" "(not (= x y))" "(distinct x y)";
+  check true "(declare-sort S 0)(declare-const x S)(declare-const y S)"
+    "(distinct x y)" "(not (= x y))";
+  check true "(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+    "(distinct x y z)" "(and (not (= x y)) (not (= x z)) (not (= y z)))";
+  check false "(declare-const x Int)(declare-const y Int)" "(distinct x y)" "(= x y)";
+  check false "(declare-const x Int)(declare-const y Int)(declare-const z Int)"
+    "(distinct x y z)" "(and (not (= x y)) (not (= y z)))";
   let x = A.Var (Z.zero, A.BaseSort "Int") in
   let declaration = Z3DistinctAst.distinct_decl (A.BaseSort "Int") (Z.of_int 2) in
   let malformed = A.App ({ declaration with A.interp = None }, [x; x]) in
   require (not (U.check_step U.RewriteRule
       (U.Equal (malformed, Z3ResolutionProofTheory.false_expr)) []))
-    "an uninterpreted distinct name was trusted"
+    "an uninterpreted distinct name was trusted";
+  require (not (U.check_step U.RewriteRule
+      (U.Equal (malformed, Z3DistinctAst.expanded [x; x])) []))
+    "an uninterpreted distinct expansion was trusted"
 
 let integer_tightening_candidates () =
   let c = context () in
@@ -1113,6 +1125,81 @@ let typed_observations () =
       entries = [{ entry with formula = lambda }] } = None)
     "non-Boolean proof conclusion was certified"
 
+let contextual_boolean_rewrites () =
+  let c = context () in
+  let declarations = List.init 24 (fun i ->
+      Printf.sprintf "(declare-const p%d Bool)" i) |> String.concat "" in
+  let wide = "(or " ^ (List.init 24 (Printf.sprintf "p%d") |> String.concat " ") ^ ")" in
+  let check expected left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect contextual Boolean rewrite: " ^ left ^ " -> " ^ right)
+  in
+  check true ("(and " ^ wide ^ " (not " ^ wide ^ "))") "false";
+  check true ("(or " ^ wide ^ " (not " ^ wide ^ "))") "true";
+  check true ("(or (not p0) (not (= p0 " ^ wide ^ ")))")
+    ("(or (not p0) (not " ^ wide ^ "))");
+  check true ("(or p0 (= p0 " ^ wide ^ "))") ("(or p0 (not " ^ wide ^ "))");
+  check false ("(or (not p0) (not (= p0 " ^ wide ^ ")))")
+    ("(or (not p0) " ^ wide ^ ")");
+  check false ("(and " ^ wide ^ " (not p0))") "false";
+  check false ("(or " ^ wide ^ " (not p0))") "false";
+  let prefix = List.init 23 (Printf.sprintf "p%d") |> String.concat " " in
+  let negatives = List.init 23 (fun i -> Printf.sprintf "(not p%d)" i)
+    |> String.concat " " in
+  check true ("(not (or " ^ prefix ^ " (and " ^ negatives ^ " p23)))")
+    ("(not " ^ wide ^ ")");
+  check true ("(not (or (and " ^ negatives ^ " p23) " ^ prefix ^ "))")
+    ("(not " ^ wide ^ ")");
+  check false ("(not (or " ^ prefix ^ " (and " ^ negatives ^ " p23)))")
+    ("(not (or " ^ prefix ^ " (not p23)))");
+  let a = List.init 11 (fun i -> Printf.sprintf "p%d" (i + 1)) in
+  let b = List.init 12 (fun i -> Printf.sprintf "p%d" (i + 12)) in
+  let disj xs = "(or " ^ String.concat " " xs ^ ")" in
+  let conj xs = "(and " ^ String.concat " " xs ^ ")" in
+  let left = "(and (or p0 " ^ disj a ^ ") (or (not p0) " ^ conj b ^ "))" in
+  check true left ("(or (and p0 " ^ conj (List.rev b) ^ ") (and (not p0) " ^
+      disj (List.rev a) ^ "))");
+  check false left ("(or (and p0 " ^ disj (List.rev a) ^ ") (and (not p0) " ^
+      conj (List.rev b) ^ "))")
+
+let unused_quantifier_rewrites () =
+  let c = context () in
+  let check expected declarations left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect unused-binder rewrite: " ^ left ^ " -> " ^ right)
+  in
+  check true "" "(exists ((x Int) (y Int)) (> x 0))" "(exists ((x Int)) (> x 0))";
+  check true "" "(forall ((x Int) (y Real)) (> y 0.0))" "(forall ((y Real)) (> y 0.0))";
+  check true "(declare-const p Bool)" "(forall ((x Int) (y Real)) p)" "p";
+  check true "(declare-const p Bool)" "p" "(exists ((x Int) (y Real)) p)";
+  check true "(declare-fun P (Int Int) Bool)"
+    "(forall ((x Int) (y Int)) (forall ((z Int)) (P y z)))"
+    "(forall ((y Int)) (forall ((z Int)) (P y z)))";
+  check true "" "(exists ((x Int)) (not (exists ((n Int)) (> n 0))))"
+    "(not (exists ((n Int)) (> n 0)))";
+  check true "(declare-fun P (Int) Bool)"
+    "(forall ((x Int)) (exists ((y Int)) (P x)))" "(forall ((x Int)) (P x))";
+  check false "(declare-fun P (Int Int) Bool)"
+    "(forall ((x Int) (y Int)) (P x y))" "(forall ((x Int)) (P x x))";
+  check false "(declare-fun P (Int) Bool)"
+    "(forall ((x Int) (y Int)) (P x))" "(exists ((x Int)) (P x))";
+  check false "" "(forall ((x Int) (y Int)) (> x 0))" "(forall ((x Real)) (> x 0.0))";
+  check false "(declare-fun P (Int Int) Bool)"
+    "(forall ((x Int) (y Int)) (exists ((z Int)) (P x z)))"
+    "(forall ((x Int)) (exists ((z Int)) (P z z)))";
+  let source = A.Quantifier (A.Forall_k, [A.BaseSort "Int"], A.bool_sort,
+      A.Var (Z.one, A.bool_sort)) in
+  require (U.check_step U.RewriteRule (U.Equal (source, A.Var (Z.zero, A.bool_sort))) [])
+    "an outer de Bruijn variable was not lowered";
+  require (not (U.check_step U.RewriteRule (U.Equal (source, A.Var (Z.one, A.bool_sort))) []))
+    "a free de Bruijn variable retained its old index"
+
 let arithmetic_rewrites () =
   let c = context () in
   let check expected declarations left right =
@@ -1159,11 +1246,42 @@ let arithmetic_rewrites () =
   check true reals "(<= (* 2 x) 3)" "(<= x 1.5)";
   check true reals "(< (* (- 2) x) 3)" "(> x (- 1.5))";
   check true ints "(<= (* 6 x) 18)" "(<= x 3)";
+  check true ints "(<= (+ 1 (* 4 x)) 2)" "(<= x 0)";
+  check true ints "(>= (+ (* 4 x) (* 4 y)) 18)" "(>= (+ x y) 5)";
+  check true ints "(<= (* (- 4) x) 2)" "(>= x 0)";
+  check true ints "(not (>= (* 4 x) (- 2)))" "(<= x (- 1))";
+  check false ints "(<= (+ 1 (* 4 x)) 2)" "(<= x 1)";
+  check false ints "(>= (+ (* 4 x) (* 4 y)) 18)" "(>= (+ x y) 4)";
+  check false reals "(<= (* 4 x) 2)" "(<= x 0)";
+  check true ints "(= (* 2 x) 1)" "false";
+  check true ints "(= (+ (* 4 x) (* 4 y)) 19)" "false";
+  check true ints "(= (+ (* 4 x) (* 6 y)) 3)" "false";
+  check true ints "false" "(= (+ (* (- 4) x) (* 6 y)) (- 3))";
+  check false ints "(= (* 2 x) 2)" "false";
+  check false ints "(= (+ (* 4 x) (* 6 y)) 2)" "false";
+  check false reals "(= (* 2 x) 1)" "false";
   check false reals "(<= (* (- 2) x) 3)" "(<= x (- 1.5))";
   check false reals "(< (* 2 x) 3)" "(<= x 1.5)";
   check true ints "(ite (not (= x y)) 1 2)" "(ite (= x y) 2 1)";
   check true reals "(ite (= x y) x y)" "(ite (not (= x y)) y x)";
   check false ints "(ite (not (= x y)) 1 2)" "(ite (= x y) 1 2)";
+  let numeric_branches = "(declare-const p Bool)(declare-const q Bool)" ^ ints in
+  check true numeric_branches "(= (ite p 4 x) 1)" "(and (not p) (= x 1))";
+  check true numeric_branches "(= (ite p 1 x) 1)" "(or p (= x 1))";
+  check true numeric_branches "(= 1 (ite p 4 x))" "(and (not p) (= 1 x))";
+  check true numeric_branches "(= (ite p 4 (ite q 1 x)) 1)"
+    "(and (not p) (or q (= x 1)))";
+  check false numeric_branches "(= (ite p 4 x) 1)" "(and p (= x 1))";
+  check false numeric_branches "(= (ite p 1 x) 1)" "(and p (= x 1))";
+  check true numeric_branches "(ite p (+ x 3) (+ y 3))" "(+ (ite p x y) 3)";
+  check true numeric_branches "(+ 7 (ite p (+ x 3) (+ y 3)))"
+    "(+ (ite p x y) 10)";
+  check true numeric_branches "(ite p (+ x 3) (ite q (+ y 3) 3))"
+    "(+ (ite p x (ite q y 0)) 3)";
+  check false numeric_branches "(ite p (+ x 3) (+ y 3))" "(+ (ite p x y) 4)";
+  check false numeric_branches "(ite p (+ x 3) (+ y 3))" "(+ (ite p y x) 3)";
+  check true ("(declare-const p Bool)" ^ reals)
+    "(= (ite p 4.5 x) 1.5)" "(and (not p) (= x 1.5))";
   let branches = "(declare-sort U 0)(declare-const a U)(declare-const b U)\
                   (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)" in
   check true branches "(ite p a (ite q a b))" "(ite (or p q) a b)";
@@ -1336,6 +1454,8 @@ let () =
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "contextual-boolean-rewrites", contextual_boolean_rewrites;
+     "unused-quantifier-rewrites", unused_quantifier_rewrites;
      "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;

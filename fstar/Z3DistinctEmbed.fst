@@ -99,6 +99,15 @@ let lemma_apply_lemma_distinct_sound (i:interpretation value) (rho:env value) (e
     | _, _ -> ()
   | _ -> ()
 
+let expansion_rewrite (a b:expr) : bool =
+  apply_lemma_distinct a = Some b || apply_lemma_distinct b = Some a
+
+let lemma_expansion_rewrite_sound (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires embedding_model i /\ expansion_rewrite a b)
+          (ensures eval i a rho == eval i b rho) =
+  if apply_lemma_distinct a = Some b then lemma_apply_lemma_distinct_sound i rho a
+  else lemma_apply_lemma_distinct_sound i rho b
+
 let negation (e:expr) : option expr =
   match e with
   | App f [a] -> if f = not_decl && get_sort a = bool_sort then Some a else None

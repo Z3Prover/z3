@@ -106,7 +106,20 @@ let rec lemma_find_guard (kind:quantifier_kind) (bound:nat) (args:list expr)
                       args == prefix @ (guard :: suffix) /\ guard_ok kind bound guard variable term
                     | None -> True))
           (decreases args)
-  = match args with [] -> () | _ :: rest -> lemma_find_guard kind bound rest
+  = match args with
+    | [] -> ()
+    | guard :: rest ->
+      lemma_find_guard kind bound rest;
+      (match checked_candidate kind bound guard with
+       | Some (variable, term) ->
+         if guard_ok kind bound guard variable term then ()
+         else (match find_guard kind bound rest with
+               | Some _ -> ()
+               | None -> ())
+       | None ->
+         (match find_guard kind bound rest with
+          | Some _ -> ()
+          | None -> ()))
 
 let lemma_literals (i:interpretation value) (rho:env value)
                    (kind:quantifier_kind) (body:expr)
@@ -194,6 +207,22 @@ let once (e:expr) : option expr =
     else None
   | _ -> None
 
+let lemma_quantifier_equivalent (i:interpretation value) (rho:env value)
+                               (k:quantifier_kind) (bs:list sort) (a b:expr)
+  : Lemma (requires N.quantifier_model i /\ boolean_model i /\
+                    (k = Forall_k \/ k = Exists_k) /\
+                    get_sort a = bool_sort /\ get_sort b = bool_sort /\
+                    (P.all_bodies i a (k = Exists_k) (L.length bs) rho <==>
+                     P.all_bodies i b (k = Exists_k) (L.length bs) rho))
+          (ensures eval i (Quantifier k bs bool_sort a) rho ==
+                   eval i (Quantifier k bs bool_sort b) rho)
+  = N.lemma_quantifier_truth i rho k bs a;
+    N.lemma_quantifier_truth i rho k bs b;
+    match eval i (Quantifier k bs bool_sort a) rho,
+          eval i (Quantifier k bs bool_sort b) rho with
+    | VBool _, VBool _ -> ()
+    | _, _ -> ()
+
 let lemma_once (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
                     once e == Some result)
@@ -204,22 +233,20 @@ let lemma_once (i:interpretation value) (rho:env value) (e result:expr)
       lemma_find_guard k (L.length bs) args;
       (match find_guard k (L.length bs) args with
        | Some (prefix, guard, variable, term, suffix) ->
+         assert (args == prefix @ (guard :: suffix));
          let rest = make_body k (prefix @ suffix) in
          (match S.apply (S.replace_one variable term) rest with
           | Some b ->
             let sample = P.sample_values (L.length bs) in
             S.lemma_replace_one i rho sample variable term rest b;
-            N.lemma_quantifier_truth i rho k bs body;
-            N.lemma_quantifier_truth i rho k bs b;
             let bodies (vs:list value{L.length vs = L.length bs})
               : Lemma (eval i body (shift vs rho) ==
                        eval i (make_body k args) (shift vs rho))
               = lemma_literals i (shift vs rho) k body in
             FStar.Classical.forall_intro bodies;
+            R.lemma_quantifier_congruence i rho k bs bool_sort body (make_body k args);
             lemma_all i rho k (L.length bs) prefix suffix guard variable term b;
-            (match eval i e rho, eval i result rho with
-            | VBool _, VBool _ -> ()
-            | _, _ -> ())
+            lemma_quantifier_equivalent i rho k bs (make_body k args) b
           | None -> ())
        | None -> ())
     | _ -> ()

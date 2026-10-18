@@ -364,7 +364,8 @@ contracts and trust boundaries, including the existing semantic-model
 inhabitance gap.
 
 The integrated verification/extraction passes with warnings treated as
-errors. The native suite has 30 groups, including positive and adversarial
+errors. The merged native suite has 32 groups, including contextual Boolean
+rewrites, unused-quantifier rewrites, positive and adversarial
 quantifier/DER/lambda cases, nested NNF replacement, theory consequences,
 lookalike uninterpreted names, and malformed bit-vector widths. All 21 CLI
 tests pass, including 11 new examples in both batch and interactive modes.

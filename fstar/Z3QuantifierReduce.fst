@@ -88,8 +88,9 @@ let lemma_symmetric_equality (i:interpretation value) (rho:env value) (a b:expr)
 
 let rec equivalent (fuel:nat) (a b:expr) : Tot bool (decreases %[fuel; a]) =
   if fuel = 0 then false
-  else if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b then true
   else let next:nat = fuel - 1 in
+  if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b then true
+  else
   match normalize_root a, normalize_root b with
   | Some x, Some y ->
     x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y ||
@@ -106,6 +107,14 @@ and equivalent_args (fuel:nat) (xs ys:list expr)
   | [], [] -> true
   | x :: rest, y :: remaining -> equivalent fuel x y && equivalent_args fuel rest remaining
   | _, _ -> false
+
+let lemma_quantifier_congruence (i:interpretation value) (rho:env value)
+                               (k:quantifier_kind) (bs:list sort) (s:sort) (a b:expr)
+  : Lemma (requires quant_extensional i /\
+                    (forall (vs:list value{L.length vs = L.length bs}).
+                      eval i a (shift vs rho) == eval i b (shift vs rho)))
+          (ensures eval i (Quantifier k bs s a) rho == eval i (Quantifier k bs s b) rho)
+  = ()
 
 let rec lemma_equivalent (fuel:nat) (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
@@ -129,7 +138,8 @@ let rec lemma_equivalent (fuel:nat) (i:interpretation value) (rho:env value) (a 
               let bodies (vs:list value{L.length vs = L.length bs})
                 : Lemma (eval i body (shift vs rho) == eval i body' (shift vs rho))
                 = lemma_equivalent next i (shift vs rho) body body' in
-              FStar.Classical.forall_intro bodies
+              FStar.Classical.forall_intro bodies;
+              lemma_quantifier_congruence i rho k bs s body body'
             | App _ args, App _ args' -> lemma_equivalent_args next i rho args args'
             | _, _ -> ())
     | _, _ -> ()
