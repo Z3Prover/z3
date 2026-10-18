@@ -140,9 +140,12 @@ marshal proof-valued lambdas as object-language assertions.
 
 The unified kernel checks every certificate entry against already checked
 premises. Its soundness invariant is validity under **every environment**,
-not merely the current environment. Only supported, assumption-free steps
-can establish this invariant: asserted formulas, hypotheses, assumed theory
-lemmas, unknown rules, and unsupported rewrites cannot be generalized.
+not merely the current environment. Supported steps establish this
+invariant from checked premises. A closed asserted formula may also be
+used if it exactly matches an original input judgment: the existing
+closed-expression theorem makes its truth independent of the environment.
+Open or unrelated assertions, hypotheses, assumed theory lemmas, unknown
+rules, and unsupported rewrites cannot be generalized.
 Quantifier introduction requires matching quantifier kinds, matching bound
 sorts, and an actual checked relation between the two bodies. This covers
 `forall`, `exists`, and term-valued `lambda` congruence, including nested
@@ -158,10 +161,22 @@ general implementation of unused-variable elimination.
 `Z3QuantifierInstantiation.fst` checks native `quant-inst` clauses using
 Z3's original AST-valued substitution parameters. It validates binding
 arity, sorts, closed arguments, de Bruijn order, and the exact resulting
-body. Its substitution theorem currently covers quantifier-free bodies;
-substitution beneath nested binders remains partial rather than relying
-on unproved capture avoidance. Multi-variable, mixed-sort instantiations
-are supported.
+body. Its substitution theorem covers nested `forall`, `exists`, and
+`lambda` bodies. A binder-depth cutoff preserves inner bound variables
+and selects the outer substitution arguments at adjusted de Bruijn indices.
+Arguments must be closed, so inserting them beneath a binder cannot
+capture free variables and does not require variable lifting.
+Multi-variable, mixed-sort instantiations are supported.
+
+The targeted 2026-10-18 replay discharges all **58 formerly unchecked
+`quant-inst` steps across 34 proofs**, with unchanged proof-node counts.
+Their total remaining obligations decrease from 312 to 254. These proofs
+remain partial because of other rule families; all 540 previously accepted
+proofs remain accepted. The 574-input replay uses eight workers, a
+30-second solver timeout, a 120-second process watchdog, and 4 GiB per child.
+All 34 diagnostic replays reproduce the new pending counts exactly.
+Frozen results and comparisons are under
+`C:\smtlib-benchmarks\proof_quant_inst_20261018`.
 
 The semantic model premises now explicitly include quantifier
 extensionality, preservation of constant Boolean bodies, universal
@@ -176,14 +191,154 @@ Native and interactive regressions cover arithmetic and Boolean rewrites
 under binders, nested mixed-sort quantifiers, lambda congruence, and genuine
 quantifier instances. Mutations exercise invalid premise/root indices,
 missing or reordered bindings, escaping variables, incorrect instances,
-bound-sort mismatches, and attempted generalization of asserted or
-hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
+bound-sort mismatches, and attempted generalization of open/unrelated
+assertions or hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
 16 `ACCEPT` results and one solver `UNKNOWN` at the 10-second timeout.
 
-Remaining quantifier-related obligations include general Skolemization,
+Remaining quantifier-related limits include Skolemization outside the
+fresh, acyclic, variable-dependency fragment described below,
 pulling outside the supported Boolean fragment, general unused-variable elimination,
-nested capture-avoiding instantiation, and lambda extensionality rewrites.
+instantiation with open substitution arguments, and lambda extensionality rewrites.
 NLSAT and other previously unsupported theory rules remain partial.
+
+#### Destructive equality resolution and input-aware binders (2026-10-18)
+
+`Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,
+including the following schemas and their symmetric equality orientations:
+
+```text
+exists x. (x = t and P(x)) = P(t)
+forall x. (x != t or P(x)) = P(t)
+```
+
+The witness must have the eliminated variable's sort and must not contain
+that variable. A verified lowering operation checks the occurs condition
+and adjusts remaining de Bruijn indices. Substitution lifts the witness
+beneath nested binders and preserves their local variables. Other variables
+in the same binding block and ambient dependencies are retained. The
+Boolean checker verifies the guard's semantic role rather than accepting
+an equality anywhere in the body. Boolean literal guards, partial binding
+block elimination, and nested congruence are supported. The proof derives
+elimination by inserting/removing assignments under the existing
+quantifier semantics; no new axiom or model premise is added.
+Unsupported shapes or exhausted 64-step fuel remain obligations.
+
+Inspection of hidden certificates identified 316 first-failing asserted
+leaves that were both closed and exact original inputs. Input-aware
+binder checking now admits those facts with a proof of environment
+independence, while rejecting missing, open, or unrelated assertions.
+Definition expansion also applies to every hidden certificate formula,
+not just its parent conclusion and the original inputs. Failed expansion
+rejects; an expanded certificate still has to pass all ordinary checks.
+This fixes two otherwise checked negative-NNF certificates whose roots
+previously differed from their definition-expanded parent conclusions.
+
+A frozen 710-input replay covers all 540 previous accepts and the 170
+remaining partials. It yields **563 `ACCEPT` and 147 `PARTIAL`**, retaining
+all 540 accepts and gaining 23, with unchanged outer proof-DAG sizes.
+No `quant-intro`, `der`, or `quant-inst` obligations remain in this cohort.
+All 147 supplemental diagnostic runs reproduce the primary pending counts.
+The replay uses eight workers, a 30-second solver timeout, a 120-second
+process watchdog, and 4 GiB per child; batch elapsed time was 225.6 seconds.
+Frozen binaries, source hashes, outcomes, comparisons, diagnostics, and
+SQLite audit records are under
+`C:\smtlib-benchmarks\proof_quantifier_rules_20261018`.
+
+Strict installed-Z3 F*/Pulse verification and extraction pass, together
+with 31 native bridge groups and 20 CLI tests. Focused regressions cover
+mixed-sort elimination, open dependent witnesses, nested binders, Boolean
+guards, reversed equalities, cyclic witnesses, wrong polarity, captured
+variables, incorrect instances, input binding, and definition expansion.
+
+At this stage, diagnostics reported 117 outer `sk` obligations across 68
+proofs, 38 `nnf-neg` across 35 proofs, and 49 `nnf-pos` across 39 proofs.
+Those obligations are discharged by the subsequent extension below.
+
+#### Hilbert-choice Skolemization (2026-10-18)
+
+`Z3Skolemization.fst` represents a block's Skolem functions by coordinates
+of **one joint choice tuple**, parameterized by the free-variable values:
+
+```text
+tuple(y) = epsilon xs. P(xs, y)
+sk_j(y) = tuple(y)[j]
+```
+
+The `hilbert_choice` semantic parameter supplies a tuple of the required
+length and satisfies Hilbert's law: if any tuple satisfies the predicate,
+the selected tuple does too. Negative universal Skolemization chooses a
+counterexample tuple, using `not P` as the predicate. All coordinates use
+the same tuple, which is essential for constraints relating multiple bound
+variables; independently chosen coordinates would be unsound.
+Choice is not evaluated by the native checker, and no individual `sk`
+conclusion is assumed as an axiom.
+
+The executable infers the native substitution from the original ASTs and
+requires an exact capture-safe instance. It checks binding order and sorts,
+consistent repeated occurrences, distinct fresh component symbols, and
+one shared variable-dependency vector covering all free variables.
+Sparse ambient indices, unused variables in a binding block, mixed sorts,
+and substitution beneath nested binders are supported. Negative universal
+endpoints include the native double-negation simplification.
+The dedicated rule accepts observational judgments only, not ordinary
+equality, and rejects unexpected premises.
+
+The document checker collects choice definitions from both outer proof
+steps and hidden binder DAGs after ordinary definition expansion. Identical
+reuse is allowed; incompatible definitions sharing a symbol are rejected.
+It orders the definitions by dependency, rejects cycles and self-reference,
+and checks freshness against both original and expanded inputs.
+`skolem-collection`, `skolem-cycle`, and `skolem-freshness` diagnostics
+identify these failures. Unrecognized Skolem shapes remain obligations.
+
+F* proves that successive choice interpretation extensions preserve earlier
+witness properties and original-input evaluations. Interpreted-operation
+and quantifier fields are unchanged. The extended binder invariant still
+holds in every environment, now in the globally chosen interpretation.
+`lemma_choice_obligation_free_node_sound` derives the choice-context
+contract from this construction before applying the unified node theorem.
+This is not a claim that Skolemization preserves arbitrary same-model
+equalities: `exists x:Int. x = 0` is true while `sk = 0` is false when
+`sk = 1`; the fresh symbol's interpretation must be chosen appropriately.
+
+**Formal boundary:** Hilbert choice is an explicit semantic parameter.
+The node theorem also retains `model_sound` for the constructed
+interpretation. The construction does not prove closure of every legacy
+model predicate under interpretation extension or repair the documented
+semantic-model contract inhabitance gap. These are conditional semantic
+theorems, not an unconditional end-to-end SMT-LIB soundness result.
+
+Dependent NNF certificates also need both polarities of a premise. For
+example, positive existential replacement may use `P(sk(y), y)` while the
+negative occurrence uses `forall xs. not P(xs, y)`. Forward replacement
+alone can lose that relationship. The Boolean NNF checker now also tries
+replacing target subexpressions with reversed checked premise relations.
+F* proves symmetry and replacement soundness without strengthening an
+observational premise to equality. The existing Boolean budgets are
+unchanged, and replacement still does not descend beneath quantifiers.
+
+The final frozen 710-input replay yields **648 `ACCEPT` and 62 `PARTIAL`**,
+retaining all 563 prior accepts and gaining **85**, with unchanged outer
+proof-DAG sizes. All 117 outer `sk`, 49 `nnf-pos`, and 38 `nnf-neg`
+obligations from the preceding baseline disappear. No `quant-intro`,
+`der`, or `quant-inst` obligations remain either. All 62 supplemental
+diagnostic runs reproduce the primary pending counts. Remaining leaves
+are 5,018 theory lemmas across 58 proofs, six rewrites across six proofs,
+and one LP Gomory step. These proof sets overlap.
+Eight workers, a 30-second solver timeout, a 120-second process watchdog,
+and 4 GiB per child give 220.8 seconds of batch elapsed time.
+Frozen binaries, source hashes, comparisons, diagnostic outputs, and
+SQLite audit records are under
+`C:\smtlib-benchmarks\proof_skolem_choice_20261018`.
+
+Strict installed-Z3 F*/Pulse verification and extraction pass with
+32 native bridge groups and 20 CLI tests. Focused regressions cover joint
+and mixed-sort witnesses, sparse dependencies, unused bound variables,
+nested capture avoidance, negative universal normalization, actual native
+Skolem proofs, signed NNF composition, missing premises/dependencies,
+inconsistent occurrences, aliased components, input freshness,
+self-reference, conflicting definitions, cycles, acyclic reordering,
+wrong polarity, and attempted conversion to ordinary equality.
 
 #### Negative NNF checking and evaluation
 
@@ -206,6 +361,8 @@ observational and cannot establish an ordinary equality.
 Boolean `nnf-pos` and `nnf-neg` steps compose their checked premise
 relations through application arguments, including negative occurrences,
 and then invoke the existing verified Boolean equivalence checker.
+They try forward replacement on the source and reversed-premise
+replacement on the target, as described in the Skolemization extension.
 Premise replacement does not descend into quantifier bodies; those
 require the explicit binder check. Unsupported steps or Boolean checks
 exceeding their supported fragment retain obligations.
@@ -253,8 +410,8 @@ certificates, where it must hold in every environment. Unsupported shapes
 and normalization exceeding the 64-step recursion budget leave explicit
 obligations; unexpected premises are rejected. Pulling through implication,
 XOR, or ITE is not implemented by this rule, nor is lambda extensionality.
-The verified variable lifting does not yet extend quantified instantiation
-to nested binder bodies.
+Nested-binder instantiation of closed arguments is checked separately by
+the substitution theorem described above.
 
 The four native nested-quantifier examples (existential, universal,
 mixed-sort, and three binder blocks) all return `ACCEPT` in batch and

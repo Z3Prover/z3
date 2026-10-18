@@ -7,6 +7,7 @@ open Z3ObservationalEquality
 open Z3UnifiedProof
 open Z3ProofIndex
 module D = Z3Definitions
+module SK = Z3Skolemization
 module L = FStar.List.Tot
 
 type entry = {
@@ -57,7 +58,48 @@ let rec collect_definitions (defs:list D.definition) (branches:list expr) (entri
       | Some d ->
         D.add_definition defs d >>= (fun defs' -> collect_definitions defs' branches rest)
 
-let check_entry (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
+let expand_rule (defs:list D.definition) (kind:rule) : option rule =
+  if defs = [] then Some kind
+  else match kind with
+  | QuantifierIntroduction certificate ->
+    opt_map (fun e ->
+      D.expand (L.length defs) defs e.binder_formula >>= (fun formula ->
+      Some { e with binder_formula = formula })) certificate.binder_entries >>= (fun entries ->
+    Some (QuantifierIntroduction { certificate with binder_entries = entries }))
+  | _ -> Some kind
+
+let collect_skolem_formula (skolems:list SK.definition) (formula:expr)
+  : option (list SK.definition) =
+  match is_oeq formula with
+  | Some (a, b) ->
+    (match SK.definition_of a b with Some d -> SK.add_definition skolems d | None -> Some skolems)
+  | None -> Some skolems
+
+let rec collect_binder_skolems (skolems:list SK.definition) (entries:list binder_entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some skolems
+  | e :: rest ->
+    (if e.binder_name = "sk" then collect_skolem_formula skolems e.binder_formula
+     else Some skolems) >>= (fun more -> collect_binder_skolems more rest)
+
+let rec collect_skolems (defs:list D.definition) (skolems:list SK.definition) (entries:list entry)
+  : Tot (option (list SK.definition)) (decreases entries) =
+  match entries with
+  | [] -> Some skolems
+  | e :: rest ->
+    (match e.rule with
+     | Skolemization ->
+       D.expand (L.length defs) defs e.formula >>= (collect_skolem_formula skolems)
+     | QuantifierIntroduction _ ->
+       expand_rule defs e.rule >>= (fun kind ->
+       match kind with
+       | QuantifierIntroduction certificate -> collect_binder_skolems skolems certificate.binder_entries
+       | _ -> None)
+     | _ -> Some skolems) >>= (fun more -> collect_skolems defs more rest)
+
+let check_entry_with_context (skolems:list SK.definition)
+                            (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
                 (prev:index_tree checked_fact) (e:entry)
   : option (checked_fact & nat) =
   if bound && not (D.scoped [] e.formula) then None else
@@ -65,17 +107,23 @@ let check_entry (strict bound:bool) (defs:list D.definition) (assertions:list ju
   if bound && not (D.scoped [] formula) then None else
   classify_fact formula >>= (fun concl ->
   opt_map (index_find prev) e.premise_ids >>= (fun premises ->
-  check_node_with_inputs strict assertions
-    { kind = e.rule; conclusion = concl; premises = premises })))
+  expand_rule defs e.rule >>= (fun kind ->
+  check_node_with_context skolems strict assertions
+    { kind = kind; conclusion = concl; premises = premises }))))
 
-let rec check_entries (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
+let check_entry (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
+                (prev:index_tree checked_fact) (e:entry) : option (checked_fact & nat) =
+  check_entry_with_context [] strict bound defs assertions prev e
+
+let rec check_entries (skolems:list SK.definition)
+                      (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
                       (acc:index_tree checked_fact) (next trusted:nat) (entries:list entry)
   : Tot (option (index_tree checked_fact & nat)) (decreases entries) =
   match entries with
   | [] -> Some (acc, trusted)
   | e :: rest ->
-    check_entry strict bound defs assertions acc e >>= (fun nt ->
-    check_entries strict bound defs assertions (index_put acc next (fst nt))
+    check_entry_with_context skolems strict bound defs assertions acc e >>= (fun nt ->
+    check_entries skolems strict bound defs assertions (index_put acc next (fst nt))
                   (next + 1) (trusted + snd nt) rest)
 
 let rec ground_exprs (exprs:list expr) : Tot bool (decreases exprs) =
@@ -144,11 +192,14 @@ let check_document (doc:document) : option nat =
   if not (D.acyclic (L.length defs) defs defs) then None else
   (if defs = [] then Some doc.assertions else D.expand_args (L.length defs) defs doc.assertions) >>= (fun expanded ->
   opt_map classify_fact expanded >>= (fun inputs ->
-  check_entries true bound defs inputs Empty 0 0 doc.entries >>= (fun result ->
+  collect_skolems defs [] doc.entries >>= (fun choices ->
+  SK.order_context (L.length choices) choices >>= (fun skolems ->
+  if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded) then None else
+  check_entries skolems true bound defs inputs Empty 0 0 doc.entries >>= (fun result ->
   index_find (fst result) doc.root >>= (fun node ->
   if false_judgment node.conclusion && node.hypotheses = [] &&
      D.check_fresh_inputs defs doc.assertions
-  then Some (snd result) else None)))))
+  then Some (snd result) else None)))))))
 
 type diagnostic_stage =
   | LogicalDeclarations
@@ -158,6 +209,9 @@ type diagnostic_stage =
   | DefinitionCollection
   | DefinitionCycle
   | DefinitionExpansion
+  | SkolemCollection
+  | SkolemCycle
+  | SkolemFreshness
   | InputClassification
   | ProofEntry
   | MissingPremise
@@ -185,18 +239,19 @@ type entries_diagnostic =
                      obligations:list unmet_obligation -> entries_diagnostic
   | EntriesRejected : reason:document_diagnostic -> entries_diagnostic
 
-let rec diagnose_entries (bound:bool) (defs:list D.definition) (inputs:list judgment)
+let rec diagnose_entries (skolems:list SK.definition)
+                         (bound:bool) (defs:list D.definition) (inputs:list judgment)
                          (cache:index_tree checked_fact) (next pending:nat)
                          (unmet:list unmet_obligation) (entries:list entry)
   : Tot entries_diagnostic (decreases entries) =
   match entries with
   | [] -> EntriesChecked cache pending (L.rev unmet)
   | e :: rest ->
-    match check_entry true bound defs inputs cache e with
+    match check_entry_with_context skolems true bound defs inputs cache e with
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula))
     | Some (fact, local) ->
       let cache' = index_put cache next fact in
-      if local = 0 then diagnose_entries bound defs inputs cache' (next + 1) pending unmet rest
+      if local = 0 then diagnose_entries skolems bound defs inputs cache' (next + 1) pending unmet rest
       else
         match opt_map (index_find cache) e.premise_ids with
         | None -> EntriesRejected (DocumentRejected MissingPremise (Some next) (Some e.formula))
@@ -207,7 +262,7 @@ let rec diagnose_entries (bound:bool) (defs:list D.definition) (inputs:list judg
             obligation_premises = premise_judgments premises;
             obligation_source = e.formula; obligation_count = local;
           } in
-          diagnose_entries bound defs inputs cache' (next + 1) (pending + local)
+          diagnose_entries skolems bound defs inputs cache' (next + 1) (pending + local)
                            (obligation :: unmet) rest
 
 let diagnose_document (doc:document) : document_diagnostic =
@@ -230,12 +285,20 @@ let diagnose_document (doc:document) : document_diagnostic =
           match opt_map classify_fact expanded with
           | None -> reject InputClassification
           | Some inputs ->
-            match diagnose_entries bound defs inputs Empty 0 0 [] doc.entries with
-            | EntriesRejected reason -> reason
-            | EntriesChecked cache pending unmet ->
-              match index_find cache doc.root with
-              | None -> reject MissingRoot
-              | Some node ->
-                if not (false_judgment node.conclusion && node.hypotheses = []) then reject OpenRoot
-                else if not (D.check_fresh_inputs defs doc.assertions) then reject DefinitionFreshness
-                else DocumentChecked pending unmet
+            match collect_skolems defs [] doc.entries with
+            | None -> reject SkolemCollection
+            | Some choices ->
+              match SK.order_context (L.length choices) choices with
+              | None -> reject SkolemCycle
+              | Some skolems ->
+                if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded)
+                then reject SkolemFreshness
+                else match diagnose_entries skolems bound defs inputs Empty 0 0 [] doc.entries with
+                | EntriesRejected reason -> reason
+                | EntriesChecked cache pending unmet ->
+                  match index_find cache doc.root with
+                  | None -> reject MissingRoot
+                  | Some node ->
+                    if not (false_judgment node.conclusion && node.hypotheses = []) then reject OpenRoot
+                    else if not (D.check_fresh_inputs defs doc.assertions) then reject DefinitionFreshness
+                    else DocumentChecked pending unmet

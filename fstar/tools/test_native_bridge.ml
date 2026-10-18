@@ -490,7 +490,97 @@ let checked_binder_proofs () =
         Some (U.Equal (A.Quantifier (A.Lambda_k, _, _, _), _) as conclusion) ->
           U.check_binder cert conclusion
       | _ -> false) lambda_doc.entries)
-    "term-valued lambda congruence was not checked"
+    "term-valued lambda congruence was not checked";
+  let c = context () in
+  let inputs = parse c
+      "(declare-const a Int)(declare-const b Int)(declare-fun p (Int) Bool)\
+       (assert (= a b))(assert (= (p a) (p b)))\
+       (assert (= (forall ((x Int)) (p a)) (forall ((x Int)) (p b))))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  let forms = List.map (B.cached_expression st) inputs in
+  let input = Option.get (U.classify_fact (List.nth forms 0)) in
+  let conclusion = Option.get (U.classify_fact (List.nth forms 2)) in
+  let certificate = {
+    U.binder_entries = [
+      { U.binder_name = "asserted"; binder_formula = List.nth forms 0;
+        binder_premises = []; binder_sorts = None };
+      { U.binder_name = "monotonicity"; binder_formula = List.nth forms 1;
+        binder_premises = [Z.zero]; binder_sorts = None };
+      { U.binder_name = "quant-intro"; binder_formula = List.nth forms 2;
+        binder_premises = [Z.one]; binder_sorts = Some [A.BaseSort "Int"] }
+    ]; binder_root = Z.of_int 2 } in
+  require (U.check_binder_with_inputs [input] certificate conclusion)
+    "closed original input was not available inside a binder proof";
+  require (not (U.check_binder certificate conclusion) &&
+           not (U.check_binder_with_inputs [] certificate conclusion))
+    "binder input dependency disappeared";
+  require (not (U.check_binder_with_inputs [conclusion] certificate conclusion))
+    "unrelated input authorized a hidden assertion";
+  let open_formula = Z3ResolutionProofTheory.mk_eq_expr
+      (A.Var (Z.zero, A.BaseSort "Int")) (A.Var (Z.one, A.BaseSort "Int")) in
+  let open_fact = Option.get (U.classify_fact open_formula) in
+  let leaf = { U.binder_name = "asserted"; binder_formula = open_formula;
+               binder_premises = []; binder_sorts = None } in
+  require (not (U.binder_step_with_inputs [open_fact] leaf open_fact []))
+    "open assertion was generalized across binder environments";
+  let node = { U.kind = U.QuantifierIntroduction certificate;
+               conclusion1 = conclusion; premises = [] } in
+  require (match U.check_node_with_inputs true [input] node with
+      | Some (_, pending) -> Z.equal pending Z.zero | None -> false)
+    "input-aware binder certificate was not integrated in the node checker"
+
+let checked_binder_definitions () =
+  let c = context () in
+  let parsed = parse c
+      "(declare-fun f (Int) Bool)(declare-fun p (Int) Bool)\
+       (assert (forall ((x Int)) (= (f x) (not (p x)))))\
+       (assert (forall ((x Int)) (= (not (f x)) (not (f x)))))\
+       (assert (= (not (forall ((x Int)) (f x)))\
+                  (exists ((x Int)) (not (f x)))))\
+       (assert (= (f 0) (p 0)))" in
+  let st = B.marshal_expressions (B.empty_state ()) parsed in
+  match List.map (B.cached_expression st) parsed with
+  | A.Quantifier (_, _, _, A.App (_, [A.App (symbol, _); body])) ::
+    A.Quantifier (_, _, _, leaf) :: formula :: input :: [] ->
+      let defs = [{ Z3Definitions.symbol; variables = [Z.zero]; body }] in
+      let certificate = { U.binder_entries = [
+          { U.binder_name = "refl"; binder_formula = leaf;
+            binder_premises = []; binder_sorts = None };
+          { U.binder_name = "nnf-neg"; binder_formula = formula;
+            binder_premises = [Z.zero]; binder_sorts = Some [A.BaseSort "Int"] }
+        ]; binder_root = Z.one } in
+      let entry = { P.rule = U.QuantifierIntroduction certificate;
+                    formula; premise_ids = [] } in
+      let checks entry inputs =
+        match P.check_entry true true defs inputs Z3ProofIndex.Empty entry with
+        | Some (_, pending) -> Z.equal pending Z.zero
+        | None -> false in
+      require (checks entry [])
+        "NNF certificate did not expand definitions with its parent conclusion";
+      let bad_leaf = { (List.hd certificate.U.binder_entries) with
+        U.binder_formula = Z3ResolutionProofTheory.mk_eq_expr
+          (A.Var (Z.zero, A.bool_sort)) Z3ResolutionProofTheory.true_expr } in
+      let bad = { certificate with U.binder_entries =
+        bad_leaf :: List.tl certificate.U.binder_entries } in
+      require (not (checks { entry with P.rule = U.QuantifierIntroduction bad } []))
+        "definition expansion bypassed an invalid hidden proof";
+      let asserted = { U.binder_entries = [
+          { U.binder_name = "asserted"; binder_formula = input;
+            binder_premises = []; binder_sorts = None }
+        ]; binder_root = Z.zero } in
+      let entry = { P.rule = U.QuantifierIntroduction asserted;
+                    formula = input; premise_ids = [] } in
+      let expanded = Option.get (Z3Definitions.expand Z.one defs input) in
+      let fact = Option.get (U.classify_fact expanded) in
+      require (checks entry [fact])
+        "expanded hidden assertion did not match its expanded original input";
+      require (not (checks entry []))
+        "definition expansion authorized a missing hidden assertion";
+      let recursive = [{ Z3Definitions.symbol; variables = [Z.zero];
+                         body = A.App (symbol, [A.Var (Z.zero, A.BaseSort "Int")]) }] in
+      require (P.expand_rule recursive entry.P.rule = None)
+        "failed hidden definition expansion was silently ignored"
+  | _ -> failwith "unexpected binder-definition regression formulas"
 
 let checked_quantifier_instances () =
   let sources = [
@@ -536,19 +626,46 @@ let checked_quantifier_instances () =
       require (match P.check_document { doc with entries } with
           | Some pending -> Z.sign pending > 0 | None -> false)
         "invalid substitutions did not retain an explicit obligation") sources;
-  let c = context () in
-  let inputs = parse c
-      "(declare-fun p (Int Int) Bool)\
-       (assert (or (not (forall ((x Int)) (exists ((y Int)) (p x y))))\
-                   (exists ((y Int)) (p 0 y))))" in
-  let st = B.marshal_expressions (B.empty_state ()) inputs in
-  let formula = B.cached_expression st (List.hd inputs) in
-  let zero = List.find (function
-      | A.App (d, []) -> d.A.interp = Some Z3ValueTheory.op_num_rational &&
-                        d.A.int_params = [Z.zero; Z.one]
-      | _ -> false) st.all_expressions in
-  require (not (Z3QuantifierInstantiation.check [zero] formula))
-    "nested substitution was accepted without a capture-avoidance proof"
+  let check_clause declarations clause arguments expected =
+    let c = context () in
+    let source = declarations ^ "(assert " ^ clause ^ ")" ^
+      String.concat "" (List.map (fun term ->
+          "(assert (= " ^ term ^ " " ^ term ^ "))") arguments) in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | formula :: bindings ->
+        let args = List.map (function A.App (_, [term; _]) -> term
+            | _ -> failwith "malformed test binding") bindings in
+        require (Z3QuantifierInstantiation.check args formula = expected)
+          ("incorrect nested quantifier substitution: " ^ source)
+    | [] -> failwith "missing test instance"
+  in
+  let declarations = "(declare-fun p (Int Int) Bool)" in
+  let quantified = "(not (forall ((x Int)) (exists ((y Int)) (p x y))))" in
+  check_clause declarations
+    ("(or " ^ quantified ^ " (exists ((y Int)) (p 0 y)))") ["0"] true;
+  check_clause declarations
+    ("(or " ^ quantified ^ " (exists ((y Int)) (p y 0)))") ["0"] false;
+  check_clause declarations
+    ("(or " ^ quantified ^ " (exists ((y Int)) (p 1 y)))") ["0"] false;
+  check_clause declarations
+    "(or (not (forall ((x Int)) (forall ((x Int)) (p x x))))\
+         (forall ((x Int)) (p x x)))" ["0"] true;
+  check_clause "(declare-fun q (Int Real Int Real Int) Bool)"
+    "(or (not (forall ((x Int) (r Real))\
+                (exists ((y Int) (s Real)) (forall ((z Int)) (q x r y s z)))))\
+         (exists ((y Int) (s Real)) (forall ((z Int)) (q 3 4.5 y s z))))"
+    ["3"; "4.5"] true;
+  check_clause "(declare-fun q (Int Int Int) Bool)"
+    "(or (not (forall ((x Int) (y Int)) (exists ((z Int)) (q x y z))))\
+         (exists ((z Int)) (q 3 4 z)))" ["3"; "4"] true;
+  check_clause "(declare-fun q (Int Int Int) Bool)"
+    "(or (not (forall ((x Int) (y Int)) (exists ((z Int)) (q x y z))))\
+         (exists ((z Int)) (q 4 3 z)))" ["3"; "4"] false;
+  check_clause "(declare-fun p ((Array Int Int)) Bool)"
+    "(or (not (forall ((x Int)) (p (lambda ((y Int)) (+ x y)))))\
+         (p (lambda ((y Int)) (+ 3 y))))" ["3"] true
 
 let checked_negative_nnf () =
   let sources = [
@@ -675,6 +792,194 @@ let checked_negative_nnf () =
             ["nnf-neg", negative; "nnf-pos", positive]
       | _ -> failwith "expected three synthetic NNF formulas")
     ["forall", "exists"; "exists", "forall"]
+
+let checked_der_rules () =
+  let declarations =
+    "(declare-fun p (Int Int) Bool)(declare-fun f (Int) Int)\
+     (declare-fun q (Int Real Int) Bool)(declare-fun b (Int Bool) Bool)" in
+  let cases = [
+    "exists", "(exists ((x Int)) (and (= x 3) (p x z)))", "(p 3 z)", true;
+    "forall", "(forall ((x Int)) (or (not (= x z)) (p x z)))", "(p z z)", true;
+    "reversed-equality", "(exists ((x Int)) (and (= z x) (p x z)))", "(p z z)", true;
+    "mixed-sort-middle", "(exists ((x Int) (r Real) (y Int))\
+       (and (= r 1.5) (q x r y)))",
+       "(exists ((x Int) (y Int)) (q x 1.5 y))", true;
+    "dependent-witness", "(forall ((x Int) (y Int))\
+       (or (not (= x (f y))) (p x y)))",
+       "(forall ((y Int)) (p (f y) y))", true;
+    "nested-binder", "(exists ((x Int))\
+       (and (= x z) (forall ((y Int)) (p x y))))",
+       "(forall ((y Int)) (p z y))", true;
+    "boolean-literal", "(exists ((x Bool)) (and x (b z x)))", "(b z true)", true;
+    "cyclic-witness", "(exists ((x Int)) (and (= x (f x)) (p x z)))",
+       "(p (f z) z)", false;
+    "missing-guard", "(exists ((x Int)) (p x z))", "(p 3 z)", false;
+    "wrong-universal-polarity", "(forall ((x Int)) (and (= x 3) (p x z)))",
+       "(p 3 z)", false;
+    "captured-witness", "(exists ((x Int))\
+       (and (= x z) (forall ((y Int)) (p x y))))",
+       "(forall ((y Int)) (p y y))", false;
+    "wrong-instance", "(exists ((x Int)) (and (= x 3) (p x z)))", "(p 4 z)", false
+  ] in
+  List.iter (fun (name, left, right, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^
+          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let formula = match B.cached_expression st (List.hd inputs) with
+        | A.Quantifier (_, _, _, body) -> body
+        | _ -> failwith "missing DER ambient binder" in
+      let conclusion = Option.get (U.classify_fact formula) in
+      require (U.check_step U.DestructiveEqualityResolution conclusion [] = expected)
+        ("incorrect DER decision: " ^ name);
+      let certificate = { U.binder_entries = [
+          { U.binder_name = "der"; binder_formula = formula;
+            binder_premises = []; binder_sorts = None }];
+          binder_root = Z.zero } in
+      require (U.check_binder certificate conclusion = expected)
+        ("incorrect hidden DER decision: " ^ name);
+      if expected then
+        require (not (U.check_step U.DestructiveEqualityResolution conclusion [conclusion]))
+          "DER ignored an unexpected premise") cases
+
+let checked_skolemization () =
+  let module SK = Z3Skolemization in
+  let declarations =
+    "(declare-fun p (Int Int) Bool)(declare-fun q (Int Real Int) Bool)\
+     (declare-fun k (Int) Int)(declare-fun h (Int) Int)\
+     (declare-fun kr (Int) Real)(declare-const c Int)" in
+  let cases = [
+    "existential", "(exists ((x Int)) (p x z))", "(p (k z) z)", true;
+    "negative-universal", "(not (forall ((x Int)) (p x z)))",
+      "(not (p (k z) z))", true;
+    "negative-double-negation", "(not (forall ((x Int)) (not (p x z))))",
+      "(p (k z) z)", true;
+    "joint-mixed-sort", "(exists ((x Int) (r Real)) (q x r z))",
+      "(q (k z) (kr z) z)", true;
+    "joint-distinct-witnesses", "(exists ((x Int) (y Int)) (and (not (= x y)) (p x z)))",
+      "(and (not (= (k z) (h z))) (p (k z) z))", true;
+    "unused-bound-variable", "(exists ((x Int) (y Real)) (p x z))",
+      "(p (k z) z)", true;
+    "nested-binder", "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p (k z) y))", true;
+    "missing-dependency", "(exists ((x Int)) (p x z))", "(p c z)", false;
+    "inconsistent-occurrences", "(exists ((x Int)) (p x x))", "(p (k z) (h z))", false;
+    "aliased-components", "(exists ((x Int) (y Int)) (not (= x y)))",
+      "(not (= (k z) (k z)))", false;
+    "captured-dependency", "(exists ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((y Int)) (p (k y) y))", false;
+    "self-reference", "(exists ((x Int)) (p x (k z)))", "(p (k z) (k z))", false;
+    "positive-universal", "(forall ((x Int)) (p x z))", "(p (k z) z)", false;
+    "wrong-negative-target", "(not (forall ((x Int)) (p x z)))", "(p (k z) z)", false
+  ] in
+  List.iter (fun (name, left, right, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^
+          "(assert (forall ((z Int) (unused Real)) (= " ^ left ^ " " ^ right ^ ")))") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let left, right = match B.cached_expression st (List.hd inputs) with
+        | A.Quantifier (_, _, _, A.App (_, [left; right])) -> left, right
+        | _ -> failwith "missing Skolem ambient binder" in
+      let definition = SK.definition_of left right in
+      require (Option.is_some definition = expected) ("incorrect Skolem match: " ^ name);
+      if expected then (
+        let definition = Option.get definition in
+        let defs = [definition] in
+        require (SK.ordered_context defs && SK.check defs left right)
+          ("invalid Skolem choice context: " ^ name);
+        let conclusion = U.Observational (left, right) in
+        require (U.skolem_step defs conclusion []) ("Skolem step failed: " ^ name);
+        require (not (U.skolem_step [] conclusion [])) "Skolem step ignored its choice context";
+        require (not (U.skolem_step defs (U.Equal (left, right)) []))
+          "Skolemization was treated as ordinary equality";
+        require (not (U.skolem_step defs conclusion [conclusion]))
+          "Skolemization ignored an unexpected premise";
+        let leaf = { U.binder_name = "sk";
+          binder_formula = Z3ObservationalEquality.mk_oeq_expr left right;
+          binder_premises = []; binder_sorts = None } in
+        require (U.binder_step_with_context defs [] leaf conclusion [])
+          "Skolem step was not available inside a binder";
+        require (SK.add_definition defs { definition with SK.negative = not definition.SK.negative } = None)
+          "incompatible choice definitions shared a Skolem symbol";
+        let recursive = { definition with SK.body = right } in
+        require (not (SK.valid recursive)) "self-dependent choice definition was admitted"))
+    cases;
+  let c = context () in
+  let inputs = parse c
+      "(declare-fun p (Int Int) Bool)(declare-fun q (Int) Bool)(declare-fun k (Int) Int)\
+       (assert (forall ((z Int)) (= (exists ((x Int)) (p x z)) (p (k z) z))))\
+       (assert (forall ((z Int)) (= (not (exists ((x Int)) (p x z)))\
+                                    (forall ((x Int)) (not (p x z))))))\
+       (assert (forall ((z Int)) (= (= (q z) (exists ((x Int)) (p x z)))\
+         (and (or (not (q z)) (p (k z) z))\
+              (or (q z) (forall ((x Int)) (not (p x z))))))))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  let relations = List.map (fun native ->
+      match B.cached_expression st native with
+      | A.Quantifier (_, _, _, A.App (_, [left; right])) -> U.Observational (left, right)
+      | _ -> failwith "expected a Skolem NNF body relation") inputs in
+  (match relations with
+   | [positive; negative; conclusion] ->
+       require (U.binder_boolean_step false conclusion [positive; negative])
+         "NNF did not compose positive Skolem and negative duality premises";
+       require (not (U.binder_boolean_step false conclusion [positive]) &&
+                not (U.binder_boolean_step false conclusion [negative]))
+         "NNF composed Skolem witnesses without both polarity premises";
+       (match conclusion with
+        | U.Observational (left, right) ->
+            require (not (U.binder_boolean_step false (U.Equal (left, right)) [positive; negative]))
+              "NNF converted choice observations to ordinary equality"
+        | _ -> assert false)
+   | _ -> failwith "expected three Skolem NNF regression formulas");
+  let native_sources = [
+    "(declare-fun p (Int) Bool)(assert (exists ((x Int)) (p x)))\
+     (assert (forall ((x Int)) (not (p x))))";
+    "(declare-fun p (Int Real) Bool)(assert (exists ((x Int) (y Real)) (p x y)))\
+     (assert (forall ((x Int) (y Real)) (not (p x y))))";
+    "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (not (forall ((x Int)) (p x))))(assert (forall ((x Int)) (q x)))\
+     (assert (forall ((x Int)) (=> (q x) (p x))))";
+    "(declare-fun p (Int Int) Bool)\
+     (assert (forall ((x Int)) (exists ((y Int)) (p x y))))\
+     (assert (forall ((x Int) (y Int)) (not (p x y))))";
+    "(declare-fun p (Int Int) Bool)(declare-fun q (Int) Bool)\
+     (assert (forall ((z Int)) (= (q z) (exists ((x Int)) (p x z)))))\
+     (assert (q 0))(assert (forall ((x Int)) (not (p x 0))))"
+  ] in
+  List.iter (fun source ->
+      let doc = document source in
+      require (P.check_document doc = Some Z.zero) ("native Skolem proof was not certified: " ^ source);
+      let defs = Option.get (P.collect_definitions [] (P.axiom_branches doc.P.entries) doc.P.entries) in
+      let skolems = Option.get (P.collect_skolems defs [] doc.P.entries) in
+      require (skolems <> []) "native Skolem regression omitted Skolemization";
+      require (SK.order_context (Z.of_int (List.length skolems)) skolems <> None)
+        "native Skolem dependencies could not be ordered")
+    native_sources;
+  let doc = document (List.hd native_sources) in
+  let skolems = Option.get (P.collect_skolems [] [] doc.P.entries) in
+  let f = snd (List.hd (List.hd skolems).SK.witnesses) in
+  require (f.A.domain = []) "expected a ground Skolem witness for freshness mutation";
+  let sk = A.App (f, []) in
+  let mutation = { doc with P.assertions =
+      Z3ResolutionProofTheory.mk_eq_expr sk sk :: doc.P.assertions } in
+  require (P.check_document mutation = None) "Skolem symbol already in original inputs was trusted";
+  (match P.diagnose_document mutation with
+   | P.DocumentRejected (P.SkolemFreshness, _, _) -> ()
+   | _ -> failwith "Skolem freshness rejection was not diagnosed");
+  let d = List.hd skolems in
+  let g = { f with A.decl_name = f.A.decl_name ^ "_other" } in
+  let a = A.App (f, []) and b = A.App (g, []) in
+  let first = { d with SK.body = Z3ResolutionProofTheory.mk_eq_expr
+      (A.Var (Z.zero, f.A.range)) b } in
+  let second = { d with SK.witnesses = [Z.zero, g];
+      body = Z3ResolutionProofTheory.mk_eq_expr (A.Var (Z.zero, f.A.range)) a } in
+  require (SK.valid first && SK.valid second) "cyclic-choice mutation was not individually well formed";
+  require (SK.order_context (Z.of_int 2) [first; second] = None)
+    "cyclic Skolem definitions were admitted";
+  let independent = { second with SK.body = Z3ResolutionProofTheory.mk_eq_expr
+      (A.Var (Z.zero, f.A.range)) (A.Var (Z.zero, f.A.range)) } in
+  require (SK.order_context (Z.of_int 2) [independent; first] <> None)
+    "acyclic Skolem definitions could not be reordered"
 
 let checked_quantifier_pulling () =
   let declarations =
@@ -1177,9 +1482,12 @@ let () =
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
+     "definition-expanded-binder-certificates", checked_binder_definitions;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;
      "certified-quantifier-pulling", checked_quantifier_pulling;
+     "certified-destructive-equality-resolution", checked_der_rules;
+     "certified-Hilbert-choice-Skolemization", checked_skolemization;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
