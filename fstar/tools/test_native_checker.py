@@ -47,6 +47,29 @@ PULL_QUANT_CASES = (
      "(assert (p 0 1.5 2))"),
 )
 
+RULE_EXTENSION_CASES = (
+    ("unused-binders", "(declare-fun p (Int) Bool)"
+     "(assert (forall ((x Int) (unused Real)) (p x)))(assert (not (p 0)))"),
+    ("push-forall", "(declare-fun p (Int) Bool)(declare-fun q (Int) Bool)"
+     "(assert (forall ((x Int)) (and (p x) (q x))))(assert (not (p 0)))"),
+    ("der-forall", "(declare-fun p (Int) Bool)"
+     "(assert (forall ((x Int)) (or (not (= x 3)) (p x))))(assert (not (p 3)))"),
+    ("der-exists", "(declare-fun p (Int) Bool)"
+     "(assert (exists ((x Int)) (and (= x 3) (p x))))(assert (not (p 3)))"),
+    ("lambda-constant", "(assert (not (= ((as const (Array Int Int)) 3)"
+     " (lambda ((x Int)) 3))))"),
+    ("lambda-beta", "(assert (not (= (select (lambda ((x Int)) (+ x 1)) 5) 6)))"),
+    ("constant-read", "(assert (not (= (select ((as const (Array Int Int)) 3) 5) 3)))"),
+    ("datatype-injectivity", "(declare-datatype T ((C (field Int)) (D (other Int))))"
+     "(declare-const a Int)(declare-const b Int)"
+     "(assert (= (C a) (C b)))(assert (not (= a b)))"),
+    ("datatype-selector", "(declare-datatype T ((C (field Int))))"
+     "(declare-const a Int)(assert (not (= (field (C a)) a)))"),
+    ("bv-idempotence", "(declare-const v (_ BitVec 8))"
+     "(assert (not (= (bvand v v) v)))"),
+    ("bv-wrap", "(assert (not (= (bvadd #xff #x01) #x00)))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -80,6 +103,17 @@ class DirectCheckerTests(unittest.TestCase):
             "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
+
+    def test_rule_extensions_in_batch_and_interactive_modes(self):
+        for name, source in RULE_EXTENSION_CASES:
+            with self.subTest(case=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertEqual(interactive.returncode, 0,
+                                 interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
 
     def test_quantified_rewrites_are_certified_in_both_modes(self):
         for source in (

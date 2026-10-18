@@ -10,6 +10,8 @@ module N = Z3Native
 module P = Z3ProofDocument
 module L = FStar.List.Tot
 module C = Z3LpCertificate
+module BV = Z3BvLemma
+module DT = Z3DatatypeLemma
 
 noeq
 type state = {
@@ -69,10 +71,18 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Implies -> Some op_implies | N.Eq -> Some op_eq | N.Oeq -> Some op_oeq
   | N.True -> Some op_true | N.False -> Some op_false | N.Ite -> Some op_ite
   | N.Xor -> Some op_xor | N.Distinct -> Some op_distinct
-  | N.Select -> if L.length dom = 2 then Some op_select else None
+  | N.Select -> if L.length dom >= 2 then Some op_select else None
   | N.Store -> if L.length dom = 3 then Some op_store else None
   | N.ArrayExt -> Some op_array_ext
-  | N.Bvand -> if L.length dom = 2 then Some op_bvand else None
+  | N.ConstArray -> Some op_const_array
+  | N.Bvand -> Some BV.op_and | N.Bvor -> Some BV.op_or
+  | N.Bvxor -> Some BV.op_xor | N.Bvnot -> Some BV.op_not
+  | N.Bvadd -> Some BV.op_add | N.Bvmul -> Some BV.op_mul
+  | N.Bvsub -> Some BV.op_sub | N.Bvneg -> Some BV.op_neg
+  | N.BvNumeral -> Some BV.op_numeral
+  | N.DatatypeConstructor -> Some DT.op_constructor
+  | N.DatatypeRecognizer -> Some DT.op_recognizer
+  | N.DatatypeAccessor -> Some DT.op_accessor
   | N.Concat -> if L.length dom = 2 then Some op_concat else None
   | N.Add -> Some (if binary_int then op_plus else op_arith_add)
   | N.Mul -> Some (if binary_int then op_mul else op_arith_mul)
@@ -80,7 +90,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Le -> Some op_arith_le | N.Lt -> Some op_arith_lt
   | N.Ge -> Some op_arith_ge | N.Gt -> Some op_arith_gt
   | N.ToReal -> Some op_to_real | N.Rational -> Some op_num_rational
-  | N.BvNumeral | N.Opaque -> None
+  | N.Opaque -> None
 
 let marshal_declaration (st:state) (d:N.declaration) (args:list expr)
   : ML (func_decl & state) =
@@ -95,10 +105,12 @@ let marshal_declaration (st:state) (d:N.declaration) (args:list expr)
       match d.op, d.numeral with
       | N.Rational, Some (n, den) -> if den > 0 then Some [n; den] else None
       | N.Rational, None -> None
-      | N.BvNumeral, _ -> Some [d.native_kind]
-      | _, _ -> Some []
+      | N.BvNumeral, Some (n, den) ->
+        if den = 1 then Some (d.parameters @ [n]) else None
+      | N.BvNumeral, None -> None
+      | _, _ -> Some d.parameters
     in
-    let parameters = require_some "Malformed native rational numeral" parameters in
+    let parameters = require_some "Malformed native numeral" parameters in
     let name = if d.op = N.Opaque then d.unique_name else d.name in
     let value = { decl_name = name; domain = dom; range = range;
                   interp = operator_tag d.op dom range; int_params = parameters } in

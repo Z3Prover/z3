@@ -8,7 +8,9 @@ new val native_sort : Type0
 
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
-  | Select | Store | ArrayExt | Bvand | Concat
+  | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
+  | Bvadd | Bvmul | Bvsub | Bvneg | Concat
+  | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
   | Opaque
@@ -27,6 +29,7 @@ type declaration = {
   range: native_sort;
   numeral: option (int & int);
   native_kind: int;
+  parameters: list int;
 }
 
 noeq

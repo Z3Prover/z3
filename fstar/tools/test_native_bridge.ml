@@ -535,8 +535,16 @@ let checked_quantifier_instances () =
       | A.App (d, []) -> d.A.interp = Some Z3ValueTheory.op_num_rational &&
                         d.A.int_params = [Z.zero; Z.one]
       | _ -> false) st.all_expressions in
-  require (not (Z3QuantifierInstantiation.check [zero] formula))
-    "nested substitution was accepted without a capture-avoidance proof"
+  require (Z3QuantifierInstantiation.check [zero] formula)
+    "capture-avoiding substitution under an existential was rejected";
+  let inputs = parse c
+      "(declare-fun p (Int Int) Bool)\
+       (assert (or (not (forall ((x Int)) (exists ((y Int)) (p x y))))\
+                   (exists ((y Int)) (p y 0))))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  require (not (Z3QuantifierInstantiation.check [zero]
+      (B.cached_expression st (List.hd inputs))))
+    "nested substitution captured the inner bound variable"
 
 let checked_negative_nnf () =
   let sources = [
@@ -681,6 +689,8 @@ let checked_quantifier_pulling () =
       "(exists ((x Int)) (not (r x)))", true;
     "not-exists", "(not (exists ((x Int)) (r x)))",
       "(forall ((x Int)) (not (r x)))", true;
+    "negative-boolean-context", "(not (and (forall ((x Int)) (r x)) c))",
+      "(exists ((x Int)) (or (not (r x)) (not c)))", true;
     "and-forall", "(and (forall ((x Int)) (r x)) c)",
       "(forall ((x Int)) (and (r x) c))", true;
     "and-exists", "(and c (exists ((x Int)) (r x)))",
@@ -787,6 +797,263 @@ let checked_quantifier_pulling () =
       require (P.check_document { doc with entries } <> Some Z.zero)
         "mutated native pull-quant certified a refutation") sources
 
+let checked_quantifier_reductions () =
+  let declarations =
+    "(declare-fun p (Int Int) Bool)(declare-fun r (Int) Bool)\
+     (declare-fun q (Real) Bool)(declare-const c Bool)" in
+  let cases = [
+    U.ElimUnused, "unused-first",
+      "(forall ((x Int) (y Int)) (r y))", "(forall ((y Int)) (r y))", true;
+    U.ElimUnused, "unused-middle",
+      "(exists ((x Int) (y Real) (w Int)) (p x w))",
+      "(exists ((x Int) (w Int)) (p x w))", true;
+    U.ElimUnused, "unused-last",
+      "(forall ((x Int) (y Real)) (r x))", "(forall ((x Int)) (r x))", true;
+    U.ElimUnused, "unused-all", "(exists ((x Int) (y Real)) c)", "c", true;
+    U.ElimUnused, "unused-ambient",
+      "(forall ((x Int)) (p z z))", "(p z z)", true;
+    U.ElimUnused, "unused-under-binder",
+      "(forall ((x Int) (y Real)) (exists ((w Int)) (p x w)))",
+      "(forall ((x Int)) (exists ((w Int)) (p x w)))", true;
+    U.ElimUnused, "unused-under-lambda",
+      "(forall ((x Int) (y Real)) (= (lambda ((w Int)) (+ x w z)) (lambda ((w Int)) (+ w z))))",
+      "(forall ((x Int)) (= (lambda ((w Int)) (+ x w z)) (lambda ((w Int)) (+ w z))))", true;
+    U.ElimUnused, "captured-ambient",
+      "(forall ((x Int)) (p z x))", "(forall ((x Int)) (p x x))", false;
+    U.ElimUnused, "removed-used",
+      "(forall ((x Int) (y Int)) (p x y))", "(forall ((x Int)) (p x x))", false;
+    U.PushQuantifier, "forall-and",
+      "(forall ((x Int) (y Real)) (and (r x) (q y)))",
+      "(and (forall ((x Int)) (r x)) (forall ((y Real)) (q y)))", true;
+    U.PushQuantifier, "exists-or",
+      "(exists ((x Int) (y Real)) (or (r x) (q y) c))",
+      "(or (exists ((x Int)) (r x)) (exists ((y Real)) (q y)) c)", true;
+    U.PushQuantifier, "forall-or",
+      "(forall ((x Int)) (or (r x) (not (r x))))",
+      "(or (forall ((x Int)) (r x)) (forall ((x Int)) (not (r x))))", false;
+    U.PushQuantifier, "exists-and",
+      "(exists ((x Int)) (and (r x) (not (r x))))",
+      "(and (exists ((x Int)) (r x)) (exists ((x Int)) (not (r x))))", false;
+    U.PushQuantifier, "push-dropped-body",
+      "(forall ((x Int)) (and (r x) c))", "(forall ((x Int)) (r x))", false;
+    U.DestructiveEquality, "der-forall",
+      "(forall ((x Int)) (or (not (= x z)) (r x)))", "(r z)", true;
+    U.DestructiveEquality, "der-reversed",
+      "(forall ((x Int)) (or (not (= z x)) (r x)))", "(r z)", true;
+    U.DestructiveEquality, "der-exists",
+      "(exists ((x Int)) (and (= x z) (r x)))", "(r z)", true;
+    U.DestructiveEquality, "der-exists-reversed",
+      "(exists ((x Int)) (and (= z x) (r x)))", "(r z)", true;
+    U.DestructiveEquality, "der-chain",
+      "(forall ((x Int) (y Int)) (or (not (= x y)) (not (= y z)) (p x y)))",
+      "(p z z)", true;
+    U.DestructiveEquality, "der-nested-disjunction",
+      "(forall ((x Int)) (or c (or (not (= x z)) (r x))))",
+      "(or c (r z))", true;
+    U.DestructiveEquality, "der-bool-literal",
+      "(forall ((b Bool)) (or b (= b c)))", "(= false c)", true;
+    U.DestructiveEquality, "der-bool-negative",
+      "(exists ((b Bool)) (and (not b) (= b c)))", "(= false c)", true;
+    U.DestructiveEquality, "der-bool-equality",
+      "(forall ((b Bool)) (or (= b c) b))", "(not c)", true;
+    U.DestructiveEquality, "der-forall-unit",
+      "(forall ((x Int)) (not (= x z)))", "false", true;
+    U.DestructiveEquality, "der-exists-unit",
+      "(exists ((x Int)) (= x z))", "true", true;
+    U.DestructiveEquality, "der-under-binder",
+      "(exists ((x Int)) (and (= x z) (forall ((y Int)) (p x y))))",
+      "(forall ((y Int)) (p z y))", true;
+    U.DestructiveEquality, "der-occurs",
+      "(exists ((x Int)) (and (= x (+ x 1)) (r x)))", "(r z)", false;
+    U.DestructiveEquality, "der-cyclic",
+      "(forall ((x Int) (y Int)) (or (not (= x (+ y 1))) (not (= y (+ x 1))) (p x y)))",
+      "(p z z)", false;
+    U.DestructiveEquality, "der-changed-substitution",
+      "(forall ((x Int)) (or (not (= x z)) (r x)))", "(r 7)", false;
+    U.RewriteRule, "lambda-extensional",
+      "(= (lambda ((x Int)) (+ x z)) (lambda ((x Int)) (+ z x)))",
+      "(forall ((x Int)) (= (+ x z) (+ z x)))", true;
+    U.RewriteRule, "lambda-constant",
+      "(= ((as const (Array Int Int)) z) (lambda ((x Int)) (+ x z)))",
+      "(forall ((x Int)) (= (+ x z) z))", true;
+    U.RewriteRule, "lambda-constant-reversed",
+      "(= (lambda ((x Int)) (+ x z)) ((as const (Array Int Int)) z))",
+      "(forall ((x Int)) (= (+ x z) z))", true;
+    U.RewriteRule, "lambda-beta",
+      "(= (select (lambda ((x Int)) (+ x z)) 5) 0)", "(= (+ 5 z) 0)", true;
+    U.RewriteRule, "lambda-beta-direct",
+      "(select (lambda ((x Int)) (+ x z)) 5)", "(+ 5 z)", true;
+    U.RewriteRule, "lambda-beta-multi",
+      "(select (lambda ((x Int) (b Bool)) (ite b x z)) 5 c)",
+      "(ite c 5 z)", true;
+    U.RewriteRule, "lambda-beta-nested",
+      "(select (lambda ((x Int)) (lambda ((y Int)) (+ x y z))) 5)",
+      "(lambda ((y Int)) (+ 5 y z))", true;
+    U.RewriteRule, "lambda-captured-constant",
+      "(= ((as const (Array Int Int)) z) (lambda ((x Int)) (+ x z)))",
+      "(forall ((x Int)) (= (+ x x) x))", false;
+    U.RewriteRule, "lambda-beta-wrong",
+      "(select (lambda ((x Int)) (+ x z)) 5)", "(+ z z)", false;
+    U.RewriteRule, "lambda-beta-wrong-order",
+      "(select (lambda ((x Int) (y Int)) (- x y)) 5 7)", "(- 7 5)", false
+  ] in
+  List.iter (fun (rule, name, left, right, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^
+          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let a, b = match B.cached_expression st (List.hd inputs) with
+        | A.Quantifier (_, _, _, A.App (_, [a; b])) -> a, b
+        | _ -> failwith "expected ambient equality" in
+      let conclusion = U.Equal (a, b) in
+      require (U.check_step rule conclusion [] = expected)
+        ("incorrect quantified rewrite decision: " ^ name);
+      require (not (U.check_step rule conclusion [conclusion]))
+        ("quantified rewrite accepted unexpected premises: " ^ name);
+      require (match U.check_node [] { U.kind = rule; conclusion1 = conclusion; premises = [] } with
+          | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
+          | None -> false)
+        ("quantified rewrite lost its obligation: " ^ name)) cases
+
+let checked_nested_nnf_replacement () =
+  List.iter (fun (name, left, right) ->
+      let c = context () in
+      let inputs = parse c
+          ("(declare-fun p (Int) Bool)(declare-const c Bool)\
+            (assert (forall ((x Int)) (= (+ x 0) x)))\
+            (assert (= " ^ left ^ " " ^ right ^ "))") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let leaf_formula = match B.cached_expression st (List.hd inputs) with
+        | A.Quantifier (_, _, _, body) -> body
+        | _ -> failwith "missing arithmetic body" in
+      let formula = B.cached_expression st (List.nth inputs 1) in
+      let leaf = { U.binder_name = "rewrite"; binder_formula = leaf_formula;
+                   binder_premises = []; binder_sorts = None } in
+      let root = { U.binder_name = name; binder_formula = formula;
+                   binder_premises = [Z.zero]; binder_sorts = None } in
+      let certificate = { U.binder_entries = [leaf; root]; binder_root = Z.one } in
+      let conclusion = Option.get (U.classify_fact formula) in
+      require (U.check_binder certificate conclusion)
+        ("NNF did not substitute a universally valid fact under a binder: " ^ name);
+      require (not (U.check_binder { certificate with U.binder_entries =
+          [{ leaf with U.binder_name = "hypothesis" }; root] } conclusion))
+        "NNF generalized a hypothesis while rewriting a nested binder")
+    ["nnf-pos", "(and (forall ((x Int)) (p (+ x 0))) c)",
+       "(and (forall ((x Int)) (p x)) c)";
+     "nnf-neg", "(not (and (forall ((x Int)) (p (+ x 0))) c))",
+       "(or (exists ((x Int)) (not (p x))) (not c))"]
+
+let checked_theory_extensions () =
+  let declarations =
+    "(declare-datatype T ((C (field Int)) (D (other Int))))\
+     (declare-const a Int)(declare-const b Int)(declare-const d Int)\
+     (declare-const v (_ BitVec 8))(declare-const w (_ BitVec 8))\
+     (declare-const arr (Array Int Int))" in
+  let cases = [
+    "datatype-injectivity", "(or (not (= (C a) (C b))) (= a b))", true;
+    "datatype-disjointness", "(not (= (C a) (D b)))", true;
+    "datatype-recognizer", "((_ is C) (C a))", true;
+    "datatype-recognizer-mismatch", "(not ((_ is D) (C a)))", true;
+    "datatype-accessor", "(= (field (C a)) a)", true;
+    "datatype-invalid-injectivity", "(or (not (= (C a) (C b))) (= a d))", false;
+    "datatype-wrong-accessor", "(= (field (C a)) b)", false;
+    "datatype-wrong-recognizer", "((_ is C) (D b))", false;
+    "array-read", "(= (select (store arr a b) a) b)", true;
+    "array-overwrite", "(= (store (store arr a b) a d) (store arr a d))", true;
+    "array-invalid-read", "(= (select (store arr a b) a) d)", false;
+    "arithmetic-reflexive", "(<= (+ a 1) (+ 1 a))", true;
+    "arithmetic-unit-transitivity",
+      "(or (not (< a b)) (not (< b d)) (< a d))", true;
+    "arithmetic-invalid-bound", "(or (not (< a b)) (< b a))", false;
+    "bv-and-idempotent", "(= (bvand v v) v)", true;
+    "bv-or-idempotent", "(= (bvor v v) v)", true;
+    "bv-xor-self", "(= (bvxor v v) #x00)", true;
+    "bv-sub-self", "(= (bvsub v v) #x00)", true;
+    "bv-neutral", "(= (bvadd v #x00) v)", true;
+    "bv-double-not", "(= (bvnot (bvnot v)) v)", true;
+    "bv-double-negation", "(= (bvneg (bvneg v)) v)", true;
+    "bv-absorbing", "(= (bvmul v #x00) #x00)", true;
+    "bv-wrap", "(= (bvadd #xff #x01) #x00)", true;
+    "bv-literal-distinct", "(not (= #x01 #x02))", true;
+    "bv-invalid-identity", "(= (bvand v w) v)", false;
+    "bv-invalid-fold", "(= (bvadd #xff #x01) #x01)", false
+  ] in
+  List.iter (fun (name, formula, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^ "(assert " ^ formula ^ ")") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+      require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion [] = expected)
+        ("incorrect theory lemma decision: " ^ name);
+      require (U.check_step U.DefAxiom conclusion [] = expected)
+        ("incorrect definition axiom decision: " ^ name);
+      require (match U.check_node [] {
+          U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises = [] } with
+          | Some (_, n) -> Z.equal n (if expected then Z.zero else Z.one)
+          | None -> false)
+        ("theory lemma lost its explicit obligation: " ^ name)) cases;
+  let sources = [
+    declarations ^ "(assert (= (C a) (C b)))(assert (not (= a b)))";
+    declarations ^ "(assert (= (C a) (D b)))";
+    declarations ^ "(assert (not (= (field (C a)) a)))";
+    declarations ^ "(assert (not (= (bvand v v) v)))";
+    declarations ^ "(assert (not (= (bvxor v v) #x00)))";
+    declarations ^ "(assert (not (= (bvadd #xff #x01) #x00)))"
+  ] in
+  List.iter (fun source ->
+      require (P.check_document (document source) = Some Z.zero)
+        ("native theory proof was not certified: " ^ source)) sources;
+  List.iter (fun (name, premises, target, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^
+          String.concat "" (List.map (fun e -> "(assert " ^ e ^ ")") (premises @ [target]))) in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let judgments = List.map (fun e -> Option.get (U.classify_fact (B.cached_expression st e))) inputs in
+      let conclusion = List.hd (List.rev judgments) in
+      let facts = List.rev (List.tl (List.rev judgments)) in
+      require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
+        ("incorrect theory consequence: " ^ name))
+    ["arithmetic-premises", ["(< a b)"; "(< b d)"], "(< a d)", true;
+     "datatype-premise", ["(= (C a) (C b))"], "(= a b)", true;
+     "bv-premise", ["(= (bvand v v) w)"], "(= v w)", true;
+     "invalid-bv-consequence", ["(= (bvand v v) w)"], "(= v (bvnot w))", false];
+  let c = context () in
+  let inputs = parse c
+      "(declare-sort Fake 0)(declare-const a Int)\
+       (declare-fun C (Int) Fake)(declare-fun field (Fake) Int)\
+       (assert (= (field (C a)) a))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  require (not (U.check_step U.DefAxiom
+      (Option.get (U.classify_fact (B.cached_expression st (List.hd inputs)))) []))
+    "datatype interpretation was inferred from a user-supplied name";
+  let c = context () in
+  let inputs = parse c "(declare-const v (_ BitVec 8))(assert (= (bvadd v #x00) v))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); _]) ->
+       List.iter (fun width ->
+           require (Z3BvLemma.rewrite (A.App ({ f with A.int_params = [Z.of_int width] }, args)) = None)
+             "invalid bit-vector width escaped an erased refinement")
+         [-1; 0; 9; 4097]
+   | _ -> failwith "expected native bit-vector addition");
+  let c = context () in
+  let inputs = parse c
+      "(assert (forall ((a Real) (b Real) (c Real))\
+         (or (not (< a b)) (not (< b c)) (< a c))))" in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  let formula = match B.cached_expression st (List.hd inputs) with
+    | A.Quantifier (_, _, _, body) -> body
+    | _ -> failwith "missing quantified arithmetic clause" in
+  let conclusion = Option.get (U.classify_fact formula) in
+  let leaf = { U.binder_name = "th-lemma"; binder_formula = formula;
+               binder_premises = []; binder_sorts = None } in
+  let certificate = { U.binder_entries = [leaf]; binder_root = Z.zero } in
+  require (U.check_binder certificate conclusion)
+    "an independently checked theory lemma was rejected inside a binder";
+  require (not (U.check_binder { certificate with U.binder_entries =
+      [{ leaf with U.binder_name = "assumed:nlsat" }] } conclusion))
+    "a hidden NLSAT assumption was generalized"
+
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
@@ -819,7 +1086,7 @@ let typed_observations () =
     | A.App (_, [x; _]) -> x | _ -> failwith "expected equality" in
   let foreign = { N.id = Z.of_int 12345; name = "~"; unique_name = "native-oeq";
                   op = N.Oeq; range = Z3native.mk_bool_sort c;
-                  numeral = None; native_kind = Z.zero } in
+                  numeral = None; native_kind = Z.zero; parameters = [] } in
   let d, _ = B.marshal_declaration st foreign [x; x] in
   require (d.domain = [A.BaseSort "Int"; A.BaseSort "Int"])
     "non-Boolean observational equality was relabeled";
@@ -1062,6 +1329,9 @@ let () =
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;
      "certified-quantifier-pulling", checked_quantifier_pulling;
+     "certified-quantifier-reductions-and-lambdas", checked_quantifier_reductions;
+     "certified-nested-NNF-replacement", checked_nested_nnf_replacement;
+     "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;

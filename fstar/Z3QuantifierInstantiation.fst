@@ -5,26 +5,10 @@ open Z3ValueTheory
 open Z3ResolutionProofTheory
 open Z3ObservationalEquality
 module D = Z3Definitions
+module S = Z3BinderSubstitution
 module L = FStar.List.Tot
 
-(* Arguments are indexed in de Bruijn order. Nested binders are deliberately
-   excluded until capture-avoiding substitution has its own semantic proof. *)
-let rec substitute (args:list expr) (body:expr) : Tot (option expr) (decreases body) =
-  match body with
-  | Var n s ->
-    if n < L.length args && get_sort (L.index args n) = s
-    then Some (L.index args n) else None
-  | App f es ->
-    (match substitute_args args es with
-     | Some es' -> Some (App f es') | None -> None)
-  | Quantifier _ _ _ _ -> None
-
-and substitute_args (args es:list expr) : Tot (option (list expr)) (decreases es) =
-  match es with
-  | [] -> Some []
-  | e :: rest ->
-    (match substitute args e, substitute_args args rest with
-     | Some e', Some rest' -> Some (e' :: rest') | _, _ -> None)
+let substitute (args:list expr) (body:expr) : option expr = S.substitute args body
 
 let check (args:list expr) (formula:expr) : bool =
   match formula with
@@ -65,33 +49,15 @@ let rec lemma_eval_args_index (i:interpretation value) (rho:env value)
   | [] -> ()
   | _ :: rest -> if n = 0 then () else lemma_eval_args_index i rho rest (n - 1)
 
-let rec lemma_substitute_sound (i:interpretation value) (rho:env value)
-                               (args:list expr) (body inst:expr)
-  : Lemma (requires substitute args body == Some inst)
+let lemma_substitute_sound (i:interpretation value) (rho:env value)
+                          (args:list expr) (body inst:expr)
+  : Lemma (requires quant_extensional i /\ substitute args body == Some inst)
           (ensures eval i body (shift (eval_args i args rho) rho) == eval i inst rho)
-          (decreases body) =
-  match body with
-  | Var n _ ->
-    lemma_eval_args_length i rho args;
-    lemma_eval_args_index i rho args n
-  | App _ es -> lemma_substitute_args_sound i rho args es (Some?.v (substitute_args args es))
-  | Quantifier _ _ _ _ -> ()
-
-and lemma_substitute_args_sound (i:interpretation value) (rho:env value)
-                                (args es instances:list expr)
-  : Lemma (requires substitute_args args es == Some instances)
-          (ensures eval_args i es (shift (eval_args i args rho) rho) == eval_args i instances rho)
-          (decreases es) =
-  match es, instances with
-  | [], [] -> ()
-  | e :: rest, inst :: remaining ->
-    lemma_substitute_sound i rho args e inst;
-    lemma_substitute_args_sound i rho args rest remaining
-  | _, _ -> ()
+  = S.lemma_substitute i rho args body inst
 
 let lemma_check_sound (i:interpretation value) (rho:env value)
                       (args:list expr) (formula:expr)
-  : Lemma (requires boolean_model i /\ not_sound i /\ or_sound i /\
+  : Lemma (requires quant_extensional i /\ boolean_model i /\ not_sound i /\ or_sound i /\
                     forall_elimination_model i /\ check args formula)
           (ensures lit_true i rho formula)
   = match formula with
