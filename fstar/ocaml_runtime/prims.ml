@@ -12,6 +12,7 @@ let int_one : int = Z.one
 
 let of_int (n : Stdlib.Int.t) : int = Z.of_int n
 let parse_int (n : string) : int = Z.of_string n
+let string_of_int (n : int) : string = Z.to_string n
 
 let strcat (a : string) (b : string) : string = a ^ b
 

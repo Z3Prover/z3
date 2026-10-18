@@ -116,7 +116,9 @@ fact. F* code assigns recognized operator tags from actual native operator
 kinds, not user-supplied printed names. Opaque declarations and nominal
 sorts carry native identity in their names to avoid conflating overloaded
 or parameterized symbols. Exact numerals and Z3's original `arith/farkas`
-parameters are preserved; no certificates are reconstructed.
+parameters are preserved. The additional unit-weight arithmetic candidate
+described below is checked independently against the actual formulas; it
+is not presented as an original native certificate.
 
 NLSAT-origin theory lemmas carry the explicit native parameters
 `arith assumed nlsat`. The foreign view preserves this origin, and the
@@ -154,18 +156,21 @@ uses the same checks. Negative NNF and compositional Boolean NNF are
 checked as described below. A failed certificate leaves an explicit obligation
 on its outer proof step; it never becomes `ACCEPT`.
 
-Constant Boolean quantifiers reduce to their bodies, including the native
-`elim-unused` steps for `forall true` and `exists false`. This is not a
-general implementation of unused-variable elimination.
+`Z3BinderSubstitution.fst` supplies capture-avoiding simultaneous
+substitution beneath quantifiers and lambdas. Its environment theorem also
+supports arbitrary unused-binder thinning: retained variables are
+reindexed, ambient variables shift down, and nested binder cutoffs are
+respected. `elim-unused` no longer only handles constant Boolean bodies.
+Removing every binding reduces a Boolean quantifier to its body; lambda
+argument lists are not thinned, since that would change the array sort.
 
 `Z3QuantifierInstantiation.fst` checks native `quant-inst` clauses using
 Z3's original AST-valued substitution parameters. It validates binding
 arity, sorts, closed arguments, de Bruijn order, and the exact resulting
 body. Its substitution theorem covers nested `forall`, `exists`, and
-`lambda` bodies. A binder-depth cutoff preserves inner bound variables
-and selects the outer substitution arguments at adjusted de Bruijn indices.
-Arguments must be closed, so inserting them beneath a binder cannot
-capture free variables and does not require variable lifting.
+`lambda` bodies using the shared `Z3BinderSubstitution.fst` foundation.
+Binder-aware lifting preserves inner bound variables and prevents capture
+of the outer substitution arguments. Supplied arguments must still be closed.
 Multi-variable, mixed-sort instantiations are supported.
 
 The targeted 2026-10-18 replay discharges all **58 formerly unchecked
@@ -197,9 +202,12 @@ assertions or hypothetical leaves. The pinned 17-file `regressions/proofs` corpu
 
 Remaining quantifier-related limits include Skolemization outside the
 fresh, acyclic, variable-dependency fragment described below,
-pulling outside the supported Boolean fragment, general unused-variable elimination,
-instantiation with open substitution arguments, and lambda extensionality rewrites.
-NLSAT and other previously unsupported theory rules remain partial.
+pulling outside the supported Boolean fragment, instantiation with open
+substitution arguments, and transformations exceeding the bounded
+normalization budgets. The abstract quantifier
+semantics still ranges over arity-correct value lists rather than verified
+sort-indexed SMT-LIB domains. NLSAT and other previously unsupported theory
+rules remain partial.
 
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
@@ -315,7 +323,9 @@ alone can lose that relationship. The Boolean NNF checker now also tries
 replacing target subexpressions with reversed checked premise relations.
 F* proves symmetry and replacement soundness without strengthening an
 observational premise to equality. The existing Boolean budgets are
-unchanged, and replacement still does not descend beneath quantifiers.
+unchanged. After integration with the shared quantifier checker,
+replacement may descend beneath quantifiers using the all-environments
+premise invariant, as described below.
 
 The final frozen 710-input replay yields **648 `ACCEPT` and 62 `PARTIAL`**,
 retaining all 563 prior accepts and gaining **85**, with unchanged outer
@@ -359,13 +369,16 @@ elimination in Z3's XOR-body proofs. Observational premises remain
 observational and cannot establish an ordinary equality.
 
 Boolean `nnf-pos` and `nnf-neg` steps compose their checked premise
-relations through application arguments, including negative occurrences,
-and then invoke the existing verified Boolean equivalence checker.
-They try forward replacement on the source and reversed-premise
-replacement on the target, as described in the Skolemization extension.
-Premise replacement does not descend into quantifier bodies; those
-require the explicit binder check. Unsupported steps or Boolean checks
-exceeding their supported fragment retain obligations.
+relations through application arguments and nested quantifier bodies,
+including negative occurrences. Descending through a binder is justified
+only because every supplied fact already holds under **every environment**;
+hypotheses are never generalized. Endpoint comparison combines Boolean
+equivalence, unused-binder elimination, quantifier pulling, and the
+compositional normalization described below. Direct quantified NNF steps
+still require their explicit binder metadata and checked body premise.
+Boolean comparison also tries reversed-premise replacement on the target,
+as described in the Skolemization extension.
+Unsupported steps or exhausted budgets retain obligations.
 
 The 2026-10-17 local evaluation used eight native negative-NNF examples:
 plain existential negation, conjunction, disjunction, a Boolean context,
@@ -408,10 +421,12 @@ additional semantic model premise is introduced.
 The dedicated unified rule is also available inside hidden binder
 certificates, where it must hold in every environment. Unsupported shapes
 and normalization exceeding the 64-step recursion budget leave explicit
-obligations; unexpected premises are rejected. Pulling through implication,
-XOR, or ITE is not implemented by this rule, nor is lambda extensionality.
-Nested-binder instantiation of closed arguments is checked separately by
-the substitution theorem described above.
+obligations; unexpected premises are rejected. `Z3QuantifierReduce.fst`
+additionally compares normalized binder bodies and removes unused
+bindings. The unified rule can use compositional normalization to handle
+pulling nested inside applications and negative Boolean contexts.
+Pulling through implication, XOR, or ITE is not implemented as a general
+rule. Lambda rewriting and nested instantiation use separate checkers.
 
 The four native nested-quantifier examples (existential, universal,
 mixed-sort, and three binder blocks) all return `ACCEPT` in batch and
@@ -429,6 +444,105 @@ changed kinds/sorts, swapped variables or binder blocks, captured or dropped
 dependencies, altered bodies, forward/missing or unexpected premises, and
 exhausted normalization fuel. The pinned 17-file proof corpus remains
 16 `ACCEPT` and one solver `UNKNOWN` at 10 seconds, with no checker errors.
+
+#### Distribution, destructive equality, and lambda rewriting
+
+`Z3QuantifierReduce.fst` checks `push-quant` in the two valid distribution
+directions: `forall` over conjunction and `exists` over disjunction.
+Each distributed body is compared after unused-variable elimination and
+binder-aware normalization. The opposite distribution directions are not
+accepted.
+
+`Z3DestructiveEquality.fst` replays `der` one definition at a time.
+Universal disjunctions use a disequality guard; existential conjunctions
+use an equality guard. Both equality orientations and Boolean
+literal/equality forms are supported. Conjunctions/disjunctions are
+flattened with the existing verified connective lemmas. Each step checks
+the binding range, sorts, and occurs condition, substitutes without
+capture, and removes its defining literal. Dependent definitions can be
+replayed in sequence; cyclic/self-referential substitutions do not bypass
+the occurs check. The intermediate binder vector is retained, matching
+the producer, and final comparison can remove unused bindings.
+
+`Z3LambdaRewrite.fst` checks lambda extensionality, constant-array/lambda
+equalities, lambda-to-constant-array views, and beta reduction for typed
+single- or multi-index selection. Ambient terms are lifted beneath the
+new binder; beta substitution reverses declaration order and remains
+capture-safe beneath nested binders. Selecting a constant array uses the
+same proved lambda view.
+
+These rules are semantic checkers, not endorsements of the native proof
+tag. Unsupported instances remain obligations. Lambda support introduces
+an explicit `lambda_model` contract: lambda denotation equality reflects
+pointwise body equality, selecting a lambda evaluates its body, and a
+constant array denotes the corresponding constant lambda. These are
+primitive interpretation assumptions, **not** a proved concrete native
+array/function model or an assumption that an individual rewrite is valid.
+
+### Additional theory lemmas and definition axioms
+
+`Z3TheoryNormalize.fst` performs bounded, bottom-up normalization with
+proved local rewrites and congruence, including beneath binders. It is
+shared by ordinary rewrites, NNF/pulling endpoint comparisons,
+`def-axiom`, and generic `th-lemma` checking. For theory lemmas with
+premises, it checks the implication from the actual premise propositions
+to the conclusion, not the conclusion alone. The existing propositional,
+distinctness, guarded-definition, and array/arithmetic checks remain
+available. The same independently checked consequences are available in
+hidden binder certificates when all their premises satisfy the
+all-environments invariant; assumed-origin leaves remain excluded.
+
+| Theory | Additional integrated coverage |
+|---|---|
+| Arithmetic | Independently checked unit-weight Farkas candidates, reflexive/constant linear constraints, and arithmetic normalization inside clauses and definitions. Existing exact native coefficient checks remain unchanged. |
+| Arrays | Existing read/store contraction, overwrite/redundancy, and guarded read-over-write rewrites inside larger clauses and definitions; constant-array reads use the lambda view. The pre-existing array model remains specialized to its documented sorts. |
+| Bit-vectors | Exact native numeral values and widths; unary `bvnot`/`bvneg`, binary bitwise/modular arithmetic constant folding, idempotence, self-cancellation, selected neutral/absorbing elements, and double negation. |
+| Datatypes | Constructor disjointness/injectivity, matching/mismatching recognizers, and matching-constructor field selection inside clauses, implications, and definition axioms. |
+
+Bit-vector recognition uses native operator kinds and numeric width/value
+parameters. The semantic bridge uses a width-indexed numeric projection
+with primitive modular/bitwise interpretation and equality-reflection
+contracts. It currently requires closed terms and widths from 1 through
+4096; it does not impose bit-vector typing on arbitrary bound-variable
+environments. This does not enlarge the shared `value` datatype into a
+concrete arbitrary-width native bit-vector interpretation. General
+bit-blasting certificates, extracts/extensions/shifts, and unsupported
+arithmetic rewrites remain obligations.
+
+Datatype metadata records the owning sort, constructor identity, arity,
+and field index using the official declaration/datatype APIs. Names alone
+never identify constructors, testers, or accessors. Its semantic bridge
+assumes primitive tag/field projections for constructor, recognizer, and
+accessor interpretation; constructor equality laws are then derived.
+Datatype acyclicity, exhaustiveness, update-field, and unmatched
+selector/constructor schemas are not generically certified.
+
+No rule is discharged solely because its hint says `th-lemma` or
+`def-axiom`. Assumed NLSAT evidence, unsupported nonlinear replay, and
+other unimplemented theory instances still retain explicit obligations.
+The overall theorem remains conditional on the documented interpretation
+contracts and trust boundaries, including the existing semantic-model
+inhabitance gap.
+
+The integrated verification/extraction passes with warnings treated as
+errors. The merged native suite has 35 groups, including contextual Boolean
+rewrites, unused-quantifier rewrites, positive and adversarial
+quantifier/DER/lambda/Skolem cases, nested NNF replacement, theory consequences,
+lookalike uninterpreted names, and malformed bit-vector widths. All 21 CLI
+tests pass, including 11 new examples in both batch and interactive modes.
+The pinned 17-file corpus still gives 16 `ACCEPT` and one solver `UNKNOWN`
+at 10 seconds.
+
+The 2026-10-18 integration with Hilbert-choice Skolemization retains both
+guarded DER checkers and the forward/reversed Boolean NNF paths alongside
+shared quantifier/theory normalization. Reversed-premise replacement
+preserves the all-environments invariant even beneath nested binders.
+The merged 710-input replay retains all **648 `ACCEPT` and 62 `PARTIAL`**
+results, with no increased pending counts or changed proof-node counts.
+Its frozen replay and comparison are under
+`C:\smtlib-benchmarks\proof_skolem_merge_20261018\final`.
+The rebuilt Z3 unit suite passes all 116 tests; solver, Python-binding,
+and command-line-help smoke checks also pass.
 
 ### Sharing and ownership
 

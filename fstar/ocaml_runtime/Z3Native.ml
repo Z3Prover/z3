@@ -3,7 +3,9 @@ type native_sort = Z3native.sort
 
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
-  | Select | Store | ArrayExt | Bvand | Concat
+  | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
+  | Bvadd | Bvmul | Bvsub | Bvneg | Concat
+  | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral | Opaque
 
@@ -19,6 +21,7 @@ type declaration = {
   range: native_sort;
   numeral: (Z.t * Z.t) option;
   native_kind: Z.t;
+  parameters: Z.t list;
 }
 
 type expression_view =
@@ -86,6 +89,13 @@ let operator = function
   | Z3enums.OP_XOR -> Xor | Z3enums.OP_DISTINCT -> Distinct
   | Z3enums.OP_SELECT -> Select | Z3enums.OP_STORE -> Store
   | Z3enums.OP_ARRAY_EXT -> ArrayExt | Z3enums.OP_BAND -> Bvand
+  | Z3enums.OP_BOR -> Bvor | Z3enums.OP_BXOR -> Bvxor | Z3enums.OP_BNOT -> Bvnot
+  | Z3enums.OP_BADD -> Bvadd | Z3enums.OP_BMUL -> Bvmul
+  | Z3enums.OP_BSUB -> Bvsub | Z3enums.OP_BNEG -> Bvneg
+  | Z3enums.OP_CONST_ARRAY -> ConstArray
+  | Z3enums.OP_DT_CONSTRUCTOR -> DatatypeConstructor
+  | Z3enums.OP_DT_RECOGNISER | Z3enums.OP_DT_IS -> DatatypeRecognizer
+  | Z3enums.OP_DT_ACCESSOR -> DatatypeAccessor
   | Z3enums.OP_SEQ_CONCAT -> Concat | Z3enums.OP_ADD -> Add | Z3enums.OP_MUL -> Mul
   | Z3enums.OP_SUB | Z3enums.OP_UMINUS -> Sub
   | Z3enums.OP_DIV -> Div | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
@@ -103,6 +113,32 @@ let rational text =
 
 let app_args c a =
   List.init (Z3native.get_app_num_args c a) (Z3native.get_app_arg c a)
+
+let datatype_parameters c d op =
+  let id d = Z.of_int (Z3native.get_func_decl_id c d) in
+  if op = DatatypeConstructor then
+    [sort_id (Z3native.get_range c d); id d; Z.of_int (Z3native.get_domain_size c d)]
+  else if op = DatatypeRecognizer then begin
+    if Z3native.get_decl_num_parameters c d <> 1 ||
+       Z3enums.parameter_kind_of_int (Z3native.get_decl_parameter_kind c d 0) <>
+         Z3enums.PARAMETER_FUNC_DECL
+    then fail "Malformed native datatype recognizer";
+    let constructor = Z3native.get_decl_func_decl_parameter c d 0 in
+    [sort_id (Z3native.get_range c constructor); id constructor]
+  end else
+    let owner = Z3native.get_domain c d 0 in
+    let rec constructors index =
+      if index = Z3native.get_datatype_sort_num_constructors c owner then
+        fail "Native datatype accessor has no owning constructor";
+      let constructor = Z3native.get_datatype_sort_constructor c owner index in
+      let rec fields field =
+        if field = Z3native.get_domain_size c constructor then constructors (index + 1)
+        else if Z3native.is_eq_func_decl c d
+                  (Z3native.get_datatype_sort_constructor_accessor c owner index field)
+        then [sort_id owner; id constructor; Z.of_int field]
+        else fields (field + 1)
+      in fields 0
+    in constructors 0
 
 let view_expression a =
   let c = ctx a in
@@ -125,13 +161,22 @@ let view_expression a =
       let id = Z.of_int (Z3native.get_func_decl_id c d) in
       let native_kind = Z3native.get_decl_kind c d in
       let op = operator (Z3enums.decl_kind_of_int native_kind) in
-      let numeral = if op = Rational then Some (rational (Z3native.get_numeral_string c a))
+      let numeral = if op = Rational || op = BvNumeral
+                    then Some (rational (Z3native.get_numeral_string c a))
                     else None in
-      let name = if op = Rational || op = BvNumeral then Z3native.ast_to_string c a
+      let range = Z3native.get_range c d in
+      let parameters = match op with
+        | Bvand | Bvor | Bvxor | Bvnot | Bvadd | Bvmul | Bvsub | Bvneg | BvNumeral ->
+            [Z.of_int (Z3native.get_bv_sort_size c range)]
+        | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor ->
+            datatype_parameters c d op
+        | _ -> [] in
+      let name = if op = BvNumeral then "bv"
+                 else if op = Rational then Z3native.ast_to_string c a
                  else symbol c (Z3native.get_decl_name c d) in
       let declaration = {
         id; name; unique_name = unique "decl" id name; op;
-        range = Z3native.get_range c d; numeral; native_kind = Z.of_int native_kind;
+        range; numeral; native_kind = Z.of_int native_kind; parameters;
       } in
       Application (declaration, app_args c app)
   | _ -> fail "Native object is not an expression"

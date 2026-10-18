@@ -134,3 +134,4 @@ let op_arith_lt : decl_kind = 28
 let op_arith_ge : decl_kind = 29
 let op_arith_gt : decl_kind = 30
 let op_to_real : decl_kind = 31
+let op_const_array : decl_kind = 32
