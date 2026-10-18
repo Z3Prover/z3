@@ -676,6 +676,129 @@ let checked_negative_nnf () =
       | _ -> failwith "expected three synthetic NNF formulas")
     ["forall", "exists"; "exists", "forall"]
 
+let checked_quantifier_pulling () =
+  let declarations =
+    "(declare-fun p (Int Int) Bool)(declare-fun q (Real) Bool)\
+     (declare-fun r (Int) Bool)(declare-fun s (Int) Bool)(declare-const c Bool)" in
+  let cases = [
+    "exists-flatten", "(exists ((x Int)) (exists ((y Int)) (p x y)))",
+      "(exists ((x Int) (y Int)) (p x y))", true;
+    "forall-flatten", "(forall ((x Int)) (forall ((y Int)) (p x y)))",
+      "(forall ((x Int) (y Int)) (p x y))", true;
+    "three-blocks", "(exists ((x Int)) (exists ((y Int)) (exists ((z Int)) (p x z))))",
+      "(exists ((x Int) (y Int) (z Int)) (p x z))", true;
+    "mixed-sorts", "(exists ((x Int)) (exists ((y Real)) (and (r x) (q y))))",
+      "(exists ((x Int) (y Real)) (and (r x) (q y)))", true;
+    "not-forall", "(not (forall ((x Int)) (r x)))",
+      "(exists ((x Int)) (not (r x)))", true;
+    "not-exists", "(not (exists ((x Int)) (r x)))",
+      "(forall ((x Int)) (not (r x)))", true;
+    "and-forall", "(and (forall ((x Int)) (r x)) c)",
+      "(forall ((x Int)) (and (r x) c))", true;
+    "and-exists", "(and c (exists ((x Int)) (r x)))",
+      "(exists ((x Int)) (and c (r x)))", true;
+    "or-forall", "(or (forall ((x Int)) (r x)) c)",
+      "(forall ((x Int)) (or (r x) c))", true;
+    "or-exists", "(or c (exists ((x Int)) (r x)))",
+      "(exists ((x Int)) (or c (r x)))", true;
+    "multiple-blocks", "(and (forall ((x Int)) (r x)) c (forall ((y Real)) (q y)))",
+      "(forall ((y Real) (x Int)) (and (r x) c (q y)))", true;
+    "multiple-existentials", "(or (exists ((x Int)) (r x)) (exists ((y Real)) (q y)))",
+      "(exists ((y Real) (x Int)) (or (r x) (q y)))", true;
+    "multi-variable-block-order",
+      "(or (forall ((a Int) (b Real)) (and (p z a) (q b)))\
+           (forall ((c Int) (d Int)) (p c d)))",
+      "(forall ((c Int) (d Int) (a Int) (b Real))\
+         (or (and (p z a) (q b)) (p c d)))", true;
+    "mixed-kinds", "(and (forall ((x Int)) (r x)) (exists ((y Real)) (q y)))",
+      "(exists ((y Real)) (forall ((x Int)) (and (r x) (q y))))", true;
+    "open-siblings", "(or (r z) (exists ((x Int)) (p z x)) (s z))",
+      "(exists ((x Int)) (or (r z) (p z x) (s z)))", true;
+    "nested-sibling-binders",
+      "(and (exists ((x Int)) (p z x))\
+            (= (lambda ((t Int)) (+ t z)) (lambda ((t Int)) (+ z t))))",
+      "(exists ((x Int)) (and (p z x)\
+            (= (lambda ((t Int)) (+ t z)) (lambda ((t Int)) (+ z t)))))", true;
+    "wrong-kind", "(exists ((x Int)) (exists ((y Int)) (p x y)))",
+      "(forall ((x Int) (y Int)) (p x y))", false;
+    "swapped-variables", "(exists ((x Int)) (exists ((y Int)) (p x y)))",
+      "(exists ((x Int) (y Int)) (p y x))", false;
+    "changed-sort", "(exists ((x Int)) (exists ((y Real)) (and (r x) (q y))))",
+      "(exists ((x Int) (y Int)) (and (r x) c))", false;
+    "captured-dependency", "(or (r z) (exists ((x Int)) (p z x)))",
+      "(exists ((x Int)) (or (r x) (p x x)))", false;
+    "dropped-sibling", "(and c (exists ((x Int)) (r x)))",
+      "(exists ((x Int)) (r x))", false;
+    "wrong-block-order", "(and (forall ((x Int)) (r x)) (forall ((y Real)) (q y)))",
+      "(forall ((x Int) (y Real)) (and (r x) (q y)))", false;
+    "unsupported-implication", "(=> c (exists ((x Int)) (r x)))",
+      "(exists ((x Int)) (=> c (r x)))", false
+  ] in
+  List.iter (fun (name, left, right, expected) ->
+      let c = context () in
+      let inputs = parse c (declarations ^
+          "(assert (forall ((z Int)) (= " ^ left ^ " " ^ right ^ ")))") in
+      let st = B.marshal_expressions (B.empty_state ()) inputs in
+      let formula = match B.cached_expression st (List.hd inputs) with
+        | A.Quantifier (_, _, _, body) -> body
+        | _ -> failwith "missing ambient binder" in
+      let conclusion = Option.get (U.classify_fact formula) in
+      require (U.check_step U.PullQuantifier conclusion [] = expected)
+        ("incorrect pull-quant decision: " ^ name);
+      let certificate = { U.binder_entries = [
+          { U.binder_name = "pull-quant"; binder_formula = formula;
+            binder_premises = []; binder_sorts = None }];
+          binder_root = Z.zero } in
+      require (U.check_binder certificate conclusion = expected)
+        ("incorrect open binder pull-quant decision: " ^ name);
+      if expected then begin
+        require (not (U.check_step U.PullQuantifier conclusion [conclusion]))
+          "pull-quant ignored an unexpected premise";
+        require (not (U.check_binder
+            { certificate with U.binder_entries =
+                List.map (fun e -> { e with U.binder_premises = [Z.one] })
+                  certificate.U.binder_entries } conclusion))
+          "pull-quant binder accepted a forward or missing premise";
+        match conclusion with
+        | U.Equal (a, b) ->
+            require (not (Z3QuantifierPull.check a Z3ResolutionProofTheory.false_expr))
+              "pull-quant accepted an altered body";
+            require (Z3QuantifierPull.normalize Z.zero a = None)
+              "pull-quant accepted exhausted normalization fuel";
+            let bad = U.Equal (a, Z3ResolutionProofTheory.false_expr) in
+            require (match U.check_node [] { U.kind = U.PullQuantifier;
+                conclusion1 = bad; premises = [] } with
+                | Some (_, n) -> Z.equal n Z.one | None -> false)
+              "unsupported pull-quant did not retain an explicit obligation";
+            require (A.get_sort a = A.get_sort b) "pull-quant changed the result sort"
+        | _ -> failwith "expected an equality"
+      end) cases;
+  let sources = [
+    "(declare-fun p (Int Int) Bool)\
+     (assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))\
+     (assert (p 0 1))";
+    "(declare-fun p (Int Int) Bool)\
+     (assert (forall ((x Int)) (forall ((y Int)) (p x y))))\
+     (assert (not (p 0 1)))";
+    "(declare-fun p (Int Real) Bool)\
+     (assert (not (exists ((x Int)) (exists ((y Real)) (p x y)))))\
+     (assert (p 0 1.5))"
+  ] in
+  List.iter (fun source ->
+      let doc = document source in
+      require (P.check_document doc = Some Z.zero)
+        ("native quantifier pulling was not certified: " ^ source);
+      require (List.exists (fun e -> e.P.rule = U.PullQuantifier) doc.entries)
+        "native pull-quant regression omitted the rule";
+      let entries = List.map (fun e -> if e.P.rule = U.PullQuantifier then
+          match e.P.formula with
+          | A.App (f, [a; _]) ->
+              { e with P.formula = A.App (f, [a; Z3ResolutionProofTheory.false_expr]) }
+          | _ -> failwith "unexpected native pull-quant shape"
+        else e) doc.entries in
+      require (P.check_document { doc with entries } <> Some Z.zero)
+        "mutated native pull-quant certified a refutation") sources
+
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
@@ -1056,6 +1179,7 @@ let () =
      "certified-hidden-binder-proof-DAGs", checked_binder_proofs;
      "certified-native-quantifier-instances", checked_quantifier_instances;
      "certified-negative-NNF", checked_negative_nnf;
+     "certified-quantifier-pulling", checked_quantifier_pulling;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;

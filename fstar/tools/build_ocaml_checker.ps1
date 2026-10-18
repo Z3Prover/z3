@@ -136,7 +136,7 @@ try {
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
     "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst",
-    "Z3QuantifierInstantiation.fst", "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst",
+    "Z3QuantifierInstantiation.fst", "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst",
     "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   )
@@ -194,7 +194,7 @@ try {
     "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
     "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
     "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml",
-    "Z3QuantifierInstantiation.ml", "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml",
+    "Z3QuantifierInstantiation.ml", "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
