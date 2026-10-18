@@ -181,7 +181,7 @@ hypothetical leaves. The pinned 17-file `regressions/proofs` corpus retains
 16 `ACCEPT` results and one solver `UNKNOWN` at the 10-second timeout.
 
 Remaining quantifier-related obligations include general Skolemization,
-quantifier pulling, general unused-variable elimination,
+pulling outside the supported Boolean fragment, general unused-variable elimination,
 nested capture-avoiding instantiation, and lambda extensionality rewrites.
 NLSAT and other previously unsupported theory rules remain partial.
 
@@ -225,9 +225,53 @@ body certificates, hypothesis generalization, and illicit conversion
 from observational relations to ordinary equality. Synthetic certificates
 exercise both dualities and positive/negative Boolean composition.
 The pinned z3test proof corpus remains 16 `ACCEPT` and one solver
-`UNKNOWN` at 10 seconds, with no checker errors. A separate nested
-existential example remains `PARTIAL` solely for `pull-quant`, not
-`nnf-neg`; the residual gap is not silently certified.
+`UNKNOWN` at 10 seconds, with no checker errors. The nested-existential
+example that was then `PARTIAL` solely for `pull-quant` is certified by
+the subsequent implementation below.
+
+#### Quantifier pulling
+
+`Z3QuantifierPull.fst` verifies `pull-quant` by normalizing both endpoints
+and comparing the resulting expressions. Supported transformations are
+adjacent same-kind `forall`/`exists` flattening, quantifier negation, and
+pulling quantifiers through n-ary `and`/`or`. Multiple quantified operands
+are pulled right-to-left, matching native binder-block order without
+reversing declaration order within a block. Flattening retains the exact
+concatenated sort vector and body.
+
+The semantic proof derives flattening from the existing Boolean quantifier
+truth model, list splitting, and composition of de Bruijn environments.
+Boolean pulling uses a structural proof of the existing
+`Z3Definitions.lift`, including adjusted cutoffs beneath nested quantifiers
+and lambdas. Thus sibling expressions retain their ambient dependencies
+without capturing newly bound variables. Quantifier negation reuses the
+proved duality. No individual pulling step is assumed as an axiom, and no
+additional semantic model premise is introduced.
+
+The dedicated unified rule is also available inside hidden binder
+certificates, where it must hold in every environment. Unsupported shapes
+and normalization exceeding the 64-step recursion budget leave explicit
+obligations; unexpected premises are rejected. Pulling through implication,
+XOR, or ITE is not implemented by this rule, nor is lambda extensionality.
+The verified variable lifting does not yet extend quantified instantiation
+to nested binder bodies.
+
+The four native nested-quantifier examples (existential, universal,
+mixed-sort, and three binder blocks) all return `ACCEPT` in batch and
+interactive mode. The former nested-existential `PARTIAL` target is among
+them. A local timed batch run took 253 ms in total, with 0.367 ms summed
+kernel checking and 0.081 ms median kernel checking. These are illustrative
+local measurements, not performance guarantees.
+
+F*/Pulse verification and extraction pass with warnings treated as errors;
+27 native bridge groups and 20 CLI tests pass. Synthetic cases additionally
+cover all four connective/quantifier combinations, multiple multi-variable
+mixed-sort blocks, open ambient variables, nested sibling lambdas, and
+mixed-kind quantifiers without merging them. Adversarial cases cover
+changed kinds/sorts, swapped variables or binder blocks, captured or dropped
+dependencies, altered bodies, forward/missing or unexpected premises, and
+exhausted normalization fuel. The pinned 17-file proof corpus remains
+16 `ACCEPT` and one solver `UNKNOWN` at 10 seconds, with no checker errors.
 
 ### Sharing and ownership
 

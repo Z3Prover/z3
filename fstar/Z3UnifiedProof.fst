@@ -19,6 +19,7 @@ module AR = Z3ArithmeticRewrite
 module LP = Z3LpReplay
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
+module QP = Z3QuantifierPull
 module L = FStar.List.Tot
 
 type judgment =
@@ -48,6 +49,7 @@ type rule =
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
   | RewriteRule
+  | PullQuantifier
   | Reflexivity
   | Symmetry
   | Transitivity
@@ -206,6 +208,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   | Some (r, a, b) ->
     (match kind with
      | Reflexivity -> facts = [] && a = b
+     | PullQuantifier -> facts = [] && QP.check a b
      | RewriteRule | ApplyDefinition ->
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
@@ -286,6 +289,7 @@ let check_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
 
 let basic_rule_of_name (name:string) : option rule =
   if name = "rewrite" || name = "elim-unused" then Some RewriteRule
+  else if name = "pull-quant" then Some PullQuantifier
   else if name = "refl" || name = "reflexivity" then Some Reflexivity
   else if name = "symm" then Some Symmetry
   else if name = "trans" then Some Transitivity
@@ -480,9 +484,9 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
        | _, _ -> None)
     | Unverified _ | ArithmeticFarkas _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
-    | RewriteRule ->
+    | RewriteRule | PullQuantifier ->
       if facts = [] && Some? (relational node.conclusion)
-      then accept hyps (if check_step RewriteRule node.conclusion facts then 0 else 1)
+      then accept hyps (if check_step node.kind node.conclusion facts then 0 else 1)
       else None
     | QuantifierIntroduction certificate ->
       if facts = [] && Some? (relational node.conclusion)
@@ -656,6 +660,7 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
     | None -> ()
     | Some (r, a, b) ->
       (match kind with
+       | PullQuantifier -> QP.lemma_check_sound i rho a b
        | RewriteRule | ApplyDefinition ->
          if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
@@ -1064,7 +1069,7 @@ let node_obligation (i:interpretation value) (rho:env value) (strict:bool) (node
   | DefAxiom ->
     not (check_step DefAxiom node.conclusion (premise_judgments node.premises)) ==>
     judgment_holds i rho node.conclusion
-  | RewriteRule | QuantifierInstantiation _ ->
+  | RewriteRule | PullQuantifier | QuantifierInstantiation _ ->
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1111,7 +1116,7 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
                if array_lemma e then lemma_array_lemma_sound i rho e
                else AR.lemma_triangle_with_numeric_model e i rho)
           | None -> ())
-      | RewriteRule | QuantifierInstantiation _ ->
+      | RewriteRule | PullQuantifier | QuantifierInstantiation _ ->
         if check_step node.kind node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho node.kind node.conclusion (premise_judgments node.premises)
       | QuantifierIntroduction certificate ->

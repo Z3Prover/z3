@@ -31,6 +31,22 @@ NEGATIVE_NNF_CASES = (
      "(assert (p 0))(assert (q 0))"),
 )
 
+PULL_QUANT_CASES = (
+    ("nested-exists", "(declare-fun p (Int Int) Bool)"
+     "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
+     "(assert (p 0 1))"),
+    ("nested-forall", "(declare-fun p (Int Int) Bool)"
+     "(assert (forall ((x Int)) (forall ((y Int)) (p x y))))"
+     "(assert (not (p 0 1)))"),
+    ("nested-mixed-sort", "(declare-fun p (Int Real) Bool)"
+     "(assert (not (exists ((x Int)) (exists ((y Real)) (p x y)))))"
+     "(assert (p 0 1.5))"),
+    ("three-blocks", "(declare-fun p (Int Real Int) Bool)"
+     "(assert (not (exists ((x Int)) (exists ((y Real))"
+     "  (exists ((z Int)) (p x y z))))))"
+     "(assert (p 0 1.5 2))"),
+)
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -107,15 +123,17 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
 
-    def test_nnf_support_does_not_certify_remaining_quantifier_gaps(self):
-        source = ("(declare-fun p (Int Int) Bool)"
-                  "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
-                  "(assert (p 0 1))")
-        result = self.run_checker(source, "--diagnostics")
-        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertIn("obligation\tpull-quant\t", result.stderr)
-        self.assertNotIn("obligation\tnnf-neg\t", result.stderr)
-        self.assertNotIn("ACCEPT", result.stdout)
+    def test_nested_quantifier_pulling_is_certified(self):
+        for name, source in PULL_QUANT_CASES:
+            with self.subTest(name=name):
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()),
+                                 (0, "ACCEPT"), result.stderr)
+                self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertEqual(interactive.returncode, 0,
+                                 interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
