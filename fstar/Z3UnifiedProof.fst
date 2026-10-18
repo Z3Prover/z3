@@ -16,9 +16,12 @@ module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
+module IR = Z3IntegerRewrite
+module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
+module QV = Z3QuantifierVacuity
 module L = FStar.List.Tot
 
 type judgment =
@@ -210,8 +213,11 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
                       Z3DistinctAst.duplicate_rewrite a b ||
+                      Z3DistinctEmbed.expansion_rewrite a b ||
                       constant_quantifier_rewrite a b ||
-                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b)
+                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
+                      CR.equivalent a b || IR.equivalent a b || QV.equivalent 64 a b ||
+                      boolean_search a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -661,10 +667,16 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
          else if Z3DistinctAst.duplicate_rewrite a b then
            Z3DistinctEmbed.lemma_duplicate_rewrite_sound i rho a b
+         else if Z3DistinctEmbed.expansion_rewrite a b then
+           Z3DistinctEmbed.lemma_expansion_rewrite_sound i rho a b
          else if constant_quantifier_rewrite a b then lemma_constant_quantifier_sound i rho a b
          else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
          else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
-         else AR.lemma_equivalent_with_numeric_model a b i rho
+         else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
+         else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b
+         else if IR.equivalent a b then IR.lemma_equivalent_sound i rho a b
+         else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
+         else lemma_boolean_search_sound i rho a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with

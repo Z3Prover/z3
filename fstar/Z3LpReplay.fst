@@ -8,6 +8,7 @@ module A = Z3LinearArithmeticAst
 module P = Z3LinearArithmeticTheory
 module E = Z3LinearArithmeticEmbed
 module R = Z3ArithmeticRewrite
+module I = Z3IntegerRewrite
 
 let linear_identity (e:expr) : bool =
   match A.comparison e with
@@ -29,8 +30,6 @@ let lemma_linear_identity_sound (e:expr) (i:interpretation value) (rho:env value
   FStar.Classical.exists_elim (lit_true i rho e)
     #(value -> FStar.Real.real) #(fun nu -> E.numeric_model i nu) () (fun nu -> aux nu)
 
-let absolute (n:int) : nat = if n < 0 then -n else n
-
 (* Candidate generation is deliberately outside the soundness argument.
    Every candidate is replayed against the actual native proof formulas. *)
 let tightening_coefficients (conclusion:expr) (facts:list expr)
@@ -38,14 +37,7 @@ let tightening_coefficients (conclusion:expr) (facts:list expr)
   match facts with
   | [context; premise] ->
     if context <> true_expr then None else
-    A.prepare_literal (1, 1) true premise >>= (fun p ->
-    A.prepare_literal (1, 1) false conclusion >>= (fun q ->
-    R.first_nonzero (P.collect p.poly.mono []) >>= (fun (a, e) ->
-    let b = R.coefficient e (P.collect q.poly.mono []) in
-    if a = 0 || b = 0 || (a > 0) = (b > 0) then None else
-    let cs:list A.coefficient =
-      [(0, 1); (absolute b * p.poly.denom, 1); (absolute a * q.poly.denom, 1)] in
-    Some cs)))
+    I.implication_coefficients premise conclusion >>= (fun cs -> Some ((0, 1) :: cs))
   | _ -> None
 
 let check_tightening (conclusion:expr) (facts:list expr) : bool =
