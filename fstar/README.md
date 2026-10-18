@@ -68,13 +68,25 @@ F* and enabled OCaml compiler warnings fail the build. Extracted constructor
 projectors receive explicit rejecting out-of-domain arms using OCaml's
 AST, without suppressing partial-match warnings or changing checker rules.
 
-The default corpus is every `.smt2` file recursively under
+The first default corpus is every `.smt2` file recursively under
 `Z3Prover/z3test`'s `regressions/proofs`, including the optional larger
 `lean/real` input. Dispatch inputs select the corpus ref/directory, sorted
 case cap (zero means all), solver timeout, whole-case timeout, and total
 test budget. Manifest `.txt` lists and saved `.proof` objects are not
 executed. Inputs are passed unchanged to the native API, which checks the
 parsed final assertion set, not an incremental sequence of commands.
+
+The same job also evaluates all **225 inputs** under
+`Z3Prover/z3test`'s `regressions/smtlib-sample`: **25 UNSAT-annotated
+benchmarks per logic** for QF_UF, QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA,
+QF_AUFLIA, AUFLIA, and UFLIA. This is a newly reconstructed reduced
+seed-42 sample from the official SMT-LIB 2025 non-incremental archives,
+not a replay of the historical 900-input manifest. The corpus manifest
+records upstream archive checksums, original paths, and each unchanged
+input's SHA-256. The harness verifies exact manifest membership and every
+input hash before executing any case, and requires exactly 225 inputs.
+The proof-corpus `max_cases` cap does not truncate this sample. A manually
+selected `z3test_ref` must contain the sample and its manifest.
 
 The job summary and downloadable report artifact record resolved producer
 and corpus commits, build/test outcomes, build and per-case wall time,
@@ -89,6 +101,15 @@ fail the job; unsupported proofs and timeouts are reported without failing
 this coverage-measurement job. The corpus step also has a 35-minute CI
 limit, independent of the configurable budget. Always-run reporting/upload
 steps preserve available results and build logs on failure.
+The SMT-LIB sample has its own report, per-logic outcome counts, input
+manifest, raw logs, and phase timings under the artifact's `smtlib-sample/`
+directory. It uses the same configurable solver and whole-case timeouts,
+a 4 GiB address-space limit, and a separate default 3,600-second execution
+budget (`smtlib_total_timeout_seconds`), with a 65-minute CI step limit.
+An incomplete manifest-driven sample run fails the job; unsupported
+proofs and timeouts still remain explicit coverage outcomes. The sample
+step runs even if the earlier proof-corpus execution fails, provided the
+build and corpus checkout succeeded.
 
 For a local Linux build, activate an OCaml 5.3.0 opam switch with
 `ocamlfind` and `zarith`, then run the same harness with `pwsh`,

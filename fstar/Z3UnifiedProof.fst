@@ -192,6 +192,47 @@ let rec arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
     (x = y || matching r x y js) && arguments_match r xs' ys' js
   | _, _ -> false
 
+let rec ordered_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Tot bool (decreases xs) =
+  match xs, ys with
+  | [], [] -> true
+  | x :: rest, y :: remaining ->
+    if x = y then ordered_arguments_match r rest remaining js
+    else (match js with
+          | j :: facts -> edge r j = Some (x, y) &&
+                          ordered_arguments_match r rest remaining facts
+          | [] -> false)
+  | _, _ -> false
+
+let fast_arguments_match (r:relation) (xs ys:list expr) (js:list judgment) : bool =
+  ordered_arguments_match r xs ys js || arguments_match r xs ys js
+
+let rec lemma_arguments_match_cons (r:relation) (xs ys:list expr) (js:list judgment) (j:judgment)
+  : Lemma (requires arguments_match r xs ys js)
+          (ensures arguments_match r xs ys (j :: js))
+          (decreases xs)
+  = match xs, ys with
+    | x :: rest, y :: remaining -> lemma_arguments_match_cons r rest remaining js j
+    | _, _ -> ()
+
+let rec lemma_ordered_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Lemma (requires ordered_arguments_match r xs ys js)
+          (ensures arguments_match r xs ys js)
+          (decreases xs)
+  = match xs, ys with
+    | x :: rest, y :: remaining ->
+      if x = y then lemma_ordered_arguments_match r rest remaining js
+      else (match js with
+            | j :: facts ->
+              lemma_ordered_arguments_match r rest remaining facts;
+              lemma_arguments_match_cons r rest remaining facts j
+            | [] -> ())
+    | _, _ -> ()
+
+let lemma_fast_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Lemma (fast_arguments_match r xs ys js == arguments_match r xs ys js)
+  = if ordered_arguments_match r xs ys js then lemma_ordered_arguments_match r xs ys js
+
 let rec extend_reachable (r:relation) (js:list judgment) (known:list expr)
   : Tot (list expr) (decreases js) =
   match js with
@@ -257,7 +298,7 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
        all_edges r facts && L.mem b (reachable (L.length facts) r facts [a])
      | Congruence ->
        a = b || (match a, b with
-        | App f xs, App g ys -> f = g && all_edges r facts && arguments_match r xs ys facts
+        | App f xs, App g ys -> f = g && all_edges r facts && fast_arguments_match r xs ys facts
         | _, _ -> false)
      | IffObservational ->
        (match r, facts with
@@ -533,8 +574,9 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
   | _, _, _ -> false
 
-let check_node_with_context (skolems:list SK.definition) (strict:bool)
-                            (assertions:list judgment) (node:proof_node)
+let check_node_with_membership (skolems:list SK.definition) (strict:bool)
+                               (assertions:list judgment) (contains:judgment -> bool)
+                               (node:proof_node)
   : option (checked_fact & nat) =
   let facts = premise_judgments node.premises in
   let hyps = premise_hypotheses node.premises in
@@ -543,7 +585,7 @@ let check_node_with_context (skolems:list SK.definition) (strict:bool)
   else
     match node.kind with
     | Asserted ->
-      if facts = [] && Some? (proposition node.conclusion) && L.mem node.conclusion assertions
+      if facts = [] && Some? (proposition node.conclusion) && contains node.conclusion
       then accept [] 0 else None
     | DefAxiom ->
       if facts = [] && Some? (proposition node.conclusion)
@@ -580,9 +622,21 @@ let check_node_with_context (skolems:list SK.definition) (strict:bool)
       else None
     | _ -> if check_step node.kind node.conclusion facts then accept hyps 0 else None
 
+let check_node_with_context (skolems:list SK.definition) (strict:bool)
+                            (assertions:list judgment) (node:proof_node)
+  : option (checked_fact & nat) =
+  check_node_with_membership skolems strict assertions (fun query -> L.mem query assertions) node
+
 let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
   : option (checked_fact & nat) =
   check_node_with_context [] strict assertions node
+
+let lemma_check_node_membership (skolems:list SK.definition) (strict:bool) (assertions:list judgment)
+                                (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires contains node.conclusion == L.mem node.conclusion assertions)
+          (ensures check_node_with_membership skolems strict assertions contains node ==
+                   check_node_with_context skolems strict assertions node)
+  = match node.kind with Asserted -> () | _ -> ()
 
 let check_node (assertions:list judgment) (node:proof_node)
   : option (checked_fact & nat) =
@@ -801,7 +855,9 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          FStar.List.Tot.Properties.mem_memP b (reachable (L.length facts) r facts [a])
        | Congruence ->
          if a = b then () else (match a, b with
-          | App f xs, App g ys -> lemma_arguments_sound i rho r xs ys facts
+          | App f xs, App g ys ->
+            lemma_fast_arguments_match r xs ys facts;
+            lemma_arguments_sound i rho r xs ys facts
           | _, _ -> ())
        | _ -> ())
 
@@ -1372,6 +1428,19 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         lemma_premises_sound i rho node.premises;
         lemma_check_step_sound i rho node.kind node.conclusion (premise_judgments node.premises)
     in FStar.Classical.impl_intro aux
+
+let lemma_check_node_membership_sound (skolems:list SK.definition)
+                                      (i:interpretation value) (rho:env value)
+                                      (strict:bool) (assertions:list judgment)
+                                      (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
+                    contains node.conclusion == L.mem node.conclusion assertions /\
+                    premises_sound i rho node.premises /\ node_obligation skolems i rho strict assertions node /\
+                    Some? (check_node_with_membership skolems strict assertions contains node))
+          (ensures scoped_holds i rho
+            (fst (Some?.v (check_node_with_membership skolems strict assertions contains node))))
+  = lemma_check_node_membership skolems strict assertions contains node;
+    lemma_check_node_sound skolems i rho strict assertions node
 
 let lemma_obligation_free_node_sound (skolems:list SK.definition) (i:interpretation value) (rho:env value)
                                      (strict:bool) (assertions:list judgment) (node:proof_node)

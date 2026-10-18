@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import csv
+import hashlib
 import json
 import math
 import os
@@ -52,6 +53,54 @@ def discover(corpus, relative_path, max_cases):
     return paths[:max_cases] if max_cases else paths, len(paths)
 
 
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_manifest(corpus, relative_path, manifest, paths):
+    root = (corpus / relative_path).resolve()
+    manifest = manifest.resolve()
+    if not manifest.is_relative_to(root):
+        raise ValueError("Manifest must be inside the selected corpus directory")
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    if document["schema_version"] != 1:
+        raise ValueError("Unsupported corpus manifest version")
+    hashes, logics = {}, {}
+    for entry in document["cases"]:
+        name = entry["path"]
+        if "\\" in name or Path(name).is_absolute():
+            raise ValueError(f"Manifest path must be relative and POSIX: {name}")
+        path = (root / name).resolve()
+        if not path.is_relative_to(root) or not path.is_file() or path.suffix != ".smt2":
+            raise ValueError(f"Invalid manifest input: {name}")
+        relative = path.relative_to(corpus).as_posix()
+        if relative in hashes:
+            raise ValueError(f"Duplicate manifest input: {name}")
+        if not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]):
+            raise ValueError(f"Invalid SHA-256 in manifest: {name}")
+        if file_sha256(path) != entry["sha256"]:
+            raise ValueError(f"Input SHA-256 mismatch: {name}")
+        hashes[relative], logics[relative] = entry["sha256"], entry["logic"]
+    if set(hashes) != {path.relative_to(corpus).as_posix() for path in paths}:
+        raise ValueError("Manifest must list exactly the discovered SMT-LIB inputs")
+    counts = Counter(logics.values())
+    if (set(counts) != {entry["logic"] for entry in document["archives"]} or
+            any(count != document["per_logic"] for count in counts.values())):
+        raise ValueError("Manifest does not contain the declared sample size per logic")
+    return {
+        "manifest": {
+            "path": manifest.relative_to(corpus).as_posix(),
+            "sha256": file_sha256(manifest), "source": document["source"],
+            "seed": document["seed"], "per_logic": document["per_logic"],
+        },
+        "input_sha256": hashes, "logics": logics,
+    }
+
+
 def memory_limit(megabytes):
     import resource
     resource.setrlimit(resource.RLIMIT_AS, (megabytes * 1024**2,) * 2)
@@ -91,7 +140,13 @@ def run_case(command, path, output, index, timeout, megabytes):
 
 def run_suite(args):
     corpus = args.corpus.resolve()
-    paths, discovered = discover(corpus, args.corpus_path, args.max_cases)
+    paths, discovered = discover(corpus, args.corpus_path, 0)
+    manifest = getattr(args, "manifest", None)
+    metadata = verify_manifest(corpus, args.corpus_path, manifest, paths) if manifest else {}
+    if args.max_cases:
+        paths = paths[:args.max_cases]
+    if getattr(args, "expected_cases", 0) and len(paths) != args.expected_cases:
+        raise ValueError(f"Expected {args.expected_cases} inputs, selected {len(paths)}")
     checker = args.checker.expanduser().resolve()
     if args.memory_limit_mb and sys.platform != "linux":
         raise ValueError("The address-space limit requires Linux; use --memory-limit-mb 0 elsewhere")
@@ -108,8 +163,11 @@ def run_suite(args):
         "case_timeout_seconds": args.case_timeout_seconds,
         "total_timeout_seconds": args.total_timeout_seconds,
         "memory_limit_mb": args.memory_limit_mb,
+        **metadata,
     }
     (output / "selection.json").write_text(json.dumps(selection, indent=2) + "\n", encoding="utf-8")
+    if manifest:
+        (output / "input-manifest.json").write_bytes(manifest.read_bytes())
     deadline = time.perf_counter() + args.total_timeout_seconds
     outcomes = Counter()
     with (output / "results.jsonl").open("w", encoding="utf-8") as stream:
@@ -122,12 +180,15 @@ def run_suite(args):
                     [str(checker), "--stats", "--timeout-ms", str(args.solver_timeout_ms), str(path)],
                     relative, output, index, min(args.case_timeout_seconds, remaining),
                     args.memory_limit_mb)
+            if metadata:
+                row["logic"] = metadata["logics"][relative]
+                row["input_sha256"] = metadata["input_sha256"][relative]
             stream.write(json.dumps(row) + "\n")
             stream.flush()
             outcomes[row["outcome"]] += 1
             print(f'{index + 1}/{len(paths)} {row["outcome"]}: {relative}', flush=True)
     return int(any(outcomes[outcome] for outcome in ERRORS) or
-               outcomes["NOT_RUN"] == len(paths))
+               outcomes["NOT_RUN"] == len(paths) or (bool(manifest) and outcomes["NOT_RUN"] > 0))
 
 
 def percentage(count, total):
@@ -153,7 +214,8 @@ def report(output):
                     raise
                 warnings.append("Incomplete final result record after interruption; raw results.jsonl retained.")
     recorded = {row["path"] for row in results}
-    results.extend({"path": path, "outcome": "NOT_RUN", "reason": "Runner stopped before this case"}
+    results.extend({"path": path, "outcome": "NOT_RUN", "reason": "Runner stopped before this case",
+                    "logic": selection.get("logics", {}).get(path)}
                    for path in selection.get("paths", []) if path not in recorded)
     counts = Counter(row["outcome"] for row in results)
     tested = len(results) - counts["NOT_RUN"]
@@ -181,15 +243,24 @@ def report(output):
         "phase_totals_ms": phases,
         "phase_statistics_cases": sum("statistics" in row for row in results),
         "warnings": warnings,
+        "per_logic": {
+            logic: {
+                "selected": sum(row.get("logic") == logic for row in results),
+                "counts": {outcome: sum(row.get("logic") == logic and row["outcome"] == outcome
+                                       for row in results) for outcome in OUTCOMES},
+            } for logic in sorted({row["logic"] for row in results if row.get("logic")})
+        },
     }
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     with (output / "results.csv").open("w", newline="", encoding="utf-8") as stream:
-        fields = ("path", "outcome", "wall_seconds", "returncode", "verdict", "reason")
+        fields = ("path", "logic", "input_sha256", "outcome", "wall_seconds",
+                  "returncode", "verdict", "reason")
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
     lines = [
-        "# Pulse verification and native F* checker regressions", "",
+        f'# Pulse verification and native F* checker regressions: '
+        f'{cell(selection.get("corpus_path", "no selection"))}', "",
         "**Scope:** the build verifies the in-memory Pulse checkers and their regressions. "
         "The SMT-LIB corpus executes the native extracted F* checker; Pulse is not linked into that executable.",
         "Build self-tests cover Pulse equality/rewriter, justification, and Farkas checkers; "
@@ -223,6 +294,22 @@ def report(output):
     for outcome in OUTCOMES:
         lines.append(f'| {outcome} | {counts[outcome]} | '
                      f'{percentage(counts[outcome], tested) if outcome != "NOT_RUN" else "not attempted"} |')
+    if "manifest" in selection:
+        manifest = selection["manifest"]
+        lines += ["", f'Input manifest: `{cell(manifest["path"])}`; '
+                  f'SHA-256: `{manifest["sha256"]}`. '
+                  f'Seed {manifest["seed"]}; {manifest["per_logic"]} inputs per logic. '
+                  "Every input SHA-256 was verified before executing any case."]
+    if summary["per_logic"]:
+        lines += ["", "## Per-logic coverage", "",
+                  "| Logic | Selected | ACCEPT | PARTIAL | REJECT | SAT | UNKNOWN | TIMEOUT | Errors/crashes/protocol | NOT_RUN |",
+                  "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        for logic, group in summary["per_logic"].items():
+            values = group["counts"]
+            lines.append(f'| {cell(logic)} | {group["selected"]} | '
+                         + " | ".join(str(values[outcome]) for outcome in
+                                      ("ACCEPT", "PARTIAL", "REJECT", "SAT", "UNKNOWN", "TIMEOUT"))
+                         + f' | {sum(values[outcome] for outcome in ERRORS)} | {values["NOT_RUN"]} |')
     if not selection:
         lines += ["", "**No corpus selection was recorded; no test success is claimed.**"]
     for warning in warnings:
@@ -241,6 +328,7 @@ def report(output):
         elapsed = f'{row["wall_seconds"]:.3f}' if "wall_seconds" in row else "-"
         lines.append(f'| {cell(row["path"])} | {row["outcome"]} | {elapsed} |')
     lines += ["", "Inputs are recursively selected `.smt2` files, in sorted order, without modification. "
+              "An optional JSON manifest verifies membership and input hashes; it is not executed. "
               "Manifest `.txt` lists and pre-generated `.proof` files are not executed. The native API "
               "checks the parsed final assertion set, not an incremental command transcript. "
               "These are coverage measurements of current proof production/checking, not validation "
@@ -280,6 +368,8 @@ def main():
     run.add_argument("--corpus", type=Path, required=True)
     run.add_argument("--corpus-path", default="regressions/proofs")
     run.add_argument("--corpus-commit", required=True)
+    run.add_argument("--manifest", type=Path, help="Verify all inputs against this corpus JSON manifest")
+    run.add_argument("--expected-cases", type=nonnegative_int, default=0)
     run.add_argument("--max-cases", type=nonnegative_int, default=0)
     run.add_argument("--solver-timeout-ms", type=solver_timeout, default=10000)
     run.add_argument("--case-timeout-seconds", type=positive_float, default=60)

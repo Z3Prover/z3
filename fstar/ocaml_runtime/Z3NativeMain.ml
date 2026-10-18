@@ -118,8 +118,10 @@ let fingerprint judgment =
       let right = expression 5 right in
       "oeq(" ^ left ^ " -> " ^ right ^ ")"
 
+let assertion_hash value = Z.of_int (Hashtbl.hash value)
+
 let report_diagnostics doc expected =
-  match Z3ProofDocument.diagnose_document doc, expected with
+  match Z3ProofDocument.diagnose_document_indexed assertion_hash doc, expected with
   | Z3ProofDocument.DocumentChecked (pending, obligations), Some actual
       when Z.equal pending actual ->
       let families = Hashtbl.create 32 and total = ref Z.zero in
@@ -151,7 +153,7 @@ let report_diagnostics doc expected =
 let check_proof statistics diagnostics start solved assertions proof =
   let doc = Z3NativeProof.marshal assertions proof in
   let marshaled = Unix.gettimeofday () in
-  let result = Z3ProofDocument.check_document doc in
+  let result = Z3ProofDocument.check_document_indexed assertion_hash doc in
   let checked = Unix.gettimeofday () in
   let summary = Printf.sprintf
       "solve_ms=%.3f marshal_ms=%.3f check_ms=%.3f expressions=%d declarations=%d proof_nodes=%d"
