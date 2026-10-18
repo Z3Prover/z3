@@ -1195,6 +1195,26 @@ nested negations, and rejection of a gate with its guard reversed).
 
 ## Arithmetic proof infrastructure
 
+### Native arithmetic row strictness (2026-10-16)
+
+The native arithmetic checker now keeps strictness on each linear row, not
+in one flag shared by the premises and the consequent. Previously,
+`(farkas 0 (< x 0.0))` was accepted even though its only literal is
+satisfiable: multiplying the strict inequality by zero erased its terms
+but left a strict `0 < 0`. A second counterexample,
+`(bound 1 (< x 0.0) 1 (<= (- x x) 0.0))`, was accepted because the strict
+premise incorrectly made the separate consequent row strict. Both
+literals hold at `x = -1`.
+
+Strictness now follows only nonzero weighted contributions to the row
+being checked and is preserved when rows are combined or equalities
+eliminated. A bound hint still verifies when either row independently
+reduces to a contradiction. Native `proof_replay` regressions cover both
+strict comparison orientations, negated non-strict comparisons, zero weights on premises and
+consequents, and valid strict contradictions. This repairs native checker
+acceptance without adding proof rules or changing Lean's independent
+verification boundary.
+
 ### Real QF_LRA hardening (2026-10-07)
 
 The planned LassoRanker example contains 1,463 Real variables and 105 original
