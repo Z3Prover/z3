@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - 'fstar/**'
+      - '.github/workflows/pulse-checker-regressions.yml'
   pull_request:
     paths:
       - 'fstar/**'
+      - '.github/workflows/pulse-checker-regressions.yml'
   workflow_dispatch:
     inputs:
       z3test_ref:
@@ -30,9 +32,13 @@ on:
         type: number
         default: 60
       total_timeout_seconds:
-        description: Whole corpus execution budget in seconds
+        description: z3test proof corpus execution budget in seconds
         type: number
         default: 1800
+      smtlib_total_timeout_seconds:
+        description: 225-input SMT-LIB sample execution budget in seconds
+        type: number
+        default: 3600
 
 permissions:
   contents: read
@@ -44,7 +50,7 @@ concurrency:
 jobs:
   build-test-report:
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 300
     defaults:
       run:
         shell: bash
@@ -62,6 +68,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pulse-checker-report"
           echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-report" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pulse-checker-report/smtlib-sample"
 
       - name: Checkout z3test
         id: corpus
@@ -139,6 +146,27 @@ jobs:
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
             --memory-limit-mb 2048 --output "$REPORT_DIR"
 
+      - name: Run native checker on 25 SMT-LIB benchmarks per logic
+        id: smtlib
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.corpus.outcome == 'success' }}
+        timeout-minutes: 65
+        env:
+          SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
+          CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
+          TOTAL_TIMEOUT_SECONDS: ${{ inputs.smtlib_total_timeout_seconds }}
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/run_checker_regressions.py run \
+            --checker "$RUNNER_TEMP/native-checker/checker" \
+            --corpus "$GITHUB_WORKSPACE/z3test" --corpus-path regressions/smtlib-sample \
+            --corpus-commit "$(git -C z3test rev-parse HEAD)" \
+            --manifest "$GITHUB_WORKSPACE/z3test/regressions/smtlib-sample/manifest.json" \
+            --expected-cases 225 \
+            --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+            --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
+            --memory-limit-mb 4096 --output "$REPORT_DIR/smtlib-sample"
+
       - name: Publish coverage and timing report
         if: always()
         env:
@@ -147,9 +175,17 @@ jobs:
           RUNNER_OUTCOME: ${{ steps.regressions.outcome }}
           TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
           HARNESS_OUTCOME: ${{ steps.harness.outcome }}
+          SMTLIB_OUTCOME: ${{ steps.smtlib.outcome }}
         run: |
+          set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py report --output "$REPORT_DIR"
           cat "$REPORT_DIR/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$REPORT_DIR/build.json" ]]; then
+            cp "$REPORT_DIR/build.json" "$REPORT_DIR/smtlib-sample/build.json"
+          fi
+          RUNNER_OUTCOME="$SMTLIB_OUTCOME" python3 fstar/tools/run_checker_regressions.py report \
+            --output "$REPORT_DIR/smtlib-sample"
+          cat "$REPORT_DIR/smtlib-sample/report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload reports, per-case results, and build logs
         if: always()
