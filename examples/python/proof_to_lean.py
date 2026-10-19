@@ -28,7 +28,8 @@ import tempfile
 import z3
 
 from proof_certificate import (
-    ProofExportError, is_uninterpreted_sort, linear_combination_refutes, numeral_value, parse_assertions,
+    ProofExportError, bound_combination_refutes, integer_tightened, is_uninterpreted_sort,
+    linear_combination_refutes, numeral_value, parse_assertions, query_snapshot,
 )
 
 
@@ -51,16 +52,37 @@ _FIXED_ARITY = {
 _ARITH_PREDICATE_NAMES = {z3.Z3_OP_LE: "<=", z3.Z3_OP_GE: ">=", z3.Z3_OP_LT: "<", z3.Z3_OP_GT: ">"}
 _REAL_NAMES = {z3.Z3_OP_ADD: "+", z3.Z3_OP_SUB: "-", z3.Z3_OP_UMINUS: "-", z3.Z3_OP_MUL: "*", z3.Z3_OP_DIV: "/"}
 _REAL_ARITY = {z3.Z3_OP_UNINTERPRETED: 0, z3.Z3_OP_ANUM: 0, z3.Z3_OP_UMINUS: 1, z3.Z3_OP_DIV: 2}
-# An ite is the one Real or uninterpreted-sort term with a Boolean argument;
-# Lean's ite needs a decidability instance, which the classical one provides.
-# Both slices already depend on the standard axioms, through Rat and grind.
-_REAL_ITE_DOMAIN = ("Bool", "Real", "Real")
+# The integer operators, Int certificates only: div and mod by a nonzero
+# numeral are Lean's Euclidean Int division and remainder (/ and %, which
+# agree with SMT-LIB's away from zero; a zero divisor is rejected, see
+# _integer_divisor), abs is the ite SMT-LIB defines it as. All three are
+# opaque atoms of the linear forms; omega reads / and % by a positive
+# numeral and grind proves the axioms of a negative divisor.
+_INT_NAMES = {z3.Z3_OP_IDIV: "div", z3.Z3_OP_MOD: "mod", z3.Z3_OP_ABS: "abs"}
+_INT_ARITY = {z3.Z3_OP_IDIV: 2, z3.Z3_OP_MOD: 2, z3.Z3_OP_ABS: 1}
+# An ite is the one arithmetic or uninterpreted-sort term with a Boolean
+# argument; Lean's ite needs a decidability instance, which the classical one
+# provides. Every theory slice already depends on the standard axioms.
 _REAL_DOMAIN_PREDICATES = _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}
-_COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq")
+# cut: the integer solver's Gomory cuts and gcd conflicts. The exporter keeps
+# no coefficients for it (the log's unit weights certify nothing about the
+# rounding), nor for an Int farkas or bound whose coefficients did not
+# re-derive the lemma; such th-lemmas are shape-checked and proved by Lean
+# alone, in Int certificates only.
+_COEFFICIENT_HINTS = ("farkas", "bound", "implied-eq", "cut")
 # triangle-eq: the legacy core's axioms tying a Real equality to its two
-# inequalities, proved by grind like every other theory tautology.
-_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq")
-_FRAGMENTS = ("propositional", "qf_lra", "qf_uf")
+# inequalities, proved by grind like every other theory tautology. arith: the
+# sat.smt arithmetic solver's own axioms (the div and mod definitions), a
+# clause of linear arithmetic atoms without coefficients, proved by Lean.
+_HINTS = _COEFFICIENT_HINTS + ("euf", "tseitin", "smt", "cnf", "triangle-eq", "arith")
+_FRAGMENTS = ("propositional", "qf_lra", "qf_lia", "qf_uf", "qf_uflra", "qf_uflia")
+# The arithmetic sorts and their Lean carriers: Real variables are valued in
+# Rat (see the exporter README for the soundness argument), Int variables in
+# Int, where omega decides the linear integer lemmas (see _grind_lemma).
+_ARITH_SORTS = ("Real", "Int")
+_NUMBER_TYPES = {"Real": "Rat", "Int": "Int"}
+# The fragments mixing arithmetic with uninterpreted symbols, by arithmetic sort.
+_MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
 # Refutations with more proof steps than this are split into separately
 # checked lemmas, none nesting more than _OUTLINE_CHUNK_STEPS steps: one
 # nested term elaborates superlinearly and exhausts the default heartbeat
@@ -68,7 +90,14 @@ _FRAGMENTS = ("propositional", "qf_lra", "qf_uf")
 _OUTLINE_PROOF_STEPS = 500
 _OUTLINE_CHUNK_STEPS = 500
 _NORMALIZED_REWRITE_ATOMS = 16
-_RESERVED_SORTS = ("Bool", "Real", "Proof")
+# Propagation steps and atom splits a propositional rewrite's direct proof may
+# take, and characters its typed `have` steps may render, before the truth
+# table is used instead (see _PropositionalProver). A term of one million
+# characters checks in a few seconds; a parity rewrite over seven atoms
+# renders 2.8 MB and exceeds Lean's heartbeat limit.
+_STRUCTURAL_REWRITE_STEPS = 20000
+_STRUCTURAL_REWRITE_CHARS = 1000000
+_RESERVED_SORTS = ("Bool", "Real", "Int", "Proof")
 # The uninterpreted sorts are one type variable; constants, functions, and
 # predicates are indexed families over argument lists, so one signature serves
 # every arity and every sort. Quantifying over all such interpretations covers
@@ -84,9 +113,28 @@ _RESERVED_SORTS = ("Bool", "Real", "Proof")
 _UF_BINDERS = (" (_U : Type) (_elems : Nat -> _U) (_funs : Nat -> List _U -> _U) (_preds : Nat -> List _U -> Prop)"
                " (_bool : Prop -> _U)")
 _UF_ARGUMENTS = " _U _elems _funs _preds _bool"
+# QF_UFLRA: the Rat valuation of the Real variables next to the carrier. A
+# Real argument of a function or predicate is injected into _U by _real, as a
+# Boolean one is by _bool (Real joins the disjoint union as one more carrier),
+# and a function with a Real result is one more indexed family _rfuns whose
+# applications are the opaque atoms of the linear forms, as in Z3's arithmetic
+# solver. Nothing states that _real is injective and nothing needs it: euf
+# lemmas only use the congruence x = y -> _real x = _real y. QF_UFLIA is the
+# same encoding over Int, with the injection _int and the family _ifuns.
+_UFLRA_BINDERS = " (_vars : Nat -> Rat)" + _UF_BINDERS + " (_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)"
+_UFLRA_ARGUMENTS = " _vars" + _UF_ARGUMENTS + " _real _rfuns"
+_UFLIA_BINDERS = " (_vars : Nat -> Int)" + _UF_BINDERS + " (_int : Int -> _U) (_ifuns : Nat -> List _U -> Int)"
+_UFLIA_ARGUMENTS = " _vars" + _UF_ARGUMENTS + " _int _ifuns"
+# The injection of a numeric argument into the carrier and the family of
+# functions with a numeric result, by arithmetic sort.
+_INJECTIONS = {"Real": "_real", "Int": "_int"}
+_NUMERIC_FUNCTIONS = {"Real": "_rfuns", "Int": "_ifuns"}
 _FIXED_PROOF_RULES = {
     z3.Z3_OP_PR_ASSERTED: ("asserted", 0),
     z3.Z3_OP_PR_HYPOTHESIS: ("hypothesis", 0),
+    # The legacy core states its theory axioms as (or false l) and resolves
+    # the false literal away with the unit true.
+    z3.Z3_OP_PR_TRUE: ("true-axiom", 0),
     z3.Z3_OP_PR_LEMMA: ("lemma", 1),
     z3.Z3_OP_PR_MODUS_PONENS: ("mp", 2),
     z3.Z3_OP_PR_REWRITE: ("rewrite", 0),
@@ -178,14 +226,39 @@ class _Graph:
     # over Bool alone: either takes the qf_uf encoding (a Bool-only predicate's
     # arguments are injected into the otherwise unused carrier).
     uninterpreted: bool = False
+    numeric: str = "Real"  # the one arithmetic sort of the certificate, Real or Int
+
+    @property
+    def fragment(self):
+        if self.arithmetic and self.uninterpreted:
+            return _MIXED_FRAGMENTS[self.numeric]
+        if self.arithmetic:
+            return "qf_lia" if self.numeric == "Int" else "qf_lra"
+        return "qf_uf" if self.uninterpreted else "propositional"
 
     @property
     def valuation(self):
-        """Extra Lean arguments of every formula: the Rat valuation or the uninterpreted interpretation."""
-        return " _vars" if self.arithmetic else _UF_ARGUMENTS if self.uninterpreted else ""
+        """Extra Lean arguments of every formula: the numeric valuation, the uninterpreted interpretation, or both."""
+        return {"qf_lra": " _vars", "qf_lia": " _vars", "qf_uf": _UF_ARGUMENTS,
+                "qf_uflra": _UFLRA_ARGUMENTS, "qf_uflia": _UFLIA_ARGUMENTS}.get(self.fragment, "")
 
-    def is_real(self, node):
-        return self.decl(node).range == "Real"
+    @property
+    def number_type(self):
+        """The Lean type valuing the arithmetic variables: Rat for Real, Int for Int."""
+        return _NUMBER_TYPES[self.numeric]
+
+    @property
+    def injection(self):
+        """The map injecting a numeric argument of a function or predicate into the carrier."""
+        return _INJECTIONS[self.numeric]
+
+    @property
+    def numeric_functions(self):
+        """The indexed family of functions with a numeric result."""
+        return _NUMERIC_FUNCTIONS[self.numeric]
+
+    def is_arith(self, node):
+        return self.decl(node).range in _ARITH_SORTS
 
     def is_term(self, node):
         """A Real or uninterpreted-sort node, as opposed to a formula or proof."""
@@ -254,42 +327,57 @@ def _declaration(raw, sorts):
             or raw["range"] not in known or any(argument not in known for argument in domain)):
         raise ReconstructionError("invalid native declaration")
     parameters = _parameters(kind, name, raw["parameters"])
+    # Functions and predicates take arguments of any uninterpreted sort, Bool,
+    # Real, or Int (the last three injected into the carrier; a certificate
+    # never mixes Real with Int, see _validate_graph); Proof is never an argument.
+    argument_sorts = sorts + ("Bool", "Real", "Int")
     if raw["range"] in sorts:
         # Constants, functions, and ite inhabit an uninterpreted sort: no definitions.
-        # A function may take arguments of any uninterpreted sort or Bool, never Real.
         if kind == z3.Z3_OP_ITE:
             if name != "if" or domain != ("Bool", raw["range"], raw["range"]):
                 raise ReconstructionError("invalid uninterpreted-sort ite declaration")
-        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in sorts + ("Bool",) for argument in domain):
+        elif kind != z3.Z3_OP_UNINTERPRETED or any(argument not in argument_sorts for argument in domain):
             raise ReconstructionError("unsupported uninterpreted-sort declaration: %s" % name)
-    elif raw["range"] == "Real":
+    elif raw["range"] in _ARITH_SORTS:
+        numeric = raw["range"]
         if kind == z3.Z3_OP_ITE:
-            if name != "if" or domain != _REAL_ITE_DOMAIN:
+            if name != "if" or domain != ("Bool", numeric, numeric):
                 raise ReconstructionError("invalid arithmetic ite declaration")
             return _Declaration(kind, name, domain, raw["range"], parameters)
         if kind == z3.Z3_OP_ANUM:
             try:
-                Fraction(name)
+                value = Fraction(name)
             except (ValueError, ZeroDivisionError):
                 raise ReconstructionError("invalid numeral declaration: %s" % name)
-        elif kind != z3.Z3_OP_UNINTERPRETED and _REAL_NAMES.get(kind) != name:
+            if numeric == "Int" and value.denominator != 1:
+                raise ReconstructionError("invalid Int numeral declaration: %s" % name)
+        elif kind == z3.Z3_OP_UNINTERPRETED:
+            # A Real or Int variable, or a function with a Real or Int result
+            # (QF_UFLRA, QF_UFLIA).
+            if any(argument not in argument_sorts for argument in domain):
+                raise ReconstructionError("unsupported arithmetic function declaration: %s" % name)
+            return _Declaration(kind, name, domain, raw["range"], parameters)
+        elif kind in _INT_NAMES:
+            if _INT_NAMES[kind] != name or numeric != "Int":
+                raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
+        elif _REAL_NAMES.get(kind) != name or (kind == z3.Z3_OP_DIV and numeric == "Int"):
             raise ReconstructionError("unsupported arithmetic declaration: %s" % name)
-        if any(sort != "Real" for sort in domain):
-            raise ReconstructionError("arithmetic declarations take Real arguments")
-        expected = _REAL_ARITY.get(kind, 2)  # Associative operators have a binary domain.
+        if any(sort != numeric for sort in domain):
+            raise ReconstructionError("arithmetic declarations take %s arguments" % numeric)
+        expected = _INT_ARITY.get(kind) or _REAL_ARITY.get(kind, 2)  # Associative operators have a binary domain.
         if len(domain) != expected:
             raise ReconstructionError("invalid arithmetic declaration arity: %s" % name)
     elif raw["range"] == "Bool":
         if kind in _ARITH_PREDICATE_NAMES:
-            if _ARITH_PREDICATE_NAMES[kind] != name or domain != ("Real", "Real"):
+            if _ARITH_PREDICATE_NAMES[kind] != name or domain not in (("Real", "Real"), ("Int", "Int")):
                 raise ReconstructionError("invalid arithmetic predicate declaration: %s" % name)
         else:
             if kind != z3.Z3_OP_UNINTERPRETED and _BOOL_NAMES.get(kind) != name:
                 raise ReconstructionError("unsupported Boolean declaration: %s" % name)
             if kind == z3.Z3_OP_UNINTERPRETED and domain:
-                # A predicate ranges over the uninterpreted sorts and Bool,
-                # possibly over Bool alone.
-                if any(argument not in sorts + ("Bool",) for argument in domain):
+                # A predicate ranges over the uninterpreted sorts, Bool, and
+                # Real or Int, possibly over Bool alone.
+                if any(argument not in argument_sorts for argument in domain):
                     raise ReconstructionError("unsupported predicate declaration: %s" % name)
             else:
                 argument_sort = "Bool"
@@ -323,17 +411,19 @@ def _declaration(raw, sorts):
 def _validate_graph(source, certificate):
     _fields(certificate, (
         "format", "format_version", "z3_version", "fragment", "result",
-        "verification", "source_smt2", "declarations", "nodes", "assertions",
+        "verification", "source_smt2", "query", "declarations", "nodes", "assertions",
         "proof", "rule_counts",
     ), "certificate")
     if (certificate["format"] != "z3-native-proof-dag"
             or type(certificate["format_version"]) is not int
-            or certificate["format_version"] != 1
+            or certificate["format_version"] != 2
             or certificate["fragment"] not in _FRAGMENTS
             or certificate["result"] != "unsat"
             or certificate["verification"] != "unverified"
             or type(certificate["z3_version"]) is not str
-            or not certificate["z3_version"]):
+            or not certificate["z3_version"]
+            or type(certificate["query"]) is not int
+            or certificate["query"] < 0):
         raise ReconstructionError("unsupported certificate header")
     if type(certificate["source_smt2"]) is not str or certificate["source_smt2"] != source:
         raise ReconstructionError("certificate source does not match the original input")
@@ -350,8 +440,8 @@ def _validate_graph(source, certificate):
         domain = decl.domain
         if decl.kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
             domain = ("Bool",) * len(arguments)
-        elif decl.range == "Real" and decl.kind in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_MUL):
-            domain = ("Real",) * max(len(arguments), 1)
+        elif decl.range in _ARITH_SORTS and decl.kind in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_MUL):
+            domain = (decl.range,) * max(len(arguments), 1)
         elif decl.range == "Bool" and decl.kind == z3.Z3_OP_DISTINCT and decl.domain[:1] not in ((), ("Bool",)):
             domain = (decl.domain[0],) * len(arguments)
         if len(arguments) != len(domain):
@@ -372,18 +462,41 @@ def _validate_graph(source, certificate):
     assertions = tuple(_index(arg, len(nodes), "assertion")
                        for arg in _list(certificate["assertions"], "assertions"))
     root = _index(certificate["proof"], len(nodes), "proof")
-    arithmetic = any(decl.range == "Real" for decl in declarations)
-    if arithmetic and certificate["fragment"] == "propositional":
-        raise ReconstructionError("propositional certificates cannot contain arithmetic")
+    numeric_sorts = {decl.range for decl in declarations if decl.range in _ARITH_SORTS}
+    numeric_sorts.update(sort for decl in declarations for sort in decl.domain if sort in _ARITH_SORTS)
+    if len(numeric_sorts) > 1:
+        raise ReconstructionError("certificates cannot mix Int and Real arithmetic")
+    arithmetic = bool(numeric_sorts)
+    numeric = numeric_sorts.pop() if numeric_sorts else "Real"
+    if arithmetic and certificate["fragment"] in ("propositional", "qf_uf"):
+        raise ReconstructionError("%s certificates cannot contain arithmetic" % certificate["fragment"])
     uninterpreted = bool(sorts) or any(decl.kind == z3.Z3_OP_UNINTERPRETED and decl.domain for decl in declarations)
-    if arithmetic and uninterpreted:
-        raise ReconstructionError("certificates cannot mix arithmetic with uninterpreted sorts or functions")
-    if uninterpreted != (certificate["fragment"] == "qf_uf"):
-        raise ReconstructionError("only qf_uf certificates declare an uninterpreted sort or function, "
-                                  "and they must use one")
-    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted)
+    if uninterpreted != (certificate["fragment"] in ("qf_uf", "qf_uflra", "qf_uflia")):
+        raise ReconstructionError("only qf_uf, qf_uflra, and qf_uflia certificates declare an uninterpreted sort "
+                                  "or function, and they must use one")
+    graph = _Graph(declarations, tuple(nodes), assertions, root, arithmetic, sorts, uninterpreted, numeric)
+    if graph.fragment != certificate["fragment"]:
+        if not arithmetic:
+            raise ReconstructionError("%s certificates must contain arithmetic" % certificate["fragment"])
+        # The uninterpreted symbols agree with the label (checked above), so
+        # the label names the other arithmetic sort.
+        raise ReconstructionError("only qf_lia and qf_uflia certificates contain Int arithmetic, "
+                                  "and they contain no other")
     if any(graph.decl(arg).range != "Bool" for arg in assertions):
         raise ReconstructionError("assertion roots must be Boolean expressions")
+    # The theorem states the assertions, so every div and mod they contain
+    # must mean the same in Lean and in SMT-LIB (see _integer_divisor). A
+    # proof step may mention other such terms: Z3's rewriter cancels a common
+    # factor of (div (* 2 x) (- 2)) through (ite (= 0 (- 2)) (div (* 2 x) 0)
+    # (div (* x 1) (- 1))), whose dead branch divides by zero. Lean checks
+    # those steps under its own total division, which proves nothing about
+    # the assertions beyond the theorem.
+    stated = set()
+    for assertion in assertions:
+        stated |= _reachable(graph, assertion)[0]
+    for index in sorted(stated):
+        if graph.kind(index) in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+            _integer_divisor(graph, index)
     if graph.decl(root).range != "Proof" or graph.kind(graph.conclusion(root)) != z3.Z3_OP_FALSE:
         raise ReconstructionError("the root must be a proof concluding false")
     reported = certificate["rule_counts"]
@@ -395,11 +508,17 @@ def _validate_graph(source, certificate):
 
 
 # Symbol tables of a certificate, by (range sort class, has arguments): Boolean
-# atoms, Real variables, elements of the uninterpreted sorts, functions into
-# them, and predicates over them. Each table maps a name to its declaration.
+# atoms, Real or Int variables, elements of the uninterpreted sorts, functions
+# into them, predicates, and functions with a Real or Int result. Each table
+# maps a name to its declaration.
 _SYMBOL_TABLES = {
-    ("Bool", False): "atoms", ("Real", False): "variables", ("sort", False): "elements",
-    ("sort", True): "functions", ("Bool", True): "predicates",
+    ("Bool", False): "atoms", ("Real", False): "variables", ("Int", False): "variables",
+    ("sort", False): "elements", ("sort", True): "functions", ("Bool", True): "predicates",
+    ("Real", True): "numeric_functions", ("Int", True): "numeric_functions",
+}
+_TABLE_LABELS = {
+    "atoms": "Atom", "variables": "Variable", "elements": "Element", "functions": "Function",
+    "predicates": "Predicate", "numeric_functions": "%s function",  # filled with the arithmetic sort
 }
 
 
@@ -410,12 +529,21 @@ def _symbol_table(range_name, arity, sorts):
 def _sort_name(sort):
     """The certificate's name for a sort of the original input."""
     kind = sort.kind()
-    return "Bool" if kind == z3.Z3_BOOL_SORT else "Real" if kind == z3.Z3_REAL_SORT else sort.name()
+    if kind == z3.Z3_BOOL_SORT:
+        return "Bool"
+    if kind == z3.Z3_REAL_SORT:
+        return "Real"
+    if kind == z3.Z3_INT_SORT:
+        return "Int"
+    return sort.name()
 
 
-def _bind_input(source, graph, fragment=None):
+def _bind_input(source, graph, fragment=None, query=0):
     """Compare exact structures using hash-consing, not a digest or solver check.
 
+    The input is the assertion snapshot of the certificate's query, rebuilt
+    from the original script (proof_certificate.query_snapshot), so the
+    certificate's copy of the assertions is never trusted.
     Symbols are bound by name, so each name must denote one symbol of the input
     (Z3 accepts overloading by sort; the frontend rejects it and this check is
     repeated here) and the certificate's declaration must carry that symbol's
@@ -423,9 +551,9 @@ def _bind_input(source, graph, fragment=None):
     sorts never compare equal even though Lean renders every sort as _U.
     """
     context = z3.Context(proof=False)
-    original, original_fragment = parse_assertions(source, context)
+    original, original_fragment = parse_assertions(source, context, integer=True, query=query)
     if fragment is None:
-        fragment = "qf_lra" if graph.arithmetic else "qf_uf" if graph.uninterpreted else "propositional"
+        fragment = graph.fragment
     if original_fragment != fragment:
         raise ReconstructionError("the input is in fragment %s, not %s" % (original_fragment, fragment))
     interned, terms = {}, {}
@@ -447,7 +575,8 @@ def _bind_input(source, graph, fragment=None):
                 raise ReconstructionError("unsupported symbol signature: %s" % name)
             if name in tables[table] and tables[table][name] != node.declaration:
                 raise ReconstructionError("ambiguous %s symbol identity: %s" % (
-                    {"atoms": "Boolean", "variables": "Real"}.get(table, table[:-1]), name))
+                    {"atoms": "Boolean", "variables": graph.numeric,
+                     "numeric_functions": graph.numeric + " function"}.get(table, table[:-1]), name))
             if any(name in other for key, other in tables.items() if key != table):
                 raise ReconstructionError("symbol used with two sorts: %s" % name)
             tables[table][name] = node.declaration
@@ -513,7 +642,8 @@ def _term(graph, node):
 
 
 def _valuation_binder(graph):
-    return " (_vars : Nat -> Rat)" if graph.arithmetic else _UF_BINDERS if graph.uninterpreted else ""
+    return {"qf_lra": " (_vars : Nat -> Rat)", "qf_lia": " (_vars : Nat -> Int)", "qf_uf": _UF_BINDERS,
+            "qf_uflra": _UFLRA_BINDERS, "qf_uflia": _UFLIA_BINDERS}.get(graph.fragment, "")
 
 
 def _infix(operator, arguments):
@@ -526,18 +656,29 @@ def _infix(operator, arguments):
 def _application_arguments(graph, arguments, term, formula):
     """Render the argument list of a function or predicate over the uninterpreted sorts.
 
-    A Boolean argument is injected into the carrier by _bool; its formula is
-    rendered as a Prop.
+    A Boolean argument is injected into the carrier by _bool (its formula is
+    rendered as a Prop) and a Real or Int one by _real or _int.
     """
-    return "[%s]" % ", ".join(term(arg) if graph.is_term(arg) else "(_bool %s)" % formula(arg)
-                              for arg in arguments)
+    return "[%s]" % ", ".join("(%s %s)" % (graph.injection, term(arg)) if graph.is_arith(arg)
+                              else term(arg) if graph.is_term(arg)
+                              else "(_bool %s)" % formula(arg) for arg in arguments)
+
+
+def _numeral(graph, value):
+    """Render a rational as a literal of the certificate's number type; Int numerals are integers."""
+    if value.denominator == 1:
+        return "((%d : %s))" % (value.numerator, graph.number_type)
+    if graph.numeric == "Int":
+        raise ReconstructionError("fractional value in an Int certificate: %s" % value)
+    return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
 
 
 def _term_body(graph, node, variable_indices, term=None, formula=None):
-    """Render a Real or uninterpreted-sort node; term and formula render its children.
+    """Render an arithmetic or uninterpreted-sort node; term and formula render its children.
 
-    variable_indices numbers the Real variables, the elements, and the
-    functions, each from zero; the defaults render children by definition name.
+    variable_indices numbers the arithmetic variables, the elements, the
+    functions, and the functions with an arithmetic result, each from zero;
+    the defaults render children by definition name.
     """
     term = (lambda child: _term(graph, child)) if term is None else term
     formula = (lambda child: _formula(graph, child)) if formula is None else formula
@@ -545,24 +686,25 @@ def _term_body(graph, node, variable_indices, term=None, formula=None):
     arguments = graph.arguments(node)
     if kind == z3.Z3_OP_UNINTERPRETED:
         index = variable_indices[graph.nodes[node].declaration]
-        if graph.is_real(node):
-            return "_vars %d" % index
         if not arguments:
-            return "_elems %d" % index
-        return "_funs %d %s" % (index, _application_arguments(graph, arguments, term, formula))
+            return ("_vars %d" if graph.is_arith(node) else "_elems %d") % index
+        return "%s %d %s" % (graph.numeric_functions if graph.is_arith(node) else "_funs", index,
+                             _application_arguments(graph, arguments, term, formula))
     if kind == z3.Z3_OP_ANUM:
-        value = Fraction(graph.decl(node).name)
-        if value.denominator == 1:
-            return "((%d : Rat))" % value.numerator
-        return "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator)
+        return _numeral(graph, Fraction(graph.decl(node).name))
     if kind == z3.Z3_OP_ITE:
         # The instance's proposition is inferred from the condition.
         return "(@ite %s %s (Classical.propDecidable _) %s %s)" % (
-            "Rat" if graph.is_real(node) else "_U",
+            graph.number_type if graph.is_arith(node) else "_U",
             formula(arguments[0]), term(arguments[1]), term(arguments[2]))
     args = [term(arg) for arg in arguments]
     if kind == z3.Z3_OP_UMINUS:
         return "(-%s)" % args[0]
+    if kind == z3.Z3_OP_ABS:
+        # SMT-LIB's definition; the instance's proposition is inferred from the condition.
+        return "(@ite Int (%s >= ((0 : Int))) (Classical.propDecidable _) %s (-%s))" % (args[0], args[0], args[0])
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        return "(%s %s %s)" % (args[0], "/" if kind == z3.Z3_OP_IDIV else "%", args[1])
     return _infix(_REAL_NAMES[kind], args)
 
 
@@ -580,7 +722,7 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
                                  _application_arguments(graph, arguments, term, formula))
     if arguments and graph.is_term(arguments[0]):
         args = [term(arg) for arg in arguments]
-        if kind in _ARITH_PREDICATE_NAMES and graph.is_real(arguments[0]):
+        if kind in _ARITH_PREDICATE_NAMES and graph.is_arith(arguments[0]):
             return "(%s %s %s)" % (args[0], _ARITH_PREDICATE_NAMES[kind], args[1])
         if kind == z3.Z3_OP_EQ:
             return "(%s = %s)" % tuple(args)
@@ -861,18 +1003,20 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
     kind = graph.kind(left)
     if kind == z3.Z3_OP_UNINTERPRETED:
         # Function or predicate application: every element of the argument
-        # list is a term or an injected Boolean argument.
-        elements = ["(congrArg _bool (propext %s))" % argument if not graph.is_term(first) else argument
+        # list is a term of a sort or an injected Boolean or numeric argument.
+        elements = ["(congrArg _bool (propext %s))" % argument if not graph.is_term(first)
+                    else "(congrArg %s %s)" % (graph.injection, argument) if graph.is_arith(first) else argument
                     for first, argument in zip(left_args, arguments)]
         if graph.is_term(left):
-            return "(congrArg (_funs %d) %s)" % (variable_indices[graph.nodes[left].declaration],
-                                                 _list_congruence(elements)), False, []
+            return "(congrArg (%s %d) %s)" % (graph.numeric_functions if graph.is_arith(left) else "_funs",
+                                              variable_indices[graph.nodes[left].declaration],
+                                              _list_congruence(elements)), False, []
         return "(Iff.of_eq (congrArg (_preds %d) %s))" % (atom_indices[graph.nodes[left].declaration],
                                                            _list_congruence(elements)), False, []
     if graph.is_term(left):
         if kind == z3.Z3_OP_ITE:
             return "(ite_congr_classical %s %s %s)" % tuple(arguments), True, []
-        if graph.is_real(left) and kind in _REAL_NAMES:
+        if graph.is_arith(left) and (kind in _REAL_NAMES or kind in _INT_NAMES):
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
         raise ReconstructionError("unsupported term congruence at node %d" % node)
@@ -883,7 +1027,7 @@ def _monotonicity(graph, terms, node, atom_indices, variable_indices):
             pairs = ["(not_congr %s)" % _term_equality_congruence(first, second)
                      for index, first in enumerate(arguments) for second in arguments[index + 1:]]
             return _fold("and_congr", pairs, "(Iff.refl True)"), False, []
-        if graph.is_real(left_args[0]) and kind in _ARITH_PREDICATE_NAMES:
+        if graph.is_arith(left_args[0]) and kind in _ARITH_PREDICATE_NAMES:
             lines, term = _grind_lemma(graph, node, "monotonicity", atom_indices, variable_indices)
             return term, False, lines
         raise ReconstructionError("unsupported atom congruence at node %d" % node)
@@ -961,16 +1105,17 @@ def _scaling_helpers(graph, reachable, atom_indices, variable_indices):
     helpers = []
     for formula in sorted(reachable):
         kind, arguments = graph.kind(formula), graph.arguments(formula)
-        if (graph.is_real(formula) or not arguments or not graph.is_real(arguments[0])
+        if (graph.is_arith(formula) or not arguments or not graph.is_arith(arguments[0])
                 or (kind not in _ARITH_PREDICATE_NAMES and kind != z3.Z3_OP_EQ)):
             continue
         relation, terms, constant = _atom_constraint(graph, formula)
         scale = _common_denominator(terms, constant)
         if scale == 1:
             continue
-        helpers.append("  have _s%d : %s -> (%s %s ((0 : Rat))) := by grind" % (
+        helpers.append("  have _s%d : %s -> (%s %s ((0 : %s))) := by grind" % (
             formula, _inline(graph, formula, atom_indices, variable_indices),
-            _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), relation))
+            _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), relation,
+            graph.number_type))
     return helpers
 
 
@@ -984,9 +1129,10 @@ def _common_denominator(terms, constant):
 def _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices):
     """Render scale * (terms + constant) with integer coefficients, as grind's linear module wants it."""
     # The linear form's variables are Real variables and opaque ite terms.
-    parts = ["((%d : Rat)) * %s" % (terms[variable] * scale, _inline(graph, variable, atom_indices, variable_indices))
+    parts = ["((%d : %s)) * %s" % (terms[variable] * scale, graph.number_type,
+                                   _inline(graph, variable, atom_indices, variable_indices))
              for variable in sorted(terms)]
-    parts.append("((%d : Rat))" % (constant * scale))
+    parts.append("((%d : %s))" % (constant * scale, graph.number_type))
     return " + ".join(parts)
 
 
@@ -1001,7 +1147,7 @@ def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
     """
     helpers = []
     for node in sorted(reachable):
-        if not graph.is_real(node) or graph.kind(node) != z3.Z3_OP_ITE:
+        if not graph.is_arith(node) or graph.kind(node) != z3.Z3_OP_ITE:
             continue
         condition, then_branch, else_branch = graph.arguments(node)
 
@@ -1012,14 +1158,20 @@ def _ite_gate_helpers(graph, reachable, atom_indices, variable_indices):
                 (0, then_branch, inline(condition), "ite_eq_left"),
                 (1, else_branch, "(Not %s)" % inline(condition), "ite_eq_right")):
             terms = {}
-            constant = _linear_term(graph, branch, Fraction(1), terms)
+            try:
+                constant = _linear_term(graph, branch, Fraction(1), terms)
+            except ReconstructionError:
+                # A branch without a linear form, such as the dead branch
+                # dividing by zero in the rewriter's factor cancellation
+                # (see _validate_graph): no helper, grind splits unaided.
+                continue
             scale = _common_denominator(terms, constant)
             if scale == 1:
                 helpers.append("  have _g%d_%d : %s -> %s = %s := fun _h => %s _h" % (
                     node, side, hypothesis, inline(node), inline(branch), lemma))
             else:
-                helpers.append("  have _g%d_%d : %s -> ((%d : Rat)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
-                    node, side, hypothesis, scale, inline(node),
+                helpers.append("  have _g%d_%d : %s -> ((%d : %s)) * %s = (%s) := fun _h => by rw [%s _h]; grind" % (
+                    node, side, hypothesis, scale, graph.number_type, inline(node),
                     _scaled_form(graph, terms, constant, scale, atom_indices, variable_indices), lemma))
     return helpers
 
@@ -1061,11 +1213,27 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
         lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
     if graph.uninterpreted:
         lines.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    # Large Boolean/arithmetic rewrites can require more than grind's default
-    # nine case splits, even though every arithmetic atom remains linear.
-    lines.append("  grind (splits := 64)")
+    if graph.arithmetic and graph.uninterpreted:
+        lines.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
+    lines.append("  " + _theory_tactic(graph))
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+def _theory_tactic(graph):
+    """The tactic proving a theory lemma, a rewrite, or an argument helper.
+
+    Large Boolean/arithmetic rewrites can require more than grind's default
+    nine case splits, even though every arithmetic atom remains linear. Over
+    Int, omega (a complete decision procedure for linear integer arithmetic,
+    ite over Int included, with applications of uninterpreted functions as
+    atoms) goes first: grind's lia module ran out of steps on Farkas lemmas
+    with several equalities and on ite splits that omega closes in well
+    under a second; grind still covers goals omega does not read
+    (congruences and uninterpreted atoms). Both produce kernel-checked
+    proofs.
+    """
+    return "first | omega | grind (splits := 64)" if graph.numeric == "Int" else "grind (splits := 64)"
 
 
 def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
@@ -1092,11 +1260,432 @@ def _boolean_argument_helpers(graph, reachable, atom_indices, variable_indices):
     return helpers
 
 
-def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None):
-    """Generate a Lean lemma checking every truth assignment by kernel reduction.
+def _real_argument_helpers(graph, reachable, atom_indices, variable_indices):
+    """State the equality of Real or Int arguments of applications that have the same normal form.
 
-    Theory rewrites go to grind, except that a rewrite between two identical
-    formulas (the legacy core records one per assertion) is Iff.refl.
+    grind's congruence closure compares function arguments as terms and its
+    linear arithmetic reasons about atoms, so (f (- x y)) and (f (+ x (* -1
+    y))), which Z3's rewriter identifies, stay apart in Lean, as do (f (ite
+    (> x 0) x (- x))) and (f (ite (<= x 0) (* -1 x) x)), the rewriter's
+    normal form of the same ite. Every pair of reachable numeric arguments
+    with one normal form (_real_argument_key) gets an explicit equality,
+    which the theory tactic proves on its own (splitting the ite conditions)
+    and grind then uses for congruence.
+    """
+    groups = {}
+    for node in sorted(reachable):
+        if graph.kind(node) != z3.Z3_OP_UNINTERPRETED:
+            continue
+        for argument in graph.arguments(node):
+            if graph.is_arith(argument):
+                members = groups.setdefault(_real_argument_key(graph, argument), [])
+                if argument not in members:
+                    members.append(argument)
+    helpers = []
+    for members in groups.values():
+        for first, second in zip(members, members[1:]):
+            helpers.append("  have _r%d_%d : %s = %s := by %s" % (
+                first, second, _inline(graph, first, atom_indices, variable_indices),
+                _inline(graph, second, atom_indices, variable_indices), _theory_tactic(graph)))
+    return helpers
+
+
+def _real_argument_key(graph, node):
+    """The linear form of a Real or Int term, with its ite atoms keyed up to Z3's normalization.
+
+    Variables and applications are atoms of their own; an ite whose condition
+    is a linear atom is keyed by the canonical polarity of that condition
+    (the non-strict comparison, swapping the branches when the condition is
+    the strict complement) and by the keys of its branches. Two terms with
+    one key denote the same value, which grind proves and the helper states.
+    """
+    terms = {}
+    constant = _linear_term(graph, node, Fraction(1), terms)
+    atoms = [(_real_atom_key(graph, atom), value) for atom, value in terms.items() if value != 0]
+    return (tuple(sorted(atoms, key=repr)), constant)
+
+
+def _real_atom_key(graph, atom):
+    if graph.kind(atom) != z3.Z3_OP_ITE:
+        return ("atom", atom)
+    condition, then_branch, else_branch = graph.arguments(atom)
+    try:
+        relation, terms, constant = _polarity_constraint(graph, condition, True)
+    except ReconstructionError:
+        return ("atom", atom)  # a condition that is no linear atom: opaque
+    if relation == "<":
+        relation, constant = "<=", -constant
+        terms = {variable: -value for variable, value in terms.items()}
+        then_branch, else_branch = else_branch, then_branch
+    condition_key = (relation, tuple(sorted(((_real_atom_key(graph, variable), value)
+                                              for variable, value in terms.items()), key=repr)), constant)
+    return ("ite", condition_key, _real_argument_key(graph, then_branch), _real_argument_key(graph, else_branch))
+
+
+def _boolean_structure(graph, node, atom_indices, memo=None):
+    """Return the propositional structure of a Boolean node over the atoms, as Lean reads it.
+
+    The structure is a nested tuple: ("atom", index), ("true",), ("false",),
+    ("not", a), ("and", a, b, ...), ("or", a, b, ...), ("implies", a, b),
+    ("iff", a, b). xor, Boolean ite, distinct, and conjunctions or
+    disjunctions of fewer than two arguments are expanded exactly as
+    _formula_body renders them, so a proof term built over the structure
+    type-checks against the unfolded definitions. A node shared by several
+    parents is read once (memo); its structure object is shared, but the
+    structure is still a tree, so hashing and rendering it expand the
+    sharing.
+    """
+    memo = {} if memo is None else memo
+    if node in memo:
+        return memo[node]
+    kind, arguments = graph.kind(node), graph.arguments(node)
+    if kind == z3.Z3_OP_UNINTERPRETED and not arguments:
+        structure = ("atom", atom_indices[graph.nodes[node].declaration])
+    else:
+        children = [_boolean_structure(graph, argument, atom_indices, memo) for argument in arguments]
+        structure = _boolean_connective(kind, children)
+    memo[node] = structure
+    return structure
+
+
+def _boolean_connective(kind, children):
+    if kind == z3.Z3_OP_TRUE:
+        return ("true",)
+    if kind == z3.Z3_OP_FALSE:
+        return ("false",)
+    if kind == z3.Z3_OP_NOT:
+        return ("not", children[0])
+    if kind == z3.Z3_OP_AND:
+        return _structure_fold("and", children)
+    if kind == z3.Z3_OP_OR:
+        return _structure_fold("or", children)
+    if kind == z3.Z3_OP_IMPLIES:
+        return ("implies",) + tuple(children)
+    if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
+        return ("iff",) + tuple(children)
+    if kind == z3.Z3_OP_XOR:
+        left, right = children
+        return ("or", ("and", left, ("not", right)), ("and", ("not", left), right))
+    if kind == z3.Z3_OP_ITE:
+        condition, then_branch, else_branch = children
+        return ("or", ("and", condition, then_branch), ("and", ("not", condition), else_branch))
+    if kind == z3.Z3_OP_DISTINCT:
+        return _structure_fold("and", [("not", ("iff", left, right))
+                                       for index, left in enumerate(children) for right in children[index + 1:]])
+    raise ReconstructionError("unsupported Boolean expression")
+
+
+def _structure_fold(operator, children):
+    """An and/or over fewer than two children renders as its unit or as the child itself."""
+    if not children:
+        return ("true",) if operator == "and" else ("false",)
+    if len(children) == 1:
+        return children[0]
+    return (operator,) + tuple(children)
+
+
+def _structure_children(structure):
+    return structure[1:] if structure[0] in ("not", "and", "or", "implies", "iff") else ()
+
+
+def _render_structure(structure):
+    """Render a structure as the Lean proposition the unfolded definitions reduce to."""
+    kind = structure[0]
+    if kind == "atom":
+        return "(_atoms %d)" % structure[1]
+    if kind == "true":
+        return "True"
+    if kind == "false":
+        return "False"
+    children = [_render_structure(child) for child in _structure_children(structure)]
+    if kind == "not":
+        return "(Not %s)" % children[0]
+    if kind == "and":
+        return _fold("And", children, "True")
+    if kind == "or":
+        return _fold("Or", children, "False")
+    if kind == "implies":
+        return "(%s -> %s)" % tuple(children)
+    return "(Iff %s %s)" % tuple(children)
+
+
+def _eliminate_or(proof, handlers):
+    """Apply one handler per disjunct of a right-nested disjunction proof."""
+    result = handlers[-1]
+    for handler in reversed(handlers[:-1]):
+        result = "(fun _tail => Or.elim _tail %s %s)" % (handler, result)
+    return "(%s %s)" % (result, proof)
+
+
+class _PropositionalProver:
+    """Prove a propositional equivalence by a direct Lean term, without a truth table.
+
+    The two sides are gates over shared atoms. A direction is proved by
+    assuming one side, propagating truth values through the gates (each
+    propagation step is a typed `have` whose proof uses only the immediate
+    operands, as in _gate_contradiction), and, while propagation alone does
+    not settle the other side, splitting on an atom with Decidable.em; a
+    branch ends with the other side proved or with a contradiction. Double
+    negations are cancelled by Decidable.byContradiction on atoms only, so
+    the term needs no decidability instance for a compound formula, and only
+    the atoms whose decidability it uses become instance parameters of the
+    lemma. The term is free of axioms. A direction not settled within
+    _STRUCTURAL_REWRITE_STEPS steps or _STRUCTURAL_REWRITE_CHARS rendered
+    characters (each `have` states its full proposition, so a term can be
+    large after few steps), or whose splits reach a satisfying assignment
+    (the equivalence does not hold), returns None and the caller falls back
+    to the truth table; Lean checks the term as it checks any other, so a
+    wrong term is rejected, never trusted.
+    """
+
+    def __init__(self, left, right):
+        self.parents = {}
+        self.needed = set()
+        self.names = set()
+        self.fresh = 0
+        self.steps = 0
+        self.chars = 0
+        for root in (left, right):
+            self._index(root)
+        self.constants = [(structure, structure[0] == "true", "True.intro" if structure[0] == "true"
+                           else "(fun _absurd => _absurd)")
+                          for structure in (("true",), ("false",)) if structure in self.parents]
+
+    def _index(self, structure):
+        if structure in self.parents:
+            return
+        self.parents[structure] = {}
+        for child in _structure_children(structure):
+            self._index(child)
+            self.parents[child][structure] = None
+
+    def _name(self):
+        self.fresh += 1
+        self.names.add("_f%d" % self.fresh)
+        return "_f%d" % self.fresh
+
+    def _exhausted(self):
+        return self.steps > _STRUCTURAL_REWRITE_STEPS or self.chars > _STRUCTURAL_REWRITE_CHARS
+
+    def equivalence(self, left, right):
+        forward = self.implication(left, right)
+        backward = self.implication(right, left) if forward is not None else None
+        if backward is None:
+            return None
+        return "(Iff.intro %s %s)" % (forward, backward)
+
+    def implication(self, source, target):
+        """A term of type source -> target, or None."""
+        hypothesis = self._name()
+        body = self._prove(dict(), target, self.constants + [(source, True, hypothesis)])
+        if body is None:
+            return None
+        return "(fun (%s : %s) => (%s : %s))" % (
+            hypothesis, _render_structure(source), body, _render_structure(target))
+
+    def _prove(self, state, target, facts):
+        """A term of type target under the state extended by the facts, or None."""
+        lines, pending = [], []
+        conflict = None
+        for structure, truth, proof in facts:
+            conflict = conflict or self._assign(state, lines, pending, structure, truth, proof)
+        conflict = conflict or self._propagate(state, lines, pending)
+        if conflict is not None:
+            return self._block(lines, "(False.elim %s)" % conflict)
+        if target in state and state[target][0]:
+            return self._block(lines, state[target][1])
+        atoms = sorted((-len(self.parents[atom]), atom[1]) for atom in self.parents
+                       if atom[0] == "atom" and atom not in state)
+        self.steps += 1
+        if not atoms or self._exhausted():
+            return None  # every atom assigned without the target holding: the equivalence does not hold
+        atom = ("atom", atoms[0][1])
+        self.needed.add(atom[1])
+        branches = []
+        for value in (True, False):
+            name = self._name()
+            branch = self._prove(dict(state), target, [(atom, value, name)])
+            if branch is None:
+                return None
+            branches.append("(fun %s => %s)" % (name, branch))
+        return self._block(lines, "(Or.elim (Decidable.em (_atoms %d)) %s %s)" % ((atom[1],) + tuple(branches)))
+
+    @staticmethod
+    def _block(lines, body):
+        return "(%s %s)" % (" ".join(lines), body) if lines else body
+
+    def _assign(self, state, lines, pending, structure, truth, proof, decides=None):
+        """Record a truth value with its proof; return a proof of False if it contradicts the state.
+
+        A value already recorded with the same truth is left alone and its
+        proof is dropped; `decides` names the atom whose decidability the
+        proof uses, recorded as needed only when the proof is kept.
+        """
+        if structure in state and state[structure][0] == truth:
+            return None
+        if decides is not None:
+            self.needed.add(decides)
+        if structure in state:
+            positive, negative = (proof, state[structure][1]) if truth else (state[structure][1], proof)
+            return "(%s %s)" % (negative, positive)
+        self.steps += 1
+        if proof not in self.names:  # a bare hypothesis or `have` name is reused, not restated
+            name = self._name()
+            rendered = _render_structure(structure)
+            line = "have %s : %s := %s;" % (name, rendered if truth else "(Not %s)" % rendered, proof)
+            self.chars += len(line)
+            lines.append(line)
+            proof = name
+        state[structure] = (truth, proof)
+        pending.append(structure)
+        pending.extend(self.parents[structure])
+        return None
+
+    def _propagate(self, state, lines, pending):
+        while pending:
+            if self._exhausted():
+                return None
+            structure = pending.pop()
+            for target, truth, proof, decides in self._consequences(state, structure):
+                conflict = self._assign(state, lines, pending, target, truth, proof, decides)
+                if conflict is not None:
+                    return conflict
+        return None
+
+    def _consequences(self, state, structure):
+        """The truth values one gate determines from its own value and its operands' values.
+
+        Each consequence is (structure, truth, proof, decides) where decides
+        is the atom whose Decidable instance the proof uses, or None.
+        """
+        kind = structure[0]
+        children = _structure_children(structure)
+        value = state.get(structure)
+        values = [state.get(child) for child in children]
+        truths = [None if v is None else v[0] for v in values]
+        proofs = [None if v is None else v[1] for v in values]
+        count = len(children)
+        out = []
+
+        def add(target, truth, proof, decides=None):
+            out.append((target, truth, proof, decides))
+
+        if kind == "not":
+            (child,), (truth,), (proof,) = children, truths, proofs
+            if value is not None:
+                if value[0]:
+                    add(child, False, value[1])
+                elif child[0] == "atom":
+                    add(child, True, "(Decidable.byContradiction (fun _g => %s _g))" % value[1], child[1])
+            if truth is True:
+                add(structure, False, "(fun _g => _g %s)" % proof)
+            elif truth is False:
+                add(structure, True, proof)
+        elif kind == "and":
+            if value is not None and value[0]:
+                for i, child in enumerate(children):
+                    add(child, True, _project(i, count, value[1]))
+            if value is not None and not value[0] and truths.count(None) == 1 and False not in truths:
+                position = truths.index(None)
+                parts = ["_g" if i == position else proof for i, proof in enumerate(proofs)]
+                add(children[position], False,
+                    "(fun _g => %s %s)" % (value[1], _fold("And.intro", parts, "True.intro")))
+            if False in truths:
+                position = truths.index(False)
+                add(structure, False,
+                    "(fun _g => %s %s)" % (proofs[position], _project(position, count, "_g")))
+            elif None not in truths:
+                add(structure, True, _fold("And.intro", proofs, "True.intro"))
+        elif kind == "or":
+            if value is not None and not value[0]:
+                for i, child in enumerate(children):
+                    add(child, False, "(fun _g => %s %s)" % (value[1], _inject(i, count, "_g")))
+            if value is not None and value[0] and truths.count(None) == 1 and True not in truths:
+                position = truths.index(None)
+                handlers = ["(fun _g => _g)" if i == position else "(fun _g => absurd _g %s)" % proof
+                            for i, proof in enumerate(proofs)]
+                add(children[position], True, _eliminate_or(value[1], handlers))
+            if True in truths:
+                position = truths.index(True)
+                add(structure, True, _inject(position, count, proofs[position]))
+            elif None not in truths:
+                add(structure, False, "(fun _g => %s)" % _eliminate_or("_g", proofs))
+        elif kind == "implies":
+            (antecedent, consequent), (truth_a, truth_b), (proof_a, proof_b) = children, truths, proofs
+            if antecedent == consequent:
+                add(structure, True, "(fun _g => _g)")
+            if value is not None and value[0]:
+                if truth_a is True:
+                    add(consequent, True, "(%s %s)" % (value[1], proof_a))
+                if truth_b is False:
+                    add(antecedent, False, "(fun _g => %s (%s _g))" % (proof_b, value[1]))
+            if value is not None and not value[0]:
+                add(consequent, False, "(fun _g => %s (fun _ => _g))" % value[1])
+                if antecedent[0] == "atom":
+                    add(antecedent, True, "(Decidable.byContradiction (fun _g => %s (fun _h => absurd _h _g)))"
+                        % value[1], antecedent[1])
+            if truth_a is False:
+                add(structure, True, "(fun _g => absurd _g %s)" % proof_a)
+            elif truth_b is True:
+                add(structure, True, "(fun _ => %s)" % proof_b)
+            elif truth_a is True and truth_b is False:
+                add(structure, False, "(fun _g => %s (_g %s))" % (proof_b, proof_a))
+        elif kind == "iff":
+            (left, right), (truth_a, truth_b), (proof_a, proof_b) = children, truths, proofs
+            if left == right:
+                add(structure, True, "Iff.rfl")
+            if value is not None and value[0]:
+                if truth_a is True:
+                    add(right, True, "(Iff.mp %s %s)" % (value[1], proof_a))
+                elif truth_a is False:
+                    add(right, False, "(fun _g => %s (Iff.mpr %s _g))" % (proof_a, value[1]))
+                if truth_b is True:
+                    add(left, True, "(Iff.mpr %s %s)" % (value[1], proof_b))
+                elif truth_b is False:
+                    add(left, False, "(fun _g => %s (Iff.mp %s _g))" % (proof_b, value[1]))
+            if value is not None and not value[0]:
+                if truth_a is True:
+                    add(right, False, "(fun _g => %s (Iff.intro (fun _ => _g) (fun _ => %s)))"
+                        % (value[1], proof_a))
+                elif truth_a is False and right[0] == "atom":
+                    add(right, True, "(Decidable.byContradiction (fun _g => %s (Iff.intro "
+                        "(fun _h => absurd _h %s) (fun _h => absurd _h _g))))" % (value[1], proof_a), right[1])
+                if truth_b is True:
+                    add(left, False, "(fun _g => %s (Iff.intro (fun _ => %s) (fun _ => _g)))"
+                        % (value[1], proof_b))
+                elif truth_b is False and left[0] == "atom":
+                    add(left, True, "(Decidable.byContradiction (fun _g => %s (Iff.intro "
+                        "(fun _h => absurd _h _g) (fun _h => absurd _h %s))))" % (value[1], proof_b), left[1])
+            if truth_a is not None and truth_b is not None:
+                if truth_a and truth_b:
+                    add(structure, True, "(Iff.intro (fun _ => %s) (fun _ => %s))" % (proof_b, proof_a))
+                elif not truth_a and not truth_b:
+                    add(structure, True, "(Iff.intro (fun _g => absurd _g %s) (fun _g => absurd _g %s))"
+                        % (proof_a, proof_b))
+                elif truth_a:
+                    add(structure, False, "(fun _g => %s (Iff.mp _g %s))" % (proof_b, proof_a))
+                else:
+                    add(structure, False, "(fun _g => %s (Iff.mpr _g %s))" % (proof_a, proof_b))
+        return out
+
+
+def _structural_equivalence(graph, left, right, atom_indices):
+    """A direct Lean term proving the Boolean equivalence of two formulas, with the atoms it needs decidable."""
+    memo = {}
+    left, right = (_boolean_structure(graph, side, atom_indices, memo) for side in (left, right))
+    prover = _PropositionalProver(left, right)
+    return prover.equivalence(left, right), sorted(prover.needed)
+
+
+def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None):
+    """Generate a Lean lemma for a rewrite step, checked independently of the assertions.
+
+    A propositional rewrite is proved by a direct term from gate propagation
+    and case splits on atoms (_PropositionalProver); the exhaustive truth
+    table over the atoms' decidability witnesses, exponential in their number,
+    is the fallback when the prover gives up. Theory rewrites go to grind,
+    except that a rewrite between two identical formulas (the legacy core
+    records one per assertion) is Iff.refl.
     """
     conclusion = graph.conclusion(node)
     left, right = _equivalence(graph, conclusion, "rewrite")
@@ -1111,15 +1700,17 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     if theory:
         atoms = [formula for formula in sorted(reachable)
                  if graph.kind(formula) in _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ}
-                 and graph.arguments(formula) and graph.is_real(graph.arguments(formula)[0])]
+                 and graph.arguments(formula) and graph.is_arith(graph.arguments(formula)[0])]
         distinct = any(graph.kind(formula) == z3.Z3_OP_DISTINCT for formula in reachable)
-        if len(atoms) > _NORMALIZED_REWRITE_ATOMS and not distinct:
+        if len(atoms) > _NORMALIZED_REWRITE_ATOMS and not distinct and _linear_over_variables(graph, atoms):
             lines, term = _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices)
         else:
             lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices)
         return lines, set(), term
-    atoms = sorted(atom_indices[graph.nodes[formula].declaration]
-                   for formula in reachable if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED)
+    proof, atoms = _structural_equivalence(graph, left, right, atom_indices)
+    if proof is None:
+        atoms = sorted(atom_indices[graph.nodes[formula].declaration]
+                       for formula in reachable if graph.kind(formula) == z3.Z3_OP_UNINTERPRETED)
     lines = ["", "private theorem rewrite_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph))]
     for atom in atoms:
         lines.append("    [_d%d : Decidable (_atoms %d)]" % (atom, atom))
@@ -1127,6 +1718,10 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
         "    : %s := by" % _formula(graph, conclusion),
         "  unfold " + " ".join("formula_%d" % formula for formula in sorted(reachable, reverse=True)),
     ])
+    if proof is not None:
+        lines.append("  exact " + proof)
+        term = "(@rewrite_%d _atoms%s%s)" % (node, graph.valuation, "".join(" _d%d" % atom for atom in atoms))
+        return lines, atoms, term
     for atom in atoms:
         lines.extend([
             "  all_goals",
@@ -1139,11 +1734,20 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     return lines, atoms, term
 
 
+def _linear_over_variables(graph, atoms):
+    """Whether the linear forms of the atoms range over Real variables alone.
+
+    _normalized_rewrite identifies the atoms of a linear form by variable
+    index; an opaque ite term or function application has none.
+    """
+    return all(graph.kind(variable) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(variable)
+               for atom in atoms for variable in _atom_constraint(graph, atom)[1])
+
+
 def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices):
     """Separate linear atom normalization from propositional rewrite search."""
     def numeral(value):
-        return ("((%d : Rat))" % value.numerator if value.denominator == 1 else
-                "((%d : Rat) / (%d : Rat))" % (value.numerator, value.denominator))
+        return _numeral(graph, value)
 
     canonical, normalized_atoms, rewrites, lines = {}, {}, [], [
         "", "set_option maxHeartbeats 1000000 in",
@@ -1156,8 +1760,15 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
         negated = relation == "<"
         if negated:
             terms, constant, relation = {var: -value for var, value in terms.items()}, -constant, "<="
+        first = min(terms, key=lambda var: variable_indices[graph.nodes[var].declaration]) if terms else None
+        if graph.numeric == "Int" and relation == "<=" and terms and terms[first] < 0:
+            # Over Int every atom is already tightened to t <= 0, whose
+            # complement is -t + 1 <= 0: key the row with a negative leading
+            # coefficient as the negation of its complement, so that (< x 5)
+            # and (>= x 5) share one atom (the replay's _Normalizer does the
+            # same) and the propositional lemma sees them as complementary.
+            terms, constant, negated = {var: -value for var, value in terms.items()}, -constant + 1, True
         if terms:
-            first = min(terms, key=lambda var: variable_indices[graph.nodes[var].declaration])
             scale = terms[first] if relation == "=" else abs(terms[first])
             terms, constant = {var: value / scale for var, value in terms.items()}, constant / scale
         ordered = tuple(sorted((variable_indices[graph.nodes[var].declaration], value)
@@ -1168,7 +1779,7 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
             scale = scale * value.denominator // _gcd(scale, value.denominator)
         parts = ["(%s * _vars %d)" % (numeral(value * scale), var) for var, value in ordered]
         parts.append(numeral(constant * scale))
-        expression = "(%s %s ((0 : Rat)))" % (" + ".join(parts), relation)
+        expression = "(%s %s ((0 : %s)))" % (" + ".join(parts), relation, graph.number_type)
         if not ordered:
             holds = constant == 0 if relation == "=" else constant <= 0
             expression = "True" if holds != negated else "False"
@@ -1189,7 +1800,7 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
             "    grind",
         ])
     definitions = ["formula_%d" % formula for formula in sorted(reachable, reverse=True)
-                   if not graph.is_real(formula) and formula not in atoms]
+                   if not graph.is_arith(formula) and formula not in atoms]
     rendered = dict(normalized_atoms)
 
     def boolean(formula):
@@ -1386,7 +1997,12 @@ def _ite_gate_lemma(graph, terms, node):
     The two gate clauses of (ite c a b) are (not c) or (ite c a b) = a and
     c or (ite c a b) = b, with either equality orientation, in any literal
     order, and possibly weakened. The proof splits on a decidability witness
-    for c and rewrites the ite with ite_eq_left or ite_eq_right.
+    for the condition's innermost negand p (c itself when it is not a
+    negation) and rewrites the ite with ite_eq_left or ite_eq_right. The
+    split is on p rather than on c because Z3 logs the gates of
+    (ite (not p) a b) with the double negation collapsed, p or ... = a, and
+    because a split on p proves c and (not c) by lifting without eliminating
+    any double negation, so the lemma stays axiom-free.
     """
     conclusion = graph.conclusion(node)
     literals = graph.clause(conclusion)
@@ -1398,37 +2014,88 @@ def _ite_gate_lemma(graph, terms, node):
             if graph.kind(ite) != z3.Z3_OP_ITE:
                 continue
             condition, then_branch, else_branch = graph.arguments(ite)
-            if terms[branch] == terms[then_branch]:
-                equation, guard_polarity = "(ite_eq_left _hc)", False
-            elif terms[branch] == terms[else_branch]:
-                equation, guard_polarity = "(ite_eq_right _hnc)", True
-            else:
-                continue
-            if flipped:
-                equation = "(Eq.symm %s)" % equation
-            for guard_position, guard in enumerate(literals):
-                if guard_polarity:
-                    matches = terms[guard] == terms[condition]
-                else:
-                    matches = (graph.kind(guard) == z3.Z3_OP_NOT
-                               and terms[graph.arguments(guard)[0]] == terms[condition])
-                if not matches:
-                    continue
-                equation = _inject(position, len(literals), equation)
-                if guard_polarity:
-                    cases = (_inject(guard_position, len(literals), "_hc"), equation)
-                else:
-                    cases = (equation, _inject(guard_position, len(literals), "_hnc"))
-                lines = [
-                    "",
-                    "private theorem def_axiom_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
-                    "    [_df%d : Decidable %s]" % (condition, _formula(graph, condition)),
-                    "    : %s :=" % _formula(graph, conclusion),
-                    "  @Decidable.byCases %s _ _df%d (fun _hc => %s) (fun _hnc => %s)" % (
-                        _formula(graph, condition), condition, cases[0], cases[1]),
-                ]
-                term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, condition)
-                return lines, {condition}, term
+            core, depth = _negation_core(graph, condition)
+            # Both sides are tried when the branches are one term, (ite c a a):
+            # the clause may then be either gate, or the bare equality
+            # (ite c a a) = a that Z3 logs as a tseitin step, proved by cases
+            # without any guard literal. Each side's equation holds in the
+            # case of the split where its witness (c or (not c)) holds: the
+            # one of the parity of that witness's negations over p.
+            sides = [("(%s %s)" % (rule, _lift_negations(parity)), parity)
+                     for rule, parity, selected in (("ite_eq_left", depth, then_branch),
+                                                    ("ite_eq_right", depth + 1, else_branch))
+                     if terms[branch] == terms[selected]]
+            for equation, parity in sides:
+                gate = _ite_gate_case(graph, terms, node, literals, position, core, equation, parity, flipped)
+                if gate is not None:
+                    return gate
+            if len(sides) == 2:
+                cases = [None, None]
+                for equation, parity in sides:
+                    if flipped:
+                        equation = "(Eq.symm %s)" % equation
+                    cases[parity % 2] = _inject(position, len(literals), equation)
+                return _ite_gate_by_cases(graph, node, core, cases)
+    return None
+
+
+def _negation_core(graph, formula):
+    """Return (p, count): the formula under its outermost negations, and how many there were."""
+    count = 0
+    while graph.kind(formula) == z3.Z3_OP_NOT:
+        formula, count = graph.arguments(formula)[0], count + 1
+    return formula, count
+
+
+def _lift_negations(count):
+    """A proof of p under count negations from _hc : p (count even) or _hnc : Not p (count odd).
+
+    Each pair of negations is one application to the hypothesis: from
+    _hc : p, (fun _n0 => _n0 _hc) : Not (Not p). Nothing is eliminated, so no
+    decidability beyond the split's witness is needed.
+    """
+    evidence = "_hc" if count % 2 == 0 else "_hnc"
+    for level in range(count // 2):
+        evidence = "(fun _n%d => _n%d %s)" % (level, level, evidence)
+    return evidence
+
+
+def _ite_gate_by_cases(graph, node, core, cases):
+    """The gate lemma as a case split on the decidability witness of p, the condition's negand.
+
+    cases[0] proves the clause from _hc : p and cases[1] from _hnc : Not p.
+    """
+    conclusion = graph.conclusion(node)
+    lines = [
+        "",
+        "private theorem def_axiom_%d (_atoms : Nat -> Prop)%s" % (node, _valuation_binder(graph)),
+        "    [_df%d : Decidable %s]" % (core, _formula(graph, core)),
+        "    : %s :=" % _formula(graph, conclusion),
+        "  @Decidable.byCases %s _ _df%d (fun _hc => %s) (fun _hnc => %s)" % (
+            _formula(graph, core), core, cases[0], cases[1]),
+    ]
+    term = "(@def_axiom_%d _atoms%s _df%d)" % (node, graph.valuation, core)
+    return lines, {core}, term
+
+
+def _ite_gate_case(graph, terms, node, literals, position, core, equation, parity, flipped):
+    """The gate lemma for one orientation of the ite equality, or None when its guard literal is absent.
+
+    The equation holds in the case of parity (negations over p) given; the
+    guard literal is the opposite witness, p under any number of negations
+    of the other parity (Z3 collapses double negations, so (not (not p))
+    arrives as p), and holds in the other case.
+    """
+    if flipped:
+        equation = "(Eq.symm %s)" % equation
+    for guard_position, guard in enumerate(literals):
+        guard_core, guard_depth = _negation_core(graph, guard)
+        if terms[guard_core] != terms[core] or guard_depth % 2 == parity % 2:
+            continue
+        cases = [None, None]
+        cases[parity % 2] = _inject(position, len(literals), equation)
+        cases[guard_depth % 2] = _inject(guard_position, len(literals), _lift_negations(guard_depth))
+        return _ite_gate_by_cases(graph, node, core, cases)
     return None
 
 
@@ -1538,16 +2205,20 @@ def _def_axiom_lemma(graph, terms, node):
 
 
 def _linear_term(graph, node, scale, terms):
-    """Accumulate the linear form of a Real node into terms; return its constant part.
+    """Accumulate the linear form of a Real or Int node into terms; return its constant part.
 
-    Variables and Real ite terms are the atoms of the linear form; an ite is
-    opaque to Farkas reasoning and tied to its branches by gate clauses.
+    Variables, ite terms, integer div and mod, and abs are the atoms of the
+    linear form; each is opaque to Farkas reasoning, an ite tied to its
+    branches by gate clauses and a div or mod to its operands by the
+    solver's arith axioms.
     """
     kind = graph.kind(node)
     arguments = graph.arguments(node)
     if kind == z3.Z3_OP_ANUM:
         return scale * Fraction(graph.decl(node).name)
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        _integer_divisor(graph, node)
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS):
         terms[node] = terms.get(node, Fraction(0)) + scale
         return Fraction(0)
     if kind == z3.Z3_OP_ADD:
@@ -1579,6 +2250,23 @@ def _linear_term(graph, node, scale, terms):
     raise ReconstructionError("unsupported arithmetic term in a theory lemma")
 
 
+def _integer_divisor(graph, node):
+    """Return the nonzero constant divisor of an Int div or mod node, rejecting any other.
+
+    Lean's Int / and % are total (x / 0 = 0) where SMT-LIB leaves div and mod
+    by zero uninterpreted, so a zero divisor would prove the input
+    unsatisfiable under one interpretation only; a nonconstant divisor is
+    nonlinear. _validate_graph applies this to every such node, not only to
+    those under theory lemmas.
+    """
+    terms = {}
+    divisor = _linear_term(graph, graph.arguments(node)[1], Fraction(1), terms)
+    if terms or divisor == 0:
+        raise ReconstructionError("integer %s by a nonconstant or zero divisor at node %d" % (
+            graph.decl(node).name, node))
+    return divisor
+
+
 def _atom_constraint(graph, atom):
     """Return (relation, terms, constant) for an arithmetic atom that holds."""
     return _polarity_constraint(graph, atom, True)
@@ -1598,7 +2286,7 @@ def _polarity_constraint(graph, literal, polarity):
     while graph.kind(atom) == z3.Z3_OP_NOT:
         atom, polarity = graph.arguments(atom)[0], not polarity
     kind, arguments = graph.kind(atom), graph.arguments(atom)
-    if (kind not in _ARITH_PREDICATE_NAMES and kind != z3.Z3_OP_EQ) or not graph.is_real(arguments[0]):
+    if (kind not in _ARITH_PREDICATE_NAMES and kind != z3.Z3_OP_EQ) or not graph.is_arith(arguments[0]):
         raise ReconstructionError("th-lemma literal is not a linear arithmetic atom")
     left, right = arguments
     if kind == z3.Z3_OP_EQ:
@@ -1615,7 +2303,15 @@ def _polarity_constraint(graph, literal, polarity):
             relation, first, second = ("<=" if strict else "<"), right, left
     terms = {}
     constant = _linear_term(graph, first, Fraction(1), terms) + _linear_term(graph, second, Fraction(-1), terms)
-    return relation, {k: v for k, v in terms.items() if v != 0}, constant
+    terms = {k: v for k, v in terms.items() if v != 0}
+    if graph.numeric == "Int":
+        # Over Int a strict constraint is its tightened non-strict form, as in
+        # Z3's checker; the exporter's replay keys atoms the same way.
+        try:
+            return integer_tightened(relation, terms, constant)
+        except ProofExportError as error:
+            raise ReconstructionError(str(error)) from None
+    return relation, terms, constant
 
 
 def _check_th_lemma(graph, node):
@@ -1634,9 +2330,48 @@ def _check_th_lemma(graph, node):
     if parameters[0] == "triangle-eq":
         _check_triangle_eq(graph, node, premises, literals)
         return
+    if parameters[0] == "arith":
+        # The arithmetic solver's own axioms (div and mod definitions), a
+        # clause of linear arithmetic atoms without premises, and the legacy
+        # core's cuts, the bound a Gomory or Hermite cut derives from the
+        # premises it lists (held linear atoms). No coefficients certify
+        # either; the theory tactic proves the clause or the implication.
+        # Unlike the cut path, polarity is ignored: the equality axiom is a
+        # positive equality in the clause, which _linear_constraint would
+        # refuse as a denied equality, and no combination is formed here.
+        if not literals:
+            raise ReconstructionError("arith th-lemma must conclude a clause at node %d" % node)
+        for premise in premises:
+            _atom_constraint(graph, premise)
+        for literal in literals:
+            atom = literal
+            while graph.kind(atom) == z3.Z3_OP_NOT:
+                atom = graph.arguments(atom)[0]
+            if graph.kind(atom) == z3.Z3_OP_FALSE and literal == atom:
+                continue  # The legacy core's axioms are stated as (or false l).
+            _atom_constraint(graph, atom)
+        return
     if parameters[0] not in _COEFFICIENT_HINTS:
         return
     coefficients = [Fraction(parameter) for parameter in parameters[1:]]
+    if parameters[0] == "cut" or (parameters[0] in ("farkas", "bound") and graph.numeric == "Int"
+                                  and not coefficients):
+        # An integer cut or gcd conflict, or an integer Farkas or bound step
+        # whose LP explanation rested on cuts or on the integer lattice
+        # (the legacy core labels a lattice conflict farkas): the exporter
+        # kept no coefficients because none certify the rounding, so only the
+        # shape is checked (integer linear atoms, held premises included) and
+        # Lean proves the clause or the implication.
+        # (A coefficient-free farkas or bound over Real falls through to the
+        # coefficient count check below.)
+        if parameters[0] == "cut" and (graph.numeric != "Int" or coefficients or premises):
+            raise ReconstructionError("cut th-lemma requires an Int certificate, no premises, and no coefficients "
+                                      "at node %d" % node)
+        for premise in premises:
+            _atom_constraint(graph, premise)
+        for literal in literals:
+            _linear_constraint(graph, literal)
+        return
     if parameters[0] == "implied-eq" and premises and not coefficients:
         # The legacy core records none, and implied-eq coefficients are never
         # summed: only the literal shapes are checked below.
@@ -1646,13 +2381,13 @@ def _check_th_lemma(graph, node):
             parameters[0], len(coefficients), len(premises), len(literals), node))
     if parameters[0] == "implied-eq":
         if not literals:
-            raise ReconstructionError("implied-eq th-lemma must end in a Real equality")
+            raise ReconstructionError("implied-eq th-lemma must end in an arithmetic equality")
         equality, polarity = literals[-1], True
         while graph.kind(equality) == z3.Z3_OP_NOT:
             equality, polarity = graph.arguments(equality)[0], not polarity
         if (not polarity or graph.kind(equality) != z3.Z3_OP_EQ
-                or not graph.is_real(graph.arguments(equality)[0])):
-            raise ReconstructionError("implied-eq th-lemma must end in a Real equality")
+                or not graph.is_arith(graph.arguments(equality)[0])):
+            raise ReconstructionError("implied-eq th-lemma must end in an arithmetic equality")
         _atom_constraint(graph, equality)
         literals, coefficients = literals[:-1], coefficients[:-1]
     constraints = []
@@ -1662,7 +2397,11 @@ def _check_th_lemma(graph, node):
     for coefficient, literal in zip(coefficients[len(premises):], literals):
         relation, terms, constant = _linear_constraint(graph, literal)  # a clause literal is denied
         constraints.append((coefficient, relation, terms, constant))
-    if parameters[0] != "implied-eq" and not linear_combination_refutes(constraints):
+    # An integer bound propagation may round the combined bound (Z3's checker
+    # recomputes the consequent's multiplier after rounding), which the
+    # hint's coefficients alone do not show.
+    if parameters[0] != "implied-eq" and not linear_combination_refutes(constraints) and not (
+            parameters[0] == "bound" and graph.numeric == "Int" and bound_combination_refutes(constraints)):
         raise ReconstructionError("th-lemma %s coefficients do not refute its literals at node %d" % (
             parameters[0], node))
 
@@ -1681,7 +2420,7 @@ def _check_triangle_eq(graph, node, premises, literals):
         atom = literal
         while graph.kind(atom) == z3.Z3_OP_NOT:
             atom = graph.arguments(atom)[0]
-        if graph.kind(atom) == z3.Z3_OP_EQ and graph.arguments(atom) and graph.is_real(graph.arguments(atom)[0]):
+        if graph.kind(atom) == z3.Z3_OP_EQ and graph.arguments(atom) and graph.is_arith(graph.arguments(atom)[0]):
             _atom_constraint(graph, atom)
             equalities += 1
         else:
@@ -1712,6 +2451,10 @@ def _resolution(graph, terms, node):
                 matched_units.add(unit)
             elif graph.kind(literal) == z3.Z3_OP_NOT and terms[graph.arguments(literal)[0]] == terms[fact]:
                 eliminations.setdefault(position, (unit, False))
+                matched_units.add(unit)
+            elif graph.kind(literal) == z3.Z3_OP_FALSE and graph.kind(fact) == z3.Z3_OP_TRUE:
+                # The legacy core's theory axioms (or false l) resolved with
+                # the unit true; a false literal needs no unit (see branch).
                 matched_units.add(unit)
     if set(units) != matched_units:
         raise ReconstructionError("unit-resolution has an unmatched unit at node %d" % node)
@@ -1889,22 +2632,39 @@ def _outline_steps(graph, steps, dependencies, signature):
 def reconstruct(source, certificate):
     """Return Lean source; callers must check it before claiming verification."""
     graph = _validate_graph(source, certificate)
-    terms, tables = _bind_input(source, graph, certificate["fragment"])
+    terms, tables = _bind_input(source, graph, certificate["fragment"], certificate["query"])
+    _, query, queries = query_snapshot(source, certificate["query"])
     # Each symbol table is numbered from zero; a declaration belongs to one table,
     # so the Boolean-valued and term-valued tables can share one index map each.
     indices = {table: {decl: index for index, decl in enumerate(sorted(symbols.values()))}
                for table, symbols in tables.items()}
     atom_indices = {**indices["atoms"], **indices["predicates"]}
-    variable_indices = {**indices["variables"], **indices["elements"], **indices["functions"]}
+    variable_indices = {**indices["variables"], **indices["elements"], **indices["functions"],
+                        **indices["numeric_functions"]}
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     namespace = "Z3Proofs.NativeCertificate.p" + digest
     lines = ["import Init", "", "-- Original input SHA-256: " + digest]
-    for table, label in (("atoms", "Atom"), ("variables", "Variable"), ("elements", "Element"),
-                         ("functions", "Function"), ("predicates", "Predicate")):
+    if queries > 1:
+        # The theorem is about one query of an incremental script: the
+        # assertions in scope at that check-sat, with its assumptions.
+        lines.append("-- Certified query: check-sat %d of %d (zero-based index %d); the assertions below are "
+                     "the ones in scope there, assumptions included." % (query + 1, queries, query))
+    for table, label in _TABLE_LABELS.items():
+        if table == "numeric_functions":
+            label = label % graph.numeric
         for name, decl in sorted(tables[table].items(), key=lambda item: indices[table][item[1]]):
             lines.append("-- %s %d: %s" % (label, indices[table][decl], json.dumps(name, ensure_ascii=True)))
-    if graph.arithmetic:
+    if graph.arithmetic and graph.numeric == "Int":
+        lines.append("-- Int variables are encoded as Int; the integer lemmas are proved by omega, else grind.")
+        if any(decl.kind in _INT_NAMES for decl in graph.declarations):
+            lines.append("-- Int div and mod by a numeral are Lean's Euclidean / and %; abs is the ite SMT-LIB defines.")
+    elif graph.arithmetic:
         lines.append("-- Real variables are encoded as Rat; see the exporter documentation.")
+    if graph.arithmetic and graph.uninterpreted:
+        lines.append("-- %s arguments of functions and predicates are injected into _U by %s;"
+                     " functions with %s result are the family %s." % (
+                         graph.numeric, graph.injection, {"Real": "a Real", "Int": "an Int"}[graph.numeric],
+                         graph.numeric_functions))
     if len(graph.sorts) == 1:
         lines.append("-- Uninterpreted sort %s is the type _U; functions and predicates take argument lists."
                      % json.dumps(graph.sorts[0], ensure_ascii=True))
@@ -1919,14 +2679,14 @@ def reconstruct(source, certificate):
         lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
     lines.extend(["namespace " + namespace, ""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
-    classical = set()  # Real nodes containing an ite: their classical instance is noncomputable.
+    classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
         if graph.is_term(node):
-            if graph.kind(node) == z3.Z3_OP_ITE or any(arg in classical for arg in graph.arguments(node)):
+            if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS) or any(arg in classical for arg in graph.arguments(node)):
                 classical.add(node)
             lines.append("%sdef term_%d %s : %s := %s" % (
                 "noncomputable " if node in classical else "", node, signature,
-                "Rat" if graph.is_real(node) else "_U", _term_body(graph, node, variable_indices)))
+                graph.number_type if graph.is_arith(node) else "_U", _term_body(graph, node, variable_indices)))
         elif graph.decl(node).range == "Bool":
             lines.append("def formula_%d %s : Prop := %s" % (
                 node, signature, _formula_body(graph, node, atom_indices)))
@@ -1972,6 +2732,10 @@ def reconstruct(source, certificate):
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
             term = "_hyp%d" % hypothesis
+        elif graph.kind(node) == z3.Z3_OP_PR_TRUE:
+            if graph.kind(conclusion) != z3.Z3_OP_TRUE:
+                raise ReconstructionError("true-axiom must conclude true at node %d" % node)
+            term = "True.intro"
         elif graph.kind(node) == z3.Z3_OP_PR_LEMMA:
             term, support = _lemma(graph, terms, node, dependencies[node])
             decidable_formulas.update(support)

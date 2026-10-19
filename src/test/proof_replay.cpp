@@ -124,14 +124,15 @@ static expr_ref_vector parse_lits(ast_manager& m, char const* text) {
     return lits;
 }
 
-static app_ref mk_farkas(ast_manager& m, expr_ref_vector const& coeffs, expr_ref_vector const& lits) {
+static app_ref mk_arith_hint(ast_manager &m, char const *name, expr_ref_vector const &coeffs,
+                             expr_ref_vector const &lits) {
     ENSURE(coeffs.size() == lits.size());
     expr_ref_vector args(m);
     for (unsigned i = 0; i < lits.size(); ++i) {
         args.push_back(coeffs.get(i));
         args.push_back(lits.get(i));
     }
-    return app_ref(m.mk_app(symbol("farkas"), args.size(), args.data(), m.mk_proof_sort()), m);
+    return app_ref(m.mk_app(symbol(name), args.size(), args.data(), m.mk_proof_sort()), m);
 }
 
 static expr_ref_vector ints(ast_manager& m, std::initializer_list<int> ns) {
@@ -152,12 +153,12 @@ static void tst_checker_nary_mul() {
     ENSURE(lits.size() == 2);
     ENSURE(to_app(to_app(lits.get(0))->get_arg(0))->get_num_args() == 3);
     arith::theory_checker checker(m);
-    ENSURE(checker.check(mk_farkas(m, ints(m, {1, 6}), lits)));
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 6}), lits)));
     // x * y is nonlinear; the product stays one opaque term and the hint is not proven.
     lits = parse_lits(m,
         "(declare-const x Real)(declare-const y Real)"
         "(assert (>= (* 2.0 x y) 1.0))(assert (<= x 0.0))");
-    ENSURE(!checker.check(mk_farkas(m, ints(m, {1, 2}), lits)));
+    ENSURE(!checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 2}), lits)));
 }
 
 // Printed numerals in literals and in hint coefficients are accepted without a replay fold.
@@ -173,7 +174,64 @@ static void tst_checker_printed_numerals() {
     coeffs.push_back(a.mk_uminus(a.mk_int(1)));
     coeffs.push_back(a.mk_uminus(a.mk_int(1)));
     arith::theory_checker checker(m);
-    ENSURE(checker.check(mk_farkas(m, coeffs, lits)));
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", coeffs, lits)));
+}
+
+static void tst_checker_zero_weight_strictness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *atom : {"(< x 0)", "(> x 0)", "(not (<= x 0))", "(not (>= x 0))"}) {
+        std::string source = std::string("(declare-const x Real)(assert ") + atom + ")";
+        auto lits = parse_lits(m, source.c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "farkas", ints(m, {0}), lits)));
+        lits.push_back(mk_not(m, lits.get(0)));
+        ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 1}), lits)));
+    }
+
+    auto lits = parse_lits(m, "(declare-const x Real)(declare-const y Real)"
+                              "(assert (< x 0))(assert (<= y 0))(assert (>= y 0))");
+    for (char const *name : {"farkas", "bound"})
+        ENSURE(!checker.check(mk_arith_hint(m, name, ints(m, {0, 1, 1}), lits)));
+
+    // A zero-weight premise must not discard a genuine strict contradiction.
+    lits = parse_lits(m, "(declare-const x Real)(declare-const y Real)"
+                         "(assert (< x 0))(assert (< y 0))(assert (>= y 0))");
+    for (char const *name : {"farkas", "bound"})
+        ENSURE(checker.check(mk_arith_hint(m, name, ints(m, {0, 1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)(assert (<= x 1))(assert (> x 0))");
+    ENSURE(!checker.check(mk_arith_hint(m, "bound", ints(m, {1, 0}), lits)));
+}
+
+static void tst_checker_bound_row_strictness() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    // Both literals hold at x = -1. The premise's strictness cannot make
+    // the separate consequent row 0 <= 0 contradictory.
+    auto lits = parse_lits(m, "(declare-const x Real)"
+                              "(assert (< x 0))(assert (<= (- x x) 0))");
+    ENSURE(!checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)"
+                         "(assert (< x 0))(assert (not (<= (- x x) 0)))");
+    ENSURE(checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    lits = parse_lits(m, "(declare-const x Real)"
+                         "(assert (< (- x x) 0))(assert (<= (- x x) 0))");
+    ENSURE(checker.check(mk_arith_hint(m, "bound", ints(m, {1, 1}), lits)));
+
+    // Combining rows must retain strictness from either participating row.
+    for (char const *source : {"(declare-const x Real)(assert (< x 0))(assert (>= x 0))",
+                               "(declare-const x Real)(assert (<= x 0))(assert (> x 0))",
+                               "(declare-const x Real)(declare-const y Real)"
+                               "(assert (= x y))(assert (< x 0))(assert (>= y 0))"}) {
+        lits = parse_lits(m, source);
+        auto coeffs = lits.size() == 2 ? ints(m, {1, 1}) : ints(m, {1, 1, 1});
+        for (char const *name : {"farkas", "bound"})
+            ENSURE(checker.check(mk_arith_hint(m, name, coeffs, lits)));
+    }
 }
 
 static void tst_is_extended_numeral() {
@@ -275,7 +333,7 @@ static void tst_is_extended_numeral() {
     }
     lits.push_back(a.mk_le(x, a.mk_real(0)));
     arith::theory_checker checker(m);
-    ENSURE(checker.check(mk_farkas(m, ints(m, {1, 1}), lits)));
+    ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 1}), lits)));
 }
 
 static void tst_trim_satisfied_clause() {
@@ -308,5 +366,7 @@ void tst_proof_replay() {
     tst_is_extended_numeral();
     tst_checker_nary_mul();
     tst_checker_printed_numerals();
+    tst_checker_zero_weight_strictness();
+    tst_checker_bound_row_strictness();
     tst_replay_folds_printed_numerals();
 }
