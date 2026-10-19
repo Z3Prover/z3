@@ -9,7 +9,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "util/debug.h"
+#include <cstdint>
 #include <iostream>
+#include <sstream>
 
 void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
@@ -290,6 +292,89 @@ void test_builtin_signature_clash() {
     Z3_del_context(ctx);
 }
 
+static void test_rlimit_scopes() {
+    // Regression for #11229: assertion scopes must not retain an old resource limit.
+    Z3_string value = nullptr;
+    ENSURE(Z3_global_param_get("rlimit", &value));
+    std::string saved_rlimit(value);
+
+    for (char const* option : {":rlimit", ":reproducible-resource-limit"}) {
+        for (char const* limit : {"1000000", "0"}) {
+            for (unsigned depth : {1u, 2u}) {
+                Z3_global_param_set("rlimit", "0");
+                Z3_context ctx = Z3_mk_context(nullptr);
+                Z3_set_error_handler(ctx, setError);
+                is_error = false;
+
+                // Raising or disabling the limit must work inside an existing scope.
+                std::string spec =
+                    "(set-logic QF_BV)\n"
+                    "(declare-const x (_ BitVec 16))\n";
+                spec += "(set-option " + std::string(option) + " 10)\n";
+                spec += "(push " + std::to_string(depth) + ")\n";
+                spec += "(set-option " + std::string(option) + " " + limit + ")\n";
+                spec +=
+                    "(assert (bvslt x #x5555))\n"
+                    "(check-sat)\n"
+                    "(pop 1)\n"
+                    "(assert (bvslt x #x5555))\n"
+                    "(check-sat)\n";
+                std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+                Z3_del_context(ctx);
+                ENSURE(!is_error);
+                ENSURE(response == "sat\nsat\n");
+            }
+        }
+
+        Z3_global_param_set("rlimit", "0");
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        // A smaller limit must still be enforced, and a failed check can be retried.
+        std::string spec =
+            "(set-logic QF_BV)\n"
+            "(declare-const x (_ BitVec 16))\n"
+            "(push)\n"
+            "(assert (bvslt x #x5555))\n";
+        spec += "(set-option " + std::string(option) + " 1)\n";
+        spec += "(check-sat)\n";
+        spec += "(set-option " + std::string(option) + " 1000000)\n";
+        spec += "(check-sat)\n(pop 1)\n";
+        std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
+        Z3_del_context(ctx);
+        ENSURE(!is_error);
+        ENSURE(response == "unknown\nsat\n");
+    }
+
+    Z3_global_param_set("rlimit", "0");
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    is_error = false;
+    // Pushing pending assertions must still respect the operation's own budget.
+    std::string response = Z3_eval_smtlib2_string(ctx,
+        "(set-logic QF_BV)\n"
+        "(declare-const x (_ BitVec 64))\n"
+        "(assert (= (bvmul x x) #x0000000000000001))\n"
+        "(get-info :rlimit)\n"
+        "(set-option :rlimit 1)\n"
+        "(push)\n"
+        "(get-info :rlimit)\n"
+        "(pop)\n");
+    Z3_del_context(ctx);
+    ENSURE(!is_error);
+    std::istringstream counts(response);
+    std::string tag;
+    char close;
+    uint64_t before, after;
+    ENSURE(counts >> tag >> before >> close);
+    ENSURE(tag == "(:rlimit" && close == ')');
+    ENSURE(counts >> tag >> after >> close);
+    ENSURE(tag == "(:rlimit" && close == ')');
+    ENSURE(after >= before && after - before <= 1);
+
+    Z3_global_param_set("rlimit", saved_rlimit.c_str());
+}
+
 void tst_smt2print_parse() {
 
     // test basic datatypes  
@@ -380,6 +465,7 @@ void tst_smt2print_parse() {
 
     test_symbol_escape();
     test_builtin_signature_clash();
+    test_rlimit_scopes();
 
     // Regression test for GitHub issue #10815:
     // Internal bit-vector division and remainder operators emitted by simplify

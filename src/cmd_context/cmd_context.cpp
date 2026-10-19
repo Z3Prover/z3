@@ -1758,10 +1758,10 @@ void cmd_context::push() {
     ast_translation tr(m(), m());
     m_mcs.push_back(m_mcs.back() ? m_mcs.back()->copy(tr) : nullptr);
     unsigned timeout = m_params.m_timeout;
-    m().limit().push(m_params.rlimit());
     cancel_eh<reslimit> eh(m().limit());
     scoped_ctrl_c ctrlc(eh);
     scoped_timer timer(timeout, &eh);
+    // Limit this operation, not the lifetime of the assertion scope.
     scoped_rlimit _rlimit(m().limit(), m_params.rlimit());
     try {
         if (m_solver) 
@@ -1889,9 +1889,6 @@ void cmd_context::pop(unsigned n) {
     m_scopes.shrink(new_lvl);
     if (!m_global_decls)
         pm().pop(n);
-    while (n--) {
-        m().limit().pop();
-    }
 
 }
 
