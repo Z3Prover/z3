@@ -1753,12 +1753,12 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
+    s.m_rlimit                 = m_params.rlimit();
     if (!m_global_decls)
         pm().push();
     ast_translation tr(m(), m());
     m_mcs.push_back(m_mcs.back() ? m_mcs.back()->copy(tr) : nullptr);
     unsigned timeout = m_params.m_timeout;
-    m().limit().push(m_params.rlimit());
     cancel_eh<reslimit> eh(m().limit());
     scoped_ctrl_c ctrlc(eh);
     scoped_timer timer(timeout, &eh);
@@ -1884,15 +1884,12 @@ void cmd_context::pop(unsigned n) {
     restore_aux_pdecls(s.m_aux_pdecls_lim);
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
+    m_params.set_rlimit(s.m_rlimit);
     m_dt_eh.get()->reset();
     m_mcs.shrink(m_mcs.size() - n);
     m_scopes.shrink(new_lvl);
     if (!m_global_decls)
         pm().pop(n);
-    while (n--) {
-        m().limit().pop();
-    }
-
 }
 
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {

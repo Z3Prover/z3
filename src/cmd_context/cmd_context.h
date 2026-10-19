@@ -299,8 +299,9 @@ protected:
         unsigned m_macros_stack_lim;
         unsigned m_aux_pdecls_lim;
         unsigned m_psort_inst_stack_lim;
-        // only m_assertions_lim is relevant when m_global_decls = true
+        // Declaration limits are ignored when m_global_decls = true.
         unsigned m_assertions_lim;
+        unsigned m_rlimit;
     };
 
     svector<scope>               m_scopes;
