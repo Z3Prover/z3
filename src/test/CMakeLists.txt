@@ -125,6 +125,7 @@ add_executable(test-z3
   seq_regex_bisim.cpp
   proof_checker.cpp
   proof_replay.cpp
+  qsat.cpp
   qe_arith.cpp
   qe_lite.cpp
   mbp_qel.cpp

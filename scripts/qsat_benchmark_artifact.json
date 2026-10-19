@@ -1,0 +1,46 @@
+{
+  "paper": {
+    "title": "Lagrangian-Based Duality for Quantified SMT Algorithms",
+    "doi": "10.1007/978-3-032-32526-6_4",
+    "extended_version": "https://hal.science/hal-05623727v1",
+    "implementation": "https://github.com/hiroshi-unno/coar",
+    "algorithm": "Section 6.2; artifact lib/MuCyc/qsat.ml, NonChronologicalRec"
+  },
+  "artifact": {
+    "record": "https://zenodo.org/records/19860162",
+    "source_url": "https://zenodo.org/records/19860162/files/mucyc_cav26ae_src.zip",
+    "source_sha256": "39797c0b536c7148cbfcec96732ca2e153c07343c44f2d47c5a77782f57f57d8",
+    "image_url": "https://zenodo.org/records/19860162/files/mucyc_cav26ae.tar",
+    "image_md5": "8c53b1f1631f8f83b8c230bb41b3595c",
+    "docker_image_id": "sha256:9c23528ea0f75aafc485d9d7c96025168d790f75c0d4fe9f05f89bb8c7e431eb",
+    "embedded_z3": "4.15.2",
+    "progress_config": "config/solver/mucyc_progress_ncr.json",
+    "no_progress_config": "config/solver/mucyc.json",
+    "z3_config": "config/solver/z3_smt.json",
+    "license": "Apache-2.0"
+  },
+  "benchmarks": {
+    "url": "https://zenodo.org/records/16740866/files/LRA.tar.zst",
+    "sha256": "89f73c32150ccc1fdbda3dcb459e4c687a75bea2a96cb53a6d5f7f9c55c67bae",
+    "root": "non-incremental/LRA",
+    "count": 2439,
+    "families": {
+      "2010-Monniaux-QE": 1800,
+      "20230331-polyv": 20,
+      "keymaera": 222,
+      "scholl-smt08": 374,
+      "tptp": 23
+    }
+  },
+  "paper_protocol": {
+    "timeout_seconds": 300,
+    "memory_gb": 32,
+    "parallelism": 1,
+    "hardware": "AWS t3.2xlarge, Intel Xeon Platinum 8259CL @ 2.50 GHz"
+  },
+  "paper_results": {
+    "z3_4_15_2": {"sat": 754, "unsat": 1427},
+    "mucyc_progress": {"sat": 758, "unsat": 1532},
+    "mucyc_no_progress": {"sat": 727, "unsat": 1507}
+  }
+}

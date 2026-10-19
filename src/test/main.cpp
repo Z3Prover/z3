@@ -136,6 +136,7 @@
     X(model_retrieval) \
     X(model_based_opt) \
     X(mbp_qel) \
+    X(qsat) \
     X(factor_rewriter) \
     X(smt2print_parse) \
     X(substitution) \
