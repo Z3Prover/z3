@@ -140,6 +140,78 @@ let datatype_parameters c d op =
       in fields 0
     in constructors 0
 
+let view_datatypes roots =
+  let module A = Z3AstTheory in
+  let module S = Z3DatatypeSignature in
+  let converted = Hashtbl.create 16 and seen = Hashtbl.create 16 in
+  let rec logical_sort s =
+    let id = sort_id s in
+    match Hashtbl.find_opt converted id with
+    | Some value -> value
+    | None ->
+        let value = match view_sort s with
+          | Base name -> A.BaseSort name
+          | Array (domains, range) ->
+              A.ArraySort (List.map logical_sort domains, logical_sort range) in
+        Hashtbl.add converted id value;
+        value
+  in
+  let declaration c d =
+    let op = operator (Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d)) in
+    let interp = match op with
+      | DatatypeConstructor -> Z3DatatypeLemma.op_constructor
+      | DatatypeRecognizer -> Z3DatatypeLemma.op_recognizer
+      | DatatypeAccessor -> Z3DatatypeLemma.op_accessor
+      | _ -> fail "Non-datatype declaration in native datatype signature" in
+    { A.decl_name = symbol c (Z3native.get_decl_name c d);
+      domain = List.init (Z3native.get_domain_size c d)
+          (fun index -> logical_sort (Z3native.get_domain c d index));
+      range = logical_sort (Z3native.get_range c d);
+      interp = Some interp; int_params = datatype_parameters c d op }
+  in
+  let rec nested_datatype s =
+    let c = ctx s in
+    match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+    | Z3enums.DATATYPE_SORT -> true
+    | Z3enums.SEQ_SORT -> nested_datatype (Z3native.get_seq_sort_basis c s)
+    | Z3enums.ARRAY_SORT ->
+        List.exists (fun index -> nested_datatype (Z3native.get_array_sort_domain_n c s index))
+          (List.init (Z3native.get_array_arity c s) Fun.id) ||
+        nested_datatype (Z3native.get_array_sort_range c s)
+    | _ -> false
+  in
+  let rec visit sorts cases = function
+    | [] -> { S.sorts = List.rev sorts; cases = List.rev cases }
+    | s :: rest when Hashtbl.mem seen (sort_id s) -> visit sorts cases rest
+    | s :: rest ->
+        Hashtbl.add seen (sort_id s) s;
+        let c = ctx s in
+        match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+        | Z3enums.DATATYPE_SORT ->
+            let count = Z3native.get_datatype_sort_num_constructors c s in
+            if count = 0 then fail "Native datatype signature has no constructors";
+            let cases', fields = List.init count (fun index ->
+                let constructor = Z3native.get_datatype_sort_constructor c s index in
+                let arity = Z3native.get_domain_size c constructor in
+                { S.constructor = declaration c constructor;
+                  recognizer = declaration c (Z3native.get_datatype_sort_recognizer c s index);
+                  accessors = List.init arity (fun field ->
+                    declaration c (Z3native.get_datatype_sort_constructor_accessor c s index field)) },
+                List.init arity (Z3native.get_domain c constructor))
+                |> List.split in
+            visit (logical_sort s :: sorts) (List.rev_append cases' cases)
+              (List.concat fields @ rest)
+        | Z3enums.ARRAY_SORT ->
+            let domains = List.init (Z3native.get_array_arity c s)
+                (Z3native.get_array_sort_domain_n c s) in
+            visit sorts cases (domains @ (Z3native.get_array_sort_range c s :: rest))
+        | Z3enums.SEQ_SORT ->
+            if nested_datatype s then fail "Nested datatype sequence fields are not supported";
+            visit sorts cases rest
+        | _ -> visit sorts cases rest
+  in
+  visit [] [] roots
+
 let view_expression a =
   let c = ctx a in
   match Z3enums.ast_kind_of_int (Z3native.get_ast_kind c a) with

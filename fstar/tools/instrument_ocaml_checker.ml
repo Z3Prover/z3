@@ -14,6 +14,9 @@ let timed = [
   "Z3TheoryNormalize.root"; "Z3TheoryNormalize.consequence";
   "Z3DestructiveEquality.check"; "Z3LinearArithmeticAst.check";
   "Z3NativeProof.marshal";
+  "Z3SortedProof.check_node"; "Z3SortedProof.check_node_cached"; "Z3SortedProof.direct_consequence";
+  "Z3SortedProof.equal"; "Z3SortedDatatype.boolean_consequence_at";
+  "Z3SortedDatatype.formula";
 ]
 
 let counted = [
@@ -23,6 +26,7 @@ let counted = [
   "Z3TheoryNormalize.normalize"; "Z3BinderSubstitution.apply";
   "Z3LinearArithmeticAst.linearize"; "Z3UnifiedProof.extend_reachable";
   "Z3UnifiedProof.arguments_match";
+  "Z3SortedDatatype.normalize"; "Z3SortedSemantics.cut_with_boundaries";
 ]
 
 let expression text = Parse.expression (Lexing.from_string text)

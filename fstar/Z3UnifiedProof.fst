@@ -19,6 +19,7 @@ module AR = Z3ArithmeticRewrite
 module IR = Z3IntegerRewrite
 module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
+module G = Z3LpGomory
 module Q = Z3QuantifierInstantiation
 module QN = Z3QuantifierNnf
 module QV = Z3QuantifierVacuity
@@ -57,6 +58,7 @@ type rule =
   | LemmaRule
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
+  | ArithmeticGomory : certificate:G.certificate -> rule
   | RewriteRule
   | PullQuantifier
   | DestructiveEqualityResolution
@@ -566,6 +568,7 @@ let false_judgment (j:judgment) : bool = j = Holds false_expr
 
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
+  | ArithmeticGomory c, Some e, Some es -> G.check c e es
   | Unverified "th-lemma", Some e, Some es ->
     (es = [] && (array_lemma e || AR.triangle_equality e)) ||
     TN.consequence es e
@@ -601,7 +604,7 @@ let check_node_with_membership (skolems:list SK.definition) (strict:bool)
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ | ArithmeticFarkas _ ->
+    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier
     | DestructiveEquality | DestructiveEqualityResolution ->
@@ -1350,7 +1353,7 @@ let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:e
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1379,7 +1382,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -1387,6 +1390,9 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
           match proposition node.conclusion with
           | Some e ->
             (match node.kind with
+             | ArithmeticGomory c ->
+               G.lemma_check_sound c e
+                 (Some?.v (propositions (premise_judgments node.premises))) i rho
              | ArithmeticFarkas cs ->
                if LA.check cs e (Some?.v (propositions (premise_judgments node.premises)))
                then LE.lemma_check_with_numeric_model cs e

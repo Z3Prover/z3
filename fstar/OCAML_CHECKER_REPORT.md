@@ -132,6 +132,264 @@ certificates to native AST clauses. Such nodes remain unverified in this
 document checker; see `NL_ARITH_REPORT.md` for the exact source-expansion
 and clause-correspondence boundaries.
 
+### Native LP Gomory cuts (2026-10-18)
+
+`Z3LpGomory.fst` checks `arith/lp-gomory` using an integer split.
+For an integer-valued term `t` and integer threshold `k`, either
+`t <= k` or `t >= k + 1`. Both branches must independently imply the
+actual conclusion, using the actual proof premises and the existing exact
+Farkas checker. F* proves split exhaustiveness and the two-branch inference
+under the existing numeric model; no additional semantic premise is added.
+
+The native LP context supplies candidate terms, thresholds, and weights.
+The generator handles lower/upper shifts, fixed columns, integral row
+coefficients, fractional integer coefficients, continuous columns, and
+the producer's denominator-clearing convention. Neither a row identity
+nor the correspondence of a recorded bound or variable definition to its
+AST is trusted: an incorrect candidate cannot bypass either branch check.
+Malformed or unsupported candidates retain an explicit obligation.
+
+Focused regressions cover both bound directions, negative shifts,
+fractional coefficient selection, continuous columns, missing premises,
+non-integer split terms, unchecked branches, changed conclusions, and
+an authentic native Gomory proof. The previously pending cut in
+`QF_LIA_092` is discharged: its seven obligations become six, all remaining
+ones being `th-lemma`. The unchanged 710-input replay retains all
+648 accepted proofs and 62 partial proofs, with identical proof-node
+counts and no other changed pending counts. Frozen evidence is under
+`C:\smtlib-benchmarks\proof_gomory_20261018\final`.
+
+### QF_DT benchmark coverage (2026-10-18)
+
+A fixed 100-input QF_DT sample comes from the SMT-LIB 2025 archive
+([source](https://zenodo.org/records/15493090)), stratified with seed 42:
+34 inputs from `20172804-Barrett`, 33 from `20210312-Bouvier`, and 33 from
+`20230720-blocksworld`. The frozen manifest records archive and input
+SHA-256 hashes. Both evaluations use eight workers, a 30-second solver
+timeout, a 120-second end-to-end deadline, and a 4-GiB child address-space
+limit.
+
+The sample exposed a normalization gap: constructor injectivity generates
+a conjunction of field equalities, but the old normalizer finished after
+that single root rewrite. `Z3TheoryNormalize.normalize` now normalizes
+changed root results recursively with strictly decreasing fuel. Its proof
+composes the existing root-soundness lemma with the recursive
+normalization lemma. This closes nested constructor disjointness and
+injectivity without adding a datatype model assumption or trusting a
+native rewrite verdict. Exhausted fuel still leaves the step unchecked.
+Focused regressions include nested head/tail conflicts, nested
+injectivity with symbolic fields, and an invalid nested equality.
+
+| Outcome | Before | After |
+|---|---:|---:|
+| `ACCEPT` | 15 | 16 |
+| `PARTIAL` | 18 | 18 |
+| `SAT` | 21 | 21 |
+| Solver `UNKNOWN` (timeout) | 46 | 45 |
+
+`QF_DT_079` changes from four pending rewrites to `ACCEPT`; all previous
+accepts are retained. Fifteen other original partial proofs have fewer
+obligations. `QF_DT_071` changes from a solver timeout to `PARTIAL`, so
+the unchanged total of partial proofs does not mean no proof completed.
+Supplemental diagnostics remove all **878 rewrite obligations** from the
+16 previously profiled partial proofs. The remaining 15 profiled partials
+contain **2219 `th-lemma` obligations**, including constructor
+reconstruction, recognizer propagation, and theory conflicts. This is not
+complete datatype-theory certification: acyclicity, exhaustiveness, and
+general selector/constructor reconstruction remain unsupported.
+Diagnostic replays of `QF_DT_034`, `QF_DT_036`, and the newly partial
+`QF_DT_071` exceed the end-to-end deadline and are excluded from these
+diagnostic counts.
+
+The full strict F*/Pulse, extraction, native bridge (38 groups), and CLI
+(21 tests) pipeline passes. A separate unchanged 710-input replay retains
+all **648 `ACCEPT` and 62 `PARTIAL`** results, with identical pending and
+proof-node counts. Sample manifests, checker snapshots, raw outputs,
+diagnostics, and SQLite audit records are frozen under
+`C:\smtlib-benchmarks\proof_qf_dt_20261018`, in `baseline`, `normalized`,
+`baseline-obligations`, `normalized-obligations`, and `retention`.
+
+#### Constructor-equality propagation
+
+A subsequent pass handles datatype theory consequences whose actual
+premises identify an unknown term with a constructor. The checker orients
+that equality toward the constructor, substitutes in the remaining facts
+and conclusion, and retries normalization. For example,
+`x = stack(a, tail)` together with `not (is-stack x)` now proves a
+conflict; matching field selections and recognizers also propagate
+through chains of constructor equalities.
+
+F* proves that the selected equality follows from the supplied premises,
+that substitution preserves evaluation, and that the bounded recursive
+consequence check is sound. No new semantic assumption is introduced.
+Substitution does not descend into binders: a premise true in the
+current environment cannot be applied to a variable rebound by an inner
+quantifier. Self-containing replacements are rejected, and propagation
+is bounded to eight substitutions; unsupported cases remain obligations.
+Regressions cover constructor conflicts, recognizers, selectors, chained
+equalities, missing premises, incorrect/unmatched selectors, cyclic
+equalities, and an adversarial nested-binder example with actual
+de Bruijn variables.
+
+On the same fixed 100-input sample, the result is now **17 `ACCEPT`,
+16 `PARTIAL`, 21 `SAT`, and 46 solver `UNKNOWN`**. `QF_DT_093` changes
+from one remaining obligation to `ACCEPT`, and all 16 previous accepts
+are retained. `QF_DT_071` returns to a solver timeout; its earlier
+timeout-to-partial change was not a certification improvement.
+Across the previously profiled proofs, **1195 additional `th-lemma`
+obligations are discharged**, reducing 2219 to 1024. The remaining 14
+profiled partials contain only `th-lemma` obligations; diagnostic runs of
+`QF_DT_034` and `QF_DT_036` still exceed the deadline.
+
+The remaining cases include exhaustive recognizer splits and
+recognizer-guarded constructor reconstruction. The current primitive
+tag/field interpretation contracts do not establish that every typed
+value has a constructor representation or that those projections
+uniquely determine it. These cases therefore stay unverified rather than
+being added as trusted rules. The strict verification/extraction/native
+and CLI pipeline passes, and a fresh 710-input replay retains all 648
+accepts and 62 partials with identical pending and proof-node counts.
+Frozen evidence is in `propagated`, `propagated-obligations`, and
+`propagated-retention` beside the earlier QF_DT results.
+
+### Concrete sort-indexed datatype semantics
+
+`Z3DatatypeValue.fst` provides the contextual kernel's concrete datatype carrier:
+finite constructor trees refined by an explicit signature, constructor
+arity, and the declared sort of every field. Non-datatype leaves use a
+generic `sort -> Type0` carrier family; they are not restricted to the
+legacy shared `value` representation. Mutually recursive datatype sorts
+share the same tree representation and sorting predicate. A scalar
+cannot masquerade as a datatype value.
+
+Constructor disjointness and injectivity, exhaustive constructor
+membership, recognizer-guarded reconstruction, and reconstruction from
+the complete matching-selector tuple are proved from this representation.
+A strict size decrease along every nonempty field path proves
+acyclicity. These are derived properties, not additional datatype model
+axioms. Selectors project matching constructor fields; on other
+constructors they call an arbitrary total function of the entire input
+value, preserving the SMT-LIB freedom to return different values on
+different wrong-constructor arguments.
+
+The module also supplies sort-indexed environments and an evaluator for
+the existing expression AST, with a proof-checked result sort.
+Quantifiers receive only correctly sorted bound-value tuples, in
+reversed declaration order for de Bruijn indexing. Their actual truth
+interpretation remains a supplied parameter; this development does not
+construct a combined quantifier, arithmetic, or array model.
+
+`Z3DatatypeSignature.fst` checks constructor ownership and identity,
+tester signatures, accessor order and field sorts, distinct constructors,
+and productivity. An executable finite witness search establishes
+nonempty carriers for accepted schemas when the base carriers are
+nonempty. Nested datatype fields beneath array sorts are rejected;
+the native adapter also rejects datatype-containing sequence fields,
+which the shared sort syntax cannot represent structurally.
+Non-datatype result sorts, including arrays whose domains or ranges
+contain datatypes, retain abstract scalar carriers. This distinction
+keeps the total interpretation inhabited without claiming array laws or
+accepting unsupported nested datatype constructor fields.
+`Z3Native.view_datatypes` collects every constructor, tester, and accessor
+of reachable native datatype sorts, including mutually recursive and
+otherwise unreferenced constructor alternatives. The extracted schema
+validator checks this metadata; the foreign API's completeness and
+identity correspondence remain part of the native trust boundary.
+
+The checked schema builds a typed interpretation with canonical
+constructor, recognizer, and selector application dispatch. Recognizer
+results use an explicit Boolean-carrier isomorphism, which has a concrete
+witness for the primitive Boolean carrier. Other operations, quantifier
+interpretations, and wrong-constructor selector results are supplied by
+the surrounding interpretation.
+
+**Production integration:** `Z3SortedSemantics.fst` supplies canonical
+Boolean operations, polymorphic equality and conditionals over the typed
+carrier. Scalar equality is supplied with a correctness proof; recursive
+datatype equality is derived. `Z3SortedDatatype.fst` derives constructor
+rewrites, exhaustive recognizer splits, and recognizer-guarded selector
+reconstruction from the actual checked schema. Equality commutativity,
+constant-branch conditionals, direct modus ponens, and literal resolution
+also have proofs in this interpretation. Bounded Boolean reflection
+preserves shared expression boundaries instead of expanding every nested
+conditional. Constructor-equality propagation uses the derived laws,
+not assumed legacy datatype axioms.
+
+`Z3SortedProof.fst` checks raw proof DAGs against their **original
+assertions** using topological premise lookup, checked declaration
+membership, closed well-sorted facts, hypothesis inheritance/discharge,
+and explicit pending counts. Its `lemma_check_document` proves that a
+zero-obligation result rules out any typed interpretation satisfying the
+original assertions. A concrete total interpretation witness ensures
+that the interpretation type itself is inhabited; the theorem does not
+assume the legacy `model_sound` or global all-environments contracts.
+The diagnostic checker is proved to agree with the acceptance checker.
+The cache invariant includes context validity as well as truth: checked
+premises and their hypothesis lists need not be revalidated at every
+successor. `lemma_check_node_context` proves context preservation, and
+the empty-cache induction establishes the invariant from the original
+document. The standalone node-checking wrapper still validates supplied
+premises. Hypothesis discharge checks canonical negations and handles
+both clause literals and the complement of the whole conclusion.
+
+The native CLI selects this kernel whenever marshaling finds datatype
+metadata. It never falls back to the legacy checker on this path.
+Documents without datatypes retain the existing unified checker.
+This is not a migration of every theory: arithmetic, arrays, bit-vectors,
+and quantifier truth remain abstract unless handled by the typed core.
+Definition expansion, Skolemization, and quantifier-specific proof
+semantics are not imported from the legacy model; unsupported steps
+remain obligations. The native API's correspondence to checked metadata
+and original assertions remains in the foreign trust boundary.
+
+The strict F*/Pulse, OCaml extraction, native bridge (40 groups), and CLI
+(23 tests) checks pass. Regressions include heterogeneous fields,
+mutual recursion, nonproductive or malformed schemas, matching and
+argument-dependent wrong-constructor selectors, canonical native
+dispatch, typed AST evaluation, quantifier binding order, and invalid
+accessor indices and recognizer result sorts. Contextual proof regressions
+certify native exhaustiveness, reconstruction, injectivity, and
+disjointness, conditional branches, and equality symmetry, while rejecting
+missing original inputs, open roots,
+incomplete referenced signatures, and fabricated contradiction leaves.
+Formal regressions also cover shared formulas beyond the truth-table
+atom bound, wrong resolution units, and spoofed negations.
+CLI regressions exercise both batch and interactive contextual checking,
+and require mixed datatype/arithmetic proofs to retain obligations
+rather than falling back to the legacy arithmetic contracts.
+
+The frozen 100-input QF_DT replay uses the existing manifests and driver,
+eight workers, a 30-second producer timeout, a 120-second end-to-end
+deadline, and a 4-GiB address-space limit:
+
+| Checker | ACCEPT | PARTIAL | SAT | UNKNOWN | Wall deadline |
+|---|---:|---:|---:|---:|---:|
+| Previous legacy route | 17 | 16 | 21 | 46 | 0 |
+| Contextual typed route | 20 | 13 | 21 | 45 | 1 |
+
+All 17 previously accepted inputs remain accepted. `QF_DT_082`,
+`QF_DT_090`, and `QF_DT_096` now certify, and every input partial in both
+runs has fewer obligations. `QF_DT_071`, previously a producer timeout,
+hits the external end-to-end deadline in the new run; this is not a
+checked result. The separate 710-input retention replay remains
+648 accepts and 62 partials, with identical status, pending count, and
+proof-node count for every input.
+
+This is not a performance-neutral migration. For example, the
+66,106-node `QF_DT_076` checks in 3.30 seconds versus 1.14 seconds on the
+legacy route; the 953,813-node `QF_DT_036` takes 60.79 versus 56.95 seconds.
+These are frozen-run observations, not controlled microbenchmarks.
+The typed route initially exceeded several wall deadlines; direct
+inference checks and the proved context-cache invariant removed those
+regressions on previously partial inputs. The complete QF_DT batch took
+261.72 seconds versus 231.73 seconds for the earlier run. Evidence,
+binary hashes, input hashes, raw diagnostics, and benchmark database
+entries are frozen under
+`C:\smtlib-benchmarks\proof_qf_dt_20261018\contextual-v4`;
+the non-datatype retention evidence is in `contextual-v3-retention`.
+The strict final toolchain log is
+`build_extract\sorted-contextual-symmetry-toolchain.log`.
+
 ### Binder and quantifier proof support
 
 Native `proof-bind` nodes contain a lambda whose body is a **proof**, not an
@@ -1836,12 +2094,17 @@ executable to include the latter's end-to-end tests.
 
 ## What this does and does not establish
 
-The semantic theorems are conditional on interpretation contracts, not a
-completed end-to-end SMT-LIB soundness theorem. In particular, the existing
+The legacy semantic theorems are conditional on interpretation contracts,
+not a completed end-to-end SMT-LIB soundness theorem. In particular, the existing
 global `boolean_model` ranges over untyped environments and needs a
 well-sorted-valuation restriction before an inhabitance/model-construction
 theorem is possible. The arithmetic report records this remaining formal
 foundation gap separately from the executable certificate results.
+Native datatype documents use the separate contextual typed theorem
+described above, without these legacy contracts. Its verified
+unsatisfiability statement concerns the checked typed interpretation;
+the parser/native-view correspondence and the interpretations of
+additional theories are not proved here.
 
 This executable is only as trustworthy as the F*/Pulse verification that
 produced the `.ml` files it links, **plus** the hand-written runtime

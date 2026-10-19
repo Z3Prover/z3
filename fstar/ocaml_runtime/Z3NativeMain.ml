@@ -7,6 +7,7 @@ let read_all channel =
 let diagnostic_rule = function
   | Z3UnifiedProof.Unverified name -> name
   | Z3UnifiedProof.ArithmeticFarkas _ -> "arith/farkas"
+  | Z3UnifiedProof.ArithmeticGomory _ -> "arith/lp-gomory"
   | Z3UnifiedProof.RewriteRule -> "rewrite"
   | Z3UnifiedProof.PullQuantifier -> "pull-quant"
   | Z3UnifiedProof.DestructiveEqualityResolution -> "der"
@@ -120,8 +121,12 @@ let fingerprint judgment =
 
 let assertion_hash value = Z.of_int (Hashtbl.hash value)
 
-let report_diagnostics doc expected =
-  match Z3ProofDocument.diagnose_document_indexed assertion_hash doc, expected with
+let report_diagnostics schema doc expected =
+  let diagnostic =
+    if schema.Z3DatatypeSignature.cases = []
+    then Z3ProofDocument.diagnose_document_indexed assertion_hash doc
+    else Z3SortedProof.diagnose_document schema doc in
+  match diagnostic, expected with
   | Z3ProofDocument.DocumentChecked (pending, obligations), Some actual
       when Z.equal pending actual ->
       let families = Hashtbl.create 32 and total = ref Z.zero in
@@ -151,18 +156,22 @@ let report_diagnostics doc expected =
   | _ -> Z3Native.fail "Diagnostic result disagrees with document checker"
 
 let check_proof statistics diagnostics start solved assertions proof =
-  let doc = Z3NativeProof.marshal assertions proof in
+  let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
-  let result = Z3ProofDocument.check_document_indexed assertion_hash doc in
+  let sorted = schema.Z3DatatypeSignature.cases <> [] in
+  let result =
+    if sorted then Z3SortedProof.check_document schema doc
+    else Z3ProofDocument.check_document_indexed assertion_hash doc in
   let checked = Unix.gettimeofday () in
   let summary = Printf.sprintf
-      "solve_ms=%.3f marshal_ms=%.3f check_ms=%.3f expressions=%d declarations=%d proof_nodes=%d"
+      "solve_ms=%.3f marshal_ms=%.3f check_ms=%.3f expressions=%d declarations=%d proof_nodes=%d semantics=%s"
       ((solved -. start) *. 1000.) ((marshaled -. solved) *. 1000.)
       ((checked -. marshaled) *. 1000.) (List.length doc.expressions)
-      (List.length doc.declarations) (List.length doc.entries) in
+      (List.length doc.declarations) (List.length doc.entries)
+      (if sorted then "sorted-datatype" else "legacy") in
   if statistics then Printf.eprintf "%s\n%!" summary;
   if diagnostics then (
-    report_diagnostics doc result;
+    report_diagnostics schema doc result;
     if statistics then
       Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->

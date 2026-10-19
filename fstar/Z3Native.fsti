@@ -66,6 +66,7 @@ val ast_id : ast -> ML nat
 val sort_id : native_sort -> ML nat
 val view_sort : native_sort -> ML sort_view
 val view_expression : ast -> ML expression_view
+val view_datatypes : roots:list native_sort -> ML Z3DatatypeSignature.schema
 val view_proof : ast -> ML proof_view
 val solve : smtlib:string -> timeout_ms:nat -> ML solve_result
 val fail : #a:Type -> message:string -> ML a

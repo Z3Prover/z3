@@ -104,6 +104,33 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
 
+    def test_contextual_datatype_proofs_in_both_modes(self):
+        for source in (
+                "(declare-datatype T ((C) (D)))(declare-const x T)"
+                "(assert (not ((_ is C) x)))(assert (not ((_ is D) x)))",
+                "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)"
+                "(assert ((_ is C) x))(assert (not (= x (C (field x)))))"):
+            with self.subTest(source=source):
+                result = self.run_checker(source, "--diagnostics", "--stats")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                self.assertIn("semantics=sorted-datatype", result.stderr)
+                self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertEqual(interactive.returncode, 0,
+                                 interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+                self.assertIn("semantics=sorted-datatype", interactive.stdout)
+
+    def test_contextual_datatypes_do_not_fall_back_to_legacy_arithmetic(self):
+        result = self.run_checker(
+            "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)"
+            "(assert (> (field x) 0))(assert (< (field x) 0))",
+            "--diagnostics", "--stats")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertIn("semantics=sorted-datatype", result.stderr)
+
     def test_rule_extensions_in_batch_and_interactive_modes(self):
         for name, source in RULE_EXTENSION_CASES:
             with self.subTest(case=name):

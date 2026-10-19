@@ -102,7 +102,9 @@ let rec normalize (fuel:nat) (e:expr) : Tot (option expr) (decreases %[fuel; e])
       (match normalize next body with Some b -> Some (Quantifier k bs s b) | None -> None)
     | _ -> Some e in
   match rebuilt with
-  | Some source -> Some (finish source)
+  | Some source ->
+    let result = finish source in
+    if result = source then Some source else normalize next result
   | None -> None
 
 and normalize_args (fuel:nat) (args:list expr)
@@ -136,8 +138,10 @@ let rec lemma_normalize (fuel:nat) (i:interpretation value) (rho:env value) (e r
         Quantifier k bs s b
       | _ -> e in
     assert (eval i e rho == eval i source rho);
-    assert (normalize fuel e == Some (finish source));
-    lemma_finish i rho source
+    lemma_finish i rho source;
+    let intermediate = finish source in
+    if intermediate <> source then
+      lemma_normalize next i rho intermediate result
 
 and lemma_normalize_args (fuel:nat) (i:interpretation value) (rho:env value)
                          (xs ys:list expr)
@@ -191,14 +195,14 @@ let sequent (facts:list expr) (conclusion:expr) : expr =
   let disjuncts = [mk_not_expr conjunction; conclusion] in
   App (B.connective_decl B.Disjunction disjuncts) disjuncts
 
-let consequence (facts:list expr) (conclusion:expr) : bool =
+let direct_consequence (facts:list expr) (conclusion:expr) : bool =
   Z3QuantifierPull.boolean_args facts && get_sort conclusion = bool_sort &&
   (LA.check (unit_coefficients conclusion facts) conclusion facts ||
    tautology (sequent facts conclusion))
 
-let lemma_consequence (i:interpretation value) (rho:env value)
-                      (facts:list expr) (conclusion:expr)
-  : Lemma (requires normalization_model i /\ conj_holds i rho facts /\ consequence facts conclusion)
+let lemma_direct_consequence (i:interpretation value) (rho:env value)
+                             (facts:list expr) (conclusion:expr)
+  : Lemma (requires normalization_model i /\ conj_holds i rho facts /\ direct_consequence facts conclusion)
           (ensures lit_true i rho conclusion)
   = if LA.check (unit_coefficients conclusion facts) conclusion facts
     then LE.lemma_check_with_numeric_model (unit_coefficients conclusion facts) conclusion facts i rho
@@ -207,3 +211,124 @@ let lemma_consequence (i:interpretation value) (rho:env value)
       match eval i (App (B.connective_decl B.Conjunction facts) facts) rho with
       | VBool _ -> ()
       | _ -> ())
+
+let rec contains (needle e:expr) : Tot bool (decreases e) =
+  needle = e ||
+  (match e with App _ args -> contains_args needle args | _ -> false)
+
+and contains_args (needle:expr) (args:list expr) : Tot bool (decreases args) =
+  match args with
+  | [] -> false
+  | e :: rest -> contains needle e || contains_args needle rest
+
+(* Equality premises hold in the current environment, not under binders. *)
+let rec replace (source target e:expr) : Tot expr (decreases e) =
+  if e = source then target
+  else match e with
+  | App f args -> App f (replace_args source target args)
+  | _ -> e
+
+and replace_args (source target:expr) (args:list expr)
+  : Tot (list expr) (decreases args) =
+  match args with
+  | [] -> []
+  | e :: rest -> replace source target e :: replace_args source target rest
+
+let rec lemma_replace (i:interpretation value) (rho:env value) (source target e:expr)
+  : Lemma (requires eval i source rho == eval i target rho)
+          (ensures eval i (replace source target e) rho == eval i e rho)
+          (decreases e) =
+  if e = source then ()
+  else match e with
+  | App _ args -> lemma_replace_args i rho source target args
+  | _ -> ()
+
+and lemma_replace_args (i:interpretation value) (rho:env value)
+                       (source target:expr) (args:list expr)
+  : Lemma (requires eval i source rho == eval i target rho)
+          (ensures eval_args i (replace_args source target args) rho == eval_args i args rho)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | e :: rest ->
+    lemma_replace i rho source target e;
+    lemma_replace_args i rho source target rest
+
+let rec lemma_replace_facts (i:interpretation value) (rho:env value)
+                           (source target:expr) (facts:list expr)
+  : Lemma (requires eval i source rho == eval i target rho /\ conj_holds i rho facts)
+          (ensures conj_holds i rho (replace_args source target facts))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | e :: rest ->
+    lemma_replace i rho source target e;
+    lemma_replace_facts i rho source target rest
+
+let constructor_term (e:expr) : bool =
+  match e with App f args -> Some? (DT.constructor f args) | _ -> false
+
+let constructor_replacement (e:expr) : option (expr & expr) =
+  match e with
+  | App f [a; b] ->
+    if f <> eq_decl (get_sort a) || get_sort a <> get_sort b then None
+    else if constructor_term b && not (constructor_term a) && not (contains a b)
+    then Some (a, b)
+    else if constructor_term a && not (constructor_term b) && not (contains b a)
+    then Some (b, a)
+    else None
+  | _ -> None
+
+let rec constructor_premise (facts:list expr) : Tot (option (expr & expr)) (decreases facts) =
+  match facts with
+  | [] -> None
+  | e :: rest ->
+    (match constructor_replacement e with Some pair -> Some pair | None -> constructor_premise rest)
+
+let rec lemma_constructor_premise (i:interpretation value) (rho:env value)
+                                 (facts:list expr) (source target:expr)
+  : Lemma (requires eq_sound i /\ conj_holds i rho facts /\
+                    constructor_premise facts == Some (source, target))
+          (ensures eval i source rho == eval i target rho)
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | e :: rest ->
+    (match constructor_replacement e with
+     | Some _ -> (match e with App _ [_; _] -> () | _ -> ())
+     | None -> lemma_constructor_premise i rho rest source target)
+
+let rec propagate (fuel:nat) (facts:list expr) (conclusion:expr) : Tot bool (decreases fuel) =
+  if direct_consequence facts conclusion then true
+  else if fuel = 0 then false
+  else let _ = assert (fuel > 0) in
+  let next:nat = fuel - 1 in
+  match constructor_premise facts with
+  | None -> false
+  | Some (source, target) ->
+    propagate next (replace_args source target facts) (replace source target conclusion)
+
+let rec lemma_propagate (fuel:nat) (i:interpretation value) (rho:env value)
+                        (facts:list expr) (conclusion:expr)
+  : Lemma (requires normalization_model i /\ conj_holds i rho facts /\
+                    propagate fuel facts conclusion)
+          (ensures lit_true i rho conclusion)
+          (decreases fuel) =
+  if direct_consequence facts conclusion then lemma_direct_consequence i rho facts conclusion
+  else if fuel > 0 then
+    match constructor_premise facts with
+    | None -> ()
+    | Some (source, target) ->
+      lemma_constructor_premise i rho facts source target;
+      lemma_replace_facts i rho source target facts;
+      lemma_replace i rho source target conclusion;
+      lemma_propagate (fuel - 1) i rho (replace_args source target facts)
+        (replace source target conclusion)
+
+let consequence (facts:list expr) (conclusion:expr) : bool = propagate 8 facts conclusion
+
+let lemma_consequence (i:interpretation value) (rho:env value)
+                      (facts:list expr) (conclusion:expr)
+  : Lemma (requires normalization_model i /\ conj_holds i rho facts /\ consequence facts conclusion)
+          (ensures lit_true i rho conclusion) =
+  lemma_propagate 8 i rho facts conclusion

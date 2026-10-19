@@ -331,6 +331,19 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
       else if view.proof_name = "quant-inst" then
         QuantifierInstantiation (cached_expressions st view.instantiations),
         cached_premises st view.premises, st
+      else if view.proof_name = "arith/lp-gomory" then
+        let candidate =
+          match view.lp_data, view.premises with
+          | Some ("lp-gomory", [N.ParameterRational index denominator]), context :: _ ->
+            if denominator = 1 && index >= 0 then
+              index_get st.lp_certificates (N.ast_id context) >>= (fun certificate ->
+              Z3LpGomory.candidate certificate index)
+            else None
+          | _, _ -> None in
+        let kind = match candidate with
+          | Some c -> ArithmeticGomory c
+          | None -> Unverified view.proof_name in
+        kind, cached_premises st view.premises, st
       else native_rule view formula, cached_premises st view.premises, st in
     let entry = { P.rule = rule; P.formula = formula; P.premise_ids = premises } in
     let id = N.ast_id p in
@@ -339,11 +352,20 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
                        entries = entry :: st.entries; next_proof = st.next_proof + 1 } in
     marshal_proof_jobs st rest
 
-let marshal (assertions:list N.ast) (proof:N.ast) : ML P.document =
+let marshal_state (assertions:list N.ast) (proof:N.ast) : ML (P.document & state) =
   let st = marshal_expressions (empty_state ()) assertions in
   let inputs = cached_expressions st assertions in
   let st = marshal_proof_jobs st [VisitProof proof] in
   let id = N.ast_id proof in
   let root = require_some "Native proof root was not marshaled" (index_get st.proofs id) in
   { P.declarations = st.all_declarations; P.expressions = st.all_expressions;
-    P.assertions = inputs; P.entries = L.rev st.entries; P.root = root }
+    P.assertions = inputs; P.entries = L.rev st.entries; P.root = root }, st
+
+let marshal (assertions:list N.ast) (proof:N.ast) : ML P.document =
+  let doc, _ = marshal_state assertions proof in doc
+
+let marshal_with_datatypes (assertions:list N.ast) (proof:N.ast)
+  : ML (P.document & Z3DatatypeSignature.schema) =
+  let doc, st = marshal_state assertions proof in
+  let schema = N.view_datatypes st.retained_sorts in
+  doc, schema

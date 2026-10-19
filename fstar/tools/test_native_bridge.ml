@@ -218,6 +218,91 @@ let integer_tightening_candidates () =
      "(= (+ x (* (- 1) x)) 1)", false;
      "(= (* x x) x)", false]
 
+let checked_gomory_cuts () =
+  let module G = Z3LpGomory in
+  let fact relation lhs rhs = {
+    C.relation; contradiction = false; rhs; epsilon = Z.zero, Z.one; lhs
+  } in
+  let step rule conclusion = {
+    C.rule; conclusion; input = None; assumption = None; id = Z.zero;
+    equation = fact C.Eq [] (Z.zero, Z.one); pivot = None; definition1 = None;
+    source = None; divisor = Z.one, Z.one; premises = []; bounds = []
+  } in
+  let q n d = Z.of_int n, Z.of_int d in
+  let run real lower scale pivot_scale bound cut_scale cut_rhs cut_den =
+    let c = context () in
+    let x = if real then "(to_real x)" else "x" in
+    let column = Printf.sprintf "(* %d %s)" scale x in
+    let pivot = Printf.sprintf "(* %d x)" pivot_scale in
+    let source = Printf.sprintf
+        "(declare-const x Int)(assert (= %s %s))(assert (= %s %s))\
+         (assert (%s %s %d))(assert (>= (* %d %s) %d))"
+        pivot pivot column column (if lower then ">=" else "<=") column bound
+        cut_scale column cut_rhs in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | A.App (_, [pivot; _]) :: A.App (_, [column; _]) :: premise :: conclusion :: [] ->
+        let variables = [
+          { C.term = pivot; integer = true; definition = [] };
+          { C.term = column; integer = not real; definition = [] }] in
+        let input = step C.Input (fact (if lower then C.Ge else C.Le)
+            [q 1 1, Z.one] (q bound 1)) in
+        let cut = { (step C.Gomory (fact C.Ge
+            [q cut_scale cut_den, Z.one] (q cut_rhs cut_den))) with
+          C.pivot = Some Z.zero;
+          equation = fact C.Eq [q 1 1, Z.zero; q (-pivot_scale) scale, Z.one] (q 0 1);
+          premises = [Z.zero, q 1 1];
+          bounds = [{ C.bound_column = Z.one;
+                      lower = if lower then Some Z.zero else None;
+                      upper = if lower then None else Some Z.zero }] } in
+        let certificate = {
+          C.variables; monomials = []; steps = [input; cut]; root = Z.one } in
+        let candidate = match G.candidate certificate Z.one with
+          | Some value -> value | None -> failwith ("no Gomory candidate: " ^ source) in
+        let facts = [Z3ResolutionProofTheory.true_expr; premise] in
+        require (G.check candidate conclusion facts) ("Gomory cut failed: " ^ source);
+        require (not (G.check candidate Z3ResolutionProofTheory.false_expr facts))
+          "Gomory accepted a false conclusion from satisfiable bounds";
+        require (not (G.check candidate conclusion [Z3ResolutionProofTheory.true_expr]))
+          "Gomory ignored a missing bound";
+        require (not (G.check { candidate with G.split = Z3ResolutionProofTheory.true_expr }
+            conclusion facts)) "Gomory allowed a non-integer split";
+        require (not (G.check { candidate with G.below = [] } conclusion facts))
+          "Gomory accepted an unchecked split branch";
+        require (not (G.check { candidate with G.above = [] } conclusion facts))
+          "Gomory accepted an unchecked opposite branch";
+        require (G.candidate { certificate with C.steps = [input;
+            { cut with C.equation = fact C.Eq [q 2 1, Z.zero] (q 0 1) }] } Z.one = None)
+          "Gomory accepted a non-unit pivot recipe"
+    | _ -> failwith "unexpected Gomory fixture expressions"
+  in
+  run false false 2 1 1 (-1) 0 1;
+  run false true 2 1 1 1 2 1;
+  run false false 2 1 (-1) (-1) 2 1;
+  run false false 5 3 3 (-3) (-5) 4;
+  run true false 2 1 1 (-1) 0 1;
+  run true true 2 1 1 1 2 1;
+  let doc = document
+      "(declare-const x Int)(declare-const y Int)\
+       (assert (<= 0 (- (* 28300000000000 x) (* 24500000000001 y))))\
+       (assert (<= (- (* 28300000000000 x) (* 24500000000001 y)) 99999999999))\
+       (assert (<= 1 (- (* 28300000000001 x) (* 24500000000000 y))))\
+       (assert (<= (- (* 28300000000001 x) (* 24500000000000 y)) 100000000000))" in
+  let cuts = List.filter (fun e -> match e.P.rule with
+      | U.ArithmeticGomory _ -> true | _ -> false) doc.entries in
+  require (cuts <> []) "native Gomory split parameters were not marshaled";
+  List.iter (fun e ->
+      let conclusion = Option.get (U.classify_fact e.P.formula) in
+      let premises = List.map (fun j ->
+          Option.get (U.classify_fact (List.nth doc.entries (Z.to_int j)).P.formula))
+          e.P.premise_ids in
+      require (U.checked_theory_lemma e.P.rule conclusion premises)
+        "authentic native Gomory cut was not certified";
+      require (not (U.checked_theory_lemma e.P.rule
+          (U.Holds Z3ResolutionProofTheory.false_expr) premises))
+        "native Gomory metadata bypassed actual conclusion checking") cuts
+
 let native_lp_certificates () =
   let assertions, proof = unsat
       "(declare-const x Int)(declare-const y Int)(declare-const z Int)\
@@ -1337,6 +1422,8 @@ let checked_nested_nnf_replacement () =
 let checked_theory_extensions () =
   let declarations =
     "(declare-datatype T ((C (field Int)) (D (other Int))))\
+     (declare-datatype L ((nil) (cons (head T) (tail L))))\
+     (declare-const xs L)(declare-const t T)\
      (declare-const a Int)(declare-const b Int)(declare-const d Int)\
      (declare-const v (_ BitVec 8))(declare-const w (_ BitVec 8))\
      (declare-const arr (Array Int Int))" in
@@ -1349,6 +1436,14 @@ let checked_theory_extensions () =
     "datatype-invalid-injectivity", "(or (not (= (C a) (C b))) (= a d))", false;
     "datatype-wrong-accessor", "(= (field (C a)) b)", false;
     "datatype-wrong-recognizer", "((_ is C) (D b))", false;
+    "datatype-nested-disjointness",
+      "(not (= (cons (C a) nil) (cons (D b) nil)))", true;
+    "datatype-nested-tail-disjointness",
+      "(not (= (cons (C a) (cons (C b) nil)) (cons (C a) nil)))", true;
+    "datatype-nested-injectivity",
+      "(or (not (= (cons (C a) xs) (cons (C b) xs))) (= a b))", true;
+    "datatype-invalid-nested-equality",
+      "(= (cons (C a) xs) (cons (C b) xs))", false;
     "array-read", "(= (select (store arr a b) a) b)", true;
     "array-overwrite", "(= (store (store arr a b) a d) (store arr a d))", true;
     "array-invalid-read", "(= (select (store arr a b) a) d)", false;
@@ -1406,8 +1501,32 @@ let checked_theory_extensions () =
         ("incorrect theory consequence: " ^ name))
     ["arithmetic-premises", ["(< a b)"; "(< b d)"], "(< a d)", true;
      "datatype-premise", ["(= (C a) (C b))"], "(= a b)", true;
+     "datatype-constructor-recognizer", ["(= t (C a))"], "((_ is C) t)", true;
+     "datatype-constructor-conflict",
+       ["(not ((_ is C) t))"; "(= (C a) t)"], "false", true;
+     "datatype-constructor-selector", ["(= t (C a))"], "(= (field t) a)", true;
+     "datatype-constructor-chain",
+       ["(= xs (cons t nil))"; "(= t (C a))"], "(= (field (head xs)) a)", true;
+     "datatype-unmatched-selector", ["(= t (D a))"], "(= (field t) a)", false;
+     "datatype-missing-constructor-equality", [], "((_ is C) t)", false;
+     "datatype-invalid-propagated-field", ["(= t (C a))"], "(= (field t) b)", false;
+     "datatype-binder-capture", ["(= t (C a))"],
+       "(forall ((t T)) ((_ is C) t))", false;
+     "datatype-cyclic-equality", ["(= xs (cons (C a) xs))"], "false", false;
      "bv-premise", ["(= (bvand v v) w)"], "(= v w)", true;
      "invalid-bv-consequence", ["(= (bvand v v) w)"], "(= v (bvnot w))", false];
+  let c = context () in
+  let inputs = parse c (declarations ^
+      "(assert (forall ((t T)) (and (= t (C 0)) ((_ is C) t)\
+        (forall ((t T)) ((_ is C) t)))))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.Quantifier (_, _, _, A.App (_, [equality; current; nested])) ->
+       require (Z3TheoryNormalize.consequence [equality] current)
+         "constructor equality was not usable in its own binder environment";
+       require (not (Z3TheoryNormalize.consequence [equality] nested))
+         "constructor propagation substituted an outer bound variable inside a nested binder"
+   | _ -> failwith "unexpected nested datatype binder fixture");
   let c = context () in
   let inputs = parse c
       "(declare-sort Fake 0)(declare-const a Int)\
@@ -1445,6 +1564,144 @@ let checked_theory_extensions () =
       [{ leaf with U.binder_name = "assumed:nlsat" }] } conclusion))
     "a hidden NLSAT assumption was generalized"
 
+let concrete_datatype_model () =
+  let module V = Z3DatatypeValue in
+  let module S = Z3DatatypeSignature in
+  let c = context () in
+  let inputs = parse c
+      "(declare-datatypes ((Tree 0) (Forest 0))\
+        (((leaf (number Int) (marked Bool)) (branch (children Forest))\
+          (fork (left Tree) (right Tree)))\
+         ((nil) (cons (first Tree) (rest Forest)))))\
+       (declare-const x Tree)(assert (= (leaf 7 true) x))" in
+  let root = match N.view_expression (List.hd inputs) with
+    | N.Application (_, value :: _) -> Z3native.get_sort c value
+    | _ -> failwith "expected a native datatype equality" in
+  let schema = N.view_datatypes [root] in
+  require (S.valid schema) "native mutually recursive datatype schema was rejected";
+  require (List.length schema.S.sorts = 2 && List.length schema.S.cases = 5)
+    "native datatype adapter omitted unreferenced or mutually recursive constructors";
+  let find name = List.find (fun case -> case.S.constructor.A.decl_name = name) schema.S.cases in
+  let leaf, branch, fork, nil, cons =
+    find "leaf", find "branch", find "fork", find "nil", find "cons" in
+  let sigma = S.signature schema in
+  let witness sort = match S.shape_witness sigma sort with
+    | Some value -> value | None -> failwith "productive datatype lacked a concrete witness" in
+  let number, marked = witness (A.BaseSort "Int"), witness (A.BaseSort "Bool") in
+  let leaf_value = S.constructor_value schema leaf [number; marked] in
+  let nil_value = S.constructor_value schema nil [] in
+  let cons_value = S.constructor_value schema cons [leaf_value; nil_value] in
+  let fork_value = S.constructor_value schema fork [leaf_value; leaf_value] in
+  let branch_value = S.constructor_value schema branch [cons_value] in
+  require (V.has_sort sigma leaf.S.constructor.A.range branch_value)
+    "valid mutually recursive constructor value was not well sorted";
+  require (not (V.has_sort sigma leaf.S.constructor.A.range
+      (V.Constructor (leaf.S.constructor, [marked; number]))))
+    "datatype carrier accepted swapped heterogeneous fields";
+  require (not (V.has_sort sigma leaf.S.constructor.A.range
+      (V.Constructor (leaf.S.constructor, [number]))))
+    "datatype carrier accepted an incorrect constructor arity";
+  require (S.recognizer_value schema fork fork_value &&
+           not (S.recognizer_value schema branch fork_value))
+    "concrete datatype recognizers did not distinguish constructors";
+  let fallback value =
+    if S.recognizer_value schema leaf value then nil_value else cons_value in
+  require (S.accessor_value schema branch Z.zero fallback leaf_value = nil_value &&
+           S.accessor_value schema branch Z.zero fallback fork_value = cons_value &&
+           S.accessor_value schema branch Z.zero fallback branch_value = cons_value)
+    "selectors did not preserve matching fields and argument-dependent wrong-constructor values";
+  require (V.Constructor (fork.S.constructor, V.fields fork_value) = fork_value)
+    "concrete datatype reconstruction failed";
+  require (List.for_all (fun sort ->
+      let value = witness sort in
+      List.exists (fun case ->
+          case.S.constructor.A.range = sort && S.recognizer_value schema case value)
+        schema.S.cases) schema.S.sorts)
+    "a well-sorted datatype value lacked a recognized constructor";
+  (match V.descendant [Z.zero; Z.one] branch_value with
+   | Some child -> require (child = nil_value && Z.lt (V.size child) (V.size branch_value))
+       "recursive datatype subterms did not have smaller finite size"
+   | None -> failwith "missing recursive datatype subterm");
+  let convert _ () = false in
+  let leaf_bool, fork_bool, branch_bool, nil_bool, cons_bool =
+    V.map_base convert leaf_value, V.map_base convert fork_value,
+    V.map_base convert branch_value, V.map_base convert nil_value,
+    V.map_base convert cons_value in
+  let children = List.hd branch.S.accessors in
+  let opaque = { children with A.decl_name = "opaque"; interp = None; int_params = [] } in
+  let other = {
+    V.application = (fun f args ->
+      match args with
+      | [value] when f = children ->
+          if V.recognize leaf.S.constructor value then nil_bool else cons_bool
+      | [_] when f = opaque -> nil_bool
+      | _ -> failwith "canonical datatype operation escaped to the supplied interpretation");
+    quantification = (fun kind bound body_sort body ->
+      require (kind = A.Forall_k &&
+               bound = [A.BaseSort "Int"; A.BaseSort "Bool"] &&
+               body_sort = A.BaseSort "Bool")
+        "typed evaluator changed a quantifier signature";
+      let result = body [V.Scalar (A.BaseSort "Bool", true);
+                         V.Scalar (A.BaseSort "Int", false)] in
+      require (result = V.Scalar (A.BaseSort "Bool", true))
+        "typed quantifier evaluation reversed de Bruijn bindings incorrectly";
+      result);
+  } in
+  let booleans = { S.encode_bool = (fun b -> b); decode_bool = (fun b -> b);
+                   boolean_isomorphism = () } in
+  let interpreted = S.interpretation schema booleans other in
+  let apply = interpreted.V.application in
+  require (apply fork.S.constructor [leaf_bool; leaf_bool] = fork_bool &&
+           apply fork.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", true) &&
+           apply branch.S.recognizer [fork_bool] = V.Scalar (A.BaseSort "Bool", false))
+    "native constructor or recognizer dispatch was not canonical";
+  require (apply children [branch_bool] = cons_bool &&
+           apply children [leaf_bool] = nil_bool &&
+           apply children [fork_bool] = cons_bool &&
+           apply opaque [fork_bool] = nil_bool)
+    "native selector dispatch lost matching fields or argument-dependent fallbacks";
+  let scope = [leaf.S.constructor.A.range] in
+  let rho _ = fork_bool in
+  let expression = A.App (children, [A.Var (Z.zero, leaf.S.constructor.A.range)]) in
+  require (Z3Definitions.scoped scope expression) "native evaluator fixture is not well sorted";
+  require (V.evaluate sigma interpreted scope rho expression = cons_bool)
+    "typed AST evaluator bypassed native selector dispatch";
+  let quantified = A.Quantifier (A.Forall_k, [A.BaseSort "Int"; A.BaseSort "Bool"],
+      A.BaseSort "Bool", A.Var (Z.zero, A.BaseSort "Bool")) in
+  require (Z3Definitions.scoped [] quantified) "native quantifier fixture is not well sorted";
+  require (V.evaluate sigma interpreted [] (fun _ -> failwith "empty environment") quantified =
+           V.Scalar (A.BaseSort "Bool", true))
+    "typed AST evaluator did not preserve the supplied quantifier interpretation";
+  let forged = { children with A.int_params = [Z.zero; Z.zero; Z.of_int 99] } in
+  require (S.find_accessor forged schema.S.cases = None &&
+           S.find_recognizer { fork.S.recognizer with A.range = A.BaseSort "Int" }
+             schema.S.cases = None)
+    "native dispatch admitted invalid accessor indices or recognizer result sorts";
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, _); _]) ->
+       require (f = leaf.S.constructor)
+         "native schema constructor identity differs from proof-expression identity"
+   | _ -> failwith "expected a marshaled constructor");
+  let reject cases message = require (not (S.valid { schema with S.cases = cases })) message in
+  reject (leaf :: schema.S.cases) "duplicate constructor IDs escaped schema checking";
+  reject (List.filter (fun case -> case <> nil) schema.S.cases)
+    "unproductive mutually recursive datatype sorts were admitted";
+  let replace original changed = List.map (fun case -> if case = original then changed else case)
+      schema.S.cases in
+  reject (replace leaf { leaf with S.recognizer =
+      { leaf.S.recognizer with A.int_params = [Z.zero; Z.zero] } })
+    "a recognizer with incorrect constructor ownership was admitted";
+  reject (replace leaf { leaf with S.accessors = List.rev leaf.S.accessors })
+    "reordered datatype accessors were admitted";
+  reject (replace leaf { leaf with S.accessors = [] })
+    "missing datatype accessors were admitted";
+  let nested = A.ArraySort ([A.BaseSort "Int"], leaf.S.constructor.A.range) in
+  reject (replace branch { branch with
+      S.constructor = { branch.S.constructor with A.domain = [nested] };
+      accessors = List.map (fun accessor -> { accessor with A.range = nested }) branch.S.accessors })
+    "nested recursive array fields were silently treated as opaque scalars"
+
 let malformed_foreign_certificate () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
@@ -1454,6 +1711,57 @@ let malformed_foreign_certificate () =
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
+
+let sorted_datatype_checker () =
+  let module K = Z3SortedProof in
+  let module S = Z3DatatypeSignature in
+  let samples = [
+    "exhaustiveness",
+      "(declare-datatype T ((C) (D)))(declare-const x T)\
+       (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
+    "reconstruction",
+      "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)\
+       (assert ((_ is C) x))(assert (not (= x (C (field x)))))";
+    "injectivity",
+      "(declare-datatype T ((C (field Int)) (D)))\
+       (declare-const a Int)(declare-const b Int)\
+       (assert (= (C a) (C b)))(assert (not (= a b)))";
+    "disjointness",
+      "(declare-datatype T ((C (field Int)) (D)))(declare-const a Int)\
+       (assert (= (C a) D))";
+    "conditional-constructor",
+      "(declare-datatype T ((C) (D)))(declare-const x T)\
+       (assert (= x (ite false C D)))(assert (not (= x D)))";
+    "symmetric-equality",
+      "(declare-datatype T ((C) (D)))(declare-const x T)(declare-const y T)\
+       (assert (= x C))(assert (= x y))(assert (not (= y x)))";
+  ] in
+  List.iter (fun (name, source) ->
+      let assertions, proof = unsat source in
+      let doc, schema = B.marshal_with_datatypes assertions proof in
+      require (schema.S.cases <> [] && S.valid schema) ("invalid sorted schema: " ^ name);
+      let result = K.check_document schema doc in
+      require (result = Some Z.zero)
+        ("sorted datatype proof remained unchecked: " ^ name ^
+         (match result with None -> " (rejected)" | Some n -> " (pending " ^ Z.to_string n ^ ")"));
+      require (K.diagnostic_result (K.diagnose_document schema doc) = result)
+        ("sorted diagnostics disagree: " ^ name);
+      require (K.check_document schema { doc with P.assertions = [] } <> Some Z.zero)
+        ("sorted checker ignored original input binding: " ^ name);
+      require (K.check_document schema { doc with P.entries = [
+        { P.rule = U.Hypothesis; formula = Z3ResolutionProofTheory.false_expr; premise_ids = [] }];
+        root = Z.zero } = None) "sorted checker admitted an open root hypothesis";
+      require (K.check_document schema { doc with P.entries = [
+        { P.rule = U.Unverified "th-lemma"; formula = Z3ResolutionProofTheory.false_expr;
+          premise_ids = [] }]; root = Z.zero } = Some Z.one)
+        "sorted checker treated an unsupported claim as certified";
+      let omitted = { schema with S.cases = List.tl schema.S.cases } in
+      require (K.check_document omitted doc <> Some Z.zero)
+        ("sorted checker accepted an incomplete referenced signature: " ^ name)) samples;
+  require (N.solve
+      "(declare-datatype T ((C (field Int)) (D (other Int))))\
+       (assert (not (= (field (D 0)) (field (D 1)))))" Z.zero = N.Sat)
+    "wrong-constructor selectors were incorrectly forced to a shared default"
 
 let assumed_nlsat () =
   let c = context () in
@@ -1815,6 +2123,7 @@ let () =
      "authentic-Farkas-parameters", native_farkas;
      "certified-assign-bounds-parameters", native_assign_bounds;
      "checked-native-integer-LP-tightening", native_integer_tightening;
+     "certified-native-Gomory-split-cuts", checked_gomory_cuts;
      "certified-duplicate-distinct-rewrites", distinct_reflexivity;
      "integer-tightening-candidate-mutations", integer_tightening_candidates;
      "typed-native-LP-certificate-decoding", native_lp_certificates;
@@ -1834,6 +2143,8 @@ let () =
      "certified-quantifier-reductions-and-lambdas", checked_quantifier_reductions;
      "certified-nested-NNF-replacement", checked_nested_nnf_replacement;
      "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
+     "concrete-sort-indexed-datatype-model", concrete_datatype_model;
+     "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
