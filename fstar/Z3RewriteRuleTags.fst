@@ -148,7 +148,7 @@ let check_seq_concat (#a:eqtype) (s:Z3SeqTheory.seq a)
 
 (* ================================================================= *)
 (* arith:+  -- full_arithmetic_poly_gap.txt (DOCUMENTED GAP):          *)
-(*   (+ (* 2 x) (* 3 x)) = (* 5 x)                                     *)
+(*   2 * x + 3 * x = 5 * x                                             *)
 (*                                                                     *)
 (* This tag fires on `poly_rewriter`'s monomial-collection machinery   *)
 (* (`cancel_monomials`), which `Z3ArithRewriter.fst`'s own header       *)
