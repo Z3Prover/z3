@@ -4,6 +4,8 @@ open Ast_helper
 
 let timed = [
   "Z3ProofDocument.check_document_with_lookup"; "Z3ProofDocument.check_entry_with_lookup";
+  "Z3ProofDocument.check_document_using"; "Z3ProofDocument.prepare_entry_using";
+  "Z3ProofDocument.prepare_document_using"; "Z3Definitions.memoized_expand";
   "Z3UnifiedProof.check_node_with_membership"; "Z3UnifiedProof.relational_step";
   "Z3UnifiedProof.fast_arguments_match";
   "Z3BooleanRewrite.boolean_equiv"; "Z3BooleanRewrite.boolean_search";
@@ -20,6 +22,8 @@ let counted = [
   "Z3BooleanRewrite.boolean_height"; "Z3BooleanRewrite.boolean_cut";
   "Z3BooleanNormalForm.normalize"; "Z3BooleanNormalForm.shannon";
   "Z3Definitions.scoped"; "Z3Definitions.expand"; "Z3Definitions.tautology";
+  "Z3Definitions.expand_cached"; "Z3Definitions.expand_args_cached";
+  "Z3Definitions.find_expansion";
   "Z3TheoryNormalize.normalize"; "Z3BinderSubstitution.apply";
   "Z3LinearArithmeticAst.linearize"; "Z3UnifiedProof.extend_reachable";
   "Z3UnifiedProof.arguments_match";

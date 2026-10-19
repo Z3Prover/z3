@@ -407,7 +407,7 @@ let indexed_assertion_membership () =
     require (P.check_document_indexed hash missing = None)
       "colliding hash certified an unregistered assertion")
     [(fun _ -> Z.zero); (fun _ -> Z.of_string "999999999999999999999999999999999999999");
-     (fun value -> Z.of_int (Hashtbl.hash value))];
+     (fun value -> Z.of_int (Hashtbl.hash value)); Z3NativeMain.assertion_hash];
   let values = [Z.zero; Z.one; Z.one; Z.of_int 65521] in
   List.iter (fun hash ->
     let index = Z3ProofSet.of_list hash values in
@@ -416,6 +416,79 @@ let indexed_assertion_membership () =
         "hash bucket did not preserve exact membership")
       [Z.zero; Z.one; Z.of_int 2; Z.of_int 65521])
     [(fun _ -> Z.zero); (fun value -> value)]
+
+let cached_definition_expansion () =
+  let module D = Z3Definitions in
+  let bool_sort = A.BaseSort "Bool" in
+  let declaration name = {
+    A.decl_name = name; domain = []; range = bool_sort;
+    interp = None; int_params = [];
+  } in
+  let p_decl = declaration "p" and marker = declaration "defined" in
+  let p = A.App (p_decl, []) and named = A.App (marker, []) in
+  let conjunction = {
+    A.decl_name = "and"; domain = [bool_sort; bool_sort]; range = bool_sort;
+    interp = Some Z3ValueTheory.op_and; int_params = [];
+  } in
+  let defs = [{ D.symbol = marker; variables = []; body = p }] in
+  let hashes = List.init 128 (fun index ->
+    let leaf = A.App (declaration ("leaf" ^ string_of_int index), []) in
+    Z3NativeMain.assertion_hash (U.Holds (A.App (conjunction, [p; leaf])))) in
+  require (List.length (List.sort_uniq Z.compare hashes) >= 64)
+    "production hashing collapsed distinct children below a common connective";
+  let shared depth leaf =
+    let result = ref leaf in
+    for _ = 1 to depth do result := A.App (conjunction, [!result; !result]) done;
+    !result in
+  let check_sharing depth expression =
+    let current = ref expression in
+    for _ = 1 to depth do
+      match !current with
+      | A.App (_, [left; right]) ->
+          require (left == right) "definition expansion destroyed expression DAG sharing";
+          current := left
+      | _ -> failwith "expanded DAG lost a conjunction"
+    done;
+    require (!current = p) "definition expansion produced the wrong leaf" in
+  List.iter (fun hash ->
+    List.iter (fun fuel ->
+      let source = shared 5 named in
+      require (D.memoized_expand hash fuel defs source = D.expand fuel defs source)
+        "cached expansion differs from its reference")
+      [Z.zero; Z.one; Z.of_int 3];
+    let source = shared 30 p in
+    require (Prims.([source] = [source]))
+      "runtime equality failed below distinct expression wrappers";
+    require (Prims.([source] <> [shared 30 named]))
+      "runtime equality confused different shared expressions";
+    (match D.memoized_expand hash Z.one defs source with
+     | Some result -> require (result == source) "unchanged expression DAG was rebuilt"
+     | None -> failwith "unchanged definition expansion failed");
+    (match D.memoized_expand hash Z.one defs (shared 30 named) with
+     | Some result -> check_sharing 30 result
+     | None -> failwith "shared definition expansion failed");
+    let (failed, _), cache = D.expand_cached hash Z.zero defs named Z3ProofIndex.Empty in
+    require (failed = None) "zero-fuel definition expansion succeeded";
+    let (success, _), cache = D.expand_cached hash Z.one defs named cache in
+    require (success = Some p) "a cached fuel failure poisoned a later expansion";
+    let (failed, _), _ = D.expand_cached hash Z.zero defs named cache in
+    require (failed = None) "cached expansion reused a result with insufficient fuel";
+    let cyclic = [{ D.symbol = marker; variables = []; body = named }] in
+    require (D.memoized_expand hash (Z.of_int 3) cyclic named = None)
+      "cached expansion accepted a cyclic definition";
+    let malformed = [{ D.symbol = marker; variables = []; body = A.Var (Z.zero, bool_sort) }] in
+    require (D.memoized_expand hash Z.one malformed named = None)
+      "cached expansion accepted an unbound substitution";
+    let function_decl = { marker with A.domain = [bool_sort] } in
+    let body = A.Quantifier (A.Forall_k, [bool_sort], bool_sort, A.Var (Z.one, bool_sort)) in
+    let parameterized = [{ D.symbol = function_decl; variables = [Z.zero]; body }] in
+    let application = A.App (function_decl, [A.Var (Z.zero, bool_sort)]) in
+    require (D.memoized_expand hash Z.one parameterized application =
+             D.expand Z.one parameterized application)
+      "cached expansion changed capture-avoiding substitution")
+    [(fun _ -> Z.zero); (fun _ -> Z.of_int 65521);
+     (fun value -> Z.of_int (Hashtbl.hash value));
+     (fun (_, expression) -> Z3NativeMain.assertion_hash (U.Holds expression))]
 
 let ordered_congruence_matching () =
   let atom name = A.App ({
@@ -1503,6 +1576,7 @@ let () =
      "authentic-bound-parameters", native_bound;
      "strict-inputs-and-scopes", strict_inputs_and_scopes;
      "indexed-assertion-membership", indexed_assertion_membership;
+     "cached-definition-expansion", cached_definition_expansion;
      "ordered-congruence-matching", ordered_congruence_matching;
      "typed-obligation-diagnostics", typed_diagnostics;
      "identity-and-binders", identity_and_binders;

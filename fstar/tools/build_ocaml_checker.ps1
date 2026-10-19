@@ -218,7 +218,7 @@ try {
   $shellBuildDir = if ($WslBuildDir.StartsWith("~/")) { '$HOME/' + $WslBuildDir.Substring(2) } else { $WslBuildDir }
   $testScript = ""
   if ($RunTests) {
-    $testOrder = ($order | Where-Object { $_ -ne "main.ml" -and $_ -ne "Z3NativeMain.ml" }) -join " "
+    $testOrder = ($order | Where-Object { $_ -ne "main.ml" }) -join " "
     $testScript = @"
 cp "$wslFstarDir/tools/test_native_bridge.ml" .
 ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install/lib/ocaml/z3" \

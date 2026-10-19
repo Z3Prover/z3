@@ -81,14 +81,23 @@ let rec enough_asserted (remaining:nat) (entries:list entry) : Tot bool (decreas
 let document_lookup (hash:judgment -> nat) (doc:document) : input_lookup =
   if enough_asserted 17 doc.entries then indexed_lookup hash else linear_lookup
 
-let prepare_entry (bound:bool) (defs:list D.definition)
+let prepare_entry_using (transform:D.expander) (bound:bool) (defs:list D.definition)
                   (prev:index_tree checked_fact) (e:entry) : option proof_node =
   if bound && not (D.scoped [] e.formula) then None else
-  (if defs = [] then Some e.formula else D.expand (L.length defs) defs e.formula) >>= (fun formula ->
+  (if defs = [] then Some e.formula else transform (L.length defs) defs e.formula) >>= (fun formula ->
   if bound && not (D.scoped [] formula) then None else
   classify_fact formula >>= (fun concl ->
   opt_map (index_find prev) e.premise_ids >>= (fun premises ->
   Some { kind = e.rule; conclusion = concl; premises = premises })))
+
+let prepare_entry (bound:bool) (defs:list D.definition)
+                  (prev:index_tree checked_fact) (e:entry) : option proof_node =
+  prepare_entry_using D.linear_expander bound defs prev e
+
+let lemma_prepare_entry_using (transform:D.expander) (bound:bool) (defs:list D.definition)
+                             (prev:index_tree checked_fact) (e:entry)
+  : Lemma (prepare_entry_using transform bound defs prev e == prepare_entry bound defs prev e)
+  = ()
 
 let check_entry_with_lookup (strict bound:bool) (defs:list D.definition) (contains:judgment -> bool)
                            (prev:index_tree checked_fact) (e:entry)
@@ -114,6 +123,30 @@ let check_entries (strict bound:bool) (defs:list D.definition) (assertions:list 
                   (acc:index_tree checked_fact) (next trusted:nat) (entries:list entry)
   : option (index_tree checked_fact & nat) =
   check_entries_with_lookup strict bound defs (linear_lookup assertions) acc next trusted entries
+
+type entry_checker =
+  strict:bool -> bound:bool -> defs:list D.definition -> contains:(judgment -> bool) ->
+  prev:index_tree checked_fact -> e:entry ->
+  Tot (result:option (checked_fact & nat){
+    result == check_entry_with_lookup strict bound defs contains prev e})
+
+let checker_using (transform:D.expander) : entry_checker =
+  fun strict bound defs contains prev e ->
+    lemma_prepare_entry_using transform bound defs prev e;
+    prepare_entry_using transform bound defs prev e >>= check_node_with_membership strict contains
+
+let rec check_entries_using (check:entry_checker) (strict bound:bool) (defs:list D.definition)
+                           (contains:judgment -> bool) (acc:index_tree checked_fact)
+                           (next trusted:nat) (entries:list entry)
+  : Tot (result:option (index_tree checked_fact & nat){
+      result == check_entries_with_lookup strict bound defs contains acc next trusted entries})
+        (decreases entries) =
+  match entries with
+  | [] -> Some (acc, trusted)
+  | e :: rest ->
+    check strict bound defs contains acc e >>= (fun nt ->
+    check_entries_using check strict bound defs contains (index_put acc next (fst nt))
+      (next + 1) (trusted + snd nt) rest)
 
 let lemma_check_entry_lookup (strict bound:bool) (defs:list D.definition)
                              (assertions:list judgment) (contains:judgment -> bool)
@@ -198,17 +231,26 @@ let rec logical_decls (decls:list func_decl) : Tot bool (decreases decls) =
   | [] -> true
   | d :: rest -> logical_decl d && logical_decls rest
 
-let prepare_document (doc:document) : option (bool & list D.definition & list judgment) =
+let prepare_document_using (transform:D.expander) (doc:document)
+  : option (bool & list D.definition & list judgment) =
   let bound = not (ground_exprs doc.expressions) in
   if not (logical_decls doc.declarations) ||
      (bound && not (well_formed_exprs doc.expressions)) ||
      not (ordinary_facts doc.assertions) ||
      (bound && not (scoped_assertions doc.assertions)) then None else
   collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
-  if not (D.acyclic (L.length defs) defs defs) then None else
-  (if defs = [] then Some doc.assertions else D.expand_args (L.length defs) defs doc.assertions) >>= (fun expanded ->
+  if not (D.acyclic_using transform (L.length defs) defs defs) then None else
+  (if defs = [] then Some doc.assertions
+   else D.expand_list_using transform (L.length defs) defs doc.assertions) >>= (fun expanded ->
   opt_map classify_fact expanded >>= (fun inputs ->
   Some (bound, defs, inputs))))
+
+let prepare_document (doc:document) : option (bool & list D.definition & list judgment) =
+  prepare_document_using D.linear_expander doc
+
+let lemma_prepare_document_using (transform:D.expander) (doc:document)
+  : Lemma (prepare_document_using transform doc == prepare_document doc)
+  = ()
 
 let finish_document (doc:document) (defs:list D.definition) (result:index_tree checked_fact & nat)
   : option nat =
@@ -225,8 +267,16 @@ let check_document_with_lookup (lookup:input_lookup) (doc:document) : option nat
 let check_document (doc:document) : option nat =
   check_document_with_lookup linear_lookup doc
 
+let check_document_using (transform:D.expander) (lookup:input_lookup) (doc:document)
+  : result:option nat{result == check_document_with_lookup lookup doc} =
+  lemma_prepare_document_using transform doc;
+  prepare_document_using transform doc >>= (fun (bound, defs, inputs) ->
+  check_entries_using (checker_using transform) true bound defs (lookup inputs)
+    Empty 0 0 doc.entries >>= finish_document doc defs)
+
 let check_document_indexed (hash:judgment -> nat) (doc:document) : option nat =
-  check_document_with_lookup (document_lookup hash doc) doc
+  check_document_using (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+    (document_lookup hash doc) doc
 
 let lemma_check_document_lookup (lookup:input_lookup) (doc:document)
   : Lemma (check_document_with_lookup lookup doc == check_document doc)
@@ -274,18 +324,18 @@ type entries_diagnostic =
                      obligations:list unmet_obligation -> entries_diagnostic
   | EntriesRejected : reason:document_diagnostic -> entries_diagnostic
 
-let rec diagnose_entries_with_lookup (bound:bool) (defs:list D.definition) (contains:judgment -> bool)
+let rec diagnose_entries_using (check:entry_checker) (bound:bool) (defs:list D.definition) (contains:judgment -> bool)
                          (cache:index_tree checked_fact) (next pending:nat)
                          (unmet:list unmet_obligation) (entries:list entry)
   : Tot entries_diagnostic (decreases entries) =
   match entries with
   | [] -> EntriesChecked cache pending (L.rev unmet)
   | e :: rest ->
-    match check_entry_with_lookup true bound defs contains cache e with
+    match check true bound defs contains cache e with
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula))
     | Some (fact, local) ->
       let cache' = index_put cache next fact in
-      if local = 0 then diagnose_entries_with_lookup bound defs contains cache' (next + 1) pending unmet rest
+      if local = 0 then diagnose_entries_using check bound defs contains cache' (next + 1) pending unmet rest
       else
         match opt_map (index_find cache) e.premise_ids with
         | None -> EntriesRejected (DocumentRejected MissingPremise (Some next) (Some e.formula))
@@ -296,15 +346,21 @@ let rec diagnose_entries_with_lookup (bound:bool) (defs:list D.definition) (cont
             obligation_premises = premise_judgments premises;
             obligation_source = e.formula; obligation_count = local;
           } in
-          diagnose_entries_with_lookup bound defs contains cache' (next + 1) (pending + local)
+          diagnose_entries_using check bound defs contains cache' (next + 1) (pending + local)
                            (obligation :: unmet) rest
+
+let diagnose_entries_with_lookup (bound:bool) (defs:list D.definition) (contains:judgment -> bool)
+                         (cache:index_tree checked_fact) (next pending:nat)
+                         (unmet:list unmet_obligation) (entries:list entry) : entries_diagnostic =
+  diagnose_entries_using (checker_using D.linear_expander) bound defs contains
+    cache next pending unmet entries
 
 let diagnose_entries (bound:bool) (defs:list D.definition) (inputs:list judgment)
                      (cache:index_tree checked_fact) (next pending:nat)
                      (unmet:list unmet_obligation) (entries:list entry) : entries_diagnostic =
   diagnose_entries_with_lookup bound defs (linear_lookup inputs) cache next pending unmet entries
 
-let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : document_diagnostic =
+let diagnose_document_using (transform:D.expander) (lookup:input_lookup) (doc:document) : document_diagnostic =
   let bound = not (ground_exprs doc.expressions) in
   let reject stage = DocumentRejected stage None None in
   if not (logical_decls doc.declarations) then reject LogicalDeclarations
@@ -315,16 +371,17 @@ let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : documen
     match collect_definitions [] (axiom_branches doc.entries) doc.entries with
     | None -> reject DefinitionCollection
     | Some defs ->
-      if not (D.acyclic (L.length defs) defs defs) then reject DefinitionCycle
+      if not (D.acyclic_using transform (L.length defs) defs defs) then reject DefinitionCycle
       else
         match (if defs = [] then Some doc.assertions
-               else D.expand_args (L.length defs) defs doc.assertions) with
+               else D.expand_list_using transform (L.length defs) defs doc.assertions) with
         | None -> reject DefinitionExpansion
         | Some expanded ->
           match opt_map classify_fact expanded with
           | None -> reject InputClassification
           | Some inputs ->
-            match diagnose_entries_with_lookup bound defs (lookup inputs) Empty 0 0 [] doc.entries with
+            match diagnose_entries_using (checker_using transform) bound defs (lookup inputs)
+                    Empty 0 0 [] doc.entries with
             | EntriesRejected reason -> reason
             | EntriesChecked cache pending unmet ->
               match index_find cache doc.root with
@@ -334,8 +391,12 @@ let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : documen
                 else if not (D.check_fresh_inputs defs doc.assertions) then reject DefinitionFreshness
                 else DocumentChecked pending unmet
 
+let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : document_diagnostic =
+  diagnose_document_using D.linear_expander lookup doc
+
 let diagnose_document (doc:document) : document_diagnostic =
   diagnose_document_with_lookup linear_lookup doc
 
 let diagnose_document_indexed (hash:judgment -> nat) (doc:document) : document_diagnostic =
-  diagnose_document_with_lookup (document_lookup hash doc) doc
+  diagnose_document_using (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+    (document_lookup hash doc) doc
