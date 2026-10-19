@@ -792,7 +792,9 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
     def test_th_lemmas_with_premises_are_implications_applied_to_their_steps(self):
         certificate = self.certificate
         self.assertEqual(certificate["fragment"], "qf_lra")
-        conflicts = [node for node in _th_lemma_nodes(certificate) if certificate["nodes"][node]["arguments"][:-1]]
+        conflicts = [node for node in _th_lemma_nodes(certificate)
+                     if _th_lemma_parameters(certificate, node)[0] == "farkas"
+                     and certificate["nodes"][node]["arguments"][:-1]]
         self.assertTrue(conflicts)
         for node in conflicts:
             premises = certificate["nodes"][node]["arguments"][:-1]
@@ -815,7 +817,9 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
         self.assertNotIn("axiom ", self.text)
 
     def test_tampered_legacy_coefficients_are_rejected_before_lean(self):
-        node = next(n for n in _th_lemma_nodes(self.certificate) if self.certificate["nodes"][n]["arguments"][:-1])
+        node = next(n for n in _th_lemma_nodes(self.certificate)
+                    if _th_lemma_parameters(self.certificate, n)[0] == "farkas"
+                    and self.certificate["nodes"][n]["arguments"][:-1])
         declaration = self.certificate["nodes"][node]["declaration"]
         parameters = _th_lemma_parameters(self.certificate, node)
         for mutate, message in [
@@ -893,7 +897,7 @@ class TestLegacyArithmeticValidation(unittest.TestCase):
                     certificate = proof_certificate.export_certificate(source)
                     for node in _th_lemma_nodes(certificate):
                         parameters = _th_lemma_parameters(certificate, node)
-                        self.assertIn(parameters[0], ("farkas", "bound", "triangle-eq"))
+                        self.assertIn(parameters[0], ("farkas", "bound", "triangle-eq", "smt", "implied-eq"))
                         if parameters[0] == "bound":
                             self.assertEqual(parameters[-1], "1")
                     proof_to_lean.reconstruct(source, certificate)
@@ -969,6 +973,22 @@ class TestLegacyArithmeticLeanIntegration(unittest.TestCase):
 
     check = TestArithmeticLeanIntegration.check
     check_random_unsat_instances = TestArithmeticLeanIntegration.check_random_unsat_instances
+
+    def test_lp_input_without_its_logical_premise_never_publishes_a_proof(self):
+        source = Z3TEST_LRA_INPUTS["lra_farkas"]
+        certificate = proof_certificate.export_certificate(source)
+        node = next(node for node in _th_lemma_nodes(certificate)
+                    if _th_lemma_parameters(certificate, node) == ["smt"]
+                    and len(certificate["nodes"][node]["arguments"]) == 2)
+        raw = certificate["nodes"][node]
+        raw["arguments"] = raw["arguments"][-1:]
+        certificate["declarations"][raw["declaration"]]["domain"] = ["Bool"]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            with self.assertRaises(subprocess.CalledProcessError) as error:
+                proof_to_lean.check_and_write(source, certificate, output)
+            self.assertIn("`grind` failed", error.exception.stdout)
+            self.assertFalse(output.exists())
 
     def test_documented_lra_inputs_verify_through_the_legacy_core(self):
         # Real ite terms included: the smt core reached directly keeps them

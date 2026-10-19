@@ -865,11 +865,10 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                 hints |= _hints(certificate)
                 parameters = [_parameters(certificate, node) for node in _th_lemma_nodes(certificate)]
                 if name == "lia_gomory":
-                    # The lattice conflict: theory_lra labels it farkas with
-                    # coefficients that do not refute the premises rationally,
-                    # so the exporter keeps none and Lean proves it alone.
-                    self.assertEqual(parameters, [["farkas"]] * len(parameters))
-                    self.assertTrue(parameters)
+                    # Integer rounding is proved separately from the final
+                    # linear combination of the rounded bounds.
+                    self.assertIn(["arith"], parameters)
+                    self.assertTrue(any(p[0] == "farkas" and len(p) > 1 for p in parameters), parameters)
                 if name == "lia_equality_elimination":
                     # A cut: a bare arith step deriving its bound from the premises it lists.
                     self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
@@ -880,7 +879,7 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                     self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
         # The legacy core's hints: no cut or euf (its congruences are
         # monotonicity steps), plus the bare arith of its axioms and cuts.
-        self.assertEqual(hints, {"farkas", "bound", "triangle-eq", "arith"})
+        self.assertEqual(hints, {"farkas", "bound", "triangle-eq", "arith", "smt"})
 
     def test_pinned_division_instances_verify_through_the_legacy_core(self):
         for seed in LEGACY_DIVISION_SEEDS:
@@ -904,19 +903,17 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                                     "the dead branch dividing by zero is no longer in the proof")
 
     def test_false_legacy_lemmas_without_coefficients_are_rejected_by_lean(self):
-        # The coefficient-free farkas of the lattice conflict, cut down to two
-        # of its four premises (x + y <= 1 and x + y >= 1 are satisfiable):
-        # the shape check passes, Lean fails, no proof is published.
+        # Keep one satisfiable bound premise and drop the final conflict's
+        # coefficients: the shape check passes, but Lean must reject it.
         source = LIA_INPUTS["lia_gomory"]
         certificate = proof_certificate.export_certificate(source)
-        node = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n) == ["farkas"])
+        node = next(n for n in _th_lemma_nodes(certificate) if _parameters(certificate, n)[0] == "farkas")
         arguments = certificate["nodes"][node]["arguments"]
-        self.assertEqual(len(arguments), 5)
         certificate["declarations"].append({"kind": z3.Z3_OP_PR_TH_LEMMA, "name": "th-lemma",
-                                            "domain": ["Proof", "Proof", "Bool"], "range": "Proof",
+                                            "domain": ["Proof", "Bool"], "range": "Proof",
                                             "parameters": ["farkas"]})
         certificate["nodes"][node] = {"declaration": len(certificate["declarations"]) - 1,
-                                      "arguments": arguments[:2] + arguments[-1:]}
+                                      "arguments": arguments[:1] + arguments[-1:]}
         graph = proof_to_lean._validate_graph(source, certificate)
         proof_to_lean._check_th_lemma(graph, node)
         with tempfile.TemporaryDirectory() as directory:

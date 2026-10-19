@@ -1,5 +1,20 @@
 # Pulse-verified proof checker
 
+**Tooling update:** the in-memory Pulse checkers and their formal tests
+remain, but the Python exporter, generated proof snapshots, and JSON
+compatibility layer described in historical sections have been removed.
+See [the native checker report](OCAML_CHECKER_REPORT.md) for the current
+single-executable SMT-LIB interface.
+
+**Current harness:** from this directory in a Windows C++20 developer
+PowerShell, run `.\tools\build_ocaml_checker.ps1 -RunTests`. It builds and
+installs current Z3 first, then explicitly selects
+`build\install\bin\z3.exe` for the F* and Pulse checks, with the installed
+solver's detected `--z3version`. The test pass verifies the in-memory
+equality, justification, and Farkas Pulse checkers and their regression
+modules, as well as the native checker tests. Historical commands below
+that mention Z3 4.13.3 do not describe this current build/test path.
+
 ## Goal
 
 Everything in this directory up to this point formalizes proof-term

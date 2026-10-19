@@ -78,6 +78,7 @@ add_executable(test-z3
   interval.cpp
   karr.cpp
   lcube.cpp
+  lp_evidence.cpp
   len_abs.cpp
   list.cpp
   main.cpp
@@ -136,6 +137,7 @@ add_executable(test-z3
   region.cpp
   regex_range_collapse.cpp
   sat_local_search.cpp
+  sat_config.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
   scoped_timer.cpp

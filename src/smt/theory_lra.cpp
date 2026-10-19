@@ -33,6 +33,9 @@
 #include "util/scoped_timer.h"
 #include "util/nat_set.h"
 #include "ast/ast_pp.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/lp_proof.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
@@ -217,6 +220,7 @@ class theory_lra::imp {
     resource_limit               m_resource_limit;
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
+    symbol                       m_bound;
     vector<parameter>            m_bound_params;
     vector<parameter>            m_implied_eq_params;
     std_vector<lp::implied_bound>   m_implied_bounds;
@@ -322,7 +326,7 @@ class theory_lra::imp {
         }
         if (e) {
             literal lit = th.mk_eq(e, n, false);
-            ctx().mark_as_relevant(lit);
+            ctx().add_relevancy_dependency(n, ctx().bool_var2expr(lit.var()));
             ctx().assign(lit, nullptr);
         }
 
@@ -946,11 +950,13 @@ public:
         m_solver(nullptr),
         m_resource_limit(*this),
         m_farkas("farkas"),
+        m_bound("bound"),
         m_bp(*this, m_implied_bounds),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),
-        m_bound_predicate(m)
+        m_bound_predicate(m),
+        m_lp_proof(m)
     {
         m_bound_params.push_back(parameter(m_farkas));
         m_bound_params.push_back(parameter(rational(1)));
@@ -970,7 +976,7 @@ public:
         if (m_solver) return;
 
         m_model_is_initialized = false;
-        m_solver = alloc(lp::lar_solver); 
+        m_solver = alloc(lp::lar_solver, proofs_enabled());
         // initialize 0, 1 variables:
         get_one(true);
         get_one(false);
@@ -2234,7 +2240,7 @@ public:
             auto lit = mk_literal(ineq);
             core.push_back(~lit);
         }
-        set_conflict_or_lemma(core, false);
+        set_conflict_or_lemma(core, false, &l);
     }
 
     void assume_literal(nla::ineq const& i) {
@@ -2592,8 +2598,8 @@ public:
                 first = false;
                 reset_evidence();
                 m_explanation.clear();
-                lp().explain_implied_bound(be, m_bp);
-                set_proof_params("bound", true);
+                m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
+                set_proof_params(m_bound, true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
@@ -2653,8 +2659,8 @@ public:
         ++m_stats.m_bound_propagations1;
         reset_evidence();
         m_explanation.clear();
-        lp().explain_implied_bound(be, m_bp);
-        set_proof_params("bound", true);
+        m_explanation.set_evidence(lp().explain_implied_bound(be, m_bp));
+        set_proof_params(m_bound, true);
         ctx().mark_as_relevant(bound);
         assign(bound, m_core, m_eqs, m_params);              
     }
@@ -3761,26 +3767,89 @@ public:
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
+    proof_ref          m_lp_proof;
 
     void reset_evidence() {
         m_core.reset();
         m_eqs.reset();
         m_params.reset();
+        m_lp_proof = nullptr;
     }
 
-    // Record the Farkas coefficients of m_explanation as th-lemma parameters
-    // for the proof object: the hint name, one coefficient per literal of
+    proof_ref mk_lp_proof(lp::evidence_manager::proof_expression const& evidence) {
+        expr_ref_vector variables(m);
+        variables.resize(evidence.variables.size());
+        auto const& deps = lp().dep_manager();
+        for (unsigned j = 0; j < deps.num_current_variables(); ++j) {
+            unsigned v = lp().local_to_external(j);
+            if (v != lp::null_lpvar && v < th.get_num_vars())
+                variables[deps.variable_id(j)] = get_expr(v);
+        }
+        for (unsigned i = 0; i < evidence.variables.size(); ++i) {
+            auto const& v = evidence.variables[i];
+            if (variables.get(i))
+                continue;
+            if (v.definition.empty()) {
+                variables[i] = m.mk_fresh_const("lp", v.is_int ? a.mk_int() : a.mk_real());
+                continue;
+            }
+            expr_ref_vector terms(m);
+            for (auto const& [c, j] : v.definition) {
+                if (j >= i)
+                    return proof_ref(m);
+                expr_ref t(variables.get(j), m);
+                if (!v.is_int && a.is_int(t))
+                    t = a.mk_to_real(t);
+                terms.push_back(a.mk_mul(a.mk_numeral(c, v.is_int), t));
+            }
+            variables[i] = a.mk_add(terms);
+        }
+        proof_ref_vector premises(m), inputs(m);
+        for (auto lit : m_core) {
+            expr_ref fact(m);
+            ctx().literal2expr(lit, fact);
+            premises.push_back(m.mk_hypothesis(fact));
+        }
+        for (auto const& [n1, n2] : m_eqs)
+            premises.push_back(m.mk_hypothesis(m.mk_eq(n1->get_expr(), n2->get_expr())));
+        if (!lp::bind_evidence_inputs(m, evidence, variables, premises, inputs))
+            return proof_ref(m);
+        proof_ref result = lp::mk_evidence_proof(m, evidence, variables, inputs);
+        if (result && !m.is_false(m.get_fact(result)))
+            result = nullptr;
+        return result;
+    }
+
+    // Export the LP derivation when possible. Otherwise record the Farkas
+    // coefficients of m_explanation as th-lemma parameters:
+    // the hint name, one coefficient per literal of
     // m_core, one per equality of m_eqs (the order in which the justification
     // lists its premises), and 1 for a propagated consequent. Call it after
     // set_evidence has filled m_core and m_eqs from exactly this explanation
     // (set_evidence skips the same constraint indices). Without coefficients
     // a proof consumer cannot replay the step.
-    void set_proof_params(char const* hint, bool with_consequent) {
+    void set_proof_params(symbol const& hint, bool with_consequent) {
         m_params.reset();
         if (!proofs_enabled())
             return;
+        if (hint == m_farkas) {
+            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
+            lp::evidence_manager::proof_expression proof;
+            lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            if (proof.check()) {
+                m_lp_proof = mk_lp_proof(proof);
+                if (m_lp_proof)
+                    return;
+            }
+            if (!m_explanation.evidence() ||
+                !lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
+                !proof.check()) {
+                m_params.push_back(parameter(symbol("unsupported")));
+                return;
+            }
+        }
         vector<parameter> eq_params;
-        m_params.push_back(parameter(symbol(hint)));
+        m_params.push_back(parameter(hint));
         for (auto ev : m_explanation) {
             if (ev.ci() == UINT_MAX)
                 continue;
@@ -3789,7 +3858,7 @@ public:
                 m_params.push_back(parameter(abs(ev.coeff())));
                 break;
             case equality_source:
-                eq_params.push_back(parameter(abs(ev.coeff())));
+                eq_params.push_back(parameter(ev.coeff()));
                 break;
             default:
                 break;
@@ -3799,6 +3868,44 @@ public:
         if (with_consequent)
             m_params.push_back(parameter(rational(1)));
         SASSERT(m_params.size() == 1 + m_core.size() + m_eqs.size() + (with_consequent ? 1 : 0));
+        if (hint == m_farkas && !check_farkas_conflict()) {
+            m_params.reset();
+            m_params.push_back(parameter(symbol("unsupported")));
+        }
+    }
+
+    bool check_farkas_conflict() {
+        proof_checker checker(m);
+        expr_ref sum(m), fact(m);
+        bool strict = false;
+        rational scale(1);
+        for (unsigned i = 1; i < m_params.size(); ++i)
+            scale = lcm(scale, denominator(m_params[i].get_rational()));
+        unsigned index = 1;
+        for (auto lit : m_core) {
+            rational coefficient = scale * m_params[index++].get_rational();
+            if (coefficient.is_zero())
+                continue;
+            ctx().literal2expr(lit, fact);
+            if (!is_app(fact) ||
+                !checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
+                return false;
+        }
+        for (auto const& [n1, n2] : m_eqs) {
+            rational coefficient = scale * m_params[index++].get_rational();
+            if (coefficient.is_zero())
+                continue;
+            fact = m.mk_eq(n1->get_expr(), n2->get_expr());
+            if (!checker.check_arith_literal(true, to_app(fact), coefficient, sum, strict))
+                return false;
+        }
+        if (!sum)
+            return false;
+        expr_ref zero(a.mk_numeral(rational(0), sum->get_sort()), m);
+        fact = strict ? a.mk_lt(sum, zero) : a.mk_le(sum, zero);
+        th_rewriter rw(m);
+        rw(fact);
+        return m.is_false(fact);
     }
 
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
@@ -3851,7 +3958,7 @@ public:
         set_conflict_or_lemma(core, true);
     }
 
-    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
+    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict, nla::lemma const* lemma = nullptr) {
         reset_evidence();
         for (literal lit : core) {
             m_core.push_back(lit);
@@ -3862,7 +3969,23 @@ public:
         for (auto ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
         if (is_conflict && core.empty())
-            set_proof_params("farkas", false);
+            set_proof_params(m_farkas, false);
+        if (proofs_enabled() && lemma) {
+            if (lemma->nlsat_assumed()) {
+                m_params.push_back(parameter(symbol("assumed")));
+                m_params.push_back(parameter(symbol("nlsat")));
+            }
+            else if (lemma->certificate()) {
+                m_params.push_back(parameter(symbol("nla")));
+                std::ostringstream certificate;
+                lemma->certificate()->display(certificate);
+                m_params.push_back(parameter(symbol(certificate.str())));
+            }
+            else {
+                m_params.push_back(parameter(symbol("unsupported")));
+                m_params.push_back(parameter(symbol("nla")));
+            }
+        }
         TRACE(arith_conflict,
               tout << "@" << ctx().get_scope_level() << (is_conflict ? " conflict":" lemma");
               for (auto const& p : m_params) tout << " " << p;
@@ -3880,7 +4003,7 @@ public:
                     ext_theory_conflict_justification(
                         get_id(), ctx(),  
                         m_core.size(), m_core.data(), 
-                        m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data())));
+                        m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data(), m_lp_proof)));
         }
         else {
             for (auto const& [n1, n2] : m_eqs) {
@@ -3893,7 +4016,7 @@ public:
                     return;
             }
             TRACE(arith, ctx().display_literals_verbose(tout, m_core) << "\n";);
-            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
+            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data(), m_params.size(), m_params.data());
         }
     }
 
@@ -4889,5 +5012,5 @@ lbool theory_lra::check_lp_feasible(vector<std::pair<bool, expr_ref>>& ineqs, li
 template  class lp::lp_bound_propagator<smt::theory_lra::imp>;
 template void lp::lar_solver::propagate_bounds_for_touched_rows<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
 template void lp::lar_solver::check_missed_propagations<smt::theory_lra::imp>(lp::lp_bound_propagator<smt::theory_lra::imp>&);
-template void lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(const lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
+template u_dependency* lp::lar_solver::explain_implied_bound<smt::theory_lra::imp>(const lp::implied_bound&, lp::lp_bound_propagator<smt::theory_lra::imp>&);
 template unsigned lp::lar_solver::calculate_implied_bounds_for_row<smt::theory_lra::imp>(unsigned, lp::lp_bound_propagator<smt::theory_lra::imp>&);

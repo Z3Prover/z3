@@ -140,6 +140,111 @@ and lemma_fresh_args_expansion (fuel:nat) (defs:list definition) (args:list expr
     lemma_fresh_expansion fuel defs a;
     lemma_fresh_args_expansion fuel defs rest
 
+type expansion_value (fuel:nat) (defs:list definition) (source:expr) =
+  result:(option expr & bool){
+    fst result == expand fuel defs source /\
+    (snd result ==> fst result == Some source)}
+
+noeq
+type expansion_entry (defs:list definition) = {
+  expansion_fuel: nat;
+  expansion_source: expr;
+  expansion_value: expansion_value expansion_fuel defs expansion_source;
+}
+
+type expansion_cache (defs:list definition) =
+  Z3ProofIndex.index_tree (list (expansion_entry defs))
+
+let rec find_expansion (#defs:list definition) (fuel:nat) (e:expr)
+                       (bucket:list (expansion_entry defs))
+  : Tot (option (expansion_value fuel defs e))
+        (decreases bucket) =
+  match bucket with
+  | [] -> None
+  | entry :: rest ->
+    if entry.expansion_fuel = fuel && entry.expansion_source = e
+    then Some entry.expansion_value
+    else find_expansion fuel e rest
+
+let rec expand_cached (hash:(nat & expr) -> nat) (fuel:nat) (defs:list definition)
+                      (e:expr) (cache:expansion_cache defs)
+  : Tot (expansion_value fuel defs e & expansion_cache defs)
+        (decreases %[fuel; e]) =
+  let key = hash (fuel, e) % 65521 in
+  let bucket = match Z3ProofIndex.index_get cache key with Some xs -> xs | None -> [] in
+  match find_expansion fuel e bucket with
+  | Some value -> value, cache
+  | None ->
+    let value, cache =
+      if defs = [] then (Some e, true), cache
+      else match e with
+      | Var _ _ -> (Some e, true), cache
+      | Quantifier k bs s b ->
+        let (body, unchanged), cache = expand_cached hash fuel defs b cache in
+        (match body with
+         | Some b' -> (Some (if unchanged then e else Quantifier k bs s b'), unchanged), cache
+         | None -> (None, false), cache)
+      | App f args ->
+        let (expanded, unchanged), cache = expand_args_cached hash fuel defs args cache in
+        (match expanded with
+         | None -> (None, false), cache
+         | Some args' ->
+           (match lookup defs f with
+            | None -> (Some (if unchanged then e else App f args'), unchanged), cache
+            | Some d ->
+              if fuel = 0 then (None, false), cache
+              else match instantiate 0 d.variables args' d.body with
+                   | Some b ->
+                     let (body, _), cache = expand_cached hash (fuel - 1) defs b cache in
+                     (body, false), cache
+                   | None -> (None, false), cache))
+    in
+    let entry = {
+      expansion_fuel = fuel; expansion_source = e; expansion_value = value;
+    } in
+    let bucket = match Z3ProofIndex.index_get cache key with Some xs -> xs | None -> [] in
+    value, Z3ProofIndex.index_put cache key (entry :: bucket)
+
+and expand_args_cached (hash:(nat & expr) -> nat) (fuel:nat) (defs:list definition)
+                       (args:list expr) (cache:expansion_cache defs)
+  : Tot (result:((option (list expr) & bool) & expansion_cache defs){
+      fst (fst result) == expand_args fuel defs args /\
+      (snd (fst result) ==> fst (fst result) == Some args)})
+        (decreases %[fuel; args]) =
+  match args with
+  | [] -> (Some [], true), cache
+  | a :: rest ->
+    let (value, unchanged), cache = expand_cached hash fuel defs a cache in
+    let (values, rest_unchanged), cache = expand_args_cached hash fuel defs rest cache in
+    (match value, values with
+     | Some a', Some rest' ->
+       let unchanged = unchanged && rest_unchanged in
+       (Some (if unchanged then args else a' :: rest'), unchanged), cache
+     | _, _ -> (None, false), cache)
+
+let memoized_expand (hash:(nat & expr) -> nat) (fuel:nat) (defs:list definition) (e:expr)
+  : result:option expr{result == expand fuel defs e} =
+  fst (fst (expand_cached hash fuel defs e Z3ProofIndex.Empty))
+
+type expander =
+  fuel:nat -> defs:list definition -> e:expr ->
+  Tot (result:option expr{result == expand fuel defs e})
+
+let linear_expander : expander = fun fuel defs e -> expand fuel defs e
+
+let memoized_expander (hash:(nat & expr) -> nat) : expander =
+  fun fuel defs e -> memoized_expand hash fuel defs e
+
+let rec expand_list_using (transform:expander) (fuel:nat) (defs:list definition) (args:list expr)
+  : Tot (result:option (list expr){result == expand_args fuel defs args})
+        (decreases args) =
+  match args with
+  | [] -> Some []
+  | a :: rest ->
+    (match transform fuel defs a, expand_list_using transform fuel defs rest with
+     | Some a', Some rest' -> Some (a' :: rest')
+     | _, _ -> None)
+
 let check_fresh_inputs (defs:list definition) (assertions:list expr)
   : b:bool{b ==> fresh_args defs assertions /\
                  expand_args (L.length defs) defs assertions == Some assertions} =
@@ -252,6 +357,13 @@ let rec acyclic (fuel:nat) (all defs:list definition) : Tot bool (decreases defs
   match defs with
   | [] -> true
   | d :: rest -> Some? (expand fuel all d.body) && acyclic fuel all rest
+
+let rec acyclic_using (transform:expander) (fuel:nat) (all defs:list definition)
+  : Tot (result:bool{result == acyclic fuel all defs}) (decreases defs) =
+  match defs with
+  | [] -> true
+  | d :: rest ->
+    Some? (transform fuel all d.body) && acyclic_using transform fuel all rest
 
 let branch_equation (c a b:expr) (positive:bool) : bool =
   match A.ite_parts a with

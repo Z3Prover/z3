@@ -400,8 +400,8 @@ the injected Boolean arguments (see "Uninterpreted functions in Lean").
 Linear real arithmetic through the legacy proof object
 ------------------------------------------------------
 
-theory_lra records the evidence of each LP conflict and bound propagation as
-th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
+In the flat arithmetic proof format, theory_lra records each LP conflict and
+bound propagation as th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
 (_ th-lemma arith bound c1 ... cn 1) for a propagated bound literal, and
 (_ th-lemma arith implied-eq) for a propagated equality (the coefficients are
 the Farkas multipliers of the LP explanation, one per premise in the order
@@ -442,6 +442,20 @@ Z3's rewriter also cancels the common factor of (div (* 2 x) (- 2)) through
 (ite (= 0 (- 2)) (div (* 2 x) 0) (div (* x 1) (- 1))), whose dead branch
 divides by zero: such a term may appear in a proof step but never in the
 assertions (see "Arithmetic in Lean").
+
+The current LP proof format also carries a shared lp-context, which concludes
+true and stores the indexed arithmetic certificate in declaration parameters.
+The exporter removes this nonlogical context dependency, not the logical
+premises of the inference. It translates lp-linear's local coefficients
+(after the step index) to farkas, bound, or implied-eq as appropriate.
+lp-input bridges from the supplied input proof to the normalized arithmetic
+fact, and lp-discharge bridges from a native lemma that discharges its
+temporary hypothesis; both become smt implications proved independently by
+Lean, as do premise-free equality identities. Context metadata is not trusted
+or interpreted as an assumption.
+In Int certificates, lp-integer-tighten, lp-integer-lattice, and lp-gomory
+become coefficient-free arith implications or farkas refutations, checked
+by Lean alone. Nonlinear and unknown lp- rules remain unsupported.
 
 The reconstructor re-derives every farkas and bound combination from the
 premises and the clause with exact rationals before Lean runs, checks the

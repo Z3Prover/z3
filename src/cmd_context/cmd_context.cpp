@@ -1973,9 +1973,40 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         validate_model();
     }
     validate_check_sat_result(r);
+    check_proof(num_assumptions, assumptions);
     model_ref md;
     if (r == l_true && m_params.m_dump_models && is_model_available(md)) {
         display_model(md);
+    }
+}
+
+void cmd_context::check_proof(unsigned num_assumptions, expr* const* assumptions) {
+    if (!m_proof_check_callback || cs_state() != css_unsat)
+        return;
+    if (!produce_proofs())
+        throw cmd_exception("proof checking callback requires (set-option :produce-proofs true)");
+    proof_ref pr(m_check_sat_result->get_proof(), m());
+    if (!pr)
+        throw cmd_exception("proof is not available for the proof checking callback");
+
+    expr_ref_vector inputs(m());
+    for (auto [assertion, name] : tracked_assertions()) {
+        if (name) {
+            inputs.push_back(m().mk_implies(name, assertion));
+            inputs.push_back(name);
+        }
+        else {
+            inputs.push_back(assertion);
+        }
+    }
+    inputs.append(num_assumptions, assumptions);
+    auto callback = m_proof_check_callback;
+    auto report = callback(pr, inputs);
+    if (!report.empty()) {
+        diagnostic_stream() << report;
+        if (report.back() != '\n')
+            diagnostic_stream() << '\n';
+        diagnostic_stream().flush();
     }
 }
 

@@ -578,7 +578,7 @@ def parse_assertions(source, context, integer=False, query=None):
     return assertions, fragment
 
 
-def _th_lemma_parameters(decl, premises, integer=False):
+def _th_lemma_parameters(decl, premises, conclusion=None, integer=False):
     """Return the certificate parameters of a native th-lemma declaration applied to premises.
 
     The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
@@ -593,11 +593,39 @@ def _th_lemma_parameters(decl, premises, integer=False):
     without premises) or a cut (the bound literal a Gomory or Hermite cut
     derives from the premises it lists), both shape-checked by the
     reconstructor and proved by Lean alone like the clause log's arith and
-    cut hints.
+    cut hints. Indexed LP steps use their local weights; input and discharge
+    bridges and integer rounding steps are re-proved by Lean.
     """
     parameters = decl.params()
     if integer and len(parameters) == 1 and parameters[0] == "arith":
         return ["arith"]
+    if (len(parameters) >= 2 and parameters[0] == "arith"
+            and isinstance(parameters[1], str) and parameters[1].startswith("lp-")):
+        rule = parameters[1]
+        integer_rule = integer and rule in ("lp-integer-tighten", "lp-integer-lattice", "lp-gomory")
+        if rule not in ("lp-input", "lp-linear", "lp-discharge") and not integer_rule:
+            raise ProofExportError("th-lemma without a replayable theory hint: %s" % rule)
+        try:
+            index = Fraction(str(parameters[2]))
+            if index.denominator != 1 or not 0 <= index < 2**32 - 1:
+                raise ValueError()
+        except (IndexError, ValueError, ZeroDivisionError):
+            raise ProofExportError("invalid LP step index") from None
+        if integer_rule:
+            if len(parameters) != 3 or conclusion is None:
+                raise ProofExportError("invalid %s inference" % rule)
+            return ["farkas" if z3.is_false(conclusion) else "arith"]
+        if rule != "lp-linear":
+            if len(parameters) != 3 or (premises not in (0, 1) if rule == "lp-input" else premises != 1):
+                raise ProofExportError("invalid %s inference" % rule)
+            return ["smt"]
+        if conclusion is None:
+            raise ProofExportError("missing LP linear conclusion")
+        if len(parameters) != 3 + premises + (not z3.is_false(conclusion)):
+            raise ProofExportError("invalid LP linear coefficient count")
+        hint = ("farkas" if z3.is_false(conclusion) else
+                "implied-eq" if z3.is_eq(conclusion) else "bound")
+        parameters = ["arith", hint] + parameters[3:]
     if len(parameters) < 2 or parameters[0] != "arith" or parameters[1] not in _LEGACY_HINTS:
         raise ProofExportError("th-lemma without a replayable theory hint: %s" % " ".join(
             str(parameter) for parameter in parameters))
@@ -615,6 +643,8 @@ def _th_lemma_parameters(decl, premises, integer=False):
         coefficients = coefficients + [Fraction(1)] if premises else [Fraction(1)] + coefficients
     if hint == "implied-eq":
         coefficients = []  # never summed; the reconstructor checks shapes and Lean proves the equality
+        if not premises and conclusion is not None and z3.is_eq(conclusion):
+            hint = "smt"
     return [hint] + [str(coefficient) for coefficient in coefficients]
 
 
@@ -631,8 +661,8 @@ def _integer_coefficients_certify(step, hint, coefficients):
     coefficients, so that the reconstructor rejects it with its own message.
     """
     import proof_clause_log
-    premises = [step.arg(index) for index in range(step.num_args() - 1)]
-    conclusion = step.arg(step.num_args() - 1)
+    arguments = _proof_arguments(step)
+    premises, conclusion = arguments[:-1], arguments[-1]
     literals = ([] if z3.is_false(conclusion) else list(conclusion.children()) if z3.is_or(conclusion)
                 else [conclusion])
     if len(coefficients) != len(premises) + len(literals):
@@ -646,6 +676,25 @@ def _integer_coefficients_certify(step, hint, coefficients):
     except (ProofExportError, proof_clause_log.ProofExportError, z3.Z3Exception):
         return True
     return linear_combination_refutes(constraints) or (hint == "bound" and bound_combination_refutes(constraints))
+
+
+def _proof_arguments(expr):
+    """Remove the nonlogical LP context; Lean re-proves every remaining inference."""
+    arguments = expr.children()
+    if expr.decl().kind() != z3.Z3_OP_PR_TH_LEMMA:
+        return arguments
+    parameters = expr.decl().params()
+    if (len(parameters) < 2 or parameters[0] != "arith"
+            or not isinstance(parameters[1], str) or not parameters[1].startswith("lp-")):
+        return arguments
+    if len(arguments) < 2:
+        raise ProofExportError("missing LP context")
+    context = arguments[0]
+    if (context.decl().kind() != z3.Z3_OP_PR_TH_LEMMA
+            or context.decl().params()[:2] != ["arith", "lp-context"]
+            or context.num_args() != 1 or not z3.is_true(context.arg(0))):
+        raise ProofExportError("invalid LP context")
+    return arguments[1:]
 
 
 def _encode_proof(assertions, proof, integer=False):
@@ -675,16 +724,17 @@ def _encode_proof(assertions, proof, integer=False):
             continue
         if not z3.is_app(expr):
             raise ProofExportError("non-application terms in native proofs are not supported")
+        arguments = _proof_arguments(expr)
         if not expanded:
             pending.append((expr, True))
-            pending.extend((child, False) for child in reversed(expr.children()))
+            pending.extend((child, False) for child in reversed(arguments))
             continue
         decl = expr.decl()
         name, parameters = str(decl.name()), []
         if decl.kind() == z3.Z3_OP_ANUM:
             name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
         elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
-            parameters = _th_lemma_parameters(decl, expr.num_args() - 1, integer)
+            parameters = _th_lemma_parameters(decl, len(arguments) - 1, arguments[-1], integer=integer)
             if integer and parameters[0] in ("farkas", "bound") and len(parameters) > 1 and \
                     not _integer_coefficients_certify(expr, parameters[0], [Fraction(c) for c in parameters[1:]]):
                 parameters = parameters[:1]  # One declaration per step shape: Lean alone proves this one.
@@ -696,14 +746,15 @@ def _encode_proof(assertions, proof, integer=False):
             declarations.append({
                 "kind": decl.kind(),
                 "name": name,
-                "domain": [sort_name(decl.domain(i)) for i in range(decl.arity())],
+                "domain": [sort_name(decl.domain(i))
+                           for i in range(expr.num_args() - len(arguments), decl.arity())],
                 "range": sort_name(decl.range()),
                 "parameters": parameters,
             })
         node_ids[expr.get_id()] = len(nodes)
         nodes.append({
             "declaration": declaration_ids[key],
-            "arguments": [node_ids[child.get_id()] for child in expr.children()],
+            "arguments": [node_ids[child.get_id()] for child in arguments],
         })
         if expr.sort().eq(proof_sort):
             rule_counts[str(decl.name())] += 1

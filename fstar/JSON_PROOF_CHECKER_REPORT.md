@@ -1,5 +1,10 @@
 # JSON-based Pulse proof checker interface
 
+**Archived:** the Python exporter and JSON parser/decoder modules described
+here have been removed. The checker now reads SMT-LIB and marshals native
+Z3 ASTs directly; see [the current executable report](OCAML_CHECKER_REPORT.md).
+The measurements and commands below document the historical implementation.
+
 ## Motivation
 
 `tools/extract_z3_proof.py` originally converted a real Z3 proof object into

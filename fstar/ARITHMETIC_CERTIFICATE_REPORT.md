@@ -1,5 +1,57 @@
 # Checked arithmetic certificates: 2026-10-15
 
+This report preserves the arithmetic-integration evaluation. The subsequent
+[SMT-LIB cross-cut](SMTLIB_CROSSCUT_REPORT.md) records both the native-only
+baseline and the later coverage extensions on the same 900 inputs. The
+native-only baseline retains the arithmetic rules evaluated here; the
+later extension adds checked comparison/integer rewrites and typed
+observational equality, but no new arithmetic producer evidence.
+
+## Native proof-regression extension: 2026-10-17
+
+The following is a later, separate extension, not a reevaluation of the
+historical 900-input sample below. Workflow run `39021665839` tested all
+17 SMT-LIB inputs at z3test commit
+`b8d11d8edb5ebf7d8693fc58b875c6f90720c6c9`: eight were `ACCEPT`, eight
+were `PARTIAL`, and the larger `lean/real/lra_lassoranker.smt2` exhausted
+its 10-second solver timeout (`UNKNOWN`, no proof available to check).
+
+The missing support in the partial inputs was:
+
+| Input below `regressions/proofs` | Required checker support |
+|---|---|
+| `canaries/real_numeral_farkas.smt2` | Real subtraction and exact rational term normalization |
+| `lean/lra_boolean_structure.smt2` | Supplied `arith/bound` coefficients and rational normalization |
+| `lean/lra_distinct.smt2` | Numeric equality decomposition and triangle-equality clauses |
+| `lean/lra_equality.smt2` | Affine equality normalization, equality decomposition, and real addition normalization |
+| `lean/lra_farkas.smt2` | Real constant multiplication and subtraction normalization |
+| `lean/lra_fractions.smt2` | Real subtraction and exact rational term normalization |
+| `lean/lra_implied_equality.smt2` | Numeric equality decomposition |
+| `lean/lra_unary_minus.smt2` | Real unary minus and rational normalization |
+
+The rebuilt native checker replays the same pinned corpus with **16 ACCEPT,
+0 PARTIAL, 1 UNKNOWN**, under the same 10-second solver, 60-second case,
+and 2-GiB process limits. All eight formerly partial proofs are now
+obligation-free; LassoRanker still times out before supplying a proof.
+These are local native replay results; workflow artifacts independently
+record their own producer/corpus commits, outcomes, and timings.
+
+These checks reuse exact polynomial linearization and cancellation.
+`arith/bound` now reaches the existing Farkas checker with its original
+coefficients, rather than becoming trusted evidence by tag. Equality
+decomposition checks both non-strict inequalities; a triangle-equality
+clause checks the same algebraic relation independently of its hint.
+Wrong coefficients, wrong constants, mismatched bounds, and unsupported
+NLSAT assumptions remain obligations.
+
+Real term equality needs a value-level bridge beyond equal numeric
+projections. `numeric_model` now explicitly includes equality reflection
+for Real-sorted terms. This is an additional standard-value semantic
+premise, not a proved consequence of the previous operator-only
+projection contract. The pre-existing untyped-environment foundation gap
+documented below remains; these are conditional semantic theorems, not
+an unconditional SMT-LIB soundness result.
+
 ## Result
 
 Arithmetic Farkas certificates now pass through the full proof exporter,
@@ -130,7 +182,9 @@ trust boundary; the shim itself is not formally verified.
 
 ## SMT-LIB coverage
 
-The sample is unchanged from [the pre-arithmetic cross-cut](SMTLIB_CROSSCUT_REPORT.md):
+The sample is unchanged from the pre-arithmetic cross-cut (preserved in Git
+at `6e2bed21a`; the [cross-cut report](SMTLIB_CROSSCUT_REPORT.md) now contains
+the latest reevaluation):
 100 seed-42, UNSAT-annotated inputs per logic from the locally available
 official SMT-LIB 2025 non-incremental archives. Every selected input's
 SHA-256 was checked. This is a stratified cross-cut, not a population-weighted

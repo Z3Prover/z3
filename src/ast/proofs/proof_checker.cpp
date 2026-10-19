@@ -12,6 +12,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 
+#include "ast/proofs/lp_proof.h"
+
 #define IS_EQUIV(_e_) m.is_eq(_e_)
 
 #define SAME_OP(_d1_, _d2_) ((_d1_ == _d2_) || (IS_EQUIV(_d1_) && IS_EQUIV(_d2_)))
@@ -95,6 +97,8 @@ proof_checker::proof_checker(ast_manager& m) : m(m), m_todo(m), m_marked(), m_pi
     m_nil = m.mk_const(m_hyp_fid, OP_NIL);
 }
 
+proof_checker::~proof_checker() = default;
+
 bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
     proof_ref curr(m);
     m_todo.push_back(p);
@@ -113,6 +117,7 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
     m_pinned.reset();
     m_todo.reset();
     m_marked.reset();
+    m_lp_checker.reset();
 
     return result;
 }
@@ -1431,6 +1436,11 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
 }
 
 bool proof_checker::check_arith_proof(proof* p) {
+    if (lp::is_evidence_proof(p)) {
+        if (!m_lp_checker)
+            m_lp_checker = std::make_unique<lp::evidence_proof_checker>(m);
+        return m_lp_checker->check(p);
+    }
     func_decl* d = p->get_decl();
     SASSERT(PR_TH_LEMMA == p->get_decl_kind());
     SASSERT(d->get_parameter(0).get_symbol() == "arith");

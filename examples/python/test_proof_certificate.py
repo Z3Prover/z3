@@ -1420,7 +1420,10 @@ class TestFragmentClassification(unittest.TestCase):
             self.assertEqual(declaration["range"], "Proof")
             self.assertEqual(declaration["domain"][-1], "Bool")
             self.assertTrue(all(sort == "Proof" for sort in declaration["domain"][:-1]))
-            self.assertIn(declaration["parameters"][0], ("farkas", "bound"))
+            self.assertIn(declaration["parameters"][0], ("farkas", "bound", "smt"))
+            if declaration["parameters"][0] == "smt":
+                self.assertEqual(declaration["parameters"], ["smt"])
+                continue
             coefficients = [Fraction(c) for c in declaration["parameters"][1:]]
             self.assertTrue(all(c > 0 for c in coefficients))
             for node in nodes:
@@ -1474,6 +1477,79 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(parameters(_FakeDecl(["arith", "implied-eq"]), 3), ["implied-eq"])
         self.assertEqual(parameters(_FakeDecl(["arith", "eq-propagate", "1", "1"]), 2), ["implied-eq"])
         self.assertEqual(parameters(_FakeDecl(["arith", "triangle-eq"]), 0), ["triangle-eq"])
+
+    def test_lp_inference_parameters_are_normalized(self):
+        parameters = proof_certificate._th_lemma_parameters
+        x = z3.Real("x")
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-input", "0"]), 1), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-input", "0"]), 0), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-discharge", "7"]), 1), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "3", "1/2", "1", "1/2"]),
+                                    3, z3.BoolVal(False)), ["farkas", "1/2", "1", "1/2"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "5", "-2", "1"]),
+                                    1, x <= 2), ["bound", "2", "1"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "5", "-2", "1"]),
+                                    1, x == 2), ["implied-eq"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "5", "1"]),
+                                    0, x == x), ["smt"])
+        for raw, premises, message in [
+            (["lp-input"], 1, "step index"),
+            (["lp-input", "-1"], 1, "step index"),
+            (["lp-input", "1/2"], 1, "step index"),
+            (["lp-input", "4294967295"], 1, "step index"),
+            (["lp-input", "x"], 1, "step index"),
+            (["lp-input", "0", "1"], 1, "invalid lp-input"),
+            (["lp-input", "0"], 2, "invalid lp-input"),
+            (["lp-discharge", "0"], 0, "invalid lp-discharge"),
+            (["lp-linear", "0", "1"], 2, "coefficient count"),
+            (["lp-linear", "0", "x"], 1, "not a rational"),
+            (["lp-integer-tighten", "0"], 1, "without a replayable theory hint"),
+            (["lp-monomial-interval", "0"], 1, "without a replayable theory hint"),
+            (["lp-unknown", "0"], 1, "without a replayable theory hint"),
+        ]:
+            with self.subTest(parameters=raw):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    parameters(_FakeDecl(["arith"] + raw), premises, z3.BoolVal(False))
+
+    def test_integer_lp_inferences_are_left_to_lean(self):
+        parameters = proof_certificate._th_lemma_parameters
+        x = z3.Int("x")
+        for rule in ("lp-integer-tighten", "lp-integer-lattice", "lp-gomory"):
+            with self.subTest(rule=rule):
+                declaration = _FakeDecl(["arith", rule, "1"])
+                self.assertEqual(parameters(declaration, 1, x <= 2, integer=True), ["arith"])
+                self.assertEqual(parameters(declaration, 1, z3.BoolVal(False), integer=True), ["farkas"])
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+                    parameters(declaration, 1, x <= 2)
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "invalid .* inference"):
+                    parameters(_FakeDecl(["arith", rule, "1", "2"]), 1, x <= 2, integer=True)
+        for rule in ("lp-monomial-substitute", "lp-monomial-interval", "lp-unknown"):
+            with self.subTest(rule=rule):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+                    parameters(_FakeDecl(["arith", rule, "1"]), 1, x <= 2, integer=True)
+
+    def test_lp_context_is_not_a_logical_premise(self):
+        context = z3.Context(proof=True)
+        assertions = z3.parse_smt2_string(_LRA, ctx=context)
+        solver = z3.Solver(ctx=context)
+        solver.add(assertions)
+        self.assertEqual(solver.check(), z3.unsat)
+        proof = solver.proof()
+        linear = next(node for node in _proof_nodes(proof)
+                      if node.decl().params()[:2] == ["arith", "lp-linear"])
+        arguments = proof_certificate._proof_arguments(linear)
+        self.assertEqual([arg.get_id() for arg in arguments],
+                         [arg.get_id() for arg in linear.children()[1:]])
+        lp_context = linear.arg(0)
+        invalid_context = lp_context.decl()(z3.BoolVal(False, ctx=context))
+        invalid_linear = linear.decl()(invalid_context, *linear.children()[1:])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "invalid LP context"):
+            proof_certificate._certificate_from_proof(_LRA, assertions, invalid_linear)
+        certificate = proof_certificate._certificate_from_proof(_LRA, assertions, proof)
+        self.assertFalse(any(parameter.startswith("lp-")
+                             for decl in certificate["declarations"] for parameter in decl["parameters"]))
+        self.assertTrue(all(sort != "Int" for decl in certificate["declarations"]
+                            for sort in decl["domain"] + [decl["range"]]))
 
     def test_legacy_exporter_exports_uninterpreted_functions(self):
         # The smt core's proof object carries complete equality proofs, so QF_UF
@@ -1555,20 +1631,18 @@ class TestFragmentClassification(unittest.TestCase):
             proof_certificate.parse_propositional_assertions(_UFLRA, z3.Context())
 
     def test_legacy_exporter_exports_integer_arithmetic(self):
-        # QF_LIA through the legacy proof object: numerals are Int, and the
-        # lattice conflict (x + y = 1 and 2x - y = 1 have no integer solution,
-        # rationally x = 2/3) is a farkas step whose coefficients do not
-        # refute its premises rationally, so the exporter keeps none: the
-        # reconstructor shape-checks it and Lean proves it alone, as for the
-        # clause log's cut hint.
+        # The indexed LP proof separates integer rounding, proved by Lean
+        # alone, from linear combinations whose local coefficients certify.
         certificate = proof_certificate.export_certificate(_LIA)
         self.assertEqual(certificate["fragment"], "qf_lia")
         declarations = certificate["declarations"]
         self.assertEqual({d["range"] for d in declarations}, {"Bool", "Int", "Proof"})
         self.assertTrue(all(d["range"] == "Int" and Fraction(d["name"]).denominator == 1
                             for d in declarations if d["kind"] == z3.Z3_OP_ANUM))
-        self.assertEqual([d["parameters"] for d in declarations if d["name"] == "th-lemma"], [["farkas"]])
-        self.assertEqual(certificate["rule_counts"]["th-lemma"], 1)
+        parameters = [d["parameters"] for d in declarations if d["name"] == "th-lemma"]
+        self.assertIn(["arith"], parameters)
+        self.assertTrue(any(p[0] == "farkas" and len(p) > 1 for p in parameters), parameters)
+        self.assertFalse(any(p.startswith("lp-") for d in declarations for p in d["parameters"]))
         # The div and mod definitions are bare (_ th-lemma arith) axioms
         # stated as (or false l) and resolved with the unit true; the Farkas
         # conflict over them re-derives and keeps its coefficients.
@@ -1586,7 +1660,7 @@ class TestFragmentClassification(unittest.TestCase):
                          {("a", (), "U"), ("b", (), "U"), ("x", (), "Int"), ("y", (), "Int"),
                           ("f", ("Int",), "Int"), ("g", ("U",), "Int"), ("h", ("Int",), "U"), ("q", ("Int",), "Bool")})
         self.assertLessEqual({d["parameters"][0] for d in certificate["declarations"] if d["name"] == "th-lemma"},
-                             {"farkas", "bound", "implied-eq", "triangle-eq", "arith"})
+                             {"farkas", "bound", "implied-eq", "triangle-eq", "arith", "smt"})
 
     def test_legacy_integer_coefficients_are_kept_only_when_they_certify(self):
         context = z3.Context(proof=True)
@@ -1604,15 +1678,22 @@ class TestFragmentClassification(unittest.TestCase):
         # Wrong coefficients, or the wrong number of them (left to the reconstructor), are not certified.
         self.assertFalse(proof_certificate._integer_coefficients_certify(step, "farkas", [Fraction(1), Fraction(2)]))
         self.assertTrue(proof_certificate._integer_coefficients_certify(step, "farkas", coefficients[:1]))
-        # The lattice conflict of _LIA: a rationally feasible explanation.
+        # Indexed LP coefficients weight logical premises, not the context.
         solver = z3.Solver(ctx=context)
         solver.set("combined_solver.ignore_solver1", True)
         solver.add(z3.parse_smt2_string(proof_certificate._assertion_commands(_LIA), ctx=context))
         self.assertEqual(solver.check(), z3.unsat)
-        step = next(node for node in _proof_nodes(solver.proof()) if node.decl().name() == "th-lemma")
-        self.assertEqual(str(step.decl().params()[1]), "farkas")
-        self.assertFalse(proof_certificate._integer_coefficients_certify(
-            step, "farkas", [Fraction(str(p)) for p in step.decl().params()[2:]]))
+        step = next(node for node in _proof_nodes(solver.proof())
+                    if node.decl().params()[:2] == ["arith", "lp-linear"]
+                    and z3.is_false(node.arg(node.num_args() - 1)))
+        arguments = proof_certificate._proof_arguments(step)
+        self.assertEqual(len(arguments), step.num_args() - 1)
+        parameters = proof_certificate._th_lemma_parameters(
+            step.decl(), len(arguments) - 1, arguments[-1], integer=True)
+        coefficients = [Fraction(p) for p in parameters[1:]]
+        self.assertTrue(proof_certificate._integer_coefficients_certify(step, "farkas", coefficients))
+        coefficients[0] *= 2
+        self.assertFalse(proof_certificate._integer_coefficients_certify(step, "farkas", coefficients))
         # Real steps are never stripped: the exporter calls this over Int only.
         self.assertEqual(proof_certificate._th_lemma_parameters(_FakeDecl(["arith"]), 0, integer=True), ["arith"])
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
