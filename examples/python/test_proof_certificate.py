@@ -882,7 +882,10 @@ class TestFragmentClassification(unittest.TestCase):
             self.assertEqual(declaration["range"], "Proof")
             self.assertEqual(declaration["domain"][-1], "Bool")
             self.assertTrue(all(sort == "Proof" for sort in declaration["domain"][:-1]))
-            self.assertIn(declaration["parameters"][0], ("farkas", "bound"))
+            self.assertIn(declaration["parameters"][0], ("farkas", "bound", "smt"))
+            if declaration["parameters"][0] == "smt":
+                self.assertEqual(declaration["parameters"], ["smt"])
+                continue
             coefficients = [Fraction(c) for c in declaration["parameters"][1:]]
             self.assertTrue(all(c > 0 for c in coefficients))
             for node in nodes:
@@ -936,6 +939,60 @@ class TestFragmentClassification(unittest.TestCase):
         self.assertEqual(parameters(_FakeDecl(["arith", "implied-eq"]), 3), ["implied-eq"])
         self.assertEqual(parameters(_FakeDecl(["arith", "eq-propagate", "1", "1"]), 2), ["implied-eq"])
         self.assertEqual(parameters(_FakeDecl(["arith", "triangle-eq"]), 0), ["triangle-eq"])
+
+    def test_lp_inference_parameters_are_normalized(self):
+        parameters = proof_certificate._th_lemma_parameters
+        x = z3.Real("x")
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-input", "0"]), 1), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-input", "0"]), 0), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-discharge", "7"]), 1), ["smt"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "3", "1/2", "1", "1/2"]),
+                                    3, z3.BoolVal(False)), ["farkas", "1/2", "1", "1/2"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "5", "-2", "1"]),
+                                    1, x <= 2), ["bound", "2", "1"])
+        self.assertEqual(parameters(_FakeDecl(["arith", "lp-linear", "5", "-2", "1"]),
+                                    1, x == 2), ["implied-eq"])
+        for raw, premises, message in [
+            (["lp-input"], 1, "step index"),
+            (["lp-input", "-1"], 1, "step index"),
+            (["lp-input", "1/2"], 1, "step index"),
+            (["lp-input", "4294967295"], 1, "step index"),
+            (["lp-input", "x"], 1, "step index"),
+            (["lp-input", "0", "1"], 1, "invalid lp-input"),
+            (["lp-input", "0"], 2, "invalid lp-input"),
+            (["lp-discharge", "0"], 0, "invalid lp-discharge"),
+            (["lp-linear", "0", "1"], 2, "coefficient count"),
+            (["lp-linear", "0", "x"], 1, "not a rational"),
+            (["lp-integer-tighten", "0"], 1, "without a replayable theory hint"),
+            (["lp-monomial-interval", "0"], 1, "without a replayable theory hint"),
+            (["lp-unknown", "0"], 1, "without a replayable theory hint"),
+        ]:
+            with self.subTest(parameters=raw):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    parameters(_FakeDecl(["arith"] + raw), premises, z3.BoolVal(False))
+
+    def test_lp_context_is_not_a_logical_premise(self):
+        context = z3.Context(proof=True)
+        assertions = z3.parse_smt2_string(_LRA, ctx=context)
+        solver = z3.Solver(ctx=context)
+        solver.add(assertions)
+        self.assertEqual(solver.check(), z3.unsat)
+        proof = solver.proof()
+        linear = next(node for node in _proof_nodes(proof)
+                      if node.decl().params()[:2] == ["arith", "lp-linear"])
+        arguments = proof_certificate._proof_arguments(linear)
+        self.assertEqual([arg.get_id() for arg in arguments],
+                         [arg.get_id() for arg in linear.children()[1:]])
+        lp_context = linear.arg(0)
+        invalid_context = lp_context.decl()(z3.BoolVal(False, ctx=context))
+        invalid_linear = linear.decl()(invalid_context, *linear.children()[1:])
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "invalid LP context"):
+            proof_certificate._certificate_from_proof(_LRA, assertions, invalid_linear)
+        certificate = proof_certificate._certificate_from_proof(_LRA, assertions, proof)
+        self.assertFalse(any(parameter.startswith("lp-")
+                             for decl in certificate["declarations"] for parameter in decl["parameters"]))
+        self.assertTrue(all(sort != "Int" for decl in certificate["declarations"]
+                            for sort in decl["domain"] + [decl["range"]]))
 
     def test_legacy_exporter_exports_uninterpreted_functions(self):
         # The smt core's proof object carries complete equality proofs, so QF_UF
