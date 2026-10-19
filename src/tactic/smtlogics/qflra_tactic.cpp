@@ -24,6 +24,7 @@ Notes:
 #include "tactic/arith/recover_01_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/arith/probe_arith.h"
+#include "tactic/arith/elim_monotone_tactic.h"
 #include "tactic/smtlogics/smt_tactic.h"
 
 tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
@@ -82,7 +83,8 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
                using_params(mk_smt_tactic(), simplex_1), 
                using_params(mk_smt_tactic(), simplex_2));
 #else
-    return using_params(using_params(mk_smt_tactic(m), pivot_p), p);
+    return using_params(and_then(mk_elim_monotone_tactic(m),
+                                 using_params(mk_smt_tactic(m), pivot_p)), p);
 #endif
 
 }

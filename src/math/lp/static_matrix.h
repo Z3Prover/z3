@@ -308,9 +308,7 @@ public:
     void pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
     void transpose_rows(unsigned i, unsigned ii) {
-        auto t = m_rows[i];
-        m_rows[i] = m_rows[ii];
-        m_rows[ii] = t;
+        m_rows[i].swap(m_rows[ii]);
         // now fix the columns
         for (auto & rc : m_rows[i]) {
             column_cell & cc = m_columns[rc.var()][rc.offset()];

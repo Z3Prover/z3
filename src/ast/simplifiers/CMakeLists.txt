@@ -13,6 +13,7 @@ z3_add_component(simplifiers
     dependent_expr_state.cpp
     dominator_simplifier.cpp
     distribute_forall.cpp
+    elim_monotone.cpp
     elim_unconstrained.cpp
     eliminate_predicates.cpp
     euf_completion.cpp

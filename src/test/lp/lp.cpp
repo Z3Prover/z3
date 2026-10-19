@@ -49,7 +49,7 @@
 #include "math/lp/matrix.h"
 #include "math/lp/nla_solver.h"
 #include "math/lp/numeric_pair.h"
-#include "math/lp/static_matrix.h"
+#include "math/lp/static_matrix_def.h"
 #include "util/uint_set.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/gomory_test.h"
@@ -1768,6 +1768,20 @@ void test_gomory_cut() {
         ENSURE(matrix.get_elem(1, 0) == 3); // 5 - 2*1
         ENSURE(matrix.get_elem(1, 1) == 0); // 4 - 2*2
         ENSURE(matrix.get_elem(1, 2) == 4); // unchanged
+
+        matrix.transpose_rows(0, 1);
+        ENSURE(matrix.get_elem(0, 0) == 3);
+        ENSURE(matrix.get_elem(0, 2) == 4);
+        ENSURE(matrix.get_elem(1, 0) == 1);
+        ENSURE(matrix.get_elem(1, 1) == 2);
+        ENSURE(matrix.is_correct());
+        matrix.transpose_rows(0, 0);
+        ENSURE(matrix.is_correct());
+        matrix.add_rows(mpq(-3), 1, 0);
+        ENSURE(matrix.get_elem(0, 0) == 0);
+        ENSURE(matrix.get_elem(0, 1) == -6);
+        ENSURE(matrix.get_elem(0, 2) == 4);
+        ENSURE(matrix.is_correct());
     }
     
 void test_nla_order_lemma() { nla::test_order_lemma(); }
@@ -1888,6 +1902,66 @@ void test_restore_x() {
     }
 
     std::cout << "restore_x tests passed" << std::endl;
+}
+
+void test_growth_aware_pivots() {
+    struct names : column_namer {
+        std::string get_variable_name(unsigned j) const override { return std::to_string(j); }
+    } column_names;
+    for (auto [num_vars, bits] : {std::pair{160u, 48u}, {160u, 1u}, {80u, 48u}}) {
+        lp_settings settings;
+        settings.m_simplex_strategy = simplex_strategy_enum::tableau_rows;
+        unsigned wide = num_vars, narrow = num_vars + 1, columns = num_vars + 2;
+        static_matrix<mpq, impq> matrix;
+        matrix.init_empty_matrix(2, columns);
+        mpq large = mpq::power_of_two(bits);
+        for (unsigned i = 0; i < num_vars; ++i)
+            matrix.set(0, i, i == 0 ? -large : mpq(-1));
+        matrix.set(0, wide, mpq(1));
+        matrix.set(1, 0, mpq(-1));
+        matrix.set(1, 1, mpq(-1));
+        matrix.set(1, narrow, mpq(1));
+        vector<impq> rhs, x(columns, impq(0)), lower(columns, impq(0)), upper(columns, impq(0));
+        vector<mpq> costs(columns, mpq(0));
+        vector<unsigned> basis, nbasis;
+        std_vector<int> heading;
+        vector<column_type> types(columns, column_type::free_column);
+        basis.push_back(wide);
+        basis.push_back(narrow);
+        types[wide] = types[narrow] = column_type::lower_bound;
+        lower[wide] = lower[narrow] = impq(1);
+        lp_primal_core_solver<mpq, impq> core(matrix, rhs, x, basis, nbasis, heading,
+                                            costs, types, lower, upper, settings, column_names);
+        core.track_column_feasibility(wide);
+        core.track_column_feasibility(narrow);
+        core.init_tableau_rows();
+        ENSURE(core.find_smallest_inf_column() == static_cast<int>(wide));
+        lpvar leaving = num_vars == 160 && bits == 48 ? narrow : wide;
+        ENSURE(core.find_leaving_tableau_rows() == static_cast<int>(leaving));
+        core.m_bland_mode_tableau = true;
+        ENSURE(core.find_leaving_tableau_rows() == static_cast<int>(wide));
+        core.m_bland_mode_tableau = false;
+        matrix.m_rows[0][0].coeff() = mpq(-1);
+        core.init_tableau_rows();
+        ENSURE(core.find_leaving_tableau_rows() == static_cast<int>(wide));
+        matrix.m_rows[0][0].coeff() = -large;
+        core.one_iteration_tableau_rows();
+        ENSURE(heading[leaving] < 0);
+        core.find_feasible_solution();
+        ENSURE(core.current_x_is_feasible());
+        ENSURE(core.get_status() == lp_status::OPTIMAL || core.get_status() == lp_status::FEASIBLE);
+        impq value = x[0] * large;
+        for (unsigned i = 1; i < num_vars; ++i)
+            value += x[i];
+        ENSURE(value >= impq(1));
+        ENSURE(x[0] + x[1] >= impq(1));
+        for (auto const& row : matrix.m_rows) {
+            value = impq(0);
+            for (auto const& c : row)
+                value += x[c.var()] * c.coeff();
+            ENSURE(value == impq(0));
+        }
+    }
 }
 
 void test_lp_local(int argn, char **argv) {
@@ -2029,6 +2103,9 @@ void test_lp_local(int argn, char **argv) {
 }  // namespace lp
 void tst_lp(char **argv, int argc, int &i) {
     lp::test_lp_local(argc - 2, argv + 2);
+}
+void tst_lp_pivots() {
+    lp::test_growth_aware_pivots();
 }
 // clang-format on
 bool coprime(int a, int b) {

@@ -376,13 +376,6 @@ namespace lp {
     }
 
 
-    bool lar_solver::row_has_a_big_num(unsigned i) const {
-        for (const auto& c : A_r().m_rows[i]) 
-            if (c.coeff().is_big())
-                return true;
-        return false;
-    }
-
     lp_status lar_solver::get_status() const { return m_imp->m_status; }
 
     void lar_solver::set_status(lp_status s) {

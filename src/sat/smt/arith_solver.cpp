@@ -349,6 +349,15 @@ namespace arith {
         return true;
     }
 
+    bool solver::bound_may_propagate(unsigned vi) const {
+        theory_var v = lp().local_to_external(vi);
+        if (v == euf::null_theory_var)
+            return false;
+        if (should_refine_bounds())
+            return true;
+        return static_cast<unsigned>(v) < m_bounds.size() && m_unassigned_bounds[v] != 0;
+    }
+
     bool solver::bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const {
         theory_var v = lp().local_to_external(vi);
         if (v == euf::null_theory_var)

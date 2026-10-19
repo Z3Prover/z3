@@ -24,10 +24,19 @@ namespace lp {
 struct farkas_explanation_collector {
     lar_solver& m_solver;
     vector<std::pair<mpq, constraint_index>> m_premises;
+    bool m_filter = false;
+    lpvar m_target = null_lpvar;
+    mutable unsigned m_rejected_candidates = 0;
     farkas_explanation_collector(lar_solver& s) : m_solver(s) {}
     lar_solver& lp() { return m_solver; }
     const lar_solver& lp() const { return m_solver; }
-    bool bound_is_interesting(unsigned, lconstraint_kind, const mpq&) const { return true; }
+    bool bound_may_propagate(unsigned j) const { return !m_filter || j == m_target; }
+    bool bound_is_interesting(unsigned j, lconstraint_kind, const mpq&) const {
+        if (bound_may_propagate(j))
+            return true;
+        ++m_rejected_candidates;
+        return false;
+    }
     void consume(const mpq& a, constraint_index ci) { m_premises.push_back({a, ci}); }
     bool add_eq(lpvar, lpvar, const explanation&, bool) { return false; }
     bool is_equal(lpvar u, lpvar v) const { return u == v; }
@@ -177,8 +186,114 @@ static void test_row_farkas_coefficients() {
     std::cout << "bound propagation: " << bp.ibounds().size() << " implied bounds certified\n";
 }
 
+static void test_non_fixed_row_watches() {
+    for (int coefficient : {1, 2}) {
+        lar_solver ls;
+        lpvar x = ls.add_var(0, false);
+        lpvar y = ls.add_var(1, false);
+        lpvar z = ls.add_var(2, false);
+        vector<std::pair<mpq, lpvar>> coeffs;
+        coeffs.push_back({mpq(coefficient), x});
+        coeffs.push_back({mpq(1), y});
+        coeffs.push_back({mpq(1), z});
+        lpvar term = ls.add_term(coeffs, 3);
+        ls.add_var_bound(term, GE, mpq(0));
+        ENSURE(is_sat(ls.find_feasible_solution()));
+
+        farkas_explanation_collector imp(ls);
+        std_vector<implied_bound> ibounds;
+        lp_bound_propagator<farkas_explanation_collector> bp(imp, ibounds);
+        bp.init();
+        bp.clear_for_eq();
+        unsigned base, other;
+        int sign;
+        auto rejected = [&]() {
+            unsigned nf = bp.extract_non_fixed(0, base, other, sign);
+            return nf > 2 || (nf == 2 && sign == 0);
+        };
+        ENSURE(rejected());
+        ENSURE(rejected());
+
+        ls.push();
+        for (lpvar v : {x, y, z}) {
+            ls.add_var_bound(v, GE, mpq(0));
+            ls.add_var_bound(v, LE, mpq(0));
+        }
+        ENSURE(is_sat(ls.find_feasible_solution()));
+        bp.init();
+        bp.clear_for_eq();
+        ENSURE(bp.extract_non_fixed(0, base, other, sign) == 1);
+        ENSURE(other == UINT_MAX);
+        ls.pop(1);
+        bp.init();
+        bp.clear_for_eq();
+        ENSURE(rejected());
+        ENSURE(rejected());
+
+        unsigned old_base = ls.get_base_column_in_row(0);
+        ls.pivot(x, old_base);
+        bp.clear_for_eq();
+        ENSURE(rejected());
+        ENSURE(rejected());
+    }
+}
+
+static void test_targeted_bound_propagation() {
+    for (bool boxed : {false, true}) {
+        for (bool strict : {false, true}) {
+            lar_solver ls;
+            lpvar x = ls.add_var(0, false);
+            lpvar y = ls.add_var(1, false);
+            vector<std::pair<mpq, lpvar>> coeffs;
+            coeffs.push_back({mpq(2), x});
+            coeffs.push_back({mpq(-3), y});
+            lpvar term = ls.add_term(coeffs, 2);
+            ls.add_var_bound(term, GE, mpq(0));
+            ls.add_var_bound(term, LE, mpq(0));
+            ls.add_var_bound(x, strict ? LT : LE, mpq(3));
+            if (boxed) {
+                ls.add_var_bound(x, GE, mpq(-3));
+                ls.add_var_bound(y, GE, mpq(-10));
+                ls.add_var_bound(y, LE, mpq(10));
+            }
+            ENSURE(is_sat(ls.find_feasible_solution()));
+
+            farkas_explanation_collector imp(ls);
+            std_vector<implied_bound> all;
+            lp_bound_propagator<farkas_explanation_collector> bp(imp, all);
+            auto propagate = [&]() {
+                bp.init();
+                ls.add_column_rows_to_touched_rows(x);
+                ls.add_column_rows_to_touched_rows(y);
+                ls.propagate_bounds_for_touched_rows(bp);
+            };
+            propagate();
+            std_vector<implied_bound> expected = all;
+            ENSURE(!expected.empty());
+            imp.m_filter = true;
+            for (lpvar target : {x, y, term, null_lpvar}) {
+                imp.m_target = target;
+                propagate();
+                ENSURE(imp.m_rejected_candidates == 0);
+                unsigned count = 0;
+                for (auto const& ib : expected) {
+                    if (ib.m_j != target)
+                        continue;
+                    ++count;
+                    auto const& actual = find_implied_bound(all, target, ib.m_is_lower_bound);
+                    ENSURE(actual.m_bound == ib.m_bound);
+                    ENSURE(actual.m_strict == ib.m_strict);
+                }
+                ENSURE(all.size() == count);
+            }
+        }
+    }
+}
+
 }  // namespace lp
 
 void tst_lp_bound_propagation() {
     lp::test_row_farkas_coefficients();
+    lp::test_non_fixed_row_watches();
+    lp::test_targeted_bound_propagation();
 }

@@ -30,6 +30,13 @@ class lp_bound_propagator {
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>> m_row2index_neg;
 
     const vector<column_type>*                         m_column_types = nullptr;
+    const vector<impq>*                                m_lower_bounds = nullptr;
+    const vector<impq>*                                m_upper_bounds = nullptr;
+    struct row_watch {
+        unsigned first = UINT_MAX;
+        unsigned second = UINT_MAX;
+    };
+    vector<row_watch> m_row_watches;
     // returns true iff there is only one non-fixed column in the row
     bool only_one_nfixed(unsigned r, unsigned& x) {
         x = UINT_MAX;
@@ -119,6 +126,8 @@ public:
         m_improved_lower_bounds.reset();
         m_ibounds.clear();
         m_column_types = &lp().get_column_types();
+        m_lower_bounds = &lp().get_lower_bounds();
+        m_upper_bounds = &lp().get_upper_bounds();
     }
    
     column_type get_column_type(unsigned j) const {
@@ -126,24 +135,28 @@ public:
     }
 
     const impq& get_lower_bound(unsigned j) const {
-        return lp().get_lower_bound(j);
+        return (*m_lower_bounds)[j];
     }
 
     const mpq& get_lower_bound_rational(unsigned j) const {
-        return lp().get_lower_bound(j).x;
+        return get_lower_bound(j).x;
     }
 
     const impq& get_upper_bound(unsigned j) const {
-        return lp().get_upper_bound(j);
+        return (*m_upper_bounds)[j];
     }
 
     const mpq& get_upper_bound_rational(unsigned j) const {
-        return lp().get_upper_bound(j).x;
+        return get_upper_bound(j).x;
     }
 
     // require also the zero infinitesemal part
     bool column_is_fixed(lpvar j) const {
         return (*m_column_types)[j] == column_type::fixed && get_lower_bound(j).y.is_zero();
+    }
+
+    bool bound_may_propagate(unsigned j) const {
+        return m_imp.bound_may_propagate(j);
     }
 
 
@@ -292,7 +305,7 @@ public:
     // if nf == 2, the row is of the form x + ay + sum of fixed = 0, x is a non fixed base and y is not fixed 
     // y_sign is set to a, if abs(a)= 1, and 0 otherwise
 
-    unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
+    unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) {
         unsigned nf = 0;  // number of non-fixed columns
         y = UINT_MAX;
         const auto& row = lp().get_row(row_index);
@@ -304,14 +317,36 @@ public:
             return 0;
         }
 
-        for (const auto& c : row) {
+        if (row_index >= m_row_watches.size())
+            m_row_watches.resize(lp().row_count());
+        auto& watch = m_row_watches[row_index];
+        auto non_fixed_at = [&](unsigned pos) {
+            return pos < row.size() && row[pos].var() != x && !column_is_fixed(row[pos].var());
+        };
+        // Revalidate positions against the live row, including after pivots and backtracking.
+        if (non_fixed_at(watch.first)) {
+            auto const& c = row[watch.first];
+            if (!c.coeff().is_one() && !c.coeff().is_minus_one()) {
+                y = c.var();
+                y_sign = 0;
+                return 2;
+            }
+            if (non_fixed_at(watch.second))
+                return 3;
+        }
+        watch = row_watch();
+        for (unsigned pos = 0; pos < row.size(); ++pos) {
+            auto const& c = row[pos];
             unsigned j = c.var();
             if (j == x) continue;
             if (column_is_fixed(j))
                 continue;
-            if (++nf > 2)
+            if (++nf > 2) {
+                watch.second = pos;
                 return nf;
+            }
             SASSERT(is_not_set(y));
+            watch.first = pos;
             y = j;
             if (c.coeff().is_one()) {
                 y_sign = 1;

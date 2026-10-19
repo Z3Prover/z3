@@ -22,6 +22,7 @@ Revision History:
 #include "util/vector.h"
 #include "params/smt_params_helper.hpp"
 #include "math/lp/lp_settings_def.h"
+#include "util/z3_exception.h"
 template bool lp::vectors_are_equal<lp::mpq>(vector<lp::mpq > const&, vector<lp::mpq> const&);
 
 void lp::lp_settings::updt_params(params_ref const& _p) {
@@ -33,6 +34,10 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_print_external_var_name = p.arith_print_ext_var_names();
     report_frequency = p.arith_rep_freq();
     m_simplex_strategy = static_cast<lp::simplex_strategy_enum>(p.arith_simplex_strategy());
+    unsigned pivot_strategy = p.arith_lp_pivot_strategy();
+    if (pivot_strategy > 1)
+        throw default_exception("arith.lp_pivot_strategy must be 0 or 1");
+    m_pivot_strategy = static_cast<lp::lp_pivot_strategy>(pivot_strategy);
     m_nlsat_delay = p.arith_nl_delay();
     auto eps = p.arith_epsilon();
     m_epsilon = rational(std::max(1, (int)(100000*eps)), 100000); 
