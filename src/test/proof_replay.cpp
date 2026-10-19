@@ -234,6 +234,34 @@ static void tst_checker_bound_row_strictness() {
     }
 }
 
+static void tst_checker_implied_eq_conclusion() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *sort : {"Real", "Int"}) {
+        std::string decls = std::string("(declare-const x ") + sort + ")(declare-const y " + sort + ")";
+        auto lits = parse_lits(m, (decls + "(assert (not (= x y)))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {0}), lits)));
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (<= x 0))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+        lits = parse_lits(m, (decls + "(assert (= x y))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        for (int coeff : {1, -1})
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, coeff}), lits)));
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 0}), lits)));
+    }
+
+    expr_ref_vector empty(m);
+    ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", empty, empty)));
+    auto args = ints(m, {1});
+    app_ref incomplete(m.mk_app(symbol("implied-eq"), args.size(), args.data(), m.mk_proof_sort()), m);
+    ENSURE(!checker.check(incomplete));
+}
+
 static void tst_is_extended_numeral() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -368,5 +396,6 @@ void tst_proof_replay() {
     tst_checker_printed_numerals();
     tst_checker_zero_weight_strictness();
     tst_checker_bound_row_strictness();
+    tst_checker_implied_eq_conclusion();
     tst_replay_folds_printed_numerals();
 }

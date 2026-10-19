@@ -494,7 +494,7 @@ namespace arith {
             expr* arg1 = jst->get_arg(n - 2);
             expr* arg2 = jst->get_arg(n - 1);
             rational coeff;
-            if (!is_numeral(arg1, coeff))
+            if (!is_numeral(arg1, coeff) || coeff.is_zero())
                 return false;
             if (!m.is_not(arg2, arg2))
                 return false;
@@ -562,7 +562,8 @@ namespace arith {
                 even = !even;
                 ++j;
             }
-            return check(rt);
+            // Only the final disequality above may discharge an implied-eq hint.
+            return rt != implied_eq_t && check(rt);
         }
 
         void register_plugins(euf::theory_checker& pc) override {

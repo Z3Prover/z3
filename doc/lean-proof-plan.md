@@ -1195,6 +1195,23 @@ nested negations, and rejection of a gate with its guard reversed).
 
 ## Arithmetic proof infrastructure
 
+### Native implied-equality conclusions (2026-10-19)
+
+The native arithmetic checker requires an `implied-eq` hint to end in a
+disequality with a nonzero numeral coefficient. Previously,
+`(implied-eq 0 (not (= x y)))` erased its target row and verified even
+though `x != y` is satisfiable. `(implied-eq 1 (<= x 0.0))` also verified:
+without a concluding disequality, the consequent row was still the initial
+zero row. Neither is evidence for an implied equality.
+
+Only a successfully parsed concluding disequality can now reach the
+implied-equality check, and its coefficient cannot erase the conclusion.
+Empty and incomplete hints are rejected too. Native `proof_replay`
+regressions cover these malformed hints over Real and Int, and preserve
+valid equality propagation with positive or negative nonzero conclusion
+coefficients. This changes native checker acceptance, not solver search
+or Lean's independent verification of the implied equality.
+
 ### Native arithmetic row strictness (2026-10-16)
 
 The native arithmetic checker now keeps strictness on each linear row, not
