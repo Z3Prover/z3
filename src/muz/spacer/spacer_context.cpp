@@ -4082,9 +4082,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // skolems of the pob
     n.get_skolems(vars);
 
-    IF_VERBOSE(10, verbose_stream() << "MBP input " << phi << "\nvars " << vars << "\nmodel " << mdl << "\n";);
     n.pt().mbp(vars, phi, mdl, true, use_ground_pob());
-    IF_VERBOSE(10, verbose_stream() << "MBP output " << phi << "\neval " << mdl(phi) << "\n";);
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_pob || vars.empty ());
 
