@@ -262,6 +262,58 @@ static void tst_checker_implied_eq_conclusion() {
     ENSURE(!checker.check(incomplete));
 }
 
+static void tst_checker_implied_eq_constant_rows() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith::theory_checker checker(m);
+    for (char const *sort : {"Real", "Int"}) {
+        std::string decls = std::string("(declare-const x ") + sort + ")(declare-const y " + sort +
+                           ")(declare-const z " + sort + ")";
+        for (char const *tautology : {"(<= 0 1)", "(< 0 1)", "(<= 0 0)"}) {
+            std::string premise = decls + "(assert " + tautology + ")";
+            auto lits = parse_lits(m, (premise + "(assert (<= x y))(assert (>= x y))"
+                                               "(assert (not (= x y)))").c_str());
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1}), lits)));
+
+            lits = parse_lits(m, (premise + "(assert (not (= x y)))").c_str());
+            ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1}), lits)));
+        }
+
+        // Equality substitution and elimination can also leave constant rows.
+        auto lits = parse_lits(m, (decls + "(assert (= z 0))(assert (<= z 1))"
+                                         "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1, 1}), lits)));
+        lits = parse_lits(m, (decls + "(assert (<= z 1))(assert (>= z 0))"
+                                    "(assert (<= x y))(assert (>= x y))(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1, 1, 1}), lits)));
+
+        for (char const *contradiction : {"(<= 1 0)", "(< 0 0)"}) {
+            lits = parse_lits(m, (decls + "(assert (<= 0 0))(assert " + contradiction +
+                                        ")(assert (not (= x y)))").c_str());
+            ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1}), lits)));
+
+            // An early contradiction must not leave tight rows for the next hint.
+            lits = parse_lits(m, (decls + "(assert (not (= x y)))").c_str());
+            ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1}), lits)));
+        }
+        lits = parse_lits(m, (decls + "(assert (<= z 0))(assert (>= z 1))"
+                                    "(assert (not (= x y)))").c_str());
+        ENSURE(checker.check(mk_arith_hint(m, "implied-eq", ints(m, {1, 1, 1}), lits)));
+
+        lits = parse_lits(m, (decls + "(assert (< 0 0))(assert (not (= x y)))").c_str());
+        ENSURE(!checker.check(mk_arith_hint(m, "implied-eq", ints(m, {0, 1}), lits)));
+    }
+}
+
+static void tst_replay_implied_eq_constant_row() {
+    check_verified_natively(replay(
+        "(declare-const x Real)(declare-const y Real)"
+        "(assume (<= 0.0 1.0))(assume (<= x y))(assume (>= x y))(assume (not (= x y)))"
+        "(declare-fun implied-eq (Int Bool Int Bool Int Bool Int Bool) Proof)"
+        "(infer (implied-eq 1 (<= 0.0 1.0) 1 (<= x y) 1 (>= x y) 1 (not (= x y))))"
+        "(declare-fun rup () Proof)(infer rup)"), "implied-eq 1");
+}
+
 static void tst_is_extended_numeral() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -397,5 +449,7 @@ void tst_proof_replay() {
     tst_checker_zero_weight_strictness();
     tst_checker_bound_row_strictness();
     tst_checker_implied_eq_conclusion();
+    tst_checker_implied_eq_constant_rows();
+    tst_replay_implied_eq_constant_row();
     tst_replay_folds_printed_numerals();
 }
