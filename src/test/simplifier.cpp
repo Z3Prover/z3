@@ -280,6 +280,57 @@ static void test_fpa() {
     Z3_del_context(ctx);
 }
 
+static void test_const_array_lambda() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* cases[] = {
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
+        "(assert (forall ((a Int) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int))"
+        " (= (lambda ((x Int)) x) ((as const (Array Int Int)) a))))"
+        "(assert (forall ((a Int) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int) (b (Array Int Int)))"
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
+        "(assert (forall ((a Int) (b (Array Int Int)) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int Int)) a) (lambda ((x Int) (y Int)) (+ x y)))))"
+        "(assert (forall ((a Int) (x Int) (y Int)) (= (+ x y) a)))",
+
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int)) (+ a 1)) (lambda ((x Int)) (+ a x)))))"
+        "(assert (forall ((a Int) (x Int)) (= (+ a x) (+ a 1))))",
+
+        "(declare-const a Int)"
+        "(assert (= ((as const (Array Int Int)) a) (lambda ((x Int)) x)))"
+        "(assert (forall ((x Int)) (= x a)))"
+    };
+
+    for (char const* test : cases) {
+        Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx, test, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, fmls);
+        ENSURE(Z3_ast_vector_size(ctx, fmls) == 2);
+        Z3_ast input = Z3_ast_vector_get(ctx, fmls, 0);
+        Z3_ast expected = Z3_ast_vector_get(ctx, fmls, 1);
+        Z3_ast actual = Z3_simplify(ctx, input);
+        ENSURE(Z3_is_well_sorted(ctx, actual));
+        expect_simplifies_to(ctx, input, expected);
+
+        Z3_solver solver = Z3_mk_solver(ctx);
+        Z3_solver_inc_ref(ctx, solver);
+        Z3_solver_assert(ctx, solver, input);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+        Z3_solver_dec_ref(ctx, solver);
+        Z3_ast_vector_dec_ref(ctx, fmls);
+    }
+    Z3_del_context(ctx);
+}
+
 static void test_array() {
     
     Z3_config cfg = Z3_mk_config();
@@ -648,6 +699,7 @@ static void test_demodulator_simplifier_proofs() {
 void tst_simplifier() {
 
     test_array();
+    test_const_array_lambda();
     test_bv();
     test_datatypes();
     test_bool();
