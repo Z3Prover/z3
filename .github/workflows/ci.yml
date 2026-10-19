@@ -638,14 +638,11 @@ jobs:
       - name: Install dependencies
         run: |
           brew install ninja
-          brew install --cask julia
 
       - name: Configure
         run: |
-          julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"
-          JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
           set -e
-          cmake -G "Ninja" -S . -B build -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False
+          cmake -G "Ninja" -S . -B build -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False
 
       - name: Build
         run: |
