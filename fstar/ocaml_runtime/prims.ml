@@ -29,4 +29,10 @@ let ( >= ) a b = Z.compare a b >= 0
 
 let not (b : bool) : bool = Stdlib.not b
 
+(* Extracted equality types contain algebraic data, not OCaml floats or
+   functions. Total comparison skips physically shared subtrees even below
+   distinct wrappers; polymorphic equality unfolds them repeatedly. *)
+let ( = ) a b = Stdlib.( = ) (Stdlib.compare a b) 0
+let ( <> ) a b = Stdlib.not (a = b)
+
 let pow2 (n : int) : int = Z.shift_left Z.one (Z.to_int n)

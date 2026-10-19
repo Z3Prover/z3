@@ -909,6 +909,102 @@ The 23 targeted rule/pulling/negative-NNF examples still all `ACCEPT`.
 The pinned 17-file corpus remains 16 `ACCEPT` and one solver `UNKNOWN`
 (`lra_lassoranker.smt2` at 10 seconds), with no partials or errors.
 
+### Definition-expansion memory diagnostics (2026-10-18)
+
+The first complete local replay of the published 225-input sample retained
+all stdout/stderr and classified 131 `ACCEPT`, 48 `PARTIAL`, 33 `UNKNOWN`,
+10 `TIMEOUT`, one `ERROR`, and two `CRASH`. The failures were reproduced
+under the same 4 GiB address-space limit with phase logs, GNU time resource
+measurements, and GDB backtraces.
+
+The two allocation aborts, on QF_AUFLIA `dlx-regfile.smt2` and QF_IDL
+`ckt_PROP1_tf_10.smt2`, occur after solving and marshaling: recursive
+definition expansion duplicates shared expression DAGs into trees.
+`Z3Definitions` now provides a memoized expander whose F* refinement proves
+the exact result of the original expander, including insufficient fuel
+and failed substitutions. Buckets check the complete source expression
+and fuel; hashing only selects a bucket. Each invocation fixes its
+definition context and starts with a fresh cache. A proved unchanged
+witness permits reuse of original expressions and argument lists without
+another recursive comparison. Production indexed checking and diagnostics
+use this expander while the linear APIs remain reference implementations.
+
+The native hash classifier inspects up to 64 meaningful objects with a
+256-node budget, so common connective declarations do not hide their
+different arguments. An initial implementation using OCaml's default
+hash budget made `plan-21.cvc.smt2` slower: profiling recorded
+702,447,479 bucket probes for 7,121,508 expansion visits. With the larger
+budget its kernel time is 19.4 seconds, versus 79.4 seconds with the initial
+cache and 28.8 seconds in the reference executable, with the same 57,797
+proof nodes. Native tests exercise the actual CLI classifier, including
+diversity below a shared connective, by linking its support module without
+the command-line entry point. Exact collision checks remain mandatory.
+
+The handwritten OCaml `Prims` equality implementation also uses zero
+total comparison instead of polymorphic equality. Total comparison skips
+physically shared subtrees inside distinct wrappers, whereas polymorphic
+equality repeatedly unfolds them. These operations agree on the closed
+algebraic values, strings, and exact integers used by extracted checker
+equality types; OCaml floats and functional values are not in that domain.
+This implementation remains part of the existing runtime trust boundary,
+not an additional F* hashing or equality axiom.
+
+Normal and profiling builds verify/extract successfully, pass 35 native
+bridge groups and 21 CLI tests, and retain profiling accounting tests.
+Adversarial tests cover constant and colliding hashes, fuel-key separation,
+cycles, malformed substitutions, capture avoidance, and 30-level shared
+DAGs with unchanged and substituted leaves. The profiling build instruments
+39 functions, including the production expansion/preparation paths.
+
+With a separate 90-second diagnostic budget, the initial sharing-preserving
+build completes `dlx-regfile.smt2` as `PARTIAL 6` in 70.7 seconds with
+409,392 KiB peak RSS, versus the original abort near 3.7 GiB of resident
+memory. `ckt_PROP1_tf_10.smt2` reaches the watchdog without an allocation
+abort; GDB samples locate remaining CPU work in Boolean cutting and
+normal-form specialization. This diagnostic does not establish completion
+within the workflow's unchanged 60-second case budget.
+
+The third failure, QF_IDL `PO4-10-PO4.smt2`, is separate and remains an
+explicit out-of-memory error. Its backtrace enters `bool_rewriter` while
+`Z3_solver_assert` eagerly rewrites the input, before `solver_check` starts
+applying its 10-second timeout. It is not an extracted-kernel allocation
+failure, and this change neither hides it nor changes the input assertion
+basis or solver parameters.
+
+The final replay attempts all 225 identical inputs under the original
+budgets: **137 `ACCEPT`, 48 `PARTIAL`, 33 `UNKNOWN`, six `TIMEOUT`, one
+`ERROR`, and no `CRASH`, `REJECT`, protocol errors, or unattempted inputs**.
+Six former timeouts now certify. All 179 previously completed proofs
+retain their verdict, pending count, and proof-node count. Both former
+allocation aborts now hit the case timeout rather than crashing. The
+native assertion-time OOM still causes the regression runner to fail;
+it is not waived by the optimization.
+
+The 17 harness tests, 116 current-source Linux C++ groups, and native SMT,
+matching source-built Python bindings, and command-line help checks also
+pass. Retained local artifacts include both complete replay results,
+per-input logs, manifests, source/binary hashes, the uncommitted source
+snapshot, resource measurements, and GDB traces.
+
+### Skolem-context integration (2026-10-19)
+
+The DAG-preserving expander is integrated with the Hilbert-choice Skolem
+context and input-aware binder checker. Indexed checking and diagnostics
+retain Skolem collection, dependency ordering, and freshness against both
+original and expanded assertions. Binder certificates and Skolem collection
+also use the refined expander, rather than reverting to tree-building
+expansion. Preparation and diagnostics are separated into validation stages
+to keep F* normalization tractable without increasing proof budgets.
+
+The merged normal and profiling builds verify/extract successfully and
+pass 38 native bridge groups and 21 CLI tests each, plus profiling accounting
+checks. Regressions cover deep shared binder formulas and indexed/reference
+agreement for genuine Skolem proofs and original-input freshness rejection,
+including constant hashes. All 17 harness tests, 116 Linux C++ groups, and
+source-matched Python/SMT/help smoke checks pass. The 225-input replay totals
+above describe the pre-integration executable, not this merged revision;
+the native assertion-time OOM remains unfixed.
+
 ### Build, status, and trust boundary
 
 Every invocation first uses CMake to **build and install Windows Z3 from

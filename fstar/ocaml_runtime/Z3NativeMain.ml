@@ -119,7 +119,8 @@ let fingerprint judgment =
       let right = expression 5 right in
       "oeq(" ^ left ^ " -> " ^ right ^ ")"
 
-let assertion_hash value = Z.of_int (Hashtbl.hash value)
+(* Inspect argument structure, not just the shared connective declaration. *)
+let assertion_hash value = Z.of_int (Hashtbl.hash_param 64 256 value)
 
 let report_diagnostics schema doc expected =
   let diagnostic =

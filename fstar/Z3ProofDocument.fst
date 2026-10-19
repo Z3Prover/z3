@@ -69,6 +69,37 @@ let expand_rule (defs:list D.definition) (kind:rule) : option rule =
     Some (QuantifierIntroduction { certificate with binder_entries = entries }))
   | _ -> Some kind
 
+let rec expand_binder_entries_using (transform:D.expander) (defs:list D.definition)
+                                   (entries:list binder_entry)
+  : Tot (result:option (list binder_entry){result ==
+      opt_map (fun e ->
+        D.expand (L.length defs) defs e.binder_formula >>= (fun formula ->
+        Some { e with binder_formula = formula })) entries})
+        (decreases entries) =
+  match entries with
+  | [] -> Some []
+  | e :: rest ->
+    let expanded = transform (L.length defs) defs e.binder_formula >>= (fun formula ->
+      Some { e with binder_formula = formula }) in
+    assert (expanded == (D.expand (L.length defs) defs e.binder_formula >>= (fun formula ->
+      Some { e with binder_formula = formula })));
+    let remaining = expand_binder_entries_using transform defs rest in
+    assert (remaining == opt_map (fun e ->
+      D.expand (L.length defs) defs e.binder_formula >>= (fun formula ->
+      Some { e with binder_formula = formula })) rest);
+    match expanded, remaining with
+    | Some e', Some rest' -> Some (e' :: rest')
+    | _, _ -> None
+
+let expand_rule_using (transform:D.expander) (defs:list D.definition) (kind:rule)
+  : result:option rule{result == expand_rule defs kind} =
+  if defs = [] then Some kind
+  else match kind with
+  | QuantifierIntroduction certificate ->
+    expand_binder_entries_using transform defs certificate.binder_entries >>= (fun entries ->
+    Some (QuantifierIntroduction { certificate with binder_entries = entries }))
+  | _ -> Some kind
+
 let collect_skolem_formula (skolems:list SK.definition) (formula:expr)
   : option (list SK.definition) =
   match is_oeq formula with
@@ -99,6 +130,23 @@ let rec collect_skolems (defs:list D.definition) (skolems:list SK.definition) (e
        | _ -> None)
      | _ -> Some skolems) >>= (fun more -> collect_skolems defs more rest)
 
+let rec collect_skolems_using (transform:D.expander) (defs:list D.definition)
+                             (skolems:list SK.definition) (entries:list entry)
+  : Tot (result:option (list SK.definition){result == collect_skolems defs skolems entries})
+        (decreases entries) =
+  match entries with
+  | [] -> Some skolems
+  | e :: rest ->
+    (match e.rule with
+     | Skolemization ->
+       transform (L.length defs) defs e.formula >>= (collect_skolem_formula skolems)
+     | QuantifierIntroduction _ ->
+       expand_rule_using transform defs e.rule >>= (fun kind ->
+       match kind with
+       | QuantifierIntroduction certificate -> collect_binder_skolems skolems certificate.binder_entries
+       | _ -> None)
+     | _ -> Some skolems) >>= (fun more -> collect_skolems_using transform defs more rest)
+
 type input_lookup =
   assertions:list judgment ->
   Tot (contains:(judgment -> bool){forall (query:judgment).
@@ -122,15 +170,24 @@ let rec enough_asserted (remaining:nat) (entries:list entry) : Tot bool (decreas
 let document_lookup (hash:judgment -> nat) (doc:document) : input_lookup =
   if enough_asserted 17 doc.entries then indexed_lookup hash else linear_lookup
 
-let prepare_entry (bound:bool) (defs:list D.definition)
+let prepare_entry_using (transform:D.expander) (bound:bool) (defs:list D.definition)
                   (prev:index_tree checked_fact) (e:entry) : option proof_node =
   if bound && not (D.scoped [] e.formula) then None else
-  (if defs = [] then Some e.formula else D.expand (L.length defs) defs e.formula) >>= (fun formula ->
+  (if defs = [] then Some e.formula else transform (L.length defs) defs e.formula) >>= (fun formula ->
   if bound && not (D.scoped [] formula) then None else
   classify_fact formula >>= (fun concl ->
   opt_map (index_find prev) e.premise_ids >>= (fun premises ->
-  expand_rule defs e.rule >>= (fun kind ->
+  expand_rule_using transform defs e.rule >>= (fun kind ->
   Some { kind = kind; conclusion = concl; premises = premises }))))
+
+let prepare_entry (bound:bool) (defs:list D.definition)
+                  (prev:index_tree checked_fact) (e:entry) : option proof_node =
+  prepare_entry_using D.linear_expander bound defs prev e
+
+let lemma_prepare_entry_using (transform:D.expander) (bound:bool) (defs:list D.definition)
+                             (prev:index_tree checked_fact) (e:entry)
+  : Lemma (prepare_entry_using transform bound defs prev e == prepare_entry bound defs prev e)
+  = ()
 
 let check_entry_with_lookup (skolems:list SK.definition) (strict bound:bool)
                            (defs:list D.definition) (assertions:list judgment) (contains:judgment -> bool)
@@ -164,6 +221,32 @@ let check_entries (skolems:list SK.definition) (strict bound:bool) (defs:list D.
                   (acc:index_tree checked_fact) (next trusted:nat) (entries:list entry)
   : option (index_tree checked_fact & nat) =
   check_entries_with_lookup skolems strict bound defs assertions (linear_lookup assertions) acc next trusted entries
+
+type entry_checker =
+  skolems:list SK.definition -> strict:bool -> bound:bool -> defs:list D.definition ->
+  assertions:list judgment -> contains:(judgment -> bool) ->
+  prev:index_tree checked_fact -> e:entry ->
+  Tot (result:option (checked_fact & nat){
+    result == check_entry_with_lookup skolems strict bound defs assertions contains prev e})
+
+let checker_using (transform:D.expander) : entry_checker =
+  fun skolems strict bound defs assertions contains prev e ->
+    lemma_prepare_entry_using transform bound defs prev e;
+    prepare_entry_using transform bound defs prev e >>= check_node_with_membership skolems strict assertions contains
+
+let rec check_entries_using (check:entry_checker) (skolems:list SK.definition)
+                           (strict bound:bool) (defs:list D.definition)
+                           (assertions:list judgment) (contains:judgment -> bool) (acc:index_tree checked_fact)
+                           (next trusted:nat) (entries:list entry)
+  : Tot (result:option (index_tree checked_fact & nat){
+      result == check_entries_with_lookup skolems strict bound defs assertions contains acc next trusted entries})
+        (decreases entries) =
+  match entries with
+  | [] -> Some (acc, trusted)
+  | e :: rest ->
+    check skolems strict bound defs assertions contains acc e >>= (fun nt ->
+    check_entries_using check skolems strict bound defs assertions contains (index_put acc next (fst nt))
+      (next + 1) (trusted + snd nt) rest)
 
 let lemma_check_entry_lookup (skolems:list SK.definition) (strict bound:bool) (defs:list D.definition)
                              (assertions:list judgment) (contains:judgment -> bool)
@@ -248,21 +331,60 @@ let rec logical_decls (decls:list func_decl) : Tot bool (decreases decls) =
   | [] -> true
   | d :: rest -> logical_decl d && logical_decls rest
 
-let prepare_document (doc:document)
-  : option (bool & list D.definition & list judgment & list SK.definition) =
+let prepare_skolem_context (defs:list D.definition) (original expanded:list expr) (entries:list entry)
+  : option (list SK.definition) =
+  collect_skolems defs [] entries >>= (fun choices ->
+  SK.order_context (L.length choices) choices >>= (fun skolems ->
+  if not (SK.fresh_inputs skolems original && SK.fresh_inputs skolems expanded) then None
+  else Some skolems))
+
+let prepare_skolem_context_using (transform:D.expander) (defs:list D.definition)
+                                 (original expanded:list expr) (entries:list entry)
+  : result:option (list SK.definition){
+      result == prepare_skolem_context defs original expanded entries} =
+  collect_skolems_using transform defs [] entries >>= (fun choices ->
+  SK.order_context (L.length choices) choices >>= (fun skolems ->
+  if not (SK.fresh_inputs skolems original && SK.fresh_inputs skolems expanded) then None
+  else Some skolems))
+
+let prepare_document_inputs_using (transform:D.expander) (doc:document)
+  : option (bool & list D.definition & list judgment & list expr) =
   let bound = not (ground_exprs doc.expressions) in
   if not (logical_decls doc.declarations) ||
      (bound && not (well_formed_exprs doc.expressions)) ||
      not (ordinary_facts doc.assertions) ||
      (bound && not (scoped_assertions doc.assertions)) then None else
   collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
-  if not (D.acyclic (L.length defs) defs defs) then None else
-  (if defs = [] then Some doc.assertions else D.expand_args (L.length defs) defs doc.assertions) >>= (fun expanded ->
+  if not (D.acyclic_using transform (L.length defs) defs defs) then None else
+  (if defs = [] then Some doc.assertions
+   else D.expand_list_using transform (L.length defs) defs doc.assertions) >>= (fun expanded ->
   opt_map classify_fact expanded >>= (fun inputs ->
-  collect_skolems defs [] doc.entries >>= (fun choices ->
-  SK.order_context (L.length choices) choices >>= (fun skolems ->
-  if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded) then None else
-  Some (bound, defs, inputs, skolems))))))
+  Some (bound, defs, inputs, expanded))))
+
+let prepare_document_inputs (doc:document) : option (bool & list D.definition & list judgment & list expr) =
+  prepare_document_inputs_using D.linear_expander doc
+
+let lemma_prepare_document_inputs_using (transform:D.expander) (doc:document)
+  : Lemma (prepare_document_inputs_using transform doc == prepare_document_inputs doc)
+  = ()
+
+let prepare_document_using (transform:D.expander) (doc:document)
+  : option (bool & list D.definition & list judgment & list SK.definition) =
+  prepare_document_inputs_using transform doc >>= (fun (bound, defs, inputs, expanded) ->
+  prepare_skolem_context_using transform defs doc.assertions expanded doc.entries >>= (fun skolems ->
+  Some (bound, defs, inputs, skolems)))
+
+let prepare_document (doc:document) : option (bool & list D.definition & list judgment & list SK.definition) =
+  prepare_document_using D.linear_expander doc
+
+let lemma_prepare_document_using (transform:D.expander) (doc:document)
+  : Lemma (prepare_document_using transform doc == prepare_document doc)
+  = lemma_prepare_document_inputs_using transform doc;
+    match prepare_document_inputs doc with
+    | None -> ()
+    | Some (_, defs, _, expanded) ->
+      assert (prepare_skolem_context_using transform defs doc.assertions expanded doc.entries ==
+              prepare_skolem_context_using D.linear_expander defs doc.assertions expanded doc.entries)
 
 let finish_document (doc:document) (defs:list D.definition) (result:index_tree checked_fact & nat)
   : option nat =
@@ -279,8 +401,16 @@ let check_document_with_lookup (lookup:input_lookup) (doc:document) : option nat
 let check_document (doc:document) : option nat =
   check_document_with_lookup linear_lookup doc
 
+let check_document_using (transform:D.expander) (lookup:input_lookup) (doc:document)
+  : result:option nat{result == check_document_with_lookup lookup doc} =
+  lemma_prepare_document_using transform doc;
+  prepare_document_using transform doc >>= (fun (bound, defs, inputs, skolems) ->
+  check_entries_using (checker_using transform) skolems true bound defs inputs (lookup inputs)
+    Empty 0 0 doc.entries >>= finish_document doc defs)
+
 let check_document_indexed (hash:judgment -> nat) (doc:document) : option nat =
-  check_document_with_lookup (document_lookup hash doc) doc
+  check_document_using (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+    (document_lookup hash doc) doc
 
 let lemma_check_document_lookup (lookup:input_lookup) (doc:document)
   : Lemma (check_document_with_lookup lookup doc == check_document doc)
@@ -331,20 +461,20 @@ type entries_diagnostic =
                      obligations:list unmet_obligation -> entries_diagnostic
   | EntriesRejected : reason:document_diagnostic -> entries_diagnostic
 
-let rec diagnose_entries_with_lookup (skolems:list SK.definition)
-                                     (bound:bool) (defs:list D.definition)
-                                     (inputs:list judgment) (contains:judgment -> bool)
+let rec diagnose_entries_using (check:entry_checker) (skolems:list SK.definition)
+                               (bound:bool) (defs:list D.definition)
+                               (inputs:list judgment) (contains:judgment -> bool)
                          (cache:index_tree checked_fact) (next pending:nat)
                          (unmet:list unmet_obligation) (entries:list entry)
   : Tot entries_diagnostic (decreases entries) =
   match entries with
   | [] -> EntriesChecked cache pending (L.rev unmet)
   | e :: rest ->
-    match check_entry_with_lookup skolems true bound defs inputs contains cache e with
+    match check skolems true bound defs inputs contains cache e with
     | None -> EntriesRejected (DocumentRejected ProofEntry (Some next) (Some e.formula))
     | Some (fact, local) ->
       let cache' = index_put cache next fact in
-      if local = 0 then diagnose_entries_with_lookup skolems bound defs inputs contains cache' (next + 1) pending unmet rest
+      if local = 0 then diagnose_entries_using check skolems bound defs inputs contains cache' (next + 1) pending unmet rest
       else
         match opt_map (index_find cache) e.premise_ids with
         | None -> EntriesRejected (DocumentRejected MissingPremise (Some next) (Some e.formula))
@@ -355,15 +485,65 @@ let rec diagnose_entries_with_lookup (skolems:list SK.definition)
             obligation_premises = premise_judgments premises;
             obligation_source = e.formula; obligation_count = local;
           } in
-          diagnose_entries_with_lookup skolems bound defs inputs contains cache' (next + 1) (pending + local)
+          diagnose_entries_using check skolems bound defs inputs contains cache' (next + 1) (pending + local)
                            (obligation :: unmet) rest
+
+let diagnose_entries_with_lookup (skolems:list SK.definition)
+                         (bound:bool) (defs:list D.definition)
+                         (inputs:list judgment) (contains:judgment -> bool)
+                         (cache:index_tree checked_fact) (next pending:nat)
+                         (unmet:list unmet_obligation) (entries:list entry) : entries_diagnostic =
+  diagnose_entries_using (checker_using D.linear_expander) skolems bound defs inputs contains
+    cache next pending unmet entries
 
 let diagnose_entries (skolems:list SK.definition) (bound:bool) (defs:list D.definition) (inputs:list judgment)
                      (cache:index_tree checked_fact) (next pending:nat)
                      (unmet:list unmet_obligation) (entries:list entry) : entries_diagnostic =
   diagnose_entries_with_lookup skolems bound defs inputs (linear_lookup inputs) cache next pending unmet entries
 
-let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : document_diagnostic =
+let diagnose_prepared_document_using (transform:D.expander) (lookup:input_lookup) (doc:document)
+                                    (bound:bool) (defs:list D.definition)
+                                    (inputs:list judgment) (skolems:list SK.definition) : document_diagnostic =
+  match diagnose_entries_using (checker_using transform) skolems bound defs inputs
+          (lookup inputs) Empty 0 0 [] doc.entries with
+  | EntriesRejected reason -> reason
+  | EntriesChecked cache pending unmet ->
+    match index_find cache doc.root with
+    | None -> DocumentRejected MissingRoot None None
+    | Some node ->
+      if not (false_judgment node.conclusion && node.hypotheses = [])
+      then DocumentRejected OpenRoot None None
+      else if not (D.check_fresh_inputs defs doc.assertions)
+      then DocumentRejected DefinitionFreshness None None
+      else DocumentChecked pending unmet
+
+let diagnose_document_inputs_using (transform:D.expander) (lookup:input_lookup) (doc:document)
+                                   (bound:bool) (defs:list D.definition) (expanded:list expr)
+                                   (inputs:list judgment) : document_diagnostic =
+  match collect_skolems_using transform defs [] doc.entries with
+  | None -> DocumentRejected SkolemCollection None None
+  | Some choices ->
+    match SK.order_context (L.length choices) choices with
+    | None -> DocumentRejected SkolemCycle None None
+    | Some skolems ->
+      if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded)
+      then DocumentRejected SkolemFreshness None None
+      else diagnose_prepared_document_using transform lookup doc bound defs inputs skolems
+
+let diagnose_document_definitions_using (transform:D.expander) (lookup:input_lookup) (doc:document)
+                                        (bound:bool) (defs:list D.definition) : document_diagnostic =
+  if not (D.acyclic_using transform (L.length defs) defs defs)
+  then DocumentRejected DefinitionCycle None None
+  else
+    match (if defs = [] then Some doc.assertions
+           else D.expand_list_using transform (L.length defs) defs doc.assertions) with
+    | None -> DocumentRejected DefinitionExpansion None None
+    | Some expanded ->
+      match opt_map classify_fact expanded with
+      | None -> DocumentRejected InputClassification None None
+      | Some inputs -> diagnose_document_inputs_using transform lookup doc bound defs expanded inputs
+
+let diagnose_document_using (transform:D.expander) (lookup:input_lookup) (doc:document) : document_diagnostic =
   let bound = not (ground_exprs doc.expressions) in
   let reject stage = DocumentRejected stage None None in
   if not (logical_decls doc.declarations) then reject LogicalDeclarations
@@ -373,36 +553,14 @@ let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : documen
   else
     match collect_definitions [] (axiom_branches doc.entries) doc.entries with
     | None -> reject DefinitionCollection
-    | Some defs ->
-      if not (D.acyclic (L.length defs) defs defs) then reject DefinitionCycle
-      else
-        match (if defs = [] then Some doc.assertions
-               else D.expand_args (L.length defs) defs doc.assertions) with
-        | None -> reject DefinitionExpansion
-        | Some expanded ->
-          match opt_map classify_fact expanded with
-          | None -> reject InputClassification
-          | Some inputs ->
-            match collect_skolems defs [] doc.entries with
-            | None -> reject SkolemCollection
-            | Some choices ->
-              match SK.order_context (L.length choices) choices with
-              | None -> reject SkolemCycle
-              | Some skolems ->
-                if not (SK.fresh_inputs skolems doc.assertions && SK.fresh_inputs skolems expanded)
-                then reject SkolemFreshness
-                else match diagnose_entries_with_lookup skolems bound defs inputs (lookup inputs) Empty 0 0 [] doc.entries with
-                | EntriesRejected reason -> reason
-                | EntriesChecked cache pending unmet ->
-                  match index_find cache doc.root with
-                  | None -> reject MissingRoot
-                  | Some node ->
-                    if not (false_judgment node.conclusion && node.hypotheses = []) then reject OpenRoot
-                    else if not (D.check_fresh_inputs defs doc.assertions) then reject DefinitionFreshness
-                    else DocumentChecked pending unmet
+    | Some defs -> diagnose_document_definitions_using transform lookup doc bound defs
+
+let diagnose_document_with_lookup (lookup:input_lookup) (doc:document) : document_diagnostic =
+  diagnose_document_using D.linear_expander lookup doc
 
 let diagnose_document (doc:document) : document_diagnostic =
   diagnose_document_with_lookup linear_lookup doc
 
 let diagnose_document_indexed (hash:judgment -> nat) (doc:document) : document_diagnostic =
-  diagnose_document_with_lookup (document_lookup hash doc) doc
+  diagnose_document_using (D.memoized_expander (fun (_, e) -> hash (Holds e)))
+    (document_lookup hash doc) doc
