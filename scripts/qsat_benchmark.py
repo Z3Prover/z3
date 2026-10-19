@@ -188,15 +188,19 @@ def solvers(args):
                 "env": {"LD_LIBRARY_PATH": str(root / "lib")} if (root / "lib").is_dir() else {},
                 "executable_sha256": sha256(binary), "config_sha256": sha256(config),
             })
+            library = root / "lib" / "libz3.so"
+            if library.is_file():
+                result[-1]["z3_library"] = {"path": str(library), "sha256": sha256(library)}
     return result
 
 
-def evaluate(args):
+def evaluate(args, configurations=None):
     root = args.corpus.resolve(strict=True)
     cases = discover(root, args.per_family)
     if not cases:
         raise ValueError(f"No SMT-LIB2 inputs under {root}")
-    configurations = solvers(args)
+    if configurations is None:
+        configurations = solvers(args)
     if not configurations:
         raise ValueError("Specify at least one of --baseline, --candidate, --mucyc")
     output = args.output.resolve()

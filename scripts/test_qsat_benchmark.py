@@ -65,6 +65,25 @@ class QsatBenchmarkTests(unittest.TestCase):
             with self.subTest(expected=expected, stdout=stdout):
                 self.assertEqual(bench.classify(code, stdout, stderr, timeout), expected)
 
+    def test_mucyc_library_provenance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "main.exe").write_bytes(b"executable")
+            config = root / "config" / "solver"
+            config.mkdir(parents=True)
+            for name in ("mucyc_progress_ncr.json", "mucyc.json", "z3_smt.json"):
+                (config / name).write_text("{}")
+            (root / "lib").mkdir()
+            library = root / "lib" / "libz3.so"
+            library.write_bytes(b"original Z3 library")
+            args = argparse.Namespace(baseline=None, candidate=None, mucyc=root)
+            for solver in bench.solvers(args):
+                self.assertEqual(solver["z3_library"], {
+                    "path": str(library), "sha256": bench.sha256(library),
+                })
+            library.unlink()
+            self.assertTrue(all("z3_library" not in solver for solver in bench.solvers(args)))
+
     def test_deterministic_stratified_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -109,8 +128,7 @@ class QsatBenchmarkTests(unittest.TestCase):
                 "name": "broken", "qsat": True,
                 "command": [sys.executable, "-c", "print('sat')"],
             }]
-            with patch.object(bench, "solvers", return_value=configurations):
-                self.assertEqual(bench.evaluate(args), 1)
+            self.assertEqual(bench.evaluate(args, configurations), 1)
             record = json.loads((args.output / "results.jsonl").read_text())
             self.assertEqual(record["result"], "wrong")
             self.assertEqual(record["answer"], "sat")

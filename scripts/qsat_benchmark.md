@@ -76,6 +76,7 @@ Each new output directory contains:
 
 - `manifest.json`: selected paths, original input hashes and expected statuses,
   executable/configuration hashes, tactic settings, timeout, runner hash, platform.
+  MuCyc configurations also hash `lib/libz3.so` when it is present in the runtime.
 - `inputs/`: exact QSAT command transformations; original benchmarks are untouched.
 - `raw/`: stdout and stderr for every invocation, including timeouts.
 - `results.jsonl`: immediately flushed per-case results, commands, elapsed time,
@@ -202,3 +203,208 @@ directories, and native validation logs are retained under
 **The full 300-second paper protocol has not been rerun.** The local evaluation
 does not impose the paper's 32 GB limit or reproduce its hardware. The recursive
 strategy therefore remains opt-in despite the confirmed targeted wins.
+
+## Deeper analysis and controlled ablations
+
+The follow-up first selects the six original pilot inputs solved by MuCyc
+Progress but not baseline QSAT at five seconds, then adds the two confirmed
+recursive-projection wins and the three original one-second regression controls.
+This deliberately difficult **11-case cohort** is not a representative sample.
+All configurations below have a **ten-second per-input limit**.
+
+| Configuration | Solved / 11 |
+|---|---:|
+| Baseline QSAT | 4 |
+| Recursive QSAT, QEL | 6 |
+| `simplify` then recursive QSAT | 5 |
+| `simplify`, `qe-light`, then recursive QSAT | 6 |
+| Recursive QSAT, classical MBP | 5 |
+| Recursive QSAT, `smt.core.minimize=true` | 5 |
+| Current default solver | 5 |
+| MuCyc Progress, original artifact backend | 11 |
+| Reversed projection variable order | 6 |
+| Disable small real Fourier-Motzkin expansion | 6 |
+| Disable expansion, classical MBP | 5 |
+| Disable expansion, reversed variable order | 6 |
+| Recursive QSAT, `smt.arith.solver=2` | 6 |
+| Recursive QSAT, greatest-error pivot enabled | 6 |
+| Recursive QSAT, simplex strategy 1 | 6 |
+| Recursive QSAT, simplex strategy 2 | 6 |
+| Recursive QSAT, theory relevancy enabled | 6 |
+| Arithmetic-normalizing `simplify` then recursive QSAT | 7 |
+
+The last preprocessing variant is exactly:
+
+```smt2
+(check-sat-using
+  (then (using-params simplify :arith_lhs true :som true)
+        (using-params qsat :qsat_recursive_backjump true)))
+```
+
+It solves `mjollnir6/formula_089.smt2` in 5.526 seconds, whereas ordinary
+recursive QSAT exceeds ten seconds. This is a use of existing preprocessing,
+not a new QSAT algorithm. It is not uniformly beneficial: the same normalization
+changes `mjollnir5/formula_252.smt2` from 1.005 to 8.590 seconds and
+`mjollnir4/formula_220.smt2` from 0.995 to 3.293 seconds in that matrix.
+
+The other additional knobs do not close any of the five remaining Monniaux gaps.
+In particular, disabling the small real Fourier-Motzkin path changes
+`mjollnir2/formula_166.smt2` from 0.448 seconds / 33 rounds to
+6.863 seconds / 205 rounds. Variable reversal does not reproduce MuCyc's
+complete arithmetic pivot policy, and disabling this expansion is not equivalent
+to always selecting MuCyc's greatest-lower-bound pivot. These negative results
+therefore reject the tested changes, not every possible projection heuristic.
+The experimental projection/relevancy parameters have been **removed**, rather
+than exposed as unsupported production tuning options. Their patches, binaries,
+and raw results are retained for inspection.
+
+The five concrete Monniaux gaps, relative to ordinary recursive QSAT at ten
+seconds, are:
+
+| Input under `2010-Monniaux-QE/` | Answer | MuCyc Progress |
+|---|---|---:|
+| `mjollnir5/formula_096.smt2` | Sat | 0.117 s |
+| `mjollnir6/formula_034.smt2` | Unsat | 0.261 s |
+| `mjollnir6/formula_089.smt2` | Unsat | 0.273 s |
+| `mjollnir6/formula_253.smt2` | Sat | 0.977 s |
+| `mjollnir6/formula_257.smt2` | Sat | 3.509 s |
+
+The pinned Non-Progress implementation also solves all five in the original
+pilot. Thus recursive nonchronological projection alone does not explain these
+remaining differences.
+
+### Production frontend versus isolated QSAT
+
+The default LRA tactic already performs substantial preprocessing and
+`qe-light` before selecting QSAT/SMT
+(`src/tactic/smtlogics/quant_tactics.cpp`). An explicit
+`check-sat-using qsat` deliberately bypasses that frontend. On
+`scholl-smt08/RND/RND_6_21.smt2`, ordinary recursive QSAT takes
+9.101 seconds / 86 rounds, while `simplify`, `qe-light`, recursive QSAT takes
+0.052 seconds / 2 rounds and the current default takes 0.044 seconds / 2 rounds.
+This is already an existing default-pipeline benefit. The default still exceeds
+ten seconds on all five Monniaux gaps above; it is not a universal solution.
+
+### What the code and native profiles establish
+
+The pinned `lib/MuCyc/qsat.ml` erases the current model after refinement with
+`loop Map.Poly.empty ...`, just as current Z3 does. This differs from the
+model-preservation discussion around Algorithm 7 in the extended paper.
+Model reuse is not an already-working artifact fix that can simply be copied.
+It needs prefix-specific saved models and reconstruction of newly introduced
+predicate definitions: completing an old model with arbitrary Boolean values
+for fresh abstraction predicates would not preserve the required invariant.
+
+MuCyc uses per-level frames and fresh ground solver/context instances through
+`lib/Z3Smt/z3interface.ml`. Z3 QSAT instead has two persistent SMT kernels,
+global predicate abstraction, and level-filtered assumptions. MuCyc's actual
+SMT frontend in `lib/MuCyc/solver.ml` performs type inference, alpha conversion,
+let/ite elimination, normalization, prenex conversion, and redundant-quantifier
+elimination. Its generic PCSP `simplify`/`reduce`/`slice` settings are not an
+equivalent description of this path.
+
+Three native stack samples each were collected for ordinary recursive QSAT on
+`mjollnir5/formula_096.smt2` and `mjollnir6/formula_034.smt2`, with debuginfod
+disabled. **All six samples are in exact-rational LRA tableau simplex work**,
+including rational multiplication/GCD and row pivots under
+`lp::lp_primal_core_solver`. The verbose traces show 034 still in its first
+QSAT round and 096 in its second. This is not a statistical profile of the
+whole corpus, but it directly locates these sampled stalls in ground solving,
+not MBP or recursive backtracking. Merely making kernels fresh cannot explain
+a stall already present in the first query.
+
+Accordingly the stronger next target is the shape and normalization of the
+initial ground queries, including abstraction definitions and their effect on
+linear arithmetic, while holding the ground backend constant. Frame/core
+granularity and MuCyc's precise bound-selection policy remain separate
+opportunities. Neither naive model reuse nor globally disabling real
+Fourier-Motzkin expansion is justified by the evidence.
+
+The 11-case matrices are retained in `qsat-deep-gaps-10s`,
+`qsat-deep-projection-10s`, `qsat-deep-arithmetic-10s`, and
+`qsat-deep-ground-10s`, each with `run-00/manifest.json`, exact transformed
+inputs, JSONL records, and raw stdout/stderr. The six native stacks and verbose
+logs are in `qsat-deep-profiles`. `qsat_deep_evaluate.py` records the cohort
+selection and configuration list in each `experiment.json`; its source is
+retained beside those directories. The benchmark API accepts
+`evaluate(args, configurations)` for such controlled tactic/command ablations,
+without changing the CLI's default configurations.
+
+### Fresh 118-case pilot and current-backend control
+
+A new **118-case, five-second pilot** uses the exact original pilot paths, the
+published recursive executable, and a newly built shared library from the same
+current ground-solver sources and GCC Release settings:
+
+| Configuration | Solved | Timeout |
+|---|---:|---:|
+| Baseline QSAT | 94 | 24 |
+| Recursive QSAT | 94 | 24 |
+| Arithmetic-normalized recursive QSAT | 91 | 27 |
+| Current default solver | 92 | 26 |
+| MuCyc Progress, original Z3 4.15.2 | 93 | 25 |
+| MuCyc Progress, current Z3 5.3.1 | 91 | 27 |
+
+There are no answer disagreements, errors, or crashes in this completed run.
+Normalization rescues no cases at this cutoff and loses
+`20230331-polyv/cp6hv-miss1v.smt2`,
+`scholl-smt08/RNDPRE/RNDPRE_4_41.smt2`, and
+`scholl-smt08/RNDPRE/RNDPRE_4_56.smt2` relative to recursive QSAT.
+It is therefore **not enabled globally**. The current default rescues
+`RND_6_21` but loses three other cases. Aggregate solved counts do not imply
+that the configurations solve the same inputs.
+
+The direct library replacement initially failed because the old OCaml binding
+references the removed `Z3_mk_set_has_size` symbol at load time, even on LRA
+inputs. Its eleven error records in the first `qsat-deep-ground-10s` attempt
+are excluded from every MuCyc solved count. The corrected experiment eagerly
+binds symbols and preloads a tiny **LRA-only compatibility sentinel**: it supplies
+that missing entry point but prints an error and aborts if it is ever called.
+It does not implement finite sets or return a fabricated value. No invocation
+triggered the sentinel in the completed comparisons.
+
+This is an experimental backend control, not a supported upgrade procedure for
+the artifact. All other runtime libraries/configuration files stay unchanged;
+the dynamic loader was checked to resolve `libz3.so` to the new library.
+The manifest records `LD_LIBRARY_PATH`, `LD_PRELOAD`, eager binding, and hashes
+of the selected library and sentinel, including the sentinel source hash.
+The sentinel source, build logs, and runtime are retained outside the repository.
+
+A **30-second follow-up on the six original MuCyc-only pilot inputs** gives:
+
+| Input | Recursive QSAT | Normalized recursive QSAT | MuCyc, current Z3 |
+|---|---:|---:|---:|
+| `mjollnir5/formula_096` | Timeout | Timeout | Sat, 0.296 s |
+| `mjollnir6/formula_034` | Timeout | Timeout | Unsat, 0.369 s |
+| `mjollnir6/formula_089` | Unsat, 28.506 s | Unsat, 5.541 s | Unsat, 0.291 s |
+| `mjollnir6/formula_253` | Timeout | Timeout | Sat, 1.236 s |
+| `mjollnir6/formula_257` | Timeout | Timeout | Sat, 6.754 s |
+| `RND/RND_6_21` | Sat, 9.110 s | Sat, 9.975 s | Sat, 8.344 s |
+
+The first five paths are under `2010-Monniaux-QE/`; the last is under
+`scholl-smt08/`. Both Z3 QSAT configurations solve two of six, while MuCyc with
+the current ground engine solves all six. Four differences persist beyond
+30 seconds, so they cannot be explained solely by using the older Z3 backend.
+The backend still matters: MuCyc with current Z3 exceeds five seconds on
+`formula_257` and `RND_6_21`, unlike the pinned original backend.
+
+Three additional runs of `formula_089`, using the published executable and the
+benchmark skill with a 40-second limit, give:
+
+| Pipeline | Min | Median | Max |
+|---|---:|---:|---:|
+| Recursive QSAT | 28.579 s | 28.662 s | 28.819 s |
+| Normalized recursive QSAT | 5.487 s | 5.503 s | 5.569 s |
+
+All six answers are unsat. This is approximately **5.2x** lower median time
+for this selected input, not a corpus-wide speedup. Both pipelines use six
+QSAT rounds in the 30-second comparison, reinforcing the distinction between
+ground-query cost and the number of refinement rounds. Timings and statistics
+are logged in `qsat-benchmarks.db`.
+
+The fresh pilot is `qsat-deep-pilot-5s`; the longer follow-up is
+`qsat-deep-gaps-30s`. Both have complete manifests and raw outputs.
+Repeated-timing logs are `qsat-deep-repeat-089-plain.log` and
+`qsat-deep-repeat-089-normalized.log`. All are retained under the same session
+artifact directory listed above. None of these shorter-budget experiments
+replaces the still-unrun full 300-second / 32 GB paper protocol.

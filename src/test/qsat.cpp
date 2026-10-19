@@ -117,6 +117,8 @@ static void test_arithmetic() {
         "(exists ((x Real)) (forall ((y Real)) (exists ((z Real)) (> z (+ x y)))))",
         "(forall ((x Real)) (exists ((y Real)) (forall ((z Real)) (exists ((w Real)) (= (+ x y) (+ z w))))))",
         "(exists ((x Int)) (forall ((y Int)) (exists ((z Int)) (= z (+ x y)))))",
+        "(forall ((a Real) (b Real) (c Real) (d Real)) (= (exists ((x Real)) (and (<= a x) (<= b x) (<= x c) (<= x d))) (and (<= a c) (<= a d) (<= b c) (<= b d))))",
+        "(forall ((a Real) (b Real) (c Real) (d Real)) (= (exists ((x Real)) (and (< a x) (<= b x) (< x c) (<= x d))) (and (< a c) (< a d) (< b c) (<= b d))))",
         "(exists ((x Real)) (forall ((y Real)) (exists ((z Real)) (and (> x y) (= z (+ x y))))))",
         "(forall ((x Real)) (exists ((y Real)) (forall ((z Real)) (exists ((w Real)) (and (= (+ x y) (+ z w)) (> z x))))))",
         "(exists ((x Int)) (forall ((y Int)) (exists ((z Int)) (and (> x y) (= z (+ x y))))))",
@@ -129,8 +131,8 @@ static void test_arithmetic() {
         VERIFY(parse_smt2_commands(ctx, input));
         expr_ref fml(ctx.assertions()[0], m);
         for (bool qel : { false, true }) {
-            check_qsat(m, fml, i < 3, false, qel);
-            check_qsat(m, fml, i < 3, true, qel);
+            check_qsat(m, fml, i < 5, false, qel);
+            check_qsat(m, fml, i < 5, true, qel);
         }
     }
 }
