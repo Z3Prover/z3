@@ -21,6 +21,7 @@ Revision History:
 #include "math/lp/lp_utils.h"
 #include "util/map.h"
 #include "util/hashtable.h"
+#include "util/dependency.h"
 namespace lp {
 class explanation {
     typedef vector<std::pair<unsigned, mpq>> pair_vec;
@@ -28,6 +29,7 @@ class explanation {
     // Only one of the fields below is used. The first call adding an entry decides which one it is.
     vector<std::pair<constraint_index, mpq>> m_vector;
     ci_set  m_set;   
+    u_dependency* m_evidence = nullptr;
 public:
     explanation() = default;
     
@@ -37,19 +39,24 @@ public:
             push_back(c);
     }
     
-    void clear() { m_vector.clear(); m_set.reset(); }
+    void clear() { m_vector.clear(); m_set.reset(); m_evidence = nullptr; }
+    u_dependency* evidence() const { return m_evidence; }
+    void set_evidence(u_dependency* e) { m_evidence = e; }
     void add_pair(constraint_index j, const mpq& v) {
+        m_evidence = nullptr;
         SASSERT(m_set.empty()); 
         m_vector.push_back(std::make_pair(j, v));
     }
 
     // this signature is needed to use it in a template that also works for the vector type
     void push_back(constraint_index j) {
+        m_evidence = nullptr;
         SASSERT(m_vector.empty());
         m_set.insert(j);
     }
 
     void remove(constraint_index j) {
+        m_evidence = nullptr;
         m_set.remove(j);
         unsigned i = 0;
         for (auto& p : m_vector) 
@@ -59,6 +66,9 @@ public:
     }
     
     void add_expl(const explanation& e) {
+        if (e.empty() && !e.m_evidence)
+            return;
+        auto* evidence = empty() && !m_evidence ? e.m_evidence : nullptr;
         if (e.m_vector.empty()) {
             for (constraint_index j : e.m_set)
                 push_back(j);
@@ -68,6 +78,7 @@ public:
                 add_pair(p.first, p.second);
             }
         }
+        m_evidence = evidence;
     }
 
     bool empty() const {  return m_vector.empty() && m_set.empty();  }

@@ -219,11 +219,19 @@ public:
 
     std::function<void(lpvar)> m_fixed_var_eh;
     template <typename T>
-    void explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
+    u_dependency* explain_implied_bound(const implied_bound& ib, lp_bound_propagator<T>& bp) {
         ib.explain_weighted([&](mpq const& coeff, u_dependency* dep) {
-            for (auto ci : flatten(dep))
-                bp.consume(coeff, ci);
+            if (dep_manager().proofs_enabled()) {
+                explanation ex;
+                explain_evidence(dep, coeff, ex);
+                for (auto ev : ex)
+                    bp.consume(ev.coeff(), ev.ci());
+            }
+            else
+                for (auto ci : flatten(dep))
+                    bp.consume(coeff, ci);
         });
+        return dep_manager().proofs_enabled() ? ib.explain_implied() : nullptr;
     }
 
     void set_value_for_nbasic_column(unsigned j, const impq& new_val);
@@ -396,8 +404,12 @@ public:
             ex.push_back(ci);
     }    
     
-    const u_dependency_manager& dep_manager() const;
-    u_dependency_manager& dep_manager();
+    const evidence_manager& dep_manager() const;
+    evidence_manager& dep_manager();
+
+    void explain_evidence(u_dependency* dep, mpq const& coefficient, explanation& ex) const;
+
+    u_dependency* explain_integer_infeasibility(lar_term const& row, unsigned_vector const& boxed = {});
 
     u_dependency* get_column_upper_bound_witness(unsigned j) const;
     
@@ -570,7 +582,7 @@ public:
     lp_status solve();
     void fill_explanation_from_crossed_bounds_column(explanation& evidence) const;
     bool tighten_term_bounds_by_delta(lpvar j, const impq&);
-    lar_solver();
+    explicit lar_solver(bool proofs = false);
     void track_touched_rows(bool v);
     bool touched_rows_are_tracked() const;
     ~lar_solver() override;

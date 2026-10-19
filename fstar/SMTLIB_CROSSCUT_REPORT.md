@@ -1,6 +1,118 @@
-# SMT-LIB proof-checker cross-cut: coverage extensions, 2026-10-16
+# SMT-LIB proof-checker cross-cut: current proof producer, 2026-10-16
 
-## Coverage extension result
+## Current PR #11208 result
+
+This measurement is frozen at the producer revisions identified below.
+It predates the subsequent `0af294e26` branch update and the installed-Z3
+build/test harness; their toolchain validation is not a new cohort replay.
+
+With the latest arithmetic-proof PR and the integration fix described
+below, the unchanged **900-input cohort still yields 334 obligation-free
+`ACCEPT` refutations (37.1%)**. **All 334 preceding accepts are retained;
+there are no new accepts.** The additional internal arithmetic evidence
+does not yet increase end-to-end native checker coverage.
+
+| Outcome | Preceding coverage extensions | Initial PR build | Corrected PR build |
+|---|---:|---:|---:|
+| `ACCEPT` | 334 | 333 | **334** |
+| `PARTIAL` | 254 | 229 | 242 |
+| `REJECT` | 143 | 141 | 142 |
+| Solver `UNKNOWN` | 119 | 150 | 134 |
+| Whole-process timeout | 48 | 45 | 46 |
+| Allocation abort | 2 | 2 | 2 |
+
+The remaining 15 changed outcomes relative to the preceding run are all
+solver timeouts: twelve former partials, one former rejection, and two
+former whole-process timeouts. These are resource regressions or
+resource-classification changes, **not discharged proof obligations**.
+The 134 solver unknowns comprise 132 timeouts and two out-of-memory
+results. Both allocation aborts recur on the same inputs.
+
+### Producer integration and regression repair
+
+The checked-out branch is `arithmetic-proof-evidence`, from
+[PR #11208](https://github.com/Z3Prover/z3/pull/11208), with PR head
+`28aab4c094978abd29743fb26385038a66b80ad5`. Local merge
+`5e707a253982b3d3cf2b3010e0769d188d1712ee` incorporates the two newer
+master fixes through `90c3d1839`. The measured corrected producer also
+includes the uncommitted `theory_lra.cpp` fix and its `lp_evidence.cpp`
+regression; the merge hash alone does not identify that binary.
+
+The initial PR build returned `UNKNOWN invalid rational value passed as
+an integer` on **19 inputs**, including the formerly accepted
+`QF_LIA_024`. Its new source-expression Farkas validation passed rational
+weights directly to a helper that constructs coefficients in each
+premise's arithmetic sort. The legacy proof checker already clears all
+denominators before calling that helper.
+
+The correction applies the same **positive common denominator scale**
+to all weights used during validation. Exported coefficients, evidence
+checks, and unsupported-evidence guards are unchanged. A reduced
+four-inequality integer regression returns `UNKNOWN` with the frozen
+initial PR executable and `SAT` with the corrected producer. In the full
+fixed replay, all 19 rational-construction errors disappear: thirteen
+inputs become partial, one accepts, one rejects, three reach solver
+timeouts, and one reaches the external watchdog. `QF_LIA_024` is restored.
+
+Windows Z3, its Python bindings, and the statically linked WSL producer
+were rebuilt from this checkout. All 116 native tests, eleven native
+bridge regressions, and eight checker CLI tests pass. The full native
+F* dependency pipeline and proof regressions verify using the freshly
+built Windows Z3 5.3.1, with a fresh cache and its actual version passed
+through F*'s documented `--z3version` check. Explicit arithmetic proof
+steps were needed for the new SMT automation; the **35 OCaml runtime
+modules remain byte-identical** to the preceding coverage executable.
+No acceptance-policy change is being attributed to the new producer.
+
+### Paired coverage and limits
+
+The **576 inputs valid in both runs** retain exactly the same proof-node
+counts and pending-obligation counts: **21,470,839 proof nodes and
+105,820 pending obligations**. One partial, `QF_LIA_073`, marshals one
+additional expression (3,597 instead of 3,596), but retains 3,247 proof
+nodes and 165 obligations. The smaller aggregate pending count versus
+the preceding run reflects the twelve partials lost to solving timeouts,
+not improved discharge.
+
+Every per-logic acceptance count is unchanged: QF_UF 89, QF_AX 90,
+QF_LIA 31, QF_LRA 7, QF_IDL 11, QF_UFLIA 8, QF_AUFLIA 59,
+AUFLIA 14, and UFLIA 25. The corrected batch takes **765.81 seconds**.
+On the paired 576 valid inputs, median end-to-end latency changes from
+169.3 to 184.0 ms and median checking time from 49.0 to 49.1 ms.
+This is not a speedup claim; the resource losses remain visible.
+
+The PR introduces internally checked arithmetic evidence, but **native
+integer evidence export and the polynomial certificate's native AST
+correspondence bridge remain pending**. The native F* document pipeline
+does not accept an arithmetic tag merely because an internal C++ checker
+accepted a certificate. Missing evidence, quantified binders, and the
+existing model-contract inhabitance gap described below remain limitations.
+`PARTIAL` still does not certify UNSAT.
+
+### Reproduction and frozen evidence
+
+All 900 manifest records and hashes match the preceding run. The
+measurements retain eight workers, a 10-second solver timeout, a
+60-second process watchdog, and a 4 GiB address-space limit per child.
+The preceding 334-accept run remains at
+`C:\smtlib-benchmarks\proof_coverage_20261016\final`. Both new producer
+runs, raw outputs, comparison CSV/JSON, source snapshots, exact working-tree
+patch, build logs, binary hashes, and provenance are preserved at:
+
+```text
+C:\smtlib-benchmarks\proof_pr11208_20261016\full
+C:\smtlib-benchmarks\proof_pr11208_20261016\fixed
+corrected checker SHA256:
+ed0b8c8f5743e657199e98182294ffc6fc5d70502b972450cc951a068aa4870f
+```
+
+The corrected source is reproduced by applying `working-tree.patch` to
+`producer-source-base.tar`; see `toolchain_provenance.json` for the exact
+native-library and executable hashes. The existing
+[native build instructions](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary)
+select the source-built Windows verifier and the PR checker output directory.
+
+## Archived coverage extension result
 
 The same **900-input, nine-logic cohort** now produces **334 obligation-free
 `ACCEPT` refutations (37.1%)**, up from 231 (25.7%). **All 231 preceding

@@ -1490,6 +1490,21 @@ Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_on_binding_eh, bool, (void* ctx, Z3_solver_callback cb, Z3_ast q, Z3_ast inst));
 Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
 
+/**
+   \brief Client proof checker. See #Z3_set_proof_check_callback.
+
+   The proof and assertion vector are borrowed and protected from collection
+   until the callback returns. Retaining them requires the usual reference
+   counting APIs. All handles belong to \c c.
+
+   Return a non-null, null-terminated UTF-8 report. The returned storage belongs
+   to the client and must remain valid immediately after the callback returns;
+   Z3 copies it before invoking another callback. Returning null reports an error.
+   The callback must not throw across the C ABI, delete \c c, or re-enter
+   SMT-LIB command evaluation on \c c.
+*/
+Z3_DECLARE_CLOSURE(Z3_proof_check_eh, Z3_string, (void* user_context, Z3_context c, Z3_ast proof, Z3_ast_vector assertions));
+
 
 /**
    \brief A Goal is essentially a set of formulas.
@@ -1702,6 +1717,33 @@ extern "C" {
        def_API('Z3_del_context', VOID, (_in(CONTEXT),))
     */
     void Z3_API Z3_del_context(Z3_context c);
+
+    /**
+       \brief Register a client proof checker for \c c.
+
+       Replaces the previous callback and user data. Passing a null callback
+       unregisters it. The client owns the callback and user data and must keep
+       them alive until replacement, unregistration, or context destruction.
+
+       SMT-LIB evaluation through #Z3_eval_smtlib2_string invokes the callback
+       after an unsatisfiable check-sat,
+       check-sat-assuming, or check-sat-using command. Automatic reports go to the
+       command context's diagnostic stream, included in the returned evaluation
+       text. Ordinary #Z3_solver_check calls do not invoke it automatically.
+
+       Automatic checking requires proof production to be enabled before
+       assertions are added. An unavailable proof is reported as a command error.
+       The automatic assertion vector contains the active input assertions and
+       current check assumptions. Named assertions tracked for unsat cores are
+       represented by their guarded assertions and tracking literals, matching
+       the proof premises.
+
+       Registration survives SMT-LIB reset commands. The report is opaque:
+       Z3 does not interpret it or change the solver's satisfiability result.
+
+       def_API('Z3_set_proof_check_callback', VOID, (_in(CONTEXT), _in(VOID_PTR), _fnptr(Z3_proof_check_eh)))
+    */
+    void Z3_API Z3_set_proof_check_callback(Z3_context c, void* user_context, Z3_proof_check_eh callback);
 
     /**
        \brief Increment the reference counter of the given AST.

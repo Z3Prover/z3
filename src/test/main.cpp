@@ -234,6 +234,7 @@
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \
+    X(lp_evidence) \
     X(psmt)
 
 #define FOR_EACH_TEST(X, X_ARGV) \

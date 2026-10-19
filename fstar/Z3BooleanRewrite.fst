@@ -382,3 +382,20 @@ let lemma_boolean_equiv_sound (depth width:nat) (i:interpretation value)
     lemma_boolean_cut_sound boundaries depth i rho s;
     lemma_boolean_cut_sound boundaries depth i rho t);
   match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()
+
+let boolean_search (s t:expr) : bool =
+  get_sort s = bool_sort && get_sort t = bool_sort &&
+  N.shannon 7 (N.normalize_context 2 (boolean_cut [] (boolean_height s) s))
+              (N.normalize_context 2 (boolean_cut [] (boolean_height t) t))
+
+let lemma_boolean_search_sound (i:interpretation value) (rho:env value) (s t:expr)
+  : Lemma (requires boolean_rewrite_model i /\ boolean_search s t)
+          (ensures eval i s rho == eval i t rho) =
+  let cs = boolean_cut [] (boolean_height s) s in
+  let ct = boolean_cut [] (boolean_height t) t in
+  N.lemma_shannon_sound (valuation i rho) 7 (N.normalize_context 2 cs) (N.normalize_context 2 ct);
+  N.lemma_normalize_context_sound (valuation i rho) 2 cs;
+  N.lemma_normalize_context_sound (valuation i rho) 2 ct;
+  lemma_boolean_cut_sound [] (boolean_height s) i rho s;
+  lemma_boolean_cut_sound [] (boolean_height t) i rho t;
+  match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()

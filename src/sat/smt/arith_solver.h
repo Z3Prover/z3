@@ -51,21 +51,26 @@ namespace arith {
         bound_h,
         cut_h,
         implied_eq_h,
-        nla_h
+        nla_h,
+        nlsat_assumed_h,
+        nla_unsupported_h
     };
 
     struct arith_proof_hint : public euf::th_proof_hint {
         hint_type m_ty;
         unsigned  m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
-        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et):
-            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+        unsigned m_certificate;
+        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et, unsigned certificate):
+            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et), m_certificate(certificate) {}
         expr* get_hint(euf::solver& s) const override;
+        bool is_assumed() const override { return m_ty == hint_type::nlsat_assumed_h; }
     };
 
     class arith_proof_hint_builder {
         vector<std::pair<rational, literal>>   m_literals;
         svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
         hint_type                              m_ty;
+        vector<std::shared_ptr<nla::lemma_certificate const>> m_nla_certificates;
         unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
@@ -89,11 +94,13 @@ namespace arith {
         std::pair<rational, literal> const& lit(unsigned i) const { return m_literals[i]; }
         std::tuple<enode*, enode*, bool> const& eq(unsigned i) const { return m_eqs[i]; }
         arith_proof_hint* mk(euf::solver& s);
+        nla::lemma_certificate const& certificate(unsigned i) const { return *m_nla_certificates[i]; }
     };
 
     class solver : public euf::th_euf_solver {
 
         friend struct arith_proof_hint;
+        friend class arith_proof_hint_builder;
         friend class sls;
 
         struct scope {
