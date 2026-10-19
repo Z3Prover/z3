@@ -162,9 +162,33 @@ complements, and absorption. Reflexive equality reduces to `true` at
 any sort. A native-tag Boolean skeleton also connects the verified
 general-purpose truth-table checker to the kernel, with depth 8 and at
 most 10 opaque atoms (1,024 rows); structural normalization has no atom
-limit and uses fuel 32 for contextual set comparison. No equality of
-distinct non-Boolean theory atoms is assumed. Unsupported rules,
-non-equivalences, and checks exceeding the supported fragment/budgets
+limit and uses fuel 32 for contextual set comparison. Shared disjuncts
+can additionally be assumed false while specializing both endpoints;
+this checks contextual Boolean equalities and wide compound complements
+without increasing the truth-table budget. Neutral sibling assumptions
+are propagated in both operand orders, with positive and negative
+normal forms and two bounded normalization passes as additional
+comparison paths. A separate depth-seven Shannon search specializes
+both endpoints under each Boolean assignment, using structural
+comparison to close branches without enumerating all remaining atoms.
+
+The rewrite path also reuses the proved `distinct` expansion, including
+binary disequality. `Z3ConditionalRewrite` matches both endpoints under
+the guards of typed ITEs, checking numeric-ITE equalities and arithmetic
+factoring through the existing arithmetic and Boolean checkers. Its
+fuel-64 search requires one branch to close locally before recursing on
+the other, avoiding exponential case splitting. `Z3IntegerRewrite`
+checks rounded inequalities by replaying exact Farkas certificates in
+both directions, and rejects integer equations whose coefficient gcd
+does not divide their constant. Gcd candidates are checked against every
+typed integer monomial. `Z3QuantifierVacuity` removes only unused binders,
+renumbering de Bruijn indices beneath nested binders and checking the
+remaining binder sorts; it also checks these transformations under
+congruence. The semantic proof projects and extends assignments under
+the existing quantifier model and extensionality hypotheses. These
+checks are additive fallbacks, not replacements for earlier rewrite
+checks. No equality of distinct non-Boolean theory atoms is assumed.
+Unsupported rules, non-equivalences, and checks exceeding the supported fragment/budgets
 remain explicit obligations (`PARTIAL`, exit 3); rule-name classification
 does not certify them. See `OCAML_CHECKER_REPORT.md` for usage, the
 58-proof QF_UF recheck, and the fresh 100-file-per-logic QF_UF/QF_AX

@@ -20,6 +20,7 @@ Revision History:
 #include "smt/smt_conflict_resolution.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include <memory>
 
 namespace smt {
@@ -368,11 +369,31 @@ namespace smt {
     }
 
     
+    ext_theory_conflict_justification::ext_theory_conflict_justification(
+        family_id fid, context& ctx, unsigned num_lits, literal const* lits,
+        unsigned num_eqs, enode_pair const* eqs, unsigned num_params, parameter* params, proof* pr):
+        ext_theory_simple_justification(fid, ctx, num_lits, lits, num_eqs, eqs, num_params, params),
+        m_proof(pr) {
+        ctx.get_manager().inc_ref(m_proof);
+        log(ctx);
+    }
+
     proof * ext_theory_conflict_justification::mk_proof(conflict_resolution & cr) {
         ptr_buffer<proof> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();
+        if (m_proof) {
+            expr_safe_replace replace(m);
+            for (auto* pr : prs)
+                replace.insert(m.mk_hypothesis(m.get_fact(pr)), pr);
+            expr_ref result(m_proof, m);
+            replace(result);
+            m.inc_ref(result);
+            m.dec_ref(m_proof);
+            m_proof = to_app(result);
+            return m_proof;
+        }
         return m.mk_th_lemma(m_th_id, m.mk_false(), prs.size(), prs.data(), m_params.size(), m_params.data());
     }
 
@@ -441,4 +462,3 @@ namespace smt {
     }
 
 }
-

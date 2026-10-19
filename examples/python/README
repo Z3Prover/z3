@@ -268,8 +268,8 @@ arguments (see "Uninterpreted functions in Lean").
 Linear real arithmetic through the legacy proof object
 ------------------------------------------------------
 
-theory_lra records the evidence of each LP conflict and bound propagation as
-th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
+In the flat arithmetic proof format, theory_lra records each LP conflict and
+bound propagation as th-lemma parameters: (_ th-lemma arith farkas c1 ... cn) for a conflict,
 (_ th-lemma arith bound c1 ... cn 1) for a propagated bound literal, and
 (_ th-lemma arith implied-eq) for a propagated equality (the coefficients are
 the Farkas multipliers of the LP explanation, one per premise in the order
@@ -288,6 +288,17 @@ weighting the antecedents only, with signed coefficients) becomes bound with
 the propagated literal's weight 1 added, eq-propagate becomes implied-eq, and
 only magnitudes are kept. A th-lemma whose hint is none of these, including
 a bare (_ th-lemma arith) and the integer rules, is rejected at export.
+
+The current LP proof format also carries a shared lp-context, which concludes
+true and stores the indexed arithmetic certificate in declaration parameters.
+The exporter removes this nonlogical context dependency, not the logical
+premises of the inference. It translates lp-linear's local coefficients
+(after the step index) to farkas, bound, or implied-eq as appropriate.
+lp-input bridges from the supplied input proof to the normalized arithmetic
+fact, and lp-discharge bridges from a native lemma that discharges its
+temporary hypothesis; both become smt implications proved independently by
+Lean. Context metadata is not trusted or interpreted as an assumption.
+Integer, nonlinear, and unknown lp- rules remain unsupported.
 
 The reconstructor re-derives every farkas and bound combination from the
 premises and the clause with exact rationals before Lean runs, checks the

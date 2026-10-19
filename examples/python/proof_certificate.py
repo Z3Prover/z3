@@ -369,7 +369,7 @@ def parse_assertions(source, context):
     return assertions, classify_fragment(assertions)
 
 
-def _th_lemma_parameters(decl, premises):
+def _th_lemma_parameters(decl, premises, conclusion=None):
     """Return the certificate parameters of a native th-lemma declaration applied to premises.
 
     The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
@@ -379,9 +379,32 @@ def _th_lemma_parameters(decl, premises):
     outright. Only magnitudes enter a Farkas combination (theory_arith records
     the sign of the row coefficient), and the reconstructor re-derives the
     combination, so the coefficients are hints, not trusted. A bare
-    (_ th-lemma arith) records no evidence and is rejected.
+    (_ th-lemma arith) records no evidence and is rejected. Indexed LP steps
+    use their local weights; input and discharge bridges are re-proved by Lean.
     """
     parameters = decl.params()
+    if (len(parameters) >= 2 and parameters[0] == "arith"
+            and isinstance(parameters[1], str) and parameters[1].startswith("lp-")):
+        rule = parameters[1]
+        if rule not in ("lp-input", "lp-linear", "lp-discharge"):
+            raise ProofExportError("th-lemma without a replayable theory hint: %s" % rule)
+        try:
+            index = Fraction(str(parameters[2]))
+            if index.denominator != 1 or not 0 <= index < 2**32 - 1:
+                raise ValueError()
+        except (IndexError, ValueError, ZeroDivisionError):
+            raise ProofExportError("invalid LP step index") from None
+        if rule != "lp-linear":
+            if len(parameters) != 3 or (premises not in (0, 1) if rule == "lp-input" else premises != 1):
+                raise ProofExportError("invalid %s inference" % rule)
+            return ["smt"]
+        if conclusion is None:
+            raise ProofExportError("missing LP linear conclusion")
+        if len(parameters) != 3 + premises + (not z3.is_false(conclusion)):
+            raise ProofExportError("invalid LP linear coefficient count")
+        hint = ("farkas" if z3.is_false(conclusion) else
+                "implied-eq" if z3.is_eq(conclusion) else "bound")
+        parameters = ["arith", hint] + parameters[3:]
     if len(parameters) < 2 or parameters[0] != "arith" or parameters[1] not in _LEGACY_HINTS:
         raise ProofExportError("th-lemma without a replayable theory hint: %s" % " ".join(
             str(parameter) for parameter in parameters))
@@ -400,6 +423,25 @@ def _th_lemma_parameters(decl, premises):
     if hint == "implied-eq":
         coefficients = []  # never summed; the reconstructor checks shapes and Lean proves the equality
     return [hint] + [str(coefficient) for coefficient in coefficients]
+
+
+def _proof_arguments(expr):
+    """Remove the nonlogical LP context; Lean re-proves every remaining inference."""
+    arguments = expr.children()
+    if expr.decl().kind() != z3.Z3_OP_PR_TH_LEMMA:
+        return arguments
+    parameters = expr.decl().params()
+    if (len(parameters) < 2 or parameters[0] != "arith"
+            or not isinstance(parameters[1], str) or not parameters[1].startswith("lp-")):
+        return arguments
+    if len(arguments) < 2:
+        raise ProofExportError("missing LP context")
+    context = arguments[0]
+    if (context.decl().kind() != z3.Z3_OP_PR_TH_LEMMA
+            or context.decl().params()[:2] != ["arith", "lp-context"]
+            or context.num_args() != 1 or not z3.is_true(context.arg(0))):
+        raise ProofExportError("invalid LP context")
+    return arguments[1:]
 
 
 def _encode_proof(assertions, proof):
@@ -427,9 +469,10 @@ def _encode_proof(assertions, proof):
             continue
         if not z3.is_app(expr):
             raise ProofExportError("non-application terms in native proofs are not supported")
+        arguments = _proof_arguments(expr)
         if not expanded:
             pending.append((expr, True))
-            pending.extend((child, False) for child in reversed(expr.children()))
+            pending.extend((child, False) for child in reversed(arguments))
             continue
         decl = expr.decl()
         if decl.get_id() not in declaration_ids:
@@ -437,21 +480,22 @@ def _encode_proof(assertions, proof):
             if decl.kind() == z3.Z3_OP_ANUM:
                 name = str(numeral_value(expr))  # The numeral is the declaration's parameter.
             elif decl.kind() == z3.Z3_OP_PR_TH_LEMMA:
-                parameters = _th_lemma_parameters(decl, expr.num_args() - 1)
+                parameters = _th_lemma_parameters(decl, len(arguments) - 1, arguments[-1])
             elif decl.params():
                 raise ProofExportError("native declaration parameters are not supported: %s" % decl.name())
             declaration_ids[decl.get_id()] = len(declarations)
             declarations.append({
                 "kind": decl.kind(),
                 "name": name,
-                "domain": [sort_name(decl.domain(i)) for i in range(decl.arity())],
+                "domain": [sort_name(decl.domain(i))
+                           for i in range(expr.num_args() - len(arguments), decl.arity())],
                 "range": sort_name(decl.range()),
                 "parameters": parameters,
             })
         node_ids[expr.get_id()] = len(nodes)
         nodes.append({
             "declaration": declaration_ids[decl.get_id()],
-            "arguments": [node_ids[child.get_id()] for child in expr.children()],
+            "arguments": [node_ids[child.get_id()] for child in arguments],
         })
         if expr.sort().eq(proof_sort):
             rule_counts[str(decl.name())] += 1

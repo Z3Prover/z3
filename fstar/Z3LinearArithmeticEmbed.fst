@@ -52,10 +52,16 @@ let numeric_operators (i:interpretation value) (nu:value -> real) : prop =
     A.comparison e == Some (r, a, b) /\ r <> A.Eq ==>
     (lit_true i rho e <==> numeric_relation r (nu (eval i a rho)) (nu (eval i b rho))))
 
+(* The value type has no real constructor. Real term equality additionally
+   needs reflection from the numeric projection, not just operator laws. *)
 let numeric_model (i:interpretation value) (nu:value -> real) : prop =
   numeric_operators i nu /\
   (forall (e:expr) (rho:env value).
-    get_sort e == A.int_s ==> VInt? (eval i e rho))
+    get_sort e == A.int_s ==> VInt? (eval i e rho)) /\
+  (forall (a b:expr) (rho:env value).
+    get_sort a == A.real_s /\ get_sort b == A.real_s /\
+    nu (eval i a rho) == nu (eval i b rho) ==>
+    eval i a rho == eval i b rho)
 
 let valuation (i:interpretation value) (nu:value -> real) (rho:env value) : expr -> real =
   fun e -> nu (eval i e rho)
@@ -107,8 +113,14 @@ let lemma_denotes_multiply (p q t:A.poly) (x y:real) (r:expr -> real)
   assert (of_int t.denom == of_int p.denom *. of_int q.denom);
   assert (P.value p r == of_int p.denom *. x);
   assert (P.value q r == of_int q.denom *. y);
-  lemma_scaled_product (of_int p.denom) (of_int q.denom) x y;
-  assert (P.value t r == of_int t.denom *. (x *. y))
+  calc (==) {
+    P.value t r;
+    == {} P.value p r *. P.value q r;
+    == {} (of_int p.denom *. x) *. (of_int q.denom *. y);
+    == { lemma_scaled_product (of_int p.denom) (of_int q.denom) x y }
+      (of_int p.denom *. of_int q.denom) *. (x *. y);
+    == {} of_int t.denom *. (x *. y);
+  }
 
 let rec lemma_product (ps:list A.poly) (xs:list real) (p:A.poly) (r:expr -> real)
   : Lemma (requires denotations ps xs r /\ P.product ps == Some p)

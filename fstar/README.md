@@ -26,18 +26,104 @@ correctness of the C++ implementation that produced it. The activity pages
 link the relevant modules, reports, coverage results, and limitations.
 For the current single-executable SMT-LIB workflow, see
 [direct native checking](PROOF_CHECKING.md#extraction-and-execution).
+For incremental SMT-LIB sessions, run the built executable with
+`--interactive`. It registers the extracted F* checker through Z3's proof
+callback and emits `; proof-check ACCEPT`, `PARTIAL n`, or `REJECT` after
+UNSAT answers. See [interactive mode](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session)
+for protocol, ownership, and certification limits.
 
 ## Shared toolchain
 
 The documented toolchain is [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64), with Z3 `4.13.3` as its SMT backend.
-F* pins an exact Z3 version; this is independent of the Z3 binary built
-from this repository or used to produce proofs for checking.
+`v2026.09.27` (Windows x64). The proof-checker harness builds and installs
+Z3 from this checkout before verification or testing. F* and Pulse use
+the installed `build\install\bin\z3.exe`, not F*'s historical Z3 4.13.3
+backend or an executable found incidentally on `PATH`. The harness reads
+the installed version and supplies F*'s matching `--z3version` option;
+the version check remains enabled.
 
-From this directory, typecheck a module with:
+From a Windows C++20 developer PowerShell, build and test both the native
+checker and the in-memory Pulse checkers:
 
 ```powershell
-C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe --include C:\z3\fstar <File>.fst
+.\tools\build_ocaml_checker.ps1 -RunTests
+```
+
+The Windows installation is local to the build directory. The native
+OCaml producer is separately built and installed in WSL, then linked
+from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
+
+### GitHub Actions regression report
+
+**Pulse verification and native checker regressions**
+(`.github/workflows/pulse-checker-regressions.yml`) runs automatically on
+pushes and pull requests changing `fstar/**`, and can also be dispatched
+manually on a branch containing the checker. Automatic runs use the
+default dispatch settings. It builds and installs that checkout's Z3, verifies the Pulse
+modules and their tests, extracts and links the native F* checker, and
+runs its bridge/CLI self-tests. The Linux path uses the same
+`tools/build_ocaml_checker.ps1` module lists as the Windows/WSL build,
+with pinned F* `v2026.09.27` and OCaml `5.3.0`.
+F* and enabled OCaml compiler warnings fail the build. Extracted constructor
+projectors receive explicit rejecting out-of-domain arms using OCaml's
+AST, without suppressing partial-match warnings or changing checker rules.
+
+The first default corpus is every `.smt2` file recursively under
+`Z3Prover/z3test`'s `regressions/proofs`, including the optional larger
+`lean/real` input. Dispatch inputs select the corpus ref/directory, sorted
+case cap (zero means all), solver timeout, whole-case timeout, and total
+test budget. Manifest `.txt` lists and saved `.proof` objects are not
+executed. Inputs are passed unchanged to the native API, which checks the
+parsed final assertion set, not an incremental sequence of commands.
+
+The same job also evaluates all **225 inputs** under
+`Z3Prover/z3test`'s `regressions/smtlib-sample`: **25 UNSAT-annotated
+benchmarks per logic** for QF_UF, QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA,
+QF_AUFLIA, AUFLIA, and UFLIA. This is a newly reconstructed reduced
+seed-42 sample from the official SMT-LIB 2025 non-incremental archives,
+not a replay of the historical 900-input manifest. The corpus manifest
+records upstream archive checksums, original paths, and each unchanged
+input's SHA-256. The harness verifies exact manifest membership and every
+input hash before executing any case, and requires exactly 225 inputs.
+The proof-corpus `max_cases` cap does not truncate this sample. A manually
+selected `z3test_ref` must contain the sample and its manifest.
+
+The job summary and downloadable report artifact record resolved producer
+and corpus commits, build/test outcomes, build and per-case wall time,
+available solve/marshal/check timings, and explicit outcome rates.
+`ACCEPT` alone counts as proof-checking success; `PARTIAL`, `REJECT`,
+`SAT`, unknowns, timeouts, and process errors remain separate categories.
+The report is a coverage measurement, not a pass rate for z3test's other
+proof backends. Pulse modules are verified, but the executable benchmarked
+on the corpus uses the extracted F* kernel, **not linked Pulse code**.
+Build/self-test failures and checker errors/crashes/protocol mismatches
+fail the job; unsupported proofs and timeouts are reported without failing
+this coverage-measurement job. The corpus step also has a 35-minute CI
+limit, independent of the configurable budget. Always-run reporting/upload
+steps preserve available results and build logs on failure.
+The SMT-LIB sample has its own report, per-logic outcome counts, input
+manifest, raw logs, and phase timings under the artifact's `smtlib-sample/`
+directory. It uses the same configurable solver and whole-case timeouts,
+a 4 GiB address-space limit, and a separate default 3,600-second execution
+budget (`smtlib_total_timeout_seconds`), with a 65-minute CI step limit.
+An incomplete manifest-driven sample run fails the job; unsupported
+proofs and timeouts still remain explicit coverage outcomes. The sample
+step runs even if the earlier proof-corpus execution fails, provided the
+build and corpus checkout succeeded.
+
+For a local Linux build, activate an OCaml 5.3.0 opam switch with
+`ocamlfind` and `zarith`, then run the same harness with `pwsh`,
+`-FstarExe /path/to/fstar.exe`, `-OpamSwitch <switch>`, and `-RunTests`.
+On Linux, `-Z3WindowsBuildDir` names the local CMake build directory and
+`-WslBuildDir` names the local checker output directory; WSL is not used.
+That one Z3 installation supplies both the verifier and the native link.
+
+After the harness has installed Z3, a standalone module can use it explicitly:
+
+```powershell
+$z3 = Join-Path (Resolve-Path '..') 'build\install\bin\z3.exe'
+$version = [regex]::Match((& $z3 -version), 'Z3 version (\d+\.\d+\.\d+)').Groups[1].Value
+C:\fstar\fstar\bin\fstar.exe --smt $z3 --z3version $version --include $PWD Z3AstTheory.fst
 ```
 
 Consult each report for its verification results, assumptions, and scope.

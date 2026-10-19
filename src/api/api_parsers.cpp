@@ -247,6 +247,7 @@ extern "C" {
             install_smt2_extra_cmds(*ctx);
             ctx->register_plist();
             ctx->set_solver_factory(mk_smt_strategic_solver_factory());
+            ctx->set_proof_check_callback(mk_c(c)->get_proof_check_callback());
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
         std::istringstream is(str);

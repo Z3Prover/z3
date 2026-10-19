@@ -3,7 +3,9 @@ type native_sort = Z3native.sort
 
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
-  | Select | Store | ArrayExt | Bvand | Concat
+  | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
+  | Bvadd | Bvmul | Bvsub | Bvneg | Concat
+  | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral | Opaque
 
@@ -19,6 +21,7 @@ type declaration = {
   range: native_sort;
   numeral: (Z.t * Z.t) option;
   native_kind: Z.t;
+  parameters: Z.t list;
 }
 
 type expression_view =
@@ -26,11 +29,20 @@ type expression_view =
   | Application of declaration * ast list
   | Quantified of Z3AstTheory.quantifier_kind * native_sort list * ast
 
+type parameter_view =
+  | ParameterRational of Z.t * Z.t
+  | ParameterExpression of ast
+  | ParameterUnsupported
+
 type proof_view = {
   proof_name: string;
   premises: ast list;
   conclusion: ast;
   farkas: (Z.t * Z.t) list option;
+  assumed: string option;
+  lp_data: (string * parameter_view list) option;
+  binding: (native_sort list * ast) option;
+  instantiations: ast list;
 }
 
 type solve_result =
@@ -77,6 +89,13 @@ let operator = function
   | Z3enums.OP_XOR -> Xor | Z3enums.OP_DISTINCT -> Distinct
   | Z3enums.OP_SELECT -> Select | Z3enums.OP_STORE -> Store
   | Z3enums.OP_ARRAY_EXT -> ArrayExt | Z3enums.OP_BAND -> Bvand
+  | Z3enums.OP_BOR -> Bvor | Z3enums.OP_BXOR -> Bvxor | Z3enums.OP_BNOT -> Bvnot
+  | Z3enums.OP_BADD -> Bvadd | Z3enums.OP_BMUL -> Bvmul
+  | Z3enums.OP_BSUB -> Bvsub | Z3enums.OP_BNEG -> Bvneg
+  | Z3enums.OP_CONST_ARRAY -> ConstArray
+  | Z3enums.OP_DT_CONSTRUCTOR -> DatatypeConstructor
+  | Z3enums.OP_DT_RECOGNISER | Z3enums.OP_DT_IS -> DatatypeRecognizer
+  | Z3enums.OP_DT_ACCESSOR -> DatatypeAccessor
   | Z3enums.OP_SEQ_CONCAT -> Concat | Z3enums.OP_ADD -> Add | Z3enums.OP_MUL -> Mul
   | Z3enums.OP_SUB | Z3enums.OP_UMINUS -> Sub
   | Z3enums.OP_DIV -> Div | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
@@ -94,6 +113,104 @@ let rational text =
 
 let app_args c a =
   List.init (Z3native.get_app_num_args c a) (Z3native.get_app_arg c a)
+
+let datatype_parameters c d op =
+  let id d = Z.of_int (Z3native.get_func_decl_id c d) in
+  if op = DatatypeConstructor then
+    [sort_id (Z3native.get_range c d); id d; Z.of_int (Z3native.get_domain_size c d)]
+  else if op = DatatypeRecognizer then begin
+    if Z3native.get_decl_num_parameters c d <> 1 ||
+       Z3enums.parameter_kind_of_int (Z3native.get_decl_parameter_kind c d 0) <>
+         Z3enums.PARAMETER_FUNC_DECL
+    then fail "Malformed native datatype recognizer";
+    let constructor = Z3native.get_decl_func_decl_parameter c d 0 in
+    [sort_id (Z3native.get_range c constructor); id constructor]
+  end else
+    let owner = Z3native.get_domain c d 0 in
+    let rec constructors index =
+      if index = Z3native.get_datatype_sort_num_constructors c owner then
+        fail "Native datatype accessor has no owning constructor";
+      let constructor = Z3native.get_datatype_sort_constructor c owner index in
+      let rec fields field =
+        if field = Z3native.get_domain_size c constructor then constructors (index + 1)
+        else if Z3native.is_eq_func_decl c d
+                  (Z3native.get_datatype_sort_constructor_accessor c owner index field)
+        then [sort_id owner; id constructor; Z.of_int field]
+        else fields (field + 1)
+      in fields 0
+    in constructors 0
+
+let view_datatypes roots =
+  let module A = Z3AstTheory in
+  let module S = Z3DatatypeSignature in
+  let converted = Hashtbl.create 16 and seen = Hashtbl.create 16 in
+  let rec logical_sort s =
+    let id = sort_id s in
+    match Hashtbl.find_opt converted id with
+    | Some value -> value
+    | None ->
+        let value = match view_sort s with
+          | Base name -> A.BaseSort name
+          | Array (domains, range) ->
+              A.ArraySort (List.map logical_sort domains, logical_sort range) in
+        Hashtbl.add converted id value;
+        value
+  in
+  let declaration c d =
+    let op = operator (Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d)) in
+    let interp = match op with
+      | DatatypeConstructor -> Z3DatatypeLemma.op_constructor
+      | DatatypeRecognizer -> Z3DatatypeLemma.op_recognizer
+      | DatatypeAccessor -> Z3DatatypeLemma.op_accessor
+      | _ -> fail "Non-datatype declaration in native datatype signature" in
+    { A.decl_name = symbol c (Z3native.get_decl_name c d);
+      domain = List.init (Z3native.get_domain_size c d)
+          (fun index -> logical_sort (Z3native.get_domain c d index));
+      range = logical_sort (Z3native.get_range c d);
+      interp = Some interp; int_params = datatype_parameters c d op }
+  in
+  let rec nested_datatype s =
+    let c = ctx s in
+    match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+    | Z3enums.DATATYPE_SORT -> true
+    | Z3enums.SEQ_SORT -> nested_datatype (Z3native.get_seq_sort_basis c s)
+    | Z3enums.ARRAY_SORT ->
+        List.exists (fun index -> nested_datatype (Z3native.get_array_sort_domain_n c s index))
+          (List.init (Z3native.get_array_arity c s) Fun.id) ||
+        nested_datatype (Z3native.get_array_sort_range c s)
+    | _ -> false
+  in
+  let rec visit sorts cases = function
+    | [] -> { S.sorts = List.rev sorts; cases = List.rev cases }
+    | s :: rest when Hashtbl.mem seen (sort_id s) -> visit sorts cases rest
+    | s :: rest ->
+        Hashtbl.add seen (sort_id s) s;
+        let c = ctx s in
+        match Z3enums.sort_kind_of_int (Z3native.get_sort_kind c s) with
+        | Z3enums.DATATYPE_SORT ->
+            let count = Z3native.get_datatype_sort_num_constructors c s in
+            if count = 0 then fail "Native datatype signature has no constructors";
+            let cases', fields = List.init count (fun index ->
+                let constructor = Z3native.get_datatype_sort_constructor c s index in
+                let arity = Z3native.get_domain_size c constructor in
+                { S.constructor = declaration c constructor;
+                  recognizer = declaration c (Z3native.get_datatype_sort_recognizer c s index);
+                  accessors = List.init arity (fun field ->
+                    declaration c (Z3native.get_datatype_sort_constructor_accessor c s index field)) },
+                List.init arity (Z3native.get_domain c constructor))
+                |> List.split in
+            visit (logical_sort s :: sorts) (List.rev_append cases' cases)
+              (List.concat fields @ rest)
+        | Z3enums.ARRAY_SORT ->
+            let domains = List.init (Z3native.get_array_arity c s)
+                (Z3native.get_array_sort_domain_n c s) in
+            visit sorts cases (domains @ (Z3native.get_array_sort_range c s :: rest))
+        | Z3enums.SEQ_SORT ->
+            if nested_datatype s then fail "Nested datatype sequence fields are not supported";
+            visit sorts cases rest
+        | _ -> visit sorts cases rest
+  in
+  visit [] [] roots
 
 let view_expression a =
   let c = ctx a in
@@ -116,13 +233,22 @@ let view_expression a =
       let id = Z.of_int (Z3native.get_func_decl_id c d) in
       let native_kind = Z3native.get_decl_kind c d in
       let op = operator (Z3enums.decl_kind_of_int native_kind) in
-      let numeral = if op = Rational then Some (rational (Z3native.get_numeral_string c a))
+      let numeral = if op = Rational || op = BvNumeral
+                    then Some (rational (Z3native.get_numeral_string c a))
                     else None in
-      let name = if op = Rational || op = BvNumeral then Z3native.ast_to_string c a
+      let range = Z3native.get_range c d in
+      let parameters = match op with
+        | Bvand | Bvor | Bvxor | Bvnot | Bvadd | Bvmul | Bvsub | Bvneg | BvNumeral ->
+            [Z.of_int (Z3native.get_bv_sort_size c range)]
+        | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor ->
+            datatype_parameters c d op
+        | _ -> [] in
+      let name = if op = BvNumeral then "bv"
+                 else if op = Rational then Z3native.ast_to_string c a
                  else symbol c (Z3native.get_decl_name c d) in
       let declaration = {
         id; name; unique_name = unique "decl" id name; op;
-        range = Z3native.get_range c d; numeral; native_kind = Z.of_int native_kind;
+        range; numeral; native_kind = Z.of_int native_kind; parameters;
       } in
       Application (declaration, app_args c app)
   | _ -> fail "Native object is not an expression"
@@ -149,21 +275,79 @@ let view_proof a =
     if parameter_kind i = Z3enums.PARAMETER_SYMBOL then
       Some (symbol c (Z3native.get_decl_symbol_parameter c d i))
     else None in
+  let arithmetic_hint =
+    if name = "th-lemma" && count >= 2 && parameter_symbol 0 = Some "arith"
+    then parameter_symbol 1 else None in
+  let rational_parameter i =
+    match parameter_kind i with
+    | Z3enums.PARAMETER_RATIONAL ->
+        rational (Z3native.get_decl_rational_parameter c d i)
+    | Z3enums.PARAMETER_INT ->
+        Z.of_int (Z3native.get_decl_int_parameter c d i), Z.one
+    | _ -> fail "Non-rational native arithmetic coefficient" in
   let farkas =
-    if name = "th-lemma" && count >= 2 &&
-       parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "farkas" then
-      Some (List.init (count - 2) (fun i ->
-          match parameter_kind (i + 2) with
-          | Z3enums.PARAMETER_RATIONAL ->
-              rational (Z3native.get_decl_rational_parameter c d (i + 2))
-          | Z3enums.PARAMETER_INT ->
-              Z.of_int (Z3native.get_decl_int_parameter c d (i + 2)), Z.one
-          | _ -> fail "Non-rational native Farkas coefficient"))
+    if arithmetic_hint = Some "farkas" || arithmetic_hint = Some "bound" then
+      Some (List.init (count - 2) (fun i -> rational_parameter (i + 2)))
+    else if arithmetic_hint = Some "assign-bounds" then
+      let coefficients = List.init (count - 2) (fun i -> rational_parameter (i + 2)) in
+      (* The propagated bound has implicit unit weight. In clausal proofs it
+         precedes the antecedents; otherwise it follows the proof premises. *)
+      Some (if premises = [] then (Z.one, Z.one) :: coefficients
+            else coefficients @ [Z.one, Z.one])
+    else if arithmetic_hint = Some "lp-linear" && count >= 3 then
+      (* These are candidate coefficients, not a trusted replay result. The F*
+         arithmetic kernel checks them against every actual premise/conclusion. *)
+      Some ((Z.zero, Z.one) :: List.init (count - 3) (fun i -> rational_parameter (i + 3)))
+    else if (arithmetic_hint = Some "lp-input" || arithmetic_hint = Some "lp-discharge") &&
+            count = 3 && (List.length premises = 1 || List.length premises = 2) then
+      Some ((Z.zero, Z.one) :: List.init (List.length premises) (fun _ -> Z.one, Z.one))
     else None
   in
-  { proof_name = name; premises; conclusion; farkas }
+  let assumed =
+    if name = "th-lemma" && count = 3 &&
+       parameter_symbol 0 = Some "arith" && parameter_symbol 1 = Some "assumed"
+    then parameter_symbol 2 else None in
+  let proof_name =
+    if arithmetic_hint = Some "lp-context" then "def-axiom"
+    else match arithmetic_hint, farkas with
+    | Some tag, None when String.starts_with ~prefix:"lp-" tag -> "arith/" ^ tag
+    | _ -> name in
+  let lp_data =
+    match arithmetic_hint with
+    | Some tag when String.starts_with ~prefix:"lp-" tag ->
+        let parameters = List.init (count - 2) (fun offset ->
+            let i = offset + 2 in
+            match parameter_kind i with
+            | Z3enums.PARAMETER_RATIONAL ->
+                let n, den = rational_parameter i in ParameterRational (n, den)
+            | Z3enums.PARAMETER_AST ->
+                let value = Z3native.get_decl_ast_parameter c d i in
+                (match Z3enums.ast_kind_of_int (Z3native.get_ast_kind c value) with
+                 | Z3enums.APP_AST | Z3enums.NUMERAL_AST | Z3enums.VAR_AST
+                 | Z3enums.QUANTIFIER_AST -> ParameterExpression value
+                 | _ -> ParameterUnsupported)
+            | _ -> ParameterUnsupported) in
+        Some (tag, parameters)
+    | _ -> None in
+  let binding =
+    if Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d) = Z3enums.OP_PR_BIND then
+      match args with
+      | [lambda] when Z3native.is_lambda c lambda ->
+          let sorts = List.init (Z3native.get_quantifier_num_bound c lambda)
+              (Z3native.get_quantifier_bound_sort c lambda) in
+          Some (sorts, Z3native.get_quantifier_body c lambda)
+      | _ -> fail "Malformed native proof binder"
+    else None in
+  let instantiations =
+    if Z3enums.decl_kind_of_int (Z3native.get_decl_kind c d) = Z3enums.OP_PR_QUANT_INST then
+      List.init count (fun i ->
+          if parameter_kind i <> Z3enums.PARAMETER_AST then
+            fail "Malformed native quantified instance parameter";
+          Z3native.get_decl_ast_parameter c d i)
+    else [] in
+  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
 
-let solve input timeout_ms =
+let create_context timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")
   then fail "Solver timeout must be between 0 and 4294967295 milliseconds";
   let config = Z3native.mk_config () in
@@ -173,6 +357,10 @@ let solve input timeout_ms =
   Z3native.del_config config;
   Z3native.set_internal_error_handler c;
   Z3native.enable_concurrent_dec_ref c;
+  c
+
+let solve input timeout_ms =
+  let c = create_context timeout_ms in
   let solver = Z3native.mk_solver c in
   let formulas = Z3native.parse_smtlib2_string c input 0 [] [] 0 [] [] in
   let assertions = List.init (Z3native.ast_vector_size c formulas)
