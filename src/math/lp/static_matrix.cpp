@@ -42,6 +42,7 @@ namespace lp {
     template void static_matrix<mpq, mpq>::clear();
     template static_matrix<mpq, mpq>::ref& static_matrix<mpq, mpq>::ref::operator=(mpq const&);
     template void static_matrix<mpq, mpq>::set(unsigned int, unsigned int, mpq const&);
+    template void static_matrix<mpq, mpq>::add_new_element(unsigned int, unsigned int, mpq const&);
 
     template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
 #ifdef Z3DEBUG
@@ -50,6 +51,7 @@ namespace lp {
     template mpq static_matrix<mpq, numeric_pair<mpq> >::get_elem(unsigned int, unsigned int) const;
     template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned int, unsigned int);
     template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);
+    template void static_matrix<mpq, numeric_pair<mpq> >::add_new_element(unsigned int, unsigned int, mpq const&);
 
 
     template void static_matrix<mpq, mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);

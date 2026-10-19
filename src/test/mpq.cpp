@@ -261,9 +261,11 @@ static void tst_fused_addmul() {
 }
 
 void tst_mpq() {
+#ifndef SINGLE_THREAD
     tst_fused_addmul<true>();
-    tst_fused_addmul<false>();
     tst_small_arithmetic<true>();
+#endif
+    tst_fused_addmul<false>();
     tst_small_arithmetic<false>();
     tst_prev_power_2();
     set_str_bug();
