@@ -267,5 +267,42 @@ void tst_api_datalog() {
         Z3_del_context(ctx3);
     }
 
+    // Regression test for a reachable error incorrectly reported safe (#11216).
+    {
+        char const* chc = R"(
+(declare-rel Inv (Bool Int))
+(declare-rel Err ())
+(declare-var b Bool)
+(declare-var b1 Bool)
+(declare-var x Int)
+(declare-var x1 Int)
+(declare-var f Int)
+(declare-var g Int)
+(declare-var h Int)
+(declare-var i Int)
+(declare-var j Bool)
+(declare-var k Bool)
+(declare-var l Bool)
+(rule (=> (and (= x 0) (not b)) (Inv b x)))
+(rule (=> (Inv b x) (Inv b1 x1)))
+(rule (=> (and (Inv b x)
+               b
+               (= (+ (ite l 0 (ite (<= 1 h) 1 f))
+                     (ite (<= 1 i) 0 h)
+                     (ite l (+ g h f) (ite (<= 1 g) g 0))
+                     (ite l (ite (<= 1 i) 0 i)
+                            (ite (or k (not (and j (<= 1 g)))) i g)))
+                  1))
+          Err))
+(query Err)
+)";
+        Z3_params params = Z3_mk_params(ctx);
+        Z3_params_inc_ref(ctx, params);
+        Z3_params_set_symbol(ctx, params, Z3_mk_string_symbol(ctx, "engine"),
+                            Z3_mk_string_symbol(ctx, "spacer"));
+        ENSURE(run_fixedpoint(ctx, chc, params) == Z3_L_TRUE);
+        Z3_params_dec_ref(ctx, params);
+    }
+
     Z3_del_context(ctx);
 }
