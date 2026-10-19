@@ -355,18 +355,22 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             // If the argument looks like a file path (contains path separators
             // or has a file extension), treat it as a filename rather than
             // a parameter assignment. This handles files with '=' in their names.
+            static char const * known_input_extensions[] = {
+                "smt2", "smt", "dimacs", "cnf", "wcnf", "opb", "lp", "log", "drat", "p"
+            };
             bool is_filepath = strchr(argv[i], '/') || strchr(argv[i], '\\');
             if (!is_filepath) {
                 char const * ext = get_extension(argv[i]);
-                if (ext && (strcmp(ext, "smt2") == 0 || strcmp(ext, "smt") == 0 ||
-                            strcmp(ext, "dimacs") == 0 || strcmp(ext, "cnf") == 0 ||
-                            strcmp(ext, "wcnf") == 0 || strcmp(ext, "opb") == 0 ||
-                            strcmp(ext, "lp") == 0 || strcmp(ext, "log") == 0 ||
-                            strcmp(ext, "drat") == 0 || strcmp(ext, "p") == 0))
-                    is_filepath = true;
+                if (ext)
+                    for (char const * known_ext : known_input_extensions)
+                        if (strcmp(ext, known_ext) == 0) {
+                            is_filepath = true;
+                            break;
+                        }
             }
-            if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
-            	g_input_kind = IN_DRAT;
+            char const * arg_ext = get_extension(arg);
+            if (arg_ext && strcmp(arg_ext, "drat") == 0) {
+                g_input_kind = IN_DRAT;
                 g_drat_input_file = arg;
             }
             else if (is_filepath && !g_input_file) {
@@ -380,7 +384,8 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
         }
         else {
-            if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
+            char const * arg_ext = get_extension(arg);
+            if (arg_ext && strcmp(arg_ext, "drat") == 0) {
                 g_input_kind = IN_DRAT;
                 g_drat_input_file = arg;
             }
