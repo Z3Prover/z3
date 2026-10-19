@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3_private.h"
 #include <cstring>
 #include <iostream>
+#include <string>
 #include "util/util.h"
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
@@ -496,6 +497,40 @@ static void test_solve_eqs_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_solve_eqs_macro_constants() {
+    char const* definitions[] = {
+        "(define-fun B () Int x)",
+        "(define-fun B ((y Int)) Int (+ x y))",
+        "(define-fun-rec f ((y Int)) Int (ite (= y 0) x (f (- y 1))))"
+    };
+    for (unsigned i = 0; i < 3; ++i) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string source = "(declare-const x Int)";
+        source += definitions[i];
+        source += "(assert (= x 0))";
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source.c_str(), 0, nullptr, nullptr,
+                                                        0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, 0));
+        Z3_tactic tactic = Z3_mk_tactic(ctx, "solve-eqs");
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+        Z3_apply_result_inc_ref(ctx, result);
+        ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+        Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+        ENSURE(Z3_goal_size(ctx, subgoal) == (i == 2 ? 1 : 0));
+        Z3_apply_result_dec_ref(ctx, result);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+    }
+}
+
 static void test_solve_eqs_proof_scope() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -655,6 +690,7 @@ void tst_simplifier() {
     test_incremental_demodulator();
     test_recfun_finder();
     test_solve_eqs_proofs();
+    test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
     test_flatten_suffix_proofs();
     test_skolemize_bug();
