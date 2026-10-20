@@ -72,7 +72,9 @@ the open scopes, and a later pop still drops its scope's declarations),
 and reset clears everything; a script without any query is one query over
 its final state. Queries may be followed by get-proof, get-model, get-unsat-core,
 get-assignment, and the script by exit. Declarations, declare-sort with
-arity 0, define-fun, set-logic, set-info, named assertions, and the
+arity 0, define-sort (plain and parametric aliases, scoped like
+declarations and expanded by Z3's parser, so the certificate and the Lean
+statement mention only the expanded sorts), define-fun, set-logic, set-info, named assertions, and the
 information queries get-info, get-option, and echo are accepted. The
 certificate is a
 statement about the parsed assertions, checked by Lean, so front matter that
@@ -90,8 +92,8 @@ proof-production and
 preprocessing options the exporter sets itself (sat.smt, solver.proof.*,
 smt.clause_proof, smt.solve_eqs, combined_solver.*) are rejected, as is any
 option not on the allowlist. A pop beyond the open scopes, a query index the
-script does not have, several queries without an index, define-sort,
-get-value, and other commands are rejected rather than ignored.
+script does not have, several queries without an index, a malformed
+define-sort, get-value, and other commands are rejected rather than ignored.
 Standard semicolon comments, doubled quotes in strings, and quoted symbols are
 supported. Quoted symbols have no escape mechanism: backslashes are rejected
 and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's
