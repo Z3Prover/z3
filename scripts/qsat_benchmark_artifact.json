@@ -32,6 +32,17 @@
       "tptp": 23
     }
   },
+  "frobenius_benchmarks": {
+    "url": "https://zenodo.org/records/16740866/files/LIA.tar.zst",
+    "md5": "29b056562bb1b4162762415d42417864",
+    "sha256": "4b402d114016530fce7677b7c3f4066b567f3aa0dda4d5bd23e7c7b92545adcb",
+    "root": "non-incremental/LIA/20250213-Frobenius",
+    "count": 120,
+    "two_coin": 60,
+    "three_coin": 60,
+    "expected_status": "sat",
+    "license": "CC-BY-4.0"
+  },
   "paper_protocol": {
     "timeout_seconds": 300,
     "memory_gb": 32,

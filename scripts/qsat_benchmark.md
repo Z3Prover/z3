@@ -408,3 +408,185 @@ Repeated-timing logs are `qsat-deep-repeat-089-plain.log` and
 `qsat-deep-repeat-089-normalized.log`. All are retained under the same session
 artifact directory listed above. None of these shorter-budget experiments
 replaces the still-unrun full 300-second / 32 GB paper protocol.
+
+## Frobenius integer-arithmetic evaluation
+
+The separate **October 20, 2026** evaluation uses all **120** inputs in
+`non-incremental/LIA/20250213-Frobenius` from the same pinned SMT-LIB 2025
+release: 60 two-coin and 60 three-coin problems. These are additional local
+experiments, not the paper's published LRA evaluation. Archive URL/checksums
+are pinned in `qsat_benchmark_artifact.json` under `frobenius_benchmarks`.
+Only this family was extracted; the original benchmark files are unchanged
+and are not vendored.
+
+Each input asks for a nonnegative greatest integer `P` that cannot be expressed
+as a nonnegative combination of the given coin denominations. All 120 inputs
+are marked sat. Independent shortest-path calculations over residues and
+dynamic-programming reachability checks produce Frobenius numbers for all 120;
+the two-coin results also agree with `a*b - a - b`. These are numerical
+cross-checks, not checks of solver-produced models: timed inputs request only
+`check-sat`.
+
+The unmodified baseline and published recursive binary are the same immutable
+snapshots as above. MuCyc uses its original executable/configurations and
+Z3 4.15.2 library, **without** the current-backend compatibility sentinel.
+`paper-z3` remains the older default solver through CoAR's frontend, not a
+native current-Z3/QSAT comparison. The initial screen, selected follow-up, and
+45-second repeated timings are sequential. The later full 20-second run uses
+32 pinned workers, as detailed below. Wall-clock times include startup/frontend
+overhead.
+
+### Complete one-second screen
+
+| Configuration | Two coins / 60 | Three coins / 60 | Solved / 120 | Timeout |
+|---|---:|---:|---:|---:|
+| Baseline QSAT | 4 | 4 | 8 | 112 |
+| Recursive QSAT, QEL | 4 | 4 | 8 | 112 |
+| Recursive QSAT, classical MBP | 5 | 4 | 9 | 111 |
+| Current default solver | 4 | 5 | 9 | 111 |
+| MuCyc Progress | 2 | 1 | 3 | 117 |
+| MuCyc Non-Progress | 2 | 1 | 3 | 117 |
+| Paper Z3 through CoAR | 4 | 5 | 9 | 111 |
+
+Every successful answer is sat; there are no errors, crashes, unknown answers,
+or status disagreements. Baseline and recursive QSAT solve exactly the same
+eight cases. Classical MBP additionally solves `fcp_11_13.smt2`; the current
+default and paper Z3 additionally solve `fcp_11_13_17.smt2`.
+This is a short-budget screen, not a full-timeout performance result.
+
+### Selected 30-second follow-up
+
+The follow-up selects those two cutoff differences plus larger two-/three-coin
+controls. Times are seconds; **T** means the 30-second wall limit was exceeded.
+These are single trials on a deliberately selected four-input subset.
+
+| Input | Baseline / recursive QSAT | Classical MBP | Current default | MuCyc Progress | MuCyc Non-Progress | Paper Z3 |
+|---|---:|---:|---:|---:|---:|---:|
+| `fcp_11_13` | 29.590 / 29.583 | 0.936 | 2.545 | 17.228 | 16.915 | 1.254 |
+| `fcp_11_13_17` | 3.537 / 3.540 | 19.301 | 0.685 | 16.857 | 26.064 | 0.871 |
+| `fcp_17_19` | 10.755 / 10.740 | 27.654 | 12.143 | T | T | T |
+| `fcp_17_19_23` | T / T | T | 29.457 | T | T | 3.575 |
+
+Baseline, recursive QSAT, and classical MBP each solve 3/4; the current default
+solves 4/4, each MuCyc mode 2/4, and paper Z3 3/4. All completed answers agree.
+In particular, the default solver's 29.457-second answer is near the cutoff
+and is not a robust speedup estimate.
+
+The completed baseline and recursive answers have identical QSAT round counts:
+266, 338, and 353 for the first three inputs. No extra recursive projections
+are recorded in the completed candidate QSAT answers, either in this follow-up
+or in the full screen. Timeouts do not provide final statistics, so this does
+not assert anything about their unreported projection counts.
+
+Three repeated runs of `fcp_11_13`, with a 45-second limit, give:
+
+| Configuration | Min | Median | Max |
+|---|---:|---:|---:|
+| Baseline QSAT | 29.431 s | 29.484 s | 29.532 s |
+| Recursive QSAT, QEL | 29.409 s | 29.530 s | 29.540 s |
+| Recursive QSAT, classical MBP | 0.916 s | 0.924 s | 0.930 s |
+
+All nine answers are sat and logged in `qsat-benchmarks.db` (runs 13-21).
+Classical MBP is approximately **32x faster** on this input. Its 30-second
+comparison also reports 248 versus 266 QSAT rounds and peak Z3 memory of
+21.78 versus 31.76 MB. However, classical MBP slows `fcp_11_13_17` from
+3.540 to 19.301 seconds and `fcp_17_19` from 10.740 to 27.654 seconds.
+It is therefore not enabled globally. The reproducible targeted setting is:
+
+```smt2
+(check-sat-using
+  (using-params qsat :qsat_recursive_backjump true :qsat_use_qel false))
+```
+
+### Complete 20-second parallel evaluation
+
+The requested reevaluation runs all **840** input/configuration combinations
+with a **20-second wall-clock limit per invocation**, using **32 workers** on
+the 32 available logical CPUs. Each worker has its own CPU, enforced with
+`taskset`; this does not claim 32 physical cores. Queue waiting is excluded from
+the limit. Job order is shuffled with seed `20261020`. The driver verifies
+input, executable, configuration, and MuCyc library hashes before running the
+same seven configurations and original inputs as the one-second screen.
+
+| Configuration | Two coins / 60 | Three coins / 60 | Solved / 120 | Timeout |
+|---|---:|---:|---:|---:|
+| Baseline QSAT | 7 | 6 | 13 | 107 |
+| Recursive QSAT, QEL | 5 | 6 | 11 | 109 |
+| Recursive QSAT, classical MBP | 5 | 4 | 9 | 111 |
+| Current default solver | 6 | 6 | 12 | 108 |
+| MuCyc Progress | 5 | 4 | 9 | 111 |
+| MuCyc Non-Progress | 5 | 4 | 9 | 111 |
+| Paper Z3 through CoAR | 6 | 7 | 13 | 107 |
+
+Elapsed matrix time is **501.520 seconds (8m22s)**, with an observed peak of
+32 simultaneous jobs. All 840 unique input/configuration pairs are present;
+every configuration has 120 records. Per-CPU execution intervals do not
+overlap. There are no errors, crashes, unknowns, wrong answers, or solver
+disagreements. The maximum observed invocation duration is 20.290 seconds,
+including timeout scheduling and process cleanup; every successful answer is
+below 20 seconds. No paper-equivalent memory cap is imposed.
+
+The eight small inputs solved by native QSAT in the one-second screen remain
+solved by all seven configurations. Other completed answers are:
+
+| Input | Baseline | Recursive QEL | Classical MBP | Current default | MuCyc Progress | MuCyc Non-Progress | Paper Z3 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `fcp_11_13` | T | T | 2.552 | 4.713 | T | T | 2.429 |
+| `fcp_11_13_17` | 7.871 | 6.618 | T | 1.353 | T | T | 1.616 |
+| `fcp_13_17` | 6.017 | 5.446 | T | 7.401 | 9.557 | 9.408 | 7.690 |
+| `fcp_13_17_19` | 14.056 | 13.834 | T | 17.860 | T | T | 5.673 |
+| `fcp_17_19` | 19.679 | T | T | T | T | T | T |
+| `fcp_17_19_23` | T | T | T | T | T | T | 6.714 |
+| `fcp_19_23` | 19.603 | T | T | T | T | T | T |
+
+Times are seconds; **T** means the nominal 20-second timeout. These are loaded,
+parallel measurements and must not be mixed with the earlier sequential
+timings. In particular, baseline's two apparent wins over recursive QSAT are
+close to the cutoff. A separate **four-worker**, 20-second check repeats each
+of those two inputs twice with each binary:
+
+| Input | Baseline min/max | Recursive QEL min/max |
+|---|---:|---:|
+| `fcp_17_19` | 11.711 / 15.777 s | 11.458 / 11.767 s |
+| `fcp_19_23` | 10.647 / 13.969 s | 10.487 / 11.534 s |
+
+All eight lower-load answers are sat, logged as benchmark runs 22-29.
+Thus these two losses are not robust across execution loads; the single
+32-worker matrix is not evidence of a stable algorithmic regression.
+The lower-load checks do not replace or increase its reported solved counts.
+Completed recursive QSAT answers in the full matrix report no extra recursive
+projections. No Frobenius improvement from recursive backprojection is
+established.
+
+**Conclusion:** recursive backprojection shows no measured Frobenius benefit
+in these completed runs. Integer projection-engine selection and the default
+frontend have much larger, non-uniform effects; MuCyc is not a general
+performance improvement on this family.
+
+The retained session artifacts are:
+
+- `qsat-frobenius-smoke-5s`: four smoke inputs, seven configurations.
+- `qsat-frobenius-full-1s`: all 120 inputs, seven configurations.
+- `qsat-frobenius-frontier-30s`: four selected inputs, seven configurations.
+- `qsat-frobenius-parallel-smoke`: one input, seven configurations, four workers.
+- `qsat-frobenius-full-20s-32workers`: all 120 inputs, seven configurations,
+  32 pinned workers, including per-invocation commands/CPU assignments/timing.
+- `qsat-frobenius-cutoff-check.json` and
+  `qsat-frobenius-cutoff-fcp_{17_19,19_23}-{baseline-qsat,candidate-qsat}.log`:
+  the separate four-worker cutoff checks.
+- `qsat-frobenius-repeat-{baseline-qsat,candidate-qsat,candidate-classic}.log`:
+  repeated-timing output, with per-run statistics in the SQLite database.
+- `qsat-frobenius-evaluation-summary.json`: consolidated results, per-coin-family
+  counts, numerical oracles, and manifest/result hashes.
+- `evaluate_frobenius.py`, `parallel_frobenius.py`,
+  `check_frobenius_cutoffs.py`, `summarize_frobenius.py`, and
+  `frobenius-followup-paths.json`: exact drivers, cross-checks, and follow-up list.
+
+Each harness directory includes `run/` with its manifest, transformed inputs,
+raw stdout/stderr, JSONL results, and summary. Sequential driver directories
+also include `provenance.json`; parallel manifests include affinity, concurrency,
+job-order, environment, and driver hashes. The consolidated summary preserves
+each run's concurrency so sequential and parallel timings remain distinct.
+Together they retain 1,743 harness invocations, in addition to 17 repeated
+benchmark runs. They use the session artifact location listed above. No full 120-input
+30-/300-second run or paper-equivalent memory limit is claimed.
