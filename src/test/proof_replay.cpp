@@ -19,20 +19,52 @@ Abstract:
 #include "parsers/smt2/smt2parser.h"
 #include "sat/sat_proof_trim.h"
 #include "sat/smt/arith_theory_checker.h"
+#include "sat/smt/tseitin_theory_checker.h"
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 
+// The replay frontend calls exit(0) when a step does not verify. That would end
+// the test binary successfully with the remaining checks unrun; turn it into a
+// failure instead.
+static bool g_replaying = false;
+static std::ostringstream* g_captured = nullptr;
+
+static void replay_exit_guard() {
+    if (!g_replaying)
+        return;
+    std::cerr << "proof replay exited before completing:\n" << g_captured->str();
+    std::_Exit(1);
+}
+
+struct scoped_replay {
+    std::streambuf* saved;
+    scoped_replay(std::ostringstream& captured) : saved(std::cout.rdbuf(captured.rdbuf())) {
+        g_captured = &captured;
+        g_replaying = true;
+    }
+    ~scoped_replay() {
+        std::cout.rdbuf(saved);
+        g_replaying = false;
+        g_captured = nullptr;
+    }
+};
+
 // Replay a clause proof log and return what the checker printed.
 static std::string replay(char const* log) {
+    static int const registered = std::atexit(replay_exit_guard);
+    ENSURE(registered == 0);
     ast_manager m;
     reg_decl_plugins(m);
     cmd_context ctx(false, &m);
     install_proof_cmds(ctx);
     std::istringstream is(log);
     std::ostringstream captured;
-    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
-    bool ok = parse_smt2_commands(ctx, is);
-    std::cout.rdbuf(saved);
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        ok = parse_smt2_commands(ctx, is);
+    }
     VERIFY(ok);
     return captured.str();
 }
@@ -314,6 +346,74 @@ static void tst_replay_implied_eq_constant_row() {
         "(declare-fun rup () Proof)(infer rup)"), "implied-eq 1");
 }
 
+// A tseitin hint lists the gate clause itself.
+static bool check_tseitin(ast_manager& m, expr_ref_vector const& lits) {
+    app_ref hint(m.mk_app(symbol("tseitin"), lits.size(), lits.data(), m.mk_proof_sort()), m);
+    tseitin::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+static bool check_tseitin(ast_manager& m, char const* source) {
+    return check_tseitin(m, parse_lits(m, source));
+}
+
+// An xor gate clause is a tautology only when every argument of the xor is
+// fixed by a clause literal and the xor then takes the value the clause needs:
+// an odd number of true arguments for a positive gate literal, an even number
+// for a negated one.
+static void tst_checker_tseitin_xor() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    // The four clauses defining (xor a b).
+    ENSURE(check("(assert (xor a b))(assert a)(assert (not b))"));
+    ENSURE(check("(assert (xor a b))(assert (not a))(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert a)(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert (not a))(assert (not b))"));
+    // Each wrong-polarity clause has a falsifying assignment.
+    ENSURE(!check("(assert (xor a b))(assert a)(assert b)"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert a)(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))(assert b)"));
+    // An argument the clause leaves free can take either value.
+    ENSURE(!check("(assert (not (xor a b)))(assert a)"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))"));
+    // Repeated and constant arguments.
+    ENSURE(!check("(assert (xor a a))(assert a)"));
+    ENSURE(!check("(assert (xor a a))(assert (not a))"));
+    ENSURE(check("(assert (not (xor a a)))(assert a)"));
+    ENSURE(check("(assert (xor a true))(assert a)"));
+    ENSURE(!check("(assert (xor a true))(assert (not a))"));
+    ENSURE(check("(assert (xor a false))(assert (not a))"));
+    ENSURE(!check("(assert (xor a false))(assert a)"));
+    // xor is binary in the AST, (xor a b c) is (xor a (xor b c)): the inner
+    // gate is an argument the clause does not fix.
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert b)(assert (not c))"));
+    ENSURE(check("(assert (xor a b c))(assert a)(assert (not (xor b c)))"));
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert (xor b c))"));
+    // Other gates are unaffected.
+    ENSURE(check("(assert (and a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (and a b))(assert (not a))(assert b)"));
+}
+
+// Both polarities of the gate verify natively in a replayed log.
+static void tst_replay_tseitin_xor() {
+    check_verified_natively(replay(
+        "(declare-fun a () Bool)(declare-fun b () Bool)(declare-fun p () Bool)"
+        "(define-const $1 Bool (xor a b))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)"
+        "(infer (not a) (not b) (not $1) (tseitin (not $1) (not a) (not b)))"
+        "(infer a b (not $1) (tseitin (not $1) a b))"
+        "(infer a (not b) $1 (tseitin $1 a (not b)))"
+        "(infer (not a) b $1 (tseitin $1 (not a) b))"
+        "(assume p $1)(assume (not p))(assume a)(assume b)"
+        "(declare-fun rup () Proof)(infer $1 rup)(infer rup)"), "tseitin 4");
+}
+
 static void tst_is_extended_numeral() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -451,5 +551,7 @@ void tst_proof_replay() {
     tst_checker_implied_eq_conclusion();
     tst_checker_implied_eq_constant_rows();
     tst_replay_implied_eq_constant_row();
+    tst_checker_tseitin_xor();
+    tst_replay_tseitin_xor();
     tst_replay_folds_printed_numerals();
 }

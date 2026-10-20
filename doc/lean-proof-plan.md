@@ -1195,6 +1195,30 @@ nested negations, and rejection of a gate with its guard reversed).
 
 ## Arithmetic proof infrastructure
 
+### Native xor gate clauses (2026-10-19)
+
+The native `tseitin` checker accepted invalid xor gate clauses. For a
+positive gate literal it counted marked and complemented arguments with
+one sign each and accepted an even total, so `(or (xor a b) a b)` and
+`(or (xor a b) (not a) (not b))` verified. The former is false at
+`a = b = false`, and the latter at `a = b = true`. Arguments the clause
+left free were not counted at all. For a
+negated gate it iterated the arguments of the `not` node instead of the
+xor, so any clause whose deepest literal was `(not (xor ...))` verified,
+for example `(or (not (xor a b)) (not a))`.
+
+The checker now evaluates the xor under the assignment that falsifies the
+other clause literals: every argument has to be fixed by a clause literal
+or be a constant, and the xor must be true for a positive gate literal and
+false for a negated one. Z3's own four clauses per gate still verify
+natively, and a replayed xor log reports `+tseitin 4` without SMT
+fallback. Z3's rewriter turns `xor` into a negated Boolean equality before
+clausification, so the sat.smt log rarely carries these hints; the repair
+is to the checker's acceptance, not to proof production or to Lean's
+independent def-axiom checking. The `proof_replay` unit test also fails
+now when the replay frontend exits inside a log instead of ending the
+binary successfully with the remaining checks unrun.
+
 ### Constant rows in native implied-equality checking (2026-10-19)
 
 The native `implied-eq` checker now handles constant inequalities before
