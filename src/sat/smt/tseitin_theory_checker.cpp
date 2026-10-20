@@ -140,7 +140,7 @@ namespace tseitin {
                 return true;
         }       
 
-        // (or (xor a b c d) a b (not c) (not d))
+        // (or (xor a b c d) a b c (not d))
         if (m.is_xor(main_expr)) {
             scoped_mark sm(*this);
             for (expr* arg : *jst)

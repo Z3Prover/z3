@@ -37,23 +37,34 @@ static void replay_exit_guard() {
     std::_Exit(1);
 }
 
+struct scoped_replay {
+    std::streambuf* saved;
+    scoped_replay(std::ostringstream& captured) : saved(std::cout.rdbuf(captured.rdbuf())) {
+        g_captured = &captured;
+        g_replaying = true;
+    }
+    ~scoped_replay() {
+        std::cout.rdbuf(saved);
+        g_replaying = false;
+        g_captured = nullptr;
+    }
+};
+
 // Replay a clause proof log and return what the checker printed.
 static std::string replay(char const* log) {
-    static bool guarded = (std::atexit(replay_exit_guard), true);
-    (void)guarded;
+    static int const registered = std::atexit(replay_exit_guard);
+    ENSURE(registered == 0);
     ast_manager m;
     reg_decl_plugins(m);
     cmd_context ctx(false, &m);
     install_proof_cmds(ctx);
     std::istringstream is(log);
     std::ostringstream captured;
-    g_captured = &captured;
-    g_replaying = true;
-    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
-    bool ok = parse_smt2_commands(ctx, is);
-    std::cout.rdbuf(saved);
-    g_replaying = false;
-    g_captured = nullptr;
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        ok = parse_smt2_commands(ctx, is);
+    }
     VERIFY(ok);
     return captured.str();
 }
@@ -362,7 +373,7 @@ static void tst_checker_tseitin_xor() {
     ENSURE(check("(assert (xor a b))(assert (not a))(assert b)"));
     ENSURE(check("(assert (not (xor a b)))(assert a)(assert b)"));
     ENSURE(check("(assert (not (xor a b)))(assert (not a))(assert (not b))"));
-    // Wrong polarity: both literals hold at a = b.
+    // Each wrong-polarity clause has a falsifying assignment.
     ENSURE(!check("(assert (xor a b))(assert a)(assert b)"));
     ENSURE(!check("(assert (xor a b))(assert (not a))(assert (not b))"));
     ENSURE(!check("(assert (not (xor a b)))(assert a)(assert (not b))"));

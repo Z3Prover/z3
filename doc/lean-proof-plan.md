@@ -1200,8 +1200,9 @@ nested negations, and rejection of a gate with its guard reversed).
 The native `tseitin` checker accepted invalid xor gate clauses. For a
 positive gate literal it counted marked and complemented arguments with
 one sign each and accepted an even total, so `(or (xor a b) a b)` and
-`(or (xor a b) (not a) (not b))` verified although both literals hold at
-`a = b`; arguments the clause left free were not counted at all. For a
+`(or (xor a b) (not a) (not b))` verified. The former is false at
+`a = b = false`, and the latter at `a = b = true`. Arguments the clause
+left free were not counted at all. For a
 negated gate it iterated the arguments of the `not` node instead of the
 xor, so any clause whose deepest literal was `(not (xor ...))` verified,
 for example `(or (not (xor a b)) (not a))`.
