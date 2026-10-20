@@ -110,6 +110,8 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
 
 br_status arith_rewriter::mk_complex_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result) {
     auto part = [&](expr* z, bool imaginary) -> expr_ref {
+        if (m_util.is_real(z))
+            return expr_ref(imaginary ? m_util.mk_real(0) : z, m);
         if (m_util.is_complex_constructor(z))
             return expr_ref(to_app(z)->get_arg(imaginary ? 1 : 0), m);
         return expr_ref(imaginary ? m_util.mk_imag_part(z) : m_util.mk_real_part(z), m);

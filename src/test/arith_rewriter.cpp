@@ -96,6 +96,33 @@ void tst_arith_rewriter() {
         ENSURE(au.is_complex(z) && !au.is_int_real(z));
         ENSURE(m.is_value(z));
         ENSURE(m.are_distinct(z, i));
+        expr_ref scalar(m.mk_const(symbol("scalar"), au.mk_real()), m);
+        expr_ref real_product(au.mk_mul(scalar, eta), m);
+        expr_ref imag_product(au.mk_mul(scalar, eta_im), m);
+        expected = au.mk_complex(real_product, imag_product);
+        rw(expected);
+        bool saved_coercions = m.int_real_coercions();
+        for (bool coercions : {false, true}) {
+            m.enable_int_real_coercions(coercions);
+            for (bool scalar_first : {false, true}) {
+                expr* args[] = { scalar_first ? scalar.get() : x.get(),
+                                 scalar_first ? x.get() : scalar.get() };
+                expr_ref product(au.mk_mul(args[0], args[1]), m);
+                app* term = to_app(product);
+                func_decl* decl = term->get_decl();
+                ENSURE(decl->get_domain(0) == args[0]->get_sort());
+                ENSURE(decl->get_domain(1) == args[1]->get_sort());
+                ENSURE(decl->get_range() == au.mk_complex());
+                ENSURE(!decl->is_associative() && !decl->is_commutative());
+                ENSURE(term->get_arg(0) == args[0] && term->get_arg(1) == args[1]);
+                sort* domain[] = { args[0]->get_sort(), args[1]->get_sort() };
+                func_decl_ref from_sorts(m.mk_func_decl(au.get_family_id(), OP_MUL, 0, nullptr, 2, domain), m);
+                ENSURE(from_sorts == decl);
+                rw(product);
+                ENSURE(product == expected);
+            }
+        }
+        m.enable_int_real_coercions(saved_coercions);
     }
     expr_ref fml = parse_fml(m, example1);
     rw(fml);

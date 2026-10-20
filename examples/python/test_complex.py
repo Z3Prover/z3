@@ -57,6 +57,40 @@ class TestComplex(unittest.TestCase):
                 solver.pop()
                 self.assertEqual(solver.check(), z3.sat)
 
+    def test_scalar_multiplication(self):
+        cases = [
+            "(assert (distinct (* r z) (complex (* r (real z)) (* r (imag z)))))",
+            "(assert (distinct (* z r) (complex (* r (real z)) (* r (imag z)))))",
+            "(assert (distinct (* r z) (* z r)))",
+            "(assert (distinct (* 0.0 z) (complex 0 0)))",
+            "(assert (distinct (* z 1.0) z))",
+            "(assert (distinct (* (- 2.0) (complex 3 4)) (complex (- 6) (- 8))))",
+            "(assert (distinct (* (complex 3 4) (/ 1.0 2.0)) (complex (/ 3 2) 2)))",
+            "(assert (distinct (* 2 z) (* 2.0 z)))",
+            "(assert (distinct (* z 2) (* z 2.0)))",
+            "(assert (distinct (* r z 2.0) (* (* r z) 2.0)))",
+        ]
+        for tactic in self.engines():
+            for source in cases:
+                with self.subTest(engine=str(tactic), source=source):
+                    solver = tactic.solver()
+                    solver.add(self.formulas("(declare-const r Real)" + source))
+                    self.assertEqual(solver.check(), z3.unsat)
+
+        ctx = z3.Context()
+        sort = _to_sort_ref(z3core.Z3_mk_complex_sort(ctx.ref()), ctx)
+        z = z3.Const("z", sort)
+        r = z3.Real("r", ctx)
+        for lhs, rhs in [(r, z), (z, r)]:
+            with self.subTest(lhs=lhs, rhs=rhs):
+                args = (z3core.Ast * 2)(lhs.as_ast(), rhs.as_ast())
+                product = _to_expr_ref(z3core.Z3_mk_mul(ctx.ref(), 2, args), ctx)
+                self.assertEqual(product.sort(), sort)
+                self.assertEqual(product.decl().domain(0), lhs.sort())
+                self.assertEqual(product.decl().domain(1), rhs.sort())
+                self.assertTrue(product.arg(0).eq(lhs))
+                self.assertTrue(product.arg(1).eq(rhs))
+
     def test_algebraic_model(self):
         for tactic in self.engines():
             with self.subTest(engine=str(tactic)):

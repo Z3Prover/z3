@@ -108,6 +108,8 @@ protected:
     func_decl * m_c_sub_decl = nullptr;
     func_decl * m_c_uminus_decl = nullptr;
     func_decl * m_c_mul_decl = nullptr;
+    func_decl * m_rc_mul_decl = nullptr;
+    func_decl * m_cr_mul_decl = nullptr;
     func_decl * m_c_div_decl = nullptr;
     func_decl * m_complex_ctor = nullptr;
     func_decl * m_real_part_decl = nullptr;

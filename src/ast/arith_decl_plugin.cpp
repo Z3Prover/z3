@@ -185,6 +185,10 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_AC_OP(m_c_add_decl, "+", OP_ADD, c);
     MK_LEFT_ASSOC_OP(m_c_sub_decl, "-", OP_SUB, c);
     MK_AC_OP(m_c_mul_decl, "*", OP_MUL, c);
+    m_rc_mul_decl = m->mk_func_decl(symbol("*"), r, c, c, func_decl_info(id, OP_MUL));
+    m->inc_ref(m_rc_mul_decl);
+    m_cr_mul_decl = m->mk_func_decl(symbol("*"), c, r, c, func_decl_info(id, OP_MUL));
+    m->inc_ref(m_cr_mul_decl);
     MK_LEFT_ASSOC_OP(m_c_div_decl, "/", OP_DIV, c);
     MK_UNARY(m_c_uminus_decl, "-", OP_UMINUS, c);
     m_complex_ctor = m->mk_func_decl(symbol("complex"), r, r, c, func_decl_info(id, OP_COMPLEX));
@@ -317,6 +321,8 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_c_sub_decl);
     DEC_REF(m_c_uminus_decl);
     DEC_REF(m_c_mul_decl);
+    DEC_REF(m_rc_mul_decl);
+    DEC_REF(m_cr_mul_decl);
     DEC_REF(m_c_div_decl);
     DEC_REF(m_complex_ctor);
     DEC_REF(m_real_part_decl);
@@ -583,6 +589,12 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_MUL && arity == 2) {
+        if (domain[0] == m_real_decl && domain[1] == m_complex_decl)
+            return m_rc_mul_decl;
+        if (domain[0] == m_complex_decl && domain[1] == m_real_decl)
+            return m_cr_mul_decl;
+    }
     if (k == OP_COMPLEX || k == OP_REAL_PART || k == OP_IMAG_PART ||
         has_real_arg(arity, domain, m_complex_decl))
         return mk_complex_func_decl(fix_kind(k, arity));
@@ -616,6 +628,12 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (num_args == 0 && !is_const_op(k)) {
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
+    }
+    if (k == OP_MUL && num_args == 2) {
+        if (args[0]->get_sort() == m_real_decl && args[1]->get_sort() == m_complex_decl)
+            return m_rc_mul_decl;
+        if (args[0]->get_sort() == m_complex_decl && args[1]->get_sort() == m_real_decl)
+            return m_cr_mul_decl;
     }
     if (k == OP_COMPLEX || k == OP_REAL_PART || k == OP_IMAG_PART ||
         has_real_arg(m_manager, num_args, args, m_complex_decl))
