@@ -773,6 +773,18 @@ def _project(position, count, term):
     return "(And.left %s)" % term if position < count - 1 else term
 
 
+def _select(position, count, name):
+    """Project a conjunct from a let-bound name or binder of a right-nested conjunction.
+
+    Field notation elaborates inside out: each projection starts from the
+    known (unfolded) type of the name, with no metavariable per level. The
+    equivalent And.left/And.right application elaborates outside in through
+    one metavariable pair per level, which made and-elim over a conjunction
+    of 200 operands take over half a minute.
+    """
+    return name + ".2" * position + (".1" if position < count - 1 else "")
+
+
 def _modus_ponens(graph, terms, node):
     premise, implication, conclusion = graph.arguments(node)
     relation = graph.conclusion(implication)
@@ -1042,7 +1054,7 @@ def _and_elim(graph, terms, node):
     arguments = graph.arguments(conjunction)
     for position, argument in enumerate(arguments):
         if terms[argument] == terms[conclusion]:
-            return _project(position, len(arguments), "_step_%d" % premise)
+            return _select(position, len(arguments), "_step_%d" % premise)
     raise ReconstructionError("and-elim conclusion is not a conjunct at node %d" % node)
 
 
@@ -2469,6 +2481,15 @@ def _resolution(graph, terms, node):
     if remaining != set(positions):
         raise ReconstructionError("incorrect unit-resolution conclusion at node %d" % node)
 
+    def refutation(position):
+        """A proof of the negation of an eliminated or false literal, else None."""
+        if position in eliminations:
+            unit, negated_unit = eliminations[position]
+            return "_step_%d" % unit if negated_unit else "(fun _literal => _literal _step_%d)" % unit
+        if graph.kind(literals[position]) == z3.Z3_OP_FALSE:
+            return "(fun _literal => _literal)"
+        return None
+
     def branch(position, value):
         literal = literals[position]
         if position in eliminations:
@@ -2482,14 +2503,20 @@ def _resolution(graph, terms, node):
 
     if not literals:
         return "(False.elim _step_%d)" % first
-    if len(literals) == 1:
-        return branch(0, "_step_%d" % first)
-    result = branch(len(literals) - 1, "_tail")
-    for position in reversed(range(len(literals) - 1)):
-        subject = "_step_%d" % first if position == 0 else "_tail"
-        result = "(Or.elim %s (fun _literal => %s) (fun _tail => %s))" % (
-            subject, branch(position, "_literal"), result)
-    return result
+    # Eliminated literals are cut off the clause by field notation,
+    # `(h.resolve_left n)` (Or.resolve_left), which elaborates inside out from
+    # the known type of the clause; only kept literals open an Or.elim case
+    # split. One nested Or.elim per literal created metavariables at every
+    # level and made a unit resolution over a 260-literal clause take seconds.
+    subject, cases = "_step_%d" % first, []
+    for position in range(len(literals) - 1):
+        negation = refutation(position)
+        if negation is not None:
+            subject = "(%s.resolve_left %s)" % (subject, negation)
+            continue
+        cases.append("(Or.elim %s (fun _literal => %s) (fun _tail => " % (subject, branch(position, "_literal")))
+        subject = "_tail"
+    return "".join(cases) + branch(len(literals) - 1, subject) + "))" * len(cases)
 
 
 def _lemma(graph, terms, node, hypotheses):
@@ -2607,7 +2634,7 @@ def _outline_steps(graph, steps, dependencies, signature):
         for hypothesis in reversed(dependencies[root]):
             result = "(%s -> %s)" % (_formula(graph, hypothesis), result)
         lines.extend([
-            "", "set_option maxRecDepth 100000 in",
+            "",
             "private theorem proof_step_%d %s" % (root, signature),
             "    (_inputs : Inputs _atoms%s)" % graph.valuation,
         ])
@@ -2677,7 +2704,11 @@ def reconstruct(source, certificate):
         lines.append("-- No uninterpreted sort: the type _U carries only the Boolean arguments of the predicates.")
     if any(decl.kind == z3.Z3_OP_UNINTERPRETED and "Bool" in decl.domain for decl in graph.declarations):
         lines.append("-- Boolean arguments of functions and predicates are injected into _U by _bool.")
-    lines.extend(["namespace " + namespace, ""])
+    # Formulas over wide n-ary connectives render as right-nested And/Or chains
+    # and long refutations nest hundreds of let-bound steps; every declaration
+    # (definitions, lemmas, proof steps, the theorem) elaborates under a raised
+    # recursion limit, scoped to this namespace. This is not a trust setting.
+    lines.extend(["namespace " + namespace, "", "set_option maxRecDepth 100000", ""])
     signature = "(_atoms : Nat -> Prop)" + _valuation_binder(graph)
     classical = set()  # Term nodes containing an ite or abs: their classical instance is noncomputable.
     for node in range(len(graph.nodes)):
@@ -2727,7 +2758,7 @@ def reconstruct(source, certificate):
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             position = assumptions[terms[conclusion]]
-            term = (_project(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
+            term = (_select(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
         elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
@@ -2800,9 +2831,7 @@ def reconstruct(source, certificate):
             "    (k : Decidable p -> False) : False :=",
             "  k (.isFalse (fun hp => k (.isTrue hp)))",
         ])
-    # Long refutations nest hundreds of let-bound steps; raise the elaborator's
-    # recursion limit so they elaborate. This is not a trust setting.
-    lines.extend(["", "set_option maxRecDepth 100000 in", "theorem unsat " + signature])
+    lines.extend(["", "theorem unsat " + signature])
     for position, assertion in enumerate(graph.assertions):
         lines.append("    (_h%d : %s)" % (position, _formula(graph, assertion)))
     lines.append("    : False :=")

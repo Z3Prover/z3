@@ -430,6 +430,23 @@ supported. Two resource cliffs remain, both on the Lean side:
   Prove these schemas directly and keep truth tables only for small rewrites.
   Z3 should also stop emitting identity rewrites from the simplify pass.
   (Done 2026-10-16: see "Propositional rewrites as direct proof terms" below.)
+- Wide n-ary connectives (2026-10-20). A conjunction or disjunction of a few
+  hundred operands (z3test's QF_UF `NEQ004_size4` asserts one of 338
+  literals) renders as a right-nested `And`/`Or` chain whose `def` exceeded
+  the default `maxRecDepth` (512); only the main theorem raised it. The
+  generated file now raises it once for its whole namespace, so definitions,
+  lemmas, and steps are no longer cut off by the limit (not a trust setting).
+  and-elim projects by field notation (`_step_N.2.2.1`), which elaborates
+  inside out from the known type, and unit resolution cuts eliminated
+  literals with `(h.resolve_left n)` instead of one `Or.elim` case split per
+  literal; the old forms created metavariables per level and took 36 s
+  (200-operand clause-log and-elim) and 9 s (260-literal resolution), now
+  about 7 s and under a second. `examples/python/test_proof_to_lean_wide.py`
+  covers 200-260 operands through both cores. Still open: at 600 operands the
+  outlined proof steps (more than 500 proof nodes) exceed the heartbeat limit
+  on a step with a hundred quadratic `_inputs` projections, and
+  `NEQ004_size4` itself fails at export (the clause-log trimming step rejects
+  `declare-sort`).
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
