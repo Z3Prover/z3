@@ -2110,6 +2110,9 @@ let arithmetic_triangle_clauses () =
       "an assumed NLSAT origin bypassed obligation tracking"
   in
   check true "(or (= x y) (not (<= (- x y) 0)) (not (>= (- x y) 0)))";
+  check true "(or (= y x) (not (<= (- x y) 0)) (not (>= (- x y) 0)))";
+  check true "(or (= x y) (not (>= (- x y) 0)) (not (<= (- x y) 0)))";
+  check true "(or (= 1 x) (not (<= x 1)) (not (>= x 1)))";
   check true "(or (not (= x y)) (<= (- x y) 0))";
   check true "(or (not (= x y)) (>= (- x y) 0))";
   check false "(or (not (= x y)) (< (- x y) 0))";
@@ -2117,6 +2120,39 @@ let arithmetic_triangle_clauses () =
   check false "(or (= x y) (not (< (- x y) 0)) (not (>= (- x y) 0)))";
   check false "(or (= x y) (not (<= (- x y) 0)) (not (<= (- x y) 0)))";
   check false "(or (= x (+ 1 y)) (not (<= (- x y) 0)) (not (>= (- x y) 0)))"
+
+let arithmetic_implied_equalities () =
+  let check sort premises target expected =
+    let c = context () in
+    let source = "(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")" ^
+      String.concat "" (List.map (fun e -> "(assert " ^ e ^ ")") (premises @ [target])) in
+    let inputs = parse c source in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let judgments = List.map (fun e ->
+        Option.get (U.classify_fact (B.cached_expression st e))) inputs in
+    let conclusion = List.hd (List.rev judgments) in
+    let facts = List.rev (List.tl (List.rev judgments)) in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
+      ("incorrect implied equality: " ^ source);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") conclusion facts))
+      "implied equality accepted assumed-origin evidence";
+    let premises = List.map (fun conclusion1 ->
+        { U.conclusion = conclusion1; hypotheses = [] }) facts in
+    require (match U.check_node [] {
+        U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
+        | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
+        | None -> false)
+      "implied equality lost its explicit obligation"
+  in
+  check "Int" ["(<= x 2)"; "(>= x 2)"] "(= 0 (+ (- 2) x))" true;
+  check "Int" ["(not (<= x 2))"; "(not (>= x 4))"] "(= 1 (+ (- 2) x))" true;
+  check "Real" ["(not (<= x 2))"; "(not (>= x 4))"] "(= 1 (+ (- 2) x))" false;
+  check "Int" ["(<= (+ x y) 3)"; "(>= (+ x y) 3)"; "(= y 1)"] "(= x 2)" true;
+  check "Real" ["(<= (* 2 x) 3)"; "(>= (* 4 x) 6)"] "(= x (/ 3 2))" true;
+  check "Int" ["(<= x 2)"; "(>= x 2)"] "(= x 3)" false;
+  check "Int" ["(<= x 2)"] "(= x 2)" false;
+  check "Int" ["(<= x 2)"; "(>= y 2)"] "(= x 2)" false;
+  check "Int" ["(<= (+ x y) 3)"; "(>= (+ x y) 3)"; "(= y 1)"] "(= x 1)" false
 
 let erased_refinement_guards () =
   require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
@@ -2253,6 +2289,7 @@ let () =
      "contextual-boolean-rewrites", contextual_boolean_rewrites;
      "unused-quantifier-rewrites", unused_quantifier_rewrites;
      "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
+     "checked-implied-arithmetic-equalities", arithmetic_implied_equalities;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;

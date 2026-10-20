@@ -39,6 +39,10 @@ on:
         description: 225-input SMT-LIB sample execution budget in seconds
         type: number
         default: 3600
+      extended_smtlib_total_timeout_seconds:
+        description: 110-input datatype, nonlinear, quantified, and bit-vector sample budget in seconds
+        type: number
+        default: 3600
 
 permissions:
   contents: read
@@ -69,6 +73,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pulse-checker-report"
           echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-report" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/pulse-checker-report/smtlib-sample"
+          mkdir -p "$RUNNER_TEMP/pulse-checker-report/smtlib-extended"
 
       - name: Checkout z3test
         id: corpus
@@ -167,6 +172,49 @@ jobs:
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
             --memory-limit-mb 4096 --output "$REPORT_DIR/smtlib-sample"
 
+      - name: Run datatype, nonlinear, quantified, and bit-vector samples
+        id: extended
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 65
+        env:
+          SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
+          CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
+          TOTAL_TIMEOUT_SECONDS: ${{ inputs.extended_smtlib_total_timeout_seconds }}
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/run_checker_regressions.py run \
+            --checker "$RUNNER_TEMP/native-checker/checker" \
+            --corpus "$GITHUB_WORKSPACE" --corpus-path fstar/benchmarks/smtlib-sample \
+            --corpus-commit "$GITHUB_SHA" \
+            --manifest "$GITHUB_WORKSPACE/fstar/benchmarks/smtlib-sample/manifest.json" \
+            --expected-cases 110 \
+            --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+            --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
+            --memory-limit-mb 4096 --output "$REPORT_DIR/smtlib-extended"
+
+      - name: Diagnose partial and rejected proofs separately
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 50
+        run: |
+          set -euo pipefail
+          status=0
+          for report in "$REPORT_DIR" "$REPORT_DIR/smtlib-sample"; do
+            if [[ -f "$report/selection.json" && -f "$report/results.jsonl" ]]; then
+              python3 fstar/tools/run_checker_regressions.py diagnose \
+                --checker "$RUNNER_TEMP/native-checker/checker" \
+                --corpus "$GITHUB_WORKSPACE/z3test" --output "$report" \
+                --total-timeout-seconds 900 || status=1
+            fi
+          done
+          if [[ -f "$REPORT_DIR/smtlib-extended/selection.json" && -f "$REPORT_DIR/smtlib-extended/results.jsonl" ]]; then
+            python3 fstar/tools/run_checker_regressions.py diagnose \
+              --checker "$RUNNER_TEMP/native-checker/checker" \
+              --corpus "$GITHUB_WORKSPACE" --output "$REPORT_DIR/smtlib-extended" \
+              --total-timeout-seconds 900 || status=1
+          fi
+          exit "$status"
+
       - name: Publish coverage and timing report
         if: always()
         env:
@@ -176,6 +224,7 @@ jobs:
           TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
           HARNESS_OUTCOME: ${{ steps.harness.outcome }}
           SMTLIB_OUTCOME: ${{ steps.smtlib.outcome }}
+          EXTENDED_OUTCOME: ${{ steps.extended.outcome }}
         run: |
           set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py report --output "$REPORT_DIR"
@@ -186,6 +235,12 @@ jobs:
           RUNNER_OUTCOME="$SMTLIB_OUTCOME" python3 fstar/tools/run_checker_regressions.py report \
             --output "$REPORT_DIR/smtlib-sample"
           cat "$REPORT_DIR/smtlib-sample/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$REPORT_DIR/build.json" ]]; then
+            cp "$REPORT_DIR/build.json" "$REPORT_DIR/smtlib-extended/build.json"
+          fi
+          RUNNER_OUTCOME="$EXTENDED_OUTCOME" python3 fstar/tools/run_checker_regressions.py report \
+            --output "$REPORT_DIR/smtlib-extended"
+          cat "$REPORT_DIR/smtlib-extended/report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload reports, per-case results, and build logs
         if: always()

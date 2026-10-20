@@ -335,6 +335,7 @@ protected:
     var_subst& rev_subst() { if (!m_rev_subst) m_rev_subst = alloc(var_subst, m(), false); return *m_rev_subst; }
 
     void register_builtin_sorts(decl_plugin * p);
+    void restrict_builtin_sorts();
     void register_builtin_ops(decl_plugin * p);
     void load_plugin(symbol const & name, bool install_names, svector<family_id>& fids);
     void init_manager_core(bool new_manager);
