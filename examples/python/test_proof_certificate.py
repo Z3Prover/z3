@@ -273,13 +273,46 @@ class TestProofCertificate(unittest.TestCase):
     def test_unsupported_commands_are_rejected(self):
         commands = [
             "(get-value (false))", "(eval false)",
-            '(include "other.smt2")', "(minimize 0)", "(define-sort T () Bool)",
+            '(include "other.smt2")', "(minimize 0)",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
             with self.subTest(command=command):
                 with self.assertRaises(proof_certificate.ProofExportError):
                     proof_certificate.export_certificate(command + "(assert false)")
+
+    def test_define_sort_aliases_are_expanded_and_malformed_ones_rejected(self):
+        # Z3's parser expands the alias, so the certificate is about Bool.
+        certificate = proof_certificate.export_certificate(
+            "(define-sort B () Bool)(define-sort Id (T) T)(declare-const p B)"
+            "(declare-const q (Id Bool))(assert (= p q))(assert p)(assert (not q))")
+        self.assertEqual(certificate["fragment"], "propositional")
+        self.assert_well_formed(certificate)
+        malformed = [
+            "(define-sort B ())", "(define-sort B () Bool Bool)", "(define-sort B Bool)",
+            "(define-sort (B) () Bool)", "(define-sort B (1) Bool)", "(define-sort B ((T)) T)",
+            "(define-sort B () (Array Bool Bool) Bool)", "(define-sort 1 () Bool)",
+        ]
+        for command in malformed:
+            with self.subTest(command=command):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "define-sort takes"):
+                    proof_certificate.export_certificate(command + "(assert false)")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "repeats a parameter"):
+            proof_certificate.export_certificate("(define-sort B (T T) T)(assert false)")
+        # An alias of an unsupported sort is rejected where it is used, and
+        # one defined in a popped scope is gone, as Z3 scopes it.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported sort"):
+            proof_certificate.export_certificate(
+                "(define-sort A () (Array Bool Bool))(declare-const x A)(assert (= x x))(assert false)")
+        with self.assertRaises(z3.Z3Exception):
+            proof_certificate.export_certificate(
+                "(push)(define-sort B () Bool)(pop)(declare-const p B)(assert p)(assert (not p))")
+        # reset-assertions keeps aliases like declarations; reset drops them.
+        snapshot, _, _ = proof_certificate.query_snapshot(
+            "(define-sort B () Bool)(assert false)(reset-assertions)(check-sat)")
+        self.assertEqual(snapshot, "(define-sort B () Bool)")
+        snapshot, _, _ = proof_certificate.query_snapshot("(define-sort B () Bool)(reset)(check-sat)")
+        self.assertEqual(snapshot, "")
 
     def test_configuration_options_and_output_queries_are_ignored(self):
         # The certificate is a statement about the parsed assertions, so
