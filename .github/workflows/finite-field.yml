@@ -45,7 +45,9 @@ jobs:
       - name: Run solver, integration and public API tests
         run: python z3test/regressions/finite_field/run_tests.py --source . --build build --suite core --out test-results/core
       - name: Build pinned proof checkers
-        run: python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
+        run: |
+          cp scripts/ff-proof-checker-versions.json z3test/regressions/finite_field/proof_checkers/versions.json
+          python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
       - name: Run certificate and rejection tests
         run: >-
           python z3test/regressions/finite_field/run_tests.py --source . --build build --suite proofs
