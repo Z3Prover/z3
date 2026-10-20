@@ -1692,6 +1692,55 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
             proof_to_lean.reconstruct(source, tampered)
 
+# define-sort: 61 of z3test's incremental regressions use it. Sort aliases
+# (plain and parametric) are expanded, so the certificate and the Lean
+# statement are about the expanded sorts.
+DEFINE_SORT_INPUTS = {
+    "alias_of_declared_sort": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(define-sort V () U)
+(declare-fun f (V) V)
+(declare-const a V)
+(declare-const b U)
+(assert (= a b))
+(assert (not (= (f a) (f b))))
+(check-sat)
+""",
+    "parametric_alias": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(define-sort Id (T) T)
+(declare-fun p ((Id U)) Bool)
+(declare-const a (Id U))
+(declare-const b U)
+(assert (= a b))
+(assert (p a))
+(assert (not (p b)))
+(check-sat)
+""",
+}
+
+
+@unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+class TestDefineSort(unittest.TestCase):
+    """Scripts with define-sort are certified end to end (currently rejected)."""
+
+    check = TestUninterpretedLeanIntegration.check
+
+    def test_define_sort_scripts_verify(self):
+        for name, source in DEFINE_SORT_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertEqual(certificate["result"], "unsat")
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_define_sort_in_popped_scope_is_gone(self):
+        source = ("(set-logic QF_UF)(declare-sort U 0)(push)(define-sort V () U)"
+                  "(declare-const a V)(pop)(declare-const a U)(assert (not (= a a)))(check-sat)")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["result"], "unsat")
+
 
 if __name__ == "__main__":
     unittest.main()

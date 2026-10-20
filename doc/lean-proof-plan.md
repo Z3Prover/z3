@@ -1130,8 +1130,8 @@ QF_UFLIA, an assumption literal). Tests: `test_proof_certificate.py`
 (`INCREMENTAL_INPUTS`, the tampered query index), and the Lean integration
 tests of `test_proof_to_lean_integration.py`, `test_proof_to_lean_uf.py`,
 `test_proof_to_lean_uflia.py`. Still open: `define-sort` (61 of the
-incremental corpus files are rejected for it first) and the
-`global-declarations` option (rejected).
+incremental corpus files are rejected for it first; accepted since
+2026-10-19, see below) and the `global-declarations` option (rejected).
 
 **Propositional rewrites as direct proof terms (2026-10-16).** A Boolean
 `rewrite` step was proved by a truth table (a `cases` on every atom's
@@ -1192,6 +1192,21 @@ negations are covered too. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uflra.py` (`uflra_division_axiom`),
 `test_proof_to_lean_uf.py` (`UF_NEGATED_ITE_CONDITION`, both cores,
 nested negations, and rejection of a gate with its guard reversed).
+
+**define-sort aliases (2026-10-19).** `proof_certificate.query_snapshot`
+accepts `(define-sort name (parameters) sort)` and keeps it in the scope it
+is made in, like a declaration. Z3's parser expands every use of the alias
+(substituting the parameters) both when the exporter parses the snapshot and
+when the z3 executable writes the clause log, so the certificate, the
+reconstructor's rebuilt snapshot, and the Lean statement mention only the
+expanded sorts, which pass the usual sort checks; no Lean change was needed.
+The exporter rejects a malformed definition (no parameter list, a body of
+other than one sort, a non-symbol name or parameter) and a repeated
+parameter; Z3 rejects an unknown body sort and a name already declared or
+defined. Tests: `test_proof_certificate.py`
+(`test_define_sort_aliases_are_expanded_and_malformed_ones_rejected`) and
+`test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
+alias checked in Lean, an alias in a popped scope).
 
 ## Arithmetic proof infrastructure
 

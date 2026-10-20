@@ -38,7 +38,8 @@ _TOKEN = re.compile(
     re.DOTALL,
 )
 _ASSERTION_COMMANDS = {
-    "set-logic", "set-info", "declare-sort", "declare-const", "declare-fun", "define-fun", "assert",
+    "set-logic", "set-info", "declare-sort", "define-sort", "declare-const", "declare-fun", "define-fun",
+    "assert",
 }
 # The queries a certificate can be about; a script may have several (see
 # query_snapshot), and Z3 reads the arguments of check-sat as assumptions.
@@ -202,6 +203,46 @@ def _scope_count(tokens):
     raise ProofExportError("%s takes at most one numeral" % tokens[1])
 
 
+def _is_symbol(token):
+    """Whether a token is an SMT-LIB symbol (simple or quoted), not a numeral, keyword, string, or parenthesis."""
+    return token not in ("(", ")") and not token.startswith((":", '"', "#")) and not token[0].isdigit()
+
+
+def _check_sort_definition(tokens):
+    """Reject a define-sort command that is not (define-sort name (parameters) sort).
+
+    Z3's parser expands every use of the alias, substituting the parameters,
+    so the parsed assertions, the clause log, and the certificate mention
+    only the expanded sorts, which are checked like any other; Z3 also rejects
+    an unknown sort in the body and a name already declared or defined. The
+    shape is checked here so that the exporter, not a later stage, rejects a
+    malformed definition, and repeated parameters are rejected because Z3
+    accepts them without a defined meaning.
+    """
+    malformed = ProofExportError("define-sort takes a name, a parenthesized list of parameters, and one sort")
+    if len(tokens) < 7 or not _is_symbol(tokens[2]) or tokens[3] != "(" or ")" not in tokens[4:]:
+        raise malformed
+    close = tokens.index(")", 4)
+    parameters, body = tokens[4:close], tokens[close + 1:-1]
+    if not all(_is_symbol(parameter) for parameter in parameters):
+        raise malformed
+    if len(set(parameters)) != len(parameters):
+        raise ProofExportError("define-sort %s repeats a parameter" % tokens[2])
+    if len(body) == 1:
+        if not _is_symbol(body[0]):
+            raise malformed
+        return
+    # A parenthesized sort application: the command is balanced, so the body
+    # is one sort exactly when its first parenthesis closes at its last token.
+    depth = 0
+    for index, token in enumerate(body):
+        depth += {"(": 1, ")": -1}.get(token, 0)
+        if depth <= 0 and index != len(body) - 1:
+            raise malformed
+    if not body or body[0] != "(" or depth != 0:
+        raise malformed
+
+
 def _assumption_commands(tokens):
     """Return the assumptions of a check-sat query as assert commands.
 
@@ -239,7 +280,8 @@ def query_snapshot(source, query=None):
     check-sat, check-sat-using, and check-sat-assuming commands, and the
     number of such commands. push, pop, reset, and reset-assertions are
     replayed as Z3 does with its default of scoped declarations: a
-    declaration made inside a popped scope is gone with its assertions,
+    declaration or define-sort alias made inside a popped scope is gone with
+    its assertions,
     reset-assertions removes every assertion but keeps the declarations and
     the open scopes (cmd_context::reset_assertions), and reset clears
     everything. The assumptions
@@ -310,6 +352,8 @@ def query_snapshot(source, query=None):
         elif name in _ASSERTION_COMMANDS:
             if name == "declare-sort" and tokens[3:] not in ([")"], ["0", ")"]):
                 raise ProofExportError("only uninterpreted sorts of arity 0 are supported")
+            if name == "define-sort":
+                _check_sort_definition(tokens)
             scopes[-1].append((name, text))
         else:
             raise ProofExportError("unsupported SMT-LIB command: %s" % name)
