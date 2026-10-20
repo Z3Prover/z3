@@ -1195,6 +1195,22 @@ nested negations, and rejection of a gate with its guard reversed).
 
 ## Arithmetic proof infrastructure
 
+### Constant rows in native implied-equality checking (2026-10-19)
+
+The native `implied-eq` checker now handles constant inequalities before
+selecting a variable for Fourier-Motzkin elimination. A slack premise such
+as `0 <= 1`, or a row reduced to one by equality substitution or elimination,
+previously dereferenced an empty coefficient map and could crash or fall
+back to the SMT solver.
+
+Slack constant rows are skipped, zero rows retain their tightness
+dependencies, and contradictory constant rows discharge the hint. Tight-row
+state is cleared between hints, including after an early contradiction.
+Native `proof_replay` regressions cover Real and Int rows, zero-weight
+strict premises, checker reuse, and replay without SMT fallback. Tautologies
+alone still cannot prove an unrelated equality; solver search and Lean's
+independent verification are unchanged.
+
 ### Native implied-equality conclusions (2026-10-19)
 
 The native arithmetic checker requires an `implied-eq` hint to end in a
