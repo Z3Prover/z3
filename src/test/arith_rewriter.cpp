@@ -63,6 +63,40 @@ void tst_arith_rewriter() {
 
     
     th_rewriter rw(m);
+    {
+        expr_ref one(au.mk_real(1), m), two(au.mk_real(2), m);
+        expr_ref zero(au.mk_real(0), m), minus_one(au.mk_real(-1), m);
+        expr_ref i(au.mk_complex(zero, one), m);
+        expr_ref z(au.mk_complex(one, two), m);
+        expr_ref square(au.mk_mul(i, i), m);
+        rw(square);
+        expr_ref expected(au.mk_complex(minus_one, zero), m);
+        ENSURE(square == expected);
+        expr_ref quotient(au.mk_div(z, z), m);
+        rw(quotient);
+        expected = au.mk_complex(one, zero);
+        ENSURE(quotient == expected);
+        expr_ref neg(au.mk_uminus(z), m);
+        expr_ref sum(au.mk_add(z, neg), m);
+        rw(sum);
+        expected = au.mk_complex(zero, zero);
+        ENSURE(sum == expected);
+        expr_ref real(au.mk_real_part(z), m);
+        expr_ref imag(au.mk_imag_part(z), m);
+        rw(real);
+        rw(imag);
+        ENSURE(real == one && imag == two);
+        expr_ref x(m.mk_const(symbol("complex-x"), au.mk_complex()), m);
+        expr_ref eta(au.mk_real_part(x), m);
+        expr_ref eta_im(au.mk_imag_part(x), m);
+        expr_ref pair(au.mk_complex(eta, eta_im), m);
+        expr_ref eq(m.mk_eq(x, pair), m);
+        rw(eq);
+        ENSURE(m.is_true(eq));
+        ENSURE(au.is_complex(z) && !au.is_int_real(z));
+        ENSURE(m.is_value(z));
+        ENSURE(m.are_distinct(z, i));
+    }
     expr_ref fml = parse_fml(m, example1);
     rw(fml);
     std::cout << mk_pp(fml, m) << "\n";

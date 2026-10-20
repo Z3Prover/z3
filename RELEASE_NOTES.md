@@ -3,6 +3,13 @@ RELEASE NOTES
 Version 5.3.1
 ==============
 
+- Add native `Complex` arithmetic with `(complex re im)`, `(real z)`, `(imag z)`,
+  overloaded `+`, `-`, `*`, `/`, and equality. Simplification reduces complex
+  arithmetic to pairs of Reals, supported by the default arithmetic solver,
+  SAT/EUF arithmetic, and `qfnra-nlsat`. Division computes
+  `((ac+bd)/(c*c+d*d), (bc-ad)/(c*c+d*d))` for `(a+bi)/(c+di)`,
+  using totalized Real division, including at zero. Complex numbers have no
+  ordering. The C API exposes the sort, constructor, and projections.
 - Fix unsound nonlinear-arithmetic exponentiation bounds: reverse exponent
   inequalities for bases below one and guard base-crossing refinements against
   negative exponents. Add F* counterexamples and soundness proofs for the corrected

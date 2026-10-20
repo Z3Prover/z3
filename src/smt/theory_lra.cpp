@@ -591,7 +591,7 @@ class theory_lra::imp {
                     if (m_nla)
                         m_nla->add_pi(register_theory_var_in_lar_solver(v));
                 }
-                else if (!a.is_div0(n)) {
+                else if (!a.is_div0(n) && !a.is_real_part(n) && !a.is_imag_part(n)) {
                     found_unsupported(n);
                 }
                 else {
@@ -717,7 +717,8 @@ class theory_lra::imp {
 
 
     bool reflect(app* n) const {
-        return params().m_arith_reflect || a.is_underspecified(n);          
+        return params().m_arith_reflect || a.is_underspecified(n) ||
+            a.is_complex(n) || a.is_real_part(n) || a.is_imag_part(n);
     }
 
     bool has_var(expr* n) {
@@ -1057,6 +1058,10 @@ public:
     }
         
     bool internalize_term(app * term) {
+        if (a.is_complex(term)) {
+            internalize_complex(term);
+            return true;
+        }
         if (ctx().e_internalized(term) && th.is_attached_to_var(ctx().get_enode(term))) {
             // skip
         }
@@ -1066,11 +1071,49 @@ public:
         return true;
     }
 
+    void internalize_complex(expr* term) {
+        if (ctx().e_internalized(term) && th.is_attached_to_var(get_enode(term)))
+            return;
+        if (!ctx().e_internalized(term)) {
+            for (expr* arg : *to_app(term))
+                ctx().internalize(arg, false);
+            ctx().mk_enode(to_app(term), false, false, true);
+        }
+        mk_var(term);
+        expr_ref re(a.mk_real_part(term), m);
+        expr_ref im(a.mk_imag_part(term), m);
+        internalize_term(to_app(re));
+        internalize_term(to_app(im));
+        if (a.is_complex_constructor(term)) {
+            for (unsigned i = 0; i < 2; ++i) {
+                expr* p = i ? im.get() : re.get();
+                expr* v = to_app(term)->get_arg(i);
+                mk_axiom(mk_literal(m.mk_eq(p, v)));
+            }
+        }
+        else {
+            expr_ref value(term, m);
+            ctx().get_rewriter()(value);
+            if (value == term)
+                value = a.mk_complex(re, im);
+            mk_axiom(mk_literal(m.mk_eq(term, value)));
+        }
+    }
+
     bool is_arith(enode* n) {
         return n && n->get_th_var(get_id()) != null_theory_var;
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
+        if (a.is_complex(atom->get_arg(0))) {
+            expr_ref rhs(atom, m);
+            ctx().get_rewriter()(rhs);
+            literal lhs = ctx().get_literal(atom);
+            literal r = mk_literal(rhs);
+            mk_axiom(~lhs, r);
+            mk_axiom(lhs, ~r);
+            return;
+        }
         if (!ctx().get_fparams().m_arith_eager_eq_axioms)
             return;
         expr* lhs = nullptr, *rhs = nullptr;
@@ -1129,12 +1172,16 @@ public:
     }
 
     void new_diseq_eh(theory_var v1, theory_var v2) {
+        if (a.is_complex(get_enode(v1)->get_expr()))
+            return;
         TRACE(arith, tout << "v" << v1 << " != " << "v" << v2 << "\n";);
         ++m_stats.m_assert_diseq;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
+        if (a.is_complex(n->get_expr()))
+            internalize_complex(n->get_expr());
         TRACE(arith, tout << "sort constraint: " << pp(n) << "\n";);
 #if 0
         if (!th.is_attached_to_var(n)) 
@@ -1602,6 +1649,8 @@ public:
     }
 
     void ensure_column(theory_var v) {
+        if (v != null_theory_var && a.is_complex(get_enode(v)->get_expr()))
+            return;
         if (!lp().external_is_used(v) && v != null_theory_var) 
             register_theory_var_in_lar_solver(v);
     }
@@ -1637,6 +1686,8 @@ public:
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
             enode * n1 = get_enode(v);
+            if (a.is_complex(n1->get_expr()))
+                continue;
             if (!th.is_relevant_and_shared(n1)) {
                 continue;
             }
@@ -1687,6 +1738,8 @@ public:
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
+            if (a.is_complex(n1->get_expr()))
+                continue;
             if (!th.is_relevant_and_shared(n1))                   
                 continue;
             ensure_column(v);
@@ -4095,6 +4148,22 @@ public:
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
+        if (a.is_complex(o)) {
+            expr_ref re(a.mk_real_part(o), m);
+            expr_ref im(a.mk_imag_part(o), m);
+            expr_ref rv(m), iv(m);
+            auto component = [&](expr* p, expr_ref& value) {
+                enode* pn = get_enode(p);
+                theory_var pv = pn->get_th_var(get_id());
+                if (use_nra_model() && is_registered_var(pv))
+                    value = a.mk_numeral(m_nla->am(), nl_value(pv, m_nla->tmp1()), false);
+                else
+                    value = a.mk_real(get_value(pv));
+            };
+            component(re, rv);
+            component(im, iv);
+            return alloc(expr_wrapper_proc, a.mk_complex(rv, iv));
+        }
         if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, m_nla->tmp1());
             if (a.is_int(o) && !m_nla->am().is_int(an)) {

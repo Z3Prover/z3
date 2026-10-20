@@ -153,6 +153,7 @@ typedef enum
     Z3_CHAR_SORT,
     Z3_TYPE_VAR,
     Z3_FINITE_FIELD_SORT,
+    Z3_COMPLEX_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1050,6 +1051,9 @@ typedef enum {
     Z3_OP_IS_INT,
     Z3_OP_POWER,
     Z3_OP_ABS,
+    Z3_OP_COMPLEX,
+    Z3_OP_REAL_PART,
+    Z3_OP_IMAG_PART,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -2019,6 +2023,35 @@ extern "C" {
        def_API('Z3_mk_real_sort', SORT, (_in(CONTEXT), ))
     */
     Z3_sort Z3_API Z3_mk_real_sort(Z3_context c);
+
+    /**
+       \brief Create the Complex sort. Complex numbers are pairs of Reals.
+
+       def_API('Z3_mk_complex_sort', SORT, (_in(CONTEXT), ))
+    */
+    Z3_sort Z3_API Z3_mk_complex_sort(Z3_context c);
+
+    /**
+       \brief Create a complex number with the given real and imaginary components.
+       Integer components are coerced to Real.
+
+       def_API('Z3_mk_complex', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_complex(Z3_context c, Z3_ast re, Z3_ast im);
+
+    /**
+       \brief Return the real component of a Complex expression.
+
+       def_API('Z3_mk_real_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_real_part(Z3_context c, Z3_ast z);
+
+    /**
+       \brief Return the imaginary component of a Complex expression.
+
+       def_API('Z3_mk_imag_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_imag_part(Z3_context c, Z3_ast z);
 
     /**
        \brief Create a bit-vector type of the given size.
