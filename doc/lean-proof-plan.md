@@ -1193,7 +1193,7 @@ negations are covered too. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uf.py` (`UF_NEGATED_ITE_CONDITION`, both cores,
 nested negations, and rejection of a gate with its guard reversed).
 
-## Arithmetic proof infrastructure
+## Boolean and EUF proof infrastructure
 
 ### Native `alldiff` clauses (2026-10-20)
 
@@ -1244,6 +1244,8 @@ is to the checker's acceptance, not to proof production or to Lean's
 independent def-axiom checking. The `proof_replay` unit test also fails
 now when the replay frontend exits inside a log instead of ending the
 binary successfully with the remaining checks unrun.
+
+## Arithmetic proof infrastructure
 
 ### Constant rows in native implied-equality checking (2026-10-19)
 

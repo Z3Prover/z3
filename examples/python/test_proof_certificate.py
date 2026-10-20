@@ -2318,6 +2318,7 @@ class TestClauseLogReplay(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
             self.replay(unrelated, log)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
     def test_root_distinct_clauses_are_logged_as_assumptions(self):
         # A distinct asserted at the root is clausified like any other root
         # assertion, so Z3 logs the clauses as assumptions. Until 2026-10-20
