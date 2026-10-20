@@ -1688,7 +1688,9 @@ public:
             enode * n1 = get_enode(v);
             if (a.is_complex(n1->get_expr()))
                 continue;
-            if (!th.is_relevant_and_shared(n1)) {
+            // Projections are the shared interface to pair-valued Complex terms.
+            if (!th.is_relevant_and_shared(n1) &&
+                !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr())) {
                 continue;
             }
             ensure_column(v);
@@ -1740,7 +1742,8 @@ public:
             enode* n1 = get_enode(v);
             if (a.is_complex(n1->get_expr()))
                 continue;
-            if (!th.is_relevant_and_shared(n1))                   
+            if (!th.is_relevant_and_shared(n1) &&
+                !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr()))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))

@@ -84,6 +84,60 @@ class TestComplex(unittest.TestCase):
             "(assert (forall ((z Complex)) (= (imag z) 0)))"))
         self.assertEqual(solver.check(), z3.unsat)
 
+    def test_shared_complex_models(self):
+        declarations = [
+            ("(declare-fun f (Complex) Int)", "(f z)", "(f w)"),
+            ("(declare-const a (Array Complex Int))", "(select a z)", "(select a w)"),
+        ]
+        constraints = [
+            "",
+            "(assert (= (real z) 0)) (assert (= (real w) 0))",
+            "(assert (= (imag z) 0)) (assert (= (imag w) 0))",
+            "(assert (= (* z z) (complex 1 0)))"
+            "(assert (= (* w w) (complex 1 0)))",
+            "(assert (= (* z z) (complex (- 2) 0)))"
+            "(assert (= (* w w) (complex (- 2) 0)))",
+        ]
+        for tactic in [self.engines()[0], self.engines()[2]]:
+            for declaration, lhs, rhs in declarations:
+                for constraint in constraints:
+                    with self.subTest(engine=str(tactic), declaration=declaration, constraint=constraint):
+                        solver = tactic.solver()
+                        assertions = self.formulas(
+                            declaration + constraint + f"(assert (distinct {lhs} {rhs}))")
+                        solver.add(assertions)
+                        self.assertEqual(solver.check(), z3.sat)
+                        model = solver.model()
+                        for assertion in assertions:
+                            self.assertTrue(z3.is_true(model.eval(assertion, model_completion=True)))
+
+    def test_shared_complex_finite_domain(self):
+        for tactic in [self.engines()[0], self.engines()[2]]:
+            for declaration, values in [
+                ("(declare-fun f (Complex) Int)", "(f z) (f w) (f u)"),
+                ("(declare-const a (Array Complex Int))",
+                 "(select a z) (select a w) (select a u)"),
+            ]:
+                with self.subTest(engine=str(tactic), declaration=declaration):
+                    solver = tactic.solver()
+                    assertions = self.formulas(
+                        "(declare-const u Complex)" + declaration +
+                        "(assert (= (* z z) (complex 1 0)))"
+                        "(assert (= (* w w) (complex 1 0)))"
+                        f"(assert (distinct {values}))")
+                    solver.add(assertions)
+                    self.assertEqual(solver.check(), z3.sat)
+                    solver.push()
+                    solver.add(self.formulas(
+                        "(declare-const u Complex)"
+                        "(assert (= (* u u) (complex 1 0)))"))
+                    self.assertEqual(solver.check(), z3.unsat)
+                    solver.pop()
+                    self.assertEqual(solver.check(), z3.sat)
+                    model = solver.model()
+                    for assertion in assertions:
+                        self.assertTrue(z3.is_true(model.eval(assertion, model_completion=True)))
+
     def test_nlsat_rejects_uninterpreted_complex_functions(self):
         solver = self.engines()[1].solver()
         solver.add(self.formulas(

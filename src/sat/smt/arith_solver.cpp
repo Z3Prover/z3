@@ -943,7 +943,9 @@ namespace arith {
             theory_var v = (i + start) % sz;
             if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
-            if (!ctx.is_shared(var2enode(v)))
+            // Projections are the shared interface to pair-valued Complex terms.
+            if (!ctx.is_shared(var2enode(v)) &&
+                !a.is_real_part(var2expr(v)) && !a.is_imag_part(var2expr(v)))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
