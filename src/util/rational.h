@@ -411,11 +411,8 @@ public:
             operator+=(c);
         else if (k.is_minus_one())
             operator-=(c);
-        else {
-            rational tmp(k);
-            tmp *= c;
-            operator+=(tmp);
-        }
+        else
+            m().addmul(m_val, c.m_val, k.m_val, m_val);
     }
 
     // Perform:  this -= c * k

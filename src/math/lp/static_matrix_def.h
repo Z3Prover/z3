@@ -492,8 +492,8 @@ namespace lp {
         auto & col_vals = m_columns[col];
         unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
         unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
-        row_vals.push_back(row_cell<T>(col, col_el_offs, val));
-        col_vals.push_back(column_cell(row, row_el_offs));
+        row_vals.emplace_back(col, col_el_offs, val);
+        col_vals.emplace_back(row, row_el_offs);
     }
 
 }

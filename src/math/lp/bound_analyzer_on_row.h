@@ -63,11 +63,17 @@ namespace lp {
 
         unsigned analyze() {
             unsigned num_prop = 0;
+            bool has_target = false;
             for (const auto & c : m_row) {
                 if ((m_column_of_l == -2) && (m_column_of_u == -2))
                     return 0;
+                if (c.coeff().is_big())
+                    return 0;
                 analyze_bound_on_var_on_coeff(c.var(), c.coeff());
+                has_target = has_target || m_bp.bound_may_propagate(c.var());
             }
+            if (!has_target)
+                return 0;
             ++num_prop;
             if (m_column_of_u >= 0)
                 limit_monoid_u_from_below();
@@ -157,6 +163,8 @@ namespace lp {
             }
         
             for (const auto &p : m_row) {
+                if (!m_bp.bound_may_propagate(p.var()))
+                    continue;
                 bool str;
                 bool a_is_pos = is_pos(p.coeff());
                 m_bound = m_total;
@@ -204,6 +212,8 @@ namespace lp {
             }
 
             for (const auto& p : m_row) {
+                if (!m_bp.bound_may_propagate(p.var()))
+                    continue;
                 bool str;
                 bool a_is_pos = is_pos(p.coeff());
                 m_bound = m_total;
@@ -221,6 +231,8 @@ namespace lp {
 
     
         void limit_monoid_u_from_below() {
+            if (!m_bp.bound_may_propagate(m_column_of_u))
+                return;
             // we are going to limit from below the monoid m_column_of_u,
             // every other monoid is impossible to limit from below
             mpq u_coeff;
@@ -250,6 +262,8 @@ namespace lp {
 
 
         void limit_monoid_l_from_above() {
+            if (!m_bp.bound_may_propagate(m_column_of_l))
+                return;
             // we are going to limit from above the monoid m_column_of_l,
             // every other monoid is impossible to limit from above
             mpq l_coeff;
@@ -385,15 +399,15 @@ namespace lp {
         }
         
         const impq& get_upper_bound(unsigned j) const {
-            return lp().get_upper_bound(j);
+            return m_bp.get_upper_bound(j);
         }
 
         const impq& get_lower_bound(unsigned j) const {
-            return lp().get_lower_bound(j);
+            return m_bp.get_lower_bound(j);
         }
 
         column_type get_column_type(unsigned j) const {
-            return (lp().get_column_types())[j];
+            return m_bp.get_column_type(j);
         }
         
         const auto& lp() const { return m_bp.lp(); }

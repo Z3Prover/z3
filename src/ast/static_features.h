@@ -120,6 +120,19 @@ struct static_features {
     symbol                   m_pattern_sym;
     symbol                   m_expr_list_sym;
     svector<to_process>      m_to_process;
+    bool                     m_extended;
+    ptr_vector<expr>         m_extended_roots;
+    unsigned                 m_num_arith_atoms = 0;
+    unsigned                 m_num_linear_atoms = 0;
+    unsigned                 m_num_short_linear_atoms = 0;
+    unsigned                 m_max_arith_width = 0;
+    unsigned                 m_max_numeral_bits = 0;
+    unsigned                 m_num_guarded_affine_defs = 0;
+    unsigned                 m_num_shared_affine_selectors = 0;
+    bool                     m_guarded_features_complete = true;
+
+    void collect_extended();
+    void display_extended(std::ostream& out) const;
 
     bool is_marked_pre(ast * e) const { return m_pre_processed.is_marked(e); }
     void mark_pre(ast * e) { m_pre_processed.mark(e, true); }
@@ -179,11 +192,11 @@ struct static_features {
     
     unsigned get_ite_depth(expr const * e) const { unsigned d = 0; m_expr2ite_depth.find(e->get_id(), d); return d; }
     void set_ite_depth(expr const * e, unsigned d) { m_expr2ite_depth.insert(e->get_id(), d); }
-    static_features(ast_manager & m);
+    static_features(ast_manager & m, bool extended = false);
     void reset();
     void flush_cache();
     void collect(unsigned num_formulas, expr * const * formulas);
-    void collect(expr * f) { process_root(f); }
+    void collect(expr * f) { collect(1, &f); }
     bool internal_family(symbol const & f_name) const;
     void display_family_data(std::ostream & out, char const * prefix, unsigned_vector const & data) const;
     void display_primitive(std::ostream & out) const;
@@ -196,5 +209,3 @@ struct static_features {
     bool is_dense() const;
 
 };
-
-

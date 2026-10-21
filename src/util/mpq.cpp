@@ -19,6 +19,8 @@ Revision History:
 #include "util/mpq.h"
 #include "util/warning.h"
 #include "util/z3_exception.h"
+#include <cstdlib>
+#include <numeric>
 
 template<bool SYNCH>
 mpq_manager<SYNCH>::~mpq_manager() {
@@ -32,7 +34,26 @@ mpq_manager<SYNCH>::~mpq_manager() {
 
 
 template<bool SYNCH>
+bool mpq_manager<SYNCH>::small_addmul(mpq const& a, mpq const& b, mpq const& c, mpq& d) {
+    int64_t an = a.m_num.value(), ad = a.m_den.value();
+    int64_t bn = b.m_num.value(), bd = b.m_den.value();
+    int64_t cn = c.m_num.value(), cd = c.m_den.value();
+    // Three 20-bit factors and their sum fit in signed 64 bits, so the
+    // product need not be normalized or stored before adding the accumulator.
+    if ((std::abs(an) | ad | std::abs(bn) | bd | std::abs(cn) | cd) >= (1 << 20))
+        return false;
+    int64_t n = an * bd * cd + bn * cn * ad;
+    int64_t den = ad * bd * cd;
+    int64_t g = std::gcd(n, den);
+    set(d.m_num, n / g);
+    set(d.m_den, den / g);
+    return true;
+}
+
+template<bool SYNCH>
 bool mpq_manager<SYNCH>::rat_lt(mpq const & a, mpq const & b) {
+    if (is_small(a) && is_small(b))
+        return int64_t(a.m_num.value()) * b.m_den.value() < int64_t(b.m_num.value()) * a.m_den.value();
     mpz const & na = a.numerator();
     mpz const & nb = b.numerator();
     int sign_a = this->sign(na);
@@ -353,6 +374,22 @@ unsigned mpq_manager<SYNCH>::next_power_of_two(mpq const & a) {
 template<bool SYNCH>
 template<bool SUB>
 void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3) {
+    if (is_small(a) && is_small(b)) {
+        int64_t an = a.m_num.value(), ad = a.m_den.value();
+        int64_t bn = b.m_num.value(), bd = b.m_den.value();
+        int64_t gcd = std::gcd(ad, bd);
+        // Signed 32-bit numerators and positive 31-bit denominators leave room for both products.
+        int64_t n = an * (bd / gcd);
+        if (SUB)
+            n -= bn * (ad / gcd);
+        else
+            n += bn * (ad / gcd);
+        int64_t d = (ad / gcd) * bd;
+        int64_t h = std::gcd(n, gcd);
+        set(c.m_num, n / h);
+        set(c.m_den, d / h);
+        return;
+    }
     gcd(a.m_den, b.m_den, g);                   
     if (is_one(g)) {                            
        mul(a.m_num, b.m_den, tmp1);             
@@ -380,6 +417,16 @@ void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2) {
+    if (is_small(a) && is_small(b)) {
+        int64_t an = a.m_num.value(), ad = a.m_den.value();
+        int64_t bn = b.m_num.value(), bd = b.m_den.value();
+        int64_t gcd1 = std::gcd(an, bd), gcd2 = std::gcd(bn, ad);
+        int64_t n = (an / gcd1) * (bn / gcd2);
+        int64_t d = (ad / gcd2) * (bd / gcd1);
+        set(c.m_num, n);
+        set(c.m_den, d);
+        return;
+    }
 #if 1
     gcd(a.m_den, b.m_num, g1);
     gcd(a.m_num, b.m_den, g2);

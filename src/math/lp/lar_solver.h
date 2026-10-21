@@ -54,7 +54,6 @@ class lar_solver : public column_namer {
 
     ////////////////// methods ////////////////////////////////
 
-    bool row_has_a_big_num(unsigned i) const;
     // init region
     void register_new_external_var(unsigned ext_v, bool is_int);
     bool term_is_int(const lar_term* t) const;
@@ -111,7 +110,7 @@ class lar_solver : public column_namer {
 
     template <typename T>
     unsigned calculate_implied_bounds_for_row(unsigned row_index, lp_bound_propagator<T>& bp) {
-        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation || row_has_a_big_num(row_index))
+        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
             return 0;
 
         return bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(
@@ -457,6 +456,8 @@ public:
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return get_core_solver().m_column_types()[j]; }
     const vector<column_type>&  get_column_types() const { return get_core_solver().m_column_types(); }
+    const vector<impq>& get_lower_bounds() const { return get_core_solver().m_r_lower_bounds; }
+    const vector<impq>& get_upper_bounds() const { return get_core_solver().m_r_upper_bounds; }
     std::ostream& print_terms(std::ostream& out) const;
     std::ostream& print_term(lar_term const& term, std::ostream& out) const;
     static std::ostream& print_term_as_indices(lar_term const& term, std::ostream& out);

@@ -49,6 +49,8 @@ namespace lp {
         indexed_uint_set m_left_basis_tableau;
         unsigned m_bland_mode_threshold;
         unsigned m_left_basis_repeated;
+        uint64_t m_tableau_pivots = 0;
+        bool m_use_sparse_rows = false;
         vector<unsigned> m_leaving_candidates;
 
         std::list<unsigned> m_non_basis_list;
@@ -191,6 +193,7 @@ namespace lp {
             unsigned best_col_sz = UINT_MAX;
             unsigned bj = this->m_basis[i];
             bool bj_needs_to_grow = needs_to_grow(bj);
+            T best_abs_coeff = zero_of_type<T>();
             for (unsigned k = 0; k < this->m_A.m_rows[i].size(); ++k) {
                 const row_cell<T> &rc = this->m_A.m_rows[i][k];
                 unsigned j = rc.var();
@@ -203,8 +206,19 @@ namespace lp {
                     if (!monoid_can_increase(rc))
                         continue;
                 }
-                unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
                 unsigned col_sz = static_cast<unsigned>(this->m_A.m_columns[j].size());
+                if (this->m_settings.m_pivot_strategy != lp_pivot_strategy::dependency_count) {
+                    T abs_coeff = rc.coeff() < 0 ? -rc.coeff() : rc.coeff();
+                    bool better = choice == -1 || col_sz < best_col_sz ||
+                        (col_sz == best_col_sz && abs_coeff == 1 && best_abs_coeff != 1);
+                    if (better) {
+                        best_col_sz = col_sz;
+                        best_abs_coeff = abs_coeff;
+                        choice = k;
+                    }
+                    continue;
+                }
+                unsigned not_free = get_num_of_not_free_basic_dependent_vars(j, min_non_free_so_far, bj);
                 if (not_free < min_non_free_so_far || (not_free == min_non_free_so_far && col_sz < best_col_sz)) {
                     min_non_free_so_far = not_free;
                     best_col_sz = static_cast<unsigned>(this->m_A.m_columns[j].size());
@@ -362,8 +376,45 @@ namespace lp {
         }
     }
 
+    int find_leaving_tableau_rows() {
+        int best = find_smallest_inf_column();
+        if (best == -1 || m_bland_mode_tableau)
+            return best;
+        if (this->m_settings.m_pivot_strategy == lp_pivot_strategy::dependency_count &&
+            !m_use_sparse_rows) {
+            auto const& row = this->m_A.m_rows[this->m_basis_heading[best]];
+            if (row.size() <= 128 ||
+                std::all_of(row.begin(), row.end(), [](row_cell<T> const& c) {
+                    return c.coeff().bitsize() <= 32;
+                }))
+                return best;
+            // Dense rows with multiword coefficients make index-ordered pivots expensive.
+            m_use_sparse_rows = true;
+        }
+        X best_error = this->m_x[best] - get_val_for_leaving(best);
+        if (best_error < zero_of_type<X>())
+            best_error = -best_error;
+        unsigned best_size = this->m_A.m_rows[this->m_basis_heading[best]].size();
+        for (unsigned j : this->inf_heap()) {
+            X error = this->m_x[j] - get_val_for_leaving(j);
+            if (error < zero_of_type<X>())
+                error = -error;
+            unsigned size = this->m_A.m_rows[this->m_basis_heading[j]].size();
+            bool better = size < best_size || (size == best_size && error > best_error);
+            if (better) {
+                best = j;
+                best_size = size;
+                best_error = error;
+            }
+        }
+        return best;
+    }
+
     void one_iteration_tableau_rows() {
-        int leaving = find_smallest_inf_column();
+        if (this->m_settings.m_pivot_strategy != lp_pivot_strategy::dependency_count &&
+            m_tableau_pivots++ >= 4ull * this->m_A.column_count() + 64)
+            m_bland_mode_tableau = true;
+        int leaving = find_leaving_tableau_rows();
         if (leaving == -1) {
             this->set_status(lp_status::OPTIMAL);
             return;
@@ -394,7 +445,7 @@ namespace lp {
         TRACE(lar_solver_feas, tout << "leaving = " << leaving
                                  << " removed from inf_heap()\n";);
         // this will remove the leaving from the heap
-        this->inf_heap().erase_min();
+        this->inf_heap().erase(leaving);
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta);
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
@@ -627,6 +678,8 @@ namespace lp {
         m_bland_mode_tableau = false;
         m_left_basis_tableau.reset();
         m_left_basis_repeated = 0;
+        m_tableau_pivots = 0;
+        m_use_sparse_rows = false;
     }
     // stage1 constructor
     lp_primal_core_solver(

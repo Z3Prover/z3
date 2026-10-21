@@ -57,6 +57,11 @@ enum class simplex_strategy_enum {
     tableau_costs
 };
 
+enum class lp_pivot_strategy {
+    dependency_count,
+    sparsity
+};
+
 std::string column_type_to_string(column_type t);
 
 enum class lp_status {
@@ -237,6 +242,7 @@ public:
     bool                   m_bound_propagation = true;
     bool                   presolve_with_double_solver_for_lar = true;
     simplex_strategy_enum  m_simplex_strategy;
+    lp_pivot_strategy      m_pivot_strategy = lp_pivot_strategy::dependency_count;
 
     unsigned         m_max_conflicts = 0;
     

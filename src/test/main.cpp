@@ -152,6 +152,7 @@
     X(nla_transcendentals) \
     X(nla_intervals) \
     X(lp_bound_propagation) \
+    X(lp_pivots) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \

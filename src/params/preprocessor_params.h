@@ -51,6 +51,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_pre_simplifier = true;
     bool            m_nlquant_elim = false;
     bool            m_bound_simplifier = true;
+    unsigned        m_flat_clause_budget = UINT_MAX;
 
 public:
     preprocessor_params(params_ref const & p = params_ref()):

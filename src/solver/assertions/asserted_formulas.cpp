@@ -395,6 +395,12 @@ void asserted_formulas::flatten_clauses() {
     auto mk_not = [this](expr* e) { return m.is_not(e, e) ? e : m.mk_not(e); };
     auto is_literal = [this](expr *e) { m.is_not(e, e); return !is_app(e) || to_app(e)->get_num_args() == 0; };
     expr *a = nullptr, *b = nullptr, *c = nullptr;
+    // Bound clause generation by the input DAG size instead of expanding shared subformulas without limit.
+    unsigned budget = 0;
+    expr_mark visited;
+    for (unsigned i = m_qhead; i < m_formulas.size(); ++i)
+        budget += get_num_exprs(m_formulas[i].fml(), visited);
+    budget = std::min(budget, m_smt_params.m_flat_clause_budget);
     while (change) {
         change = false;        
         new_fmls.reset();
@@ -409,7 +415,8 @@ void asserted_formulas::flatten_clauses() {
             else if (m.is_or(f, b, a) && m.is_not(b, b) && m.is_or(b) && (b->get_ref_count() == 1 || is_literal(a))) {
                 decomposed = true;
             }            
-            if (decomposed) {
+            if (decomposed && to_app(b)->get_num_args() <= budget) {
+                budget -= to_app(b)->get_num_args();
                 for (expr* arg : *to_app(b)) {
                     justified_expr j1(m, m.mk_or(a, mk_not(arg)), nullptr);
                     new_fmls.push_back(j1);
@@ -417,7 +424,8 @@ void asserted_formulas::flatten_clauses() {
                 change = true;
                 continue;
             }
-            if (m.is_ite(f, a, b, c)) {
+            if (budget >= 2 && m.is_ite(f, a, b, c)) {
+                budget -= 2;
                 new_fmls.push_back(justified_expr(m, m.mk_or(mk_not(a), b), nullptr));
                 new_fmls.push_back(justified_expr(m, m.mk_or(a, c), nullptr));
                 change = true;
