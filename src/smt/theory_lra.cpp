@@ -854,6 +854,7 @@ class theory_lra::imp {
 
     void updt_unassigned_bounds(theory_var v, int inc) {
         TRACE(arith_verbose, tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
+        SASSERT(inc > 0 || m_unassigned_bounds[v] > 0);
         ctx().push_trail(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;            
     }
@@ -988,6 +989,9 @@ public:
         lp().updt_params(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
+        // the logic-specific setup (smt_setup) may override the arith.propagate_eqs default,
+        // e.g. it is off for QF_LRA and QF_LIA; lp settings only see the raw parameters
+        lp().settings().propagate_eqs() = params().m_arith_propagate_eqs;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
@@ -1128,6 +1132,9 @@ public:
     void assign_eh(bool_var v, bool is_true) {
         TRACE(arith, tout << "assign p" << literal(v, !is_true) << ": " << bpp(ctx().bool_var2expr(v)) << "\n";);
         m_asserted_atoms.push_back(delayed_atom(v, is_true));
+        api_bound* b = m_bool_var2bound.get(v, nullptr);
+        if (b)
+            updt_unassigned_bounds(b->get_var(), -1);
     }
 
     lbool get_phase(bool_var v) {
@@ -2554,6 +2561,18 @@ public:
         }
     }
 
+    // m_unassigned_bounds[v] counts the atoms of v that are not assigned yet:
+    // it is incremented when an atom is created and decremented in assign_eh,
+    // both through the context trail, so it is exact at every scope level.
+    bool column_is_interesting(unsigned vi) const {
+        theory_var v = lp().local_to_external(vi);
+        if (v == null_theory_var)
+            return false;
+        if (should_refine_bounds())
+            return true;
+        return static_cast<unsigned>(v) < m_unassigned_bounds.size() && m_unassigned_bounds[v] > 0;
+    }
+
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
         theory_var v = lp().local_to_external(vi);
         if (v == null_theory_var) 
@@ -2562,7 +2581,7 @@ public:
         if (should_refine_bounds()) 
             return true;
 
-        if (static_cast<unsigned>(v) < m_bounds.size()) 
+        if (static_cast<unsigned>(v) < m_bounds.size() && m_unassigned_bounds[v] > 0) 
             for (api_bound* b : m_bounds[v]) 
                 if (ctx().get_assignment(b->get_lit()) == l_undef &&
                     null_literal != is_bound_implied(kind, bval, *b)) 
@@ -2658,7 +2677,6 @@ public:
                 set_proof_params(m_bound, true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
-            updt_unassigned_bounds(v, -1);
             TRACE(arith,
                   ctx().display_literals_verbose(tout, m_core);
                   tout << "\n --> ";
@@ -2722,7 +2740,7 @@ public:
     }
 
     bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
-        if (ctx().inconsistent())
+        if (ctx().inconsistent() || !propagate_eqs())
             return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
@@ -3307,7 +3325,6 @@ public:
             if (sign)
                 lit2.neg();
         }
-        updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
