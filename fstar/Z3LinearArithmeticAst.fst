@@ -177,3 +177,184 @@ let check (cs:list coefficient) (conclusion:expr) (facts:list expr) : bool =
   match prepare (assumptions conclusion facts) cs with
   | Some ps -> P.accepts ps
   | None -> false
+
+(* Bounded certificate synthesis is not trusted: callers replay its weights
+   through check against the original formulas. *)
+type search_row = {
+  search_poly: poly;
+  search_weights: list int;
+  search_strict: bool;
+}
+
+let rec search_basis (index size:nat) (weight:int) : Tot (list int) (decreases size) =
+  if size = 0 then []
+  else (if index = 0 then weight else 0) ::
+       search_basis (if index = 0 then 0 else index - 1) (size - 1) (if index = 0 then 0 else weight)
+
+let search_input (size index:nat) (weight:int) (positive:bool) (e:expr) : option search_row =
+  match prepare_literal (weight, 1) positive e with
+  | None -> None
+  | Some p -> Some {
+      search_poly = { p.poly with mono = P.collect p.poly.mono []; denom = 1 };
+      search_weights = search_basis index size (weight * p.poly.denom);
+      search_strict = p.strict;
+    }
+
+let rec search_inputs (size index:nat) (lits:list (bool & expr))
+  : Tot (list search_row) (decreases lits) =
+  match lits with
+  | [] -> []
+  | (positive, e) :: rest ->
+    let tail = search_inputs size (index + 1) rest in
+    let tail =
+      match literal 16 positive e with
+      | Some (true, Eq, _, _) ->
+        (match search_input size index (-1) positive e with Some row -> row :: tail | None -> tail)
+      | _ -> tail in
+    (match search_input size index 1 positive e with Some row -> row :: tail | None -> tail)
+
+let rec search_weights (a:int) (xs:list int) (b:int) (ys:list int)
+  : Tot (option (list int)) (decreases xs) =
+  match xs, ys with
+  | [], [] -> Some []
+  | x :: rest, y :: tail ->
+    (match search_weights a rest b tail with
+     | Some weights -> Some ((a * x + b * y) :: weights)
+     | None -> None)
+  | _, _ -> None
+
+let rec search_coefficient (e:expr) (ms:list (int & expr)) : Tot int (decreases ms) =
+  match ms with [] -> 0 | (n, v) :: rest -> if e = v then n else search_coefficient e rest
+
+let search_add (a:int) (p:search_row) (b:int) (q:search_row) : option search_row =
+  match search_weights a p.search_weights b q.search_weights with
+  | None -> None
+  | Some weights ->
+    let poly = P.add (P.scale a 1 p.search_poly) (P.scale b 1 q.search_poly) in
+    Some { search_poly = { poly with mono = P.collect poly.mono [] };
+           search_weights = weights; search_strict = p.search_strict || q.search_strict }
+
+let search_combine (e:expr) (p q:search_row) : option search_row =
+  let a = -search_coefficient e q.search_poly.mono in
+  let b = search_coefficient e p.search_poly.mono in
+  if a <= 0 || b <= 0 then None else search_add a p b q
+
+let rec search_pairs (budget:nat) (e:expr) (positive negative:list search_row)
+  : Tot (option (list search_row)) (decreases %[budget; positive; negative]) =
+  match positive, negative with
+  | [], _ | _, [] -> Some []
+  | p :: rest, _ ->
+    let rec row (budget:nat) (qs:list search_row)
+      : Tot (option (list search_row)) (decreases qs) =
+      match qs with
+      | [] -> Some []
+      | q :: tail ->
+        if budget = 0 then None
+        else match search_combine e p q, row (budget - 1) tail with
+        | Some combined, Some rows -> Some (combined :: rows)
+        | _, _ -> None
+    in
+    match row budget negative with
+    | None -> None
+    | Some rows ->
+      if length rows > budget then None else
+      (match search_pairs (budget - length rows) e rest negative with
+       | Some tail -> Some (rows @ tail)
+       | None -> None)
+
+let rec search_variable (rows:list search_row) : Tot (option expr) (decreases rows) =
+  match rows with
+  | [] -> None
+  | row :: rest ->
+    let rec first (ms:list (int & expr)) : Tot (option expr) (decreases ms) =
+      match ms with [] -> None | (n, e) :: tail -> if n <> 0 then Some e else first tail in
+    (match first row.search_poly.mono with Some e -> Some e | None -> search_variable rest)
+
+let rec search_contradiction (rows:list search_row)
+  : Tot (option (list coefficient)) (decreases rows) =
+  match rows with
+  | [] -> None
+  | row :: rest ->
+    if P.all_zero row.search_poly.mono &&
+       (row.search_poly.cst > 0 || (row.search_poly.cst = 0 && row.search_strict))
+    then Some (map (fun n -> let c:coefficient = n, 1 in c) row.search_weights)
+    else search_contradiction rest
+
+let rec search_partition (e:expr) (rows:list search_row)
+  : Tot (list search_row & list search_row & list search_row) (decreases rows) =
+  match rows with
+  | [] -> [], [], []
+  | row :: rest ->
+    let positive, negative, zero = search_partition e rest in
+    let n = search_coefficient e row.search_poly.mono in
+    if n > 0 then row :: positive, negative, zero
+    else if n < 0 then positive, row :: negative, zero
+    else positive, negative, row :: zero
+
+let rec search_eliminate (fuel:nat) (rows:list search_row)
+  : Tot (option (list coefficient)) (decreases fuel) =
+  match search_contradiction rows with
+  | Some weights -> Some weights
+  | None ->
+    if fuel = 0 || length rows > 128 then None
+    else match search_variable rows with
+    | None -> None
+    | Some e ->
+      let positive, negative, zero = search_partition e rows in
+      if length zero > 128 then None else
+      (match search_pairs (128 - length zero) e positive negative with
+       | Some pairs -> search_eliminate (fuel - 1) (zero @ pairs)
+       | None -> None)
+
+let rec search_divisor (weights:list int) : Tot nat (decreases weights) =
+  match weights with
+  | [] -> 0
+  | n :: rest -> P.gcd (if n < 0 then -n else n) (search_divisor rest)
+
+let search_normalize (row:search_row) : search_row =
+  let d = search_divisor row.search_weights in
+  if d <= 1 then row else
+  { row with
+    search_poly = { row.search_poly with
+      mono = map (fun (n, e) -> n / d, e) row.search_poly.mono;
+      cst = row.search_poly.cst / d };
+    search_weights = map (fun n -> n / d) row.search_weights }
+
+let rec search_reduce (basis:list search_row) (row:search_row)
+  : Tot (option search_row) (decreases basis) =
+  match basis with
+  | [] -> Some row
+  | p :: rest ->
+    (match search_variable [p] with
+     | None -> search_reduce rest row
+     | Some e ->
+       let a = search_coefficient e row.search_poly.mono in
+       if a = 0 then search_reduce rest row else
+       let b = search_coefficient e p.search_poly.mono in
+       match search_add b row (-a) p with
+       | Some reduced -> search_reduce rest (search_normalize reduced)
+       | None -> None)
+
+(* Signed elimination only proposes weights; check replays their permitted
+   orientations and integer strict-bound rounding against the original facts. *)
+let rec search_dependencies (conclusion:expr) (facts:list expr)
+                            (basis rows:list search_row)
+  : Tot (option (list coefficient)) (decreases rows) =
+  match rows with
+  | [] -> None
+  | row :: rest ->
+    (match search_reduce basis row with
+     | None -> None
+     | Some reduced ->
+       let cs = map (fun n -> let c:coefficient = n, 1 in c) reduced.search_weights in
+       if check cs conclusion facts then Some cs
+       else search_dependencies conclusion facts
+              (if P.all_zero reduced.search_poly.mono then basis else basis @ [reduced]) rest)
+
+let synthesize (conclusion:expr) (facts:list expr) : option (list coefficient) =
+  let lits = assumptions conclusion facts in
+  if length lits > 32 then None
+  else let rows = search_inputs (length lits) 0 lits in
+    match search_eliminate 16 rows with
+    | Some cs -> Some cs
+    | None -> search_dependencies conclusion facts [] rows

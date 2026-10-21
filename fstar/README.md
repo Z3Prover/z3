@@ -88,6 +88,37 @@ input hash before executing any case, and requires exactly 225 inputs.
 The proof-corpus `max_cases` cap does not truncate this sample. A manually
 selected `z3test_ref` must contain the sample and its manifest.
 
+An independent **110-input extended sample** is bundled under
+`fstar/benchmarks/smtlib-sample`: 25 inputs each for **QF_DT, QF_NIA, UF,
+and QF_BV**, plus **all 10 UNSAT-annotated UFLRA inputs** in the upstream
+release. UFLRA contains only 15 benchmarks total; the other five are
+SAT-annotated and are not certificate examples. These unchanged inputs
+come from the same SMT-LIB 2025 non-incremental release,
+[Zenodo record 16740866](https://zenodo.org/records/16740866), licensed
+CC BY 4.0. Original authorship, source, and license metadata are preserved
+inside each benchmark. Archive sizes, published MD5 checksums, archive
+SHA-256 hashes, original member paths, and input SHA-256 hashes are frozen
+in the bundled manifest. Git treats the SMT-LIB files as binary for
+checkout purposes to preserve their exact bytes.
+
+Selection considers UNSAT-annotated regular `.smt2` archive members up to
+256 KiB each, keeping the checked-in corpus small rather than selecting
+by solver outcome. Independently per logic, a Python seed-42 generator
+shuffles the sorted member lists within each top-level benchmark family,
+then shuffles the sorted family list. Round-robin selection pops one member
+per nonempty family until 25 inputs are selected or all families are
+exhausted. Thus the small UFLRA population is included in full, rather than
+duplicated to reach 25. The manifest records eligible families and counts.
+CI downloads no archives and does not resample: it verifies all 110 inputs
+before checking them. This step has its own configurable 3600-second
+budget, report, and diagnostic replay, and runs independently of the
+external z3test checkout. The original 225-input cohort is unchanged.
+The five UF `misc/set*.smt2` inputs declare an uninterpreted sort named
+`Set`. The shared parser removes obsolete built-in sort aliases when
+`set-logic` follows API context initialization, leaving this name available
+under UF. All five previously failing inputs now certify as `ACCEPT`;
+regressions cover native batch and interactive checking.
+
 The job summary and downloadable report artifact record resolved producer
 and corpus commits, build/test outcomes, build and per-case wall time,
 available solve/marshal/check timings, and explicit outcome rates.
@@ -101,6 +132,14 @@ fail the job; unsupported proofs and timeouts are reported without failing
 this coverage-measurement job. The corpus step also has a 35-minute CI
 limit, independent of the configurable budget. Always-run reporting/upload
 steps preserve available results and build logs on failure.
+After coverage measurement, a separately budgeted diagnostic pass replays
+only `PARTIAL` and `REJECT` cases with `--diagnostics`. It does not change
+the original verdicts or case timings. Reports rank remaining rule/fingerprint
+families by sole-family proofs blocked, then affected proofs and obligation
+counts; only replays matching the original verdict and pending count
+contribute. Raw replay logs and `diagnostics.jsonl` retain timeouts,
+nonmatching results, and diagnostic errors separately. Each corpus has a
+900-second diagnostic budget and twice its original whole-case timeout.
 The SMT-LIB sample has its own report, per-logic outcome counts, input
 manifest, raw logs, and phase timings under the artifact's `smtlib-sample/`
 directory. It uses the same configurable solver and whole-case timeouts,

@@ -19,20 +19,53 @@ Abstract:
 #include "parsers/smt2/smt2parser.h"
 #include "sat/sat_proof_trim.h"
 #include "sat/smt/arith_theory_checker.h"
+#include "sat/smt/distinct_theory_checker.h"
+#include "sat/smt/tseitin_theory_checker.h"
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 
+// The replay frontend calls exit(0) when a step does not verify. That would end
+// the test binary successfully with the remaining checks unrun; turn it into a
+// failure instead.
+static bool g_replaying = false;
+static std::ostringstream* g_captured = nullptr;
+
+static void replay_exit_guard() {
+    if (!g_replaying)
+        return;
+    std::cerr << "proof replay exited before completing:\n" << g_captured->str();
+    std::_Exit(1);
+}
+
+struct scoped_replay {
+    std::streambuf* saved;
+    scoped_replay(std::ostringstream& captured) : saved(std::cout.rdbuf(captured.rdbuf())) {
+        g_captured = &captured;
+        g_replaying = true;
+    }
+    ~scoped_replay() {
+        std::cout.rdbuf(saved);
+        g_replaying = false;
+        g_captured = nullptr;
+    }
+};
+
 // Replay a clause proof log and return what the checker printed.
 static std::string replay(char const* log) {
+    static int const registered = std::atexit(replay_exit_guard);
+    ENSURE(registered == 0);
     ast_manager m;
     reg_decl_plugins(m);
     cmd_context ctx(false, &m);
     install_proof_cmds(ctx);
     std::istringstream is(log);
     std::ostringstream captured;
-    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
-    bool ok = parse_smt2_commands(ctx, is);
-    std::cout.rdbuf(saved);
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        ok = parse_smt2_commands(ctx, is);
+    }
     VERIFY(ok);
     return captured.str();
 }
@@ -314,6 +347,161 @@ static void tst_replay_implied_eq_constant_row() {
         "(declare-fun rup () Proof)(infer rup)"), "implied-eq 1");
 }
 
+// A tseitin hint lists the gate clause itself.
+static bool check_tseitin(ast_manager& m, expr_ref_vector const& lits) {
+    app_ref hint(m.mk_app(symbol("tseitin"), lits.size(), lits.data(), m.mk_proof_sort()), m);
+    tseitin::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+static bool check_tseitin(ast_manager& m, char const* source) {
+    return check_tseitin(m, parse_lits(m, source));
+}
+
+// An xor gate clause is a tautology only when every argument of the xor is
+// fixed by a clause literal and the xor then takes the value the clause needs:
+// an odd number of true arguments for a positive gate literal, an even number
+// for a negated one.
+static void tst_checker_tseitin_xor() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls = "(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)";
+    auto check = [&](char const* clause) {
+        return check_tseitin(m, (std::string(decls) + clause).c_str());
+    };
+    // The four clauses defining (xor a b).
+    ENSURE(check("(assert (xor a b))(assert a)(assert (not b))"));
+    ENSURE(check("(assert (xor a b))(assert (not a))(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert a)(assert b)"));
+    ENSURE(check("(assert (not (xor a b)))(assert (not a))(assert (not b))"));
+    // Each wrong-polarity clause has a falsifying assignment.
+    ENSURE(!check("(assert (xor a b))(assert a)(assert b)"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert a)(assert (not b))"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))(assert b)"));
+    // An argument the clause leaves free can take either value.
+    ENSURE(!check("(assert (not (xor a b)))(assert a)"));
+    ENSURE(!check("(assert (not (xor a b)))(assert (not a))"));
+    ENSURE(!check("(assert (xor a b))(assert (not a))"));
+    // Repeated and constant arguments.
+    ENSURE(!check("(assert (xor a a))(assert a)"));
+    ENSURE(!check("(assert (xor a a))(assert (not a))"));
+    ENSURE(check("(assert (not (xor a a)))(assert a)"));
+    ENSURE(check("(assert (xor a true))(assert a)"));
+    ENSURE(!check("(assert (xor a true))(assert (not a))"));
+    ENSURE(check("(assert (xor a false))(assert (not a))"));
+    ENSURE(!check("(assert (xor a false))(assert a)"));
+    // xor is binary in the AST, (xor a b c) is (xor a (xor b c)): the inner
+    // gate is an argument the clause does not fix.
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert b)(assert (not c))"));
+    ENSURE(check("(assert (xor a b c))(assert a)(assert (not (xor b c)))"));
+    ENSURE(!check("(assert (xor a b c))(assert a)(assert (xor b c))"));
+    // Other gates are unaffected.
+    ENSURE(check("(assert (and a b))(assert (not a))(assert (not b))"));
+    ENSURE(!check("(assert (and a b))(assert (not a))(assert b)"));
+}
+
+// Both polarities of the gate verify natively in a replayed log.
+static void tst_replay_tseitin_xor() {
+    check_verified_natively(replay(
+        "(declare-fun a () Bool)(declare-fun b () Bool)(declare-fun p () Bool)"
+        "(define-const $1 Bool (xor a b))"
+        "(declare-fun tseitin (Bool Bool Bool) Proof)"
+        "(infer (not a) (not b) (not $1) (tseitin (not $1) (not a) (not b)))"
+        "(infer a b (not $1) (tseitin (not $1) a b))"
+        "(infer a (not b) $1 (tseitin $1 a (not b)))"
+        "(infer (not a) b $1 (tseitin $1 (not a) b))"
+        "(assume p $1)(assume (not p))(assume a)(assume b)"
+        "(declare-fun rup () Proof)(infer $1 rup)(infer rup)"), "tseitin 4");
+}
+
+// An alldiff hint lists the clause itself.
+static bool check_alldiff(ast_manager& m, char const* source) {
+    auto lits = parse_lits(m, source);
+    app_ref hint(m.mk_app(symbol("alldiff"), lits.size(), lits.data(), m.mk_proof_sort()), m);
+    distinct::theory_checker checker(m);
+    return checker.check(hint);
+}
+
+// The only alldiff hints Z3 emits are the two gate clauses relating a distinct
+// below the root to the disjunction of its pairwise equalities. Anything else,
+// in particular the clauses of a distinct asserted at the root (which the log
+// records as input), is not a theory tautology and is rejected.
+static void tst_checker_alldiff() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    char const* decls =
+        "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)(declare-const d U)"
+        "(declare-const q Bool)(declare-const x Int)";
+    auto check = [&](char const* clause) {
+        return check_alldiff(m, (std::string(decls) + clause).c_str());
+    };
+    // Z3's two gate clauses, with three arguments and with two.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c))))"));
+    ENSURE(check("(assert (or (= a b) (= a c) (= b c)))(assert (distinct a b c))"));
+    ENSURE(check("(assert (distinct a b))(assert (= a b))"));
+    ENSURE(check("(assert (not (distinct a b)))(assert (not (= a b)))"));
+    // Equalities are matched up to symmetry.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= b a) (= c a) (= c b)))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= b a) (= c a) (= c b))))"));
+    // Mixed polarities are falsifiable.
+    ENSURE(!check("(assert (distinct a b c))(assert (not (or (= a b) (= a c) (= b c))))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(!check("(assert (distinct a b))(assert (not (= a b)))"));
+    // The positive clause needs every pair; the negated clause needs every
+    // disjunct to be an equality of two arguments.
+    ENSURE(!check("(assert (distinct a b c))(assert (or (= a b) (= a c)))"));
+    ENSURE(!check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b d)))"));
+    ENSURE(!check("(assert (distinct a b c))(assert (= a b))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) (= a d))))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) q)))"));
+    ENSURE(!check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) (= a a))))"));
+    ENSURE(!check("(assert (not (distinct a b)))(assert (not q))"));
+    // An extra disjunct only weakens what the positive clause demands.
+    ENSURE(check("(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c) q))"));
+    ENSURE(check("(assert (not (distinct a b c)))(assert (not (or (= a b) (= a c) (= b c) false)))"));
+    // A repeated argument makes the distinct false: its equality is true.
+    ENSURE(check("(assert (distinct a b a))(assert (or true (= a b)))"));
+    ENSURE(check("(assert (not (distinct a b a)))(assert (not (or true (= a b))))"));
+    ENSURE(!check("(assert (not (distinct a b)))(assert (not (or true (= a b))))"));
+    ENSURE(!check("(assert (distinct a b a))(assert (= a b))"));
+    ENSURE(check("(assert (distinct a b a))(assert (or (= a a) (= a b)))"));
+    // Numerals that are distinct values never need an equality.
+    ENSURE(check("(assert (distinct 1 2 x))(assert (or (= 1 x) (= 2 x)))"));
+    ENSURE(!check("(assert (distinct 1 x))(assert (= 2 x))"));
+    // The clauses of a root distinct are not tautologies.
+    ENSURE(!check("(assert (= a b))(assert (= a c))(assert (= b c))"));
+    ENSURE(!check("(assert (not (= a b)))"));
+    ENSURE(!check("(assert (= a b))"));
+    ENSURE(!check(""));
+    ENSURE(!check("(assert (distinct a b c))(assert q)(assert (or (= a b) (= a c) (= b c)))"));
+    ENSURE(!check("(assert q)(assert (or (= a b) (= a c) (= b c)))"));
+}
+
+// Z3's log for (or p (distinct a b c)), (or (not p) (distinct a b c)), (= a c):
+// both gate clauses verify natively.
+static void tst_replay_alldiff_gates() {
+    check_verified_natively(replay(
+        "(declare-sort U 0)(declare-fun a () U)(declare-fun b () U)(declare-fun c () U)"
+        "(define-const $15 Bool (= a b))(define-const $16 Bool (= b c))(define-const $13 Bool (= a c))"
+        "(define-const $14 Bool (or $15 $13 $16))"
+        "(declare-fun tseitin (Bool Bool) Proof)"
+        "(infer (not $15) $14 (tseitin (not $15) $14))"
+        "(infer (not $13) $14 (tseitin (not $13) $14))"
+        "(infer (not $16) $14 (tseitin (not $16) $14))"
+        "(declare-fun tseitin (Bool Bool Bool Bool) Proof)"
+        "(infer $15 $13 $16 (not $14) (tseitin $15 $13 $16 (not $14)))"
+        "(define-const $9 Bool (distinct a b c))"
+        "(declare-fun alldiff (Bool Bool) Proof)"
+        "(infer (not $9) (not $14) (alldiff (not $9) (not $14)))"
+        "(infer $9 $14 (alldiff $9 $14))"
+        "(declare-fun p () Bool)"
+        "(assume p $9)(assume (not p) $9)(assume $13)"
+        "(declare-fun rup () Proof)"
+        "(infer $14 rup)(infer (not $9) rup)(infer p rup)(infer rup)"), "alldiff 2");
+}
+
 static void tst_is_extended_numeral() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -451,5 +639,9 @@ void tst_proof_replay() {
     tst_checker_implied_eq_conclusion();
     tst_checker_implied_eq_constant_rows();
     tst_replay_implied_eq_constant_row();
+    tst_checker_tseitin_xor();
+    tst_replay_tseitin_xor();
+    tst_checker_alldiff();
+    tst_replay_alldiff_gates();
     tst_replay_folds_printed_numerals();
 }

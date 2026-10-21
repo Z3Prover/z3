@@ -290,6 +290,52 @@ void test_builtin_signature_clash() {
     Z3_del_context(ctx);
 }
 
+void test_logic_sort_namespace() {
+    struct test_case {
+        char const* source;
+        bool error;
+    };
+    for (auto const& test : {
+            test_case{"(set-logic UF)(declare-sort Set 0)"
+                      "(declare-const x Set)(assert (= x x))", false},
+            test_case{"(set-logic QF_UF)(declare-sort Set 0)"
+                      "(declare-const x Set)(assert (= x x))", false},
+            test_case{"(set-logic UF)(declare-const x (Set Bool))", true},
+            test_case{"(declare-const x (Set Bool))(assert (select x true))", false},
+            test_case{"(set-logic ALL)(declare-const x (Set Bool))"
+                      "(assert (select x true))", false},
+            test_case{"(set-logic HORN)(declare-const x (Set Bool))"
+                      "(assert (select x true))", false}}) {
+        Z3_context ctx = Z3_mk_context(nullptr);
+        Z3_set_error_handler(ctx, setError);
+        is_error = false;
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(
+            ctx, test.source, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        ENSURE(is_error == test.error);
+        if (!test.error)
+            ENSURE(Z3_ast_vector_size(ctx, assertions) == 1);
+        Z3_del_context(ctx);
+    }
+
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    Z3_parser_context parser = Z3_mk_parser_context(ctx);
+    Z3_parser_context_inc_ref(ctx, parser);
+    Z3_sort kept = Z3_mk_uninterpreted_sort(ctx, Z3_mk_string_symbol(ctx, "Kept"));
+    Z3_parser_context_add_sort(ctx, parser, kept);
+    is_error = false;
+    Z3_ast_vector assertions = Z3_parser_context_from_string(ctx, parser,
+        "(push)(set-logic UF)(declare-sort Set 0)"
+        "(declare-const x Set)(assert (= x x))");
+    ENSURE(!is_error && Z3_ast_vector_size(ctx, assertions) == 1);
+    assertions = Z3_parser_context_from_string(ctx, parser,
+        "(pop)(declare-sort Set 0)(declare-const x Set)"
+        "(declare-const y Kept)(assert (= x x))(assert (= y y))");
+    ENSURE(!is_error && Z3_ast_vector_size(ctx, assertions) == 2);
+    Z3_parser_context_dec_ref(ctx, parser);
+    Z3_del_context(ctx);
+}
+
 void tst_smt2print_parse() {
 
     // test basic datatypes  
@@ -380,6 +426,7 @@ void tst_smt2print_parse() {
 
     test_symbol_escape();
     test_builtin_signature_clash();
+    test_logic_sort_namespace();
 
     // Regression test for GitHub issue #10815:
     // Internal bit-vector division and remainder operators emitted by simplify

@@ -273,13 +273,46 @@ class TestProofCertificate(unittest.TestCase):
     def test_unsupported_commands_are_rejected(self):
         commands = [
             "(get-value (false))", "(eval false)",
-            '(include "other.smt2")', "(minimize 0)", "(define-sort T () Bool)",
+            '(include "other.smt2")', "(minimize 0)",
             '(set-option :regular-output-channel "output.txt")',
         ]
         for command in commands:
             with self.subTest(command=command):
                 with self.assertRaises(proof_certificate.ProofExportError):
                     proof_certificate.export_certificate(command + "(assert false)")
+
+    def test_define_sort_aliases_are_expanded_and_malformed_ones_rejected(self):
+        # Z3's parser expands the alias, so the certificate is about Bool.
+        certificate = proof_certificate.export_certificate(
+            "(define-sort B () Bool)(define-sort Id (T) T)(declare-const p B)"
+            "(declare-const q (Id Bool))(assert (= p q))(assert p)(assert (not q))")
+        self.assertEqual(certificate["fragment"], "propositional")
+        self.assert_well_formed(certificate)
+        malformed = [
+            "(define-sort B ())", "(define-sort B () Bool Bool)", "(define-sort B Bool)",
+            "(define-sort (B) () Bool)", "(define-sort B (1) Bool)", "(define-sort B ((T)) T)",
+            "(define-sort B () (Array Bool Bool) Bool)", "(define-sort 1 () Bool)",
+        ]
+        for command in malformed:
+            with self.subTest(command=command):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "define-sort takes"):
+                    proof_certificate.export_certificate(command + "(assert false)")
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "repeats a parameter"):
+            proof_certificate.export_certificate("(define-sort B (T T) T)(assert false)")
+        # An alias of an unsupported sort is rejected where it is used, and
+        # one defined in a popped scope is gone, as Z3 scopes it.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported sort"):
+            proof_certificate.export_certificate(
+                "(define-sort A () (Array Bool Bool))(declare-const x A)(assert (= x x))(assert false)")
+        with self.assertRaises(z3.Z3Exception):
+            proof_certificate.export_certificate(
+                "(push)(define-sort B () Bool)(pop)(declare-const p B)(assert p)(assert (not p))")
+        # reset-assertions keeps aliases like declarations; reset drops them.
+        snapshot, _, _ = proof_certificate.query_snapshot(
+            "(define-sort B () Bool)(assert false)(reset-assertions)(check-sat)")
+        self.assertEqual(snapshot, "(define-sort B () Bool)")
+        snapshot, _, _ = proof_certificate.query_snapshot("(define-sort B () Bool)(reset)(check-sat)")
+        self.assertEqual(snapshot, "")
 
     def test_configuration_options_and_output_queries_are_ignored(self):
         # The certificate is a statement about the parsed assertions, so
@@ -2317,6 +2350,45 @@ class TestClauseLogReplay(unittest.TestCase):
         unrelated = declarations + "(assert (= x y))(assert (>= z 0.0))"
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
             self.replay(unrelated, log)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_root_distinct_clauses_are_logged_as_assumptions(self):
+        # A distinct asserted at the root is clausified like any other root
+        # assertion, so Z3 logs the clauses as assumptions. Until 2026-10-20
+        # they were alldiff inferences, which the native checker trusted
+        # without a check (the replay here ties them to the assertions either
+        # way). The alldiff hint is left to the two gate clauses of a distinct
+        # below the root, which the native checker verifies as tautologies.
+        z3_executable = proof_certificate.default_z3_executable()
+        declarations = "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)"
+        negated = (declarations + "(assert (not (distinct a b c)))"
+                   "(assert (not (= a b)))(assert (not (= a c)))(assert (not (= b c)))")
+        log = proof_clause_log.run_clause_log(z3_executable, negated)
+        self.assertNotIn("alldiff", log)
+        assumed = sorted(line for line in log.splitlines() if line.startswith("(assume"))
+        self.assertEqual(len(assumed), 4, assumed)
+        self.assertRegex(assumed[0], r"^\(assume \$\d+ \$\d+ \$\d+\)$")
+        for unit in assumed[1:]:
+            self.assertRegex(unit, r"^\(assume \(not \$\d+\)\)$")
+        certificate = self.replay(negated, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 4)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+
+        positive = "(declare-const x Real)(declare-const y Real)(declare-const z Real)(assert (distinct x y z))(assert (= x y))"
+        log = proof_clause_log.run_clause_log(z3_executable, positive)
+        self.assertNotIn("alldiff", log)
+        self.assertIn("(assume (not $", log)
+        certificate = self.replay(positive, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 2)
+
+        below_root = (declarations + "(declare-const p Bool)(assert (or p (distinct a b c)))"
+                      "(assert (or (not p) (distinct a b c)))(assert (= a c))")
+        log = proof_clause_log.run_clause_log(z3_executable, below_root)
+        hints = re.findall(r"\(alldiff ([^)]*)\)", log)
+        self.assertEqual(len(hints), 2)
+        self.assertTrue(all(len(hint.split()) == 2 for hint in hints), hints)
+        certificate = self.replay(below_root, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
 
     def test_bad_hints_and_logs_are_rejected(self):
         cases = [

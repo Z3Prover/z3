@@ -872,8 +872,12 @@ class _Replay:
         farkas, bound, implied-eq, euf, and arith hints list literals that are
         jointly contradictory, so the lemma is the clause of their complements.
         tseitin hints list the gate clause itself and become def-axiom nodes.
-        alldiff clauses must follow from the original assertions, not from the
-        hint. A bare smt hint claims the logged clause is a theory tautology.
+        alldiff hints list the clause relating a distinct below the root to
+        the disjunction of its pairwise equalities (a root distinct is logged
+        as assumed clauses since 2026-10-20; older logs carry those as alldiff
+        inferences too); either way the clause is tied to the original
+        assertions, never taken from the hint. A bare smt hint claims the
+        logged clause is a theory tautology.
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """

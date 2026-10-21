@@ -8,6 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/proofs/proof_checker.h"
 #include "model/model.h"
 #include "parsers/smt2/smt2parser.h"
 #include <iostream>
@@ -48,6 +49,31 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     return result;
 }
 
+static void tst_proof_associative_flattening() {
+    for (bool conjunction : {false, true}) {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        expr_ref_vector args(m);
+        expr_ref input(m);
+        for (unsigned i = 0; i < 512; ++i) {
+            args.push_back(m.mk_const(symbol(i), m.mk_bool_sort()));
+            if (i == 0)
+                input = args.get(0);
+            else
+                input = conjunction ? m.mk_and(input, args.get(i)) : m.mk_or(input, args.get(i));
+        }
+        th_rewriter rw(m);
+        expr_ref result(m);
+        proof_ref proof(m);
+        rw(input, result, proof);
+        expr_ref expected(conjunction ? m.mk_and(args) : m.mk_or(args), m);
+        ENSURE(result == expected && rw.get_num_steps() < 10);
+        ENSURE(proof && m.get_fact(proof) == m.mk_eq(input, result));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(proof, side_conditions));
+    }
+}
 
 static void test_complex_logic_names() {
     for (symbol logic : {symbol::null, symbol("ALL"), symbol("QF_UF"),
@@ -66,6 +92,7 @@ static void test_complex_logic_names() {
 
 void tst_arith_rewriter() {
     test_complex_logic_names();
+    tst_proof_associative_flattening();
     ast_manager m;
     reg_decl_plugins(m);
     arith_rewriter ar(m);

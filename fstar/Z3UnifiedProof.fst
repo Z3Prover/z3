@@ -571,7 +571,9 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
   | ArithmeticGomory c, Some e, Some es -> G.check c e es
   | Unverified "th-lemma", Some e, Some es ->
     (es = [] && (array_lemma e || AR.triangle_equality e)) ||
-    TN.consequence es e
+    TN.consequence es e || LP.implied_equality e es ||
+    (Some? (LA.comparison e) && LP.inferred_bound e es) ||
+    G.inferred_split e es
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -1405,7 +1407,11 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
                else
                  let es = Some?.v (propositions (premise_judgments node.premises)) in
-                 TN.lemma_consequence i rho es e)
+                 if TN.consequence es e then TN.lemma_consequence i rho es e
+                 else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
+                 else if Some? (LA.comparison e) && LP.inferred_bound e es
+                 then LP.lemma_inferred_bound e es i rho
+                 else G.lemma_inferred_split_sound e es i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
       | DestructiveEqualityResolution | QuantifierInstantiation _ ->

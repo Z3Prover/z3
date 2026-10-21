@@ -188,4 +188,35 @@ let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier 
   original_inputs_and_exhaustiveness ();
   K.lemma_check_document schema bc eq other exhaustive_document
 
+let core_schema : S.checked_schema =
+  let s = { S.sorts = []; cases = [] } in
+  assert_norm (S.valid s);
+  s
+
+let core_model : V.interpretation primitive (S.signature core_schema) =
+  T.interpretation #primitive core_schema booleans equality
+    (S.default_interpretation #primitive core_schema primitive_default)
+
+let proposition : expr = App {
+  decl_name = "p"; domain = []; range = bool_sort; interp = None; int_params = [];
+} []
+
+let core_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [proposition; R.mk_not_expr proposition];
+  entries = [
+    { P.rule = U.Asserted; formula = proposition; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr proposition; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
+                                             (eq:T.scalar_equality base)
+                                             (other:V.interpretation base (S.signature core_schema))
+  : Lemma (ensures K.check_document core_schema core_document == Some 0 /\
+                   not (T.truths core_schema bc eq other core_document.assertions)) =
+  assert_norm (K.check_document core_schema core_document == Some 0);
+  K.lemma_check_document core_schema bc eq other core_document
+
 #pop-options

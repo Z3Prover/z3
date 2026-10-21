@@ -97,12 +97,51 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(result.stderr, r"marshal_ms=\d+\.\d+")
                 self.assertRegex(result.stderr, r"expressions=\d+")
 
+    def test_uf_allows_a_user_sort_named_set_in_both_modes(self):
+        source = ("(set-logic UF)(declare-sort Set 0)(declare-const x Set)"
+                  "(declare-fun p (Set) Bool)(assert (p x))(assert (not (p x)))")
+        direct = self.run_checker(source)
+        self.assertEqual((direct.returncode, direct.stdout.strip()), (0, "ACCEPT"),
+                         direct.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertEqual(interactive.returncode, 0, interactive.stderr)
+        self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+
     def test_linear_arithmetic_is_fully_checked(self):
         result = self.run_checker(
             "(declare-const x Real)(declare-const y Real)"
             "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
+
+    def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
+        for source in (
+                "(declare-const p Bool)(assert p)(assert (not p))",
+                "(declare-sort U 0)(declare-const x U)(declare-const y U)"
+                "(declare-fun f (U) U)(assert (= x y))(assert (not (= (f x) (f y))))"):
+            with self.subTest(source=source):
+                result = self.run_checker(source, "--sorted-core", "--diagnostics", "--stats")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                self.assertIn("semantics=sorted-core", result.stderr)
+                self.assertIn("diagnostic\tchecked\tpending=0", result.stderr)
+                interactive = self.run_checker(
+                    source + "(check-sat)", "--interactive", "--sorted-core")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
+                self.assertIn("semantics=sorted-core", interactive.stdout)
+
+    def test_sorted_core_does_not_fall_back_to_legacy_arithmetic(self):
+        source = ("(declare-const x Real)(declare-const y Real)"
+                  "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))")
+        result = self.run_checker(source, "--sorted-core", "--diagnostics", "--stats")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertIn("semantics=sorted-core", result.stderr)
+        interactive = self.run_checker(source + "(check-sat)", "--interactive", "--sorted-core")
+        self.assertEqual(interactive.returncode, 3, interactive.stdout + interactive.stderr)
+        self.assertIn("; proof-check PARTIAL ", interactive.stdout)
+        self.assertIn("semantics=sorted-core", interactive.stdout)
 
     def test_contextual_datatype_proofs_in_both_modes(self):
         for source in (

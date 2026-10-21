@@ -84,6 +84,113 @@ class CheckerRegressionTests(unittest.TestCase):
             self.assertEqual(row["statistics"]["proof_nodes"], 9)
             self.assertEqual((output / row["stdout"]).read_text().strip(), "ACCEPT")
 
+    def test_process_statistics_accept_native_semantics_suffix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "logs").mkdir()
+            for index, semantics in enumerate(("legacy", "sorted-datatype", "sorted-core")):
+                row = runner.run_case(
+                    [sys.executable, "-c",
+                     "import sys; print('PARTIAL 2'); "
+                     "print('solve_ms=1.250 marshal_ms=2.500 check_ms=0.500 "
+                     f"expressions=7 declarations=3 proof_nodes=9 semantics={semantics}', "
+                     "file=sys.stderr); sys.exit(3)"],
+                    "test.smt2", output, index, 10, 0)
+                self.assertEqual(row["outcome"], "PARTIAL")
+                self.assertEqual(row["statistics"]["semantics"], semantics)
+                self.assertEqual(row["statistics"]["proof_nodes"], 9)
+                self.assertEqual(row["statistics"]["solve_ms"], 1.25)
+
+    def test_diagnostics_validate_counts_and_read_beyond_log_preview(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "stderr"
+            path.write_text("x" * 65536 + "\n"
+                            "diagnostic\tchecked\tpending=3\tfamilies=1\n"
+                            "obligation\tth-lemma\t3\t17\tHolds:Int\n")
+            diagnostic = runner.read_diagnostics(path)
+            self.assertEqual(diagnostic["pending"], 3)
+            self.assertEqual(diagnostic["obligations"][0]["first_index"], 17)
+            path.write_text("diagnostic\tchecked\tpending=4\tfamilies=1\n"
+                            "obligation\tth-lemma\t3\t17\tHolds:Int\n")
+            with self.assertRaisesRegex(ValueError, "Inconsistent"):
+                runner.read_diagnostics(path)
+            path.write_text("diagnostic\trejected\tstage=Root\tindex=17\n")
+            self.assertEqual(runner.read_diagnostics(path)["rejection"],
+                             ["stage=Root", "index=17"])
+            path.write_text("")
+            with self.assertRaisesRegex(ValueError, "Missing"):
+                runner.read_diagnostics(path)
+
+    def test_separate_diagnostics_preserve_coverage_and_rank_matching_proofs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            args.output.mkdir()
+            paths, _ = runner.discover(args.corpus, ".", 0)
+            selection = {"solver_timeout_ms": 10, "case_timeout_seconds": 2,
+                         "memory_limit_mb": 0,
+                         **runner.verify_manifest(args.corpus, ".", args.manifest, paths)}
+            (args.output / "selection.json").write_text(json.dumps(selection))
+            results = [{"path": "QF_LIA/example.smt2", "outcome": "PARTIAL", "verdict": "PARTIAL 3"},
+                       {"path": "QF_UF/example.smt2", "outcome": "ACCEPT", "verdict": "ACCEPT"}]
+            results_path = args.output / "results.jsonl"
+            results_path.write_text("".join(json.dumps(row) + "\n" for row in results))
+            original = results_path.read_bytes()
+
+            def replay(command, path, output, index, timeout, megabytes, log_directory):
+                self.assertIn("--diagnostics", command)
+                self.assertEqual(timeout, 4)
+                stderr = f"{log_directory}/{index:06d}.stderr"
+                (output / stderr).write_text("diagnostic\tchecked\tpending=3\tfamilies=1\n"
+                                            "obligation\tth-lemma\t3\t17\tHolds:Int\n")
+                return {"path": path, "outcome": "PARTIAL", "verdict": "PARTIAL 3", "stderr": stderr}
+
+            with patch.object(runner, "run_case", side_effect=replay) as run, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.diagnose(args), 0)
+                self.assertEqual(run.call_count, 1)
+            self.assertEqual(results_path.read_bytes(), original)
+            runner.report(args.output)
+            summary = json.loads((args.output / "summary.json").read_text())
+            self.assertEqual(summary["counts"]["PARTIAL"], 1)
+            self.assertEqual(summary["counts"]["ACCEPT"], 1)
+            self.assertEqual(summary["obligation_families"][0]["sole_family_proofs"], 1)
+            self.assertEqual(summary["obligation_families"][0]["obligations"], 3)
+            self.assertIn("Remaining obligation families", (args.output / "report.md").read_text())
+            rows = [json.loads((args.output / "diagnostics.jsonl").read_text())]
+            rows[0]["matches_original"] = False
+            self.assertEqual(runner.obligation_coverage(rows), [])
+
+    def test_diagnostic_errors_do_not_change_original_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            args.output.mkdir()
+            (args.output / "selection.json").write_text(json.dumps({
+                "solver_timeout_ms": 10, "case_timeout_seconds": 2, "memory_limit_mb": 0}))
+            result = {"path": "QF_LIA/example.smt2", "outcome": "PARTIAL", "verdict": "PARTIAL 3"}
+            (args.output / "results.jsonl").write_text(json.dumps(result) + "\n")
+
+            def replay(*unused, **kwargs):
+                stderr = "diagnostic-logs/000000.stderr"
+                (args.output / stderr).write_text("diagnostic\tchecked\tpending=2\tfamilies=1\n"
+                                                "obligation\tth-lemma\t2\t1\tshape\n")
+                return {**result, "stderr": stderr}
+
+            with patch.object(runner, "run_case", side_effect=replay), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.diagnose(args), 1)
+            runner.report(args.output)
+            summary = json.loads((args.output / "summary.json").read_text())
+            self.assertEqual(summary["diagnostic_errors"], 1)
+            self.assertEqual(summary["obligation_families"], [])
+            self.assertEqual(summary["counts"]["PARTIAL"], 1)
+            self.assertEqual(summary["counts"]["ERROR"], 0)
+            with (args.output / "diagnostics.jsonl").open("a") as stream:
+                stream.write('{"path":')
+            runner.report(args.output)
+            summary = json.loads((args.output / "summary.json").read_text())
+            self.assertEqual(summary["diagnostic_errors"], 1)
+            self.assertEqual(len(summary["warnings"]), 1)
+
     def test_manifest_verifies_all_input_hashes_and_membership(self):
         with tempfile.TemporaryDirectory() as directory:
             args, _ = self.manifested_corpus(directory)
@@ -131,6 +238,32 @@ class CheckerRegressionTests(unittest.TestCase):
                 runner.verify_manifest(args.corpus, ".", args.manifest, paths)
             with self.assertRaisesRegex(ValueError, "inside the selected"):
                 runner.verify_manifest(args.corpus, ".", Path(directory) / "manifest.json", paths)
+
+    def test_manifest_supports_unequal_logic_cohorts_and_reports_sizes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, document = self.manifested_corpus(directory)
+            extra = args.corpus / "QF_UF" / "second.smt2"
+            extra.write_bytes(b"(assert false)\n(check-sat)\n")
+            document["cases"].append({
+                "path": "QF_UF/second.smt2", "logic": "QF_UF",
+                "sha256": hashlib.sha256(extra.read_bytes()).hexdigest()})
+            document["per_logic"] = {"QF_UF": 2, "QF_LIA": 1}
+            args.manifest.write_text(json.dumps(document))
+            paths, _ = runner.discover(args.corpus, ".", 0)
+            metadata = runner.verify_manifest(args.corpus, ".", args.manifest, paths)
+            args.output.mkdir()
+            (args.output / "selection.json").write_text(json.dumps({
+                "paths": [path.relative_to(args.corpus).as_posix() for path in paths],
+                **metadata}))
+            runner.report(args.output)
+            self.assertIn("QF_LIA: 1, QF_UF: 2 inputs",
+                          (args.output / "report.md").read_text())
+            for sizes in ({"QF_UF": 1, "QF_LIA": 1}, {"QF_UF": 2},
+                          {"QF_UF": 2, "QF_LIA": 1, "UF": 1}):
+                document["per_logic"] = sizes
+                args.manifest.write_text(json.dumps(document))
+                with self.subTest(sizes=sizes), self.assertRaisesRegex(ValueError, "sample size"):
+                    runner.verify_manifest(args.corpus, ".", args.manifest, paths)
 
     def test_manifest_provenance_and_per_logic_results_are_reported(self):
         with tempfile.TemporaryDirectory() as directory:

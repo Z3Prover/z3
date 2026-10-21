@@ -831,6 +831,39 @@ void cmd_context::register_builtin_ops(decl_plugin * p) {
     }
 }
 
+void cmd_context::restrict_builtin_sorts() {
+    svector<family_id> fids;
+    m_manager->get_range(fids);
+    svector<symbol> allowed;
+    for (family_id fid : fids) {
+        decl_plugin* plugin = m_manager->get_plugin(fid);
+        if (!plugin)
+            continue;
+        svector<builtin_name> names;
+        plugin->get_sort_names(names, m_logic);
+        for (auto const& name : names)
+            allowed.push_back(name.m_name);
+    }
+
+    svector<symbol> removed;
+    for (auto const& entry : m_psort_decls)
+        if (entry.m_value->is_builtin_decl() && !allowed.contains(entry.m_key))
+            removed.push_back(entry.m_key);
+
+    for (symbol const& name : removed) {
+        erase_psort_decl_core(name);
+        for (unsigned i = 0; i < m_psort_decls_stack.size(); ++i) {
+            if (m_psort_decls_stack[i] != name)
+                continue;
+            m_psort_decls_stack.erase(m_psort_decls_stack.begin() + i);
+            for (auto& scope : m_scopes)
+                if (scope.m_psort_decls_stack_lim > i)
+                    --scope.m_psort_decls_stack_lim;
+            break;
+        }
+    }
+}
+
 void cmd_context::register_plugin(symbol const & name, decl_plugin * p, bool install_names) {
     m_manager->register_plugin(name, p);
     if (install_names) {
@@ -983,6 +1016,9 @@ bool cmd_context::set_logic(symbol const & s) {
         return false;
 
     m_logic = s;
+    // API parsers can initialize built-ins before reading set-logic.
+    if (m_manager_initialized)
+        restrict_builtin_sorts();
     if (m_solver)
         mk_solver();
     if (smt_logics::logic_has_reals_only(s)) 

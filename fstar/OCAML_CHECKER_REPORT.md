@@ -1,5 +1,44 @@
 # Standalone OCaml proof-checker executable
 
+## Diagnostic-driven equality coverage (2026-10-20)
+
+The regression workflow now separately replays partial and rejected proofs
+with diagnostics, without changing coverage budgets or measured case times.
+Its statistics parser recognizes the native semantic-path suffix instead
+of discarding otherwise valid phase timings.
+
+Replaying the October 19 workflow's 13 partial QF_UFLIA inputs reproduced
+all verdicts and pending counts. Their 2,028 obligations were discharged
+by checked arithmetic equality propagation and both orientations of
+triangle-equality clauses. Equality propagation synthesizes bounded exact
+Farkas candidates, independently checks both non-strict bounds against the
+actual premises, and applies the proved equality-to-bounds equivalence.
+Existing theory checks remain ahead of synthesis on the production path.
+
+The unchanged 25-input QF_UFLIA cohort now gives **25 ACCEPT**, versus
+12 ACCEPT and 13 PARTIAL in that workflow. A local full replay of the
+225-input sample at z3test `df80f8ce4f6965c2a340806068790c76f6612880`
+gives **180 ACCEPT, 5 PARTIAL, 33 UNKNOWN, 6 TIMEOUT, and 1 ERROR**.
+Fifteen former partials certify, including one AUFLIA and one UFLIA proof.
+The five completed partials retain 32 obligations: arithmetic contradiction
+and cut lemmas, plus two large Boolean rewrites.
+
+Two previously accepted workflow inputs hit resource limits locally;
+both losses also reproduce with the baseline executable on this machine.
+The formerly partial `dlx-regfile.smt2` likewise times out with both
+executables. A subsequent replay of all 188 inputs previously completed
+by the workflow retains these local outcomes after prioritizing established
+checks over synthesis. The native assertion-time OOM remains an explicit
+error. These are local measurements, not a new GitHub workflow result.
+
+The opt-in `--sorted-core` mode also makes the existing inhabited,
+sort-indexed kernel available to non-datatype documents, in batch and
+interactive sessions, without a legacy fallback. Empty-schema model
+construction and refutation soundness are checked in
+`Z3SortedProofTests.fst`. This is a bounded migration step: it does not
+repair the legacy combined model or add concrete arithmetic/array semantics
+to the typed kernel.
+
 ## Direct native Z3 integration (2026-10-16)
 
 The executable now accepts **SMT-LIB only**:

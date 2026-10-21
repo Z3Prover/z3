@@ -430,6 +430,23 @@ supported. Two resource cliffs remain, both on the Lean side:
   Prove these schemas directly and keep truth tables only for small rewrites.
   Z3 should also stop emitting identity rewrites from the simplify pass.
   (Done 2026-10-16: see "Propositional rewrites as direct proof terms" below.)
+- Wide n-ary connectives (2026-10-20). A conjunction or disjunction of a few
+  hundred operands (z3test's QF_UF `NEQ004_size4` asserts one of 338
+  literals) renders as a right-nested `And`/`Or` chain whose `def` exceeded
+  the default `maxRecDepth` (512); only the main theorem raised it. The
+  generated file now raises it once for its whole namespace, so definitions,
+  lemmas, and steps are no longer cut off by the limit (not a trust setting).
+  and-elim projects by field notation (`_step_N.2.2.1`), which elaborates
+  inside out from the known type, and unit resolution cuts eliminated
+  literals with `(h.resolve_left n)` instead of one `Or.elim` case split per
+  literal; the old forms created metavariables per level and took 36 s
+  (200-operand clause-log and-elim) and 9 s (260-literal resolution), now
+  about 7 s and under a second. `examples/python/test_proof_to_lean_wide.py`
+  covers 200-260 operands through both cores. Still open: at 600 operands the
+  outlined proof steps (more than 500 proof nodes) exceed the heartbeat limit
+  on a step with a hundred quadratic `_inputs` projections, and
+  `NEQ004_size4` itself fails at export (the clause-log trimming step rejects
+  `declare-sort`).
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
@@ -1130,8 +1147,8 @@ QF_UFLIA, an assumption literal). Tests: `test_proof_certificate.py`
 (`INCREMENTAL_INPUTS`, the tampered query index), and the Lean integration
 tests of `test_proof_to_lean_integration.py`, `test_proof_to_lean_uf.py`,
 `test_proof_to_lean_uflia.py`. Still open: `define-sort` (61 of the
-incremental corpus files are rejected for it first) and the
-`global-declarations` option (rejected).
+incremental corpus files are rejected for it first; accepted since
+2026-10-19, see below) and the `global-declarations` option (rejected).
 
 **Propositional rewrites as direct proof terms (2026-10-16).** A Boolean
 `rewrite` step was proved by a truth table (a `cases` on every atom's
@@ -1192,6 +1209,73 @@ negations are covered too. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uflra.py` (`uflra_division_axiom`),
 `test_proof_to_lean_uf.py` (`UF_NEGATED_ITE_CONDITION`, both cores,
 nested negations, and rejection of a gate with its guard reversed).
+
+**define-sort aliases (2026-10-19).** `proof_certificate.query_snapshot`
+accepts `(define-sort name (parameters) sort)` and keeps it in the scope it
+is made in, like a declaration. Z3's parser expands every use of the alias
+(substituting the parameters) both when the exporter parses the snapshot and
+when the z3 executable writes the clause log, so the certificate, the
+reconstructor's rebuilt snapshot, and the Lean statement mention only the
+expanded sorts, which pass the usual sort checks; no Lean change was needed.
+The exporter rejects a malformed definition (no parameter list, a body of
+other than one sort, a non-symbol name or parameter) and a repeated
+parameter; Z3 rejects an unknown body sort and a name already declared or
+defined. Tests: `test_proof_certificate.py`
+(`test_define_sort_aliases_are_expanded_and_malformed_ones_rejected`) and
+`test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
+alias checked in Lean, an alias in a popped scope).
+
+## Boolean and EUF proof infrastructure
+
+### Native `alldiff` clauses (2026-10-20)
+
+The native `alldiff` checker plugin accepted every hint ("first version
+just trusts that distinct is internalized correctly"), so a clause log
+could infer any clause natively under that label. Z3 emitted `alldiff`
+for two different things: the clausification of a `distinct` asserted at
+the root (the clause of all pairwise equalities for a negated root
+`distinct`, unit disequalities for a positive one, and the fresh-symbol
+encodings above 32 arguments), which follows from the asserted `distinct`
+and not from the hint, and the two gate clauses of a `distinct` below the
+root, `(or (not d) (not some_eq))` and `(or d some_eq)` with `some_eq`
+the disjunction of the pairwise equalities, which are tautologies.
+
+The root clauses are now logged as input clauses, like every other root
+clausification (an `(assert (and a b))` logs `(assume a)` and
+`(assume b)`), so the log no longer claims a theory inference for them;
+the exporter already tied `alldiff` clauses to the original assertions
+through its `assume` path, and that path is unchanged. The checker
+verifies the gate pair: the two literals have one polarity, every pair of
+arguments that can be equal has its equality among the disjuncts for the
+positive clause, and every disjunct is an equality of two arguments for
+the negated one. Anything else is rejected and falls to the SMT check,
+which refutes the old root shape with a countermodel. The `proof_replay`
+unit test covers the accepted and rejected shapes and replays a log with
+both gate clauses natively.
+
+### Native xor gate clauses (2026-10-19)
+
+The native `tseitin` checker accepted invalid xor gate clauses. For a
+positive gate literal it counted marked and complemented arguments with
+one sign each and accepted an even total, so `(or (xor a b) a b)` and
+`(or (xor a b) (not a) (not b))` verified. The former is false at
+`a = b = false`, and the latter at `a = b = true`. Arguments the clause
+left free were not counted at all. For a
+negated gate it iterated the arguments of the `not` node instead of the
+xor, so any clause whose deepest literal was `(not (xor ...))` verified,
+for example `(or (not (xor a b)) (not a))`.
+
+The checker now evaluates the xor under the assignment that falsifies the
+other clause literals: every argument has to be fixed by a clause literal
+or be a constant, and the xor must be true for a positive gate literal and
+false for a negated one. Z3's own four clauses per gate still verify
+natively, and a replayed xor log reports `+tseitin 4` without SMT
+fallback. Z3's rewriter turns `xor` into a negated Boolean equality before
+clausification, so the sat.smt log rarely carries these hints; the repair
+is to the checker's acceptance, not to proof production or to Lean's
+independent def-axiom checking. The `proof_replay` unit test also fails
+now when the replay frontend exits inside a log instead of ending the
+binary successfully with the remaining checks unrun.
 
 ## Arithmetic proof infrastructure
 

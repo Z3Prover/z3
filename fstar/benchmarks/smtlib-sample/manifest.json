@@ -1,0 +1,903 @@
+{
+  "schema_version": 1,
+  "source": "https://zenodo.org/records/16740866",
+  "license": "CC-BY-4.0",
+  "seed": 42,
+  "per_logic": {
+    "QF_DT": 25,
+    "QF_NIA": 25,
+    "UF": 25,
+    "UFLRA": 10,
+    "QF_BV": 25
+  },
+  "selection": "UNSAT-annotated files <= 262144 bytes; seed-42 shuffled, sorted family and member lists; round-robin families, up to 25 per logic; all eligible UFLRA inputs",
+  "archives": [
+    {
+      "logic": "QF_DT",
+      "url": "https://zenodo.org/api/records/16740866/files/QF_DT.tar.zst/content",
+      "size_bytes": 43824532,
+      "md5": "d7b141091ac26f42391bd59f19f8beb0",
+      "sha256": "13bf882fceec9979ba4ea80333b994eeff0fcf4e046fb93d7b5d1518e704e4fb",
+      "eligible_unsat": 4754,
+      "eligible_families": [
+        "20172804-Barrett",
+        "20210312-Bouvier",
+        "20230720-blocksworld"
+      ]
+    },
+    {
+      "logic": "QF_NIA",
+      "url": "https://zenodo.org/api/records/16740866/files/QF_NIA.tar.zst/content",
+      "size_bytes": 191228625,
+      "md5": "6a3ae3b7eb10688070c44922ccd940aa",
+      "sha256": "4d40ff1ea0c517db1ed80fb5204109c941924d826c4bc173bedb3946eec5013d",
+      "eligible_unsat": 4422,
+      "eligible_families": [
+        "20170427-VeryMax",
+        "20210219-Dartagnan",
+        "20220315-MathProblems",
+        "20230328-sqrtmodinv-hoenicke",
+        "AProVE",
+        "LCTES",
+        "LassoRanker",
+        "UltimateAutomizer",
+        "UltimateLassoRanker",
+        "calypto",
+        "leipzig",
+        "mcm"
+      ]
+    },
+    {
+      "logic": "UF",
+      "url": "https://zenodo.org/api/records/16740866/files/UF.tar.zst/content",
+      "size_bytes": 51586187,
+      "md5": "df86e8d8dcfdd7777e2fab94ed4a5d5f",
+      "sha256": "2f6e2561fa9cbf3ea7ff577852976a3add5fb7076343b852c65788909ee322dd",
+      "eligible_unsat": 3372,
+      "eligible_families": [
+        "20170428-Barrett",
+        "20190906-CLEARSY",
+        "grasshopper",
+        "misc",
+        "sledgehammer"
+      ]
+    },
+    {
+      "logic": "UFLRA",
+      "url": "https://zenodo.org/api/records/16740866/files/UFLRA.tar.zst/content",
+      "size_bytes": 1519,
+      "md5": "eb0d28bd85a3309701b07d12f7a9fdba",
+      "sha256": "3d986fb07365147e92a3a369683fd83d7d6ec2568d009eeb65a94ec71f2efe93",
+      "eligible_unsat": 10,
+      "eligible_families": [
+        "FFT"
+      ]
+    },
+    {
+      "logic": "QF_BV",
+      "url": "https://zenodo.org/api/records/16740866/files/QF_BV.tar.zst/content",
+      "size_bytes": 1732883333,
+      "md5": "9bb268ced812a004edfd9876aea025bb",
+      "sha256": "c6b7010feac048f5ef6c455f7454de519cd07d7c4642da6a41465f92e3a8b560",
+      "eligible_unsat": 21007,
+      "eligible_families": [
+        "2017-BuchwaldFried",
+        "20170501-Heizmann-UltimateAutomizer",
+        "20170531-Hansen-Check",
+        "2018-Goel-hwbench",
+        "20190311-bv-term-small-rw-Noetzli",
+        "20190429-UltimateAutomizerSvcomp2019",
+        "2020-Weber",
+        "20200328-Favaro",
+        "20200415-Yurichev",
+        "20210219-Sydr",
+        "20210312-Bouvier",
+        "20230221-oisc-gurtner",
+        "20230224-grsbits-truby",
+        "Sage2",
+        "VS3",
+        "asp",
+        "bmc-bv",
+        "bmc-bv-svcomp14",
+        "brummayerbiere",
+        "brummayerbiere2",
+        "brummayerbiere3",
+        "bruttomesso",
+        "calypto",
+        "challenge",
+        "check2",
+        "crafted",
+        "dwp_formulas",
+        "ecc",
+        "fft",
+        "float",
+        "galois",
+        "log-slicing",
+        "mcm",
+        "pipe",
+        "pspace",
+        "rubik",
+        "sage",
+        "spear",
+        "stp_samples",
+        "tacas07",
+        "uclid",
+        "uclid_contrib_smtcomp09",
+        "uum",
+        "wienand-cav2008"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v1/v1l50090.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v1/v1l50090.cvc.smt2",
+      "size_bytes": 1024,
+      "sha256": "a5ff74ec32890bf3087c82e0b70d82d80ce40637de72d65f392a11b71995ef8f"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v10/v10l80046.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v10/v10l80046.cvc.smt2",
+      "size_bytes": 1744,
+      "sha256": "66f04ea9fdc1a266e73f711411a9bcedcf6d3475a81e2ae14721ac7dedbf6952"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l30092.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l30092.cvc.smt2",
+      "size_bytes": 1025,
+      "sha256": "290face888a71985c38c942cd49ef315497ca6451215dde5b93fa56cfaa696ac"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l50021.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l50021.cvc.smt2",
+      "size_bytes": 1153,
+      "sha256": "f7f404dec6ac5980a7fe9899156bd9917d8f40725097e07bb1c793bbd8fcd31a"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l80058.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v2/v2l80058.cvc.smt2",
+      "size_bytes": 1352,
+      "sha256": "51bf1a94b68dbc96816a82002db02b4f31a7c6e917f8ad93a93005d913d24fac"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v5/v5l60039.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v5/v5l60039.cvc.smt2",
+      "size_bytes": 1306,
+      "sha256": "f5c2cc98dc2966ac2151496683675c16579520c6b77d85ac9d4a7f2a6ffefc66"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/tests/v5/v5l90051.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/tests/v5/v5l90051.cvc.smt2",
+      "size_bytes": 1410,
+      "sha256": "f9f93d30afe20e9786aceb552b589e61ae7fcef02d6f7730fc1a44e55e25f46c"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/typed/v1/typed_v1l50037.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/typed/v1/typed_v1l50037.cvc.smt2",
+      "size_bytes": 5954,
+      "sha256": "a004ef002d232900604d135370f214f86497afdc43b1473472ff4a536b57ebe0"
+    },
+    {
+      "path": "QF_DT/20172804-Barrett/barrett-jsat/typed/v2/typed_v2l90035.cvc.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20172804-Barrett/barrett-jsat/typed/v2/typed_v2l90035.cvc.smt2",
+      "size_bytes": 1737,
+      "sha256": "d481616efa0e68d9149e079a9add6c19be3143139c361f39fd832734aea7c938"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b03.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b03.smt2",
+      "size_bytes": 199411,
+      "sha256": "93aa262309a5346f1d824b7a21a9667a4dc7b12787e93f8d1efd91ec8ff18b26"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b14.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b14.smt2",
+      "size_bytes": 87974,
+      "sha256": "a79131947a2df868904b8bf62f90a4587fbc9239b01721fb03f8d9e963c4cc15"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b35.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b35.smt2",
+      "size_bytes": 112388,
+      "sha256": "149e6911252840d30f8cce811fc6ed6d926623aec3f1e1af27887cb5056b0515"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b49.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b49.smt2",
+      "size_bytes": 35265,
+      "sha256": "a2020f881ab68de9371db7a6a2dcaf707c18f5f204687ef96c18c043e899f39b"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b50.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b50.smt2",
+      "size_bytes": 55455,
+      "sha256": "ebcec0fa166a639183194d922b1ba884d66e05e7f7e35204446172b9d97ba3b0"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b57.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b57.smt2",
+      "size_bytes": 149466,
+      "sha256": "fe46d8a65317337c57a2ce827ee304d5c27137652a8a33e3b6023fb244c7d9c1"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b64.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b64.smt2",
+      "size_bytes": 142756,
+      "sha256": "d3a48a07185def889ace65bb505aa985290c68f2713d13d7ddfde05af741fea5"
+    },
+    {
+      "path": "QF_DT/20210312-Bouvier/vlsat3_b76.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20210312-Bouvier/vlsat3_b76.smt2",
+      "size_bytes": 166055,
+      "sha256": "bb94e7655f7cc39b54837d6d7c1821fe924a3ba4eec76a35f9ceda89c4e5ae81"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_11_6_0_to_8_0_9_negated_goal_bmc_21.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_11_6_0_to_8_0_9_negated_goal_bmc_21.smt2",
+      "size_bytes": 87194,
+      "sha256": "1c6bee084326d99514af3d3cd9bdeffc7af50d82e743d0403c731587b0af02c5"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_17_2_3_to_8_7_7_negated_goal_bmc_13.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_17_2_3_to_8_7_7_negated_goal_bmc_13.smt2",
+      "size_bytes": 53480,
+      "sha256": "34c0051c9d97aa8195e2cb531a801749a8e0a458884887be6401ce076c929582"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_1_0_2_to_1_0_2_negated_goal_bmc_4.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_1_0_2_to_1_0_2_negated_goal_bmc_4.smt2",
+      "size_bytes": 16768,
+      "sha256": "0da7ac08123c75844a0f9fdd4c9e7ead2cee63d4f6fb074c20303490aac6cb41"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_4_0_5_to_8_0_1_negated_goal_bmc_13.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_4_0_5_to_8_0_1_negated_goal_bmc_13.smt2",
+      "size_bytes": 52545,
+      "sha256": "f596e2c3b109cf080e670539c542db374e776fd5bd31fc26158baf3827530c0e"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_5_0_0_to_5_0_0_negated_goal_bmc_8.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_5_0_0_to_5_0_0_negated_goal_bmc_8.smt2",
+      "size_bytes": 31725,
+      "sha256": "f803b691f3c6a01871bf7da2dd57363bf23581ca838ed5640a61d2a0f943e673"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_5_4_17_to_12_6_8_negated_goal_bmc_16.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_5_4_17_to_12_6_8_negated_goal_bmc_16.smt2",
+      "size_bytes": 66337,
+      "sha256": "e0759beed10cbdb7c6709171fd7f1e9ea56b6a90b539bea6e49f0ad6b35f237a"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_6_20_0_to_1_12_13_negated_goal_bmc_11.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_6_20_0_to_1_12_13_negated_goal_bmc_11.smt2",
+      "size_bytes": 45346,
+      "sha256": "8a0db445c285027f7284f47b87fcb6125a632a13f54e7188308ca9c49f228949"
+    },
+    {
+      "path": "QF_DT/20230720-blocksworld/blocksworld_from_7_3_1_to_5_6_0_negated_goal_bmc_13.smt2",
+      "logic": "QF_DT",
+      "archive_path": "non-incremental/QF_DT/20230720-blocksworld/blocksworld_from_7_3_1_to_5_6_0_negated_goal_bmc_13.smt2",
+      "size_bytes": 52760,
+      "sha256": "a1772a462133513d4609fc05c256172b88c8bfd62e96c9fb5941ef240f5a2f33"
+    },
+    {
+      "path": "QF_NIA/20170427-VeryMax/ITS/From_AProVE_2014__Count.jar-obl-10-2__terminationS_9_0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20170427-VeryMax/ITS/From_AProVE_2014__Count.jar-obl-10-2__terminationS_9_0.smt2",
+      "size_bytes": 142502,
+      "sha256": "d5b3ae5e4d87a6a045cbed9b4bcff4733c2f7e60fd6cbfe69ee77f8f77640d70"
+    },
+    {
+      "path": "QF_NIA/20170427-VeryMax/ITS/From_T2__rlft3.c.i.rlft3.pl.t2.fixed.t2__p8739_terminationG_0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20170427-VeryMax/ITS/From_T2__rlft3.c.i.rlft3.pl.t2.fixed.t2__p8739_terminationG_0.smt2",
+      "size_bytes": 30766,
+      "sha256": "6989b6c0f563179acb2d77b3172c1c68453ae9414029a9cac800589eb11da114"
+    },
+    {
+      "path": "QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo1-u_valuebound1-O0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo1-u_valuebound1-O0.smt2",
+      "size_bytes": 120555,
+      "sha256": "645a31db7d491dc54e32b090b14706427e6a8992f1ec6e5c88073f1ac9f9e054"
+    },
+    {
+      "path": "QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo2-ll_valuebound1-O0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo2-ll_valuebound1-O0.smt2",
+      "size_bytes": 125305,
+      "sha256": "76e14cd0b4b144132515fcb1540f75f7555593cf50515531b01e3c9c65de9bca"
+    },
+    {
+      "path": "QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo3-ll_valuebound1-O0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20210219-Dartagnan/ReachSafety-Loops/geo3-ll_valuebound1-O0.smt2",
+      "size_bytes": 147906,
+      "sha256": "f3443a89f78aa52e55bbc3e430d5c8e32db69d30bfe8e72bf4f1ea8354910587"
+    },
+    {
+      "path": "QF_NIA/20220315-MathProblems/STC_0473.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20220315-MathProblems/STC_0473.smt2",
+      "size_bytes": 625,
+      "sha256": "d7b9cfba2a59a6b9046746f6ee14c4514b19c45462818c4489b550a31144855b"
+    },
+    {
+      "path": "QF_NIA/20220315-MathProblems/STC_0670.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20220315-MathProblems/STC_0670.smt2",
+      "size_bytes": 625,
+      "sha256": "6602756fea04c260b9bcbccc55fa204627c08d40ba97761b2c540810ba229df3"
+    },
+    {
+      "path": "QF_NIA/20220315-MathProblems/STC_0923.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20220315-MathProblems/STC_0923.smt2",
+      "size_bytes": 625,
+      "sha256": "a91f5e0f4bc6410b64358ae4a9ccf4a340e3993ebd80d169d3fab2eccff75984"
+    },
+    {
+      "path": "QF_NIA/20230328-sqrtmodinv-hoenicke/sqrtStep5a.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20230328-sqrtmodinv-hoenicke/sqrtStep5a.smt2",
+      "size_bytes": 1162,
+      "sha256": "ecfa69a9d2affebc9c1f5529ec5b429db79f8b95378d7c3429ef8f085246e545"
+    },
+    {
+      "path": "QF_NIA/20230328-sqrtmodinv-hoenicke/sqrtStep7.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/20230328-sqrtmodinv-hoenicke/sqrtStep7.smt2",
+      "size_bytes": 1281,
+      "sha256": "26abdc25d0d22bb3b862deaaa219fc9f36e0947cf50f35311015ba064cd1e9a3"
+    },
+    {
+      "path": "QF_NIA/AProVE/aproveSMT1333000487120247408.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/AProVE/aproveSMT1333000487120247408.smt2",
+      "size_bytes": 8443,
+      "sha256": "8e9c33d59fec315a4853913768f76e15f98aea47938c6bb69ac484ece919219a"
+    },
+    {
+      "path": "QF_NIA/AProVE/aproveSMT4818931831757362735.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/AProVE/aproveSMT4818931831757362735.smt2",
+      "size_bytes": 7959,
+      "sha256": "4f299cd36252b5549e599b251f6542a26a919ac49b1a35569b9d4abd3ca17117"
+    },
+    {
+      "path": "QF_NIA/LCTES/digital-stopwatch.locals.nosummaries.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/LCTES/digital-stopwatch.locals.nosummaries.smt2",
+      "size_bytes": 100849,
+      "sha256": "329734373f6c034f75a9a81524c0fde5b2933d1339bacc86ce389c0f99fc28d1"
+    },
+    {
+      "path": "QF_NIA/LCTES/digital-stopwatch.locals.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/LCTES/digital-stopwatch.locals.smt2",
+      "size_bytes": 112562,
+      "sha256": "c7a1c38eb8010ef8a6df6f099ee035ee01df14f4dbe3e01f3b7b59fb14f5bd61"
+    },
+    {
+      "path": "QF_NIA/LassoRanker/LeikeHeizmann-WST2014-Ex5_false-termination.c_Iteration1_Lasso+nonterminationTemplate_0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/LassoRanker/LeikeHeizmann-WST2014-Ex5_false-termination.c_Iteration1_Lasso+nonterminationTemplate_0.smt2",
+      "size_bytes": 14635,
+      "sha256": "973d6855a801340248c845cf8383939fe8b7150a9093e133d23e1253d0e5c16a"
+    },
+    {
+      "path": "QF_NIA/LassoRanker/PodelskiRybalchenko-LICS2004-Fig2-TACAS2011-Fig3_true-termination.c_Iteration4_Loop+nonterminationTemplate_0.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/LassoRanker/PodelskiRybalchenko-LICS2004-Fig2-TACAS2011-Fig3_true-termination.c_Iteration4_Loop+nonterminationTemplate_0.smt2",
+      "size_bytes": 24436,
+      "sha256": "4a22b04ed4db771374fb928f4acf7e057b5f517df77280937052d9082f6b9741"
+    },
+    {
+      "path": "QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_163.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_163.smt2",
+      "size_bytes": 2339,
+      "sha256": "e8829ecf21e35a3fcc0d4299fad2ef76f16235ca1dc15991939313f02c403592"
+    },
+    {
+      "path": "QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_164.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_164.smt2",
+      "size_bytes": 2339,
+      "sha256": "5784d22acd0c73c0273da08fffafd5850876b5293e4710259ce12811f3dd3eab"
+    },
+    {
+      "path": "QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_76.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/UltimateAutomizer/linear_sea.ch_true-unreach-call.i_76.smt2",
+      "size_bytes": 2341,
+      "sha256": "fe89ab033a30170458de5d045083571a87f8094598028231bccb365128828cd7"
+    },
+    {
+      "path": "QF_NIA/UltimateLassoRanker/Masse-alloca_true-termination.c.i_Iteration1_Lasso+nonterminationTemplate.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/UltimateLassoRanker/Masse-alloca_true-termination.c.i_Iteration1_Lasso+nonterminationTemplate.smt2",
+      "size_bytes": 76051,
+      "sha256": "eee133a8bbfb3bfb27e47dd312c9df5bc046ead6ef31b9aa1cb520e97240c101"
+    },
+    {
+      "path": "QF_NIA/calypto/problem-006498.cvc.1.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/calypto/problem-006498.cvc.1.smt2",
+      "size_bytes": 1363,
+      "sha256": "861d9a8d31e67f2807feb9ff6e8787d1fba8afa058dfc4e21b34798ca419bdec"
+    },
+    {
+      "path": "QF_NIA/calypto/problem-006520.cvc.1.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/calypto/problem-006520.cvc.1.smt2",
+      "size_bytes": 1118,
+      "sha256": "2ae1ab8b2ec005e3f73fa9cec8948579a72f4853b779034f1a83ece744b6d128"
+    },
+    {
+      "path": "QF_NIA/leipzig/term-unsat-01.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/leipzig/term-unsat-01.smt2",
+      "size_bytes": 1812,
+      "sha256": "8b03f16cc6d9a176a494425b4d0606e3f28edf52524f527e0fff0c18463c8109"
+    },
+    {
+      "path": "QF_NIA/leipzig/term-unsat-05.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/leipzig/term-unsat-05.smt2",
+      "size_bytes": 102294,
+      "sha256": "c293b5a6b5524b51ea2ce4583be30d977cb28d3133f597ee56a7b252636ccd90"
+    },
+    {
+      "path": "QF_NIA/mcm/99.smt2",
+      "logic": "QF_NIA",
+      "archive_path": "non-incremental/QF_NIA/mcm/99.smt2",
+      "size_bytes": 28311,
+      "sha256": "a470004265121383ee098342e0724e285123381a2f3f637d69c96422784db810"
+    },
+    {
+      "path": "UF/20170428-Barrett/cdt-cade2015/nada/afp/bindag/x2015_09_10_16_52_40_398_1006450.smt_in.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20170428-Barrett/cdt-cade2015/nada/afp/bindag/x2015_09_10_16_52_40_398_1006450.smt_in.smt2",
+      "size_bytes": 76157,
+      "sha256": "51da258d039c74293088d15272203e25f8108c336d401e9bcdd42e82d842cc8a"
+    },
+    {
+      "path": "UF/20170428-Barrett/cdt-cade2015/nada/afp/coinductive_list/x2015_09_10_16_59_04_238_1591476.smt_in.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20170428-Barrett/cdt-cade2015/nada/afp/coinductive_list/x2015_09_10_16_59_04_238_1591476.smt_in.smt2",
+      "size_bytes": 66993,
+      "sha256": "59ae4d65728356b678c8c8dcd12397f7eaa37f758a624da85598306cab442150"
+    },
+    {
+      "path": "UF/20170428-Barrett/cdt-cade2015/nada/afp/coinductive_list/x2015_09_10_17_12_52_266_2657539.smt_in.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20170428-Barrett/cdt-cade2015/nada/afp/coinductive_list/x2015_09_10_17_12_52_266_2657539.smt_in.smt2",
+      "size_bytes": 71394,
+      "sha256": "b352af49fbeb99fc716d2c2e4e2f282059e477992bdbe32ae24ba60a43e54a0e"
+    },
+    {
+      "path": "UF/20170428-Barrett/cdt-cade2015/nada/distro/rbt_impl/x2015_09_10_16_50_41_894_1052743.smt_in.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20170428-Barrett/cdt-cade2015/nada/distro/rbt_impl/x2015_09_10_16_50_41_894_1052743.smt_in.smt2",
+      "size_bytes": 92775,
+      "sha256": "5d7640e860e24b009aa75f40d906f996107b5f6c44e7dd490d86dc0f7daecf87"
+    },
+    {
+      "path": "UF/20170428-Barrett/cdt-cade2015/nada/distro/stream_processor/x2015_09_10_16_45_48_081_989395.smt_in.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20170428-Barrett/cdt-cade2015/nada/distro/stream_processor/x2015_09_10_16_45_48_081_989395.smt_in.smt2",
+      "size_bytes": 222592,
+      "sha256": "52ba1a5d585afca4aac660d7295879faa852be2da07e90bce919f92e32f64663"
+    },
+    {
+      "path": "UF/20190906-CLEARSY/0001/00257.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20190906-CLEARSY/0001/00257.smt2",
+      "size_bytes": 76027,
+      "sha256": "60791ecfac67d3864b2e51542433512cd82b835f3ff78a1628b5246875503382"
+    },
+    {
+      "path": "UF/20190906-CLEARSY/0009/00082.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20190906-CLEARSY/0009/00082.smt2",
+      "size_bytes": 28404,
+      "sha256": "36091b4bbea0dc6d26b5ab5b1052f8af3e591660b11a197d1ef29291a3cc2217"
+    },
+    {
+      "path": "UF/20190906-CLEARSY/0016/00767.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20190906-CLEARSY/0016/00767.smt2",
+      "size_bytes": 137260,
+      "sha256": "451432e96c54409d66350c505a888a1e8f69dc638c60fab112c7f216de4b2c4e"
+    },
+    {
+      "path": "UF/20190906-CLEARSY/0016/00771.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20190906-CLEARSY/0016/00771.smt2",
+      "size_bytes": 139924,
+      "sha256": "9b768cec3b325ffad68a46ddbf1edbe9842639cb176b643bdacc33af17bdf4d0"
+    },
+    {
+      "path": "UF/20190906-CLEARSY/0016/00779.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/20190906-CLEARSY/0016/00779.smt2",
+      "size_bytes": 137734,
+      "sha256": "5e30902a416d7232ae8a59f3bef8accb86059af5596b9c5f3964177d86ca3375"
+    },
+    {
+      "path": "UF/grasshopper/instantiated/dl_copy_loop_check_heap_access_29_4.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/grasshopper/instantiated/dl_copy_loop_check_heap_access_29_4.smt2",
+      "size_bytes": 29038,
+      "sha256": "82afc2faf77d180abacc8917f8db28195cbf24defc00c96118a398fa8af717c8"
+    },
+    {
+      "path": "UF/grasshopper/instantiated/dl_filter_postcondition_of_dl_filter_41_1.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/grasshopper/instantiated/dl_filter_postcondition_of_dl_filter_41_1.smt2",
+      "size_bytes": 60525,
+      "sha256": "e25ab7558c0c6483fe63d2bd1f215e429ebd24dbc1e722098215e24bb80c288e"
+    },
+    {
+      "path": "UF/grasshopper/instantiated/filter_loop_invariant_35_3.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/grasshopper/instantiated/filter_loop_invariant_35_3.smt2",
+      "size_bytes": 22819,
+      "sha256": "c2c72ec671c98f0827a89ed485e6b892560eaec7e4d32f6a435cbbbea0708279"
+    },
+    {
+      "path": "UF/grasshopper/uninstantiated/rec_insert_postcondition_of_rec_insert_14_4.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/grasshopper/uninstantiated/rec_insert_postcondition_of_rec_insert_14_4.smt2",
+      "size_bytes": 6708,
+      "sha256": "142cce400ee46583374fb3c9e0e4a5ee4b9733aca13cf681dcfeaa8a0b8a7461"
+    },
+    {
+      "path": "UF/grasshopper/uninstantiated/remove_check_free_31_6.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/grasshopper/uninstantiated/remove_check_free_31_6.smt2",
+      "size_bytes": 14386,
+      "sha256": "be7c2195729ef5ef419d60722c6d16fa453ee14f27e789bc417755d0621bbe01"
+    },
+    {
+      "path": "UF/misc/set10.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/misc/set10.smt2",
+      "size_bytes": 1485,
+      "sha256": "3d0d16103d683c4cf8066cf30a3779443758f303b5a81c0f68530be1cc11109f"
+    },
+    {
+      "path": "UF/misc/set20.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/misc/set20.smt2",
+      "size_bytes": 1454,
+      "sha256": "d0c506efd9f30a02ccdd7fe73030758d09d89a2d74a86b7002059fdf85405bdf"
+    },
+    {
+      "path": "UF/misc/set5.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/misc/set5.smt2",
+      "size_bytes": 1312,
+      "sha256": "8a72a9eb9896b85c75db609427fa1bdfe8a22b624c685a5ed1ce0a5a42aa80d2"
+    },
+    {
+      "path": "UF/misc/set6.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/misc/set6.smt2",
+      "size_bytes": 1502,
+      "sha256": "f3ddd59b2bc4e1eb3293dde52c05ae2111695de4e5d02f40972a7b25742c5900"
+    },
+    {
+      "path": "UF/misc/set7.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/misc/set7.smt2",
+      "size_bytes": 1427,
+      "sha256": "7749be43639507a92f411b5367c76510c4f29bd8bc17a256425786f7637d11e0"
+    },
+    {
+      "path": "UF/sledgehammer/Arrow_Order/uf.564551.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/sledgehammer/Arrow_Order/uf.564551.smt2",
+      "size_bytes": 105639,
+      "sha256": "36cb633315a0f6c838bb283c82d51b65c99704bd35487b906550807c87e01972"
+    },
+    {
+      "path": "UF/sledgehammer/Arrow_Order/uf.840058.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/sledgehammer/Arrow_Order/uf.840058.smt2",
+      "size_bytes": 69748,
+      "sha256": "a02c133a90b6801d59d86a6316c8af8d645a5efbf4981ecd6e73a49569e480fc"
+    },
+    {
+      "path": "UF/sledgehammer/Fundamental_Theorem_Algebra/uf.734512.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/sledgehammer/Fundamental_Theorem_Algebra/uf.734512.smt2",
+      "size_bytes": 56792,
+      "sha256": "b502c661743bc207cc81b154c90644da220fb81d169b596300a7d690ccb73d7b"
+    },
+    {
+      "path": "UF/sledgehammer/Hoare/uf.1133534.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/sledgehammer/Hoare/uf.1133534.smt2",
+      "size_bytes": 3841,
+      "sha256": "2456de118cf757f0fe724646ceb083e4a10c5895c2255b09765953f04b1a8d95"
+    },
+    {
+      "path": "UF/sledgehammer/Hoare/uf.1201093.smt2",
+      "logic": "UF",
+      "archive_path": "non-incremental/UF/sledgehammer/Hoare/uf.1201093.smt2",
+      "size_bytes": 35998,
+      "sha256": "7c497904c1cecdb64befda1888797c54a01f17441e643f71492e770518a58278"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.620487.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.620487.smt2",
+      "size_bytes": 686,
+      "sha256": "af31f5da7c698dc63c780b604ad52a344b18a8e03133eb1295913c861f44d635"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.620535.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.620535.smt2",
+      "size_bytes": 686,
+      "sha256": "9283414dd9c903b37caa0015681851127627178505872fb45a2daf4df3908adc"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.623417.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.623417.smt2",
+      "size_bytes": 787,
+      "sha256": "96092c381dbf79cf941a4c39de51525eb8fd37648cafaaa534da32ee13dd2c72"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.623474.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.623474.smt2",
+      "size_bytes": 767,
+      "sha256": "413bef508ebebf0cd0a2d118d5bcb14cdf9c80a41ef76f2c41b889ff1fff8a13"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.623531.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.623531.smt2",
+      "size_bytes": 748,
+      "sha256": "9db1a703c4c97bb52f509052c3bd920b97822dc63df7e92902cb8dc4509d62a5"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.623597.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.623597.smt2",
+      "size_bytes": 761,
+      "sha256": "262612dcf1496da3435f13b92fcf6230e483eecdaf5600589c648d51be954ddd"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.627457.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.627457.smt2",
+      "size_bytes": 822,
+      "sha256": "b3bb366a3d683735ade529c72f9b63e65bd78936c5ab9ac600eaee5fba58cc90"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.627531.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.627531.smt2",
+      "size_bytes": 795,
+      "sha256": "2321e47df7bb53f8fffdec86a241c369889080ddd0d7bf924d0c7f3dfc481b41"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.627605.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.627605.smt2",
+      "size_bytes": 769,
+      "sha256": "84b2911875157b66a37a73011eda9f3721d3ff2269a1ec6dd9bac75168caca8d"
+    },
+    {
+      "path": "UFLRA/FFT/smtlib.627688.smt2",
+      "logic": "UFLRA",
+      "archive_path": "non-incremental/UFLRA/FFT/smtlib.627688.smt2",
+      "size_bytes": 784,
+      "sha256": "c80f8c463699d1f4216a343a7a70be9a48907824965ba69607d400e3f4f66afd"
+    },
+    {
+      "path": "QF_BV/2017-BuchwaldFried/counterexample.dump.ia32_Mul_base_disp--Add32.load32.Mul32.Mulh_u32.0005.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/2017-BuchwaldFried/counterexample.dump.ia32_Mul_base_disp--Add32.load32.Mul32.Mulh_u32.0005.smt2",
+      "size_bytes": 18993,
+      "sha256": "1a551f1f9618a0cef10d82e9524a10544acdf6716d587d4025a4133625e9996f"
+    },
+    {
+      "path": "QF_BV/20170501-Heizmann-UltimateAutomizer/modulus_true-unreach-call_true-no-overflow.i_242.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20170501-Heizmann-UltimateAutomizer/modulus_true-unreach-call_true-no-overflow.i_242.smt2",
+      "size_bytes": 1923,
+      "sha256": "2ed670c70f8dcc3113262fc037b27bad609c5836b0bcad3106b2cafd026e6729"
+    },
+    {
+      "path": "QF_BV/20170531-Hansen-Check/division_by_zero0.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20170531-Hansen-Check/division_by_zero0.smt2",
+      "size_bytes": 449,
+      "sha256": "7a2bdc989891d1b8be21e94e84f4ece483334101f8246be752c74a15c7b7b184"
+    },
+    {
+      "path": "QF_BV/2018-Goel-hwbench/QF_BV_bv_bv_h_TicTacToe_cc_reg_max.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/2018-Goel-hwbench/QF_BV_bv_bv_h_TicTacToe_cc_reg_max.smt2",
+      "size_bytes": 46954,
+      "sha256": "71315711d39c6ba591530ef68062535844542c86e0e6fd12c37642d00c74f0c0"
+    },
+    {
+      "path": "QF_BV/20190311-bv-term-small-rw-Noetzli/bv-term-small-rw_1481.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20190311-bv-term-small-rw-Noetzli/bv-term-small-rw_1481.smt2",
+      "size_bytes": 749,
+      "sha256": "587269c9bafa39938884c8309c077337b1e4efc2ec12ba90b86291fbad1e02f6"
+    },
+    {
+      "path": "QF_BV/20190429-UltimateAutomizerSvcomp2019/byte_add_1_true-unreach-call_true-no-overflow_true-termination.i_9.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20190429-UltimateAutomizerSvcomp2019/byte_add_1_true-unreach-call_true-no-overflow_true-termination.i_9.smt2",
+      "size_bytes": 3413,
+      "sha256": "2e14eea22edecada2979118e4993ba2be7746c56c3dc6ea709602db66829ebcc"
+    },
+    {
+      "path": "QF_BV/20200415-Yurichev/t2.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20200415-Yurichev/t2.smt2",
+      "size_bytes": 14992,
+      "sha256": "5ebf8783061a05b618d94f55105d56c19e6be5ad64adc20c483a2ef829037bf4"
+    },
+    {
+      "path": "QF_BV/20210219-Sydr/master/cjpeg/predicate_425.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20210219-Sydr/master/cjpeg/predicate_425.smt2",
+      "size_bytes": 213140,
+      "sha256": "2ef958050eac7e501dc6a13d2296b1739da4fc381a19f6e7ef162b576fcc2ad7"
+    },
+    {
+      "path": "QF_BV/20230221-oisc-gurtner/SRAI-SAFE-32-32.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/20230221-oisc-gurtner/SRAI-SAFE-32-32.smt2",
+      "size_bytes": 159149,
+      "sha256": "20e5851decab6ef8c52cea801a563b5482dba2b85662a9ae898a86fd8a1f2d00"
+    },
+    {
+      "path": "QF_BV/asp/ConnectedDominatingSet/rand_40_200_1235844018_0_k=4_unsat.gph.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/asp/ConnectedDominatingSet/rand_40_200_1235844018_0_k=4_unsat.gph.smt2",
+      "size_bytes": 159961,
+      "sha256": "77e0b8fb8f8ec046903c0e0d783574077c0f05aa16347d6f111eef5b091d0ec7"
+    },
+    {
+      "path": "QF_BV/brummayerbiere/bitrev2048.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/brummayerbiere/bitrev2048.smt2",
+      "size_bytes": 29049,
+      "sha256": "96eb1f0bbfb802c0c238b54810078b3cccaad68c76f454f2db00652740538bc3"
+    },
+    {
+      "path": "QF_BV/brummayerbiere2/umulov1bw256.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/brummayerbiere2/umulov1bw256.smt2",
+      "size_bytes": 32859,
+      "sha256": "04a20848807f3bf413c7058662f20ad88343be7146e149aef6e0d538279523a2"
+    },
+    {
+      "path": "QF_BV/brummayerbiere3/maxor064.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/brummayerbiere3/maxor064.smt2",
+      "size_bytes": 55694,
+      "sha256": "6965c03969e62bc36e484cd06d53818283bec3799474ff22538d958427cd5d95"
+    },
+    {
+      "path": "QF_BV/calypto/problem_14.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/calypto/problem_14.smt2",
+      "size_bytes": 3815,
+      "sha256": "a48a1ba8068c22b4b274a17ae813724df176ecab77b005685d16574880510a2d"
+    },
+    {
+      "path": "QF_BV/challenge/integerOverflow.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/challenge/integerOverflow.smt2",
+      "size_bytes": 1461,
+      "sha256": "1e96ed11af58d1bcbcc957f3ad361aa84244777076aa094e8d578353486362e0"
+    },
+    {
+      "path": "QF_BV/crafted/bitops3.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/crafted/bitops3.smt2",
+      "size_bytes": 947,
+      "sha256": "12c7fcaa0abae0340b96b0fecbb74adfb132e954e40489a4ce540b2879394e2e"
+    },
+    {
+      "path": "QF_BV/float/newton.2.1.i.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/float/newton.2.1.i.smt2",
+      "size_bytes": 244076,
+      "sha256": "64167345968bb28adee2eb6f4638593e60dd4902c827991b040873d13c76a807"
+    },
+    {
+      "path": "QF_BV/galois/iffyInterleavedModMult-4.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/galois/iffyInterleavedModMult-4.smt2",
+      "size_bytes": 8594,
+      "sha256": "cda45496dd97e3634794f9ec2807af0222a4d4bf9e7f89533081f4210d8523af"
+    },
+    {
+      "path": "QF_BV/mcm/93.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/mcm/93.smt2",
+      "size_bytes": 102900,
+      "sha256": "5c90220f5eb1d0564dede6cdd4c1af817f3801993278348632ff449770e01360"
+    },
+    {
+      "path": "QF_BV/rubik/6moves_mti_5-Atd_00004_bmc.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/rubik/6moves_mti_5-Atd_00004_bmc.smt2",
+      "size_bytes": 168539,
+      "sha256": "f31a748b198fb6e56cc64d61ad85d1b65387e4e2641dc3078cfb22644478d944"
+    },
+    {
+      "path": "QF_BV/spear/wget_v1.10.2/src_wget_vc18756.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/spear/wget_v1.10.2/src_wget_vc18756.smt2",
+      "size_bytes": 9906,
+      "sha256": "70e188427b30d7d51aef633a0eaf6e2c4d5b3c42752746af718d2bb131c8620b"
+    },
+    {
+      "path": "QF_BV/tacas07/Y86_std.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/tacas07/Y86_std.smt2",
+      "size_bytes": 182881,
+      "sha256": "1ee3d9402f5b8cf69cf96f107cdc4a76d6acada541a51c115f81cb82e7fafd12"
+    },
+    {
+      "path": "QF_BV/uclid_contrib_smtcomp09/btfnt_bv_formula.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/uclid_contrib_smtcomp09/btfnt_bv_formula.smt2",
+      "size_bytes": 95544,
+      "sha256": "15dcd80317805560ceda64dd26fd76ce273c1cb765275df736f07ff6c50254f5"
+    },
+    {
+      "path": "QF_BV/uum/uum16.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/uum/uum16.smt2",
+      "size_bytes": 78554,
+      "sha256": "df16130731cb3d928a4ca6d8f65efe53b78090f0254ba277b6599b48c7b26583"
+    },
+    {
+      "path": "QF_BV/wienand-cav2008/Distrib/distrib32.sf.smt2",
+      "logic": "QF_BV",
+      "archive_path": "non-incremental/QF_BV/wienand-cav2008/Distrib/distrib32.sf.smt2",
+      "size_bytes": 1643,
+      "sha256": "253f92c615300f21d06143d5ceb5e691872cb4147132080a77af30dbff5b0961"
+    }
+  ]
+}
