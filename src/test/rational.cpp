@@ -17,6 +17,8 @@ Revision History:
 
 --*/
 #include<iostream>
+#include<sstream>
+#include<thread>
 #include "util/vector.h"
 #include "util/rational.h"
 #include "util/trace.h"
@@ -488,6 +490,153 @@ static void tst13() {
     }
 }
 
+static void tst_compact_rational() {
+    constexpr int limit = (1 << 30) - 1;
+    rational const hi(limit), lo(-limit), big("123456789012345678901234567890123456789/37");
+    ENSURE(sizeof(rational) == 8);
+    ENSURE(hi + 1 == rational("1073741824"));
+    ENSURE(lo - 1 == rational("-1073741824"));
+    ENSURE((hi + 1) - hi == 1);
+    ENSURE(rational(1, limit) / 2 == rational("1/2147483646"));
+    ENSURE((rational(1, limit) / 2) * 2 == rational(1, limit));
+    ENSURE(hi * hi == rational("1152921502459363329"));
+    ENSURE(rational(limit, limit - 1) * rational(limit - 1, limit) == 1);
+    ENSURE(rational(INT_MIN, INT_MIN) == 1);
+    ENSURE(rational(INT_MIN, -1) == rational("2147483648"));
+    ENSURE(rational(INT64_MIN) == rational("-9223372036854775808"));
+    ENSURE(rational(UINT64_MAX) == rational("18446744073709551615"));
+    ENSURE((big - big).is_zero());
+    ENSURE((big / big).is_one());
+    ENSURE((big * 0).is_zero());
+    rational cancelled = big;
+    cancelled -= big + rational("1073741824");
+    ENSURE(cancelled == rational("-1073741824"));
+    ENSURE(cancelled.hash() == rational("-1073741824").hash());
+    bool caught = false;
+    try {
+        hi.expt((1 << 20) + 1);
+    }
+    catch (default_exception const&) {
+        caught = true;
+    }
+    ENSURE(caught);
+    ENSURE(rational(-1).expt(-1).is_minus_one());
+    rational root(7);
+    ENSURE(!rational(-1).is_int_perfect_square(root) && root == 7);
+    std::ostringstream out;
+    out << std::hex << rational(15, 16);
+    ENSURE(out.str() == "15/16");
+    {
+        unsynch_mpq_manager manager;
+        scoped_mpq exported(manager);
+        big.export_mpq(manager, exported);
+        ENSURE(rational(exported) == big);
+        rational(1, 7).export_mpq(manager, exported);
+        ENSURE(rational(exported) == rational(1, 7));
+    }
+
+    for (rational const& v : { rational(), rational(7, 13), hi, -hi, big, -big }) {
+        rational c(v), d;
+        d = c;
+        c.neg();
+        ENSURE(d == v);
+        rational moved(std::move(d));
+        ENSURE(moved == v && d.is_zero());
+        d = std::move(moved);
+        ENSURE(d == v && moved.is_zero());
+        rational* alias = &d;
+        d = *alias;
+        ENSURE(d == v);
+        d = std::move(*alias);
+        ENSURE(d == v);
+        rational twice = v + v;
+        c = v; c += c; ENSURE(c == twice);
+        c = v; c -= c; ENSURE(c.is_zero());
+        c = v; c *= c; ENSURE(c == v * v);
+        if (!v.is_zero()) { c = v; c /= c; ENSURE(c.is_one()); }
+        swap(c, d);
+        ENSURE(c == v);
+        c.reset();
+        ENSURE(c.is_zero());
+
+        auto snapshot = v.to_mpq();
+        rational source = v;
+        mpq const& extended = source.to_mpq();
+        source.reset();
+        synch_mpq_manager qm;
+        ENSURE(qm.eq(snapshot, extended));
+        ENSURE(rational(snapshot) == v);
+        ENSURE(v.hash() == qm.hash(snapshot));
+        ENSURE(v.bitsize() == qm.bitsize(snapshot));
+        ENSURE(v.storage_size() == qm.storage_size(snapshot));
+        ENSURE(v.to_string() == qm.to_string(snapshot));
+    }
+
+    synch_mpq_manager qm;
+    _scoped_numeral<synch_mpq_manager> a(qm), b(qm), expected(qm), roundtrip(qm);
+    uint32_t seed = 17;
+    auto next = [&]() { seed = 1664525u * seed + 1013904223u; return seed; };
+    for (unsigned i = 0; i < 6000; ++i) {
+        int n1 = std::bit_cast<int32_t>(next()), n2 = std::bit_cast<int32_t>(next());
+        unsigned d1 = (next() % limit) + 1, d2 = (next() % limit) + 1;
+        if (i % 3 == 0) { n1 /= 65536; n2 /= 65536; d1 %= 1024; ++d1; d2 %= 1024; ++d2; }
+        if (i % 7 == 0) { d1 = 1; d2 = 1; }
+        qm.set(a, int64_t(n1), uint64_t(d1));
+        qm.set(b, int64_t(n2), uint64_t(d2));
+        rational x(a), y(b);
+        if (i % 11 == 0) {
+            qm.mul(a, big.to_mpq(), a);
+            x *= big;
+        }
+        ENSURE((x == y) == qm.eq(a, b));
+        ENSURE((x < y) == qm.lt(a, b));
+        auto check = [&](rational const& actual) {
+            actual.export_mpq(qm, roundtrip);
+            ENSURE(qm.eq(roundtrip, expected));
+            ENSURE(actual.hash() == rational(expected).hash());
+        };
+        qm.add(a, b, expected); check(x + y);
+        qm.sub(a, b, expected); check(x - y);
+        qm.mul(a, b, expected); check(x * y);
+        if (!y.is_zero()) { qm.div(a, b, expected); check(x / y); }
+        qm.floor(a, expected); check(floor(x));
+        qm.ceil(a, expected); check(ceil(x));
+        if (x.is_int() && y.is_int() && !y.is_zero()) {
+            qm.idiv(a, b, expected); check(div(x, y));
+            rational alias = x;
+            div(alias, y, alias); check(alias);
+            qm.mod(a, b, expected); check(mod(x, y));
+            alias = y; mod(x, alias, alias); check(alias);
+            qm.rem(a, b, expected); check(x % y);
+            qm.machine_idiv(a, b, expected); check(machine_div(x, y));
+            rational rem;
+            rational q = machine_div_rem(x, y, rem);
+            check(q);
+            ENSURE(q * y + rem == x);
+            alias = x;
+            q = machine_div_rem(alias, y, alias);
+            check(q);
+            ENSURE(q * y + alias == x);
+        }
+    }
+#ifndef SINGLE_THREAD
+    std::thread workers[4];
+    for (auto& worker : workers) {
+        worker = std::thread([&big]() {
+            for (unsigned i = 1; i <= 100; ++i) {
+                rational delta(1, i), a = big + delta, b(a);
+                a -= big;
+                ENSURE(a == delta);
+                auto q = b.to_mpq();
+                b.reset();
+                ENSURE(rational(q) == big + delta);
+            }
+        });
+    }
+    for (auto& worker : workers) worker.join();
+#endif
+}
+
 
 void tst_rational() {
     TRACE(rational, tout << "starting rational test...\n";);
@@ -512,6 +661,7 @@ void tst_rational() {
     rational_tester::tst2();
     tst12();
     tst13();
+    tst_compact_rational();
 }
 
 // Multiplication micro-benchmarks against floats. They only print timings and

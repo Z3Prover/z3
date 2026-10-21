@@ -132,11 +132,19 @@ namespace smt {
 
             literal lit() const { return m_lit; }
             numeral const & k() const { return args().m_k; }
-            mpz const & mpz_k() const { return k().to_mpq().numerator(); }
+            scoped_mpz mpz_k() const {
+                scoped_mpz result(m_mpz);
+                result = k().to_mpq().numerator();
+                return result;
+            }
 
             literal lit(unsigned i) const { return args()[i].first; }
             numeral const & coeff(unsigned i) const { return args()[i].second; }
-            class mpz const& ncoeff(unsigned i) const { return coeff(i).to_mpq().numerator(); }
+            scoped_mpz ncoeff(unsigned i) const {
+                scoped_mpz result(m_mpz);
+                result = coeff(i).to_mpq().numerator();
+                return result;
+            }
 
             unsigned size() const { return args().size(); }
 

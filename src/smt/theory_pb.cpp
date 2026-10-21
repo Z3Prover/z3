@@ -577,7 +577,8 @@ namespace smt {
         scoped_mpz& max_watch = c->m_max_watch;
         max_watch.reset();
         for (auto const& a : args) {
-            mpz const& num = a.second.to_mpq().numerator();
+            auto q = a.second.to_mpq();
+            mpz const& num = q.numerator();
             if (m_mpz_mgr.lt(max_watch, num)) {
                 max_watch = num;
             }
@@ -1068,7 +1069,7 @@ namespace smt {
 
     literal_vector& theory_pb::get_helpful_literals(ineq& c, bool negate) {
         scoped_mpz sum(m_mpz_mgr);
-        mpz const& k = c.mpz_k();
+        auto k = c.mpz_k();
         literal_vector& lits = get_literals();
         for (unsigned i = 0; sum < k && i < c.size(); ++i) {
             literal l = c.lit(i);
