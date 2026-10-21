@@ -25,6 +25,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_auto_config = p.auto_config() && gparams::get_value("auto_config") == "true"; // auto-config is not scoped by smt in gparams.
     m_random_seed = p.random_seed();
+    m_arith_feature_config = p.arith_feature_config();
+    if (m_arith_feature_config > 2)
+        throw default_exception("illegal arith.feature_config value (expected 0, 1, or 2)");
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
     m_ho_matching = p.ho_matching();
@@ -188,6 +191,27 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_check_at_labels);
     DISPLAY_PARAM(m_dump_goal_as_smt);
     DISPLAY_PARAM(m_auto_config);
+    DISPLAY_PARAM(m_arith_feature_config);
+}
+
+char const* smt_params::select_lra_feature_config(static_features const& st, params_ref const& explicit_params,
+                                                params_ref& selected) const {
+    if (!st.m_extended || !st.m_has_real || st.m_has_int || st.has_uf() ||
+        st.m_num_quantifiers || st.m_num_non_linear || st.num_non_uf_theories() != 1)
+        return "ineligible";
+    auto overridden = [&](char const* key) {
+        return explicit_params.contains(key) || gparams::get_module("smt").contains(key);
+    };
+    if (st.m_num_guarded_affine_defs)
+        return "guarded-affine";
+    if (st.m_num_linear_atoms >= 64 && st.m_num_linear_atoms == st.m_num_arith_atoms &&
+        st.m_max_arith_width <= 2 &&
+        st.m_num_bool_constants >= 16 && st.m_max_numeral_bits <= 32) {
+        if (!overridden("arith.bprop_on_pivoted_rows"))
+            selected.set_bool("arith.bprop_on_pivoted_rows", false);
+        return "boolean-short-linear";
+    }
+    return "default";
 }
 
 void smt_params::validate_string_solver(symbol const& s) const {

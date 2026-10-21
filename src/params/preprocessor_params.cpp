@@ -33,6 +33,7 @@ void preprocessor_params::updt_local_params(params_ref const & _p) {
     m_solve_eqs               = p.solve_eqs();
     m_ng_lift_ite             = static_cast<lift_ite_kind>(p.q_lift_ite());
     m_bound_simplifier        = p.bound_simplifier();
+    m_flat_clause_budget     = p.flat_clause_budget();
 }
 
 void preprocessor_params::updt_params(params_ref const & p) {
@@ -68,4 +69,5 @@ void preprocessor_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_pre_simplifier);
     DISPLAY_PARAM(m_nlquant_elim);
     DISPLAY_PARAM(m_bound_simplifier);
+    DISPLAY_PARAM(m_flat_clause_budget);
 }

@@ -63,6 +63,8 @@ Abstract:
   UINT_  (ff_tiny_budget, "ff.tiny_budget", 200, "tiny-field search work units per unit of ff.max_steps") \
   UINT_  (ff_max_terms,                            "ff.max_terms",                            4096,                     "maximum terms in an expanded finite-field polynomial") \
   BOOL_  (auto_config,                             "auto_config",                             true,                     "automatically configure solver") \
+  UINT_  (arith_feature_config, "arith.feature_config", 0, "experimental structural LRA configuration: 0=off, 1=observe, 2=apply (requires auto_config)") \
+  UINT_  (flat_clause_budget, "flat_clause_budget", UINT_MAX, "maximum generated literals in SMT clause flattening, additionally bounded by input DAG size") \
   SYMBOL_(logic,                                   "logic",                                   "",                       "logic used to setup the SMT solver") \
   UINT_  (random_seed,                             "random_seed",                             0,                        "random seed for the smt solver") \
   UINT_  (relevancy,                               "relevancy",                               2,                        "relevancy propagation heuristic: 0 - disabled, 1 - relevancy is tracked by only affects quantifier instantiation, 2 - relevancy is tracked, and an atom is only asserted if it is relevant") \

@@ -92,6 +92,48 @@ static implied_bound const& find_implied_bound(std_vector<implied_bound> const& 
     return ibounds[0];
 }
 
+static void test_lazy_bound_explanations() {
+    struct payload {
+        unsigned& copies;
+        unsigned value;
+        payload(unsigned& copies, unsigned value) : copies(copies), value(value) {}
+        payload(payload const& other) : copies(other.copies), value(other.value) { ++copies; }
+    };
+    lar_solver ls;
+    lpvar x = ls.add_var(0, false);
+    farkas_explanation_collector imp(ls);
+    imp.m_filter = true;
+    std_vector<implied_bound> ibounds;
+    lp_bound_propagator<farkas_explanation_collector> bp(imp, ibounds);
+    bp.init();
+    unsigned copies = 0;
+    auto add = [&](unsigned value, unsigned witness, bool accepted) {
+        payload p(copies, witness);
+        auto explain = [p]() -> u_dependency* { return nullptr; };
+        auto weighted = [p](implied_bound::weighted_consumer const& consume) {
+            consume(mpq(p.value), nullptr);
+        };
+        unsigned before = copies;
+        bp.add_bound(mpq(value), x, true, false, explain, weighted);
+        ENSURE(accepted ? copies > before : copies == before);
+    };
+    add(1, 3, false);
+    ENSURE(ibounds.empty());
+    imp.m_target = x;
+    add(1, 5, true);
+    add(0, 7, false);
+    add(1, 9, false);
+    ENSURE(ibounds.size() == 1);
+    unsigned witness = 0;
+    auto consume = [&](mpq const& a, u_dependency*) { witness = a.get_unsigned(); };
+    ibounds[0].explain_weighted(consume);
+    ENSURE(witness == 5 && ibounds[0].m_bound == 1);
+    add(2, 11, true);
+    ENSURE(ibounds.size() == 1 && ibounds[0].m_bound == 2);
+    ibounds[0].explain_weighted(consume);
+    ENSURE(witness == 11 && ibounds[0].explain_implied() == nullptr);
+}
+
 // A bound propagated from a row sum_k a_k x_k = 0 onto column j uses the bound of
 // every other column k with Farkas coefficient |a_k / a_j|. Before the weighted
 // explanation was added every premise was reported with coefficient 1, which the
@@ -293,6 +335,7 @@ static void test_targeted_bound_propagation() {
 }  // namespace lp
 
 void tst_lp_bound_propagation() {
+    lp::test_lazy_bound_explanations();
     lp::test_row_farkas_coefficients();
     lp::test_non_fixed_row_watches();
     lp::test_targeted_bound_propagation();

@@ -20,8 +20,12 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
+#include <array>
+#include <map>
+#include <unordered_map>
+#include <vector>
 
-static_features::static_features(ast_manager & m):
+static_features::static_features(ast_manager & m, bool extended):
     m(m),
     m_autil(m),
     m_bvutil(m),
@@ -36,11 +40,16 @@ static_features::static_features(ast_manager & m):
     m_srfid(m.mk_family_id("specrels")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
-    m_expr_list_sym("expr-list") {
+    m_expr_list_sym("expr-list"),
+    m_extended(extended) {
     reset();
 }
 
 void static_features::reset() {
+    m_extended_roots.reset();
+    m_num_arith_atoms = m_num_linear_atoms = m_num_short_linear_atoms = m_max_arith_width = 0;
+    m_max_numeral_bits = m_num_guarded_affine_defs = m_num_shared_affine_selectors = 0;
+    m_guarded_features_complete = true;
     m_pre_processed                      .reset();
     m_post_processed.reset();
     m_cnf                                  = true;
@@ -563,6 +572,237 @@ void static_features::process_root(expr * e) {
 void static_features::collect(unsigned num_formulas, expr * const * formulas) {
     for (unsigned i = 0; i < num_formulas; ++i)
         process_root(formulas[i]);
+    if (m_extended) {
+        m_extended_roots.append(num_formulas, formulas);
+        collect_extended();
+    }
+}
+
+void static_features::collect_extended() {
+    struct shape {
+        bool linear = false;
+        unsigned width = 0;
+    };
+    auto add_width = [](unsigned a, unsigned b) {
+        return a > UINT_MAX - b ? UINT_MAX : a + b;
+    };
+    m_num_arith_atoms = m_num_linear_atoms = m_num_short_linear_atoms = m_max_arith_width = m_max_numeral_bits = 0;
+    m_num_guarded_affine_defs = m_num_shared_affine_selectors = 0;
+    m_guarded_features_complete = true;
+    std::unordered_map<expr*, shape> shapes;
+    std::unordered_map<expr*, rational> numerals;
+    ptr_vector<expr> todo;
+    todo.append(m_extended_roots);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        if (shapes.contains(e)) {
+            todo.pop_back();
+            continue;
+        }
+        bool ready = true;
+        if (is_quantifier(e) && !shapes.contains(to_quantifier(e)->get_expr())) {
+            todo.push_back(to_quantifier(e)->get_expr());
+            ready = false;
+        }
+        if (is_app(e))
+            for (expr* arg : *to_app(e))
+                if (!shapes.contains(arg)) {
+                    todo.push_back(arg);
+                    ready = false;
+                }
+        if (!ready)
+            continue;
+        todo.pop_back();
+        shape s;
+        rational value;
+        if (m_autil.is_numeral(e, value)) {
+            s.linear = true;
+            numerals.emplace(e, value);
+            m_max_numeral_bits = std::max(m_max_numeral_bits, value.bitsize());
+        }
+        else if ((is_uninterp_const(e) || is_var(e)) && (m_autil.is_real(e) || m_autil.is_int(e)))
+            s = {true, 1};
+        else if (is_app(e) && is_arith_expr(e) && !m.is_bool(e)) {
+            app* a = to_app(e);
+            bool sum = m_autil.is_add(e) || m_autil.is_sub(e);
+            bool unary = m_autil.is_uminus(e) || m_autil.is_to_real(e);
+            if (sum || unary || m_autil.is_mul(e)) {
+                s.linear = true;
+                unsigned nonconstants = 0;
+                for (expr* arg : *a) {
+                    auto child = shapes.at(arg);
+                    s.linear &= child.linear;
+                    s.width = add_width(s.width, child.width);
+                    if (child.width != 0)
+                        ++nonconstants;
+                }
+                if (m_autil.is_mul(e) && nonconstants > 1)
+                    s.linear = false;
+                if (unary && a->get_num_args() == 1) {
+                    auto it = numerals.find(a->get_arg(0));
+                    if (it != numerals.end())
+                        numerals.emplace(e, m_autil.is_uminus(e) ? -it->second : it->second);
+                }
+            }
+            else if (m_autil.is_div(e) && a->get_num_args() == 2 &&
+                     m_autil.is_numeral(a->get_arg(1), value) && !value.is_zero())
+                s = shapes.at(a->get_arg(0));
+        }
+        shapes.emplace(e, s);
+        if (is_app(e) && to_app(e)->get_num_args() == 2 &&
+            (m.is_eq(e) || m_autil.is_le(e) || m_autil.is_ge(e) ||
+             m_autil.is_lt(e) || m_autil.is_gt(e)) &&
+            (m_autil.is_real(to_app(e)->get_arg(0)) || m_autil.is_int(to_app(e)->get_arg(0)))) {
+            ++m_num_arith_atoms;
+            auto lhs = shapes.at(to_app(e)->get_arg(0));
+            auto rhs = shapes.at(to_app(e)->get_arg(1));
+            if (lhs.linear && rhs.linear) {
+                unsigned width = add_width(lhs.width, rhs.width);
+                ++m_num_linear_atoms;
+                m_num_short_linear_atoms += width <= 2;
+                m_max_arith_width = std::max(m_max_arith_width, width);
+            }
+        }
+    }
+
+    // Only complete, consistent truth tables over at most four selectors count.
+    struct table {
+        std::array<rational, 16> values;
+        unsigned present = 0;
+        bool consistent = true;
+    };
+    std::map<std::vector<unsigned>, table> tables;
+    auto numeral = [&](expr* e, rational& value) {
+        auto it = numerals.find(e);
+        if (it == numerals.end())
+            return false;
+        value = it->second;
+        return true;
+    };
+    std::vector<std::pair<expr*, bool>> conjuncts;
+    for (expr* root : m_extended_roots)
+        conjuncts.emplace_back(root, true);
+    ast_mark positive, negative;
+    unsigned work = 0;
+    unsigned budget = m_num_exprs > UINT_MAX / 8 ? UINT_MAX : std::max(1024u, 8 * m_num_exprs);
+    while (!conjuncts.empty() && work < budget) {
+        auto [e, sign] = conjuncts.back();
+        conjuncts.pop_back();
+        auto& seen = sign ? positive : negative;
+        if (seen.is_marked(e))
+            continue;
+        seen.mark(e, true);
+        ++work;
+        expr* arg;
+        if (m.is_not(e, arg)) {
+            conjuncts.emplace_back(arg, !sign);
+            continue;
+        }
+        if ((sign && m.is_and(e)) || (!sign && m.is_or(e))) {
+            for (expr* child : *to_app(e))
+                conjuncts.emplace_back(child, sign);
+            continue;
+        }
+        std::vector<std::pair<expr*, bool>> literals{{e, sign}};
+        std::map<unsigned, bool> guards;
+        expr* variable = nullptr;
+        rational constant;
+        bool valid = true;
+        unsigned literal_work = 0;
+        while (!literals.empty() && valid && literal_work < 64 && work < budget) {
+            auto [lit, polarity] = literals.back();
+            literals.pop_back();
+            ++work;
+            ++literal_work;
+            if (m.is_not(lit, arg))
+                literals.emplace_back(arg, !polarity);
+            else if ((polarity && m.is_or(lit)) || (!polarity && m.is_and(lit))) {
+                if (to_app(lit)->get_num_args() > 64)
+                    valid = false;
+                else
+                    for (expr* child : *to_app(lit))
+                        literals.emplace_back(child, polarity);
+            }
+            else if (polarity && m.is_implies(lit)) {
+                literals.emplace_back(to_app(lit)->get_arg(0), false);
+                literals.emplace_back(to_app(lit)->get_arg(1), true);
+            }
+            else if ((polarity && m.is_false(lit)) || (!polarity && m.is_true(lit))) {}
+            else if (m.is_bool(lit) && is_uninterp_const(lit)) {
+                auto [it, inserted] = guards.emplace(lit->get_id(), polarity);
+                valid = (inserted || it->second == polarity) && guards.size() <= 4;
+            }
+            else if (polarity && !variable && m.is_eq(lit)) {
+                expr* lhs = to_app(lit)->get_arg(0);
+                expr* rhs = to_app(lit)->get_arg(1);
+                if (numeral(lhs, constant))
+                    std::swap(lhs, rhs);
+                valid = is_uninterp_const(lhs) && m_autil.is_real(lhs) &&
+                    numeral(rhs, constant);
+                if (valid)
+                    variable = lhs;
+            }
+            else
+                valid = false;
+        }
+        if (!valid || !literals.empty() || !variable || guards.empty())
+            continue;
+        std::vector<unsigned> key{variable->get_id()};
+        unsigned mask = 0, bit = 0;
+        for (auto const& [id, polarity] : guards) {
+            key.push_back(id);
+            if (!polarity)
+                mask |= 1u << bit;
+            ++bit;
+        }
+        auto& t = tables[key];
+        if ((t.present & (1u << mask)) && t.values[mask] != constant)
+            t.consistent = false;
+        t.values[mask] = constant;
+        t.present |= 1u << mask;
+    }
+    if (!conjuncts.empty() || work >= budget) {
+        m_guarded_features_complete = false;
+        return;
+    }
+    std::map<unsigned, unsigned> selector_uses;
+    for (auto const& [key, t] : tables) {
+        unsigned n = static_cast<unsigned>(key.size() - 1);
+        if (!t.consistent || t.present != (1u << (1u << n)) - 1)
+            continue;
+        bool affine = true;
+        for (unsigned mask = 0; mask < (1u << n) && affine; ++mask) {
+            rational expected = t.values[0];
+            for (unsigned bit = 0; bit < n; ++bit)
+                if (mask & (1u << bit)) {
+                    unsigned index = 1u << bit;
+                    expected += t.values[index] - t.values[0];
+                }
+            affine = expected == t.values[mask];
+        }
+        if (affine) {
+            ++m_num_guarded_affine_defs;
+            for (unsigned i = 1; i < key.size(); ++i)
+                ++selector_uses[key[i]];
+        }
+    }
+    for (auto const& [id, uses] : selector_uses)
+        m_num_shared_affine_selectors += uses > 1;
+}
+
+void static_features::display_extended(std::ostream& out) const {
+    out << "NUM_EXPRS " << m_num_exprs << "\n"
+        << "NUM_BOOL_CONSTANTS " << m_num_bool_constants << "\n"
+        << "NUM_SHARING " << m_num_sharing << "\n"
+        << "CNF " << m_cnf << "\n"
+        << "NUM_ARITH_ATOMS " << m_num_arith_atoms << "\n"
+        << "NUM_LINEAR_ATOMS " << m_num_linear_atoms << "\n"
+        << "NUM_SHORT_LINEAR_ATOMS " << m_num_short_linear_atoms << "\n"
+        << "MAX_ARITH_WIDTH " << m_max_arith_width << "\n"
+        << "MAX_NUMERAL_BITS " << m_max_numeral_bits << "\n"
+        << "NUM_GUARDED_AFFINE_DEFS " << m_num_guarded_affine_defs << "\n"
+        << "NUM_SHARED_AFFINE_SELECTORS " << m_num_shared_affine_selectors << "\n"
+        << "GUARDED_FEATURES_COMPLETE " << m_guarded_features_complete << "\n";
 }
 
 bool static_features::internal_family(symbol const & f_name) const {

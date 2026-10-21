@@ -400,6 +400,7 @@ void asserted_formulas::flatten_clauses() {
     expr_mark visited;
     for (unsigned i = m_qhead; i < m_formulas.size(); ++i)
         budget += get_num_exprs(m_formulas[i].fml(), visited);
+    budget = std::min(budget, m_smt_params.m_flat_clause_budget);
     while (change) {
         change = false;        
         new_fmls.reset();

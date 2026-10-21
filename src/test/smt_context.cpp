@@ -306,7 +306,8 @@ static void check_monotone_simplifier() {
 }
 
 static void check_bounded_clause_flattening() {
-    for (bool reverse : {false, true}) {
+    for (unsigned budget : {0u, 8u, UINT_MAX})
+      for (bool reverse : {false, true}) {
         ast_manager m;
         reg_decl_plugins(m);
         smt_params params;
@@ -314,6 +315,7 @@ static void check_bounded_clause_flattening() {
         params.m_solve_eqs = false;
         params.m_nnf_cnf = false;
         params.m_max_bv_sharing = false;
+        params.m_flat_clause_budget = budget;
         asserted_formulas formulas(m, params, params_ref());
         unsigned const size = 32;
         expr_ref_vector guards(m), components(m);
@@ -326,6 +328,12 @@ static void check_bounded_clause_flattening() {
             formulas.assert_expr(reverse ? m.mk_or(conjunction, guard) : m.mk_or(guard, conjunction));
         formulas.reduce();
         VERIFY(formulas.get_num_formulas() <= 8 * size);
+        if (budget < size) {
+            VERIFY(formulas.get_num_formulas() == size);
+        }
+        else {
+            VERIFY(formulas.get_num_formulas() > size);
+        }
 
         ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
         for (unsigned i = 0; i < formulas.get_num_formulas(); ++i)
@@ -344,6 +352,150 @@ static void check_bounded_clause_flattening() {
                 slv->pop(1);
             }
     }
+}
+
+static void check_extended_lra_features() {
+    for (unsigned variant = 0; variant < 4; ++variant) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::string input =
+            "(declare-const x Real)(declare-const y Real)"
+            "(declare-const p Bool)(declare-const q Bool)"
+            "(assert (or p q (= x 0)))"
+            "(assert (or (not p) q (= x 2)))"
+            "(assert (not (and (not p) q (not (= x 3)))))"
+            "(assert (=> p (= y 12)))"
+            "(assert (or p (= y 10)))";
+        if (variant != 1)
+            input += variant == 2 ? "(assert (or (not p) (not q) (= x 6)))" :
+                                    "(assert (or (not p) (not q) (= x 5)))";
+        if (variant == 3)
+            input += "(assert (or p q (= x 1)))";
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        static_features st(m, true);
+        for (expr* f : cmd.assertions())
+            st.collect(f);
+        VERIFY(st.m_num_guarded_affine_defs == (variant == 0 ? 2u : 1u));
+        VERIFY(st.m_num_shared_affine_selectors == (variant == 0 ? 1u : 0u));
+        VERIFY(st.m_guarded_features_complete);
+        VERIFY(st.m_max_arith_width == 1);
+        VERIFY(st.m_num_linear_atoms == st.m_num_short_linear_atoms);
+        st.reset();
+        VERIFY(st.m_num_linear_atoms == 0 && st.m_num_guarded_affine_defs == 0);
+        st.collect(cmd.assertions().size(), cmd.assertions().data());
+        VERIFY(st.m_num_guarded_affine_defs == (variant == 0 ? 2u : 1u));
+    }
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    expr_ref x(m.mk_const("x", a.mk_real()), m);
+    expr_ref sum(x, m);
+    for (unsigned i = 0; i < 34; ++i)
+        sum = a.mk_add(sum, sum);
+    expr_ref atom(a.mk_le(sum, a.mk_real(1)), m);
+    static_features st(m, true);
+    st.collect(atom);
+    VERIFY(st.m_num_linear_atoms == 1 && st.m_max_arith_width == UINT_MAX);
+    expr_ref nonlinear(a.mk_mul(x, x), m);
+    atom = a.mk_le(nonlinear, a.mk_real(1));
+    st.reset();
+    st.collect(atom);
+    VERIFY(st.m_num_linear_atoms == 0);
+}
+
+static std::string lra_feature_fixture() {
+    std::ostringstream out;
+    out << "(set-logic QF_LRA)(declare-const x Real)(declare-const y Real)";
+    for (unsigned i = 0; i < 80; ++i)
+        out << "(declare-const b" << i << " Bool)"
+            << "(assert (or b" << i << " (<= (+ x y) " << i << ")))";
+    return out.str();
+}
+
+static void check_lra_feature_config() {
+    for (bool proofs : {false, true})
+     for (unsigned mode : {0u, 1u, 2u})
+      for (unsigned control : {0u, 1u, 2u, 3u}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(lra_feature_fixture());
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_uint("arith.feature_config", mode);
+        if (control == 1)
+            p.set_bool("arith.bprop_on_pivoted_rows", true);
+        if (control == 2)
+            p.set_bool("auto_config", false);
+        smt_params fp;
+        fp.updt_params(p);
+        smt::context ctx(m, fp, p);
+        for (expr* f : cmd.assertions())
+            ctx.assert_expr(f);
+        VERIFY(l_true == (control == 3 ? ctx.check() : ctx.setup_and_check()));
+        bool applied = mode == 2 && control == 0;
+        VERIFY(ctx.get_params().contains("arith.bprop_on_pivoted_rows") == (applied || control == 1));
+        if (applied || control == 1)
+            VERIFY(ctx.get_params().get_bool("arith.bprop_on_pivoted_rows", true) == (control == 1));
+        model_ref md;
+        ctx.get_model(md);
+        VERIFY(md);
+        model_evaluator eval(*md);
+        for (expr* f : cmd.assertions()) {
+            expr_ref value(m);
+            eval(f, value);
+            VERIFY(m.is_true(value));
+        }
+        arith_util a(m);
+        expr_ref x(m.mk_const("x", a.mk_real()), m);
+        expr_ref zero(a.mk_real(0), m);
+        expr_ref lower(a.mk_gt(x, zero), m), upper(a.mk_le(x, zero), m);
+        ctx.push();
+        ctx.assert_expr(lower);
+        ctx.assert_expr(upper);
+        VERIFY(l_false == ctx.check());
+        if (proofs)
+            VERIFY(ctx.get_proof());
+        ctx.pop(1);
+        VERIFY(l_true == ctx.check());
+        expr* assumptions[] = {lower, upper};
+        VERIFY(l_false == ctx.check(2, assumptions));
+        VERIFY(ctx.get_unsat_core_size() == 2);
+        VERIFY(l_true == ctx.check());
+    }
+    unsigned variant = 0;
+    for (char const* extra : {
+             "(declare-const z Real)(assert (<= (+ x y z) 1))",
+             "(assert (<= (* x y) 1))",
+             "(declare-fun f (Real) Real)(assert (<= (f x) 1))"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::string input = lra_feature_fixture();
+        if (variant++ != 0)
+            input.erase(0, std::strlen("(set-logic QF_LRA)"));
+        std::istringstream is(input + extra);
+        VERIFY(parse_smt2_commands(cmd, is));
+        static_features st(m, true);
+        st.collect(cmd.assertions().size(), cmd.assertions().data());
+        params_ref selected;
+        smt_params fp;
+        fp.select_lra_feature_config(st, params_ref(), selected);
+        VERIFY(!selected.contains("arith.bprop_on_pivoted_rows"));
+    }
+    params_ref invalid;
+    invalid.set_uint("arith.feature_config", 3);
+    smt_params fp;
+    bool caught = false;
+    try {
+        fp.updt_params(invalid);
+    }
+    catch (default_exception const&) {
+        caught = true;
+    }
+    VERIFY(caught);
 }
 
 static void check_sparse_lra_pivots() {
@@ -387,6 +539,8 @@ static void check_sparse_lra_pivots() {
 void tst_smt_context()
 {
     check_bounded_clause_flattening();
+    check_extended_lra_features();
+    check_lra_feature_config();
     check_sparse_lra_pivots();
     check_monotone_reals();
     check_monotone_simplifier();

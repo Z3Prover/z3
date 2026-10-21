@@ -150,7 +150,7 @@ namespace smt {
     }
 
     void setup::setup_auto_config() {
-        static_features    st(m_manager);
+        static_features    st(m_manager, m_params.m_arith_feature_config != 0);
         IF_VERBOSE(100, verbose_stream() << "(smt.configuring)\n";);
         TRACE(setup, tout << "setup, logic: " << m_logic << "\n";);
         // HACK: do not collect features for QF_BV and QF_AUFBV... since they do not use them...
@@ -165,6 +165,18 @@ namespace smt {
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
             st.collect(fmls.size(), fmls.data());
+            if (m_params.m_arith_feature_config != 0) {
+                params_ref selected;
+                char const* profile = m_params.select_lra_feature_config(st, m_context.get_params(), selected);
+                IF_VERBOSE(1,
+                    verbose_stream() << "(smt.feature-config :mode "
+                                     << (m_params.m_arith_feature_config == 1 ? "observe" : "apply")
+                                     << " :profile " << profile << " :selected " << selected << ")\n";
+                    st.display_extended(verbose_stream());
+                );
+                if (m_params.m_arith_feature_config == 2)
+                    m_context.updt_params(selected);
+            }
             TRACE(setup, st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 

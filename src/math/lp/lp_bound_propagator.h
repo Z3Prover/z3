@@ -160,8 +160,9 @@ public:
     }
 
 
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
-                   implied_bound::weighted_explain explain_weighted) {
+    template <typename Explain, typename WeightedExplain>
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, Explain const& explain_bound,
+                   WeightedExplain const& explain_weighted) {
         lconstraint_kind kind = is_low ? GE : LE;
         if (strict)
             kind = static_cast<lconstraint_kind>(kind / 2);

@@ -107,6 +107,7 @@ struct smt_params : public preprocessor_params,
     bool             m_simplify_clauses = true;
     unsigned         m_tick = 1000;
     bool             m_display_features = false;
+    unsigned         m_arith_feature_config = 0;
     bool             m_new_core2th_eq = true;
     bool             m_ematching = true;
     bool             m_ho_matching = false;
@@ -282,6 +283,9 @@ struct smt_params : public preprocessor_params,
 
     void setup_QF_LRA(static_features const& st);
 
+    char const* select_lra_feature_config(static_features const& st, params_ref const& explicit_params,
+                                        params_ref& selected) const;
+
     void setup_QF_LIA();
 
     void setup_QF_LIA(static_features const& st);
@@ -313,4 +317,3 @@ struct smt_params : public preprocessor_params,
     void setup_LRA();
             
 };
-
