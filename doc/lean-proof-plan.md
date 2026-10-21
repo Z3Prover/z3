@@ -1228,6 +1228,32 @@ defined. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
 alias checked in Lean, an alias in a popped scope).
 
+**Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
+`theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
+of `farkas` with coefficients when its own `check_farkas_conflict` fails or
+the explanation does not linearize, which is what a lattice conflict (no
+integer point on a rationally feasible region) looks like from inside the
+solver; the iter-027 stress run found five Int instances rejected for it
+("th-lemma without a replayable theory hint: arith unsupported"), and about
+one in seventy small random QF_LIA instances carries the label. The step
+lists the held literals and concludes `false`, the shape of the
+coefficient-free Int `farkas` the exporter already produces when it strips
+coefficients that do not re-derive, so `_th_lemma_parameters` now maps the
+label to that step over Int (it must list at least one premise and conclude
+`false`; otherwise rejected). Nothing is trusted: the reconstructor's shape
+check and Lean's `first | omega | grind` prove the refutation as before, and
+a tampered variant with unit coefficients is rejected before Lean ("do not
+refute"). Over Real the label stays rejected (a Real Farkas step Z3 could
+not check is suspect), as does `unsupported nla`. All five stress inputs now
+verify through the legacy core, including the `div`/`mod` one whose
+clause-log certificate still hits `maxHeartbeats` (BACKLOG). Tests:
+`test_proof_certificate.py`
+(`test_legacy_unsupported_conflicts_are_left_to_lean_over_int`: parameter
+mapping and rejections, the live label on `_LIA_LATTICE`),
+`test_proof_to_lean_lia.py` (documented inputs `lia_lattice_conflict` and
+`lia_lattice_bounds` through both cores,
+`test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
+
 ## Boolean and EUF proof infrastructure
 
 ### SMT fallback proves the logged clause (2026-10-20)

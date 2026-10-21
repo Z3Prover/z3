@@ -447,6 +447,15 @@ the first two as the arith hint and strips the coefficients of the third
 the clause log); the reconstructor shape-checks all three (held premises
 and clause literals are linear integer atoms) and Lean proves them with
 first | omega | grind, as it proves the clause log's cut and arith lemmas.
+A fourth shape is theory_lra's own verdict on a conflict it could not
+certify: when its Farkas check fails or the LP explanation does not
+linearize, which is what a lattice conflict looks like from inside the
+solver, it labels the step (_ th-lemma arith unsupported) instead of
+farkas with coefficients. Over Int the exporter keeps such a step (it must
+list at least one premise and conclude false) as the same coefficient-free
+farkas, so nothing changes on the reconstructor's side; over Real it stays
+rejected ("th-lemma without a replayable theory hint: arith unsupported"),
+as does the nonlinear variant (arith unsupported nla).
 Z3's rewriter also cancels the common factor of (div (* 2 x) (- 2)) through
 (ite (= 0 (- 2)) (div (* 2 x) 0) (div (* x 1) (- 1))), whose dead branch
 divides by zero: such a term may appear in a proof step but never in the

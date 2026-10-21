@@ -1210,6 +1210,25 @@ _LIA = """\
 (check-sat)
 """
 
+# A lattice conflict: eliminating x from the last two equalities leaves
+# 2 (z - w + 3 y) = -17, no integer point on a rationally feasible region.
+# theory_lra's own Farkas check fails on it, so the legacy core labels the
+# conflict (_ th-lemma arith unsupported) instead of farkas with coefficients.
+# The same text is LIA_INPUTS["lia_lattice_conflict"] in
+# test_proof_to_lean_lia.py (which imports from this module, so the input is
+# repeated here rather than imported); keep the two in step.
+_LIA_LATTICE = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const w Int)
+(assert (= (+ y z) 3))
+(assert (= (+ (* 3 x) (* 2 z)) (- (* 2 w) 5)))
+(assert (= (* 2 y) (- x 4)))
+(check-sat)
+"""
+
 _LIA_LOG = """\
 (declare-fun y () Int)
 (declare-fun x () Int)
@@ -1800,6 +1819,61 @@ class TestFragmentClassification(unittest.TestCase):
             proof_certificate._th_lemma_parameters(_FakeDecl(["arith"]), 0)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
             proof_certificate._th_lemma_parameters(_FakeDecl(["arith", "gomory-cut", 1]), 1, integer=True)
+
+    def test_legacy_unsupported_conflicts_are_left_to_lean_over_int(self):
+        # theory_lra labels an LP conflict (_ th-lemma arith unsupported) when
+        # its own Farkas check fails or the explanation does not linearize,
+        # which is what a lattice conflict looks like from inside the solver.
+        # Over Int it becomes the coefficient-free farkas step Lean proves
+        # alone; it must list premises and conclude false. Over Real a
+        # conflict Z3 could not check stays rejected, as does the nla variant.
+        parameters = proof_certificate._th_lemma_parameters
+        unsupported = _FakeDecl(["arith", "unsupported"])
+        false = z3.BoolVal(False)
+        self.assertEqual(parameters(unsupported, 4, false, integer=True), ["farkas"])
+        self.assertEqual(parameters(unsupported, 1, false, integer=True), ["farkas"])
+        for premises, conclusion, integer, message in [
+            (4, false, False, "without a replayable theory hint: arith unsupported"),
+            (0, false, True, "must refute at least one premise"),
+            (4, None, True, "must refute at least one premise"),
+            (4, z3.Int("x") <= 2, True, "must refute at least one premise"),
+            (4, z3.Or(z3.Int("x") <= 2, z3.Int("x") >= 3), True, "must refute at least one premise"),
+        ]:
+            with self.subTest(premises=premises, conclusion=conclusion, integer=integer):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    parameters(unsupported, premises, conclusion, integer=integer)
+        for raw in (["arith", "unsupported", "nla"], ["arith", "unsupported", "1"], ["unsupported"],
+                    ["unsupported", "arith"]):
+            with self.subTest(parameters=raw):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+                    parameters(_FakeDecl(raw), 4, false, integer=True)
+        # Live: the legacy core's proof of the lattice conflict carries the
+        # label, its step lists the held equalities' bounds and concludes
+        # false, and the certificate keeps it as a farkas step without
+        # coefficients whose premises the reconstructor shape-checks.
+        context = z3.Context(proof=True)
+        solver = z3.Solver(ctx=context)
+        solver.set("combined_solver.ignore_solver1", True)
+        solver.add(z3.parse_smt2_string(proof_certificate._assertion_commands(_LIA_LATTICE), ctx=context))
+        self.assertEqual(solver.check(), z3.unsat)
+        steps = [node for node in _proof_nodes(solver.proof())
+                 if node.decl().name() == "th-lemma" and [str(p) for p in node.decl().params()] == ["arith", "unsupported"]]
+        self.assertTrue(steps, "theory_lra no longer labels the lattice conflict unsupported: if it now "
+                        "emits farkas or lp-integer-lattice, drop the label assertions here and in "
+                        "test_proof_to_lean_lia.py and keep the certificate checks; the mapping itself "
+                        "stays covered by the _FakeDecl cases above")
+        for step in steps:
+            self.assertTrue(z3.is_false(step.arg(step.num_args() - 1)))
+            self.assertGreater(step.num_args(), 1)
+        certificate = proof_certificate.export_certificate(_LIA_LATTICE)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        declarations = certificate["declarations"]
+        stripped = [d for d in declarations if d["name"] == "th-lemma" and d["parameters"] == ["farkas"]]
+        self.assertTrue(stripped, [d["parameters"] for d in declarations if d["name"] == "th-lemma"])
+        self.assertTrue(all(d["domain"][:-1] and set(d["domain"][:-1]) == {"Proof"} for d in stripped))
+        # Real input never reaches the integer mapping: the same label is rejected.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+            parameters(unsupported, 4, false)
 
 
 class TestLinearCombination(unittest.TestCase):

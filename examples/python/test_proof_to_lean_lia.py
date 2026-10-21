@@ -22,6 +22,7 @@ sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
 import proof_clause_log
 import proof_to_lean
+from test_proof_certificate import _proof_nodes
 
 # Documented QF_LIA inputs. Each exercises one integer-specific step of the
 # sat.smt core's arithmetic solver, as named in the comments: the clause log
@@ -200,7 +201,40 @@ LIA_INPUTS = {
 (assert (<= (* 2 z) 5))
 (check-sat)
 """,
+    # A lattice conflict over equalities: eliminating x leaves
+    # 2 (z - w + 3 y) = -17. The clause log labels it cut; the legacy core's
+    # own Farkas check fails on it, so it labels the conflict
+    # (_ th-lemma arith unsupported), kept as a coefficient-free farkas.
+    "lia_lattice_conflict": """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const w Int)
+(assert (= (+ y z) 3))
+(assert (= (+ (* 3 x) (* 2 z)) (- (* 2 w) 5)))
+(assert (= (* 2 y) (- x 4)))
+(check-sat)
+""",
+    # The same label on a conflict over bounds, next to a cut (a bare arith
+    # step with premises) through the legacy core.
+    "lia_lattice_bounds": """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const w Int)
+(assert (= (+ y (* 3 z)) -5))
+(assert (> (- z y (* 2 w)) -5))
+(assert (>= (+ (* 2 y) w) 2))
+(assert (>= (+ (* 2 z) (* 3 w) y) -2))
+(check-sat)
+""",
 }
+
+# The documented inputs whose legacy proofs carry (_ th-lemma arith
+# unsupported), theory_lra's label for a conflict it could not certify.
+LEGACY_UNSUPPORTED_INPUTS = ("lia_lattice_conflict", "lia_lattice_bounds")
 
 _STANDARD_AXIOMS = "[propext, Classical.choice, Quot.sound]"
 
@@ -410,6 +444,51 @@ class TestIntegerValidation(unittest.TestCase):
         tampered["nodes"][clause_node]["arguments"][0] = equivalence
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "not a linear arithmetic atom"):
             proof_to_lean.reconstruct(LIA_INPUTS["lia_gomory"], tampered)
+
+    def test_legacy_unsupported_label_is_a_coefficient_free_farkas(self):
+        # theory_lra labels a conflict (_ th-lemma arith unsupported) when
+        # its own Farkas check fails (a lattice conflict); the exporter keeps
+        # it as a farkas step without coefficients, which the reconstructor
+        # shape-checks (held integer linear premises, false conclusion) and
+        # states for first | omega | grind, like a stripped Farkas step.
+        for name in LEGACY_UNSUPPORTED_INPUTS:
+            source = LIA_INPUTS[name]
+            with self.subTest(name=name):
+                context = z3.Context(proof=True)
+                solver = z3.Solver(ctx=context)
+                solver.set("combined_solver.ignore_solver1", True)
+                solver.add(z3.parse_smt2_string(proof_certificate._assertion_commands(source), ctx=context))
+                self.assertEqual(solver.check(), z3.unsat)
+                labels = [node for node in _proof_nodes(solver.proof())
+                          if node.decl().name() == "th-lemma"
+                          and [str(p) for p in node.decl().params()] == ["arith", "unsupported"]]
+                self.assertTrue(labels, "theory_lra no longer labels the conflict unsupported: if it now "
+                                "emits farkas or lp-integer-lattice, drop the label assertions here and in "
+                                "test_proof_certificate.py and keep the certificate checks (the exporter "
+                                "mapping stays covered by its _FakeDecl cases)")
+                self.assertTrue(all(z3.is_false(node.arg(node.num_args() - 1)) and node.num_args() > 1
+                                    for node in labels))
+                certificate = proof_certificate.export_certificate(source)
+                self.assertEqual(certificate["fragment"], "qf_lia")
+                nodes = [node for node in _th_lemma_nodes(certificate) if _parameters(certificate, node) == ["farkas"]]
+                self.assertEqual(len(nodes), len(labels))
+                graph = proof_to_lean._validate_graph(source, certificate)
+                for node in nodes:
+                    arguments = certificate["nodes"][node]["arguments"]
+                    self.assertGreater(len(arguments), 1)
+                    self.assertEqual(graph.kind(arguments[-1]), z3.Z3_OP_FALSE)
+                    proof_to_lean._check_th_lemma(graph, node)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertIn("first | omega | grind", text)
+                self.assertNotIn("sorry", text)
+                # The region is rationally feasible, so no coefficients refute
+                # the premises: a farkas with coefficients is rejected before Lean.
+                tampered = copy.deepcopy(certificate)
+                node = nodes[0]
+                premises = len(tampered["nodes"][node]["arguments"]) - 1
+                tampered["declarations"][tampered["nodes"][node]["declaration"]]["parameters"] = ["farkas"] + ["1"] * premises
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not refute"):
+                    proof_to_lean.reconstruct(source, tampered)
 
     def test_tampered_farkas_coefficients_are_rejected_before_lean(self):
         self.assertIn("farkas", _hints(self.branching))
@@ -877,6 +956,15 @@ class TestLegacyIntegerLeanIntegration(unittest.TestCase):
                     # The div and mod axioms, stated (or false l) and resolved with the unit true.
                     self.assertIn("arith", _hints(certificate))
                     self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
+                if name in LEGACY_UNSUPPORTED_INPUTS:
+                    # theory_lra's unsupported label became a coefficient-free
+                    # farkas refuting its premises (the label itself is pinned
+                    # in test_legacy_unsupported_label_is_a_coefficient_free_farkas).
+                    self.assertTrue(any(p == ["farkas"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
+                if name == "lia_lattice_bounds":
+                    self.assertTrue(any(p == ["arith"] and len(certificate["nodes"][node]["arguments"]) > 1
+                                        for node, p in zip(_th_lemma_nodes(certificate), parameters)), parameters)
         # The legacy core's hints: no cut or euf (its congruences are
         # monotonicity steps), plus the bare arith of its axioms and cuts.
         self.assertEqual(hints, {"farkas", "bound", "triangle-eq", "arith", "smt"})

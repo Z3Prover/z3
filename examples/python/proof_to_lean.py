@@ -2456,10 +2456,11 @@ def _check_th_lemma(graph, node):
                                   and not coefficients):
         # An integer cut or gcd conflict, or an integer Farkas or bound step
         # whose LP explanation rested on cuts or on the integer lattice
-        # (the legacy core labels a lattice conflict farkas): the exporter
-        # kept no coefficients because none certify the rounding, so only the
-        # shape is checked (integer linear atoms, held premises included) and
-        # Lean proves the clause or the implication.
+        # (the legacy core labels a lattice conflict farkas with coefficients
+        # that do not re-derive, or unsupported when its own check fails):
+        # the exporter kept no coefficients because none certify the
+        # rounding, so only the shape is checked (integer linear atoms, held
+        # premises included) and Lean proves the clause or the implication.
         # (A coefficient-free farkas or bound over Real falls through to the
         # coefficient count check below.)
         if parameters[0] == "cut" and (graph.numeric != "Int" or coefficients or premises):

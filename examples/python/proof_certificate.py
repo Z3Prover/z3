@@ -129,7 +129,9 @@ _CNF_HINT = "cnf"
 # labels its propagations assign-bounds and eq-propagate and weights the
 # antecedents only, so the propagated literal's weight of 1 is added here.
 # Over Int, theory_lra's cuts and its div/mod axioms are bare (_ th-lemma
-# arith) steps, kept as the arith hint (see _th_lemma_parameters); any other
+# arith) steps, kept as the arith hint, and a conflict whose coefficients
+# theory_lra could not certify itself is (_ th-lemma arith unsupported),
+# kept as a coefficient-free farkas (see _th_lemma_parameters); any other
 # hint name (nla, gomory-cut, gcd-test) is rejected.
 _LEGACY_HINTS = {
     "farkas": "farkas", "bound": "bound", "assign-bounds": "bound",
@@ -622,8 +624,10 @@ def parse_assertions(source, context, integer=False, query=None):
     return assertions, fragment
 
 
-def _th_lemma_parameters(decl, premises, conclusion=None, integer=False):
-    """Return the certificate parameters of a native th-lemma declaration applied to premises.
+def _th_lemma_parameters(decl, premise_count, conclusion=None, integer=False):
+    """Return the certificate parameters of a native th-lemma declaration applied to premise_count premises.
+
+    premise_count is the number of proof arguments before the conclusion.
 
     The legacy core labels the step (_ th-lemma arith <hint> c1 ... cn). In
     the certificate, farkas and bound coefficients weight the premises in
@@ -638,11 +642,22 @@ def _th_lemma_parameters(decl, premises, conclusion=None, integer=False):
     derives from the premises it lists), both shape-checked by the
     reconstructor and proved by Lean alone like the clause log's arith and
     cut hints. Indexed LP steps use their local weights; input and discharge
-    bridges and integer rounding steps are re-proved by Lean.
+    bridges and integer rounding steps are re-proved by Lean. The label
+    (_ th-lemma arith unsupported) is theory_lra's own verdict that it could
+    not certify an LP conflict's Farkas coefficients (set_proof_params: its
+    check failed or the explanation did not linearize), which happens on
+    lattice conflicts over Int; the step lists the held literals and
+    concludes false, so over Int it is the coefficient-free farkas step the
+    reconstructor shape-checks and Lean proves alone. Over Real a conflict
+    Z3 could not check stays rejected, as does the nla variant.
     """
     parameters = decl.params()
     if integer and len(parameters) == 1 and parameters[0] == "arith":
         return ["arith"]
+    if integer and len(parameters) == 2 and parameters[0] == "arith" and parameters[1] == "unsupported":
+        if conclusion is None or not z3.is_false(conclusion) or not premise_count:
+            raise ProofExportError("th-lemma arith unsupported must refute at least one premise")
+        return ["farkas"]
     if (len(parameters) >= 2 and parameters[0] == "arith"
             and isinstance(parameters[1], str) and parameters[1].startswith("lp-")):
         rule = parameters[1]
@@ -660,12 +675,12 @@ def _th_lemma_parameters(decl, premises, conclusion=None, integer=False):
                 raise ProofExportError("invalid %s inference" % rule)
             return ["farkas" if z3.is_false(conclusion) else "arith"]
         if rule != "lp-linear":
-            if len(parameters) != 3 or (premises not in (0, 1) if rule == "lp-input" else premises != 1):
+            if len(parameters) != 3 or (premise_count not in (0, 1) if rule == "lp-input" else premise_count != 1):
                 raise ProofExportError("invalid %s inference" % rule)
             return ["smt"]
         if conclusion is None:
             raise ProofExportError("missing LP linear conclusion")
-        if len(parameters) != 3 + premises + (not z3.is_false(conclusion)):
+        if len(parameters) != 3 + premise_count + (not z3.is_false(conclusion)):
             raise ProofExportError("invalid LP linear coefficient count")
         hint = ("farkas" if z3.is_false(conclusion) else
                 "implied-eq" if z3.is_eq(conclusion) else "bound")
@@ -684,10 +699,10 @@ def _th_lemma_parameters(decl, premises, conclusion=None, integer=False):
         # theory_arith weights the antecedents only. The propagated literal
         # has weight 1; it is the first clause literal when the step has no
         # premises and the conclusion when it has.
-        coefficients = coefficients + [Fraction(1)] if premises else [Fraction(1)] + coefficients
+        coefficients = coefficients + [Fraction(1)] if premise_count else [Fraction(1)] + coefficients
     if hint == "implied-eq":
         coefficients = []  # never summed; the reconstructor checks shapes and Lean proves the equality
-        if not premises and conclusion is not None and z3.is_eq(conclusion):
+        if not premise_count and conclusion is not None and z3.is_eq(conclusion):
             hint = "smt"
     return [hint] + [str(coefficient) for coefficient in coefficients]
 
