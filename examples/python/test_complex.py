@@ -20,17 +20,27 @@ class TestComplex(unittest.TestCase):
             z3.TryFor(z3.Then("simplify", z3.With("sat", smt=True)), 5000),
         ]
 
+    def test_old_operator_names_are_not_builtins(self):
+        for name, term in [
+            ("complex", "(complex 1.0 2.0)"),
+            ("real", "(real 1.0)"),
+            ("imag", "(imag 1.0)"),
+        ]:
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(z3.Z3Exception, f"unknown constant {name}"):
+                    z3.parse_smt2_string(f"(assert (= {term} {term}))")
+
     def test_arithmetic_and_components(self):
         cases = [
-            "(assert (not (= (* (complex 0 1) (complex 0 1)) (complex (- 1) 0))))",
-            "(assert (not (= (+ (complex 1 2) (complex 3 4)) (complex 4 6))))",
-            "(assert (not (= (- (complex 1 2)) (complex (- 1) (- 2)))))",
-            "(assert (not (= (- (complex 5 6) (complex 1 2) (complex 3 4)) (complex 1 0))))",
-            "(assert (not (= (/ (complex 1 2) (complex 3 4)) (complex (/ 11 25) (/ 2 25)))))",
-            "(assert (not (= (+ (complex 1 2) 3) (complex 4 2))))",
-            "(assert (not (= z (complex (real z) (imag z)))))",
-            "(assert (= z (complex 3 4))) (assert (distinct (imag z) 4))",
-            "(assert (= (real z) (real w))) (assert (= (imag z) (imag w))) "
+            "(assert (not (= (* (complex.make 0 1) (complex.make 0 1)) (complex.make (- 1) 0))))",
+            "(assert (not (= (+ (complex.make 1 2) (complex.make 3 4)) (complex.make 4 6))))",
+            "(assert (not (= (- (complex.make 1 2)) (complex.make (- 1) (- 2)))))",
+            "(assert (not (= (- (complex.make 5 6) (complex.make 1 2) (complex.make 3 4)) (complex.make 1 0))))",
+            "(assert (not (= (/ (complex.make 1 2) (complex.make 3 4)) (complex.make (/ 11 25) (/ 2 25)))))",
+            "(assert (not (= (+ (complex.make 1 2) 3) (complex.make 4 2))))",
+            "(assert (not (= z (complex.make (complex.real z) (complex.imag z)))))",
+            "(assert (= z (complex.make 3 4))) (assert (distinct (complex.imag z) 4))",
+            "(assert (= (complex.real z) (complex.real w))) (assert (= (complex.imag z) (complex.imag w))) "
             "(assert (distinct z w))",
         ]
         for tactic in self.engines():
@@ -45,27 +55,27 @@ class TestComplex(unittest.TestCase):
             with self.subTest(engine=str(tactic)):
                 solver = tactic.solver()
                 assertions = self.formulas(
-                    "(assert (= (real z) 3)) (assert (= (imag z) 4))")
+                    "(assert (= (complex.real z) 3)) (assert (= (complex.imag z) 4))")
                 solver.add(assertions)
                 self.assertEqual(solver.check(), z3.sat)
                 model = solver.model()
                 for assertion in assertions:
                     self.assertTrue(z3.is_true(model.eval(assertion, model_completion=True)))
                 solver.push()
-                solver.add(self.formulas("(assert (= z (complex 0 0)))"))
+                solver.add(self.formulas("(assert (= z (complex.make 0 0)))"))
                 self.assertEqual(solver.check(), z3.unsat)
                 solver.pop()
                 self.assertEqual(solver.check(), z3.sat)
 
     def test_scalar_multiplication(self):
         cases = [
-            "(assert (distinct (* r z) (complex (* r (real z)) (* r (imag z)))))",
-            "(assert (distinct (* z r) (complex (* r (real z)) (* r (imag z)))))",
+            "(assert (distinct (* r z) (complex.make (* r (complex.real z)) (* r (complex.imag z)))))",
+            "(assert (distinct (* z r) (complex.make (* r (complex.real z)) (* r (complex.imag z)))))",
             "(assert (distinct (* r z) (* z r)))",
-            "(assert (distinct (* 0.0 z) (complex 0 0)))",
+            "(assert (distinct (* 0.0 z) (complex.make 0 0)))",
             "(assert (distinct (* z 1.0) z))",
-            "(assert (distinct (* (- 2.0) (complex 3 4)) (complex (- 6) (- 8))))",
-            "(assert (distinct (* (complex 3 4) (/ 1.0 2.0)) (complex (/ 3 2) 2)))",
+            "(assert (distinct (* (- 2.0) (complex.make 3 4)) (complex.make (- 6) (- 8))))",
+            "(assert (distinct (* (complex.make 3 4) (/ 1.0 2.0)) (complex.make (/ 3 2) 2)))",
             "(assert (distinct (* 2 z) (* 2.0 z)))",
             "(assert (distinct (* z 2) (* z 2.0)))",
             "(assert (distinct (* r z 2.0) (* (* r z) 2.0)))",
@@ -96,7 +106,7 @@ class TestComplex(unittest.TestCase):
             with self.subTest(engine=str(tactic)):
                 solver = tactic.solver()
                 assertions = self.formulas(
-                    "(assert (= (* z z) (complex (- 2) 0)))")
+                    "(assert (= (* z z) (complex.make (- 2) 0)))")
                 solver.add(assertions)
                 self.assertEqual(solver.check(), z3.sat)
                 self.assertTrue(z3.is_true(solver.model().eval(assertions[0])))
@@ -104,7 +114,7 @@ class TestComplex(unittest.TestCase):
     def test_uf_congruence(self):
         assertions = self.formulas(
             "(declare-fun f (Complex) Int)"
-            "(assert (= (real z) (real w))) (assert (= (imag z) (imag w)))"
+            "(assert (= (complex.real z) (complex.real w))) (assert (= (complex.imag z) (complex.imag w)))"
             "(assert (distinct (f z) (f w)))")
         for tactic in [self.engines()[0], self.engines()[2]]:
             solver = tactic.solver()
@@ -115,7 +125,7 @@ class TestComplex(unittest.TestCase):
         solver = z3.Tactic("smt").solver()
         solver.set(timeout=5000)
         solver.add(z3.parse_smt2_string(
-            "(assert (forall ((z Complex)) (= (imag z) 0)))"))
+            "(assert (forall ((z Complex)) (= (complex.imag z) 0)))"))
         self.assertEqual(solver.check(), z3.unsat)
 
     def test_shared_complex_models(self):
@@ -125,12 +135,12 @@ class TestComplex(unittest.TestCase):
         ]
         constraints = [
             "",
-            "(assert (= (real z) 0)) (assert (= (real w) 0))",
-            "(assert (= (imag z) 0)) (assert (= (imag w) 0))",
-            "(assert (= (* z z) (complex 1 0)))"
-            "(assert (= (* w w) (complex 1 0)))",
-            "(assert (= (* z z) (complex (- 2) 0)))"
-            "(assert (= (* w w) (complex (- 2) 0)))",
+            "(assert (= (complex.real z) 0)) (assert (= (complex.real w) 0))",
+            "(assert (= (complex.imag z) 0)) (assert (= (complex.imag w) 0))",
+            "(assert (= (* z z) (complex.make 1 0)))"
+            "(assert (= (* w w) (complex.make 1 0)))",
+            "(assert (= (* z z) (complex.make (- 2) 0)))"
+            "(assert (= (* w w) (complex.make (- 2) 0)))",
         ]
         for tactic in [self.engines()[0], self.engines()[2]]:
             for declaration, lhs, rhs in declarations:
@@ -156,15 +166,15 @@ class TestComplex(unittest.TestCase):
                     solver = tactic.solver()
                     assertions = self.formulas(
                         "(declare-const u Complex)" + declaration +
-                        "(assert (= (* z z) (complex 1 0)))"
-                        "(assert (= (* w w) (complex 1 0)))"
+                        "(assert (= (* z z) (complex.make 1 0)))"
+                        "(assert (= (* w w) (complex.make 1 0)))"
                         f"(assert (distinct {values}))")
                     solver.add(assertions)
                     self.assertEqual(solver.check(), z3.sat)
                     solver.push()
                     solver.add(self.formulas(
                         "(declare-const u Complex)"
-                        "(assert (= (* u u) (complex 1 0)))"))
+                        "(assert (= (* u u) (complex.make 1 0)))"))
                     self.assertEqual(solver.check(), z3.unsat)
                     solver.pop()
                     self.assertEqual(solver.check(), z3.sat)
@@ -176,7 +186,7 @@ class TestComplex(unittest.TestCase):
         solver = self.engines()[1].solver()
         solver.add(self.formulas(
             "(declare-fun f (Int) Complex)"
-            "(assert (= (imag (f 0)) 1))"))
+            "(assert (= (complex.imag (f 0)) 1))"))
         self.assertEqual(solver.check(), z3.unknown)
 
     def test_ite_and_zero_division(self):
@@ -184,12 +194,12 @@ class TestComplex(unittest.TestCase):
             solver = tactic.solver()
             solver.add(self.formulas(
                 "(declare-const b Bool)"
-                "(assert (= z (ite b (complex 1 2) (complex 3 4))))"
-                "(assert (= (real z) 1)) (assert (= (imag z) 4))"))
+                "(assert (= z (ite b (complex.make 1 2) (complex.make 3 4))))"
+                "(assert (= (complex.real z) 1)) (assert (= (complex.imag z) 4))"))
             self.assertEqual(solver.check(), z3.unsat)
         solver = z3.Tactic("smt").solver()
         assertions = self.formulas(
-            "(assert (= z (/ (complex 1 2) (complex 0 0))))")
+            "(assert (= z (/ (complex.make 1 2) (complex.make 0 0))))")
         solver.add(assertions)
         self.assertEqual(solver.check(), z3.sat)
         self.assertTrue(z3.is_true(solver.model().eval(assertions[0])))
@@ -206,10 +216,10 @@ class TestComplex(unittest.TestCase):
             self.assertEqual(z3.simplify(part).as_long(), value)
         quotient = _to_expr_ref(z3core.Z3_mk_div(ctx.ref(), term.as_ast(), term.as_ast()), ctx)
         self.assertEqual(quotient.sort(), sort)
-        self.assertEqual(z3.simplify(quotient).sexpr(), "(complex 1.0 0.0)")
+        self.assertEqual(z3.simplify(quotient).sexpr(), "(complex.make 1.0 0.0)")
         numeral = _to_expr_ref(z3core.Z3_mk_numeral(ctx.ref(), "3/2", sort.ast), ctx)
         self.assertEqual(numeral.sort(), sort)
-        self.assertEqual(z3.simplify(numeral).sexpr(), "(complex (/ 3.0 2.0) 0.0)")
+        self.assertEqual(z3.simplify(numeral).sexpr(), "(complex.make (/ 3.0 2.0) 0.0)")
         with self.assertRaises(z3.Z3Exception):
             z3core.Z3_mk_lt(ctx.ref(), term.as_ast(), term.as_ast())
         with self.assertRaises(z3.Z3Exception):

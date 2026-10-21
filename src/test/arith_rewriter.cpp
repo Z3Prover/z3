@@ -49,7 +49,23 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
 }
 
 
+static void test_complex_logic_names() {
+    for (symbol logic : {symbol::null, symbol("ALL"), symbol("QF_UF"),
+                         symbol("QF_LRA"), symbol("QF_NRA"), symbol("QF_NTA"),
+                         symbol("QF_UFLRA")}) {
+        cmd_context ctx(false, nullptr, logic);
+        ctx.init_manager();
+        bool enabled = logic == symbol::null || logic == "ALL";
+        ENSURE(ctx.is_sort_decl(symbol("Complex")) == enabled);
+        for (char const* name : {"complex.make", "complex.real", "complex.imag"})
+            ENSURE(ctx.is_func_decl(symbol(name)) == enabled);
+        for (char const* name : {"complex", "real", "imag"})
+            ENSURE(!ctx.is_func_decl(symbol(name)));
+    }
+}
+
 void tst_arith_rewriter() {
+    test_complex_logic_names();
     ast_manager m;
     reg_decl_plugins(m);
     arith_rewriter ar(m);

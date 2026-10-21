@@ -2105,7 +2105,7 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
             return au.mk_complex(re, zero);
         }
         if (se->get_decl_kind() == COMPLEX_SORT)
-            throw ast_exception("cannot coerce Complex to Int or Real; use real or imag");
+            throw ast_exception("cannot coerce Complex to Int or Real; use complex.real or complex.imag");
         if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
         else 

@@ -191,11 +191,11 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(m_cr_mul_decl);
     MK_LEFT_ASSOC_OP(m_c_div_decl, "/", OP_DIV, c);
     MK_UNARY(m_c_uminus_decl, "-", OP_UMINUS, c);
-    m_complex_ctor = m->mk_func_decl(symbol("complex"), r, r, c, func_decl_info(id, OP_COMPLEX));
+    m_complex_ctor = m->mk_func_decl(symbol("complex.make"), r, r, c, func_decl_info(id, OP_COMPLEX));
     m->inc_ref(m_complex_ctor);
-    m_real_part_decl = m->mk_func_decl(symbol("real"), c, r, func_decl_info(id, OP_REAL_PART));
+    m_real_part_decl = m->mk_func_decl(symbol("complex.real"), c, r, func_decl_info(id, OP_REAL_PART));
     m->inc_ref(m_real_part_decl);
-    m_imag_part_decl = m->mk_func_decl(symbol("imag"), c, r, func_decl_info(id, OP_IMAG_PART));
+    m_imag_part_decl = m->mk_func_decl(symbol("complex.imag"), c, r, func_decl_info(id, OP_IMAG_PART));
     m->inc_ref(m_imag_part_decl);
 
     MK_AC_OP(m_i_add_decl, "+", OP_ADD, i);
@@ -663,7 +663,8 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 }
 
 void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
-    sort_names.push_back(builtin_name("Complex", COMPLEX_SORT));
+    if (logic == symbol::null || logic == "ALL")
+        sort_names.push_back(builtin_name("Complex", COMPLEX_SORT));
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
         logic == "QF_NTA" ||
@@ -680,9 +681,11 @@ void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
 }
 
 void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
-    op_names.push_back(builtin_name("complex", OP_COMPLEX));
-    op_names.push_back(builtin_name("real", OP_REAL_PART));
-    op_names.push_back(builtin_name("imag", OP_IMAG_PART));
+    if (logic == symbol::null || logic == "ALL") {
+        op_names.push_back(builtin_name("complex.make", OP_COMPLEX));
+        op_names.push_back(builtin_name("complex.real", OP_REAL_PART));
+        op_names.push_back(builtin_name("complex.imag", OP_IMAG_PART));
+    }
     op_names.push_back(builtin_name("<=",OP_LE));
     op_names.push_back(builtin_name(">=",OP_GE));
     op_names.push_back(builtin_name("<",OP_LT));
