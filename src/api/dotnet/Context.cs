@@ -137,6 +137,7 @@ namespace Microsoft.Z3
         private BoolSort m_boolSort = null;
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
+        private ComplexSort m_complexSort = null;
         private SeqSort m_stringSort = null;
         private CharSort m_charSort = null;
 
@@ -175,8 +176,18 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Retrieves the String sort of the context.
+        /// Retrieves the Complex sort of the context.
         /// </summary>
+        public ComplexSort ComplexSort
+        {
+            get
+            {
+                if (m_complexSort == null) m_complexSort = new ComplexSort(this);
+                return m_complexSort;
+            }
+        }
+
+        /// <summary>Retrieves the character sort of the context.</summary>
         public CharSort CharSort
         {
             get
@@ -242,6 +253,12 @@ namespace Microsoft.Z3
         public RealSort MkRealSort()
         {
             return new RealSort(this);
+        }
+
+        /// <summary>Creates the Complex sort.</summary>
+        public ComplexSort MkComplexSort()
+        {
+            return new ComplexSort(this);
         }
 
         /// <summary>
@@ -923,6 +940,39 @@ namespace Microsoft.Z3
         {
 
             return (RealExpr)MkConst(name, RealSort);
+        }
+
+        /// <summary>Creates a Complex constant.</summary>
+        public ComplexExpr MkComplexConst(Symbol name)
+        {
+            return (ComplexExpr)MkConst(name, ComplexSort);
+        }
+
+        /// <summary>Creates a Complex constant.</summary>
+        public ComplexExpr MkComplexConst(string name)
+        {
+            return (ComplexExpr)MkConst(name, ComplexSort);
+        }
+
+        /// <summary>Constructs a Complex expression from Int or Real components.</summary>
+        public ComplexExpr MkComplex(ArithExpr real, ArithExpr imag)
+        {
+            CheckContextMatch(real, imag);
+            return new ComplexExpr(this, Native.Z3_mk_complex(nCtx, real.NativeObject, imag.NativeObject));
+        }
+
+        /// <summary>Returns the Real-valued real component of a Complex expression.</summary>
+        public RealExpr MkRealPart(ArithExpr value)
+        {
+            CheckContextMatch(value);
+            return new RealExpr(this, Native.Z3_mk_real_part(nCtx, value.NativeObject));
+        }
+
+        /// <summary>Returns the Real-valued imaginary component of a Complex expression.</summary>
+        public RealExpr MkImagPart(ArithExpr value)
+        {
+            CheckContextMatch(value);
+            return new RealExpr(this, Native.Z3_mk_imag_part(nCtx, value.NativeObject));
         }
 
         /// <summary>
@@ -5425,11 +5475,13 @@ namespace Microsoft.Z3
             if (m_boolSort != null) m_boolSort.Dispose();
             if (m_intSort != null) m_intSort.Dispose();
             if (m_realSort != null) m_realSort.Dispose();
+            if (m_complexSort != null) m_complexSort.Dispose();
             if (m_stringSort != null) m_stringSort.Dispose();
             if (m_charSort != null) m_charSort.Dispose();
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
+            m_complexSort = null;
             m_stringSort = null;
             m_charSort = null;
             if (m_ctx != IntPtr.Zero)

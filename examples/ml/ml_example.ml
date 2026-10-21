@@ -376,6 +376,26 @@ let rcf_example ( ctx : context ) =
   RCF.del_list ctx [pi; e; inf0; inf1; r; pi_div_e; pi_div_r];
   Printf.printf "Test passed.\n"
 
+let complex_example ctx =
+  let module C = Arithmetic.Complex in
+  let z = C.mk_const_s ctx "complex_z" in
+  let value = C.mk ctx (Integer.mk_numeral_i ctx 1) (Real.mk_numeral_i ctx 2) in
+  let expected = C.mk ctx (Real.mk_numeral_i ctx (-3)) (Real.mk_numeral_i ctx 4) in
+  let solver = Solver.mk_solver ctx None in
+  Solver.add solver [
+    Boolean.mk_eq ctx z value;
+    Boolean.mk_not ctx (Boolean.mk_eq ctx (Arithmetic.mk_mul ctx [z; z]) expected)
+  ];
+  if not (Arithmetic.is_complex z) || Solver.check solver [] <> Solver.UNSATISFIABLE then
+    raise (TestFailedException "Complex multiplication failed");
+  Solver.reset solver;
+  Solver.add solver [
+    Boolean.mk_eq ctx z value;
+    Boolean.mk_not ctx (Boolean.mk_eq ctx (C.mk_imag_part ctx z) (Real.mk_numeral_i ctx 2))
+  ];
+  if Solver.check solver [] <> Solver.UNSATISFIABLE then
+    raise (TestFailedException "Complex projection failed")
+
 let _ =
   try (
     if not (Log.open_ "z3.log") then
@@ -399,6 +419,7 @@ let _ =
 	Printf.printf "real sort: %s\n" (Sort.to_string rs);
 	Printf.printf "integer: %s\n" (Expr.to_string v);
 	basic_tests ctx ;
+	complex_example ctx ;
 	quantifier_example1 ctx ;
 	fpa_example ctx ;
   rcf_example ctx ;
@@ -412,4 +433,3 @@ let _ =
     exit 1
   )
 ;;
-

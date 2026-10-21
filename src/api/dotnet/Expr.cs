@@ -403,6 +403,12 @@ namespace Microsoft.Z3
             get { return Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_REAL_SORT; }
         }
 
+        /// <summary>Indicates whether the expression has Complex sort.</summary>
+        public bool IsComplex
+        {
+            get { return Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_COMPLEX_SORT; }
+        }
+
         /// <summary>
         /// Indicates whether the term is an arithmetic numeral.
         /// </summary>
@@ -1906,6 +1912,7 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_BOOL_SORT: return new BoolExpr(ctx, obj);
                 case Z3_sort_kind.Z3_INT_SORT: return new IntExpr(ctx, obj);
                 case Z3_sort_kind.Z3_REAL_SORT: return new RealExpr(ctx, obj);
+                case Z3_sort_kind.Z3_COMPLEX_SORT: return new ComplexExpr(ctx, obj);
                 case Z3_sort_kind.Z3_BV_SORT: return new BitVecExpr(ctx, obj);
                 case Z3_sort_kind.Z3_ARRAY_SORT: return new ArrayExpr(ctx, obj);
                 case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);

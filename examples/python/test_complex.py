@@ -13,11 +13,11 @@ class TestComplex(unittest.TestCase):
         return z3.parse_smt2_string(
             "(declare-const z Complex) (declare-const w Complex) " + source)
 
-    def engines(self):
+    def engines(self, ctx=None):
         return [
-            z3.TryFor(z3.Tactic("smt"), 5000),
-            z3.TryFor(z3.Tactic("qfnra-nlsat"), 5000),
-            z3.TryFor(z3.Then("simplify", z3.With("sat", smt=True)), 5000),
+            z3.TryFor(z3.Tactic("smt", ctx), 5000),
+            z3.TryFor(z3.Tactic("qfnra-nlsat", ctx), 5000),
+            z3.TryFor(z3.Then(z3.Tactic("simplify", ctx), z3.With(z3.Tactic("sat", ctx), smt=True)), 5000),
         ]
 
     def test_old_operator_names_are_not_builtins(self):
@@ -29,6 +29,44 @@ class TestComplex(unittest.TestCase):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(z3.Z3Exception, f"unknown constant {name}"):
                     z3.parse_smt2_string(f"(assert (= {term} {term}))")
+
+    def test_python_complex_api(self):
+        ctx = z3.Context()
+        z, w = z3.Complexes("z w", ctx)
+        value = z3.ComplexVal("1/2", 2, ctx)
+        self.assertTrue(z3.is_complex_sort(z.sort()))
+        expressions = [
+            z + 1, 1 + z, z + z3.RealVal(1, ctx), z3.IntVal(1, ctx) + z,
+            z3.IntVal(1, ctx) + 1j, 1j - z3.RealVal(1, ctx),
+            z - w, 1 - z, z * w, 2 * z, z / 2, 1 / z, -z,
+            z3.Sum(z, w, 1), z3.Product(z, w, 2),
+            z3.Sum(z3.IntVal(1, ctx), 2j),
+            z3.If(z3.Bool("b", ctx), z, z3.RealVal(1, ctx)),
+            z3.Select(z3.Array("a", z3.IntSort(ctx), z.sort()), 0),
+        ]
+        for expression in expressions:
+            self.assertIsInstance(expression, z3.ComplexRef)
+        for tactic in self.engines(ctx):
+            solver = tactic.solver()
+            solver.add(z == value)
+            self.assertEqual(solver.check(), z3.sat)
+            evaluated = solver.model().eval(z)
+            self.assertIsInstance(evaluated, z3.ComplexRef)
+            self.assertTrue(z3.is_true(z3.simplify(evaluated == value)))
+        self.assertEqual(z3.simplify(value.real_part()).as_fraction(), z3.RealVal("1/2", ctx).as_fraction())
+        self.assertEqual(z3.simplify(value.imag_part()).as_long(), 2)
+        self.assertTrue(z3.is_true(z3.simplify(z3.ComplexVal(1 + 2j) == z3.ComplexVal(1, 2))))
+        for expression in [
+            z3.IntVal(1, ctx) + 2j,
+            z3.Sum(z3.RealVal(1, ctx), 2j),
+        ]:
+            self.assertTrue(z3.is_true(z3.simplify(expression == z3.ComplexVal(1, 2, ctx))))
+        with self.assertRaises(z3.Z3Exception):
+            z3.RealPart(z3.IntVal(1, ctx))
+        with self.assertRaises(z3.Z3Exception):
+            z < w
+        with self.assertRaises(z3.Z3Exception):
+            z3.ComplexVal(z3.RealVal(1, z3.Context()), ctx=ctx)
 
     def test_arithmetic_and_components(self):
         cases = [
