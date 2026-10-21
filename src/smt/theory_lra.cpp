@@ -4154,17 +4154,15 @@ public:
         if (a.is_complex(o)) {
             expr_ref re(a.mk_real_part(o), m);
             expr_ref im(a.mk_imag_part(o), m);
-            expr_ref rv(m), iv(m);
-            auto component = [&](expr* p, expr_ref& value) {
+            auto component = [&](expr* p) -> expr* {
                 enode* pn = get_enode(p);
                 theory_var pv = pn->get_th_var(get_id());
                 if (use_nra_model() && is_registered_var(pv))
-                    value = a.mk_numeral(m_nla->am(), nl_value(pv, m_nla->tmp1()), false);
-                else
-                    value = a.mk_real(get_value(pv));
+                    return a.mk_numeral(m_nla->am(), nl_value(pv, m_nla->tmp1()), false);
+                return a.mk_real(get_value(pv));
             };
-            component(re, rv);
-            component(im, iv);
+            expr_ref rv(component(re), m);
+            expr_ref iv(component(im), m);
             return alloc(expr_wrapper_proc, a.mk_complex(rv, iv));
         }
         if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
