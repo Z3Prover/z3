@@ -297,6 +297,7 @@ namespace arith {
         theory_var internalize_linearized_def(expr* term, scoped_internalize_state& st);
         void init_left_side(scoped_internalize_state& st);
         bool internalize_term(expr* term);
+        void internalize_complex(expr* term);
         bool internalize_atom(expr* atom);        
         bool is_unit_var(scoped_internalize_state& st);
         bool is_one(scoped_internalize_state& st);
@@ -510,7 +511,7 @@ namespace arith {
         sat::literal internalize(expr* e, bool sign, bool root) override;
         void internalize(expr* e) override;
         void eq_internalized(euf::enode* n) override;
-        void apply_sort_cnstr(euf::enode* n, sort* s) override {}
+        void apply_sort_cnstr(euf::enode* n, sort* s) override;
         void initialize_value(expr* var, expr* value) override;
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;

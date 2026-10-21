@@ -153,6 +153,7 @@ typedef enum
     Z3_CHAR_SORT,
     Z3_TYPE_VAR,
     Z3_FINITE_FIELD_SORT,
+    Z3_COMPLEX_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1050,6 +1051,9 @@ typedef enum {
     Z3_OP_IS_INT,
     Z3_OP_POWER,
     Z3_OP_ABS,
+    Z3_OP_COMPLEX,
+    Z3_OP_REAL_PART,
+    Z3_OP_IMAG_PART,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -2021,6 +2025,40 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_real_sort(Z3_context c);
 
     /**
+       \brief Create the Complex sort. Complex numbers are pairs of Reals.
+
+       Use \c Z3_mk_complex to construct values and \c Z3_mk_real_part and
+       \c Z3_mk_imag_part to access their components. The arithmetic APIs
+       for addition, subtraction, multiplication, negation, and division
+       accept Complex expressions. Ordering and exponentiation do not.
+
+       def_API('Z3_mk_complex_sort', SORT, (_in(CONTEXT), ))
+    */
+    Z3_sort Z3_API Z3_mk_complex_sort(Z3_context c);
+
+    /**
+       \brief Create a complex number with the given real and imaginary components.
+       Integer components are coerced to Real.
+
+       def_API('Z3_mk_complex', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_complex(Z3_context c, Z3_ast re, Z3_ast im);
+
+    /**
+       \brief Return the real component of a Complex expression.
+
+       def_API('Z3_mk_real_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_real_part(Z3_context c, Z3_ast z);
+
+    /**
+       \brief Return the imaginary component of a Complex expression.
+
+       def_API('Z3_mk_imag_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_imag_part(Z3_context c, Z3_ast z);
+
+    /**
        \brief Create a bit-vector type of the given size.
 
        This type can also be seen as a machine integer.
@@ -2618,7 +2656,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] + ... + args[num_args-1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark The number of arguments must be greater than zero.
 
@@ -2630,7 +2668,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] * ... * args[num_args-1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark Z3 has limited support for non-linear arithmetic.
        \remark The number of arguments must be greater than zero.
@@ -2643,7 +2681,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] - ... - args[num_args - 1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark The number of arguments must be greater than zero.
 
@@ -2654,7 +2692,7 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{- arg}.
 
-       The arguments must have int or real type.
+       The argument must have Int, Real, or Complex sort.
 
        def_API('Z3_mk_unary_minus', AST, (_in(CONTEXT), _in(AST)))
     */
@@ -2663,9 +2701,11 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{arg1 div arg2}.
 
-       The arguments must either both have int type or both have real type.
-       If the arguments have int type, then the result type is an int type, otherwise the
-       the result type is real.
+       The arguments must have Int, Real, or Complex sort. Int arguments use
+       integer division. Real and Complex arguments use their respective division
+       operations, with Int embedded in Real and Int/Real embedded in Complex.
+       Complex division is lowered to Real component division; at a zero Complex
+       denominator, both components are the same totalized Real \c 0/0 value.
 
        def_API('Z3_mk_div', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */

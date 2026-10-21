@@ -621,7 +621,15 @@ namespace arith {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
 
-        if (m.is_value(n->get_root()->get_expr())) {
+        if (a.is_complex(o)) {
+            expr_ref re(a.mk_real_part(o), m);
+            expr_ref im(a.mk_imag_part(o), m);
+            expr_ref rv(m), iv(m);
+            if (!get_value(ctx.get_enode(re), rv) || !get_value(ctx.get_enode(im), iv))
+                return false;
+            value = a.mk_complex(rv, iv);
+        }
+        else if (m.is_value(n->get_root()->get_expr())) {
             value = n->get_root()->get_expr();
         }
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
@@ -864,6 +872,8 @@ namespace arith {
     }
 
     void solver::ensure_column(theory_var v) {
+        if (a.is_complex(var2expr(v)))
+            return;
         SASSERT(!is_bool(v));
         if (!lp().external_is_used(v))
             register_theory_var_in_lar_solver(v);
@@ -892,7 +902,7 @@ namespace arith {
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
-            if (is_bool(v))
+            if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
             ensure_column(v);
             lp::lpvar  vj = lp().external_to_local(v);
@@ -931,9 +941,11 @@ namespace arith {
         int start = s().rand()();
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
-            if (is_bool(v))
+            if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
-            if (!ctx.is_shared(var2enode(v)))
+            // Projections are the shared interface to pair-valued Complex terms.
+            if (!ctx.is_shared(var2enode(v)) &&
+                !a.is_real_part(var2expr(v)) && !a.is_imag_part(var2expr(v)))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
@@ -1597,6 +1609,9 @@ namespace arith {
         case OP_TO_INT:
         case OP_TO_REAL:
         case OP_NUM:
+        case OP_COMPLEX:
+        case OP_REAL_PART:
+        case OP_IMAG_PART:
             return false;
         default:
             return true;            
