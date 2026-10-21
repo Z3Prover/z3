@@ -2692,6 +2692,10 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{arg1 ^ arg2}.
 
+       If both arguments are integers, the result is an integer and denotes
+       \ccode{arg1 ^ abs(arg2)}, including \ccode{0 ^ 0 = 1}.
+       Otherwise the arguments are coerced to reals and real exponentiation is used.
+
        The arguments must have int or real type.
 
        def_API('Z3_mk_power', AST, (_in(CONTEXT), _in(AST), _in(AST)))

@@ -71,6 +71,7 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 | #11164: ground-index array equality and MBQI | [Ground-index equality audit](PR_11164_ARRAY_GROUND_INDEX_EQ_REPORT.md) | [`Z3ArrayGroundIndexEq.fst`](Z3ArrayGroundIndexEq.fst) |
 | #11165: provably out-of-range substring offsets | [Sequence extract audit](PR_11165_SEQ_EXTRACT_LENGTH_PRODUCT_REPORT.md) | [`Z3SeqExtractLengthProduct.fst`](Z3SeqExtractLengthProduct.fst) |
 | #11180: exponentiation preprocessing, counterexamples to original bounds, and corrected real-exponent clauses | [Exponentiation audit and scope correction to the original NLA power proofs](PR_11180_POWER_REPORT.md) | [`Z3PowerPreprocessing.fst`](Z3PowerPreprocessing.fst), [`Z3PowerSaturation.fst`](Z3PowerSaturation.fst) |
+| zwine: integer absolute-exponent semantics, guarded refinements, and private search phasing | [Integer exponentiation audit: five checked modules with fresh-cache replay and manual C++ boundaries](ZWINE_NFV_REPORT.md) | [`Z3SwinePower.fst`](Z3SwinePower.fst), [`Z3SwineRefinements.fst`](Z3SwineRefinements.fst), [`Z3SwineInterpolation.fst`](Z3SwineInterpolation.fst), [`Z3SwineSearch.fst`](Z3SwineSearch.fst), [`Z3SwinePrime.fst`](Z3SwinePrime.fst) |
 
 For proof-leaf tagging experiments and checker coverage measurements,
 see [proof-checking experiments](PROOF_CHECKING.md#experiments-and-coverage).
