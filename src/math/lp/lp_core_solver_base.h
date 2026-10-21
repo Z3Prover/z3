@@ -552,6 +552,12 @@ public:
         TRACE(lar_solver_feas, tout << "not tracking feas j = " << j << ", v = " << v << (column_is_feasible(j)? " feas":" non-feas") << "\n";);
     }
 
+    // m_x[j] -= delta * a, then update the feasibility tracking of column j
+    void submul_from_x_and_track_feasibility(unsigned j, const X & delta, const T & a) {
+        submul(m_x[j], delta, a);
+        track_column_feasibility(j);
+    }
+
     void add_delta_to_x(unsigned j, const X& delta) {
         m_x[j] += delta;
         TRACE(lar_solver_feas, tout << "not tracking feas j = " << j << " v = " << m_x[j] << " delta = " << delta << (column_is_feasible(j) ? " feas" : " non-feas") << "\n";);

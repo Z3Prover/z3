@@ -142,6 +142,8 @@ struct statistics {
     unsigned m_bounds_tightenings = 0;
     unsigned m_nla_throttled_lemmas = 0;
     unsigned m_pivots = 0;
+    unsigned m_pivot_row_updates = 0;   // rows rewritten by pivots
+    unsigned m_pivot_cells = 0;         // pivot-row cells visited while rewriting rows
     unsigned m_bp_rows_analyzed = 0;
     unsigned m_bp_bound_candidates = 0;
     unsigned m_bp_bounds_interesting = 0;
@@ -156,6 +158,8 @@ struct statistics {
         st.update("arith-factorizations", m_num_factorizations);
         st.update("arith-make-feasible", m_make_feasible);
         st.update("arith-pivots", m_pivots);
+        st.update("arith-pivot-row-updates", m_pivot_row_updates);
+        st.update("arith-pivot-cells", m_pivot_cells);
         st.update("arith-bp-rows-analyzed", m_bp_rows_analyzed);
         st.update("arith-bp-bound-candidates", m_bp_bound_candidates);
         st.update("arith-bp-bounds-interesting", m_bp_bounds_interesting);

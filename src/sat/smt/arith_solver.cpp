@@ -420,6 +420,10 @@ namespace arith {
 
     void solver::assert_bound(bool is_true, api_bound& b) {
         lp::constraint_index ci = b.get_constraint(is_true);
+        if (lp().constraint_is_redundant(ci)) {
+            ++m_stats.m_assert_redundant;
+            return;
+        }
         lp().activate(ci);
         TRACE(arith, tout << b << " " << is_infeasible() << "\n";);
         if (is_infeasible()) 
@@ -429,9 +433,11 @@ namespace arith {
             ++m_stats.m_assert_lower;
         else 
             ++m_stats.m_assert_upper;
-        inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) 
-            propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        if (propagate_eqs()) {
+            inf_rational value = b.get_value(is_true);
+            if (value.is_rational())
+                propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        }
 #if 0
         if (propagation_mode() != BP_NONE)
             lp().add_column_rows_to_touched_rows(b.tv().id());

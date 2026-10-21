@@ -1410,7 +1410,7 @@ namespace lp {
            if (tableau_with_costs()) {
               m_imp->m_basic_columns_with_changed_cost.insert(bj);
            }
-           get_core_solver().m_r_solver.add_delta_to_x_and_track_feasibility(bj, -A_r().get_val(c) * delta);
+           get_core_solver().m_r_solver.submul_from_x_and_track_feasibility(bj, delta, A_r().get_val(c));
            TRACE(change_x_del,
               tout << "changed basis column " << bj << ", it is " <<
               (column_is_feasible(bj) ? "feas" : "inf") << std::endl;);
@@ -2323,6 +2323,47 @@ namespace lp {
     void lar_solver::activate_check_on_equal(constraint_index ci, unsigned& equal_column) {
         auto const& c = m_imp->m_constraints[ci];
         update_column_type_and_bound_check_on_equal(c.column(), c.rhs_impq(), ci, equal_column);
+    }
+
+    // a + d <= b, computed without a temporary in the common case
+    static bool le_shifted(const mpq& a, int d, const mpq& b) {
+        if (d == 0)
+            return a <= b;
+        mpq t(a);
+        t += d;
+        return t <= b;
+    }
+
+    bool lar_solver::constraint_is_redundant(constraint_index ci) const {
+        auto const& c = m_imp->m_constraints[ci];
+        lpvar j = c.column();
+        // integer tightening of a fractional bound is left to the full update
+        if (column_is_int(j) && !c.rhs().is_int())
+            return false;
+        impq const& r = c.rhs_impq();
+        switch (c.kind()) {
+        case LE:
+        case LT: {
+            // the new upper bound is (r.x, r.y - 1) for LT
+            if (!column_has_upper_bound(j))
+                return false;
+            impq const& ub = get_upper_bound(j);
+            if (ub.x != r.x)
+                return ub.x < r.x;
+            return le_shifted(ub.y, c.kind() == LT ? 1 : 0, r.y);
+        }
+        case GE:
+        case GT: {
+            if (!column_has_lower_bound(j))
+                return false;
+            impq const& lb = get_lower_bound(j);
+            if (lb.x != r.x)
+                return lb.x > r.x;
+            return le_shifted(r.y, c.kind() == GT ? 1 : 0, lb.y);
+        }
+        default:
+            return false;
+        }
     }
 
     void lar_solver::activate(constraint_index ci) {
