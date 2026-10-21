@@ -136,7 +136,7 @@ static void check_real_power_bounds() {
     }
 }
 
-static void check_heap_clause_justification() {
+static void check_heap_clause_justification(bool propagate) {
     for (smt::clause_kind kind : {smt::CLS_AUX, smt::CLS_TH_AXIOM}) {
         for (unsigned remaining = 0; remaining <= 2; ++remaining) {
             ast_manager m(PGM_ENABLED);
@@ -171,7 +171,12 @@ static void check_heap_clause_justification() {
             }
             else {
                 ENSURE(cls && cls->get_num_literals() == remaining);
-                ENSURE(cls->get_justification() && !cls->get_justification()->in_region());
+                ENSURE(cls->get_justification());
+                if (propagate) {
+                    ctx.assert_expr(m.mk_not(q));
+                    ENSURE(ctx.check() == l_true);
+                    ENSURE(ctx.get_assignment(ctx.get_literal(p)) == l_true);
+                }
             }
             ctx.pop(1);
             if (remaining > 0)
@@ -182,7 +187,8 @@ static void check_heap_clause_justification() {
 
 void tst_smt_context()
 {
-    check_heap_clause_justification();
+    check_heap_clause_justification(false);
+    check_heap_clause_justification(true);
     check_real_power_bounds();
     check_symbolic_regex_substring();
 

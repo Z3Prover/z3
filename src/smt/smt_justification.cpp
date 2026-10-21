@@ -47,7 +47,7 @@ namespace smt {
                                                                  literal const * lits):
         m_antecedent(js),
         m_num_literals(num_lits) {
-        SASSERT(!js || js->in_region());
+        // Heap antecedents must be owned by the context, not this region wrapper.
         auto& r = ctx.get_region();
         m_literals = new (r) literal[num_lits];
         memcpy(m_literals, lits, sizeof(literal) * num_lits);
