@@ -1225,7 +1225,33 @@ defined. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
 alias checked in Lean, an alias in a popped scope).
 
-## Arithmetic proof infrastructure
+## Boolean and EUF proof infrastructure
+
+### Native `alldiff` clauses (2026-10-20)
+
+The native `alldiff` checker plugin accepted every hint ("first version
+just trusts that distinct is internalized correctly"), so a clause log
+could infer any clause natively under that label. Z3 emitted `alldiff`
+for two different things: the clausification of a `distinct` asserted at
+the root (the clause of all pairwise equalities for a negated root
+`distinct`, unit disequalities for a positive one, and the fresh-symbol
+encodings above 32 arguments), which follows from the asserted `distinct`
+and not from the hint, and the two gate clauses of a `distinct` below the
+root, `(or (not d) (not some_eq))` and `(or d some_eq)` with `some_eq`
+the disjunction of the pairwise equalities, which are tautologies.
+
+The root clauses are now logged as input clauses, like every other root
+clausification (an `(assert (and a b))` logs `(assume a)` and
+`(assume b)`), so the log no longer claims a theory inference for them;
+the exporter already tied `alldiff` clauses to the original assertions
+through its `assume` path, and that path is unchanged. The checker
+verifies the gate pair: the two literals have one polarity, every pair of
+arguments that can be equal has its equality among the disjuncts for the
+positive clause, and every disjunct is an equality of two arguments for
+the negated one. Anything else is rejected and falls to the SMT check,
+which refutes the old root shape with a countermodel. The `proof_replay`
+unit test covers the accepted and rejected shapes and replays a log with
+both gate clauses natively.
 
 ### Native xor gate clauses (2026-10-19)
 
@@ -1250,6 +1276,8 @@ is to the checker's acceptance, not to proof production or to Lean's
 independent def-axiom checking. The `proof_replay` unit test also fails
 now when the replay frontend exits inside a log instead of ending the
 binary successfully with the remaining checks unrun.
+
+## Arithmetic proof infrastructure
 
 ### Constant rows in native implied-equality checking (2026-10-19)
 

@@ -275,9 +275,11 @@ step:
     and c or (ite c a b) = b, are added as def-axiom nodes and also arrive as
     tseitin inferences; Lean proves them directly from a decidability witness
     for c with ite_eq_left and ite_eq_right.
-  - alldiff hints list clauses from internalizing distinct. Like assumed
-    clauses, they must be derived from the original assertions; the hint
-    itself never authorizes a theorem.
+  - alldiff hints list the gate clauses of a distinct below the root (the
+    distinct against the disjunction of its pairwise equalities); a distinct
+    asserted at the root is clausified into assumed clauses. Like assumed
+    clauses, alldiff clauses must be derived from the original assertions;
+    the hint itself never authorizes a theorem.
   - rup inferences and every logged clause that differs from its hint's lemma
     are derived by unit propagation over the live clause database, including
     the Tseitin definitions of compound Boolean atoms that Z3's checker also

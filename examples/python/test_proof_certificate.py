@@ -2351,6 +2351,45 @@ class TestClauseLogReplay(unittest.TestCase):
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "does not match any original"):
             self.replay(unrelated, log)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+    def test_root_distinct_clauses_are_logged_as_assumptions(self):
+        # A distinct asserted at the root is clausified like any other root
+        # assertion, so Z3 logs the clauses as assumptions. Until 2026-10-20
+        # they were alldiff inferences, which the native checker trusted
+        # without a check (the replay here ties them to the assertions either
+        # way). The alldiff hint is left to the two gate clauses of a distinct
+        # below the root, which the native checker verifies as tautologies.
+        z3_executable = proof_certificate.default_z3_executable()
+        declarations = "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)"
+        negated = (declarations + "(assert (not (distinct a b c)))"
+                   "(assert (not (= a b)))(assert (not (= a c)))(assert (not (= b c)))")
+        log = proof_clause_log.run_clause_log(z3_executable, negated)
+        self.assertNotIn("alldiff", log)
+        assumed = sorted(line for line in log.splitlines() if line.startswith("(assume"))
+        self.assertEqual(len(assumed), 4, assumed)
+        self.assertRegex(assumed[0], r"^\(assume \$\d+ \$\d+ \$\d+\)$")
+        for unit in assumed[1:]:
+            self.assertRegex(unit, r"^\(assume \(not \$\d+\)\)$")
+        certificate = self.replay(negated, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 4)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+
+        positive = "(declare-const x Real)(declare-const y Real)(declare-const z Real)(assert (distinct x y z))(assert (= x y))"
+        log = proof_clause_log.run_clause_log(z3_executable, positive)
+        self.assertNotIn("alldiff", log)
+        self.assertIn("(assume (not $", log)
+        certificate = self.replay(positive, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 2)
+
+        below_root = (declarations + "(declare-const p Bool)(assert (or p (distinct a b c)))"
+                      "(assert (or (not p) (distinct a b c)))(assert (= a c))")
+        log = proof_clause_log.run_clause_log(z3_executable, below_root)
+        hints = re.findall(r"\(alldiff ([^)]*)\)", log)
+        self.assertEqual(len(hints), 2)
+        self.assertTrue(all(len(hint.split()) == 2 for hint in hints), hints)
+        certificate = self.replay(below_root, log)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+
     def test_bad_hints_and_logs_are_rejected(self):
         cases = [
             (_LRA_LOG.replace("(farkas 1 $11 2 $17 1 $21)", "(farkas 1 $11 1 $17 1 $21)"), "do not refute"),

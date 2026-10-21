@@ -440,9 +440,7 @@ namespace euf {
         sat::status mk_tseitin_status(sat::literal a) { return mk_tseitin_status(1, &a); }
         sat::status mk_tseitin_status(sat::literal a, sat::literal b);
         sat::status mk_tseitin_status(unsigned n, sat::literal const* lits);
-        sat::status mk_distinct_status(sat::literal a) { return mk_distinct_status(1, &a); }
         sat::status mk_distinct_status(sat::literal a, sat::literal b) { sat::literal lits[2] = { a, b }; return mk_distinct_status(2, lits); }
-        sat::status mk_distinct_status(sat::literal_vector const& lits) { return mk_distinct_status(lits.size(), lits.data()); }
         sat::status mk_distinct_status(unsigned n, sat::literal const* lits);
 
         scoped_ptr<std::ostream> m_proof_out;
