@@ -420,8 +420,10 @@ namespace euf {
         auto hint = status2proof_hint(st);
         if ((st.is_asserted() || st.is_redundant()) && status_is_assumed(st))
             m_smt_proof_checker.assume(m_clause);
-        else if (st.is_asserted() || st.is_redundant())
-            m_smt_proof_checker.infer(m_clause, hint);
+        else if (st.is_asserted() || st.is_redundant()) {
+            if (!m_smt_proof_checker.infer(m_clause, hint))
+                exit(0);
+        }
         else if (st.is_deleted())
             m_smt_proof_checker.del(m_clause);
         else if (st.is_input())

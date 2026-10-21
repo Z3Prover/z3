@@ -604,6 +604,85 @@ static void tst_is_extended_numeral() {
     ENSURE(checker.check(mk_arith_hint(m, "farkas", ints(m, {1, 1}), lits)));
 }
 
+// Drive euf::smt_proof_checker directly, since the replay frontend ends the
+// process when a step does not verify. The assertions of text are, in order,
+// n_assume unit assumptions, the n_clause literals of the inferred clause, and
+// the arguments of the hint named hint. Returns whether the inference verified
+// and stores what the checker printed in out.
+static bool infer_verifies(std::string const& text, unsigned n_assume, unsigned n_clause, char const* hint, std::string& out) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    auto lits = parse_lits(m, text.c_str());
+    ENSURE(lits.size() >= n_assume + n_clause);
+    params_ref p;
+    euf::smt_proof_checker checker(m, p);
+    expr_ref_vector clause(m), args(m);
+    unsigned i = 0;
+    for (; i < n_assume; ++i) {
+        clause.reset();
+        clause.push_back(lits.get(i));
+        checker.assume(clause);
+    }
+    clause.reset();
+    for (; i < n_assume + n_clause; ++i)
+        clause.push_back(lits.get(i));
+    for (; i < lits.size(); ++i)
+        args.push_back(lits.get(i));
+    app_ref jst(m.mk_app(symbol(hint), args.size(), args.data(), m.mk_proof_sort()), m);
+    std::ostringstream captured;
+    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
+    bool ok = checker.infer(clause, jst);
+    std::cout.rdbuf(saved);
+    out = captured.str();
+    return ok;
+}
+
+// The SMT fallback proves the logged clause, or the hint's clause when the
+// logged clause follows from it (dropped literals false by RUP). It used to
+// negate the hint's clause together with the logged clause, so a hint whose
+// clause is a tautology made any logged clause pass as verified-smt.
+static void tst_fallback_proves_logged_clause() {
+    std::string decls = "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)";
+    std::string gate = "(assert (distinct a b c))(assert (or (= a b) (= a c) (= b c)))";
+    std::string out;
+    // (distinct a b c) from its negation, under the valid gate hint
+    // (or (distinct a b c) some_eq): the dropped some_eq is not false by RUP,
+    // so the fallback refutes the logged unit alone and finds it satisfiable.
+    ENSURE(!infer_verifies(decls + "(assert (not (distinct a b c)))(assert (distinct a b c))" + gate, 1, 1, "alldiff", out));
+    ENSURE(out.find("is not rup") != std::string::npos);
+    ENSURE(out.find("did not verify") != std::string::npos);
+    ENSURE(out.find("(verified-smt") == std::string::npos);
+    // Without a hint plugin the logged clause is refuted on its own as well.
+    ENSURE(!infer_verifies(decls + "(assert (not (distinct a b c)))(assert (distinct a b c))" + gate, 1, 1, "nohint", out));
+    ENSURE(out.find("did not verify") != std::string::npos);
+    // The same step with some_eq assumed false verifies natively.
+    ENSURE(infer_verifies(decls + "(assert (not (or (= a b) (= a c) (= b c))))(assert (distinct a b c))" + gate, 1, 1, "alldiff", out));
+    ENSURE(out.find("+alldiff 1") != std::string::npos);
+    ENSURE(out.find("(verified-smt") == std::string::npos);
+    // A hint the plugin cannot check but whose clause is valid: the array
+    // plugin's clause is the negation of the arguments, here
+    // (or (= a b) (not (= b a))). With (= b a) assumed the dropped literal is
+    // false by RUP and the fallback proves the hint's clause.
+    ENSURE(infer_verifies(decls + "(assert (= b a))(assert (= a b))(assert (not (= a b)))(assert (= b a))", 1, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    // Without the assumption the dropped literal is not RUP; the logged unit
+    // (= a b) alone is satisfiable and the step is rejected.
+    ENSURE(!infer_verifies(decls + "(assert (= a b))(assert (not (= a b)))(assert (= b a))", 0, 1, "array", out));
+    ENSURE(out.find("is not rup") != std::string::npos);
+    ENSURE(out.find("did not verify") != std::string::npos);
+    // When the dropped literal is not RUP but the logged clause is valid on its
+    // own, the fallback proves it; the output must not say "is not rup", which
+    // z3test's proof_matrix.py reads as a rejection.
+    ENSURE(infer_verifies(decls + "(assert (= a a))(assert (not (= a a)))(assert (= b a))", 0, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    ENSURE(out.find("is not rup") == std::string::npos);
+    // A logged clause outside the hint's clause is proved on its own.
+    ENSURE(infer_verifies(decls + "(assert (= a b))(assert (= b a))(assert (= a a))", 1, 1, "array", out));
+    ENSURE(out.find("(verified-smt") != std::string::npos);
+    ENSURE(!infer_verifies(decls + "(assert (= b a))(assert (= a a))", 0, 1, "array", out));
+    ENSURE(out.find("did not verify") != std::string::npos);
+}
+
 static void tst_trim_satisfied_clause() {
     params_ref params;
     reslimit limit;
@@ -643,5 +722,6 @@ void tst_proof_replay() {
     tst_replay_tseitin_xor();
     tst_checker_alldiff();
     tst_replay_alldiff_gates();
+    tst_fallback_proves_logged_clause();
     tst_replay_folds_printed_numerals();
 }
