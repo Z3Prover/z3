@@ -281,6 +281,11 @@ class _Terms:
             return z3.Implies(arguments[0], arguments[1])
         if head == "xor" and count == 2:
             return z3.Xor(arguments[0], arguments[1])
+        if head == "xor" and count == 1:
+            # Z3 accepts (xor p) and reads it as p; the input may state it.
+            # Live sat.smt logs simplify the node away before logging, so
+            # this branch serves constructed or future logs (see ensure_gates).
+            return _unary_xor(arguments[0])
         if head == "ite" and count == 3:
             return z3.If(arguments[0], arguments[1], arguments[2])
         if head == "=" and count == 2:
@@ -361,6 +366,15 @@ class _Terms:
             if isinstance(hint, list) and hint[:1] == ["deps"]:
                 return _dependency_numbers(hint)
         return None
+
+
+def _unary_xor(argument):
+    """The one-argument application of xor, which z3py's Xor does not build."""
+    # Z3 shares one OP_XOR declaration (binary domain) between its arities;
+    # the throwaway binary application is only a way to obtain it.
+    decl = z3.Xor(argument, argument).decl()
+    return z3.BoolRef(z3.Z3_mk_app(argument.ctx.ref(), decl.ast, 1, (z3.Ast * 1)(argument.as_ast())),
+                      argument.ctx)
 
 
 def _strip(literal):
@@ -741,6 +755,10 @@ class _Replay:
             elif kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF) and z3.is_bool(args[0]):
                 clauses = [[z3.Not(atom), z3.Not(args[0]), args[1]], [z3.Not(atom), args[0], z3.Not(args[1])],
                            [atom, args[0], args[1]], [atom, z3.Not(args[0]), z3.Not(args[1])]]
+            elif kind == z3.Z3_OP_XOR and len(args) == 1:
+                # Z3 reads (xor p) as p. Its simplifier removes the node before
+                # logging, so only a constructed (or future) log reaches here.
+                clauses = [[atom, z3.Not(args[0])], [z3.Not(atom), args[0]]]
             elif kind == z3.Z3_OP_XOR:
                 clauses = [[atom, z3.Not(args[0]), args[1]], [atom, args[0], z3.Not(args[1])],
                            [z3.Not(atom), args[0], args[1]], [z3.Not(atom), z3.Not(args[0]), z3.Not(args[1])]]

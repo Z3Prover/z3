@@ -1265,6 +1265,30 @@ verifies through the fallback with a dropped RUP literal (and without any
 holds on its own), and a logged clause outside the hint's clause is proved
 on its own.
 
+### One-argument `xor` (2026-10-21)
+
+Z3's parser accepts `(xor p)` and its rewriter reads it as `p`
+(`bool_rewriter`, `OP_XOR` with one argument; the legacy core records the
+rewrite `(= (xor p) p)`), while n-ary `xor` is binarized, so one and two
+are the only arities a certificate can carry. The reconstructor rejected
+the unary node ("wrong number of arguments"), which kept z3test
+`3434.smt2` (`(assert (xor false))`) out of both paths. `_validate_graph`
+now admits the one-argument application, `_formula_body`,
+`_boolean_connective`, and `_congruence_term` render it as its argument,
+and `_gate_contradiction` proves its two gate clauses `(or (xor p) (not
+p))` and `(or (not (xor p)) p)`; zero or three arguments stay rejected.
+The clause-log exporter builds the application when a log mentions it
+(`_unary_xor`; z3py's `Xor` is binary) and `ensure_gates` adds those two
+clauses. Z3's simplifier removes the unary `xor` before logging, so live
+logs assume the simplified clauses and the exporter ties them to the
+assertions by `cnf` lemmas as before; the legacy path is axiom-free.
+Tests: `test_proof_to_lean.py` (`UNARY_XOR`, the arity rejections,
+`DEF_AXIOM_CLAUSES`, the gate polarity sweep, the structure expansion,
+`CONFIGURED_INPUTS["3434"]` verbatim), `test_proof_certificate.py`
+(`UNARY_XOR_GATES_LOG`, a constructed log keeping the literal, whose final
+`rup` step needs the gates), `test_proof_to_lean_integration.py` (both
+cores, the constructed log's def-axioms checked without axioms).
+
 ### `distinct` gate clauses as def-axioms, one-argument `distinct` (2026-10-21)
 
 The clause-log exporter routed every `alldiff` clause through its `assume`

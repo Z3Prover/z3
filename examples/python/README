@@ -100,7 +100,8 @@ and a vertical bar always closes the symbol, matching SMT-LIB 2.5+ and Z3's
 scanner. Nonstandard block comments are rejected.
 
 Assertions may use Boolean constants, Boolean variables, not, and, or, implies,
-xor, Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
+xor (including Z3's one-argument xor, which it reads as the argument itself),
+Boolean equality/distinct, and Boolean ite. The qf_lra fragment adds Real
 variables and numerals, sums, differences, negation, multiplication by a
 constant, division by a nonzero constant, Real-valued ite whose condition is
 any supported formula, and the atoms <=, <, >=, >, =, and distinct over Real

@@ -440,6 +440,8 @@ def _validate_graph(source, certificate):
         domain = decl.domain
         if decl.kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
             domain = ("Bool",) * len(arguments)
+        elif decl.kind == z3.Z3_OP_XOR and len(arguments) == 1:
+            domain = ("Bool",)  # Z3 accepts (xor p) and reads it as p; see _formula_body.
         elif decl.range in _ARITH_SORTS and decl.kind in (z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_MUL):
             domain = (decl.range,) * max(len(arguments), 1)
         elif decl.range == "Bool" and decl.kind == z3.Z3_OP_DISTINCT and decl.domain[:1] not in ((), ("Bool",)):
@@ -749,6 +751,13 @@ def _formula_body(graph, node, atom_indices, term=None, formula=None):
     if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
         return "(Iff %s %s)" % tuple(args)
     if kind == z3.Z3_OP_XOR:
+        if len(args) == 1:
+            # Z3's parser accepts a one-argument xor (its n-ary xor is
+            # binarized, so one and two are the only arities) and its
+            # rewriter reads it as the argument itself (bool_rewriter,
+            # OP_XOR with one argument), which the legacy core records as
+            # the rewrite (= (xor p) p); the parity reading agrees.
+            return args[0]
         return "(Or (And %s (Not %s)) (And (Not %s) %s))" % (args[0], args[1], args[0], args[1])
     if kind == z3.Z3_OP_ITE:
         return "(Or (And %s %s) (And (Not %s) %s))" % (args[0], args[1], args[0], args[2])
@@ -947,6 +956,8 @@ def _congruence_term(kind, arguments):
     if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
         return _iff_congruence(*arguments)
     if kind == z3.Z3_OP_XOR:
+        if len(arguments) == 1:
+            return arguments[0]  # (xor p) renders as p
         return "(or_congr (and_congr %s (not_congr %s)) (and_congr (not_congr %s) %s))" % (
             arguments[0], arguments[1], arguments[0], arguments[1])
     if kind == z3.Z3_OP_ITE:
@@ -1385,6 +1396,8 @@ def _boolean_connective(kind, children):
     if kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF):
         return ("iff",) + tuple(children)
     if kind == z3.Z3_OP_XOR:
+        if len(children) == 1:
+            return children[0]  # (xor p) renders as p
         left, right = children
         return ("or", ("and", left, ("not", right)), ("and", ("not", left), right))
     if kind == z3.Z3_OP_ITE:
@@ -1977,6 +1990,12 @@ def _gate_contradiction(graph, formula, truth, proof, fact):
         elif all(neg):
             return ("(%s (Iff.intro (fun _arg => False.elim (%s _arg))"
                     " (fun _arg => False.elim (%s _arg))))") % (proof, neg[0], neg[1])
+    elif kind == z3.Z3_OP_XOR and len(args) == 1:
+        # (xor p) is p: the gate clauses are (or (xor p) (not p)) and (or (not (xor p)) p).
+        if truth and neg[0]:
+            return "(%s %s)" % (neg[0], proof)
+        if not truth and pos[0]:
+            return "(%s %s)" % (proof, pos[0])
     elif kind == z3.Z3_OP_XOR:
         if truth and all(pos):
             return ("(Or.elim %s (fun _pair => (And.right _pair) %s)"

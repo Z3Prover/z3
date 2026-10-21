@@ -19,11 +19,13 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_clause_log
 import proof_preprocessing
 import proof_to_lean
+from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
     BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
-    STRUCTURAL, NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
+    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
 )
 
 
@@ -53,7 +55,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
             return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED, UNARY_XOR,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
@@ -62,7 +64,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
         # z3test regressions whose output, model, and search options used to
         # be rejected at the frontend: the options never reach the solver or
         # the certificate, and the theorem is over the assertions alone.
-        for name in ["3220", "z3.4", "z3.5"]:
+        for name in ["3220", "3434", "z3.4", "z3.5"]:
             with self.subTest(name=name):
                 source = CONFIGURED_INPUTS[name]
                 certificate = proof_certificate.export_certificate(source)
@@ -125,6 +127,31 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertGreater(certificate["rule_counts"]["def-axiom"], 0)
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
+
+    def test_one_argument_xor_through_both_cores(self):
+        # (xor p) is p for Z3; the legacy core rewrites it away (checked
+        # axiom-free above), the sat.smt core simplifies it before logging and
+        # the exporter ties the assumed clauses to the assertions by cnf
+        # lemmas, and a log that keeps the literal gets its two gate clauses
+        # as def-axioms, which Lean proves without axioms.
+        for source in [UNARY_XOR, UNARY_XOR_GATES, CONFIGURED_INPUTS["3434"]]:
+            with self.subTest(source=source):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], "propositional")
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "checked.lean"
+                    proof_to_lean.check_and_write(source, certificate, output)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(UNARY_XOR_GATES, context)
+        certificate = proof_clause_log.build_certificate(UNARY_XOR_GATES, fragment, assertions,
+                                                         UNARY_XOR_GATES_LOG, context)
+        self.assertEqual(certificate["rule_counts"]["def-axiom"], 2)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            text = self.check(UNARY_XOR_GATES, certificate)
+        self.assertEqual(text.count("private theorem def_axiom_"), 2)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
@@ -407,6 +434,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
             "(or (= (not p) (not q)) p q)",
             "(or (not (= (not p) (not q))) p (not q))",
             "(or (not (xor (not p) q)) p (not q))",
+            "(or (not (xor (not p))) (not p))", "(or (xor (not p)) p)",
+            "(or (not (xor (and p q))) (and p q))", "(or (xor (and p q)) (not (and p q)))",
             "(or (ite (not p) q r) p (not q))",
             "(or (not (ite (not p) q r)) (not p) r)",
             "(or (not (=> (not p) (not q))) p (not q))",

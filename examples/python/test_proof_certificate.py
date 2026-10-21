@@ -1018,6 +1018,25 @@ _UF_ITE_ALLDIFF_LOG = """\
 (infer rup)
 """
 
+# A one-argument xor, which Z3 accepts and reads as its argument. Z3's
+# simplifier removes it before logging (the live log assumes (or q p)), so
+# this constructed log keeps the literal to exercise the replay's building of
+# the application and its two gate clauses, (or (xor p) (not p)) and (or (not
+# (xor p)) p), on which the final rup step depends. Public for the Lean
+# integration tests.
+UNARY_XOR_GATES = "(declare-const p Bool)(declare-const q Bool)(assert (or q (xor p)))(assert (not p))(assert (not q))"
+UNARY_XOR_GATES_LOG = """\
+(declare-fun q () Bool)
+(declare-fun p () Bool)
+(define-const $5 Bool (xor p))
+(assume q $5)
+(assume (not p))
+(assume (not q))
+(declare-fun rup () Proof)
+(infer $5 rup)
+(infer rup)
+"""
+
 # A distinct below the root: Z3 relates it to the disjunction of its pairwise
 # equalities by two alldiff gate clauses, (or d some_eq) and (or (not d) (not
 # some_eq)), next to the tseitin clauses of the disjunction. d is unused.
@@ -2440,6 +2459,32 @@ class TestClauseLogReplay(unittest.TestCase):
         # The two gate clauses are def-axiom nodes, not cnf lemmas over the assertions.
         self.assertNotIn("th-lemma", certificate["rule_counts"])
         self.assertGreaterEqual(certificate["rule_counts"]["def-axiom"], 2)
+
+    def test_one_argument_xor_is_built_with_its_gate_clauses(self):
+        context = z3.Context()
+        p = z3.Bool("p", ctx=context)
+        unary = proof_clause_log._unary_xor(p)
+        self.assertEqual((unary.decl().kind(), unary.num_args()), (z3.Z3_OP_XOR, 1))
+        self.assertTrue(z3.eq(z3.simplify(unary), p))  # Z3 reads (xor p) as p
+        certificate = self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        self.assertEqual(certificate["rule_counts"]["def-axiom"], 2)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])  # the assumed clauses are the assertions
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+        xor = [index for index, node in enumerate(nodes)
+               if declarations[node["declaration"]]["kind"] == z3.Z3_OP_XOR]
+        self.assertEqual([len(nodes[node]["arguments"]) for node in xor], [1])
+        gates = [nodes[nodes[index]["arguments"][0]] for index, node in enumerate(nodes)
+                 if declarations[node["declaration"]]["name"] == "def-axiom"]
+        self.assertTrue(all(declarations[gate["declaration"]]["name"] == "or" and len(gate["arguments"]) == 2
+                            for gate in gates))
+        # Without the gates the final step is not derivable; a zero-argument
+        # xor is rejected.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not derivable"):
+            with patch.object(proof_clause_log._Replay, "ensure_gates", lambda self, literal: None):
+                self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported operator"):
+            self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG.replace("(xor p)", "(xor)"))
 
     def test_distinct_gate_clauses_become_def_axioms(self):
         def distinct_gates(certificate):
