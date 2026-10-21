@@ -136,8 +136,53 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_heap_clause_justification() {
+    for (smt::clause_kind kind : {smt::CLS_AUX, smt::CLS_TH_AXIOM}) {
+        for (unsigned remaining = 0; remaining <= 2; ++remaining) {
+            ast_manager m(PGM_ENABLED);
+            reg_decl_plugins(m);
+            smt_params params;
+            smt::context ctx(m, params);
+            ctx.push();
+            expr_ref p(m.mk_const("p", m.mk_bool_sort()), m);
+            expr_ref q(m.mk_const("q", m.mk_bool_sort()), m);
+            ctx.internalize(p, false);
+            ctx.internalize(q, false);
+            smt::literal lits[] = {smt::false_literal, ctx.get_literal(p), ctx.get_literal(q)};
+            expr_ref_vector args(m);
+            args.push_back(m.mk_false());
+            if (remaining > 0)
+                args.push_back(p);
+            if (remaining > 1)
+                args.push_back(q);
+            expr_ref axiom(m.mk_or(args), m);
+            proof_ref pr(m.mk_asserted(axiom), m);
+            // Removing false must preserve ownership of the heap-allocated proof.
+            smt::clause* cls = ctx.mk_clause(remaining + 1, lits,
+                alloc(smt::justification_proof_wrapper, ctx, pr, false), kind);
+            if (remaining == 0) {
+                ENSURE(ctx.inconsistent());
+                ENSURE(ctx.check() == l_false);
+                ENSURE(ctx.get_proof());
+                ENSURE(m.is_false(m.get_fact(ctx.get_proof())));
+            }
+            else if (remaining == 1) {
+                ENSURE(ctx.get_assignment(ctx.get_literal(p)) == l_true);
+            }
+            else {
+                ENSURE(cls && cls->get_num_literals() == remaining);
+                ENSURE(cls->get_justification() && !cls->get_justification()->in_region());
+            }
+            ctx.pop(1);
+            if (remaining > 0)
+                ENSURE(pr->get_ref_count() == 1);
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_heap_clause_justification();
     check_real_power_bounds();
     check_symbolic_regex_substring();
 

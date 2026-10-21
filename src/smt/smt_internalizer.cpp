@@ -1487,7 +1487,10 @@ namespace smt {
             }
             DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
-                j = mk_justification(unit_resolution_justification(*this, j, simp_lits.size(), simp_lits.data()));
+                if (j && !j->in_region())
+                    j = alloc(unit_resolution_justification, j, simp_lits.size(), simp_lits.data());
+                else
+                    j = mk_justification(unit_resolution_justification(*this, j, simp_lits.size(), simp_lits.data()));
             }            
             break;
         }
@@ -1514,18 +1517,18 @@ namespace smt {
         bool  lemma = is_lemma(k);
         m_stats.m_num_mk_lits += num_lits;
 
+        // Only non-unit lemmas own their heap-allocated justifications.
+        if (j && !j->in_region() && (!lemma || num_lits <= 1))
+            m_justifications.push_back(j);
+
         switch (num_lits) {
         case 0:
-            if (j && !j->in_region())
-                m_justifications.push_back(j);
             TRACE(mk_clause, tout << "empty clause... setting conflict\n";);
             set_conflict(j == nullptr ? b_justification::mk_axiom() : b_justification(j));
             SASSERT(inconsistent());
             return nullptr;
         case 1: {
             literal unit = lits[0];
-            if (j && !j->in_region())
-                m_justifications.push_back(j);
             assign(unit, j);
             inc_ref(unit);
             return nullptr;
