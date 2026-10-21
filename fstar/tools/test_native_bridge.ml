@@ -2121,10 +2121,9 @@ let arithmetic_triangle_clauses () =
   check false "(or (= x y) (not (<= (- x y) 0)) (not (<= (- x y) 0)))";
   check false "(or (= x (+ 1 y)) (not (<= (- x y) 0)) (not (>= (- x y) 0)))"
 
-let arithmetic_implied_equalities () =
-  let check sort premises target expected =
+let arithmetic_implication source premises target expected =
     let c = context () in
-    let source = "(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")" ^
+    let source = source ^
       String.concat "" (List.map (fun e -> "(assert " ^ e ^ ")") (premises @ [target])) in
     let inputs = parse c source in
     let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -2133,16 +2132,20 @@ let arithmetic_implied_equalities () =
     let conclusion = List.hd (List.rev judgments) in
     let facts = List.rev (List.tl (List.rev judgments)) in
     require (U.checked_theory_lemma (U.Unverified "th-lemma") conclusion facts = expected)
-      ("incorrect implied equality: " ^ source);
+      ("incorrect arithmetic implication: " ^ source);
     require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") conclusion facts))
-      "implied equality accepted assumed-origin evidence";
+      "arithmetic implication accepted assumed-origin evidence";
     let premises = List.map (fun conclusion1 ->
         { U.conclusion = conclusion1; hypotheses = [] }) facts in
     require (match U.check_node [] {
         U.kind = U.Unverified "th-lemma"; conclusion1 = conclusion; premises } with
         | Some (_, pending) -> Z.equal pending (if expected then Z.zero else Z.one)
         | None -> false)
-      "implied equality lost its explicit obligation"
+      "arithmetic implication lost its explicit obligation"
+
+let arithmetic_implied_equalities () =
+  let check sort = arithmetic_implication
+      ("(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")")
   in
   check "Int" ["(<= x 2)"; "(>= x 2)"] "(= 0 (+ (- 2) x))" true;
   check "Int" ["(not (<= x 2))"; "(not (>= x 4))"] "(= 1 (+ (- 2) x))" true;
@@ -2153,6 +2156,34 @@ let arithmetic_implied_equalities () =
   check "Int" ["(<= x 2)"] "(= x 2)" false;
   check "Int" ["(<= x 2)"; "(>= y 2)"] "(= x 2)" false;
   check "Int" ["(<= (+ x y) 3)"; "(>= (+ x y) 3)"; "(= y 1)"] "(= x 1)" false
+
+let arithmetic_implied_bounds () =
+  let check sort = arithmetic_implication
+      ("(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")") in
+  check "Real" ["(<= (+ (* 2 x) y) 7)"; "(>= y 1)"] "(<= x 3)" true;
+  check "Real" ["(<= (+ (* 2 x) y) 7)"; "(>= y 1)"] "(<= x 2)" false;
+  check "Int" ["(not (<= (+ (* 2 x) y) 7))"; "(<= y 2)"] "(>= x 3)" true;
+  check "Real" ["(not (<= (+ (* 2 x) y) 7))"; "(<= y 2)"] "(>= x 3)" false;
+  let declarations = String.concat "" (List.init 19 (fun i ->
+      Printf.sprintf "(declare-const x%d Real)" i)) in
+  let premises = List.init 18 (fun i ->
+      Printf.sprintf "(<= (* 2 x%d) x%d)" i (i + 1)) in
+  arithmetic_implication declarations premises "(<= (* 262144 x0) x18)" true;
+  arithmetic_implication declarations premises "(<= (* 262145 x0) x18)" false
+
+let arithmetic_inferred_splits () =
+  let check sort = arithmetic_implication
+      ("(declare-const x " ^ sort ^ ")(declare-const y " ^ sort ^ ")") in
+  check "Int" ["(>= (- (* 10 x) (* 10 y)) 1)";
+               "(<= (- (* 10 x) (* 10 y)) 9)"] "false" true;
+  check "Int" ["(>= (- (* 10 x) (* 10 y)) 52)";
+               "(<= (- (* 10 x) (* 10 y)) 59)"] "false" true;
+  check "Int" ["(>= (- (* 10 x) (* 10 y)) (- 59))";
+               "(<= (- (* 10 x) (* 10 y)) (- 52))"] "false" true;
+  check "Real" ["(>= (- (* 10 x) (* 10 y)) 1)";
+                "(<= (- (* 10 x) (* 10 y)) 9)"] "false" false;
+  check "Int" ["(>= (- (* 10 x) (* 10 y)) 1)";
+               "(<= (- (* 10 x) (* 10 y)) 10)"] "false" false
 
 let erased_refinement_guards () =
   require (A.__proj__BaseSort__item__name (A.BaseSort "Real") = "Real")
@@ -2290,6 +2321,8 @@ let () =
      "unused-quantifier-rewrites", unused_quantifier_rewrites;
      "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
      "checked-implied-arithmetic-equalities", arithmetic_implied_equalities;
+     "checked-implied-arithmetic-bounds", arithmetic_implied_bounds;
+     "checked-inferred-integer-splits", arithmetic_inferred_splits;
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;

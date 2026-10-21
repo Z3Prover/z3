@@ -54,8 +54,7 @@ let lemma_rounded_equivalent_sound (i:interpretation value) (rho:env value) (s t
     (fun _ -> lemma_implication_sound i rho t s);
   match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()
 
-let rec gcd (a b:nat) : Tot nat (decreases b) =
-  if b = 0 then a else gcd b (a % b)
+let gcd = P.gcd
 
 let rec divisor (ms:list (int & expr)) : Tot nat (decreases ms) =
   match ms with [] -> 0 | (n, _) :: rest -> gcd (absolute n) (divisor rest)
@@ -92,7 +91,14 @@ let rec lemma_quotient_value (d:pos) (ms:list (int & expr))
   | (n, e) :: rest ->
     lemma_quotient_value d rest i nu rho;
     FStar.Math.Lemmas.lemma_div_mod n d;
-    (match eval i e rho with VInt _ -> () | _ -> ())
+    assert (n % d = 0 /\ n = d * (n / d));
+    (match eval i e rho with
+     | VInt k ->
+       P.lemma_of_int_product n k;
+       P.lemma_of_int_product d ((n / d) * k);
+       P.lemma_of_int_sum ((n / d) * k) (quotient_value d rest i rho);
+       P.lemma_of_int_product d (quotient_value d ms i rho)
+     | _ -> ())
 
 let lemma_indivisible_equation (e:expr) (i:interpretation value)
                                (nu:value -> real) (rho:env value)

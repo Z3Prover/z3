@@ -4,6 +4,9 @@ open FStar.Real
 open FStar.List.Tot
 module L = FStar.List.Tot
 
+let rec gcd (a b:nat) : Tot nat (decreases b) =
+  if b = 0 then a else gcd b (a % b)
+
 type polynomial (a:eqtype) = {
   mono: list (int & a);
   cst: int;

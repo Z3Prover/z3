@@ -107,6 +107,90 @@ let lemma_check_sound (c:certificate) (conclusion:expr) (facts:list expr)
       lemma_conj_branch i rho facts (branch true c);
       E.lemma_check_with_numeric_model c.above conclusion (facts @ [branch true c]) i rho)
 
+let split_candidate (split:expr) (threshold:int) (conclusion:expr) (facts:list expr)
+  : option certificate =
+  let c = { split = split; threshold = threshold; below = []; above = [] } in
+  A.synthesize conclusion (facts @ [branch false c]) >>= (fun below ->
+  A.synthesize conclusion (facts @ [branch true c]) >>= (fun above ->
+  let result = { c with below = below; above = above } in
+  if check result conclusion facts then Some result else None))
+
+let rec split_thresholds (split x:expr) (p:int) (rows:list A.poly)
+                         (conclusion:expr) (facts:list expr)
+  : Tot (option certificate) (decreases rows) =
+  match rows with
+  | [] -> None
+  | row :: rest ->
+    let a = A.search_coefficient x row.mono in
+    let candidate =
+      if a > 0 then split_candidate split ((-p * row.cst) / a) conclusion facts
+      else if a < 0 then split_candidate split ((p * row.cst) / (-a)) conclusion facts
+      else None in
+    (match candidate with Some c -> Some c
+     | None -> split_thresholds split x p rest conclusion facts)
+
+(* Continued fractions propose short integer normals. Intercepts only propose
+   thresholds: both sides of every split are replayed against the actual facts. *)
+let rec split_convergents (fuel:nat) (x y:expr) (sign:int)
+                          (a b:nat) (p0 p1 q0 q1:int) (rows:list A.poly)
+                          (conclusion:expr) (facts:list expr)
+  : Tot (option certificate) (decreases fuel) =
+  if fuel = 0 || b = 0 then None else
+  let k = a / b in
+  let p, q = k * p1 + p0, k * q1 + q0 in
+  let split = add (multiply p x) (multiply (sign * q) y) in
+  match split_thresholds split x p rows conclusion facts with
+  | Some c -> Some c
+  | None -> split_convergents (fuel - 1) x y sign b (a % b) p1 p q1 q
+              rows conclusion facts
+
+let rec split_terms (terms:list (int & expr)) : Tot (list (int & expr)) (decreases terms) =
+  match terms with
+  | [] -> []
+  | (n, e) :: rest -> if n = 0 then split_terms rest else (n, e) :: split_terms rest
+
+let rec split_inputs (facts:list expr) : Tot (option (list A.poly)) (decreases facts) =
+  match facts with
+  | [] -> Some []
+  | e :: rest ->
+    A.prepare_literal (1, 1) true e >>= (fun p ->
+    split_inputs rest >>= (fun rows ->
+    Some ({ p.poly with mono = split_terms (P.collect p.poly.mono []) } :: rows)))
+
+let rec split_normals (candidates rows:list A.poly) (conclusion:expr) (facts:list expr)
+  : Tot (option certificate) (decreases candidates) =
+  match candidates with
+  | [] -> None
+  | row :: rest ->
+    let candidate =
+      match row.mono with
+      | [(a, x); (b, y)] ->
+        if get_sort x <> A.int_s || get_sort y <> A.int_s then None
+        else split_convergents 16 x y (if (a < 0) = (b < 0) then 1 else -1)
+               (I.absolute a) (I.absolute b) 0 1 1 0 rows conclusion facts
+      | _ -> None in
+    (match candidate with Some c -> Some c
+     | None -> split_normals rest rows conclusion facts)
+
+let synthesize_split (conclusion:expr) (facts:list expr) : option certificate =
+  if conclusion <> false_expr || length facts > 8 then None else
+  split_inputs facts >>= (fun rows -> split_normals rows rows conclusion facts)
+
+let inferred_split (conclusion:expr) (facts:list expr) : bool =
+  match synthesize_split conclusion facts with
+  | Some c -> check c conclusion facts
+  | None -> false
+
+let lemma_inferred_split_sound (conclusion:expr) (facts:list expr)
+                               (i:interpretation value) (rho:env value)
+  : Lemma (requires (exists (nu:value -> real). E.numeric_model i nu) /\
+                    boolean_model i /\ not_sound i /\ eq_sound i /\ or_sound i /\
+                    inferred_split conclusion facts /\ conj_holds i rho facts)
+          (ensures lit_true i rho conclusion) =
+  match synthesize_split conclusion facts with
+  | Some c -> lemma_check_sound c conclusion facts i rho
+  | None -> ()
+
 type rational = C.rational
 let zero : rational = 0, 1
 let one : rational = 1, 1
