@@ -277,9 +277,13 @@ step:
     for c with ite_eq_left and ite_eq_right.
   - alldiff hints list the gate clauses of a distinct below the root (the
     distinct against the disjunction of its pairwise equalities); a distinct
-    asserted at the root is clausified into assumed clauses. Like assumed
-    clauses, alldiff clauses must be derived from the original assertions;
-    the hint itself never authorizes a theorem.
+    asserted at the root is clausified into assumed clauses. A gate clause of
+    the right shape (two literals of one polarity, every disjunct equating
+    two arguments of the distinct, every pair covered for the positive
+    clause) becomes a def-axiom node that Lean proves from the pairs, like a
+    tseitin clause. Any other alldiff clause must be derived from the
+    original assertions, like an assumed clause; the hint itself never
+    authorizes a theorem.
   - rup inferences and every logged clause that differs from its hint's lemma
     are derived by unit propagation over the live clause database, including
     the Tseitin definitions of compound Boolean atoms that Z3's checker also

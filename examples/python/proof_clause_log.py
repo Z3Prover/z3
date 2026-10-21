@@ -380,6 +380,41 @@ def _complement(literal):
     return literal.arg(0) if z3.is_not(literal) else z3.Not(literal)
 
 
+def _distinct_gate(literals):
+    """Whether a clause is a gate clause of a distinct over terms, valid on its own.
+
+    The sat.smt core relates a distinct below the root to the disjunction of
+    its pairwise equalities by two alldiff clauses, (or d some_eq) and
+    (or (not d) (not some_eq)). The positive clause holds when every pair of
+    arguments of d is equated by a disjunct; the negated one when every
+    disjunct equates two arguments of d. Both are required here, as in Z3's
+    own checker; the reconstructor proves exactly these shapes.
+    """
+    if len(literals) != 2:
+        return False
+    for first, second in ((literals[0], literals[1]), (literals[1], literals[0])):
+        distinct, polarity = _strip(first)
+        if not z3.is_distinct(distinct) or distinct.num_args() < 2 or z3.is_bool(distinct.arg(0)):
+            continue
+        some_eq, other_polarity = _strip(second)
+        if polarity != other_polarity:
+            return False
+        arguments = distinct.children()
+        pairs = {frozenset((left.get_id(), right.get_id()))
+                 for index, left in enumerate(arguments) for right in arguments[index + 1:]}
+        disjuncts = some_eq.children() if z3.is_or(some_eq) else [some_eq]
+        covered = set()
+        for disjunct in disjuncts:
+            if not z3.is_eq(disjunct):
+                return False
+            pair = frozenset(argument.get_id() for argument in disjunct.children())
+            if pair not in pairs:
+                return False
+            covered.add(pair)
+        return not polarity or covered == pairs
+    return False
+
+
 def _tautology(literals):
     """A clause with true, not false, or complementary literals needs no source."""
     seen = {}
@@ -872,12 +907,13 @@ class _Replay:
         farkas, bound, implied-eq, euf, and arith hints list literals that are
         jointly contradictory, so the lemma is the clause of their complements.
         tseitin hints list the gate clause itself and become def-axiom nodes.
-        alldiff hints list the clause relating a distinct below the root to
-        the disjunction of its pairwise equalities (a root distinct is logged
-        as assumed clauses since 2026-10-20; older logs carry those as alldiff
-        inferences too); either way the clause is tied to the original
-        assertions, never taken from the hint. A bare smt hint claims the
-        logged clause is a theory tautology.
+        alldiff hints list one of the two gate clauses relating a distinct
+        below the root to the disjunction of its pairwise equalities; those
+        of the right shape (_distinct_gate) become def-axiom nodes too. Any
+        other alldiff clause (a root distinct, logged as assumed clauses since
+        2026-10-20 but as alldiff inferences by older logs) is tied to the
+        original assertions, never taken from the hint. A bare smt hint
+        claims the logged clause is a theory tautology.
         Whenever the lemma differs from the logged clause, the latter is
         derived from the lemma and the clause database by unit propagation.
         """
@@ -886,8 +922,10 @@ class _Replay:
         name, pairs = hint
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
-            lemma = (self.assume(lemma_literals) if name == "alldiff" else
-                     self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))]))
+            if name == "alldiff" and not _distinct_gate(lemma_literals):
+                lemma = self.assume(lemma_literals)
+            else:
+                lemma = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))])
         else:
             # The arithmetic solver's axiom for a Real division by a numeral,
             # q = 0 or q * (p / q) = p, reaches the log with its first literal

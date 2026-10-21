@@ -1018,6 +1018,54 @@ _UF_ITE_ALLDIFF_LOG = """\
 (infer rup)
 """
 
+# A distinct below the root: Z3 relates it to the disjunction of its pairwise
+# equalities by two alldiff gate clauses, (or d some_eq) and (or (not d) (not
+# some_eq)), next to the tseitin clauses of the disjunction. d is unused.
+_UF_DISTINCT_GATES = (
+    "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)(declare-const d U)"
+    "(declare-const p Bool)(assert (or p (distinct a b c)))(assert (or (not p) (distinct a b c)))"
+    "(assert (= a c))")
+_UF_DISTINCT_GATES_LOG = """\
+(declare-sort U 0)
+(declare-fun b () U)
+(declare-fun a () U)
+(define-const $15 Bool (= a b))
+(declare-fun c () U)
+(define-const $16 Bool (= b c))
+(define-const $13 Bool (= a c))
+(define-const $14 Bool (or $15 $13 $16))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $17 Bool (not $15))
+(define-const $18 Proof (tseitin $17 $14))
+(infer (not $15) $14 $18)
+(define-const $19 Bool (not $13))
+(define-const $20 Proof (tseitin $19 $14))
+(infer (not $13) $14 $20)
+(define-const $21 Bool (not $16))
+(define-const $22 Proof (tseitin $21 $14))
+(infer (not $16) $14 $22)
+(declare-fun tseitin (Bool Bool Bool Bool) Proof)
+(define-const $23 Bool (not $14))
+(define-const $24 Proof (tseitin $15 $13 $16 $23))
+(infer $15 $13 $16 (not $14) $24)
+(define-const $9 Bool (distinct a b c))
+(declare-fun alldiff (Bool Bool) Proof)
+(define-const $25 Bool (not $9))
+(define-const $26 Proof (alldiff $25 $23))
+(infer (not $9) (not $14) $26)
+(define-const $27 Proof (alldiff $9 $14))
+(infer $9 $14 $27)
+(declare-fun p () Bool)
+(assume p $9)
+(assume (not p) $9)
+(assume $13)
+(declare-fun rup () Proof)
+(infer $14 rup)
+(infer (not $9) rup)
+(infer p rup)
+(infer rup)
+"""
+
 _UF_BOOL_ARGS = """\
 (set-logic QF_UF)
 (declare-sort U 0)
@@ -2389,6 +2437,48 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertTrue(all(len(hint.split()) == 2 for hint in hints), hints)
         certificate = self.replay(below_root, log)
         self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        # The two gate clauses are def-axiom nodes, not cnf lemmas over the assertions.
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertGreaterEqual(certificate["rule_counts"]["def-axiom"], 2)
+
+    def test_distinct_gate_clauses_become_def_axioms(self):
+        def distinct_gates(certificate):
+            declarations, nodes = certificate["declarations"], certificate["nodes"]
+
+            def name(node):
+                return declarations[nodes[node]["declaration"]]["name"]
+
+            def mentions_distinct(literal):
+                literal = nodes[literal]["arguments"][0] if name(literal) == "not" else literal
+                return name(literal) == "distinct"
+
+            return [index for index, node in enumerate(nodes) if name(index) == "def-axiom"
+                    and any(mentions_distinct(literal) for literal in nodes[node["arguments"][0]]["arguments"])]
+
+        certificate = self.replay(_UF_DISTINCT_GATES, _UF_DISTINCT_GATES_LOG)
+        self.assertEqual(len(distinct_gates(certificate)), 2)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        # Either orientation of a disjunct equates the pair.
+        flipped = _UF_DISTINCT_GATES_LOG.replace("(define-const $16 Bool (= b c))", "(define-const $16 Bool (= c b))")
+        self.assertEqual(self.replay(_UF_DISTINCT_GATES, flipped)["rule_counts"], certificate["rule_counts"])
+        # Any other alldiff clause is never a def-axiom: it is tied to the
+        # assertions like a root distinct (here by a cnf lemma over an unsat
+        # core, since the input is unsatisfiable). A positive clause missing
+        # the pair (a, c), a disjunct that is no pair, a three-literal clause.
+        for tampered in [
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $14 Bool (or $15 $13 $16))", "(define-const $14 Bool (or $15 $16))"),
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $14 Bool (or $15 $13 $16))",
+                                           "(define-const $30 Bool (= a a))\n(define-const $14 Bool (or $15 $13 $16 $30))"),
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $27 Proof (alldiff $9 $14))\n(infer $9 $14 $27)",
+                                           "(declare-fun alldiff (Bool Bool Bool) Proof)\n"
+                                           "(define-const $27 Proof (alldiff $9 $15 $13))\n(infer $9 $15 $13 $27)"),
+        ]:
+            with self.subTest(tampered=tampered):
+                replayed = self.replay(_UF_DISTINCT_GATES, tampered)
+                self.assertLess(len(distinct_gates(replayed)), 2)
+                hints = {tuple(d["parameters"]) for d in replayed["declarations"] if d["name"] == "th-lemma"}
+                self.assertEqual(hints, {("cnf",)})
 
     def test_bad_hints_and_logs_are_rejected(self):
         cases = [

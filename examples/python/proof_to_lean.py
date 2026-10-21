@@ -1094,8 +1094,15 @@ def _reachable(graph, conclusion):
         reachable.add(formula)
         theory = (theory or graph.is_term(formula)
                   or (graph.kind(formula) == z3.Z3_OP_UNINTERPRETED and bool(graph.arguments(formula))))
+        if _trivial_distinct(graph, formula):
+            continue  # rendered as True: its argument occurs nowhere to unfold
         pending.extend(graph.arguments(formula))
     return reachable, theory
+
+
+def _trivial_distinct(graph, node):
+    """A distinct of one argument, which the input may state and Z3 rewrites to true."""
+    return graph.kind(node) == z3.Z3_OP_DISTINCT and len(graph.arguments(node)) == 1
 
 
 def _inline(graph, node, atom_indices, variable_indices):
@@ -1353,6 +1360,8 @@ def _boolean_structure(graph, node, atom_indices, memo=None):
     kind, arguments = graph.kind(node), graph.arguments(node)
     if kind == z3.Z3_OP_UNINTERPRETED and not arguments:
         structure = ("atom", atom_indices[graph.nodes[node].declaration])
+    elif _trivial_distinct(graph, node):
+        structure = ("true",)  # over a term as well as over an atom
     else:
         children = [_boolean_structure(graph, argument, atom_indices, memo) for argument in arguments]
         structure = _boolean_connective(kind, children)
@@ -2003,6 +2012,62 @@ def _gate_contradiction(graph, formula, truth, proof, fact):
     return None
 
 
+def _distinct_gate_contradiction(graph, terms, distinct, truth, proof, facts, formulas):
+    """Refute a distinct over terms against the disjunction of its pairwise equalities.
+
+    The sat.smt core's alldiff clauses relate a distinct d below the root to
+    some_eq, the or of equalities between its arguments: (or d some_eq) and
+    (or (not d) (not some_eq)). d unfolds to the conjunction of the pairwise
+    disequalities. With d and some_eq both held, every disjunct must equate
+    two arguments of d (in either orientation) and is refuted by the pair's
+    conjunct; with both denied, every pair must have a disjunct, which
+    builds d. Any other disjunct, or a missing pair, leaves the clause
+    unproved (the exporter accepts the same two shapes).
+    """
+    arguments = graph.arguments(distinct)
+    pairs = [(terms[left], terms[right])
+             for index, left in enumerate(arguments) for right in arguments[index + 1:]]
+    for key, other in facts.items():
+        some_eq = formulas[key]
+        if key[1] != truth or some_eq == distinct:
+            continue
+        disjuncts = graph.arguments(some_eq) if graph.kind(some_eq) == z3.Z3_OP_OR else [some_eq]
+        if not disjuncts:
+            continue
+        matches = []  # (pair position, flipped) per disjunct
+        for disjunct in disjuncts:
+            operands = graph.arguments(disjunct)
+            if graph.kind(disjunct) != z3.Z3_OP_EQ or len(operands) != 2 or not graph.is_term(operands[0]):
+                break
+            left, right = terms[operands[0]], terms[operands[1]]
+            if (left, right) in pairs:
+                matches.append((pairs.index((left, right)), False))
+            elif (right, left) in pairs:
+                matches.append((pairs.index((right, left)), True))
+            else:
+                break
+        else:
+            if truth:
+                refutations = ["(fun _eq => %s %s)" % (_project(position, len(pairs), proof),
+                                                        "(Eq.symm _eq)" if flipped else "_eq")
+                               for position, flipped in matches]
+                branch = refutations[-1]
+                for refutation in reversed(refutations[:-1]):
+                    branch = "(fun _tail => Or.elim _tail %s %s)" % (refutation, branch)
+                return "(%s %s)" % (branch, other)
+            covering = {}  # pair position -> (first disjunct index equating it, flipped)
+            for index, (position, flipped) in enumerate(matches):
+                covering.setdefault(position, (index, flipped))
+            if len(covering) == len(pairs):
+                conjuncts = []
+                for position in range(len(pairs)):
+                    index, flipped = covering[position]
+                    conjuncts.append("(fun _eq => %s %s)" % (
+                        other, _inject(index, len(disjuncts), "(Eq.symm _eq)" if flipped else "_eq")))
+                return "(%s %s)" % (proof, _fold("And.intro", conjuncts, "True.intro"))
+    return None
+
+
 def _ite_gate_lemma(graph, terms, node):
     """Prove a clause tying a Real or uninterpreted-sort ite to one branch, or return None.
 
@@ -2196,6 +2261,8 @@ def _def_axiom_lemma(graph, terms, node):
         opposite = fact(formula, not truth)
         if opposite is not None:
             contradiction = "(%s %s)" % ((opposite, evidence) if truth else (evidence, opposite))
+        elif graph.kind(formula) == z3.Z3_OP_DISTINCT and graph.arguments(formula) and graph.is_term(graph.arguments(formula)[0]):
+            contradiction = _distinct_gate_contradiction(graph, terms, formula, truth, evidence, facts, formulas)
         else:
             contradiction = _gate_contradiction(graph, formula, truth, evidence, fact)
         if contradiction is not None:
