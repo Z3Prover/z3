@@ -876,7 +876,10 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     }
     if (m_util.is_const(lhs, v) && is_lambda(rhs)) {
         quantifier* lam = to_quantifier(rhs);
-        expr_ref e(m().mk_eq(lam->get_expr(), v), m());
+        var_shifter sh(m());
+        expr_ref e(m());
+        sh(v, lam->get_num_decls(), e);
+        e = m().mk_eq(lam->get_expr(), e);
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }

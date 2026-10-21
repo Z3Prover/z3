@@ -347,9 +347,10 @@ void finite_set_axioms::size_ub_axiom(expr *sz) {
         add_unit("size", e, m.mk_eq(sz, a.mk_int(0)));    
     else if (u.is_union(e, x, y)) {
         // upper bound: |A ∪ B| ≤ |A| + |B|
-        auto szx = u.mk_size(x);
-        auto szy = u.mk_size(y);       
-        ineq = a.mk_le(sz, a.mk_add(szx, szy));        
+        expr_ref szx(u.mk_size(x), m);
+        expr_ref szy(u.mk_size(y), m);
+        expr_ref sum(a.mk_add(szx, szy), m);
+        ineq = a.mk_le(sz, sum);
         m_rewriter(ineq);
         add_unit("size", e, ineq);
         // lower bounds: |A ∪ B| ≥ |A|  and  |A ∪ B| ≥ |B|

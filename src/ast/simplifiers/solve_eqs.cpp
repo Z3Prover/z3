@@ -348,9 +348,12 @@ namespace euf {
     void solve_eqs::filter_unsafe_vars() {
         m_unsafe_vars.reset();
         recfun::util rec(m);
-        for (func_decl* f : rec.get_rec_funs())
-            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m)))
-                m_unsafe_vars.mark(term);
+        for (func_decl* f : rec.get_rec_funs()) {
+            auto const& d = rec.get_def(f);
+            if (!d.is_macro() && d.get_rhs())
+                for (expr* term : subterms::all(expr_ref(d.get_rhs(), m)))
+                    m_unsafe_vars.mark(term);
+        }
     }
 
     solve_eqs::solve_eqs(ast_manager& m, dependent_expr_state& fmls) : 

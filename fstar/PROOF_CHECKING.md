@@ -118,6 +118,13 @@ An obligation-free closed false root produces `ACCEPT`; unsupported leaves
 remain `PARTIAL`, and unsupported judgment shapes reject rather than being
 relabeled or trusted. See the [executable report](OCAML_CHECKER_REPORT.md)
 for prerequisites, exit codes, statistics, timeouts, and formal limits.
+`--sorted-core` opts non-datatype documents into the existing sort-indexed
+kernel as well. This mode has no legacy fallback: Boolean and EUF proofs
+can certify under the inhabited typed interpretation, while unsupported
+arithmetic, array, binder, and definition steps retain obligations or reject.
+It is an incremental semantic-migration path, not a complete combined
+SMT-LIB theory model. Statistics identify it as `semantics=sorted-core`;
+datatype documents continue to use `semantics=sorted-datatype`.
 `--interactive` instead evaluates complete stdin commands on a persistent
 context and checks each UNSAT proof through `Z3_set_proof_check_callback`,
 preserving push/pop, assumptions, and queries. Certification reports are
@@ -136,6 +143,22 @@ certificate examples. Typecheck individual F* modules using the command
 in the [overview](README.md).
 
 ## Native LP inference certificates
+
+Arithmetic equality propagation can also be checked without producer-supplied
+weights. `Z3LpReplay.fst` constructs the two non-strict bounds of the actual
+numeric equality conclusion. Bounded Fourier-Motzkin synthesis in
+`Z3LinearArithmeticAst.fst` proposes exact Farkas weights for each bound;
+the existing verified checker independently replays both certificates
+against the original premises before the equality is derived. Synthesis
+is limited to 32 literals, 16 elimination rounds, and 128 rows. Unsupported
+inputs or exhausted search retain an obligation. Integer strict-bound
+strengthening is not applied to reals, and no arithmetic hint or native
+solver verdict substitutes for either replay.
+
+Triangle-equality clauses accept either order of the opposing bounds,
+including reversed equality operands. Both orientations use the existing
+proved equality-to-bounds equivalence. These extensions retain the legacy
+numeric-model limitations described above; they do not repair that model.
 
 With proofs enabled, `theory_lra` exports supported
 `lp::evidence_manager::proof_expression` derivations as native proof DAGs,
