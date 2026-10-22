@@ -3,6 +3,7 @@ z3_add_component(ackermannization
     ackermannize_bv_model_converter.cpp
     ackermannize_bv_tactic.cpp
     ackr_bound_probe.cpp
+    ackr_bound_probe_registration.cpp
     ackr_helper.cpp
     ackr_model_converter.cpp
     lackr.cpp

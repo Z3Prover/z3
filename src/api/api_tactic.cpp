@@ -26,6 +26,8 @@ Revision History:
 #include "util/scoped_timer.h"
 #include "ast/simplifiers/then_simplifier.h"
 
+void link_ackr_bound_probe_registration();
+
 Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c) {
 }
 
@@ -345,6 +347,7 @@ extern "C" {
 
     unsigned Z3_API Z3_get_num_probes(Z3_context c) {
         Z3_TRY;
+        link_ackr_bound_probe_registration();
         LOG_Z3_get_num_probes(c);
         RESET_ERROR_CODE();
         return mk_c(c)->num_probes();

@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "cmd_context/tactic_manager.h"
 #include "tactic/tactic.h"
-#include "ackermannization/ackr_bound_probe.h"
 
 tactic_manager::~tactic_manager() {
     finalize_tactic_manager();

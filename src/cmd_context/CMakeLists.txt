@@ -14,7 +14,6 @@ z3_add_component(cmd_context
     tactic_manager.cpp
     tptp_frontend.cpp
   COMPONENT_DEPENDENCIES
-    ackermannization
     rewriter
     solver
     params
