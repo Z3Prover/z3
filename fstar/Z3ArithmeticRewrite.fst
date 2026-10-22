@@ -141,10 +141,30 @@ let triangle_equality (e:expr) : bool =
      split_equation eq (App (B.connective_decl B.Conjunction [u; l]) [u; l]))
   | _ -> false
 
+let binary_product (s:sort) (a b:expr) : expr =
+  App { decl_name = "*"; domain = [s; s]; range = s;
+        interp = Some (if s = A.int_s then op_mul else op_arith_mul);
+        int_params = [] } [a; b]
+
+let expanded_product (e:expr) : option expr =
+  match e with
+  | App mul [App left [a; b]; App right [c; d]] ->
+    let s = mul.range in
+    if A.operation_of mul [App left [a; b]; App right [c; d]] = Some A.Mul &&
+       A.operation_of left [a; b] = Some A.Add &&
+       A.operation_of right [c; d] = Some A.Add then
+      let terms = [binary_product s a c; binary_product s b c;
+                   binary_product s a d; binary_product s b d] in
+      Some (App { decl_name = "+"; domain = [s; s; s; s]; range = s;
+                  interp = Some op_arith_add; int_params = [] } terms)
+    else None
+  | _ -> None
+
 let equivalent (a b:expr) : bool =
   boolean_equivalent a b || numeric_equivalent a b ||
   equation_equivalent a b || constant_equation a b || constant_equation b a ||
-  split_equation a b || split_equation b a
+  split_equation a b || split_equation b a ||
+  expanded_product a = Some b || expanded_product b = Some a
 
 let lemma_zero_polynomial (p:A.poly) (rho:expr -> real)
   : Lemma (requires zero_polynomial p) (ensures P.value p rho == 0.0R) =
@@ -459,6 +479,67 @@ let lemma_triangle_equality (e:expr) (i:interpretation value)
      | _, _ -> ())
   | _ -> ()
 
+#push-options "--fuel 0 --ifuel 0 --z3rlimit 10"
+let lemma_distribute_four (a b c d:real)
+  : Lemma ((a +. b) *. (c +. d) ==
+           a *. c +. (b *. c +. (a *. d +. (b *. d +. 0.0R)))) =
+  assert ((a +. b) *. (c +. d) == (a +. b) *. c +. (a +. b) *. d);
+  assert ((a +. b) *. c == a *. c +. b *. c);
+  assert ((a +. b) *. d == a *. d +. b *. d)
+#pop-options
+
+#push-options "--fuel 4 --ifuel 1 --z3rlimit 20"
+let lemma_binary_product (s:sort) (a b:expr) (i:interpretation value)
+                         (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_operators i nu /\ A.numeric_sort s /\
+                    get_sort a == s /\ get_sort b == s)
+          (ensures nu (eval i (binary_product s a b) rho) ==
+                   nu (eval i a rho) *. nu (eval i b rho)) =
+  let f = { decl_name = "*"; domain = [s; s]; range = s;
+            interp = Some (if s = A.int_s then op_mul else op_arith_mul);
+            int_params = [] } in
+  E.lemma_mul_application f [a; b] i nu rho;
+  assert_norm (E.numeric_product (FStar.List.Tot.map nu (eval_args i [a; b] rho)) ==
+               nu (eval i a rho) *. nu (eval i b rho))
+
+let lemma_expanded_product (a b:expr) (i:interpretation value)
+                           (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ expanded_product a == Some b)
+          (ensures eval i a rho == eval i b rho) =
+  match a with
+  | App mul [App left [x; y]; App right [z; w]] ->
+    let s = mul.range in
+    E.lemma_add_application left [x; y] i nu rho;
+    E.lemma_add_application right [z; w] i nu rho;
+    E.lemma_mul_application mul [App left [x; y]; App right [z; w]] i nu rho;
+    assert_norm (E.numeric_sum (FStar.List.Tot.map nu (eval_args i [x; y] rho)) ==
+                 nu (eval i x rho) +. nu (eval i y rho));
+    assert_norm (E.numeric_sum (FStar.List.Tot.map nu (eval_args i [z; w] rho)) ==
+                 nu (eval i z rho) +. nu (eval i w rho));
+    assert_norm (E.numeric_product (FStar.List.Tot.map nu
+      (eval_args i [App left [x; y]; App right [z; w]] rho)) ==
+      nu (eval i (App left [x; y]) rho) *. nu (eval i (App right [z; w]) rho));
+    lemma_binary_product s x z i nu rho;
+    lemma_binary_product s y z i nu rho;
+    lemma_binary_product s x w i nu rho;
+    lemma_binary_product s y w i nu rho;
+    (match b with
+     | App add terms ->
+       E.lemma_add_application add terms i nu rho;
+       assert_norm (E.numeric_sum (FStar.List.Tot.map nu
+         (eval_args i [binary_product s x z; binary_product s y z;
+                       binary_product s x w; binary_product s y w] rho)) ==
+         nu (eval i (binary_product s x z) rho) +.
+         (nu (eval i (binary_product s y z) rho) +.
+         (nu (eval i (binary_product s x w) rho) +.
+         (nu (eval i (binary_product s y w) rho) +. 0.0R))));
+       lemma_distribute_four (nu (eval i x rho)) (nu (eval i y rho))
+                             (nu (eval i z rho)) (nu (eval i w rho));
+       lemma_numeric_values_equal a b i nu rho
+     | _ -> ())
+  | _ -> ()
+#pop-options
+
 let lemma_equivalent_with_numeric_model (a b:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (nu:value -> real). E.numeric_model i nu) /\
                     Z3ObservationalEquality.boolean_model i /\
@@ -476,7 +557,9 @@ let lemma_equivalent_with_numeric_model (a b:expr) (i:interpretation value) (rho
     else if constant_equation a b then lemma_constant_equation a b i nu rho
     else if constant_equation b a then lemma_constant_equation b a i nu rho
     else if split_equation a b then lemma_split_equation a b i nu rho
-    else lemma_split_equation b a i nu rho
+    else if split_equation b a then lemma_split_equation b a i nu rho
+    else if expanded_product a = Some b then lemma_expanded_product a b i nu rho
+    else lemma_expanded_product b a i nu rho
   in
   FStar.Classical.exists_elim (eval i a rho == eval i b rho)
     #(value -> real) #(fun nu -> E.numeric_model i nu) () (fun nu -> aux nu)

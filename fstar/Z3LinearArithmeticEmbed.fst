@@ -63,6 +63,18 @@ let numeric_model (i:interpretation value) (nu:value -> real) : prop =
     nu (eval i a rho) == nu (eval i b rho) ==>
     eval i a rho == eval i b rho)
 
+let lemma_add_application (f:func_decl) (args:list expr)
+                          (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Add)
+          (ensures nu (eval i (App f args) rho) ==
+                   numeric_sum (map nu (eval_args i args rho))) = ()
+
+let lemma_mul_application (f:func_decl) (args:list expr)
+                          (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Mul)
+          (ensures nu (eval i (App f args) rho) ==
+                   numeric_product (map nu (eval_args i args rho))) = ()
+
 let valuation (i:interpretation value) (nu:value -> real) (rho:env value) : expr -> real =
   fun e -> nu (eval i e rho)
 

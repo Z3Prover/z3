@@ -10,6 +10,7 @@ open Z3Commutativity
 open Z3BooleanRewrite
 open Z3ProofIndex
 module P = Z3ProofDocument
+module ID = Z3IntegerDivision
 
 let checked_consequence (kind:string) (concl:expr) (facts:list expr) : bool =
   match P.rule_of_name kind, classify_fact concl, opt_map classify_fact facts with
@@ -51,6 +52,38 @@ let lemma_unit_cannot_drop_survivor ()
            not (checked_consequence "unit-resolution" false_expr [disj; np]))
   = assert_norm (not (checked_consequence "unit-resolution" r [disj; np]) /\
                  not (checked_consequence "unit-resolution" false_expr [disj; np]))
+
+let lemma_unit_boolean_constants ()
+  : Lemma (
+      checked_consequence "unit-resolution" p [App or_decl [false_expr; p]; true_expr] /\
+      checked_consequence "unit-resolution" p [App or_decl [true_expr; p]; false_expr] /\
+      checked_consequence "unit-resolution" false_expr [true_expr; false_expr] /\
+      checked_consequence "unit-resolution" false_expr [false_expr; true_expr] /\
+      not (checked_consequence "unit-resolution" q [App or_decl [false_expr; p]; true_expr]) /\
+      not (checked_consequence "unit-resolution" false_expr [App or_decl [false_expr; p]; true_expr]) /\
+      not (checked_consequence "unit-resolution" p [App or_decl [true_expr; p]; true_expr]))
+  = assert_norm (
+      checked_consequence "unit-resolution" p [App or_decl [false_expr; p]; true_expr] /\
+      checked_consequence "unit-resolution" p [App or_decl [true_expr; p]; false_expr] /\
+      checked_consequence "unit-resolution" false_expr [true_expr; false_expr] /\
+      checked_consequence "unit-resolution" false_expr [false_expr; true_expr] /\
+      not (checked_consequence "unit-resolution" q [App or_decl [false_expr; p]; true_expr]) /\
+      not (checked_consequence "unit-resolution" false_expr [App or_decl [false_expr; p]; true_expr]) /\
+      not (checked_consequence "unit-resolution" p [App or_decl [true_expr; p]; true_expr]))
+
+let lemma_true_axiom_checked ()
+  : Lemma (
+      P.rule_of_name "true-axiom" == Some DefAxiom /\
+      checked_consequence "true-axiom" true_expr [] /\
+      not (checked_consequence "true-axiom" false_expr []) /\
+      not (checked_consequence "true-axiom" p []) /\
+      not (checked_consequence "true-axiom" true_expr [p]))
+  = assert_norm (
+      P.rule_of_name "true-axiom" == Some DefAxiom /\
+      checked_consequence "true-axiom" true_expr [] /\
+      not (checked_consequence "true-axiom" false_expr []) /\
+      not (checked_consequence "true-axiom" p []) /\
+      not (checked_consequence "true-axiom" true_expr [p]))
 
 let lemma_not_or_elimination_preserves_literal_polarity ()
   : Lemma (checked_consequence "not-or-elim" p [mk_not_expr (App or_decl [np; q])] /\
@@ -151,6 +184,48 @@ let lemma_typed_observation_congruence ()
 let arithmetic_app (name:string) (tag:decl_kind) (s:sort) (args:list expr) : expr =
   App { decl_name = name; domain = FStar.List.Tot.map get_sort args; range = s;
         interp = Some tag; int_params = [] } args
+
+let division_axiom_checks () : bool =
+  let s = BaseSort "Int" in
+  let x = typed_atom "x" s in
+  let b = typed_atom "b" s in
+  let n = Z3LpGomory.integer in
+  let div a b = arithmetic_app "div" ID.op_idiv s [a; b] in
+  let rem a b = arithmetic_app "mod" ID.op_mod s [a; b] in
+  let add a b = arithmetic_app "+" op_plus s [a; b] in
+  let mul a b = arithmetic_app "*" op_mul s [a; b] in
+  let ge a b = arithmetic_app ">=" op_arith_ge bool_sort [a; b] in
+  let le a b = arithmetic_app "<=" op_arith_le bool_sort [a; b] in
+  let clause guard body = App or_decl [guard; body] in
+  let decomposition a b = mk_eq_expr a (add (mul b (div a b)) (rem a b)) in
+  ID.check (clause (mk_eq_expr b (n 0)) (decomposition x b)) &&
+  ID.check (clause false_expr (decomposition x (n 2))) &&
+  ID.check (clause false_expr (decomposition x (n (-2)))) &&
+  ID.check (clause false_expr (ge (rem x (n 2)) (n 0))) &&
+  ID.check (clause false_expr (le (rem x (n 2)) (n 1))) &&
+  ID.check (clause (le b (n 0)) (le (add (rem x b) (mul (n (-1)) b)) (n (-1)))) &&
+  ID.check (clause (mk_eq_expr b (n 0))
+    (ge (add x (arithmetic_app "*" op_arith_mul s [n (-1); b; div x b])) (n 0))) &&
+  ID.check (clause (mk_eq_expr b (n 0))
+    (ge (add x (mul (n (-1)) (mul b (div x b)))) (n 0))) &&
+  not (ID.check (clause false_expr
+    (ge (add x (mul (n (-1)) (mul b (div x b)))) (n 0)))) &&
+  not (ID.check (clause (mk_eq_expr b (n 0))
+    (ge (add x (mul (n (-1)) (mul b (div x b)))) (n 1)))) &&
+  not (ID.check (clause false_expr (decomposition x (n 0)))) &&
+  not (ID.check (clause false_expr (decomposition x b))) &&
+  not (ID.check (clause false_expr (le (rem x (n 2)) (n 0)))) &&
+  not (ID.check (clause false_expr (ge (rem x (n 2)) (n 1)))) &&
+  not (ID.check (clause (mk_eq_expr x (n 0)) (decomposition x b))) &&
+  ID.equivalent (div (mul (n 10) x) (n 4)) (div (mul x (n 5)) (n 2)) &&
+  ID.equivalent (div (mul (n 10) x) (n 4))
+    (App (Z3ArrayRewrite.term_ite_decl s)
+      [mk_eq_expr (n 0) (n 4); div (mul (n 10) x) (n 0); div (mul x (n 5)) (n 2)]) &&
+  not (ID.equivalent (div (mul (n 10) x) (n 4)) (div (mul x (n 4)) (n 2))) &&
+  not (ID.equivalent (div (mul (n 10) x) (n 0)) (div (mul x (n 5)) (n 2)))
+
+let lemma_division_axiom_checks () : Lemma (division_axiom_checks ()) =
+  assert_norm (division_axiom_checks ())
 
 let lemma_arithmetic_comparison_rewrites ()
   : Lemma (

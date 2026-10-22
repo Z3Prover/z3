@@ -342,7 +342,9 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
-        m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
+        if (!m_params.m_clause_proof || m_ctx.get_assignment(consequent) != l_true ||
+            m_ctx.get_justification(consequent.var()) != b_justification(js))
+            m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
         (void)consequent;
@@ -407,7 +409,14 @@ namespace smt {
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE(conflict, tout << "problem is unsat\n";);
             TRACE(conflict, m_ctx.display(tout););
-            if (m.proofs_enabled())
+            if (m_params.m_clause_proof && conflict.get_kind() == b_justification::JUSTIFICATION) {
+                literal_vector antecedents;
+                justification* reason = conflict.get_justification();
+                justification2literals(reason, antecedents);
+                m_ctx.get_clause_proof().propagate(
+                    not_l == null_literal ? false_literal : ~not_l, reason, antecedents);
+            }
+            if (m.proofs_enabled() && !m_params.m_clause_proof)
                 mk_conflict_proof(conflict, not_l);
             if (m_ctx.tracking_assumptions())
                 mk_unsat_core(conflict, not_l);
@@ -470,7 +479,7 @@ namespace smt {
               tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";
               tout << "lemma: " << m_lemma << "\n";);
 
-        if (m.proofs_enabled())
+        if (m.proofs_enabled() && !m_params.m_clause_proof)
             mk_conflict_proof(conflict, not_l);
     }
 
@@ -918,6 +927,13 @@ namespace smt {
     */
     proof * conflict_resolution::get_proof(literal l) {
         proof * pr;
+        if (m_clause_proof_hypotheses && !m_lit2proof.contains(l)) {
+            expr_ref fact(m);
+            m_ctx.literal2expr(l, fact);
+            pr = l == true_literal ? m.mk_true_proof() : m.mk_hypothesis(fact);
+            m_new_proofs.push_back(pr);
+            m_lit2proof.insert(l, pr);
+        }
         if (m_lit2proof.find(l, pr)) {
             TRACE(proof_gen_bug, tout << "lit2pr_cached: #" << l << " " << pr << " " << pr->get_id() << "\n";);
             return pr;
@@ -1251,23 +1267,7 @@ namespace smt {
         m_eq2proof.insert(lhs, rhs, pr);
     }
 
-    void conflict_resolution::mk_conflict_proof(b_justification conflict, literal not_l) {
-        SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
-        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::AXIOM || conflict.get_kind() == b_justification::JUSTIFICATION);
-        TRACE(mk_conflict_proof, m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
-
-        reset();
-        for (literal lit : m_lemma) m_ctx.set_mark(lit.var());
-        literal consequent;
-        if (not_l == null_literal) {
-            consequent = false_literal;
-        }
-        else {
-            consequent = ~not_l;
-            m_todo_pr.push_back(tp_elem(not_l));
-        }
-        visit_b_justification(consequent, conflict);
-        
+    void conflict_resolution::process_proof_todo() {
         while (!m_todo_pr.empty()) {
             tp_elem & elem = m_todo_pr.back();
 
@@ -1314,7 +1314,78 @@ namespace smt {
             }
             }
         }
+    }
 
+    proof_ref conflict_resolution::mk_clause_proof(justification* js) {
+        reset();
+        flet<bool> hypotheses(m_clause_proof_hypotheses, true);
+        try {
+            get_proof(js);
+            process_proof_todo();
+            proof_ref pr(get_proof(js), m);
+            if (!pr)
+                throw default_exception("could not reconstruct a theory clause certificate");
+            expr* fact = m.get_fact(pr);
+            expr_ref_vector literals(m);
+            bool has_hypotheses = false;
+            // Conflict analysis can omit antecedents visited for an earlier reason.
+            // Local certificates must discharge every literal hypothesis.
+            for (auto const& entry : m_lit2proof) {
+                if (!m.is_hypothesis(entry.m_value))
+                    continue;
+                has_hypotheses = true;
+                expr_ref complement(m);
+                m_ctx.literal2expr(~entry.m_key, complement);
+                if (!literals.contains(complement))
+                    literals.push_back(complement);
+            }
+            if (has_hypotheses) {
+                if (!m.is_false(fact)) {
+                    ptr_buffer<expr> conclusions;
+                    if (m.is_or(fact))
+                        conclusions.append(to_app(fact)->get_num_args(), to_app(fact)->get_args());
+                    else
+                        conclusions.push_back(fact);
+                    ptr_buffer<proof> premises;
+                    premises.push_back(pr);
+                    for (expr* literal : conclusions) {
+                        if (!literals.contains(literal))
+                            literals.push_back(literal);
+                        proof* opposite = m.mk_hypothesis(m.mk_not(literal));
+                        m_new_proofs.push_back(opposite);
+                        premises.push_back(opposite);
+                    }
+                    pr = m.mk_unit_resolution(premises.size(), premises.data(), m.mk_false());
+                }
+                expr_ref clause(mk_or(literals), m);
+                pr = m.mk_lemma(pr, clause);
+            }
+            reset();
+            return pr;
+        }
+        catch (...) {
+            reset();
+            throw;
+        }
+    }
+
+    void conflict_resolution::mk_conflict_proof(b_justification conflict, literal not_l) {
+        SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
+        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::AXIOM || conflict.get_kind() == b_justification::JUSTIFICATION);
+        TRACE(mk_conflict_proof, m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
+
+        reset();
+        for (literal lit : m_lemma) m_ctx.set_mark(lit.var());
+        literal consequent;
+        if (not_l == null_literal) {
+            consequent = false_literal;
+        }
+        else {
+            consequent = ~not_l;
+            m_todo_pr.push_back(tp_elem(not_l));
+        }
+        visit_b_justification(consequent, conflict);
+        process_proof_todo();
         SASSERT(visit_b_justification(consequent, conflict));
         proof * pr = nullptr;
         if (not_l == null_literal) {

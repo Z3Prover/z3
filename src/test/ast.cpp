@@ -176,6 +176,40 @@ static void tst_smt2_format_order(char const* name, unsigned arity) {
     ENSURE(out.str() == expected);
 }
 
+static void tst_clause_event_arities() {
+    proof* (ast_manager::*const constructors[])(proof*, expr*) = {
+        &ast_manager::mk_assumption_add,
+        &ast_manager::mk_lemma_add,
+        &ast_manager::mk_th_assumption_add,
+        &ast_manager::mk_th_lemma_add
+    };
+    for (auto constructor : constructors) {
+        for (bool certified_first : { false, true }) {
+            ast_manager m(PGM_ENABLED);
+            expr_ref fact(m.mk_true(), m);
+            proof_ref certificate(m.mk_asserted(fact), m);
+            proof_ref_vector events(m);
+            for (unsigned i = 0; i < 4; ++i) {
+                bool certified = certified_first != (i % 2 != 0);
+                proof* pr = certified ? certificate.get() : nullptr;
+                proof_ref event((m.*constructor)(pr, fact), m);
+                unsigned arity = certified ? 2 : 1;
+                ENSURE(event->get_num_args() == arity);
+                ENSURE(event->get_decl()->get_arity() == arity);
+                ENSURE(event->get_arg(arity - 1) == fact);
+                ENSURE(event->get_decl()->get_domain(arity - 1) == m.mk_bool_sort());
+                if (certified) {
+                    ENSURE(event->get_arg(0) == certificate);
+                    ENSURE(event->get_decl()->get_domain(0) == certificate->get_sort());
+                }
+                if (i >= 2)
+                    ENSURE(event->get_decl() == events.get(i - 2)->get_decl());
+                events.push_back(event);
+            }
+        }
+    }
+}
+
 void tst_ast() {
     TRACE(ast, 
           tout << "sizeof(ast):  " << sizeof(ast) << "\n";
@@ -192,5 +226,5 @@ void tst_ast() {
     tst_smt2_format_order("f", 2);
     tst_smt2_format_order("long_function_name", 1);
     tst_smt2_format_order("long_function_name", 2);
+    tst_clause_event_arities();
 }
-

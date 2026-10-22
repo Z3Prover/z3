@@ -1168,6 +1168,8 @@ extern "C" {
         case PR_LEMMA_ADD: return Z3_OP_PR_LEMMA_ADD;
         case PR_REDUNDANT_DEL: return Z3_OP_PR_REDUNDANT_DEL;
         case PR_CLAUSE_TRAIL: return Z3_OP_PR_CLAUSE_TRAIL;
+        case PR_TH_ASSUMPTION_ADD: return Z3_OP_PR_TH_ASSUMPTION_ADD;
+        case PR_TH_LEMMA_ADD: return Z3_OP_PR_TH_LEMMA_ADD;
         case PR_DEF_INTRO: return Z3_OP_PR_DEF_INTRO;
         case PR_APPLY_DEF: return Z3_OP_PR_APPLY_DEF;
         case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;

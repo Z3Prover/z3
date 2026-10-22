@@ -77,6 +77,7 @@ param(
   [string]$Z3WindowsBuildDir = "",
   [string]$Z3InstallDir = "",
   [string]$OpamSwitch = "fstar53",
+  [string]$WslDistribution = "",
   [string]$WslBuildDir = "~/z3checker",
   [string]$Z3BuildDir = "~/z3-native-ffi-build",
   [string]$CacheDir = "",
@@ -143,13 +144,13 @@ try {
     "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
-    "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst",
+    "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3IntegerDivision.fst",
     "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
     "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
     "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvFresh.fst", "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst",
     "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst", "Z3TheoryNormalize.fst",
-    "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
+    "Z3UnifiedProof.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
     "Z3SortedSemantics.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   )
@@ -164,7 +165,7 @@ try {
   if ($missing) { throw "Failed to cache: $($missing -join ', ')" }
   if ($RunTests) {
     $testModules = @(
-      "Z3ResolutionProofCheckerTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
+      "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
       "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst",
       "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst",
       "Z3PulseJustificationChecker.fst", "Z3LraFarkasTheory.fst",
@@ -207,13 +208,13 @@ try {
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
     "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
     "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
-    "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml",
+    "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3IntegerDivision.ml",
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
     "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
-    "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
+    "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
@@ -301,21 +302,27 @@ echo BUILD_OK
   $scriptPath = Join-Path $extractDir "build_native_tmp.sh"
   $unixScript = $script -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($scriptPath, $unixScript, (New-Object System.Text.UTF8Encoding($false)))
-  if ($windowsHost) { wsl -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh" }
+  if ($windowsHost) {
+    $distributionArgs = if ($WslDistribution) { @("-d", $WslDistribution) } else { @() }
+    wsl @distributionArgs -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh"
+  }
   else { & bash $scriptPath }
   $wslExitCode = $LASTEXITCODE
   Remove-Item $scriptPath -ErrorAction SilentlyContinue
   if ($wslExitCode -ne 0) { throw "Native build, installation, or tests failed" }
   if ($RunTests) {
     $previousChecker = $env:Z3_FSTAR_CHECKER
+    $previousDistribution = $env:Z3_FSTAR_WSL_DISTRO
     try {
       $env:Z3_FSTAR_CHECKER = "$WslBuildDir/checker"
+      $env:Z3_FSTAR_WSL_DISTRO = $WslDistribution
       $python = if ($windowsHost) { "python" } else { "python3" }
       & $python (Join-Path $PSScriptRoot "test_native_checker.py")
       if ($LASTEXITCODE -ne 0) { throw "Native checker CLI tests failed" }
     }
     finally {
       $env:Z3_FSTAR_CHECKER = $previousChecker
+      $env:Z3_FSTAR_WSL_DISTRO = $previousDistribution
     }
   }
 

@@ -76,7 +76,9 @@ RULE_EXTENSION_CASES = (
 class DirectCheckerTests(unittest.TestCase):
     def run_checker(self, source, *args):
         checker = os.environ["Z3_FSTAR_CHECKER"]
-        command = (["wsl", "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
+        distribution = os.environ.get("Z3_FSTAR_WSL_DISTRO")
+        wsl = ["wsl"] + (["-d", distribution] if distribution else [])
+        command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"', "checker", *args]
                    if os.name == "nt" else [os.path.expanduser(checker), *args])
         return subprocess.run(command, input=source, text=True, capture_output=True, timeout=30)
 
@@ -278,6 +280,9 @@ class DirectCheckerTests(unittest.TestCase):
                 "(assert false)",
                 "(declare-const x Real)(declare-const y Real)"
                 "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))",
+                "(declare-const x Real)(declare-const y Real)(declare-const p Bool)"
+                "(assert (or p (<= x (- 6.0))))(assert (=> p (>= (+ x y) 1.5)))"
+                "(assert (< y (/ 1.0 3.0)))(assert (> x 0.0))(assert (<= x 1.0))",
                 "(declare-const x Real)"
                 "(assert (= (* x x) 2))(assert (= (* x x x) 3))"):
             with self.subTest(source=source):
@@ -324,6 +329,71 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertIn("define-fun p", result.stdout)
         self.assertEqual(result.stderr.count("marshal_ms="), 3)
         self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
+
+    def test_clause_proofs_in_batch_and_interactive_modes(self):
+        sources = (
+            "(declare-const p Bool)(declare-const q Bool)"
+            "(assert (or p q))(assert (or p (not q)))"
+            "(assert (or (not p) q))(assert (or (not p) (not q)))",
+            "(declare-sort U 0)(declare-const x U)(declare-const y U)"
+            "(declare-fun f (U) U)(assert (= x y))(assert (not (= (f x) (f y))))",
+            "(declare-const x Real)(declare-const y Real)"
+            "(assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))",
+            "(declare-const a (Array Int Int))(declare-const i Int)"
+            "(assert (not (= (select (store a i 1) i) 1)))",
+            "(declare-sort I 0)(declare-sort E 0)(declare-const a (Array I E))"
+            "(declare-const i I)(declare-const j I)(declare-const v E)"
+            "(assert (distinct i j))"
+            "(assert (distinct (select (store a i v) j) (select a j)))",
+        )
+        for source in sources:
+            for flags in ((), ("--sorted-core",)) if source == sources[0] else ((),):
+                with self.subTest(source=source, flags=flags):
+                    result = self.run_checker(source, "--clause-proofs", *flags)
+                    self.assertEqual((result.returncode, result.stdout.strip()),
+                                     (0, "ACCEPT"), result.stderr)
+                    result = self.run_checker(source + "(check-sat)",
+                                              "--interactive", "--clause-proofs", *flags)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+
+    def test_clause_proofs_across_scopes_assumptions_and_resets(self):
+        result = self.run_checker(
+            "(declare-const p Bool)(declare-const q Bool)(assert (or p q))"
+            "(push)(assert (not p))(assert (not q))(check-sat)(pop)"
+            "(check-sat)(check-sat-assuming ((not p) (not q)))"
+            "(push)(assert (or p (not q)))(assert (or (not p) q))"
+            "(assert (or (not p) (not q)))(check-sat-using smt)(pop)"
+            "(check-sat)(reset)(assert false)(check-sat)",
+            "--interactive", "--clause-proofs")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 4)
+        self.assertEqual(result.stdout.splitlines().count("sat"), 2)
+
+    def test_clause_proofs_preserve_disjunction_literals(self):
+        source = "(declare-const p Bool)(declare-const q Bool)" \
+                 "(declare-const r Bool)(declare-const s Bool)" \
+                 "(declare-const a Bool)(declare-const b Bool)" \
+                 "(assert (or (or p q) a))(assert (or (or p q) (not a)))" \
+                 "(assert (or (or r s) b))(assert (or (or r s) (not b)))" \
+                 "(assert (or (not (or p q)) (not (or r s))))"
+        for flags in ((), ("--sorted-core",)):
+            with self.subTest(flags=flags):
+                result = self.run_checker(source, "--clause-proofs", *flags)
+                self.assertEqual((result.returncode, result.stdout.strip()),
+                                 (0, "ACCEPT"), result.stderr)
+
+    def test_clause_proofs_with_nontrivial_learning_and_simplification(self):
+        source = "".join("(declare-const p%d_%d Bool)" % (p, h)
+                         for p in range(5) for h in range(4))
+        source += "".join("(assert (or %s))" % " ".join("p%d_%d" % (p, h)
+                                                       for h in range(4))
+                          for p in range(5))
+        source += "".join("(assert (or (not p%d_%d) (not p%d_%d)))" % (p, h, q, h)
+                          for h in range(4) for p in range(5) for q in range(p))
+        result = self.run_checker(source, "--clause-proofs")
+        self.assertEqual((result.returncode, result.stdout.strip()),
+                         (0, "ACCEPT"), result.stderr)
 
     def test_interactive_frames_multiline_strings_comments_and_quoted_symbols(self):
         result = self.run_checker(
@@ -406,7 +476,9 @@ class DirectCheckerTests(unittest.TestCase):
 
     def test_interactive_replies_before_stdin_closes(self):
         checker = os.environ["Z3_FSTAR_CHECKER"]
-        command = (["wsl", "-e", "bash", "-c", checker + ' "$@"',
+        distribution = os.environ.get("Z3_FSTAR_WSL_DISTRO")
+        wsl = ["wsl"] + (["-d", distribution] if distribution else [])
+        command = ([*wsl, "-e", "bash", "-c", checker + ' "$@"',
                     "checker", "--interactive"]
                    if os.name == "nt" else [os.path.expanduser(checker), "--interactive"])
         process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

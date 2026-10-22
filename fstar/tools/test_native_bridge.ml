@@ -31,6 +31,56 @@ let document text =
            P.check_document doc) "indexed and linear checker results differ";
   doc
 
+let clausal_proofs () =
+  let branching =
+    "(declare-const p Bool)(declare-const q Bool)\
+     (assert (or p q))(assert (or p (not q)))\
+     (assert (or (not p) q))(assert (or (not p) (not q)))" in
+  List.iter (fun source ->
+      let assertions, proof = match N.solve_with_clause_proofs source Z.zero true with
+        | N.Unsat (assertions, proof) -> assertions, proof
+        | _ -> failwith "clausal solver did not return UNSAT" in
+      if source = branching then
+        require (N.view_clause_trail proof <> None) "SMT search did not return a clause trail";
+      let doc = try B.marshal assertions proof with exn ->
+        failwith (source ^ ": " ^ Printexc.to_string exn) in
+      require (P.check_document doc = Some Z.zero) "clausal refutation was not fully checked";
+      require (P.check_document { doc with assertions = [] } = None)
+        "clausal refutation accepted missing original assertions";
+      let corrupted = List.mapi (fun index entry ->
+          if Z.equal (Z.of_int index) doc.root then
+            { entry with P.formula = Z3ResolutionProofTheory.true_expr }
+          else entry) doc.entries in
+      require (P.check_document { doc with entries = corrupted } = None)
+        "clausal refutation accepted a non-false root")
+    [branching;
+     "(declare-sort U 0)(declare-const x U)(declare-const y U)\
+      (declare-fun f (U) U)(assert (= x y))(assert (not (= (f x) (f y))))";
+     "(declare-const x Real)(declare-const y Real)\
+      (assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))";
+     "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
+      (assert (or p (<= x (- 6.0))))(assert (=> p (>= (+ x y) 1.5)))\
+      (assert (< y (/ 1.0 3.0)))(assert (> x 0.0))(assert (<= x 1.0))";
+     "(declare-const a (Array Int Int))(declare-const i Int)\
+      (assert (not (= (select (store a i 1) i) 1)))";
+     "(declare-sort I 0)(declare-sort E 0)(declare-const a (Array I E))\
+      (declare-const i I)(declare-const j I)(declare-const v E)\
+      (assert (distinct i j))\
+      (assert (distinct (select (store a i v) j) (select a j)))"];
+  let c = context () in
+  let formula = List.hd (parse c "(declare-const p Bool)(assert p)") in
+  let st = B.marshal_expressions (B.empty_state ()) [formula] in
+  let db, builder = Z3ClauseProof.empty (B.clause_builder st) in
+  let st = B.with_clause_builder st builder in
+  let rejected =
+    try
+      ignore (B.add_clause_entry st db
+                { N.action = N.LearnedClause; formula; literals = [formula];
+                  certificate = None });
+      false
+    with N.Error _ -> true in
+  require rejected "an unsupported learned unit passed RUP"
+
 let shared_expressions () =
   let c = context () in
   let assertions = parse c
@@ -1960,6 +2010,75 @@ let assumed_nlsat () =
   require (P.check_document { doc with assertions = []; entries = [entry]; root = Z.zero } = Some Z.one)
     "assumed NLSAT lemma was certified without an obligation"
 
+let boolean_constant_resolution () =
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+      "(declare-const p Bool)(assert (or false p))(assert (not p))(assert true)" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let formulas = List.map (B.cached_expression st) native in
+  let clause, np, truth = match formulas with
+    | [clause; np; truth] -> clause, np, truth
+    | _ -> failwith "expected Boolean constant fixtures" in
+  let p = match clause with
+    | A.App (_, [_; p]) -> p
+    | _ -> failwith "expected an unsimplified false-padded clause" in
+  let view = { N.proof_name = "true-axiom"; premises = [];
+               conclusion = List.nth native 2; farkas = None; assumed = None;
+               lp_data = None; binding = None; instantiations = [] } in
+  let truth_rule = B.native_rule view truth in
+  require (truth_rule = U.DefAxiom && U.check_step truth_rule (U.Holds truth) [])
+    "native true-axiom retained an obligation";
+  List.iter (fun (left, right) ->
+      require (R.complementary left right) "Boolean constants were not complementary")
+    [R.true_expr, R.false_expr; R.false_expr, R.true_expr;
+     R.true_expr, R.mk_not_expr R.true_expr;
+     R.false_expr, R.mk_not_expr R.false_expr];
+  require (not (R.complementary R.true_expr R.true_expr) &&
+           not (R.complementary R.false_expr R.false_expr))
+    "equal Boolean constants were treated as complementary";
+  let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+  let entries =
+    [entry U.Asserted clause []; entry U.Asserted np [];
+     entry truth_rule truth [];
+     entry U.UnitResolution p [Z.zero; Z.of_int 2];
+     entry U.UnitResolution R.false_expr [Z.of_int 3; Z.one]] in
+  let doc = { P.declarations = st.all_declarations; expressions = st.all_expressions;
+              assertions = [clause; np]; entries; root = Z.of_int 4 } in
+  require (P.check_document doc = Some Z.zero)
+    "false-padded native clause did not produce a checked refutation";
+  List.iter (fun formula ->
+      require (not (U.check_step truth_rule (U.Holds formula) []))
+        "a false true-axiom was certified") [p; R.false_expr];
+  let bad = List.mapi (fun i e ->
+      if i = 3 then { e with P.formula = R.false_expr } else e) entries in
+  require (P.check_document { doc with entries = bad } = None)
+    "constant resolution dropped a surviving literal"
+
+let integer_division_axioms () =
+  let c = context () in
+  let check expected clause =
+    let source = List.hd (parse c
+        ("(declare-const x Int)(declare-const y Int)(assert " ^ clause ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [source] in
+    let formula = B.cached_expression st source in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (U.Holds formula) [] = expected)
+      ("incorrect integer division axiom: " ^ clause);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") (U.Holds formula) []))
+      "division axioms silently trusted an NLSAT origin"
+  in
+  check true "(or false (= x (+ (* 2 (div x 2)) (mod x 2))))";
+  check true "(or (= y 0) (= x (+ (* y (div x y)) (mod x y))))";
+  check true "(or false (>= (mod x 2) 0))";
+  check true "(or false (<= (mod x 2) 1))";
+  check true "(or false (<= (mod x 10000000000000000000000000000000000000000)\
+                           9999999999999999999999999999999999999999))";
+  check false "(or false (= x (+ (* 0 (div x 0)) (mod x 0))))";
+  check false "(or false (= x (+ (* y (div x y)) (mod x y))))";
+  check false "(or (= x 0) (= x (+ (* y (div x y)) (mod x y))))";
+  check false "(or false (<= (mod x 2) 0))";
+  check false "(or false (>= (mod x 2) 1))"
+
 let typed_observations () =
   let c = context () in
   let source = List.hd (parse c "(declare-const x Int)(assert (= x x))") in
@@ -2682,6 +2801,19 @@ let arithmetic_rewrites () =
   check false reals "(+ x y)" "(+ x x)";
   check false reals "(<= (/ x 0) y)" "(<= x y)";
   check false ints "(* x y)" "(+ x y)";
+  check true ints "(* (+ 1 x) (+ 1 x))"
+    "(+ (* 1 1) (* x 1) (* 1 x) (* x x))";
+  check true reals "(* (+ 1.0 x) (+ 1.0 y))"
+    "(+ (* 1.0 1.0) (* x 1.0) (* 1.0 y) (* x y))";
+  check false ints "(* (+ 1 x) (+ 1 x))"
+    "(+ (* 1 1) (* x 1) (* 1 x) (* x y))";
+  check true ints "(div (* 10 x) 4)" "(div (* x 5) 2)";
+  check true ints "(div (* 10 x) 4)"
+    "(ite (= 0 4) (div (* 10 x) 0) (div (* x 5) 2))";
+  check false ints "(div (* 10 x) 4)" "(div (* x 4) 2)";
+  check false ints "(div (* 10 x) 0)" "(div (* x 5) 2)";
+  check false ints "(div (* 10 x) 4)"
+    "(ite (= 0 0) (div (* 10 x) 0) (div (* x 5) 2))";
   let x = A.Var (Z.zero, A.BaseSort "Int") in
   let malformed = { (Z3ResolutionProofTheory.eq_decl (A.BaseSort "Int"))
     with decl_name = "<="; interp = None } in
@@ -2876,6 +3008,7 @@ let () =
   List.iter (fun (name, test) ->
       test (); Printf.printf "PASS %s\n%!" name)
     ["shared-expression-identity", shared_expressions;
+     "checked-clausal-refutations", clausal_proofs;
      "deep-expression-worklist", deep_expression;
      "proof-DAG-cache", proof_cache;
      "exact-native-numerals", exact_numerals;
@@ -2907,6 +3040,8 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
+     "checked-Boolean-constant-resolution", boolean_constant_resolution;
+     "checked-integer-division-axioms", integer_division_axioms;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
      "checked-bit-vector-rewrites", bv_rewrites;
