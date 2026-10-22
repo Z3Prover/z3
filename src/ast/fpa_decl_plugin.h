@@ -116,7 +116,7 @@ class fpa_decl_plugin : public decl_plugin {
 
 
     mpf_manager         m_fm;
-    id_gen              m_id_gen;
+    ordered_id_gen      m_id_gen;
     scoped_mpf_vector   m_values;
     value_table         m_value_table;
     sort *              m_real_sort;
