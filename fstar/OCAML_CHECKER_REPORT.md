@@ -506,6 +506,40 @@ theorem. Native cases cover two and three constructors and reject missing
 exclusions and exclusions for a different subject. Strict verification, all
 48 native groups, all 26 CLI tests, and all 116 solver unit groups pass.
 
+### Equality-aware datatype consequences (2026-10-22)
+
+The remaining QF_DT obligations came from
+`theory_datatype::propagate_recognizer` (38 propagations) and
+`theory_datatype::sign_recognizer_conflict` (one conflict). Every propagation
+had premises `not (is-stack y)` and `x = y`, concluding `is-empty x`.
+The conflict combined `not (is-stack t)` with
+`stack (top t) (rest t) = t`.
+
+`Z3SortedDatatype.transport_exclusion` now derives a negative recognizer on
+the other side of an actual equality premise, checking canonical equality,
+official negation, registered recognizer metadata, and closed typed scope.
+Its concrete-model soundness theorem proves that the derived fact is true.
+The derived exclusions supplement the original premises for the existing
+verified exhaustiveness and normalization checks. Both equality orientations
+and either premise order are supported; this is one-step transport, not a
+general equality-closure procedure.
+
+Strict verification/extraction, all 48 native groups, and all 26 CLI tests
+pass. Formal document regressions cover propagation, a non-nullary
+constructor conflict, and a missing equality remaining pending. Native
+mutations additionally reject unrelated or uninterpreted equality,
+uninterpreted negation, incomplete constructor exclusions, and conflicts
+with the wrong constructor.
+
+A fresh replay of the same 25 workflow QF_DT inputs at the unchanged
+10-second producer, 60-second case, and 4-GiB limits gives **11 ACCEPT,
+13 UNKNOWN (producer timeout), 1 TIMEOUT, zero PARTIAL, zero ERROR**.
+The two blocksworld proofs move from 2/37 pending obligations to ACCEPT,
+discharging all 39 remaining obligations; their proof sizes remain
+7,200 and 147,909 nodes. All nine previously accepted inputs remain accepted.
+This certifies every completed UNSAT proof in this cohort, not every QF_DT
+benchmark or every datatype proof shape.
+
 ## Diagnostic-driven equality coverage (2026-10-20)
 
 The regression workflow now separately replays partial and rejected proofs

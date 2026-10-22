@@ -1822,6 +1822,8 @@ let malformed_foreign_certificate () =
 let sorted_datatype_checker () =
   let module K = Z3SortedProof in
   let module S = Z3DatatypeSignature in
+  let module DT = Z3SortedDatatype in
+  let module R = Z3ResolutionProofTheory in
   let samples = [
     "exhaustiveness",
       "(declare-datatype T ((C) (D)))(declare-const x T)\
@@ -1866,9 +1868,61 @@ let sorted_datatype_checker () =
           | _ -> failwith "expected a nullary datatype subject" in
         require (not (Z3SortedDatatype.exhaustiveness_from schema premises (A.App (tester, [other]))))
           "constructor exclusions were transferred to another subject";
+        let conclusion = A.App (tester, [other]) in
+        let equation = R.mk_eq_expr subject other in
+        List.iter (fun facts ->
+          require (DT.consequence schema facts conclusion)
+            "constructor exclusions were not transported across equality")
+          [equation :: premises; List.rev (R.mk_eq_expr other subject :: premises)];
+        require (not (DT.consequence schema premises conclusion))
+          "constructor exclusions were transported without equality";
+        let fake_equation = match equation with
+          | A.App (f, args) -> A.App ({ f with A.interp = None }, args)
+          | _ -> failwith "expected an equality" in
+        require (not (DT.consequence schema (fake_equation :: premises) conclusion))
+          "an uninterpreted equality lookalike transported exclusions";
+        let fake_premises = List.map (function
+          | A.App (f, args) -> A.App ({ f with A.interp = None }, args)
+          | e -> e) premises in
+        require (not (DT.consequence schema (equation :: fake_premises) conclusion))
+          "uninterpreted negation lookalikes excluded constructors";
+        let unrelated = match other with
+          | A.App (f, []) -> A.App ({ f with A.decl_name = f.A.decl_name ^ ":unrelated" }, [])
+          | _ -> failwith "expected a nullary datatype subject" in
+        require (not (DT.consequence schema
+          (R.mk_eq_expr subject unrelated :: premises) conclusion))
+          "an unrelated equality transported constructor exclusions";
+        let case = match S.find_recognizer tester schema.S.cases with
+          | Some c -> c
+          | None -> failwith "missing recognizer case" in
+        let negative = R.mk_not_expr (A.App (tester, [subject])) in
+        let witness = A.App (case.S.constructor, []) in
+        List.iter (fun facts ->
+          require (DT.consequence schema facts R.false_expr)
+            "constructor equality did not conflict with its negative recognizer")
+          [[negative; R.mk_eq_expr witness subject];
+           [R.mk_eq_expr subject witness; negative]];
+        require (not (DT.consequence schema [negative] R.false_expr))
+          "a negative recognizer conflicted without constructor equality";
+        require (not (DT.consequence schema [R.mk_eq_expr witness subject] R.false_expr))
+          "constructor equality conflicted without a negative recognizer";
+        let alternative = List.find (fun c -> c.S.constructor <> case.S.constructor) schema.S.cases in
+        require (not (DT.consequence schema
+          [negative; R.mk_eq_expr (A.App (alternative.S.constructor, [])) subject] R.false_expr))
+          "a constructor conflicted with a different negative recognizer";
         if name = "exhaustiveness-three" then
-          require (not (Z3SortedDatatype.exhaustiveness_from schema [List.hd premises] conclusion))
-            "constructor was inferred without excluding every alternative");
+          (require (not (DT.exhaustiveness_from schema [List.hd premises]
+            (A.App (tester, [subject]))))
+            "constructor was inferred without excluding every alternative";
+           require (not (DT.consequence schema [equation; List.hd premises] conclusion))
+             "equality transport ignored an unexcluded third constructor"));
+      if name = "reconstruction" then (
+        match doc.P.assertions with
+        | [guard; A.App (_, [A.App (_, [subject; witness])])] ->
+          require (DT.consequence schema
+            [R.mk_not_expr guard; R.mk_eq_expr witness subject] R.false_expr)
+            "a non-nullary constructor equality did not conflict with its negative recognizer"
+        | _ -> failwith "expected a recognizer and negated reconstruction equality");
       let result = K.check_document schema doc in
       require (result = Some Z.zero)
         ("sorted datatype proof remained unchecked: " ^ name ^
