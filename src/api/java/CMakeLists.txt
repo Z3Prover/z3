@@ -108,6 +108,8 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   BoolExpr.java
   BoolSort.java
   CharSort.java
+  ComplexExpr.java
+  ComplexSort.java
   Constructor.java
   ConstructorList.java
   Context.java

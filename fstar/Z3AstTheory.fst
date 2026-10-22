@@ -329,6 +329,7 @@ let rec lemma_closed_eval_env_irrelevant (#value:Type) (i:interpretation value)
     (e:expr) (depth:nat) (rho1 rho2:env value)
   : Lemma (requires quant_extensional i /\ closed_at depth e /\ (forall (j:nat). j < depth ==> rho1 j == rho2 j))
           (ensures eval i e rho1 == eval i e rho2)
+          (decreases %[e])
   = match e with
     | Var idx _ -> ()
     | App f args -> lemma_closed_eval_args_env_irrelevant i args depth rho1 rho2
@@ -351,6 +352,7 @@ and lemma_closed_eval_args_env_irrelevant (#value:Type) (i:interpretation value)
     (args:list expr) (depth:nat) (rho1 rho2:env value)
   : Lemma (requires quant_extensional i /\ closed_at_args depth args /\ (forall (j:nat). j < depth ==> rho1 j == rho2 j))
           (ensures eval_args i args rho1 == eval_args i args rho2)
+          (decreases %[args])
   = match args with
     | [] -> ()
     | a :: args' ->

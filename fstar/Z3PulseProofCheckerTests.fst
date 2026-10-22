@@ -26,6 +26,7 @@
 *)
 module Z3PulseProofCheckerTests
 #lang-pulse
+open FStar.List.Tot
 open Pulse.Lib.Pervasives
 open Z3AstTheory
 open Z3ProofTheory

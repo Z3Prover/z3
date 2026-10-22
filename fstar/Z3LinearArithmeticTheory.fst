@@ -4,6 +4,9 @@ open FStar.Real
 open FStar.List.Tot
 module L = FStar.List.Tot
 
+let rec gcd (a b:nat) : Tot nat (decreases b) =
+  if b = 0 then a else gcd b (a % b)
+
 type polynomial (a:eqtype) = {
   mono: list (int & a);
   cst: int;
@@ -73,11 +76,32 @@ let rec lemma_append (#a:eqtype) (xs ys:list (int & a)) (rho:a -> real)
           (decreases xs) =
   match xs with [] -> () | _ :: rest -> lemma_append rest ys rho
 
+let lemma_of_int_product (n m:int)
+  : Lemma (of_int (n * m) == of_int n *. of_int m) = ()
+
+let lemma_of_int_sum (n m:int)
+  : Lemma (of_int (n + m) == of_int n +. of_int m) = ()
+
+let lemma_scale_step (n c x tail:real)
+  : Lemma ((n *. c) *. x +. n *. tail == n *. (c *. x +. tail)) = ()
+
+let lemma_add_step (a b c d x y:real)
+  : Lemma ((a *. c +. b *. d) +. (a *. x +. b *. y) ==
+           a *. (c +. x) +. b *. (d +. y)) = ()
+
 let rec lemma_scale_monomials (#a:eqtype) (n:int) (ms:list (int & a)) (rho:a -> real)
   : Lemma (monomial_value (L.map (fun (c, v) -> (n * c, v)) ms) rho ==
            of_int n *. monomial_value ms rho)
           (decreases ms) =
-  match ms with [] -> () | _ :: rest -> lemma_scale_monomials n rest rho
+  match ms with
+  | [] -> ()
+  | (c, v) :: rest ->
+    lemma_scale_monomials n rest rho;
+    lemma_of_int_product n c;
+    assert (monomial_value (L.map (fun (k, w) -> (n * k, w)) ms) rho ==
+            of_int (n * c) *. rho v +.
+            monomial_value (L.map (fun (k, w) -> (n * k, w)) rest) rho);
+    lemma_scale_step (of_int n) (of_int c) (rho v) (monomial_value rest rho)
 
 let lemma_add (#a:eqtype) (p q:polynomial a) (rho:a -> real)
   : Lemma (value (add p q) rho ==
@@ -86,11 +110,16 @@ let lemma_add (#a:eqtype) (p q:polynomial a) (rho:a -> real)
                (L.map (fun (c, v) -> (p.denom * c, v)) q.mono) rho;
   lemma_scale_monomials q.denom p.mono rho;
   lemma_scale_monomials p.denom q.mono rho;
-  ()
+  lemma_of_int_product q.denom p.cst;
+  lemma_of_int_product p.denom q.cst;
+  lemma_of_int_sum (q.denom * p.cst) (p.denom * q.cst);
+  lemma_add_step (of_int q.denom) (of_int p.denom) (of_int p.cst) (of_int q.cst)
+    (monomial_value p.mono rho) (monomial_value q.mono rho)
 
 let lemma_scale (#a:eqtype) (n:int) (d:pos) (p:polynomial a) (rho:a -> real)
   : Lemma (value (scale n d p) rho == of_int n *. value p rho) =
-  lemma_scale_monomials n p.mono rho
+  lemma_scale_monomials n p.mono rho;
+  lemma_of_int_product n p.cst
 
 let rec lemma_insert (#a:eqtype) (c:int) (v:a) (ms:list (int & a)) (rho:a -> real)
   : Lemma (monomial_value (insert c v ms) rho ==

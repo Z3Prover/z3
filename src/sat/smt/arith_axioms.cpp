@@ -596,7 +596,7 @@ namespace arith {
     void solver::new_eq_eh(euf::th_eq const& e) {
         theory_var v1 = e.v1();
         theory_var v2 = e.v2();
-        if (is_bool(v1))
+        if (is_bool(v1) || a.is_complex(var2expr(v1)))
             return;
         force_push();
         expr* e1 = var2expr(v1);
@@ -622,6 +622,8 @@ namespace arith {
     }
 
     void solver::new_diseq_eh(euf::th_eq const& e) {
+        if (a.is_complex(var2expr(e.v1())))
+            return;
         TRACE(artih, tout << mk_bounded_pp(e.eq()->get_expr(), m) << "\n");
         ensure_column(e.v1());
         ensure_column(e.v2());

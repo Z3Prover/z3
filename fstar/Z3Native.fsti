@@ -8,7 +8,10 @@ new val native_sort : Type0
 
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
-  | Select | Store | ArrayExt | Bvand | Concat
+  | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
+  | Bvadd | Bvmul | Bvsub | Bvneg | Bvudiv | Bvurem | Bvextract | Bvconcat | Bvmkbv
+  | Bvult | Bvule | Bvuge | Concat
+  | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
   | Opaque
@@ -27,6 +30,7 @@ type declaration = {
   range: native_sort;
   numeral: option (int & int);
   native_kind: int;
+  parameters: list int;
 }
 
 noeq
@@ -36,11 +40,21 @@ type expression_view =
   | Quantified : kind:Z3AstTheory.quantifier_kind -> sorts:list native_sort -> body:ast -> expression_view
 
 noeq
+type parameter_view =
+  | ParameterRational : int -> int -> parameter_view
+  | ParameterExpression : ast -> parameter_view
+  | ParameterUnsupported : parameter_view
+
+noeq
 type proof_view = {
   proof_name: string;
   premises: list ast;
   conclusion: ast;
   farkas: option (list (int & int));
+  assumed: option string;
+  lp_data: option (string & list parameter_view);
+  binding: option (list native_sort & ast);
+  instantiations: list ast;
 }
 
 noeq
@@ -53,6 +67,7 @@ val ast_id : ast -> ML nat
 val sort_id : native_sort -> ML nat
 val view_sort : native_sort -> ML sort_view
 val view_expression : ast -> ML expression_view
+val view_datatypes : roots:list native_sort -> ML Z3DatatypeSignature.schema
 val view_proof : ast -> ML proof_view
 val solve : smtlib:string -> timeout_ms:nat -> ML solve_result
 val fail : #a:Type -> message:string -> ML a

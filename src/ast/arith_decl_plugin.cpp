@@ -128,6 +128,10 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(m_int_decl);
     sort * i = m_int_decl;
 
+    m_complex_decl = m->mk_sort(symbol("Complex"), sort_info(id, COMPLEX_SORT));
+    m->inc_ref(m_complex_decl);
+    sort * c = m_complex_decl;
+
     sort * b = m->mk_bool_sort();
 
 #define MK_PRED(FIELD, NAME, KIND, SORT) {                      \
@@ -177,6 +181,22 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_AC_OP(m_r_mul_decl, "*", OP_MUL, r);
     MK_LEFT_ASSOC_OP(m_r_div_decl, "/", OP_DIV, r);
     MK_UNARY(m_r_uminus_decl, "-", OP_UMINUS, r);
+
+    MK_AC_OP(m_c_add_decl, "+", OP_ADD, c);
+    MK_LEFT_ASSOC_OP(m_c_sub_decl, "-", OP_SUB, c);
+    MK_AC_OP(m_c_mul_decl, "*", OP_MUL, c);
+    m_rc_mul_decl = m->mk_func_decl(symbol("*"), r, c, c, func_decl_info(id, OP_MUL));
+    m->inc_ref(m_rc_mul_decl);
+    m_cr_mul_decl = m->mk_func_decl(symbol("*"), c, r, c, func_decl_info(id, OP_MUL));
+    m->inc_ref(m_cr_mul_decl);
+    MK_LEFT_ASSOC_OP(m_c_div_decl, "/", OP_DIV, c);
+    MK_UNARY(m_c_uminus_decl, "-", OP_UMINUS, c);
+    m_complex_ctor = m->mk_func_decl(symbol("complex.make"), r, r, c, func_decl_info(id, OP_COMPLEX));
+    m->inc_ref(m_complex_ctor);
+    m_real_part_decl = m->mk_func_decl(symbol("complex.real"), c, r, func_decl_info(id, OP_REAL_PART));
+    m->inc_ref(m_real_part_decl);
+    m_imag_part_decl = m->mk_func_decl(symbol("complex.imag"), c, r, func_decl_info(id, OP_IMAG_PART));
+    m->inc_ref(m_imag_part_decl);
 
     MK_AC_OP(m_i_add_decl, "+", OP_ADD, i);
     MK_LEFT_ASSOC_OP(m_i_sub_decl, "-", OP_SUB, i);
@@ -296,6 +316,17 @@ void arith_decl_plugin::finalize() {
 #define DEC_REF(decl) if (decl) { m_manager->dec_ref(decl); } ((void) 0)
     DEC_REF(m_real_decl);
     DEC_REF(m_int_decl);
+    DEC_REF(m_complex_decl);
+    DEC_REF(m_c_add_decl);
+    DEC_REF(m_c_sub_decl);
+    DEC_REF(m_c_uminus_decl);
+    DEC_REF(m_c_mul_decl);
+    DEC_REF(m_rc_mul_decl);
+    DEC_REF(m_cr_mul_decl);
+    DEC_REF(m_c_div_decl);
+    DEC_REF(m_complex_ctor);
+    DEC_REF(m_real_part_decl);
+    DEC_REF(m_imag_part_decl);
     DEC_REF(m_r_le_decl);
     DEC_REF(m_r_ge_decl);
     DEC_REF(m_r_lt_decl);
@@ -353,7 +384,24 @@ sort * arith_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     switch (k) {
     case REAL_SORT: return m_real_decl;
     case INT_SORT:  return m_int_decl;
+    case COMPLEX_SORT: return m_complex_decl;
     default: return nullptr;
+    }
+}
+
+func_decl * arith_decl_plugin::mk_complex_func_decl(decl_kind k) {
+    switch (k) {
+    case OP_COMPLEX: return m_complex_ctor;
+    case OP_REAL_PART: return m_real_part_decl;
+    case OP_IMAG_PART: return m_imag_part_decl;
+    case OP_ADD: return m_c_add_decl;
+    case OP_SUB: return m_c_sub_decl;
+    case OP_UMINUS: return m_c_uminus_decl;
+    case OP_MUL: return m_c_mul_decl;
+    case OP_DIV: return m_c_div_decl;
+    default:
+        m_manager->raise_exception("operator is not defined on Complex");
+        return nullptr;
     }
 }
 
@@ -541,6 +589,15 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_MUL && arity == 2) {
+        if (domain[0] == m_real_decl && domain[1] == m_complex_decl)
+            return m_rc_mul_decl;
+        if (domain[0] == m_complex_decl && domain[1] == m_real_decl)
+            return m_cr_mul_decl;
+    }
+    if (k == OP_COMPLEX || k == OP_REAL_PART || k == OP_IMAG_PART ||
+        has_real_arg(arity, domain, m_complex_decl))
+        return mk_complex_func_decl(fix_kind(k, arity));
     if (k == OP_IDIVIDES) {
         if (arity != 1 || domain[0] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
             m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
@@ -572,6 +629,15 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_MUL && num_args == 2) {
+        if (args[0]->get_sort() == m_real_decl && args[1]->get_sort() == m_complex_decl)
+            return m_rc_mul_decl;
+        if (args[0]->get_sort() == m_complex_decl && args[1]->get_sort() == m_real_decl)
+            return m_cr_mul_decl;
+    }
+    if (k == OP_COMPLEX || k == OP_REAL_PART || k == OP_IMAG_PART ||
+        has_real_arg(m_manager, num_args, args, m_complex_decl))
+        return mk_complex_func_decl(fix_kind(k, num_args));
     if (k == OP_IDIVIDES) {
         if (num_args != 1 || args[0]->get_sort() != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
             m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
@@ -597,6 +663,8 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 }
 
 void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
+    if (logic == symbol::null || logic == "ALL")
+        sort_names.push_back(builtin_name("Complex", COMPLEX_SORT));
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
         logic == "QF_NTA" ||
@@ -613,6 +681,11 @@ void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
 }
 
 void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
+    if (logic == symbol::null || logic == "ALL") {
+        op_names.push_back(builtin_name("complex.make", OP_COMPLEX));
+        op_names.push_back(builtin_name("complex.real", OP_REAL_PART));
+        op_names.push_back(builtin_name("complex.imag", OP_IMAG_PART));
+    }
     op_names.push_back(builtin_name("<=",OP_LE));
     op_names.push_back(builtin_name(">=",OP_GE));
     op_names.push_back(builtin_name("<",OP_LT));
@@ -661,6 +734,8 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
 }
 
 bool arith_decl_plugin::is_value(app * e) const {
+    if (is_app_of(e, m_family_id, OP_COMPLEX))
+        return m_manager->is_value(e->get_arg(0)) && m_manager->is_value(e->get_arg(1));
     return
         is_app_of(e, m_family_id, OP_NUM) ||
         is_app_of(e, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) ||
@@ -669,6 +744,8 @@ bool arith_decl_plugin::is_value(app * e) const {
 }
 
 bool arith_decl_plugin::is_unique_value(app * e) const {
+    if (is_app_of(e, m_family_id, OP_COMPLEX))
+        return m_manager->is_unique_value(e->get_arg(0)) && m_manager->is_unique_value(e->get_arg(1));
     return
         is_app_of(e, m_family_id, OP_NUM) ||
         is_app_of(e, m_family_id, OP_PI) ||
@@ -676,6 +753,9 @@ bool arith_decl_plugin::is_unique_value(app * e) const {
 }
 
 bool arith_decl_plugin::are_equal(app * a, app * b) const {
+    if (is_app_of(a, m_family_id, OP_COMPLEX) && is_app_of(b, m_family_id, OP_COMPLEX))
+        return m_manager->are_equal(a->get_arg(0), b->get_arg(0)) &&
+            m_manager->are_equal(a->get_arg(1), b->get_arg(1));
     if (decl_plugin::are_equal(a, b)) {
         return true;
     }
@@ -688,6 +768,9 @@ bool arith_decl_plugin::are_equal(app * a, app * b) const {
 }
 
 bool arith_decl_plugin::are_distinct(app * a, app * b) const {
+    if (is_app_of(a, m_family_id, OP_COMPLEX) && is_app_of(b, m_family_id, OP_COMPLEX))
+        return m_manager->are_distinct(a->get_arg(0), b->get_arg(0)) ||
+            m_manager->are_distinct(a->get_arg(1), b->get_arg(1));
     TRACE(are_distinct_bug, tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";);
     if (decl_plugin::are_distinct(a,b)) {
         return true;
@@ -734,6 +817,10 @@ bool arith_decl_plugin::are_distinct(app * a, app * b) const {
 }
 
 expr * arith_decl_plugin::get_some_value(sort * s) {
+    if (s == m_complex_decl) {
+        app * zero = mk_numeral(rational(0), false);
+        return m_manager->mk_app(m_complex_ctor, zero, zero);
+    }
     SASSERT(s == m_int_decl || s == m_real_decl);
     return mk_numeral(rational(0), s == m_int_decl);
 }

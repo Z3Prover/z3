@@ -998,6 +998,10 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
         return s1;
     if (s1->get_family_id() == arith_family_id &&
         s2->get_family_id() == arith_family_id) {
+        if (s1->get_decl_kind() == COMPLEX_SORT)
+            return s1;
+        if (s2->get_decl_kind() == COMPLEX_SORT)
+            return s2;
         if (s1->get_decl_kind() == REAL_SORT) {
             return s1;
         }
@@ -2092,6 +2096,16 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 expr* ast_manager::coerce_to(expr* e, sort* s) {
     sort* se = e->get_sort();
     if (s != se && s->get_family_id() == arith_family_id && se->get_family_id() == arith_family_id) {
+        if (s->get_decl_kind() == COMPLEX_SORT) {
+            arith_util au(*this);
+            expr_ref re(e, *this);
+            if (au.is_int(e))
+                re = au.mk_to_real(e);
+            expr_ref zero(au.mk_real(0), *this);
+            return au.mk_complex(re, zero);
+        }
+        if (se->get_decl_kind() == COMPLEX_SORT)
+            throw ast_exception("cannot coerce Complex to Int or Real; use complex.real or complex.imag");
         if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
         else 
@@ -2099,6 +2113,12 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     }
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
+        if (au.is_complex(s)) {
+            expr_ref one(au.mk_real(1), *this);
+            expr_ref zero(au.mk_real(0), *this);
+            expr_ref re(mk_ite(e, one, zero), *this);
+            return au.mk_complex(re, zero);
+        }
         if (s->get_decl_kind() == REAL_SORT) {
             auto _seqr0 = au.mk_real(1);
             auto _seqr1 = au.mk_real(0);

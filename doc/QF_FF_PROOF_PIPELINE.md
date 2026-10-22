@@ -19,6 +19,9 @@ scalar-only reconstruction described below is the historical second milestone.
 
 Build the external checkers using
 [`proof_checkers/README.md`](https://github.com/Z3Prover/z3test/blob/cb0b0d1e036ad30d27112ab7bfc02bf48fc9c0fb/regressions/finite_field/proof_checkers/README.md).
+Use [`scripts/ff-proof-checker-versions.json`](../scripts/ff-proof-checker-versions.json)
+in place of the harness's `versions.json`, as CI does: the Carcara fork is no
+longer available, so the same revision is fetched from upstream with its archive checksum.
 Set `CARCARA` and `FFPACHECK` to their absolute executable paths:
 
 ```sh

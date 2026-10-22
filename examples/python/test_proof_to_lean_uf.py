@@ -180,11 +180,12 @@ UF_INPUTS = {
 (assert (not (r (= b a) (f (p true)))))
 (check-sat)
 """,
-    # Bool arguments fixed at level 0: Z3 internalizes (f q) and (r s b) with
-    # the units substituted, assumes its true literal, and logs its internal
-    # true variable as the phantom constant k!0; t is decided during search.
-    # No set-logic line: with (set-logic QF_UF) the sat.smt core logs no
-    # phantom for this input, and the live test below checks the raw log.
+    # Bool arguments fixed at level 0: Z3 internalizes (r s b) with the unit
+    # substituted, (r false b), and assumes true and (not false) as unit
+    # clauses; t is decided during search. The live test below checks the raw
+    # log. (Before the exporter bypassed the frontend's tactic preamble, the
+    # preamble made the core log its internal true variable as the phantom
+    # constant k!0; the replay still drops clauses over such phantoms.)
     "uf_bool_args_units": """\
 (declare-sort U 0)
 (declare-fun a () U)
@@ -207,10 +208,46 @@ UF_INPUTS = {
 }
 
 
-# Uninterpreted predicates over Bool without any uninterpreted sort. The
-# sat.smt core Ackermannizes these (or decides them before logging), so only
-# the legacy proof object certifies them; Lean uses the qf_uf encoding with
-# the carrier _U holding nothing but the injected Boolean arguments.
+UF_NEGATED_ITE_CONDITION = """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-const q Bool)
+(assert (and (not q) q))
+(assert (= c (ite (not q) a b)))
+(assert (= (f c) (ite (not (= a b)) (f a) (f b))))
+(check-sat)
+"""
+
+
+# Shapes only the legacy proof object produces: the smt core's rewriter
+# simplifies (ite true a b) under an ite and a function, recorded as a
+# rewrite, congruence through the ite and the function (ite_congr_classical
+# in Lean), and a term-level trans step. The clause log decides this input
+# without a theory lemma.
+LEGACY_UF_INPUTS = {
+    "uf_rewritten_ite": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-fun d () U)
+(assert (= d (ite true (f (ite true a b)) c)))
+(assert (not (= d (f a))))
+(check-sat)
+""",
+}
+
+
+# Uninterpreted predicates over Bool without any uninterpreted sort. Both
+# cores certify them (the clause log since the exporters bypass the frontend's
+# tactic preamble, which Ackermannized them); Lean uses the qf_uf encoding
+# with the carrier _U holding nothing but the injected Boolean arguments.
 BOOLEAN_PREDICATE_INPUTS = {
     # One congruence step through a Boolean equality.
     "bp_congruence": """\
@@ -628,12 +665,12 @@ class TestUninterpretedValidation(unittest.TestCase):
             certificate = copy.deepcopy(self.certificate)
             certificate["fragment"] = fragment
             with self.subTest(fragment=fragment):
-                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+                with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
                     proof_to_lean.reconstruct(self.source, certificate)
         # A Boolean certificate claiming qf_uf has no sort to declare.
         boolean = proof_certificate.export_certificate("(declare-const p Bool)(assert p)(assert (not p))")
         boolean["fragment"] = "qf_uf"
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
             proof_to_lean.reconstruct("(declare-const p Bool)(assert p)(assert (not p))", boolean)
 
         def rename_sort(certificate, new_name, only_first=False):
@@ -682,13 +719,15 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_eq = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["U", "U"]
         for certificate, message in [
             (mutate(is_f, domain=["Bool"]), "wrong argument sort"),  # f is applied to an element
-            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Real"]), "wrong argument sort"),  # a legal (QF_UFLRA) domain, but f takes an element
+            (mutate(is_f, domain=["Proof"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["U", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="ite", domain=["Bool", "U", "U"]), "invalid uninterpreted-sort ite"),
             (mutate(is_f, kind=z3.Z3_OP_ITE, name="if", domain=["Bool", "U", "U"]), "wrong number of arguments"),
             (mutate(is_f, kind=z3.Z3_OP_ADD, name="+", domain=["U", "U"]), "unsupported uninterpreted-sort"),
             (mutate(is_p, domain=["Bool"]), "wrong argument sort"),  # p is applied to an element
-            (mutate(is_p, domain=["Real"]), "unsupported predicate declaration"),
+            (mutate(is_p, domain=["Real"]), "wrong argument sort"),
+            (mutate(is_p, domain=["Proof"]), "unsupported predicate declaration"),
             (mutate(is_p, domain=["U", "U"]), "wrong number of arguments"),
             (mutate(is_eq, domain=["U", "Bool"]), "cannot mix argument sorts"),
             (mutate(is_eq, domain=["Bool", "Bool"]), "wrong argument sort"),
@@ -756,6 +795,46 @@ class TestUninterpretedValidation(unittest.TestCase):
         other = else_branch if branch == then_branch else then_branch
         tampered = copy.deepcopy(certificate)
         tampered["nodes"][equality]["arguments"] = [ite if arg == ite else other for arg in (left, right)]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
+            proof_to_lean.reconstruct(source, tampered)
+
+    def test_ite_gates_with_negated_conditions_split_on_the_negand(self):
+        # The then-gate of (ite (not q) a b) arrives as q or (ite (not q) a b) = a:
+        # the lemma splits on q, proves the condition (not q) in the Not q case
+        # and its negation from q by lifting, never eliminating a double negation.
+        source = UF_NEGATED_ITE_CONDITION
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        gates = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                 and any(graph.kind(lit) == z3.Z3_OP_EQ
+                         and any(graph.kind(arg) == z3.Z3_OP_ITE for arg in graph.arguments(lit))
+                         for lit in graph.clause(graph.conclusion(node)))]
+        self.assertGreaterEqual(len(gates), 4)
+        self.assertIn("(ite_eq_left _hnc)", text)
+        self.assertIn("(ite_eq_right (fun _n0 => _n0 _hc))", text)
+        self.assertNotIn("(ite_eq_left _hc)", text)  # every condition of the input is a negation
+        for gate in gates:
+            header = text.split("private theorem def_axiom_%d " % gate, 1)[1].split(":=", 1)[0]
+            witnesses = [int(part.split(" ", 1)[0]) for part in header.split("[_df")[1:]]
+            self.assertEqual(len(witnesses), 1, header)
+            self.assertNotEqual(graph.kind(witnesses[0]), z3.Z3_OP_NOT)
+        self.assertNotIn("sorry", text)
+        self.assertNotIn("axiom ", text)
+
+        # Flipping a gate's guard must not turn a false clause into an axiom.
+        gate = gates[0]
+        conclusion = graph.conclusion(gate)
+        equality = next(lit for lit in graph.clause(conclusion) if graph.kind(lit) == z3.Z3_OP_EQ)
+        ite = next(arg for arg in graph.arguments(equality) if graph.kind(arg) == z3.Z3_OP_ITE)
+        condition = graph.arguments(ite)[0]
+        core, _ = proof_to_lean._negation_core(graph, condition)
+        guard = next(lit for lit in graph.clause(conclusion) if lit != equality)
+        _, depth = proof_to_lean._negation_core(graph, guard)
+        opposite = core if depth % 2 else condition
+        tampered = copy.deepcopy(certificate)
+        tampered["nodes"][conclusion]["arguments"] = [
+            opposite if arg == guard else arg for arg in graph.arguments(conclusion)]
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
             proof_to_lean.reconstruct(source, tampered)
 
@@ -833,11 +912,13 @@ class TestUninterpretedValidation(unittest.TestCase):
             rebound = rebound.replace(application, replacement)
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
             proof_to_lean.reconstruct(rebound, dict(certificate, source_smt2=rebound))
-        # A predicate over Bool alone is Ackermannized by the sat.smt core: the
-        # clause-log exporter rejects it (the legacy proof object certifies it).
-        with self.assertRaisesRegex(proof_certificate.ProofExportError, "over Bool alone.*--core legacy"):
-            proof_certificate.export_clause_log_certificate(
-                "(declare-fun p (Bool) Bool)(declare-const q Bool)(assert (p q))(assert (not (p q)))")
+        # A predicate over Bool alone goes through the clause log as well: the
+        # euf solver sees it once the frontend's tactic preamble is bypassed.
+        certificate = proof_certificate.export_clause_log_certificate(
+            "(declare-fun p (Bool) Bool)(declare-const q Bool)(assert (p q))(assert (not (p q)))")
+        self.assertEqual(certificate["fragment"], "qf_uf")
+        self.assertEqual({d["name"] for d in certificate["declarations"] if d["kind"] == z3.Z3_OP_UNINTERPRETED},
+                         {"p", "q"})
 
     def test_boolean_predicates_without_a_sort_use_the_carrier_encoding(self):
         source = BOOLEAN_PREDICATE_INPUTS["bp_nested"]
@@ -873,7 +954,7 @@ class TestUninterpretedValidation(unittest.TestCase):
         for fragment in ("propositional", "qf_lra"):
             relabeled = copy.deepcopy(certificate)
             relabeled["fragment"] = fragment
-            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf certificates"):
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "only qf_uf, qf_uflra, and qf_uflia certificates"):
                 proof_to_lean.reconstruct(source, relabeled)
         tampered = copy.deepcopy(certificate)
         for declaration in _declarations(tampered, lambda d: d["name"] == "r" and d["kind"] == z3.Z3_OP_UNINTERPRETED):
@@ -898,22 +979,23 @@ class TestUninterpretedValidation(unittest.TestCase):
 
     def test_level_zero_units_inside_boolean_arguments(self):
         source = UF_INPUTS["uf_bool_args_units"]
-        # The live run must exercise the phantom path: Z3's raw log declares
-        # its internal true variable as k!0 and assumes it as a unit clause.
+        # The raw log keeps (f q) and (r s b) as written next to the units q
+        # and (not s) (the frontend's tactic preamble used to substitute the
+        # units and introduce the phantom k!0), and assumes the constants true
+        # and (not false) as unit clauses.
         log = proof_clause_log.run_clause_log(proof_certificate.default_z3_executable(),
                                               proof_certificate._assertion_commands(source))
-        self.assertIn("(declare-fun k!0 () Bool)", log)
-        self.assertRegex(log, r"\(assume (\(not )?k!0\)?\)")
+        for text in ("(f q)", "(r s b)", "(r false b)", "(assume q)", "(assume (not s))",
+                     "(assume true)", "(assume (not false))"):
+            self.assertIn(text, log)
+        self.assertNotIn("!", log)
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         hints = [graph.decl(node).parameters for node in _th_lemma_nodes(certificate)]
-        # Z3 substituted q and s into (f q) and (r s b): those assumptions are
-        # tied to the units and the assertions by cnf lemmas; the phantom k!0
-        # unit and the assumed true literal leave no trace but a def-axiom.
-        self.assertIn(("cnf",), hints)
-        self.assertIn(("euf",), hints)
-        self.assertIn("def-axiom", certificate["rule_counts"])
-        self.assertFalse([d for d in certificate["declarations"] if d["name"].startswith("k!")])
+        # Every assumption matches an assertion, so no cnf lemma bridges one;
+        # the euf lemmas carry the unit into the congruence (r s b) = (r false b)
+        # and the constant units leave no trace in the certificate.
+        self.assertEqual(set(hints), {("euf",)})
         self.assertNotIn("k!", json.dumps(certificate))
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("(_bool (formula_", text)
@@ -961,12 +1043,13 @@ class TestUninterpretedValidation(unittest.TestCase):
         is_eq_b = lambda d: d["kind"] == z3.Z3_OP_EQ and d["domain"] == ["B", "B"]
         for mutated, message in [
             # Equality and distinct compare terms of one sort; functions and predicates
-            # take arguments of the uninterpreted sorts only, and every application
-            # must be well-sorted.
+            # take arguments of the uninterpreted sorts, Bool, and Real (never Proof),
+            # and every application must be well-sorted.
             (mutate(is_eq_b, domain=["A", "B"]), "cannot mix argument sorts"),
             (mutate(is_f, domain=["B"]), "wrong argument sort"),
             (mutate(is_f, domain=["Bool"]), "wrong argument sort"),
-            (mutate(is_f, domain=["Real"]), "unsupported uninterpreted-sort declaration"),
+            (mutate(is_f, domain=["Real"]), "wrong argument sort"),
+            (mutate(is_f, domain=["Proof"]), "unsupported uninterpreted-sort declaration"),
             (mutate(is_g, domain=["A", "B"]), "wrong argument sort"),
             (mutate(is_g, range="B"), "wrong argument sort"),
             (mutate(is_b, range="A"), "wrong argument sort"),
@@ -1116,15 +1199,13 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
         counts = certificate["rule_counts"]
         # Conflict resolution proves every equality: no theory lemma is left to grind.
         self.assertNotIn("th-lemma", counts)
-        for rule in ("monotonicity", "trans", "rewrite", "mp"):
+        for rule in ("monotonicity", "rewrite", "mp"):
             self.assertIn(rule, counts)
         self.assertEqual(graph.sorts, ("U",))
         text = proof_to_lean.reconstruct(self.source, certificate)
         self.assertIn("theorem unsat (_atoms : Nat -> Prop)" + proof_to_lean._UF_BINDERS, text)
         # Congruence through a function goes through the equality of its
-        # argument list, through a predicate it yields an Iff; Boolean
-        # transitivity stays Iff.trans.
-        self.assertIn("(Iff.trans _step_", text)
+        # argument list, through a predicate it yields an Iff.
         self.assertRegex(text, r"\(congrArg \(_funs \d+\) \(congr \(congrArg List\.cons ")
         self.assertRegex(text, r"\(Iff\.of_eq \(congrArg \(_preds \d+\) \(congr \(congrArg List\.cons ")
         self.assertIn("(Eq.refl (term_", text)  # an unchanged argument
@@ -1141,12 +1222,22 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
             self.assertNotIn("rewrite_%d " % node, text)
         self.assertNotIn("sorry", text)
         self.assertNotIn("axiom ", text)
+        # Boolean transitivity stays Iff.trans.
+        source = UF_INPUTS["uf_two_sorts"]
+        certificate = proof_certificate.export_certificate(source)
+        self.assertIn("trans", certificate["rule_counts"])
+        self.assertIn("(Iff.trans _step_", proof_to_lean.reconstruct(source, certificate))
         # A chain of equalities over the sort: trans and trans* compose
         # Eq.trans, symm is Eq.symm.
-        source = UF_INPUTS["uf_chained_equality"]
+        source = LEGACY_UF_INPUTS["uf_rewritten_ite"]
         certificate = proof_certificate.export_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, graph))
+        self.assertIn("(Eq.trans _step_", proof_to_lean.reconstruct(source, certificate))
+        source = UF_INPUTS["uf_chained_equality"]
+        certificate = proof_certificate.export_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertTrue(self.term_steps(z3.Z3_OP_PR_TRANSITIVITY_STAR, graph))
         self.assertTrue(self.term_steps(z3.Z3_OP_PR_SYMMETRY, graph))
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("(Eq.trans _step_", text)
@@ -1178,16 +1269,20 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
     def test_tampered_equality_steps_are_rejected_before_lean(self):
         graph, terms = self.graph, self.terms
         # trans with a middle term that does not match, and symm with the wrong premise.
+        rewritten = LEGACY_UF_INPUTS["uf_rewritten_ite"]
+        rewritten_certificate = proof_certificate.export_certificate(rewritten)
+        rewritten_graph = proof_to_lean._validate_graph(rewritten, rewritten_certificate)
+        trans = self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, rewritten_graph)[0]
+        certificate, _, _ = self.tampered(rewritten_certificate)
+        first, second, conclusion = rewritten_graph.arguments(trans)
+        certificate["nodes"][trans]["arguments"] = [first, first, conclusion]
+        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect trans premises"):
+            proof_to_lean.reconstruct(rewritten, certificate)
         chained = UF_INPUTS["uf_chained_equality"]
         chained_certificate = proof_certificate.export_certificate(chained)
         chained_graph = proof_to_lean._validate_graph(chained, chained_certificate)
-        trans = self.term_steps(z3.Z3_OP_PR_TRANSITIVITY, chained_graph)[0]
-        certificate, _, _ = self.tampered(chained_certificate)
-        first, second, conclusion = chained_graph.arguments(trans)
-        certificate["nodes"][trans]["arguments"] = [first, first, conclusion]
-        with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "incorrect trans premises"):
-            proof_to_lean.reconstruct(chained, certificate)
-        symm = self.term_steps(z3.Z3_OP_PR_SYMMETRY, chained_graph)[0]
+        # The last symm step over the sort has an earlier proof step with another conclusion.
+        symm = self.term_steps(z3.Z3_OP_PR_SYMMETRY, chained_graph)[-1]
         premise = chained_graph.arguments(symm)[0]
         other = next(node for node in range(symm) if chained_graph.decl(node).range == "Proof"
                      and chained_graph.conclusion(node) != chained_graph.conclusion(premise))
@@ -1199,13 +1294,15 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
         # monotonicity step appended with the same premises but a conclusion
         # whose changed argument has no premise, or whose sides have different
         # heads, is rejected.
-        mono = self.term_steps(z3.Z3_OP_PR_MONOTONICITY)[0]
+        elements = [n for n in range(len(graph.nodes)) if graph.is_term(n) and not graph.arguments(n)]
+        # The first congruence step over the sort whose sides leave a constant unmentioned.
+        mono, unrelated = next(
+            (step, e) for step in self.term_steps(z3.Z3_OP_PR_MONOTONICITY) for e in elements
+            if terms[e] not in {terms[arg] for side in graph.arguments(graph.conclusion(step))
+                                for arg in graph.arguments(side)})
         premises = list(graph.arguments(mono)[:-1])
         left, right = graph.arguments(graph.conclusion(mono))
-        elements = [n for n in range(len(graph.nodes)) if graph.is_term(n) and not graph.arguments(n)]
         certificate, declaration, node = self.tampered()
-        unrelated = next(e for e in elements
-                         if terms[e] not in {terms[arg] for arg in graph.arguments(left) + graph.arguments(right)})
         changed = node(graph.nodes[right].declaration, [unrelated] + list(graph.arguments(right)[1:]))
         equality = node(graph.nodes[graph.conclusion(mono)].declaration, [left, changed])
         node(graph.nodes[mono].declaration, premises + [equality])
@@ -1245,13 +1342,16 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
         # The legacy core rewrites ite terms, states congruence through ite
         # terms and through distinct, and pairs distinct with its expansion
         # into disequalities in def-axiom clauses.
+        source = LEGACY_UF_INPUTS["uf_rewritten_ite"]
+        certificate = proof_certificate.export_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("rewrite", certificate["rule_counts"])
+        self.assertEqual(text.count("private theorem ite_congr_classical"), 1)
+        self.assertIn("(ite_congr_classical ", text)
         source = UF_INPUTS["uf_ite"]
         certificate = proof_certificate.export_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertEqual(text.count("private theorem ite_congr_classical"), 1)
-        self.assertIn("(ite_congr_classical ", text)
-        self.assertIn("(and_congr (not_congr (Iff.intro (fun _h => Eq.trans", text)
         self.assertIn("def-axiom", certificate["rule_counts"])
         distinct_gates = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
                           and any(graph.kind(literal) == z3.Z3_OP_NOT
@@ -1264,6 +1364,7 @@ class TestLegacyProofObjectValidation(unittest.TestCase):
         certificate = proof_certificate.export_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("(and_congr (not_congr (Iff.intro (fun _h => Eq.trans", text)  # congruence through distinct
         term_rewrites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
                          and graph.is_term(graph.arguments(graph.conclusion(node))[0])]
         self.assertTrue(term_rewrites)
@@ -1296,16 +1397,22 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
             return certificate, " ".join(result.stdout.split())
 
     def assert_standard_axioms(self, report):
+        if ".unsat' does not depend on any axioms" in report:
+            return  # a refutation without any rewrite needs no propext
         axioms = report.split("depends on axioms: [", 1)[1].split("]", 1)[0]
         self.assertTrue({name.strip() for name in axioms.split(",")} <= {"propext", "Classical.choice", "Quot.sound"},
                         axioms)
 
     def test_documented_uf_inputs_verify_through_the_legacy_core(self):
-        for name, source in UF_INPUTS.items():
+        for name, source in {**UF_INPUTS, **LEGACY_UF_INPUTS}.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)
                 self.assertIn("monotonicity", certificate["rule_counts"])
                 self.assert_standard_axioms(report)
+
+    def test_negated_ite_condition_input_verifies_through_the_legacy_core(self):
+        _, report = self.check(UF_NEGATED_ITE_CONDITION)
+        self.assert_standard_axioms(report)
 
     # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least
     # three assertions and whose legacy refutations have the most congruence
@@ -1383,8 +1490,20 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
 class TestUninterpretedLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
 
-    def check(self, source):
-        certificate = proof_certificate.export_clause_log_certificate(source)
+    def test_both_queries_of_an_incremental_input_are_certified(self):
+        # z3test 3732.smt2 asks check-sat and then check-sat-using over the
+        # same assertions; each query is certified on its own.
+        from test_proof_to_lean import INCREMENTAL_INPUTS
+        source, _ = INCREMENTAL_INPUTS["3732"]
+        for query in (0, 1):
+            with self.subTest(query=query):
+                certificate, report = self.check(source, query)
+                self.assertEqual(certificate["query"], query)
+                self.assertEqual(len(certificate["assertions"]), 2)
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def check(self, source, query=None):
+        certificate = proof_certificate.export_clause_log_certificate(source, query=query)
         self.assertEqual(certificate["fragment"], "qf_uf")
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "checked.lean"
@@ -1407,6 +1526,34 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 certificate, report = self.check(source)
                 self.assertIn("th-lemma", certificate["rule_counts"])
                 # grind's congruence closure proofs use the classical axioms Lean core relies on.
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_negated_ite_conditions_verify(self):
+        for depth in (1, 2, 3, 4):
+            condition = "(not " * depth + "q" + ")" * depth
+            source = UF_NEGATED_ITE_CONDITION.replace("(ite (not q) a b)", "(ite %s a b)" % condition)
+            with self.subTest(depth=depth):
+                certificate, _ = self.check(source)
+                self.assertIn("def-axiom", certificate["rule_counts"])
+
+    def test_boolean_predicates_without_a_sort_verify_through_the_clause_log(self):
+        # The same inputs and seeds as the legacy-core test: the euf solver
+        # sees the predicates because the exporter bypasses the frontend's
+        # tactic preamble, which Ackermannized them or decided the input.
+        for name, source in BOOLEAN_PREDICATE_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertNotIn("declare-sort", source)
+                self.assertIn("th-lemma", certificate["rule_counts"])
+                self.assertNotIn("!", json.dumps(certificate["declarations"]))
+                self.assertIn("-- No uninterpreted sort: the type _U carries only the Boolean arguments",
+                              proof_to_lean.reconstruct(source, certificate))
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        for seed in TestLegacyUninterpretedLeanIntegration.BOOLEAN_PREDICATE_SEEDS:
+            source = random_boolean_predicate_instance(seed)
+            with self.subTest(seed=seed):
+                certificate, report = self.check(source)
+                self.assertIn("th-lemma", certificate["rule_counts"])
                 self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
 
     # The first three seeds in 1..4999 whose unsat core has at least four
@@ -1544,6 +1691,55 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             tampered["nodes"][elements[1]], tampered["nodes"][elements[0]])
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not match the original input"):
             proof_to_lean.reconstruct(source, tampered)
+
+# define-sort: 61 of z3test's incremental regressions use it. Sort aliases
+# (plain and parametric) are expanded, so the certificate and the Lean
+# statement are about the expanded sorts.
+DEFINE_SORT_INPUTS = {
+    "alias_of_declared_sort": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(define-sort V () U)
+(declare-fun f (V) V)
+(declare-const a V)
+(declare-const b U)
+(assert (= a b))
+(assert (not (= (f a) (f b))))
+(check-sat)
+""",
+    "parametric_alias": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(define-sort Id (T) T)
+(declare-fun p ((Id U)) Bool)
+(declare-const a (Id U))
+(declare-const b U)
+(assert (= a b))
+(assert (p a))
+(assert (not (p b)))
+(check-sat)
+""",
+}
+
+
+@unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
+class TestDefineSort(unittest.TestCase):
+    """Scripts with define-sort are certified end to end (currently rejected)."""
+
+    check = TestUninterpretedLeanIntegration.check
+
+    def test_define_sort_scripts_verify(self):
+        for name, source in DEFINE_SORT_INPUTS.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertEqual(certificate["result"], "unsat")
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+
+    def test_define_sort_in_popped_scope_is_gone(self):
+        source = ("(set-logic QF_UF)(declare-sort U 0)(push)(define-sort V () U)"
+                  "(declare-const a V)(pop)(declare-const a U)(assert (not (= a a)))(check-sat)")
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        self.assertEqual(certificate["result"], "unsat")
 
 
 if __name__ == "__main__":

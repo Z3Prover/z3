@@ -64,6 +64,31 @@ let make_nary (op:B.nary_op) (xs:list formula) : formula =
   | [x] -> x
   | ys -> B.Nary op ys
 
+let make_not (s:formula) : formula =
+  match s with B.Bool b -> B.Bool (not b) | B.Not a -> a | _ -> B.Not s
+
+let make_eq (s t:formula) : formula =
+  if s = t then B.Bool true
+  else match s, t with
+  | B.Bool b, _ -> if b then t else make_not t
+  | _, B.Bool b -> if b then s else make_not s
+  | B.Not a, B.Not b -> B.Eq a b
+  | B.Not a, _ -> B.Not (B.Eq a t)
+  | _, B.Not b -> B.Not (B.Eq s b)
+  | _, _ -> B.Eq s t
+
+let lemma_make_not_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
+  : Lemma (B.eval rho (make_not s) == not (B.eval rho s)) =
+  match s with B.Bool _ | B.Not _ -> () | _ -> ()
+
+let lemma_make_eq_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (B.eval rho (make_eq s t) == (B.eval rho s = B.eval rho t)) =
+  if s = t then ()
+  else match s, t with
+  | B.Bool _, _ -> lemma_make_not_sound rho t
+  | _, B.Bool _ -> lemma_make_not_sound rho s
+  | _, _ -> ()
+
 let rec normalize (negative:bool) (s:formula) : Tot formula (decreases s) =
   match s with
   | B.Atom _ -> if negative then B.Not s else s
@@ -80,8 +105,8 @@ let rec normalize (negative:bool) (s:formula) : Tot formula (decreases s) =
     let next = if negative then B.And else B.Or in
     make_nary next [normalize (not negative) a; normalize negative b]
   | B.Eq a b ->
-    let result = B.Eq (normalize false a) (normalize false b) in
-    if negative then B.Not result else result
+    let result = make_eq (normalize false a) (normalize false b) in
+    if negative then make_not result else result
 
 and normalize_args (negative:bool) (args:list formula)
   : Tot (list formula) (decreases args) =
@@ -217,7 +242,9 @@ let rec lemma_normalize_sound (rho:Z3AstTheory.expr -> bool) (negative:bool) (s:
       [normalize (not negative) a; normalize negative b]
   | B.Eq a b ->
     lemma_normalize_sound rho false a;
-    lemma_normalize_sound rho false b
+    lemma_normalize_sound rho false b;
+    lemma_make_eq_sound rho (normalize false a) (normalize false b);
+    if negative then lemma_make_not_sound rho (make_eq (normalize false a) (normalize false b))
 
 and lemma_normalize_args_sound (rho:Z3AstTheory.expr -> bool) (negative:bool)
                                (op:B.nary_op) (args:list formula)
@@ -309,11 +336,11 @@ and lemma_shape_member_sound (rho:Z3AstTheory.expr -> bool)
     then lemma_shape_equal_sound rho (fuel - 1) x y
     else lemma_shape_member_sound rho fuel x rest
 
-let equivalent (s t:formula) : bool =
+let normal_equivalent (s t:formula) : bool =
   shape_equal 32 (normalize false s) (normalize false t)
 
-let lemma_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
-  : Lemma (requires equivalent s t)
+let lemma_normal_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (requires normal_equivalent s t)
           (ensures B.eval rho s == B.eval rho t) =
   lemma_normalize_sound rho false s;
   lemma_normalize_sound rho false t;
@@ -431,3 +458,250 @@ let lemma_clause_tautology_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
   if not (B.eval rho s) then (
     (match s with B.Nary B.Or _ -> () | _ -> ());
     lemma_forced_sound rho (disjuncts s) s true)
+
+let neutral_assumption (op:B.nary_op) (s:formula) : formula =
+  if op = B.Or then s else make_not s
+
+let lemma_neutral_assumption (rho:Z3AstTheory.expr -> bool) (op:B.nary_op) (s:formula)
+  : Lemma (requires op <> B.Xor /\ B.eval rho s == B.neutral op)
+          (ensures not (B.eval rho (neutral_assumption op s))) =
+  lemma_make_not_sound rho s;
+  match op with B.And | B.Or | B.Xor -> ()
+
+(* Shared disjuncts may be assumed false when comparing the remaining
+   formula. Keep negated compound terms intact to expose complements. *)
+let rec specialize (negative:list formula) (s:formula)
+  : Tot formula (decreases s) =
+  if forced negative s true then B.Bool true
+  else if forced negative s false then B.Bool false
+  else match s with
+  | B.Atom _ | B.Bool _ -> s
+  | B.Not a -> make_not (specialize negative a)
+  | B.Nary op args ->
+    let xs = if op = B.Xor then specialize_args negative args
+             else specialize_context_args negative op args in
+    if op = B.Xor then B.Nary op xs else make_nary op (reduce_args op xs)
+  | B.Implies a b ->
+    make_nary B.Or [make_not (specialize negative a); specialize negative b]
+  | B.Eq a b -> make_eq (specialize negative a) (specialize negative b)
+
+and specialize_args (negative:list formula) (args:list formula)
+  : Tot (list formula) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest -> specialize negative a :: specialize_args negative rest
+
+and specialize_context_args (negative:list formula) (op:B.nary_op) (args:list formula)
+  : Tot (list formula) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest ->
+    let x = specialize negative a in
+    if x = B.Bool (not (B.neutral op)) then [x]
+    else if x = B.Bool (B.neutral op) then specialize_context_args negative op rest
+    else x :: specialize_context_args (neutral_assumption op x :: negative) op rest
+
+let rec lemma_specialize_sound (rho:Z3AstTheory.expr -> bool)
+                               (negative:list formula) (s:formula)
+  : Lemma (requires not (B.eval_args rho B.Or negative))
+          (ensures B.eval rho (specialize negative s) == B.eval rho s)
+          (decreases s) =
+  if forced negative s true then lemma_forced_sound rho negative s true
+  else if forced negative s false then lemma_forced_sound rho negative s false
+  else match s with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Not a ->
+    lemma_specialize_sound rho negative a;
+    lemma_make_not_sound rho (specialize negative a)
+  | B.Nary op args ->
+    if op = B.Xor then lemma_specialize_args_sound rho negative op args
+    else (
+      lemma_specialize_context_args_sound rho negative op args;
+      lemma_reduce_args_sound rho op (specialize_context_args negative op args);
+      lemma_make_nary_sound rho op (reduce_args op (specialize_context_args negative op args)))
+  | B.Implies a b ->
+    lemma_specialize_sound rho negative a;
+    lemma_specialize_sound rho negative b;
+    lemma_make_not_sound rho (specialize negative a);
+    lemma_make_nary_sound rho B.Or
+      [make_not (specialize negative a); specialize negative b]
+  | B.Eq a b ->
+    lemma_specialize_sound rho negative a;
+    lemma_specialize_sound rho negative b;
+    lemma_make_eq_sound rho (specialize negative a) (specialize negative b)
+
+and lemma_specialize_args_sound (rho:Z3AstTheory.expr -> bool)
+                                (negative:list formula) (op:B.nary_op)
+                                (args:list formula)
+  : Lemma (requires not (B.eval_args rho B.Or negative))
+          (ensures B.eval_args rho op (specialize_args negative args) ==
+                   B.eval_args rho op args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_specialize_sound rho negative a;
+    lemma_specialize_args_sound rho negative op rest
+
+and lemma_specialize_context_args_sound (rho:Z3AstTheory.expr -> bool)
+                                        (negative:list formula) (op:B.nary_op)
+                                        (args:list formula)
+  : Lemma (requires not (B.eval_args rho B.Or negative) /\ op <> B.Xor)
+          (ensures B.eval_args rho op (specialize_context_args negative op args) ==
+                   B.eval_args rho op args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_specialize_sound rho negative a;
+    let x = specialize negative a in
+    if x = B.Bool (not (B.neutral op)) then
+      (match op with B.And | B.Or | B.Xor -> ())
+    else if x = B.Bool (B.neutral op) then
+      lemma_specialize_context_args_sound rho negative op rest
+    else if B.eval rho x = B.neutral op then (
+      lemma_neutral_assumption rho op x;
+      lemma_specialize_context_args_sound rho (neutral_assumption op x :: negative) op rest)
+    else (match op with B.And | B.Or | B.Xor -> ())
+
+let rec lemma_intersect_disjunction (rho:Z3AstTheory.expr -> bool) (xs ys:list formula)
+  : Lemma (B.eval_args rho B.Or (B.intersect xs ys) ==>
+           B.eval_args rho B.Or xs /\ B.eval_args rho B.Or ys)
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    lemma_intersect_disjunction rho rest ys;
+    if mem x ys then lemma_member_eval rho x ys
+
+let direct_contextual_equivalent (s t:formula) : bool =
+  let common = B.intersect (disjuncts s) (disjuncts t) in
+  normal_equivalent (specialize common s) (specialize common t)
+
+let lemma_direct_contextual_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (requires direct_contextual_equivalent s t)
+          (ensures B.eval rho s == B.eval rho t) =
+  let common = B.intersect (disjuncts s) (disjuncts t) in
+  lemma_intersect_disjunction rho (disjuncts s) (disjuncts t);
+  if B.eval_args rho B.Or common then (
+    (match s with B.Nary B.Or _ -> () | _ -> ());
+    (match t with B.Nary B.Or _ -> () | _ -> ()))
+  else (
+    lemma_specialize_sound rho common s;
+    lemma_specialize_sound rho common t;
+    lemma_normal_equivalent_sound rho (specialize common s) (specialize common t))
+
+let rec reverse (s:formula) : Tot formula (decreases s) =
+  match s with
+  | B.Atom _ | B.Bool _ -> s
+  | B.Not a -> B.Not (reverse a)
+  | B.Nary op args -> B.Nary op (reverse_args args)
+  | B.Implies a b -> B.Implies (reverse a) (reverse b)
+  | B.Eq a b -> B.Eq (reverse a) (reverse b)
+
+and reverse_args (args:list formula) : Tot (list formula) (decreases args) =
+  match args with [] -> [] | a :: rest -> reverse_args rest @ [reverse a]
+
+let rec lemma_reverse_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
+  : Lemma (B.eval rho (reverse s) == B.eval rho s) (decreases s) =
+  match s with
+  | B.Atom _ | B.Bool _ -> ()
+  | B.Not a -> lemma_reverse_sound rho a
+  | B.Nary op args -> lemma_reverse_args_sound rho op args
+  | B.Implies a b | B.Eq a b -> lemma_reverse_sound rho a; lemma_reverse_sound rho b
+
+and lemma_reverse_args_sound (rho:Z3AstTheory.expr -> bool) (op:B.nary_op) (args:list formula)
+  : Lemma (B.eval_args rho op (reverse_args args) == B.eval_args rho op args)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    lemma_reverse_sound rho a;
+    lemma_reverse_args_sound rho op rest;
+    lemma_eval_append rho op (reverse_args rest) [reverse a];
+    match op with B.And | B.Or | B.Xor -> ()
+
+let contextual_equivalent (s t:formula) : bool =
+  normal_equivalent s t || direct_contextual_equivalent s t ||
+  direct_contextual_equivalent (normalize false s) (normalize false t) ||
+  direct_contextual_equivalent (normalize true s) (normalize true t) ||
+  direct_contextual_equivalent (reverse s) (reverse t) ||
+  direct_contextual_equivalent (reverse (normalize false s)) (reverse (normalize false t))
+
+let lemma_contextual_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (requires contextual_equivalent s t)
+          (ensures B.eval rho s == B.eval rho t) =
+  if normal_equivalent s t then lemma_normal_equivalent_sound rho s t
+  else if direct_contextual_equivalent s t then lemma_direct_contextual_equivalent_sound rho s t
+  else if direct_contextual_equivalent (normalize false s) (normalize false t) then (
+    lemma_normalize_sound rho false s;
+    lemma_normalize_sound rho false t;
+    lemma_direct_contextual_equivalent_sound rho (normalize false s) (normalize false t))
+  else if direct_contextual_equivalent (normalize true s) (normalize true t) then (
+    lemma_normalize_sound rho true s;
+    lemma_normalize_sound rho true t;
+    lemma_direct_contextual_equivalent_sound rho (normalize true s) (normalize true t))
+  else if direct_contextual_equivalent (reverse s) (reverse t) then (
+    lemma_reverse_sound rho s;
+    lemma_reverse_sound rho t;
+    lemma_direct_contextual_equivalent_sound rho (reverse s) (reverse t))
+  else (
+    lemma_normalize_sound rho false s;
+    lemma_normalize_sound rho false t;
+    lemma_reverse_sound rho (normalize false s);
+    lemma_reverse_sound rho (normalize false t);
+    lemma_direct_contextual_equivalent_sound rho
+      (reverse (normalize false s)) (reverse (normalize false t)))
+
+let rec normalize_context (fuel:nat) (s:formula) : Tot formula (decreases fuel) =
+  if fuel = 0 then s
+  else
+    let next = specialize [] (normalize false s) in
+    if next = s then s else normalize_context (fuel - 1) next
+
+let rec lemma_normalize_context_sound (rho:Z3AstTheory.expr -> bool) (fuel:nat) (s:formula)
+  : Lemma (B.eval rho (normalize_context fuel s) == B.eval rho s) (decreases fuel) =
+  if fuel > 0 then (
+    lemma_normalize_sound rho false s;
+    lemma_specialize_sound rho [] (normalize false s);
+    let next = specialize [] (normalize false s) in
+    if next <> s then lemma_normalize_context_sound rho (fuel - 1) next)
+
+let equivalent (s t:formula) : bool =
+  contextual_equivalent s t ||
+  contextual_equivalent (normalize_context 2 s) (normalize_context 2 t)
+
+let lemma_equivalent_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (requires equivalent s t)
+          (ensures B.eval rho s == B.eval rho t) =
+  if contextual_equivalent s t then lemma_contextual_equivalent_sound rho s t
+  else (
+    lemma_normalize_context_sound rho 2 s;
+    lemma_normalize_context_sound rho 2 t;
+    lemma_contextual_equivalent_sound rho (normalize_context 2 s) (normalize_context 2 t))
+
+let rec shannon (fuel:nat) (s t:formula) : Tot bool (decreases fuel) =
+  if normal_equivalent s t then true
+  else if fuel = 0 then false
+  else
+    let _ = assert (fuel > 0) in
+    match B.support s @ B.support t with
+    | [] -> false
+    | atom :: _ ->
+      shannon (fuel - 1) (specialize [B.Atom atom] s) (specialize [B.Atom atom] t) &&
+      shannon (fuel - 1) (specialize [B.Not (B.Atom atom)] s)
+                         (specialize [B.Not (B.Atom atom)] t)
+
+let rec lemma_shannon_sound (rho:Z3AstTheory.expr -> bool) (fuel:nat) (s t:formula)
+  : Lemma (requires shannon fuel s t)
+          (ensures B.eval rho s == B.eval rho t)
+          (decreases fuel) =
+  if normal_equivalent s t then lemma_normal_equivalent_sound rho s t
+  else if fuel > 0 then
+    match B.support s @ B.support t with
+    | [] -> ()
+    | atom :: _ ->
+      let negative = if rho atom then [B.Not (B.Atom atom)] else [B.Atom atom] in
+      lemma_specialize_sound rho negative s;
+      lemma_specialize_sound rho negative t;
+      lemma_shannon_sound rho (fuel - 1) (specialize negative s) (specialize negative t)

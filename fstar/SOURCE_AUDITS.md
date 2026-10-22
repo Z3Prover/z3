@@ -53,6 +53,7 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 | Subject | Report | Main modules |
 |---|---|---|
 | Quantifier distribution and substitution congruence; preprocessor survey | [Simplifiers](SIMPLIFIERS_REPORT.md) | [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) |
+| Monotone real-variable elimination, equisatisfiability, and well-formed model reconstruction | [Monotone elimination](ELIM_MONOTONE_REPORT.md) | [`Z3ElimMonotone.fst`](Z3ElimMonotone.fst) |
 | Restoration of eliminated symbols and model-converter semantics | [Model reconstruction](MODEL_RECONSTRUCTION_REPORT.md) | [`Z3ModelReconstructionTheory.fst`](Z3ModelReconstructionTheory.fst) |
 | Universal instantiation and array/set-indicator witnesses | [Leibniz simplifier](LEIBNIZ_SIMPLIFIER_REPORT.md) | [`Z3LeibnizTheory.fst`](Z3LeibnizTheory.fst) |
 | `rewriter_def.h` proof production and proof smart constructors | [Rewriter proofs](PROOF_REWRITER_REPORT.md) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst) |

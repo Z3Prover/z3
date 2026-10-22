@@ -120,6 +120,7 @@ public class Context implements AutoCloseable {
     private BoolSort m_boolSort = null;
     private IntSort m_intSort = null;
     private RealSort m_realSort = null;
+    private ComplexSort m_complexSort = null;
     private SeqSort<CharSort> m_stringSort = null;
 
     /**
@@ -153,6 +154,21 @@ public class Context implements AutoCloseable {
             m_realSort = new RealSort(this);
         }
         return m_realSort;
+    }
+
+    /** Retrieves the Complex sort of the context. */
+    public ComplexSort getComplexSort()
+    {
+        if (m_complexSort == null) {
+            m_complexSort = new ComplexSort(this);
+        }
+        return m_complexSort;
+    }
+
+    /** Creates the Complex sort. */
+    public ComplexSort mkComplexSort()
+    {
+        return new ComplexSort(this);
     }
 
     /**
@@ -821,6 +837,40 @@ public class Context implements AutoCloseable {
     public RealExpr mkRealConst(String name)
     {
         return (RealExpr) mkConst(name, getRealSort());
+    }
+
+    /** Creates a Complex constant. */
+    public ComplexExpr mkComplexConst(Symbol name)
+    {
+        return (ComplexExpr) mkConst(name, getComplexSort());
+    }
+
+    /** Creates a Complex constant. */
+    public ComplexExpr mkComplexConst(String name)
+    {
+        return (ComplexExpr) mkConst(name, getComplexSort());
+    }
+
+    /** Constructs a Complex expression from Int or Real components. */
+    public ComplexExpr mkComplex(Expr<? extends ArithSort> real, Expr<? extends ArithSort> imag)
+    {
+        checkContextMatch(real);
+        checkContextMatch(imag);
+        return new ComplexExpr(this, Native.mkComplex(nCtx(), real.getNativeObject(), imag.getNativeObject()));
+    }
+
+    /** Returns the Real-valued real component of a Complex expression. */
+    public RealExpr mkRealPart(Expr<ComplexSort> value)
+    {
+        checkContextMatch(value);
+        return new RealExpr(this, Native.mkRealPart(nCtx(), value.getNativeObject()));
+    }
+
+    /** Returns the Real-valued imaginary component of a Complex expression. */
+    public RealExpr mkImagPart(Expr<ComplexSort> value)
+    {
+        checkContextMatch(value);
+        return new RealExpr(this, Native.mkImagPart(nCtx(), value.getNativeObject()));
     }
 
     /**
@@ -4861,6 +4911,7 @@ public class Context implements AutoCloseable {
         m_boolSort = null;
         m_intSort = null;
         m_realSort = null;
+        m_complexSort = null;
         m_stringSort = null;
         m_RefQueue = null;
 

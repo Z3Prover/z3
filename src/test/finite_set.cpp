@@ -328,6 +328,26 @@ static void tst_finite_set_size_three_members() {
     Z3_del_config(cfg);
 }
 
+static void tst_finite_set_size_union_singletons() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast one = Z3_mk_int(ctx, 1, int_sort);
+    Z3_ast two = Z3_mk_int(ctx, 2, int_sort);
+    Z3_ast singleton_one = Z3_mk_finite_set_singleton(ctx, one);
+    Z3_ast singleton_two = Z3_mk_finite_set_singleton(ctx, two);
+    Z3_ast set = Z3_mk_finite_set_union(ctx, singleton_one, singleton_two);
+    Z3_ast size = Z3_mk_finite_set_size(ctx, set);
+    Z3_solver_assert(ctx, solver, Z3_mk_eq(ctx, size, Z3_mk_int(ctx, 2, int_sort)));
+
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+    Z3_del_config(cfg);
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
@@ -336,4 +356,5 @@ void tst_finite_set() {
     tst_finite_set_sort_size();
     tst_finite_set_size_members();
     tst_finite_set_size_three_members();
+    tst_finite_set_size_union_singletons();
 }

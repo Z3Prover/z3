@@ -8,12 +8,14 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3_private.h"
 #include <cstring>
 #include <iostream>
+#include <string>
 #include "util/util.h"
 #include "util/trace.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/simplifiers/solve_eqs.h"
@@ -280,6 +282,57 @@ static void test_fpa() {
     Z3_del_context(ctx);
 }
 
+static void test_const_array_lambda() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* cases[] = {
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
+        "(assert (forall ((a Int) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int))"
+        " (= (lambda ((x Int)) x) ((as const (Array Int Int)) a))))"
+        "(assert (forall ((a Int) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int) (b (Array Int Int)))"
+        " (= ((as const (Array Int Int)) a) (lambda ((x Int)) x))))"
+        "(assert (forall ((a Int) (b (Array Int Int)) (x Int)) (= x a)))",
+
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int Int)) a) (lambda ((x Int) (y Int)) (+ x y)))))"
+        "(assert (forall ((a Int) (x Int) (y Int)) (= (+ x y) a)))",
+
+        "(assert (forall ((a Int))"
+        " (= ((as const (Array Int Int)) (+ a 1)) (lambda ((x Int)) (+ a x)))))"
+        "(assert (forall ((a Int) (x Int)) (= (+ a x) (+ a 1))))",
+
+        "(declare-const a Int)"
+        "(assert (= ((as const (Array Int Int)) a) (lambda ((x Int)) x)))"
+        "(assert (forall ((x Int)) (= x a)))"
+    };
+
+    for (char const* test : cases) {
+        Z3_ast_vector fmls = Z3_parse_smtlib2_string(ctx, test, 0, nullptr, nullptr, 0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, fmls);
+        ENSURE(Z3_ast_vector_size(ctx, fmls) == 2);
+        Z3_ast input = Z3_ast_vector_get(ctx, fmls, 0);
+        Z3_ast expected = Z3_ast_vector_get(ctx, fmls, 1);
+        Z3_ast actual = Z3_simplify(ctx, input);
+        ENSURE(Z3_is_well_sorted(ctx, actual));
+        expect_simplifies_to(ctx, input, expected);
+
+        Z3_solver solver = Z3_mk_solver(ctx);
+        Z3_solver_inc_ref(ctx, solver);
+        Z3_solver_assert(ctx, solver, input);
+        ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+        Z3_solver_dec_ref(ctx, solver);
+        Z3_ast_vector_dec_ref(ctx, fmls);
+    }
+    Z3_del_context(ctx);
+}
+
 static void test_array() {
     
     Z3_config cfg = Z3_mk_config();
@@ -496,6 +549,40 @@ static void test_solve_eqs_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_solve_eqs_macro_constants() {
+    char const* definitions[] = {
+        "(define-fun B () Int x)",
+        "(define-fun B ((y Int)) Int (+ x y))",
+        "(define-fun-rec f ((y Int)) Int (ite (= y 0) x (f (- y 1))))"
+    };
+    for (unsigned i = 0; i < 3; ++i) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string source = "(declare-const x Int)";
+        source += definitions[i];
+        source += "(assert (= x 0))";
+        Z3_ast_vector assertions = Z3_parse_smtlib2_string(ctx, source.c_str(), 0, nullptr, nullptr,
+                                                        0, nullptr, nullptr);
+        Z3_ast_vector_inc_ref(ctx, assertions);
+        Z3_goal goal = Z3_mk_goal(ctx, false, false, false);
+        Z3_goal_inc_ref(ctx, goal);
+        Z3_goal_assert(ctx, goal, Z3_ast_vector_get(ctx, assertions, 0));
+        Z3_tactic tactic = Z3_mk_tactic(ctx, "solve-eqs");
+        Z3_tactic_inc_ref(ctx, tactic);
+        Z3_apply_result result = Z3_tactic_apply(ctx, tactic, goal);
+        Z3_apply_result_inc_ref(ctx, result);
+        ENSURE(Z3_apply_result_get_num_subgoals(ctx, result) == 1);
+        Z3_goal subgoal = Z3_apply_result_get_subgoal(ctx, result, 0);
+        ENSURE(Z3_goal_size(ctx, subgoal) == (i == 2 ? 1 : 0));
+        Z3_apply_result_dec_ref(ctx, result);
+        Z3_tactic_dec_ref(ctx, tactic);
+        Z3_goal_dec_ref(ctx, goal);
+        Z3_ast_vector_dec_ref(ctx, assertions);
+        Z3_del_context(ctx);
+    }
+}
+
 static void test_solve_eqs_proof_scope() {
     for (bool proofs : {false, true}) {
         ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
@@ -645,9 +732,62 @@ static void test_demodulator_simplifier_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_quantified_bool_literals() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        th_rewriter rw(m);
+        sort* b = m.mk_bool_sort();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, b), m);
+        expr_ref p(m.mk_const("p", b), m);
+        expr_ref result(m);
+        proof_ref pr(m);
+        for (bool universal : {false, true}) {
+            for (bool negate_body : {false, true}) {
+                for (bool negate_literal : {false, true}) {
+                    expr_ref lit(negate_literal ? m.mk_not(x) : x.get(), m);
+                    bool conjunction = universal != negate_body;
+                    expr_ref body(conjunction ? m.mk_and(lit, p) : m.mk_or(lit, p), m);
+                    if (negate_body)
+                        body = m.mk_not(body);
+                    quantifier_ref q(m.mk_quantifier(
+                        universal ? forall_k : exists_k, 1, &b, &name, body), m);
+                    rw(q, result, pr);
+                    ENSURE(universal ? m.is_false(result) : m.is_true(result));
+                    if (proofs) {
+                        ENSURE(pr);
+                        expr_ref equality(m.mk_eq(q, result), m);
+                        ENSURE(m.get_fact(pr) == equality);
+                        base_dependent_expr_state st(m);
+                        st.add(dependent_expr(m, equality, pr, nullptr));
+                        expr_ref_vector assertions(m);
+                        check_simplifier_proofs(m, st, assertions);
+                    }
+                }
+            }
+        }
+
+        func_decl_ref f(m.mk_func_decl(symbol("f"), b, b), m);
+        expr_ref fx(m.mk_app(f.get(), x.get()), m);
+        expr_ref outer(m.mk_var(1, b), m);
+        expr_ref body(m.mk_or(outer, fx), m);
+        quantifier_ref q(m.mk_exists(1, &b, &name, body), m);
+        rw(q, result, pr);
+        ENSURE(!m.is_true(result) && !m.is_false(result));
+
+        body = m.mk_and(x, p);
+        q = m.mk_lambda(1, &b, &name, body);
+        rw(q, result, pr);
+        ENSURE(is_lambda(result));
+    }
+}
+
 void tst_simplifier() {
 
+    test_quantified_bool_literals();
     test_array();
+    test_const_array_lambda();
     test_bv();
     test_datatypes();
     test_bool();
@@ -655,6 +795,7 @@ void tst_simplifier() {
     test_incremental_demodulator();
     test_recfun_finder();
     test_solve_eqs_proofs();
+    test_solve_eqs_macro_constants();
     test_solve_eqs_proof_scope();
     test_flatten_suffix_proofs();
     test_skolemize_bug();

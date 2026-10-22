@@ -22,6 +22,7 @@ Notes:
 
 #include<sstream>
 #include<vector>
+#include<functional>
 #include "util/stopwatch.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
@@ -198,6 +199,8 @@ public:
 
 class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
+    using proof_check_callback = std::function<std::string(proof*, expr_ref_vector const&)>;
+
     enum status {
         UNSAT, SAT, UNKNOWN
     };
@@ -296,14 +299,16 @@ protected:
         unsigned m_macros_stack_lim;
         unsigned m_aux_pdecls_lim;
         unsigned m_psort_inst_stack_lim;
-        // only m_assertions_lim is relevant when m_global_decls = true
+        // Declaration limits are ignored when m_global_decls = true.
         unsigned m_assertions_lim;
+        unsigned m_rlimit;
     };
 
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
+    proof_check_callback        m_proof_check_callback;
     ref<opt_wrapper>             m_opt;
 
     stopwatch                    m_watch;
@@ -330,6 +335,7 @@ protected:
     var_subst& rev_subst() { if (!m_rev_subst) m_rev_subst = alloc(var_subst, m(), false); return *m_rev_subst; }
 
     void register_builtin_sorts(decl_plugin * p);
+    void restrict_builtin_sorts();
     void register_builtin_ops(decl_plugin * p);
     void load_plugin(symbol const & name, bool install_names, svector<family_id>& fids);
     void init_manager_core(bool new_manager);
@@ -527,6 +533,8 @@ public:
     void push(unsigned n);
     void pop(unsigned n);
     void check_sat(unsigned num_assumptions, expr * const * assumptions);
+    void set_proof_check_callback(proof_check_callback callback) { m_proof_check_callback = std::move(callback); }
+    void check_proof(unsigned num_assumptions = 0, expr* const* assumptions = nullptr);
     void get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq);
     void reset_assertions();
     // display the result produced by a check-sat or check-sat-using commands in the regular stream

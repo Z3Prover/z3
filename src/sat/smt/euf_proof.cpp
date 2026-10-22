@@ -392,7 +392,13 @@ namespace euf {
         std::ostream& out = *m_proof_out;
         if (!visit_clause(out, n, lits))
             return;
-        if (st.is_asserted()) 
+        if ((st.is_asserted() || st.is_redundant()) && status_is_assumed(st)) {
+            auto hint = status2proof_hint(st);
+            visit_expr(out, hint);
+            display_hint(out << "; assumed", hint) << "\n";
+            display_assume(out, n, lits);
+        }
+        else if (st.is_asserted())
             display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_deleted()) 
             display_deleted(out, n, lits);        
@@ -412,8 +418,12 @@ namespace euf {
         for (unsigned i = 0; i < n; ++i) 
             m_clause.push_back(proof_literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
-        if (st.is_asserted() || st.is_redundant())
-            m_smt_proof_checker.infer(m_clause, hint);
+        if ((st.is_asserted() || st.is_redundant()) && status_is_assumed(st))
+            m_smt_proof_checker.assume(m_clause);
+        else if (st.is_asserted() || st.is_redundant()) {
+            if (!m_smt_proof_checker.infer(m_clause, hint))
+                exit(0);
+        }
         else if (st.is_deleted())
             m_smt_proof_checker.del(m_clause);
         else if (st.is_input())
@@ -488,6 +498,13 @@ namespace euf {
             return display_expr(out << " ", proof_hint);
         else
             return out;
+    }
+
+    bool solver::status_is_assumed(sat::status st) const {
+        if (st.is_sat())
+            return false;
+        auto* hint = reinterpret_cast<euf::th_proof_hint const*>(st.get_hint());
+        return hint && hint->is_assumed();
     }
 
     app_ref solver::status2proof_hint(sat::status st) {

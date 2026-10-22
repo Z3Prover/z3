@@ -246,6 +246,7 @@ namespace euf {
         void display_deleted(std::ostream& out, unsigned n, literal const* lits);
         std::ostream& display_hint(std::ostream& out, expr* proof_hint);
         app_ref status2proof_hint(sat::status st);
+        bool status_is_assumed(sat::status st) const;
 
         // relevancy
         bool is_propagated(sat::literal lit);
@@ -443,9 +444,7 @@ namespace euf {
         sat::status mk_tseitin_status(sat::literal a) { return mk_tseitin_status(1, &a); }
         sat::status mk_tseitin_status(sat::literal a, sat::literal b);
         sat::status mk_tseitin_status(unsigned n, sat::literal const* lits);
-        sat::status mk_distinct_status(sat::literal a) { return mk_distinct_status(1, &a); }
         sat::status mk_distinct_status(sat::literal a, sat::literal b) { sat::literal lits[2] = { a, b }; return mk_distinct_status(2, lits); }
-        sat::status mk_distinct_status(sat::literal_vector const& lits) { return mk_distinct_status(lits.size(), lits.data()); }
         sat::status mk_distinct_status(unsigned n, sat::literal const* lits);
 
         scoped_ptr<std::ostream> m_proof_out;

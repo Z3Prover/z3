@@ -224,6 +224,7 @@ public:
     }
     
     void scan_row_strip_to_work_vector(const row_strip<T> & rvals);
+    unsigned m_cancelled = 0; // number of cells cancelled by the current row operation, see pivot_row_to_row_given_cell
     void clean_row_work_vector(unsigned i);
 
 
