@@ -853,6 +853,23 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
+        // A bound Boolean literal can falsify a universal conjunction or
+        // satisfy an existential disjunction, including their negated forms.
+        if (!is_lambda(old_q)) {
+            bool universal = is_forall(old_q);
+            expr* body = new_body;
+            bool negated = m().is_not(body, body);
+            if (universal != negated ? m().is_and(body) : m().is_or(body)) {
+                for (expr* arg : *to_app(body)) {
+                    m().is_not(arg, arg);
+                    if (is_var(arg) && to_var(arg)->get_idx() < old_q->get_num_decls()) {
+                        result = universal ? m().mk_false() : m().mk_true();
+                        result_pr = m().proofs_enabled() ? m().mk_rewrite(old_q, result) : nullptr;
+                        return true;
+                    }
+                }
+            }
+        }
         quantifier_ref q1(m());
         proof_ref p1(m()); 
         if (is_quantifier(new_body) &&

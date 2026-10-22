@@ -764,6 +764,9 @@ extern "C" {
         else if (fid == mk_c(c)->get_arith_fid() && k == REAL_SORT) {
             return Z3_REAL_SORT;
         }
+        else if (fid == mk_c(c)->get_arith_fid() && k == COMPLEX_SORT) {
+            return Z3_COMPLEX_SORT;
+        }
         else if (fid == mk_c(c)->get_bv_fid() && k == BV_SORT) {
             return Z3_BV_SORT;
         }
@@ -1199,6 +1202,9 @@ extern "C" {
         case OP_TO_REAL: return Z3_OP_TO_REAL;
         case OP_TO_INT: return Z3_OP_TO_INT;
         case OP_IS_INT: return Z3_OP_IS_INT;
+        case OP_COMPLEX: return Z3_OP_COMPLEX;
+        case OP_REAL_PART: return Z3_OP_REAL_PART;
+        case OP_IMAG_PART: return Z3_OP_IMAG_PART;
         default: return Z3_OP_INTERNAL;
         }
     }

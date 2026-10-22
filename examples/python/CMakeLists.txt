@@ -11,6 +11,7 @@ set(python_example_files
   proof_to_lean.py
   socrates.py
   test_proof_certificate.py
+  test_complex.py
   test_proof_to_lean.py
   test_proof_to_lean_arith.py
   test_proof_to_lean_integration.py

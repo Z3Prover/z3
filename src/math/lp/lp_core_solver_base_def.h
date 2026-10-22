@@ -251,6 +251,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 pivot_column_tableau(unsigned j, unsigned piv_row_index) {
 	if (!divide_row_by_pivot(piv_row_index, j))
         return false;
+    ++m_settings.stats().m_pivots;
     auto &column = m_A.m_columns[j];
     int pivot_col_cell_index = -1;
     for (unsigned k = 0; k < column.size(); ++k) {

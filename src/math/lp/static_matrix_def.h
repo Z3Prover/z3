@@ -59,6 +59,7 @@ namespace lp {
         scan_row_strip_to_work_vector(rowii);
         unsigned prev_size_ii = static_cast<unsigned>(rowii.size());
         // run over the pivot row and update row ii
+        m_cancelled = 0;
         for (const auto & iv : m_rows[i]) {
             unsigned j = iv.var();
             if (j == pivot_col) continue;
@@ -69,7 +70,10 @@ namespace lp {
                 add_new_element(ii, j, alv);
             }
             else {
-                addmul(rowii[j_offs].coeff(), iv.coeff(), alpha);
+                T& c = rowii[j_offs].coeff();
+                addmul(c, iv.coeff(), alpha);
+                if (is_zero(c))
+                    ++m_cancelled;
             }
         }
         // clean the work vector
@@ -77,10 +81,15 @@ namespace lp {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
-        // remove zeroes
-        for (unsigned k = static_cast<unsigned>(rowii.size()); k-- > 0;  ) {
-            if (is_zero(rowii[k].coeff()))
-                remove_element(rowii, rowii[k]);
+        // remove the cancelled cells: only the cells that existed before this update can be
+        // cancelled, the new cells are non-zero, so the scan is skipped unless a cancellation was seen
+        if (m_cancelled > 0) {
+            for (unsigned k = prev_size_ii; k-- > 0 && m_cancelled > 0;  ) {
+                if (is_zero(rowii[k].coeff())) {
+                    remove_element(rowii, rowii[k]);
+                    --m_cancelled;
+                }
+            }
         }
         SASSERT(!rowii.empty());
     }

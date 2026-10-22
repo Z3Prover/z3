@@ -15,6 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/for_each_expr.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifiers/demodulator_simplifier.h"
 #include "ast/simplifiers/recfun_finder.h"
 #include "ast/simplifiers/solve_eqs.h"
@@ -731,8 +732,60 @@ static void test_demodulator_simplifier_proofs() {
     check_simplifier_proofs(m, st, assertions);
 }
 
+static void test_quantified_bool_literals() {
+    for (bool proofs : {false, true}) {
+        ast_manager m(proofs ? PGM_ENABLED : PGM_DISABLED);
+        reg_decl_plugins(m);
+        th_rewriter rw(m);
+        sort* b = m.mk_bool_sort();
+        symbol name("x");
+        expr_ref x(m.mk_var(0, b), m);
+        expr_ref p(m.mk_const("p", b), m);
+        expr_ref result(m);
+        proof_ref pr(m);
+        for (bool universal : {false, true}) {
+            for (bool negate_body : {false, true}) {
+                for (bool negate_literal : {false, true}) {
+                    expr_ref lit(negate_literal ? m.mk_not(x) : x.get(), m);
+                    bool conjunction = universal != negate_body;
+                    expr_ref body(conjunction ? m.mk_and(lit, p) : m.mk_or(lit, p), m);
+                    if (negate_body)
+                        body = m.mk_not(body);
+                    quantifier_ref q(m.mk_quantifier(
+                        universal ? forall_k : exists_k, 1, &b, &name, body), m);
+                    rw(q, result, pr);
+                    ENSURE(universal ? m.is_false(result) : m.is_true(result));
+                    if (proofs) {
+                        ENSURE(pr);
+                        expr_ref equality(m.mk_eq(q, result), m);
+                        ENSURE(m.get_fact(pr) == equality);
+                        base_dependent_expr_state st(m);
+                        st.add(dependent_expr(m, equality, pr, nullptr));
+                        expr_ref_vector assertions(m);
+                        check_simplifier_proofs(m, st, assertions);
+                    }
+                }
+            }
+        }
+
+        func_decl_ref f(m.mk_func_decl(symbol("f"), b, b), m);
+        expr_ref fx(m.mk_app(f.get(), x.get()), m);
+        expr_ref outer(m.mk_var(1, b), m);
+        expr_ref body(m.mk_or(outer, fx), m);
+        quantifier_ref q(m.mk_exists(1, &b, &name, body), m);
+        rw(q, result, pr);
+        ENSURE(!m.is_true(result) && !m.is_false(result));
+
+        body = m.mk_and(x, p);
+        q = m.mk_lambda(1, &b, &name, body);
+        rw(q, result, pr);
+        ENSURE(is_lambda(result));
+    }
+}
+
 void tst_simplifier() {
 
+    test_quantified_bool_literals();
     test_array();
     test_const_array_lambda();
     test_bv();

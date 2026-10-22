@@ -1074,6 +1074,7 @@ struct
   let is_real2int (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_TO_INT)
   let is_real_is_int (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_IS_INT)
   let is_real (x:expr) = ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gc x) (Z3native.get_sort (Expr.gc x) x))) = REAL_SORT)
+  let is_complex (x:expr) = Sort.get_sort_kind (Expr.get_sort x) = COMPLEX_SORT
   let is_int_numeral (x:expr) = (Expr.is_numeral x) && (is_int x)
   let is_rat_numeral (x:expr) = (Expr.is_numeral x) && (is_real x)
   let is_algebraic_number (x:expr) = Z3native.is_algebraic_number (Expr.gc x) x
@@ -1142,6 +1143,16 @@ struct
       let to_decimal_string (x:expr) (precision:int) = Z3native.get_numeral_decimal_string (Expr.gc x) x precision
       let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
     end
+  end
+
+  module Complex =
+  struct
+    let mk_sort = Z3native.mk_complex_sort
+    let mk_const ctx name = Expr.mk_const ctx name (mk_sort ctx)
+    let mk_const_s ctx name = mk_const ctx (Symbol.mk_string ctx name)
+    let mk = Z3native.mk_complex
+    let mk_real_part = Z3native.mk_real_part
+    let mk_imag_part = Z3native.mk_imag_part
   end
 
   let mk_add (ctx:context) (t:expr list) =
