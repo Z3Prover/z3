@@ -392,9 +392,14 @@ class TestIntegerMixedValidation(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)]
-        self.assertTrue(ites)
+        self.assertEqual(len(ites), 2)
+        # (ite (> x 0) x (- x)) and the rewriter's (ite (<= x 0) (* -1 x) x):
+        # the strict condition is tightened over Int, so the key canonicalizes
+        # the complement rather than the strict relation.
+        self.assertEqual(len({proof_to_lean._real_argument_key(graph, node) for node in ites}), 1)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("(@ite Int ", text)
+        self.assertRegex(text, r"have _r%d_%d : \(@ite Int .* = \(@ite Int .* := by first \| omega \| grind" % tuple(ites))
 
     def test_same_branch_ite_gates_are_proved_by_cases(self):
         source = UFLIA_INPUTS["uflia_same_branch_ite"]

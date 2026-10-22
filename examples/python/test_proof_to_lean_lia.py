@@ -9,6 +9,7 @@ import copy
 import hashlib
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -342,6 +343,32 @@ def wide_rewrite_instance(variables=9):
     return "\n".join(lines) + "\n"
 
 
+def wide_abs_instance(variables=12, ite=False, strict=False, scale=1):
+    """Every |x_i| at least one and their sum at most variables - 1.
+
+    Z3's rewriter logs (abs x) as (ite (<= 0 x) x (* -1 x)), so the rewrite
+    of the sum relates 2 * variables ite terms (the abs renderings against
+    the rewriter's form); splitting them is exponential, bridging each pair
+    is not. With ite the input writes the SMT-LIB definition of abs itself,
+    (ite (>= x 0) x (- x)), which the rewriter normalizes the same way, with
+    strict as (ite (> x 0) x (- x)), whose condition the rewriter negates
+    (swapping the branches) and the reconstructor tightens; with scale the
+    magnitude is of (* scale x), whose condition the rewriter divides by
+    the coefficient.
+    """
+    names = ["x%d" % i for i in range(variables)]
+    argument = "{0}" if scale == 1 else "(* %d {0})" % scale
+    if ite:
+        magnitude = "(ite (%s %s 0) %s (- %s))" % (">" if strict else ">=", argument, argument, argument)
+    else:
+        magnitude = "(abs %s)" % argument
+    lines = ["(set-logic QF_LIA)"] + ["(declare-const %s Int)" % name for name in names]
+    lines += ["(assert (>= %s 1))" % magnitude.format(name) for name in names]
+    lines.append("(assert (<= (+ %s) %d))" % (" ".join(magnitude.format(name) for name in names), variables - 1))
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
 # Random seeds whose refutations use cut hints and bound propagations next
 # to the Farkas steps (seed 97 also an implied equality), with 17 to 25
 # theory lemmas each when they were pinned.
@@ -513,6 +540,90 @@ class TestIntegerValidation(unittest.TestCase):
         real_source = Z3TEST_LRA_INPUTS["lra_farkas"]
         self.assertNotIn("generalize", proof_to_lean.reconstruct(
             real_source, proof_certificate.export_clause_log_certificate(real_source)))
+
+    def test_rewrites_bridge_atoms_with_one_key_before_generalizing(self):
+        # Z3's rewriter logs (abs x) as (ite (<= 0 x) x (* -1 x)); the
+        # rewrite relating an assertion over twelve abs terms to its normal
+        # form is a tautology over 24 ite atoms, exponential for omega and
+        # grind, which split them. abs is keyed as its defining ite, so
+        # every pair with one key is bridged by an equality (a two-way
+        # split) reverted into the goal, the atoms are generalized, and omega
+        # proves the linear rest; the unfolded proof stays as the fallback.
+        for ite in (False, True):
+            source = wide_abs_instance(ite=ite)
+            certificate = proof_certificate.export_clause_log_certificate(source)
+            graph = proof_to_lean._validate_graph(source, certificate)
+            text = proof_to_lean.reconstruct(source, certificate)
+            magnitudes = [node for node in range(len(graph.nodes))
+                          if graph.kind(node) == (z3.Z3_OP_ITE if ite else z3.Z3_OP_ABS) and graph.is_arith(node)
+                          and graph.kind(graph.arguments(node)[-1]) == (z3.Z3_OP_UMINUS if ite else z3.Z3_OP_UNINTERPRETED)]
+            normalized = [node for node in range(len(graph.nodes))
+                          if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)
+                          and graph.kind(graph.arguments(node)[-1]) == z3.Z3_OP_MUL]
+            self.assertEqual((len(magnitudes), len(normalized)), (12, 12))
+            keys = {}
+            for node in sorted(magnitudes + normalized, reverse=True):  # the order of _opaque_int_atoms
+                keys.setdefault(proof_to_lean._real_atom_key(graph, node), []).append(node)
+            self.assertEqual(len(keys), 12)
+            for (kind, condition, then_key, else_key), members in keys.items():
+                # The condition 0 <= x is keyed as the complement of its
+                # canonical atom x + 1 <= 0 (leading coefficient positive),
+                # so the branches are swapped: -x, then x.
+                self.assertEqual((kind, condition[0], condition[2]), ("ite", "<=", 1))
+                self.assertEqual(len(members), 2)
+                variable = condition[1][0][0]
+                self.assertEqual(condition[1], ((variable, 1),))
+                self.assertEqual((then_key, else_key), ((((variable, -1),), 0), (((variable, 1),), 0)))
+            wide = next(node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE
+                        and len(proof_to_lean._opaque_int_atoms(graph, [graph.conclusion(node)])) == 24)
+            lemma = text.split("private theorem rewrite_%d " % wide, 1)[1].split("\n\n", 1)[0]
+            atoms = proof_to_lean._opaque_int_atoms(graph, [graph.conclusion(wide)])
+            bridges = [(first, second) for members in keys.values() for first, second in zip(members, members[1:])]
+            self.assertEqual(len(bridges), 12)
+            for first, second in bridges:
+                self.assertIn("have _e%d_%d : (term_%d _atoms _vars) = (term_%d _atoms _vars) := by unfold "
+                              % (first, second, first, second), lemma)
+            self.assertEqual(lemma.count("; first | omega | grind (splits := 64)\n"), 12)
+            self.assertIn("\n       revert " + " ".join("_e%d_%d" % pair for pair in bridges) + "\n", lemma)
+            for position, atom in enumerate(atoms):
+                self.assertIn("generalize (term_%d _atoms _vars) = _o%d\n" % (atom, position), lemma)
+            self.assertIn("\n       omega)\n    | (unfold ", lemma)
+            self.assertTrue(lemma.endswith("first | omega | grind (splits := 64))"), lemma[-200:])
+            # A rewrite of one assertion bridges its one pair.
+            self.assertEqual(text.count("revert _e"), 13)
+            self.assertNotIn("sorry", text)
+        # The condition of an ite is keyed up to Z3's normalization over
+        # Int too: the strict (ite (> x 0) x (- x)), whose condition the
+        # reconstructor tightens to x - 1 >= 0 and the rewriter writes as
+        # (ite (<= x 0) (* -1 x) x), and (abs (* 2 x)), whose condition
+        # 0 <= 2x the rewriter divides to 0 <= x, each bridge with their
+        # rewriter's form (the canonical atom x <= 0 without a swap, and
+        # the complement of x + 1 <= 0 with one).
+        for source, constant in ((wide_abs_instance(variables=2, ite=True, strict=True), 0),
+                                 (wide_abs_instance(variables=2, scale=2), 1)):
+            certificate = proof_certificate.export_clause_log_certificate(source)
+            graph = proof_to_lean._validate_graph(source, certificate)
+            keys = {}
+            for node in range(len(graph.nodes)):
+                if graph.kind(node) in (z3.Z3_OP_ITE, z3.Z3_OP_ABS) and graph.is_arith(node):
+                    keys.setdefault(proof_to_lean._real_atom_key(graph, node), []).append(node)
+            self.assertEqual(sorted(len(members) for members in keys.values()), [2, 2])
+            self.assertEqual({(key[1][0], key[1][1][0][1], key[1][2]) for key in keys}, {("<=", 1, constant)})
+            self.assertEqual(proof_to_lean.reconstruct(source, certificate).count("revert _e"), 3)
+        # Over Int the complement of x <= 0 is x >= 1, so (ite (<= x 0) a b)
+        # and (ite (>= x 1) b a) have one key, and (ite (>= x 0) b a) another.
+        source = "(set-logic QF_LIA)\n(declare-const x Int)\n(declare-const y Int)\n"
+        source += "".join("(assert (>= (+ (ite %s) y) 1))\n" % ite for ite in (
+            "(<= x 0) x y", "(>= x 1) y x", "(>= x 0) y x"))
+        source += "(assert (<= y 0))\n(assert (<= (- x) 0))\n(check-sat)\n"
+        graph = proof_to_lean._validate_graph(source, proof_certificate.export_clause_log_certificate(source))
+        ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)]
+        keys = [proof_to_lean._real_atom_key(graph, node) for node in ites]
+        self.assertEqual(len(ites), 6)  # the three of the input and the rewriter's form of each
+        self.assertEqual(sorted(keys.count(key) for key in set(keys)), [2, 4])
+        self.assertEqual(keys[0], keys[1])  # the input's ites come first (ids are topological)
+        self.assertNotEqual(keys[1], keys[2])
+        self.assertEqual(sorted(key[1][2] for key in set(keys)), [0, 1])
 
     def test_legacy_unsupported_label_is_a_coefficient_free_farkas(self):
         # theory_lra labels a conflict (_ th-lemma arith unsupported) when
@@ -924,6 +1035,36 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         self.assertIn("\n       omega)\n    | (unfold ", text)
         self.assertIn("\n       grind (splits := 64))\n    | (unfold ", text)
 
+    def test_wide_abs_sum_verifies_over_bridged_atoms(self):
+        # Twelve abs terms in one assertion: the rewrite to the rewriter's
+        # ite form exhausted maxHeartbeats (30 s) before the atoms of one
+        # key were bridged and generalized; the whole file checks in
+        # seconds now, through both cores and with the SMT-LIB definition
+        # of abs written out as an ite.
+        for ite in (False, True):
+            source = wide_abs_instance(ite=ite)
+            with self.subTest(ite=ite):
+                certificate = self.check(source)
+                self.assertEqual(_hints(certificate), {"farkas"})
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual(text.count("revert _e"), 13)
+                # The 13 rewrites and the Farkas lemma over the 12 atoms.
+                self.assertEqual(len(re.findall(r"\n       omega\)\n    \| \(unfold ", text)), 14)
+        # The strict (ite (> x 0) x (- x)) and (abs (* 2 x)) bridge with the
+        # rewriter's forms of their conditions (negated with the branches
+        # swapped, divided by the coefficient); each timed out unbridged.
+        for variant in (dict(ite=True, strict=True), dict(scale=2)):
+            source = wide_abs_instance(**variant)
+            with self.subTest(**variant):
+                certificate = self.check(source)
+                self.assertEqual(proof_to_lean.reconstruct(source, certificate).count("revert _e"), 13)
+        source = wide_abs_instance()
+        certificate = self.check(source, core="legacy")
+        text = proof_to_lean.reconstruct(source, certificate)
+        # The legacy core rewrites each abs term to its ite on its own.
+        self.assertEqual(text.count("revert _e"), 12)
+        self.assertRegex(text, r"private theorem rewrite_\d+ .*\n.*\n.*\n  first\n    \| \(have _e")
+
     def test_arith_lemmas_over_real_atoms_verify(self):
         # The arith hint is accepted in Real certificates too, where grind
         # proves the clause; live Real division axioms have separate tests.
@@ -1017,6 +1158,47 @@ class TestIntegerLeanIntegration(unittest.TestCase):
                 with self.assertRaises(subprocess.CalledProcessError):
                     proof_to_lean.check_and_write(source, certificate, output)
                 self.assertFalse(output.exists())
+
+    def test_false_bridged_rewrites_are_rejected_by_lean(self):
+        # The bridged attempt proves only what holds over the generalized
+        # atoms: a rewrite claiming |x| >= 3 is 2 <= (ite (<= 0 x) x (-x))
+        # passes every shape check (the node is a Boolean equivalence of
+        # two linear atoms) and must fail both attempts in Lean.
+        source = LIA_INPUTS["lia_abs"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+
+        def kind(index):
+            return declarations[nodes[index]["declaration"]]["kind"]
+
+        rewrite = next(index for index in range(len(nodes)) if kind(index) == z3.Z3_OP_PR_REWRITE
+                       and any(kind(sub) == z3.Z3_OP_ITE
+                               for sub in nodes[nodes[nodes[index]["arguments"][-1]]["arguments"][1]]["arguments"]))
+        equivalence = nodes[rewrite]["arguments"][-1]
+        left, right = nodes[equivalence]["arguments"]
+        bound, ite = nodes[right]["arguments"]
+        self.assertEqual((kind(right), kind(ite)), (z3.Z3_OP_LE, z3.Z3_OP_ITE))
+        self.assertEqual(declarations[nodes[bound]["declaration"]]["name"], "3")
+        # A second rewrite with the forged conclusion (a fresh numeral 2,
+        # 2 <= ite, the equivalence), unused by the refutation: every
+        # rewrite is a lemma Lean checks, and the consumers of the genuine
+        # one keep their shapes.
+        declarations.append(dict(declarations[nodes[bound]["declaration"]], name="2"))
+        nodes.append({"declaration": len(declarations) - 1, "arguments": []})
+        nodes.append({"declaration": nodes[right]["declaration"], "arguments": [len(nodes) - 1, ite]})
+        nodes.append({"declaration": nodes[equivalence]["declaration"], "arguments": [left, len(nodes) - 1]})
+        nodes.append({"declaration": nodes[rewrite]["declaration"], "arguments": [len(nodes) - 1]})
+        certificate["rule_counts"]["rewrite"] += 1
+        rewrite = len(nodes) - 1
+        text = proof_to_lean.reconstruct(source, certificate)
+        lemma = text.split("private theorem rewrite_%d " % rewrite, 1)[1].split("\n\n", 1)[0]
+        self.assertIn("have _e", lemma)
+        self.assertIn("\n       omega)\n    | (unfold ", lemma)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "checked.lean"
+            with self.assertRaises(subprocess.CalledProcessError):
+                proof_to_lean.check_and_write(source, certificate, output)
+            self.assertFalse(output.exists())
 
     def test_generalized_attempt_falls_through_to_the_unfolded_proof(self):
         # The unit x >= 3 * (div x 3) holds by the Euclidean definition and
