@@ -781,10 +781,51 @@ let rec lemma_reconstruction_from (#base:sort -> Type0) (s:S.checked_schema) (bc
     if reconstruction s f conclusion then lemma_reconstruction s bc eq other f conclusion
     else lemma_reconstruction_from s bc eq other rest conclusion
 
+let rec excluded_atoms (facts:list expr) : Tot (list expr) (decreases facts) =
+  match facts with
+  | [] -> []
+  | App f [a] :: rest ->
+    if T.classify f = T.Negation then a :: excluded_atoms rest else excluded_atoms rest
+  | _ :: rest -> excluded_atoms rest
+
+let exclusion_clause (facts:list expr) (conclusion:expr) : expr =
+  let es = conclusion :: excluded_atoms facts in
+  App (BR.connective_decl BR.Disjunction es) es
+
+let exhaustiveness_from (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  match conclusion with
+  | App f [_] ->
+    Some? (S.find_recognizer f s.cases) &&
+    D.scoped [] (exclusion_clause facts conclusion) && exhaustive s (exclusion_clause facts conclusion)
+  | _ -> false
+
+let rec lemma_excluded_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                             (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts)
+          (ensures not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (excluded_atoms facts))))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | App f [a] :: rest ->
+    lemma_excluded_atoms s bc eq other rest;
+    if T.classify f = T.Negation then T.lemma_negation s bc eq other f a
+  | _ :: rest -> lemma_excluded_atoms s bc eq other rest
+
+let lemma_exhaustiveness_from (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                              (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ exhaustiveness_from s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let es = conclusion :: excluded_atoms facts in
+  lemma_exhaustive s bc eq other (exclusion_clause facts conclusion);
+  lemma_excluded_atoms s bc eq other facts;
+  T.lemma_nary s bc eq other (BR.connective_decl BR.Disjunction es) es B.Or
+
 let consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   D.scoped_args [] facts && D.scoped [] conclusion && get_sort conclusion = bool_sort &&
   (axiom s conclusion || simple_consequence facts conclusion || boolean_consequence facts conclusion ||
-   reconstruction_from s facts conclusion ||
+   reconstruction_from s facts conclusion || exhaustiveness_from s facts conclusion ||
    (match formulas s facts, formula s true conclusion with
     | Some fs, Some c -> propositional (B.Implies (B.Nary B.And fs) c)
     | _, _ -> false))
@@ -800,6 +841,8 @@ let lemma_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     lemma_boolean_consequence s bc eq other facts conclusion
   else if reconstruction_from s facts conclusion then
     lemma_reconstruction_from s bc eq other facts conclusion
+  else if exhaustiveness_from s facts conclusion then
+    lemma_exhaustiveness_from s bc eq other facts conclusion
   else
     let fs = Some?.v (formulas s facts) in
     let c = Some?.v (formula s true conclusion) in

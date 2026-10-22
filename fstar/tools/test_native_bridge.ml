@@ -1826,6 +1826,9 @@ let sorted_datatype_checker () =
     "exhaustiveness",
       "(declare-datatype T ((C) (D)))(declare-const x T)\
        (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))";
+    "exhaustiveness-three",
+      "(declare-datatype T ((C) (D) (E)))(declare-const x T)\
+       (assert (not ((_ is C) x)))(assert (not ((_ is D) x)))(assert (not ((_ is E) x)))";
     "reconstruction",
       "(declare-datatype T ((C (field Int)) (D)))(declare-const x T)\
        (assert ((_ is C) x))(assert (not (= x (C (field x)))))";
@@ -1847,6 +1850,25 @@ let sorted_datatype_checker () =
       let assertions, proof = unsat source in
       let doc, schema = B.marshal_with_datatypes assertions proof in
       require (schema.S.cases <> [] && S.valid schema) ("invalid sorted schema: " ^ name);
+      if name = "exhaustiveness" || name = "exhaustiveness-three" then (
+        let last = List.hd (List.rev doc.P.assertions) in
+        let premises = List.filter (fun e -> e <> last) doc.P.assertions in
+        let tester, subject = match last with
+          | A.App (_, [A.App (f, [a])]) -> f, a
+          | _ -> failwith "expected a negated datatype recognizer" in
+        let conclusion = A.App (tester, [subject]) in
+        require (Z3SortedDatatype.exhaustiveness_from schema premises conclusion)
+          "remaining constructor was not inferred from negative recognizers";
+        require (not (Z3SortedDatatype.exhaustiveness_from schema [] conclusion))
+          "constructor was inferred without exclusions";
+        let other = match subject with
+          | A.App (f, []) -> A.App ({ f with A.decl_name = f.A.decl_name ^ ":other" }, [])
+          | _ -> failwith "expected a nullary datatype subject" in
+        require (not (Z3SortedDatatype.exhaustiveness_from schema premises (A.App (tester, [other]))))
+          "constructor exclusions were transferred to another subject";
+        if name = "exhaustiveness-three" then
+          require (not (Z3SortedDatatype.exhaustiveness_from schema [List.hd premises] conclusion))
+            "constructor was inferred without excluding every alternative");
       let result = K.check_document schema doc in
       require (result = Some Z.zero)
         ("sorted datatype proof remained unchecked: " ^ name ^

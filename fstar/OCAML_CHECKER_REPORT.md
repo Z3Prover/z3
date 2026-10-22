@@ -495,6 +495,17 @@ laws or the full unified model, and it does not provide a concrete
 combined theory model. Simply proving closure of the old full model
 would be vacuous and would not discharge this gate.
 
+### Upstream merge compatibility: datatype exclusions
+
+Rebuilding against the updated solver exposed a direct datatype consequence
+in the sorted-kernel regressions: infer the remaining constructor recognizer
+from negated alternative recognizers. `Z3SortedDatatype.exhaustiveness_from`
+checks that the conclusion and excluded alternatives cover every constructor
+of the same subject, reusing the existing concrete-model exhaustiveness
+theorem. Native cases cover two and three constructors and reject missing
+exclusions and exclusions for a different subject. Strict verification, all
+48 native groups, all 26 CLI tests, and all 116 solver unit groups pass.
+
 ## Diagnostic-driven equality coverage (2026-10-20)
 
 The regression workflow now separately replays partial and rejected proofs
