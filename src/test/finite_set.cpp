@@ -22,6 +22,7 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include <string>
 
 static void tst_finite_set_basic() {
     ast_manager m;
@@ -348,6 +349,21 @@ static void tst_finite_set_size_union_singletons() {
     Z3_del_config(cfg);
 }
 
+static void tst_finite_set_quantified_membership() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic ALL)\n"
+        "(declare-const S (FiniteSet Int))\n"
+        "(assert (not (set.in 0 S)))\n"
+        "(assert (forall ((x Int)) (=> (= (mod x 2) 0) (set.in (mod x 2) S))))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
@@ -357,4 +373,5 @@ void tst_finite_set() {
     tst_finite_set_size_members();
     tst_finite_set_size_three_members();
     tst_finite_set_size_union_singletons();
+    tst_finite_set_quantified_membership();
 }

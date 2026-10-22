@@ -847,9 +847,8 @@ namespace smt {
                 return;
             if (!m_elements)
                 return;
-            bool ur = use_range();
             for (auto [n, b] : *m_elements)
-                if (!ur || b)
+                if (b)
                     result.push_back(model_value_dependency(n));
         }
 
