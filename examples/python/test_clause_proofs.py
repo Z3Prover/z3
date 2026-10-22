@@ -119,6 +119,23 @@ class ClauseProofTests(unittest.TestCase):
         solver.add(a, z3.Not(a))
         self.assertEqual(solver.check(), z3.unsat)
 
+    def test_array_demorgan_with_and_without_proof_production(self):
+        source = """
+        (declare-const a (Array Int Bool))
+        (declare-const b (Array Int Bool))
+        (assert (not (= ((_ map and) a b)
+                        ((_ map not) ((_ map or) ((_ map not) a) ((_ map not) b))))))
+        """
+        for proofs in (False, True):
+            with self.subTest(proofs=proofs):
+                ctx = z3.Context(proof=proofs)
+                solver = z3.Tactic("smt", ctx=ctx).solver()
+                solver.set(clause_proof=True)
+                solver.add(z3.parse_smt2_string(source, ctx=ctx))
+                self.assertEqual(solver.check(), z3.unsat, solver.reason_unknown())
+                if proofs:
+                    self.assertEqual(solver.proof().decl().kind(), z3.Z3_OP_PR_CLAUSE_TRAIL)
+
     def test_learned_clauses_can_be_simplified_without_standard_justifications(self):
         solver = self.solver()
         places = [[z3.Bool("p%d_%d" % (p, h), self.ctx) for h in range(4)]
