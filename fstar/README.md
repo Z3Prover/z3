@@ -76,48 +76,69 @@ test budget. Manifest `.txt` lists and saved `.proof` objects are not
 executed. Inputs are passed unchanged to the native API, which checks the
 parsed final assertion set, not an incremental sequence of commands.
 
-The same job also evaluates all **225 inputs** under
-`Z3Prover/z3test`'s `regressions/smtlib-sample`: **25 UNSAT-annotated
-benchmarks per logic** for QF_UF, QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA,
-QF_AUFLIA, AUFLIA, and UFLIA. This is a newly reconstructed reduced
-seed-42 sample from the official SMT-LIB 2025 non-incremental archives,
-not a replay of the historical 900-input manifest. The corpus manifest
-records upstream archive checksums, original paths, and each unchanged
-input's SHA-256. The harness verifies exact manifest membership and every
-input hash before executing any case, and requires exactly 225 inputs.
-The proof-corpus `max_cases` cap does not truncate this sample. A manually
-selected `z3test_ref` must contain the sample and its manifest.
-
-An independent **110-input extended sample** is bundled under
-`fstar/benchmarks/smtlib-sample`: 25 inputs each for **QF_DT, QF_NIA, UF,
-and QF_BV**, plus **all 10 UNSAT-annotated UFLRA inputs** in the upstream
-release. UFLRA contains only 15 benchmarks total; the other five are
-SAT-annotated and are not certificate examples. These unchanged inputs
-come from the same SMT-LIB 2025 non-incremental release,
+The same job also evaluates two freshly sampled SMT-LIB cohorts:
+**225 inputs**, with **25 UNSAT-annotated benchmarks per logic** for QF_UF,
+QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA, QF_AUFLIA, AUFLIA, and UFLIA;
+and **110 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF, and QF_BV**
+plus **all 10 UNSAT-annotated UFLRA inputs**. UFLRA has only 15 benchmarks
+total; its five SAT-annotated inputs are not certificate examples.
+The existing manifests in `Z3Prover/z3test/regressions/smtlib-sample`
+and `fstar/benchmarks/smtlib-sample` now supply the archive URLs, pinned
+SHA-256 hashes, compressed sizes, and required counts, not the CI input
+lists. A manually selected `z3test_ref` must contain its source manifest.
+The checked-in fixed cohorts remain available for local regression replay.
+Both sampled cohorts come from the SMT-LIB 2025 non-incremental release,
 [Zenodo record 16740866](https://zenodo.org/records/16740866), licensed
 CC BY 4.0. Original authorship, source, and license metadata are preserved
-inside each benchmark. Archive sizes, published MD5 checksums, archive
-SHA-256 hashes, original member paths, and input SHA-256 hashes are frozen
-in the bundled manifest. Git treats the SMT-LIB files as binary for
-checkout purposes to preserve their exact bytes.
+inside each unchanged benchmark.
 
-Selection considers UNSAT-annotated regular `.smt2` archive members up to
-256 KiB each, keeping the checked-in corpus small rather than selecting
-by solver outcome. Independently per logic, a Python seed-42 generator
-shuffles the sorted member lists within each top-level benchmark family,
-then shuffles the sorted family list. Round-robin selection pops one member
-per nonempty family until 25 inputs are selected or all families are
-exhausted. Thus the small UFLRA population is included in full, rather than
-duplicated to reach 25. The manifest records eligible families and counts.
-CI downloads no archives and does not resample: it verifies all 110 inputs
-before checking them. This step has its own configurable 3600-second
-budget, report, and diagnostic replay, and runs independently of the
-external z3test checkout. The original 225-input cohort is unchanged.
-The five UF `misc/set*.smt2` inputs declare an uninterpreted sort named
-`Set`. The shared parser removes obsolete built-in sort aliases when
-`set-logic` follows API context initialization, leaving this name available
-under UF. All five previously failing inputs now certify as `ACCEPT`;
-regressions cover native batch and interactive checking.
+`tools/sample_checker_benchmarks.py` downloads and verifies one archive at
+a time, streams decompression without unpacking the complete corpus, and
+keeps only the requested number of candidates in memory. Eligible inputs
+are regular UNSAT-annotated `.smt2` members of at most 256 KiB. Independently
+per logic, selection takes the lowest SHA-256 priorities of
+`seed NUL logic NUL relative-POSIX-path`. This is pseudorandom sampling
+without replacement, independent of archive traversal order, and does not
+select by solver or checker outcome. It is stratified by logic, not by
+benchmark family. Unsafe paths, links, duplicates, incorrect archive
+hashes, and insufficient eligible populations fail preparation explicitly.
+
+The default seed is `github.run_id`: new runs use different seeds, while
+rerunning the same workflow run retains its seed. Dispatch input
+`smtlib_sample_seed` reproduces a recorded selection against the same archive
+configuration and sampler. UFLRA necessarily remains the same ten inputs. The two
+cohorts retain their separate execution/diagnostic budgets and require
+exactly 225/110 manifested inputs; `max_cases` does not truncate them.
+The extended cohort remains independent of the external z3test checkout.
+Each report artifact includes `inputs/` with the selected original files
+and manifest, the seed, source-manifest hash, archive/member provenance,
+input SHA-256 hashes, and `sampling.log`. The harness verifies exact
+manifest membership and every input hash before executing any case.
+
+This is a normal GitHub-hosted Actions job, not a gh-aw agent job with a
+network allowlist. `permissions: contents: read` limits GitHub API access,
+not public outbound HTTPS; anonymous Zenodo downloads need no additional
+token permission. The pinned archives total about 3.45 GB compressed per
+run. Preparation has a separate 30-minute limit for each cohort; archive
+downloads are bounded and retried, and each archive is removed after
+sampling. Zenodo may still be unavailable or rate-limit a runner, in which
+case the workflow reports a sampling failure rather than silently reusing
+the fixed cohort.
+
+For environments that cannot reach Zenodo, an alternative preparation
+step can sample from a larger checksummed snapshot hosted in z3test, a
+GitHub Release, or a pre-provisioned runner cache. Refresh that pool
+separately, record its version and the seed, and produce the same input
+manifest for the existing validation/diagnostic steps. The pool must be
+larger than the per-run cohort: drawing 25 out of the same 25 files changes
+only execution order, not benchmark coverage.
+
+The bundled UF regression cohort includes five `misc/set*.smt2` inputs
+declaring an uninterpreted sort named `Set`. The shared parser removes
+obsolete built-in sort aliases when `set-logic` follows API context
+initialization, leaving this name available under UF. All five previously
+failing inputs certify as `ACCEPT`; regressions cover native batch and
+interactive checking.
 
 The job summary and downloadable report artifact record resolved producer
 and corpus commits, build/test outcomes, build and per-case wall time,
