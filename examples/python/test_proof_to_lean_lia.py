@@ -483,10 +483,12 @@ class TestIntegerValidation(unittest.TestCase):
         # A farkas or bound with coefficients over div, mod, abs, ite, or
         # application atoms is a combination over the atoms, so Lean proves
         # it with the atoms generalized to integers (omega on the linear
-        # goal, no Euclidean unfolding, no ite splits); a cut the same way
-        # with grind, after the mod bounds Z3 omits from its lemmas are
-        # stated and reverted; the unfolded proof stays as the fallback.
-        # Lemmas without such atoms, and the arith axioms, are unchanged.
+        # goal, no Euclidean unfolding, no ite splits, and no mod bounds:
+        # the re-derived combination holds without them, and they made
+        # omega take minutes on a wide lemma); a cut the same way with
+        # grind, after the mod bounds Z3 omits from its lemmas are stated
+        # and reverted; the unfolded proof stays as the fallback. Lemmas
+        # without such atoms, and the arith axioms, are unchanged.
         def lemma(text, node):
             return text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
 
@@ -520,11 +522,14 @@ class TestIntegerValidation(unittest.TestCase):
                     self.assertIn("\n       %s)\n    | (unfold " % tactic, block)
                     self.assertTrue(block.endswith("first | omega | grind (splits := 64))"), block[-200:])
                     mods = [atom for atom in atoms if graph.kind(atom) == z3.Z3_OP_MOD]
+                    if tactic == "omega":
+                        mods = []  # The coefficients certify the combination over the atoms alone.
                     self.assertEqual(block.count("exact Int.emod_nonneg _ (by decide)"), len(mods))
                     self.assertEqual(block.count("exact Int.emod_lt_of_pos _ (by decide)"), len(mods))
                     self.assertEqual(block.count("rw [Int.emod_neg]; "),
                                      sum(1 for atom in mods if proof_to_lean._integer_divisor(graph, atom) < 0))
                     self.assertEqual("revert _m" in block, bool(mods))
+                    self.assertEqual("have _m" in block, bool(mods))
                     # The fallback unfolds the atoms and everything under them.
                     fallback = block.split("    | (unfold ", 1)[1].split("\n", 1)[0].split()
                     for atom in atoms:

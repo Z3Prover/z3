@@ -1323,6 +1323,42 @@ and the strict and scaled variants;
 QF_LRA, QF_UFLRA, QF_UF, QF_UFLIA and Boolean suites and both CI matrix
 cells are unchanged in outcome.
 
+**Wide Farkas lemmas over `mod` atoms without the redundant bounds
+(2026-10-22).** A random stress run at twice the usual size (seeds 70 to
+89 of every generator, both cores) found no rejection but one slow
+certificate: `random_division_instance(75, variables=12, constraints=36,
+functions=True)` (QF_UFLIA, 2,815 steps) took 48 s of Lean on an idle
+machine (140 s under the load of the stress run), of which one `farkas`
+lemma of 33 literals (15 of them the div/mod definitional equalities Z3
+lists as literals) over 26 `div`, `mod`, `abs`, and application atoms took
+27 s (40 to 134 s under load) in its generalized attempt. The cause
+was not the width: `omega` proved the same generalized goal in under two
+seconds once the 28 `mod` bounds (`_mod_bound_facts`, 0 <= m < |k| for
+each of the 14 `mod` atoms) were left out of its context, and `grind`
+proved it in two seconds with them. `omega` eliminates a bounded variable
+by case analysis over its range, so bounded, redundant facts multiply its
+work. The bounds exist for cuts and coefficient-free Int lemmas, which
+are shape-checked only and may rest on the base-level bounds Z3 omits;
+a `farkas` or `bound` step with coefficients is re-derived over the atoms
+alone by `_check_th_lemma` (rounding included), so its generalized goal
+holds without them. `_grind_lemma` now states no `mod` bounds for such a
+step (`_combination_certified`); cuts, coefficient-free lemmas, and
+theory rewrites keep them. The seed-75 certificate verifies in 22 s on an
+idle machine (its longest `omega` call 3 s); the lemma text of every other input is
+unchanged except for the dropped `have _m`/`revert` lines on coefficient
+steps, and the wide seed-67 input and the documented QF_LIA inputs still
+verify. Nothing is trusted: the facts were ordinary `have`s and their
+absence can only make a proof fail, never succeed wrongly. Tests:
+`test_proof_to_lean_uflia.py`
+(`test_wide_farkas_lemmas_over_mod_atoms_omit_the_redundant_bounds`:
+seed 75 through z3, certificate, Lean kernel; every generalized lemma's
+text checked by hint), `test_proof_to_lean_lia.py` (the lemma-shape test
+now expects no bounds on coefficient steps). Still open: a direct
+Farkas-combination proof term from the coefficients the reconstructor
+already holds would make these lemmas independent of `omega`'s
+elimination order altogether; the remaining 22 s of the seed-75 file are
+spread over its 587 theory lemmas, none above 3 s.
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or

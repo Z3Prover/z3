@@ -1233,6 +1233,14 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     numerals, and a rewrite over a dozen abs terms, used to exhaust their
     heartbeats). A lemma that needs the atoms' definitions fails that
     attempt and is proved as before, definitions unfolded.
+
+    A farkas or bound step with coefficients gets no mod bounds: its
+    combination was re-derived over the atoms alone (_check_th_lemma), so
+    the generalized goal holds without them, and omega, which is complete
+    for linear integer arithmetic but eliminates bounded variables by case
+    analysis, took 27 s (idle machine; over two minutes under load) on a
+    33-literal Farkas lemma over 26 atoms with the 28 redundant bounds in
+    its context and about two seconds without them (see _combination_certified).
     """
     conclusion = graph.conclusion(node)
     premises = graph.arguments(node)[:-1]
@@ -1259,7 +1267,7 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             inside |= _reachable(graph, atom)[0]
         lines.append("  unfold " + " ".join(_definition_names(graph, outside)))
         lines.append("  first")
-        facts, names = _mod_bound_facts(graph, atoms)
+        facts, names = ([], []) if _combination_certified(graph, node) else _mod_bound_facts(graph, atoms)
         bridges, bridge_names = _atom_bridge_facts(graph, atoms)
         facts, names = facts + bridges, names + bridge_names
         if names:
@@ -1298,6 +1306,20 @@ def _theory_helpers(graph, reachable, atom_indices, variable_indices):
     return helpers
 
 
+def _combination_certified(graph, node):
+    """Whether a step is a farkas or bound th-lemma whose coefficients the reconstructor re-derived.
+
+    _check_th_lemma rejects such a step unless its coefficients refute its
+    literals (and premises) as linear constraints over the atoms of the
+    linear forms, rounding included for an Int bound, so the generalized
+    goal of _grind_lemma holds over the atoms alone: it needs none of the
+    mod bounds, which only slow omega down (see _grind_lemma). A cut or a
+    coefficient-free Int farkas or bound is shape-checked only and keeps them.
+    """
+    decl = graph.decl(node)
+    return decl.name == "th-lemma" and decl.parameters[0] in ("farkas", "bound") and len(decl.parameters) > 1
+
+
 def _mod_bound_facts(graph, atoms):
     """State 0 <= m < |k| for every mod atom m = (mod t k), then revert the facts into the goal.
 
@@ -1305,6 +1327,7 @@ def _mod_bound_facts(graph, atoms):
     axioms and omits such base-level facts from the lemmas it explains, so
     a cut over mod atoms may rest on them without listing them; generalized
     without them, the atoms are unbounded integers and the lemma unprovable.
+    (A combination with coefficients never needs them, see _combination_certified.)
     omega reads % by a positive numeral only, so the facts are the library's
     (Int.emod_neg folds a negative divisor into its opposite). The facts are
     best effort: Int.emod_neg expects the divisor rendered as the negation

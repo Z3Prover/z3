@@ -675,6 +675,52 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                 hints |= _hints(certificate)
         self.assertLessEqual({"arith", "farkas", "bound", "cut", "euf"}, hints)
 
+    # Seed of random_division_instance(variables=12, constraints=36,
+    # functions=True) whose certificate (2,815 steps) has a Farkas lemma of 33
+    # literals over 26 div, mod, abs, and application atoms, 14 of them mod
+    # atoms. With the 28 mod bounds stated and reverted before the atoms were
+    # generalized, omega took 27 s on that one lemma on an idle machine (48 s
+    # for the file; over two minutes under load); the bounds are redundant for
+    # a combination the reconstructor re-derived, and without them the lemma
+    # takes about 2 s (22 s for the file). Found by a random stress run over seeds 70 to 89 at this size.
+    WIDE_FARKAS_SEED = 75
+
+    def test_wide_farkas_lemmas_over_mod_atoms_omit_the_redundant_bounds(self):
+        from test_proof_to_lean_lia import random_division_instance
+        source = random_division_instance(self.WIDE_FARKAS_SEED, variables=12, constraints=36, functions=True)
+        self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % self.WIDE_FARKAS_SEED)
+        certificate, text = self.check(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        widest, shapes = 0, set()
+        for node, raw in enumerate(certificate["nodes"]):
+            declaration = certificate["declarations"][raw["declaration"]]
+            if declaration["name"] != "th-lemma" or declaration["parameters"][0] not in ("farkas", "bound", "cut"):
+                continue
+            atoms = proof_to_lean._opaque_int_atoms(graph, [graph.conclusion(node)])
+            mods = [atom for atom in atoms if graph.kind(atom) == z3.Z3_OP_MOD]
+            block = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            if not atoms:
+                self.assertNotIn("generalize", block)
+                continue
+            literals = len(list(graph.clause(graph.conclusion(node))))
+            with self.subTest(node=node, hint=declaration["parameters"][0], literals=literals, atoms=len(atoms)):
+                self.assertEqual(block.count("generalize "), len(atoms))
+                if len(declaration["parameters"]) > 1:
+                    # farkas and bound with coefficients: the combination was
+                    # re-derived over the atoms, so no bounds and omega.
+                    self.assertNotIn("have _m", block)
+                    self.assertIn("\n       omega)\n    | (unfold ", block)
+                    widest = max(widest, len(mods))
+                    shapes.add(declaration["parameters"][0])
+                else:
+                    # cut (and a coefficient-free Int farkas or bound): shape-checked
+                    # only, so the bounds Z3 omitted stay, and grind.
+                    self.assertEqual(block.count("have _m"), 2 * len(mods))
+                    self.assertIn("\n       grind (splits := 64))\n    | (unfold ", block)
+                    shapes.add(declaration["parameters"][0])
+        self.assertGreaterEqual(widest, 14)
+        self.assertEqual(shapes, {"farkas", "bound", "cut"})
+
     def test_small_chunks_cut_every_lemma_shape(self):
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
                 patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):
