@@ -43,6 +43,10 @@ on:
         description: 110-input datatype, nonlinear, quantified, and bit-vector sample budget in seconds
         type: number
         default: 3600
+      smtlib_sample_seed:
+        description: SMT-LIB sampling seed (empty uses this workflow run ID; reruns retain the seed)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -54,7 +58,7 @@ concurrency:
 jobs:
   build-test-report:
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 360
     defaults:
       run:
         shell: bash
@@ -62,6 +66,7 @@ jobs:
       FSTAR_VERSION: v2026.09.27
       FSTAR_SHA256: cafbbb8960efeb26f5d30bc447b61ab8a507968948507a2580585afd1397781d
       OPAM_SWITCH: fstar53
+      SMTLIB_SAMPLE_SEED: ${{ inputs.smtlib_sample_seed || github.run_id }}
     steps:
       - name: Checkout Z3
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,9 +89,23 @@ jobs:
           path: z3test
           persist-credentials: false
 
-      - name: Test the benchmark harness
+      - name: Set up benchmark Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install benchmark sampler dependencies
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/checker-benchmark-python"
+          "$RUNNER_TEMP/checker-benchmark-python/bin/python" -m pip install \
+            --disable-pip-version-check zstandard==0.25.0
+          echo "BENCHMARK_PYTHON=$RUNNER_TEMP/checker-benchmark-python/bin/python" >> "$GITHUB_ENV"
+
+      - name: Test the benchmark harness and sampler
         id: harness
-        run: python3 -m unittest discover -s fstar/tools -p test_checker_regressions.py -v
+        run: '"$BENCHMARK_PYTHON" -m unittest discover -s fstar/tools -p "test_checker_*.py" -v'
 
       - name: Install pinned F* and OCaml toolchains
         id: toolchain
@@ -151,9 +170,20 @@ jobs:
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
             --memory-limit-mb 2048 --output "$REPORT_DIR"
 
-      - name: Run native checker on 25 SMT-LIB benchmarks per logic
-        id: smtlib
+      - name: Sample 25 SMT-LIB benchmarks per logic from Zenodo
+        id: smtlib_inputs
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.corpus.outcome == 'success' }}
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          "$BENCHMARK_PYTHON" fstar/tools/sample_checker_benchmarks.py \
+            --manifest "$GITHUB_WORKSPACE/z3test/regressions/smtlib-sample/manifest.json" \
+            --seed "$SMTLIB_SAMPLE_SEED" --output "$REPORT_DIR/smtlib-sample/inputs" \
+            2>&1 | tee "$REPORT_DIR/smtlib-sample/sampling.log"
+
+      - name: Run native checker on sampled SMT-LIB benchmarks
+        id: smtlib
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.smtlib_inputs.outcome == 'success' }}
         timeout-minutes: 65
         env:
           SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
@@ -163,18 +193,29 @@ jobs:
           set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py run \
             --checker "$RUNNER_TEMP/native-checker/checker" \
-            --corpus "$GITHUB_WORKSPACE/z3test" --corpus-path regressions/smtlib-sample \
+            --corpus "$REPORT_DIR/smtlib-sample/inputs" --corpus-path . \
             --corpus-commit "$(git -C z3test rev-parse HEAD)" \
-            --manifest "$GITHUB_WORKSPACE/z3test/regressions/smtlib-sample/manifest.json" \
+            --manifest "$REPORT_DIR/smtlib-sample/inputs/manifest.json" \
             --expected-cases 225 \
             --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
             --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
             --memory-limit-mb 4096 --output "$REPORT_DIR/smtlib-sample"
 
+      - name: Sample datatype, nonlinear, quantified, and bit-vector inputs from Zenodo
+        id: extended_inputs
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          "$BENCHMARK_PYTHON" fstar/tools/sample_checker_benchmarks.py \
+            --manifest "$GITHUB_WORKSPACE/fstar/benchmarks/smtlib-sample/manifest.json" \
+            --seed "$SMTLIB_SAMPLE_SEED" --output "$REPORT_DIR/smtlib-extended/inputs" \
+            2>&1 | tee "$REPORT_DIR/smtlib-extended/sampling.log"
+
       - name: Run datatype, nonlinear, quantified, and bit-vector samples
         id: extended
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.extended_inputs.outcome == 'success' }}
         timeout-minutes: 65
         env:
           SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
@@ -184,9 +225,9 @@ jobs:
           set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py run \
             --checker "$RUNNER_TEMP/native-checker/checker" \
-            --corpus "$GITHUB_WORKSPACE" --corpus-path fstar/benchmarks/smtlib-sample \
+            --corpus "$REPORT_DIR/smtlib-extended/inputs" --corpus-path . \
             --corpus-commit "$GITHUB_SHA" \
-            --manifest "$GITHUB_WORKSPACE/fstar/benchmarks/smtlib-sample/manifest.json" \
+            --manifest "$REPORT_DIR/smtlib-extended/inputs/manifest.json" \
             --expected-cases 110 \
             --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
             --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
@@ -199,20 +240,18 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          for report in "$REPORT_DIR" "$REPORT_DIR/smtlib-sample"; do
+          for report in "$REPORT_DIR" "$REPORT_DIR/smtlib-sample" "$REPORT_DIR/smtlib-extended"; do
             if [[ -f "$report/selection.json" && -f "$report/results.jsonl" ]]; then
+              corpus="$report/inputs"
+              if [[ "$report" == "$REPORT_DIR" ]]; then
+                corpus="$GITHUB_WORKSPACE/z3test"
+              fi
               python3 fstar/tools/run_checker_regressions.py diagnose \
                 --checker "$RUNNER_TEMP/native-checker/checker" \
-                --corpus "$GITHUB_WORKSPACE/z3test" --output "$report" \
+                --corpus "$corpus" --output "$report" \
                 --total-timeout-seconds 900 || status=1
             fi
           done
-          if [[ -f "$REPORT_DIR/smtlib-extended/selection.json" && -f "$REPORT_DIR/smtlib-extended/results.jsonl" ]]; then
-            python3 fstar/tools/run_checker_regressions.py diagnose \
-              --checker "$RUNNER_TEMP/native-checker/checker" \
-              --corpus "$GITHUB_WORKSPACE" --output "$REPORT_DIR/smtlib-extended" \
-              --total-timeout-seconds 900 || status=1
-          fi
           exit "$status"
 
       - name: Publish coverage and timing report
@@ -225,6 +264,8 @@ jobs:
           HARNESS_OUTCOME: ${{ steps.harness.outcome }}
           SMTLIB_OUTCOME: ${{ steps.smtlib.outcome }}
           EXTENDED_OUTCOME: ${{ steps.extended.outcome }}
+          SMTLIB_INPUTS_OUTCOME: ${{ steps.smtlib_inputs.outcome }}
+          EXTENDED_INPUTS_OUTCOME: ${{ steps.extended_inputs.outcome }}
         run: |
           set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py report --output "$REPORT_DIR"
@@ -232,13 +273,15 @@ jobs:
           if [[ -f "$REPORT_DIR/build.json" ]]; then
             cp "$REPORT_DIR/build.json" "$REPORT_DIR/smtlib-sample/build.json"
           fi
-          RUNNER_OUTCOME="$SMTLIB_OUTCOME" python3 fstar/tools/run_checker_regressions.py report \
+          SAMPLER_OUTCOME="$SMTLIB_INPUTS_OUTCOME" RUNNER_OUTCOME="$SMTLIB_OUTCOME" \
+            python3 fstar/tools/run_checker_regressions.py report \
             --output "$REPORT_DIR/smtlib-sample"
           cat "$REPORT_DIR/smtlib-sample/report.md" >> "$GITHUB_STEP_SUMMARY"
           if [[ -f "$REPORT_DIR/build.json" ]]; then
             cp "$REPORT_DIR/build.json" "$REPORT_DIR/smtlib-extended/build.json"
           fi
-          RUNNER_OUTCOME="$EXTENDED_OUTCOME" python3 fstar/tools/run_checker_regressions.py report \
+          SAMPLER_OUTCOME="$EXTENDED_INPUTS_OUTCOME" RUNNER_OUTCOME="$EXTENDED_OUTCOME" \
+            python3 fstar/tools/run_checker_regressions.py report \
             --output "$REPORT_DIR/smtlib-extended"
           cat "$REPORT_DIR/smtlib-extended/report.md" >> "$GITHUB_STEP_SUMMARY"
 
