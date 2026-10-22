@@ -658,6 +658,19 @@ first | omega | grind (splits := 64): omega decides linear integer
 arithmetic (ite over Int included) and produces a kernel-checked proof,
 where grind's integer module ran out of steps on Farkas lemmas with several
 equalities and on ite splits; grind still handles goals omega does not read.
+An Int th-lemma with hint farkas, bound, or cut whose literals contain div,
+mod, abs, ite, or application atoms gets a first attempt over the atoms
+generalized to integers: the definitions outside the atoms are unfolded,
+each mod atom's bounds 0 <= m < |k| are stated (Int.emod_nonneg,
+Int.emod_lt_of_pos, through Int.emod_neg for a negative divisor; Z3 fixes
+them at base level and omits them from the lemmas it explains) and reverted
+into the goal, each atom is generalized to a fresh integer, and omega (a
+farkas or bound with coefficients is a combination over the atoms) or
+grind (splits := 64) (a cut or a coefficient-free lemma) closes the linear
+goal with no Euclidean unfolding and no ite splits. If that attempt fails,
+the unfolded proof above runs unchanged as the fallback under first. A
+lemma over a dozen such atoms by negative numerals used to exhaust its
+heartbeats in the unfolded proof.
 A cut, an arith axiom, or a farkas or bound without coefficients (see the
 clause-log section), reaches Lean with its literal shapes checked only; a
 false one fails there and no proof is published. Coefficients that are present are

@@ -1228,6 +1228,50 @@ defined. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
 alias checked in Lean, an alias in a popped scope).
 
+**Int theory lemmas over generalized atoms (2026-10-21).** The iter-027
+stress input `div` seed 67 (QF_LIA, 547 theory lemmas over `div`, `mod`,
+and `abs` by the numerals -3, -2, 2, 3, 4) was the one clause-log
+certificate still failing in Lean: a `farkas` step and four `cut` steps
+whose literals sum a dozen such atoms hit `maxHeartbeats` in `first |
+omega | grind (splits := 64)`. The cause is not the lemma size: `omega`
+reads `t / -3` but leaves `t % -3` as an unbounded atom, so every lemma
+over a negative divisor fell to `grind`, which splits each `abs` ite and
+took 105 s on one cut when given no limit. The atoms are opaque to the
+step anyway: a `farkas` or `bound` with coefficients is a combination the
+reconstructor re-derived over them (`_check_th_lemma`), and a cut lists
+the bounds and the div and mod rows it rests on as literals. So `_grind_lemma`
+now proves an Int th-lemma under those hints in two attempts: first the
+definitions outside the atoms are unfolded, every `mod` atom gets its
+bounds `0 <= m < |k|` (`Int.emod_nonneg`, `Int.emod_lt_of_pos`, through
+`Int.emod_neg` for a negative divisor; the solver fixes these at base level
+and omits them from the lemmas it explains, which left one cut unprovable
+without them) stated and reverted, the atoms are `generalize`d to fresh
+integers, and `omega` (farkas, bound: it closes the linear goal at once)
+or `grind (splits := 64)` (cut and the coefficient-free Int farkas or
+bound: cutsat proved a twenty-atom cut in a second where omega took two
+and a half minutes) decides the linear goal; if that fails, the atoms are
+unfolded and the previous proof (gate helpers, `first | omega | grind`)
+runs unchanged. `arith` axioms, `euf`, `implied-eq`, and every Real lemma
+keep the old proof. Nothing is trusted: `generalize` and the reverted
+library facts are ordinary tactics, and a false cut over a `mod` atom
+fails both attempts (tested). Seed 67 now verifies in 11 s of Lean; the
+other division seeds and the documented inputs are unchanged in time.
+Tests: `test_proof_to_lean_lia.py`
+(`test_integer_theory_lemmas_generalize_their_opaque_atoms`: the two-branch
+text per hint and per atom kind on four documented inputs and seed 67, Real
+untouched; `test_wide_division_instance_verifies_over_generalized_atoms`;
+the `cut` case of
+`test_false_integer_lemmas_without_coefficients_never_publish_a_proof`;
+`test_generalized_attempt_falls_through_to_the_unfolded_proof`: the unit
+`x >= 3 * (div x 3)` under the `cut` hint, false over the generalized atom
+and proved by the fallback, Lean accepting; the `mod` axioms would not do,
+the stated bounds prove them generalized).
+Not done: a rewrite whose assertion sums a dozen `abs` terms still splits
+every ite (`(assert (<= (+ (abs x0) ... (abs x11)) 11))` times out in the
+rewrite lemma, not in the theory lemma; BACKLOG), and the fallback itself
+would still benefit from the `mod` facts (`omega` would then replace
+`grind` on negative divisors).
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or

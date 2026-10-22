@@ -1212,7 +1212,7 @@ def _gcd(left, right):
     return left
 
 
-def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
+def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tactic=None):
     """Prove a conclusion over theory atoms with grind after unfolding its definitions.
 
     grind decides linear arithmetic over ordered fields, congruence closure
@@ -1221,33 +1221,162 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices):
     the standard axioms, so arithmetic lemmas do too. A step with premises
     (the legacy core's th-lemma and arithmetic monotonicity) is stated as the
     implication from the premise conclusions and applied to their steps.
+
+    With opaque_tactic (Int theory lemmas, see _opaque_tactic), the Int
+    atoms of the linear forms (div, mod, abs, ite, and applications, see
+    _linear_term) are first generalized to fresh integers and that tactic
+    is tried on the resulting linear goal, so neither the Euclidean
+    operators are unfolded nor the ite atoms split (a lemma over a dozen
+    div, mod, and abs atoms by negative numerals used to exhaust its
+    heartbeats). A lemma that needs the atoms' definitions fails that
+    attempt and is proved as before, definitions unfolded.
     """
     conclusion = graph.conclusion(node)
     premises = graph.arguments(node)[:-1]
-    reachable, _ = _reachable(graph, conclusion)
-    for premise in premises:
-        reachable |= _reachable(graph, graph.conclusion(premise))[0]
-    definitions = ["%s_%d" % ("term" if graph.is_term(formula) else "formula", formula)
-                   for formula in sorted(reachable, reverse=True)]
-    statement = " -> ".join([_formula(graph, graph.conclusion(premise)) for premise in premises]
-                            + [_formula(graph, conclusion)])
+    conclusions = [graph.conclusion(premise) for premise in premises] + [conclusion]
+    reachable = set()
+    for formula in conclusions:
+        reachable |= _reachable(graph, formula)[0]
+    statement = " -> ".join(_formula(graph, formula) for formula in conclusions)
     lines = [
         "",
         "set_option maxHeartbeats 1000000 in",
         "private theorem %s_%d (_atoms : Nat -> Prop)%s" % (prefix, node, _valuation_binder(graph)),
         "    : %s := by" % statement,
-        "  unfold " + " ".join(definitions),
     ]
-    if graph.arithmetic:
-        lines.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
-        lines.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.uninterpreted:
-        lines.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    if graph.arithmetic and graph.uninterpreted:
-        lines.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
-    lines.append("  " + _theory_tactic(graph))
+    atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
+    if atoms:
+        # Outside the atoms first; the fallback unfolds the atoms and
+        # everything under them (a child shared with the outside occurs
+        # again once its atom is unfolded; unfold rejects a missing name).
+        outside, inside = set(), set()
+        for formula in conclusions:
+            outside |= _reachable_outside(graph, formula, atoms)
+        for atom in atoms:
+            inside |= _reachable(graph, atom)[0]
+        lines.append("  unfold " + " ".join(_definition_names(graph, outside)))
+        lines.append("  first")
+        lines.append("    | (" + "\n       ".join(
+            _mod_bound_facts(graph, atoms)
+            + ["generalize %s = _o%d" % (_term(graph, atom), position) for position, atom in enumerate(atoms)]
+            + [opaque_tactic + ")"]))
+        fallback = ["unfold " + " ".join(_definition_names(graph, inside))]
+        fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
+        fallback.append(_theory_tactic(graph) + ")")
+        lines.append("    | (" + "\n       ".join(fallback))
+    else:
+        lines.append("  unfold " + " ".join(_definition_names(graph, reachable)))
+        lines.extend(_theory_helpers(graph, reachable, atom_indices, variable_indices))
+        lines.append("  " + _theory_tactic(graph))
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
+
+
+def _definition_names(graph, nodes):
+    """The definitions of nodes in unfolding order: parents before children (ids are topological)."""
+    return ["%s_%d" % ("term" if graph.is_term(formula) else "formula", formula)
+            for formula in sorted(nodes, reverse=True)]
+
+
+def _theory_helpers(graph, reachable, atom_indices, variable_indices):
+    helpers = []
+    if graph.arithmetic:
+        helpers.extend(_scaling_helpers(graph, reachable, atom_indices, variable_indices))
+        helpers.extend(_ite_gate_helpers(graph, reachable, atom_indices, variable_indices))
+    if graph.uninterpreted:
+        helpers.extend(_boolean_argument_helpers(graph, reachable, atom_indices, variable_indices))
+    if graph.arithmetic and graph.uninterpreted:
+        helpers.extend(_real_argument_helpers(graph, reachable, atom_indices, variable_indices))
+    return helpers
+
+
+def _mod_bound_facts(graph, atoms):
+    """State 0 <= m < |k| for every mod atom m = (mod t k), then revert the facts into the goal.
+
+    The arithmetic solver fixes these bounds at base level from its mod
+    axioms and omits such base-level facts from the lemmas it explains, so
+    a cut over mod atoms may rest on them without listing them; generalized
+    without them, the atoms are unbounded integers and the lemma unprovable.
+    omega reads % by a positive numeral only, so the facts are the library's
+    (Int.emod_neg folds a negative divisor into its opposite). The facts are
+    best effort: Int.emod_neg expects the divisor rendered as the negation
+    of a numeral, which is how Z3 writes a negative constant; should a fact
+    fail to prove, the generalized attempt fails and the fallback runs.
+    """
+    lines, names = [], []
+    for position, atom in enumerate(atoms):
+        if graph.kind(atom) != z3.Z3_OP_MOD:
+            continue
+        divisor = int(_integer_divisor(graph, atom))
+        definitions = " ".join(_definition_names(graph, _reachable(graph, atom)[0]))
+        upper = "exact Int.emod_lt_of_pos _ (by decide)"
+        if divisor < 0:
+            upper = "rw [Int.emod_neg]; " + upper
+        lines.append("have _m%d_0 : ((0 : Int)) <= %s := by unfold %s; exact Int.emod_nonneg _ (by decide)" % (
+            position, _term(graph, atom), definitions))
+        lines.append("have _m%d_1 : %s < ((%d : Int)) := by unfold %s; %s" % (
+            position, _term(graph, atom), abs(divisor), definitions, upper))
+        names += ["_m%d_0" % position, "_m%d_1" % position]
+    if names:
+        lines.append("revert " + " ".join(names))
+    return lines
+
+
+def _opaque_tactic(graph, node):
+    """The tactic proving an Int th-lemma over its linear-form atoms generalized, or None.
+
+    A farkas or bound with coefficients is a combination the reconstructor
+    re-derived over the atoms (_check_th_lemma), so the generalized goal
+    holds and omega, complete for linear integer arithmetic, closes it at
+    once. A cut, and a coefficient-free Int farkas or bound (a lattice
+    conflict), lists the bounds and the div and mod rows it rests on as
+    literals, except the base-level mod bounds (_mod_bound_facts restates
+    them), so the generalized goal holds as well when the step is sound,
+    but it needs the integer lattice: grind's cutsat module proved a cut
+    over twenty atoms in a second where omega took minutes. The arith
+    axioms, euf congruences, and implied equalities keep the atoms' definitions.
+    """
+    parameters = graph.decl(node).parameters
+    if graph.numeric != "Int" or parameters[0] not in ("farkas", "bound", "cut"):
+        return None
+    return "omega" if len(parameters) > 1 else "grind (splits := 64)"
+
+
+_OPAQUE_INT_KINDS = (z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS, z3.Z3_OP_ITE, z3.Z3_OP_UNINTERPRETED)
+
+
+def _is_opaque_int_atom(graph, node):
+    """An Int term that is an atom of the linear forms (_linear_term), other than a variable."""
+    return (graph.is_term(node) and graph.is_arith(node) and graph.kind(node) in _OPAQUE_INT_KINDS
+            and bool(graph.arguments(node)))
+
+
+def _reachable_outside(graph, formula, atoms):
+    """The nodes reachable from a formula without entering the given atoms (the atoms excluded)."""
+    reachable, pending = set(), [formula]
+    while pending:
+        node = pending.pop()
+        if node in reachable or node in atoms:
+            continue
+        reachable.add(node)
+        if not _trivial_distinct(graph, node):
+            pending.extend(graph.arguments(node))
+    return reachable
+
+
+def _opaque_int_atoms(graph, formulas):
+    """The outermost opaque Int atoms under the formulas, outer atoms first (ids are topological)."""
+    atoms, pending, seen = set(), list(formulas), set()
+    while pending:
+        node = pending.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        if _is_opaque_int_atom(graph, node):
+            atoms.add(node)
+        elif not _trivial_distinct(graph, node):
+            pending.extend(graph.arguments(node))
+    return sorted(atoms, reverse=True)
 
 
 def _theory_tactic(graph):
@@ -2812,7 +2941,8 @@ def reconstruct(source, certificate):
     for node in range(len(graph.nodes)):
         if graph.kind(node) == z3.Z3_OP_PR_TH_LEMMA:
             _check_th_lemma(graph, node)
-            lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices)
+            lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
+                                       opaque_tactic=_opaque_tactic(graph, node))
             lines.extend(lemma)
             th_lemmas[node] = term
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
