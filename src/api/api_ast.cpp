@@ -1295,6 +1295,7 @@ extern "C" {
         case OP_BSREM_I: return Z3_OP_BSREM_I;
         case OP_BUREM_I: return Z3_OP_BUREM_I;
         case OP_BSMOD_I: return Z3_OP_BSMOD_I;
+        case OP_MKBV: return Z3_OP_MKBV;
         default: return Z3_OP_INTERNAL;
         }
     }

@@ -406,6 +406,8 @@ typedef enum
    - Z3_OP_BSMOD_I: Binary signed modulus.
      It has the same semantics as Z3_OP_BSMOD, but created in a context where the second operand can be assumed to be non-zero.
 
+   - Z3_OP_MKBV: Construct a bit-vector from Boolean bits, least-significant bit first.
+
    - Z3_OP_PR_UNDEF: Undef/Null proof object.
 
    - Z3_OP_PR_TRUE: Proof for the expression 'true'.
@@ -1138,6 +1140,7 @@ typedef enum {
     Z3_OP_BSREM_I,
     Z3_OP_BUREM_I,
     Z3_OP_BSMOD_I,
+    Z3_OP_MKBV,
 
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,

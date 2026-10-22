@@ -657,6 +657,13 @@ let identity_and_binders () =
    | _ -> failwith "quantifier was not marshaled");
   let st = B.marshal_expressions (B.empty_state ())
       (parse c "(assert (= ((_ extract 3 0) #x12) ((_ extract 7 4) #x12)))") in
+  let extracts = List.filter (fun d -> d.A.interp = Some Z3BvLemma.op_extract)
+      st.all_declarations in
+  require (List.sort compare (List.map (fun d -> d.A.int_params) extracts) =
+      List.map (List.map Z.of_int) [[8; 3; 0]; [8; 7; 4]])
+    "native extraction widths or indices were lost";
+  let st = B.marshal_expressions (B.empty_state ())
+      (parse c "(assert (= ((_ rotate_left 1) #x12) ((_ rotate_left 2) #x12)))") in
   let opaque = List.filter (fun d -> d.A.interp = None && d.domain <> [])
       st.all_declarations in
   require (List.length opaque = 2) "parameterized declarations were merged";
@@ -1924,6 +1931,19 @@ let contextual_boolean_rewrites () =
     require (U.check_step U.RewriteRule conclusion [] = expected)
       ("incorrect contextual Boolean rewrite: " ^ left ^ " -> " ^ right)
   in
+  let structural expected left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match B.cached_expression st (List.hd inputs) with
+    | A.App (_, [a; b]) ->
+        require (Z3BooleanRewrite.structural_boolean_equiv a b = expected)
+          ("incorrect complemented equality normalization: " ^ left ^ " -> " ^ right)
+    | _ -> failwith "expected Boolean equality"
+  in
+  structural true ("(= p0 (not " ^ wide ^ "))") ("(not (= " ^ wide ^ " p0))");
+  structural true ("(= (not p0) " ^ wide ^ ")") ("(not (= p0 " ^ wide ^ "))");
+  structural true ("(= (not p0) (not " ^ wide ^ "))") ("(= " ^ wide ^ " p0)");
+  structural false ("(= p0 (not " ^ wide ^ "))") ("(= p0 " ^ wide ^ ")");
   check true ("(and " ^ wide ^ " (not " ^ wide ^ "))") "false";
   check true ("(or " ^ wide ^ " (not " ^ wide ^ "))") "true";
   check true ("(or (not p0) (not (= p0 " ^ wide ^ ")))")
@@ -1986,6 +2006,502 @@ let unused_quantifier_rewrites () =
     "an outer de Bruijn variable was not lowered";
   require (not (U.check_step U.RewriteRule (U.Equal (source, A.Var (Z.one, A.bool_sort))) []))
     "a free de Bruijn variable retained its old index"
+
+let bv_rewrites () =
+  let c = context () in
+  let declarations =
+    "(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)(declare-const s Bool)\
+     (declare-const v (_ BitVec 8))\
+     (declare-const w (_ BitVec 8))(declare-const z (_ BitVec 8))\
+     (declare-const bit (_ BitVec 1))(declare-const other (_ BitVec 1))\
+     (declare-const half (_ BitVec 4))\
+     (declare-const wide (_ BitVec 65))" in
+  let check expected left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect bit-vector rewrite: " ^ left ^ " -> " ^ right)
+  in
+  List.iter (fun op ->
+      check true ("(" ^ op ^ " v w)") ("(" ^ op ^ " w v)");
+      check false ("(" ^ op ^ " v w)") ("(" ^ op ^ " v v)"))
+    ["bvand"; "bvor"; "bvxor"; "bvadd"; "bvmul"];
+  check false "(bvsub v w)" "(bvsub w v)";
+  check false "(bvudiv v w)" "(bvudiv w v)";
+  check true "(bvudiv #b1 #b0)" "#b1";
+  check true "(bvudiv v #x00)" "#xff";
+  check true "(bvurem v #x00)" "v";
+  check true "(bvudiv v #x01)" "v";
+  check true "(bvurem v #x01)" "#x00";
+  check true "(bvudiv #x80 #x03)" "#x2a";
+  check true "(bvurem #x80 #x03)" "#x02";
+  check true "(bvudiv wide (_ bv0 65))" "(_ bv36893488147419103231 65)";
+  check false "(bvudiv v #x00)" "#x00";
+  check false "(bvurem v #x00)" "#xff";
+  check true "(= (ite p #b1 #b0) #b1)" "p";
+  check true "(= (ite p #b0 #b1) #b1)" "(not p)";
+  check true "(= (ite p #x12 #x34) #x12)" "p";
+  check true "(= #x34 (ite p #x12 #x34))" "(not p)";
+  check false "(= (ite p #x12 #x34) #x12)" "(not p)";
+  check false "(= (ite p #x12 #x12) #x12)" "p";
+  check true "(ite (= bit #b0) #b1 #b0)" "(bvnot bit)";
+  check true "(ite (= #b1 bit) #b1 #b0)" "bit";
+  check true "(ite (= bit #b1) #b0 #b1)" "(bvnot bit)";
+  check true "(ite (= bit #b0) #b0 #b1)" "bit";
+  check false "(ite (= v #x00) #b1 #b0)" "(bvnot bit)";
+  check true "(= (bvnot bit) #b1)" "(= bit #b0)";
+  check true "(= #x12 (bvnot v))" "(= v #xed)";
+  check false "(= (bvnot v) #x12)" "(= v #x12)";
+  check true "(bvnot (ite p #b1 #b0))" "(ite p #b0 #b1)";
+  check true "(bvnot (ite p #x12 #x34))" "(ite p #xed #xcb)";
+  check false "(bvnot (ite p #x12 #x34))" "(ite p #x12 #xcb)";
+  check true "(= (= bit #b1) p)" "(= bit (ite p #b1 #b0))";
+  check true "(= (= bit #b0) p)" "(= (ite p #b0 #b1) bit)";
+  check false "(= (= bit #b1) p)" "(= bit (ite p #b0 #b1))";
+  check true "(= (= bit #b1) (= other #b0))" "(= bit (bvnot other))";
+  check false "(= (= v #xff) (= w #xff))" "(= v w)";
+  check true "(bvmul v (bvadd w z))" "(bvadd (bvmul v w) (bvmul v z))";
+  check true "(bvadd (bvmul v w) (bvmul v z))" "(bvmul v (bvadd w z))";
+  check false "(bvmul v (bvadd w z))" "(bvadd (bvmul v w) (bvmul w z))";
+  check false "(bvmul v (bvsub w z))" "(bvadd (bvmul v w) (bvmul v z))";
+  check true "(bvsub v w)" "(bvadd v (bvmul #xff w))";
+  check false "(bvsub v w)" "(bvadd v (bvmul #xfe w))";
+  check true "(bvadd #x00 v)" "v";
+  check true "(bvmul #x01 v)" "v";
+  check true "(bvmul #x00 v)" "#x00";
+  check true "(bvmul #xff #xff v)" "v";
+  check true "(bvmul #x02 (bvmul #x80 v))" "#x00";
+  check false "(bvmul #xfe (bvmul #xff v))" "v";
+  check true "(bvadd v w z)" "(bvadd v (bvadd w z))";
+  check true "(= (bvadd v w) z)" "(= v (bvadd z (bvmul #xff w)))";
+  check false "(= (bvadd v w) z)" "(= v (bvadd z w))";
+  check true "(= (bvadd v w) (bvmul #x02 v))" "(= v w)";
+  check true "(= (bvadd v w) (bvmul #x02 v))"
+    "(= w (bvsub #x00 (bvmul #xff v)))";
+  check false "(= (bvadd v w) (bvmul #x02 v))" "(= v z)";
+  check false "(= (bvadd v w) (bvmul #x03 v))" "(= v w)";
+  check true "(bvult v w)" "(not (bvule w v))";
+  check true "(bvuge v w)" "(bvule w v)";
+  check false "(bvult v w)" "(not (bvule v w))";
+  check false "(bvuge v w)" "(bvule v w)";
+  check true "(bvule (mkbv p q) (mkbv r s))"
+    "(ite (= q s) (ite (= p r) true (not p)) (not q))";
+  check false "(bvule (mkbv p q) (mkbv r s))"
+    "(ite (= q s) (ite (= p r) true p) (not q))";
+  check true "(bvuge v #x05)"
+    "(=> (= ((_ extract 7 3) v) #b00000) (bvule #b101 ((_ extract 2 0) v)))";
+  check true "(bvule #x00 v)" "true";
+  check true "(bvule #x01 v)"
+    "(or (not (= ((_ extract 7 1) v) #b0000000)) (bvule #b1 ((_ extract 0 0) v)))";
+  check false "(bvuge v #x05)"
+    "(=> (= ((_ extract 7 3) v) #b00000) (bvule #b100 ((_ extract 2 0) v)))";
+  check false "(bvuge v #x05)"
+    "(and (= ((_ extract 7 3) v) #b00000) (bvule #b101 ((_ extract 2 0) v)))";
+  check true "(= (ite p #b0 bit) #b1)" "(and (not p) (= bit #b1))";
+  check true "(= #b1 (ite p bit #b0))" "(and p (= bit #b1))";
+  check true "(= (ite p #b1 bit) #b1)" "(or p (= bit #b1))";
+  check true "(= (ite p bit #b1) #b1)" "(or (not p) (= bit #b1))";
+  check false "(= (ite p #b0 bit) #b1)" "(and p (= bit #b1))";
+  check false "(= (ite p bit #b1) #b1)" "(or p (= bit #b1))";
+  check true "#b1010" "(mkbv false true false true)";
+  check false "#b1010" "(mkbv true false true false)";
+  check true "(= (mkbv p false) (mkbv false p))" "(not p)";
+  check true "(= (mkbv p true) (mkbv true false))" "false";
+  check false "(= (mkbv p false) (mkbv false p))" "p";
+  check true "((_ extract 2 1) (mkbv p false true false))" "#b10";
+  check true "((_ extract 2 0) (mkbv p false true false))" "(mkbv p false true)";
+  check false "((_ extract 2 1) (mkbv p false true false))" "#b01";
+  check true "(concat (mkbv p false) (mkbv true p))" "(mkbv true p p false)";
+  check false "(concat (mkbv p false) (mkbv true p))" "(mkbv p false true p)";
+  check true "(concat v half bit)" "(concat v (concat half bit))";
+  check true "(concat (mkbv p q) (mkbv r) (mkbv s))" "(mkbv s r p q)";
+  check false "(concat (mkbv p q) (mkbv r) (mkbv s))" "(mkbv r s p q)";
+  check true "(bvnot (concat v half))" "(concat (bvnot v) (bvnot half))";
+  check false "(bvnot (concat v half))" "(concat (bvnot v) half)";
+  check false "v" "(mkbv p p p p p p p p)";
+  check true "(bvadd (mkbv p) (mkbv q))" "(mkbv (xor p q))";
+  check true "(bvadd (mkbv p q) (mkbv r s))"
+    "(mkbv (xor p r) (xor (xor q s) (and p r)))";
+  check false "(bvadd (mkbv p q) (mkbv r s))" "(mkbv (xor p r) (xor q s))";
+  check true "(bvadd (mkbv true true true) (mkbv true false false))" "#b000";
+  check false "(bvadd (mkbv true true true) (mkbv true false false))" "#b100";
+  check true "(bvadd (mkbv p q false) (mkbv true false false))"
+    "(mkbv (not p) (xor q p) (and p q))";
+  check true "(= (mkbv p q) (mkbv (not r) (not s)))"
+    "(not (or (= r p) (= s q)))";
+  check true "((_ extract 0 0) bit)" "bit";
+  check true "((_ extract 7 0) v)" "v";
+  check true "((_ extract 64 0) wide)" "wide";
+  check true "((_ extract 11 4) (concat v half))" "v";
+  check true "((_ extract 3 0) (concat v half))" "half";
+  check true "((_ extract 8 1) (concat v bit))" "v";
+  check true "((_ extract 7 4) #xa5)" "#xa";
+  check true "((_ extract 3 0) #xa5)" "#x5";
+  check true "((_ extract 64 64) (_ bv18446744073709551616 65))" "#b1";
+  check false "((_ extract 7 4) #xa5)" "#x5";
+  check false "((_ extract 7 0) (concat v half))" "v";
+  check true "(= (concat v half) (concat v #xf))" "(= half #xf)";
+  check false "(= (concat v half) (concat w #xf))" "(= half #xf)";
+  let inputs = parse c (declarations ^ "(assert (= (mkbv p true) #b11))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); _]) ->
+       require (f.A.interp = Some Z3BvLemma.op_mkbv &&
+                f.A.int_params = [Z.of_int 2])
+         "native word identity or width was lost";
+       List.iter (fun parameters ->
+           require (Z3BvLemma.word_parts
+             (A.App ({ f with A.int_params = List.map Z.of_int parameters }, args)) = None)
+             "malformed word widths were trusted")
+         [[]; [0]; [1]; [3]; [-2]; [2; 1]];
+       require (Z3BvLemma.word_parts (A.App ({ f with A.interp = None }, args)) = None)
+         "an uninterpreted word name was trusted";
+       require (Z3BvLemma.word_parts
+         (A.App ({ f with A.range = A.bool_sort }, args)) = None)
+         "a word with a Boolean result sort was trusted";
+       require (Z3BvLemma.word_parts
+         (A.App (f, [Z3BvLemma.literal (Z.of_int 2) Z.zero; Z3ResolutionProofTheory.true_expr])) = None)
+         "a word with a non-Boolean bit was trusted"
+   | _ -> failwith "expected native word construction");
+  let inputs = parse c (declarations ^ "(assert (= ((_ extract 7 0) v) v))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); _]) ->
+       List.iter (fun parameters ->
+           require (Z3BvLemma.extract_parts
+             (A.App ({ f with A.int_params = List.map Z.of_int parameters }, args)) = None)
+             "malformed extraction parameters were trusted")
+         [[7; 7; 0]; [8; 8; 0]; [8; 7; -1]; [8; 0; 1]; [8; 7]];
+       require (Z3BvLemma.extract_parts (A.App ({ f with A.interp = None }, args)) = None)
+         "an uninterpreted extraction name was trusted"
+   | _ -> failwith "expected native bit-vector extraction");
+  let inputs = parse c (declarations ^ "(assert (= (concat v half) (concat w half)))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); _]) ->
+       List.iter (fun parameters ->
+           require (Z3BvLemma.concat_parts
+             (A.App ({ f with A.int_params = List.map Z.of_int parameters }, args)) = None)
+             "malformed concatenation widths were trusted")
+         [[7; 5]; [8; 0]; [-1; 13]; [8; 4; 1]];
+       require (Z3BvLemma.concat_parts (A.App ({ f with A.interp = None }, args)) = None)
+         "an uninterpreted concatenation name was trusted"
+   | _ -> failwith "expected native bit-vector concatenation");
+  let inputs = parse c (declarations ^ "(assert (bvule v w))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (f, args) ->
+       require (f.A.interp = Some Z3BvLemma.op_ule && f.A.int_params = [Z.of_int 8])
+         "native comparison identity or operand width was lost";
+       List.iter (fun parameters ->
+           require (Z3BvLemma.unsigned_parts
+             (A.App ({ f with A.int_params = List.map Z.of_int parameters }, args)) = None)
+             "malformed unsigned comparison widths were trusted")
+         [[]; [0]; [7]; [4097]; [8; 8]];
+       List.iter (fun malformed ->
+           require (Z3BvLemma.unsigned_parts (A.App (malformed, args)) = None)
+             "malformed unsigned comparison signature was trusted")
+         [{ f with A.interp = None };
+          { f with A.range = Z3BvLemma.bv_sort (Z.of_int 8) };
+          { f with A.domain = [A.bool_sort; A.bool_sort] }];
+       require (Z3BvLemma.unsigned_parts (A.App (f, [List.hd args])) = None)
+         "an unsigned comparison with missing operands was trusted"
+   | _ -> failwith "expected native unsigned comparison");
+  let inputs = parse c (declarations ^ "(assert (= (concat v half bit) (concat w half bit)))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); _]) ->
+       require (List.length args = 3 &&
+                f.A.int_params = List.map Z.of_int [8; 4; 1])
+         "native ternary concatenation widths were lost";
+       List.iter (fun parameters ->
+           require (Z3BvLemma.concat3_parts
+             (A.App ({ f with A.int_params = List.map Z.of_int parameters }, args)) = None)
+             "malformed ternary concatenation widths were trusted")
+         [[8; 4]; [8; 4; 0]; [7; 5; 1]; [8; 4; 1; 1]];
+       List.iter (fun malformed ->
+           require (Z3BvLemma.concat3_parts (A.App (malformed, args)) = None)
+             "malformed ternary concatenation signature was trusted")
+         [{ f with A.interp = None }; { f with A.range = A.bool_sort };
+          { f with A.domain = [A.bool_sort; A.bool_sort; A.bool_sort] }]
+   | _ -> failwith "expected native ternary concatenation");
+  let proof = document "(set-logic QF_BV)(assert (= #b0 (bvudiv #b1 #b0)))" in
+  require (P.check_document proof = Some Z.zero)
+    "division-by-zero benchmark proof did not check";
+  let inputs = parse c (declarations ^ "(assert (= (bvudiv v #x00) #xff))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  match B.cached_expression st (List.hd inputs) with
+  | A.App (_, [A.App (f, args); _]) ->
+      require (Z3BvLemma.rewrite (A.App ({ f with A.interp = None }, args)) = None)
+        "an uninterpreted division name was trusted"
+  | _ -> failwith "expected native unsigned bit-vector division"
+
+let fresh_bit_model_extension () =
+  let module F = Z3BvFresh in
+  let c = context () in
+  let declarations =
+    "(declare-const v (_ BitVec 3))(declare-const p Bool)\
+     (declare-const q Bool)(declare-const r Bool)" in
+  let inputs = parse c (declarations ^
+    "(assert (= v #b101))(assert (= v (mkbv p q r)))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  let formulas = List.map (B.cached_expression st) inputs in
+  let original, formula = match formulas with
+    | [a; b] -> a, b | _ -> failwith "expected fresh-bit extension inputs" in
+  let reconstruction = match F.check_condition [original] formula with
+    | Some r -> r | None -> failwith "a fresh native word reconstruction was rejected" in
+  let equation r = Z3ResolutionProofTheory.mk_eq_expr (F.source r) (F.word r) in
+  let check expected inputs r =
+    require (Option.is_some (F.check_condition inputs (equation r)) = expected)
+      "incorrect fresh-bit extension condition" in
+  check true [original] reconstruction;
+  require (Option.is_some (F.check_condition [original]
+      (Z3ResolutionProofTheory.mk_eq_expr (F.word reconstruction) (F.source reconstruction))))
+    "reversed fresh-bit reconstruction was rejected";
+  let first = List.hd reconstruction.F.symbols in
+  check false [A.App (first, [])] reconstruction;
+  let quantified = A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+    Z3ResolutionProofTheory.mk_eq_expr (A.App (first, [])) (A.Var (Z.zero, A.bool_sort))) in
+  check false [quantified] reconstruction;
+  let symbol name = {
+    A.decl_name = name; domain = []; range = A.bool_sort; interp = None; int_params = [];
+  } in
+  List.iter (fun f ->
+      check false [original] { reconstruction with F.symbols = f :: List.tl reconstruction.F.symbols })
+    [{ first with A.range = Z3BvLemma.bv_sort Z.one };
+     { first with A.domain = [A.bool_sort] };
+     { first with A.int_params = [Z.one] };
+     { first with A.interp = Some Z3ValueTheory.op_true }];
+  check false [original]
+    { reconstruction with F.symbols = [first; first; List.nth reconstruction.F.symbols 2] };
+  List.iter (fun original_decl ->
+      check false [] { reconstruction with F.original = original_decl })
+    [{ reconstruction.F.original with A.interp = Some Z3BvLemma.op_numeral };
+     { reconstruction.F.original with A.domain = [A.bool_sort] };
+     { reconstruction.F.original with A.int_params = [Z.one] };
+     { reconstruction.F.original with A.range = A.bool_sort }];
+  check false [] { reconstruction with F.constructor =
+    { reconstruction.F.constructor with A.interp = None } };
+  check true [] { reconstruction with F.constructor =
+    { reconstruction.F.constructor with A.decl_name = "not-a-trusted-word-name" } };
+  let project _ = function
+    | Z3ValueTheory.VInt n -> n
+    | _ -> failwith "expected a numeric test-model value" in
+  List.iter (fun (width, values) ->
+      let symbols = List.init width (fun n -> symbol ("ordinary-name-" ^ string_of_int n)) in
+      let constructor = match Z3BvWord.word (F.atoms symbols) with
+        | A.App (f, _) -> f | _ -> failwith "expected word constructor" in
+      let r = { F.width = Z.of_int width;
+        original = { reconstruction.F.original with A.range = Z3BvLemma.bv_sort (Z.of_int width) };
+        constructor; symbols } in
+      let unrelated = symbol "unrelated" in
+      let assertions = [Z3ResolutionProofTheory.mk_eq_expr (F.source r) (F.source r);
+                        A.App (unrelated, [])] in
+      check true assertions r;
+      require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
+        "fresh-bit reconstruction became an unconditional rewrite";
+      List.iter (fun n ->
+          let base : Z3ValueTheory.value A.interpretation = {
+            A.interp_app = (fun f vs ->
+              match f.A.interp, vs with
+              | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
+                  let rec number = function
+                    | [] -> Z.zero
+                    | Z3ValueTheory.VBool b :: rest ->
+                        Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
+                    | _ -> failwith "expected Boolean test-model bits" in
+                  Z3ValueTheory.VInt (number vs)
+              | Some op, [Z3ValueTheory.VInt a; Z3ValueTheory.VInt b]
+                  when Z.equal op Z3ValueTheory.op_eq ->
+                  Z3ValueTheory.VBool (Z.equal a b)
+              | _ -> failwith "unexpected interpreted test-model application");
+            A.uninterp_app = (fun f vs ->
+              if f = r.F.original then Z3ValueTheory.VInt (Z.of_int n)
+              else match vs with
+                | [] -> Z3ValueTheory.VBool false
+                | _ -> Z3ValueTheory.VInt (Z.of_int 37));
+            A.interp_quant = (fun _ _ _ -> failwith "unexpected test-model quantifier");
+          } in
+          let extended = F.extend r base project in
+          let rho _ = Z3ValueTheory.VInt Z.zero in
+          (match A.eval extended (F.source r) rho, A.eval extended (F.word r) rho with
+           | Z3ValueTheory.VInt a, Z3ValueTheory.VInt b ->
+               require (Z.equal a (Z.of_int n) && Z.equal a b)
+                 "fresh-bit extension did not reconstruct the original value"
+           | _ -> failwith "expected numeric reconstructed values");
+          (match A.eval extended (equation r) rho with
+           | Z3ValueTheory.VBool true -> ()
+           | _ -> failwith "reconstruction equality is false in the extension");
+          (match A.eval extended (A.App (unrelated, [])) rho with
+           | Z3ValueTheory.VBool false -> ()
+           | _ -> failwith "extension changed an unrelated symbol");
+          (match extended.A.uninterp_app (List.hd symbols) [Z3ValueTheory.VBool true] with
+           | Z3ValueTheory.VInt v ->
+               require (Z.equal v (Z.of_int 37)) "extension changed a non-nullary application"
+           | _ -> failwith "expected unchanged non-nullary interpretation"))
+        values)
+    [1, [0; 1]; 3, [0; 1; 5; 7]; 8, [0; 128; 165; 255]]
+
+let fresh_bit_context_extension () =
+  let module F = Z3BvFresh in
+  let module M = Z3BvFreshModel in
+  let module R = Z3ResolutionProofTheory in
+  let symbol name range = {
+    A.decl_name = name; domain = []; range; interp = None; int_params = [];
+  } in
+  let reconstruction name names =
+    let symbols = List.map (fun n -> symbol n A.bool_sort) names in
+    let constructor = match Z3BvWord.word (F.atoms symbols) with
+      | A.App (f, _) -> f | _ -> failwith "expected word constructor" in
+    { F.width = Z.of_int 3; original = symbol name (Z3BvLemma.bv_sort (Z.of_int 3));
+      constructor; symbols } in
+  let r = reconstruction "v" ["p"; "q"; "r"] in
+  let s = reconstruction "w" ["s"; "t"; "u"] in
+  let equation r = R.mk_eq_expr (F.source r) (F.word r) in
+  let inputs = [R.mk_eq_expr (F.source r) (F.source r)] in
+  let formulas = [equation r; R.mk_eq_expr (F.word s) (F.source s)] in
+  let rs = match M.check_context inputs formulas with
+    | Some rs -> rs | None -> failwith "disjoint reconstruction context was rejected" in
+  require (List.length rs = 2 && M.check_context inputs [] = Some [])
+    "incorrect reconstruction context length";
+  let shared = { s with F.symbols = List.hd r.F.symbols :: List.tl s.F.symbols } in
+  require (M.check_context inputs [equation r; equation shared] = None)
+    "cross-word bit collision was accepted";
+  let first = A.App (List.hd r.F.symbols, []) in
+  require (M.check_context [first] formulas = None)
+    "input-visible context bit was accepted";
+  let quantified = A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+    R.mk_eq_expr first (A.Var (Z.zero, A.bool_sort))) in
+  require (M.check_context [quantified] formulas = None)
+    "context freshness ignored a binder";
+  List.iter (fun name ->
+      let unsafe = { r with F.symbols = symbol name A.bool_sort :: List.tl r.F.symbols } in
+      require (Option.is_some (F.check_context inputs [equation unsafe]))
+        "structural condition unexpectedly depended on a reserved name";
+      require (M.check_context inputs [equation unsafe] = None)
+        "semantic reserved-name collision was accepted")
+    ["true"; "false"; "and"; "or"];
+  let base : Z3ValueTheory.value A.interpretation = {
+    A.interp_app = (fun f vs ->
+      match f.A.interp, vs with
+      | Some op, [] when Z.equal op Z3ValueTheory.op_true -> Z3ValueTheory.VBool true
+      | Some op, [] when Z.equal op Z3ValueTheory.op_false -> Z3ValueTheory.VBool false
+      | Some op, [a; b] when Z.equal op Z3ValueTheory.op_eq -> Z3ValueTheory.VBool (a = b)
+      | Some op, _ when Z.equal op Z3BvLemma.op_mkbv ->
+          let rec number = function
+            | [] -> Z.zero
+            | Z3ValueTheory.VBool b :: rest ->
+                Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
+            | _ -> failwith "expected Boolean context-model bits" in
+          Z3ValueTheory.VInt (number vs)
+      | _ -> failwith "unexpected context-model interpreted application");
+    A.uninterp_app = (fun f vs ->
+      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 5)
+      else if f = s.F.original then Z3ValueTheory.VInt (Z.of_int 2)
+      else match vs with [] -> Z3ValueTheory.VBool false | _ -> Z3ValueTheory.VInt (Z.of_int 37));
+    A.interp_quant = (fun _ bs body -> body (List.map (fun _ -> Z3ValueTheory.VBool true) bs));
+  } in
+  let project _ = function
+    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected numeric context-model value" in
+  let rho _ = Z3ValueTheory.VInt Z.zero in
+  let extended = F.extend_context rs base project in
+  require (A.eval_args extended inputs rho = A.eval_args base inputs rho)
+    "batch extension changed original inputs";
+  List.iter (fun e ->
+      require (A.eval extended e rho = Z3ValueTheory.VBool true)
+        "batch extension did not satisfy all reconstruction orientations")
+    formulas;
+  let n = F.number r base project in
+  let one = F.extend r base project in
+  require (M.retract r.F.symbols n first = R.true_expr)
+    "fresh bit did not retract to its Boolean literal";
+  let applied = A.App (List.hd r.F.symbols, [A.Var (Z.zero, A.bool_sort)]) in
+  require (M.retract r.F.symbols n applied = applied)
+    "retraction changed a non-nullary application or bound variable";
+  require (M.retract r.F.symbols n (F.source r) = F.source r)
+    "retraction changed an original BV constant";
+  List.iter (fun e ->
+      require (A.eval one e rho = A.eval base (M.retract r.F.symbols n e) rho)
+        "literal retraction did not preserve extended evaluation")
+    [first; F.word r; applied; quantified]
+
+let scoped_model_extension () =
+  let module SM = Z3ScopedModel in
+  let module F = Z3BvFresh in
+  let module M = Z3BvFreshModel in
+  let module R = Z3ResolutionProofTheory in
+  let scope = [A.bool_sort; SM.int_sort] in
+  let rho = SM.default_environment scope in
+  let bvar = A.Var (Z.zero, A.bool_sort) in
+  let ivar = A.Var (Z.one, SM.int_sort) in
+  require (not (Z3Definitions.scoped [] bvar) && Z3Definitions.scoped scope bvar)
+    "scope checking accepted an unbound variable or rejected a typed one";
+  require (A.eval SM.witness bvar rho = Z3ValueTheory.VBool false &&
+           A.eval SM.witness ivar rho = Z3ValueTheory.VInt Z.zero)
+    "typed scalar environment did not preserve variable values";
+  require (not (SM.scalar_typed A.bool_sort (Z3ValueTheory.VInt Z.zero)) &&
+           not (SM.scalar_typed SM.int_sort (Z3ValueTheory.VBool false)))
+    "scalar typing accepted a mismatched environment value";
+  require (A.eval SM.witness bvar (fun _ -> Z3ValueTheory.VInt Z.zero) =
+             Z3ValueTheory.VInt Z.zero)
+    "scoped contracts unexpectedly changed generic variable evaluation";
+  require (SM.arguments_typed scope [Z3ValueTheory.VBool false; Z3ValueTheory.VInt Z.zero] &&
+           not (SM.arguments_typed scope [Z3ValueTheory.VInt Z.zero; Z3ValueTheory.VBool false]) &&
+           not (SM.arguments_typed scope [Z3ValueTheory.VBool false]))
+    "scalar argument typing ignored sorts or arity";
+  let symbol name range = {
+    A.decl_name = name; domain = []; range; interp = None; int_params = [];
+  } in
+  let symbols = List.map (fun name -> symbol name A.bool_sort) ["true"; "false"; "and"; "or"] in
+  let constructor = match Z3BvWord.word (F.atoms symbols) with
+    | A.App (f, _) -> f | _ -> failwith "expected scoped-model word constructor" in
+  let r = { F.width = Z.of_int 4; original = symbol "v" (Z3BvLemma.bv_sort (Z.of_int 4));
+            constructor; symbols } in
+  let equations = [R.mk_eq_expr (F.word r) (F.source r)] in
+  let rs = match F.check_context [] equations with
+    | Some rs -> rs | None -> failwith "scoped structural context was rejected" in
+  require (M.check_context [] equations = None)
+    "legacy model-safety guard unexpectedly accepted reserved fresh names";
+  let base : Z3ValueTheory.value A.interpretation = {
+    SM.witness with
+    A.interp_app = (fun f vs ->
+      if f.A.interp = Some Z3BvLemma.op_mkbv then (
+        let rec number = function
+          | [] -> Z.zero
+          | Z3ValueTheory.VBool b :: rest ->
+              Z.add (if b then Z.one else Z.zero) (Z.mul (Z.of_int 2) (number rest))
+          | _ -> failwith "expected scoped-model word bits" in
+        Z3ValueTheory.VInt (number vs))
+      else SM.witness.A.interp_app f vs);
+    A.uninterp_app = (fun f vs ->
+      if f = r.F.original then Z3ValueTheory.VInt (Z.of_int 6)
+      else SM.witness.A.uninterp_app f vs);
+  } in
+  let project _ = function
+    | Z3ValueTheory.VInt n -> n | _ -> failwith "expected a numeric scoped-model value" in
+  let extended = F.extend_context rs base project in
+  let v = Z3ValueTheory.VInt (Z.of_int 6) in
+  require (A.eval extended (F.source r) rho = v && A.eval extended (F.word r) rho = v)
+    "scoped extension did not reconstruct the source value";
+  require (A.eval extended (List.hd equations) rho = Z3ValueTheory.VBool true)
+    "scoped extension did not satisfy reversed reconstruction";
+  require (A.eval extended (A.App (List.nth symbols 0, [])) rho = Z3ValueTheory.VBool false &&
+           A.eval extended (A.App (List.nth symbols 1, [])) rho = Z3ValueTheory.VBool true)
+    "fresh uninterpreted atoms were confused with official literals";
+  require (A.eval extended R.true_expr rho = Z3ValueTheory.VBool true &&
+           A.eval extended R.false_expr rho = Z3ValueTheory.VBool false)
+    "scoped extension changed official Boolean literals";
+  let quantified = A.Quantifier (A.Forall_k, scope, A.bool_sort,
+    R.mk_eq_expr (A.Var (Z.zero, SM.int_sort)) (A.Var (Z.zero, SM.int_sort))) in
+  require (Z3Definitions.scoped [] quantified)
+    "mixed-sort quantified test was not well-scoped";
+  List.iter (fun e ->
+      require (SM.scalar_typed (A.get_sort e) (A.eval extended e rho))
+        "extension broke scoped scalar typing")
+    [bvar; ivar; R.true_expr; R.false_expr; quantified; F.word r];
+  require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
+    "scoped-model theorem enabled unconditional reconstruction acceptance"
 
 let arithmetic_rewrites () =
   let c = context () in
@@ -2317,6 +2833,10 @@ let () =
      "assumed-NLSAT-obligation", assumed_nlsat;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "checked-bit-vector-rewrites", bv_rewrites;
+     "checked-fresh-bit-model-extension", fresh_bit_model_extension;
+     "checked-fresh-bit-context-extension", fresh_bit_context_extension;
+     "scoped-model-extension", scoped_model_extension;
      "contextual-boolean-rewrites", contextual_boolean_rewrites;
      "unused-quantifier-rewrites", unused_quantifier_rewrites;
      "checked-triangle-equality-clauses", arithmetic_triangle_clauses;
