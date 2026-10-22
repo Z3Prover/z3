@@ -1927,6 +1927,75 @@ let assumed_nlsat () =
   require (P.check_document { doc with assertions = []; entries = [entry]; root = Z.zero } = Some Z.one)
     "assumed NLSAT lemma was certified without an obligation"
 
+let boolean_constant_resolution () =
+  let module R = Z3ResolutionProofTheory in
+  let c = context () in
+  let native = parse c
+      "(declare-const p Bool)(assert (or false p))(assert (not p))(assert true)" in
+  let st = B.marshal_expressions (B.empty_state ()) native in
+  let formulas = List.map (B.cached_expression st) native in
+  let clause, np, truth = match formulas with
+    | [clause; np; truth] -> clause, np, truth
+    | _ -> failwith "expected Boolean constant fixtures" in
+  let p = match clause with
+    | A.App (_, [_; p]) -> p
+    | _ -> failwith "expected an unsimplified false-padded clause" in
+  let view = { N.proof_name = "true-axiom"; premises = [];
+               conclusion = List.nth native 2; farkas = None; assumed = None;
+               lp_data = None; binding = None; instantiations = [] } in
+  let truth_rule = B.native_rule view truth in
+  require (truth_rule = U.DefAxiom && U.check_step truth_rule (U.Holds truth) [])
+    "native true-axiom retained an obligation";
+  List.iter (fun (left, right) ->
+      require (R.complementary left right) "Boolean constants were not complementary")
+    [R.true_expr, R.false_expr; R.false_expr, R.true_expr;
+     R.true_expr, R.mk_not_expr R.true_expr;
+     R.false_expr, R.mk_not_expr R.false_expr];
+  require (not (R.complementary R.true_expr R.true_expr) &&
+           not (R.complementary R.false_expr R.false_expr))
+    "equal Boolean constants were treated as complementary";
+  let entry rule formula premise_ids = { P.rule; formula; premise_ids } in
+  let entries =
+    [entry U.Asserted clause []; entry U.Asserted np [];
+     entry truth_rule truth [];
+     entry U.UnitResolution p [Z.zero; Z.of_int 2];
+     entry U.UnitResolution R.false_expr [Z.of_int 3; Z.one]] in
+  let doc = { P.declarations = st.all_declarations; expressions = st.all_expressions;
+              assertions = [clause; np]; entries; root = Z.of_int 4 } in
+  require (P.check_document doc = Some Z.zero)
+    "false-padded native clause did not produce a checked refutation";
+  List.iter (fun formula ->
+      require (not (U.check_step truth_rule (U.Holds formula) []))
+        "a false true-axiom was certified") [p; R.false_expr];
+  let bad = List.mapi (fun i e ->
+      if i = 3 then { e with P.formula = R.false_expr } else e) entries in
+  require (P.check_document { doc with entries = bad } = None)
+    "constant resolution dropped a surviving literal"
+
+let integer_division_axioms () =
+  let c = context () in
+  let check expected clause =
+    let source = List.hd (parse c
+        ("(declare-const x Int)(declare-const y Int)(assert " ^ clause ^ ")")) in
+    let st = B.marshal_expressions (B.empty_state ()) [source] in
+    let formula = B.cached_expression st source in
+    require (U.checked_theory_lemma (U.Unverified "th-lemma") (U.Holds formula) [] = expected)
+      ("incorrect integer division axiom: " ^ clause);
+    require (not (U.checked_theory_lemma (U.Unverified "assumed:nlsat") (U.Holds formula) []))
+      "division axioms silently trusted an NLSAT origin"
+  in
+  check true "(or false (= x (+ (* 2 (div x 2)) (mod x 2))))";
+  check true "(or (= y 0) (= x (+ (* y (div x y)) (mod x y))))";
+  check true "(or false (>= (mod x 2) 0))";
+  check true "(or false (<= (mod x 2) 1))";
+  check true "(or false (<= (mod x 10000000000000000000000000000000000000000)\
+                           9999999999999999999999999999999999999999))";
+  check false "(or false (= x (+ (* 0 (div x 0)) (mod x 0))))";
+  check false "(or false (= x (+ (* y (div x y)) (mod x y))))";
+  check false "(or (= x 0) (= x (+ (* y (div x y)) (mod x y))))";
+  check false "(or false (<= (mod x 2) 0))";
+  check false "(or false (>= (mod x 2) 1))"
+
 let typed_observations () =
   let c = context () in
   let source = List.hd (parse c "(declare-const x Int)(assert (= x x))") in
@@ -2140,6 +2209,19 @@ let arithmetic_rewrites () =
   check false reals "(+ x y)" "(+ x x)";
   check false reals "(<= (/ x 0) y)" "(<= x y)";
   check false ints "(* x y)" "(+ x y)";
+  check true ints "(* (+ 1 x) (+ 1 x))"
+    "(+ (* 1 1) (* x 1) (* 1 x) (* x x))";
+  check true reals "(* (+ 1.0 x) (+ 1.0 y))"
+    "(+ (* 1.0 1.0) (* x 1.0) (* 1.0 y) (* x y))";
+  check false ints "(* (+ 1 x) (+ 1 x))"
+    "(+ (* 1 1) (* x 1) (* 1 x) (* x y))";
+  check true ints "(div (* 10 x) 4)" "(div (* x 5) 2)";
+  check true ints "(div (* 10 x) 4)"
+    "(ite (= 0 4) (div (* 10 x) 0) (div (* x 5) 2))";
+  check false ints "(div (* 10 x) 4)" "(div (* x 4) 2)";
+  check false ints "(div (* 10 x) 0)" "(div (* x 5) 2)";
+  check false ints "(div (* 10 x) 4)"
+    "(ite (= 0 0) (div (* 10 x) 0) (div (* x 5) 2))";
   let x = A.Var (Z.zero, A.BaseSort "Int") in
   let malformed = { (Z3ResolutionProofTheory.eq_decl (A.BaseSort "Int"))
     with decl_name = "<="; interp = None } in
@@ -2366,6 +2448,8 @@ let () =
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
+     "checked-Boolean-constant-resolution", boolean_constant_resolution;
+     "checked-integer-division-axioms", integer_division_axioms;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
      "contextual-boolean-rewrites", contextual_boolean_rewrites;

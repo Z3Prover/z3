@@ -6,7 +6,7 @@ type operator =
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
   | Bvadd | Bvmul | Bvsub | Bvneg | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
-  | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
+  | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral | Opaque
 
 type sort_view =
@@ -107,7 +107,8 @@ let operator = function
   | Z3enums.OP_DT_ACCESSOR -> DatatypeAccessor
   | Z3enums.OP_SEQ_CONCAT -> Concat | Z3enums.OP_ADD -> Add | Z3enums.OP_MUL -> Mul
   | Z3enums.OP_SUB | Z3enums.OP_UMINUS -> Sub
-  | Z3enums.OP_DIV -> Div | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
+  | Z3enums.OP_DIV -> Div | Z3enums.OP_IDIV -> IDiv | Z3enums.OP_MOD -> Mod
+  | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
   | Z3enums.OP_GE -> Ge | Z3enums.OP_GT -> Gt | Z3enums.OP_TO_REAL -> ToReal
   | Z3enums.OP_ANUM -> Rational | Z3enums.OP_BNUM -> BvNumeral
   | _ -> Opaque

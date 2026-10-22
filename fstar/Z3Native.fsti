@@ -11,7 +11,7 @@ type operator =
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
   | Bvadd | Bvmul | Bvsub | Bvneg | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
-  | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
+  | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
   | Opaque
 

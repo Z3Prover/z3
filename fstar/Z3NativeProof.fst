@@ -91,6 +91,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Add -> Some (if binary_int then op_plus else op_arith_add)
   | N.Mul -> Some (if binary_int then op_mul else op_arith_mul)
   | N.Sub -> Some op_arith_sub | N.Div -> Some op_arith_div
+  | N.IDiv -> Some Z3IntegerDivision.op_idiv | N.Mod -> Some Z3IntegerDivision.op_mod
   | N.Le -> Some op_arith_le | N.Lt -> Some op_arith_lt
   | N.Ge -> Some op_arith_ge | N.Gt -> Some op_arith_gt
   | N.ToReal -> Some op_to_real | N.Rational -> Some op_num_rational
