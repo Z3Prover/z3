@@ -469,6 +469,43 @@ class TestProofToLean(unittest.TestCase):
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
 
+    def test_balanced_conjunctions_project_every_conjunct_at_logarithmic_depth(self):
+        # The outlined proof's Inputs conjunction and its And.intro term are
+        # balanced trees; _balanced_select must follow the tree _balanced
+        # builds, and no path may be longer than the tree's height.
+        def parse(text):
+            if not text.startswith("("):
+                return text
+            depth, start, parts = 0, None, []
+            for index, char in enumerate(text[1:-1], 1):
+                if char == " " and depth == 0:
+                    if start is not None:
+                        parts.append(text[start:index])
+                    start = None
+                elif start is None:
+                    start = index
+                depth += (char == "(") - (char == ")")
+            parts.append(text[start:len(text) - 1])
+            self.assertEqual(len(parts), 3)
+            self.assertEqual(parts[0], "And")
+            return parse(parts[1]), parse(parts[2])
+
+        self.assertEqual(proof_to_lean._balanced("And", [], "True"), "True")
+        self.assertEqual(proof_to_lean._balanced_select(0, 1, "_inputs"), "_inputs")
+        for count in range(1, 70):
+            names = ["_h%d" % index for index in range(count)]
+            tree = parse(proof_to_lean._balanced("And", names, "True"))
+            for position, name in enumerate(names):
+                path = proof_to_lean._balanced_select(position, count, "_inputs")
+                self.assertTrue(path.startswith("_inputs"))
+                fields = path[len("_inputs"):].split(".")[1:]
+                self.assertLessEqual(len(fields), (count - 1).bit_length())
+                node = tree
+                for field in fields:
+                    self.assertIsInstance(node, tuple)
+                    node = node[int(field) - 1]
+                self.assertEqual(node, name)
+
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{
             "pipeline": pipeline, "proofs_enabled": proofs, "result": "unsat",

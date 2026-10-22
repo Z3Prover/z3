@@ -90,6 +90,10 @@ _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
 _OUTLINE_PROOF_STEPS = 500
 _OUTLINE_CHUNK_STEPS = 500
 _NORMALIZED_REWRITE_ATOMS = 16
+# The formulas a normalized rewrite's propositional lemma states over its
+# atoms (Boolean = is checked separately: its arguments must be formulas).
+_NORMALIZED_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IMPLIES, z3.Z3_OP_IFF,
+                           z3.Z3_OP_XOR, z3.Z3_OP_ITE, z3.Z3_OP_TRUE, z3.Z3_OP_FALSE)
 # Propagation steps and atom splits a propositional rewrite's direct proof may
 # take, and characters its typed `have` steps may render, before the truth
 # table is used instead (see _PropositionalProver). A term of one million
@@ -792,6 +796,35 @@ def _select(position, count, name):
     of 200 operands take over half a minute.
     """
     return name + ".2" * position + (".1" if position < count - 1 else "")
+
+
+def _balanced(operator, arguments, identity):
+    """Nest a binary operator as a balanced tree, the left half before the right."""
+    if not arguments:
+        return identity
+    if len(arguments) == 1:
+        return arguments[0]
+    middle = (len(arguments) + 1) // 2
+    return "(%s %s %s)" % (operator, _balanced(operator, arguments[:middle], identity),
+                           _balanced(operator, arguments[middle:], identity))
+
+
+def _balanced_select(position, count, name):
+    """Project a conjunct of a balanced conjunction (_balanced) by field notation.
+
+    The outlined proof steps receive the assertions as one conjunction, Inputs.
+    Right-nested, the last of 1,211 assertions sat under 1,210 projections,
+    and elaborating such a chain against the unfolded definition exhausted
+    maxHeartbeats; balanced, every assertion is at most log2(count) levels down.
+    """
+    path = ""
+    while count > 1:
+        middle = (count + 1) // 2
+        if position < middle:
+            path, count = path + ".1", middle
+        else:
+            path, position, count = path + ".2", position - middle, count - middle
+    return name + path
 
 
 def _modus_ponens(graph, terms, node):
@@ -2008,7 +2041,8 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
                  if graph.kind(formula) in _ARITH_PREDICATE_NAMES.keys() | {z3.Z3_OP_EQ}
                  and graph.arguments(formula) and graph.is_arith(graph.arguments(formula)[0])]
         distinct = any(graph.kind(formula) == z3.Z3_OP_DISTINCT for formula in reachable)
-        if len(atoms) > _NORMALIZED_REWRITE_ATOMS and not distinct and _linear_over_variables(graph, atoms):
+        if (len(atoms) > _NORMALIZED_REWRITE_ATOMS and not distinct
+                and _normalizable_rewrite(graph, node, reachable, atoms)):
             lines, term = _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices)
         else:
             lines, term = _grind_lemma(graph, node, "rewrite", atom_indices, variable_indices,
@@ -2041,20 +2075,110 @@ def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None)
     return lines, atoms, term
 
 
-def _linear_over_variables(graph, atoms):
-    """Whether the linear forms of the atoms range over Real variables alone.
+def _normalizable_rewrite(graph, node, reachable, atoms):
+    """Whether _normalized_rewrite can separate the atoms from the Boolean structure.
 
-    _normalized_rewrite identifies the atoms of a linear form by variable
-    index; an opaque ite term or function application has none.
+    The linear forms of the atoms may range over variables and over opaque
+    terms without a formula inside (applications of uninterpreted
+    functions, div, mod), which _normalized_rewrite keys by node. An atom
+    whose canonical key (_normalized_atom) occurs on one side of the
+    rewrite only may range over variables alone: the propositional lemma
+    then proves its disappearance, as it did before opaque terms were
+    admitted. With an opaque term in it, such an atom signals that Z3's
+    rewriter reasoned about the term, which the lemma over abstract atoms
+    cannot: it decides (< (mod x 10) 0) from the bounds of mod, and it
+    simplifies inside a function's arguments, (f (+ x 0)) to (f x), so
+    that the two sides' atoms differ by more than their linear form. An ite
+    term is excluded, since its condition is a formula the atom rewrites
+    could reach inside it (abs is logged as an ite). Every other formula
+    must be a connective or a Boolean variable, as the propositional lemma
+    binds the atoms alone. Anything else goes to grind as before.
     """
-    return all(graph.kind(variable) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(variable)
-               for atom in atoms for variable in _atom_constraint(graph, atom)[1])
+    def formula_free(term):
+        pending, seen = [term], set()
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            if not graph.is_term(current):
+                return False
+            pending.extend(graph.arguments(current))
+        return True
+
+    def order(variable):
+        # Any total order keys two atoms alike exactly when _normalized_rewrite's does.
+        return (0 if not graph.arguments(variable) else 1), variable
+
+    atom_set = set(atoms)
+    for formula in reachable:
+        if formula in atom_set or graph.is_term(formula):
+            continue
+        kind, arguments = graph.kind(formula), graph.arguments(formula)
+        if kind == z3.Z3_OP_UNINTERPRETED:
+            if arguments:
+                return False
+        elif kind == z3.Z3_OP_EQ:
+            if graph.is_term(arguments[0]):
+                return False
+        elif kind not in _NORMALIZED_CONNECTIVES:
+            return False
+    try:
+        keys = []
+        for side in graph.arguments(graph.conclusion(node)):
+            side_reachable = _reachable(graph, side)[0]
+            keys.append({_normalized_atom(graph, atom, order)[0] for atom in atoms if atom in side_reachable})
+    except ReconstructionError:
+        return False
+    opaque = {term for side in keys for _, ordered, _ in side for (kind, term), _ in ordered if kind == 1}
+    if any(not formula_free(term) for term in opaque):
+        return False
+    left, right = keys
+    return all(kind == 0 for _, ordered, _ in left ^ right for (kind, _), _ in ordered)
+
+
+def _normalized_atom(graph, atom, order):
+    """The canonical key of an arithmetic atom's linear form, and whether the atom is its negation.
+
+    The key is (relation, ((order(term), coefficient), ...), constant) with
+    the terms sorted by order and the first one's coefficient scaled to 1
+    (its absolute value for <=), so that positive multiples of one
+    constraint share a key. Over Int every atom is already tightened to
+    t <= 0, whose complement is -t + 1 <= 0: a form with a negative leading
+    coefficient is keyed as the negation of its complement, so that (< x 5)
+    and (>= x 5) share one atom (the replay's _Normalizer does the same)
+    and the propositional lemma sees them as complementary.
+    """
+    relation, terms, constant = _atom_constraint(graph, atom)
+    negated = relation == "<"
+    if negated:
+        terms, constant, relation = {var: -value for var, value in terms.items()}, -constant, "<="
+    first = min(terms, key=order) if terms else None
+    if graph.numeric == "Int" and relation == "<=" and terms and terms[first] < 0:
+        terms, constant, negated = {var: -value for var, value in terms.items()}, -constant + 1, True
+    if terms:
+        scale = terms[first] if relation == "=" else abs(terms[first])
+        terms, constant = {var: value / scale for var, value in terms.items()}, constant / scale
+    ordered = tuple(sorted((order(var), value) for var, value in terms.items()))
+    return (relation, ordered, constant), negated
 
 
 def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_indices):
     """Separate linear atom normalization from propositional rewrite search."""
     def numeral(value):
         return _numeral(graph, value)
+
+    def order(variable):
+        # Variables by index, then opaque terms by node (see _normalizable_rewrite).
+        if not graph.arguments(variable):
+            return 0, variable_indices[graph.nodes[variable].declaration]
+        return 1, variable
+
+    def render(key):
+        kind, index = key
+        if kind == 0:
+            return "_vars %d" % index
+        return "(%s)" % _inline(graph, index, atom_indices, variable_indices)
 
     canonical, normalized_atoms, rewrites, lines = {}, {}, [], [
         "", "set_option maxHeartbeats 1000000 in",
@@ -2063,28 +2187,12 @@ def _normalized_rewrite(graph, node, reachable, atoms, atom_indices, variable_in
         "    : %s := by" % _formula(graph, graph.conclusion(node)),
     ]
     for atom in atoms:
-        relation, terms, constant = _atom_constraint(graph, atom)
-        negated = relation == "<"
-        if negated:
-            terms, constant, relation = {var: -value for var, value in terms.items()}, -constant, "<="
-        first = min(terms, key=lambda var: variable_indices[graph.nodes[var].declaration]) if terms else None
-        if graph.numeric == "Int" and relation == "<=" and terms and terms[first] < 0:
-            # Over Int every atom is already tightened to t <= 0, whose
-            # complement is -t + 1 <= 0: key the row with a negative leading
-            # coefficient as the negation of its complement, so that (< x 5)
-            # and (>= x 5) share one atom (the replay's _Normalizer does the
-            # same) and the propositional lemma sees them as complementary.
-            terms, constant, negated = {var: -value for var, value in terms.items()}, -constant + 1, True
-        if terms:
-            scale = terms[first] if relation == "=" else abs(terms[first])
-            terms, constant = {var: value / scale for var, value in terms.items()}, constant / scale
-        ordered = tuple(sorted((variable_indices[graph.nodes[var].declaration], value)
-                               for var, value in terms.items()))
-        key = relation, ordered, constant
+        key, negated = _normalized_atom(graph, atom, order)
+        relation, ordered, constant = key
         scale = 1
         for value in [value for _, value in ordered] + [constant]:
             scale = scale * value.denominator // _gcd(scale, value.denominator)
-        parts = ["(%s * _vars %d)" % (numeral(value * scale), var) for var, value in ordered]
+        parts = ["(%s * %s)" % (numeral(value * scale), render(var)) for var, value in ordered]
         parts.append(numeral(constant * scale))
         expression = "(%s %s ((0 : %s)))" % (" + ".join(parts), relation, graph.number_type)
         if not ordered:
@@ -2972,7 +3080,7 @@ def _outline_steps(graph, steps, dependencies, signature):
     """
     classical = bool(graph.arithmetic or graph.uninterpreted)
     boundaries = _outline_boundaries(graph)
-    inputs = _fold("And", [_formula(graph, node) for node in graph.assertions], "True")
+    inputs = _balanced("And", [_formula(graph, node) for node in graph.assertions], "True")
     lines = ["", "private def Inputs %s : Prop := %s" % (signature, inputs)]
     witnesses = {}
     for root in sorted(boundaries):
@@ -3119,7 +3227,7 @@ def reconstruct(source, certificate):
             if terms[conclusion] not in assumptions:
                 raise ReconstructionError("asserted node %d is not an original assertion" % node)
             position = assumptions[terms[conclusion]]
-            term = (_select(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
+            term = (_balanced_select(position, len(graph.assertions), "_inputs") if outline else "_h%d" % position)
         elif graph.kind(node) == z3.Z3_OP_PR_HYPOTHESIS:
             hypothesis = hypothesis_formulas.setdefault(terms[conclusion], conclusion)
             dependencies[node] = (hypothesis,)
@@ -3199,7 +3307,7 @@ def reconstruct(source, certificate):
     if outline:
         for name in witnesses:
             lines.append("  refute_with_decidable %s fun %s =>" % (_witness_formula(graph, name), name))
-        inputs = _fold("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
+        inputs = _balanced("And.intro", ["_h%d" % i for i in range(len(graph.assertions))], "True.intro")
         lines.append("  proof_step_%d _atoms%s %s%s" % (
             graph.proof, graph.valuation, inputs, "".join(" " + name for name in witnesses)))
     else:

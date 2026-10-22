@@ -1359,6 +1359,48 @@ already holds would make these lemmas independent of `omega`'s
 elimination order altogether; the remaining 22 s of the seed-75 file are
 spread over its 587 theory lemmas, none above 3 s.
 
+**Balanced `Inputs` and normalized rewrites over opaque terms
+(2026-10-22).** An end-to-end pass over z3test's `smtlib-sample`
+QF_LIA and QF_UFLIA files found two reconstructor limits on inputs Z3
+solves in seconds. (1) The outlined proof hands every chunk lemma the
+assertions as one conjunction, `Inputs`, and projects assertion k by
+field notation; right-nested, assertion k sat under k projections, and
+on `20220307-SMPT/BART-PT-002/RF-00.smt2` (1,211 assertions) and
+`BART-PT-005/RC-11.smt2` elaborating the chain exhausted `maxHeartbeats`
+(a 601-assertion disjunction reproduces it). `Inputs` and its
+`And.intro` term are now balanced trees (`_balanced`,
+`_balanced_select`), so no assertion is more than log2(count)
+projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s. (2) A
+theory rewrite over more than 16 arithmetic atoms is proved atom by atom
+and then propositionally over the atoms' names (`_normalized_rewrite`)
+only when its linear forms range over variables; `mathsat/Wisa/
+xs-05-11-2-5-3-2.smt2` rewrites an `Iff` between two disjunctions of 20
+Int equalities over applications of uninterpreted functions, differing in
+flattening, order, and orientation, and `grind` on the whole equivalence
+split exponentially. The linear forms may now also range over opaque
+terms without a formula inside (applications, `div`, `mod`), keyed by
+node, provided every atom whose canonical key occurs on one side of the
+rewrite only ranges over variables alone (`_normalizable_rewrite`,
+`_normalized_atom`). An atom over an opaque term that disappears from
+one side means Z3's rewriter reasoned about the term, which the
+propositional lemma over abstract atoms cannot: it decides
+`(< (mod x 10) 0)` from the bounds of `mod`, and it simplifies inside a
+function's arguments, so that the atoms differ by more than their linear
+form; such a rewrite goes to `grind` as before. The Boolean structure
+above the atoms must consist of connectives and Boolean variables alone,
+which the propositional lemma can bind; an `ite` term (the logged form
+of `abs`) stays excluded and keeps the iter-030 bridging. The Wisa file
+verifies in 5 s. Nothing is trusted: every atom equivalence is a
+`grind`-proved `have`, and the propositional lemma is checked by Lean.
+Tests: `test_proof_to_lean.py` (`_balanced_select` follows `_balanced`
+within its height for every count up to 69), `test_proof_to_lean_wide.py`
+(the 601-assertion disjunction outlined, every assertion at most ten
+projections deep), `test_proof_to_lean_lia.py` and
+`test_proof_to_lean_uflia.py` (wide rewrites over `mod` and over
+applications through the normalized path; a wide rewrite deciding a
+`mod`-bound atom and a rewrite inside an application's argument stay
+with `grind`, all through Lean).
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or

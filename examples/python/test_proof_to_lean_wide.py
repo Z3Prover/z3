@@ -11,10 +11,12 @@
 ############################################
 import hashlib
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
@@ -30,6 +32,10 @@ WIDTH = 260
 # The clause log eliminates every conjunct of an asserted conjunction, so its
 # Lean check is the most expensive; this width is already rejected today.
 CLAUSE_LOG_CONJUNCTION_WIDTH = 200
+# Outlined, the proof steps project the assertions out of one conjunction;
+# at this many assertions a right-nested conjunction exhausts maxHeartbeats
+# (isDefEq on the chain of 600 projections), a balanced one checks in 20 s.
+OUTLINED_WIDTH = 600
 
 
 def wide_conjunction(width):
@@ -112,6 +118,23 @@ class TestWidePropositionalLegacyCore(_WideLeanIntegration):
         certificate, axioms = self.check(wide_disjunction(WIDTH), "legacy", "propositional")
         self.assertEqual(certificate["rule_counts"]["asserted"], WIDTH + 1)
         self.assertEqual(axioms, set())
+
+    def test_outlined_wide_disjunction_projects_each_assertion_at_logarithmic_depth(self):
+        # Outlined, every proof step receives the assertions as one
+        # conjunction, Inputs, and projects assertion k by field notation.
+        # Right-nested, the last of the 601 assertions sat under 600
+        # projections and elaborating the chain exhausted maxHeartbeats (as
+        # it did for z3test's QF_LIA BART-PT-002/RF-00.smt2, 1,211
+        # assertions); balanced, no assertion is more than ten deep.
+        source = wide_disjunction(OUTLINED_WIDTH)
+        with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0):
+            certificate, axioms = self.check(source, "legacy", "propositional", OUTLINED_WIDTH)
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(axioms, set())
+        self.assertIn("private def Inputs", text)
+        paths = re.findall(r"_inputs((?:\.[12])+)", text)
+        self.assertEqual(len(set(paths)), OUTLINED_WIDTH + 1)
+        self.assertEqual(max(path.count(".") for path in paths), OUTLINED_WIDTH.bit_length())
 
 
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")

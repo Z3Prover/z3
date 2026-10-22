@@ -721,6 +721,75 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
         self.assertGreaterEqual(widest, 14)
         self.assertEqual(shapes, {"farkas", "bound", "cut"})
 
+    def test_wide_rewrites_over_applications_take_the_normalized_path(self):
+        # A rewrite over more than _NORMALIZED_REWRITE_ATOMS atoms is proved
+        # atom by atom and then propositionally over the atoms' names; the
+        # linear forms may range over opaque terms without a formula inside,
+        # keyed by node, here (f x) in every atom. grind on the whole
+        # equivalence split exponentially on such a rewrite (an Iff between
+        # two disjunctions of 20 Int equalities over applications, differing
+        # in flattening, order, and orientation, in z3test's QF_UFLIA
+        # mathsat/Wisa/xs-05-11-2-5-3-2.smt2).
+        from test_proof_to_lean_lia import wide_rewrite_instance
+        source = wide_rewrite_instance(term="(f {0})", logic="QF_UFLIA", declarations=["(declare-fun f (Int) Int)"])
+        certificate, text = self.check(source)
+        self.assertIn("private theorem normalized_rewrite_", text)
+        atoms = [line for line in text.splitlines() if line.startswith("  let _atom")]
+        self.assertEqual(len(atoms), 18)
+        self.assertTrue(all("(_ifuns 0 [(_int (_vars " in line for line in atoms), atoms[0])
+
+    def test_rewrites_inside_application_arguments_stay_with_grind(self):
+        # The normalized path keys an application by its node, so a rewrite
+        # that simplifies inside the argument, f(x + 0) <= 5 to f(x) <= 5,
+        # relates atoms over distinct opaque terms it could not connect; it
+        # stays with grind, which proves it through congruence.
+        context = z3.Context()
+        f = z3.Function("f", z3.IntSort(context), z3.IntSort(context))
+        variables = [z3.Int("x%d" % i, context) for i in range(3)]
+        rewritten = z3.Or(*[f(var) <= 5 for var in reversed(variables)])
+
+        def certify(original):
+            # A hand-built certificate: original, rewritten to rewritten,
+            # refuted against its asserted negation.
+            assertions = [original, z3.Not(rewritten)]
+            solver = z3.Solver(ctx=context)
+            solver.add(assertions)
+            source = solver.to_smt2()
+            dag = proof_certificate.DagBuilder()
+            roots = [dag.expression(assertion) for assertion in assertions]
+            asserted = dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
+            first = dag.node(asserted, [roots[0]])
+            rewrite = dag.node(dag.rule(z3.Z3_OP_PR_REWRITE, "rewrite", 0),
+                               [dag.expression(original == rewritten)])
+            mp = dag.node(dag.rule(z3.Z3_OP_PR_MODUS_PONENS, "mp", 2), [first, rewrite, dag.expression(rewritten)])
+            negated = dag.node(asserted, [roots[1]])
+            root = dag.node(dag.rule(z3.Z3_OP_PR_UNIT_RESOLUTION, "unit-resolution", 2),
+                            [mp, negated, dag.expression(z3.BoolVal(False, context))])
+            return source, dag.certificate(source, "qf_uflia", roots, root), rewrite
+
+        source, certificate, rewrite = certify(z3.Or(*[f(var + 0) <= 5 for var in variables]))
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertNotIn("normalized_rewrite_", text)
+            self.assertIn("private theorem rewrite_", text)
+            with tempfile.TemporaryDirectory() as directory:
+                proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
+            # Every atom's key occurs on one side only, over an opaque term.
+            graph = proof_to_lean._validate_graph(source, certificate)
+            conclusion = graph.conclusion(rewrite)
+            reachable, _ = proof_to_lean._reachable(graph, conclusion)
+            atoms = [formula for formula in reachable if graph.kind(formula) == z3.Z3_OP_LE]
+            self.assertEqual(len(atoms), 6)
+            self.assertFalse(proof_to_lean._normalizable_rewrite(graph, rewrite, reachable, atoms))
+        # The same clause over f(x) on both sides is normalizable, since the
+        # two sides share every atom.
+        source, certificate, _ = certify(z3.Or(*[f(var) <= 5 for var in variables]))
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertIn("private theorem normalized_rewrite_", text)
+            with tempfile.TemporaryDirectory() as directory:
+                proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
+
     def test_small_chunks_cut_every_lemma_shape(self):
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \
                 patch.object(proof_to_lean, "_OUTLINE_CHUNK_STEPS", 3):

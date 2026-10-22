@@ -325,19 +325,22 @@ def random_division_instance(seed, variables=4, constraints=10, functions=False)
     return source if solver.check() == z3.unsat else None
 
 
-def wide_rewrite_instance(variables=9):
+def wide_rewrite_instance(variables=9, term="{0}", logic="QF_LIA", declarations=()):
     """Every variable in [5, 7] and one clause asking for one of them outside.
 
     The clause is a single rewrite over 2 * variables linear atoms, more than
     proof_to_lean._NORMALIZED_REWRITE_ATOMS for nine variables, so it takes the
     normalized-rewrite path, where every strict atom must be keyed as the
-    complement of the bound it contradicts.
+    complement of the bound it contradicts. With term the bounds are on an
+    opaque term of each variable, (mod {0} 10) or (f {0}) say, instead of
+    the variable itself.
     """
     names = ["x%d" % i for i in range(variables)]
-    lines = ["(set-logic QF_LIA)"] + ["(declare-const %s Int)" % name for name in names]
-    lines.append("(assert (or %s %s))" % (" ".join("(< %s 5)" % name for name in names),
-                                          " ".join("(> %s 7)" % name for name in names)))
-    for name in names:
+    terms = [term.format(name) for name in names]
+    lines = ["(set-logic %s)" % logic] + list(declarations) + ["(declare-const %s Int)" % name for name in names]
+    lines.append("(assert (or %s %s))" % (" ".join("(< %s 5)" % name for name in terms),
+                                          " ".join("(> %s 7)" % name for name in terms)))
+    for name in terms:
         lines.extend(["(assert (>= %s 5))" % name, "(assert (<= %s 7))" % name])
     lines.append("(check-sat)")
     return "\n".join(lines) + "\n"
@@ -1099,6 +1102,35 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         source = wide_rewrite_instance()
         certificate = self.check(source)
         self.assertIn("private theorem normalized_rewrite_", proof_to_lean.reconstruct(source, certificate))
+
+    def test_wide_rewrites_over_mod_atoms_take_the_normalized_path(self):
+        # The linear forms may range over opaque terms without a formula
+        # inside, keyed by node: here (mod x 10) in every atom. The ite
+        # Z3 logs for abs is excluded (test_wide_abs_sum_verifies_over_bridged_atoms).
+        source = wide_rewrite_instance(term="(mod {0} 10)")
+        certificate = self.check(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("private theorem normalized_rewrite_", text)
+        atoms = [line for line in text.splitlines() if line.startswith("  let _atom")]
+        self.assertEqual(len(atoms), 18)
+        self.assertTrue(all("(_vars " in line and " % (((10 : Int)))" in line for line in atoms), atoms[0])
+
+    def test_wide_rewrites_deciding_a_mod_bound_stay_with_grind(self):
+        # Z3's rewriter decides (< (mod x0 10) 0) and (>= (mod x0 10) 10)
+        # from the bounds of mod, so the clause-log core's one rewrite step
+        # drops the literal while every mod term stays in the other atoms.
+        # The propositional lemma over abstract atoms cannot prove that, so
+        # an atom whose key occurs on one side only and ranges over an
+        # opaque term sends the rewrite to grind, which knows the bounds.
+        for extra in ("(< (mod x0 10) 0)", "(>= (mod x0 10) 10)"):
+            with self.subTest(extra=extra):
+                source = wide_rewrite_instance(term="(mod {0} 10)")
+                source = source.replace("(assert (or ", "(assert (or %s " % extra, 1)
+                self.assertIn(extra, source)
+                certificate = self.check(source)
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertNotIn("normalized_rewrite_", text)
+                self.assertIn("private theorem rewrite_", text)
 
     def test_outlined_integer_proofs_preserve_the_statement(self):
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0):
