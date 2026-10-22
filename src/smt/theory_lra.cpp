@@ -3510,6 +3510,12 @@ public:
     bool assert_bound(bool_var bv, bool is_true, api_bound& b) {
         TRACE(arith, tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
+        // A bound that is weaker than the current bound of its column changes nothing:
+        // it would not become the bound witness, so it never appears in an explanation.
+        if (lp().constraint_is_redundant(ci)) {
+            ++m_stats.m_assert_redundant;
+            return !is_infeasible();
+        }
         lp().activate(ci);
         if (is_true && b.has_infinitesimal()) {
             ctx().push_trail(push_back_vector(m_active_inf_eps_constraints));
@@ -3524,9 +3530,11 @@ public:
         else {
             ++m_stats.m_assert_upper;
         }
-        inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) 
-            propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        if (propagate_eqs()) {
+            inf_rational value = b.get_value(is_true);
+            if (value.is_rational())
+                propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        }
         return true;
 #if 0
         if (should_propagate())

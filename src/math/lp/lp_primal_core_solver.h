@@ -317,8 +317,8 @@ namespace lp {
         this->add_delta_to_x(entering, delta);
         for (const auto &c : this->m_A.m_columns[entering])
             if (leaving != this->m_basis[c.var()])
-                this->add_delta_to_x_and_track_feasibility(
-                    this->m_basis[c.var()], -delta * this->m_A.get_val(c));
+                this->submul_from_x_and_track_feasibility(
+                    this->m_basis[c.var()], delta, this->m_A.get_val(c));
     }
 
     void update_basis_and_x_tableau_rows(int entering, int leaving, X const &tt) {

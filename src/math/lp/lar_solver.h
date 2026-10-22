@@ -262,6 +262,8 @@ public:
     constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, const mpq& eps);
     void activate_check_on_equal(constraint_index, lpvar&);
     void activate(constraint_index);
+    // true if activating constraint ci cannot change the bounds of its column
+    bool constraint_is_redundant(constraint_index ci) const;
     void random_update(unsigned sz, lpvar const* vars);
     void add_column_rows_to_touched_rows(lpvar j);
     const indexed_uint_set & touched_rows() const;

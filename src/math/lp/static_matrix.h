@@ -138,6 +138,7 @@ public:
     unsigned lowest_row_in_column(unsigned col);
 
     void add_new_element(unsigned i, unsigned j, const T & v);
+    T & add_new_element(unsigned i, unsigned j); // the new coefficient is zero and returned by reference
 
     // adds row i muliplied by coeff to row k
     void add_rows(const mpq& coeff, unsigned i, unsigned k);
