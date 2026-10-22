@@ -702,6 +702,8 @@ def _to_sort_ref(s, ctx):
         return BoolSortRef(s, ctx)
     elif k == Z3_INT_SORT or k == Z3_REAL_SORT:
         return ArithSortRef(s, ctx)
+    elif k == Z3_COMPLEX_SORT:
+        return ComplexSortRef(s, ctx)
     elif k == Z3_BV_SORT:
         return BitVecSortRef(s, ctx)
     elif k == Z3_ARRAY_SORT:
@@ -1246,6 +1248,8 @@ def _to_expr_ref(a, ctx):
         if _is_algebraic(ctx, a):
             return AlgebraicNumRef(a, ctx)
         return ArithRef(a, ctx)
+    if sk == Z3_COMPLEX_SORT:
+        return ComplexRef(a, ctx)
     if sk == Z3_BV_SORT:
         if k == Z3_NUMERAL_AST:
             return BitVecNumRef(a, ctx)
@@ -1321,6 +1325,10 @@ def _coerce_exprs(a, b, ctx=None):
         a = RealVal(a, b.ctx)
     if isinstance(b, float) and isinstance(a, ArithRef):
         b = RealVal(b, a.ctx)
+    if isinstance(a, complex) and is_expr(b):
+        a = ComplexVal(a, ctx=b.ctx)
+    if isinstance(b, complex) and is_expr(a):
+        b = ComplexVal(b, ctx=a.ctx)
 
     if _check_same_sort(a, b, ctx):
         return (a, b)
@@ -1348,6 +1356,9 @@ def _coerce_expr_list(alist, ctx=None):
             break
     if not has_expr:
         alist = [_py2expr(a, ctx) for a in alist]
+    else:
+        ctx = ctx if ctx is not None else _ctx_from_ast_arg_list(alist)
+        alist = [ComplexVal(a, ctx=ctx) if isinstance(a, complex) else a for a in alist]
     s = _reduce(_coerce_expr_merge, alist, None)
     return [s.cast(a) for a in alist]
 
@@ -2474,7 +2485,7 @@ class ArithSortRef(SortRef):
 
     def subsort(self, other):
         """Return `True` if `self` is a subsort of `other`."""
-        return self.is_int() and is_arith_sort(other) and other.is_real()
+        return is_complex_sort(other) or (self.is_int() and is_arith_sort(other) and other.is_real())
 
     def cast(self, val):
         """Try to cast `val` as an Integer or Real.
@@ -2531,7 +2542,7 @@ def is_arith_sort(s : Any) -> bool:
 
 
 class ArithRef(ExprRef):
-    """Integer and Real expressions."""
+    """Integer, Real, and Complex expressions."""
 
     def sort(self):
         """Return the sort (type) of the arithmetical expression `self`.
@@ -2579,7 +2590,7 @@ class ArithRef(ExprRef):
         Int
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_add, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_add, a, b), self.ctx)
 
     def __radd__(self, other):
         """Create the Z3 expression `other + self`.
@@ -2589,7 +2600,7 @@ class ArithRef(ExprRef):
         10 + x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_add, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_add, b, a), self.ctx)
 
     def __mul__(self, other):
         """Create the Z3 expression `self * other`.
@@ -2604,7 +2615,7 @@ class ArithRef(ExprRef):
         if isinstance(other, BoolRef):
             return If(other, self, 0)
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_mul, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_mul, a, b), self.ctx)
 
     def __rmul__(self, other):
         """Create the Z3 expression `other * self`.
@@ -2614,7 +2625,7 @@ class ArithRef(ExprRef):
         10*x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_mul, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_mul, b, a), self.ctx)
 
     def __sub__(self, other):
         """Create the Z3 expression `self - other`.
@@ -2627,7 +2638,7 @@ class ArithRef(ExprRef):
         Int
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_sub, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_sub, a, b), self.ctx)
 
     def __rsub__(self, other):
         """Create the Z3 expression `other - self`.
@@ -2637,7 +2648,7 @@ class ArithRef(ExprRef):
         10 - x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_sub, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_sub, b, a), self.ctx)
 
     def __pow__(self, other):
         """Create the Z3 expression `self**other` (** is the power operator).
@@ -2688,7 +2699,7 @@ class ArithRef(ExprRef):
         '(/ x y)'
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(Z3_mk_div(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_div(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
     def __truediv__(self, other):
         """Create the Z3 expression `other/self`."""
@@ -2709,7 +2720,7 @@ class ArithRef(ExprRef):
         '(/ 10.0 x)'
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(Z3_mk_div(self.ctx_ref(), b.as_ast(), a.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_div(self.ctx_ref(), b.as_ast(), a.as_ast()), self.ctx)
 
     def __rtruediv__(self, other):
         """Create the Z3 expression `other/self`."""
@@ -2751,7 +2762,7 @@ class ArithRef(ExprRef):
         >>> simplify(-(-x))
         x
         """
-        return ArithRef(Z3_mk_unary_minus(self.ctx_ref(), self.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_unary_minus(self.ctx_ref(), self.as_ast()), self.ctx)
 
     def __pos__(self):
         """Return `self`.
@@ -3290,6 +3301,97 @@ class AlgebraicNumRef(ArithRef):
         return Z3_algebraic_get_i(self.ctx_ref(), self.as_ast())
 
 
+class ComplexSortRef(ArithSortRef):
+    """The Complex sort, represented by pairs of Reals."""
+
+    def subsort(self, other):
+        return False
+
+    def cast(self, val):
+        if is_expr(val):
+            _z3_assert(self.ctx == val.ctx, "Context mismatch")
+            if self.eq(val.sort()):
+                return val
+        return ComplexVal(val, ctx=self.ctx)
+
+
+class ComplexRef(ArithRef):
+    """A Complex expression supporting arithmetic, equality, and projections.
+
+    Complex numbers do not support ordering or exponentiation.
+    """
+
+    def sort(self):
+        return ComplexSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def real_part(self):
+        return RealPart(self)
+
+    def imag_part(self):
+        return ImagPart(self)
+
+
+def is_complex_sort(s):
+    """Return whether `s` is a Complex sort."""
+    return isinstance(s, ComplexSortRef)
+
+
+def is_complex(a):
+    """Return whether `a` is a Complex expression."""
+    return isinstance(a, ComplexRef)
+
+
+def ComplexSort(ctx=None):
+    """Return the Complex sort in the given context."""
+    ctx = _get_ctx(ctx)
+    return ComplexSortRef(Z3_mk_complex_sort(ctx.ref()), ctx)
+
+
+def Complex(name, ctx=None):
+    """Create a named Complex constant."""
+    ctx = _get_ctx(ctx)
+    return ComplexRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), ComplexSort(ctx).ast), ctx)
+
+
+def Complexes(names, ctx=None):
+    """Create Complex constants from a space-separated string or list of names."""
+    if isinstance(names, str):
+        names = names.split(" ")
+    return [Complex(name, ctx) for name in names]
+
+
+def ComplexVal(real, imag=0, ctx=None):
+    """Construct a Complex value or expression from Int or Real components.
+
+    A Python complex value may be passed as the sole component argument.
+
+    >>> z = ComplexVal("1/2", 2)
+    >>> simplify(RealPart(z))
+    1/2
+    >>> simplify(ImagPart(z))
+    2
+    """
+    if isinstance(real, complex):
+        _z3_assert(imag == 0, "A Python complex value cannot have an additional imaginary component")
+        real, imag = real.real, real.imag
+    ctx = _get_ctx(ctx if ctx is not None else _ctx_from_ast_arg_list([real, imag]))
+    sort = RealSort(ctx)
+    real, imag = sort.cast(real), sort.cast(imag)
+    return ComplexRef(Z3_mk_complex(ctx.ref(), real.as_ast(), imag.as_ast()), ctx)
+
+
+def RealPart(value):
+    """Return the Real-valued real component of a Complex expression."""
+    _z3_assert(is_complex(value), "Complex expression expected")
+    return _to_expr_ref(Z3_mk_real_part(value.ctx_ref(), value.as_ast()), value.ctx)
+
+
+def ImagPart(value):
+    """Return the Real-valued imaginary component of a Complex expression."""
+    _z3_assert(is_complex(value), "Complex expression expected")
+    return _to_expr_ref(Z3_mk_imag_part(value.ctx_ref(), value.as_ast()), value.ctx)
+
+
 def _py2expr(a, ctx=None):
     if isinstance(a, bool):
         return BoolVal(a, ctx)
@@ -3297,6 +3399,8 @@ def _py2expr(a, ctx=None):
         return IntVal(a, ctx)
     if isinstance(a, float):
         return RealVal(a, ctx)
+    if isinstance(a, complex):
+        return ComplexVal(a, ctx=ctx)
     if isinstance(a, str):
         return StringVal(a, ctx)
     if is_expr(a):
@@ -9724,7 +9828,7 @@ def Sum(*args):
         return _reduce(lambda a, b: a + b, args, 0)
     else:
         _args, sz = _to_ast_array(args)
-        return ArithRef(Z3_mk_add(ctx.ref(), sz, _args), ctx)
+        return _to_expr_ref(Z3_mk_add(ctx.ref(), sz, _args), ctx)
 
 
 def Product(*args):
@@ -9750,7 +9854,7 @@ def Product(*args):
         return _reduce(lambda a, b: a * b, args, 1)
     else:
         _args, sz = _to_ast_array(args)
-        return ArithRef(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
+        return _to_expr_ref(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
 
 def Abs(arg):
     """Create the absolute value of an arithmetic expression"""

@@ -644,6 +644,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
       | [p] ->
         if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
           lemma_remaining_hypotheses s bc eq other p.hypotheses conclusion;
+          assert_norm (T.cut 1 R.false_expr == B.Bool false);
           T.lemma_cut s bc eq other 1 R.false_expr)
       | _ -> ())
     else if node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion then (

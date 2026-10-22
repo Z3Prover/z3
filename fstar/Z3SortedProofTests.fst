@@ -188,6 +188,49 @@ let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier 
   original_inputs_and_exhaustiveness ();
   K.lemma_check_document schema bc eq other exhaustive_document
 
+let equality_exclusion_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [no_pair; R.mk_eq_expr x y; R.mk_not_expr (App is_empty [y])];
+  entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_eq_expr x y; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0; 1] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [3; 2] }];
+  root = 4;
+}
+
+let equality_recognizer_propagation ()
+  : Lemma (ensures K.check_document schema equality_exclusion_document == Some 0 /\
+      K.check_document schema { equality_exclusion_document with entries = [
+        { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+        { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+        { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0] };
+        { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [2; 1] }];
+        root = 3 } == Some 1) =
+  assert_norm (K.check_document schema equality_exclusion_document == Some 0);
+  assert_norm (K.check_document schema { equality_exclusion_document with entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [2; 1] }];
+    root = 3 } == Some 1)
+
+let constructor_conflict_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [no_pair; R.mk_eq_expr (App pair [App number [x]; App flag [x]]) x];
+  entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted;
+      formula = R.mk_eq_expr (App pair [App number [x]; App flag [x]]) x; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let constructor_equality_conflict ()
+  : Lemma (ensures K.check_document schema constructor_conflict_document == Some 0) =
+  assert_norm (K.check_document schema constructor_conflict_document == Some 0)
+
 let core_schema : S.checked_schema =
   let s = { S.sorts = []; cases = [] } in
   assert_norm (S.valid s);

@@ -781,13 +781,167 @@ let rec lemma_reconstruction_from (#base:sort -> Type0) (s:S.checked_schema) (bc
     if reconstruction s f conclusion then lemma_reconstruction s bc eq other f conclusion
     else lemma_reconstruction_from s bc eq other rest conclusion
 
+let rec excluded_atoms (facts:list expr) : Tot (list expr) (decreases facts) =
+  match facts with
+  | [] -> []
+  | App f [a] :: rest ->
+    if T.classify f = T.Negation then a :: excluded_atoms rest else excluded_atoms rest
+  | _ :: rest -> excluded_atoms rest
+
+let exclusion_clause (facts:list expr) (conclusion:expr) : expr =
+  let es = conclusion :: excluded_atoms facts in
+  App (BR.connective_decl BR.Disjunction es) es
+
+let exhaustiveness_from (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  match conclusion with
+  | App f [_] ->
+    Some? (S.find_recognizer f s.cases) &&
+    D.scoped [] (exclusion_clause facts conclusion) && exhaustive s (exclusion_clause facts conclusion)
+  | _ -> false
+
+let rec lemma_excluded_atoms (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                             (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                             (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts)
+          (ensures not (B.eval_args (T.truth s bc eq other) B.Or (L.map B.Atom (excluded_atoms facts))))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | App f [a] :: rest ->
+    lemma_excluded_atoms s bc eq other rest;
+    if T.classify f = T.Negation then T.lemma_negation s bc eq other f a
+  | _ :: rest -> lemma_excluded_atoms s bc eq other rest
+
+let lemma_exhaustiveness_from (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                              (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ exhaustiveness_from s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let es = conclusion :: excluded_atoms facts in
+  lemma_exhaustive s bc eq other (exclusion_clause facts conclusion);
+  lemma_excluded_atoms s bc eq other facts;
+  T.lemma_nary s bc eq other (BR.connective_decl BR.Disjunction es) es B.Or
+
+let transport_exclusion (s:S.checked_schema) (equation fact:expr) : option expr =
+  match equation, fact with
+  | App equality [a; b], App negation [App recognizer [subject]] ->
+    if equality = R.eq_decl (get_sort a) && T.classify negation = T.Negation &&
+       Some? (S.find_recognizer recognizer s.cases) && (subject = a || subject = b) then
+      let target = if subject = a then b else a in
+      let result = App negation [App recognizer [target]] in
+      if D.scoped [] result then Some result else None
+    else None
+  | _, _ -> None
+
+let lemma_transport_exclusion (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                              (equation fact result:expr)
+  : Lemma (requires T.truth s bc eq other equation /\ T.truth s bc eq other fact /\
+                    transport_exclusion s equation fact == Some result)
+          (ensures T.truth s bc eq other result) =
+  match equation, fact with
+  | App _ [a; b], App negation [App recognizer [subject]] ->
+    V.lemma_sort_eq (get_sort b) (get_sort a);
+    T.lemma_equality s bc eq other a b;
+    let target = if subject = a then b else a in
+    T.lemma_negation s bc eq other negation (App recognizer [subject]);
+    T.lemma_negation s bc eq other negation (App recognizer [target]);
+    lemma_recognizer s bc eq other recognizer subject;
+    lemma_recognizer s bc eq other recognizer target
+  | _, _ -> ()
+
+let rec transport_exclusions (s:S.checked_schema) (equation:expr) (facts:list expr)
+  : Tot (list expr) (decreases facts) =
+  match facts with
+  | [] -> []
+  | fact :: rest ->
+    let tail = transport_exclusions s equation rest in
+    match transport_exclusion s equation fact with
+    | Some result -> result :: tail
+    | None -> tail
+
+let rec lemma_transport_exclusions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                   (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                                   (equation:expr) (facts:list expr)
+  : Lemma (requires T.truth s bc eq other equation /\ T.truths s bc eq other facts)
+          (ensures T.truths s bc eq other (transport_exclusions s equation facts))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | fact :: rest ->
+    lemma_transport_exclusions s bc eq other equation rest;
+    match transport_exclusion s equation fact with
+    | Some result -> lemma_transport_exclusion s bc eq other equation fact result
+    | None -> ()
+
+let rec equality_exclusions (s:S.checked_schema) (equations facts:list expr)
+  : Tot (list expr) (decreases equations) =
+  match equations with
+  | [] -> facts
+  | equation :: rest ->
+    L.append (transport_exclusions s equation facts) (equality_exclusions s rest facts)
+
+let rec lemma_truths_append (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                            (xs ys:list expr)
+  : Lemma (requires T.truths s bc eq other xs /\ T.truths s bc eq other ys)
+          (ensures T.truths s bc eq other (L.append xs ys))
+          (decreases xs) =
+  match xs with [] -> () | _ :: rest -> lemma_truths_append s bc eq other rest ys
+
+let rec lemma_equality_exclusions (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                                 (equations facts:list expr)
+  : Lemma (requires T.truths s bc eq other equations /\ T.truths s bc eq other facts)
+          (ensures T.truths s bc eq other (equality_exclusions s equations facts))
+          (decreases equations) =
+  match equations with
+  | [] -> ()
+  | equation :: rest ->
+    lemma_transport_exclusions s bc eq other equation facts;
+    lemma_equality_exclusions s bc eq other rest facts;
+    lemma_truths_append s bc eq other
+      (transport_exclusions s equation facts) (equality_exclusions s rest facts)
+
+let normalized_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  match formulas s facts, formula s true conclusion with
+  | Some fs, Some c -> propositional (B.Implies (B.Nary B.And fs) c)
+  | _, _ -> false
+
+let lemma_normalized_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                                 (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                                 (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped_args [] facts /\
+                    D.scoped [] conclusion /\ normalized_consequence s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let fs = Some?.v (formulas s facts) in
+  let c = Some?.v (formula s true conclusion) in
+  lemma_formulas s bc eq other facts fs;
+  lemma_formula s bc eq other true conclusion c;
+  lemma_propositional (T.truth s bc eq other) (B.Implies (B.Nary B.And fs) c)
+
+let equality_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
+  let expanded = equality_exclusions s facts facts in
+  D.scoped_args [] expanded &&
+  (exhaustiveness_from s expanded conclusion || normalized_consequence s expanded conclusion)
+
+let lemma_equality_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                               (facts:list expr) (conclusion:expr)
+  : Lemma (requires T.truths s bc eq other facts /\ D.scoped [] conclusion /\
+                    equality_consequence s facts conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  let expanded = equality_exclusions s facts facts in
+  lemma_equality_exclusions s bc eq other facts facts;
+  if exhaustiveness_from s expanded conclusion then
+    lemma_exhaustiveness_from s bc eq other expanded conclusion
+  else lemma_normalized_consequence s bc eq other expanded conclusion
+
 let consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   D.scoped_args [] facts && D.scoped [] conclusion && get_sort conclusion = bool_sort &&
   (axiom s conclusion || simple_consequence facts conclusion || boolean_consequence facts conclusion ||
-   reconstruction_from s facts conclusion ||
-   (match formulas s facts, formula s true conclusion with
-    | Some fs, Some c -> propositional (B.Implies (B.Nary B.And fs) c)
-    | _, _ -> false))
+   reconstruction_from s facts conclusion || exhaustiveness_from s facts conclusion ||
+   normalized_consequence s facts conclusion || equality_consequence s facts conclusion)
 
 let lemma_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
@@ -800,9 +954,8 @@ let lemma_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
     lemma_boolean_consequence s bc eq other facts conclusion
   else if reconstruction_from s facts conclusion then
     lemma_reconstruction_from s bc eq other facts conclusion
-  else
-    let fs = Some?.v (formulas s facts) in
-    let c = Some?.v (formula s true conclusion) in
-    lemma_formulas s bc eq other facts fs;
-    lemma_formula s bc eq other true conclusion c;
-    lemma_propositional (T.truth s bc eq other) (B.Implies (B.Nary B.And fs) c)
+  else if exhaustiveness_from s facts conclusion then
+    lemma_exhaustiveness_from s bc eq other facts conclusion
+  else if normalized_consequence s facts conclusion then
+    lemma_normalized_consequence s bc eq other facts conclusion
+  else lemma_equality_consequence s bc eq other facts conclusion

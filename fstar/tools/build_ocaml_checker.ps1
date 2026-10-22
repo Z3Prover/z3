@@ -141,14 +141,14 @@ try {
     "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
     "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
     "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
-    "Z3ArrayRewrite.fst", "Z3Definitions.fst",
+    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
     "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
     "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
     "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3IntegerDivision.fst",
     "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
     "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
-    "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3DatatypeLemma.fst",
+    "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvFresh.fst", "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst",
     "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst", "Z3TheoryNormalize.fst",
     "Z3UnifiedProof.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
     "Z3SortedSemantics.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
@@ -166,7 +166,7 @@ try {
   if ($RunTests) {
     $testModules = @(
       "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
-      "Z3SortedProofTests.fst",
+      "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst",
       "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst",
       "Z3PulseJustificationChecker.fst", "Z3LraFarkasTheory.fst",
       "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst", "Z3PulseLraCheckerTests.fst"
@@ -181,7 +181,7 @@ try {
   Write-Host "=== Phase 1b: extract to OCaml ==="
   $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
     ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst")) {
+  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst", "Z3BvFreshModel.fst")) {
     & $FstarExe --warn_error '@1..999' --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
         --smt $Z3Exe --z3version $z3Version --extract $modNames $entry
     if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
@@ -206,13 +206,13 @@ try {
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
-    "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
+    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
     "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
     "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3IntegerDivision.ml",
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3DatatypeLemma.ml",
+    "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
     "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",

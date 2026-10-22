@@ -83,6 +83,10 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Bvxor -> Some BV.op_xor | N.Bvnot -> Some BV.op_not
   | N.Bvadd -> Some BV.op_add | N.Bvmul -> Some BV.op_mul
   | N.Bvsub -> Some BV.op_sub | N.Bvneg -> Some BV.op_neg
+  | N.Bvudiv -> Some BV.op_udiv | N.Bvurem -> Some BV.op_urem
+  | N.Bvextract -> Some BV.op_extract | N.Bvconcat -> Some BV.op_concat
+  | N.Bvmkbv -> Some BV.op_mkbv
+  | N.Bvult -> Some BV.op_ult | N.Bvule -> Some BV.op_ule | N.Bvuge -> Some BV.op_uge
   | N.BvNumeral -> Some BV.op_numeral
   | N.DatatypeConstructor -> Some DT.op_constructor
   | N.DatatypeRecognizer -> Some DT.op_recognizer
