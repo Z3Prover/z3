@@ -117,6 +117,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     void remove_divisor(expr* d, ptr_buffer<expr>& args);
 
     bool mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result);
+    br_status mk_complex_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 public:
     arith_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         poly_rewriter<arith_rewriter_core>(m, p) {
@@ -212,4 +213,3 @@ public:
     br_status mk_cosh_core(expr * arg, expr_ref & result);
     br_status mk_tanh_core(expr * arg, expr_ref & result);
 };
-

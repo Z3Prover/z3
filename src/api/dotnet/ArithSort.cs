@@ -23,7 +23,7 @@ using System;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// An arithmetic sort, i.e., Int or Real.
+    /// An arithmetic sort: Int, Real, or Complex.
     /// </summary>
     public class ArithSort : Sort
     {

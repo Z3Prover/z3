@@ -100,6 +100,8 @@ def verify_manifest(corpus, relative_path, manifest, paths):
             "path": manifest.relative_to(corpus).as_posix(),
             "sha256": file_sha256(manifest), "source": document["source"],
             "seed": document["seed"], "per_logic": document["per_logic"],
+            **{key: document[key] for key in
+               ("selection", "max_input_bytes", "source_manifest_sha256") if key in document},
         },
         "input_sha256": hashes, "logics": logics,
     }
@@ -347,6 +349,7 @@ def report(output):
         "runner_outcome": os.environ.get("RUNNER_OUTCOME", "not recorded"),
         "toolchain_outcome": os.environ.get("TOOLCHAIN_OUTCOME", "not recorded"),
         "harness_outcome": os.environ.get("HARNESS_OUTCOME", "not recorded"),
+        "sampler_outcome": os.environ.get("SAMPLER_OUTCOME", "not applicable"),
         "selected": len(results), "tested": tested,
         "counts": {outcome: counts[outcome] for outcome in OUTCOMES},
         "success_rate": counts["ACCEPT"] / tested if tested else None,
@@ -427,8 +430,16 @@ def report(output):
                        + " inputs")
         lines += ["", f'Input manifest: `{cell(manifest["path"])}`; '
                   f'SHA-256: `{manifest["sha256"]}`. '
-                  f'Seed {manifest["seed"]}; {sample_size}. '
+                  f'Seed `{cell(manifest["seed"])}`; {sample_size}. '
                   "Every input SHA-256 was verified before executing any case."]
+        if "selection" in manifest:
+            lines += ["", f'Sampling policy: {cell(manifest["selection"])}.']
+        if "max_input_bytes" in manifest:
+            lines += [f'Maximum eligible input size: {manifest["max_input_bytes"]} bytes.']
+        if "source_manifest_sha256" in manifest:
+            lines += [f'Archive-configuration manifest SHA-256: `{manifest["source_manifest_sha256"]}`.']
+    if "SAMPLER_OUTCOME" in os.environ:
+        lines += ["", f'Benchmark sampling: **{cell(summary["sampler_outcome"])}**.']
     if summary["per_logic"]:
         lines += ["", "## Per-logic coverage", "",
                   "| Logic | Selected | ACCEPT | PARTIAL | REJECT | SAT | UNKNOWN | TIMEOUT | Errors/crashes/protocol | NOT_RUN |",
@@ -470,7 +481,7 @@ def report(output):
     for row in results[:100]:
         elapsed = f'{row["wall_seconds"]:.3f}' if "wall_seconds" in row else "-"
         lines.append(f'| {cell(row["path"])} | {row["outcome"]} | {elapsed} |')
-    lines += ["", "Inputs are recursively selected `.smt2` files, in sorted order, without modification. "
+    lines += ["", "The harness executes the selected corpus's `.smt2` files in sorted order, without modification. "
               "An optional JSON manifest verifies membership and input hashes; it is not executed. "
               "Manifest `.txt` lists and pre-generated `.proof` files are not executed. The native API "
               "checks the parsed final assertion set, not an incremental command transcript. "

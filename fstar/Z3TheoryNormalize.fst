@@ -14,6 +14,8 @@ module QR = Z3QuantifierReduce
 module QN = Z3QuantifierNnf
 module LR = Z3LambdaRewrite
 module BV = Z3BvLemma
+module BW = Z3BvWord
+module BO = Z3BvOrder
 module DT = Z3DatatypeLemma
 module L = FStar.List.Tot
 
@@ -29,10 +31,11 @@ let normalization_model (i:interpretation value) : prop =
 let root (e:expr) : option expr =
   if D.tautology 128 e || AR.equivalent e true_expr then Some true_expr
   else if AR.equivalent e false_expr then Some false_expr
-  else match DT.rewrite e, BV.rewrite e, LR.beta e, LR.extensional e with
-  | Some result, _, _, _ | _, Some result, _, _ |
-    _, _, Some result, _ | _, _, _, Some result -> Some result
-  | _, _, _, _ ->
+  else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
+  | Some result, _, _, _, _, _ | _, Some result, _, _, _, _ |
+    _, _, Some result, _, _, _ | _, _, _, Some result, _, _ |
+    _, _, _, _, Some result, _ | _, _, _, _, _, Some result -> Some result
+  | _, _, _, _, _, _ ->
     (match A.contract e with
      | Some result -> Some result
      | None ->
@@ -45,7 +48,7 @@ let root (e:expr) : option expr =
 
 let lemma_bv (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
-                    B.boolean_rewrite_model i /\
+                    B.boolean_rewrite_model i /\ A.term_ite_sound i /\
                     BV.rewrite e == Some result)
           (ensures eval i e rho == eval i result rho)
   = let aux (project:pos -> value -> int)
@@ -65,18 +68,40 @@ let lemma_datatype (i:interpretation value) (rho:env value) (e result:expr)
     FStar.Classical.exists_elim (eval i e rho == eval i result rho)
       #datatype_view #(fun view -> DT.datatype_model i (fst view) (snd view)) () (fun view -> aux view)
 
+let lemma_bv_word (i:interpretation value) (rho:env value) (e result:expr)
+  : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
+                    B.boolean_rewrite_model i /\ BW.rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho)
+  = let aux (project:pos -> value -> int)
+      : Lemma (requires BV.bv_model i project) (ensures eval i e rho == eval i result rho)
+      = BW.lemma_rewrite i rho project e result in
+    FStar.Classical.exists_elim (eval i e rho == eval i result rho)
+      #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project)
+
+let lemma_bv_order (i:interpretation value) (rho:env value) (e result:expr)
+  : Lemma (requires (exists (project:pos -> value -> int). BV.bv_model i project) /\
+                    B.boolean_rewrite_model i /\ A.term_ite_sound i /\ BO.rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho)
+  = let aux (project:pos -> value -> int)
+      : Lemma (requires BV.bv_model i project) (ensures eval i e rho == eval i result rho)
+      = BO.lemma_rewrite i rho project e result in
+    FStar.Classical.exists_elim (eval i e rho == eval i result rho)
+      #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project)
+
 let lemma_root (i:interpretation value) (rho:env value) (e result:expr)
   : Lemma (requires normalization_model i /\ root e == Some result)
           (ensures eval i e rho == eval i result rho)
   = if D.tautology 128 e then D.lemma_tautology_sound 128 i rho e
     else if AR.equivalent e true_expr then AR.lemma_equivalent_with_numeric_model e true_expr i rho
     else if AR.equivalent e false_expr then AR.lemma_equivalent_with_numeric_model e false_expr i rho
-    else match DT.rewrite e, BV.rewrite e, LR.beta e, LR.extensional e with
-    | Some result, _, _, _ -> lemma_datatype i rho e result
-    | _, Some result, _, _ -> lemma_bv i rho e result
-    | _, _, Some result, _ -> LR.lemma_beta i rho e result
-    | _, _, _, Some result -> LR.lemma_extensional i rho e result
-    | _, _, _, _ ->
+    else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
+    | Some result, _, _, _, _, _ -> lemma_datatype i rho e result
+    | _, Some result, _, _, _, _ -> lemma_bv i rho e result
+    | _, _, Some result, _, _, _ -> lemma_bv_word i rho e result
+    | _, _, _, Some result, _, _ -> lemma_bv_order i rho e result
+    | _, _, _, _, Some result, _ -> LR.lemma_beta i rho e result
+    | _, _, _, _, _, Some result -> LR.lemma_extensional i rho e result
+    | _, _, _, _, _, _ ->
       (match A.contract e with
        | Some result -> A.lemma_contract i rho e result
        | None ->
@@ -156,7 +181,9 @@ and lemma_normalize_args (fuel:nat) (i:interpretation value) (rho:env value)
 
 let equivalent (a b:expr) : bool =
   match normalize 64 a, normalize 64 b with
-  | Some x, Some y -> QR.equivalent 64 x y || AR.equivalent x y || A.equivalent 64 x y
+  | Some x, Some y ->
+    QR.equivalent 64 x y || AR.equivalent x y || BV.equivalent x y ||
+    BW.equivalent x y || A.equivalent 64 x y
   | _, _ -> false
 
 let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
@@ -167,6 +194,18 @@ let lemma_equivalent (i:interpretation value) (rho:env value) (a b:expr)
     lemma_normalize 64 i rho b y;
     if QR.equivalent 64 x y then QR.lemma_equivalent 64 i rho x y
     else if AR.equivalent x y then AR.lemma_equivalent_with_numeric_model x y i rho
+    else if BV.equivalent x y then (
+      let aux (project:pos -> value -> int)
+        : Lemma (requires BV.bv_model i project) (ensures eval i x rho == eval i y rho)
+        = BV.lemma_equivalent i rho project x y in
+      FStar.Classical.exists_elim (eval i x rho == eval i y rho)
+        #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project))
+    else if BW.equivalent x y then (
+      let aux (project:pos -> value -> int)
+        : Lemma (requires BV.bv_model i project) (ensures eval i x rho == eval i y rho)
+        = BW.lemma_equivalent i rho project x y in
+      FStar.Classical.exists_elim (eval i x rho == eval i y rho)
+        #(pos -> value -> int) #(fun project -> BV.bv_model i project) () (fun project -> aux project))
     else A.lemma_equivalent_sound 64 i rho x y
 
 let unit_coefficients (conclusion:expr) (facts:list expr) : list LA.coefficient =

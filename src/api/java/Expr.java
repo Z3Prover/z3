@@ -479,6 +479,12 @@ public class Expr<R extends Sort> extends AST
         return Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_REAL_SORT.toInt();
     }
 
+    /** Indicates whether the expression has Complex sort. */
+    public boolean isComplex()
+    {
+        return Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_COMPLEX_SORT.toInt();
+    }
+
     /**
      * Indicates whether the term is an arithmetic numeral.
      * @throws Z3Exception on error
@@ -2245,6 +2251,8 @@ public class Expr<R extends Sort> extends AST
             return new IntExpr(ctx, obj);
         case Z3_REAL_SORT:
             return new RealExpr(ctx, obj);
+        case Z3_COMPLEX_SORT:
+            return new ComplexExpr(ctx, obj);
         case Z3_BV_SORT:
             return new BitVecExpr(ctx, obj);
         case Z3_ARRAY_SORT:

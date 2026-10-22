@@ -276,7 +276,8 @@ namespace arith {
                     mk_bv_axiom(to_app(n));
                     ensure_arg_vars(to_app(n));
                 }
-                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
+                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n) &&
+                         !a.is_real_part(n) && !a.is_imag_part(n)) {
                     found_unsupported(n);
                     ensure_arg_vars(to_app(n));
                 }
@@ -313,6 +314,14 @@ namespace arith {
     void solver::eq_internalized(enode* n) {
         internalize_term(n->get_arg(0)->get_expr());
         internalize_term(n->get_arg(1)->get_expr());
+        if (a.is_complex(n->get_arg(0)->get_expr())) {
+            expr_ref rhs(n->get_expr(), m);
+            ctx.get_rewriter()(rhs);
+            literal lhs = ctx.expr2literal(n->get_expr());
+            literal r = mk_literal(rhs);
+            add_clause(~lhs, r);
+            add_clause(lhs, ~r);
+        }
     }
 
     expr* solver::mk_sub(expr* x, expr* y) {
@@ -403,9 +412,41 @@ namespace arith {
     }
 
     bool solver::internalize_term(expr* term) {
+        if (a.is_complex(term)) {
+            internalize_complex(term);
+            return true;
+        }
         if (!has_var(term))
             register_theory_var_in_lar_solver(internalize_def(term));
         return true;
+    }
+
+    void solver::apply_sort_cnstr(euf::enode* n, sort*) {
+        if (a.is_complex(n->get_expr()))
+            internalize_complex(n->get_expr());
+    }
+
+    void solver::internalize_complex(expr* term) {
+        if (has_var(term))
+            return;
+        mk_evar(term);
+        expr_ref re(a.mk_real_part(term), m);
+        expr_ref im(a.mk_imag_part(term), m);
+        internalize_term(re);
+        internalize_term(im);
+        if (a.is_complex_constructor(term)) {
+            for (unsigned i = 0; i < 2; ++i) {
+                expr* p = i ? im.get() : re.get();
+                add_unit(eq_internalize(p, to_app(term)->get_arg(i)));
+            }
+        }
+        else {
+            expr_ref value(term, m);
+            ctx.get_rewriter()(value);
+            if (value == term)
+                value = a.mk_complex(re, im);
+            add_unit(eq_internalize(term, value));
+        }
     }
 
     theory_var solver::internalize_def(expr* term, scoped_internalize_state& st) {
@@ -634,7 +675,8 @@ namespace arith {
     }
 
     bool solver::reflect(expr* n) const {
-        return get_config().m_arith_reflect || a.is_underspecified(n) || !a.is_arith_expr(n);
+        return get_config().m_arith_reflect || a.is_underspecified(n) || !a.is_arith_expr(n) ||
+            a.is_complex(n) || a.is_real_part(n) || a.is_imag_part(n);
     }
 
     lpvar solver::get_lpvar(theory_var v) const {
