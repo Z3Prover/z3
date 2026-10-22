@@ -47,6 +47,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/func_decl_dependencies.h"
+#include "ast/array_decl_plugin.h"
 #include "model/model_macro_solver.h"
 #include "smt/proto_model/proto_model.h"
 #include "tactic/tactic_exception.h"
@@ -88,6 +89,11 @@ namespace smt {
         svector<scope>                         m_scopes;
         
         expr_ref_vector                        m_new_constraints; // new constraints for fresh constants created by the model finder
+        array_util                             m_autil;
+        proto_model *                          m_curr_model = nullptr;
+        expr_ref_vector                        m_array_candidates;      // pins values/terms of store candidates
+        obj_map<expr, expr*>                   m_array_candidate2term;  // candidate value (in the aux context) -> term of the main context
+        void add_array_store_candidates(quantifier * q, unsigned i, expr * sk, instantiation_set const * s, expr_ref_vector & eqs);
 
         void restore_quantifiers(unsigned old_size);
         quantifier_info * get_quantifier_info(quantifier * q);
@@ -116,6 +122,7 @@ namespace smt {
         quantifier * get_flat_quantifier(quantifier * q);
         expr * get_inv(quantifier * q, unsigned i, expr * val, model& m, unsigned & generation);
         bool restrict_sks_to_inst_set(context * aux_ctx, quantifier * q, expr_ref_vector const & sks);
+        bool restrict_sks_to_store_candidates(context * aux_ctx, quantifier * q, expr_ref_vector const & sks);
 
         void restart_eh();
 
