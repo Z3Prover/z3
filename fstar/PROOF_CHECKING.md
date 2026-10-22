@@ -44,6 +44,7 @@ of all imports.
 | Rewrite verification | [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) recognizes rewrite schemas and proves matching leaves sound; unmatched leaves can be collected as remaining obligations. |
 | Rewrite synthesis | [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), and [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) compute rewritten expressions via `apply_lemma_x`, `apply_lemmas`, and `is_rewrite`. This complements verification of a supplied expression pair. |
 | Clausal/resolution calculus | [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) embeds equational proofs via `REq` and adds propositional/clausal rules, hypotheses, lemmas, and explicit trusted obligations. [`Z3ResolutionProofCheckerTests.fst`](Z3ResolutionProofCheckerTests.fst) exercises this calculus. |
+| Clause-trail elaboration | [`Z3ClauseProof.fst`](Z3ClauseProof.fst) performs reverse unit propagation over active clauses and emits ordinary hypothesis, unit-resolution, and lemma steps. The existing document kernel checks these steps; literal IDs and propagation results are not trusted. Deletions remove one matching active clause. [`Z3ClauseProofTests.fst`](Z3ClauseProofTests.fst) covers positive and negative elaborations. |
 | Full-DAG kernel | [`Z3UnifiedProof.fst`](Z3UnifiedProof.fst) uses checked premise judgments rather than synthetic rewrite/trusted leaves in the legacy recursive proof types. Supporting modules include [`Z3ObservationalEquality.fst`](Z3ObservationalEquality.fst), [`Z3Commutativity.fst`](Z3Commutativity.fst), [`Z3BooleanRewrite.fst`](Z3BooleanRewrite.fst), and [`Z3ArrayLemma.fst`](Z3ArrayLemma.fst). Observational equality is a separate judgment, not object-language equality. |
 | Destructive equality resolution | [`Z3QuantifierDer.fst`](Z3QuantifierDer.fst) verifies guarded `forall`/`exists` variable elimination, with an occurs check, binding-sort checks, and capture-safe substitution. Closed original input facts may be used in binder certificates because their truth is environment-independent; definition expansion is applied consistently to parent conclusions and hidden certificates. |
 | Skolemization | [`Z3Skolemization.fst`](Z3Skolemization.fst) represents each binding block by a joint Hilbert-choice tuple and its fresh function symbols by tuple coordinates. It verifies substitution, dependencies, acyclic interpretation extension, and preservation of fresh original inputs. The unified kernel checks `sk` observations in this chosen interpretation, not as arbitrary fixed-model equalities; choice and the existing semantic-model contract remain explicit hypotheses. |
@@ -131,6 +132,24 @@ preserving push/pop, assumptions, and queries. Certification reports are
 SMT-LIB comments, not replacements for the solver's result; only
 `proof-check ACCEPT` is an obligation-free check. See the
 [interactive protocol](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session).
+
+### Clausal SMT search proofs
+
+With `proof=true`, set `smt.clause_proof=true` before initializing SMT
+search to replace learned-clause proof DAG reconstruction with a typed
+`proof-trail` of additions and deletions. The default is standard proofs.
+Preprocessing proofs and local theory certificates remain enabled; this is
+not an option to disable all proof AST allocation. Changing modes on an
+already initialized incremental solver requires resetting it first.
+
+Run `checker --clause-proofs` (also supported with `--interactive`) to select
+this producer mode. Input and theory additions carry ordinary certificates;
+learned clauses without certificates must pass reverse unit propagation.
+The elaborator discharges the negated target literals and prunes unused
+history before checking the ordinary document. Original assertion membership,
+root closure, and all selected inference steps are still checked. Missing
+or unsupported theory certificates cannot produce an obligation-free
+`ACCEPT`; they remain explicit obligations or fail checking.
 
 [`tools/test_native_checker.py`](tools/test_native_checker.py) and
 [`tools/test_native_bridge.ml`](tools/test_native_bridge.ml) exercise the

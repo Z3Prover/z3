@@ -256,7 +256,7 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics sorted_core timeout =
+let interactive statistics diagnostics sorted_core clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and partial = ref false in
   let start = ref (Unix.gettimeofday ()) in
@@ -272,7 +272,8 @@ let interactive statistics diagnostics sorted_core timeout =
   in
   let initialize () =
     ignore (Z3native.eval_smtlib2_string context
-      ("(set-option :produce-proofs true)(set-option :timeout " ^ Z.to_string timeout ^ ")"))
+      ("(set-option :produce-proofs true)(set-option :timeout " ^ Z.to_string timeout ^ ")" ^
+       (if clause_proofs then "(set-option :smt.clause_proof true)" else "")))
   in
   let report_error message =
     error := true;
@@ -313,10 +314,13 @@ let interactive statistics diagnostics sorted_core timeout =
 
 let run args =
   let statistics = ref false and diagnostics = ref false and sorted_core = ref false
-  and timeout = ref Z.zero and path = ref None and interactive_mode = ref false in
+  and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
+  and clause_proofs = ref false in
   let options = [
     "--interactive", Arg.Set interactive_mode,
       " Evaluate stdin commands incrementally and certify each UNSAT proof";
+    "--clause-proofs", Arg.Set clause_proofs,
+      " Produce and certify clausal SMT search proofs using reverse unit propagation";
     "--stats", Arg.Set statistics, " Report phase timings and unique marshaled node counts";
     "--diagnostics", Arg.Set diagnostics, " Report typed unmet-obligation fingerprints on stderr";
     "--sorted-core", Arg.Set sorted_core,
@@ -337,11 +341,11 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--stats] [--diagnostics] [--sorted-core] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--sorted-core] [--timeout-ms N] [input.smt2]";
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !sorted_core !timeout));
+      exit (interactive !statistics !diagnostics !sorted_core !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -351,7 +355,7 @@ let run args =
             (fun () -> read_all channel)
     in
     let start = Unix.gettimeofday () in
-    match Z3Native.solve input !timeout with
+    match Z3Native.solve_with_clause_proofs input !timeout !clause_proofs with
     | Z3Native.Sat -> print_endline "SAT"; exit 4
     | Z3Native.Unknown reason ->
         Printf.printf "UNKNOWN %s\n" reason; exit 5

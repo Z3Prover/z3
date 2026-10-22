@@ -77,6 +77,7 @@ param(
   [string]$Z3WindowsBuildDir = "",
   [string]$Z3InstallDir = "",
   [string]$OpamSwitch = "fstar53",
+  [string]$WslDistribution = "",
   [string]$WslBuildDir = "~/z3checker",
   [string]$Z3BuildDir = "~/z3-native-ffi-build",
   [string]$CacheDir = "",
@@ -149,7 +150,7 @@ try {
     "Z3QuantifierDer.fst", "Z3Skolemization.fst",
     "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3DatatypeLemma.fst",
     "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst", "Z3TheoryNormalize.fst",
-    "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
+    "Z3UnifiedProof.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
     "Z3SortedSemantics.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
     "Z3Native.fsti", "Z3NativeProof.fst"
   )
@@ -164,7 +165,7 @@ try {
   if ($missing) { throw "Failed to cache: $($missing -join ', ')" }
   if ($RunTests) {
     $testModules = @(
-      "Z3ResolutionProofCheckerTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
+      "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
       "Z3SortedProofTests.fst",
       "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst",
       "Z3PulseJustificationChecker.fst", "Z3LraFarkasTheory.fst",
@@ -213,7 +214,7 @@ try {
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
     "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
-    "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
+    "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
     "Z3SortedSemantics.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
@@ -301,21 +302,27 @@ echo BUILD_OK
   $scriptPath = Join-Path $extractDir "build_native_tmp.sh"
   $unixScript = $script -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($scriptPath, $unixScript, (New-Object System.Text.UTF8Encoding($false)))
-  if ($windowsHost) { wsl -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh" }
+  if ($windowsHost) {
+    $distributionArgs = if ($WslDistribution) { @("-d", $WslDistribution) } else { @() }
+    wsl @distributionArgs -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh"
+  }
   else { & bash $scriptPath }
   $wslExitCode = $LASTEXITCODE
   Remove-Item $scriptPath -ErrorAction SilentlyContinue
   if ($wslExitCode -ne 0) { throw "Native build, installation, or tests failed" }
   if ($RunTests) {
     $previousChecker = $env:Z3_FSTAR_CHECKER
+    $previousDistribution = $env:Z3_FSTAR_WSL_DISTRO
     try {
       $env:Z3_FSTAR_CHECKER = "$WslBuildDir/checker"
+      $env:Z3_FSTAR_WSL_DISTRO = $WslDistribution
       $python = if ($windowsHost) { "python" } else { "python3" }
       & $python (Join-Path $PSScriptRoot "test_native_checker.py")
       if ($LASTEXITCODE -ne 0) { throw "Native checker CLI tests failed" }
     }
     finally {
       $env:Z3_FSTAR_CHECKER = $previousChecker
+      $env:Z3_FSTAR_WSL_DISTRO = $previousDistribution
     }
   }
 

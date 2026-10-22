@@ -31,6 +31,56 @@ let document text =
            P.check_document doc) "indexed and linear checker results differ";
   doc
 
+let clausal_proofs () =
+  let branching =
+    "(declare-const p Bool)(declare-const q Bool)\
+     (assert (or p q))(assert (or p (not q)))\
+     (assert (or (not p) q))(assert (or (not p) (not q)))" in
+  List.iter (fun source ->
+      let assertions, proof = match N.solve_with_clause_proofs source Z.zero true with
+        | N.Unsat (assertions, proof) -> assertions, proof
+        | _ -> failwith "clausal solver did not return UNSAT" in
+      if source = branching then
+        require (N.view_clause_trail proof <> None) "SMT search did not return a clause trail";
+      let doc = try B.marshal assertions proof with exn ->
+        failwith (source ^ ": " ^ Printexc.to_string exn) in
+      require (P.check_document doc = Some Z.zero) "clausal refutation was not fully checked";
+      require (P.check_document { doc with assertions = [] } = None)
+        "clausal refutation accepted missing original assertions";
+      let corrupted = List.mapi (fun index entry ->
+          if Z.equal (Z.of_int index) doc.root then
+            { entry with P.formula = Z3ResolutionProofTheory.true_expr }
+          else entry) doc.entries in
+      require (P.check_document { doc with entries = corrupted } = None)
+        "clausal refutation accepted a non-false root")
+    [branching;
+     "(declare-sort U 0)(declare-const x U)(declare-const y U)\
+      (declare-fun f (U) U)(assert (= x y))(assert (not (= (f x) (f y))))";
+     "(declare-const x Real)(declare-const y Real)\
+      (assert (<= (+ x y) 0))(assert (> x 0))(assert (> y 0))";
+     "(declare-const x Real)(declare-const y Real)(declare-const p Bool)\
+      (assert (or p (<= x (- 6.0))))(assert (=> p (>= (+ x y) 1.5)))\
+      (assert (< y (/ 1.0 3.0)))(assert (> x 0.0))(assert (<= x 1.0))";
+     "(declare-const a (Array Int Int))(declare-const i Int)\
+      (assert (not (= (select (store a i 1) i) 1)))";
+     "(declare-sort I 0)(declare-sort E 0)(declare-const a (Array I E))\
+      (declare-const i I)(declare-const j I)(declare-const v E)\
+      (assert (distinct i j))\
+      (assert (distinct (select (store a i v) j) (select a j)))"];
+  let c = context () in
+  let formula = List.hd (parse c "(declare-const p Bool)(assert p)") in
+  let st = B.marshal_expressions (B.empty_state ()) [formula] in
+  let db, builder = Z3ClauseProof.empty (B.clause_builder st) in
+  let st = B.with_clause_builder st builder in
+  let rejected =
+    try
+      ignore (B.add_clause_entry st db
+                { N.action = N.LearnedClause; formula; literals = [formula];
+                  certificate = None });
+      false
+    with N.Error _ -> true in
+  require rejected "an unsupported learned unit passed RUP"
+
 let shared_expressions () =
   let c = context () in
   let assertions = parse c
@@ -2284,6 +2334,7 @@ let () =
   List.iter (fun (name, test) ->
       test (); Printf.printf "PASS %s\n%!" name)
     ["shared-expression-identity", shared_expressions;
+     "checked-clausal-refutations", clausal_proofs;
      "deep-expression-worklist", deep_expression;
      "proof-DAG-cache", proof_cache;
      "exact-native-numerals", exact_numerals;

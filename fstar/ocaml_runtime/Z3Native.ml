@@ -45,6 +45,15 @@ type proof_view = {
   instantiations: ast list;
 }
 
+type clause_action = InputClause | LearnedClause | TheoryClause | DeleteClause
+
+type clause_view = {
+  action: clause_action;
+  formula: ast;
+  literals: ast list;
+  certificate: ast option;
+}
+
 type solve_result =
   | Unsat of ast list * ast
   | Sat
@@ -347,6 +356,46 @@ let view_proof a =
     else [] in
   { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
 
+let view_clause_trail a =
+  let c = ctx a in
+  let kind a =
+    if not (Z3native.is_app c a) then fail "Clause proof entry is not an application";
+    Z3enums.decl_kind_of_int
+      (Z3native.get_decl_kind c (Z3native.get_app_decl c (Z3native.to_app c a))) in
+  if kind a <> Z3enums.OP_PR_CLAUSE_TRAIL then None
+  else
+    let args = app_args c (Z3native.to_app c a) in
+    let conclusion, entries = match List.rev args with
+      | conclusion :: entries -> conclusion, List.rev entries
+      | [] -> fail "Clause proof trail has no conclusion" in
+    let entry a =
+      let action = match kind a with
+        | Z3enums.OP_PR_ASSUMPTION_ADD -> InputClause
+        | Z3enums.OP_PR_LEMMA_ADD -> LearnedClause
+        | Z3enums.OP_PR_TH_ASSUMPTION_ADD | Z3enums.OP_PR_TH_LEMMA_ADD -> TheoryClause
+        | Z3enums.OP_PR_REDUNDANT_DEL -> DeleteClause
+        | _ -> fail "Unknown clause proof entry kind" in
+      let certificate, formula = match app_args c (Z3native.to_app c a) with
+        | [formula] -> None, formula
+        | [certificate; formula] when action <> DeleteClause ->
+            Some certificate, formula
+        | _ -> fail "Malformed clause proof entry" in
+      if Z3enums.sort_kind_of_int
+           (Z3native.get_sort_kind c (Z3native.get_sort c formula)) <> Z3enums.BOOL_SORT
+      then fail "Clause proof conclusion is not Boolean";
+      let formula, literals =
+        match kind formula with
+        | Z3enums.OP_OR ->
+            let literals = app_args c (Z3native.to_app c formula) in
+            (match literals with
+             | [literal] -> literal, literals
+             | _ -> formula, literals)
+        | Z3enums.OP_FALSE -> formula, []
+        | _ -> formula, [formula] in
+      { action; formula; literals; certificate }
+    in
+    Some (List.map entry entries, conclusion)
+
 let create_context timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")
   then fail "Solver timeout must be between 0 and 4294967295 milliseconds";
@@ -359,17 +408,23 @@ let create_context timeout_ms =
   Z3native.enable_concurrent_dec_ref c;
   c
 
-let solve input timeout_ms =
+let solve_with_clause_proofs input timeout_ms clause_proofs =
   let c = create_context timeout_ms in
   let solver = Z3native.mk_solver c in
   let formulas = Z3native.parse_smtlib2_string c input 0 [] [] 0 [] [] in
   let assertions = List.init (Z3native.ast_vector_size c formulas)
       (Z3native.ast_vector_get c formulas) in
+  if clause_proofs then (
+    let params = Z3native.mk_params c in
+    Z3native.params_set_bool c params (Z3native.mk_string_symbol c "clause_proof") true;
+    Z3native.solver_set_params c solver params);
   List.iter (Z3native.solver_assert c solver) assertions;
   match Z3native.solver_check c solver with
   | -1 -> Unsat (assertions, Z3native.solver_get_proof c solver)
   | 1 -> Sat
   | 0 -> Unknown (Z3native.solver_get_reason_unknown c solver)
   | _ -> fail "Invalid native solver status"
+
+let solve input timeout_ms = solve_with_clause_proofs input timeout_ms false
 
 let version () = Z3.Version.to_string

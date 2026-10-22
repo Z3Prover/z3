@@ -640,6 +640,12 @@ typedef enum
    - Z3_OP_PR_CLAUSE_TRAIL,
      Clausal proof trail of additions and deletions
 
+   - Z3_OP_PR_TH_ASSUMPTION_ADD
+     Clausal proof theory axiom addition, optionally carrying a proof certificate.
+
+   - Z3_OP_PR_TH_LEMMA_ADD
+     Clausal proof theory lemma addition, optionally carrying a proof certificate.
+
    - Z3_OP_PR_DEF_INTRO: Introduces a name for a formula/term.
        Suppose e is an expression with free variables x, and def-intro
        introduces the name n(x). The possible cases are:
@@ -1182,6 +1188,8 @@ typedef enum {
     Z3_OP_PR_MODUS_PONENS_OEQ,
     Z3_OP_PR_TH_LEMMA,
     Z3_OP_PR_HYPER_RESOLVE,
+    Z3_OP_PR_TH_ASSUMPTION_ADD,
+    Z3_OP_PR_TH_LEMMA_ADD,
 
     // Relational algebra
     Z3_OP_RA_STORE = 0x600,
