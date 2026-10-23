@@ -156,9 +156,10 @@ try {
   )
 
   Write-Host "=== Phase 1a: type-check + cache ==="
+  # The pinned F* profiler cannot report timings in GitHub's auto-selected message format.
   foreach ($f in $modules) {
     Write-Host "Verifying $f"
-    & $FstarExe --timing --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
+    & $FstarExe --timing --message_format human --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
       ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $f" }
   }
@@ -174,7 +175,7 @@ try {
     )
     foreach ($testModule in $testModules) {
       Write-Host "Verifying $testModule"
-      & $FstarExe --timing --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
+      & $FstarExe --timing --message_format human --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
           --smt $Z3Exe --z3version $z3Version $testModule
       if ($LASTEXITCODE -ne 0) { throw "F*/Pulse regressions failed: $testModule" }
     }
