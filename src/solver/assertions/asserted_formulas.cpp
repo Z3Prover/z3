@@ -388,28 +388,52 @@ void asserted_formulas::find_macros_core() {
 }
 
 /**
-   \brief rewrite (a or (b & c)) to (a or b), (a or c) if the reference count of (b & c) is 1.
-   This avoids the literal for (b & c)
+   \brief rewrite (a or (b & c)) to (a or b), (a or c) if the conjunction (b & c) 
+   occurs as a disjunct of a single top-level clause.
+   This avoids the literal for (b & c).
+
+   A conjunction that is a disjunct of several clauses is left alone: distributing
+   it would copy its conjuncts into every clause. Without the check, 
+   (or (and a1 .. an) (and b1 .. bm)) is first rewritten to the m clauses 
+   (or (and a1 .. an) (not bj)), and a second round would then distribute 
+   (and a1 .. an) into each of them, producing n*m clauses.
 */
 void asserted_formulas::flatten_clauses() {
     if (m.proofs_enabled()) return;
     bool change = true;
     vector<justified_expr> new_fmls;
     auto mk_not = [this](expr* e) { return m.is_not(e, e) ? e : m.mk_not(e); };
-    auto is_literal = [this](expr *e) { m.is_not(e, e); return !is_app(e) || to_app(e)->get_num_args() == 0; };
+    auto is_conjunction = [this](expr* e) { return m.is_not(e, e) && m.is_or(e); };
     expr *a = nullptr, *b = nullptr, *c = nullptr;
+    obj_map<expr, unsigned> occurrences;
     while (change) {
         change = false;        
         new_fmls.reset();
+        occurrences.reset();
         unsigned sz = m_formulas.size();
+        for (unsigned i = m_qhead; i < sz; ++i) {
+            expr* f = m_formulas.get(i).fml();
+            if (!m.is_or(f, a, b))
+                continue;
+            if (is_conjunction(a))
+                occurrences.insert_if_not_there(a, 0)++;
+            if (is_conjunction(b))
+                occurrences.insert_if_not_there(b, 0)++;
+        }
+        auto can_distribute = [&](expr* e) { 
+            unsigned n = 0;
+            return is_conjunction(e) && occurrences.find(e, n) && n == 1; 
+        };
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto const& j = m_formulas.get(i);
             expr* f = j.fml();
             bool decomposed = false;
-            if (m.is_or(f, a, b) && m.is_not(b, b) && m.is_or(b) && (b->get_ref_count() == 1 || is_literal(a))) {
+            if (m.is_or(f, a, b) && can_distribute(b)) {
+                m.is_not(b, b);
                 decomposed = true;
             }
-            else if (m.is_or(f, b, a) && m.is_not(b, b) && m.is_or(b) && (b->get_ref_count() == 1 || is_literal(a))) {
+            else if (m.is_or(f, b, a) && can_distribute(b)) {
+                m.is_not(b, b);
                 decomposed = true;
             }            
             if (decomposed) {
