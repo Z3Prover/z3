@@ -123,11 +123,13 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
 
 void asserted_formulas::updt_params(params_ref const& p) {
     m_params.append(p);
+    m_reduce_pending = true;
 }
 
 void asserted_formulas::set_eliminate_and(bool flag) {
     if (flag == m_elim_and) return;
     m_elim_and = flag;
+    m_reduce_pending = true;
     if (m_smt_params.m_pull_cheap_ite) m_params.set_bool("pull_cheap_ite", true);
     m_params.set_bool("elim_and", flag);
     m_params.set_bool("arith_ineq_lhs", true);
@@ -177,6 +179,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     m_has_quantifiers |= ::has_quantifiers(e_ref);
 
     push_assertion(r, pr, m_formulas);
+    m_reduce_pending = true;
     TRACE(asserted_formulas_bug, tout << "after assert_expr\n"; display(tout););
 }
 
@@ -507,6 +510,7 @@ void asserted_formulas::simplify_fmls::operator()() {
         }
         else {
             af.push_assertion(result, result_pr, new_fmls);
+            af.m_reduce_pending = true;
         }
         if (af.canceled())
             return;
@@ -586,6 +590,8 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
         new_pr = m.mk_modus_ponens(pr, new_pr);
     }
     justified_expr j(m, new_n, new_pr);
+    if (n != new_n)
+        m_reduce_pending = true;
     m_formulas[i] = j;
     if (m.is_false(j.fml())) {
         m_inconsistent = true;
