@@ -115,25 +115,29 @@ static void check_lp_cancellation_recovery() {
     struct resource_limit : lp::lp_resource_limit {
         reslimit limit;
         bool get_cancel_flag() override { return !limit.inc(); }
-    } resource;
-    lp::lar_solver solver;
-    solver.settings().set_resource_limit(resource);
-    auto x = solver.add_var(0, true);
-    auto y = solver.add_var(1, true);
-    vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-    coeffs.push_back({lp::mpq(1), x});
-    coeffs.push_back({lp::mpq(1), y});
-    auto term = solver.add_term(coeffs, 2);
-    solver.add_var_bound(term, lp::GE, lp::mpq(1));
-    {
-        scoped_rlimit limit(resource.limit, 1);
-        VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
-        VERIFY(solver.settings().stats().m_pivots == 1);
+        bool get_cancel_flag(unsigned cost) override { return !limit.inc(cost); }
+    };
+    for (unsigned budget : {1u, 4u}) {
+        resource_limit resource;
+        lp::lar_solver solver;
+        solver.settings().set_resource_limit(resource);
+        auto x = solver.add_var(0, true);
+        auto y = solver.add_var(1, true);
+        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+        coeffs.push_back({lp::mpq(1), x});
+        coeffs.push_back({lp::mpq(1), y});
+        auto term = solver.add_term(coeffs, 2);
+        solver.add_var_bound(term, lp::GE, lp::mpq(1));
+        {
+            scoped_rlimit limit(resource.limit, budget);
+            VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
+            VERIFY(solver.settings().stats().m_pivots == (budget == 4 ? 1u : 0u));
+            VERIFY(solver.ax_is_correct());
+        }
+        VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
         VERIFY(solver.ax_is_correct());
+        VERIFY(solver.column_is_feasible(term));
     }
-    VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
-    VERIFY(solver.ax_is_correct());
-    VERIFY(solver.column_is_feasible(term));
 }
 
 static void check_array_domain(char const* input, lbool expected) {

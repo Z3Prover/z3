@@ -79,6 +79,7 @@ class theory_lra::imp {
     public:
         resource_limit(imp& i): m_imp(i) { }
         bool get_cancel_flag() override { return !m_imp.m.inc(); }
+        bool get_cancel_flag(unsigned cost) override { return !m_imp.m.inc(cost); }
     };
 
     theory_lra&                  th;
