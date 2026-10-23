@@ -284,6 +284,23 @@ def build_z3():
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3")
 
+def build_static_lib():
+    if is_verbose():
+        print("build static libz3")
+    build_dir = get_build_dir()
+    cmds = [
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF' % build_dir,
+        'cmake --build "%s" --target libz3 --parallel %s' % (build_dir, MAKEJOBS)
+    ]
+    if exec_cmds(cmds) != 0:
+        raise MKException("Failed to build static libz3")
+    shutil.copy2(os.path.join(build_dir, "libz3.a"),
+                 os.path.join(get_build_dist_path(), "bin", "libz3.a"))
+    if exec_cmds([
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=ON -DZ3_BUILD_LIBZ3_SHARED=ON' % build_dir
+    ]) != 0:
+        raise MKException("Failed to restore shared libz3 build")
+
 def mk_zip():
     build_dist = get_build_dist_path()
     dist_name = get_z3_name()
@@ -382,6 +399,7 @@ def main():
     parse_options()
     mk_build_dir()
     build_z3()
+    build_static_lib()
     cp_license()
     cp_into_bin()
     cp_dotnet()
