@@ -25,6 +25,7 @@ Revision History:
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include "ast/simplifiers/then_simplifier.h"
+#include "ackermannization/ackr_bound_probe.h"
 
 Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c) {
 }
