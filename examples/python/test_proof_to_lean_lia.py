@@ -519,6 +519,9 @@ class TestIntegerValidation(unittest.TestCase):
                         continue
                     generalized[name].add(parameters[0])
                     self.assertIn("  first\n    | (", block)
+                    # A lattice lemma (grind's cutsat) gets two million heartbeats, the others one.
+                    self.assertIn("set_option maxHeartbeats %d in\nprivate theorem th_lemma_%d "
+                                  % (1000000 if len(parameters) > 1 else 2000000, node), text)
                     for position, atom in enumerate(atoms):
                         self.assertIn("generalize (term_%d _atoms _vars) = _o%d\n" % (atom, position), block)
                         self.assertTrue(graph.is_arith(atom) and graph.arguments(atom))
@@ -1041,7 +1044,14 @@ class TestIntegerLeanIntegration(unittest.TestCase):
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("rw [Int.emod_neg]; exact Int.emod_lt_of_pos _ (by decide)", text)
         self.assertIn("\n       omega)\n    | (unfold ", text)
+        # The cuts are proved over the generalized atoms by grind with two million
+        # heartbeats: under the solver of Z3Prover/z3 at ac62f5a6a (simplex pivoting
+        # and redundant-bound changes) this seed's proof has 1,032 theory lemmas
+        # instead of 547, and one 25-literal cut over thirteen atoms needed between
+        # one and one and a half million.
         self.assertIn("\n       grind (splits := 64))\n    | (unfold ", text)
+        self.assertIn("set_option maxHeartbeats 2000000 in\nprivate theorem th_lemma_", text)
+        self.assertNotIn("set_option maxHeartbeats 1500000", text)
 
     def test_wide_abs_sum_verifies_over_bridged_atoms(self):
         # Twelve abs terms in one assertion: the rewrite to the rewriter's

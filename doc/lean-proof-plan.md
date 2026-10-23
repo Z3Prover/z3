@@ -1272,6 +1272,40 @@ rewrite lemma, not in the theory lemma; done 2026-10-22, next note), and
 the fallback itself would still benefit from the `mod` facts (`omega`
 would then replace `grind` on negative divisors).
 
+**Lattice lemmas: two million heartbeats (2026-10-23).** The upstream
+pull request carrying iterations 26 to 33 (Z3Prover/z3#11276) failed its
+Lean step on `test_wide_division_instance_verifies_over_generalized_atoms`:
+GitHub tests the branch merged with upstream `master`, and the simplex
+changes merged there since the fork's base (pivot-cost and redundant-bound
+handling, #11253 and #11256) make the solver search seed 67 differently.
+The clause-log proof has 1,032 theory lemmas instead of 547, and one `cut`
+of 47 literals (25 distinct) over thirteen `div`, `mod`, and `abs` atoms
+with six `mod` bounds exhausted the million heartbeats under
+`grind (splits := 64)` in its generalized attempt; the same text verifies
+at 1.5 million, and `omega` proves that generalized goal in under a second.
+Neither procedure dominates on lattice goals (the note above has the
+opposite case, a twenty-atom cut where `omega` took minutes), and trying
+one before the other is not an option: a heartbeat timeout is a runtime
+exception that Lean's `first` does not catch, so an attempt
+`first | (set_option maxHeartbeats 400000 in omega) | grind` failed six
+lemmas of this file that `grind` alone proves (observed; the timeout fails
+the whole lemma). So `_grind_lemma` now gives a cut or a coefficient-free
+Int farkas or bound over generalized atoms (`_lattice_step`) two million
+heartbeats (`_LATTICE_LEMMA_HEARTBEATS`); lemmas with coefficients
+(`omega`), the unfolded fallback, and every other lemma keep the million.
+Nothing is trusted: a heartbeat budget bounds work, and a false
+generalized goal still fails and falls through to the unfolded proof
+(tested). Checked against a local merge of the fork with upstream
+`ac62f5a6a`: seed 67 verifies, and the division seeds, the documented
+QF_LIA inputs, and the QF_UFLIA seed-75 file keep their proofs. Tests:
+`test_proof_to_lean_lia.py` (the lemma-shape test expects the budget per
+hint; the wide seed-67 test asserts it), `test_proof_to_lean_uflia.py`.
+Still open: a tactic that races `omega` and `grind` by budget would need an
+elaborator catching runtime exceptions (`Lean.Core.tryCatchRuntimeEx`),
+hence `import Lean` in every generated file; and the loop's local gate
+tests fork `master` alone, so a solver change upstream shows only in
+upstream CI.
+
 **Theory rewrites over bridged atoms (2026-10-22).** Z3's rewriter logs
 `(abs x)` as `(ite (<= 0 x) x (* -1 x))`, so the `rewrite` step relating
 an assertion over twelve `abs` terms to its normal form is a tautology

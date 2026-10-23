@@ -714,9 +714,10 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     shapes.add(declaration["parameters"][0])
                 else:
                     # cut (and a coefficient-free Int farkas or bound): shape-checked
-                    # only, so the bounds Z3 omitted stay, and grind.
+                    # only, so the bounds Z3 omitted stay, and grind with two million heartbeats.
                     self.assertEqual(block.count("have _m"), 2 * len(mods))
                     self.assertIn("\n       grind (splits := 64))\n    | (unfold ", block)
+                    self.assertIn("set_option maxHeartbeats 2000000 in\nprivate theorem th_lemma_%d " % node, text)
                     shapes.add(declaration["parameters"][0])
         self.assertGreaterEqual(widest, 14)
         self.assertEqual(shapes, {"farkas", "bound", "cut"})

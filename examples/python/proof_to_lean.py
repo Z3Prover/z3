@@ -90,6 +90,11 @@ _MIXED_FRAGMENTS = {"Real": "qf_uflra", "Int": "qf_uflia"}
 _OUTLINE_PROOF_STEPS = 500
 _OUTLINE_CHUNK_STEPS = 500
 _NORMALIZED_REWRITE_ATOMS = 16
+# Heartbeats (Lean's unit, thousands of small allocations) of an Int lattice
+# lemma (a cut, or a farkas or bound without coefficients) over its atoms
+# generalized, where grind's cutsat module decides the goal (see
+# _opaque_tactic); the other lemmas keep the million.
+_LATTICE_LEMMA_HEARTBEATS = 2000000
 # The formulas a normalized rewrite's propositional lemma states over its
 # atoms (Boolean = is checked separately: its arguments must be formulas).
 _NORMALIZED_CONNECTIVES = (z3.Z3_OP_AND, z3.Z3_OP_OR, z3.Z3_OP_NOT, z3.Z3_OP_IMPLIES, z3.Z3_OP_IFF,
@@ -1282,13 +1287,14 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
     for formula in conclusions:
         reachable |= _reachable(graph, formula)[0]
     statement = " -> ".join(_formula(graph, formula) for formula in conclusions)
+    atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
+    budget = _LATTICE_LEMMA_HEARTBEATS if atoms and _lattice_step(graph, node) else 1000000
     lines = [
         "",
-        "set_option maxHeartbeats 1000000 in",
+        "set_option maxHeartbeats %d in" % budget,
         "private theorem %s_%d (_atoms : Nat -> Prop)%s" % (prefix, node, _valuation_binder(graph)),
         "    : %s := by" % statement,
     ]
-    atoms = _opaque_int_atoms(graph, conclusions) if opaque_tactic else []
     if atoms:
         # Outside the atoms first; the fallback unfolds the atoms and
         # everything under them (a child shared with the outside occurs
@@ -1419,17 +1425,32 @@ def _opaque_tactic(graph, node):
     re-derived over the atoms (_check_th_lemma), so the generalized goal
     holds and omega, complete for linear integer arithmetic, closes it at
     once. A cut, and a coefficient-free Int farkas or bound (a lattice
-    conflict), lists the bounds and the div and mod rows it rests on as
-    literals, except the base-level mod bounds (_mod_bound_facts restates
-    them), so the generalized goal holds as well when the step is sound,
-    but it needs the integer lattice: grind's cutsat module proved a cut
-    over twenty atoms in a second where omega took minutes. The arith
-    axioms, euf congruences, and implied equalities keep the atoms' definitions.
+    conflict, _lattice_step), lists the bounds and the div and mod rows it
+    rests on as literals, except the base-level mod bounds
+    (_mod_bound_facts restates them), so the generalized goal holds as
+    well when the step is sound, but it needs the integer lattice: grind's
+    cutsat module proved a cut over twenty atoms in a second where omega
+    took minutes. Neither procedure dominates, though: omega proved a
+    25-literal cut over thirteen atoms (seed 67 of random_division_instance
+    under a newer solver) in under a second where grind needed between one
+    and one and a half million heartbeats. Trying one and falling back to
+    the other is not possible, since Lean's `first` does not catch a
+    heartbeat timeout (a runtime exception; it fails the whole lemma), so
+    such a lemma gets _LATTICE_LEMMA_HEARTBEATS instead (_grind_lemma).
+    The arith axioms, euf congruences, and implied equalities keep the
+    atoms' definitions.
     """
     parameters = graph.decl(node).parameters
     if graph.numeric != "Int" or parameters[0] not in ("farkas", "bound", "cut"):
         return None
     return "omega" if len(parameters) > 1 else "grind (splits := 64)"
+
+
+def _lattice_step(graph, node):
+    """Whether node is an Int th-lemma without coefficients: a cut, or a farkas or bound Z3 did not explain."""
+    decl = graph.decl(node)
+    return (graph.numeric == "Int" and decl.name == "th-lemma" and len(decl.parameters) == 1
+            and decl.parameters[0] in ("farkas", "bound", "cut"))
 
 
 def _opaque_rewrite_tactic(graph):
