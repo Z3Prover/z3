@@ -24,6 +24,8 @@ Tests:
  27. Solver: seq.nth_i on a concat with an ite of unequal-length-1 branches
      followed by unit elements resolves to the correct element (regression
      for a refutational soundness bug, issue #10621)
+ 28. Solver: sequence-valued ite branch equalities reach the sequence theory
+     (issue #11268)
 --*/
 
 #include "ast/arith_decl_plugin.h"
@@ -941,6 +943,32 @@ void tst_seq_rewriter() {
         lbool res = ctx.check();
         std::cout << "self-referential seq.extract with ite branch sat: " << res << "\n";
         ENSURE(res == l_true);
+    }
+
+    // -----------------------------------------------------------------------
+    // 28. A sequence-valued ite must participate in sequence equality
+    //     propagation (issue #11268).
+    // -----------------------------------------------------------------------
+    {
+        arith_util a_util(m);
+        sort* int_sort = a_util.mk_int();
+        sort* seq_int_sort = su.str.mk_seq(int_sort);
+        app_ref h(m.mk_fresh_const("h", seq_int_sort), m);
+        app_ref x(m.mk_fresh_const("x", seq_int_sort), m);
+        app_ref k(m.mk_fresh_const("k", int_sort), m);
+        expr_ref at(su.str.mk_at(x, k), m);
+        expr_ref a(su.str.mk_concat(h, at), m);
+        sort* domain[] = { seq_int_sort };
+        func_decl_ref p(m.mk_func_decl(symbol("P"), 1, domain, m.mk_bool_sort()), m);
+        expr_ref p_a(m.mk_app(p.get(), a.get()), m);
+        expr_ref condition(a_util.mk_lt(k, a_util.mk_int(0)), m);
+        expr_ref ite(m.mk_ite(condition, h, a), m);
+        expr_ref not_p_ite(m.mk_not(m.mk_app(p.get(), ite.get())), m);
+
+        smt_params sp;
+        smt::context ctx(m, sp);
+        ctx.assert_expr(m.mk_and(p_a, not_p_ite));
+        ENSURE(ctx.check() == l_false);
     }
 
     // A sequence of length at most one contains only itself and the empty sequence.
