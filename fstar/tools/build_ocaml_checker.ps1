@@ -157,7 +157,8 @@ try {
 
   Write-Host "=== Phase 1a: type-check + cache ==="
   foreach ($f in $modules) {
-    & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
+    Write-Host "Verifying $f"
+    & $FstarExe --timing --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
       ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $f" }
   }
@@ -172,7 +173,8 @@ try {
       "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst", "Z3PulseLraCheckerTests.fst"
     )
     foreach ($testModule in $testModules) {
-      & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
+      Write-Host "Verifying $testModule"
+      & $FstarExe --timing --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
           --smt $Z3Exe --z3version $z3Version $testModule
       if ($LASTEXITCODE -ne 0) { throw "F*/Pulse regressions failed: $testModule" }
     }
