@@ -210,7 +210,13 @@ let scale (c:int) (f:fact) : option fact =
 let lemma_scale (c:int) (f g:fact) (rho:nat -> real)
   : Lemma (requires holds f rho /\ scale c f == Some g)
           (ensures holds g rho) =
-  if c <> 0 then P.lemma_scale c 1 f.poly (fun m -> monomial_value m rho)
+  if c <> 0 then (
+    P.lemma_scale c 1 f.poly (fun m -> monomial_value m rho);
+    match f.relation with
+    | Equal -> ()
+    | Nonzero -> ()
+    | Nonnegative -> ()
+    | Positive -> ())
 
 let add_relation (a b:relation) : option relation =
   if a = Equal then Some b
