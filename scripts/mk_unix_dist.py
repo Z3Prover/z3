@@ -296,6 +296,10 @@ def build_static_lib():
         raise MKException("Failed to build static libz3")
     shutil.copy2(os.path.join(build_dir, "libz3.a"),
                  os.path.join(get_build_dist_path(), "bin", "libz3.a"))
+    if exec_cmds([
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=ON -DZ3_BUILD_LIBZ3_SHARED=ON' % build_dir
+    ]) != 0:
+        raise MKException("Failed to restore shared libz3 build")
 
 def mk_zip():
     build_dist = get_build_dist_path()
