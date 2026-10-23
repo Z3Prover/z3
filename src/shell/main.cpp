@@ -444,9 +444,6 @@ int STD_CALL main(int argc, char ** argv) {
                 }
                 else if (strcmp(ext, "log") == 0) {
                     g_input_kind = IN_Z3_LOG;
-                    warning_msg("treating '%s' as an API trace because of its .log extension; "
-                                "use -smt2 or rename the file to read it as SMT-LIB2.",
-                                g_input_file);
                 }
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
