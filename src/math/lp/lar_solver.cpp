@@ -491,7 +491,7 @@ namespace lp {
 
 
     lp_status lar_solver::solve() {
-        if (m_imp->m_status == lp_status::INFEASIBLE)
+        if (m_imp->m_status == lp_status::INFEASIBLE || m_imp->m_status == lp_status::CANCELED)
             return m_imp->m_status;
         
         solve_with_core_solver();
