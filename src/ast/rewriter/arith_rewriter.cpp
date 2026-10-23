@@ -340,8 +340,7 @@ bool arith_rewriter::is_non_negative(expr* e) {
         return true;
     if (!m_util.is_mul(e)) 
         return false;
-    expr_mark mark;
-    ptr_buffer<expr> args;
+    ptr_buffer<expr> args, factors;
     flat_mul(e, args);
     bool sign = false;
     for (expr* arg : args) {
@@ -349,28 +348,38 @@ bool arith_rewriter::is_non_negative(expr* e) {
             continue;
         if (is_power_of_positive(arg))
             continue;
-        if (seq().str.is_length(e))
+        if (seq().str.is_length(arg))
             continue;
         if (m_util.is_numeral(arg, r)) {
             if (r.is_neg()) 
                 sign = !sign;
             continue;
         }
-        mark.mark(arg, !mark.is_marked(arg));
+        factors.push_back(arg);
     }
     if (sign)
         return false;
 
+    // factors that occur an odd number of times, found by sorting instead of
+    // an expr_mark: a fresh mark is zero-filled up to the largest id it sees,
+    // which made this check cost time proportional to the size of the ast table
+    // for every product in every inequality.
+    std::sort(factors.begin(), factors.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+    ptr_buffer<expr> odd_args;
+    for (unsigned i = 0; i < factors.size(); ) {
+        unsigned j = i;
+        while (j < factors.size() && factors[j] == factors[i]) 
+            ++j;
+        if ((j - i) % 2 == 1)
+            odd_args.push_back(factors[i]);
+        i = j;
+    }
+    if (odd_args.empty())
+        return true;
+
     // For integer products, check if unpaired factors form consecutive pairs.
     // x * (x + 1) >= 0 for all integers since no integer lies strictly between -1 and 0.
     if (m_util.is_int(e)) {
-        expr_mark seen;
-        ptr_buffer<expr> odd_args;
-        for (expr* arg : args)
-            if (mark.is_marked(arg) && !seen.is_marked(arg)) {
-                seen.mark(arg, true);
-                odd_args.push_back(arg);
-            }
         if (odd_args.size() == 2) {
             auto is_succ = [&](expr* a, expr* b) {
                 if (!m_util.is_add(b))
@@ -393,11 +402,7 @@ bool arith_rewriter::is_non_negative(expr* e) {
                 return true;
         }
     }
-
-    for (expr* arg : args) 
-        if (mark.is_marked(arg)) 
-            return false;
-    return true;
+    return false;
 }
 
 /**
