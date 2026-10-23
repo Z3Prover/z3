@@ -84,7 +84,7 @@ void display_usage() {
     std::cout << "  -wcnf       use parser for Weighted CNF DIMACS input format.\n";
     std::cout << "  -opb        use parser for PB optimization input format.\n";
     std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
-    std::cout << "  -log        use parser for Z3 log input format.\n";
+    std::cout << "  -log        use parser for Z3 API trace input format.\n";
     std::cout << "  -tptp       use parser for TPTP input format (fof/cnf/tff/thf fragments).\n";
     std::cout << "  -in         read formula from standard input.\n";
     std::cout << "  -model      display model for satisfiable SMT.\n";
@@ -344,6 +344,11 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
                 known_parameter = true;
             }
             catch (gparams::exception const&) {
+                // A dotted key without path separators denotes a module parameter,
+                // even when its value looks like a filename.
+                if (parameter_name.find('.') != std::string::npos &&
+                    parameter_name.find_first_of("/\\") == std::string::npos)
+                    throw default_exception("unknown parameter '" + parameter_name + "'");
                 // An unknown key may be a filename containing '='.
             }
             if (known_parameter) {
@@ -439,6 +444,9 @@ int STD_CALL main(int argc, char ** argv) {
                 }
                 else if (strcmp(ext, "log") == 0) {
                     g_input_kind = IN_Z3_LOG;
+                    warning_msg("treating '%s' as an API trace because of its .log extension; "
+                                "use -smt2 or rename the file to read it as SMT-LIB2.",
+                                g_input_file);
                 }
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
