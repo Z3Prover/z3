@@ -79,9 +79,13 @@ parsed final assertion set, not an incremental sequence of commands.
 The same job also evaluates two freshly sampled SMT-LIB cohorts:
 **225 inputs**, with **25 UNSAT-annotated benchmarks per logic** for QF_UF,
 QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA, QF_AUFLIA, AUFLIA, and UFLIA;
-and **110 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF, and QF_BV**
-plus **all 10 UNSAT-annotated UFLRA inputs**. UFLRA has only 15 benchmarks
-total; its five SAT-annotated inputs are not certificate examples.
+and **310 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF, QF_BV,
+QF_UFBV, QF_UFDT, QF_ABV, QF_AUFBV, QF_UFLRA, QF_NRA,
+UFDT, and UFDTLIA** plus **all 10 UNSAT-annotated UFLRA inputs**.
+UFLRA has only 15 benchmarks total; its five SAT-annotated inputs are not
+certificate examples. QF_LIRA is omitted because the pinned archive supplies
+only two eligible UNSAT inputs under the size limit. QF_UFDTLIA is omitted
+because its archive contains only unknown-annotated inputs.
 The existing manifests in `Z3Prover/z3test/regressions/smtlib-sample`
 and `fstar/benchmarks/smtlib-sample` now supply the archive URLs, pinned
 SHA-256 hashes, compressed sizes, and required counts, not the CI input
@@ -108,7 +112,7 @@ rerunning the same workflow run retains its seed. Dispatch input
 `smtlib_sample_seed` reproduces a recorded selection against the same archive
 configuration and sampler. UFLRA necessarily remains the same ten inputs. The two
 cohorts retain their separate execution/diagnostic budgets and require
-exactly 225/110 manifested inputs; `max_cases` does not truncate them.
+exactly 225/310 manifested inputs; `max_cases` does not truncate them.
 The extended cohort remains independent of the external z3test checkout.
 Each report artifact includes `inputs/` with the selected original files
 and manifest, the seed, source-manifest hash, archive/member provenance,
@@ -118,7 +122,7 @@ manifest membership and every input hash before executing any case.
 This is a normal GitHub-hosted Actions job, not a gh-aw agent job with a
 network allowlist. `permissions: contents: read` limits GitHub API access,
 not public outbound HTTPS; anonymous Zenodo downloads need no additional
-token permission. The pinned archives total about 3.45 GB compressed per
+token permission. The pinned archives total about 4.17 GB compressed per
 run. Preparation has a separate 30-minute limit for each cohort; archive
 downloads are bounded and retried, and each archive is removed after
 sampling. Zenodo may still be unavailable or rate-limit a runner, in which

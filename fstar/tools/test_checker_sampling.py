@@ -1,6 +1,7 @@
 """Tests for reproducible, checked, bounded SMT-LIB archive sampling."""
 
 import contextlib
+from collections import Counter
 import hashlib
 import io
 import json
@@ -22,6 +23,27 @@ UNSAT = b"; original source and license\n(set-info :status unsat)\n(assert false
 
 
 class CheckerSamplingTests(unittest.TestCase):
+    def test_extended_cohort_matches_fixed_inputs_and_workflow_count(self):
+        root = Path(__file__).resolve().parents[2]
+        corpus = root / "fstar" / "benchmarks" / "smtlib-sample"
+        manifest = corpus / "manifest.json"
+        document = json.loads(manifest.read_text(encoding="utf-8"))
+        counts = {entry["logic"]: count for entry, count in sampler.archive_specs(document)}
+        self.assertEqual(counts, {
+            "QF_DT": 25, "QF_NIA": 25, "UF": 25,
+            "UFLRA": 10, "QF_BV": 25, "QF_UFBV": 25,
+            "QF_UFDT": 25, "QF_ABV": 25, "QF_AUFBV": 25,
+            "QF_UFLRA": 25, "QF_NRA": 25, "UFDT": 25, "UFDTLIA": 25,
+        })
+        self.assertEqual(Counter(case["logic"] for case in document["cases"]), counts)
+        paths, discovered = runner.discover(corpus, ".", 0)
+        self.assertEqual(discovered, sum(counts.values()))
+        runner.verify_manifest(corpus, ".", manifest, paths)
+        for path in paths:
+            self.assertRegex(path.read_bytes(), sampler.STATUS)
+        workflow = (root / ".github" / "workflows" / "pulse-checker-regressions.yml").read_text()
+        self.assertIn(f"--expected-cases {sum(counts.values())} ", workflow)
+
     def archive(self, directory, members, logic="QF_DT"):
         contents = io.BytesIO()
         with tarfile.open(fileobj=contents, mode="w") as archive:

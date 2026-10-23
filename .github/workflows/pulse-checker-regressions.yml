@@ -40,7 +40,7 @@ on:
         type: number
         default: 3600
       extended_smtlib_total_timeout_seconds:
-        description: 110-input datatype, nonlinear, quantified, and bit-vector sample budget in seconds
+        description: 310-input datatype, nonlinear, quantified, and bit-vector sample budget in seconds
         type: number
         default: 3600
       smtlib_sample_seed:
@@ -228,7 +228,7 @@ jobs:
             --corpus "$REPORT_DIR/smtlib-extended/inputs" --corpus-path . \
             --corpus-commit "$GITHUB_SHA" \
             --manifest "$REPORT_DIR/smtlib-extended/inputs/manifest.json" \
-            --expected-cases 110 \
+            --expected-cases 310 \
             --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
             --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
