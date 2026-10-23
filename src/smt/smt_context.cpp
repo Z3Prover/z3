@@ -1837,8 +1837,9 @@ namespace smt {
 
     /**
        \brief unit propagation.
-       Cancelation is not safe during propagation at base level because
+       Cancelation is not safe during Boolean and equality propagation at base level because
        congruences cannot be retracted to a consistent state.
+       Theory propagation must remain interruptible.
      */
     bool context::propagate() {
         TRACE(propagate, tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n");
@@ -1865,9 +1866,9 @@ namespace smt {
                 propagate_th_diseqs();
                 if (inconsistent())
                     return false;
-                if (!propagate_theories())
-                    return false;
             }
+            if (!propagate_theories())
+                return false;
             if (!get_cancel_flag()) {
 //                scoped_suspend_rlimit _suspend_cancel(m.limit(), at_base_level());
                 m_qmanager->propagate();

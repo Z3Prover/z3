@@ -387,6 +387,7 @@ namespace lp {
             this->set_status(lp_status::INFEASIBLE);
             return;
         }
+        // Charge pivot-cell work before changing the tableau so cancellation leaves the basis intact.
         const X &new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         this->m_x[leaving] = new_val_for_leaving;

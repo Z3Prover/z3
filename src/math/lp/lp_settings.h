@@ -97,6 +97,7 @@ class lp_resource_limit {
 public:
     virtual ~lp_resource_limit() = default;
     virtual bool get_cancel_flag() = 0;
+    virtual bool get_cancel_flag(unsigned) { return get_cancel_flag(); }
 };
 
 struct statistics {
@@ -343,6 +344,7 @@ public:
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
     bool get_cancel_flag() const { return m_resource_limit->get_cancel_flag(); }
+    bool get_cancel_flag(unsigned cost) const { return m_resource_limit->get_cancel_flag(cost); }
 
     void set_debug_ostream(std::ostream* out) { m_debug_out = out; }
     void set_message_ostream(std::ostream* out) { m_message_out = out; }
