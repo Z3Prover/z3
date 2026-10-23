@@ -161,7 +161,11 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
 
 void Z3_context_plus_dec_ref(Z3_context_plus cp) {
   /* Only the finalizer whose atomic decrement reaches zero may delete cp. */
+#ifndef __STDC_NO_ATOMICS__
+  if (atomic_fetch_sub(&cp->obj_count, 1) == 1) {
+#else
   if (--cp->obj_count == 0) {
+#endif
     Z3_del_context(cp->ctx);
     caml_remove_generational_global_root(&cp->proof_check_exception);
     free(cp->proof_check_report);
