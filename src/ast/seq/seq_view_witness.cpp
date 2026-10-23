@@ -228,8 +228,18 @@ namespace seq {
             return true;
         };
 
+        auto in_gates = [&](ptr_vector<expr> const& values) {
+            for (unsigned i = 0; i < n; ++i)
+                if (views[i].m_gate && !views[i].m_gate->contains(values[i]))
+                    return false;
+            return true;
+        };
+
         std::map<key, std::pair<key, expr*>> parent;
         key start_key(n);
+        for (unsigned i = 0; i < n; ++i)
+            if (views[i].m_gate && !views[i].m_gate->contains(views[i].m_state))
+                return l_false;
         for (unsigned i = 0; i < n; ++i) {
             work.push_back(views[i].m_state);
             start_key[i] = views[i].m_state->get_id();
@@ -324,7 +334,7 @@ namespace seq {
                             current[i] = sweep_lists[i]->targets[range.first + sweep_odometer[i]];
                         }
                         key const& child_key = fill_key(current);
-                        if (!visited.contains(child_key)) {
+                        if (in_gates(current) && !visited.contains(child_key)) {
                             visited.insert(child_key);
                             if (witness_word) {
                                 expr* element = u().mk_char(static_cast<unsigned>(begin));
@@ -375,7 +385,7 @@ namespace seq {
                     return;
                 }
                 for (auto const& [guard, target] : *branches[i]) {
-                    if (re().is_empty(target))
+                    if (re().is_empty(target) || (views[i].m_gate && !views[i].m_gate->contains(target)))
                         continue;
                     guard_set next = accumulated;
                     next.conjoin(guard);

@@ -1,9 +1,11 @@
 z3_add_component(ast_seq
   SOURCES
     seq_axioms.cpp
+    seq_deriv_graph.cpp
     seq_eq_approx.cpp
     seq_eq_facet.cpp
     seq_eq_solver.cpp
+    seq_landing.cpp
     seq_lex_facet.cpp
     seq_mem_facet.cpp
     seq_monadic.cpp

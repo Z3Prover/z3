@@ -56,4 +56,10 @@ void theory_seq_params::updt_params(params_ref const & _p) {
     m_seq_monadic_leaf_root_period = p.seq_monadic_leaf_root_period();
     m_seq_regex_precheck = p.seq_regex_precheck();
     m_seq_mem_monadic_endgame = p.seq_mem_monadic_endgame();
+    m_seq_landing = p.seq_landing();
+    m_seq_landing_explore = p.seq_landing_explore();
+    m_seq_landing_probes = p.seq_landing_probes();
+    m_seq_landing_joint = p.seq_landing_joint();
+    m_seq_landing_length = p.seq_landing_length();
+    m_seq_landing_eq_test = p.seq_landing_eq_test();
 }

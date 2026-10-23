@@ -209,6 +209,7 @@ namespace stx {
             const char*       m_rule_name = "";
             dep_tracker       m_dep = nullptr;
             bool              m_is_progress = true;
+            bool              m_optional = false;
             unsigned          m_cost = 0;
         public:
             edge() = default;
@@ -218,6 +219,10 @@ namespace stx {
             dep_tracker dep() const { return m_dep; }
             bool is_progress() const { return m_is_progress; }
             unsigned cost() const { return m_cost; }
+            // An optional branch (a probe) is not part of the partition: it runs under
+            // a node budget and only its sat answer counts.
+            bool is_optional() const { return m_optional; }
+            edge& set_optional() { m_optional = true; return *this; }
         };
 
         // Resumable iterator over the remaining branches of a split that
@@ -431,6 +436,11 @@ namespace stx {
                 if (dep)
                     m_conflict_deps.push_back(dep);
             }
+            // Justification of a branch a split pruned without materializing it.
+            void add_conflict_dep(dep_tracker dep) {
+                if (dep)
+                    m_conflict_deps.push_back(dep);
+            }
             void set_satisfied() { m_status = node_status::satisfied; }
             void clear_status() { m_status = node_status::unevaluated; m_reason = br_unevaluated; m_conflict_dep = nullptr; }
 
@@ -529,6 +539,9 @@ namespace stx {
         // performance floor only; deeper retries still happen normally on
         // `depth_cutoff`.
         unsigned                               m_min_search_depth = 1;
+        bool                                   m_in_probe = false;
+        unsigned                               m_probe_left = 0;
+        unsigned                               m_probe_budget = 16;     // per unit of depth bound
 
         // Iterative deepening doubles the bound, clamped so the maximum is
         // still tried.
@@ -1026,6 +1039,9 @@ namespace stx {
                         frame.m_iter = std::move(it);
                         return true;
                     }
+                    // a plugin that refuted the node instead of splitting it closes it
+                    if (n.is_conflict())
+                        return false;
                     if (has_more)
                         any_offer = true;
                 }
@@ -1047,6 +1063,11 @@ namespace stx {
         search_result dfs(unsigned depth, edge const* in_edge, bool& pure_out) {
             node& n = *m_root;
             m_stats.m_num_dfs_nodes++;
+            if (m_in_probe) {
+                if (m_probe_left == 0)
+                    return search_result::unknown;
+                --m_probe_left;
+            }
             if (m_max_nodes && m_stats.m_num_dfs_nodes > m_max_nodes)
                 return search_result::unknown;
             if (!m_limit.inc())
@@ -1111,12 +1132,33 @@ namespace stx {
                     bool saw_unknown = false;
                     bool saw_depth_cutoff = false;
                     bool all_children_pure = true; // AND-reduced across every UNSAT child
+                    bool saw_real = false;
                     result = search_result::unsat;
                     edge cur_edge = first_edge;
                     bool have_branch = true;
                     while (have_branch) {
                         search_result cr;
                         bool child_pure = false;
+                        if (cur_edge.is_optional()) {
+                            bool outer = !m_in_probe;
+                            unsigned num_deps = n.m_conflict_deps.size();
+                            if (outer) {
+                                m_in_probe = true;
+                                m_probe_left = m_probe_budget * m_depth_bound;
+                            }
+                            cr = dfs(depth, &cur_edge, child_pure);
+                            if (outer)
+                                m_in_probe = false;
+                            n.m_conflict_deps.shrink(num_deps);
+                            pop();
+                            if (cr == search_result::sat) {
+                                result = search_result::sat;
+                                break;
+                            }
+                            have_branch = frame.m_iter && advance_iter(*frame.m_iter, cur_edge);
+                            continue;
+                        }
+                        saw_real = true;
                         // progress edges (a variable eliminated, an arithmetic decision) are
                         // free; only edges introducing fresh variables count towards the bound
                         cr = dfs(depth + (cur_edge.is_progress() ? 0 : 1), &cur_edge, child_pure);
@@ -1135,7 +1177,7 @@ namespace stx {
                     }
                     if (result != search_result::sat) {
                         result = saw_depth_cutoff ? search_result::depth_cutoff
-                               : saw_unknown       ? search_result::unknown
+                               : saw_unknown || !saw_real ? search_result::unknown
                                :                     search_result::unsat;
                         if (result == search_result::unsat) {
                             dep_tracker joined = nullptr;
@@ -1203,6 +1245,7 @@ namespace stx {
         // Enable/disable the unsat cache.
         void set_unsat_cache_enabled(bool b) { m_unsat_cache_enabled = b; }
         bool unsat_cache_enabled() const { return m_unsat_cache_enabled; }
+        void set_probe_budget(unsigned n) { m_probe_budget = n; }
 
         // Create the single root node (all facet slots initially null;
         // fill them in via the templated `register_facet<T>(node&, ...)`

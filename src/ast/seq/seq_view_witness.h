@@ -73,6 +73,7 @@ namespace seq {
                 for (auto const& p : s) {
                     h = (h ^ p.state) * 1099511628211ull;
                     h = (h ^ p.target) * 1099511628211ull;
+                    h = (h ^ p.gate) * 1099511628211ull;
                 }
                 return static_cast<size_t>(h);
             }

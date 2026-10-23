@@ -27,6 +27,7 @@ Author:
 #include "ast/seq/seq_eq_facet.h"
 #include "ast/seq/seq_power_facet.h"
 #include "ast/seq/seq_mem_facet.h"
+#include "ast/seq/seq_landing.h"
 #include "ast/seq/seq_monadic.h"
 #include "ast/seq/seq_ncontains_facet.h"
 #include "ast/seq/seq_req_facet.h"

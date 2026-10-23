@@ -60,6 +60,8 @@ namespace seq {
         view                 m_view;
         eq_tree::dep_tracker m_dep = nullptr;
         bool                 m_active = true;
+        // position of the membership this one was rewritten from; kept by every rewrite
+        unsigned             m_origin = UINT_MAX;
 
         str_mem(ast_manager& m, expr* s, view const& v, eq_tree::dep_tracker dep = nullptr) :
             m_str(m), m_view(v), m_dep(dep) {
@@ -134,8 +136,14 @@ namespace seq {
         vector<str_mem> const& memberships() const { return m_mems; }
         view_witness& vw() { return m_vw; }
 
+        // a variable, or unit(c) for a character c the search introduced (ambient_context_i::is_fresh)
+        bool is_var_token(expr* t) const {
+            expr* ch = nullptr;
+            return m_ac.is_var(t) || (u.str.is_unit(t, ch) && m_ac.is_fresh(ch));
+        }
+        // one variable token: decided by m_vw, never split
         bool is_single_var_plain(str_mem const& sm) const {
-            return sm.m_str.size() == 1 && m_ac.is_var(sm.m_str.get(0));
+            return sm.m_str.size() == 1 && is_var_token(sm.m_str.get(0));
         }
 
         // See m_witness/m_witness_extracted's comment above.

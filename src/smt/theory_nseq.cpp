@@ -157,6 +157,9 @@ namespace smt {
         m_tree.add_propagation_plugin(alloc(seq::deq_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::arith_propagation, m, m_seq));
         m_tree.add_propagation_plugin(alloc(seq::power_propagation, m, m_seq, m_autil));
+        auto* landing = alloc(seq::landing_propagation, m, m_seq, m_rewriter);
+        m_tree.add_propagation_plugin(landing);
+        m_tree.add_propagation_plugin(alloc(seq::eq_lang_propagation, m_seq, landing->graph()));
         m_tree.add_propagation_plugin(alloc(seq::mem_propagation, m, m_seq, m_rewriter));
         m_tree.add_propagation_plugin(alloc(seq::mem_var_bounds_propagation, m, m_seq, m_autil, *m_ambient));
         m_tree.add_propagation_plugin(alloc(seq::ncontains_propagation, m, m_seq, m_autil));
@@ -168,6 +171,8 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
+        m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, landing->graph()));
+        m_tree.add_split_plugin(alloc(seq::mem_landing_split, m, m_seq, landing->graph()));
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
         m_tree.add_split_plugin(m_mem_leaf);
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
@@ -792,8 +797,9 @@ namespace smt {
         }
         if (m_mem_leaf)
             m_mem_leaf->reset_root_ask(root_asked);
-        // Skip depth bounds that cannot cover the freshly flushed work.
-        m_tree.set_min_search_depth(m_lits_qhead);
+        // Skip depth bounds that cannot cover the freshly flushed work. With landing, as c3, at
+        // least 3: below that a probe cannot take a single escape.
+        m_tree.set_min_search_depth(std::max(m_lits_qhead, m_ambient->fparams().m_seq_landing ? 3u : 1u));
         stx::search_result res;
         try {
             res = m_tree.solve();

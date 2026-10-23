@@ -28,6 +28,10 @@ Abstract:
     that automaton steps in.  A MEMBERSHIP view is mode-independent: m_state denotes a
     language either way.
 
+    A GATED reach view additionally requires every state of the run to lie in m_gate
+    (the view nu_Q^{target}(state) of the landing decomposition, see seq_deriv_graph).
+    Gates are only built over Brzozowski states.
+
 Author:
 
     Clemens Eisenhofer 2026
@@ -39,21 +43,33 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/lbool.h"
 #include "util/vector.h"
+#include <algorithm>
 
 namespace seq {
+
+    // A frozen set of derivative states, owned by a seq::deriv_graph.
+    struct region {
+        unsigned          m_id;
+        unsigned_vector   m_ids;        // sorted expression ids
+        ptr_vector<expr>  m_states;
+        bool contains(expr* e) const { return std::binary_search(m_ids.begin(), m_ids.end(), e->get_id()); }
+    };
 
     struct view {
         expr_ref        m_state;
         expr_ref        m_target;     // null: membership view
+        region const*   m_gate = nullptr;
 
         // identity for dedup/memoization; covers the same fields as operator==
         struct sig {
-            unsigned        state, target;
+            unsigned        state, target, gate;
         };
 
         view(ast_manager& m) : m_state(m), m_target(m) {}
         view(expr* state, expr* target, ast_manager& m) :
             m_state(state, m), m_target(target, m) {}
+        view(expr* state, expr* target, region const* gate, ast_manager& m) :
+            m_state(state, m), m_target(target, m), m_gate(gate) {}
 
         static view membership(expr* state, ast_manager& m) {
             return view(state, nullptr, m);
@@ -63,16 +79,22 @@ namespace seq {
             return view(state, target, m);
         }
 
+        static view gated(expr* state, expr* target, region const* gate, ast_manager& m) {
+            return view(state, target, gate, m);
+        }
+
         bool is_membership() const { return m_target.get() == nullptr; }
         bool is_reach() const { return m_target.get() != nullptr; }
+        bool is_gated() const { return m_gate != nullptr; }
 
         sig key() const {
             return { m_state ? m_state->get_id() : UINT_MAX,
-                     m_target ? m_target->get_id() : UINT_MAX };
+                     m_target ? m_target->get_id() : UINT_MAX,
+                     m_gate ? m_gate->m_id : UINT_MAX };
         }
 
         bool operator==(view const& other) const {
-            return m_state.get() == other.m_state.get() && m_target.get() == other.m_target.get();
+            return m_state.get() == other.m_state.get() && m_target.get() == other.m_target.get() && m_gate == other.m_gate;
         }
 
         bool operator!=(view const& other) const { return !(*this == other); }
@@ -80,11 +102,12 @@ namespace seq {
 
     inline bool operator<(view::sig const& a, view::sig const& b) {
         if (a.state != b.state) return a.state < b.state;
-        return a.target < b.target;
+        if (a.target != b.target) return a.target < b.target;
+        return a.gate < b.gate;
     }
 
     inline bool operator==(view::sig const& a, view::sig const& b) {
-        return a.state == b.state && a.target == b.target;
+        return a.state == b.state && a.target == b.target && a.gate == b.gate;
     }
 
     using view_vector = vector<view>;

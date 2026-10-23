@@ -55,6 +55,8 @@ namespace seq {
 
     void mem_facet::add(str_mem const& sm) {
         m_mems.push_back(sm);
+        if (m_mems.back().m_origin == UINT_MAX)
+            m_mems.back().m_origin = m_mems.size() - 1;
         m_trail.push(push_back_trail<str_mem>(m_mems));
         if (is_single_var_plain(sm))
             m_vw.add(sm.m_str.get(0), sm.m_view, sm.m_dep);
@@ -73,10 +75,10 @@ namespace seq {
         str_mem const& sm = m_mems[idx];
         if (!sm.active())
             return;
-        view v = sm.m_view;
-        eq_tree::dep_tracker new_dep = m_dm.mk_join(sm.m_dep, dep);
+        str_mem nm(m, new_str, sm.m_view, m_dm.mk_join(sm.m_dep, dep));
+        nm.m_origin = sm.m_origin;
         remove(idx);
-        add(str_mem(m, new_str, v, new_dep));
+        add(nm);
     }
 
     void mem_facet::apply_subst(expr* var, expr_ref_vector const& repl, eq_tree::dep_tracker subst_dep) {
@@ -94,10 +96,10 @@ namespace seq {
                 continue;
             expr_ref_vector new_str(sm.m_str);
             subst_in(new_str, var, repl);
-            view v = sm.m_view;
-            eq_tree::dep_tracker dep = m_dm.mk_join(sm.m_dep, subst_dep);
+            str_mem nm(m, new_str, sm.m_view, m_dm.mk_join(sm.m_dep, subst_dep));
+            nm.m_origin = sm.m_origin;
             remove(i);
-            add(str_mem(m, new_str, v, dep));
+            add(nm);
         }
     }
 
@@ -109,7 +111,7 @@ namespace seq {
         // Re-register active single-variable memberships in the clone's
         // fresh `m_vw`.
         for (auto const& sm : f->m_mems)
-            if (is_single_var_plain(sm))
+            if (f->is_single_var_plain(sm))
                 f->m_vw.add_untrailed(sm.m_str.get(0), sm.m_view, sm.m_dep);
         f->m_witness_extracted = m_witness_extracted;
         for (auto const& [var, w] : m_witness) {
@@ -359,11 +361,10 @@ namespace seq {
             bool bad = false;
             expr* elem = nullptr;
             for (auto t : sm.m_str) {
-                if (!u.str.is_unit(t)) { 
+                if (!u.str.is_unit(t, elem) || !m_rw.m().is_value(elem)) {
                     bad = true; 
                     break; 
                 }
-                VERIFY(u.str.is_unit(t, elem));
                 cur = m_rw.mk_derivative(elem, cur);
                 if (u.re.is_empty(cur)) {
                     n.set_conflict(stx::br_plugin_base, sm.m_dep);
@@ -839,6 +840,8 @@ namespace seq {
                 continue;             // handled directly by mem_facet's own view_witness
             if (sm.m_str.size() == 1 && u.str.is_power(sm.m_str.get(0)))
                 continue;             // power_peel_mem's: narrowing its view again makes no progress
+            if (sm.m_view.is_gated())
+                continue;             // mem_split steps by mk_derivative and cannot evaluate a gate
             unsigned cost = 0;
             for (expr* e : sm.m_str)
                 if (!u.str.is_unit(e))

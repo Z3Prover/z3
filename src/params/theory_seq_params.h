@@ -70,6 +70,12 @@ struct theory_seq_params {
     // hypotheses. Falls back to view_witness when unsupported or out of
     // budget; default off pending validation on regex/mem benchmarks.
     bool m_seq_mem_monadic_endgame = false;
+    bool m_seq_landing = true;
+    unsigned m_seq_landing_explore = 512;
+    bool m_seq_landing_probes = true;
+    bool m_seq_landing_joint = false;
+    bool m_seq_landing_length = true;
+    bool m_seq_landing_eq_test = false;
 
     theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);

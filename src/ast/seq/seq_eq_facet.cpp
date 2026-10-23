@@ -185,6 +185,35 @@ namespace seq {
     bool eq_facet::simplify_equation(eq_tree::node& n, ambient_context_i<eq_tree::dep_tracker>& ac, unsigned idx, bool& conflict, eq_tree::dep_tracker& conflict_dep, bool& changed) {
         equation& eq = m_eqs[idx];
         eq_tree::dep_tracker parent_dep = eq.m_dep;
+        // an equation between two characters (from unit-vs-unit decomposition): decide it directly,
+        // a character constant is no variable for the Nielsen rules
+        if (eq.m_lhs.size() == 1 && eq.m_rhs.size() == 1 && !u.is_seq(eq.m_lhs.get(0))) {
+            expr* l = eq.m_lhs.get(0), *r = eq.m_rhs.get(0);
+            if (m.are_distinct(l, r)) {
+                conflict = true;
+                conflict_dep = parent_dep;
+                return false;
+            }
+            if (l == r) {
+                m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
+                m_eqs[idx].m_active = false;
+                changed = true;
+                return true;
+            }
+            // a fresh character is defined by the other side, never the other way round
+            if (ac.is_fresh(r) && !ac.is_fresh(l))
+                std::swap(l, r);
+            if (ac.is_fresh(l)) {
+                expr_ref var(l, m);
+                expr_ref_vector repl(m);
+                repl.push_back(r);
+                m_trail.push(vector_field_trail<equation, bool>(m_eqs, idx, &equation::m_active));
+                m_eqs[idx].m_active = false;
+                broadcast_subst(n, var, repl, parent_dep);
+                changed = true;
+                return true;
+            }
+        }
         expr_ref_vector L(eq.m_lhs);
         expr_ref_vector R(eq.m_rhs);
         expr_ref_pair_vector new_eqs(m);
@@ -325,8 +354,17 @@ namespace seq {
         auto ac = get_ambient(target);
         auto& sf = ac.solver_facet_ref();
         ast_manager& mgr = sf.get_arith_util().get_manager();
-        if (var->get_sort()->get_family_id() != mgr.mk_family_id("seq"))
+        if (var->get_sort()->get_family_id() != mgr.mk_family_id("seq")) {
+            // facets hold sequence tokens: a character occurs in them only inside unit(var)
+            seq_util su(mgr);
+            if (repl.size() == 1 && !su.is_seq(repl.get(0))) {
+                expr_ref uv(su.str.mk_unit(var), mgr);
+                expr_ref_vector ur(mgr);
+                ur.push_back(su.str.mk_unit(repl.get(0)));
+                broadcast_subst(target, uv, ur, subst_dep);
+            }
             return;
+        }
         expr_ref_vector lhs(mgr);
         lhs.push_back(var);
         sf.add_length_constraint(lhs, repl, subst_dep);
@@ -396,9 +434,9 @@ namespace seq {
                         return nullptr;
                     }
                     has_more = true;
-                    // Prefer eliminating the non-constant side; otherwise
-                    // eliminate the rhs token.
-                    bool elim_lh = !u.is_const_char(lch) && u.is_const_char(rch);
+                    // Prefer eliminating the non-constant side, then a fresh character
+                    // (constrained only inside the tree); otherwise eliminate the rhs token.
+                    bool elim_lh = !u.is_const_char(lch) && (u.is_const_char(rch) || (ac.context().is_fresh(lch) && !ac.context().is_fresh(rch)));
                     expr* var_tok = elim_lh ? lh : rh;
                     expr* val_tok = elim_lh ? rh : lh;
                     expr_ref_vector repl(m);

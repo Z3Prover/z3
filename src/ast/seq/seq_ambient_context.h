@@ -63,6 +63,9 @@ namespace seq {
         seq_util&    u;
 
         expr_ref_vector m_cond_deps;
+        // characters a split rule introduced: nothing outside the search tree constrains them
+        obj_hashtable<expr> m_fresh;
+        expr_ref_vector m_fresh_pin;
 
         virtual dep_tracker_t mk_leaf_dep(unsigned idx) const = 0;
 
@@ -101,8 +104,17 @@ namespace seq {
         stx::facet_id stoi_id() const { return m_stoi_id; }
         stx::facet_id ho_id() const { return m_ho_id; }
     public:
-        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m) {}
+        ambient_context_i(ast_manager& m, seq_util& u) : m(m), u(u), m_cond_deps(m), m_fresh_pin(m) {}
         ~ambient_context_i() override = default;
+
+        void add_fresh(expr* c) {
+            if (!m_fresh.contains(c)) {
+                m_fresh_pin.push_back(c);
+                m_fresh.insert(c);
+            }
+        }
+        bool is_fresh(expr* c) const { return m_fresh.contains(c); }
+        obj_hashtable<expr> const& fresh() const { return m_fresh; }
 
         dep_tracker_t add_conditional_dep(expr* e) {
             unsigned j = m_cond_deps.size();
