@@ -1251,10 +1251,10 @@ protected:
     func_decl * m_iff_oeq_decl = nullptr;
     func_decl * m_skolemize_decl = nullptr;
     func_decl * m_mp_oeq_decl = nullptr;
-    func_decl * m_assumption_add_decl = nullptr;
-    func_decl * m_lemma_add_decl = nullptr;
-    func_decl * m_th_assumption_add_decl = nullptr;
-    func_decl * m_th_lemma_add_decl = nullptr;
+    ptr_vector<func_decl> m_assumption_add_decls;
+    ptr_vector<func_decl> m_lemma_add_decls;
+    ptr_vector<func_decl> m_th_assumption_add_decls;
+    ptr_vector<func_decl> m_th_lemma_add_decls;
     func_decl * m_redundant_del_decl = nullptr;
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;

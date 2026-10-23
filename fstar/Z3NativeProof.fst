@@ -12,6 +12,8 @@ module L = FStar.List.Tot
 module C = Z3LpCertificate
 module BV = Z3BvLemma
 module DT = Z3DatatypeLemma
+module CP = Z3ClauseProof
+module R = Z3ResolutionProofTheory
 
 noeq
 type state = {
@@ -27,6 +29,7 @@ type state = {
   all_expressions: list expr;
   entries: list P.entry;
   next_proof: nat;
+  clausal: bool;
 }
 
 let empty_state () : state = {
@@ -34,6 +37,7 @@ let empty_state () : state = {
   lp_certificates = Empty;
   retained_asts = []; retained_sorts = [];
   all_declarations = []; all_expressions = []; entries = []; next_proof = 0;
+  clausal = false;
 }
 
 let require_some (#a:Type) (message:string) (x:option a) : ML a =
@@ -91,6 +95,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Add -> Some (if binary_int then op_plus else op_arith_add)
   | N.Mul -> Some (if binary_int then op_mul else op_arith_mul)
   | N.Sub -> Some op_arith_sub | N.Div -> Some op_arith_div
+  | N.IDiv -> Some Z3IntegerDivision.op_idiv | N.Mod -> Some Z3IntegerDivision.op_mod
   | N.Le -> Some op_arith_le | N.Lt -> Some op_arith_lt
   | N.Ge -> Some op_arith_ge | N.Gt -> Some op_arith_gt
   | N.ToReal -> Some op_to_real | N.Rational -> Some op_num_rational
@@ -298,10 +303,72 @@ let marshal_binder (st:state) (p:N.ast) : ML (binder_certificate & state) =
                          (index_get cache (N.ast_id p)) in
   { binder_entries = entries; binder_root = root }, st
 
+let clause_builder (st:state) : CP.builder =
+  { CP.entries = st.entries; CP.next = st.next_proof }
+
+let with_clause_builder (st:state) (b:CP.builder) : state =
+  { st with entries = b.CP.entries; next_proof = b.CP.next }
+
+let application_declaration (e:expr) : ML func_decl =
+  match e with
+  | App d _ -> d
+  | _ -> N.fail "Expected a logical application"
+
+let clause_literal (st:state) (e:N.ast) : ML CP.literal =
+  let atom, negative =
+    match N.view_expression e with
+    | N.Application d [a] -> if d.op = N.Not then a, true else e, false
+    | _ -> e, false in
+  let formula = cached_expression st atom in
+  let id = if formula = R.true_expr then 0
+           else if formula = R.false_expr then 1 else N.ast_id atom + 2 in
+  { CP.atom = id; CP.negative = negative; CP.formula = cached_expression st e }
+
+let rec clause_literals (st:state) (es:list N.ast) : ML (list CP.literal) =
+  match es with
+  | [] -> []
+  | e :: rest ->
+    let literal = clause_literal st e in
+    let literals = clause_literals st rest in
+    literal :: literals
+
+let add_clause_entry (st:state) (db:CP.database) (view:N.clause_view)
+  : ML (state & CP.database) =
+  let st = marshal_expressions st [view.formula] in
+  let formula = cached_expression st view.formula in
+  let literals = clause_literals st view.literals in
+  if view.action = N.DeleteClause then st, CP.delete db literals
+  else
+    let id, b, db =
+      match view.certificate with
+      | Some certificate ->
+        let proof_view = N.view_proof certificate in
+        if cached_expression st proof_view.conclusion <> formula then
+          N.fail "Clause certificate conclusion does not match its clause"
+        else
+          let id = require_some "Clause certificate was not marshaled"
+                                (index_get st.proofs (N.ast_id certificate)) in
+          id, clause_builder st, db
+      | None ->
+        (match view.action with
+         | N.InputClause ->
+           let id, b = CP.emit (clause_builder st) Asserted formula [] in id, b, db
+         | N.TheoryClause ->
+           let id, b = CP.emit (clause_builder st) (Unverified "th-lemma") formula [] in id, b, db
+         | N.LearnedClause ->
+           require_some "Clause proof failed reverse unit propagation"
+             (CP.prove_cached db (clause_builder st) literals formula)
+         | N.DeleteClause -> N.fail "Unexpected clause deletion") in
+    with_clause_builder st b,
+    CP.add db { CP.literals = literals; CP.formula = formula; CP.proof_id = id }
+
 noeq
 type proof_job =
   | VisitProof : N.ast -> proof_job
   | BuildProof : N.ast -> N.proof_view -> proof_job
+  | VisitClauseTrail : N.ast -> list N.clause_view -> N.ast -> CP.database -> proof_job
+  | BuildClauseEntry : N.ast -> N.clause_view -> list N.clause_view ->
+                       N.ast -> CP.database -> proof_job
 
 let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
   match jobs with
@@ -311,10 +378,36 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
     (match index_get st.proofs id with
      | Some _ -> marshal_proof_jobs st rest
      | None ->
-       let view = N.view_proof p in
-       let children = if binder_rule view.proof_name then []
-                      else L.map (fun p -> VisitProof p) view.premises in
-       marshal_proof_jobs st (children @ (BuildProof p view :: rest)))
+       (match N.view_clause_trail p with
+        | Some (entries, conclusion) ->
+          let db, b = CP.empty (clause_builder st) in
+          let st = { (with_clause_builder st b) with clausal = true } in
+          marshal_proof_jobs st (VisitClauseTrail p entries conclusion db :: rest)
+        | None ->
+          let view = N.view_proof p in
+          let children = if binder_rule view.proof_name then []
+                         else L.map (fun p -> VisitProof p) view.premises in
+          marshal_proof_jobs st (children @ (BuildProof p view :: rest))))
+  | VisitClauseTrail root [] conclusion db :: rest ->
+    let st = marshal_expressions st [conclusion] in
+    if cached_expression st conclusion <> R.false_expr then
+      N.fail "Clause proof trail is not a refutation"
+    else
+      let id, b = require_some "Clause proof trail does not derive the empty clause"
+                   (CP.prove db (clause_builder st) [] R.false_expr) in
+      let st = with_clause_builder st b in
+      let st = { st with proofs = index_put st.proofs (N.ast_id root) id;
+                         retained_asts = root :: st.retained_asts } in
+      marshal_proof_jobs st rest
+  | VisitClauseTrail root (entry :: entries) conclusion db :: rest ->
+    let build = BuildClauseEntry root entry entries conclusion db in
+    let jobs = match entry.certificate with
+      | Some certificate -> VisitProof certificate :: build :: rest
+      | None -> build :: rest in
+    marshal_proof_jobs st jobs
+  | BuildClauseEntry root entry entries conclusion db :: rest ->
+    let st, db = add_clause_entry st db entry in
+    marshal_proof_jobs st (VisitClauseTrail root entries conclusion db :: rest)
   | BuildProof p view :: rest ->
     let parameters = match view.lp_data with Some (_, ps) -> ps | None -> [] in
     let st = marshal_expressions st
@@ -362,8 +455,23 @@ let marshal_state (assertions:list N.ast) (proof:N.ast) : ML (P.document & state
   let st = marshal_proof_jobs st [VisitProof proof] in
   let id = N.ast_id proof in
   let root = require_some "Native proof root was not marshaled" (index_get st.proofs id) in
-  { P.declarations = st.all_declarations; P.expressions = st.all_expressions;
-    P.assertions = inputs; P.entries = L.rev st.entries; P.root = root }, st
+  let entries, root =
+    if st.clausal then
+      require_some "Malformed elaborated clause proof DAG" (CP.prune (clause_builder st) root)
+    else L.rev st.entries, root in
+  let declarations =
+    if st.clausal then
+      let truth = application_declaration R.true_expr in
+      let falsehood = application_declaration R.false_expr in
+      let negation = application_declaration (R.mk_not_expr R.false_expr) in
+      L.fold_left (fun ds d -> if L.mem d ds then ds else d :: ds)
+        st.all_declarations [truth; falsehood; negation]
+    else st.all_declarations in
+  let expressions =
+    if st.clausal then L.fold_left (fun es e -> e.P.formula :: es) st.all_expressions entries
+    else st.all_expressions in
+  { P.declarations = declarations; P.expressions = expressions;
+    P.assertions = inputs; P.entries = entries; P.root = root }, st
 
 let marshal (assertions:list N.ast) (proof:N.ast) : ML P.document =
   let doc, _ = marshal_state assertions proof in doc

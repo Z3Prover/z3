@@ -63,6 +63,18 @@ let numeric_model (i:interpretation value) (nu:value -> real) : prop =
     nu (eval i a rho) == nu (eval i b rho) ==>
     eval i a rho == eval i b rho)
 
+let lemma_add_application (f:func_decl) (args:list expr)
+                          (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Add)
+          (ensures nu (eval i (App f args) rho) ==
+                   numeric_sum (map nu (eval_args i args rho))) = ()
+
+let lemma_mul_application (f:func_decl) (args:list expr)
+                          (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires numeric_operators i nu /\ A.operation_of f args == Some A.Mul)
+          (ensures nu (eval i (App f args) rho) ==
+                   numeric_product (map nu (eval_args i args rho))) = ()
+
 let valuation (i:interpretation value) (nu:value -> real) (rho:env value) : expr -> real =
   fun e -> nu (eval i e rho)
 
@@ -76,8 +88,41 @@ let rec denotations (ps:list A.poly) (xs:list real) (r:expr -> real)
   | p :: rest, x :: tail -> denotes p x r /\ denotations rest tail r
   | _, _ -> False
 
+#push-options "--using_facts_from 'Prims FStar.Real' --fuel 0 --ifuel 0"
+
 let lemma_scaled_sum (a b x y:real)
   : Lemma (b *. (a *. x) +. a *. (b *. y) == (a *. b) *. (x +. y)) = ()
+
+let lemma_scaled_product (a b x y:real)
+  : Lemma ((a *. x) *. (b *. y) == (a *. b) *. (x *. y)) = ()
+
+let lemma_product_value (a b x y px qx tx:real)
+  : Lemma (requires px == a *. x /\ qx == b *. y /\ tx == px *. qx)
+          (ensures tx == (a *. b) *. (x *. y)) =
+  calc (==) {
+    tx;
+    == {} px *. qx;
+    == {} (a *. x) *. (b *. y);
+    == { lemma_scaled_product a b x y } (a *. b) *. (x *. y);
+  }
+
+let lemma_scaled_quotient (a b c x y z:real)
+  : Lemma (requires b *. y == c /\ z *. y == x)
+          (ensures b *. (a *. x) == (c *. a) *. z) = ()
+
+let lemma_negative_quotient (a b c x z:real)
+  : Lemma (requires b *. (a *. x) == (c *. a) *. z)
+          (ensures (0.0R -. b) *. (a *. x) == ((0.0R -. c) *. a) *. z) = ()
+
+let lemma_scaled_value (n d a x z:real)
+  : Lemma (requires n *. x == d *. z)
+          (ensures n *. (a *. x) == (d *. a) *. z) = ()
+
+#pop-options
+
+let lemma_denotes_intro (p:A.poly) (x:real) (r:expr -> real)
+  : Lemma (requires P.value p r == of_int p.denom *. x)
+          (ensures denotes p x r) = ()
 
 let lemma_denotes_add (p q:A.poly) (x y:real) (r:expr -> real)
   : Lemma (requires denotes p x r /\ denotes q y r)
@@ -102,25 +147,18 @@ let rec lemma_sum (ps:list A.poly) (xs:list real) (r:expr -> real)
     lemma_denotes_add p (P.sum rest) x (numeric_sum tail) r
   | _, _ -> ()
 
-let lemma_scaled_product (a b x y:real)
-  : Lemma ((a *. x) *. (b *. y) == (a *. b) *. (x *. y)) = ()
-
 let lemma_denotes_multiply (p q t:A.poly) (x y:real) (r:expr -> real)
   : Lemma (requires denotes p x r /\ denotes q y r /\ P.multiply p q == Some t)
           (ensures denotes t (x *. y) r) =
+  P.lemma_multiply_denominator p q t;
   P.lemma_multiply p q t r;
-  assert (t.denom == p.denom * q.denom);
-  assert (of_int t.denom == of_int p.denom *. of_int q.denom);
+  P.lemma_of_int_product p.denom q.denom;
   assert (P.value p r == of_int p.denom *. x);
   assert (P.value q r == of_int q.denom *. y);
-  calc (==) {
-    P.value t r;
-    == {} P.value p r *. P.value q r;
-    == {} (of_int p.denom *. x) *. (of_int q.denom *. y);
-    == { lemma_scaled_product (of_int p.denom) (of_int q.denom) x y }
-      (of_int p.denom *. of_int q.denom) *. (x *. y);
-    == {} of_int t.denom *. (x *. y);
-  }
+  lemma_product_value (of_int p.denom) (of_int q.denom) x y
+    (P.value p r) (P.value q r) (P.value t r);
+  assert (P.value t r == of_int t.denom *. (x *. y));
+  lemma_denotes_intro t (x *. y) r
 
 let rec lemma_product (ps:list A.poly) (xs:list real) (p:A.poly) (r:expr -> real)
   : Lemma (requires denotations ps xs r /\ P.product ps == Some p)
@@ -151,13 +189,12 @@ let lemma_subtract (ps:list A.poly) (xs:list real) (p:A.poly) (r:expr -> real)
     lemma_denotes_add q (P.scale (-1) 1 (P.sum rest)) x (0.0R -. numeric_sum tail) r
   | _, _ -> ()
 
-let lemma_scaled_quotient (a b c x y z:real)
-  : Lemma (requires b *. y == c /\ z *. y == x)
-          (ensures b *. (a *. x) == (c *. a) *. z) = ()
-
-let lemma_negative_quotient (a b c x z:real)
-  : Lemma (requires b *. (a *. x) == (c *. a) *. z)
-          (ensures (0.0R -. b) *. (a *. x) == ((0.0R -. c) *. a) *. z) = ()
+let lemma_denotes_scale (n:int) (d:pos) (p:A.poly) (x z:real) (r:expr -> real)
+  : Lemma (requires denotes p x r /\ of_int n *. x == of_int d *. z)
+          (ensures denotes (P.scale n d p) z r) =
+  P.lemma_scale n d p r;
+  P.lemma_of_int_product d p.denom;
+  lemma_scaled_value (of_int n) (of_int d) (of_int p.denom) x z
 
 let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
   : Lemma (requires denotes p x r /\ denotes q y r /\
@@ -168,21 +205,14 @@ let lemma_divide (p q t:A.poly) (x y z:real) (r:expr -> real)
   assert (of_int q.denom *. y == of_int q.cst);
   assert (~(y == 0.0R));
   assert (z *. y == x);
-  assert (P.value p r == of_int p.denom *. x);
-  lemma_scaled_quotient (of_int p.denom) (of_int q.denom) (of_int q.cst) x y z;
+  lemma_scaled_quotient 1.0R (of_int q.denom) (of_int q.cst) x y z;
   if q.cst > 0 then (
     assert (t == P.scale q.denom q.cst p);
-    P.lemma_scale q.denom q.cst p r;
-    assert (t.denom == q.cst * p.denom);
-    assert (of_int t.denom == of_int q.cst *. of_int p.denom);
-    assert (P.value t r == of_int t.denom *. z))
+    lemma_denotes_scale q.denom q.cst p x z r)
   else (
     assert (t == P.scale (-q.denom) (-q.cst) p);
-    lemma_negative_quotient (of_int p.denom) (of_int q.denom) (of_int q.cst) x z;
-    P.lemma_scale (-q.denom) (-q.cst) p r;
-    assert (t.denom == (-q.cst) * p.denom);
-    assert (of_int t.denom == (0.0R -. of_int q.cst) *. of_int p.denom);
-    assert (P.value t r == of_int t.denom *. z))
+    lemma_negative_quotient 1.0R (of_int q.denom) (of_int q.cst) x z;
+    lemma_denotes_scale (-q.denom) (-q.cst) p x z r)
 
 #push-options "--fuel 4"
 

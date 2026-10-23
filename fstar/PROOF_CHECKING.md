@@ -44,6 +44,7 @@ of all imports.
 | Rewrite verification | [`Z3PatternMatchedProofChecker.fst`](Z3PatternMatchedProofChecker.fst) recognizes rewrite schemas and proves matching leaves sound; unmatched leaves can be collected as remaining obligations. |
 | Rewrite synthesis | [`Z3ArrayEmbed.fst`](Z3ArrayEmbed.fst), [`Z3SeqEmbed.fst`](Z3SeqEmbed.fst), [`Z3BoolEmbed.fst`](Z3BoolEmbed.fst), [`Z3BvEmbed.fst`](Z3BvEmbed.fst), and [`Z3CoreEmbed.fst`](Z3CoreEmbed.fst) compute rewritten expressions via `apply_lemma_x`, `apply_lemmas`, and `is_rewrite`. This complements verification of a supplied expression pair. |
 | Clausal/resolution calculus | [`Z3ResolutionProofTheory.fst`](Z3ResolutionProofTheory.fst) embeds equational proofs via `REq` and adds propositional/clausal rules, hypotheses, lemmas, and explicit trusted obligations. [`Z3ResolutionProofCheckerTests.fst`](Z3ResolutionProofCheckerTests.fst) exercises this calculus. |
+| Clause-trail elaboration | [`Z3ClauseProof.fst`](Z3ClauseProof.fst) performs reverse unit propagation over active clauses and emits ordinary hypothesis, unit-resolution, and lemma steps. The existing document kernel checks these steps; literal IDs and propagation results are not trusted. Deletions remove one matching active clause. [`Z3ClauseProofTests.fst`](Z3ClauseProofTests.fst) covers positive and negative elaborations. |
 | Full-DAG kernel | [`Z3UnifiedProof.fst`](Z3UnifiedProof.fst) uses checked premise judgments rather than synthetic rewrite/trusted leaves in the legacy recursive proof types. Supporting modules include [`Z3ObservationalEquality.fst`](Z3ObservationalEquality.fst), [`Z3Commutativity.fst`](Z3Commutativity.fst), [`Z3BooleanRewrite.fst`](Z3BooleanRewrite.fst), and [`Z3ArrayLemma.fst`](Z3ArrayLemma.fst). Observational equality is a separate judgment, not object-language equality. |
 | Destructive equality resolution | [`Z3QuantifierDer.fst`](Z3QuantifierDer.fst) verifies guarded `forall`/`exists` variable elimination, with an occurs check, binding-sort checks, and capture-safe substitution. Closed original input facts may be used in binder certificates because their truth is environment-independent; definition expansion is applied consistently to parent conclusions and hidden certificates. |
 | Skolemization | [`Z3Skolemization.fst`](Z3Skolemization.fst) represents each binding block by a joint Hilbert-choice tuple and its fresh function symbols by tuple coordinates. It verifies substitution, dependencies, acyclic interpretation extension, and preservation of fresh original inputs. The unified kernel checks `sk` observations in this chosen interpretation, not as arbitrary fixed-model equalities; choice and the existing semantic-model contract remain explicit hypotheses. |
@@ -54,6 +55,7 @@ of all imports.
 | Imperative checking | [`Z3PulseProofChecker.fst`](Z3PulseProofChecker.fst) and [`Z3PulseJustificationChecker.fst`](Z3PulseJustificationChecker.fst) implement equational and justification specifications in Pulse, including verified heap mutation and traversal counts; [`Z3PulseProofCheckerTests.fst`](Z3PulseProofCheckerTests.fst) includes acceptance/rejection examples. |
 | LRA certificates | [`Z3LraFarkasTheory.fst`](Z3LraFarkasTheory.fst), [`Z3PulseLraChecker.fst`](Z3PulseLraChecker.fst), [`Z3PulseLraCheckerTests.fst`](Z3PulseLraCheckerTests.fst), and [`Z3PulseLraCheckerParsed.fst`](Z3PulseLraCheckerParsed.fst) provide a separate Farkas-certificate theory/checker path. |
 | Integrated arithmetic certificates | [`Z3LinearArithmeticTheory.fst`](Z3LinearArithmeticTheory.fst), [`Z3LinearArithmeticAst.fst`](Z3LinearArithmeticAst.fst), and [`Z3LinearArithmeticEmbed.fst`](Z3LinearArithmeticEmbed.fst) provide exact polynomial operations, certificate checking, and the AST semantic bridge used by the unified kernel. |
+| Integer division | [`Z3IntegerDivision.fst`](Z3IntegerDivision.fst) checks guarded quotient/remainder identities, remainder bounds, and common-factor cancellation with positive numeral divisors. Native integer `div` and `mod` have distinct interpreted tags. Soundness assumes their standard nonzero-divisor semantics; division by zero remains unspecified. [`Z3ArithmeticRewrite.fst`](Z3ArithmeticRewrite.fst) also checks binary-sum product expansion over integers and reals. |
 | Gomory cuts | [`Z3LpGomory.fst`](Z3LpGomory.fst) reconstructs integer-split candidates from native LP row/bound data and requires both branches to derive the actual cut through the existing Farkas checker. Split exhaustiveness follows from integer semantics; no LP row, bound metadata, or foreign checker verdict is assumed. |
 | Typed proof documents | [`Z3ProofDocument.fst`](Z3ProofDocument.fst) performs transport-independent definition, scope, input, and topological validation; [`Z3ProofIndex.fst`](Z3ProofIndex.fst) supplies persistent caches. |
 | Native Z3 integration | [`Z3Native.fsti`](Z3Native.fsti) and [`ocaml_runtime/Z3Native.ml`](ocaml_runtime/Z3Native.ml) expose foreign API views; [`Z3NativeProof.fst`](Z3NativeProof.fst) marshals expressions and proof DAGs directly into checker datatypes. |
@@ -131,6 +133,31 @@ preserving push/pop, assumptions, and queries. Certification reports are
 SMT-LIB comments, not replacements for the solver's result; only
 `proof-check ACCEPT` is an obligation-free check. See the
 [interactive protocol](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session).
+
+### Clausal SMT search proofs
+
+With `proof=true`, set `smt.clause_proof=true` before initializing SMT
+search to replace learned-clause proof DAG reconstruction with a typed
+`proof-trail` of additions and deletions. The default is standard proofs.
+Preprocessing proofs and local theory certificates remain enabled; this is
+not an option to disable all proof AST allocation. Changing modes on an
+already initialized incremental solver requires resetting it first.
+
+Run `checker --clause-proofs` (also supported with `--interactive`) to select
+this producer mode. Input and theory additions carry ordinary certificates;
+learned clauses without certificates must pass reverse unit propagation.
+The elaborator discharges the negated target literals and prunes unused
+history before checking the ordinary document. Original assertion membership,
+root closure, and all selected inference steps are still checked. Missing
+or unsupported theory certificates cannot produce an obligation-free
+`ACCEPT`; they remain explicit obligations or fail checking.
+
+Resolution recognizes `true` and `false` as complementary literals as well
+as explicit negation. The semantic proofs require the standard Boolean
+constant interpretations. Native `true-axiom` leaves are checked as
+tautologies, not accepted solely because of their rule name. These
+extensions do not certify arbitrary NLSAT assumptions or nonlinear theory
+lemmas: unsupported arithmetic inferences retain their obligations.
 
 [`tools/test_native_checker.py`](tools/test_native_checker.py) and
 [`tools/test_native_bridge.ml`](tools/test_native_bridge.ml) exercise the

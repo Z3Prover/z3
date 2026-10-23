@@ -1,5 +1,43 @@
 # Standalone OCaml proof-checker executable
 
+## Clausal search proof mode
+
+`checker --clause-proofs` enables `smt.clause_proof=true` alongside
+`proof=true`; it is available in batch and interactive modes. Standard
+proofs remain the default. Search records typed clause additions/deletions
+instead of reconstructing learned-clause proof DAGs. Preprocessing and
+local theory certificates still use standard proof nodes.
+Theory propagation certificates are logged when the assignment is made,
+so subsequent learned clauses can use them even before the final conflict.
+
+Each event's clause uses an explicit outer `or`, including unary `or` for
+a unit literal. This preserves disjunction-valued Boolean literals instead
+of confusing a unit `(or (or p q))` with a two-literal clause `(or p q)`.
+The bridge separates this literal list from the certificate's conclusion.
+
+`Z3NativeProof.fst` decodes `proof-trail` events. `Z3ClauseProof.fst`
+maintains an active clause database, processes deletions, and elaborates
+uncertified learned clauses using reverse unit propagation. The output
+consists only of existing hypothesis, unit-resolution, and discharged-lemma
+rules. The ordinary kernel rechecks the resulting formulas and premises;
+there is no new trusted RUP rule. Unsupported theory evidence remains a
+pending obligation, not an accepted certificate. User scopes restore the
+producer's trail when popped, and the checker starts a fresh database for
+each proof.
+Root propagation is cached between additions and invalidated when a clause
+is removed. Duplicate clauses share an occurrence index but retain copy
+counts, so deleting one copy does not remove the others. Fingerprints only
+select candidates; exact literal comparisons decide equality.
+
+RUP elaboration can take longer than checking a standard proof DAG.
+`--timeout-ms` bounds solving, not elaboration or checking; use `--stats`
+to distinguish their costs.
+
+Set the solver option before initialization, or reset the incremental solver
+before changing proof modes. `--clause-proofs` is restored after interactive
+`reset`. On Windows, `build_ocaml_checker.ps1 -WslDistribution Ubuntu`
+selects the checker build/test distribution without changing the WSL default.
+
 ## QF_BV rewrite identities (2026-10-21)
 
 The 25 QF_BV inputs from workflow run `39507298591` were replayed locally

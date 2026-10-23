@@ -1027,10 +1027,12 @@ let lemma_isolate_equality (i:interpretation value) (rho:env value)
       lemma_literal i rho project width (U.ones width);
       lemma_literal_shape width (U.ones width);
       lemma_binary_shape width op_mul n y;
-      (match product with App h args -> lemma_operation i rho project h args width op_mul | _ -> ());
+      lemma_binary_value i rho project width op_mul n y;
       lemma_word i rho project width product;
+      assert (project width (eval i product rho) ==
+        U.mul_mod (U.ones width) (project width (eval i y rho)));
       lemma_binary_shape width op_add z product;
-      (match difference with App h args -> lemma_operation i rho project h args width op_add | _ -> ());
+      lemma_binary_value i rho project width op_add z product;
       lemma_isolate_words width (project width (eval i x rho))
         (project width (eval i y rho)) (project width (eval i z rho));
       assert ((eval i (App g [x; y]) rho == eval i z rho) <==>

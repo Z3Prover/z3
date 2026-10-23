@@ -76,6 +76,8 @@ let rec lemma_append (#a:eqtype) (xs ys:list (int & a)) (rho:a -> real)
           (decreases xs) =
   match xs with [] -> () | _ :: rest -> lemma_append rest ys rho
 
+#push-options "--using_facts_from 'Prims FStar.Real' --fuel 0 --ifuel 0 --smtencoding.nl_arith_repr native"
+
 let lemma_of_int_product (n m:int)
   : Lemma (of_int (n * m) == of_int n *. of_int m) = ()
 
@@ -88,6 +90,8 @@ let lemma_scale_step (n c x tail:real)
 let lemma_add_step (a b c d x y:real)
   : Lemma ((a *. c +. b *. d) +. (a *. x +. b *. y) ==
            a *. (c +. x) +. b *. (d +. y)) = ()
+
+#pop-options
 
 let rec lemma_scale_monomials (#a:eqtype) (n:int) (ms:list (int & a)) (rho:a -> real)
   : Lemma (monomial_value (L.map (fun (c, v) -> (n * c, v)) ms) rho ==
@@ -143,6 +147,11 @@ let rec lemma_all_zero (#a:eqtype) (ms:list (int & a)) (rho:a -> real)
   : Lemma (requires all_zero ms) (ensures monomial_value ms rho == 0.0R)
           (decreases ms) =
   match ms with [] -> () | _ :: rest -> lemma_all_zero rest rho
+
+let lemma_multiply_denominator (#a:eqtype) (p q r:polynomial a)
+  : Lemma (requires multiply p q == Some r)
+          (ensures r.denom == p.denom * q.denom) =
+  if all_zero p.mono then () else ()
 
 let lemma_multiply (#a:eqtype) (p q r:polynomial a) (rho:a -> real)
   : Lemma (requires multiply p q == Some r)

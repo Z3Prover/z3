@@ -197,7 +197,7 @@ Abstract:
   BOOL_  (up_persist_clauses,                      "up.persist_clauses",                      false,                    "replay propagated clauses below the levels they are asserted") \
   BOOL_  (array_weak,                              "array.weak",                              false,                    "weak array theory") \
   BOOL_  (array_extensional,                       "array.extensional",                       true,                     "extensional array theory") \
-  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof") \
+  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof; with proof=true, replace learned-clause proof DAGs by a clause trail") \
   UINT_  (dack,                                    "dack",                                    1,                        "0 - disable dynamic ackermannization, 1 - expand Leibniz's axiom if a congruence is the root of a conflict, 2 - expand Leibniz's axiom if a congruence is used during conflict resolution") \
   BOOL_  (dack_eq,                                 "dack.eq",                                 false,                    "enable dynamic ackermannization for transitivity of equalities") \
   DOUBLE_(dack_factor,                             "dack.factor",                             0.1,                      "number of instance per conflict") \

@@ -799,10 +799,10 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
     case PR_DEMODULATION:                 return mk_proof_decl("demodulation", k, num_parents, m_demodulation_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
-    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
-    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
-    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decl);
-    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decl);
+    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decls);
+    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decls);
+    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decls);
+    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decls);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del", k, num_parents, m_redundant_del_decl);
     case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
     default:
@@ -922,10 +922,10 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_iff_oeq_decl);
     DEC_REF(m_skolemize_decl);
     DEC_REF(m_mp_oeq_decl);
-    DEC_REF(m_assumption_add_decl);
-    DEC_REF(m_lemma_add_decl);
-    DEC_REF(m_th_assumption_add_decl);
-    DEC_REF(m_th_lemma_add_decl);
+    DEC_ARRAY_REF(m_assumption_add_decls);
+    DEC_ARRAY_REF(m_lemma_add_decls);
+    DEC_ARRAY_REF(m_th_assumption_add_decls);
+    DEC_ARRAY_REF(m_th_lemma_add_decls);
     DEC_REF(m_redundant_del_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);

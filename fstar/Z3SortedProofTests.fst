@@ -10,6 +10,7 @@ module U = Z3UnifiedProof
 module P = Z3ProofDocument
 module R = Z3ResolutionProofTheory
 module BR = Z3BooleanRewrite
+module Tac = FStar.Tactics.V2
 
 let box = BaseSort "Box"
 let integer = BaseSort "Int"
@@ -116,16 +117,31 @@ let rec wide_clause (n:nat) : Tot (list expr) (decreases n) =
 
 let shared = disjunction (wide_clause 14)
 
+let conditional_term_normalizes ()
+  : Lemma (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y) =
+  assert_norm (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y)
+
+let shared_boolean_fact_propagates ()
+  : Lemma (DT.boolean_consequence
+    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x])) =
+  assert_norm (DT.boolean_consequence
+    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]))
+
+let unrelated_boolean_fact_is_rejected ()
+  : Lemma (not (DT.boolean_consequence [shared] (App is_empty [x]))) =
+  assert (not (DT.boolean_consequence [shared] (App is_empty [x]))) by
+    (Tac.norm [nbe; delta; iota; zeta; primops];
+     Tac.trivial ())
+
 let conditional_and_shared_boolean_facts ()
   : Lemma (ensures DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y /\
                    DT.boolean_consequence
                      [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]) /\
                    not (DT.boolean_consequence [shared] (App is_empty [x])))
   =
-  assert_norm (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y);
-  assert_norm (DT.boolean_consequence
-    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]));
-  assert_norm (not (DT.boolean_consequence [shared] (App is_empty [x])))
+  conditional_term_normalizes ();
+  shared_boolean_fact_propagates ();
+  unrelated_boolean_fact_is_rejected ()
 
 let direct_resolution_checks_actual_units ()
   : Lemma (ensures
