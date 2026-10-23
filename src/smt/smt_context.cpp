@@ -1938,15 +1938,18 @@ namespace smt {
             return true;
         switch (m_fparams.m_phase_selection) {
         case PS_THEORY:
-            if (m_phase_cache_on && d.m_phase_available) {
-                return m_bdata[var].m_phase;
-            }
-            if (!m_phase_cache_on && d.is_theory_atom()) {
+            // A theory atom takes the phase that holds in the current theory model, so that
+            // the decision does not disturb the model (for arithmetic: no pivots, no conflict).
+            // Other variables use their saved phase.
+            if (d.is_theory_atom()) {
                 theory * th = m_theories.get_plugin(d.get_theory());
                 lbool th_phase = th->get_phase(var);
                 if (th_phase != l_undef) {
                     return th_phase == l_true;
                 }
+            }
+            if (d.m_phase_available) {
+                return m_bdata[var].m_phase;
             }
             if (track_occs()) {
                 if (m_lit_occs[l.index()] == 0) {
