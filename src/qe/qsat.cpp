@@ -72,6 +72,9 @@ namespace qe {
     }
 
     max_level pred_abs::compute_level(app* e) {
+        // The pointer-keyed cache must keep intermediate projections alive too.
+        if (!m_elevel.contains(e))
+            m_trail.push_back(e);
         unsigned sz0 = todo.size();
         todo.push_back(e);        
         while (sz0 != todo.size()) {
@@ -599,7 +602,8 @@ namespace qe {
     class qsat : public tactic {
         
         struct stats {
-            unsigned m_num_rounds;        
+            unsigned m_num_rounds;
+            unsigned m_num_recursive_projections;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };        
@@ -626,6 +630,7 @@ namespace qe {
         model_ref                  m_model_save;
         expr_ref                   m_gt;
         opt::inf_eps               m_value_save;
+        bool                       m_recursive_backjump;
 
         
         /**
@@ -936,11 +941,29 @@ namespace qe {
             get_vars(m_level-1);
             SASSERT(validate_project(mdl, core));
             mdl.set_inline();
-            m_mbp(force_elim(), m_avars, mdl, core);
+            unsigned projection_level = m_level - 1;
+            while (true) {
+                check_cancel();
+                m_mbp(force_elim(), m_avars, mdl, core);
+                for (app* v : m_avars)
+                    m_pred_abs.ensure_expr_level(v, m_level - 1);
+                m_free_vars.append(m_avars);
+                fml = negate_core(core);
+                if (!m_recursive_backjump || m_mode != qsat_sat || !m_avars.empty())
+                    break;
+                max_level lvl = m_pred_abs.compute_level(to_app(fml));
+                unsigned target = is_exists(m_level) ? lvl.m_ex : lvl.m_fa;
+                if (target == UINT_MAX)
+                    target = m_level % 2;
+                if (lvl.max() == UINT_MAX || lvl.max() <= target || target + 1 >= projection_level)
+                    break;
+                // Project the skipped opponent blocks too, rather than learning
+                // a clause whose free variables belong to a later level.
+                projection_level = target + 1;
+                get_vars(projection_level);
+                ++m_stats.m_num_recursive_projections;
+            }
             TRACE(qe, tout << "aux vars: " << m_avars << "\n";);
-            for (app* v : m_avars) m_pred_abs.ensure_expr_level(v, m_level-1);
-            m_free_vars.append(m_avars);
-            fml = negate_core(core);
             unsigned num_scopes = 0;
             
             max_level level;
@@ -1240,7 +1263,8 @@ namespace qe {
         
         qsat(ast_manager& m, params_ref const& p, qsat_mode mode):
             m(m),
-            m_mbp(m),
+            m_params(p),
+            m_mbp(m, p),
             m_fa(m),
             m_ex(m),
             m_pred_abs(m),
@@ -1253,12 +1277,9 @@ namespace qe {
             m_objective(nullptr),
             m_value(nullptr),
             m_was_sat(false),
-            m_gt(m)
-            {
-                params_ref q = params_ref();
-                q.set_bool("use_qel", false);
-                m_mbp.updt_params(q);
-            }
+            m_gt(m),
+            m_recursive_backjump(p.get_bool("qsat_recursive_backjump", false))
+            {}
         
         ~qsat() override {
             clear();
@@ -1267,9 +1288,16 @@ namespace qe {
         char const* name() const override { return "qsat"; }
         
         void updt_params(params_ref const & p) override {
+            m_params.append(p);
+            m_mbp.updt_params(p);
+            m_recursive_backjump = m_params.get_bool("qsat_recursive_backjump", false);
         }
         
         void collect_param_descrs(param_descrs & r) override {
+            r.insert("qsat_recursive_backjump", CPK_BOOL,
+                     "recursively project skipped opponent blocks before QSAT backtracking", "false");
+            r.insert("qsat_use_qel", CPK_BOOL,
+                     "use egraph based QEL for QSAT model-based projection", "true");
         }
         
         void operator()(/* in */  goal_ref const & in, 
@@ -1365,6 +1393,7 @@ namespace qe {
             m_ex.collect_statistics(st);        
             m_pred_abs.collect_statistics(st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
+            st.update("qsat recursive projections", m_stats.m_num_recursive_projections);
             m_pred_abs.collect_statistics(st);
         }
         
@@ -1516,7 +1545,6 @@ tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {
 tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {   
     return alloc(qe::qsat, m, p, qe::qsat_qe_rec);
 }
-
 
 
 
