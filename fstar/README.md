@@ -53,6 +53,54 @@ The Windows installation is local to the build directory. The native
 OCaml producer is separately built and installed in WSL, then linked
 from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
 
+### Standalone Cherry checker
+
+The native checker also has a **Cherry-generated C kernel and C++ frontend**,
+with no OCaml runtime or OCaml bindings. It extracts the same
+`Z3NativeProof` marshaler, document checker, and sort-indexed datatype checker.
+The handwritten C++ foreign adapter supplies Z3 handles and candidate proof
+metadata; it cannot construct checked facts. Both executables link static Z3
+and solve, marshal, and check in process. Their input options, incremental
+protocol, diagnostics, and exit codes are the same.
+
+Cherry currently requires **Linux x86-64 or AArch64, GCC/G++ 15+**, and a
+Cherry-capable F*. CI pins **nightly-2026-10-23**, commit
+`9f0182e8b179f95e8dfcdfcd7680e27741c793b1`, separately from the OCaml verifier.
+`tools/checker_modules.json` supplies the dependency-ordered shared module and
+test lists to both build paths. Every source is verified before extraction;
+the installed checkout Z3 is explicitly selected as the SMT backend.
+
+To add Cherry to the existing Windows/WSL or Linux build, pass
+`-BuildCherry -CherryFstarExe <Linux-path-to-fstar.exe>` to
+`tools/build_ocaml_checker.ps1`. On Windows, this is a WSL executable path;
+use `-WslDistribution Ubuntu` when necessary. The second executable is
+`<WslBuildDir>/cherry/checker`. `-RunTests` exercises both backends.
+
+A Cherry-only Linux build does not require opam or OCaml. After installing
+static Z3 from this checkout, run:
+
+```sh
+python3 fstar/tools/build_cherry_checker.py \
+  --fstar /path/to/fstar/bin/fstar.exe \
+  --z3-install /path/to/z3/install \
+  --build-dir /path/to/cherry-checker --run-tests
+/path/to/cherry-checker/checker --stats input.smt2
+```
+
+The installed prefix must contain `bin/z3`, `include/z3.h`, and `lib/libz3.a`.
+Use `--sanitize` for an ASan/UBSan build. The generated kernel retains Cherry
+debug checks and guaranteed tail calls; neither verification nor runtime
+safety checks are disabled. `Z3CherryTests` and native bridge tests exercise
+accepted, unsupported, and malformed proof documents, including mismatched
+original assertions. The shared CLI suite covers batch and interactive
+checking, clause proofs, datatypes, arrays, bit-vectors, exact arithmetic,
+timeouts, diagnostics, and input errors.
+
+The datatype shape witness uses a non-erased Boolean carrier to avoid a
+reproduced nightly compiler bug in reference-counting unit-valued closures,
+reported as **FStarLang/FStar#4783**. The inhabitance algorithm and all its
+proof obligations remain verified.
+
 ### GitHub Actions regression report
 
 **Pulse verification and native checker regressions**
@@ -61,12 +109,30 @@ pushes and pull requests changing `fstar/**`, and can also be dispatched
 manually on a branch containing the checker. Automatic runs use the
 default dispatch settings. It builds and installs that checkout's Z3, verifies the Pulse
 modules and their tests, extracts and links the native F* checker, and
-runs its bridge/CLI self-tests. The Linux path uses the same
-`tools/build_ocaml_checker.ps1` module lists as the Windows/WSL build,
-with pinned F* `v2026.09.27` and OCaml `5.3.0`.
+runs both executables' bridge/CLI self-tests. The Linux path uses the same
+`tools/checker_modules.json` lists as the Windows/WSL build,
+with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
+and the separately pinned nightly and GCC/G++ 15 for Cherry.
 F* and enabled OCaml compiler warnings fail the build. Extracted constructor
 projectors receive explicit rejecting out-of-domain arms using OCaml's
 AST, without suppressing partial-match warnings or changing checker rules.
+
+Successful builds upload **`pulse-checker-ocaml-linux-x86_64`** and
+**`pulse-checker-cherry-linux-x86_64`** before running the corpora. Each
+artifact contains a checksummed `.tar.gz` with an executable `checker`,
+build/toolchain metadata, runtime-library dependencies, licenses, and usage
+instructions. Extract the tarball to preserve executable permissions.
+Neither executable needs a build-time F* or OCaml installation, an external
+`z3`, or Python to run. Standard Linux shared libraries are still required;
+the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
+with a clean environment. A second job downloads the Cherry package, reruns
+the CLI suite without installing build toolchains, then replays the same
+z3test commit and the **identical 225/310 sampled inputs** from the OCaml
+report artifact. It does not download the Zenodo archives again.
+Cherry coverage and timing reports are published separately.
+These executables run the extracted F* document-checker kernel; the
+in-memory Pulse checker regressions are also verified during the build,
+not substituted for the document-checker CLI.
 
 The first default corpus is every `.smt2` file recursively under
 `Z3Prover/z3test`'s `regressions/proofs`, including the optional larger

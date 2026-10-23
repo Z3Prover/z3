@@ -1779,7 +1779,7 @@ let concrete_datatype_model () =
    | Some child -> require (child = nil_value && Z.lt (V.size child) (V.size branch_value))
        "recursive datatype subterms did not have smaller finite size"
    | None -> failwith "missing recursive datatype subterm");
-  let convert _ () = false in
+  let convert _ _ = false in
   let leaf_bool, fork_bool, branch_bool, nil_bool, cons_bool =
     V.map_base convert leaf_value, V.map_base convert fork_value,
     V.map_base convert branch_value, V.map_base convert nil_value,

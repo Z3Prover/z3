@@ -59,12 +59,17 @@ jobs:
   build-test-report:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    outputs:
+      build_outcome: ${{ steps.build.outcome }}
+      corpus_commit: ${{ steps.corpus_commit.outputs.commit }}
     defaults:
       run:
         shell: bash
     env:
       FSTAR_VERSION: v2026.09.27
       FSTAR_SHA256: cafbbb8960efeb26f5d30bc447b61ab8a507968948507a2580585afd1397781d
+      CHERRY_FSTAR_VERSION: nightly-2026-10-23
+      CHERRY_FSTAR_SHA256: 396bf9063bf9261b2e353d725c63666cda68e0d17c5d787ebe3d9a63913f7ec7
       OPAM_SWITCH: fstar53
       SMTLIB_SAMPLE_SEED: ${{ inputs.smtlib_sample_seed || github.run_id }}
     steps:
@@ -94,6 +99,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Record the exact proof corpus revision
+        id: corpus_commit
+        run: echo "commit=$(git -C z3test rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Install benchmark sampler dependencies
         timeout-minutes: 5
         run: |
@@ -107,13 +116,16 @@ jobs:
         id: harness
         run: '"$BENCHMARK_PYTHON" -m unittest discover -s fstar/tools -p "test_checker_*.py" -v'
 
-      - name: Install pinned F* and OCaml toolchains
+      - name: Install pinned F*, Cherry, and OCaml toolchains
         id: toolchain
         timeout-minutes: 30
         run: |
           set -euo pipefail
           sudo apt-get update -y
-          sudo apt-get install -y cmake g++ libgmp-dev opam pkg-config python3 curl
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
+          sudo apt-get update -y
+          sudo apt-get install -y cmake ninja-build g++ gcc-15 g++-15 libgmp-dev opam pkg-config python3 curl
           archive="$RUNNER_TEMP/fstar.tar.gz"
           curl --fail --location --retry 3 \
             "https://github.com/FStarLang/FStar/releases/download/$FSTAR_VERSION/fstar-$FSTAR_VERSION-Linux-x86_64.tar.gz" \
@@ -122,12 +134,22 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fstar-toolchain"
           tar -xzf "$archive" -C "$RUNNER_TEMP/fstar-toolchain" --strip-components=2
           "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" --version
+          cherry_archive="$RUNNER_TEMP/fstar-cherry.tar.gz"
+          curl --fail --location --retry 3 \
+            "https://github.com/FStarLang/FStar-nightly/releases/download/$CHERRY_FSTAR_VERSION/fstar-Linux-x86_64.tar.gz" \
+            --output "$cherry_archive"
+          printf '%s  %s\n' "$CHERRY_FSTAR_SHA256" "$cherry_archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/fstar-cherry-toolchain"
+          tar -xzf "$cherry_archive" -C "$RUNNER_TEMP/fstar-cherry-toolchain" --strip-components=1
+          "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" --version
+          gcc-15 --version
+          g++-15 --version
           opam init --disable-sandboxing --bare --yes
           opam switch create "$OPAM_SWITCH" ocaml-base-compiler.5.3.0 --yes
           opam install --switch="$OPAM_SWITCH" ocamlfind zarith --yes
           opam exec --switch="$OPAM_SWITCH" -- ocamlc -version
 
-      - name: Build Z3, verify Pulse, extract and test the native checker
+      - name: Build Z3, verify Pulse, and test both standalone checkers
         id: build
         timeout-minutes: 120
         run: |
@@ -140,7 +162,8 @@ jobs:
             -Z3InstallDir "$RUNNER_TEMP/checker-z3-install" \
             -CacheDir "$RUNNER_TEMP/checker-fstar-cache" \
             -WslBuildDir "$RUNNER_TEMP/native-checker" \
-            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -RunTests \
+            -OpamSwitch "$OPAM_SWITCH" -BuildJobs 4 -RunTests -BuildCherry \
+            -CherryFstarExe "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
             2>&1 | tee "$REPORT_DIR/build.log"; then
             status=0
           else
@@ -149,6 +172,37 @@ jobs:
           printf '{"wall_seconds":%d,"exit_code":%d,"fstar_version":"%s","ocaml_version":"5.3.0"}\n' \
             "$((SECONDS - start))" "$status" "$FSTAR_VERSION" > "$REPORT_DIR/build.json"
           exit "$status"
+
+      - name: Package and smoke-test the standalone checker artifacts
+        run: |
+          set -euo pipefail
+          eval "$(opam env --switch="$OPAM_SWITCH")"
+          python3 fstar/tools/package_checker.py \
+            --checker "$RUNNER_TEMP/native-checker/checker" --backend ocaml \
+            --fstar "$RUNNER_TEMP/fstar-toolchain/bin/fstar.exe" \
+            --extra-license "$(opam var doc)/ocaml/LICENSE" \
+            --extra-license "$(opam var prefix)/.opam-switch/sources/zarith.$(opam var zarith:version)/LICENSE" \
+            --output-dir "$RUNNER_TEMP/checker-artifacts/ocaml"
+          python3 fstar/tools/package_checker.py \
+            --checker "$RUNNER_TEMP/native-checker/cherry/checker" --backend cherry \
+            --fstar "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" \
+            --output-dir "$RUNNER_TEMP/checker-artifacts/cherry"
+
+      - name: Upload standalone OCaml checker
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-ocaml-linux-x86_64
+          path: ${{ runner.temp }}/checker-artifacts/ocaml/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload standalone Cherry checker
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-cherry-linux-x86_64
+          path: ${{ runner.temp }}/checker-artifacts/cherry/*
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Run native checker on the proof corpus
         id: regressions
@@ -291,5 +345,127 @@ jobs:
         with:
           name: pulse-checker-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.REPORT_DIR }}
+          include-hidden-files: true
           if-no-files-found: error
+          retention-days: 14
+
+  cherry-regressions:
+    needs: build-test-report
+    if: ${{ !cancelled() && needs.build-test-report.outputs.build_outcome == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Z3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout the same z3test revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Z3Prover/z3test
+          ref: ${{ needs.build-test-report.outputs.corpus_commit }}
+          path: z3test
+          persist-credentials: false
+
+      - name: Download standalone Cherry checker
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-cherry-linux-x86_64
+          path: ${{ runner.temp }}/cherry-artifact
+
+      - name: Download the original sampled inputs and reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ocaml-report
+
+      - name: Unpack and test the downloadable checker without build toolchains
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/cherry-artifact"
+          sha256sum --check pulse-checker-cherry-linux-x86_64.tar.gz.sha256
+          tar -xzf pulse-checker-cherry-linux-x86_64.tar.gz
+          checker="$PWD/pulse-checker-cherry-linux-x86_64/checker"
+          printf '(assert false)\n' | env -i PATH=/usr/bin:/bin "$checker"
+          Z3_FSTAR_CHECKER="$checker" python3 "$GITHUB_WORKSPACE/fstar/tools/test_native_checker.py"
+          echo "CHECKER=$checker" >> "$GITHUB_ENV"
+          echo "REPORT_DIR=$RUNNER_TEMP/cherry-report" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/cherry-report"
+
+      - name: Replay the proof corpus and both identical SMT-LIB samples with Cherry
+        id: regressions
+        timeout-minutes: 175
+        env:
+          CORPUS_PATH: ${{ inputs.corpus_path }}
+          MAX_CASES: ${{ inputs.max_cases }}
+          SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
+          CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
+          TOTAL_TIMEOUT_SECONDS: ${{ inputs.total_timeout_seconds }}
+          SMTLIB_TIMEOUT_SECONDS: ${{ inputs.smtlib_total_timeout_seconds }}
+          EXTENDED_TIMEOUT_SECONDS: ${{ inputs.extended_smtlib_total_timeout_seconds }}
+        run: |
+          set -euo pipefail
+          status=0
+          python3 fstar/tools/run_checker_regressions.py run \
+            --checker "$CHECKER" --corpus "$GITHUB_WORKSPACE/z3test" \
+            --corpus-path "${CORPUS_PATH:-regressions/proofs}" \
+            --corpus-commit "$(git -C z3test rev-parse HEAD)" --max-cases "${MAX_CASES:-0}" \
+            --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+            --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
+            --memory-limit-mb 2048 --output "$REPORT_DIR" || status=1
+          for cohort in smtlib-sample smtlib-extended; do
+            count=225
+            budget="${SMTLIB_TIMEOUT_SECONDS:-3600}"
+            commit="$(git -C z3test rev-parse HEAD)"
+            if [[ "$cohort" == smtlib-extended ]]; then
+              count=310
+              budget="${EXTENDED_TIMEOUT_SECONDS:-3600}"
+              commit="$GITHUB_SHA"
+            fi
+            python3 fstar/tools/run_checker_regressions.py run \
+              --checker "$CHECKER" --corpus "$RUNNER_TEMP/ocaml-report/$cohort/inputs" \
+              --corpus-path . --corpus-commit "$commit" \
+              --manifest "$RUNNER_TEMP/ocaml-report/$cohort/inputs/manifest.json" \
+              --expected-cases "$count" --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+              --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+              --total-timeout-seconds "$budget" --memory-limit-mb 4096 \
+              --output "$REPORT_DIR/$cohort" || status=1
+          done
+          exit "$status"
+
+      - name: Publish Cherry coverage, timings, and diagnostics
+        if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
+        timeout-minutes: 50
+        run: |
+          set -euo pipefail
+          status=0
+          for cohort in proofs smtlib-sample smtlib-extended; do
+            report="$REPORT_DIR/$cohort"
+            corpus="$RUNNER_TEMP/ocaml-report/$cohort/inputs"
+            if [[ "$cohort" == proofs ]]; then
+              report="$REPORT_DIR"
+              corpus="$GITHUB_WORKSPACE/z3test"
+            fi
+            if [[ -f "$report/selection.json" && -f "$report/results.jsonl" ]]; then
+              python3 fstar/tools/run_checker_regressions.py diagnose \
+                --checker "$CHECKER" --corpus "$corpus" --output "$report" \
+                --total-timeout-seconds 900 || status=1
+            fi
+            python3 fstar/tools/run_checker_regressions.py report --output "$report"
+            cat "$report/report.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit "$status"
+
+      - name: Upload Cherry coverage reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pulse-checker-cherry-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-report
+          if-no-files-found: warn
           retention-days: 14

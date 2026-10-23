@@ -1,0 +1,29 @@
+{
+  "modules": [
+    "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
+    "Z3ValueTheory.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3ProofSet.fst",
+    "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
+    "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
+    "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
+    "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
+    "Z3ArrayRewrite.fst", "Z3Definitions.fst", "Z3ScopedModel.fst",
+    "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
+    "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
+    "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst", "Z3IntegerDivision.fst",
+    "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
+    "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
+    "Z3QuantifierDer.fst", "Z3Skolemization.fst",
+    "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3BvWord.fst", "Z3BvOrder.fst", "Z3BvFresh.fst",
+    "Z3BvFreshModel.fst", "Z3DatatypeLemma.fst", "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst",
+    "Z3TheoryNormalize.fst", "Z3UnifiedProof.fst", "Z3ProofDocument.fst", "Z3ClauseProof.fst",
+    "Z3SortedSemantics.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
+    "Z3Native.fsti", "Z3NativeProof.fst"
+  ],
+  "tests": [
+    "Z3ResolutionProofCheckerTests.fst", "Z3ClauseProofTests.fst", "Z3NlaLemmaTests.fst",
+    "Z3DatatypeValueTests.fst", "Z3SortedProofTests.fst", "Z3ScopedModelTests.fst",
+    "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst", "Z3PulseJustificationChecker.fst",
+    "Z3LraFarkasTheory.fst", "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst",
+    "Z3PulseLraCheckerTests.fst"
+  ]
+}
