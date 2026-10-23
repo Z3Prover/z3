@@ -1918,6 +1918,9 @@ public:
 
             switch (check_nla(level)) {
             case FC_DONE:
+                // Nonlinear bound optimization may invalidate integer feasibility.
+                if (!use_nra_model() && lp().has_inf_int())
+                    return FC_CONTINUE;
                 break;
             case FC_CONTINUE:
                 return FC_CONTINUE;

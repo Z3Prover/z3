@@ -183,6 +183,42 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_nonlinear_to_int() {
+    for (char const* input : {
+            "(declare-fun N () Int)\n"
+            "(assert (<= 1 N))\n"
+            "(assert (<= N 3))\n"
+            "(assert (> (- (* (to_real N) (to_real N))"
+            " (* 2.0 (to_real (to_int (/ (* (to_real N) (to_real N)) 2.0))))) 1.0))\n",
+            "(declare-fun N () Int)\n"
+            "(assert (<= 4.0 (to_real N)))\n"
+            "(assert (<= (to_real N) 16.0))\n"
+            "(assert (> (- (* -4.0 (* (to_real N) (to_real N)))"
+            " (* 128.0 (to_real (to_int (/ (* -4.0 (* (to_real N) (to_real N))) 128.0))))) 124.0))\n"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+
+        slv = mk_smt2_solver(m, params_ref(), symbol::null);
+        slv->assert_expr(cmd.assertions()[0]);
+        slv->assert_expr(cmd.assertions()[1]);
+        expr_ref complement(m.mk_not(cmd.assertions()[2]), m);
+        slv->assert_expr(complement);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+        model_ref model;
+        slv->get_model(model);
+        expr_ref value(m);
+        VERIFY(model->eval_expr(complement, value));
+        VERIFY(m.is_true(value));
+    }
+}
+
 static void check_real_power_bounds() {
     for (unsigned seed = 0; seed < 8; ++seed) {
         for (char const* input : {
@@ -215,6 +251,7 @@ void tst_smt_context()
 {
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
+    check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
 

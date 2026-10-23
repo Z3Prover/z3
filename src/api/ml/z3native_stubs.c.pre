@@ -136,8 +136,8 @@ typedef struct {
 /* A context is wrapped to an OCaml value by storing a pointer
    to its associated Z3_context_plus_data instance.
    This instance gets created in mk_context and is deleted
-   together with the Z3 context instance in try_to_delete_context
-   whenever the obj_count field is zero. */
+   together with the Z3 context instance in Z3_context_plus_dec_ref
+   when the last reference is released. */
 typedef Z3_context_plus_data* Z3_context_plus;
 
 Z3_context_plus Z3_context_plus_mk(Z3_context c) {
@@ -159,26 +159,23 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
   return (*cp)->ctx;
 }
 
-void try_to_delete_context(Z3_context_plus cp) {
-  if (cp->obj_count == 0) {
-    /* printf("try_to_delete_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
+void Z3_context_plus_dec_ref(Z3_context_plus cp) {
+  /* Only the finalizer whose atomic decrement reaches zero may delete cp. */
+#ifndef __STDC_NO_ATOMICS__
+  if (atomic_fetch_sub(&cp->obj_count, 1) == 1) {
+#else
+  if (--cp->obj_count == 0) {
+#endif
     Z3_del_context(cp->ctx);
     caml_remove_generational_global_root(&cp->proof_check_exception);
     free(cp->proof_check_report);
     free(cp);
   }
-  /*
-  else if (cp->obj_count > 0)
-    printf("try_to_delete_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
-  else if (cp->obj_count < 0)
-    printf("try_to_delete_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
-  */
 }
 
 void Z3_context_finalize(value v) {
   Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(v);
-  cp->obj_count--;
-  try_to_delete_context(cp);
+  Z3_context_plus_dec_ref(cp);
 }
 
 int Z3_context_compare(value v1, value v2) {
@@ -243,8 +240,7 @@ void Z3_ast_finalize(value v) {
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
   if (ap->p != NULL)
     Z3_dec_ref(ap->cp->ctx, ap->p);
-  ap->cp->obj_count--;
-  try_to_delete_context(ap->cp);
+  Z3_context_plus_dec_ref(ap->cp);
 }
 
 int Z3_ast_compare(value v1, value v2) {
@@ -336,8 +332,7 @@ MK_CTX_OF(ast, 8) // let's say 16 bytes per ast
                                                                         \
   void Z3_ ## X ## _finalize(value v) {                                 \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    pp->cp->obj_count--;                                                \
-    try_to_delete_context(pp->cp);                                      \
+    Z3_context_plus_dec_ref(pp->cp);                                    \
   }                                                                     \
                                                                         \
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
@@ -395,8 +390,7 @@ MK_CTX_OF(ast, 8) // let's say 16 bytes per ast
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
     if (pp->p != NULL)                                                  \
       Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                         \
-    pp->cp->obj_count--;                                                \
-    try_to_delete_context(pp->cp);                                      \
+    Z3_context_plus_dec_ref(pp->cp);                                    \
   }                                                                     \
                                                                         \
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
@@ -586,8 +580,7 @@ static void ml_proof_check_dec_ref(ml_proof_check_ctx* checker) {
     Z3_context_plus cp = checker->cp;
     caml_remove_generational_global_root(&checker->callback);
     free(checker);
-    cp->obj_count--;
-    try_to_delete_context(cp);
+    Z3_context_plus_dec_ref(cp);
   }
 }
 

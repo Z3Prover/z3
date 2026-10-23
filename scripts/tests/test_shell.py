@@ -88,6 +88,93 @@ class TestShellArguments(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("unknown", result.stderr)
 
+    def test_unknown_parameters_with_filename_values(self):
+        (self.root / "input.smt2").write_text("(assert false)\n(check-sat)\n")
+        for parameter in ("solver.unknown_parameter", "pp.unknown_parameter",
+                          "unknown_module.parameter"):
+            for value in ("out.plog.smt2", "out.log", "out.drat", "nested/out.smt2",
+                          str(self.root / "out.smt2")):
+                for before_input in (True, False):
+                    with self.subTest(parameter=parameter, value=value,
+                                      before_input=before_input):
+                        assignment = parameter + "=" + value
+                        arguments = ([assignment, "input.smt2"] if before_input
+                                     else ["input.smt2", assignment])
+                        result = self.run_z3("-smt2", *arguments)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn("unknown", result.stderr)
+                        self.assertIn(parameter, result.stderr)
+                        self.assertNotIn("failed to open file", result.stdout)
+                        self.assertNotIn("unsat", result.stdout)
+                        self.assertFalse((self.root / value).exists())
+
+    def test_solver_proof_log_assignments(self):
+        (self.root / "input.smt2").write_text(
+            "(declare-const x Int)\n(assert (> x 0))\n(check-sat-using smt)\n"
+        )
+        (self.root / "proofs").mkdir()
+        for filename in ("out.plog.smt2", "out.log", "proofs/out.smt2",
+                         str(self.root / "absolute.smt2")):
+            for before_input in (True, False):
+                with self.subTest(filename=filename, before_input=before_input):
+                    proof = self.root / filename
+                    proof.unlink(missing_ok=True)
+                    assignment = "solver.proof.log=" + filename
+                    arguments = ([assignment, "input.smt2"] if before_input
+                                 else ["input.smt2", assignment])
+                    result = self.run_z3("-smt2", *arguments)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.strip(), "sat")
+                    self.assertTrue(proof.is_file(), result.stderr)
+                    self.assertGreater(proof.stat().st_size, 0)
+
+    def test_registered_parameter_before_and_after_input(self):
+        (self.root / "input.smt2").write_text("(assert false)\n(check-sat)\n")
+        for arguments in (("pp.max_width=50", "input.smt2"),
+                          ("input.smt2", "pp.max_width=50")):
+            with self.subTest(arguments=arguments):
+                result = self.run_z3("-smt2", *arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), "unsat")
+
+    def test_explicit_filenames_containing_equals(self):
+        filename = "solver.proof.log=input.smt2"
+        (self.root / filename).write_text("(check-sat)\n")
+        for arguments in (("--", filename), ("-file:" + filename,),
+                          ("./" + filename,)):
+            with self.subTest(arguments=arguments):
+                result = self.run_z3("-smt2", *arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), "sat")
+
+    def test_log_extension_diagnostic(self):
+        (self.root / "input.log").write_text("(check-sat)\n")
+        result = self.run_z3("input.log")
+        self.assertIn("input.log", result.stderr)
+        self.assertIn("API trace", result.stderr)
+        self.assertIn(".log extension", result.stderr)
+        self.assertIn("-smt2", result.stderr)
+
+        result = self.run_z3("-smt2", "input.log")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "sat")
+        self.assertNotIn("API trace", result.stderr)
+
+        result = self.run_z3("-log", "input.log")
+        self.assertNotIn(".log extension", result.stderr)
+
+    def test_api_trace_compatibility(self):
+        (self.root / "trace.log").write_text('M "trace replayed"\n')
+        for arguments in (("trace.log",), ("-log", "trace.log"),
+                          ("warning=false", "trace.log")):
+            with self.subTest(arguments=arguments):
+                result = self.run_z3(*arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("trace replayed", result.stdout)
+                self.assertNotIn("Error", result.stderr)
+                if arguments[0] != "trace.log":
+                    self.assertNotIn("WARNING", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
