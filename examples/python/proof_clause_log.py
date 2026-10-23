@@ -161,7 +161,13 @@ def _dependency_core(text):
 
 
 def trim_clause_log(z3_executable, text, timeout=None):
-    """Reduce large logs with untrusted native dependencies; replay checks every retained step."""
+    """Reduce large logs with untrusted native dependencies; replay checks every retained step.
+
+    Trimming only shortens the replay. When the trimmer reports an error (it
+    rejects an inference it cannot derive by unit propagation) or writes a
+    dependency graph the replay cannot use, the untrimmed log is returned
+    with a warning, and the replay checks every step of it instead.
+    """
     if len(text) < _TRIM_THRESHOLD:
         return text
     with tempfile.TemporaryDirectory(prefix="z3_clause_trim_") as directory:
@@ -173,10 +179,17 @@ def trim_clause_log(z3_executable, text, timeout=None):
         except OSError as error:
             raise ProofExportError("cannot run native proof trimming: %s" % error) from error
         if run.returncode or "(error" in run.stdout:
-            raise ProofExportError("native proof trimming failed: %s" % (run.stderr + run.stdout)[-2000:])
+            warnings.warn("native proof trimming failed, replaying the untrimmed log: %s"
+                          % (run.stderr + run.stdout)[-2000:], RuntimeWarning)
+            return text
         if run.stderr.strip():
             warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
-        return _dependency_core(run.stdout)
+        try:
+            return _dependency_core(run.stdout)
+        except ProofExportError as error:
+            warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
+                          % error, RuntimeWarning)
+            return text
 
 
 def _symbol(token):

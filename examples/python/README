@@ -307,8 +307,13 @@ The exporter follows the final empty clause's dependency graph, checks it for
 missing references and cycles, and replays every retained inference using the
 listed premises and independently proved Boolean gate clauses. These
 dependencies are untrusted hints, not proof rules. Incorrect trimming must
-fail replay or Lean checking. The compact exported DAG keeps every original
-assertion, even if its proof is outside the selected refutation.
+fail replay or Lean checking. Trimming only shortens the replay: when the
+trimmer reports an error (an inference it cannot derive by unit propagation)
+or writes a dependency graph with missing or cyclic references, the exporter
+emits a `RuntimeWarning` naming the failure and replays every step of the
+untrimmed log instead, so the export still succeeds but takes longer. The
+compact exported DAG keeps every original assertion, even if its proof is
+outside the selected refutation.
 
 EUF hints can also contain cc/comm congruence annotations. These are not
 additional assumptions: the exported lemma contains only the actual Boolean

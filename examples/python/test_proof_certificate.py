@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import warnings
 
 import z3
 
@@ -2844,16 +2845,30 @@ class TestClauseLogDependencies(unittest.TestCase):
         with patch.object(proof_clause_log.subprocess, "run", side_effect=AssertionError("native trimming")):
             self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
 
-    def test_trimming_errors_and_diagnostics_are_visible(self):
+    def test_trimming_failures_fall_back_to_the_untrimmed_log_with_a_warning(self):
+        # Trimming only shortens the replay; a trimmer error (an inference it
+        # cannot derive) or an unusable dependency graph leaves the untrimmed
+        # log, which the replay checks step by step, and says so.
         with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
             failed = subprocess.CompletedProcess([], 1, "", "trimmer failed")
             with patch.object(proof_clause_log.subprocess, "run", return_value=failed):
-                with self.assertRaisesRegex(proof_certificate.ProofExportError, "trimmer failed"):
-                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+                with self.assertWarnsRegex(RuntimeWarning, "trimming failed.*trimmer failed"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
+            rejected = subprocess.CompletedProcess(
+                [], 0, '(error "line 3 column 10: proof trimming: the inferred clause 5 is not derivable by '
+                       'unit propagation from the preceding clauses")\n', "")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=rejected):
+                with self.assertWarnsRegex(RuntimeWarning, "not derivable by unit propagation"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
+            cyclic = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 3)"), "")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=cyclic):
+                with self.assertWarnsRegex(RuntimeWarning, "unusable log.*cyclic"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
             warned = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG, "diagnostic")
             with patch.object(proof_clause_log.subprocess, "run", return_value=warned):
                 with self.assertWarnsRegex(RuntimeWarning, "diagnostic"):
-                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+                    core = proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+            self.assertIn("(deps 5 3)", core)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimmed_certificate_replays(self):
@@ -2861,6 +2876,55 @@ class TestClauseLogDependencies(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(_LRA)
         self.assertEqual(certificate["fragment"], "qf_lra")
         self.assertEqual(len(certificate["assertions"]), 4)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_keeps_facts_implied_by_duplicate_binary_clauses(self):
+        # The clause (or (not a) b) is logged twice, as Z3 does when a theory
+        # lemma is re-derived. The trimmer walks the log backwards; removing
+        # the second copy must not unassign b (the first copy still implies
+        # it) nor, through b, the fact u, whose own clause the log deleted
+        # and which the rup step (or (not d) c) needs. Before 2026-10-22 the
+        # trimmer lost both, the probe of that step found no conflict, and the
+        # dependencies it reported were incomplete (z3test hard16.smt2).
+        source = ("(declare-const a Bool)(declare-const b Bool)(declare-const u Bool)"
+                  "(declare-const c Bool)(declare-const d Bool)(declare-const e Bool)"
+                  "(assert a)(assert (or (not a) b))(assert (or (not b) (not a) u))"
+                  "(assert (or (not u) (not d) c (not e)))(assert (or (not u) (not d) c e))"
+                  "(assert d)(assert (not c))")
+        log = """\
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(declare-fun u () Bool)
+(declare-fun c () Bool)
+(declare-fun d () Bool)
+(declare-fun e () Bool)
+(declare-fun rup () Proof)
+(assume a)
+(assume (not a) b)
+(assume (not b) (not a) u)
+(del (not b) (not a) u)
+(infer u rup)
+(assume (not u) (not d) c (not e))
+(assume (not u) (not d) c e)
+(infer (not d) c rup)
+(assume (not a) b)
+(assume d)
+(assume (not c))
+(infer rup)
+"""
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")  # a fallback to the untrimmed log would hide a trimmer defect
+                trimmed = proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log)
+        self.assertNotEqual(trimmed, log)
+        self.assertEqual(trimmed.count("(assume (not a) b"), 1)
+        self.assertIn("(infer (not d) c rup", trimmed)
+        self.assertIn("(assume (not b) (not a) u", trimmed)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertEqual(len(certificate["assertions"]), 7)
 
 
 if __name__ == "__main__":

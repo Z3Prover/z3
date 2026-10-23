@@ -1603,6 +1603,51 @@ valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
 
+### Trimmer: implied literals of duplicate clauses, explicit failure (2026-10-22)
+
+The clause-log exports of z3test's QF_UFLIA
+`mathsat/EufLaArithmetic/hard/hard16.smt2` and `hard20.smt2` were rejected
+with "inferred clause is not derivable by unit propagation" although the
+untrimmed logs replay. The native proof trimmer (`src/sat/sat_proof_trim.cpp`,
+see "Real QF_LRA hardening" below for its earlier defect) walks the log
+backwards and, before removing a clause, unassigns the literal it implied and
+that literal's cone of influence; it took any true literal of the clause as
+implied by it. Z3 logs the same binary theory lemma several times (five
+copies of one clause in hard16), and the copies share one justification, so
+removing the last copy unassigned the literal although earlier copies
+remained, and with it every fact derived from it. Facts whose own clause the
+log had deleted in the meantime (and units asserted after a clause already
+implied them) have no watch to re-derive them, so the probe of a later `rup`
+step found no conflict; the trimmer then read the stale conflict state and
+reported arbitrary, incomplete dependencies, which the exporter rejected.
+
+Now `prune_trail` unassigns only the literal whose justification is the
+clause itself (by clause object, or for a binary clause only when it is the
+last attached copy, or for a unit when the literal has no other reason); a
+probe that finds no conflict raises an error instead of emitting a core (the
+trimmer's output is untrusted, but a core the replay cannot use is a
+rejection of an input Z3 solved); a probe on a clause a level-0 fact already
+satisfies depends on that fact's justification alone (the solver's conflict
+carries no clause there, which used to read a non-existent unit clause); and
+a clause the core refers to but was never added is an internal error rather
+than undefined behaviour. The copies of a binary clause are told apart only
+by counting attached watches, so a log that deletes a binary clause
+(`big::reduce_tr` logs such deletions during in-processing) and later adds
+it again can still lose a fact; that case ends in the explicit error and the
+untrimmed replay, not in a wrong core.
+
+On the Python side `trim_clause_log` treats a failed or unusable trimming as
+what it is, an optimization that did not apply: it warns and returns the
+untrimmed log, which the replay checks step by step. hard16 (10,689 steps
+before, 3,292 in the core) verifies in 40 s of Lean and hard20 (4,624 in the
+core) in 57 s, both axiom-free apart from the standard three. Tests:
+`src/test/proof_replay.cpp` (`tst_trim_duplicate_binary_keeps_implied_
+literal`, which the previous trimmer fails, and
+`tst_trim_rejects_underivable_inference`), `test_proof_certificate.py`
+(the same log through the z3 executable's trimmer with warnings as errors,
+and the fallback for a failing trimmer, a rejected inference, and a cyclic
+core).
+
 ### Native arithmetic row strictness (2026-10-16)
 
 The native arithmetic checker now keeps strictness on each linear row, not
