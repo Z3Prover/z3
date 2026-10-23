@@ -526,8 +526,8 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # a named assertion with get-unsat-core, and a par-or tactic in
         # check-sat-using are ignored; the executable sees the assertions only.
         from test_proof_to_lean import CONFIGURED_INPUTS
-        fragments = {"3220": "propositional", "z3.4": "propositional", "z3.5": "propositional",
-                     "core": "qf_lra", "strategy-par-or-2": "qf_lia"}
+        fragments = {"3220": "propositional", "3434": "propositional", "z3.4": "propositional",
+                     "z3.5": "propositional", "core": "qf_lra", "strategy-par-or-2": "qf_lia"}
         for name, source in CONFIGURED_INPUTS.items():
             with self.subTest(name=name):
                 certificate, report = self.check(source)
