@@ -121,6 +121,9 @@ namespace seq {
         void add_untrailed(expr* x, view const& v, void* dependency) {
             m_assertions.push_back(assertion(x, v, dependency, m));
         }
+        unsigned size() const { return m_assertions.size(); }
+        // Undo add_untrailed() calls made since size() was `sz`; no add() may happen in between.
+        void shrink(unsigned sz) { m_assertions.shrink(sz); }
         lbool check();
         ptr_vector<void> core() const { return m_core; }
         expr_ref materialize_witness(expr* x);

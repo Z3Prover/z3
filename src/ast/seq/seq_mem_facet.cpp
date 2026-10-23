@@ -442,7 +442,14 @@ namespace seq {
                 view_witness& vw = f.vw();
 
                 // Force witness search to respect exact known lengths from
-                // the local arithmetic sub-solver.
+                // the local arithmetic sub-solver. Keep this guess only if it
+                // yields witnesses: the root has no trail scope, so a refuted
+                // guess would replay its conflict in every final check.
+                unsigned num_views = vw.size();
+                on_scope_exit drop_guesses([&]() {
+                    vw.set_enable_witness(false);
+                    vw.shrink(num_views);
+                });
                 struct len_req { expr* v; unsigned len; };
                 vector<len_req> lens;
                 {
@@ -461,18 +468,17 @@ namespace seq {
                             lens.push_back({v, k.get_unsigned()});
                     }
                 }
-                if (!lens.empty()) {
-                    auto& sf = ac.solver_facet_ref();
-                    arith_util& au = sf.get_arith_util();
-                    assumption_facet& asf = ac.assumption_facet_ref();
-                    for (auto const& req : lens) {
-                        expr_ref len_eq(m.mk_eq(u.str.mk_length(req.v), au.mk_int(req.len)), m);
-                        eq_tree::dep_tracker cond_dep = asf.add_assumption(len_eq, ac.context());
-                        sort* re_sort = u.re.mk_re(req.v->get_sort());
-                        app* full_char = u.re.mk_full_char(re_sort);
-                        expr_ref exact(u.re.mk_loop_proper(full_char, req.len, req.len), m);
-                        vw.add(req.v, view::membership(exact, m), static_cast<void*>(cond_dep));
-                    }
+                arith_util& au = ac.solver_facet_ref().get_arith_util();
+                auto mk_len_eq = [&](len_req const& req) {
+                    return expr_ref(m.mk_eq(u.str.mk_length(req.v), au.mk_int(req.len)), m);
+                };
+                auto mk_exact_len = [&](len_req const& req) {
+                    app* full_char = u.re.mk_full_char(u.re.mk_re(req.v->get_sort()));
+                    return expr_ref(u.re.mk_loop_proper(full_char, req.len, req.len), m);
+                };
+                for (auto const& req : lens) {
+                    eq_tree::dep_tracker cond_dep = ac.add_conditional_dep(mk_len_eq(req));
+                    vw.add_untrailed(req.v, view::membership(mk_exact_len(req), m), static_cast<void*>(cond_dep));
                 }
 
                 vw.set_enable_witness(true);
@@ -482,7 +488,6 @@ namespace seq {
                     eq_tree::dep_tracker dep = nullptr;
                     for (void* d : vw.core())
                         dep = f.dm().mk_join(dep, static_cast<eq_tree::dep_tracker>(d));
-                    vw.set_enable_witness(false);
                     n.set_conflict(stx::br_plugin_base, dep);
                     return stx::simplify_result::conflict;
                 }
@@ -500,8 +505,13 @@ namespace seq {
                     }
                     f.set_witness_extracted();
                     changed = true;
+                    vw.shrink(num_views);
+                    for (auto const& req : lens) {
+                        eq_tree::dep_tracker dep = ac.assumption_facet_ref().add_assumption(mk_len_eq(req), ac.context());
+                        vw.add(req.v, view::membership(mk_exact_len(req), m), static_cast<void*>(dep));
+                    }
+                    num_views = vw.size(); // drop_guesses must keep the trailed views
                 }
-                vw.set_enable_witness(false);
             }
             }
         }
