@@ -282,7 +282,14 @@ let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
                      BV.second = retract symbols n c.BV.second; BV.third = retract symbols n c.BV.third } in
     (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
     assert (BV.concat3_parts (retract symbols n e) == Some rc);
-    lemma_concat3_value i project rho (retract symbols n e) rc
+    lemma_concat3_value i project rho (retract symbols n e) rc;
+    let j = F.extend r i project in
+    assert (project c.BV.width1 (eval i rc.BV.first rho) ==
+            project c.BV.width1 (eval j c.BV.first rho));
+    assert (project c.BV.width2 (eval i rc.BV.second rho) ==
+            project c.BV.width2 (eval j c.BV.second rho));
+    assert (project c.BV.width3 (eval i rc.BV.third rho) ==
+            project c.BV.width3 (eval j c.BV.third rho))
 
 let lemma_word_value (i:interpretation value) (project:pos -> value -> int)
                      (rho:env value) (e:expr) (width:pos) (args:list expr)
