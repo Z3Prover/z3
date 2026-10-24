@@ -64,6 +64,17 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 
 ## Focused pull-request audits
 
+The [F* NFV PR audit workflow](../.github/workflows/fstar-nfv-audit.md)
+audits selected obligations when source-changing PRs are opened or updated.
+It publishes proof sources, a report, verification logs, and a hash manifest
+under `fstar/audits/pr-<number>/<audited-head-sha>/` on same-repository PR
+branches, with a revision-specific comment. Fork PRs receive the comment
+and downloadable run artifacts instead; artifacts expire after 30 days.
+The verifier uses pinned F* and its independent released Z3 backend, not a
+solver built from the PR. Only the trusted base is checked out, and PR
+source is treated as data. These are advisory, scoped semantic audits:
+unproved obligations and inconclusive runs do not establish correctness.
+
 | Change | Report | Proof module |
 |---|---|---|
 | #11159: RTN selection in real-to-float conversion | [RTN selector audit](PR_11159_RTN_SELECT_REPORT.md) | [`Z3FpaRTNSelect.fst`](Z3FpaRTNSelect.fst) |
