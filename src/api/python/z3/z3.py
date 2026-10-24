@@ -591,12 +591,8 @@ class SortRef(AstRef):
     """A Sort is essentially a type. Every Z3 expression has a sort. A sort is an AST node."""
 
     def as_ast(self):
-        # Z3_sort_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
-        try:
-            return self._ast_cache
-        except AttributeError:
-            self._ast_cache = Z3_sort_to_ast(self.ctx_ref(), self.ast)
-            return self._ast_cache
+        # Z3_sort_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -792,12 +788,8 @@ class FuncDeclRef(AstRef):
     """
 
     def as_ast(self):
-        # Z3_func_decl_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
-        try:
-            return self._ast_cache
-        except AttributeError:
-            self._ast_cache = Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
-            return self._ast_cache
+        # Z3_func_decl_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -1343,17 +1335,16 @@ def _coerce_exprs(a, b, ctx=None):
     if _check_same_sort(a, b, ctx):
         return (a, b)
 
-    a_is_expr = is_expr(a)
-    b_is_expr = is_expr(b)
-    s = None
-    s = _coerce_expr_merge(s, a)
-    s = _coerce_expr_merge(s, b)
-    # When only one side is an expression, s is its sort and casting it is the identity.
-    if b_is_expr or not a_is_expr:
-        a = s.cast(a)
-    if a_is_expr or not b_is_expr:
-        b = s.cast(b)
-    return (a, b)
+    if z3_debug():
+        _z3_assert(is_expr(a) or is_expr(b), "At least one of the arguments must be a Z3 expression")
+    # In x + 1 only x is an expression: its sort is the result sort, so only the
+    # Python value needs to be cast.
+    if not is_expr(b):
+        return (a, a.sort().cast(b))
+    if not is_expr(a):
+        return (b.sort().cast(a), b)
+    s = _coerce_expr_merge(_coerce_expr_merge(None, a), b)
+    return (s.cast(a), s.cast(b))
 
 
 def _reduce(func, sequence, initial):
@@ -2093,12 +2084,8 @@ class PatternRef(ExprRef):
     """
 
     def as_ast(self):
-        # Z3_pattern_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
-        try:
-            return self._ast_cache
-        except AttributeError:
-            self._ast_cache = Z3_pattern_to_ast(self.ctx_ref(), self.ast)
-            return self._ast_cache
+        # Z3_pattern_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
