@@ -31,6 +31,7 @@ Author:
 #include "sat/smt/sls_solver.h"
 #include "sat/smt/recfun_solver.h"
 #include "sat/smt/specrel_solver.h"
+#include "sat/smt/ff_solver.h"
 
 namespace euf {
 
@@ -53,7 +54,9 @@ namespace euf {
         m_to_si(&si),
         m_clause_visitor(m),
         m_smt_proof_checker(m, p),
-        m_clause(m),       
+        m_clause(m),
+        m_deleting_atoms(m),
+        m_scope_guards(m),
         m_expr_args(m),
         m_values(m)
     {
@@ -157,6 +160,8 @@ namespace euf {
             ext = alloc(dt::solver, *this, fid);
         else if (rf.get_family_id() == fid)
             ext = alloc(recfun::solver, *this);
+        else if (ff_util(m).get_fid() == fid)
+            ext = alloc(ff_sat::solver, *this);
         else if (sp.get_family_id() == fid)
             ext = alloc(specrel::solver, *this, fid);
         
@@ -750,10 +755,30 @@ namespace euf {
     }
 
     void solver::user_push() {
-        push();      
+        push();
+        // SAT guards every assertion in a user scope with an internal literal.
+        // Proof clauses and callbacks also need an AST for that literal. Use
+        // the scope being replayed, not back(): set_extension can attach EUF
+        // after several user scopes already exist.
+        unsigned index = m_scopes.size() - 1;
+        SASSERT(index < s().num_user_scopes());
+        expr_ref guard(m.mk_fresh_const("sat.scope", m.mk_bool_sort()), m);
+        m_trail.push(restore_vector(m_scope_guards));
+        m_scope_guards.push_back(guard);
+        set_bool_var2expr(s().user_scope_literal(index).var(), guard);
+        // This is a proof name, not an e-graph term or a user declaration.
+        // Keeping it out of the e-graph also keeps it out of returned models.
     }
 
     void solver::user_pop(unsigned n) {
+        if (use_drat() && n) {
+            m_deleting_atoms.resize(m_bool_var2expr.size());
+            auto const& sc = m_scopes[m_scopes.size() - n];
+            for (unsigned i = sc.m_var_lim; i < m_var_trail.size(); ++i) {
+                auto v = m_var_trail[i];
+                m_deleting_atoms.set(v, bool_var2expr(v));
+            }
+        }
         pop(n);
     }
 
@@ -1207,6 +1232,7 @@ namespace euf {
     void solver::gc_vars(unsigned num_vars) {
         for (auto* e : m_solvers)
             e->gc_vars(num_vars);
+        m_deleting_atoms.reset();
     }
     
     double solver::get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const {

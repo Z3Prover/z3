@@ -76,6 +76,8 @@ public:
 static tactic *mk_ff_tactic(ast_manager &m, params_ref const &p) {
     // Let native SMT reasoning handle residual field goals before its exact
     // BV fallback, preserving shared equalities and lazy Boolean choices.
+    if (m.proofs_enabled())
+        return and_then(mk_ff_simplify_tactic(m, p), mk_ff_smt_tactic(m, p));
     return annotate_tactic("ff-tactic",
                             and_then(mk_ff_unique_tactic(m, p), mk_ff_simplify_tactic(m, p),
                                      or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_ff_smt_tactic(m, p))));

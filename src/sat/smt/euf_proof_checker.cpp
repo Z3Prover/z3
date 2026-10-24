@@ -29,6 +29,7 @@ Author:
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
 #include "params/solver_params.hpp"
+#include "ast/ff/ff_evidence.h"
 #include <sstream>
 
 namespace euf {
@@ -304,6 +305,16 @@ namespace euf {
         }
     };
 
+    class ff_theory_checker : public theory_checker_plugin {
+        ast_manager& m;
+    public:
+        explicit ff_theory_checker(ast_manager& m) : m(m) {}
+        bool requires_check() const override { return true; }
+        bool check(app* proof) override { return ff::check_refutation(m, proof); }
+        expr_ref_vector clause(app* proof) override { return ff::refutation_clause(m, proof); }
+        void register_plugins(theory_checker& pc) override { pc.register_plugin(symbol("ff-pac"), this); }
+    };
+
     theory_checker::theory_checker(ast_manager& m):
         m(m) {
         add_plugin(alloc(arith::theory_checker, m));
@@ -314,6 +325,7 @@ namespace euf {
         add_plugin(alloc(smt_theory_checker_plugin, m)); 
         add_plugin(alloc(tseitin::theory_checker, m));
         add_plugin(alloc(bv::theory_checker, m));
+        add_plugin(alloc(ff_theory_checker, m));
     }
 
     void theory_checker::add_plugin(theory_checker_plugin* p) {
@@ -331,6 +343,11 @@ namespace euf {
         app* a = to_app(e);
         theory_checker_plugin* p = nullptr;
         return m_map.find(a->get_decl()->get_name(), p) && p->check(a);
+    }
+
+    bool theory_checker::requires_check(expr* e) {
+        theory_checker_plugin* p = nullptr;
+        return e && is_app(e) && m_map.find(to_app(e)->get_name(), p) && p->requires_check();
     }
 
     expr_ref_vector theory_checker::clause(expr* e) {
@@ -356,18 +373,8 @@ namespace euf {
         units.reset();
         expr_mark literals;
 
-        // check that all literals in clause1 are in clause2
-        for (expr* arg : clause2)
-            literals.mark(m.strip_double_not(arg), true);
-        for (expr* arg : clause1)
-            if (!literals.is_marked(m.strip_double_not(arg))) {
-                IF_VERBOSE(0, verbose_stream() << mk_bounded_pp(arg, m) << " not in " << clause2 << "\n");
-                return false;
-            }
-
-        // extract negated units for literals in clause2 but not in clause1
-        // the literals should be rup
-        literals.reset();
+        // A certified clause C entails any weakening C or D. If an emitted
+        // clause drops a literal from C, its complement must be RUP.
         for (expr* arg : clause1)
             literals.mark(m.strip_double_not(arg), true);
         for (expr* arg : clause2)
@@ -515,6 +522,18 @@ namespace euf {
                 vc.reset();
             }
         }
+
+        if (m_checker.requires_check(proof_hint)) {
+            log_verified(proof_hint, false);
+            throw default_exception("required theory certificate did not verify");
+        }
+        
+        // extract a simplified verification condition in case proof validation does not work.
+        // quantifier instantiation can be validated as follows:
+        // If quantifier instantiation claims that (forall x . phi(x)) => psi using instantiation x -> t
+        // then check the simplified VC: phi(t) => psi.
+        // in case psi is the literal instantiation, then the clause is a propositional tautology.
+        // The VC function is a no-op if the proof hint does not have an associated vc generator.
         if (hint_is_tautology) {
             log_verified(proof_hint, true);
             add_clause(clause);
@@ -526,7 +545,7 @@ namespace euf {
         log_verified(proof_hint, false);
 
         ensure_solver();
-        m_solver->push();
+        solver::scoped_push scope(*m_solver);
         for (expr* lit : vc)
             m_solver->assert_expr(m.mk_not(lit));
         lbool is_sat = m_solver->check_sat();
@@ -542,12 +561,12 @@ namespace euf {
                 m_solver->get_model(mdl);
                 mdl->evaluate_constants();
                 std::cout << *mdl << "\n";
-            }
+            }                
+            throw default_exception("SMT proof verification failed");            
             std::cout.flush();
             m_solver->pop(1);
             return false;
         }
-        m_solver->pop(1);
         std::cout << "(verified-smt"; 
         if (proof_hint) std::cout << "\n" << mk_bounded_pp(proof_hint, m, 4);
         for (expr* arg : clause)

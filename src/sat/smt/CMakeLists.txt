@@ -27,6 +27,7 @@ z3_add_component(sat_smt
     euf_proof_checker.cpp
     euf_relevancy.cpp
     euf_solver.cpp
+    ff_solver.cpp
     intblast_solver.cpp
     fpa_solver.cpp
     pb_card.cpp
@@ -50,6 +51,7 @@ z3_add_component(sat_smt
     user_solver.cpp
   COMPONENT_DEPENDENCIES
     sat
+    ff_ast
     ast
     euf
     mbp
