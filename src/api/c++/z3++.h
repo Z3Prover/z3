@@ -318,6 +318,10 @@ namespace z3 {
            \brief Return the Real sort.
         */
         sort real_sort();
+        /** \brief Return the Complex sort (pairs of Reals). */
+        sort complex_sort();
+        /** \brief Return the prime finite-field sort with the given decimal modulus. */
+        sort finite_field_sort(char const* prime);
         /**
            \brief Return the Bit-vector sort of size \c sz. That is, the sort for bit-vectors of size \c sz.
         */
@@ -473,6 +477,7 @@ namespace z3 {
         expr bool_const(char const * name);
         expr int_const(char const * name);
         expr real_const(char const * name);
+        expr complex_const(char const * name);
         expr string_const(char const * name);
         expr bv_const(char const * name, unsigned sz);
         expr fpa_const(char const * name, unsigned ebits, unsigned sbits);
@@ -502,6 +507,8 @@ namespace z3 {
         expr real_val(uint64_t n);
         expr real_val(int64_t n, int64_t d);
         expr real_val(char const * n);
+        expr complex_val(int re, int im = 0);
+        expr complex_val(char const * re, char const * im = "0");
 
         expr bv_val(int n, unsigned sz);
         expr bv_val(unsigned n, unsigned sz);
@@ -830,10 +837,12 @@ namespace z3 {
             \brief Return true if this sort is the Real sort.
         */
         bool is_real() const { return sort_kind() == Z3_REAL_SORT; }
+        /** \brief Return true if this sort is Complex. */
+        bool is_complex() const { return sort_kind() == Z3_COMPLEX_SORT; }
         /**
-            \brief Return true if this sort is the Integer or Real sort.
+            \brief Return true if this sort is Integer, Real, or Complex.
         */
-        bool is_arith() const { return is_int() || is_real(); }
+        bool is_arith() const { return is_int() || is_real() || is_complex(); }
         /**
             \brief Return true if this sort is a Bit-vector sort.
         */
@@ -861,6 +870,7 @@ namespace z3 {
         /**
             \brief Return true if this sort is a Finite domain sort.
         */
+        bool is_finite_field() const { return sort_kind() == Z3_FINITE_FIELD_SORT; }
         bool is_finite_domain() const { return sort_kind() == Z3_FINITE_DOMAIN_SORT; }
         /**
             \brief Return true if this sort is a Floating point sort.
@@ -1012,8 +1022,10 @@ namespace z3 {
            \brief Return true if this is a real expression.
         */
         bool is_real() const { return get_sort().is_real(); }
+        /** \brief Return true if this expression is Complex. */
+        bool is_complex() const { return get_sort().is_complex(); }
         /**
-           \brief Return true if this is an integer or real expression.
+           \brief Return true if this is an Integer, Real, or Complex expression.
         */
         bool is_arith() const { return get_sort().is_arith(); }
         /**
@@ -1049,6 +1061,7 @@ namespace z3 {
            exclusive.
 
         */
+        bool is_finite_field() const { return get_sort().is_finite_field(); }
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
         /**
             \brief Return true if this is a FloatingPoint expression. .
@@ -1883,6 +1896,26 @@ namespace z3 {
     return expr(a.ctx(), r);                    \
 
 
+    /** \brief Construct a Complex expression from Int or Real components. */
+    inline expr complex(expr const& re, expr const& im) {
+        check_context(re, im);
+        Z3_ast r = Z3_mk_complex(re.ctx(), re, im);
+        re.check_error();
+        return expr(re.ctx(), r);
+    }
+
+    inline expr real_part(expr const& z) {
+        Z3_ast r = Z3_mk_real_part(z.ctx(), z);
+        z.check_error();
+        return expr(z.ctx(), r);
+    }
+
+    inline expr imag_part(expr const& z) {
+        Z3_ast r = Z3_mk_imag_part(z.ctx(), z);
+        z.check_error();
+        return expr(z.ctx(), r);
+    }
+
     inline expr operator!(expr const & a) { assert(a.is_bool()); _Z3_MK_UN_(a, Z3_mk_not); }
 
     inline expr is_int(expr const& e) { _Z3_MK_UN_(e, Z3_mk_is_int); }
@@ -1920,8 +1953,8 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    inline expr operator==(expr const & a, int b) { assert(a.is_arith() || a.is_bv() || a.is_fpa()); return a == a.ctx().num_val(b, a.get_sort()); }
-    inline expr operator==(int a, expr const & b) { assert(b.is_arith() || b.is_bv() || b.is_fpa()); return b.ctx().num_val(a, b.get_sort()) == b; }
+    inline expr operator==(expr const & a, int b) { assert(a.is_arith() || a.is_bv() || a.is_fpa() || a.is_finite_field()); return a == a.ctx().num_val(b, a.get_sort()); }
+    inline expr operator==(int a, expr const & b) { assert(b.is_arith() || b.is_bv() || b.is_fpa() || b.is_finite_field()); return b.ctx().num_val(a, b.get_sort()) == b; }
     inline expr operator==(expr const & a, double b) { assert(a.is_fpa()); return a == a.ctx().fpa_val(b); }
     inline expr operator==(double a, expr const & b) { assert(b.is_fpa()); return b.ctx().fpa_val(a) == b; }
 
@@ -1932,8 +1965,8 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    inline expr operator!=(expr const & a, int b) { assert(a.is_arith() || a.is_bv() || a.is_fpa()); return a != a.ctx().num_val(b, a.get_sort()); }
-    inline expr operator!=(int a, expr const & b) { assert(b.is_arith() || b.is_bv() || b.is_fpa()); return b.ctx().num_val(a, b.get_sort()) != b; }
+    inline expr operator!=(expr const & a, int b) { assert(a.is_arith() || a.is_bv() || a.is_fpa() || a.is_finite_field()); return a != a.ctx().num_val(b, a.get_sort()); }
+    inline expr operator!=(int a, expr const & b) { assert(b.is_arith() || b.is_bv() || b.is_fpa() || b.is_finite_field()); return b.ctx().num_val(a, b.get_sort()) != b; }
     inline expr operator!=(expr const & a, double b) { assert(a.is_fpa()); return a != a.ctx().fpa_val(b); }
     inline expr operator!=(double a, expr const & b) { assert(b.is_fpa()); return b.ctx().fpa_val(a) != b; }
 
@@ -1943,6 +1976,10 @@ namespace z3 {
         if (a.is_arith() && b.is_arith()) {
             Z3_ast args[2] = { a, b };
             r = Z3_mk_add(a.ctx(), 2, args);
+        }
+        else if (a.is_finite_field() && b.is_finite_field()) {
+            Z3_ast args[2] = { a, b };
+            r = Z3_mk_ff_add(a.ctx(), 2, args);
         }
         else if (a.is_bv() && b.is_bv()) {
             r = Z3_mk_bvadd(a.ctx(), a, b);
@@ -1973,6 +2010,10 @@ namespace z3 {
         if (a.is_arith() && b.is_arith()) {
             Z3_ast args[2] = { a, b };
             r = Z3_mk_mul(a.ctx(), 2, args);
+        }
+        else if (a.is_finite_field() && b.is_finite_field()) {
+            Z3_ast args[2] = { a, b };
+            r = Z3_mk_ff_mul(a.ctx(), 2, args);
         }
         else if (a.is_bv() && b.is_bv()) {
             r = Z3_mk_bvmul(a.ctx(), a, b);
@@ -2038,6 +2079,7 @@ namespace z3 {
         if (a.is_arith()) {
             r = Z3_mk_unary_minus(a.ctx(), a);
         }
+        else if (a.is_finite_field()) { r = Z3_mk_ff_neg(a.ctx(), a); }
         else if (a.is_bv()) {
             r = Z3_mk_bvneg(a.ctx(), a);
         }
@@ -2054,6 +2096,7 @@ namespace z3 {
 
     inline expr operator-(expr const & a, expr const & b) {
         check_context(a, b);
+        if (a.is_finite_field() && b.is_finite_field()) return a + -b;
         Z3_ast r = 0;
         if (a.is_arith() && b.is_arith()) {
             Z3_ast args[2] = { a, b };
@@ -3840,6 +3883,8 @@ namespace z3 {
     inline sort context::bool_sort() { Z3_sort s = Z3_mk_bool_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::int_sort() { Z3_sort s = Z3_mk_int_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::real_sort() { Z3_sort s = Z3_mk_real_sort(m_ctx); check_error(); return sort(*this, s); }
+    inline sort context::complex_sort() { Z3_sort s = Z3_mk_complex_sort(m_ctx); check_error(); return sort(*this, s); }
+    inline sort context::finite_field_sort(char const* prime) { Z3_sort s = Z3_mk_finite_field_sort(m_ctx, prime); check_error(); return sort(*this, s); }
     inline sort context::bv_sort(unsigned sz) { Z3_sort s = Z3_mk_bv_sort(m_ctx, sz); check_error(); return sort(*this, s); }
     inline sort context::string_sort() { Z3_sort s = Z3_mk_string_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::char_sort() { Z3_sort s = Z3_mk_char_sort(m_ctx); check_error(); return sort(*this, s); }
@@ -4145,6 +4190,7 @@ namespace z3 {
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
     inline expr context::int_const(char const * name) { return constant(name, int_sort()); }
     inline expr context::real_const(char const * name) { return constant(name, real_sort()); }
+    inline expr context::complex_const(char const * name) { return constant(name, complex_sort()); }
     inline expr context::string_const(char const * name) { return constant(name, string_sort()); }
     inline expr context::bv_const(char const * name, unsigned sz) { return constant(name, bv_sort(sz)); }
     inline expr context::fpa_const(char const * name, unsigned ebits, unsigned sbits) { return constant(name, fpa_sort(ebits, sbits)); }
@@ -4180,6 +4226,16 @@ namespace z3 {
     inline expr context::real_val(int64_t n) { Z3_ast r = Z3_mk_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(uint64_t n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
+    inline expr context::complex_val(int re, int im) {
+        expr r = real_val(re);
+        expr i = real_val(im);
+        return complex(r, i);
+    }
+    inline expr context::complex_val(char const* re, char const* im) {
+        expr r = real_val(re);
+        expr i = real_val(im);
+        return complex(r, i);
+    }
 
     inline expr context::bv_val(int n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, s); check_error(); return expr(*this, r); }

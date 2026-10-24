@@ -211,6 +211,56 @@ static void tst_push_quant() {
     }
 }
 
+// Exercises the new `PR_DEMODULATION` rule: `t1 = t2` justified by premise
+// proofs of `l_i = r_i` (i = 1..n), where `t2` is obtained from `t1` by
+// simultaneously replacing every occurrence of `l_i` by `r_i`. Unlike
+// `PR_REWRITE`/`PR_REWRITE_STAR` (which the checker trusts as a side
+// condition without verifying the substitution), `PR_DEMODULATION` is
+// actually re-derived inside `check1_basic` via `expr_safe_replace` and
+// compared structurally against the claimed result.
+static void tst_demodulation() {
+    ast_manager m(PGM_ENABLED);
+    reg_decl_plugins(m);
+    sort_ref B(m.mk_bool_sort(), m);
+    func_decl_ref f(m.mk_func_decl(symbol("f"), B, B, B, func_decl_info()), m);
+    func_decl_ref p(m.mk_func_decl(symbol("p"), B, B), m);
+    expr_ref a(m.mk_const(symbol("a"), B), m);
+    expr_ref b(m.mk_const(symbol("b"), B), m);
+    expr_ref c(m.mk_const(symbol("c"), B), m);
+    expr_ref d(m.mk_const(symbol("d"), B), m);
+
+    proof_checker checker(m);
+    expr_ref_vector side_conditions(m);
+
+    // Single equation: t1 = p(f(a, a)), t2 = p(f(b, b)) via a = b.
+    {
+        proof_ref eq_ab(m.mk_rewrite(a.get(), b.get()), m);
+        expr_ref t1(m.mk_app(p, m.mk_app(f, a.get(), a.get())), m);
+        expr_ref t2(m.mk_app(p, m.mk_app(f, b.get(), b.get())), m);
+        proof* eqs[1] = { eq_ab.get() };
+        proof_ref pr(m.mk_demodulation(t1.get(), t2.get(), 1, eqs), m);
+        VERIFY(checker.check(pr.get(), side_conditions));
+    }
+
+    // Simultaneous equations: t1 = f(a, c), t2 = f(b, d) via a = b, c = d.
+    {
+        proof_ref eq_ab(m.mk_rewrite(a.get(), b.get()), m);
+        proof_ref eq_cd(m.mk_rewrite(c.get(), d.get()), m);
+        expr_ref t1(m.mk_app(f, a.get(), c.get()), m);
+        expr_ref t2(m.mk_app(f, b.get(), d.get()), m);
+        proof* eqs[2] = { eq_ab.get(), eq_cd.get() };
+        proof_ref pr(m.mk_demodulation(t1.get(), t2.get(), 2, eqs), m);
+        VERIFY(checker.check(pr.get(), side_conditions));
+    }
+
+    // Zero equations degenerates to a plain rewrite (t1 == t2 verbatim).
+    {
+        expr_ref t1(m.mk_app(p, a.get()), m);
+        proof_ref pr(m.mk_demodulation(t1.get(), t1.get(), 0, nullptr), m);
+        VERIFY(checker.check(pr.get(), side_conditions));
+    }
+}
+
 void tst_proof_checker() {
     tst_checker1();
     tst_initializer_list_overloads();
@@ -218,4 +268,5 @@ void tst_proof_checker() {
     tst_euf_negation_large_classes();
     tst_quant_intro();
     tst_push_quant();
+    tst_demodulation();
 }

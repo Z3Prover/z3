@@ -31,6 +31,7 @@ namespace tseitin {
         expr_fast_mark1 m_mark;
         expr_fast_mark2 m_nmark;
         bool equiv(expr* a, expr* b);
+        bool xor_holds(app* x, bool expected);
         
         void mark(expr* a) { m_mark.mark(a); }
         bool is_marked(expr* a) { return m_mark.is_marked(a); }

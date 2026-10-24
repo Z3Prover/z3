@@ -192,8 +192,8 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
 (* Sequence-aware condition evaluation                                 *)
 (* ----------------------------------------------------------------- *)
 
-(* A dedicated marker sort, analogous to `Z3AstTheory.bool_sort`/
-   `lambda_sort`, standing in for Z3's real `seq_sort`/string sort: an
+(* A dedicated marker sort, analogous to `Z3AstTheory.bool_sort`,
+   standing in for Z3's real `seq_sort`/string sort: an
    expression is recognized as genuinely sequence-valued here by
    comparing its `get_sort` against this marker. This is exactly the
    missing piece `cond_interp`'s doc comment above flagged: without
@@ -202,7 +202,7 @@ let lemma_eval_leaf_ground (#a:eqtype) (sl sl':seq_lit a) (e:expr)
    since `Z3BasicExprTheory.eval_bool` is monomorphic in a single
    `value:eqtype` for an entire condition tree and so cannot itself
    recurse into real `seq a` semantics mid-tree. *)
-let seq_sort : sort = { sort_name = "Seq" }
+let seq_sort : sort = BaseSort "Seq"
 
 let is_seq_sorted (e:expr) : bool = sort_eq (get_sort e) seq_sort
 
@@ -232,7 +232,7 @@ let rec eval_leaf_list (#a:eqtype) (sl:seq_lit a) (args:list expr) : list (seq a
 let rec eval_cond (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot bool (decreases e) =
   let fallback () = eval_bool sl.cond_interp (fun b -> b) e (fun _ -> false) in
   match e with
-  | Var _ _ | Quantifier _ _ _ -> fallback ()
+  | Var _ _ | Quantifier _ _ _ _ -> fallback ()
   | App f args ->
     if is_basic_op f Op_true then true
     else if is_basic_op f Op_false then false
@@ -351,7 +351,7 @@ let mem_in_char_range (#a:eqtype) (sl:seq_lit a) (wl wh:seq a) (x:a) : bool =
    to, formalized in a later module. *)
 let rec to_lang (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot (option (lang a)) (decreases e) =
   match e with
-  | Var _ _ | Quantifier _ _ _ -> None
+  | Var _ _ | Quantifier _ _ _ _ -> None
   | App f args ->
     if is_re_op f Re_empty_set then (match args with | [] -> Some re_empty | _ -> None)
     else if is_re_op f Re_full_seq_set then (match args with | [] -> Some re_full | _ -> None)

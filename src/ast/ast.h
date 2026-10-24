@@ -278,6 +278,7 @@ public:
     void del_eh(ast_manager & m);
 
     family_id get_family_id() const { return m_family_id; }
+
     decl_kind get_decl_kind() const { return m_kind; }
     bool is_decl_of(family_id fid, decl_kind k) const { return m_family_id == fid && k == m_kind; }
     unsigned get_num_parameters() const { return m_parameters.size(); }
@@ -1073,6 +1074,7 @@ class decl_plugin {
 protected:
     ast_manager * m_manager = nullptr;
     family_id     m_family_id = null_family_id;
+    bool          m_has_sorts = false;
 
     virtual void set_manager(ast_manager * m, family_id id) {
         SASSERT(m_manager == nullptr);
@@ -1103,6 +1105,9 @@ public:
     virtual decl_plugin * mk_fresh() = 0;
 
     family_id get_family_id() const { return m_family_id; }
+
+    // Conservative fast path, including sorts created by AST translation.
+    bool has_sorts() const { return m_has_sorts; }
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) = 0;
 
@@ -1192,7 +1197,7 @@ enum basic_op_kind {
     PR_ASSUMPTION_ADD, PR_TH_ASSUMPTION_ADD, PR_LEMMA_ADD, PR_TH_LEMMA_ADD, PR_REDUNDANT_DEL, PR_CLAUSE_TRAIL,
 
     PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
-    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
+    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, PR_DEMODULATION, LAST_BASIC_PR
 };
 
 class basic_decl_plugin : public decl_plugin {
@@ -1232,6 +1237,7 @@ protected:
     ptr_vector<func_decl> m_distributivity_decls;
     ptr_vector<func_decl> m_assoc_flat_decls;
     ptr_vector<func_decl> m_rewrite_star_decls;
+    ptr_vector<func_decl> m_demodulation_decls;
 
     func_decl * m_hypothesis_decl = nullptr;
     func_decl * m_iff_true_decl = nullptr;
@@ -1245,10 +1251,10 @@ protected:
     func_decl * m_iff_oeq_decl = nullptr;
     func_decl * m_skolemize_decl = nullptr;
     func_decl * m_mp_oeq_decl = nullptr;
-    func_decl * m_assumption_add_decl = nullptr;
-    func_decl * m_lemma_add_decl = nullptr;
-    func_decl * m_th_assumption_add_decl = nullptr;
-    func_decl * m_th_lemma_add_decl = nullptr;
+    ptr_vector<func_decl> m_assumption_add_decls;
+    ptr_vector<func_decl> m_lemma_add_decls;
+    ptr_vector<func_decl> m_th_assumption_add_decls;
+    ptr_vector<func_decl> m_th_lemma_add_decls;
     func_decl * m_redundant_del_decl = nullptr;
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;
@@ -2436,8 +2442,11 @@ public:
     proof * mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof * p);
     proof * mk_distributivity(expr * s, expr * r);
     proof * mk_rewrite(expr * s, expr * t);
+    proof * mk_rewrite(expr * s, expr * t, symbol const & rule);
+    symbol get_rewrite_rule(proof const * p) const;
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+    proof * mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs);
     proof * mk_bind_proof(quantifier * q, proof * p);
     proof * mk_pull_quant(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);

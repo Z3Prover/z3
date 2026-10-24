@@ -190,6 +190,12 @@ namespace sat {
         m_drat_file       = p.drat_file();
         m_smt_proof_check = p.smt_proof_check();
         m_drat_disable = p.drat_disable();
+        if (m_drat_file.is_non_empty_string() &&
+            (m_drat_disable || m_num_threads != 1 ||
+             m_local_search_threads > 0 || m_ddfw_threads > 0))
+            throw sat_param_exception("external DRAT output requires threads=1, "
+                                      "local_search_threads=0, ddfw.threads=0, "
+                                      "and drat.disable=false");
         m_drat            =
             !m_drat_disable && p.threads() == 1 &&
             (sp.lemmas2console() ||

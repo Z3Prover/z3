@@ -54,6 +54,13 @@ NESTED = """\
 (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
 (assert (or (and p q) r))(assert (not p))(assert (not r))
 """
+# Z3 accepts a one-argument xor and reads it as its argument (the legacy
+# core records the rewrite (= (xor p) p)); here under a binary xor, a
+# negation, and as a whole assertion.
+UNARY_XOR = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (xor (xor p) (xor q)))(assert (not (xor (not p))))(assert (xor q))
+"""
 # Verbatim copies of the documented inputs in Z3Prover/z3test under
 # regressions/proofs/lean/, so the tests need no z3test checkout.
 Z3TEST_LEAN_INPUTS = {
@@ -132,6 +139,207 @@ Z3TEST_LEAN_INPUTS = {
 (get-proof)
 """,
 }
+# Verbatim copies of z3test regressions/smt2 inputs whose only obstacle was
+# their front matter: options that configure output, models, or search, a
+# tactic in check-sat-using, a named assertion, and an output query. The
+# exporter ignores those and certifies the assertions. 3434 also states a
+# one-argument xor.
+CONFIGURED_INPUTS = {
+    "3434": """\
+(assert (xor false))
+(check-sat-using aig)
+""",
+    "3220": """\
+(set-option :sat.local_search true)
+(set-option :model_validate true)
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(assert (and (xor a b) a b))
+(check-sat)
+""",
+    "z3.4": """\
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(define-fun conjecture () Bool
+	(=> (and (=> p q) (=> q r))
+		(=> p r)))
+(assert (not conjecture))
+(check-sat)""",
+    "z3.5": """\
+
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :auto-config true)
+(set-option :produce-models true)
+
+(declare-const a Bool)
+(declare-const b Bool)
+(define-fun demorgan () Bool
+    (= (and a b) (not (or (not a) (not b)))))
+(assert (not demorgan))
+(check-sat)""",
+    "core": """\
+
+; Copyright (c) 2015 Microsoft Corporation
+
+(set-logic QF_LRA)
+(set-option :auto-config true)
+(set-option :produce-unsat-cores true)
+
+(assert (! (= 1 0) :named a))
+
+(check-sat)
+(get-unsat-core)
+""",
+    "strategy-par-or-2": """\
+;; Copyright (c) 2016 Microsoft Corporation
+
+(set-info :source |Written by D. B. Staple for GitHub issue #625.|)
+(set-info :status unsat)
+
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (= y (abs x)))
+(assert (distinct y (abs x)))
+(check-sat-using (par-or
+    smt smt smt smt smt
+    smt smt smt smt smt
+    smt smt smt smt smt
+))
+""",
+}
+# Incremental z3test regressions kept verbatim (regressions/smt2; unsatcore
+# without the trailing blanks of two comment lines), with the zero-based
+# index of the unsat query the tests certify: push and pop with scoped
+# declarations, several check-sat queries, Z3's check-sat with assumption
+# literals (defined symbols included), a BitVec constant declared in a scope
+# the certified query does not see, and an unused one.
+INCREMENTAL_INPUTS = {
+    "incsat": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+; test that incremental SAT solver works for QF_BV
+(set-logic QF_BV)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+
+(assert (or p q))
+(check-sat)
+(assert (or (not p) (not q)))
+(check-sat)
+(push)
+(assert p)
+(assert q)
+(check-sat)
+(pop)
+(check-sat)
+
+(declare-const x (_ BitVec 10))
+(declare-const y (_ BitVec 10))
+(declare-const z (_ BitVec 10))
+
+(push)
+(assert (not (= (bvor x y) (bvor y z))))
+(check-sat)
+(pop)""", 2),
+    "t143": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+
+(set-option :produce-models true)
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(define-fun pOqOr () Bool (or p q r))
+(define-fun np () Bool (not p))
+(define-fun nq () Bool (not q))
+(define-fun nr () Bool (not r))
+(assert pOqOr)
+(check-sat np)
+(assert np)
+(check-sat nq nr)""", 1),
+    "3632": ("""\
+(set-logic QF_BV)
+(set-option :model_validate true)
+(set-option :sat.local_search true)
+(declare-const v0 Bool)
+(declare-const v1 Bool)
+(declare-const v2 Bool)
+(declare-const v4 Bool)
+(declare-const v5 Bool)
+(declare-const v6 Bool)
+(declare-const v7 Bool)
+(declare-const v8 Bool)
+(declare-const v9 Bool)
+(declare-const v10 Bool)
+(declare-const v11 Bool)
+(declare-const v12 Bool)
+(declare-const v13 Bool)
+(declare-const v14 Bool)
+(declare-const v15 Bool)
+(declare-const v16 Bool)
+(declare-const v17 Bool)
+(declare-const bv_20-0 (_ BitVec 20))
+(declare-const v18 Bool)
+(assert (and v16 v5 v17 v4 v1 v15 v16 v9 v18))
+(declare-const v20 Bool)
+(push 1)
+(declare-const v24 Bool)
+(assert (= v14 v9 (=> v18 v24) (and v5 v7 v4 v7 (and v16 v5 v17 v4 v1 v15 v16 v9 v18) v0 v2 v8 v20) (and v7 (distinct v16 v11 v17 v6 v7 v2 v14 v16 v5) v18 v1 v14 v10 v4)))
+;(push 1)
+(check-sat)""", 0),
+    "3732": ("""\
+(declare-sort a)
+(declare-fun b (a a) a)
+(declare-fun c () a)
+(declare-fun d () a)
+(declare-fun e () a)
+(declare-fun f () a)
+(assert (= e d (b e c) f))
+(assert (distinct f (b d c)))
+(check-sat)
+(check-sat-using (then qffd smt))""", 1),
+    "unsatcore": ("""\
+
+; Copyright (c) 2015 Microsoft Corporation
+(set-option :produce-unsat-cores true)
+(set-option :produce-models false)
+
+(declare-const start25 Bool)
+(declare-const bf07 Bool)
+(declare-const bf19 Bool)
+(declare-const lt06 Int)
+(declare-const ef08 Int)
+(declare-const ef110 Int)
+
+(declare-fun whileM4 (Int) Int)
+
+(assert start25)
+(assert (=> start25 (distinct lt06 1)))
+(assert (=> start25 (= lt06 (whileM4 0))))
+(assert (=> (not bf07) (= ef08 0)))
+(assert (=> bf07 (= ef08 (whileM4 (+ 0 1)))))
+(assert (=> start25 (not (< (whileM4 0) 1))))
+(assert (=> start25 (= (whileM4 0) ef08)))
+(assert (=> start25 (and (=> bf07 (< 0 1)) (=> (< 0 1) bf07))))
+(assert (=> (not bf19) (= ef110 (+ 0 1))))
+(assert (=> bf19 (= ef110 (whileM4 (+ (+ 0 1) 1)))))
+(assert (=> bf07 (not (< (whileM4 (+ 0 1)) 1))))
+(assert (=> bf07 (= (whileM4 (+ 0 1)) ef110)))
+(assert (=> bf07 (and (=> bf19 (< (+ 0 1) 1)) (=> (< (+ 0 1) 1) bf19))))
+
+; (push)
+(check-sat (not bf19))
+; (pop)
+
+(check-sat)
+""", 0),
+}
 DEF_AXIOM_CLAUSES = [
     "(or (not p) p)",
     "(or (not (not p)) (not p))",
@@ -154,10 +362,16 @@ DEF_AXIOM_CLAUSES = [
     "(or (xor p q) (not p) q)",
     "(or (not (xor p q)) p q)",
     "(or (not (xor p q)) (not p) (not q))",
+    # The one-argument xor is its argument.
+    "(or (xor p) (not p))",
+    "(or (not (xor p)) p)",
     "(or (not (ite p q r)) (not p) q)",
     "(or (not (ite p q r)) p r)",
     "(or (ite p q r) (not p) (not q))",
     "(or (ite p q r) p (not r))",
+    # The two condition-free ite gates Z3's sat.smt core also records.
+    "(or (not (ite p q r)) q r)",
+    "(or (ite p q r) (not q) (not r))",
 ]
 
 
@@ -223,9 +437,9 @@ def make_certificate(source, steps):
         certificate["declarations"][certificate["nodes"][node]["declaration"]]["name"]
         for node in proof_nodes))
     certificate.update({
-        "format": "z3-native-proof-dag", "format_version": 1,
+        "format": "z3-native-proof-dag", "format_version": 2,
         "z3_version": z3.get_full_version(), "fragment": "propositional",
-        "result": "unsat", "verification": "unverified", "source_smt2": source,
+        "result": "unsat", "verification": "unverified", "source_smt2": source, "query": 0,
     })
     return certificate
 
@@ -254,6 +468,43 @@ class TestProofToLean(unittest.TestCase):
             certificate = proof_certificate.export_certificate(source)
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
+
+    def test_balanced_conjunctions_project_every_conjunct_at_logarithmic_depth(self):
+        # The outlined proof's Inputs conjunction and its And.intro term are
+        # balanced trees; _balanced_select must follow the tree _balanced
+        # builds, and no path may be longer than the tree's height.
+        def parse(text):
+            if not text.startswith("("):
+                return text
+            depth, start, parts = 0, None, []
+            for index, char in enumerate(text[1:-1], 1):
+                if char == " " and depth == 0:
+                    if start is not None:
+                        parts.append(text[start:index])
+                    start = None
+                elif start is None:
+                    start = index
+                depth += (char == "(") - (char == ")")
+            parts.append(text[start:len(text) - 1])
+            self.assertEqual(len(parts), 3)
+            self.assertEqual(parts[0], "And")
+            return parse(parts[1]), parse(parts[2])
+
+        self.assertEqual(proof_to_lean._balanced("And", [], "True"), "True")
+        self.assertEqual(proof_to_lean._balanced_select(0, 1, "_inputs"), "_inputs")
+        for count in range(1, 70):
+            names = ["_h%d" % index for index in range(count)]
+            tree = parse(proof_to_lean._balanced("And", names, "True"))
+            for position, name in enumerate(names):
+                path = proof_to_lean._balanced_select(position, count, "_inputs")
+                self.assertTrue(path.startswith("_inputs"))
+                fields = path[len("_inputs"):].split(".")[1:]
+                self.assertLessEqual(len(fields), (count - 1).bit_length())
+                node = tree
+                for field in fields:
+                    self.assertIsInstance(node, tuple)
+                    node = node[int(field) - 1]
+                self.assertEqual(node, name)
 
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{
@@ -420,6 +671,7 @@ class TestProofToLean(unittest.TestCase):
             ("(=> p q)", 2, lambda values: not values[0] or values[1]),
             ("(= p q)", 2, lambda values: values[0] == values[1]),
             ("(xor p q)", 2, lambda values: values[0] != values[1]),
+            ("(xor p)", 1, lambda values: values[0]),
             ("(ite p q r)", 3, lambda values: values[1] if values[0] else values[2]),
         ]
         for gate, arity, evaluate in gates:
@@ -521,23 +773,121 @@ class TestProofToLean(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "rewrite requires"):
                     proof_to_lean.reconstruct(source, certificate)
 
-    def test_rewrite_lemmas_share_only_the_needed_atom_cases(self):
+    def test_rewrite_lemmas_take_only_the_decidability_their_proof_uses(self):
+        # A propositional rewrite is a direct proof term: propagation through
+        # the gates plus Decidable.byContradiction and Decidable.em on atoms.
+        # Cancelling a double negation needs p decidable; an implication
+        # rewritten to a clause splits on p (q follows by propagation in
+        # both branches); reordering a conjunction needs nothing; dropping a
+        # double negation whose atom is already known from the conjunction
+        # proposes a Decidable.byContradiction step that is discarded, so
+        # that lemma needs nothing either; the witnesses of q, r, and s,
+        # which no rewrite needs, are never introduced.
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqrs")
         source += "(assert (or p q r s))(assert false)"
         certificate = make_certificate(source, [
             ("rewrite", [], "(= (not (not p)) p)"),
             ("rewrite", [], "(= (=> p q) (or q (not p)))"),
+            ("rewrite", [], "(= (and p q r) (and r q p))"),
+            ("rewrite", [], "(= (and p (not (not p))) p)"),
             ("asserted", [], "false"),
         ])
         text = proof_to_lean.reconstruct(source, certificate)
-        self.assertEqual(text.count("private theorem rewrite_"), 2)
-        self.assertEqual(text.count("  refute_with_decidable"), 2)
-        self.assertEqual(text.count("cases _d0"), 2)
-        self.assertEqual(text.count("cases _d1"), 1)
-        self.assertNotIn("cases _d2", text)
-        self.assertNotIn("cases _d3", text)
+        self.assertEqual(text.count("private theorem rewrite_"), 4)
+        self.assertEqual(text.count("  exact (Iff.intro (fun (_f1 : "), 4)
+        self.assertNotIn("cases _d", text)
+        self.assertNotIn("of_decide_eq_true", text)
+        self.assertEqual(text.count("  refute_with_decidable"), 1)
+        self.assertEqual(text.count("    [_d0 : Decidable (_atoms 0)]"), 2)
+        self.assertEqual(text.count("Decidable.em (_atoms 0)"), 2)
+        self.assertEqual(text.count("Decidable.byContradiction"), 1)
+        for atom in ("_d1", "_d2", "_d3"):
+            self.assertNotIn(atom, text)
+        for offset in (2, 3):
+            self.assertIn("(@rewrite_%d _atoms)" % (len(certificate["nodes"]) - offset), text)
         statement = text.split("theorem unsat", 1)[1].split(": False :=", 1)[0]
         self.assertNotIn("Decidable", statement)
+
+    def test_rewrites_the_prover_cannot_settle_fall_back_to_the_truth_table(self):
+        # An equivalence that does not hold has a satisfying assignment, which
+        # the prover reaches instead of a contradiction; the exhaustive truth
+        # table over every atom is emitted (and Lean rejects it, see
+        # test_lean_rejects_false_rewrites_without_publication). The same
+        # fallback applies when the prover runs out of its step or size
+        # budget on a valid one.
+        source = "(declare-const p Bool)(declare-const q Bool)(assert (or p q))(assert false)"
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (or p q) (and p q))"), ("asserted", [], "false"),
+        ])
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertNotIn("exact (Iff.intro", text)
+        self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
+        self.assertIn("all_goals exact of_decide_eq_true rfl", text)
+        self.assertEqual(text.count("  refute_with_decidable"), 2)
+        certificate = make_certificate(source, [
+            ("rewrite", [], "(= (and p q) (and q p))"), ("asserted", [], "false"),
+        ])
+        self.assertNotIn("cases _d", proof_to_lean.reconstruct(source, certificate))
+        with patch.object(proof_to_lean, "_STRUCTURAL_REWRITE_STEPS", 1):
+            text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual((text.count("cases _d0"), text.count("cases _d1")), (1, 1))
+        # Parity (xor-chain reassociation) is settled only by splitting on
+        # every atom, and each split restates the chain's expansion, which
+        # doubles per xor: six atoms stay within the size budget (Lean checks
+        # the 700 KB term in seconds), eight would render over ten megabytes
+        # that Lean rejects on heartbeats only after minutes, so the truth
+        # table is emitted instead and fails fast.
+        for count, direct in ((6, True), (8, False)):
+            with self.subTest(atoms=count):
+                atoms = ["a%d" % index for index in range(count)]
+                left, right = atoms[0], atoms[-1]
+                for atom in atoms[1:]:
+                    left = "(xor %s %s)" % (left, atom)
+                for atom in reversed(atoms[:-1]):
+                    right = "(xor %s %s)" % (atom, right)
+                source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+                source += "(assert (or %s))(assert false)" % " ".join(atoms)
+                certificate = make_certificate(source, [
+                    ("rewrite", [], "(= %s %s)" % (left, right)), ("asserted", [], "false"),
+                ])
+                text = proof_to_lean.reconstruct(source, certificate)
+                self.assertEqual("exact (Iff.intro" in text, direct)
+                self.assertEqual(text.count("cases _d"), 0 if direct else count)
+                self.assertLess(len(text), 2 * proof_to_lean._STRUCTURAL_REWRITE_CHARS)
+
+    def test_boolean_structures_expand_as_the_lean_rendering_does(self):
+        # xor, Boolean ite, distinct, and and/or of fewer than two arguments
+        # are expanded exactly as _formula_body renders them, so the proof
+        # terms built over the structures type-check against the definitions.
+        source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
+        source += "(assert (or p q r))(assert false)"
+        shapes = ["(xor p q)", "(xor p)", "(ite p q r)", "(distinct p q r)", "(and p)",
+                  "(=> p q)", "(= p q)", "(not true)"]
+        certificate = make_certificate(source, [("rewrite", [], "(= %s %s)" % (shape, shape)) for shape in shapes]
+                                       + [("asserted", [], "false")])
+        graph = proof_to_lean._validate_graph(source, certificate)
+        _, tables = proof_to_lean._bind_input(source, graph, "propositional", 0)
+        atom_indices = {decl: index for index, decl in enumerate(sorted(tables["atoms"].values()))}
+        p, q, r = (("atom", index) for index in range(3))
+        expected = {
+            "(xor p q)": ("or", ("and", p, ("not", q)), ("and", ("not", p), q)),
+            "(xor p)": p,
+            "(ite p q r)": ("or", ("and", p, q), ("and", ("not", p), r)),
+            "(distinct p q r)": ("and", ("not", ("iff", p, q)), ("not", ("iff", p, r)), ("not", ("iff", q, r))),
+            "(and p)": p,
+            "(=> p q)": ("implies", p, q), "(= p q)": ("iff", p, q), "(not true)": ("not", ("true",)),
+        }
+        rewrites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_PR_REWRITE]
+        for shape, node in zip(shapes, rewrites):
+            with self.subTest(shape=shape):
+                left, right = graph.arguments(graph.conclusion(node))
+                structure = proof_to_lean._boolean_structure(graph, left, atom_indices)
+                self.assertEqual(structure, expected[shape])
+                # The rendering of the structure is the inlined rendering of
+                # the node, up to the parentheses around atoms.
+                inlined = proof_to_lean._inline(graph, left, atom_indices, {})
+                self.assertEqual(proof_to_lean._render_structure(structure).replace("(", "").replace(")", ""),
+                                 inlined.replace("(", "").replace(")", ""))
 
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"
@@ -787,6 +1137,32 @@ class TestProofToLean(unittest.TestCase):
             self.assertEqual(output.read_text(), "previous artifact")
             self.assertEqual(list(Path(directory).iterdir()), [output])
 
+    def test_one_argument_xor_is_its_argument_and_no_other_arity_passes(self):
+        # Z3's parser accepts (xor p), its rewriter reads it as p, and n-ary
+        # xor is binarized; the reconstructor renders the unary node as its
+        # argument (so the legacy core's rewrite (= (xor p) p) is an
+        # identity) and rejects every other arity than one and two.
+        certificate = proof_certificate.export_certificate(UNARY_XOR)
+        self.assertGreaterEqual(certificate["rule_counts"]["rewrite"], 3)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            text = proof_to_lean.reconstruct(UNARY_XOR, certificate)
+        xor = next(index for index, decl in enumerate(certificate["declarations"])
+                   if decl["kind"] == z3.Z3_OP_XOR)
+        unary = [index for index, node in enumerate(certificate["nodes"])
+                 if node["declaration"] == xor and len(node["arguments"]) == 1]
+        self.assertEqual(len(unary), 3)
+        definitions = text.split("theorem unsat", 1)[0]
+        for node in unary:
+            argument = certificate["nodes"][node]["arguments"][0]
+            self.assertIn("def formula_%d (_atoms : Nat -> Prop) : Prop := (formula_%d _atoms)\n" % (node, argument),
+                          definitions)
+        argument = certificate["nodes"][unary[0]]["arguments"][0]
+        for arguments in [[], [argument] * 3]:
+            tampered = copy.deepcopy(certificate)
+            tampered["nodes"][unary[0]]["arguments"] = arguments
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong number of arguments"):
+                proof_to_lean.reconstruct(UNARY_XOR, tampered)
+
     def test_duplicate_assertions_remain_in_the_theorem(self):
         source = "(declare-const p Bool)(assert p)(assert p)(assert (not p))"
         text = proof_to_lean.reconstruct(source, proof_certificate.export_certificate(source))
@@ -983,9 +1359,9 @@ class TestProofToLean(unittest.TestCase):
 
     def test_invalid_headers_and_shapes_are_rejected(self):
         mutations = [
-            ("format_version", True), ("format_version", 2), ("result", "sat"),
+            ("format_version", True), ("format_version", 1), ("result", "sat"),
             ("verification", "verified"), ("fragment", "arithmetic"),
-            ("source_smt2", None), ("z3_version", ""),
+            ("source_smt2", None), ("z3_version", ""), ("query", -1), ("query", "0"), ("query", True),
             ("nodes", {}), ("declarations", []), ("assertions", "0"),
             ("proof", True), ("proof", -1), ("rule_counts", {}),
         ]
@@ -995,6 +1371,23 @@ class TestProofToLean(unittest.TestCase):
                 certificate[field] = value
                 with self.assertRaises(proof_to_lean.ReconstructionError):
                     proof_to_lean.reconstruct(LITERAL, certificate)
+
+    def test_the_certified_query_is_rebuilt_from_the_script(self):
+        # The certificate names the query; the reconstructor rebuilds that
+        # query's snapshot from the original script, so pointing the same
+        # proof at another query (whose assertions differ) or at a query the
+        # script does not have is rejected, and the Lean file names the query.
+        source, query = INCREMENTAL_INPUTS["t143"]
+        certificate = proof_certificate.export_certificate(source, query)
+        self.assertEqual(certificate["query"], 1)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertIn("-- Certified query: check-sat 2 of 2 (zero-based index 1)", text)
+        self.assertNotIn("Certified query", proof_to_lean.reconstruct(LITERAL, self.certificate))
+        for query, error in [(0, proof_to_lean.ReconstructionError), (2, proof_certificate.ProofExportError)]:
+            with self.subTest(query=query):
+                tampered = dict(certificate, query=query)
+                with self.assertRaises(error):
+                    proof_to_lean.reconstruct(source, tampered)
 
     def test_missing_and_unexpected_fields_are_rejected(self):
         for target in ["header", "node", "declaration"]:

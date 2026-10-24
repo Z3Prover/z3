@@ -1,54 +1,308 @@
-# F* Neuro Formal-Verification Audits of Z3 Modules
+# F* Formalization, Source Audits, and Proof Checking
 
-This directory contains a series of independent F* audits that
-formalize and mechanically verify selected rewrite rules of Z3's
-rewriter/converter source files. Each audit defines a self-contained,
-abstract (never Z3-internal-type-dependent) value-level theory for its
-subject area, proves that the corresponding C++ code's symbolic
-rewrite shortcuts are equal to evaluating that theory, and explicitly
-documents what was judged out of scope (and why).
+This directory contains three related activities:
 
-Toolchain used throughout: [F*](https://github.com/FStarLang/FStar)
-`v2026.09.27` (Windows x64) with Z3 `4.13.3` as the SMT backend (F*
-pins an exact Z3 version; this is independent of the Z3 binary built
-from this repository). Typecheck any file with:
+| Activity | Purpose | Details and reports |
+|---|---|---|
+| **1. Formalization of SMT theories** | Define abstract, value-level semantics and mechanically prove theory laws in F*. | [Formalization](FORMALIZATION.md) |
+| **2. Neuro-Formal audits of Z3 source code** | Examine selected C++ implementations against the formalized semantics, verify their semantic obligations, and document findings and scope limits. | [Source audits](SOURCE_AUDITS.md) |
+| **3. Proof checking of Z3 proofs** | Build verified checkers that validate proof steps and certificates using the formalized semantics and lemmas. | [Proof checking](PROOF_CHECKING.md) |
 
+The formalization is the shared foundation. **Source audits and proof
+checking are independent activities**: both depend on the formalization,
+but neither depends on the other.
+
+```text
+                 1. SMT theory formalization
+                          /       \
+                         v         v
+              2. Source audits   3. Proof checking
 ```
-C:\fstar\fstar\bin\fstar.exe --smt C:\z3-4.13.3\z3-4.13.3-x64-win\bin\z3.exe <File>.fst
+
+An audit studies the correctness of selected source-code behavior; a
+checker validates an individual proof against supported rules. An audit
+does not replace checking a proof, and checking a proof does not establish
+correctness of the C++ implementation that produced it. The activity pages
+link the relevant modules, reports, coverage results, and limitations.
+For the current single-executable SMT-LIB workflow, see
+[direct native checking](PROOF_CHECKING.md#extraction-and-execution).
+For incremental SMT-LIB sessions, run the built executable with
+`--interactive`. It registers the extracted F* checker through Z3's proof
+callback and emits `; proof-check ACCEPT`, `PARTIAL n`, or `REJECT` after
+UNSAT answers. See [interactive mode](OCAML_CHECKER_REPORT.md#interactive-certifying-smt-lib-session)
+for protocol, ownership, and certification limits.
+
+## Shared toolchain
+
+The documented toolchain is [F*](https://github.com/FStarLang/FStar)
+`v2026.09.27` (Windows x64). The proof-checker harness builds and installs
+Z3 from this checkout before verification or testing. F* and Pulse use
+the installed `build\install\bin\z3.exe`, not F*'s historical Z3 4.13.3
+backend or an executable found incidentally on `PATH`. The harness reads
+the installed version and supplies F*'s matching `--z3version` option;
+the version check remains enabled.
+
+From a Windows C++20 developer PowerShell, build and test both the native
+checker and the in-memory Pulse checkers:
+
+```powershell
+.\tools\build_ocaml_checker.ps1 -RunTests
 ```
 
-All `.fst` files in this directory type-check and discharge all
-verification conditions. All are free of `admit`/`assume`/axioms,
-except `Z3NlArith.fst`, whose 9 `assume`s are explicitly-labeled
-real-analysis facts about `exp`/`log`/`sin`/`cos`/`atan2` (see
-[`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md)).
+The Windows installation is local to the build directory. The native
+OCaml producer is separately built and installed in WSL, then linked
+from that installation. See [build options and prerequisites](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary).
 
-## Audits
+### Standalone Cherry checker
 
-| Audit | Report | Theory file(s) | Proof file(s) | Subject |
-|---|---|---|---|---|
-| Sequences / regex membership / regex algebra / axiom soundness | [`SEQ_REWRITER_REPORT.md`](SEQ_REWRITER_REPORT.md) | [`Z3SeqTheory.fst`](Z3SeqTheory.fst), [`Z3RegexTheory.fst`](Z3RegexTheory.fst) | [`Z3SeqRewrites.fst`](Z3SeqRewrites.fst), [`Z3SeqDerive.fst`](Z3SeqDerive.fst), [`Z3RegexMembership.fst`](Z3RegexMembership.fst), [`Z3RegexRewrites.fst`](Z3RegexRewrites.fst), [`Z3SeqAxioms.fst`](Z3SeqAxioms.fst), [`Z3SeqIndexOf.fst`](Z3SeqIndexOf.fst), [`Z3StoiTheory.fst`](Z3StoiTheory.fst) | `src/ast/rewriter/seq_rewriter.cpp`, `src/ast/rewriter/seq_derive.cpp`, `src/ast/seq/seq_axioms.cpp` |
-| Sequence nested-`extract` / `indexof` width audit | [`SEQ_REWRITER_EXTRACT_REPORT.md`](SEQ_REWRITER_EXTRACT_REPORT.md) | — (length-only arithmetic model stated directly over `nat`/`int`) | [`Z3SeqRewriterExtract.fst`](Z3SeqRewriterExtract.fst), [`Z3SeqRewriterIndex.fst`](Z3SeqRewriterIndex.fst) | Focused follow-up audit of `seq_rewriter.cpp`'s nested-`extract` flattening rules and `mk_seq_index`'s concrete-string fast path: confirms the `indexofu`/`int` width mismatch as a genuine bug, but refutes the proposed overlong nested-`extract` bug after proving every actual flattening branch sound and showing the cited witness does not reach one |
-| Floating point | [`FPA_REPORT.md`](FPA_REPORT.md) | [`Z3FpaTheory.fst`](Z3FpaTheory.fst), [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | [`Z3FpaRewrites.fst`](Z3FpaRewrites.fst), [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | `src/ast/rewriter/fpa_rewriter.cpp`, `src/ast/fpa/fpa2bv_converter.cpp` |
-| FP rounding (issue/PR audit) | [`FPA_ROUNDING_AUDIT.md`](FPA_ROUNDING_AUDIT.md) | [`Z3FpaConverter.fst`](Z3FpaConverter.fst) | [`Z3FpaRoundingAudit.fst`](Z3FpaRoundingAudit.fst), [`Z3FpaRoundingBits.fst`](Z3FpaRoundingBits.fst), [`Z3FpaZeroSign.fst`](Z3FpaZeroSign.fst), [`Z3FpaNanCongruence.fst`](Z3FpaNanCongruence.fst), [`Z3FpaNanWrap.fst`](Z3FpaNanWrap.fst), [`Z3FpaToRealSign.fst`](Z3FpaToRealSign.fst) | `mk_to_fp_real`, `mk_to_real`, `theory_fpa::relevant_eh`, and FP/datatype model construction (all tracked issues now closed: #10881/#10931/#9953 via merged PR #10888; #7431 via merged PR #11086; #7842/#10176 via merged PR #11088) |
-| MPF library | [`MPF_REPORT.md`](MPF_REPORT.md) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst) | [`Z3MpfTheory.fst`](Z3MpfTheory.fst), [`Z3MpfRound.fst`](Z3MpfRound.fst), [`Z3MpfExact.fst`](Z3MpfExact.fst) | `src/util/mpf.h`/`mpf.cpp` (arbitrary-precision IEEE-754 library) |
-| Regex/AST (`rex::info`) | [`REGEX_REPORT.md`](REGEX_REPORT.md) | [`Z3RegexTheory.fst`](Z3RegexTheory.fst), [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3RegexExprTheory.fst`](Z3RegexExprTheory.fst) | [`Z3RegexInfo.fst`](Z3RegexInfo.fst) | `src/ast/seq_decl_plugin.cpp`'s `get_info`/`mk_info_rec`/`rex::info` (found and fixed a soundness bug in `info::diff`'s nullable computation) |
-| Non-linear arithmetic (NLA) lemmas | [`NL_ARITH_REPORT.md`](NL_ARITH_REPORT.md) | — (lemmas stated directly over `FStar.Real`/`int`) | [`Z3NlArith.fst`](Z3NlArith.fst) | `src/math/lp/nla_basics_lemmas.cpp`, `nla_order_lemmas.cpp`, `nla_monotone_lemmas.cpp`, `nla_tangent_lemmas.cpp`, `nla_powers.cpp`, `nla_divisions.cpp`, `nla_transcendentals.cpp` (47 lemmas verified; unlike the other audits above, 9 rest on explicitly-labeled, standard real-analysis `assume`s for `exp`/`log`/`sin`/`cos`/`atan2`, since those functions aren't part of a decidable SMT theory) |
-| Bool/arith rewriters | [`BOOL_ARITH_REWRITER_REPORT.md`](BOOL_ARITH_REWRITER_REPORT.md) | — (lemmas stated directly over `bool`/`int`/`FStar.Real`) | [`Z3BoolRewriter.fst`](Z3BoolRewriter.fst), [`Z3ArithRewriter.fst`](Z3ArithRewriter.fst), [`Z3ArithRewriterPower.fst`](Z3ArithRewriterPower.fst), [`Z3ArithRewriterCast.fst`](Z3ArithRewriterCast.fst), [`Z3ArithRewriterOrder.fst`](Z3ArithRewriterOrder.fst) | `src/ast/rewriter/bool_rewriter.cpp`, `src/ast/rewriter/arith_rewriter.cpp` (66 lemmas verified: AND/OR/NOT/ITE/EQ/DISTINCT/XOR/IMPLIES/NAND/NOR/GE2 propositional identities, div/idiv/mod/rem/abs/power/to_int/to_real/is_int arithmetic identities, and lt/gt/eq2ineq/ite-lifting/to_int-comparison-bridging/is_bound/is_separated comparison-operator identities; the arithmetic lemmas are split across 4 files purely because Z3's combined proof search times out, not because of any change in content) |
-| Sequence equation solving (`theory_seq`) | [`SEQ_EQ_SOLVER_REPORT.md`](SEQ_EQ_SOLVER_REPORT.md) | [`Z3SeqTheory.fst`](Z3SeqTheory.fst) | [`Z3SeqEqSolver.fst`](Z3SeqEqSolver.fst) | `src/smt/seq_eq_solver.cpp` (soundness + completeness of `branch_variable_eq`/`find_branch_candidate`'s prefix-guessing case split and `len_based_split`'s length-aligned decomposition; also confirms a historical soundness bug in `propagate_length_coherence`, issue #11013/PR #11015, via a prove-the-fix/disprove-the-bug countermodel) |
-| Bit-vector rewriter (first pass + overflow-predicate follow-up) | [`BV_REWRITER_REPORT.md`](BV_REWRITER_REPORT.md) | [`Z3BvTheory.fst`](Z3BvTheory.fst) | [`Z3BvRewriter.fst`](Z3BvRewriter.fst) | `src/ast/rewriter/bv_rewriter.cpp` (bit-vector semantics built on `FStar.UInt`, reusing its proved bitwise/shift/rotate lemma library; core bitwise/arithmetic/shift/rotate/extract/concat/extend/comparison identities, the `is_zero_extended` signed-vs-unsigned comparison shortcut, and all 10/10 overflow-detection predicates (`mk_bvneg_overflow`, `mk_bvuadd_overflow`, `mk_bvusub_underflow`, the signed-add family, `mk_bvsdiv_overflow`, `mk_bvssub_under_overflow`, the signed/unsigned multiplication-overflow family) proved equivalent to their true arithmetic over/underflow conditions; the heuristic equation/inequality search rewrites and the signed-division/remainder family are deferred to further follow-up passes) |
-| Datatype rewriter | [`DATATYPE_REWRITER_REPORT.md`](DATATYPE_REWRITER_REPORT.md) | [`Z3DatatypeTheory.fst`](Z3DatatypeTheory.fst) | [`Z3DatatypeTheory.fst`](Z3DatatypeTheory.fst) | `src/ast/rewriter/datatype_rewriter.cpp` (free-algebra model of datatype values; full coverage of `mk_app_core`'s recogniser/is/accessor/update-field cases and `mk_eq_core`'s constructor (in)equality — 14/14 reachable rewrite branches proved) |
-| Array rewriter | [`ARRAY_REWRITER_REPORT.md`](ARRAY_REWRITER_REPORT.md) | [`Z3ArrayTheory.fst`](Z3ArrayTheory.fst) | [`Z3ArrayTheory.fst`](Z3ArrayTheory.fst) | `src/ast/rewriter/array_rewriter.cpp` (extensional-array model via `FStar.FunctionalExtensionality`'s restricted-arrow type, whose `==` is already pointwise-quotiented, matching Z3's array extensionality axiom directly; select/store interactions, array eta-reduction, map-distributes-over-select/store/const/lambda, set union/intersect/complement/difference/subset, and `mk_eq_core`'s const/lambda extensionality cases — 23/23 target rewrite families proved; PEQ bookkeeping, `squash_store`'s n-level search, AC-flattening of and/or maps, and the finite-domain `has_index_set` equality-expansion heuristic are deferred as solver-engineering, not new semantic laws) |
-| Other `th_rewriter.cpp` plugins (survey + finite-set rewriter) | [`OTHER_TH_REWRITER_REPORT.md`](OTHER_TH_REWRITER_REPORT.md) | [`Z3FiniteSetTheory.fst`](Z3FiniteSetTheory.fst) | [`Z3FiniteSetTheory.fst`](Z3FiniteSetTheory.fst) | Full plugin-by-plugin survey of `th_rewriter.cpp`'s 12 theory plugins, cross-referencing prior audits (bool/arith/bv/array/datatype/fpa/seq all already covered); newly formalizes `finite_set_rewriter.cpp` (Z3's `set.*` finite-set sort, modeled via extensionally-quotiented `prop`-valued membership predicates — 26/26 target rewrite families proved); reviews `dl_rewriter.cpp`/`char_rewriter.cpp` as trivial bounded-integer comparisons needing no dedicated lemmas; `pb_rewriter.cpp` and `recfun_rewriter.cpp` now also covered, see their own rows below |
-| Pseudo-Boolean rewriter | [`PB_REWRITER_REPORT.md`](PB_REWRITER_REPORT.md) | [`Z3PbTheory.fst`](Z3PbTheory.fst) | [`Z3PbTheory.fst`](Z3PbTheory.fst) | `src/ast/rewriter/pb_rewriter.cpp` (PB constraints `sum(c_i*l_i) >= k` over integer coefficients; negative-coefficient literal flip, trivial-true/trivial-false detection, tight-inequality ⟺ all-literals-true, unit-coefficient ⟺ at-least-one-true, single-term coefficient capping, the all-coefficients-equal-`k` special case, the coefficient-range collapse heuristic, and the gcd-based cutting-plane reduction all proved truth-preserving — 11 top-level theorems; only `mk_app_core`'s general slack-based conjunction/disjunction/recursive construction remains deferred) |
-| Recursive-function rewriter | [`RECFUN_REWRITER_REPORT.md`](RECFUN_REWRITER_REPORT.md) | [`Z3RecfunTheory.fst`](Z3RecfunTheory.fst) | [`Z3RecfunTheory.fst`](Z3RecfunTheory.fst) | `src/ast/rewriter/recfun_rewriter.cpp` (recursive datatype values with a structural size measure; proves `is_decreasing_arg`'s accessor-chain discipline is a sound termination certificate — accessors strictly shrink size, so no infinite accessor-guarded unfolding sequence can exist; the substitution step itself reuses `Z3SimplifierTheory.fst`'s generic substitution-congruence lemma; the `.cpp`'s own AST-traversal decision procedure for recognizing the pattern is deferred) |
-| `ast/simplifiers` preprocessors (first pass) | [`SIMPLIFIERS_REPORT.md`](SIMPLIFIERS_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst) (pre-existing generic AST model) | [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | Formalizes the two recurring semantic primitives underlying most of the 29 `ast/simplifiers/*.cpp` files: quantifier/connective distributivity (`distribute_forall.cpp`, binary + n-ary, both `forall`/`and` and `exists`/`or`) and ground-term substitution congruence (`propagate_values.cpp`, and by the same lemma `solve_eqs.cpp`/`solve_context_eqs.cpp`/`extract_eqs.cpp`'s substitution-application step) — 5/5 target properties proved; documents a file-by-file follow-up queue for the other 27 files (equation-solving search, unconstrained-variable elimination, congruence closure, interval propagation, bit-blasting, model reconstruction, etc.) |
-| `model_reconstruction_trail.cpp` (follow-up) | [`MODEL_RECONSTRUCTION_REPORT.md`](MODEL_RECONSTRUCTION_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | [`Z3ModelReconstructionTheory.fst`](Z3ModelReconstructionTheory.fst) | The cross-cutting model-reconstruction mechanism every other `ast/simplifiers` preprocessor relies on (`replay`/`get_model_converter`): proves that extending a model of the simplified problem, by assigning an eliminated symbol's interpretation from its definition, reconstructs a model of the original, pre-elimination problem — both the arity-0 eliminated-constant case (`lemma_model_reconstruction`) and its arity-`n` generalization to quantifier-free definitions whose occurrences are always ground-applied (`lemma_model_reconstruction_n`, covering `reduce_args_simplifier.cpp`'s Ackermann-style reduction); the ground-substitution entry kind (`is_subst()`) was already covered by `lemma_subst_cong`. Binder-crossing arity-`n` occurrences (De Bruijn shifting under binders), "loose" re-insertion entries, `hide_trail`, and whole-trail composition are deferred |
-| `leibniz_simplifier.cpp` (follow-up) | [`LEIBNIZ_SIMPLIFIER_REPORT.md`](LEIBNIZ_SIMPLIFIER_REPORT.md) | — (standalone pure-FOL file) | [`Z3LeibnizTheory.fst`](Z3LeibnizTheory.fst) | Despite the name, not a congruence rewrite — formalizes the direct first-order universal-instantiation axiom this simplifier *adds* alongside an existing `forall` (`lemma_forall_instantiate`), plus the specific array/set-indicator witness shape it builds for Boolean-ranged unary array sorts (`lemma_leibniz_array_witness`); de Bruijn reindexing bookkeeping and witness-collection heuristics have no independent soundness content and are not planned for further formalization |
-| Proof terms / `rewriter_def.h`'s proof production | [`PROOF_REWRITER_REPORT.md`](PROOF_REWRITER_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst) (terms/semantics) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst) | `src/ast/ast.h`/`ast.cpp` (the `PR_REFLEXIVITY`/`PR_SYMMETRY`/`PR_TRANSITIVITY`/`PR_MONOTONICITY`/`PR_REWRITE` proof-term calculus plus the compound binder-crossing `PR_BIND`+`PR_QUANT_INTRO` shape, and their `mk_reflexivity`/`mk_symmetry`/`mk_transitivity`/`mk_congruence`/`mk_rewrite`/(`mk_bind_proof`+`mk_quant_intro`) smart constructors, including `mk_transitivity`'s double-negation fixup), cross-checked against `src/ast/proofs/proof_checker.cpp`'s `check1_basic` as ground truth, and `src/ast/rewriter/rewriter_def.h` (every proof-term-constructing call site in the generic bottom-up rewriting engine shared by all theory rewriters, quantifier-crossing rewrites included); proves all 7 smart constructors always produce well-formed output plus an overall soundness theorem (well-formed + sound `PR_REWRITE` leaves + `quant_extensional` ⟹ true conclusion, under any interpretation); all non-`rewriter_def.h` proof kinds (`PR_TH_LEMMA`, `PR_HYPER_RESOLVE`, hypothesis/lemma management, etc.) are deferred to a follow-up pass |
-| Proof terms / `smt_justification.cpp`'s conflict-resolution proof combinators, and `PR_AND_ELIM`/`PR_NOT_OR_ELIM` | [`PROOF_JUSTIFICATIONS_REPORT.md`](PROOF_JUSTIFICATIONS_REPORT.md) | — (standalone propositional sub-language + two-valued semantics) | [`Z3ProofJustifications.fst`](Z3ProofJustifications.fst) | `src/ast/ast.cpp`'s `mk_modus_ponens`/`mk_unit_resolution` smart constructors (cross-checked against `proof_checker.cpp`'s `check1_basic` `PR_MODUS_PONENS`/`PR_UNIT_RESOLUTION` cases) and their call sites in `src/smt/smt_justification.cpp` (`unit_resolution_justification`, `eq_conflict_justification`, `eq_root_propagation_justification`, `mp_iff_justification`), plus the CNF-conversion elimination rules `PR_AND_ELIM`/`PR_NOT_OR_ELIM`; proves full semantic soundness (not just well-formedness) of unit resolution's residual-clause computation, modus ponens' three accepted antecedent shapes (`implies`/`=`/`~`), and both elimination rules; `PR_TH_LEMMA` (used by every `theory_*_justification` class, and itself unverified by Z3's own checker outside the `"arith"` family), `PR_HYPER_RESOLVE` (whose own `check1_basic` case defers to an external side-condition check rather than validating inline), and `PR_QUANT_INST`/`PR_SKOLEMIZE`/`PR_DEF_AXIOM`/`PR_NNF_POS`/`PR_NNF_NEG` (trusted/near-trivial in today's checker) are out of scope |
-| Preprocessing proof production (`ast/proofs/proof_checker.cpp` + `ast/simplifiers`) | [`PREPROCESSING_PROOFS_REPORT.md`](PREPROCESSING_PROOFS_REPORT.md) | [`Z3AstTheory.fst`](Z3AstTheory.fst), [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) | [`Z3PreprocessingProofTheory.fst`](Z3PreprocessingProofTheory.fst) | Surveys which of the 34 `ast/simplifiers` files produce `proof*` objects (`supports_proofs()`) and how; independently (re-)formalizes, directly over `Z3AstTheory`'s `eval` rather than `Z3ProofTheory.fst`'s/`Z3ProofJustifications.fst`'s dedicated proof-term datatypes, the kernel inference rules those two reports don't cover (`PR_COMMUTATIVITY`, `PR_QUANT_INTRO`, `PR_PUSH_QUANT` — reusing `Z3SimplifierTheory`'s distributivity lemmas directly, `PR_IFF_TRUE`/`PR_IFF_FALSE`/`PR_IFF_OEQ`), restates the already-covered `PR_REFLEXIVITY`/`SYMMETRY`/`TRANSITIVITY`/`MONOTONICITY`/`AND_ELIM`/`NOT_OR_ELIM`/`MODUS_PONENS`(`_OEQ`) as needed internally (consistent, cross-validating, with `Z3ProofTheory.fst`/`Z3ProofJustifications.fst`'s results), documents `PR_REWRITE`/`PR_DEF_AXIOM` as trusted leaves whose correctness is exactly what every other rewriter audit in this directory establishes, and proves an `ast/simplifiers`-specific pipeline-composition capstone theorem that chained `dependent_expr_simplifier::mp` justifications across a whole preprocessing run preserve soundness end-to-end |
-| Proof production vs. omission, audited across `ast/rewriter`, `ast/simplifiers`, `tactic`, `smt` | [`PROOF_OMISSION_AUDIT.md`](PROOF_OMISSION_AUDIT.md) | — (C++-source catalogue, no new F* theory) | — | A breadth-first, file-by-file catalogue (not a formalization) of every place in these four layers that constructs a proof/justification for a goal/formula transformation vs. silently omits one, classifying each omission as deliberately-guarded, benign/delegated, or a genuine latent gap; finds three of the four layers clean (`tactic`'s `goal::update` assert-on-null-proof acts as an effective runtime safety net the other layers lack) and one confirmed finding, now fixed: `ast/simplifiers/euf_completion.cpp`'s `map_congruence`/`add_consequence` (`:253-281`) were adding new `(congruence ...)`/`(consequence ...)`-tagged formulas to a live goal with a **null** proof, reachable via the real `"euf-completion"` tactic/simplifier — `euf_completion::supports_proofs()` now returns `false`, disabling the whole simplifier whenever proofs are required |
+The native checker also has a **Cherry-generated C kernel and C++ frontend**,
+with no OCaml runtime or OCaml bindings. It extracts the same
+`Z3NativeProof` marshaler, document checker, and sort-indexed datatype checker.
+The handwritten C++ foreign adapter supplies Z3 handles and candidate proof
+metadata; it cannot construct checked facts. Both executables link static Z3
+and solve, marshal, and check in process. Their input options, incremental
+protocol, diagnostics, and exit codes are the same.
 
-See each linked report for the full scope decision, function-by-function
-coverage table, notable results, and remaining gaps for that audit.
+Cherry currently requires **Linux x86-64 or AArch64, GCC/G++ 15+**, and a
+Cherry-capable F*. CI pins **nightly-2026-10-23**, commit
+`9f0182e8b179f95e8dfcdfcd7680e27741c793b1`, separately from the OCaml verifier.
+`tools/checker_modules.json` supplies the dependency-ordered shared module and
+test lists to both build paths. Every source is verified before extraction;
+the installed checkout Z3 is explicitly selected as the SMT backend.
+
+To add Cherry to the existing Windows/WSL or Linux build, pass
+`-BuildCherry -CherryFstarExe <Linux-path-to-fstar.exe>` to
+`tools/build_ocaml_checker.ps1`. On Windows, this is a WSL executable path;
+use `-WslDistribution Ubuntu` when necessary. The second executable is
+`<WslBuildDir>/cherry/checker`. `-RunTests` exercises both backends.
+
+A Cherry-only Linux build does not require opam or OCaml. After installing
+static Z3 from this checkout, run:
+
+```sh
+python3 fstar/tools/build_cherry_checker.py \
+  --fstar /path/to/fstar/bin/fstar.exe \
+  --z3-install /path/to/z3/install \
+  --build-dir /path/to/cherry-checker --run-tests
+/path/to/cherry-checker/checker --stats input.smt2
+```
+
+The installed prefix must contain `bin/z3`, `include/z3.h`, and `lib/libz3.a`.
+Use `--sanitize` for an ASan/UBSan build. The generated kernel retains Cherry
+debug checks and guaranteed tail calls; neither verification nor runtime
+safety checks are disabled. `Z3CherryTests` and native bridge tests exercise
+accepted, unsupported, and malformed proof documents, including mismatched
+original assertions. The shared CLI suite covers batch and interactive
+checking, clause proofs, datatypes, arrays, bit-vectors, exact arithmetic,
+timeouts, diagnostics, and input errors.
+
+The datatype shape witness uses a non-erased Boolean carrier to avoid a
+reproduced nightly compiler bug in reference-counting unit-valued closures,
+reported as **FStarLang/FStar#4783**. The inhabitance algorithm and all its
+proof obligations remain verified.
+
+### GitHub Actions regression report
+
+**Build Pulse native checkers** (`.github/workflows/pulse-checker-build.yml`)
+runs automatically on pushes and pull requests changing `fstar/**` or either
+checker workflow, and can also be dispatched manually. It builds and installs
+that checkout's Z3, verifies the Pulse modules and their tests, extracts and
+links the native F* checker, and
+runs both executables' bridge/CLI self-tests. The Linux path uses the same
+`tools/checker_modules.json` lists as the Windows/WSL build,
+with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
+and the separately pinned nightly and GCC/G++ 15 for Cherry.
+F* and enabled OCaml compiler warnings fail the build. Extracted constructor
+projectors receive explicit rejecting out-of-domain arms using OCaml's
+AST, without suppressing partial-match warnings or changing checker rules.
+
+It also runs after a successful default-branch **Nightly Build**, building that
+nightly's exact source commit rather than the latest branch tip. On success,
+an isolated publication job attaches both checker tarballs and their SHA-256
+files to the GitHub release tagged **`Nightly`**. Publication is serialized with
+the nightly deploy and skipped explicitly if that release has advanced to a
+different commit. PR, push, and manual checker builds never modify the release.
+
+Successful builds upload **`pulse-checker-ocaml-linux-x86_64`**,
+**`pulse-checker-cherry-linux-x86_64`**, and **`pulse-checker-build-report`**.
+Each checker artifact contains a checksummed `.tar.gz` with an executable `checker`,
+build/toolchain metadata, runtime-library dependencies, licenses, and usage
+instructions. Extract the tarball to preserve executable permissions.
+Neither executable needs a build-time F* or OCaml installation, an external
+`z3`, or Python to run. Standard Linux shared libraries are still required;
+the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
+with a clean environment.
+
+Successful completion triggers **Pulse verification and native checker regressions**
+(`.github/workflows/pulse-checker-regressions.yml`) through `workflow_run`.
+It downloads the packages and build report from that exact build run and
+checks out the source revision recorded in the build artifact, including for
+nightly-triggered builds; it does not rebuild Z3, F*, or either checker.
+The consumer has only read permissions, including for PR builds, and no secrets
+are passed to the downloaded executables. Failed or cancelled builds do not
+start regression jobs. The regression workflow must be on the default branch
+for GitHub to deliver the completion trigger. For a manual regression run,
+provide the successful producer's `build_run_id` along with any corpus or
+timeout overrides. Automatic runs use the default regression settings.
+
+The first regression job downloads the OCaml package and reruns the CLI suite.
+A second job downloads the Cherry package from the same build, reruns
+the CLI suite without installing build toolchains, then replays the same
+z3test commit and the **identical 225/310 sampled inputs and 25 QF_FF inputs**
+from the OCaml report artifact. It does not download the Zenodo archives again.
+Cherry coverage and timing reports are published separately.
+These executables run the extracted F* document-checker kernel; the
+in-memory Pulse checker regressions are also verified during the build,
+not substituted for the document-checker CLI.
+
+The first default corpus is every `.smt2` file recursively under
+`Z3Prover/z3test`'s `regressions/proofs`, including the optional larger
+`lean/real` input. Dispatch inputs select the corpus ref/directory, sorted
+case cap (zero means all), solver timeout, whole-case timeout, and total
+test budget. Manifest `.txt` lists and saved `.proof` objects are not
+executed. Inputs are passed unchanged to the native API, which checks the
+parsed final assertion set, not an incremental sequence of commands.
+
+The same job also evaluates two freshly sampled SMT-LIB cohorts:
+**225 inputs**, with **25 UNSAT-annotated benchmarks per logic** for QF_UF,
+QF_AX, QF_LIA, QF_LRA, QF_IDL, QF_UFLIA, QF_AUFLIA, AUFLIA, and UFLIA;
+and **310 extended inputs**, with 25 each for **QF_DT, QF_NIA, UF, QF_BV,
+QF_UFBV, QF_UFDT, QF_ABV, QF_AUFBV, QF_UFLRA, QF_NRA,
+UFDT, and UFDTLIA** plus **all 10 UNSAT-annotated UFLRA inputs**.
+UFLRA has only 15 benchmarks total; its five SAT-annotated inputs are not
+certificate examples. QF_LIRA is omitted because the pinned archive supplies
+only two eligible UNSAT inputs under the size limit. QF_UFDTLIA is omitted
+because its archive contains only unknown-annotated inputs.
+The existing manifests in `Z3Prover/z3test/regressions/smtlib-sample`
+and `fstar/benchmarks/smtlib-sample` now supply the archive URLs, pinned
+SHA-256 hashes, compressed sizes, and required counts, not the CI input
+lists. A manually selected `z3test_ref` must contain its source manifest.
+The checked-in fixed cohorts remain available for local regression replay.
+Both sampled cohorts come from the SMT-LIB 2025 non-incremental release,
+[Zenodo record 16740866](https://zenodo.org/records/16740866), licensed
+CC BY 4.0. Original authorship, source, and license metadata are preserved
+inside each unchanged benchmark.
+
+`tools/sample_checker_benchmarks.py` downloads and verifies one archive at
+a time, streams decompression without unpacking the complete corpus, and
+keeps only the requested number of candidates in memory. Eligible inputs
+are regular UNSAT-annotated `.smt2` members of at most 256 KiB. Independently
+per logic, selection takes the lowest SHA-256 priorities of
+`seed NUL logic NUL relative-POSIX-path`. This is pseudorandom sampling
+without replacement, independent of archive traversal order, and does not
+select by solver or checker outcome. It is stratified by logic, not by
+benchmark family. Unsafe paths, links, duplicates, incorrect archive
+hashes, and insufficient eligible populations fail preparation explicitly.
+
+The default seed is `github.run_id`: new runs use different seeds, while
+rerunning the same workflow run retains its seed. Dispatch input
+`smtlib_sample_seed` reproduces a recorded selection against the same archive
+configuration and sampler. UFLRA necessarily remains the same ten inputs. The two
+cohorts retain their separate execution/diagnostic budgets and require
+exactly 225/310 manifested inputs; `max_cases` does not truncate them.
+The extended cohort remains independent of the external z3test checkout.
+Each report artifact includes `inputs/` with the selected original files
+and manifest, the seed, source-manifest hash, archive/member provenance,
+input SHA-256 hashes, and `sampling.log`. The harness verifies exact
+manifest membership and every input hash before executing any case.
+
+A separate **25-input QF_FF cohort** uses the checked-out z3test's
+`regressions/finite_field/test_qfff.py` generator and exhaustive small-field
+oracle. It selects five distinct UNSAT formulas for each prime 2, 3, 5, 7,
+and 17, covering the generator's field arithmetic, bitsums, conditionals,
+equalities, disequalities, and Boolean combinations. Selection uses the
+same recorded run seed, not solver or checker results. Generation fails
+if it cannot supply every case. Its manifest records the z3test revision,
+generator hash, moduli, and individual input hashes. Both backends run
+these exact inputs with the normal certificate harness; unsupported proof
+steps remain visible as PARTIAL rather than solver-only passes.
+The `qfff/` report includes generated inputs, provenance, per-case logs,
+coverage, timings, and separate diagnostics. Dispatch input
+`qfff_total_timeout_seconds` controls its execution budget (default 600
+seconds); the other per-case limits are shared with the existing cohorts.
+
+This is a normal GitHub-hosted Actions job, not a gh-aw agent job with a
+network allowlist. `permissions: contents: read` limits GitHub API access,
+not public outbound HTTPS; anonymous Zenodo downloads need no additional
+token permission. The pinned archives total about 4.17 GB compressed per
+run. Preparation has a separate 30-minute limit for each cohort; archive
+downloads are bounded and retried, and each archive is removed after
+sampling. Zenodo may still be unavailable or rate-limit a runner, in which
+case the workflow reports a sampling failure rather than silently reusing
+the fixed cohort.
+
+For environments that cannot reach Zenodo, an alternative preparation
+step can sample from a larger checksummed snapshot hosted in z3test, a
+GitHub Release, or a pre-provisioned runner cache. Refresh that pool
+separately, record its version and the seed, and produce the same input
+manifest for the existing validation/diagnostic steps. The pool must be
+larger than the per-run cohort: drawing 25 out of the same 25 files changes
+only execution order, not benchmark coverage.
+
+The bundled UF regression cohort includes five `misc/set*.smt2` inputs
+declaring an uninterpreted sort named `Set`. The shared parser removes
+obsolete built-in sort aliases when `set-logic` follows API context
+initialization, leaving this name available under UF. All five previously
+failing inputs certify as `ACCEPT`; regressions cover native batch and
+interactive checking.
+
+The job summary and downloadable report artifact record resolved producer
+and corpus commits, build/test outcomes, build and per-case wall time,
+available solve/marshal/check timings, and explicit outcome rates.
+`ACCEPT` alone counts as proof-checking success; `PARTIAL`, `REJECT`,
+`SAT`, unknowns, timeouts, and process errors remain separate categories.
+The report is a coverage measurement, not a pass rate for z3test's other
+proof backends. Pulse modules are verified, but the executable benchmarked
+on the corpus uses the extracted F* kernel, **not linked Pulse code**.
+Build/self-test failures and checker errors/crashes/protocol mismatches
+fail the job; unsupported proofs and timeouts are reported without failing
+this coverage-measurement job. In particular, checker exit code 1 with `REJECT`
+and exit code 3 with `PARTIAL n` are non-fatal coverage outcomes, not successful
+proof checks. The harness still exits nonzero for infrastructure/protocol errors
+or unfinished manifested cohorts; its exit code is not ignored.
+The corpus step also has a 35-minute CI
+limit, independent of the configurable budget. Always-run reporting/upload
+steps preserve available results and build logs on failure.
+After coverage measurement, a separately budgeted diagnostic pass replays
+only `PARTIAL` and `REJECT` cases with `--diagnostics`. It does not change
+the original verdicts or case timings. Reports rank remaining rule/fingerprint
+families by sole-family proofs blocked, then affected proofs and obligation
+counts; only replays matching the original verdict and pending count
+contribute. Raw replay logs and `diagnostics.jsonl` retain timeouts,
+nonmatching results, and diagnostic errors separately. Each corpus has a
+900-second diagnostic budget and twice its original whole-case timeout.
+The SMT-LIB sample has its own report, per-logic outcome counts, input
+manifest, raw logs, and phase timings under the artifact's `smtlib-sample/`
+directory. It uses the same configurable solver and whole-case timeouts,
+a 4 GiB address-space limit, and a separate default 3,600-second execution
+budget (`smtlib_total_timeout_seconds`), with a 65-minute CI step limit.
+An incomplete manifest-driven sample run fails the job; unsupported
+proofs and timeouts still remain explicit coverage outcomes. The sample
+step runs even if the earlier proof-corpus execution fails, provided the
+build and corpus checkout succeeded.
+
+For a local Linux build, activate an OCaml 5.3.0 opam switch with
+`ocamlfind` and `zarith`, then run the same harness with `pwsh`,
+`-FstarExe /path/to/fstar.exe`, `-OpamSwitch <switch>`, and `-RunTests`.
+On Linux, `-Z3WindowsBuildDir` names the local CMake build directory and
+`-WslBuildDir` names the local checker output directory; WSL is not used.
+That one Z3 installation supplies both the verifier and the native link.
+
+After the harness has installed Z3, a standalone module can use it explicitly:
+
+```powershell
+$z3 = Join-Path (Resolve-Path '..') 'build\install\bin\z3.exe'
+$version = [regex]::Match((& $z3 -version), 'Z3 version (\d+\.\d+\.\d+)').Groups[1].Value
+C:\fstar\fstar\bin\fstar.exe --smt $z3 --z3version $version --include $PWD Z3AstTheory.fst
+```
+
+Consult each report for its verification results, assumptions, and scope.
+In particular, [`Z3NlArith.fst`](Z3NlArith.fst) uses nine explicitly
+labeled real-analysis assumptions about `exp`/`log`/`sin`/`cos`/`atan2`;
+see the [non-linear arithmetic report](NL_ARITH_REPORT.md).
+[`Z3Native.fsti`](Z3Native.fsti) separately declares the foreign Z3 API
+boundary; its implementation is trusted native interoperability, not an
+arithmetic or proof-validity axiom. The [arithmetic certificate
+report](ARITHMETIC_CERTIFICATE_REPORT.md) documents the remaining
+semantic-model contract limitation; the current checker is not an
+unconditional end-to-end SMT-LIB soundness proof.

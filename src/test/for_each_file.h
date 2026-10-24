@@ -22,10 +22,10 @@ Revision History:
 #pragma once
 
 struct for_each_file_proc {
+    virtual ~for_each_file_proc() = default;
     virtual bool operator()(const char* file_path) = 0;
 };
 
 bool for_each_file(for_each_file_proc& proc, const char* base, const char* suffix);
     
-
 

@@ -44,6 +44,7 @@ struct qi_params {
     unsigned           m_qi_max_persistent_instances = 1000; // pattern-based instances re-asserted alongside
     bool               m_qi_lazy_instantiation = false;
     bool               m_qi_conservative_final_check = false;
+    bool               m_qi_update_generation = true;
     bool               m_qe_lite = false;
 
     bool               m_mbqi = true;

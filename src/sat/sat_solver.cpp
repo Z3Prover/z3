@@ -430,7 +430,8 @@ namespace sat {
             }
             // if an input clause is simplified, then log the simplified version as learned
             if (m_config.m_drat && old_sz > num_lits) {
-                drat_log_clause(num_lits, lits, st);
+                drat_log_clause(num_lits, lits,
+                                !m_ext && st.is_asserted() ? status::redundant() : st);
                 logged = true;
             }
 

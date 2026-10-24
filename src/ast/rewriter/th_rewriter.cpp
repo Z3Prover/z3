@@ -32,6 +32,7 @@ Notes:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/ff_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/der.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -56,6 +57,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     seq_rewriter        m_seq_rw;
     char_rewriter       m_char_rw;
     recfun_rewriter     m_rec_rw;
+    ff_rewriter m_ff_rw;
     finite_set_rewriter m_fs_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
@@ -242,6 +244,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_char_rw.mk_app_core(f, num, args, result);
         if (fid == m_rec_rw.get_fid())
             return m_rec_rw.mk_app_core(f, num, args, result);
+        if (fid == m_ff_rw.get_fid())
+            return m_ff_rw.mk_app_core(f, num, args, result);
         if (fid == m_fs_rw.get_fid())
             return m_fs_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
@@ -708,6 +712,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             st = m_seq_rw.mk_eq_core(a, b, result);
         else if (s_fid == m_fs_rw.get_fid())
             st = m_fs_rw.mk_eq_core(a, b, result);
+        else if (s_fid == m_ff_rw.get_fid())
+            st = m_ff_rw.mk_eq_core(a, b, result);
         if (st != BR_FAILED)
             return st;
         st = extended_bv_eq(a, b, result);
@@ -847,6 +853,23 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
+        // A bound Boolean literal can falsify a universal conjunction or
+        // satisfy an existential disjunction, including their negated forms.
+        if (!is_lambda(old_q)) {
+            bool universal = is_forall(old_q);
+            expr* body = new_body;
+            bool negated = m().is_not(body, body);
+            if (universal != negated ? m().is_and(body) : m().is_or(body)) {
+                for (expr* arg : *to_app(body)) {
+                    m().is_not(arg, arg);
+                    if (is_var(arg) && to_var(arg)->get_idx() < old_q->get_num_decls()) {
+                        result = universal ? m().mk_false() : m().mk_true();
+                        result_pr = m().proofs_enabled() ? m().mk_rewrite(old_q, result) : nullptr;
+                        return true;
+                    }
+                }
+            }
+        }
         quantifier_ref q1(m());
         proof_ref p1(m()); 
         if (is_quantifier(new_body) &&
@@ -977,7 +1000,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_seq_rw(m, p),
         m_char_rw(m),
-        m_rec_rw(m), 
+        m_rec_rw(m),
+        m_ff_rw(m),
         m_fs_rw(m),
         m_a_util(m),
         m_bv_util(m),

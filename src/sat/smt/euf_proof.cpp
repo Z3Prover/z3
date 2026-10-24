@@ -380,7 +380,7 @@ namespace euf {
             return;
         m_clause.reset();
         for (unsigned i = 0; i < n; ++i) 
-            m_clause.push_back(literal2expr(lits[i]));
+            m_clause.push_back(proof_literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
         m_on_clause(m_on_clause_ctx, hint, 0, nullptr, m_clause.size(), m_clause.data());
     }
@@ -392,7 +392,13 @@ namespace euf {
         std::ostream& out = *m_proof_out;
         if (!visit_clause(out, n, lits))
             return;
-        if (st.is_asserted()) 
+        if ((st.is_asserted() || st.is_redundant()) && status_is_assumed(st)) {
+            auto hint = status2proof_hint(st);
+            visit_expr(out, hint);
+            display_hint(out << "; assumed", hint) << "\n";
+            display_assume(out, n, lits);
+        }
+        else if (st.is_asserted())
             display_inferred(out, n, lits, status2proof_hint(st));
         else if (st.is_deleted()) 
             display_deleted(out, n, lits);        
@@ -410,10 +416,14 @@ namespace euf {
             return;
         m_clause.reset();
         for (unsigned i = 0; i < n; ++i) 
-            m_clause.push_back(literal2expr(lits[i]));
+            m_clause.push_back(proof_literal2expr(lits[i]));
         auto hint = status2proof_hint(st);
-        if (st.is_asserted() || st.is_redundant())
-            m_smt_proof_checker.infer(m_clause, hint);
+        if ((st.is_asserted() || st.is_redundant()) && status_is_assumed(st))
+            m_smt_proof_checker.assume(m_clause);
+        else if (st.is_asserted() || st.is_redundant()) {
+            if (!m_smt_proof_checker.infer(m_clause, hint))
+                exit(0);
+        }
         else if (st.is_deleted())
             m_smt_proof_checker.del(m_clause);
         else if (st.is_input())
@@ -453,7 +463,7 @@ namespace euf {
     bool solver::visit_clause(std::ostream& out, unsigned n, literal const* lits) {
         expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
-            expr* e = bool_var2expr(lits[i].var());
+            expr* e = proof_var2expr(lits[i].var());
             if (!e) {
                 k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
                 e = k;
@@ -490,6 +500,13 @@ namespace euf {
             return out;
     }
 
+    bool solver::status_is_assumed(sat::status st) const {
+        if (st.is_sat())
+            return false;
+        auto* hint = reinterpret_cast<euf::th_proof_hint const*>(st.get_hint());
+        return hint && hint->is_assumed();
+    }
+
     app_ref solver::status2proof_hint(sat::status st) {
         if (st.is_sat()) 
             return app_ref(m.mk_const("rup", m.mk_proof_sort()), m); // provable by reverse unit propagation
@@ -507,7 +524,7 @@ namespace euf {
     std::ostream& solver::display_literals(std::ostream& out, unsigned n, literal const* lits) {
         expr_ref k(m);
         for (unsigned i = 0; i < n; ++i) {
-            expr* e = bool_var2expr(lits[i].var());
+            expr* e = proof_var2expr(lits[i].var());
             if (!e) {
                 k = m.mk_const(symbol(lits[i].var()), m.mk_bool_sort());
                 e = k;

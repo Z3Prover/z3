@@ -206,7 +206,7 @@ let rec lemma_model_reconstruction
           lemma_sorts_match_nil args
         end else
           lemma_model_reconstruction_args i0 f def rho0 args rho
-      | Quantifier qk bound_sorts body ->
+      | Quantifier qk bound_sorts _ body ->
         let n = List.Tot.length bound_sorts in
         let aux (vs:list value{List.Tot.length vs = n})
           : Lemma (eval i1 body (shift vs rho) == eval i0 (subst body (App f []) def) (shift vs rho))
@@ -273,7 +273,7 @@ let rec no_quantifier (e:expr) : bool =
   match e with
   | Var _ _ -> true
   | App _ args -> no_quantifier_args args
-  | Quantifier _ _ _ -> false
+  | Quantifier _ _ _ _ -> false
 and no_quantifier_args (args:list expr) : bool =
   match args with
   | [] -> true
@@ -290,7 +290,7 @@ let rec inst (subs:list expr) (def:expr) : expr =
   match def with
   | Var idx _ -> if idx < List.Tot.length subs then List.Tot.index subs idx else def
   | App f' args -> App f' (inst_list subs args)
-  | Quantifier _ _ _ -> def
+  | Quantifier _ _ _ _ -> def
 and inst_list (subs:list expr) (args:list expr) : list expr =
   match args with
   | [] -> []
@@ -373,7 +373,7 @@ let rec lemma_inst_closed (subs:list expr) (def:expr)
   = match def with
     | Var idx _ -> if idx < List.Tot.length subs then lemma_closed_at_args_index 0 subs idx
     | App f' args -> lemma_inst_closed_defargs subs args
-    | Quantifier _ _ _ -> ()
+    | Quantifier _ _ _ _ -> ()
 
 and lemma_inst_closed_defargs (subs:list expr) (args:list expr)
   : Lemma (requires no_quantifier_args args /\
@@ -391,7 +391,7 @@ let rec only_closed_f_args (f:func_decl) (e:expr) : prop =
   match e with
   | Var _ _ -> True
   | App f' args -> (f' = f ==> closed_at_args 0 args) /\ only_closed_f_args_args f args
-  | Quantifier _ _ body -> only_closed_f_args f body
+  | Quantifier _ _ _ body -> only_closed_f_args f body
 and only_closed_f_args_args (f:func_decl) (args:list expr) : prop =
   match args with
   | [] -> True
@@ -409,7 +409,7 @@ let rec expand_macro (f:func_decl) (def:expr) (e:expr) : expr =
   | App f' args ->
     let args' = expand_macro_args f def args in
     if f' = f then inst args' def else App f' args'
-  | Quantifier qk bound_sorts body -> Quantifier qk bound_sorts (expand_macro f def body)
+  | Quantifier qk bound_sorts qsort body -> Quantifier qk bound_sorts qsort (expand_macro f def body)
 and expand_macro_args (f:func_decl) (def:expr) (args:list expr) : list expr =
   match args with
   | [] -> []
@@ -427,7 +427,7 @@ let rec lemma_closed_at_monotone (d1:nat) (d2:nat{d2 >= d1}) (e:expr)
   = match e with
     | Var _ _ -> ()
     | App _ args -> lemma_closed_at_monotone_args d1 d2 args
-    | Quantifier _ bound_sorts body ->
+    | Quantifier _ bound_sorts _ body ->
       lemma_closed_at_monotone (d1 + List.Tot.length bound_sorts) (d2 + List.Tot.length bound_sorts) body
 and lemma_closed_at_monotone_args (d1:nat) (d2:nat{d2 >= d1}) (args:list expr)
   : Lemma (requires closed_at_args d1 args) (ensures closed_at_args d2 args) (decreases args)
@@ -483,7 +483,7 @@ let rec lemma_expand_macro_closed (f:func_decl{is_uninterp_decl f}) (def:expr) (
         lemma_inst_closed (expand_macro_args f def args) def;
         lemma_closed_at_monotone 0 d (inst (expand_macro_args f def args) def)
       end
-    | Quantifier qk bound_sorts body ->
+    | Quantifier qk bound_sorts _ body ->
       lemma_expand_macro_closed f def (d + List.Tot.length bound_sorts) body
 
 and lemma_expand_macro_closed_args (f:func_decl{is_uninterp_decl f}) (def:expr) (d:nat) (args:list expr)
@@ -567,7 +567,7 @@ let rec lemma_model_reconstruction_n
         assert (eval i0 (expand_macro f def e) rho == eval i0 (inst subs def) rho);
         assert (eval i0 (inst subs def) rho == eval i0 def (shift vs rho))
       end
-    | Quantifier qk bound_sorts body ->
+    | Quantifier qk bound_sorts _ body ->
       let n = List.Tot.length bound_sorts in
       let aux (vs:list value{List.Tot.length vs = n})
         : Lemma (eval i1 body (shift vs rho) == eval i0 (expand_macro f def body) (shift vs rho))

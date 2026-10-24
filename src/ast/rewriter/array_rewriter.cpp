@@ -518,10 +518,14 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     }
     if (lam) {
         expr_ref_vector args1(m());
+        var_shifter sh(m());
+        unsigned num_decls = lam->get_num_decls();
         for (unsigned i = 0; i < num_args; ++i) {
             expr* a = args[i];
             if (m_util.is_const(a)) {
-                args1.push_back(to_app(a)->get_arg(0));
+                expr_ref v(m());
+                sh(to_app(a)->get_arg(0), num_decls, v);
+                args1.push_back(v);
             }
             else if (is_lambda(a)) {
                 lam = to_quantifier(a);
@@ -876,7 +880,10 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     }
     if (m_util.is_const(lhs, v) && is_lambda(rhs)) {
         quantifier* lam = to_quantifier(rhs);
-        expr_ref e(m().mk_eq(lam->get_expr(), v), m());
+        var_shifter sh(m());
+        expr_ref e(m());
+        sh(v, lam->get_num_decls(), e);
+        e = m().mk_eq(lam->get_expr(), e);
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
@@ -957,7 +964,20 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         return BR_REWRITE_FULL;
     }
 
-    if (m_util.is_const(lhs1) && m_util.is_const(rhs1)) {
+    // Stores indexed by model values are evaluated in a fixed finite universe;
+    // expanding them into lambdas would only produce quantifiers.
+    auto has_value_indices = [&](expr* e) {
+        for (; m_util.is_store(e); e = to_app(e)->get_arg(0)) {
+            app* st = to_app(e);
+            for (unsigned i = 1; i + 1 < st->get_num_args(); ++i)
+                if (!m().is_value(st->get_arg(i)))
+                    return false;
+        }
+        return true;
+    };
+
+    if (m_util.is_const(lhs1) && m_util.is_const(rhs1) &&
+        !(has_value_indices(lhs) && has_value_indices(rhs))) {
         for (unsigned i = 0; i < get_array_arity(lhs->get_sort()); ++i) {
             if (m().is_uninterp(get_array_domain(lhs->get_sort(), i))) {
                 // The stores may cover the entire uninterpreted domain.

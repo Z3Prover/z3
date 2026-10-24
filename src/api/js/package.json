@@ -11,7 +11,10 @@
     "satisfiability modulo theories"
   ],
   "homepage": "https://github.com/Z3Prover/z3/tree/master/src/api/js",
-  "repository": "github:Z3Prover/z3",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Z3Prover/z3.git"
+  },
   "engines": {
     "node": ">=16"
   },

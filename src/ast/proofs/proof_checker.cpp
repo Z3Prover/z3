@@ -4,12 +4,16 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "ast/proofs/proof_checker.h"
+#include "ast/ff/ff_evidence.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+
+#include "ast/proofs/lp_proof.h"
 
 #define IS_EQUIV(_e_) m.is_eq(_e_)
 
@@ -94,6 +98,8 @@ proof_checker::proof_checker(ast_manager& m) : m(m), m_todo(m), m_marked(), m_pi
     m_nil = m.mk_const(m_hyp_fid, OP_NIL);
 }
 
+proof_checker::~proof_checker() = default;
+
 bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
     proof_ref curr(m);
     m_todo.push_back(p);
@@ -112,6 +118,7 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
     m_pinned.reset();
     m_todo.reset();
     m_marked.reset();
+    m_lp_checker.reset();
 
     return result;
 }
@@ -337,7 +344,17 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
-            (match_iff(fact, t1, t2) || match_oeq(fact, t1, t2)) &&
+            // `mk_iff(q1, q2)` (and `mk_oeq`) use the generic polymorphic
+            // `=` decl for *any* sort, not just Bool: ordinary
+            // `forall`/`exists` always have a Bool body, so this is a
+            // genuine Boolean iff, but `PR_QUANT_INTRO` is also used over
+            // `lambda` terms (also represented as `quantifier` nodes) whose
+            // body -- and hence `q1`/`q2` themselves -- can be of any sort
+            // (e.g. an array/function sort). `match_eq` alone (OP_EQ with no
+            // sort restriction) already covers the Boolean-iff case, so
+            // `match_iff` adds nothing here and is omitted; `match_equiv`
+            // is exactly `match_oeq(...) || match_eq(...)`.
+            match_equiv(fact, t1, t2) &&
             is_quantifier(t1) &&
             is_quantifier(t2) &&
             to_quantifier(t1)->get_num_decls() == to_quantifier(t2)->get_num_decls() &&
@@ -372,7 +389,10 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 }
                 proof* p0 = to_app(p0_expr);
                 if (!match_fact(p0, fml0) ||
-                    !(match_iff(fml0, r1, r2) || match_oeq(fml0, r1, r2)) ||
+                    // same non-Bool-body caveat as above: `q1`/`q2`'s
+                    // bodies (and hence `r1`/`r2`) need not be Bool-sorted;
+                    // `match_equiv` already subsumes `match_iff`.
+                    !match_equiv(fml0, r1, r2) ||
                     r1 != q1->get_expr() ||
                     r2 != q2->get_expr()) {
                     UNREACHABLE();
@@ -384,8 +404,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // Shape 2: `p1`'s own fact directly (without lambda-wrapping)
             // relates the two quantifiers' bodies -- the fully-structural
             // shape some other, non-`rewriter_def.h` caller could in
-            // principle construct.
-            if ((match_iff(fml, s1, s2) || match_oeq(fml, s1, s2)) &&
+            // principle construct. `match_equiv` already subsumes
+            // `match_iff`.
+            if (match_equiv(fml, s1, s2) &&
                 m.is_oeq(fact) == m.is_oeq(fml) &&
                 q1->get_expr() == s1 &&
                 q2->get_expr() == s2) {
@@ -471,6 +492,38 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             return true;
         }
         IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m););
+        return false;
+    }
+    case PR_DEMODULATION: {
+        // `t1 = t2` (or `t1 <~> t2`) holds because `t2` is obtained from `t1`
+        // by simultaneously replacing every occurrence of `l_i` by `r_i`,
+        // for each premise proof of `l_i = r_i` (i = 1..n). Re-run the
+        // substitution here and compare the result structurally against
+        // `t2`: since `expr_safe_replace` is a pure, capture-avoiding
+        // rewrite, this is a precise (not merely plausible) check, modulo
+        // trusting that each premise genuinely proves its own `l_i = r_i`
+        // fact (checked recursively like any other premise).
+        if (match_fact(p, fact) &&
+            match_equiv(fact, t1, t2)) {
+            expr_safe_replace sub(m);
+            bool all_eqs = true;
+            for (proof* pr : proofs) {
+                expr* eq_fact = nullptr, *l = nullptr, *r = nullptr;
+                if (!pr || !match_fact(pr, eq_fact) || !match_equiv(eq_fact, l, r)) {
+                    all_eqs = false;
+                    break;
+                }
+                sub.insert(l, r);
+            }
+            if (all_eqs) {
+                expr_ref t1_subst(t1, m);
+                sub(t1_subst);
+                if (t1_subst.get() == t2)
+                    return true;
+            }
+        }
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality by demodulation:\n" << mk_bounded_pp(p, m););
+        UNREACHABLE();
         return false;
     }
     case PR_PULL_QUANT: {
@@ -801,6 +854,8 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     case PR_TH_LEMMA: {
         SASSERT(p->get_decl()->get_num_parameters() > 0);
         SASSERT(p->get_decl()->get_parameter(0).is_symbol());
+        if (symbol("ff") == p->get_decl()->get_parameter(0).get_symbol())
+            return ff::check_refutation_lemma(m, p);
         if (symbol("arith") == p->get_decl()->get_parameter(0).get_symbol()) {
             return check_arith_proof(p);
         }
@@ -1384,6 +1439,11 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
 }
 
 bool proof_checker::check_arith_proof(proof* p) {
+    if (lp::is_evidence_proof(p)) {
+        if (!m_lp_checker)
+            m_lp_checker = std::make_unique<lp::evidence_proof_checker>(m);
+        return m_lp_checker->check(p);
+    }
     func_decl* d = p->get_decl();
     SASSERT(PR_TH_LEMMA == p->get_decl_kind());
     SASSERT(d->get_parameter(0).get_symbol() == "arith");

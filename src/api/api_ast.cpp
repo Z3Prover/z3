@@ -17,6 +17,7 @@ Revision History:
 --*/
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
+#include "ast/ff_decl_plugin.h"
 #include "api/api_util.h"
 #include "ast/well_sorted.h"
 #include "ast/arith_decl_plugin.h"
@@ -763,6 +764,9 @@ extern "C" {
         else if (fid == mk_c(c)->get_arith_fid() && k == REAL_SORT) {
             return Z3_REAL_SORT;
         }
+        else if (fid == mk_c(c)->get_arith_fid() && k == COMPLEX_SORT) {
+            return Z3_COMPLEX_SORT;
+        }
         else if (fid == mk_c(c)->get_bv_fid() && k == BV_SORT) {
             return Z3_BV_SORT;
         }
@@ -792,6 +796,9 @@ extern "C" {
         }
         else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
             return Z3_CHAR_SORT;
+        }
+        else if (ff_util(mk_c(c)->m()).is_ff(to_sort(t))) {
+            return Z3_FINITE_FIELD_SORT;
         }
         else if (fid == poly_family_id) {
             return Z3_TYPE_VAR;
@@ -1161,6 +1168,8 @@ extern "C" {
         case PR_LEMMA_ADD: return Z3_OP_PR_LEMMA_ADD;
         case PR_REDUNDANT_DEL: return Z3_OP_PR_REDUNDANT_DEL;
         case PR_CLAUSE_TRAIL: return Z3_OP_PR_CLAUSE_TRAIL;
+        case PR_TH_ASSUMPTION_ADD: return Z3_OP_PR_TH_ASSUMPTION_ADD;
+        case PR_TH_LEMMA_ADD: return Z3_OP_PR_TH_LEMMA_ADD;
         case PR_DEF_INTRO: return Z3_OP_PR_DEF_INTRO;
         case PR_APPLY_DEF: return Z3_OP_PR_APPLY_DEF;
         case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
@@ -1195,6 +1204,9 @@ extern "C" {
         case OP_TO_REAL: return Z3_OP_TO_REAL;
         case OP_TO_INT: return Z3_OP_TO_INT;
         case OP_IS_INT: return Z3_OP_IS_INT;
+        case OP_COMPLEX: return Z3_OP_COMPLEX;
+        case OP_REAL_PART: return Z3_OP_REAL_PART;
+        case OP_IMAG_PART: return Z3_OP_IMAG_PART;
         default: return Z3_OP_INTERNAL;
         }
     }
@@ -1291,6 +1303,7 @@ extern "C" {
         case OP_BSREM_I: return Z3_OP_BSREM_I;
         case OP_BUREM_I: return Z3_OP_BUREM_I;
         case OP_BSMOD_I: return Z3_OP_BSMOD_I;
+        case OP_MKBV: return Z3_OP_MKBV;
         default: return Z3_OP_INTERNAL;
         }
     }
@@ -1531,6 +1544,15 @@ extern "C" {
             return get_decl_kind_label(k);
         if (mk_c(c)->fsutil().get_family_id() == fid)
             return get_decl_kind_finite_set(k);
+        if (ff_util(mk_c(c)->m()).get_fid() == fid) {
+            switch (k) {
+            case OP_FF_NUM: return Z3_OP_FF_NUM;
+            case OP_FF_ADD: return Z3_OP_FF_ADD;
+            case OP_FF_MUL: return Z3_OP_FF_MUL;
+            case OP_FF_NEG: return Z3_OP_FF_NEG;
+            case OP_FF_BITSUM: return Z3_OP_FF_BITSUM;
+            }
+        }
         if (mk_c(c)->recfun().get_family_id() == fid)
             return Z3_OP_RECURSIVE;
 

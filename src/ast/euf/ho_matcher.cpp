@@ -260,6 +260,16 @@ namespace euf {
         if (m_array.is_select(p))
             return l_undef;  // TODO: interleave check with whnf expansion
 
+        // A non-ground Boolean formula (and/or/not/=>/quantifier/arith atom/...)
+        // matched against a truth constant is not decided by congruence: it
+        // requires the dedicated Boolean/arith decomposition logic in
+        // consume_work. Treating a head-decl mismatch here (e.g. "or" vs
+        // "false") as l_false would short-circuit that decomposition before
+        // it ever runs, which is unsound-by-omission (it would wrongly
+        // declare a satisfiable sub-goal unmatchable).
+        if ((m.is_true(t) || m.is_false(t)) && m.is_bool(p) && !m.is_true(p) && !m.is_false(p))
+            return l_undef;
+
         if (is_app(p) && is_app(t)) {
             auto a1 = to_app(p);
             auto a2 = to_app(t);
@@ -390,6 +400,83 @@ namespace euf {
         if (m.is_not(p) && m.is_false(t)) {
             m_goals.push(&wi, wi.level, wi.term_offset(), to_app(p)->get_arg(0), m.mk_true());
             wi.set_done();
+            return true;
+        }
+
+        // A bare (nested) quantifier can never be decided by syntactic
+        // matching, whether it appears standalone or as a literal that got
+        // split out by NNF/CNF preprocessing (not just as an and/or
+        // conjunct). ho_matcher only proposes candidate instantiations - the
+        // ground solver validates whatever instance is ultimately produced -
+        // so treating it as a vacuously-satisfied don't-care is a safe
+        // (never unsound) relaxation rather than a hard failure.
+        if (is_quantifier(p) && (m.is_true(t) || m.is_false(t))) {
+            wi.set_done();
+            return true;
+        }
+
+        // Boolean connective decomposition: (and p1 ... pn) and (or p1 ... pn)
+        // matched against true/false. Matching against the "natural" target
+        // (and vs true, or vs false) is conjunctive and deterministic: every
+        // argument must independently meet the same target, so all subgoals
+        // are pushed at once and this work item is done.
+        // Matching against the "flipped" target (and vs false, or vs true) is
+        // disjunctive: exactly one argument must meet the target, and which
+        // one is a backtracking choice point, tried in order via wi.index().
+        if ((m.is_and(p) || m.is_or(p)) && (m.is_true(t) || m.is_false(t))) {
+            bool is_and_p = m.is_and(p);
+            bool is_true_t = m.is_true(t);
+            bool conjunctive = (is_and_p == is_true_t);
+            app *ap = to_app(p);
+            unsigned n = ap->get_num_args();
+            // A conjunct/disjunct that is itself a bare quantifier cannot be
+            // decided by syntactic matching. ho_matcher is only used to
+            // propose candidate instantiations; the ground solver validates
+            // whatever instance is ultimately produced, so it is safe (and
+            // strictly more permissive, never unsound) to treat such a
+            // sub-goal as a don't-care placeholder rather than fail on it.
+            if (conjunctive) {
+                for (unsigned i = 0; i < n; ++i)
+                    if (!is_undecidable_conjunct(ap->get_arg(i), wi.pat_offset()))
+                        m_goals.push(&wi, wi.level, wi.term_offset(), ap->get_arg(i), t);
+                wi.set_done();
+                return true;
+            }
+            unsigned i = wi.index();
+            if (i >= n) {
+                wi.set_done();
+                return false;
+            }
+            wi.set_index(i + 1);
+            if (is_undecidable_conjunct(ap->get_arg(i), wi.pat_offset()))
+                return true;
+            m_goals.push(&wi, wi.level, wi.term_offset(), ap->get_arg(i), t);
+            return true;
+        }
+
+        // (=> a b) matched against false is conjunctive: a is true and b is
+        // false. Matched against true it is disjunctive: a is false, or b is
+        // true - a two-way backtracking choice tried via wi.index().
+        if (m.is_implies(p) && (m.is_true(t) || m.is_false(t))) {
+            app *ap = to_app(p);
+            expr *a = ap->get_arg(0);
+            expr *b = ap->get_arg(1);
+            if (m.is_false(t)) {
+                m_goals.push(&wi, wi.level, wi.term_offset(), a, m.mk_true());
+                m_goals.push(&wi, wi.level, wi.term_offset(), b, m.mk_false());
+                wi.set_done();
+                return true;
+            }
+            unsigned i = wi.index();
+            if (i >= 2) {
+                wi.set_done();
+                return false;
+            }
+            wi.set_index(i + 1);
+            if (i == 0)
+                m_goals.push(&wi, wi.level, wi.term_offset(), a, m.mk_false());
+            else
+                m_goals.push(&wi, wi.level, wi.term_offset(), b, m.mk_true());
             return true;
         }
 
@@ -608,8 +695,18 @@ namespace euf {
             if (process_ite(wi, v, pats, t))
                 return true;
 
+            if (wi.is_ite())
+                wi.set_store();
+
+            if (process_store(wi, v, pats, t))
+                return true;
+
             return false;
         }
+
+        if ((m.is_true(t) || m.is_false(t)) && is_app(p) && m_arith.is_arith_expr(p) &&
+            process_arith_select(wi, p, t))
+            return true;
 
         // f(p) ~ f(ts)
         auto f = [&wi, &p, this](expr *s) { return process_app(wi, p, s); };
@@ -697,6 +794,167 @@ namespace euf {
         body = m.mk_ite(body_args.get(0), body_args.get(1), body_args.get(2));
         add_binding(v, wi.pat_offset(), mk_flex_lambda(fr, pats, body));
         return true;
+    }
+
+    bool ho_matcher::is_undecidable_conjunct(expr *e, unsigned pat_offset) const {
+        if (is_quantifier(e))
+            return true;
+        expr *p1 = nullptr, *p2 = nullptr;
+        if (m.is_eq(e, p1, p2)) {
+            if (is_meta_var(p1, pat_offset)) {
+                expr_free_vars fv(p2);
+                if (fv.contains(to_var(p1)->get_idx() - pat_offset))
+                    return true;
+            }
+            if (is_meta_var(p2, pat_offset)) {
+                expr_free_vars fv(p1);
+                if (fv.contains(to_var(p2)->get_idx() - pat_offset))
+                    return true;
+            }
+        }
+        // Generalized occurs check: eliminating a nested quantifier over a
+        // meta-var F (e.g. isFun(F)'s embedded `forall y. ...`) introduces a
+        // Skolem function application such as y!0(F), used as (say) a select
+        // index: select(F, y!0(F)), or passed to an unrelated predicate:
+        // isT(y!0(F)). Either way, deciding the atom first requires knowing
+        // F, which is exactly what we are trying to bind - a circular
+        // dependency syntactic matching cannot resolve (it is not a
+        // candidate the ground solver could validate either, since the
+        // Skolem function's graph is not known to ho_matcher). Scan all
+        // subterms (not just the top-level shape, since the Skolem
+        // application may be nested below other connectives/arithmetic) for
+        // an application of a Skolem function to a sub-term that still
+        // contains a free meta-var, and treat the whole conjunct as a
+        // don't-care placeholder in that case.
+        ptr_vector<expr> todo;
+        expr_mark visited;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr *curr = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(curr))
+                continue;
+            visited.mark(curr, true);
+            // Do not descend into nested binders: free-variable indices
+            // below a lambda/quantifier are relative to that inner scope,
+            // not to pat_offset, so checking them here would be meaningless.
+            // A conjunct that is itself (or contains) a bare quantifier is
+            // already handled separately above/by the caller.
+            if (is_quantifier(curr) || !is_app(curr))
+                continue;
+            app *ap = to_app(curr);
+            unsigned n = ap->get_num_args();
+            if (ap->get_decl()->is_skolem()) {
+                for (unsigned i = 0; i < n; ++i) {
+                    expr_free_vars fv(ap->get_arg(i));
+                    for (unsigned idx = pat_offset; idx < fv.size(); ++idx)
+                        if (fv.contains(idx))
+                            return true;
+                }
+            }
+            for (unsigned i = 0; i < n; ++i)
+                todo.push_back(ap->get_arg(i));
+        }
+        return false;
+    }
+
+    // Bridge arithmetic comparisons over a flex array select into a direct
+    // equation the existing flex-select-head machinery can solve.
+    // Example: `0 < select(F, x)` matched against false requires
+    // `select(F, x) <= 0`; since F's range is Int/Real we propose the tight
+    // witness `select(F, x) = 0` (respectively adjusted by +/-1 for the
+    // non-strict cases) and recurse into the normal select-vs-value subgoal.
+    bool ho_matcher::process_arith_select(match_goal &wi, expr *p, expr *t) {
+        if (!(m.is_true(t) || m.is_false(t)))
+            return false;
+        bool negate = m.is_false(t);
+        if (!is_app(p) || to_app(p)->get_num_args() != 2)
+            return false;
+        expr *lhs = to_app(p)->get_arg(0);
+        expr *rhs = to_app(p)->get_arg(1);
+        bool strict = false;
+        if (m_arith.is_lt(p))
+            strict = true;
+        else if (m_arith.is_le(p))
+            strict = false;
+        else if (m_arith.is_gt(p)) {
+            std::swap(lhs, rhs); strict = true;
+        }
+        else if (m_arith.is_ge(p)) {
+            std::swap(lhs, rhs); strict = false;
+        }
+        else
+            return false;
+        // normalize to lhs < rhs (strict) or lhs <= rhs (non-strict)
+        rational bound;
+        expr *sel = nullptr;
+        bool bound_on_left;
+        if (m_arith.is_numeral(lhs, bound) && m_array.is_select(rhs)) {
+            sel = rhs;
+            bound_on_left = true;
+        }
+        else if (m_arith.is_numeral(rhs, bound) && m_array.is_select(lhs)) {
+            sel = lhs;
+            bound_on_left = false;
+        }
+        else
+            return false;
+
+        expr *head = to_app(sel)->get_arg(0);
+        while (m_array.is_select(head))
+            head = to_app(head)->get_arg(0);
+        if (!m_unitary.is_flex(wi.pat_offset(), head))
+            return false;
+        if (!m_arith.is_int(sel) && !m_arith.is_real(sel))
+            return false;
+
+        // Determine which side `sel` is needed to land on, and whether the
+        // boundary value itself is achievable (equality allowed) or must be
+        // strictly avoided (requiring a +/-1 adjustment).
+        // atom (as normalized)      | want false            | want true
+        // bound < sel   (strict)    | sel<=bound  (eq ok)   | sel>bound  (eq excl, +1)
+        // bound <= sel  (!strict)   | sel<bound   (eq excl,-1)| sel>=bound (eq ok)
+        // sel < bound   (strict)    | sel>=bound  (eq ok)    | sel<bound  (eq excl,-1)
+        // sel <= bound  (!strict)   | sel>bound   (eq excl,+1)| sel<=bound (eq ok)
+        bool eq_ok = negate ? strict : !strict;
+        bool plus_one = bound_on_left ? !negate : negate;
+        rational witness = bound;
+        if (!eq_ok)
+            witness = plus_one ? bound + rational(1) : bound - rational(1);
+
+        expr_ref w(m_arith.is_int(sel) ? (expr*)m_arith.mk_numeral(witness, true) : (expr*)m_arith.mk_numeral(witness, false), m);
+        m_goals.push(&wi, wi.level, wi.term_offset(), sel, w);
+        wi.set_done();
+        return true;
+    }
+
+    bool ho_matcher::process_store(match_goal &wi, var *v, ptr_vector<app> const &pats, expr *t) {
+        if (!wi.is_store())
+            return false;
+        if (!m_enum_terms)
+            return false;
+        // Only handle the simplest shape: a single select application with
+        // one already-ground index, matched against a ground value.
+        if (pats.size() != 1 || pats[0]->get_num_args() != 2)
+            return false;
+        expr *idx = pats[0]->get_arg(1);
+        if (!is_ground(idx) || !is_ground(t))
+            return false;
+
+        ptr_vector<expr> candidates;
+        m_enum_terms(v, candidates);
+        for (unsigned i = wi.index(); i < candidates.size(); ++i) {
+            wi.set_index(i + 1);
+            expr *anchor = candidates[i];
+            if (anchor->get_sort() != v->get_sort() || !is_ground(anchor))
+                continue;
+            expr *args[3] = { anchor, idx, t };
+            expr_ref binding(m_array.mk_store(3, args), m);
+            add_binding(v, wi.pat_offset(), binding);
+            return true;
+        }
+        wi.set_done();
+        return false;
     }
 
     bool ho_matcher::block_inference(match_goal const &wi) {

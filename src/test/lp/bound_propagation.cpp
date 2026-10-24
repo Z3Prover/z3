@@ -28,6 +28,7 @@ struct farkas_explanation_collector {
     lar_solver& lp() { return m_solver; }
     const lar_solver& lp() const { return m_solver; }
     bool bound_is_interesting(unsigned, lconstraint_kind, const mpq&) const { return true; }
+    bool column_is_interesting(unsigned) const { return true; }
     void consume(const mpq& a, constraint_index ci) { m_premises.push_back({a, ci}); }
     bool add_eq(lpvar, lpvar, const explanation&, bool) { return false; }
     bool is_equal(lpvar u, lpvar v) const { return u == v; }

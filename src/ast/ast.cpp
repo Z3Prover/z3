@@ -735,6 +735,9 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
     case PR_HYPER_RESOLVE: {
         return mk_proof_decl("hyper-res", k, num_parameters, params, num_parents);
     }
+    case PR_REWRITE: {
+        return mk_proof_decl("rewrite", k, num_parameters, params, num_parents);
+    }
     default:
         UNREACHABLE();
         return nullptr;
@@ -794,11 +797,12 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
+    case PR_DEMODULATION:                 return mk_proof_decl("demodulation", k, num_parents, m_demodulation_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
-    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
-    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
-    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decl);
-    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decl);
+    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decls);
+    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decls);
+    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decls);
+    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decls);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del", k, num_parents, m_redundant_del_decl);
     case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
     default:
@@ -918,10 +922,10 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_iff_oeq_decl);
     DEC_REF(m_skolemize_decl);
     DEC_REF(m_mp_oeq_decl);
-    DEC_REF(m_assumption_add_decl);
-    DEC_REF(m_lemma_add_decl);
-    DEC_REF(m_th_assumption_add_decl);
-    DEC_REF(m_th_lemma_add_decl);
+    DEC_ARRAY_REF(m_assumption_add_decls);
+    DEC_ARRAY_REF(m_lemma_add_decls);
+    DEC_ARRAY_REF(m_th_assumption_add_decls);
+    DEC_ARRAY_REF(m_th_lemma_add_decls);
     DEC_REF(m_redundant_del_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
@@ -994,6 +998,10 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
         return s1;
     if (s1->get_family_id() == arith_family_id &&
         s2->get_family_id() == arith_family_id) {
+        if (s1->get_decl_kind() == COMPLEX_SORT)
+            return s1;
+        if (s2->get_decl_kind() == COMPLEX_SORT)
+            return s2;
         if (s1->get_decl_kind() == REAL_SORT) {
             return s1;
         }
@@ -1899,6 +1907,9 @@ app * ast_manager::mk_app(symbol const& name, unsigned n, expr* const* args, sor
 
 
 sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
+    if (info)
+        if (decl_plugin *p = get_plugin(info->get_family_id()))
+            p->m_has_sorts = true;
     unsigned sz      = sort::get_obj_size();
     void * mem       = allocate_node(sz);
     sort * new_node  = new (mem) sort(name, info);
@@ -2085,6 +2096,16 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 expr* ast_manager::coerce_to(expr* e, sort* s) {
     sort* se = e->get_sort();
     if (s != se && s->get_family_id() == arith_family_id && se->get_family_id() == arith_family_id) {
+        if (s->get_decl_kind() == COMPLEX_SORT) {
+            arith_util au(*this);
+            expr_ref re(e, *this);
+            if (au.is_int(e))
+                re = au.mk_to_real(e);
+            expr_ref zero(au.mk_real(0), *this);
+            return au.mk_complex(re, zero);
+        }
+        if (se->get_decl_kind() == COMPLEX_SORT)
+            throw ast_exception("cannot coerce Complex to Int or Real; use complex.real or complex.imag");
         if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
         else 
@@ -2092,6 +2113,12 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     }
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
+        if (au.is_complex(s)) {
+            expr_ref one(au.mk_real(1), *this);
+            expr_ref zero(au.mk_real(0), *this);
+            expr_ref re(mk_ite(e, one, zero), *this);
+            return au.mk_complex(re, zero);
+        }
         if (s->get_decl_kind() == REAL_SORT) {
             auto _seqr0 = au.mk_real(1);
             auto _seqr1 = au.mk_real(0);
@@ -2953,6 +2980,28 @@ proof * ast_manager::mk_rewrite(expr * s, expr * t) {
     return mk_app(basic_family_id, PR_REWRITE, mk_eq(s, t));
 }
 
+proof * ast_manager::mk_rewrite(expr * s, expr * t, symbol const & rule) {
+    if (proofs_disabled())
+        return nullptr;
+    if (rule.is_null())
+        return mk_rewrite(s, t);
+    parameter p(rule);
+    expr * fact = mk_eq(s, t);
+    return mk_app(basic_family_id, PR_REWRITE, 1, &p, 1, &fact);
+}
+
+symbol ast_manager::get_rewrite_rule(proof const * p) const {
+    if (!p || !is_app(p))
+        return symbol::null;
+    app const * a = to_app(p);
+    if (a->get_decl_kind() != PR_REWRITE || a->get_decl()->get_num_parameters() == 0)
+        return symbol::null;
+    parameter const & prm = a->get_decl()->get_parameter(0);
+    if (!prm.is_symbol())
+        return symbol::null;
+    return prm.get_symbol();
+}
+
 proof * ast_manager::mk_oeq_rewrite(expr * s, expr * t) {
     if (proofs_disabled())
         return nullptr;
@@ -2966,6 +3015,17 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     args.append(num_proofs, (expr* const *) proofs);
     args.push_back(mk_eq(s, t));
     return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.data());
+}
+
+proof * ast_manager::mk_demodulation(expr * t, expr * s, unsigned num_proofs, proof * const * proofs) {
+    if (proofs_disabled())
+        return nullptr;
+    if (num_proofs == 0)
+        return mk_rewrite(t, s);
+    ptr_buffer<expr> args;
+    args.append(num_proofs, (expr* const *) proofs);
+    args.push_back(mk_eq(t, s));
+    return mk_app(basic_family_id, PR_DEMODULATION, args.size(), args.data());
 }
 
 proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {

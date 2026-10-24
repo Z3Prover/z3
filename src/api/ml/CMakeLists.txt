@@ -288,6 +288,26 @@ add_custom_command(
   VERBATIM
 )
 
+if (OCAML_VERSION VERSION_GREATER_EQUAL "5.0")
+  add_custom_command(
+    TARGET build_z3_ocaml_bindings POST_BUILD
+    COMMAND "${OCAMLFIND}" ocamlopt
+      -cclib "-L${libz3_path}" -cclib "-lz3"
+      -o "${z3ml_bin}/parallel_finalizers"
+      -package zarith
+      -linkpkg
+      -I "${z3ml_bin}"
+      "${z3ml_bin}/z3ml.cmxa"
+      "${PROJECT_SOURCE_DIR}/examples/ml/parallel_finalizers.ml"
+    COMMAND "${CMAKE_COMMAND}" -E env
+      "DYLD_LIBRARY_PATH=${libz3_path}"
+      "LD_LIBRARY_PATH=${libz3_path}"
+      "${z3ml_bin}/parallel_finalizers"
+    COMMENT "Run OCaml cross-domain finalizer regression"
+    VERBATIM
+  )
+endif()
+
 ###############################################################################
 # Install
 ###############################################################################

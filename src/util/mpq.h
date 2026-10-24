@@ -324,7 +324,11 @@ public:
 
     // d <- a + b*c
     void addmul(mpq const & a, mpq const & b, mpq const & c, mpq & d) {
-        if (is_one(b)) {
+        if (is_int(a) && is_int(b) && is_int(c)) {
+            mpz_manager<SYNCH>::addmul(a.m_num, b.m_num, c.m_num, d.m_num);
+            reset_denominator(d);
+        }
+        else if (is_one(b)) {
             add(a, c, d);
         }
         else if (is_minus_one(b)) {
@@ -375,7 +379,11 @@ public:
 
     // d <- a - b*c
     void submul(mpq const & a, mpq const & b, mpq const & c, mpq & d) {
-        if (is_one(b)) {
+        if (is_int(a) && is_int(b) && is_int(c)) {
+            mpz_manager<SYNCH>::submul(a.m_num, b.m_num, c.m_num, d.m_num);
+            reset_denominator(d);
+        }
+        else if (is_one(b)) {
             sub(a, c, d);
         }
         else if (is_minus_one(b)) {
