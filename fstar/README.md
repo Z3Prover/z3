@@ -103,12 +103,11 @@ proof obligations remain verified.
 
 ### GitHub Actions regression report
 
-**Pulse verification and native checker regressions**
-(`.github/workflows/pulse-checker-regressions.yml`) runs automatically on
-pushes and pull requests changing `fstar/**`, and can also be dispatched
-manually on a branch containing the checker. Automatic runs use the
-default dispatch settings. It builds and installs that checkout's Z3, verifies the Pulse
-modules and their tests, extracts and links the native F* checker, and
+**Build Pulse native checkers** (`.github/workflows/pulse-checker-build.yml`)
+runs automatically on pushes and pull requests changing `fstar/**` or either
+checker workflow, and can also be dispatched manually. It builds and installs
+that checkout's Z3, verifies the Pulse modules and their tests, extracts and
+links the native F* checker, and
 runs both executables' bridge/CLI self-tests. The Linux path uses the same
 `tools/checker_modules.json` lists as the Windows/WSL build,
 with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
@@ -117,18 +116,40 @@ F* and enabled OCaml compiler warnings fail the build. Extracted constructor
 projectors receive explicit rejecting out-of-domain arms using OCaml's
 AST, without suppressing partial-match warnings or changing checker rules.
 
-Successful builds upload **`pulse-checker-ocaml-linux-x86_64`** and
-**`pulse-checker-cherry-linux-x86_64`** before running the corpora. Each
-artifact contains a checksummed `.tar.gz` with an executable `checker`,
+It also runs after a successful default-branch **Nightly Build**, building that
+nightly's exact source commit rather than the latest branch tip. On success,
+an isolated publication job attaches both checker tarballs and their SHA-256
+files to the GitHub release tagged **`Nightly`**. Publication is serialized with
+the nightly deploy and skipped explicitly if that release has advanced to a
+different commit. PR, push, and manual checker builds never modify the release.
+
+Successful builds upload **`pulse-checker-ocaml-linux-x86_64`**,
+**`pulse-checker-cherry-linux-x86_64`**, and **`pulse-checker-build-report`**.
+Each checker artifact contains a checksummed `.tar.gz` with an executable `checker`,
 build/toolchain metadata, runtime-library dependencies, licenses, and usage
 instructions. Extract the tarball to preserve executable permissions.
 Neither executable needs a build-time F* or OCaml installation, an external
 `z3`, or Python to run. Standard Linux shared libraries are still required;
 the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
-with a clean environment. A second job downloads the Cherry package, reruns
+with a clean environment.
+
+Successful completion triggers **Pulse verification and native checker regressions**
+(`.github/workflows/pulse-checker-regressions.yml`) through `workflow_run`.
+It downloads the packages and build report from that exact build run and
+checks out the source revision recorded in the build artifact, including for
+nightly-triggered builds; it does not rebuild Z3, F*, or either checker.
+The consumer has only read permissions, including for PR builds, and no secrets
+are passed to the downloaded executables. Failed or cancelled builds do not
+start regression jobs. The regression workflow must be on the default branch
+for GitHub to deliver the completion trigger. For a manual regression run,
+provide the successful producer's `build_run_id` along with any corpus or
+timeout overrides. Automatic runs use the default regression settings.
+
+The first regression job downloads the OCaml package and reruns the CLI suite.
+A second job downloads the Cherry package from the same build, reruns
 the CLI suite without installing build toolchains, then replays the same
-z3test commit and the **identical 225/310 sampled inputs** from the OCaml
-report artifact. It does not download the Zenodo archives again.
+z3test commit and the **identical 225/310 sampled inputs and 25 QF_FF inputs**
+from the OCaml report artifact. It does not download the Zenodo archives again.
 Cherry coverage and timing reports are published separately.
 These executables run the extracted F* document-checker kernel; the
 in-memory Pulse checker regressions are also verified during the build,
@@ -185,6 +206,21 @@ and manifest, the seed, source-manifest hash, archive/member provenance,
 input SHA-256 hashes, and `sampling.log`. The harness verifies exact
 manifest membership and every input hash before executing any case.
 
+A separate **25-input QF_FF cohort** uses the checked-out z3test's
+`regressions/finite_field/test_qfff.py` generator and exhaustive small-field
+oracle. It selects five distinct UNSAT formulas for each prime 2, 3, 5, 7,
+and 17, covering the generator's field arithmetic, bitsums, conditionals,
+equalities, disequalities, and Boolean combinations. Selection uses the
+same recorded run seed, not solver or checker results. Generation fails
+if it cannot supply every case. Its manifest records the z3test revision,
+generator hash, moduli, and individual input hashes. Both backends run
+these exact inputs with the normal certificate harness; unsupported proof
+steps remain visible as PARTIAL rather than solver-only passes.
+The `qfff/` report includes generated inputs, provenance, per-case logs,
+coverage, timings, and separate diagnostics. Dispatch input
+`qfff_total_timeout_seconds` controls its execution budget (default 600
+seconds); the other per-case limits are shared with the existing cohorts.
+
 This is a normal GitHub-hosted Actions job, not a gh-aw agent job with a
 network allowlist. `permissions: contents: read` limits GitHub API access,
 not public outbound HTTPS; anonymous Zenodo downloads need no additional
@@ -220,7 +256,11 @@ proof backends. Pulse modules are verified, but the executable benchmarked
 on the corpus uses the extracted F* kernel, **not linked Pulse code**.
 Build/self-test failures and checker errors/crashes/protocol mismatches
 fail the job; unsupported proofs and timeouts are reported without failing
-this coverage-measurement job. The corpus step also has a 35-minute CI
+this coverage-measurement job. In particular, checker exit code 1 with `REJECT`
+and exit code 3 with `PARTIAL n` are non-fatal coverage outcomes, not successful
+proof checks. The harness still exits nonzero for infrastructure/protocol errors
+or unfinished manifested cohorts; its exit code is not ignored.
+The corpus step also has a 35-minute CI
 limit, independent of the configurable budget. Always-run reporting/upload
 steps preserve available results and build logs on failure.
 After coverage measurement, a separately budgeted diagnostic pass replays

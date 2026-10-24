@@ -570,7 +570,7 @@ def _to_ref_array(ref, args):
 def _to_ast_ref(a, ctx):
     k = _ast_kind(ctx, a)
     if k == Z3_SORT_AST:
-        return _to_sort_ref(a, ctx)
+        return _to_sort_ref(Sort.from_buffer_copy(a), ctx)
     elif k == Z3_FUNC_DECL_AST:
         return _to_func_decl_ref(a, ctx)
     else:
@@ -591,7 +591,8 @@ class SortRef(AstRef):
     """A Sort is essentially a type. Every Z3 expression has a sort. A sort is an AST node."""
 
     def as_ast(self):
-        return Z3_sort_to_ast(self.ctx_ref(), self.ast)
+        # Z3_sort_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -787,7 +788,8 @@ class FuncDeclRef(AstRef):
     """
 
     def as_ast(self):
-        return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
+        # Z3_func_decl_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -1333,12 +1335,16 @@ def _coerce_exprs(a, b, ctx=None):
     if _check_same_sort(a, b, ctx):
         return (a, b)
 
-    s = None
-    s = _coerce_expr_merge(s, a)
-    s = _coerce_expr_merge(s, b)
-    a = s.cast(a)
-    b = s.cast(b)
-    return (a, b)
+    if z3_debug():
+        _z3_assert(is_expr(a) or is_expr(b), "At least one of the arguments must be a Z3 expression")
+    # In x + 1 only x is an expression: its sort is the result sort, so only the
+    # Python value needs to be cast.
+    if not is_expr(b):
+        return (a, a.sort().cast(b))
+    if not is_expr(a):
+        return (b.sort().cast(a), b)
+    s = _coerce_expr_merge(_coerce_expr_merge(None, a), b)
+    return (s.cast(a), s.cast(b))
 
 
 def _reduce(func, sequence, initial):
@@ -2078,7 +2084,8 @@ class PatternRef(ExprRef):
     """
 
     def as_ast(self):
-        return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
+        # Z3_pattern_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -3464,7 +3471,7 @@ def IntVal(val, ctx=None):
     100
     """
     ctx = _get_ctx(ctx)
-    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), IntSort(ctx).ast), ctx)
+    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), Z3_mk_int_sort(ctx.ref())), ctx)
 
 
 def RealVal(val, ctx=None):
@@ -3483,7 +3490,7 @@ def RealVal(val, ctx=None):
     3/2
     """
     ctx = _get_ctx(ctx)
-    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), RealSort(ctx).ast), ctx)
+    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), Z3_mk_real_sort(ctx.ref())), ctx)
 
 
 def RatVal(a, b, ctx=None):
@@ -6617,6 +6624,28 @@ class AstVector(Z3PPObject):
         x + 1
         >>> A[1]
         y
+        >>> ctx = Context()
+        >>> A = AstVector(ctx=ctx)
+        >>> sorts = [BoolSort(ctx), IntSort(ctx), RealSort(ctx), BitVecSort(8, ctx),
+        ...          ArraySort(IntSort(ctx), BoolSort(ctx)), DeclareSort('S', ctx)]
+        >>> for s in sorts: A.push(s)
+        >>> all(isinstance(A[i], type(s)) and A[i].eq(s)
+        ...     for i, s in enumerate(sorts))
+        True
+        >>> A[-1].eq(sorts[-1])
+        True
+        >>> all(a.eq(s) for a, s in zip(A[:], sorts))
+        True
+        >>> A.push(Int('z', ctx))
+        >>> A.push(Function('f', IntSort(ctx), IntSort(ctx)))
+        >>> is_func_decl(A[-1])
+        True
+        >>> [is_expr(a) for a in A]
+        [False, False, False, False, False, False, True, False]
+        >>> ctx = Context()
+        >>> B = A.translate(ctx)
+        >>> all(B[i].eq(s.translate(ctx)) for i, s in enumerate(sorts))
+        True
         """
 
         if isinstance(i, int):

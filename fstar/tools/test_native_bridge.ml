@@ -2005,6 +2005,135 @@ let sorted_datatype_checker () =
        (assert (not (= (field (D 0)) (field (D 1)))))" Z.zero = N.Sat)
     "wrong-constructor selectors were incorrectly forced to a shared default"
 
+let sorted_quantifier_rewrites () =
+  let module K = Z3SortedProof in
+  let module S = Z3DatatypeSignature in
+  let c = context () in
+  let declarations =
+    "(declare-datatype T ((C (field Int)) (D)))\
+     (declare-fun P (T) Bool)(declare-fun Q (T Int) Bool)\
+     (declare-fun fake (Bool Bool) Bool)" in
+  let check expected left right =
+    let native = List.hd (parse c
+      (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))")) in
+    let st = B.marshal_expressions (B.empty_state ()) [native] in
+    let schema = N.view_datatypes st.B.retained_sorts in
+    require (S.valid schema && schema.S.cases <> [])
+      "sorted quantifier regression did not retain its datatype signature";
+    let formula = B.cached_expression st native in
+    let conclusion = Option.get (U.classify_fact formula) in
+    let result = K.check_node schema []
+      { U.kind = U.RewriteRule; conclusion1 = conclusion; premises = [] } in
+    let checked = match result with
+      | Some (_, pending) -> Z.equal pending Z.zero
+      | None -> failwith "sorted quantifier checker rejected a well-sorted equality" in
+    require (checked = expected)
+      ("unexpected sorted quantifier rewrite: " ^ left ^ " -> " ^ right);
+    (match formula with
+     | A.App (f, args) ->
+         require (not (K.consequence schema [] (A.App ({ f with A.interp = None }, args))))
+           "an uninterpreted equality lookalike justified a quantifier rewrite"
+     | _ -> failwith "expected a quantified equality")
+  in
+  check true
+    "(forall ((x T) (y Int)) (=> (P x) (Q x y)))"
+    "(forall ((x T) (y Int)) (or (Q x y) (not (P x))))";
+  check true
+    "(exists ((x T)) (not (and (P x) (Q x 0))))"
+    "(exists ((x T)) (or (not (P x)) (not (Q x 0))))";
+  check true
+    "(lambda ((x T)) (=> (P x) (Q x 0)))"
+    "(lambda ((x T)) (or (not (P x)) (Q x 0)))";
+  check false "(forall ((x T)) (P x))" "(forall ((x T)) (not (P x)))";
+  check false "(forall ((x T)) (P x))" "(exists ((x T)) (P x))";
+  check false "(forall ((x T) (y T)) (P x))" "(forall ((x T) (y T)) (P y))";
+  check false
+    "(forall ((x T)) (fake (P x) (Q x 0)))"
+    "(forall ((x T)) (or (not (P x)) (Q x 0)))"
+
+let sorted_quantifier_instances () =
+  let module K = Z3SortedProof in
+  let module Q = Z3SortedQuantifier in
+  let declarations =
+    "(declare-datatype T ((C (field Int)) (D)))\
+     (declare-fun P (T) Bool)(declare-fun Q (T Int) Bool)\
+     (declare-fun R (T T) Bool)" in
+  let sources = [
+    "(assert (forall ((x T)) (P x)))(assert (not (P D)))";
+    "(assert (forall ((x T) (n Int)) (Q x n)))(assert (not (Q D 7)))";
+    "(assert (forall ((x T) (y T)) (R x y)))(assert (not (R D (C 7))))";
+    "(assert (forall ((x T) (n Int)) (=> (P x) (Q x n))))\
+     (assert (P (C 3)))(assert (not (Q (C 3) 7)))"
+  ] in
+  List.iter (fun source ->
+      let assertions, proof = unsat (declarations ^ source) in
+      let doc, schema = B.marshal_with_datatypes assertions proof in
+      require (schema.Z3DatatypeSignature.cases <> [])
+        "sorted instantiation regression omitted its datatype signature";
+      let instances = List.filter_map (fun e -> match e.P.rule with
+          | U.QuantifierInstantiation args -> Some (args, e.P.formula)
+          | _ -> None) doc.P.entries in
+      require (instances <> []) "sorted proof omitted instantiation parameters";
+      require (K.check_document schema doc = Some Z.zero)
+        ("sorted quantifier instance remained unchecked: " ^ source);
+      require (K.diagnostic_result (K.diagnose_document schema doc) = Some Z.zero)
+        "sorted instantiation diagnostics disagree";
+      List.iter (fun (args, formula) ->
+          require (Q.check args formula) "typed quantifier substitution was not checked";
+          require (not (Q.check [] formula)) "missing typed bindings were trusted";
+          require (not (Q.check (args @ args) formula)) "extra typed bindings were trusted";
+          require (not (Q.check
+            (List.map (fun a -> A.Var (Z.zero, A.get_sort a)) args) formula))
+            "escaping typed substitution variables were trusted";
+          if List.length args > 1 then
+            require (not (Q.check (List.rev args) formula))
+              "typed de Bruijn binding order was ignored";
+          match formula with
+          | A.App (f, [A.App (n, [A.Quantifier (_, bs, t, body)]) as negative; inst]) ->
+              require (not (Q.check args (A.App ({ f with A.interp = None },
+                [negative; inst]))))
+                "an uninterpreted disjunction lookalike was trusted";
+              require (not (Q.check args (A.App (f,
+                [A.App ({ n with A.interp = None },
+                   [A.Quantifier (A.Forall_k, bs, t, body)]); inst]))))
+                "an uninterpreted negation lookalike was trusted";
+              require (not (Q.check args (A.App (f,
+                [negative; Z3ResolutionProofTheory.false_expr]))))
+                "an incorrect typed instance was trusted";
+              require (not (Q.check args (A.App (f,
+                [A.App (n, [A.Quantifier (A.Exists_k, bs, t, body)]);
+                 inst]))))
+                "an existential antecedent justified universal instantiation"
+          | _ -> failwith "unexpected sorted instantiation clause") instances;
+      let entries = List.map (fun e -> match e.P.rule with
+          | U.QuantifierInstantiation _ -> { e with P.rule = U.QuantifierInstantiation [] }
+          | _ -> e) doc.P.entries in
+      require (match K.check_document schema { doc with P.entries = entries } with
+        | Some pending -> Z.sign pending > 0 | None -> false)
+        "invalid sorted substitutions lost their explicit obligations") sources;
+  let check_clause clause arguments expected =
+    let c = context () in
+    let inputs = parse c (declarations ^ "(assert " ^ clause ^ ")" ^
+      String.concat "" (List.map (fun term ->
+        "(assert (= " ^ term ^ " " ^ term ^ "))") arguments)) in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    match List.map (B.cached_expression st) inputs with
+    | formula :: bindings ->
+        let args = List.map (function A.App (_, [term; _]) -> term
+          | _ -> failwith "malformed sorted test binding") bindings in
+        require (Q.check args formula = expected)
+          ("unexpected sorted quantifier instance: " ^ clause)
+    | [] -> failwith "missing sorted instantiation fixture"
+  in
+  check_clause
+    "(or (not (forall ((x T) (b Bool)) (or (P x) b)))\
+         (or (P D) (forall ((y T)) (P y))))"
+    ["D"; "(forall ((y T)) (P y))"] true;
+  check_clause
+    "(or (not (forall ((x T)) (exists ((y T)) (R x y))))\
+         (exists ((y T)) (R D y)))"
+    ["D"] false
+
 let assumed_nlsat () =
   let c = context () in
   let conclusion = List.hd (parse c "(assert false)") in
@@ -2232,6 +2361,24 @@ let bv_rewrites () =
       check false ("(" ^ op ^ " v w)") ("(" ^ op ^ " v v)"))
     ["bvand"; "bvor"; "bvxor"; "bvadd"; "bvmul"];
   check false "(bvsub v w)" "(bvsub w v)";
+  check true "(bvshl v #x00)" "v";
+  check true "(bvlshr v #x00)" "v";
+  check true "(bvlshr v (bvneg (bvmul w #x00)))" "v";
+  check true "(bvshl #x81 #x01)" "#x02";
+  check true "(bvlshr #x81 #x01)" "#x40";
+  check true "(bvshl #x01 #x08)" "#x00";
+  check true "(bvlshr #xff #xff)" "#x00";
+  check true "(bvshl #b1 #b1)" "#b0";
+  check true "(bvlshr #b1 #b0)" "#b1";
+  check true "(bvshl (_ bv1 65) (_ bv64 65))" "(_ bv18446744073709551616 65)";
+  check true "(bvlshr (_ bv18446744073709551616 65) (_ bv64 65))" "(_ bv1 65)";
+  check true "(bvshl (_ bv1 65) (_ bv18446744073709551616 65))" "(_ bv0 65)";
+  check true "(bvlshr (_ bv1 65) (_ bv18446744073709551616 65))" "(_ bv0 65)";
+  check true "(bvshl (_ bv1 4096) (_ bv4096 4096))" "(_ bv0 4096)";
+  check false "(bvshl #x81 #x01)" "#x40";
+  check false "(bvlshr #x81 #x01)" "#xc0";
+  check false "(bvlshr v #x01)" "v";
+  check false "(bvlshr (_ bv1 4097) (_ bv0 4097))" "(_ bv1 4097)";
   check true "(concat (concat v w) z)" "(concat v (concat w z))";
   check true "(concat (concat half bit) v)" "(concat half bit v)";
   check true "(concat bit half v)" "(concat bit (concat half v))";
@@ -3089,6 +3236,8 @@ let () =
      "certified-theory-lemmas-and-definition-axioms", checked_theory_extensions;
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
+     "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
+     "sorted-native-quantifier-instances", sorted_quantifier_instances;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;
      "checked-Boolean-constant-resolution", boolean_constant_resolution;

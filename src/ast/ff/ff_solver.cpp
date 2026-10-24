@@ -12,6 +12,7 @@ Abstract:
 
 --*/
 #include "ast/ff/ff_solver.h"
+#include "ast/ff/ff_evidence.h"
 #include "math/ff/ff_params.h"
 #include "util/z3_exception.h"
 #include "ast/simplifiers/rewriter_simplifier.h"
@@ -58,6 +59,10 @@ namespace ff {
         std::vector<ff::polynomial> eqs, neqs;
         expr_ref_vector premises, labels;
         std::vector<rational> values;
+        app_ref proof{m};
+        std::set<unsigned> proved_conflict;
+        bool proof_attempted = false;
+        std::unique_ptr<recorded_problem> recording;
         bool checked = false, encoding = false;
         unsigned bit_facts = 0;
         stopwatch encode_time, solve_time, validate_time;
@@ -320,6 +325,20 @@ namespace ff {
             premises.push_back(premise);
             inputs.push_back({a, b, equality});
         }
+
+        std::vector<unsigned> evidence_inputs(expr_ref_vector &recorded) {
+            obj_hashtable<expr> seen;
+            std::vector<unsigned> indices;
+            for (unsigned i = 0; i < premises.size(); ++i) {
+                expr *premise = premises.get(i);
+                if (!seen.contains(premise)) {
+                    seen.insert(premise);
+                    recorded.push_back(premise);
+                    indices.push_back(i);
+                }
+            }
+            return indices;
+        }
     };
 
 
@@ -343,10 +362,28 @@ namespace ff {
             throw default_exception("finite-field solver constraint has the wrong field");
         m_imp->add(a, b, equality);
     }
-    lbool solver::check() {
+    lbool solver::check(bool record_proof) {
         if (m_imp->checked)
             throw default_exception("finite-field solver problem has already been checked");
         m_imp->checked = true;
+        if (record_proof) {
+            m_imp->proof_attempted = true;
+            // Cached basis rows do not yet retain scoped proof handles.
+            m_imp->algebra.set_basis_cache(nullptr);
+            expr_ref_vector recorded_premises(m_imp->m);
+            auto recorded_indices = m_imp->evidence_inputs(recorded_premises);
+            m_imp->recording = std::make_unique<recorded_problem>(
+                m_imp->m, m_imp->local.field, m_imp->algebra, recorded_premises);
+            auto result = m_imp->recording->check();
+            m_imp->proof = m_imp->recording->evidence();
+            if (result == l_false)
+                // SAT learns only the signed premises actually used by the
+                // recorded PAC refutation; the evidence retains their exact
+                // original positions for independent checking.
+                for (unsigned i : refutation_support(m_imp->m, m_imp->proof))
+                    m_imp->proved_conflict.insert(recorded_indices.at(i));
+            return m_imp->result = result;
+        }
         try {
             m_imp->encoding = true;
             scoped_watch watch(m_imp->encode_time);
@@ -384,12 +421,33 @@ namespace ff {
             throw default_exception("finite-field candidate is unavailable");
         if (term->get_sort() != m_imp->local.field)
             throw default_exception("finite-field candidate term has the wrong field");
-        return m_imp->evaluate(term);
+        return m_imp->recording ? m_imp->recording->value(term) : m_imp->evaluate(term);
     }
     expr *solver::premise(unsigned index) const { return m_imp->premises.get(index); }
+    app *solver::evidence() const { return m_imp->proof; }
+    bool solver::refute() {
+        if (!m_imp->checked || m_imp->result == l_true)
+            throw default_exception("finite-field refutation requires an inconclusive or UNSAT check");
+        if (!m_imp->proof) {
+            if (m_imp->proof_attempted) return false;
+            m_imp->proof_attempted = true;
+            params_ref remaining(m_imp->params);
+            unsigned used = m_imp->algebra.steps(), budget = m_imp->options.ff_max_steps();
+            remaining.set_uint("ff.max_steps", used >= budget ? 0 : budget - used);
+            expr_ref_vector recorded_premises(m_imp->m);
+            auto recorded_indices = m_imp->evidence_inputs(recorded_premises);
+            m_imp->proof = record_refutation(m_imp->m, recorded_premises, remaining);
+            if (m_imp->proof)
+                for (unsigned i : refutation_support(m_imp->m, m_imp->proof))
+                    m_imp->proved_conflict.insert(recorded_indices.at(i));
+        }
+        if (!m_imp->proof) return false;
+        m_imp->result = l_false;
+        return true;
+    }
     std::set<unsigned> const &solver::conflict() const {
         SASSERT(m_imp->result == l_false);
-        return m_imp->conflict;
+        return m_imp->proof ? m_imp->proved_conflict : m_imp->conflict;
     }
     void solver::collect_statistics(statistics &st) const {
         m_imp->algebra.collect_statistics(st);

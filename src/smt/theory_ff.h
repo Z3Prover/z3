@@ -66,7 +66,7 @@ namespace smt {
 
         void ensure_helpers(sort *s);
         expr_ref wrap(expr *e);
-        void assert_axiom(expr *e, bool simplify = true);
+        void assert_axiom(expr *e, bool simplify = true, app *evidence = nullptr);
         void constrain(expr *e);
         expr_ref square_root_term(expr *e);
         bool factor_split(expr *a, expr *b, expr_ref_vector &branches);

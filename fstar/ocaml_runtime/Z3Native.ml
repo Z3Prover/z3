@@ -5,7 +5,7 @@ type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
   | Bvadd | Bvmul | Bvsub | Bvneg | Bvudiv | Bvurem | Bvextract | Bvconcat | Bvmkbv
-  | Bvult | Bvule | Bvuge | Concat
+  | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral | Opaque
@@ -106,6 +106,7 @@ let operator = function
   | Z3enums.OP_EXTRACT -> Bvextract | Z3enums.OP_CONCAT -> Bvconcat
   | Z3enums.OP_MKBV -> Bvmkbv
   | Z3enums.OP_ULT -> Bvult | Z3enums.OP_ULEQ -> Bvule | Z3enums.OP_UGEQ -> Bvuge
+  | Z3enums.OP_BSHL -> Bvshl | Z3enums.OP_BLSHR -> Bvlshr
   | Z3enums.OP_CONST_ARRAY -> ConstArray
   | Z3enums.OP_DT_CONSTRUCTOR -> DatatypeConstructor
   | Z3enums.OP_DT_RECOGNISER | Z3enums.OP_DT_IS -> DatatypeRecognizer
@@ -254,7 +255,7 @@ let view_expression a =
       let range = Z3native.get_range c d in
       let parameters = match op with
         | Bvand | Bvor | Bvxor | Bvnot | Bvadd | Bvmul | Bvsub | Bvneg |
-          Bvudiv | Bvurem | BvNumeral | Bvmkbv ->
+          Bvudiv | Bvurem | Bvshl | Bvlshr | BvNumeral | Bvmkbv ->
             [Z.of_int (Z3native.get_bv_sort_size c range)]
         | Bvult | Bvule | Bvuge ->
             if Z3native.get_domain_size c d <> 2 then fail "Malformed native unsigned comparison";

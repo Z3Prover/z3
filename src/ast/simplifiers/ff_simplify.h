@@ -50,6 +50,7 @@ class ff_disjunctive_simplifier : public dependent_expr_simplifier {
 public:
     ff_disjunctive_simplifier(ast_manager &m, params_ref const &p, dependent_expr_state &s);
     char const *name() const override { return "ff-disjunctive"; }
+    bool supports_proofs() const override { return true; }
     void reduce() override;
     void updt_params(params_ref const &p) override;
     void collect_param_descrs(param_descrs &r) override;
@@ -61,6 +62,7 @@ class ff_zero_test_simplifier : public dependent_expr_simplifier {
 public:
     ff_zero_test_simplifier(ast_manager &m, dependent_expr_state &s) : dependent_expr_simplifier(m, s) {}
     char const *name() const override { return "ff-zero-test"; }
+    bool supports_proofs() const override { return true; }
     void reduce() override;
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override { m_added = 0; }
@@ -73,12 +75,30 @@ class ff_wire_simplifier : public dependent_expr_simplifier {
 public:
     ff_wire_simplifier(ast_manager &m, dependent_expr_state &s) : dependent_expr_simplifier(m, s) {}
     char const *name() const override { return "ff-wires"; }
+    bool supports_proofs() const override { return true; }
     void reduce() override;
     void collect_statistics(statistics &st) const override;
     void reset_statistics() override {
         m_eliminated = 0;
         m_elapsed.reset();
     }
+};
+
+bool ff_simplify_circuit(ast_manager &m, expr *source, expr_ref &target,
+                         proof_ref &proof, bool proofs);
+
+class ff_circuit_simplifier : public dependent_expr_simplifier {
+    unsigned m_rewritten = 0;
+public:
+    ff_circuit_simplifier(ast_manager &m, dependent_expr_state &s)
+        : dependent_expr_simplifier(m, s) {}
+    char const *name() const override { return "ff-circuits"; }
+    bool supports_proofs() const override { return true; }
+    void reduce() override;
+    void collect_statistics(statistics &st) const override {
+        st.update("ff circuit rewrites", m_rewritten);
+    }
+    void reset_statistics() override { m_rewritten = 0; }
 };
 
 class ff_basic_simplifier : public dependent_expr_simplifier {

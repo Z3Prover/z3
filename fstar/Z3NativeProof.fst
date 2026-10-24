@@ -87,6 +87,7 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Bvextract -> Some BV.op_extract | N.Bvconcat -> Some BV.op_concat
   | N.Bvmkbv -> Some BV.op_mkbv
   | N.Bvult -> Some BV.op_ult | N.Bvule -> Some BV.op_ule | N.Bvuge -> Some BV.op_uge
+  | N.Bvshl -> Some BV.op_shl | N.Bvlshr -> Some BV.op_lshr
   | N.BvNumeral -> Some BV.op_numeral
   | N.DatatypeConstructor -> Some DT.op_constructor
   | N.DatatypeRecognizer -> Some DT.op_recognizer

@@ -317,15 +317,17 @@ class sdist(_sdist):
 # The Azure Dev Ops pipelines use internal OS version tagging that don't correspond
 # to releases.
 
-internal_build_re = re.compile("(.+)_7")
-
 class bdist_wheel(_bdist_wheel):
 
     def remove_build_machine_os_version(self, platform, os_version_tag):
+        # Since macOS 11, pip only accepts macosx_<major>_0 platform tags, so a
+        # wheel built on e.g. macOS 13.3 must be tagged 13_0 to be installable.
         if platform in ["osx", "darwin", "sequoia"]:
-            m = internal_build_re.search(os_version_tag)
-            if m:
-                return m.group(1) + "_0"
+            parts = os_version_tag.split("_")
+            if parts[0].isdigit() and int(parts[0]) >= 11:
+                return parts[0] + "_0"
+            if len(parts) > 2:
+                return "_".join(parts[:2])
         return os_version_tag
             
             

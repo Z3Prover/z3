@@ -56,7 +56,11 @@ namespace ff {
         void add(expr *a, expr *b, bool equality);
         // May throw exhausted on resource limits, just like the algebra engine.
         // SAT candidates are rechecked against every supplied original constraint.
-        lbool check();
+        lbool check(bool record_proof = false);
+        // Evidence from the same proof-enabled check. The frontend remains
+        // responsible for justifying the signed assignment premises.
+        app* evidence() const;
+        bool refute();
         rational value(expr *term);
         expr *premise(unsigned index) const;
         // Exact input indices supporting UNSAT. These are explanations, NOT

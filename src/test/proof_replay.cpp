@@ -21,6 +21,7 @@ Abstract:
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
+#include "util/z3_exception.h"
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -630,9 +631,18 @@ static bool infer_verifies(std::string const& text, unsigned n_assume, unsigned 
         args.push_back(lits.get(i));
     app_ref jst(m.mk_app(symbol(hint), args.size(), args.data(), m.mk_proof_sort()), m);
     std::ostringstream captured;
-    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
-    bool ok = checker.infer(clause, jst);
-    std::cout.rdbuf(saved);
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        try {
+            ok = checker.infer(clause, jst);
+        }
+        catch (default_exception const& ex) {
+            if (std::string(ex.what()) != "SMT proof verification failed")
+                throw;
+            ok = false;
+        }
+    }
     out = captured.str();
     return ok;
 }

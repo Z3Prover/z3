@@ -174,26 +174,45 @@ let interpretation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
 let empty_environment (#base:sort -> Type0) (sigma:V.signature)
   : V.environment base sigma [] = fun _ -> FStar.Pervasives.false_elim ()
 
+let evaluate_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+             (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+             (scope:list sort) (rho:V.environment base (S.signature s) scope)
+             (e:expr{D.scoped scope e})
+  : V.value base (S.signature s) (get_sort e) =
+  V.evaluate (S.signature s) (interpretation s bc equality other) scope rho e
+
 let evaluate (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
              (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
              (e:expr{D.scoped [] e})
   : V.value base (S.signature s) (get_sort e) =
-  V.evaluate (S.signature s) (interpretation s bc equality other) []
-    (empty_environment (S.signature s)) e
+  evaluate_at s bc equality other [] (empty_environment (S.signature s)) e
 
-let truth (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let truth_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
           (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+          (scope:list sort) (rho:V.environment base (S.signature s) scope)
           (e:expr) : bool =
-  D.scoped [] e && get_sort e = bool_sort &&
-  truth_value s bc (evaluate s bc equality other e)
+  D.scoped scope e && get_sort e = bool_sort &&
+  truth_value s bc (evaluate_at s bc equality other scope rho e)
+
+unfold let truth (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+          (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+  : expr -> Tot bool =
+  truth_at s bc equality other [] (empty_environment (S.signature s))
+
+let evaluate_arguments_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                       (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                       (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                       (es:list expr{D.scoped_args scope es})
+                       (ss:list sort{sorts_match es ss})
+  : V.arguments base (S.signature s) ss =
+  V.evaluate_args (S.signature s) (interpretation s bc equality other) scope rho es ss
 
 let evaluate_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                        (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
                        (es:list expr{D.scoped_args [] es})
                        (ss:list sort{sorts_match es ss})
   : V.arguments base (S.signature s) ss =
-  V.evaluate_args (S.signature s) (interpretation s bc equality other) []
-    (empty_environment (S.signature s)) es ss
+  evaluate_arguments_at s bc equality other [] (empty_environment (S.signature s)) es ss
 
 let lemma_registered_constructor (s:S.checked_schema) (f:func_decl)
   : Lemma (requires L.mem f (S.signature s))
@@ -207,6 +226,16 @@ let lemma_core_not_constructor (s:S.checked_schema) (f:func_decl)
           (ensures not (L.mem f (S.signature s))) =
   if L.mem f (S.signature s) then lemma_registered_constructor s f
 
+let lemma_evaluate_core_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                        (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                        (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                        (f:func_decl) (args:list expr)
+  : Lemma (requires D.scoped scope (App f args) /\ classify f <> Other)
+          (ensures evaluate_at s bc equality other scope rho (App f args) ==
+                   application s bc equality other f
+                     (evaluate_arguments_at s bc equality other scope rho args f.domain)) =
+  lemma_core_not_constructor s f
+
 let lemma_evaluate_core (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                         (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
                         (f:func_decl) (args:list expr)
@@ -214,7 +243,20 @@ let lemma_evaluate_core (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean
           (ensures evaluate s bc equality other (App f args) ==
                    application s bc equality other f
                      (evaluate_arguments s bc equality other args f.domain)) =
-  lemma_core_not_constructor s f
+  lemma_evaluate_core_at s bc equality other [] (empty_environment (S.signature s)) f args
+
+let lemma_equality_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                   (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                   (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                   (a b:expr)
+  : Lemma (requires D.scoped scope a /\ D.scoped scope b /\ get_sort a == get_sort b)
+          (ensures truth_at s bc equality other scope rho (R.mk_eq_expr a b) <==>
+                   evaluate_at s bc equality other scope rho a ==
+                   evaluate_at s bc equality other scope rho b) =
+  V.lemma_sort_eq (get_sort a) (get_sort b);
+  lemma_evaluate_core_at s bc equality other scope rho (R.eq_decl (get_sort a)) [a; b];
+  lemma_equal_tree equality (evaluate_at s bc equality other scope rho a)
+                            (evaluate_at s bc equality other scope rho b)
 
 let lemma_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
@@ -222,9 +264,19 @@ let lemma_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carr
   : Lemma (requires D.scoped [] a /\ D.scoped [] b /\ get_sort a == get_sort b)
           (ensures truth s bc equality other (R.mk_eq_expr a b) <==>
                    evaluate s bc equality other a == evaluate s bc equality other b) =
-  V.lemma_sort_eq (get_sort a) (get_sort b);
-  lemma_evaluate_core s bc equality other (R.eq_decl (get_sort a)) [a; b];
-  lemma_equal_tree equality (evaluate s bc equality other a) (evaluate s bc equality other b)
+  lemma_equality_at s bc equality other [] (empty_environment (S.signature s)) a b
+
+let lemma_boolean_equality_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                           (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                           (scope:list sort) (rho:V.environment base (S.signature s) scope)
+                           (a b:expr)
+  : Lemma (requires D.scoped scope a /\ D.scoped scope b /\
+                    get_sort a == bool_sort /\ get_sort b == bool_sort)
+          (ensures truth_at s bc equality other scope rho (R.mk_eq_expr a b) ==
+                   (truth_at s bc equality other scope rho a = truth_at s bc equality other scope rho b)) =
+  lemma_equality_at s bc equality other scope rho a b;
+  lemma_boolean s bc (evaluate_at s bc equality other scope rho a);
+  lemma_boolean s bc (evaluate_at s bc equality other scope rho b)
 
 let lemma_boolean_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                            (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
@@ -233,9 +285,7 @@ let lemma_boolean_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bool
                     get_sort a == bool_sort /\ get_sort b == bool_sort)
           (ensures truth s bc equality other (R.mk_eq_expr a b) ==
                    (truth s bc equality other a = truth s bc equality other b)) =
-  lemma_equality s bc equality other a b;
-  lemma_boolean s bc (evaluate s bc equality other a);
-  lemma_boolean s bc (evaluate s bc equality other b)
+  lemma_boolean_equality_at s bc equality other [] (empty_environment (S.signature s)) a b
 
 let rec cut_with_boundaries (boundaries:list expr) (fuel:nat) (e:expr) : Tot B.skeleton (decreases e) =
   if fuel = 0 || L.mem e boundaries then B.Atom e
@@ -274,75 +324,96 @@ let cut (fuel:nat) (e:expr) : B.skeleton = cut_with_boundaries [] fuel e
 let cut_args (fuel:nat) (args:list expr) : list B.skeleton =
   cut_args_with_boundaries [] fuel args
 
-let rec lemma_boolean_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let rec lemma_boolean_arguments_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                                 (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                                (scope:list sort) (rho:V.environment base (S.signature s) scope)
                                 (args:list expr) (ss:list sort) (op:B.nary_op)
-  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ boolean_sorts ss)
-          (ensures combine op (boolean_values s bc ss (evaluate_arguments s bc equality other args ss)) ==
-                   B.eval_args (truth s bc equality other) op (L.map B.Atom args))
+  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ boolean_sorts ss)
+          (ensures combine op (boolean_values s bc ss
+                     (evaluate_arguments_at s bc equality other scope rho args ss)) ==
+                   B.eval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
           (decreases args) =
   match args, ss with
   | a :: rest, t :: tail ->
     V.lemma_sort_eq (get_sort a) t;
-    lemma_boolean_arguments s bc equality other rest tail op
+    lemma_boolean_arguments_at s bc equality other scope rho rest tail op
   | _, _ -> ()
 
-let rec lemma_cut_with_boundaries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+let lemma_boolean_arguments (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                            (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                            (args:list expr) (ss:list sort) (op:B.nary_op)
+  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ boolean_sorts ss)
+          (ensures combine op (boolean_values s bc ss (evaluate_arguments s bc equality other args ss)) ==
+                   B.eval_args (truth s bc equality other) op (L.map B.Atom args)) =
+  lemma_boolean_arguments_at s bc equality other [] (empty_environment (S.signature s)) args ss op
+
+let rec lemma_cut_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                   (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                  (scope:list sort) (rho:V.environment base (S.signature s) scope)
                   (boundaries:list expr) (fuel:nat) (e:expr)
-  : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
-          (ensures B.eval (truth s bc equality other) (cut_with_boundaries boundaries fuel e) ==
-                   truth s bc equality other e)
+  : Lemma (requires D.scoped scope e /\ get_sort e == bool_sort)
+          (ensures B.eval (truth_at s bc equality other scope rho) (cut_with_boundaries boundaries fuel e) ==
+                   truth_at s bc equality other scope rho e)
           (decreases e) =
   if fuel = 0 || L.mem e boundaries then ()
   else match e with
   | App f args ->
-    (if classify f <> Other then lemma_evaluate_core s bc equality other f args);
+    (if classify f <> Other then lemma_evaluate_core_at s bc equality other scope rho f args);
     (match classify f, args with
      | Constant _, _ -> ()
-     | Negation, [a] -> lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) a
+     | Negation, [a] -> lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) a
      | Implication, [a; b] ->
-       lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) a;
-       lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) b
+       lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) a;
+       lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) b
      | Nary op, _ ->
-       lemma_boolean_arguments s bc equality other args f.domain op;
-       lemma_cut_args_with_boundaries s bc equality other boundaries (fuel - 1) args f.domain op
+       lemma_boolean_arguments_at s bc equality other scope rho args f.domain op;
+       lemma_cut_args_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) args f.domain op
      | Equality t, [a; b] ->
        V.lemma_sort_eq (get_sort a) t;
        V.lemma_sort_eq (get_sort b) t;
-       if a = b then lemma_equality s bc equality other a b
+       if a = b then lemma_equality_at s bc equality other scope rho a b
        else if t = bool_sort then (
-         lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) a;
-         lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) b;
-         lemma_boolean_equality s bc equality other a b)
+         lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) a;
+         lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) b;
+         lemma_boolean_equality_at s bc equality other scope rho a b)
      | Choice t, [c; a; b] ->
        if t = bool_sort then (
          V.lemma_sort_eq (get_sort c) bool_sort;
          V.lemma_sort_eq (get_sort a) t;
          V.lemma_sort_eq (get_sort b) t;
-         lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) c;
-         lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) a;
-         lemma_cut_with_boundaries s bc equality other boundaries (fuel - 1) b;
-         B.lemma_boolean_ite_eval (truth s bc equality other)
+         lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) c;
+         lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) a;
+         lemma_cut_with_boundaries_at s bc equality other scope rho boundaries (fuel - 1) b;
+         B.lemma_boolean_ite_eval (truth_at s bc equality other scope rho)
            (cut_with_boundaries boundaries (fuel - 1) c)
            (cut_with_boundaries boundaries (fuel - 1) a)
            (cut_with_boundaries boundaries (fuel - 1) b))
      | _, _ -> ())
   | _ -> ()
 
-and lemma_cut_args_with_boundaries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+and lemma_cut_args_with_boundaries_at (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                    (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                   (scope:list sort) (rho:V.environment base (S.signature s) scope)
                    (boundaries:list expr) (fuel:nat) (args:list expr) (ss:list sort) (op:B.nary_op)
-  : Lemma (requires D.scoped_args [] args /\ sorts_match args ss /\ boolean_sorts ss)
-          (ensures B.eval_args (truth s bc equality other) op (cut_args_with_boundaries boundaries fuel args) ==
-                   B.eval_args (truth s bc equality other) op (L.map B.Atom args))
+  : Lemma (requires D.scoped_args scope args /\ sorts_match args ss /\ boolean_sorts ss)
+          (ensures B.eval_args (truth_at s bc equality other scope rho) op
+                     (cut_args_with_boundaries boundaries fuel args) ==
+                   B.eval_args (truth_at s bc equality other scope rho) op (L.map B.Atom args))
           (decreases args) =
   match args, ss with
   | a :: rest, t :: tail ->
     V.lemma_sort_eq (get_sort a) t;
-    lemma_cut_with_boundaries s bc equality other boundaries fuel a;
-    lemma_cut_args_with_boundaries s bc equality other boundaries fuel rest tail op
+    lemma_cut_with_boundaries_at s bc equality other scope rho boundaries fuel a;
+    lemma_cut_args_with_boundaries_at s bc equality other scope rho boundaries fuel rest tail op
   | _, _ -> ()
+
+let lemma_cut_with_boundaries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                  (equality:scalar_equality base) (other:V.interpretation base (S.signature s))
+                  (boundaries:list expr) (fuel:nat) (e:expr)
+  : Lemma (requires D.scoped [] e /\ get_sort e == bool_sort)
+          (ensures B.eval (truth s bc equality other) (cut_with_boundaries boundaries fuel e) ==
+                   truth s bc equality other e) =
+  lemma_cut_with_boundaries_at s bc equality other [] (empty_environment (S.signature s)) boundaries fuel e
 
 let lemma_cut (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
               (equality:scalar_equality base) (other:V.interpretation base (S.signature s))

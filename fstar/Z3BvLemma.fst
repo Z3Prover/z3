@@ -27,6 +27,8 @@ let op_mkbv : decl_kind = 113
 let op_ult : decl_kind = 114
 let op_ule : decl_kind = 115
 let op_uge : decl_kind = 116
+let op_shl : decl_kind = 117
+let op_lshr : decl_kind = 118
 
 let bv_sort (width:int) : sort = BaseSort ("BV" ^ Prims.string_of_int width)
 
@@ -48,7 +50,8 @@ let operation (f:func_decl) (args:list expr) : option (pos & decl_kind) =
        sorts_match args f.domain && f.domain = L.map (fun _ -> bv_sort width) args &&
        (((op = op_not || op = op_neg) && L.length args = 1) ||
         ((op = op_and || op = op_or || op = op_xor || op = op_add ||
-          op = op_mul || op = op_sub || op = op_udiv || op = op_urem) && L.length args = 2))
+          op = op_mul || op = op_sub || op = op_udiv || op = op_urem ||
+          op = op_shl || op = op_lshr) && L.length args = 2))
     then Some (width, op) else None
   | _, _ -> None
 
@@ -162,6 +165,8 @@ let calculate (width:pos) (op:decl_kind) (xs:list (U.uint_t width)) : U.uint_t w
     else if op = op_mul then U.mul_mod x y
     else if op = op_udiv then (if y = 0 then U.ones width else U.udiv x y)
     else if op = op_urem then (if y = 0 then x else U.mod x y)
+    else if op = op_shl then U.shift_left x y
+    else if op = op_lshr then U.shift_right x y
     else U.sub_mod x y
   | _ -> 0
 
@@ -303,7 +308,8 @@ let simple (width:pos) (op:decl_kind) (args:list expr) : option expr =
           | Some (w, n) ->
             if w <> width then None
             else if n = 0 && (op = op_or || op = op_xor || op = op_add ||
-                              op = op_sub || op = op_urem) then Some x
+                              op = op_sub || op = op_urem || op = op_shl ||
+                              op = op_lshr) then Some x
             else if n = 0 && (op = op_and || op = op_mul) then Some y
             else if n = 0 && op = op_udiv then Some (literal width (U.ones width))
             else if n = 1 && (op = op_mul || op = op_udiv) then Some x
@@ -400,6 +406,8 @@ let lemma_simple (i:interpretation value) (rho:env value) (project:pos -> value 
               else if n = 0 && op = op_xor then U.logxor_lemma_1 #width a
               else if n = 0 && op = op_udiv then
                 lemma_literal i rho project width (U.ones width)
+              else if n = 0 && op = op_shl then U.shift_left_value_aux_2 #width a
+              else if n = 0 && op = op_lshr then U.shift_right_value_aux_2 #width a
               else ()
             | None -> ())
     | _ -> ()
