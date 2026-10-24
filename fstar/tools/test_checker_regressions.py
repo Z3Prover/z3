@@ -50,6 +50,35 @@ class CheckerRegressionTests(unittest.TestCase):
             with self.subTest(code=code, text=text):
                 self.assertEqual(runner.classify(code, text), expected)
 
+    def test_rejected_and_partial_proof_exit_codes_do_not_fail_the_suite(self):
+        process_run = runner.subprocess.run
+        for code, verdict, outcome, status in (
+                (1, "REJECT", "REJECT", 0),
+                (3, "PARTIAL 2", "PARTIAL", 0),
+                (1, "ACCEPT", "PROTOCOL_ERROR", 1),
+                (2, "ERROR", "ERROR", 1)):
+            with self.subTest(code=code, verdict=verdict), tempfile.TemporaryDirectory() as directory:
+                args, _ = self.manifested_corpus(directory)
+
+                def checker_process(command, **kwargs):
+                    if command[-1] == "--version":
+                        return argparse.Namespace(stdout="test-version")
+                    return process_run(
+                        [sys.executable, "-c", f"print({verdict!r}); raise SystemExit({code})"],
+                        **kwargs)
+
+                with patch.object(runner.subprocess, "run", side_effect=checker_process), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(runner.run_suite(args), status)
+                rows = [json.loads(line) for line in
+                        (args.output / "results.jsonl").read_text().splitlines()]
+                self.assertEqual({row["returncode"] for row in rows}, {code})
+                self.assertEqual({row["outcome"] for row in rows}, {outcome})
+                runner.report(args.output)
+                summary = json.loads((args.output / "summary.json").read_text())
+                self.assertEqual(summary["counts"]["ACCEPT"], 0)
+                self.assertEqual(summary["counts"][outcome], 2)
+
     def test_selection_is_recursive_sorted_bounded_and_not_manifest_driven(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
