@@ -476,7 +476,6 @@ namespace smt {
             m_seq.str.is_index(n)       ||
             m_seq.str.is_last_index(n)  ||
             m_seq.str.is_replace(n)     ||
-            m_seq.str.is_replace_all(n) ||
             m_seq.str.is_extract(n)     ||
             m_seq.str.is_at(n)          ||
             m_seq.str.is_nth_i(n)       ||
@@ -487,6 +486,10 @@ namespace smt {
             m_seq.str.is_from_code(n)   ||
             m_seq.str.is_to_code(n))
             enqueue_axiom(n);
+        if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {
+            ctx.push_trail(value_trail<unsigned>(m_num_unhandled));
+            ++m_num_unhandled;
+        }
     }
 
     void theory_nseq::enqueue_axiom(expr* e) {
@@ -507,8 +510,6 @@ namespace smt {
             m_ax.add_last_indexof_axiom(n);
         else if (m_seq.str.is_replace(n))
             m_ax.add_replace_axiom(n);
-        else if (m_seq.str.is_replace_all(n))
-            m_ax.add_replace_all_axiom(n);
         else if (m_seq.str.is_extract(n))
             m_ax.add_extract_axiom(n);
         else if (m_seq.str.is_at(n))
@@ -766,7 +767,7 @@ namespace smt {
 
             if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {
                 if (check_stoi_coherence())
-                    return FC_DONE;
+                    return m_num_unhandled ? FC_GIVEUP : FC_DONE;
                 m_pending_assumptions.reset();
                 return FC_CONTINUE;
             }
@@ -857,7 +858,7 @@ namespace smt {
                     return FC_CONTINUE;
                 }
             }
-            return FC_DONE;
+            return m_num_unhandled ? FC_GIVEUP : FC_DONE;
         }
 
         case stx::search_result::unsat: {
