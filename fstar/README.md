@@ -116,6 +116,13 @@ F* and enabled OCaml compiler warnings fail the build. Extracted constructor
 projectors receive explicit rejecting out-of-domain arms using OCaml's
 AST, without suppressing partial-match warnings or changing checker rules.
 
+It also runs after a successful default-branch **Nightly Build**, building that
+nightly's exact source commit rather than the latest branch tip. On success,
+an isolated publication job attaches both checker tarballs and their SHA-256
+files to the GitHub release tagged **`Nightly`**. Publication is serialized with
+the nightly deploy and skipped explicitly if that release has advanced to a
+different commit. PR, push, and manual checker builds never modify the release.
+
 Successful builds upload **`pulse-checker-ocaml-linux-x86_64`**,
 **`pulse-checker-cherry-linux-x86_64`**, and **`pulse-checker-build-report`**.
 Each checker artifact contains a checksummed `.tar.gz` with an executable `checker`,
@@ -129,7 +136,8 @@ with a clean environment.
 Successful completion triggers **Pulse verification and native checker regressions**
 (`.github/workflows/pulse-checker-regressions.yml`) through `workflow_run`.
 It downloads the packages and build report from that exact build run and
-checks out its source revision; it does not rebuild Z3, F*, or either checker.
+checks out the source revision recorded in the build artifact, including for
+nightly-triggered builds; it does not rebuild Z3, F*, or either checker.
 The consumer has only read permissions, including for PR builds, and no secrets
 are passed to the downloaded executables. Failed or cancelled builds do not
 start regression jobs. The regression workflow must be on the default branch

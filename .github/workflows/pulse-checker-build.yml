@@ -11,6 +11,9 @@ on:
       - 'fstar/**'
       - '.github/workflows/pulse-checker-build.yml'
       - '.github/workflows/pulse-checker-regressions.yml'
+  workflow_run:
+    workflows: [Nightly Build]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -22,6 +25,14 @@ concurrency:
 
 jobs:
   build:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.path == '.github/workflows/nightly.yml' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+       (github.event.workflow_run.event == 'schedule' ||
+        github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     defaults:
@@ -37,14 +48,15 @@ jobs:
       - name: Checkout Z3
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # workflow_run.head_sha identifies this same source revision downstream.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Prepare build report directory
         run: |
           mkdir -p "$RUNNER_TEMP/pulse-checker-build-report"
           echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-build-report" >> "$GITHUB_ENV"
+          printf '{"source_sha":"%s"}\n' "$(git rev-parse HEAD)" \
+            > "$RUNNER_TEMP/pulse-checker-build-report/source.json"
 
       - name: Install pinned F*, Cherry, and OCaml toolchains
         timeout-minutes: 30
@@ -140,3 +152,44 @@ jobs:
           path: ${{ runner.temp }}/pulse-checker-build-report
           if-no-files-found: error
           retention-days: 14
+
+  publish-nightly:
+    needs: build
+    if: ${{ github.event_name == 'workflow_run' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      # Serialize with nightly.yml so its deploy cannot replace the release mid-upload.
+      group: nightly-release
+      cancel-in-progress: false
+    steps:
+      - name: Checkout the trusted release publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts/publish-pulse-nightly.cjs
+          sparse-checkout-cone-mode: false
+
+      - name: Download OCaml checker package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-ocaml-linux-x86_64
+          path: ${{ runner.temp }}/nightly-checkers/ocaml
+
+      - name: Download Cherry checker package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-cherry-linux-x86_64
+          path: ${{ runner.temp }}/nightly-checkers/cherry
+
+      - name: Attach checker packages to the matching Nightly release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECKER_ARTIFACT_DIR: ${{ runner.temp }}/nightly-checkers
+        with:
+          script: |
+            const { publish } = require('./.github/scripts/publish-pulse-nightly.cjs');
+            await publish({ github, context, core, artifactDir: process.env.CHECKER_ARTIFACT_DIR });

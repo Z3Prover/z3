@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       run_id: ${{ steps.run.outputs.run_id }}
-      source_sha: ${{ steps.run.outputs.source_sha }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
     steps:
       - name: Resolve the successful checker build
         id: run
@@ -86,9 +86,43 @@ jobs:
               throw new Error('Expected a successful completed Pulse checker build');
             }
             core.setOutput('run_id', String(run.id));
-            core.setOutput('source_sha', run.head_sha);
-            await core.summary.addLink('Checker build', run.html_url)
-              .addRaw(`\n\nSource revision: \`${run.head_sha}\`\n`).write();
+            core.setOutput('run_head_sha', run.head_sha);
+            core.setOutput('run_event', run.event);
+            await core.summary.addLink('Checker build', run.html_url).write();
+
+      - name: Download the build source metadata
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pulse-checker-build-report
+          path: ${{ runner.temp }}/checker-build-report
+          run-id: ${{ steps.run.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Resolve the actual checker source revision
+        id: source
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SOURCE_FILE: ${{ runner.temp }}/checker-build-report/source.json
+          RUN_HEAD_SHA: ${{ steps.run.outputs.run_head_sha }}
+          PRODUCER_EVENT: ${{ steps.run.outputs.run_event }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            let sha;
+            if (fs.existsSync(process.env.SOURCE_FILE)) {
+              sha = JSON.parse(fs.readFileSync(process.env.SOURCE_FILE, 'utf8')).source_sha;
+            } else if (['push', 'pull_request', 'workflow_dispatch'].includes(process.env.PRODUCER_EVENT)) {
+              core.info('Legacy checker build without source.json: using its triggering commit.');
+              sha = process.env.RUN_HEAD_SHA;
+            } else {
+              throw new Error('Nightly-triggered checker build is missing its source revision');
+            }
+            if (!/^[0-9a-f]{40}$/.test(sha) ||
+                (process.env.PRODUCER_EVENT !== 'workflow_run' && sha !== process.env.RUN_HEAD_SHA)) {
+              throw new Error('Invalid or inconsistent checker source revision');
+            }
+            core.setOutput('source_sha', sha);
+            await core.summary.addRaw(`\n\nSource revision: \`${sha}\`\n`).write();
 
   build-test-report:
     needs: checker-build
