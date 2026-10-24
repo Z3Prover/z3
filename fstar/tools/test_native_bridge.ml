@@ -2271,6 +2271,12 @@ let bv_rewrites () =
   check true "(bvadd v w z)" "(bvadd v (bvadd w z))";
   check true "(= (bvadd v w) z)" "(= v (bvadd z (bvmul #xff w)))";
   check false "(= (bvadd v w) z)" "(= v (bvadd z w))";
+  check true "(= (bvadd #x01 v) #x03)" "(= v #x02)";
+  check true "(= (bvadd #xff v) #x00)" "(= v #x01)";
+  check true "(= (bvadd #x02 v) #x00)" "(= v #xfe)";
+  check true "(= (bvadd #b1 bit) #b0)" "(= bit #b1)";
+  check false "(= (bvadd #x02 v) #x00)" "(= v #x02)";
+  check false "(= (bvmul #x02 v) #x00)" "(= v #xfe)";
   check true "(= (bvadd v w) (bvmul #x02 v))" "(= v w)";
   check true "(= (bvadd v w) (bvmul #x02 v))"
     "(= w (bvsub #x00 (bvmul #xff v)))";
@@ -2338,6 +2344,13 @@ let bv_rewrites () =
   check false "((_ extract 7 0) (concat v half))" "v";
   check true "(= (concat v half) (concat v #xf))" "(= half #xf)";
   check false "(= (concat v half) (concat w #xf))" "(= half #xf)";
+  check true "(= (concat v half) #xabc)" "(and (= half #xc) (= v #xab))";
+  check true "(= #xabc (concat v half))"
+    "(and (= half ((_ extract 3 0) #xabc)) (= v ((_ extract 11 4) #xabc)))";
+  check false "(= (concat v half) #xabc)" "(and (= half #xb) (= v #xac))";
+  check false "(= (concat v half) #xabc)" "(= half #xc)";
+  check true "(= (concat #xab half) #xabc)" "(= half #xc)";
+  check true "(= (concat bit half) #b11111)" "(and (= half #xf) (= bit #b1))";
   let inputs = parse c (declarations ^ "(assert (= (mkbv p true) #b11))") in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
   (match B.cached_expression st (List.hd inputs) with
@@ -2801,6 +2814,30 @@ let arithmetic_rewrites () =
   check false reals "(+ x y)" "(+ x x)";
   check false reals "(<= (/ x 0) y)" "(<= x y)";
   check false ints "(* x y)" "(+ x y)";
+  List.iter (fun declarations ->
+      check true declarations "(* x y)" "(* y x)";
+      check true declarations "(* (+ x (* (- 1) y)) y)"
+        "(* y (+ x (* (- 1) y)))";
+      check false declarations "(* x y)" "(* x x)";
+      check true declarations "(* (+ 1 x) (* (- 1) y))"
+        "(* (- 1) (* (+ 1 x) y))";
+      check true declarations "(* x y x y)" "(* y (* x (* y x)))";
+      check true declarations "(* x y y)" "(* y y x)";
+      check false declarations "(* x y y)" "(* x x y)";
+      check false declarations "(* x (* y y))" "(* x y)";
+      check true declarations "(= (* x y) 0)" "(or (= x 0) (= y 0))";
+      check true declarations "(= (* x y x) 0)" "(or (= x 0) (= y 0) (= x 0))";
+      check false declarations "(= (* x y) 0)" "(and (= x 0) (= y 0))";
+      check false declarations "(= (* x y) 0)" "(= x 0)";
+      check true declarations "(<= (* x y) 0)"
+        "(or (not (= (>= x 0) (>= y 0))) (or (= x 0) (= y 0)))";
+      check true declarations "(>= (* x y) 0)"
+        "(or (= (>= x 0) (>= y 0)) (or (= x 0) (= y 0)))";
+      check false declarations "(>= (* x y) 0)" "(= (>= x 0) (>= y 0))";
+      check true declarations "(<= (* x x x x) 0)" "(= x 0)";
+      check false declarations "(<= (* x x x) 0)" "(= x 0)";
+      check false declarations "(- x y)" "(- y x)")
+    [ints; reals];
   check true ints "(* (+ 1 x) (+ 1 x))"
     "(+ (* 1 1) (* x 1) (* 1 x) (* x x))";
   check true reals "(* (+ 1.0 x) (+ 1.0 y))"
