@@ -23,6 +23,7 @@ module Z3ArrayTheory
 *)
 
 open FStar.FunctionalExtensionality
+open FStar.List.Tot
 
 (* ----------------------------------------------------------------- *)
 (* Core representation                                                *)

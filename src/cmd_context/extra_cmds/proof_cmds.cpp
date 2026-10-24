@@ -357,8 +357,8 @@ public:
     }
 
     void end_infer() override {
-        if (m_check)
-            checker().infer(m_lits, m_proof_hint);
+        if (m_check && !checker().infer(m_lits, m_proof_hint))
+            exit(0);
         if (m_save)
             saver().infer(m_lits, m_proof_hint);
         if (m_trim)

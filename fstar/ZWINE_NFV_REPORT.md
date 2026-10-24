@@ -1,5 +1,27 @@
 # zwine integer exponentiation NFV soundness audit
 
+## Shared solver integration (October 24, 2026)
+
+The refinement helper now lives in `src/ast/rewriter/arith_swine.{h,cpp}`.
+It consumes arithmetic ASTs and a candidate-value callback and produces
+Boolean AST lemmas; it has no LP-column interface. Keeping it in the
+rewriter layer preserves the AST-independent `math/lp` component and avoids
+adding AST construction to `nla::solver`.
+
+Both `smt::theory_lra` and `arith::solver` use the same candidate checker,
+six refinement families, interpolation cache, and private bounded/unbounded
+search state. Only value lookup, clause assertion, and assumption/core
+translation remain solver-specific. SAT private-phase re-search must retain
+the caller's assumptions rather than call `pop_to_base_level`, which clears
+them. Cores containing private assumptions must reach the extension's retry
+hook before MUS minimization starts nested checks; final user-only cores
+retain normal minimization.
+
+The five mathematical proof modules are unchanged. Their recorded
+verification below describes the October 17 audit, not a new verification
+of the refactored C++ integrations. The historical source ranges below refer
+to that snapshot; function names identify the relocated refinement code.
+
 ## Result: five verified modules, scoped mathematical soundness
 
 **All five current proof modules verified successfully from a new, empty,

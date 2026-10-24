@@ -19,6 +19,7 @@ Author:
 #include "math/lp/column.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/column_namer.h"
+#include "math/lp/evidence.h"
 namespace lp {
 inline lconstraint_kind flip_kind(lconstraint_kind t) {
     return static_cast<lconstraint_kind>( - static_cast<int>(t));
@@ -112,7 +113,7 @@ public:
 class constraint_set {
     region                         m_region;
     column_namer&                  m_namer;
-    u_dependency_manager&          m_dep_manager;
+    evidence_manager&              m_dep_manager;
     vector<lar_base_constraint*>   m_constraints;
     stacked_value<unsigned>        m_constraint_count;
     unsigned_vector                m_active;
@@ -122,6 +123,13 @@ class constraint_set {
     constraint_index add(lar_base_constraint* c) {
         constraint_index ci = m_constraints.size();
         m_constraints.push_back(c);
+        if (m_dep_manager.proofs_enabled()) {
+            evidence_manager::fact f;
+            f.lhs = c->coeffs();
+            f.kind = c->kind();
+            f.rhs = c->rhs_impq();
+            m_dep_manager.set_input_fact(c->dep(), std::move(f));
+        }
         if (m_is_auxiliary_mode)
             c->set_auxiliary();
         return ci;
@@ -160,7 +168,7 @@ class constraint_set {
     }
 
 public:
-    constraint_set(u_dependency_manager& d, column_namer& cn):
+    constraint_set(evidence_manager& d, column_namer& cn):
         m_namer(cn),
         m_dep_manager(d)
     {}

@@ -1,384 +1,667 @@
-# SMT-LIB proof-checker cross-cut: 2026-10-15
+# SMT-LIB proof-checker cross-cut: current proof producer, 2026-10-16
 
-This is the **pre-arithmetic-integration snapshot**. The subsequent
-[arithmetic certificate report](ARITHMETIC_CERTIFICATE_REPORT.md) records
-the new verified bridge, fresh cross-cut, and proof-producer gaps without
-overwriting these baseline measurements.
+## Current PR #11208 result
 
-## Result
+This measurement is frozen at the producer revisions identified below.
+It predates the subsequent `0af294e26` branch update and the installed-Z3
+build/test harness; their toolchain validation is not a new cohort replay.
 
-A fresh, stratified run of **900 UNSAT-annotated inputs across nine logics**
-produced **192 obligation-free `ACCEPT` refutations (21.3% of selected inputs)**,
-322 `PARTIAL` derivations, 127 rejected exports, and 252 phase timeouts.
-Seven additional exports failed through Python expression-recursion limits.
-There were no native checker errors.
+With the latest arithmetic-proof PR and the integration fix described
+below, the unchanged **900-input cohort still yields 334 obligation-free
+`ACCEPT` refutations (37.1%)**. **All 334 preceding accepts are retained;
+there are no new accepts.** The additional internal arithmetic evidence
+does not yet increase end-to-end native checker coverage.
 
-The checker validated 514 complete derivations containing **2,324,118 DAG
-nodes**, with **89,657 explicit obligations**. A partial derivation is not
-a certified UNSAT result. The strongest full-proof coverage remains QF_UF
-and QF_AX; arithmetic theory lemmas and arithmetic rewrites remain the
-largest certification gap. Quantified input handling has improved, but
-general quantified proof checking is still not supported.
+| Outcome | Preceding coverage extensions | Initial PR build | Corrected PR build |
+|---|---:|---:|---:|
+| `ACCEPT` | 334 | 333 | **334** |
+| `PARTIAL` | 254 | 229 | 242 |
+| `REJECT` | 143 | 141 | 142 |
+| Solver `UNKNOWN` | 119 | 150 | 134 |
+| Whole-process timeout | 48 | 45 | 46 |
+| Allocation abort | 2 | 2 | 2 |
 
-Timed proof generation, export, and native checking took **344.18 seconds
-elapsed**, with 32 workers. Export is the main pipeline bottleneck.
-This evaluation changes no checker rules or trust policy.
+The remaining 15 changed outcomes relative to the preceding run are all
+solver timeouts: twelve former partials, one former rejection, and two
+former whole-process timeouts. These are resource regressions or
+resource-classification changes, **not discharged proof obligations**.
+The 134 solver unknowns comprise 132 timeouts and two out-of-memory
+results. Both allocation aborts recur on the same inputs.
 
-## Corpus and measurement policy
+### Producer integration and regression repair
 
-The sample reuses the existing seed-42 manifests rather than selecting
-easier inputs after seeing outcomes:
+The checked-out branch is `arithmetic-proof-evidence`, from
+[PR #11208](https://github.com/Z3Prover/z3/pull/11208), with PR head
+`28aab4c094978abd29743fb26385038a66b80ad5`. Local merge
+`5e707a253982b3d3cf2b3010e0769d188d1712ee` incorporates the two newer
+master fixes through `90c3d1839`. The measured corrected producer also
+includes the uncommitted `theory_lra.cpp` fix and its `lp_evidence.cpp`
+regression; the merge hash alone does not identify that binary.
+
+The initial PR build returned `UNKNOWN invalid rational value passed as
+an integer` on **19 inputs**, including the formerly accepted
+`QF_LIA_024`. Its new source-expression Farkas validation passed rational
+weights directly to a helper that constructs coefficients in each
+premise's arithmetic sort. The legacy proof checker already clears all
+denominators before calling that helper.
+
+The correction applies the same **positive common denominator scale**
+to all weights used during validation. Exported coefficients, evidence
+checks, and unsupported-evidence guards are unchanged. A reduced
+four-inequality integer regression returns `UNKNOWN` with the frozen
+initial PR executable and `SAT` with the corrected producer. In the full
+fixed replay, all 19 rational-construction errors disappear: thirteen
+inputs become partial, one accepts, one rejects, three reach solver
+timeouts, and one reaches the external watchdog. `QF_LIA_024` is restored.
+
+Windows Z3, its Python bindings, and the statically linked WSL producer
+were rebuilt from this checkout. All 116 native tests, eleven native
+bridge regressions, and eight checker CLI tests pass. The full native
+F* dependency pipeline and proof regressions verify using the freshly
+built Windows Z3 5.3.1, with a fresh cache and its actual version passed
+through F*'s documented `--z3version` check. Explicit arithmetic proof
+steps were needed for the new SMT automation; the **35 OCaml runtime
+modules remain byte-identical** to the preceding coverage executable.
+No acceptance-policy change is being attributed to the new producer.
+
+### Paired coverage and limits
+
+The **576 inputs valid in both runs** retain exactly the same proof-node
+counts and pending-obligation counts: **21,470,839 proof nodes and
+105,820 pending obligations**. One partial, `QF_LIA_073`, marshals one
+additional expression (3,597 instead of 3,596), but retains 3,247 proof
+nodes and 165 obligations. The smaller aggregate pending count versus
+the preceding run reflects the twelve partials lost to solving timeouts,
+not improved discharge.
+
+Every per-logic acceptance count is unchanged: QF_UF 89, QF_AX 90,
+QF_LIA 31, QF_LRA 7, QF_IDL 11, QF_UFLIA 8, QF_AUFLIA 59,
+AUFLIA 14, and UFLIA 25. The corrected batch takes **765.81 seconds**.
+On the paired 576 valid inputs, median end-to-end latency changes from
+169.3 to 184.0 ms and median checking time from 49.0 to 49.1 ms.
+This is not a speedup claim; the resource losses remain visible.
+
+The PR introduces internally checked arithmetic evidence, but **native
+integer evidence export and the polynomial certificate's native AST
+correspondence bridge remain pending**. The native F* document pipeline
+does not accept an arithmetic tag merely because an internal C++ checker
+accepted a certificate. Missing evidence, quantified binders, and the
+existing model-contract inhabitance gap described below remain limitations.
+`PARTIAL` still does not certify UNSAT.
+
+### Reproduction and frozen evidence
+
+All 900 manifest records and hashes match the preceding run. The
+measurements retain eight workers, a 10-second solver timeout, a
+60-second process watchdog, and a 4 GiB address-space limit per child.
+The preceding 334-accept run remains at
+`C:\smtlib-benchmarks\proof_coverage_20261016\final`. Both new producer
+runs, raw outputs, comparison CSV/JSON, source snapshots, exact working-tree
+patch, build logs, binary hashes, and provenance are preserved at:
+
+```text
+C:\smtlib-benchmarks\proof_pr11208_20261016\full
+C:\smtlib-benchmarks\proof_pr11208_20261016\fixed
+corrected checker SHA256:
+ed0b8c8f5743e657199e98182294ffc6fc5d70502b972450cc951a068aa4870f
+```
+
+The corrected source is reproduced by applying `working-tree.patch` to
+`producer-source-base.tar`; see `toolchain_provenance.json` for the exact
+native-library and executable hashes. The existing
+[native build instructions](OCAML_CHECKER_REPORT.md#build-status-and-trust-boundary)
+select the source-built Windows verifier and the PR checker output directory.
+
+## Archived coverage extension result
+
+The same **900-input, nine-logic cohort** now produces **334 obligation-free
+`ACCEPT` refutations (37.1%)**, up from 231 (25.7%). **All 231 preceding
+accepts are retained.** There are 103 new complete refutations: 96 former
+partials and seven former rejections. `PARTIAL` still does not certify UNSAT.
+
+| Outcome | Native baseline | Coverage extensions |
+|---|---:|---:|
+| `ACCEPT` | 231 | **334** |
+| `PARTIAL` | 318 | **254** |
+| `REJECT` | 192 | **143** |
+| Solver `UNKNOWN` | 121 | 119 |
+| Whole-process timeout | 36 | 48 |
+| Allocation abort | 2 | 2 |
+
+The rejection reduction is not 49 new complete proofs. Of the 192 former
+rejections, **seven now accept, 30 become partial, 12 reach the external
+watchdog, and 143 still reject**. The twelve new watchdog outcomes expose
+work formerly avoided by early rejection; they must not be counted as
+successful derivations.
+
+### Features selected and implemented
+
+The optional native `--diagnostics` pass reports typed unmet obligations,
+their first proof-node indices, and bounded sort-aware expression
+fingerprints. Fingerprints retain operator structure and small exact
+rationals and alpha-alias opaque declarations; they are coarse diagnostic
+keys, not evidence of equivalence. Profiling all **318 baseline partials**
+reproduced every ordinary checker pending count exactly. Ranking by
+**proofs blocked by a sole fingerprint family**, rather than leaf counts,
+put integer reflexive comparisons first (six proofs), followed by
+`0 <= x` / `x >= 0` duality over integers (four) and reals (three), and
+strict-comparison negation (two).
+
+`Z3ArithmeticRewrite.fst` now checks those comparison families, equivalent
+affine differences, constant comparisons, and integer term normalization
+using exact polynomial linearization and cancellation. Strict and
+non-strict comparisons remain distinct. Integer subtraction, addition
+permutations, and arithmetic constants are covered without introducing
+trusted rewrite names. This completes **96 former partial proofs**; all
+have the same proof-node counts as the baseline. It does not add producer
+evidence for bare arithmetic theory tags.
+
+Typed observational equality now preserves matching non-Boolean operand
+sorts and a distinct `Observational` judgment. The checked same-model
+fragment uses truth agreement for Boolean terms and value agreement as a
+sufficient witness for other sorts. Equality evidence can establish this
+observation; observational evidence is **not converted into ordinary
+equality**. `iff~` remains Boolean-only. General naming/model-extension
+transformations are not admitted without their corresponding witnesses.
+
+An integration blocker remained after adding the typed relation: existing
+checked fresh-definition expansion made a congruence conclusion
+syntactically reflexive, but redundant observational premises caused the
+ordinary congruence rule to reject. The checker now proves that identity
+independently of the redundant premises. It still checks every premise
+and DAG entry, propagates hypotheses and obligations, and rejects
+non-reflexive ordinary congruence based on observational premises alone.
+This completes seven formerly rejected array proofs:
+`QF_AX_022`, `QF_AX_041`, `QF_AX_087`, `QF_AX_091`, `QF_AX_095`,
+`QF_AUFLIA_045`, and `QF_AUFLIA_046`. The last five restore all previously
+identified accepted array inputs lost at the non-Boolean relation boundary.
+
+All **45 old non-Boolean observational-declaration rejections** move past
+that boundary: seven accept, 27 become partial, and eleven hit the
+watchdog. The four old `monotonicity` rejections become three partials and
+one watchdog outcome. The remaining 143 rejections are the unchanged
+125 expression-well-formedness failures, 17 `proof-bind` failures, and
+one asserted-input-membership failure.
+
+### Per-logic coverage
+
+Every row still contains the same 100 selected inputs. Resource outcomes
+are excluded from the three displayed result columns, not silently
+classified as rejections.
+
+| Logic | Baseline accept / partial / reject | Extended accept / partial / reject |
+|---|---:|---:|
+| QF_UF | 89 / 3 / 0 | 89 / 3 / 0 |
+| QF_AX | 85 / 0 / 5 | **90 / 0 / 0** |
+| QF_LIA | 12 / 55 / 2 | **31 / 37 / 0** |
+| QF_LRA | 2 / 44 / 19 | **7 / 57 / 0** |
+| QF_IDL | 1 / 34 / 15 | **11 / 30 / 0** |
+| QF_UFLIA | 4 / 93 / 1 | **8 / 91 / 0** |
+| QF_AUFLIA | 30 / 57 / 6 | **59 / 34 / 0** |
+| AUFLIA | 3 / 12 / 77 | **14 / 1 / 77** |
+| UFLIA | 5 / 20 / 67 | **25 / 1 / 66** |
+
+The 588 completed valid derivations contain **23,564,835 proof nodes** and
+183,865 pending obligations. Comparing that total directly with the
+baseline's 184,899 obscures newly reachable partial derivations. On the
+**548 inputs valid in both runs**, proof-node counts are identical and
+pending obligations fall from **180,352 to 150,771**, a reduction of
+29,581 (16.4%). No common valid input acquires additional obligations.
+One former partial (`QF_LRA_034`) instead times out in solving, and three
+former solver unknowns now become partial. These resource variations do
+not demonstrate a change in kernel-rule coverage.
+
+### Measurement, artifacts, and semantic limits
+
+The final run retains the baseline producer **Z3 5.3.1**, all 900 input
+hashes, eight workers, a 10-second internal solver timeout, a 60-second
+whole-process watchdog, and a 4 GiB address-space limit per child. The
+baseline and final manifest records are identical. The C++ producer is
+unchanged at `5a645fcc6de7e1483048cad08998567cc86411fe`; the extended kernel
+is an uncommitted source change, not a new revision of that producer.
+
+The final batch took **777.20 seconds**, versus 672.70 seconds for the
+baseline. It checks more previously rejected work and is **not a speedup
+claim**. For the paired 548 valid inputs, median end-to-end time changes
+from 149.9 to 156.8 ms and median checking time from 34.6 to 36.0 ms.
+The 119 solver unknowns comprise 118 timeouts and one out-of-memory result.
+Both allocation aborts recur on the same inputs.
+
+The baseline remains archived at
+`C:\smtlib-benchmarks\proof_check_native_20261016\full`. Typed fingerprint
+profiles, rankings, and the profiling executable/script are archived at
+`C:\smtlib-benchmarks\proof_obligations_20261016`. The final executable,
+raw outputs, manifest, metadata, comparison CSV/JSON, and a 111-file
+source snapshot with per-file hashes are at:
+
+```text
+C:\smtlib-benchmarks\proof_coverage_20261016\final
+checker SHA256:
+b61e9bcb739fdc94f53f79aeb0571e301fca21a413a0e0365a37270fc641c23b
+```
+
+The affected F* modules and focused proof regressions verify; eleven native
+bridge tests and eight CLI tests pass. The new arithmetic semantic lemmas
+use standard `numeric_operators` laws and local value-typing premises for
+the actual operands, rather than relying on the old all-environments
+typing premise. **The existing end-to-end model-contract inhabitance gap
+is not repaired**: the global Boolean/integer typing assumptions still
+quantify over untyped environments. There is no unconditional SMT-LIB
+soundness theorem or proved native-API semantic correspondence.
+
+Real-valued term equality is deliberately not inferred from equality of
+the numeric projection. Missing rewrite families, unsupported arithmetic
+explanations, and quantified proof binders remain genuine obligations or
+rejections. Input membership, freshness, scoping, exact evidence checks,
+and the closed false root are not bypassed to obtain these gains.
+
+## Archived native-only baseline
+
+The remainder records the preceding native-only run, before the coverage
+extensions above. Its counts and rule census are baseline measurements.
+
+### Baseline result
+
+The fixed **900-input, nine-logic UNSAT sample** now produces **231
+obligation-free `ACCEPT` refutations (25.7%)**, 318 `PARTIAL` derivations,
+192 rejections, 121 solver `UNKNOWN` results, 36 whole-process timeouts,
+and two allocation aborts. **`PARTIAL` is not certified UNSAT.**
+Of the 121 unknowns, 118 report timeout and three report out of memory.
+
+The direct executable parses SMT-LIB, generates proofs using statically
+linked **Z3 5.3.1**, marshals native ASTs into F* algebraic datatypes with
+identity caches, and runs the extracted checker. There is no Python proof
+exporter, proof JSON, external solver process, or runtime F* invocation.
+The Python benchmark driver only schedules executables and records results.
+
+The 549 accepted/partial DAGs contain **22,277,998 proof nodes**. The
+checker discharges **85,974 supplied Farkas steps** and 13,962 array theory
+lemmas, but leaves **184,899 explicit obligations**. These include 570
+supplied Farkas steps that do not pass the supported arithmetic check;
+their labels do not make them trusted facts.
+
+The native batch took **672.70 seconds with eight workers**. Among completed
+valid derivations, median end-to-end latency was **153.4 ms** and median
+checking time **34.8 ms**. Across all 900 attempts, including resource-limited
+runs, end-to-end median/p95 was **206.3 ms / 32.95 s**. Checking dominates
+completed valid work in aggregate; large-proof tails and memory exhaustion
+remain important despite eliminating serialization.
+
+The preceding Python/JSON run accepted 193 inputs. The new run gains 52
+accepted inputs and loses 14, for a **net increase of 38**, not a uniform
+improvement. The producer, proof shapes, concurrency, and resource budgets
+differ; this is **not a controlled measurement of JSON-removal speedup or
+new kernel-rule coverage**. No checker rules or trust policy were changed
+for this reevaluation.
+
+## Corpus, provenance, and measurement policy
+
+The cohort is unchanged: 100 inputs per logic selected originally by
+`random.Random(42).sample(sorted(UNSAT_annotated_paths), 100)`.
+All 900 input hashes were checked against the original manifests and
+matched the preceding cross-cut's manifest exactly:
 
 ```text
 C:\smtlib-benchmarks\proof_check_20261014_1034\manifest.json
 C:\smtlib-benchmarks\proof_check_seven_20261014\manifest.json
 ```
 
-For each logic, the original selection was
-`random.Random(42).sample(sorted(UNSAT_annotated_paths), 100)`.
-The archives are the official SMT-LIB 2025 non-incremental collection from
-[Zenodo record 16740866](https://zenodo.org/records/16740866). The earlier
-download manifests retain archive-checksum provenance; this run verified
-the SHA-256 of every selected input before execution.
+The inputs come from the official SMT-LIB 2025 non-incremental archives,
+[Zenodo record 16740866](https://zenodo.org/records/16740866). The locally
+available UNSAT-annotated populations remain QF_UF 4,361; QF_AX 279;
+QF_LIA 4,609; QF_LRA 683; QF_IDL 917; QF_UFLIA 183; QF_AUFLIA 760;
+AUFLIA 2,505; UFLIA 7,733: **22,030 total**.
 
-| Logic | Locally available UNSAT-annotated inputs | Selected |
-|---|---:|---:|
-| QF_UF | 4,361 | 100 |
-| QF_AX | 279 | 100 |
-| QF_LIA | 4,609 | 100 |
-| QF_LRA | 683 | 100 |
-| QF_IDL | 917 | 100 |
-| QF_UFLIA | 183 | 100 |
-| QF_AUFLIA | 760 | 100 |
-| AUFLIA | 2,505 | 100 |
-| UFLIA | 7,733 | 100 |
-| **Total** | **22,030** | **900** |
+This equally weighted sample is not a population-weighted SMT-LIB coverage
+estimate. SAT/model certification, incremental sessions, BV, FP, strings,
+sequences, datatypes, and other unsampled logics are outside the experiment.
 
-This is an equally weighted logic cross-cut, **not** a population-weighted
-SMT-LIB coverage estimate. Benchmark families can be highly correlated.
-SAT/model certification, incremental sessions, bit-vectors, floating point,
-strings, sequences, datatypes, and other undownloaded logics are outside
-this measurement.
+Both native checker and standalone solver were rebuilt from source commit
+`5a645fcc6de7e1483048cad08998567cc86411fe`. The checker uses OCaml 5.3.0,
+Zarith exact integers, the official Z3 OCaml/C bindings, and static
+`libz3`, compiled in Release mode. WSL2 exposed 32 logical CPUs and about
+62.8 GiB RAM; this was a shared machine, not an isolated benchmark host.
 
-Proofs were freshly generated with the installed **Python Z3 5.1.0.0 API**
-and Python 3.14.7 on Windows 11. The repository's separate `build\z3.exe`
-is version 5.3.0 and was **not** used for the 900 proof-generation jobs.
-Native checking used WSL and the frozen, already verified OCaml checker
-with the n-ary `distinct` extension.
+The primary native run used **eight workers**, a **10,000 ms internal
+solver timeout**, a **60-second external end-to-end watchdog**, and a
+**4 GiB virtual-address-space limit per child**. The watchdog covers
+startup, file reading, parsing, solving, proof retrieval, marshaling,
+checking, and process teardown. Limits can be exceeded slightly by
+scheduling/polling; a solver timeout is not a bound on the whole process.
+The run began at `2026-10-16T17:11:55Z`.
 
-Each phase used up to 32 independent processes:
+The CLI's `--stats` emits phase times only after document checking returns.
+Consequently phase statistics cover the 741 completed `ACCEPT`, `PARTIAL`,
+and `REJECT` runs, not the 159 remaining outcomes. Whole-process timeouts
+cannot reliably be assigned to solving, marshaling, or checking.
 
-- **Proving:** 10-second external wall-clock limit, including interpreter
-  startup and input parsing; also a 10-second solver timeout.
-- **Export:** a separate 60-second external wall-clock watchdog after the
-  atomic proof-generation completion marker.
-- **Checking:** 10 seconds per native checker process, inside WSL.
-
-All 147 proof-generation timeouts hit the external watchdog. Their solver
-outcome/statistics were not recovered; they are censored observations,
-not evidence that the input cannot be solved or checked. Watchdog polling
-and process termination can make recorded times slightly exceed limits.
-No timed-out or failed export was sent to the checker.
+The separate proof-disabled standalone solver batch ran **after**, not
+concurrently with, the native batch. It used the same inputs, source
+revision, eight workers, 4 GiB address-space limit, and external watchdog,
+with `-smt2 -st -T:10`. Sharing a version does not make the shell's
+logic-sensitive frontend/configuration identical to the checker's
+`parse_smtlib2_string` plus default solver API. The difference between
+these batches is therefore not a pure proof-production overhead estimate.
 
 ## End-to-end coverage
 
-Every row has **100 selected inputs**. `Export T/F` means export timeout /
-exception. `Not checked` is the sum of proof timeouts, export timeouts, and
-export exceptions; it is not a separate additional failure category.
+Each logic has 100 inputs. `UNKNOWN` is split by the solver's actual reason;
+allocation aborts are separate process failures, not certificate rejections.
 
-| Logic | Proved UNSAT | Proof timeout | Exported | Export T/F | ACCEPT | PARTIAL | REJECT | Check timeout | Not checked |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| QF_UF | 93 | 7 | 56 | 37 / 0 | 54 | 0 | 0 | 2 | 44 |
-| QF_AX | 100 | 0 | 98 | 2 / 0 | 79 | 3 | 0 | 16 | 2 |
-| QF_LIA | 79 | 21 | 69 | 7 / 3 | 12 | 51 | 0 | 6 | 31 |
-| QF_LRA | 59 | 41 | 55 | 4 / 0 | 3 | 52 | 0 | 0 | 45 |
-| QF_IDL | 48 | 52 | 25 | 19 / 4 | 2 | 20 | 0 | 3 | 75 |
-| QF_UFLIA | 97 | 3 | 95 | 2 / 0 | 3 | 92 | 0 | 0 | 5 |
-| QF_AUFLIA | 100 | 0 | 100 | 0 / 0 | 31 | 62 | 0 | 7 | 0 |
-| AUFLIA | 91 | 9 | 91 | 0 / 0 | 3 | 13 | 75 | 0 | 9 |
-| UFLIA | 86 | 14 | 86 | 0 / 0 | 5 | 29 | 52 | 0 | 14 |
-| **Total** | **753** | **147** | **675** | **71 / 7** | **192** | **322** | **127** | **34** | **225** |
+| Logic | ACCEPT | PARTIAL | REJECT | Solver timeout | Solver OOM | Wall timeout | Allocation abort |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| QF_UF | 89 | 3 | 0 | 5 | 0 | 3 | 0 |
+| QF_AX | 85 | 0 | 5 | 0 | 0 | 10 | 0 |
+| QF_LIA | 12 | 55 | 2 | 17 | 3 | 10 | 1 |
+| QF_LRA | 2 | 44 | 19 | 35 | 0 | 0 | 0 |
+| QF_IDL | 1 | 34 | 15 | 43 | 0 | 7 | 0 |
+| QF_UFLIA | 4 | 93 | 1 | 2 | 0 | 0 | 0 |
+| QF_AUFLIA | 30 | 57 | 6 | 0 | 0 | 6 | 1 |
+| AUFLIA | 3 | 12 | 77 | 8 | 0 | 0 | 0 |
+| UFLIA | 5 | 20 | 67 | 8 | 0 | 0 | 0 |
+| **Total** | **231** | **318** | **192** | **118** | **3** | **36** | **2** |
 
-Thus 83.7% of selected inputs produced proofs, 75.0% exported, and 57.1%
-reached `ACCEPT` or `PARTIAL`. Certification is **192/900**, not 514/900;
-192/675 = 28.4% is the conditional rate among exported documents.
+Thus 741/900 reached a completed document-check result and 549/900 (61.0%)
+produced valid derivations with or without obligations. Full certification
+is **231/900**, not 549/900.
 
-All seven export exceptions are recursion-depth failures in expression
-conversion: `QF_LIA_038`, `QF_LIA_052`, `QF_LIA_090`,
-`QF_IDL_015`, `QF_IDL_021`, `QF_IDL_030`, and `QF_IDL_084`.
-They are exporter failures, not native rejections.
+The three solver OOM results are `QF_LIA_026`, `QF_LIA_080`, and
+`QF_LIA_087`. `QF_LIA_070` and `QF_AUFLIA_004` abort with
+`Fatal error: allocation failure during minor GC`. Both still abort in a
+separate **8 GiB** address-space-limit rerun. That supplement does not
+replace their primary outcomes. These failures need memory/scalability
+work; they must not be counted as successful or invalid proofs.
 
-## What is actually checked
+## What is covered, and what remains
 
-The native protocol is authoritative: `ACCEPT`/exit 0, `PARTIAL n`/exit 3,
-`REJECT`/exit 1. Python's predicted obligation count never determines
-acceptance. A supplemental native audit calls the same extracted decoding
-and node-checking functions to categorize pending leaves. Its totals
-agree with the original native result for **all 514 validated documents**.
-Audit time is excluded from the performance tables.
+A separate, untimed native audit calls the **actual extracted**
+`Z3ProofDocument.check_document`, `check_entry`, and arithmetic functions.
+It matches the primary disposition, pending count, and node count for
+all **741 completed documents**. One audit solve (`QF_IDL_093`) initially
+timed out at the 10-second boundary; an isolated retry with the same
+timeout reproduced its 657,851 nodes and 12,634 obligations. Initial and
+retry records are retained. Auditing does not change primary timings.
 
-| Logic | Validated DAGs | DAG nodes | Pending `th-lemma` | Pending `rewrite` | Pending `sk` | Total obligations |
-|---|---:|---:|---:|---:|---:|---:|
-| QF_UF | 54 | 1,192,257 | 0 | 0 | 0 | 0 |
-| QF_AX | 82 | 221,215 | 0 | 3 | 0 | 3 |
-| QF_LIA | 63 | 60,037 | 1,305 | 12,128 | 0 | 13,433 |
-| QF_LRA | 55 | 109,639 | 11,507 | 7,135 | 0 | 18,642 |
-| QF_IDL | 22 | 256,826 | 20,804 | 3,921 | 0 | 24,725 |
-| QF_UFLIA | 95 | 275,727 | 25,213 | 1,548 | 0 | 26,761 |
-| QF_AUFLIA | 93 | 207,132 | 27 | 5,891 | 0 | 5,918 |
-| AUFLIA | 16 | 291 | 5 | 51 | 1 | 57 |
-| UFLIA | 34 | 994 | 42 | 76 | 0 | 118 |
-| **Total** | **514** | **2,324,118** | **58,903** | **30,753** | **1** | **89,657** |
+Only complete valid DAGs contribute to the following census; prefixes of
+rejected or timed-out proofs are excluded.
 
-The remaining **2,234,461 nodes (96.1% of nodes in validated documents)**
-have no local obligation. That node percentage is not a full-refutation
-coverage rate: one pending leaf can invalidate an otherwise large claim
-of certification. Rejected and timed-out DAGs are excluded from this census.
+| Logic | Valid DAGs | Proof nodes | Checked Farkas | Pending arithmetic | Pending rewrites |
+|---|---:|---:|---:|---:|---:|
+| QF_UF | 92 | 17,643,706 | 0 | 0 | 188 |
+| QF_AX | 85 | 275,363 | 0 | 0 | 0 |
+| QF_LIA | 67 | 530,844 | 8,825 | 27,930 | 14,215 |
+| QF_LRA | 46 | 185,997 | 4,746 | 9,789 | 26,862 |
+| QF_IDL | 35 | 2,403,317 | 35,210 | 43,623 | 15,565 |
+| QF_UFLIA | 97 | 1,089,878 | 37,158 | 37,494 | 3,181 |
+| QF_AUFLIA | 87 | 147,727 | 27 | 0 | 5,939 |
+| AUFLIA | 15 | 283 | 5 | 0 | 58 |
+| UFLIA | 25 | 883 | 3 | 0 | 55 |
+| **Total** | **549** | **22,277,998** | **85,974** | **118,836** | **66,063** |
 
-The exercised verified fragment includes unit resolution and discharged
-hypotheses, equality/congruence/path transitivity, Boolean reasoning and
-supported rewrite schemas, array lemmas/rewrites, checked definition
-introductions/applications, and n-ary `distinct` expansion. In these
-validated DAGs:
+The other **22,093,099 nodes (99.17%)** have no local obligation. This
+is not a full-proof success rate: one pending step blocks certification.
+The largest valid DAG is `QF_UF_085`, with **1,095,360 nodes**.
 
-- All **17,399 `def-axiom` nodes** are discharged without obligations.
-  No `def-axiom` is trusted merely because of its tag.
-- All **151 `intro-def` and two `apply-def` nodes** pass their checked
-  expansion/freshness rules.
-- **13,509 array `th-lemma` instances** are checked. The other 58,903
-  `th-lemma` nodes remain obligations; their rule name is not a proof.
+The exercised checked fragment includes asserted-input membership,
+congruence, equality/path transitivity, symmetry, modus ponens, unit
+resolution, hypotheses and lemma discharge, supported Boolean and array
+rewrites, commutativity, and checked definition axioms. The valid DAGs
+include **60,219 checked `def-axiom` nodes**, **13,962 checked array theory
+lemmas**, 6,236,135 congruence nodes, and 7,382,041 unit-resolution nodes.
+No `intro-def` or `apply-def` nodes occur in this valid-DAG census; their
+implementation is not benchmark evidence of exercise.
 
-The three QF_AX partial proofs are still `QF_AX_022`, `QF_AX_041`, and
-`QF_AX_085`, each with one unsupported rewrite. The earlier detailed
-analysis identifies missing checked naming witnesses in the first two
-and stronger guarded-ITE reasoning in the third; this run does not remove
-those obligations.
+### Arithmetic evidence
 
-The exporter predicts 89,723 obligations, **66 too many across 13
-documents**, because native rewriting discharges more than its diagnostic
-allowlist predicts. The native audit resolves that discrepancy: 30,753
-pending rewrites, not the predicted 30,819. No proof is rejected for a
-diagnostic-count mismatch.
+The native bridge preserves the producer's original parameters, rather
+than reconstructing evidence or re-solving obligations:
 
-### Quantified boundary
+| Source arithmetic evidence in valid DAGs | Checked | Pending |
+|---|---:|---:|
+| `arith/farkas` | 85,974 | 570 |
+| `arith/bound` | 0 | 65,668 |
+| `arith/assign-bounds` | 0 | 43,623 |
+| `arith/implied-eq` | 0 | 4,947 |
+| `arith/triangle-eq` | 0 | 4,023 |
+| Bare `arith` | 0 | 5 |
+| **Total** | **85,974** | **118,836** |
 
-The 127 native rejections all occur in AUFLIA/UFLIA. The supplemental
-audit locates the first failure at:
+Of 86,544 supplied Farkas steps, 99.34% pass the supported check. The
+85,974 checked steps occur in **184 derivations, all still `PARTIAL`**.
+The 570 pending supplied steps occur in eight QF_LIA inputs. A focused
+native diagnostic confirms that **all 570 prepare successfully**, but
+their resulting combinations do not satisfy the current refutation
+test: this is neither a coefficient-decoding/count failure nor evidence
+that the underlying Z3 inference is unsound. Their semantic explanation
+and any additional integer-strengthening rule require further analysis.
+They remain obligations, never accepted solely because of a Farkas tag.
 
-| Failure stage | AUFLIA | UFLIA | Total |
-|---|---:|---:|---:|
-| Well-formed-expression check | 74 | 45 | 119 |
-| `proof-bind` node checking | 0 | 7 | 7 |
-| First `asserted` node checking | 1 | 0 | 1 |
+Among 318 partial derivations, 231 need only rewrites, 83 need rewrites
+and arithmetic/theory steps, and four need only theory steps. Missing
+bound/equality-propagation evidence and unsupported arithmetic rewrites
+remain the principal arithmetic gaps. General integer cuts require
+separately checkable evidence, not just a rule-name allowlist.
 
-These are rejected certificate shapes, not new UNSAT certifications or
-solver correctness failures. Pending histograms are not taken from
-partially traversed rejected DAGs.
+### Rejection boundaries
 
-The eight accepted quantified-logic inputs are `AUFLIA_031`,
-`AUFLIA_049`, `AUFLIA_053`, `UFLIA_034`, `UFLIA_076`,
-`UFLIA_086`, `UFLIA_088`, and `UFLIA_094`. They contain quantified
-expressions, but their refutations use the supported propositional and
-equational structure, **not general quantifier instantiation or
-Skolemization rules**. The one encountered `sk` leaf in a validated
-derivation remains pending. These results must not be advertised as
-general AUFLIA/UFLIA proof support.
+| First failing stage | Inputs | Interpretation |
+|---|---:|---|
+| Expression well-formedness | 125 | Quantified proof-valued/binder expressions outside the ordinary expression fragment |
+| Logical declaration validation | 45 | Non-Boolean observational equality: 11 array, 15 integer, 19 real cases |
+| `proof-bind` node | 17 | Unsupported proof-binder judgment shape |
+| `monotonicity` node | 4 | Congruence step not established by the current kernel |
+| `asserted` node | 1 | Asserted conclusion not established as an original input |
+| **Total** | **192** | |
+
+The 45 observational-equality cases preserve the actual `~` operand sorts.
+The kernel's observation relation is Boolean-only; native marshaling does
+not relabel these as equality or manufacture a Boolean proxy.
+
+The eight accepted quantified-logic inputs are still `AUFLIA_031`,
+`AUFLIA_049`, `AUFLIA_053`, `UFLIA_034`, `UFLIA_076`, `UFLIA_086`,
+`UFLIA_088`, and `UFLIA_094`. They do not demonstrate general
+quantifier-instantiation, proof-binder, or Skolemization support.
 
 ## Performance
 
-### Completed-phase latency
+### Native latency
 
-Seconds below are **median / nearest-rank p95**, with the completed
-population in parentheses. Proving includes parsing, solver execution,
-and proof retrieval, timed inside the worker before importing Z3; its
-external cap additionally includes interpreter startup. Export includes
-conversion and writing the proof JSON. Native checking includes process
-startup, file reading, parsing, and checking, but no per-proof WSL launch,
-F* invocation, or SMT-solver call.
+Values are **median / nearest-rank p95 milliseconds**, with population
+size in parentheses. End-to-end includes all attempts and censored runs.
+Solve/marshal include all 741 completed documents, including rejections;
+check includes only `ACCEPT`/`PARTIAL`, avoiding fast-rejection bias.
+These are completion-conditioned phase distributions, not estimates of
+unobserved work in resource-limited cases.
 
-`Check` here includes only `ACCEPT`/`PARTIAL`, **not fast rejections**.
-All columns are conditional on completion and must be read together with
-the timeout table above.
+| Logic | End-to-end, all attempts | Solve, completed | Marshal, completed | Check, valid DAGs |
+|---|---:|---:|---:|---:|
+| QF_UF | 2965.6 / 33356.5 (100) | 205.9 / 2761.0 (92) | 633.1 / 8428.4 (92) | 1006.2 / 19387.7 (92) |
+| QF_AX | 533.2 / 60010.2 (100) | 21.5 / 42.6 (90) | 23.0 / 106.6 (90) | 387.0 / 10617.5 (85) |
+| QF_LIA | 683.6 / 60019.3 (100) | 33.7 / 2582.8 (69) | 12.6 / 382.6 (69) | 6.2 / 1722.5 (67) |
+| QF_LRA | 366.6 / 11876.6 (100) | 18.1 / 8228.8 (65) | 4.7 / 1146.2 (65) | 0.2 / 1726.7 (46) |
+| QF_IDL | 10253.2 / 60022.7 (100) | 333.3 / 7759.4 (50) | 397.9 / 8613.2 (50) | 1182.3 / 39863.2 (35) |
+| QF_UFLIA | 74.4 / 1944.8 (100) | 20.0 / 177.6 (98) | 9.4 / 205.0 (98) | 4.0 / 742.4 (97) |
+| QF_AUFLIA | 101.3 / 60009.9 (100) | 20.4 / 58.9 (93) | 8.0 / 75.2 (93) | 16.8 / 6773.5 (87) |
+| AUFLIA | 69.1 / 10837.8 (100) | 23.1 / 206.2 (92) | 2.8 / 10.5 (92) | 0.1 / 0.2 (15) |
+| UFLIA | 107.2 / 10331.5 (100) | 38.4 / 376.4 (92) | 14.6 / 65.5 (92) | 0.3 / 0.7 (25) |
+| **All** | **206.3 / 32948.7 (900)** | **28.3 / 1832.5 (741)** | **15.7 / 3038.2 (741)** | **34.8 / 11846.2 (549)** |
 
-| Logic | Prove seconds (n) | Export seconds (n) | Native check seconds (n) |
-|---|---:|---:|---:|
-| QF_UF | 0.589 / 4.569 (93) | 5.053 / 52.234 (56) | 0.382 / 5.889 (54) |
-| QF_AX | 0.188 / 0.439 (100) | 1.420 / 12.146 (98) | 0.357 / 6.940 (82) |
-| QF_LIA | 0.275 / 4.973 (79) | 0.399 / 9.539 (69) | 0.068 / 1.299 (63) |
-| QF_LRA | 0.164 / 5.218 (59) | 0.036 / 22.477 (55) | 0.050 / 2.853 (55) |
-| QF_IDL | 0.785 / 2.720 (48) | 8.019 / 52.627 (25) | 0.835 / 3.512 (22) |
-| QF_UFLIA | 0.158 / 0.409 (97) | 0.374 / 8.250 (95) | 0.072 / 1.096 (95) |
-| QF_AUFLIA | 0.155 / 0.311 (100) | 0.534 / 13.740 (100) | 0.086 / 5.976 (93) |
-| AUFLIA | 0.163 / 0.486 (91) | 0.099 / 0.366 (91) | 0.049 / 0.068 (16) |
-| UFLIA | 0.204 / 0.995 (86) | 0.572 / 4.341 (86) | 0.064 / 0.331 (34) |
-| **All** | **0.184 / 2.412 (753)** | **0.527 / 19.631 (675)** | **0.125 / 4.098 (514)** |
+Solve time starts after reading the input and includes parsing, asserting,
+solving, and proof retrieval. Marshal time covers direct AST/proof
+conversion. Check time covers typed document validation and inference
+checking. Process startup, file reading, reporting, teardown, and the
+driver's polling overhead are only in end-to-end time.
 
-### Censored and total cost
+| Population/cost | Seconds |
+|---|---:|
+| Native batch elapsed, eight workers | 672.70 |
+| All-attempt summed process wall time | 5,329.78 |
+| All-attempt summed child CPU time | 5,299.17 |
+| Valid-DAG summed solve time | 220.00 |
+| Valid-DAG summed marshal time | 266.62 |
+| Valid-DAG summed check time | 1,094.74 |
 
-| Phase | Attempted | Timeouts | Other unsuccessful outcomes | All-attempt median / p95 seconds | Sum of per-process wall seconds |
-|---|---:|---:|---|---:|---:|
-| Prove | 900 | 147 | 0 | 0.212 / 10.047 | 1,876.07 |
-| Export | 753 | 71 | 7 recursion failures | 0.825 / 60.534 | 6,784.74 |
-| Native check | 675 | 34 | 127 rejects, 0 errors | 0.088 / 10.017 | 716.58 |
+Summed process times overlap; they are not batch elapsed time. Hashing,
+source snapshots, subsequent database logging, probes, and diagnostics are
+excluded from the timed batch. Among completed valid phases, checking
+accounts for about 69.2% of summed phase time. Identity caches prevent
+duplicate marshaled allocations, but do not make structural equality,
+definition expansion, or inference checking constant-time.
 
-The proving/export batch took **305.20 seconds** and the subsequent native
-batch **38.79 seconds**. Their timed pipeline, including intermediate
-bookkeeping, took **344.18 seconds**. Initial input hashing/tool snapshots,
-subsequent database logging, the nine-input pilots, and supplemental
-auditing are not included. Summed process wall times overlap under
-parallel execution and are **not CPU time**.
+### Separate standalone solver
 
-Successful exports alone consumed 2,478.13 summed wall seconds, compared
-with 366.06 for validated native checks. Export also lost 71 jobs to its
-60-second limit, notably 37 QF_UF and 19 QF_IDL jobs. Optimizing recursive
-expression conversion and export throughput is therefore at least as
-important for end-to-end coverage as optimizing native checking.
-Native timeouts, especially the 16 QF_AX cases, remain a distinct
-bottleneck. These are one-run, contended-machine measurements, not
-single-core microbenchmarks or a demonstrated speedup over another checker.
+The matching-version proof-disabled CLI solves **796/900** within its
+10-second solver limit; 104 time out, with no SAT, other unknown, or error
+outcomes. The batch takes **171.28 seconds** with eight workers.
 
-### Proof-search workload statistics
-
-These are Z3-reported statistics from **successfully generated proofs**,
-not native-checker memory or host peak RSS. Missing statistics are omitted,
-not treated as zero. Conflict counts give their own reporting denominator.
-Full per-theory statistics are retained in every successful `prove.json`
-and in `z3agent.db`.
-
-| Logic | Reported max-memory MB: median / max | Conflicts: median / max (n reporting) |
+| Logic | UNSAT / timeout | Completed median / p95 ms |
 |---|---:|---:|
-| QF_UF | 40.22 / 496.85 | 1,370 / 26,256 (91) |
-| QF_AX | 18.61 / 149.16 | 49 / 29,576 (98) |
-| QF_LIA | 19.85 / 272.52 | 1 / 17,321 (50) |
-| QF_LRA | 18.04 / 348.44 | 1 / 7,579 (54) |
-| QF_IDL | 26.89 / 527.14 | 24 / 7,356 (47) |
-| QF_UFLIA | 18.56 / 144.71 | 103 / 23,341 (65) |
-| QF_AUFLIA | 18.70 / 43.93 | 48 / 5,774 (87) |
-| AUFLIA | 18.64 / 147.12 | 1 / 270 (83) |
-| UFLIA | 19.98 / 188.06 | 1 / 412 (67) |
+| QF_UF | 100 / 0 | 106.4 / 782.6 |
+| QF_AX | 100 / 0 | 55.6 / 97.0 |
+| QF_LIA | 87 / 13 | 146.0 / 4502.4 |
+| QF_LRA | 64 / 36 | 50.0 / 5204.4 |
+| QF_IDL | 63 / 37 | 137.1 / 5733.5 |
+| QF_UFLIA | 99 / 1 | 50.3 / 539.1 |
+| QF_AUFLIA | 100 / 0 | 48.4 / 74.8 |
+| AUFLIA | 91 / 9 | 50.1 / 166.4 |
+| UFLIA | 92 / 8 | 64.1 / 413.5 |
+| **All** | **796 / 104** | **56.3 / 1569.6** |
 
-Array workloads report `array ax1`, `array ax2`, and `array ext ax`;
-arithmetic workloads report the corresponding simplex/bound-propagation,
-conflict, and integer-cut counters when those engines are exercised.
-No aggregate native-checker memory or timed-out-solver memory was measured.
+For completed CLI runs, Z3-reported `max-memory` has median/max
+**18.42 / 539.60 MB**, not host RSS. `conflicts` has median/max
+**32 / 164,700** over the 599 runs reporting that counter.
+Separate `sat-conflicts` are not merged into it. Other reporting subsets
+include 127 runs with `quant-instantiations` (median 58, maximum 100,266),
+five with `arith-gomory-cuts` (8 / 160), and 34 with `arith-pivots`
+(624 / 285,182). These counters describe solver work, not proof-checker
+coverage of the corresponding inference.
 
-## Comparison with previous reports
+The benchmark skill also ran the fixed index-0 input of each logic three
+times sequentially after the timed batches: **27 additional UNSAT runs**
+with statistics logged separately. Their median CLI times were QF_UF
+336 ms, QF_AX 20, QF_LIA 26, QF_LRA 4,368, QF_IDL 58, QF_UFLIA 517,
+QF_AUFLIA 20, AUFLIA 31, and UFLIA 70. These nine repeated cases do not
+provide confidence intervals for the 900-input distributions.
 
-This is a **fresh proof-generation/export run**, not a paired checker
-experiment over byte-identical DAGs. Historical results below match input
-IDs, not necessarily the generated proof documents or machine load.
+Per-child `wait4` CPU/high-water records are retained. Native high-water
+RSS comparisons are not reported as precise heap measurements: launch
+records can include an inherited-memory floor, and address-space limits
+are not RSS limits. Timed-out runs have no recovered completed phase
+statistics.
 
-| Logic | Historical ACCEPT | Fresh ACCEPT | Historical reference |
-|---|---:|---:|---|
-| QF_UF | 56 | 54 | Latest post-`distinct` archived recheck |
-| QF_AX | 79 | 79 | Latest post-`distinct` archived recheck |
-| QF_LIA | 12 | 12 | Seven-logic post-array-extension recheck |
-| QF_LRA | 3 | 3 | Seven-logic post-array-extension recheck |
-| QF_IDL | 2 | 2 | Seven-logic post-array-extension recheck |
-| QF_UFLIA | 3 | 3 | Seven-logic post-array-extension recheck |
-| QF_AUFLIA | 28 | 31 | Seven-logic post-array-extension recheck |
-| AUFLIA | 0 | 3 | Seven-logic post-array-extension recheck |
-| UFLIA | 0 | 5 | Seven-logic post-array-extension recheck |
+## Comparison with the preceding Python/JSON run
 
-`QF_UF_015` now hits the 10-second native limit, and `QF_UF_095` hits
-the 60-second export limit. These explain the two lower UF accept counts;
-neither became a native `REJECT` or `PARTIAL`. No formerly accepted
-reference input became rejected or partial in this run.
+The reference is the refreshed 2026-10-15 run archived at
+`C:\smtlib-benchmarks\proof_check_crosscut_20261015_2123\full`.
+Its full report is retained in the new run's `preceding_report.md`.
 
-`QF_AUFLIA_019`, `QF_AUFLIA_034`, and `QF_AUFLIA_047` move from
-historical `PARTIAL` to obligation-free acceptance. The 50 newly
-structurally validated quantified-logic exports comprise eight accepted
-and 42 partial derivations; 127 still reject. Historical seven-logic
-results predate the current checked-definition and quantified-expression
-handling, so neither aggregate obligation differences nor these accept
-counts isolate a single rule's effect. No performance-regression or
-speedup claim is made from the differing validated sets.
+| Metric | Previous Python/JSON | Native-only |
+|---|---:|---:|
+| ACCEPT / PARTIAL / REJECT | 193 / 322 / 127 | 231 / 318 / 192 |
+| Completed valid DAGs / nodes | 515 / 2,327,425 | 549 / 22,277,998 |
+| Checked Farkas steps | 9,968 | 85,974 |
+| Pending obligations | 79,689 | 184,899 |
+| Workers | 32 | 8 |
+| Timed pipeline elapsed seconds | 348.37 | 672.70 |
 
-## Trust boundary and scope of certification
+The much larger census is conditioned on different completed proofs; it
+does not establish a new checked rule or a per-node performance regression.
+In particular, the 192 native rejections include 65 inputs not previously
+rejected, while all 127 previous rejections remain rejected.
 
-`ACCEPT` means the document supplies a closed false root, every DAG entry
-passes the kernel, and no pending leaf remains. Asserted leaves require
-exact membership in the supplied original assertion list. Definitions
-are expanded capture-avoidantly, with final freshness checked against
-**all** original assertions, including unused assertions and binder bodies.
-`def-axiom`, `intro-def`, and `apply-def` are checked, not trusted tags.
-The exporter emits the legacy `check_original_assertions: false` field;
-in this checker version, exact asserted-input membership is mandatory
-regardless of that field.
+Of the previous 193 accepts, **179 remain accepted**, five become partial,
+five reject on **non-Boolean array observational equality**, and four hit
+the whole-process watchdog. The five new partials are `QF_UF_001`,
+`QF_UF_021`, `QF_IDL_044`, and `QF_LRA_037` (rewrites), plus
+`QF_UFLIA_052` (theory steps). The five newly rejected former accepts are
+`QF_AX_087`, `QF_AX_091`, `QF_AX_095`, `QF_AUFLIA_045`, and
+`QF_AUFLIA_046`.
 
-The soundness claim is under the formal interpretation contracts for the
-supported operators, the extraction/compiler/runtime assumptions, and
-correct association of the exported assertion list with the SMT-LIB input.
-The native checker consumes JSON, **not SMT-LIB**: parsing inputs through
-the Z3 API and serializing their assertions is outside its verified kernel.
-Input hashes establish provenance, not a verified SMT-LIB parser.
+The **52 newly accepted inputs** comprise 36 former export timeouts,
+11 former checking timeouts, and five former partials. All seven former
+exporter expression-recursion failures now reach `PARTIAL`; none becomes
+fully certified. This is concrete evidence that the direct worklist path
+can traverse those inputs, not that their remaining inference gaps are fixed.
 
-The OCaml shim still represents F* integers as native 63-bit integers.
-There is no general arbitrary-precision/extraction-overflow guarantee;
-these results must not be extrapolated to unbounded numeric inputs or
-wide bit-vector arithmetic. Native acceptance is not a claim that all
-SMT-LIB theories, quantifier rules, or preprocessing transformations have
-been formalized.
+For the 179 inputs accepted by both runs, median summed old phase time was
+2.450 s versus native end-to-end 0.222 s. This is a descriptive matched-input
+comparison only: the old producer was Python Z3 **5.1**, its export/check
+watchdogs were separate, its checker limit was 10 seconds, it had 32
+workers, and it did not use the new address-space cap. Producer version,
+proof shape, platform/load, and censoring all confound a causal speedup
+claim. Removing JSON demonstrably removes that transport stage, but does
+not eliminate marshaling or large-proof checking costs.
+
+## Trust boundary and scope
+
+`ACCEPT` means that the executable checker reaches a closed false root,
+checks every DAG entry, and finds no pending leaves. Assertions must match
+the original inputs obtained from the linked parser. Definition freshness
+is checked against unused as well as used inputs. Unsupported relations,
+binders, or evidence are not silently converted into checked facts.
+
+Foreign AST views, native ownership, Z3 parsing, OCaml/C bindings, F*
+extraction, the compiler, and the handwritten runtime remain trust
+boundaries. There is no theorem proving that the foreign API implements
+the checker AST's semantics.
+
+The existing formal-foundation limitation also remains: the global Boolean
+and arithmetic semantic contracts quantify over untyped environments and
+are not inhabitable as literally stated. Well-sorted valuations and an
+inhabited interpretation bridge are still needed for an unconditional
+end-to-end SMT-LIB soundness theorem. These measurements establish
+**executable certificate coverage**, not that missing theorem. See
+[the arithmetic report](ARITHMETIC_CERTIFICATE_REPORT.md) and
+[the native executable report](OCAML_CHECKER_REPORT.md).
 
 ## Artifacts and reproduction
 
-The complete main run is retained at:
+All artifacts are retained outside the repository at:
 
 ```text
-C:\smtlib-benchmarks\proof_check_crosscut_20261015_1327\full
+C:\smtlib-benchmarks\proof_check_native_20261016
 ```
 
-It contains `manifest.json` with all 900 paths/input hashes,
-`run_metadata.json`, `results.json`, incremental `results.jsonl`,
-`outcomes.csv`, `summary.json`, `checks.json`, per-input proof-generation
-statistics/logs/exported certificates, and **900 benchmark entries in
-`z3agent.db`**. `native_audit.json` records exact obligation categories
-and first rejection stages; `historical_comparison.json` records
-input-ID transitions. `supplemental_provenance.json` hashes supplemental
-tools/results and exported certificates without modifying the original
-run's metadata.
+`full` contains the frozen native executable, driver, 900-input CSV
+manifest, 900 raw stdout/stderr pairs, outcomes, metadata, the preceding
+report, and **900 records in `z3agent.db`**. `full\audit` contains the
+untimed diagnostic binary/source, all 741 audits, and the recorded retry.
+`full\farkas_diagnostics` contains the focused 570-step diagnostic.
+`solver` independently contains the matching CLI, driver, all 900 outcomes
+and statistics, and another **900 database records**. `probes` contains
+the 27 repeated skill invocations and their database. `memory_supplement`
+records the two larger-cap reruns without modifying the primary data.
 
-The frozen `tools` directory contains the checker, original runner,
-exporter, source manifests, F* sources, and OCaml runtime sources.
-The run is based on Git commit
-`11306ced808398e9b03686f096c63771dee8ba82` **plus the archived uncommitted
-working-tree patch and source snapshots**, not that commit alone.
+`fstar_sources.tar`, `extracted_native.tar`, and build logs freeze the
+committed F* development and generated native closure. `comparison.csv`
+records all 900 old/new outcome pairs; `summary_evidence.txt` records
+validated aggregates. No proof JSON was generated or consumed by this run.
 
-| Component | SHA-256 |
+| Artifact | SHA-256 |
 |---|---|
-| Native checker | `b4b430fe820940b03523f2e8ed017ac8c8a952542f5c08e30f6df141e874b593` |
-| Exporter | `7f6e5a191f98037529c60666e1ea63256fea2fcbfa2d8c8cb9653572894fac1f` |
-| Original main-run driver | `29709934ec4a0f3f0f576e683292cb8ffa1d4fc98bb5ac0e69bdbb2ffb21fd75` |
-| UF/AX source manifest | `597b18136a861ee9155352f6f24b068cf478443ab0507560a5f4ba1c3f0a2565` |
-| Seven-logic source manifest | `604d8df74b2928e6326a5f042dfc922331c487d428e137576b0864d8c6bc8001` |
+| Native executable | `1ebb734e4204f11ae957bd813156fe9d3d4787c124fa5278544f8390441d4a5e` |
+| Matching standalone solver | `30dc45ad0a5ab3f60dc4fe4b4d712ae53297bcc9d260c5d8c89f8b759d59b053` |
+| Timed driver | `fb72f048330527265bae3f34e50d3ae4dc1d58dc0acfc8594e9493a71718ddb9` |
+| `full\manifest.csv` | `8c5b7ae8f82ede1313079965b260b4cf26ed159951349e0aee31730023aa66a5` |
+| `full\outcomes.csv` | `607810b1b99c31234117a11e413a637196e18aab8ac4973c885a865e467466b6` |
+| `solver\outcomes.csv` | `f48c6e0b4293fddb0c69e48f96e8246b4bbd6e98a055359ee984098e99c2afbc` |
+| Reconciled audit outcomes | `1cdff68cb5d76ff56913b01e34f52bee84dcf0313fdfd49773a09badbcb9ae9f` |
 
-The separately retained `run_crosscut_replay.py` adds a snapshot option,
-so reproducing the evaluation does not silently pick up later exporter or
-checker changes. Its nine-logic replay pilot reproduced the original
-pilot's status, node, and obligation totals. On this machine, with the
-same Python Z3 5.1.0.0 installation and benchmark input paths:
+With WSL Python 3, the same original corpus/manifests, and the frozen
+executable, the primary run can be reproduced using its archived driver:
 
 ```powershell
-$run = 'C:\smtlib-benchmarks\proof_check_crosscut_20261015_1327\full'
-python "$run\tools\run_crosscut_replay.py" `
-  --out C:\smtlib-benchmarks\proof_check_crosscut_reproduction `
-  --tool-snapshot "$run\tools"
+wsl -e python3 `
+  /mnt/c/smtlib-benchmarks/proof_check_native_20261016/full/run_crosscut.py `
+  --manifest /mnt/c/smtlib-benchmarks/proof_check_20261014_1034/manifest.json `
+  --manifest /mnt/c/smtlib-benchmarks/proof_check_seven_20261014/manifest.json `
+  --executable /mnt/c/smtlib-benchmarks/proof_check_native_20261016/full/checker `
+  --output /mnt/c/smtlib-benchmarks/proof_check_native_reproduction
 ```
 
-The destination must not already exist. Add `--pilot` for one input per
-logic. Timeouts and exact proof-search timing can vary between runs.
-The frozen checker can also recheck each saved `proof.json` directly in
-WSL; no F* re-verification is performed per certificate.
-
-The historical reference records are:
-
-```text
-C:\smtlib-benchmarks\proof_check_array_rewrites_20261015_0815\distinct-extension\after.json
-C:\smtlib-benchmarks\proof_check_seven_20261014\array_extension_final\after.json
-```
-
-The separate three-repeat CLI sanity measurement used Z3 **5.3.0 without
-proof generation**, on `QF_UF_000`: 343 / 346 / 350 ms
-minimum / median / maximum, logged in the parent directory's
-`cli_sanity.db`. It confirms the local command-line path only and is not
-mixed into any proof-checker performance result above.
+The output destination must not already exist. The archived driver imports
+the repository's benchmark database helper/schema after timing, so the
+checkout is also required for database logging. Use the archived solver
+driver with `--mode solver` and its frozen `z3` for the standalone batch;
+run batches sequentially. Source archives and script hashes establish
+provenance, not deterministic timing or an uncensored coverage estimate.

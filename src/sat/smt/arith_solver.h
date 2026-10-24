@@ -19,6 +19,7 @@ Author:
 #include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/arith_swine.h"
 
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
@@ -51,21 +52,26 @@ namespace arith {
         bound_h,
         cut_h,
         implied_eq_h,
-        nla_h
+        nla_h,
+        nlsat_assumed_h,
+        nla_unsupported_h
     };
 
     struct arith_proof_hint : public euf::th_proof_hint {
         hint_type m_ty;
         unsigned  m_lit_head, m_lit_tail, m_eq_head, m_eq_tail;
-        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et):
-            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et) {}
+        unsigned m_certificate;
+        arith_proof_hint(hint_type t, unsigned lh, unsigned lt, unsigned eh, unsigned et, unsigned certificate):
+            m_ty(t), m_lit_head(lh), m_lit_tail(lt), m_eq_head(eh), m_eq_tail(et), m_certificate(certificate) {}
         expr* get_hint(euf::solver& s) const override;
+        bool is_assumed() const override { return m_ty == hint_type::nlsat_assumed_h; }
     };
 
     class arith_proof_hint_builder {
         vector<std::pair<rational, literal>>   m_literals;
         svector<std::tuple<euf::enode*,euf::enode*,bool>> m_eqs;
         hint_type                              m_ty;
+        vector<std::shared_ptr<nla::lemma_certificate const>> m_nla_certificates;
         unsigned                               m_lit_head = 0, m_lit_tail = 0, m_eq_head = 0, m_eq_tail = 0;
         void reset() { m_lit_head = m_lit_tail; m_eq_head = m_eq_tail; }
         void add(euf::enode* a, euf::enode* b, bool is_eq) {
@@ -89,11 +95,13 @@ namespace arith {
         std::pair<rational, literal> const& lit(unsigned i) const { return m_literals[i]; }
         std::tuple<enode*, enode*, bool> const& eq(unsigned i) const { return m_eqs[i]; }
         arith_proof_hint* mk(euf::solver& s);
+        nla::lemma_certificate const& certificate(unsigned i) const { return *m_nla_certificates[i]; }
     };
 
     class solver : public euf::th_euf_solver {
 
         friend struct arith_proof_hint;
+        friend class arith_proof_hint_builder;
         friend class sls;
 
         struct scope {
@@ -211,6 +219,7 @@ namespace arith {
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
         ptr_vector<app>        m_bv_terms;
+        ptr_vector<expr>       m_power_terms;
         vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
@@ -252,6 +261,10 @@ namespace arith {
         vector<parameter>   m_params;
         nla::lemma          m_lemma;
         arith_util          a;
+        arith_swine         m_swine;
+
+        bool get_power_value(expr* e, rational& value);
+        sat::check_result check_integer_powers();
 
         bool is_int(theory_var v) const { return is_int(var2enode(v)); }
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
@@ -290,6 +303,7 @@ namespace arith {
         theory_var internalize_linearized_def(expr* term, scoped_internalize_state& st);
         void init_left_side(scoped_internalize_state& st);
         bool internalize_term(expr* term);
+        void internalize_complex(expr* term);
         bool internalize_atom(expr* atom);        
         bool is_unit_var(scoped_internalize_state& st);
         bool is_one(scoped_internalize_state& st);
@@ -486,6 +500,9 @@ namespace arith {
         sat::check_result check() override;
         void simplify() override {}
         void init_search() override {}
+        bool tracking_assumptions() override { return !m_power_terms.empty(); }
+        void add_assumptions(sat::literal_set& assumptions) override;
+        bool should_research(sat::literal_vector const& core) override;
 
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
@@ -503,7 +520,7 @@ namespace arith {
         sat::literal internalize(expr* e, bool sign, bool root) override;
         void internalize(expr* e) override;
         void eq_internalized(euf::enode* n) override;
-        void apply_sort_cnstr(euf::enode* n, sort* s) override {}
+        void apply_sort_cnstr(euf::enode* n, sort* s) override;
         void initialize_value(expr* var, expr* value) override;
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
@@ -518,6 +535,7 @@ namespace arith {
         bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed);
         void consume(rational const& v, lp::constraint_index j);
         bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const;
+        bool column_is_interesting(unsigned vi) const;
 
         bool get_value(euf::enode* n, expr_ref& val);
     };

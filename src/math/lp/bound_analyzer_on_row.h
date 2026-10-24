@@ -35,7 +35,9 @@ namespace lp {
         int                                m_column_of_u; // index of an unlimited from above monoid
         // -1 means that such a value is not found, -2 means that at least two of such monoids were found
         int                                m_column_of_l; // index of an unlimited from below monoid
-        impq                               m_rs;
+        const impq&                        m_rs;
+        // lazily computed: 1 if some column of the row can receive an interesting bound, 0 if none can, -1 if unknown
+        int                                m_some_column_is_interesting = -1;
 
     public :
         // constructor
@@ -66,24 +68,48 @@ namespace lp {
             for (const auto & c : m_row) {
                 if ((m_column_of_l == -2) && (m_column_of_u == -2))
                     return 0;
+                if (c.coeff().is_big())  // bounds derived with big coefficients are not worth their cost
+                    return 0;
                 analyze_bound_on_var_on_coeff(c.var(), c.coeff());
             }
-            ++num_prop;
-            if (m_column_of_u >= 0)
-                limit_monoid_u_from_below();
-            else if (m_column_of_u == -1)
+            // Bounds are only derived for columns that can consume them: computing
+            // a bound costs rational arithmetic and, when it is reported, closures
+            // for its explanation, so the cheap relevance test comes first.
+            if (m_column_of_u >= 0) {
+                if (m_bp.column_is_interesting(m_column_of_u)) {
+                    limit_monoid_u_from_below();
+                    ++num_prop;
+                }
+            }
+            else if (m_column_of_u == -1 && some_column_is_interesting()) {
                 limit_all_monoids_from_below();
-            else
-                --num_prop;
+                ++num_prop;
+            }
 
-            ++num_prop;
-            if (m_column_of_l >= 0)
-                limit_monoid_l_from_above();
-            else if (m_column_of_l == -1)
+            if (m_column_of_l >= 0) {
+                if (m_bp.column_is_interesting(m_column_of_l)) {
+                    limit_monoid_l_from_above();
+                    ++num_prop;
+                }
+            }
+            else if (m_column_of_l == -1 && some_column_is_interesting()) {
                 limit_all_monoids_from_above();
-            else
-                --num_prop;
+                ++num_prop;
+            }
             return num_prop;
+        }
+
+        bool some_column_is_interesting() {
+            if (m_some_column_is_interesting < 0) {
+                m_some_column_is_interesting = 0;
+                for (const auto& c : m_row) {
+                    if (m_bp.column_is_interesting(c.var())) {
+                        m_some_column_is_interesting = 1;
+                        break;
+                    }
+                }
+            }
+            return m_some_column_is_interesting == 1;
         }
 
         bool bound_is_available(unsigned j, bool lower_bound) {
@@ -144,6 +170,30 @@ namespace lp {
         mpq monoid_min(const mpq & a, unsigned j) const {
             return a * (is_neg(a) ? ub(j).x : lb(j).x);
         }
+
+        // t -= monoid_max(a, j, strict), without a temporary
+        void submul_monoid_max(mpq& t, const mpq & a, unsigned j, bool & strict) const {
+            if (is_pos(a)) {
+                strict = !is_zero(ub(j).y);
+                t.submul(a, ub(j).x);
+            }
+            else {
+                strict = !is_zero(lb(j).y);
+                t.submul(a, lb(j).x);
+            }
+        }
+
+        // t -= monoid_min(a, j, strict), without a temporary
+        void submul_monoid_min(mpq& t, const mpq & a, unsigned j, bool & strict) const {
+            if (is_neg(a)) {
+                strict = !is_zero(ub(j).y);
+                t.submul(a, ub(j).x);
+            }
+            else {
+                strict = !is_zero(lb(j).y);
+                t.submul(a, lb(j).x);
+            }
+        }
     
         mpq m_total, m_bound;
         void limit_all_monoids_from_above() {
@@ -151,12 +201,14 @@ namespace lp {
             m_total = m_rs.x;
             for (const auto& p : m_row) {
                 bool str;
-                m_total -= monoid_min(p.coeff(), p.var(), str);
+                submul_monoid_min(m_total, p.coeff(), p.var(), str);
                 if (str)
                     strict++;
             }
         
             for (const auto &p : m_row) {
+                if (!m_bp.column_is_interesting(p.var()))
+                    continue;
                 bool str;
                 bool a_is_pos = is_pos(p.coeff());
                 m_bound = m_total;
@@ -198,12 +250,14 @@ namespace lp {
             m_total = m_rs.x;
             for (const auto &p : m_row) {
                 bool str;
-                m_total -= monoid_max(p.coeff(), p.var(), str);
+                submul_monoid_max(m_total, p.coeff(), p.var(), str);
                 if (str)
                     strict++;
             }
 
             for (const auto& p : m_row) {
+                if (!m_bp.column_is_interesting(p.var()))
+                    continue;
                 bool str;
                 bool a_is_pos = is_pos(p.coeff());
                 m_bound = m_total;
@@ -234,7 +288,7 @@ namespace lp {
                     continue;
                 }
                 bool str;
-                m_bound -= monoid_max(p.coeff(), j, str);
+                submul_monoid_max(m_bound, p.coeff(), j, str);
                 if (str)
                     strict = true;
             }
@@ -264,7 +318,7 @@ namespace lp {
                 }
 
                 bool str;
-                m_bound -= monoid_min(p.coeff(), j, str);
+                submul_monoid_min(m_bound, p.coeff(), j, str);
                 if (str)
                     strict = true;
             }
@@ -298,6 +352,10 @@ namespace lp {
         void limit_j(unsigned bound_j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict) {
             auto* lar = &m_bp.lp();
             auto* row = &this->m_row;
+            ++lar->stats().m_bp_bound_candidates;
+            if (!m_bp.bound_is_interesting(bound_j, is_lower_bound, strict, u))
+                return;
+            ++lar->stats().m_bp_bounds_interesting;
             // The bound on bound_j follows from the row sum_k a_k x_k = 0 and the bounds of the
             // other columns: x_j = -sum_{k != j} (a_k / a_j) x_k. The bound of column k enters
             // the derivation with Farkas coefficient |a_k / a_j|.
@@ -329,7 +387,28 @@ namespace lp {
                 explain_weighted([&](mpq const&, u_dependency* witness) { ret = lar->join_deps(ret, witness); });
                 return ret;
             };
-            m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain, explain_weighted);
+            if (lar->dep_manager().proofs_enabled()) {
+                u_dependency* support = nullptr;
+                lp::evidence_manager::recipe r;
+                r.kind = lp::evidence_manager::rule::linear;
+                r.conclusion.lhs.push_back({mpq(1), bound_j});
+                r.conclusion.kind = is_lower_bound ? (strict ? GT : GE) : (strict ? LT : LE);
+                r.conclusion.rhs = impq(u);
+                explain_weighted([&](mpq const& c, u_dependency* p) {
+                    support = lar->join_deps(support, p);
+                    r.premises.push_back({p, c});
+                });
+                auto* proof = lar->dep_manager().derive(support, [&] { return std::move(r); });
+                auto* recipe = lp::evidence_manager::get_recipe(proof);
+                m_bp.add_bound(u, bound_j, is_lower_bound, strict, [proof]() { return proof; },
+                               [recipe](implied_bound::weighted_consumer const& consume) {
+                                   for (auto const& p : recipe->premises)
+                                       consume(p.coefficient, p.evidence);
+                               });
+            }
+            else {
+                m_bp.add_bound(u, bound_j, is_lower_bound, strict, explain, explain_weighted);
+            }
         }
 
         void advance_u(unsigned j) {
@@ -401,4 +480,3 @@ namespace lp {
         }
     };
 }
-

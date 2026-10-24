@@ -67,6 +67,10 @@ namespace smt {
     */
     theory_var theory_finite_set::mk_var(enode *n) {
         TRACE(finite_set, tout << "mk_var: " << enode_pp(n, ctx) << "\n");
+        // Term ITEs do not receive sort constraints during internalization.
+        for (auto arg : enode::args(n))
+            if (u.is_finite_set(arg->get_expr()))
+                apply_sort_cnstr(arg, arg->get_sort());
         theory_var r = theory::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
@@ -847,9 +851,8 @@ namespace smt {
                 return;
             if (!m_elements)
                 return;
-            bool ur = use_range();
             for (auto [n, b] : *m_elements)
-                if (!ur || b)
+                if (b)
                     result.push_back(model_value_dependency(n));
         }
 

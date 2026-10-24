@@ -2,23 +2,28 @@
    equality. These constructors preserve observations in the same model,
    which is sufficient for equisatisfiability. General equivalence modulo
    naming requires model-extension/freshness witnesses and is not asserted
-   by this theory. In particular, ~ is not an object-language equality. *)
+   by this theory. Boolean observations compare truth; non-Boolean
+   observations require same-sort value agreement as a sufficient witness.
+   In particular, ~ remains a separate judgment, not an object-language
+   equality. *)
 module Z3ObservationalEquality
 
 open Z3AstTheory
 open Z3ValueTheory
 open Z3ResolutionProofTheory
 
-let oeq_decl : func_decl =
-  { decl_name = "~"; domain = [bool_sort; bool_sort]; range = bool_sort;
+let typed_oeq_decl (s:sort) : func_decl =
+  { decl_name = "~"; domain = [s; s]; range = bool_sort;
     interp = Some op_oeq; int_params = [] }
 
-let mk_oeq_expr (a b:expr) : expr = App oeq_decl [a; b]
+let oeq_decl : func_decl = typed_oeq_decl bool_sort
+
+let mk_oeq_expr (a b:expr) : expr = App (typed_oeq_decl (get_sort a)) [a; b]
 
 let is_oeq (e:expr) : option (expr & expr) =
   match e with
   | App f [a; b] ->
-    if f = oeq_decl && get_sort a = bool_sort && get_sort b = bool_sort
+    if f = typed_oeq_decl (get_sort a) && get_sort a = get_sort b
     then Some (a, b) else None
   | _ -> None
 
@@ -50,7 +55,9 @@ let rec ofact (p:oproof) : Tot (option (expr & expr)) (decreases p) =
   let result =
     match p with
     | ORefl a -> Some (a, a)
-    | OIff a b | OPremise a b -> Some (a, b)
+    | OIff a b ->
+      if get_sort a = bool_sort && get_sort b = bool_sort then Some (a, b) else None
+    | OPremise a b -> Some (a, b)
     | OSym q ->
       (match ofact q with Some (a, b) -> Some (b, a) | None -> None)
     | OTrans q r ->
@@ -64,7 +71,7 @@ let rec ofact (p:oproof) : Tot (option (expr & expr)) (decreases p) =
   in
   match result with
   | Some (a, b) ->
-    if get_sort a = bool_sort && get_sort b = bool_sort then result else None
+    if get_sort a = get_sort b then result else None
   | None -> None
 
 and ofacts (ps:list oproof) : Tot (list (option (expr & expr))) (decreases ps) =
@@ -73,7 +80,9 @@ and ofacts (ps:list oproof) : Tot (list (option (expr & expr))) (decreases ps) =
   | p :: rest -> ofact p :: ofacts rest
 
 let observations_agree (i:interpretation value) (rho:env value) (a b:expr) : prop =
-  lit_true i rho a <==> lit_true i rho b
+  get_sort a == get_sort b /\
+  (if get_sort a = bool_sort then lit_true i rho a <==> lit_true i rho b
+   else eval i a rho == eval i b rho)
 
 let boolean_model (i:interpretation value) : prop =
   forall (a:expr) (rho:env value).
@@ -108,10 +117,10 @@ and osizes (ps:list oproof) : Tot nat (decreases ps) =
   | p :: rest -> 1 + osize p + osizes rest
 
 let lemma_observations_values (i:interpretation value) (rho:env value) (a b:expr)
-  : Lemma (requires boolean_model i /\ get_sort a == bool_sort /\
-                    get_sort b == bool_sort /\ observations_agree i rho a b)
+  : Lemma (requires boolean_model i /\ observations_agree i rho a b)
           (ensures eval i a rho == eval i b rho)
-  = match eval i a rho, eval i b rho with
+  = if get_sort a <> bool_sort then ()
+    else match eval i a rho, eval i b rho with
     | VBool x, VBool y -> ()
     | _, _ -> ()
 

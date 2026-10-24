@@ -405,23 +405,43 @@ public:
     
     void del(mpz & a) { del(this, a); }
 
-    static void del(mpz_manager* m, mpz & a);
+    // small numbers that own no cell need no work, so the common case stays inline
+    static void del(mpz_manager* m, mpz & a) { if (a.m_ptr) del_big(m, a); }
+    static void del_big(mpz_manager* m, mpz & a);
     
-    void add(mpz const & a, mpz const & b, mpz & c);
+    // The small-operand paths are inline: they are the common case in the simplex and the
+    // call into the big-number code is only taken when an operand owns a cell.
+    void add(mpz const & a, mpz const & b, mpz & c) {
+        if (is_small(a) && is_small(b)) set_i64(c, i64(a) + i64(b)); else add_slow(a, b, c);
+    }
+    void add_slow(mpz const & a, mpz const & b, mpz & c);
 
-    void sub(mpz const & a, mpz const & b, mpz & c);
+    void sub(mpz const & a, mpz const & b, mpz & c) {
+        if (is_small(a) && is_small(b)) set_i64(c, i64(a) - i64(b)); else sub_slow(a, b, c);
+    }
+    void sub_slow(mpz const & a, mpz const & b, mpz & c);
     
     void inc(mpz & a) { add(a, mpz(1), a); }
 
     void dec(mpz & a) { add(a, mpz(-1), a); }
 
-    void mul(mpz const & a, mpz const & b, mpz & c);
+    void mul(mpz const & a, mpz const & b, mpz & c) {
+        if (is_small(a) && is_small(b)) set_i64(c, i64(a) * i64(b)); else mul_slow(a, b, c);
+    }
+    void mul_slow(mpz const & a, mpz const & b, mpz & c);
 
     // d <- a + b*c
-    void addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d);
+    void addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+        // |b*c| < 2^62 and |a| < 2^31, so the sum fits in 64 bits
+        if (is_small(a) && is_small(b) && is_small(c)) set_i64(d, i64(a) + i64(b) * i64(c)); else addmul_slow(a, b, c, d);
+    }
+    void addmul_slow(mpz const & a, mpz const & b, mpz const & c, mpz & d);
 
     // d <- a - b*c
-    void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d);
+    void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+        if (is_small(a) && is_small(b) && is_small(c)) set_i64(d, i64(a) - i64(b) * i64(c)); else submul_slow(a, b, c, d);
+    }
+    void submul_slow(mpz const & a, mpz const & b, mpz const & c, mpz & d);
 
     void machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r);
 

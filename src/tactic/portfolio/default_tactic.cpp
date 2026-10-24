@@ -62,5 +62,7 @@ tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
                                p);
     // Preserve native equality/Boolean reasoning on residual field goals;
     // the field theory itself supplies exact BV fallback when needed.
+    if (m.proofs_enabled())
+        return cond(mk_has_ff_probe(), and_then(mk_ff_simplify_tactic(m, p), mk_ff_smt_tactic(m, p)), st);
     return cond(mk_has_ff_probe(), and_then(mk_ff_unique_tactic(m, p), mk_ff_simplify_tactic(m, p), or_else(mk_ff_solve_tactic(m, p), mk_ff_sat_tactic(m, p), mk_ff_smt_tactic(m, p))), st);
 }

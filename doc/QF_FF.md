@@ -141,6 +141,17 @@ checks. A bridge remains active while its decoder terms survive. Popping the
 last bridge permits native solving again. The normalization cache is bounded
 and cleared on pop. Disabling BV internally yields unknown if fallback is needed.
 
+`smt.ff.bv_fallback_limit` optionally bounds the estimated encoding cost before
+SMT theory fallback constructs bit-vectors. Zero (the default) disables this
+admission limit. The estimate charges field width per relevant term and width
+squared per symbolic multiplication stage; it is a heuristic, not a hard memory
+bound. If the estimate exceeds the limit after native reasoning is inconclusive,
+the theory returns `unknown` instead of constructing the encoding. Native
+conflicts are still considered first. This setting applies to `theory_ff`
+fallback, not explicit `ff2bv` tactic invocations. It can reduce wasted fallback
+work at the cost of declining problems the exact encoding might solve.
+
+
 The supported scope is quantifier-free prime fields. Extension fields and
 complete quantified reasoning are outside this implementation. Above 64 bits,
 moduli receive probable-prime screening, not primality certification.
@@ -152,7 +163,8 @@ Standalone reconstruction and independent checking are described in
 [Alethe/PAC pipeline](QF_FF_PROOF_PIPELINE.md). They do not imply native Z3
 `get-proof` support for the entire field solver. Mixed-theory proofs, root/field
 closure, uniqueness and small-field-search traces remain incomplete. Conflict
-premise sets alone are not certificates.
+premise sets alone are not certificates. F4 ideal derivations are supported by
+the standalone pipeline; see [the F4 proof guide](QF_FF_F4_CERTIFICATES.md).
 
 ## Validation and research artifacts
 

@@ -1556,7 +1556,13 @@ bool theory_seq::simplify_and_solve_eqs() {
     return m_new_propagation || ctx.inconsistent();
 }
 
-void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
+void theory_seq::internalize_eq_eh(app * atom, bool_var) {
+    // Sequence-valued ITEs bypass sort constraints during internalization.
+    // Attach both sides so their branch equalities reach the sequence solver.
+    expr *lhs = nullptr, *rhs = nullptr;
+    VERIFY(m.is_eq(atom, lhs, rhs));
+    apply_sort_cnstr(ctx.get_enode(lhs), lhs->get_sort());
+    apply_sort_cnstr(ctx.get_enode(rhs), rhs->get_sort());
 }
 
 bool theory_seq::internalize_atom(app* a, bool) {

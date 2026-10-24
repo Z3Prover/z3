@@ -799,10 +799,10 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
     case PR_DEMODULATION:                 return mk_proof_decl("demodulation", k, num_parents, m_demodulation_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
-    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decl);
-    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decl);
-    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decl);
-    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decl);
+    case PR_ASSUMPTION_ADD:               return mk_proof_decl("assume", k, num_parents, m_assumption_add_decls);
+    case PR_LEMMA_ADD:                    return mk_proof_decl("infer", k, num_parents, m_lemma_add_decls);
+    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assume", k, num_parents, m_th_assumption_add_decls);
+    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_add_decls);
     case PR_REDUNDANT_DEL:                return mk_proof_decl("del", k, num_parents, m_redundant_del_decl);
     case PR_CLAUSE_TRAIL:                 return mk_proof_decl("proof-trail", k, num_parents, false);
     default:
@@ -922,10 +922,10 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_iff_oeq_decl);
     DEC_REF(m_skolemize_decl);
     DEC_REF(m_mp_oeq_decl);
-    DEC_REF(m_assumption_add_decl);
-    DEC_REF(m_lemma_add_decl);
-    DEC_REF(m_th_assumption_add_decl);
-    DEC_REF(m_th_lemma_add_decl);
+    DEC_ARRAY_REF(m_assumption_add_decls);
+    DEC_ARRAY_REF(m_lemma_add_decls);
+    DEC_ARRAY_REF(m_th_assumption_add_decls);
+    DEC_ARRAY_REF(m_th_lemma_add_decls);
     DEC_REF(m_redundant_del_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
@@ -998,6 +998,10 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
         return s1;
     if (s1->get_family_id() == arith_family_id &&
         s2->get_family_id() == arith_family_id) {
+        if (s1->get_decl_kind() == COMPLEX_SORT)
+            return s1;
+        if (s2->get_decl_kind() == COMPLEX_SORT)
+            return s2;
         if (s1->get_decl_kind() == REAL_SORT) {
             return s1;
         }
@@ -2092,6 +2096,16 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 expr* ast_manager::coerce_to(expr* e, sort* s) {
     sort* se = e->get_sort();
     if (s != se && s->get_family_id() == arith_family_id && se->get_family_id() == arith_family_id) {
+        if (s->get_decl_kind() == COMPLEX_SORT) {
+            arith_util au(*this);
+            expr_ref re(e, *this);
+            if (au.is_int(e))
+                re = au.mk_to_real(e);
+            expr_ref zero(au.mk_real(0), *this);
+            return au.mk_complex(re, zero);
+        }
+        if (se->get_decl_kind() == COMPLEX_SORT)
+            throw ast_exception("cannot coerce Complex to Int or Real; use complex.real or complex.imag");
         if (s->get_decl_kind() == REAL_SORT) 
             return mk_app(arith_family_id, OP_TO_REAL, e);
         else 
@@ -2099,6 +2113,12 @@ expr* ast_manager::coerce_to(expr* e, sort* s) {
     }
     if (s != se && s->get_family_id() == arith_family_id && is_bool(e)) {
         arith_util au(*this);
+        if (au.is_complex(s)) {
+            expr_ref one(au.mk_real(1), *this);
+            expr_ref zero(au.mk_real(0), *this);
+            expr_ref re(mk_ite(e, one, zero), *this);
+            return au.mk_complex(re, zero);
+        }
         if (s->get_decl_kind() == REAL_SORT) {
             auto _seqr0 = au.mk_real(1);
             auto _seqr1 = au.mk_real(0);

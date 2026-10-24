@@ -10,16 +10,45 @@ open Z3ObservationalEquality
 open Z3Commutativity
 open Z3BooleanRewrite
 open Z3ArrayLemma
+open Z3ProofIndex
 module A = Z3ArrayRewrite
 module D = Z3Definitions
 module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
+module AR = Z3ArithmeticRewrite
+module IR = Z3IntegerRewrite
+module ID = Z3IntegerDivision
+module CR = Z3ConditionalRewrite
+module LP = Z3LpReplay
+module G = Z3LpGomory
+module Q = Z3QuantifierInstantiation
+module QN = Z3QuantifierNnf
+module QV = Z3QuantifierVacuity
+module QP = Z3QuantifierPull
+module QD = Z3QuantifierDer
+module SK = Z3Skolemization
+module QR = Z3QuantifierReduce
+module DE = Z3DestructiveEquality
+module LR = Z3LambdaRewrite
+module TN = Z3TheoryNormalize
 module L = FStar.List.Tot
 
 type judgment =
   | Holds : formula:expr -> judgment
   | Equal : left:expr -> right:expr -> judgment
   | Observational : left:expr -> right:expr -> judgment
+
+type binder_entry = {
+  binder_name: string;
+  binder_formula: expr;
+  binder_premises: list int;
+  binder_sorts: option (list sort);
+}
+
+type binder_certificate = {
+  binder_entries: list binder_entry;
+  binder_root: int;
+}
 
 type rule =
   | Asserted
@@ -30,7 +59,14 @@ type rule =
   | LemmaRule
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
+  | ArithmeticGomory : certificate:G.certificate -> rule
   | RewriteRule
+  | PullQuantifier
+  | DestructiveEqualityResolution
+  | Skolemization
+  | ElimUnused
+  | PushQuantifier
+  | DestructiveEquality
   | Reflexivity
   | Symmetry
   | Transitivity
@@ -45,12 +81,34 @@ type rule =
   | NotOrElimination
   | IffTrue
   | IffFalse
+  | QuantifierIntroduction : certificate:binder_certificate -> rule
+  | QuantifierInstantiation : arguments:list expr -> rule
 
 type relation =
   | Equality
   | Observation
 
 let identity_rewrite (x:expr) : option expr = Some x
+
+let constant_quantifier_rewrite (a b:expr) : bool =
+  match a with
+  | Quantifier k bs s body ->
+    (k = Forall_k || k = Exists_k) && s = bool_sort &&
+    (body = true_expr || body = false_expr) && b = body
+  | _ -> false
+
+let constant_quantifier_model (i:interpretation value) : prop =
+  forall (k:quantifier_kind) (bs:list sort) (v:value).
+    (k = Forall_k \/ k = Exists_k) /\ (v == VBool true \/ v == VBool false) ==>
+    i.interp_quant k bs (fun _ -> v) == v
+
+let lemma_quantifier_constant (i:interpretation value) (k:quantifier_kind)
+                              (bs:list sort) (v:value)
+  : Lemma (requires constant_quantifier_model i /\
+                    (k = Forall_k \/ k = Exists_k) /\
+                    (v == VBool true \/ v == VBool false))
+          (ensures i.interp_quant k bs (fun _ -> v) == v)
+  = ()
 
 let lemma_identity_rewrite_sound (i:interpretation value) (rho:env value) (x y:expr)
   : Lemma (requires identity_rewrite x == Some y)
@@ -93,7 +151,7 @@ let well_formed (j:judgment) : bool =
   | Equal a b ->
     get_sort a = get_sort b && not (proof_relation a) && not (proof_relation b)
   | Observational a b ->
-    get_sort a = bool_sort && get_sort b = bool_sort &&
+    get_sort a = get_sort b &&
     not (proof_relation a) && not (proof_relation b)
 
 let rec judgments_wf (js:list judgment) : Tot bool (decreases js) =
@@ -120,7 +178,7 @@ let edge (r:relation) (j:judgment) : option (expr & expr) =
   | Equality, Equal a b -> Some (a, b)
   | Observation, Observational a b -> Some (a, b)
   | Observation, Equal a b ->
-    if get_sort a = bool_sort && get_sort b = bool_sort then Some (a, b) else None
+    if get_sort a = get_sort b then Some (a, b) else None
   | _, _ -> None
 
 let rec matching (r:relation) (a b:expr) (js:list judgment)
@@ -136,6 +194,47 @@ let rec arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
   | x :: xs', y :: ys' ->
     (x = y || matching r x y js) && arguments_match r xs' ys' js
   | _, _ -> false
+
+let rec ordered_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Tot bool (decreases xs) =
+  match xs, ys with
+  | [], [] -> true
+  | x :: rest, y :: remaining ->
+    if x = y then ordered_arguments_match r rest remaining js
+    else (match js with
+          | j :: facts -> edge r j = Some (x, y) &&
+                          ordered_arguments_match r rest remaining facts
+          | [] -> false)
+  | _, _ -> false
+
+let fast_arguments_match (r:relation) (xs ys:list expr) (js:list judgment) : bool =
+  ordered_arguments_match r xs ys js || arguments_match r xs ys js
+
+let rec lemma_arguments_match_cons (r:relation) (xs ys:list expr) (js:list judgment) (j:judgment)
+  : Lemma (requires arguments_match r xs ys js)
+          (ensures arguments_match r xs ys (j :: js))
+          (decreases xs)
+  = match xs, ys with
+    | x :: rest, y :: remaining -> lemma_arguments_match_cons r rest remaining js j
+    | _, _ -> ()
+
+let rec lemma_ordered_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Lemma (requires ordered_arguments_match r xs ys js)
+          (ensures arguments_match r xs ys js)
+          (decreases xs)
+  = match xs, ys with
+    | x :: rest, y :: remaining ->
+      if x = y then lemma_ordered_arguments_match r rest remaining js
+      else (match js with
+            | j :: facts ->
+              lemma_ordered_arguments_match r rest remaining facts;
+              lemma_arguments_match_cons r rest remaining facts j
+            | [] -> ())
+    | _, _ -> ()
+
+let lemma_fast_arguments_match (r:relation) (xs ys:list expr) (js:list judgment)
+  : Lemma (fast_arguments_match r xs ys js == arguments_match r xs ys js)
+  = if ordered_arguments_match r xs ys js then lemma_ordered_arguments_match r xs ys js
 
 let rec extend_reachable (r:relation) (js:list judgment) (known:list expr)
   : Tot (list expr) (decreases js) =
@@ -167,10 +266,23 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   | Some (r, a, b) ->
     (match kind with
      | Reflexivity -> facts = [] && a = b
+     | PullQuantifier -> facts = [] && (QP.check a b || QR.equivalent 64 a b || TN.equivalent a b)
+     | ElimUnused -> facts = [] && QR.equivalent 64 a b
+     | PushQuantifier -> facts = [] && QR.push_check a b
+     | DestructiveEquality | DestructiveEqualityResolution ->
+       facts = [] && (QD.equivalent 64 a b || DE.check a b)
      | RewriteRule | ApplyDefinition ->
        (kind = ApplyDefinition || facts = []) &&
                      (identity_rewrite a = Some b || flatten_rewrite a = Some b ||
-                      boolean_equiv 8 10 a b || A.equivalent 64 a b)
+                      Z3DistinctAst.duplicate_rewrite a b ||
+                      Z3DistinctEmbed.expansion_rewrite a b ||
+                      constant_quantifier_rewrite a b ||
+                      boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
+                      QR.equivalent 64 a b || LR.rewrite a b ||
+                      CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
+                      ID.equivalent b a || QV.equivalent 64 a b ||
+                      TN.equivalent a b ||
+                      boolean_search a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
      | Symmetry ->
        (match facts with
@@ -189,12 +301,12 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
      | TransitivityPath ->
        all_edges r facts && L.mem b (reachable (L.length facts) r facts [a])
      | Congruence ->
-       (match a, b with
-        | App f xs, App g ys -> f = g && all_edges r facts && arguments_match r xs ys facts
+       a = b || (match a, b with
+        | App f xs, App g ys -> f = g && all_edges r facts && fast_arguments_match r xs ys facts
         | _, _ -> false)
      | IffObservational ->
        (match r, facts with
-        | Observation, [Equal s t] -> a = s && b = t
+        | Observation, [Equal s t] -> get_sort a = bool_sort && a = s && b = t
         | _, _ -> false)
      | _ -> false)
 
@@ -216,7 +328,10 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
       | None -> false
       | Some es ->
         (match kind, es with
-         | DefinitionIntroduction, [] | DefAxiom, [] -> D.tautology 128 target
+         | DefinitionIntroduction, [] | DefAxiom, [] ->
+           D.tautology 128 target || TN.tautology target
+         | Unverified "th-lemma", _ -> TN.consequence es target
+         | QuantifierInstantiation args, [] -> Q.check args target
          | ModusPonens, [a; App f [s; t]] ->
            (f.decl_name = "implies" || f.decl_name = "=>" || f.decl_name = "=") &&
            a = s && target = t
@@ -241,6 +356,170 @@ let logical_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
 let check_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   well_formed concl && judgments_wf facts &&
   (relational_step kind concl facts || logical_step kind concl facts)
+
+let basic_rule_of_name (name:string) : option rule =
+  if name = "rewrite" then Some RewriteRule
+  else if name = "elim-unused" then Some ElimUnused
+  else if name = "push-quant" then Some PushQuantifier
+  else if name = "der" then Some DestructiveEquality
+  else if name = "pull-quant" then Some PullQuantifier
+  else if name = "sk" then Some Skolemization
+  else if name = "refl" || name = "reflexivity" then Some Reflexivity
+  else if name = "symm" then Some Symmetry
+  else if name = "trans" then Some Transitivity
+  else if name = "trans*" then Some TransitivityPath
+  else if name = "monotonicity" then Some Congruence
+  else if name = "commutativity" then Some Commutativity
+  else if name = "mp" then Some ModusPonens
+  else if name = "mp~" then Some ObservationalMP
+  else if name = "iff~" then Some IffObservational
+  else if name = "unit-resolution" then Some UnitResolution
+  else if name = "and-elim" then Some AndElimination
+  else if name = "not-or-elim" then Some NotOrElimination
+  else if name = "iff-true" then Some IffTrue
+  else if name = "iff-false" then Some IffFalse
+  else if name = "def-axiom" || name = "true-axiom" then Some DefAxiom
+  else if name = "th-lemma" then Some (Unverified "th-lemma")
+  else None
+
+let binder_quantifier_step (sorts:list sort) (concl:judgment) (facts:list judgment) : bool =
+  match relational concl, facts with
+  | Some (r, Quantifier k bs s a, Quantifier k' bs' s' b), [j] ->
+    k = k' && bs = sorts && bs' = sorts &&
+    s = quant_sort k bs (get_sort a) && s' = quant_sort k' bs' (get_sort b) &&
+    (k = Lambda_k || (get_sort a = bool_sort && get_sort b = bool_sort)) &&
+    (match edge r j with
+     | Some (source, target) -> QR.equivalent 64 a source && QR.equivalent 64 target b
+     | None -> false)
+  | _, _ -> false
+
+let binder_negative_quantifier_step (sorts:list sort) (concl:judgment)
+                                    (facts:list judgment) : bool =
+  match relational concl, facts with
+  | Some (r, App n [Quantifier k bs s a], Quantifier k' bs' s' b), [j] ->
+    n = not_decl && (k = Forall_k || k = Exists_k) && k' = QN.dual k &&
+    bs = sorts && bs' = sorts && s = bool_sort && s' = bool_sort &&
+    get_sort a = bool_sort && get_sort b = bool_sort &&
+    (match edge r j with
+     | Some (source, target) ->
+       QR.equivalent 64 (mk_not_expr a) source && QR.equivalent 64 target b
+     | None -> false)
+  | _, _ -> false
+
+let negative_replacement (e a b:expr) : bool =
+  get_sort e = bool_sort && get_sort b = bool_sort && a = mk_not_expr e
+
+let rec premise_replacement (r:relation) (e:expr) (facts:list judgment)
+  : Tot (option expr) (decreases facts) =
+  match facts with
+  | [] -> None
+  | j :: rest ->
+    (match edge r j with
+     | Some (a, b) ->
+       if e = a then Some b
+       else if negative_replacement e a b then Some (mk_not_expr b)
+       else premise_replacement r e rest
+     | None -> premise_replacement r e rest)
+
+let rec replace_premises (r:relation) (facts:list judgment) (e:expr)
+  : Tot expr (decreases e) =
+  match premise_replacement r e facts with
+  | Some replacement -> replacement
+  | None ->
+    (match e with
+     | App f args -> App f (replace_premise_args r facts args)
+     | Quantifier k bs s body -> Quantifier k bs s (replace_premises r facts body)
+     | _ -> e)
+
+and replace_premise_args (r:relation) (facts:list judgment) (args:list expr)
+  : Tot (list expr) (decreases args) =
+  match args with
+  | [] -> []
+  | a :: rest -> replace_premises r facts a :: replace_premise_args r facts rest
+
+let rec reverse_judgments (facts:list judgment) : Tot (list judgment) (decreases facts) =
+  match facts with
+  | [] -> []
+  | j :: rest ->
+    (match j with
+     | Equal a b -> Equal b a
+     | Observational a b -> Observational b a
+     | Holds e -> Holds e) :: reverse_judgments rest
+
+let binder_boolean_step (negative:bool) (concl:judgment) (facts:list judgment) : bool =
+  match relational concl with
+  | Some (r, a, b) ->
+    get_sort a = bool_sort && get_sort b = bool_sort &&
+    (match a with
+     | Quantifier _ _ _ _ -> false
+     | App n [Quantifier _ _ _ _] -> n <> not_decl
+     | _ -> true) &&
+    (not negative || Some? (D.negation a)) && all_edges r facts &&
+    (boolean_equiv 8 10 (replace_premises r facts a) b ||
+     boolean_equiv 8 10 a (replace_premises r (reverse_judgments facts) b) ||
+     QR.equivalent 64 (replace_premises r facts a) b ||
+     TN.equivalent (replace_premises r facts a) b)
+  | None -> false
+
+let binder_step (e:binder_entry) (concl:judgment) (facts:list judgment) : bool =
+  well_formed concl && judgments_wf facts &&
+  (if e.binder_name = "quant-intro" then
+     match e.binder_sorts with
+     | Some sorts -> binder_quantifier_step sorts concl facts
+     | None -> false
+   else if e.binder_name = "nnf-pos" || e.binder_name = "nnf-neg" then
+     let negative = e.binder_name = "nnf-neg" in
+     match e.binder_sorts with
+     | Some sorts ->
+       if negative then binder_negative_quantifier_step sorts concl facts
+       else binder_quantifier_step sorts concl facts
+     | None -> binder_boolean_step negative concl facts
+   else match basic_rule_of_name e.binder_name with
+   | Some kind -> e.binder_sorts = None && check_step kind concl facts
+   | None -> false)
+
+let binder_step_with_inputs (assertions:list judgment) (e:binder_entry)
+                            (concl:judgment) (facts:list judgment) : bool =
+  binder_step e concl facts ||
+  (e.binder_name = "asserted" && e.binder_sorts = None && facts = [] &&
+   well_formed concl && Some? (proposition concl) &&
+   D.scoped [] e.binder_formula && L.mem concl assertions)
+
+let skolem_step (skolems:list SK.definition) (concl:judgment) (facts:list judgment) : bool =
+  match concl, facts with
+  | Observational a b, [] -> well_formed concl && SK.check skolems a b
+  | _, _ -> false
+
+let binder_step_with_context (skolems:list SK.definition) (assertions:list judgment)
+                             (e:binder_entry) (concl:judgment) (facts:list judgment) : bool =
+  binder_step_with_inputs assertions e concl facts ||
+  (e.binder_name = "sk" && e.binder_sorts = None && skolem_step skolems concl facts)
+
+let rec check_binder_entries (skolems:list SK.definition) (assertions:list judgment)
+                            (entries:list binder_entry)
+                            (cache:Z3ProofIndex.index_tree judgment) (next:nat)
+  : Tot (option (Z3ProofIndex.index_tree judgment)) (decreases entries) =
+  match entries with
+  | [] -> Some cache
+  | e :: rest ->
+    classify_fact e.binder_formula >>= (fun concl ->
+    opt_map (Z3ProofIndex.index_find cache) e.binder_premises >>= (fun facts ->
+    if binder_step_with_context skolems assertions e concl facts then
+      check_binder_entries skolems assertions rest (Z3ProofIndex.index_put cache next concl) (next + 1)
+    else None))
+
+let check_binder_with_context (skolems:list SK.definition) (assertions:list judgment)
+                            (certificate:binder_certificate) (concl:judgment) : bool =
+  match check_binder_entries skolems assertions certificate.binder_entries Z3ProofIndex.Empty 0 with
+  | Some cache -> Z3ProofIndex.index_find cache certificate.binder_root = Some concl
+  | None -> false
+
+let check_binder_with_inputs (assertions:list judgment)
+                            (certificate:binder_certificate) (concl:judgment) : bool =
+  check_binder_with_context [] assertions certificate concl
+
+let check_binder (certificate:binder_certificate) (concl:judgment) : bool =
+  check_binder_with_inputs [] certificate concl
 
 type checked_fact = {
   conclusion: judgment;
@@ -291,11 +570,20 @@ let false_judgment (j:judgment) : bool = j = Holds false_expr
 
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
-  | Unverified tag, Some e, Some [] -> tag = "th-lemma" && array_lemma e
-  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es
+  | ArithmeticGomory c, Some e, Some es -> G.check c e es
+  | Unverified "th-lemma", Some e, Some es ->
+    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e)) ||
+    TN.consequence es e || LP.implied_equality e es ||
+    (Some? (LA.comparison e) && LP.inferred_bound e es) ||
+    G.inferred_split e es
+  | Unverified tag, Some e, Some es ->
+    tag = "arith/lp-integer-tighten" && LP.check_tightening e es
+  | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
   | _, _, _ -> false
 
-let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
+let check_node_with_membership (skolems:list SK.definition) (strict:bool)
+                               (assertions:list judgment) (contains:judgment -> bool)
+                               (node:proof_node)
   : option (checked_fact & nat) =
   let facts = premise_judgments node.premises in
   let hyps = premise_hypotheses node.premises in
@@ -304,7 +592,7 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
   else
     match node.kind with
     | Asserted ->
-      if facts = [] && Some? (proposition node.conclusion) && L.mem node.conclusion assertions
+      if facts = [] && Some? (proposition node.conclusion) && contains node.conclusion
       then accept [] 0 else None
     | DefAxiom ->
       if facts = [] && Some? (proposition node.conclusion)
@@ -320,13 +608,42 @@ let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ | ArithmeticFarkas _ ->
+    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
-    | RewriteRule ->
+    | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier
+    | DestructiveEquality | DestructiveEqualityResolution ->
       if facts = [] && Some? (relational node.conclusion)
-      then accept hyps (if check_step RewriteRule node.conclusion facts then 0 else 1)
+      then accept hyps (if check_step node.kind node.conclusion facts then 0 else 1)
+      else None
+    | Skolemization ->
+      if facts = [] && Observational? node.conclusion
+      then accept [] (if skolem_step skolems node.conclusion facts then 0 else 1)
+      else None
+    | QuantifierIntroduction certificate ->
+      if facts = [] && Some? (relational node.conclusion)
+      then accept [] (if check_binder_with_context skolems assertions certificate node.conclusion then 0 else 1)
+      else None
+    | QuantifierInstantiation _ ->
+      if facts = [] && Some? (proposition node.conclusion)
+      then accept [] (if check_step node.kind node.conclusion facts then 0 else 1)
       else None
     | _ -> if check_step node.kind node.conclusion facts then accept hyps 0 else None
+
+let check_node_with_context (skolems:list SK.definition) (strict:bool)
+                            (assertions:list judgment) (node:proof_node)
+  : option (checked_fact & nat) =
+  check_node_with_membership skolems strict assertions (fun query -> L.mem query assertions) node
+
+let check_node_with_inputs (strict:bool) (assertions:list judgment) (node:proof_node)
+  : option (checked_fact & nat) =
+  check_node_with_context [] strict assertions node
+
+let lemma_check_node_membership (skolems:list SK.definition) (strict:bool) (assertions:list judgment)
+                                (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires contains node.conclusion == L.mem node.conclusion assertions)
+          (ensures check_node_with_membership skolems strict assertions contains node ==
+                   check_node_with_context skolems strict assertions node)
+  = match node.kind with Asserted -> () | _ -> ()
 
 let check_node (assertions:list judgment) (node:proof_node)
   : option (checked_fact & nat) =
@@ -349,7 +666,13 @@ let model_sound (i:interpretation value) : prop =
   implies_sound i /\ eq_sound i /\ true_sound i /\ false_sound i /\
   arithmetic_model i /\ array_model i /\ ite_sound i /\ xor_sound i /\ A.term_ite_sound i /\
   D.forall_sound i /\ Z3DistinctEmbed.distinct_sound i /\
-  (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu)
+  quant_extensional i /\
+  constant_quantifier_model i /\
+  Q.forall_elimination_model i /\
+  QN.quantifier_model i /\
+  LR.lambda_model i /\
+  TN.normalization_model i /\
+  (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu) /\ ID.division_model i
 
 let lemma_proposition_sound (i:interpretation value) (rho:env value) (j:judgment)
   : Lemma (requires eq_sound i /\ Some? (proposition j))
@@ -463,6 +786,29 @@ let rec lemma_reachable_sound (i:interpretation value) (rho:env value)
       lemma_extend_reachable_sound i rho r start js known;
       lemma_reachable_sound i rho (fuel - 1) r start js (extend_reachable r js known))
 
+let lemma_constant_quantifier_sound (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires model_sound i /\ constant_quantifier_rewrite a b)
+          (ensures eval i a rho == eval i b rho)
+  = match a with
+    | Quantifier k bs s body ->
+      let bodies (vs:list value{L.length vs = L.length bs})
+        : Lemma (eval i body (shift vs rho) == eval i body rho) = () in
+      FStar.Classical.forall_intro bodies;
+      assert (i.interp_quant k bs (fun vs -> eval i body (shift vs rho)) ==
+              i.interp_quant k bs (fun _ -> eval i body rho));
+      assert (eval i body rho == VBool true \/ eval i body rho == VBool false);
+      lemma_quantifier_constant i k bs (eval i body rho)
+    | _ -> ()
+
+let lemma_relational_value_sound (i:interpretation value) (rho:env value)
+                                 (concl:judgment) (r:relation) (a b:expr)
+  : Lemma (requires well_formed concl /\ relational concl = Some (r, a, b) /\
+                    eval i a rho == eval i b rho)
+          (ensures judgment_holds i rho concl)
+  = match concl with
+    | Equal _ _ | Observational _ _ -> ()
+    | Holds _ -> ()
+
 let lemma_relational_step_sound (i:interpretation value) (rho:env value)
                                 (kind:rule) (concl:judgment) (facts:list judgment)
   : Lemma (requires model_sound i /\ well_formed concl /\ judgments_wf facts /\
@@ -472,11 +818,36 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
     | None -> ()
     | Some (r, a, b) ->
       (match kind with
+       | PullQuantifier ->
+         if QP.check a b then QP.lemma_check_sound i rho a b
+         else if QR.equivalent 64 a b then QR.lemma_equivalent 64 i rho a b
+         else TN.lemma_equivalent i rho a b
+       | ElimUnused -> QR.lemma_equivalent 64 i rho a b
+       | PushQuantifier -> QR.lemma_push_check i rho a b
+       | DestructiveEquality | DestructiveEqualityResolution ->
+         if QD.equivalent 64 a b then QD.lemma_equivalent_sound 64 a b i rho
+         else DE.lemma_check i rho a b
        | RewriteRule | ApplyDefinition ->
-         if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
+         (if identity_rewrite a = Some b then lemma_identity_rewrite_sound i rho a b
          else if flatten_rewrite a = Some b then lemma_flatten_rewrite_sound i rho a b
+         else if Z3DistinctAst.duplicate_rewrite a b then
+           Z3DistinctEmbed.lemma_duplicate_rewrite_sound i rho a b
+         else if Z3DistinctEmbed.expansion_rewrite a b then
+           Z3DistinctEmbed.lemma_expansion_rewrite_sound i rho a b
+         else if constant_quantifier_rewrite a b then lemma_constant_quantifier_sound i rho a b
          else if boolean_equiv 8 10 a b then lemma_boolean_equiv_sound 8 10 i rho a b
-         else A.lemma_equivalent_sound 64 i rho a b
+         else if A.equivalent 64 a b then A.lemma_equivalent_sound 64 i rho a b
+         else if AR.equivalent a b then AR.lemma_equivalent_with_numeric_model a b i rho
+         else if QR.equivalent 64 a b then QR.lemma_equivalent 64 i rho a b
+         else if LR.rewrite a b then LR.lemma_rewrite i rho a b
+         else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b
+         else if IR.equivalent a b then IR.lemma_equivalent_sound i rho a b
+         else if ID.equivalent a b then ID.lemma_equivalent a b i rho
+         else if ID.equivalent b a then ID.lemma_equivalent b a i rho
+         else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
+         else if TN.equivalent a b then TN.lemma_equivalent i rho a b
+         else lemma_boolean_search_sound i rho a b);
+         lemma_relational_value_sound i rho concl r a b
        | Commutativity -> lemma_commutativity_step_sound i rho a b
        | Transitivity ->
          (match facts with
@@ -492,8 +863,10 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          lemma_reachable_sound i rho (L.length facts) r a facts [a];
          FStar.List.Tot.Properties.mem_memP b (reachable (L.length facts) r facts [a])
        | Congruence ->
-         (match a, b with
-          | App f xs, App g ys -> lemma_arguments_sound i rho r xs ys facts
+         if a = b then () else (match a, b with
+          | App f xs, App g ys ->
+            lemma_fast_arguments_match r xs ys facts;
+            lemma_arguments_sound i rho r xs ys facts
           | _, _ -> ())
        | _ -> ())
 
@@ -533,7 +906,13 @@ let lemma_logical_step_sound (i:interpretation value) (rho:env value)
        | Some es ->
          (match kind, es with
           | DefinitionIntroduction, [] | DefAxiom, [] ->
-            D.lemma_tautology_sound 128 i rho (Some?.v (proposition concl))
+            let target = Some?.v (proposition concl) in
+            if D.tautology 128 target then D.lemma_tautology_sound 128 i rho target
+            else TN.lemma_tautology i rho target
+          | Unverified "th-lemma", _ ->
+            TN.lemma_consequence i rho es (Some?.v (proposition concl))
+          | QuantifierInstantiation args, [] ->
+            Q.lemma_check_sound i rho args (Some?.v (proposition concl))
           | UnitResolution, c :: units ->
             lemma_boolean_clause i rho (formula_clause c);
             let unit_sound (e:expr)
@@ -575,6 +954,159 @@ let lemma_check_step_sound (i:interpretation value) (rho:env value)
       lemma_relational_step_sound i rho kind concl facts
     else lemma_logical_step_sound i rho kind concl facts
 
+let lemma_binder_quantifier_sound (i:interpretation value) (rho:env value)
+                                 (sorts:list sort) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\ well_formed concl /\ judgments_wf facts /\
+                    (forall (sigma:env value). judgments_hold i sigma facts) /\
+                    binder_quantifier_step sorts concl facts)
+          (ensures judgment_holds i rho concl)
+  = match relational concl, facts with
+    | Some (r, Quantifier k bs s a, Quantifier k' bs' s' b), [j] ->
+      let bodies (vs:list value{L.length vs = L.length bs})
+        : Lemma (eval i a (shift vs rho) == eval i b (shift vs rho))
+        = match edge r j with
+          | Some (source, target) ->
+            QR.lemma_equivalent 64 i (shift vs rho) a source;
+            lemma_edge_values i (shift vs rho) r j source target;
+            QR.lemma_equivalent 64 i (shift vs rho) target b
+          | None -> () in
+      FStar.Classical.forall_intro bodies
+    | _, _ -> ()
+
+let lemma_binder_negative_quantifier_sound (i:interpretation value) (rho:env value)
+                                          (sorts:list sort) (concl:judgment)
+                                          (facts:list judgment)
+  : Lemma (requires model_sound i /\ well_formed concl /\ judgments_wf facts /\
+                    (forall (sigma:env value). judgments_hold i sigma facts) /\
+                    binder_negative_quantifier_step sorts concl facts)
+          (ensures judgment_holds i rho concl)
+  = match relational concl, facts with
+    | Some (r, App n [Quantifier k bs s a], Quantifier k' bs' s' b), [j] ->
+      let bodies (vs:list value{L.length vs = L.length bs})
+        : Lemma (eval i (mk_not_expr a) (shift vs rho) == eval i b (shift vs rho))
+        = match edge r j with
+          | Some (source, target) ->
+            QR.lemma_equivalent 64 i (shift vs rho) (mk_not_expr a) source;
+            lemma_edge_values i (shift vs rho) r j source target;
+            QR.lemma_equivalent 64 i (shift vs rho) target b
+          | None -> () in
+      FStar.Classical.forall_intro bodies;
+      QN.lemma_duality i rho k bs a;
+      assert (eval i (Quantifier (QN.dual k) bs bool_sort (mk_not_expr a)) rho ==
+              eval i (Quantifier k' bs' s' b) rho)
+    | _, _ -> ()
+
+let rec lemma_premise_replacement_sound (i:interpretation value) (rho:env value)
+                                        (r:relation) (e replacement:expr)
+                                        (facts:list judgment)
+  : Lemma (requires boolean_model i /\ not_sound i /\ judgments_wf facts /\ judgments_hold i rho facts /\
+                    premise_replacement r e facts == Some replacement)
+          (ensures eval i e rho == eval i replacement rho)
+          (decreases facts)
+  = match facts with
+    | [] -> ()
+    | j :: rest ->
+      (match edge r j with
+       | Some (a, b) ->
+         if e = a then lemma_edge_values i rho r j a b
+         else if negative_replacement e a b then (
+           lemma_edge_values i rho r j a b;
+           QN.lemma_not_truth i rho e;
+           QN.lemma_not_truth i rho b;
+           match eval i e rho, eval i b rho with VBool _, VBool _ -> () | _, _ -> ())
+         else lemma_premise_replacement_sound i rho r e replacement rest
+       | None -> lemma_premise_replacement_sound i rho r e replacement rest)
+
+let rec lemma_replace_premises_sound (i:interpretation value) (rho:env value)
+                                     (r:relation) (facts:list judgment) (e:expr)
+  : Lemma (requires quant_extensional i /\ boolean_model i /\ not_sound i /\ judgments_wf facts /\
+                    (forall (sigma:env value). judgments_hold i sigma facts))
+          (ensures eval i (replace_premises r facts e) rho == eval i e rho)
+          (decreases e)
+  = match premise_replacement r e facts with
+    | Some replacement -> lemma_premise_replacement_sound i rho r e replacement facts
+    | None ->
+      (match e with
+       | App _ args -> lemma_replace_premise_args_sound i rho r facts args
+       | Quantifier _ bs _ body ->
+         let bodies (vs:list value{L.length vs = L.length bs})
+           : Lemma (eval i (replace_premises r facts body) (shift vs rho) ==
+                    eval i body (shift vs rho))
+           = lemma_replace_premises_sound i (shift vs rho) r facts body in
+         FStar.Classical.forall_intro bodies
+       | _ -> ())
+
+and lemma_replace_premise_args_sound (i:interpretation value) (rho:env value)
+                                     (r:relation) (facts:list judgment) (args:list expr)
+  : Lemma (requires quant_extensional i /\ boolean_model i /\ not_sound i /\ judgments_wf facts /\
+                    (forall (sigma:env value). judgments_hold i sigma facts))
+          (ensures eval_args i (replace_premise_args r facts args) rho == eval_args i args rho)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_replace_premises_sound i rho r facts a;
+      lemma_replace_premise_args_sound i rho r facts rest
+
+let rec lemma_reverse_judgments_sound (i:interpretation value) (rho:env value)
+                                      (facts:list judgment)
+  : Lemma (requires judgments_wf facts /\ judgments_hold i rho facts)
+          (ensures judgments_wf (reverse_judgments facts) /\
+                   judgments_hold i rho (reverse_judgments facts))
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | j :: rest ->
+    lemma_reverse_judgments_sound i rho rest;
+    (match j with Holds _ | Equal _ _ | Observational _ _ -> ())
+
+let lemma_binder_boolean_sound (i:interpretation value) (rho:env value)
+                              (negative:bool) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\ well_formed concl /\ judgments_wf facts /\
+                    (forall (sigma:env value). judgments_hold i sigma facts) /\
+                    binder_boolean_step negative concl facts)
+          (ensures judgment_holds i rho concl)
+  = match relational concl with
+    | Some (r, a, b) ->
+      if boolean_equiv 8 10 (replace_premises r facts a) b then (
+        lemma_replace_premises_sound i rho r facts a;
+        lemma_boolean_equiv_sound 8 10 i rho (replace_premises r facts a) b)
+      else if boolean_equiv 8 10 a (replace_premises r (reverse_judgments facts) b) then (
+        let reversed (sigma:env value)
+          : Lemma (judgments_hold i sigma (reverse_judgments facts))
+          = lemma_reverse_judgments_sound i sigma facts in
+        FStar.Classical.forall_intro reversed;
+        lemma_reverse_judgments_sound i rho facts;
+        lemma_replace_premises_sound i rho r (reverse_judgments facts) b;
+        lemma_boolean_equiv_sound 8 10 i rho a (replace_premises r (reverse_judgments facts) b))
+      else (
+        lemma_replace_premises_sound i rho r facts a;
+        if QR.equivalent 64 (replace_premises r facts a) b
+        then QR.lemma_equivalent 64 i rho (replace_premises r facts a) b
+        else TN.lemma_equivalent i rho (replace_premises r facts a) b)
+    | None -> ()
+
+let lemma_binder_step_sound (i:interpretation value) (rho:env value)
+                           (e:binder_entry) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\
+                    (forall (sigma:env value). judgments_hold i sigma facts) /\
+                    binder_step e concl facts)
+          (ensures judgment_holds i rho concl)
+  = if e.binder_name = "quant-intro" then
+      match e.binder_sorts with
+      | Some sorts -> lemma_binder_quantifier_sound i rho sorts concl facts
+      | None -> ()
+    else if e.binder_name = "nnf-pos" || e.binder_name = "nnf-neg" then
+      let negative = e.binder_name = "nnf-neg" in
+      match e.binder_sorts with
+      | Some sorts ->
+        if negative then lemma_binder_negative_quantifier_sound i rho sorts concl facts
+        else lemma_binder_quantifier_sound i rho sorts concl facts
+      | None -> lemma_binder_boolean_sound i rho negative concl facts
+    else match basic_rule_of_name e.binder_name with
+    | Some kind -> lemma_check_step_sound i rho kind concl facts
+    | None -> ()
+
 let rec lemma_judgment_member (i:interpretation value) (rho:env value)
                               (js:list judgment) (j:judgment)
   : Lemma (requires judgments_hold i rho js /\ L.memP j js)
@@ -583,6 +1115,123 @@ let rec lemma_judgment_member (i:interpretation value) (rho:env value)
   = match js with
     | [] -> ()
     | h :: rest -> if h = j then () else lemma_judgment_member i rho rest j
+
+let lemma_binder_step_with_inputs_sound (i:interpretation value) (rho sigma:env value)
+                                       (assertions:list judgment)
+                                       (e:binder_entry) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
+                    classify_fact e.binder_formula == Some concl /\
+                    (forall (eta:env value). judgments_hold i eta facts) /\
+                    binder_step_with_inputs assertions e concl facts)
+          (ensures judgment_holds i sigma concl) =
+  if binder_step e concl facts then lemma_binder_step_sound i sigma e concl facts
+  else (
+    FStar.List.Tot.Properties.mem_memP concl assertions;
+    lemma_judgment_member i rho assertions concl;
+    Q.lemma_scoped_closed [] e.binder_formula;
+    lemma_closed_eval_env_irrelevant i e.binder_formula 0 rho sigma;
+    assert (proposition concl == Some e.binder_formula);
+    lemma_proposition_sound i rho concl;
+    lemma_proposition_sound i sigma concl)
+
+let lemma_skolem_step_sound (skolems:list SK.definition) (i:interpretation value)
+                            (rho:env value) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ skolem_step skolems concl facts)
+          (ensures judgment_holds i rho concl) =
+  match concl with
+  | Observational a b -> SK.lemma_check_sound skolems a b i rho
+  | _ -> ()
+
+let lemma_binder_step_with_context_sound (skolems:list SK.definition)
+                                         (i:interpretation value) (rho sigma:env value)
+                                         (assertions:list judgment)
+                                         (e:binder_entry) (concl:judgment) (facts:list judgment)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
+                    classify_fact e.binder_formula == Some concl /\
+                    (forall (eta:env value). judgments_hold i eta facts) /\
+                    binder_step_with_context skolems assertions e concl facts)
+          (ensures judgment_holds i sigma concl) =
+  if binder_step_with_inputs assertions e concl facts
+  then lemma_binder_step_with_inputs_sound i rho sigma assertions e concl facts
+  else lemma_skolem_step_sound skolems i sigma concl facts
+
+let binder_cache_sound (i:interpretation value) (cache:Z3ProofIndex.index_tree judgment) : prop =
+  forall (key:int) (j:judgment) (rho:env value).
+    Z3ProofIndex.index_find cache key == Some j ==> judgment_holds i rho j
+
+let rec lemma_binder_premises (i:interpretation value) (rho:env value)
+                              (cache:Z3ProofIndex.index_tree judgment)
+                              (ids:list int) (facts:list judgment)
+  : Lemma (requires binder_cache_sound i cache /\
+                    opt_map (Z3ProofIndex.index_find cache) ids == Some facts)
+          (ensures judgments_hold i rho facts)
+          (decreases ids)
+  = match ids, facts with
+    | _ :: rest, _ :: remaining -> lemma_binder_premises i rho cache rest remaining
+    | _, _ -> ()
+
+let lemma_binder_cache_put (i:interpretation value) (cache:Z3ProofIndex.index_tree judgment)
+                           (next:nat) (concl:judgment)
+  : Lemma (requires binder_cache_sound i cache /\
+                    (forall (rho:env value). judgment_holds i rho concl))
+          (ensures binder_cache_sound i (Z3ProofIndex.index_put cache next concl))
+  = let at (key:int) (j:judgment) (rho:env value)
+      : Lemma (requires Z3ProofIndex.index_find
+                          (Z3ProofIndex.index_put cache next concl) key == Some j)
+              (ensures judgment_holds i rho j)
+      = if key < 0 then () else Z3ProofIndex.lemma_index_put cache next concl key in
+    FStar.Classical.forall_intro
+      (fun key -> FStar.Classical.forall_intro
+        (fun j -> FStar.Classical.forall_intro
+          (FStar.Classical.move_requires (at key j))))
+
+let rec lemma_binder_entries_sound (skolems:list SK.definition)
+                                   (i:interpretation value) (rho:env value)
+                                   (assertions:list judgment) (entries:list binder_entry)
+                                   (cache:Z3ProofIndex.index_tree judgment) (next:nat)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\
+                    judgments_hold i rho assertions /\ binder_cache_sound i cache /\
+                    Some? (check_binder_entries skolems assertions entries cache next))
+          (ensures binder_cache_sound i (Some?.v (check_binder_entries skolems assertions entries cache next)))
+          (decreases entries)
+  = match entries with
+    | [] -> ()
+    | e :: rest ->
+      let concl = Some?.v (classify_fact e.binder_formula) in
+      let facts = Some?.v (opt_map (Z3ProofIndex.index_find cache) e.binder_premises) in
+      let premise_env (rho:env value) : Lemma (judgments_hold i rho facts)
+        = lemma_binder_premises i rho cache e.binder_premises facts in
+      FStar.Classical.forall_intro premise_env;
+      let conclusion_env (sigma:env value) : Lemma (judgment_holds i sigma concl)
+        = lemma_binder_step_with_context_sound skolems i rho sigma assertions e concl facts in
+      FStar.Classical.forall_intro conclusion_env;
+      lemma_binder_cache_put i cache next concl;
+      lemma_binder_entries_sound skolems i rho assertions rest
+        (Z3ProofIndex.index_put cache next concl) (next + 1)
+
+let lemma_check_binder_with_context_sound (skolems:list SK.definition)
+                                         (i:interpretation value) (rho:env value)
+                                         (assertions:list judgment)
+                                         (certificate:binder_certificate) (concl:judgment)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
+                    check_binder_with_context skolems assertions certificate concl)
+          (ensures judgment_holds i rho concl)
+  = assert (binder_cache_sound i Z3ProofIndex.Empty);
+    lemma_binder_entries_sound skolems i rho assertions certificate.binder_entries Z3ProofIndex.Empty 0
+
+let lemma_check_binder_with_inputs_sound (i:interpretation value) (rho:env value)
+                                         (assertions:list judgment)
+                                         (certificate:binder_certificate) (concl:judgment)
+  : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
+                    check_binder_with_inputs assertions certificate concl)
+          (ensures judgment_holds i rho concl)
+  = lemma_check_binder_with_context_sound [] i rho assertions certificate concl
+
+let lemma_check_binder_sound (i:interpretation value) (rho:env value)
+                             (certificate:binder_certificate) (concl:judgment)
+  : Lemma (requires model_sound i /\ check_binder certificate concl)
+          (ensures judgment_holds i rho concl)
+  = lemma_check_binder_with_inputs_sound i rho [] certificate concl
 
 let rec lemma_add_hypotheses_sound (i:interpretation value) (rho:env value)
                                    (xs ys:list expr)
@@ -622,6 +1271,7 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
                     complementary h e /\ ~(lit_true i rho e))
           (ensures lit_true i rho h)
   = match h with
+    | App f [] -> (match e with | App g [] -> () | _ -> ())
     | App f [a] ->
       if f.decl_name = "not" && a = e then (
         lemma_not_relates i rho f a;
@@ -699,28 +1349,37 @@ let rec lemma_boolean_premises (ps:list checked_fact)
       lemma_boolean_premises rest;
       lemma_boolean_union p.hypotheses (premise_hypotheses rest)
 
-let node_obligation (i:interpretation value) (rho:env value) (strict:bool) (node:proof_node) : prop =
+let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:env value) (strict:bool)
+                    (assertions:list judgment) (node:proof_node) : prop =
   match node.kind with
   | DefAxiom ->
     not (check_step DefAxiom node.conclusion (premise_judgments node.premises)) ==>
     judgment_holds i rho node.conclusion
-  | RewriteRule ->
-    not (check_step RewriteRule node.conclusion (premise_judgments node.premises)) ==>
+  | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
+  | DestructiveEqualityResolution | QuantifierInstantiation _ ->
+    not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
+  | QuantifierIntroduction certificate ->
+    not (check_binder_with_context skolems assertions certificate node.conclusion) ==>
+    judgment_holds i rho node.conclusion
+  | Skolemization ->
+    not (skolem_step skolems node.conclusion (premise_judgments node.premises)) ==>
+    judgment_holds i rho node.conclusion
   | _ -> True
 
-let lemma_check_node_sound (i:interpretation value) (rho:env value)
+let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value) (rho:env value)
                            (strict:bool) (assertions:list judgment) (node:proof_node)
-  : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
-                    premises_sound i rho node.premises /\ node_obligation i rho strict node /\
-                    Some? (check_node_with_inputs strict assertions node))
-          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))))
-  = let aux (_:squash (conj_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))).hypotheses))
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
+                    premises_sound i rho node.premises /\ node_obligation skolems i rho strict assertions node /\
+                    Some? (check_node_with_context skolems strict assertions node))
+          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_context skolems strict assertions node))))
+  = let aux (_:squash (conj_holds i rho
+                       (fst (Some?.v (check_node_with_context skolems strict assertions node))).hypotheses))
       : Lemma (judgment_holds i rho node.conclusion) =
       match node.kind with
       | Asserted ->
@@ -730,7 +1389,7 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -738,14 +1397,38 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
           match proposition node.conclusion with
           | Some e ->
             (match node.kind with
-             | ArithmeticFarkas cs ->
-               LE.lemma_check_with_numeric_model cs e
+             | ArithmeticGomory c ->
+               G.lemma_check_sound c e
                  (Some?.v (propositions (premise_judgments node.premises))) i rho
-             | _ -> lemma_array_lemma_sound i rho e)
+             | ArithmeticFarkas cs ->
+               if LA.check cs e (Some?.v (propositions (premise_judgments node.premises)))
+               then LE.lemma_check_with_numeric_model cs e
+                      (Some?.v (propositions (premise_judgments node.premises))) i rho
+               else LP.lemma_linear_identity_sound e i rho
+             | Unverified "arith/lp-integer-tighten" ->
+               LP.lemma_tightening_sound e (Some?.v (propositions (premise_judgments node.premises))) i rho
+             | _ ->
+               if array_lemma e then lemma_array_lemma_sound i rho e
+               else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
+               else if ID.check e then ID.lemma_check e i rho
+               else
+                 let es = Some?.v (propositions (premise_judgments node.premises)) in
+                 if TN.consequence es e then TN.lemma_consequence i rho es e
+                 else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
+                 else if Some? (LA.comparison e) && LP.inferred_bound e es
+                 then LP.lemma_inferred_bound e es i rho
+                 else G.lemma_inferred_split_sound e es i rho)
           | None -> ())
-      | RewriteRule ->
-        if check_step RewriteRule node.conclusion (premise_judgments node.premises)
-        then lemma_check_step_sound i rho RewriteRule node.conclusion (premise_judgments node.premises)
+      | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
+      | DestructiveEqualityResolution | QuantifierInstantiation _ ->
+        if check_step node.kind node.conclusion (premise_judgments node.premises)
+        then lemma_check_step_sound i rho node.kind node.conclusion (premise_judgments node.premises)
+      | QuantifierIntroduction certificate ->
+        if check_binder_with_context skolems assertions certificate node.conclusion
+        then lemma_check_binder_with_context_sound skolems i rho assertions certificate node.conclusion
+      | Skolemization ->
+        if skolem_step skolems node.conclusion (premise_judgments node.premises)
+        then lemma_skolem_step_sound skolems i rho node.conclusion (premise_judgments node.premises)
       | LemmaRule ->
         lemma_proposition_sound i rho node.conclusion;
         lemma_boolean_premises node.premises;
@@ -764,11 +1447,40 @@ let lemma_check_node_sound (i:interpretation value) (rho:env value)
         lemma_check_step_sound i rho node.kind node.conclusion (premise_judgments node.premises)
     in FStar.Classical.impl_intro aux
 
-let lemma_obligation_free_node_sound (i:interpretation value) (rho:env value)
+let lemma_check_node_membership_sound (skolems:list SK.definition)
+                                      (i:interpretation value) (rho:env value)
+                                      (strict:bool) (assertions:list judgment)
+                                      (contains:judgment -> bool) (node:proof_node)
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
+                    contains node.conclusion == L.mem node.conclusion assertions /\
+                    premises_sound i rho node.premises /\ node_obligation skolems i rho strict assertions node /\
+                    Some? (check_node_with_membership skolems strict assertions contains node))
+          (ensures scoped_holds i rho
+            (fst (Some?.v (check_node_with_membership skolems strict assertions contains node))))
+  = lemma_check_node_membership skolems strict assertions contains node;
+    lemma_check_node_sound skolems i rho strict assertions node
+
+let lemma_obligation_free_node_sound (skolems:list SK.definition) (i:interpretation value) (rho:env value)
                                      (strict:bool) (assertions:list judgment) (node:proof_node)
-  : Lemma (requires model_sound i /\ judgments_hold i rho assertions /\
+  : Lemma (requires model_sound i /\ SK.context_model skolems i /\ judgments_hold i rho assertions /\
                     premises_sound i rho node.premises /\
-                    Some? (check_node_with_inputs strict assertions node) /\
-                    snd (Some?.v (check_node_with_inputs strict assertions node)) == 0)
-          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_inputs strict assertions node))))
-  = lemma_check_node_sound i rho strict assertions node
+                    Some? (check_node_with_context skolems strict assertions node) /\
+                    snd (Some?.v (check_node_with_context skolems strict assertions node)) == 0)
+          (ensures scoped_holds i rho (fst (Some?.v (check_node_with_context skolems strict assertions node))))
+  = lemma_check_node_sound skolems i rho strict assertions node
+
+let lemma_choice_obligation_free_node_sound (choice:SK.hilbert_choice)
+                                            (skolems:list SK.definition)
+                                            (base:interpretation value) (rho:env value)
+                                            (strict:bool) (assertions:list judgment) (node:proof_node)
+  : Lemma (requires SK.ordered_context skolems /\ quant_extensional base /\
+                    model_sound (SK.build_interpretation choice skolems base) /\
+                    judgments_hold (SK.build_interpretation choice skolems base) rho assertions /\
+                    premises_sound (SK.build_interpretation choice skolems base) rho node.premises /\
+                    Some? (check_node_with_context skolems strict assertions node) /\
+                    snd (Some?.v (check_node_with_context skolems strict assertions node)) == 0)
+          (ensures scoped_holds (SK.build_interpretation choice skolems base) rho
+            (fst (Some?.v (check_node_with_context skolems strict assertions node)))) =
+  SK.lemma_build_context choice skolems base;
+  lemma_obligation_free_node_sound skolems (SK.build_interpretation choice skolems base)
+    rho strict assertions node

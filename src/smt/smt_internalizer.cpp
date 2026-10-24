@@ -1544,7 +1544,8 @@ namespace smt {
                 else if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
                 }
-                m_clause_proof.add(l1, l2, k, j, &simp_lits);
+                if (!m_fparams.m_clause_proof)
+                    m_clause_proof.add(l1, l2, k, j, &simp_lits);
                 m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
@@ -1557,7 +1558,8 @@ namespace smt {
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
             clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
-            m_clause_proof.add(*cls, &simp_lits);
+            if (!m_fparams.m_clause_proof)
+                m_clause_proof.add(*cls, &simp_lits);
             if (lemma) {
                 cls->set_activity(activity);
                 if (k == CLS_LEARNED) {

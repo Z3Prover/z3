@@ -19,11 +19,13 @@ import z3
 _EXAMPLES = Path(__file__).resolve().parent
 sys.path.insert(0, str(_EXAMPLES))
 import proof_certificate
+import proof_clause_log
 import proof_preprocessing
 import proof_to_lean
+from test_proof_certificate import UNARY_XOR_GATES, UNARY_XOR_GATES_LOG
 from test_proof_to_lean import (
-    BRANCHING, CLAUSE, CONJUNCTION, DEF_AXIOM_CLAUSES, LITERAL, REWRITE, STRUCTURAL,
-    NESTED, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
+    BRANCHING, CLAUSE, CONFIGURED_INPUTS, CONJUNCTION, DEF_AXIOM_CLAUSES, INCREMENTAL_INPUTS, LITERAL, REWRITE,
+    STRUCTURAL, NESTED, UNARY_XOR, XOR, Z3TEST_LEAN_INPUTS, make_certificate,
 )
 
 
@@ -53,10 +55,50 @@ class TestProofToLeanIntegration(unittest.TestCase):
             return text
 
     def test_real_exported_refutations_are_checked_without_axioms(self):
-        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED,
+        for source in [LITERAL, CLAUSE, REWRITE, CONJUNCTION, STRUCTURAL, BRANCHING, XOR, NESTED, UNARY_XOR,
                        "(assert false)", "(assert (not true))"]:
             with self.subTest(source=source):
                 self.check(source, proof_certificate.export_certificate(source))
+
+    def test_inputs_with_ignored_options_are_checked_without_axioms(self):
+        # z3test regressions whose output, model, and search options used to
+        # be rejected at the frontend: the options never reach the solver or
+        # the certificate, and the theorem is over the assertions alone.
+        for name in ["3220", "3434", "z3.4", "z3.5"]:
+            with self.subTest(name=name):
+                source = CONFIGURED_INPUTS[name]
+                certificate = proof_certificate.export_certificate(source)
+                self.assertEqual(certificate["fragment"], "propositional")
+                self.assertEqual(certificate["source_smt2"], source)
+                text = self.check(source, certificate)
+                self.assertNotIn("set-option", text.split("theorem unsat", 1)[1])
+
+    def test_incremental_scripts_are_checked_without_axioms(self):
+        # z3test regressions with push/pop, several queries, and assumption
+        # literals, kept verbatim: the theorem is over the assertions in scope
+        # at the selected query (its assumptions included), the Lean file
+        # names the query when there are several, and the BitVec constants
+        # incsat declares in a later scope are out of it. The legacy core's
+        # proof of 3632 (whose only query sits inside a push) rewrites
+        # conjunctions and a distinct over 13 to 14 atoms, which the direct
+        # rewrite proofs settle by propagation alone, without truth tables.
+        expected = {"incsat": ("check-sat 3 of 5", 4), "t143": ("check-sat 2 of 2", 4), "3632": (None, 2)}
+        for name, (header, assertions) in expected.items():
+            with self.subTest(name=name):
+                source, query = INCREMENTAL_INPUTS[name]
+                certificate = proof_certificate.export_certificate(source, query)
+                self.assertEqual((certificate["fragment"], certificate["query"]), ("propositional", query))
+                self.assertEqual(certificate["source_smt2"], source)
+                self.assertEqual(len(certificate["assertions"]), assertions)
+                text = self.check(source, certificate)
+                if header is None:
+                    self.assertNotIn("Certified query", text)
+                    self.assertGreaterEqual(certificate["rule_counts"]["rewrite"], 8)
+                    self.assertGreaterEqual(text.count("    [_d"), 13)
+                    self.assertNotIn("cases _d", text)
+                else:
+                    self.assertIn("Certified query: " + header, text)
+                self.assertNotIn("BitVec", text.split("theorem unsat", 1)[1])
 
     def test_documented_boolean_rewrite_example(self):
         source = Z3TEST_LEAN_INPUTS["boolean_rewrite"]
@@ -85,6 +127,31 @@ class TestProofToLeanIntegration(unittest.TestCase):
         self.assertGreater(certificate["rule_counts"]["def-axiom"], 0)
         with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
             self.check(source, certificate)
+
+    def test_one_argument_xor_through_both_cores(self):
+        # (xor p) is p for Z3; the legacy core rewrites it away (checked
+        # axiom-free above), the sat.smt core simplifies it before logging and
+        # the exporter ties the assumed clauses to the assertions by cnf
+        # lemmas, and a log that keeps the literal gets its two gate clauses
+        # as def-axioms, which Lean proves without axioms.
+        for source in [UNARY_XOR, UNARY_XOR_GATES, CONFIGURED_INPUTS["3434"]]:
+            with self.subTest(source=source):
+                certificate = proof_certificate.export_clause_log_certificate(source)
+                self.assertEqual(certificate["fragment"], "propositional")
+                with tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory) / "checked.lean"
+                    proof_to_lean.check_and_write(source, certificate, output)
+                    result = subprocess.run([str(proof_to_lean._CHECK_LEAN), str(output)],
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(UNARY_XOR_GATES, context)
+        certificate = proof_clause_log.build_certificate(UNARY_XOR_GATES, fragment, assertions,
+                                                         UNARY_XOR_GATES_LOG, context)
+        self.assertEqual(certificate["rule_counts"]["def-axiom"], 2)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            text = self.check(UNARY_XOR_GATES, certificate)
+        self.assertEqual(text.count("private theorem def_axiom_"), 2)
 
     def test_preprocessing_audit_requires_an_essential_equality_and_search(self):
         source = Z3TEST_LEAN_INPUTS["boolean_solve_eqs"]
@@ -367,6 +434,8 @@ class TestProofToLeanIntegration(unittest.TestCase):
             "(or (= (not p) (not q)) p q)",
             "(or (not (= (not p) (not q))) p (not q))",
             "(or (not (xor (not p) q)) p (not q))",
+            "(or (not (xor (not p))) (not p))", "(or (xor (not p)) p)",
+            "(or (not (xor (and p q))) (and p q))", "(or (xor (and p q)) (not (and p q)))",
             "(or (ite (not p) q r) p (not q))",
             "(or (not (ite (not p) q r)) (not p) r)",
             "(or (not (=> (not p) (not q))) p (not q))",
@@ -854,7 +923,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
                 declaration["kind"], declaration["name"] = z3.Z3_OP_IFF, "iff"
         self.check(source, certificate)
 
-    def test_boolean_rewrite_truth_tables(self):
+    def test_boolean_rewrite_schemas_are_proved_without_truth_tables(self):
         equivalences = [
             ("(not true)", "false"),
             ("(not false)", "true"),
@@ -881,7 +950,45 @@ class TestProofToLeanIntegration(unittest.TestCase):
         source += "(assert (or p q r))(assert false)"
         steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
         steps.append(("asserted", [], "false"))
-        self.check(source, make_certificate(source, steps))
+        text = self.check(source, make_certificate(source, steps))
+        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertNotIn("cases _d", text)
+
+    def test_wide_boolean_rewrites_are_proved_structurally(self):
+        # The schemas Z3's rewriter applies to wide formulas (flattening,
+        # duplicate removal, de Morgan, implication chains, distributivity,
+        # Boolean distinct, xor and ite nests) over 8 to 24 atoms: a truth
+        # table would enumerate millions of cases, the direct proofs are
+        # linear in the formula or split on a handful of atoms. Every lemma
+        # is axiom-free (check prints the axioms of each rewrite theorem).
+        atoms = ["a%d" % index for index in range(24)]
+        nested = atoms[0]
+        for atom in atoms[1:]:
+            nested = "(and %s %s)" % (atom, nested)
+        chain = atoms[23]
+        for atom in reversed(atoms[:23]):
+            chain = "(=> %s %s)" % (atom, chain)
+        equivalences = [
+            (nested, "(and %s)" % " ".join(atoms)),
+            ("(and %s %s)" % (" ".join(atoms), " ".join(reversed(atoms))), "(and %s)" % " ".join(atoms)),
+            ("(not (and %s))" % " ".join(atoms), "(or %s)" % " ".join("(not %s)" % atom for atom in atoms)),
+            ("(not (or %s))" % " ".join(atoms), "(and %s)" % " ".join("(not %s)" % atom for atom in atoms)),
+            (chain, "(or %s %s)" % (" ".join("(not %s)" % atom for atom in atoms[:23]), atoms[23])),
+            ("(or %s)" % " ".join("(and a0 %s)" % atom for atom in atoms[1:]),
+             "(and a0 (or %s))" % " ".join(atoms[1:])),
+            ("(distinct %s)" % " ".join(atoms[:8]), "false"),
+            ("(xor (xor (xor a0 a1) (xor a2 a3)) (xor a4 a5))", "(xor a0 (xor a1 (xor a2 (xor a3 (xor a4 a5)))))"),
+            ("(ite a0 (ite a1 a2 a3) (ite a1 a4 a5))", "(ite a1 (ite a0 a2 a4) (ite a0 a3 a5))"),
+            ("(= (and %s) (or %s))" % (" ".join(atoms[:6]), " ".join(atoms[:6])),
+             "(or (and %s) (not (or %s)))" % (" ".join(atoms[:6]), " ".join(atoms[:6]))),
+        ]
+        source = "".join("(declare-const %s Bool)" % atom for atom in atoms)
+        source += "(assert (or %s))(assert false)" % " ".join(atoms)
+        steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
+        steps.append(("asserted", [], "false"))
+        text = self.check(source, make_certificate(source, steps))
+        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertNotIn("cases _d", text)
 
     def test_lean_rejects_false_rewrites_without_publication(self):
         source = "(declare-const p Bool)(declare-const q Bool)(assert p)(assert (not q))"

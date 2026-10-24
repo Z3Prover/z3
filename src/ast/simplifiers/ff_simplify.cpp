@@ -19,6 +19,7 @@ Author:
 #include "ast/simplifiers/propagate_values.h"
 #include "ast/simplifiers/solve_eqs.h"
 #include "ast/ff_decl_plugin.h"
+#include "ast/ff/ff_evidence.h"
 #include "ast/expr_substitution.h"
 #include "ast/occurs.h"
 #include "ast/simplifiers/ff_domain_analysis.h"
@@ -32,6 +33,52 @@ Author:
 #include <vector>
 
 namespace {
+    // A local preprocessing inference is admitted only when its exact source
+    // proofs and scoped hypotheses yield a checked field refutation.
+    proof_ref refute_local(ast_manager &m, proof_ref_vector const &sources) {
+        expr_ref_vector premises(m);
+        for (proof *source : sources) {
+            if (!source) return proof_ref(m);
+            premises.push_back(m.get_fact(source));
+        }
+        params_ref limits;
+        limits.set_uint("ff.max_steps", 100000);
+        limits.set_uint("ff.max_terms", 10000);
+        app_ref evidence = ff::record_refutation(m, premises, limits);
+        if (!evidence) return proof_ref(m);
+        auto clause = ff::refutation_clause(m, evidence);
+        proof_ref_vector parents(m);
+        parents.push_back(ff::mk_refutation_lemma(m, mk_or(clause), evidence));
+        for (unsigned i : ff::refutation_support(m, evidence))
+            parents.push_back(sources.get(i));
+        return proof_ref(m.mk_unit_resolution(parents.size(), parents.data(), m.mk_false()), m);
+    }
+
+    proof_ref prove_indicator(ast_manager &m, proof *first, proof *second, expr *def) {
+        if (!first || !second) return proof_ref(m);
+        app *term = to_app(to_app(def)->get_arg(1));
+        expr *condition = term->get_arg(0);
+        proof_ref denied(m.mk_hypothesis(mk_not(m, def)), m);
+        proof_ref_vector branches(m);
+        for (unsigned i = 0; i < 2; ++i) {
+            expr_ref selector(i == 0 ? condition : mk_not(m, condition), m);
+            proof_ref assumed(m.mk_hypothesis(selector), m);
+            expr_ref value(m.mk_eq(term, term->get_arg(i + 1)), m);
+            expr_ref axiom(m.mk_or(mk_not(m, selector), value), m);
+            proof_ref selected(m.mk_unit_resolution({m.mk_def_axiom(axiom), assumed}, value), m);
+            proof_ref_vector sources(m);
+            sources.push_back(first); sources.push_back(second);
+            sources.push_back(assumed); sources.push_back(selected); sources.push_back(denied);
+            proof_ref contradiction = refute_local(m, sources);
+            if (!contradiction) return proof_ref(m);
+            expr_ref clause(m.mk_or(mk_not(m, selector), def), m);
+            proof_ref discharged(m.mk_lemma(contradiction, clause), m);
+            branches.push_back(m.mk_unit_resolution({discharged, denied}, mk_not(m, selector)));
+        }
+        proof_ref contradiction(m.mk_unit_resolution(branches.size(), branches.data(), m.mk_false()), m);
+        return proof_ref(m.mk_lemma(contradiction, def), m);
+    }
+
     // cond(has_bits_probe, skip, solve-eqs): skip generic equality solving
     // when a formula looks like a Boolean domain candidate, for the same
     // reason ff_disjunctive_simplifier and ff_wire_simplifier preserve them.
@@ -105,8 +152,30 @@ void ff_disjunctive_simplifier::reduce() {
         // no division and retains the original assertion's support.
         // Restrict its use to univariate candidate bit domains as a
         // cost heuristic; the detector itself proves no Booleanity.
-        if (domains.variable(eq))
-            m_fmls.update(i, dependent_expr(m, eq, nullptr, m_fmls[i].dep()));
+        if (!domains.variable(eq))
+            continue;
+        proof_ref derived(m);
+        if (m_fmls.proofs_enabled()) {
+            if (!m_fmls[i].pr()) continue;
+            proof_ref denied(m.mk_hypothesis(mk_not(m, eq)), m);
+            proof_ref_vector parents(m);
+            parents.push_back(m_fmls[i].pr());
+            bool complete = true;
+            for (expr *branch : *to_app(f)) {
+                proof_ref assumed(m.mk_hypothesis(branch), m);
+                proof_ref_vector sources(m);
+                sources.push_back(assumed); sources.push_back(denied);
+                proof_ref contradiction = refute_local(m, sources);
+                if (!contradiction) { complete = false; break; }
+                expr_ref clause(m.mk_or(mk_not(m, branch), eq), m);
+                proof_ref discharged(m.mk_lemma(contradiction, clause), m);
+                parents.push_back(m.mk_unit_resolution({discharged, denied}, mk_not(m, branch)));
+            }
+            if (!complete) continue;
+            proof_ref contradiction(m.mk_unit_resolution(parents.size(), parents.data(), m.mk_false()), m);
+            derived = m.mk_lemma(contradiction, eq);
+        }
+        m_fmls.update(i, dependent_expr(m, eq, derived, m_fmls[i].dep()));
     }
 }
 
@@ -173,6 +242,13 @@ void ff_zero_test_simplifier::reduce() {
             continue;
         ptr_vector<expr> factors;
         factors_of(a, factors);
+        // A zero coefficient makes the guard vacuous; direct invocations of
+        // this pass need the check even if an earlier rewriter usually folds it.
+        bool zero_coefficient = false;
+        for (expr *factor : factors)
+            zero_coefficient |= ff.is_numeral(factor, c) && c.is_zero();
+        if (zero_coefficient)
+            continue;
         for (unsigned j = 0; j < factors.size(); ++j) {
             expr *z = factors[j];
             bool nz = false;
@@ -269,7 +345,12 @@ void ff_zero_test_simplifier::reduce() {
             expr_ref def(m.mk_eq(z, rec.nonzero ? m.mk_ite(m.mk_eq(x, zero), zero, one)
                                                  : m.mk_ite(m.mk_eq(x, zero), one, zero)),
                          m);
-            m_fmls.add(dependent_expr(m, def, nullptr, m.mk_join(m_fmls[i].dep(), m_fmls[rec.premise].dep())));
+            proof_ref derived(m);
+            if (m_fmls.proofs_enabled()) {
+                derived = prove_indicator(m, m_fmls[i].pr(), m_fmls[rec.premise].pr(), def);
+                if (!derived) continue;
+            }
+            m_fmls.add(dependent_expr(m, def, derived, m.mk_join(m_fmls[i].dep(), m_fmls[rec.premise].dep())));
             ++m_added;
             break;
         }
@@ -307,9 +388,20 @@ void ff_wire_simplifier::reduce() {
             continue;
         if (!is_uninterp_const(v))
             std::swap(v, rhs);
+        if (m_fmls.proofs_enabled() && !m_fmls[i].pr())
+            continue;
         // Keep one defining equality per variable; other equalities
         // remain constraints, so conflicting definitions cannot vanish.
-        if (!is_uninterp_const(v) || !ff.is_ff(v) || bits.contains(v) || ids.contains(v) || occurs(v, rhs))
+        expr *condition = nullptr, *hi = nullptr, *lo = nullptr;
+        rational h, l;
+        bool boolean_wire = m.is_ite(rhs, condition, hi, lo) &&
+            ff.is_numeral(hi, h) && ff.is_numeral(lo, l) &&
+            (h.is_zero() || h.is_one()) && (l.is_zero() || l.is_one());
+        // A Boolean ITE preserves the bit domain explicitly. A free-constant
+        // alias transports the original domain assertion unchanged in shape.
+        if (!is_uninterp_const(v) || !ff.is_ff(v) ||
+            (bits.contains(v) && !boolean_wire && !is_uninterp_const(rhs)) ||
+            ids.contains(v) || occurs(v, rhs))
             continue;
         ids.insert(v, static_cast<unsigned>(vars.size()));
         vars.push_back(v);
@@ -356,8 +448,9 @@ void ff_wire_simplifier::reduce() {
     }
     if (order.empty())
         return;
-    scoped_ptr<expr_substitution> subst = alloc(expr_substitution, m, true);
-    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, false);
+    bool proofs = m_fmls.proofs_enabled();
+    scoped_ptr<expr_substitution> subst = alloc(expr_substitution, m, true, proofs);
+    scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m, proofs);
     rp->set_substitution(subst.get());
     // Build the substitution bottom-up in dependency order, applying the
     // partial substitution built so far to each definition in turn, mirroring
@@ -376,9 +469,24 @@ void ff_wire_simplifier::reduce() {
         // Normalize at each wire boundary, before another definition copies
         // the expanded DAG. This preserves the sharing and early cancellations
         // of the former tactic implementation.
-        rw(new_def);
+        proof_ref rewrite_pr(m);
+        rw(new_def, tmp, rewrite_pr);
+        expr_ref circuit(m);
+        proof_ref circuit_pr(m);
+        if (ff_simplify_circuit(m, tmp, circuit, circuit_pr, proofs)) {
+            rewrite_pr = m.mk_transitivity(rewrite_pr, circuit_pr);
+            tmp = circuit;
+        }
         new_dep = m.mk_join(new_dep, m_fmls[defining_indices[i]].dep());
-        subst->insert(vars[i], new_def, new_dep);
+        if (proofs) {
+            proof_ref definition_pr(m_fmls[defining_indices[i]].pr(), m);
+            if (to_app(m.get_fact(definition_pr))->get_arg(0) != vars[i])
+                definition_pr = m.mk_symmetry(definition_pr);
+            definition_pr = m.mk_transitivity(definition_pr, new_pr, rewrite_pr);
+            subst->insert(vars[i], tmp, definition_pr, new_dep);
+        }
+        else
+            subst->insert(vars[i], tmp, new_dep);
         // The substitution has changed: cached rewrites of a newly defined
         // variable (or a containing term) must not survive this mutation.
         rp->reset();
@@ -391,11 +499,18 @@ void ff_wire_simplifier::reduce() {
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
         (*rp)(d.fml(), new_f, new_pr, new_dep);
-        rw(new_f, tmp);
+        proof_ref rewrite_pr(m);
+        rw(new_f, tmp, rewrite_pr);
         if (tmp == d.fml())
             continue;
         new_dep = m.mk_join(d.dep(), new_dep);
-        m_fmls.update(i, dependent_expr(m, tmp, nullptr, new_dep));
+        if (proofs) {
+            if (!d.pr()) continue;
+            m_fmls.update(i, dependent_expr(m, tmp,
+                m.mk_modus_ponens(d.pr(), m.mk_transitivity(new_pr, rewrite_pr)), new_dep));
+        }
+        else
+            m_fmls.update(i, dependent_expr(m, tmp, nullptr, new_dep));
     }
     m_eliminated += static_cast<unsigned>(order.size());
     m_fmls.model_trail().push(subst.detach(), {}, false);
@@ -419,6 +534,7 @@ ff_basic_simplifier::ff_basic_simplifier(ast_manager &m, params_ref const &p, de
     m_impl->add_simplifier(alloc(ff_disjunctive_simplifier, m, p, s));
     m_impl->add_simplifier(alloc(ff_zero_test_simplifier, m, s));
     m_impl->add_simplifier(alloc(ff_wire_simplifier, m, s));
+    m_impl->add_simplifier(alloc(ff_circuit_simplifier, m, s));
     m_impl->add_simplifier(alloc(ff_cond_solve_eqs_simplifier, m, p, s));
     m_impl->add_simplifier(alloc(rewriter_simplifier, m, p, s));
     updt_params(p);
@@ -474,12 +590,10 @@ bool ff_basic_simplifier::skip_boolean_goal() {
 }
 
 void ff_basic_simplifier::reduce() {
-    if (m_fmls.proofs_enabled())
-        throw rewriter_exception("QF_FF certificates are not supported in v1");
     if (!m_params.get_bool("ff.preprocess", true))
         return;
     scoped_watch watch(m_elapsed);
-    if (skip_boolean_goal()) {
+    if (!m_fmls.proofs_enabled() && skip_boolean_goal()) {
         ++m_boolean_skips;
         return;
     }

@@ -332,6 +332,7 @@ struct solver::imp {
             lp::explanation ex;
             m_nlsat->get_core(core);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             for (auto c : core) {
                 unsigned idx = static_cast<unsigned>(static_cast<imp *>(c) - this);
                 ex.push_back(idx);
@@ -506,6 +507,7 @@ struct solver::imp {
         lbool result = l_false;
         {
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             for (nlsat::literal l : clause) {
                 if (m_literal2constraint.get((~l).index(), lp::null_ci) != lp::null_ci) {
                     auto ci = m_literal2constraint[(~l).index()];
@@ -737,6 +739,7 @@ struct solver::imp {
             for (auto ci : lv)
                 ex.push_back(ci);
             nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            lemma.assume_nlsat();
             lemma &= ex;
             TRACE(nra, tout << lemma << "\n");
             break;

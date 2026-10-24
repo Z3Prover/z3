@@ -20,6 +20,7 @@ Author:
 --*/
 #include "math/ff/ff_f4.h"
 #include "math/ff/ff_field.h"
+#include "math/ff/ff_certificate.h"
 #include <algorithm>
 #include <bit>
 #include <type_traits>
@@ -228,6 +229,7 @@ namespace ff {
             std::vector<unsigned> mons;  // strictly decreasing in grevlex
             std::vector<E> coefs;
             deps dep;
+            unsigned proof = 0;
             bool empty() const { return mons.empty(); }
             size_t size() const { return mons.size(); }
             unsigned lm() const { return mons[0]; }
@@ -349,6 +351,42 @@ namespace ff {
             f4_config const &cfg;
             f4_stats &st;
             std::function<void(unsigned)> const &charge_fn;
+            certificate *trace;
+            std::vector<unsigned> const &original_vars;
+            size_t trace_bytes = 0;
+            unsigned record(certificate::node node) {
+                charge_fn(1);
+                size_t cost = 3 * (sizeof(node) + node.factor.capacity() * sizeof(unsigned) +
+                                  2 * (f.prime().get_num_bits() / 8 + 1));
+                if (trace->nodes.size() >= std::min(cfg.max_certificate_nodes, 100000u) ||
+                    cost > 16 * 1024 * 1024 - trace_bytes) throw exhausted();
+                trace_bytes += cost;
+                unsigned id = static_cast<unsigned>(trace->nodes.size());
+                trace->nodes.push_back(std::move(node));
+                return id;
+            }
+            unsigned multiply_proof(unsigned id, E const &coefficient, unsigned mon) {
+                if (!trace || (f.eq(coefficient, f.one()) && mon == M.one())) return id;
+                // Bound the expanded multiplier before allocation. Mapping back
+                // to original variable IDs is essential after dense renumbering.
+                if (M.deg(mon) > 65536) throw exhausted();
+                monomial factor;
+                auto exps = M.exps(mon);
+                for (unsigned v = 0; v < M.num_vars(); ++v) {
+                    charge_fn(1);
+                    if (exps[v]) {
+                        if (v >= original_vars.size()) throw exhausted();
+                        factor.insert(factor.end(), exps[v], original_vars[v]);
+                    }
+                }
+                std::sort(factor.begin(), factor.end());
+                return record({certificate::rule::multiply, id, 0, f.to(coefficient), std::move(factor)});
+            }
+            unsigned subtract_proof(unsigned id, unsigned reducer, E const &coefficient, unsigned mon) {
+                if (!trace) return id;
+                unsigned term = multiply_proof(reducer, f.neg(coefficient), mon);
+                return record({certificate::rule::add, id, term, rational(1), {}});
+            }
             unsigned m_pending = 0;
             // Batch work accounting: one callback (and one resource-limit check)
             // per 256 units instead of one per row operation.
@@ -396,6 +434,7 @@ namespace ff {
                 if (p.empty() || f.eq(p.coefs[0], f.one()))
                     return;
                 E li = f.inv(p.coefs[0]);
+                p.proof = multiply_proof(p.proof, li, M.one());
                 for (auto &c : p.coefs)
                     c = f.mul(c, li);
             }
@@ -481,6 +520,7 @@ namespace ff {
                 std::vector<unsigned> cols;
                 std::vector<E> coefs;
                 deps dep;
+                unsigned proof = 0;
             };
 
             void f4_step(std::vector<pair_t> const &sel) {
@@ -500,6 +540,7 @@ namespace ff {
                 }
                 // Materialize rows in monomial ids; pick one pivot per lead.
                 std::vector<std::vector<unsigned>> rmons;
+                std::vector<unsigned> rproof;
                 std::vector<unsigned> rsrc;  // basis index of each row
                 std::unordered_map<unsigned, unsigned> pivot_of;  // lead monomial -> row
                 std::vector<unsigned> to_reduce;
@@ -515,6 +556,7 @@ namespace ff {
                         throw exhausted();
                     rmons.push_back(std::move(ms));
                     rsrc.push_back(g);
+                    rproof.push_back(multiply_proof(G[g].proof, f.one(), u));
                     return static_cast<unsigned>(rmons.size() - 1);
                 };
                 for (auto const &[u, g] : specs) {
@@ -563,6 +605,7 @@ namespace ff {
                         R.cols.push_back(col_of.at(m));
                     R.coefs = src.coefs;
                     R.dep = src.dep;
+                    R.proof = rproof[r];
                 }
                 rmons.clear();
                 std::vector<int> pivrow(ncols, -1);
@@ -582,6 +625,7 @@ namespace ff {
                 for (unsigned r : to_reduce) {
                     auto &R = rows[r];
                     deps d = R.dep;
+                    unsigned derivation = R.proof;
                     unsigned first = R.cols[0];
                     size_t last = 0;
                     for (size_t k = 0; k < R.cols.size(); ++k) {
@@ -616,6 +660,7 @@ namespace ff {
                                 heap.push(cc);
                             }
                         }
+                        derivation = subtract_proof(derivation, Pv.proof, v, M.one());
                         d.merge(Pv.dep);
                         charge(1 + static_cast<unsigned>(sz / 16));
                     };
@@ -652,6 +697,7 @@ namespace ff {
                                     lacc[pc[k]] += f.wide_mul(nv, pk[k]);
                                 if (pc[sz - 1] > last)
                                     last = pc[sz - 1];
+                                derivation = subtract_proof(derivation, Pv.proof, v, M.one());
                                 d.merge(Pv.dep);
                                 charge(1 + static_cast<unsigned>(sz / 16));
                             }
@@ -689,6 +735,7 @@ namespace ff {
                     R.cols = std::move(oc);
                     R.coefs = std::move(ov);
                     R.dep = std::move(d);
+                    R.proof = multiply_proof(derivation, li, M.one());
                     pivrow[R.cols[0]] = static_cast<int>(r);
                     fresh.push_back(r);
                 }
@@ -703,6 +750,7 @@ namespace ff {
                         p.mons.push_back(colmon[c]);
                     p.coefs = std::move(rows[r].coefs);
                     p.dep = std::move(rows[r].dep);
+                    p.proof = rows[r].proof;
                     ++st.m_new_polys;
                     insert(std::move(p));
                     if (unit >= 0)
@@ -712,17 +760,22 @@ namespace ff {
 
         public:
             f4_solver(F const &f, mon_table &M, f4_config const &cfg, f4_stats &st,
-                      std::function<void(unsigned)> const &charge)
-                : f(f), M(M), cfg(cfg), st(st), charge_fn(charge), uops(f, charge), rng(cfg.seed * 0x9e3779b97f4a7c15ull + 1) {
+                      std::function<void(unsigned)> const &charge, certificate *trace, std::vector<unsigned> const &original_vars)
+                : f(f), M(M), cfg(cfg), st(st), charge_fn(charge), trace(trace), original_vars(original_vars), uops(f, charge), rng(cfg.seed * 0x9e3779b97f4a7c15ull + 1) {
                 m_slice_budget = cfg.slice_budget;
                 rational_bits(f.prime(), bits_p);
                 rational_bits(div(f.prime() - rational(1), rational(2)), bits_half);
+            }
+
+            unsigned input_proof(unsigned index) {
+                return trace ? record({certificate::rule::input, index, 0, rational(1), {}}) : 0;
             }
 
             // Normal form of p modulo the current non-redundant basis (full reduction).
             P nf(P const &p, int exclude = -1) {
                 P out;
                 out.dep = p.dep;
+                out.proof = p.proof;
                 struct cmp_lt {
                     mon_table const *M;
                     bool operator()(unsigned a, unsigned b) const { return M->cmp(a, b) < 0; }
@@ -756,6 +809,9 @@ namespace ff {
                     unsigned q = M.quo(m, Gg.lm());
                     for (size_t k = 1; k < Gg.size(); ++k)
                         add(M.mul(q, Gg.mons[k]), f.neg(f.mul(c, Gg.coefs[k])));
+                    // The proof denotes emitted remainder + active accumulator.
+                    // Moving an irreducible term changes neither that sum nor its proof.
+                    out.proof = subtract_proof(out.proof, Gg.proof, c, q);
                     out.dep.merge(Gg.dep);
                     charge(1 + static_cast<unsigned>(Gg.size() / 16));
                 }
@@ -800,8 +856,10 @@ namespace ff {
                 }
                 if (unit >= 0) {
                     unit_deps = G[unit].dep;
+                    if (trace) trace->root = G[unit].proof;
                     return false;
                 }
+                if (trace) return true; // no ideal contradiction; do not introduce unproved model facts
                 // Minimal basis: drop elements whose leading monomial is divisible by another's.
                 std::vector<unsigned> keep;
                 std::vector<unsigned> idx;
@@ -1252,8 +1310,10 @@ namespace ff {
         lbool solve_with(F const &f, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                          unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
                          f4_config const &cfg, f4_stats &st, std::function<void(unsigned)> const &charge,
-                         std::vector<polynomial> *reduced_basis) {
+                         std::vector<polynomial> *reduced_basis, certificate *proof) {
             using E = typename F::elem;
+            if (proof && !neqs.empty()) return l_undef; // witnesses must be explicit checked inputs
+            certificate pending_proof;
             // Dense renumbering of variables and premises.
             std::unordered_map<unsigned, unsigned> var_index, dep_index;
             std::vector<unsigned> var_of, dep_of;
@@ -1289,7 +1349,7 @@ namespace ff {
             if (n == 0)
                 n = 1;
             mon_table M(n, cfg.max_monomials, charge);
-            f4_solver<F> S(f, M, cfg, st, charge);
+            f4_solver<F> S(f, M, cfg, st, charge, proof ? &pending_proof : nullptr, var_of);
             auto convert = [&](polynomial const &p, int rabinowitsch) {
                 poly<F> q;
                 for (unsigned d : p.dependencies)
@@ -1331,8 +1391,11 @@ namespace ff {
                 return q;
             };
             std::vector<poly<F>> input;
-            for (auto const &p : eqs)
-                input.push_back(convert(p, -1));
+            for (auto const &p : eqs) {
+                auto q = convert(p, -1);
+                q.proof = S.input_proof(static_cast<unsigned>(input.size()));
+                input.push_back(std::move(q));
+            }
             for (unsigned i = 0; i < neqs.size(); ++i) {
                 // A zero disequality polynomial yields the unit -1, hence UNSAT.
                 input.push_back(convert(neqs[i], static_cast<int>(n_orig + i)));
@@ -1345,8 +1408,10 @@ namespace ff {
             if (!S.groebner(std::move(input), basis, ud)) {
                 conflict.clear();
                 export_deps(ud);
+                if (proof) *proof = std::move(pending_proof);
                 return l_false;
             }
+            if (proof) return l_undef;
             if (reduced_basis && neqs.empty()) {
                 reduced_basis->clear();
                 for (auto const &g : basis) {
@@ -1401,17 +1466,17 @@ namespace ff {
     lbool f4_solve(rational const &p, std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                    unsigned num_vars, std::vector<rational> &values, std::set<unsigned> &conflict,
                    f4_config const &cfg, f4_stats &stats, std::function<void(unsigned)> const &charge,
-                   std::vector<polynomial> *reduced_basis) {
+                   std::vector<polynomial> *reduced_basis, certificate *proof) {
         if (field64::fits(p)) {
             field64 f(p);
-            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, charge, reduced_basis);
+            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, charge, reduced_basis, proof);
         }
         if (field256::fits(p)) {
             field256 f(p);
             // Four-limb arithmetic costs several times a one-limb operation;
             // weigh the work units so budgets track time across fields.
             std::function<void(unsigned)> weighted = [&](unsigned k) { charge(4 * k); };
-            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, weighted, reduced_basis);
+            return solve_with(f, eqs, neqs, num_vars, values, conflict, cfg, stats, weighted, reduced_basis, proof);
         }
         ++stats.m_unsupported;
         return l_undef;
@@ -1422,7 +1487,7 @@ namespace ff {
     lbool f4_solve(rational const &, std::vector<polynomial> const &, std::vector<polynomial> const &,
                    unsigned, std::vector<rational> &, std::set<unsigned> &,
                    f4_config const &, f4_stats &stats, std::function<void(unsigned)> const &,
-                   std::vector<polynomial> *) {
+                   std::vector<polynomial> *, certificate *) {
         ++stats.m_unsupported;
         return l_undef;
     }

@@ -28,6 +28,10 @@
 namespace lp {
     
     template std::set<std::pair<unsigned, unsigned>> static_matrix<mpq, mpq>::get_domain();
+    template void static_matrix<mpq, mpq>::add_new_element(unsigned, unsigned, const mpq&);
+    template mpq& static_matrix<mpq, mpq>::add_new_element(unsigned, unsigned);
+    template void static_matrix<mpq, numeric_pair<mpq>>::add_new_element(unsigned, unsigned, const mpq&);
+    template mpq& static_matrix<mpq, numeric_pair<mpq>>::add_new_element(unsigned, unsigned);
     template std::set<std::pair<unsigned, unsigned>> static_matrix<mpq, numeric_pair<mpq> >::get_domain();
     template void static_matrix<mpq, mpq>::add_column_to_vector(mpq const&, unsigned int, mpq*) const;
     template bool static_matrix<mpq, mpq>::is_correct() const;

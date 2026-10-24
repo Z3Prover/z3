@@ -53,6 +53,7 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 | Subject | Report | Main modules |
 |---|---|---|
 | Quantifier distribution and substitution congruence; preprocessor survey | [Simplifiers](SIMPLIFIERS_REPORT.md) | [`Z3SimplifierTheory.fst`](Z3SimplifierTheory.fst) |
+| Monotone real-variable elimination, equisatisfiability, and well-formed model reconstruction | [Monotone elimination](ELIM_MONOTONE_REPORT.md) | [`Z3ElimMonotone.fst`](Z3ElimMonotone.fst) |
 | Restoration of eliminated symbols and model-converter semantics | [Model reconstruction](MODEL_RECONSTRUCTION_REPORT.md) | [`Z3ModelReconstructionTheory.fst`](Z3ModelReconstructionTheory.fst) |
 | Universal instantiation and array/set-indicator witnesses | [Leibniz simplifier](LEIBNIZ_SIMPLIFIER_REPORT.md) | [`Z3LeibnizTheory.fst`](Z3LeibnizTheory.fst) |
 | `rewriter_def.h` proof production and proof smart constructors | [Rewriter proofs](PROOF_REWRITER_REPORT.md) | [`Z3ProofTheory.fst`](Z3ProofTheory.fst) |
@@ -63,6 +64,17 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 
 ## Focused pull-request audits
 
+The [F* NFV PR audit workflow](../.github/workflows/fstar-nfv-audit.md)
+audits selected obligations when source-changing PRs are opened or updated.
+It publishes proof sources, a report, verification logs, and a hash manifest
+under `fstar/audits/pr-<number>/<audited-head-sha>/` on same-repository PR
+branches, with a revision-specific comment. Fork PRs receive the comment
+and downloadable run artifacts instead; artifacts expire after 30 days.
+The verifier uses pinned F* and its independent released Z3 backend, not a
+solver built from the PR. Only the trusted base is checked out, and PR
+source is treated as data. These are advisory, scoped semantic audits:
+unproved obligations and inconclusive runs do not establish correctness.
+
 | Change | Report | Proof module |
 |---|---|---|
 | #11159: RTN selection in real-to-float conversion | [RTN selector audit](PR_11159_RTN_SELECT_REPORT.md) | [`Z3FpaRTNSelect.fst`](Z3FpaRTNSelect.fst) |
@@ -72,6 +84,7 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 | #11165: provably out-of-range substring offsets | [Sequence extract audit](PR_11165_SEQ_EXTRACT_LENGTH_PRODUCT_REPORT.md) | [`Z3SeqExtractLengthProduct.fst`](Z3SeqExtractLengthProduct.fst) |
 | #11180: exponentiation preprocessing, counterexamples to original bounds, and corrected real-exponent clauses | [Exponentiation audit and scope correction to the original NLA power proofs](PR_11180_POWER_REPORT.md) | [`Z3PowerPreprocessing.fst`](Z3PowerPreprocessing.fst), [`Z3PowerSaturation.fst`](Z3PowerSaturation.fst) |
 | zwine: integer absolute-exponent semantics, guarded refinements, and private search phasing | [Integer exponentiation audit: five checked modules with fresh-cache replay and manual C++ boundaries](ZWINE_NFV_REPORT.md) | [`Z3SwinePower.fst`](Z3SwinePower.fst), [`Z3SwineRefinements.fst`](Z3SwineRefinements.fst), [`Z3SwineInterpolation.fst`](Z3SwineInterpolation.fst), [`Z3SwineSearch.fst`](Z3SwineSearch.fst), [`Z3SwinePrime.fst`](Z3SwinePrime.fst) |
+| #11296 / issue #11295: branch-dependent store-index deduplication in array conflicts | [Array index-dependency audit](PR_11296_ARRAY_INDEX_DEPENDENCIES_REPORT.md) | [`Z3ArrayIndexDependencies.fst`](Z3ArrayIndexDependencies.fst) |
 
 For proof-leaf tagging experiments and checker coverage measurements,
 see [proof-checking experiments](PROOF_CHECKING.md#experiments-and-coverage).

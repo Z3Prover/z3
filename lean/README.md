@@ -73,7 +73,29 @@ is certified from the legacy proof object only. A QF_LRA certificate
 from the legacy proof object carries `theory_lra`'s Farkas coefficients as
 `th-lemma` parameters; each such step is stated as the implication from its
 premises, re-derived in Python and proved by `grind`, and congruence through
-an arithmetic operator is a `grind` lemma over the argument equalities.
+an arithmetic operator is a `grind` lemma over the argument equalities. A
+QF_UFLRA input (uninterpreted sorts or functions mixed with linear real
+arithmetic) takes both the `_vars` valuation and the `_U` binders, plus
+`(_real : Rat -> _U) (_rfuns : Nat -> List _U -> Rat)`: a Real argument of a
+function or predicate is injected into `_U` by `_real`, and a function with a
+Real result is the family `_rfuns`, whose applications are the atoms of the
+linear forms; both cores certify it, predicates over Bool alone included. A
+QF_LIA input (linear integer arithmetic on its own) is certified from both
+cores; its theorem quantifies over `_vars : Nat -> Int`, its
+theory lemmas and arithmetic rewrites are proved by `first | omega | grind`,
+and the integer solver's `cut` steps, its `arith` axioms defining `div` and
+`mod` by a numeral, the legacy core's cuts (bare `arith` steps with
+premises) and lattice conflicts (`farkas` without coefficients), and Farkas
+steps whose coefficients rest on cuts, reach Lean with their shapes checked
+only, so that tactic is the check for them (`omega` reads `/` and `%` by a
+positive numeral; an `arith` axiom with a negative divisor falls to `grind`).
+Integer `div` and `mod` are Lean's Euclidean `/` and `%` (nonzero constant
+divisors only in the assertions; any other there is rejected) and `abs` is the classical `ite`
+SMT-LIB defines it as. A QF_UFLIA input (the same mixed with uninterpreted sorts
+or functions) takes the QF_UFLRA binders over Int instead,
+`(_vars : Nat -> Int)`, `(_int : Int -> _U)`, and
+`(_ifuns : Nat -> List _U -> Int)`, and is certified from the clause log
+only, with `first | omega | grind` for its lemmas and helpers.
 
 The second command checks the generated proof with Lean before publishing it.
 It requires the original input separately and verifies that the certificate's
@@ -82,8 +104,12 @@ explicitly; the producer's `unsat` label is never enough.
 
 The generated theorem derives `False` from the encoded original assertions using
 Lean core proof terms, without any axioms or `sorry`. Boolean rewrites are checked
-by exhaustive cases and kernel reduction, independently of the assertions.
-Structural rules use direct logical proof terms, without truth tables.
+independently of the assertions by a direct proof term: truth values propagate
+through the gates of both sides (one typed `have` per step) and, where that does
+not settle a side, the term splits on an atom with `Decidable.em`; the exhaustive
+truth table over the atoms is only the fallback for an equivalence the prover
+cannot settle. Structural rules use direct logical proof terms, without truth
+tables.
 Condensed transitivity (`trans*`) follows equivalence paths through its supplied
 premises, including reversed and redundant edges, and composes the result with
 `Iff.symm` and `Iff.trans`. It rejects disconnected endpoints and preserves the
@@ -102,8 +128,9 @@ gate clauses, and learned clauses are eliminated constructively from the
 refutation, so they do not become extra theorem hypotheses. Refutations longer
 than 500 steps are split into separately checked `private theorem`s of at most
 500 nested steps each, in every fragment; propositional lemmas receive their
-witnesses as parameters so the split proof stays axiom-free. Large rewrite truth
-tables can exceed Lean's resource limits; failures never publish a proof.
+witnesses as parameters so the split proof stays axiom-free. A rewrite that falls
+back to its truth table can exceed Lean's resource limits; failures never
+publish a proof.
 Parsing and SMT-to-Lean statement translation remain trusted frontend components.
 See [the exporter documentation](../examples/python/README) for the exact scope
 and trust boundary.

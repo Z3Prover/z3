@@ -26,8 +26,8 @@ import z3
 
 from proof_certificate import (
     DagBuilder, ProofExportError, _ARITH_PREDICATES, _CNF_HINT, _COEFFICIENT_HINTS, _LITERAL_HINTS,
-    _NO_PREPROCESSING, _TOKEN, constant_value, is_uninterpreted_sort, linear_combination_refutes,
-    numeral_value,
+    _NO_PREPROCESSING, _TOKEN, bound_combination_refutes, constant_value, integer_divisor,
+    integer_tightened, is_uninterpreted_sort, linear_combination_refutes, numeral_value,
 )
 
 _NUMERAL = re.compile(r"^[0-9]+(\.[0-9]+)?$")
@@ -161,7 +161,13 @@ def _dependency_core(text):
 
 
 def trim_clause_log(z3_executable, text, timeout=None):
-    """Reduce large logs with untrusted native dependencies; replay checks every retained step."""
+    """Reduce large logs with untrusted native dependencies; replay checks every retained step.
+
+    Trimming only shortens the replay. When the trimmer reports an error (it
+    rejects an inference it cannot derive by unit propagation) or writes a
+    dependency graph the replay cannot use, the untrimmed log is returned
+    with a warning, and the replay checks every step of it instead.
+    """
     if len(text) < _TRIM_THRESHOLD:
         return text
     with tempfile.TemporaryDirectory(prefix="z3_clause_trim_") as directory:
@@ -173,10 +179,17 @@ def trim_clause_log(z3_executable, text, timeout=None):
         except OSError as error:
             raise ProofExportError("cannot run native proof trimming: %s" % error) from error
         if run.returncode or "(error" in run.stdout:
-            raise ProofExportError("native proof trimming failed: %s" % (run.stderr + run.stdout)[-2000:])
+            warnings.warn("native proof trimming failed, replaying the untrimmed log: %s"
+                          % (run.stderr + run.stdout)[-2000:], RuntimeWarning)
+            return text
         if run.stderr.strip():
             warnings.warn("native proof trimming diagnostics:\n" + run.stderr[-2000:], RuntimeWarning)
-        return _dependency_core(run.stdout)
+        try:
+            return _dependency_core(run.stdout)
+        except ProofExportError as error:
+            warnings.warn("native proof trimming wrote an unusable log, replaying the untrimmed log: %s"
+                          % error, RuntimeWarning)
+            return text
 
 
 def _symbol(token):
@@ -210,6 +223,10 @@ class _Terms:
         self.constants = {}
         self.functions = {}  # uninterpreted functions and predicates of the input, by name
         self.sorts = set()   # names of the input's uninterpreted sorts
+        # The log prints numerals without a sort; an integer input (which the
+        # exporter never mixes with Real) values them in Int, so that the
+        # rebuilt atoms compare Int terms rather than coercing them to Real.
+        self.integer = False
         pending, seen = list(assertions), set()
         while pending:
             expr = pending.pop()
@@ -218,6 +235,8 @@ class _Terms:
             seen.add(expr.get_id())
             if is_uninterpreted_sort(expr.sort()):
                 self.sorts.add(expr.sort().name())
+            if z3.is_int(expr):
+                self.integer = True
             if expr.decl().kind() == z3.Z3_OP_UNINTERPRETED:
                 if z3.is_const(expr):
                     self.constants[str(expr.decl().name())] = expr
@@ -240,7 +259,12 @@ class _Terms:
             if sexpr == "false":
                 return z3.BoolVal(False, self.context)
             if _NUMERAL.match(sexpr):
-                return z3.RealVal(str(Fraction(sexpr)), self.context)
+                value = Fraction(sexpr)
+                if not self.integer:
+                    return z3.RealVal(str(value), self.context)
+                if value.denominator != 1:
+                    raise ProofExportError("fractional numeral in an integer clause log: %s" % sexpr)
+                return z3.IntVal(value.numerator, self.context)
             name = _symbol(sexpr)
             if name in self.constants:
                 return self.constants[name]
@@ -270,6 +294,11 @@ class _Terms:
             return z3.Implies(arguments[0], arguments[1])
         if head == "xor" and count == 2:
             return z3.Xor(arguments[0], arguments[1])
+        if head == "xor" and count == 1:
+            # Z3 accepts (xor p) and reads it as p; the input may state it.
+            # Live sat.smt logs simplify the node away before logging, so
+            # this branch serves constructed or future logs (see ensure_gates).
+            return _unary_xor(arguments[0])
         if head == "ite" and count == 3:
             return z3.If(arguments[0], arguments[1], arguments[2])
         if head == "=" and count == 2:
@@ -286,6 +315,11 @@ class _Terms:
             return self._subtract(arguments)
         if head == "/" and count == 2:
             return arguments[0] / arguments[1]
+        if head in ("div", "mod") and count == 2 and all(z3.is_int(argument) for argument in arguments):
+            # z3py builds the integer operators for Int operands: div for /, mod for %.
+            return arguments[0] / arguments[1] if head == "div" else arguments[0] % arguments[1]
+        if head == "abs" and count == 1 and z3.is_int(arguments[0]):
+            return z3.Abs(arguments[0])
         if head in ("<=", "<", ">=", ">") and count == 2:
             left, right = arguments
             return {"<=": left <= right, "<": left < right, ">=": left >= right, ">": left > right}[head]
@@ -347,6 +381,15 @@ class _Terms:
         return None
 
 
+def _unary_xor(argument):
+    """The one-argument application of xor, which z3py's Xor does not build."""
+    # Z3 shares one OP_XOR declaration (binary domain) between its arities;
+    # the throwaway binary application is only a way to obtain it.
+    decl = z3.Xor(argument, argument).decl()
+    return z3.BoolRef(z3.Z3_mk_app(argument.ctx.ref(), decl.ast, 1, (z3.Ast * 1)(argument.as_ast())),
+                      argument.ctx)
+
+
 def _strip(literal):
     """Return (atom, polarity) for a literal with any number of negations."""
     polarity = True
@@ -364,6 +407,41 @@ def _complement(literal):
     return literal.arg(0) if z3.is_not(literal) else z3.Not(literal)
 
 
+def _distinct_gate(literals):
+    """Whether a clause is a gate clause of a distinct over terms, valid on its own.
+
+    The sat.smt core relates a distinct below the root to the disjunction of
+    its pairwise equalities by two alldiff clauses, (or d some_eq) and
+    (or (not d) (not some_eq)). The positive clause holds when every pair of
+    arguments of d is equated by a disjunct; the negated one when every
+    disjunct equates two arguments of d. Both are required here, as in Z3's
+    own checker; the reconstructor proves exactly these shapes.
+    """
+    if len(literals) != 2:
+        return False
+    for first, second in ((literals[0], literals[1]), (literals[1], literals[0])):
+        distinct, polarity = _strip(first)
+        if not z3.is_distinct(distinct) or distinct.num_args() < 2 or z3.is_bool(distinct.arg(0)):
+            continue
+        some_eq, other_polarity = _strip(second)
+        if polarity != other_polarity:
+            return False
+        arguments = distinct.children()
+        pairs = {frozenset((left.get_id(), right.get_id()))
+                 for index, left in enumerate(arguments) for right in arguments[index + 1:]}
+        disjuncts = some_eq.children() if z3.is_or(some_eq) else [some_eq]
+        covered = set()
+        for disjunct in disjuncts:
+            if not z3.is_eq(disjunct):
+                return False
+            pair = frozenset(argument.get_id() for argument in disjunct.children())
+            if pair not in pairs:
+                return False
+            covered.add(pair)
+        return not polarity or covered == pairs
+    return False
+
+
 def _tautology(literals):
     """A clause with true, not false, or complementary literals needs no source."""
     seen = {}
@@ -377,17 +455,21 @@ def _tautology(literals):
 
 
 def _linear(expr, terms=None, scale=Fraction(1)):
-    """Return (variables -> coefficient, constant) for a linear Real term.
+    """Return (variables -> coefficient, constant) for a linear Real or Int term.
 
-    A Real ite term is an opaque variable here, as in Z3's arithmetic solver:
-    the clause log relates it to its branches through explicit gate clauses.
+    An ite term is an opaque variable here, as in Z3's arithmetic solver: the
+    clause log relates it to its branches through explicit gate clauses. So
+    are an integer div or mod by a nonzero numeral, which the solver's arith
+    axioms relate to their operands, and abs.
     """
     terms = {} if terms is None else terms
     kind = expr.decl().kind()
     value = constant_value(expr)
     if value is not None:
         return terms, scale * value
-    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE):
+    if kind in (z3.Z3_OP_IDIV, z3.Z3_OP_MOD):
+        integer_divisor(expr)
+    if kind in (z3.Z3_OP_UNINTERPRETED, z3.Z3_OP_ITE, z3.Z3_OP_IDIV, z3.Z3_OP_MOD, z3.Z3_OP_ABS):
         terms[expr.get_id()] = terms.get(expr.get_id(), Fraction(0)) + scale
         return terms, Fraction(0)
     constant = Fraction(0)
@@ -424,14 +506,19 @@ def _linear(expr, terms=None, scale=Fraction(1)):
 
 
 def _constraint(literal):
-    """Return (relation, terms, constant) with sum(terms) + constant <relation> 0."""
+    """Return (relation, terms, constant) with sum(terms) + constant <relation> 0.
+
+    Over Int a strict constraint is tightened to its non-strict form, as Z3's
+    checker does, so the canonical keys identify (< t 5), (<= t 4), and
+    (not (<= 5 t)) and the Farkas combinations work with the rounded bounds.
+    """
     atom, polarity = _strip(literal)
     kind = atom.decl().kind()
     if kind not in _ARITH_PREDICATES and kind != z3.Z3_OP_EQ:
         raise ProofExportError("hint literal is not an arithmetic atom")
     left, right = atom.arg(0), atom.arg(1)
-    if not z3.is_real(left):
-        raise ProofExportError("hint literal is not a Real atom")
+    if not z3.is_arith(left):
+        raise ProofExportError("hint literal is not an arithmetic atom")
     if kind == z3.Z3_OP_EQ:
         if not polarity:
             raise ProofExportError("negated equalities cannot enter a linear combination")
@@ -446,25 +533,70 @@ def _constraint(literal):
             relation, first, second = ("<=" if strict else "<"), right, left
     terms, constant = _linear(first)
     terms, offset = _linear(second, terms, Fraction(-1))
-    return relation, {k: v for k, v in terms.items() if v != 0}, constant + offset
+    terms = {k: v for k, v in terms.items() if v != 0}
+    if z3.is_int(left):
+        return integer_tightened(relation, terms, constant + offset)
+    return relation, terms, constant + offset
 
 
 def check_linear_hint(name, pairs):
-    """Check Farkas combinations and the shape of implied-equality hints."""
+    """Check Farkas combinations and the shapes of implied-equality and cut hints.
+
+    Returns whether the hint's coefficients certify the lemma. Over Real they
+    must: a farkas or bound combination that does not refute its literals is
+    rejected. Over Int the solver's explanations may rest on cuts it made
+    along the way (Z3's own checker fails on those too, "maybe follows from a
+    cut"), so a farkas or bound whose coefficients do not refute the
+    tightened and, for bound, rounded literals is kept without coefficients,
+    and a cut hint never carries any: the clause is shape-checked here
+    (integer linear atoms) and proved by Lean alone, as for euf.
+    """
     if name == "implied-eq":
         atom, polarity = _strip(pairs[-1][1])
-        if polarity or not z3.is_eq(atom) or not z3.is_real(atom.arg(0)):
-            raise ProofExportError("implied-eq hint must end in a Real disequality")
+        if polarity or not z3.is_eq(atom) or not z3.is_arith(atom.arg(0)):
+            raise ProofExportError("implied-eq hint must end in an arithmetic disequality")
         _constraint(atom)
         pairs = pairs[:-1]
-    constraints = []
+    constraints, integer = [], False
     for coefficient, literal in pairs:
         relation, terms, constant = _constraint(literal)
         constraints.append((coefficient, relation, terms, constant))
-    # Implied equality is not a Farkas contradiction: Lean proves that the
-    # preceding literals imply the equality complementary to the last literal.
-    if name != "implied-eq" and not linear_combination_refutes(constraints):
+        integer = integer or z3.is_int(_strip(literal)[0].arg(0))
+    if name == "cut":
+        if not pairs:
+            raise ProofExportError("cut hint without literals")
+        if not integer:
+            raise ProofExportError("cut hint over Real atoms")
+        return False
+    if name == "implied-eq":
+        # Not a Farkas contradiction: Lean proves that the preceding literals
+        # imply the equality complementary to the last literal.
+        return False
+    if linear_combination_refutes(constraints) or (
+            name == "bound" and integer and bound_combination_refutes(constraints)):
+        return True
+    if not integer:
         raise ProofExportError("%s hint coefficients do not refute its literals" % name)
+    return False
+
+
+def check_arith_hint(pairs):
+    """Shape-check the arithmetic solver's axiom hints: every literal is a linear arithmetic atom.
+
+    The sat.smt arithmetic solver labels the clauses it adds on its own arith
+    (the definitions of an integer div and mod by a numeral k: k * (div t k)
+    + (mod t k) = t, 0 <= mod t k, and mod t k <= |k| - 1). The literals are
+    not a Farkas combination, so only their shape is checked (an arithmetic
+    equality or inequality whose sides are linear, with div and mod by a
+    nonzero numeral as atoms); Lean proves the clause. Each literal is
+    checked as its atom, whatever its polarity: the equality axiom reaches
+    the hint as a negated equality, which the combination paths (cut among
+    them) refuse because a disequality cannot be summed, while here nothing
+    is summed and Lean must prove the clause under either polarity.
+    """
+    for _, literal in pairs:
+        atom, _ = _strip(literal)
+        _constraint(atom)
 
 
 class _Normalizer:
@@ -516,16 +648,24 @@ class _Normalizer:
             return ("true",) if polarity else ("false",)
         if kind == z3.Z3_OP_FALSE:
             return ("false",) if polarity else ("true",)
-        if kind in _ARITH_PREDICATES or (kind == z3.Z3_OP_EQ and z3.is_real(expr.arg(0))):
+        if kind in _ARITH_PREDICATES or (kind == z3.Z3_OP_EQ and z3.is_arith(expr.arg(0))):
             return self._atom(expr, polarity)
-        if kind == z3.Z3_OP_DISTINCT and z3.is_real(expr.arg(0)) and expr.num_args() == 2:
+        if kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
+        # Structural key: a numeral (as a function argument) is identified by
+        # its value, an uninterpreted symbol by its name.
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
-                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED else "")
+                    str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED
+                    else str(numeral_value(expr)) if kind == z3.Z3_OP_ANUM else "")
         return positive if polarity else ("not", positive)
 
     def _atom(self, expr, polarity):
         relation, terms, constant = _constraint(expr)
+        if not polarity and relation == "<=" and z3.is_int(expr.arg(0)):
+            # Over Int the complement of t <= 0 is -t + 1 <= 0, so (not (<= 5 x))
+            # and (<= x 4) get one key, as the tightened constraints are equal.
+            relation, polarity = "<=", True
+            terms, constant = {variable: -value for variable, value in terms.items()}, -constant + 1
         if not terms:
             holds = {"<=": constant <= 0, "<": constant < 0, "=": constant == 0}[relation]
             return ("true",) if holds == polarity else ("false",)
@@ -628,6 +768,10 @@ class _Replay:
             elif kind in (z3.Z3_OP_EQ, z3.Z3_OP_IFF) and z3.is_bool(args[0]):
                 clauses = [[z3.Not(atom), z3.Not(args[0]), args[1]], [z3.Not(atom), args[0], z3.Not(args[1])],
                            [atom, args[0], args[1]], [atom, z3.Not(args[0]), z3.Not(args[1])]]
+            elif kind == z3.Z3_OP_XOR and len(args) == 1:
+                # Z3 reads (xor p) as p. Its simplifier removes the node before
+                # logging, so only a constructed (or future) log reaches here.
+                clauses = [[atom, z3.Not(args[0])], [z3.Not(atom), args[0]]]
             elif kind == z3.Z3_OP_XOR:
                 clauses = [[atom, z3.Not(args[0]), args[1]], [atom, args[0], z3.Not(args[1])],
                            [z3.Not(atom), args[0], args[1]], [z3.Not(atom), z3.Not(args[0]), z3.Not(args[1])]]
@@ -791,26 +935,48 @@ class _Replay:
     def infer(self, literals, hint, dependencies=None):
         """Justify one logged clause.
 
-        farkas, bound, implied-eq, and euf hints list literals that are jointly
-        contradictory, so the lemma is the clause of their complements. tseitin
-        hints list the gate clause itself and become def-axiom nodes. alldiff
-        clauses must follow from the original assertions, not from the hint.
-        A bare smt hint claims the logged clause is a theory tautology. Whenever
-        the lemma differs from the logged clause, the latter is derived from
-        the lemma and the clause database by unit propagation.
+        farkas, bound, implied-eq, euf, and arith hints list literals that are
+        jointly contradictory, so the lemma is the clause of their complements.
+        tseitin hints list the gate clause itself and become def-axiom nodes.
+        alldiff hints list one of the two gate clauses relating a distinct
+        below the root to the disjunction of its pairwise equalities; those
+        of the right shape (_distinct_gate) become def-axiom nodes too. Any
+        other alldiff clause (a root distinct, logged as assumed clauses since
+        2026-10-20 but as alldiff inferences by older logs) is tied to the
+        original assertions, never taken from the hint. A bare smt hint
+        claims the logged clause is a theory tautology.
+        Whenever the lemma differs from the logged clause, the latter is
+        derived from the lemma and the clause database by unit propagation.
         """
         if hint is None:
             return self.rup(literals, dependencies)
         name, pairs = hint
         if name in ("tseitin", "alldiff"):
             lemma_literals = [literal for _, literal in pairs]
-            lemma = (self.assume(lemma_literals) if name == "alldiff" else
-                     self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))]))
+            if name == "alldiff" and not _distinct_gate(lemma_literals):
+                lemma = self.assume(lemma_literals)
+            else:
+                lemma = self.dag.node(self.def_axiom, [self.dag.expression(self.clause_formula(lemma_literals))])
         else:
-            if name in _COEFFICIENT_HINTS:
-                check_linear_hint(name, pairs)
+            # The arithmetic solver's axiom for a Real division by a numeral,
+            # q = 0 or q * (p / q) = p, reaches the log with its first literal
+            # as the constant true (the negation of the false disequality
+            # (= q 0), elided from the clause). A true literal adds nothing to
+            # a jointly contradictory set, so it is dropped before the shape
+            # checks, which read linear atoms; a hint of nothing else stays
+            # rejected.
+            pairs = [(coefficient, literal) for coefficient, literal in pairs if not z3.is_true(literal)]
+            if not pairs and name != "smt":
+                raise ProofExportError("%s hint has no literals besides true" % name)
+            if name == "arith":
+                check_arith_hint(pairs)
+            certified = check_linear_hint(name, pairs) if name in _COEFFICIENT_HINTS else False
             parameters = [name]
-            if name in _COEFFICIENT_HINTS:
+            if certified or name == "implied-eq":
+                # Coefficients that re-derive the lemma are kept for the
+                # reconstructor to check again (implied-eq keeps its
+                # placeholders); an integer lemma whose coefficients do not,
+                # and a cut, carry none, which marks it as Lean's alone.
                 parameters.extend(str(coefficient) for coefficient, _ in pairs)
             lemma_literals = (list(literals) if name == "smt"
                               else [_complement(literal) for _, literal in pairs])

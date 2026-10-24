@@ -20,15 +20,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check out pinned finite-field regression harness
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: Z3Prover/z3test
-          ref: cb0b0d1e036ad30d27112ab7bfc02bf48fc9c0fb
+          repository: RSoulatIOHK/z3test
+          # Includes proof-mode expectations for integrated QF_FF solving.
+          ref: 7e039842d473091c0706b899e57e2a17c6cbb9c9
           path: z3test
           sparse-checkout: regressions/finite_field
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: Install build dependencies
@@ -45,7 +46,9 @@ jobs:
       - name: Run solver, integration and public API tests
         run: python z3test/regressions/finite_field/run_tests.py --source . --build build --suite core --out test-results/core
       - name: Build pinned proof checkers
-        run: python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
+        run: |
+          cp scripts/ff-proof-checker-versions.json z3test/regressions/finite_field/proof_checkers/versions.json
+          python z3test/regressions/finite_field/proof_checkers/build.py --out proof-checkers
       - name: Run certificate and rejection tests
         run: >-
           python z3test/regressions/finite_field/run_tests.py --source . --build build --suite proofs
@@ -53,7 +56,7 @@ jobs:
           --out test-results/proofs
       - name: Upload test logs and checker provenance
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: finite-field-test-results
           path: |

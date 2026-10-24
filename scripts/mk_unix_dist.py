@@ -15,6 +15,8 @@ import re
 import getopt
 import sys
 import shutil
+import stat
+import filecmp
 from mk_exception import *
 from mk_dist_util import getenv, check_output, get_git_hash
 from fnmatch import fnmatch
@@ -282,6 +284,23 @@ def build_z3():
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3")
 
+def build_static_lib():
+    if is_verbose():
+        print("build static libz3")
+    build_dir = get_build_dir()
+    cmds = [
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF' % build_dir,
+        'cmake --build "%s" --target libz3 --parallel %s' % (build_dir, MAKEJOBS)
+    ]
+    if exec_cmds(cmds) != 0:
+        raise MKException("Failed to build static libz3")
+    shutil.copy2(os.path.join(build_dir, "libz3.a"),
+                 os.path.join(get_build_dist_path(), "bin", "libz3.a"))
+    if exec_cmds([
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=ON -DZ3_BUILD_LIBZ3_SHARED=ON' % build_dir
+    ]) != 0:
+        raise MKException("Failed to restore shared libz3 build")
+
 def mk_zip():
     build_dist = get_build_dist_path()
     dist_name = get_z3_name()
@@ -296,9 +315,18 @@ def mk_zip():
         os.chdir(get_build_dist())
         for root, dirs, files in os.walk("."):
             for f in files:
+                path = os.path.join(root, f)
                 if is_verbose():
-                    print("adding ", os.path.join(root, f))
-                zipout.write(os.path.join(root, f))
+                    print("adding ", path)
+                if os.path.islink(path):
+                    # Store symlinks as symlinks (see link_python_libz3()) rather
+                    # than as yet another copy of the file they point to.
+                    info = zipfile.ZipInfo(os.path.normpath(path))
+                    info.create_system = 3  # Unix, so unzip honors the mode bits
+                    info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    zipout.writestr(info, os.readlink(path))
+                else:
+                    zipout.write(path)
         if is_verbose():
             print("Generated '%s'" % zfname)
     except:
@@ -329,13 +357,53 @@ def cp_into_bin():
             shutil.copy2(os.path.join(java_dir, file), os.path.join(bin_dir, file))
         shutil.rmtree(java_dir)
 
+# The .NET bindings install a local NuGet feed under bin/z3.nuget, whose nupkg
+# bundles yet another copy of libz3. Ship just the managed assembly next to libz3
+# in bin/ instead, as the distribution did before the switch to CMake.
+# mk_nuget_task.py only takes libz3 from the Unix packages, so it doesn't need
+# the feed either.
+def cp_dotnet():
+    if not DOTNET_CORE_ENABLED:
+        return
+    if is_verbose():
+        print("copy dotnet")
+    bin_dir = os.path.join(get_build_dist_path(), "bin")
+    shutil.rmtree(os.path.join(bin_dir, "z3.nuget"), ignore_errors=True)
+    asm_dir = os.path.join(get_build_dir(), "Microsoft.Z3", "netstandard2.0")
+    for f in ("Microsoft.Z3.dll", "Microsoft.Z3.xml", "Microsoft.Z3.deps.json"):
+        shutil.copy2(os.path.join(asm_dir, f), bin_dir)
+
+# On Linux the Python bindings install libz3 into bin/python/z3 as well (as
+# libz3.so.<major>.<minor>, the name z3core.py loads first). That is a symlink
+# into the build tree, which zipping used to turn into a full copy of libz3.
+# Point it at bin/libz3 instead, with a relative symlink that mk_zip() keeps.
+def link_python_libz3():
+    if not PYTHON_ENABLED:
+        return
+    bin_dir = os.path.join(get_build_dist_path(), "bin")
+    lib = "libz3.dylib" if platform.system() == "Darwin" else "libz3.so"
+    py_dir = os.path.join(bin_dir, "python", "z3")
+    if not os.path.isdir(py_dir):
+        return
+    for f in os.listdir(py_dir):
+        path = os.path.join(py_dir, f)
+        if f.startswith("libz3.") and \
+           filecmp.cmp(path, os.path.join(bin_dir, lib), shallow=False):
+            if is_verbose():
+                print("link", path, "to", lib)
+            os.remove(path)
+            os.symlink(os.path.join("..", "..", lib), path)
+
 # Entry point
 def main():
     parse_options()
     mk_build_dir()
     build_z3()
+    build_static_lib()
     cp_license()
     cp_into_bin()
+    cp_dotnet()
+    link_python_libz3()
     mk_zip()
 
 main()
