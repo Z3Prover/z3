@@ -18,6 +18,11 @@ permissions:
 jobs:
   publish:
     name: Publish
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' &&
+       github.event.release.tag_name != 'Nightly' &&
+       !github.event.release.prerelease)
     runs-on: ubuntu-latest
     environment: release
     steps:

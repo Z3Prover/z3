@@ -570,7 +570,7 @@ def _to_ref_array(ref, args):
 def _to_ast_ref(a, ctx):
     k = _ast_kind(ctx, a)
     if k == Z3_SORT_AST:
-        return _to_sort_ref(a, ctx)
+        return _to_sort_ref(Sort.from_buffer_copy(a), ctx)
     elif k == Z3_FUNC_DECL_AST:
         return _to_func_decl_ref(a, ctx)
     else:
@@ -6624,6 +6624,28 @@ class AstVector(Z3PPObject):
         x + 1
         >>> A[1]
         y
+        >>> ctx = Context()
+        >>> A = AstVector(ctx=ctx)
+        >>> sorts = [BoolSort(ctx), IntSort(ctx), RealSort(ctx), BitVecSort(8, ctx),
+        ...          ArraySort(IntSort(ctx), BoolSort(ctx)), DeclareSort('S', ctx)]
+        >>> for s in sorts: A.push(s)
+        >>> all(isinstance(A[i], type(s)) and A[i].eq(s)
+        ...     for i, s in enumerate(sorts))
+        True
+        >>> A[-1].eq(sorts[-1])
+        True
+        >>> all(a.eq(s) for a, s in zip(A[:], sorts))
+        True
+        >>> A.push(Int('z', ctx))
+        >>> A.push(Function('f', IntSort(ctx), IntSort(ctx)))
+        >>> is_func_decl(A[-1])
+        True
+        >>> [is_expr(a) for a in A]
+        [False, False, False, False, False, False, True, False]
+        >>> ctx = Context()
+        >>> B = A.translate(ctx)
+        >>> all(B[i].eq(s.translate(ctx)) for i, s in enumerate(sorts))
+        True
         """
 
         if isinstance(i, int):

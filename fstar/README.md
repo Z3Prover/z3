@@ -256,7 +256,11 @@ proof backends. Pulse modules are verified, but the executable benchmarked
 on the corpus uses the extracted F* kernel, **not linked Pulse code**.
 Build/self-test failures and checker errors/crashes/protocol mismatches
 fail the job; unsupported proofs and timeouts are reported without failing
-this coverage-measurement job. The corpus step also has a 35-minute CI
+this coverage-measurement job. In particular, checker exit code 1 with `REJECT`
+and exit code 3 with `PARTIAL n` are non-fatal coverage outcomes, not successful
+proof checks. The harness still exits nonzero for infrastructure/protocol errors
+or unfinished manifested cohorts; its exit code is not ignored.
+The corpus step also has a 35-minute CI
 limit, independent of the configurable budget. Always-run reporting/upload
 steps preserve available results and build logs on failure.
 After coverage measurement, a separately budgeted diagnostic pass replays
