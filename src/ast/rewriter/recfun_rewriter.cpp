@@ -39,9 +39,9 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         // Leave cycles through unconditional bodies to the resource-limited theory solver.
         if (d.is_fun_macro()) {
             ptr_vector<func_decl> todo;
-            obj_hashtable<func_decl> visited;
+            ast_mark visited;
             todo.push_back(f);
-            visited.insert(f);
+            visited.mark(f, true);
             for (unsigned i = 0; i < todo.size(); ++i) {
                 for (expr* t : subterms::all(expr_ref(m_rec.get_def(todo[i]).get_rhs(), m))) {
                     if (!m_rec.is_defined(t))
@@ -49,8 +49,8 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
                     func_decl* g = to_app(t)->get_decl();
                     if (g == f)
                         return BR_FAILED;
-                    if (m_rec.has_def(g) && m_rec.get_def(g).is_fun_macro() && !visited.contains(g)) {
-                        visited.insert(g);
+                    if (m_rec.has_def(g) && m_rec.get_def(g).is_fun_macro() && !visited.is_marked(g)) {
+                        visited.mark(g, true);
                         todo.push_back(g);
                     }
                 }
