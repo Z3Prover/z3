@@ -93,7 +93,8 @@ namespace smt {
             if (!evidence)
                 throw default_exception("finite-field lemma requires recorded evidence");
             auto proof = ff::mk_refutation_lemma(m, axiom, evidence);
-            ctx.mk_clause(1, &lit, alloc(justification_proof_wrapper, ctx, proof, false), CLS_TH_AXIOM);
+            ctx.mk_clause(1, &lit,
+                          ctx.mk_justification(justification_proof_wrapper(ctx, proof)), CLS_TH_AXIOM);
         }
         else
             ctx.mk_th_axiom(get_id(), 1, &lit);
