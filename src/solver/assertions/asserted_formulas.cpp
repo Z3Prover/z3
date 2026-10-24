@@ -422,7 +422,7 @@ void asserted_formulas::flatten_clauses() {
         }
         auto can_distribute = [&](expr* e) { 
             unsigned n = 0;
-            return is_conjunction(e) && occurrences.find(e, n) && n == 1; 
+            return occurrences.find(e, n) && n == 1; 
         };
         for (unsigned i = m_qhead; i < sz; ++i) {
             auto const& j = m_formulas.get(i);
