@@ -72,6 +72,7 @@ independent [proof-checking activity](PROOF_CHECKING.md).
 | #11164: ground-index array equality and MBQI | [Ground-index equality audit](PR_11164_ARRAY_GROUND_INDEX_EQ_REPORT.md) | [`Z3ArrayGroundIndexEq.fst`](Z3ArrayGroundIndexEq.fst) |
 | #11165: provably out-of-range substring offsets | [Sequence extract audit](PR_11165_SEQ_EXTRACT_LENGTH_PRODUCT_REPORT.md) | [`Z3SeqExtractLengthProduct.fst`](Z3SeqExtractLengthProduct.fst) |
 | #11180: exponentiation preprocessing, counterexamples to original bounds, and corrected real-exponent clauses | [Exponentiation audit and scope correction to the original NLA power proofs](PR_11180_POWER_REPORT.md) | [`Z3PowerPreprocessing.fst`](Z3PowerPreprocessing.fst), [`Z3PowerSaturation.fst`](Z3PowerSaturation.fst) |
+| #11296 / issue #11295: branch-dependent store-index deduplication in array conflicts | [Array index-dependency audit](PR_11296_ARRAY_INDEX_DEPENDENCIES_REPORT.md) | [`Z3ArrayIndexDependencies.fst`](Z3ArrayIndexDependencies.fst) |
 
 For proof-leaf tagging experiments and checker coverage measurements,
 see [proof-checking experiments](PROOF_CHECKING.md#experiments-and-coverage).
