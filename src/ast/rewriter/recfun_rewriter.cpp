@@ -36,6 +36,9 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         if (!d.get_rhs())
             return BR_FAILED;
         auto r = d.get_rhs();
+        // Leave unconditional recursive calls to the resource-limited theory solver.
+        if (d.is_fun_macro() && m_rec.contains_def(r))
+            return BR_FAILED;
         bool safe_to_subst = true;
         for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))
