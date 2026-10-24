@@ -1120,6 +1120,15 @@ let checked_der_rules () =
     "dependent-witness", "(forall ((x Int) (y Int))\
        (or (not (= x (f y))) (p x y)))",
        "(forall ((y Int)) (p (f y) y))", true;
+    "alternative-witness", "(forall ((x Int) (y Int))\
+       (or (not (= x (f y))) (not (= x z))))",
+       "(forall ((y Int)) (not (= z (f y))))", true;
+    "reordered-alternative-witness", "(forall ((x Int) (y Int))\
+       (or (not (= x z)) (not (= x (f y)))))",
+       "(forall ((y Int)) (not (= (f y) z)))", true;
+    "wrong-alternative-witness", "(forall ((x Int) (y Int))\
+       (or (not (= x (f y))) (not (= x z))))",
+       "(forall ((y Int)) (not (= z (f z))))", false;
     "nested-binder", "(exists ((x Int))\
        (and (= x z) (forall ((y Int)) (p x y))))",
        "(forall ((y Int)) (p z y))", true;
@@ -2223,6 +2232,11 @@ let bv_rewrites () =
       check false ("(" ^ op ^ " v w)") ("(" ^ op ^ " v v)"))
     ["bvand"; "bvor"; "bvxor"; "bvadd"; "bvmul"];
   check false "(bvsub v w)" "(bvsub w v)";
+  check true "(concat (concat v w) z)" "(concat v (concat w z))";
+  check true "(concat (concat half bit) v)" "(concat half bit v)";
+  check true "(concat bit half v)" "(concat bit (concat half v))";
+  check false "(concat (concat v w) z)" "(concat v (concat z w))";
+  check false "(concat (concat bit half) v)" "(concat half bit v)";
   check false "(bvudiv v w)" "(bvudiv w v)";
   check true "(bvudiv #b1 #b0)" "#b1";
   check true "(bvudiv v #x00)" "#xff";

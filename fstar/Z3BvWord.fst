@@ -526,6 +526,55 @@ let lemma_concat_value (i:interpretation value) (rho:env value)
     BV.lemma_concat_parts i rho project (concat m n x y)
       { BV.left_width = m; BV.right_width = n; BV.left = x; BV.right = y }
 
+let concat_association_rewrite (e:expr) : option expr =
+  match BV.concat3_parts e with
+  | Some (c:BV.concatenation3) ->
+    Some (concat c.width1 (c.width2 + c.width3) c.first
+      (concat c.width2 c.width3 c.second c.third))
+  | None ->
+    (match BV.concat_parts e with
+     | Some (c:BV.concatenation) ->
+       (match BV.concat_parts c.left with
+        | Some (left:BV.concatenation) ->
+          if c.left_width <> left.left_width + left.right_width then None
+          else Some (concat left.left_width (left.right_width + c.right_width) left.left
+            (concat left.right_width c.right_width left.right c.right))
+        | None -> None)
+     | None -> None)
+
+#push-options "--fuel 0 --ifuel 0 --using_facts_from 'Prims FStar.Math.Lemmas'"
+let lemma_concat_association_numbers (m n:nat) (x y z:int)
+  : Lemma ((x * pow2 m + y) * pow2 n + z ==
+           x * pow2 (m + n) + (y * pow2 n + z)) =
+  M.pow2_plus m n
+#pop-options
+
+let lemma_concat_association_rewrite (i:interpretation value) (rho:env value)
+                                    (project:pos -> value -> int) (e result:expr)
+  : Lemma (requires BV.bv_model i project /\ D.scoped [] e /\
+                    concat_association_rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho) =
+  match BV.concat3_parts e with
+  | Some (c:BV.concatenation3) ->
+    BV.lemma_concat3_parts i rho project e c;
+    lemma_concat_value i rho project c.width2 c.width3 c.second c.third;
+    lemma_concat_value i rho project c.width1 (c.width2 + c.width3) c.first
+      (concat c.width2 c.width3 c.second c.third);
+    BV.lemma_reflect i rho project (c.width1 + c.width2 + c.width3) e result
+  | None ->
+    let c:BV.concatenation = Some?.v (BV.concat_parts e) in
+    let left:BV.concatenation = Some?.v (BV.concat_parts c.left) in
+    BV.lemma_concat_parts i rho project e c;
+    BV.lemma_concat_parts i rho project c.left left;
+    lemma_concat_value i rho project left.right_width c.right_width left.right c.right;
+    lemma_concat_value i rho project left.left_width (left.right_width + c.right_width) left.left
+      (concat left.right_width c.right_width left.right c.right);
+    lemma_concat_association_numbers left.right_width c.right_width
+      (project left.left_width (eval i left.left rho))
+      (project left.right_width (eval i left.right rho))
+      (project c.right_width (eval i c.right rho));
+    BV.lemma_reflect i rho project (c.left_width + c.right_width) e result
+
 let concat_numeral_equality (a b:expr) : option expr =
   match BV.concat_parts a, BV.numeral b with
   | Some (c:BV.concatenation), Some (width, n) ->
@@ -713,6 +762,8 @@ let rewrite (e:expr) : option expr =
   let r = addition_rewrite e in
   if Some? r then r else
   let r = concat3_rewrite e in
+  if Some? r then r else
+  let r = concat_association_rewrite e in
   if Some? r then r else not_concat_rewrite e
 
 let lemma_rewrite (i:interpretation value) (rho:env value)
@@ -726,6 +777,7 @@ let lemma_rewrite (i:interpretation value) (rho:env value)
     else if Some? (concat_rewrite e) then lemma_concat_rewrite i rho project e result
     else if Some? (addition_rewrite e) then lemma_addition_rewrite i rho project e result
     else if Some? (concat3_rewrite e) then lemma_concat3_rewrite i rho project e result
+    else if Some? (concat_association_rewrite e) then lemma_concat_association_rewrite i rho project e result
     else lemma_not_concat_rewrite i rho project e result
 
 let equivalent (a b:expr) : bool =

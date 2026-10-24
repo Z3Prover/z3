@@ -10,6 +10,7 @@ module D = Z3Definitions
 module Q = Z3QuantifierNnf
 module V = Z3QuantifierVacuity
 module P = Z3QuantifierPull
+module R = Z3QuantifierReduce
 module L = FStar.List.Tot
 
 let rec substitute (n:nat) (term body:expr) : Tot expr (decreases body) =
@@ -207,12 +208,51 @@ let lemma_step_sound (e result:expr) (i:interpretation value) (rho:env value)
   | Quantifier _ _ _ body -> lemma_first_removal_sound (candidates body) e result i rho
   | _ -> ()
 
+let rec target_removal (choices:list (nat & expr)) (s t:expr)
+  : Tot bool (decreases choices) =
+  match choices with
+  | [] -> false
+  | (n, term) :: rest ->
+    (match remove n term s with
+     | Some result -> R.equivalent 64 result t || target_removal rest s t
+     | None -> target_removal rest s t)
+
+let rec lemma_target_removal (choices:list (nat & expr)) (s t:expr)
+                             (i:interpretation value) (rho:env value)
+  : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ quant_extensional i /\
+                    Q.quantifier_model i /\ target_removal choices s t)
+          (ensures eval i s rho == eval i t rho)
+          (decreases choices) =
+  match choices with
+  | [] -> ()
+  | (n, term) :: rest ->
+    (match remove n term s with
+     | Some result ->
+       if R.equivalent 64 result t then (
+         lemma_remove_sound n term s result i rho;
+         R.lemma_equivalent 64 i rho result t)
+       else lemma_target_removal rest s t i rho
+     | None -> lemma_target_removal rest s t i rho)
+
+let alternative_removal (s t:expr) : bool =
+  match s with
+  | Quantifier _ _ _ body -> target_removal (candidates body) s t
+  | _ -> false
+
+let lemma_alternative_removal (s t:expr) (i:interpretation value) (rho:env value)
+  : Lemma (requires B.boolean_rewrite_model i /\ eq_sound i /\ quant_extensional i /\
+                    Q.quantifier_model i /\ alternative_removal s t)
+          (ensures eval i s rho == eval i t rho) =
+  match s with
+  | Quantifier _ _ _ body -> lemma_target_removal (candidates body) s t i rho
+  | _ -> ()
+
 let rec equivalent (fuel:nat) (s t:expr) : Tot bool (decreases %[fuel; 0]) =
   if s = t || B.boolean_equiv 8 10 s t then true
   else if fuel = 0 then false
   else let _ = assert (fuel > 0) in match step s, step t with
-  | Some a, _ -> equivalent (fuel - 1) a t
-  | None, Some b -> equivalent (fuel - 1) s b
+  | Some a, _ -> equivalent (fuel - 1) a t || alternative_removal s t
+  | None, Some b -> equivalent (fuel - 1) s b || alternative_removal t s
   | None, None ->
     (match s, t with
      | App f xs, App g ys -> f = g && equivalent_args (fuel - 1) xs ys
@@ -237,8 +277,16 @@ let rec lemma_equivalent_sound (fuel:nat) (s t:expr)
   else if B.boolean_equiv 8 10 s t then B.lemma_boolean_equiv_sound 8 10 i rho s t
   else if fuel = 0 then ()
   else let _ = assert (fuel > 0) in match step s, step t with
-  | Some a, _ -> lemma_step_sound s a i rho; lemma_equivalent_sound (fuel - 1) a t i rho
-  | None, Some b -> lemma_step_sound t b i rho; lemma_equivalent_sound (fuel - 1) s b i rho
+  | Some a, _ ->
+    if equivalent (fuel - 1) a t then (
+      lemma_step_sound s a i rho;
+      lemma_equivalent_sound (fuel - 1) a t i rho)
+    else lemma_alternative_removal s t i rho
+  | None, Some b ->
+    if equivalent (fuel - 1) s b then (
+      lemma_step_sound t b i rho;
+      lemma_equivalent_sound (fuel - 1) s b i rho)
+    else lemma_alternative_removal t s i rho
   | None, None ->
     (match s, t with
      | App _ xs, App _ ys -> lemma_equivalent_args_sound (fuel - 1) xs ys i rho

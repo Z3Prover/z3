@@ -741,6 +741,21 @@ let lemma_concat_parts (i:interpretation value) (rho:env value)
                      project c.right_width (eval i c.right rho))
   = match e with App _ [_; _] -> () | _ -> ()
 
+let lemma_concat3_parts (i:interpretation value) (rho:env value)
+                       (project:pos -> value -> int) (e:expr) (c:concatenation3)
+  : Lemma (requires bv_model i project /\ D.scoped [] e /\ concat3_parts e == Some c)
+          (ensures D.scoped [] c.first /\ D.scoped [] c.second /\ D.scoped [] c.third /\
+                   get_sort c.first == bv_sort c.width1 /\
+                   get_sort c.second == bv_sort c.width2 /\
+                   get_sort c.third == bv_sort c.width3 /\
+                   c.width1 + c.width2 + c.width3 <= 4096 /\
+                   get_sort e == bv_sort (c.width1 + c.width2 + c.width3) /\
+                   project (c.width1 + c.width2 + c.width3) (eval i e rho) ==
+                     project c.width1 (eval i c.first rho) * pow2 (c.width2 + c.width3) +
+                     project c.width2 (eval i c.second rho) * pow2 c.width3 +
+                     project c.width3 (eval i c.third rho))
+  = match e with App _ [_; _; _] -> () | _ -> ()
+
 let lemma_extract_rewrite (i:interpretation value) (rho:env value)
                           (project:pos -> value -> int) (e result:expr)
   : Lemma (requires bv_model i project /\ D.scoped [] e /\ extract_rewrite e == Some result)
