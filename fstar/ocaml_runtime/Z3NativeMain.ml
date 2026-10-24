@@ -122,11 +122,10 @@ let fingerprint judgment =
 (* Inspect argument structure, not just the shared connective declaration. *)
 let assertion_hash value = Z.of_int (Hashtbl.hash_param 64 256 value)
 
-let report_diagnostics schema doc expected =
+let report_diagnostics sorted schema doc expected =
   let diagnostic =
-    if schema.Z3DatatypeSignature.cases = []
-    then Z3ProofDocument.diagnose_document_indexed assertion_hash doc
-    else Z3SortedProof.diagnose_document schema doc in
+    if sorted then Z3SortedProof.diagnose_document schema doc
+    else Z3ProofDocument.diagnose_document_indexed assertion_hash doc in
   match diagnostic, expected with
   | Z3ProofDocument.DocumentChecked (pending, obligations), Some actual
       when Z.equal pending actual ->
@@ -156,10 +155,11 @@ let report_diagnostics schema doc expected =
         (match source with None -> "" | Some e -> "\t" ^ fingerprint (Z3UnifiedProof.Holds e))
   | _ -> Z3Native.fail "Diagnostic result disagrees with document checker"
 
-let check_proof statistics diagnostics start solved assertions proof =
+let check_proof statistics diagnostics sorted_core start solved assertions proof =
   let doc, schema = Z3NativeProof.marshal_with_datatypes assertions proof in
   let marshaled = Unix.gettimeofday () in
-  let sorted = schema.Z3DatatypeSignature.cases <> [] in
+  let datatype = schema.Z3DatatypeSignature.cases <> [] in
+  let sorted = datatype || sorted_core in
   let result =
     if sorted then Z3SortedProof.check_document schema doc
     else Z3ProofDocument.check_document_indexed assertion_hash doc in
@@ -169,10 +169,10 @@ let check_proof statistics diagnostics start solved assertions proof =
       ((solved -. start) *. 1000.) ((marshaled -. solved) *. 1000.)
       ((checked -. marshaled) *. 1000.) (List.length doc.expressions)
       (List.length doc.declarations) (List.length doc.entries)
-      (if sorted then "sorted-datatype" else "legacy") in
+      (if datatype then "sorted-datatype" else if sorted then "sorted-core" else "legacy") in
   if statistics then Printf.eprintf "%s\n%!" summary;
   if diagnostics then (
-    report_diagnostics schema doc result;
+    report_diagnostics sorted schema doc result;
     if statistics then
       Printf.eprintf "diagnose_ms=%.3f\n%!" ((Unix.gettimeofday () -. checked) *. 1000.));
   let edges = List.fold_left (fun count entry ->
@@ -256,7 +256,7 @@ let command_name text =
   in
   String.sub text first (finish first - first)
 
-let interactive statistics diagnostics timeout =
+let interactive statistics diagnostics sorted_core clause_proofs timeout =
   let context = Z3Native.create_context timeout in
   let error = ref false and rejected = ref false and partial = ref false in
   let start = ref (Unix.gettimeofday ()) in
@@ -264,7 +264,7 @@ let interactive statistics diagnostics timeout =
     let solved = Unix.gettimeofday () in
     let assertions = List.init (Z3native.ast_vector_size context vector)
         (Z3native.ast_vector_get context vector) in
-    let result, summary = check_proof statistics diagnostics !start solved assertions proof in
+    let result, summary = check_proof statistics diagnostics sorted_core !start solved assertions proof in
     (match result with
      | None -> rejected := true
      | Some n -> if not (Z.equal n Z.zero) then partial := true);
@@ -272,7 +272,8 @@ let interactive statistics diagnostics timeout =
   in
   let initialize () =
     ignore (Z3native.eval_smtlib2_string context
-      ("(set-option :produce-proofs true)(set-option :timeout " ^ Z.to_string timeout ^ ")"))
+      ("(set-option :produce-proofs true)(set-option :timeout " ^ Z.to_string timeout ^ ")" ^
+       (if clause_proofs then "(set-option :smt.clause_proof true)" else "")))
   in
   let report_error message =
     error := true;
@@ -312,13 +313,18 @@ let interactive statistics diagnostics timeout =
   if !error then 2 else if !rejected then 1 else if !partial then 3 else 0
 
 let run args =
-  let statistics = ref false and diagnostics = ref false
-  and timeout = ref Z.zero and path = ref None and interactive_mode = ref false in
+  let statistics = ref false and diagnostics = ref false and sorted_core = ref false
+  and timeout = ref Z.zero and path = ref None and interactive_mode = ref false
+  and clause_proofs = ref false in
   let options = [
     "--interactive", Arg.Set interactive_mode,
       " Evaluate stdin commands incrementally and certify each UNSAT proof";
+    "--clause-proofs", Arg.Set clause_proofs,
+      " Produce and certify clausal SMT search proofs using reverse unit propagation";
     "--stats", Arg.Set statistics, " Report phase timings and unique marshaled node counts";
     "--diagnostics", Arg.Set diagnostics, " Report typed unmet-obligation fingerprints on stderr";
+    "--sorted-core", Arg.Set sorted_core,
+      " Use the sort-indexed kernel without legacy fallback, including for non-datatype proofs";
     "--timeout-ms", Arg.String (fun value ->
         try
           let n = Z.of_string value in
@@ -335,11 +341,11 @@ let run args =
   in
   try
     Arg.parse_argv ~current:(ref 0) (Array.of_list ("checker" :: args))
-      options anonymous "usage: checker [--interactive] [--stats] [--diagnostics] [--timeout-ms N] [input.smt2]";
+      options anonymous "usage: checker [--interactive] [--clause-proofs] [--stats] [--diagnostics] [--sorted-core] [--timeout-ms N] [input.smt2]";
     if !interactive_mode then (
       if !path <> None && !path <> Some "-" then
         raise (Arg.Bad "--interactive reads commands from stdin, not an input file");
-      exit (interactive !statistics !diagnostics !timeout));
+      exit (interactive !statistics !diagnostics !sorted_core !clause_proofs !timeout));
     let input =
       match !path with
       | None | Some "-" -> read_all stdin
@@ -349,13 +355,13 @@ let run args =
             (fun () -> read_all channel)
     in
     let start = Unix.gettimeofday () in
-    match Z3Native.solve input !timeout with
+    match Z3Native.solve_with_clause_proofs input !timeout !clause_proofs with
     | Z3Native.Sat -> print_endline "SAT"; exit 4
     | Z3Native.Unknown reason ->
         Printf.printf "UNKNOWN %s\n" reason; exit 5
     | Z3Native.Unsat (assertions, proof) ->
         let solved = Unix.gettimeofday () in
-        let result, _ = check_proof !statistics !diagnostics start solved assertions proof in
+        let result, _ = check_proof !statistics !diagnostics !sorted_core start solved assertions proof in
         (match result with
          | None -> print_endline "REJECT"; exit 1
          | Some n when Z.equal n Z.zero -> print_endline "ACCEPT"; exit 0

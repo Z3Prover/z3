@@ -118,6 +118,13 @@ namespace {
         }
 
         void updt_params(params_ref const & p) override {
+            params_ref updated;
+            updated.copy(solver::get_params());
+            updated.append(p);
+            smt_params_helper requested(updated);
+            if (requested.clause_proof() != m_smt_params.m_clause_proof &&
+                (m_context.size() != 0 || m_context.get_scope_level() != 0))
+                throw default_exception("clause_proof cannot be changed after assertions or push; reset the solver first");
             solver::updt_params(p);
             m_smt_params.updt_params(solver::get_params());
             m_context.updt_params(solver::get_params());

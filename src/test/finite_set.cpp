@@ -22,6 +22,7 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
+#include <string>
 
 static void tst_finite_set_basic() {
     ast_manager m;
@@ -348,6 +349,47 @@ static void tst_finite_set_size_union_singletons() {
     Z3_del_config(cfg);
 }
 
+static void tst_finite_set_quantified_membership() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    char const* spec =
+        "(set-logic ALL)\n"
+        "(declare-const S (FiniteSet Int))\n"
+        "(assert (not (set.in 0 S)))\n"
+        "(assert (forall ((x Int)) (=> (= (mod x 2) 0) (set.in (mod x 2) S))))\n"
+        "(check-sat)\n";
+    std::string response = Z3_eval_smtlib2_string(ctx, spec);
+    ENSURE(response == "unsat\n");
+    Z3_del_context(ctx);
+}
+
+static void tst_finite_set_lambda_filter() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_solver solver = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, solver);
+    Z3_solver_push(ctx, solver);
+    Z3_solver_from_string(ctx, solver,
+        "(declare-const a (Array Bool Bool))"
+        "(assert (distinct a (lambda ((x Bool))"
+        " (set.in x (set.filter a"
+        " (set.union (set.singleton false) (set.singleton true)))))))");
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+    Z3_solver_pop(ctx, solver, 1);
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_TRUE);
+    Z3_solver_from_string(ctx, solver,
+        "(declare-const b (Array Bool Bool))"
+        "(assert (distinct"
+        " (lambda ((x Bool)) (and (not x) (select b x)))"
+        " (lambda ((x Bool))"
+        " (set.in x (set.filter b (set.singleton false))))))");
+    ENSURE(Z3_solver_check(ctx, solver) == Z3_L_FALSE);
+    Z3_solver_dec_ref(ctx, solver);
+    Z3_del_context(ctx);
+    Z3_del_config(cfg);
+}
+
 void tst_finite_set() {
     tst_finite_set_basic();
     tst_finite_set_map_filter();
@@ -357,4 +399,6 @@ void tst_finite_set() {
     tst_finite_set_size_members();
     tst_finite_set_size_three_members();
     tst_finite_set_size_union_singletons();
+    tst_finite_set_quantified_membership();
+    tst_finite_set_lambda_filter();
 }

@@ -61,6 +61,7 @@ Abstract:
   UINT_  (ff_f4_short_budget, "ff.f4_short_budget", 1, "F4 work units per unit of ff.max_steps on circuit-like systems (many Boolean variables)") \
   BOOL_  (ff_tiny, "ff.tiny", true, "complete finite-domain search with forward checking over fields with p < 64") \
   UINT_  (ff_tiny_budget, "ff.tiny_budget", 200, "tiny-field search work units per unit of ff.max_steps") \
+  UINT_  (ff_bv_fallback_limit, "ff.bv_fallback_limit", 0, "give up (unknown) instead of bit-blasting a field when the estimated size of the exact BV fallback (bits, plus width^2 per nonlinear product) exceeds this (0 = no limit)") \
   UINT_  (ff_max_terms,                            "ff.max_terms",                            4096,                     "maximum terms in an expanded finite-field polynomial") \
   BOOL_  (auto_config,                             "auto_config",                             true,                     "automatically configure solver") \
   SYMBOL_(logic,                                   "logic",                                   "",                       "logic used to setup the SMT solver") \
@@ -197,7 +198,7 @@ Abstract:
   BOOL_  (up_persist_clauses,                      "up.persist_clauses",                      false,                    "replay propagated clauses below the levels they are asserted") \
   BOOL_  (array_weak,                              "array.weak",                              false,                    "weak array theory") \
   BOOL_  (array_extensional,                       "array.extensional",                       true,                     "extensional array theory") \
-  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof") \
+  BOOL_  (clause_proof,                            "clause_proof",                            false,                    "record a clausal proof; with proof=true, replace learned-clause proof DAGs by a clause trail") \
   UINT_  (dack,                                    "dack",                                    1,                        "0 - disable dynamic ackermannization, 1 - expand Leibniz's axiom if a congruence is the root of a conflict, 2 - expand Leibniz's axiom if a congruence is used during conflict resolution") \
   BOOL_  (dack_eq,                                 "dack.eq",                                 false,                    "enable dynamic ackermannization for transitivity of equalities") \
   DOUBLE_(dack_factor,                             "dack.factor",                             0.1,                      "number of instance per conflict") \

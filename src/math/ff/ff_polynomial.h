@@ -39,8 +39,28 @@ namespace ff {
         // Degree of the homogenized computation, including cancelled terms.
         // This is scheduling metadata only, never an algebraic premise.
         unsigned sugar = 0;
+        // Handle in an active proof recorder. ~0u is explicitly unproved;
+        // dependency sets and heuristic metadata never manufacture this handle.
+        unsigned derivation = ~0u;
     };
-    struct exhausted {};
+    // Optional evidence sink for the native wire-elimination stage. Indices
+    // refer to stable equation slots, including eliminated defining equations.
+    struct elimination_observer {
+        virtual ~elimination_observer() = default;
+        virtual unsigned substitution(unsigned row, unsigned definition, polynomial const &before,
+                                  unsigned variable, polynomial const &value,
+                                  rational const &pivot) = 0;
+    };
+    struct certificate;
+    struct polynomial_observer {
+        virtual ~polynomial_observer() = default;
+        virtual unsigned multiply(unsigned proof, rational const &coefficient, monomial const &factor) = 0;
+        virtual unsigned add(unsigned left, unsigned right) = 0;
+        virtual unsigned remaining_nodes() const { return 0; }
+        virtual bool contradiction(polynomial const &) { return false; }
+        virtual bool import_f4(certificate const &, std::vector<polynomial> const &) { return false; }
+    };
+    struct exhausted { char const* reason = "resource"; };
     // Exact, bounded memoization of basis computations. Entries contain only
     // polynomial data and numeric premise indices, never context-owned ASTs.
     struct basis_cache {
@@ -55,9 +75,9 @@ namespace ff {
         }
     };
 
-    // Backend-independent modular polynomial arithmetic. All transformations below
-    // are ideal operations or invertible variable eliminations. A future certificate
-    // recorder can attach polynomial-combination witnesses at add_scaled/reduce.
+    // Backend-independent modular polynomial arithmetic. Optional observers
+    // record ideal operations and invertible wire elimination. Finite-domain
+    // inferences require additional evidence beyond polynomial combinations.
     struct f4_config;
     struct f4_stats;
 
@@ -93,6 +113,10 @@ namespace ff {
         };
         bool bit_propagation, batch_enabled, sparse_enabled;
         basis_cache *memo = nullptr;
+        polynomial_observer *m_proof = nullptr;
+        elimination_observer *m_elimination_proof = nullptr;
+        unsigned proof_multiply(unsigned id, rational const &c, monomial const &mon);
+        unsigned proof_add(unsigned a, unsigned b);
         unsigned m_bit_facts = 0, m_bit_rounds = 0;
         unsigned m_eliminations = 0, m_substitutions = 0, m_substituted_terms = 0;
         unsigned m_basis_calls = 0, m_basis_pairs = 0, m_root_calls = 0;
@@ -193,6 +217,11 @@ namespace ff {
         void set_basis_cache(basis_cache *c) {
             memo = c;
         }
+        // With an observer, stop before bit-domain inference: those steps need
+        // additional proof rules. l_undef means residual equations remain.
+        lbool eliminate(std::vector<polynomial> &eqs, std::vector<polynomial> &neqs,
+                        std::vector<std::pair<unsigned, polynomial>> &definitions,
+                        elimination_observer *observer = nullptr);
         lbool solve(std::vector<polynomial> const &eqs, std::vector<polynomial> const &neqs,
                     std::vector<rational> &values);
         std::set<unsigned> const &conflict() const {

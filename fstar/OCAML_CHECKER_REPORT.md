@@ -1,5 +1,622 @@
 # Standalone OCaml proof-checker executable
 
+## Clausal search proof mode
+
+`checker --clause-proofs` enables `smt.clause_proof=true` alongside
+`proof=true`; it is available in batch and interactive modes. Standard
+proofs remain the default. Search records typed clause additions/deletions
+instead of reconstructing learned-clause proof DAGs. Preprocessing and
+local theory certificates still use standard proof nodes.
+Theory propagation certificates are logged when the assignment is made,
+so subsequent learned clauses can use them even before the final conflict.
+
+Each event's clause uses an explicit outer `or`, including unary `or` for
+a unit literal. This preserves disjunction-valued Boolean literals instead
+of confusing a unit `(or (or p q))` with a two-literal clause `(or p q)`.
+The bridge separates this literal list from the certificate's conclusion.
+
+`Z3NativeProof.fst` decodes `proof-trail` events. `Z3ClauseProof.fst`
+maintains an active clause database, processes deletions, and elaborates
+uncertified learned clauses using reverse unit propagation. The output
+consists only of existing hypothesis, unit-resolution, and discharged-lemma
+rules. The ordinary kernel rechecks the resulting formulas and premises;
+there is no new trusted RUP rule. Unsupported theory evidence remains a
+pending obligation, not an accepted certificate. User scopes restore the
+producer's trail when popped, and the checker starts a fresh database for
+each proof.
+Root propagation is cached between additions and invalidated when a clause
+is removed. Duplicate clauses share an occurrence index but retain copy
+counts, so deleting one copy does not remove the others. Fingerprints only
+select candidates; exact literal comparisons decide equality.
+
+RUP elaboration can take longer than checking a standard proof DAG.
+`--timeout-ms` bounds solving, not elaboration or checking; use `--stats`
+to distinguish their costs.
+
+Set the solver option before initialization, or reset the incremental solver
+before changing proof modes. `--clause-proofs` is restored after interactive
+`reset`. On Windows, `build_ocaml_checker.ps1 -WslDistribution Ubuntu`
+selects the checker build/test distribution without changing the WSL default.
+
+## QF_BV rewrite identities (2026-10-21)
+
+The 25 QF_BV inputs from workflow run `39507298591` were replayed locally
+with the existing 10-second solver, 60-second case, and 4 GiB memory limits.
+All input hashes match the workflow selection. Exact native expressions
+from the five completed partial proofs identify several recurring rewrite
+families; the first additions to the production checker are:
+
+* Total unsigned division/remainder: `bvudiv(x, 0) = all_ones`,
+  `bvurem(x, 0) = x`, `bvudiv(x, 1) = x`, `bvurem(x, 1) = 0`,
+  and exact numeral folding.
+* Binary commutativity for `bvand`, `bvor`, `bvxor`, `bvadd`, and `bvmul`.
+* Comparisons of BV-valued conditionals with distinct numeral branches:
+  `(ite c a b) = a` becomes `c`, and `(ite c a b) = b` becomes `not c`.
+  The numeral may appear on either side of the equality.
+
+Recognition uses official native operator kinds, checked arities, sorts,
+and numeric widths, not declaration names. The new rules have F* soundness
+proofs against the existing conditional BV semantic model; conditional
+comparison additionally uses the existing term-ITE semantics. This does
+not construct a concrete arbitrary-width BV model for all binder
+environments, or add general bit-blast certificate checking.
+
+The full local cohort changes from **0 ACCEPT, 5 PARTIAL, 11 UNKNOWN,
+9 TIMEOUT** to **1 ACCEPT, 4 PARTIAL, 11 UNKNOWN, 9 TIMEOUT**.
+Paired checks of the five completed proofs remove **182 pending obligations**:
+
+| Input | Previous pending | New pending | New verdict |
+|---|---:|---:|---|
+| `division_by_zero0.smt2` | 1 | 0 | ACCEPT |
+| `QF_BV_bv_bv_h_TicTacToe_cc_reg_max.smt2` | 222 | 45 | PARTIAL |
+| `distrib32.sf.smt2` | 10 | 6 | PARTIAL |
+| `bitops3.smt2` | 25 | 25 | PARTIAL |
+| `rand_40_200_1235844018_0_k=4_unsat.gph.smt2` | 325 | 325 | PARTIAL |
+
+The next priorities are one-bit BV/Boolean identities, modular polynomial
+normalization, and extract/concat identities, followed by checked
+word-to-bit and carry-circuit certificates. For example, TicTacToe still
+needs `(bvnot x = #b1) = (x = #b0)` and
+`ite(x = #b0, #b1, #b0) = bvnot x` for one-bit `x`. The distributivity
+input needs a modular distributivity identity; the graph input repeatedly
+needs addition isolation, like-term cancellation, word/bit equality,
+and incrementer circuits. Binary commutativity alone does not establish
+these associative, polynomial, or circuit identities.
+
+The 11 solver-unknown and nine case-timeout outcomes do not change in
+this replay. These remain completion/resource barriers, separate from the
+pending identities in completed proofs.
+
+The broader standalone `Z3BvTheory`/`Z3BvRewriter` library is not a list
+of production-supported native rewrites. Before integrating arithmetic
+right shift or sign extension, their standalone definitions also need
+correction for nonnegative operands: the current complement-based formulas
+always fill the new high bits with ones. For example, the standalone
+definitions give `bvashr(8, 1, 1) = 128` instead of zero and
+`bv_sign_extend(8, 1, 1) = 257` instead of one. These operations remain
+outside the production BV fragment extended here.
+
+### Follow-up: BV1, modular arithmetic, and extract/concat
+
+The next checked families add one-bit value/equality encodings, including
+`ite(x = #b0, #b1, #b0) = bvnot x` and the equivalence between BV1
+equality and equality of the corresponding Boolean tests. Complement
+comparisons work at arbitrary supported widths:
+`bvnot(x) = n` becomes `x = bvnot(n)`. Complement also folds through
+conditionals whose branches are numerals.
+
+Modular replay now checks binary distributivity
+`x * (y + z) = x * y + x * z`, normalizes subtraction to addition with an
+all-ones coefficient, and handles left-hand zero/one arithmetic identities.
+Distributivity is checked against the two endpoints without expanding
+arbitrary products into potentially exponential polynomial trees. This
+is not yet a general polynomial normalizer or n-ary multiplication checker.
+
+The native bridge now recognizes official extract/concat operator kinds.
+Extract declarations preserve `[source_width; high; low]`, and concat
+declarations preserve operand widths. The verified recognizers check
+arity, sorts, bounds, and result widths before using primitive slice/word
+semantics. Replay handles constant and full-width extracts, extraction
+of either whole operand from a binary concat, and equality of binary
+concats with the same left operand. It does not yet handle arbitrary
+partial slices, n-ary concat associativity, or `mkbv` circuits.
+
+The full 25-input replay at the same limits now gives **2 ACCEPT,
+3 PARTIAL, 11 UNKNOWN, 9 TIMEOUT**, with no outcome regressions.
+Compared with the first BV pass, another **123 obligations** disappear:
+
+| Input | First-pass pending | Follow-up pending | Follow-up verdict |
+|---|---:|---:|---|
+| `distrib32.sf.smt2` | 6 | 0 | ACCEPT |
+| TicTacToe | 45 | 11 | PARTIAL |
+| `bitops3.smt2` | 25 | 21 | PARTIAL |
+| Graph | 325 | 246 | PARTIAL |
+
+The division-by-zero proof remains ACCEPT. Remaining recurring algebraic
+gaps include equality isolation and flattened multiplication/coefficient
+cancellation. The other major barrier is checked word/bit reconstruction,
+equality, unsigned comparison, and carry circuits. In particular, native
+rewrites from an original BV constant to `mkbv` over fresh Boolean
+constants are not unconditional identities over independent atoms.
+The bit blaster creates these fresh constants in
+`src/ast/rewriter/bit_blaster/bit_blaster_rewriter.cpp`'s `mk_const`.
+Their integration requires checked fresh definitions/projections and
+model extension, rather than accepting the displayed rewrite as an axiom.
+
+### Follow-up: checked modular cancellation and word operations
+
+Modular replay now reassociates native n-ary addition/multiplication into
+binary trees, merges nested constant coefficients modulo `2^width`, and
+isolates binary sums in equalities:
+`x + y = z` becomes `x = z + all_ones * y`. These rules have checked
+soundness proofs; this is still not general modular linear collection.
+
+`Z3BvWord.fst` derives numeral/word equivalence, bitwise word equality,
+arbitrary in-bounds slices of explicit words, and binary concatenation
+of words. Numerals can supply constant bits without globally replacing
+BV literals, so existing numeric rewrite recognition is preserved.
+The proofs establish bounds and injectivity of little-endian bit-list
+encoding, numeral decomposition, and split/append arithmetic. They use
+primitive `mkbv` semantics in the existing conditional BV model, not the
+target rewrite identities as axioms.
+
+The native API now exposes `Z3_OP_MKBV`, appended to the BV declaration
+kinds without renumbering existing entries. Previously these declarations
+were reported only as `Z3_OP_INTERNAL`. The bridge recognizes the new
+official kind and preserves the numeric result width; it does not trust
+the printed name `mkbv`. Word recognition checks a positive width up to
+4096, exact bit count, Boolean domains/arguments, and the BV result sort.
+Native regressions reject malformed metadata, missing operator identity,
+non-Boolean bits, and an arbitrary variable-to-word rewrite.
+
+The strict F*/Pulse verification, extraction, native tests (45 groups),
+and CLI tests (26) pass. All 25 BV samples were replayed at the unchanged
+10-second solver, 60-second case, and 4-GiB limits. Outcomes remain
+**2 ACCEPT, 3 PARTIAL, 11 UNKNOWN, 9 TIMEOUT**, with no outcome regressions.
+Another **145 obligations** are discharged, reducing pending obligations
+in the completed proofs from **278 to 133**:
+
+| Input | Previous pending | New pending | Verdict |
+|---|---:|---:|---|
+| TicTacToe | 11 | 4 | PARTIAL |
+| `bitops3.smt2` | 21 | 9 | PARTIAL |
+| Graph | 246 | 120 | PARTIAL |
+
+These are coverage gains, not new fully certified benchmarks. In the
+paired single-run measurements, the graph's end-to-end time rises from
+10.41 to 10.97 seconds and checker time from 4.91 to 5.22 seconds.
+TicTacToe changes from 0.53 to 0.58 seconds end-to-end, and bitops from
+0.18 to 0.23 seconds. These observations are not controlled timing
+microbenchmarks.
+
+Exact remaining native obligations identify the next work:
+
+* **Fresh-bit definitions/model extension:** 40 graph rewrites and three
+  bitops rewrites, plus one TicTacToe rewrite, reconstruct original BV
+  variables from fresh Boolean atoms. They remain unsupported; accepting
+  these equalities without verified freshness and projection definitions
+  would be unsound.
+* **Carry circuits and Boolean equality normalization:** the graph retains
+  39 incrementer rewrites and 39 equalities between word/circuit
+  representations. Bitops also retains two adder rewrites.
+* **Unsigned comparisons:** TicTacToe retains strict/non-strict duality
+  and a word comparison; the graph retains a word comparison and a
+  comparison split across slices. TicTacToe additionally needs a
+  numeral-branch ITE comparison with a non-numeral other branch.
+* **Structural/algebraic rewrites:** bitops retains complement over concat,
+  native n-ary concat/reassociation, and a modular linear-collection
+  equality beyond binary isolation.
+
+The 11 UNKNOWN and nine TIMEOUT cases still require producer/resource
+work rather than acceptance of additional unchecked identities.
+
+### Follow-up: carry circuits and complemented Boolean equality
+
+Explicit-word addition now has a checked ripple-carry implementation.
+Each sum bit is `(a xor b) xor carry`; the next carry is
+`ite(a = b, a, carry)`. The proof separately connects these Boolean
+expressions to a pure bit-list adder and proves its exact numeric value,
+including the outgoing carry. Discarding that carry then establishes
+addition modulo `2^width` using the existing primitive addition semantics.
+This adds no new BV model axioms and does not assume an incrementer
+identity or a variable-to-fresh-word equality.
+
+Word endpoint comparison checks corresponding bit formulas independently,
+reusing structural Boolean equivalence and its bounded eight-atom
+truth-table fallback per bit. Numerals can provide constant bit lists.
+This avoids requiring a truth table over all variables of an entire
+word while retaining the existing operator, width, sort, and scope guards.
+
+The shared Boolean normal form now reuses its checked equality constructor
+during normalization as well as contextual specialization. It handles
+one or both complemented operands, including
+`p = not q` versus `not (p = q)`, structurally. This discharges word/circuit
+equality steps that previously exceeded the whole-formula Boolean bound.
+Native regressions cover wide complemented equality, general two-word
+addition, carry propagation, discarded overflow, a three-bit incrementer,
+and rejection of a circuit missing its carry.
+
+At the unchanged BV replay limits, another **80 obligations** disappear:
+
+| Input | Previous pending | New pending | Verdict |
+|---|---:|---:|---|
+| TicTacToe | 4 | 4 | PARTIAL |
+| `bitops3.smt2` | 9 | 7 | PARTIAL |
+| Graph | 120 | 42 | PARTIAL |
+
+The total decreases from **133 to 53**. All 39 graph incrementers and all
+39 graph word/circuit equalities now check, together with both remaining
+bitops additions. The full 25-input cohort remains **2 ACCEPT, 3 PARTIAL,
+11 UNKNOWN, 9 TIMEOUT**, with identical per-input outcomes.
+The graph's single-run wall time changes from 10.97 to 10.56 seconds and
+checker time from 5.22 to 4.93 seconds; these are not controlled
+microbenchmarks.
+
+The strict F*/Pulse, extraction, native (45 groups), and CLI (26 tests)
+pipeline passes. Because Boolean normalization is shared, a paired
+25-input QF_DT retention replay also checks the previous and new binaries:
+both give **9 ACCEPT, 2 PARTIAL, 13 UNKNOWN, 1 TIMEOUT**, with identical
+per-input verdicts and pending counts.
+
+Of the 53 remaining BV obligations, **44 concern fresh-bit reconstruction**
+and still require checked definitions/projections and model extension.
+The remaining nine are unsigned comparisons and comparison/slice
+splitting, a mixed numeral/non-numeral ITE comparison, complement over
+concat, n-ary concat/reassociation, and general modular linear collection.
+
+### Follow-up: unsigned order and remaining structural identities
+
+`Z3BvOrder.fst` now checks unsigned strict/non-strict duality,
+`bvult(a, b) = not bvule(b, a)`, and reversed non-strict comparison,
+`bvuge(a, b) = bvule(b, a)`. Explicit-word non-strict comparison is derived
+from a little-endian Boolean comparator: each more-significant bit pair
+selects the lower-bit result when equal, or `not a` otherwise.
+Numerals can supply their checked constant bits. A zero lower bound
+simplifies to true.
+
+Small numeral lower bounds can split across slices. If `n < 2^m` and
+`m < width`, `bvule(n, x)` becomes
+`upper(x) != 0 or bvule(n, lower(x))`, with exact high/low bounds and
+widths. The proof derives this from quotient/remainder arithmetic and
+the existing primitive extract semantics. BV-valued ITE equality also
+handles one numeral branch and one arbitrary same-width branch, for
+either branch orientation and either equality endpoint.
+
+Word replay additionally checks native ternary concat by reassociating
+it into binary concat, and distributes complement over binary concat.
+Modular replay checks `(x + y) = 2*x` iff `x = y` by additive
+cancellation, not division by two. This is a targeted cancellation
+family, not a general modular linear normalizer.
+
+The native bridge preserves official unsigned comparison kinds and
+derives their numeric width from the operand sort, not the Boolean
+result sort. Recognition checks operator identity, arity, domains,
+argument/result sorts, and supported widths. The conditional BV model
+now includes primitive numeric unsigned comparisons and ternary concat;
+the target rewrites are proved from these semantics rather than assumed.
+It still does not supply a concrete combined arbitrary-width model or
+the fresh-bit model-extension theorem.
+
+The full strict F*/Pulse verification, extraction, native regression
+suite (45 groups), and CLI suite (26 tests) pass. Added native cases
+exercise the new families, incorrect polarity/boundaries, missing
+operator identity, and malformed comparison/ternary-concat signatures.
+All 25 BV samples were replayed at the unchanged 10-second solver,
+60-second case, and 4-GiB limits, with identical per-input outcomes:
+**2 ACCEPT, 3 PARTIAL, 11 UNKNOWN, 9 TIMEOUT**.
+
+All nine ordinary rewrites left by the carry pass now check:
+
+| Input | Previous pending | New pending | Verdict |
+|---|---:|---:|---|
+| TicTacToe | 4 | 1 | PARTIAL |
+| `bitops3.smt2` | 7 | 3 | PARTIAL |
+| Graph | 42 | 40 | PARTIAL |
+
+Pending obligations decrease from **53 to 44**. Exact native probes
+confirm that all 44 remaining obligations reconstruct original BV
+variables from fresh Boolean words. These are not identities under
+independent interpretations. The next required work is checked fresh-bit
+projection definitions, reconstruction, and model extension; matching
+printed names or admitting the reconstruction equality as a rewrite
+would not be sound.
+
+The graph's single-run wall time changes from 10.56 to 10.51 seconds,
+and checker time from 4.93 to 4.95 seconds. TicTacToe remains about
+0.58 seconds and bitops about 0.23 seconds end-to-end. These are not
+controlled microbenchmarks. The 11 UNKNOWN and nine TIMEOUT cases remain
+separate producer/resource barriers.
+
+### Follow-up: fresh-bit interpretation extension
+
+`Z3BvFresh.fst` gives a first checked extension condition and an explicit
+interpretation constructor for a single original-word reconstruction.
+The executable condition requires:
+
+* An uninterpreted nullary original BV constant, width 1..4096.
+* An official `mkbv` constructor with checked arity, domains, numeric
+  width, and result sort.
+* Exactly that many distinct, uninterpreted nullary Boolean constants,
+  without declaration parameters, in little-endian order.
+* Absence of all these Boolean declarations from every original input,
+  including occurrences inside quantifiers. Neither a fresh-name prefix
+  nor a printed operator name establishes this condition.
+
+Given the existing conditional BV and Boolean semantics for a base
+interpretation `i`, `extend` assigns each fresh Boolean the corresponding
+bit of the original constant's numeric projection. It changes only
+nullary applications of those declarations. All interpreted operators,
+the quantifier interpretation, and other uninterpreted applications are
+unchanged.
+
+The verified `lemma_model_extension` establishes, for any environment:
+
+* Preservation of the values of all fresh original inputs, reusing
+  `Z3Skolemization`'s structural freshness lemma and quantifier
+  extensionality.
+* Truth of the reconstruction equality in the extended interpretation,
+  for either equality orientation.
+* Preservation of quantifier extensionality and of both interpreted
+  interpretation fields.
+
+The reconstruction proof does **not** assume `bv_model` for the extended
+interpretation. Instead, the fresh word evaluates to the same value as
+a word of Boolean literals in the base interpretation. Existing numeric
+word semantics and projection injectivity then identify that value with
+the original constant. No reconstruction identity is added as an axiom.
+
+The full strict verification/extraction/build pipeline passes, including
+46 native test groups and 26 CLI tests. New native cases cover correct
+bit order and reconstruction at widths 1, 3, and 8, preservation of other
+symbols and non-nullary applications, reversed equality, and rejection
+of duplicate bits, input-visible bits (also under binders), malformed
+declarations, and missing operator identity. The existing unconditional
+rewrite checker still rejects an arbitrary variable-to-fresh-word
+equality.
+
+Re-diagnosing the three completed partial BV proofs gives:
+
+| Input | Pending | Passing single-word extension conditions |
+|---|---:|---:|
+| TicTacToe | 1 | 1 |
+| `bitops3.smt2` | 3 | 3 |
+| Graph | 40 | 40 |
+
+The bit sets are also pairwise disjoint within each of these documents.
+This is **44 matching extension conditions, not 44 discharged proof
+obligations**: acceptance remains unchanged.
+
+Two proof obligations still gate document-level integration. First,
+compose the single-word construction into one interpretation satisfying
+all reconstructions, with checked global disjointness/freshness.
+Second, establish the full checker's semantic-model assumptions for that
+interpretation, including the BV clauses for terms mentioning the new
+bits. Preserving the interpreted function fields alone does not establish
+these term-level assumptions. The new theorem proves reconstruction and
+input preservation, but deliberately does not claim this model closure
+or a concrete arbitrary-width combined model.
+
+### Follow-up: simultaneous extension and BV/Boolean model preservation
+
+`Z3BvFresh` now checks a whole reconstruction context and constructs one
+interpretation satisfying it. Each word retains the single-word shape
+checks; its fresh bits must also be absent from every other reconstruction
+and all original inputs. The extension composes tail-first, preserving
+already established equations and the original constants' values.
+
+The new `Z3BvFreshModel` module supplies a semantic-model guard and a
+literal-retraction proof: evaluation after a single extension equals
+evaluation in the base interpretation after replacing the assigned fresh
+nullary atoms with Boolean literals. Retraction preserves sorts, scoping,
+operator declarations, and binder indices; it also works under quantifiers
+using the existing quantifier-extensionality assumption.
+
+This proves preservation of **all nine clauses of `Z3BvLemma.bv_model`**,
+including operations on terms containing the new bits. The primitive BV
+closure proof, including its simultaneous-context version, requires only
+the base BV model, true/false semantics, and quantifier extensionality; it
+does not assume the extended BV model or the broad Boolean-value model.
+Separate lemmas transfer the existing Boolean rewrite model, covering
+Boolean values, literals, negation, conjunction, disjunction, implication,
+equality, Boolean ITE, and XOR.
+
+The combined `lemma_context_extension` establishes preservation of original
+input values, truth of every supplied reconstruction (including reversed
+equalities), and preservation of BV/Boolean models and quantifier
+extensionality. It uses the same numeric projection throughout.
+
+The model-safety guard additionally excludes fresh declarations named
+`true`, `false`, `and`, or `or`. The legacy Boolean semantic predicates
+constrain these names even for nullary uninterpreted declarations, so
+overriding them could violate an existing model assumption. This is a
+conservative compatibility restriction, not name-based evidence of
+freshness or operator identity.
+
+Strict F*/Pulse verification, extraction, native compilation, all 47
+native test groups, and all 26 CLI tests pass. The new native group checks
+simultaneous reconstruction, reversed equality, global bit collisions,
+input freshness under binders, reserved-name rejection, and literal
+retraction/evaluation correspondence.
+
+The actual partial proofs pass the complete, model-safe context guard:
+
+| Input | Pending | Passing simultaneous context |
+|---|---:|---|
+| TicTacToe | 1 | Yes |
+| `bitops3.smt2` | 3 | Yes |
+| Graph | 40 | Yes |
+
+**Acceptance is still unchanged: three PARTIAL certificates and 44 pending
+obligations.** The next integration gate is preservation of the full
+`Z3UnifiedProof.model_sound`, which also contains arithmetic, array,
+definition, quantifier, lambda, and normalization assumptions. BV/Boolean
+closure alone must not be used as a substitute for that theorem.
+
+The combined theorem remains conditional on the existing Boolean model.
+Its Boolean-value predicate quantifies over arbitrary expressions and
+environments, including unscoped variables; a typed/scoped treatment is
+needed before claiming a concrete model satisfying all these assumptions.
+The primitive BV closure result is independent of that broad predicate.
+No reconstruction axiom or unconditional rewrite acceptance was added.
+
+### Follow-up: removing impossible environment assumptions
+
+The legacy model issue is now a verified counterexample, not merely a
+typing concern. `Z3ScopedModelTests.fst` proves:
+
+* No interpretation satisfies `Z3ObservationalEquality.boolean_model`:
+  evaluate `Var 0 Bool` in an environment returning `VInt 0`.
+* No interpretation satisfies `Z3LinearArithmeticEmbed.numeric_model`:
+  evaluate `Var 0 Int` in an environment returning `VBool false`.
+* No interpretation satisfies `Z3ArrayLemma.array_model`: a recognized
+  select on an array-sorted variable requires its value to be `VArr`,
+  even in an environment returning `VBool false`.
+
+These legacy contracts quantify over these unscoped expressions and
+arbitrary environments. Consequently, the existing full
+`Z3UnifiedProof.model_sound` has no witness. Its conditional soundness
+theorems cannot establish a concrete-model guarantee as currently stated.
+These negative regression proofs are test-only and are not imported by
+the production model-extension proofs.
+
+`Z3ScopedModel.fst` introduces a replacement scalar-typing contract:
+an expression must be well-scoped in an explicit sort context, and each
+environment value in that context must have the corresponding Bool/Int
+constructor. Other sorts retain their separate theory contracts. The
+module proves evaluation typing from application/quantifier typing and
+provides a concrete witness for scoped scalar typing, official Boolean
+literals, equality reflexivity, and quantifier extensionality. This is
+**not** a witness for the full BV/arithmetic/array model; the witness
+only establishes that these replacement prerequisites are satisfiable.
+Generic `eval` is unchanged: ill-typed environments are excluded by the
+contract, not silently coerced or assigned fallback semantics.
+
+The fresh-bit proofs no longer need the impossible Boolean model.
+Word/numeral-bit helpers and reconstruction-value proofs now require
+only the official interpreted true/false literal semantics. All nine BV
+closure clauses likewise use these literal semantics, rather than the
+legacy name-wide `true_sound`/`false_sound` contracts.
+
+The new `lemma_scoped_context_extension` combines:
+
+* Original-input value preservation and simultaneous reconstruction,
+  including reversed equalities.
+* Preservation of the nine-clause BV model with the same projection.
+* Preservation of scoped Bool/Int evaluation typing, official literal
+  semantics, equality reflexivity, and quantifier extensionality.
+
+Its prerequisites contain neither legacy `boolean_model` nor legacy
+`numeric_model`. Reconstruction is proved as value equality for every
+member of the context; the proof does not infer value equality by
+inverting a merely reflexive equality operator.
+
+The scoped theorem uses the structural `Z3BvFresh.check_context`.
+Fresh uninterpreted atoms named `true`, `false`, `and`, or `or` are safe
+under these prerequisites: they remain distinct from the interpreted
+operators. The earlier reserved-name guard remains only for the legacy
+Boolean-model transfer helper. Native regressions deliberately assign
+false to an uninterpreted atom named `true`, and true to one named
+`false`, while preserving both official literals.
+
+Strict verification (including all three legacy-contract counterexamples),
+extraction, all 48 native test groups, and all 26 CLI tests pass. The
+three partial benchmark documents still have 1/3/40 pending obligations;
+all original assertions and pending formulas are well-scoped, and all
+three pass both the structural scoped-context check and the older
+model-safe guard.
+
+**Document acceptance remains unchanged.** The next gate is migration of
+the existing Boolean, arithmetic, and array replay lemmas, then the unified
+document soundness theorem, to scoped/typed semantic contracts. The new
+theorem does not claim preservation of the complete Boolean rewrite
+laws or the full unified model, and it does not provide a concrete
+combined theory model. Simply proving closure of the old full model
+would be vacuous and would not discharge this gate.
+
+### Upstream merge compatibility: datatype exclusions
+
+Rebuilding against the updated solver exposed a direct datatype consequence
+in the sorted-kernel regressions: infer the remaining constructor recognizer
+from negated alternative recognizers. `Z3SortedDatatype.exhaustiveness_from`
+checks that the conclusion and excluded alternatives cover every constructor
+of the same subject, reusing the existing concrete-model exhaustiveness
+theorem. Native cases cover two and three constructors and reject missing
+exclusions and exclusions for a different subject. Strict verification, all
+48 native groups, all 26 CLI tests, and all 116 solver unit groups pass.
+
+### Equality-aware datatype consequences (2026-10-22)
+
+The remaining QF_DT obligations came from
+`theory_datatype::propagate_recognizer` (38 propagations) and
+`theory_datatype::sign_recognizer_conflict` (one conflict). Every propagation
+had premises `not (is-stack y)` and `x = y`, concluding `is-empty x`.
+The conflict combined `not (is-stack t)` with
+`stack (top t) (rest t) = t`.
+
+`Z3SortedDatatype.transport_exclusion` now derives a negative recognizer on
+the other side of an actual equality premise, checking canonical equality,
+official negation, registered recognizer metadata, and closed typed scope.
+Its concrete-model soundness theorem proves that the derived fact is true.
+The derived exclusions supplement the original premises for the existing
+verified exhaustiveness and normalization checks. Both equality orientations
+and either premise order are supported; this is one-step transport, not a
+general equality-closure procedure.
+
+Strict verification/extraction, all 48 native groups, and all 26 CLI tests
+pass. Formal document regressions cover propagation, a non-nullary
+constructor conflict, and a missing equality remaining pending. Native
+mutations additionally reject unrelated or uninterpreted equality,
+uninterpreted negation, incomplete constructor exclusions, and conflicts
+with the wrong constructor.
+
+A fresh replay of the same 25 workflow QF_DT inputs at the unchanged
+10-second producer, 60-second case, and 4-GiB limits gives **11 ACCEPT,
+13 UNKNOWN (producer timeout), 1 TIMEOUT, zero PARTIAL, zero ERROR**.
+The two blocksworld proofs move from 2/37 pending obligations to ACCEPT,
+discharging all 39 remaining obligations; their proof sizes remain
+7,200 and 147,909 nodes. All nine previously accepted inputs remain accepted.
+This certifies every completed UNSAT proof in this cohort, not every QF_DT
+benchmark or every datatype proof shape.
+
+## Diagnostic-driven equality coverage (2026-10-20)
+
+The regression workflow now separately replays partial and rejected proofs
+with diagnostics, without changing coverage budgets or measured case times.
+Its statistics parser recognizes the native semantic-path suffix instead
+of discarding otherwise valid phase timings.
+
+Replaying the October 19 workflow's 13 partial QF_UFLIA inputs reproduced
+all verdicts and pending counts. Their 2,028 obligations were discharged
+by checked arithmetic equality propagation and both orientations of
+triangle-equality clauses. Equality propagation synthesizes bounded exact
+Farkas candidates, independently checks both non-strict bounds against the
+actual premises, and applies the proved equality-to-bounds equivalence.
+Existing theory checks remain ahead of synthesis on the production path.
+
+The unchanged 25-input QF_UFLIA cohort now gives **25 ACCEPT**, versus
+12 ACCEPT and 13 PARTIAL in that workflow. A local full replay of the
+225-input sample at z3test `df80f8ce4f6965c2a340806068790c76f6612880`
+gives **180 ACCEPT, 5 PARTIAL, 33 UNKNOWN, 6 TIMEOUT, and 1 ERROR**.
+Fifteen former partials certify, including one AUFLIA and one UFLIA proof.
+The five completed partials retain 32 obligations: arithmetic contradiction
+and cut lemmas, plus two large Boolean rewrites.
+
+Two previously accepted workflow inputs hit resource limits locally;
+both losses also reproduce with the baseline executable on this machine.
+The formerly partial `dlx-regfile.smt2` likewise times out with both
+executables. A subsequent replay of all 188 inputs previously completed
+by the workflow retains these local outcomes after prioritizing established
+checks over synthesis. The native assertion-time OOM remains an explicit
+error. These are local measurements, not a new GitHub workflow result.
+
+The opt-in `--sorted-core` mode also makes the existing inhabited,
+sort-indexed kernel available to non-datatype documents, in batch and
+interactive sessions, without a legacy fallback. Empty-schema model
+construction and refutation soundness are checked in
+`Z3SortedProofTests.fst`. This is a bounded migration step: it does not
+repair the legacy combined model or add concrete arithmetic/array semantics
+to the typed kernel.
+
 ## Direct native Z3 integration (2026-10-16)
 
 The executable now accepts **SMT-LIB only**:
@@ -320,7 +937,8 @@ assertions** using topological premise lookup, checked declaration
 membership, closed well-sorted facts, hypothesis inheritance/discharge,
 and explicit pending counts. Its `lemma_check_document` proves that a
 zero-obligation result rules out any typed interpretation satisfying the
-original assertions. A concrete total interpretation witness ensures
+original assertions and the quantifier laws required by the document.
+A concrete total interpretation witness ensures
 that the interpretation type itself is inhabited; the theorem does not
 assume the legacy `model_sound` or global all-environments contracts.
 The diagnostic checker is proved to agree with the acceptance checker.
@@ -332,22 +950,46 @@ document. The standalone node-checking wrapper still validates supplied
 premises. Hypothesis discharge checks canonical negations and handles
 both clause literals and the complement of the whole conclusion.
 
+Boolean-body congruence beneath `forall`, `exists`, and Boolean-valued
+lambdas uses evaluation in arbitrary typed binder environments. Canonical
+restricted-domain closures turn pointwise body equality into equality of
+quantifier values without imposing a truth interpretation on quantifiers.
+
+`Z3SortedQuantifier.fst` adds universal instantiation for quantifier-free
+bodies and closed, correctly sorted actual arguments. Actual arguments
+may themselves contain quantifiers. The checker reuses
+`Z3BinderSubstitution.substitute`, reverses declaration-order arguments for
+de Bruijn indexing, and requires canonical disjunction and negation
+declarations. Typed substitution preservation is proved over the concrete
+datatype evaluator. Documents containing `QuantifierInstantiation` entries
+require the standard forall-elimination law: a true universal closure has
+a true body at every correctly sorted bound-value tuple. This law
+constrains the supplied quantifier operator, not a certificate's validity;
+it is an explicit premise of the document soundness theorem, not an
+additional axiom. Documents without instantiation entries retain their
+quantifier-oracle-independent theorem.
+
 The native CLI selects this kernel whenever marshaling finds datatype
 metadata. It never falls back to the legacy checker on this path.
 Documents without datatypes retain the existing unified checker.
 This is not a migration of every theory: arithmetic, arrays, bit-vectors,
 and quantifier truth remain abstract unless handled by the typed core.
-Definition expansion, Skolemization, and quantifier-specific proof
-semantics are not imported from the legacy model; unsupported steps
-remain obligations. The native API's correspondence to checked metadata
+Definition expansion, Skolemization, and other quantifier-specific proof
+semantics are not imported from the legacy model. Instantiation of bodies
+containing nested binders remains unsupported; these and other unsupported
+steps remain obligations. The native API's correspondence to checked metadata
 and original assertions remains in the foreign trust boundary.
 
-The strict F*/Pulse, OCaml extraction, native bridge (40 groups), and CLI
-(23 tests) checks pass. Regressions include heterogeneous fields,
+The strict F*/Pulse, OCaml extraction, native bridge (53 groups), and CLI
+(31 tests) checks pass. Regressions include heterogeneous fields,
 mutual recursion, nonproductive or malformed schemas, matching and
 argument-dependent wrong-constructor selectors, canonical native
 dispatch, typed AST evaluation, quantifier binding order, and invalid
 accessor indices and recognizer result sorts. Contextual proof regressions
+also cover mixed-sort and same-sort multi-variable instantiation, closed
+quantified arguments, and rejection of missing, extra, permuted, or
+escaping bindings, forged logical declarations, and incorrect instances.
+Contextual proof regressions
 certify native exhaustiveness, reconstruction, injectivity, and
 disjointness, conditional branches, and equality symmetry, while rejecting
 missing original inputs, open roots,

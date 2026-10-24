@@ -25,6 +25,7 @@ Author:
 #include "model/ff_factory.h"
 #include "math/ff/ff_polynomial.h"
 #include "ast/ff/ff_solver.h"
+#include "ast/ff/ff_evidence.h"
 #include "params/smt_params_helper.hpp"
 #include <memory>
 
@@ -77,7 +78,7 @@ namespace smt {
         return expr_ref(m.mk_app(wraps.find(e->get_sort()), e), m);
     }
 
-    void theory_ff::assert_axiom(expr *e, bool simplify) {
+    void theory_ff::assert_axiom(expr *e, bool simplify, app *evidence) {
         expr_ref axiom(e, m);
         if (simplify)
             rw(axiom);
@@ -88,7 +89,15 @@ namespace smt {
         ctx.internalize(axiom, false);
         literal lit = ctx.get_literal(axiom);
         ctx.mark_as_relevant(lit);
-        ctx.mk_th_axiom(get_id(), 1, &lit);
+        if (m.proofs_enabled()) {
+            if (!evidence)
+                throw default_exception("finite-field lemma requires recorded evidence");
+            auto proof = ff::mk_refutation_lemma(m, axiom, evidence);
+            ctx.mk_clause(1, &lit,
+                          ctx.mk_justification(justification_proof_wrapper(ctx, proof)), CLS_TH_AXIOM);
+        }
+        else
+            ctx.mk_th_axiom(get_id(), 1, &lit);
         ++axioms;
     }
 
@@ -431,7 +440,16 @@ namespace smt {
             if (satisfied)
                 continue;
             // Assert the original equality, not just the sampled roots.
-            assert_axiom(m.mk_or(clause.size(), clause.data()), false);
+            app_ref evidence(m);
+            if (m.proofs_enabled()) {
+                expr_ref_vector premises(m);
+                for (expr *lit : clause)
+                    premises.push_back(mk_not(m, lit));
+                try { evidence = ff::record_refutation(m, premises, ctx.get_params()); }
+                catch (ff::exhausted const &) { continue; }
+                if (!evidence) continue;
+            }
+            assert_axiom(m.mk_or(clause.size(), clause.data()), false, evidence);
             ++root_clauses;
             if (factor_clause)
                 ++factor_split_clauses;
@@ -443,7 +461,7 @@ namespace smt {
     final_check_status theory_ff::check_native() {
         ++native_checks;
         native_values.reset();
-        bool arranged = false;
+        bool arranged = false, incomplete = false;
         obj_map<sort, std::unique_ptr<ff::solver>> fields;
         obj_map<sort, ptr_vector<enode>> terms_by_sort;
         auto problem = [&](sort *s) -> ff::solver & {
@@ -462,7 +480,10 @@ namespace smt {
         auto add = [&](sort *s, expr *a, expr *b, bool equality) {
             if (bv_fields.contains(s)) return;
             try { problem(s).add(a, b, equality); }
-            catch (ff::exhausted const &) { bv_fields.insert(s); ++fallbacks; }
+            catch (ff::exhausted const &) {
+                if (m.proofs_enabled()) incomplete = true;
+                else { bv_fields.insert(s); ++fallbacks; }
+            }
         };
         obj_hashtable<enode> model_terms;
         // Forward each relevant variable's equality to its current union-find
@@ -502,7 +523,7 @@ namespace smt {
             if (bv_fields.contains(s)) continue;
             auto &p = *pp;
             try {
-                lbool result = p.check();
+                lbool result = p.check(m.proofs_enabled());
                 if (result == l_undef)
                     throw ff::exhausted();
                 if (result == l_false) {
@@ -515,7 +536,7 @@ namespace smt {
                     // Preserve the exact SAT atoms; rewriting could produce an
                     // atom already assigned the opposite value, repeating this
                     // final check indefinitely.
-                    assert_axiom(m.mk_or(clause), false);
+                    assert_axiom(m.mk_or(clause), false, p.evidence());
                     ++native_conflicts;
                     return FC_CONTINUE;
                 }
@@ -546,18 +567,22 @@ namespace smt {
             catch (ff::exhausted const &) {
                 // A local algebra limit shouldn't hide a conflict in another field.
                 if (m.limit().is_canceled()) return FC_GIVEUP;
-                bv_fields.insert(s);
-                ++fallbacks;
+                IF_VERBOSE(2, {
+                    verbose_stream() << "(ff.native-exhausted)\n";
+                    ::statistics st;
+                    p.collect_statistics(st);
+                    st.display_smt2(verbose_stream());
+                });
+                if (m.proofs_enabled()) incomplete = true;
+                else { bv_fields.insert(s); ++fallbacks; }
             }
         }
-        return arranged ? FC_CONTINUE : FC_DONE;
+        return arranged ? FC_CONTINUE : incomplete ? FC_GIVEUP : FC_DONE;
     }
 
     final_check_status theory_ff::final_check_eh(unsigned) {
         if (!get_num_vars())
             return FC_DONE;
-        if (m.proofs_enabled())
-            throw default_exception("finite-field combination certificates are not supported in v1");
         if (propagate_roots())
             return FC_CONTINUE;
         final_check_status status = check_native();
@@ -565,6 +590,41 @@ namespace smt {
         if (!m.inc()) return FC_GIVEUP;
         if (!bv_fields.empty() && ctx.get_fparams().m_bv_mode == bv_solver_id::BS_NO_BV)
             return FC_GIVEUP;
+        unsigned limit = bv_fields.empty() ? 0 : smt_params_helper(ctx.get_params()).ff_bv_fallback_limit();
+        if (limit) {
+            // Estimate the exact encoding before building it: each relevant term of a
+            // fallback field needs a bit-vector of the field's width, and a product of
+            // two non-constant terms a width x width multiplier. Large field
+            // encodings may exceed practical memory budgets; decline them when
+            // requested instead of constructing an encoding above the limit.
+            uint64_t cost = 0;
+            for (unsigned v = 0; v < get_num_vars(); ++v) {
+                enode *n = get_enode(v);
+                if (!bv_fields.contains(n->get_sort()) || !ctx.is_relevant(n))
+                    continue;
+                uint64_t w = ff.modulus(n->get_sort()).get_num_bits();
+                expr *e = n->get_expr();
+                unsigned symbolic = 0;
+                if (is_app_of(e, ff.get_fid(), OP_FF_MUL))
+                    for (expr *arg : *to_app(e))
+                        symbolic += !ff.is_numeral(arg);
+                // Saturate at limit + 1 before multiplying. This is only an
+                // admission heuristic: exceeding it declines fallback, never
+                // establishes a field fact. Keep accounting safe even for very
+                // wide sorts or high-arity products.
+                uint64_t remaining = uint64_t(limit) - cost;
+                if (w > remaining ||
+                    (symbolic >= 2 && (w > remaining / w ||
+                                      symbolic - 1 > remaining / (w * w)))) {
+                    cost = uint64_t(limit) + 1;
+                    break;
+                }
+                cost += symbolic >= 2 ? w * w * (symbolic - 1) : w;
+            }
+            IF_VERBOSE(2, verbose_stream() << "(ff.bv-fallback :cost " << cost << " :limit " << limit << ")\n");
+            if (cost > limit)
+                return FC_GIVEUP;
+        }
         unsigned before = axioms;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             enode *n = get_enode(v);

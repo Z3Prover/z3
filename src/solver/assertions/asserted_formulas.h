@@ -59,6 +59,7 @@ class asserted_formulas {
     maximize_bv_sharing_rw      m_bv_sharing;
     bool                        m_inconsistent;
     bool                        m_has_quantifiers;
+    bool                        m_reduce_pending = true; // some formula may not be in normal form w.r.t. the current rewriter configuration
     struct scope {
         unsigned                m_formulas_lim;
         bool                    m_inconsistent_old;
@@ -84,12 +85,20 @@ class asserted_formulas {
     public:
         reduce_asserted_formulas_fn(asserted_formulas& af): simplify_fmls(af, "reduce-asserted") {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { af.m_rewriter(j.fml(), n, p); }
+        // The formulas are already in normal form unless some formula or the rewriter
+        // configuration changed since the last reduction: then the pass is a no-op and is skipped.
+        void operator()() override {
+            if (!af.m_reduce_pending)
+                return;
+            simplify_fmls::operator()();
+            af.m_reduce_pending = false;
+        }
     };
 
     class find_macros_fn : public simplify_fmls {
     public:
         find_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-macros") {}
-        void operator()() override { af.find_macros_core(); }
+        void operator()() override { af.m_reduce_pending = true; af.find_macros_core(); }
         bool should_apply() const override { return (af.m_smt_params.m_quasi_macros || af.m_smt_params.m_macro_finder) && af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
@@ -97,7 +106,7 @@ class asserted_formulas {
     class apply_quasi_macros_fn : public simplify_fmls {
     public:
         apply_quasi_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-quasi-macros") {}
-        void operator()() override { af.apply_quasi_macros(); }
+        void operator()() override { af.m_reduce_pending = true; af.apply_quasi_macros(); }
         bool should_apply() const override { return af.m_smt_params.m_quasi_macros && af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
@@ -105,7 +114,7 @@ class asserted_formulas {
     class nnf_cnf_fn : public simplify_fmls {
     public:
         nnf_cnf_fn(asserted_formulas& af): simplify_fmls(af, "nnf-cnf") {}
-        void operator()() override { af.nnf_cnf(); }
+        void operator()() override { af.m_reduce_pending = true; af.nnf_cnf(); }
         bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
@@ -166,7 +175,7 @@ class asserted_formulas {
         elim_term_ite_fn(asserted_formulas& af): simplify_fmls(af, "elim-term-ite"), m_elim(af.m, af.m_defined_names) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.fml(), n, p); }
         bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != lift_ite_kind::LI_FULL; }
-        void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
+        void post_op() override { if (!m_elim.new_defs().empty()) af.m_reduce_pending = true; af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
         void push() { m_elim.push(); }
         void pop(unsigned n) { m_elim.pop(n); }
     };
@@ -174,7 +183,7 @@ class asserted_formulas {
     class flatten_clauses_fn : public simplify_fmls {
     public:
         flatten_clauses_fn(asserted_formulas& af): simplify_fmls(af, "flatten-clauses") {}
-        void operator()() override { af.flatten_clauses(); }
+        void operator()() override { af.m_reduce_pending = true; af.flatten_clauses(); }
         bool should_apply() const override { return true; }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };

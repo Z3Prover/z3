@@ -289,27 +289,82 @@ type interpretation (base:sort -> Type0) (sigma:signature) = {
     value base sigma (quant_sort k bound body_sort);
 }
 
+let typed_body (#base:sort -> Type0) (sigma:signature) (bound:list sort) (t:sort)
+               (f:(arguments base sigma (L.rev bound) -> Tot (tree base)){
+                 forall (vs:arguments base sigma (L.rev bound)). has_sort sigma t (f vs)})
+               (vs:arguments base sigma (L.rev bound))
+  : value base sigma t = f vs
+
+noextract
+let rec expression_size (e:expr) : Tot pos (decreases e) =
+  match e with
+  | Var _ _ -> 1
+  | App _ args -> 1 + expressions_size args
+  | Quantifier _ _ _ body -> 1 + expression_size body
+
+and expressions_size (es:list expr) : Tot nat (decreases es) =
+  match es with [] -> 0 | e :: rest -> expression_size e + expressions_size rest
+
 let rec evaluate (#base:sort -> Type0) (sigma:signature) (i:interpretation base sigma)
                  (scope:list sort) (rho:environment base sigma scope)
                  (e:expr{D.scoped scope e})
-  : Tot (value base sigma (get_sort e)) (decreases e) =
+  : Tot (value base sigma (get_sort e)) (decreases %[(expression_size e <: nat); (0 <: nat)]) =
   match e with
   | Var n _ -> rho n
   | App f args ->
     let vs = evaluate_args sigma i scope rho args f.domain in
     if L.mem f sigma then construct sigma f vs else i.application f vs
   | Quantifier k bound _ body ->
-    i.quantification k bound (get_sort body) (fun vs ->
-      evaluate sigma i (L.rev bound @ scope) (extend sigma scope (L.rev bound) vs rho) body)
+    i.quantification k bound (get_sort body)
+      (typed_body sigma bound (get_sort body) (evaluate_body sigma i scope rho bound body))
 
 and evaluate_args (#base:sort -> Type0) (sigma:signature) (i:interpretation base sigma)
                   (scope:list sort) (rho:environment base sigma scope)
                   (es:list expr{D.scoped_args scope es})
                   (ss:list sort{sorts_match es ss})
-  : Tot (arguments base sigma ss) (decreases es) =
+  : Tot (arguments base sigma ss) (decreases %[(expressions_size es <: nat); (1 <: nat)]) =
   match es, ss with
   | [], [] -> []
   | e :: rest, s :: remaining ->
     lemma_sort_eq (get_sort e) s;
     evaluate sigma i scope rho e :: evaluate_args sigma i scope rho rest remaining
   | _, _ -> FStar.Pervasives.false_elim ()
+
+and evaluate_body (#base:sort -> Type0) (sigma:signature) (i:interpretation base sigma)
+                  (scope:list sort) (rho:environment base sigma scope) (bound:list sort)
+                  (body:expr{D.scoped (L.rev bound @ scope) body})
+  : Tot (f:FStar.FunctionalExtensionality.restricted_t (arguments base sigma (L.rev bound))
+             (fun _ -> tree base){
+           forall (vs:arguments base sigma (L.rev bound)).
+             has_sort sigma (get_sort body) (f vs)})
+        (decreases %[(expression_size body <: nat); (1 <: nat)]) =
+  (* Canonicalize the refined argument domain for quantifier congruence. *)
+  FStar.FunctionalExtensionality.on_dom (arguments base sigma (L.rev bound)) (fun vs ->
+    (evaluate sigma i (L.rev bound @ scope) (extend sigma scope (L.rev bound) vs rho) body <: tree base))
+
+let lemma_quantifier_congruence (#base:sort -> Type0) (sigma:signature)
+                                (i:interpretation base sigma)
+                                (scope:list sort) (rho:environment base sigma scope)
+                                (k:quantifier_kind) (bound:list sort) (t:sort) (a b:expr)
+  : Lemma (requires D.scoped (L.rev bound @ scope) a /\ D.scoped (L.rev bound @ scope) b /\
+                    get_sort a == t /\ get_sort b == t /\ (k == Lambda_k \/ t == bool_sort) /\
+                    (forall (vs:arguments base sigma (L.rev bound)).
+                      evaluate sigma i (L.rev bound @ scope)
+                        (extend sigma scope (L.rev bound) vs rho) a ==
+                      evaluate sigma i (L.rev bound @ scope)
+                        (extend sigma scope (L.rev bound) vs rho) b))
+          (ensures evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) a) ==
+                   evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) b)) =
+  let left = evaluate_body sigma i scope rho bound a in
+  let right = evaluate_body sigma i scope rho bound b in
+  let pointwise (vs:arguments base sigma (L.rev bound))
+    : Lemma (left vs == right vs) = () in
+  FStar.Classical.forall_intro pointwise;
+  assert (FStar.FunctionalExtensionality.feq left right);
+  FStar.FunctionalExtensionality.extensionality
+    (arguments base sigma (L.rev bound)) (fun _ -> tree base) left right;
+  assert (left == right);
+  assert (evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) a) ==
+          i.quantification k bound t (typed_body sigma bound t left));
+  assert (evaluate sigma i scope rho (Quantifier k bound (quant_sort k bound t) b) ==
+          i.quantification k bound t (typed_body sigma bound t right))

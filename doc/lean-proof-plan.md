@@ -430,6 +430,23 @@ supported. Two resource cliffs remain, both on the Lean side:
   Prove these schemas directly and keep truth tables only for small rewrites.
   Z3 should also stop emitting identity rewrites from the simplify pass.
   (Done 2026-10-16: see "Propositional rewrites as direct proof terms" below.)
+- Wide n-ary connectives (2026-10-20). A conjunction or disjunction of a few
+  hundred operands (z3test's QF_UF `NEQ004_size4` asserts one of 338
+  literals) renders as a right-nested `And`/`Or` chain whose `def` exceeded
+  the default `maxRecDepth` (512); only the main theorem raised it. The
+  generated file now raises it once for its whole namespace, so definitions,
+  lemmas, and steps are no longer cut off by the limit (not a trust setting).
+  and-elim projects by field notation (`_step_N.2.2.1`), which elaborates
+  inside out from the known type, and unit resolution cuts eliminated
+  literals with `(h.resolve_left n)` instead of one `Or.elim` case split per
+  literal; the old forms created metavariables per level and took 36 s
+  (200-operand clause-log and-elim) and 9 s (260-literal resolution), now
+  about 7 s and under a second. `examples/python/test_proof_to_lean_wide.py`
+  covers 200-260 operands through both cores. Still open: at 600 operands the
+  outlined proof steps (more than 500 proof nodes) exceed the heartbeat limit
+  on a step with a hundred quadratic `_inputs` projections, and
+  `NEQ004_size4` itself fails at export (the clause-log trimming step rejects
+  `declare-sort`).
 
 The z3test corpus has almost no single-query propositional files, so generated
 families are the benchmark for this fragment.
@@ -511,8 +528,11 @@ Findings from building and running it:
   `smt` carries no literals. A clause-log consumer must know which is which.
   An `implied-eq` ends in a disequality: Python checks the shape and Lean
   proves the implied equality, rather than summing the disequality as a
-  Farkas constraint. `alldiff` clauses must be tied to the original `distinct`
-  assertion, never trusted as unconditional theory lemmas.
+  Farkas constraint. An `alldiff` clause of gate shape (a `distinct` below
+  the root against the disjunction of its pairwise equalities) is a
+  `def-axiom` that Lean proves from the pairs; any other `alldiff` clause
+  must be tied to the original `distinct` assertion, never trusted as an
+  unconditional theory lemma.
 - **Z3's RUP check is Tseitin-aware.** `rup` steps may rely on the definitions
   of compound Boolean atoms that are never logged as clauses; the replayer
   adds those gate clauses as `def-axiom` nodes.
@@ -1130,8 +1150,8 @@ QF_UFLIA, an assumption literal). Tests: `test_proof_certificate.py`
 (`INCREMENTAL_INPUTS`, the tampered query index), and the Lean integration
 tests of `test_proof_to_lean_integration.py`, `test_proof_to_lean_uf.py`,
 `test_proof_to_lean_uflia.py`. Still open: `define-sort` (61 of the
-incremental corpus files are rejected for it first) and the
-`global-declarations` option (rejected).
+incremental corpus files are rejected for it first; accepted since
+2026-10-19, see below) and the `global-declarations` option (rejected).
 
 **Propositional rewrites as direct proof terms (2026-10-16).** A Boolean
 `rewrite` step was proved by a truth table (a `cases` on every atom's
@@ -1193,7 +1213,412 @@ negations are covered too. Tests: `test_proof_certificate.py`
 `test_proof_to_lean_uf.py` (`UF_NEGATED_ITE_CONDITION`, both cores,
 nested negations, and rejection of a gate with its guard reversed).
 
+**define-sort aliases (2026-10-19).** `proof_certificate.query_snapshot`
+accepts `(define-sort name (parameters) sort)` and keeps it in the scope it
+is made in, like a declaration. Z3's parser expands every use of the alias
+(substituting the parameters) both when the exporter parses the snapshot and
+when the z3 executable writes the clause log, so the certificate, the
+reconstructor's rebuilt snapshot, and the Lean statement mention only the
+expanded sorts, which pass the usual sort checks; no Lean change was needed.
+The exporter rejects a malformed definition (no parameter list, a body of
+other than one sort, a non-symbol name or parameter) and a repeated
+parameter; Z3 rejects an unknown body sort and a name already declared or
+defined. Tests: `test_proof_certificate.py`
+(`test_define_sort_aliases_are_expanded_and_malformed_ones_rejected`) and
+`test_proof_to_lean_uf.py` (`TestDefineSort`: a plain and a parametric
+alias checked in Lean, an alias in a popped scope).
+
+**Int theory lemmas over generalized atoms (2026-10-21).** The iter-027
+stress input `div` seed 67 (QF_LIA, 547 theory lemmas over `div`, `mod`,
+and `abs` by the numerals -3, -2, 2, 3, 4) was the one clause-log
+certificate still failing in Lean: a `farkas` step and four `cut` steps
+whose literals sum a dozen such atoms hit `maxHeartbeats` in `first |
+omega | grind (splits := 64)`. The cause is not the lemma size: `omega`
+reads `t / -3` but leaves `t % -3` as an unbounded atom, so every lemma
+over a negative divisor fell to `grind`, which splits each `abs` ite and
+took 105 s on one cut when given no limit. The atoms are opaque to the
+step anyway: a `farkas` or `bound` with coefficients is a combination the
+reconstructor re-derived over them (`_check_th_lemma`), and a cut lists
+the bounds and the div and mod rows it rests on as literals. So `_grind_lemma`
+now proves an Int th-lemma under those hints in two attempts: first the
+definitions outside the atoms are unfolded, every `mod` atom gets its
+bounds `0 <= m < |k|` (`Int.emod_nonneg`, `Int.emod_lt_of_pos`, through
+`Int.emod_neg` for a negative divisor; the solver fixes these at base level
+and omits them from the lemmas it explains, which left one cut unprovable
+without them) stated and reverted, the atoms are `generalize`d to fresh
+integers, and `omega` (farkas, bound: it closes the linear goal at once)
+or `grind (splits := 64)` (cut and the coefficient-free Int farkas or
+bound: cutsat proved a twenty-atom cut in a second where omega took two
+and a half minutes) decides the linear goal; if that fails, the atoms are
+unfolded and the previous proof (gate helpers, `first | omega | grind`)
+runs unchanged. `arith` axioms, `euf`, `implied-eq`, and every Real lemma
+keep the old proof. Nothing is trusted: `generalize` and the reverted
+library facts are ordinary tactics, and a false cut over a `mod` atom
+fails both attempts (tested). Seed 67 now verifies in 11 s of Lean; the
+other division seeds and the documented inputs are unchanged in time.
+Tests: `test_proof_to_lean_lia.py`
+(`test_integer_theory_lemmas_generalize_their_opaque_atoms`: the two-branch
+text per hint and per atom kind on four documented inputs and seed 67, Real
+untouched; `test_wide_division_instance_verifies_over_generalized_atoms`;
+the `cut` case of
+`test_false_integer_lemmas_without_coefficients_never_publish_a_proof`;
+`test_generalized_attempt_falls_through_to_the_unfolded_proof`: the unit
+`x >= 3 * (div x 3)` under the `cut` hint, false over the generalized atom
+and proved by the fallback, Lean accepting; the `mod` axioms would not do,
+the stated bounds prove them generalized).
+Not done: a rewrite whose assertion sums a dozen `abs` terms still splits
+every ite (`(assert (<= (+ (abs x0) ... (abs x11)) 11))` times out in the
+rewrite lemma, not in the theory lemma; done 2026-10-22, next note), and
+the fallback itself would still benefit from the `mod` facts (`omega`
+would then replace `grind` on negative divisors).
+
+**Lattice lemmas: two million heartbeats (2026-10-23).** The upstream
+pull request carrying iterations 26 to 33 (Z3Prover/z3#11276) failed its
+Lean step on `test_wide_division_instance_verifies_over_generalized_atoms`:
+GitHub tests the branch merged with upstream `master`, and the simplex
+changes merged there since the fork's base (pivot-cost and redundant-bound
+handling, #11253 and #11256) make the solver search seed 67 differently.
+The clause-log proof has 1,032 theory lemmas instead of 547, and one `cut`
+of 47 literals (25 distinct) over thirteen `div`, `mod`, and `abs` atoms
+with six `mod` bounds exhausted the million heartbeats under
+`grind (splits := 64)` in its generalized attempt; the same text verifies
+at 1.5 million, and `omega` proves that generalized goal in under a second.
+Neither procedure dominates on lattice goals (the note above has the
+opposite case, a twenty-atom cut where `omega` took minutes), and trying
+one before the other is not an option: a heartbeat timeout is a runtime
+exception that Lean's `first` does not catch, so an attempt
+`first | (set_option maxHeartbeats 400000 in omega) | grind` failed six
+lemmas of this file that `grind` alone proves (observed; the timeout fails
+the whole lemma). So `_grind_lemma` now gives a cut or a coefficient-free
+Int farkas or bound over generalized atoms (`_lattice_step`) two million
+heartbeats (`_LATTICE_LEMMA_HEARTBEATS`); lemmas with coefficients
+(`omega`), the unfolded fallback, and every other lemma keep the million.
+Nothing is trusted: a heartbeat budget bounds work, and a false
+generalized goal still fails and falls through to the unfolded proof
+(tested). Checked against a local merge of the fork with upstream
+`ac62f5a6a`: seed 67 verifies, and the division seeds, the documented
+QF_LIA inputs, and the QF_UFLIA seed-75 file keep their proofs. Tests:
+`test_proof_to_lean_lia.py` (the lemma-shape test expects the budget per
+hint; the wide seed-67 test asserts it), `test_proof_to_lean_uflia.py`.
+Still open: a tactic that races `omega` and `grind` by budget would need an
+elaborator catching runtime exceptions (`Lean.Core.tryCatchRuntimeEx`),
+hence `import Lean` in every generated file; and the loop's local gate
+tests fork `master` alone, so a solver change upstream shows only in
+upstream CI.
+
+**Theory rewrites over bridged atoms (2026-10-22).** Z3's rewriter logs
+`(abs x)` as `(ite (<= 0 x) x (* -1 x))`, so the `rewrite` step relating
+an assertion over twelve `abs` terms to its normal form is a tautology
+over 24 ite atoms (the SMT-LIB renderings of `abs`, `ite (x >= 0) x (-x)`,
+against the rewriter's form); `omega` splits ite terms, as `grind` does,
+so the lemma `first | omega | grind (splits := 64)` hit `maxHeartbeats`
+after 30 s while the Farkas lemma over the same atoms verified
+generalized (previous note). Theory rewrites now take the same two
+attempts as the Int theory lemmas (`_grind_lemma` with
+`_opaque_rewrite_tactic`: `omega` over Int, `grind` over Rat), with one
+addition: `abs` is keyed as its defining ite (`_real_atom_key`), and
+every two atoms of one key among those to be generalized are first
+bridged by an equality `have _eA_B : term_A = term_B := by unfold ...;
+first | omega | grind` (a two-way split), reverted into the goal so that it
+survives as an equation between the fresh variables
+(`_atom_bridge_facts`, also applied to the theory lemmas' attempt). A
+rewrite that uses an atom's definition (`(ite c t t)` to `t`, a `mod`
+folded by its bounds) fails the attempt fast on the small linear goal and
+is proved unfolded as before. The 12-`abs` input verifies in 1.3 s of Lean
+through the clause log and in 0.9 s through the legacy core (which
+rewrites each `abs` to its ite on its own, bridged the same way); the
+variant writing `(ite (>= x 0) x (- x))` out verifies too. The condition
+of an ite is keyed canonically (`_condition_key`): the atom with its
+leading coefficient positive, over Int primitive with the constant
+rounded (as the rewriter divides `0 <= 2x` to `0 <= x`), choosing the
+complement (over Int `-t + 1 <= 0` for `t <= 0`, over Real the strict
+`-t < 0`) with the branches swapped when the leading coefficient is
+negative. Before, the strict `(ite (> x 0) x (- x))` was keyed apart from
+the rewriter's `(ite (<= x 0) (* -1 x) x)` over Int, because
+`_polarity_constraint` tightens `x > 0` to `x - 1 >= 0` before the key
+saw a strict relation to flip (review of this change), and `(abs (* 2 x))`
+from its ite with the divided condition; both 12-wide variants hit
+`maxHeartbeats`, both verify in about a second now, and the Int ite under
+an application (`uflia_ite_argument`) gets its argument helper as over
+Real. `(ite (<= x 0) -x x)` and `abs x` still have different keys: equal
+in value (the branches agree at zero), different atoms. Nothing is
+trusted: a forged rewrite `|x| >= 3 <-> 2 <= ite` fails both attempts
+(tested), and a wrong key could only cost a bridge the theory tactic
+cannot prove. An ite with a branch outside the linear forms (the dead
+`div` by zero of seed 77) is opaque to the key, as it was. Tests:
+`test_proof_to_lean_lia.py`
+(`test_rewrites_bridge_atoms_with_one_key_before_generalizing`: keys and
+lemma text on `wide_abs_instance` with and without the ite spelled out,
+the strict and the `(* 2 x)` variants bridged, the Int complement keyed
+with a swap; `test_wide_abs_sum_verifies_over_bridged_atoms`, both cores
+and the strict and scaled variants;
+`test_false_bridged_rewrites_are_rejected_by_lean`),
+`test_proof_to_lean_uflia.py` (the ite argument helper over Int). All
+QF_LRA, QF_UFLRA, QF_UF, QF_UFLIA and Boolean suites and both CI matrix
+cells are unchanged in outcome.
+
+**Wide Farkas lemmas over `mod` atoms without the redundant bounds
+(2026-10-22).** A random stress run at twice the usual size (seeds 70 to
+89 of every generator, both cores) found no rejection but one slow
+certificate: `random_division_instance(75, variables=12, constraints=36,
+functions=True)` (QF_UFLIA, 2,815 steps) took 48 s of Lean on an idle
+machine (140 s under the load of the stress run), of which one `farkas`
+lemma of 33 literals (15 of them the div/mod definitional equalities Z3
+lists as literals) over 26 `div`, `mod`, `abs`, and application atoms took
+27 s (40 to 134 s under load) in its generalized attempt. The cause
+was not the width: `omega` proved the same generalized goal in under two
+seconds once the 28 `mod` bounds (`_mod_bound_facts`, 0 <= m < |k| for
+each of the 14 `mod` atoms) were left out of its context, and `grind`
+proved it in two seconds with them. `omega` eliminates a bounded variable
+by case analysis over its range, so bounded, redundant facts multiply its
+work. The bounds exist for cuts and coefficient-free Int lemmas, which
+are shape-checked only and may rest on the base-level bounds Z3 omits;
+a `farkas` or `bound` step with coefficients is re-derived over the atoms
+alone by `_check_th_lemma` (rounding included), so its generalized goal
+holds without them. `_grind_lemma` now states no `mod` bounds for such a
+step (`_combination_certified`); cuts, coefficient-free lemmas, and
+theory rewrites keep them. The seed-75 certificate verifies in 22 s on an
+idle machine (its longest `omega` call 3 s); the lemma text of every other input is
+unchanged except for the dropped `have _m`/`revert` lines on coefficient
+steps, and the wide seed-67 input and the documented QF_LIA inputs still
+verify. Nothing is trusted: the facts were ordinary `have`s and their
+absence can only make a proof fail, never succeed wrongly. Tests:
+`test_proof_to_lean_uflia.py`
+(`test_wide_farkas_lemmas_over_mod_atoms_omit_the_redundant_bounds`:
+seed 75 through z3, certificate, Lean kernel; every generalized lemma's
+text checked by hint), `test_proof_to_lean_lia.py` (the lemma-shape test
+now expects no bounds on coefficient steps). Still open: a direct
+Farkas-combination proof term from the coefficients the reconstructor
+already holds would make these lemmas independent of `omega`'s
+elimination order altogether; the remaining 22 s of the seed-75 file are
+spread over its 587 theory lemmas, none above 3 s.
+
+**Balanced `Inputs` and normalized rewrites over opaque terms
+(2026-10-22).** An end-to-end pass over z3test's `smtlib-sample`
+QF_LIA and QF_UFLIA files found two reconstructor limits on inputs Z3
+solves in seconds. (1) The outlined proof hands every chunk lemma the
+assertions as one conjunction, `Inputs`, and projects assertion k by
+field notation; right-nested, assertion k sat under k projections, and
+on `20220307-SMPT/BART-PT-002/RF-00.smt2` (1,211 assertions) and
+`BART-PT-005/RC-11.smt2` elaborating the chain exhausted `maxHeartbeats`
+(a 601-assertion disjunction reproduces it). `Inputs` and its
+`And.intro` term are now balanced trees (`_balanced`,
+`_balanced_select`), so no assertion is more than log2(count)
+projections deep; RF-00 verifies in 7 s of Lean, RC-11 in 33 s. (2) A
+theory rewrite over more than 16 arithmetic atoms is proved atom by atom
+and then propositionally over the atoms' names (`_normalized_rewrite`)
+only when its linear forms range over variables; `mathsat/Wisa/
+xs-05-11-2-5-3-2.smt2` rewrites an `Iff` between two disjunctions of 20
+Int equalities over applications of uninterpreted functions, differing in
+flattening, order, and orientation, and `grind` on the whole equivalence
+split exponentially. The linear forms may now also range over opaque
+terms without a formula inside (applications, `div`, `mod`), keyed by
+node, provided every atom whose canonical key occurs on one side of the
+rewrite only ranges over variables alone (`_normalizable_rewrite`,
+`_normalized_atom`). An atom over an opaque term that disappears from
+one side means Z3's rewriter reasoned about the term, which the
+propositional lemma over abstract atoms cannot: it decides
+`(< (mod x 10) 0)` from the bounds of `mod`, and it simplifies inside a
+function's arguments, so that the atoms differ by more than their linear
+form; such a rewrite goes to `grind` as before. The Boolean structure
+above the atoms must consist of connectives and Boolean variables alone,
+which the propositional lemma can bind; an `ite` term (the logged form
+of `abs`) stays excluded and keeps the iter-030 bridging. The Wisa file
+verifies in 5 s. Nothing is trusted: every atom equivalence is a
+`grind`-proved `have`, and the propositional lemma is checked by Lean.
+Tests: `test_proof_to_lean.py` (`_balanced_select` follows `_balanced`
+within its height for every count up to 69), `test_proof_to_lean_wide.py`
+(the 601-assertion disjunction outlined, every assertion at most ten
+projections deep), `test_proof_to_lean_lia.py` and
+`test_proof_to_lean_uflia.py` (wide rewrites over `mod` and over
+applications through the normalized path; a wide rewrite deciding a
+`mod`-bound atom and a rewrite inside an application's argument stay
+with `grind`, all through Lean).
+
+**Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
+`theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
+of `farkas` with coefficients when its own `check_farkas_conflict` fails or
+the explanation does not linearize, which is what a lattice conflict (no
+integer point on a rationally feasible region) looks like from inside the
+solver; the iter-027 stress run found five Int instances rejected for it
+("th-lemma without a replayable theory hint: arith unsupported"), and about
+one in seventy small random QF_LIA instances carries the label. The step
+lists the held literals and concludes `false`, the shape of the
+coefficient-free Int `farkas` the exporter already produces when it strips
+coefficients that do not re-derive, so `_th_lemma_parameters` now maps the
+label to that step over Int (it must list at least one premise and conclude
+`false`; otherwise rejected). Nothing is trusted: the reconstructor's shape
+check and Lean's `first | omega | grind` prove the refutation as before, and
+a tampered variant with unit coefficients is rejected before Lean ("do not
+refute"). Over Real the label stays rejected (a Real Farkas step Z3 could
+not check is suspect), as does `unsupported nla`. All five stress inputs now
+verify through the legacy core, including the `div`/`mod` one whose
+clause-log certificate still hits `maxHeartbeats` (BACKLOG). Tests:
+`test_proof_certificate.py`
+(`test_legacy_unsupported_conflicts_are_left_to_lean_over_int`: parameter
+mapping and rejections, the live label on `_LIA_LATTICE`),
+`test_proof_to_lean_lia.py` (documented inputs `lia_lattice_conflict` and
+`lia_lattice_bounds` through both cores,
+`test_legacy_unsupported_label_is_a_coefficient_free_farkas`).
+
+## Boolean and EUF proof infrastructure
+
+### SMT fallback proves the logged clause (2026-10-20)
+
+When a native checker rejected a hint, `smt_proof_checker::infer` built the
+fallback verification condition from the logged clause together with the
+hint's clause (the default `theory_checker_plugin::vc` appended the hint's
+clause to a vector already holding the logged one) and asked the solver to
+refute the negation of both. Whenever the hint's clause is a theory
+tautology its negation alone is unsatisfiable, so any logged clause passed
+as `verified-smt`: a log with `(assume (not d))`, `(infer d (alldiff d
+some_eq))` for `d = (distinct a b c)` accepted a refutation of the
+satisfiable `(not (distinct a b c))`. Every plugin without its own `vc`
+(all but quantifier instantiation) was affected, and the hole predates
+the `alldiff` checker.
+
+The fallback now refutes the negation of the logged clause alone under the
+assumptions. A plugin's simplified condition (quantifier instantiation:
+`phi(t) => psi` instead of the quantified premise, or no solver call when
+`psi` is the instantiation itself) speaks for the hint's clause, so it is
+used only when the logged clause follows from the hint's clause the way the
+native path demands: every logged literal occurs there and the dropped
+literals are false by RUP. `infer` returns whether the step verified and no
+longer exits the process itself; the replay command and the in-solver check
+still exit on a failed step, so the executable's behaviour is unchanged.
+The `unit ... is not rup` diagnostic is buffered and printed only when the
+step is rejected, since z3test's `proof_matrix.py` classifies any replay
+whose output contains it as `checker-rejected`; before, a natively checked
+hint whose dropped literal was not RUP printed it and then verified through
+the fallback. The `proof_replay` unit test drives the checker directly: the
+probe above is rejected with a countermodel, the same step with `some_eq`
+assumed false verifies natively, a valid hint the plugin cannot check still
+verifies through the fallback with a dropped RUP literal (and without any
+`is not rup` line when the dropped literal is not RUP but the logged clause
+holds on its own), and a logged clause outside the hint's clause is proved
+on its own.
+
+### One-argument `xor` (2026-10-21)
+
+Z3's parser accepts `(xor p)` and its rewriter reads it as `p`
+(`bool_rewriter`, `OP_XOR` with one argument; the legacy core records the
+rewrite `(= (xor p) p)`), while n-ary `xor` is binarized, so one and two
+are the only arities a certificate can carry. The reconstructor rejected
+the unary node ("wrong number of arguments"), which kept z3test
+`3434.smt2` (`(assert (xor false))`) out of both paths. `_validate_graph`
+now admits the one-argument application, `_formula_body`,
+`_boolean_connective`, and `_congruence_term` render it as its argument,
+and `_gate_contradiction` proves its two gate clauses `(or (xor p) (not
+p))` and `(or (not (xor p)) p)`; zero or three arguments stay rejected.
+The clause-log exporter builds the application when a log mentions it
+(`_unary_xor`; z3py's `Xor` is binary) and `ensure_gates` adds those two
+clauses. Z3's simplifier removes the unary `xor` before logging, so live
+logs assume the simplified clauses and the exporter ties them to the
+assertions by `cnf` lemmas as before; the legacy path is axiom-free.
+Tests: `test_proof_to_lean.py` (`UNARY_XOR`, the arity rejections,
+`DEF_AXIOM_CLAUSES`, the gate polarity sweep, the structure expansion,
+`CONFIGURED_INPUTS["3434"]` verbatim), `test_proof_certificate.py`
+(`UNARY_XOR_GATES_LOG`, a constructed log keeping the literal, whose final
+`rup` step needs the gates), `test_proof_to_lean_integration.py` (both
+cores, the constructed log's def-axioms checked without axioms).
+
+### `distinct` gate clauses as def-axioms, one-argument `distinct` (2026-10-21)
+
+The clause-log exporter routed every `alldiff` clause through its `assume`
+path. For the two gate clauses of a `distinct` below the root that path
+found no matching assertion and fell back to an unsat core of the
+assertions plus a `cnf` theory lemma, a bounded solver call at export time
+and a `grind` lemma in Lean, for a clause that holds on its own. The
+exporter now checks the gate shape (`proof_clause_log._distinct_gate`: two
+literals of one polarity, a `distinct` over terms of at least two
+arguments against a disjunction, or a single equality, whose disjuncts
+each equate two of its arguments in either orientation, all pairs covered
+for the positive clause) and makes such clauses def-axiom nodes; any other
+`alldiff` clause still goes through the assertions. The reconstructor
+proves the def-axiom from the pairs (`_distinct_gate_contradiction`): with
+`d` and `some_eq` held, `Or.elim` over the disjuncts refutes each by the
+pair's conjunct of `d` (through `Eq.symm` for a flipped disjunct); with
+both denied, the conjuncts of `d` are built by injecting each pair's
+equality into `some_eq`. A missing pair, a disjunct that is no pair, or
+two polarities leave the clause unproved and rejected. Documented input
+`uf_distinct_gates` (both cores), constructed-log and tampered-certificate
+tests in `test_proof_certificate.py` and `test_proof_to_lean_uf.py`.
+
+Found alongside: `(assert (not (distinct a)))` over an uninterpreted or
+Real constant failed in Lean on both paths with `unfold failed to unfold
+term_0`: a one-argument `distinct` renders as `True`, so its argument
+occurs nowhere, but the lemma's unfold list and the theory flag were
+computed from the graph. `_reachable` no longer descends into such a node
+and `_boolean_structure` reads it as `("true",)`; the inputs
+`UF_ONE_ARGUMENT_DISTINCT` verify through both cores.
+
+### Native `alldiff` clauses (2026-10-20)
+
+The native `alldiff` checker plugin accepted every hint ("first version
+just trusts that distinct is internalized correctly"), so a clause log
+could infer any clause natively under that label. Z3 emitted `alldiff`
+for two different things: the clausification of a `distinct` asserted at
+the root (the clause of all pairwise equalities for a negated root
+`distinct`, unit disequalities for a positive one, and the fresh-symbol
+encodings above 32 arguments), which follows from the asserted `distinct`
+and not from the hint, and the two gate clauses of a `distinct` below the
+root, `(or (not d) (not some_eq))` and `(or d some_eq)` with `some_eq`
+the disjunction of the pairwise equalities, which are tautologies.
+
+The root clauses are now logged as input clauses, like every other root
+clausification (an `(assert (and a b))` logs `(assume a)` and
+`(assume b)`), so the log no longer claims a theory inference for them;
+the exporter already tied `alldiff` clauses to the original assertions
+through its `assume` path, and that path is unchanged. The checker
+verifies the gate pair: the two literals have one polarity, every pair of
+arguments that can be equal has its equality among the disjuncts for the
+positive clause, and every disjunct is an equality of two arguments for
+the negated one. Anything else is rejected and falls to the SMT check,
+which refutes the old root shape with a countermodel. The `proof_replay`
+unit test covers the accepted and rejected shapes and replays a log with
+both gate clauses natively.
+
+### Native xor gate clauses (2026-10-19)
+
+The native `tseitin` checker accepted invalid xor gate clauses. For a
+positive gate literal it counted marked and complemented arguments with
+one sign each and accepted an even total, so `(or (xor a b) a b)` and
+`(or (xor a b) (not a) (not b))` verified. The former is false at
+`a = b = false`, and the latter at `a = b = true`. Arguments the clause
+left free were not counted at all. For a
+negated gate it iterated the arguments of the `not` node instead of the
+xor, so any clause whose deepest literal was `(not (xor ...))` verified,
+for example `(or (not (xor a b)) (not a))`.
+
+The checker now evaluates the xor under the assignment that falsifies the
+other clause literals: every argument has to be fixed by a clause literal
+or be a constant, and the xor must be true for a positive gate literal and
+false for a negated one. Z3's own four clauses per gate still verify
+natively, and a replayed xor log reports `+tseitin 4` without SMT
+fallback. Z3's rewriter turns `xor` into a negated Boolean equality before
+clausification, so the sat.smt log rarely carries these hints; the repair
+is to the checker's acceptance, not to proof production or to Lean's
+independent def-axiom checking. The `proof_replay` unit test also fails
+now when the replay frontend exits inside a log instead of ending the
+binary successfully with the remaining checks unrun.
+
 ## Arithmetic proof infrastructure
+
+### Constant rows in native implied-equality checking (2026-10-19)
+
+The native `implied-eq` checker now handles constant inequalities before
+selecting a variable for Fourier-Motzkin elimination. A slack premise such
+as `0 <= 1`, or a row reduced to one by equality substitution or elimination,
+previously dereferenced an empty coefficient map and could crash or fall
+back to the SMT solver.
+
+Slack constant rows are skipped, zero rows retain their tightness
+dependencies, and contradictory constant rows discharge the hint. Tight-row
+state is cleared between hints, including after an early contradiction.
+Native `proof_replay` regressions cover Real and Int rows, zero-weight
+strict premises, checker reuse, and replay without SMT fallback. Tautologies
+alone still cannot prove an unrelated equality; solver search and Lean's
+independent verification are unchanged.
 
 ### Native implied-equality conclusions (2026-10-19)
 
@@ -1211,6 +1636,51 @@ regressions cover these malformed hints over Real and Int, and preserve
 valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
+
+### Trimmer: implied literals of duplicate clauses, explicit failure (2026-10-22)
+
+The clause-log exports of z3test's QF_UFLIA
+`mathsat/EufLaArithmetic/hard/hard16.smt2` and `hard20.smt2` were rejected
+with "inferred clause is not derivable by unit propagation" although the
+untrimmed logs replay. The native proof trimmer (`src/sat/sat_proof_trim.cpp`,
+see "Real QF_LRA hardening" below for its earlier defect) walks the log
+backwards and, before removing a clause, unassigns the literal it implied and
+that literal's cone of influence; it took any true literal of the clause as
+implied by it. Z3 logs the same binary theory lemma several times (five
+copies of one clause in hard16), and the copies share one justification, so
+removing the last copy unassigned the literal although earlier copies
+remained, and with it every fact derived from it. Facts whose own clause the
+log had deleted in the meantime (and units asserted after a clause already
+implied them) have no watch to re-derive them, so the probe of a later `rup`
+step found no conflict; the trimmer then read the stale conflict state and
+reported arbitrary, incomplete dependencies, which the exporter rejected.
+
+Now `prune_trail` unassigns only the literal whose justification is the
+clause itself (by clause object, or for a binary clause only when it is the
+last attached copy, or for a unit when the literal has no other reason); a
+probe that finds no conflict raises an error instead of emitting a core (the
+trimmer's output is untrusted, but a core the replay cannot use is a
+rejection of an input Z3 solved); a probe on a clause a level-0 fact already
+satisfies depends on that fact's justification alone (the solver's conflict
+carries no clause there, which used to read a non-existent unit clause); and
+a clause the core refers to but was never added is an internal error rather
+than undefined behaviour. The copies of a binary clause are told apart only
+by counting attached watches, so a log that deletes a binary clause
+(`big::reduce_tr` logs such deletions during in-processing) and later adds
+it again can still lose a fact; that case ends in the explicit error and the
+untrimmed replay, not in a wrong core.
+
+On the Python side `trim_clause_log` treats a failed or unusable trimming as
+what it is, an optimization that did not apply: it warns and returns the
+untrimmed log, which the replay checks step by step. hard16 (10,689 steps
+before, 3,292 in the core) verifies in 40 s of Lean and hard20 (4,624 in the
+core) in 57 s, both axiom-free apart from the standard three. Tests:
+`src/test/proof_replay.cpp` (`tst_trim_duplicate_binary_keeps_implied_
+literal`, which the previous trimmer fails, and
+`tst_trim_rejects_underivable_inference`), `test_proof_certificate.py`
+(the same log through the z3 executable's trimmer with warnings as errors,
+and the fallback for a failing trimmer, a rejected inference, and a cyclic
+core).
 
 ### Native arithmetic row strictness (2026-10-16)
 

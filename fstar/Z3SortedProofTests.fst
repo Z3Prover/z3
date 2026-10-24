@@ -10,6 +10,7 @@ module U = Z3UnifiedProof
 module P = Z3ProofDocument
 module R = Z3ResolutionProofTheory
 module BR = Z3BooleanRewrite
+module Tac = FStar.Tactics.V2
 
 let box = BaseSort "Box"
 let integer = BaseSort "Int"
@@ -116,16 +117,31 @@ let rec wide_clause (n:nat) : Tot (list expr) (decreases n) =
 
 let shared = disjunction (wide_clause 14)
 
+let conditional_term_normalizes ()
+  : Lemma (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y) =
+  assert_norm (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y)
+
+let shared_boolean_fact_propagates ()
+  : Lemma (DT.boolean_consequence
+    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x])) =
+  assert_norm (DT.boolean_consequence
+    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]))
+
+let unrelated_boolean_fact_is_rejected ()
+  : Lemma (not (DT.boolean_consequence [shared] (App is_empty [x]))) =
+  assert (not (DT.boolean_consequence [shared] (App is_empty [x]))) by
+    (Tac.norm [nbe; delta; iota; zeta; primops];
+     Tac.trivial ())
+
 let conditional_and_shared_boolean_facts ()
   : Lemma (ensures DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y /\
                    DT.boolean_consequence
                      [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]) /\
                    not (DT.boolean_consequence [shared] (App is_empty [x])))
   =
-  assert_norm (DT.normalize schema 64 (App choice [R.false_expr; x; y]) == Some y);
-  assert_norm (DT.boolean_consequence
-    [shared; R.mk_eq_expr shared (App is_empty [x])] (App is_empty [x]));
-  assert_norm (not (DT.boolean_consequence [shared] (App is_empty [x])))
+  conditional_term_normalizes ();
+  shared_boolean_fact_propagates ();
+  unrelated_boolean_fact_is_rejected ()
 
 let direct_resolution_checks_actual_units ()
   : Lemma (ensures
@@ -187,5 +203,79 @@ let certified_document_has_no_model (#base:sort -> Type0) (bc:S.boolean_carrier 
   : Lemma (ensures not (T.truths schema bc eq other exhaustive_document.assertions)) =
   original_inputs_and_exhaustiveness ();
   K.lemma_check_document schema bc eq other exhaustive_document
+
+let equality_exclusion_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [no_pair; R.mk_eq_expr x y; R.mk_not_expr (App is_empty [y])];
+  entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_eq_expr x y; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0; 1] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [3; 2] }];
+  root = 4;
+}
+
+let equality_recognizer_propagation ()
+  : Lemma (ensures K.check_document schema equality_exclusion_document == Some 0 /\
+      K.check_document schema { equality_exclusion_document with entries = [
+        { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+        { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+        { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0] };
+        { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [2; 1] }];
+        root = 3 } == Some 1) =
+  assert_norm (K.check_document schema equality_exclusion_document == Some 0);
+  assert_norm (K.check_document schema { equality_exclusion_document with entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr (App is_empty [y]); premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = App is_empty [y]; premise_ids = [0] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [2; 1] }];
+    root = 3 } == Some 1)
+
+let constructor_conflict_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [no_pair; R.mk_eq_expr (App pair [App number [x]; App flag [x]]) x];
+  entries = [
+    { P.rule = U.Asserted; formula = no_pair; premise_ids = [] };
+    { P.rule = U.Asserted;
+      formula = R.mk_eq_expr (App pair [App number [x]; App flag [x]]) x; premise_ids = [] };
+    { P.rule = U.Unverified "th-lemma"; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let constructor_equality_conflict ()
+  : Lemma (ensures K.check_document schema constructor_conflict_document == Some 0) =
+  assert_norm (K.check_document schema constructor_conflict_document == Some 0)
+
+let core_schema : S.checked_schema =
+  let s = { S.sorts = []; cases = [] } in
+  assert_norm (S.valid s);
+  s
+
+let core_model : V.interpretation primitive (S.signature core_schema) =
+  T.interpretation #primitive core_schema booleans equality
+    (S.default_interpretation #primitive core_schema primitive_default)
+
+let proposition : expr = App {
+  decl_name = "p"; domain = []; range = bool_sort; interp = None; int_params = [];
+} []
+
+let core_document : P.document = {
+  declarations = []; expressions = [];
+  assertions = [proposition; R.mk_not_expr proposition];
+  entries = [
+    { P.rule = U.Asserted; formula = proposition; premise_ids = [] };
+    { P.rule = U.Asserted; formula = R.mk_not_expr proposition; premise_ids = [] };
+    { P.rule = U.UnitResolution; formula = R.false_expr; premise_ids = [0; 1] }];
+  root = 2;
+}
+
+let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean_carrier base)
+                                             (eq:T.scalar_equality base)
+                                             (other:V.interpretation base (S.signature core_schema))
+  : Lemma (ensures K.check_document core_schema core_document == Some 0 /\
+                   not (T.truths core_schema bc eq other core_document.assertions)) =
+  assert_norm (K.check_document core_schema core_document == Some 0);
+  K.lemma_check_document core_schema bc eq other core_document
 
 #pop-options

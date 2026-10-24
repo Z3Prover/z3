@@ -111,12 +111,12 @@ class lar_solver : public column_namer {
 
     template <typename T>
     unsigned calculate_implied_bounds_for_row(unsigned row_index, lp_bound_propagator<T>& bp) {
-        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation || row_has_a_big_num(row_index))
+        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
             return 0;
-
+        ++stats().m_bp_rows_analyzed;
         return bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<T>>::analyze_row(
             A_r().m_rows[row_index],
-            zero_of_type<numeric_pair<mpq>>(),
+            m_zero_rs,
             bp);
     }
 
@@ -262,6 +262,8 @@ public:
     constraint_index mk_var_bound(lpvar j, lconstraint_kind kind, const mpq& right_side, const mpq& eps);
     void activate_check_on_equal(constraint_index, lpvar&);
     void activate(constraint_index);
+    // true if activating constraint ci cannot change the bounds of its column
+    bool constraint_is_redundant(constraint_index ci) const;
     void random_update(unsigned sz, lpvar const* vars);
     void add_column_rows_to_touched_rows(lpvar j);
     const indexed_uint_set & touched_rows() const;
@@ -300,6 +302,7 @@ public:
     }
 
     
+    const impq m_zero_rs; // the right-hand side of every tableau row
     public:
     std::function<void (const lar_term*)> m_add_term_callback;
     std::function<void (unsigned)> m_update_column_bound_callback;  

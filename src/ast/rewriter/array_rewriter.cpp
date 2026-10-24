@@ -518,10 +518,14 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     }
     if (lam) {
         expr_ref_vector args1(m());
+        var_shifter sh(m());
+        unsigned num_decls = lam->get_num_decls();
         for (unsigned i = 0; i < num_args; ++i) {
             expr* a = args[i];
             if (m_util.is_const(a)) {
-                args1.push_back(to_app(a)->get_arg(0));
+                expr_ref v(m());
+                sh(to_app(a)->get_arg(0), num_decls, v);
+                args1.push_back(v);
             }
             else if (is_lambda(a)) {
                 lam = to_quantifier(a);

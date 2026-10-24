@@ -376,6 +376,82 @@ let rcf_example ( ctx : context ) =
   RCF.del_list ctx [pi; e; inf0; inf1; r; pi_div_e; pi_div_r];
   Printf.printf "Test passed.\n"
 
+let complex_example ctx =
+  let module C = Arithmetic.Complex in
+  let z = C.mk_const_s ctx "complex_z" in
+  let value = C.mk ctx (Integer.mk_numeral_i ctx 1) (Real.mk_numeral_i ctx 2) in
+  let expected = C.mk ctx (Real.mk_numeral_i ctx (-3)) (Real.mk_numeral_i ctx 4) in
+  let solver = Solver.mk_solver ctx None in
+  Solver.add solver [
+    Boolean.mk_eq ctx z value;
+    Boolean.mk_not ctx (Boolean.mk_eq ctx (Arithmetic.mk_mul ctx [z; z]) expected)
+  ];
+  if not (Arithmetic.is_complex z) || Solver.check solver [] <> Solver.UNSATISFIABLE then
+    raise (TestFailedException "Complex multiplication failed");
+  Solver.reset solver;
+  Solver.add solver [
+    Boolean.mk_eq ctx z value;
+    Boolean.mk_not ctx (Boolean.mk_eq ctx (C.mk_imag_part ctx z) (Real.mk_numeral_i ctx 2))
+  ];
+  if Solver.check solver [] <> Solver.UNSATISFIABLE then
+    raise (TestFailedException "Complex projection failed")
+
+let translate_lifetime_tests () =
+  Printf.printf "TranslateLifetimeTests\n";
+  let formula ctx =
+    Arithmetic.mk_gt ctx (Integer.mk_const_s ctx "translate_x") (Integer.mk_numeral_i ctx 0)
+  in
+  let check name make translate to_string =
+    for _ = 1 to 50 do
+      let copy, expected =
+        let src = mk_context [] in
+        let dst = mk_context [] in
+        let original = make src in
+        let expected = to_string original in
+        translate original dst, expected
+      in
+      Gc.full_major ();
+      if to_string copy <> expected then
+        raise (TestFailedException (name ^ " translation changed its contents"))
+    done;
+    Gc.full_major ()
+  in
+  check "expr" formula Expr.translate Expr.to_string;
+  check "ast" (fun ctx -> Expr.ast_of_expr (formula ctx)) AST.translate AST.to_string;
+  check "ast_vector"
+    (fun ctx ->
+      let vector = AST.ASTVector.mk_ast_vector ctx in
+      AST.ASTVector.push vector (Expr.ast_of_expr (formula ctx));
+      vector)
+    AST.ASTVector.translate AST.ASTVector.to_string;
+  check "goal"
+    (fun ctx ->
+      let goal = Goal.mk_goal ctx true false false in
+      Goal.add goal [formula ctx];
+      goal)
+    Goal.translate Goal.to_string;
+  let solver ctx =
+    let solver = Solver.mk_solver ctx None in
+    Solver.add solver [formula ctx];
+    solver
+  in
+  check "solver" solver Solver.translate Solver.to_string;
+  check "model"
+    (fun ctx ->
+      let solver = solver ctx in
+      if Solver.check solver [] <> Solver.SATISFIABLE then
+        raise (TestFailedException "Translation source is not satisfiable");
+      match Solver.get_model solver with
+      | Some model -> model
+      | None -> raise (TestFailedException "Translation source has no model"))
+    Model.translate Model.to_string;
+  check "optimize"
+    (fun ctx ->
+      let opt = Optimize.mk_opt ctx in
+      Optimize.add opt [formula ctx];
+      opt)
+    Optimize.translate Optimize.to_string
+
 let _ =
   try (
     if not (Log.open_ "z3.log") then
@@ -399,6 +475,8 @@ let _ =
 	Printf.printf "real sort: %s\n" (Sort.to_string rs);
 	Printf.printf "integer: %s\n" (Expr.to_string v);
 	basic_tests ctx ;
+	translate_lifetime_tests () ;
+	complex_example ctx ;
 	quantifier_example1 ctx ;
 	fpa_example ctx ;
   rcf_example ctx ;
@@ -412,4 +490,3 @@ let _ =
     exit 1
   )
 ;;
-

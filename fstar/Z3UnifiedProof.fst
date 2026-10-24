@@ -17,6 +17,7 @@ module LA = Z3LinearArithmeticAst
 module LE = Z3LinearArithmeticEmbed
 module AR = Z3ArithmeticRewrite
 module IR = Z3IntegerRewrite
+module ID = Z3IntegerDivision
 module CR = Z3ConditionalRewrite
 module LP = Z3LpReplay
 module G = Z3LpGomory
@@ -278,7 +279,8 @@ let relational_step (kind:rule) (concl:judgment) (facts:list judgment) : bool =
                       constant_quantifier_rewrite a b ||
                       boolean_equiv 8 10 a b || A.equivalent 64 a b || AR.equivalent a b ||
                       QR.equivalent 64 a b || LR.rewrite a b ||
-                      CR.equivalent a b || IR.equivalent a b || QV.equivalent 64 a b ||
+                      CR.equivalent a b || IR.equivalent a b || ID.equivalent a b ||
+                      ID.equivalent b a || QV.equivalent 64 a b ||
                       TN.equivalent a b ||
                       boolean_search a b)
      | Commutativity -> r = Equality && facts = [] && commutativity_step a b
@@ -376,7 +378,7 @@ let basic_rule_of_name (name:string) : option rule =
   else if name = "not-or-elim" then Some NotOrElimination
   else if name = "iff-true" then Some IffTrue
   else if name = "iff-false" then Some IffFalse
-  else if name = "def-axiom" then Some DefAxiom
+  else if name = "def-axiom" || name = "true-axiom" then Some DefAxiom
   else if name = "th-lemma" then Some (Unverified "th-lemma")
   else None
 
@@ -570,8 +572,10 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
   match kind, proposition concl, propositions facts with
   | ArithmeticGomory c, Some e, Some es -> G.check c e es
   | Unverified "th-lemma", Some e, Some es ->
-    (es = [] && (array_lemma e || AR.triangle_equality e)) ||
-    TN.consequence es e
+    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e)) ||
+    TN.consequence es e || LP.implied_equality e es ||
+    (Some? (LA.comparison e) && LP.inferred_bound e es) ||
+    G.inferred_split e es
   | Unverified tag, Some e, Some es ->
     tag = "arith/lp-integer-tighten" && LP.check_tightening e es
   | ArithmeticFarkas cs, Some e, Some es -> LA.check cs e es || LP.linear_identity e
@@ -668,7 +672,7 @@ let model_sound (i:interpretation value) : prop =
   QN.quantifier_model i /\
   LR.lambda_model i /\
   TN.normalization_model i /\
-  (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu)
+  (exists (nu:value -> FStar.Real.real). LE.numeric_model i nu) /\ ID.division_model i
 
 let lemma_proposition_sound (i:interpretation value) (rho:env value) (j:judgment)
   : Lemma (requires eq_sound i /\ Some? (proposition j))
@@ -838,6 +842,8 @@ let lemma_relational_step_sound (i:interpretation value) (rho:env value)
          else if LR.rewrite a b then LR.lemma_rewrite i rho a b
          else if CR.equivalent a b then CR.lemma_equivalent_sound i rho a b
          else if IR.equivalent a b then IR.lemma_equivalent_sound i rho a b
+         else if ID.equivalent a b then ID.lemma_equivalent a b i rho
+         else if ID.equivalent b a then ID.lemma_equivalent b a i rho
          else if QV.equivalent 64 a b then QV.lemma_equivalent_sound 64 a b i rho
          else if TN.equivalent a b then TN.lemma_equivalent i rho a b
          else lemma_boolean_search_sound i rho a b);
@@ -1265,6 +1271,7 @@ let lemma_complement_from_false (i:interpretation value) (rho:env value) (h e:ex
                     complementary h e /\ ~(lit_true i rho e))
           (ensures lit_true i rho h)
   = match h with
+    | App f [] -> (match e with | App g [] -> () | _ -> ())
     | App f [a] ->
       if f.decl_name = "not" && a = e then (
         lemma_not_relates i rho f a;
@@ -1403,9 +1410,14 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
              | _ ->
                if array_lemma e then lemma_array_lemma_sound i rho e
                else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
+               else if ID.check e then ID.lemma_check e i rho
                else
                  let es = Some?.v (propositions (premise_judgments node.premises)) in
-                 TN.lemma_consequence i rho es e)
+                 if TN.consequence es e then TN.lemma_consequence i rho es e
+                 else if LP.implied_equality e es then LP.lemma_implied_equality e es i rho
+                 else if Some? (LA.comparison e) && LP.inferred_bound e es
+                 then LP.lemma_inferred_bound e es i rho
+                 else G.lemma_inferred_split_sound e es i rho)
           | None -> ())
       | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier | DestructiveEquality
       | DestructiveEqualityResolution | QuantifierInstantiation _ ->

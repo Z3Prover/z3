@@ -4,9 +4,10 @@ type native_sort = Z3native.sort
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
-  | Bvadd | Bvmul | Bvsub | Bvneg | Concat
+  | Bvadd | Bvmul | Bvsub | Bvneg | Bvudiv | Bvurem | Bvextract | Bvconcat | Bvmkbv
+  | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
-  | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
+  | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral | Opaque
 
 type sort_view =
@@ -43,6 +44,15 @@ type proof_view = {
   lp_data: (string * parameter_view list) option;
   binding: (native_sort list * ast) option;
   instantiations: ast list;
+}
+
+type clause_action = InputClause | LearnedClause | TheoryClause | DeleteClause
+
+type clause_view = {
+  action: clause_action;
+  formula: ast;
+  literals: ast list;
+  certificate: ast option;
 }
 
 type solve_result =
@@ -92,13 +102,19 @@ let operator = function
   | Z3enums.OP_BOR -> Bvor | Z3enums.OP_BXOR -> Bvxor | Z3enums.OP_BNOT -> Bvnot
   | Z3enums.OP_BADD -> Bvadd | Z3enums.OP_BMUL -> Bvmul
   | Z3enums.OP_BSUB -> Bvsub | Z3enums.OP_BNEG -> Bvneg
+  | Z3enums.OP_BUDIV -> Bvudiv | Z3enums.OP_BUREM -> Bvurem
+  | Z3enums.OP_EXTRACT -> Bvextract | Z3enums.OP_CONCAT -> Bvconcat
+  | Z3enums.OP_MKBV -> Bvmkbv
+  | Z3enums.OP_ULT -> Bvult | Z3enums.OP_ULEQ -> Bvule | Z3enums.OP_UGEQ -> Bvuge
+  | Z3enums.OP_BSHL -> Bvshl | Z3enums.OP_BLSHR -> Bvlshr
   | Z3enums.OP_CONST_ARRAY -> ConstArray
   | Z3enums.OP_DT_CONSTRUCTOR -> DatatypeConstructor
   | Z3enums.OP_DT_RECOGNISER | Z3enums.OP_DT_IS -> DatatypeRecognizer
   | Z3enums.OP_DT_ACCESSOR -> DatatypeAccessor
   | Z3enums.OP_SEQ_CONCAT -> Concat | Z3enums.OP_ADD -> Add | Z3enums.OP_MUL -> Mul
   | Z3enums.OP_SUB | Z3enums.OP_UMINUS -> Sub
-  | Z3enums.OP_DIV -> Div | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
+  | Z3enums.OP_DIV -> Div | Z3enums.OP_IDIV -> IDiv | Z3enums.OP_MOD -> Mod
+  | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
   | Z3enums.OP_GE -> Ge | Z3enums.OP_GT -> Gt | Z3enums.OP_TO_REAL -> ToReal
   | Z3enums.OP_ANUM -> Rational | Z3enums.OP_BNUM -> BvNumeral
   | _ -> Opaque
@@ -238,8 +254,23 @@ let view_expression a =
                     else None in
       let range = Z3native.get_range c d in
       let parameters = match op with
-        | Bvand | Bvor | Bvxor | Bvnot | Bvadd | Bvmul | Bvsub | Bvneg | BvNumeral ->
+        | Bvand | Bvor | Bvxor | Bvnot | Bvadd | Bvmul | Bvsub | Bvneg |
+          Bvudiv | Bvurem | Bvshl | Bvlshr | BvNumeral | Bvmkbv ->
             [Z.of_int (Z3native.get_bv_sort_size c range)]
+        | Bvult | Bvule | Bvuge ->
+            if Z3native.get_domain_size c d <> 2 then fail "Malformed native unsigned comparison";
+            [Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0))]
+        | Bvextract ->
+            if Z3native.get_decl_num_parameters c d <> 2 ||
+               Z3native.get_domain_size c d <> 1 ||
+               List.exists (fun i -> Z3enums.parameter_kind_of_int
+                 (Z3native.get_decl_parameter_kind c d i) <> Z3enums.PARAMETER_INT) [0; 1]
+            then fail "Malformed native bit-vector extraction";
+            Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0)) ::
+            List.init 2 (fun i -> Z.of_int (Z3native.get_decl_int_parameter c d i))
+        | Bvconcat ->
+            List.init (Z3native.get_domain_size c d) (fun i ->
+              Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d i)))
         | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor ->
             datatype_parameters c d op
         | _ -> [] in
@@ -347,6 +378,46 @@ let view_proof a =
     else [] in
   { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
 
+let view_clause_trail a =
+  let c = ctx a in
+  let kind a =
+    if not (Z3native.is_app c a) then fail "Clause proof entry is not an application";
+    Z3enums.decl_kind_of_int
+      (Z3native.get_decl_kind c (Z3native.get_app_decl c (Z3native.to_app c a))) in
+  if kind a <> Z3enums.OP_PR_CLAUSE_TRAIL then None
+  else
+    let args = app_args c (Z3native.to_app c a) in
+    let conclusion, entries = match List.rev args with
+      | conclusion :: entries -> conclusion, List.rev entries
+      | [] -> fail "Clause proof trail has no conclusion" in
+    let entry a =
+      let action = match kind a with
+        | Z3enums.OP_PR_ASSUMPTION_ADD -> InputClause
+        | Z3enums.OP_PR_LEMMA_ADD -> LearnedClause
+        | Z3enums.OP_PR_TH_ASSUMPTION_ADD | Z3enums.OP_PR_TH_LEMMA_ADD -> TheoryClause
+        | Z3enums.OP_PR_REDUNDANT_DEL -> DeleteClause
+        | _ -> fail "Unknown clause proof entry kind" in
+      let certificate, formula = match app_args c (Z3native.to_app c a) with
+        | [formula] -> None, formula
+        | [certificate; formula] when action <> DeleteClause ->
+            Some certificate, formula
+        | _ -> fail "Malformed clause proof entry" in
+      if Z3enums.sort_kind_of_int
+           (Z3native.get_sort_kind c (Z3native.get_sort c formula)) <> Z3enums.BOOL_SORT
+      then fail "Clause proof conclusion is not Boolean";
+      let formula, literals =
+        match kind formula with
+        | Z3enums.OP_OR ->
+            let literals = app_args c (Z3native.to_app c formula) in
+            (match literals with
+             | [literal] -> literal, literals
+             | _ -> formula, literals)
+        | Z3enums.OP_FALSE -> formula, []
+        | _ -> formula, [formula] in
+      { action; formula; literals; certificate }
+    in
+    Some (List.map entry entries, conclusion)
+
 let create_context timeout_ms =
   if Z.sign timeout_ms < 0 || Z.gt timeout_ms (Z.of_string "4294967295")
   then fail "Solver timeout must be between 0 and 4294967295 milliseconds";
@@ -359,17 +430,23 @@ let create_context timeout_ms =
   Z3native.enable_concurrent_dec_ref c;
   c
 
-let solve input timeout_ms =
+let solve_with_clause_proofs input timeout_ms clause_proofs =
   let c = create_context timeout_ms in
   let solver = Z3native.mk_solver c in
   let formulas = Z3native.parse_smtlib2_string c input 0 [] [] 0 [] [] in
   let assertions = List.init (Z3native.ast_vector_size c formulas)
       (Z3native.ast_vector_get c formulas) in
+  if clause_proofs then (
+    let params = Z3native.mk_params c in
+    Z3native.params_set_bool c params (Z3native.mk_string_symbol c "clause_proof") true;
+    Z3native.solver_set_params c solver params);
   List.iter (Z3native.solver_assert c solver) assertions;
   match Z3native.solver_check c solver with
   | -1 -> Unsat (assertions, Z3native.solver_get_proof c solver)
   | 1 -> Sat
   | 0 -> Unknown (Z3native.solver_get_reason_unknown c solver)
   | _ -> fail "Invalid native solver status"
+
+let solve input timeout_ms = solve_with_clause_proofs input timeout_ms false
 
 let version () = Z3.Version.to_string

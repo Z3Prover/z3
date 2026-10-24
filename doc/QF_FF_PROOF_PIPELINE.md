@@ -11,10 +11,17 @@ reasoning and deep-input support. The results and narrower profile documented
 below describe the second milestone; the CLI automatically selects the new
 profile for inputs outside the legacy literal-conjunction path.
 
+The [F4 extension](QF_FF_F4_CERTIFICATES.md) adds bounded proof-producing F4
+search with scalar fallback through the same export/checking contract. The
+scalar-only reconstruction described below is the historical second milestone.
+
 ## Run and independently recheck
 
 Build the external checkers using
 [`proof_checkers/README.md`](https://github.com/Z3Prover/z3test/blob/cb0b0d1e036ad30d27112ab7bfc02bf48fc9c0fb/regressions/finite_field/proof_checkers/README.md).
+Use [`scripts/ff-proof-checker-versions.json`](../scripts/ff-proof-checker-versions.json)
+in place of the harness's `versions.json`, as CI does: the Carcara fork is no
+longer available, so the same revision is fetched from upstream with its archive checksum.
 Set `CARCARA` and `FFPACHECK` to their absolute executable paths:
 
 ```sh

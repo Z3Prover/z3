@@ -64,6 +64,31 @@ let make_nary (op:B.nary_op) (xs:list formula) : formula =
   | [x] -> x
   | ys -> B.Nary op ys
 
+let make_not (s:formula) : formula =
+  match s with B.Bool b -> B.Bool (not b) | B.Not a -> a | _ -> B.Not s
+
+let make_eq (s t:formula) : formula =
+  if s = t then B.Bool true
+  else match s, t with
+  | B.Bool b, _ -> if b then t else make_not t
+  | _, B.Bool b -> if b then s else make_not s
+  | B.Not a, B.Not b -> B.Eq a b
+  | B.Not a, _ -> B.Not (B.Eq a t)
+  | _, B.Not b -> B.Not (B.Eq s b)
+  | _, _ -> B.Eq s t
+
+let lemma_make_not_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
+  : Lemma (B.eval rho (make_not s) == not (B.eval rho s)) =
+  match s with B.Bool _ | B.Not _ -> () | _ -> ()
+
+let lemma_make_eq_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
+  : Lemma (B.eval rho (make_eq s t) == (B.eval rho s = B.eval rho t)) =
+  if s = t then ()
+  else match s, t with
+  | B.Bool _, _ -> lemma_make_not_sound rho t
+  | _, B.Bool _ -> lemma_make_not_sound rho s
+  | _, _ -> ()
+
 let rec normalize (negative:bool) (s:formula) : Tot formula (decreases s) =
   match s with
   | B.Atom _ -> if negative then B.Not s else s
@@ -80,8 +105,8 @@ let rec normalize (negative:bool) (s:formula) : Tot formula (decreases s) =
     let next = if negative then B.And else B.Or in
     make_nary next [normalize (not negative) a; normalize negative b]
   | B.Eq a b ->
-    let result = B.Eq (normalize false a) (normalize false b) in
-    if negative then B.Not result else result
+    let result = make_eq (normalize false a) (normalize false b) in
+    if negative then make_not result else result
 
 and normalize_args (negative:bool) (args:list formula)
   : Tot (list formula) (decreases args) =
@@ -217,7 +242,9 @@ let rec lemma_normalize_sound (rho:Z3AstTheory.expr -> bool) (negative:bool) (s:
       [normalize (not negative) a; normalize negative b]
   | B.Eq a b ->
     lemma_normalize_sound rho false a;
-    lemma_normalize_sound rho false b
+    lemma_normalize_sound rho false b;
+    lemma_make_eq_sound rho (normalize false a) (normalize false b);
+    if negative then lemma_make_not_sound rho (make_eq (normalize false a) (normalize false b))
 
 and lemma_normalize_args_sound (rho:Z3AstTheory.expr -> bool) (negative:bool)
                                (op:B.nary_op) (args:list formula)
@@ -431,30 +458,6 @@ let lemma_clause_tautology_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
   if not (B.eval rho s) then (
     (match s with B.Nary B.Or _ -> () | _ -> ());
     lemma_forced_sound rho (disjuncts s) s true)
-
-let make_not (s:formula) : formula =
-  match s with B.Bool b -> B.Bool (not b) | B.Not a -> a | _ -> B.Not s
-
-let make_eq (s t:formula) : formula =
-  if s = t then B.Bool true
-  else match s, t with
-  | B.Bool b, _ -> if b then t else make_not t
-  | _, B.Bool b -> if b then s else make_not s
-  | B.Not a, B.Not b -> B.Eq a b
-  | _, _ -> B.Eq s t
-
-let lemma_make_not_sound (rho:Z3AstTheory.expr -> bool) (s:formula)
-  : Lemma (B.eval rho (make_not s) == not (B.eval rho s)) =
-  match s with B.Bool _ | B.Not _ -> () | _ -> ()
-
-let lemma_make_eq_sound (rho:Z3AstTheory.expr -> bool) (s t:formula)
-  : Lemma (B.eval rho (make_eq s t) == (B.eval rho s = B.eval rho t)) =
-  if s = t then ()
-  else match s, t with
-  | B.Bool _, _ -> lemma_make_not_sound rho t
-  | _, B.Bool _ -> lemma_make_not_sound rho s
-  | B.Not _, B.Not _ -> ()
-  | _, _ -> ()
 
 let neutral_assumption (op:B.nary_op) (s:formula) : formula =
   if op = B.Or then s else make_not s

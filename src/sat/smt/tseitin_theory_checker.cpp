@@ -140,19 +140,12 @@ namespace tseitin {
                 return true;
         }       
 
-        // (or (xor a b c d) a b (not c) (not d))
+        // (or (xor a b c d) a b c (not d))
         if (m.is_xor(main_expr)) {
             scoped_mark sm(*this);
             for (expr* arg : *jst)
                 complement_mark(arg);
-            int parity = 0;
-            for (expr* arg : *to_app(main_expr))
-                if (is_marked(arg))
-                    parity++;
-                else if (is_complement(arg))
-                    parity--;
-            if ((parity % 2) == 0)
-                return true;
+            return xor_holds(to_app(main_expr), true);
         }
 
         if (m.is_not(main_expr, a)) {
@@ -217,18 +210,12 @@ namespace tseitin {
                     return true;
             }
 
-            // (or (not (xor a b c d)) a b c (not d))
+            // (or (not (xor a b c d)) a b (not c) (not d))
             if (m.is_xor(a)) {
                 scoped_mark sm(*this);
                 for (expr* arg : *jst)
                     complement_mark(arg);
-                int parity = 1;
-                for (expr* arg : *to_app(main_expr))
-                    if (is_marked(arg))
-                        parity++;
-                    else if (is_complement(arg))
-                        parity--;
-                if ((parity % 2) == 0)
+                if (xor_holds(to_app(a), false))
                     return true;
             }
 
@@ -237,6 +224,23 @@ namespace tseitin {
 
         }
         return false;
+    }
+
+    // The clause is a tautology for the gate x when x evaluates to expected
+    // under the assignment that falsifies every other clause literal. That
+    // assignment is only determined for the arguments of x that occur in
+    // the clause (or are constants): a clause literal l makes argument l
+    // false and argument (not l) true. x is true iff an odd number of its
+    // arguments are true.
+    bool theory_checker::xor_holds(app* x, bool expected) {
+        bool value = false;
+        for (expr* arg : *x) {
+            if (m.is_true(arg) || is_complement(arg))
+                value = !value;
+            else if (!m.is_false(arg) && !is_marked(arg))
+                return false;
+        }
+        return value == expected;
     }
 
     bool theory_checker::equiv(expr* a, expr* b) {

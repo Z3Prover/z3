@@ -67,8 +67,9 @@ let rec cases_valid (sigma:V.signature) (sorts:list sort) (cs:list constructor_c
     supported_fields sigma c.constructor.domain && cases_valid sigma sorts rest
 
 let shape_witness (sigma:V.signature) (s:sort)
-  : option (V.value (fun _ -> unit) sigma s) =
-  V.inhabit (L.length sigma + 1) sigma (fun _ -> ()) s
+  : option (V.value (fun _ -> bool) sigma s) =
+  (* Keep the carrier non-erased when Cherry reference-counts the fallback. *)
+  V.inhabit (L.length sigma + 1) sigma (fun _ -> false) s
 
 let rec productive (sigma:V.signature) (sorts:list sort) : Tot bool (decreases sorts) =
   match sorts with
@@ -87,7 +88,7 @@ type checked_schema = s:schema{valid s}
 let rec lemma_productive (sigma:V.signature) (sorts:list sort) (s:sort)
   : Lemma (requires productive sigma sorts /\ L.mem s sorts)
           (ensures V.datatype_sort sigma s /\
-                   Some? (V.inhabit (L.length sigma + 1) sigma (fun _ -> ()) s))
+                   Some? (V.inhabit (L.length sigma + 1) sigma (fun _ -> false) s))
           (decreases sorts) =
   match sorts with
   | [] -> ()
@@ -101,7 +102,7 @@ let inhabitant (#base:sort -> Type0) (s:checked_schema)
     match shape_witness (signature s) t with
     | Some value -> value
     | None -> FStar.Pervasives.false_elim () in
-  let convert (sort:sort) (_:unit) : base sort = base_value sort in
+  let convert (sort:sort) (_:bool) : base sort = base_value sort in
   V.lemma_map_base convert (signature s) t witness;
   V.map_base convert witness
 

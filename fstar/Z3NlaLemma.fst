@@ -14,11 +14,11 @@ type poly = p:P.polynomial monomial{p.denom = 1}
 type relation = | Equal | Nonzero | Nonnegative | Positive
 type fact = { poly:poly; relation:relation }
 
-#push-options "--fuel 0 --ifuel 0"
+#push-options "--using_facts_from 'Prims FStar.Real' --fuel 0 --ifuel 0"
 let lemma_distribute (c d:int) (x y z:real)
   : Lemma (of_int (c * d) *. (x *. y) +. of_int c *. x *. z ==
            of_int c *. x *. (of_int d *. y +. z)) =
-  assert (of_int (c * d) == of_int c *. of_int d);
+  P.lemma_of_int_product c d;
   assert ((of_int c *. of_int d) *. (x *. y) ==
           (of_int c *. x) *. (of_int d *. y));
   assert ((of_int c *. x) *. (of_int d *. y +. z) ==
@@ -210,7 +210,13 @@ let scale (c:int) (f:fact) : option fact =
 let lemma_scale (c:int) (f g:fact) (rho:nat -> real)
   : Lemma (requires holds f rho /\ scale c f == Some g)
           (ensures holds g rho) =
-  if c <> 0 then P.lemma_scale c 1 f.poly (fun m -> monomial_value m rho)
+  if c <> 0 then (
+    P.lemma_scale c 1 f.poly (fun m -> monomial_value m rho);
+    match f.relation with
+    | Equal -> ()
+    | Nonzero -> ()
+    | Nonnegative -> ()
+    | Positive -> ())
 
 let add_relation (a b:relation) : option relation =
   if a = Equal then Some b

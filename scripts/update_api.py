@@ -1710,7 +1710,12 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 if name in NULLWrapped:
                     ml_wrapper.write('  z3rv = %s_mk(z3rv_m);\n' % pts)
                 else:
-                    ml_wrapper.write('  z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, ml_minus_type(ts)))
+                    result_ctx = 'ctx_p'
+                    if name in ('Z3_translate', 'Z3_model_translate', 'Z3_ast_vector_translate',
+                                'Z3_goal_translate', 'Z3_solver_translate', 'Z3_optimize_translate'):
+                        # Translated objects belong to the target, not the source context.
+                        result_ctx = '*(Z3_context_plus*) Data_custom_val(a2)'
+                    ml_wrapper.write('  z3rv = %s_mk(%s, (%s) z3rv_m);\n' % (pts, result_ctx, ml_minus_type(ts)))
 
         # convert output params
         if len(op) > 0:

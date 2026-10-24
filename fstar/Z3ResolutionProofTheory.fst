@@ -64,7 +64,12 @@ let rec conj_holds (i:interpretation value) (rho:env value) (c:list expr) : Tot 
 
 (* `src/ast/proofs/proof_checker.cpp`'s `m.is_complement`. *)
 let complementary (l1 l2:literal) : bool =
-  is_not l1 = Some l2 || is_not l2 = Some l1
+  is_not l1 = Some l2 || is_not l2 = Some l1 ||
+  (match l1, l2 with
+   | App f [], App g [] ->
+     (f.decl_name = "true" && g.decl_name = "false") ||
+     (f.decl_name = "false" && g.decl_name = "true")
+   | _, _ -> false)
 
 (* ----------------------------------------------------------------- *)
 (* Connective soundness hypotheses, explicit on `i` (same style as     *)
@@ -135,10 +140,12 @@ let lemma_not_relates (i:interpretation value) (rho:env value) (f:func_decl) (a:
    explicit side conditions elsewhere in this project, rather than
    baked into `interpretation` itself). *)
 let lemma_complementary_sound (i:interpretation value) (rho:env value) (l1 l2:literal)
-  : Lemma (requires not_sound i /\ complementary l1 l2 /\ lit_true i rho l1 /\
+  : Lemma (requires not_sound i /\ true_sound i /\ false_sound i /\
+                    complementary l1 l2 /\ lit_true i rho l1 /\
                     VBool? (eval i l2 rho))
           (ensures lit_is_false i rho l2)
   = match l1 with
+    | App f [] -> (match l2 with | App g [] -> () | _ -> ())
     | App f [a] ->
       if f.decl_name = "not" && a = l2 then lemma_not_relates i rho f a
       else
@@ -203,9 +210,7 @@ let rec find_complement (c:clause) (f:literal) : Tot (option literal) (decreases
   | [] -> None
   | l0 :: c' -> if complementary l0 f then Some l0 else find_complement c' f
 
-(* `complementary` is a symmetric predicate (it is an `||` of two
-   mirror-image `is_not` checks), so a `complementary l0 f` witness
-   also certifies `complementary f l0`. *)
+(* Both negation and constant-complement cases are symmetric. *)
 let lemma_complementary_sym (l1 l2:literal)
   : Lemma (complementary l1 l2 == complementary l2 l1)
   = ()
@@ -230,7 +235,8 @@ let rec unit_resolve (c:clause) (fmls:list literal) : Tot clause (decreases fmls
      | None -> unit_resolve c fmls')
 
 let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
-  : Lemma (requires clause_holds i rho c /\ not_sound i /\ wf_clause i rho c /\
+  : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
+                    wf_clause i rho c /\
                     (forall (f:literal). List.Tot.memP f fmls ==> lit_true i rho f))
           (ensures clause_holds i rho (unit_resolve c fmls))
           (decreases fmls)
@@ -254,7 +260,8 @@ let rec lemma_unit_resolve_sound (i:interpretation value) (rho:env value) (c:cla
    literal falsity means the premises were contradictory under `rho`
    -- exactly the semantic content of a refutation.) *)
 let lemma_unit_resolution_sound (i:interpretation value) (rho:env value) (c:clause) (fmls:list literal)
-  : Lemma (requires clause_holds i rho c /\ not_sound i /\ wf_clause i rho c /\
+  : Lemma (requires clause_holds i rho c /\ not_sound i /\ true_sound i /\ false_sound i /\
+                    wf_clause i rho c /\
                     (forall (f:literal). List.Tot.memP f fmls ==> lit_true i rho f))
           (ensures clause_holds i rho (unit_resolve c fmls))
   = lemma_unit_resolve_sound i rho c fmls
@@ -377,7 +384,7 @@ let rec lemma_clause_consequence (i:interpretation value) (rho:env value) (c:cla
 
 let lemma_resolution_residual_sound (i:interpretation value) (rho:env value)
                                     (c:expr) (units:list literal)
-  : Lemma (requires lit_true i rho c /\ not_sound i /\ or_sound i /\ false_sound i /\
+  : Lemma (requires lit_true i rho c /\ not_sound i /\ or_sound i /\ true_sound i /\ false_sound i /\
                     wf_clause i rho (formula_clause c) /\
                     (forall (u:literal). List.Tot.memP u units ==> lit_true i rho u))
           (ensures clause_holds i rho (resolution_residual c units))

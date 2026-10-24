@@ -54,8 +54,7 @@ let lemma_rounded_equivalent_sound (i:interpretation value) (rho:env value) (s t
     (fun _ -> lemma_implication_sound i rho t s);
   match eval i s rho, eval i t rho with VBool _, VBool _ -> () | _, _ -> ()
 
-let rec gcd (a b:nat) : Tot nat (decreases b) =
-  if b = 0 then a else gcd b (a % b)
+let gcd = P.gcd
 
 let rec divisor (ms:list (int & expr)) : Tot nat (decreases ms) =
   match ms with [] -> 0 | (n, _) :: rest -> gcd (absolute n) (divisor rest)
@@ -81,6 +80,17 @@ let rec quotient_value (d:pos) (ms:list (int & expr))
   | [] -> 0
   | (n, e) :: rest -> (n / d) * E.integer_value (eval i e rho) + quotient_value d rest i rho
 
+#push-options "--using_facts_from 'Prims FStar.Real' --fuel 0 --ifuel 0 --smtencoding.nl_arith_repr native"
+
+let lemma_quotient_step (d:pos) (q k tail:int)
+  : Lemma (of_int (d * q) *. of_int k +. of_int (d * tail) ==
+           of_int (d * (q * k + tail))) =
+  P.lemma_of_int_product (d * q) k;
+  P.lemma_of_int_sum ((d * q) * k) (d * tail);
+  assert ((d * q) * k + d * tail == d * (q * k + tail))
+
+#pop-options
+
 let rec lemma_quotient_value (d:pos) (ms:list (int & expr))
                              (i:interpretation value) (nu:value -> real) (rho:env value)
   : Lemma (requires E.numeric_model i nu /\ divisible_terms d ms)
@@ -92,7 +102,15 @@ let rec lemma_quotient_value (d:pos) (ms:list (int & expr))
   | (n, e) :: rest ->
     lemma_quotient_value d rest i nu rho;
     FStar.Math.Lemmas.lemma_div_mod n d;
-    (match eval i e rho with VInt _ -> () | _ -> ())
+    assert (n % d = 0 /\ n = d * (n / d));
+    (match eval i e rho with
+     | VInt k ->
+       let tail = quotient_value d rest i rho in
+       lemma_quotient_step d (n / d) k tail;
+       assert (P.monomial_value ms (E.valuation i nu rho) ==
+               of_int n *. of_int k +. of_int (d * tail));
+       assert (quotient_value d ms i rho == (n / d) * k + tail)
+     | _ -> ())
 
 let lemma_indivisible_equation (e:expr) (i:interpretation value)
                                (nu:value -> real) (rho:env value)

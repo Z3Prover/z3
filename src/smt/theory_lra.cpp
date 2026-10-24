@@ -591,7 +591,7 @@ class theory_lra::imp {
                     if (m_nla)
                         m_nla->add_pi(register_theory_var_in_lar_solver(v));
                 }
-                else if (!a.is_div0(n)) {
+                else if (!a.is_div0(n) && !a.is_real_part(n) && !a.is_imag_part(n)) {
                     found_unsupported(n);
                 }
                 else {
@@ -717,7 +717,8 @@ class theory_lra::imp {
 
 
     bool reflect(app* n) const {
-        return params().m_arith_reflect || a.is_underspecified(n);          
+        return params().m_arith_reflect || a.is_underspecified(n) ||
+            a.is_complex(n) || a.is_real_part(n) || a.is_imag_part(n);
     }
 
     bool has_var(expr* n) {
@@ -853,6 +854,7 @@ class theory_lra::imp {
 
     void updt_unassigned_bounds(theory_var v, int inc) {
         TRACE(arith_verbose, tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
+        SASSERT(inc > 0 || m_unassigned_bounds[v] > 0);
         ctx().push_trail(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;            
     }
@@ -987,6 +989,9 @@ public:
         lp().updt_params(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
+        // the logic-specific setup (smt_setup) may override the arith.propagate_eqs default,
+        // e.g. it is off for QF_LRA and QF_LIA; lp settings only see the raw parameters
+        lp().settings().propagate_eqs() = params().m_arith_propagate_eqs;
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
@@ -1057,6 +1062,10 @@ public:
     }
         
     bool internalize_term(app * term) {
+        if (a.is_complex(term)) {
+            internalize_complex(term);
+            return true;
+        }
         if (ctx().e_internalized(term) && th.is_attached_to_var(ctx().get_enode(term))) {
             // skip
         }
@@ -1066,11 +1075,49 @@ public:
         return true;
     }
 
+    void internalize_complex(expr* term) {
+        if (ctx().e_internalized(term) && th.is_attached_to_var(get_enode(term)))
+            return;
+        if (!ctx().e_internalized(term)) {
+            for (expr* arg : *to_app(term))
+                ctx().internalize(arg, false);
+            ctx().mk_enode(to_app(term), false, false, true);
+        }
+        mk_var(term);
+        expr_ref re(a.mk_real_part(term), m);
+        expr_ref im(a.mk_imag_part(term), m);
+        internalize_term(to_app(re));
+        internalize_term(to_app(im));
+        if (a.is_complex_constructor(term)) {
+            for (unsigned i = 0; i < 2; ++i) {
+                expr* p = i ? im.get() : re.get();
+                expr* v = to_app(term)->get_arg(i);
+                mk_axiom(mk_literal(m.mk_eq(p, v)));
+            }
+        }
+        else {
+            expr_ref value(term, m);
+            ctx().get_rewriter()(value);
+            if (value == term)
+                value = a.mk_complex(re, im);
+            mk_axiom(mk_literal(m.mk_eq(term, value)));
+        }
+    }
+
     bool is_arith(enode* n) {
         return n && n->get_th_var(get_id()) != null_theory_var;
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
+        if (a.is_complex(atom->get_arg(0))) {
+            expr_ref rhs(atom, m);
+            ctx().get_rewriter()(rhs);
+            literal lhs = ctx().get_literal(atom);
+            literal r = mk_literal(rhs);
+            mk_axiom(~lhs, r);
+            mk_axiom(lhs, ~r);
+            return;
+        }
         if (!ctx().get_fparams().m_arith_eager_eq_axioms)
             return;
         expr* lhs = nullptr, *rhs = nullptr;
@@ -1085,6 +1132,9 @@ public:
     void assign_eh(bool_var v, bool is_true) {
         TRACE(arith, tout << "assign p" << literal(v, !is_true) << ": " << bpp(ctx().bool_var2expr(v)) << "\n";);
         m_asserted_atoms.push_back(delayed_atom(v, is_true));
+        api_bound* b = m_bool_var2bound.get(v, nullptr);
+        if (b)
+            updt_unassigned_bounds(b->get_var(), -1);
     }
 
     lbool get_phase(bool_var v) {
@@ -1129,12 +1179,16 @@ public:
     }
 
     void new_diseq_eh(theory_var v1, theory_var v2) {
+        if (a.is_complex(get_enode(v1)->get_expr()))
+            return;
         TRACE(arith, tout << "v" << v1 << " != " << "v" << v2 << "\n";);
         ++m_stats.m_assert_diseq;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
+        if (a.is_complex(n->get_expr()))
+            internalize_complex(n->get_expr());
         TRACE(arith, tout << "sort constraint: " << pp(n) << "\n";);
 #if 0
         if (!th.is_attached_to_var(n)) 
@@ -1602,6 +1656,8 @@ public:
     }
 
     void ensure_column(theory_var v) {
+        if (v != null_theory_var && a.is_complex(get_enode(v)->get_expr()))
+            return;
         if (!lp().external_is_used(v) && v != null_theory_var) 
             register_theory_var_in_lar_solver(v);
     }
@@ -1637,7 +1693,11 @@ public:
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
             enode * n1 = get_enode(v);
-            if (!th.is_relevant_and_shared(n1)) {
+            if (a.is_complex(n1->get_expr()))
+                continue;
+            // Projections are the shared interface to pair-valued Complex terms.
+            if (!th.is_relevant_and_shared(n1) &&
+                !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr())) {
                 continue;
             }
             ensure_column(v);
@@ -1687,7 +1747,10 @@ public:
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
-            if (!th.is_relevant_and_shared(n1))                   
+            if (a.is_complex(n1->get_expr()))
+                continue;
+            if (!th.is_relevant_and_shared(n1) &&
+                !a.is_real_part(n1->get_expr()) && !a.is_imag_part(n1->get_expr()))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
@@ -1854,6 +1917,9 @@ public:
 
             switch (check_nla(level)) {
             case FC_DONE:
+                // Nonlinear bound optimization may invalidate integer feasibility.
+                if (!use_nra_model() && lp().has_inf_int())
+                    return FC_CONTINUE;
                 break;
             case FC_CONTINUE:
                 return FC_CONTINUE;
@@ -2498,6 +2564,18 @@ public:
         }
     }
 
+    // m_unassigned_bounds[v] counts the atoms of v that are not assigned yet:
+    // it is incremented when an atom is created and decremented in assign_eh,
+    // both through the context trail, so it is exact at every scope level.
+    bool column_is_interesting(unsigned vi) const {
+        theory_var v = lp().local_to_external(vi);
+        if (v == null_theory_var)
+            return false;
+        if (should_refine_bounds())
+            return true;
+        return static_cast<unsigned>(v) < m_unassigned_bounds.size() && m_unassigned_bounds[v] > 0;
+    }
+
     bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational & bval) const {
         theory_var v = lp().local_to_external(vi);
         if (v == null_theory_var) 
@@ -2506,7 +2584,7 @@ public:
         if (should_refine_bounds()) 
             return true;
 
-        if (static_cast<unsigned>(v) < m_bounds.size()) 
+        if (static_cast<unsigned>(v) < m_bounds.size() && m_unassigned_bounds[v] > 0) 
             for (api_bound* b : m_bounds[v]) 
                 if (ctx().get_assignment(b->get_lit()) == l_undef &&
                     null_literal != is_bound_implied(kind, bval, *b)) 
@@ -2602,7 +2680,6 @@ public:
                 set_proof_params(m_bound, true);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
-            updt_unassigned_bounds(v, -1);
             TRACE(arith,
                   ctx().display_literals_verbose(tout, m_core);
                   tout << "\n --> ";
@@ -2666,7 +2743,7 @@ public:
     }
 
     bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
-        if (ctx().inconsistent())
+        if (ctx().inconsistent() || !propagate_eqs())
             return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
@@ -3251,7 +3328,6 @@ public:
             if (sign)
                 lit2.neg();
         }
-        updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
@@ -3437,6 +3513,12 @@ public:
     bool assert_bound(bool_var bv, bool is_true, api_bound& b) {
         TRACE(arith, tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
+        // A bound that is weaker than the current bound of its column changes nothing:
+        // it would not become the bound witness, so it never appears in an explanation.
+        if (lp().constraint_is_redundant(ci)) {
+            ++m_stats.m_assert_redundant;
+            return !is_infeasible();
+        }
         lp().activate(ci);
         if (is_true && b.has_infinitesimal()) {
             ctx().push_trail(push_back_vector(m_active_inf_eps_constraints));
@@ -3451,9 +3533,11 @@ public:
         else {
             ++m_stats.m_assert_upper;
         }
-        inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) 
-            propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        if (propagate_eqs()) {
+            inf_rational value = b.get_value(is_true);
+            if (value.is_rational())
+                propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        }
         return true;
 #if 0
         if (should_propagate())
@@ -4095,6 +4179,20 @@ public:
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
+        if (a.is_complex(o)) {
+            expr_ref re(a.mk_real_part(o), m);
+            expr_ref im(a.mk_imag_part(o), m);
+            auto component = [&](expr* p) -> expr* {
+                enode* pn = get_enode(p);
+                theory_var pv = pn->get_th_var(get_id());
+                if (use_nra_model() && is_registered_var(pv))
+                    return a.mk_numeral(m_nla->am(), nl_value(pv, m_nla->tmp1()), false);
+                return a.mk_real(get_value(pv));
+            };
+            expr_ref rv(component(re), m);
+            expr_ref iv(component(im), m);
+            return alloc(expr_wrapper_proc, a.mk_complex(rv, iv));
+        }
         if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, m_nla->tmp1());
             if (a.is_int(o) && !m_nla->am().is_int(an)) {

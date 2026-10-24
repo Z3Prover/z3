@@ -29,7 +29,8 @@ OUTCOMES = (
 ERRORS = {"ERROR", "CRASH", "PROTOCOL_ERROR"}
 STATISTICS = re.compile(
     r"^solve_ms=([\d.]+) marshal_ms=([\d.]+) check_ms=([\d.]+) "
-    r"expressions=(\d+) declarations=(\d+) proof_nodes=(\d+)$", re.MULTILINE)
+    r"expressions=(\d+) declarations=(\d+) proof_nodes=(\d+)"
+    r"(?: semantics=(legacy|sorted-datatype|sorted-core))?$", re.MULTILINE)
 
 
 def classify(returncode, stdout):
@@ -88,14 +89,20 @@ def verify_manifest(corpus, relative_path, manifest, paths):
     if set(hashes) != {path.relative_to(corpus).as_posix() for path in paths}:
         raise ValueError("Manifest must list exactly the discovered SMT-LIB inputs")
     counts = Counter(logics.values())
-    if (set(counts) != {entry["logic"] for entry in document["archives"]} or
-            any(count != document["per_logic"] for count in counts.values())):
+    declared = document["per_logic"]
+    sources = document.get("archives", document.get("generators", []))
+    expected_counts = ({entry["logic"]: declared for entry in sources}
+                       if isinstance(declared, int) else declared)
+    if (set(counts) != {entry["logic"] for entry in sources} or
+            dict(counts) != expected_counts):
         raise ValueError("Manifest does not contain the declared sample size per logic")
     return {
         "manifest": {
             "path": manifest.relative_to(corpus).as_posix(),
             "sha256": file_sha256(manifest), "source": document["source"],
             "seed": document["seed"], "per_logic": document["per_logic"],
+            **{key: document[key] for key in
+               ("selection", "max_input_bytes", "source_manifest_sha256") if key in document},
         },
         "input_sha256": hashes, "logics": logics,
     }
@@ -111,8 +118,8 @@ def read_log(path):
         return stream.read(65536)
 
 
-def run_case(command, path, output, index, timeout, megabytes):
-    stem = f"logs/{index:06d}"
+def run_case(command, path, output, index, timeout, megabytes, log_directory="logs"):
+    stem = f"{log_directory}/{index:06d}"
     row = {"path": path, "stdout": stem + ".stdout", "stderr": stem + ".stderr"}
     start = time.perf_counter()
     with (output / row["stdout"]).open("wb") as stdout, (output / row["stderr"]).open("wb") as stderr:
@@ -129,12 +136,16 @@ def run_case(command, path, output, index, timeout, megabytes):
     row["verdict"] = text[:4096]
     if "outcome" not in row:
         row["outcome"] = classify(row["returncode"], text)
+    if row["outcome"] == "UNKNOWN":
+        row["reason"] = text.removeprefix("UNKNOWN ")
     match = STATISTICS.search(read_log(output / row["stderr"]))
     if match:
         row["statistics"] = dict(zip(
             ("solve_ms", "marshal_ms", "check_ms", "expressions", "declarations", "proof_nodes"),
             [float(value) for value in match.groups()[:3]] +
-            [int(value) for value in match.groups()[3:]]))
+            [int(value) for value in match.groups()[3:6]]))
+        if match[7]:
+            row["statistics"]["semantics"] = match[7]
     return row
 
 
@@ -156,7 +167,7 @@ def run_suite(args):
     (output / "logs").mkdir(parents=True, exist_ok=True)
     selection = {
         "corpus_path": args.corpus_path, "corpus_commit": args.corpus_commit,
-        "z3_commit": os.environ.get("GITHUB_SHA", ""),
+        "z3_commit": os.environ.get("SOURCE_SHA", os.environ.get("GITHUB_SHA", "")),
         "checker_version": version, "discovered": discovered,
         "paths": [path.relative_to(corpus).as_posix() for path in paths],
         "solver_timeout_ms": args.solver_timeout_ms,
@@ -199,20 +210,120 @@ def cell(value):
     return str(value).replace("|", "\\|").replace("`", "'").replace("\n", " ").replace("\r", " ")
 
 
+def read_diagnostics(path):
+    summary, obligations = None, []
+    with path.open(encoding="utf-8", errors="replace") as stream:
+        for line in stream:
+            fields = line.rstrip("\n").split("\t")
+            if fields[:2] == ["diagnostic", "checked"] and len(fields) == 4:
+                summary = {"pending": int(fields[2].removeprefix("pending=")),
+                           "families": int(fields[3].removeprefix("families="))}
+            elif fields[:2] == ["diagnostic", "rejected"]:
+                return {"rejection": fields[2:]}
+            elif fields[0] == "obligation" and len(fields) == 5:
+                obligations.append({"rule": fields[1], "count": int(fields[2]),
+                                    "first_index": int(fields[3]), "fingerprint": fields[4]})
+    if summary is None:
+        raise ValueError("Missing checker diagnostic summary")
+    if (summary["families"] != len(obligations) or
+            len({(item["rule"], item["fingerprint"]) for item in obligations}) != len(obligations) or
+            summary["pending"] != sum(item["count"] for item in obligations) or
+            any(item["count"] <= 0 or item["first_index"] < 0 for item in obligations)):
+        raise ValueError("Inconsistent checker diagnostic obligation counts")
+    return {**summary, "obligations": obligations}
+
+
+def read_results(path):
+    results, warnings = [], []
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        try:
+            results.append(json.loads(line))
+        except json.JSONDecodeError:
+            if index != len(lines) - 1 or line.endswith("\n"):
+                raise
+            warnings.append(f"Incomplete final record in {path.name} after interruption; raw log retained.")
+    return results, warnings
+
+
+def diagnose(args):
+    output = args.output
+    selection = json.loads((output / "selection.json").read_text(encoding="utf-8"))
+    original, warnings = read_results(output / "results.jsonl")
+    for warning in warnings:
+        print(warning, file=sys.stderr)
+    selected = [row for row in original if row["outcome"] in ("PARTIAL", "REJECT")]
+    corpus = args.corpus.resolve()
+    checker = args.checker.expanduser().resolve()
+    if selection["memory_limit_mb"] and sys.platform != "linux":
+        raise ValueError("The address-space limit requires Linux; use a Linux diagnostic runner")
+    (output / "diagnostic-logs").mkdir(exist_ok=True)
+    deadline = time.perf_counter() + args.total_timeout_seconds
+    failed = False
+    with (output / "diagnostics.jsonl").open("w", encoding="utf-8") as stream:
+        for index, previous in enumerate(selected):
+            relative = previous["path"]
+            path = (corpus / relative).resolve()
+            if not path.is_relative_to(corpus) or not path.is_file():
+                raise ValueError(f"Diagnostic input must be inside the corpus: {relative}")
+            expected_hash = selection.get("input_sha256", {}).get(relative)
+            if expected_hash and file_sha256(path) != expected_hash:
+                raise ValueError(f"Diagnostic input SHA-256 mismatch: {relative}")
+            remaining = deadline - time.perf_counter()
+            if remaining <= 0:
+                row = {"path": relative, "outcome": "NOT_RUN",
+                       "reason": "Diagnostic budget exhausted"}
+            else:
+                row = run_case(
+                    [str(checker), "--stats", "--diagnostics", "--timeout-ms",
+                     str(selection["solver_timeout_ms"]), str(path)],
+                    relative, output, index,
+                    min(2 * selection["case_timeout_seconds"], remaining),
+                    selection["memory_limit_mb"], log_directory="diagnostic-logs")
+                row["matches_original"] = row["verdict"] == previous["verdict"]
+                if row["outcome"] in ("PARTIAL", "REJECT"):
+                    try:
+                        row["diagnostics"] = read_diagnostics(output / row["stderr"])
+                        if row["outcome"] == "PARTIAL" and (
+                                row["diagnostics"].get("pending") != int(row["verdict"].split()[1])):
+                            raise ValueError("Diagnostic pending count disagrees with verdict")
+                    except ValueError as error:
+                        row["diagnostic_error"] = str(error)
+                        failed = True
+                failed |= row["outcome"] in ERRORS
+            stream.write(json.dumps(row) + "\n")
+            stream.flush()
+            print(f'{index + 1}/{len(selected)} diagnostic {row["outcome"]}: {relative}', flush=True)
+    return int(failed)
+
+
+def obligation_coverage(rows):
+    groups = {}
+    for row in rows:
+        if not row.get("matches_original") or row.get("diagnostic_error"):
+            continue
+        obligations = row.get("diagnostics", {}).get("obligations", [])
+        families = {(item["rule"], item["fingerprint"]) for item in obligations}
+        for item in obligations:
+            key = item["rule"], item["fingerprint"]
+            group = groups.setdefault(key, {
+                "rule": key[0], "fingerprint": key[1], "obligations": 0,
+                "proofs": 0, "sole_family_proofs": 0, "example": row["path"]})
+            group["obligations"] += item["count"]
+            group["proofs"] += 1
+            group["sole_family_proofs"] += len(families) == 1
+    return sorted(groups.values(), key=lambda group: (
+        -group["sole_family_proofs"], -group["proofs"], -group["obligations"],
+        group["rule"], group["fingerprint"]))
+
+
 def report(output):
     output.mkdir(parents=True, exist_ok=True)
     selection_path, results_path = output / "selection.json", output / "results.jsonl"
     selection = json.loads(selection_path.read_text(encoding="utf-8")) if selection_path.exists() else {}
     results, warnings = [], []
     if results_path.exists():
-        lines = results_path.read_text(encoding="utf-8").splitlines(keepends=True)
-        for index, line in enumerate(lines):
-            try:
-                results.append(json.loads(line))
-            except json.JSONDecodeError:
-                if index != len(lines) - 1 or line.endswith("\n"):
-                    raise
-                warnings.append("Incomplete final result record after interruption; raw results.jsonl retained.")
+        results, warnings = read_results(results_path)
     recorded = {row["path"] for row in results}
     results.extend({"path": path, "outcome": "NOT_RUN", "reason": "Runner stopped before this case",
                     "logic": selection.get("logics", {}).get(path)}
@@ -226,6 +337,12 @@ def report(output):
         name: sum(row.get("statistics", {}).get(name, 0) for row in results)
         for name in ("solve_ms", "marshal_ms", "check_ms")
     }
+    diagnostic_path = output / "diagnostics.jsonl"
+    diagnostics = []
+    if diagnostic_path.exists():
+        diagnostics, diagnostic_warnings = read_results(diagnostic_path)
+        warnings.extend(diagnostic_warnings)
+    obligations = obligation_coverage(diagnostics)
     summary = {
         "selection": selection, "build": build,
         "build_outcome": os.environ.get("BUILD_OUTCOME", "not recorded"),
@@ -233,6 +350,7 @@ def report(output):
         "runner_outcome": os.environ.get("RUNNER_OUTCOME", "not recorded"),
         "toolchain_outcome": os.environ.get("TOOLCHAIN_OUTCOME", "not recorded"),
         "harness_outcome": os.environ.get("HARNESS_OUTCOME", "not recorded"),
+        "sampler_outcome": os.environ.get("SAMPLER_OUTCOME", "not applicable"),
         "selected": len(results), "tested": tested,
         "counts": {outcome: counts[outcome] for outcome in OUTCOMES},
         "success_rate": counts["ACCEPT"] / tested if tested else None,
@@ -243,6 +361,12 @@ def report(output):
         "phase_totals_ms": phases,
         "phase_statistics_cases": sum("statistics" in row for row in results),
         "warnings": warnings,
+        "diagnostic_counts": dict(Counter(row["outcome"] for row in diagnostics)),
+        "diagnostic_errors": sum("diagnostic_error" in row for row in diagnostics),
+        "diagnostic_mismatches": sum(row.get("matches_original") is False for row in diagnostics),
+        "obligation_families": obligations,
+        "unknown_reasons": dict(Counter(row.get("reason", row.get("verdict", "not recorded"))
+                                        for row in results if row["outcome"] == "UNKNOWN")),
         "per_logic": {
             logic: {
                 "selected": sum(row.get("logic") == logic for row in results),
@@ -258,6 +382,7 @@ def report(output):
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
+    source_sha = selection.get("z3_commit", os.environ.get("SOURCE_SHA", os.environ.get("GITHUB_SHA", "")))
     lines = [
         f'# Pulse verification and native F* checker regressions: '
         f'{cell(selection.get("corpus_path", "no selection"))}', "",
@@ -275,9 +400,9 @@ def report(output):
         f'F*: `{cell(build.get("fstar_version", "not recorded"))}`; '
         f'OCaml: `{cell(build.get("ocaml_version", "not recorded"))}`.',
         f'- Build wall time: {build.get("wall_seconds", "not recorded")} seconds.',
-        f'- Z3 commit: `{cell(selection.get("z3_commit", os.environ.get("GITHUB_SHA", "")))}`; '
+        f'- Z3 commit: `{cell(source_sha)}`; '
         f'checker producer version: `{cell(selection.get("checker_version", "not recorded"))}`.',
-        f'- z3test commit: `{cell(selection.get("corpus_commit", "not recorded"))}`; '
+        f'- Corpus commit: `{cell(selection.get("corpus_commit", "not recorded"))}`; '
         f'path: `{cell(selection.get("corpus_path", "not recorded"))}`.',
         f'- Discovered: {selection.get("discovered", 0)}; selected: {len(results)}; '
         f'attempted: {tested}; not run: {counts["NOT_RUN"]}.',
@@ -294,12 +419,29 @@ def report(output):
     for outcome in OUTCOMES:
         lines.append(f'| {outcome} | {counts[outcome]} | '
                      f'{percentage(counts[outcome], tested) if outcome != "NOT_RUN" else "not attempted"} |')
+    if summary["unknown_reasons"]:
+        lines += ["", "Solver UNKNOWN reasons (separate from whole-case timeouts and process errors):",
+                  "", "| Reason | Files |", "|---|---:|"]
+        for reason, count in sorted(summary["unknown_reasons"].items()):
+            lines.append(f"| {cell(reason)} | {count} |")
     if "manifest" in selection:
         manifest = selection["manifest"]
+        sizes = manifest["per_logic"]
+        sample_size = (f"{sizes} inputs per logic" if isinstance(sizes, int) else
+                       ", ".join(f"{logic}: {count}" for logic, count in sorted(sizes.items()))
+                       + " inputs")
         lines += ["", f'Input manifest: `{cell(manifest["path"])}`; '
                   f'SHA-256: `{manifest["sha256"]}`. '
-                  f'Seed {manifest["seed"]}; {manifest["per_logic"]} inputs per logic. '
+                  f'Seed `{cell(manifest["seed"])}`; {sample_size}. '
                   "Every input SHA-256 was verified before executing any case."]
+        if "selection" in manifest:
+            lines += ["", f'Sampling policy: {cell(manifest["selection"])}.']
+        if "max_input_bytes" in manifest:
+            lines += [f'Maximum eligible input size: {manifest["max_input_bytes"]} bytes.']
+        if "source_manifest_sha256" in manifest:
+            lines += [f'Archive-configuration manifest SHA-256: `{manifest["source_manifest_sha256"]}`.']
+    if "SAMPLER_OUTCOME" in os.environ:
+        lines += ["", f'Benchmark sampling: **{cell(summary["sampler_outcome"])}**.']
     if summary["per_logic"]:
         lines += ["", "## Per-logic coverage", "",
                   "| Logic | Selected | ACCEPT | PARTIAL | REJECT | SAT | UNKNOWN | TIMEOUT | Errors/crashes/protocol | NOT_RUN |",
@@ -322,12 +464,26 @@ def report(output):
                   f'Phase totals for those files only: solve {phases["solve_ms"]:.3f} ms, '
                   f'marshal {phases["marshal_ms"]:.3f} ms, check {phases["check_ms"]:.3f} ms. '
                   "SAT, unknown, and interrupted runs may have no phase statistics."]
+    if diagnostic_path.exists():
+        lines += ["", "## Remaining obligation families", "",
+                  "Separate diagnostic replays do not change coverage verdicts or measured case timings. "
+                  "Only matching replays with consistent diagnostics contribute to this ranking. "
+                  "A fingerprint is a diagnostic shape, not a certificate or proof of equivalence.",
+                  f'Diagnostic outcomes: {cell(json.dumps(summary["diagnostic_counts"], sort_keys=True))}; '
+                  f'errors: {summary["diagnostic_errors"]}; '
+                  f'nonmatching replays: {summary["diagnostic_mismatches"]}.', "",
+                  "| Rule | Fingerprint | Sole-family proofs | Proofs | Obligations | Example |",
+                  "|---|---|---:|---:|---:|---|"]
+        for group in obligations[:30]:
+            lines.append(f'| {cell(group["rule"])} | {cell(group["fingerprint"])} | '
+                         f'{group["sole_family_proofs"]} | {group["proofs"]} | '
+                         f'{group["obligations"]} | {cell(group["example"])} |')
     lines += ["", "## Per-file results (first 100; full list in results.csv)", "",
               "| File | Outcome | Wall seconds |", "|---|---|---:|"]
     for row in results[:100]:
         elapsed = f'{row["wall_seconds"]:.3f}' if "wall_seconds" in row else "-"
         lines.append(f'| {cell(row["path"])} | {row["outcome"]} | {elapsed} |')
-    lines += ["", "Inputs are recursively selected `.smt2` files, in sorted order, without modification. "
+    lines += ["", "The harness executes the selected corpus's `.smt2` files in sorted order, without modification. "
               "An optional JSON manifest verifies membership and input hashes; it is not executed. "
               "Manifest `.txt` lists and pre-generated `.proof` files are not executed. The native API "
               "checks the parsed final assertion set, not an incremental command transcript. "
@@ -378,10 +534,17 @@ def main():
     run.add_argument("--output", type=Path, required=True)
     summarize = commands.add_parser("report")
     summarize.add_argument("--output", type=Path, required=True)
+    diagnostic = commands.add_parser("diagnose", help="Separately replay PARTIAL/REJECT cases with diagnostics")
+    diagnostic.add_argument("--checker", type=Path, required=True)
+    diagnostic.add_argument("--corpus", type=Path, required=True)
+    diagnostic.add_argument("--output", type=Path, required=True)
+    diagnostic.add_argument("--total-timeout-seconds", type=positive_float, default=900)
     args = parser.parse_args()
     if args.command == "report":
         report(args.output)
         return 0
+    if args.command == "diagnose":
+        return diagnose(args)
     return run_suite(args)
 
 

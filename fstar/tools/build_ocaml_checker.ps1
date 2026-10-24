@@ -67,6 +67,11 @@
   WslBuildDir; instrumented timings
   include profiling overhead and are not production performance measurements.
 
+.PARAMETER BuildCherry
+  Also verify and compile a standalone Cherry C/C++ checker under
+  WslBuildDir/cherry. Requires Linux GCC 15+ and a Cherry-capable Linux
+  F* executable, supplied with CherryFstarExe (a WSL path on Windows).
+
 .PARAMETER BuildJobs
   Maximum parallel C++ build jobs. On Linux the same Z3 installation is
   used for verification and native linking; WslBuildDir is a local output
@@ -77,11 +82,14 @@ param(
   [string]$Z3WindowsBuildDir = "",
   [string]$Z3InstallDir = "",
   [string]$OpamSwitch = "fstar53",
+  [string]$WslDistribution = "",
   [string]$WslBuildDir = "~/z3checker",
   [string]$Z3BuildDir = "~/z3-native-ffi-build",
   [string]$CacheDir = "",
   [switch]$RunTests,
   [switch]$ProfileChecker,
+  [switch]$BuildCherry,
+  [string]$CherryFstarExe = "",
   [ValidateRange(1, 256)]
   [int]$BuildJobs = 16
 )
@@ -91,6 +99,9 @@ $fstarDir = Split-Path -Parent $PSScriptRoot  # .../fstar
 $repoDir = Split-Path -Parent $fstarDir
 $originalPath = $env:PATH
 $windowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+if ($BuildCherry -and -not $CherryFstarExe) {
+  throw "-BuildCherry requires -CherryFstarExe pointing to a Cherry-capable Linux F*"
+}
 if (-not $Z3WindowsBuildDir) { $Z3WindowsBuildDir = Join-Path $repoDir "build" }
 if (-not $Z3InstallDir) { $Z3InstallDir = Join-Path $Z3WindowsBuildDir "install" }
 $Z3WindowsBuildDir = [IO.Path]::GetFullPath($Z3WindowsBuildDir)
@@ -133,45 +144,24 @@ try {
   Write-Host "Installed F*/Pulse SMT solver: $Z3Exe ($versionOutput)"
 
   # Dependencies must be cached before their dependents are extracted.
-  $modules = @(
-    "Z3AstTheory.fst", "Z3ArrayTheory.fst", "Z3SeqTheory.fst", "Z3BvTheory.fst",
-    "Z3ValueTheory.fst", "Z3ProofTheory.fst", "Z3ProofIndex.fst", "Z3ProofSet.fst",
-    "Z3ResolutionProofTheory.fst", "Z3ObservationalEquality.fst",
-    "Z3BasicExprTheory.fst", "Z3BoundedBoolEquiv.fst", "Z3BooleanNormalForm.fst",
-    "Z3Commutativity.fst", "Z3BooleanRewrite.fst",
-    "Z3DistinctAst.fst", "Z3DistinctEmbed.fst", "Z3ArrayLemma.fst",
-    "Z3ArrayRewrite.fst", "Z3Definitions.fst",
-    "Z3LinearArithmeticTheory.fst", "Z3LinearArithmeticAst.fst", "Z3LinearArithmeticEmbed.fst",
-    "Z3ArithmeticRewrite.fst", "Z3IntegerRewrite.fst", "Z3ConditionalRewrite.fst",
-    "Z3NlaLemma.fst", "Z3LpCertificate.fst", "Z3LpReplay.fst", "Z3LpGomory.fst",
-    "Z3QuantifierNnf.fst", "Z3QuantifierVacuity.fst", "Z3QuantifierPull.fst", "Z3BinderSubstitution.fst",
-    "Z3QuantifierInstantiation.fst", "Z3QuantifierReduce.fst", "Z3DestructiveEquality.fst",
-    "Z3QuantifierDer.fst", "Z3Skolemization.fst",
-    "Z3LambdaRewrite.fst", "Z3BvLemma.fst", "Z3DatatypeLemma.fst",
-    "Z3DatatypeValue.fst", "Z3DatatypeSignature.fst", "Z3TheoryNormalize.fst",
-    "Z3UnifiedProof.fst", "Z3ProofDocument.fst",
-    "Z3SortedSemantics.fst", "Z3SortedDatatype.fst", "Z3SortedProof.fst",
-    "Z3Native.fsti", "Z3NativeProof.fst"
-  )
+  $moduleManifest = Get-Content -Raw (Join-Path $PSScriptRoot "checker_modules.json") | ConvertFrom-Json
+  $modules = $moduleManifest.modules
 
   Write-Host "=== Phase 1a: type-check + cache ==="
+  # The pinned F* profiler cannot report timings in GitHub's auto-selected message format.
   foreach ($f in $modules) {
-    & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
+    Write-Host "Verifying $f"
+    & $FstarExe --timing --message_format human --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir --smt $Z3Exe --z3version $z3Version $f 2>&1 |
       ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) { throw "F* verification failed: $f" }
   }
   $missing = $modules | Where-Object { -not (Test-Path (Join-Path $CacheDir "$_.checked")) }
   if ($missing) { throw "Failed to cache: $($missing -join ', ')" }
   if ($RunTests) {
-    $testModules = @(
-      "Z3ResolutionProofCheckerTests.fst", "Z3NlaLemmaTests.fst", "Z3DatatypeValueTests.fst",
-      "Z3SortedProofTests.fst",
-      "Z3ProofJustifications.fst", "Z3PulseProofChecker.fst",
-      "Z3PulseJustificationChecker.fst", "Z3LraFarkasTheory.fst",
-      "Z3PulseLraChecker.fst", "Z3PulseProofCheckerTests.fst", "Z3PulseLraCheckerTests.fst"
-    )
+    $testModules = $moduleManifest.tests
     foreach ($testModule in $testModules) {
-      & $FstarExe --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
+      Write-Host "Verifying $testModule"
+      & $FstarExe --timing --message_format human --warn_error '@1..999' --cache_checked_modules --cache_dir $CacheDir --include $CacheDir `
           --smt $Z3Exe --z3version $z3Version $testModule
       if ($LASTEXITCODE -ne 0) { throw "F*/Pulse regressions failed: $testModule" }
     }
@@ -180,7 +170,7 @@ try {
   Write-Host "=== Phase 1b: extract to OCaml ==="
   $modNames = ($modules | Where-Object { $_ -ne "Z3Native.fsti" } |
     ForEach-Object { $_ -replace '\.fst$', '' }) -join " "
-  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst")) {
+  foreach ($entry in @("Z3NativeProof.fst", "Z3NlaLemma.fst", "Z3SortedProof.fst", "Z3BvFreshModel.fst")) {
     & $FstarExe --warn_error '@1..999' --codegen OCaml --cache_dir $CacheDir --include $CacheDir --odir $extractDir `
         --smt $Z3Exe --z3version $z3Version --extract $modNames $entry
     if ($LASTEXITCODE -ne 0) { throw "OCaml extraction failed: $entry" }
@@ -205,16 +195,16 @@ try {
     "Z3BasicExprTheory.ml", "Z3BoundedBoolEquiv.ml", "Z3BooleanNormalForm.ml",
     "Z3Commutativity.ml", "Z3BooleanRewrite.ml", "Z3DistinctAst.ml", "Z3DistinctEmbed.ml",
     "Z3ArrayLemma.ml", "Z3ArrayRewrite.ml",
-    "Z3Definitions.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
+    "Z3Definitions.ml", "Z3ScopedModel.ml", "Z3LinearArithmeticTheory.ml", "Z3LinearArithmeticAst.ml",
     "Z3LinearArithmeticEmbed.ml", "Z3ArithmeticRewrite.ml", "Z3IntegerRewrite.ml", "Z3ConditionalRewrite.ml",
-    "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml",
+    "Z3NlaLemma.ml", "Z3LpCertificate.ml", "Z3LpReplay.ml", "Z3LpGomory.ml", "Z3IntegerDivision.ml",
     "Z3QuantifierNnf.ml", "Z3QuantifierVacuity.ml", "Z3QuantifierPull.ml", "Z3BinderSubstitution.ml",
     "Z3QuantifierInstantiation.ml", "Z3QuantifierReduce.ml", "Z3DestructiveEquality.ml",
     "Z3QuantifierDer.ml", "Z3Skolemization.ml",
-    "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3DatatypeLemma.ml",
+    "Z3LambdaRewrite.ml", "Z3BvLemma.ml", "Z3BvWord.ml", "Z3BvOrder.ml", "Z3BvFresh.ml", "Z3BvFreshModel.ml", "Z3DatatypeLemma.ml",
     "Z3DatatypeValue.ml", "Z3DatatypeSignature.ml", "Z3TheoryNormalize.ml",
-    "Z3UnifiedProof.ml", "Z3ProofDocument.ml",
-    "Z3SortedSemantics.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
+    "Z3UnifiedProof.ml", "Z3ProofDocument.ml", "Z3ClauseProof.ml",
+    "Z3SortedSemantics.ml", "Z3SortedQuantifier.ml", "Z3SortedDatatype.ml", "Z3SortedProof.ml",
     "Z3Native.ml", "Z3NativeProof.ml", "Z3NativeMain.ml", "main.ml"
   )
   if ($ProfileChecker) { $order = @("Z3Profile.ml") + $order }
@@ -242,6 +232,15 @@ ocamlfind ocamlopt -warn-error +a -package unix -linkpkg \
 Z3_FSTAR_PROFILE=1 ./profile-tests
 "@
     }
+  }
+  $cherryScript = ""
+  if ($BuildCherry) {
+    $cherryTests = if ($RunTests) { "--run-tests" } else { "" }
+    $cherryScript = @"
+python3 "$wslFstarDir/tools/build_cherry_checker.py" \
+  --fstar "$CherryFstarExe" --z3-install "`$z3_install" \
+  --build-dir "$shellBuildDir/cherry" $cherryTests
+"@
   }
   $linkSetup = @"
 z3_build=$Z3BuildDir
@@ -296,31 +295,41 @@ ocamlfind ocamlopt -warn-error +a -package zarith,unix -linkpkg -I "`$z3_install
   -ccopt "-L`$z3_install/lib" \
   z3ml.cmxa $orderStr -o checker
 $testScript
+$cherryScript
 echo BUILD_OK
 "@
   $scriptPath = Join-Path $extractDir "build_native_tmp.sh"
   $unixScript = $script -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($scriptPath, $unixScript, (New-Object System.Text.UTF8Encoding($false)))
-  if ($windowsHost) { wsl -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh" }
+  if ($windowsHost) {
+    $distributionArgs = if ($WslDistribution) { @("-d", $WslDistribution) } else { @() }
+    wsl @distributionArgs -e bash "$wslFstarDir/build_extract/native/build_native_tmp.sh"
+  }
   else { & bash $scriptPath }
   $wslExitCode = $LASTEXITCODE
   Remove-Item $scriptPath -ErrorAction SilentlyContinue
   if ($wslExitCode -ne 0) { throw "Native build, installation, or tests failed" }
   if ($RunTests) {
     $previousChecker = $env:Z3_FSTAR_CHECKER
+    $previousDistribution = $env:Z3_FSTAR_WSL_DISTRO
     try {
       $env:Z3_FSTAR_CHECKER = "$WslBuildDir/checker"
+      $env:Z3_FSTAR_WSL_DISTRO = $WslDistribution
       $python = if ($windowsHost) { "python" } else { "python3" }
       & $python (Join-Path $PSScriptRoot "test_native_checker.py")
       if ($LASTEXITCODE -ne 0) { throw "Native checker CLI tests failed" }
     }
     finally {
       $env:Z3_FSTAR_CHECKER = $previousChecker
+      $env:Z3_FSTAR_WSL_DISTRO = $previousDistribution
     }
   }
 
   $launcher = if ($windowsHost) { "wsl " } else { "" }
   Write-Host "=== Done. Run with: $launcher$WslBuildDir/checker [path/to/input.smt2] ==="
+  if ($BuildCherry) {
+    Write-Host "=== Cherry: $launcher$WslBuildDir/cherry/checker [path/to/input.smt2] ==="
+  }
 }
 finally {
   $env:PATH = $originalPath

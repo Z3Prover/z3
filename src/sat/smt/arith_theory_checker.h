@@ -350,8 +350,11 @@ namespace arith {
             m_deps.reserve(orig_size);
             for (unsigned i = 0; i < m_ineqs.size(); ++i) {
                 row& r = m_ineqs[i];
-                if (r.is_zero()) {
-                    m_tight_inequalities.push_back(i);                    
+                if (r.m_coeffs.empty()) {
+                    if (check_ineq(r))
+                        return true;
+                    if (r.is_zero())
+                        m_tight_inequalities.push_back(i);
                     continue;
                 }
                 auto const& [v, coeff] = *r.m_coeffs.begin();
@@ -437,6 +440,7 @@ namespace arith {
             m_conseq.reset();
             m_eqs.reset();
             m_ineqs.reset();
+            m_tight_inequalities.reset();
         }
         
         bool add_ineq(rule_type_t rt, rational const& coeff, expr* e, bool sign) {

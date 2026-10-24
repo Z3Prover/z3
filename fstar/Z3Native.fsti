@@ -9,9 +9,10 @@ new val native_sort : Type0
 type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
-  | Bvadd | Bvmul | Bvsub | Bvneg | Concat
+  | Bvadd | Bvmul | Bvsub | Bvneg | Bvudiv | Bvurem | Bvextract | Bvconcat | Bvmkbv
+  | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
-  | Add | Mul | Sub | Div | Le | Lt | Ge | Gt | ToReal
+  | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
   | Opaque
 
@@ -56,6 +57,20 @@ type proof_view = {
   instantiations: list ast;
 }
 
+type clause_action =
+  | InputClause
+  | LearnedClause
+  | TheoryClause
+  | DeleteClause
+
+noeq
+type clause_view = {
+  action: clause_action;
+  formula: ast;
+  literals: list ast;
+  certificate: option ast;
+}
+
 noeq
 type solve_result =
   | Unsat : assertions:list ast -> proof:ast -> solve_result
@@ -68,5 +83,7 @@ val view_sort : native_sort -> ML sort_view
 val view_expression : ast -> ML expression_view
 val view_datatypes : roots:list native_sort -> ML Z3DatatypeSignature.schema
 val view_proof : ast -> ML proof_view
+val view_clause_trail : ast -> ML (option (list clause_view & ast))
 val solve : smtlib:string -> timeout_ms:nat -> ML solve_result
+val solve_with_clause_proofs : smtlib:string -> timeout_ms:nat -> clause_proofs:bool -> ML solve_result
 val fail : #a:Type -> message:string -> ML a
