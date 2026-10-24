@@ -84,6 +84,51 @@ static implied_bound const& find_implied_bound(std_vector<implied_bound> const& 
     return ibounds[0];
 }
 
+static void test_lazy_bound_explanations() {
+    struct payload {
+        unsigned& copies;
+        unsigned value;
+        payload(unsigned& copies, unsigned value) : copies(copies), value(value) {}
+        payload(payload const& other) : copies(other.copies), value(other.value) { ++copies; }
+    };
+    for (bool lower : {false, true}) {
+        lar_solver ls;
+        lpvar x = ls.add_var(0, false);
+        farkas_explanation_collector imp(ls);
+        std_vector<implied_bound> ibounds;
+        lp_bound_propagator<farkas_explanation_collector> bp(imp, ibounds);
+        bp.init();
+        unsigned copies = 0;
+        auto add = [&](int value, unsigned witness, bool strict, bool accepted) {
+            payload p(copies, witness);
+            auto explain = [p]() -> u_dependency* { return nullptr; };
+            auto weighted = [p](implied_bound::weighted_consumer const& consume) {
+                consume(mpq(p.value), nullptr);
+            };
+            unsigned before = copies;
+            bp.add_bound(mpq(lower ? value : -value), x, lower, strict, explain, weighted);
+            ENSURE(copies - before == (accepted ? 2 : 0));
+        };
+        add(1, 5, false, true);
+        add(0, 7, false, false);
+        add(1, 9, false, false);
+        ENSURE(ibounds.size() == 1);
+        unsigned witness = 0;
+        auto consume = [&](mpq const& a, u_dependency*) { witness = a.get_unsigned(); };
+        ibounds[0].explain_weighted(consume);
+        ENSURE(witness == 5);
+        add(1, 11, true, true);
+        ENSURE(ibounds[0].m_strict);
+        ibounds[0].explain_weighted(consume);
+        ENSURE(witness == 11);
+        add(2, 13, false, true);
+        ENSURE(ibounds.size() == 1 && ibounds[0].m_bound == (lower ? 2 : -2));
+        ENSURE(!ibounds[0].m_strict);
+        ibounds[0].explain_weighted(consume);
+        ENSURE(witness == 13 && ibounds[0].explain_implied() == nullptr);
+    }
+}
+
 // A bound propagated from a row sum_k a_k x_k = 0 onto column j uses the bound of
 // every other column k with Farkas coefficient |a_k / a_j|. Before the weighted
 // explanation was added every premise was reported with coefficient 1, which the
@@ -181,5 +226,6 @@ static void test_row_farkas_coefficients() {
 }  // namespace lp
 
 void tst_lp_bound_propagation() {
+    lp::test_lazy_bound_explanations();
     lp::test_row_farkas_coefficients();
 }
