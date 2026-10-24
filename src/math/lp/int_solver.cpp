@@ -107,8 +107,9 @@ namespace lp {
             for (auto const& c : A.column(j)) {
                 unsigned row_index = c.var();
                 unsigned bj = lrac.m_r_basis[row_index];
-                auto old_val = lia.get_value(bj);
-                auto new_val = old_val - impq(c.coeff()*delta);
+                auto const& old_val = lia.get_value(bj);
+                auto new_val = old_val;
+                new_val.x.submul(c.coeff(), delta);
                 if (has_lower(bj) && new_val < lra.get_lower_bound(bj))
                     return false;
                 if (has_upper(bj) && new_val > lra.get_upper_bound(bj))
