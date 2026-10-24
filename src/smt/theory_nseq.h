@@ -87,6 +87,8 @@ namespace smt {
         expr_ref_vector     m_axioms;      // queue of terms awaiting axiomatization
         obj_hashtable<expr> m_axiom_set;   // dedup guard for m_axioms enqueues
         unsigned            m_axioms_head = 0; // index of first axiom still to add
+        expr_ref_vector     m_ubv_strings;     // relevant ubv2s terms
+        obj_hashtable<expr> m_ubv_done;        // ubv2s terms with added axioms
 
         // Index of the first assigned literal not yet forwarded to
         // flush_assigned_literals(). Trailed so backtracking rewinds it.
@@ -173,6 +175,8 @@ namespace smt {
 
         // Ask stoi_facet to instantiate any newly enabled coherence axioms.
         bool check_stoi_coherence();
+        void add_ubv_string(expr* e);
+        bool check_ubv_strings();
         bool add_ho_eq(expr* lhs, expr* rhs);
         bool find_ho_elaboration(expr* term, expr*& elaboration) const;
         void ensure_length_var(expr* e) const;

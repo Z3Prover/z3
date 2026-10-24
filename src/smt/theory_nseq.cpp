@@ -21,6 +21,7 @@ Author:
 #include "smt/smt_context.h"
 #include "smt/smt_justification.h"
 #include "ast/expr_substitution.h"
+#include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/trail.h"
 #include "ast/ast_ll_pp.h"
@@ -124,6 +125,7 @@ namespace smt {
         m_ax(*this, m_th_rewriter),
         m_sk(m, m_th_rewriter),
         m_axioms(m),
+        m_ubv_strings(m),
         m_tree(ctx.get_trail_stack(), m.limit()),
         m_root(m_tree.mk_root()),
         m_solver(m, m_autil, m_tree.dep_mgr()),
@@ -489,6 +491,8 @@ namespace smt {
             m_seq.str.is_from_code(n)   ||
             m_seq.str.is_to_code(n))
             enqueue_axiom(n);
+        if (m_seq.str.is_ubv2s(n))
+            add_ubv_string(n);
         if (m_seq.str.is_replace_all(n) || m_seq.str.is_replace_re(n) || m_seq.str.is_replace_re_all(n)) {
             ctx.push_trail(value_trail<unsigned>(m_num_unhandled));
             ++m_num_unhandled;
@@ -766,6 +770,9 @@ namespace smt {
         if (m_ambient->ho_facet(*m_root).propagate())
             return FC_CONTINUE;
 
+        if (check_ubv_strings())
+            return FC_CONTINUE;
+
         if (!m_pending_assumptions.empty()) {
 
             if (all_of(m_pending_assumptions, [&](literal lit) { return ctx.get_assignment(lit) == l_true; })) {
@@ -986,6 +993,52 @@ namespace smt {
         m_th_rewriter(e, e2);
         bool is_strict = true;
         return m_arith_value.get_up_equiv(e2, hi, is_strict) && !is_strict && hi.is_int();
+    }
+
+    // Same trick as in seq
+    void theory_nseq::add_ubv_string(expr* e) {
+        expr* b = to_app(e)->get_arg(0);
+        if (!any_of(m_ubv_strings, [&](expr* e2) { return to_app(e2)->get_arg(0)->get_sort() == b->get_sort(); }))
+            m_ax.add_ubv2ch_axioms(b->get_sort());
+        m_ax.add_ubv2s_len_axiom(b);
+        m_ubv_strings.push_back(e);
+        ctx.push_trail(push_back_vector<expr_ref_vector>(m_ubv_strings));
+    }
+
+    // instantiate the ubv axioms lazily (as expensive)
+    bool theory_nseq::check_ubv_strings() {
+        bv_util bv(m);
+        bool change = false;
+        for (expr* e : m_ubv_strings) {
+            if (m_ubv_done.contains(e))
+                continue;
+            change = true;
+            expr* b = to_app(e)->get_arg(0);
+            rational len;
+            if (get_num_value(m_seq.str.mk_length(e), len) && len.is_unsigned())
+                m_ax.add_ubv2s_len_axiom(b, len.get_unsigned());
+            rational value(0);
+            bool all_bits_assigned = true;
+            for (unsigned i = 0; i < bv.get_bv_size(b); ++i) {
+                expr_ref bit(bv.mk_bit2bool(b, i), m);
+                literal lit = mk_literal(bit);
+                if (ctx.get_assignment(lit) == l_undef) {
+                    ctx.mark_as_relevant(lit);
+                    all_bits_assigned = false;
+                }
+                else if (ctx.get_assignment(lit) == l_true)
+                    value += rational::power_of_two(i);
+            }
+            if (!all_bits_assigned)
+                continue;
+            unsigned k = 0;
+            for (; value >= 10; ++k)
+                value = div(value, rational(10));
+            m_ubv_done.insert(e);
+            ctx.push_trail(insert_obj_trail<expr>(m_ubv_done, e));
+            m_ax.add_ubv2s_axiom(b, k);
+        }
+        return change;
     }
 
     // Forward to stoi_facet, which owns the coherence-checking logic.
