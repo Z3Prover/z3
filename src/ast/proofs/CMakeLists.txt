@@ -6,4 +6,5 @@ z3_add_component(proofs
   COMPONENT_DEPENDENCIES
     lp
     rewriter
+    ff_ast
 )

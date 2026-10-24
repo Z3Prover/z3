@@ -937,7 +937,8 @@ assertions** using topological premise lookup, checked declaration
 membership, closed well-sorted facts, hypothesis inheritance/discharge,
 and explicit pending counts. Its `lemma_check_document` proves that a
 zero-obligation result rules out any typed interpretation satisfying the
-original assertions. A concrete total interpretation witness ensures
+original assertions and the quantifier laws required by the document.
+A concrete total interpretation witness ensures
 that the interpretation type itself is inhabited; the theorem does not
 assume the legacy `model_sound` or global all-environments contracts.
 The diagnostic checker is proved to agree with the acceptance checker.
@@ -949,22 +950,46 @@ document. The standalone node-checking wrapper still validates supplied
 premises. Hypothesis discharge checks canonical negations and handles
 both clause literals and the complement of the whole conclusion.
 
+Boolean-body congruence beneath `forall`, `exists`, and Boolean-valued
+lambdas uses evaluation in arbitrary typed binder environments. Canonical
+restricted-domain closures turn pointwise body equality into equality of
+quantifier values without imposing a truth interpretation on quantifiers.
+
+`Z3SortedQuantifier.fst` adds universal instantiation for quantifier-free
+bodies and closed, correctly sorted actual arguments. Actual arguments
+may themselves contain quantifiers. The checker reuses
+`Z3BinderSubstitution.substitute`, reverses declaration-order arguments for
+de Bruijn indexing, and requires canonical disjunction and negation
+declarations. Typed substitution preservation is proved over the concrete
+datatype evaluator. Documents containing `QuantifierInstantiation` entries
+require the standard forall-elimination law: a true universal closure has
+a true body at every correctly sorted bound-value tuple. This law
+constrains the supplied quantifier operator, not a certificate's validity;
+it is an explicit premise of the document soundness theorem, not an
+additional axiom. Documents without instantiation entries retain their
+quantifier-oracle-independent theorem.
+
 The native CLI selects this kernel whenever marshaling finds datatype
 metadata. It never falls back to the legacy checker on this path.
 Documents without datatypes retain the existing unified checker.
 This is not a migration of every theory: arithmetic, arrays, bit-vectors,
 and quantifier truth remain abstract unless handled by the typed core.
-Definition expansion, Skolemization, and quantifier-specific proof
-semantics are not imported from the legacy model; unsupported steps
-remain obligations. The native API's correspondence to checked metadata
+Definition expansion, Skolemization, and other quantifier-specific proof
+semantics are not imported from the legacy model. Instantiation of bodies
+containing nested binders remains unsupported; these and other unsupported
+steps remain obligations. The native API's correspondence to checked metadata
 and original assertions remains in the foreign trust boundary.
 
-The strict F*/Pulse, OCaml extraction, native bridge (40 groups), and CLI
-(23 tests) checks pass. Regressions include heterogeneous fields,
+The strict F*/Pulse, OCaml extraction, native bridge (53 groups), and CLI
+(31 tests) checks pass. Regressions include heterogeneous fields,
 mutual recursion, nonproductive or malformed schemas, matching and
 argument-dependent wrong-constructor selectors, canonical native
 dispatch, typed AST evaluation, quantifier binding order, and invalid
 accessor indices and recognizer result sorts. Contextual proof regressions
+also cover mixed-sort and same-sort multi-variable instantiation, closed
+quantified arguments, and rejection of missing, extra, permuted, or
+escaping bindings, forged logical declarations, and incorrect instances.
+Contextual proof regressions
 certify native exhaustiveness, reconstruction, injectivity, and
 disjointness, conditional branches, and equality symmetry, while rejecting
 missing original inputs, open roots,

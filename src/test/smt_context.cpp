@@ -171,6 +171,61 @@ static void check_array_domain(char const* input, lbool expected) {
     VERIFY(expected == slv->check_sat(0, nullptr));
 }
 
+static void check_array_index_dependencies() {
+    for (char const* input : {
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(assert (= ((as const (Array D Bool)) false)\n"
+        "  (store (store (store ((as const (Array D Bool)) true)\n"
+        "                      a false) b false) x false)))\n",
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(declare-const y Bool)\n"
+        "(assert (= ((as const (Array D Bool Bool)) false)\n"
+        "  (store (store (store (store (store (store\n"
+        "    ((as const (Array D Bool Bool)) true)\n"
+        "    a false false) a true false) b false false) b true false) c false false) x y false)))\n"}) {
+        for (unsigned backend = 0; backend < 3; ++backend) {
+            bool sat_smt = backend == 2;
+            auto mode = backend == 1 ? PGM_ENABLED : PGM_DISABLED;
+            ast_manager m(mode);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", sat_smt);
+            p.set_bool("unsat_core", true);
+            auto make_solver = [&]() {
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                return slv;
+            };
+            ref<solver> slv = make_solver();
+            VERIFY(l_true == slv->check_sat(0, nullptr));
+
+            expr_ref_vector assumptions(m);
+            assumptions.push_back(m.mk_eq(m.mk_const(cmd.find_func_decl(symbol("x"))),
+                                          m.mk_const(cmd.find_func_decl(symbol("a")))));
+            if (cmd.is_func_decl(symbol("y")))
+                assumptions.push_back(m.mk_not(m.mk_const(cmd.find_func_decl(symbol("y")))));
+
+            for (expr* assumption : assumptions) {
+                slv = make_solver();
+                VERIFY(l_false == slv->check_sat(1, &assumption));
+                expr_ref_vector core(m);
+                slv->get_unsat_core(core);
+                // The array equality is satisfiable, so the conflict must
+                // depend on the assumption about the index component.
+                VERIFY(core.size() == 1);
+                VERIFY(core[0] == assumption);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
 static void check_symbolic_regex_substring() {
     for (unsigned relevancy : {0u, 2u}) {
         for (char const* word : {"x", "xy"}) {
@@ -266,13 +321,44 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_special_relation_logic() {
+    for (char const* logic : {"UFDTLIA", "ALL", ""}) {
+        for (bool external : {false, true}) {
+            for (bool initialized : {false, true}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                cmd_context cmd(false, external ? &m : nullptr);
+                if (initialized)
+                    cmd.m();
+                bool restricted = !strcmp(logic, "UFDTLIA");
+                std::ostringstream input;
+                if (*logic)
+                    input << "(set-logic " << logic << ")\n";
+                input << "(declare-sort U 0)\n"
+                      << "(declare-const h U)\n";
+                if (restricted)
+                    input << "(declare-fun partial-order (U U) Bool)\n";
+                input << "(assert (partial-order h h))\n";
+                std::istringstream is(input.str());
+                ENSURE(parse_smt2_commands(cmd, is));
+                ENSURE(cmd.assertions().size() == 1);
+                auto* assertion = to_app(cmd.assertions().get(0));
+                ENSURE(assertion->get_family_id() ==
+                       (restricted ? null_family_id : cmd.m().get_family_id("specrels")));
+            }
+        }
+    }
+}
+
 void tst_smt_context()
 {
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
+    check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_array_index_dependencies();
 
     smt_params params;
 

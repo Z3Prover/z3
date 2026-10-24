@@ -90,9 +90,10 @@ def verify_manifest(corpus, relative_path, manifest, paths):
         raise ValueError("Manifest must list exactly the discovered SMT-LIB inputs")
     counts = Counter(logics.values())
     declared = document["per_logic"]
-    expected_counts = ({entry["logic"]: declared for entry in document["archives"]}
+    sources = document.get("archives", document.get("generators", []))
+    expected_counts = ({entry["logic"]: declared for entry in sources}
                        if isinstance(declared, int) else declared)
-    if (set(counts) != {entry["logic"] for entry in document["archives"]} or
+    if (set(counts) != {entry["logic"] for entry in sources} or
             dict(counts) != expected_counts):
         raise ValueError("Manifest does not contain the declared sample size per logic")
     return {
@@ -166,7 +167,7 @@ def run_suite(args):
     (output / "logs").mkdir(parents=True, exist_ok=True)
     selection = {
         "corpus_path": args.corpus_path, "corpus_commit": args.corpus_commit,
-        "z3_commit": os.environ.get("GITHUB_SHA", ""),
+        "z3_commit": os.environ.get("SOURCE_SHA", os.environ.get("GITHUB_SHA", "")),
         "checker_version": version, "discovered": discovered,
         "paths": [path.relative_to(corpus).as_posix() for path in paths],
         "solver_timeout_ms": args.solver_timeout_ms,
@@ -381,6 +382,7 @@ def report(output):
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(results)
+    source_sha = selection.get("z3_commit", os.environ.get("SOURCE_SHA", os.environ.get("GITHUB_SHA", "")))
     lines = [
         f'# Pulse verification and native F* checker regressions: '
         f'{cell(selection.get("corpus_path", "no selection"))}', "",
@@ -398,7 +400,7 @@ def report(output):
         f'F*: `{cell(build.get("fstar_version", "not recorded"))}`; '
         f'OCaml: `{cell(build.get("ocaml_version", "not recorded"))}`.',
         f'- Build wall time: {build.get("wall_seconds", "not recorded")} seconds.',
-        f'- Z3 commit: `{cell(selection.get("z3_commit", os.environ.get("GITHUB_SHA", "")))}`; '
+        f'- Z3 commit: `{cell(source_sha)}`; '
         f'checker producer version: `{cell(selection.get("checker_version", "not recorded"))}`.',
         f'- Corpus commit: `{cell(selection.get("corpus_commit", "not recorded"))}`; '
         f'path: `{cell(selection.get("corpus_path", "not recorded"))}`.',

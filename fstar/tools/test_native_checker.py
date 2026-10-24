@@ -268,6 +268,12 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertTrue(result.stderr.strip())
                 self.assertNotIn("ACCEPT", result.stdout)
 
+    def test_version_reports_embedded_solver_without_solving_input(self):
+        result = self.run_checker("(assert missing)", "--version")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(result.stdout, r"^\d+\.\d+\.\d+\.\d+\n$")
+        self.assertEqual(result.stderr, "")
+
     def test_help_describes_only_smtlib_input(self):
         result = self.run_checker("", "--help")
         self.assertEqual(result.returncode, 0, result.stderr)

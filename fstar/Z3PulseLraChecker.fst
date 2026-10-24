@@ -48,7 +48,7 @@ fn rec check_fold_raw (cert:list cert_entry) (tbl:list (int & var)) (k:int) (str
   decreases cert
 {
   match cert {
-    [] -> { { ftbl = tbl; fk = k; fstrict = strict } }
+    [] -> { ({ ftbl = tbl; fk = k; fstrict = strict }) }
     e :: tl -> {
       let scaled = L.map (fun (c0, v) -> (e.c * c0, v)) e.a.term.mono;
       let tbl' = collect scaled tbl;

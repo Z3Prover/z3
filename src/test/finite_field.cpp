@@ -35,6 +35,166 @@ Author:
 
 namespace ff {
     struct test_engine {
+        static void native_uniqueness_certificates() {
+            for (rational const &p : {rational(2), rational(7), rational("65537")}) {
+                reslimit limit;
+                engine e(p, limit, 2000000);
+                auto x = e.variable(0), y = e.variable(1), z = e.variable(2), one = e.constant(rational(1));
+                std::vector<polynomial> eqs{e.add(e.mul(x,x), x, rational(-1)),
+                    e.add(e.mul(x,y), one, rational(-1)),
+                    e.add(e.mul(e.add(one,x,rational(-1)),z),one,rational(-1))};
+                certificate proof;
+                ENSURE(certify(e, eqs, proof, 100000, certificate_backend::native));
+                ENSURE(e.m_eliminations == 0 && e.m_basis_calls == 0 && e.f4_calls == 0);
+                engine replay(p, limit, 10000000);
+                std::vector<polynomial> nodes;
+                for (auto const &n : proof.nodes) {
+                    // No local branch assumption may survive discharge/export.
+                    if (n.kind == certificate::rule::input) {
+                        ENSURE(n.left < eqs.size()); nodes.push_back(eqs.at(n.left));
+                    }
+                    else if (n.kind == certificate::rule::add) nodes.push_back(replay.add(nodes.at(n.left),nodes.at(n.right)));
+                    else {
+                        polynomial factor; replay.add_term(factor,n.factor,n.coefficient);
+                        nodes.push_back(replay.mul(nodes.at(n.left),factor));
+                    }
+                }
+                ENSURE(nodes.at(proof.root) == one);
+            }
+            for (rational const &p : {rational(2), rational(7), rational("65537")}) {
+                reslimit limit;
+                engine e(p, limit, 1000000);
+                auto one = e.constant(rational(1));
+                auto left = e.variable(0), right = e.variable(1);
+                std::vector<polynomial> eqs{e.add(left, right, rational(-1))};
+                for (unsigned i = 0; i < 24; ++i) {
+                    auto next_left = e.variable(2 + 2*i), next_right = e.variable(3 + 2*i);
+                    eqs.push_back(e.add(next_left, e.add(e.mul(left, left), one), rational(-1)));
+                    eqs.push_back(e.add(next_right, e.add(e.mul(right, right), one), rational(-1)));
+                    left = next_left; right = next_right;
+                }
+                eqs.push_back(e.add(e.mul(e.add(left, right, rational(-1)), e.variable(50)), one, rational(-1)));
+                certificate proof;
+                ENSURE(certify(e, eqs, proof, 100000, certificate_backend::native));
+                // This must close in shared uniqueness, not accidentally pass
+                // because a later elimination or basis backend solved the fixture.
+                ENSURE(e.m_eliminations == 0 && e.m_basis_calls == 0 && e.f4_calls == 0);
+                ENSURE(e.m_proof == nullptr && e.m_elimination_proof == nullptr);
+                engine replay(p, limit, 10000000);
+                std::vector<polynomial> nodes;
+                for (auto const &n : proof.nodes) {
+                    if (n.kind == certificate::rule::input) nodes.push_back(eqs.at(n.left));
+                    else if (n.kind == certificate::rule::add)
+                        nodes.push_back(replay.add(nodes.at(n.left), nodes.at(n.right)));
+                    else {
+                        polynomial factor;
+                        replay.add_term(factor, n.factor, n.coefficient);
+                        nodes.push_back(replay.mul(nodes.at(n.left), factor));
+                    }
+                }
+                ENSURE(nodes.at(proof.root) == one);
+            }
+            {
+                reslimit limit;
+                engine e(rational(7), limit, 1000000);
+                auto x = e.variable(0), y = e.variable(1), z = e.variable(2);
+                auto t = e.variable(3), w = e.variable(4), u = e.variable(5);
+                auto S = e.add(e.mul(x, x), x, rational(-1));
+                std::vector<polynomial> eqs{
+                    e.add(e.add(y, e.mul(z, S)), e.constant(rational(-3))),
+                    e.mul(e.add(y, e.constant(rational(-5))), S),
+                    e.add(e.add(t, e.scale(e.mul(w, S), rational(5))), e.constant(rational(-3))),
+                    e.scale(e.mul(e.add(t, e.constant(rational(-5))), S), rational(5)),
+                    e.add(e.mul(e.add(y, t, rational(-1)), u), e.constant(rational(-1)))};
+                certificate proof;
+                ENSURE(certify(e, eqs, proof, 100000, certificate_backend::native));
+                ENSURE(e.m_eliminations == 0 && e.m_basis_calls == 0 && e.f4_calls == 0);
+            }
+            std::cout << "Native uniqueness: 24-layer circuit identity, no basis/elimination, complete DAG replay over three fields\n";
+        }
+        static void native_certificate_paths() {
+            for (unsigned mode = 0; mode < 8; ++mode) {
+                reslimit limit;
+                engine e(rational(7), limit, 1000000, 4096, true, mode >= 3, false);
+                e.f4 = false;
+                e.fused_reduction = mode == 1;
+                e.geobucket = mode == 2;
+                e.compact_matrix = mode == 4 || mode == 7;
+                e.lazy_matrix = mode == 5 || mode == 7;
+                e.sparse_matrix_reducers = mode == 6 || mode == 7;
+                e.gm_pairs = e.sugar_pairs = e.div_masks = e.small_coefficients = mode == 7;
+                auto x = e.variable(0), y = e.variable(1);
+                std::vector<polynomial> eqs{
+                    e.add(e.mul(x, x), e.constant(rational(-1))),
+                    e.add(e.mul(x, y), e.constant(rational(-1))),
+                    e.add(e.mul(y, y), e.constant(rational(-2)))};
+                certificate proof;
+                ENSURE(certify(e, eqs, proof, 100000, certificate_backend::native));
+                ENSURE(e.m_basis_calls == 1 && e.m_proof == nullptr);
+                if (mode == 1) ENSURE(e.m_fused_reductions > 0);
+                if (mode == 2) ENSURE(e.m_bucket_reductions > 0);
+                if (mode >= 3) ENSURE(e.m_matrix_rows > 0);
+                // Failure unwinds the recorder; later ordinary operations must
+                // never retain a pointer to a destroyed proof builder.
+                bool stopped = false;
+                try { certify(e, eqs, proof, 4, certificate_backend::native); }
+                catch (exhausted const &) { stopped = true; }
+                ENSURE(stopped && e.m_proof == nullptr && e.m_elimination_proof == nullptr);
+            }
+        }
+        static void native_f4_composition() {
+#if Z3_FF_HAS_UINT128
+            reslimit limit;
+            engine e(rational(7), limit, 1000000);
+            auto x = e.variable(0), y = e.variable(1), z = e.variable(2);
+            std::vector<polynomial> eqs{
+                e.add(x, e.add(e.mul(z, z), e.constant(rational(1))), rational(-1)),
+                e.add(e.mul(x, x), e.constant(rational(-1))),
+                e.add(e.mul(x, y), e.constant(rational(-1))),
+                e.add(e.mul(y, y), e.constant(rational(-2)))};
+            certificate proof;
+            ENSURE(certify(e, eqs, proof, 100000, certificate_backend::native));
+            ENSURE(e.m_eliminations > 0 && e.f4_calls > 0 && e.f4_unsat == 1);
+            ENSURE(e.m_proof == nullptr && e.m_elimination_proof == nullptr);
+#endif
+        }
+        static void native_matrix_certificates() {
+            for (bool packed : {false, true}) for (bool lazy : {false, true}) {
+                reslimit limit;
+                engine arithmetic(rational(7), limit, 1000000);
+                struct replay : polynomial_observer {
+                    engine &e;
+                    std::vector<polynomial> nodes;
+                    replay(engine &e) : e(e) {}
+                    unsigned multiply(unsigned id, rational const &c, monomial const &m) override {
+                        ENSURE(id < nodes.size());
+                        polynomial factor; e.add_term(factor, m, c);
+                        nodes.push_back(e.mul(nodes[id], factor));
+                        return nodes.size() - 1;
+                    }
+                    unsigned add(unsigned a, unsigned b) override {
+                        ENSURE(a < nodes.size() && b < nodes.size());
+                        nodes.push_back(e.add(nodes[a], nodes[b]));
+                        return nodes.size() - 1;
+                    }
+                } trace(arithmetic);
+                auto x = arithmetic.variable(10), z = arithmetic.variable(20);
+                auto dense = arithmetic.add(arithmetic.add(x, arithmetic.variable(5)), arithmetic.variable(4));
+                auto sparse = arithmetic.add(x, arithmetic.variable(0));
+                auto input = arithmetic.mul(x, z);
+                trace.nodes = {dense, sparse, input};
+                dense.derivation = 0; sparse.derivation = 1; input.derivation = 2;
+                engine e(rational(7), limit, 1000000);
+                e.compact_matrix = packed; e.lazy_matrix = lazy; e.sparse_matrix_reducers = true;
+                e.m_proof = &trace;
+                auto rows = e.batch_reduce({input}, {dense, sparse});
+                e.m_proof = nullptr;
+                ENSURE(rows.size() == 1 && rows[0].derivation < trace.nodes.size());
+                ENSURE(rows[0] == trace.nodes[rows[0].derivation]);
+                ENSURE(e.m_sparse_matrix_reducers > 0);
+                if (lazy) ENSURE(e.m_lazy_matrix_reducers > 0);
+            }
+        }
         static void adaptive_basis_storage() {
             for (rational const &prime : {rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
                 reslimit limit;
@@ -513,28 +673,30 @@ static void test_ff_scalar_recovery() {
 
 static void test_certificates() {
     for (rational const &prime : {rational(2), rational(7), rational("21888242871839275222246405745257275088548364400416034343698204186575808495617")}) {
-        reslimit limit;
-        ff::engine e(prime, limit, 1000000);
-        auto x = e.variable(0), y = e.variable(1), one = e.constant(rational(1));
-        std::vector<ff::polynomial> equations{e.add(e.mul(x, y), one, rational(-1)),
-            e.add(e.mul(x, e.add(y, one)), one, rational(-1))};
-        auto original = equations;
-        ff::certificate proof;
-        ENSURE(ff::certify(e, equations, proof));
-        ENSURE(equations == original && !proof.nodes.empty());
-        auto size = proof.nodes.size();
-        unsigned root = proof.root;
-        // Failure must leave the caller's previous successful object intact.
-        bool exhausted = false;
-        try { ff::certify(e, equations, proof, 0); } catch (ff::exhausted const &) { exhausted = true; }
-        ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
-        ENSURE(!ff::certify(e, {x}, proof));
-        ENSURE(proof.nodes.size() == size && proof.root == root);
-        limit.inc_cancel(); exhausted = false;
-        try { ff::certify(e, equations, proof); } catch (ff::exhausted const &) { exhausted = true; }
-        limit.dec_cancel();
-        ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
-        ENSURE(ff::certify(e, equations, proof));
+        for (auto backend : {ff::certificate_backend::automatic, ff::certificate_backend::native}) {
+            reslimit limit;
+            ff::engine e(prime, limit, 1000000);
+            auto x = e.variable(0), y = e.variable(1), one = e.constant(rational(1));
+            std::vector<ff::polynomial> equations{e.add(e.mul(x, y), one, rational(-1)),
+                e.add(e.mul(x, e.add(y, one)), one, rational(-1))};
+            auto original = equations;
+            ff::certificate proof;
+            ENSURE(ff::certify(e, equations, proof, 100000, backend));
+            ENSURE(equations == original && !proof.nodes.empty());
+            auto size = proof.nodes.size();
+            unsigned root = proof.root;
+            // Failure must leave the caller's previous successful object intact.
+            bool exhausted = false;
+            try { ff::certify(e, equations, proof, 0, backend); } catch (ff::exhausted const &) { exhausted = true; }
+            ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
+            ENSURE(!ff::certify(e, {x}, proof, 100000, backend));
+            ENSURE(proof.nodes.size() == size && proof.root == root);
+            limit.inc_cancel(); exhausted = false;
+            try { ff::certify(e, equations, proof, 100000, backend); } catch (ff::exhausted const &) { exhausted = true; }
+            limit.dec_cancel();
+            ENSURE(exhausted && proof.nodes.size() == size && proof.root == root);
+            ENSURE(ff::certify(e, equations, proof, 100000, backend));
+        }
     }
     // More independent rows than the retained basis cap, followed by a
     // contradiction: fallback can change order without changing input IDs.
@@ -594,6 +756,71 @@ static void check_field_arithmetic(rational const &p, unsigned rounds) {
     }
 }
 
+static void test_ff_f4_certificates() {
+    for (rational const &prime : {rational(7), rational::power_of_two(61) - rational(1),
+                                 rational::power_of_two(256) - rational(189)}) {
+        reslimit limit;
+        ff::engine e(prime, limit, 10000000);
+        // Nonconsecutive original IDs exercise dense-to-original proof mapping.
+        auto x = e.variable(9), y = e.variable(2), z = e.variable(6);
+        auto one = e.constant(rational(1));
+        std::vector<ff::polynomial> eqs{e.add(e.mul(x, y), one, rational(-1)),
+                                      e.mul(x, z), e.add(e.mul(y, z), one, rational(-1))};
+        ff::certificate proof;
+        ff::f4_config cfg;
+        ff::f4_stats stats;
+        std::vector<rational> values(10, rational(42));
+        std::set<unsigned> core;
+        auto charge = [](unsigned) {};
+        ENSURE(ff::f4_solve(prime, eqs, {}, 10, values, core, cfg, stats, charge, nullptr, &proof) == l_false);
+        ENSURE(stats.m_matrices > 0);
+        std::vector<ff::polynomial> nodes;
+        for (auto const &n : proof.nodes) {
+            auto id = nodes.size();
+            if (n.kind == ff::certificate::rule::input) {
+                ENSURE(n.left < eqs.size());
+                nodes.push_back(eqs[n.left]);
+            }
+            else if (n.kind == ff::certificate::rule::add) {
+                ENSURE(n.left < id && n.right < id);
+                nodes.push_back(e.add(nodes[n.left], nodes[n.right]));
+            }
+            else {
+                ENSURE(n.left < id);
+                ff::polynomial factor;
+                e.add_term(factor, n.factor, n.coefficient);
+                nodes.push_back(e.mul(nodes[n.left], factor));
+            }
+        }
+        ENSURE(proof.root < nodes.size() && nodes[proof.root] == one);
+        auto size = proof.nodes.size();
+        auto root = proof.root;
+        cfg.max_certificate_nodes = 0;
+        bool stopped = false;
+        try { ff::f4_solve(prime, eqs, {}, 10, values, core, cfg, stats, charge, nullptr, &proof); }
+        catch (ff::exhausted const &) { stopped = true; }
+        ENSURE(stopped && proof.nodes.size() == size && proof.root == root);
+        cfg.max_certificate_nodes = 100000;
+        ENSURE(ff::f4_solve(prime, {x}, {}, 10, values, core, cfg, stats, charge, nullptr, &proof) == l_undef);
+        ENSURE(proof.nodes.size() == size && proof.root == root && values[0] == rational(42));
+        // A field-only contradiction is not an ideal contradiction. Even with
+        // model/closure options enabled, proof mode must refuse rather than
+        // expose a model branch as an unconditional PAC input.
+        auto no_root = e.add(e.mul(x, x), one);
+        if (prime == rational(7)) {
+            ENSURE(ff::f4_solve(prime, {no_root}, {}, 10, values, core, cfg, stats, charge, nullptr, &proof) == l_undef);
+            ENSURE(proof.nodes.size() == size && proof.root == root);
+        }
+        stopped = false;
+        try { ff::f4_solve(prime, eqs, {}, 10, values, core, cfg, stats,
+                          [](unsigned) { throw ff::exhausted(); }, nullptr, &proof); }
+        catch (ff::exhausted const &) { stopped = true; }
+        ENSURE(stopped && proof.nodes.size() == size && proof.root == root);
+        ENSURE(ff::f4_solve(prime, eqs, {}, 10, values, core, cfg, stats, charge, nullptr, &proof) == l_false);
+    }
+    std::cout << "F4 certificates: matrix replay, original IDs, atomic failure, cancellation and root refusal\n";
+}
+
 static void test_ff_f4_guards() {
     reslimit limit;
     ff::engine e(rational(7), limit);
@@ -643,6 +870,7 @@ static void test_ff_f4_guards() {
 }
 
 static void test_ff_f4() {
+    test_ff_f4_certificates();
     test_ff_f4_guards();
     // Fixed-width arithmetic, including a modulus whose top limb exceeds
     // 2^63 (general CIOS path) and BN254 / BLS12-381 (no-carry path).
@@ -1114,6 +1342,10 @@ void tst_finite_field() {
     test_ff_tiny();
     test_ff_f4();
     test_certificates();
+    ff::test_engine::native_uniqueness_certificates();
+    ff::test_engine::native_certificate_paths();
+    ff::test_engine::native_matrix_certificates();
+    ff::test_engine::native_f4_composition();
     ff::test_engine::adaptive_basis_storage();
     ff::test_engine::sparse_matrix_selection();
     ff::test_engine::work_accounting();

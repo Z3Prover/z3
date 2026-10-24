@@ -12,14 +12,128 @@ Abstract:
 
 --*/
 #include "ast/ff/ff_solver.h"
+#include "ast/ff/ff_evidence.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "util/debug.h"
 #include "util/z3_exception.h"
 #include "tactic/ff/ff_solve_tactic.h"
 #include "tactic/tactic.h"
+#include "solver/solver.h"
+#include "solver/simplifier_solver.h"
+#include "ast/simplifiers/ff_simplify.h"
 
 namespace {
+    void recording_contract() {
+        ast_manager m(PGM_ENABLED);
+        reg_decl_plugins(m);
+        ff_util ff(m);
+        sort_ref field(ff.mk_sort(rational(7)), m);
+        expr_ref x(m.mk_const("proof.x", field), m);
+        expr_ref zero(ff.mk_numeral(rational(0), field), m);
+        expr_ref one(ff.mk_numeral(rational(1), field), m);
+        params_ref params;
+        ff::solver unsat(m, field, params);
+        unsat.add(x, zero, true);
+        unsat.add(x, one, true);
+        ENSURE(unsat.check(true) == l_false);
+        ENSURE(unsat.evidence());
+        ENSURE(ff::check_refutation(m, unsat.evidence()));
+        ENSURE(unsat.conflict().size() == 2);
+        // A recorded conflict must contain exactly the assumptions used by
+        // its PAC DAG. Irrelevant premises otherwise make theory clauses much
+        // wider and can prevent SAT search from reusing the contradiction.
+        expr_ref y(m.mk_const("proof.y", field), m);
+        ff::solver sparse(m, field, params);
+        sparse.add(x, zero, true);
+        sparse.add(x, one, true);
+        sparse.add(y, zero, true);
+        ENSURE(sparse.check(true) == l_false);
+        ENSURE(ff::check_refutation(m, sparse.evidence()));
+        ENSURE(sparse.conflict() == std::set<unsigned>({0, 1}));
+        ENSURE(ff::refutation_clause(m, sparse.evidence()).size() == 2);
+        app *evidence = sparse.evidence();
+        expr *forged_args[] = {evidence->get_arg(0), evidence->get_arg(1),
+                               m.mk_app(symbol("ff-support"), 0, nullptr, m.mk_proof_sort())};
+        app_ref forged(m.mk_app(symbol("ff-pac"), 3, forged_args, m.mk_proof_sort()), m);
+        ENSURE(!ff::check_refutation(m, forged));
+        arith_util arith(m);
+        expr *all_indices[] = {arith.mk_int(0), arith.mk_int(1), arith.mk_int(2)};
+        forged_args[2] = m.mk_app(symbol("ff-support"), 3, all_indices, m.mk_proof_sort());
+        forged = m.mk_app(symbol("ff-pac"), 3, forged_args, m.mk_proof_sort());
+        ENSURE(!ff::check_refutation(m, forged));
+        ff::solver sat(m, field, params);
+        sat.add(x, one, true);
+        ENSURE(sat.check(true) == l_true);
+        ENSURE(sat.value(x) == rational(1));
+        ENSURE(!sat.evidence());
+
+        // A proof returned by ordinary SMT solving must retain its field
+        // evidence after the solver and its assignment trail are destroyed.
+        proof_ref retained(m);
+        {
+            scoped_ptr<solver> ordinary = mk_smt2_solver(m, params, symbol("QF_FF"));
+            expr_ref three(ff.mk_numeral(rational(3), field), m);
+            ordinary->assert_expr(m.mk_eq(ff.mk_mul(x, x), three));
+            ENSURE(ordinary->check_sat() == l_false);
+            retained = ordinary->get_proof();
+        }
+        ENSURE(retained && m.is_false(m.get_fact(retained)));
+        proof_checker checker(m);
+        expr_ref_vector side_conditions(m);
+        ENSURE(checker.check(retained, side_conditions));
+        th_rewriter rw(m);
+        for (expr *condition : side_conditions) {
+            expr_ref simplified(m);
+            rw(condition, simplified);
+            ENSURE(m.is_true(simplified) || ff::check_polynomial_rewrite(m, condition));
+        }
+        bool found_field_lemma = false;
+        ptr_vector<expr> pending;
+        expr_mark seen;
+        pending.push_back(retained);
+        while (!pending.empty()) {
+            expr *current = pending.back(); pending.pop_back();
+            if (seen.is_marked(current)) continue;
+            seen.mark(current, true);
+            if (!is_app(current)) continue;
+            auto *step = to_app(current);
+            if (step->get_family_id() == m.get_basic_family_id() && step->get_decl_kind() == PR_TH_LEMMA &&
+                step->get_decl()->get_parameter(0).get_symbol() == symbol("ff")) {
+                ENSURE(ff::check_refutation_lemma(m, step));
+                found_field_lemma = true;
+            }
+            for (expr *child : *step) pending.push_back(child);
+        }
+        ENSURE(found_field_lemma);
+
+        for (bool incremental_simplifier : {false, true}) {
+            scoped_ptr<solver> ordinary = mk_smt2_solver(m, params, symbol("QF_FF"));
+            if (incremental_simplifier) {
+                simplifier_factory factory = [](ast_manager &manager, params_ref const &p,
+                                                dependent_expr_state &state) {
+                    return alloc(ff_basic_simplifier, manager, p, state);
+                };
+                ordinary = mk_simplifier_solver(ordinary.detach(), &factory);
+            }
+            ordinary->assert_expr(m.mk_eq(x, one));
+            ordinary->push();
+            expr_ref three(ff.mk_numeral(rational(3), field), m);
+            ordinary->assert_expr(m.mk_eq(x, three));
+            ENSURE(ordinary->check_sat() == l_false);
+            expr_ref_vector obligations(m);
+            ENSURE(checker.check(ordinary->get_proof(), obligations));
+            ordinary->pop(1);
+            ENSURE(ordinary->check_sat() == l_true);
+            expr *assumptions[] = {m.mk_eq(x, three)};
+            ENSURE(ordinary->check_sat(1, assumptions) == l_false);
+            obligations.reset();
+            ENSURE(checker.check(ordinary->get_proof(), obligations));
+            ENSURE(ordinary->check_sat() == l_true);
+        }
+    }
+
     bool holds(ast_manager &m, expr *formula, expr *x, expr *y, unsigned a, unsigned b) {
         ff_util ff(m);
         expr_safe_replace subst(m);
@@ -313,6 +427,7 @@ namespace {
 }
 
 void tst_ff_solver() {
+    recording_contract();
     exhaustive_problems();
     interface_and_scope_contract();
     preprocessing_contract();

@@ -454,6 +454,9 @@ let lemma_addition_rewrite (i:interpretation value) (rho:env value)
       lemma_word_shape sums;
       lemma_parts i rho project result width sums;
       lemma_number_bounds (BV.bit_values i rho sums);
+      assert (project width (eval i a rho) + project width (eval i b rho) ==
+        BV.bits_number (BV.bit_values i rho sums) +
+        pow2 width * bit_number (B.bool_value (eval i overflow rho)));
       M.lemma_mod_plus (BV.bits_number (BV.bit_values i rho sums))
         (bit_number (B.bool_value (eval i overflow rho))) (pow2 width);
       M.small_mod (BV.bits_number (BV.bit_values i rho sums)) (pow2 width);
@@ -522,6 +525,124 @@ let lemma_concat_value (i:interpretation value) (rho:env value)
   = lemma_concat_shape m n x y;
     BV.lemma_concat_parts i rho project (concat m n x y)
       { BV.left_width = m; BV.right_width = n; BV.left = x; BV.right = y }
+
+let concat_association_rewrite (e:expr) : option expr =
+  match BV.concat3_parts e with
+  | Some (c:BV.concatenation3) ->
+    Some (concat c.width1 (c.width2 + c.width3) c.first
+      (concat c.width2 c.width3 c.second c.third))
+  | None ->
+    (match BV.concat_parts e with
+     | Some (c:BV.concatenation) ->
+       (match BV.concat_parts c.left with
+        | Some (left:BV.concatenation) ->
+          if c.left_width <> left.left_width + left.right_width then None
+          else Some (concat left.left_width (left.right_width + c.right_width) left.left
+            (concat left.right_width c.right_width left.right c.right))
+        | None -> None)
+     | None -> None)
+
+#push-options "--fuel 0 --ifuel 0 --using_facts_from 'Prims FStar.Math.Lemmas'"
+let lemma_concat_association_numbers (m n:nat) (x y z:int)
+  : Lemma ((x * pow2 m + y) * pow2 n + z ==
+           x * pow2 (m + n) + (y * pow2 n + z)) =
+  M.pow2_plus m n
+#pop-options
+
+let lemma_concat_association_rewrite (i:interpretation value) (rho:env value)
+                                    (project:pos -> value -> int) (e result:expr)
+  : Lemma (requires BV.bv_model i project /\ D.scoped [] e /\
+                    concat_association_rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho) =
+  match BV.concat3_parts e with
+  | Some (c:BV.concatenation3) ->
+    BV.lemma_concat3_parts i rho project e c;
+    lemma_concat_value i rho project c.width2 c.width3 c.second c.third;
+    lemma_concat_value i rho project c.width1 (c.width2 + c.width3) c.first
+      (concat c.width2 c.width3 c.second c.third);
+    BV.lemma_reflect i rho project (c.width1 + c.width2 + c.width3) e result
+  | None ->
+    let c:BV.concatenation = Some?.v (BV.concat_parts e) in
+    let left:BV.concatenation = Some?.v (BV.concat_parts c.left) in
+    BV.lemma_concat_parts i rho project e c;
+    BV.lemma_concat_parts i rho project c.left left;
+    lemma_concat_value i rho project left.right_width c.right_width left.right c.right;
+    lemma_concat_value i rho project left.left_width (left.right_width + c.right_width) left.left
+      (concat left.right_width c.right_width left.right c.right);
+    lemma_concat_association_numbers left.right_width c.right_width
+      (project left.left_width (eval i left.left rho))
+      (project left.right_width (eval i left.right rho))
+      (project c.right_width (eval i c.right rho));
+    BV.lemma_reflect i rho project (c.left_width + c.right_width) e result
+
+let concat_numeral_equality (a b:expr) : option expr =
+  match BV.concat_parts a, BV.numeral b with
+  | Some (c:BV.concatenation), Some (width, n) ->
+    if width <> c.left_width + c.right_width then None
+    else let eqs =
+      [mk_eq_expr c.right (BV.literal c.right_width (n % pow2 c.right_width));
+       mk_eq_expr c.left (BV.literal c.left_width (n / pow2 c.right_width))] in
+      Some (App (B.connective_decl B.Conjunction eqs) eqs)
+  | _, _ -> None
+
+let concat_equality_rewrite (e:expr) : option expr =
+  match e with
+  | App f [a; b] ->
+    if f <> eq_decl (get_sort a) || get_sort a <> get_sort b then None
+    else (match concat_numeral_equality a b with
+      | Some result -> Some result
+      | None -> concat_numeral_equality b a)
+  | _ -> None
+
+#push-options "--fuel 4 --ifuel 2"
+let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
+                                 (project:pos -> value -> int) (a b result:expr)
+  : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
+                    D.scoped [] a /\ D.scoped [] b /\
+                    concat_numeral_equality a b == Some result)
+          (ensures (eval i a rho == eval i b rho) <==> lit_true i rho result)
+  = let c:BV.concatenation = Some?.v (BV.concat_parts a) in
+    let width, n = Some?.v (BV.numeral b) in
+    BV.lemma_concat_parts i rho project a c;
+    BV.lemma_word i rho project c.left_width c.left;
+    BV.lemma_word i rho project c.right_width c.right;
+    BV.lemma_word i rho project width b;
+    assert (project width (eval i b rho) == n);
+    let x = project c.left_width (eval i c.left rho) in
+    let y = project c.right_width (eval i c.right rho) in
+    let p = pow2 c.right_width in
+    M.pow2_plus c.left_width c.right_width;
+    M.lemma_div_mod n p;
+    assert (n / p >= 0 /\ n / p < pow2 c.left_width);
+    BV.lemma_literal_shape c.left_width (n / p);
+    BV.lemma_literal_shape c.right_width (n % p);
+    BV.lemma_literal i rho project c.left_width (n / p);
+    BV.lemma_literal i rho project c.right_width (n % p);
+    M.lemma_div_plus y x p;
+    M.small_div y p;
+    M.lemma_mod_plus y x p;
+    M.small_mod y p;
+    assert ((x * p + y == n) <==> (x == n / p /\ y == n % p));
+    assert ((eval i a rho == eval i b rho) <==>
+      project width (eval i a rho) == project width (eval i b rho));
+    assert ((eval i c.left rho == eval i (BV.literal c.left_width (n / p)) rho) <==>
+      x == n / p);
+    assert ((eval i c.right rho == eval i (BV.literal c.right_width (n % p)) rho) <==>
+      y == n % p)
+
+let lemma_concat_equality_rewrite (i:interpretation value) (rho:env value)
+                                 (project:pos -> value -> int) (e result:expr)
+  : Lemma (requires BV.bv_model i project /\ B.boolean_rewrite_model i /\
+                    D.scoped [] e /\ concat_equality_rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho)
+  = match e with
+    | App f [a; b] ->
+      if Some? (concat_numeral_equality a b) then
+        lemma_concat_numeral_equality i rho project a b result
+      else lemma_concat_numeral_equality i rho project b a result;
+      (match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ())
+    | _ -> ()
+#pop-options
 
 let concat3_rewrite (e:expr) : option expr =
   match BV.concat3_parts e with
@@ -632,6 +753,8 @@ let rewrite (e:expr) : option expr =
   if not (D.scoped [] e) then None
   else let r = equality_rewrite e in
   if Some? r then r else
+  let r = concat_equality_rewrite e in
+  if Some? r then r else
   let r = extract_rewrite e in
   if Some? r then r else
   let r = concat_rewrite e in
@@ -639,6 +762,8 @@ let rewrite (e:expr) : option expr =
   let r = addition_rewrite e in
   if Some? r then r else
   let r = concat3_rewrite e in
+  if Some? r then r else
+  let r = concat_association_rewrite e in
   if Some? r then r else not_concat_rewrite e
 
 let lemma_rewrite (i:interpretation value) (rho:env value)
@@ -647,10 +772,12 @@ let lemma_rewrite (i:interpretation value) (rho:env value)
                     rewrite e == Some result)
           (ensures eval i e rho == eval i result rho)
   = if Some? (equality_rewrite e) then lemma_equality_rewrite i rho project e result
+    else if Some? (concat_equality_rewrite e) then lemma_concat_equality_rewrite i rho project e result
     else if Some? (extract_rewrite e) then lemma_extract_rewrite i rho project e result
     else if Some? (concat_rewrite e) then lemma_concat_rewrite i rho project e result
     else if Some? (addition_rewrite e) then lemma_addition_rewrite i rho project e result
     else if Some? (concat3_rewrite e) then lemma_concat3_rewrite i rho project e result
+    else if Some? (concat_association_rewrite e) then lemma_concat_association_rewrite i rho project e result
     else lemma_not_concat_rewrite i rho project e result
 
 let equivalent (a b:expr) : bool =

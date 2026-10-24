@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import warnings
 
 import z3
 
@@ -1018,6 +1019,73 @@ _UF_ITE_ALLDIFF_LOG = """\
 (infer rup)
 """
 
+# A one-argument xor, which Z3 accepts and reads as its argument. Z3's
+# simplifier removes it before logging (the live log assumes (or q p)), so
+# this constructed log keeps the literal to exercise the replay's building of
+# the application and its two gate clauses, (or (xor p) (not p)) and (or (not
+# (xor p)) p), on which the final rup step depends. Public for the Lean
+# integration tests.
+UNARY_XOR_GATES = "(declare-const p Bool)(declare-const q Bool)(assert (or q (xor p)))(assert (not p))(assert (not q))"
+UNARY_XOR_GATES_LOG = """\
+(declare-fun q () Bool)
+(declare-fun p () Bool)
+(define-const $5 Bool (xor p))
+(assume q $5)
+(assume (not p))
+(assume (not q))
+(declare-fun rup () Proof)
+(infer $5 rup)
+(infer rup)
+"""
+
+# A distinct below the root: Z3 relates it to the disjunction of its pairwise
+# equalities by two alldiff gate clauses, (or d some_eq) and (or (not d) (not
+# some_eq)), next to the tseitin clauses of the disjunction. d is unused.
+_UF_DISTINCT_GATES = (
+    "(declare-sort U 0)(declare-const a U)(declare-const b U)(declare-const c U)(declare-const d U)"
+    "(declare-const p Bool)(assert (or p (distinct a b c)))(assert (or (not p) (distinct a b c)))"
+    "(assert (= a c))")
+_UF_DISTINCT_GATES_LOG = """\
+(declare-sort U 0)
+(declare-fun b () U)
+(declare-fun a () U)
+(define-const $15 Bool (= a b))
+(declare-fun c () U)
+(define-const $16 Bool (= b c))
+(define-const $13 Bool (= a c))
+(define-const $14 Bool (or $15 $13 $16))
+(declare-fun tseitin (Bool Bool) Proof)
+(define-const $17 Bool (not $15))
+(define-const $18 Proof (tseitin $17 $14))
+(infer (not $15) $14 $18)
+(define-const $19 Bool (not $13))
+(define-const $20 Proof (tseitin $19 $14))
+(infer (not $13) $14 $20)
+(define-const $21 Bool (not $16))
+(define-const $22 Proof (tseitin $21 $14))
+(infer (not $16) $14 $22)
+(declare-fun tseitin (Bool Bool Bool Bool) Proof)
+(define-const $23 Bool (not $14))
+(define-const $24 Proof (tseitin $15 $13 $16 $23))
+(infer $15 $13 $16 (not $14) $24)
+(define-const $9 Bool (distinct a b c))
+(declare-fun alldiff (Bool Bool) Proof)
+(define-const $25 Bool (not $9))
+(define-const $26 Proof (alldiff $25 $23))
+(infer (not $9) (not $14) $26)
+(define-const $27 Proof (alldiff $9 $14))
+(infer $9 $14 $27)
+(declare-fun p () Bool)
+(assume p $9)
+(assume (not p) $9)
+(assume $13)
+(declare-fun rup () Proof)
+(infer $14 rup)
+(infer (not $9) rup)
+(infer p rup)
+(infer rup)
+"""
+
 _UF_BOOL_ARGS = """\
 (set-logic QF_UF)
 (declare-sort U 0)
@@ -1140,6 +1208,25 @@ _LIA = """\
 (assert (>= (+ (* 2 x) (* 2 y)) 1))
 (assert (>= (- (* 4 x) (* 2 y)) 1))
 (assert (<= (- (* 4 x) (* 2 y)) 3))
+(check-sat)
+"""
+
+# A lattice conflict: eliminating x from the last two equalities leaves
+# 2 (z - w + 3 y) = -17, no integer point on a rationally feasible region.
+# theory_lra's own Farkas check fails on it, so the legacy core labels the
+# conflict (_ th-lemma arith unsupported) instead of farkas with coefficients.
+# The same text is LIA_INPUTS["lia_lattice_conflict"] in
+# test_proof_to_lean_lia.py (which imports from this module, so the input is
+# repeated here rather than imported); keep the two in step.
+_LIA_LATTICE = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(declare-const w Int)
+(assert (= (+ y z) 3))
+(assert (= (+ (* 3 x) (* 2 z)) (- (* 2 w) 5)))
+(assert (= (* 2 y) (- x 4)))
 (check-sat)
 """
 
@@ -1733,6 +1820,61 @@ class TestFragmentClassification(unittest.TestCase):
             proof_certificate._th_lemma_parameters(_FakeDecl(["arith"]), 0)
         with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
             proof_certificate._th_lemma_parameters(_FakeDecl(["arith", "gomory-cut", 1]), 1, integer=True)
+
+    def test_legacy_unsupported_conflicts_are_left_to_lean_over_int(self):
+        # theory_lra labels an LP conflict (_ th-lemma arith unsupported) when
+        # its own Farkas check fails or the explanation does not linearize,
+        # which is what a lattice conflict looks like from inside the solver.
+        # Over Int it becomes the coefficient-free farkas step Lean proves
+        # alone; it must list premises and conclude false. Over Real a
+        # conflict Z3 could not check stays rejected, as does the nla variant.
+        parameters = proof_certificate._th_lemma_parameters
+        unsupported = _FakeDecl(["arith", "unsupported"])
+        false = z3.BoolVal(False)
+        self.assertEqual(parameters(unsupported, 4, false, integer=True), ["farkas"])
+        self.assertEqual(parameters(unsupported, 1, false, integer=True), ["farkas"])
+        for premises, conclusion, integer, message in [
+            (4, false, False, "without a replayable theory hint: arith unsupported"),
+            (0, false, True, "must refute at least one premise"),
+            (4, None, True, "must refute at least one premise"),
+            (4, z3.Int("x") <= 2, True, "must refute at least one premise"),
+            (4, z3.Or(z3.Int("x") <= 2, z3.Int("x") >= 3), True, "must refute at least one premise"),
+        ]:
+            with self.subTest(premises=premises, conclusion=conclusion, integer=integer):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, message):
+                    parameters(unsupported, premises, conclusion, integer=integer)
+        for raw in (["arith", "unsupported", "nla"], ["arith", "unsupported", "1"], ["unsupported"],
+                    ["unsupported", "arith"]):
+            with self.subTest(parameters=raw):
+                with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+                    parameters(_FakeDecl(raw), 4, false, integer=True)
+        # Live: the legacy core's proof of the lattice conflict carries the
+        # label, its step lists the held equalities' bounds and concludes
+        # false, and the certificate keeps it as a farkas step without
+        # coefficients whose premises the reconstructor shape-checks.
+        context = z3.Context(proof=True)
+        solver = z3.Solver(ctx=context)
+        solver.set("combined_solver.ignore_solver1", True)
+        solver.add(z3.parse_smt2_string(proof_certificate._assertion_commands(_LIA_LATTICE), ctx=context))
+        self.assertEqual(solver.check(), z3.unsat)
+        steps = [node for node in _proof_nodes(solver.proof())
+                 if node.decl().name() == "th-lemma" and [str(p) for p in node.decl().params()] == ["arith", "unsupported"]]
+        self.assertTrue(steps, "theory_lra no longer labels the lattice conflict unsupported: if it now "
+                        "emits farkas or lp-integer-lattice, drop the label assertions here and in "
+                        "test_proof_to_lean_lia.py and keep the certificate checks; the mapping itself "
+                        "stays covered by the _FakeDecl cases above")
+        for step in steps:
+            self.assertTrue(z3.is_false(step.arg(step.num_args() - 1)))
+            self.assertGreater(step.num_args(), 1)
+        certificate = proof_certificate.export_certificate(_LIA_LATTICE)
+        self.assertEqual(certificate["fragment"], "qf_lia")
+        declarations = certificate["declarations"]
+        stripped = [d for d in declarations if d["name"] == "th-lemma" and d["parameters"] == ["farkas"]]
+        self.assertTrue(stripped, [d["parameters"] for d in declarations if d["name"] == "th-lemma"])
+        self.assertTrue(all(d["domain"][:-1] and set(d["domain"][:-1]) == {"Proof"} for d in stripped))
+        # Real input never reaches the integer mapping: the same label is rejected.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "without a replayable theory hint"):
+            parameters(unsupported, 4, false)
 
 
 class TestLinearCombination(unittest.TestCase):
@@ -2389,6 +2531,74 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertTrue(all(len(hint.split()) == 2 for hint in hints), hints)
         certificate = self.replay(below_root, log)
         self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        # The two gate clauses are def-axiom nodes, not cnf lemmas over the assertions.
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertGreaterEqual(certificate["rule_counts"]["def-axiom"], 2)
+
+    def test_one_argument_xor_is_built_with_its_gate_clauses(self):
+        context = z3.Context()
+        p = z3.Bool("p", ctx=context)
+        unary = proof_clause_log._unary_xor(p)
+        self.assertEqual((unary.decl().kind(), unary.num_args()), (z3.Z3_OP_XOR, 1))
+        self.assertTrue(z3.eq(z3.simplify(unary), p))  # Z3 reads (xor p) as p
+        certificate = self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        self.assertEqual(certificate["rule_counts"]["def-axiom"], 2)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])  # the assumed clauses are the assertions
+        declarations, nodes = certificate["declarations"], certificate["nodes"]
+        xor = [index for index, node in enumerate(nodes)
+               if declarations[node["declaration"]]["kind"] == z3.Z3_OP_XOR]
+        self.assertEqual([len(nodes[node]["arguments"]) for node in xor], [1])
+        gates = [nodes[nodes[index]["arguments"][0]] for index, node in enumerate(nodes)
+                 if declarations[node["declaration"]]["name"] == "def-axiom"]
+        self.assertTrue(all(declarations[gate["declaration"]]["name"] == "or" and len(gate["arguments"]) == 2
+                            for gate in gates))
+        # Without the gates the final step is not derivable; a zero-argument
+        # xor is rejected.
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "not derivable"):
+            with patch.object(proof_clause_log._Replay, "ensure_gates", lambda self, literal: None):
+                self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG)
+        with self.assertRaisesRegex(proof_certificate.ProofExportError, "unsupported operator"):
+            self.replay(UNARY_XOR_GATES, UNARY_XOR_GATES_LOG.replace("(xor p)", "(xor)"))
+
+    def test_distinct_gate_clauses_become_def_axioms(self):
+        def distinct_gates(certificate):
+            declarations, nodes = certificate["declarations"], certificate["nodes"]
+
+            def name(node):
+                return declarations[nodes[node]["declaration"]]["name"]
+
+            def mentions_distinct(literal):
+                literal = nodes[literal]["arguments"][0] if name(literal) == "not" else literal
+                return name(literal) == "distinct"
+
+            return [index for index, node in enumerate(nodes) if name(index) == "def-axiom"
+                    and any(mentions_distinct(literal) for literal in nodes[node["arguments"][0]]["arguments"])]
+
+        certificate = self.replay(_UF_DISTINCT_GATES, _UF_DISTINCT_GATES_LOG)
+        self.assertEqual(len(distinct_gates(certificate)), 2)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertEqual(certificate["rule_counts"]["asserted"], 3)
+        # Either orientation of a disjunct equates the pair.
+        flipped = _UF_DISTINCT_GATES_LOG.replace("(define-const $16 Bool (= b c))", "(define-const $16 Bool (= c b))")
+        self.assertEqual(self.replay(_UF_DISTINCT_GATES, flipped)["rule_counts"], certificate["rule_counts"])
+        # Any other alldiff clause is never a def-axiom: it is tied to the
+        # assertions like a root distinct (here by a cnf lemma over an unsat
+        # core, since the input is unsatisfiable). A positive clause missing
+        # the pair (a, c), a disjunct that is no pair, a three-literal clause.
+        for tampered in [
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $14 Bool (or $15 $13 $16))", "(define-const $14 Bool (or $15 $16))"),
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $14 Bool (or $15 $13 $16))",
+                                           "(define-const $30 Bool (= a a))\n(define-const $14 Bool (or $15 $13 $16 $30))"),
+            _UF_DISTINCT_GATES_LOG.replace("(define-const $27 Proof (alldiff $9 $14))\n(infer $9 $14 $27)",
+                                           "(declare-fun alldiff (Bool Bool Bool) Proof)\n"
+                                           "(define-const $27 Proof (alldiff $9 $15 $13))\n(infer $9 $15 $13 $27)"),
+        ]:
+            with self.subTest(tampered=tampered):
+                replayed = self.replay(_UF_DISTINCT_GATES, tampered)
+                self.assertLess(len(distinct_gates(replayed)), 2)
+                hints = {tuple(d["parameters"]) for d in replayed["declarations"] if d["name"] == "th-lemma"}
+                self.assertEqual(hints, {("cnf",)})
 
     def test_bad_hints_and_logs_are_rejected(self):
         cases = [
@@ -2635,16 +2845,30 @@ class TestClauseLogDependencies(unittest.TestCase):
         with patch.object(proof_clause_log.subprocess, "run", side_effect=AssertionError("native trimming")):
             self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
 
-    def test_trimming_errors_and_diagnostics_are_visible(self):
+    def test_trimming_failures_fall_back_to_the_untrimmed_log_with_a_warning(self):
+        # Trimming only shortens the replay; a trimmer error (an inference it
+        # cannot derive) or an unusable dependency graph leaves the untrimmed
+        # log, which the replay checks step by step, and says so.
         with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
             failed = subprocess.CompletedProcess([], 1, "", "trimmer failed")
             with patch.object(proof_clause_log.subprocess, "run", return_value=failed):
-                with self.assertRaisesRegex(proof_certificate.ProofExportError, "trimmer failed"):
-                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+                with self.assertWarnsRegex(RuntimeWarning, "trimming failed.*trimmer failed"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
+            rejected = subprocess.CompletedProcess(
+                [], 0, '(error "line 3 column 10: proof trimming: the inferred clause 5 is not derivable by '
+                       'unit propagation from the preceding clauses")\n', "")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=rejected):
+                with self.assertWarnsRegex(RuntimeWarning, "not derivable by unit propagation"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
+            cyclic = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG.replace("(deps 4 0 1)", "(deps 4 3)"), "")
+            with patch.object(proof_clause_log.subprocess, "run", return_value=cyclic):
+                with self.assertWarnsRegex(RuntimeWarning, "unusable log.*cyclic"):
+                    self.assertEqual(proof_clause_log.trim_clause_log("unused", _LRA_LOG), _LRA_LOG)
             warned = subprocess.CompletedProcess([], 0, _DEPENDENCY_LOG, "diagnostic")
             with patch.object(proof_clause_log.subprocess, "run", return_value=warned):
                 with self.assertWarnsRegex(RuntimeWarning, "diagnostic"):
-                    proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+                    core = proof_clause_log.trim_clause_log("unused", _LRA_LOG)
+            self.assertIn("(deps 5 3)", core)
 
     @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
     def test_native_trimmed_certificate_replays(self):
@@ -2652,6 +2876,55 @@ class TestClauseLogDependencies(unittest.TestCase):
             certificate = proof_certificate.export_clause_log_certificate(_LRA)
         self.assertEqual(certificate["fragment"], "qf_lra")
         self.assertEqual(len(certificate["assertions"]), 4)
+
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_keeps_facts_implied_by_duplicate_binary_clauses(self):
+        # The clause (or (not a) b) is logged twice, as Z3 does when a theory
+        # lemma is re-derived. The trimmer walks the log backwards; removing
+        # the second copy must not unassign b (the first copy still implies
+        # it) nor, through b, the fact u, whose own clause the log deleted
+        # and which the rup step (or (not d) c) needs. Before 2026-10-22 the
+        # trimmer lost both, the probe of that step found no conflict, and the
+        # dependencies it reported were incomplete (z3test hard16.smt2).
+        source = ("(declare-const a Bool)(declare-const b Bool)(declare-const u Bool)"
+                  "(declare-const c Bool)(declare-const d Bool)(declare-const e Bool)"
+                  "(assert a)(assert (or (not a) b))(assert (or (not b) (not a) u))"
+                  "(assert (or (not u) (not d) c (not e)))(assert (or (not u) (not d) c e))"
+                  "(assert d)(assert (not c))")
+        log = """\
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(declare-fun u () Bool)
+(declare-fun c () Bool)
+(declare-fun d () Bool)
+(declare-fun e () Bool)
+(declare-fun rup () Proof)
+(assume a)
+(assume (not a) b)
+(assume (not b) (not a) u)
+(del (not b) (not a) u)
+(infer u rup)
+(assume (not u) (not d) c (not e))
+(assume (not u) (not d) c e)
+(infer (not d) c rup)
+(assume (not a) b)
+(assume d)
+(assume (not c))
+(infer rup)
+"""
+        with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")  # a fallback to the untrimmed log would hide a trimmer defect
+                trimmed = proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log)
+        self.assertNotEqual(trimmed, log)
+        self.assertEqual(trimmed.count("(assume (not a) b"), 1)
+        self.assertIn("(infer (not d) c rup", trimmed)
+        self.assertIn("(assume (not b) (not a) u", trimmed)
+        context = z3.Context()
+        assertions, fragment = proof_certificate.parse_assertions(source, context)
+        certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+        self.assertNotIn("th-lemma", certificate["rule_counts"])
+        self.assertEqual(len(certificate["assertions"]), 7)
 
 
 if __name__ == "__main__":

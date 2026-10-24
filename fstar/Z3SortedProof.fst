@@ -13,6 +13,7 @@ module L = FStar.List.Tot
 module I = Z3ProofIndex
 module B = Z3BoundedBoolEquiv
 module TN = Z3TheoryNormalize
+module Q = Z3SortedQuantifier
 
 let rec equations (facts:list expr) : Tot (list U.judgment) (decreases facts) =
   match facts with
@@ -316,9 +317,49 @@ let equality_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr
    | App f [a; b] -> f = R.eq_decl (get_sort a) && equal s 8 facts a b
    | _ -> false
 
+let quantifier_equality (conclusion:expr) : bool =
+  match conclusion with
+  | App f [Quantifier k bs t a; Quantifier k' bs' _ b] ->
+    f = R.eq_decl t && k = k' && bs = bs' &&
+    get_sort a = bool_sort && get_sort b = bool_sort &&
+    DT.propositional (B.Eq (T.cut 64 a) (T.cut 64 b))
+  | _ -> false
+
+let lemma_quantifier_equality (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                              (conclusion:expr)
+  : Lemma (requires D.scoped [] conclusion /\ quantifier_equality conclusion)
+          (ensures T.truth s bc eq other conclusion) =
+  match conclusion with
+  | App _ [Quantifier k bs t a; Quantifier k' bs' t' b] ->
+    let sigma = S.signature s in
+    let scope = L.rev bs in
+    let body_scope = L.append scope [] in
+    let rho = T.empty_environment sigma in
+    let left (vs:V.arguments base sigma scope) =
+      T.evaluate_at s bc eq other body_scope (V.extend sigma [] scope vs rho) a in
+    let right (vs:V.arguments base sigma scope) =
+      T.evaluate_at s bc eq other body_scope (V.extend sigma [] scope vs rho) b in
+    let pointwise (vs:V.arguments base sigma scope)
+      : Lemma (left vs == right vs) =
+      let bound = V.extend sigma [] scope vs rho in
+      T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 a;
+      T.lemma_cut_with_boundaries_at s bc eq other body_scope bound [] 64 b;
+      DT.lemma_propositional (T.truth_at s bc eq other body_scope bound)
+        (B.Eq (T.cut 64 a) (T.cut 64 b));
+      T.lemma_boolean s bc (left vs);
+      T.lemma_boolean s bc (right vs)
+    in
+    FStar.Classical.forall_intro pointwise;
+    V.lemma_quantifier_congruence sigma (T.interpretation s bc eq other)
+      [] rho k bs bool_sort a b;
+    T.lemma_equality s bc eq other (Quantifier k bs t a) (Quantifier k' bs' t' b)
+  | _ -> ()
+
 let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   (D.scoped [] conclusion && get_sort conclusion = bool_sort && DT.simple_consequence facts conclusion) ||
   equality_consequence s facts conclusion ||
+  (D.scoped [] conclusion && quantifier_equality conclusion) ||
   negative_exhaustion s facts || reconstruction_conflict s facts facts ||
   DT.consequence s facts conclusion
 
@@ -336,6 +377,8 @@ let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
       T.lemma_same_value s bc eq other a b;
       T.lemma_equality s bc eq other a b
     | _ -> ())
+  else if D.scoped [] conclusion && quantifier_equality conclusion then
+    lemma_quantifier_equality s bc eq other conclusion
   else if negative_exhaustion s facts then lemma_negative_exhaustion s bc eq other facts
   else if reconstruction_conflict s facts facts then lemma_reconstruction_conflict s bc eq other facts facts
   else DT.lemma_consequence s bc eq other facts conclusion
@@ -579,6 +622,12 @@ let rec lemma_remaining_context (s:S.checked_schema) (hyps:list expr) (conclusio
   | [] -> ()
   | _ :: rest -> lemma_remaining_context s rest conclusion
 
+let quantifier_instantiation (node:U.proof_node) : bool =
+  match node.kind, node.conclusion with
+  | U.QuantifierInstantiation args, U.Holds formula ->
+    node.premises = [] && Q.check args formula
+  | _, _ -> false
+
 let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_node)
   : option (U.checked_fact & nat) =
   let conclusion = proposition node.conclusion in
@@ -601,7 +650,7 @@ let check_node_cached (s:S.checked_schema) (assertions:list expr) (node:U.proof_
       else inherited in
     let fact = { U.conclusion = node.conclusion; hypotheses = hypotheses } in
     let checked =
-      lemma_step node ||
+      quantifier_instantiation node || lemma_step node ||
       (node.kind <> U.LemmaRule && consequence s (propositions node.premises) conclusion) ||
       DT.consequence s (scoped_propositions node.premises) (scoped_proposition fact) in
     Some (fact, (if checked then 0 else 1))
@@ -631,6 +680,7 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
                      (assertions:list expr) (node:U.proof_node) (fact:U.checked_fact)
   : Lemma (requires T.truths s bc eq other assertions /\ facts_hold s bc eq other node.premises /\
                     facts_valid s node.premises /\
+                    (quantifier_instantiation node ==> Q.forall_elimination_model s bc other) /\
                     check_node_cached s assertions node == Some (fact, 0))
           (ensures fact_holds s bc eq other fact) =
   lemma_check_node_context s assertions node fact 0;
@@ -639,7 +689,12 @@ let lemma_check_node_cached (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boo
   | U.Hypothesis -> ()
   | _ ->
     let conclusion = proposition node.conclusion in
-    if lemma_step node then (
+    if quantifier_instantiation node then (
+      match node.kind, node.conclusion with
+      | U.QuantifierInstantiation args, U.Holds formula ->
+        Q.lemma_check s bc eq other args formula
+      | _, _ -> ())
+    else if lemma_step node then (
       match node.premises with
       | [p] ->
         if T.truths s bc eq other fact.hypotheses && not (T.truth s bc eq other conclusion) then (
@@ -735,11 +790,18 @@ let rec lemma_premise_lookup (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
     lemma_premise_lookup s bc eq other cache rest tail
   | _, _ -> ()
 
+let rec needs_forall_semantics (entries:list P.entry) : Tot bool (decreases entries) =
+  match entries with
+  | [] -> false
+  | e :: rest ->
+    (match e.P.rule with U.QuantifierInstantiation _ -> true | _ -> needs_forall_semantics rest)
+
 let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                       (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
                       (assertions:list expr) (cache:I.index_tree U.checked_fact)
                       (next pending:nat) (entries:list P.entry) (result:I.index_tree U.checked_fact)
   : Lemma (requires T.truths s bc eq other assertions /\ cache_sound s bc eq other cache /\
+                    (needs_forall_semantics entries ==> Q.forall_elimination_model s bc other) /\
                     check_entries s assertions cache next pending entries == Some (result, 0))
           (ensures cache_sound s bc eq other result)
           (decreases entries) =
@@ -759,7 +821,8 @@ let rec lemma_entries (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_c
 let lemma_check_document (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
                          (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
                          (doc:P.document)
-  : Lemma (requires check_document s doc == Some 0)
+  : Lemma (requires check_document s doc == Some 0 /\
+                    (needs_forall_semantics doc.entries ==> Q.forall_elimination_model s bc other))
           (ensures not (T.truths s bc eq other doc.assertions)) =
   if T.truths s bc eq other doc.assertions then (
     let cache, _ = Some?.v (check_entries s doc.assertions I.Empty 0 0 doc.entries) in

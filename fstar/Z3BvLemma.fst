@@ -27,6 +27,8 @@ let op_mkbv : decl_kind = 113
 let op_ult : decl_kind = 114
 let op_ule : decl_kind = 115
 let op_uge : decl_kind = 116
+let op_shl : decl_kind = 117
+let op_lshr : decl_kind = 118
 
 let bv_sort (width:int) : sort = BaseSort ("BV" ^ Prims.string_of_int width)
 
@@ -48,7 +50,8 @@ let operation (f:func_decl) (args:list expr) : option (pos & decl_kind) =
        sorts_match args f.domain && f.domain = L.map (fun _ -> bv_sort width) args &&
        (((op = op_not || op = op_neg) && L.length args = 1) ||
         ((op = op_and || op = op_or || op = op_xor || op = op_add ||
-          op = op_mul || op = op_sub || op = op_udiv || op = op_urem) && L.length args = 2))
+          op = op_mul || op = op_sub || op = op_udiv || op = op_urem ||
+          op = op_shl || op = op_lshr) && L.length args = 2))
     then Some (width, op) else None
   | _, _ -> None
 
@@ -162,6 +165,8 @@ let calculate (width:pos) (op:decl_kind) (xs:list (U.uint_t width)) : U.uint_t w
     else if op = op_mul then U.mul_mod x y
     else if op = op_udiv then (if y = 0 then U.ones width else U.udiv x y)
     else if op = op_urem then (if y = 0 then x else U.mod x y)
+    else if op = op_shl then U.shift_left x y
+    else if op = op_lshr then U.shift_right x y
     else U.sub_mod x y
   | _ -> 0
 
@@ -303,7 +308,8 @@ let simple (width:pos) (op:decl_kind) (args:list expr) : option expr =
           | Some (w, n) ->
             if w <> width then None
             else if n = 0 && (op = op_or || op = op_xor || op = op_add ||
-                              op = op_sub || op = op_urem) then Some x
+                              op = op_sub || op = op_urem || op = op_shl ||
+                              op = op_lshr) then Some x
             else if n = 0 && (op = op_and || op = op_mul) then Some y
             else if n = 0 && op = op_udiv then Some (literal width (U.ones width))
             else if n = 1 && (op = op_mul || op = op_udiv) then Some x
@@ -366,6 +372,7 @@ let rec lemma_constants (i:interpretation value) (rho:env value)
       FStar.Math.Lemmas.small_mod n (pow2 width);
       assert (U.to_uint_t width (project width (eval i a rho)) == n)
 
+#push-options "--fuel 4 --ifuel 2"
 let lemma_simple (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                  (width:pos) (op:decl_kind) (args:list expr) (result:expr)
   : Lemma (requires bv_model i project /\ D.scoped_args [] args /\
@@ -399,9 +406,12 @@ let lemma_simple (i:interpretation value) (rho:env value) (project:pos -> value 
               else if n = 0 && op = op_xor then U.logxor_lemma_1 #width a
               else if n = 0 && op = op_udiv then
                 lemma_literal i rho project width (U.ones width)
+              else if n = 0 && op = op_shl then U.shift_left_value_aux_2 #width a
+              else if n = 0 && op = op_lshr then U.shift_right_value_aux_2 #width a
               else ()
             | None -> ())
     | _ -> ()
+#pop-options
 
 let lemma_conditional_comparison (i:interpretation value) (rho:env value)
                                 (project:pos -> value -> int) (source target result:expr)
@@ -559,22 +569,25 @@ let lemma_bit_conditional (i:interpretation value) (rho:env value)
                     AR.term_ite_sound i /\ D.scoped [] e /\
                     bit_conditional e == Some result)
           (ensures eval i e rho == eval i result rho)
-  = let c, t, u = Some?.v (AR.ite_parts e) in
-    let _, n = Some?.v (numeral t) in
-    let x, k = Some?.v (bit_test c) in
-    lemma_bit_test i rho project c x k;
-    lemma_word i rho project 1 x;
-    AR.lemma_ite_parts i rho e c t u;
-    assert (project 1 (eval i t rho) == n);
-    assert (project 1 (eval i u rho) == 1 - n);
-    if n <> k then (
-      let a = project 1 (eval i x rho) in
-      U.lemma_lognot_value_mod #1 a;
-      lemma_operation i rho project
-        { decl_name = "bvnot"; domain = [bv_sort 1]; range = bv_sort 1;
-          interp = Some op_not; int_params = [1] } [x] 1 op_not);
-    (match eval i c rho with VBool _ -> () | _ -> ());
-    lemma_reflect i rho project 1 e result
+  = match AR.ite_parts e with
+    | Some (c, t, u) ->
+      (match numeral t, bit_test c with
+       | Some (_, n), Some (x, k) ->
+         lemma_bit_test i rho project c x k;
+         lemma_word i rho project 1 x;
+         AR.lemma_ite_parts i rho e c t u;
+         assert (project 1 (eval i t rho) == n);
+         assert (project 1 (eval i u rho) == 1 - n);
+         if n <> k then (
+           let a = project 1 (eval i x rho) in
+           U.lemma_lognot_value_mod #1 a;
+           lemma_operation i rho project
+             { decl_name = "bvnot"; domain = [bv_sort 1]; range = bv_sort 1;
+               interp = Some op_not; int_params = [1] } [x] 1 op_not);
+         (match eval i c rho with VBool _ -> () | _ -> ());
+         lemma_reflect i rho project 1 e result
+       | _, _ -> ())
+    | None -> ()
 
 #push-options "--fuel 4 --ifuel 2"
 let lemma_not_conditional (i:interpretation value) (rho:env value)
@@ -735,6 +748,21 @@ let lemma_concat_parts (i:interpretation value) (rho:env value)
                      project c.left_width (eval i c.left rho) * pow2 c.right_width +
                      project c.right_width (eval i c.right rho))
   = match e with App _ [_; _] -> () | _ -> ()
+
+let lemma_concat3_parts (i:interpretation value) (rho:env value)
+                       (project:pos -> value -> int) (e:expr) (c:concatenation3)
+  : Lemma (requires bv_model i project /\ D.scoped [] e /\ concat3_parts e == Some c)
+          (ensures D.scoped [] c.first /\ D.scoped [] c.second /\ D.scoped [] c.third /\
+                   get_sort c.first == bv_sort c.width1 /\
+                   get_sort c.second == bv_sort c.width2 /\
+                   get_sort c.third == bv_sort c.width3 /\
+                   c.width1 + c.width2 + c.width3 <= 4096 /\
+                   get_sort e == bv_sort (c.width1 + c.width2 + c.width3) /\
+                   project (c.width1 + c.width2 + c.width3) (eval i e rho) ==
+                     project c.width1 (eval i c.first rho) * pow2 (c.width2 + c.width3) +
+                     project c.width2 (eval i c.second rho) * pow2 c.width3 +
+                     project c.width3 (eval i c.third rho))
+  = match e with App _ [_; _; _] -> () | _ -> ()
 
 let lemma_extract_rewrite (i:interpretation value) (rho:env value)
                           (project:pos -> value -> int) (e result:expr)
@@ -938,6 +966,7 @@ let lemma_mul_associative (width:pos) (a b c:U.uint_t width)
     FStar.Math.Lemmas.lemma_mod_mul_distr_l (a * b) c p;
     FStar.Math.Lemmas.paren_mul_right a b c
 
+#push-options "--fuel 4 --ifuel 2"
 let lemma_nary_rewrite (i:interpretation value) (rho:env value)
                        (project:pos -> value -> int) (e result:expr)
   : Lemma (requires bv_model i project /\ D.scoped [] e /\ nary_rewrite e == Some result)
@@ -965,6 +994,7 @@ let lemma_nary_rewrite (i:interpretation value) (rho:env value)
         calculate_nary width op (words width project (eval_args i (x :: y :: z :: rest) rho)));
       lemma_reflect i rho project width e result
     | _ -> ()
+#pop-options
 
 #push-options "--fuel 4 --ifuel 2"
 let lemma_coefficient_rewrite (i:interpretation value) (rho:env value)
@@ -1051,6 +1081,53 @@ let lemma_isolate_equality (i:interpretation value) (rho:env value)
     | _ -> ()
 #pop-options
 
+let add_numeral_equality (e:expr) : option expr =
+  match e with
+  | App f [App g [k; x]; r] ->
+    (match operation g [k; x], numeral k, numeral r with
+     | Some (width, op), Some (w, n), Some (w', m) ->
+       if f = eq_decl (bv_sort width) && op = op_add && width = w && width = w'
+       then Some (mk_eq_expr x (literal width (U.sub_mod #width m n)))
+       else None
+     | _, _, _ -> None)
+  | _ -> None
+
+let lemma_cancel_add_numeral (width:pos) (n x m:U.uint_t width)
+  : Lemma ((U.add_mod n x == m) <==> x == U.sub_mod m n)
+  = U.lemma_sub_add_cancel x n;
+    U.lemma_add_sub_cancel m n
+
+#push-options "--fuel 4 --ifuel 2"
+let lemma_add_numeral_equality (i:interpretation value) (rho:env value)
+                              (project:pos -> value -> int) (e result:expr)
+  : Lemma (requires bv_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+                    D.scoped [] e /\ add_numeral_equality e == Some result)
+          (ensures eval i e rho == eval i result rho)
+  = match e with
+    | App f [App g [k; x]; r] ->
+      let width, _ = Some?.v (operation g [k; x]) in
+      let _, n = Some?.v (numeral k) in
+      let _, m = Some?.v (numeral r) in
+      assert (D.scoped [] (App g [k; x]));
+      assert (D.scoped_args [] [k; x]);
+      lemma_word i rho project width k;
+      lemma_word i rho project width x;
+      lemma_word i rho project width r;
+      lemma_word i rho project width (App g [k; x]);
+      assert (project width (eval i k rho) == n);
+      assert (project width (eval i r rho) == m);
+      lemma_operation i rho project g [k; x] width op_add;
+      lemma_literal_shape width (U.sub_mod #width m n);
+      lemma_literal i rho project width (U.sub_mod #width m n);
+      lemma_cancel_add_numeral width n (project width (eval i x rho)) m;
+      assert ((eval i (App g [k; x]) rho == eval i r rho) <==>
+        U.add_mod #width n (project width (eval i x rho)) == m);
+      assert ((eval i x rho == eval i (literal width (U.sub_mod #width m n)) rho) <==>
+        project width (eval i x rho) == U.sub_mod #width m n);
+      (match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ())
+    | _ -> ()
+#pop-options
+
 let double_equality (e:expr) : option expr =
   match e with
   | App f [App g [x; y]; App h [n; z]] ->
@@ -1075,22 +1152,24 @@ let lemma_double_equality (i:interpretation value) (rho:env value)
           (ensures eval i e rho == eval i result rho)
   = match e with
     | App _ [App g [x; y]; App h [n; z]] ->
-      let width, _ = Some?.v (operation g [x; y]) in
-      lemma_word i rho project width x;
-      lemma_word i rho project width y;
-      lemma_word i rho project width n;
-      lemma_word i rho project width (App g [x; y]);
-      lemma_word i rho project width (App h [n; z]);
-      assert (project width (eval i n rho) == 2);
-      lemma_operation i rho project g [x; y] width op_add;
-      lemma_operation i rho project h [n; z] width op_mul;
-      lemma_double_words width (project width (eval i x rho)) (project width (eval i y rho));
-      assert ((eval i (App g [x; y]) rho == eval i (App h [n; z]) rho) <==>
-        project width (eval i (App g [x; y]) rho) == project width (eval i (App h [n; z]) rho));
-      assert ((eval i x rho == eval i y rho) <==>
-        project width (eval i x rho) == project width (eval i y rho));
-      assert (lit_true i rho e <==> lit_true i rho result);
-      (match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ())
+      (match operation g [x; y], operation h [n; z], numeral n with
+       | Some (width, _), Some _, Some _ ->
+         lemma_word i rho project width x;
+         lemma_word i rho project width y;
+         lemma_word i rho project width n;
+         lemma_word i rho project width (App g [x; y]);
+         lemma_word i rho project width (App h [n; z]);
+         assert (project width (eval i n rho) == 2);
+         lemma_operation i rho project g [x; y] width op_add;
+         lemma_operation i rho project h [n; z] width op_mul;
+         lemma_double_words width (project width (eval i x rho)) (project width (eval i y rho));
+         assert ((eval i (App g [x; y]) rho == eval i (App h [n; z]) rho) <==>
+           project width (eval i (App g [x; y]) rho) == project width (eval i (App h [n; z]) rho));
+         assert ((eval i x rho == eval i y rho) <==>
+           project width (eval i x rho) == project width (eval i y rho));
+         assert (lit_true i rho e <==> lit_true i rho result);
+         (match eval i e rho, eval i result rho with VBool _, VBool _ -> () | _, _ -> ())
+       | _, _, _ -> ())
     | _ -> ()
 
 let rewrite (e:expr) : option expr =
@@ -1115,6 +1194,8 @@ let rewrite (e:expr) : option expr =
   if Some? r then r else
   let r = coefficient_rewrite e in
   if Some? r then r else
+  let r = add_numeral_equality e in
+  if Some? r then r else
   let r = double_equality e in
   if Some? r then r else isolate_equality e
 
@@ -1133,6 +1214,7 @@ let lemma_rewrite (i:interpretation value) (rho:env value)
     else if Some? (subtraction_rewrite e) then lemma_subtraction_rewrite i rho project e result
     else if Some? (nary_rewrite e) then lemma_nary_rewrite i rho project e result
     else if Some? (coefficient_rewrite e) then lemma_coefficient_rewrite i rho project e result
+    else if Some? (add_numeral_equality e) then lemma_add_numeral_equality i rho project e result
     else if Some? (double_equality e) then lemma_double_equality i rho project e result
     else lemma_isolate_equality i rho project e result
 

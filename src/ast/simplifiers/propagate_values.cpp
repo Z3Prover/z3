@@ -28,7 +28,7 @@ propagate_values::propagate_values(ast_manager& m, params_ref const& p, dependen
     dependent_expr_simplifier(m, fmls),
     m_rewriter(m),
     m_shared(m, true),
-    m_subst(m, true, false) {
+    m_subst(m, true, m.proofs_enabled()) {
     m_rewriter.set_flat_and_or(false);
     updt_params(p);
 }
@@ -52,15 +52,17 @@ void propagate_values::process_fml(unsigned i) {
 void propagate_values::add_sub(dependent_expr const& de) {
     expr* x, * y;
     auto const& [f, p, dep] = de();
+    if (m.proofs_enabled() && !p)
+        return;
     if (m.is_not(f, x) && m_shared.is_shared(x))
-        m_subst.insert(x, m.mk_false(), dep);
+        m_subst.insert(x, m.mk_false(), p ? m.mk_iff_false(p) : nullptr, dep);
     if (m_shared.is_shared(f))
-        m_subst.insert(f, m.mk_true(), dep);
+        m_subst.insert(f, m.mk_true(), p ? m.mk_iff_true(p) : nullptr, dep);
     if (m.is_eq(f, x, y)) {
         if (m.is_value(x) && m_shared.is_shared(y))
-            m_subst.insert(y, x, dep);
+            m_subst.insert(y, x, p ? m.mk_symmetry(p) : nullptr, dep);
         else if (m.is_value(y) && m_shared.is_shared(x))
-            m_subst.insert(x, y, dep);
+            m_subst.insert(x, y, p, dep);
     }
 }
 

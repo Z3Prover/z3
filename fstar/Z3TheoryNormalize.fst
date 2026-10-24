@@ -31,6 +31,7 @@ let normalization_model (i:interpretation value) : prop =
 let root (e:expr) : option expr =
   if D.tautology 128 e || AR.equivalent e true_expr then Some true_expr
   else if AR.equivalent e false_expr then Some false_expr
+  else if Some? (AR.product_sign_rewrite e) then AR.product_sign_rewrite e
   else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
   | Some result, _, _, _, _, _ | _, Some result, _, _, _, _ |
     _, _, Some result, _, _, _ | _, _, _, Some result, _, _ |
@@ -94,6 +95,7 @@ let lemma_root (i:interpretation value) (rho:env value) (e result:expr)
   = if D.tautology 128 e then D.lemma_tautology_sound 128 i rho e
     else if AR.equivalent e true_expr then AR.lemma_equivalent_with_numeric_model e true_expr i rho
     else if AR.equivalent e false_expr then AR.lemma_equivalent_with_numeric_model e false_expr i rho
+    else if Some? (AR.product_sign_rewrite e) then AR.lemma_product_sign_with_numeric_model e result i rho
     else match DT.rewrite e, BV.rewrite e, BW.rewrite e, BO.rewrite e, LR.beta e, LR.extensional e with
     | Some result, _, _, _, _, _ -> lemma_datatype i rho e result
     | _, Some result, _, _, _, _ -> lemma_bv i rho e result

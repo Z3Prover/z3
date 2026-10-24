@@ -10,7 +10,7 @@ type operator =
   | Not | And | Or | Implies | Eq | Oeq | True | False | Ite | Xor | Distinct
   | Select | Store | ArrayExt | ConstArray | Bvand | Bvor | Bvxor | Bvnot
   | Bvadd | Bvmul | Bvsub | Bvneg | Bvudiv | Bvurem | Bvextract | Bvconcat | Bvmkbv
-  | Bvult | Bvule | Bvuge | Concat
+  | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral

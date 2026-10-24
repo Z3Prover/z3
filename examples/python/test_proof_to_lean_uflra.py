@@ -356,17 +356,28 @@ class TestMixedValidation(unittest.TestCase):
         self.assertEqual(len(helpers), 3, helpers)  # x - y, 2 + 2 = 4, x - x = 0
         self.assertTrue(any("(_vars 0) - (_vars 1)" in h and "* (_vars 1)" in h for h in helpers), helpers)
         self.assertTrue(any("((4 : Rat))" in h for h in helpers), helpers)
-        # Function applications are opaque atoms of the linear forms, so the
-        # atom-normalizing rewrite shape (keyed by variable index) is not used.
-        atoms = [node for node in range(len(graph.nodes))
-                 if graph.kind(node) in (z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT, z3.Z3_OP_EQ)
-                 and graph.arguments(node) and graph.is_arith(graph.arguments(node)[0])]
-        self.assertFalse(proof_to_lean._linear_over_variables(graph, atoms))
-        variables_only = [atom for atom in atoms
-                          if all(graph.kind(v) == z3.Z3_OP_UNINTERPRETED and not graph.arguments(v)
-                                 for v in proof_to_lean._atom_constraint(graph, atom)[1])]
-        self.assertTrue(variables_only)
-        self.assertTrue(proof_to_lean._linear_over_variables(graph, variables_only))
+        # Function applications are opaque atoms of the linear forms, keyed by
+        # node in the atom-normalizing rewrite shape: a rewrite whose sides
+        # apply f to different renderings of one argument ((f (+ 2.0 2.0))
+        # against (f 4.0)) is left to grind, one whose sides share their
+        # applications, or range over variables alone, is normalizable.
+        verdicts = {}
+        for node in range(len(graph.nodes)):
+            if graph.kind(node) != z3.Z3_OP_PR_REWRITE:
+                continue
+            reachable, _ = proof_to_lean._reachable(graph, graph.conclusion(node))
+            atoms = [formula for formula in sorted(reachable)
+                     if graph.kind(formula) in (z3.Z3_OP_LE, z3.Z3_OP_GE, z3.Z3_OP_LT, z3.Z3_OP_GT, z3.Z3_OP_EQ)
+                     and graph.arguments(formula) and graph.is_arith(graph.arguments(formula)[0])]
+            if not atoms:
+                continue
+            applications = [{term for formula in proof_to_lean._reachable(graph, side)[0]
+                             if graph.is_term(formula) for term in [formula]
+                             if graph.kind(term) == z3.Z3_OP_UNINTERPRETED and graph.arguments(term)}
+                            for side in graph.arguments(graph.conclusion(node))]
+            verdicts[node] = (proof_to_lean._normalizable_rewrite(graph, node, reachable, atoms),
+                              applications[0] == applications[1])
+        self.assertEqual(set(verdicts.values()), {(False, False), (True, True)}, verdicts)
 
     def test_ite_arguments_are_keyed_up_to_normalization(self):
         # Z3 logs (f (ite (> x 0) x (- x))) with the ite in the rewriter's

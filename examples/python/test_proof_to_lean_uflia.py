@@ -392,9 +392,14 @@ class TestIntegerMixedValidation(unittest.TestCase):
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
         ites = [node for node in range(len(graph.nodes)) if graph.kind(node) == z3.Z3_OP_ITE and graph.is_arith(node)]
-        self.assertTrue(ites)
+        self.assertEqual(len(ites), 2)
+        # (ite (> x 0) x (- x)) and the rewriter's (ite (<= x 0) (* -1 x) x):
+        # the strict condition is tightened over Int, so the key canonicalizes
+        # the complement rather than the strict relation.
+        self.assertEqual(len({proof_to_lean._real_argument_key(graph, node) for node in ites}), 1)
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertIn("(@ite Int ", text)
+        self.assertRegex(text, r"have _r%d_%d : \(@ite Int .* = \(@ite Int .* := by first \| omega \| grind" % tuple(ites))
 
     def test_same_branch_ite_gates_are_proved_by_cases(self):
         source = UFLIA_INPUTS["uflia_same_branch_ite"]
@@ -669,6 +674,122 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                 certificate, _ = self.check(source)
                 hints |= _hints(certificate)
         self.assertLessEqual({"arith", "farkas", "bound", "cut", "euf"}, hints)
+
+    # Seed of random_division_instance(variables=12, constraints=36,
+    # functions=True) whose certificate (2,815 steps) has a Farkas lemma of 33
+    # literals over 26 div, mod, abs, and application atoms, 14 of them mod
+    # atoms. With the 28 mod bounds stated and reverted before the atoms were
+    # generalized, omega took 27 s on that one lemma on an idle machine (48 s
+    # for the file; over two minutes under load); the bounds are redundant for
+    # a combination the reconstructor re-derived, and without them the lemma
+    # takes about 2 s (22 s for the file). Found by a random stress run over seeds 70 to 89 at this size.
+    WIDE_FARKAS_SEED = 75
+
+    def test_wide_farkas_lemmas_over_mod_atoms_omit_the_redundant_bounds(self):
+        from test_proof_to_lean_lia import random_division_instance
+        source = random_division_instance(self.WIDE_FARKAS_SEED, variables=12, constraints=36, functions=True)
+        self.assertIsNotNone(source, "seed %d is no longer unsatisfiable" % self.WIDE_FARKAS_SEED)
+        certificate, text = self.check(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        widest, shapes = 0, set()
+        for node, raw in enumerate(certificate["nodes"]):
+            declaration = certificate["declarations"][raw["declaration"]]
+            if declaration["name"] != "th-lemma" or declaration["parameters"][0] not in ("farkas", "bound", "cut"):
+                continue
+            atoms = proof_to_lean._opaque_int_atoms(graph, [graph.conclusion(node)])
+            mods = [atom for atom in atoms if graph.kind(atom) == z3.Z3_OP_MOD]
+            block = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            if not atoms:
+                self.assertNotIn("generalize", block)
+                continue
+            literals = len(list(graph.clause(graph.conclusion(node))))
+            with self.subTest(node=node, hint=declaration["parameters"][0], literals=literals, atoms=len(atoms)):
+                self.assertEqual(block.count("generalize "), len(atoms))
+                if len(declaration["parameters"]) > 1:
+                    # farkas and bound with coefficients: the combination was
+                    # re-derived over the atoms, so no bounds and omega.
+                    self.assertNotIn("have _m", block)
+                    self.assertIn("\n       omega)\n    | (unfold ", block)
+                    widest = max(widest, len(mods))
+                    shapes.add(declaration["parameters"][0])
+                else:
+                    # cut (and a coefficient-free Int farkas or bound): shape-checked
+                    # only, so the bounds Z3 omitted stay, and grind with two million heartbeats.
+                    self.assertEqual(block.count("have _m"), 2 * len(mods))
+                    self.assertIn("\n       grind (splits := 64))\n    | (unfold ", block)
+                    self.assertIn("set_option maxHeartbeats 2000000 in\nprivate theorem th_lemma_%d " % node, text)
+                    shapes.add(declaration["parameters"][0])
+        self.assertGreaterEqual(widest, 14)
+        self.assertEqual(shapes, {"farkas", "bound", "cut"})
+
+    def test_wide_rewrites_over_applications_take_the_normalized_path(self):
+        # A rewrite over more than _NORMALIZED_REWRITE_ATOMS atoms is proved
+        # atom by atom and then propositionally over the atoms' names; the
+        # linear forms may range over opaque terms without a formula inside,
+        # keyed by node, here (f x) in every atom. grind on the whole
+        # equivalence split exponentially on such a rewrite (an Iff between
+        # two disjunctions of 20 Int equalities over applications, differing
+        # in flattening, order, and orientation, in z3test's QF_UFLIA
+        # mathsat/Wisa/xs-05-11-2-5-3-2.smt2).
+        from test_proof_to_lean_lia import wide_rewrite_instance
+        source = wide_rewrite_instance(term="(f {0})", logic="QF_UFLIA", declarations=["(declare-fun f (Int) Int)"])
+        certificate, text = self.check(source)
+        self.assertIn("private theorem normalized_rewrite_", text)
+        atoms = [line for line in text.splitlines() if line.startswith("  let _atom")]
+        self.assertEqual(len(atoms), 18)
+        self.assertTrue(all("(_ifuns 0 [(_int (_vars " in line for line in atoms), atoms[0])
+
+    def test_rewrites_inside_application_arguments_stay_with_grind(self):
+        # The normalized path keys an application by its node, so a rewrite
+        # that simplifies inside the argument, f(x + 0) <= 5 to f(x) <= 5,
+        # relates atoms over distinct opaque terms it could not connect; it
+        # stays with grind, which proves it through congruence.
+        context = z3.Context()
+        f = z3.Function("f", z3.IntSort(context), z3.IntSort(context))
+        variables = [z3.Int("x%d" % i, context) for i in range(3)]
+        rewritten = z3.Or(*[f(var) <= 5 for var in reversed(variables)])
+
+        def certify(original):
+            # A hand-built certificate: original, rewritten to rewritten,
+            # refuted against its asserted negation.
+            assertions = [original, z3.Not(rewritten)]
+            solver = z3.Solver(ctx=context)
+            solver.add(assertions)
+            source = solver.to_smt2()
+            dag = proof_certificate.DagBuilder()
+            roots = [dag.expression(assertion) for assertion in assertions]
+            asserted = dag.rule(z3.Z3_OP_PR_ASSERTED, "asserted", 0)
+            first = dag.node(asserted, [roots[0]])
+            rewrite = dag.node(dag.rule(z3.Z3_OP_PR_REWRITE, "rewrite", 0),
+                               [dag.expression(original == rewritten)])
+            mp = dag.node(dag.rule(z3.Z3_OP_PR_MODUS_PONENS, "mp", 2), [first, rewrite, dag.expression(rewritten)])
+            negated = dag.node(asserted, [roots[1]])
+            root = dag.node(dag.rule(z3.Z3_OP_PR_UNIT_RESOLUTION, "unit-resolution", 2),
+                            [mp, negated, dag.expression(z3.BoolVal(False, context))])
+            return source, dag.certificate(source, "qf_uflia", roots, root), rewrite
+
+        source, certificate, rewrite = certify(z3.Or(*[f(var + 0) <= 5 for var in variables]))
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertNotIn("normalized_rewrite_", text)
+            self.assertIn("private theorem rewrite_", text)
+            with tempfile.TemporaryDirectory() as directory:
+                proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
+            # Every atom's key occurs on one side only, over an opaque term.
+            graph = proof_to_lean._validate_graph(source, certificate)
+            conclusion = graph.conclusion(rewrite)
+            reachable, _ = proof_to_lean._reachable(graph, conclusion)
+            atoms = [formula for formula in reachable if graph.kind(formula) == z3.Z3_OP_LE]
+            self.assertEqual(len(atoms), 6)
+            self.assertFalse(proof_to_lean._normalizable_rewrite(graph, rewrite, reachable, atoms))
+        # The same clause over f(x) on both sides is normalizable, since the
+        # two sides share every atom.
+        source, certificate, _ = certify(z3.Or(*[f(var) <= 5 for var in variables]))
+        with patch.object(proof_to_lean, "_NORMALIZED_REWRITE_ATOMS", 0):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertIn("private theorem normalized_rewrite_", text)
+            with tempfile.TemporaryDirectory() as directory:
+                proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
 
     def test_small_chunks_cut_every_lemma_shape(self):
         with patch.object(proof_to_lean, "_OUTLINE_PROOF_STEPS", 0), \

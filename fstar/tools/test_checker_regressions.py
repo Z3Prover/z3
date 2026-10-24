@@ -50,6 +50,35 @@ class CheckerRegressionTests(unittest.TestCase):
             with self.subTest(code=code, text=text):
                 self.assertEqual(runner.classify(code, text), expected)
 
+    def test_rejected_and_partial_proof_exit_codes_do_not_fail_the_suite(self):
+        process_run = runner.subprocess.run
+        for code, verdict, outcome, status in (
+                (1, "REJECT", "REJECT", 0),
+                (3, "PARTIAL 2", "PARTIAL", 0),
+                (1, "ACCEPT", "PROTOCOL_ERROR", 1),
+                (2, "ERROR", "ERROR", 1)):
+            with self.subTest(code=code, verdict=verdict), tempfile.TemporaryDirectory() as directory:
+                args, _ = self.manifested_corpus(directory)
+
+                def checker_process(command, **kwargs):
+                    if command[-1] == "--version":
+                        return argparse.Namespace(stdout="test-version")
+                    return process_run(
+                        [sys.executable, "-c", f"print({verdict!r}); raise SystemExit({code})"],
+                        **kwargs)
+
+                with patch.object(runner.subprocess, "run", side_effect=checker_process), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(runner.run_suite(args), status)
+                rows = [json.loads(line) for line in
+                        (args.output / "results.jsonl").read_text().splitlines()]
+                self.assertEqual({row["returncode"] for row in rows}, {code})
+                self.assertEqual({row["outcome"] for row in rows}, {outcome})
+                runner.report(args.output)
+                summary = json.loads((args.output / "summary.json").read_text())
+                self.assertEqual(summary["counts"]["ACCEPT"], 0)
+                self.assertEqual(summary["counts"][outcome], 2)
+
     def test_selection_is_recursive_sorted_bounded_and_not_manifest_driven(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -300,6 +329,25 @@ class CheckerRegressionTests(unittest.TestCase):
             runner.report(args.output)
             summary = json.loads((args.output / "summary.json").read_text())
             self.assertEqual(summary["per_logic"]["QF_UF"]["counts"]["NOT_RUN"], 1)
+
+    def test_workflow_run_reports_the_checker_revision_not_the_default_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            source, default_branch = "a" * 40, "b" * 40
+            with patch.dict("os.environ", {"SOURCE_SHA": source, "GITHUB_SHA": default_branch}), \
+                    patch.object(runner.subprocess, "run",
+                                 return_value=argparse.Namespace(stdout="test-version")), \
+                    patch.object(runner, "run_case", side_effect=[
+                        {"path": "QF_LIA/example.smt2", "outcome": "ACCEPT"},
+                        {"path": "QF_UF/example.smt2", "outcome": "ACCEPT"}]), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                runner.report(args.output)
+                self.assertIn(f"Z3 commit: `{source}`", (args.output / "report.md").read_text())
+                self.assertEqual(runner.run_suite(args), 0)
+                runner.report(args.output)
+            selection = json.loads((args.output / "selection.json").read_text())
+            self.assertEqual(selection["z3_commit"], source)
+            self.assertIn(f"Z3 commit: `{source}`", (args.output / "report.md").read_text())
 
     def test_expected_case_count_is_checked_before_executing_the_checker(self):
         with tempfile.TemporaryDirectory() as directory:

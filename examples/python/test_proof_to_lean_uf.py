@@ -120,6 +120,25 @@ UF_INPUTS = {
 (assert (distinct (g c a) (ite (not q) b a) c))
 (check-sat)
 """,
+    # A distinct below the root: the sat.smt core relates it to the
+    # disjunction of its pairwise equalities by two alldiff gate clauses,
+    # which are def-axiom nodes proved from the pairs; the legacy core states
+    # the same gates against the conjunction of disequalities.
+    "uf_distinct_gates": """\
+(set-logic QF_UF)
+(declare-sort U 0)
+(declare-fun f (U) U)
+(declare-fun a () U)
+(declare-fun b () U)
+(declare-fun c () U)
+(declare-fun d () U)
+(declare-const p Bool)
+(assert (or p (distinct (f a) b c)))
+(assert (or (not p) (distinct (f a) b c)))
+(assert (= a d))
+(assert (= (f d) c))
+(check-sat)
+""",
     # Two uninterpreted sorts: functions between them, a predicate over one,
     # and congruence through a function whose arguments mix both sorts.
     "uf_two_sorts": """\
@@ -221,6 +240,15 @@ UF_NEGATED_ITE_CONDITION = """\
 (assert (= (f c) (ite (not (= a b)) (f a) (f b))))
 (check-sat)
 """
+
+# A distinct of one argument is true; Z3 states so by a rewrite. The
+# reconstructor renders it as True without its argument, as a constant
+# and under a function application whose congruence the refutation needs.
+UF_ONE_ARGUMENT_DISTINCT = {
+    "constant": "(declare-sort U 0)(declare-const a U)(assert (not (distinct a)))",
+    "application": ("(declare-sort U 0)(declare-fun f (U) U)(declare-const a U)(declare-const p Bool)"
+                    "(assert (or p (not (distinct (f a)))))(assert (not p))"),
+}
 
 
 # Shapes only the legacy proof object produces: the smt core's rewriter
@@ -850,6 +878,91 @@ class TestUninterpretedValidation(unittest.TestCase):
             self.assertLess(len(literals), len(graph.assertions) + 1)
         proof_to_lean.reconstruct(source, certificate)
 
+    def test_distinct_gate_clauses_are_def_axioms_proved_from_the_pairs(self):
+        source = UF_INPUTS["uf_distinct_gates"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertEqual([graph.decl(node).parameters for node in _th_lemma_nodes(certificate)], [("euf",)])
+        text = proof_to_lean.reconstruct(source, certificate)
+
+        def distinct_literal(literal):
+            literal = graph.arguments(literal)[0] if graph.kind(literal) == z3.Z3_OP_NOT else literal
+            return graph.kind(literal) == z3.Z3_OP_DISTINCT
+
+        gates = {node: graph.clause(graph.conclusion(node)) for node in range(len(graph.nodes))
+                 if graph.kind(node) == z3.Z3_OP_PR_DEF_AXIOM
+                 and any(distinct_literal(literal) for literal in graph.clause(graph.conclusion(node)))}
+        self.assertEqual(len(gates), 2)
+        negated = next(node for node, clause in gates.items() if graph.kind(clause[0]) == z3.Z3_OP_NOT)
+        positive = next(node for node in gates if node != negated)
+        # The shape of each lemma term, independent of the order of the
+        # literals and of the disjuncts in Z3's log. (not d) or (not some_eq):
+        # Or.elim over the three disjuncts, each refuted by one of the three
+        # conjuncts of d, projected from the decidability witness for d.
+        negated_text = text.split("private theorem def_axiom_%d " % negated, 1)[1].split("\nprivate", 1)[0]
+        self.assertEqual(negated_text.count("Or.elim _tail"), 2)
+        self.assertEqual(sorted(re.findall(r"\(fun _eq => \(((?:And\.(?:left|right) \()+)@Decidable\.byContradiction",
+                                           negated_text)),
+                         ["And.left (", "And.left (And.right (", "And.right (And.right ("])
+        # d or some_eq: the three conjuncts of d, each injecting the pair's equality
+        # into one disjunct of some_eq.
+        positive_text = text.split("private theorem def_axiom_%d " % positive, 1)[1].split("\nprivate", 1)[0]
+        self.assertEqual(positive_text.count("And.intro"), 2)
+        self.assertEqual(sorted(re.findall(r"\(fun _eq => _lit\d \((Or\.in[lr](?: \(Or\.in[lr])*) _eq\)+\)", positive_text)),
+                         ["Or.inl", "Or.inr (Or.inl", "Or.inr (Or.inr"])
+        self.assertNotIn("cnf", text)
+        # Both clauses are checked against the pairs. The positive clause with a
+        # single pair equality instead of some_eq is short of two pairs; the
+        # negated clause with d in place of (not d) has the wrong polarity; a
+        # negated clause over a disjunction with an equality that is no pair of
+        # the distinct, the asserted (= a d), is appended as one more def-axiom.
+        some_eq = next(literal for literal in gates[positive] if graph.kind(literal) == z3.Z3_OP_OR)
+        distinct = next(literal for literal in gates[positive] if literal != some_eq)
+        not_distinct, not_some_eq = gates[negated] if graph.arguments(gates[negated][0]) == (distinct,) else gates[negated][::-1]
+        disjuncts = graph.arguments(some_eq)
+        self.assertEqual(len(disjuncts), 3)
+        foreign = next(node for node in range(some_eq) if graph.kind(node) == z3.Z3_OP_EQ
+                       and graph.is_term(graph.arguments(node)[0]) and node not in disjuncts)
+        nodes = certificate["nodes"]
+        appended = [
+            {"declaration": nodes[some_eq]["declaration"], "arguments": list(disjuncts[:2]) + [foreign]},
+            {"declaration": nodes[not_some_eq]["declaration"], "arguments": [len(nodes)]},
+            {"declaration": nodes[graph.conclusion(negated)]["declaration"], "arguments": [not_distinct, len(nodes) + 1]},
+            {"declaration": nodes[negated]["declaration"], "arguments": [len(nodes) + 2]},
+        ]
+        for tamper, failing in [
+            (lambda tampered: tampered["nodes"][graph.conclusion(positive)].update(arguments=[distinct, disjuncts[0]]), positive),
+            (lambda tampered: tampered["nodes"][graph.conclusion(negated)].update(arguments=[distinct, not_some_eq]), negated),
+            (lambda tampered: (tampered["nodes"].extend(appended),
+                               tampered["rule_counts"].update({"def-axiom": tampered["rule_counts"]["def-axiom"] + 1})),
+             len(nodes) + 3),
+        ]:
+            tampered = copy.deepcopy(certificate)
+            tamper(tampered)
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError,
+                                        "invalid def-axiom clause at node %d" % failing):
+                proof_to_lean.reconstruct(source, tampered)
+
+    def test_one_argument_distinct_renders_as_true(self):
+        # Z3 rewrites (distinct a) to true; the rendering mentions no argument,
+        # so the lemma unfolds none (unfold fails on a name that does not occur).
+        for source in UF_ONE_ARGUMENT_DISTINCT.values():
+            for export in (proof_certificate.export_clause_log_certificate, proof_certificate.export_certificate):
+                with self.subTest(source=source, export=export.__name__):
+                    certificate = export(source)
+                    graph = proof_to_lean._validate_graph(source, certificate)
+                    trivial = [node for node in range(len(graph.nodes)) if proof_to_lean._trivial_distinct(graph, node)]
+                    self.assertEqual(len(trivial), 1)
+                    reachable, theory = proof_to_lean._reachable(graph, trivial[0])
+                    self.assertEqual((reachable, theory), ({trivial[0]}, False))
+                    text = proof_to_lean.reconstruct(source, certificate)
+                    self.assertIn("def formula_%d (_atoms : Nat -> Prop)%s : Prop := True\n" % (
+                        trivial[0], proof_to_lean._UF_BINDERS), text)
+                    argument = graph.arguments(trivial[0])[0]
+                    for line in text.splitlines():
+                        if line.startswith("  unfold "):
+                            self.assertNotIn(" term_%d " % argument, line + " ")
+
     def test_boolean_arguments_are_injected_into_the_carrier(self):
         source = UF_INPUTS["uf_bool_args"]
         certificate = proof_certificate.export_clause_log_certificate(source)
@@ -1414,6 +1527,13 @@ class TestLegacyUninterpretedLeanIntegration(unittest.TestCase):
         _, report = self.check(UF_NEGATED_ITE_CONDITION)
         self.assert_standard_axioms(report)
 
+    def test_one_argument_distinct_verifies_through_the_legacy_core(self):
+        for name, source in UF_ONE_ARGUMENT_DISTINCT.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertIn("rewrite", certificate["rule_counts"])
+                self.assert_standard_axioms(report)
+
     # Seeds of random_instance(seed, ite=0.4) whose unsat core has at least
     # three assertions and whose legacy refutations have the most congruence
     # steps (30 to 84 monotonicity steps, through ite terms); pinned like
@@ -1535,6 +1655,14 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             with self.subTest(depth=depth):
                 certificate, _ = self.check(source)
                 self.assertIn("def-axiom", certificate["rule_counts"])
+
+    def test_one_argument_distinct_verifies(self):
+        for name, source in UF_ONE_ARGUMENT_DISTINCT.items():
+            with self.subTest(name=name):
+                certificate, report = self.check(source)
+                self.assertIn("rewrite", certificate["rule_counts"])
+                self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS if name == "application"
+                              else ".unsat' does not depend on any axioms", report)
 
     def test_boolean_predicates_without_a_sort_verify_through_the_clause_log(self):
         # The same inputs and seeds as the legacy-core test: the euf solver

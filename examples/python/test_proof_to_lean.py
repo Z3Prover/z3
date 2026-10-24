@@ -54,6 +54,13 @@ NESTED = """\
 (declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
 (assert (or (and p q) r))(assert (not p))(assert (not r))
 """
+# Z3 accepts a one-argument xor and reads it as its argument (the legacy
+# core records the rewrite (= (xor p) p)); here under a binary xor, a
+# negation, and as a whole assertion.
+UNARY_XOR = """\
+(declare-const p Bool)(declare-const q Bool)
+(assert (xor (xor p) (xor q)))(assert (not (xor (not p))))(assert (xor q))
+"""
 # Verbatim copies of the documented inputs in Z3Prover/z3test under
 # regressions/proofs/lean/, so the tests need no z3test checkout.
 Z3TEST_LEAN_INPUTS = {
@@ -135,8 +142,13 @@ Z3TEST_LEAN_INPUTS = {
 # Verbatim copies of z3test regressions/smt2 inputs whose only obstacle was
 # their front matter: options that configure output, models, or search, a
 # tactic in check-sat-using, a named assertion, and an output query. The
-# exporter ignores those and certifies the assertions.
+# exporter ignores those and certifies the assertions. 3434 also states a
+# one-argument xor.
 CONFIGURED_INPUTS = {
+    "3434": """\
+(assert (xor false))
+(check-sat-using aig)
+""",
     "3220": """\
 (set-option :sat.local_search true)
 (set-option :model_validate true)
@@ -350,6 +362,9 @@ DEF_AXIOM_CLAUSES = [
     "(or (xor p q) (not p) q)",
     "(or (not (xor p q)) p q)",
     "(or (not (xor p q)) (not p) (not q))",
+    # The one-argument xor is its argument.
+    "(or (xor p) (not p))",
+    "(or (not (xor p)) p)",
     "(or (not (ite p q r)) (not p) q)",
     "(or (not (ite p q r)) p r)",
     "(or (ite p q r) (not p) (not q))",
@@ -453,6 +468,43 @@ class TestProofToLean(unittest.TestCase):
             certificate = proof_certificate.export_certificate(source)
             with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
                 proof_to_lean.reconstruct(source, certificate)
+
+    def test_balanced_conjunctions_project_every_conjunct_at_logarithmic_depth(self):
+        # The outlined proof's Inputs conjunction and its And.intro term are
+        # balanced trees; _balanced_select must follow the tree _balanced
+        # builds, and no path may be longer than the tree's height.
+        def parse(text):
+            if not text.startswith("("):
+                return text
+            depth, start, parts = 0, None, []
+            for index, char in enumerate(text[1:-1], 1):
+                if char == " " and depth == 0:
+                    if start is not None:
+                        parts.append(text[start:index])
+                    start = None
+                elif start is None:
+                    start = index
+                depth += (char == "(") - (char == ")")
+            parts.append(text[start:len(text) - 1])
+            self.assertEqual(len(parts), 3)
+            self.assertEqual(parts[0], "And")
+            return parse(parts[1]), parse(parts[2])
+
+        self.assertEqual(proof_to_lean._balanced("And", [], "True"), "True")
+        self.assertEqual(proof_to_lean._balanced_select(0, 1, "_inputs"), "_inputs")
+        for count in range(1, 70):
+            names = ["_h%d" % index for index in range(count)]
+            tree = parse(proof_to_lean._balanced("And", names, "True"))
+            for position, name in enumerate(names):
+                path = proof_to_lean._balanced_select(position, count, "_inputs")
+                self.assertTrue(path.startswith("_inputs"))
+                fields = path[len("_inputs"):].split(".")[1:]
+                self.assertLessEqual(len(fields), (count - 1).bit_length())
+                node = tree
+                for field in fields:
+                    self.assertIsInstance(node, tuple)
+                    node = node[int(field) - 1]
+                self.assertEqual(node, name)
 
     def test_preprocessing_audit_requires_elimination_and_checked_evidence(self):
         successful = [{
@@ -619,6 +671,7 @@ class TestProofToLean(unittest.TestCase):
             ("(=> p q)", 2, lambda values: not values[0] or values[1]),
             ("(= p q)", 2, lambda values: values[0] == values[1]),
             ("(xor p q)", 2, lambda values: values[0] != values[1]),
+            ("(xor p)", 1, lambda values: values[0]),
             ("(ite p q r)", 3, lambda values: values[1] if values[0] else values[2]),
         ]
         for gate, arity, evaluate in gates:
@@ -808,7 +861,7 @@ class TestProofToLean(unittest.TestCase):
         # terms built over the structures type-check against the definitions.
         source = "".join("(declare-const %s Bool)" % atom for atom in "pqr")
         source += "(assert (or p q r))(assert false)"
-        shapes = ["(xor p q)", "(ite p q r)", "(distinct p q r)", "(and p)",
+        shapes = ["(xor p q)", "(xor p)", "(ite p q r)", "(distinct p q r)", "(and p)",
                   "(=> p q)", "(= p q)", "(not true)"]
         certificate = make_certificate(source, [("rewrite", [], "(= %s %s)" % (shape, shape)) for shape in shapes]
                                        + [("asserted", [], "false")])
@@ -818,6 +871,7 @@ class TestProofToLean(unittest.TestCase):
         p, q, r = (("atom", index) for index in range(3))
         expected = {
             "(xor p q)": ("or", ("and", p, ("not", q)), ("and", ("not", p), q)),
+            "(xor p)": p,
             "(ite p q r)": ("or", ("and", p, q), ("and", ("not", p), r)),
             "(distinct p q r)": ("and", ("not", ("iff", p, q)), ("not", ("iff", p, r)), ("not", ("iff", q, r))),
             "(and p)": p,
@@ -1082,6 +1136,32 @@ class TestProofToLean(unittest.TestCase):
             checker.assert_not_called()
             self.assertEqual(output.read_text(), "previous artifact")
             self.assertEqual(list(Path(directory).iterdir()), [output])
+
+    def test_one_argument_xor_is_its_argument_and_no_other_arity_passes(self):
+        # Z3's parser accepts (xor p), its rewriter reads it as p, and n-ary
+        # xor is binarized; the reconstructor renders the unary node as its
+        # argument (so the legacy core's rewrite (= (xor p) p) is an
+        # identity) and rejects every other arity than one and two.
+        certificate = proof_certificate.export_certificate(UNARY_XOR)
+        self.assertGreaterEqual(certificate["rule_counts"]["rewrite"], 3)
+        with patch.object(z3.Solver, "check", side_effect=AssertionError("solver oracle invoked")):
+            text = proof_to_lean.reconstruct(UNARY_XOR, certificate)
+        xor = next(index for index, decl in enumerate(certificate["declarations"])
+                   if decl["kind"] == z3.Z3_OP_XOR)
+        unary = [index for index, node in enumerate(certificate["nodes"])
+                 if node["declaration"] == xor and len(node["arguments"]) == 1]
+        self.assertEqual(len(unary), 3)
+        definitions = text.split("theorem unsat", 1)[0]
+        for node in unary:
+            argument = certificate["nodes"][node]["arguments"][0]
+            self.assertIn("def formula_%d (_atoms : Nat -> Prop) : Prop := (formula_%d _atoms)\n" % (node, argument),
+                          definitions)
+        argument = certificate["nodes"][unary[0]]["arguments"][0]
+        for arguments in [[], [argument] * 3]:
+            tampered = copy.deepcopy(certificate)
+            tampered["nodes"][unary[0]]["arguments"] = arguments
+            with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "wrong number of arguments"):
+                proof_to_lean.reconstruct(UNARY_XOR, tampered)
 
     def test_duplicate_assertions_remain_in_the_theorem(self):
         source = "(declare-const p Bool)(assert p)(assert p)(assert (not p))"

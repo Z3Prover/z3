@@ -21,6 +21,7 @@ Abstract:
 #include "sat/smt/arith_theory_checker.h"
 #include "sat/smt/distinct_theory_checker.h"
 #include "sat/smt/tseitin_theory_checker.h"
+#include "util/z3_exception.h"
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
@@ -630,9 +631,18 @@ static bool infer_verifies(std::string const& text, unsigned n_assume, unsigned 
         args.push_back(lits.get(i));
     app_ref jst(m.mk_app(symbol(hint), args.size(), args.data(), m.mk_proof_sort()), m);
     std::ostringstream captured;
-    std::streambuf* saved = std::cout.rdbuf(captured.rdbuf());
-    bool ok = checker.infer(clause, jst);
-    std::cout.rdbuf(saved);
+    bool ok;
+    {
+        scoped_replay scope(captured);
+        try {
+            ok = checker.infer(clause, jst);
+        }
+        catch (default_exception const& ex) {
+            if (std::string(ex.what()) != "SMT proof verification failed")
+                throw;
+            ok = false;
+        }
+    }
     out = captured.str();
     return ok;
 }
@@ -708,8 +718,84 @@ static void tst_trim_satisfied_clause() {
     ENSURE(core[2].first == 5);
 }
 
+// The literal a binary clause implies is justified by the clause's literals
+// alone, so the copies of one binary clause share that justification. When
+// the trimmer removed the last-added copy on its way back through the log it
+// unassigned the literal although earlier copies remained, and with it every
+// fact derived from it. A fact whose own clause had been deleted in the
+// meantime (u below, implied by a since-deleted clause and also asserted as a
+// unit) could not be re-derived by propagation, so the probe of a later
+// inference that relied on it found no conflict and its dependencies were
+// garbage (z3test hard16.smt2 and hard20.smt2, iter-032).
+static void tst_trim_duplicate_binary_keeps_implied_literal() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), u(trim.mk_var(), false),
+        c(trim.mk_var(), false), d(trim.mk_var(), false), e(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({~a, b}); trim.assume(1);       // implies b
+    clause({~b, ~a, u}); trim.assume(2);   // implies u
+    clause({~b, ~a, u}); trim.del();       // u stays a fact of the solver
+    clause({u}); trim.infer(3);            // already true: justified by clause 2
+    clause({~u, ~d, c, ~e}); trim.assume(4);
+    clause({~u, ~d, c, e}); trim.assume(5);
+    clause({~d, c}); trim.infer(6);        // rup from 4 and 5: needs u
+    clause({~a, b}); trim.assume(7);       // a second copy, satisfied
+    clause({d}); trim.assume(8);           // implies c through 6 alone
+    clause({~c}); trim.assume(9);
+    clause({}); trim.infer(10);
+    auto core = trim.trim();
+    unsigned_vector ids;
+    unsigned_vector const* deps6 = nullptr;
+    for (auto const& [id, deps] : core) {
+        ids.push_back(id);
+        if (id == 6)
+            deps6 = &deps;
+    }
+    for (unsigned id : {1u, 2u, 4u, 5u, 6u, 8u, 9u, 10u})
+        ENSURE(ids.contains(id));
+    ENSURE(!ids.contains(7));
+    ENSURE(deps6 && deps6->contains(4) && deps6->contains(5) && deps6->contains(2));
+    for (unsigned dep : *deps6)
+        ENSURE(dep < 6);
+}
+
+// An inference that unit propagation over the preceding clauses cannot derive
+// is an error, not a step with made-up dependencies.
+static void tst_trim_rejects_underivable_inference() {
+    params_ref params;
+    reslimit limit;
+    sat::proof_trim trim(params, limit);
+    sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false);
+    auto clause = [&](std::initializer_list<sat::literal> literals) {
+        trim.init_clause();
+        for (auto literal : literals)
+            trim.add_literal(literal.var(), literal.sign());
+    };
+    clause({a}); trim.assume(0);
+    clause({b}); trim.infer(1);            // not derivable from {a}
+    clause({~b}); trim.assume(2);
+    clause({}); trim.infer(3);
+    bool rejected = false;
+    try {
+        trim.trim();
+    }
+    catch (z3_exception& ex) {
+        rejected = std::string(ex.what()).find("not derivable by unit propagation") != std::string::npos;
+    }
+    ENSURE(rejected);
+}
+
 void tst_proof_replay() {
     tst_trim_satisfied_clause();
+    tst_trim_duplicate_binary_keeps_implied_literal();
+    tst_trim_rejects_underivable_inference();
     tst_is_extended_numeral();
     tst_checker_nary_mul();
     tst_checker_printed_numerals();
