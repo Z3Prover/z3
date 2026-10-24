@@ -172,8 +172,38 @@ static void check_real_power_bounds() {
     }
 }
 
+static void check_special_relation_logic() {
+    for (char const* logic : {"UFDTLIA", "ALL", ""}) {
+        for (bool external : {false, true}) {
+            for (bool initialized : {false, true}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                cmd_context cmd(false, external ? &m : nullptr);
+                if (initialized)
+                    cmd.m();
+                bool restricted = !strcmp(logic, "UFDTLIA");
+                std::ostringstream input;
+                if (*logic)
+                    input << "(set-logic " << logic << ")\n";
+                input << "(declare-sort U 0)\n"
+                      << "(declare-const h U)\n";
+                if (restricted)
+                    input << "(declare-fun partial-order (U U) Bool)\n";
+                input << "(assert (partial-order h h))\n";
+                std::istringstream is(input.str());
+                ENSURE(parse_smt2_commands(cmd, is));
+                ENSURE(cmd.assertions().size() == 1);
+                auto* assertion = to_app(cmd.assertions().get(0));
+                ENSURE(assertion->get_family_id() ==
+                       (restricted ? null_family_id : cmd.m().get_family_id("specrels")));
+            }
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();

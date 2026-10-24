@@ -931,7 +931,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
-        register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
+        register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic() || m_logic == "ALL");
         register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin), !has_logic() || smt_logics::logic_has_finite_sets(m_logic));
         // Preserve existing theory family IDs when adding finite fields.
         register_plugin(symbol("ff"), alloc(ff_decl_plugin), !has_logic() || smt_logics::logic_has_ff(m_logic));
@@ -1017,8 +1017,18 @@ bool cmd_context::set_logic(symbol const & s) {
 
     m_logic = s;
     // API parsers can initialize built-ins before reading set-logic.
-    if (m_manager_initialized)
+    if (m_manager_initialized) {
         restrict_builtin_sorts();
+        if (m_logic != "ALL") {
+            family_id fid = m().get_family_id("specrels");
+            svector<symbol> removed;
+            for (auto const& entry : m_builtin_decls)
+                if (entry.m_value.m_fid == fid)
+                    removed.push_back(entry.m_key);
+            for (symbol const& name : removed)
+                m_builtin_decls.erase(name);
+        }
+    }
     if (m_solver)
         mk_solver();
     if (smt_logics::logic_has_reals_only(s)) 
