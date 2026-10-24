@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "model/model.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -458,10 +459,19 @@ void tst_smt_context()
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
 
-    check_sat_smt_recfun(
-        "(define-fun-rec g ((x Int)) Int (ite (<= x 0) 0 (+ 1 (g (- x 1)))))\n"
-        "(define-fun-rec f ((x Int)) Int (g x))\n"
-        "(assert (= (f 3) 3))\n");
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(define-fun-rec g ((x Int)) Int (ite (<= x 0) 0 (+ 1 (g (- x 1)))))\n"
+            "(define-fun-rec h ((x Int)) Int (g x))\n"
+            "(define-fun-rec f ((x Int)) Int (h x))\n"
+            "(assert (= (f 3) 3))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        model mdl(m);
+        expr_ref value(m);
+        VERIFY(mdl.eval_expr(cmd.assertions()[0], value));
+        VERIFY(m.is_true(value));
+    }
 
     // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
     // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh
