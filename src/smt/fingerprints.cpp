@@ -83,18 +83,23 @@ namespace smt {
         data_hash = get_composite_hash(arg_data, num_args, kh, ah);
 
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
-        if (m_set.contains(d)) 
-            return nullptr;
-        for (unsigned i = 0; i < num_args; ++i)
-            d->m_args[i] = d->m_args[i]->get_root();
-        if (m_set.contains(d)) {
+        if (!all_of(*d, [](enode* n) { return n->is_root(); })) {
+            if (m_set.contains(d))
+                return nullptr;
+            for (unsigned i = 0; i < num_args; ++i)
+                d->m_args[i] = d->m_args[i]->get_root();
+        }
+        // Look up and reserve the slot in one probe; the dummy is replaced by
+        // a region-allocated copy only when the fingerprint is new.
+        set::entry * e = nullptr;
+        if (!m_set.insert_if_not_there_core(d, e)) {
             TRACE(fingerprint_bug, tout << "failed: " << *d;);
             return nullptr;
         }
         TRACE(fingerprint_bug, tout << "inserting @" << m_scopes.size() << " " << *d;);
         fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, num_args, d->m_args);
+        e->set_data(f);
         m_fingerprints.push_back(f);
-        m_set.insert(f);
         return f;
     }
 
