@@ -388,6 +388,13 @@ namespace lp {
             return;
         }
         // Charge pivot-cell work before changing the tableau so cancellation leaves the basis intact.
+        uint64_t cost = static_cast<uint64_t>(this->m_A.m_rows[this->m_basis_heading[leaving]].size()) *
+                        this->m_A.m_columns[entering].size();
+        if (this->m_settings.get_cancel_flag(static_cast<unsigned>(
+                std::min<uint64_t>(cost, std::numeric_limits<unsigned>::max())))) {
+            this->set_status(lp_status::CANCELLED);
+            return;
+        }
         const X &new_val_for_leaving = get_val_for_leaving(leaving);
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         this->m_x[leaving] = new_val_for_leaving;

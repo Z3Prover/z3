@@ -81,7 +81,9 @@ static void check_arithmetic_propagation_cancellation() {
         arith_util a(m);
         expr_ref x(m.mk_const("x", a.mk_int()), m);
         expr_ref y(m.mk_const("y", a.mk_int()), m);
-        expr_ref bound(a.mk_ge(a.mk_add(x, y), a.mk_int(1)), m);
+        expr_ref sum(a.mk_add(x, y), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref bound(a.mk_ge(sum, one), m);
         ctx.internalize(bound, false);
         ctx.mark_as_relevant(bound.get());
         ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
@@ -114,12 +116,27 @@ static void check_arithmetic_propagation_cancellation() {
 static void check_lp_cancellation_recovery() {
     struct resource_limit : lp::lp_resource_limit {
         reslimit limit;
-        bool get_cancel_flag() override { return !limit.inc(); }
-        bool get_cancel_flag(unsigned cost) override { return !limit.inc(cost); }
+        lp::statistics const* stats = nullptr;
+        bool enabled = true;
+        bool cancel_after_pivot = false;
+        bool pivot_checked = false;
+        bool get_cancel_flag() override {
+            if (enabled && cancel_after_pivot && stats->m_pivots > 0)
+                limit.cancel();
+            return !limit.inc();
+        }
+        bool get_cancel_flag(unsigned cost) override {
+            pivot_checked = true;
+            if (enabled && !cancel_after_pivot)
+                limit.cancel();
+            return !limit.inc(cost);
+        }
     };
-    for (unsigned budget : {1u, 4u}) {
+    for (bool after_pivot : {false, true}) {
         resource_limit resource;
         lp::lar_solver solver;
+        resource.stats = &solver.settings().stats();
+        resource.cancel_after_pivot = after_pivot;
         solver.settings().set_resource_limit(resource);
         auto x = solver.add_var(0, true);
         auto y = solver.add_var(1, true);
@@ -129,11 +146,13 @@ static void check_lp_cancellation_recovery() {
         auto term = solver.add_term(coeffs, 2);
         solver.add_var_bound(term, lp::GE, lp::mpq(1));
         {
-            scoped_rlimit limit(resource.limit, budget);
+            scoped_rlimit limit(resource.limit, 0);
             VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
-            VERIFY(solver.settings().stats().m_pivots == (budget == 4 ? 1u : 0u));
+            VERIFY(resource.pivot_checked);
+            VERIFY(solver.settings().stats().m_pivots == (after_pivot ? 1u : 0u));
             VERIFY(solver.ax_is_correct());
         }
+        resource.enabled = false;
         VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
         VERIFY(solver.ax_is_correct());
         VERIFY(solver.column_is_feasible(term));
@@ -249,7 +268,7 @@ static void check_real_power_bounds() {
 
 void tst_smt_context()
 {
-// this broke when I changed cancel check:    check_arithmetic_propagation_cancellation();
+    check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
     check_nonlinear_to_int();
     check_real_power_bounds();
