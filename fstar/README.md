@@ -127,8 +127,8 @@ Neither executable needs a build-time F* or OCaml installation, an external
 the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
 with a clean environment. A second job downloads the Cherry package, reruns
 the CLI suite without installing build toolchains, then replays the same
-z3test commit and the **identical 225/310 sampled inputs** from the OCaml
-report artifact. It does not download the Zenodo archives again.
+z3test commit and the **identical 225/310 sampled inputs and 25 QF_FF inputs**
+from the OCaml report artifact. It does not download the Zenodo archives again.
 Cherry coverage and timing reports are published separately.
 These executables run the extracted F* document-checker kernel; the
 in-memory Pulse checker regressions are also verified during the build,
@@ -184,6 +184,21 @@ Each report artifact includes `inputs/` with the selected original files
 and manifest, the seed, source-manifest hash, archive/member provenance,
 input SHA-256 hashes, and `sampling.log`. The harness verifies exact
 manifest membership and every input hash before executing any case.
+
+A separate **25-input QF_FF cohort** uses the checked-out z3test's
+`regressions/finite_field/test_qfff.py` generator and exhaustive small-field
+oracle. It selects five distinct UNSAT formulas for each prime 2, 3, 5, 7,
+and 17, covering the generator's field arithmetic, bitsums, conditionals,
+equalities, disequalities, and Boolean combinations. Selection uses the
+same recorded run seed, not solver or checker results. Generation fails
+if it cannot supply every case. Its manifest records the z3test revision,
+generator hash, moduli, and individual input hashes. Both backends run
+these exact inputs with the normal certificate harness; unsupported proof
+steps remain visible as PARTIAL rather than solver-only passes.
+The `qfff/` report includes generated inputs, provenance, per-case logs,
+coverage, timings, and separate diagnostics. Dispatch input
+`qfff_total_timeout_seconds` controls its execution budget (default 600
+seconds); the other per-case limits are shared with the existing cohorts.
 
 This is a normal GitHub-hosted Actions job, not a gh-aw agent job with a
 network allowlist. `permissions: contents: read` limits GitHub API access,

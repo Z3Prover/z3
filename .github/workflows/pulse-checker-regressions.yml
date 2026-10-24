@@ -43,8 +43,12 @@ on:
         description: 310-input datatype, nonlinear, quantified, and bit-vector sample budget in seconds
         type: number
         default: 3600
+      qfff_total_timeout_seconds:
+        description: 25-input QF_FF certificate execution budget in seconds
+        type: number
+        default: 600
       smtlib_sample_seed:
-        description: SMT-LIB sampling seed (empty uses this workflow run ID; reruns retain the seed)
+        description: Benchmark sampling/generation seed (empty uses this workflow run ID; reruns retain the seed)
         type: string
         default: ''
 
@@ -84,6 +88,7 @@ jobs:
           echo "REPORT_DIR=$RUNNER_TEMP/pulse-checker-report" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/pulse-checker-report/smtlib-sample"
           mkdir -p "$RUNNER_TEMP/pulse-checker-report/smtlib-extended"
+          mkdir -p "$RUNNER_TEMP/pulse-checker-report/qfff"
 
       - name: Checkout z3test
         id: corpus
@@ -288,13 +293,44 @@ jobs:
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-3600}" \
             --memory-limit-mb 4096 --output "$REPORT_DIR/smtlib-extended"
 
+      - name: Generate 25 exhaustively UNSAT QF_FF certificate inputs
+        id: qfff_inputs
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.corpus.outcome == 'success' }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          "$BENCHMARK_PYTHON" fstar/tools/prepare_checker_qfff.py \
+            --z3test "$GITHUB_WORKSPACE/z3test" --seed "$SMTLIB_SAMPLE_SEED" \
+            --output "$REPORT_DIR/qfff/inputs" \
+            2>&1 | tee "$REPORT_DIR/qfff/generation.log"
+
+      - name: Run native checker on 25 QF_FF certificates
+        id: qfff
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.qfff_inputs.outcome == 'success' }}
+        timeout-minutes: 15
+        env:
+          SOLVER_TIMEOUT_MS: ${{ inputs.solver_timeout_ms }}
+          CASE_TIMEOUT_SECONDS: ${{ inputs.case_timeout_seconds }}
+          TOTAL_TIMEOUT_SECONDS: ${{ inputs.qfff_total_timeout_seconds }}
+        run: |
+          set -euo pipefail
+          python3 fstar/tools/run_checker_regressions.py run \
+            --checker "$RUNNER_TEMP/native-checker/checker" \
+            --corpus "$REPORT_DIR/qfff/inputs" --corpus-path . \
+            --corpus-commit "$(git -C z3test rev-parse HEAD)" \
+            --manifest "$REPORT_DIR/qfff/inputs/manifest.json" --expected-cases 25 \
+            --solver-timeout-ms "${SOLVER_TIMEOUT_MS:-10000}" \
+            --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
+            --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-600}" \
+            --memory-limit-mb 4096 --output "$REPORT_DIR/qfff"
+
       - name: Diagnose partial and rejected proofs separately
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 50
+        timeout-minutes: 65
         run: |
           set -euo pipefail
           status=0
-          for report in "$REPORT_DIR" "$REPORT_DIR/smtlib-sample" "$REPORT_DIR/smtlib-extended"; do
+          for report in "$REPORT_DIR" "$REPORT_DIR/smtlib-sample" "$REPORT_DIR/smtlib-extended" "$REPORT_DIR/qfff"; do
             if [[ -f "$report/selection.json" && -f "$report/results.jsonl" ]]; then
               corpus="$report/inputs"
               if [[ "$report" == "$REPORT_DIR" ]]; then
@@ -320,6 +356,8 @@ jobs:
           EXTENDED_OUTCOME: ${{ steps.extended.outcome }}
           SMTLIB_INPUTS_OUTCOME: ${{ steps.smtlib_inputs.outcome }}
           EXTENDED_INPUTS_OUTCOME: ${{ steps.extended_inputs.outcome }}
+          QFFF_OUTCOME: ${{ steps.qfff.outcome }}
+          QFFF_INPUTS_OUTCOME: ${{ steps.qfff_inputs.outcome }}
         run: |
           set -euo pipefail
           python3 fstar/tools/run_checker_regressions.py report --output "$REPORT_DIR"
@@ -338,6 +376,13 @@ jobs:
             python3 fstar/tools/run_checker_regressions.py report \
             --output "$REPORT_DIR/smtlib-extended"
           cat "$REPORT_DIR/smtlib-extended/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$REPORT_DIR/build.json" ]]; then
+            cp "$REPORT_DIR/build.json" "$REPORT_DIR/qfff/build.json"
+          fi
+          SAMPLER_OUTCOME="$QFFF_INPUTS_OUTCOME" RUNNER_OUTCOME="$QFFF_OUTCOME" \
+            python3 fstar/tools/run_checker_regressions.py report \
+            --output "$REPORT_DIR/qfff"
+          cat "$REPORT_DIR/qfff/report.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload reports, per-case results, and build logs
         if: always()
@@ -396,7 +441,7 @@ jobs:
           echo "REPORT_DIR=$RUNNER_TEMP/cherry-report" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/cherry-report"
 
-      - name: Replay the proof corpus and both identical SMT-LIB samples with Cherry
+      - name: Replay the proof corpus, identical SMT-LIB samples, and QF_FF inputs with Cherry
         id: regressions
         timeout-minutes: 175
         env:
@@ -407,6 +452,7 @@ jobs:
           TOTAL_TIMEOUT_SECONDS: ${{ inputs.total_timeout_seconds }}
           SMTLIB_TIMEOUT_SECONDS: ${{ inputs.smtlib_total_timeout_seconds }}
           EXTENDED_TIMEOUT_SECONDS: ${{ inputs.extended_smtlib_total_timeout_seconds }}
+          QFFF_TIMEOUT_SECONDS: ${{ inputs.qfff_total_timeout_seconds }}
         run: |
           set -euo pipefail
           status=0
@@ -418,7 +464,7 @@ jobs:
             --case-timeout-seconds "${CASE_TIMEOUT_SECONDS:-60}" \
             --total-timeout-seconds "${TOTAL_TIMEOUT_SECONDS:-1800}" \
             --memory-limit-mb 2048 --output "$REPORT_DIR" || status=1
-          for cohort in smtlib-sample smtlib-extended; do
+          for cohort in smtlib-sample smtlib-extended qfff; do
             count=225
             budget="${SMTLIB_TIMEOUT_SECONDS:-3600}"
             commit="$(git -C z3test rev-parse HEAD)"
@@ -426,6 +472,9 @@ jobs:
               count=310
               budget="${EXTENDED_TIMEOUT_SECONDS:-3600}"
               commit="$GITHUB_SHA"
+            elif [[ "$cohort" == qfff ]]; then
+              count=25
+              budget="${QFFF_TIMEOUT_SECONDS:-600}"
             fi
             python3 fstar/tools/run_checker_regressions.py run \
               --checker "$CHECKER" --corpus "$RUNNER_TEMP/ocaml-report/$cohort/inputs" \
@@ -440,11 +489,11 @@ jobs:
 
       - name: Publish Cherry coverage, timings, and diagnostics
         if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
-        timeout-minutes: 50
+        timeout-minutes: 65
         run: |
           set -euo pipefail
           status=0
-          for cohort in proofs smtlib-sample smtlib-extended; do
+          for cohort in proofs smtlib-sample smtlib-extended qfff; do
             report="$REPORT_DIR/$cohort"
             corpus="$RUNNER_TEMP/ocaml-report/$cohort/inputs"
             if [[ "$cohort" == proofs ]]; then

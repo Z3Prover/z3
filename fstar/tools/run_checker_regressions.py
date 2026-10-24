@@ -90,9 +90,10 @@ def verify_manifest(corpus, relative_path, manifest, paths):
         raise ValueError("Manifest must list exactly the discovered SMT-LIB inputs")
     counts = Counter(logics.values())
     declared = document["per_logic"]
-    expected_counts = ({entry["logic"]: declared for entry in document["archives"]}
+    sources = document.get("archives", document.get("generators", []))
+    expected_counts = ({entry["logic"]: declared for entry in sources}
                        if isinstance(declared, int) else declared)
-    if (set(counts) != {entry["logic"] for entry in document["archives"]} or
+    if (set(counts) != {entry["logic"] for entry in sources} or
             dict(counts) != expected_counts):
         raise ValueError("Manifest does not contain the declared sample size per logic")
     return {
