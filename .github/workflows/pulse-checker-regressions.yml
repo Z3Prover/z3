@@ -140,7 +140,7 @@ jobs:
             --output "$cherry_archive"
           printf '%s  %s\n' "$CHERRY_FSTAR_SHA256" "$cherry_archive" | sha256sum --check
           mkdir -p "$RUNNER_TEMP/fstar-cherry-toolchain"
-          tar -xzf "$cherry_archive" -C "$RUNNER_TEMP/fstar-cherry-toolchain" --strip-components=1
+          tar -xzf "$cherry_archive" -C "$RUNNER_TEMP/fstar-cherry-toolchain" --strip-components=2
           "$RUNNER_TEMP/fstar-cherry-toolchain/bin/fstar.exe" --version
           gcc-15 --version
           g++-15 --version
