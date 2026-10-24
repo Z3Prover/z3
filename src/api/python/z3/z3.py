@@ -591,7 +591,12 @@ class SortRef(AstRef):
     """A Sort is essentially a type. Every Z3 expression has a sort. A sort is an AST node."""
 
     def as_ast(self):
-        return Z3_sort_to_ast(self.ctx_ref(), self.ast)
+        # Z3_sort_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
+        try:
+            return self._ast_cache
+        except AttributeError:
+            self._ast_cache = Z3_sort_to_ast(self.ctx_ref(), self.ast)
+            return self._ast_cache
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -787,7 +792,12 @@ class FuncDeclRef(AstRef):
     """
 
     def as_ast(self):
-        return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
+        # Z3_func_decl_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
+        try:
+            return self._ast_cache
+        except AttributeError:
+            self._ast_cache = Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
+            return self._ast_cache
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -1333,11 +1343,16 @@ def _coerce_exprs(a, b, ctx=None):
     if _check_same_sort(a, b, ctx):
         return (a, b)
 
+    a_is_expr = is_expr(a)
+    b_is_expr = is_expr(b)
     s = None
     s = _coerce_expr_merge(s, a)
     s = _coerce_expr_merge(s, b)
-    a = s.cast(a)
-    b = s.cast(b)
+    # When only one side is an expression, s is its sort and casting it is the identity.
+    if b_is_expr or not a_is_expr:
+        a = s.cast(a)
+    if a_is_expr or not b_is_expr:
+        b = s.cast(b)
     return (a, b)
 
 
@@ -2078,7 +2093,12 @@ class PatternRef(ExprRef):
     """
 
     def as_ast(self):
-        return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
+        # Z3_pattern_to_ast is a pointer cast in C; memoize it to avoid a round trip per call.
+        try:
+            return self._ast_cache
+        except AttributeError:
+            self._ast_cache = Z3_pattern_to_ast(self.ctx_ref(), self.ast)
+            return self._ast_cache
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -3464,7 +3484,7 @@ def IntVal(val, ctx=None):
     100
     """
     ctx = _get_ctx(ctx)
-    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), IntSort(ctx).ast), ctx)
+    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), Z3_mk_int_sort(ctx.ref())), ctx)
 
 
 def RealVal(val, ctx=None):
@@ -3483,7 +3503,7 @@ def RealVal(val, ctx=None):
     3/2
     """
     ctx = _get_ctx(ctx)
-    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), RealSort(ctx).ast), ctx)
+    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), Z3_mk_real_sort(ctx.ref())), ctx)
 
 
 def RatVal(a, b, ctx=None):
