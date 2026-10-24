@@ -18,18 +18,22 @@ void tst_smt_proof_weakening() {
     expr* premises[] = {p, not_p};
     app_ref hint(m.mk_app(symbol("euf"), 2, premises, m.mk_proof_sort()), m);
     expr_ref_vector clause(m), units(m);
+    auto check = [&](app* proof_hint) {
+        return checker.check(proof_hint) &&
+            checker.clause_follows(clause, checker.clause(proof_hint), units);
+    };
     clause.push_back(p);
     clause.push_back(not_p);
     clause.push_back(guard);
-    ENSURE(checker.check(clause, hint, units) && units.empty());
+    ENSURE(check(hint) && units.empty());
     clause.reset();
     clause.push_back(p);
     clause.push_back(guard);
-    ENSURE(checker.check(clause, hint, units));
+    ENSURE(check(hint));
     ENSURE(units.size() == 1 && units[0] == p);
     clause.reset();
     clause.push_back(guard);
-    ENSURE(checker.check(clause, hint, units) && units.size() == 2);
+    ENSURE(check(hint) && units.size() == 2);
     ENSURE((units[0] == p && units[1] == not_p) ||
            (units[1] == p && units[0] == not_p));
     // Syntactic double negations do not create spurious unit obligations.
@@ -37,8 +41,8 @@ void tst_smt_proof_weakening() {
     clause.push_back(m.mk_not(m.mk_not(p)));
     clause.push_back(m.mk_not(m.mk_not(not_p)));
     clause.push_back(guard);
-    ENSURE(checker.check(clause, hint, units) && units.empty());
+    ENSURE(check(hint) && units.empty());
     // Clause normalization must not turn a rejected hint into evidence.
     app_ref invalid(m.mk_const("unknown-rule", m.mk_proof_sort()), m);
-    ENSURE(!checker.check(clause, invalid, units));
+    ENSURE(!check(invalid));
 }

@@ -534,7 +534,6 @@ namespace euf {
         // then check the simplified VC: phi(t) => psi.
         // in case psi is the literal instantiation, then the clause is a propositional tautology.
         // The VC function is a no-op if the proof hint does not have an associated vc generator.
-        expr_ref_vector vc(clause);
         if (hint_is_tautology) {
             log_verified(proof_hint, true);
             add_clause(clause);
