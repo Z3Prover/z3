@@ -160,13 +160,11 @@ lbool run_file(
             return collect_len(arg, !sign);
         // normalize to  lhs <op> rhs  with op in {<=, <, =}
         expr* lhs = nullptr, * rhs = nullptr;
-        bool le = false, lt = false, eq = false;
-        if (a.is_le(e, lhs, rhs))      le = true;
-        else if (a.is_lt(e, lhs, rhs)) lt = true;
-        else if (a.is_ge(e, rhs, lhs)) le = true;      // k >= |t|  ==  |t| <= k
-        else if (a.is_gt(e, rhs, lhs)) lt = true;
-        else if (m.is_eq(e, lhs, rhs) && a.is_int(lhs)) eq = true;
-        else return false;
+        bool le = a.is_le(e, lhs, rhs) || a.is_ge(e, rhs, lhs);
+        bool lt = !le && (a.is_lt(e, lhs, rhs) || a.is_gt(e, rhs, lhs));
+        bool eq = !le && !lt && m.is_eq(e, lhs, rhs) && a.is_int(lhs);
+        if (!le && !lt && !eq)
+            return false;
 
         expr* t = nullptr;
         rational k;

@@ -173,13 +173,45 @@ namespace smt {
             }
         }
 
+        // A "matchable literal" generalizes is_literal: besides plain atoms
+        // and their negations, it also accepts Boolean connectives (and, or,
+        // =>) built over matchable literals, recursively. The ho_matcher is
+        // able to decompose these connectives on the fly when matching
+        // against true/false (see the and/or/implies handling added to
+        // ho_matcher::consume_work), so such literals no longer need to be
+        // flattened away here; only genuinely opaque sub-formulas (bare
+        // quantifiers, ite-of-bool, iff/xor, equalities between booleans)
+        // remain unsupported and cause this predicate to return false.
+        bool is_matchable_literal(expr* e) const {
+            if (::is_atom(m, e))
+                return true;
+            if (is_quantifier(e))
+                // A nested quantifier can't be decided by syntactic
+                // matching; ho_matcher treats it as a don't-care
+                // placeholder when decomposing and/or/implies, deferring
+                // its actual truth to the ground solver's validation of
+                // whatever instance is ultimately proposed.
+                return true;
+            if (m.is_not(e))
+                return is_matchable_literal(to_app(e)->get_arg(0));
+            if (m.is_and(e) || m.is_or(e)) {
+                for (expr* arg : *to_app(e))
+                    if (!is_matchable_literal(arg))
+                        return false;
+                return true;
+            }
+            if (m.is_implies(e))
+                return is_matchable_literal(to_app(e)->get_arg(0)) &&
+                       is_matchable_literal(to_app(e)->get_arg(1));
+            return false;
+        }
+
         bool is_clause(quantifier* q, expr_ref_vector& literals) {
             if (!is_forall(q))
                 return false;
             literals.reset();
             flatten_or(q->get_expr(), literals);
-            auto& m = this->m;
-            return all_of(literals, [&m](expr* lit) { return ::is_literal(m, lit); });
+            return all_of(literals, [this](expr* lit) { return is_matchable_literal(lit); });
         }
 
         bool instantiate_matches() {

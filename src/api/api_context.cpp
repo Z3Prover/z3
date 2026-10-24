@@ -21,6 +21,8 @@ Revision History:
 #include "util/debug.h"
 #include "util/z3_version.h"
 #include "api/api_context.h"
+#include "api/api_ast_vector.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
@@ -97,6 +99,12 @@ namespace api {
         }
     }
 
+    // Note: default_error_handler prints to stdout and calls exit(1).
+    // In managed runtime environments (e.g. JVM, Android ART, CLR) or embedded
+    // multi-threaded contexts, calling raw exit() is unsafe because it races with
+    // runtime background threads (e.g. JIT/GC threads) during teardown, causing
+    // SIGSEGV in unrelated threads. Embedders and language bindings should install
+    // custom error handlers or set the handler to NULL and inspect Z3_get_error_code().
     static void default_error_handler(Z3_context ctx, Z3_error_code c) {
         printf("Error: %s\n", Z3_get_error_msg(ctx, c));
         exit(1);
@@ -141,6 +149,7 @@ namespace api {
         m_seq_fid   = m().mk_family_id("seq");
 	    m_char_fid   = m().mk_family_id("char");
         m_special_relations_fid   = m().mk_family_id("specrels");
+        m_ff_fid    = m().mk_family_id("ff");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);
@@ -203,11 +212,46 @@ namespace api {
         return m_string_buffer.c_str();
     }
 
+    void context::set_proof_check_callback(void* user_context, Z3_proof_check_eh callback) {
+        m_proof_check_callback = callback;
+        m_proof_check_user_context = user_context;
+        if (m_cmd)
+            m_cmd->set_proof_check_callback(get_proof_check_callback());
+    }
+
+    cmd_context::proof_check_callback context::get_proof_check_callback() {
+        if (!m_proof_check_callback)
+            return {};
+        return [this](proof* pr, expr_ref_vector const& assertions) {
+            ref<Z3_ast_vector_ref> inputs = alloc(Z3_ast_vector_ref, *this, m());
+            for (expr* assertion : assertions)
+                inputs->m_ast_vector.push_back(assertion);
+            return check_proof(pr, of_ast_vector(inputs.get()));
+        };
+    }
+
+    std::string context::check_proof(proof* pr, Z3_ast_vector assertions) {
+        proof_ref proof_guard(pr, m());
+        ref<Z3_ast_vector_ref> assertions_guard(to_ast_vector(assertions));
+        auto callback = m_proof_check_callback;
+        auto user_context = m_proof_check_user_context;
+        if (!callback)
+            throw default_exception("proof checking callback is not registered");
+        auto report = callback(user_context, reinterpret_cast<Z3_context>(this), of_expr(pr), assertions);
+        if (!report)
+            throw default_exception("proof checking callback returned null");
+        return std::string(report);
+    }
+
     expr * context::mk_numeral_core(rational const & n, sort * s) {
         expr* e = nullptr;
         family_id fid  = s->get_family_id();
         if (fid == arith_family_id) {
             e = m_arith_util.mk_numeral(n, s);
+        }
+        else if (ff_util(m()).is_ff(s)) {
+            if (!n.is_int()) m().raise_exception("finite-field numeral must be an integer");
+            e = ff_util(m()).mk_numeral(n, s);
         }
         else if (fid == m_bv_fid) {
             e = m_bv_util.mk_numeral(n, s);
@@ -381,6 +425,14 @@ extern "C" {
         LOG_Z3_del_context(c);
         RESET_ERROR_CODE();
         dealloc(mk_c(c));
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_set_proof_check_callback(Z3_context c, void* user_context, Z3_proof_check_eh callback) {
+        Z3_TRY;
+        LOG_Z3_set_proof_check_callback(c, user_context, callback);
+        RESET_ERROR_CODE();
+        mk_c(c)->set_proof_check_callback(user_context, callback);
         Z3_CATCH;
     }
 

@@ -99,6 +99,34 @@ let rec all_distinct (#value:eqtype) (vs:list value) : bool =
   | [] -> true
   | x :: rest -> all_distinct_from x rest && all_distinct rest
 
+(* The semantic predicate also applies to domains without decidable
+   equality, including the checker's function-valued array domain. *)
+let rec distinct_from (#a:Type) (x:a) (rest:list a) : Tot prop (decreases rest) =
+  match rest with
+  | [] -> True
+  | y :: ys -> ~(x == y) /\ distinct_from x ys
+
+let rec distinct_values (#a:Type) (vs:list a) : Tot prop (decreases vs) =
+  match vs with
+  | [] -> True
+  | x :: xs -> distinct_from x xs /\ distinct_values xs
+
+let rec lemma_all_distinct_from_spec (#a:eqtype) (x:a) (xs:list a)
+  : Lemma (all_distinct_from x xs <==> distinct_from x xs)
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | _ :: rest -> lemma_all_distinct_from_spec x rest
+
+let rec lemma_all_distinct_spec (#a:eqtype) (xs:list a)
+  : Lemma (all_distinct xs <==> distinct_values xs)
+          (decreases xs) =
+  match xs with
+  | [] -> ()
+  | x :: rest ->
+    lemma_all_distinct_from_spec x rest;
+    lemma_all_distinct_spec rest
+
 (* ----------------------------------------------------------------- *)
 (* Boolean evaluation                                                   *)
 (* ----------------------------------------------------------------- *)
@@ -119,7 +147,7 @@ let rec eval_bool (#value:eqtype) (i:interpretation value) (to_bool:value -> boo
   : Tot bool (decreases e)
   = match e with
     | Var _ _ -> to_bool (eval i e rho)
-    | Quantifier _ _ _ -> to_bool (eval i e rho)
+    | Quantifier _ _ _ _ -> to_bool (eval i e rho)
     | App f args ->
       if is_basic_op f Op_true then true
       else if is_basic_op f Op_false then false

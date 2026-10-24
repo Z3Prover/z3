@@ -103,6 +103,7 @@
     {"file": "regressions/smt2/string13.smt2", "category": "strings-sequences"},
     {"file": "regressions/smt2/issue2301.smt2", "category": "strings-sequences"},
     {"file": "regressions/smt2/3911.smt2", "category": "strings-sequences"},
-    {"file": "cases/random-seed.smt2", "category": "parameters", "source": "local"}
+    {"file": "cases/random-seed.smt2", "category": "parameters", "source": "local"},
+    {"file": "cases/special-relation-lifetime.smt2", "category": "relations", "source": "local"}
   ]
 }

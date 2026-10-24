@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "util/gparams.h"
 #include "muz/base/dl_util.h"
 
 using namespace datalog;
@@ -50,10 +49,8 @@ void dl_util_cycle_from_permutation() {
 }
 
 void tst_dl_util() {
-    gparams::set("fp.engine", "datalog");
     dl_util_two_array_sort();
     dl_util_cycle_from_permutation();
 }
-
 
 

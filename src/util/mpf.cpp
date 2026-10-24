@@ -266,8 +266,9 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         // Check that 1.0 <= sig < 2.0
         SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
-        if (m_mpz_manager.is_int64(exp) &&
-            m_mpz_manager.get_int64(exp) > mk_max_exp(ebits)) {
+        scoped_mpz exp_bound(m_mpz_manager);
+        m_mpz_manager.set(exp_bound, mk_max_exp(ebits));
+        if (m_mpz_manager.gt(exp, exp_bound)) {
             mk_round_inf(rm, o);
             return;
         }
@@ -288,12 +289,11 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         TRACE(mpf_dbg, tout << "sig = " << m_mpz_manager.to_string(o.significand) <<
                                  " exp = " << o.exponent << std::endl;);
 
-        if (m_mpz_manager.is_small(exp)) {
-            o.exponent = m_mpz_manager.get_int64(exp);
-            round(rm, o);
-        }
-        else
-            mk_inf(ebits, sbits, o.sign, o);
+        // Exponents below this bound all round identically because round() caps the shift.
+        mpf_exp_t min_exp = mk_min_exp(ebits) - static_cast<mpf_exp_t>(sbits) - 4;
+        m_mpz_manager.set(exp_bound, min_exp);
+        o.exponent = m_mpz_manager.lt(exp, exp_bound) ? min_exp : m_mpz_manager.get_int64(exp);
+        round(rm, o);
     }
 
     TRACE(mpf_dbg, tout << "set: res = " << to_string(o) << std::endl;);
@@ -1077,13 +1077,37 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
         }
         else {
             SASSERT(rm == MPF_ROUND_NEAREST_TEVEN || rm == MPF_ROUND_NEAREST_TAWAY);
-            bool tie = m_mpz_manager.is_zero(x.significand) && x.exponent == -1;
+            // `x.exponent`/`x.significand` directly give the half/tie
+            // classification below for a *normal* `x` (hidden bit implicit,
+            // `x.significand` holding the fraction alone). A *denormal* `x`
+            // instead always carries the fixed sentinel
+            // `x.exponent == mk_bot_exp(x.ebits)`, regardless of its real
+            // magnitude, because there is no hidden bit to normalize it
+            // against. For formats where that sentinel is not far below -1
+            // (e.g. `x.ebits == 2`, where `mk_bot_exp(2) == -1` coincides
+            // with the tie exponent tested here), comparing it directly
+            // misclassifies subnormals that are nowhere near a tie -- e.g.
+            // the FP(2,3) value 1/4 was incorrectly rounded up to 1 instead
+            // of down to 0 (see GitHub issue #11139). Renormalize a scratch
+            // copy first (inserting the hidden bit, exactly as `unpack`
+            // would) so the tests below see the true exponent and a
+            // hidden-bit-stripped residual significand.
+            mpf_exp_t eff_exponent = x.exponent;
+            scoped_mpz eff_significand(m_mpz_manager);
+            m_mpz_manager.set(eff_significand, x.significand);
+            if (is_denormal(x)) {
+                eff_exponent = mk_min_exp(x.ebits);
+                renormalize(x.ebits, x.sbits, eff_exponent, eff_significand);
+                if (!m_mpz_manager.is_zero(eff_significand))
+                    m_mpz_manager.sub(eff_significand, m_powers2(x.sbits - 1), eff_significand);
+            }
+            bool tie = m_mpz_manager.is_zero(eff_significand) && eff_exponent == -1;
             TRACE(mpf_dbg, tout << "tie = " << tie << std::endl;);
             if (tie && rm == MPF_ROUND_NEAREST_TEVEN)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else if (tie && rm == MPF_ROUND_NEAREST_TAWAY)
                 mk_one(x.ebits, x.sbits, x.sign, o);
-            else if (x.exponent < -1)
+            else if (eff_exponent < -1)
                 mk_zero(x.ebits, x.sbits, x.sign, o);
             else
                 mk_one(x.ebits, x.sbits, x.sign, o);

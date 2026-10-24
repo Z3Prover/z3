@@ -24,7 +24,11 @@ Revision History:
 #if defined(_MSC_VER)
 #pragma float_control( except, on )   // exception semantics; this does _not_ mean that exceptions are enabled (we want them off!)
 #pragma float_control( precise, on )  // precise semantics (no guessing!)
+#if defined(__clang__)
+#pragma clang fp contract(off)
+#else
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
+#endif
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
 #endif
 #else
@@ -555,39 +559,38 @@ void hwf_manager::set_rounding_mode(mpf_rounding_mode rm)
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:
         SETRM(_MM_ROUND_NEAREST);
-        break;
+        return;
     case MPF_ROUND_TOWARD_POSITIVE:
         SETRM(_MM_ROUND_UP);
-        break;
+        return;
     case MPF_ROUND_TOWARD_NEGATIVE:
         SETRM(_MM_ROUND_DOWN);
-        break;
+        return;
     case MPF_ROUND_TOWARD_ZERO:
         SETRM(_MM_ROUND_TOWARD_ZERO);
-        break;
+        return;
     case MPF_ROUND_NEAREST_TAWAY:
-    default:
-        UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
+        break;
     }
 #else
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:
         SETRM(_RC_NEAR);
-        break;
+        return;
     case MPF_ROUND_TOWARD_POSITIVE:
         SETRM(_RC_UP);
-        break;
+        return;
     case MPF_ROUND_TOWARD_NEGATIVE:
         SETRM(_RC_DOWN);
-        break;
+        return;
     case MPF_ROUND_TOWARD_ZERO:
         SETRM(_RC_CHOP);
-        break;
+        return;
     case MPF_ROUND_NEAREST_TAWAY:
-    default:
-        UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
+        break;
     }
 #endif
+    UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
 #else // macOS/Linux
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:

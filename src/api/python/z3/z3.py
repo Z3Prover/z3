@@ -570,7 +570,7 @@ def _to_ref_array(ref, args):
 def _to_ast_ref(a, ctx):
     k = _ast_kind(ctx, a)
     if k == Z3_SORT_AST:
-        return _to_sort_ref(a, ctx)
+        return _to_sort_ref(Sort.from_buffer_copy(a), ctx)
     elif k == Z3_FUNC_DECL_AST:
         return _to_func_decl_ref(a, ctx)
     else:
@@ -591,7 +591,8 @@ class SortRef(AstRef):
     """A Sort is essentially a type. Every Z3 expression has a sort. A sort is an AST node."""
 
     def as_ast(self):
-        return Z3_sort_to_ast(self.ctx_ref(), self.ast)
+        # Z3_sort_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -702,12 +703,16 @@ def _to_sort_ref(s, ctx):
         return BoolSortRef(s, ctx)
     elif k == Z3_INT_SORT or k == Z3_REAL_SORT:
         return ArithSortRef(s, ctx)
+    elif k == Z3_COMPLEX_SORT:
+        return ComplexSortRef(s, ctx)
     elif k == Z3_BV_SORT:
         return BitVecSortRef(s, ctx)
     elif k == Z3_ARRAY_SORT:
         return ArraySortRef(s, ctx)
     elif k == Z3_DATATYPE_SORT:
         return DatatypeSortRef(s, ctx)
+    elif k == Z3_FINITE_FIELD_SORT:
+        return FiniteFieldSortRef(s, ctx)
     elif k == Z3_FINITE_DOMAIN_SORT:
         return FiniteDomainSortRef(s, ctx)
     elif k == Z3_FLOATING_POINT_SORT:
@@ -783,7 +788,8 @@ class FuncDeclRef(AstRef):
     """
 
     def as_ast(self):
-        return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
+        # Z3_func_decl_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -1244,6 +1250,8 @@ def _to_expr_ref(a, ctx):
         if _is_algebraic(ctx, a):
             return AlgebraicNumRef(a, ctx)
         return ArithRef(a, ctx)
+    if sk == Z3_COMPLEX_SORT:
+        return ComplexRef(a, ctx)
     if sk == Z3_BV_SORT:
         if k == Z3_NUMERAL_AST:
             return BitVecNumRef(a, ctx)
@@ -1258,6 +1266,8 @@ def _to_expr_ref(a, ctx):
             return FPNumRef(a, ctx)
         else:
             return FPRef(a, ctx)
+    if sk == Z3_FINITE_FIELD_SORT:
+        return FiniteFieldRef(a, ctx)
     if sk == Z3_FINITE_DOMAIN_SORT:
         if k == Z3_NUMERAL_AST:
             return FiniteDomainNumRef(a, ctx)
@@ -1317,16 +1327,24 @@ def _coerce_exprs(a, b, ctx=None):
         a = RealVal(a, b.ctx)
     if isinstance(b, float) and isinstance(a, ArithRef):
         b = RealVal(b, a.ctx)
+    if isinstance(a, complex) and is_expr(b):
+        a = ComplexVal(a, ctx=b.ctx)
+    if isinstance(b, complex) and is_expr(a):
+        b = ComplexVal(b, ctx=a.ctx)
 
     if _check_same_sort(a, b, ctx):
         return (a, b)
 
-    s = None
-    s = _coerce_expr_merge(s, a)
-    s = _coerce_expr_merge(s, b)
-    a = s.cast(a)
-    b = s.cast(b)
-    return (a, b)
+    if z3_debug():
+        _z3_assert(is_expr(a) or is_expr(b), "At least one of the arguments must be a Z3 expression")
+    # In x + 1 only x is an expression: its sort is the result sort, so only the
+    # Python value needs to be cast.
+    if not is_expr(b):
+        return (a, a.sort().cast(b))
+    if not is_expr(a):
+        return (b.sort().cast(a), b)
+    s = _coerce_expr_merge(_coerce_expr_merge(None, a), b)
+    return (s.cast(a), s.cast(b))
 
 
 def _reduce(func, sequence, initial):
@@ -1344,6 +1362,9 @@ def _coerce_expr_list(alist, ctx=None):
             break
     if not has_expr:
         alist = [_py2expr(a, ctx) for a in alist]
+    else:
+        ctx = ctx if ctx is not None else _ctx_from_ast_arg_list(alist)
+        alist = [ComplexVal(a, ctx=ctx) if isinstance(a, complex) else a for a in alist]
     s = _reduce(_coerce_expr_merge, alist, None)
     return [s.cast(a) for a in alist]
 
@@ -2063,7 +2084,8 @@ class PatternRef(ExprRef):
     """
 
     def as_ast(self):
-        return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
+        # Z3_pattern_to_ast is only a pointer cast, so do it here instead of calling into Z3.
+        return Ast.from_buffer_copy(self.ast)
 
     def get_id(self):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
@@ -2470,7 +2492,7 @@ class ArithSortRef(SortRef):
 
     def subsort(self, other):
         """Return `True` if `self` is a subsort of `other`."""
-        return self.is_int() and is_arith_sort(other) and other.is_real()
+        return is_complex_sort(other) or (self.is_int() and is_arith_sort(other) and other.is_real())
 
     def cast(self, val):
         """Try to cast `val` as an Integer or Real.
@@ -2527,7 +2549,7 @@ def is_arith_sort(s : Any) -> bool:
 
 
 class ArithRef(ExprRef):
-    """Integer and Real expressions."""
+    """Integer, Real, and Complex expressions."""
 
     def sort(self):
         """Return the sort (type) of the arithmetical expression `self`.
@@ -2575,7 +2597,7 @@ class ArithRef(ExprRef):
         Int
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_add, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_add, a, b), self.ctx)
 
     def __radd__(self, other):
         """Create the Z3 expression `other + self`.
@@ -2585,7 +2607,7 @@ class ArithRef(ExprRef):
         10 + x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_add, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_add, b, a), self.ctx)
 
     def __mul__(self, other):
         """Create the Z3 expression `self * other`.
@@ -2600,7 +2622,7 @@ class ArithRef(ExprRef):
         if isinstance(other, BoolRef):
             return If(other, self, 0)
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_mul, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_mul, a, b), self.ctx)
 
     def __rmul__(self, other):
         """Create the Z3 expression `other * self`.
@@ -2610,7 +2632,7 @@ class ArithRef(ExprRef):
         10*x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_mul, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_mul, b, a), self.ctx)
 
     def __sub__(self, other):
         """Create the Z3 expression `self - other`.
@@ -2623,7 +2645,7 @@ class ArithRef(ExprRef):
         Int
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_sub, a, b), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_sub, a, b), self.ctx)
 
     def __rsub__(self, other):
         """Create the Z3 expression `other - self`.
@@ -2633,7 +2655,7 @@ class ArithRef(ExprRef):
         10 - x
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(_mk_bin(Z3_mk_sub, b, a), self.ctx)
+        return _to_expr_ref(_mk_bin(Z3_mk_sub, b, a), self.ctx)
 
     def __pow__(self, other):
         """Create the Z3 expression `self**other` (** is the power operator).
@@ -2684,7 +2706,7 @@ class ArithRef(ExprRef):
         '(/ x y)'
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(Z3_mk_div(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_div(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
     def __truediv__(self, other):
         """Create the Z3 expression `other/self`."""
@@ -2705,7 +2727,7 @@ class ArithRef(ExprRef):
         '(/ 10.0 x)'
         """
         a, b = _coerce_exprs(self, other)
-        return ArithRef(Z3_mk_div(self.ctx_ref(), b.as_ast(), a.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_div(self.ctx_ref(), b.as_ast(), a.as_ast()), self.ctx)
 
     def __rtruediv__(self, other):
         """Create the Z3 expression `other/self`."""
@@ -2747,7 +2769,7 @@ class ArithRef(ExprRef):
         >>> simplify(-(-x))
         x
         """
-        return ArithRef(Z3_mk_unary_minus(self.ctx_ref(), self.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_unary_minus(self.ctx_ref(), self.as_ast()), self.ctx)
 
     def __pos__(self):
         """Return `self`.
@@ -3286,6 +3308,97 @@ class AlgebraicNumRef(ArithRef):
         return Z3_algebraic_get_i(self.ctx_ref(), self.as_ast())
 
 
+class ComplexSortRef(ArithSortRef):
+    """The Complex sort, represented by pairs of Reals."""
+
+    def subsort(self, other):
+        return False
+
+    def cast(self, val):
+        if is_expr(val):
+            _z3_assert(self.ctx == val.ctx, "Context mismatch")
+            if self.eq(val.sort()):
+                return val
+        return ComplexVal(val, ctx=self.ctx)
+
+
+class ComplexRef(ArithRef):
+    """A Complex expression supporting arithmetic, equality, and projections.
+
+    Complex numbers do not support ordering or exponentiation.
+    """
+
+    def sort(self):
+        return ComplexSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def real_part(self):
+        return RealPart(self)
+
+    def imag_part(self):
+        return ImagPart(self)
+
+
+def is_complex_sort(s):
+    """Return whether `s` is a Complex sort."""
+    return isinstance(s, ComplexSortRef)
+
+
+def is_complex(a):
+    """Return whether `a` is a Complex expression."""
+    return isinstance(a, ComplexRef)
+
+
+def ComplexSort(ctx=None):
+    """Return the Complex sort in the given context."""
+    ctx = _get_ctx(ctx)
+    return ComplexSortRef(Z3_mk_complex_sort(ctx.ref()), ctx)
+
+
+def Complex(name, ctx=None):
+    """Create a named Complex constant."""
+    ctx = _get_ctx(ctx)
+    return ComplexRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), ComplexSort(ctx).ast), ctx)
+
+
+def Complexes(names, ctx=None):
+    """Create Complex constants from a space-separated string or list of names."""
+    if isinstance(names, str):
+        names = names.split(" ")
+    return [Complex(name, ctx) for name in names]
+
+
+def ComplexVal(real, imag=0, ctx=None):
+    """Construct a Complex value or expression from Int or Real components.
+
+    A Python complex value may be passed as the sole component argument.
+
+    >>> z = ComplexVal("1/2", 2)
+    >>> simplify(RealPart(z))
+    1/2
+    >>> simplify(ImagPart(z))
+    2
+    """
+    if isinstance(real, complex):
+        _z3_assert(imag == 0, "A Python complex value cannot have an additional imaginary component")
+        real, imag = real.real, real.imag
+    ctx = _get_ctx(ctx if ctx is not None else _ctx_from_ast_arg_list([real, imag]))
+    sort = RealSort(ctx)
+    real, imag = sort.cast(real), sort.cast(imag)
+    return ComplexRef(Z3_mk_complex(ctx.ref(), real.as_ast(), imag.as_ast()), ctx)
+
+
+def RealPart(value):
+    """Return the Real-valued real component of a Complex expression."""
+    _z3_assert(is_complex(value), "Complex expression expected")
+    return _to_expr_ref(Z3_mk_real_part(value.ctx_ref(), value.as_ast()), value.ctx)
+
+
+def ImagPart(value):
+    """Return the Real-valued imaginary component of a Complex expression."""
+    _z3_assert(is_complex(value), "Complex expression expected")
+    return _to_expr_ref(Z3_mk_imag_part(value.ctx_ref(), value.as_ast()), value.ctx)
+
+
 def _py2expr(a, ctx=None):
     if isinstance(a, bool):
         return BoolVal(a, ctx)
@@ -3293,6 +3406,8 @@ def _py2expr(a, ctx=None):
         return IntVal(a, ctx)
     if isinstance(a, float):
         return RealVal(a, ctx)
+    if isinstance(a, complex):
+        return ComplexVal(a, ctx=ctx)
     if isinstance(a, str):
         return StringVal(a, ctx)
     if is_expr(a):
@@ -3356,7 +3471,7 @@ def IntVal(val, ctx=None):
     100
     """
     ctx = _get_ctx(ctx)
-    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), IntSort(ctx).ast), ctx)
+    return IntNumRef(Z3_mk_numeral(ctx.ref(), _to_int_str(val), Z3_mk_int_sort(ctx.ref())), ctx)
 
 
 def RealVal(val, ctx=None):
@@ -3375,7 +3490,7 @@ def RealVal(val, ctx=None):
     3/2
     """
     ctx = _get_ctx(ctx)
-    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), RealSort(ctx).ast), ctx)
+    return RatNumRef(Z3_mk_numeral(ctx.ref(), str(val), Z3_mk_real_sort(ctx.ref())), ctx)
 
 
 def RatVal(a, b, ctx=None):
@@ -6509,6 +6624,28 @@ class AstVector(Z3PPObject):
         x + 1
         >>> A[1]
         y
+        >>> ctx = Context()
+        >>> A = AstVector(ctx=ctx)
+        >>> sorts = [BoolSort(ctx), IntSort(ctx), RealSort(ctx), BitVecSort(8, ctx),
+        ...          ArraySort(IntSort(ctx), BoolSort(ctx)), DeclareSort('S', ctx)]
+        >>> for s in sorts: A.push(s)
+        >>> all(isinstance(A[i], type(s)) and A[i].eq(s)
+        ...     for i, s in enumerate(sorts))
+        True
+        >>> A[-1].eq(sorts[-1])
+        True
+        >>> all(a.eq(s) for a, s in zip(A[:], sorts))
+        True
+        >>> A.push(Int('z', ctx))
+        >>> A.push(Function('f', IntSort(ctx), IntSort(ctx)))
+        >>> is_func_decl(A[-1])
+        True
+        >>> [is_expr(a) for a in A]
+        [False, False, False, False, False, False, True, False]
+        >>> ctx = Context()
+        >>> B = A.translate(ctx)
+        >>> all(B[i].eq(s.translate(ctx)) for i, s in enumerate(sorts))
+        True
         """
 
         if isinstance(i, int):
@@ -9716,11 +9853,11 @@ def Sum(*args):
     if ctx is None:
         return _reduce(lambda a, b: a + b, args, 0)
     args = _coerce_expr_list(args, ctx)
-    if is_bv(args[0]):
+    if is_bv(args[0]) or isinstance(args[0], FiniteFieldRef):
         return _reduce(lambda a, b: a + b, args, 0)
     else:
         _args, sz = _to_ast_array(args)
-        return ArithRef(Z3_mk_add(ctx.ref(), sz, _args), ctx)
+        return _to_expr_ref(Z3_mk_add(ctx.ref(), sz, _args), ctx)
 
 
 def Product(*args):
@@ -9742,11 +9879,11 @@ def Product(*args):
     if ctx is None:
         return _reduce(lambda a, b: a * b, args, 1)
     args = _coerce_expr_list(args, ctx)
-    if is_bv(args[0]):
+    if is_bv(args[0]) or isinstance(args[0], FiniteFieldRef):
         return _reduce(lambda a, b: a * b, args, 1)
     else:
         _args, sz = _to_ast_array(args)
-        return ArithRef(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
+        return _to_expr_ref(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
 
 def Abs(arg):
     """Create the absolute value of an arithmetic expression"""
@@ -10761,7 +10898,7 @@ def _to_float_str(val, exp=0):
             num = v[0]
             den = v[1]
             rvs = str(num) + "/" + str(den)
-            res = rvs + "p" + _to_int_str(exp)
+            res = rvs
     elif isinstance(val, bool):
         if val:
             res = "1.0"
@@ -10773,6 +10910,11 @@ def _to_float_str(val, exp=0):
         inx = val.find("*(2**")
         if inx == -1:
             res = val
+            if exp != 0:
+                inx = val.lower().find("p")
+                if inx != -1:
+                    res = val[:inx]
+                    exp = int(val[inx + 1:]) + int(exp)
         elif val[-1] == ")":
             res = val[0:inx]
             exp = str(int(val[inx + 5:-1]) + int(exp))
@@ -10783,7 +10925,7 @@ def _to_float_str(val, exp=0):
     if exp == 0:
         return res
     else:
-        return res + "p" + exp
+        return res + "p" + str(exp)
 
 
 def fpNaN(s):
@@ -10853,7 +10995,8 @@ def fpZero(s, negative):
 
 
 def FPVal(sig, exp=None, fps=None, ctx=None):
-    """Return a floating-point value of value `val` and sort `fps`.
+    """Return a floating-point value of value `sig * 2**exp` and sort `fps`.
+    If `exp=None`, then the exponent is zero.
     If `ctx=None`, then the global context is used.
 
     >>> v = FPVal(20.0, FPSort(8, 24))
@@ -10873,6 +11016,32 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     +0.0
     >>> FPVal(+0.0, FPSort(8, 24))
     +0.0
+    >>> FPVal(1.0, 3, Float32())
+    1*(2**3)
+    >>> FPVal(1, 3, Float32())
+    1*(2**3)
+    >>> FPVal("1.5", -2, Float32())
+    1.5*(2**-2)
+    >>> FPVal("1.25*(2**4)", 1, Float32())
+    1.25*(2**5)
+    >>> FPVal("1.25*(2**4)", -4, Float32())
+    1.25
+    >>> FPVal("1p2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1P2", 3, Float32())
+    1*(2**5)
+    >>> FPVal("1.5p-2", 2, Float32())
+    1.5
+    >>> FPVal(1.5, 0, Float32())
+    1.5
+    >>> FPVal(1.5, fps=Float32())
+    1.5
+    >>> [FPVal(v, 3, Float32()) for v in
+    ...  [float("nan"), float("inf"), float("-inf"), 0.0, -0.0]]
+    [NaN, +oo, -oo, +0.0, -0.0]
+    >>> [FPVal(v, -2, Float32()) for v in
+    ...  ["NaN", "+oo", "-oo", "+0.0", "-0.0"]]
+    [NaN, +oo, -oo, +0.0, -0.0]
     """
     ctx = _get_ctx(ctx)
     if is_fp_sort(exp):
@@ -10895,7 +11064,7 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     elif val == "-oo" or val == "-inf" or val == "-Inf":
         return fpMinusInfinity(fps)
     else:
-        return FPNumRef(Z3_mk_numeral(ctx.ref(), val, fps.ast), ctx)
+        return FPNumRef(Z3_mk_numeral(ctx.ref(), _to_float_str(sig, exp), fps.ast), ctx)
 
 
 def FP(name, fpsort, ctx=None):
@@ -12602,3 +12771,99 @@ class UserPropagateBase:
 
     def conflict(self, deps = [], eqs = []):
         self.propagate(BoolVal(False, self.ctx()), deps, eqs)
+
+
+class FiniteFieldSortRef(SortRef):
+    """A prime field. Use SolverFor('QF_FF') for incremental field solving."""
+    def size(self):
+        return int(Z3_get_finite_field_sort_size(self.ctx_ref(), self.ast))
+
+    def cast(self, value):
+        if is_expr(value):
+            if not self.eq(value.sort()):
+                raise Z3Exception("finite-field sort mismatch")
+            return value
+        return FiniteFieldVal(value, self)
+
+
+class FiniteFieldRef(ExprRef):
+    def sort(self):
+        return FiniteFieldSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def as_long(self):
+        if not Z3_is_numeral_ast(self.ctx_ref(), self.as_ast()):
+            raise Z3Exception("finite-field numeral expected")
+        return int(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
+
+    def _binary(self, other, operation):
+        other = self.sort().cast(other)
+        args = (Ast * 2)(self.as_ast(), other.as_ast())
+        return FiniteFieldRef(operation(self.ctx_ref(), 2, args), self.ctx)
+
+    def __add__(self, other):
+        return self._binary(other, Z3_mk_ff_add)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __mul__(self, other):
+        return self._binary(other, Z3_mk_ff_mul)
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __neg__(self):
+        return FiniteFieldRef(Z3_mk_ff_neg(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def __sub__(self, other):
+        return self + -self.sort().cast(other)
+
+    def __rsub__(self, other):
+        return self.sort().cast(other) + -self
+
+    def __pow__(self, n):
+        if not isinstance(n, int) or n < 0:
+            raise Z3Exception("finite-field exponent must be a nonnegative integer")
+        result, base = FiniteFieldVal(1, self.sort()), self
+        while n:
+            if n & 1:
+                result = result * base
+            n >>= 1
+            if n:
+                base = base * base
+        return result
+
+
+def FiniteFieldSort(prime, ctx=None):
+    ctx = _get_ctx(ctx)
+    return FiniteFieldSortRef(Z3_mk_finite_field_sort(ctx.ref(), str(prime)), ctx)
+
+
+def FiniteFieldVal(value, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    if not isinstance(value, (int, str)):
+        raise Z3Exception("finite-field value must be an integer")
+    return FiniteFieldRef(Z3_mk_numeral(field.ctx_ref(), str(value), field.ast), field.ctx)
+
+
+def FiniteFieldElem(name, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    return Const(name, field)
+
+
+def FiniteFieldElems(names, field, ctx=None):
+    if not isinstance(field, FiniteFieldSortRef):
+        field = FiniteFieldSort(field, ctx)
+    return [Const(name, field) for name in (names.split() if isinstance(names, str) else names)]
+
+
+def FiniteFieldBitsum(*args):
+    args = _get_args(args)
+    if len(args) < 2 or not isinstance(args[0], FiniteFieldRef):
+        raise Z3Exception("bitsum needs at least two field arguments")
+    field = args[0].sort()
+    values = [field.cast(a) for a in args]
+    raw = (Ast * len(values))(*[a.as_ast() for a in values])
+    return FiniteFieldRef(Z3_mk_ff_bitsum(field.ctx_ref(), len(values), raw), field.ctx)

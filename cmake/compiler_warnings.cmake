@@ -7,7 +7,7 @@ set(GCC_AND_CLANG_WARNINGS
 )
 set(GCC_ONLY_WARNINGS "")
 # Disable C++98 compatibility warnings to prevent excessive warning output
-# when building with clang-cl or when -Weverything is enabled.
+# when -Weverything is enabled by a parent build.
 # These warnings are not useful for Z3 since it requires C++20.
 #
 # The "-Wno-zero-length-array" is for cases where Z3 is fetched by a CMake build
@@ -103,6 +103,10 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_WARNINGS_AS_ERRORS})
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   list(APPEND WARNING_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS})
+  if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    # clang-cl interprets -Wall as /Wall (-Weverything), not Clang's -Wall.
+    list(TRANSFORM WARNING_FLAGS_TO_CHECK REPLACE "^-Wall$" "/clang:-Wall")
+  endif()
   list(APPEND WARNING_FLAGS_TO_CHECK ${CLANG_ONLY_WARNINGS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS_AS_ERRORS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${CLANG_WARNINGS_AS_ERRORS})
@@ -162,8 +166,13 @@ elseif (WARNINGS_AS_ERRORS STREQUAL "SERIOUS_ONLY")
   message(STATUS "Treating only serious compiler warnings as errors")
   # Loop through the flags
   foreach (flag ${WARNING_AS_ERROR_FLAGS_TO_CHECK})
-    # Add globally because some flags need to be passed at link time.
-    z3_add_cxx_flag("${flag}" GLOBAL)
+    if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+      # MSVC-style linkers do not accept compiler warning flags.
+      z3_add_cxx_flag("${flag}")
+    else()
+      # Add globally because some flags need to be passed at link time.
+      z3_add_cxx_flag("${flag}" GLOBAL)
+    endif()
   endforeach()
 elseif (WARNINGS_AS_ERRORS STREQUAL "OFF")
   message(STATUS "Not treating compiler warnings as errors")

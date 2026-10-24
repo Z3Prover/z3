@@ -213,12 +213,18 @@ namespace euf {
         return false;
     }
 
+    // A distinct asserted at the root is clausified directly, like every other
+    // root assertion: the clauses are logged as input, not as alldiff
+    // inferences, because they follow from the asserted distinct and not from
+    // a theory lemma a checker could verify (the asserted distinct itself has
+    // no literal that a hint could carry). The alldiff hint is reserved for
+    // the gate clauses of a distinct below the root, see axiomatize_basic.
     void solver::add_not_distinct_axiom(app* e, enode* const* args) {
         SASSERT(m.is_distinct(e));
         unsigned sz = e->get_num_args();
 
         if (sz <= 1) {
-            s().mk_clause(0, nullptr, mk_distinct_status(0, nullptr));
+            s().mk_clause(0, nullptr, sat::status::input());
             return;
         }
 
@@ -241,11 +247,13 @@ namespace euf {
                 }
             }
             add_root(lits);
-            s().mk_clause(lits, mk_distinct_status(lits));
+            s().mk_clause(lits, sat::status::input());
         }
         else {
             // g(f(x_i)) = x_i
             // f(x_1) = a + .... + f(x_n) = a >= 2
+            // An equisatisfiable encoding over fresh symbols, logged as input
+            // like the direct clausification above.
             sort* srt = e->get_arg(0)->get_sort();
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
@@ -260,13 +268,13 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(lit, mk_distinct_status(lit));
+                s().add_clause(lit, sat::status::input());
                 eqs.push_back(mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2);
-            s().add_clause(lit, mk_distinct_status(lit));
+            s().add_clause(lit, sat::status::input());
         }
     }
 
@@ -286,12 +294,13 @@ namespace euf {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = ~mk_literal(eq);
-                    s().add_clause(lit, mk_distinct_status(lit));
+                    s().add_clause(lit, sat::status::input());
                 }
             }
         }
         else {
-            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n            
+            // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n
+            // An equisatisfiable encoding over a fresh function, logged as input.
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
             func_decl_ref f(m.mk_fresh_func_decl("dist-f", "", 1, &srt, u), m);
@@ -302,7 +311,7 @@ namespace euf {
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(lit, mk_distinct_status(lit));
+                s().add_clause(lit, sat::status::input());
             }
         }
     }

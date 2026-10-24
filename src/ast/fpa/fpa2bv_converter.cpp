@@ -2228,17 +2228,31 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     mk_one(s, one_1, none);
     mk_ite(sgn_eq_1, none, pone, xone);
 
-    expr_ref pow_2_sbitsm1(m), m1(m);
+    // `a_exp` from `unpack` is the *unshifted* denormal sentinel exponent;
+    // `a_lz` is the shift `unpack` applied to `a_sig` to normalize it (so
+    // `a_sig`'s leading 1 lands in the hidden-bit position). The true,
+    // leading-zero-corrected exponent is `a_exp - a_lz` (see the `sqrt`/
+    // `add`/`mul`/... conversions above, which all apply this same
+    // correction); the half/tie tests below must use it too, or subnormals
+    // whose real magnitude is close to 1 (e.g. in the smallest
+    // exponent-width formats) are misclassified -- see GitHub issue #11139.
+    expr_ref real_exp(m), real_exp_ext(m), a_lz_ext(m);
+    real_exp_ext = m_bv_util.mk_sign_extend(1, a_exp);
+    a_lz_ext = m_bv_util.mk_zero_extend(1, a_lz);
+    real_exp = m_bv_util.mk_bv_sub(real_exp_ext, a_lz_ext);
+    dbg_decouple("fpa2bv_r2i_real_exp", real_exp);
+
+    expr_ref pow_2_sbitsm1(m), m1_ext(m);
     pow_2_sbitsm1 = m_bv_util.mk_numeral(fu().fm().m_powers2(sbits - 1), sbits);
-    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits));
+    m1_ext = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits + 1));
     m_simp.mk_eq(a_sig, pow_2_sbitsm1, t1);
-    m_simp.mk_eq(a_exp, m1, t2);
+    m_simp.mk_eq(real_exp, m1_ext, t2);
     m_simp.mk_and(t1, t2, tie);
     dbg_decouple("fpa2bv_r2i_c42_tie", tie);
 
     m_simp.mk_and(tie, rm_is_rte, c421);
     m_simp.mk_and(tie, rm_is_rta, c422);
-    c423 = m_bv_util.mk_sle(a_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits)));
+    c423 = m_bv_util.mk_sle(real_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits + 1)));
 
     dbg_decouple("fpa2bv_r2i_c421", c421);
     dbg_decouple("fpa2bv_r2i_c422", c422);
@@ -3232,7 +3246,7 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
         mk_numeral(s, tz, bv_tz);
 
         expr_ref c1(m), c2(m), c3(m), c4(m);
-        c1 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
+        c1 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_NEGATIVE, 3));
         c2 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
         c3 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3));
         c4 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3));

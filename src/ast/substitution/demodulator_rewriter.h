@@ -141,11 +141,28 @@ public:
     bool operator()(expr * t, expr * i);
 
     bool can_rewrite(expr* n, expr* lhs);
+
+    /**
+       \brief After a successful match via operator()(lhs, rhs, args, new_rhs),
+       retrieve the ground term bound to the lhs-side variable with de Bruijn
+       index \c var_idx (lhs variables live in bank 0). Returns false if the
+       variable was not bound by the match (e.g. it does not occur in lhs).
+       The caller is responsible for checking that the returned term is
+       actually ground (ensured here whenever the matched application itself
+       is ground, since the binding is always a subterm of that application).
+    */
+    bool get_binding(unsigned var_idx, expr_ref& r) const {
+        expr_offset eo;
+        if (!m_subst.find(var_idx, 0, eo))
+            return false;
+        r = eo.get_expr();
+        return true;
+    }
 };
 
 class demodulator_rewriter_util {
     ast_manager& m;
-    std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)> m_rewrite1;
+    std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&, proof_ref&)> m_rewrite1;
 
     typedef std::pair<expr *, bool> expr_bool_pair;
 
@@ -167,13 +184,25 @@ class demodulator_rewriter_util {
     expr_ref_buffer     m_new_exprs;
     expr_ref_vector     m_new_args;
 
+    // Parallel proof-tracking cache: for every original subterm `e` that has
+    // been (partially or fully) rewritten, records a proof that `e` equals
+    // its current cached value (`m_rewrite_cache[e]`), or no entry/nullptr
+    // if `e` is unchanged so far. Composed incrementally via mk_transitivity
+    // every time the rewrite cache for `e` is updated, so by the time `e` is
+    // marked `done` the recorded proof relates the *original* `e` directly
+    // to its final normal form. Only populated when `m.proofs_enabled()`.
+    obj_map<expr, proof*> m_proof_cache;
+    proof_ref_vector        m_proof_trail;
+
     bool rewrite_visit_children(app * a);
     void rewrite_cache(expr * e, expr * new_e, bool done);
+    proof* get_step_proof(expr* e) const;
+    void update(expr* e, expr* new_e, bool done, proof* step_pr);
 
 public:
     demodulator_rewriter_util(ast_manager& m);
-    void set_rewrite1(std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&)>& fn) { m_rewrite1 = fn; }
-    expr_ref rewrite(expr * n);    
+    void set_rewrite1(std::function<bool(func_decl*, expr_ref_vector const&, expr_ref&, proof_ref&)>& fn) { m_rewrite1 = fn; }
+    expr_ref rewrite(expr * n, proof_ref& pr);
 };
 
 class demodulator_rewriter final {

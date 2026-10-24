@@ -138,6 +138,7 @@ public:
     unsigned lowest_row_in_column(unsigned col);
 
     void add_new_element(unsigned i, unsigned j, const T & v);
+    T & add_new_element(unsigned i, unsigned j); // the new coefficient is zero and returned by reference
 
     // adds row i muliplied by coeff to row k
     void add_rows(const mpq& coeff, unsigned i, unsigned k);
@@ -224,6 +225,7 @@ public:
     }
     
     void scan_row_strip_to_work_vector(const row_strip<T> & rvals);
+    unsigned m_cancelled = 0; // number of cells cancelled by the current row operation, see pivot_row_to_row_given_cell
     void clean_row_work_vector(unsigned i);
 
 

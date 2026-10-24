@@ -226,7 +226,10 @@ namespace smt {
         }
     }
 
-    lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
+    lbool parallel::backbones_worker::probe_literal(bool_var v, expr *_e, bool is_retry) {
+        // Keep an owning reference: callers may pass a freshly created literal
+        // whose only reference is the assumption slot popped below.
+        expr_ref e(_e, m);
         asms.push_back(e);
         auto terminal_result = b.check(asms, *ctx);
         asms.pop_back();
@@ -283,8 +286,13 @@ namespace smt {
                     ++m_stats.m_bb_retries;
                 else
                     ++m_stats.m_fallback_singleton_checks;
+
+                // The retry call below passes the same vector for both arguments.
+                // Erasing from bb_candidate_lits while iterating chunk_lits would
+                // then invalidate the loop bounds, so iterate over a snapshot.
+                expr_ref_vector chunk(chunk_lits);
                 
-                for (expr* lit : chunk_lits) {
+                for (expr* lit : chunk) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
@@ -659,7 +667,12 @@ namespace smt {
                 return;
             }
 
-            expr* lit = unknown.back();
+            // Hold an owning reference: popping `unknown` can drop the last
+            // reference to the literal (the solver only keeps internalized
+            // assumptions alive until its assumption scope is popped, and
+            // `not_lit` does not reference `lit` when `lit` is a negation).
+            // `lit` is still used after the check below.
+            expr_ref lit(unknown.back(), m);
             unknown.pop_back();
             expr_ref not_lit(mk_not(m, lit), m);
 

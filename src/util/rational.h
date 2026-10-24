@@ -402,33 +402,19 @@ public:
         return m_minus_one;
     }
 
+    // Perform:  this += c * k
     void addmul(rational const & c, rational const & k) {
-        if (c.is_one())
-            operator+=(k);
-        else if (c.is_minus_one())
-            operator-=(k);
-        else if (k.is_one())
-            operator+=(c);
-        else if (k.is_minus_one())
-            operator-=(c);
-        else {
-            rational tmp(k);
-            tmp *= c;
-            operator+=(tmp);
-        }
+        m().addmul(m_val, c.m_val, k.m_val, m_val);
     }
 
     // Perform:  this -= c * k
     void submul(const rational & c, const rational & k) {
-        if (c.is_one())
-            operator-=(k);
-        else if (c.is_minus_one())
-            operator+=(k);
-        else {
-            rational tmp(k);
-            tmp *= c;
-            operator-=(tmp);
-        }
+        m().submul(m_val, c.m_val, k.m_val, m_val);
+    }
+
+    // r = a * b, without a temporary
+    static void mul(rational const & a, rational const & b, rational & r) {
+        m().mul(a.m_val, b.m_val, r.m_val);
     }
 
     bool is_int_perfect_square(rational & root) const {

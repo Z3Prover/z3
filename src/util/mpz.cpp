@@ -142,7 +142,7 @@ mpz_manager<SYNCH>::sign_cell::sign_cell(mpz_manager& m, mpz const& a):
 
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::del(mpz_manager<SYNCH>* m, mpz & a) { 
+void mpz_manager<SYNCH>::del_big(mpz_manager<SYNCH>* m, mpz & a) { 
     if (a.m_ptr) {
         SASSERT(m);
         m->deallocate(a.m_owner == mpz_self, a.m_ptr); 
@@ -153,7 +153,7 @@ void mpz_manager<SYNCH>::del(mpz_manager<SYNCH>* m, mpz & a) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::add(mpz const & a, mpz const & b, mpz & c) {
+void mpz_manager<SYNCH>::add_slow(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " + " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
         set_i64(c, i64(a) + i64(b));
@@ -165,7 +165,7 @@ void mpz_manager<SYNCH>::add(mpz const & a, mpz const & b, mpz & c) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
+void mpz_manager<SYNCH>::sub_slow(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " - " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
         set_i64(c, i64(a) - i64(b));
@@ -409,7 +409,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::mul(mpz const & a, mpz const & b, mpz & c) {
+void mpz_manager<SYNCH>::mul_slow(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " * " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
         set_i64(c, i64(a) * i64(b));
@@ -422,8 +422,12 @@ void mpz_manager<SYNCH>::mul(mpz const & a, mpz const & b, mpz & c) {
 
 // d <- a + b*c
 template<bool SYNCH>
-void mpz_manager<SYNCH>::addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
-    if (is_one(b)) {
+void mpz_manager<SYNCH>::addmul_slow(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+    if (is_small(a) && is_small(b) && is_small(c)) {
+        // |b*c| < 2^62 and |a| < 2^31, so the sum fits in 64 bits
+        set_i64(d, i64(a) + i64(b) * i64(c));
+    }
+    else if (is_one(b)) {
         add(a, c, d);
     }
     else if (is_minus_one(b)) {
@@ -440,8 +444,11 @@ void mpz_manager<SYNCH>::addmul(mpz const & a, mpz const & b, mpz const & c, mpz
 
 // d <- a - b*c
 template<bool SYNCH>
-void mpz_manager<SYNCH>::submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
-    if (is_one(b)) {
+void mpz_manager<SYNCH>::submul_slow(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+    if (is_small(a) && is_small(b) && is_small(c)) {
+        set_i64(d, i64(a) - i64(b) * i64(c));
+    }
+    else if (is_one(b)) {
         sub(a, c, d);
     }
     else if (is_minus_one(b)) {

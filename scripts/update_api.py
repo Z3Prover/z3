@@ -429,7 +429,7 @@ def mk_dotnet(dotnet):
         sig = sig.replace("unsigned const*","uint[]")
         sig = sig.replace("void*","voidp").replace("unsigned","uint")
         sig = sig.replace("Z3_ast*","ref IntPtr").replace("uint*","ref uint").replace("Z3_lbool*","ref int")
-        ret = ret.replace("void*","voidp").replace("unsigned","uint")        
+        ret = ret.replace("void*","voidp").replace("unsigned","uint").replace("Z3_string", "IntPtr")
         if "*" in sig or "*" in ret:
             continue
         dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
@@ -893,6 +893,10 @@ def mk_java(java_src, java_dir, package_name):
                 java_wrapper.write('  jenv->ReleaseStringUTFChars(a%s, _a%s);\n' % (i, i));
             i = i + 1
         # return
+        if name == 'Z3_mk_context' or name == 'Z3_mk_context_rc':
+            # Z3JavaErrorHandler is defined in NativeStatic.txt which is prepended to Native.cpp
+            java_wrapper.write('  if (result != 0)\n')
+            java_wrapper.write('      Z3_set_error_handler((Z3_context) result, Z3JavaErrorHandler); // Defined in NativeStatic.txt\n')
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:
@@ -1410,9 +1414,11 @@ z3_long_funs = frozenset([
     ])
 
 z3_ml_overrides = frozenset([
-    'Z3_mk_config'])
+    'Z3_mk_config',
+    'Z3_eval_smtlib2_string'])
 
 z3_ml_callbacks = frozenset([
+    'Z3_set_proof_check_callback',
     'Z3_solver_propagate_init',
     'Z3_solver_propagate_fixed',
     'Z3_solver_propagate_final',
@@ -1704,7 +1710,12 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 if name in NULLWrapped:
                     ml_wrapper.write('  z3rv = %s_mk(z3rv_m);\n' % pts)
                 else:
-                    ml_wrapper.write('  z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, ml_minus_type(ts)))
+                    result_ctx = 'ctx_p'
+                    if name in ('Z3_translate', 'Z3_model_translate', 'Z3_ast_vector_translate',
+                                'Z3_goal_translate', 'Z3_solver_translate', 'Z3_optimize_translate'):
+                        # Translated objects belong to the target, not the source context.
+                        result_ctx = '*(Z3_context_plus*) Data_custom_val(a2)'
+                    ml_wrapper.write('  z3rv = %s_mk(%s, (%s) z3rv_m);\n' % (pts, result_ctx, ml_minus_type(ts)))
 
         # convert output params
         if len(op) > 0:
@@ -1818,7 +1829,7 @@ def def_APIs(api_files):
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
   log_h.write('#include\"api/z3.h\"\n')
-  log_h.write('#ifdef __GNUC__\n')
+  log_h.write('#if defined(__GNUC__) || defined(__clang__)\n')
   log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
   log_h.write('#else\n')
   log_h.write('#define _Z3_UNUSED\n')
@@ -1978,6 +1989,7 @@ _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
 Z3_on_clause_eh = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint), ctypes.c_void_p)
+Z3_proof_check_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
 Z3_push_eh  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 Z3_pop_eh   = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 Z3_fresh_eh = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)

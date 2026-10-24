@@ -223,6 +223,31 @@ branch y_i >= ceil(y0_i) is impossible.
         fill_term(f, t);
         k = floor(b[cut_row]);
         upper = true;
+        if (lra.dep_manager().proofs_enabled()) {
+            u_dependency* support = nullptr;
+            for (auto* dep : m_constraints_for_explanation)
+                support = lra.join_deps(support, dep);
+            auto* linear = lra.dep_manager().derive(support, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::linear;
+                r.conclusion.lhs = t.coeffs_as_vector();
+                r.conclusion.kind = LE;
+                r.conclusion.rhs = impq(b[cut_row]);
+                for (unsigned i = 0; i < m_constraints_for_explanation.size(); ++i)
+                    r.premises.push_back({m_constraints_for_explanation[i], row[i]});
+                return r;
+            });
+            auto* rounded = lra.dep_manager().derive(linear, [&] {
+                evidence_manager::recipe r;
+                r.kind = evidence_manager::rule::integer_tighten;
+                r.conclusion.lhs = t.coeffs_as_vector();
+                r.conclusion.kind = LE;
+                r.conclusion.rhs = impq(k);
+                r.premises.push_back({linear, mpq(1)});
+                return r;
+            });
+            ex->set_evidence(rounded);
+        }
         return lia_move::cut;
     }
 
@@ -278,10 +303,12 @@ branch y_i >= ceil(y0_i) is impossible.
                   );
             SASSERT(lia.current_solution_is_inf_on_cut());
             lia.settings().stats().m_hnf_cuts++;
+            auto* evidence = lia.expl()->evidence();
             lia.expl()->clear();        
             for (u_dependency* dep : constraints_for_explanation()) 
                 for (auto ci : lia.lra.flatten(dep))
-                    lia.expl()->push_back(ci);            
+                    lia.expl()->push_back(ci);
+            lia.expl()->set_evidence(evidence);
         } 
         return r;
     }

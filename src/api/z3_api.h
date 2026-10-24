@@ -152,6 +152,8 @@ typedef enum
     Z3_RE_SORT,
     Z3_CHAR_SORT,
     Z3_TYPE_VAR,
+    Z3_FINITE_FIELD_SORT,
+    Z3_COMPLEX_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -405,6 +407,8 @@ typedef enum
    - Z3_OP_BSMOD_I: Binary signed modulus.
      It has the same semantics as Z3_OP_BSMOD, but created in a context where the second operand can be assumed to be non-zero.
 
+   - Z3_OP_MKBV: Construct a bit-vector from Boolean bits, least-significant bit first.
+
    - Z3_OP_PR_UNDEF: Undef/Null proof object.
 
    - Z3_OP_PR_TRUE: Proof for the expression 'true'.
@@ -638,6 +642,12 @@ typedef enum
 
    - Z3_OP_PR_CLAUSE_TRAIL,
      Clausal proof trail of additions and deletions
+
+   - Z3_OP_PR_TH_ASSUMPTION_ADD
+     Clausal proof theory axiom addition, optionally carrying a proof certificate.
+
+   - Z3_OP_PR_TH_LEMMA_ADD
+     Clausal proof theory lemma addition, optionally carrying a proof certificate.
 
    - Z3_OP_PR_DEF_INTRO: Introduces a name for a formula/term.
        Suppose e is an expression with free variables x, and def-intro
@@ -1049,6 +1059,9 @@ typedef enum {
     Z3_OP_IS_INT,
     Z3_OP_POWER,
     Z3_OP_ABS,
+    Z3_OP_COMPLEX,
+    Z3_OP_REAL_PART,
+    Z3_OP_IMAG_PART,
 
     // Arrays & Sets
     Z3_OP_STORE = 0x300,
@@ -1137,6 +1150,7 @@ typedef enum {
     Z3_OP_BSREM_I,
     Z3_OP_BUREM_I,
     Z3_OP_BSMOD_I,
+    Z3_OP_MKBV,
 
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,
@@ -1181,6 +1195,8 @@ typedef enum {
     Z3_OP_PR_MODUS_PONENS_OEQ,
     Z3_OP_PR_TH_LEMMA,
     Z3_OP_PR_HYPER_RESOLVE,
+    Z3_OP_PR_TH_ASSUMPTION_ADD,
+    Z3_OP_PR_TH_LEMMA_ADD,
 
     // Relational algebra
     Z3_OP_RA_STORE = 0x600,
@@ -1358,7 +1374,13 @@ typedef enum {
     Z3_OP_INTERNAL,
     Z3_OP_RECURSIVE,
 
-    Z3_OP_UNINTERPRETED
+    Z3_OP_UNINTERPRETED,
+
+    Z3_OP_FF_NUM = 0xd000,
+    Z3_OP_FF_ADD,
+    Z3_OP_FF_MUL,
+    Z3_OP_FF_NEG,
+    Z3_OP_FF_BITSUM
 } Z3_decl_kind;
 
 /**
@@ -1482,6 +1504,21 @@ Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_as
 Z3_DECLARE_CLOSURE(Z3_decide_eh,  void, (void* ctx, Z3_solver_callback cb, Z3_ast t, unsigned idx, bool phase));
 Z3_DECLARE_CLOSURE(Z3_on_binding_eh, bool, (void* ctx, Z3_solver_callback cb, Z3_ast q, Z3_ast inst));
 Z3_DECLARE_CLOSURE(Z3_on_clause_eh, void, (void* ctx, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals));
+
+/**
+   \brief Client proof checker. See #Z3_set_proof_check_callback.
+
+   The proof and assertion vector are borrowed and protected from collection
+   until the callback returns. Retaining them requires the usual reference
+   counting APIs. All handles belong to \c c.
+
+   Return a non-null, null-terminated UTF-8 report. The returned storage belongs
+   to the client and must remain valid immediately after the callback returns;
+   Z3 copies it before invoking another callback. Returning null reports an error.
+   The callback must not throw across the C ABI, delete \c c, or re-enter
+   SMT-LIB command evaluation on \c c.
+*/
+Z3_DECLARE_CLOSURE(Z3_proof_check_eh, Z3_string, (void* user_context, Z3_context c, Z3_ast proof, Z3_ast_vector assertions));
 
 
 /**
@@ -1654,6 +1691,7 @@ extern "C" {
          Z3 will return the same pointer twice.
 
        \sa Z3_del_context
+       \sa Z3_set_error_handler
 
        def_API('Z3_mk_context', CONTEXT, (_in(CONFIG),))
     */
@@ -1679,6 +1717,9 @@ extern "C" {
        - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
 
+       \sa Z3_del_context
+       \sa Z3_set_error_handler
+
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
     Z3_context Z3_API Z3_mk_context_rc(Z3_config c);
@@ -1691,6 +1732,33 @@ extern "C" {
        def_API('Z3_del_context', VOID, (_in(CONTEXT),))
     */
     void Z3_API Z3_del_context(Z3_context c);
+
+    /**
+       \brief Register a client proof checker for \c c.
+
+       Replaces the previous callback and user data. Passing a null callback
+       unregisters it. The client owns the callback and user data and must keep
+       them alive until replacement, unregistration, or context destruction.
+
+       SMT-LIB evaluation through #Z3_eval_smtlib2_string invokes the callback
+       after an unsatisfiable check-sat,
+       check-sat-assuming, or check-sat-using command. Automatic reports go to the
+       command context's diagnostic stream, included in the returned evaluation
+       text. Ordinary #Z3_solver_check calls do not invoke it automatically.
+
+       Automatic checking requires proof production to be enabled before
+       assertions are added. An unavailable proof is reported as a command error.
+       The automatic assertion vector contains the active input assertions and
+       current check assumptions. Named assertions tracked for unsat cores are
+       represented by their guarded assertions and tracking literals, matching
+       the proof premises.
+
+       Registration survives SMT-LIB reset commands. The report is opaque:
+       Z3 does not interpret it or change the solver's satisfiability result.
+
+       def_API('Z3_set_proof_check_callback', VOID, (_in(CONTEXT), _in(VOID_PTR), _fnptr(Z3_proof_check_eh)))
+    */
+    void Z3_API Z3_set_proof_check_callback(Z3_context c, void* user_context, Z3_proof_check_eh callback);
 
     /**
        \brief Increment the reference counter of the given AST.
@@ -1968,6 +2036,40 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_real_sort(Z3_context c);
 
     /**
+       \brief Create the Complex sort. Complex numbers are pairs of Reals.
+
+       Use \c Z3_mk_complex to construct values and \c Z3_mk_real_part and
+       \c Z3_mk_imag_part to access their components. The arithmetic APIs
+       for addition, subtraction, multiplication, negation, and division
+       accept Complex expressions. Ordering and exponentiation do not.
+
+       def_API('Z3_mk_complex_sort', SORT, (_in(CONTEXT), ))
+    */
+    Z3_sort Z3_API Z3_mk_complex_sort(Z3_context c);
+
+    /**
+       \brief Create a complex number with the given real and imaginary components.
+       Integer components are coerced to Real.
+
+       def_API('Z3_mk_complex', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_complex(Z3_context c, Z3_ast re, Z3_ast im);
+
+    /**
+       \brief Return the real component of a Complex expression.
+
+       def_API('Z3_mk_real_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_real_part(Z3_context c, Z3_ast z);
+
+    /**
+       \brief Return the imaginary component of a Complex expression.
+
+       def_API('Z3_mk_imag_part', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_imag_part(Z3_context c, Z3_ast z);
+
+    /**
        \brief Create a bit-vector type of the given size.
 
        This type can also be seen as a machine integer.
@@ -1992,6 +2094,32 @@ extern "C" {
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
     Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size);
+
+    /** \brief Create a prime-field sort. Large moduli undergo probable-prime screening.
+        def_API('Z3_mk_finite_field_sort', SORT, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_sort Z3_API Z3_mk_finite_field_sort(Z3_context c, Z3_string prime);
+    /** \brief Return the decimal modulus of a finite-field sort.
+        def_API('Z3_get_finite_field_sort_size', STRING, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_string Z3_API Z3_get_finite_field_sort_size(Z3_context c, Z3_sort s);
+    /** \brief Sum at least two elements of the same prime field.
+        def_API('Z3_mk_ff_add', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_add(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Multiply at least two elements of the same prime field.
+        def_API('Z3_mk_ff_mul', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_mul(Z3_context c, unsigned n, Z3_ast const args[]);
+    /** \brief Additive inverse in a prime field.
+        def_API('Z3_mk_ff_neg', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_neg(Z3_context c, Z3_ast a);
+    /** \brief Weighted sum a0 + 2*a1 + 4*a2 + ... (does not constrain arguments to bits).
+        def_API('Z3_mk_ff_bitsum', AST, (_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ff_bitsum(Z3_context c, unsigned n, Z3_ast const args[]);
+
 
     /**
        \brief Create an array type.
@@ -2539,7 +2667,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] + ... + args[num_args-1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark The number of arguments must be greater than zero.
 
@@ -2551,7 +2679,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] * ... * args[num_args-1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark Z3 has limited support for non-linear arithmetic.
        \remark The number of arguments must be greater than zero.
@@ -2564,7 +2692,7 @@ extern "C" {
        \brief Create an AST node representing \ccode{args[0] - ... - args[num_args - 1]}.
 
        The array \c args must have \c num_args elements.
-       All arguments must have int or real sort.
+       All arguments must have Int, Real, or Complex sort.
 
        \remark The number of arguments must be greater than zero.
 
@@ -2575,7 +2703,7 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{- arg}.
 
-       The arguments must have int or real type.
+       The argument must have Int, Real, or Complex sort.
 
        def_API('Z3_mk_unary_minus', AST, (_in(CONTEXT), _in(AST)))
     */
@@ -2584,9 +2712,11 @@ extern "C" {
     /**
        \brief Create an AST node representing \ccode{arg1 div arg2}.
 
-       The arguments must either both have int type or both have real type.
-       If the arguments have int type, then the result type is an int type, otherwise the
-       the result type is real.
+       The arguments must have Int, Real, or Complex sort. Int arguments use
+       integer division. Real and Complex arguments use their respective division
+       operations, with Int embedded in Real and Int/Real embedded in Complex.
+       Complex division is lowered to Real component division; at a zero Complex
+       denominator, both components are the same totalized Real \c 0/0 value.
 
        def_API('Z3_mk_div', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
@@ -6267,9 +6397,22 @@ extern "C" {
        and will be called in this case.  To disable the use of the
        error handler, simply register with \c h=NULL.
 
+       By default, newly created contexts install an internal default error
+       handler that prints the error message and terminates the process via
+       \c exit(1). While suitable for standalone CLI programs, calling
+       raw \c exit() is unsafe when Z3 is invoked from within a managed
+       runtime environment (such as Java/JNI under Android ART or the JVM,
+       or .NET/CLR) or multi-threaded embedders: process termination can race
+       with background runtime threads (e.g., JIT compilation or GC threads),
+       producing crashes (SIGSEGV) in unrelated runtime threads. Embedders
+       in managed runtimes should always register their own error handler or
+       disable it by passing \c h=NULL and inspecting #Z3_get_error_code.
+
        \warning Log files, created using #Z3_open_log, may be potentially incomplete/incorrect if error handlers are used.
 
        \sa Z3_get_error_code
+       \sa Z3_mk_context
+       \sa Z3_mk_context_rc
     */
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h);
 

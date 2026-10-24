@@ -58,6 +58,7 @@ const types = {
   Z3_decide_eh: 'Z3_decide_eh',
   Z3_on_binding_eh: 'Z3_on_binding_eh',
   Z3_on_clause_eh: 'Z3_on_clause_eh',
+  Z3_proof_check_eh: 'Z3_proof_check_eh',
 } as unknown as Record<string, string>;
 
 export type ApiParam = { kind: string; sizeIndex?: number; type: string };

@@ -77,6 +77,61 @@ static void check_array_domain(char const* input, lbool expected) {
     VERIFY(expected == slv->check_sat(0, nullptr));
 }
 
+static void check_array_index_dependencies() {
+    for (char const* input : {
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(assert (= ((as const (Array D Bool)) false)\n"
+        "  (store (store (store ((as const (Array D Bool)) true)\n"
+        "                      a false) b false) x false)))\n",
+        "(declare-datatypes () ((D a b c)))\n"
+        "(declare-const x D)\n"
+        "(declare-const y Bool)\n"
+        "(assert (= ((as const (Array D Bool Bool)) false)\n"
+        "  (store (store (store (store (store (store\n"
+        "    ((as const (Array D Bool Bool)) true)\n"
+        "    a false false) a true false) b false false) b true false) c false false) x y false)))\n"}) {
+        for (unsigned backend = 0; backend < 3; ++backend) {
+            bool sat_smt = backend == 2;
+            auto mode = backend == 1 ? PGM_ENABLED : PGM_DISABLED;
+            ast_manager m(mode);
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", sat_smt);
+            p.set_bool("unsat_core", true);
+            auto make_solver = [&]() {
+                ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+                for (expr* assertion : cmd.assertions())
+                    slv->assert_expr(assertion);
+                return slv;
+            };
+            ref<solver> slv = make_solver();
+            VERIFY(l_true == slv->check_sat(0, nullptr));
+
+            expr_ref_vector assumptions(m);
+            assumptions.push_back(m.mk_eq(m.mk_const(cmd.find_func_decl(symbol("x"))),
+                                          m.mk_const(cmd.find_func_decl(symbol("a")))));
+            if (cmd.is_func_decl(symbol("y")))
+                assumptions.push_back(m.mk_not(m.mk_const(cmd.find_func_decl(symbol("y")))));
+
+            for (expr* assumption : assumptions) {
+                slv = make_solver();
+                VERIFY(l_false == slv->check_sat(1, &assumption));
+                expr_ref_vector core(m);
+                slv->get_unsat_core(core);
+                // The array equality is satisfiable, so the conflict must
+                // depend on the assumption about the index component.
+                VERIFY(core.size() == 1);
+                VERIFY(core[0] == assumption);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
 static void check_symbolic_regex_substring() {
     for (unsigned relevancy : {0u, 2u}) {
         for (char const* word : {"x", "xy"}) {
@@ -108,9 +163,106 @@ static void check_symbolic_regex_substring() {
     }
 }
 
+static void check_nonlinear_to_int() {
+    for (char const* input : {
+            "(declare-fun N () Int)\n"
+            "(assert (<= 1 N))\n"
+            "(assert (<= N 3))\n"
+            "(assert (> (- (* (to_real N) (to_real N))"
+            " (* 2.0 (to_real (to_int (/ (* (to_real N) (to_real N)) 2.0))))) 1.0))\n",
+            "(declare-fun N () Int)\n"
+            "(assert (<= 4.0 (to_real N)))\n"
+            "(assert (<= (to_real N) 16.0))\n"
+            "(assert (> (- (* -4.0 (* (to_real N) (to_real N)))"
+            " (* 128.0 (to_real (to_int (/ (* -4.0 (* (to_real N) (to_real N))) 128.0))))) 124.0))\n"}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(l_false == slv->check_sat(0, nullptr));
+
+        slv = mk_smt2_solver(m, params_ref(), symbol::null);
+        slv->assert_expr(cmd.assertions()[0]);
+        slv->assert_expr(cmd.assertions()[1]);
+        expr_ref complement(m.mk_not(cmd.assertions()[2]), m);
+        slv->assert_expr(complement);
+        VERIFY(l_true == slv->check_sat(0, nullptr));
+        model_ref model;
+        slv->get_model(model);
+        expr_ref value(m);
+        VERIFY(model->eval_expr(complement, value));
+        VERIFY(m.is_true(value));
+    }
+}
+
+static void check_real_power_bounds() {
+    for (unsigned seed = 0; seed < 8; ++seed) {
+        for (char const* input : {
+                "(declare-const y Real)\n"
+                "(assert (>= y 1))\n"
+                "(assert (< (^ (/ 1 2) y) (/ 1 2)))\n",
+                "(declare-const y Real)\n"
+                "(assert (> y 0))\n"
+                "(assert (<= y 1))\n"
+                "(assert (> (^ (/ 1 2) y) (/ 1 2)))\n"}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", true);
+            p.set_uint("random_seed", seed);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            slv->push();
+            for (expr* assertion : cmd.assertions())
+                slv->assert_expr(assertion);
+            // General real powers may return unknown, but must not refute these witnesses.
+            VERIFY(l_false != slv->check_sat(0, nullptr));
+        }
+    }
+}
+
+static void check_special_relation_logic() {
+    for (char const* logic : {"UFDTLIA", "ALL", ""}) {
+        for (bool external : {false, true}) {
+            for (bool initialized : {false, true}) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                cmd_context cmd(false, external ? &m : nullptr);
+                if (initialized)
+                    cmd.m();
+                bool restricted = !strcmp(logic, "UFDTLIA");
+                std::ostringstream input;
+                if (*logic)
+                    input << "(set-logic " << logic << ")\n";
+                input << "(declare-sort U 0)\n"
+                      << "(declare-const h U)\n";
+                if (restricted)
+                    input << "(declare-fun partial-order (U U) Bool)\n";
+                input << "(assert (partial-order h h))\n";
+                std::istringstream is(input.str());
+                ENSURE(parse_smt2_commands(cmd, is));
+                ENSURE(cmd.assertions().size() == 1);
+                auto* assertion = to_app(cmd.assertions().get(0));
+                ENSURE(assertion->get_family_id() ==
+                       (restricted ? null_family_id : cmd.m().get_family_id("specrels")));
+            }
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_special_relation_logic();
+    check_nonlinear_to_int();
+    check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_array_index_dependencies();
 
     smt_params params;
 
@@ -320,10 +472,9 @@ void tst_smt_context()
             "  (= (length lindx2) 11)\n"
             "  (forall ((i Int)) (=> (and (<= 3 i) (<= i 25)) (= (select indx1 i) (- 1))))))\n");
         VERIFY(parse_smt2_commands(cmd, is));
-        ref<solver> slv = mk_smt2_solver(m, params_ref(), symbol::null);
-        for (expr* a : cmd.assertions())
-            slv->assert_expr(a);
-        VERIFY(l_true == slv->check_sat(0, nullptr));
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        cmd.check_sat(0, nullptr);
+        VERIFY(cmd.cs_state() == cmd_context::css_sat);
     }
 
     check_sat_smt_recfun(
@@ -356,6 +507,7 @@ void tst_smt_context()
         cmd.set_solver_factory(mk_smt_strategic_solver_factory());
         cmd.params().set_rlimit(1000000);
         std::istringstream is(
+            "(set-option :smt.distribute_forall true)\n"
             "(declare-fun a () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun b () (Array (_ BitVec 11) (_ BitVec 8)))\n"
             "(declare-fun c () (Array (_ BitVec 11) (_ BitVec 16)))\n"
@@ -476,6 +628,25 @@ void tst_smt_context()
         "(assert (forall ((s S))\n"
         "  (= (store ((as const (Array S (_ BitVec 8))) #x00) s #x01)\n"
         "     ((as const (Array S (_ BitVec 8))) #x01))))\n", l_true);
+
+    // Regression (issue #11156): MBQI must not give up on array model values over uninterpreted sorts.
+    check_array_domain(
+        "(declare-datatypes ((x5 0)) (((x3) (x4))))\n"
+        "(declare-sort x31)\n"
+        "(declare-datatypes ((x36 0)) (((x35))))\n"
+        "(declare-sort x6)\n"
+        "(declare-datatypes ((x29 0)) (((x28 (x23 x5)))))\n"
+        "(declare-sort x30)\n"
+        "(declare-datatypes ((x45 0)) (((x44 (x38 x5) (x39 x6) (x40 x6) (x41 x6) (x42 x36) (x43 x31)))))\n"
+        "(declare-fun x63 () x30)\n"
+        "(declare-fun x70 () (Array x30 x45))\n"
+        "(declare-fun x68 () (Array x30 x45))\n"
+        "(declare-fun z3name!0 (x30) x29)\n"
+        "(declare-fun l51 () Bool)\n"
+        "(assert (= l51 (forall ((x73 x30)) (or (= x3 (x23 (z3name!0 x73))) (= x3 (x38 (select x70 x73)))))))\n"
+        "(assert (not (= x70 (store x70 x63 (x44 x4 (x39 (select x70 x63)) (x40 (select x70 x63)) (x41 (select x70 x63)) (x42 (select x70 x63)) (x43 (select x70 x63)))))))\n"
+        "(assert (not (= x70 x68)))\n"
+        "(assert l51)\n", l_true);
 
     // Regression (issue #10996, bug A): the equality atom (= x (ite p x y)) is first
     // internalized in a gate context by the ite-term axioms, and must still be merged

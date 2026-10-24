@@ -6,11 +6,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "api/z3.h"
 #include "api/z3_private.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 #include <iostream>
 #include "util/util.h"
 #include "util/trace.h"
 #include <map>
 #include <string>
+#include <vector>
 #include "util/trace.h"
 
 static void test_solver_model_completion() {
@@ -388,6 +391,167 @@ void test_strict_real_maximize_disjunction() {
     Z3_del_context(ctx);
 }
 
+static Z3_context g_last_error_ctx = nullptr;
+static Z3_error_code g_last_error_code = Z3_OK;
+static int g_error_handler_calls = 0;
+
+static void custom_test_error_handler(Z3_context c, Z3_error_code e) {
+    g_last_error_ctx = c;
+    g_last_error_code = e;
+    g_error_handler_calls++;
+}
+
+static void test_error_handler() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    // Test 1: Disabling error handler with nullptr prevents exit(1) and records error code
+    Z3_set_error_handler(ctx, nullptr);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    // Provoke an invalid argument error (asserting null formula triggers CHECK_FORMULA)
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    // Explicit error setting also works with nullptr handler
+    Z3_set_error(ctx, Z3_PARSER_ERROR);
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+
+    // Test 2: Custom error handler is invoked with expected arguments
+    g_last_error_ctx = nullptr;
+    g_last_error_code = Z3_OK;
+    g_error_handler_calls = 0;
+
+    Z3_set_error_handler(ctx, custom_test_error_handler);
+    Z3_solver_assert(ctx, s, nullptr);
+    ENSURE(g_error_handler_calls == 1);
+    ENSURE(g_last_error_ctx == ctx);
+    ENSURE(g_last_error_code == Z3_INVALID_ARG);
+    ENSURE(Z3_get_error_code(ctx) == Z3_INVALID_ARG);
+
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+}
+
+struct proof_callback_state {
+    Z3_context context = nullptr;
+    std::vector<std::vector<std::string>> inputs;
+    std::string report = "client proof report";
+    bool null_report = false;
+    bool ast_report = false;
+    bool unregister = false;
+};
+
+static Z3_string test_proof_callback(void* user_context, Z3_context c, Z3_ast pr, Z3_ast_vector assertions) {
+    auto& state = *static_cast<proof_callback_state*>(user_context);
+    ENSURE(c == state.context);
+    Z3_mk_ast_vector(c);
+    Z3_mk_true(c);
+    ENSURE(Z3_get_ast_kind(c, pr) == Z3_APP_AST);
+    std::vector<std::string> inputs;
+    for (unsigned i = 0; i < Z3_ast_vector_size(c, assertions); ++i) {
+        Z3_ast input = Z3_ast_vector_get(c, assertions, i);
+        ENSURE(Z3_get_sort_kind(c, Z3_get_sort(c, input)) == Z3_BOOL_SORT);
+        inputs.emplace_back(Z3_ast_to_string(c, input));
+    }
+    state.inputs.push_back(std::move(inputs));
+    if (state.unregister)
+        Z3_set_proof_check_callback(c, nullptr, nullptr);
+    if (state.null_report)
+        return nullptr;
+    if (state.ast_report)
+        return Z3_ast_to_string(c, pr);
+    return state.report.c_str();
+}
+
+static void test_command_proof_check_callback() {
+    Z3_context ctx = Z3_mk_context_rc(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    proof_callback_state state;
+    state.context = ctx;
+    Z3_set_proof_check_callback(ctx, &state, test_proof_callback);
+    auto eval = [&](char const* commands) {
+        std::string result = Z3_eval_smtlib2_string(ctx, commands);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+        return result;
+    };
+    ENSURE(eval("(set-option :produce-proofs true)"
+                "(declare-const p Bool)(assert p)(check-sat)"
+                "(check-sat-assuming ((not p)))") == "sat\nunsat\nclient proof report\n");
+    ENSURE(state.inputs.size() == 1);
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"p", "(not p)"}));
+    ENSURE(eval("(push)(assert (not p))(check-sat)(pop)(check-sat)") ==
+           "unsat\nclient proof report\nsat\n");
+    ENSURE(state.inputs.size() == 2);
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"p", "(not p)"}));
+    ENSURE(eval("(check-sat-using skip)") == "unknown\n");
+    ENSURE(state.inputs.size() == 2);
+    ENSURE(eval("(assert (not p))(check-sat-using smt)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.size() == 3);
+    ENSURE(eval("(reset-assertions)(assert false)(check-sat)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.back() == std::vector<std::string>{"false"});
+    state.ast_report = true;
+    ENSURE(eval("(check-sat)") == "unsat\n(asserted false)\n");
+    state.ast_report = false;
+    state.report.clear();
+    ENSURE(eval("(check-sat)") == "unsat\n");
+    state.report = "client proof report";
+    ENSURE(eval("(reset)(set-option :produce-proofs true)"
+                "(set-option :produce-unsat-cores true)"
+                "(declare-const p Bool)(assert (! p :named A))"
+                "(assert (! (not p) :named B))(check-sat)") == "unsat\nclient proof report\n");
+    ENSURE(state.inputs.back() == (std::vector<std::string>{"(=> A p)", "A", "(=> B (not p))", "B"}));
+
+    proof_callback_state replacement;
+    replacement.context = ctx;
+    replacement.report = "new report\n";
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    ENSURE(eval("(check-sat)") == "unsat\nnew report\n");
+    ENSURE(replacement.inputs.size() == 1);
+    Z3_set_proof_check_callback(ctx, nullptr, nullptr);
+    ENSURE(eval("(check-sat)") == "unsat\n");
+    ENSURE(replacement.inputs.size() == 1);
+    replacement.unregister = true;
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    ENSURE(eval("(check-sat)(check-sat)") == "unsat\nnew report\nunsat\n");
+    ENSURE(replacement.inputs.size() == 2);
+    replacement.unregister = false;
+    replacement.null_report = true;
+    Z3_set_proof_check_callback(ctx, &replacement, test_proof_callback);
+    std::string error = Z3_eval_smtlib2_string(ctx, "(check-sat)");
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+    ENSURE(error.find("proof checking callback returned null") != std::string::npos);
+    Z3_del_context(ctx);
+
+    ctx = Z3_mk_context_rc(nullptr);
+    Z3_set_error_handler(ctx, nullptr);
+    ENSURE(std::string(Z3_eval_smtlib2_string(ctx, "(assert false)(check-sat)")) == "unsat\n");
+    state.context = ctx;
+    state.inputs.clear();
+    Z3_set_proof_check_callback(ctx, &state, test_proof_callback);
+    error = Z3_eval_smtlib2_string(ctx, "(check-sat)");
+    ENSURE(Z3_get_error_code(ctx) == Z3_PARSER_ERROR);
+    ENSURE(error.find("proof checking callback requires") != std::string::npos);
+    ENSURE(state.inputs.empty());
+    Z3_del_context(ctx);
+
+    cmd_context commands;
+    std::ostringstream regular, diagnostic;
+    commands.set_regular_stream(regular);
+    commands.set_diagnostic_stream(diagnostic);
+    commands.set_solver_factory(mk_smt_strategic_solver_factory());
+    commands.set_proof_check_callback([](proof* pr, expr_ref_vector const& inputs) {
+        ENSURE(pr && inputs.size() == 1 && inputs.m().is_false(inputs[0]));
+        return "diagnostic proof report";
+    });
+    std::istringstream script("(set-option :produce-proofs true)(assert false)(check-sat)");
+    ENSURE(parse_smt2_commands(commands, script));
+    ENSURE(regular.str() == "unsat\n");
+    ENSURE(diagnostic.str() == "diagnostic proof report\n");
+}
+
 // The QF_NRA regression for #10505 lives in tst_upolynomial(). Driving it
 // through Z3_solver_check is not reproducible: the QF_NRA portfolio is a
 // sequence of try_for() tactics guarded by wall-clock timeouts and a probe on
@@ -405,6 +569,8 @@ void tst_api() {
     test_optimize_arith_params();
     test_strict_real_maximize();
     test_strict_real_maximize_disjunction();
+    test_error_handler();
+    test_command_proof_check_callback();
 }
 
 void test_max_rev() {

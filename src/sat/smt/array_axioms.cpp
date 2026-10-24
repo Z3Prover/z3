@@ -801,24 +801,26 @@ namespace array {
             return true;
         };
 
-        auto add_indices = [&](reach const* path, euf::enode_vector& indices) {
+        auto add_eq = [&](euf::enode* n1, euf::enode* n2, euf::enode_pair_vector& eqs) {
+            if (n1 != n2) {
+                SASSERT(n1->get_root() == n2->get_root());
+                eqs.push_back({ n1, n2 });
+            }
+        };
+
+        auto add_indices = [&](reach const* path, euf::enode_vector& indices, euf::enode_pair_vector& eqs) {
             for (; path->m_store; path = path->m_parent) {
                 euf::enode* store = path->m_store;
                 bool found = false;
                 for (euf::enode* old : indices)
                     if (same_index(store, old)) {
+                        for (unsigned k = 1; k + 1 < store->num_args(); ++k)
+                            add_eq(store->get_arg(k), old->get_arg(k), eqs);
                         found = true;
                         break;
                     }
                 if (!found)
                     indices.push_back(store);
-            }
-        };
-
-        auto add_eq = [&](euf::enode* n1, euf::enode* n2, euf::enode_pair_vector& eqs) {
-            if (n1 != n2) {
-                SASSERT(n1->get_root() == n2->get_root());
-                eqs.push_back({ n1, n2 });
             }
         };
 
@@ -878,8 +880,9 @@ namespace array {
                     continue;
 
                 euf::enode_vector indices;
-                add_indices(path1, indices);
-                add_indices(path2, indices);
+                euf::enode_pair_vector eqs;
+                add_indices(path1, indices, eqs);
+                add_indices(path2, indices, eqs);
 
                 sort* array_sort = const_arrays[i]->get_expr()->get_sort();
                 bool domain_exceeds_indices = false;
@@ -903,7 +906,6 @@ namespace array {
                     domain_exceeds_indices || domain_size > indices.size();
 
                 if (has_common_uncovered_index) {
-                    euf::enode_pair_vector eqs;
                     add_path_eqs(const_arrays[i], path1, eqs);
                     add_path_eqs(const_arrays[j], path2, eqs);
                     propagate_axiom(eqs, value_expr1, value_expr2);

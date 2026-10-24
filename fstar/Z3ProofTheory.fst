@@ -190,7 +190,9 @@ let rec fact (p:proof) : Tot (option (expr & expr)) (decreases p) =
   | Rewrite s t -> Some (s, t)
   | QuantIntro qk bound_sorts p1 ->
     (match fact p1 with
-     | Some (body1, body2) -> Some (Quantifier qk bound_sorts body1, Quantifier qk bound_sorts body2)
+     | Some (body1, body2) ->
+       Some (Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort body1)) body1,
+             Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort body2)) body2)
      | None -> None)
 
 and facts_of (prfs:list proof) : Tot (list (option (expr & expr))) (decreases prfs) =
@@ -348,7 +350,8 @@ let lemma_mk_rewrite_wf (s t:expr)
 let lemma_mk_quant_intro_wf (qk:quantifier_kind) (bound_sorts:list sort) (p:proof) (body1 body2:expr)
   : Lemma (requires fact p == Some (body1, body2))
           (ensures fact (mk_quant_intro qk bound_sorts p) ==
-                   Some (Quantifier qk bound_sorts body1, Quantifier qk bound_sorts body2))
+                   Some (Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort body1)) body1,
+                         Quantifier qk bound_sorts (quant_sort qk bound_sorts (get_sort body2)) body2))
   = ()
 
 (* ----------------------------------------------------------------- *)

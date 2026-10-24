@@ -53,6 +53,8 @@ import {
   AnySort,
   Arith,
   ArithSort,
+  Complex,
+  ComplexSort,
   ArrayIndexType,
   CoercibleToArrayIndexType,
   Ast,
@@ -70,6 +72,7 @@ import {
   CoercibleRational,
   CoercibleToBitVec,
   CoercibleToExpr,
+  CoercibleToComplex,
   CoercibleFromMap,
   CoercibleToFP,
   Context,
@@ -332,6 +335,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         case Z3_sort_kind.Z3_INT_SORT:
         case Z3_sort_kind.Z3_REAL_SORT:
           return new ArithSortImpl(ast);
+        case Z3_sort_kind.Z3_COMPLEX_SORT:
+          return new ComplexSortImpl(ast);
         case Z3_sort_kind.Z3_BV_SORT:
           return new BitVecSortImpl(ast);
         case Z3_sort_kind.Z3_FLOATING_POINT_SORT:
@@ -374,6 +379,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
             return new RatNumImpl(ast);
           }
           return new ArithImpl(ast);
+        case Z3_sort_kind.Z3_COMPLEX_SORT:
+          return new ComplexImpl(ast);
         case Z3_sort_kind.Z3_BV_SORT:
           if (kind === Z3_ast_kind.Z3_NUMERAL_AST) {
             return new BitVecNumImpl(ast);
@@ -570,6 +577,18 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
     function isReal(obj: unknown): boolean {
       return isArith(obj) && isRealSort(obj.sort);
+    }
+
+    function isComplex(obj: unknown): obj is Complex<Name> {
+      const result = obj instanceof ComplexImpl;
+      if (result) _assertContext(obj);
+      return result;
+    }
+
+    function isComplexSort(obj: unknown): obj is ComplexSort<Name> {
+      const result = obj instanceof ComplexSortImpl;
+      if (result) _assertContext(obj);
+      return result;
     }
 
     function isRealVal(obj: unknown): obj is RatNum<Name> {
@@ -909,6 +928,28 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           value = `${value.numerator}/${value.denominator}`;
         }
         return new RatNumImpl(Z3.mk_numeral(contextPtr, value.toString(), Real.sort().ptr));
+      },
+    };
+
+    const Complex = {
+      sort: () => new ComplexSortImpl(check(Z3.mk_complex_sort(contextPtr))),
+      const: (name: string) => new ComplexImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), Complex.sort().ptr))),
+      consts: (names: string | string[]) =>
+        (typeof names === 'string' ? names.split(' ') : names).map(name => Complex.const(name)),
+      vector: (prefix: string, count: number) => {
+        const result = [];
+        for (let i = 0; i < count; i++) result.push(Complex.const(`${prefix}__${i}`));
+        return result;
+      },
+      fresh: (prefix = 'z') => new ComplexImpl(check(Z3.mk_fresh_const(contextPtr, prefix, Complex.sort().ptr))),
+      val: (real: CoercibleToArith<Name>, imag: CoercibleToArith<Name> = 0) => {
+        for (const component of [real, imag]) {
+          if (typeof component === 'object' && !isCoercibleRational(component)) _assertContext(component);
+        }
+        const re = Real.sort().cast(real);
+        const im = Real.sort().cast(imag);
+        _assertContext(re, im);
+        return new ComplexImpl(check(Z3.mk_complex(contextPtr, re.ast, im.ast)));
       },
     };
 
@@ -1915,7 +1956,14 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       if (res.length === 1) {
         return res[0];
       }
-      return new ReImpl<SeqSortRef>(check(Z3.mk_re_union(contextPtr, res.map(r => r.ast))));
+      return new ReImpl<SeqSortRef>(
+        check(
+          Z3.mk_re_union(
+            contextPtr,
+            res.map(r => r.ast),
+          ),
+        ),
+      );
     }
 
     function Intersect<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
@@ -1925,7 +1973,14 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       if (res.length === 1) {
         return res[0];
       }
-      return new ReImpl<SeqSortRef>(check(Z3.mk_re_intersect(contextPtr, res.map(r => r.ast))));
+      return new ReImpl<SeqSortRef>(
+        check(
+          Z3.mk_re_intersect(
+            contextPtr,
+            res.map(r => r.ast),
+          ),
+        ),
+      );
     }
 
     function ReConcat<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
@@ -1935,7 +1990,14 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       if (res.length === 1) {
         return res[0];
       }
-      return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, res.map(r => r.ast))));
+      return new ReImpl<SeqSortRef>(
+        check(
+          Z3.mk_re_concat(
+            contextPtr,
+            res.map(r => r.ast),
+          ),
+        ),
+      );
     }
 
     function Plus<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
@@ -1954,11 +2016,17 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_complement(contextPtr, re.ast)));
     }
 
-    function Diff<SeqSortRef extends SeqSort<Name>>(a: Re<Name, SeqSortRef>, b: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+    function Diff<SeqSortRef extends SeqSort<Name>>(
+      a: Re<Name, SeqSortRef>,
+      b: Re<Name, SeqSortRef>,
+    ): Re<Name, SeqSortRef> {
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_diff(contextPtr, a.ast, b.ast)));
     }
 
-    function Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef> {
+    function Range<SeqSortRef extends SeqSort<Name>>(
+      lo: Seq<Name, SeqSortRef> | string,
+      hi: Seq<Name, SeqSortRef> | string,
+    ): Re<Name, SeqSortRef> {
       const loSeq = isSeq(lo) ? lo : String.val(lo);
       const hiSeq = isSeq(hi) ? hi : String.val(hi);
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_range(contextPtr, loSeq.ast, hiSeq.ast)));
@@ -1970,7 +2038,11 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
      * @param lo Minimum number of repetitions
      * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
      */
-    function Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi: number = 0): Re<Name, SeqSortRef> {
+    function Loop<SeqSortRef extends SeqSort<Name>>(
+      re: Re<Name, SeqSortRef>,
+      lo: number,
+      hi: number = 0,
+    ): Re<Name, SeqSortRef> {
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, re.ast, lo, hi)));
     }
 
@@ -2173,9 +2245,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           _assertContext(expr);
           return expr.ast;
         });
-        const result = await runAsync(() =>
-          check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)),
-        );
+        const result = await runAsync(() => check(Z3.solver_check_assumptions(contextPtr, this.ptr, assumptions)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -2227,15 +2297,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
           formula = ctx.Bool.val(true).ast;
         }
 
-        return check(Z3.benchmark_to_smtlib_string(
-          contextPtr,
-          '',
-          '',
-          status,
-          '',
-          assumptions,
-          formula
-        ));
+        return check(Z3.benchmark_to_smtlib_string(contextPtr, '', '', status, '', assumptions, formula));
       }
 
       dimacs(includeNames: boolean = true): string {
@@ -2279,11 +2341,12 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return check(Z3.solver_get_levels(contextPtr, this.ptr, trailVec, n));
       }
 
-      async cube(vars?: AstVector<Name, Bool<Name>>, cutoff: number = 0xFFFFFFFF): Promise<AstVector<Name, Bool<Name>>> {
+      async cube(
+        vars?: AstVector<Name, Bool<Name>>,
+        cutoff: number = 0xffffffff,
+      ): Promise<AstVector<Name, Bool<Name>>> {
         const tempVars = vars ?? new AstVectorImpl();
-        const result = await runAsync(() =>
-          check(Z3.solver_cube(contextPtr, this.ptr, tempVars.ptr, cutoff)),
-        );
+        const result = await runAsync(() => check(Z3.solver_cube(contextPtr, this.ptr, tempVars.ptr, cutoff)));
         return new AstVectorImpl(result);
       }
 
@@ -2636,9 +2699,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
         relations.forEach(rel => _assertContext(rel));
         const decls = relations.map(rel => rel.ptr);
-        const result = await runAsync(() =>
-          check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
-        );
+        const result = await runAsync(() => check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)));
         switch (result) {
           case Z3_lbool.Z3_L_FALSE:
             return 'unsat';
@@ -3646,6 +3707,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       cast(other: CoercibleRational | RatNum<Name>): RatNum<Name>;
       cast(other: IntNum<Name>): IntNum<Name>;
       cast(other: Bool<Name> | Arith<Name>): Arith<Name>;
+      cast(other: CoercibleToArith<Name>): Arith<Name>;
       cast(other: CoercibleToExpr<Name>): never;
       cast(other: CoercibleToExpr<Name> | string): Arith<Name> | RatNum<Name> | IntNum<Name> {
         const sortTypeStr = isIntSort(this) ? 'IntSort' : 'RealSort';
@@ -3679,12 +3741,69 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       }
     }
 
+    class ComplexSortImpl extends SortImpl implements ComplexSort<Name> {
+      declare readonly __typename: 'ComplexSort';
+
+      cast(other: CoercibleToExpr<Name>): Complex<Name> {
+        if (isExpr(other)) {
+          _assertContext(other);
+          if (isComplex(other)) return other;
+          assert(isArith(other), 'Int, Real, or Complex expression expected');
+        }
+        assert(typeof other !== 'boolean', 'Int, Real, or Complex value expected');
+        return Complex.val(other);
+      }
+    }
+
+    class ComplexImpl extends ExprImpl<Z3_ast, ComplexSort<Name>> implements Complex<Name> {
+      declare readonly __typename: 'Complex';
+
+      add(other: CoercibleToComplex<Name>): Complex<Name> {
+        return new ComplexImpl(check(Z3.mk_add(contextPtr, [this.ast, this.sort.cast(other).ast])));
+      }
+
+      sub(other: CoercibleToComplex<Name>): Complex<Name> {
+        return new ComplexImpl(check(Z3.mk_sub(contextPtr, [this.ast, this.sort.cast(other).ast])));
+      }
+
+      mul(other: CoercibleToComplex<Name>): Complex<Name> {
+        return new ComplexImpl(check(Z3.mk_mul(contextPtr, [this.ast, this.sort.cast(other).ast])));
+      }
+
+      div(other: CoercibleToComplex<Name>): Complex<Name> {
+        return new ComplexImpl(check(Z3.mk_div(contextPtr, this.ast, this.sort.cast(other).ast)));
+      }
+
+      neg(): Complex<Name> {
+        return new ComplexImpl(check(Z3.mk_unary_minus(contextPtr, this.ast)));
+      }
+
+      realPart(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_real_part(contextPtr, this.ast)));
+      }
+
+      imagPart(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_imag_part(contextPtr, this.ast)));
+      }
+    }
+
+    function Sum(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
     function Sum(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+    function Sum(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
     function Sum<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       ...args: CoercibleToBitVec<Bits, Name>[]
     ): BitVec<Bits, Name>;
-    function Sum<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
+    function Sum<T extends Expr<Name>>(
+      arg0: T,
+      ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
+    ): T | Complex<Name> {
+      if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
+        const first = Complex.sort().cast(arg0);
+        return new ComplexImpl(
+          check(Z3.mk_add(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
+        );
+      }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
         if (args.length !== 1) {
@@ -3701,12 +3820,23 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       }
     }
 
+    function Sub(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
     function Sub(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+    function Sub(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
     function Sub<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       ...args: CoercibleToBitVec<Bits, Name>[]
     ): BitVec<Bits, Name>;
-    function Sub<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
+    function Sub<T extends Expr<Name>>(
+      arg0: T,
+      ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
+    ): T | Complex<Name> {
+      if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
+        const first = Complex.sort().cast(arg0);
+        return new ComplexImpl(
+          check(Z3.mk_sub(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
+        );
+      }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
         if (args.length !== 1) {
@@ -3723,12 +3853,23 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       }
     }
 
+    function Product(arg0: Complex<Name>, ...args: CoercibleToComplex<Name>[]): Complex<Name>;
     function Product(arg0: Arith<Name>, ...args: CoercibleToArith<Name>[]): Arith<Name>;
+    function Product(arg0: Arith<Name>, ...args: CoercibleToComplex<Name>[]): Arith<Name> | Complex<Name>;
     function Product<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       ...args: CoercibleToBitVec<Bits, Name>[]
     ): BitVec<Bits, Name>;
-    function Product<T extends Expr<Name>>(arg0: T, ...args: CoercibleToMap<T, Name>[]): T {
+    function Product<T extends Expr<Name>>(
+      arg0: T,
+      ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
+    ): T | Complex<Name> {
+      if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
+        const first = Complex.sort().cast(arg0);
+        return new ComplexImpl(
+          check(Z3.mk_mul(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
+        );
+      }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
         if (args.length !== 1) {
@@ -3745,12 +3886,16 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       }
     }
 
+    function Div(arg0: Complex<Name>, arg1: CoercibleToComplex<Name>): Complex<Name>;
     function Div(arg0: Arith<Name>, arg1: CoercibleToArith<Name>): Arith<Name>;
+    function Div(arg0: Arith<Name>, arg1: Complex<Name>): Complex<Name>;
     function Div<Bits extends number>(
       arg0: BitVec<Bits, Name>,
       arg1: CoercibleToBitVec<Bits, Name>,
     ): BitVec<Bits, Name>;
-    function Div<T extends Expr<Name>>(arg0: T, arg1: CoercibleToMap<T, Name>): T {
+    function Div<T extends Expr<Name>>(arg0: T, arg1: CoercibleToMap<T, Name> | Complex<Name>): T | Complex<Name> {
+      if (arg0 instanceof ComplexImpl || isComplex(arg1))
+        return Complex.sort().cast(arg0).div(Complex.sort().cast(arg1));
       if (arg0 instanceof BitVecImpl) {
         return new BitVecImpl<number>(
           check(Z3.mk_bvsdiv(contextPtr, arg0.ast, arg0.sort.cast(arg1).ast)),
@@ -3770,9 +3915,11 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       ) as unknown as BitVec<Bits, Name>;
     }
 
+    function Neg(a: Complex<Name>): Complex<Name>;
     function Neg(a: Arith<Name>): Arith<Name>;
     function Neg<Bits extends number>(a: BitVec<Bits, Name>): BitVec<Bits, Name>;
-    function Neg<T extends Expr<Name>>(a: T): T {
+    function Neg<T extends Expr<Name>>(a: T): T | Complex<Name> {
+      if (a instanceof ComplexImpl) return a.neg();
       if (a instanceof BitVecImpl) {
         return new BitVecImpl<number>(check(Z3.mk_bvneg(contextPtr, a.ast))) as unknown as T;
       } else {
@@ -3795,15 +3942,24 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
     class ArithImpl extends ExprImpl<Z3_ast, ArithSort<Name>> implements Arith<Name> {
       declare readonly __typename: Arith['__typename'];
 
-      add(other: CoercibleToArith<Name>) {
+      add(other: CoercibleToArith<Name>): Arith<Name>;
+      add(other: Complex<Name>): Complex<Name>;
+      add(other: CoercibleToComplex<Name>): Arith<Name> | Complex<Name> {
+        if (isComplex(other)) return Complex.sort().cast(this).add(other);
         return Sum(this, other);
       }
 
-      mul(other: CoercibleToArith<Name>) {
+      mul(other: CoercibleToArith<Name>): Arith<Name>;
+      mul(other: Complex<Name>): Complex<Name>;
+      mul(other: CoercibleToComplex<Name>): Arith<Name> | Complex<Name> {
+        if (isComplex(other)) return Complex.sort().cast(this).mul(other);
         return Product(this, other);
       }
 
-      sub(other: CoercibleToArith<Name>) {
+      sub(other: CoercibleToArith<Name>): Arith<Name>;
+      sub(other: Complex<Name>): Complex<Name>;
+      sub(other: CoercibleToComplex<Name>): Arith<Name> | Complex<Name> {
+        if (isComplex(other)) return Complex.sort().cast(this).sub(other);
         return Sub(this, other);
       }
 
@@ -3811,7 +3967,10 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return new ArithImpl(check(Z3.mk_power(contextPtr, this.ast, this.sort.cast(exponent).ast)));
       }
 
-      div(other: CoercibleToArith<Name>) {
+      div(other: CoercibleToArith<Name>): Arith<Name>;
+      div(other: Complex<Name>): Complex<Name>;
+      div(other: CoercibleToComplex<Name>): Arith<Name> | Complex<Name> {
+        if (isComplex(other)) return Complex.sort().cast(this).div(other);
         return Div(this, other);
       }
 
@@ -4535,7 +4694,10 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       }
     }
 
-    class ReSortImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends SortImpl implements ReSort<Name, SeqSortRef> {
+    class ReSortImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>>
+      extends SortImpl
+      implements ReSort<Name, SeqSortRef>
+    {
       declare readonly __typename: ReSort['__typename'];
 
       basis(): SeqSortRef {
@@ -5350,11 +5512,17 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
     }
 
-    function updateField(t: DatatypeExpr<Name>, fieldAccessor: FuncDecl<Name>, newValue: Expr<Name>): DatatypeExpr<Name> {
+    function updateField(
+      t: DatatypeExpr<Name>,
+      fieldAccessor: FuncDecl<Name>,
+      newValue: Expr<Name>,
+    ): DatatypeExpr<Name> {
       _assertContext(t);
       _assertContext(fieldAccessor);
       _assertContext(newValue);
-      return _toExpr(check(Z3.datatype_update_field(contextPtr, fieldAccessor.ptr, t.ast, newValue.ast))) as DatatypeExpr<Name>;
+      return _toExpr(
+        check(Z3.datatype_update_field(contextPtr, fieldAccessor.ptr, t.ast, newValue.ast)),
+      ) as DatatypeExpr<Name>;
     }
 
     function ast_from_string(s: string): Ast<Name> {
@@ -5420,6 +5588,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       isReal,
       isRealVal,
       isRealSort,
+      isComplex,
+      isComplexSort,
       isRCFNum,
       isBitVecSort,
       isBitVec,
@@ -5456,6 +5626,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       Bool,
       Int,
       Real,
+      Complex,
       RCFNum,
       BitVec,
       Float,

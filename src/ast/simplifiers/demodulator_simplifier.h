@@ -46,10 +46,13 @@ class demodulator_simplifier : public dependent_expr_simplifier {
     uint_set                  m_processed, m_dependencies;
     unsigned_vector           m_todo;
     expr_ref_vector           m_pinned;
+    proof_ref_vector          m_proof_pinned;
 
     void rewrite(unsigned i);
-    bool rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np);
+    bool rewrite1(func_decl* f, expr_ref_vector const& args, expr_ref& np, proof_ref& pr);
+    proof* mk_instance_proof(unsigned i, func_decl* f, expr_ref_vector const& args, expr* np);
     expr* fml(unsigned i) { return m_fmls[i].fml(); }
+    proof* pr(unsigned i) { return m_fmls[i].pr(); }
     expr_dependency* dep(unsigned i) { return m_fmls[i].dep(); }
     void reschedule_processed(func_decl* f);
     void reschedule_demodulators(func_decl* f, expr* lhs);
@@ -61,4 +64,5 @@ class demodulator_simplifier : public dependent_expr_simplifier {
      void reduce() override;    
 
      char const* name() const override { return "demodulator"; }
+     bool supports_proofs() const override { return true; }
 };

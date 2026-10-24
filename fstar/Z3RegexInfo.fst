@@ -287,7 +287,7 @@ let info_orelse (i1 i2:info) : info =
 
 let rec compute_info (#a:eqtype) (sl:seq_lit a) (e:expr) : Tot (option info) (decreases e) =
   match e with
-  | Var _ _ | Quantifier _ _ _ -> None
+  | Var _ _ | Quantifier _ _ _ _ -> None
   | App f args ->
     if is_re_op f Re_empty_set then (match args with | [] -> Some ({ nullable = LFalse; min_length = 0; max_length = Bound 0; classical = false; interpreted = true; la = la_empty }) | _ -> None)
     else if is_re_op f Re_full_seq_set then (match args with | [] -> Some ({ nullable = LTrue; min_length = 0; max_length = Infinite; classical = true; interpreted = true; la = la_trivial 0 Infinite }) | _ -> None)
@@ -603,7 +603,7 @@ let rec lemma_compute_info_sound (#a:eqtype) (sl:seq_lit a) (e:expr)
   : Lemma (ensures info_matches #a (compute_info sl e) (to_lang sl e))
           (decreases e)
   = match e with
-    | Var _ _ | Quantifier _ _ _ -> ()
+    | Var _ _ | Quantifier _ _ _ _ -> ()
     | App f args ->
       if is_re_op f Re_empty_set then ()
       else if is_re_op f Re_full_seq_set then ()
@@ -878,7 +878,7 @@ let rec lemma_compute_info_interpreted_sound (#a:eqtype) (sl sl':seq_lit a) (e:e
                    (is_interpreted (compute_info sl e) ==> langs_equiv_opt #a (to_lang sl e) (to_lang sl' e)))
           (decreases e)
   = match e with
-    | Var _ _ | Quantifier _ _ _ -> ()
+    | Var _ _ | Quantifier _ _ _ _ -> ()
     | App f args ->
       if is_re_op f Re_empty_set then ()
       else if is_re_op f Re_full_seq_set then ()

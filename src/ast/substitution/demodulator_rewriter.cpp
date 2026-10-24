@@ -185,10 +185,28 @@ demodulator_rewriter_util::demodulator_rewriter_util(ast_manager& m):
     m_rewrite_todo(m),
     m_rewrite_cache(m),
     m_new_exprs(m),
-    m_new_args(m)
+    m_new_args(m),
+    m_proof_trail(m)
 {}
 
-expr_ref demodulator_rewriter_util::rewrite(expr * n) {
+proof* demodulator_rewriter_util::get_step_proof(expr* e) const {
+    proof* p = nullptr;
+    m_proof_cache.find(e, p);
+    return p;
+}
+
+void demodulator_rewriter_util::update(expr* e, expr* new_e, bool done, proof* step_pr) {
+    rewrite_cache(e, new_e, done);
+    if (!m.proofs_enabled())
+        return;
+    proof* prev = get_step_proof(e);
+    proof* total = m.mk_transitivity(prev, step_pr);
+    if (total)
+        m_proof_trail.push_back(total);
+    m_proof_cache.insert(e, total);
+}
+
+expr_ref demodulator_rewriter_util::rewrite(expr * n, proof_ref& pr) {
 
     TRACE(demodulator, tout << "rewrite: " << mk_pp(n, m) << std::endl; );
     app * a;
@@ -196,6 +214,8 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
     SASSERT(m_rewrite_todo.empty());
     m_new_exprs.reset();
     m_rewrite_cache.reset();
+    m_proof_cache.reset();
+    m_proof_trail.reset();
 
     m_rewrite_todo.push_back(n);
     while (!m_rewrite_todo.empty()) {
@@ -221,7 +241,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
 
         switch (actual->get_kind()) {
         case AST_VAR:
-            rewrite_cache(e, actual, true);
+            update(e, actual, true, nullptr);
             m_rewrite_todo.pop_back();
             break;
         case AST_APP:
@@ -230,32 +250,64 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
                 func_decl * f = a->get_decl();
                 m_new_args.reset();
                 bool all_untouched = true;
+                bool proof_ok = true;
+                ptr_buffer<proof> child_pfs;
                 for (expr* o_child : *a) {
                     expr * n_child;
                     SASSERT(m_rewrite_cache.contains(o_child) && m_rewrite_cache.get(o_child).second);
                     expr_bool_pair const & ebp = m_rewrite_cache.get(o_child);
                     n_child = ebp.first;
-                    if (n_child != o_child)
+                    if (n_child != o_child) {
                         all_untouched = false;
+                        if (m.proofs_enabled()) {
+                            proof* cp = get_step_proof(o_child);
+                            if (cp)
+                                child_pfs.push_back(cp);
+                            else
+                                // the child changed but we failed to track a
+                                // proof for it (e.g. it was rewritten before
+                                // proof tracking covered that case); do not
+                                // fabricate a congruence step we cannot
+                                // justify.
+                                proof_ok = false;
+                        }
+                    }
                     m_new_args.push_back(n_child);
                 }
                 expr_ref np(m);
-                if (m_rewrite1(f, m_new_args, np)) {
-                    rewrite_cache(e, np, false);
+                proof_ref instance_pr(m);
+                if (m_rewrite1(f, m_new_args, np, instance_pr)) {
+                    proof_ref step_pr(m);
+                    if (m.proofs_enabled() && proof_ok && instance_pr) {
+                        proof_ref congr_pr(m);
+                        if (!all_untouched) {
+                            app_ref a_new(m.mk_app(f, m_new_args.size(), m_new_args.data()), m);
+                            congr_pr = m.mk_congruence(a, a_new, child_pfs.size(), child_pfs.data());
+                        }
+                        step_pr = m.mk_transitivity(congr_pr, instance_pr);
+                    }
+                    update(e, np, false, step_pr);
                     // No pop.
                 } 
                 else {
                     if (all_untouched) {
-                        rewrite_cache(e, actual, true);
+                        update(e, actual, true, nullptr);
                     }
                     else {
+                        expr_ref app_term(m.mk_app(f, m_new_args.size(), m_new_args.data()), m);
                         expr_ref na(m);
-                        na = m_th_rewriter.mk_app(f, m_new_args);
+                        proof_ref na_pr(m);
+                        m_th_rewriter(app_term, na, na_pr);
                         TRACE(demodulator_bug, tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
                               tout << m_new_args << "\n";
                               tout << "=====>\n";
                               tout << "na:\n " << na << "\n";);
-                        rewrite_cache(e, na, true);
+                        proof_ref step_pr(m);
+                        if (m.proofs_enabled() && proof_ok) {
+                            proof_ref congr_pr(m.mk_congruence(a, to_app(app_term.get()), child_pfs.size(), child_pfs.data()), m);
+                            step_pr = m.mk_transitivity(congr_pr, na_pr);
+                        }
+                        update(e, na, true, step_pr);
                     }
                     m_rewrite_todo.pop_back();
                 }
@@ -267,12 +319,26 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
                 const expr_bool_pair ebp = m_rewrite_cache.get(body);
                 SASSERT(ebp.second);
                 expr * new_body = ebp.first;
+                quantifier * old_q = to_quantifier(actual);
                 quantifier_ref q(m);
-                q = m.update_quantifier(to_quantifier(actual), new_body);
+                q = m.update_quantifier(old_q, new_body);
                 m_new_exprs.push_back(q);
                 expr_ref new_q = elim_unused_vars(m, q, params_ref());
                 m_new_exprs.push_back(new_q);
-                rewrite_cache(e, new_q, true);
+                proof_ref step_pr(m);
+                if (m.proofs_enabled()) {
+                    proof* body_pr = get_step_proof(body);
+                    proof_ref qi_pr(m);
+                    if (body_pr) {
+                        proof_ref bind_pr(m.mk_bind_proof(old_q, body_pr), m);
+                        qi_pr = m.mk_quant_intro(old_q, q, bind_pr);
+                    }
+                    proof_ref eu_pr(m);
+                    if (q.get() != new_q.get())
+                        eu_pr = m.mk_elim_unused_vars(q, new_q);
+                    step_pr = m.mk_transitivity(qi_pr, eu_pr);
+                }
+                update(e, new_q, true, step_pr);
                 m_rewrite_todo.pop_back();
             } else {
                 m_rewrite_todo.push_back(body);
@@ -291,6 +357,7 @@ expr_ref demodulator_rewriter_util::rewrite(expr * n) {
 
     TRACE(demodulator, tout << "rewrite result: " << mk_pp(r, m) << std::endl; );
 
+    pr = get_step_proof(n);
     return expr_ref(r, m);
 }
 
@@ -311,6 +378,12 @@ bool demodulator_rewriter_util::rewrite_visit_children(app * a) {
                 recursive = true;
                 TRACE(demodulator, tout << "Detected demodulator cycle: " <<
                       mk_pp(a, m) << " --> " << mk_pp(v, m) << std::endl;);
+                // Deliberately bypass `update()`: we have no justification
+                // for `e = v` here (this is a cycle-breaking heuristic, not
+                // a rewrite step), so no proof is recorded for `e`. Any
+                // ancestor that relies on `e`'s step proof will correctly
+                // see it missing (`get_step_proof` returns null) and will
+                // itself skip proof production rather than fabricate one.
                 rewrite_cache(e, v, true);
                 break;
             }

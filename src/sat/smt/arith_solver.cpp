@@ -30,11 +30,12 @@ namespace arith {
         m_bound_terms(m),
         m_bound_predicate(m)
     {
-        m_solver = alloc(lp::lar_solver);
+        m_solver = alloc(lp::lar_solver, ctx.use_drat());
 
         lp().updt_params(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
+        lp().settings().propagate_eqs() = get_config().m_arith_propagate_eqs;
         lp().settings().set_run_gcd_test(get_config().m_arith_gcd_test);
         lp().settings().set_random_seed(get_config().m_random_seed);
         
@@ -48,6 +49,9 @@ namespace arith {
     void solver::asserted(literal l) {
         force_push();
         m_asserted.push_back(l);
+        api_bound* b = nullptr;
+        if (m_bool_var2bound.find(l.var(), b))
+            updt_unassigned_bounds(b->get_var(), -1);
     }
 
     euf::th_solver* solver::clone(euf::solver& dst_ctx) {
@@ -193,7 +197,6 @@ namespace arith {
             if (sign)
                 lit2.neg();
         }
-        updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
@@ -260,7 +263,6 @@ namespace arith {
                 lp().explain_implied_bound(be, m_bp);
             }
             CTRACE(arith, m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
-            updt_unassigned_bounds(v, -1);
             TRACE(arith, for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
             DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
@@ -349,6 +351,18 @@ namespace arith {
         return true;
     }
 
+    // m_unassigned_bounds[v] counts the atoms of v that are not assigned yet:
+    // it is incremented when an atom is created and decremented in asserted,
+    // both through the trail, so it is exact at every scope level.
+    bool solver::column_is_interesting(unsigned vi) const {
+        theory_var v = lp().local_to_external(vi);
+        if (v == euf::null_theory_var)
+            return false;
+        if (should_refine_bounds())
+            return true;
+        return static_cast<unsigned>(v) < m_unassigned_bounds.size() && m_unassigned_bounds[v] > 0;
+    }
+
     bool solver::bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const {
         theory_var v = lp().local_to_external(vi);
         if (v == euf::null_theory_var)
@@ -406,6 +420,10 @@ namespace arith {
 
     void solver::assert_bound(bool is_true, api_bound& b) {
         lp::constraint_index ci = b.get_constraint(is_true);
+        if (lp().constraint_is_redundant(ci)) {
+            ++m_stats.m_assert_redundant;
+            return;
+        }
         lp().activate(ci);
         TRACE(arith, tout << b << " " << is_infeasible() << "\n";);
         if (is_infeasible()) 
@@ -415,9 +433,11 @@ namespace arith {
             ++m_stats.m_assert_lower;
         else 
             ++m_stats.m_assert_upper;
-        inf_rational value = b.get_value(is_true);
-        if (propagate_eqs() && value.is_rational()) 
-            propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        if (propagate_eqs()) {
+            inf_rational value = b.get_value(is_true);
+            if (value.is_rational())
+                propagate_eqs(b.column_index(), ci, k, b, value.get_rational());
+        }
 #if 0
         if (propagation_mode() != BP_NONE)
             lp().add_column_rows_to_touched_rows(b.tv().id());
@@ -621,7 +641,15 @@ namespace arith {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
 
-        if (m.is_value(n->get_root()->get_expr())) {
+        if (a.is_complex(o)) {
+            expr_ref re(a.mk_real_part(o), m);
+            expr_ref im(a.mk_imag_part(o), m);
+            expr_ref rv(m), iv(m);
+            if (!get_value(ctx.get_enode(re), rv) || !get_value(ctx.get_enode(im), iv))
+                return false;
+            value = a.mk_complex(rv, iv);
+        }
+        else if (m.is_value(n->get_root()->get_expr())) {
             value = n->get_root()->get_expr();
         }
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
@@ -805,6 +833,7 @@ namespace arith {
 
     void solver::updt_unassigned_bounds(theory_var v, int inc) {
         TRACE(arith_verbose, tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
+        SASSERT(inc > 0 || m_unassigned_bounds[v] > 0);
         ctx.push(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;
     }
@@ -864,6 +893,8 @@ namespace arith {
     }
 
     void solver::ensure_column(theory_var v) {
+        if (a.is_complex(var2expr(v)))
+            return;
         SASSERT(!is_bool(v));
         if (!lp().external_is_used(v))
             register_theory_var_in_lar_solver(v);
@@ -892,7 +923,7 @@ namespace arith {
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
-            if (is_bool(v))
+            if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
             ensure_column(v);
             lp::lpvar  vj = lp().external_to_local(v);
@@ -931,9 +962,11 @@ namespace arith {
         int start = s().rand()();
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
-            if (is_bool(v))
+            if (is_bool(v) || a.is_complex(var2expr(v)))
                 continue;
-            if (!ctx.is_shared(var2enode(v)))
+            // Projections are the shared interface to pair-valued Complex terms.
+            if (!ctx.is_shared(var2enode(v)) &&
+                !a.is_real_part(var2expr(v)) && !a.is_imag_part(var2expr(v)))
                 continue;
             ensure_column(v);
             if (!is_registered_var(v))
@@ -1239,7 +1272,16 @@ namespace arith {
     void solver::get_infeasibility_explanation_and_set_conflict() {
         m_explanation.clear();
         lp().get_infeasibility_explanation(m_explanation);
-        set_conflict(hint_type::farkas_h);
+        auto kind = hint_type::farkas_h;
+        if (lp().dep_manager().proofs_enabled()) {
+            lp::evidence_manager::proof_expression proof;
+            lp().dep_manager().reconstruct(m_explanation.evidence(), proof);
+            vector<std::pair<lp::constraint_index, lp::mpq>> coefficients;
+            if (!lp().dep_manager().linearize_coefficients(m_explanation.evidence(), lp::mpq(1), coefficients) ||
+                !proof.check())
+                kind = hint_type::cut_h;
+        }
+        set_conflict(kind);
     }
 
     void solver::set_conflict(hint_type ty) {
@@ -1588,6 +1630,9 @@ namespace arith {
         case OP_TO_INT:
         case OP_TO_REAL:
         case OP_NUM:
+        case OP_COMPLEX:
+        case OP_REAL_PART:
+        case OP_IMAG_PART:
             return false;
         default:
             return true;            

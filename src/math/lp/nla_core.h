@@ -40,6 +40,8 @@ namespace nra {
 
 namespace nla {
 
+class solver;
+
 template <typename A, typename B>
 bool try_insert(const A& elem, B& collection) {
     auto it = collection.find(elem);

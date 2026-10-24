@@ -31,6 +31,7 @@ Notes:
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/ff_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -800,6 +801,10 @@ cmd_context::check_sat_state cmd_context::cs_state() const {
 }
 
 void cmd_context::register_builtin_sorts(decl_plugin * p) {
+    // The indexed field sort is parsed directly. Do not reserve a legacy
+    // user sort name in unrestricted scripts merely by loading the plugin.
+    if (p->get_family_id() == m().get_family_id("ff") && (!has_logic() || m_logic == "ALL"))
+        return;
     svector<builtin_name> names;
     p->get_sort_names(names, m_logic);
     family_id fid = p->get_family_id();
@@ -822,6 +827,39 @@ void cmd_context::register_builtin_ops(decl_plugin * p) {
         }
         else {
             m_builtin_decls.insert(n.m_name, builtin_decl(fid, n.m_kind));
+        }
+    }
+}
+
+void cmd_context::restrict_builtin_sorts() {
+    svector<family_id> fids;
+    m_manager->get_range(fids);
+    svector<symbol> allowed;
+    for (family_id fid : fids) {
+        decl_plugin* plugin = m_manager->get_plugin(fid);
+        if (!plugin)
+            continue;
+        svector<builtin_name> names;
+        plugin->get_sort_names(names, m_logic);
+        for (auto const& name : names)
+            allowed.push_back(name.m_name);
+    }
+
+    svector<symbol> removed;
+    for (auto const& entry : m_psort_decls)
+        if (entry.m_value->is_builtin_decl() && !allowed.contains(entry.m_key))
+            removed.push_back(entry.m_key);
+
+    for (symbol const& name : removed) {
+        erase_psort_decl_core(name);
+        for (unsigned i = 0; i < m_psort_decls_stack.size(); ++i) {
+            if (m_psort_decls_stack[i] != name)
+                continue;
+            m_psort_decls_stack.erase(m_psort_decls_stack.begin() + i);
+            for (auto& scope : m_scopes)
+                if (scope.m_psort_decls_stack_lim > i)
+                    --scope.m_psort_decls_stack_lim;
+            break;
         }
     }
 }
@@ -893,8 +931,10 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
-        register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
+        register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic() || m_logic == "ALL");
         register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin), !has_logic() || smt_logics::logic_has_finite_sets(m_logic));
+        // Preserve existing theory family IDs when adding finite fields.
+        register_plugin(symbol("ff"), alloc(ff_decl_plugin), !has_logic() || smt_logics::logic_has_ff(m_logic));
     }
     else {
         // the manager was created by an external module
@@ -912,6 +952,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
         load_plugin(symbol("finite_set"), smt_logics::logic_has_finite_sets(m_logic) || !has_logic(), fids);
+        load_plugin(symbol("ff"), !has_logic() || smt_logics::logic_has_ff(m_logic), fids);
 
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
@@ -975,6 +1016,19 @@ bool cmd_context::set_logic(symbol const & s) {
         return false;
 
     m_logic = s;
+    // API parsers can initialize built-ins before reading set-logic.
+    if (m_manager_initialized) {
+        restrict_builtin_sorts();
+        if (m_logic != "ALL") {
+            family_id fid = m().get_family_id("specrels");
+            svector<symbol> removed;
+            for (auto const& entry : m_builtin_decls)
+                if (entry.m_value.m_fid == fid)
+                    removed.push_back(entry.m_key);
+            for (symbol const& name : removed)
+                m_builtin_decls.erase(name);
+        }
+    }
     if (m_solver)
         mk_solver();
     if (smt_logics::logic_has_reals_only(s)) 
@@ -1454,6 +1508,37 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     if (try_mk_declared_app(s, num_args, args, num_indices, indices, range, result))
         return;   
+    if (!num_args && !num_indices && !s.is_numerical()) {
+        std::string name = s.str();
+        if (name.starts_with("#f")) {
+            auto separator = name.find('m', 2);
+            if (separator != std::string::npos) {
+                std::string value = name.substr(2, separator-2), prime = name.substr(separator+1);
+                unsigned start = !value.empty() && value[0] == '-' ? 1 : 0;
+                if (value.size() > start && value.find_first_not_of("0123456789", start) == std::string::npos &&
+                    !prime.empty() && prime.find_first_not_of("0123456789") == std::string::npos) {
+                    if (has_logic() && !smt_logics::logic_has_ff(m_logic)) throw cmd_exception("logic does not support finite fields");
+                    ff_util ff(m());
+                    sort_ref field(ff.mk_sort(rational(prime.c_str())), m());
+                    if (range && range != field) throw cmd_exception("finite-field literal sort mismatch");
+                    result = ff.mk_numeral(rational(value.c_str()), field);
+                    return;
+                }
+            }
+            throw cmd_exception("invalid finite-field literal, expected #f<integer>m<prime>");
+        }
+    }
+    if (range && ff_util(m()).is_ff(range) && !num_args && !num_indices && !s.is_numerical()) {
+        std::string name = s.str();
+        if (name.starts_with("ff")) {
+            std::string value = name.substr(2);
+            unsigned start = !value.empty() && value[0] == '-' ? 1 : 0;
+            if (value.size() > start && value.find_first_not_of("0123456789", start) == std::string::npos) {
+                result = ff_util(m()).mk_numeral(rational(value.c_str()), range);
+                return;
+            }
+        }
+    }
     if (!range && s == symbol("is") && try_mk_pdecl_app(s, num_args, args, num_indices, indices, result))
         return;
     if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 
@@ -1714,12 +1799,12 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
+    s.m_rlimit                 = m_params.rlimit();
     if (!m_global_decls)
         pm().push();
     ast_translation tr(m(), m());
     m_mcs.push_back(m_mcs.back() ? m_mcs.back()->copy(tr) : nullptr);
     unsigned timeout = m_params.m_timeout;
-    m().limit().push(m_params.rlimit());
     cancel_eh<reslimit> eh(m().limit());
     scoped_ctrl_c ctrlc(eh);
     scoped_timer timer(timeout, &eh);
@@ -1845,15 +1930,12 @@ void cmd_context::pop(unsigned n) {
     restore_aux_pdecls(s.m_aux_pdecls_lim);
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
+    m_params.set_rlimit(s.m_rlimit);
     m_dt_eh.get()->reset();
     m_mcs.shrink(m_mcs.size() - n);
     m_scopes.shrink(new_lvl);
     if (!m_global_decls)
         pm().pop(n);
-    while (n--) {
-        m().limit().pop();
-    }
-
 }
 
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {
@@ -1934,9 +2016,40 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         validate_model();
     }
     validate_check_sat_result(r);
+    check_proof(num_assumptions, assumptions);
     model_ref md;
     if (r == l_true && m_params.m_dump_models && is_model_available(md)) {
         display_model(md);
+    }
+}
+
+void cmd_context::check_proof(unsigned num_assumptions, expr* const* assumptions) {
+    if (!m_proof_check_callback || cs_state() != css_unsat)
+        return;
+    if (!produce_proofs())
+        throw cmd_exception("proof checking callback requires (set-option :produce-proofs true)");
+    proof_ref pr(m_check_sat_result->get_proof(), m());
+    if (!pr)
+        throw cmd_exception("proof is not available for the proof checking callback");
+
+    expr_ref_vector inputs(m());
+    for (auto [assertion, name] : tracked_assertions()) {
+        if (name) {
+            inputs.push_back(m().mk_implies(name, assertion));
+            inputs.push_back(name);
+        }
+        else {
+            inputs.push_back(assertion);
+        }
+    }
+    inputs.append(num_assumptions, assumptions);
+    auto callback = m_proof_check_callback;
+    auto report = callback(pr, inputs);
+    if (!report.empty()) {
+        diagnostic_stream() << report;
+        if (report.back() != '\n')
+            diagnostic_stream() << '\n';
+        diagnostic_stream().flush();
     }
 }
 

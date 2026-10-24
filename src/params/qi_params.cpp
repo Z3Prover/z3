@@ -39,6 +39,7 @@ void qi_params::updt_params(params_ref const & _p) {
     m_qi_cost = p.qi_cost();
     m_qi_max_eager_multipatterns = p.qi_max_multi_patterns();
     m_qi_quick_checker = static_cast<quick_checker_mode>(p.qi_quick_checker());
+    m_qi_update_generation = p.qi_update_generation();
 }
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << '\n';
@@ -60,6 +61,7 @@ void qi_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_qi_max_persistent_instances);
     DISPLAY_PARAM(m_qi_lazy_instantiation);
     DISPLAY_PARAM(m_qi_conservative_final_check);
+    DISPLAY_PARAM(m_qi_update_generation);
     DISPLAY_PARAM(m_mbqi);
     DISPLAY_PARAM(m_mbqi_max_cexs);
     DISPLAY_PARAM(m_mbqi_max_cexs_incr);

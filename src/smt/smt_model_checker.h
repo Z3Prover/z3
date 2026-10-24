@@ -34,6 +34,7 @@ namespace smt {
     class enode;
     class model_finder;
     class quantifier_manager;
+    class model_instantiation_set;
 
     class model_checker {
         ast_manager &                               m; // _manager;
@@ -108,4 +109,3 @@ namespace smt {
 
     };
 }
-
