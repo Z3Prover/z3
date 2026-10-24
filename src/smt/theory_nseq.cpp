@@ -278,6 +278,9 @@ namespace smt {
 
         enode* en = ctx.e_internalized(term) ? ctx.get_enode(term) : ctx.mk_enode(term, false, m.is_bool(term), true);
         mk_var(en);
+        // If we disable relevancy propagation we do not axoimatize anything since we miss the callback
+        if (!ctx.relevancy())
+            relevant_eh(term);
         return true;
     }
 
