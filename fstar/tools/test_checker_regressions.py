@@ -301,6 +301,25 @@ class CheckerRegressionTests(unittest.TestCase):
             summary = json.loads((args.output / "summary.json").read_text())
             self.assertEqual(summary["per_logic"]["QF_UF"]["counts"]["NOT_RUN"], 1)
 
+    def test_workflow_run_reports_the_checker_revision_not_the_default_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args, _ = self.manifested_corpus(directory)
+            source, default_branch = "a" * 40, "b" * 40
+            with patch.dict("os.environ", {"SOURCE_SHA": source, "GITHUB_SHA": default_branch}), \
+                    patch.object(runner.subprocess, "run",
+                                 return_value=argparse.Namespace(stdout="test-version")), \
+                    patch.object(runner, "run_case", side_effect=[
+                        {"path": "QF_LIA/example.smt2", "outcome": "ACCEPT"},
+                        {"path": "QF_UF/example.smt2", "outcome": "ACCEPT"}]), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                runner.report(args.output)
+                self.assertIn(f"Z3 commit: `{source}`", (args.output / "report.md").read_text())
+                self.assertEqual(runner.run_suite(args), 0)
+                runner.report(args.output)
+            selection = json.loads((args.output / "selection.json").read_text())
+            self.assertEqual(selection["z3_commit"], source)
+            self.assertIn(f"Z3 commit: `{source}`", (args.output / "report.md").read_text())
+
     def test_expected_case_count_is_checked_before_executing_the_checker(self):
         with tempfile.TemporaryDirectory() as directory:
             args, _ = self.manifested_corpus(directory)

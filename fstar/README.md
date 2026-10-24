@@ -103,12 +103,11 @@ proof obligations remain verified.
 
 ### GitHub Actions regression report
 
-**Pulse verification and native checker regressions**
-(`.github/workflows/pulse-checker-regressions.yml`) runs automatically on
-pushes and pull requests changing `fstar/**`, and can also be dispatched
-manually on a branch containing the checker. Automatic runs use the
-default dispatch settings. It builds and installs that checkout's Z3, verifies the Pulse
-modules and their tests, extracts and links the native F* checker, and
+**Build Pulse native checkers** (`.github/workflows/pulse-checker-build.yml`)
+runs automatically on pushes and pull requests changing `fstar/**` or either
+checker workflow, and can also be dispatched manually. It builds and installs
+that checkout's Z3, verifies the Pulse modules and their tests, extracts and
+links the native F* checker, and
 runs both executables' bridge/CLI self-tests. The Linux path uses the same
 `tools/checker_modules.json` lists as the Windows/WSL build,
 with pinned F* `v2026.09.27` and OCaml `5.3.0` for the OCaml executable,
@@ -117,15 +116,29 @@ F* and enabled OCaml compiler warnings fail the build. Extracted constructor
 projectors receive explicit rejecting out-of-domain arms using OCaml's
 AST, without suppressing partial-match warnings or changing checker rules.
 
-Successful builds upload **`pulse-checker-ocaml-linux-x86_64`** and
-**`pulse-checker-cherry-linux-x86_64`** before running the corpora. Each
-artifact contains a checksummed `.tar.gz` with an executable `checker`,
+Successful builds upload **`pulse-checker-ocaml-linux-x86_64`**,
+**`pulse-checker-cherry-linux-x86_64`**, and **`pulse-checker-build-report`**.
+Each checker artifact contains a checksummed `.tar.gz` with an executable `checker`,
 build/toolchain metadata, runtime-library dependencies, licenses, and usage
 instructions. Extract the tarball to preserve executable permissions.
 Neither executable needs a build-time F* or OCaml installation, an external
 `z3`, or Python to run. Standard Linux shared libraries are still required;
 the OCaml binary also requires `libgmp.so.10`. Both packages are smoke-tested
-with a clean environment. A second job downloads the Cherry package, reruns
+with a clean environment.
+
+Successful completion triggers **Pulse verification and native checker regressions**
+(`.github/workflows/pulse-checker-regressions.yml`) through `workflow_run`.
+It downloads the packages and build report from that exact build run and
+checks out its source revision; it does not rebuild Z3, F*, or either checker.
+The consumer has only read permissions, including for PR builds, and no secrets
+are passed to the downloaded executables. Failed or cancelled builds do not
+start regression jobs. The regression workflow must be on the default branch
+for GitHub to deliver the completion trigger. For a manual regression run,
+provide the successful producer's `build_run_id` along with any corpus or
+timeout overrides. Automatic runs use the default regression settings.
+
+The first regression job downloads the OCaml package and reruns the CLI suite.
+A second job downloads the Cherry package from the same build, reruns
 the CLI suite without installing build toolchains, then replays the same
 z3test commit and the **identical 225/310 sampled inputs and 25 QF_FF inputs**
 from the OCaml report artifact. It does not download the Zenodo archives again.
