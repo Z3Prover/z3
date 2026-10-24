@@ -57,7 +57,22 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
-static void check_recfun_rlimit() {
+static void check_recfun_rlimit(char const* input, unsigned rlimit) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    cmd.params().set_rlimit(rlimit);
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    cmd.check_sat(0, nullptr);
+    VERIFY(cmd.cs_state() == cmd_context::css_unknown);
+    VERIFY(out.str() == "unknown\n");
+}
+
+static void check_recfun_rlimits() {
     for (char const* input : {
             "(define-fun-rec f ((x Int)) Int (f x))\n"
             "(assert (= (f 0) 1))\n",
@@ -68,19 +83,11 @@ static void check_recfun_rlimit() {
             "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
             " ((g x) (f x)))\n"
             "(assert (= (f 0) 1))\n"}) {
-        ast_manager m;
-        reg_decl_plugins(m);
-        cmd_context cmd(false, &m);
-        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
-        cmd.params().set_rlimit(1);
-        std::ostringstream out;
-        cmd.set_regular_stream(out);
-        std::istringstream is(input);
-        VERIFY(parse_smt2_commands(cmd, is));
-        cmd.check_sat(0, nullptr);
-        VERIFY(cmd.cs_state() == cmd_context::css_unknown);
-        VERIFY(out.str() == "unknown\n");
+        check_recfun_rlimit(input, 1);
     }
+    check_recfun_rlimit(
+        "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+        "(assert (= (f 0) 1))\n", 1000);
 }
 
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
@@ -230,7 +237,7 @@ static void check_special_relation_logic() {
 
 void tst_smt_context()
 {
-    check_recfun_rlimit();
+    check_recfun_rlimits();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
