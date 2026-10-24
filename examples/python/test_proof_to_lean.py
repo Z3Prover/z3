@@ -889,6 +889,60 @@ class TestProofToLean(unittest.TestCase):
                 self.assertEqual(proof_to_lean._render_structure(structure).replace("(", "").replace(")", ""),
                                  inlined.replace("(", "").replace(")", ""))
 
+    def test_classical_prover_refutes_over_opaque_leaves(self):
+        # The cnf lemmas of theory certificates (see _cnf_lemma) refute the
+        # negated clause over the Boolean structure with the theory atoms as
+        # opaque leaves rendered by name. Classically, a double negation of
+        # any structure is cancelled by Classical.byContradiction, a split
+        # is Classical.em on an atom or a leaf, and no decidability
+        # instance is needed; a bridge between two leaves is an Iff fact in
+        # scope that propagation reads like any other gate.
+        a, b, c = (("leaf", node, "(formula_%d _atoms _vars)" % node) for node in (3, 5, 7))
+        p = ("atom", 0)
+
+        def prove(structure, facts=()):
+            prover = proof_to_lean._PropositionalProver(structure, *[fact for fact, _ in facts], classical=True)
+            term = prover.refutation(structure, facts)
+            self.assertEqual(prover.needed, set())
+            return term
+
+        # (not S) or c from S = (or a b) and (or (not a) b), with c bridged
+        # to b: propagation alone, so no split.
+        source = ("and", ("or", a, b), ("or", ("not", a), b))
+        clause = ("or", ("not", source), c)
+        term = prove(("not", clause), [(("iff", b, c), "_bridge")])
+        self.assertIsNotNone(term)
+        self.assertTrue(term.startswith("(fun (_f1 : (Not (Or (Not (And (Or (formula_3 _atoms _vars) "))
+        self.assertIn("Classical.byContradiction (fun _g => ", term)
+        self.assertIn("(Iff.mp _bridge _g)", term)  # c false gives b false through the bridge
+        self.assertNotIn("Classical.em", term)
+        self.assertNotIn("Decidable", term)
+        self.assertNotIn("have _bridge", term)
+        # Without the bridge, c is unrelated to b, and the prover reaches a
+        # satisfying assignment after splitting.
+        self.assertIsNone(prove(("not", clause)))
+        # An unsatisfiable conjunction over a leaf and an atom is refuted by
+        # one split (the atom and the leaf occur equally often, the atom's
+        # index orders first), both branches closing by propagation; a
+        # conjunction over two leaves splits on a leaf.
+        mixed = ("and", ("or", a, p), ("or", ("not", a), ("not", p)), ("or", a, ("not", p)), ("or", ("not", a), p))
+        term = prove(("not", ("not", mixed)))
+        self.assertIsNotNone(term)
+        self.assertEqual(term.count("(Or.elim (Classical.em "), 1)
+        self.assertIn("(Or.elim (Classical.em (_atoms 0))", term)
+        self.assertNotIn("Decidable", term)
+        source = ("and", ("or", a, b), ("or", ("not", a), ("not", b)), ("or", a, ("not", b)), ("or", ("not", a), b))
+        term = prove(("not", ("not", source)))
+        self.assertIsNotNone(term)
+        self.assertEqual(term.count("(Or.elim (Classical.em (formula_3 _atoms _vars))"), 1)
+        # The same split without classical mode is Decidable.em on the atom
+        # (a leaf is never split), recorded as needed.
+        prover = proof_to_lean._PropositionalProver(mixed, ("false",))
+        term = prover.implication(mixed, ("false",))
+        self.assertIsNotNone(term)
+        self.assertIn("Decidable.em (_atoms 0)", term)
+        self.assertEqual(prover.needed, {0})
+
     def test_structural_rule_signatures_are_checked(self):
         source = "(declare-const p Bool)(declare-const q Bool)"
         source += "(assert (= p p))(assert (and p q))(assert (not (or p q)))(assert false)"

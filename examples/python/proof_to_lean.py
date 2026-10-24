@@ -16,8 +16,10 @@ import argparse
 from collections import Counter, deque
 from dataclasses import dataclass
 from fractions import Fraction
+import functools
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -1250,8 +1252,16 @@ def _gcd(left, right):
     return left
 
 
-def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tactic=None):
+def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tactic=None, structural=None,
+                 unfolded=(), folded=()):
     """Prove a conclusion over theory atoms with grind after unfolding its definitions.
+
+    With structural (tactic lines) and unfolded (nodes), the caller's own
+    proof attempt over the definitions it names unfolded comes first (see
+    _cnf_lemma); the attempts below unfold the rest, and again every
+    unfolded node in folded (the nodes under the caller's opaque leaves),
+    since a node shared between the outside and the inside of a leaf
+    occurs folded once more when the leaf is unfolded.
 
     grind decides linear arithmetic over ordered fields, congruence closure
     over uninterpreted functions, and propositional structure; the Lean kernel
@@ -1295,6 +1305,10 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
         "private theorem %s_%d (_atoms : Nat -> Prop)%s" % (prefix, node, _valuation_binder(graph)),
         "    : %s := by" % statement,
     ]
+    unfolded = set(unfolded)
+    if unfolded:
+        lines.append("  unfold " + " ".join(_definition_names(graph, unfolded)))
+    alternatives = [] if structural is None else [structural]
     if atoms:
         # Outside the atoms first; the fallback unfolds the atoms and
         # everything under them (a child shared with the outside occurs
@@ -1304,25 +1318,28 @@ def _grind_lemma(graph, node, prefix, atom_indices, variable_indices, opaque_tac
             outside |= _reachable_outside(graph, formula, atoms)
         for atom in atoms:
             inside |= _reachable(graph, atom)[0]
-        lines.append("  unfold " + " ".join(_definition_names(graph, outside)))
-        lines.append("  first")
+        lines.append("  unfold " + " ".join(_definition_names(graph, outside - unfolded)))
         facts, names = ([], []) if _combination_certified(graph, node) else _mod_bound_facts(graph, atoms)
         bridges, bridge_names = _atom_bridge_facts(graph, atoms)
         facts, names = facts + bridges, names + bridge_names
         if names:
             facts.append("revert " + " ".join(names))
-        lines.append("    | (" + "\n       ".join(
+        alternatives.append(
             facts
             + ["generalize %s = _o%d" % (_term(graph, atom), position) for position, atom in enumerate(atoms)]
-            + [opaque_tactic + ")"]))
-        fallback = ["unfold " + " ".join(_definition_names(graph, inside))]
-        fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
-        fallback.append(_theory_tactic(graph) + ")")
-        lines.append("    | (" + "\n       ".join(fallback))
+            + [opaque_tactic])
+        remaining = inside
     else:
-        lines.append("  unfold " + " ".join(_definition_names(graph, reachable)))
-        lines.extend(_theory_helpers(graph, reachable, atom_indices, variable_indices))
-        lines.append("  " + _theory_tactic(graph))
+        remaining = reachable - (unfolded - set(folded))
+    fallback = ["unfold " + " ".join(_definition_names(graph, remaining))] if remaining else []
+    fallback.extend(helper.strip() for helper in _theory_helpers(graph, reachable, atom_indices, variable_indices))
+    fallback.append(_theory_tactic(graph))
+    alternatives.append(fallback)
+    if len(alternatives) == 1:
+        lines.extend("  " + tactic for tactic in fallback)
+    else:
+        lines.append("  first")
+        lines.extend("    | (" + "\n       ".join(alternative) + ")" for alternative in alternatives)
     return lines, "(%s_%d _atoms%s%s)" % (prefix, node, graph.valuation,
                                           "".join(" _step_%d" % premise for premise in premises))
 
@@ -1677,7 +1694,7 @@ def _condition_key(graph, relation, terms, constant):
     return (relation, tuple(sorted(keyed.items(), key=repr)), constant), swapped
 
 
-def _boolean_structure(graph, node, atom_indices, memo=None):
+def _boolean_structure(graph, node, atom_indices, memo=None, leaves=None):
     """Return the propositional structure of a Boolean node over the atoms, as Lean reads it.
 
     The structure is a nested tuple: ("atom", index), ("true",), ("false",),
@@ -1689,6 +1706,12 @@ def _boolean_structure(graph, node, atom_indices, memo=None):
     parents is read once (memo); its structure object is shared, but the
     structure is still a tree, so hashing and rendering it expand the
     sharing.
+
+    With leaves (a dict), a theory atom (an equality, a comparison, or a
+    distinct over terms, or a predicate application) is the opaque leaf
+    ("leaf", node, rendering), rendered by its definition name so that it is
+    never unfolded, and is recorded in leaves by node; without, a theory
+    atom is unsupported.
     """
     memo = {} if memo is None else memo
     if node in memo:
@@ -1698,8 +1721,10 @@ def _boolean_structure(graph, node, atom_indices, memo=None):
         structure = ("atom", atom_indices[graph.nodes[node].declaration])
     elif _trivial_distinct(graph, node):
         structure = ("true",)  # over a term as well as over an atom
+    elif leaves is not None and arguments and (kind == z3.Z3_OP_UNINTERPRETED or graph.is_term(arguments[0])):
+        structure = leaves.setdefault(node, ("leaf", node, _formula(graph, node)))
     else:
-        children = [_boolean_structure(graph, argument, atom_indices, memo) for argument in arguments]
+        children = [_boolean_structure(graph, argument, atom_indices, memo, leaves) for argument in arguments]
         structure = _boolean_connective(kind, children)
     memo[node] = structure
     return structure
@@ -1752,6 +1777,8 @@ def _render_structure(structure):
     kind = structure[0]
     if kind == "atom":
         return "(_atoms %d)" % structure[1]
+    if kind == "leaf":
+        return structure[2]
     if kind == "true":
         return "True"
     if kind == "false":
@@ -1795,16 +1822,25 @@ class _PropositionalProver:
     (the equivalence does not hold), returns None and the caller falls back
     to the truth table; Lean checks the term as it checks any other, so a
     wrong term is rejected, never trusted.
+
+    In classical mode (the cnf lemmas of theory certificates, see
+    _cnf_lemma) the structures may hold opaque theory leaves next to the
+    atoms; double negations on atoms and leaves are cancelled by
+    Classical.byContradiction and splits use Classical.em, so no instance
+    is needed and `needed` stays empty. Such certificates depend on the
+    standard axioms through their theory lemmas anyway.
     """
 
-    def __init__(self, left, right):
+    def __init__(self, *roots, classical=False):
         self.parents = {}
         self.needed = set()
         self.names = set()
         self.fresh = 0
         self.steps = 0
         self.chars = 0
-        for root in (left, right):
+        self.classical = classical
+        self.decidable = ("atom", "leaf") if classical else ("atom",)
+        for root in roots:
             self._index(root)
         self.constants = [(structure, structure[0] == "true", "True.intro" if structure[0] == "true"
                            else "(fun _absurd => _absurd)")
@@ -1818,7 +1854,8 @@ class _PropositionalProver:
             self._index(child)
             self.parents[child][structure] = None
 
-    def _name(self):
+    def name(self):
+        """A fresh hypothesis name, reused rather than restated when it appears as a proof."""
         self.fresh += 1
         self.names.add("_f%d" % self.fresh)
         return "_f%d" % self.fresh
@@ -1835,12 +1872,32 @@ class _PropositionalProver:
 
     def implication(self, source, target):
         """A term of type source -> target, or None."""
-        hypothesis = self._name()
+        hypothesis = self.name()
         body = self._prove(dict(), target, self.constants + [(source, True, hypothesis)])
         if body is None:
             return None
         return "(fun (%s : %s) => (%s : %s))" % (
             hypothesis, _render_structure(source), body, _render_structure(target))
+
+    def refutation(self, structure, facts=()):
+        """A term of type Not structure under the named facts (structures already in scope), or None."""
+        hypothesis = self.name()
+        self.names.update(name for _, name in facts)
+        body = self._prove(dict(), ("false",), self.constants + [(fact, True, name) for fact, name in facts]
+                           + [(structure, True, hypothesis)])
+        if body is None:
+            return None
+        return "(fun (%s : %s) => (%s : False))" % (hypothesis, _render_structure(structure), body)
+
+    def _negatable(self, structure):
+        """Whether a double negation of structure can be cancelled: any structure classically, else an atom."""
+        return self.classical or structure[0] == "atom"
+
+    def _by_contradiction(self, structure, body):
+        """A proof of structure from body, a proof of False under _g : Not structure; the atom it decides."""
+        if self.classical:
+            return "(Classical.byContradiction (fun _g => %s))" % body, None
+        return "(Decidable.byContradiction (fun _g => %s))" % body, structure[1]
 
     def _prove(self, state, target, facts):
         """A term of type target under the state extended by the facts, or None."""
@@ -1853,21 +1910,25 @@ class _PropositionalProver:
             return self._block(lines, "(False.elim %s)" % conflict)
         if target in state and state[target][0]:
             return self._block(lines, state[target][1])
-        atoms = sorted((-len(self.parents[atom]), atom[1]) for atom in self.parents
-                       if atom[0] == "atom" and atom not in state)
+        atoms = sorted((-len(self.parents[atom]), atom[1], atom) for atom in self.parents
+                       if atom[0] in self.decidable and atom not in state)
         self.steps += 1
         if not atoms or self._exhausted():
             return None  # every atom assigned without the target holding: the equivalence does not hold
-        atom = ("atom", atoms[0][1])
-        self.needed.add(atom[1])
+        atom = atoms[0][2]
+        if self.classical:
+            split = "(Classical.em %s)" % _render_structure(atom)
+        else:
+            self.needed.add(atom[1])
+            split = "(Decidable.em (_atoms %d))" % atom[1]
         branches = []
         for value in (True, False):
-            name = self._name()
+            name = self.name()
             branch = self._prove(dict(state), target, [(atom, value, name)])
             if branch is None:
                 return None
             branches.append("(fun %s => %s)" % (name, branch))
-        return self._block(lines, "(Or.elim (Decidable.em (_atoms %d)) %s %s)" % ((atom[1],) + tuple(branches)))
+        return self._block(lines, "(Or.elim %s %s %s)" % ((split,) + tuple(branches)))
 
     @staticmethod
     def _block(lines, body):
@@ -1889,7 +1950,7 @@ class _PropositionalProver:
             return "(%s %s)" % (negative, positive)
         self.steps += 1
         if proof not in self.names:  # a bare hypothesis or `have` name is reused, not restated
-            name = self._name()
+            name = self.name()
             rendered = _render_structure(structure)
             line = "have %s : %s := %s;" % (name, rendered if truth else "(Not %s)" % rendered, proof)
             self.chars += len(line)
@@ -1934,8 +1995,8 @@ class _PropositionalProver:
             if value is not None:
                 if value[0]:
                     add(child, False, value[1])
-                elif child[0] == "atom":
-                    add(child, True, "(Decidable.byContradiction (fun _g => %s _g))" % value[1], child[1])
+                elif self._negatable(child):
+                    add(child, True, *self._by_contradiction(child, "%s _g" % value[1]))
             if truth is True:
                 add(structure, False, "(fun _g => _g %s)" % proof)
             elif truth is False:
@@ -1980,9 +2041,9 @@ class _PropositionalProver:
                     add(antecedent, False, "(fun _g => %s (%s _g))" % (proof_b, value[1]))
             if value is not None and not value[0]:
                 add(consequent, False, "(fun _g => %s (fun _ => _g))" % value[1])
-                if antecedent[0] == "atom":
-                    add(antecedent, True, "(Decidable.byContradiction (fun _g => %s (fun _h => absurd _h _g)))"
-                        % value[1], antecedent[1])
+                if self._negatable(antecedent):
+                    add(antecedent, True, *self._by_contradiction(
+                        antecedent, "%s (fun _h => absurd _h _g)" % value[1]))
             if truth_a is False:
                 add(structure, True, "(fun _g => absurd _g %s)" % proof_a)
             elif truth_b is True:
@@ -2006,15 +2067,15 @@ class _PropositionalProver:
                 if truth_a is True:
                     add(right, False, "(fun _g => %s (Iff.intro (fun _ => _g) (fun _ => %s)))"
                         % (value[1], proof_a))
-                elif truth_a is False and right[0] == "atom":
-                    add(right, True, "(Decidable.byContradiction (fun _g => %s (Iff.intro "
-                        "(fun _h => absurd _h %s) (fun _h => absurd _h _g))))" % (value[1], proof_a), right[1])
+                elif truth_a is False and self._negatable(right):
+                    add(right, True, *self._by_contradiction(right, "%s (Iff.intro (fun _h => absurd _h %s) "
+                                                             "(fun _h => absurd _h _g))" % (value[1], proof_a)))
                 if truth_b is True:
                     add(left, False, "(fun _g => %s (Iff.intro (fun _ => %s) (fun _ => _g)))"
                         % (value[1], proof_b))
-                elif truth_b is False and left[0] == "atom":
-                    add(left, True, "(Decidable.byContradiction (fun _g => %s (Iff.intro "
-                        "(fun _h => absurd _h _g) (fun _h => absurd _h %s))))" % (value[1], proof_b), left[1])
+                elif truth_b is False and self._negatable(left):
+                    add(left, True, *self._by_contradiction(left, "%s (Iff.intro (fun _h => absurd _h _g) "
+                                                            "(fun _h => absurd _h %s))" % (value[1], proof_b)))
             if truth_a is not None and truth_b is not None:
                 if truth_a and truth_b:
                     add(structure, True, "(Iff.intro (fun _ => %s) (fun _ => %s))" % (proof_b, proof_a))
@@ -2034,6 +2095,130 @@ def _structural_equivalence(graph, left, right, atom_indices):
     left, right = (_boolean_structure(graph, side, atom_indices, memo) for side in (left, right))
     prover = _PropositionalProver(left, right)
     return prover.equivalence(left, right), sorted(prover.needed)
+
+
+def _cnf_lemma(graph, node, atom_indices, variable_indices):
+    """Generate a Lean lemma for the exporter's cnf bridge: a clause the negated source assertions imply.
+
+    The clause-log exporter ties an assumed clause that Z3 simplified before
+    logging (a root ite's gate clause without the ite literal, a conjunct's
+    clause under an asserted unit) to an unsat core of the assertions with a
+    th-lemma of hint cnf: the clause of the negated sources followed by the
+    assumed literals. Such a clause almost always follows from its sources
+    by propositional reasoning alone, with the theory atoms opaque: Z3's
+    clausification does not use what an atom denotes, except to normalize
+    it (an equality's sides reordered, a comparison's complement). So the
+    lemma is first proved by Classical.byContradiction and the gate
+    propagation of _PropositionalProver over the Boolean structure of the
+    clause, every theory atom a leaf, with every two leaves denoting one
+    constraint, or complementary ones, bridged by an equivalence the theory
+    tactic proves on its own (_leaf_bridges). A 3,500-character assertion
+    (a conjunction of equalities, a 40-way disjunction, and ten Boolean ite
+    terms over Int applications, QF_UFLIA Wisa) bridged to the gate clauses
+    of its ite terms exhausted omega and grind over the unfolded formula
+    (they split every ite and disjunction); the propagation proof is a
+    chain of a few dozen typed `have` steps. The unfolded theory proof
+    (_grind_lemma) stays the fallback, taken by `first` when the structural
+    attempt is not found or does not check, and alone when the prover gives
+    up (the clause needs a theory fact: the alldiff clauses Z3 simplified
+    under a unit rest on the value of an ite under the distinct).
+    """
+    conclusion = graph.conclusion(node)
+    leaves = {}
+    structure = _boolean_structure(graph, conclusion, atom_indices, {}, leaves)
+    bridges = _leaf_bridges(graph, leaves)
+    prover = _PropositionalProver(("not", structure), *[bridge for bridge, _ in bridges], classical=True)
+    names = [prover.name() for _ in bridges]
+    refutation = prover.refutation(("not", structure), [(bridge, name) for (bridge, _), name in zip(bridges, names)])
+    if refutation is None:
+        return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
+                            opaque_tactic=_opaque_tactic(graph, node))
+    attempt = ["have %s : %s := by unfold %s; %s" % (name, _render_structure(bridge), " ".join(definitions),
+                                                     _theory_tactic(graph))
+               for (bridge, definitions), name in zip(bridges, names)]
+    attempt.append("exact (Classical.byContradiction %s)" % refutation)
+    # The connectives outside the leaves are unfolded before the attempt; a
+    # formula shared with the inside of a leaf (a predicate's Boolean
+    # argument) is unfolded again by the fallback once the leaf is.
+    inside = set()
+    for leaf in leaves:
+        inside |= _reachable(graph, leaf)[0]
+    return _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
+                        opaque_tactic=_opaque_tactic(graph, node), structural=attempt,
+                        unfolded=_reachable_outside(graph, conclusion, leaves), folded=inside)
+
+
+def _leaf_bridges(graph, leaves):
+    """Equivalences between leaves of one constraint key, or of complementary keys, with the definitions to unfold.
+
+    Z3's rewriter orders the sides of an equality and writes a strict
+    comparison as the negation of its complement, so the assumed clause's
+    literal and the assertion's atom it comes from can be two nodes
+    denoting one constraint (or complementary ones); generalized apart they
+    are unrelated and propagation stops at them. Each bridge is the
+    structure ("iff", leaf, other) or ("iff", leaf, ("not", other)), to be
+    stated as a `have` the theory tactic proves (the sides' definitions
+    unfolded) and given to the prover as a fact. Returns (structure,
+    definition names) pairs.
+    """
+    by_key, bridges, joined = {}, [], set()
+    keyed = [(leaf, _leaf_key(graph, leaf)) for leaf in sorted(leaves)]
+    for leaf, (key, _) in keyed:
+        by_key.setdefault(key, []).append(leaf)
+    for members in by_key.values():
+        # A chain through the group: propagation crosses it in both directions.
+        bridges.extend((first, second, False) for first, second in zip(members, members[1:]))
+    for leaf, (key, complement) in keyed:
+        # One bridge, between the first leaves, joins two complementary
+        # groups; the chains carry it to their other members.
+        if complement in by_key and frozenset((key, complement)) not in joined:
+            joined.add(frozenset((key, complement)))
+            bridges.append((leaf, by_key[complement][0], True))
+    result = []
+    for leaf, other, negated in bridges:
+        definitions = _definition_names(graph, _reachable(graph, leaf)[0] | _reachable(graph, other)[0])
+        right = ("not", leaves[other]) if negated else leaves[other]
+        result.append((("iff", leaves[leaf], right), definitions))
+    return result
+
+
+def _leaf_key(graph, leaf):
+    """The constraint a theory atom denotes, and the one its negation denotes (None when not linear).
+
+    An arithmetic atom is keyed by its linear constraint with coprime
+    integer coefficients (positive leading one for an equality), over Int
+    with the bound of a non-strict constraint rounded to an integer (so
+    (<= (* 2 x) (* 2 y)) and (<= x y), whose tightened complements differ
+    by the scaling, key alike), the complement likewise; an equality over
+    the uninterpreted sort by its two sides unordered; anything else by
+    itself.
+    """
+    kind, arguments = graph.kind(leaf), graph.arguments(leaf)
+    if kind == z3.Z3_OP_EQ and not graph.is_arith(arguments[0]):
+        return ("eq", frozenset(arguments)), None
+    if kind not in _ARITH_PREDICATE_NAMES and kind != z3.Z3_OP_EQ:
+        return ("leaf", leaf), None
+    keys = []
+    for polarity in (True, False):
+        try:
+            relation, terms, constant = _polarity_constraint(graph, leaf, polarity)
+        except ReconstructionError:
+            keys.append(("leaf", leaf) if polarity else None)
+            continue
+        if not terms:
+            keys.append((relation, (), constant))
+            continue
+        denominators = functools.reduce(math.lcm, (value.denominator for value in terms.values()), 1)
+        numerators = functools.reduce(math.gcd, (abs(int(value * denominators)) for value in terms.values()))
+        scale = Fraction(denominators, numerators)
+        if relation == "=" and terms[min(terms)] < 0:
+            scale = -scale
+        constant *= scale
+        if graph.numeric == "Int" and relation == "<=":
+            constant = Fraction(math.ceil(constant))  # terms + constant <= 0 with integer terms
+        keys.append((relation, tuple(sorted((variable, value * scale) for variable, value in terms.items())),
+                     constant))
+    return tuple(keys)
 
 
 def _rewrite_lemma(graph, node, atom_indices, variable_indices=None, terms=None):
@@ -3214,8 +3399,11 @@ def reconstruct(source, certificate):
     for node in range(len(graph.nodes)):
         if graph.kind(node) == z3.Z3_OP_PR_TH_LEMMA:
             _check_th_lemma(graph, node)
-            lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
-                                       opaque_tactic=_opaque_tactic(graph, node))
+            if graph.decl(node).parameters[0] == "cnf":
+                lemma, term = _cnf_lemma(graph, node, atom_indices, variable_indices)
+            else:
+                lemma, term = _grind_lemma(graph, node, "th_lemma", atom_indices, variable_indices,
+                                           opaque_tactic=_opaque_tactic(graph, node))
             lines.extend(lemma)
             th_lemmas[node] = term
         elif graph.kind(node) == z3.Z3_OP_PR_REWRITE:
