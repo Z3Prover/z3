@@ -171,10 +171,11 @@ namespace smt {
         m_tree.add_split_plugin(alloc(seq::power_fixed_exp, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::eq_approx_split, m, m_seq, m_rewriter));
         m_tree.add_split_plugin(alloc(seq::mem_parikh_split, m, m_seq));
-        m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, landing->graph()));
-        m_tree.add_split_plugin(alloc(seq::mem_landing_split, m, m_seq, landing->graph()));
+        // the whole-conjunction decision first: it sees only plain memberships, which landing turns into pins
         m_mem_leaf = alloc(seq::mem_leaf_split, m, m_seq, m_rewriter, *m_ambient);
         m_tree.add_split_plugin(m_mem_leaf);
+        m_tree.add_split_plugin(alloc(seq::mem_char_split, m, m_seq, landing->graph()));
+        m_tree.add_split_plugin(alloc(seq::mem_landing_split, m, m_seq, landing->graph()));
         m_tree.add_split_plugin(alloc(seq::mem_monadic_split, m, m_seq, m_rewriter, *m_ambient));
         m_tree.add_split_plugin(alloc(seq::power_split_elim, m, m_seq, m_autil));
         m_tree.add_split_plugin(alloc(seq::power_fine_wilf, m, m_seq, m_autil));

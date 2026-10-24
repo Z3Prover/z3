@@ -188,6 +188,77 @@ namespace seq {
         return false;
     }
 
+    // (Der) over the leading characters of membership i: concrete ones, and symbolic ones whose class leads
+    // to one state.  Plain heads record the steps in G.  Returns false if the membership became unsatisfiable,
+    // with its justification in dep; `changed` tells whether it was rewritten.
+    static bool derive_prefix(deriv_graph& g, mem_facet& mf, seq_util& u, unsigned i, bool& changed, eq_tree::dep_tracker& dep, unsigned& steps) {
+        ast_manager& m = u.get_manager();
+        str_mem const& sm = mf.memberships()[i];
+        changed = false;
+        view v = sm.m_view;
+        dep = sm.m_dep;
+        unsigned origin = sm.m_origin;
+        expr_ref_vector str(sm.m_str);
+        expr_ref s(v.m_state, m);
+        unsigned k = 0, c;
+        expr* e = nullptr;
+        while (k < str.size() && u.str.is_unit(str.get(k), e)) {
+            expr* t = nullptr;
+            if (u.is_const_char(e, c)) {
+                t = g.step(s, c);
+                if (!t)
+                    break;
+                if (u.re.is_empty(t) || (v.is_gated() && !v.m_gate->contains(t)))
+                    return false;
+            }
+            else {
+                // only characters this solver introduced: anything else is constrained outside the tree too
+                range_predicate cls;
+                eq_tree::dep_tracker cdep = nullptr;
+                succ_vector succ, parts;
+                if (!mf.is_var_token(str.get(k)) || !char_class(g, mf, u, str.get(k), cls, cdep) || !g.successors(s, succ))
+                    break;
+                live_parts(v, s, cls, succ, parts);
+                if (parts.size() > 1)
+                    break;              // mem_char_split
+                dep = mf.dm().mk_join(dep, cdep);
+                if (parts.empty())
+                    return false;
+                t = parts[0].first;
+                if (parts[0].second != cls) {
+                    expr_ref_vector ts(m);
+                    ts.push_back(str.get(k));
+                    mf.add(str_mem(m, ts, view::membership(range_predicate_to_regex(u, parts[0].second, str.get(k)->get_sort()), m), dep));
+                }
+            }
+            if (!v.is_gated())
+                g.record(s, t);
+            s = t;
+            ++k;
+            ++steps;
+        }
+        if (v.is_gated() && k == str.size()) {
+            if (s != v.m_target)
+                return false;
+            mf.remove(i);
+            changed = true;
+            return true;
+        }
+        if (k == 0)
+            return true;
+        expr_ref_vector rest(m);
+        for (unsigned j = k; j < str.size(); ++j)
+            rest.push_back(str.get(j));
+        str_mem nm(m, rest, view(s, v.m_target, v.m_gate, m), dep);
+        nm.m_origin = origin;
+        mf.remove(i);
+        mf.add(nm);
+        changed = true;
+        return true;
+    }
+
+    // Only the views this procedure created are rewritten here.  Plain memberships stay as asserted until
+    // mem_landing_split takes them up, so the rules before it in the split order see them unchanged.
     stx::simplify_result landing_propagation::propagate(eq_tree::node& n) {
         auto ac = get_ambient(n);
         if (!ac.fparams().m_seq_landing)
@@ -198,106 +269,45 @@ namespace seq {
         while (head < mf.memberships().size()) {
             unsigned i = head++;
             str_mem const& sm = mf.memberships()[i];
-            if (!sm.active() || !is_landing_view(sm.m_view) || (mf.is_single_var_plain(sm) && u.str.is_unit(sm.m_str.get(0))))
+            if (!sm.active() || !sm.m_view.is_gated())
                 continue;
-            view v = sm.m_view;
-            eq_tree::dep_tracker dep = sm.m_dep;
-            unsigned origin = sm.m_origin;
-            expr_ref_vector str(sm.m_str);
-            expr_ref s(v.m_state, m);
-            // (Der), over concrete characters and over symbolic ones whose class leads to one state
-            unsigned k = 0, c;
-            expr* e = nullptr;
-            bool dead = false;
-            while (k < str.size() && u.str.is_unit(str.get(k), e)) {
-                expr* t = nullptr;
-                if (u.is_const_char(e, c)) {
-                    t = m_graph.step(s, c);
-                    if (!t)
-                        break;
-                    if (u.re.is_empty(t) || (v.is_gated() && !v.m_gate->contains(t)))
-                        dead = true;
-                }
-                else {
-                    // only characters this solver introduced: anything else is constrained outside the tree too
-                    range_predicate cls;
-                    eq_tree::dep_tracker cdep = nullptr;
-                    succ_vector succ, parts;
-                    if (!mf.is_var_token(str.get(k)) || !char_class(m_graph, mf, u, str.get(k), cls, cdep) || !m_graph.successors(s, succ))
-                        break;
-                    live_parts(v, s, cls, succ, parts);
-                    if (parts.size() > 1)
-                        break;              // mem_char_split
-                    dep = mf.dm().mk_join(dep, cdep);
-                    if (parts.empty())
-                        dead = true;
-                    else {
-                        t = parts[0].first;
-                        if (parts[0].second != cls) {
-                            expr_ref_vector ts(m);
-                            ts.push_back(str.get(k));
-                            mf.add(str_mem(m, ts, view::membership(range_predicate_to_regex(u, parts[0].second, str.get(k)->get_sort()), m), dep));
-                        }
-                    }
-                }
-                if (dead)
-                    break;
-                if (!v.is_gated())
-                    m_graph.record(s, t);
-                s = t;
-                ++k;
-                m_stats.m_num_steps++;
-            }
-            if (dead || (v.is_gated() && k == str.size() && s != v.m_target)) {
+            bool rewritten = false;
+            eq_tree::dep_tracker dep = nullptr;
+            if (!derive_prefix(m_graph, mf, u, i, rewritten, dep, m_stats.m_num_steps)) {
                 n.set_conflict(stx::br_plugin_base, dep);
                 return stx::simplify_result::conflict;
             }
-            if (v.is_gated() && k == str.size()) {
-                mf.remove(i);
+            if (rewritten) {
                 changed = true;
                 continue;
             }
-            if (k > 0) {
-                expr_ref_vector rest(m);
-                for (unsigned j = k; j < str.size(); ++j)
-                    rest.push_back(str.get(j));
-                str_mem nm(m, rest, view(s, v.m_target, v.m_gate, m), dep);
-                nm.m_origin = origin;
-                mf.remove(i);
-                mf.add(nm);
-                changed = true;
-                continue;
-            }
+            str_mem const& sm2 = mf.memberships()[i];
+            view v = sm2.m_view;
             unsigned d = 0, period = 0;
-            bool has_len = v.is_gated() && m_graph.length_info(v, d, period);
-            if (has_len && ac.fparams().m_seq_landing_length) {
-                auto& sf = ac.solver_facet_ref();
-                arith_util& a = sf.get_arith_util();
-                expr_ref len(a.mk_int(0), m);
-                for (expr* t : str)
-                    len = a.mk_add(len, u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t));
-                m_stats.m_num_length++;
-                if (period == 0)
-                    sf.add_constraint(m.mk_eq(len, a.mk_int(d)), dep);
-                else {
-                    if (d > 0)
-                        sf.add_constraint(a.mk_ge(len, a.mk_int(d)), dep);
-                    if (period > 1)
-                        sf.add_constraint(m.mk_eq(a.mk_mod(a.mk_sub(len, a.mk_int(d)), a.mk_int(period)), a.mk_int(0)), dep);
-                }
-            }
-        }
-        // a variable pinned to {epsilon} is substituted away
-        for (unsigned i = m_qhead; i < mf.memberships().size(); ++i) {
-            str_mem const& sm = mf.memberships()[i];
-            if (!sm.active() || sm.m_str.size() != 1 || !is_uninterp(sm.m_str.get(0)) || !is_landing_view(sm.m_view))
+            if (!m_graph.length_info(v, d, period))
                 continue;
-            unsigned d = 0, period = 0;
-            view const& v = sm.m_view;
-            if (v.is_gated() ? m_graph.length_info(v, d, period) && d == 0 && period == 0 : u.re.max_length(v.m_state) == 0) {
-                expr_ref x(sm.m_str.get(0), m);
-                broadcast_subst(n, x, expr_ref_vector(m), sm.m_dep);
+            // a variable pinned to {epsilon} is substituted away
+            if (sm2.m_str.size() == 1 && is_uninterp(sm2.m_str.get(0)) && d == 0 && period == 0) {
+                expr_ref x(sm2.m_str.get(0), m);
+                broadcast_subst(n, x, expr_ref_vector(m), sm2.m_dep);
                 changed = true;
+                continue;
+            }
+            if (!ac.fparams().m_seq_landing_length)
+                continue;
+            auto& sf = ac.solver_facet_ref();
+            arith_util& a = sf.get_arith_util();
+            expr_ref len(a.mk_int(0), m);
+            for (expr* t : sm2.m_str)
+                len = a.mk_add(len, u.str.is_unit(t) ? (expr*)a.mk_int(1) : (expr*)u.str.mk_length(t));
+            m_stats.m_num_length++;
+            if (period == 0)
+                sf.add_constraint(m.mk_eq(len, a.mk_int(d)), sm2.m_dep);
+            else {
+                if (d > 0)
+                    sf.add_constraint(a.mk_ge(len, a.mk_int(d)), sm2.m_dep);
+                if (period > 1)
+                    sf.add_constraint(m.mk_eq(a.mk_mod(a.mk_sub(len, a.mk_int(d)), a.mk_int(period)), a.mk_int(0)), sm2.m_dep);
             }
         }
         if (head != m_qhead) {
@@ -694,6 +704,34 @@ namespace seq {
             return nullptr;
         auto& mf = ac.mem_facet_ref();
         scan_chars(m_graph, n, false);
+        // (Der) on the plain memberships first, as one deterministic branch.  A primitive membership on a
+        // character token is that character's class and stays.
+        {
+            bool any = false;
+            eq_tree::dep_tracker all = nullptr;
+            unsigned num = mf.memberships().size();
+            for (unsigned i = 0; i < num; ++i) {
+                str_mem const& sm = mf.memberships()[i];
+                if (!sm.active() || !sm.is_plain() || sm.m_str.empty() || !u.str.is_unit(sm.m_str.get(0)) || mf.is_single_var_plain(sm))
+                    continue;
+                bool rewritten = false;
+                eq_tree::dep_tracker dep = nullptr;
+                if (!derive_prefix(m_graph, mf, u, i, rewritten, dep, m_stats.m_num_steps)) {
+                    n.set_conflict(stx::br_plugin_base, dep);
+                    return nullptr;
+                }
+                if (rewritten) {
+                    any = true;
+                    all = mf.dm().mk_join(all, dep);
+                }
+            }
+            if (any) {
+                out = eq_tree::edge("landing-der", all, true, 0);
+                committed = true;
+                has_more = true;
+                return nullptr;
+            }
+        }
         // land at plain heads on a cycle of G, then at gated heads, and unwind only if neither
         // exists; memberships in the order they were asserted, as rewriting appends them
         unsigned_vector order;

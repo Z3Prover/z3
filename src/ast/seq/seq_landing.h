@@ -19,15 +19,17 @@ Abstract:
     class leads to one state; otherwise mem_char_split splits the class by
     successor.
 
-      landing_propagation  derivative steps (recording G for plain heads),
-                           discharge of gated views, substitution of variables
-                           pinned to {epsilon}, length abstraction of gated
-                           views, conflict detection Omega(u) /\ r = {}.
+      landing_propagation  derivative steps on gated views, their discharge,
+                           substitution of variables pinned to {epsilon},
+                           length abstraction of gated views, conflict
+                           detection Omega(u) /\ r = {}.  Plain memberships
+                           are left as asserted.
       eq_lang_propagation  optional: Omega(u) /\ Omega(v) = {} refutes u = v.
                            The only rule that reads equations and pins.
       mem_char_split       splits the class of a symbolic character by the
                            successors of the state it is read in.
-      mem_landing_split    subsumption, probes, and the land / escape branches;
+      mem_landing_split    derivative steps on plain memberships (recording G),
+                           subsumption, probes, and the land / escape branches;
                            unwinding (the region {r}) at heads that are not on
                            a cycle of G.  All memberships the variable leads
                            land together, over the product of their regions.
@@ -135,6 +137,7 @@ namespace seq {
         };
         struct stats {
             unsigned m_num_splits = 0;
+            unsigned m_num_steps = 0;
             unsigned m_num_joint = 0;
             unsigned m_num_unwind = 0;
             unsigned m_num_subsumed = 0;
@@ -171,6 +174,7 @@ namespace seq {
         scoped_ptr<eq_tree::split_iterator_i> split(eq_tree::node& n, unsigned cost, eq_tree::edge& out, bool& has_more, bool& committed) override;
         void collect_statistics(::statistics& st) const override {
             st.update("seq-landing num splits", m_stats.m_num_splits);
+            st.update("seq-landing num split steps", m_stats.m_num_steps);
             st.update("seq-landing num joint", m_stats.m_num_joint);
             st.update("seq-landing num unwind", m_stats.m_num_unwind);
             st.update("seq-landing num subsumed", m_stats.m_num_subsumed);
