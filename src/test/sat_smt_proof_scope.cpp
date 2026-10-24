@@ -11,14 +11,15 @@ Copyright (c) 2026 Romain Soulat
 #include "util/debug.h"
 
 void tst_sat_smt_proof_scope() {
-    for (bool early_scope : {false, true}) {
+    for (auto [early_scope, proof_logging] : {std::pair{false, false}, {false, true},
+                                             {true, false}, {true, true}}) {
         ast_manager m;
         reg_decl_plugins(m);
         arith_util a(m);
         params_ref p;
         p.set_bool("smt", true);
         p.set_bool("euf", true);
-        p.set_bool("smt.proof.check", true);
+        p.set_bool("smt.proof.check", proof_logging);
         scoped_ptr<solver> s = mk_smt2_solver(m, p);
         if (early_scope) {
             s->push();
@@ -34,7 +35,8 @@ void tst_sat_smt_proof_scope() {
                 ENSURE(literals[i] && m.is_bool(literals[i]));
             ++clauses;
         };
-        s->register_on_clause(nullptr, callback);
+        if (proof_logging)
+            s->register_on_clause(nullptr, callback);
         expr_ref x(m.mk_const("scope_x", a.mk_int()), m);
         s->assert_expr(a.mk_ge(x, a.mk_int(0)));
         s->assert_expr(a.mk_le(x, a.mk_int(3)));
@@ -71,6 +73,6 @@ void tst_sat_smt_proof_scope() {
             ENSURE(s->check_sat() == l_true);
             pop(1);
         }
-        ENSURE(clauses > 0);
+        ENSURE(!proof_logging || clauses > 0);
     }
 }

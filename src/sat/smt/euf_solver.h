@@ -136,6 +136,7 @@ namespace euf {
         mutable ptr_vector<expr>         m_todo;
 
         ptr_vector<expr>                 m_bool_var2expr;
+        bool_vector                      m_asserted_vars;
         ptr_vector<size_t>               m_explain;
         euf::cc_justification            m_explain_cc;
         enode_pair_vector                m_hint_eqs;

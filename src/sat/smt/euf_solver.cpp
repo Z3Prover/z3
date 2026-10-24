@@ -456,6 +456,12 @@ namespace euf {
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
+        // User-pop replays root literals whose theory assignments may survive.
+        if (m_asserted_vars.get(l.var(), false))
+            return;
+        m_asserted_vars.reserve(l.var() + 1, false);
+        m_trail.push(vector_value_trail<bool, false>(m_asserted_vars, l.var()));
+        m_asserted_vars[l.var()] = true;
         bool sign = l.sign();
         lbool old_value = n->value();
         lbool new_value = sign ? l_false : l_true;
