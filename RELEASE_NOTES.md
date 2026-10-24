@@ -53,6 +53,7 @@ Version 5.3.2
   https://github.com/Z3Prover/z3/pull/11284, https://github.com/Z3Prover/z3/pull/11285
 - Record finite-field polynomial-ideal proof evidence through preprocessing,
   classic SMT, and SAT/EUF, making it available through `get-proof`.
+  Thanks to Romain Soulat.
   Fix finite-field proof-justification lifetimes and duplicate EUF theory
   notifications after a user scope is popped.
   https://github.com/Z3Prover/z3/pull/11228,
