@@ -90,6 +90,7 @@ static void test_lazy_bound_explanations() {
         unsigned value;
         payload(unsigned& copies, unsigned value) : copies(copies), value(value) {}
         payload(payload const& other) : copies(other.copies), value(other.value) { ++copies; }
+        payload(payload&&) = default;
     };
     for (bool lower : {false, true}) {
         lar_solver ls;
