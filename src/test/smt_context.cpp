@@ -12,6 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "model/model.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -54,6 +55,39 @@ static void check_sat_smt_model(char const* input)
     model_ref model;
     slv->get_model(model);
     VERIFY(model);
+}
+
+static void check_recfun_rlimit(char const* input, unsigned rlimit) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    cmd.params().set_rlimit(rlimit);
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    cmd.check_sat(0, nullptr);
+    VERIFY(cmd.cs_state() == cmd_context::css_unknown);
+    VERIFY(out.str() == "unknown\n");
+}
+
+static void check_recfun_rlimits() {
+    for (char const* input : {
+            "(define-fun-rec f ((x Int)) Int (f x))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f () Int (+ 1 f))\n"
+            "(assert (= f 1))\n",
+            "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
+            " ((g x) (f x)))\n"
+            "(assert (= (f 0) 1))\n"}) {
+        check_recfun_rlimit(input, 1);
+    }
+    check_recfun_rlimit(
+        "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+        "(assert (= (f 0) 1))\n", 1000);
 }
 
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
@@ -258,6 +292,7 @@ static void check_special_relation_logic() {
 
 void tst_smt_context()
 {
+    check_recfun_rlimits();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
@@ -486,6 +521,20 @@ void tst_smt_context()
         "(declare-fun isL2 (L2) Bool)\n"
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(define-fun-rec g ((x Int)) Int (ite (<= x 0) 0 (+ 1 (g (- x 1)))))\n"
+            "(define-fun-rec h ((x Int)) Int (g x))\n"
+            "(define-fun-rec f ((x Int)) Int (h x))\n"
+            "(assert (= (f 3) 3))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        model mdl(m);
+        expr_ref value(m);
+        VERIFY(mdl.eval_expr(cmd.assertions()[0], value));
+        VERIFY(m.is_true(value));
+    }
 
     // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
     // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh
