@@ -4782,6 +4782,18 @@ void fpa2bv_converter_wrapped::mk_const(func_decl* f, expr_ref& result) {
     }
 }
 
+void fpa2bv_converter_wrapped::mk_uf(func_decl* f, unsigned num, expr* const* args, expr_ref& result) {
+    result = m.mk_app(f, num, args);
+    // Use the theory wrapper instead of introducing BV UFs and quantified
+    // bridge axioms when applications contain bound variables.
+    if (m_util.is_float(f->get_range())) {
+        app_ref wrapped = wrap(result);
+        result = unwrap(wrapped, f->get_range());
+    }
+    else if (m_util.is_rm(f->get_range()))
+        result = m_util.mk_bv2rm(wrap(result));
+}
+
 app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
     SASSERT(m_util.is_float(e) || m_util.is_rm(e));
     SASSERT(!m_util.is_bvwrap(e));
