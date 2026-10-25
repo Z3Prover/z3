@@ -1,6 +1,6 @@
 module Z3LinearArithmeticEmbed
 
-#set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
+#set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native --z3rlimit 40"
 
 open FStar.Real
 open FStar.List.Tot

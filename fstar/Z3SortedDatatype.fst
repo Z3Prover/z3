@@ -1,5 +1,7 @@
 module Z3SortedDatatype
 
+#set-options "--z3rlimit 20"
+
 open Z3AstTheory
 open Z3ValueTheory
 module V = Z3DatatypeValue

@@ -1,6 +1,6 @@
 module Z3BvWord
 
-#set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native"
+#set-options "--smtencoding.elim_box true --smtencoding.nl_arith_repr native --z3rlimit 40"
 
 open Z3AstTheory
 open Z3ValueTheory
