@@ -29,7 +29,7 @@ using namespace smt;
 
 bool theory_seq::solve_eqs(unsigned i) {
     bool change = false;
-    for (; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
+    for (; !ctx.inconsistent() && i < m_eqs.size() && m.inc(); ++i) {
         if (solve_eq(i)) {
             m_eqs.erase_and_swap(i--);
             ++m_stats.m_num_reductions;
@@ -37,6 +37,8 @@ bool theory_seq::solve_eqs(unsigned i) {
         }
         TRACE(seq_verbose, display_equations(tout););
     }
+    if (!ctx.inconsistent() && i < m_eqs.size())
+        m_new_solution = true;
     return change || m_new_propagation || ctx.inconsistent();
 }
 

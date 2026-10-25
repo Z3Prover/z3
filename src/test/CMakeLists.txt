@@ -147,6 +147,7 @@ add_executable(test-z3
   smt_proof_weakening.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_limits.cpp
   seq_power.cpp
   seq_rewriter.cpp
   seq_parikh.cpp

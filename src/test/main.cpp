@@ -122,6 +122,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_limits) \
     X(seq_parikh) \
     X(seq_power) \
     X(seq_eq_approx) \
