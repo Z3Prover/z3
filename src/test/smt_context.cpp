@@ -205,6 +205,56 @@ static void check_array_domain(char const* input, lbool expected) {
     VERIFY(expected == slv->check_sat(0, nullptr));
 }
 
+static void check_stored_lambdas() {
+    auto check = [](char const* input, lbool expected) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+        std::ostringstream out;
+        cmd.set_regular_stream(out);
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        cmd.check_sat(0, nullptr);
+        VERIFY(out.str() == (expected == l_false ? "unsat\n" : "sat\n"));
+    };
+    // Regression for issue #11267: stores must preserve lambda semantics.
+    for (char const* input : {
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store ((as const (Array Int Int)) 3) 7 0)\n"
+        "           (store (lambda ((x Int)) x) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) (+ x 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store (lambda ((x Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (store (lambda ((x Int)) x) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (store a 7 0) (store ((as const (Array Int Int)) 3) 7 0)))\n"
+        "(assert (= a (lambda ((x Int)) x)))\n",
+        "(declare-datatypes ((W 0)) (((mk (arr (Array Int Int))))))\n"
+        "(declare-const w W)\n"
+        "(assert (= w (mk (store (lambda ((x Int)) x) 7 0))))\n"
+        "(assert (= w (mk (store ((as const (Array Int Int)) 3) 7 0))))\n",
+        "(assert (= (store (store (lambda ((x Int)) x) 7 0) 8 0)\n"
+        "           (store (store ((as const (Array Int Int)) 3) 7 0) 8 0)))\n",
+        "(assert (= (store (lambda ((x Int) (y Int)) (+ x y)) 7 8 0)\n"
+        "           (store ((as const (Array Int Int Int)) 3) 7 8 0)))\n",
+        "(assert (= (store ((_ map (+ (Int Int) Int)) (lambda ((x Int)) x)\n"
+        "                   ((as const (Array Int Int)) 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n"}) {
+        check(input, l_false);
+    }
+    check(
+        "(assert (= (store (lambda ((x Int)) (ite (= x 7) 1 3)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n", l_true);
+    check(
+        "(assert (= (store (lambda ((x Bool)) (ite x 1 3)) true 0)\n"
+        "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
+}
+
 static void check_array_index_dependencies() {
     for (char const* input : {
         "(declare-datatypes () ((D a b c)))\n"
@@ -394,6 +444,7 @@ void tst_smt_context()
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_array_index_dependencies();
+    check_stored_lambdas();
 
     smt_params params;
 

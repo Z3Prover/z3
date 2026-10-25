@@ -1024,10 +1024,36 @@ namespace smt {
             case l_undef: r = FC_GIVEUP; break;
             }
         }
+        if (r == FC_DONE && assert_lambda_congruence())
+            r = FC_CONTINUE;
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
         return r;
+    }
+
+    bool theory_array_full::assert_lambda_congruence() {
+        ptr_vector<enode> todo;
+        obj_hashtable<enode> visited;
+        todo.append(m_lambdas);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            enode* n = todo[i];
+            enode* root = n->get_root();
+            if (visited.contains(root))
+                continue;
+            visited.insert(root);
+            for (enode* other = root->get_next(); other != root; other = other->get_next())
+                assert_congruent(root, other);
+            // Stores and maps over lambdas need congruence even when the
+            // lambda itself is not an operand of the array equality.
+            for (enode* p : root->get_parents()) {
+                if (!ctx.is_relevant(p))
+                    continue;
+                if ((is_store(p) && p->get_arg(0)->get_root() == root) || is_map(p))
+                    todo.push_back(p);
+            }
+        }
+        return can_propagate();
     }
 
     bool theory_array_full::has_non_beta_as_array() {
