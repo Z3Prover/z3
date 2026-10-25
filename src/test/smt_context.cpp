@@ -346,6 +346,54 @@ static void check_expand_store_eq() {
     }
 }
 
+static void check_sequence_last_index() {
+    char const* const cases[] = {
+        "(assert (= (seq.last_indexof (seq.++ (seq.unit 10) (seq.unit 20))"
+        "                           (seq.unit 20)) 1))",
+        "(assert (= (seq.last_indexof (seq.++ (seq.unit 10) (seq.unit 20))"
+        "                           (seq.unit 10)) 0))",
+        "(assert (= (seq.last_indexof"
+        "  (seq.++ (seq.unit 10) (seq.unit 20) (seq.unit 10) (seq.unit 20) (seq.unit 10))"
+        "  (seq.++ (seq.unit 10) (seq.unit 20) (seq.unit 10))) 2))",
+        "(declare-const p (Seq Int))"
+        "(assert (= (seq.last_indexof (seq.++ p (seq.unit 10) p (seq.unit 20))"
+        "                           (seq.++ p (seq.unit 20))) (+ (seq.len p) 1)))",
+        "(declare-const p (Seq Int))"
+        "(assert (= (seq.last_indexof (seq.++ p (seq.unit 10) p (seq.unit 20) (seq.unit 30))"
+        "                           (seq.++ p (seq.unit 20))) (+ (seq.len p) 1)))",
+        "(declare-const t String)"
+        "(assert (= (seq.last_indexof (str.++ t \"a\" t \"b\") (str.++ t \"b\")) (+ (str.len t) 1)))"
+    };
+    for (bool sat_smt : {false, true}) {
+        for (auto const& test : cases) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream input(test);
+            VERIFY(parse_smt2_commands(cmd, input));
+            params_ref p;
+            p.set_bool("smt", sat_smt);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            expr* assertion = cmd.assertions()[0];
+            // Each equation is valid, including for arbitrary symbolic prefixes.
+            // Check both accepting its value and rejecting every other value.
+            for (bool negate : {false, true}) {
+                slv->push();
+                slv->assert_expr(negate ? m.mk_not(assertion) : assertion);
+                lbool expected = negate ? l_false : l_true;
+                lbool actual = slv->check_sat(0, nullptr);
+                bool correct = actual == expected;
+                if (!correct)
+                    std::cerr << "last_indexof: expected " << expected << ", got " << actual
+                              << ", sat.smt=" << sat_smt << ", negate=" << negate
+                              << '\n' << test << '\n';
+                VERIFY(correct);
+                slv->pop(1);
+            }
+        }
+    }
+}
+
 static void check_array_index_dependencies() {
     for (char const* input : {
         "(declare-datatypes () ((D a b c)))\n"
@@ -601,6 +649,7 @@ void tst_smt_context()
     check_nonlinear_to_int();
     check_real_power_bounds();
     check_symbolic_regex_substring();
+    check_sequence_last_index();
     check_array_index_dependencies();
     check_stored_lambdas();
     check_sat_array_lambdas();
