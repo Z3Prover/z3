@@ -157,6 +157,24 @@ type expr =
   | App        : decl:func_decl -> args:list expr -> expr
   | Quantifier : qk:quantifier_kind -> bound_sorts:list sort -> qsort:sort -> body:expr -> expr
 
+(* Count occurrences rather than distinct nodes to bound DAG-to-tree traversals. *)
+let rec expression_budget (fuel:nat) (e:expr)
+  : Tot (option nat) (decreases e) =
+  if fuel = 0 then None
+  else match e with
+  | App _ args -> arguments_budget (fuel - 1) args
+  | Quantifier _ _ _ body -> expression_budget (fuel - 1) body
+  | _ -> Some (fuel - 1)
+
+and arguments_budget (fuel:nat) (args:list expr)
+  : Tot (option nat) (decreases args) =
+  match args with
+  | [] -> Some fuel
+  | a :: rest ->
+    (match expression_budget fuel a with
+     | None -> None
+     | Some remaining -> arguments_budget remaining rest)
+
 (* ----------------------------------------------------------------- *)
 (* Sort of an expression (mirrors `expr::get_sort()`)                  *)
 (* ----------------------------------------------------------------- *)
