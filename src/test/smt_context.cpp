@@ -205,6 +205,44 @@ static void check_array_domain(char const* input, lbool expected) {
     VERIFY(expected == slv->check_sat(0, nullptr));
 }
 
+static void check_expand_store_eq() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(assert (= (store ((as const (Array Bool Int)) 0) false 1)\n"
+         "           (store ((as const (Array Bool Int)) 1) true 0)))\n",
+         l_true},
+        {"(assert (= (store (store ((as const (Array Bool Bool Int)) 0)\n"
+         "                         false false 1) false true 1)\n"
+         "           (store (store ((as const (Array Bool Bool Int)) 1)\n"
+         "                         true false 0) true true 0)))\n",
+         l_true},
+        {"(assert (= (store ((as const (Array (_ BitVec 2) Int)) 0) #b00 1)\n"
+         "           (store ((as const (Array (_ BitVec 2) Int)) 1) #b01 0)))\n",
+         l_false},
+        {"(assert (= (store ((as const (Array Int Int)) 0) 0 1)\n"
+         "           (store ((as const (Array Int Int)) 1) 1 0)))\n",
+         l_false},
+        {"(declare-const a (Array Bool Int))\n"
+         "(assert (= (store a false 0) (store a false 1)))\n",
+         l_false}
+    };
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(test.input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("expand_store_eq", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(test.expected == slv->check_sat(0, nullptr));
+    }
+}
+
 static void check_array_index_dependencies() {
     for (char const* input : {
         "(declare-datatypes () ((D a b c)))\n"
@@ -394,6 +432,7 @@ void tst_smt_context()
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_array_index_dependencies();
+    check_expand_store_eq();
 
     smt_params params;
 
