@@ -998,7 +998,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         }
 
         if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
-            has_large_domain(lhs->get_sort(), std::max(num_lhs, num_rhs))) {
+            has_large_domain(lhs->get_sort(), num_lhs + num_rhs)) {
             mk_eq(lhs, lhs, rhs, fmls);
             mk_eq(rhs, lhs, rhs, fmls);
             fmls.push_back(m().mk_eq(v, w));
