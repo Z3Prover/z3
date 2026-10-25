@@ -163,6 +163,28 @@ test("preparation includes job failures and marks successful regression runs act
     assert.ok(outputs.some(([key, value]) => key === "artifact-ids" && value === "10,11"));
 });
 
+test("github-script preparation supports wrapped require without require.resolve", async t => {
+    const { args, directory } = fixture(t);
+    const source = fs.readFileSync(path.join(__dirname, "..", "workflows", "pulse-checker-repair.md"), "utf8");
+    const step = source.split("  - name: Prepare exact producer attempt and evidence index")[1];
+    const script = step.match(/script: \|\r?\n((?:        [^\r\n]*(?:\r?\n|$))+)/)[1]
+        .split(/\r?\n/).map(line => line.slice(8)).join("\n");
+    const temporary = path.join(directory, "runner-temp");
+    fs.mkdirSync(path.join(temporary, "gh-aw"), { recursive: true });
+    const wrappedRequire = name => name === "./.github/scripts/pulse-checker-repair.cjs"
+        ? { prepare: request => prepare({ ...request, directory: args.directory }) }
+        : require(name);
+    const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+    await new AsyncFunction("require", "process", "github", "context", "core", script)(
+        wrappedRequire, { env: {
+            GITHUB_WORKSPACE: path.resolve(__dirname, "..", ".."),
+            RUNNER_TEMP: temporary, TRUSTED_SHA: sha,
+        } }, args.github, args.context, args.core);
+    assert.equal(fs.readFileSync(path.join(temporary, "gh-aw", "pulse-checker-repair.cjs"), "utf8"),
+        fs.readFileSync(path.join(__dirname, "pulse-checker-repair.cjs"), "utf8"));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(args.directory, "context.json"))).base_sha, sha);
+});
+
 test("successful builds and already published attempts do not start repair work", async t => {
     for (const mode of ["build", "duplicate"]) {
         const { args, run, existing } = fixture(t);
