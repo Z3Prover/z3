@@ -127,10 +127,6 @@ namespace smt {
                 th->updt_params();
     }
 
-    unsigned context::relevancy_lvl() const {
-        return std::min(m_relevancy_lvl, m_fparams.m_relevancy_lvl);
-    }
-
     void context::copy(context& src_ctx, context& dst_ctx, bool override_base) {
         ast_manager& dst_m = dst_ctx.get_manager();
         ast_manager& src_m = src_ctx.get_manager();

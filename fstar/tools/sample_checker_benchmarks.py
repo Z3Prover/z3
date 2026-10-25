@@ -111,11 +111,18 @@ def sample_archive(path, entry, count, seed):
                 return sample_members(archive, entry["logic"], count, seed)
 
 
-def prepare_sample(manifest, output, seed, download_timeout):
+def prepare_sample(manifest, output, seed, download_timeout, skip_logics=()):
     if not seed or "\0" in seed:
         raise ValueError("Sample seed must be nonempty and contain no NUL")
     document = json.loads(manifest.read_text(encoding="utf-8"))
     specs = archive_specs(document)
+    skipped = set(skip_logics)
+    unknown = skipped - {entry["logic"] for entry, _ in specs}
+    if unknown:
+        raise ValueError(f"Unknown skipped logics: {', '.join(sorted(unknown))}")
+    specs = [(entry, count) for entry, count in specs if entry["logic"] not in skipped]
+    if not specs:
+        raise ValueError("Must sample at least one logic")
     output.mkdir(parents=True, exist_ok=False)
     cases, archives = [], []
     for entry, count in specs:
@@ -155,9 +162,12 @@ def main():
                         help="Existing cohort manifest supplying pinned archive hashes and sample sizes")
     parser.add_argument("--output", type=Path, required=True, help="New directory for inputs and manifest")
     parser.add_argument("--seed", required=True, help="Recorded seed; workflow defaults to its run ID")
+    parser.add_argument("--skip-logic", action="append", default=[],
+                        help="Logic archive to omit before downloading (repeatable)")
     parser.add_argument("--download-timeout-seconds", type=positive_float, default=600)
     args = parser.parse_args()
-    prepare_sample(args.manifest, args.output, args.seed, args.download_timeout_seconds)
+    prepare_sample(args.manifest, args.output, args.seed, args.download_timeout_seconds,
+                   args.skip_logic)
 
 
 if __name__ == "__main__":
