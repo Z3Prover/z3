@@ -26,8 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
-    env:
-      PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,9 +42,12 @@ jobs:
         run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
+        env:
+          PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
         run: |
           source $PWD/env/bin/activate
           mkdir -p "$PIP_CACHE_DIR"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel
@@ -71,8 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
-    env:
-      PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -97,9 +96,12 @@ jobs:
         run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
+        env:
+          PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
         run: |
           source $PWD/env/bin/activate
           mkdir -p "$PIP_CACHE_DIR"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel (cross-compile)
