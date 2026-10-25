@@ -144,6 +144,75 @@ function validatePayload(text, baseSha) {
     return data;
 }
 
+function loadPayload({ output, filename, baseSha }) {
+    const items = output.items.filter(item => item.type === "publish_pulse_repair");
+    if (items.length !== 1 || !/^[0-9a-f]{64}$/.test(items[0].payload_sha256))
+        throw new Error("Expected exactly one repair payload SHA-256");
+    if (!fs.lstatSync(filename).isFile())
+        throw new Error("Repair payload must be a regular file");
+    const descriptor = fs.openSync(filename, "r");
+    let bytes;
+    try {
+        const stat = fs.fstatSync(descriptor);
+        if (!stat.isFile() || stat.size > 3 * 1024 * 1024)
+            throw new Error("Repair payload must be a regular file of at most 3 MiB");
+        bytes = fs.readFileSync(descriptor);
+    } finally {
+        fs.closeSync(descriptor);
+    }
+    if (crypto.createHash("sha256").update(bytes).digest("hex") !== items[0].payload_sha256)
+        throw new Error("Repair payload SHA-256 does not match the safe-output request");
+    const payload = bytes.toString("utf8");
+    validatePayload(payload, baseSha);
+    return payload;
+}
+
+const displayText = value => value.replace(/@/g, "@\u200b").replace(/<!--[\s\S]*?-->/g, "");
+
+async function writeRunReport({ github, context, core, directory, outputFile, baseSha, reportDirectory }) {
+    const lines = ["# Pulse checker repair report", "", `**Trusted base:** \`${baseSha}\``, ""];
+    fs.mkdirSync(reportDirectory, { recursive: true });
+    try {
+        const run = await producer({ github, context });
+        lines.push(`[Producer run, attempt ${run.run_attempt}](${run.html_url})`,
+            `**Producer conclusion:** ${run.conclusion}`, "");
+        const output = JSON.parse(fs.readFileSync(outputFile, "utf8"));
+        const publications = output.items.filter(item => item.type === "publish_pulse_repair");
+        if (publications.length) {
+            if (output.items.length !== 1 || output.errors?.length)
+                throw new Error("Repair publication must be the sole successful safe output");
+            const payload = loadPayload({
+                output, filename: path.join(directory, "payload.json"), baseSha,
+            });
+            const data = validatePayload(payload, baseSha);
+            fs.writeFileSync(path.join(reportDirectory, "payload.json"), payload, { flag: "wx" });
+            lines.push("**Publication:** requested; the publisher job reports the issue URL after detection.",
+                `**Agent-reported validation:** ${data.status}. Not independent CI validation.`,
+                "", displayText(data.summary), "", "## Investigation and rule changes", "",
+                displayText(data.report), "", "## Changed files", "",
+                ...(data.files.length ? data.files.map(file => `- \`${file.path}\``) : ["No source changes."]),
+                "", "## Validation commands", "", "```json",
+                displayText(JSON.stringify(data.commands, null, 2)), "```",
+                "", "Full sources and validation log are retained in this run's analysis artifact.");
+        } else {
+            const noop = output.items.filter(item => item.type === "noop");
+            if (output.items.length === 1 && noop.length === 1 && !output.errors?.length) {
+                lines.push("**Publication:** no issue requested.", "", displayText(noop[0].message));
+            } else {
+                throw new Error("No repair handoff or explicit no-op was recorded: " +
+                    JSON.stringify(output));
+            }
+        }
+    } catch (error) {
+        lines.push("**Publication blocked:** " + displayText(error.message));
+        core.setFailed("Pulse repair reporting/publication failed: " + error.message);
+    }
+    const report = lines.join("\n") + "\n";
+    fs.writeFileSync(path.join(reportDirectory, "report.md"), report);
+    core.setOutput("report-path", reportDirectory);
+    await core.summary.addRaw(report).write();
+}
+
 function patchLines(text, prefix) {
     if (!text) return [];
     const lines = text.split("\n");
@@ -239,10 +308,9 @@ async function publishIssue({ github, context, core, payload, baseSha, artifactI
         throw new Error("Repair artifact is not from this analysis run and attempt");
     const artifacts = await evidence({ github, context, run });
     const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-    const text = value => value.replace(/@/g, "@\u200b").replace(/<!--[\s\S]*?-->/g, "");
     const body = [
         marker(run), "## Pulse checker integration handoff", "",
-        text(data.summary), "",
+        displayText(data.summary), "",
         `**Agent-reported validation:** ${data.status}. Revalidate independently during integration.`,
         `**Patch base:** \`${baseSha}\``,
         `**Reported checker source:** ${data.source_sha ? `\`${data.source_sha}\`` : "unavailable; see report"}`,
@@ -252,7 +320,7 @@ async function publishIssue({ github, context, core, payload, baseSha, artifactI
         "", "### Original evidence",
         ...(artifacts.length ? artifacts.map(item => `- [${item.name}](${item.url})`) :
             ["No unexpired report artifacts were available; consult the producer logs."]),
-        "", "### Updates and evidence", "", text(data.report), "",
+        "", "### Updates and evidence", "", displayText(data.report), "",
         "### Copilot integration instructions", "",
         "Assign this issue to Copilot when ready. Download the repair artifact and inspect its manifest and sources. " +
             "For a nonempty patch, check out its recorded base, run `git apply --check changes.patch`, " +
@@ -267,14 +335,20 @@ async function publishIssue({ github, context, core, payload, baseSha, artifactI
     ].join("\n");
     if (staged) {
         core.info("Staged repair handoff: no issue created");
+        await core.summary.addRaw("## Pulse repair publication\n\nStaged only; no issue created.\n").write();
         return;
     }
     const { data: issue } = await github.rest.issues.create({
         ...context.repo, title: `[Pulse checker repair] Run ${run.id} attempt ${run.run_attempt}`, body,
     });
     core.setOutput("issue-url", issue.html_url);
+    await core.summary.addRaw(`## Pulse repair publication\n\n` +
+        `[Integration issue](${issue.html_url}) · ` +
+        `[Repair sources and evidence](${runUrl}/artifacts/${id})\n\n` +
+        `Agent-reported validation: **${data.status}**. Revalidate independently.\n`).write();
 }
 
 module.exports = {
-    producer, evidence, prepare, validatePayload, filePatch, stageBundle, publishIssue,
+    producer, evidence, prepare, validatePayload, loadPayload, writeRunReport,
+    filePatch, stageBundle, publishIssue,
 };

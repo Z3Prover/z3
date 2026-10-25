@@ -1,11 +1,13 @@
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const test = require("node:test");
 const {
-    producer, evidence, prepare, validatePayload, filePatch, stageBundle, publishIssue,
+    producer, evidence, prepare, validatePayload, loadPayload, writeRunReport,
+    filePatch, stageBundle, publishIssue,
 } = require("./pulse-checker-repair.cjs");
 
 const sha = "a".repeat(40);
@@ -43,7 +45,7 @@ function fixture(t) {
         { id: 14, name: "pulse-checker-report-999-2", expired: false },
         { id: 15, name: "pulse-checker-ocaml-linux-x86_64", expired: false },
     ];
-    const issues = [], existing = [], outputs = [];
+    const issues = [], existing = [], outputs = [], summaries = [], failures = [];
     const args = {
         github: {
             rest: {
@@ -77,11 +79,32 @@ function fixture(t) {
             payload: { workflow_run: { id: 42, run_attempt: 2 } },
             serverUrl: "https://github.com", runId: 99, runAttempt: 1,
         },
-        core: { info() {}, setOutput: (...output) => outputs.push(output) },
+        core: {
+            info() {}, setOutput: (...output) => outputs.push(output),
+            setFailed: message => failures.push(message),
+            summary: { addRaw(text) {
+                summaries.push(text);
+                return { write: async () => {} };
+            } },
+        },
         directory: path.join(directory, "bundle"), baseSha: sha,
         payload: payload(), artifactId: 77,
     };
-    return { args, run, reports, issues, existing, outputs, directory };
+    return { args, run, reports, issues, existing, outputs, summaries, failures, directory };
+}
+
+function candidate(args, text = args.payload) {
+    fs.mkdirSync(args.directory, { recursive: true });
+    const filename = path.join(args.directory, "payload.json");
+    fs.writeFileSync(filename, text);
+    const output = { items: [{
+        type: "publish_pulse_repair",
+        payload_sha256: crypto.createHash("sha256").update(text).digest("hex"),
+    }], errors: [] };
+    const outputFile = path.join(args.directory, "agent_output.json");
+    fs.writeFileSync(outputFile, JSON.stringify(output));
+    return { ...args, filename, output, outputFile,
+        reportDirectory: path.join(args.directory, "analysis") };
 }
 
 test("evidence selects only unexpired reports from the exact run and attempt", async t => {
@@ -203,6 +226,75 @@ test("a verified fix preserves failing baseline and exploratory command evidence
         { command: "check-final-fix", exit_code: 0, phase: "final" },
     ];
     assert.equal(validatePayload(payload({ commands }), sha).status, "verified");
+});
+
+test("large repair sources cross the artifact boundary with only a compact tool receipt", async t => {
+    const { args, summaries, failures, issues } = fixture(t);
+    const text = payload({
+        files: [{ path: "fstar/Z3Repair.fst", content: "module Z3Repair\n" + "let x = 0\n".repeat(6000) }],
+    });
+    assert.ok(Buffer.byteLength(text) > 10240);
+    const request = candidate(args, text);
+    assert.ok(Buffer.byteLength(JSON.stringify(request.output.items[0])) < 10240);
+    await writeRunReport(request);
+    assert.deepEqual(failures, []);
+    const artifactPayload = loadPayload({
+        ...request, filename: path.join(request.reportDirectory, "payload.json"),
+    });
+    assert.equal(artifactPayload, text);
+    await stageBundle({ ...args, directory: path.join(args.directory, "final-bundle"), payload: artifactPayload });
+    await publishIssue({ ...args, payload: artifactPayload });
+    assert.equal(issues.length, 1);
+    assert.ok(summaries.some(text => text.includes("Investigation and rule changes")));
+    assert.ok(summaries.some(text => text.includes("https://github.com/Z3Prover/z3/issues/123")));
+});
+
+test("candidate transport rejects missing, duplicate, malformed and mismatched digests", t => {
+    for (const mode of ["missing", "duplicate", "malformed", "mismatch", "oversized", "wrong-base"]) {
+        const { args } = fixture(t);
+        const request = candidate(args);
+        if (mode === "missing") request.output.items.length = 0;
+        if (mode === "duplicate") request.output.items.push(request.output.items[0]);
+        if (mode === "malformed") request.output.items[0].payload_sha256 = "../payload.json";
+        if (mode === "mismatch") fs.appendFileSync(request.filename, "\n");
+        if (mode === "oversized") fs.writeFileSync(request.filename, "x".repeat(3 * 1024 * 1024 + 1));
+        if (mode === "wrong-base") request.baseSha = sourceSha;
+        assert.throws(() => loadPayload(request));
+    }
+});
+
+test("an explicit no-op still produces a retained run report without a candidate", async t => {
+    const { args, summaries, failures } = fixture(t);
+    const request = candidate(args);
+    fs.unlinkSync(request.filename);
+    fs.writeFileSync(request.outputFile, JSON.stringify({ items: [{
+        type: "noop", message: "Cancelled producer; no reports or new proof-rule evidence.",
+    }] }));
+    await writeRunReport(request);
+    assert.deepEqual(failures, []);
+    assert.ok(summaries[0].includes("no issue requested"));
+    assert.ok(summaries[0].includes("Cancelled producer"));
+    assert.ok(fs.existsSync(path.join(request.reportDirectory, "report.md")));
+    assert.equal(fs.existsSync(path.join(request.reportDirectory, "payload.json")), false);
+});
+
+test("empty outputs, failed tools and corrupted candidates fail visibly and retain a report", async t => {
+    for (const mode of ["empty", "incomplete", "corrupt", "mixed", "missing-output"]) {
+        const { args, failures, summaries } = fixture(t);
+        const request = candidate(args);
+        if (mode === "empty") request.output.items.length = 0;
+        if (mode === "incomplete")
+            request.output.items = [{ type: "missing_tool", reason: "Publishing tool unavailable." }];
+        if (mode === "corrupt") fs.appendFileSync(request.filename, "\n");
+        if (mode === "mixed") request.output.items.push({ type: "noop", message: "No action" });
+        fs.writeFileSync(request.outputFile, JSON.stringify(request.output));
+        if (mode === "missing-output") fs.unlinkSync(request.outputFile);
+        await writeRunReport(request);
+        assert.equal(failures.length, 1);
+        assert.ok(summaries[0].includes("Publication blocked"));
+        assert.ok(fs.existsSync(path.join(request.reportDirectory, "report.md")));
+        assert.equal(fs.existsSync(path.join(request.reportDirectory, "payload.json")), false);
+    }
 });
 
 test("patches apply to existing, empty and new files with both newline conventions", t => {
