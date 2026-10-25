@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
+    env:
+      PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,6 +46,7 @@ jobs:
       - name: Install build dependencies
         run: |
           source $PWD/env/bin/activate
+          mkdir -p "$PIP_CACHE_DIR"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel
@@ -68,6 +71,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    env:
+      PIP_CACHE_DIR: ${{ runner.temp }}/pip-cache
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,6 +99,7 @@ jobs:
       - name: Install build dependencies
         run: |
           source $PWD/env/bin/activate
+          mkdir -p "$PIP_CACHE_DIR"
           pip install build git+https://github.com/rhelmot/auditwheel
 
       - name: Build Python wheel (cross-compile)
@@ -299,6 +305,9 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.20'
+          cache-dependency-path: |
+            src/api/go/go.mod
+            examples/go/go.mod
 
       - name: Setup Julia (if needed)
         if: matrix.name == 'debugClang'
@@ -633,6 +642,12 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Install dependencies
         run: |

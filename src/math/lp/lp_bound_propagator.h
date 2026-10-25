@@ -314,6 +314,7 @@ public:
     unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
         unsigned nf = 0;  // number of non-fixed columns
         y = UINT_MAX;
+        y_sign = 0;
         const auto& row = lp().get_row(row_index);
         x = lp().get_base_column_in_row(row_index);
         if (!column_is_fixed(x)) {

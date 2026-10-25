@@ -153,7 +153,10 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
-set(c_lib_deps "-L${libz3_path}" "-lz3" "-lstdc++" "-lpthread")
+set(c_lib_deps "-L${libz3_path}" "-lz3" "-lstdc++")
+if (NOT APPLE)
+  list(APPEND c_lib_deps "-lpthread")
+endif()
 if (Z3_USE_LIB_GMP)
   list(APPEND c_lib_deps "-lgmp")
 endif()
@@ -260,7 +263,7 @@ set(z3ml_example_src ${PROJECT_SOURCE_DIR}/examples/ml/ml_example.ml)
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlc
-    -cclib "-L${libz3_path}" -cclib "-lz3"
+    -cclib "-L${libz3_path}"
     -o "${z3ml_bin}/ml_example.byte"
     -package zarith
     -linkpkg
@@ -276,7 +279,7 @@ add_custom_command(
 add_custom_command(
   TARGET build_z3_ocaml_bindings POST_BUILD
   COMMAND "${OCAMLFIND}" ocamlopt
-    -cclib "-L${libz3_path}" -cclib "-lz3"
+    -cclib "-L${libz3_path}"
     -o "${z3ml_bin}/ml_example"
     -package zarith
     -linkpkg
@@ -292,7 +295,7 @@ if (OCAML_VERSION VERSION_GREATER_EQUAL "5.0")
   add_custom_command(
     TARGET build_z3_ocaml_bindings POST_BUILD
     COMMAND "${OCAMLFIND}" ocamlopt
-      -cclib "-L${libz3_path}" -cclib "-lz3"
+      -cclib "-L${libz3_path}"
       -o "${z3ml_bin}/parallel_finalizers"
       -package zarith
       -linkpkg
