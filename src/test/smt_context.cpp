@@ -256,8 +256,68 @@ static void check_special_relation_logic() {
     }
 }
 
+static void check_mbqi_function_instances() {
+    for (char const* input : {
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (and (= (lambda ((y T)) (ite (isT y) (select f y) d)) f)
+       (forall ((y T)) (=> (isT y) (<= 0 (select f y))))))
+(declare-const a T)
+(declare-const b T)
+(declare-const g (Array T Int))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 0 (select f x))))))
+(assert (isT a))
+(assert (isT b))
+(assert (isFun g))
+(assert (not (< 20 (+ (select g a) (select g b)))))
+)",
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (forall ((y T)) (ite (isT y) (<= 0 (select f y)) (= (select f y) d))))
+(declare-const a T)
+(assert (isT a))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 10 (select f x))))))
+)",
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (and (= (lambda ((y T)) (ite (isT y) (select f y) d)) f)
+       (forall ((y T)) (=> (isT y) (<= 0 (select f y))))))
+(declare-const a T)
+(assert (isT a))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 10 (select f x))))))
+)"}) {
+        for (unsigned seed = 0; seed < 4; ++seed) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            ENSURE(parse_smt2_commands(cmd, is));
+            smt_params params;
+            params.m_auto_config = false;
+            params.m_random_seed = seed;
+            smt::context ctx(m, params);
+            for (expr* a : cmd.assertions())
+                ctx.assert_expr(a);
+            ENSURE(l_false == ctx.check());
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_mbqi_function_instances();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
