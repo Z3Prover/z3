@@ -298,6 +298,43 @@ static void check_array_index_dependencies() {
     }
 }
 
+static void check_singleton_array_defaults() {
+    struct {
+        char const* input;
+        lbool expected;
+    } cases[] = {
+        {"(declare-datatypes () ((D d)))\n"
+         "(assert (= (default (store ((as const (Array D Int)) 0) d 1)) 1))\n",
+         l_true},
+        {"(declare-datatypes () ((D d)))\n"
+         "(assert (= (default (store ((as const (Array D Int)) 0) d 1)) 0))\n",
+         l_false},
+        {"(declare-datatypes () ((D d) (E e)))\n"
+         "(declare-const v Int)\n"
+         "(assert (distinct v 0))\n"
+         "(assert (= (default (store ((as const (Array D E Int)) 0) d e v)) v))\n",
+         l_true},
+        {"(declare-datatypes () ((D d) (E e)))\n"
+         "(declare-const v Int)\n"
+         "(assert (distinct v 0))\n"
+         "(assert (= (default (store ((as const (Array D E Int)) 0) d e v)) 0))\n",
+         l_false}
+    };
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::istringstream is(test.input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", true);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY(test.expected == slv->check_sat(0, nullptr));
+    }
+}
+
 static void check_symbolic_regex_substring() {
     for (unsigned relevancy : {0u, 2u}) {
         for (char const* word : {"x", "xy"}) {
@@ -432,6 +469,7 @@ void tst_smt_context()
     check_real_power_bounds();
     check_symbolic_regex_substring();
     check_array_index_dependencies();
+    check_singleton_array_defaults();
     check_expand_store_eq();
 
     smt_params params;
