@@ -17,18 +17,18 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 ## Build status
 
 ### Pull Request & Push Workflows
-| WASM Build | Windows Build | CI | OCaml Binding |
-| ------------|---------------|----|-----------| 
-| [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![CI](https://github.com/Z3Prover/z3/actions/workflows/ci.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ci.yml) | [![OCaml Binding CI](https://github.com/Z3Prover/z3/actions/workflows/ocaml.yaml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ocaml.yaml) |
+| WASM Build | Windows Build | CI | Finite-Field Regressions |
+| ------------|---------------|----------------------|-------------------------|
+| [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![CI](https://github.com/Z3Prover/z3/actions/workflows/ci.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ci.yml) | [![Finite-field regressions](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml) |
 
-| Determinism Linter | Solver Determinism |
-|---------------------|---------------------|
-| [![Determinism Linter](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml) | [![Solver determinism](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml) |
+| Determinism Linter | Solver Determinism | Pulse Native Checker Build |
+|---------------------|---------------------|----------------------------|
+| [![Determinism Linter](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-report.yml) | [![Solver determinism](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism.yml) | [![Build Pulse native checkers](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-build.yml) |
 
 ### Scheduled Workflows
-| Android Build | Pyodide Wheel (PyPI) | Nightly Build | Cross Build | F* Master Build |
-| ---------------|---------------|---------------|-------------|------------------|
-| [![Android Build](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml) | [![Pyodide Wheel (PyPI)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml) | [![Nightly Build](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml) | [![RISC V and PowerPC 64](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml) | [![F* Master Build](https://github.com/Z3Prover/z3/actions/workflows/fstar-master-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/fstar-master-build.yml) |
+| Android Build | Nightly Build | Cross Build | F* Master Build |
+| ---------------|---------------|-------------|------------------|
+| [![Android Build](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml) | [![Nightly Build](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml) | [![RISC V and PowerPC 64](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml) | [![F* Master Build](https://github.com/Z3Prover/z3/actions/workflows/fstar-master-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/fstar-master-build.yml) |
 
 | MSVC Static | MSVC Clang-CL | Build Z3 Cache | Memory Safety | Mark PRs Ready |
 |-------------|---------------|----------------|---------------|----------------|
@@ -39,9 +39,9 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | [![Clang-Tidy Warning Report](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/clang-tidy-warning-report.yml) |
 
 ### Manual & Release Workflows
-| Documentation | Release Build | WASM Release |
-|---------------|---------------|--------------|
-| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) |
+| Documentation | Release Build | WASM Release | Pyodide Wheel (PyPI) |
+|---------------|---------------|--------------|---------------------|
+| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) | [![Pyodide Wheel (PyPI)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pyodide-pypi.yml) |
 
 ### Specialized Workflows
 | Nightly Validation | Copilot Setup | Agentics Maintenance | Dispatch NFV Formal Audit |
@@ -49,18 +49,18 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 | [![Nightly Build Validation](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml) | [![Copilot Setup Steps](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml) | [![Agentics Maintenance](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml) | [![Dispatch NFV formal audit](https://github.com/Z3Prover/z3/actions/workflows/nfv-formal-audit-dispatcher.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nfv-formal-audit-dispatcher.yml) |
 
 ### Follow-up / Comment Workflows
-| Determinism Linter PR Comment | Solver Determinism PR Comment |
-|--------------------------------|---------------------------------|
-| [![Determinism Linter PR Comment](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-comment.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-comment.yml) | [![Solver determinism PR comment](https://github.com/Z3Prover/z3/actions/workflows/determinism-comment.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism-comment.yml) |
+| Determinism Linter PR Comment | Solver Determinism PR Comment | Pulse Checker Regressions |
+|--------------------------------|---------------------------------|--------------------------|
+| [![Determinism Linter PR Comment](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-comment.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ast-order-warning-comment.yml) | [![Solver determinism PR comment](https://github.com/Z3Prover/z3/actions/workflows/determinism-comment.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/determinism-comment.yml) | [![Pulse verification and native checker regressions](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-regressions.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pulse-checker-regressions.yml) |
 
 ### Agentic Workflows
 | API Coherence | Code Simplifier | Release Notes | Workflow Suggestion | Academic Citation |
 | -------------|-----------------|---------------|---------------------|-------------------|
 | [![API Coherence Checker](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml) | [![Code Simplifier](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml) | [![Release Notes Updater](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml) | [![Workflow Suggestion Agent](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml) | [![Academic Citation Tracker](https://github.com/Z3Prover/z3/actions/workflows/academic-citation-tracker.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/academic-citation-tracker.lock.yml) |
 
-| Issue Backlog | Memory Safety Report | SMTLIB Benchmark Finder |
-| --------------|----------------------|-------------------------|
-| [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) |
+| Issue Backlog | Memory Safety Report | SMTLIB Benchmark Finder | F* NFV PR Audit |
+| --------------|----------------------|-------------------------|-----------------|
+| [![Issue Backlog Processor](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/issue-backlog-processor.lock.yml) | [![Memory Safety Report](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/memory-safety-report.lock.yml) | [![SMTLIB Benchmark Finder](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/smtlib-benchmark-finder.lock.yml) | [![Fstar NFV PR audit](https://github.com/Z3Prover/z3/actions/workflows/fstar-nfv-audit.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/fstar-nfv-audit.lock.yml) |
 
 | A3 Python Analysis | Code Conventions | Compare Stats Anomaly Reporter | CSA Analysis | Tactic-to-Simplifier |
 |----------------------|-------------------|----------------------------------|----------------|------------------------|
