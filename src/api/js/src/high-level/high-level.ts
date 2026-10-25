@@ -3141,7 +3141,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
       cast(expr: Expr<Name>): Expr<Name> {
         _assertContext(expr);
-        assert(expr.sort.eqIdentity(expr.sort), 'Sort mismatch');
+        assert(this.eqIdentity(expr.sort), 'Sort mismatch');
         return expr;
       }
 
