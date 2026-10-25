@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
@@ -97,6 +98,99 @@ static bool get_uint_stat(statistics const& st, char const* key, unsigned& value
             return true;
         }
     return false;
+}
+
+static void check_arithmetic_propagation_cancellation() {
+    struct propagation_context : smt::context {
+        using smt::context::context;
+        using smt::context::propagate;
+    };
+    for (bool cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        smt_params params;
+        propagation_context ctx(m, params);
+        ctx.push();
+        VERIFY(ctx.at_base_level());
+        arith_util a(m);
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_const("y", a.mk_int()), m);
+        expr_ref sum(a.mk_add(x, y), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref bound(a.mk_ge(sum, one), m);
+        ctx.internalize(bound, false);
+        ctx.mark_as_relevant(bound.get());
+        ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
+        {
+            scoped_rlimit limit(m.limit(), cancel ? 0 : 1);
+            if (cancel)
+                m.limit().cancel();
+            VERIFY(ctx.propagate());
+            statistics st;
+            ctx.collect_statistics(st);
+            unsigned pivots = 0;
+            get_uint_stat(st, "arith-pivots", pivots);
+            VERIFY(pivots == 0);
+        }
+        VERIFY(ctx.check() == l_true);
+        statistics st;
+        ctx.collect_statistics(st);
+        unsigned pivots = 0;
+        VERIFY(get_uint_stat(st, "arith-pivots", pivots) && pivots > 0);
+        ctx.push();
+        ctx.assert_expr(m.mk_not(bound));
+        VERIFY(ctx.check() == l_false);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+    }
+}
+
+static void check_lp_cancellation_recovery() {
+    struct resource_limit : lp::lp_resource_limit {
+        reslimit limit;
+        lp::statistics const* stats = nullptr;
+        bool enabled = true;
+        bool cancel_after_pivot = false;
+        bool pivot_checked = false;
+        bool get_cancel_flag() override {
+            if (enabled && cancel_after_pivot && stats->m_pivots > 0)
+                limit.cancel();
+            return !limit.inc();
+        }
+        bool get_cancel_flag(unsigned cost) override {
+            pivot_checked = true;
+            if (enabled && !cancel_after_pivot)
+                limit.cancel();
+            return !limit.inc(cost);
+        }
+    };
+    for (bool after_pivot : {false, true}) {
+        resource_limit resource;
+        lp::lar_solver solver;
+        resource.stats = &solver.settings().stats();
+        resource.cancel_after_pivot = after_pivot;
+        solver.settings().set_resource_limit(resource);
+        auto x = solver.add_var(0, true);
+        auto y = solver.add_var(1, true);
+        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+        coeffs.push_back({lp::mpq(1), x});
+        coeffs.push_back({lp::mpq(1), y});
+        auto term = solver.add_term(coeffs, 2);
+        solver.add_var_bound(term, lp::GE, lp::mpq(1));
+        {
+            scoped_rlimit limit(resource.limit, 0);
+            VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
+            VERIFY(resource.pivot_checked);
+            VERIFY(solver.settings().stats().m_pivots == (after_pivot ? 1u : 0u));
+            VERIFY(solver.ax_is_correct());
+        }
+        resource.enabled = false;
+        VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
+        VERIFY(solver.ax_is_correct());
+        VERIFY(solver.column_is_feasible(term));
+    }
 }
 
 static void check_array_domain(char const* input, lbool expected) {
@@ -292,6 +386,8 @@ static void check_special_relation_logic() {
 
 void tst_smt_context()
 {
+    check_arithmetic_propagation_cancellation();
+    check_lp_cancellation_recovery();
     check_recfun_rlimits();
     check_special_relation_logic();
     check_nonlinear_to_int();
