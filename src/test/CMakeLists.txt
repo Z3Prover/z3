@@ -61,6 +61,7 @@ add_executable(test-z3
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp
+  flatten_clauses.cpp
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
