@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
@@ -12,6 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "model/model.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
@@ -56,6 +58,39 @@ static void check_sat_smt_model(char const* input)
     VERIFY(model);
 }
 
+static void check_recfun_rlimit(char const* input, unsigned rlimit) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    cmd.set_solver_factory(mk_smt_strategic_solver_factory());
+    cmd.params().set_rlimit(rlimit);
+    std::ostringstream out;
+    cmd.set_regular_stream(out);
+    std::istringstream is(input);
+    VERIFY(parse_smt2_commands(cmd, is));
+    cmd.check_sat(0, nullptr);
+    VERIFY(cmd.cs_state() == cmd_context::css_unknown);
+    VERIFY(out.str() == "unknown\n");
+}
+
+static void check_recfun_rlimits() {
+    for (char const* input : {
+            "(define-fun-rec f ((x Int)) Int (f x))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+            "(assert (= (f 0) 1))\n",
+            "(define-fun-rec f () Int (+ 1 f))\n"
+            "(assert (= f 1))\n",
+            "(define-funs-rec ((f ((x Int)) Int) (g ((x Int)) Int))"
+            " ((g x) (f x)))\n"
+            "(assert (= (f 0) 1))\n"}) {
+        check_recfun_rlimit(input, 1);
+    }
+    check_recfun_rlimit(
+        "(define-fun-rec f ((x Int)) Int (+ 1 (f (+ x 1))))\n"
+        "(assert (= (f 0) 1))\n", 1000);
+}
+
 static bool get_uint_stat(statistics const& st, char const* key, unsigned& value) {
     for (unsigned i = 0; i < st.size(); ++i)
         if (st.is_uint(i) && !strcmp(st.get_key(i), key)) {
@@ -63,6 +98,99 @@ static bool get_uint_stat(statistics const& st, char const* key, unsigned& value
             return true;
         }
     return false;
+}
+
+static void check_arithmetic_propagation_cancellation() {
+    struct propagation_context : smt::context {
+        using smt::context::context;
+        using smt::context::propagate;
+    };
+    for (bool cancel : {false, true}) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        smt_params params;
+        propagation_context ctx(m, params);
+        ctx.push();
+        VERIFY(ctx.at_base_level());
+        arith_util a(m);
+        expr_ref x(m.mk_const("x", a.mk_int()), m);
+        expr_ref y(m.mk_const("y", a.mk_int()), m);
+        expr_ref sum(a.mk_add(x, y), m);
+        expr_ref one(a.mk_int(1), m);
+        expr_ref bound(a.mk_ge(sum, one), m);
+        ctx.internalize(bound, false);
+        ctx.mark_as_relevant(bound.get());
+        ctx.assign(ctx.get_literal(bound), smt::b_justification::mk_axiom());
+        {
+            scoped_rlimit limit(m.limit(), cancel ? 0 : 1);
+            if (cancel)
+                m.limit().cancel();
+            VERIFY(ctx.propagate());
+            statistics st;
+            ctx.collect_statistics(st);
+            unsigned pivots = 0;
+            get_uint_stat(st, "arith-pivots", pivots);
+            VERIFY(pivots == 0);
+        }
+        VERIFY(ctx.check() == l_true);
+        statistics st;
+        ctx.collect_statistics(st);
+        unsigned pivots = 0;
+        VERIFY(get_uint_stat(st, "arith-pivots", pivots) && pivots > 0);
+        ctx.push();
+        ctx.assert_expr(m.mk_not(bound));
+        VERIFY(ctx.check() == l_false);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+        ctx.pop(1);
+        VERIFY(ctx.check() == l_true);
+    }
+}
+
+static void check_lp_cancellation_recovery() {
+    struct resource_limit : lp::lp_resource_limit {
+        reslimit limit;
+        lp::statistics const* stats = nullptr;
+        bool enabled = true;
+        bool cancel_after_pivot = false;
+        bool pivot_checked = false;
+        bool get_cancel_flag() override {
+            if (enabled && cancel_after_pivot && stats->m_pivots > 0)
+                limit.cancel();
+            return !limit.inc();
+        }
+        bool get_cancel_flag(unsigned cost) override {
+            pivot_checked = true;
+            if (enabled && !cancel_after_pivot)
+                limit.cancel();
+            return !limit.inc(cost);
+        }
+    };
+    for (bool after_pivot : {false, true}) {
+        resource_limit resource;
+        lp::lar_solver solver;
+        resource.stats = &solver.settings().stats();
+        resource.cancel_after_pivot = after_pivot;
+        solver.settings().set_resource_limit(resource);
+        auto x = solver.add_var(0, true);
+        auto y = solver.add_var(1, true);
+        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+        coeffs.push_back({lp::mpq(1), x});
+        coeffs.push_back({lp::mpq(1), y});
+        auto term = solver.add_term(coeffs, 2);
+        solver.add_var_bound(term, lp::GE, lp::mpq(1));
+        {
+            scoped_rlimit limit(resource.limit, 0);
+            VERIFY(solver.find_feasible_solution() == lp::lp_status::CANCELLED);
+            VERIFY(resource.pivot_checked);
+            VERIFY(solver.settings().stats().m_pivots == (after_pivot ? 1u : 0u));
+            VERIFY(solver.ax_is_correct());
+        }
+        resource.enabled = false;
+        VERIFY(solver.find_feasible_solution() == lp::lp_status::OPTIMAL);
+        VERIFY(solver.ax_is_correct());
+        VERIFY(solver.column_is_feasible(term));
+    }
 }
 
 static void check_array_domain(char const* input, lbool expected) {
@@ -258,6 +386,9 @@ static void check_special_relation_logic() {
 
 void tst_smt_context()
 {
+    check_arithmetic_propagation_cancellation();
+    check_lp_cancellation_recovery();
+    check_recfun_rlimits();
     check_special_relation_logic();
     check_nonlinear_to_int();
     check_real_power_bounds();
@@ -486,6 +617,20 @@ void tst_smt_context()
         "(declare-fun isL2 (L2) Bool)\n"
         "(define-fun-rec isL2_rec ((x L2)) Bool (ite (is-c2 x) (and (isL1 (h2 x)) (isL2_rec (t2 x))) true))\n"
         "(assert (forall ((x L2)) (! (= (isL2_rec x) (isL2 x)) :pattern ((isL2 x)))))\n");
+
+    {
+        cmd_context cmd(false, &m);
+        std::istringstream is(
+            "(define-fun-rec g ((x Int)) Int (ite (<= x 0) 0 (+ 1 (g (- x 1)))))\n"
+            "(define-fun-rec h ((x Int)) Int (g x))\n"
+            "(define-fun-rec f ((x Int)) Int (h x))\n"
+            "(assert (= (f 3) 3))\n");
+        VERIFY(parse_smt2_commands(cmd, is));
+        model mdl(m);
+        expr_ref value(m);
+        VERIFY(mdl.eval_expr(cmd.assertions()[0], value));
+        VERIFY(m.is_true(value));
+    }
 
     // Regression: a non-Boolean (Int) recursive function whose recursive step contains a
     // real quantifier nested inside an `ite` used to be misreified as a Boolean fresh

@@ -164,8 +164,9 @@ public:
     }
 
     // the caller is expected to have checked bound_is_interesting
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
-                   implied_bound::weighted_explain explain_weighted) {
+    template <typename Explain, typename WeightedExplain>
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, Explain const& explain_bound,
+                   WeightedExplain const& explain_weighted) {
         if (is_low) {
             unsigned k;
             if (m_improved_lower_bounds.find(j, k)) {

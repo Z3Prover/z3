@@ -783,6 +783,18 @@ describe('high-level', () => {
     });
   });
 
+  describe('sorts', () => {
+    it('cast accepts an expression of the same sort and rejects other sorts', () => {
+      const { Sort, Const, Int } = api.Context('main');
+      const A = Sort.declare('A');
+      const B = Sort.declare('B');
+      const a = Const('a', A);
+      expect(A.cast(a).eqIdentity(a)).toBeTruthy();
+      expect(() => B.cast(a)).toThrowError(Z3AssertionError);
+      expect(() => A.cast(Int.const('x'))).toThrowError(Z3AssertionError);
+    });
+  });
+
   describe('Solver', () => {
     it('can use push and pop', async () => {
       const { Solver, Int } = api.Context('main');
