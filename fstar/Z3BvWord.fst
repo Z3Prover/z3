@@ -279,6 +279,7 @@ let lemma_extract_rewrite (i:interpretation value) (rho:env value)
     lemma_parts i rho project result n middle;
     BV.lemma_reflect i rho project n e result
 
+#push-options "--z3rlimit 200"
 let rec lemma_append_number (xs ys:list bool)
   : Lemma (BV.bits_number (xs @ ys) ==
            BV.bits_number xs + pow2 (L.length xs) * BV.bits_number ys)
@@ -288,6 +289,7 @@ let rec lemma_append_number (xs ys:list bool)
     | _ :: rest ->
       lemma_append_number rest ys;
       M.pow2_plus 1 (L.length rest)
+#pop-options
 
 let rec lemma_append_args (i:interpretation value) (rho:env value) (xs ys:list expr)
   : Lemma (requires D.scoped_args [] xs /\ D.scoped_args [] ys /\
