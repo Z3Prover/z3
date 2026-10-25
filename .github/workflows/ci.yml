@@ -134,7 +134,7 @@ jobs:
         run: opam install zarith ocamlfind -y
 
       - name: Configure
-        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_OCAML_BINDINGS=ON
+        run: eval `opam config env`; cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
@@ -143,11 +143,10 @@ jobs:
           cmake --build build --parallel $(nproc)
           cmake --build build --target test-z3 --parallel $(nproc)
 
-      - name: Install Z3 OCaml package
+      - name: Install and test OCaml bindings
         run: |
-          eval `opam config env`
-          ML=build/src/api/ml
-          ocamlfind install z3 "$ML"/META "$ML"/*.cmi "$ML"/*.cmx "$ML"/*.mli "$ML"/*.a "$ML"/*.cma "$ML"/*.cmxa "$ML"/*.cmxs src/api/ml/z3.mli -dll "$ML"/dllz3ml.so
+          eval "$(opam env)"
+          bash scripts/test_ocaml_install.sh build "$PWD/install"
 
       - name: Run unit tests
         run: |
@@ -637,19 +636,34 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install ninja
+          brew install ninja gmp pkg-config
+
+      - name: Setup OCaml
+        uses: ocaml/setup-ocaml@93303b622b2522e4411e295f9e77411a24912ac7 # v3.9.0
+        with:
+          ocaml-compiler: '5'
+
+      - name: Install OCaml dependencies
+        run: opam install zarith ocamlfind -y
 
       - name: Configure
         run: |
           set -e
-          cmake -G "Ninja" -S . -B build -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False
+          eval "$(opam env)"
+          cmake -G "Ninja" -S . -B build -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_LIBDIR=lib -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -DZ3_BUILD_OCAML_BINDINGS=ON
 
       - name: Build
         run: |
+          eval "$(opam env)"
           cd build
           ninja
           ninja test-z3
           cd ..
+
+      - name: Install and test OCaml bindings
+        run: |
+          eval "$(opam env)"
+          bash scripts/test_ocaml_install.sh build "$PWD/install"
 
       - name: Run unit tests
         run: |

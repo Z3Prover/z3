@@ -89,7 +89,10 @@ let lemma_scale_step (n c x tail:real)
 
 let lemma_add_step (a b c d x y:real)
   : Lemma ((a *. c +. b *. d) +. (a *. x +. b *. y) ==
-           a *. (c +. x) +. b *. (d +. y)) = ()
+           a *. (c +. x) +. b *. (d +. y)) =
+  // Separate nonlinear distributivity from the final linear regrouping.
+  assert (a *. (c +. x) == a *. c +. a *. x);
+  assert (b *. (d +. y) == b *. d +. b *. y)
 
 #pop-options
 

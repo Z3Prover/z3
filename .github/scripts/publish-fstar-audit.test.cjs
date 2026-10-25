@@ -61,6 +61,7 @@ test("same-repository publication appends only audit files at the exact head", a
     assert.equal(manifest.files.length, 3);
     assert.equal(comments.length, 1);
     assert.ok(comments[0].body.includes("https://github.com/commit/audit"));
+    assert.ok(comments[0].body.includes("```fstar\nmodule PrAudit\n\n```"));
 });
 
 test("forks receive artifacts and a comment without any commit", async t => {
@@ -72,6 +73,46 @@ test("forks receive artifacts and a comment without any commit", async t => {
     assert.equal(comments.length, 1);
     assert.ok(fs.existsSync(path.join(args.artifactDir, "PrAudit.fst")));
     assert.ok(comments[0].body.includes("no branch writes"));
+    assert.ok(comments[0].body.includes("```fstar\nmodule PrAudit\n\n```"));
+});
+
+test("model previews share a 5,000-character budget while preserving full sources", async t => {
+    for (const lengths of [[4999], [5000], [5001], [3000, 3000]]) {
+        const { args, comments } = fixture(t);
+        const files = lengths.map((length, i) => {
+            const prefix = `module PrAudit${i}\n// `;
+            return { name: `PrAudit${i}.fst`, content: prefix + String(i).repeat(length - prefix.length) };
+        });
+        args.payload = payload({ files });
+        await publish(args);
+        const model = files.map(file => file.content).join("\n\n");
+        const preview = model.slice(0, 5000);
+        assert.ok(comments[0].body.includes(`\n\`\`\`fstar\n${preview}\n\`\`\`\n`));
+        assert.equal(comments[0].body.includes("Preview truncated"), model.length > 5000);
+        for (const file of files)
+            assert.equal(fs.readFileSync(path.join(args.artifactDir, file.name), "utf8"), file.content);
+    }
+});
+
+test("model previews preserve Unicode characters and contain embedded Markdown fences", async t => {
+    const { args, comments } = fixture(t);
+    const prefix = "module PrAudit\n(*\n```\n````\n</details>\n@everyone\n";
+    const preview = prefix + "\u{1f642}".repeat(5000 - prefix.length);
+    args.payload = payload({ files: [{ name: "PrAudit.fst", content: preview + "OMITTED *)" }] });
+    await publish(args);
+    assert.ok(comments[0].body.includes(`\n\`\`\`\`\`fstar\n${preview}\n\`\`\`\`\`\n`));
+    assert.ok(!comments[0].body.includes("OMITTED"));
+    assert.ok(comments[0].body.includes("Preview truncated"));
+});
+
+test("inconclusive audits without sources omit the model preview", async t => {
+    const { args, comments } = fixture(t);
+    args.payload = payload({ verdict: "inconclusive", files: [] });
+    await publish(args);
+    assert.equal(comments.length, 1);
+    assert.ok(comments[0].body.includes("F* NFV audit: inconclusive"));
+    assert.ok(!comments[0].body.includes("### F* model"));
+    assert.ok(!comments[0].body.includes("Preview truncated"));
 });
 
 test("stale, closed, and duplicate audits do not publish", async t => {
