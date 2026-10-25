@@ -182,11 +182,11 @@ void test_simplify() {
 #ifdef Z3DEBUG
     nex_creator bounded_creator;
     bounded_creator.set_number_of_vars(3);
-    nex_var* ba = bounded_creator.mk_var(0);
-    nex_var* bb = bounded_creator.mk_var(1);
-    nex_var* bc = bounded_creator.mk_var(2);
-    nex* bab = bounded_creator.mk_mul(ba, bb);
-    nex* bac = bounded_creator.mk_mul(ba, bc);
+    nex_var* bound_a = bounded_creator.mk_var(0);
+    nex_var* bound_b = bounded_creator.mk_var(1);
+    nex_var* bound_c = bounded_creator.mk_var(2);
+    nex* bab = bounded_creator.mk_mul(bound_a, bound_b);
+    nex* bac = bounded_creator.mk_mul(bound_a, bound_c);
     nex* common_factor_sum = bounded_creator.mk_sum(bab, bac);
     auto common_factor_expr = to_sum(bounded_creator.simplify(common_factor_sum));
     reslimit bounded_limit;
