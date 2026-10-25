@@ -17,7 +17,7 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 ## Build status
 
 ### Pull Request & Push Workflows
-| WASM Build | Windows Build | CI (including OCaml) | Finite-Field Regressions |
+| WASM Build | Windows Build | CI | Finite-Field Regressions |
 | ------------|---------------|----------------------|-------------------------|
 | [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![CI](https://github.com/Z3Prover/z3/actions/workflows/ci.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ci.yml) | [![Finite-field regressions](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/finite-field.yml) |
 
