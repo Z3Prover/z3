@@ -438,6 +438,36 @@ static void check_singleton_array_defaults() {
     }
 }
 
+static void check_singleton_array_range_cardinality() {
+    char const* declarations =
+        "(declare-datatypes () ((One one)))\n"
+        "(declare-datatypes ((Box 1))\n"
+        "  ((par (T) ((box (value (Array T One)))))))\n"
+        "(declare-const b (Box Int))\n";
+    std::string equality =
+        "(= (store ((as const (Array (Box Int) Bool)) false) b true)\n"
+        "   ((as const (Array (Box Int) Bool)) true))";
+    struct {
+        bool sat_smt;
+        bool negate;
+    } cases[] = {{false, false}, {false, true}, {true, false}, {true, true}};
+    for (auto const& test : cases) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        cmd_context cmd(false, &m);
+        std::string input = std::string(declarations) + "(assert " +
+            (test.negate ? "(not " + equality + ")" : equality) + ")\n";
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        params_ref p;
+        p.set_bool("smt", test.sat_smt);
+        ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+        for (expr* assertion : cmd.assertions())
+            slv->assert_expr(assertion);
+        VERIFY((test.negate ? l_false : l_true) == slv->check_sat(0, nullptr));
+    }
+}
+
 static void check_symbolic_regex_substring() {
     for (unsigned relevancy : {0u, 2u}) {
         for (char const* word : {"x", "xy"}) {
@@ -575,6 +605,7 @@ void tst_smt_context()
     check_stored_lambdas();
     check_sat_array_lambdas();
     check_singleton_array_defaults();
+    check_singleton_array_range_cardinality();
     check_expand_store_eq();
 
     smt_params params;
