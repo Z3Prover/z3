@@ -129,7 +129,7 @@ safe-outputs:
                 filename: path.join(process.env.RUNNER_TEMP, "pulse-repair-analysis", "payload.json"),
               });
               await publishIssue({
-                github, context: { ...context, runAttempt: Number(process.env.REPAIR_ATTEMPT) },
+                github, context, runAttempt: Number(process.env.REPAIR_ATTEMPT),
                 core, payload, baseSha: process.env.TRUSTED_SHA,
                 artifactId: process.env.REPAIR_ARTIFACT_ID,
                 staged: process.env.GH_AW_SAFE_OUTPUTS_STAGED === "true",

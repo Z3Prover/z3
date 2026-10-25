@@ -107,6 +107,19 @@ function candidate(args, text = args.payload) {
         reportDirectory: path.join(args.directory, "analysis") };
 }
 
+function workflowScript(name) {
+    const source = fs.readFileSync(path.join(__dirname, "..", "workflows", "pulse-checker-repair.md"), "utf8");
+    const lines = source.split(`- name: ${name}`)[1].split(/\r?\n/);
+    const start = lines.findIndex(line => line.trim() === "script: |");
+    const indent = lines[start].match(/^ */)[0].length + 2;
+    const script = [];
+    for (const line of lines.slice(start + 1)) {
+        if (line.trim() && !line.startsWith(" ".repeat(indent))) break;
+        script.push(line.slice(indent));
+    }
+    return script.join("\n");
+}
+
 test("evidence selects only unexpired reports from the exact run and attempt", async t => {
     const { args, run } = fixture(t);
     assert.deepEqual((await evidence({ ...args, run })).map(item => item.id), [10, 11]);
@@ -165,10 +178,7 @@ test("preparation includes job failures and marks successful regression runs act
 
 test("github-script preparation supports wrapped require without require.resolve", async t => {
     const { args, directory } = fixture(t);
-    const source = fs.readFileSync(path.join(__dirname, "..", "workflows", "pulse-checker-repair.md"), "utf8");
-    const step = source.split("  - name: Prepare exact producer attempt and evidence index")[1];
-    const script = step.match(/script: \|\r?\n((?:        [^\r\n]*(?:\r?\n|$))+)/)[1]
-        .split(/\r?\n/).map(line => line.slice(8)).join("\n");
+    const script = workflowScript("Prepare exact producer attempt and evidence index");
     const temporary = path.join(directory, "runner-temp");
     fs.mkdirSync(path.join(temporary, "gh-aw"), { recursive: true });
     const wrappedRequire = name => name === "./.github/scripts/pulse-checker-repair.cjs"
@@ -388,6 +398,34 @@ test("publication links the uploaded artifact and original evidence with integra
     assert.ok(issues[0].body.includes("Assign this issue to Copilot"));
     assert.ok(issues[0].body.includes("Agent-reported validation"));
     assert.ok(issues[0].body.includes("<!-- pulse-checker-repair:42:2 -->"));
+});
+
+test("github-script publication preserves the prototype-backed repository context", async t => {
+    const { args, run, directory, issues } = fixture(t);
+    const request = candidate(args);
+    const temporary = path.join(directory, "runner-temp");
+    const analysis = path.join(temporary, "pulse-repair-analysis");
+    fs.mkdirSync(analysis, { recursive: true });
+    fs.copyFileSync(request.filename, path.join(analysis, "payload.json"));
+    const { repo, runAttempt, ...fields } = args.context;
+    const context = Object.assign(Object.create({ get repo() { return repo; } }), fields);
+    args.github.rest.actions.getWorkflowRun = async request => {
+        assert.equal(request.owner, repo.owner);
+        assert.equal(request.repo, repo.repo);
+        return { data: run };
+    };
+    const wrappedRequire = name => name === "./.github/scripts/pulse-checker-repair.cjs"
+        ? require("./pulse-checker-repair.cjs") : require(name);
+    const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
+    await new AsyncFunction("require", "process", "github", "context", "core",
+        workflowScript("Create artifact-backed integration issue"))(
+        wrappedRequire, { env: {
+            RUNNER_TEMP: temporary, TRUSTED_SHA: sha, GH_AW_AGENT_OUTPUT: request.outputFile,
+            REPAIR_ATTEMPT: String(runAttempt), REPAIR_ARTIFACT_ID: String(args.artifactId),
+        } }, args.github, context, args.core);
+    assert.equal(issues.length, 1);
+    assert.equal(issues[0].owner, repo.owner);
+    assert.equal(issues[0].repo, repo.repo);
 });
 
 test("expired, foreign and wrong-attempt repair artifacts cannot be linked as successful uploads", async t => {

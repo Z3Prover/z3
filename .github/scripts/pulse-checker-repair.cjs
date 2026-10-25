@@ -292,7 +292,10 @@ async function stageBundle({ github, context, core, payload, baseSha, directory 
     core.setOutput("artifact-path", directory);
 }
 
-async function publishIssue({ github, context, core, payload, baseSha, artifactId, staged = false }) {
+async function publishIssue({
+    github, context, core, payload, baseSha, artifactId,
+    runAttempt = context.runAttempt, staged = false,
+}) {
     const data = validatePayload(payload, baseSha);
     const run = await producer({ github, context });
     if (await existingIssue({ github, context, run })) {
@@ -304,7 +307,7 @@ async function publishIssue({ github, context, core, payload, baseSha, artifactI
         ...context.repo, artifact_id: id,
     });
     if (artifact.expired || artifact.workflow_run?.id !== Number(context.runId) ||
-        artifact.name !== `pulse-checker-repair-${context.runId}-${context.runAttempt}`)
+        artifact.name !== `pulse-checker-repair-${context.runId}-${positiveInteger(runAttempt)}`)
         throw new Error("Repair artifact is not from this analysis run and attempt");
     const artifacts = await evidence({ github, context, run });
     const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
