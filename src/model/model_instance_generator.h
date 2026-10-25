@@ -20,6 +20,7 @@ public:
     struct context {
         virtual ~context() = default;
         virtual model_core& get_model() = 0;
+        virtual bool is_auxiliary(func_decl* f) const { return f->is_skolem(); }
         // Ground terms from the owning engine; no E-graph representation escapes this interface.
         virtual void get_terms(expr_ref_vector& terms) = 0;
         // Replace model values by closed terms usable in the owning engine.

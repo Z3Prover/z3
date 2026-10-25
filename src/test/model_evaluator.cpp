@@ -18,9 +18,13 @@ namespace {
         model mdl;
         expr_ref_vector terms;
         vector<expr_ref_vector> instances;
+        obj_hashtable<func_decl> auxiliary;
 
         instance_context(ast_manager& m): m(m), mdl(m), terms(m) {}
         model_core& get_model() override { return mdl; }
+        bool is_auxiliary(func_decl* f) const override {
+            return f->is_skolem() || auxiliary.contains(f);
+        }
         void get_terms(expr_ref_vector& result) override { result.append(terms); }
         expr_ref rewrite_value(expr* e) override { return expr_ref(e, m); }
         void add_instance(quantifier* q, expr_ref_vector const& bindings) override {
@@ -35,7 +39,7 @@ namespace {
     };
 }
 
-static void check_instance_provenance() {
+static void check_instance_provenance(bool skolem) {
     for (char const* name : {"elem!user", "k!user", "sk!user", "ordinary"}) {
         ast_manager m;
         reg_decl_plugins(m);
@@ -45,13 +49,14 @@ static void check_instance_provenance() {
         sort_ref as(array.mk_array_sort(u, v), m);
         expr_ref user_u(m.mk_const(name, u), m);
         expr_ref user_v(m.mk_const(name, v), m);
-        expr_ref fresh_u(m.mk_fresh_const("unrelated", u), m);
-        expr_ref fresh_v(m.mk_fresh_const("unrelated", v), m);
+        expr_ref fresh_u(m.mk_fresh_const("unrelated", u, skolem), m);
+        expr_ref fresh_v(m.mk_fresh_const("unrelated", v, skolem), m);
         func_decl_ref wrap_u(m.mk_func_decl(symbol("wrap-u"), u, u), m);
         func_decl_ref wrap_v(m.mk_func_decl(symbol("wrap-v"), v, v), m);
         expr_ref nested_u(m.mk_app(wrap_u.get(), fresh_u.get()), m);
         expr_ref nested_v(m.mk_app(wrap_v.get(), fresh_v.get()), m);
         expr_ref d(m.mk_const("default", v), m);
+        expr_ref auxiliary_array(m.mk_fresh_const("array", as, skolem), m);
         sort* guard_domain[2] = { u, u };
         func_decl_ref guard(m.mk_func_decl(symbol("guard"), 2, guard_domain, m.mk_bool_sort()), m);
         expr_ref f(array.mk_const_array(as, d), m);
@@ -100,6 +105,10 @@ static void check_instance_provenance() {
             quantifier_ref q(m.mk_forall(2, sorts, names, q_body), m);
             for (bool has_replacement : {false, true}) {
                 instance_context ctx(m);
+                ctx.auxiliary.insert(to_app(fresh_u)->get_decl());
+                ctx.auxiliary.insert(to_app(fresh_v)->get_decl());
+                ctx.auxiliary.insert(to_app(auxiliary_array)->get_decl());
+                ctx.mdl.register_decl(to_app(auxiliary_array)->get_decl(), f);
                 ctx.terms.push_back(fresh_u);
                 ctx.terms.push_back(nested_u);
                 ctx.terms.push_back(fresh_v);
@@ -119,6 +128,47 @@ static void check_instance_provenance() {
                 ENSURE(ctx.instances[0].get(0) == expected);
                 ENSURE(ctx.instances[0].get(1) == user_u);
             }
+        }
+    }
+}
+
+static void check_store_instance_base() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    array_util array(m);
+    arith_util arith(m);
+    sort_ref as(array.mk_array_sort(arith.mk_int(), arith.mk_int()), m);
+    expr_ref zero(arith.mk_int(0), m);
+    expr_ref one(arith.mk_int(1), m);
+    expr_ref f(array.mk_const_array(as, one), m);
+    expr_ref base(m.mk_const("base", as), m);
+    expr_ref auxiliary(m.mk_fresh_const("array", as, false), m);
+    expr_ref bound_f(m.mk_var(1, as), m);
+    expr_ref index(m.mk_var(0, arith.mk_int()), m);
+    expr_ref selected(array.mk_select(bound_f, index), m);
+    expr_ref body(m.mk_eq(selected, zero), m);
+    sort* sorts[2] = { as, arith.mk_int() };
+    symbol names[2] = { symbol("f"), symbol("i") };
+    quantifier_ref q(m.mk_forall(2, sorts, names, body), m);
+    expr_ref_vector bindings(m);
+    bindings.push_back(f);
+    bindings.push_back(one);
+    ptr_vector<func_decl> bases;
+    bases.resize(2, nullptr);
+    for (bool has_base : {false, true}) {
+        instance_context ctx(m);
+        ctx.auxiliary.insert(to_app(auxiliary)->get_decl());
+        ctx.mdl.register_decl(to_app(auxiliary)->get_decl(), f);
+        if (has_base)
+            ctx.mdl.register_decl(to_app(base)->get_decl(), f);
+        model_instance_generator generator(ctx);
+        generator(q, bindings, bases);
+        ENSURE(ctx.instances.size() == (has_base ? 1u : 0u));
+        if (has_base) {
+            expr* args[3] = { base, one, zero };
+            expr_ref expected(array.mk_store(3, args), m);
+            ENSURE(ctx.instances[0].get(0) == expected);
+            ENSURE(ctx.instances[0].get(1) == one);
         }
     }
 }
@@ -179,6 +229,9 @@ static void check_array_instance_conversion() {
     cex.register_decl(f, fi);
     expr_ref base(m.mk_const("base", as), m);
     expr_ref constant(array.mk_const_array(as, zero), m);
+    expr_ref auxiliary(m.mk_fresh_const("array", as, false), m);
+    ctx.auxiliary.insert(to_app(auxiliary)->get_decl());
+    ctx.mdl.register_decl(to_app(auxiliary)->get_decl(), constant);
     ctx.mdl.register_decl(to_app(base)->get_decl(), constant);
     model_instance_generator generator(ctx);
     func_decl* chosen = nullptr;
@@ -206,7 +259,9 @@ static void check_array_instance_conversion() {
 }
 
 void tst_model_evaluator() {
-    check_instance_provenance();
+    check_instance_provenance(true);
+    check_instance_provenance(false);
+    check_store_instance_base();
     check_boxed_array_instance();
     check_array_instance_conversion();
     ast_manager m;

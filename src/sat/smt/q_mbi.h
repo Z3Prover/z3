@@ -34,6 +34,7 @@ namespace q {
     class mbqi {
         struct stats {
             unsigned m_num_instantiations;
+            unsigned m_num_witness_instantiations;
             unsigned m_num_checks;
             
             stats() { reset(); }
@@ -78,8 +79,15 @@ namespace q {
         typedef std::tuple<sat::literal, expr_ref, expr_ref_vector, unsigned> instantiation_t;
         vector<instantiation_t> m_instantiations;
         vector<mbp::def>        m_defs;
+        obj_hashtable<expr>     m_witness_set;
+        expr_ref_vector        m_witness_keys;
+        expr_ref_vector        m_fresh_witness_terms;
+        class instance_context;
 
         expr_ref_vector extract_binding(quantifier* q);
+        expr* fresh_witness_term(sort* s);
+        bool add_witness_instances(quantifier* q, q_body& qb, model& mdl);
+        void add_witness_instance(quantifier* q, expr_ref_vector const& bindings);
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         // void register_value(expr* e);
         expr_ref replace_model_value(expr* e);
@@ -100,6 +108,7 @@ namespace q {
         mbp::project_plugin* get_plugin(app* var);
         void add_plugin(mbp::project_plugin* p);
         void add_instantiation(quantifier* q, expr_ref& proj);
+        void add_instantiation(quantifier* q, expr_ref& proj, expr_ref_vector const& bindings);
 
         bool check_forall_default(quantifier* q, q_body& qb, model& mdl);
         bool check_forall_subst(quantifier* q, q_body& qb, model& mdl);

@@ -29,7 +29,7 @@ model_instance_generator::model_instance_generator(context& ctx):
 
 bool model_instance_generator::is_auxiliary(expr* e) const {
     for (expr* t : subterms::all(expr_ref(e, m)))
-        if (m.is_model_value(t) || (is_app(t) && to_app(t)->get_decl()->is_skolem()))
+        if (m.is_model_value(t) || (is_app(t) && m_context.is_auxiliary(to_app(t)->get_decl())))
             return true;
     return false;
 }
@@ -159,7 +159,7 @@ void model_instance_generator::add_guarded_instances(quantifier* q, expr_ref_vec
         model_core& mdl = m_context.get_model();
         for (unsigned j = 0; j < mdl.get_num_constants(); ++j) {
             func_decl* c = mdl.get_constant(j);
-            if (c->get_range() == s && !c->is_skolem()) {
+            if (c->get_range() == s && !m_context.is_auxiliary(c)) {
                 has_array = true;
                 break;
             }
@@ -271,12 +271,25 @@ void model_instance_generator::add_guarded_instances(quantifier* q, expr_ref_vec
 
 void model_instance_generator::add_store_instances(quantifier* q, expr_ref_vector const& bindings, ptr_vector<func_decl> const& bases) {
     for (unsigned i = 0; i < bindings.size(); ++i) {
-        if (!bases[i] || get_array_arity(bases[i]->get_range()) != 1)
+        sort* s = bindings.get(i)->get_sort();
+        if (!m_array.is_array(s) || get_array_arity(s) != 1)
             continue;
-        sort* s = bases[i]->get_range();
+        func_decl* base_decl = bases[i];
+        if (!base_decl) {
+            model_core& mdl = m_context.get_model();
+            for (unsigned j = 0; j < mdl.get_num_constants(); ++j) {
+                func_decl* c = mdl.get_constant(j);
+                if (c->get_range() == s && !m_context.is_auxiliary(c)) {
+                    base_decl = c;
+                    break;
+                }
+            }
+        }
+        if (!base_decl)
+            continue;
         expr_ref_vector values(m);
         collect_values(q, get_array_range(s), values);
-        expr_ref base(m.mk_const(bases[i]), m);
+        expr_ref base(m.mk_const(base_decl), m);
         for (unsigned j = 0; j < bindings.size(); ++j) {
             if (j == i || bindings.get(j)->get_sort() != get_array_domain(s, 0))
                 continue;
@@ -293,10 +306,10 @@ void model_instance_generator::add_store_instances(quantifier* q, expr_ref_vecto
 void model_instance_generator::operator()(quantifier* q, expr_ref_vector const& bindings, ptr_vector<func_decl> const& bases) {
     SASSERT(q->get_num_decls() == bindings.size());
     SASSERT(bindings.size() == bases.size());
+    add_store_instances(q, bindings, bases);
     add_lambda_instances(q, bindings);
     add_datatype_instances(q, bindings);
     add_guarded_instances(q, bindings);
-    add_store_instances(q, bindings, bases);
 }
 
 expr_ref model_instance_generator::mk_store_instance(func_decl* f, model_core& cex, func_decl*& base) {
@@ -310,7 +323,7 @@ expr_ref model_instance_generator::mk_store_instance(func_decl* f, model_core& c
     unsigned best_cost = UINT_MAX;
     for (unsigned i = 0; i < mdl.get_num_constants(); ++i) {
         func_decl* c = mdl.get_constant(i);
-        if (c->get_range() != s || c->is_skolem())
+        if (c->get_range() != s || m_context.is_auxiliary(c))
             continue;
         expr* val = mdl.get_const_interp(c);
         func_decl* g = nullptr;
