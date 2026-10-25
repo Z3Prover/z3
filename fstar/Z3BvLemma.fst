@@ -302,7 +302,8 @@ let simple (width:pos) (op:decl_kind) (args:list expr) : option expr =
     if (op = op_not || op = op_neg) && operation f [x] = Some (width, op)
     then Some x else None
   | [x; y] ->
-    if x = y && (op = op_and || op = op_or) then Some x
+    if x = y && op = op_lshr then Some (literal width 0)
+    else if x = y && (op = op_and || op = op_or) then Some x
     else if x = y && (op = op_xor || op = op_sub) then Some (literal width 0)
     else (match numeral y with
           | Some (w, n) ->
@@ -372,6 +373,23 @@ let rec lemma_constants (i:interpretation value) (rho:env value)
       FStar.Math.Lemmas.small_mod n (pow2 width);
       assert (U.to_uint_t width (project width (eval i a rho)) == n)
 
+let rec lemma_nat_lt_pow2 (n:nat) : Lemma (n < pow2 n) (decreases n) =
+  match n with
+  | 0 -> ()
+  | _ ->
+    lemma_nat_lt_pow2 (n - 1);
+    FStar.Math.Lemmas.pow2_plus 1 (n - 1);
+    assert (n > 0);
+    assert (pow2 (n - 1) >= n);
+    assert (pow2 n == 2 * pow2 (n - 1));
+    assert (pow2 (n - 1) > 0);
+    assert (2 * pow2 (n - 1) > n)
+
+let lemma_lshr_self (#width:pos) (a:U.uint_t width) : Lemma (U.shift_right a a == 0) =
+  lemma_nat_lt_pow2 a;
+  U.shift_right_value_lemma a a;
+  FStar.Math.Lemmas.small_division_lemma_1 a (pow2 a)
+
 #push-options "--fuel 4 --ifuel 2"
 let lemma_simple (i:interpretation value) (rho:env value) (project:pos -> value -> int)
                  (width:pos) (op:decl_kind) (args:list expr) (result:expr)
@@ -394,7 +412,9 @@ let lemma_simple (i:interpretation value) (rho:env value) (project:pos -> value 
       let a = project width (eval i x rho) in
       assert (0 <= a /\ a < pow2 width);
       FStar.Math.Lemmas.small_mod a (pow2 width);
-      if x = y && op = op_and then U.logand_self #width a
+      if x = y && op = op_lshr then (
+        lemma_lshr_self #width a)
+      else if x = y && op = op_and then U.logand_self #width a
       else if x = y && op = op_or then U.logor_self #width a
       else if x = y && op = op_xor then U.logxor_self #width a
       else if x = y && op = op_sub then ()

@@ -2364,6 +2364,12 @@ let bv_rewrites () =
   check true "(bvshl v #x00)" "v";
   check true "(bvlshr v #x00)" "v";
   check true "(bvlshr v (bvneg (bvmul w #x00)))" "v";
+  check true "(bvlshr v v)" "#x00";
+  check true "(bvlshr wide wide)" "(_ bv0 65)";
+  check false "(bvlshr v v)" "v";
+  check false "(bvlshr v w)" "#x00";
+  check false "(bvshl v v)" "#x00";
+  check false "(bvlshr v v)" "#x01";
   check true "(bvshl #x81 #x01)" "#x02";
   check true "(bvlshr #x81 #x01)" "#x40";
   check true "(bvshl #x01 #x08)" "#x00";
