@@ -182,7 +182,9 @@ and lemma_normalize_args (fuel:nat) (i:interpretation value) (rho:env value)
     | _, _ -> ()
 
 let equivalent (a b:expr) : bool =
-  match normalize 64 a, normalize 64 b with
+  if not (Some? (expression_budget 4096 a) && Some? (expression_budget 4096 b))
+  then false
+  else match normalize 64 a, normalize 64 b with
   | Some x, Some y ->
     QR.equivalent 64 x y || AR.equivalent x y || BV.equivalent x y ||
     BW.equivalent x y || A.equivalent 64 x y

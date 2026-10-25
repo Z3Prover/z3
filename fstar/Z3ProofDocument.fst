@@ -34,13 +34,18 @@ let rule_of_name (name:string) : option rule =
   else if name = "lemma" then Some LemmaRule
   else basic_rule_of_name name
 
-let rec axiom_branches (entries:list entry) : Tot (list expr) (decreases entries) =
+let rec axiom_branches_rev (entries:list entry) (branches:list expr)
+  : Tot (list expr) (decreases entries) =
   match entries with
-  | [] -> []
+  | [] -> branches
   | e :: rest ->
-    let branches = axiom_branches rest in
-    if e.rule = DefAxiom && D.axiom_branch e.formula && not (D.tautology 128 e.formula)
-    then e.formula :: branches else branches
+    let branches =
+      if e.rule = DefAxiom && D.axiom_branch e.formula && not (D.tautology 128 e.formula)
+      then e.formula :: branches else branches in
+    axiom_branches_rev rest branches
+
+let axiom_branches (entries:list entry) : list expr =
+  L.rev (axiom_branches_rev entries [])
 
 let rec collect_definitions (defs:list D.definition) (branches:list expr) (entries:list entry)
   : Tot (option (list D.definition)) (decreases entries) =

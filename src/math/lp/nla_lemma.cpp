@@ -231,7 +231,7 @@ namespace nla {
                     }
                     auto [entry, fresh] = columns.emplace(m, 0);
                     if (fresh)
-                        entry->second = solver.add_var(columns.size() - 1, false);
+                        entry->second = solver.add_var(static_cast<unsigned>(columns.size() - 1), false);
                     term.push_back({c, entry->second});
                 }
                 auto j = solver.add_term(term, UINT_MAX);
@@ -272,7 +272,7 @@ namespace nla {
                 cert.steps.push_back(std::move(s));
                 facts.push_back(std::move(f));
                 if (contradiction(facts.back()))
-                    cert.root = facts.size() - 1;
+                    cert.root = static_cast<unsigned>(facts.size() - 1);
                 return true;
             };
             unsigned max_degree = 1;
@@ -316,7 +316,7 @@ namespace nla {
                             return false;
                     }
             }
-            unsigned seed = facts.size(), begin = 0;
+            unsigned seed = static_cast<unsigned>(facts.size()), begin = 0;
             for (unsigned round = 0; round < max_degree && facts.size() < 384; ++round) {
                 if (settings.get_cancel_flag())
                     return false;
@@ -346,7 +346,7 @@ namespace nla {
                 if (linear_refutation(facts, refutation, settings) && append(std::move(refutation)) &&
                     cert.root != UINT_MAX)
                     return true;
-                unsigned end = facts.size();
+                unsigned end = static_cast<unsigned>(facts.size());
                 for (unsigned i = begin; i < end && facts.size() < 384; ++i)
                     for (unsigned j = 0; j < seed && facts.size() < 384; ++j) {
                         if (settings.get_cancel_flag())

@@ -119,8 +119,7 @@ try {
     )
   }
   & cmake -S $repoDir -B $Z3WindowsBuildDir -DCMAKE_BUILD_TYPE=Release `
-      "-DCMAKE_INSTALL_PREFIX=$Z3InstallDir" -DZ3_BUILD_EXECUTABLE=ON `
-      "-DCMAKE_INSTALL_PYTHON_PKG_DIR=$(Join-Path 'lib' 'python')" @nativeOptions
+      "-DCMAKE_INSTALL_PREFIX=$Z3InstallDir" -DZ3_BUILD_EXECUTABLE=ON @nativeOptions
   if ($LASTEXITCODE -ne 0) { throw "Z3 configuration failed" }
   & cmake --build $Z3WindowsBuildDir --config Release --parallel $BuildJobs
   if ($LASTEXITCODE -ne 0) { throw "Z3 build failed" }

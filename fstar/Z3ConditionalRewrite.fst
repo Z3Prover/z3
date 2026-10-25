@@ -137,7 +137,9 @@ let rec lemma_check_sound (fuel:nat) (i:interpretation value) (rho:env value) (s
       | _ -> ())
 
 let equivalent (s t:expr) : bool =
-  get_sort s = get_sort t && check 64 s t
+  get_sort s = get_sort t &&
+  Some? (expression_budget 4096 s) && Some? (expression_budget 4096 t) &&
+  check 64 s t
 
 let lemma_equivalent_sound (i:interpretation value) (rho:env value) (s t:expr)
   : Lemma (requires rewrite_model i /\ equivalent s t)

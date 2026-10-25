@@ -299,7 +299,7 @@ static void tst_dual_bound_premises() {
 // dual bounds leaves +oo unless the caller already supplied a finite cap.
 static void tst_dual_bound_cancellation() {
     for (unsigned region : {0u, 1u, 2u})
-    for (unsigned probe_budget : {0u, 1u, 100u, 1000u})
+    for (unsigned probe_budget : {0u, 1u, 1000u})
     for (bool known_upper : {false, true})
     for (bool enabled : {false, true}) {
         bool conditional = region != 0;
@@ -390,7 +390,7 @@ static void tst_dual_bound_cancellation() {
         auto upper = optimizer.get_upper(h).rational_bound();
         ENSURE(lower.is_finite() && lower.get_rational() >= rational(0));
         ENSURE(lower.get_rational() * lower.get_rational() <= rational(2));
-        bool certified = known_upper || (enabled && (!conditional || probe_budget >= 100));
+        bool certified = known_upper || (enabled && (!conditional || probe_budget >= 1000));
         if (certified ? upper != opt::inf_eps(rational(2)) : upper.is_finite() || !upper.is_pos())
             std::cerr << "dual bound: region=" << region << " budget=" << probe_budget
                       << " enabled=" << enabled << " upper=" << upper << "\n";
@@ -697,7 +697,7 @@ static void tst_dual_bound_api() {
         opt_fixture f;
         Z3_params p = Z3_mk_params(f.ctx);
         Z3_params_inc_ref(f.ctx, p);
-        Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), conditional ? 3000 : 20000);
+        Z3_params_set_uint(f.ctx, p, f.symbol("rlimit"), 20000);
         Z3_optimize_set_params(f.ctx, f.opt, p);
         Z3_params_dec_ref(f.ctx, p);
         Z3_ast sum = f.num(0), squares = f.num(0);

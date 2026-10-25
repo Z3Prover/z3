@@ -217,11 +217,11 @@ namespace datatype {
             sort_size s1 = m_arg1->eval(S);
             sort_size s2 = m_arg2->eval(S);
             // s1^s2
+            if (s1.is_finite() && s1.size() == 1) return s1;
             if (s1.is_infinite()) return s1;
             if (s2.is_infinite()) return s2;
             if (s1.is_very_big()) return s1;
             if (s2.is_very_big()) return s2;
-            if (s1.size() == 1) return s1;
             if (s2.size() == 1) return s1;
             if (s1.size() > (2 << 20) || s2.size() > 10) return sort_size::mk_very_big();
             rational r = ::power(rational(s1.size(), rational::ui64()), static_cast<unsigned>(s2.size()));

@@ -80,13 +80,13 @@ public class Optimize extends Z3Object {
      * using the Boolean constant p. 
      * 
      * Remarks: 
-     * This API is an alternative to {@link #check} with assumptions for
+     * This API is an alternative to {@link #Check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using {@link #assertAndTrack}
+     * of the Boolean variables provided using {@link #AssertAndTrack}
      * and the Boolean literals
-     * provided using {@link #check} with assumptions.
+     * provided using {@link #Check} with assumptions.
      */ 
     public void AssertAndTrack(Expr<BoolSort> constraint, Expr<BoolSort> p)
     {

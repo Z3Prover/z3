@@ -12,6 +12,16 @@ Version 5.3.2
   expression marks during arithmetic sign analysis. Thanks to Lev Nachmanson.
   https://github.com/Z3Prover/z3/pull/11253, https://github.com/Z3Prover/z3/pull/11256,
   https://github.com/Z3Prover/z3/pull/11288, https://github.com/Z3Prover/z3/pull/11292
+- Further optimize the LP kernel with bounded small-fraction fast paths,
+  deferred bound-explanation construction, and matrix-row buffer swaps.
+  Fix rational addition and subtraction when the result aliases an input.
+  https://github.com/Z3Prover/z3/pull/11306
+- Honor LP timeouts and charge pivot work against resource limits without
+  leaving the solver unusable after cancellation. Respect resource limits
+  during nonlinear common-factor exploration and unconditional recursive-function
+  expansion, avoiding runaway work and recursive-expansion overflows.
+  https://github.com/Z3Prover/z3/pull/11283, https://github.com/Z3Prover/z3/pull/11316,
+  https://github.com/Z3Prover/z3/pull/11294
 - **macOS PyPI wheel compatibility:** normalize platform version tags for
   macOS 11 and later to `macosx_<major>_0_<arch>`, instead of using the build
   machine's minor version. For example, `macosx_26_5_arm64` becomes
@@ -25,6 +35,15 @@ Version 5.3.2
   retrieving sorts from `AstVector`, including indexing, slicing, and
   translated vectors.
   https://github.com/Z3Prover/z3/pull/11299, https://github.com/Z3Prover/z3/pull/11302
+- Reduce cgo and WebAssembly calls and temporary sort allocations in the Go
+  and JavaScript bindings. Cache arithmetic operand sorts within JavaScript
+  operations and defer sort-name lookup until an error is reported.
+  Thanks to Kevin Turcios.
+  https://github.com/Z3Prover/z3/pull/11310, https://github.com/Z3Prover/z3/pull/11317
+- Fix JavaScript `Sort.cast` validation for uninterpreted sorts, arrays,
+  finite sets, and datatypes so expressions of a different sort are rejected.
+  Thanks to Kevin Turcios.
+  https://github.com/Z3Prover/z3/pull/11309
 - Restore variable elimination for expanded `define-fun` macros without
   weakening the protection for recursive definitions. Reduce temporary
   arithmetic during integer patching.
@@ -34,6 +53,24 @@ Version 5.3.2
   array maps.
   https://github.com/Z3Prover/z3/pull/11296, https://github.com/Z3Prover/z3/pull/11233,
   https://github.com/Z3Prover/z3/pull/11282
+- Propagate congruence through stores and maps over lambda arrays in the
+  legacy SMT array solver, fixing incorrect `sat` results for derived-array
+  equalities, including aliases and datatype fields.
+  https://github.com/Z3Prover/z3/pull/11322
+- Correct the default value of array stores over singleton index domains in
+  SAT/SMT (`sat.smt=true`), preventing incorrect `sat` and `unsat` results for
+  single- and multi-index arrays. Thanks to Roberto Pettinau.
+  https://github.com/Z3Prover/z3/pull/11324
+- When `rewriter.expand_store_eq=true`, count stores on both sides of an
+  array equality before requiring equal constant-array base values. This
+  avoids incorrect `unsat` results when the combined stores cover the domain.
+  Thanks to Roberto Pettinau.
+  https://github.com/Z3Prover/z3/pull/11326
+- Restore MBQI model finding for quantified floating-point problems by
+  preserving wrapped uninterpreted-function applications instead of adding
+  unnecessary quantified bridge axioms. Handle both floating-point and
+  rounding-mode results.
+  https://github.com/Z3Prover/z3/pull/11320
 - Recheck integer feasibility after nonlinear bound optimization to prevent
   incorrect `sat` results and invalid models for floor/remainder constraints.
   https://github.com/Z3Prover/z3/pull/11263
@@ -63,15 +100,28 @@ Version 5.3.2
   verified F* checking. Expand native proof marshaling and checked arithmetic,
   bit-vector, datatype, and quantified rewrite coverage. Build standalone
   OCaml and Cherry proof checkers and publish checksummed executable packages.
+  Stabilize arithmetic and bit-vector proof verification without increasing
+  proof budgets, and replay a fixed QF_BV benchmark corpus.
   Unsupported proof steps remain explicit unverified obligations.
   https://github.com/Z3Prover/z3/pull/11264,
-  https://github.com/Z3Prover/z3/commit/b7d22e4e2
+  https://github.com/Z3Prover/z3/commit/b7d22e4e2,
+  https://github.com/Z3Prover/z3/commit/871cad48c,
+  https://github.com/Z3Prover/z3/commit/943faccf3
+- Add a benchmark-driven Pulse checker repair workflow that publishes
+  proposed F* sources, portable patches, and validation evidence as artifacts.
+  Run-specific issues describe the updates for maintainer-directed Copilot
+  integration; incomplete candidates are explicitly marked and are not
+  integrated automatically.
+  https://github.com/Z3Prover/z3/commit/85f45b637
 - Extend Lean reconstruction for UF and linear Real/Int arithmetic, certify
   additional integer theory lemmas, and fix proof-trimmer pruning.
   https://github.com/Z3Prover/z3/pull/11224, https://github.com/Z3Prover/z3/pull/11276
 - Avoid duplicate shared-library copies in Unix distribution archives and
-  restore static `libz3.a` packaging.
-  https://github.com/Z3Prover/z3/pull/11252, https://github.com/Z3Prover/z3/pull/11287
+  restore static `libz3.a` packaging. Fix nightly static-library builds when
+  language bindings are enabled, restoring the shared-library and binding
+  configuration after the static build, including on failure.
+  https://github.com/Z3Prover/z3/pull/11252, https://github.com/Z3Prover/z3/pull/11287,
+  https://github.com/Z3Prover/z3/commit/b455012d9
 
 
 Version 5.3.1

@@ -79,6 +79,7 @@ class theory_lra::imp {
     public:
         resource_limit(imp& i): m_imp(i) { }
         bool get_cancel_flag() override { return !m_imp.m.inc(); }
+        bool get_cancel_flag(unsigned cost) override { return !m_imp.m.inc(cost); }
     };
 
     theory_lra&                  th;
@@ -954,11 +955,11 @@ public:
         m_farkas("farkas"),
         m_bound("bound"),
         m_bp(*this, m_implied_bounds),
+        m_lp_proof(m),
         m_bounded_range_idx(0),
         m_bounded_range_lit(null_literal),
         m_bound_terms(m),
-        m_bound_predicate(m),
-        m_lp_proof(m)
+        m_bound_predicate(m)
     {
         m_bound_params.push_back(parameter(m_farkas));
         m_bound_params.push_back(parameter(rational(1)));

@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  copilot-requests: write
 checkout: false
 concurrency:
   group: fstar-nfv-${{ github.event.pull_request.number }}
@@ -197,3 +198,7 @@ expected-head atomic commit, and never writes a contributor fork. Fork PRs get
 the same downloadable artifact instead. Both receive a revision-specific
 comment linking evidence; artifacts are retained for 30 days. Do not push,
 comment, open issues, or publish artifacts using other tools.
+
+When proof modules are produced, the publisher also includes the first 5,000
+characters of their combined F* source in the PR comment. Full sources remain
+available through the evidence links; audits without proof modules omit the preview.

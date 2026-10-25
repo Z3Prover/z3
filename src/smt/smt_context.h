@@ -324,7 +324,9 @@ namespace smt {
             return relevancy_lvl() > 0;
         }
 
-        unsigned relevancy_lvl() const;
+        unsigned relevancy_lvl() const {
+            return std::min(m_relevancy_lvl, m_fparams.m_relevancy_lvl);
+        }
 
         enode * get_enode(expr const * n) const {
             SASSERT(e_internalized(n));

@@ -127,10 +127,6 @@ namespace smt {
                 th->updt_params();
     }
 
-    unsigned context::relevancy_lvl() const {
-        return std::min(m_relevancy_lvl, m_fparams.m_relevancy_lvl);
-    }
-
     void context::copy(context& src_ctx, context& dst_ctx, bool override_base) {
         ast_manager& dst_m = dst_ctx.get_manager();
         ast_manager& src_m = src_ctx.get_manager();
@@ -1837,8 +1833,9 @@ namespace smt {
 
     /**
        \brief unit propagation.
-       Cancelation is not safe during propagation at base level because
+       Cancelation is not safe during Boolean and equality propagation at base level because
        congruences cannot be retracted to a consistent state.
+       Theory propagation must remain interruptible.
      */
     bool context::propagate() {
         TRACE(propagate, tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n");
@@ -1865,9 +1862,9 @@ namespace smt {
                 propagate_th_diseqs();
                 if (inconsistent())
                     return false;
-                if (!propagate_theories())
-                    return false;
             }
+            if (!propagate_theories())
+                return false;
             if (!get_cancel_flag()) {
 //                scoped_suspend_rlimit _suspend_cancel(m.limit(), at_base_level());
                 m_qmanager->propagate();

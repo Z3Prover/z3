@@ -122,7 +122,7 @@ namespace z3 {
         virtual ~exception() throw() = default;
         exception(char const * msg):m_msg(msg) {}
         char const * msg() const { return m_msg.c_str(); }
-        char const * what() const throw() { return m_msg.c_str(); }
+        char const * what() const throw() override { return m_msg.c_str(); }
         friend std::ostream & operator<<(std::ostream & out, exception const & e);
     };
     inline std::ostream & operator<<(std::ostream & out, exception const & e) { out << e.msg(); return out; }
@@ -722,11 +722,11 @@ namespace z3 {
 
             bool operator==(iterator const& other) const noexcept {
                 return other.m_index == m_index;
-            };
+            }
 
             bool operator!=(iterator const& other) const noexcept {
                 return other.m_index != m_index;
-            };
+            }
             iterator& operator++() noexcept {
                 ++m_index;
                 return *this;
@@ -3344,10 +3344,10 @@ namespace z3 {
 
             bool operator==(cube_iterator const& other) const noexcept {
                 return other.m_end == m_end;
-            };
+            }
             bool operator!=(cube_iterator const& other) const noexcept {
                 return other.m_end != m_end;
-            };
+            }
 
         };
 

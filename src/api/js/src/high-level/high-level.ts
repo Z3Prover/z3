@@ -3127,7 +3127,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       declare readonly __typename: Sort['__typename'];
 
       get ast(): Z3_ast {
-        return Z3.sort_to_ast(contextPtr, this.ptr);
+        // Z3_sort_to_ast is a pointer cast in C, so skip the round trip into wasm.
+        return this.ptr;
       }
 
       kind() {
@@ -3141,7 +3142,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
       cast(expr: Expr<Name>): Expr<Name> {
         _assertContext(expr);
-        assert(expr.sort.eqIdentity(expr.sort), 'Sort mismatch');
+        assert(this.eqIdentity(expr.sort), 'Sort mismatch');
         return expr;
       }
 
@@ -3166,7 +3167,8 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       declare readonly __typename: FuncDecl['__typename'];
 
       get ast(): Z3_ast {
-        return Z3.func_decl_to_ast(contextPtr, this.ptr);
+        // Z3_func_decl_to_ast is a pointer cast in C, so skip the round trip into wasm.
+        return this.ptr;
       }
 
       name() {
@@ -3710,7 +3712,6 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       cast(other: CoercibleToArith<Name>): Arith<Name>;
       cast(other: CoercibleToExpr<Name>): never;
       cast(other: CoercibleToExpr<Name> | string): Arith<Name> | RatNum<Name> | IntNum<Name> {
-        const sortTypeStr = isIntSort(this) ? 'IntSort' : 'RealSort';
         if (isExpr(other)) {
           const otherS = other.sort;
           if (isArith(other)) {
@@ -3727,7 +3728,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
               return ToReal(If(other, 1, 0));
             }
           }
-          assert(false, `Can't cast expression to ${sortTypeStr}`);
+          assert(false, `Can't cast expression to ${isIntSort(this) ? 'IntSort' : 'RealSort'}`);
         } else {
           if (typeof other !== 'boolean') {
             if (isIntSort(this)) {
@@ -3736,7 +3737,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
             }
             return Real.val(other);
           }
-          assert(false, `Can't cast primitive to ${sortTypeStr}`);
+          assert(false, `Can't cast primitive to ${isIntSort(this) ? 'IntSort' : 'RealSort'}`);
         }
       }
     }
@@ -3799,10 +3800,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
     ): T | Complex<Name> {
       if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
-        const first = Complex.sort().cast(arg0);
-        return new ComplexImpl(
-          check(Z3.mk_add(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
-        );
+        const sort = Complex.sort();
+        const first = sort.cast(arg0);
+        return new ComplexImpl(check(Z3.mk_add(contextPtr, [first.ast, ...args.map(arg => sort.cast(arg).ast)])));
       }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
@@ -3814,8 +3814,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         ) as unknown as T;
       } else {
         assert(arg0 instanceof ArithImpl);
+        const sort = arg0.sort;
         return new ArithImpl(
-          check(Z3.mk_add(contextPtr, [arg0.ast].concat(args.map(arg => arg0.sort.cast(arg).ast)))),
+          check(Z3.mk_add(contextPtr, [arg0.ast].concat(args.map(arg => sort.cast(arg).ast)))),
         ) as unknown as T;
       }
     }
@@ -3832,10 +3833,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
     ): T | Complex<Name> {
       if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
-        const first = Complex.sort().cast(arg0);
-        return new ComplexImpl(
-          check(Z3.mk_sub(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
-        );
+        const sort = Complex.sort();
+        const first = sort.cast(arg0);
+        return new ComplexImpl(check(Z3.mk_sub(contextPtr, [first.ast, ...args.map(arg => sort.cast(arg).ast)])));
       }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
@@ -3847,8 +3847,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         ) as unknown as T;
       } else {
         assert(arg0 instanceof ArithImpl);
+        const sort = arg0.sort;
         return new ArithImpl(
-          check(Z3.mk_sub(contextPtr, [arg0.ast].concat(args.map(arg => arg0.sort.cast(arg).ast)))),
+          check(Z3.mk_sub(contextPtr, [arg0.ast].concat(args.map(arg => sort.cast(arg).ast)))),
         ) as unknown as T;
       }
     }
@@ -3865,10 +3866,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       ...args: (CoercibleToMap<T, Name> | Complex<Name>)[]
     ): T | Complex<Name> {
       if (arg0 instanceof ComplexImpl || args.some(arg => isComplex(arg))) {
-        const first = Complex.sort().cast(arg0);
-        return new ComplexImpl(
-          check(Z3.mk_mul(contextPtr, [first.ast, ...args.map(arg => Complex.sort().cast(arg).ast)])),
-        );
+        const sort = Complex.sort();
+        const first = sort.cast(arg0);
+        return new ComplexImpl(check(Z3.mk_mul(contextPtr, [first.ast, ...args.map(arg => sort.cast(arg).ast)])));
       }
       if (arg0 instanceof BitVecImpl) {
         // Assert only 2
@@ -3880,8 +3880,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         ) as unknown as T;
       } else {
         assert(arg0 instanceof ArithImpl);
+        const sort = arg0.sort;
         return new ArithImpl(
-          check(Z3.mk_mul(contextPtr, [arg0.ast].concat(args.map(arg => arg0.sort.cast(arg).ast)))),
+          check(Z3.mk_mul(contextPtr, [arg0.ast].concat(args.map(arg => sort.cast(arg).ast)))),
         ) as unknown as T;
       }
     }

@@ -17,6 +17,7 @@ import sys
 import shutil
 import stat
 import filecmp
+import shlex
 from mk_exception import *
 from mk_dist_util import getenv, check_output, get_git_hash
 from fnmatch import fnmatch
@@ -288,18 +289,32 @@ def build_static_lib():
     if is_verbose():
         print("build static libz3")
     build_dir = get_build_dir()
+    # Reused build trees may have binding settings different from the CLI defaults.
+    bindings = {}
+    with open(os.path.join(build_dir, "CMakeCache.txt"), encoding="utf-8") as cache:
+        for line in cache:
+            match = re.match(r"(Z3_BUILD_\w+_BINDINGS):[^=]+=(.*)", line)
+            if match:
+                bindings[match[1]] = match[2]
+    disable_bindings = ''.join(' -D%s=OFF' % name for name in bindings)
+    restore_bindings = ''.join(' -D%s=%s' % (name, shlex.quote(value))
+                               for name, value in bindings.items())
     cmds = [
-        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF' % build_dir,
+        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=OFF -DZ3_BUILD_LIBZ3_SHARED=OFF%s' %
+        (build_dir, disable_bindings),
         'cmake --build "%s" --target libz3 --parallel %s' % (build_dir, MAKEJOBS)
     ]
-    if exec_cmds(cmds) != 0:
-        raise MKException("Failed to build static libz3")
-    shutil.copy2(os.path.join(build_dir, "libz3.a"),
-                 os.path.join(get_build_dist_path(), "bin", "libz3.a"))
-    if exec_cmds([
-        'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=ON -DZ3_BUILD_LIBZ3_SHARED=ON' % build_dir
-    ]) != 0:
-        raise MKException("Failed to restore shared libz3 build")
+    try:
+        if exec_cmds([' && '.join(cmds)]) != 0:
+            raise MKException("Failed to build static libz3")
+        shutil.copy2(os.path.join(build_dir, "libz3.a"),
+                     os.path.join(get_build_dist_path(), "bin", "libz3.a"))
+    finally:
+        if exec_cmds([
+            'cmake -S . -B "%s" -DBUILD_SHARED_LIBS=ON -DZ3_BUILD_LIBZ3_SHARED=ON%s' %
+            (build_dir, restore_bindings)
+        ]) != 0:
+            raise MKException("Failed to restore shared libz3 build")
 
 def mk_zip():
     build_dist = get_build_dist_path()
@@ -406,4 +421,5 @@ def main():
     link_python_libz3()
     mk_zip()
 
-main()
+if __name__ == '__main__':
+    main()

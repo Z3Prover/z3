@@ -164,8 +164,9 @@ public:
     }
 
     // the caller is expected to have checked bound_is_interesting
-    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, implied_bound::dependency_explain explain_bound,
-                   implied_bound::weighted_explain explain_weighted) {
+    template <typename Explain, typename WeightedExplain>
+    void add_bound(mpq const& v, unsigned j, bool is_low, bool strict, Explain const& explain_bound,
+                   WeightedExplain const& explain_weighted) {
         if (is_low) {
             unsigned k;
             if (m_improved_lower_bounds.find(j, k)) {
@@ -313,6 +314,7 @@ public:
     unsigned extract_non_fixed(unsigned row_index, unsigned& x, unsigned& y, int& y_sign) const {
         unsigned nf = 0;  // number of non-fixed columns
         y = UINT_MAX;
+        y_sign = 0;
         const auto& row = lp().get_row(row_index);
         x = lp().get_base_column_in_row(row_index);
         if (!column_is_fixed(x)) {

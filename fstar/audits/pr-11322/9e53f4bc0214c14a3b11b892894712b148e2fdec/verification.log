@@ -1,0 +1,8 @@
+F* 2026.09.27; independent Z3 4.13.3 (pinned release backend)
+command (timeout 120, fresh cache/out): /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Z3Pr11322LambdaCongruence.fst
+exit code: 0
+stdout:
+Verified module: Z3Pr11322LambdaCongruence
+All verification conditions discharged successfully
+
+stderr:

@@ -190,8 +190,47 @@ static void test_smt2_parametric_datatype_is_constructor() {
     ENSURE(l_true == smt_ctx.check());
 }
 
+static void test_array_field_cardinality() {
+    struct test_case {
+        char const* domain;
+        char const* field;
+        sort_size expected;
+    };
+    test_case cases[] = {
+        {"Bool", "(Array T One)", sort_size(1)},
+        {"Int", "(Array T One)", sort_size(1)},
+        {"(_ BitVec 64)", "(Array T One)", sort_size(1)},
+        {"Bool", "(Array T Bool One)", sort_size(1)},
+        {"Int", "(Array T Bool One)", sort_size(1)},
+        {"(_ BitVec 64)", "(Array T Bool One)", sort_size(1)},
+        {"Bool", "(Array T Bool)", sort_size(4)},
+        {"Bool", "(Array T Bool Bool)", sort_size(16)},
+        {"Int", "(Array T Bool)", sort_size::mk_infinite()},
+        {"(_ BitVec 64)", "(Array T Bool)", sort_size::mk_very_big()},
+        {"Bool", "(Array T Int)", sort_size::mk_infinite()},
+        {"Bool", "(Array T (_ BitVec 64))", sort_size::mk_very_big()}
+    };
+    for (auto const& test : cases) {
+        std::string input =
+            "(declare-datatypes () ((One one)))\n"
+            "(declare-datatypes ((Box 1)) ((par (T) ((box (value " +
+            std::string(test.field) + "))))))\n"
+            "(declare-const b (Box " + test.domain + "))\n";
+        cmd_context cmd;
+        std::istringstream is(input);
+        VERIFY(parse_smt2_commands(cmd, is));
+        sort_size const& actual = cmd.find_func_decl(symbol("b"))->get_range()->get_num_elements();
+        VERIFY(actual.is_finite() == test.expected.is_finite());
+        VERIFY(actual.is_infinite() == test.expected.is_infinite());
+        VERIFY(actual.is_very_big() == test.expected.is_very_big());
+        if (test.expected.is_finite())
+            VERIFY(actual.size() == test.expected.size());
+    }
+}
+
 void tst_parametric_datatype() {
     test_polymorphic_datatype_api();
     test_nested_datatype_declaration_printing();
     test_smt2_parametric_datatype_is_constructor();
+    test_array_field_cardinality();
 }
