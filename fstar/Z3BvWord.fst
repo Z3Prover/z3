@@ -213,7 +213,11 @@ let rec lemma_split_number (n:nat) (bs:list bool)
     else match bs with
       | _ :: rest ->
         lemma_split_number (n - 1) rest;
-        M.pow2_plus 1 (n - 1)
+        M.pow2_plus 1 (n - 1);
+        let a, b = L.splitAt (n - 1) rest in
+        assert (pow2 n == 2 * pow2 (n - 1));
+        assert (2 * BV.bits_number rest ==
+                2 * BV.bits_number a + pow2 n * BV.bits_number b)
       | [] -> ()
 
 let extract_rewrite (e:expr) : option expr =
@@ -316,7 +320,13 @@ let lemma_concat_rewrite (i:interpretation value) (rho:env value)
     lemma_parts i rho project c.left c.left_width xs;
     lemma_parts i rho project c.right c.right_width ys;
     lemma_append_args i rho ys xs;
+    assert (L.length (BV.bit_values i rho ys) == c.right_width);
     lemma_append_number (BV.bit_values i rho ys) (BV.bit_values i rho xs);
+    assert (BV.bits_number (BV.bit_values i rho (ys @ xs)) ==
+      BV.bits_number (BV.bit_values i rho xs) * pow2 c.right_width +
+      BV.bits_number (BV.bit_values i rho ys));
+    assert (project (c.left_width + c.right_width) (eval i e rho) ==
+      BV.bits_number (BV.bit_values i rho (ys @ xs)));
     lemma_word_shape (ys @ xs);
     lemma_parts i rho project result (c.left_width + c.right_width) (ys @ xs);
     BV.lemma_reflect i rho project (c.left_width + c.right_width) e result
@@ -398,6 +408,10 @@ let rec lemma_add_values (carry:bool) (xs ys:list bool)
       let next = if a = b then a else carry in
       lemma_add_values next rest tail;
       let sums, overflow = add_values next rest tail in
+      assert (add_values carry xs ys == (((a <> b) <> carry) :: sums, overflow));
+      assert (L.length xs == L.length rest + 1);
+      assert (BV.bits_number xs == bit_number a + 2 * BV.bits_number rest);
+      assert (BV.bits_number ys == bit_number b + 2 * BV.bits_number tail);
       lemma_carry_arithmetic (L.length rest) (bit_number a) (bit_number b) (bit_number carry)
         (bit_number ((a <> b) <> carry)) (bit_number next) (bit_number overflow)
         (BV.bits_number rest) (BV.bits_number tail) (BV.bits_number sums)
