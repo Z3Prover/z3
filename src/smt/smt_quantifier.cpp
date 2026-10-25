@@ -285,32 +285,6 @@ namespace smt {
             }
         }
         
-        void log_instance(fingerprint * f, quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings,
-                          vector<std::tuple<enode *, enode *>> const & used_enodes) {
-            vector<std::tuple<enode *, enode *>> trace_used_enodes(used_enodes);
-            for (unsigned i = 0; i < num_bindings; ++i) {
-                enode * orig = bindings[i];
-                enode * root = f->get_arg(i);
-                if (orig == root)
-                    continue;
-                bool found = false;
-                for (auto [used_orig, used_substituted] : trace_used_enodes) {
-                    if (used_orig == orig && used_substituted == root) {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                    trace_used_enodes.push_back(std::make_tuple(orig, root));
-            }
-            if (is_trace_enabled(TraceTag::causality)) {
-                log_causality(f, pat, trace_used_enodes);
-            }
-            if (has_trace_stream()) {
-                log_add_instance(f, q, pat, num_bindings, bindings, trace_used_enodes);
-            }
-        }
-
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -333,8 +307,28 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
             if (f) {
-                if (is_trace_enabled(TraceTag::causality) || has_trace_stream())
-                    log_instance(f, q, pat, num_bindings, bindings, used_enodes);
+                vector<std::tuple<enode *, enode *>> trace_used_enodes(used_enodes);
+                for (unsigned i = 0; i < num_bindings; ++i) {
+                    enode * orig = bindings[i];
+                    enode * root = f->get_arg(i);
+                    if (orig == root)
+                        continue;
+                    bool found = false;
+                    for (auto [used_orig, used_substituted] : trace_used_enodes) {
+                        if (used_orig == orig && used_substituted == root) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        trace_used_enodes.push_back(std::make_tuple(orig, root));
+                }
+                if (is_trace_enabled(TraceTag::causality)) {
+                    log_causality(f, pat, trace_used_enodes);
+                }
+                if (has_trace_stream()) {
+                    log_add_instance(f, q, pat, num_bindings, bindings, trace_used_enodes);
+                }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation, mbqi_instance); // TODO
                 m_num_instances++;
             }
