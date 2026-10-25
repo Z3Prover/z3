@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  copilot-requests: write
 checkout: false
 concurrency:
   group: fstar-nfv-${{ github.event.pull_request.number }}
