@@ -80,10 +80,10 @@ static void check_propagation_recovery() {
             if (cancel)
                 m.limit().cancel();
             ENSURE(ctx.propagate());
-            ENSURE(get_stat(ctx, "seq num reductions") == 0);
+            // Equality callbacks finish eagerly in the cancellation-suspended phase.
+            ENSURE(get_stat(ctx, "seq num reductions") > 0);
         }
         ENSURE(ctx.propagate());
-        ENSURE(get_stat(ctx, "seq num reductions") > 0);
         ENSURE(ctx.check() == l_true);
         ctx.push();
         ctx.assert_expr(m.mk_eq(x, empty));

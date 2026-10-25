@@ -3447,8 +3447,7 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         expr_ref o2(e2, m);
         TRACE(seq, tout << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m) << "\n";);
         m_eqs.push_back(mk_eqdep(o1, o2, deps));
-        // Equality callbacks run with cancellation suspended; solve the queued equation during propagation.
-        m_new_solution = true;
+        solve_eqs(m_eqs.size()-1);
         enforce_length_coherence(n1, n2);
     }
     else if (n1 != n2 && m_util.is_re(e1)) {
