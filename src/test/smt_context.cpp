@@ -255,6 +255,59 @@ static void check_stored_lambdas() {
         "           (store ((as const (Array Bool Int)) 3) true 0)))\n", l_true);
 }
 
+static void check_sat_array_lambdas() {
+    for (char const* input : {
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(assert (= (store (lambda ((x Int)) x) 7 0)\n"
+        "           (store (lambda ((x Int)) (+ x 1)) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (store a 7 0) (store ((as const (Array Int Int)) 3) 7 0)))\n"
+        "(assert (= a (lambda ((x Int)) x)))\n",
+        "(declare-datatypes ((W 0)) (((mk (arr (Array Int Int))))))\n"
+        "(declare-const w W)\n"
+        "(assert (= w (mk (store (lambda ((x Int)) x) 7 0))))\n"
+        "(assert (= w (mk (store ((as const (Array Int Int)) 3) 7 0))))\n",
+        "(assert (= (store (store (lambda ((x Int)) x) 7 0) 8 0)\n"
+        "           (store (store ((as const (Array Int Int)) 3) 7 0) 8 0)))\n",
+        "(assert (= (store ((_ map (+ (Int Int) Int)) (lambda ((x Int)) x)\n"
+        "                   ((as const (Array Int Int)) 1)) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= a (store (lambda ((x Int)) x) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-fun f (Int) Int)\n"
+        "(assert (= (f 0) 0))\n"
+        "(assert (= (store (_ as-array f) 7 0)\n"
+        "           (store ((as const (Array Int Int)) 3) 7 0)))\n",
+        "(declare-fun f (Int) Int)\n"
+        "(declare-const a (Array Int Int))\n"
+        "(assert (= (f 0) 0))\n"
+        "(assert (= a (store (_ as-array f) 7 0)))\n"
+        "(assert (= a (store ((as const (Array Int Int)) 3) 7 0)))\n"}) {
+        for (bool smt : {false, true}) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            VERIFY(parse_smt2_commands(cmd, is));
+            params_ref p;
+            p.set_bool("smt", smt);
+            p.set_bool("euf", !smt);
+            ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+            for (unsigned i = 0; i < 2; ++i) {
+                slv->push();
+                for (expr* a : cmd.assertions())
+                    slv->assert_expr(a);
+                // These backends may give up on lambdas, but must not report sat.
+                VERIFY(l_true != slv->check_sat(0, nullptr));
+                slv->pop(1);
+                VERIFY(l_true == slv->check_sat(0, nullptr));
+            }
+        }
+    }
+}
+
 static void check_array_index_dependencies() {
     for (char const* input : {
         "(declare-datatypes () ((D a b c)))\n"
@@ -445,6 +498,7 @@ void tst_smt_context()
     check_symbolic_regex_substring();
     check_array_index_dependencies();
     check_stored_lambdas();
+    check_sat_array_lambdas();
 
     smt_params params;
 
