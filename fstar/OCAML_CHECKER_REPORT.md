@@ -1154,6 +1154,20 @@ All helpers are erased lemmas, and verification budgets remain unchanged.
 Fresh-module timing comparisons include the helper proofs, not just the
 smaller recursive wrapper.
 
+#### Unsigned bit-vector self-comparisons
+
+`Z3BvOrder` reduces unsigned strict self-comparisons to false and non-strict
+self-comparisons to true. The existing validated comparison recognizer checks
+operator identity, arity, Boolean result, matching operand/domain sorts, and
+widths from 1 through 4096 before comparing the operands structurally. The
+soundness proof derives reflexivity from the existing unsigned integer
+projection semantics; model assumptions and verification budgets are unchanged.
+Signed division and its internal producer aliases are not covered by this rule.
+
+Native regressions include width boundaries, compound operands, previous
+comparison encodings, wrong targets, distinct operands, and malformed metadata.
+CLI regressions require full certification in batch and interactive modes.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,

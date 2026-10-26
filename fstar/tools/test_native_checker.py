@@ -99,6 +99,24 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertRegex(result.stderr, r"marshal_ms=\d+\.\d+")
                 self.assertRegex(result.stderr, r"expressions=\d+")
 
+    def test_unsigned_bv_reflexivity_in_both_modes(self):
+        for comparison, negated in (("bvule", True), ("bvuge", True),
+                                    ("bvult", False)):
+            term = f"({comparison} x x)"
+            if negated:
+                term = f"(not {term})"
+            source = f"(declare-const x (_ BitVec 27))(assert {term})"
+            for interactive in (False, True):
+                with self.subTest(comparison=comparison, interactive=interactive):
+                    result = self.run_checker(
+                        source + ("(check-sat)" if interactive else ""),
+                        *(["--interactive"] if interactive else []))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertIn("unsat\n; proof-check ACCEPT", result.stdout)
+                    else:
+                        self.assertEqual(result.stdout.strip(), "ACCEPT", result.stderr)
+
     def test_uf_allows_a_user_sort_named_set_in_both_modes(self):
         source = ("(set-logic UF)(declare-sort Set 0)(declare-const x Set)"
                   "(declare-fun p (Set) Bool)(assert (p x))(assert (not (p x)))")

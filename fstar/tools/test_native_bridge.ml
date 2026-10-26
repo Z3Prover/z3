@@ -2497,7 +2497,8 @@ let bv_rewrites () =
      (declare-const w (_ BitVec 8))(declare-const z (_ BitVec 8))\
      (declare-const bit (_ BitVec 1))(declare-const other (_ BitVec 1))\
      (declare-const half (_ BitVec 4))\
-     (declare-const wide (_ BitVec 65))" in
+     (declare-const wide (_ BitVec 65))\
+     (declare-const maxwide (_ BitVec 4096))(declare-const too_wide (_ BitVec 4097))" in
   let check expected left right =
     let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
     let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -2596,6 +2597,21 @@ let bv_rewrites () =
   check true "(bvuge v w)" "(bvule w v)";
   check false "(bvult v w)" "(not (bvule v w))";
   check false "(bvuge v w)" "(bvule v w)";
+  check true "(bvult v v)" "false";
+  check true "(bvule v v)" "true";
+  check true "(bvuge v v)" "true";
+  check true "(bvult bit bit)" "false";
+  check true "(bvule wide wide)" "true";
+  check true "(bvule maxwide maxwide)" "true";
+  check false "(bvule too_wide too_wide)" "true";
+  check true "(bvule (bvadd v w) (bvadd v w))" "true";
+  check true "(bvult v v)" "(not (bvule v v))";
+  check true "(bvuge v v)" "(bvule v v)";
+  check false "(bvult v v)" "true";
+  check false "(bvule v v)" "false";
+  check false "(bvuge v v)" "false";
+  check false "(bvult v w)" "false";
+  check false "(bvule v w)" "true";
   check true "(bvule (mkbv p q) (mkbv r s))"
     "(ite (= q s) (ite (= p r) true (not p)) (not q))";
   check false "(bvule (mkbv p q) (mkbv r s))"
@@ -2724,7 +2740,16 @@ let bv_rewrites () =
           { f with A.range = Z3BvLemma.bv_sort (Z.of_int 8) };
           { f with A.domain = [A.bool_sort; A.bool_sort] }];
        require (Z3BvLemma.unsigned_parts (A.App (f, [List.hd args])) = None)
-         "an unsigned comparison with missing operands was trusted"
+         "an unsigned comparison with missing operands was trusted";
+       let self = [List.hd args; List.hd args] in
+       List.iter (fun malformed ->
+           require (Z3BvOrder.rewrite (A.App (malformed, self)) = None)
+             "a malformed reflexive comparison was rewritten")
+         [{ f with A.int_params = [Z.zero] };
+          { f with A.int_params = [Z.of_int 7] };
+          { f with A.interp = None };
+          { f with A.range = Z3BvLemma.bv_sort (Z.of_int 8) };
+          { f with A.domain = [A.bool_sort; A.bool_sort] }]
    | _ -> failwith "expected native unsigned comparison");
   let inputs = parse c (declarations ^ "(assert (= (concat v half bit) (concat w half bit)))") in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
