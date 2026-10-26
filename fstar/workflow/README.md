@@ -14,6 +14,7 @@ and publishes verified work to one branch and pull request at a time.
 | `continuity.ts` | Launcher that evaluates the retrigger conditions and starts bounded runs. |
 | `lib/reports.ts`, `lib/theories.ts` | Normalize Pulse reports and F* build logs into findings; classify theories. |
 | `lib/sources.ts` | Read-only GitHub run listing and artifact download; local corpus scans. |
+| `lib/open-prs.ts` | Read-only snapshot of open PRs that change `fstar/`, and their overlap with findings (metadata only). |
 | `lib/state.ts` | Locked, atomically written state: dedup, claims, backoff, publication. |
 | `lib/plan.ts`, `lib/git.ts` | Theory slices, the 32-core budget, and slice worktrees. |
 | `lib/gate.ts` | Deterministic soundness gate and slice verdicts. |
@@ -303,6 +304,11 @@ reconcile reports it `crashed` once the lease is unheld or its `ageMs` (journal 
 shows `runStatus`, the journal's `journalStatus` and the `lease`. The reconcile never claims,
 takes over or resumes the run; do not resume a run after reconciling it.
 
+The two-minute expiry (`LEASE_EXPIRY_MS` in `lib/stage-sessions.ts`) mirrors Atomic's internal
+`FOREIGN_LIVE_WORKFLOW_WINDOW_MS`, which is not public API; `tests/atomic-coupling.test.ts` reads
+it from the installed Atomic package and fails when an Atomic upgrade changes it (and skips, with
+the reason, when the symbol can no longer be found).
+
 For an ended run it also releases the claims it left: every finding still `in_progress` under
 its run key goes back to `open` with the claim cleared and no attempt or backoff (`released`).
 If the finding's slice branch carries commits beyond the run's `baseRef` (read with
@@ -320,6 +326,55 @@ bun fstar/workflow/continuity.ts --release-candidate all --decision "<text>" --d
 The decision text and the released candidate stay in the finding's transition. The branch,
 worktree and commit are not touched. Leave the candidate in place while the commit is still
 being verified or published by hand.
+
+### Pinned base and open pull requests
+
+**Pinned base.** Outside dry runs the preflight fetches `baseRef` read-only when it names a branch
+of `remote` (`git fetch --no-tags origin +refs/heads/master:refs/remotes/origin/master`) and
+resolves it to one commit, `baseSha` in `setup.json` and `base` in `evidence.json`. Every slice
+worktree, gate diff (`git diff <baseSha>...HEAD`), integration base and stage prompt of the run
+uses that commit, even if `origin/master` moves during the run. A failed fetch does not block:
+the run proceeds on the last fetched commit, records `baseStale: true` with the fetch error in
+`baseNote`, and tells its stages the base may be stale. Blocking would add nothing to soundness,
+because the gate and integration compare against the same pinned commit either way; staleness
+only risks duplicating upstream work, which the stages are told to check. A base that does not
+resolve at all stops the preflight. Dry runs do not fetch.
+
+**Open-PR snapshot.** Outside dry runs (with a `remote`), sourcing records the repository's open
+PRs that change `fstar/` in `runs/<runKey>/open-prs.json`, `sources-recorded.json` and
+`evidence.json`, from one read-only `gh pr list --state open --json
+number,title,headRefName,headRefOid,baseRefName,url,files --limit 100`. Each PR is pinned to its
+head commit and splits its files into `fstarSources` (F* modules, `ocaml_runtime`,
+`cherry_runtime`, `tools` and other checker files), `fstarAuditOnly` (`fstar/audits/**` and
+Markdown reports) and `otherFiles` (for example solver code in `src/`). A PR whose `fstar/` change
+is audit-only is recorded as `audit-only`. PRs that change only `fstar/workflow` or nothing under
+`fstar/`, and this workflow's own `branchPrefix` branches, are listed as `ignored`. The head of each
+PR with checker sources is fetched read-only into `refs/fstar-proof-checking/prs/<n>`, and the F*
+declarations its diff changes against the pinned base are recorded. A failing `gh` records
+`status: "unavailable"` with the error and the run continues: the snapshot is metadata, not a gate.
+
+**Overlap, no new status.** After triage has applied every exclusion (policy holds, candidates,
+claims, backoff), each actionable finding gets `prOverlap: [{pr, head, title, kind, files}]`:
+
+* `exact`: the finding names an F* declaration (build timeouts, slow declarations) that the PR's
+  diff changes;
+* `potential`: the PR changes only files the finding's slice may edit: the declaration's module,
+  or, for findings without a module (rule families, crashes), any checker source.
+
+Audit-only PRs never overlap. Nothing changes a finding's status, skips it, or releases a
+`provider_policy_blocked` hold or a candidate. The overlap is computed from each run's fresh
+snapshot, so a new head, a closed PR or a merged PR is picked up by the next run. The repair and
+verify prompts list the overlapping PRs (number, head, title, files), with exact coverage apart
+from potential overlap. They tell the stages to inspect `git diff <baseSha>...<ref>` read-only, to
+not re-implement a fix an open PR contains, to report such a finding as "covered by open PR #n at
+<head>" with replay evidence, and to build on a PR head only with a stated justification
+(otherwise report the dependency). The verifier gives no ACCEPT credit for PR coverage and treats
+a duplicate of an open PR's change as `unverified`.
+
+Limits: exact coverage is only detected for findings that name a declaration. Findings carry no
+input hashes, so a PR's tests are not matched against inputs, and nothing is deferred
+automatically. Whether a PR really fixes a finding is left to the stages' replay. `gh` lists at
+most 100 files per PR (`filesTruncated` marks a PR at that cap) and at most 100 open PRs.
 
 ## Publication lifecycle
 
@@ -563,6 +618,17 @@ The tests cover:
   time in interactive and batch mode;
 * the launcher lock: a fresh state directory is created and launched into, a live launcher's
   lock skips with exit 0, and any other lock failure is reported as failed with a nonzero exit;
+* the pinned base and open-PR snapshot, with real git and a local bare remote whose `main` moved
+  on and which carries a PR ref: the preflight fetches and pins the base, and the slice worktree,
+  gate diff and integration all use that commit after `origin/main` moves again; a failed fetch
+  proceeds on the last fetched commit recorded as stale (setup, evidence, prompt), and a dry run
+  fetches nothing; the snapshot separates checker sources from audit-only and workflow files,
+  ignores this workflow's own branches, fetches only source PRs' heads read-only and records the
+  declarations they change; a failing or missing `gh` is recorded as unavailable and sourcing
+  continues; overlaps are exact or potential, pinned to the head, re-evaluated for a new head or a
+  closed PR, never touch policy-held or candidate findings, and reach the repair and verify
+  prompts;
+* the Atomic version coupling of the lease window (`tests/atomic-coupling.test.ts`);
 * the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
   byte-identical), full-iteration topology with scripted durable steps, a live run that
   continues past triage only to publish pending work, and runs that stop in iteration 1

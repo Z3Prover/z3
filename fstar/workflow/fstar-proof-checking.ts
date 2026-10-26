@@ -27,6 +27,11 @@
  * evidence still shows is reopened there); findings left open (deferred by slice capacity, out of
  * backoff, abandoned claims, reopened) are re-sourced from state by later runs.
  *
+ * `preflight` fetches `baseRef` read-only and pins it to one commit (`baseSha`) that every slice
+ * worktree, gate diff and integration of the run uses (a failed fetch proceeds, recorded as
+ * `baseStale`). `source` snapshots open PRs that change fstar/ (read-only, metadata); triage
+ * annotates actionable findings with the PRs they overlap, and the stage prompts list them.
+ *
  * Each iteration integrates into its own branch, on top of the run's earlier verified head, so a
  * merge whose integration verification failed never reaches a later head. Verified work that is
  * not pushed live stays `integrated` and pending in state; the first iteration of a later
@@ -55,21 +60,25 @@ import {
   reconcilePublicationsStep,
   recordSourcesStep,
   recordStageOutcomes,
+  runBase,
   selectInvestigation,
   sourceFindings,
   triageStep,
   type RunSetup,
   type SliceSummary,
+  type SourceSummary,
   type WorkflowInputs,
 } from "./lib/steps.js";
 import { THEORIES } from "./lib/theories.js";
 
 const HOUR = 3_600_000;
 
-function sliceInput(setup: RunSetup, inputs: WorkflowInputs, slice: SliceSummary): SlicePromptInput {
+function sliceInput(setup: RunSetup, inputs: WorkflowInputs, slice: SliceSummary, openPrs: SourceSummary["openPrs"]): SlicePromptInput {
+  const openPrsNote = openPrs === undefined ? "not taken" : openPrs.status === "unavailable" ? `unavailable: ${openPrs.error}` : openPrs.status === "skipped" ? openPrs.reason : undefined;
   return {
     sliceId: slice.id, theory: slice.theory, focus: slice.focus, worktree: slice.worktree, branch: slice.branch,
-    baseRef: inputs.baseRef, cores: slice.cores, findingsPath: slice.findingsPath, sliceDir: slice.sliceDir, toolchain: setup.toolchain,
+    baseRef: runBase(setup, inputs), cores: slice.cores, findingsPath: slice.findingsPath, sliceDir: slice.sliceDir, toolchain: setup.toolchain,
+    openPrs: slice.openPrs ?? [], remote: inputs.remote, ...(openPrsNote ? { openPrsNote } : {}), ...(setup.baseStale && setup.baseNote ? { baseNote: setup.baseNote } : {}),
   };
 }
 
@@ -107,7 +116,7 @@ export default workflow({
     stateDir: Type.String({ default: ".atomic/fstar-proof-checking", description: "Persistent state, report cache, run evidence and worktrees (relative to the repository root)." }),
     repo: Type.String({ default: "Z3Prover/z3" }),
     remote: Type.String({ default: "origin" }),
-    baseRef: Type.String({ default: "origin/master", description: "Base for slice worktrees." }),
+    baseRef: Type.String({ default: "origin/master", description: "Base for slice worktrees. A branch of `remote` is fetched (read-only) at preflight and pinned to one commit for the whole run." }),
     prBase: Type.String({ default: "master" }),
     branchPrefix: Type.String({ default: "fstar-proof-checking" }),
     bugReportRepo: Type.String({ default: "FStarLang/FStar", description: "Where crash bug reports are filed in live mode." }),
@@ -158,7 +167,7 @@ export default workflow({
     };
     for (let i = 1; i <= inputs.maxIterations; i += 1) {
       const triage = await ctx.tool(`iter-${i}/triage`, { runKey: setup.runKey, exclude: [...planned] },
-        async () => triageStep(setup, inputs, source.findingsPath, i, planned), { timeoutMs: 5 * 60_000 });
+        async () => triageStep(setup, inputs, source.findingsPath, i, planned, source.openPrs), { timeoutMs: 5 * 60_000 });
       // A live run publishes earlier verified integrations even when no new finding is actionable.
       const publishPending = i === 1 && !inputs.dryRun && inputs.publish === "live" && triage.pendingPublications > 0;
       if (triage.actionable === 0 && !publishPending) {
@@ -183,7 +192,7 @@ export default workflow({
         // step fails, which would discard the sibling slices' work and verdicts.
         const repairNames = plan.slices.map((slice) => `iter-${i}/${slice.id}/repair`);
         const repairs = await Promise.allSettled(plan.slices.map((slice) => ctx.task(`iter-${i}/${slice.id}/repair`, {
-          prompt: repairPrompt(sliceInput(setup, inputs, slice)),
+          prompt: repairPrompt(sliceInput(setup, inputs, slice, source.openPrs)),
           cwd: slice.worktree, context: "fresh", output: slice.reportPath, outputMode: "file-only",
         })));
         const repaired = await classify(`iter-${i}/repair-outcomes`, repairNames, repairs);
@@ -193,7 +202,7 @@ export default workflow({
         });
         const toVerify = plan.slices.flatMap((slice, index) => (providers[index] ? [] : [{ slice, index }]));
         const checked = await Promise.allSettled(toVerify.map(({ slice }) => ctx.task(`iter-${i}/${slice.id}/verify`, {
-          prompt: verifyPrompt({ ...sliceInput(setup, inputs, slice), reportPath: slice.reportPath }),
+          prompt: verifyPrompt({ ...sliceInput(setup, inputs, slice, source.openPrs), reportPath: slice.reportPath }),
           cwd: slice.worktree, context: "fresh", schema: VerifierVerdictSchema, output: slice.verifyPath, outputMode: "file-only",
         })));
         toVerify.forEach(({ index }, position) => {
@@ -290,7 +299,7 @@ export default workflow({
     }
 
     const final = await ctx.tool("finalize", { runKey: setup.runKey, status, stopReason },
-      ({ signal }) => finalizeStep(setup, inputs, { status, stopReason, iterations, investigation: investigated, verified: verifiedSlices, attempted: attemptedSlices, providerFailures }, worktrees, signal),
+      ({ signal }) => finalizeStep(setup, inputs, { status, stopReason, iterations, investigation: investigated, verified: verifiedSlices, attempted: attemptedSlices, providerFailures, ...(source.openPrs ? { openPrs: source.openPrs } : {}) }, worktrees, signal),
       { timeoutMs: 30 * 60_000 });
 
     return {

@@ -8,11 +8,10 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { atomicPackageDir } from "../lib/atomic-host.ts";
+import { atomicEntryPath } from "../lib/atomic-host.ts";
 import { evaluateContinuity } from "../lib/continuity.ts";
 import type { Finding } from "../lib/reports.ts";
 import { inspectedRunStatus } from "../lib/stage-sessions.ts";
@@ -61,9 +60,9 @@ function repository(root: string): { repo: string; commit: string } {
  * slice whose session ends on the slice's provider error or on a normal answer.
  */
 function journal(path: string, runDir: string, leaseAgeMs: number): void {
-  const resolve = createRequire(join(atomicPackageDir(), "package.json")).resolve;
-  const atomic = pathToFileURL(resolve("@bastani/atomic")).href;
-  const workflows = pathToFileURL(resolve("@bastani/atomic/workflows")).href;
+  // Paths from the package's exports: require.resolve would return a bare specifier once another test file registered the host modules.
+  const atomic = pathToFileURL(atomicEntryPath(".")).href;
+  const workflows = pathToFileURL(atomicEntryPath("./workflows")).href;
   const stages = SLICES.map((slice) => ({ stage: `iter-1/${slice.id}/repair`, error: "error" in slice ? slice.error : undefined }));
   const script = `
     import { DatabaseSync } from "node:sqlite";

@@ -8,6 +8,7 @@ import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { isRemoteMutation, runChecked, spawnRunner, type CommandLogEntry, type CommandRunner } from "./command.js";
 import { collectSliceChanges, decideSliceOutcome, scanDiffForUnsoundness, type VerifierVerdict } from "./gate.js";
 import { ensureWorktree, removeCleanWorktree } from "./git.js";
+import { prOverlapsFor, sliceOpenPrs, snapshotOpenPrs, type AnnotatedFinding, type OpenPrSnapshot, type SliceOpenPr } from "./open-prs.js";
 import { planSlices, type SliceFocus } from "./plan.js";
 import {
   decideActiveBranch,
@@ -98,7 +99,21 @@ export type RunSetup = {
   readonly worktreeRoot: string;
   readonly startedAt: string;
   readonly toolchain: ToolchainReport;
+  /**
+   * The commit `baseRef` resolved to at preflight, after a read-only fetch. Every slice worktree,
+   * gate diff and integration of this run uses it (`runBase`). Absent in runs set up before pinning.
+   */
+  readonly baseSha?: string;
+  /** Set when refreshing `baseRef` failed: the run proceeds on the last fetched commit, which may be stale. */
+  readonly baseStale?: boolean;
+  /** How the base was refreshed: fetched, skipped (and why), or the fetch error. */
+  readonly baseNote?: string;
 };
+
+/** The base every step of this run uses: the pinned commit, or `baseRef` for runs set up before pinning. */
+export function runBase(setup: RunSetup, inputs: WorkflowInputs): string {
+  return setup.baseSha ?? inputs.baseRef;
+}
 
 /** Runner that records every command in `<runDir>/commands.jsonl`. */
 export function evidenceRunner(runDir: string, inner: CommandRunner = spawnRunner): CommandRunner {
@@ -127,6 +142,40 @@ function iterationDir(setup: RunSetup, iteration: number): string {
 
 // ---------------------------------------------------------------- preflight
 
+/**
+ * Refresh and pin the run's base. Outside dry runs, a `baseRef` that names a branch of `remote`
+ * (`origin/master`) is fetched read-only first; the ref is then resolved to the commit every step
+ * uses. A failed fetch does not block: the gate diffs and integration all use the same pinned
+ * commit, so soundness does not depend on freshness, but the run records `baseStale` and says so
+ * to its stages instead of silently using the old ref. A base that does not resolve at all throws.
+ */
+export async function pinBase(runner: CommandRunner, repoRoot: string, inputs: WorkflowInputs, signal?: AbortSignal): Promise<Pick<RunSetup, "baseSha" | "baseStale" | "baseNote">> {
+  const options = { cwd: repoRoot, timeoutMs: 5 * 60_000, signal };
+  const prefix = `${inputs.remote}/`;
+  const branch = inputs.remote && inputs.baseRef.startsWith(prefix) ? inputs.baseRef.slice(prefix.length) : "";
+  let note: string;
+  let stale = false;
+  if (inputs.dryRun) note = `dry run: ${inputs.baseRef} was not fetched`;
+  else if (!branch) note = `${inputs.baseRef} is not a branch of remote "${inputs.remote}"; not fetched`;
+  else {
+    const argv = ["git", "fetch", "--no-tags", inputs.remote, `+refs/heads/${branch}:refs/remotes/${inputs.remote}/${branch}`];
+    const fetched = await runner(argv, options);
+    if (fetched.code === 0) note = `fetched ${inputs.baseRef}`;
+    else {
+      stale = true;
+      note = `fetching ${inputs.baseRef} failed (${fetched.error ?? `exit ${fetched.code}`}: ${(fetched.stderr || fetched.stdout).trim().slice(-400)}); `
+        + `this run uses the last fetched ${inputs.baseRef}, which may be stale`;
+    }
+  }
+  const resolved = await runner(["git", "rev-parse", "--verify", "--quiet", `${inputs.baseRef}^{commit}`], options);
+  const baseSha = resolved.code === 0 ? resolved.stdout.trim() : "";
+  if (!baseSha) {
+    if (inputs.dryRun) return { baseNote: `${note}; ${inputs.baseRef} does not resolve to a commit` };
+    throw new Error(`baseRef ${inputs.baseRef} does not resolve to a commit in ${repoRoot} (${note}); fetch it or set the baseRef input`);
+  }
+  return { baseSha, ...(stale ? { baseStale: true } : {}), baseNote: note };
+}
+
 export async function preflight(inputs: WorkflowInputs, cwd: string, signal: AbortSignal, runner: CommandRunner = spawnRunner): Promise<RunSetup> {
   const repoRoot = (await runChecked(runner, ["git", "rev-parse", "--show-toplevel"], { cwd, timeoutMs: 30_000, signal })).replaceAll("/", "\\").replace(/^\\/, "/");
   const root = process.platform === "win32" ? repoRoot : repoRoot.replaceAll("\\", "/");
@@ -146,7 +195,8 @@ export async function preflight(inputs: WorkflowInputs, cwd: string, signal: Abo
     cherryChecker: inputs.cherryChecker || undefined,
     signal,
   });
-  const setup: RunSetup = { repoRoot: root, stateDir, runKey, runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(), toolchain };
+  const base = await pinBase(evidenceRunner(runDir, runner), root, inputs, signal);
+  const setup: RunSetup = { repoRoot: root, stateDir, runKey, runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(), toolchain, ...base };
   writeJson(join(runDir, "setup.json"), { setup, inputs });
   return setup;
 }
@@ -203,6 +253,8 @@ export type SourceSummary = {
   /** Fingerprints re-sourced from state (eligible earlier findings no current source reported). */
   readonly carried: string[];
   readonly diagnostics: string[];
+  /** Read-only snapshot of open PRs that change fstar/ (also `<runDir>/open-prs.json`); metadata, never a gate. */
+  readonly openPrs?: OpenPrSnapshot;
 };
 
 const REGRESSIONS_NAME = "Pulse verification and native checker regressions";
@@ -289,10 +341,27 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
     return counts;
   }, {});
   const findingsPath = writeJson(join(setup.runDir, "findings.json"), merged);
+  const openPrs = await openPrSnapshot(runner, setup, inputs, signal);
+  if (openPrs.status === "unavailable") diagnostics.push(`Open PRs unavailable (${openPrs.error}); repair stages are told to check open PRs themselves.`);
   return {
     findingsPath, total: merged.length, byKind: count((f) => f.kind), byTheory: count((f) => f.theory), reports, localScans: local.scans,
-    carried: carried.map((finding) => finding.fingerprint), diagnostics,
+    carried: carried.map((finding) => finding.fingerprint), diagnostics, openPrs,
   };
+}
+
+/**
+ * The run's read-only snapshot of open PRs that change fstar/ (`<runDir>/open-prs.json`), taken
+ * outside dry runs when a remote is configured. A failing `gh` is recorded as `unavailable`.
+ */
+async function openPrSnapshot(runner: CommandRunner, setup: RunSetup, inputs: WorkflowInputs, signal: AbortSignal): Promise<OpenPrSnapshot> {
+  const at = new Date().toISOString();
+  const snapshot: OpenPrSnapshot = inputs.dryRun
+    ? { status: "skipped", at, repo: inputs.repo, reason: "dry run: open PRs were not listed" }
+    : !inputs.remote
+      ? { status: "skipped", at, repo: inputs.repo, reason: "no remote configured: open PRs were not listed" }
+      : await snapshotOpenPrs(runner, { repo: inputs.repo, remote: inputs.remote, branchPrefix: inputs.branchPrefix, base: runBase(setup, inputs), cwd: setup.repoRoot, signal });
+  writeJson(join(setup.runDir, "open-prs.json"), snapshot);
+  return snapshot;
 }
 
 /**
@@ -406,7 +475,7 @@ export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs,
     }
     return { state: { ...recordSeen(state, fresh, now, producedAt), processedReports: reportsSeen, localScans }, result: undefined };
   }, { owner: setup.runKey });
-  writeJson(join(setup.runDir, "sources-recorded.json"), { processedReports, seen: fresh.length, localScans: source.localScans });
+  writeJson(join(setup.runDir, "sources-recorded.json"), { processedReports, seen: fresh.length, localScans: source.localScans, openPrs: source.openPrs ?? null });
   return { committed: true, processedReports, seen: fresh.length };
 }
 
@@ -420,11 +489,21 @@ export type TriageSummary = {
   readonly pendingPublications: number;
 };
 
-export function triageStep(setup: RunSetup, inputs: WorkflowInputs, findingsPath: string, iteration: number, exclude: readonly string[]): TriageSummary {
+/**
+ * Triage the sourced findings, then annotate each actionable one with the open PRs it overlaps
+ * (`prOverlap`, pinned to the PR heads in this run's snapshot). Annotation comes after every
+ * exclusion (policy holds, candidates, claims, backoff) and changes no status: PR data neither
+ * releases nor holds a finding.
+ */
+export function triageStep(setup: RunSetup, inputs: WorkflowInputs, findingsPath: string, iteration: number, exclude: readonly string[], openPrs?: OpenPrSnapshot): TriageSummary {
   const findings = readJson<Finding[]>(findingsPath);
   const state = readState(setup.stateDir);
   const result = triageFindings(findings, state, { now: new Date(), theories: inputs.theories, exclude: new Set(exclude) });
-  const actionablePath = writeJson(join(iterationDir(setup, iteration), "actionable.json"), result.actionable);
+  const annotated: AnnotatedFinding[] = result.actionable.map((finding) => {
+    const prOverlap = prOverlapsFor(finding, openPrs);
+    return prOverlap.length > 0 ? { ...finding, prOverlap } : finding;
+  });
+  const actionablePath = writeJson(join(iterationDir(setup, iteration), "actionable.json"), annotated);
   return { actionablePath, actionable: result.actionable.length, skipped: result.skipped, pendingPublications: state.pendingPublications.length };
 }
 
@@ -440,6 +519,8 @@ export type SliceSummary = {
   readonly reportPath: string;
   readonly verifyPath: string;
   readonly fingerprints: string[];
+  /** Open PRs that change files this slice may edit, from its findings' `prOverlap` (absent in plans recorded before the snapshot existed). */
+  readonly openPrs?: SliceOpenPr[];
 };
 
 export type PlanSummary = {
@@ -454,7 +535,7 @@ export type PlanSummary = {
 /** Plan slices; outside dry runs also create each slice worktree and claim its findings in state. */
 export async function planStep(setup: RunSetup, inputs: WorkflowInputs, actionablePath: string, iteration: number, signal: AbortSignal, inner?: CommandRunner): Promise<PlanSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
-  const actionable = readJson<Finding[]>(actionablePath);
+  const actionable = readJson<AnnotatedFinding[]>(actionablePath);
   const plan = planSlices(actionable, {
     coreBudget: inputs.coreBudget, coresPerSlice: inputs.coresPerSlice, maxFindingsPerSlice: inputs.maxFindingsPerSlice,
     runKey: setup.runKey, iteration, worktreeRoot: setup.worktreeRoot, branchPrefix: inputs.branchPrefix,
@@ -468,12 +549,13 @@ export async function planStep(setup: RunSetup, inputs: WorkflowInputs, actionab
       reportPath: join(sliceDir, "slice-report.md"),
       verifyPath: join(sliceDir, "verification.md"),
       fingerprints: slice.findings.map((finding) => finding.fingerprint),
+      openPrs: sliceOpenPrs(slice.findings),
     };
   });
   if (!inputs.dryRun && slices.length > 0) {
     mkdirSync(setup.worktreeRoot, { recursive: true });
     for (const slice of slices) {
-      await ensureWorktree(runner, setup.repoRoot, { path: slice.worktree, branch: slice.branch, base: inputs.baseRef, signal });
+      await ensureWorktree(runner, setup.repoRoot, { path: slice.worktree, branch: slice.branch, base: runBase(setup, inputs), signal });
     }
     await withStateLock(setup.stateDir, (state) => ({
       state: claimFindings(state, plan.slices.flatMap((slice) => slice.findings), { runKey: setup.runKey, now: new Date() }),
@@ -521,7 +603,7 @@ export async function gateStep(
       slices.push({ id: slice.id, status: provider.kind, reasons: [describeOutcome(provider)], changedFiles: 0, warnings: [], provider });
       continue;
     }
-    const changes = await collectSliceChanges(runner, slice.worktree, inputs.baseRef, signal);
+    const changes = await collectSliceChanges(runner, slice.worktree, runBase(setup, inputs), signal);
     const scan = scanDiffForUnsoundness(changes.diff);
     const outcome = decideSliceOutcome({
       scan, changedFiles: changes.changedFiles, uncommitted: changes.uncommitted, verifier: verdicts[index] ?? undefined, toolchainAvailable: setup.toolchain.available,
@@ -606,7 +688,7 @@ export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, pla
   const pending = state.pendingPublications.filter((entry) => live || entry.runKey === setup.runKey);
   const empty = { merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], contents: [] };
   if (inputs.dryRun || (verified.length === 0 && !pending.some((entry) => entry.runKey !== setup.runKey))) {
-    const summary: IntegrationSummary = { base: inputs.baseRef, ...empty, note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate" };
+    const summary: IntegrationSummary = { base: runBase(setup, inputs), ...empty, note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate" };
     writeJson(join(iterationDir(setup, iteration), "integration.json"), summary);
     return summary;
   }
@@ -615,7 +697,7 @@ export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, pla
   // The publish plan's rule (decideActiveBranch): build on the active branch unless the plan starts a new one.
   const continueActive = active !== undefined && facts.known && facts.branchExists && decideActiveBranch(active, facts).kind !== "new-branch";
   const options = { cwd: setup.repoRoot, timeoutMs: 10 * 60_000, signal };
-  let base = inputs.baseRef;
+  let base = runBase(setup, inputs);
   if (continueActive) {
     await runChecked(runner, ["git", "fetch", inputs.remote, `refs/heads/${active}:refs/remotes/${inputs.remote}/${active}`], options);
     base = `${inputs.remote}/${active}`;
@@ -890,6 +972,8 @@ export async function finalizeStep(
     status: string; stopReason: string; iterations: unknown[]; investigation: { run: boolean; reason: string; digest: string }; verified: number; attempted: number;
     /** Agent stages that ended on a provider error (policy rejection or outage), with their evidence. */
     providerFailures?: readonly StageOutcome[];
+    /** The run's open-PR snapshot (metadata). */
+    openPrs?: OpenPrSnapshot;
   },
   worktrees: readonly string[],
   signal: AbortSignal,
@@ -905,6 +989,7 @@ export async function finalizeStep(
   const mutating = commands.filter((entry) => entry.mutating);
   const evidencePath = writeJson(join(setup.runDir, "evidence.json"), {
     runKey: setup.runKey, startedAt: setup.startedAt, endedAt: new Date().toISOString(), inputs, toolchain: setup.toolchain,
+    base: { ref: inputs.baseRef, sha: setup.baseSha ?? null, stale: setup.baseStale ?? false, note: setup.baseNote ?? null },
     ...record, worktrees: removed, commandCount: commands.length, mutatingCommands: mutating,
   });
   if (!inputs.dryRun) {

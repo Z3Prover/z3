@@ -5,6 +5,7 @@
  */
 import { basename } from "node:path";
 import { keepContext } from "@bastani/atomic/workflows";
+import type { SliceOpenPr } from "./open-prs.js";
 import type { SliceFocus } from "./plan.js";
 import { buildCommand, opamPrologue, worktreePrologue, wrapInEnvironment, type ToolchainReport } from "./toolchain.js";
 
@@ -14,11 +15,53 @@ export interface SlicePromptInput {
   readonly focus: SliceFocus;
   readonly worktree: string;
   readonly branch: string;
+  /** The run's pinned base commit (or `baseRef` for runs set up before pinning). */
   readonly baseRef: string;
   readonly cores: number;
   readonly findingsPath: string;
   readonly sliceDir: string;
   readonly toolchain: ToolchainReport;
+  /** Open PRs that change files this slice may edit (this run's read-only snapshot, pinned to their heads). */
+  readonly openPrs?: readonly SliceOpenPr[];
+  /** Why there is no open-PR snapshot (gh unavailable, dry run), when there is none. */
+  readonly openPrsNote?: string;
+  /** Set when the base could not be refreshed and may be stale. */
+  readonly baseNote?: string;
+  /** Remote that PR heads are fetched from (default `origin`). */
+  readonly remote?: string;
+}
+
+
+/**
+ * Open PRs that touch this slice's files, with EXACT coverage (the PR changes a finding's own
+ * declaration) kept apart from POTENTIAL overlap (same files only), and how to treat them.
+ */
+function openPrLines(input: SlicePromptInput): string {
+  const remote = input.remote ?? "origin";
+  const lines = (input.openPrs ?? []).map((pr) => {
+    const exact = pr.exact.map((item) => `${item.fingerprint} (${item.declarations.join(", ")})`);
+    const coverage = exact.length > 0
+      ? `EXACT coverage: the PR changes the declaration of finding(s) ${exact.join("; ")}${pr.potential.length > 0 ? `; POTENTIAL overlap (same files only) for ${pr.potential.length} other finding(s)` : ""}`
+      : "POTENTIAL overlap (same files only)";
+    return `- #${pr.pr} at ${pr.head} "${pr.title}" — ${coverage}. Files: ${pr.files.join(", ")}. Read-only ref: ${pr.ref} (if missing: \`git fetch ${remote} +refs/pull/${pr.pr}/head:${pr.ref}\`).`;
+  });
+  const header = lines.length > 0
+    ? ["Open pull requests that change files this slice may edit (this run's read-only snapshot, pinned to the heads shown):", ...lines]
+    : [input.openPrsNote
+      ? `Open pull requests: no snapshot this run (${input.openPrsNote}). Before editing, check \`gh pr list --state open\` for PRs that change the same fstar/ files, and apply the rules below to any you find.`
+      : "Open pull requests: none in this run's snapshot changes files this slice may edit."];
+  return [
+    ...(input.baseNote ? [`Base note: ${input.baseNote}. Compare against the remote branch before assuming a finding is still open on master.`] : []),
+    ...header,
+    keepContext([
+      "Open-PR rules:",
+      `- Inspect an open PR only read-only: \`git diff ${input.baseRef}...<ref> -- <files>\`. Never merge, cherry-pick, check out, rebase onto, or push it.`,
+      "- Do not re-implement a fix an open PR already contains. If a finding is already fixed by an open PR, do not commit a duplicate: report it as \"covered by open PR #<n> at <head>\" with replay evidence (the inputs you replayed and the checker you used).",
+      "- EXACT coverage means the PR changes the finding's own declaration: confirm from its diff whether it fixes the finding before touching that declaration. POTENTIAL overlap means only that the PR changes the same files: read its diff before editing them and keep your change independent of it.",
+      "- Build a dependent fix on top of a PR head only when you can justify that it needs that PR (name the PR and head in your report); otherwise report the dependency instead of building it.",
+      "- Do not re-repair what is already fixed upstream. Evidence from builds older than the base is stale: replay on the base first. For example, the historical Z3BvWord F* build timeout (finding ee808823) was fixed by merged PR #11341; report such findings as already fixed instead of changing code.",
+    ].join("\n")),
+  ].join("\n");
 }
 
 const SOUNDNESS_CONTRACT = [
@@ -85,10 +128,11 @@ export function repairPrompt(input: SlicePromptInput): string {
     "Toolchain found by the workflow preflight:",
     toolchainLines(input.toolchain, input),
     FOCUS_GOALS[input.focus] + quantifierNote,
+    openPrLines(input),
     keepContext(SOUNDNESS_CONTRACT),
     keepContext(SCOPE_CONTRACT(input)),
     [
-      "Report (your final message): the findings addressed and not addressed, changed rules/semantics and side conditions, files changed, before/after verdicts and pending-obligation counts per representative input, every command you ran with its exit code, remaining gaps, soundness notes, and any draft written in the slice directory.",
+      "Report (your final message): the findings addressed and not addressed, changed rules/semantics and side conditions, files changed, before/after verdicts and pending-obligation counts per representative input, every command you ran with its exit code, remaining gaps, soundness notes, findings covered by open PRs (\"covered by open PR #<n> at <head>\", with replay evidence) or depending on one, and any draft written in the slice directory.",
       "Stop when the targeted inputs improve and your checks pass, or when you can state precisely why they cannot be fixed within this slice.",
     ].join("\n"),
   ].join("\n\n");
@@ -106,11 +150,13 @@ export function verifyPrompt(input: SlicePromptInput & { readonly reportPath: st
       "2. Replay of the representative inputs from the findings file, recording verdicts and pending-obligation counts.",
       "Commands you run only to explore are phase `exploratory`; commands run on the base revision for comparison are phase `baseline`.",
     ].join("\n"),
+    openPrLines(input),
     keepContext([
       "Review only: do not edit, commit, push, or file anything.",
       "Return `verified` only if every final command ran with the real toolchain and succeeded, the targeted inputs improved, and the diff contains no admits, assumptions, lax checking, or raised global rlimits.",
       "If any required tool is unavailable, set toolchainAvailable to false and the verdict to `unverified`; never infer success. Use `rejected` for unsound or incorrect changes.",
       "List in resolvedFingerprints only finding fingerprints whose inputs you observed improving.",
+      "A finding reported as \"covered by open PR #<n>\" is not verified in this run: an open PR's fix earns no ACCEPT credit here, so never list it in resolvedFingerprints. If the committed diff duplicates a change an open PR above already contains, return `unverified` and name the PR and head in the summary.",
       "List every soundness concern, however minor, in soundnessConcerns; any entry keeps the slice from being accepted.",
     ].join("\n")),
     keepContext(SOUNDNESS_CONTRACT),

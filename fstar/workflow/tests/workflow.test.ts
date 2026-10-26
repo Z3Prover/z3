@@ -150,8 +150,10 @@ describe("full iteration topology with scripted durable steps", () => {
     let setup: any;
     let actionablePath = "";
     const overrides: Record<string, Override> = {
-      preflight: async (_name, _args, real) => {
-        const probed = await real();
+      preflight: async () => {
+        // Hermetic: the base is pinned without contacting the remote (the fetch is answered here; rev-parse reads the local ref).
+        const { spawnRunner } = await import("../lib/command.ts");
+        const probed = await steps.preflight(inputs as any, repoRoot, signal, async (argv, options) => (argv[1] === "fetch" ? { code: 0, stdout: "", stderr: "" } : spawnRunner(argv, options)));
         setup = { ...probed, toolchain: { ...probed.toolchain, available, missing: available ? [] : ["F* v2026.09.27"] } };
         return setup;
       },

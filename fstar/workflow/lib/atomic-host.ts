@@ -6,7 +6,7 @@
  * launcher's Node runs (lib/node-run.ts) resolve `HOST_SPECIFIERS` from `atomicPackageDir()`.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,6 +37,19 @@ export function atomicPackageDir(): string {
   const found = candidates.find((candidate) => existsSync(join(candidate, "package.json")));
   if (!found) throw new Error("Cannot find the @bastani/atomic package; set ATOMIC_PACKAGE_DIR to its directory.");
   return found;
+}
+
+/**
+ * Absolute path of one of the installed Atomic package's entry points (`.` or a subpath such as
+ * `./workflows`), from its `exports`. Unlike `require.resolve`, it is not redirected once
+ * `registerAtomicHostModules` has registered the host modules in this process.
+ */
+export function atomicEntryPath(subpath: "." | `./${string}`, packageDir = atomicPackageDir()): string {
+  const manifest = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8")) as { exports?: Record<string, string | { import?: string; default?: string }> };
+  const entry = manifest.exports?.[subpath];
+  const target = typeof entry === "string" ? entry : entry?.import ?? entry?.default;
+  if (!target) throw new Error(`@bastani/atomic in ${packageDir} exports no ${subpath}`);
+  return join(packageDir, target);
 }
 
 let registered: string | undefined;
