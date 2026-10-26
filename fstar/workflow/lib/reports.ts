@@ -284,8 +284,8 @@ export function parseBuildLog(text: string, thresholdMs = SLOW_OBLIGATION_MS): B
   return { slow, timeouts, verifiedModules };
 }
 
-function buildFindings(directory: string, options: NormalizeOptions): Finding[] {
-  const logPath = join(directory, "build.log");
+/** Build-timeout and slow-declaration findings from one F* build log (any file name). */
+export function buildLogFindings(logPath: string, options: NormalizeOptions): Finding[] {
   const parsed = parseBuildLog(readFileSync(logPath, "utf8"), options.slowThresholdMs);
   const findings: Finding[] = [];
   const timedOut = new Set<string>();
@@ -361,7 +361,7 @@ export function normalizeReportTree(root: string, options: NormalizeOptions): No
   if (directories.length === 0) diagnostics.push(`No results.jsonl or build.log found under ${root}.`);
   for (const directory of directories) {
     if (existsSync(join(directory, "results.jsonl"))) findings.push(...regressionFindings(directory, root, options, diagnostics));
-    if (existsSync(join(directory, "build.log"))) findings.push(...buildFindings(directory, options));
+    if (existsSync(join(directory, "build.log"))) findings.push(...buildLogFindings(join(directory, "build.log"), options));
   }
   return { findings: mergeFindings(findings), diagnostics };
 }

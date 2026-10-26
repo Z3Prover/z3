@@ -3,9 +3,10 @@
  * actions, required evidence and stop rules, and protects the soundness contract with
  * `keepContext` so compaction cannot drop it.
  */
+import { basename } from "node:path";
 import { keepContext } from "@bastani/atomic/workflows";
 import type { SliceFocus } from "./plan.js";
-import type { ToolchainReport } from "./toolchain.js";
+import { buildCommand, opamPrologue, wrapInEnvironment, type ToolchainReport } from "./toolchain.js";
 
 export interface SlicePromptInput {
   readonly sliceId: string;
@@ -36,11 +37,20 @@ const SCOPE_CONTRACT = (input: SlicePromptInput) => [
   "Commit every change on your branch with a descriptive message before you finish; uncommitted work is discarded by the gate.",
 ].join("\n");
 
-function toolchainLines(toolchain: ToolchainReport): string {
+/** Exact build, test and replay commands for the discovered toolchain, run from `worktree`. */
+export function toolchainLines(toolchain: ToolchainReport, input: { readonly worktree: string; readonly cores: number; readonly buildKey?: string }): string {
+  const buildKey = input.buildKey ?? basename(input.worktree);
+  const environment = toolchain.environment;
+  if (!environment || !toolchain.available) {
+    return `- The workflow preflight did not find a complete toolchain (missing: ${toolchain.missing.join("; ") || "unknown"}). Nothing can be proof-checked; report this instead of claiming success.`;
+  }
+  const where = environment.kind === "wsl" ? `inside WSL distribution ${environment.distro} (Windows paths appear under /mnt/<drive>/)` : "on this Linux host";
+    const checker = (path: string | undefined) => (path ? wrapInEnvironment(toolchain, `${path} --interactive --stats --diagnostics --timeout-ms 10000 < <input.smt2>`) : "unavailable");
   return [
-    `- F*: ${toolchain.fstar ?? "unavailable"}; Cherry F*: ${toolchain.cherryFstar ?? "unavailable"}; PowerShell: ${toolchain.pwsh ? "pwsh" : "unavailable"}; opam/OCaml (switch fstar53): ${toolchain.opam ? "available" : "unavailable"}; Python: ${toolchain.python ?? "unavailable"}.`,
-    "- Build and test with `pwsh -NoProfile -File fstar/tools/build_ocaml_checker.ps1 -FstarExe <fstar> -RunTests [-BuildCherry -CherryFstarExe <cherry>] -BuildJobs <cores>` using fresh, worktree-local cache/build directories.",
-    "- Replay inputs with `python fstar/tools/run_checker_regressions.py run|diagnose|report` (use `--memory-limit-mb 0` off Linux) or the checker's `--interactive --stats --diagnostics` mode, and compare verdicts and pending obligation counts before and after.",
+    `- Run every build, F* and checker command ${where}. F*: ${toolchain.fstar} (${toolchain.fstarVersion}); Cherry F*: ${toolchain.cherryFstar ?? "unavailable"}; OCaml ${toolchain.ocamlVersion} via opam switch ${toolchain.opamSwitch} (${toolchain.opamRoot ?? "default OPAMROOT"}); PowerShell: ${toolchain.pwsh}; Python: ${toolchain.python ?? "unavailable"}.`,
+    `- Environment prologue for every shell: \`${opamPrologue(toolchain)}\`.`,
+    `- Build and test the checker from fresh, private build directories (verifies every module in fstar/tools/checker_modules.json, extracts, compiles natively, runs the tests): \`${buildCommand(toolchain, { worktree: input.worktree, buildKey, cores: input.cores })}\`. The checker it builds is $HOME/.cache/fstar-proof-checking/${buildKey}/checker/checker (Cherry: .../checker/cherry/checker).`,
+    `- Replay inputs with the checker's interactive mode, e.g. the existing builds \`${checker(toolchain.ocamlChecker)}\` and \`${checker(toolchain.cherryChecker)}\` for baselines and your rebuilt checker for the candidate, or with \`python3 fstar/tools/run_checker_regressions.py run|diagnose|report\` in the same environment; compare verdicts and pending obligation counts before and after.`,
   ].join("\n");
 }
 
@@ -72,7 +82,7 @@ export function repairPrompt(input: SlicePromptInput): string {
     `Read the findings for this slice at ${input.findingsPath} before continuing; it lists rule families or declarations, representative inputs, and the report files that support them.`,
     `Slice: ${input.sliceId} (theory: ${input.theory}, focus: ${input.focus}). Slice directory for drafts and notes: ${input.sliceDir}.`,
     "Toolchain found by the workflow preflight:",
-    toolchainLines(input.toolchain),
+    toolchainLines(input.toolchain, input),
     FOCUS_GOALS[input.focus] + quantifierNote,
     keepContext(SOUNDNESS_CONTRACT),
     keepContext(SCOPE_CONTRACT(input)),
@@ -88,7 +98,7 @@ export function verifyPrompt(input: SlicePromptInput & { readonly reportPath: st
     `Candidate report: ${input.reportPath}. Findings: ${input.findingsPath}. Read both before continuing.`,
     `Independently verify the committed changes on branch ${input.branch} in ${input.worktree} relative to ${input.baseRef}. Inspect \`git diff ${input.baseRef}...HEAD\` yourself; do not rely on the candidate report's claims.`,
     "Toolchain found by the workflow preflight:",
-    toolchainLines(input.toolchain),
+    toolchainLines(input.toolchain, { ...input, buildKey: `${basename(input.worktree)}-verify` }),
     [
       "Checks to run (mark them phase `final`):",
       "1. A full build and test of the checker from fresh caches (F* verification of every module in fstar/tools/checker_modules.json, extraction, native compilation, and the existing tests).",
@@ -118,7 +128,7 @@ export function integrationVerifyPrompt(input: {
     "Verify the merged result before publication: build and test the complete checker (OCaml backend, and Cherry when its F* is available) from fresh caches with all tests, using up to " +
       `${input.cores} cores, then replay a few representative inputs from each merged slice. Mark these commands phase \`final\`.`,
     "Toolchain found by the workflow preflight:",
-    toolchainLines(input.toolchain),
+    toolchainLines(input.toolchain, input),
     keepContext([
       "Review only: do not edit, commit, push, or file anything.",
       "Return `verified` only if every final command ran with the real toolchain and passed; otherwise `unverified` (or `rejected` for unsound changes). Unavailable tools mean toolchainAvailable false.",

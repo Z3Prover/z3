@@ -31,6 +31,8 @@ export interface FindingRecord {
   claimedAt?: string;
   lastOutcome?: string;
   lastRunKey?: string;
+  /** The latest observation, so later runs can re-source the finding without its original report. */
+  snapshot?: Finding;
 }
 
 export type PublicationRecord = {
@@ -341,9 +343,29 @@ export function recordSeen(state: WorkflowState, findings: readonly Finding[], n
   const records = { ...state.findings };
   for (const finding of findings) {
     const existing = records[finding.fingerprint];
-    records[finding.fingerprint] = existing ? { ...existing, lastSeen: at } : newRecord(finding, at);
+    records[finding.fingerprint] = existing ? { ...existing, lastSeen: at, snapshot: finding } : { ...newRecord(finding, at), snapshot: finding };
   }
   return { ...state, findings: records };
+}
+
+/** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim. */
+export function isEligible(record: FindingRecord, now: Date, claimTtlMs = 24 * 3_600_000): boolean {
+  if (record.status === "open") return true;
+  if (record.status === "unverified") return !record.nextEligibleAt || Date.parse(record.nextEligibleAt) <= now.getTime();
+  if (record.status === "in_progress") return !record.claimedAt || now.getTime() - Date.parse(record.claimedAt) >= claimTtlMs;
+  return false;
+}
+
+/**
+ * Findings recorded in state that are eligible now, as findings a run can triage and plan:
+ * work deferred by slice capacity, retries whose backoff expired, and abandoned claims.
+ * Records written before snapshots existed are rebuilt from their stored fields.
+ */
+export function eligibleStateFindings(state: WorkflowState, now: Date, claimTtlMs?: number): Finding[] {
+  return Object.values(state.findings).filter((record) => isEligible(record, now, claimTtlMs)).map((record) => record.snapshot ?? {
+    fingerprint: record.fingerprint, kind: record.kind, theory: record.theory, checker: "ocaml", rule: record.rule, detail: record.detail,
+    affectedProofs: 1, obligations: 1, soleFamilyProofs: 0, examples: [], evidence: [], sources: ["state"],
+  });
 }
 
 /** Mark findings in progress for one run; a blocked finding with new evidence restarts its attempts. */
@@ -457,11 +479,5 @@ export function settlePublications(state: WorkflowState, settlement: Publication
 
 /** Findings that a new run could pick up now (optionally of one kind). */
 export function countUnprocessed(state: WorkflowState, now: Date, kind?: FindingKind, claimTtlMs = 24 * 3_600_000): number {
-  return Object.values(state.findings).filter((record) => {
-    if (kind && record.kind !== kind) return false;
-    if (record.status === "open") return true;
-    if (record.status === "unverified") return !record.nextEligibleAt || Date.parse(record.nextEligibleAt) <= now.getTime();
-    if (record.status === "in_progress") return !record.claimedAt || now.getTime() - Date.parse(record.claimedAt) >= claimTtlMs;
-    return false;
-  }).length;
+  return Object.values(state.findings).filter((record) => (!kind || record.kind === kind) && isEligible(record, now, claimTtlMs)).length;
 }

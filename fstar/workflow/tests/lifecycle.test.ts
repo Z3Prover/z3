@@ -64,7 +64,7 @@ function environment(prs: Pr[] = []) {
   };
   const inputs = (publish: steps.WorkflowInputs["publish"]): steps.WorkflowInputs => ({
     pulseRunIds: [], pulseBranch: "main", maxReports: 1, reportPaths: [], localCorpora: [], localCaseLimit: 0, ocamlChecker: "", cherryChecker: "",
-    fstarExe: "", cherryFstarExe: "", theories: [], maxIterations: 1, coreBudget: 32, coresPerSlice: 4, maxFindingsPerSlice: 2, publish, dryRun: false,
+    fstarExe: "", cherryFstarExe: "", wslDistro: "", opamRoot: "", opamSwitch: "fstar53", pwshExe: "", theories: [], maxIterations: 1, coreBudget: 32, coresPerSlice: 4, maxFindingsPerSlice: 2, publish, dryRun: false,
     investigate: false, stateDir, repo: "Z3Prover/z3", remote: "origin", baseRef: "main", prBase: "main", branchPrefix: "fstar-proof-checking", bugReportRepo: "FStarLang/FStar",
   });
   const setupFor = (runKey: string): steps.RunSetup => {
@@ -72,7 +72,7 @@ function environment(prs: Pr[] = []) {
     mkdirSync(runDir, { recursive: true });
     return {
       repoRoot: repo, stateDir, runKey, runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(),
-      toolchain: { pwsh: true, opam: true, available: true, missing: [] },
+      toolchain: { pwsh: "pwsh", opam: true, opamSwitch: "fstar53", candidates: {}, available: true, missing: [] },
     };
   };
 
@@ -83,9 +83,10 @@ function environment(prs: Pr[] = []) {
     const findingsPath = join(setup.runDir, "findings.json");
     writeFileSync(findingsPath, JSON.stringify(findings));
     const source: steps.SourceSummary = {
-      findingsPath, total: findings.length, byKind: {}, byTheory: {}, localScans: {}, diagnostics: [],
+      findingsPath, total: findings.length, byKind: {}, byTheory: {}, localScans: {}, carried: [], diagnostics: [],
       reports: [{ key: `pulse-run:${runKey}-1`, directory: setup.runDir, artifacts: [], missing: [] }],
     };
+    await steps.recordSourcesStep(setup, options, source);
     const triage = steps.triageStep(setup, options, findingsPath, 1, []);
     const plan = await steps.planStep(setup, options, triage.actionablePath, 1, signal, runner);
     for (const slice of plan.slices) {
@@ -96,7 +97,7 @@ function environment(prs: Pr[] = []) {
     const gate = await steps.gateStep(setup, options, plan, plan.slices.map(() => verified), 1, signal, runner);
     const integration = await steps.integrateStep(setup, options, plan, gate, 1, signal, runner);
     const publication = await steps.publishStep(setup, options, plan, gate, integration, integration.worktree ? verified : null, 1, signal, runner);
-    const persisted = await steps.persistStep(setup, options, source, plan, gate, integration, publication, 1);
+    const persisted = await steps.persistStep(setup, options, plan, gate, integration, publication, 1);
     const worktrees = [...plan.slices.map((slice) => slice.worktree), ...(integration.worktree ? [integration.worktree] : [])];
     await steps.finalizeStep(setup, options, { status: "completed", stopReason: "test", iterations: [], investigation: { run: false, reason: "", digest: "" }, verified: gate.verified, attempted: plan.slices.length }, worktrees, signal, runner);
     const commands = readFileSync(join(setup.runDir, "commands.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as CommandLogEntry);
@@ -194,18 +195,20 @@ describe("dry-run workflow runs never touch state", () => {
     await env.run("r1", "dry-run", [finding("f1")]);
     const path = join(env.stateDir, "state.json");
     const before = readFileSync(path);
-    const setup = { ...env.setupFor("dry"), toolchain: { pwsh: false, opam: false, available: false, missing: ["F*"] } };
+    const setup = { ...env.setupFor("dry"), toolchain: { opam: false, opamSwitch: "fstar53", candidates: {}, available: false, missing: ["F*"] } };
     const options = { ...env.inputs("live"), dryRun: true, investigate: true };
     const findingsPath = join(setup.runDir, "findings.json");
     writeFileSync(findingsPath, JSON.stringify([finding("f2")]));
-    const source: steps.SourceSummary = { findingsPath, total: 1, byKind: {}, byTheory: {}, localScans: { "local-scan:ocaml:x": { offset: 5, cases: 5, mode: "interactive" } }, diagnostics: [], reports: [{ key: "pulse-run:dry-1", directory: setup.runDir, artifacts: [], missing: [] }] };
+    const source: steps.SourceSummary = { findingsPath, total: 1, byKind: {}, byTheory: {}, localScans: { "local-scan:ocaml:x": { offset: 5, cases: 5, mode: "interactive" } }, carried: [], diagnostics: [], reports: [{ key: "pulse-run:dry-1", directory: setup.runDir, artifacts: [], missing: [] }] };
+    const recorded = await steps.recordSourcesStep(setup, options, source);
     const triage = steps.triageStep(setup, options, findingsPath, 1, []);
     const plan = await steps.planStep(setup, options, triage.actionablePath, 1, signal);
     const gate = await steps.gateStep(setup, options, plan, [], 1, signal);
     const integration = await steps.integrateStep(setup, options, plan, gate, 1, signal);
     const publication = await steps.publishStep(setup, options, plan, gate, integration, null, 1, signal);
-    const persisted = await steps.persistStep(setup, options, source, plan, gate, integration, publication, 1);
+    const persisted = await steps.persistStep(setup, options, plan, gate, integration, publication, 1);
     await steps.finalizeStep(setup, options, { status: "completed", stopReason: "dry", iterations: [], investigation: steps.selectInvestigation(setup, options, source), verified: 0, attempted: 0 }, [], signal);
+    expect(recorded.committed).toBe(false);
     expect(persisted.committed).toBe(false);
     expect(integration.pendingMerged).toEqual([]);
     expect(readFileSync(path).equals(before)).toBe(true);

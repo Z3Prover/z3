@@ -4,8 +4,19 @@
  * `C:\bench\inputs` in batch mode through `fstar/tools/run_checker_regressions.py`).
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { runChecked, type CommandRunner } from "./command.js";
+
+/**
+ * Processed-report key of a local report: `local-report:<dir>` for a report directory, and
+ * `local-build:<file>@<mtimeMs>` for a single build log, so a rewritten log is new evidence.
+ * The workflow records these keys and the continuity launcher checks the same keys.
+ */
+export function localReportKey(path: string): string {
+  const absolute = resolve(path);
+  const stats = statSync(absolute);
+  return stats.isDirectory() ? `local-report:${absolute}` : `local-build:${absolute}@${Math.trunc(stats.mtimeMs)}`;
+}
 
 export const REGRESSIONS_WORKFLOW = "pulse-checker-regressions.yml";
 export const BUILD_WORKFLOW = "pulse-checker-build.yml";
@@ -178,7 +189,8 @@ function interactiveOutcome(code: number | null, error: string | undefined, sess
 }
 
 export interface CorpusScanOptions {
-  readonly checker: string;
+  /** Checker command (in the build environment, e.g. `wsl -d Ubuntu -e /path/checker`). */
+  readonly checkerArgv: readonly string[];
   readonly corpus: string;
   readonly files: readonly string[];
   readonly outputDir: string;
@@ -204,7 +216,7 @@ export async function scanInteractiveCorpus(runner: CommandRunner, options: Corp
       const path = relative(options.corpus, file).replaceAll("\\", "/");
       const started = Date.now();
       const result = await runner(
-        [options.checker, "--interactive", "--stats", "--diagnostics", "--timeout-ms", String(options.solverTimeoutMs)],
+        [...options.checkerArgv, "--interactive", "--stats", "--diagnostics", "--timeout-ms", String(options.solverTimeoutMs)],
         { input: readFileSync(file, "utf8"), timeoutMs: options.caseTimeoutMs, signal: options.signal },
       );
       const session = parseInteractiveSession(result.stdout, result.stderr);
@@ -223,25 +235,33 @@ export async function scanInteractiveCorpus(runner: CommandRunner, options: Corp
   return { cases: options.files.length, outcomes };
 }
 
-/** Batch-mode scan through the existing regression harness (`run`, `diagnose`, `report`). */
+/**
+ * Batch-mode scan through the existing regression harness (`run`, `diagnose`, `report`). The
+ * harness runs in the build environment; `toEnvironment` translates host paths for it.
+ */
 export async function scanBatchCorpus(
   runner: CommandRunner,
-  options: { python: string; repoRoot: string; checker: string; corpus: string; maxCases: number; outputDir: string; totalTimeoutSeconds: number; signal?: AbortSignal },
+  options: {
+    pythonArgv: readonly string[]; toEnvironment: (path: string) => string; repoRoot: string; checker: string; corpus: string;
+    maxCases: number; outputDir: string; totalTimeoutSeconds: number; signal?: AbortSignal;
+  },
 ): Promise<void> {
-  const harness = join(options.repoRoot, "fstar", "tools", "run_checker_regressions.py");
+  const harness = options.toEnvironment(join(options.repoRoot, "fstar", "tools", "run_checker_regressions.py"));
+  const output = options.toEnvironment(options.outputDir);
   const common = { cwd: options.repoRoot, timeoutMs: (options.totalTimeoutSeconds * 2 + 300) * 1000, signal: options.signal };
-  const parent = dirname(options.corpus);
+  const parent = options.toEnvironment(dirname(options.corpus));
+  mkdirSync(options.outputDir, { recursive: true });
   // `run` and `diagnose` exit 1 when cases crash or error; those cases are findings, not harness failures.
   const run = await runner([
-    options.python, harness, "run", "--checker", options.checker, "--corpus", parent, "--corpus-path", basename(options.corpus),
-    "--corpus-commit", "local-unversioned", "--max-cases", String(options.maxCases), "--memory-limit-mb", "0",
-    "--total-timeout-seconds", String(options.totalTimeoutSeconds), "--output", options.outputDir,
+    ...options.pythonArgv, harness, "run", "--checker", options.checker, "--corpus", parent, "--corpus-path", basename(options.corpus),
+    "--corpus-commit", "local-unversioned", "--max-cases", String(options.maxCases),
+    "--total-timeout-seconds", String(options.totalTimeoutSeconds), "--output", output,
   ], common);
   if (run.code !== 0 && run.code !== 1) throw new Error(`run_checker_regressions.py run failed: ${run.error ?? run.stderr}`);
   const diagnose = await runner([
-    options.python, harness, "diagnose", "--checker", options.checker, "--corpus", parent, "--output", options.outputDir,
+    ...options.pythonArgv, harness, "diagnose", "--checker", options.checker, "--corpus", parent, "--output", output,
     "--total-timeout-seconds", String(options.totalTimeoutSeconds),
   ], common);
   if (diagnose.code !== 0 && diagnose.code !== 1) throw new Error(`diagnose failed: ${diagnose.error ?? diagnose.stderr}`);
-  await runChecked(runner, [options.python, harness, "report", "--output", options.outputDir], common);
+  await runChecked(runner, [...options.pythonArgv, harness, "report", "--output", output], common);
 }

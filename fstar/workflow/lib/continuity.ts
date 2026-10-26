@@ -8,11 +8,11 @@ import { reportingRuns, reportKey, type PulseRun } from "./sources.js";
 import { countUnprocessed, type WorkflowState } from "./state.js";
 
 export interface BuildEvidence {
-  /** `pulse-build:<id>-<attempt>` or `local-build:<path>@<mtimeMs>`. */
+  /** `pulse-build:<id>-<attempt>`, or `localReportKey(log)` (`local-build:<path>@<mtimeMs>`) for a local log. */
   readonly key: string;
   /** Proof (SMT) timeouts found in the build log; a timed-out CI job counts as one. */
   readonly proofTimeouts: number;
-  /** Local report directory to hand to the workflow, for local build logs. */
+  /** Local build log to hand to the workflow as a `reportPaths` entry; the run records the same key. */
   readonly reportPath?: string;
 }
 
@@ -26,7 +26,7 @@ export interface ContinuityDecision {
   readonly pendingPublications: number;
   /** Run IDs to pass as the workflow's `pulseRunIds` input. */
   readonly pulseRunIds: string[];
-  /** Local report directories to pass as `reportPaths`. */
+  /** Local build logs to pass as `reportPaths`. */
   readonly reportPaths: string[];
 }
 

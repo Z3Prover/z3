@@ -31,7 +31,7 @@ describe("dry run through Atomic's workflow runtime", () => {
     const run = store.snapshot().runs[0];
     const names: string[] = run.toolNodes.map((node: { name: string }) => node.name);
     expect(names).toEqual([
-      "preflight", "source",
+      "preflight", "source", "record-sources",
       "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist",
       "iter-2/triage", "iter-2/plan", "iter-2/gate", "iter-2/integrate", "iter-2/publish", "iter-2/persist",
       "investigate/select", "finalize",
@@ -95,7 +95,7 @@ function fakeContext(inputs: Record<string, unknown>, overrides: Record<string, 
       const real = () => fn({ signal: new AbortController().signal }) as Promise<any>;
       const override = Object.entries(overrides).find(([pattern]) => new RegExp(`^${pattern}$`).test(name));
       if (override) return override[1](name, args, real);
-      if (!["iter-[0-9]+/triage", "investigate/select", "finalize"].some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
+      if (!["record-sources", "iter-[0-9]+/triage", "investigate/select", "finalize"].some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
         throw new Error(`unscripted durable step ${name} would touch git, GitHub or state`);
       }
       return real();
@@ -148,7 +148,7 @@ describe("full iteration topology with scripted durable steps", () => {
         ? { worktree: "W", branch: "B", base: "origin/master", merged: ["s0"], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], head: "abc", note: "" }
         : { base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], note: "" }),
       "iter-[0-9]+/publish": async () => ({ mode: "dry-run", action: "new-branch", executed: false, summary: "dry-run: would new-branch", integrationVerified: true, bugReports: [], publication: { sequence: 0, history: [] } }),
-      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], processedReports: [], published: false }),
+      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], published: false }),
     };
     const fake = fakeContext(inputs, overrides);
     const output = await definition.run(fake.ctx);
@@ -188,7 +188,7 @@ describe("full iteration topology with scripted durable steps", () => {
   test("an unavailable toolchain blocks before any agent stage with an actionable reason", async () => {
     const { output, tasks } = await runScripted(false);
     expect(output.status).toBe("blocked");
-    expect(output.summary).toMatch(/toolchain unavailable.*F\* v2026\.09\.27/);
+    expect(output.summary).toMatch(/toolchain not found.*F\* v2026\.09\.27/);
     expect(tasks).toEqual([]);
   }, 120_000);
 
@@ -198,27 +198,80 @@ describe("full iteration topology with scripted durable steps", () => {
     writeFileSync(empty, "[]");
     const defaults = Object.fromEntries(Object.entries(definition.inputs).map(([key, schema]: [string, any]) => [key, schema.default]));
     const scripted: Record<string, Override> = {
-      preflight: async () => ({ repoRoot, stateDir: scratch, runKey: "k", runDir: scratch, worktreeRoot: join(scratch, "wt"), startedAt: "t", toolchain: { pwsh: true, opam: true, available: true, missing: [] } }),
-      source: async () => ({ findingsPath: empty, total: 0, byKind: {}, byTheory: {}, reports: [], localScans: {}, diagnostics: [] }),
+      preflight: async () => ({ repoRoot, stateDir: scratch, runKey: "k", runDir: scratch, worktreeRoot: join(scratch, "wt"), startedAt: "t", toolchain: { pwsh: "pwsh", opam: true, opamSwitch: "fstar53", candidates: {}, available: true, missing: [] } }),
+      source: async () => ({ findingsPath: empty, total: 0, byKind: {}, byTheory: {}, reports: [], localScans: {}, carried: [], diagnostics: [] }),
+      "record-sources": async () => ({ committed: true, processedReports: [], seen: 0 }),
       "iter-[0-9]+/triage": async (name) => ({ actionablePath: empty, actionable: 0, skipped: { integrated: 1 }, pendingPublications: name.startsWith("iter-1/") ? 1 : 0 }),
       "iter-[0-9]+/plan": async () => ({ slices: [], concurrency: 0, totalCores: 0, coreBudget: 32, deferred: 0, worktreesCreated: false }),
       "iter-[0-9]+/gate": async () => ({ slices: [], verified: 0 }),
       "iter-[0-9]+/integrate": async () => ({ worktree: "W", branch: "B", base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: ["r1"], pendingFailed: [], head: "abc", note: "" }),
       "iter-[0-9]+/publish": async () => ({ mode: "live", action: "push-existing", executed: true, summary: "pushed", integrationVerified: true, bugReports: [], publication: { sequence: 1, history: [] } }),
-      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], processedReports: [], published: true }),
+      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], published: true }),
       "investigate/select": async () => ({ run: false, reason: "scripted", digest: "" }),
       finalize: async () => ({ evidencePath: "E", mutatingCommands: 1, worktrees: {} }),
     };
     const live = fakeContext({ ...defaults, publish: "live", maxIterations: 2 }, scripted);
     await definition.run(live.ctx);
-    expect(live.tools).toEqual(["preflight", "source", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
+    expect(live.tools).toEqual(["preflight", "source", "record-sources", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
     expect(live.tasks.map((task) => task.name)).toEqual(["iter-1/integration/verify"]);
     expect(live.tasks[0]?.options.prompt).toContain("pending integration r1");
     for (const publish of ["dry-run", "none"]) {
       const other = fakeContext({ ...defaults, publish, maxIterations: 2 }, scripted);
       const output = await definition.run(other.ctx);
-      expect(other.tools).toEqual(["preflight", "source", "iter-1/triage", "investigate/select", "finalize"]);
+      expect(other.tools).toEqual(["preflight", "source", "record-sources", "iter-1/triage", "investigate/select", "finalize"]);
       expect(output.stop_reason).toBe("no new or unprocessed findings");
     }
+  }, 120_000);
+});
+
+describe("runs that stop in iteration 1 still record what they ingested", () => {
+  /** A real (non-dry) run over the fixture reports with scripted preflight and a gh that lists no Pulse runs. */
+  async function stopEarly(seedState: (findings: any[]) => any, available: boolean) {
+    const { normalizeReportTree } = await import("../lib/reports.ts");
+    const state = await import("../lib/state.ts");
+    const stateDir = mkdtempSync(join(tmpdir(), "fpc-early-"));
+    const runDir = join(stateDir, "runs", "early");
+    const findings = reportPaths.flatMap((path) => normalizeReportTree(path, { source: "seed" }).findings);
+    const seeded = seedState(findings);
+    if (seeded) state.writeJsonAtomic(join(stateDir, "state.json"), seeded);
+    const defaults = Object.fromEntries(Object.entries(definition.inputs).map(([key, schema]: [string, any]) => [key, schema.default]));
+    const inputs = { ...defaults, stateDir, reportPaths, localCorpora: [], maxIterations: 2, investigate: false };
+    const setup = {
+      repoRoot, stateDir, runKey: "early", runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(),
+      toolchain: { opam: available, opamSwitch: "fstar53", candidates: {}, available, missing: available ? [] : ["F* v2026.09.27 in WSL Ubuntu"] },
+    };
+    const ghWithoutRuns = async (argv: readonly string[]) => {
+      if (argv[0] === "gh" && argv[1] === "run" && argv[2] === "list") return { code: 0, stdout: "[]", stderr: "" };
+      throw new Error(`unexpected command ${argv.join(" ")}`);
+    };
+    const fake = fakeContext(inputs, {
+      preflight: async () => {
+        (await import("node:fs")).mkdirSync(runDir, { recursive: true });
+        return setup;
+      },
+      source: async () => steps.sourceFindings(setup as any, inputs as any, new AbortController().signal, ghWithoutRuns as any),
+    });
+    const output = await definition.run(fake.ctx);
+    return { output, tools: fake.tools, state: state.readState(stateDir), findings };
+  }
+
+  const reportKeys = reportPaths.map((path) => `local-report:${path}`);
+
+  test("nothing actionable: the reports are still marked processed", async () => {
+    const { recordSeen, recordOutcomes, emptyState } = await import("../lib/state.ts");
+    const resolved = (findings: any[]) => recordOutcomes(recordSeen(emptyState(), findings, new Date()),
+      findings.map((finding) => ({ fingerprint: finding.fingerprint, status: "verified" as const, note: "earlier" })), { runKey: "earlier", now: new Date(), published: true });
+    const { output, state } = await stopEarly(resolved, true);
+    expect(output.stop_reason).toBe("no new or unprocessed findings");
+    expect(Object.keys(state.processedReports).sort()).toEqual([...reportKeys].sort());
+  }, 120_000);
+
+  test("toolchain not found: the run blocks, but reports are processed and findings recorded for later runs", async () => {
+    const { output, state, findings } = await stopEarly(() => undefined, false);
+    expect(output.status).toBe("blocked");
+    expect(Object.keys(state.processedReports).sort()).toEqual([...reportKeys].sort());
+    const recorded = new Set(Object.keys(state.findings));
+    expect(findings.every((finding) => recorded.has(finding.fingerprint))).toBe(true);
+    expect(Object.values(state.findings).every((record: any) => record.status === "open")).toBe(true);
   }, 120_000);
 });

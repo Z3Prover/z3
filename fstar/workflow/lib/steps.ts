@@ -4,7 +4,7 @@
  * logging runner whose entries are appended to `<runDir>/commands.jsonl` as evidence.
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { isRemoteMutation, runChecked, spawnRunner, type CommandLogEntry, type CommandRunner } from "./command.js";
 import { collectSliceChanges, decideSliceOutcome, scanDiffForUnsoundness, type VerifierVerdict } from "./gate.js";
 import { ensureWorktree, removeCleanWorktree } from "./git.js";
@@ -18,12 +18,13 @@ import {
   type PublicationFacts,
   type PublishMode,
 } from "./publish.js";
-import { mergeFindings, normalizeReportTree, type Finding } from "./reports.js";
+import { buildLogFindings, mergeFindings, normalizeReportTree, type Finding } from "./reports.js";
 import {
   downloadRunReports,
   fromGhRuns,
   listPulseRuns,
   listSmt2,
+  localReportKey,
   reportingRuns,
   reportKey,
   scanBatchCorpus,
@@ -34,6 +35,7 @@ import {
 } from "./sources.js";
 import {
   claimFindings,
+  eligibleStateFindings,
   readState,
   recordOutcomes,
   recordSeen,
@@ -44,7 +46,7 @@ import {
   type WorkflowState,
 } from "./state.js";
 import type { Theory } from "./theories.js";
-import { probeToolchain, type ToolchainReport } from "./toolchain.js";
+import { probeToolchain, toEnvironmentPath, type ToolchainReport } from "./toolchain.js";
 
 export interface WorkflowInputs {
   readonly pulseRunIds: readonly string[];
@@ -57,6 +59,10 @@ export interface WorkflowInputs {
   readonly cherryChecker: string;
   readonly fstarExe: string;
   readonly cherryFstarExe: string;
+  readonly wslDistro: string;
+  readonly opamRoot: string;
+  readonly opamSwitch: string;
+  readonly pwshExe: string;
   readonly theories: readonly Theory[];
   readonly maxIterations: number;
   readonly coreBudget: number;
@@ -120,8 +126,12 @@ export async function preflight(inputs: WorkflowInputs, cwd: string, signal: Abo
   const runDir = join(stateDir, "runs", runKey);
   mkdirSync(runDir, { recursive: true });
   const toolchain = await probeToolchain(evidenceRunner(runDir, runner), {
+    wslDistro: inputs.wslDistro || undefined,
     fstarExe: inputs.fstarExe || undefined,
     cherryFstarExe: inputs.cherryFstarExe || undefined,
+    opamRoot: inputs.opamRoot || undefined,
+    opamSwitch: inputs.opamSwitch || undefined,
+    pwshExe: inputs.pwshExe || undefined,
     ocamlChecker: inputs.ocamlChecker || undefined,
     cherryChecker: inputs.cherryChecker || undefined,
     signal,
@@ -140,6 +150,8 @@ export type SourceSummary = {
   readonly byTheory: Record<string, number>;
   readonly reports: Array<{ key: string; directory: string; artifacts: string[]; missing: string[] }>;
   readonly localScans: Record<string, { offset: number; cases: number; mode: string }>;
+  /** Fingerprints re-sourced from state (eligible earlier findings no current source reported). */
+  readonly carried: string[];
   readonly diagnostics: string[];
 };
 
@@ -162,8 +174,10 @@ async function explicitRuns(runner: CommandRunner, inputs: WorkflowInputs, signa
 }
 
 /**
- * Collect findings from Pulse workflow reports (GitHub, read-only), local report directories,
- * and local corpora. In a dry run nothing remote is contacted and no checker is executed.
+ * Collect findings from Pulse workflow reports (GitHub, read-only), local report directories and
+ * build logs, local corpora, and eligible findings already recorded in state (deferred by slice
+ * capacity, retries out of backoff, abandoned claims). In a dry run nothing remote is contacted
+ * and no checker is executed.
  */
 export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, signal: AbortSignal, inner?: CommandRunner): Promise<SourceSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
@@ -198,23 +212,63 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
       diagnostics.push(`Report path ${absolute} does not exist.`);
       continue;
     }
-    const directory = statSync(absolute).isDirectory() ? absolute : resolve(absolute, "..");
-    const key = `local-report:${directory}`;
-    reports.push({ key, directory, artifacts: [basename(directory)], missing: [] });
-    const normalized = normalizeReportTree(directory, { source: key });
-    findings.push(...normalized.findings);
-    diagnostics.push(...normalized.diagnostics);
+    const key = localReportKey(absolute);
+    if (statSync(absolute).isDirectory()) {
+      reports.push({ key, directory: absolute, artifacts: [basename(absolute)], missing: [] });
+      const normalized = normalizeReportTree(absolute, { source: key });
+      findings.push(...normalized.findings);
+      diagnostics.push(...normalized.diagnostics);
+    } else {
+      // A single OCaml/Cherry/F* build log (for example from the continuity launcher's --build-log).
+      reports.push({ key, directory: dirname(absolute), artifacts: [basename(absolute)], missing: [] });
+      findings.push(...buildLogFindings(absolute, { source: key }));
+    }
   }
-  const localScans: SourceSummary["localScans"] = {};
+  const local = await scanLocalCorpora(runner, setup, inputs, state, signal);
+  findings.push(...local.findings);
+  diagnostics.push(...local.diagnostics);
+  const fresh = mergeFindings(findings);
+  const seen = new Set(fresh.map((finding) => finding.fingerprint));
+  const carried = eligibleStateFindings(state, new Date()).filter((finding) => !seen.has(finding.fingerprint));
+  if (carried.length > 0) diagnostics.push(`${carried.length} eligible finding(s) recorded in state were re-sourced.`);
+  const merged = [...fresh, ...carried];
+  const count = (key: (finding: Finding) => string) => merged.reduce<Record<string, number>>((counts, finding) => {
+    counts[key(finding)] = (counts[key(finding)] ?? 0) + 1;
+    return counts;
+  }, {});
+  const findingsPath = writeJson(join(setup.runDir, "findings.json"), merged);
+  return {
+    findingsPath, total: merged.length, byKind: count((f) => f.kind), byTheory: count((f) => f.theory), reports, localScans: local.scans,
+    carried: carried.map((finding) => finding.fingerprint), diagnostics,
+  };
+}
+
+/**
+ * Run the discovered checkers on the local corpora inside the build environment: z3test
+ * `regressions/smt2` scripts in `--interactive` mode over a rotating window, other corpora
+ * through the batch harness.
+ */
+export async function scanLocalCorpora(
+  runner: CommandRunner,
+  setup: RunSetup,
+  inputs: WorkflowInputs,
+  state: WorkflowState,
+  signal: AbortSignal,
+): Promise<{ findings: Finding[]; diagnostics: string[]; scans: SourceSummary["localScans"] }> {
+  const findings: Finding[] = [];
+  const diagnostics: string[] = [];
+  const scans: SourceSummary["localScans"] = {};
+  const toolchain = setup.toolchain;
+  const toEnvironment = (path: string) => toEnvironmentPath(toolchain.environment, path);
   for (const corpus of inputs.localCorpora) {
     if (!existsSync(corpus)) {
       diagnostics.push(`Local corpus ${corpus} does not exist; skipped.`);
       continue;
     }
-    const checkers = [["ocaml", setup.toolchain.ocamlChecker], ["cherry", setup.toolchain.cherryChecker]] as const;
+    const checkers = [["ocaml", toolchain.ocamlChecker], ["cherry", toolchain.cherryChecker]] as const;
     const available = checkers.filter(([, path]) => path !== undefined);
-    if (available.length === 0) {
-      diagnostics.push(`Local corpus ${corpus} skipped: no checker executable configured (set ocamlChecker/cherryChecker or Z3_FSTAR_CHECKER/Z3_FSTAR_CHERRY_CHECKER).`);
+    if (!toolchain.environment || available.length === 0) {
+      diagnostics.push(`Local corpus ${corpus} skipped: no checker executable was found (set ocamlChecker/cherryChecker or Z3_FSTAR_CHECKER/Z3_FSTAR_CHERRY_CHECKER).`);
       continue;
     }
     if (inputs.dryRun) {
@@ -230,18 +284,18 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
         const files = listSmt2(corpus);
         const window = selectWindow(files, state.localScans[key]?.offset ?? 0, inputs.localCaseLimit);
         const scan = await scanInteractiveCorpus(runner, {
-          checker: checker as string, corpus, files: window.selected, outputDir,
+          checkerArgv: [...toolchain.environment.execArgv, checker as string], corpus, files: window.selected, outputDir,
           caseTimeoutMs: 60_000, solverTimeoutMs: 10_000, concurrency: Math.max(1, Math.min(inputs.coreBudget, 32)), signal,
         });
-        localScans[key] = { offset: window.nextOffset, cases: scan.cases, mode: "interactive" };
-      } else if (setup.toolchain.python) {
+        scans[key] = { offset: window.nextOffset, cases: scan.cases, mode: "interactive" };
+      } else if (toolchain.python) {
         await scanBatchCorpus(runner, {
-          python: setup.toolchain.python, repoRoot: setup.repoRoot, checker: checker as string, corpus,
+          pythonArgv: [...toolchain.environment.execArgv, toolchain.python], toEnvironment, repoRoot: setup.repoRoot, checker: checker as string, corpus,
           maxCases: inputs.localCaseLimit, outputDir, totalTimeoutSeconds: 1800, signal,
         });
-        localScans[key] = { offset: 0, cases: inputs.localCaseLimit, mode: "batch" };
+        scans[key] = { offset: 0, cases: inputs.localCaseLimit, mode: "batch" };
       } else {
-        diagnostics.push(`Local corpus ${corpus} skipped for ${kind}: Python is required for the batch harness.`);
+        diagnostics.push(`Local corpus ${corpus} skipped for ${kind}: Python 3 is required for the batch harness.`);
         continue;
       }
       const normalized = normalizeReportTree(outputDir, { source: key });
@@ -249,13 +303,31 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
       diagnostics.push(...normalized.diagnostics);
     }
   }
-  const merged = mergeFindings(findings);
-  const count = (key: (finding: Finding) => string) => merged.reduce<Record<string, number>>((counts, finding) => {
-    counts[key(finding)] = (counts[key(finding)] ?? 0) + 1;
-    return counts;
-  }, {});
-  const findingsPath = writeJson(join(setup.runDir, "findings.json"), merged);
-  return { findingsPath, total: merged.length, byKind: count((f) => f.kind), byTheory: count((f) => f.theory), reports, localScans, diagnostics };
+  return { findings, diagnostics, scans };
+}
+
+export type RecordedSources = { readonly committed: boolean; readonly processedReports: string[]; readonly seen: number };
+
+/**
+ * Record what this run ingested before any iteration can stop early: every sourced report is
+ * processed, local scan windows advance, and new findings enter state as `open` so later runs
+ * re-source them. Dry runs record nothing.
+ */
+export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs, source: SourceSummary): Promise<RecordedSources> {
+  const processedReports = source.reports.map((report) => report.key);
+  const carried = new Set(source.carried);
+  const fresh = readJson<Finding[]>(source.findingsPath).filter((finding) => !carried.has(finding.fingerprint));
+  if (inputs.dryRun) return { committed: false, processedReports, seen: fresh.length };
+  await withStateLock(setup.stateDir, (state) => {
+    const now = new Date();
+    const reportsSeen = { ...state.processedReports };
+    for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
+    const localScans = { ...state.localScans };
+    for (const [key, scan] of Object.entries(source.localScans)) localScans[key] = { at: now.toISOString(), offset: scan.offset };
+    return { state: { ...recordSeen(state, fresh, now), processedReports: reportsSeen, localScans }, result: undefined };
+  }, { owner: setup.runKey });
+  writeJson(join(setup.runDir, "sources-recorded.json"), { processedReports, seen: fresh.length, localScans: source.localScans });
+  return { committed: true, processedReports, seen: fresh.length };
 }
 
 // ---------------------------------------------------------------- triage and planning
@@ -580,21 +652,19 @@ export async function publishStep(
 export type PersistSummary = {
   readonly committed: boolean;
   readonly outcomes: Array<{ fingerprint: string; status: SliceOutcome; note: string }>;
-  readonly processedReports: string[];
   /** Whether verified work was pushed live; otherwise it is recorded as integrated and pending. */
   readonly published: boolean;
 };
 
 /**
- * Record outcomes, processed reports, local scan offsets, publication state and pending
- * publications (not in dry runs). Verified findings resolve only when a live push included them;
- * otherwise they become `integrated` and the integration branch is kept as a pending publication
- * that the next live run merges and pushes.
+ * Record outcomes, publication state and pending publications (not in dry runs); what the run
+ * ingested was already recorded by `recordSourcesStep`. Verified findings resolve only when a
+ * live push included them; otherwise they become `integrated` and the integration branch is kept
+ * as a pending publication that the next live run merges and pushes.
  */
 export async function persistStep(
   setup: RunSetup,
   inputs: WorkflowInputs,
-  source: SourceSummary,
   plan: PlanSummary,
   gate: GateSummary,
   integration: IntegrationSummary,
@@ -616,10 +686,9 @@ export async function persistStep(
     }
     for (const fingerprint of slice.fingerprints) outcomes.push({ fingerprint, status, note });
   }
-  const processedReports = iteration === 1 ? source.reports.map((report) => report.key) : [];
   if (inputs.dryRun) {
-    writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, processedReports, published });
-    return { committed: false, outcomes, processedReports, published };
+    writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, published });
+    return { committed: false, outcomes, published };
   }
   const integratedSlices = plan.slices.filter((slice) => integration.merged.includes(slice.id));
   const unpublished = !published && publication.integrationVerified && integratedSlices.length > 0 && integration.branch && integration.head
@@ -630,24 +699,17 @@ export async function persistStep(
     : undefined;
   await withStateLock(setup.stateDir, (state) => {
     const now = new Date();
-    let next = iteration === 1 ? recordSeen(state, readJson<Finding[]>(source.findingsPath), now) : state;
-    next = recordOutcomes(next, outcomes, { runKey: setup.runKey, now, published });
+    let next = recordOutcomes(state, outcomes, { runKey: setup.runKey, now, published });
     next = settlePublications(next, { runKey: setup.runKey, published, included: integration.pendingMerged, failed: integration.pendingFailed, added: unpublished });
-    const reportsSeen = { ...next.processedReports };
-    for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
-    const localScans = { ...next.localScans };
-    if (iteration === 1) {
-      for (const [key, scan] of Object.entries(source.localScans)) localScans[key] = { at: now.toISOString(), offset: scan.offset };
-    }
     const bugReports = { ...next.bugReports };
     for (const report of publication.bugReports) {
       bugReports[report.fingerprint] = { draft: report.draft, issueUrl: report.url ?? bugReports[report.fingerprint]?.issueUrl, filedAt: report.action === "created" ? now.toISOString() : bugReports[report.fingerprint]?.filedAt };
     }
-    next = { ...next, processedReports: reportsSeen, localScans, bugReports, publication: published ? publication.publication : next.publication };
+    next = { ...next, bugReports, publication: published ? publication.publication : next.publication };
     return { state: next, result: undefined };
   }, { owner: setup.runKey });
-  writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: true, outcomes, processedReports, published, pending: unpublished ?? null });
-  return { committed: true, outcomes, processedReports, published };
+  writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: true, outcomes, published, pending: unpublished ?? null });
+  return { committed: true, outcomes, published };
 }
 
 // ---------------------------------------------------------------- investigation and finalization

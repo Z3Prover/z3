@@ -5,19 +5,23 @@
  *
  * Graph (one bounded iteration i = 1..maxIterations; every node name is unique per iteration):
  *
- *   preflight → source ─┬─ iter-i/triage ─(nothing actionable or pending → stop)
- *                       │      └─ iter-i/plan (slices, cores ≤ 32, worktrees, claims)
- *                       │            ├─ iter-i/<slice>/repair   (parallel, one worktree each)
- *                       │            ├─ iter-i/<slice>/verify   (parallel, fresh verifier, schema)
- *                       │            └─ iter-i/gate → iter-i/integrate → [iter-i/integration/verify]
- *                       │                             → iter-i/publish → iter-i/persist
- *                       └─ investigate/select → [investigate/<topic> ×3] → finalize
+ *   preflight → source → record-sources ─┬─ iter-i/triage ─(nothing actionable or pending → stop)
+ *                                         │      └─ iter-i/plan (slices, cores ≤ 32, worktrees, claims)
+ *                                         │            ├─ iter-i/<slice>/repair   (parallel, one worktree each)
+ *                                         │            ├─ iter-i/<slice>/verify   (parallel, fresh verifier, schema)
+ *                                         │            └─ iter-i/gate → iter-i/integrate → [iter-i/integration/verify]
+ *                                         │                             → iter-i/publish → iter-i/persist
+ *                                         └─ investigate/select → [investigate/<topic> ×3] → finalize
+ *
+ * `record-sources` marks the sourced reports processed and records new findings before any
+ * iteration can stop early; findings left open (deferred by slice capacity, out of backoff,
+ * abandoned claims) are re-sourced from state by later runs.
  *
  * Verified work that is not pushed live stays `integrated` and pending in state; the first
  * iteration of a later `publish=live` run merges, re-verifies and pushes it even without new findings.
  *
  * Stop conditions: nothing actionable, iteration limit, two consecutive iterations without a
- * verified slice, or a blocked state (toolchain unavailable, PR closed without merge).
+ * verified slice, or a blocked state (toolchain not found, PR closed without merge).
  */
 import { join } from "node:path";
 import { workflow } from "@bastani/atomic/workflows";
@@ -34,6 +38,7 @@ import {
   planStep,
   preflight,
   publishStep,
+  recordSourcesStep,
   selectInvestigation,
   sourceFindings,
   triageStep,
@@ -67,10 +72,14 @@ export default workflow({
     reportPaths: Type.Array(Type.String(), { default: [], description: "Local report directories (run_checker_regressions.py output or downloaded artifacts) or build logs." }),
     localCorpora: Type.Array(Type.String(), { default: ["C:/z3test/regressions/smt2", "C:/bench/inputs"], description: "Local corpora: z3test regressions/smt2 runs in --interactive mode; others use the batch harness." }),
     localCaseLimit: Type.Integer({ default: 50, minimum: 0, maximum: 5000, description: "Cases per local corpus and checker per launch (rotating window)." }),
-    ocamlChecker: Type.String({ default: "", description: "OCaml checker executable for local corpora (default Z3_FSTAR_CHECKER)." }),
-    cherryChecker: Type.String({ default: "", description: "Cherry checker executable for local corpora (default Z3_FSTAR_CHERRY_CHECKER)." }),
-    fstarExe: Type.String({ default: "", description: "F* executable (default FSTAR_EXE, PATH, or C:\\fstar\\fstar\\bin\\fstar.exe)." }),
-    cherryFstarExe: Type.String({ default: "", description: "Cherry F* executable (default CHERRY_FSTAR_EXE)." }),
+    ocamlChecker: Type.String({ default: "", description: "OCaml checker executable in the build environment (default Z3_FSTAR_CHECKER, else the newest discovered build)." }),
+    cherryChecker: Type.String({ default: "", description: "Cherry checker executable in the build environment (default Z3_FSTAR_CHERRY_CHECKER, else the newest discovered build)." }),
+    fstarExe: Type.String({ default: "", description: "Linux F* v2026.09.27 in the build environment (default FSTAR_EXE, PATH, or the known install layouts)." }),
+    cherryFstarExe: Type.String({ default: "", description: "Cherry-capable Linux F* (default CHERRY_FSTAR_EXE, else a discovered nightly)." }),
+    wslDistro: Type.String({ default: "", description: "WSL distribution that builds and runs the checker on Windows (default Z3_FSTAR_WSL_DISTRO, else the first with bash, Ubuntu first)." }),
+    opamRoot: Type.String({ default: "", description: "OPAMROOT that holds the OCaml 5.3 switch (default Z3_FSTAR_OPAMROOT, else ~/.opam and the known install layouts)." }),
+    opamSwitch: Type.String({ default: "fstar53", description: "opam switch with OCaml 5.3.0, ocamlfind and zarith." }),
+    pwshExe: Type.String({ default: "", description: "Linux PowerShell 7 for build_ocaml_checker.ps1 (default Z3_FSTAR_PWSH, PATH, or the known install layouts)." }),
     theories: Type.Array(Type.Union(THEORIES.map((theory) => Type.Literal(theory))), { default: [], description: "Restrict to these theories; empty means all." }),
     maxIterations: Type.Integer({ default: 2, minimum: 1, maximum: 5, description: "Bounded iterations per launch." }),
     coreBudget: Type.Integer({ default: 32, minimum: 1, maximum: 32, description: "Total cores shared by concurrently running slices (machine has 32)." }),
@@ -106,6 +115,9 @@ export default workflow({
       ({ signal }) => preflight(inputs, cwd, signal), { timeoutMs: 5 * 60_000 });
     const source = await ctx.tool("source", { runKey: setup.runKey },
       ({ signal }) => sourceFindings(setup, inputs, signal), { timeoutMs: 3 * HOUR });
+    // Record ingested reports, scan windows and new findings before any iteration can stop early.
+    await ctx.tool("record-sources", { runKey: setup.runKey, reports: source.reports.map((report) => report.key) },
+      async () => recordSourcesStep(setup, inputs, source), { timeoutMs: 5 * 60_000 });
 
     const planned: string[] = [];
     const worktrees: string[] = [];
@@ -127,7 +139,7 @@ export default workflow({
       }
       if (!inputs.dryRun && !setup.toolchain.available) {
         status = "blocked";
-        stopReason = `proof-checking toolchain unavailable (${setup.toolchain.missing.join("; ")}); install it and relaunch`;
+        stopReason = `proof-checking toolchain not found (${setup.toolchain.missing.join("; ")}); set the named input or environment variable, or install it, and relaunch`;
         break;
       }
 
@@ -174,7 +186,7 @@ export default workflow({
       const publication = await ctx.tool(`iter-${i}/publish`, { runKey: setup.runKey, mode: inputs.publish, head: integration.head ?? "" },
         ({ signal }) => publishStep(setup, inputs, plan, gate, integration, integrationVerdict, i, signal), { timeoutMs: 30 * 60_000 });
       const persisted = await ctx.tool(`iter-${i}/persist`, { runKey: setup.runKey },
-        async () => persistStep(setup, inputs, source, plan, gate, integration, publication, i), { timeoutMs: 5 * 60_000 });
+        async () => persistStep(setup, inputs, plan, gate, integration, publication, i), { timeoutMs: 5 * 60_000 });
 
       attemptedSlices += plan.slices.length;
       verifiedSlices += gate.verified;

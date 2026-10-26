@@ -28,61 +28,122 @@ export interface UnsoundnessScan {
   readonly warnings: ScanFinding[];
 }
 
-const UNSOUND_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\badmit\b/, "admit"],
-  [/\btadmit\b/, "tadmit"],
-  [/\badmit_smt_queries\b/, "admit_smt_queries"],
-  [/\bassume\s+val\b/, "assume val"],
-  [/\bassume\s*\(/, "assume ("],
-  [/--lax\b/, "lax"],
+/**
+ * F* escape hatches: `admit`/`tadmit` and their variants (admit_all, admitP, admit_dump, tadmit_t,
+ * admit_smt_queries, …, also qualified), `magic`, `unsafe_coerce`, and every `assume` (val, type,
+ * new type, or an expression). Identifiers that merely contain the words (`admitted`, `assumed`) pass.
+ */
+const FSTAR_ESCAPES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bt?admit(?:[A-Z_][A-Za-z0-9_']*)?(?![A-Za-z0-9_'])/, "admit"],
+  [/\bmagic\b/, "magic"],
+  [/\bunsafe_coerce\b/, "unsafe_coerce"],
+  [/\bassume\b/, "assume"],
 ];
 
-/** Remove string literals and single-line comments so prose about admits is not flagged. */
-function codeOnly(line: string): string {
-  return line
-    .replace(/"(?:[^"\\]|\\.)*"/g, (literal) => (/--(?:admit_smt_queries|lax)\b/.test(literal) ? literal : '""'))
-    .replace(/\(\*.*?\*\)/g, " ")
-    .replace(/\/\/.*$/, "");
+/** Unsound or budget-raising F* options, wherever they appear (pragmas, Makefiles, scripts, CI and build configs). */
+const OPTION_ESCAPES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\badmit_smt_queries\b/, "admit_smt_queries"],
+  [/--admit_except\b/, "--admit_except"],
+  [/--lax\b/, "--lax"],
+  [/--z3rlimit_factor\b/, "--z3rlimit_factor"],
+];
+
+const FSTAR_SOURCE = /\.(?:fsti?|fsx)$/;
+const HASH_COMMENTS = /(?:^|\/)(?:Makefile|GNUmakefile|CMakeLists\.txt|Dockerfile)$|\.(?:mk|sh|bash|py|ps1|psm1|ya?ml|toml|cmake|cfg|ini|txt)$/;
+const ML_COMMENTS = /\.mli?$/;
+
+/** Strip F* comments (nested `(* *)` across lines, `//`) and string literals that carry no option. */
+function fstarCode(line: string, depthIn: number): { code: string; depth: number } {
+  let depth = depthIn;
+  let code = "";
+  for (let index = 0; index < line.length; index += 1) {
+    const pair = line.slice(index, index + 2);
+    if (pair === "(*") {
+      depth += 1;
+      index += 1;
+    } else if (depth > 0 && pair === "*)") {
+      depth -= 1;
+      index += 1;
+    } else if (depth > 0) {
+      continue;
+    } else if (pair === "//") {
+      break;
+    } else if (line[index] === '"') {
+      const literal = /^"(?:[^"\\]|\\.)*"?/.exec(line.slice(index))?.[0] ?? '"';
+      code += OPTION_ESCAPES.some(([pattern]) => pattern.test(literal)) || /--z3rlimit\b/.test(literal) ? literal : '""';
+      index += literal.length - 1;
+    } else {
+      code += line[index];
+    }
+  }
+  return { code, depth };
 }
 
-const RLIMIT = /#(set|push)-options\s+"[^"]*--z3rlimit\s+(\d+)/;
+function otherCode(file: string, line: string): string {
+  if (HASH_COMMENTS.test(file)) return line.replace(/(^|\s)#.*$/, "$1");
+  if (ML_COMMENTS.test(file)) return line.replace(/\(\*.*?\*\)/g, " ");
+  return line;
+}
 
-/** Scan the added lines of a unified diff. */
+const PRAGMA = /#(set|reset|push)-options\s+"([^"]*)"/;
+const RLIMIT = /--z3rlimit\s+(\d+)/;
+
+/**
+ * Scan the added lines of a unified diff for unsound escapes. Every changed text file is scanned:
+ * F* sources for escape hatches and options, other files (Makefiles, scripts, CI and build
+ * configs) for unsound options and raised rlimits in build flags. Comments and removed lines are
+ * ignored. A module-wide `--z3rlimit` (`#set-options`/`#reset-options`, or a build flag) above the
+ * value it replaces (F*'s default 5) is a violation; a local `#push-options` raise is a warning.
+ */
 export function scanDiffForUnsoundness(diff: string): UnsoundnessScan {
   const violations: ScanFinding[] = [];
   const warnings: ScanFinding[] = [];
   const removedGlobal = new Map<string, number>();
   const addedGlobal: Array<{ file: string; line: string; value: number }> = [];
   let file = "";
+  let depth = 0;
   for (const raw of diff.split(/\r?\n/)) {
-    const header = /^\+\+\+ b\/(.+)$/.exec(raw);
-    if (header?.[1]) {
-      file = header[1];
+    const header = /^\+\+\+ (?:b\/(.+)|\/dev\/null)$/.exec(raw);
+    if (header) {
+      file = header[1] ?? "";
+      depth = 0;
       continue;
     }
-    if (raw.startsWith("---") || raw.startsWith("+++")) continue;
+    if (raw.startsWith("diff --git ") || raw.startsWith("--- ")) continue;
+    if (raw.startsWith("@@")) {
+      depth = 0;
+      continue;
+    }
     const added = raw.startsWith("+");
     const removed = raw.startsWith("-");
-    if (!added && !removed) continue;
+    if (!file || (!added && !removed && !raw.startsWith(" "))) continue;
     const text = raw.slice(1);
-    const rlimit = RLIMIT.exec(text);
-    if (rlimit?.[1] && rlimit[2]) {
-      const value = Number(rlimit[2]);
-      if (rlimit[1] === "set") {
-        if (removed) removedGlobal.set(file, Math.max(removedGlobal.get(file) ?? 0, value));
-        else addedGlobal.push({ file, line: text, value });
-      } else if (added && value > 5) {
-        warnings.push({ file, line: text.trim(), pattern: "local z3rlimit increase" });
+    const fstar = FSTAR_SOURCE.test(file);
+    let code: string;
+    if (fstar) {
+      // Comment depth follows the new file (context and added lines).
+      const stripped = fstarCode(text, removed ? 0 : depth);
+      if (!removed) depth = stripped.depth;
+      code = stripped.code;
+    } else {
+      code = otherCode(file, text);
+    }
+    if (!added && !removed) continue;
+    const pragma = PRAGMA.exec(code);
+    const rlimit = RLIMIT.exec(pragma?.[2] ?? (fstar ? "" : code));
+    if (rlimit?.[1]) {
+      const value = Number(rlimit[1]);
+      if (pragma?.[1] === "push") {
+        if (added && value > 5) warnings.push({ file, line: text.trim(), pattern: "local z3rlimit increase" });
+      } else if (removed) {
+        removedGlobal.set(file, Math.max(removedGlobal.get(file) ?? 0, value));
+      } else {
+        addedGlobal.push({ file, line: text, value });
       }
     }
-    if (!added || !/\.(?:fsti?|ps1|py|json|ml)$/.test(file)) continue;
-    const code = codeOnly(text);
-    for (const [pattern, label] of UNSOUND_PATTERNS) {
-      if (pattern.test(code)) {
-        violations.push({ file, line: text.trim(), pattern: label });
-        break;
-      }
-    }
+    if (!added) continue;
+    const match = [...(fstar ? FSTAR_ESCAPES : []), ...OPTION_ESCAPES].find(([pattern]) => pattern.test(code));
+    if (match) violations.push({ file, line: text.trim(), pattern: match[0].exec(code)?.[0] ?? match[1] });
   }
   for (const item of addedGlobal) {
     // F*'s default rlimit is 5; a module-wide value above the one it replaces raises the global budget.

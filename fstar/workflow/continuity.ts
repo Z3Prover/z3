@@ -21,13 +21,15 @@
  *          --branch <name> (Pulse runs to consider; default master, "" for all),
  *          --runs-file <json> (offline `{regressions, build}` gh listings instead of gh),
  *          --build-log <path> (repeatable; local OCaml/Cherry build logs), --no-remote.
+ * Toolchain discovery overrides (also passed to the launched run): --wsl-distro, --opam-root,
+ *          --opam-switch, --fstar, --cherry-fstar, --pwsh, --ocaml-checker, --cherry-checker.
  */
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawnRunner } from "./lib/command.js";
 import { evaluateContinuity, type BuildEvidence } from "./lib/continuity.js";
 import { parseBuildLog } from "./lib/reports.js";
-import { downloadRunReports, fromGhRuns, listPulseRuns, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
+import { downloadRunReports, fromGhRuns, listPulseRuns, localReportKey, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
 import { acquireLock, readState } from "./lib/state.js";
 import { probeToolchain } from "./lib/toolchain.js";
 
@@ -41,10 +43,18 @@ interface Options {
   runsFile?: string;
   buildLogs: string[];
   remote: boolean;
+  /** Toolchain discovery overrides, passed to the preflight probe and to the launched run. */
+  toolchain: Record<string, string>;
 }
 
+/** Launcher flags for toolchain discovery and the workflow inputs they set. */
+const TOOLCHAIN_FLAGS: Record<string, string> = {
+  "--wsl-distro": "wslDistro", "--opam-root": "opamRoot", "--opam-switch": "opamSwitch", "--fstar": "fstarExe",
+  "--cherry-fstar": "cherryFstarExe", "--pwsh": "pwshExe", "--ocaml-checker": "ocamlChecker", "--cherry-checker": "cherryChecker",
+};
+
 function parseArgs(argv: string[], repoRoot: string): Options {
-  const options: Options = { mode: "check", dryRun: false, stateDir: ".atomic/fstar-proof-checking", repo: "Z3Prover/z3", branch: "master", buildLogs: [], remote: true };
+  const options: Options = { mode: "check", dryRun: false, stateDir: ".atomic/fstar-proof-checking", repo: "Z3Prover/z3", branch: "master", buildLogs: [], remote: true, toolchain: {} };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const value = () => {
@@ -66,6 +76,7 @@ function parseArgs(argv: string[], repoRoot: string): Options {
     else if (arg === "--branch") options.branch = value();
     else if (arg === "--runs-file") options.runsFile = value();
     else if (arg === "--build-log") options.buildLogs.push(value());
+    else if (arg !== undefined && arg in TOOLCHAIN_FLAGS) options.toolchain[TOOLCHAIN_FLAGS[arg] as string] = value();
     else throw new Error(`Unknown argument ${arg}`);
   }
   if (!isAbsolute(options.stateDir)) options.stateDir = resolve(repoRoot, options.stateDir);
@@ -94,11 +105,8 @@ async function buildEvidence(runs: readonly PulseRun[], options: Options, proces
   }
   for (const path of options.buildLogs) {
     const absolute = resolve(path);
-    evidence.push({
-      key: `local-build:${absolute}@${Math.trunc(statSync(absolute).mtimeMs)}`,
-      proofTimeouts: parseBuildLog(readFileSync(absolute, "utf8")).timeouts.length,
-      reportPath: dirname(absolute),
-    });
+    // Same key the workflow records when it ingests this log through `reportPaths`.
+    evidence.push({ key: localReportKey(absolute), proofTimeouts: parseBuildLog(readFileSync(absolute, "utf8")).timeouts.length, reportPath: absolute });
   }
   return evidence;
 }
@@ -116,7 +124,7 @@ async function main(): Promise<number> {
     return 0;
   }
   if (!options.dryRun) {
-    const toolchain = await probeToolchain(spawnRunner, {});
+    const toolchain = await probeToolchain(spawnRunner, { ...options.toolchain });
     if (!toolchain.available) {
       console.log(JSON.stringify({ ...report, launched: false, blocked: `proof-checking toolchain unavailable: ${toolchain.missing.join("; ")}` }, null, 2));
       return 2;
@@ -140,6 +148,7 @@ async function main(): Promise<number> {
       stateDir: options.stateDir,
       repo: options.repo,
       pulseBranch: options.branch,
+      ...options.toolchain,
       ...(options.publish ? { publish: options.publish } : {}),
       ...(options.dryRun ? { dryRun: true, publish: "dry-run" as const } : {}),
     };

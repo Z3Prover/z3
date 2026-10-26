@@ -43,6 +43,30 @@ describe("soundness scan", () => {
     expect(result.violations).toEqual([]);
   });
 
+  test.each([
+    ["magic", "fstar/Z3Foo.fst", "let f () : Lemma False = magic ()"],
+    ["tadmit_t", "fstar/Z3Foo.fst", "let t () : Lemma False = assert False by (tadmit_t ())"],
+    ["admit_all", "fstar/Z3Foo.fst", "let t () = assert False by (FStar.Tactics.V2.admit_all ())"],
+    ["assume type", "fstar/Z3Foo.fsti", "assume type t"],
+    ["assume without parentheses", "fstar/Z3Foo.fst", "let f (x:int) : int = assume x > 0; x"],
+    ["#reset-options rlimit raise", "fstar/Z3Foo.fst", "#reset-options \"--z3rlimit 400\""],
+    ["--z3rlimit_factor", "fstar/Z3Foo.fst", "#set-options \"--z3rlimit_factor 20\""],
+    ["--admit_except", "fstar/Z3Foo.fst", "#set-options \"--admit_except Z3Foo.lemma\""],
+    ["Makefile admit_smt_queries", "fstar/Makefile", "OTHERFLAGS += --admit_smt_queries true"],
+    ["shell --lax", "fstar/tools/check.sh", "fstar.exe --lax Z3Foo.fst"],
+    ["CI --z3rlimit_factor", ".github/workflows/pulse-checker-build.yml", "          fstar.exe --z3rlimit_factor 8 Z3Foo.fst"],
+    ["PowerShell build flag rlimit raise", "fstar/tools/build_ocaml_checker.ps1", "  & $FstarExe --z3rlimit 100 --cache_checked_modules $f"],
+  ])("rejects an added %s", (_label, file, line) => {
+    expect(scanDiffForUnsoundness(diff(file, " context", `+${line}`)).violations).toHaveLength(1);
+  });
+
+  test("ignores escapes inside multi-line comments and in comments of build files", () => {
+    const fstar = scanDiffForUnsoundness(diff("fstar/Z3Foo.fst", " (* Never write", "+   admit () or assume val here,", "+   nor magic (). *)", "+let x = 1"));
+    expect(fstar.violations).toEqual([]);
+    const make = scanDiffForUnsoundness(diff("fstar/Makefile", "+# --lax and --admit_smt_queries are forbidden", "-OTHERFLAGS += --lax"));
+    expect(make.violations).toEqual([]);
+  });
+
   test("a raised global z3rlimit is a violation; a local push-options increase is a warning", () => {
     const global = scanDiffForUnsoundness(diff("fstar/Z3Foo.fst", "-#set-options \"--z3rlimit 10\"", "+#set-options \"--z3rlimit 40\""));
     expect(global.violations.map((item) => item.pattern)).toEqual(["increased global z3rlimit"]);
