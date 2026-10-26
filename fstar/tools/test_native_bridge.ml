@@ -1866,7 +1866,32 @@ let concrete_datatype_model () =
   reject (replace branch { branch with
       S.constructor = { branch.S.constructor with A.domain = [nested] };
       accessors = List.map (fun accessor -> { accessor with A.range = nested }) branch.S.accessors })
-    "nested recursive array fields were silently treated as opaque scalars"
+    "nested recursive array fields were silently treated as opaque scalars";
+  let native_schema source =
+    let c = context () in
+    let formula = List.hd (parse c source) in
+    let root = match N.view_expression formula with
+      | N.Application (_, value :: _) -> Z3native.get_sort c value
+      | _ -> failwith "expected a native sort fixture" in
+    N.view_datatypes [root] in
+  List.iter (fun sort ->
+      let schema = native_schema
+          ("(declare-datatype T ((C) (D)))(declare-const x " ^ sort ^
+           ")(assert (= x x))") in
+      require (S.valid schema && List.length schema.S.sorts = 1 &&
+               List.length schema.S.cases = 2)
+        ("datatype signature was not collected through " ^ sort))
+    ["(Seq T)"; "(Seq (Seq T))"; "(Array (Seq T) Int)"; "(Seq (Array Int T))"];
+  List.iter (fun field ->
+      let rejected = try
+          ignore (native_schema
+            ("(declare-datatype T ((C) (D)))" ^
+             "(declare-datatype U ((empty) (node (items " ^ field ^ "))))" ^
+             "(declare-const x U)(assert (= x x))"));
+          false
+        with N.Error message -> message = "Nested datatype sequence fields are not supported" in
+      require rejected ("unsupported datatype sequence field was admitted: " ^ field))
+    ["(Seq T)"; "(Seq U)"; "(Array Int (Seq T))"; "(Array (Seq T) Int)"]
 
 let malformed_foreign_certificate () =
   let c = context () in
