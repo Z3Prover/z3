@@ -14,6 +14,7 @@ type operator =
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
+  | Bvzeroextend
   | Opaque
 
 noeq

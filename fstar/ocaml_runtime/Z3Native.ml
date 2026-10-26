@@ -8,7 +8,7 @@ type operator =
   | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
-  | Rational | BvNumeral | Opaque
+  | Rational | BvNumeral | Bvzeroextend | Opaque
 
 type sort_view =
   | Base of string
@@ -104,6 +104,7 @@ let operator = function
   | Z3enums.OP_BSUB -> Bvsub | Z3enums.OP_BNEG -> Bvneg
   | Z3enums.OP_BUDIV -> Bvudiv | Z3enums.OP_BUREM -> Bvurem
   | Z3enums.OP_EXTRACT -> Bvextract | Z3enums.OP_CONCAT -> Bvconcat
+  | Z3enums.OP_ZERO_EXT -> Bvzeroextend
   | Z3enums.OP_MKBV -> Bvmkbv
   | Z3enums.OP_ULT -> Bvult | Z3enums.OP_ULEQ -> Bvule | Z3enums.OP_UGEQ -> Bvuge
   | Z3enums.OP_BSHL -> Bvshl | Z3enums.OP_BLSHR -> Bvlshr
@@ -268,6 +269,14 @@ let view_expression a =
             then fail "Malformed native bit-vector extraction";
             Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0)) ::
             List.init 2 (fun i -> Z.of_int (Z3native.get_decl_int_parameter c d i))
+        | Bvzeroextend ->
+            if Z3native.get_decl_num_parameters c d <> 1 ||
+               Z3native.get_domain_size c d <> 1 ||
+               Z3enums.parameter_kind_of_int (Z3native.get_decl_parameter_kind c d 0) <>
+                 Z3enums.PARAMETER_INT
+            then fail "Malformed native bit-vector zero extension";
+            [Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d 0));
+             Z.of_int (Z3native.get_decl_int_parameter c d 0)]
         | Bvconcat ->
             List.init (Z3native.get_domain_size c d) (fun i ->
               Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d i)))
