@@ -3,7 +3,18 @@ import { readdirSync, readFileSync } from 'fs';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { join, resolve } from 'path';
 import { init, killThreads } from '../jest';
-import { Arith, Bool, Complex, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector, RCFNum } from './types';
+import {
+  Arith,
+  Bool,
+  Complex,
+  Context,
+  Model,
+  Quantifier,
+  Z3AssertionError,
+  Z3HighLevel,
+  AstVector,
+  RCFNum,
+} from './types';
 import { expectType } from 'ts-expect';
 
 // this should not be necessary but there may be a Jest bug
@@ -1387,11 +1398,16 @@ describe('high-level', () => {
   });
 
   describe('Tactic API', () => {
+    // Per-tactic contexts can exhaust the fixed WASM heap before finalizers run.
+    let registrationContext: Context<'registered-tactics'>;
+    beforeAll(() => {
+      registrationContext = api.Context('registered-tactics');
+    });
+
     // Derive expectations from native sources, not the potentially incomplete WASM registry.
     const tacticNames = declaredTacticNames(resolve(__dirname, '..', '..', '..', '..')).sort();
     it.each(tacticNames)('can create a %s tactic', name => {
-      const { Tactic } = api.Context('main');
-      const tactic = new Tactic(name);
+      const tactic = new registrationContext.Tactic(name);
       expect(tactic).toBeDefined();
     });
 
