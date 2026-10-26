@@ -80,6 +80,7 @@ namespace smt {
 
         bool instantiate_default_const_axiom(enode* cnst);
         bool instantiate_default_store_axiom(enode* store);
+        bool instantiate_domain_selects(app* arr);
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
         bool instantiate_default_lambda_def_axiom(enode* arr);

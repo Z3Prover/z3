@@ -22,6 +22,8 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 #include "smt/smt_context.h"
 #include "smt/theory_array_full.h"
 #include "util/scoped_ptr_vector.h"
@@ -767,7 +769,9 @@ namespace smt {
         expr_ref def1(mk_default(map), m);
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
-        return try_assign_eq(def1, def2);
+        rational sz;
+        bool is_new = !has_large_domain(map, sz) && instantiate_domain_selects(map);
+        return try_assign_eq(def1, def2) || is_new;
     }
 
 
@@ -907,6 +911,57 @@ namespace smt {
     }
 
     
+    //
+    // For small finite domains the arbitrary index epsilon may coincide with an index used in a store.
+    // Instantiate select(arr, i) for every element i of the domain when it is small and enumerable.
+    //
+    bool theory_array_full::instantiate_domain_selects(app* arr) {
+        sort* s = arr->get_sort();
+        unsigned dim = get_array_arity(s);
+        bv_util bv(m);
+        datatype_util dt(m);
+        vector<expr_ref_vector> domains;
+        unsigned total = 1;
+        for (unsigned i = 0; i < dim; ++i) {
+            sort* d = get_array_domain(s, i);
+            expr_ref_vector vals(m);
+            if (m.is_bool(d)) {
+                vals.push_back(m.mk_true());
+                vals.push_back(m.mk_false());
+            }
+            else if (bv.is_bv_sort(d) && bv.get_bv_size(d) <= 5) {
+                for (unsigned k = 0; k < (1u << bv.get_bv_size(d)); ++k)
+                    vals.push_back(bv.mk_numeral(rational(k), d));
+            }
+            else if (dt.is_enum_sort(d)) {
+                for (func_decl* c : *dt.get_datatype_constructors(d))
+                    vals.push_back(m.mk_const(c));
+            }
+            else
+                return false;
+            total *= vals.size();
+            if (total > 32)
+                return false;
+            domains.push_back(vals);
+        }
+        bool is_new = false;
+        for (unsigned k = 0; k < total; ++k) {
+            expr_ref_vector args(m);
+            args.push_back(arr);
+            unsigned r = k;
+            for (auto const& vals : domains) {
+                args.push_back(vals[r % vals.size()]);
+                r /= vals.size();
+            }
+            app_ref sel(mk_select(args), m);
+            if (!ctx.e_internalized(sel))
+                is_new = true;
+            ctx.internalize(sel, false);
+            ctx.mark_as_relevant(sel.get());
+        }
+        return is_new;
+    }
+
     bool theory_array_full::instantiate_default_store_axiom(enode* store) {
         SASSERT(is_store(store));
         SASSERT(store->get_num_args() >= 3);
@@ -962,6 +1017,7 @@ namespace smt {
             ctx.internalize(def1, false);
             ctx.internalize(def2, false);
             is_new = try_assign_eq(def1, sel1) || try_assign_eq(def2, sel2);
+            is_new = instantiate_domain_selects(store_app) || is_new;
             sel1 = mk_select(args3);
             sel2 = mk_select(args4);
             is_new = try_assign_eq(sel1, sel2) || is_new;

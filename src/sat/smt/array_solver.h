@@ -197,6 +197,7 @@ namespace array {
 
         bool has_unitary_domain(app* array_term);
         bool has_large_domain(expr* array_term);
+        bool assert_domain_selects(app* arr);
         std::pair<app*, func_decl*> mk_epsilon(sort* s);
         void collect_shared_vars(sbuffer<theory_var>& roots);
         bool add_interface_equalities();

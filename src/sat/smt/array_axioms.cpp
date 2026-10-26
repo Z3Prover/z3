@@ -17,6 +17,8 @@ Author:
 
 #include "ast/ast_trail.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/euf_solver.h"
 
@@ -372,7 +374,8 @@ namespace array {
             args2.push_back(a.mk_default(arg));
         expr_ref def1(a.mk_default(map), m);
         expr_ref def2 = apply_map(map, args2.size(), args2.data());
-        return propagate_axiom(e_internalize(def1), e_internalize(def2));
+        bool prop = !has_large_domain(map) && assert_domain_selects(map);
+        return propagate_axiom(e_internalize(def1), e_internalize(def2)) || prop;
     }
 
     /**
@@ -445,6 +448,7 @@ namespace array {
             sel2 = a.mk_select(args2);
             bool p1 = propagate_axiom(e_internalize(sel1), ndef1);
             bool p2 = propagate_axiom(e_internalize(sel2), ndef2);
+            prop |= assert_domain_selects(store);
             sel3 = a.mk_select(args3);
             sel4 = a.mk_select(args4);
             bool p3 = propagate_axiom(e_internalize(sel3), e_internalize(sel4));
@@ -521,6 +525,57 @@ namespace array {
         expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq), m);
         rewrite(q);
         return add_clause(~eq_internalize(e1, e2), mk_literal(q));
+    }
+
+    /**
+     * For small finite domains, the arbitrary index epsilon used in default axioms
+     * may coincide with an index used in a store. To avoid missing conflicts at
+     * the remaining indices, instantiate select(arr, i) for every element i of the
+     * domain when the domain is small and can be enumerated.
+     */
+    bool solver::assert_domain_selects(app* arr) {
+        sort* s = arr->get_sort();
+        unsigned dim = get_array_arity(s);
+        bv_util bv(m);
+        datatype_util dt(m);
+        vector<expr_ref_vector> domains;
+        unsigned total = 1;
+        for (unsigned i = 0; i < dim; ++i) {
+            sort* d = get_array_domain(s, i);
+            expr_ref_vector vals(m);
+            if (m.is_bool(d)) {
+                vals.push_back(m.mk_true());
+                vals.push_back(m.mk_false());
+            }
+            else if (bv.is_bv_sort(d) && bv.get_bv_size(d) <= 5) {
+                for (unsigned k = 0; k < (1u << bv.get_bv_size(d)); ++k)
+                    vals.push_back(bv.mk_numeral(rational(k), d));
+            }
+            else if (dt.is_enum_sort(d)) {
+                for (func_decl* c : *dt.get_datatype_constructors(d))
+                    vals.push_back(m.mk_const(c));
+            }
+            else
+                return false;
+            total *= vals.size();
+            if (total > 32)
+                return false;
+            domains.push_back(vals);
+        }
+        bool prop = false;
+        for (unsigned k = 0; k < total; ++k) {
+            expr_ref_vector args(m);
+            args.push_back(arr);
+            unsigned r = k;
+            for (auto const& vals : domains) {
+                args.push_back(vals[r % vals.size()]);
+                r /= vals.size();
+            }
+            app_ref sel(a.mk_select(args), m);
+            prop |= !ctx.get_enode(sel);
+            e_internalize(sel);
+        }
+        return prop;
     }
 
     bool solver::has_unitary_domain(app* array_term) {
