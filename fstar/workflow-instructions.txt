@@ -44,6 +44,7 @@ The workflow should re-trigger based on the following conditions:
 
 # Cores
 You have 32 cores
+parallelize work in separate git worktrees. you can, for example, split work based on the smt theory involved in the proof rule. 
 
 # Logics and quantifiers
 Make sure quantifier instantiation and binding steps can be checked.
