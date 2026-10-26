@@ -1,0 +1,22 @@
+{
+  "pull_request": 11352,
+  "head_sha": "98d82c4bedea0c3ca7205466fa583e1eb924396e",
+  "base_sha": "9dbe8c83fcadaba50a607236894f72a63959a5da",
+  "path_prefix": "fstar/audits/pr-11352/98d82c4bedea0c3ca7205466fa583e1eb924396e/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40330080158",
+  "files": [
+    {
+      "name": "DomainSelects.fst",
+      "sha256": "b753f818104bdcec4827285c8ed9f5b32d3466a297b6093e17856440481d0420"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "1ef604fab90564443a037a372540f4edc86ff7403e8af13fbb3c41c55b045e2b"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "9e2d37973162859c884f9cfe0bb6da4bfec1352bad7df15fad2cfec031b85a89"
+    }
+  ]
+}

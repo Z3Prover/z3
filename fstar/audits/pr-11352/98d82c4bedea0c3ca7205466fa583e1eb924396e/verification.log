@@ -1,0 +1,7 @@
+F* 2026.09.27; Z3 4.13.3 (pinned)
+command: timeout 120 fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out --include fstar DomainSelects.fst
+exit 0
+stdout:
+Verified module: DomainSelects
+All verification conditions discharged successfully
+stderr: (empty)
