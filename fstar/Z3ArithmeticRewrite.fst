@@ -162,6 +162,25 @@ let expanded_product (e:expr) : option expr =
     else None
   | _ -> None
 
+let distributed_product (left:bool) (e:expr) : option expr =
+  match e with
+  | App mul [x; y] ->
+    let s = mul.range in
+    let factor, sum = if left then y, x else x, y in
+    (match sum with
+     | App add [a; b] ->
+       if A.operation_of mul [x; y] = Some A.Mul &&
+          A.operation_of add [a; b] = Some A.Add then
+         let first, second =
+           if left then binary_product s a factor, binary_product s b factor
+           else binary_product s factor a, binary_product s factor b in
+         Some (App { decl_name = "+"; domain = [s; s]; range = s;
+                     interp = Some (if s = A.int_s then op_plus else op_arith_add);
+                     int_params = [] } [first; second])
+       else None
+     | _ -> None)
+  | _ -> None
+
 let commuted_product (e:expr) : option expr =
   match e with
   | App f [x; y] ->
@@ -247,6 +266,8 @@ let equivalent (a b:expr) : bool =
   equation_equivalent a b || constant_equation a b || constant_equation b a ||
   split_equation a b || split_equation b a ||
   expanded_product a = Some b || expanded_product b = Some a ||
+  distributed_product false a = Some b || distributed_product false b = Some a ||
+  distributed_product true a = Some b || distributed_product true b = Some a ||
   commuted_product a = Some b || product_equivalent a b
 
 let lemma_zero_polynomial (p:A.poly) (rho:expr -> real)
@@ -877,6 +898,69 @@ let lemma_expanded_product (a b:expr) (i:interpretation value)
   | _ -> ()
 #pop-options
 
+#push-options "--fuel 0 --ifuel 0 --z3rlimit 10 --using_facts_from 'Prims FStar.Real'"
+let lemma_distribute_two (x y z:real)
+  : Lemma (x *. (y +. z) == x *. y +. x *. z /\
+           (y +. z) *. x == y *. x +. z *. x) =
+  assert (x *. (y +. z) == x *. y +. x *. z);
+  assert ((y +. z) *. x == y *. x +. z *. x)
+#pop-options
+
+#push-options "--fuel 4 --ifuel 1 --z3rlimit 20"
+let lemma_distributed_product (left:bool) (a b:expr) (i:interpretation value)
+                              (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_model i nu /\ distributed_product left a == Some b)
+          (ensures eval i a rho == eval i b rho) =
+  match a with
+  | App mul [x; y] ->
+    let s = mul.range in
+    let factor, sum = if left then y, x else x, y in
+    (match sum with
+     | App add [z; w] ->
+       E.lemma_add_application add [z; w] i nu rho;
+       E.lemma_mul_application mul [x; y] i nu rho;
+       assert_norm (E.numeric_sum (L.map nu (eval_args i [z; w] rho)) ==
+                    nu (eval i z rho) +. nu (eval i w rho));
+       assert_norm (E.numeric_product (L.map nu (eval_args i [x; y] rho)) ==
+                    nu (eval i x rho) *. nu (eval i y rho));
+       let first, second =
+         if left then (
+           lemma_binary_product s z factor i nu rho;
+           lemma_binary_product s w factor i nu rho;
+           binary_product s z factor, binary_product s w factor)
+         else (
+           lemma_binary_product s factor z i nu rho;
+           lemma_binary_product s factor w i nu rho;
+           binary_product s factor z, binary_product s factor w) in
+       (match b with
+        | App result terms ->
+          assert (terms == [first; second]);
+          E.lemma_add_application result terms i nu rho;
+          assert_norm (E.numeric_sum (L.map nu (eval_args i [first; second] rho)) ==
+                       nu (eval i first rho) +. nu (eval i second rho));
+          lemma_distribute_two (nu (eval i factor rho))
+                               (nu (eval i z rho)) (nu (eval i w rho));
+          if left then (
+            assert (x == sum /\ y == factor);
+            assert (nu (eval i a rho) ==
+                    (nu (eval i z rho) +. nu (eval i w rho)) *. nu (eval i factor rho));
+            assert (nu (eval i b rho) ==
+                    nu (eval i z rho) *. nu (eval i factor rho) +.
+                    nu (eval i w rho) *. nu (eval i factor rho)))
+          else (
+            assert (x == factor /\ y == sum);
+            assert (nu (eval i a rho) ==
+                    nu (eval i factor rho) *. (nu (eval i z rho) +. nu (eval i w rho)));
+            assert (nu (eval i b rho) ==
+                    nu (eval i factor rho) *. nu (eval i z rho) +.
+                    nu (eval i factor rho) *. nu (eval i w rho)));
+          assert (nu (eval i a rho) == nu (eval i b rho));
+          lemma_numeric_values_equal a b i nu rho
+        | _ -> ())
+     | _ -> ())
+  | _ -> ()
+#pop-options
+
 let lemma_equivalent_with_numeric_model (a b:expr) (i:interpretation value) (rho:env value)
   : Lemma (requires (exists (nu:value -> real). E.numeric_model i nu) /\
                     Z3ObservationalEquality.boolean_model i /\
@@ -898,7 +982,11 @@ let lemma_equivalent_with_numeric_model (a b:expr) (i:interpretation value) (rho
     else if commuted_product a = Some b then lemma_commuted_product a b i nu rho
     else if product_equivalent a b then lemma_product_equivalent a b i nu rho
     else if expanded_product a = Some b then lemma_expanded_product a b i nu rho
-    else lemma_expanded_product b a i nu rho
+    else if expanded_product b = Some a then lemma_expanded_product b a i nu rho
+    else if distributed_product false a = Some b then lemma_distributed_product false a b i nu rho
+    else if distributed_product false b = Some a then lemma_distributed_product false b a i nu rho
+    else if distributed_product true a = Some b then lemma_distributed_product true a b i nu rho
+    else lemma_distributed_product true b a i nu rho
   in
   FStar.Classical.exists_elim (eval i a rho == eval i b rho)
     #(value -> real) #(fun nu -> E.numeric_model i nu) () (fun nu -> aux nu)

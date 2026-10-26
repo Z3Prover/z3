@@ -3032,6 +3032,16 @@ let arithmetic_rewrites () =
   in
   let ints = "(declare-const x Int)(declare-const y Int)" in
   let reals = "(declare-const x Real)(declare-const y Real)" in
+  List.iter (fun sort ->
+    let declarations = Printf.sprintf
+      "(declare-const x %s)(declare-const y %s)(declare-const z %s)" sort sort sort in
+    check true declarations "(* x (+ y z))" "(+ (* x y) (* x z))";
+    check true declarations "(+ (* x y) (* x z))" "(* x (+ y z))";
+    check true declarations "(* (+ x y) z)" "(+ (* x z) (* y z))";
+    check true declarations "(+ (* x z) (* y z))" "(* (+ x y) z)";
+    check false declarations "(* x (+ y z))" "(+ (* x y) (* y z))";
+    check false declarations "(* x (- y z))" "(+ (* x y) (* x z))"
+  ) ["Int"; "Real"];
   check true ints "(<= x x)" "true";
   check true ints "(<= 0 x)" "(>= x 0)";
   check true reals "(< x y)" "(not (<= y x))";
