@@ -193,8 +193,11 @@ export type SourceSummary = {
   readonly byTheory: Record<string, number>;
   /** `producedAt`: when the report was produced (Pulse run creation time, local file modification time). */
   readonly reports: Array<{ key: string; directory: string; artifacts: string[]; missing: string[]; producedAt?: string }>;
-  /** Next scan position per corpus and checker; batch corpora also rotate within each logic directory (`groupOffsets`). */
-  readonly localScans: Record<string, { offset: number; cases: number; mode: string; groupOffsets?: Record<string, number> }>;
+  /**
+   * Next scan position per corpus and checker; batch corpora also rotate within each logic directory (`groupOffsets`).
+   * `checkerBuiltAt`: build time of the prebuilt checker binary that ran the scan (unknown: absent).
+   */
+  readonly localScans: Record<string, { offset: number; cases: number; mode: string; groupOffsets?: Record<string, number>; checkerBuiltAt?: string }>;
   /** Fingerprints re-sourced from state (eligible earlier findings no current source reported). */
   readonly carried: string[];
   readonly diagnostics: string[];
@@ -330,13 +333,16 @@ export async function scanLocalCorpora(
     for (const [kind, checker] of available) {
       const outputDir = join(setup.runDir, "local", `${kind}-${basename(corpus)}`);
       const key = `local-scan:${kind}:${corpus}`;
+      // A scan's evidence dates from its checker binary's build, which can predate merged fixes.
+      const builtAt = kind === "ocaml" ? toolchain.ocamlCheckerBuiltAt : toolchain.cherryCheckerBuiltAt;
+      const dated = builtAt ? { checkerBuiltAt: builtAt } : {};
       if (interactive) {
         const window = selectWindow(files, state.localScans[key]?.offset ?? 0, inputs.localCaseLimit);
         const scan = await scanInteractiveCorpus(runner, {
           checkerArgv: [...toolchain.environment.execArgv, checker as string], corpus, files: window.selected, outputDir,
           caseTimeoutMs: 60_000, solverTimeoutMs: 10_000, concurrency: Math.max(1, Math.min(inputs.coreBudget, 32)), signal,
         });
-        scans[key] = { offset: window.nextOffset, cases: scan.cases, mode: "interactive" };
+        scans[key] = { offset: window.nextOffset, cases: scan.cases, mode: "interactive", ...dated };
       } else if (toolchain.python) {
         const window = selectStratifiedWindow(groups, state.localScans[key], inputs.localCaseLimit);
         if (window.selected.length === 0) {
@@ -349,7 +355,7 @@ export async function scanLocalCorpora(
           pythonArgv: [...toolchain.environment.execArgv, toolchain.python], toEnvironment, repoRoot: setup.repoRoot, checker: checker as string, corpus: staged,
           maxCases: window.selected.length, outputDir, totalTimeoutSeconds: 1800, signal,
         });
-        scans[key] = { offset: window.nextOffset, groupOffsets: window.groupOffsets, cases: window.selected.length, mode: "batch" };
+        scans[key] = { offset: window.nextOffset, groupOffsets: window.groupOffsets, cases: window.selected.length, mode: "batch", ...dated };
       } else {
         diagnostics.push(`Local corpus ${corpus} skipped for ${kind}: Python 3 is required for the batch harness.`);
         continue;
@@ -367,8 +373,9 @@ export type RecordedSources = { readonly committed: boolean; readonly processedR
 /**
  * Record what this run ingested before any iteration can stop early: every sourced report is
  * processed, local scan windows advance, and new findings enter state as `open` so later runs
- * re-source them. A finding's evidence time is its newest report's production time (local scans
- * ran in this run), which decides whether evidence follows a merge. Dry runs record nothing.
+ * re-source them. A finding's evidence time is its newest report's production time (for a local
+ * scan, the build time of the checker binary that ran it), which decides whether evidence follows
+ * a merge. Dry runs record nothing.
  */
 export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs, source: SourceSummary): Promise<RecordedSources> {
   const processedReports = source.reports.map((report) => report.key);
@@ -378,8 +385,17 @@ export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs,
   await withStateLock(setup.stateDir, (state) => {
     const now = new Date();
     const producedTimes = new Map<string, string>(source.reports.flatMap((report) => (report.producedAt ? [[report.key, report.producedAt] as const] : [])));
-    for (const key of Object.keys(source.localScans)) producedTimes.set(key, now.toISOString());
-    const producedAt = (finding: Finding) => finding.sources.map((key) => producedTimes.get(key)).filter((time): time is string => time !== undefined).sort().pop();
+    // Local scans run a prebuilt checker: their evidence is as recent as that binary, not the scan.
+    const undatedScans = new Set<string>();
+    for (const [key, scan] of Object.entries(source.localScans)) {
+      if (scan.checkerBuiltAt) producedTimes.set(key, scan.checkerBuiltAt);
+      else undatedScans.add(key);
+    }
+    // The newest known time; `null` when the only evidence is a scan by a checker of unknown build time.
+    const producedAt = (finding: Finding) => {
+      const newest = finding.sources.map((key) => producedTimes.get(key)).filter((time): time is string => time !== undefined).sort().pop();
+      return newest ?? (finding.sources.length > 0 && finding.sources.every((key) => undatedScans.has(key)) ? null : undefined);
+    };
     const reportsSeen = { ...state.processedReports };
     for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
     const localScans = { ...state.localScans };

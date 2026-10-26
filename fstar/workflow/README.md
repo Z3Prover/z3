@@ -160,9 +160,11 @@ preflight → reconcile-publications → source → record-sources
    processed, advances the scan windows, and records new findings as `open`, with a snapshot so
    later runs can re-source them. A run that finds nothing actionable, or that is blocked because
    the toolchain is missing, does not see the same reports as new again. Each finding's evidence
-   time is when its newest report was produced (the Pulse run's creation time, a local report's
-   modification time, or now for local scans). A `merged` finding whose evidence changed in a
-   report produced after the merge is reopened here; see the status machine below.
+   time is when its newest report was produced: the Pulse run's creation time, a local report's
+   modification time, or, for a local corpus scan, the build (modification) time of the prebuilt
+   checker binary that ran it, because that binary may predate merged fixes. A `merged` finding
+   whose evidence changed in a report produced after the merge is reopened here; see the status
+   machine below.
 2. **Normalize.** Findings are partial-rule families from `diagnostics.jsonl`, checker
    crashes, rejected proofs, whole-case checker timeouts, and F* build proof timeouts
    (`Error … The SMT query timed out`). Declarations whose
@@ -310,6 +312,9 @@ Reopen edges, all back to `open` with attempts reset and the reason recorded:
   produced after `mergedAt` with a different evidence digest (rule, detail or examples). If the
   report's production time is unknown, the changed evidence alone reopens it. A report produced
   before the merge, or with unchanged evidence, keeps it `merged`, with `keptReason` saying why.
+  Local scans count from their checker binary's build time (OCaml and Cherry each from their own
+  binary, in interactive and batch mode): a scan by a checker built before the merge keeps the
+  finding `merged`, and a scan by a checker whose build time is unknown never reopens it.
 * **Orphaned integration** (`reconcile-publications`, also counted by the continuity check): an
   `integrated` finding that no `pendingPublications` entry carries.
 
@@ -359,7 +364,11 @@ It evaluates the three conditions from the instructions:
    records it under the same key, `local-build:<path>@<mtime>`. A processed log therefore does
    not retrigger again until it is rewritten.
 
-`--launch` checks the toolchain and holds `launcher.lock`, so overlapping schedules skip. It then
+`--launch` checks the toolchain, creates the state directory if it does not exist yet (`.atomic/`
+is ignored, so a fresh clone has none), and holds `<state-dir>/launcher.lock`. A lock held by
+another live launcher is an overlapping schedule: the launch is `skipped` with exit code 0. Any
+other locking failure (for example, an unusable `--state-dir`) is reported as `failed` with exit
+code 1, so a scheduler sees it. It then
 runs the workflow with Atomic's programmatic `run(definition, inputs)` API, passing the new run
 IDs as `pulseRunIds` and `--publish` (if given) as `publish`. The flags `--wsl-distro`,
 `--opam-root`, `--opam-switch`, `--fstar`, `--cherry-fstar`, `--pwsh`, `--ocaml-checker` and
@@ -442,7 +451,12 @@ The tests cover:
   while the PR is open, newer reports keep it resolved; an integrated finding whose pending entry
   was removed is reopened; with an OPEN and a MERGED PR on the active branch, integration builds
   on that branch and the push fast-forwards, and a push the remote refuses as non-fast-forward
-  ends blocked with the work pending and nothing forced;
+  ends blocked with the work pending and nothing forced; a local scan by a checker built before
+  the merge keeps a merged finding, one by a checker built after it reopens it, and one by a
+  checker of unknown build time never does; each backend's scans carry its own binary's build
+  time in interactive and batch mode;
+* the launcher lock: a fresh state directory is created and launched into, a live launcher's
+  lock skips with exit 0, and any other lock failure is reported as failed with a nonzero exit;
 * the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
   byte-identical), full-iteration topology with scripted durable steps, a live run that
   continues past triage only to publish pending work, and runs that stop in iteration 1

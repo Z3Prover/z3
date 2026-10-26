@@ -4,8 +4,10 @@
  * that times out because of proof timeouts. A bounded workflow run never retriggers itself;
  * the launcher (or a scheduler that invokes it) evaluates these conditions between runs.
  */
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { reportingRuns, reportKey, type PulseRun } from "./sources.js";
-import { countUnprocessed, type WorkflowState } from "./state.js";
+import { acquireLock, countUnprocessed, LockBusyError, type WorkflowState } from "./state.js";
 
 export interface BuildEvidence {
   /** `pulse-build:<id>-<attempt>`, or `localReportKey(log)` (`local-build:<path>@<mtimeMs>`) for a local log. */
@@ -61,4 +63,31 @@ export function evaluateContinuity(input: {
     pulseRunIds: [...newRegressions, ...timedOutBuilds].map((run) => String(run.id)),
     reportPaths: localTimeouts.flatMap((item) => (item.reportPath ? [item.reportPath] : [])),
   };
+}
+
+export type LaunchOutcome<T> =
+  | { readonly kind: "launched"; readonly value: T }
+  /** Another launcher holds the lock: an overlapping schedule, not a failure. */
+  | { readonly kind: "skipped"; readonly reason: string }
+  /** The launcher could not take its lock at all (for example, an unusable state directory). */
+  | { readonly kind: "failed"; readonly reason: string };
+
+/**
+ * Run `launch` while holding `<stateDir>/launcher.lock`, creating the state directory first (it
+ * lives under the ignored `.atomic/`, so a fresh clone has none). Only a lock held by a live
+ * owner skips the launch; any other locking error is a failure. Errors from `launch` propagate.
+ */
+export async function launchExclusively<T>(stateDir: string, launch: () => Promise<T>): Promise<LaunchOutcome<T>> {
+  let release: () => void;
+  try {
+    mkdirSync(stateDir, { recursive: true });
+    release = await acquireLock(join(stateDir, "launcher.lock"), { owner: `launcher-${process.pid}`, timeoutMs: 0, staleMs: 12 * 3_600_000 });
+  } catch (error) {
+    return { kind: error instanceof LockBusyError ? "skipped" : "failed", reason: (error as Error).message };
+  }
+  try {
+    return { kind: "launched", value: await launch() };
+  } finally {
+    release();
+  }
 }

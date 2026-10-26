@@ -33,6 +33,9 @@ export type ToolchainReport = {
   readonly python?: string;
   readonly ocamlChecker?: string;
   readonly cherryChecker?: string;
+  /** Build (modification) time of the chosen checker executables: the time their scans' evidence dates from. */
+  readonly ocamlCheckerBuiltAt?: string;
+  readonly cherryCheckerBuiltAt?: string;
   /** Every candidate that discovery examined, with its version or modification time. */
   readonly candidates: Readonly<Record<string, readonly string[]>>;
   /** True when F*, the opam switch and PowerShell all ran, so the checker can be built and proofs checked. */
@@ -164,7 +167,11 @@ export async function probeToolchain(runner: CommandRunner, options: ToolchainOp
   const pwsh = of("pwsh").find((item) => /^\d+\.\d+/.test(item.detail));
   const python = of("python").find((item) => item.detail.startsWith("Python 3"));
   // The most recently built checker executable is the best match for the current sources.
-  const newest = (kind: string) => [...of(kind)].sort((left, right) => Number(right.detail) - Number(left.detail))[0]?.path;
+  const newest = (kind: string) => [...of(kind)].sort((left, right) => Number(right.detail) - Number(left.detail))[0];
+  const builtAt = (kind: string) => {
+    const seconds = Number(newest(kind)?.detail);
+    return newest(kind)?.detail && Number.isFinite(seconds) ? new Date(seconds * 1000).toISOString() : undefined;
+  };
   const where = environment.kind === "wsl" ? ` in WSL ${environment.distro}` : "";
   if (!fstar) missing.push(`F* ${PINNED_FSTAR}${where}: set the fstarExe input or FSTAR_EXE`);
   if (!opam) missing.push(`OCaml 5.3 via opam switch ${opamSwitch}${where}: set the opamRoot input or Z3_FSTAR_OPAMROOT`);
@@ -187,8 +194,10 @@ export async function probeToolchain(runner: CommandRunner, options: ToolchainOp
     ocamlVersion: opam?.detail,
     pwsh: pwsh?.path,
     python: python?.path,
-    ocamlChecker: newest("ocaml-checker"),
-    cherryChecker: newest("cherry-checker"),
+    ocamlChecker: newest("ocaml-checker")?.path,
+    cherryChecker: newest("cherry-checker")?.path,
+    ocamlCheckerBuiltAt: builtAt("ocaml-checker"),
+    cherryCheckerBuiltAt: builtAt("cherry-checker"),
     candidates,
     available: fstar !== undefined && opam !== undefined && pwsh !== undefined,
     missing,

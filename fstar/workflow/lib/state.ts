@@ -212,6 +212,11 @@ function readLock(path: string): LockRecord | undefined {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** The lock is held by another (live) owner: contention, as opposed to a failure to lock at all. */
+export class LockBusyError extends Error {
+  override readonly name = "LockBusyError";
+}
+
 /**
  * Acquire an exclusive lock file. Returns a release function. Abandoned locks (older than
  * `staleMs`, or held by a dead process on this host) are reclaimed by renaming them aside and
@@ -249,7 +254,8 @@ export async function acquireLock(path: string, options: LockOptions): Promise<(
       // reading refuses to open with EPERM/EACCES/EBUSY; that is contention, not a failure.
       if (code !== "EEXIST" && !TRANSIENT_WINDOWS_CODES.has(code)) throw error;
       if (code !== "EEXIST") {
-        if (Date.now() >= deadline) throw error;
+        // Still contention only while a lock file exists; otherwise it is a genuine access failure.
+        if (Date.now() >= deadline) throw existsSync(path) ? new LockBusyError(`Lock ${path} is busy (${code})`) : error;
         await sleep(delay);
         continue;
       }
@@ -272,7 +278,7 @@ export async function acquireLock(path: string, options: LockOptions): Promise<(
       continue;
     }
     if (Date.now() >= deadline) {
-      throw new Error(`State is locked by ${holder?.owner ?? "an unknown owner"} (pid ${holder?.pid ?? "?"}) at ${path}`);
+      throw new LockBusyError(`State is locked by ${holder?.owner ?? "an unknown owner"} (pid ${holder?.pid ?? "?"}) at ${path}`);
     }
     await sleep(delay);
   }
@@ -392,9 +398,10 @@ function newRecord(finding: Finding, at: string): FindingRecord {
  * Record every observed finding so continuity can count unprocessed work; existing progress is
  * kept. A merged finding that report evidence produced after its merge still shows with changed
  * evidence is reopened; published findings whose PR has not merged are kept, with the reason.
- * `producedAt` gives when the reporting evidence was produced (unknown: undefined).
+ * `producedAt` gives when the reporting evidence was produced (unknown: undefined; `null` for
+ * evidence that cannot postdate a merge: a local scan by a checker binary of unknown build time).
  */
-export function recordSeen(state: WorkflowState, findings: readonly Finding[], now: Date, producedAt?: (finding: Finding) => string | undefined): WorkflowState {
+export function recordSeen(state: WorkflowState, findings: readonly Finding[], now: Date, producedAt?: (finding: Finding) => string | null | undefined): WorkflowState {
   const at = now.toISOString();
   const records = { ...state.findings };
   for (const finding of findings) {
@@ -406,7 +413,7 @@ export function recordSeen(state: WorkflowState, findings: readonly Finding[], n
   return { ...state, findings: records };
 }
 
-function observePublished(record: FindingRecord, finding: Finding, at: string, producedAt: string | undefined): FindingRecord {
+function observePublished(record: FindingRecord, finding: Finding, at: string, producedAt: string | null | undefined): FindingRecord {
   if (record.status !== "resolved" && record.status !== "merged") return record;
   const link = record.publishedOn;
   const pr = link?.prNumber !== undefined ? `PR #${link.prNumber}` : "its PR";
@@ -415,6 +422,9 @@ function observePublished(record: FindingRecord, finding: Finding, at: string, p
     return { ...record, keptReason: `${pr}${where} is not merged yet: newer report evidence is not acted on until it merges` };
   }
   const digestNow = evidenceDigest(finding);
+  if (producedAt === null) {
+    return { ...record, keptReason: `local scan evidence comes from a prebuilt checker of unknown build time, which may predate the merge of ${pr}` };
+  }
   const produced = producedAt ? `produced at ${producedAt}` : "of unknown production time";
   if (digestNow === record.evidenceDigest) {
     return { ...record, keptReason: `report evidence ${produced} is unchanged from before ${pr} merged` };

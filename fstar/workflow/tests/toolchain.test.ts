@@ -53,6 +53,9 @@ describe("toolchain discovery", () => {
       // The most recently built checker wins over older published ones.
       ocamlChecker: `${R}/ci-fixed-checker/checker`,
       cherryChecker: `${R}/ci-fixed-checker/cherry/checker`,
+      // Each chosen checker's build time (its modification time) dates the evidence its scans produce.
+      ocamlCheckerBuiltAt: new Date(1792834493 * 1000).toISOString(),
+      cherryCheckerBuiltAt: new Date(1792834636 * 1000).toISOString(),
       available: true,
       missing: [],
     });

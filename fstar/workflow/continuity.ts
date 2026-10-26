@@ -9,7 +9,9 @@
  *           OCaml/Cherry checker build that timed out on proofs. GitHub access is read-only.
  * --launch  additionally starts one bounded workflow run through Atomic's programmatic
  *           `run(definition, inputs)` API when a condition holds, holding a launcher lock so
- *           scheduled invocations never overlap. A bounded run does not retrigger itself;
+ *           scheduled invocations never overlap (it creates the state directory if missing).
+ *           A lock held by another live launcher skips the launch (exit 0); any other locking
+ *           failure is reported as `failed` (exit 1). A bounded run does not retrigger itself;
  *           schedule this launcher (see README) to get continuity.
  * --dry-run never launches a live run: with --launch it runs the workflow with
  *           `dryRun: true, publish: "dry-run"` and an in-memory journal.
@@ -27,10 +29,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { spawnRunner } from "./lib/command.js";
-import { evaluateContinuity, type BuildEvidence } from "./lib/continuity.js";
+import { evaluateContinuity, launchExclusively, type BuildEvidence } from "./lib/continuity.js";
 import { parseBuildLog } from "./lib/reports.js";
 import { downloadRunReports, fromGhRuns, listPulseRuns, localReportKey, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
-import { acquireLock, readState } from "./lib/state.js";
+import { readState } from "./lib/state.js";
 import { probeToolchain } from "./lib/toolchain.js";
 
 interface Options {
@@ -130,14 +132,7 @@ async function main(): Promise<number> {
       return 2;
     }
   }
-  let release: () => void;
-  try {
-    release = await acquireLock(join(options.stateDir, "launcher.lock"), { owner: `launcher-${process.pid}`, timeoutMs: 0, staleMs: 12 * 3_600_000 });
-  } catch (error) {
-    console.log(JSON.stringify({ ...report, launched: false, skipped: (error as Error).message }, null, 2));
-    return 0;
-  }
-  try {
+  const outcome = await launchExclusively(options.stateDir, async () => {
     const { registerAtomicHostModules } = await import("./lib/atomic-host.js");
     await registerAtomicHostModules();
     const { default: definition } = await import("./fstar-proof-checking.js");
@@ -157,11 +152,20 @@ async function main(): Promise<number> {
       executionMode: "non_interactive",
       ...(options.dryRun ? { journal: { memory: true } } : {}),
     });
-    console.log(JSON.stringify({ ...report, launched: true, inputs, runId: result.runId, status: result.status, error: result.error, result: result.result }, null, 2));
-    return result.status === "completed" ? 0 : 1;
-  } finally {
-    release();
+    return { inputs, result };
+  });
+  if (outcome.kind === "skipped") {
+    // Another launcher holds the lock (an overlapping schedule): not a failure.
+    console.log(JSON.stringify({ ...report, launched: false, skipped: outcome.reason }, null, 2));
+    return 0;
   }
+  if (outcome.kind === "failed") {
+    console.log(JSON.stringify({ ...report, launched: false, failed: `could not take the launcher lock: ${outcome.reason}` }, null, 2));
+    return 1;
+  }
+  const { inputs, result } = outcome.value;
+  console.log(JSON.stringify({ ...report, launched: true, inputs, runId: result.runId, status: result.status, error: result.error, result: result.result }, null, 2));
+  return result.status === "completed" ? 0 : 1;
 }
 
 main().then((code) => process.exit(code), (error) => {
