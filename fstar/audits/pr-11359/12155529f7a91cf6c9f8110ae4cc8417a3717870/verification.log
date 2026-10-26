@@ -1,0 +1,7 @@
+cd /tmp/gh-aw/agent/fstar-audit; /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out ZeroExtAudit.fst
+exit 0
+stdout:
+Verified module: ZeroExtAudit
+All verification conditions discharged successfully
+stderr:
+::warning file=ZeroExtAudit.fst,line=21,endLine=21::(337) * Warning 337 at ZeroExtAudit.fst(21,35-21,36):%0A  - The operator '@' has been resolved to FStar.List.Tot.append even though%0A    FStar.List.Tot is not in scope. Please add an 'open FStar.List.Tot' to stop%0A    relying on this deprecated, special treatment of '@'.%0A
