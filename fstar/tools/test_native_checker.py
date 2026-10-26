@@ -360,6 +360,19 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.stderr.count("marshal_ms="), 3)
         self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
 
+    def test_interactive_static_tactics_are_registered(self):
+        result = self.run_checker(
+            "(set-logic QF_NRA)(check-sat-using ctx-solver-simplify)"
+            "(push)(assert false)(check-sat-using ctx-solver-simplify)"
+            "(pop)(check-sat-using ctx-solver-simplify)",
+            "--interactive")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertEqual(len(lines), 5, result.stdout)
+        self.assertEqual(lines[:3], ["sat", "unsat", "; proof-check ACCEPT"])
+        self.assertRegex(lines[3], r"^; proof-stats .* pending=0$")
+        self.assertEqual(lines[4], "sat")
+
     def test_clause_proofs_in_batch_and_interactive_modes(self):
         sources = (
             "(declare-const p Bool)(declare-const q Bool)"

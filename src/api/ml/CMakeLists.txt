@@ -153,13 +153,25 @@ execute_process(
 
 set(ocaml_stublibs_path "${ocaml_destdir_path}/stublibs")
 
-set(c_lib_deps "-L${libz3_path}" "-lz3" "-lstdc++")
+set(z3_lib_deps "-lz3" "-lstdc++")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT BUILD_SHARED_LIBS)
+  # Static tactic registrations must survive archive member selection.
+  set(z3_lib_deps "-Wl,--whole-archive,-lz3,--no-whole-archive" "-lstdc++")
+endif()
 if (NOT APPLE)
-  list(APPEND c_lib_deps "-lpthread")
+  list(APPEND z3_lib_deps "-lpthread")
 endif()
 if (Z3_USE_LIB_GMP)
-  list(APPEND c_lib_deps "-lgmp")
+  list(APPEND z3_lib_deps "-lgmp")
 endif()
+set(c_lib_deps "-L${libz3_path}")
+foreach(dep IN LISTS z3_lib_deps)
+  if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT BUILD_SHARED_LIBS)
+    list(APPEND c_lib_deps "-cclib" "${dep}" "-ldopt" "${dep}")
+  else()
+    list(APPEND c_lib_deps "${dep}")
+  endif()
+endforeach()
 
 if( APPLE )
   # set(ocaml_rpath "@executable_path/../libz3${so_ext}")
