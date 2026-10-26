@@ -195,6 +195,51 @@ Second-stage F* coverage:
   whether an already-valid field clause is attempted; exhausting that local
   allowance emits no clause and has no semantic effect.
 
+## Native checker: finite-field rewrite steps
+
+`Z3FiniteFieldLemma.fst` lets the native F* checker decide the `rewrite`
+steps that Z3's `ff_rewriter` records in QF_FF proofs. The native bridge
+(`Z3Native.ml`, `cherry_runtime/native.cpp`) marshals `FiniteField p` sorts
+as `FF<p>` and `ff` numerals, `ff.add`, `ff.mul`, `ff.neg`, and `ff.bitsum`
+as interpreted declarations (`decl_kind` 300-304) whose `int_params` hold the
+modulus (and, for numerals, the canonical residue). Before this change they
+were opaque, so every FF rewrite was reported as an unmet obligation.
+
+Both sides of a rewrite are translated to sparse polynomials over Z/pZ whose
+variables are the maximal non-field subterms (variables, `ite` terms, array
+reads, and so on). A step is accepted when
+
+* the two terms have the same polynomial (constant folding of numerals,
+  `ff.neg y = (p-1)*y`, `x + x = 2*x`, AC reordering and flattening,
+  distribution, neutral and absorbing numerals);
+* an equality `(= s t)` has a nonzero constant difference `s - t` (so it is
+  `false`) or a difference that is `0` (so it is `true`); or
+* two equalities have difference polynomials that are multiples of each other
+  by factors `k`, `w`, checked as polynomial identities modulo `p`
+  (isolating a variable or dividing by a leading coefficient).
+
+The checker uses only the commutative-ring laws, so it never assumes that
+`p` is prime. The factors `k`, `w` come from an untrusted modular-inverse
+search and are re-checked, so over a composite modulus `2*x = 0` is not
+rewritten to `x = 0`. The field equation `x^p = x` is not derived: `x*x = x`
+in `F_2` stays unmet. Numerals outside `[0, p)`, a modulus below 2, operands
+or declarations naming different moduli, and operations with the wrong arity
+are left opaque.
+
+Trust statement. `ff_model i project` is a hypothesis on the interpretation
+`i`, conjoined into `Z3TheoryNormalize.normalization_model` exactly like
+`bv_model`. It says: closed terms of sort `FF<p>` have a residue
+`project p v` in `[0, p)` and equal values have equal residues; a numeral with
+parameters `[p; n]` denotes `n`; and `ff.add`, `ff.mul`, `ff.neg`, `ff.bitsum`
+over `FF<p>` denote the matching operation modulo `p` (`bitsum(a0, ..., an)
+= sum 2^i * ai`). It is satisfied by the standard model in which `FF<p>`
+values are residues. There is no `assume`, axiom, or admit, and the legacy
+unified kernel is the only consumer; the sorted-semantics kernel does not use
+`TN.equivalent`.
+
+Th-lemma obligations that mention finite-field terms are still unmet, so a
+proof that contains one remains PARTIAL.
+
 ## Mechanical verification
 
 The audit files contain no `admit`, `assume`, or declared axiom. They were

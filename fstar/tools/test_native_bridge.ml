@@ -3201,6 +3201,70 @@ let proof_callback_ownership () =
   ignore (Sys.opaque_identity token);
   ignore (Sys.opaque_identity replacement)
 
+(* Finite-field sorts and operators are marshaled as interpreted terms, so rewrite
+   steps taken from the QF_FF certificates are decided by polynomial arithmetic. *)
+let ff_rewrites () =
+  let c = context () in
+  let declarations =
+    "(set-logic QF_FF)(define-sort F17 () (_ FiniteField 17))\
+     (define-sort F5 () (_ FiniteField 5))(define-sort F3 () (_ FiniteField 3))\
+     (define-sort F2 () (_ FiniteField 2))\
+     (declare-const x F17)(declare-const y F17)(declare-const t F3)\
+     (declare-const u F5)(declare-const w F2)" in
+  let check expected left right =
+    let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    let conclusion = Option.get (U.classify_fact (B.cached_expression st (List.hd inputs))) in
+    require (U.check_step U.RewriteRule conclusion [] = expected)
+      ("incorrect finite-field rewrite: " ^ left ^ " -> " ^ right)
+  in
+  (* The sort name and numerals carry the modulus and the canonical residue. *)
+  let inputs = parse c (declarations ^ "(assert (= (as ff-1 F17) (ff.neg (as ff1 F17))))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (numeral, []); A.App (negation, [A.App (one, [])])]) ->
+       require (numeral.A.range = A.BaseSort "FF17" &&
+                numeral.A.int_params = [Z.of_int 17; Z.of_int 16] &&
+                numeral.A.interp = Some Z3FiniteFieldLemma.op_ff_num)
+         "a finite-field numeral lost its modulus or canonical residue";
+       require (one.A.int_params = [Z.of_int 17; Z.one] &&
+                negation.A.int_params = [Z.of_int 17] &&
+                negation.A.interp = Some Z3FiniteFieldLemma.op_ff_neg)
+         "a finite-field operator lost its modulus"
+   | _ -> failwith "expected a native finite-field equality");
+  check true "(ff.bitsum (as ff7 F17) (as ff2 F17))" "(as ff11 F17)";
+  check true "(= (as ff11 F17) (as ff2 F17))" "false";
+  check true "(= (as ff1 F2) (as ff0 F2))" "false";
+  check true "(= (as ff3 F2) (as ff1 F2))" "true";
+  check true "(ff.neg (as ff1 F17))" "(as ff16 F17)";
+  check true "(ff.neg (as ff1 F17))" "(as ff-1 F17)";
+  check true "(ff.add (as ff3 F5) (as ff3 F5))" "(as ff1 F5)";
+  check true "(ff.mul (as ff3 F5) (as ff4 F5))" "(as ff2 F5)";
+  check true "(ff.add x (as ff5 F17))" "(ff.add (as ff5 F17) x)";
+  check true "(ff.neg y)" "(ff.mul (as ff16 F17) y)";
+  check true "(ff.add x x)" "(ff.mul (as ff2 F17) x)";
+  check true "(ff.mul (ff.add x y) (ff.mul x y))" "(ff.mul x y (ff.add x y))";
+  check true "(ff.add (ite (= y x) y (as ff0 F17)) (ff.mul (as ff2 F17) x))"
+    "(ff.add (ff.mul (as ff2 F17) x) (ite (= y x) y (as ff0 F17)))";
+  check true "(ff.mul (ff.mul u u) (ff.mul (as ff4 F5) u))" "(ff.mul (as ff4 F5) u u u)";
+  check true "(= (ff.mul (as ff16 F17) (ff.add (as ff5 F17) y)) (ff.mul (as ff16 F17) y))" "false";
+  check true "(= (ff.add (as ff8 F17) (ff.bitsum x (as ff2 F17))) (ff.add (ff.mul (as ff6 F17) x) y))"
+    "(= y (ff.add (as ff8 F17) (ff.mul (as ff11 F17) x) (ff.bitsum x (as ff2 F17))))";
+  check true "(= (ff.mul (as ff12 F17) y (ff.add (as ff12 F17) y)) (as ff8 F17))"
+    "(= (ff.mul y (ff.add (as ff12 F17) y)) (as ff12 F17))";
+  check true "(= t (ff.mul (as ff2 F3) t))" "(= t (as ff0 F3))";
+  check true "(= (as ff3 F5) (ff.mul (as ff4 F5) u u u))" "(= (ff.mul u u u) (as ff2 F5))";
+  (* Steps that are not ring identities modulo the prime stay unmet. *)
+  check false "(ff.add x (as ff1 F17))" "(ff.add x (as ff2 F17))";
+  check false "(ff.bitsum (as ff7 F17) (as ff2 F17))" "(as ff12 F17)";
+  check false "(= (as ff11 F17) (as ff2 F17))" "true";
+  check false "(= (as ff3 F2) (as ff1 F2))" "false";
+  check false "(ff.mul w w)" "w";
+  check false "(= (ff.mul (as ff2 F3) t) (as ff1 F3))" "(= t (as ff1 F3))";
+  check false "(= x (as ff0 F17))" "true";
+  check false "(= x (as ff0 F17))" "false";
+  check false "(ff.add x y)" "(ff.add x x)"
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -3257,4 +3321,5 @@ let () =
      "erased-refinement-runtime-guards", erased_refinement_guards;
      "native-proof-check-callback", proof_check_callback;
      "proof-callback-exceptions", proof_callback_exceptions;
-     "proof-callback-ownership", proof_callback_ownership]
+     "proof-callback-ownership", proof_callback_ownership;
+     "checked-finite-field-rewrites", ff_rewrites]

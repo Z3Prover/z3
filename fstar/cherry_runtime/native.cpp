@@ -138,6 +138,8 @@ static Z3Native_operator operator_of(Z3_decl_kind kind) {
     OP(SUB, SUB); OP(UMINUS, SUB); OP(DIV, DIV); OP(IDIV, IDIV); OP(MOD, MOD);
     OP(LE, LE); OP(LT, LT); OP(GE, GE); OP(GT, GT); OP(TO_REAL, TOREAL);
     OP(ANUM, RATIONAL); OP(BNUM, BVNUMERAL);
+    OP(FF_NUM, FFNUM); OP(FF_ADD, FFADD); OP(FF_MUL, FFMUL); OP(FF_NEG, FFNEG);
+    OP(FF_BITSUM, FFBITSUM);
 #undef OP
     default: return Z3NATIVE_OPAQUE;
     }
@@ -164,6 +166,14 @@ static std::vector<cherry_int> datatype_parameters(Z3_func_decl decl, Z3Native_o
                 return {sort_id(owner), id(constructor), number(j)};
     }
     throw NativeError("Native datatype accessor has no owning constructor");
+}
+
+// The decimal modulus of a finite-field sort, as reported by the native API.
+static cherry_int field_modulus(Z3_sort sort) {
+    std::string text = checked(Z3_get_finite_field_sort_size(context(), sort));
+    if (text.empty() || text.find_first_not_of("0123456789") != std::string::npos)
+        throw NativeError("Invalid native finite-field modulus: " + text);
+    return cherry_int_of_decimal(text.c_str());
 }
 
 static std::vector<cherry_int> parameters(Z3_func_decl decl, Z3_sort range, Z3Native_operator op) {
@@ -195,6 +205,9 @@ static std::vector<cherry_int> parameters(Z3_func_decl decl, Z3_sort range, Z3Na
     case Z3NATIVE_DATATYPECONSTRUCTOR: case Z3NATIVE_DATATYPERECOGNIZER:
     case Z3NATIVE_DATATYPEACCESSOR:
         return datatype_parameters(decl, op);
+    case Z3NATIVE_FFNUM: case Z3NATIVE_FFADD: case Z3NATIVE_FFMUL: case Z3NATIVE_FFNEG:
+    case Z3NATIVE_FFBITSUM:
+        return {field_modulus(range)};
     default: return {};
     }
 }
@@ -209,6 +222,9 @@ static Z3Native_sort_view view_sort(Z3_sort sort) {
     case Z3_INT_SORT: name = "Int"; break;
     case Z3_REAL_SORT: name = "Real"; break;
     case Z3_BV_SORT: name = "BV" + std::to_string(Z3_get_bv_sort_size(c, sort)); break;
+    case Z3_FINITE_FIELD_SORT:
+        name = "FF" + std::string(checked(Z3_get_finite_field_sort_size(c, sort)));
+        break;
     case Z3_SEQ_SORT:
         name = Z3_get_sort_kind(c, Z3_get_seq_sort_basis(c, sort)) == Z3_INT_SORT ?
             "SeqInt" : unique("sort", Z3_get_sort_id(c, sort), name);
@@ -340,7 +356,7 @@ extern "C" Z3Native_expression_view Z3Native_view_expression(Z3_ast ast) {
         auto op = operator_of(native_kind);
         auto range = keep_sort(Z3_get_range(c, decl));
         FStar_Pervasives_Native_option__tuple2_int_int numeral{};
-        if (op == Z3NATIVE_RATIONAL || op == Z3NATIVE_BVNUMERAL)
+        if (op == Z3NATIVE_RATIONAL || op == Z3NATIVE_BVNUMERAL || op == Z3NATIVE_FFNUM)
             numeral = some<FStar_Pervasives_Native_option__tuple2_int_int>(
                 rational(Z3_get_numeral_string(c, ast)));
         std::string name = op == Z3NATIVE_BVNUMERAL ? "bv" :
