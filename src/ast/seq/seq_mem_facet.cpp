@@ -361,7 +361,8 @@ namespace seq {
             bool bad = false;
             expr* elem = nullptr;
             for (auto t : sm.m_str) {
-                if (!u.str.is_unit(t, elem) || !m_rw.m().is_value(elem)) {
+                // a fresh character keeps its class membership: landing reads it there
+                if (!u.str.is_unit(t, elem) || ac.context().is_fresh(elem)) {
                     bad = true; 
                     break; 
                 }
