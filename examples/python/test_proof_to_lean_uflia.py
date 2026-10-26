@@ -10,6 +10,7 @@ import copy
 import hashlib
 from pathlib import Path
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -188,7 +189,42 @@ UFLIA_INPUTS = {
 (assert (not (= (f x) (f y))))
 (check-sat)
 """,
+    # One assertion conjoining equalities, disjunctions, and Boolean ite
+    # terms at the root (the shape of the SMT-LIB QF_UFLIA Wisa family): Z3
+    # clausifies each root ite without the ite literal, so the gate clauses
+    # it assumes ((not c) or t, with c's conjuncts distributed over e) match
+    # no conjunct and are tied to the assertion by cnf lemmas, whose
+    # literals Z3 also reoriented ((= 1 (cnt 0)) for (= (cnt 0) 1)).
+    "uflia_root_ite_gates": """\
+(set-logic QF_UFLIA)
+(declare-fun fmt (Int) Int)
+(declare-fun cnt (Int) Int)
+(declare-fun percent () Int)
+(declare-fun s () Int)
+(assert (let ((c0 (and (= (fmt 0) percent) (= (fmt 1) s)))
+              (c1 (and (= (fmt 1) percent) (= (fmt 2) s)))
+              (c2 (and (= (fmt 2) percent) (= (fmt 3) s))))
+  (and (= percent 37) (= s 115)
+       (or (= (fmt 0) percent) (= (fmt 0) s))
+       (or (= (fmt 1) percent) (= (fmt 1) s))
+       (or (= (fmt 2) percent) (= (fmt 2) s))
+       (or (= (fmt 3) percent) (= (fmt 3) s))
+       (ite c0 (= (cnt 0) 1) (= (cnt 0) 0))
+       (ite c1 (= (cnt 1) (+ (cnt 0) 1)) (= (cnt 1) (cnt 0)))
+       (ite c2 (= (cnt 2) (+ (cnt 1) 1)) (= (cnt 2) (cnt 1)))
+       (>= (cnt 2) 3))))
+(check-sat)
+""",
 }
+
+
+def _cnf_nodes(graph):
+    return [node for node in range(len(graph.nodes))
+            if graph.decl(node).name == "th-lemma" and graph.decl(node).parameters == ("cnf",)]
+
+
+def _lemma_text(text, node):
+    return text.split("\nprivate theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
 
 
 def random_instance(seed, variables=4, constraints=10, with_sort=False, depth=2, ite=False):
@@ -433,6 +469,54 @@ class TestIntegerMixedValidation(unittest.TestCase):
         with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "invalid def-axiom clause"):
             proof_to_lean.reconstruct(source, tampered)
 
+    def test_cnf_bridges_are_proved_by_propagation_over_opaque_atoms(self):
+        # Each cnf lemma states the clause of the negated assertion and the
+        # assumed gate clause's literals. Its first proof unfolds the
+        # connectives only (every theory atom stays a folded formula_N),
+        # bridges the two orientations of an equality by an Iff the theory
+        # tactic proves, and refutes the negated clause by gate propagation
+        # under Classical.byContradiction, without a case split; the
+        # unfolded grind proof is the second alternative of `first`.
+        source = UFLIA_INPUTS["uflia_root_ite_gates"]
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = _cnf_nodes(graph)
+        self.assertGreaterEqual(len(cnf), 6)
+        text = proof_to_lean.reconstruct(source, certificate)
+        bridged = set()
+        for node in cnf:
+            lemma = _lemma_text(text, node)
+            head, _, attempts = lemma.partition("\n  first\n")
+            unfolded = head.split("\n  unfold ", 1)[1].split()
+            self.assertTrue(unfolded and all(name.startswith("formula_") for name in unfolded), unfolded)
+            self.assertEqual(attempts.count("\n    | ("), 1)
+            structural, fallback = attempts.split("\n    | (")
+            self.assertIn("exact (Classical.byContradiction (fun (_f", structural)
+            self.assertNotIn("Classical.em", structural)
+            self.assertNotIn("Decidable", structural)
+            for first, second in re.findall(
+                    r"have _f\d+ : \(Iff \(formula_(\d+) [^)]*\) \(formula_(\d+) [^)]*\)\) := by unfold [^;]*; "
+                    r"first \| omega \| grind \(splits := 64\)", structural):
+                first, second = int(first), int(second)
+                self.assertNotEqual(first, second)
+                self.assertEqual(proof_to_lean._leaf_key(graph, first), proof_to_lean._leaf_key(graph, second))
+                self.assertEqual([graph.kind(first), graph.kind(second)], [z3.Z3_OP_EQ, z3.Z3_OP_EQ])
+                bridged.add((first, second))
+            self.assertTrue(fallback.startswith("unfold "), fallback)
+            self.assertTrue(fallback.endswith("\n       first | omega | grind (splits := 64))"), fallback)
+            # The fallback unfolds what the head did not, and nothing twice:
+            # no formula of this input is shared between the clause and the
+            # inside of a theory atom (see the QF_UF shared-argument test).
+            rest = fallback.split("\n", 1)[0].split()[1:]
+            self.assertFalse(set(rest) & set(unfolded))
+            self.assertEqual(set(rest) | set(unfolded),
+                             set(proof_to_lean._definition_names(graph, proof_to_lean._reachable(
+                                 graph, graph.conclusion(node))[0])))
+        self.assertTrue(bridged)
+        # The clause-log literal (= 1 (cnt 0)) against the assertion's (= (cnt 0) 1).
+        self.assertTrue(any(graph.kind(graph.arguments(first)[0]) == z3.Z3_OP_ANUM for first, _ in bridged)
+                        or any(graph.kind(graph.arguments(second)[0]) == z3.Z3_OP_ANUM for _, second in bridged))
+
     def test_fragment_consistency(self):
         for fragment, message in [("qf_uf", "qf_uf certificates cannot contain arithmetic"),
                                   ("propositional", "propositional certificates cannot contain arithmetic"),
@@ -628,8 +712,34 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertEqual(_hints(certificate), {"arith", "euf"})
                     self.assertIn(" / ", text)
                     self.assertIn(" % ", text)
+                if name == "uflia_root_ite_gates":
+                    # Every cnf bridge is proved by propagation over the
+                    # opaque atoms (and checked by Lean above).
+                    graph = proof_to_lean._validate_graph(source, certificate)
+                    cnf = _cnf_nodes(graph)
+                    self.assertGreaterEqual(len(cnf), 6)
+                    self.assertEqual(text.count("exact (Classical.byContradiction (fun (_f"), len(cnf))
         # Every hint kind of the slice, plus the exporter's own cnf bridge.
         self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf", "arith"})
+
+    def test_cnf_bridges_fall_through_to_the_unfolded_proof(self):
+        # With the structural term replaced by one Lean rejects (a proof of
+        # False from the hypothesis itself), `first` takes the unfolded
+        # grind alternative, which proves every cnf lemma of the input on
+        # its own: a propagation proof that does not check costs nothing
+        # but time, and the fallback text is exercised.
+        source = UFLIA_INPUTS["uflia_root_ite_gates"]
+        original = proof_to_lean._PropositionalProver.refutation
+
+        def bogus(self, structure, facts=()):
+            term = original(self, structure, facts)
+            return None if term is None else "(fun (_h : %s) => (_h : False))" % proof_to_lean._render_structure(
+                structure)
+
+        with patch.object(proof_to_lean._PropositionalProver, "refutation", bogus):
+            certificate, text = self.check(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        self.assertEqual(text.count("exact (Classical.byContradiction (fun (_h : "), len(_cnf_nodes(graph)))
 
     # Seeds of random_instance whose unsat core has at least three assertions,
     # pinned so the checked inputs stay the same across Z3 versions: plain,
@@ -847,7 +957,19 @@ class TestLegacyIntegerMixedLeanIntegration(unittest.TestCase):
                     self.assertEqual(certificate["rule_counts"]["true-axiom"], 1)
                     self.assertIn(" / ", text)
                     self.assertIn(" % ", text)
-        self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith"})
+                if name == "uflia_root_ite_gates":
+                    # The first live (_ th-lemma smt) steps: theory_lra
+                    # restates a held bound in its own normal form
+                    # ((>= (+ (* -1 (cnt 1)) (* 1 (cnt 0))) -1) from the
+                    # premise (>= (+ (cnt 0) (* -1 (cnt 1))) -1)), one
+                    # premise each, which grind proves as the implication.
+                    graph = proof_to_lean._validate_graph(source, certificate)
+                    smt = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("smt",)]
+                    self.assertTrue(smt)
+                    for node in smt:
+                        self.assertEqual(len(graph.arguments(node)), 2)
+                        self.assertTrue(graph.is_arith(graph.arguments(graph.conclusion(node))[0]))
+        self.assertEqual(hints, {"farkas", "bound", "implied-eq", "triangle-eq", "arith", "smt"})
         # The legacy core's congruences are monotonicity steps, never euf hints.
         self.assertLessEqual({"monotonicity", "true-axiom", "th-lemma", "rewrite"}, rules)
 

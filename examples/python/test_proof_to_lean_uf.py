@@ -241,6 +241,24 @@ UF_NEGATED_ITE_CONDITION = """\
 (check-sat)
 """
 
+# A predicate over a Boolean argument that also occurs outside it, under a
+# root ite whose gate clauses the exporter ties to the assertion by cnf
+# lemmas: the propagation proof keeps (P (and a b)) opaque while the clause
+# around it has (and a b) unfolded, and its fallback unfolds both.
+UF_SHARED_GATE_ARGUMENT = """\
+(set-logic QF_UF)
+(declare-fun P (Bool) Bool)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const q Bool)
+(declare-const r Bool)
+(declare-const s Bool)
+(assert (and (or (and a b) q) (or (not q) (not r)) (ite (P (and a b)) r s) (or (not s) (not (P (and a b))))
+             (not (and a b))))
+(assert (or (not s) r))
+(check-sat)
+"""
+
 # A distinct of one argument is true; Z3 states so by a rewrite. The
 # reconstructor renders it as True without its argument, as a constant
 # and under a function application whose congruence the refutation needs.
@@ -876,7 +894,44 @@ class TestUninterpretedValidation(unittest.TestCase):
             # The lemma is over the implying assertions only, never all of them.
             literals = graph.clause(graph.conclusion(node))
             self.assertLess(len(literals), len(graph.assertions) + 1)
-        proof_to_lean.reconstruct(source, certificate)
+        text = proof_to_lean.reconstruct(source, certificate)
+        # These clauses rest on the value of the ite under the distinct, not
+        # on the Boolean structure over opaque atoms: no propagation proof
+        # is found and the lemmas go to grind alone (see _cnf_lemma).
+        self.assertNotIn("Classical.byContradiction", text)
+        for node in cnf:
+            self.assertTrue(text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+                            .endswith("\n  grind (splits := 64)"))
+
+    def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf_again(self):
+        # The predicate application (P (and a b)) is an opaque leaf of the
+        # propagation proof, and its argument (and a b) also occurs outside
+        # it, so the head unfolds the argument's definition and the fallback,
+        # which unfolds the leaf, must unfold it once more: the inner
+        # occurrence comes out folded with the leaf (see _grind_lemma).
+        source = UF_SHARED_GATE_ARGUMENT
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        cnf = [node for node in _th_lemma_nodes(certificate) if graph.decl(node).parameters == ("cnf",)]
+        self.assertTrue(cnf)
+        (leaf,) = {node for node in range(len(graph.nodes))
+                   if graph.kind(node) == z3.Z3_OP_UNINTERPRETED and graph.arguments(node)}
+        (shared,) = graph.arguments(leaf)
+        self.assertEqual(graph.kind(shared), z3.Z3_OP_AND)
+        text = proof_to_lean.reconstruct(source, certificate)
+        for node in cnf:
+            lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
+            head, _, attempts = lemma.partition("\n  first\n")
+            unfolded = head.split("\n  unfold ", 1)[1].split()
+            structural, fallback = attempts.split("\n    | (")
+            self.assertIn("exact (Classical.byContradiction", structural)
+            rest = fallback.split("\n", 1)[0].split()
+            self.assertEqual(rest[0], "unfold")
+            self.assertIn("formula_%d" % shared, unfolded)
+            self.assertNotIn("formula_%d" % leaf, unfolded)
+            # The leaf and everything under it, the shared argument and its atoms included.
+            self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, proof_to_lean._reachable(graph, leaf)[0]))
+            self.assertEqual(rest[1:3], ["formula_%d" % leaf, "formula_%d" % shared])
 
     def test_distinct_gate_clauses_are_def_axioms_proved_from_the_pairs(self):
         source = UF_INPUTS["uf_distinct_gates"]
@@ -1655,6 +1710,27 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
             with self.subTest(depth=depth):
                 certificate, _ = self.check(source)
                 self.assertIn("def-axiom", certificate["rule_counts"])
+
+    def test_cnf_fallback_over_a_shared_leaf_argument_verifies(self):
+        # Structural first; then with the structural term replaced by one
+        # Lean rejects, so that `first` takes the fallback, whose unfold
+        # list names the predicate's argument again (it comes out folded
+        # with the predicate, see the validation test of the same input).
+        source = UF_SHARED_GATE_ARGUMENT
+        certificate, report = self.check(source)
+        self.assertIn("th-lemma", certificate["rule_counts"])
+        self.assertIn(".unsat' depends on axioms: " + _STANDARD_AXIOMS, report)
+        original = proof_to_lean._PropositionalProver.refutation
+
+        def bogus(prover, structure, facts=()):
+            term = original(prover, structure, facts)
+            return None if term is None else "(fun (_h : %s) => (_h : False))" % proof_to_lean._render_structure(
+                structure)
+
+        with patch.object(proof_to_lean._PropositionalProver, "refutation", bogus):
+            text = proof_to_lean.reconstruct(source, certificate)
+            self.assertIn("exact (Classical.byContradiction (fun (_h : ", text)
+            self.check(source)
 
     def test_one_argument_distinct_verifies(self):
         for name, source in UF_ONE_ARGUMENT_DISTINCT.items():

@@ -696,6 +696,85 @@ class TestIntegerValidation(unittest.TestCase):
                 with self.assertRaisesRegex(proof_to_lean.ReconstructionError, "do not refute"):
                     proof_to_lean.reconstruct(LIA_INPUTS["lia_branching"], tampered)
 
+    def test_leaf_keys_identify_atoms_up_to_orientation_scaling_and_complement(self):
+        # The cnf lemmas' propagation proofs bridge two theory atoms that
+        # denote one constraint, or complementary ones (see _leaf_bridges):
+        # (< x y) and (>= x y) are complements over Int (the strict side
+        # tightened), (<= (* 2 x) (* 2 y)) is (<= x y) scaled, (= y x) is
+        # (= x y) reoriented, and (= (* -2 x) (* -2 y)) the same equality
+        # with a negative leading coefficient.
+        source = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (< x y) (>= x y)))
+(assert (or (<= (* 2 x) (* 2 y)) (<= x y)))
+(assert (or (= y x) (= x y) (= (* -2 x) (* -2 y))))
+(assert false)
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        # The atoms as the input states them (the log adds normalized forms).
+        atoms = {}
+        for assertion in graph.assertions:
+            for node in graph.arguments(assertion):
+                atoms.setdefault(graph.kind(node), []).append(node)
+        (less,), (at_least,) = atoms[z3.Z3_OP_LT], atoms[z3.Z3_OP_GE]
+        less_key, less_complement = proof_to_lean._leaf_key(graph, less)
+        at_least_key, at_least_complement = proof_to_lean._leaf_key(graph, at_least)
+        self.assertEqual(less_key, at_least_complement)
+        self.assertEqual(less_complement, at_least_key)
+        self.assertNotEqual(less_key, at_least_key)
+        self.assertEqual(len(atoms[z3.Z3_OP_LE]), 2)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, node) for node in atoms[z3.Z3_OP_LE]}), 1)
+        equalities = atoms[z3.Z3_OP_EQ]
+        self.assertEqual(len(equalities), 3)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, node) for node in equalities}), 1)
+        self.assertIsNone(proof_to_lean._leaf_key(graph, equalities[0])[1])  # no complement for a disequality
+        leaves = {}
+        for node in [less, at_least] + atoms[z3.Z3_OP_LE] + equalities:
+            proof_to_lean._boolean_structure(graph, node, {}, {}, leaves)
+        bridges = proof_to_lean._leaf_bridges(graph, leaves)
+        rendered = sorted(proof_to_lean._render_structure(bridge) for bridge, _ in bridges)
+        self.assertEqual(len(rendered), 1 + 1 + 2)  # complement, scaling, the equality chain
+        self.assertIn("(Iff (formula_%d _atoms _vars) (Not (formula_%d _atoms _vars)))" % (
+            min(less, at_least), max(less, at_least)), rendered)
+        self.assertEqual(sum("Not" in bridge for bridge in rendered), 1)
+        for _, definitions in bridges:
+            self.assertTrue(all(name.startswith(("formula_", "term_")) for name in definitions))
+
+    def test_complementary_leaf_groups_are_joined_by_one_bridge(self):
+        # Two groups of two complementary leaves each: a chain through each
+        # group and one bridge between the groups' first leaves, which the
+        # chains carry to the other members.
+        source = """\
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (< x y) (> y x) (>= x y) (<= y x)))
+(assert false)
+(check-sat)
+"""
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        graph = proof_to_lean._validate_graph(source, certificate)
+        (clause,) = [assertion for assertion in graph.assertions if graph.kind(assertion) == z3.Z3_OP_OR]
+        leaves = {}
+        proof_to_lean._boolean_structure(graph, clause, {}, {}, leaves)
+        self.assertEqual(len(leaves), 4)
+        self.assertEqual(len({proof_to_lean._leaf_key(graph, leaf)[0] for leaf in leaves}), 2)
+        bridges = [bridge for bridge, _ in proof_to_lean._leaf_bridges(graph, leaves)]
+        self.assertEqual(len(bridges), 1 + 1 + 1)
+        self.assertEqual(sum(bridge[2][0] == "not" for bridge in bridges), 1)
+        groups = {}
+        for leaf in sorted(leaves):
+            groups.setdefault(proof_to_lean._leaf_key(graph, leaf)[0], []).append(leaf)
+        first, second = sorted(groups.values())
+        self.assertEqual(sorted((bridge[1][1], bridge[2][1]) for bridge in bridges if bridge[2][0] != "not"),
+                         [tuple(first), tuple(second)])
+        (joint,) = [bridge for bridge in bridges if bridge[2][0] == "not"]
+        self.assertEqual((joint[1][1], joint[2][1][1]), (first[0], second[0]))
+
     def test_fragment_and_sort_consistency(self):
         source = LIA_INPUTS["lia_gomory"]
         for fragment in ("qf_lra", "qf_uflra"):

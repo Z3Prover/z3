@@ -67,10 +67,10 @@ namespace sat {
     
     void proof_trim::del(literal_vector const& cl, clause* cp) {
         CTRACE(sat, cp, tout << "del " << *cp << "\n");
-        if (cp) 
+        if (cp)
             s.detach_clause(*cp);
-        else 
-            del(cl);
+        else
+            detach(cl, cp);
     }
 
     /**
@@ -372,25 +372,37 @@ namespace sat {
             s.mk_clause(cl, status::redundant());            
     }
 
-    clause* proof_trim::del(literal_vector const& cl) {
-        clause* cp = nullptr;
+    /**
+     * Detach a copy of cl. Returns whether the solver held one: a deletion
+     * of a clause that was never added (the log deletes a theory lemma
+     * under its logged literals while the trimmer assumed the checker's
+     * clause, or the clause was added after the conflict and ignored) must
+     * not be recorded, or the backward pass would revive a clause the
+     * proof never had. Such a revived clause takes part in the probes and
+     * is not registered in m_clauses, so a core that depends on it fails
+     * with "used by the proof was never added".
+     */
+    bool proof_trim::detach(literal_vector const& cl, clause*& cp) {
+        cp = nullptr;
         TRACE(sat, tout << "del: " << cl << "\n");
         if (cl.size() == 2) {
+            if (!find_binary_watch(s.get_wlist(~cl[0]), cl[1]))
+                return false;
             s.detach_bin_clause(cl[0], cl[1], true);
-            return cp;
+            return true;
         }
-        auto* e = m_clauses.find_core(cl);            
+        auto* e = m_clauses.find_core(cl);
         if (!e)
-            return cp;
+            return false;
         auto& [clauses, id, in_core] = e->get_data().m_value;
-        if (!clauses.empty()) {
-            cp = clauses.back();
-            TRACE(sat, tout << "del: " << *cp << "\n");
-            s.detach_clause(*cp);
-            clauses.pop_back();
-        }
-        return cp;
-    }  
+        if (clauses.empty()) // every copy already deleted, or a unit: the assignment stays
+            return false;
+        cp = clauses.back();
+        TRACE(sat, tout << "del: " << *cp << "\n");
+        s.detach_clause(*cp);
+        clauses.pop_back();
+        return true;
+    }
 
     proof_trim::proof_trim(params_ref const& p, reslimit& lim):
         s(p, lim) {
@@ -479,9 +491,15 @@ namespace sat {
     }
     
     void proof_trim::del() {
+        // The proof ends at the conflict; the clauses the solver went on to
+        // add were ignored, and what it deleted afterwards does not change
+        // the state the conflict was derived in.
+        if (!m_conflict.empty())
+            return;
         std::sort(m_clause.begin(), m_clause.end());
-        clause* cp = del(m_clause);
-        m_trail.push_back({ 0, m_clause, cp, false, true });
+        clause* cp = nullptr;
+        if (detach(m_clause, cp))
+            m_trail.push_back({ 0, m_clause, cp, false, true });
     }
     
     void proof_trim::infer(unsigned id) {
