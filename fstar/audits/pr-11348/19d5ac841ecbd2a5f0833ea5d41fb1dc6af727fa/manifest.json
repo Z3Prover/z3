@@ -1,0 +1,22 @@
+{
+  "pull_request": 11348,
+  "head_sha": "19d5ac841ecbd2a5f0833ea5d41fb1dc6af727fa",
+  "base_sha": "9dbe8c83fcadaba50a607236894f72a63959a5da",
+  "path_prefix": "fstar/audits/pr-11348/19d5ac841ecbd2a5f0833ea5d41fb1dc6af727fa/",
+  "verdict": "counterexample",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40318375276",
+  "files": [
+    {
+      "name": "GlobalDeclsGuard.fst",
+      "sha256": "4f4dc31bae4b00f8751005f497d9fad9a90fe5d50534a2b69e0b508197dfb324"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "15f01ec5d71ad4a494de63daf84feadfcb0b19f409396b722dd06586706a361a"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "051c4967ba5be36bbf16b9b1363e878d7b51e26daf72fd3cebb03937005204c4"
+    }
+  ]
+}
