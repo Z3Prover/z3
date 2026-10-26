@@ -1741,9 +1741,14 @@ marshaling/checking or guarantee a process-wide memory/time limit.
 declaration, and proof-node counts to stderr, without proof artifacts.
 `checker --version` reports the linked producer version.
 
-`--diagnostics` adds an optional second checking pass and writes typed
-unmet obligations to stderr, without changing stdout, exit status, or the
-default fast path. Each `obligation` TSV row contains the rule, count, first
+The OCaml checker's `--diagnostics` collects typed unmet obligations in the
+checking traversal and writes them to stderr, without changing stdout,
+exit status, or the default fast path. F* proves that the paired result
+equals the ordinary checker's result in both legacy and sorted modes.
+Result agreement and obligation-count checks remain enabled.
+With diagnostics, `check_ms` includes collection and `diagnose_ms` measures
+formatting, rather than a second checking pass.
+Each `obligation` TSV row contains the rule, count, first
 proof-node index, and a bounded sort-aware expression fingerprint; a
 `diagnostic` row records the pending total or the rejection stage. Fingerprint
 keys preserve operator structure, operand sorts, and small exact rationals,

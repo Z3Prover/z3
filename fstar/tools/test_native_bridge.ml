@@ -693,7 +693,23 @@ let typed_diagnostics () =
    | P.DocumentRejected (P.ProofEntry, Some index, _) ->
        require (Z.equal index Z.zero && P.check_document no_input = None)
          "input-membership diagnostic disagrees with the checker"
-   | _ -> failwith "input membership failure was not diagnosed")
+   | _ -> failwith "input membership failure was not diagnosed");
+  List.iter (fun fixture ->
+      List.iter (fun hash ->
+          let result, diagnostic = P.check_document_diagnosed_indexed hash fixture in
+          require (result = P.check_document_indexed hash fixture &&
+                   diagnostic = P.diagnose_document_indexed hash fixture)
+            "single-pass legacy checking changed a verdict or diagnostic")
+        [(fun _ -> Z.zero); Z3NativeMain.assertion_hash])
+    [doc; partial; malformed; no_input; { doc with root = Z.minus_one }];
+  List.iter (fun (diagnostic, expected) ->
+      let rejected =
+        try Z3NativeMain.report_diagnostics diagnostic expected; false
+        with N.Error _ -> true in
+      require rejected "single-pass diagnostics lost a mismatch guard")
+    [P.DocumentChecked (Z.one, []), Some Z.one;
+     P.DocumentChecked (Z.zero, []), Some Z.one;
+     P.DocumentRejected (P.ProofEntry, None, None), Some Z.zero]
 
 let identity_and_binders () =
   let c = context () in
@@ -2013,6 +2029,17 @@ let sorted_datatype_checker () =
          (match result with None -> " (rejected)" | Some n -> " (pending " ^ Z.to_string n ^ ")"));
       require (K.diagnostic_result (K.diagnose_document schema doc) = result)
         ("sorted diagnostics disagree: " ^ name);
+      List.iter (fun fixture ->
+          let actual, diagnostic = K.check_document_diagnosed schema fixture in
+          require (actual = K.check_document schema fixture &&
+                   diagnostic = K.diagnose_document schema fixture)
+            ("single-pass sorted checking changed a verdict or diagnostic: " ^ name))
+        [doc;
+         { doc with P.assertions = [] };
+         { doc with P.root = Z.minus_one };
+         { doc with P.entries = [
+             { P.rule = U.Unverified "th-lemma"; formula = Z3ResolutionProofTheory.false_expr;
+               premise_ids = [] }]; root = Z.zero }];
       require (K.check_document schema { doc with P.assertions = [] } <> Some Z.zero)
         ("sorted checker ignored original input binding: " ^ name);
       require (K.check_document schema { doc with P.entries = [

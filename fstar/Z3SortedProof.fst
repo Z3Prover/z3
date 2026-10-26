@@ -933,3 +933,11 @@ let lemma_diagnose_document (schema:S.schema) (doc:P.document)
       (match reason with P.DocumentRejected _ _ _ | P.DocumentChecked _ _ -> ())
     | P.EntriesChecked cache _ _ ->
       (match I.index_find cache doc.root with None -> () | Some _ -> ()))
+
+let check_document_diagnosed (schema:S.schema) (doc:P.document)
+  : result:(option nat & P.document_diagnostic){
+     fst result == check_document schema doc /\
+     diagnostic_result (snd result) == fst result} =
+  lemma_diagnose_document schema doc;
+  let diagnostic = diagnose_document schema doc in
+  diagnostic_result diagnostic, diagnostic
