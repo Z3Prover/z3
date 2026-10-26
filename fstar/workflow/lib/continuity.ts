@@ -22,6 +22,8 @@ export interface ContinuityDecision {
   readonly newReports: string[];
   readonly unprocessedPartialRules: number;
   readonly buildTimeoutReports: string[];
+  /** Verified integrations awaiting a live push (reported only; not a retrigger condition). */
+  readonly pendingPublications: number;
   /** Run IDs to pass as the workflow's `pulseRunIds` input. */
   readonly pulseRunIds: string[];
   /** Local report directories to pass as `reportPaths`. */
@@ -55,6 +57,7 @@ export function evaluateContinuity(input: {
     newReports: newRegressions.map(reportKey),
     unprocessedPartialRules,
     buildTimeoutReports,
+    pendingPublications: input.state.pendingPublications.length,
     pulseRunIds: [...newRegressions, ...timedOutBuilds].map((run) => String(run.id)),
     reportPaths: localTimeouts.flatMap((item) => (item.reportPath ? [item.reportPath] : [])),
   };

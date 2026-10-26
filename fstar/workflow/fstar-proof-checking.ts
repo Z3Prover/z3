@@ -5,13 +5,16 @@
  *
  * Graph (one bounded iteration i = 1..maxIterations; every node name is unique per iteration):
  *
- *   preflight → source ─┬─ iter-i/triage ─(nothing actionable → stop)
+ *   preflight → source ─┬─ iter-i/triage ─(nothing actionable or pending → stop)
  *                       │      └─ iter-i/plan (slices, cores ≤ 32, worktrees, claims)
  *                       │            ├─ iter-i/<slice>/repair   (parallel, one worktree each)
  *                       │            ├─ iter-i/<slice>/verify   (parallel, fresh verifier, schema)
  *                       │            └─ iter-i/gate → iter-i/integrate → [iter-i/integration/verify]
  *                       │                             → iter-i/publish → iter-i/persist
  *                       └─ investigate/select → [investigate/<topic> ×3] → finalize
+ *
+ * Verified work that is not pushed live stays `integrated` and pending in state; the first
+ * iteration of a later `publish=live` run merges, re-verifies and pushes it even without new findings.
  *
  * Stop conditions: nothing actionable, iteration limit, two consecutive iterations without a
  * verified slice, or a blocked state (toolchain unavailable, PR closed without merge).
@@ -116,7 +119,9 @@ export default workflow({
     for (let i = 1; i <= inputs.maxIterations; i += 1) {
       const triage = await ctx.tool(`iter-${i}/triage`, { runKey: setup.runKey, exclude: [...planned] },
         async () => triageStep(setup, inputs, source.findingsPath, i, planned), { timeoutMs: 5 * 60_000 });
-      if (triage.actionable === 0) {
+      // A live run publishes earlier verified integrations even when no new finding is actionable.
+      const publishPending = i === 1 && !inputs.dryRun && inputs.publish === "live" && triage.pendingPublications > 0;
+      if (triage.actionable === 0 && !publishPending) {
         stopReason = i === 1 ? "no new or unprocessed findings" : "every actionable finding was handled this run";
         break;
       }
@@ -153,11 +158,12 @@ export default workflow({
       if (integration.worktree) worktrees.push(integration.worktree);
 
       let integrationVerdict: VerifierVerdict | null = null;
-      if (!inputs.dryRun && integration.worktree && integration.branch && integration.merged.length > 0) {
+      const integrated = [...integration.merged, ...integration.pendingMerged.map((runKey) => `pending integration ${runKey}`)];
+      if (!inputs.dryRun && integration.worktree && integration.branch && integrated.length > 0) {
         const [checked] = await Promise.allSettled([ctx.task(`iter-${i}/integration/verify`, {
           prompt: integrationVerifyPrompt({
             worktree: integration.worktree, branch: integration.branch, baseRef: integration.base,
-            cores: inputs.coreBudget, mergedSlices: integration.merged, toolchain: setup.toolchain,
+            cores: inputs.coreBudget, mergedSlices: integrated, toolchain: setup.toolchain,
           }),
           cwd: integration.worktree, context: "fresh", schema: VerifierVerdictSchema,
           output: join(setup.runDir, `iter-${i}`, "integration-verification.md"), outputMode: "file-only",
@@ -175,7 +181,8 @@ export default workflow({
       iterations.push({
         iteration: i, actionable: triage.actionable, skipped: triage.skipped, slices: plan.slices.map((slice) => slice.id),
         cores: plan.totalCores, gate: gate.slices.map((slice) => `${slice.id}: ${slice.status}`), merged: integration.merged,
-        publication: publication.summary, stateCommitted: persisted.committed,
+        pendingMerged: integration.pendingMerged, pendingFailed: integration.pendingFailed,
+        publication: publication.summary, published: persisted.published, stateCommitted: persisted.committed,
       });
       if (publication.blocked) {
         status = "blocked";

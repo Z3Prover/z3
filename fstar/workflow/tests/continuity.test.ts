@@ -45,7 +45,13 @@ describe("retrigger conditions", () => {
 
   test("processed reports and skipped or approval-gated runs do not retrigger", () => {
     const decision = evaluateContinuity({ runs, state: processed(emptyState(), ...allReports), now, buildEvidence: [] });
-    expect(decision).toMatchObject({ retrigger: false, newReports: [], buildTimeoutReports: [], unprocessedPartialRules: 0 });
+    expect(decision).toMatchObject({ retrigger: false, newReports: [], buildTimeoutReports: [], unprocessedPartialRules: 0, pendingPublications: 0 });
+  });
+
+  test("pending publications are reported but are not a retrigger condition", () => {
+    const pending = { runKey: "r1", branch: "fstar-proof-checking/integration/r1", head: "abc", fingerprints: ["p1"], slices: ["arrays-repair"], recordedAt: now.toISOString() };
+    const decision = evaluateContinuity({ runs, state: { ...processed(emptyState(), ...allReports), pendingPublications: [pending] }, now, buildEvidence: [] });
+    expect(decision).toMatchObject({ retrigger: false, pendingPublications: 1 });
   });
 
   test("unprocessed partial proof rules retrigger even without new reports", () => {

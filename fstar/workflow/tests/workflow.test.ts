@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerAtomicHostModules } from "../lib/atomic-host.ts";
@@ -51,6 +51,33 @@ describe("dry run through Atomic's workflow runtime", () => {
     const plan = JSON.parse(readFileSync(join(result.result.run_dir, "iter-1", "plan.json"), "utf8"));
     expect(plan.totalCores).toBeLessThanOrEqual(32);
     expect(plan.worktreesCreated).toBe(false);
+  }, 120_000);
+
+  test("leaves existing state byte-identical: no findings consumed, claims, cursors or offsets moved", async () => {
+    const { normalizeReportTree } = await import("../lib/reports.ts");
+    const state = await import("../lib/state.ts");
+    const stateDir = mkdtempSync(join(tmpdir(), "fpc-dry-state-"));
+    const now = new Date("2026-10-26T08:00:00Z");
+    const findings = reportPaths.flatMap((path) => normalizeReportTree(path, { source: "seed" }).findings);
+    const [first, ...rest] = findings;
+    let seeded = state.recordSeen(state.emptyState(), findings, now);
+    seeded = state.claimFindings(seeded, first ? [first] : [], { runKey: "earlier-run", now });
+    seeded = {
+      ...seeded,
+      processedReports: { "pulse-run:1-1": { processedAt: now.toISOString(), findings: 3 } },
+      localScans: { "local-scan:ocaml:C:/z3test/regressions/smt2": { at: now.toISOString(), offset: 50 } },
+      pendingPublications: [{ runKey: "earlier-run", branch: "fstar-proof-checking/integration/earlier-run", head: "abc", fingerprints: rest.slice(0, 1).map((f) => f.fingerprint), slices: ["arrays-repair"], recordedAt: now.toISOString() }],
+    };
+    state.writeJsonAtomic(join(stateDir, "state.json"), seeded);
+    const before = readFileSync(join(stateDir, "state.json"));
+    const result = await sdk.run(definition, {
+      dryRun: true, publish: "live", stateDir, maxIterations: 2, reportPaths, localCorpora: [],
+    }, { journal: { memory: true }, cwd: repoRoot, executionMode: "non_interactive", store: sdk.createStore() });
+    expect(result.status).toBe("completed");
+    expect(result.result.iterations).toBeGreaterThan(0);
+    expect(readFileSync(join(stateDir, "state.json")).equals(before)).toBe(true);
+    expect(existsSync(join(stateDir, "state.lock"))).toBe(false);
+    expect(JSON.parse(readFileSync(result.result.evidence_path, "utf8")).mutatingCommands).toEqual([]);
   }, 120_000);
 });
 
@@ -118,10 +145,10 @@ describe("full iteration topology with scripted durable steps", () => {
         slices: args.verdicts.map((verdict: any, index: number) => ({ id: `s${index}`, status: verdict?.verdict === "verified" ? "verified" : "unverified", reasons: [], changedFiles: 1, warnings: [] })),
       }),
       "iter-[0-9]+/integrate": async (_name, args) => (args.verified > 0
-        ? { worktree: "W", branch: "B", base: "origin/master", merged: ["s0"], conflicts: [], rejected: [], head: "abc", note: "" }
-        : { base: "origin/master", merged: [], conflicts: [], rejected: [], note: "" }),
+        ? { worktree: "W", branch: "B", base: "origin/master", merged: ["s0"], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], head: "abc", note: "" }
+        : { base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], note: "" }),
       "iter-[0-9]+/publish": async () => ({ mode: "dry-run", action: "new-branch", executed: false, summary: "dry-run: would new-branch", integrationVerified: true, bugReports: [], publication: { sequence: 0, history: [] } }),
-      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], processedReports: [] }),
+      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], processedReports: [], published: false }),
     };
     const fake = fakeContext(inputs, overrides);
     const output = await definition.run(fake.ctx);
@@ -163,5 +190,35 @@ describe("full iteration topology with scripted durable steps", () => {
     expect(output.status).toBe("blocked");
     expect(output.summary).toMatch(/toolchain unavailable.*F\* v2026\.09\.27/);
     expect(tasks).toEqual([]);
+  }, 120_000);
+
+  test("without new findings only a live run continues past triage, to publish pending integrations", async () => {
+    const scratch = mkdtempSync(join(tmpdir(), "fpc-pending-"));
+    const empty = join(scratch, "empty.json");
+    writeFileSync(empty, "[]");
+    const defaults = Object.fromEntries(Object.entries(definition.inputs).map(([key, schema]: [string, any]) => [key, schema.default]));
+    const scripted: Record<string, Override> = {
+      preflight: async () => ({ repoRoot, stateDir: scratch, runKey: "k", runDir: scratch, worktreeRoot: join(scratch, "wt"), startedAt: "t", toolchain: { pwsh: true, opam: true, available: true, missing: [] } }),
+      source: async () => ({ findingsPath: empty, total: 0, byKind: {}, byTheory: {}, reports: [], localScans: {}, diagnostics: [] }),
+      "iter-[0-9]+/triage": async (name) => ({ actionablePath: empty, actionable: 0, skipped: { integrated: 1 }, pendingPublications: name.startsWith("iter-1/") ? 1 : 0 }),
+      "iter-[0-9]+/plan": async () => ({ slices: [], concurrency: 0, totalCores: 0, coreBudget: 32, deferred: 0, worktreesCreated: false }),
+      "iter-[0-9]+/gate": async () => ({ slices: [], verified: 0 }),
+      "iter-[0-9]+/integrate": async () => ({ worktree: "W", branch: "B", base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: ["r1"], pendingFailed: [], head: "abc", note: "" }),
+      "iter-[0-9]+/publish": async () => ({ mode: "live", action: "push-existing", executed: true, summary: "pushed", integrationVerified: true, bugReports: [], publication: { sequence: 1, history: [] } }),
+      "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], processedReports: [], published: true }),
+      "investigate/select": async () => ({ run: false, reason: "scripted", digest: "" }),
+      finalize: async () => ({ evidencePath: "E", mutatingCommands: 1, worktrees: {} }),
+    };
+    const live = fakeContext({ ...defaults, publish: "live", maxIterations: 2 }, scripted);
+    await definition.run(live.ctx);
+    expect(live.tools).toEqual(["preflight", "source", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
+    expect(live.tasks.map((task) => task.name)).toEqual(["iter-1/integration/verify"]);
+    expect(live.tasks[0]?.options.prompt).toContain("pending integration r1");
+    for (const publish of ["dry-run", "none"]) {
+      const other = fakeContext({ ...defaults, publish, maxIterations: 2 }, scripted);
+      const output = await definition.run(other.ctx);
+      expect(other.tools).toEqual(["preflight", "source", "iter-1/triage", "investigate/select", "finalize"]);
+      expect(output.stop_reason).toBe("no new or unprocessed findings");
+    }
   }, 120_000);
 });

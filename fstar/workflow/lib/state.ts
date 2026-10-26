@@ -11,7 +11,8 @@ import { join } from "node:path";
 import { evidenceDigest, type Finding, type FindingKind } from "./reports.js";
 import type { Theory } from "./theories.js";
 
-export type FindingStatus = "open" | "in_progress" | "resolved" | "unverified" | "blocked";
+/** `integrated`: verified and merged into a local integration branch, but not yet published remotely. */
+export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "unverified" | "blocked";
 export type SliceOutcome = "verified" | "unverified" | "rejected" | "no-change" | "integration-conflict";
 
 export interface FindingRecord {
@@ -50,11 +51,27 @@ export type PublicationState = {
   history: PublicationRecord[];
 };
 
+/** Verified, locally integrated work that a later `publish=live` run must still push. */
+export interface PendingPublication {
+  /** Run that verified and integrated the work. */
+  runKey: string;
+  /** Local integration branch and the verified head it pointed to. */
+  branch: string;
+  head: string;
+  fingerprints: string[];
+  slices: string[];
+  recordedAt: string;
+  /** Why the last live run could not include it (missing branch, merge conflict, soundness scan). */
+  lastError?: string;
+}
+
 export interface WorkflowState {
   version: 1;
   processedReports: Record<string, { processedAt: string; findings: number }>;
   findings: Record<string, FindingRecord>;
   publication: PublicationState;
+  /** Oldest first; cleared only after a live push that includes them succeeds. */
+  pendingPublications: PendingPublication[];
   bugReports: Record<string, { draft: string; issueUrl?: string; filedAt?: string }>;
   /** Rotating scan position per local corpus and checker. */
   localScans: Record<string, { at: string; offset: number }>;
@@ -68,6 +85,7 @@ export function emptyState(): WorkflowState {
     processedReports: {},
     findings: {},
     publication: { sequence: 0, history: [] },
+    pendingPublications: [],
     bugReports: {},
     localScans: {},
     runs: [],
@@ -280,8 +298,9 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
       continue;
     }
     const record = state.findings[finding.fingerprint];
-    if (record?.status === "resolved") {
-      skip("resolved");
+    if (record?.status === "resolved" || record?.status === "integrated") {
+      // Integrated findings await publication of their verified integration, not another repair.
+      skip(record.status);
       continue;
     }
     if (record?.status === "blocked" && record.evidenceDigest === evidenceDigest(finding)) {
@@ -353,9 +372,11 @@ export interface OutcomeOptions {
   readonly now: Date;
   readonly maxAttempts?: number;
   readonly backoffHours?: number;
+  /** Whether a live push included the verified work; otherwise verified findings stay `integrated`. */
+  readonly published?: boolean;
 }
 
-/** Apply slice outcomes: verified findings resolve; others back off exponentially, then block. */
+/** Apply slice outcomes: verified findings resolve once published (else stay integrated); others back off exponentially, then block. */
 export function recordOutcomes(
   state: WorkflowState,
   outcomes: ReadonlyArray<{ fingerprint: string; status: SliceOutcome; note: string }>,
@@ -369,7 +390,7 @@ export function recordOutcomes(
     if (!existing) continue;
     const { claimedBy: _claimedBy, claimedAt: _claimedAt, nextEligibleAt: _next, ...rest } = existing;
     if (outcome.status === "verified") {
-      records[outcome.fingerprint] = { ...rest, status: "resolved", lastOutcome: outcome.note, lastRunKey: options.runKey };
+      records[outcome.fingerprint] = { ...rest, status: options.published ? "resolved" : "integrated", lastOutcome: outcome.note, lastRunKey: options.runKey };
       continue;
     }
     const attempts = existing.attempts + 1;
@@ -384,6 +405,54 @@ export function recordOutcomes(
     };
   }
   return { ...state, findings: records };
+}
+
+export interface PublicationSettlement {
+  readonly runKey: string;
+  /** A live push of the integration (including `included`) succeeded. */
+  readonly published: boolean;
+  /** Run keys of pending entries merged into this run's integration. */
+  readonly included: readonly string[];
+  /** Pending entries this run could not include, with the reason. */
+  readonly failed: ReadonlyArray<{ runKey: string; reason: string }>;
+  /** This run's verified integration when it was not pushed. */
+  readonly added?: PendingPublication;
+}
+
+const union = (left: readonly string[], right: readonly string[]) => [...new Set([...left, ...right])];
+
+/**
+ * Update the pending-publication list. Included entries resolve and leave the list only after a
+ * successful live push; entries that could not be included keep their reason; unpushed verified
+ * work is appended. Later iterations of one run share its integration branch, so an entry from
+ * the same run is replaced by the newer head with the union of their findings (also making a
+ * resumed step idempotent).
+ */
+export function settlePublications(state: WorkflowState, settlement: PublicationSettlement): WorkflowState {
+  const published = new Set(settlement.published ? settlement.included : []);
+  const failed = new Map(settlement.failed.map((item) => [item.runKey, item.reason]));
+  const records = { ...state.findings };
+  const pending: PendingPublication[] = [];
+  let added = settlement.added;
+  for (const entry of state.pendingPublications) {
+    if (added && entry.runKey === added.runKey) {
+      added = { ...added, fingerprints: union(entry.fingerprints, added.fingerprints), slices: union(entry.slices, added.slices), recordedAt: entry.recordedAt };
+      continue;
+    }
+    if (!published.has(entry.runKey)) {
+      const reason = failed.get(entry.runKey);
+      pending.push(reason === undefined ? entry : { ...entry, lastError: reason });
+      continue;
+    }
+    for (const fingerprint of entry.fingerprints) {
+      const record = records[fingerprint];
+      if (record?.status === "integrated") {
+        records[fingerprint] = { ...record, status: "resolved", lastOutcome: `published by ${settlement.runKey} (integrated in ${entry.runKey})`, lastRunKey: settlement.runKey };
+      }
+    }
+  }
+  if (added) pending.push(added);
+  return { ...state, findings: records, pendingPublications: pending };
 }
 
 /** Findings that a new run could pick up now (optionally of one kind). */

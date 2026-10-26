@@ -37,6 +37,7 @@ import {
   readState,
   recordOutcomes,
   recordSeen,
+  settlePublications,
   triageFindings,
   withStateLock,
   type SliceOutcome,
@@ -263,13 +264,16 @@ export type TriageSummary = {
   readonly actionablePath: string;
   readonly actionable: number;
   readonly skipped: Record<string, number>;
+  /** Verified integrations from earlier runs that still await a live push. */
+  readonly pendingPublications: number;
 };
 
 export function triageStep(setup: RunSetup, inputs: WorkflowInputs, findingsPath: string, iteration: number, exclude: readonly string[]): TriageSummary {
   const findings = readJson<Finding[]>(findingsPath);
-  const result = triageFindings(findings, readState(setup.stateDir), { now: new Date(), theories: inputs.theories, exclude: new Set(exclude) });
+  const state = readState(setup.stateDir);
+  const result = triageFindings(findings, state, { now: new Date(), theories: inputs.theories, exclude: new Set(exclude) });
   const actionablePath = writeJson(join(iterationDir(setup, iteration), "actionable.json"), result.actionable);
-  return { actionablePath, actionable: result.actionable.length, skipped: result.skipped };
+  return { actionablePath, actionable: result.actionable.length, skipped: result.skipped, pendingPublications: state.pendingPublications.length };
 }
 
 export type SliceSummary = {
@@ -379,6 +383,10 @@ export type IntegrationSummary = {
   readonly merged: string[];
   readonly conflicts: string[];
   readonly rejected: string[];
+  /** Run keys of earlier, still unpublished verified integrations merged in for a live push. */
+  readonly pendingMerged: string[];
+  /** Pending integrations that could not be merged; they stay pending with this reason. */
+  readonly pendingFailed: Array<{ runKey: string; reason: string }>;
   readonly head?: string;
   readonly note: string;
 };
@@ -390,16 +398,41 @@ async function publicationFacts(runner: CommandRunner, setup: RunSetup, inputs: 
   return gatherPublicationFacts(runner, state.publication, { repo: inputs.repo, remote: inputs.remote, prefix: inputs.branchPrefix, cwd: setup.repoRoot, timeoutMs: 60_000, signal });
 }
 
-/** Merge verified slice branches into a per-run integration worktree, based on the active publication branch when it is still open. */
+/** Merge one verified ref into the integration worktree; a merge that conflicts or fails the soundness scan is undone. */
+async function mergeVerified(runner: CommandRunner, inTree: { cwd: string; timeoutMs: number; signal: AbortSignal }, ref: string, message: string): Promise<"merged" | "conflict" | "unsound"> {
+  const before = await runChecked(runner, ["git", "rev-parse", "HEAD"], inTree);
+  const merge = await runner(["git", "merge", "--no-ff", "--no-edit", "-m", message, ref], inTree);
+  if (merge.code !== 0) {
+    await runner(["git", "merge", "--abort"], inTree);
+    return "conflict";
+  }
+  // Re-scan the merged result: a merge must not introduce what the slice gate would reject.
+  const scan = scanDiffForUnsoundness(await runChecked(runner, ["git", "diff", "--no-color", `${before}..HEAD`], inTree));
+  if (scan.violations.length > 0) {
+    await runChecked(runner, ["git", "reset", "--hard", before], inTree);
+    return "unsound";
+  }
+  return "merged";
+}
+
+/**
+ * Merge verified slice branches into a per-run integration worktree, based on the active
+ * publication branch when it is still open. A live run first merges earlier verified
+ * integrations that were never pushed (oldest first), so they are published with it.
+ */
 export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, plan: PlanSummary, gate: GateSummary, iteration: number, signal: AbortSignal, inner?: CommandRunner): Promise<IntegrationSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
   const verified = plan.slices.filter((slice) => gate.slices.find((item) => item.id === slice.id)?.status === "verified");
-  if (inputs.dryRun || verified.length === 0) {
-    const summary: IntegrationSummary = { base: inputs.baseRef, merged: [], conflicts: [], rejected: [], note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate" };
+  const state = readState(setup.stateDir);
+  const pending = !inputs.dryRun && inputs.publish === "live" ? state.pendingPublications : [];
+  if (inputs.dryRun || (verified.length === 0 && pending.length === 0)) {
+    const summary: IntegrationSummary = {
+      base: inputs.baseRef, merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [],
+      note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate",
+    };
     writeJson(join(iterationDir(setup, iteration), "integration.json"), summary);
     return summary;
   }
-  const state = readState(setup.stateDir);
   const facts = await publicationFacts(runner, setup, inputs, state, signal);
   const active = state.publication.activeBranch;
   const continueActive = active !== undefined && facts.known && facts.branchExists && !facts.prs.some((pr) => pr.state === "MERGED");
@@ -413,28 +446,32 @@ export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, pla
   const branch = `${inputs.branchPrefix}/integration/${setup.runKey}`;
   await ensureWorktree(runner, setup.repoRoot, { path: worktree, branch, base, signal });
   const inTree = { cwd: worktree, timeoutMs: 10 * 60_000, signal };
+  const pendingMerged: string[] = [];
+  const pendingFailed: IntegrationSummary["pendingFailed"] = [];
+  for (const entry of pending) {
+    if (entry.runKey === setup.runKey) continue;
+    if ((await runner(["git", "show-ref", "--verify", "--quiet", `refs/heads/${entry.branch}`], inTree)).code !== 0) {
+      pendingFailed.push({ runKey: entry.runKey, reason: `local integration branch ${entry.branch} is missing; recreate it at ${entry.head} or remove this pending entry from state.json` });
+      continue;
+    }
+    // Merge the verified head that was recorded, not whatever the branch points to now.
+    const outcome = await mergeVerified(runner, inTree, entry.head, `Publish verified integration ${entry.runKey}`);
+    if (outcome === "merged") pendingMerged.push(entry.runKey);
+    else pendingFailed.push({ runKey: entry.runKey, reason: outcome === "conflict" ? `merging ${entry.head} onto ${base} conflicts` : `merging ${entry.head} onto ${base} failed the soundness scan` });
+  }
   const merged: string[] = [];
   const conflicts: string[] = [];
   const rejected: string[] = [];
   for (const slice of verified) {
-    const before = await runChecked(runner, ["git", "rev-parse", "HEAD"], inTree);
-    const merge = await runner(["git", "merge", "--no-ff", "--no-edit", "-m", `Integrate verified slice ${slice.id}`, slice.branch], inTree);
-    if (merge.code !== 0) {
-      await runner(["git", "merge", "--abort"], inTree);
-      conflicts.push(slice.id);
-      continue;
-    }
-    // Re-scan the merged result: a merge must not introduce what the slice gate would reject.
-    const scan = scanDiffForUnsoundness(await runChecked(runner, ["git", "diff", "--no-color", `${before}..HEAD`], inTree));
-    if (scan.violations.length > 0) {
-      await runChecked(runner, ["git", "reset", "--hard", before], inTree);
-      rejected.push(slice.id);
-      continue;
-    }
-    merged.push(slice.id);
+    const outcome = await mergeVerified(runner, inTree, slice.branch, `Integrate verified slice ${slice.id}`);
+    if (outcome === "merged") merged.push(slice.id);
+    else (outcome === "conflict" ? conflicts : rejected).push(slice.id);
   }
   const head = await runChecked(runner, ["git", "rev-parse", "HEAD"], inTree);
-  const summary: IntegrationSummary = { worktree, branch, base, merged, conflicts, rejected, head, note: `merged ${merged.length} verified slice(s) onto ${base}` };
+  const summary: IntegrationSummary = {
+    worktree, branch, base, merged, conflicts, rejected, pendingMerged, pendingFailed, head,
+    note: `merged ${merged.length} verified slice(s) and ${pendingMerged.length} pending integration(s) onto ${base}`,
+  };
   writeJson(join(iterationDir(setup, iteration), "integration.json"), summary);
   return summary;
 }
@@ -474,6 +511,7 @@ function prBody(setup: RunSetup, plan: PlanSummary, gate: GateSummary, integrati
     "|---|---|---|---|",
     ...merged.map((slice) => `| ${slice.id} | ${slice.theory} | ${slice.focus} | ${slice.fingerprints.join(", ")} |`),
     "",
+    ...(integration.pendingMerged.length > 0 ? [`Also includes earlier verified integrations that had not been published: ${integration.pendingMerged.join(", ")}.`, ""] : []),
     "## Verification",
     "",
     `- Integrated head: \`${integration.head ?? "unknown"}\` on base \`${integration.base}\`.`,
@@ -501,8 +539,9 @@ export async function publishStep(
 ): Promise<PublicationSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
   const state = readState(setup.stateDir);
-  const integrationVerified = integration.merged.length > 0 && decideSliceOutcome({
-    scan: { violations: [], warnings: [] }, changedFiles: integration.merged.length, uncommitted: false, verifier: verdict ?? undefined, toolchainAvailable: setup.toolchain.available,
+  const integrated = integration.merged.length + integration.pendingMerged.length;
+  const integrationVerified = integrated > 0 && decideSliceOutcome({
+    scan: { violations: [], warnings: [] }, changedFiles: integrated, uncommitted: false, verifier: verdict ?? undefined, toolchainAvailable: setup.toolchain.available,
   }).status === "verified";
   const facts = await publicationFacts(runner, setup, inputs, state, signal);
   const publicationPlan = planPublication(state.publication, facts, { prefix: inputs.branchPrefix, hasChanges: integrationVerified });
@@ -542,9 +581,16 @@ export type PersistSummary = {
   readonly committed: boolean;
   readonly outcomes: Array<{ fingerprint: string; status: SliceOutcome; note: string }>;
   readonly processedReports: string[];
+  /** Whether verified work was pushed live; otherwise it is recorded as integrated and pending. */
+  readonly published: boolean;
 };
 
-/** Record outcomes, processed reports, local scan offsets and publication state (not in dry runs). */
+/**
+ * Record outcomes, processed reports, local scan offsets, publication state and pending
+ * publications (not in dry runs). Verified findings resolve only when a live push included them;
+ * otherwise they become `integrated` and the integration branch is kept as a pending publication
+ * that the next live run merges and pushes.
+ */
 export async function persistStep(
   setup: RunSetup,
   inputs: WorkflowInputs,
@@ -555,6 +601,7 @@ export async function persistStep(
   publication: PublicationSummary,
   iteration: number,
 ): Promise<PersistSummary> {
+  const published = publication.executed;
   const outcomes: PersistSummary["outcomes"] = [];
   for (const slice of plan.slices) {
     const gated = gate.slices.find((item) => item.id === slice.id);
@@ -565,19 +612,27 @@ export async function persistStep(
       if (integration.conflicts.includes(slice.id)) [status, note] = ["integration-conflict", `merge conflict on ${integration.branch}`];
       else if (integration.rejected.includes(slice.id)) [status, note] = ["rejected", "merged diff failed the soundness scan"];
       else if (!publication.integrationVerified) [status, note] = ["unverified", "integration verification did not pass"];
-      else note = `verified; integrated on ${integration.branch}${publication.prUrl ? ` (${publication.prUrl})` : ` (publish: ${publication.mode})`}`;
+      else note = `verified; integrated on ${integration.branch}${published ? ` and published (${publication.prUrl ?? publication.branch})` : `; not published (publish: ${publication.mode}, ${publication.summary})`}`;
     }
     for (const fingerprint of slice.fingerprints) outcomes.push({ fingerprint, status, note });
   }
   const processedReports = iteration === 1 ? source.reports.map((report) => report.key) : [];
   if (inputs.dryRun) {
-    writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, processedReports });
-    return { committed: false, outcomes, processedReports };
+    writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, processedReports, published });
+    return { committed: false, outcomes, processedReports, published };
   }
+  const integratedSlices = plan.slices.filter((slice) => integration.merged.includes(slice.id));
+  const unpublished = !published && publication.integrationVerified && integratedSlices.length > 0 && integration.branch && integration.head
+    ? {
+      runKey: setup.runKey, branch: integration.branch, head: integration.head, recordedAt: new Date().toISOString(),
+      fingerprints: integratedSlices.flatMap((slice) => slice.fingerprints), slices: integratedSlices.map((slice) => slice.id),
+    }
+    : undefined;
   await withStateLock(setup.stateDir, (state) => {
     const now = new Date();
     let next = iteration === 1 ? recordSeen(state, readJson<Finding[]>(source.findingsPath), now) : state;
-    next = recordOutcomes(next, outcomes, { runKey: setup.runKey, now });
+    next = recordOutcomes(next, outcomes, { runKey: setup.runKey, now, published });
+    next = settlePublications(next, { runKey: setup.runKey, published, included: integration.pendingMerged, failed: integration.pendingFailed, added: unpublished });
     const reportsSeen = { ...next.processedReports };
     for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
     const localScans = { ...next.localScans };
@@ -588,11 +643,11 @@ export async function persistStep(
     for (const report of publication.bugReports) {
       bugReports[report.fingerprint] = { draft: report.draft, issueUrl: report.url ?? bugReports[report.fingerprint]?.issueUrl, filedAt: report.action === "created" ? now.toISOString() : bugReports[report.fingerprint]?.filedAt };
     }
-    next = { ...next, processedReports: reportsSeen, localScans, bugReports, publication: publication.executed ? publication.publication : next.publication };
+    next = { ...next, processedReports: reportsSeen, localScans, bugReports, publication: published ? publication.publication : next.publication };
     return { state: next, result: undefined };
   }, { owner: setup.runKey });
-  writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: true, outcomes, processedReports });
-  return { committed: true, outcomes, processedReports };
+  writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: true, outcomes, processedReports, published, pending: unpublished ?? null });
+  return { committed: true, outcomes, processedReports, published };
 }
 
 // ---------------------------------------------------------------- investigation and finalization

@@ -13,6 +13,9 @@
  *           schedule this launcher (see README) to get continuity.
  * --dry-run never launches a live run: with --launch it runs the workflow with
  *           `dryRun: true, publish: "dry-run"` and an in-memory journal.
+ * --publish none|dry-run|live is passed to the launched run (default: the workflow's `dry-run`).
+ *           Verified work from non-live runs stays pending in state; a `--publish live` launch
+ *           pushes it together with its own work.
  *
  * Options: --state-dir <dir> (default .atomic/fstar-proof-checking), --repo <owner/name>,
  *          --branch <name> (Pulse runs to consider; default master, "" for all),
@@ -31,6 +34,7 @@ import { probeToolchain } from "./lib/toolchain.js";
 interface Options {
   mode: "check" | "launch";
   dryRun: boolean;
+  publish?: "none" | "dry-run" | "live";
   stateDir: string;
   repo: string;
   branch: string;
@@ -51,6 +55,11 @@ function parseArgs(argv: string[], repoRoot: string): Options {
     if (arg === "--check") options.mode = "check";
     else if (arg === "--launch") options.mode = "launch";
     else if (arg === "--dry-run") options.dryRun = true;
+    else if (arg === "--publish") {
+      const mode = value();
+      if (mode !== "none" && mode !== "dry-run" && mode !== "live") throw new Error(`--publish must be none, dry-run or live, not ${mode}`);
+      options.publish = mode;
+    }
     else if (arg === "--no-remote") options.remote = false;
     else if (arg === "--state-dir") options.stateDir = value();
     else if (arg === "--repo") options.repo = value();
@@ -131,6 +140,7 @@ async function main(): Promise<number> {
       stateDir: options.stateDir,
       repo: options.repo,
       pulseBranch: options.branch,
+      ...(options.publish ? { publish: options.publish } : {}),
       ...(options.dryRun ? { dryRun: true, publish: "dry-run" as const } : {}),
     };
     const result = await sdk.run(definition, inputs as never, {

@@ -101,9 +101,9 @@ describe("triage and outcome bookkeeping", () => {
     expect(result.actionable.map((f) => f.fingerprint)).toEqual(["c", "big", "small"]);
   });
 
-  test("resolved findings are not reprocessed", () => {
+  test("published findings resolve and are not reprocessed", () => {
     let state = claimFindings(recordSeen(emptyState(), [finding()], now), [finding()], { runKey: "r1", now });
-    state = recordOutcomes(state, [{ fingerprint: "f1", status: "verified", note: "fixed" }], { runKey: "r1", now });
+    state = recordOutcomes(state, [{ fingerprint: "f1", status: "verified", note: "fixed" }], { runKey: "r1", now, published: true });
     expect(state.findings.f1?.status).toBe("resolved");
     expect(triageFindings([finding()], state, { now: hours(100) }).skipped).toEqual({ resolved: 1 });
   });

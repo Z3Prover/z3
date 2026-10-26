@@ -54,11 +54,16 @@ Then run `/workflow reload` and `/workflow inputs fstar-proof-checking`.
 ```
 
 * `dryRun=true` only plans. It does not call GitHub, run checkers or agent stages, create
-  worktrees, or change state. Use it with `reportPaths` to inspect slicing and the 32-core plan.
+  worktrees, or change state: finding statuses, claims, processed-report cursors, scan offsets
+  and pending publications stay byte-identical. Use it with `reportPaths` to inspect slicing
+  and the 32-core plan.
 * With the default `publish=dry-run`, a real run repairs and verifies findings and merges
   verified slices into a local integration branch. It queries GitHub only to plan publication.
-  `publish=live` pushes and opens or updates the PR and files crash reports. `publish=none`
-  never contacts the remote for publication.
+  Its verified findings become `integrated` (not `resolved`) and the integration branch is
+  recorded as a pending publication. `publish=live` pushes and opens or updates the PR and files
+  crash reports; its first iteration also merges, re-verifies and pushes every pending
+  publication, even when there are no new findings. `publish=none` never contacts the remote
+  for publication.
 
 The important inputs are `pulseRunIds`, `reportPaths`, `localCorpora`, `ocamlChecker` and
 `cherryChecker`, `theories`, `maxIterations` (1–5), `coreBudget` (≤ 32), `coresPerSlice`,
@@ -103,9 +108,10 @@ preflight → source ─┬─ iter-i/triage ──(nothing actionable → stop)
    (`Error … The SMT query timed out`). Declarations whose
    `process_one_decl` time is over 2 s are slow obligations. Each finding has a stable
    fingerprint. The same family seen by several reports or checkers is merged.
-3. **Triage.** Resolved findings are skipped. So are findings claimed by another run, in
-   backoff, or blocked (unless their evidence changed). The rest are ordered: crashes, possible
-   unsoundness, build timeouts, partial rules by affected proofs, checker timeouts, then slow proofs.
+3. **Triage.** Resolved findings are skipped, and so are `integrated` ones (verified and
+   awaiting publication). So are findings claimed by another run, in backoff, or blocked
+   (unless their evidence changed). The rest are ordered: crashes, possible unsoundness, build
+   timeouts, partial rules by affected proofs, checker timeouts, then slow proofs.
 4. **Plan.** Findings are grouped into slices by theory and focus:
    * Theories: linear and non-linear arithmetic, UF, arrays, datatypes, bit-vectors, finite
      fields, floating point, quantifier instantiation and binding, other.
@@ -133,14 +139,18 @@ preflight → source ─┬─ iter-i/triage ──(nothing actionable → stop)
    Anything else is `unverified`, `rejected`, or `no-change`.
 7. **Integrate and verify again.** Verified slices are merged into
    `fstar-proof-checking/integration/<run>`. Its base is the open publication branch, or
-   `baseRef` if there is none. The merged diff is scanned again, and a fresh stage verifies the
-   merged build before anything is published.
+   `baseRef` if there is none. In a `publish=live` run the recorded heads of pending
+   publications are merged first, oldest first. The merged diff is scanned again, and a fresh
+   stage verifies the merged build before anything is published.
 8. **Publish.** One branch receives pushes until it is merged or deleted (see below).
-9. **Persist.** Under the state lock, the step records outcomes, processed reports, scan offsets
-   and publication state.
-   * Verified findings resolve.
+9. **Persist.** Under the state lock, the step records outcomes, processed reports, scan offsets,
+   publication state and pending publications.
+   * Verified findings resolve only when a live push included them. Otherwise they become
+     `integrated` and the run's integration branch and head are recorded as a pending publication.
    * Others back off for 6 h, 12 h, … and are blocked after 3 attempts.
    * A blocked finding is reopened if its evidence changes.
+   * Processed-report cursors and scan offsets advance in every real run, whatever `publish` is,
+     because the findings themselves are kept in state. Only `dryRun=true` leaves them alone.
 10. **Investigate.** Three report-only stages run when the findings changed since the last
     investigation (`excludedTools: edit, write`):
     * checker refactoring for speed and scalability, including finite-field checker optimizations;
@@ -170,14 +180,29 @@ All git and gh calls go through one command runner and are logged to
 `<runDir>/commands.jsonl`. Pushes and PR or issue edits are flagged `mutating`, and
 `evidence.json` lists the flagged entries. The tests check that dry runs issue no flagged command.
 
+### Pending publications
+
+Verified work that a run did not push (`publish=dry-run` or `none`, or a live run that ended
+blocked) is kept in `state.json` under `pendingPublications`: the run key, the local
+integration branch, its verified head, and the findings and slices it contains. Its findings
+stay `integrated`, so they are neither repaired again nor lost.
+
+The first iteration of the next `publish=live` run picks these up even without new findings.
+It merges each recorded head into its integration branch, oldest first, scans the merge, and
+verifies the merged build. Then it pushes by the lifecycle above: to the active branch while its
+PR is open, or to a new branch and PR after a merge or deletion. Only after that push succeeds
+do the findings resolve and the entries leave the list. An entry whose local branch is missing,
+or whose merge conflicts or fails the soundness scan, stays pending with the reason in
+`lastError`. Recreate the branch, or remove the entry from `state.json` to drop that work.
+
 ## State and evidence
 
 `<stateDir>` defaults to `.atomic/fstar-proof-checking/`, which is ignored by git.
 
 * `state.json` holds processed reports, per-finding status, attempts, backoff and claims, the
-  publication branch and PR, bug reports, local-scan offsets, and run history. Every change runs
-  under the exclusive `state.lock`, which is reclaimed if it is stale or its process is dead.
-  The file is replaced by write-then-rename.
+  publication branch and PR, pending publications, bug reports, local-scan offsets, and run
+  history. Every change runs under the exclusive `state.lock`, which is reclaimed if it is stale
+  or its process is dead. The file is replaced by write-then-rename.
 * `reports/` caches downloaded artifacts.
 * `runs/<runKey>/` holds:
   * `setup.json`, `findings.json`, `commands.jsonl` and `evidence.json`;
@@ -194,6 +219,7 @@ A bounded run never retriggers itself. Continuity comes from running the launche
 ```text
 bun fstar/workflow/continuity.ts --check [--dry-run]     # print the JSON decision only
 bun fstar/workflow/continuity.ts --launch                # start one run if a condition holds
+bun fstar/workflow/continuity.ts --launch --publish live # same, and push verified work (including pending publications)
 bun fstar/workflow/continuity.ts --launch --dry-run      # same, but dryRun=true, publish=dry-run, in-memory journal
 ```
 
@@ -208,7 +234,10 @@ It evaluates the three conditions from the instructions:
 
 `--launch` checks the toolchain and holds `launcher.lock`, so overlapping schedules skip. It then
 runs the workflow with Atomic's programmatic `run(definition, inputs)` API, passing the new run
-IDs as `pulseRunIds`. Offline options are `--runs-file <listing.json>` and `--no-remote`.
+IDs as `pulseRunIds` and `--publish` (if given) as `publish`. Offline options are
+`--runs-file <listing.json>` and `--no-remote`. The decision also reports
+`pendingPublications`, the number of verified integrations waiting for a live push. That count
+is not a retrigger condition. Pending work is pushed by the next live run, whatever started it.
 
 To schedule it every 6 hours on Windows (not registered by the setup):
 
@@ -256,8 +285,13 @@ The tests cover:
 * worktree creation with long Windows paths;
 * the soundness gate;
 * the publication lifecycle with a fake git/gh that models the remote;
-* the workflow itself: a dry run through Atomic's `run()`, and full-iteration topology with
-  scripted durable steps.
+* pending publications, using real git with a local bare remote and a scripted gh: dry-run
+  verified work stays `integrated` and pending with no remote mutation; a later live run without
+  new findings pushes it to a new branch and PR, or to a new branch after the active PR was
+  merged; a missing pending branch stays pending with its reason;
+* the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
+  byte-identical), full-iteration topology with scripted durable steps, and a live run that
+  continues past triage only to publish pending work.
 
 The suite needs Bun and an installed `@bastani/atomic` package (located with
 `ATOMIC_PACKAGE_DIR`, `npm root -g`, or `atomic` on `PATH`).
@@ -272,7 +306,7 @@ The suite needs Bun and an installed `@bastani/atomic` package (located with
   Linux builds, normally run in WSL.
 * The batch harness always takes the first `localCaseLimit` inputs in sorted order.
 * With `publish=dry-run` or `none`, verified work stays on local
-  `fstar-proof-checking/integration/<run>` branches, and the findings are still recorded as
-  resolved.
+  `fstar-proof-checking/integration/<run>` branches until a `publish=live` run pushes it (see
+  Pending publications). Deleting such a branch before then leaves its entry pending with a reason.
 * Crash bug reports are drafted by the crash slice, so a slice that writes no
   `bug-report.md` files nothing.
