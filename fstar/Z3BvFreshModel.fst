@@ -206,6 +206,17 @@ let lemma_extract (r:F.reconstruction) (i:interpretation value)
     assert (BV.extract_parts (retract symbols n e) == Some rs);
     BV.lemma_extract_parts i rho project (retract symbols n e) rs
 
+let lemma_retract_concat_shape (symbols:list func_decl) (n:nat) (e:expr) (c:BV.concatenation)
+  : Lemma (requires F.valid_symbols symbols /\ D.scoped [] e /\ BV.concat_parts e == Some c)
+          (ensures D.scoped [] (retract symbols n e) /\
+                   BV.concat_parts (retract symbols n e) ==
+                     Some { c with BV.left = retract symbols n c.BV.left;
+                                   BV.right = retract symbols n c.BV.right })
+  = lemma_retract_shape symbols n [] e;
+    lemma_retract_shape symbols n [] c.BV.left;
+    lemma_retract_shape symbols n [] c.BV.right;
+    match e with App f args -> lemma_retract_app symbols n f args | _ -> ()
+
 let lemma_concat (r:F.reconstruction) (i:interpretation value)
                   (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.concatenation)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
@@ -217,15 +228,11 @@ let lemma_concat (r:F.reconstruction) (i:interpretation value)
                       project c.BV.right_width (eval j c.BV.right rho)))
   = let symbols = r.F.symbols in
     let n = F.number r i project in
-    lemma_retract_shape symbols n [] e;
-    lemma_retract_shape symbols n [] c.BV.left;
-    lemma_retract_shape symbols n [] c.BV.right;
+    lemma_retract_concat_shape symbols n e c;
     lemma_eval_retract r i project rho e;
     lemma_eval_retract r i project rho c.BV.left;
     lemma_eval_retract r i project rho c.BV.right;
     let rc = { c with BV.left = retract symbols n c.BV.left; BV.right = retract symbols n c.BV.right } in
-    (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
-    assert (BV.concat_parts (retract symbols n e) == Some rc);
     BV.lemma_concat_parts i rho project (retract symbols n e) rc
 
 let lemma_unsigned (r:F.reconstruction) (i:interpretation value)
@@ -258,6 +265,19 @@ let lemma_concat3_value (i:interpretation value) (project:pos -> value -> int)
                      project c.BV.width3 (eval i c.BV.third rho))
   = match e with App _ [_; _; _] -> () | _ -> ()
 
+let lemma_retract_concat3_shape (symbols:list func_decl) (n:nat) (e:expr) (c:BV.concatenation3)
+  : Lemma (requires F.valid_symbols symbols /\ D.scoped [] e /\ BV.concat3_parts e == Some c)
+          (ensures D.scoped [] (retract symbols n e) /\
+                   BV.concat3_parts (retract symbols n e) ==
+                     Some { c with BV.first = retract symbols n c.BV.first;
+                                   BV.second = retract symbols n c.BV.second;
+                                   BV.third = retract symbols n c.BV.third })
+  = lemma_retract_shape symbols n [] e;
+    lemma_retract_shape symbols n [] c.BV.first;
+    lemma_retract_shape symbols n [] c.BV.second;
+    lemma_retract_shape symbols n [] c.BV.third;
+    match e with App f args -> lemma_retract_app symbols n f args | _ -> ()
+
 let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
                    (project:pos -> value -> int) (rho:env value) (e:expr) (c:BV.concatenation3)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
@@ -270,18 +290,13 @@ let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
                       project c.BV.width3 (eval j c.BV.third rho)))
   = let symbols = r.F.symbols in
     let n = F.number r i project in
-    lemma_retract_shape symbols n [] e;
-    lemma_retract_shape symbols n [] c.BV.first;
-    lemma_retract_shape symbols n [] c.BV.second;
-    lemma_retract_shape symbols n [] c.BV.third;
+    lemma_retract_concat3_shape symbols n e c;
     lemma_eval_retract r i project rho e;
     lemma_eval_retract r i project rho c.BV.first;
     lemma_eval_retract r i project rho c.BV.second;
     lemma_eval_retract r i project rho c.BV.third;
     let rc = { c with BV.first = retract symbols n c.BV.first;
                      BV.second = retract symbols n c.BV.second; BV.third = retract symbols n c.BV.third } in
-    (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
-    assert (BV.concat3_parts (retract symbols n e) == Some rc);
     lemma_concat3_value i project rho (retract symbols n e) rc;
     let j = F.extend r i project in
     assert (eval j c.BV.first rho == eval i rc.BV.first rho);

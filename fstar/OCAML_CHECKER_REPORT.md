@@ -1168,6 +1168,16 @@ Native regressions include width boundaries, compound operands, previous
 comparison encodings, wrong targets, distinct operands, and malformed metadata.
 CLI regressions require full certification in batch and interactive modes.
 
+#### Bit-vector concatenation proof compilation
+
+The binary and ternary concatenation model-extension proofs separate
+model-independent retraction of validated AST shapes from semantic transport.
+The shape helpers preserve the recognizer result and closedness; the existing
+value lemmas then prove concatenation under the extended interpretation.
+Public contracts, executable definitions, model assumptions, and verification
+budgets are unchanged. Fresh-module timing comparisons include both erased
+shape helpers as well as the two replacement semantic proofs.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,
