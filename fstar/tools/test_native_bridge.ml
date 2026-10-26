@@ -2252,14 +2252,15 @@ let boolean_constant_resolution () =
   let module R = Z3ResolutionProofTheory in
   let c = context () in
   let native = parse c
-      "(declare-const p Bool)(assert (or false p))(assert (not p))(assert true)" in
+      "(declare-const p Bool)(assert (or false false p false (not true)))\
+       (assert (not p))(assert true)" in
   let st = B.marshal_expressions (B.empty_state ()) native in
   let formulas = List.map (B.cached_expression st) native in
   let clause, np, truth = match formulas with
     | [clause; np; truth] -> clause, np, truth
     | _ -> failwith "expected Boolean constant fixtures" in
   let p = match clause with
-    | A.App (_, [_; p]) -> p
+    | A.App (_, [_; _; p; _; _]) -> p
     | _ -> failwith "expected an unsimplified false-padded clause" in
   let view = { N.proof_name = "true-axiom"; premises = [];
                conclusion = List.nth native 2; farkas = None; assumed = None;
