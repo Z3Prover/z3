@@ -101,8 +101,8 @@ describe("dry run through Atomic's workflow runtime", () => {
 
 type Override = (name: string, args: any, real: () => Promise<any>) => unknown;
 
-/** A fake run context: records stage calls and lets tests script selected durable steps. */
-function fakeContext(inputs: Record<string, unknown>, overrides: Record<string, Override>) {
+/** A fake run context: records stage calls and lets tests script selected durable steps (and, optionally, the stages). */
+function fakeContext(inputs: Record<string, unknown>, overrides: Record<string, Override>, stage?: (name: string, options: any) => Promise<any>) {
   const tasks: Array<{ name: string; options: any }> = [];
   const tools: string[] = [];
   const ctx = {
@@ -114,13 +114,16 @@ function fakeContext(inputs: Record<string, unknown>, overrides: Record<string, 
       const override = Object.entries(overrides).find(([pattern]) => new RegExp(`^${pattern}$`).test(name));
       if (override) return override[1](name, args, real);
       // reconcile-publications only queries GitHub for branches that carry published findings; these tests' states have none.
-      if (!["reconcile-publications", "record-sources", "iter-[0-9]+/triage", "investigate/select", "finalize"].some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
+      // Stage-outcome steps only read the stages' sessions (none in these fakes) and write run evidence.
+      const readOnly = ["reconcile-publications", "record-sources", "iter-[0-9]+/triage", "iter-[0-9]+/(repair|verify)-outcomes", "iter-[0-9]+/integration/outcome", "investigate/select", "investigate/outcomes", "finalize"];
+      if (!readOnly.some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
         throw new Error(`unscripted durable step ${name} would touch git, GitHub or state`);
       }
       return real();
     },
     task: async (name: string, options: any) => {
       tasks.push({ name, options });
+      if (stage) return stage(name, options);
       // Only iteration 1 verifies, so iterations 2 and 3 make no progress.
       const verified = name.startsWith("iter-1/");
       return {
@@ -292,5 +295,106 @@ describe("runs that stop in iteration 1 still record what they ingested", () => 
     const recorded = new Set(Object.keys(state.findings));
     expect(findings.every((finding) => recorded.has(finding.fingerprint))).toBe(true);
     expect(Object.values(state.findings).every((record: any) => record.status === "open")).toBe(true);
+  }, 120_000);
+});
+
+describe("agent stages that end on a provider error", () => {
+  const CYBER = 'github-copilot API error (422): {"message":"This content was flagged for possible cybersecurity risk.","code":"cyber_policy"}';
+  const OUTAGE = "OpenAI Responses stream ended before a terminal response event";
+  /** A stage session whose last assistant message ended on a provider error, as Atomic records it. */
+  const failedTurn = (errorMessage: string) => [{ role: "user", content: "repair" }, { role: "assistant", content: [], stopReason: "error", errorMessage }];
+  const findingOf = (fingerprint: string, kind: string, theory: string) => ({
+    fingerprint, kind, theory, checker: "ocaml", rule: "r", detail: `finding ${fingerprint}`, affectedProofs: 1, obligations: 1, soleFamilyProofs: 0,
+    examples: [`${fingerprint}.smt2`], evidence: [], sources: ["seed"],
+  });
+
+  test("a policy-blocked repair holds its findings and blocks the run with evidence; an outage reopens them; a verifier REJECT is a normal attempt", async () => {
+    const stageSessions = await import("../lib/stage-sessions.ts");
+    const gate = await import("../lib/gate.ts");
+    const stateModule = await import("../lib/state.ts");
+    const sessions: Record<string, unknown[]> = { "s-policy": failedTurn(CYBER), "s-outage": failedTurn(OUTAGE) };
+    const read = spyOn(stageSessions, "readStageSessionMessages").mockImplementation(async (_cwd: string, ids: readonly string[]) =>
+      Object.fromEntries(ids.flatMap((id) => (sessions[id] ? [[id, sessions[id]]] : []))));
+    // The rejected slice committed a change; the gate's git queries are scripted.
+    const changes = spyOn(gate, "collectSliceChanges").mockImplementation(async () => ({ diff: "", changedFiles: 1, uncommitted: false, head: "abc" }));
+    try {
+      const stateDir = mkdtempSync(join(tmpdir(), "fpc-provider-"));
+      const runDir = join(stateDir, "runs", "prov");
+      (await import("node:fs")).mkdirSync(runDir, { recursive: true });
+      const findingsPath = join(runDir, "findings.json");
+      writeFileSync(findingsPath, JSON.stringify([findingOf("fp-policy", "crash", "uf"), findingOf("fp-outage", "crash", "arrays"), findingOf("fp-reject", "rejected", "bitvectors")]));
+      const defaults = Object.fromEntries(Object.entries(definition.inputs).map(([key, schema]: [string, any]) => [key, schema.default]));
+      const inputs = { ...defaults, stateDir, reportPaths: [], localCorpora: [], maxIterations: 1, investigate: false, publish: "none" };
+      const setup = { repoRoot, stateDir, runKey: "prov", runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(), toolchain: fakeToolchain };
+      const signal = new AbortController().signal;
+      let actionablePath = "";
+      let plan: any;
+      const session = (name: string) => {
+        const fingerprint = plan.slices.find((slice: any) => name.startsWith(`iter-1/${slice.id}/`))?.fingerprints[0];
+        return fingerprint === "fp-policy" ? "s-policy" : fingerprint === "fp-outage" ? "s-outage" : "s-reject";
+      };
+      const fake = fakeContext(inputs, {
+        preflight: async () => setup,
+        source: async () => ({ findingsPath, total: 3, byKind: {}, byTheory: {}, reports: [], localScans: {}, carried: [], diagnostics: [] }),
+        "iter-[0-9]+/triage": async (_name, _args, real) => {
+          const triage = await real();
+          actionablePath = triage.actionablePath;
+          return triage;
+        },
+        // Slices are planned without worktrees; the claims a real plan takes are applied directly.
+        "iter-[0-9]+/plan": async () => {
+          plan = await steps.planStep(setup as any, { ...inputs, dryRun: true } as any, actionablePath, 1, signal);
+          const actionable = JSON.parse(readFileSync(actionablePath, "utf8"));
+          await stateModule.withStateLock(stateDir, (state) => ({ state: stateModule.claimFindings(state, actionable, { runKey: "prov", now: new Date() }), result: undefined }));
+          return plan;
+        },
+        "iter-[0-9]+/(gate|integrate|publish|persist)": async (_name, _args, real) => real(),
+      }, async (name, options) => (name.endsWith("/verify")
+        ? { stageName: name, text: "", sessionId: `${session(name)}-verify`, structured: { verdict: "rejected", toolchainAvailable: true, commands: [{ command: "make", exitCode: 1, phase: "final" }], resolvedFingerprints: [], soundnessConcerns: [], summary: "the change breaks Arrays.fst" } }
+        : { stageName: name, text: `Output saved to: ${options.output} (0 B, 0 lines).\nWARNING: the stage artifact is empty; search the companion transcript for this stage's work.`, sessionId: session(name) }));
+      const output = await definition.run(fake.ctx);
+
+      const ids = Object.fromEntries(plan.slices.map((slice: any) => [slice.fingerprints[0], slice.id]));
+      // Only the slice whose repair completed is verified; provider-failed repairs skip their verifier.
+      expect(fake.tasks.map((task) => task.name).sort()).toEqual([
+        `iter-1/${ids["fp-outage"]}/repair`, `iter-1/${ids["fp-policy"]}/repair`, `iter-1/${ids["fp-reject"]}/repair`, `iter-1/${ids["fp-reject"]}/verify`,
+      ].sort());
+      expect(read).toHaveBeenCalled();
+      const gated = JSON.parse(readFileSync(join(runDir, "iter-1", "gate.json"), "utf8")).slices;
+      expect(Object.fromEntries(gated.map((slice: any) => [slice.id, slice.status]))).toEqual({
+        [ids["fp-policy"]]: "provider-policy-blocked", [ids["fp-outage"]]: "provider-unavailable", [ids["fp-reject"]]: "rejected",
+      });
+
+      const state = stateModule.readState(stateDir);
+      const policy = state.findings["fp-policy"];
+      expect(policy).toMatchObject({ status: "provider_policy_blocked", attempts: 0, providerBlock: { runKey: "prov", stage: `iter-1/${ids["fp-policy"]}/repair`, sessionId: "s-policy", code: "cyber_policy" } });
+      expect(policy?.nextEligibleAt).toBeUndefined();
+      expect(policy?.claimedBy).toBeUndefined();
+      const outage = state.findings["fp-outage"];
+      expect(outage).toMatchObject({ status: "open", attempts: 0 });
+      expect(outage?.nextEligibleAt).toBeUndefined();
+      expect(outage?.lastOutcome).toMatch(/^provider-unavailable:.*stream ended before a terminal response event/);
+      // A genuine verifier REJECT is still a proof-failure attempt with backoff.
+      const rejected = state.findings["fp-reject"];
+      expect(rejected).toMatchObject({ status: "unverified", attempts: 1 });
+      expect(rejected?.nextEligibleAt).toBeDefined();
+      expect(rejected?.lastOutcome).toMatch(/^rejected: verifier rejected: the change breaks Arrays\.fst/);
+
+      expect(output.status).toBe("blocked");
+      expect(output.stop_reason).toContain(`iter-1/${ids["fp-policy"]}/repair`);
+      expect(output.stop_reason).toContain("s-policy");
+      expect(output.stop_reason).toContain("cyber_policy");
+      expect(output.stop_reason).toContain("--requeue-policy-blocked");
+      expect(output.provider_failures).toHaveLength(2);
+      const evidence = JSON.parse(readFileSync(output.evidence_path, "utf8"));
+      expect(evidence.status).toBe("blocked");
+      expect(evidence.providerFailures.map((item: any) => [item.stage, item.kind, item.sessionId, item.code ?? null]).sort()).toEqual([
+        [`iter-1/${ids["fp-outage"]}/repair`, "provider-unavailable", "s-outage", null],
+        [`iter-1/${ids["fp-policy"]}/repair`, "provider-policy-blocked", "s-policy", "cyber_policy"],
+      ].sort());
+    } finally {
+      read.mockRestore();
+      changes.mockRestore();
+    }
   }, 120_000);
 });

@@ -18,9 +18,24 @@ import type { Theory } from "./theories.js";
  * Failures go to unverified (backoff) and, after the attempt limit, blocked (reopened by new evidence).
  * Reopen edges back to open: resolved whose publication was lost (branch deleted before its PR merged),
  * merged with changed report evidence produced after the merge, and integrated with no pending publication.
+ * A stage the provider rejected for policy holds its findings in provider_policy_blocked (no attempt,
+ * no backoff, never picked up automatically) until an explicit requeue; a provider outage reopens them.
  */
-export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "merged" | "unverified" | "blocked";
-export type SliceOutcome = "verified" | "unverified" | "rejected" | "no-change" | "integration-conflict";
+export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "merged" | "unverified" | "blocked" | "provider_policy_blocked";
+export type SliceOutcome = "verified" | "unverified" | "rejected" | "no-change" | "integration-conflict" | "provider-policy-blocked" | "provider-unavailable";
+
+/** Evidence of the provider policy rejection (for example `cyber_policy`) that holds a finding. */
+export type ProviderBlock = {
+  /** Workflow run whose agent stage was rejected, and its Atomic run id when known. */
+  runKey: string;
+  runId?: string;
+  stage: string;
+  sessionId?: string;
+  code?: string;
+  /** The provider's error message (at most 400 characters). */
+  error: string;
+  at: string;
+};
 
 /** Where a finding's verified change was pushed. */
 export interface PublicationLink {
@@ -32,7 +47,7 @@ export interface PublicationLink {
   at: string;
 }
 
-/** One status change and why it happened; a reopen keeps the publication it replaced. */
+/** One status change and why it happened; a reopen keeps the publication it replaced, a requeue the provider block. */
 export interface FindingTransition {
   at: string;
   from: FindingStatus;
@@ -40,6 +55,7 @@ export interface FindingTransition {
   reason: string;
   publication?: PublicationLink;
   mergedAt?: string;
+  providerBlock?: ProviderBlock;
 }
 
 export interface FindingRecord {
@@ -66,6 +82,8 @@ export interface FindingRecord {
   mergedAt?: string;
   /** Why a resolved or merged finding was last kept despite new observations. */
   keptReason?: string;
+  /** Set while provider_policy_blocked: the rejected stage, session, code and time. */
+  providerBlock?: ProviderBlock;
   /** The most recent status changes, oldest first. */
   transitions?: FindingTransition[];
 }
@@ -366,6 +384,11 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
       skip("blocked");
       continue;
     }
+    if (record?.status === "provider_policy_blocked") {
+      // Held until an operator requeues it (continuity.ts --requeue-policy-blocked); new evidence does not release it.
+      skip("provider-policy-blocked");
+      continue;
+    }
     if (record?.status === "in_progress" && record.claimedAt && now - Date.parse(record.claimedAt) < claimTtl) {
       skip("claimed");
       continue;
@@ -435,7 +458,7 @@ function observePublished(record: FindingRecord, finding: Finding, at: string, p
   return reopen(record, `report evidence ${produced} after ${pr} merged${record.mergedAt ? ` at ${record.mergedAt}` : ""} still shows this finding with changed evidence`, at, digestNow);
 }
 
-/** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim. */
+/** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim (never while policy-blocked). */
 export function isEligible(record: FindingRecord, now: Date, claimTtlMs = 24 * 3_600_000): boolean {
   if (record.status === "open") return true;
   if (record.status === "unverified") return !record.nextEligibleAt || Date.parse(record.nextEligibleAt) <= now.getTime();
@@ -497,10 +520,14 @@ export interface OutcomeOptions {
   readonly publishedOn?: PublicationLink;
 }
 
-/** Apply slice outcomes: verified findings resolve once published (else stay integrated); others back off exponentially, then block. */
+/**
+ * Apply slice outcomes: verified findings resolve once published (else stay integrated); a
+ * provider policy rejection holds the finding (`provider_policy_blocked`) and a provider outage
+ * reopens it, both without an attempt or backoff; other outcomes back off exponentially, then block.
+ */
 export function recordOutcomes(
   state: WorkflowState,
-  outcomes: ReadonlyArray<{ fingerprint: string; status: SliceOutcome; note: string }>,
+  outcomes: ReadonlyArray<{ fingerprint: string; status: SliceOutcome; note: string; provider?: ProviderBlock }>,
   options: OutcomeOptions,
 ): WorkflowState {
   const maxAttempts = options.maxAttempts ?? 3;
@@ -510,13 +537,25 @@ export function recordOutcomes(
   for (const outcome of outcomes) {
     const existing = records[outcome.fingerprint];
     if (!existing) continue;
-    const { claimedBy: _claimedBy, claimedAt: _claimedAt, nextEligibleAt: _next, ...rest } = existing;
+    const { claimedBy: _claimedBy, claimedAt: _claimedAt, nextEligibleAt: _next, providerBlock: _block, ...rest } = existing;
     if (outcome.status === "verified") {
       const published = options.published === true;
       records[outcome.fingerprint] = {
         ...transition(rest, published ? "resolved" : "integrated", outcome.note, at),
         lastOutcome: outcome.note, lastRunKey: options.runKey,
         ...(published && options.publishedOn ? { publishedOn: options.publishedOn } : {}),
+      };
+      continue;
+    }
+    if (outcome.status === "provider-policy-blocked" || outcome.status === "provider-unavailable") {
+      // Not a proof failure: attempts and backoff are untouched.
+      const note = `${outcome.status}: ${outcome.note}`;
+      const held = outcome.status === "provider-policy-blocked";
+      records[outcome.fingerprint] = {
+        ...transition(rest, held ? "provider_policy_blocked" : "open", note, at),
+        lastOutcome: note,
+        lastRunKey: options.runKey,
+        ...(held ? { providerBlock: outcome.provider ?? { runKey: options.runKey, stage: "unknown", error: outcome.note, at } } : {}),
       };
       continue;
     }
@@ -532,6 +571,71 @@ export function recordOutcomes(
     };
   }
   return { ...state, findings: records };
+}
+
+/**
+ * Release held provider-policy-blocked findings (`"all"` or the given fingerprints) back to
+ * `open` once the provider restriction is resolved. Attempts are unchanged; the transition keeps
+ * the provider block it releases. Fingerprints that are not held are reported in `notHeld`.
+ */
+export function requeuePolicyBlocked(state: WorkflowState, selector: "all" | readonly string[], now: Date): { state: WorkflowState; requeued: string[]; notHeld: string[] } {
+  const at = now.toISOString();
+  const wanted = selector === "all" ? undefined : new Set(selector);
+  const records = { ...state.findings };
+  const requeued: string[] = [];
+  for (const record of Object.values(state.findings)) {
+    if (record.status !== "provider_policy_blocked" || (wanted && !wanted.has(record.fingerprint))) continue;
+    const { providerBlock, ...rest } = record;
+    const reason = "requeued by an operator after the provider policy restriction was resolved";
+    records[record.fingerprint] = { ...transition(rest, "open", reason, at, providerBlock ? { providerBlock } : {}), lastOutcome: `requeued: ${reason}` };
+    requeued.push(record.fingerprint);
+  }
+  const notHeld = wanted ? [...wanted].filter((fingerprint) => !requeued.includes(fingerprint)) : [];
+  return { state: { ...state, findings: records }, requeued, notHeld };
+}
+
+/** A finding whose slice (or integration) had an agent stage rejected for provider policy, with that evidence. */
+export interface PolicyHold {
+  readonly fingerprint: string;
+  readonly block: ProviderBlock;
+}
+
+/**
+ * Reconcile outcomes that a workflow version without provider classification recorded for
+ * policy-blocked stages: a finding that run `block.runKey` recorded as a failure (`unverified` or
+ * `blocked`, one attempt and its backoff) or left claimed is held as `provider_policy_blocked`,
+ * with that attempt and backoff undone. Findings that run verified, that a later run touched, or
+ * that are already held are left as they are and listed in `unchanged`. Applying it twice is a no-op.
+ */
+export function holdPolicyBlocked(state: WorkflowState, holds: readonly PolicyHold[], now: Date): { state: WorkflowState; held: string[]; unchanged: Array<{ fingerprint: string; reason: string }> } {
+  const at = now.toISOString();
+  const records = { ...state.findings };
+  const held: string[] = [];
+  const unchanged: Array<{ fingerprint: string; reason: string }> = [];
+  for (const { fingerprint, block } of holds) {
+    const record = records[fingerprint];
+    if (!record) {
+      unchanged.push({ fingerprint, reason: "not recorded in state" });
+      continue;
+    }
+    if (record.status === "provider_policy_blocked") {
+      unchanged.push({ fingerprint, reason: "already held" });
+      continue;
+    }
+    const recordedFailure = record.lastRunKey === block.runKey && (record.status === "unverified" || record.status === "blocked");
+    const leftClaimed = record.status === "in_progress" && record.claimedBy === block.runKey;
+    if (!recordedFailure && !leftClaimed) {
+      unchanged.push({ fingerprint, reason: `status ${record.status} (last run ${record.lastRunKey ?? "none"}) is not a failure or claim of run ${block.runKey}` });
+      continue;
+    }
+    const { claimedBy: _by, claimedAt: _claimed, nextEligibleAt: _next, ...rest } = record;
+    const attempts = recordedFailure ? Math.max(0, record.attempts - 1) : record.attempts;
+    const undone = recordedFailure ? `; its ${record.status} outcome is undone (attempts ${record.attempts} → ${attempts}, backoff cleared)` : "; its claim is released";
+    const reason = `provider-policy-blocked: ${block.stage} of run ${block.runKey} was rejected by the provider (${block.code ?? "policy"}, session ${block.sessionId ?? "unknown"}); reconciled from durable stage evidence${undone}`;
+    records[fingerprint] = { ...transition(rest, "provider_policy_blocked", reason, at), attempts, lastOutcome: reason, providerBlock: block };
+    held.push(fingerprint);
+  }
+  return { state: { ...state, findings: records }, held, unchanged };
 }
 
 export interface PublicationSettlement {

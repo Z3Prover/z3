@@ -17,11 +17,12 @@ and publishes verified work to one branch and pull request at a time.
 | `lib/state.ts` | Locked, atomically written state: dedup, claims, backoff, publication. |
 | `lib/plan.ts`, `lib/git.ts` | Theory slices, the 32-core budget, and slice worktrees. |
 | `lib/gate.ts` | Deterministic soundness gate and slice verdicts. |
+| `lib/provider.ts`, `lib/stage-sessions.ts` | Agent stages that ended on a provider error, from their sessions: policy rejection or outage. |
 | `lib/publish.ts` | Branch/PR lifecycle and crash bug-report filing. |
 | `lib/steps.ts` | Durable step bodies wrapped by `ctx.tool` in the workflow. |
 | `lib/prompts.ts`, `lib/schemas.ts`, `lib/toolchain.ts` | Stage prompts, verdict schema, toolchain preflight. |
 | `lib/atomic-host.ts` | Locates the installed Atomic package and loads its SDK modules for the tests. |
-| `lib/launch.ts`, `lib/node-run.ts` | The launcher's workflow run in a Node child process (Atomic's runtime). |
+| `lib/launch.ts`, `lib/node-run.ts`, `lib/node-evidence.ts`, `lib/node-hooks.ts` | The launcher's workflow run, and its read of an earlier run's stage sessions, in a Node child process (Atomic's runtime). |
 | `tests/` | `bun test` suite and small fixtures excerpted from real Pulse artifacts. |
 
 ## Registration and discovery
@@ -220,7 +221,8 @@ preflight → reconcile-publications → source → record-sources
      severity it is given, keeps the slice (and, at integration, the merged head) from being
      accepted, and is recorded as the reason.
 
-   Anything else is `unverified`, `rejected`, or `no-change`.
+   Anything else is `unverified`, `rejected`, or `no-change`. A slice whose repair or verify stage
+   ended on a provider error is not gated at all; see "Provider failures of agent stages" below.
 7. **Integrate and verify again.** Each iteration merges its verified slices into its own branch
    `fstar-proof-checking/integration/<run>-i<n>`. Its base is the open publication branch, or
    `baseRef` if there is none. Recorded heads of pending publications are merged first, oldest
@@ -238,6 +240,8 @@ preflight → reconcile-publications → source → record-sources
      `integrated` and the run's integration branch and head are recorded as a pending publication.
    * Others back off for 6 h, 12 h, … and are blocked after 3 attempts.
    * A blocked finding is reopened if its evidence changes.
+   * Provider failures are not attempts: a policy rejection holds the slice's findings as
+     `provider_policy_blocked`, an outage reopens them; neither backs off.
    * Processed-report cursors and scan offsets advance in every real run, whatever `publish` is,
      because the findings themselves are kept in state. Only `dryRun=true` leaves them alone.
 10. **Investigate.** Three report-only stages run when the findings changed since the last
@@ -249,7 +253,48 @@ preflight → reconcile-publications → source → record-sources
 A run stops when nothing is actionable, at `maxIterations`, after two iterations in a row
 without a verified slice, or in a blocked state. Blocked states are a missing toolchain, a PR
 closed without merging, and a push the remote refused as non-fast-forward. Each has an
-actionable reason in the `summary` output.
+actionable reason in the `summary` output. A run in which the provider rejected an agent stage
+for policy also ends `blocked` (after its other slices and iterations), with the stage, session
+and error code in `summary`, `provider_failures` and `evidence.json`.
+
+### Provider failures of agent stages
+
+Atomic records an agent stage as completed even when its turn ended on a provider error: the
+stage session's last assistant message has `stopReason: "error"` and an `errorMessage`, the
+output artifact is empty (`WARNING: the stage artifact is empty`), and the task result has no
+error field. After each group of agent stages a durable step (`iter-<n>/repair-outcomes`,
+`iter-<n>/verify-outcomes`, `iter-<n>/integration/outcome`, `investigate/outcomes`) reads the
+stages' sessions by `sessionId` through Atomic's SDK and records `<runDir>/<step>.json`:
+
+* **`provider-policy-blocked`**: a safety or content-policy rejection, such as GitHub Copilot's
+  HTTP 422 `cyber_policy` (also when it arrives inside a stream error that names a
+  "rate-limited responses stream"). The slice is not verified; its findings are held as
+  `provider_policy_blocked` with `providerBlock` evidence (run key, stage, session, code, error,
+  time); the run ends `blocked`. The workflow does not retry it, reword the prompt, or move the
+  stage to another model, and it declares no `fallbackModels`: Atomic would advance such a chain
+  on this rejection.
+* **`provider-unavailable`**: any other provider or transport error that Atomic's same-model
+  retries (`settings.retry`) did not overcome. The slice is not verified and its findings go back
+  to `open`, eligible for the next run.
+
+Held findings are excluded from triage and from the continuity retrigger, also when new evidence
+arrives, so they cause no repeated launches. Once the restriction is legitimately resolved,
+release them explicitly:
+
+```text
+bun fstar/workflow/continuity.ts --requeue-policy-blocked all            # or <fingerprint>[,<fingerprint>...]
+bun fstar/workflow/continuity.ts --requeue-policy-blocked all --dry-run  # list only
+```
+
+Runs made by a version without this classification recorded policy-blocked slices as failed
+attempts with backoff (or left them claimed). After such a run has ended,
+`--reconcile-policy-blocked <atomicRunId>` reads its journal and stage sessions read-only (in a
+`node` child, from `--journal`, default `ATOMIC_WORKFLOW_JOURNAL_PATH` or
+`~/.atomic/workflows/journal.sqlite`, which also holds the sessions by default), maps each
+policy-blocked stage to its slice's findings (`iter-<n>/plan.json`, or `integration.json` for an
+integration verifier), and holds those findings, undoing that run's attempt and backoff. Findings
+the run verified or that a later run touched are left as they are. It changes nothing while the
+run is still active, `--dry-run` only reports, and applying it twice is a no-op.
 
 ## Publication lifecycle
 
@@ -300,8 +345,13 @@ old and new status, and reason; a reopen also keeps the publication it gave up).
 open ──claim──▶ in_progress ──verified, not pushed──▶ integrated ──live push──▶ resolved ──PR merged──▶ merged
                      │                                                (publishedOn)            (mergedAt)
                      ├──failed──▶ unverified (backoff 6 h, 12 h, …) ──backoff over──▶ eligible again
-                     └──failed 3 times──▶ blocked ──evidence changed──▶ claimed again
+                     ├──failed 3 times──▶ blocked ──evidence changed──▶ claimed again
+                     ├──provider outage──▶ open (no attempt, no backoff)
+                     └──provider policy rejection──▶ provider_policy_blocked ──--requeue-policy-blocked──▶ open
 ```
+
+`provider_policy_blocked` keeps its attempts and records `providerBlock`; it is never picked up
+automatically, whatever new evidence shows, and the requeue keeps that block in its transition.
 
 Reopen edges, all back to `open` with attempts reset and the reason recorded:
 
@@ -366,7 +416,7 @@ It evaluates the three conditions from the instructions:
 1. A new, unprocessed Pulse regression report. Only completed `success` or `failure` runs on
    `--branch` (default `master`) count; skipped and approval-gated runs do not.
 2. Partial proof rule families recorded in state that are not yet processed: open, out of
-   backoff, or with an expired claim.
+   backoff, or with an expired claim. Findings held as `provider_policy_blocked` do not count.
 3. A failed `pulse-checker-build` run whose `build.log` contains SMT proof timeouts, a timed-out
    build job, or a local OCaml or Cherry build log (`--build-log <path>`, any file name) with
    proof timeouts. The launcher passes the log itself as a `reportPaths` entry, and the run
@@ -413,8 +463,12 @@ On the GitHub side, `pulse-checker-build.yml` → `pulse-checker-regressions.yml
 * **Failure isolation.** Slice stages are started with `Promise.allSettled` over `ctx.task`, not
   `ctx.parallel`, because `ctx.parallel` rejects the whole set when one step fails and would
   discard the sibling verdicts. A failed slice stage counts as "no verdict", so the slice is
-  `unverified`. As a result a provider outage in one slice does not pause the whole run.
-* **Models.** Stages are unpinned and use the session model.
+  `unverified`, unless it ended on a provider error (see "Provider failures of agent stages"). As
+  a result a provider outage in one slice does not pause the whole run.
+* **Models.** Stages are unpinned and use the session model, with Atomic's same-model retries
+  (`settings.retry`) for transient errors. No `fallbackModels` chain is declared: Atomic would
+  advance it on a provider policy rejection (it classifies the `cyber_policy` 422 as a candidate
+  failure), which would route around the restriction instead of reporting it.
 * **Steering.** The run context is wrapped with `withSteeringPropagationContext`. The soundness
   and scope contracts in each prompt are protected with `keepContext`.
 
@@ -439,6 +493,13 @@ The tests cover:
   files, the harness checks a staged copy, and a dry run moves nothing;
 * lock contention, stale-lock reclaim, and serialization across four processes;
 * dedup, backoff and claims;
+* provider failures of agent stages: `cyber_policy` (also inside a stream-wrapper error) is a
+  policy rejection and transport errors are outages; a policy-blocked repair skips its verifier,
+  holds its findings with stage, session and code and no attempt or backoff, and ends the run
+  `blocked`; an outage reopens its findings without an attempt; a verifier REJECT is still an
+  attempt with backoff; held findings stay out of triage, re-sourcing and the retrigger until an
+  explicit requeue; the reconciliation of an older run holds only the findings whose failed
+  attempt or claim that run recorded, undoing that attempt;
 * core allocation (≤ 32) and distinct worktrees and branches;
 * worktree creation with long Windows paths;
 * the soundness gate, including `magic`, `tadmit_t`, `admit_all`, `assume type`, `assume e`,

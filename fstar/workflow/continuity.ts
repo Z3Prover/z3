@@ -3,6 +3,8 @@
  *
  *   bun fstar/workflow/continuity.ts --check  [--dry-run] [options]
  *   bun fstar/workflow/continuity.ts --launch [--dry-run] [options]
+ *   bun fstar/workflow/continuity.ts --requeue-policy-blocked all|<fingerprint>[,...] [--dry-run]
+ *   bun fstar/workflow/continuity.ts --reconcile-policy-blocked <atomicRunId> [--journal <path>] [--dry-run]
  *
  * --check   evaluates the three retrigger conditions from fstar/workflow-instructions.txt and
  *           prints a JSON decision: a new Pulse report, unprocessed partial proof rules, or an
@@ -24,6 +26,18 @@
  *           Verified work from non-live runs stays pending in state; a `--publish live` launch
  *           pushes it together with its own work.
  *
+ * --requeue-policy-blocked all|<fingerprint>[,<fingerprint>...]
+ *           moves findings held as `provider_policy_blocked` (an agent stage was rejected by the
+ *           provider for policy, for example `cyber_policy`) back to `open`. Run it only once the
+ *           restriction is resolved; with --dry-run it only lists what it would requeue.
+ * --reconcile-policy-blocked <atomicRunId>
+ *           holds the findings of that run's policy-blocked stages, which a workflow version without
+ *           provider classification recorded as failed attempts (or left claimed): it reads the
+ *           run's journal and stage sessions read-only (in a `node` child) from --journal (default
+ *           ATOMIC_WORKFLOW_JOURNAL_PATH or ~/.atomic/workflows/journal.sqlite, which also holds the
+ *           sessions by default), and undoes that run's attempt and backoff for them. It changes
+ *           nothing while the run is still active; with --dry-run it only reports what it would do.
+ *
  * Options: --state-dir <dir> (default .atomic/fstar-proof-checking), --repo <owner/name>,
  *          --branch <name> (Pulse runs to consider; default master, "" for all),
  *          --runs-file <json> (offline `{regressions, build}` gh listings instead of gh),
@@ -32,18 +46,24 @@
  *          --opam-switch, --fstar, --cherry-fstar, --pwsh, --ocaml-checker, --cherry-checker.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnRunner } from "./lib/command.js";
 import { evaluateContinuity, launchExclusively, type BuildEvidence } from "./lib/continuity.js";
-import { runWorkflowInNode } from "./lib/launch.js";
+import { readRunEvidenceInNode, runWorkflowInNode } from "./lib/launch.js";
+import { policyHoldsFromRun } from "./lib/provider.js";
 import { parseBuildLog } from "./lib/reports.js";
 import { downloadRunReports, fromGhRuns, listPulseRuns, localReportKey, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
-import { readState } from "./lib/state.js";
+import { holdPolicyBlocked, readState, requeuePolicyBlocked, withStateLock } from "./lib/state.js";
 import { probeToolchain } from "./lib/toolchain.js";
 
 interface Options {
-  mode: "check" | "launch";
+  mode: "check" | "launch" | "requeue" | "reconcile";
+  /** --requeue-policy-blocked: `all` or the fingerprints. */
+  requeue?: "all" | string[];
+  /** --reconcile-policy-blocked: the Atomic run id. */
+  reconcileRunId?: string;
   dryRun: boolean;
   publish?: "none" | "dry-run" | "live";
   stateDir: string;
@@ -76,6 +96,15 @@ function parseArgs(argv: string[], repoRoot: string): Options {
     if (arg === "--check") options.mode = "check";
     else if (arg === "--launch") options.mode = "launch";
     else if (arg === "--dry-run") options.dryRun = true;
+    else if (arg === "--requeue-policy-blocked") {
+      const selector = value();
+      options.mode = "requeue";
+      options.requeue = selector === "all" ? "all" : selector.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+    else if (arg === "--reconcile-policy-blocked") {
+      options.mode = "reconcile";
+      options.reconcileRunId = value();
+    }
     else if (arg === "--publish") {
       const mode = value();
       if (mode !== "none" && mode !== "dry-run" && mode !== "live") throw new Error(`--publish must be none, dry-run or live, not ${mode}`);
@@ -123,9 +152,64 @@ async function buildEvidence(runs: readonly PulseRun[], options: Options, proces
   return evidence;
 }
 
+/** Release held provider-policy-blocked findings (the restriction was resolved); --dry-run only lists them. */
+async function requeue(options: Options): Promise<number> {
+  const selector = options.requeue ?? [];
+  const now = new Date();
+  const result = options.dryRun
+    ? requeuePolicyBlocked(readState(options.stateDir), selector, now)
+    : await withStateLock(options.stateDir, (state) => {
+      const next = requeuePolicyBlocked(state, selector, now);
+      return { ...(next.requeued.length > 0 ? { state: next.state } : {}), result: next };
+    }, { owner: `requeue-${process.pid}` });
+  console.log(JSON.stringify({ mode: "requeue-policy-blocked", dryRun: options.dryRun, stateDir: options.stateDir, applied: !options.dryRun && result.requeued.length > 0, requeued: result.requeued, notHeld: result.notHeld }, null, 2));
+  return 0;
+}
+
+/** Atomic run statuses during which the run may still write state. */
+const ACTIVE_RUN = new Set(["running", "paused", "awaiting_input", "pending"]);
+
+/**
+ * Hold the findings of an earlier run's policy-blocked stages, from that run's durable evidence
+ * (journal and stage sessions, read-only) and its plan and integration records.
+ */
+async function reconcile(options: Options, repoRoot: string): Promise<number> {
+  const runId = options.reconcileRunId ?? "";
+  const database = options.journal ?? (process.env.ATOMIC_WORKFLOW_JOURNAL_PATH || join(homedir(), ".atomic", "workflows", "journal.sqlite"));
+  const report: Record<string, unknown> = { mode: "reconcile-policy-blocked", dryRun: options.dryRun, runId, journal: database, stateDir: options.stateDir };
+  const evidence = await readRunEvidenceInNode({ runId, database, cwd: repoRoot });
+  if (!evidence.ok) {
+    console.log(JSON.stringify({ ...report, applied: false, failed: `could not read run ${runId}: ${evidence.error.name}: ${evidence.error.message}` }, null, 2));
+    return 1;
+  }
+  if (!evidence.runKey || !evidence.runDir) {
+    console.log(JSON.stringify({ ...report, runStatus: evidence.status, applied: false, failed: "the run has no preflight checkpoint (no run key or evidence directory)" }, null, 2));
+    return 1;
+  }
+  const now = new Date();
+  const holds = policyHoldsFromRun({ runId, runKey: evidence.runKey, runDir: evidence.runDir, at: now.toISOString(), stages: evidence.stages });
+  const stages = evidence.stages.filter((stage) => stage.kind !== "completed");
+  const active = ACTIVE_RUN.has(evidence.status);
+  Object.assign(report, { runStatus: evidence.status, runKey: evidence.runKey, runDir: evidence.runDir, stages });
+  if (options.dryRun || active) {
+    const preview = holdPolicyBlocked(readState(options.stateDir), holds, now);
+    const reason = active ? `run ${runId} is ${evidence.status}: state.json is not changed until it ends` : "dry run";
+    console.log(JSON.stringify({ ...report, applied: false, reason, wouldHold: preview.held, unchanged: preview.unchanged }, null, 2));
+    return active && !options.dryRun ? 1 : 0;
+  }
+  const result = await withStateLock(options.stateDir, (state) => {
+    const next = holdPolicyBlocked(state, holds, now);
+    return { ...(next.held.length > 0 ? { state: next.state } : {}), result: next };
+  }, { owner: `reconcile-${process.pid}` });
+  console.log(JSON.stringify({ ...report, applied: result.held.length > 0, held: result.held, unchanged: result.unchanged }, null, 2));
+  return 0;
+}
+
 async function main(): Promise<number> {
   const repoRoot = resolve(import.meta.dirname ?? dirname(new URL(import.meta.url).pathname), "..", "..");
   const options = parseArgs(process.argv.slice(2), repoRoot);
+  if (options.mode === "requeue") return requeue(options);
+  if (options.mode === "reconcile") return reconcile(options, repoRoot);
   const state = readState(options.stateDir);
   const { runs, note } = await listRuns(options);
   const evidence = await buildEvidence(runs, options, state.processedReports);

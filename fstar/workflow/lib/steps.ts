@@ -20,6 +20,7 @@ import {
   type PublicationFacts,
   type PublishMode,
 } from "./publish.js";
+import { describeOutcome, isProviderFailure, type StageOutcome } from "./provider.js";
 import { buildLogFindings, mergeFindings, normalizeReportTree, type Finding } from "./reports.js";
 import {
   downloadRunReports,
@@ -49,6 +50,7 @@ import {
   triageFindings,
   withStateLock,
   type BranchObservation,
+  type ProviderBlock,
   type PublicationLink,
   type SliceOutcome,
   type WorkflowState,
@@ -489,10 +491,14 @@ export async function planStep(setup: RunSetup, inputs: WorkflowInputs, actionab
 // ---------------------------------------------------------------- gate
 
 export type GateSummary = {
-  readonly slices: Array<{ id: string; status: SliceOutcome | "not-run"; reasons: string[]; head?: string; changedFiles: number; warnings: string[] }>;
+  readonly slices: Array<{ id: string; status: SliceOutcome | "not-run"; reasons: string[]; head?: string; changedFiles: number; warnings: string[]; provider?: StageOutcome }>;
   readonly verified: number;
 };
 
+/**
+ * Gate each slice. A slice whose repair or verify stage ended on a provider error (`providers`)
+ * is not gated: it is `provider-policy-blocked` or `provider-unavailable`, never verified.
+ */
 export async function gateStep(
   setup: RunSetup,
   inputs: WorkflowInputs,
@@ -501,12 +507,18 @@ export async function gateStep(
   iteration: number,
   signal: AbortSignal,
   inner?: CommandRunner,
+  providers: ReadonlyArray<StageOutcome | null> = [],
 ): Promise<GateSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
   const slices: GateSummary["slices"] = [];
   for (const [index, slice] of plan.slices.entries()) {
     if (inputs.dryRun) {
       slices.push({ id: slice.id, status: "not-run", reasons: ["dry run: no agent stages were executed"], changedFiles: 0, warnings: [] });
+      continue;
+    }
+    const provider = providers[index];
+    if (isProviderFailure(provider)) {
+      slices.push({ id: slice.id, status: provider.kind, reasons: [describeOutcome(provider)], changedFiles: 0, warnings: [], provider });
       continue;
     }
     const changes = await collectSliceChanges(runner, slice.worktree, inputs.baseRef, signal);
@@ -522,6 +534,14 @@ export async function gateStep(
   const summary = { slices, verified: slices.filter((slice) => slice.status === "verified").length };
   writeJson(join(iterationDir(setup, iteration), "gate.json"), summary);
   return summary;
+}
+
+/** Record how a group of agent stages ended (`<runDir>/<group>.json`, for example `iter-1/repair-outcomes.json`). */
+export function recordStageOutcomes(setup: RunSetup, group: string, outcomes: StageOutcome[]): StageOutcome[] {
+  const path = join(setup.runDir, `${group}.json`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeJson(path, outcomes);
+  return outcomes;
 }
 
 // ---------------------------------------------------------------- integration
@@ -663,6 +683,8 @@ export type PublicationSummary = {
   readonly integrationVerified: boolean;
   /** Why the integrated head was not accepted for publication (empty when it was). */
   readonly integrationReasons: string[];
+  /** The integration verifier ended on a provider error instead of returning a verdict. */
+  readonly integrationProvider?: StageOutcome;
   readonly bugReports: Array<BugReportResult & { draft: string }>;
   readonly publication: WorkflowState["publication"];
 };
@@ -714,6 +736,7 @@ export async function publishStep(
   iteration: number,
   signal: AbortSignal,
   inner?: CommandRunner,
+  integrationProvider?: StageOutcome | null,
 ): Promise<PublicationSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
   const state = readState(setup.stateDir);
@@ -748,7 +771,8 @@ export async function publishStep(
     // A plan that blocks (PR closed without merging) or a push the remote refused as non-fast-forward.
     blocked: action.kind === "blocked" ? action.reason : "blocked" in result ? result.blocked : undefined,
     integrationVerified,
-    integrationReasons: integrationVerified ? [] : decision.reasons,
+    integrationReasons: integrationVerified ? [] : [...(isProviderFailure(integrationProvider) ? [describeOutcome(integrationProvider)] : []), ...decision.reasons],
+    ...(isProviderFailure(integrationProvider) ? { integrationProvider } : {}),
     bugReports,
     publication: result.state,
   };
@@ -760,16 +784,25 @@ export async function publishStep(
 
 export type PersistSummary = {
   readonly committed: boolean;
-  readonly outcomes: Array<{ fingerprint: string; status: SliceOutcome; note: string }>;
+  readonly outcomes: Array<{ fingerprint: string; status: SliceOutcome; note: string; provider?: ProviderBlock }>;
   /** Whether verified work was pushed live; otherwise it is recorded as integrated and pending. */
   readonly published: boolean;
 };
+
+/** What a held finding records about the stage the provider rejected. */
+function providerBlockOf(outcome: StageOutcome, runKey: string): ProviderBlock {
+  return {
+    runKey, stage: outcome.stage, ...(outcome.sessionId ? { sessionId: outcome.sessionId } : {}), ...(outcome.code ? { code: outcome.code } : {}),
+    error: outcome.error ?? "provider policy rejection", at: outcome.at,
+  };
+}
 
 /**
  * Record outcomes, publication state and pending publications (not in dry runs); what the run
  * ingested was already recorded by `recordSourcesStep`. Verified findings resolve only when a
  * live push included them; otherwise they become `integrated` and the integration branch is kept
- * as a pending publication that the next live run merges and pushes.
+ * as a pending publication that the next live run merges and pushes. Slices whose stages (or
+ * integration verifier) ended on a provider error record that, not a proof failure.
  */
 export async function persistStep(
   setup: RunSetup,
@@ -787,13 +820,19 @@ export async function persistStep(
     if (!gated || gated.status === "not-run") continue;
     let status: SliceOutcome = gated.status;
     let note = gated.reasons.join("; ");
+    let provider = gated.provider;
     if (status === "verified") {
       if (integration.conflicts.includes(slice.id)) [status, note] = ["integration-conflict", `merge conflict on ${integration.branch}`];
       else if (integration.rejected.includes(slice.id)) [status, note] = ["rejected", "merged diff failed the soundness scan"];
+      else if (publication.integrationProvider && !publication.integrationVerified) {
+        provider = publication.integrationProvider;
+        [status, note] = [provider.kind as SliceOutcome, `integration verification: ${describeOutcome(provider)}`];
+      }
       else if (!publication.integrationVerified) [status, note] = ["unverified", `integration verification did not pass: ${publication.integrationReasons.join("; ")}`];
       else note = `verified; integrated on ${integration.branch}${published ? ` and published (${publication.prUrl ?? publication.branch})` : `; not published (publish: ${publication.mode}, ${publication.summary})`}`;
     }
-    for (const fingerprint of slice.fingerprints) outcomes.push({ fingerprint, status, note });
+    const held = status === "provider-policy-blocked" && provider ? { provider: providerBlockOf(provider, setup.runKey) } : {};
+    for (const fingerprint of slice.fingerprints) outcomes.push({ fingerprint, status, note, ...held });
   }
   if (inputs.dryRun) {
     writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, published });
@@ -847,7 +886,11 @@ export type FinalSummary = {
 export async function finalizeStep(
   setup: RunSetup,
   inputs: WorkflowInputs,
-  record: { status: string; stopReason: string; iterations: unknown[]; investigation: { run: boolean; reason: string; digest: string }; verified: number; attempted: number },
+  record: {
+    status: string; stopReason: string; iterations: unknown[]; investigation: { run: boolean; reason: string; digest: string }; verified: number; attempted: number;
+    /** Agent stages that ended on a provider error (policy rejection or outage), with their evidence. */
+    providerFailures?: readonly StageOutcome[];
+  },
   worktrees: readonly string[],
   signal: AbortSignal,
   inner?: CommandRunner,

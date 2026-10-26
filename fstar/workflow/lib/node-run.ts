@@ -4,34 +4,17 @@
  *   node fstar/workflow/lib/node-run.ts <request.json>
  *
  * Node (>= 22.19, the runtime of an npm-installed Atomic) strips the TypeScript types. A resolve
- * hook loads the host modules (`@bastani/atomic/workflows`, `typebox`) from the installed Atomic
- * package, as Atomic's loader does, and maps the workflow's `.js` import specifiers to its `.ts`
- * sources. Only built-in modules are imported statically: the hook must be registered before the
- * workflow loads. The outcome is written to the request's `resultPath` as a `WorkflowRunOutcome`.
+ * hook (lib/node-hooks.ts) loads the host modules (`@bastani/atomic/workflows`, `typebox`,
+ * `@bastani/atomic`) from the installed Atomic package, as Atomic's loader does, and maps the
+ * workflow's `.js` import specifiers to its `.ts` sources. Only built-in modules are imported
+ * statically: the hook must be registered before the workflow loads. The outcome is written to the
+ * request's `resultPath` as a `WorkflowRunOutcome`.
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { registerHooks } from "node:module";
-import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-// Explicit `.ts`: this module is loaded before the hook below maps `.js` specifiers to sources.
-import { HOST_SPECIFIERS } from "./atomic-host.ts";
+import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import type { StartPhase, WorkflowRunOutcome, WorkflowRunRequest } from "./launch.ts";
-
-function registerWorkflowHooks(packageDir: string): void {
-  const host = new Set<string>(HOST_SPECIFIERS);
-  const hostParent = pathToFileURL(join(packageDir, "package.json")).href;
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      // Resolved as if imported from inside the installed package: the instances Atomic itself uses.
-      if (host.has(specifier)) return nextResolve(specifier, { ...context, parentURL: hostParent });
-      if (/^\.\.?\//.test(specifier) && specifier.endsWith(".js") && context.parentURL?.endsWith(".ts")) {
-        const source = new URL(`${specifier.slice(0, -".js".length)}.ts`, context.parentURL);
-        if (existsSync(fileURLToPath(source))) return { url: source.href, shortCircuit: true };
-      }
-      return nextResolve(specifier, context);
-    },
-  });
-}
+// Explicit `.ts`: this module is loaded before the hook maps `.js` specifiers to sources.
+import { registerWorkflowHooks } from "./node-hooks.ts";
 
 /** Atomic's storage (`StorageError`) and journal (`JournalError`) failures, also when wrapped as a cause. */
 function isStorageFailure(error: unknown): boolean {
