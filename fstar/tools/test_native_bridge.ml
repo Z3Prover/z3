@@ -3321,6 +3321,22 @@ let proof_check_callback () =
   Z3native.clear_proof_check_callback c;
   require (Z3native.eval_smtlib2_string c "(check-sat)" = "unsat\n")
     "cleared callback was still invoked";
+  ignore (Sys.opaque_identity registration);
+  let c = context () in
+  let registration = Z3native.set_proof_check_callback c (fun proof assertions ->
+      let inputs = List.init (Z3native.ast_vector_size c assertions)
+          (Z3native.ast_vector_get c assertions) in
+      require (P.check_document (B.marshal inputs proof) = Some Z.zero)
+        "static tactic proof did not check";
+      "checked tactic") in
+  require (Z3native.eval_smtlib2_string c
+      "(set-option :produce-proofs true)(set-logic QF_NRA)\
+       (check-sat-using ctx-solver-simplify)\
+       (push)(assert false)(check-sat-using ctx-solver-simplify)\
+       (pop)(check-sat-using ctx-solver-simplify)" =
+      "sat\nunsat\nchecked tactic\nsat\n")
+    "static tactic registration or scoped callback was lost";
+  Z3native.clear_proof_check_callback c;
   ignore (Sys.opaque_identity registration)
 
 let proof_callback_exceptions () =

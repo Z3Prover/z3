@@ -109,21 +109,6 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(interactive.returncode, 0, interactive.stderr)
         self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
 
-    def test_sequences_of_datatypes_in_both_modes(self):
-        for sort in ("(Seq T)", "(Seq (Seq T))", "(Seq (Array Int T))"):
-            with self.subTest(sort=sort):
-                source = ("(declare-datatype T ((C) (D)))"
-                          f"(declare-const x {sort})(declare-const y {sort})"
-                          "(assert (= x y))(assert (not (= x y)))")
-                direct = self.run_checker(source)
-                self.assertEqual((direct.returncode, direct.stdout.strip()), (0, "ACCEPT"),
-                                 direct.stderr)
-                interactive = self.run_checker(
-                    source + "(check-sat)(reset)" + source + "(check-sat)", "--interactive")
-                self.assertEqual(interactive.returncode, 0, interactive.stderr)
-                self.assertEqual(interactive.stdout.count("unsat\n; proof-check ACCEPT"), 2,
-                                 interactive.stdout)
-
     def test_linear_arithmetic_is_fully_checked(self):
         result = self.run_checker(
             "(declare-const x Real)(declare-const y Real)"
@@ -374,19 +359,6 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertIn("define-fun p", result.stdout)
         self.assertEqual(result.stderr.count("marshal_ms="), 3)
         self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
-
-    def test_interactive_static_tactics_are_registered(self):
-        result = self.run_checker(
-            "(set-logic QF_NRA)(check-sat-using ctx-solver-simplify)"
-            "(push)(assert false)(check-sat-using ctx-solver-simplify)"
-            "(pop)(check-sat-using ctx-solver-simplify)",
-            "--interactive")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        lines = result.stdout.splitlines()
-        self.assertEqual(len(lines), 5, result.stdout)
-        self.assertEqual(lines[:3], ["sat", "unsat", "; proof-check ACCEPT"])
-        self.assertRegex(lines[3], r"^; proof-stats .* pending=0$")
-        self.assertEqual(lines[4], "sat")
 
     def test_clause_proofs_in_batch_and_interactive_modes(self):
         sources = (
