@@ -1486,6 +1486,27 @@ let checked_quantifier_reductions () =
     U.PushQuantifier, "exists-or",
       "(exists ((x Int) (y Real)) (or (r x) (q y) c))",
       "(or (exists ((x Int)) (r x)) (exists ((y Real)) (q y)) c)", true;
+    U.PushQuantifier, "forall-and-demorgan",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (p x x)) (forall ((x Int)) (r x)))", true;
+    U.PushQuantifier, "exists-or-demorgan",
+      "(exists ((x Int)) (not (and (not (r x)) (not (p x x)))))",
+      "(or (exists ((x Int)) (p x x)) (exists ((x Int)) (r x)))", true;
+    U.PushQuantifier, "demorgan-mixed-quantifiers",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (exists ((x Int)) (p x x)))", false;
+    U.PushQuantifier, "demorgan-changed-binders",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Int) (y Int)) (p x y)))", false;
+    U.PushQuantifier, "demorgan-changed-binder-sort",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Real)) (q x)))", false;
+    U.PushQuantifier, "demorgan-dropped-body",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(and (forall ((x Int)) (r x)) (forall ((x Int)) (r x)))", false;
+    U.PushQuantifier, "demorgan-wrong-connective",
+      "(forall ((x Int)) (not (or (not (r x)) (not (p x x)))))",
+      "(or (forall ((x Int)) (r x)) (forall ((x Int)) (p x x)))", false;
     U.PushQuantifier, "forall-or",
       "(forall ((x Int)) (or (r x) (not (r x))))",
       "(or (forall ((x Int)) (r x)) (forall ((x Int)) (not (r x))))", false;

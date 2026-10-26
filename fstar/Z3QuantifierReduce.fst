@@ -157,13 +157,44 @@ and lemma_equivalent_args (fuel:nat) (i:interpretation value) (rho:env value)
       lemma_equivalent_args fuel i rho rest remaining
     | _, _ -> ()
 
+let rec quantifier_bodies (args:list expr) : Tot (option (list expr)) (decreases args) =
+  match args with
+  | [] -> Some []
+  | Quantifier _ _ _ body :: rest ->
+    (match quantifier_bodies rest with
+     | Some bodies -> Some (body :: bodies)
+     | None -> None)
+  | _ -> None
+
+let unpush (e:expr) : option expr =
+  match e with
+  | App f args ->
+    (match args with
+     | Quantifier k bs s _ :: _ ->
+       (match quantifier_bodies args with
+        | Some bodies -> Some (Quantifier k bs s (App f bodies))
+        | None -> None)
+     | _ -> None)
+  | _ -> None
+
 let push_check (a b:expr) : bool =
-  match push a with Some result -> equivalent 64 result b | None -> false
+  (match push a with Some result -> equivalent 64 result b | None -> false) ||
+  (match unpush b with
+   | Some candidate ->
+     // The round trip validates all quantifier kinds, sorts, and binder lists.
+     push candidate = Some b && equivalent 64 a candidate
+   | None -> false)
 
 let lemma_push_check (i:interpretation value) (rho:env value) (a b:expr)
   : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
                     push_check a b)
           (ensures eval i a rho == eval i b rho)
-  = match push a with
-    | Some result -> lemma_push i rho a result; lemma_equivalent 64 i rho result b
-    | None -> ()
+  = if (match push a with Some result -> equivalent 64 result b | None -> false)
+    then (match push a with
+          | Some result -> lemma_push i rho a result; lemma_equivalent 64 i rho result b
+          | None -> ())
+    else
+      match unpush b with
+      | Some candidate ->
+        lemma_push i rho candidate b; lemma_equivalent 64 i rho a candidate
+      | None -> ()

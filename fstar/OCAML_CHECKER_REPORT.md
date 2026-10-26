@@ -1128,6 +1128,22 @@ semantics still ranges over arity-correct value lists rather than verified
 sort-indexed SMT-LIB domains. NLSAT and other previously unsupported theory
 rules remain partial.
 
+#### Quantifier pushing through normalized Boolean bodies (2026-10-26)
+
+`Z3QuantifierReduce.push_check` retains its forward recognizer and additionally
+reconstructs a pre-push candidate from a conjunction of universal quantifiers
+or a disjunction of existential quantifiers. An exact `push` round trip checks
+the connective, quantifier kinds, binder lists, and sorts; the existing bounded
+equivalence checker then compares the source with this candidate. This covers
+De Morgan bodies and reordered conjuncts/disjuncts without adding semantic
+assumptions or increasing normalization budgets. The existing push and
+equivalence lemmas prove the extended recognizer's unchanged soundness contract.
+
+Native regressions cover both quantifier kinds and reject mixed kinds, changed
+binders or sorts, dropped bodies, and wrong connectives. An interactive
+quantified-arithmetic regression requires certification after explicit `bv`,
+explicit `smt`, and default solving.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,

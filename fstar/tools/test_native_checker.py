@@ -288,6 +288,17 @@ class DirectCheckerTests(unittest.TestCase):
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT", interactive.stdout)
 
+    def test_quantifier_push_through_demorgan_body(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using bv)(check-sat-using smt)(check-sat)",
+            "--interactive", "--diagnostics")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines().count("unsat"), 3)
+        self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 3)
+        self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
+
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
         self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"), result.stderr)
