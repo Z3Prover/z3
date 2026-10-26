@@ -1275,6 +1275,7 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
+            fail_if_proof_generation("qsat", in);
             model_evaluator_params mp(m_params);
             if (!mp.array_equalities())
                 throw tactic_exception("array equalities cannot be disabled for qsat");
@@ -1286,7 +1287,6 @@ namespace qe {
             
             // for now:
             // fail if cores.  (TBD)
-            // fail if proofs. (TBD)
             
             TRACE(qe, tout << fml << "\n";);
 

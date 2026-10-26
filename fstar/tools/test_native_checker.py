@@ -231,6 +231,33 @@ class DirectCheckerTests(unittest.TestCase):
                 if source.startswith("(assert (not (forall"):
                     self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
 
+    def test_quantified_arithmetic_avoids_asserted_false_proofs(self):
+        source = ("(assert (forall ((a Real)) (exists ((b Real))"
+                  " (and (>= (+ a b) 0.0) (<= b 0.0)))))")
+        direct = self.run_checker(source, "--diagnostics")
+        self.assertIn(direct.returncode, (0, 3), direct.stdout + direct.stderr)
+        self.assertRegex(direct.stdout.strip(), r"^(ACCEPT|PARTIAL [1-9][0-9]*)$")
+        self.assertIn("diagnostic\tchecked\tpending=", direct.stderr)
+        interactive = self.run_checker(
+            source + "(check-sat-using smt)(check-sat)", "--interactive", "--diagnostics")
+        self.assertIn(interactive.returncode, (0, 3), interactive.stdout + interactive.stderr)
+        self.assertEqual(interactive.stdout.splitlines().count("unsat"), 2)
+        self.assertEqual(interactive.stdout.count("; proof-check "), 2)
+        self.assertIn("; proof-check ACCEPT", interactive.stdout)
+        self.assertNotIn("; proof-check REJECT", interactive.stdout)
+
+    def test_qsat_refuses_unsupported_proof_production(self):
+        result = self.run_checker(
+            "(assert (forall ((a Real)) (exists ((b Real))"
+            " (and (>= (+ a b) 0.0) (<= b 0.0)))))"
+            "(check-sat-using qsat)(get-info :reason-unknown)",
+            "--interactive")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], "unknown")
+        self.assertIn("qsat does not support proof production", result.stdout + result.stderr)
+        self.assertNotIn("; proof-check ", result.stdout)
+        self.assertNotIn("unsat", result.stdout.splitlines())
+
     def test_uncertified_nonlinear_arithmetic_remains_partial(self):
         result = self.run_checker(
             "(declare-const x Real)"
