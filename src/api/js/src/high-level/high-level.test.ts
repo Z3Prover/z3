@@ -1370,9 +1370,9 @@ describe('high-level', () => {
   });
 
   describe('Tactic API', () => {
-    it('can create a tactic', () => {
+    it.each(['simplify', 'split-clause', 'bvarray2uf', 'fm'])('can create a %s tactic', name => {
       const { Tactic } = api.Context('main');
-      const tactic = new Tactic('simplify');
+      const tactic = new Tactic(name);
       expect(tactic).toBeDefined();
     });
 
