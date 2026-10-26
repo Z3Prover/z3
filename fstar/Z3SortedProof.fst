@@ -312,6 +312,92 @@ let rec lemma_reconstruction_conflict (#base:sort -> Type0) (s:S.checked_schema)
     else lemma_reconstruction_conflict s bc eq other facts rest
   | _ :: rest -> lemma_reconstruction_conflict s bc eq other facts rest
 
+let rec field_position (child:expr) (args:list expr)
+  : Tot (option nat) (decreases args) =
+  match args with
+  | [] -> None
+  | a :: rest ->
+    if a = child then Some 0
+    else match field_position child rest with Some n -> Some (n + 1) | None -> None
+
+let rec lemma_field_position (child:expr) (args:list expr) (n:nat)
+  : Lemma (requires field_position child args == Some n)
+          (ensures n < L.length args /\ L.index args n == child)
+          (decreases args) =
+  match args with
+  | [] -> ()
+  | a :: rest ->
+    if a <> child then
+      match field_position child rest with
+      | Some k -> lemma_field_position child rest k
+      | None -> ()
+
+let rec lemma_sorts_match_length (args:list expr) (ss:list sort)
+  : Lemma (requires sorts_match args ss)
+          (ensures L.length args == L.length ss)
+          (decreases args) =
+  match args, ss with
+  | _ :: rest, _ :: tail -> lemma_sorts_match_length rest tail
+  | _, _ -> ()
+
+let immediate_field (s:S.checked_schema) (parent child:expr) : bool =
+  match parent with
+  | App c args -> L.mem c (S.signature s) && Some? (field_position child args)
+  | _ -> false
+
+let lemma_immediate_field (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                          (parent child:expr)
+  : Lemma (requires D.scoped [] parent /\ D.scoped [] child /\ immediate_field s parent child)
+          (ensures T.evaluate s bc eq other parent =!= T.evaluate s bc eq other child) =
+  match parent with
+  | App c args ->
+    let n = Some?.v (field_position child args) in
+    lemma_field_position child args n;
+    lemma_sorts_match_length args c.domain;
+    DT.lemma_arguments_index s bc eq other args c.domain n;
+    let xs = T.evaluate_arguments s bc eq other args c.domain in
+    assert (T.evaluate s bc eq other parent == V.Constructor c xs);
+    V.lemma_acyclic c xs n
+  | _ -> ()
+
+let cyclic_equation (s:S.checked_schema) (e:expr) : bool =
+  D.scoped [] e &&
+  (match e with
+   | App f [a; b] ->
+     f = R.eq_decl (get_sort a) && get_sort a = get_sort b &&
+     (immediate_field s a b || immediate_field s b a)
+   | _ -> false)
+
+let rec cyclic_conflict (s:S.checked_schema) (facts:list expr) : Tot bool (decreases facts) =
+  match facts with
+  | [] -> false
+  | e :: rest -> cyclic_equation s e || cyclic_conflict s rest
+
+let lemma_cyclic_equation (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                          (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                          (e:expr)
+  : Lemma (requires T.truth s bc eq other e /\ cyclic_equation s e)
+          (ensures False) =
+  match e with
+  | App _ [a; b] ->
+    T.lemma_equality s bc eq other a b;
+    if immediate_field s a b then lemma_immediate_field s bc eq other a b
+    else lemma_immediate_field s bc eq other b a
+  | _ -> ()
+
+let rec lemma_cyclic_conflict (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
+                              (eq:T.scalar_equality base) (other:V.interpretation base (S.signature s))
+                              (facts:list expr)
+  : Lemma (requires T.truths s bc eq other facts /\ cyclic_conflict s facts)
+          (ensures False)
+          (decreases facts) =
+  match facts with
+  | [] -> ()
+  | e :: rest ->
+    if cyclic_equation s e then lemma_cyclic_equation s bc eq other e
+    else lemma_cyclic_conflict s bc eq other rest
+
 let equality_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) : bool =
   match conclusion with
    | App f [a; b] -> f = R.eq_decl (get_sort a) && equal s 8 facts a b
@@ -360,7 +446,7 @@ let direct_consequence (s:S.checked_schema) (facts:list expr) (conclusion:expr) 
   (D.scoped [] conclusion && get_sort conclusion = bool_sort && DT.simple_consequence facts conclusion) ||
   equality_consequence s facts conclusion ||
   (D.scoped [] conclusion && quantifier_equality conclusion) ||
-  negative_exhaustion s facts || reconstruction_conflict s facts facts ||
+  negative_exhaustion s facts || cyclic_conflict s facts || reconstruction_conflict s facts facts ||
   DT.consequence s facts conclusion
 
 let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.boolean_carrier base)
@@ -380,6 +466,7 @@ let lemma_direct_consequence (#base:sort -> Type0) (s:S.checked_schema) (bc:S.bo
   else if D.scoped [] conclusion && quantifier_equality conclusion then
     lemma_quantifier_equality s bc eq other conclusion
   else if negative_exhaustion s facts then lemma_negative_exhaustion s bc eq other facts
+  else if cyclic_conflict s facts then lemma_cyclic_conflict s bc eq other facts
   else if reconstruction_conflict s facts facts then lemma_reconstruction_conflict s bc eq other facts facts
   else DT.lemma_consequence s bc eq other facts conclusion
 
