@@ -47,7 +47,7 @@ export function toolchainLines(toolchain: ToolchainReport, input: { readonly wor
   const where = environment.kind === "wsl" ? `inside WSL distribution ${environment.distro} (Windows paths appear under /mnt/<drive>/)` : "on this Linux host";
     const checker = (path: string | undefined) => (path ? wrapInEnvironment(toolchain, `${path} --interactive --stats --diagnostics --timeout-ms 10000 < <input.smt2>`) : "unavailable");
   return [
-    `- Run every build, F* and checker command ${where}. F*: ${toolchain.fstar} (${toolchain.fstarVersion}); Cherry F*: ${toolchain.cherryFstar ?? "unavailable"}; OCaml ${toolchain.ocamlVersion} via opam switch ${toolchain.opamSwitch} (${toolchain.opamRoot ?? "default OPAMROOT"}); PowerShell: ${toolchain.pwsh}; Python: ${toolchain.python ?? "unavailable"}.`,
+    `- Run every build, F* and checker command ${where}. F*: ${toolchain.fstar} (${toolchain.fstarVersion}); Cherry F*: ${toolchain.cherryFstar ?? "unavailable"}; OCaml ${toolchain.ocamlVersion} via opam switch ${toolchain.opamSwitch} (${toolchain.opamRoot ?? "default OPAMROOT"}); PowerShell: ${toolchain.pwsh} (run it only as in the build command below, with DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 and your own XDG_CACHE_HOME); Python: ${toolchain.python ?? "unavailable"}.`,
     `- Environment prologue for every shell: \`${opamPrologue(toolchain)}\`.`,
     `- Build and test the checker from fresh, private build directories (verifies every module in fstar/tools/checker_modules.json, extracts, compiles natively, runs the tests): \`${buildCommand(toolchain, { worktree: input.worktree, buildKey, cores: input.cores })}\`. The checker it builds is $HOME/.cache/fstar-proof-checking/${buildKey}/checker/checker (Cherry: .../checker/cherry/checker).`,
     `- Replay inputs with the checker's interactive mode, e.g. the existing builds \`${checker(toolchain.ocamlChecker)}\` and \`${checker(toolchain.cherryChecker)}\` for baselines and your rebuilt checker for the candidate, or with \`python3 fstar/tools/run_checker_regressions.py run|diagnose|report\` in the same environment; compare verdicts and pending obligation counts before and after.`,
@@ -110,6 +110,7 @@ export function verifyPrompt(input: SlicePromptInput & { readonly reportPath: st
       "Return `verified` only if every final command ran with the real toolchain and succeeded, the targeted inputs improved, and the diff contains no admits, assumptions, lax checking, or raised global rlimits.",
       "If any required tool is unavailable, set toolchainAvailable to false and the verdict to `unverified`; never infer success. Use `rejected` for unsound or incorrect changes.",
       "List in resolvedFingerprints only finding fingerprints whose inputs you observed improving.",
+      "List every soundness concern, however minor, in soundnessConcerns; any entry keeps the slice from being accepted.",
     ].join("\n")),
     keepContext(SOUNDNESS_CONTRACT),
   ].join("\n\n");
@@ -124,7 +125,7 @@ export function integrationVerifyPrompt(input: {
   readonly toolchain: ToolchainReport;
 }): string {
   return [
-    `The worktree ${input.worktree} (branch ${input.branch}) merges these independently verified slices onto ${input.baseRef}: ${input.mergedSlices.join(", ")}.`,
+    `The worktree ${input.worktree} (branch ${input.branch}) merges exactly these independently verified slices (with their finding fingerprints) onto ${input.baseRef}: ${input.mergedSlices.join("; ")}.`,
     "Verify the merged result before publication: build and test the complete checker (OCaml backend, and Cherry when its F* is available) from fresh caches with all tests, using up to " +
       `${input.cores} cores, then replay a few representative inputs from each merged slice. Mark these commands phase \`final\`.`,
     "Toolchain found by the workflow preflight:",
@@ -132,6 +133,7 @@ export function integrationVerifyPrompt(input: {
     keepContext([
       "Review only: do not edit, commit, push, or file anything.",
       "Return `verified` only if every final command ran with the real toolchain and passed; otherwise `unverified` (or `rejected` for unsound changes). Unavailable tools mean toolchainAvailable false.",
+      "List every soundness concern, however minor, in soundnessConcerns; any entry blocks publication.",
     ].join("\n")),
     keepContext(SOUNDNESS_CONTRACT),
   ].join("\n\n");

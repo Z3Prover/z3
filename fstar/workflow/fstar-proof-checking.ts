@@ -17,8 +17,10 @@
  * iteration can stop early; findings left open (deferred by slice capacity, out of backoff,
  * abandoned claims) are re-sourced from state by later runs.
  *
- * Verified work that is not pushed live stays `integrated` and pending in state; the first
- * iteration of a later `publish=live` run merges, re-verifies and pushes it even without new findings.
+ * Each iteration integrates into its own branch, on top of the run's earlier verified head, so a
+ * merge whose integration verification failed never reaches a later head. Verified work that is
+ * not pushed live stays `integrated` and pending in state; the first iteration of a later
+ * `publish=live` run merges, re-verifies and pushes it even without new findings.
  *
  * Stop conditions: nothing actionable, iteration limit, two consecutive iterations without a
  * verified slice, or a blocked state (toolchain not found, PR closed without merge).
@@ -71,7 +73,7 @@ export default workflow({
     maxReports: Type.Integer({ default: 2, minimum: 1, maximum: 10, description: "Most unprocessed Pulse runs to download per launch." }),
     reportPaths: Type.Array(Type.String(), { default: [], description: "Local report directories (run_checker_regressions.py output or downloaded artifacts) or build logs." }),
     localCorpora: Type.Array(Type.String(), { default: ["C:/z3test/regressions/smt2", "C:/bench/inputs"], description: "Local corpora: z3test regressions/smt2 runs in --interactive mode; others use the batch harness." }),
-    localCaseLimit: Type.Integer({ default: 50, minimum: 0, maximum: 5000, description: "Cases per local corpus and checker per launch (rotating window)." }),
+    localCaseLimit: Type.Integer({ default: 50, minimum: 0, maximum: 5000, description: "Cases per local corpus and checker per launch (rotating window; batch corpora such as C:/bench/inputs share it evenly between their top-level logic directories)." }),
     ocamlChecker: Type.String({ default: "", description: "OCaml checker executable in the build environment (default Z3_FSTAR_CHECKER, else the newest discovered build)." }),
     cherryChecker: Type.String({ default: "", description: "Cherry checker executable in the build environment (default Z3_FSTAR_CHERRY_CHECKER, else the newest discovered build)." }),
     fstarExe: Type.String({ default: "", description: "Linux F* v2026.09.27 in the build environment (default FSTAR_EXE, PATH, or the known install layouts)." }),
@@ -170,7 +172,8 @@ export default workflow({
       if (integration.worktree) worktrees.push(integration.worktree);
 
       let integrationVerdict: VerifierVerdict | null = null;
-      const integrated = [...integration.merged, ...integration.pendingMerged.map((runKey) => `pending integration ${runKey}`)];
+      // Exactly what the integrated head contains: this iteration's slices and merged pending integrations.
+      const integrated = integration.contents.map((item) => `${item.slice} (${item.fingerprints.join(", ")})${item.from ? ` from pending integration ${item.from}` : ""}`);
       if (!inputs.dryRun && integration.worktree && integration.branch && integrated.length > 0) {
         const [checked] = await Promise.allSettled([ctx.task(`iter-${i}/integration/verify`, {
           prompt: integrationVerifyPrompt({

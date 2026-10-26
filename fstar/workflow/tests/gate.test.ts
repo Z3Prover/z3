@@ -60,6 +60,38 @@ describe("soundness scan", () => {
     expect(scanDiffForUnsoundness(diff(file, " context", `+${line}`)).violations).toHaveLength(1);
   });
 
+  test.each([
+    ["Prims _assume", "fstar/Z3Foo.fst", "let x = _assume (1 == 2)"],
+    ["Pulse assume_", "fstar/Z3PulseFoo.fst", "let y = assume_ (pts_to x v)"],
+    ["qualified Pulse assume_", "fstar/Z3PulseFoo.fst", "let y = Pulse.Lib.Core.assume_ (pts_to x v)"],
+    ["--__no_positivity", "fstar/Z3Foo.fst", "#set-options \"--__no_positivity\""],
+    ["an admit after a double-quote char literal", "fstar/Z3Foo.fst", "let c = '\"' let z = admit ()"],
+    ["an admit after an escaped-quote char literal", "fstar/Z3Foo.fst", "let c = '\\'' let z = admit ()"],
+    ["OCaml Obj.magic", "fstar/ocaml_runtime/Z3Native.ml", "let to_term (x : Obj.t) : term = Obj.magic x"],
+    ["OCaml Stdlib.Obj.repr", "fstar/ocaml_runtime/prims.ml", "let r = Stdlib.Obj.repr v"],
+    ["OCaml Obj.obj in an interface", "fstar/ocaml_runtime/Z3Native.mli", "val cast : Obj.t -> 'a  (* = Obj.obj *)\nlet c = Obj.obj"],
+  ])("rejects an added %s", (_label, file, line) => {
+    const lines = line.split("\n").map((text) => `+${text}`);
+    expect(scanDiffForUnsoundness(diff(file, " context", ...lines)).violations).toHaveLength(1);
+  });
+
+  test("char literals, primed identifiers and names that contain the words are not escapes", () => {
+    const fstar = scanDiffForUnsoundness(diff("fstar/Z3Foo.fst",
+      "+let quote = '\\'' let backslash = '\\\\' let dq = '\"' let assumed_ok = 1",
+      "+let f (#a:Type) (x':a) : a = x' // 'a type variables and primes",
+      "+let my_assume = 0 let assumes_ = 1 let admitted_ = true let magic_number = 42",
+      "+let s = \"don't admit () here\"",
+    ));
+    expect(fstar.violations).toEqual([]);
+    const ocaml = scanDiffForUnsoundness(diff("fstar/ocaml_runtime/Z3Native.ml",
+      "+(* Never use",
+      "+   Obj.magic here *)",
+      "-let old x = Obj.magic x",
+      "+let objects = MyObj.magic_count + 1",
+    ));
+    expect(ocaml.violations).toEqual([]);
+  });
+
   test("ignores escapes inside multi-line comments and in comments of build files", () => {
     const fstar = scanDiffForUnsoundness(diff("fstar/Z3Foo.fst", " (* Never write", "+   admit () or assume val here,", "+   nor magic (). *)", "+let x = 1"));
     expect(fstar.violations).toEqual([]);
@@ -105,6 +137,14 @@ describe("slice verdict", () => {
   ])("%s is unverified", (_label, override) => {
     const outcome = decideSliceOutcome({ scan: clean, changedFiles: 2, uncommitted: false, verifier: verified, toolchainAvailable: true, ...override });
     expect(outcome.status).toBe("unverified");
+  });
+
+  test("any verifier soundness concern blocks verified, whatever its wording, and is reported", () => {
+    for (const concern of ["minor: relies on an unproven axiom in Z3ArithRewriter", "Low severity: assume_ in a test helper"]) {
+      const outcome = decideSliceOutcome({ scan: clean, changedFiles: 2, uncommitted: false, verifier: { ...verified, soundnessConcerns: [concern] }, toolchainAvailable: true });
+      expect(outcome.status).not.toBe("verified");
+      expect(outcome.reasons.join(" ")).toContain(concern);
+    }
   });
 
   test("no changes and verifier rejection are reported as such", () => {

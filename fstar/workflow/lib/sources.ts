@@ -3,7 +3,7 @@
  * local corpora named in the instructions (z3test `regressions/smt2` in interactive mode and
  * `C:\bench\inputs` in batch mode through `fstar/tools/run_checker_regressions.py`).
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { runChecked, type CommandRunner } from "./command.js";
 
@@ -139,10 +139,11 @@ export async function downloadRunReports(
 export function listSmt2(root: string): string[] {
   const files: string[] = [];
   const visit = (directory: string) => {
-    for (const name of readdirSync(directory).sort()) {
-      const path = join(directory, name);
-      if (statSync(path).isDirectory()) visit(path);
-      else if (name.endsWith(".smt2")) files.push(path);
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))) {
+      const path = join(directory, entry.name);
+      const isDirectory = entry.isDirectory() || (entry.isSymbolicLink() && statSync(path).isDirectory());
+      if (isDirectory) visit(path);
+      else if (entry.name.endsWith(".smt2")) files.push(path);
     }
   };
   if (existsSync(root)) visit(root);
@@ -156,6 +157,58 @@ export function selectWindow<T>(items: readonly T[], offset: number, limit: numb
   const count = Math.min(limit, items.length);
   const selected = Array.from({ length: count }, (_, index) => items[(start + index) % items.length] as T);
   return { selected, nextOffset: (start + count) % items.length };
+}
+
+/** `.smt2` files of a batch corpus grouped by top-level directory (one per logic; files at the top level form group `.`). */
+export function listSmt2ByGroup(root: string): Array<[string, string[]]> {
+  const groups = new Map<string, string[]>();
+  for (const file of listSmt2(root)) {
+    const [first, ...rest] = relative(root, file).split(/[\\/]/);
+    const group = rest.length > 0 && first !== undefined ? first : ".";
+    const members = groups.get(group);
+    if (members) members.push(file);
+    else groups.set(group, [file]);
+  }
+  return [...groups.entries()];
+}
+
+/**
+ * Rotate through a corpus with one directory per logic: `limit` cases are shared evenly between
+ * the groups, so a run with `limit` ≥ the number of groups reaches every group. Each group keeps
+ * its own rotating offset; `offset` is where the share of the remainder (`limit` mod groups)
+ * starts, so smaller limits rotate through the groups across runs.
+ */
+export function selectStratifiedWindow(
+  groups: ReadonlyArray<readonly [string, readonly string[]]>,
+  position: { readonly offset?: number; readonly groupOffsets?: Readonly<Record<string, number>> } | undefined,
+  limit: number,
+): { selected: string[]; nextOffset: number; groupOffsets: Record<string, number> } {
+  const groupOffsets = { ...(position?.groupOffsets ?? {}) };
+  const nonEmpty = groups.filter(([, files]) => files.length > 0);
+  if (nonEmpty.length === 0 || limit <= 0) return { selected: [], nextOffset: position?.offset ?? 0, groupOffsets };
+  const start = (position?.offset ?? 0) % nonEmpty.length;
+  const share = Math.floor(limit / nonEmpty.length);
+  const extra = limit % nonEmpty.length;
+  const selected: string[] = [];
+  for (let index = 0; index < nonEmpty.length; index += 1) {
+    const [group, files] = nonEmpty[(start + index) % nonEmpty.length] as readonly [string, readonly string[]];
+    const window = selectWindow(files, groupOffsets[group] ?? 0, share + (index < extra ? 1 : 0));
+    if (window.selected.length === 0) continue;
+    selected.push(...window.selected);
+    groupOffsets[group] = window.nextOffset;
+  }
+  return { selected, nextOffset: (start + extra) % nonEmpty.length, groupOffsets };
+}
+
+/** Copy the selected inputs below `stageRoot`, keeping their paths relative to `corpus` (the harness rejects symlinks). */
+export function stageFiles(corpus: string, files: readonly string[], stageRoot: string): string {
+  rmSync(stageRoot, { recursive: true, force: true });
+  for (const file of files) {
+    const target = join(stageRoot, relative(corpus, file));
+    mkdirSync(dirname(target), { recursive: true });
+    copyFileSync(file, target);
+  }
+  return stageRoot;
 }
 
 export interface InteractiveCase {

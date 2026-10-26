@@ -91,7 +91,10 @@ export function discoveryScript(options: ToolchainOptions): string {
     "if [ -n \"$OPAMROOT_OVERRIDE\" ]; then roots=(\"$OPAMROOT_OVERRIDE\"); else roots=(\"${OPAMROOT:-$HOME/.opam}\" \"$L\"/z3-clause-proofs-*/opam \"$C\"/z3-pulse-*/opam); fi",
     "if command -v opam >/dev/null; then while read -r r; do [ -d \"$r\" ] || continue; OPAMROOT=\"$r\" opam switch list --short 2>/dev/null | grep -qx \"$SWITCH\" || continue; emit opam \"$r\" \"$(OPAMROOT=\"$r\" timeout 120 opam exec --switch=\"$SWITCH\" -- ocamlc -version 2>/dev/null | tr -d '\\r')\"; done < <(list \"${roots[@]}\"); fi",
     "if [ -n \"$PWSH_OVERRIDE\" ]; then pwshes=(\"$PWSH_OVERRIDE\"); else pwshes=($(command -v pwsh) /opt/microsoft/powershell/7/pwsh \"$HOME\"/.dotnet/tools/pwsh /mnt/c/Users/*/.copilot/session-state/*/files/linux-pwsh-*/pwsh); fi",
-    "while read -r p; do [ -x \"$p\" ] && emit pwsh \"$p\" \"$(DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 timeout 60 \"$p\" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>/dev/null | tr -d '\\r')\"; done < <(list \"${pwshes[@]}\")",
+    // Probe each PowerShell with a private cache (a corrupted ~/.cache/powershell crashes it) and keep its error output.
+    "PWSH_CACHE=$(mktemp -d)",
+    "while read -r p; do [ -x \"$p\" ] || continue; out=$(DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 XDG_CACHE_HOME=\"$PWSH_CACHE\" timeout 60 \"$p\" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>&1 | tr -d '\\r'); v=$(printf '%s\\n' \"$out\" | head -n1); if printf '%s' \"$v\" | grep -Eq '^[0-9]+\\.[0-9]+'; then emit pwsh \"$p\" \"$v\"; else emit pwsh-failed \"$p\" \"$(printf '%s' \"$out\" | tr '\\t\\n' '  ' | cut -c1-300)\"; fi; done < <(list \"${pwshes[@]}\")",
+    "rm -rf \"$PWSH_CACHE\"",
     "p=$(command -v python3) && emit python \"$p\" \"$(\"$p\" --version 2>&1)\"",
     "if [ -n \"$OCAML_CHECKER_OVERRIDE\" ]; then ocamls=(\"$OCAML_CHECKER_OVERRIDE\"); else ocamls=(\"$L\"/z3-clause-proofs-*/ci-fixed-checker/checker \"$L\"/z3-clause-proofs-*/published-checkers/pulse-checker-ocaml-linux-x86_64/checker \"$L\"/z3-clause-proofs-*/checker/checker \"$C\"/z3-pulse-*/checker/checker \"$HOME\"/z3checker/checker); fi",
     "while read -r f; do [ -f \"$f\" ] && [ -x \"$f\" ] && emit ocaml-checker \"$f\" \"$(stat -c %Y \"$f\")\"; done < <(list \"${ocamls[@]}\")",
@@ -165,7 +168,12 @@ export async function probeToolchain(runner: CommandRunner, options: ToolchainOp
   const where = environment.kind === "wsl" ? ` in WSL ${environment.distro}` : "";
   if (!fstar) missing.push(`F* ${PINNED_FSTAR}${where}: set the fstarExe input or FSTAR_EXE`);
   if (!opam) missing.push(`OCaml 5.3 via opam switch ${opamSwitch}${where}: set the opamRoot input or Z3_FSTAR_OPAMROOT`);
-  if (!pwsh) missing.push(`PowerShell 7 (pwsh)${where} for fstar/tools/build_ocaml_checker.ps1: set the pwshExe input or Z3_FSTAR_PWSH`);
+  if (!pwsh) {
+    const failed = of("pwsh-failed");
+    missing.push(failed.length > 0
+      ? `PowerShell 7${where} found but failed to run (probed with a private XDG_CACHE_HOME and DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1): ${failed.map((item) => `${item.path}: ${item.detail || "no output"}`).join("; ")}. Repair or reinstall it, or set the pwshExe input or Z3_FSTAR_PWSH to a working PowerShell 7`
+      : `PowerShell 7 (pwsh)${where} for fstar/tools/build_ocaml_checker.ps1: set the pwshExe input or Z3_FSTAR_PWSH`);
+  }
   if (!python) missing.push(`Python 3${where} for fstar/tools/run_checker_regressions.py`);
   return {
     environment,
@@ -193,16 +201,21 @@ export function opamPrologue(toolchain: ToolchainReport): string {
   return `${root}eval "$(opam env --switch=${toolchain.opamSwitch} --set-switch)"`;
 }
 
-/** Exact command that builds and tests the checker from a worktree with private build directories. */
+/**
+ * Exact command that builds and tests the checker from a worktree with private build directories.
+ * PowerShell gets a private XDG_CACHE_HOME per build key, so concurrent slice builds never share
+ * (or corrupt) its startup cache.
+ */
 export function buildCommand(toolchain: ToolchainReport, input: { readonly worktree: string; readonly buildKey: string; readonly cores: number }): string {
   const tree = toEnvironmentPath(toolchain.environment, input.worktree);
   const out = `$HOME/.cache/fstar-proof-checking/${input.buildKey}`;
   const script = [
     `cd ${quote(tree)}`,
     opamPrologue(toolchain),
+    `mkdir -p "${out}/xdg-cache"`,
     [
       // Portable Linux PowerShell builds abort without ICU unless globalization is invariant.
-      `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 ${quote(toolchain.pwsh ?? "pwsh")} -NoProfile -File fstar/tools/build_ocaml_checker.ps1`,
+      `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 XDG_CACHE_HOME="${out}/xdg-cache" ${quote(toolchain.pwsh ?? "pwsh")} -NoProfile -File fstar/tools/build_ocaml_checker.ps1`,
       `-FstarExe ${quote(toolchain.fstar ?? "fstar.exe")} -OpamSwitch ${toolchain.opamSwitch}`,
       `-Z3WindowsBuildDir "${out}/z3" -Z3BuildDir "${out}/z3-ocaml" -CacheDir "${out}/cache" -WslBuildDir "${out}/checker"`,
       `-BuildJobs ${input.cores} -RunTests`,

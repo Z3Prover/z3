@@ -30,14 +30,24 @@ export interface UnsoundnessScan {
 
 /**
  * F* escape hatches: `admit`/`tadmit` and their variants (admit_all, admitP, admit_dump, tadmit_t,
- * admit_smt_queries, …, also qualified), `magic`, `unsafe_coerce`, and every `assume` (val, type,
- * new type, or an expression). Identifiers that merely contain the words (`admitted`, `assumed`) pass.
+ * admit_smt_queries, …), `magic`, `unsafe_coerce`, and every `assume` (val, type, new type, an
+ * expression, Prims' `_assume` and Pulse's `assume_`), also qualified (`Pulse.Lib.Core.assume_`).
+ * A name only counts when it is a whole identifier (`_` and `'` are identifier characters), so
+ * `admitted`, `assumed` or `my_assume` pass.
  */
+const NOT_IDENT_BEFORE = "(?<![A-Za-z0-9_'])";
+const NOT_IDENT_AFTER = "(?![A-Za-z0-9_'])";
+const identifier = (pattern: string) => new RegExp(`${NOT_IDENT_BEFORE}${pattern}${NOT_IDENT_AFTER}`);
 const FSTAR_ESCAPES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\bt?admit(?:[A-Z_][A-Za-z0-9_']*)?(?![A-Za-z0-9_'])/, "admit"],
-  [/\bmagic\b/, "magic"],
-  [/\bunsafe_coerce\b/, "unsafe_coerce"],
-  [/\bassume\b/, "assume"],
+  [identifier("_?t?admit(?:[A-Z_][A-Za-z0-9_']*)?"), "admit"],
+  [identifier("magic"), "magic"],
+  [identifier("unsafe_coerce"), "unsafe_coerce"],
+  [identifier("_?assume_?"), "assume"],
+];
+
+/** OCaml escape hatches in the hand-written runtime (`fstar/ocaml_runtime`) and other OCaml sources. */
+const OCAML_ESCAPES: ReadonlyArray<readonly [RegExp, string]> = [
+  [identifier("Obj\\.(?:magic|repr|obj)"), "Obj.magic"],
 ];
 
 /** Unsound or budget-raising F* options, wherever they appear (pragmas, Makefiles, scripts, CI and build configs). */
@@ -46,14 +56,21 @@ const OPTION_ESCAPES: ReadonlyArray<readonly [RegExp, string]> = [
   [/--admit_except\b/, "--admit_except"],
   [/--lax\b/, "--lax"],
   [/--z3rlimit_factor\b/, "--z3rlimit_factor"],
+  [/--__no_positivity\b/, "--__no_positivity"],
 ];
 
 const FSTAR_SOURCE = /\.(?:fsti?|fsx)$/;
 const HASH_COMMENTS = /(?:^|\/)(?:Makefile|GNUmakefile|CMakeLists\.txt|Dockerfile)$|\.(?:mk|sh|bash|py|ps1|psm1|ya?ml|toml|cmake|cfg|ini|txt)$/;
-const ML_COMMENTS = /\.mli?$/;
+const ML_SOURCE = /\.mli?$/;
+/** A character literal: `'a'`, `'"'`, `'\''`, `'\\'`, `'\n'`, `'\x41'`, `'\u0041'`, `'\065'`. */
+const CHAR_LITERAL = /^'(?:[^'\\\r\n]|\\(?:[\\'"ntrbf0 ]|x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|[0-9]{3}))'/;
 
-/** Strip F* comments (nested `(* *)` across lines, `//`) and string literals that carry no option. */
-function fstarCode(line: string, depthIn: number): { code: string; depth: number } {
+/**
+ * Strip comments (nested `(* *)` across lines; `//` in F*), character literals, and string literals
+ * that carry no option. A `'` inside or after an identifier (`x'`) or before a type variable (`'a`)
+ * is not a literal.
+ */
+function sourceCode(line: string, depthIn: number, lineComments: boolean): { code: string; depth: number } {
   let depth = depthIn;
   let code = "";
   for (let index = 0; index < line.length; index += 1) {
@@ -66,8 +83,11 @@ function fstarCode(line: string, depthIn: number): { code: string; depth: number
       index += 1;
     } else if (depth > 0) {
       continue;
-    } else if (pair === "//") {
+    } else if (lineComments && pair === "//") {
       break;
+    } else if (line[index] === "'" && !/[A-Za-z0-9_']/.test(line[index - 1] ?? "") && CHAR_LITERAL.test(line.slice(index))) {
+      code += "' '";
+      index += (CHAR_LITERAL.exec(line.slice(index))?.[0].length ?? 1) - 1;
     } else if (line[index] === '"') {
       const literal = /^"(?:[^"\\]|\\.)*"?/.exec(line.slice(index))?.[0] ?? '"';
       code += OPTION_ESCAPES.some(([pattern]) => pattern.test(literal)) || /--z3rlimit\b/.test(literal) ? literal : '""';
@@ -81,7 +101,6 @@ function fstarCode(line: string, depthIn: number): { code: string; depth: number
 
 function otherCode(file: string, line: string): string {
   if (HASH_COMMENTS.test(file)) return line.replace(/(^|\s)#.*$/, "$1");
-  if (ML_COMMENTS.test(file)) return line.replace(/\(\*.*?\*\)/g, " ");
   return line;
 }
 
@@ -90,10 +109,11 @@ const RLIMIT = /--z3rlimit\s+(\d+)/;
 
 /**
  * Scan the added lines of a unified diff for unsound escapes. Every changed text file is scanned:
- * F* sources for escape hatches and options, other files (Makefiles, scripts, CI and build
- * configs) for unsound options and raised rlimits in build flags. Comments and removed lines are
- * ignored. A module-wide `--z3rlimit` (`#set-options`/`#reset-options`, or a build flag) above the
- * value it replaces (F*'s default 5) is a violation; a local `#push-options` raise is a warning.
+ * F* sources for escape hatches and options, OCaml sources for `Obj.magic`/`Obj.repr`/`Obj.obj`,
+ * other files (Makefiles, scripts, CI and build configs) for unsound options and raised rlimits in
+ * build flags. Comments, character and string literals, and removed lines are ignored. A
+ * module-wide `--z3rlimit` (`#set-options`/`#reset-options`, or a build flag) above the value it
+ * replaces (F*'s default 5) is a violation; a local `#push-options` raise is a warning.
  */
 export function scanDiffForUnsoundness(diff: string): UnsoundnessScan {
   const violations: ScanFinding[] = [];
@@ -119,10 +139,11 @@ export function scanDiffForUnsoundness(diff: string): UnsoundnessScan {
     if (!file || (!added && !removed && !raw.startsWith(" "))) continue;
     const text = raw.slice(1);
     const fstar = FSTAR_SOURCE.test(file);
+    const ocaml = ML_SOURCE.test(file);
     let code: string;
-    if (fstar) {
+    if (fstar || ocaml) {
       // Comment depth follows the new file (context and added lines).
-      const stripped = fstarCode(text, removed ? 0 : depth);
+      const stripped = sourceCode(text, removed ? 0 : depth, fstar);
       if (!removed) depth = stripped.depth;
       code = stripped.code;
     } else {
@@ -142,7 +163,7 @@ export function scanDiffForUnsoundness(diff: string): UnsoundnessScan {
       }
     }
     if (!added) continue;
-    const match = [...(fstar ? FSTAR_ESCAPES : []), ...OPTION_ESCAPES].find(([pattern]) => pattern.test(code));
+    const match = [...(fstar ? FSTAR_ESCAPES : []), ...(ocaml ? OCAML_ESCAPES : []), ...OPTION_ESCAPES].find(([pattern]) => pattern.test(code));
     if (match) violations.push({ file, line: text.trim(), pattern: match[0].exec(code)?.[0] ?? match[1] });
   }
   for (const item of addedGlobal) {
@@ -184,6 +205,8 @@ export function decideSliceOutcome(input: SliceGateInput): SliceGateOutcome {
   const failed = finals.filter((command) => command.exitCode !== 0);
   if (failed.length > 0) reasons.push(`final validation failed: ${failed.map((command) => `${command.command} (exit ${command.exitCode})`).join("; ")}`);
   if (verifier.verdict !== "verified") reasons.push(`verifier verdict ${verifier.verdict}: ${verifier.summary}`);
+  // Any soundness concern blocks acceptance, whatever severity the verifier gave it.
+  if (verifier.soundnessConcerns.length > 0) reasons.push(`verifier soundness concerns: ${verifier.soundnessConcerns.join("; ")}`);
   return reasons.length === 0 ? { status: "verified", reasons: [verifier.summary] } : { status: "unverified", reasons };
 }
 

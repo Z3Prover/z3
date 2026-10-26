@@ -75,8 +75,8 @@ export interface WorkflowState {
   /** Oldest first; cleared only after a live push that includes them succeeds. */
   pendingPublications: PendingPublication[];
   bugReports: Record<string, { draft: string; issueUrl?: string; filedAt?: string }>;
-  /** Rotating scan position per local corpus and checker. */
-  localScans: Record<string, { at: string; offset: number }>;
+  /** Rotating scan position per local corpus and checker (batch corpora: also per logic directory). */
+  localScans: Record<string, { at: string; offset: number; groupOffsets?: Record<string, number> }>;
   investigation?: { digest: string; at: string };
   runs: Array<{ runKey: string; startedAt: string; endedAt?: string; stopReason?: string; verified: number; attempted: number }>;
 }
@@ -441,13 +441,11 @@ export interface PublicationSettlement {
   readonly added?: PendingPublication;
 }
 
-const union = (left: readonly string[], right: readonly string[]) => [...new Set([...left, ...right])];
-
 /**
  * Update the pending-publication list. Included entries resolve and leave the list only after a
  * successful live push; entries that could not be included keep their reason; unpushed verified
- * work is appended. Later iterations of one run share its integration branch, so an entry from
- * the same run is replaced by the newer head with the union of their findings (also making a
+ * work is appended. A run's later iteration merges its own pending entry into its new head and
+ * records exactly that head's contents, so the run's entry is replaced (which also makes a
  * resumed step idempotent).
  */
 export function settlePublications(state: WorkflowState, settlement: PublicationSettlement): WorkflowState {
@@ -455,12 +453,9 @@ export function settlePublications(state: WorkflowState, settlement: Publication
   const failed = new Map(settlement.failed.map((item) => [item.runKey, item.reason]));
   const records = { ...state.findings };
   const pending: PendingPublication[] = [];
-  let added = settlement.added;
+  const added = settlement.added;
   for (const entry of state.pendingPublications) {
-    if (added && entry.runKey === added.runKey) {
-      added = { ...added, fingerprints: union(entry.fingerprints, added.fingerprints), slices: union(entry.slices, added.slices), recordedAt: entry.recordedAt };
-      continue;
-    }
+    if (added && entry.runKey === added.runKey) continue;
     if (!published.has(entry.runKey)) {
       const reason = failed.get(entry.runKey);
       pending.push(reason === undefined ? entry : { ...entry, lastError: reason });

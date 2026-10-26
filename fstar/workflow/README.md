@@ -90,21 +90,27 @@ A candidate counts only if it actually runs (`--version`, `ocamlc -version` thro
 a PowerShell version query). Paths are paths inside the build environment, and every candidate
 examined is recorded under `toolchain.candidates` in `runs/<runKey>/setup.json`. PowerShell runs
 with `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`, because the portable Linux build aborts without
-ICU otherwise.
+ICU otherwise, and with a private `XDG_CACHE_HOME`: a corrupted `~/.cache/powershell` startup
+cache makes it crash (`FileLoadException: The given assembly name was invalid`). A PowerShell
+that is found but still fails to run is reported as such, with its error output, under
+`pwsh-failed` in the candidates and in the blocked reason, instead of as missing.
 
 Stages receive the exact commands. On this machine the build and test command looks like:
 
 ```text
 wsl -d Ubuntu -e bash -lc 'cd /mnt/c/<worktree> && export OPAMROOT=… && eval "$(opam env --switch=fstar53 --set-switch)" &&
-  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 <pwsh> -NoProfile -File fstar/tools/build_ocaml_checker.ps1 -FstarExe <F*>
+  mkdir -p "$HOME/.cache/fstar-proof-checking/<key>/xdg-cache" &&
+  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 XDG_CACHE_HOME="$HOME/.cache/fstar-proof-checking/<key>/xdg-cache"
+  <pwsh> -NoProfile -File fstar/tools/build_ocaml_checker.ps1 -FstarExe <F*>
   -OpamSwitch fstar53 -Z3WindowsBuildDir "$HOME/.cache/fstar-proof-checking/<key>/z3" -Z3BuildDir … -CacheDir …
   -WslBuildDir … -BuildJobs <cores> -RunTests [-BuildCherry -CherryFstarExe <Cherry F*>]'
 ```
 
 Each slice, its verifier (`<key>-verify`) and the integration check build into their own
-directories, so parallel slices never share a Z3 build, F* cache or checker. Local corpora run
-the discovered checkers through `wsl -d <distro> -e <checker>`, and the batch harness runs as
-`python3` in the same environment with `/mnt/<drive>/…` paths.
+directories, with their own PowerShell cache, so parallel slices never share a Z3 build, F*
+cache, checker or startup cache. Local corpora run the discovered checkers through
+`wsl -d <distro> -e <checker>`, and the batch harness runs as `python3` in the same environment
+with `/mnt/<drive>/…` paths.
 
 A real run needs F*, the opam switch and PowerShell. Without them it ends **blocked** before any
 agent stage, naming each missing tool and the input that supplies it. It never reports unchecked
@@ -128,8 +134,15 @@ preflight → source → record-sources ─┬─ iter-i/triage ──(nothing a
    and are cached under `<stateDir>/reports`. The source step also reads `reportPaths` (report
    directories, or single OCaml, Cherry or F* build logs of any name) and scans local corpora
    with the discovered checkers. `C:/z3test/regressions/smt2` uses the checker's `--interactive
-   --stats --diagnostics` mode. `C:/bench/inputs` uses `run_checker_regressions.py
-   run/diagnose/report`. Each scan takes a rotating window of `localCaseLimit` files. Finally,
+   --stats --diagnostics` mode on a rotating window of `localCaseLimit` files. `C:/bench/inputs`
+   (one directory per logic) uses `run_checker_regressions.py run/diagnose/report` on a window
+   stratified by top-level directory: `localCaseLimit` cases are shared evenly between the
+   directories, so with `localCaseLimit` at least the number of directories (41 for
+   `C:/bench/inputs`; the default is 50) every run reaches every logic. Each directory rotates
+   through its own files across runs, and with a smaller limit the share of the remainder rotates
+   through the directories. The selected files are copied below the run directory and the
+   harness checks that copy, because it would otherwise always take the sorted first
+   `--max-cases` files of the whole corpus. Finally,
    the step re-sources findings already recorded in state that are eligible now: findings left
    open because the slice capacity was used up, retries whose backoff expired, and claims
    abandoned by a crashed run. A continuity launch for unprocessed partial rules therefore always
@@ -172,25 +185,36 @@ preflight → source → record-sources ─┬─ iter-i/triage ──(nothing a
    * The diff passes the deterministic soundness scan of its added lines, in every changed text
      file:
      * F* sources (`.fst`, `.fsti`, `.fsx`): `admit` and `tadmit` with their variants
-       (`admit_all`, `admitP`, `admit_dump`, `tadmit_t`, `admit_smt_queries`, also qualified),
-       `magic`, `unsafe_coerce`, and every `assume` (`assume val`, `assume type`,
-       `assume new type`, `assume e`). Comments, including multi-line `(* … *)`, and strings that
-       carry no option are ignored. Identifiers that merely contain the words (`admitted`,
-       `assumed`) pass.
+       (`admit_all`, `admitP`, `admit_dump`, `tadmit_t`, `admit_smt_queries`), `magic`,
+       `unsafe_coerce`, and every `assume` (`assume val`, `assume type`, `assume new type`,
+       `assume e`, Prims' `_assume`, Pulse's `assume_`), also qualified
+       (`Pulse.Lib.Core.assume_`). A name counts only as a whole identifier (`_` and `'` are
+       identifier characters), so `admitted`, `assumed` or `my_assume` pass.
+     * OCaml sources (`.ml`, `.mli`, such as `fstar/ocaml_runtime`): `Obj.magic`, `Obj.repr`
+       and `Obj.obj`, also qualified (`Stdlib.Obj.magic`).
      * Every file, including Makefiles, `*.mk`, shell, PowerShell, Python, JSON and YAML build or
-       CI configuration: `admit_smt_queries`, `--admit_except`, `--lax` and `--z3rlimit_factor`.
-       `#` comments in those formats are ignored.
+       CI configuration: `admit_smt_queries`, `--admit_except`, `--lax`, `--z3rlimit_factor` and
+       `--__no_positivity`. `#` comments in those formats are ignored.
      * A module-wide `--z3rlimit` (`#set-options`, `#reset-options`, or a build flag) above the
        value it replaces (F*'s default is 5). A raise in `#push-options` is only a warning.
 
+     In F* and OCaml sources, comments (`(* … *)`, nested and across lines; `//` in F*),
+     character literals (`'"'`, `'\''`, `'\\'`, …) and strings that carry no option are ignored.
      A changed line that still contains an existing escape counts as added, so it is rejected.
+   * The verifier lists no soundness concern. Any entry in `soundnessConcerns`, whatever
+     severity it is given, keeps the slice (and, at integration, the merged head) from being
+     accepted, and is recorded as the reason.
 
    Anything else is `unverified`, `rejected`, or `no-change`.
-7. **Integrate and verify again.** Verified slices are merged into
-   `fstar-proof-checking/integration/<run>`. Its base is the open publication branch, or
-   `baseRef` if there is none. In a `publish=live` run the recorded heads of pending
-   publications are merged first, oldest first. The merged diff is scanned again, and a fresh
-   stage verifies the merged build before anything is published.
+7. **Integrate and verify again.** Each iteration merges its verified slices into its own branch
+   `fstar-proof-checking/integration/<run>-i<n>`. Its base is the open publication branch, or
+   `baseRef` if there is none. Recorded heads of pending publications are merged first, oldest
+   first: in a `publish=live` run all of them, otherwise only this run's own earlier verified
+   head, so a run's pending head accumulates its verified iterations. A merge whose integration
+   verification failed stays on its own iteration's branch and never reaches a later head. The
+   merged diff is scanned again, and a fresh stage verifies the merged build before anything is
+   published. The integration verifier and the PR body list exactly the slices and finding
+   fingerprints the head contains.
 8. **Publish.** One branch receives pushes until it is merged or deleted (see below).
 9. **Persist.** Under the state lock, the step records outcomes, publication state and pending
    publications. Reports and scan offsets were already recorded by `record-sources`.
@@ -233,8 +257,10 @@ All git and gh calls go through one command runner and are logged to
 
 Verified work that a run did not push (`publish=dry-run` or `none`, or a live run that ended
 blocked) is kept in `state.json` under `pendingPublications`: the run key, the local
-integration branch, its verified head, and the findings and slices it contains. Its findings
-stay `integrated`, so they are neither repaired again nor lost.
+integration branch, its verified head, and exactly the findings and slices that head contains.
+Its findings stay `integrated`, so they are neither repaired again nor lost. A run keeps one
+entry: a later verified iteration of the same run merges the run's earlier head into its own
+and replaces the entry.
 
 The first iteration of the next `publish=live` run picks these up even without new findings.
 It merges each recorded head into its integration branch, oldest first, scans the merge, and
@@ -337,24 +363,37 @@ The tests cover:
   partial-rule retrigger gives the launched run those rules, and a processed local build log
   does not retrigger until it is rewritten;
 * toolchain discovery on a Windows host with a scripted `wsl` (a default distribution without
-  bash; Ubuntu with a custom OPAMROOT, Linux F*, Cherry and checker builds), and local corpus
-  scans through the WSL checker;
+  bash; Ubuntu with a custom OPAMROOT, Linux F*, Cherry and checker builds; a PowerShell that is
+  found but crashes), private PowerShell caches per build, and local corpus scans through the
+  WSL checker;
+* batch corpus rotation: every run reaches every logic directory, the next run takes the next
+  files, the harness checks a staged copy, and a dry run moves nothing;
 * lock contention, stale-lock reclaim, and serialization across four processes;
 * dedup, backoff and claims;
 * core allocation (≤ 32) and distinct worktrees and branches;
 * worktree creation with long Windows paths;
 * the soundness gate, including `magic`, `tadmit_t`, `admit_all`, `assume type`, `assume e`,
-  `#reset-options` and build-flag rlimit raises, `--z3rlimit_factor`, `--admit_except`,
-  Makefile, shell and CI flags, and comments that must not count;
+  `_assume`, Pulse's `assume_`, `--__no_positivity`, admits hidden after a `'"'` character
+  literal, OCaml `Obj.magic`/`Obj.repr`/`Obj.obj`, `#reset-options` and build-flag rlimit raises,
+  `--z3rlimit_factor`, `--admit_except`, Makefile, shell and CI flags, comments, character
+  literals and identifiers that must not count, and verifier soundness concerns;
 * the publication lifecycle with a fake git/gh that models the remote;
-* pending publications, using real git with a local bare remote and a scripted gh: dry-run
-  verified work stays `integrated` and pending with no remote mutation; a later live run without
-  new findings pushes it to a new branch and PR, or to a new branch after the active PR was
-  merged; a missing pending branch stays pending with its reason;
+* pending publications and integration, using real git with a local bare remote and a scripted
+  gh: dry-run verified work stays `integrated` and pending with no remote mutation; a later live
+  run without new findings pushes it to a new branch and PR, or to a new branch after the active
+  PR was merged; a missing pending branch stays pending with its reason; a merge whose
+  integration verification failed never reaches the next iteration's pending head; a run's
+  verified iterations accumulate in one pending entry; an integration verifier's soundness
+  concern blocks the live push;
 * the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
   byte-identical), full-iteration topology with scripted durable steps, a live run that
   continues past triage only to publish pending work, and runs that stop in iteration 1
   (nothing actionable, or toolchain missing) yet record their reports and findings.
+
+The suite is hermetic: the workflow tests replace the preflight's toolchain probe and every
+other test scripts its commands, so `bun test` never runs the host's `wsl`, opam, F* or
+PowerShell. The one test that probes the real toolchain is skipped unless
+`FSTAR_WORKFLOW_REAL_TOOLCHAIN=1` is set.
 
 The suite needs Bun and an installed `@bastani/atomic` package (located with
 `ATOMIC_PACKAGE_DIR`, `npm root -g`, or `atomic` on `PATH`).
@@ -371,9 +410,10 @@ The suite needs Bun and an installed `@bastani/atomic` package (located with
 * Local checkers are the newest existing builds, which may predate the checked-out sources. A
   slice's verifier always rebuilds from its own worktree.
 * Slow obligations are per top-level F* declaration (`process_one_decl`), not per SMT query.
-* The batch harness always takes the first `localCaseLimit` inputs in sorted order.
 * With `publish=dry-run` or `none`, verified work stays on local
-  `fstar-proof-checking/integration/<run>` branches until a `publish=live` run pushes it (see
+  `fstar-proof-checking/integration/<run>-i<n>` branches until a `publish=live` run pushes it (see
   Pending publications). Deleting such a branch before then leaves its entry pending with a reason.
+* PowerShell and the checker build run with a private `XDG_CACHE_HOME` per build, so caches
+  under it (for example dune's) are not shared between builds.
 * Crash bug reports are drafted by the crash slice, so a slice that writes no
   `bug-report.md` files nothing.

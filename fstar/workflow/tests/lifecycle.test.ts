@@ -62,10 +62,11 @@ function environment(prs: Pr[] = []) {
     }
     throw new Error(`unexpected gh command ${argv.join(" ")}`);
   };
-  const inputs = (publish: steps.WorkflowInputs["publish"]): steps.WorkflowInputs => ({
+  const inputs = (publish: steps.WorkflowInputs["publish"], overrides: Partial<steps.WorkflowInputs> = {}): steps.WorkflowInputs => ({
     pulseRunIds: [], pulseBranch: "main", maxReports: 1, reportPaths: [], localCorpora: [], localCaseLimit: 0, ocamlChecker: "", cherryChecker: "",
     fstarExe: "", cherryFstarExe: "", wslDistro: "", opamRoot: "", opamSwitch: "fstar53", pwshExe: "", theories: [], maxIterations: 1, coreBudget: 32, coresPerSlice: 4, maxFindingsPerSlice: 2, publish, dryRun: false,
     investigate: false, stateDir, repo: "Z3Prover/z3", remote: "origin", baseRef: "main", prBase: "main", branchPrefix: "fstar-proof-checking", bugReportRepo: "FStarLang/FStar",
+    ...overrides,
   });
   const setupFor = (runKey: string): steps.RunSetup => {
     const runDir = join(stateDir, "runs", runKey);
@@ -76,32 +77,45 @@ function environment(prs: Pr[] = []) {
     };
   };
 
-  /** One iteration exactly as the workflow entry sequences it, with scripted repair and verify stages. */
-  async function run(runKey: string, publish: steps.WorkflowInputs["publish"], findings: Finding[]) {
+  /**
+   * Iterations exactly as the workflow entry sequences them, with scripted repair and verify
+   * stages: each slice commits `src/<runKey>-<slice>.fst`, slice verifiers pass, and iteration i's
+   * integration verifier returns `integrationVerdicts[i - 1]` (default: verified).
+   */
+  async function run(runKey: string, publish: steps.WorkflowInputs["publish"], findings: Finding[], options: { integrationVerdicts?: Array<VerifierVerdict | null>; overrides?: Partial<steps.WorkflowInputs> } = {}) {
     const setup = setupFor(runKey);
-    const options = inputs(publish);
+    const config = inputs(publish, options.overrides);
     const findingsPath = join(setup.runDir, "findings.json");
     writeFileSync(findingsPath, JSON.stringify(findings));
     const source: steps.SourceSummary = {
       findingsPath, total: findings.length, byKind: {}, byTheory: {}, localScans: {}, carried: [], diagnostics: [],
       reports: [{ key: `pulse-run:${runKey}-1`, directory: setup.runDir, artifacts: [], missing: [] }],
     };
-    await steps.recordSourcesStep(setup, options, source);
-    const triage = steps.triageStep(setup, options, findingsPath, 1, []);
-    const plan = await steps.planStep(setup, options, triage.actionablePath, 1, signal, runner);
-    for (const slice of plan.slices) {
-      writeFileSync(join(slice.worktree, "src", `${runKey}.fst`), `module ${runKey.toUpperCase()}\nlet y = 2\n`);
-      git(slice.worktree, "add", "-A");
-      git(slice.worktree, "-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-q", "-m", `repair ${slice.id}`);
+    await steps.recordSourcesStep(setup, config, source);
+    const verdicts = options.integrationVerdicts ?? [verified];
+    const planned: string[] = [];
+    const iterations = [];
+    const worktrees: string[] = [];
+    for (const [index, integrationVerdict] of verdicts.entries()) {
+      const iteration = index + 1;
+      const triage = steps.triageStep(setup, config, findingsPath, iteration, planned);
+      const plan = await steps.planStep(setup, config, triage.actionablePath, iteration, signal, runner);
+      planned.push(...plan.slices.flatMap((slice) => slice.fingerprints));
+      for (const slice of plan.slices) {
+        writeFileSync(join(slice.worktree, "src", `${runKey}-${slice.fingerprints.join("-")}.fst`), `module M\nlet y = 2\n`);
+        git(slice.worktree, "add", "-A");
+        git(slice.worktree, "-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-q", "-m", `repair ${slice.id}`);
+      }
+      const gate = await steps.gateStep(setup, config, plan, plan.slices.map(() => verified), iteration, signal, runner);
+      const integration = await steps.integrateStep(setup, config, plan, gate, iteration, signal, runner);
+      const publication = await steps.publishStep(setup, config, plan, gate, integration, integration.worktree ? integrationVerdict : null, iteration, signal, runner);
+      const persisted = await steps.persistStep(setup, config, plan, gate, integration, publication, iteration);
+      worktrees.push(...plan.slices.map((slice) => slice.worktree), ...(integration.worktree ? [integration.worktree] : []));
+      iterations.push({ triage, plan, gate, integration, publication, persisted, state: readState(stateDir) });
     }
-    const gate = await steps.gateStep(setup, options, plan, plan.slices.map(() => verified), 1, signal, runner);
-    const integration = await steps.integrateStep(setup, options, plan, gate, 1, signal, runner);
-    const publication = await steps.publishStep(setup, options, plan, gate, integration, integration.worktree ? verified : null, 1, signal, runner);
-    const persisted = await steps.persistStep(setup, options, plan, gate, integration, publication, 1);
-    const worktrees = [...plan.slices.map((slice) => slice.worktree), ...(integration.worktree ? [integration.worktree] : [])];
-    await steps.finalizeStep(setup, options, { status: "completed", stopReason: "test", iterations: [], investigation: { run: false, reason: "", digest: "" }, verified: gate.verified, attempted: plan.slices.length }, worktrees, signal, runner);
+    await steps.finalizeStep(setup, config, { status: "completed", stopReason: "test", iterations: [], investigation: { run: false, reason: "", digest: "" }, verified: 0, attempted: 0 }, [...new Set(worktrees)], signal, runner);
     const commands = readFileSync(join(setup.runDir, "commands.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as CommandLogEntry);
-    return { triage, plan, gate, integration, publication, persisted, commands, state: readState(stateDir) };
+    return { ...(iterations[0] as (typeof iterations)[number]), iterations, commands, setup, state: readState(stateDir) };
   }
 
   const remoteBranches = () => git(repo, "ls-remote", "--heads", "origin").split(/\r?\n/).filter(Boolean).map((line) => line.split("refs/heads/")[1]);
@@ -186,6 +200,61 @@ describe("verified work that is not published live", () => {
     expect(result.state.findings.f9?.status).toBe("integrated");
     expect(result.state.pendingPublications).toEqual([expect.objectContaining({ runKey: "gone", lastError: expect.stringMatching(/missing/) })]);
     expect(env.remoteBranches()).toEqual(["main"]);
+  }, 120_000);
+});
+
+describe("integration across iterations of one run", () => {
+  const oneSlicePerIteration = { coreBudget: 4, coresPerSlice: 4, maxFindingsPerSlice: 1 };
+  const alpha = { ...finding("fp-alpha"), affectedProofs: 5 };
+  const beta = { ...finding("fp-beta"), affectedProofs: 1 };
+
+  test("a merge whose integration verification failed does not leak into the next iteration's pending head", async () => {
+    const env = environment();
+    const failed: VerifierVerdict = { ...verified, verdict: "unverified", summary: "merged build failed" };
+    const result = await env.run("r1", "dry-run", [alpha, beta], { integrationVerdicts: [failed, verified], overrides: oneSlicePerIteration });
+    const [first, second] = result.iterations;
+    expect(first?.plan.slices.map((slice) => slice.fingerprints)).toEqual([["fp-alpha"]]);
+    expect(first?.publication.integrationVerified).toBe(false);
+    expect(second?.plan.slices.map((slice) => slice.fingerprints)).toEqual([["fp-beta"]]);
+    expect(second?.publication.integrationVerified).toBe(true);
+    expect(result.state.findings["fp-alpha"]?.status).toBe("unverified");
+    expect(result.state.findings["fp-beta"]?.status).toBe("integrated");
+    const head = second?.integration.head as string;
+    expect(result.state.pendingPublications).toEqual([expect.objectContaining({ runKey: "r1", head, fingerprints: ["fp-beta"] })]);
+    const tree = env.git(env.repo, "ls-tree", "-r", "--name-only", head);
+    expect(tree).toContain("src/r1-fp-beta.fst");
+    expect(tree).not.toContain("src/r1-fp-alpha.fst");
+    const body = readFileSync(join(result.setup.runDir, "iter-2", "pr-body.md"), "utf8");
+    expect(body).toContain("fp-beta");
+    expect(body).not.toContain("fp-alpha");
+  }, 120_000);
+
+  test("verified integrations of one run accumulate in one pending entry whose head contains exactly them", async () => {
+    const env = environment();
+    const result = await env.run("r1", "dry-run", [alpha, beta], { integrationVerdicts: [verified, verified], overrides: oneSlicePerIteration });
+    const second = result.iterations[1];
+    const head = second?.integration.head as string;
+    expect(result.state.pendingPublications).toHaveLength(1);
+    expect(result.state.pendingPublications[0]).toMatchObject({ runKey: "r1", head });
+    expect([...(result.state.pendingPublications[0]?.fingerprints ?? [])].sort()).toEqual(["fp-alpha", "fp-beta"]);
+    const tree = env.git(env.repo, "ls-tree", "-r", "--name-only", head);
+    expect(tree).toContain("src/r1-fp-alpha.fst");
+    expect(tree).toContain("src/r1-fp-beta.fst");
+    const body = readFileSync(join(result.setup.runDir, "iter-2", "pr-body.md"), "utf8");
+    expect(body).toContain("fp-alpha");
+    expect(body).toContain("fp-beta");
+  }, 120_000);
+
+  test("a soundness concern from the integration verifier blocks the live push", async () => {
+    const env = environment();
+    const concerned: VerifierVerdict = { ...verified, soundnessConcerns: ["minor: the merged build relies on assume_ in a helper"] };
+    const result = await env.run("r1", "live", [finding("f1")], { integrationVerdicts: [concerned] });
+    expect(result.publication).toMatchObject({ integrationVerified: false, executed: false });
+    expect(result.commands.filter((entry) => entry.mutating)).toEqual([]);
+    expect(env.remoteBranches()).toEqual(["main"]);
+    expect(env.prs).toEqual([]);
+    expect(result.state.findings.f1?.status).not.toBe("resolved");
+    expect(result.state.pendingPublications).toEqual([]);
   }, 120_000);
 });
 

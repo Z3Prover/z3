@@ -1,23 +1,37 @@
-import { beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerAtomicHostModules } from "../lib/atomic-host.ts";
+import type { ToolchainReport } from "../lib/toolchain.ts";
 
 const fixtures = join(import.meta.dir, "fixtures");
 const repoRoot = join(import.meta.dir, "..", "..", "..");
 const reportPaths = [join(fixtures, "pulse-run-40244844124-1"), join(fixtures, "build-run-40280393373-1")];
 
+/** The suite is hermetic: the preflight's toolchain probe is replaced, so no test reaches the host's WSL, opam, F* or pwsh. */
+const fakeToolchain: ToolchainReport = {
+  environment: { kind: "wsl", distro: "Ubuntu", execArgv: ["wsl", "-d", "Ubuntu", "-e"] },
+  fstar: "/opt/fstar/bin/fstar.exe", fstarVersion: "F* 2026.09.27", opam: true, opamRoot: "/root/.opam", opamSwitch: "fstar53", ocamlVersion: "5.3.0",
+  pwsh: "/opt/microsoft/powershell/7/pwsh", python: "/usr/bin/python3", candidates: {}, available: true, missing: [],
+};
+
 // The workflow module imports Atomic's host-provided SDK; load the installed package's modules.
 let definition: any;
 let sdk: any;
 let steps: typeof import("../lib/steps.ts");
+let probe: { mockRestore(): void; mock: { calls: unknown[] } };
 beforeAll(async () => {
   await registerAtomicHostModules();
+  probe = spyOn(await import("../lib/toolchain.ts"), "probeToolchain").mockImplementation(async () => fakeToolchain);
   definition = (await import("../fstar-proof-checking.ts")).default;
   sdk = await import("@bastani/atomic/workflows");
   steps = await import("../lib/steps.ts");
 }, 120_000);
+afterAll(() => probe.mockRestore());
+
+/** Commands a run issued through its logging runner (none at all is possible in a dry run). */
+const commandsOf = (runDir: string) => (existsSync(join(runDir, "commands.jsonl")) ? readFileSync(join(runDir, "commands.jsonl"), "utf8") : "");
 
 describe("dry run through Atomic's workflow runtime", () => {
   test("terminates with unique, acyclic durable nodes per iteration and no remote commands", async () => {
@@ -45,8 +59,11 @@ describe("dry run through Atomic's workflow runtime", () => {
     expect(result.stages).toEqual([]);
     const evidence = JSON.parse(readFileSync(result.result.evidence_path, "utf8"));
     expect(evidence.mutatingCommands).toEqual([]);
-    const commands = readFileSync(join(result.result.run_dir, "commands.jsonl"), "utf8");
+    const commands = commandsOf(result.result.run_dir);
     expect(commands).not.toMatch(/"gh"|"push"/);
+    // Hermetic: the replaced probe ran, and nothing reached the host's WSL.
+    expect(probe.mock.calls.length).toBeGreaterThan(0);
+    expect(commands).not.toMatch(/"wsl"/);
     expect(existsSync(join(stateDir, "state.json"))).toBe(false);
     const plan = JSON.parse(readFileSync(join(result.result.run_dir, "iter-1", "plan.json"), "utf8"));
     expect(plan.totalCores).toBeLessThanOrEqual(32);
@@ -78,6 +95,7 @@ describe("dry run through Atomic's workflow runtime", () => {
     expect(readFileSync(join(stateDir, "state.json")).equals(before)).toBe(true);
     expect(existsSync(join(stateDir, "state.lock"))).toBe(false);
     expect(JSON.parse(readFileSync(result.result.evidence_path, "utf8")).mutatingCommands).toEqual([]);
+    expect(commandsOf(result.result.run_dir)).not.toMatch(/"wsl"/);
   }, 120_000);
 });
 
@@ -145,8 +163,8 @@ describe("full iteration topology with scripted durable steps", () => {
         slices: args.verdicts.map((verdict: any, index: number) => ({ id: `s${index}`, status: verdict?.verdict === "verified" ? "verified" : "unverified", reasons: [], changedFiles: 1, warnings: [] })),
       }),
       "iter-[0-9]+/integrate": async (_name, args) => (args.verified > 0
-        ? { worktree: "W", branch: "B", base: "origin/master", merged: ["s0"], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], head: "abc", note: "" }
-        : { base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], note: "" }),
+        ? { worktree: "W", branch: "B", base: "origin/master", merged: ["s0"], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], contents: [{ slice: "s0", fingerprints: ["f0"] }], head: "abc", note: "" }
+        : { base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], contents: [], note: "" }),
       "iter-[0-9]+/publish": async () => ({ mode: "dry-run", action: "new-branch", executed: false, summary: "dry-run: would new-branch", integrationVerified: true, bugReports: [], publication: { sequence: 0, history: [] } }),
       "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], published: false }),
     };
@@ -204,7 +222,7 @@ describe("full iteration topology with scripted durable steps", () => {
       "iter-[0-9]+/triage": async (name) => ({ actionablePath: empty, actionable: 0, skipped: { integrated: 1 }, pendingPublications: name.startsWith("iter-1/") ? 1 : 0 }),
       "iter-[0-9]+/plan": async () => ({ slices: [], concurrency: 0, totalCores: 0, coreBudget: 32, deferred: 0, worktreesCreated: false }),
       "iter-[0-9]+/gate": async () => ({ slices: [], verified: 0 }),
-      "iter-[0-9]+/integrate": async () => ({ worktree: "W", branch: "B", base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: ["r1"], pendingFailed: [], head: "abc", note: "" }),
+      "iter-[0-9]+/integrate": async () => ({ worktree: "W", branch: "B", base: "origin/master", merged: [], conflicts: [], rejected: [], pendingMerged: ["r1"], pendingFailed: [], contents: [{ slice: "arrays-repair", fingerprints: ["f9"], from: "r1" }], head: "abc", note: "" }),
       "iter-[0-9]+/publish": async () => ({ mode: "live", action: "push-existing", executed: true, summary: "pushed", integrationVerified: true, bugReports: [], publication: { sequence: 1, history: [] } }),
       "iter-[0-9]+/persist": async () => ({ committed: true, outcomes: [], published: true }),
       "investigate/select": async () => ({ run: false, reason: "scripted", digest: "" }),
@@ -214,7 +232,7 @@ describe("full iteration topology with scripted durable steps", () => {
     await definition.run(live.ctx);
     expect(live.tools).toEqual(["preflight", "source", "record-sources", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
     expect(live.tasks.map((task) => task.name)).toEqual(["iter-1/integration/verify"]);
-    expect(live.tasks[0]?.options.prompt).toContain("pending integration r1");
+    expect(live.tasks[0]?.options.prompt).toContain("arrays-repair (f9) from pending integration r1");
     for (const publish of ["dry-run", "none"]) {
       const other = fakeContext({ ...defaults, publish, maxIterations: 2 }, scripted);
       const output = await definition.run(other.ctx);

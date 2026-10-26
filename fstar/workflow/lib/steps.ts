@@ -24,12 +24,15 @@ import {
   fromGhRuns,
   listPulseRuns,
   listSmt2,
+  listSmt2ByGroup,
   localReportKey,
   reportingRuns,
   reportKey,
   scanBatchCorpus,
   scanInteractiveCorpus,
+  selectStratifiedWindow,
   selectWindow,
+  stageFiles,
   type GhRun,
   type PulseRun,
 } from "./sources.js";
@@ -149,7 +152,8 @@ export type SourceSummary = {
   readonly byKind: Record<string, number>;
   readonly byTheory: Record<string, number>;
   readonly reports: Array<{ key: string; directory: string; artifacts: string[]; missing: string[] }>;
-  readonly localScans: Record<string, { offset: number; cases: number; mode: string }>;
+  /** Next scan position per corpus and checker; batch corpora also rotate within each logic directory (`groupOffsets`). */
+  readonly localScans: Record<string, { offset: number; cases: number; mode: string; groupOffsets?: Record<string, number> }>;
   /** Fingerprints re-sourced from state (eligible earlier findings no current source reported). */
   readonly carried: string[];
   readonly diagnostics: string[];
@@ -246,7 +250,8 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
 /**
  * Run the discovered checkers on the local corpora inside the build environment: z3test
  * `regressions/smt2` scripts in `--interactive` mode over a rotating window, other corpora
- * through the batch harness.
+ * through the batch harness over a window stratified by top-level (logic) directory, staged as
+ * copies below the run directory.
  */
 export async function scanLocalCorpora(
   runner: CommandRunner,
@@ -277,11 +282,12 @@ export async function scanLocalCorpora(
     }
     // z3test regression inputs are incremental scripts: use interactive mode. Other corpora use the batch harness.
     const interactive = /regressions[\\/]+smt2$/i.test(corpus.replace(/[\\/]+$/, ""));
+    const files = interactive ? listSmt2(corpus) : [];
+    const groups = interactive ? [] : listSmt2ByGroup(corpus);
     for (const [kind, checker] of available) {
       const outputDir = join(setup.runDir, "local", `${kind}-${basename(corpus)}`);
       const key = `local-scan:${kind}:${corpus}`;
       if (interactive) {
-        const files = listSmt2(corpus);
         const window = selectWindow(files, state.localScans[key]?.offset ?? 0, inputs.localCaseLimit);
         const scan = await scanInteractiveCorpus(runner, {
           checkerArgv: [...toolchain.environment.execArgv, checker as string], corpus, files: window.selected, outputDir,
@@ -289,11 +295,18 @@ export async function scanLocalCorpora(
         });
         scans[key] = { offset: window.nextOffset, cases: scan.cases, mode: "interactive" };
       } else if (toolchain.python) {
+        const window = selectStratifiedWindow(groups, state.localScans[key], inputs.localCaseLimit);
+        if (window.selected.length === 0) {
+          diagnostics.push(`Local corpus ${corpus} has no .smt2 inputs to check (or localCaseLimit is 0); skipped for ${kind}.`);
+          continue;
+        }
+        // The harness checks every input below the staged copy of this window.
+        const staged = stageFiles(corpus, window.selected, join(`${outputDir}-inputs`, basename(corpus)));
         await scanBatchCorpus(runner, {
-          pythonArgv: [...toolchain.environment.execArgv, toolchain.python], toEnvironment, repoRoot: setup.repoRoot, checker: checker as string, corpus,
-          maxCases: inputs.localCaseLimit, outputDir, totalTimeoutSeconds: 1800, signal,
+          pythonArgv: [...toolchain.environment.execArgv, toolchain.python], toEnvironment, repoRoot: setup.repoRoot, checker: checker as string, corpus: staged,
+          maxCases: window.selected.length, outputDir, totalTimeoutSeconds: 1800, signal,
         });
-        scans[key] = { offset: 0, cases: inputs.localCaseLimit, mode: "batch" };
+        scans[key] = { offset: window.nextOffset, groupOffsets: window.groupOffsets, cases: window.selected.length, mode: "batch" };
       } else {
         diagnostics.push(`Local corpus ${corpus} skipped for ${kind}: Python 3 is required for the batch harness.`);
         continue;
@@ -323,7 +336,9 @@ export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs,
     const reportsSeen = { ...state.processedReports };
     for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
     const localScans = { ...state.localScans };
-    for (const [key, scan] of Object.entries(source.localScans)) localScans[key] = { at: now.toISOString(), offset: scan.offset };
+    for (const [key, scan] of Object.entries(source.localScans)) {
+      localScans[key] = { at: now.toISOString(), offset: scan.offset, ...(scan.groupOffsets ? { groupOffsets: scan.groupOffsets } : {}) };
+    }
     return { state: { ...recordSeen(state, fresh, now), processedReports: reportsSeen, localScans }, result: undefined };
   }, { owner: setup.runKey });
   writeJson(join(setup.runDir, "sources-recorded.json"), { processedReports, seen: fresh.length, localScans: source.localScans });
@@ -448,6 +463,9 @@ export async function gateStep(
 
 // ---------------------------------------------------------------- integration
 
+/** A slice whose change an integration head contains, and the earlier run whose pending integration brought it (if any). */
+export type IntegratedSlice = { readonly slice: string; readonly fingerprints: string[]; readonly from?: string };
+
 export type IntegrationSummary = {
   readonly worktree?: string;
   readonly branch?: string;
@@ -455,10 +473,12 @@ export type IntegrationSummary = {
   readonly merged: string[];
   readonly conflicts: string[];
   readonly rejected: string[];
-  /** Run keys of earlier, still unpublished verified integrations merged in for a live push. */
+  /** Run keys of still unpublished verified integrations merged in (earlier runs in live mode, and this run's earlier iterations). */
   readonly pendingMerged: string[];
   /** Pending integrations that could not be merged; they stay pending with this reason. */
   readonly pendingFailed: Array<{ runKey: string; reason: string }>;
+  /** Exactly the verified slices whose changes `head` contains on top of `base`. */
+  readonly contents: IntegratedSlice[];
   readonly head?: string;
   readonly note: string;
 };
@@ -488,20 +508,22 @@ async function mergeVerified(runner: CommandRunner, inTree: { cwd: string; timeo
 }
 
 /**
- * Merge verified slice branches into a per-run integration worktree, based on the active
- * publication branch when it is still open. A live run first merges earlier verified
- * integrations that were never pushed (oldest first), so they are published with it.
+ * Merge verified slice branches into a fresh integration worktree for this iteration, based on
+ * the active publication branch when it is still open. Earlier verified integrations that were
+ * never pushed are merged first (oldest first): in live runs all of them, so they are published
+ * with it, otherwise only this run's own earlier iterations, so this run's pending head keeps
+ * accumulating verified work. Merges whose verification failed in an earlier iteration live only
+ * on that iteration's branch and never reach a later head.
  */
 export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, plan: PlanSummary, gate: GateSummary, iteration: number, signal: AbortSignal, inner?: CommandRunner): Promise<IntegrationSummary> {
   const runner = evidenceRunner(setup.runDir, inner);
   const verified = plan.slices.filter((slice) => gate.slices.find((item) => item.id === slice.id)?.status === "verified");
   const state = readState(setup.stateDir);
-  const pending = !inputs.dryRun && inputs.publish === "live" ? state.pendingPublications : [];
-  if (inputs.dryRun || (verified.length === 0 && pending.length === 0)) {
-    const summary: IntegrationSummary = {
-      base: inputs.baseRef, merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [],
-      note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate",
-    };
+  const live = !inputs.dryRun && inputs.publish === "live";
+  const pending = state.pendingPublications.filter((entry) => live || entry.runKey === setup.runKey);
+  const empty = { merged: [], conflicts: [], rejected: [], pendingMerged: [], pendingFailed: [], contents: [] };
+  if (inputs.dryRun || (verified.length === 0 && !pending.some((entry) => entry.runKey !== setup.runKey))) {
+    const summary: IntegrationSummary = { base: inputs.baseRef, ...empty, note: inputs.dryRun ? "dry run: nothing to integrate" : "no verified slices to integrate" };
     writeJson(join(iterationDir(setup, iteration), "integration.json"), summary);
     return summary;
   }
@@ -514,38 +536,54 @@ export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, pla
     await runChecked(runner, ["git", "fetch", inputs.remote, `refs/heads/${active}:refs/remotes/${inputs.remote}/${active}`], options);
     base = `${inputs.remote}/${active}`;
   }
-  const worktree = join(setup.worktreeRoot, `${setup.runKey}-integration`);
-  const branch = `${inputs.branchPrefix}/integration/${setup.runKey}`;
+  const worktree = join(setup.worktreeRoot, `${setup.runKey}-integration-i${iteration}`);
+  const branch = `${inputs.branchPrefix}/integration/${setup.runKey}-i${iteration}`;
   await ensureWorktree(runner, setup.repoRoot, { path: worktree, branch, base, signal });
   const inTree = { cwd: worktree, timeoutMs: 10 * 60_000, signal };
   const pendingMerged: string[] = [];
   const pendingFailed: IntegrationSummary["pendingFailed"] = [];
+  const contents: IntegratedSlice[] = [];
   for (const entry of pending) {
-    if (entry.runKey === setup.runKey) continue;
     if ((await runner(["git", "show-ref", "--verify", "--quiet", `refs/heads/${entry.branch}`], inTree)).code !== 0) {
       pendingFailed.push({ runKey: entry.runKey, reason: `local integration branch ${entry.branch} is missing; recreate it at ${entry.head} or remove this pending entry from state.json` });
       continue;
     }
     // Merge the verified head that was recorded, not whatever the branch points to now.
     const outcome = await mergeVerified(runner, inTree, entry.head, `Publish verified integration ${entry.runKey}`);
-    if (outcome === "merged") pendingMerged.push(entry.runKey);
-    else pendingFailed.push({ runKey: entry.runKey, reason: outcome === "conflict" ? `merging ${entry.head} onto ${base} conflicts` : `merging ${entry.head} onto ${base} failed the soundness scan` });
+    if (outcome === "merged") {
+      pendingMerged.push(entry.runKey);
+      contents.push(...pendingContents(entry));
+    } else {
+      pendingFailed.push({ runKey: entry.runKey, reason: outcome === "conflict" ? `merging ${entry.head} onto ${base} conflicts` : `merging ${entry.head} onto ${base} failed the soundness scan` });
+    }
   }
+  // This run's earlier verified head is on this run's base, so it always merges; if it did not, its entry would be superseded wrongly.
+  const own = pendingFailed.find((item) => item.runKey === setup.runKey);
+  if (own) throw new Error(`cannot carry this run's verified integration forward: ${own.reason}`);
   const merged: string[] = [];
   const conflicts: string[] = [];
   const rejected: string[] = [];
   for (const slice of verified) {
     const outcome = await mergeVerified(runner, inTree, slice.branch, `Integrate verified slice ${slice.id}`);
-    if (outcome === "merged") merged.push(slice.id);
-    else (outcome === "conflict" ? conflicts : rejected).push(slice.id);
+    if (outcome === "merged") {
+      merged.push(slice.id);
+      contents.push({ slice: slice.id, fingerprints: slice.fingerprints });
+    } else {
+      (outcome === "conflict" ? conflicts : rejected).push(slice.id);
+    }
   }
   const head = await runChecked(runner, ["git", "rev-parse", "HEAD"], inTree);
   const summary: IntegrationSummary = {
-    worktree, branch, base, merged, conflicts, rejected, pendingMerged, pendingFailed, head,
+    worktree, branch, base, merged, conflicts, rejected, pendingMerged, pendingFailed, contents, head,
     note: `merged ${merged.length} verified slice(s) and ${pendingMerged.length} pending integration(s) onto ${base}`,
   };
   writeJson(join(iterationDir(setup, iteration), "integration.json"), summary);
   return summary;
+}
+
+/** What a pending integration contains: its recorded slices and their findings. */
+function pendingContents(entry: WorkflowState["pendingPublications"][number]): IntegratedSlice[] {
+  return [{ slice: entry.slices.join(", "), fingerprints: entry.fingerprints, from: entry.runKey }];
 }
 
 // ---------------------------------------------------------------- publication
@@ -559,6 +597,8 @@ export type PublicationSummary = {
   readonly prUrl?: string;
   readonly blocked?: string;
   readonly integrationVerified: boolean;
+  /** Why the integrated head was not accepted for publication (empty when it was). */
+  readonly integrationReasons: string[];
   readonly bugReports: Array<BugReportResult & { draft: string }>;
   readonly publication: WorkflowState["publication"];
 };
@@ -573,17 +613,19 @@ function bugReportDrafts(plan: PlanSummary): Array<{ fingerprint: string; title:
 }
 
 function prBody(setup: RunSetup, plan: PlanSummary, gate: GateSummary, integration: IntegrationSummary, verdict: VerifierVerdict | null): string {
-  const merged = plan.slices.filter((slice) => integration.merged.includes(slice.id));
+  const slices = new Map(plan.slices.map((slice) => [slice.id, slice]));
   return [
     "## Verified F* proof-checker improvements",
     "",
     "Produced by the `fstar-proof-checking` Atomic workflow (fstar/workflow). Each slice was implemented in its own worktree, independently re-verified, scanned for admits/assumptions/raised global rlimits, merged, and the merged result was verified again.",
     "",
-    "| Slice | Theory | Focus | Findings |",
-    "|---|---|---|---|",
-    ...merged.map((slice) => `| ${slice.id} | ${slice.theory} | ${slice.focus} | ${slice.fingerprints.join(", ")} |`),
+    "| Slice | Theory | Focus | Findings | Integrated by run |",
+    "|---|---|---|---|---|",
+    ...integration.contents.map((item) => {
+      const slice = item.from === undefined ? slices.get(item.slice) : undefined;
+      return `| ${item.slice} | ${slice?.theory ?? "-"} | ${slice?.focus ?? "-"} | ${item.fingerprints.join(", ")} | ${item.from ?? setup.runKey} |`;
+    }),
     "",
-    ...(integration.pendingMerged.length > 0 ? [`Also includes earlier verified integrations that had not been published: ${integration.pendingMerged.join(", ")}.`, ""] : []),
     "## Verification",
     "",
     `- Integrated head: \`${integration.head ?? "unknown"}\` on base \`${integration.base}\`.`,
@@ -612,9 +654,10 @@ export async function publishStep(
   const runner = evidenceRunner(setup.runDir, inner);
   const state = readState(setup.stateDir);
   const integrated = integration.merged.length + integration.pendingMerged.length;
-  const integrationVerified = integrated > 0 && decideSliceOutcome({
-    scan: { violations: [], warnings: [] }, changedFiles: integrated, uncommitted: false, verifier: verdict ?? undefined, toolchainAvailable: setup.toolchain.available,
-  }).status === "verified";
+  const decision = integrated > 0
+    ? decideSliceOutcome({ scan: { violations: [], warnings: [] }, changedFiles: integrated, uncommitted: false, verifier: verdict ?? undefined, toolchainAvailable: setup.toolchain.available })
+    : { status: "no-change" as const, reasons: ["nothing was integrated"] };
+  const integrationVerified = decision.status === "verified";
   const facts = await publicationFacts(runner, setup, inputs, state, signal);
   const publicationPlan = planPublication(state.publication, facts, { prefix: inputs.branchPrefix, hasChanges: integrationVerified });
   const bodyFile = join(iterationDir(setup, iteration), "pr-body.md");
@@ -640,6 +683,7 @@ export async function publishStep(
     prUrl: "prUrl" in result ? result.prUrl : undefined,
     blocked: action.kind === "blocked" ? action.reason : undefined,
     integrationVerified,
+    integrationReasons: integrationVerified ? [] : decision.reasons,
     bugReports,
     publication: result.state,
   };
@@ -681,7 +725,7 @@ export async function persistStep(
     if (status === "verified") {
       if (integration.conflicts.includes(slice.id)) [status, note] = ["integration-conflict", `merge conflict on ${integration.branch}`];
       else if (integration.rejected.includes(slice.id)) [status, note] = ["rejected", "merged diff failed the soundness scan"];
-      else if (!publication.integrationVerified) [status, note] = ["unverified", "integration verification did not pass"];
+      else if (!publication.integrationVerified) [status, note] = ["unverified", `integration verification did not pass: ${publication.integrationReasons.join("; ")}`];
       else note = `verified; integrated on ${integration.branch}${published ? ` and published (${publication.prUrl ?? publication.branch})` : `; not published (publish: ${publication.mode}, ${publication.summary})`}`;
     }
     for (const fingerprint of slice.fingerprints) outcomes.push({ fingerprint, status, note });
@@ -690,11 +734,11 @@ export async function persistStep(
     writeJson(join(iterationDir(setup, iteration), "persist.json"), { committed: false, outcomes, published });
     return { committed: false, outcomes, published };
   }
-  const integratedSlices = plan.slices.filter((slice) => integration.merged.includes(slice.id));
-  const unpublished = !published && publication.integrationVerified && integratedSlices.length > 0 && integration.branch && integration.head
+  // The pending entry records exactly what the head contains: this iteration's slices and the pending integrations merged into it.
+  const unpublished = !published && publication.integrationVerified && integration.merged.length > 0 && integration.branch && integration.head
     ? {
       runKey: setup.runKey, branch: integration.branch, head: integration.head, recordedAt: new Date().toISOString(),
-      fingerprints: integratedSlices.flatMap((slice) => slice.fingerprints), slices: integratedSlices.map((slice) => slice.id),
+      fingerprints: [...new Set(integration.contents.flatMap((item) => item.fingerprints))], slices: [...new Set(integration.contents.map((item) => item.slice))],
     }
     : undefined;
   await withStateLock(setup.stateDir, (state) => {

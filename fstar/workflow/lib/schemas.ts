@@ -12,6 +12,6 @@ export const VerifierVerdictSchema = Type.Object({
     phase: Type.Union([Type.Literal("baseline"), Type.Literal("exploratory"), Type.Literal("final")]),
   }, { additionalProperties: false }), { description: "Commands actually executed, with observed exit codes." }),
   resolvedFingerprints: Type.Array(Type.String(), { description: "Finding fingerprints whose targeted inputs were observed to improve." }),
-  soundnessConcerns: Type.Array(Type.String()),
+  soundnessConcerns: Type.Array(Type.String(), { description: "Every soundness concern, whatever its severity. Any entry keeps the change from being accepted or published." }),
   summary: Type.String(),
 }, { additionalProperties: false });

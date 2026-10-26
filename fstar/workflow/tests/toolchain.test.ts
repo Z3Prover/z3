@@ -6,9 +6,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult, CommandRunner } from "../lib/command.ts";
+import { spawnRunner, type CommandResult, type CommandRunner } from "../lib/command.ts";
 import * as steps from "../lib/steps.ts";
-import { probeToolchain, toEnvironmentPath } from "../lib/toolchain.ts";
+import { buildCommand, probeToolchain, toEnvironmentPath } from "../lib/toolchain.ts";
 
 const R = "/root/.local/share/z3-clause-proofs-4d52bf5f";
 const utf16 = (text: string) => [...text].map((char) => `${char}\u0000`).join("");
@@ -76,6 +76,42 @@ describe("toolchain discovery", () => {
     expect(report.available).toBe(false);
     expect(report.missing.join(" ")).toMatch(/PowerShell 7 \(pwsh\) in WSL Ubuntu.*pwshExe/);
   });
+
+  test("a PowerShell that is found but crashes is reported as failing to run, with its error, not as missing", async () => {
+    const crash = "Unhandled exception. System.IO.FileLoadException: The given assembly name was invalid.";
+    const calls: Array<{ argv: readonly string[]; input?: string }> = [];
+    const output = discovered.replace("pwsh\t/mnt/c/tools/linux-pwsh-7.5.4/pwsh\t7.5.4", `pwsh-failed\t/mnt/c/tools/linux-pwsh-7.5.4/pwsh\t${crash}`);
+    const report = await probeToolchain(windowsHost(calls, output), { platform: "win32" });
+    expect(report.available).toBe(false);
+    const reason = report.missing.join(" ");
+    expect(reason).toContain("/mnt/c/tools/linux-pwsh-7.5.4/pwsh");
+    expect(reason).toMatch(/failed to run/);
+    expect(reason).toContain("FileLoadException: The given assembly name was invalid");
+    expect(reason).not.toMatch(/^PowerShell 7 \(pwsh\) in WSL Ubuntu for/);
+    // The probe runs each candidate with an isolated cache and keeps its error output.
+    const script = calls.find((call) => call.input !== undefined)?.input ?? "";
+    const probe = script.split("\n").find((line) => line.includes("PSVersionTable")) ?? "";
+    expect(probe).toContain("XDG_CACHE_HOME=");
+    expect(probe).toContain("2>&1");
+    expect(probe).toContain("pwsh-failed");
+  });
+
+  test("every build command runs PowerShell with its own cache directory", async () => {
+    const report = await probeToolchain(windowsHost([]), { platform: "win32" });
+    const one = buildCommand(report, { worktree: "C:\\wt\\slice-a", buildKey: "run-i1-arrays", cores: 4 });
+    const two = buildCommand(report, { worktree: "C:\\wt\\slice-b", buildKey: "run-i1-bv", cores: 4 });
+    const cache = (command: string) => /XDG_CACHE_HOME=("?)([^ "]+)\1/.exec(command)?.[2];
+    expect(cache(one)).toContain("run-i1-arrays");
+    expect(cache(two)).toContain("run-i1-bv");
+    expect(one).toMatch(/DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 XDG_CACHE_HOME=\S+ \S*\/mnt\/c\/tools\/linux-pwsh-7\.5\.4\/pwsh/);
+  });
+
+  // Opt-in: probes the host's real WSL toolchain (FSTAR_WORKFLOW_REAL_TOOLCHAIN=1); skipped by default so the suite stays hermetic.
+  test.skipIf(process.env.FSTAR_WORKFLOW_REAL_TOOLCHAIN !== "1")("the real host toolchain is discovered", async () => {
+    const report = await probeToolchain(spawnRunner, {});
+    expect(report.missing).toEqual([]);
+    expect(report.available).toBe(true);
+  }, 600_000);
 
   test("local corpora run through the WSL checker with the scripts passed on stdin", async () => {
     const root = mkdtempSync(join(tmpdir(), "fpc-tc-"));
