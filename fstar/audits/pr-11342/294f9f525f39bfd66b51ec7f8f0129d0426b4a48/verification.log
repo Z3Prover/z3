@@ -1,0 +1,7 @@
+Z3 version 4.13.3
+F* 2026.09.27
+exit code 0
+stdout:
+Verified module: AuditLshrSelf
+All verification conditions discharged successfully
+stderr: (empty)

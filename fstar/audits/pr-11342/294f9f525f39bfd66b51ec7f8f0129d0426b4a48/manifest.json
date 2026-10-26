@@ -1,0 +1,22 @@
+{
+  "pull_request": 11342,
+  "head_sha": "294f9f525f39bfd66b51ec7f8f0129d0426b4a48",
+  "base_sha": "e7cfef8b32c1ad9395a66cf7837d40be1f20826c",
+  "path_prefix": "fstar/audits/pr-11342/294f9f525f39bfd66b51ec7f8f0129d0426b4a48/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40244948450",
+  "files": [
+    {
+      "name": "AuditLshrSelf.fst",
+      "sha256": "44a2d254c95c20e87fc192e59ed22672368750e9d811ab35342099354dedc779"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "e1dc6fd47710ba2160beeda4a7f5cc36d519ad46749a4eb1d11d155df2266729"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "b4493f049fe589067482e2c8bc11d4d12832f94591229bca5a1d40439e133bb1"
+    }
+  ]
+}
