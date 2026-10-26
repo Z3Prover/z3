@@ -22,7 +22,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
-#include "ast/array_map_coherence.h"
+#include "ast/rewriter/array_map_coherence.h"
 #include "smt/smt_context.h"
 #include "smt/theory_array_full.h"
 #include "util/scoped_ptr_vector.h"

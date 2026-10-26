@@ -17,7 +17,7 @@ Author:
 
 #include "ast/ast_trail.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/array_map_coherence.h"
+#include "ast/rewriter/array_map_coherence.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/euf_solver.h"
 
