@@ -2655,6 +2655,8 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs, bool& 
     expr* e1, *e2;
     expr_ref e3(e, m);
     while (true) {
+        if (!can_reduce_eqs())
+            return false;
         if (m_util.str.is_concat(e3, e1, e2)) {
             if (!canonize(e1, es, eqs, change)) {
                 return false;
@@ -2692,9 +2694,14 @@ bool theory_seq::expand(expr* e, dependency*& eqs, expr_ref& result) {
     unsigned sz = m_expand_todo.size();
     m_expand_todo.push_back(e);
     while (m_expand_todo.size() != sz) {
+        if (!can_reduce_eqs()) {
+            m_expand_todo.shrink(sz);
+            return false;
+        }
         expr* e = m_expand_todo.back();
         bool r = expand1(e, eqs, result);
         if (!r) {
+            m_expand_todo.shrink(sz);
             return false; 
         }
         if (result) {
@@ -2860,6 +2867,7 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
+    m_num_eager_eq_steps = 0;
     if (m_regex.can_propagate())
         m_regex.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent() && m.inc()) {
