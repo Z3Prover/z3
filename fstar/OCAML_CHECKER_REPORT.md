@@ -966,8 +966,27 @@ require the standard forall-elimination law: a true universal closure has
 a true body at every correctly sorted bound-value tuple. This law
 constrains the supplied quantifier operator, not a certificate's validity;
 it is an explicit premise of the document soundness theorem, not an
-additional axiom. Documents without instantiation entries retain their
-quantifier-oracle-independent theorem.
+additional axiom.
+
+Universal block flattening also has a sort-indexed bridge. A premise-free
+`pull-quant` equality may merge two adjacent `forall` blocks with a
+quantifier-free Boolean body. Both sides must be closed and well-sorted,
+the combined declaration-order sorts must be exactly `outer @ inner`,
+and the bodies must be identical, including all de Bruijn indices.
+Either orientation of the equality is supported; permuting binders,
+changing bodies or quantifier kinds, escaping variables, and equality
+lookalikes do not pass this check. The proof splits/combines typed value
+tuples in the reversed scope order and proves pointwise equality of the
+extended environments; it does not rename variables or trust a rule tag.
+Documents containing `PullQuantifier` entries now require `forall_model`,
+the standard equivalence between universal truth and truth at every
+sort-indexed assignment. Introduction is needed here; elimination alone
+does not justify flattening for an arbitrary quantifier oracle. This is
+an explicit semantic premise, not an axiom or an assumed flattening law.
+Documents containing neither instantiation nor pulling entries retain
+their quantifier-oracle-independent theorem. Existential flattening and
+flattening bodies containing further binders remain unsupported by this
+bridge.
 
 The native CLI selects this kernel whenever marshaling finds datatype
 metadata. It never falls back to the legacy checker on this path.

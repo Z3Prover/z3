@@ -2051,6 +2051,81 @@ let sorted_quantifier_rewrites () =
     "(forall ((x T)) (fake (P x) (Q x 0)))"
     "(forall ((x T)) (or (not (P x)) (Q x 0)))"
 
+let sorted_quantifier_flattening () =
+  let module K = Z3SortedProof in
+  let module Q = Z3SortedQuantifier in
+  let declarations =
+    "(declare-datatype T ((A) (B)))(declare-const x T)\
+     (declare-fun k (Bool Bool) Bool)(declare-fun r (T Bool Int) Bool)" in
+  (* An independent small reproducer, not a copy of the corpus input. *)
+  let assertions, proof = unsat (declarations ^
+    "(assert (forall ((p Bool)) (forall ((q Bool)) (= (k p q) p))))\
+     (assert (k (= x A) true))(assert (not (= x A)))") in
+  let doc, schema = B.marshal_with_datatypes assertions proof in
+  let pulls = List.filter (fun e -> e.P.rule = U.PullQuantifier) doc.P.entries in
+  require (schema.Z3DatatypeSignature.cases <> [] && pulls <> [])
+    "flattening regression did not exercise the sorted pull-quant path";
+  require (K.check_document schema doc = Some Z.zero)
+    "sorted universal flattening remained an obligation";
+  require (K.diagnostic_result (K.diagnose_document schema doc) = Some Z.zero)
+    "sorted flattening diagnostics disagree";
+  List.iter (fun e ->
+      require (e.P.premise_ids = [] && Q.check_flatten e.P.formula)
+        "native pull-quant did not have the expected binder certificate";
+      match e.P.formula with
+      | A.App (_, [A.Quantifier (A.Forall_k, outer, _,
+          A.Quantifier (A.Forall_k, inner, _, body));
+          A.Quantifier (A.Forall_k, combined, _, body')]) ->
+          require (outer = [A.bool_sort] && inner = [A.bool_sort] &&
+                   combined = outer @ inner && body = body')
+            "native Boolean binder blocks or body changed"
+      | _ -> failwith "unexpected native pull-quant shape") pulls;
+  let c = context () in
+  let check expected left right =
+    let native = List.hd (parse c
+      (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))")) in
+    let st = B.marshal_expressions (B.empty_state ()) [native] in
+    let formula = B.cached_expression st native in
+    require (Q.check_flatten formula = expected)
+      ("incorrect flattening certificate: " ^ left ^ " -> " ^ right);
+    let node = { U.kind = U.PullQuantifier;
+      conclusion1 = Option.get (U.classify_fact formula); premises = [] } in
+    let accepted = function Some (_, pending) -> Z.equal pending Z.zero | None -> false in
+    require (accepted (K.check_node schema [] node) = expected)
+      "sorted node dispatch disagrees with flattening check";
+    match formula with
+    | A.App (f, args) ->
+        require (not (Q.check_flatten (A.App ({ f with A.interp = None }, args))))
+          "uninterpreted equality lookalike justified flattening"
+    | _ -> failwith "expected equality in flattening fixture"
+  in
+  check true
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))";
+  check true
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))"
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))";
+  check false
+    "(forall ((a T)) (forall ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((b Bool) (n Int) (a T)) (r a b n))";
+  check false
+    "(forall ((p Bool)) (forall ((q Bool)) (= (k p q) p)))"
+    "(forall ((p Bool) (q Bool)) (= (k q p) q))";
+  check false
+    "(forall ((a T)) (exists ((b Bool) (n Int)) (r a b n)))"
+    "(forall ((a T) (b Bool) (n Int)) (r a b n))";
+  let malformed = List.map (fun e ->
+      if e.P.rule = U.PullQuantifier then { e with P.formula =
+        Z3ResolutionProofTheory.mk_eq_expr
+          (A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+            A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+              A.Var (Z.of_int 2, A.bool_sort))))
+          (A.Quantifier (A.Forall_k, [A.bool_sort; A.bool_sort], A.bool_sort,
+            A.Var (Z.of_int 2, A.bool_sort))) }
+      else e) doc.P.entries in
+  require (K.check_document schema { doc with P.entries = malformed } = None)
+    "escaping flattening binders were accepted"
+
 let sorted_quantifier_instances () =
   let module K = Z3SortedProof in
   let module Q = Z3SortedQuantifier in
@@ -3237,6 +3312,7 @@ let () =
      "concrete-sort-indexed-datatype-model", concrete_datatype_model;
      "contextual-sorted-datatype-proof-kernel", sorted_datatype_checker;
      "sorted-quantifier-Boolean-rewrites", sorted_quantifier_rewrites;
+     "sorted-native-universal-flattening", sorted_quantifier_flattening;
      "sorted-native-quantifier-instances", sorted_quantifier_instances;
      "malformed-foreign-certificate", malformed_foreign_certificate;
      "assumed-NLSAT-obligation", assumed_nlsat;

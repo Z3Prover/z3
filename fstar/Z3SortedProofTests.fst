@@ -278,4 +278,79 @@ let core_refutation_without_legacy_contracts (#base:sort -> Type0) (bc:S.boolean
   assert_norm (K.check_document core_schema core_document == Some 0);
   K.lemma_check_document core_schema bc eq other core_document
 
+(* Independently constructed bodies: declaration-order blocks flatten as
+   outer @ inner, whereas the de Bruijn scope is rev inner @ rev outer. *)
+let pull_body = App {
+  decl_name = "pull-relation"; domain = [box; bool_sort; integer]; range = bool_sort;
+  interp = None; int_params = [];
+} [Var 2 box; Var 1 bool_sort; Var 0 integer]
+
+let pull_nested =
+  Quantifier Forall_k [box] bool_sort
+    (Quantifier Forall_k [bool_sort; integer] bool_sort pull_body)
+
+let pull_flat = Quantifier Forall_k [box; bool_sort; integer] bool_sort pull_body
+
+let pull_boolean_body = R.mk_eq_expr
+  (App { decl_name = "pull-boolean"; domain = [bool_sort; bool_sort]; range = bool_sort;
+         interp = None; int_params = [] } [Var 1 bool_sort; Var 0 bool_sort])
+  (Var 1 bool_sort)
+
+let pull_boolean_nested =
+  Quantifier Forall_k [bool_sort] bool_sort
+    (Quantifier Forall_k [bool_sort] bool_sort pull_boolean_body)
+
+let pull_boolean_flat =
+  Quantifier Forall_k [bool_sort; bool_sort] bool_sort pull_boolean_body
+
+let pull_node (a b:expr) : U.proof_node = {
+  U.kind = U.PullQuantifier; conclusion = U.Equal a b; premises = [];
+}
+
+let checked_sorted_quantifier_flattening ()
+  : Lemma (ensures
+      K.check_node schema [] (pull_node pull_nested pull_flat) ==
+        Some ({ U.conclusion = U.Equal pull_nested pull_flat; hypotheses = [] }, 0) /\
+      K.check_node schema [] (pull_node pull_boolean_nested pull_boolean_flat) ==
+        Some ({ U.conclusion = U.Equal pull_boolean_nested pull_boolean_flat; hypotheses = [] }, 0) /\
+      Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_flat pull_nested)) =
+  assert_norm (K.check_node schema [] (pull_node pull_nested pull_flat) ==
+    Some ({ U.conclusion = U.Equal pull_nested pull_flat; hypotheses = [] }, 0));
+  assert_norm (K.check_node schema [] (pull_node pull_boolean_nested pull_boolean_flat) ==
+    Some ({ U.conclusion = U.Equal pull_boolean_nested pull_boolean_flat; hypotheses = [] }, 0));
+  assert_norm (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_flat pull_nested))
+
+let rejected_sorted_quantifier_flattening ()
+  : Lemma (ensures
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+        (Quantifier Forall_k [bool_sort; integer; box] bool_sort pull_body))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_boolean_nested
+        (Quantifier Forall_k [bool_sort; bool_sort] bool_sort
+          (R.mk_eq_expr (Var 0 bool_sort) (Var 1 bool_sort))))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+        (Quantifier Exists_k [box; bool_sort; integer] bool_sort pull_body))) /\
+      not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr
+        (Quantifier Forall_k [bool_sort] bool_sort
+          (Quantifier Forall_k [bool_sort] bool_sort (Var 2 bool_sort)))
+        (Quantifier Forall_k [bool_sort; bool_sort] bool_sort (Var 2 bool_sort))))) =
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+    (Quantifier Forall_k [bool_sort; integer; box] bool_sort pull_body))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_boolean_nested
+    (Quantifier Forall_k [bool_sort; bool_sort] bool_sort
+      (R.mk_eq_expr (Var 0 bool_sort) (Var 1 bool_sort))))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested
+    (Quantifier Exists_k [box; bool_sort; integer] bool_sort pull_body))));
+  assert_norm (not (Z3SortedQuantifier.check_flatten (R.mk_eq_expr
+    (Quantifier Forall_k [bool_sort] bool_sort
+      (Quantifier Forall_k [bool_sort] bool_sort (Var 2 bool_sort)))
+    (Quantifier Forall_k [bool_sort; bool_sort] bool_sort (Var 2 bool_sort)))))
+
+let sorted_flattening_semantics (#base:sort -> Type0) (bc:S.boolean_carrier base)
+                               (eq:T.scalar_equality base)
+                               (other:V.interpretation base (S.signature schema))
+  : Lemma (requires Z3SortedQuantifier.forall_model schema bc other)
+          (ensures T.truth schema bc eq other (R.mk_eq_expr pull_nested pull_flat)) =
+  assert_norm (Z3SortedQuantifier.check_flatten (R.mk_eq_expr pull_nested pull_flat));
+  Z3SortedQuantifier.lemma_check_flatten schema bc eq other (R.mk_eq_expr pull_nested pull_flat)
+
 #pop-options

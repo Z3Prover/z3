@@ -423,6 +423,32 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
         self.assertIn("(A B)", result.stdout)
 
+    def test_interactive_redundant_global_declarations_options(self):
+        for option in ("global-decls", "global-declarations"):
+            with self.subTest(option=option):
+                result = self.run_checker(
+                    f"(set-option :{option} false)"
+                    "(declare-const p Bool)"
+                    f"(set-option :{option} false)"
+                    "(assert p)(assert (not p))(check-sat)(reset)"
+                    f"(set-option :{option} false)"
+                    "(assert false)(check-sat)",
+                    "--interactive")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 2)
+                self.assertNotIn("(error", result.stdout)
+
+    def test_interactive_global_declarations_changes_preserve_scope(self):
+        result = self.run_checker(
+            "(declare-const p Bool)(set-option :global-decls true)"
+            "(push)(declare-const q Bool)(pop)(assert q)"
+            "(assert false)(check-sat)",
+            "--interactive")
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("cannot be modified after initialization", result.stdout)
+        self.assertIn("unknown constant q", result.stdout)
+        self.assertIn("unsat\n; proof-check ACCEPT\n", result.stdout)
+
     def test_interactive_partial_is_not_a_certificate(self):
         result = self.run_checker(
             "(declare-const x Real)"
