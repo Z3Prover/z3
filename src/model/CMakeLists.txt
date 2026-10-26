@@ -9,6 +9,7 @@ z3_add_component(model
     model.cpp
     model_evaluator.cpp
     model_implicant.cpp
+    model_instance_generator.cpp
     model_macro_solver.cpp
     model_pp.cpp
     model_smt2_pp.cpp

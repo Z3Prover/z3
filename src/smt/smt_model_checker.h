@@ -55,6 +55,7 @@ namespace smt {
         expr_ref_vector                             m_fresh_exprs;
 
         friend class model_instantiation_set;
+        class instance_context;
 
         void init_aux_context();
         void init_value2expr();

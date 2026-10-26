@@ -175,9 +175,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     sat::bool_var add_var(bool is_ext, expr* n) {
         sat::bool_var v;
-        if (m_expr2var_replay && m_expr2var_replay->find(n, v))
-            return v;
-        v = m_solver.add_var(is_ext);
+        if (!m_expr2var_replay || !m_expr2var_replay->find(n, v))
+            v = m_solver.add_var(is_ext);
+        // Replayed gates still need their expression mapping restored after an EUF pop.
         if (!is_ext && m_euf && ensure_euf()->use_drat())
             ensure_euf()->set_bool_var2expr(v, n);
         return v;

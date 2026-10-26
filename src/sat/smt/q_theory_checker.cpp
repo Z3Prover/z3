@@ -44,14 +44,23 @@ namespace q {
         if (!is_inst(jst))
             return false;
         auto clause1 = clause(jst);
-        SASSERT(clause1.size() >= 2);
-        VERIFY(m.is_not(clause1.get(0), q) && is_forall(q));
+        if (clause1.size() < 2)
+            return false;
+        bool universal = m.is_not(clause1.get(0), q) && is_forall(q);
+        if (!universal) {
+            q = clause1.get(0);
+            if (!is_exists(q))
+                return false;
+        }
         auto inst = binding(jst);
+        if (inst.size() < to_quantifier(q)->get_num_decls())
+            return false;
         expr_ref qi = instantiate(m, to_quantifier(q), inst.begin());
-        clause1[0] = m.mk_not(qi);
+        clause1[0] = universal ? m.mk_not(qi) : qi.get();
         v.reset();
         v.append(clause1);
-        return qi == clause1.get(1);
+        expr* n = nullptr;
+        return universal ? qi == clause1.get(1) : m.is_not(clause1.get(1), n) && n == qi;
     }
 
     bool theory_checker::is_inst(expr* jst) {

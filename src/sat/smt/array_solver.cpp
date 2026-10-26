@@ -295,25 +295,21 @@ namespace array {
     }
 
     bool solver::propagate_axiom(euf::enode* n1, euf::enode* n2) {
-        if (n1->get_root() == n2->get_root())
-            return false;
-        euf::th_proof_hint const* hint = nullptr;
-        if (ctx.use_drat()) {
-            // Record the derived equality in the hint so the log entry is
-            // self-contained and does not introduce a nullary "array" symbol.
-            euf::enode_pair eq(n1, n2);
-            hint = ctx.mk_smt_hint(m_array_hint, 0, nullptr, 1, &eq);
-        }
-        auto* jst = euf::th_explain::propagate(*this, euf::enode_pair_vector(), n1, n2, hint);
-        return ctx.propagate(n1, n2, jst->to_index());
+        return propagate_axiom(euf::enode_pair_vector(), n1, n2);
     }
 
     bool solver::propagate_axiom(euf::enode_pair_vector const& eqs, euf::enode* n1, euf::enode* n2) {
         if (n1->get_root() == n2->get_root())
             return false;
         euf::th_proof_hint const* hint = nullptr;
-        if (ctx.use_drat())
-            hint = ctx.mk_smt_hint(m_array_hint, eqs);
+        if (ctx.use_drat()) {
+            svector<std::pair<expr*, expr*>> premises;
+            for (auto const& [a, b] : eqs)
+                premises.push_back({a->get_expr(), b->get_expr()});
+            std::pair<expr*, expr*> conclusion(n1->get_expr(), n2->get_expr());
+            // Hint arguments are antecedents, so negate the propagated equality.
+            hint = ctx.mk_smt_hint(m_array_hint, 0, nullptr, premises.size(), premises.data(), 1, &conclusion);
+        }
         auto* jst = euf::th_explain::propagate(*this, eqs, n1, n2, hint);
         return ctx.propagate(n1, n2, jst->to_index());
     }

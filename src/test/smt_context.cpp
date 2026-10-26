@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include "smt/smt_context.h"
+#include "ast/ast_util.h"
 #include "math/lp/lar_solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/arith_decl_plugin.h"
@@ -13,6 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/simplifiers/distribute_forall.h"
 #include "solver/solver.h"
+#include "sat/sat_solver/sat_smt_solver.h"
 #include "model/model.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
@@ -640,8 +642,157 @@ static void check_special_relation_logic() {
     }
 }
 
+static void check_sat_smt_array_beta_proof() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(
+        "(declare-sort U 0)\n"
+        "(declare-const a (Array U Int))\n"
+        "(declare-const b U)\n"
+        "(assert (= a (lambda ((x U)) (ite (= x b) 1 0))))\n"
+        "(assert (not (= (select a b) 1)))\n");
+    ENSURE(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("euf", true);
+    p.set_bool("smt.proof.check", true);
+    ref<solver> slv = mk_sat_smt_solver(m, p);
+    for (unsigned round = 0; round < 2; ++round) {
+        slv->push();
+        slv->assert_expr(cmd.assertions()[1]);
+        expr* assumption = cmd.assertions()[0];
+        ENSURE(l_false == slv->check_sat(1, &assumption));
+        statistics st;
+        slv->collect_statistics(st);
+        unsigned reductions = 0;
+        ENSURE(get_uint_stat(st, "array sel/lambda", reductions));
+        ENSURE(reductions > 0);
+        slv->pop(1);
+        ENSURE(l_true == slv->check_sat(0, nullptr));
+    }
+}
+
+static void check_sat_mbqi_function_instance(char const* input, unsigned seed, bool proof_check) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    cmd_context cmd(false, &m);
+    std::istringstream is(input);
+    ENSURE(parse_smt2_commands(cmd, is));
+    params_ref p;
+    p.set_bool("smt", true);
+    p.set_bool("euf", true);
+    p.set_bool("smt.proof.check", proof_check);
+    p.set_uint("random_seed", seed);
+    p.set_uint("timeout", 10000);
+    ref<solver> slv = mk_smt2_solver(m, p, symbol::null);
+    bool negative_exists = false;
+    auto check_unsat = [&]() {
+        lbool result = slv->check_sat(0, nullptr);
+        if (result != l_false)
+            std::cout << "MBQI seed " << seed << ", proof " << proof_check
+                      << ", negative exists " << negative_exists
+                      << ": " << result << " " << slv->reason_unknown() << "\n" << input;
+        ENSURE(l_false == result);
+        statistics st;
+        slv->collect_statistics(st);
+        unsigned witnesses = 0;
+        ENSURE(get_uint_stat(st, "q mbi witness instantiations", witnesses));
+        ENSURE(witnesses > 0);
+    };
+    if (proof_check) {
+        for (expr* a : cmd.assertions())
+            slv->assert_expr(a);
+        check_unsat();
+        return;
+    }
+    for (bool use_exists : {false, true}) {
+        negative_exists = use_exists;
+        slv->push();
+        for (expr* a : cmd.assertions()) {
+            expr_ref assertion(a, m);
+            if (negative_exists && is_forall(a)) {
+                auto* q = to_quantifier(a);
+                expr_ref body(m.mk_not(q->get_expr()), m);
+                assertion = m.mk_quantifier(
+                    exists_k, q->get_num_decls(), q->get_decl_sorts(),
+                    q->get_decl_names(), body);
+                assertion = m.mk_not(assertion);
+            }
+            slv->assert_expr(assertion);
+        }
+        check_unsat();
+        slv->pop(1);
+        ENSURE(l_true == slv->check_sat(0, nullptr));
+    }
+}
+
+static void check_mbqi_function_instances() {
+    for (char const* input : {
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (and (= (lambda ((y T)) (ite (isT y) (select f y) d)) f)
+       (forall ((y T)) (=> (isT y) (<= 0 (select f y))))))
+(declare-const a T)
+(declare-const b T)
+(declare-const g (Array T Int))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 0 (select f x))))))
+(assert (isT a))
+(assert (isT b))
+(assert (isFun g))
+(assert (not (< 20 (+ (select g a) (select g b)))))
+)",
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (forall ((y T)) (ite (isT y) (<= 0 (select f y)) (= (select f y) d))))
+(declare-const a T)
+(assert (isT a))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 10 (select f x))))))
+)",
+        R"(
+(declare-sort T 0)
+(declare-fun isT (T) Bool)
+(declare-const d Int)
+(define-fun isFun ((f (Array T Int))) Bool
+  (and (= (lambda ((y T)) (ite (isT y) (select f y) d)) f)
+       (forall ((y T)) (=> (isT y) (<= 0 (select f y))))))
+(declare-const a T)
+(assert (isT a))
+(assert (forall ((x T) (f (Array T Int)))
+  (=> (isT x) (=> (isFun f) (< 10 (select f x))))))
+)"}) {
+        for (unsigned seed = 0; seed < 4; ++seed) {
+            ast_manager m;
+            reg_decl_plugins(m);
+            cmd_context cmd(false, &m);
+            std::istringstream is(input);
+            ENSURE(parse_smt2_commands(cmd, is));
+            smt_params params;
+            params.m_auto_config = false;
+            params.m_random_seed = seed;
+            smt::context ctx(m, params);
+            for (expr* a : cmd.assertions())
+                ctx.assert_expr(a);
+            ENSURE(l_false == ctx.check());
+
+            check_sat_mbqi_function_instance(input, seed, false);
+            if (seed == 0)
+                check_sat_mbqi_function_instance(input, seed, true);
+        }
+    }
+}
+
 void tst_smt_context()
 {
+    check_sat_smt_array_beta_proof();
+    check_mbqi_function_instances();
     check_arithmetic_propagation_cancellation();
     check_lp_cancellation_recovery();
     check_recfun_rlimits();

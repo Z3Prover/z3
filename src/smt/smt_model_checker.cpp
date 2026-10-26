@@ -24,6 +24,11 @@ Revision History:
 
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
+#include "ast/has_free_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
@@ -34,9 +39,31 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_finder.h"
 #include "model/model_pp.h"
+#include "model/model_instance_generator.h"
 #include <tuple>
 
 namespace smt {
+
+    class model_checker::instance_context : public model_instance_generator::context {
+        model_checker& mc;
+        unsigned& generation;
+    public:
+        instance_context(model_checker& mc, unsigned& generation): mc(mc), generation(generation) {}
+        model_core& get_model() override { return *mc.m_curr_model; }
+        void get_terms(expr_ref_vector& terms) override {
+            for (enode* n : mc.m_context->enodes())
+                terms.push_back(n->get_expr());
+        }
+        expr_ref rewrite_value(expr* e) override {
+            expr_ref result = mc.replace_value_from_ctx(e);
+            if (mc.contains_model_value(result))
+                result = mc.replace_model_values(result);
+            return result;
+        }
+        void add_instance(quantifier* q, expr_ref_vector const& bindings) override {
+            mc.add_instance(q, bindings, generation);
+        }
+    };
 
     model_checker::model_checker(ast_manager & m, qi_params const & p, model_finder & mf):
         m(m),
@@ -224,10 +251,14 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
-        expr_ref_vector bindings(m);
+        expr_ref_vector bindings(m), alternatives(m);
+        ptr_vector<func_decl> bases(num_decls, (func_decl*)nullptr);
         expr_ref def(m);
         bindings.resize(num_decls);
+        alternatives.resize(num_decls);
         unsigned max_generation = 0;
+        instance_context ctx(*this, max_generation);
+        model_instance_generator generator(ctx);
         for (unsigned i = 0; i < num_decls; ++i) {
             expr * sk = sks.get(num_decls - i - 1);
             func_decl * sk_d = to_app(sk)->get_decl();
@@ -267,7 +298,30 @@ namespace smt {
             }
             func_decl * f = nullptr;
             expr_ref sk_term(sk_value, m);
+            if (!autil.is_as_array(sk_value)) {
+                // array values nested in the binding (e.g. inside a datatype constructor)
+                expr_ref conv = generator.as_array_to_stores(sk_value, *cex);
+                if (conv != sk_value) {
+                    conv = replace_value_from_ctx(conv);
+                    if (contains_model_value(conv))
+                        conv = replace_model_values(conv);
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :nested-array-value-as-stores " << q->get_qid() << " " << mk_pp(conv, m) << ")\n");
+                    sk_term = conv;
+                    sk_value = conv;
+                }
+            }
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
+                // Besides the lambda built from the interpretation (below), also instantiate with
+                // the same modifications applied to an array term of the main context, if any.
+                func_decl * base = nullptr;
+                expr_ref store_term = generator.mk_store_instance(f, *cex, base);
+
+                if (base)
+                    bases[num_decls - i - 1] = base;
+                if (store_term) {
+                    IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :array-store-instance " << q->get_qid() << " " << mk_pp(store_term, m) << ")\n");
+                    alternatives[num_decls - i - 1] = store_term;
+                }
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 unsigned arity = f->get_arity();
                 if (arity > 1) {
@@ -304,11 +358,24 @@ namespace smt {
         TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n");
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation);
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (alternatives.get(i)) {
+                expr_ref_vector alt_bindings(bindings);
+                alt_bindings[i] = alternatives.get(i);
+                add_instance(q, alt_bindings, max_generation);
+            }
+        }
+        generator(q, bindings, bases);
         return true;
     }
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
+        for (unsigned i = 0; i < bindings.size(); ++i) {
+            SASSERT(bindings.get(i)->get_sort() == q->get_decl_sort(i));
+            SASSERT(!has_free_vars(bindings.get(i)));
+            SASSERT(is_well_sorted(m, bindings.get(i)));
+        }
         IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :instance " << q->get_qid(); for (expr* b : bindings) verbose_stream() << " [" << mk_pp(b, m) << "]"; verbose_stream() << ")\n");
         unsigned offset = m_pinned_exprs.size();
         m_pinned_exprs.append(bindings);
@@ -383,8 +450,10 @@ namespace smt {
         TRACE(model_checker, tout << "model checking:\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage neg-q " << q->get_qid() << ")\n";);
         if (!assert_neg_q_m(flat_q, sks))
             return false;
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage complete-check " << q->get_qid() << ")\n";);
         TRACE(model_checker, tout << "skolems:\n" << sks << "\n";);
 
         flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
@@ -399,33 +468,46 @@ namespace smt {
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex);
 
-        // try to find new instances using instantiation sets.
-        m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
-
         unsigned num_new_instances = 0;
 
-        while (true) {
-            flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
-            flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
-            lbool r = m_aux_context->check();
-            TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
-            if (r != l_true)
-                break;
-            model_ref cex;
-            m_aux_context->get_model(cex);
-            
-            if (!add_instance(q, cex.get(), sks, true)) {
-                break;
+        auto restricted_search = [&]() {
+            while (true) {
+                flet<bool> l1(m_aux_context->get_fparams().m_array_fake_support, true);
+                flet<bool> l2(m_aux_context->get_fparams().m_preprocess, true);
+                lbool r = m_aux_context->check();
+                TRACE(model_checker, tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
+                if (r != l_true)
+                    break;
+                model_ref cex;
+                m_aux_context->get_model(cex);
+                
+                if (!add_instance(q, cex.get(), sks, true)) {
+                    break;
+                }
+                num_new_instances++;
+                if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
+                    TRACE(model_checker, tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
+                    // add_blocking_clause failed... stop the search for new counter-examples...
+                    break;
+                }
             }
-            num_new_instances++;
-            if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
-                TRACE(model_checker, tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
-                // add_blocking_clause failed... stop the search for new counter-examples...
-                break;
-            }
+        };
+
+        IF_VERBOSE(10, verbose_stream() << "(smt.mbqi :check-stage restricted " << q->get_qid() << ")\n";);
+        // try to find new instances using instantiation sets.
+        {
+            scoped_ctx_push _push_inst_sets(m_aux_context.get());
+            m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
+            restricted_search();
         }
 
         if (num_new_instances == 0) {
+            // no counterexample within the instantiation sets: try array variables as finite
+            // modifications store(A, i, v) of the arrays of their instantiation sets. Instances
+            // found here are added in addition to the complete counterexample below.
+            scoped_ctx_push _push_stores(m_aux_context.get());
+            if (m_model_finder.restrict_sks_to_store_candidates(m_aux_context.get(), q, sks)) 
+                restricted_search();
             // failed to create instances when restricting to inst sets... then use result of the complete model check
             TRACE(model_checker, tout << "using complete_cex result:\n"; model_pp(tout, *complete_cex););
             add_instance(q, complete_cex.get(), sks, false);
@@ -458,6 +540,7 @@ namespace smt {
         if (!m_fparams) {
             m_fparams = alloc(smt_params, m_context->get_fparams());
             m_fparams->m_relevancy_lvl = 0; // no relevancy since the model checking problems are quantifier free
+            m_fparams->m_mbqi_instances_after_giveup = false; // the auxiliary context checks candidate models only
             m_fparams->m_case_split_strategy = CS_ACTIVITY; // avoid warning messages about smt.case_split >= 3.
             m_fparams->m_axioms2files = false;
             m_fparams->m_lemmas2console = false;
