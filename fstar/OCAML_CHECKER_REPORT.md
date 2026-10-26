@@ -1178,6 +1178,20 @@ Public contracts, executable definitions, model assumptions, and verification
 budgets are unchanged. Fresh-module timing comparisons include both erased
 shape helpers as well as the two replacement semantic proofs.
 
+#### Boolean model-extension proof compilation
+
+The Boolean model-extension proof separates literals and negation, n-ary
+connectives, binary connectives, Boolean conditionals, and exclusive-or.
+A model-independent shape lemma preserves Boolean argument typing under
+retraction. The original model-extension contract is unchanged; all new
+helpers are erased proofs, with unchanged executable definitions, model
+assumptions, and verification budgets.
+
+Three fresh-module checks reduced median affected proof work from 4651 ms
+to 4117 ms, including all six helpers and the assembly wrapper. The largest
+replacement declaration took 1382 ms. These are local proof-compilation
+measurements, not whole-build or checker-runtime speedups.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,

@@ -458,10 +458,21 @@ let rec lemma_connectives (r:F.reconstruction) (i:interpretation value)
       lemma_eval_retract r i project rho a;
       lemma_connectives r i project rho rest
 
-let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+let rec lemma_retract_boolean_args (symbols:list func_decl) (n:nat) (args:list expr)
+  : Lemma (requires F.valid_symbols symbols)
+          (ensures B.boolean_args (retract_args symbols n args) == B.boolean_args args)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | a :: rest ->
+      lemma_retract_sort symbols n a;
+      lemma_retract_boolean_args symbols n rest
+
+let lemma_boolean_base (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
                     B.boolean_rewrite_model i /\ quant_extensional i)
-          (ensures B.boolean_rewrite_model (F.extend r i project))
+          (ensures (let j = F.extend r i project in
+                    Z3ObservationalEquality.boolean_model j /\ not_sound j /\ true_sound j /\ false_sound j))
   = let j = F.extend r i project in
     let symbols = r.F.symbols in
     let n = F.number r i project in
@@ -476,7 +487,15 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
                 ((eval j (App f [a]) rho == VBool true) == (eval j a rho == VBool false)))
       = lemma_eval_retract r i project rho (App f [a]);
         lemma_eval_retract r i project rho a in
-    FStar.Classical.forall_intro_3 negation;
+    FStar.Classical.forall_intro_3 negation
+
+let lemma_boolean_connectives (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
+                    B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures and_sound (F.extend r i project) /\ or_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let connectives (f:func_decl) (args:list expr) (rho:env value)
       : Lemma ((f.decl_name == "and" ==>
                  (eval j (App f args) rho == VBool true <==> conj_holds j rho args)) /\
@@ -486,7 +505,12 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
           lemma_retract_named symbols n f args;
           lemma_eval_retract r i project rho (App f args);
           lemma_connectives r i project rho args) in
-    FStar.Classical.forall_intro_3 connectives;
+    FStar.Classical.forall_intro_3 connectives
+
+let lemma_boolean_binary (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures implies_sound (F.extend r i project) /\ eq_sound (F.extend r i project))
+  = let j = F.extend r i project in
     let binary (f:func_decl) (a b:expr) (rho:env value)
       : Lemma (
           ((f.decl_name == "implies" \/ f.decl_name == "=>") ==>
@@ -496,30 +520,50 @@ let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:p
       = lemma_eval_retract r i project rho (App f [a; b]);
         lemma_eval_retract r i project rho a;
         lemma_eval_retract r i project rho b in
-    FStar.Classical.forall_intro_4 binary;
+    FStar.Classical.forall_intro_4 binary
+
+let lemma_boolean_ite (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.ite_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let ite (c t e:expr) (rho:env value)
       : Lemma (B.boolean_args [c; t; e] ==>
           eval j (App B.boolean_ite_decl [c; t; e]) rho ==
             (if B.bool_value (eval j c rho) then eval j t rho else eval j e rho))
-      = lemma_retract_sort symbols n c;
-        lemma_retract_sort symbols n t;
-        lemma_retract_sort symbols n e;
+      = lemma_retract_boolean_args symbols n [c; t; e];
         lemma_eval_retract r i project rho (App B.boolean_ite_decl [c; t; e]);
         lemma_eval_retract r i project rho c;
         lemma_eval_retract r i project rho t;
         lemma_eval_retract r i project rho e in
-    FStar.Classical.forall_intro_4 ite;
+    FStar.Classical.forall_intro_4 ite
+
+let lemma_boolean_xor (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.xor_sound (F.extend r i project))
+  = let j = F.extend r i project in
+    let symbols = r.F.symbols in
+    let n = F.number r i project in
     let xor (a b:expr) (rho:env value)
       : Lemma (B.boolean_args [a; b] ==>
           eval j (App B.boolean_xor_decl [a; b]) rho ==
             VBool (B.bool_value (eval j a rho) <> B.bool_value (eval j b rho)))
-      = lemma_retract_sort symbols n a;
-        lemma_retract_sort symbols n b;
+      = lemma_retract_boolean_args symbols n [a; b];
         lemma_eval_retract r i project rho (App B.boolean_xor_decl [a; b]);
         lemma_eval_retract r i project rho a;
         lemma_eval_retract r i project rho b in
-    FStar.Classical.forall_intro_3 xor;
-    assert (B.boolean_rewrite_model j)
+    FStar.Classical.forall_intro_3 xor
+
+let lemma_boolean_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
+  : Lemma (requires F.valid r /\ safe_symbols r.F.symbols /\
+                    B.boolean_rewrite_model i /\ quant_extensional i)
+          (ensures B.boolean_rewrite_model (F.extend r i project))
+  = lemma_boolean_base r i project;
+    lemma_boolean_connectives r i project;
+    lemma_boolean_binary r i project;
+    lemma_boolean_ite r i project;
+    lemma_boolean_xor r i project
 
 let lemma_official_literals (r:F.reconstruction) (i:interpretation value)
                             (project:pos -> value -> int)
