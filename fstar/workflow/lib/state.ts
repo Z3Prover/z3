@@ -367,6 +367,10 @@ export interface TriageOptions {
   readonly exclude?: ReadonlySet<string>;
   /** In-progress claims older than this are presumed abandoned (default 24 h). */
   readonly claimTtlMs?: number;
+  /** Theories whose actionable findings come first, each group in `compareFindings` order; empty or omitted keeps that order. */
+  readonly priorityTheories?: readonly Theory[];
+  /** Fingerprints reserved by active local work (`active-work.json`), with the reserving branch; skipped, status unchanged. */
+  readonly reserved?: ReadonlyMap<string, string>;
 }
 
 export interface TriageResult {
@@ -412,6 +416,12 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
       skip("candidate");
       continue;
     }
+    const reservedBy = options.reserved?.get(finding.fingerprint);
+    if (reservedBy !== undefined) {
+      // Another local branch is working on it (active-work.json); its status is not changed.
+      skip(`active-work ${reservedBy}`);
+      continue;
+    }
     if (record?.status === "in_progress" && record.claimedAt && now - Date.parse(record.claimedAt) < claimTtl) {
       skip("claimed");
       continue;
@@ -422,7 +432,10 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
     }
     actionable.push(finding);
   }
-  return { actionable: actionable.sort(compareFindings), skipped };
+  const sorted = actionable.sort(compareFindings);
+  const priority = new Set(options.priorityTheories ?? []);
+  if (priority.size === 0) return { actionable: sorted, skipped };
+  return { actionable: [...sorted.filter((finding) => priority.has(finding.theory)), ...sorted.filter((finding) => !priority.has(finding.theory))], skipped };
 }
 
 function newRecord(finding: Finding, at: string): FindingRecord {

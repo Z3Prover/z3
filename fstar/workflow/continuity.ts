@@ -6,6 +6,7 @@
  *   bun fstar/workflow/continuity.ts --requeue-policy-blocked all|<fingerprint>[,...] [--dry-run]
  *   bun fstar/workflow/continuity.ts --reconcile-policy-blocked <atomicRunId> [--journal <path>] [--dry-run]
  *   bun fstar/workflow/continuity.ts --release-candidate all|<fingerprint>[,...] --decision <text> [--dry-run]
+ *   bun fstar/workflow/continuity.ts --list-active-work
  *
  * --check   evaluates the three retrigger conditions from fstar/workflow-instructions.txt and
  *           prints a JSON decision: a new Pulse report, unprocessed partial proof rules, or an
@@ -47,11 +48,18 @@
  * --release-candidate all|<fingerprint>[,<fingerprint>...] --decision <text>
  *           clears the candidate of findings once its commit has been verified and decided on,
  *           recording the decision; automatic runs may then repair them. --dry-run only lists them.
+ * --list-active-work
+ *           prints the reservations in <stateDir>/active-work.json (read-only): local branches and
+ *           worktrees whose work automatic runs must not duplicate. Nothing expires automatically;
+ *           remove an entry (or the file) once its work has landed or been abandoned. A malformed
+ *           file exits 2, and --launch then reports `blocked` (exit 2) instead of launching.
  *
  * Options: --state-dir <dir> (default .atomic/fstar-proof-checking), --repo <owner/name>,
  *          --branch <name> (Pulse runs to consider; default master, "" for all),
  *          --runs-file <json> (offline `{regressions, build}` gh listings instead of gh),
- *          --build-log <path> (repeatable; local OCaml/Cherry build logs), --no-remote.
+ *          --build-log <path> (repeatable; local OCaml/Cherry build logs), --no-remote,
+ *          --priority-theories <theory>[,<theory>...] (workflow input priorityTheories),
+ *          --core-budget <1..32> (workflow input coreBudget).
  * Toolchain discovery overrides (also passed to the launched run): --wsl-distro, --opam-root,
  *          --opam-switch, --fstar, --cherry-fstar, --pwsh, --ocaml-checker, --cherry-checker.
  */
@@ -59,6 +67,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { activeWorkError, readActiveWork } from "./lib/active-work.js";
 import { spawnRunner } from "./lib/command.js";
 import { evaluateContinuity, launchExclusively, type BuildEvidence } from "./lib/continuity.js";
 import { committedBeyond } from "./lib/git.js";
@@ -71,9 +80,10 @@ import {
   type CandidateWork, type PolicyHold, type WorkflowState,
 } from "./lib/state.js";
 import { probeToolchain } from "./lib/toolchain.js";
+import { THEORIES, type Theory } from "./lib/theories.js";
 
 interface Options {
-  mode: "check" | "launch" | "requeue" | "reconcile" | "release-candidate";
+  mode: "check" | "launch" | "requeue" | "reconcile" | "release-candidate" | "list-active-work";
   /** --requeue-policy-blocked: `all` or the fingerprints. */
   requeue?: "all" | string[];
   /** --reconcile-policy-blocked: the Atomic run id. */
@@ -93,6 +103,10 @@ interface Options {
   journal?: string;
   /** Toolchain discovery overrides, passed to the preflight probe and to the launched run. */
   toolchain: Record<string, string>;
+  /** --priority-theories: the workflow's `priorityTheories` input. */
+  priorityTheories?: Theory[];
+  /** --core-budget: the workflow's `coreBudget` input. */
+  coreBudget?: number;
 }
 
 /** Launcher flags for toolchain discovery and the workflow inputs they set. */
@@ -128,6 +142,19 @@ function parseArgs(argv: string[], repoRoot: string): Options {
       options.releaseCandidates = selector === "all" ? "all" : selector.split(",").map((item) => item.trim()).filter(Boolean);
     }
     else if (arg === "--decision") options.decision = value();
+    else if (arg === "--list-active-work") options.mode = "list-active-work";
+    else if (arg === "--priority-theories") {
+      const theories = value().split(",").map((item) => item.trim()).filter(Boolean);
+      const unknown = theories.filter((theory) => !(THEORIES as readonly string[]).includes(theory));
+      if (theories.length === 0 || unknown.length > 0) throw new Error(`--priority-theories takes theories from ${THEORIES.join(", ")}${unknown.length > 0 ? `, not ${unknown.join(", ")}` : ""}`);
+      options.priorityTheories = theories as Theory[];
+    }
+    else if (arg === "--core-budget") {
+      const text = value();
+      const budget = Number(text);
+      if (!/^\d+$/.test(text) || budget < 1 || budget > 32) throw new Error(`--core-budget must be an integer from 1 to 32, not ${text}`);
+      options.coreBudget = budget;
+    }
     else if (arg === "--publish") {
       const mode = value();
       if (mode !== "none" && mode !== "dry-run" && mode !== "live") throw new Error(`--publish must be none, dry-run or live, not ${mode}`);
@@ -203,6 +230,15 @@ async function releaseCandidate(options: Options): Promise<number> {
     }, { owner: `release-candidate-${process.pid}` });
   console.log(JSON.stringify({ mode: "release-candidate", dryRun: options.dryRun, stateDir: options.stateDir, decision, applied: !options.dryRun && result.released.length > 0, released: result.released, notCandidates: result.notCandidates }, null, 2));
   return 0;
+}
+
+/** List the active-work reservations (read-only); a malformed file exits 2 with the reason. */
+function listActiveWork(options: Options): number {
+  const read = readActiveWork(options.stateDir);
+  console.log(JSON.stringify(read.ok
+    ? { mode: "list-active-work", stateDir: options.stateDir, path: read.path, entries: read.entries }
+    : { mode: "list-active-work", stateDir: options.stateDir, path: read.path, error: activeWorkError(read) }, null, 2));
+  return read.ok ? 0 : 2;
 }
 
 /** Atomic run statuses during which the run may still write state (a `running` run whose lease expired is reported as `crashed`). */
@@ -303,11 +339,21 @@ async function main(): Promise<number> {
   if (options.mode === "requeue") return requeue(options);
   if (options.mode === "reconcile") return reconcile(options, repoRoot);
   if (options.mode === "release-candidate") return releaseCandidate(options);
+  if (options.mode === "list-active-work") return listActiveWork(options);
   const state = readState(options.stateDir);
   const { runs, note } = await listRuns(options);
   const evidence = await buildEvidence(runs, options, state.processedReports);
   const decision = evaluateContinuity({ runs, state, now: new Date(), buildEvidence: evidence });
-  const report: Record<string, unknown> = { mode: options.mode, dryRun: options.dryRun, source: note, stateDir: options.stateDir, decision };
+  const reservations = readActiveWork(options.stateDir);
+  const report: Record<string, unknown> = {
+    mode: options.mode, dryRun: options.dryRun, source: note, stateDir: options.stateDir, decision,
+    activeWork: reservations.ok ? { path: reservations.path, reservations: reservations.entries.length } : { path: reservations.path, error: reservations.error },
+  };
+  if (!reservations.ok && options.mode === "launch") {
+    // Unreadable reservations must not fail open into duplicate repair work: no launch, no state change.
+    console.log(JSON.stringify({ ...report, launched: false, blocked: activeWorkError(reservations) }, null, 2));
+    return 2;
+  }
   if (options.mode === "check" || !decision.retrigger) {
     console.log(JSON.stringify({ ...report, launched: false }, null, 2));
     return 0;
@@ -327,6 +373,8 @@ async function main(): Promise<number> {
       repo: options.repo,
       pulseBranch: options.branch,
       ...options.toolchain,
+      ...(options.priorityTheories ? { priorityTheories: options.priorityTheories } : {}),
+      ...(options.coreBudget !== undefined ? { coreBudget: options.coreBudget } : {}),
       ...(options.publish ? { publish: options.publish } : {}),
       ...(options.dryRun ? { dryRun: true, publish: "dry-run" as const } : {}),
     };

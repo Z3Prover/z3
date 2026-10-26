@@ -523,6 +523,38 @@ Offline options are `--runs-file <listing.json>` and `--no-remote`. The decision
 `pendingPublications`, the number of verified integrations waiting for a live push. That count
 is not a retrigger condition. Pending work is pushed by the next live run, whatever started it.
 
+`--priority-theories <theory>[,<theory>...]` sets the workflow input `priorityTheories`: triage
+puts actionable findings of those theories first (each group keeps the usual priority order), so
+their slices get the core budget first. `--core-budget <1..32>` sets `coreBudget`. Both are
+validated before anything runs and passed to the launched run; without them the run's defaults
+(no priority, 32 cores) apply. Priority never releases a policy hold, a candidate or a reservation.
+
+### Active-work reservations
+
+`<state-dir>/active-work.json` (operational data, not part of `state.json`) reserves work that is
+under way elsewhere on this machine, for example a focused run in its own worktree:
+
+```json
+[{ "branch": "fstar-qfff-priority-20261026", "worktree": "C:/z3atomic-qfff-priority",
+   "owner": "<Atomic run id>", "createdAt": "2026-10-26T15:00:00Z",
+   "theories": ["finite-fields"], "fingerprints": ["<fingerprint>"], "files": ["fstar/Z3FiniteField.fst"], "note": "…" }]
+```
+
+`branch`, `worktree`, `owner` and `createdAt` are required; `theories`, `fingerprints`, `files`
+and `note` are optional. Triage skips listed fingerprints (`skipped: active-work <branch>`)
+without changing their status, after policy holds and candidates. The repair and verify prompts
+list the reservations whose theories match the slice or that name `fstar/` checker files, with the
+same rule as for open PRs: do not duplicate the work, report the dependency. The preflight records
+the file in `setup.json` and `evidence.json`. A missing or empty file means no reservations. A
+malformed or unreadable file never fails open: `--launch` reports
+`blocked: "active-work.json invalid: <reason>; fix or remove it"` and exits 2 without launching
+or changing state, and a run started another way ends `blocked` with that reason before triage.
+
+Nothing expires automatically, so a reservation whose work has landed or been abandoned keeps
+its findings out of automatic runs until it is removed. Clean up explicitly: list the entries with
+`bun fstar/workflow/continuity.ts --list-active-work` (read-only; exit 2 when the file is
+malformed), then edit the file to drop the finished entries, or delete it.
+
 To schedule it every 6 hours on Windows (not registered by the setup):
 
 ```text
@@ -629,6 +661,12 @@ The tests cover:
   closed PR, never touch policy-held or candidate findings, and reach the repair and verify
   prompts;
 * the Atomic version coupling of the lease window (`tests/atomic-coupling.test.ts`);
+* priority theories and active-work reservations: priority theories come first with the usual
+  order inside each group; held, candidate and reserved findings stay excluded with their status
+  unchanged; missing, empty, valid and malformed `active-work.json`; the reservation lines in the
+  repair and verify prompts; `--priority-theories` and `--core-budget` reach the launched run and
+  invalid values are rejected; a malformed file blocks `--launch` with exit 2 and no state change,
+  `--list-active-work` reports it, and a run started directly ends `blocked` before triage;
 * the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
   byte-identical), full-iteration topology with scripted durable steps, a live run that
   continues past triage only to publish pending work, and runs that stop in iteration 1

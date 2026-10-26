@@ -5,6 +5,7 @@
  */
 import { basename } from "node:path";
 import { keepContext } from "@bastani/atomic/workflows";
+import type { ActiveWork } from "./active-work.js";
 import type { SliceOpenPr } from "./open-prs.js";
 import type { SliceFocus } from "./plan.js";
 import { buildCommand, opamPrologue, worktreePrologue, wrapInEnvironment, type ToolchainReport } from "./toolchain.js";
@@ -29,8 +30,9 @@ export interface SlicePromptInput {
   readonly baseNote?: string;
   /** Remote that PR heads are fetched from (default `origin`). */
   readonly remote?: string;
+  /** Other local work reserved in active-work.json whose theories or files overlap this slice. */
+  readonly activeWork?: readonly ActiveWork[];
 }
-
 
 /**
  * Open PRs that touch this slice's files, with EXACT coverage (the PR changes a finding's own
@@ -50,9 +52,20 @@ function openPrLines(input: SlicePromptInput): string {
     : [input.openPrsNote
       ? `Open pull requests: no snapshot this run (${input.openPrsNote}). Before editing, check \`gh pr list --state open\` for PRs that change the same fstar/ files, and apply the rules below to any you find.`
       : "Open pull requests: none in this run's snapshot changes files this slice may edit."];
+  const active = (input.activeWork ?? []).map((entry) => {
+    const scope = [
+      ...(entry.theories && entry.theories.length > 0 ? [`theories ${entry.theories.join(", ")}`] : []),
+      ...(entry.files && entry.files.length > 0 ? [`files ${entry.files.join(", ")}`] : []),
+      ...(entry.note ? [`note: ${entry.note}`] : []),
+    ];
+    return `- branch ${entry.branch} in worktree ${entry.worktree} (owner ${entry.owner}, since ${entry.createdAt})${scope.length > 0 ? `: ${scope.join("; ")}` : ""}.`;
+  });
   return [
     ...(input.baseNote ? [`Base note: ${input.baseNote}. Compare against the remote branch before assuming a finding is still open on master.`] : []),
     ...header,
+    ...(active.length > 0
+      ? ["Active local work reserved in active-work.json that overlaps this slice (do not duplicate it; report the dependency):", ...active]
+      : []),
     keepContext([
       "Open-PR rules:",
       `- Inspect an open PR only read-only: \`git diff ${input.baseRef}...<ref> -- <files>\`. Never merge, cherry-pick, check out, rebase onto, or push it.`,
@@ -60,6 +73,7 @@ function openPrLines(input: SlicePromptInput): string {
       "- EXACT coverage means the PR changes the finding's own declaration: confirm from its diff whether it fixes the finding before touching that declaration. POTENTIAL overlap means only that the PR changes the same files: read its diff before editing them and keep your change independent of it.",
       "- Build a dependent fix on top of a PR head only when you can justify that it needs that PR (name the PR and head in your report); otherwise report the dependency instead of building it.",
       "- Do not re-repair what is already fixed upstream. Evidence from builds older than the base is stale: replay on the base first. For example, the historical Z3BvWord F* build timeout (finding ee808823) was fixed by merged PR #11341; report such findings as already fixed instead of changing code.",
+      "- The same applies to active local work listed above: do not duplicate it or edit what it reserves; if a finding depends on it, report the dependency (branch and worktree) instead of re-implementing it.",
     ].join("\n")),
   ].join("\n");
 }

@@ -47,6 +47,7 @@ import { withSteeringPropagationContext } from "@bastani/atomic/workflows/builti
 import { Type } from "typebox";
 import type { VerifierVerdict } from "./lib/gate.js";
 import { classifyStages, describeOutcome, isProviderFailure, type StageOutcome } from "./lib/provider.js";
+import { activeWorkError, activeWorkFor } from "./lib/active-work.js";
 import { INVESTIGATIONS, integrationVerifyPrompt, investigationPrompt, repairPrompt, verifyPrompt, type SlicePromptInput } from "./lib/prompts.js";
 import { VerifierVerdictSchema } from "./lib/schemas.js";
 import {
@@ -79,6 +80,7 @@ function sliceInput(setup: RunSetup, inputs: WorkflowInputs, slice: SliceSummary
     sliceId: slice.id, theory: slice.theory, focus: slice.focus, worktree: slice.worktree, branch: slice.branch,
     baseRef: runBase(setup, inputs), cores: slice.cores, findingsPath: slice.findingsPath, sliceDir: slice.sliceDir, toolchain: setup.toolchain,
     openPrs: slice.openPrs ?? [], remote: inputs.remote, ...(openPrsNote ? { openPrsNote } : {}), ...(setup.baseStale && setup.baseNote ? { baseNote: setup.baseNote } : {}),
+    activeWork: setup.activeWork?.ok ? activeWorkFor(setup.activeWork.entries, slice.theory) : [],
   };
 }
 
@@ -106,6 +108,7 @@ export default workflow({
     opamSwitch: Type.String({ default: "fstar53", description: "opam switch with OCaml 5.3.0, ocamlfind and zarith." }),
     pwshExe: Type.String({ default: "", description: "Linux PowerShell 7 for build_ocaml_checker.ps1 (default Z3_FSTAR_PWSH, PATH, or the known install layouts)." }),
     theories: Type.Array(Type.Union(THEORIES.map((theory) => Type.Literal(theory))), { default: [], description: "Restrict to these theories; empty means all." }),
+    priorityTheories: Type.Array(Type.Union(THEORIES.map((theory) => Type.Literal(theory))), { default: [], description: "Theories whose actionable findings are planned first (each group keeps the usual priority order); empty keeps that order. Policy holds, candidates and active-work reservations are still excluded." }),
     maxIterations: Type.Integer({ default: 2, minimum: 1, maximum: 5, description: "Bounded iterations per launch." }),
     coreBudget: Type.Integer({ default: 32, minimum: 1, maximum: 32, description: "Total cores shared by concurrently running slices (machine has 32)." }),
     coresPerSlice: Type.Integer({ default: 4, minimum: 1, maximum: 32, description: "Minimum cores per slice; budget / coresPerSlice slices run per iteration." }),
@@ -166,6 +169,12 @@ export default workflow({
       return outcomes;
     };
     for (let i = 1; i <= inputs.maxIterations; i += 1) {
+      if (setup.activeWork && !setup.activeWork.ok) {
+        // Reservations that cannot be read must not fail open into duplicate work.
+        status = "blocked";
+        stopReason = activeWorkError(setup.activeWork);
+        break;
+      }
       const triage = await ctx.tool(`iter-${i}/triage`, { runKey: setup.runKey, exclude: [...planned] },
         async () => triageStep(setup, inputs, source.findingsPath, i, planned, source.openPrs), { timeoutMs: 5 * 60_000 });
       // A live run publishes earlier verified integrations even when no new finding is actionable.

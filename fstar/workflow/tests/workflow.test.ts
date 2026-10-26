@@ -97,6 +97,20 @@ describe("dry run through Atomic's workflow runtime", () => {
     expect(JSON.parse(readFileSync(result.result.evidence_path, "utf8")).mutatingCommands).toEqual([]);
     expect(commandsOf(result.result.run_dir)).not.toMatch(/"wsl"/);
   }, 120_000);
+
+  test("a malformed active-work.json blocks the run before triage with an actionable reason", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "fpc-dry-reserve-"));
+    writeFileSync(join(stateDir, "active-work.json"), "{not json");
+    const store = sdk.createStore();
+    const result = await sdk.run(definition, {
+      dryRun: true, publish: "dry-run", stateDir, maxIterations: 2, reportPaths, localCorpora: [],
+    }, { journal: { memory: true }, cwd: repoRoot, executionMode: "non_interactive", store });
+    expect(result.result).toMatchObject({ status: "blocked", iterations: 0, verified_slices: 0 });
+    expect(result.result.stop_reason).toMatch(/^active-work\.json invalid: .+; fix or remove it$/);
+    const names: string[] = store.snapshot().runs[0].toolNodes.map((node: { name: string }) => node.name);
+    expect(names.some((name) => name.startsWith("iter-"))).toBe(false);
+    expect(JSON.parse(readFileSync(result.result.evidence_path, "utf8")).activeWork.error).toMatch(/active-work\.json invalid/);
+  }, 120_000);
 });
 
 type Override = (name: string, args: any, real: () => Promise<any>) => unknown;

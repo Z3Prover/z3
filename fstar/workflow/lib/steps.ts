@@ -8,6 +8,7 @@ import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { isRemoteMutation, runChecked, spawnRunner, type CommandLogEntry, type CommandRunner } from "./command.js";
 import { collectSliceChanges, decideSliceOutcome, scanDiffForUnsoundness, type VerifierVerdict } from "./gate.js";
 import { ensureWorktree, removeCleanWorktree } from "./git.js";
+import { activeWorkError, readActiveWork, reservedFingerprints, type ActiveWorkRead } from "./active-work.js";
 import { prOverlapsFor, sliceOpenPrs, snapshotOpenPrs, type AnnotatedFinding, type OpenPrSnapshot, type SliceOpenPr } from "./open-prs.js";
 import { planSlices, type SliceFocus } from "./plan.js";
 import {
@@ -89,6 +90,8 @@ export interface WorkflowInputs {
   readonly prBase: string;
   readonly branchPrefix: string;
   readonly bugReportRepo: string;
+  /** Theories whose actionable findings triage puts first (default none: unchanged order). */
+  readonly priorityTheories?: readonly Theory[];
 }
 
 export type RunSetup = {
@@ -108,6 +111,8 @@ export type RunSetup = {
   readonly baseStale?: boolean;
   /** How the base was refreshed: fetched, skipped (and why), or the fetch error. */
   readonly baseNote?: string;
+  /** `<stateDir>/active-work.json` as read at preflight: reservations of other local work, or why the file is invalid. */
+  readonly activeWork?: ActiveWorkRead;
 };
 
 /** The base every step of this run uses: the pinned commit, or `baseRef` for runs set up before pinning. */
@@ -196,7 +201,10 @@ export async function preflight(inputs: WorkflowInputs, cwd: string, signal: Abo
     signal,
   });
   const base = await pinBase(evidenceRunner(runDir, runner), root, inputs, signal);
-  const setup: RunSetup = { repoRoot: root, stateDir, runKey, runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(), toolchain, ...base };
+  const setup: RunSetup = {
+    repoRoot: root, stateDir, runKey, runDir, worktreeRoot: join(stateDir, "worktrees"), startedAt: new Date().toISOString(), toolchain, ...base,
+    activeWork: readActiveWork(stateDir),
+  };
   writeJson(join(runDir, "setup.json"), { setup, inputs });
   return setup;
 }
@@ -498,7 +506,10 @@ export type TriageSummary = {
 export function triageStep(setup: RunSetup, inputs: WorkflowInputs, findingsPath: string, iteration: number, exclude: readonly string[], openPrs?: OpenPrSnapshot): TriageSummary {
   const findings = readJson<Finding[]>(findingsPath);
   const state = readState(setup.stateDir);
-  const result = triageFindings(findings, state, { now: new Date(), theories: inputs.theories, exclude: new Set(exclude) });
+  const reserved = setup.activeWork?.ok ? reservedFingerprints(setup.activeWork.entries) : undefined;
+  const result = triageFindings(findings, state, {
+    now: new Date(), theories: inputs.theories, exclude: new Set(exclude), ...(inputs.priorityTheories ? { priorityTheories: inputs.priorityTheories } : {}), ...(reserved ? { reserved } : {}),
+  });
   const annotated: AnnotatedFinding[] = result.actionable.map((finding) => {
     const prOverlap = prOverlapsFor(finding, openPrs);
     return prOverlap.length > 0 ? { ...finding, prOverlap } : finding;
@@ -990,6 +1001,7 @@ export async function finalizeStep(
   const evidencePath = writeJson(join(setup.runDir, "evidence.json"), {
     runKey: setup.runKey, startedAt: setup.startedAt, endedAt: new Date().toISOString(), inputs, toolchain: setup.toolchain,
     base: { ref: inputs.baseRef, sha: setup.baseSha ?? null, stale: setup.baseStale ?? false, note: setup.baseNote ?? null },
+    activeWork: setup.activeWork ? (setup.activeWork.ok ? { path: setup.activeWork.path, entries: setup.activeWork.entries } : { path: setup.activeWork.path, error: activeWorkError(setup.activeWork) }) : null,
     ...record, worktrees: removed, commandCount: commands.length, mutatingCommands: mutating,
   });
   if (!inputs.dryRun) {
