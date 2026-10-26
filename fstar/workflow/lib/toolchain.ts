@@ -7,6 +7,8 @@
  * already built OCaml/Cherry checker executables. Explicit inputs win; otherwise the known install
  * layouts are searched. Nothing is reported as available unless the executable actually ran.
  */
+import { readFileSync, statSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import type { CommandRunner } from "./command.js";
 
 /** Where Linux toolchain commands run. */
@@ -210,16 +212,45 @@ export function opamPrologue(toolchain: ToolchainReport): string {
   return `${root}eval "$(opam env --switch=${toolchain.opamSwitch} --set-switch)"`;
 }
 
+/** Git directory named by a linked worktree's `.git` file (`gitdir: <path>`); undefined for a main checkout or a missing worktree. */
+function linkedGitDir(worktree: string): string | undefined {
+  let text: string;
+  try {
+    const file = resolve(worktree, ".git");
+    if (!statSync(file).isFile()) return undefined;
+    text = readFileSync(file, "utf8");
+  } catch {
+    return undefined;
+  }
+  const gitdir = /^gitdir:\s*(.+?)\s*$/m.exec(text)?.[1];
+  if (!gitdir) return undefined;
+  return isAbsolute(gitdir) || /^[A-Za-z]:[\\/]/.test(gitdir) ? gitdir : resolve(worktree, gitdir);
+}
+
+/**
+ * Shell prologue that enters a worktree in the build environment. Windows git records a linked
+ * worktree's git directory as a Windows path (`gitdir: C:/repo/.git/worktrees/<name>`) that Linux
+ * git under WSL cannot follow (`fatal: not a git repository`), so under WSL the prologue also
+ * exports that directory and the work tree as WSL paths. The repository format is unchanged; the
+ * worktree's relative `commondir` (`../..`) resolves from GIT_DIR to the main `.git`.
+ */
+export function worktreePrologue(toolchain: ToolchainReport, worktree: string): string {
+  const tree = toEnvironmentPath(toolchain.environment, worktree);
+  const gitdir = toolchain.environment?.kind === "wsl" ? linkedGitDir(worktree) : undefined;
+  return gitdir
+    ? `cd ${quote(tree)} && export GIT_DIR=${quote(toEnvironmentPath(toolchain.environment, gitdir))} GIT_WORK_TREE=${quote(tree)}`
+    : `cd ${quote(tree)}`;
+}
+
 /**
  * Exact command that builds and tests the checker from a worktree with private build directories.
  * PowerShell gets a private XDG_CACHE_HOME per build key, so concurrent slice builds never share
  * (or corrupt) its startup cache.
  */
 export function buildCommand(toolchain: ToolchainReport, input: { readonly worktree: string; readonly buildKey: string; readonly cores: number }): string {
-  const tree = toEnvironmentPath(toolchain.environment, input.worktree);
   const out = `$HOME/.cache/fstar-proof-checking/${input.buildKey}`;
   const script = [
-    `cd ${quote(tree)}`,
+    worktreePrologue(toolchain, input.worktree),
     opamPrologue(toolchain),
     `mkdir -p "${out}/xdg-cache"`,
     [

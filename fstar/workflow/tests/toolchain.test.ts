@@ -6,9 +6,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { registerAtomicHostModules } from "../lib/atomic-host.ts";
 import { spawnRunner, type CommandResult, type CommandRunner } from "../lib/command.ts";
 import * as steps from "../lib/steps.ts";
-import { buildCommand, probeToolchain, toEnvironmentPath } from "../lib/toolchain.ts";
+import { buildCommand, probeToolchain, toEnvironmentPath, worktreePrologue } from "../lib/toolchain.ts";
 
 const R = "/root/.local/share/z3-clause-proofs-4d52bf5f";
 const utf16 = (text: string) => [...text].map((char) => `${char}\u0000`).join("");
@@ -144,5 +145,33 @@ describe("toolchain discovery", () => {
   test("host paths translate into the WSL mount", () => {
     expect(toEnvironmentPath({ kind: "wsl", distro: "Ubuntu", execArgv: [] }, "C:\\z3atomic\\fstar\\tools\\x.py")).toBe("/mnt/c/z3atomic/fstar/tools/x.py");
     expect(toEnvironmentPath({ kind: "native", execArgv: [] }, "/home/x")).toBe("/home/x");
+  });
+});
+
+describe("worktree prologue", () => {
+  // Windows git records a linked worktree's git directory as a Windows path that Linux git cannot follow.
+  test("exports the WSL paths of a Windows-created worktree's git directory and work tree", async () => {
+    const root = mkdtempSync(join(tmpdir(), "fpc-wt-"));
+    const worktree = join(root, "worktrees", "run-i1-bitvectors-performance");
+    mkdirSync(worktree, { recursive: true });
+    writeFileSync(join(worktree, ".git"), "gitdir: C:/z3atomic/.git/worktrees/run-i1-bitvectors-performance\n");
+    const report = await probeToolchain(windowsHost([]), { platform: "win32" });
+    const tree = toEnvironmentPath(report.environment, worktree);
+    const prologue = `cd '${tree}' && export GIT_DIR='/mnt/c/z3atomic/.git/worktrees/run-i1-bitvectors-performance' GIT_WORK_TREE='${tree}'`;
+    expect(worktreePrologue(report, worktree)).toBe(prologue);
+    // buildCommand passes the whole script to `bash -lc '...'`, so its single quotes are escaped once more.
+    expect(buildCommand(report, { worktree, buildKey: "k", cores: 4 })).toContain(prologue.replaceAll("'", "'\\''"));
+    // The stage prompts import Atomic's host-provided SDK.
+    await registerAtomicHostModules();
+    const { toolchainLines } = await import("../lib/prompts.ts");
+    expect(toolchainLines({ ...report, available: true }, { worktree, cores: 4 })).toContain(`\`${prologue} && export OPAMROOT=`);
+  }, 120_000);
+
+  test("only enters the directory on a Linux host or when the worktree has no .git file", async () => {
+    const root = mkdtempSync(join(tmpdir(), "fpc-wt-"));
+    const report = await probeToolchain(windowsHost([]), { platform: "win32" });
+    expect(worktreePrologue(report, root)).toBe(`cd '${toEnvironmentPath(report.environment, root)}'`);
+    writeFileSync(join(root, ".git"), "gitdir: /srv/repo/.git/worktrees/x\n");
+    expect(worktreePrologue({ ...report, environment: { kind: "native", execArgv: [] } }, root)).toBe(`cd '${root}'`);
   });
 });

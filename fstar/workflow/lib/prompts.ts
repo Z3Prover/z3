@@ -6,7 +6,7 @@
 import { basename } from "node:path";
 import { keepContext } from "@bastani/atomic/workflows";
 import type { SliceFocus } from "./plan.js";
-import { buildCommand, opamPrologue, wrapInEnvironment, type ToolchainReport } from "./toolchain.js";
+import { buildCommand, opamPrologue, worktreePrologue, wrapInEnvironment, type ToolchainReport } from "./toolchain.js";
 
 export interface SlicePromptInput {
   readonly sliceId: string;
@@ -46,9 +46,10 @@ export function toolchainLines(toolchain: ToolchainReport, input: { readonly wor
   }
   const where = environment.kind === "wsl" ? `inside WSL distribution ${environment.distro} (Windows paths appear under /mnt/<drive>/)` : "on this Linux host";
     const checker = (path: string | undefined) => (path ? wrapInEnvironment(toolchain, `${path} --interactive --stats --diagnostics --timeout-ms 10000 < <input.smt2>`) : "unavailable");
+  const enter = worktreePrologue(toolchain, input.worktree);
   return [
     `- Run every build, F* and checker command ${where}. F*: ${toolchain.fstar} (${toolchain.fstarVersion}); Cherry F*: ${toolchain.cherryFstar ?? "unavailable"}; OCaml ${toolchain.ocamlVersion} via opam switch ${toolchain.opamSwitch} (${toolchain.opamRoot ?? "default OPAMROOT"}); PowerShell: ${toolchain.pwsh} (run it only as in the build command below, with DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 and your own XDG_CACHE_HOME); Python: ${toolchain.python ?? "unavailable"}.`,
-    `- Environment prologue for every shell: \`${opamPrologue(toolchain)}\`.`,
+    `- Environment prologue for every shell: \`${enter} && ${opamPrologue(toolchain)}\`.${enter.includes("GIT_DIR=") ? " Its GIT_DIR/GIT_WORK_TREE exports let Linux git use this Windows-created worktree; unset them before running git in any other repository." : ""}`,
     `- Build and test the checker from fresh, private build directories (verifies every module in fstar/tools/checker_modules.json, extracts, compiles natively, runs the tests): \`${buildCommand(toolchain, { worktree: input.worktree, buildKey, cores: input.cores })}\`. The checker it builds is $HOME/.cache/fstar-proof-checking/${buildKey}/checker/checker (Cherry: .../checker/cherry/checker).`,
     `- Replay inputs with the checker's interactive mode, e.g. the existing builds \`${checker(toolchain.ocamlChecker)}\` and \`${checker(toolchain.cherryChecker)}\` for baselines and your rebuilt checker for the candidate, or with \`python3 fstar/tools/run_checker_regressions.py run|diagnose|report\` in the same environment; compare verdicts and pending obligation counts before and after.`,
   ].join("\n");
