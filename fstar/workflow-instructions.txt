@@ -1,0 +1,69 @@
+I want to create a workflow that iterates on the fstar proof checker and improves it based on test evaluation. 
+
+# Sourcing
+
+It should read the reports generated from the pulse checker GitHub workflow and work on
+ proof rules to fill the gaps by partial proofs. 
+It should identify bugs from crashes and file bug reports in fstarlang/fstar and at the same time find
+ workarounds. 
+
+# Proof checker compilation optimization
+
+For solver timeouts in build decompose proofs to rely less on z3 and more on decomposed proofs.
+For proofs that take more than 2s investigate approaches to decompose proofs for faster compilation.
+
+# Bugs in z3
+It may be that proof checking fails due to soundness bugs in z3. 
+For proof failures that are not easily fixable, investigate whether they are due to soundness bugs.
+
+# Refactoring of the proof checker
+
+Investigate whether the proof checker should be refactored for speed and scalability of checking.
+Favor principles over pattern matching special cases.
+Apply optimizations developed for efficient FF checkers and other theories.
+
+# Reformulation of proofs
+
+Based on how much work the proof checker has to do to check inferences, determine if the z3 source code
+can create proof certificates that are easier to check.
+
+
+# Pull requests
+
+It should push updates to a branch and create a PR from the branch. 
+
+Keep pushing updates to the same branch until it is deleted or merged. 
+If the PR is merged open a new PR.
+
+# Continuity
+
+The workflow should re-trigger based on the following conditions:
+- there is a new report published for the pulse checker workflow.
+- there are additional partial proof rules that have not been processed.
+- the build of the OCaml based checker or Cherry based checker times out due to proof timeouts.
+
+# Cores
+You have 32 cores
+
+# Logics and quantifiers
+Make sure quantifier instantiation and binding steps can be checked.
+Handle logics: 
+- linear arithmetic
+- non-linear arithmetic proofs from incremental linearization
+- UF
+- arrays
+- algebraic datatypes (DT)
+- Bit-vectors
+- Finite fields
+- Floating points
+
+# Diagnostics from the proof checker
+Consider improvements to the proof checker output to console.
+For partial proofs, include information about how many rules were checked
+For accepted proofs, also include information about rules checked. 
+Admit diagnostics mode for the checker to further make it easy to access failed proofs.
+Consider any other useful UX improvements for running the proof checkers.
+
+# Additional sources:
+- run the proof checkers in interactive mode on C:/z3test/regressions/smt2 in the z3test repository.
+- run the proof checkers with fstar benchmarks in the C:\bench\inputs directory.
