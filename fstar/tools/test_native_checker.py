@@ -70,6 +70,50 @@ RULE_EXTENSION_CASES = (
     ("bv-wrap", "(assert (not (= (bvadd #xff #x01) #x00)))"),
 )
 
+# Rewrite steps of the Pulse QF_FF certificates (z3test generator, seed 40244844124).
+# Their proofs contain only `rewrite` steps decided by polynomial arithmetic modulo p.
+def finite_field(prime, assertion):
+    return (f"(set-logic QF_FF)(define-sort F () (_ FiniteField {prime}))"
+            f"(declare-const x F)(declare-const y F)(assert {assertion})")
+
+
+FINITE_FIELD_CASES = (
+    ("ff-17-bitsum-folding", finite_field(17,
+     "(and (= (ff.mul (ff.bitsum x (as ff2 F)) (ff.bitsum (as ff-3 F) x))"
+     " (ff.bitsum (ff.mul x x) (ff.bitsum x y)))"
+     " (= (ff.bitsum (as ff24 F) (as ff19 F)) (as ff19 F)))")),
+    ("ff-17-cancellation", finite_field(17,
+     "(and (= (ff.bitsum x (ff.mul y y))"
+     " (ff.bitsum (ff.mul x (as ff24 F)) (ff.bitsum x (as ff31 F))))"
+     " (= (ff.neg (ff.add y (as ff5 F))) (ff.neg y)))")),
+    ("ff-2-numeral-disequality", finite_field(2,
+     "(or (= (as ff3 F) (as ff0 F)) (not (= x x)))")),
+    ("ff-5-negative-numerals", finite_field(5,
+     "(and (= (ff.mul (as ff-2 F) (ff.add (as ff3 F) (as ff8 F))) (as ff4 F))"
+     " (= (ff.bitsum y (ff.neg y)) (ff.bitsum (ff.bitsum y x) (ff.neg x))))")),
+    ("ff-5-conditional-atom", finite_field(5,
+     "(and (= (ff.neg (ff.mul (as ff5 F) x)) y)"
+     " (= (ite (= x y) (as ff1 F) (ff.neg y)) x))")),
+    ("ff-5-numeral-square", finite_field(5,
+     "(and (= (ff.mul y y) (ff.bitsum (as ff1 F) (ff.mul (as ff-7 F) (as ff-6 F))))"
+     " (= y (ff.neg (as ff4 F))))")),
+    ("ff-5-double-negation", finite_field(5,
+     "(and (not (= (ff.neg (ff.neg (as ff1 F))) (as ff-4 F)))"
+     " (not (= (ite (= x y) (ite (= x y) y x) (ff.add y y))"
+     " (ff.mul (ff.neg y) (ff.bitsum (as ff-8 F) x)))))")),
+    ("ff-7-negated-product", finite_field(7,
+     "(and (= (ff.mul y (ff.neg (as ff0 F))) (ff.neg (ff.neg x)))"
+     " (= (as ff5 F) (ff.bitsum (as ff6 F) (ff.bitsum x (as ff8 F)))))")),
+    ("ff-7-zero-product", finite_field(7,
+     "(and (= (ff.mul (ff.mul y y) x) (ff.add (ff.add x x) (ff.bitsum y x)))"
+     " (= (ff.mul (ff.add (as ff7 F) y) (ff.mul y (as ff7 F))) (as ff-10 F)))")),
+    ("ff-7-rescaled-equation", finite_field(7,
+     "(and (= (ff.mul (ite (= x y) (as ff-4 F) y) (ff.add x x))"
+     " (ff.add (ff.neg (as ff-7 F)) (ff.bitsum x (as ff11 F))))"
+     " (= x (ff.mul (ff.neg x) (ff.bitsum (as ff7 F) (as ff-3 F)))))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_CASES
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -182,6 +226,20 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0,
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_finite_field_theory_lemmas_remain_uncertified(self):
+        source = finite_field(17,
+            "(and (= (ff.add (ff.bitsum x (as ff19 F)) (as ff-26 F))"
+            " (ff.add (ff.mul (as ff-11 F) x) y))"
+            " (= (ite (= x y) (ff.mul x y) (ff.bitsum y y))"
+            " (ff.mul x (ite (= x y) (as ff-6 F) x))))")
+        result = self.run_checker(source, "--diagnostics")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertRegex(result.stderr, r"obligation\tth-lemma\t")
+        self.assertNotRegex(result.stderr, r"obligation\trewrite\t")
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertRegex(interactive.stdout, r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
 
     def test_quantified_rewrites_are_certified_in_both_modes(self):
         for source in (
