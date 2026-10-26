@@ -523,6 +523,7 @@ class set_option_cmd : public set_get_option_cmd {
             ctx.set_produce_assignments(to_bool(value));
         }
         else if (m_option == m_global_decls || m_option == m_global_declarations) {
+            auto global_decls = to_bool(value);
             check_not_initialized(ctx, m_global_decls);
             ctx.set_global_decls(global_decls);            
         }
