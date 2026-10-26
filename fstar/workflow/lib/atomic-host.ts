@@ -1,8 +1,9 @@
 /**
- * Bun-only helper for running this workflow outside Atomic's loader (tests and the continuity
- * launcher). Atomic supplies `@bastani/atomic/workflows` and `typebox` to workflow files; here
- * the same modules are loaded from the installed Atomic package and registered as virtual
- * modules so the workflow definition imports exactly the host's SDK instance.
+ * Loads this workflow outside Atomic's loader. Atomic supplies `@bastani/atomic/workflows` and
+ * `typebox` to workflow files; here the same modules come from the installed Atomic package.
+ * `registerAtomicHostModules` (Bun only, for the tests' in-process runs) registers them as
+ * virtual modules so the workflow definition imports exactly the host's SDK instance; the
+ * launcher's Node runs (lib/node-run.ts) resolve `HOST_SPECIFIERS` from `atomicPackageDir()`.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";

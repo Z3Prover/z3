@@ -12,9 +12,14 @@
  *           scheduled invocations never overlap (it creates the state directory if missing).
  *           A lock held by another live launcher skips the launch (exit 0); any other locking
  *           failure is reported as `failed` (exit 1). A bounded run does not retrigger itself;
- *           schedule this launcher (see README) to get continuity.
+ *           schedule this launcher (see README) to get continuity. The run executes in a Node
+ *           child process (Atomic's runtime; `node` on PATH, see lib/launch.ts): Atomic's SQLite
+ *           storage needs `node:sqlite`, which Bun 1.3 lacks. A run that ends without a status
+ *           is `failed` (exit 1) with `failure.phase` runtime, load, storage or run.
  * --dry-run never launches a live run: with --launch it runs the workflow with
- *           `dryRun: true, publish: "dry-run"` and an in-memory journal.
+ *           `dryRun: true, publish: "dry-run"` and an in-memory journal (unless --journal).
+ * --journal <path> SQLite journal file for the launched run. Default: Atomic's own selection
+ *           (ATOMIC_WORKFLOW_JOURNAL_PATH, settings, or ~/.atomic/workflows/journal.sqlite).
  * --publish none|dry-run|live is passed to the launched run (default: the workflow's `dry-run`).
  *           Verified work from non-live runs stays pending in state; a `--publish live` launch
  *           pushes it together with its own work.
@@ -28,8 +33,10 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnRunner } from "./lib/command.js";
 import { evaluateContinuity, launchExclusively, type BuildEvidence } from "./lib/continuity.js";
+import { runWorkflowInNode } from "./lib/launch.js";
 import { parseBuildLog } from "./lib/reports.js";
 import { downloadRunReports, fromGhRuns, listPulseRuns, localReportKey, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
 import { readState } from "./lib/state.js";
@@ -45,6 +52,8 @@ interface Options {
   runsFile?: string;
   buildLogs: string[];
   remote: boolean;
+  /** Journal file for the launched run; default Atomic's own (memory for --dry-run). */
+  journal?: string;
   /** Toolchain discovery overrides, passed to the preflight probe and to the launched run. */
   toolchain: Record<string, string>;
 }
@@ -73,6 +82,7 @@ function parseArgs(argv: string[], repoRoot: string): Options {
       options.publish = mode;
     }
     else if (arg === "--no-remote") options.remote = false;
+    else if (arg === "--journal") options.journal = resolve(value());
     else if (arg === "--state-dir") options.stateDir = value();
     else if (arg === "--repo") options.repo = value();
     else if (arg === "--branch") options.branch = value();
@@ -133,10 +143,6 @@ async function main(): Promise<number> {
     }
   }
   const outcome = await launchExclusively(options.stateDir, async () => {
-    const { registerAtomicHostModules } = await import("./lib/atomic-host.js");
-    await registerAtomicHostModules();
-    const { default: definition } = await import("./fstar-proof-checking.js");
-    const sdk = await import("@bastani/atomic/workflows");
     const inputs = {
       pulseRunIds: decision.pulseRunIds,
       reportPaths: decision.reportPaths,
@@ -147,12 +153,14 @@ async function main(): Promise<number> {
       ...(options.publish ? { publish: options.publish } : {}),
       ...(options.dryRun ? { dryRun: true, publish: "dry-run" as const } : {}),
     };
-    const result = await sdk.run(definition, inputs as never, {
+    const journal = options.journal ? { path: options.journal } : options.dryRun ? { memory: true as const } : undefined;
+    const run = await runWorkflowInNode({
+      workflow: fileURLToPath(new URL("./fstar-proof-checking.ts", import.meta.url)),
+      inputs,
       cwd: repoRoot,
-      executionMode: "non_interactive",
-      ...(options.dryRun ? { journal: { memory: true } } : {}),
+      ...(journal ? { journal } : {}),
     });
-    return { inputs, result };
+    return { inputs, journal: journal ?? "atomic-default", run };
   });
   if (outcome.kind === "skipped") {
     // Another launcher holds the lock (an overlapping schedule): not a failure.
@@ -163,9 +171,15 @@ async function main(): Promise<number> {
     console.log(JSON.stringify({ ...report, launched: false, failed: `could not take the launcher lock: ${outcome.reason}` }, null, 2));
     return 1;
   }
-  const { inputs, result } = outcome.value;
-  console.log(JSON.stringify({ ...report, launched: true, inputs, runId: result.runId, status: result.status, error: result.error, result: result.result }, null, 2));
-  return result.status === "completed" ? 0 : 1;
+  const { inputs, journal, run } = outcome.value;
+  if (!run.ok) {
+    // No run status: Node, the workflow module, or Atomic's storage failed (the stack is on stderr).
+    const failure = { phase: run.phase, error: run.error.name, message: run.error.message };
+    console.log(JSON.stringify({ ...report, launched: false, inputs, journal, failed: `workflow run failed before reporting a status (${run.phase}): ${run.error.name}: ${run.error.message}`, failure }, null, 2));
+    return 1;
+  }
+  console.log(JSON.stringify({ ...report, launched: true, inputs, journal, runId: run.runId, status: run.status, error: run.error, result: run.result }, null, 2));
+  return run.status === "completed" ? 0 : 1;
 }
 
 main().then((code) => process.exit(code), (error) => {

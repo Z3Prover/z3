@@ -20,7 +20,8 @@ and publishes verified work to one branch and pull request at a time.
 | `lib/publish.ts` | Branch/PR lifecycle and crash bug-report filing. |
 | `lib/steps.ts` | Durable step bodies wrapped by `ctx.tool` in the workflow. |
 | `lib/prompts.ts`, `lib/schemas.ts`, `lib/toolchain.ts` | Stage prompts, verdict schema, toolchain preflight. |
-| `lib/atomic-host.ts` | Bun helper that loads Atomic's SDK modules for tests and the launcher. |
+| `lib/atomic-host.ts` | Locates the installed Atomic package and loads its SDK modules for the tests. |
+| `lib/launch.ts`, `lib/node-run.ts` | The launcher's workflow run in a Node child process (Atomic's runtime). |
 | `tests/` | `bun test` suite and small fixtures excerpted from real Pulse artifacts. |
 
 ## Registration and discovery
@@ -352,6 +353,14 @@ bun fstar/workflow/continuity.ts --launch --publish live # same, and push verifi
 bun fstar/workflow/continuity.ts --launch --dry-run      # same, but dryRun=true, publish=dry-run, in-memory journal
 ```
 
+The launcher runs under Bun, but the workflow run it starts executes in a child `node`
+process (Node.js 22.19 or newer on `PATH`, the runtime of an npm-installed Atomic). Atomic's
+persistent storage needs `node:sqlite`, which Bun 1.3 does not provide: the workflow journal
+and the stage sessions (both in `~/.atomic/workflows/journal.sqlite` by default) and the
+Intercom extension of every stage session. The launched run uses Atomic's default journal
+(`ATOMIC_WORKFLOW_JOURNAL_PATH` and the `workflows.journal` setting apply), so Atomic can inspect
+and resume it; `--journal <path>` selects another SQLite file, also for a `--dry-run`.
+
 It evaluates the three conditions from the instructions:
 
 1. A new, unprocessed Pulse regression report. Only completed `success` or `failure` runs on
@@ -373,8 +382,10 @@ runs the workflow with Atomic's programmatic `run(definition, inputs)` API, pass
 IDs as `pulseRunIds` and `--publish` (if given) as `publish`. The flags `--wsl-distro`,
 `--opam-root`, `--opam-switch`, `--fstar`, `--cherry-fstar`, `--pwsh`, `--ocaml-checker` and
 `--cherry-checker` override toolchain discovery, both for the launcher's check and for the
-launched run. Offline options are `--runs-file <listing.json>` and `--no-remote`. The decision
-also reports
+launched run. A run that ends without a status (Node missing, the workflow failing to load, a
+journal that cannot be opened) is reported as `failed` with exit code 1; its `failure` names the
+phase (`runtime`, `load`, `storage` or `run`) and the error class, and the stack is on stderr.
+Offline options are `--runs-file <listing.json>` and `--no-remote`. The decision also reports
 `pendingPublications`, the number of verified integrations waiting for a live push. That count
 is not a retrigger condition. Pending work is pushed by the next live run, whatever started it.
 
