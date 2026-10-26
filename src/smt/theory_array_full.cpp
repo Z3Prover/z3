@@ -924,13 +924,16 @@ namespace smt {
         unsigned total = 1;
         for (unsigned i = 0; i < dim; ++i) {
             sort* d = get_array_domain(s, i);
+            sort_size const& ssz = d->get_num_elements();
+            if (!ssz.is_finite() || ssz.size() > 32)
+                return false;
             expr_ref_vector vals(m);
             if (m.is_bool(d)) {
                 vals.push_back(m.mk_true());
                 vals.push_back(m.mk_false());
             }
-            else if (bv.is_bv_sort(d) && bv.get_bv_size(d) <= 5) {
-                for (unsigned k = 0; k < (1u << bv.get_bv_size(d)); ++k)
+            else if (bv.is_bv_sort(d)) {
+                for (unsigned k = 0; k < ssz.size(); ++k)
                     vals.push_back(bv.mk_numeral(rational(k), d));
             }
             else if (dt.is_enum_sort(d)) {
