@@ -1026,6 +1026,9 @@ namespace stx {
                         frame.m_iter = std::move(it);
                         return true;
                     }
+                    // a plugin that refuted the node instead of splitting it closes it
+                    if (n.is_conflict())
+                        return false;
                     if (has_more)
                         any_offer = true;
                 }
