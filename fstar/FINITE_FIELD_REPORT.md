@@ -216,7 +216,18 @@ reads, and so on). A step is accepted when
   `false`) or a difference that is `0` (so it is `true`); or
 * two equalities have difference polynomials that are multiples of each other
   by factors `k`, `w`, checked as polynomial identities modulo `p`
-  (isolating a variable or dividing by a leading coefficient).
+  (isolating a variable or dividing by a leading coefficient); or
+* a conditional term is compared with a numeral: `(= (ite c t u) k)` becomes
+  `(and x (not c))` when `(= t k)` has a nonzero constant difference (so the
+  then branch cannot be `k`) and `x` is the equality `(= u k)`, or any
+  equality or constant already accepted as equivalent to it; symmetrically
+  `(and x c)` when `(= u k)` has a nonzero constant difference and `x` is
+  `(= t k)`. This is the shape of the rewrites in QF_FF field-3/case-02
+  (`x` is `(= (ff.bitsum y y) 1)`) and field-7/case-01 (both branches differ
+  from `k`, so `x` is `false`). The condition `c` must be the same term, the
+  conjunction must have exactly two arguments, and `t`, `u`, `k` must be
+  closed terms over the same `FF<p>`; a branch equal to `k`, a symbolic
+  branch, or a numeral or branch of another modulus is not dropped.
 
 The checker uses only the commutative-ring laws, so it never assumes that
 `p` is prime. The factors `k`, `w` come from an untrusted modular-inverse
@@ -237,8 +248,19 @@ values are residues. There is no `assume`, axiom, or admit, and the legacy
 unified kernel is the only consumer; the sorted-semantics kernel does not use
 `TN.equivalent`.
 
+Dropping a branch in the conditional-term rule needs no inverse, only the
+nonzero-constant test above, and the surviving equality is matched by itself
+or by the checked rescaling above, so the rule is also valid over a composite
+modulus. It never assumes the condition: the result must contain `c` or
+`(not c)` as its second conjunct. The rule additionally uses
+`Z3ArrayRewrite.term_ite_sound`, which is already part of
+`Z3TheoryNormalize.normalization_model` through `A.rewrite_model`; the trust
+statement is otherwise unchanged and no `assume`, axiom or admit is added.
+
 Th-lemma obligations that mention finite-field terms are still unmet, so a
-proof that contains one remains PARTIAL.
+proof that contains one remains PARTIAL. On the 25 hashed Pulse QF_FF
+certificates the 21 finite-field `th-lemma` obligations are unchanged; they
+keep 12 of the proofs PARTIAL.
 
 ## Mechanical verification
 

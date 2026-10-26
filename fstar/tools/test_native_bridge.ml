@@ -3208,9 +3208,10 @@ let ff_rewrites () =
   let declarations =
     "(set-logic QF_FF)(define-sort F17 () (_ FiniteField 17))\
      (define-sort F5 () (_ FiniteField 5))(define-sort F3 () (_ FiniteField 3))\
-     (define-sort F2 () (_ FiniteField 2))\
+     (define-sort F2 () (_ FiniteField 2))(define-sort F7 () (_ FiniteField 7))\
      (declare-const x F17)(declare-const y F17)(declare-const t F3)\
-     (declare-const u F5)(declare-const w F2)" in
+     (declare-const u F5)(declare-const w F2)\
+     (declare-const a F3)(declare-const b F3)(declare-const m F7)(declare-const n F7)" in
   let check expected left right =
     let inputs = parse c (declarations ^ "(assert (= " ^ left ^ " " ^ right ^ "))") in
     let st = B.marshal_expressions (B.empty_state ()) inputs in
@@ -3254,6 +3255,16 @@ let ff_rewrites () =
     "(= (ff.mul y (ff.add (as ff12 F17) y)) (as ff12 F17))";
   check true "(= t (ff.mul (as ff2 F3) t))" "(= t (as ff0 F3))";
   check true "(= (as ff3 F5) (ff.mul (as ff4 F5) u u u))" "(= (ff.mul u u u) (as ff2 F5))";
+  (* An ite compared with a numeral (QF_FF field-3/case-02 and field-7/case-01): a branch that
+     differs from the numeral by a nonzero constant is dropped and the condition selects the
+     other branch. *)
+  check true "(= (ite (= a b) (as ff2 F3) (ff.bitsum b b)) (as ff1 F3))"
+    "(and (= (ff.bitsum b b) (as ff1 F3)) (not (= a b)))";
+  check true "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and false (= n m))";
+  check true "(= (ite (= a b) b (as ff2 F3)) (as ff1 F3))" "(and (= b (as ff1 F3)) (= a b))";
+  check true "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check true "(= (ite (= a b) (as ff2 F3) (ff.mul (as ff2 F3) b)) (as ff0 F3))"
+    "(and (= b (as ff0 F3)) (not (= a b)))";
   (* Steps that are not ring identities modulo the prime stay unmet. *)
   check false "(ff.add x (as ff1 F17))" "(ff.add x (as ff2 F17))";
   check false "(ff.bitsum (as ff7 F17) (as ff2 F17))" "(as ff12 F17)";
@@ -3263,7 +3274,22 @@ let ff_rewrites () =
   check false "(= (ff.mul (as ff2 F3) t) (as ff1 F3))" "(= t (as ff1 F3))";
   check false "(= x (as ff0 F17))" "true";
   check false "(= x (as ff0 F17))" "false";
-  check false "(ff.add x y)" "(ff.add x x)"
+  check false "(ff.add x y)" "(ff.add x x)";
+  (* An ite compared with a numeral: the wrong polarity, constant, condition or conclusion is
+     unmet, as is a branch that equals the numeral or is not a constant different from it. *)
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (= a b))";
+  check false "(= (ite (= a b) b (as ff2 F3)) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff2 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= b a)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and false (not (= a b)))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "false";
+  check false "(= (ite (= a b) (as ff1 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= a b) (as ff1 F3) (as ff1 F3)) (as ff1 F3))" "(and false (= a b))";
+  check false "(= (ite (= a b) a b) (as ff1 F3))" "(and (= b (as ff1 F3)) (not (= a b)))";
+  check false "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and false (= m n))";
+  check false "(= (ite (= n m) (as ff5 F7) (as ff1 F7)) (as ff3 F7))" "(and true (= n m))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(= b (as ff1 F3))";
+  check false "(= (ite (= a b) (as ff2 F3) b) (as ff1 F3))" "(and (= b (as ff1 F3)) true)"
 
 let () =
   ignore (N.version ());

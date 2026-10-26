@@ -192,6 +192,66 @@ let test_normalizing_entry_point () : Lemma (
     TN.equivalent (eq (mul 17 [num 17 12; y17; add 17 [num 17 12; y17]]) (num 17 8))
                   (eq (mul 17 [y17; add 17 [num 17 12; y17]]) (num 17 12)))
 
+(* --- a conditional term compared with a numeral ----------------------- *)
+
+let ite_term (p:int) (c t e:expr) : expr =
+  App (Z3ArrayRewrite.term_ite_decl (FF.ff_sort p)) [c; t; e]
+
+let conj (a b:expr) : expr =
+  App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Conjunction [a; b]) [a; b]
+
+let x3 = const 3 "x"
+let y3 = const 3 "y"
+let x7 = const 7 "x"
+let y7 = const 7 "y"
+let same3 = eq x3 y3
+let same7 = eq y7 x7
+let double_y3 = bitsum 3 [y3; y3]
+let z3 = const 3 "z"
+
+(* field-3/case-02: the then branch 2 differs from 1, so only the else branch can be 1.
+   (Here `ff.bitsum y y` is 3*y = 0 in F_3, so the else branch is decided as well; the
+   rule needs only the then branch.) *)
+let else_live : expr = eq (ite_term 3 same3 (num 3 2) double_y3) (num 3 1)
+let else_live_result : expr = conj (eq double_y3 (num 3 1)) (mk_not_expr same3)
+
+(* field-7/case-01: neither branch (5 and 1) is 3. *)
+let both_dead : expr = eq (ite_term 7 same7 (num 7 5) (num 7 1)) (num 7 3)
+let both_dead_result : expr = conj false_expr same7
+
+(* Branches that really are symbolic: only the else branch, respectively only the then
+   branch, can be 1. *)
+let live_eq : expr = eq y3 (num 3 1)
+let else_y : expr = eq (ite_term 3 same3 (num 3 2) y3) (num 3 1)
+let else_y_result : expr = conj live_eq (mk_not_expr same3)
+let then_live : expr = eq (ite_term 3 same3 y3 (num 3 2)) (num 3 1)
+let then_live_result : expr = conj live_eq same3
+
+let test_ite_equal_numeral_else_branch () : Lemma (
+  FF.equivalent else_live else_live_result /\ TN.equivalent else_live else_live_result) =
+  assert_norm (FF.equivalent else_live else_live_result /\ TN.equivalent else_live else_live_result)
+
+let test_ite_equal_numeral_symbolic_else_branch () : Lemma (
+  FF.equivalent else_y else_y_result /\ TN.equivalent else_y else_y_result) =
+  assert_norm (FF.equivalent else_y else_y_result /\ TN.equivalent else_y else_y_result)
+
+let test_ite_equal_numeral_no_branch () : Lemma (
+  FF.equivalent both_dead both_dead_result /\ TN.equivalent both_dead both_dead_result) =
+  assert_norm (FF.equivalent both_dead both_dead_result /\ TN.equivalent both_dead both_dead_result)
+
+let test_ite_equal_numeral_then_branch () : Lemma (
+  FF.equivalent then_live then_live_result /\ TN.equivalent then_live then_live_result) =
+  assert_norm (FF.equivalent then_live then_live_result /\ TN.equivalent then_live then_live_result)
+
+(* The surviving branch may be stated as any equality with a unit-proportional
+   difference: 2*y = 0 iff y = 0 in F_3. *)
+let test_ite_equal_numeral_rescaled_branch () : Lemma (
+  FF.equivalent (eq (ite_term 3 same3 (num 3 2) (mul 3 [num 3 2; y3])) (num 3 0))
+                (conj (eq y3 (num 3 0)) (mk_not_expr same3))) =
+  assert_norm (
+    FF.equivalent (eq (ite_term 3 same3 (num 3 2) (mul 3 [num 3 2; y3])) (num 3 0))
+                  (conj (eq y3 (num 3 0)) (mk_not_expr same3)))
+
 (* ------------------------------------------------------------------ *)
 (* Rejections                                                          *)
 (* ------------------------------------------------------------------ *)
@@ -335,3 +395,158 @@ let test_normalizing_entry_point_rejects () : Lemma (
     not (TN.equivalent (bitsum 17 [num 17 7; num 17 2]) (num 17 12)) /\
     not (TN.equivalent (eq (num 17 11) (num 17 11)) false_expr) /\
     not (TN.equivalent (add 17 [y17; num 17 5]) (add 17 [num 17 6; y17])))
+
+(* ------------------------------------------------------------------ *)
+(* Rejections for a conditional term compared with a numeral           *)
+(* ------------------------------------------------------------------ *)
+
+(* The surviving branch is paired with the condition that selects it. *)
+let test_ite_equal_numeral_wrong_polarity_is_rejected () : Lemma (
+  not (FF.equivalent else_y (conj live_eq same3)) /\
+  not (FF.equivalent then_live (conj live_eq (mk_not_expr same3))) /\
+  not (TN.equivalent else_y (conj live_eq same3))) =
+  assert_norm (
+    not (FF.equivalent else_y (conj live_eq same3)) /\
+    not (FF.equivalent then_live (conj live_eq (mk_not_expr same3))) /\
+    not (TN.equivalent else_y (conj live_eq same3)))
+
+(* A conclusion that is not the equality of the surviving branch is rejected, as
+   are conjunctions that are not binary. *)
+let test_ite_equal_numeral_false_conclusions_are_rejected () : Lemma (
+  not (FF.equivalent else_y false_expr) /\
+  not (FF.equivalent else_y true_expr) /\
+  not (FF.equivalent else_y (mk_not_expr same3)) /\
+  not (FF.equivalent else_y (conj false_expr (mk_not_expr same3))) /\
+  not (FF.equivalent else_y (conj (eq y3 (num 3 2)) (mk_not_expr same3))) /\
+  not (FF.equivalent else_y (conj (eq z3 (num 3 1)) (mk_not_expr same3))) /\
+  not (FF.equivalent else_y
+         (App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Conjunction [live_eq; mk_not_expr same3; true_expr])
+              [live_eq; mk_not_expr same3; true_expr])) /\
+  not (FF.equivalent both_dead (conj true_expr same7)) /\
+  not (FF.equivalent both_dead (mk_not_expr same7)) /\
+  not (TN.equivalent else_y (conj false_expr (mk_not_expr same3)))) =
+  assert_norm (
+    not (FF.equivalent else_y false_expr) /\
+    not (FF.equivalent else_y true_expr) /\
+    not (FF.equivalent else_y (mk_not_expr same3)) /\
+    not (FF.equivalent else_y (conj false_expr (mk_not_expr same3))) /\
+    not (FF.equivalent else_y (conj (eq y3 (num 3 2)) (mk_not_expr same3))) /\
+    not (FF.equivalent else_y (conj (eq z3 (num 3 1)) (mk_not_expr same3))) /\
+    not (FF.equivalent else_y
+           (App (Z3BooleanRewrite.connective_decl Z3BooleanRewrite.Conjunction [live_eq; mk_not_expr same3; true_expr])
+                [live_eq; mk_not_expr same3; true_expr])) /\
+    not (FF.equivalent both_dead (conj true_expr same7)) /\
+    not (FF.equivalent both_dead (mk_not_expr same7)) /\
+    not (TN.equivalent else_y (conj false_expr (mk_not_expr same3))))
+
+(* The condition of the conclusion must be the condition of the conditional term. *)
+let test_ite_equal_numeral_condition_mismatch_is_rejected () : Lemma (
+  not (FF.equivalent else_y (conj live_eq (mk_not_expr (eq y3 x3)))) /\
+  not (FF.equivalent else_y (conj live_eq (mk_not_expr (eq x3 x3)))) /\
+  not (FF.equivalent else_y (conj live_eq (mk_not_expr true_expr))) /\
+  not (FF.equivalent then_live (conj live_eq (eq y3 x3))) /\
+  not (FF.equivalent both_dead (conj false_expr (eq x7 x7))) /\
+  not (TN.equivalent else_y (conj live_eq (mk_not_expr (eq y3 x3))))) =
+  assert_norm (
+    not (FF.equivalent else_y (conj live_eq (mk_not_expr (eq y3 x3)))) /\
+    not (FF.equivalent else_y (conj live_eq (mk_not_expr (eq x3 x3)))) /\
+    not (FF.equivalent else_y (conj live_eq (mk_not_expr true_expr))) /\
+    not (FF.equivalent then_live (conj live_eq (eq y3 x3))) /\
+    not (FF.equivalent both_dead (conj false_expr (eq x7 x7))) /\
+    not (TN.equivalent else_y (conj live_eq (mk_not_expr (eq y3 x3)))))
+
+(* The condition is never assumed: the equality of the surviving branch alone, or paired
+   with a trivial conjunct instead of the condition, is not the conditional term. *)
+let test_ite_equal_numeral_condition_is_never_assumed () : Lemma (
+  not (FF.equivalent else_y live_eq) /\
+  not (FF.equivalent then_live live_eq) /\
+  not (FF.equivalent both_dead same7) /\
+  not (FF.equivalent else_y (conj live_eq true_expr)) /\
+  not (FF.equivalent then_live (conj true_expr live_eq)) /\
+  not (FF.equivalent else_y (conj live_eq live_eq)) /\
+  not (TN.equivalent else_y live_eq) /\
+  not (TN.equivalent else_y (conj live_eq true_expr))) =
+  assert_norm (
+    not (FF.equivalent else_y live_eq) /\
+    not (FF.equivalent then_live live_eq) /\
+    not (FF.equivalent both_dead same7) /\
+    not (FF.equivalent else_y (conj live_eq true_expr)) /\
+    not (FF.equivalent then_live (conj true_expr live_eq)) /\
+    not (FF.equivalent else_y (conj live_eq live_eq)) /\
+    not (TN.equivalent else_y live_eq) /\
+    not (TN.equivalent else_y (conj live_eq true_expr)))
+
+(* A branch is dropped only when it is a constant different from the numeral: a
+   branch equal to the numeral, or a symbolic branch, stays. *)
+let test_ite_equal_numeral_undecided_branch_is_rejected () : Lemma (
+  not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                     (conj live_eq (mk_not_expr same3))) /\
+  not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                     (conj live_eq same3)) /\
+  not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) (num 3 1)) (num 3 1)) (conj false_expr same3)) /\
+  not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) (num 3 1)) (num 3 1)) (conj false_expr (mk_not_expr same3))) /\
+  not (FF.equivalent (eq (ite_term 3 same3 x3 y3) (num 3 1)) (conj live_eq (mk_not_expr same3))) /\
+  not (FF.equivalent (eq (ite_term 3 same3 double_y3 y3) (num 3 1)) (conj false_expr same3)) /\
+  not (TN.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                     (conj live_eq (mk_not_expr same3)))) =
+  assert_norm (
+    not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                       (conj live_eq (mk_not_expr same3))) /\
+    not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                       (conj live_eq same3)) /\
+    not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) (num 3 1)) (num 3 1)) (conj false_expr same3)) /\
+    not (FF.equivalent (eq (ite_term 3 same3 (num 3 1) (num 3 1)) (num 3 1)) (conj false_expr (mk_not_expr same3))) /\
+    not (FF.equivalent (eq (ite_term 3 same3 x3 y3) (num 3 1)) (conj live_eq (mk_not_expr same3))) /\
+    not (FF.equivalent (eq (ite_term 3 same3 double_y3 y3) (num 3 1)) (conj false_expr same3)) /\
+    not (TN.equivalent (eq (ite_term 3 same3 (num 3 1) y3) (num 3 1))
+                       (conj live_eq (mk_not_expr same3))))
+
+(* Ill-typed terms: a condition that is not Boolean, branches of different sorts,
+   a numeral of another modulus, and a conditional term over another sort. *)
+let ill_typed_condition : expr = eq (ite_term 3 x3 (num 3 2) y3) (num 3 1)
+let mixed_branches : expr =
+  eq (App (Z3ArrayRewrite.term_ite_decl (FF.ff_sort 3)) [same3; num 3 2; num 5 1]) (num 3 1)
+let mixed_numeral : expr = eq (ite_term 3 same3 (num 3 2) y3) (num 5 1)
+let int_sort : sort = BaseSort "Int"
+let int_const (name:string) : expr =
+  App { decl_name = name; domain = []; range = int_sort; interp = None; int_params = [] } []
+let int_ite : expr =
+  eq (App { decl_name = "if"; domain = [bool_sort; int_sort; int_sort]; range = int_sort;
+            interp = Some op_ite; int_params = [] }
+         [same3; int_const "a"; int_const "b"]) (int_const "k")
+
+let test_ite_equal_numeral_ill_typed_is_rejected () : Lemma (
+  not (FF.equivalent ill_typed_condition (conj live_eq (mk_not_expr x3))) /\
+  not (FF.equivalent ill_typed_condition (conj live_eq x3)) /\
+  not (FF.equivalent mixed_branches (conj (eq (num 5 1) (num 3 1)) (mk_not_expr same3))) /\
+  not (FF.equivalent mixed_branches (conj false_expr same3)) /\
+  not (FF.equivalent mixed_numeral (conj live_eq (mk_not_expr same3))) /\
+  not (FF.equivalent mixed_numeral (conj (eq y3 (num 5 1)) (mk_not_expr same3))) /\
+  not (FF.equivalent int_ite (conj (eq (int_const "b") (int_const "k")) (mk_not_expr same3))) /\
+  not (FF.equivalent else_y (conj (eq y3 wrong_sort_numeral) (mk_not_expr same3))) /\
+  not (TN.equivalent ill_typed_condition (conj live_eq (mk_not_expr x3)))) =
+  assert_norm (
+    not (FF.equivalent ill_typed_condition (conj live_eq (mk_not_expr x3))) /\
+    not (FF.equivalent ill_typed_condition (conj live_eq x3)) /\
+    not (FF.equivalent mixed_branches (conj (eq (num 5 1) (num 3 1)) (mk_not_expr same3))) /\
+    not (FF.equivalent mixed_branches (conj false_expr same3)) /\
+    not (FF.equivalent mixed_numeral (conj live_eq (mk_not_expr same3))) /\
+    not (FF.equivalent mixed_numeral (conj (eq y3 (num 5 1)) (mk_not_expr same3))) /\
+    not (FF.equivalent int_ite (conj (eq (int_const "b") (int_const "k")) (mk_not_expr same3))) /\
+    not (FF.equivalent else_y (conj (eq y3 wrong_sort_numeral) (mk_not_expr same3))) /\
+    not (TN.equivalent ill_typed_condition (conj live_eq (mk_not_expr x3))))
+
+(* Modulo 4 the element 2 has no inverse: the branch 2 is still different from 0 by a
+   nonzero constant, but 2*y = 0 is not rewritten to y = 0. *)
+let test_ite_equal_numeral_uses_no_unit () : Lemma (
+  (let c = eq (const 4 "x") (const 4 "y") in
+   let y = const 4 "y" in
+   let a = eq (ite_term 4 c (num 4 2) (mul 4 [num 4 2; y])) (num 4 0) in
+   FF.equivalent a (conj (eq (mul 4 [num 4 2; y]) (num 4 0)) (mk_not_expr c)) /\
+   not (FF.equivalent a (conj (eq y (num 4 0)) (mk_not_expr c))))) =
+  assert_norm (
+    (let c = eq (const 4 "x") (const 4 "y") in
+     let y = const 4 "y" in
+     let a = eq (ite_term 4 c (num 4 2) (mul 4 [num 4 2; y])) (num 4 0) in
+     FF.equivalent a (conj (eq (mul 4 [num 4 2; y]) (num 4 0)) (mk_not_expr c)) /\
+     not (FF.equivalent a (conj (eq y (num 4 0)) (mk_not_expr c)))))

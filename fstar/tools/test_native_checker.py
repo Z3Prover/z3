@@ -71,7 +71,8 @@ RULE_EXTENSION_CASES = (
 )
 
 # Rewrite steps of the Pulse QF_FF certificates (z3test generator, seed 40244844124).
-# Their proofs contain only `rewrite` steps decided by polynomial arithmetic modulo p.
+# Their proofs contain only `rewrite` steps decided by polynomial arithmetic modulo p, or by
+# comparing an ite with a numeral.
 def finite_field(prime, assertion):
     return (f"(set-logic QF_FF)(define-sort F () (_ FiniteField {prime}))"
             f"(declare-const x F)(declare-const y F)(assert {assertion})")
@@ -111,6 +112,14 @@ FINITE_FIELD_CASES = (
      "(and (= (ff.mul (ite (= x y) (as ff-4 F) y) (ff.add x x))"
      " (ff.add (ff.neg (as ff-7 F)) (ff.bitsum x (as ff11 F))))"
      " (= x (ff.mul (ff.neg x) (ff.bitsum (as ff7 F) (as ff-3 F)))))")),
+    # An ite compared with a numeral (field-3/case-02, field-7/case-01): a branch that differs
+    # from the numeral by a nonzero constant is dropped and the condition selects the other.
+    ("ff-3-ite-equal-numeral", finite_field(3,
+     "(and (= (ite (= x y) (ff.neg (as ff1 F)) (ff.bitsum y y)) (as ff1 F))"
+     " (= y (ite (= x y) (ff.add x y) (ff.mul (as ff5 F) y))))")),
+    ("ff-7-ite-equal-numeral", finite_field(7,
+     "(and (= (ff.bitsum (as ff2 F) (ff.neg y)) (ff.neg (ff.bitsum y y)))"
+     " (= (ite (= x y) (ff.neg (as ff9 F)) (as ff-13 F)) (as ff-4 F)))")),
 )
 RULE_EXTENSION_CASES += FINITE_FIELD_CASES
 

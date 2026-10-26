@@ -822,19 +822,123 @@ let lemma_eq_eq_equivalent (i:interpretation value) (rho:env value) (project:int
     lemma_bool_iff i rho a b
 
 (* ----------------------------------------------------------------- *)
+(* A conditional term compared with a numeral                          *)
+(* ----------------------------------------------------------------- *)
+
+(* The Boolean `x` has the truth value of the finite-field equality `atom`:
+   it is that equality, a constant it is decided to equal, or another
+   finite-field equality with a unit-proportional difference. *)
+let atom_equivalent (atom x:expr) : bool =
+  x = atom || eq_truth_equivalent atom x || eq_eq_equivalent atom x
+
+let lemma_atom_equivalent (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                          (atom x:expr)
+  : Lemma (requires ff_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+                    atom_equivalent atom x)
+          (ensures eval i atom rho == eval i x rho)
+  = if x = atom then ()
+    else if eq_truth_equivalent atom x then lemma_eq_truth_equivalent i rho project atom x
+    else lemma_eq_eq_equivalent i rho project atom x
+
+(* The parts of `(= (ite c t u) k)` and of the binary conjunction `(and x y)`. *)
+let ite_eq_parts (a:expr) : option (expr & expr & expr & expr) =
+  match eq_parts a with
+  | Some (l, k) ->
+    (match Z3ArrayRewrite.ite_parts l with
+     | Some (c, t, u) -> Some (c, t, u, k)
+     | None -> None)
+  | None -> None
+
+let conjunction_parts (b:expr) : option (expr & expr) =
+  match b with
+  | App f [x; y] ->
+    if Z3BooleanRewrite.connective_app Z3BooleanRewrite.Conjunction f [x; y]
+    then Some (x, y) else None
+  | _ -> None
+
+(* `(= (ite c t u) k)` equals `(and x (not c))` when the equality `t = k` is
+   decided false and `x` is the equality `u = k`, and `(and x c)` when `u = k`
+   is decided false and `x` is the equality `t = k`. A branch is decided
+   false by a nonzero constant difference, so no inverse is needed. *)
+let ite_eq_equivalent (a b:expr) : bool =
+  match ite_eq_parts a, conjunction_parts b with
+  | Some (c, t, u, k), Some (x, y) ->
+    let at = mk_eq_expr t k in
+    let au = mk_eq_expr u k in
+    (y = mk_not_expr c && eq_truth_equivalent at false_expr && atom_equivalent au x) ||
+    (y = c && eq_truth_equivalent au false_expr && atom_equivalent at x)
+  | _, _ -> false
+
+let lemma_eq_lit (i:interpretation value) (rho:env value) (e s t:expr)
+  : Lemma (requires Z3BooleanRewrite.boolean_rewrite_model i /\ eq_parts e == Some (s, t))
+          (ensures lit_true i rho e <==> eval i s rho == eval i t rho)
+  = match e with
+    | App f [_; _] -> assert (f.decl_name == "=")
+    | _ -> ()
+
+let lemma_false_atom (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                     (atom:expr)
+  : Lemma (requires ff_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+                    eq_truth_equivalent atom false_expr)
+          (ensures ~(lit_true i rho atom))
+  = lemma_eq_truth_equivalent i rho project atom false_expr;
+    assert (eval i false_expr rho == VBool false)
+
+let lemma_not_lit (i:interpretation value) (rho:env value) (c:expr)
+  : Lemma (requires Z3BooleanRewrite.boolean_rewrite_model i /\ get_sort c == bool_sort)
+          (ensures lit_true i rho (mk_not_expr c) <==> ~(lit_true i rho c))
+  = match eval i c rho with
+    | VBool _ -> ()
+    | _ -> ()
+
+let lemma_conjunction_lit (i:interpretation value) (rho:env value) (b x y:expr)
+  : Lemma (requires Z3BooleanRewrite.boolean_rewrite_model i /\ conjunction_parts b == Some (x, y))
+          (ensures lit_true i rho b <==> (lit_true i rho x /\ lit_true i rho y))
+  = assert_norm (conj_holds i rho [x; y] <==> (lit_true i rho x /\ lit_true i rho y));
+    match b with
+    | App f [_; _] -> assert (f.decl_name == "and")
+    | _ -> ()
+
+let lemma_ite_eq_equivalent (i:interpretation value) (rho:env value) (project:int -> value -> int)
+                            (a b:expr)
+  : Lemma (requires ff_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
+                    Z3ArrayRewrite.term_ite_sound i /\ ite_eq_equivalent a b)
+          (ensures eval i a rho == eval i b rho)
+  = let (l, k) = Some?.v (eq_parts a) in
+    let (c, t, u) = Some?.v (Z3ArrayRewrite.ite_parts l) in
+    let (x, y) = Some?.v (conjunction_parts b) in
+    let at = mk_eq_expr t k in
+    let au = mk_eq_expr u k in
+    lemma_eq_lit i rho a l k;
+    Z3ArrayRewrite.lemma_ite_parts i rho l c t u;
+    assert (get_sort t == get_sort k);
+    lemma_eq_lit i rho at t k;
+    lemma_eq_lit i rho au u k;
+    lemma_conjunction_lit i rho b x y;
+    if y = mk_not_expr c then (
+      lemma_false_atom i rho project at;
+      lemma_atom_equivalent i rho project au x;
+      lemma_not_lit i rho c)
+    else (
+      lemma_false_atom i rho project au;
+      lemma_atom_equivalent i rho project at x);
+    lemma_bool_iff i rho a b
+
+(* ----------------------------------------------------------------- *)
 (* Entry point                                                         *)
 (* ----------------------------------------------------------------- *)
 
 let equivalent (a b:expr) : bool =
   term_equivalent a b || eq_eq_equivalent a b ||
-  eq_truth_equivalent a b || eq_truth_equivalent b a
+  eq_truth_equivalent a b || eq_truth_equivalent b a || ite_eq_equivalent a b
 
 let lemma_equivalent (i:interpretation value) (rho:env value) (project:int -> value -> int)
                      (a b:expr)
   : Lemma (requires ff_model i project /\ Z3BooleanRewrite.boolean_rewrite_model i /\
-                    equivalent a b)
+                    Z3ArrayRewrite.term_ite_sound i /\ equivalent a b)
           (ensures eval i a rho == eval i b rho)
   = if term_equivalent a b then lemma_term_equivalent i rho project a b
     else if eq_eq_equivalent a b then lemma_eq_eq_equivalent i rho project a b
     else if eq_truth_equivalent a b then lemma_eq_truth_equivalent i rho project a b
-    else lemma_eq_truth_equivalent i rho project b a
+    else if eq_truth_equivalent b a then lemma_eq_truth_equivalent i rho project b a
+    else lemma_ite_eq_equivalent i rho project a b
