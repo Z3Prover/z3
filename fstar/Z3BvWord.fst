@@ -285,11 +285,27 @@ let rec lemma_append_number (xs ys:list bool)
           (decreases xs)
   = match xs with
     | [] -> ()
-    | _ :: rest ->
-      lemma_append_number rest ys;
-      M.pow2_plus 1 (L.length rest);
-      assert_norm (pow2 1 == 2);
-      M.paren_mul_right 2 (pow2 (L.length rest)) (BV.bits_number ys)
+    | b :: rest ->
+      let n = L.length rest in
+      let nr = BV.bits_number rest in
+      let ny = BV.bits_number ys in
+      let d = if b then 1 else 0 in
+      calc (==) {
+        BV.bits_number (xs @ ys);
+        == { }
+        d + 2 * BV.bits_number (rest @ ys);
+        == { lemma_append_number rest ys }
+        d + 2 * (nr + pow2 n * ny);
+        == { M.distributivity_add_right 2 nr (pow2 n * ny) }
+        (d + 2 * nr) + 2 * (pow2 n * ny);
+        == { M.paren_mul_right 2 (pow2 (L.length rest)) (BV.bits_number ys) }
+        (d + 2 * nr) + (2 * pow2 n) * ny;
+        == { M.pow2_plus 1 (L.length rest); assert_norm (pow2 1 == 2);
+             assert (pow2 (1 + n) == 2 * pow2 n) }
+        (d + 2 * nr) + pow2 (1 + n) * ny;
+        == { }
+        BV.bits_number xs + pow2 (L.length xs) * ny;
+      }
 
 let rec lemma_append_args (i:interpretation value) (rho:env value) (xs ys:list expr)
   : Lemma (requires D.scoped_args [] xs /\ D.scoped_args [] ys /\

@@ -82,6 +82,36 @@ class DirectCheckerTests(unittest.TestCase):
                    if os.name == "nt" else [os.path.expanduser(checker), *args])
         return subprocess.run(command, input=source, text=True, capture_output=True, timeout=30)
 
+    def test_zero_extension_refutations_and_counterexamples(self):
+        for width, extra in ((1, 0), (1, 1), (8, 24), (65, 65), (1, 4095)):
+            declarations = f"(declare-const x (_ BitVec {width}))"
+            extension = f"((_ zero_extend {extra}) x)"
+            target = f"(concat (_ bv0 {extra}) x)" if extra else "x"
+            source = declarations + f"(assert (not (= {extension} {target})))"
+            for interactive in (False, True):
+                with self.subTest(width=width, extra=extra, interactive=interactive):
+                    args = ["--diagnostics"]
+                    if interactive:
+                        args.append("--interactive")
+                    result = self.run_checker(source + ("(check-sat)" if interactive else ""), *args)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("; proof-check ACCEPT" if interactive else "ACCEPT", result.stdout)
+                    self.assertNotIn("obligation\t", result.stderr)
+        for assertion in (
+                "(not (= ((_ zero_extend 24) #xff) #x000000ff))",
+                "(= ((_ zero_extend 24) #xff) #xffffffff)"):
+            result = self.run_checker(f"(assert {assertion})", "--diagnostics")
+            self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                             result.stdout + result.stderr)
+        for source in (
+                "(declare-const x (_ BitVec 8))"
+                "(assert (not (= ((_ zero_extend 24) x) (concat (_ bv1 24) x))))",
+                "(declare-const x (_ BitVec 1))"
+                "(assert (not (= ((_ zero_extend 1) x) (concat x #b0))))"):
+            result = self.run_checker(source, "--diagnostics")
+            self.assertEqual((result.returncode, result.stdout.strip()), (4, "SAT"),
+                             result.stdout + result.stderr)
+
     def test_checked_boolean_equality_and_array_refutations(self):
         for source in (
                 "(assert false)",

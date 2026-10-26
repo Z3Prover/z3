@@ -320,6 +320,25 @@ let lemma_word (r:F.reconstruction) (i:interpretation value)
     assert (BV.word_parts (retract symbols n e) == Some (width, ras));
     lemma_word_value i project rho (retract symbols n e) width ras
 
+let lemma_zero_extend (r:F.reconstruction) (i:interpretation value)
+                       (project:pos -> value -> int) (rho:env value) (e:expr) (s:BV.zero_extension)
+  : Lemma (requires F.valid r /\ BV.bv_model i project /\
+                    SM.literal_model i /\ quant_extensional i /\
+                    D.scoped [] e /\ BV.zero_extend_parts e == Some s)
+          (ensures (let j = F.extend r i project in
+                    project (s.BV.input_width + s.BV.extra_width) (eval j e rho) ==
+                      project s.BV.input_width (eval j s.BV.argument rho)))
+  = let symbols = r.F.symbols in
+    let n = F.number r i project in
+    lemma_retract_shape symbols n [] e;
+    lemma_retract_shape symbols n [] s.BV.argument;
+    lemma_eval_retract r i project rho e;
+    lemma_eval_retract r i project rho s.BV.argument;
+    let rs = { s with BV.argument = retract symbols n s.BV.argument } in
+    (match e with App f args -> lemma_retract_app symbols n f args | _ -> ());
+    assert (BV.zero_extend_parts (retract symbols n e) == Some rs);
+    BV.lemma_zero_extend_parts i rho project (retract symbols n e) rs
+
 let lemma_bv_model (r:F.reconstruction) (i:interpretation value) (project:pos -> value -> int)
   : Lemma (requires F.valid r /\ BV.bv_model i project /\
                     SM.literal_model i /\ quant_extensional i)
@@ -379,6 +398,13 @@ let lemma_bv_model (r:F.reconstruction) (i:interpretation value) (project:pos ->
             project c.BV.right_width (eval j c.BV.right rho))
       = if D.scoped [] e && BV.concat_parts e = Some c then lemma_concat r i project rho e c in
     FStar.Classical.forall_intro_3 concat;
+    let zero_extend (e:expr) (rho:env value) (s:BV.zero_extension)
+      : Lemma (D.scoped [] e /\ BV.zero_extend_parts e == Some s ==>
+          project (s.BV.input_width + s.BV.extra_width) (eval j e rho) ==
+            project s.BV.input_width (eval j s.BV.argument rho))
+      = if D.scoped [] e && BV.zero_extend_parts e = Some s
+        then lemma_zero_extend r i project rho e s in
+    FStar.Classical.forall_intro_3 zero_extend;
     let word (e:expr) (rho:env value) (width:pos) (args:list expr)
       : Lemma (D.scoped [] e /\ BV.word_parts e == Some (width, args) ==>
           project width (eval j e rho) == BV.bits_number (BV.bit_values j rho args))

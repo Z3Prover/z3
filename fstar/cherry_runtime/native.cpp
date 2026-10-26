@@ -132,6 +132,7 @@ static Z3Native_operator operator_of(Z3_decl_kind kind) {
     OP(BADD, BVADD); OP(BMUL, BVMUL); OP(BSUB, BVSUB); OP(BNEG, BVNEG);
     OP(BUDIV, BVUDIV); OP(BUREM, BVUREM); OP(EXTRACT, BVEXTRACT);
     OP(CONCAT, BVCONCAT); OP(MKBV, BVMKBV); OP(ULT, BVULT); OP(ULEQ, BVULE);
+    OP(ZERO_EXT, BVZEROEXTEND);
     OP(UGEQ, BVUGE); OP(CONST_ARRAY, CONSTARRAY); OP(DT_CONSTRUCTOR, DATATYPECONSTRUCTOR);
     OP(DT_RECOGNISER, DATATYPERECOGNIZER); OP(DT_IS, DATATYPERECOGNIZER);
     OP(DT_ACCESSOR, DATATYPEACCESSOR); OP(SEQ_CONCAT, CONCAT); OP(ADD, ADD); OP(MUL, MUL);
@@ -186,6 +187,12 @@ static std::vector<cherry_int> parameters(Z3_func_decl decl, Z3_sort range, Z3Na
         return {width(Z3_get_domain(c, decl, 0)),
             cherry_int_of_i64(Z3_get_decl_int_parameter(c, decl, 0)),
             cherry_int_of_i64(Z3_get_decl_int_parameter(c, decl, 1))};
+    case Z3NATIVE_BVZEROEXTEND:
+        if (Z3_get_decl_num_parameters(c, decl) != 1 || Z3_get_domain_size(c, decl) != 1 ||
+            Z3_get_decl_parameter_kind(c, decl, 0) != Z3_PARAMETER_INT)
+            throw NativeError("Malformed native bit-vector zero extension");
+        return {width(Z3_get_domain(c, decl, 0)),
+            cherry_int_of_i64(Z3_get_decl_int_parameter(c, decl, 0))};
     case Z3NATIVE_BVCONCAT: {
         std::vector<cherry_int> result;
         for (unsigned i = 0, n = Z3_get_domain_size(c, decl); i < n; ++i)
