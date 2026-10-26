@@ -1,0 +1,16 @@
+{
+  "corpus_path": "regressions/proofs",
+  "corpus_commit": "55563df168f1c88217075fe94941a7bf6f9308a9",
+  "z3_commit": "cac2045d79f4fc17dcea01f321507a6c14d5754c",
+  "checker_version": "5.3.2.0",
+  "discovered": 3,
+  "paths": [
+    "regressions/proofs/canaries/array_axiom_log.smt2",
+    "regressions/proofs/canaries/real_numeral_farkas.smt2",
+    "regressions/proofs/lean/real/lra_lassoranker.smt2"
+  ],
+  "solver_timeout_ms": 10000,
+  "case_timeout_seconds": 60.0,
+  "total_timeout_seconds": 1800.0,
+  "memory_limit_mb": 2048
+}

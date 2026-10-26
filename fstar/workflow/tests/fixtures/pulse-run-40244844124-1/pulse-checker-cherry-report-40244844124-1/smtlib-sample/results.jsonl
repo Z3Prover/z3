@@ -1,0 +1,3 @@
+{"path": "QF_AUFLIA/swap/swap_t3_pp_nf_ai_00010_007.cvc.smt2", "stdout": "logs/000049.stdout", "stderr": "logs/000049.stderr", "returncode": -11, "wall_seconds": 3.974865491999992, "verdict": "", "outcome": "CRASH", "logic": "QF_AUFLIA", "input_sha256": "647a39f71331fa42b23da1ba23fc721049efa76ae91ea1befffc3d17db697f43"}
+{"path": "QF_IDL/Averest/selection_sort/SelectionSort_safe_bgmc004.smt2", "stdout": "logs/000079.stdout", "stderr": "logs/000079.stderr", "returncode": null, "outcome": "TIMEOUT", "wall_seconds": 60.012316376, "verdict": "", "logic": "QF_IDL", "input_sha256": "cab0d07d29b080565b7e75cceaa83c7f670fd3dc10acb5bc88d11d81761cefd4"}
+{"path": "AUFLIA/20170829-Rodin/smt1466476118461907436.smt2"

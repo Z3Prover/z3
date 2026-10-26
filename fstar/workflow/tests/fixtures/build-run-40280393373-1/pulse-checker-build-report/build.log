@@ -1,0 +1,38 @@
+Verifying Z3IntegerDivision.fst
+Z3IntegerDivision.lemma_cancel_scale, profiled FStarC.TypeChecker.Tc.process_one_decl:	 18 ms
+Z3IntegerDivision.lemma_upper_bound, profiled FStarC.TypeChecker.Tc.process_one_decl:	 13545 ms
+Z3IntegerDivision.lemma_residual_bound, profiled FStarC.TypeChecker.Tc.process_one_decl:	 12637 ms
+Verifying Z3BvWord.fst
+Z3BvWord.lemma_split_shape, profiled FStarC.TypeChecker.Tc.process_one_decl:	 255 ms
+Z3BvWord.lemma_split_values, profiled FStarC.TypeChecker.Tc.process_one_decl:	 93 ms
+Z3BvWord.lemma_split_number, profiled FStarC.TypeChecker.Tc.process_one_decl:	 1420 ms
+Z3BvWord.extract_rewrite, profiled FStarC.TypeChecker.Tc.process_one_decl:	 39 ms
+Z3BvWord.lemma_split_divmod, profiled FStarC.TypeChecker.Tc.process_one_decl:	 340 ms
+Z3BvWord.lemma_extract_rewrite, profiled FStarC.TypeChecker.Tc.process_one_decl:	 509 ms
+* Error 19 at Z3BvWord.fst(290,6-290,35):
+  - Subtyping check failed
+  - Expected type
+      Prims.squash (Z3BvLemma.bits_number (xs @ ys) ==
+          Z3BvLemma.bits_number xs +
+          Prims.pow2 (FStar.List.Tot.Base.length xs) * Z3BvLemma.bits_number ys)
+    got type
+      Prims.squash (Prims.pow2 1 * Prims.pow2 (FStar.List.Tot.Base.length rest) =
+          Prims.pow2 (1 + FStar.List.Tot.Base.length rest))
+  - The SMT query timed out, you might want to increase the rlimit
+  - Failed to prove:
+      Z3BvLemma.bits_number (xs @ ys) ==
+      Z3BvLemma.bits_number xs +
+      Prims.pow2 (FStar.List.Tot.Base.length xs) * Z3BvLemma.bits_number ys
+  - In context:
+      Nil? xs ==>
+      xs == [] ==>
+      Z3BvLemma.bits_number (xs @ ys) ==
+      Z3BvLemma.bits_number xs +
+      Prims.pow2 (FStar.List.Tot.Base.length xs) * Z3BvLemma.bits_number ys
+      ~(Nil? xs) /\ Cons? xs
+      uu___: Prims.bool
+      rest: Prims.list Prims.bool
+      xs == _ :: rest
+      rest << xs
+Z3BvWord.lemma_append_number, profiled FStarC.TypeChecker.Tc.process_one_decl:	 5287 ms
+1 error was reported (see above)

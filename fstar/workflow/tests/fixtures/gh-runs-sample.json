@@ -1,0 +1,13 @@
+{
+  "regressions": [
+    {"attempt":1,"conclusion":"skipped","createdAt":"2026-10-26T07:09:21Z","databaseId":40284045659,"headBranch":"master","status":"completed"},
+    {"attempt":1,"conclusion":"action_required","createdAt":"2026-10-26T01:01:35Z","databaseId":40252164968,"headBranch":"master","status":"completed"},
+    {"attempt":1,"conclusion":"failure","createdAt":"2026-10-25T23:27:25Z","databaseId":40244844124,"headBranch":"master","status":"completed"},
+    {"attempt":1,"conclusion":"failure","createdAt":"2026-10-25T23:23:51Z","databaseId":40244573105,"headBranch":"master","status":"completed"}
+  ],
+  "build": [
+    {"attempt":1,"conclusion":"failure","createdAt":"2026-10-26T06:32:09Z","databaseId":40280393373,"headBranch":"master","status":"completed"},
+    {"attempt":1,"conclusion":"failure","createdAt":"2026-10-26T06:12:12Z","databaseId":40278436680,"headBranch":"master","status":"completed"},
+    {"attempt":1,"conclusion":"success","createdAt":"2026-10-25T20:00:00Z","databaseId":40200000000,"headBranch":"master","status":"completed"}
+  ]
+}
