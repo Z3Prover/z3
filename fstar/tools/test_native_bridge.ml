@@ -2947,6 +2947,77 @@ let scoped_model_extension () =
   require (not (U.check_step U.RewriteRule (U.Equal (F.source r, F.word r)) []))
     "scoped-model theorem enabled unconditional reconstruction acceptance"
 
+let array_unequal_defaults () =
+  let c = context () in
+  let expression declarations text =
+    let inputs = parse c (declarations ^ "(assert " ^ text ^ ")") in
+    let st = B.marshal_expressions (B.empty_state ()) inputs in
+    B.cached_expression st (List.hd inputs) in
+  let check expected declarations left right =
+    let a = expression declarations left in
+    let b = expression declarations right in
+    require (U.check_step U.RewriteRule (U.Equal (a, b)) [] = expected)
+      ("incorrect array rewrite: " ^ left ^ " -> " ^ right) in
+  let left = "(store ((as const (Array Int Int)) 0) 2 3)" in
+  let right = "(store ((as const (Array Int Int)) 1) 2 3)" in
+  let source = "(= " ^ left ^ " " ^ right ^ ")" in
+  let target = "(and (= 3 3) (= 3 3) (= 0 1))" in
+  check true "" source target;
+  check true "" target source;
+  check true "" source "false";
+  check false "" source "true";
+  check false "" source "(and (= 3 3) (= 3 3) (= 0 0))";
+  check false "" ("(= " ^ left ^ " " ^ left ^ ")") target;
+  check true "(declare-const i Int)(declare-const j Int)(declare-const v Int)"
+    ("(= (store (store " ^ left ^ " i 1) i 0) (store " ^ right ^ " j v))")
+    "false";
+  check true "" "(= ((as const (Array Int Int)) (- 8)) \
+                      (store ((as const (Array Int Int)) 5) (- 400) 17))" "false";
+  require (not (Z3ArrayEquality.unequal_defaults
+    (expression "" "(= ((as const (Array Real Int)) 0) \
+                        ((as const (Array Real Int)) 1))")))
+    "Int-only default rule accepted Real indices";
+  List.iter (fun (sort, first, second) ->
+      let chain n = Printf.sprintf
+        "(store (store ((as const (Array %s Int)) %d) %s 3) %s 3)"
+        sort n first second in
+      check false "" ("(= " ^ chain 0 ^ " " ^ chain 1 ^ ")") "false")
+    ["Bool", "false", "true"; "(_ BitVec 1)", "#b0", "#b1"];
+  let a = expression "" source in
+  let expect_no_rule e =
+    require (not (Z3ArrayEquality.unequal_defaults e))
+      "malformed declaration passed array default checker";
+    require (not (U.check_step U.RewriteRule
+                    (U.Equal (e, Z3ResolutionProofTheory.false_expr)) []))
+      "malformed declaration passed full rewrite checker" in
+  let mutate_decl f =
+    [{ f with A.interp = None };
+     { f with A.decl_name = "forged" };
+     { f with A.domain = [] };
+     { f with A.range = A.BaseSort "Wrong" };
+     { f with A.int_params = [Z.one] }] in
+  (match a with
+   | A.App (eq, [A.App (st, [A.App (co, [v]); k; w]); b]) ->
+     List.iter (fun f -> expect_no_rule (A.App (f, [
+       A.App (st, [A.App (co, [v]); k; w]); b]))) (mutate_decl eq);
+     List.iter (fun f -> expect_no_rule (A.App (eq, [
+       A.App (f, [A.App (co, [v]); k; w]); b]))) (mutate_decl st);
+     List.iter (fun f -> expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (f, [v]); k; w]); b]))) (mutate_decl co);
+     expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (co, [v]); Z3ResolutionProofTheory.true_expr; w]); b]));
+     expect_no_rule (A.App (eq, [
+       A.App (st, [A.App (co, [v]); k; Z3ResolutionProofTheory.true_expr]); b]))
+   | _ -> failwith "unexpected array test shape");
+  let doc = document ("(assert " ^ source ^ ")") in
+  require (P.check_document doc = Some Z.zero)
+    "native unequal-default array refutation retained an obligation";
+  require (List.exists (fun entry -> entry.P.rule = U.RewriteRule &&
+      match U.classify_fact entry.P.formula with
+      | Some (U.Equal (a, b)) -> Z3TheoryNormalize.equivalent a b
+      | _ -> false) doc.P.entries)
+    "array reproducer did not exercise a verified rewrite"
+
 let arithmetic_rewrites () =
   let c = context () in
   let check expected declarations left right =
@@ -3320,6 +3391,7 @@ let () =
      "checked-integer-division-axioms", integer_division_axioms;
      "typed-observations-and-root-guard", typed_observations;
      "checked-arithmetic-rewrites", arithmetic_rewrites;
+     "checked-array-unequal-defaults", array_unequal_defaults;
      "checked-bit-vector-rewrites", bv_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
      "checked-fresh-bit-context-extension", fresh_bit_context_extension;

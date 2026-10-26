@@ -218,9 +218,11 @@ let rec check_entries_with_lookup (skolems:list SK.definition) (strict bound:boo
   match entries with
   | [] -> Some (acc, trusted)
   | e :: rest ->
-    check_entry_with_lookup skolems strict bound defs assertions contains acc e >>= (fun nt ->
-    check_entries_with_lookup skolems strict bound defs assertions contains (index_put acc next (fst nt))
-                  (next + 1) (trusted + snd nt) rest)
+    match check_entry_with_lookup skolems strict bound defs assertions contains acc e with
+    | None -> None
+    | Some (fact, local) ->
+      check_entries_with_lookup skolems strict bound defs assertions contains (index_put acc next fact)
+        (next + 1) (trusted + local) rest
 
 let check_entries (skolems:list SK.definition) (strict bound:bool) (defs:list D.definition) (assertions:list judgment)
                   (acc:index_tree checked_fact) (next trusted:nat) (entries:list entry)
@@ -249,9 +251,11 @@ let rec check_entries_using (check:entry_checker) (skolems:list SK.definition)
   match entries with
   | [] -> Some (acc, trusted)
   | e :: rest ->
-    check skolems strict bound defs assertions contains acc e >>= (fun nt ->
-    check_entries_using check skolems strict bound defs assertions contains (index_put acc next (fst nt))
-      (next + 1) (trusted + snd nt) rest)
+    match check skolems strict bound defs assertions contains acc e with
+    | None -> None
+    | Some (fact, local) ->
+      check_entries_using check skolems strict bound defs assertions contains (index_put acc next fact)
+        (next + 1) (trusted + local) rest
 
 let lemma_check_entry_lookup (skolems:list SK.definition) (strict bound:bool) (defs:list D.definition)
                              (assertions:list judgment) (contains:judgment -> bool)

@@ -37,6 +37,20 @@ let large_axiom_scan () : bool =
      repeat_entries 200000 (entry U.Asserted R.false_expr) [entry U.DefAxiom last]) =
     [first; last]
 
+let large_documents () : bool =
+  let good = fixture U.Asserted in
+  let entry = { P.rule = U.Asserted; P.formula = R.false_expr; P.premise_ids = [] } in
+  let document = { good with C.document = {
+    good.document with
+      P.entries = repeat_entries 20000 entry [];
+      P.root = 19999 } } in
+  let bad = { entry with P.rule = U.Reflexivity } in
+  let rejected = { document with C.document = {
+    document.document with P.entries = repeat_entries 19999 entry [bad] } } in
+  C.check false document = Some 0 &&
+  C.check true document = Some 0 &&
+  C.check false rejected = None
+
 let shared_decl : A.func_decl = {
   A.decl_name = "shared"; A.domain = [A.bool_sort; A.bool_sort];
   A.range = A.bool_sort; A.interp = None; A.int_params = [];
@@ -75,4 +89,5 @@ let run () : bool =
   C.check false pending = Some 1 &&
   C.check true pending = Some 1 &&
   large_axiom_scan () &&
+  large_documents () &&
   bounded_conditional_rewrite ()
