@@ -63,7 +63,10 @@ namespace smt {
         if (e) {
             literal lit = mk_eq(e, n, false);
             ctx.mark_as_relevant(lit);
-            ctx.assign(lit, nullptr);
+            if (m.proofs_enabled())
+                ctx.mk_th_axiom(get_id(), lit);
+            else
+                ctx.assign(lit, nullptr);
         }
 
     }

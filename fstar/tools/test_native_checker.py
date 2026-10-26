@@ -116,6 +116,30 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
                          result.stderr)
 
+    def test_underspecified_arithmetic_aliases_do_not_leave_open_hypotheses(self):
+        source = (
+            "(declare-fun a () Real)"
+            "(assert (< (/ 1 0 a) 1))"
+            "(assert (forall ((b Real)) (= (/ (/ 0 (- b)) 0) 0)))"
+            "(assert (forall ((c Real)) (forall ((d Real)) (forall ((e Real))"
+            "  (>= (* e c) 2 (* d (/ 1 c) (/ 0 c)))))))")
+        for solver in (2, 6):
+            for interactive in (False, True):
+                with self.subTest(solver=solver, interactive=interactive):
+                    text = f"(set-option :smt.arith.solver {solver})" + source
+                    args = ["--diagnostics", "--timeout-ms", "10000"]
+                    if interactive:
+                        text += "(check-sat)"
+                        args.append("--interactive")
+                    result = self.run_checker(text, *args)
+                    self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                    if interactive:
+                        self.assertRegex(result.stdout,
+                                         r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+                    else:
+                        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+                    self.assertNotIn("stage=open-root", result.stderr)
+
     def test_sorted_core_certifies_boolean_and_euf_proofs_in_both_modes(self):
         for source in (
                 "(declare-const p Bool)(assert p)(assert (not p))",

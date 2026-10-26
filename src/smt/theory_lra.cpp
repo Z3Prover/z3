@@ -328,7 +328,10 @@ class theory_lra::imp {
         if (e) {
             literal lit = th.mk_eq(e, n, false);
             ctx().add_relevancy_dependency(n, ctx().bool_var2expr(lit.var()));
-            ctx().assign(lit, nullptr);
+            if (proofs_enabled())
+                ctx().mk_th_axiom(get_id(), lit);
+            else
+                ctx().assign(lit, nullptr);
         }
 
     }
@@ -1299,7 +1302,10 @@ public:
         if (can_be_underspecified) {
             literal lit = th.mk_eq(p, a.mk_power0(x, y), false);
             ctx().mark_as_relevant(lit);
-            ctx().assign(lit, nullptr);
+            if (proofs_enabled())
+                ctx().mk_th_axiom(get_id(), lit);
+            else
+                ctx().assign(lit, nullptr);
         }
     }
 
