@@ -2,6 +2,7 @@ set(python_example_files
   all_interval_series.py
   complex/complex.py
   example.py
+  open_assumptions.py
   hamiltonian/hamiltonian.py
   mus/marco.py
   mus/mss.py
@@ -12,6 +13,7 @@ set(python_example_files
   socrates.py
   test_proof_certificate.py
   test_complex.py
+  test_open_assumptions.py
   test_proof_to_lean.py
   test_proof_to_lean_arith.py
   test_proof_to_lean_integration.py

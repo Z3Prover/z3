@@ -7886,6 +7886,10 @@ class Solver(Z3PPObject):
     def check(self, *assumptions):
         """Check whether the assertions in the given solver plus the optional assumptions are consistent or not.
 
+        The SMT solver accepts open predicate assumptions p(Var(n-1), ..., Var(0)).
+        Each internalized ground application of p is assumed true for this check.
+        Other solver backends may reject open assumptions.
+
         >>> x = Int('x')
         >>> s = Solver()
         >>> s.check()
@@ -7944,6 +7948,9 @@ class Solver(Z3PPObject):
 
     def unsat_core(self):
         """Return a subset (as an AST vector) of the assumptions provided to the last check().
+
+        For open predicate assumptions, the core instead contains ground instances
+        of the predicates, which need not occur among the input assumptions.
 
         These are the assumptions Z3 used in the unsatisfiability proof.
         Assumptions are available in Z3. They are used to extract unsatisfiable cores.

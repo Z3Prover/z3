@@ -28,6 +28,7 @@ Revision History:
 #include "ast/recfun_decl_plugin.h"
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
+#include "ast/has_free_vars.h"
 #include "ast/well_sorted.h"
 #include "model/model_params.hpp"
 #include "model/model.h"
@@ -78,6 +79,8 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_unknown("unknown"),
         m_unsat_core(m),
+        m_open_assumption_instances(m),
+        m_open_assumption_guard(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_lemma_visitor(m) {
@@ -3383,6 +3386,11 @@ namespace smt {
 
     void context::internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy) {
         for (expr* e : asms) {
+            if (has_free_vars(e)) {
+                if (!m_open_assumptions_active || !is_open_predicate_assumption(m, e))
+                    throw default_exception("open predicate assumptions are only supported by SMT check-sat");
+                continue;
+            }
             if (is_valid_assumption(m, e)) {
                 asm2proxy.push_back(std::make_pair(e, expr_ref(e, m)));
             }
@@ -3528,6 +3536,8 @@ namespace smt {
         reset_assumptions();
         m_literal2assumption.reset();
         m_unsat_core.reset();
+        m_open_assumption_head = 0;
+        m_search_lvl = m_scope_lvl;
 
         if (!asms.empty()) {
             // We must give a chance to the theories to propagate before we create a new scope...
@@ -3542,6 +3552,8 @@ namespace smt {
             push_scope();
             vector<std::pair<expr*,expr_ref>> asm2proxy;
             internalize_proxies(asms, asm2proxy);
+            if (m_open_assumptions_active)
+                asm2proxy.push_back(std::make_pair(m_open_assumption_guard.get(), m_open_assumption_guard));
             for (auto const& [orig_assumption, curr_assumption] : asm2proxy) {
                 if (inconsistent())
                     break;
@@ -3565,7 +3577,50 @@ namespace smt {
         m_search_lvl = m_scope_lvl;
         SASSERT(asms.empty() || m_search_lvl > m_base_lvl);
         SASSERT(!asms.empty() || m_search_lvl == m_base_lvl);
+        propagate_open_assumptions();
         TRACE(after_internalization, display(tout););
+    }
+
+    void context::register_open_assumption(expr* e) {
+        if (m_open_assumptions_active && is_app(e) &&
+            m_open_assumption_predicates.contains(to_app(e)->get_decl()) &&
+            !has_free_vars(e) &&
+            m_open_assumption_set.insert_if_not_there(e))
+            m_open_assumption_instances.push_back(e);
+    }
+
+    bool context::has_pending_open_assumptions() const {
+        return m_open_assumptions_active && m_search_lvl > m_base_lvl &&
+            m_open_assumption_head < m_open_assumption_instances.size();
+    }
+
+    bool context::is_open_assumption(literal l) const {
+        expr* e = bool_var2expr(l.var());
+        return !l.sign() && is_assumption(l) && m_open_assumptions_active &&
+            is_app(e) && m_open_assumption_predicates.contains(to_app(e)->get_decl());
+    }
+
+    void context::propagate_open_assumptions() {
+        if (!has_pending_open_assumptions())
+            return;
+        // Internalization callbacks cannot backtrack. Promote queued atoms here,
+        // where their variables and guarded clauses can safely live at level 1.
+        pop_to_search_lvl();
+        while (has_pending_open_assumptions() && !inconsistent() && !get_cancel_flag()) {
+            expr_ref a(m_open_assumption_instances.get(m_open_assumption_head++), m);
+            internalize(a, true);
+            literal l = get_literal(a);
+            if (!m_literal2assumption.contains(l.index())) {
+                m_literal2assumption.insert(l.index(), a);
+                m_assumptions.push_back(l);
+                get_bdata(l.var()).m_assumption = true;
+            }
+            expr_ref not_guard(m.mk_not(m_open_assumption_guard), m);
+            expr_ref clause(m.mk_or(not_guard, a), m);
+            proof_ref pr(m.mk_asserted(clause), m);
+            internalize_assertion(clause, pr, 0);
+            mark_as_relevant(l);
+        }
     }
 
     void context::reset_assumptions() {
@@ -3606,7 +3661,8 @@ namespace smt {
             if (!already_found_assumptions.contains(l.index())) {
                 already_found_assumptions.insert(l.index());
                 expr* orig_assumption = m_literal2assumption[l.index()];
-                m_unsat_core.push_back(orig_assumption);
+                if (orig_assumption != m_open_assumption_guard.get())
+                    m_unsat_core.push_back(orig_assumption);
                 TRACE(assumptions, tout << l << ": " << mk_pp(orig_assumption, m) << "\n";);
             }
         }
@@ -3837,6 +3893,29 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
+        m_open_assumption_predicates.reset();
+        m_open_assumption_set.reset();
+        m_open_assumption_instances.reset();
+        m_open_assumption_guard = nullptr;
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            expr* a = assumptions[i];
+            if (!m.is_bool(a))
+                throw default_exception("assumption must be Boolean");
+            if (!has_free_vars(a))
+                continue;
+            if (!is_open_predicate_assumption(m, a))
+                throw default_exception("invalid open predicate assumption");
+            m_open_assumption_predicates.insert(to_app(a)->get_decl());
+        }
+        bool has_open = !m_open_assumption_predicates.empty();
+        if (has_open && (m_fparams.m_threads > 1 || m_fparams.m_sls_enable))
+            throw default_exception("open predicate assumptions require single-threaded SMT without SLS");
+        flet<bool> active(m_open_assumptions_active, has_open);
+        if (has_open) {
+            m_open_assumption_guard = m.mk_fresh_const("open-assumption", m.mk_bool_sort());
+            for (expr* e : m_b_internalized_stack)
+                register_open_assumption(e);
+        }
         search_completion sc(*this);
         if (m_fparams.m_threads > 1 && !m.has_trace_stream()) {            
             expr_ref_vector asms(m, num_assumptions, assumptions);
@@ -4058,7 +4137,13 @@ namespace smt {
             TRACE(assigned_literals_per_lvl, display_num_assigned_literals_per_lvl(tout);
                   tout << ", num_assigned: " << m_assigned_literals.size() << "\n";);
 
-            if (!restart(status, curr_lvl)) {
+            bool do_restart = restart(status, curr_lvl);
+            if (has_pending_open_assumptions() && status != l_false &&
+                m_last_search_failure == OK && !get_cancel_flag()) {
+                reset_model();
+                continue;
+            }
+            if (!do_restart) {
                 break;
             }            
         }
@@ -4186,7 +4271,14 @@ namespace smt {
         TRACE(bounded_search, tout << "starting bounded search...\n";);
 
         while (true) {
-            while (!propagate()) {
+            while (true) {
+                propagate_open_assumptions();
+                bool propagated = propagate();
+                if (has_pending_open_assumptions() && !get_cancel_flag() &&
+                    (!inconsistent() || m_scope_lvl > m_search_lvl))
+                    continue;
+                if (propagated)
+                    break;
                 TRACE_CODE({
                     static bool first_propagate = true;
                     if (first_propagate) {
@@ -4245,6 +4337,8 @@ namespace smt {
                     return l_false;
                 final_check_status fcs = final_check();
                 TRACE(final_check_result, tout << "fcs: " << fcs << " last_search_failure: " << m_last_search_failure << "\n";);
+                if (has_pending_open_assumptions() && !get_cancel_flag())
+                    continue;
                 switch (fcs) {
                 case FC_DONE:
                     log_stats();

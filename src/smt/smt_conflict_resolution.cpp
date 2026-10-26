@@ -1469,6 +1469,8 @@ namespace smt {
             TRACE(unsat_core_trail, tout << consequent << ", idx: " << idx << " " << js.get_kind() << "\n";
                   m_ctx.display_literal_smt2(tout, consequent) << "\n";
                   );
+            if (m_ctx.is_open_assumption(consequent))
+                js = b_justification::mk_axiom();
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();

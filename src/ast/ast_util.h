@@ -45,6 +45,8 @@ app * mk_list_assoc_app(ast_manager & m, family_id fid, decl_kind k, unsigned nu
 
 bool is_well_formed_vars(ptr_vector<sort>& bound, expr* n);
 
+bool is_open_predicate_assumption(ast_manager& m, expr* e);
+
 inline bool args_are_vars(app const * n) {
     unsigned sz = n->get_num_args();
     for (unsigned i = 0; i < sz; ++i) {
@@ -172,4 +174,3 @@ void flatten_or(expr_ref_vector& result);
 void flatten_or(expr* fml, expr_ref_vector& result);
 
 bool has_uninterpreted(ast_manager& m, expr* e);
-

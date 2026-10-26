@@ -19,6 +19,7 @@ Notes:
 #include "util/common_msgs.h"
 #include "util/stopwatch.h"
 #include "ast/ast_util.h"
+#include "ast/has_free_vars.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_pp_util.h"
 #include "ast/display_dimacs.h"
@@ -327,6 +328,17 @@ lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     lbool r = l_undef;
     scoped_solver_time _st(*this);
     try {
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            expr* a = assumptions[i];
+            if (!get_manager().is_bool(a))
+                throw default_exception("assumption must be Boolean");
+            if (!has_free_vars(a))
+                continue;
+            if (!is_open_predicate_assumption(get_manager(), a))
+                throw default_exception("open assumption must be an uninterpreted predicate applied to variables (:var n-1) ... (:var 0)");
+            if (!supports_open_assumptions())
+                throw default_exception("open predicate assumptions are not supported by this solver");
+        }
         r = check_sat_core(num_assumptions, assumptions);
     }
     catch (std::exception& ex) {

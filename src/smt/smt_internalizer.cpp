@@ -1040,6 +1040,7 @@ namespace smt {
         m_trail_stack.push_ptr(&m_mk_bool_var_trail);
         m_stats.m_num_mk_bool_var++;
         SASSERT(check_bool_var_vector_sizes());
+        register_open_assumption(n);
         return v;
     }
 

@@ -21,6 +21,22 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/arith_decl_plugin.h"
 
+bool is_open_predicate_assumption(ast_manager& m, expr* e) {
+    if (!is_app(e) || !m.is_bool(e))
+        return false;
+    app* a = to_app(e);
+    unsigned n = a->get_num_args();
+    if (a->get_family_id() != null_family_id || n == 0)
+        return false;
+    for (unsigned i = 0; i < n; ++i) {
+        expr* arg = a->get_arg(i);
+        if (!is_var(arg) || to_var(arg)->get_idx() != n - i - 1 ||
+            arg->get_sort() != a->get_decl()->get_domain(i))
+            return false;
+    }
+    return true;
+}
+
 app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr * const * args) {
     SASSERT(f->is_associative());
     SASSERT(num_args >= 2);

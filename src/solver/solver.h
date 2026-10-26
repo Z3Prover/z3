@@ -171,10 +171,12 @@ public:
     /**
        \brief Check if the set of assertions in the assertion stack is satisfiable modulo the given assumptions.
        
-       If it is unsatisfiable, and unsat-core generation is enabled. Then, the unsat-core is a subset of these assumptions.
+       The unsat core contains input assumptions or ground instances of open predicate assumptions.
     */
 
     lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
+
+    virtual bool supports_open_assumptions() const { return false; }
 
     lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.data()); }
     

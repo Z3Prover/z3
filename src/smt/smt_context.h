@@ -257,6 +257,12 @@ namespace smt {
         literal_vector             m_assumptions;
         literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector            m_unsat_core;
+        bool                       m_open_assumptions_active = false;
+        obj_hashtable<func_decl>    m_open_assumption_predicates;
+        obj_hashtable<expr>         m_open_assumption_set;
+        expr_ref_vector            m_open_assumption_instances;
+        expr_ref                   m_open_assumption_guard;
+        unsigned                   m_open_assumption_head = 0;
 
         unsigned                   m_last_position_log { 0 };
         svector<size_t>            m_last_positions;
@@ -486,6 +492,8 @@ namespace smt {
         bool is_assumption(literal l) const {
             return is_assumption(l.var());
         }
+
+        bool is_open_assumption(literal l) const;
 
         bool is_marked(bool_var v) const {
             return get_bdata(v).m_mark;
@@ -1328,6 +1336,12 @@ namespace smt {
         bool validate_assumptions(expr_ref_vector const& asms);
 
         void init_assumptions(expr_ref_vector const& asms);
+
+        void register_open_assumption(expr* e);
+
+        bool has_pending_open_assumptions() const;
+
+        void propagate_open_assumptions();
 
         void init_clause(expr_ref_vector const& clause);
 

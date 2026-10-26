@@ -7680,6 +7680,14 @@ extern "C" {
        The function #Z3_solver_get_unsat_core retrieves the subset of the
        assumptions used in the unsatisfiability proof produced by Z3.
 
+       The SMT solver also accepts open predicate assumptions of the form
+       \c p(Var(n-1),...,Var(0)), where \c p is an uninterpreted Boolean
+       predicate and the variables have its argument sorts. Every ground
+       application of \c p internalized during this check is assumed true.
+       Its unsat core can contain several such ground applications instead
+       of the input template. This does not enumerate the predicate's domain.
+       Unsupported solvers report an error.
+
        \sa Z3_solver_check
 
        def_API('Z3_solver_check_assumptions', LBOOL, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST)))
@@ -7768,6 +7776,8 @@ extern "C" {
     /**
        \brief Retrieve the unsat core for the last #Z3_solver_check_assumptions
        The unsat core is a subset of the assumptions \c a.
+       For open predicate assumptions, it contains ground applications of the
+       corresponding predicates, which need not occur in \c a.
 
        By default, the unsat core will not be minimized. Generation of a minimized
        unsat core can be enabled via the `"sat.core.minimize"` and `"smt.core.minimize"`

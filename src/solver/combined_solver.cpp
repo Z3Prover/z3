@@ -115,6 +115,10 @@ private:
     }
 
 public:
+    bool supports_open_assumptions() const override {
+        return m_solver2->supports_open_assumptions();
+    }
+
     combined_solver(solver * s1, solver * s2, params_ref const & p):
         solver(s1->get_manager()) {
         m_solver1 = s1;

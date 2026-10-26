@@ -73,6 +73,8 @@ namespace {
         obj_map<expr, expr*> m_name2assertion;
 
     public:
+        bool supports_open_assumptions() const override { return true; }
+
         smt_solver(ast_manager & m, params_ref const & p, symbol const & l) :
             solver_na2as(m),
             m_smt_params(p),
