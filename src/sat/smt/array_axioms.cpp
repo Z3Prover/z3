@@ -17,6 +17,7 @@ Author:
 
 #include "ast/ast_trail.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/array_map_coherence.h"
 #include "sat/smt/array_solver.h"
 #include "sat/smt/euf_solver.h"
 
@@ -713,6 +714,37 @@ namespace array {
         }
             
         return false;
+    }
+
+    lbool solver::check_map_arrays() {
+        euf::enode_vector nodes;
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            euf::enode* n = var2enode(v);
+            if (ctx.is_relevant(n))
+                nodes.push_back(n);
+        }
+        auto internalize = [&](expr* e, bool& is_new) {
+            is_new |= !ctx.get_egraph().find(e);
+            euf::enode* n = e_internalize(e);
+            is_new |= !ctx.is_relevant(n);
+            ctx.get_relevancy().mark_relevant(n);
+            return n;
+        };
+        auto select = [&](euf::enode* n, unsigned arity, expr* const* indices) {
+            ptr_buffer<expr> args;
+            args.push_back(n->get_expr());
+            args.append(arity, indices);
+            expr_ref sel(a.mk_select(args.size(), args.data()), m);
+            bool is_new = !ctx.get_egraph().find(sel);
+            euf::enode* sn = e_internalize(sel);
+            is_new |= !ctx.is_relevant(sn);
+            ctx.get_relevancy().mark_relevant(sn);
+            return is_new;
+        };
+        auto propagate = [&](euf::enode_pair_vector const& eqs, euf::enode* v1, euf::enode* v2) {
+            propagate_axiom(eqs, v1, v2);
+        };
+        return check_array_map_coherence(m, nodes, internalize, select, propagate);
     }
 
     /**
