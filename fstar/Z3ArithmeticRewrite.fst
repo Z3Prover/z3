@@ -907,6 +907,67 @@ let lemma_distribute_two (x y z:real)
 #pop-options
 
 #push-options "--fuel 4 --ifuel 1 --z3rlimit 20"
+let lemma_binary_addition (f:func_decl) (a b:expr) (i:interpretation value)
+                          (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_operators i nu /\ A.operation_of f [a; b] == Some A.Add)
+          (ensures nu (eval i (App f [a; b]) rho) ==
+                   nu (eval i a rho) +. nu (eval i b rho)) =
+  E.lemma_add_application f [a; b] i nu rho;
+  assert_norm (E.numeric_sum (L.map nu (eval_args i [a; b] rho)) ==
+               nu (eval i a rho) +. nu (eval i b rho))
+
+let lemma_binary_multiplication (f:func_decl) (a b:expr) (i:interpretation value)
+                                (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_operators i nu /\ A.operation_of f [a; b] == Some A.Mul)
+          (ensures nu (eval i (App f [a; b]) rho) ==
+                   nu (eval i a rho) *. nu (eval i b rho)) =
+  E.lemma_mul_application f [a; b] i nu rho;
+  assert_norm (E.numeric_product (L.map nu (eval_args i [a; b] rho)) ==
+               nu (eval i a rho) *. nu (eval i b rho))
+
+let lemma_distributed_sum (left:bool) (s:sort) (factor z w:expr)
+                          (i:interpretation value) (nu:value -> real) (rho:env value)
+  : Lemma (requires E.numeric_operators i nu /\ A.numeric_sort s /\
+                    get_sort factor == s /\ get_sort z == s /\ get_sort w == s)
+          (ensures (
+            let first, second =
+              if left then binary_product s z factor, binary_product s w factor
+              else binary_product s factor z, binary_product s factor w in
+            nu (eval i first rho) +. nu (eval i second rho) ==
+              (if left
+               then (nu (eval i z rho) +. nu (eval i w rho)) *. nu (eval i factor rho)
+               else nu (eval i factor rho) *. (nu (eval i z rho) +. nu (eval i w rho))))) =
+  if left then (
+    lemma_binary_product s z factor i nu rho;
+    lemma_binary_product s w factor i nu rho)
+  else (
+    lemma_binary_product s factor z i nu rho;
+    lemma_binary_product s factor w i nu rho);
+  lemma_distribute_two (nu (eval i factor rho))
+                       (nu (eval i z rho)) (nu (eval i w rho))
+
+let lemma_distributed_product_shape (left:bool) (mul add:func_decl)
+                                    (x y z w b:expr)
+  : Lemma (requires distributed_product left (App mul [x; y]) == Some b /\
+                    (if left then x else y) == App add [z; w])
+          (ensures (
+            let s = mul.range in
+            let factor = if left then y else x in
+            let first, second =
+              if left then binary_product s z factor, binary_product s w factor
+              else binary_product s factor z, binary_product s factor w in
+            let result = { decl_name = "+"; domain = [s; s]; range = s;
+                           interp = Some (if s = A.int_s then op_plus else op_arith_add);
+                           int_params = [] } in
+            A.operation_of mul [x; y] == Some A.Mul /\
+            A.operation_of add [z; w] == Some A.Add /\
+            A.numeric_sort s /\ get_sort factor == s /\ get_sort z == s /\ get_sort w == s /\
+            b == App result [first; second] /\
+            A.operation_of result [first; second] == Some A.Add)) =
+  if left then () else ()
+#pop-options
+
+#push-options "--fuel 1 --ifuel 1 --z3rlimit 20 --using_facts_from 'Prims FStar.Pervasives Z3AstTheory Z3LinearArithmeticEmbed.numeric_model Z3ArithmeticRewrite.distributed_product'"
 let lemma_distributed_product (left:bool) (a b:expr) (i:interpretation value)
                               (nu:value -> real) (rho:env value)
   : Lemma (requires E.numeric_model i nu /\ distributed_product left a == Some b)
@@ -917,43 +978,17 @@ let lemma_distributed_product (left:bool) (a b:expr) (i:interpretation value)
     let factor, sum = if left then y, x else x, y in
     (match sum with
      | App add [z; w] ->
-       E.lemma_add_application add [z; w] i nu rho;
-       E.lemma_mul_application mul [x; y] i nu rho;
-       assert_norm (E.numeric_sum (L.map nu (eval_args i [z; w] rho)) ==
-                    nu (eval i z rho) +. nu (eval i w rho));
-       assert_norm (E.numeric_product (L.map nu (eval_args i [x; y] rho)) ==
-                    nu (eval i x rho) *. nu (eval i y rho));
+       lemma_distributed_product_shape left mul add x y z w b;
+       lemma_binary_addition add z w i nu rho;
+       lemma_binary_multiplication mul x y i nu rho;
+       lemma_distributed_sum left s factor z w i nu rho;
        let first, second =
-         if left then (
-           lemma_binary_product s z factor i nu rho;
-           lemma_binary_product s w factor i nu rho;
-           binary_product s z factor, binary_product s w factor)
-         else (
-           lemma_binary_product s factor z i nu rho;
-           lemma_binary_product s factor w i nu rho;
-           binary_product s factor z, binary_product s factor w) in
+         if left then binary_product s z factor, binary_product s w factor
+         else binary_product s factor z, binary_product s factor w in
        (match b with
         | App result terms ->
           assert (terms == [first; second]);
-          E.lemma_add_application result terms i nu rho;
-          assert_norm (E.numeric_sum (L.map nu (eval_args i [first; second] rho)) ==
-                       nu (eval i first rho) +. nu (eval i second rho));
-          lemma_distribute_two (nu (eval i factor rho))
-                               (nu (eval i z rho)) (nu (eval i w rho));
-          if left then (
-            assert (x == sum /\ y == factor);
-            assert (nu (eval i a rho) ==
-                    (nu (eval i z rho) +. nu (eval i w rho)) *. nu (eval i factor rho));
-            assert (nu (eval i b rho) ==
-                    nu (eval i z rho) *. nu (eval i factor rho) +.
-                    nu (eval i w rho) *. nu (eval i factor rho)))
-          else (
-            assert (x == factor /\ y == sum);
-            assert (nu (eval i a rho) ==
-                    nu (eval i factor rho) *. (nu (eval i z rho) +. nu (eval i w rho)));
-            assert (nu (eval i b rho) ==
-                    nu (eval i factor rho) *. nu (eval i z rho) +.
-                    nu (eval i factor rho) *. nu (eval i w rho)));
+          lemma_binary_addition result first second i nu rho;
           assert (nu (eval i a rho) == nu (eval i b rho));
           lemma_numeric_values_equal a b i nu rho
         | _ -> ())
