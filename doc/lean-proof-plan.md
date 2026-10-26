@@ -1681,6 +1681,35 @@ valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
 
+### Trimmer: deletions of clauses it never added (2026-10-23)
+
+The clause-log export of z3test's QF_LRA `LassoRanker/SV-COMP/
+HarrisLalNoriRajamani-2010SAS-Fig1_true-termination.c_Iteration1_Lasso_4-
+pieceTemplate.smt2` (141,681 log lines, 114,408 clause additions) failed
+native trimming with "the clause ... used by the proof was never added" and,
+since 2026-10-22, fell back to replaying the untrimmed log: 240 s of export
+and 29 MB of Lean text that does not check in time. The trimmer's own unit
+propagation finds the conflict as soon as the clause set is inconsistent,
+here about 3,000 additions before the solver logs its empty clause; it
+ignores the clauses added in between but recorded their deletions, and the
+backward pass "revived" each such clause by adding it to the solver, where it
+took part in the probes. A core that chased a literal such a clause implied
+referred to a clause registered nowhere, hence the error. A deletion logged
+before the conflict for a clause the trimmer never added (a theory lemma Z3
+deletes under its logged literals while the trimmer assumed the checker's
+clause, `proof_cmds.cpp`) revived one the same way.
+
+Now `proof_trim::del` ignores every deletion after the conflict (nothing
+after it changes the state the conflict was derived in) and records a
+deletion only when the solver held a copy of the clause (`detach`: a
+registered clause object, an attached binary watch; a unit's assignment is
+never withdrawn, so its deletion is a no-op). The LassoRanker log trims to
+62,659 retained steps and exports again. Tests: `src/test/proof_replay.cpp`
+(`tst_trim_ignores_deletions_of_clauses_never_added`, both placements, which
+the previous trimmer fails with the exact error) and `test_proof_certificate.py`
+(the same log through the z3 executable's trimmer with warnings as errors,
+the ignored resolvent absent from the core, the core replayed).
+
 ### Trimmer: implied literals of duplicate clauses, explicit failure (2026-10-22)
 
 The clause-log exports of z3test's QF_UFLIA

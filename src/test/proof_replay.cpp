@@ -782,10 +782,68 @@ static void tst_trim_rejects_underivable_inference() {
     ENSURE(rejected);
 }
 
+// The trimmer's unit propagation finds the conflict as soon as the clause set
+// is inconsistent, often thousands of steps before the solver logs the empty
+// clause. The clauses added in between are ignored, but their deletions were
+// recorded, so the backward pass revived a clause the proof never had: it took
+// part in the probes and, being registered nowhere, a core that chased a
+// literal it implied failed with "used by the proof was never added" (z3test
+// LassoRanker HarrisLalNoriRajamani-..._4-pieceTemplate.smt2, iter-032). The
+// same happens for a deletion before the conflict of a clause never added (a
+// theory lemma logged under literals the trimmer did not assume). Both are
+// ignored now, and the core below is the one of the log without them.
+static void tst_trim_ignores_deletions_of_clauses_never_added() {
+    for (bool before_conflict : {false, true}) {
+        params_ref params;
+        reslimit limit;
+        sat::proof_trim trim(params, limit);
+        // In the probe of step 5 the never-added resolvent {~b, c, d} implies
+        // d in the first propagation round, before the registered binary 3
+        // can, so the conflict's dependencies chase it.
+        sat::literal a(trim.mk_var(), false), b(trim.mk_var(), false), c(trim.mk_var(), false),
+            x(trim.mk_var(), false), d(trim.mk_var(), false);
+        auto clause = [&](std::initializer_list<sat::literal> literals) {
+            trim.init_clause();
+            for (auto literal : literals)
+                trim.add_literal(literal.var(), literal.sign());
+        };
+        clause({a}); trim.assume(0);
+        clause({~a, b}); trim.assume(1);          // implies b
+        clause({~b, c, x}); trim.assume(2);
+        clause({~x, d}); trim.assume(3);
+        clause({~x, ~d}); trim.assume(4);
+        clause({c}); trim.infer(5);               // rup from 2, 3, and 4
+        if (before_conflict) {
+            clause({~b, c, d}); trim.del();       // never added
+        }
+        clause({~c}); trim.assume(6);             // the conflict
+        if (!before_conflict) {
+            clause({~b, c, d}); trim.assume(7);   // ignored: after the conflict
+            clause({~b, c, d}); trim.del();
+        }
+        clause({}); trim.infer(8);
+        auto core = trim.trim();
+        unsigned_vector ids;
+        unsigned_vector const* deps5 = nullptr;
+        for (auto const& [id, deps] : core) {
+            ids.push_back(id);
+            if (id == 5)
+                deps5 = &deps;
+        }
+        for (unsigned id : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 8u})
+            ENSURE(ids.contains(id));
+        ENSURE(!ids.contains(7));
+        ENSURE(deps5 && deps5->contains(2) && deps5->contains(3) && deps5->contains(4));
+        for (unsigned dep : *deps5)
+            ENSURE(dep < 5);
+    }
+}
+
 void tst_proof_replay() {
     tst_trim_satisfied_clause();
     tst_trim_duplicate_binary_keeps_implied_literal();
     tst_trim_rejects_underivable_inference();
+    tst_trim_ignores_deletions_of_clauses_never_added();
     tst_is_extended_numeral();
     tst_checker_nary_mul();
     tst_checker_printed_numerals();
