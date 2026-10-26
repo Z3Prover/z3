@@ -287,7 +287,9 @@ let rec lemma_append_number (xs ys:list bool)
     | [] -> ()
     | _ :: rest ->
       lemma_append_number rest ys;
-      M.pow2_plus 1 (L.length rest)
+      M.pow2_plus 1 (L.length rest);
+      assert_norm (pow2 1 == 2);
+      M.paren_mul_right 2 (pow2 (L.length rest)) (BV.bits_number ys)
 
 let rec lemma_append_args (i:interpretation value) (rho:env value) (xs ys:list expr)
   : Lemma (requires D.scoped_args [] xs /\ D.scoped_args [] ys /\
@@ -639,10 +641,15 @@ let lemma_concat_numeral_equality (i:interpretation value) (rho:env value)
     assert ((x * p + y == n) <==> (x == n / p /\ y == n % p));
     assert ((eval i a rho == eval i b rho) <==>
       project width (eval i a rho) == project width (eval i b rho));
+    assert ((eval i c.right rho == eval i (BV.literal c.right_width (n % p)) rho) <==>
+      y == n % p);
     assert ((eval i c.left rho == eval i (BV.literal c.left_width (n / p)) rho) <==>
       x == n / p);
-    assert ((eval i c.right rho == eval i (BV.literal c.right_width (n % p)) rho) <==>
-      y == n % p)
+    let r = mk_eq_expr c.right (BV.literal c.right_width (n % p)) in
+    let l = mk_eq_expr c.left (BV.literal c.left_width (n / p)) in
+    assert (lit_true i rho r <==> eval i c.right rho == eval i (BV.literal c.right_width (n % p)) rho);
+    assert (lit_true i rho l <==> eval i c.left rho == eval i (BV.literal c.left_width (n / p)) rho);
+    assert (lit_true i rho result <==> (lit_true i rho r /\ lit_true i rho l))
 
 let lemma_concat_equality_rewrite (i:interpretation value) (rho:env value)
                                  (project:pos -> value -> int) (e result:expr)

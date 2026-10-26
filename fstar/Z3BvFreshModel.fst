@@ -284,6 +284,9 @@ let lemma_concat3 (r:F.reconstruction) (i:interpretation value)
     assert (BV.concat3_parts (retract symbols n e) == Some rc);
     lemma_concat3_value i project rho (retract symbols n e) rc;
     let j = F.extend r i project in
+    assert (eval j c.BV.first rho == eval i rc.BV.first rho);
+    assert (eval j c.BV.second rho == eval i rc.BV.second rho);
+    assert (eval j c.BV.third rho == eval i rc.BV.third rho);
     assert (project c.BV.width1 (eval i rc.BV.first rho) ==
             project c.BV.width1 (eval j c.BV.first rho));
     assert (project c.BV.width2 (eval i rc.BV.second rho) ==
