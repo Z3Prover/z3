@@ -116,46 +116,78 @@ let lemma_quantifier_congruence (i:interpretation value) (rho:env value)
           (ensures eval i (Quantifier k bs s a) rho == eval i (Quantifier k bs s b) rho)
   = ()
 
-let rec lemma_equivalent (fuel:nat) (i:interpretation value) (rho:env value) (a b:expr)
-  : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
-                    equivalent fuel a b)
+let lemma_simple_equivalent (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires B.boolean_rewrite_model i /\
+                    (a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b))
           (ensures eval i a rho == eval i b rho)
-          (decreases %[fuel; a])
-  = if fuel = 0 then ()
-    else let next:nat = fuel - 1 in
-    if a = b then ()
+  = if a = b then ()
     else if symmetric_equality a b then lemma_symmetric_equality i rho a b
-    else if B.boolean_equiv 8 10 a b then B.lemma_boolean_equiv_sound 8 10 i rho a b
+    else B.lemma_boolean_equiv_sound 8 10 i rho a b
+
+let rec lemma_equivalent_args_from (fuel:nat) (i:interpretation value) (rho:env value)
+                                  (xs ys:list expr)
+                                  (body:(rho':env value -> a:expr -> b:expr ->
+                                    Lemma (requires equivalent fuel a b)
+                                          (ensures eval i a rho' == eval i b rho')))
+  : Lemma (requires equivalent_args fuel xs ys)
+          (ensures eval_args i xs rho == eval_args i ys rho)
+          (decreases xs)
+  = match xs, ys with
+    | [], [] -> ()
+    | x :: rest, y :: remaining ->
+      body rho x y;
+      lemma_equivalent_args_from fuel i rho rest remaining body
+    | _, _ -> ()
+
+let lemma_equivalent_step (fuel:nat) (i:interpretation value) (rho:env value) (a b:expr)
+                          (body:(rho':env value -> x:expr -> y:expr ->
+                            Lemma (requires equivalent fuel x y)
+                                  (ensures eval i x rho' == eval i y rho')))
+  : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
+                    equivalent (fuel + 1) a b)
+          (ensures eval i a rho == eval i b rho)
+  = if a = b || symmetric_equality a b || B.boolean_equiv 8 10 a b
+    then lemma_simple_equivalent i rho a b
     else match normalize_root a, normalize_root b with
     | Some x, Some y ->
       lemma_normalize_root i rho a x;
       lemma_normalize_root i rho b y;
-      if x = y then ()
-      else if symmetric_equality x y then lemma_symmetric_equality i rho x y
-      else if B.boolean_equiv 8 10 x y then B.lemma_boolean_equiv_sound 8 10 i rho x y
+      if x = y || symmetric_equality x y || B.boolean_equiv 8 10 x y
+      then lemma_simple_equivalent i rho x y
       else (match x, y with
-            | Quantifier k bs s body, Quantifier _ _ _ body' ->
+            | Quantifier k bs s source, Quantifier _ _ _ target ->
               let bodies (vs:list value{L.length vs = L.length bs})
-                : Lemma (eval i body (shift vs rho) == eval i body' (shift vs rho))
-                = lemma_equivalent next i (shift vs rho) body body' in
+                : Lemma (eval i source (shift vs rho) == eval i target (shift vs rho))
+                = body (shift vs rho) source target in
               FStar.Classical.forall_intro bodies;
-              lemma_quantifier_congruence i rho k bs s body body'
-            | App _ args, App _ args' -> lemma_equivalent_args next i rho args args'
+              lemma_quantifier_congruence i rho k bs s source target
+            | App _ args, App _ args' -> lemma_equivalent_args_from fuel i rho args args' body
             | _, _ -> ())
     | _, _ -> ()
 
-and lemma_equivalent_args (fuel:nat) (i:interpretation value) (rho:env value)
+let rec lemma_equivalent (fuel:nat) (i:interpretation value) (rho:env value) (a b:expr)
+  : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
+                    equivalent fuel a b)
+          (ensures eval i a rho == eval i b rho)
+          (decreases fuel)
+  = if fuel = 0 then ()
+    else let next:nat = fuel - 1 in
+      let body (rho':env value) (x y:expr)
+        : Lemma (requires equivalent next x y)
+                (ensures eval i x rho' == eval i y rho')
+        = lemma_equivalent next i rho' x y in
+      lemma_equivalent_step next i rho a b body
+
+let lemma_equivalent_args (fuel:nat) (i:interpretation value) (rho:env value)
                           (xs ys:list expr)
   : Lemma (requires quant_extensional i /\ N.quantifier_model i /\ B.boolean_rewrite_model i /\
                     equivalent_args fuel xs ys)
           (ensures eval_args i xs rho == eval_args i ys rho)
-          (decreases %[fuel; xs])
-  = match xs, ys with
-    | [], [] -> ()
-    | x :: rest, y :: remaining ->
-      lemma_equivalent fuel i rho x y;
-      lemma_equivalent_args fuel i rho rest remaining
-    | _, _ -> ()
+  = let body (rho':env value) (a b:expr)
+      : Lemma (requires equivalent fuel a b)
+              (ensures eval i a rho' == eval i b rho')
+      = lemma_equivalent fuel i rho' a b in
+    lemma_equivalent_args_from fuel i rho xs ys body
 
 let rec quantifier_bodies (args:list expr) : Tot (option (list expr)) (decreases args) =
   match args with

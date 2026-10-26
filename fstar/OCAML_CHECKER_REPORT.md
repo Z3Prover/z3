@@ -1144,6 +1144,16 @@ binders or sorts, dropped bodies, and wrong connectives. An interactive
 quantified-arithmetic regression requires certification after explicit `bv`,
 explicit `smt`, and default solving.
 
+#### Quantifier-equivalence proof compilation
+
+The soundness proof for `equivalent` separates Boolean base cases,
+argument-list induction, and a single fuel-induction step. The step receives
+the recursively proved semantic hypothesis; it is not a new model assumption.
+The public soundness statements and executable recognizers are unchanged.
+All helpers are erased lemmas, and verification budgets remain unchanged.
+Fresh-module timing comparisons include the helper proofs, not just the
+smaller recursive wrapper.
+
 #### Destructive equality resolution and input-aware binders (2026-10-18)
 
 `Z3QuantifierDer.fst` certifies `der` using guarded variable elimination,
