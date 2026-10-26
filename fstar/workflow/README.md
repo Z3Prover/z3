@@ -293,8 +293,33 @@ attempts with backoff (or left them claimed). After such a run has ended,
 `~/.atomic/workflows/journal.sqlite`, which also holds the sessions by default), maps each
 policy-blocked stage to its slice's findings (`iter-<n>/plan.json`, or `integration.json` for an
 integration verifier), and holds those findings, undoing that run's attempt and backoff. Findings
-the run verified or that a later run touched are left as they are. It changes nothing while the
-run is still active, `--dry-run` only reports, and applying it twice is a no-op.
+the run verified or that a later run touched are left as they are. `--dry-run` only reports, and
+applying it twice is a no-op.
+
+It changes nothing while the run is active. A run whose process was stopped or died still says
+`running` in the journal, but nothing renews its lease: like Atomic's own inspection, the
+reconcile reports it `crashed` once the lease is unheld or its `ageMs` (journal clock, from
+`leaseState`) exceeds Atomic's two-minute expiry, and refuses while the lease is live. The JSON
+shows `runStatus`, the journal's `journalStatus` and the `lease`. The reconcile never claims,
+takes over or resumes the run; do not resume a run after reconciling it.
+
+For an ended run it also releases the claims it left: every finding still `in_progress` under
+its run key goes back to `open` with the claim cleared and no attempt or backoff (`released`).
+If the finding's slice branch carries commits beyond the run's `baseRef` (read with
+`git rev-parse`/`git rev-list` in the run's repository, from `setup.json`), the finding records
+`candidate: {runKey, branch, commit}` instead (`candidates`). A candidate is unverified work the
+run never gated. While it is set, the finding is not triaged, re-sourced or counted by the
+continuity retrigger, so no automatic run repairs it again. Verify the commit explicitly, then
+record the decision and release the findings for automatic repair:
+
+```text
+bun fstar/workflow/continuity.ts --release-candidate <fingerprint>[,<fingerprint>...] --decision "<what was decided>"
+bun fstar/workflow/continuity.ts --release-candidate all --decision "<text>" --dry-run   # list only
+```
+
+The decision text and the released candidate stay in the finding's transition. The branch,
+worktree and commit are not touched. Leave the candidate in place while the commit is still
+being verified or published by hand.
 
 ## Publication lifecycle
 
@@ -347,11 +372,14 @@ open ──claim──▶ in_progress ──verified, not pushed──▶ integr
                      ├──failed──▶ unverified (backoff 6 h, 12 h, …) ──backoff over──▶ eligible again
                      ├──failed 3 times──▶ blocked ──evidence changed──▶ claimed again
                      ├──provider outage──▶ open (no attempt, no backoff)
-                     └──provider policy rejection──▶ provider_policy_blocked ──--requeue-policy-blocked──▶ open
+                     ├──provider policy rejection──▶ provider_policy_blocked ──--requeue-policy-blocked──▶ open
+                     └──run ended without an outcome (--reconcile-policy-blocked)──▶ open, with `candidate` if its slice committed
 ```
 
 `provider_policy_blocked` keeps its attempts and records `providerBlock`; it is never picked up
 automatically, whatever new evidence shows, and the requeue keeps that block in its transition.
+An `open` finding with a `candidate` is likewise never picked up automatically until
+`--release-candidate` records the decision; that transition keeps the candidate.
 
 Reopen edges, all back to `open` with attempts reset and the reason recorded:
 
@@ -416,7 +444,8 @@ It evaluates the three conditions from the instructions:
 1. A new, unprocessed Pulse regression report. Only completed `success` or `failure` runs on
    `--branch` (default `master`) count; skipped and approval-gated runs do not.
 2. Partial proof rule families recorded in state that are not yet processed: open, out of
-   backoff, or with an expired claim. Findings held as `provider_policy_blocked` do not count.
+   backoff, or with an expired claim. Findings held as `provider_policy_blocked` or carrying a
+   `candidate` do not count.
 3. A failed `pulse-checker-build` run whose `build.log` contains SMT proof timeouts, a timed-out
    build job, or a local OCaml or Cherry build log (`--build-log <path>`, any file name) with
    proof timeouts. The launcher passes the log itself as a `reportPaths` entry, and the run
@@ -500,6 +529,11 @@ The tests cover:
   attempt with backoff; held findings stay out of triage, re-sourcing and the retrigger until an
   explicit requeue; the reconciliation of an older run holds only the findings whose failed
   attempt or claim that run recorded, undoing that attempt;
+* reconciling a stopped run, with a real journal file and a scratch repository: a `running` run
+  whose lease is older than two minutes on the journal clock is `crashed` and reconciled
+  (policy-blocked findings held, a committing slice's findings kept as candidates, other claims
+  released, a second run a no-op), a live lease is refused, and candidates stay out of triage,
+  re-sourcing and the retrigger until `--release-candidate` records a decision;
 * core allocation (≤ 32) and distinct worktrees and branches;
 * worktree creation with long Windows paths;
 * the soundness gate, including `magic`, `tadmit_t`, `admit_all`, `assume type`, `assume e`,

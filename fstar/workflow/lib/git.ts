@@ -33,3 +33,18 @@ export async function removeCleanWorktree(runner: CommandRunner, repoRoot: strin
   const result = await runner(["git", "worktree", "remove", path], { cwd: repoRoot, timeoutMs: 5 * 60_000, signal });
   return result.code === 0 ? "removed" : "kept-dirty";
 }
+
+/**
+ * The head of `branch` when it carries commits that `base` does not; undefined when the branch is
+ * missing or has none. Read-only (`rev-parse`, `rev-list`); other git failures throw.
+ */
+export async function committedBeyond(runner: CommandRunner, repoRoot: string, branch: string, base: string, signal?: AbortSignal): Promise<string | undefined> {
+  const options = { cwd: repoRoot, timeoutMs: 60_000, signal };
+  const head = await runner(["git", "rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`], options);
+  // --verify --quiet exits 1, silently, when the ref does not exist.
+  if (head.code === 1 && !head.stdout.trim()) return undefined;
+  if (head.code !== 0) throw new Error(`git rev-parse ${branch} failed in ${repoRoot}: ${(head.error ?? head.stderr).trim()}`);
+  const commit = head.stdout.trim();
+  const ahead = Number(await runChecked(runner, ["git", "rev-list", "--count", `${base}..${commit}`], options));
+  return ahead > 0 ? commit : undefined;
+}

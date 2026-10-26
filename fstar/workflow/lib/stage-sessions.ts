@@ -13,11 +13,31 @@ type AtomicSdk = {
   wrapNodeSqliteDatabase(connection: unknown): unknown;
 };
 type JournalEntry = { readonly event: { readonly type: string; readonly payload?: Record<string, unknown> } };
+/** Atomic's `LeaseState`: `ageMs` is the time since the last renewal on the journal (database) clock. */
+export type RunLease = { readonly holderId: string; readonly renewedAt: number; readonly ageMs: number };
 type RunJournalLike = {
   getRun(runId: string): Promise<{ readonly status: string } | undefined>;
+  leaseState(runId: string): Promise<RunLease | undefined>;
   read(runId: string): AsyncIterable<JournalEntry>;
   close(): Promise<void>;
 };
+
+/**
+ * How long a run's lease may go unrenewed before Atomic stops treating its executor as alive:
+ * "after a process crashes and its lease expires (about two minutes without renewal), inspection
+ * reports `crashed`" (Atomic docs/workflows/operations.md). Atomic 0.9.39 exports neither this
+ * window (`FOREIGN_LIVE_WORKFLOW_WINDOW_MS`, 120000) nor its ownership probe, which treats a lease
+ * as expired when `ageMs` exceeds it.
+ */
+export const LEASE_EXPIRY_MS = 120_000;
+
+/**
+ * The run status Atomic's inspection reports: a `running` run whose lease is unheld, or older than
+ * `LEASE_EXPIRY_MS` on the journal clock, has `crashed`; any other status is the journal's.
+ */
+export function inspectedRunStatus(status: string, lease: RunLease | undefined): string {
+  return status === "running" && (lease === undefined || lease.ageMs > LEASE_EXPIRY_MS) ? "crashed" : status;
+}
 
 /** The messages of a session's entries, in order. */
 function messagesOf(entries: readonly unknown[]): unknown[] {
@@ -52,8 +72,12 @@ export async function readStageSessionMessages(cwd: string, sessionIds: readonly
 
 export type RunStageSessions = {
   readonly runId: string;
-  /** Atomic's run status (`running` while the run is still executing). */
+  /** Atomic's inspection status (`inspectedRunStatus`): `running` only while the run's lease is live, `crashed` after it expired. */
   readonly status: string;
+  /** The status the journal records (still `running` after its executor stopped). */
+  readonly journalStatus: string;
+  /** The run's lease, read from the journal (absent when unheld). */
+  readonly lease?: RunLease;
   /** The workflow's run key and evidence directory, from the run's `preflight` checkpoint. */
   readonly runKey?: string;
   readonly runDir?: string;
@@ -65,7 +89,8 @@ export type RunStageSessions = {
 /**
  * A finished (or still running) run's agent stages and their session messages, read from a SQLite
  * file that holds both the journal and the sessions (Atomic's default
- * `~/.atomic/workflows/journal.sqlite`). The file is opened read-only: nothing is written.
+ * `~/.atomic/workflows/journal.sqlite`). The file is opened read-only: nothing is written, and the
+ * run's lease is only inspected, never claimed or taken over.
  */
 export async function readRunStageSessions(runId: string, databasePath: string): Promise<RunStageSessions> {
   const { DatabaseSync } = (await import("node:sqlite")) as unknown as { DatabaseSync: new (path: string, options: { readOnly: boolean }) => { close(): void } };
@@ -75,12 +100,15 @@ export async function readRunStageSessions(runId: string, databasePath: string):
   try {
     const journal = await workflows.openSqlRunJournal(connection);
     let summary: { readonly status: string } | undefined;
+    let lease: RunLease | undefined;
     let setup: { runKey?: string; runDir?: string } = {};
     const fromTask = new Map<string, string | undefined>();
     const fromSession = new Map<string, string>();
     try {
       summary = await journal.getRun(runId);
       if (!summary) throw new Error(`run ${runId} is not in the journal ${databasePath}`);
+      const state = await journal.leaseState(runId);
+      if (state) lease = { holderId: state.holderId, renewedAt: state.renewedAt, ageMs: state.ageMs };
       for await (const entry of journal.read(runId)) {
         const payload = entry.event.payload;
         if (entry.event.type !== "CheckpointRecorded" || !payload) continue;
@@ -107,7 +135,10 @@ export async function readRunStageSessions(runId: string, databasePath: string):
     } finally {
       await store.close();
     }
-    return { runId, status: summary.status, ...(setup.runKey ? { runKey: setup.runKey } : {}), ...(setup.runDir ? { runDir: setup.runDir } : {}), stages, sessions };
+    return {
+      runId, status: inspectedRunStatus(summary.status, lease), journalStatus: summary.status, ...(lease ? { lease } : {}),
+      ...(setup.runKey ? { runKey: setup.runKey } : {}), ...(setup.runDir ? { runDir: setup.runDir } : {}), stages, sessions,
+    };
   } finally {
     connection.close();
   }

@@ -20,6 +20,9 @@ import type { Theory } from "./theories.js";
  * merged with changed report evidence produced after the merge, and integrated with no pending publication.
  * A stage the provider rejected for policy holds its findings in provider_policy_blocked (no attempt,
  * no backoff, never picked up automatically) until an explicit requeue; a provider outage reopens them.
+ * A run that ended without recording outcomes (crashed or stopped) has its claims released to open;
+ * a finding whose slice branch carries that run's unverified commit keeps it as `candidate`, which
+ * keeps the open finding out of automatic work until an operator releases it.
  */
 export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "merged" | "unverified" | "blocked" | "provider_policy_blocked";
 export type SliceOutcome = "verified" | "unverified" | "rejected" | "no-change" | "integration-conflict" | "provider-policy-blocked" | "provider-unavailable";
@@ -47,7 +50,15 @@ export interface PublicationLink {
   at: string;
 }
 
-/** One status change and why it happened; a reopen keeps the publication it replaced, a requeue the provider block. */
+/** Unverified work that a run committed on a finding's slice branch before it ended without an outcome. */
+export type CandidateWork = {
+  runKey: string;
+  branch: string;
+  /** The branch head when the run's claim was released. */
+  commit: string;
+};
+
+/** One status change and why it happened; a reopen keeps the publication it replaced, a requeue the provider block, a released candidate the candidate. */
 export interface FindingTransition {
   at: string;
   from: FindingStatus;
@@ -56,6 +67,7 @@ export interface FindingTransition {
   publication?: PublicationLink;
   mergedAt?: string;
   providerBlock?: ProviderBlock;
+  candidate?: CandidateWork;
 }
 
 export interface FindingRecord {
@@ -84,6 +96,12 @@ export interface FindingRecord {
   keptReason?: string;
   /** Set while provider_policy_blocked: the rejected stage, session, code and time. */
   providerBlock?: ProviderBlock;
+  /**
+   * Unverified committed work of an interrupted run. While set, the finding is not triaged, re-sourced
+   * or counted for the continuity retrigger: verify the commit explicitly, then release it
+   * (continuity.ts --release-candidate) to let automatic runs repair the finding again.
+   */
+  candidate?: CandidateWork;
   /** The most recent status changes, oldest first. */
   transitions?: FindingTransition[];
 }
@@ -389,6 +407,11 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
       skip("provider-policy-blocked");
       continue;
     }
+    if (record?.candidate) {
+      // An interrupted run's unverified commit awaits an operator's decision (continuity.ts --release-candidate).
+      skip("candidate");
+      continue;
+    }
     if (record?.status === "in_progress" && record.claimedAt && now - Date.parse(record.claimedAt) < claimTtl) {
       skip("claimed");
       continue;
@@ -458,8 +481,9 @@ function observePublished(record: FindingRecord, finding: Finding, at: string, p
   return reopen(record, `report evidence ${produced} after ${pr} merged${record.mergedAt ? ` at ${record.mergedAt}` : ""} still shows this finding with changed evidence`, at, digestNow);
 }
 
-/** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim (never while policy-blocked). */
+/** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim (never while policy-blocked or carrying a candidate). */
 export function isEligible(record: FindingRecord, now: Date, claimTtlMs = 24 * 3_600_000): boolean {
+  if (record.candidate) return false;
   if (record.status === "open") return true;
   if (record.status === "unverified") return !record.nextEligibleAt || Date.parse(record.nextEligibleAt) <= now.getTime();
   if (record.status === "in_progress") return !record.claimedAt || now.getTime() - Date.parse(record.claimedAt) >= claimTtlMs;
@@ -636,6 +660,57 @@ export function holdPolicyBlocked(state: WorkflowState, holds: readonly PolicyHo
     held.push(fingerprint);
   }
   return { state: { ...state, findings: records }, held, unchanged };
+}
+
+/**
+ * Release the claims of a run that ended without recording their outcomes (it crashed or was
+ * stopped): every finding still `in_progress` under `runKey` goes back to `open` with its claim
+ * cleared, no backoff and its attempts unchanged (a claim is not an attempt). A finding listed in
+ * `candidates` (its slice branch carries that run's commit) records the candidate, which keeps it
+ * out of automatic work until `releaseCandidates`. Findings the run did not leave claimed are
+ * untouched, so applying it twice is a no-op.
+ */
+export function releaseInterruptedClaims(
+  state: WorkflowState,
+  options: { runKey: string; candidates: Readonly<Record<string, CandidateWork>>; now: Date },
+): { state: WorkflowState; released: string[]; candidates: Array<{ fingerprint: string; candidate: CandidateWork }> } {
+  const at = options.now.toISOString();
+  const records = { ...state.findings };
+  const released: string[] = [];
+  const kept: Array<{ fingerprint: string; candidate: CandidateWork }> = [];
+  for (const record of Object.values(state.findings)) {
+    if (record.status !== "in_progress" || record.claimedBy !== options.runKey) continue;
+    const { claimedBy: _by, claimedAt: _claimed, nextEligibleAt: _next, ...rest } = record;
+    const candidate = options.candidates[record.fingerprint];
+    const reason = `run ${options.runKey} ended before recording an outcome; its claim is released${candidate
+      ? `, and its unverified commit ${candidate.commit} on ${candidate.branch} is kept as a candidate: no automatic repair until an operator releases it`
+      : ""}`;
+    records[record.fingerprint] = { ...transition(rest, "open", reason, at), lastOutcome: `released: ${reason}`, ...(candidate ? { candidate } : {}) };
+    if (candidate) kept.push({ fingerprint: record.fingerprint, candidate });
+    else released.push(record.fingerprint);
+  }
+  return { state: { ...state, findings: records }, released, candidates: kept };
+}
+
+/**
+ * Clear the candidate of findings (`"all"` or the given fingerprints) once an operator has decided
+ * on its commit, recording the decision; the findings are then eligible for automatic repair. The
+ * transition keeps the candidate. Fingerprints without a candidate are reported in `notCandidates`.
+ */
+export function releaseCandidates(state: WorkflowState, selector: "all" | readonly string[], decision: string, now: Date): { state: WorkflowState; released: string[]; notCandidates: string[] } {
+  const at = now.toISOString();
+  const wanted = selector === "all" ? undefined : new Set(selector);
+  const records = { ...state.findings };
+  const released: string[] = [];
+  for (const record of Object.values(state.findings)) {
+    if (!record.candidate || (wanted && !wanted.has(record.fingerprint))) continue;
+    const { candidate, ...rest } = record;
+    const reason = `candidate ${candidate.commit} on ${candidate.branch} (run ${candidate.runKey}) released by an operator: ${decision}`;
+    records[record.fingerprint] = { ...transition(rest, rest.status, reason, at, { candidate }), lastOutcome: reason };
+    released.push(record.fingerprint);
+  }
+  const notCandidates = wanted ? [...wanted].filter((fingerprint) => !released.includes(fingerprint)) : [];
+  return { state: { ...state, findings: records }, released, notCandidates };
 }
 
 export interface PublicationSettlement {

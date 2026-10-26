@@ -5,6 +5,7 @@
  *   bun fstar/workflow/continuity.ts --launch [--dry-run] [options]
  *   bun fstar/workflow/continuity.ts --requeue-policy-blocked all|<fingerprint>[,...] [--dry-run]
  *   bun fstar/workflow/continuity.ts --reconcile-policy-blocked <atomicRunId> [--journal <path>] [--dry-run]
+ *   bun fstar/workflow/continuity.ts --release-candidate all|<fingerprint>[,...] --decision <text> [--dry-run]
  *
  * --check   evaluates the three retrigger conditions from fstar/workflow-instructions.txt and
  *           prints a JSON decision: a new Pulse report, unprocessed partial proof rules, or an
@@ -31,12 +32,21 @@
  *           provider for policy, for example `cyber_policy`) back to `open`. Run it only once the
  *           restriction is resolved; with --dry-run it only lists what it would requeue.
  * --reconcile-policy-blocked <atomicRunId>
- *           holds the findings of that run's policy-blocked stages, which a workflow version without
- *           provider classification recorded as failed attempts (or left claimed): it reads the
- *           run's journal and stage sessions read-only (in a `node` child) from --journal (default
+ *           reconciles state with a run that ended without persisting its outcomes, from its journal
+ *           and stage sessions, read read-only (in a `node` child) from --journal (default
  *           ATOMIC_WORKFLOW_JOURNAL_PATH or ~/.atomic/workflows/journal.sqlite, which also holds the
- *           sessions by default), and undoes that run's attempt and backoff for them. It changes
- *           nothing while the run is still active; with --dry-run it only reports what it would do.
+ *           sessions by default). The findings of its policy-blocked stages, which a workflow version
+ *           without provider classification recorded as failed attempts (or left claimed), are held
+ *           with that attempt and backoff undone. Its other claims are released to `open`; findings
+ *           whose slice branch carries a commit beyond the run's base keep it as `candidate`
+ *           ({runKey, branch, commit}), which keeps them out of automatic work. It changes nothing
+ *           while the run is active: a `running` run counts as ended (`crashed`, as Atomic reports
+ *           it) only once its journal lease is unheld or older than Atomic's two-minute expiry on the
+ *           journal clock. It never claims, takes over or resumes the run; do not resume it afterwards.
+ *           With --dry-run it only reports what it would do.
+ * --release-candidate all|<fingerprint>[,<fingerprint>...] --decision <text>
+ *           clears the candidate of findings once its commit has been verified and decided on,
+ *           recording the decision; automatic runs may then repair them. --dry-run only lists them.
  *
  * Options: --state-dir <dir> (default .atomic/fstar-proof-checking), --repo <owner/name>,
  *          --branch <name> (Pulse runs to consider; default master, "" for all),
@@ -45,25 +55,32 @@
  * Toolchain discovery overrides (also passed to the launched run): --wsl-distro, --opam-root,
  *          --opam-switch, --fstar, --cherry-fstar, --pwsh, --ocaml-checker, --cherry-checker.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnRunner } from "./lib/command.js";
 import { evaluateContinuity, launchExclusively, type BuildEvidence } from "./lib/continuity.js";
+import { committedBeyond } from "./lib/git.js";
 import { readRunEvidenceInNode, runWorkflowInNode } from "./lib/launch.js";
 import { policyHoldsFromRun } from "./lib/provider.js";
 import { parseBuildLog } from "./lib/reports.js";
 import { downloadRunReports, fromGhRuns, listPulseRuns, localReportKey, reportingRuns, reportKey, type PulseRun } from "./lib/sources.js";
-import { holdPolicyBlocked, readState, requeuePolicyBlocked, withStateLock } from "./lib/state.js";
+import {
+  holdPolicyBlocked, readState, releaseCandidates, releaseInterruptedClaims, requeuePolicyBlocked, withStateLock,
+  type CandidateWork, type PolicyHold, type WorkflowState,
+} from "./lib/state.js";
 import { probeToolchain } from "./lib/toolchain.js";
 
 interface Options {
-  mode: "check" | "launch" | "requeue" | "reconcile";
+  mode: "check" | "launch" | "requeue" | "reconcile" | "release-candidate";
   /** --requeue-policy-blocked: `all` or the fingerprints. */
   requeue?: "all" | string[];
   /** --reconcile-policy-blocked: the Atomic run id. */
   reconcileRunId?: string;
+  /** --release-candidate: `all` or the fingerprints, and the operator's --decision. */
+  releaseCandidates?: "all" | string[];
+  decision?: string;
   dryRun: boolean;
   publish?: "none" | "dry-run" | "live";
   stateDir: string;
@@ -105,6 +122,12 @@ function parseArgs(argv: string[], repoRoot: string): Options {
       options.mode = "reconcile";
       options.reconcileRunId = value();
     }
+    else if (arg === "--release-candidate") {
+      const selector = value();
+      options.mode = "release-candidate";
+      options.releaseCandidates = selector === "all" ? "all" : selector.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+    else if (arg === "--decision") options.decision = value();
     else if (arg === "--publish") {
       const mode = value();
       if (mode !== "none" && mode !== "dry-run" && mode !== "live") throw new Error(`--publish must be none, dry-run or live, not ${mode}`);
@@ -120,6 +143,7 @@ function parseArgs(argv: string[], repoRoot: string): Options {
     else if (arg !== undefined && arg in TOOLCHAIN_FLAGS) options.toolchain[TOOLCHAIN_FLAGS[arg] as string] = value();
     else throw new Error(`Unknown argument ${arg}`);
   }
+  if (options.mode === "release-candidate" && !options.decision?.trim()) throw new Error("--release-candidate requires --decision <text>");
   if (!isAbsolute(options.stateDir)) options.stateDir = resolve(repoRoot, options.stateDir);
   return options;
 }
@@ -166,12 +190,62 @@ async function requeue(options: Options): Promise<number> {
   return 0;
 }
 
-/** Atomic run statuses during which the run may still write state. */
+/** Clear decided candidates (their commit was verified and decided on); --dry-run only lists them. */
+async function releaseCandidate(options: Options): Promise<number> {
+  const selector = options.releaseCandidates ?? [];
+  const decision = options.decision ?? "";
+  const now = new Date();
+  const result = options.dryRun
+    ? releaseCandidates(readState(options.stateDir), selector, decision, now)
+    : await withStateLock(options.stateDir, (state) => {
+      const next = releaseCandidates(state, selector, decision, now);
+      return { ...(next.released.length > 0 ? { state: next.state } : {}), result: next };
+    }, { owner: `release-candidate-${process.pid}` });
+  console.log(JSON.stringify({ mode: "release-candidate", dryRun: options.dryRun, stateDir: options.stateDir, decision, applied: !options.dryRun && result.released.length > 0, released: result.released, notCandidates: result.notCandidates }, null, 2));
+  return 0;
+}
+
+/** Atomic run statuses during which the run may still write state (a `running` run whose lease expired is reported as `crashed`). */
 const ACTIVE_RUN = new Set(["running", "paused", "awaiting_input", "pending"]);
 
 /**
- * Hold the findings of an earlier run's policy-blocked stages, from that run's durable evidence
- * (journal and stage sessions, read-only) and its plan and integration records.
+ * Commits that the ended run left on the slice branches of its interrupted findings, by fingerprint:
+ * a slice branch (iter-<n>/plan.json) with commits beyond the run's base (setup.json `baseRef`, in
+ * the run's repository) is a candidate. Only git reads are issued.
+ */
+async function candidateWork(runKey: string, runDir: string, interrupted: ReadonlySet<string>): Promise<Record<string, CandidateWork>> {
+  const candidates: Record<string, CandidateWork> = {};
+  if (interrupted.size === 0) return candidates;
+  const setupPath = join(runDir, "setup.json");
+  const recorded = JSON.parse(readFileSync(setupPath, "utf8")) as { setup?: { repoRoot?: string }; inputs?: { baseRef?: string } };
+  const repoRoot = recorded.setup?.repoRoot;
+  const base = recorded.inputs?.baseRef;
+  if (!repoRoot || !base) throw new Error(`${setupPath} records no repository root or base ref`);
+  for (const iteration of readdirSync(runDir).filter((name) => /^iter-\d+$/.test(name))) {
+    const planPath = join(runDir, iteration, "plan.json");
+    if (!existsSync(planPath)) continue;
+    const plan = JSON.parse(readFileSync(planPath, "utf8")) as { slices?: Array<{ branch?: string; fingerprints?: string[] }> };
+    for (const slice of plan.slices ?? []) {
+      const fingerprints = (slice.fingerprints ?? []).filter((fingerprint) => interrupted.has(fingerprint));
+      if (fingerprints.length === 0 || !slice.branch) continue;
+      const commit = await committedBeyond(spawnRunner, repoRoot, slice.branch, base);
+      if (commit) for (const fingerprint of fingerprints) candidates[fingerprint] = { runKey, branch: slice.branch, commit };
+    }
+  }
+  return candidates;
+}
+
+/** Hold the run's policy-blocked findings, then release its remaining claims (keeping candidates). */
+function reconcileEnded(state: WorkflowState, runKey: string, holds: readonly PolicyHold[], candidates: Readonly<Record<string, CandidateWork>>, now: Date) {
+  const held = holdPolicyBlocked(state, holds, now);
+  const released = releaseInterruptedClaims(held.state, { runKey, candidates, now });
+  return { state: released.state, held: held.held, candidates: released.candidates, released: released.released, unchanged: held.unchanged };
+}
+
+/**
+ * Reconcile state with an earlier run, from its durable evidence (journal and stage sessions,
+ * read-only) and its plan and integration records: hold the findings of its policy-blocked
+ * stages and, once the run has ended, release its other claims (keeping committed work as candidates).
  */
 async function reconcile(options: Options, repoRoot: string): Promise<number> {
   const runId = options.reconcileRunId ?? "";
@@ -182,26 +256,44 @@ async function reconcile(options: Options, repoRoot: string): Promise<number> {
     console.log(JSON.stringify({ ...report, applied: false, failed: `could not read run ${runId}: ${evidence.error.name}: ${evidence.error.message}` }, null, 2));
     return 1;
   }
+  const lease = evidence.lease ?? null;
   if (!evidence.runKey || !evidence.runDir) {
-    console.log(JSON.stringify({ ...report, runStatus: evidence.status, applied: false, failed: "the run has no preflight checkpoint (no run key or evidence directory)" }, null, 2));
+    console.log(JSON.stringify({ ...report, runStatus: evidence.status, journalStatus: evidence.journalStatus, lease, applied: false, failed: "the run has no preflight checkpoint (no run key or evidence directory)" }, null, 2));
     return 1;
   }
+  const { runKey, runDir } = evidence;
   const now = new Date();
-  const holds = policyHoldsFromRun({ runId, runKey: evidence.runKey, runDir: evidence.runDir, at: now.toISOString(), stages: evidence.stages });
+  const holds = policyHoldsFromRun({ runId, runKey, runDir, at: now.toISOString(), stages: evidence.stages });
   const stages = evidence.stages.filter((stage) => stage.kind !== "completed");
-  const active = ACTIVE_RUN.has(evidence.status);
-  Object.assign(report, { runStatus: evidence.status, runKey: evidence.runKey, runDir: evidence.runDir, stages });
-  if (options.dryRun || active) {
+  Object.assign(report, { runStatus: evidence.status, journalStatus: evidence.journalStatus, lease, runKey, runDir, stages });
+  if (ACTIVE_RUN.has(evidence.status)) {
     const preview = holdPolicyBlocked(readState(options.stateDir), holds, now);
-    const reason = active ? `run ${runId} is ${evidence.status}: state.json is not changed until it ends` : "dry run";
+    const renewed = lease ? ` (its lease was renewed ${Math.round(lease.ageMs / 1000)} s ago on the journal clock)` : "";
+    const reason = `run ${runId} is ${evidence.status}${renewed}: state.json is not changed until it ends`;
     console.log(JSON.stringify({ ...report, applied: false, reason, wouldHold: preview.held, unchanged: preview.unchanged }, null, 2));
-    return active && !options.dryRun ? 1 : 0;
+    return options.dryRun ? 0 : 1;
+  }
+  // The run has ended: the claims it still holds were interrupted. Their slices' committed work is read before the state lock.
+  const heldPreview = holdPolicyBlocked(readState(options.stateDir), holds, now).state;
+  const interrupted = new Set(Object.values(heldPreview.findings).filter((record) => record.status === "in_progress" && record.claimedBy === runKey).map((record) => record.fingerprint));
+  let candidates: Record<string, CandidateWork>;
+  try {
+    candidates = await candidateWork(runKey, runDir, interrupted);
+  } catch (error) {
+    console.log(JSON.stringify({ ...report, applied: false, failed: `could not inspect the run's slice branches: ${error instanceof Error ? error.message : String(error)}` }, null, 2));
+    return 1;
+  }
+  if (options.dryRun) {
+    const preview = reconcileEnded(readState(options.stateDir), runKey, holds, candidates, now);
+    console.log(JSON.stringify({ ...report, applied: false, reason: "dry run", wouldHold: preview.held, wouldKeepCandidates: preview.candidates, wouldRelease: preview.released, unchanged: preview.unchanged }, null, 2));
+    return 0;
   }
   const result = await withStateLock(options.stateDir, (state) => {
-    const next = holdPolicyBlocked(state, holds, now);
-    return { ...(next.held.length > 0 ? { state: next.state } : {}), result: next };
+    const next = reconcileEnded(state, runKey, holds, candidates, now);
+    const changed = next.held.length + next.candidates.length + next.released.length > 0;
+    return { ...(changed ? { state: next.state } : {}), result: { ...next, changed } };
   }, { owner: `reconcile-${process.pid}` });
-  console.log(JSON.stringify({ ...report, applied: result.held.length > 0, held: result.held, unchanged: result.unchanged }, null, 2));
+  console.log(JSON.stringify({ ...report, applied: result.changed, held: result.held, candidates: result.candidates, released: result.released, unchanged: result.unchanged }, null, 2));
   return 0;
 }
 
@@ -210,6 +302,7 @@ async function main(): Promise<number> {
   const options = parseArgs(process.argv.slice(2), repoRoot);
   if (options.mode === "requeue") return requeue(options);
   if (options.mode === "reconcile") return reconcile(options, repoRoot);
+  if (options.mode === "release-candidate") return releaseCandidate(options);
   const state = readState(options.stateDir);
   const { runs, note } = await listRuns(options);
   const evidence = await buildEvidence(runs, options, state.processedReports);

@@ -21,7 +21,10 @@ async function main(requestPath: string): Promise<number> {
     const { readRunStageSessions } = await import("./stage-sessions.ts");
     const { classifyRunStages } = await import("./provider.ts");
     const run = await readRunStageSessions(request.runId, request.database);
-    finish({ ok: true, runId: run.runId, status: run.status, ...(run.runKey ? { runKey: run.runKey } : {}), ...(run.runDir ? { runDir: run.runDir } : {}), stages: classifyRunStages(run) });
+    finish({
+      ok: true, runId: run.runId, status: run.status, journalStatus: run.journalStatus, ...(run.lease ? { lease: run.lease } : {}),
+      ...(run.runKey ? { runKey: run.runKey } : {}), ...(run.runDir ? { runDir: run.runDir } : {}), stages: classifyRunStages(run),
+    });
     return 0;
   } catch (error) {
     console.error(error instanceof Error ? error.stack ?? error.message : String(error));

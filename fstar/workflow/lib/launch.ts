@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { atomicPackageDir } from "./atomic-host.js";
 import type { RunStageOutcome } from "./provider.js";
+import type { RunLease } from "./stage-sessions.js";
 
 export interface WorkflowRunRequest {
   /** Module whose default export is the workflow definition (absolute path). */
@@ -91,7 +92,9 @@ export interface RunEvidenceRequest {
 
 export type RunEvidenceOutcome =
   | {
-    readonly ok: true; readonly runId: string; readonly status: string; readonly runKey?: string; readonly runDir?: string;
+    /** `status` is Atomic's inspection status (`crashed` once a `running` run's lease expired); `journalStatus` is the journal's. */
+    readonly ok: true; readonly runId: string; readonly status: string; readonly journalStatus: string; readonly lease?: RunLease;
+    readonly runKey?: string; readonly runDir?: string;
     readonly stages: RunStageOutcome[];
   }
   | { readonly ok: false; readonly error: { readonly name: string; readonly message: string } };
