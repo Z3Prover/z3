@@ -1,0 +1,22 @@
+{
+  "pull_request": 11334,
+  "head_sha": "2355f51d73dd72cffe2ae4e19e0ddde91e9b7e7b",
+  "base_sha": "ac71ae716c0e6d14aef5529c21006260c57d3784",
+  "path_prefix": "fstar/audits/pr-11334/2355f51d73dd72cffe2ae4e19e0ddde91e9b7e7b/",
+  "verdict": "proved",
+  "run_url": "https://github.com/Z3Prover/z3/actions/runs/40216279518",
+  "files": [
+    {
+      "name": "FlattenClausesPR11334.fst",
+      "sha256": "795343e0034eaabed1897b3b0bc0cce45885680d6bfe323711115a1fb12c7565"
+    },
+    {
+      "name": "REPORT.md",
+      "sha256": "c0908a46db42020c1295cff90ce0bcfce27a1b4a6c352516b4bd6cf6145564ae"
+    },
+    {
+      "name": "verification.log",
+      "sha256": "b16e8bd27d74b343d95303a3f5dce16a9815618abef56ab498d23b8f95b7c4cf"
+    }
+  ]
+}

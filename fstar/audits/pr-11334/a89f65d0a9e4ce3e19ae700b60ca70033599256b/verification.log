@@ -1,0 +1,7 @@
+$ /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --z3rlimit 10 --cache_dir cache2 --odir out2 FlattenClausesPR11334Head.fst
+
+Verified module: FlattenClausesPR11334Head
+All verification conditions discharged successfully
+exit code: 0
+stderr: empty
+F* 2026.09.27; Z3 4.13.3
