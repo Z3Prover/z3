@@ -10,10 +10,12 @@ import { collectSliceChanges, decideSliceOutcome, scanDiffForUnsoundness, type V
 import { ensureWorktree, removeCleanWorktree } from "./git.js";
 import { planSlices, type SliceFocus } from "./plan.js";
 import {
+  decideActiveBranch,
   executePublication,
   fileBugReports,
   gatherPublicationFacts,
   planPublication,
+  remoteBranchStatus,
   type BugReportResult,
   type PublicationFacts,
   type PublishMode,
@@ -40,11 +42,14 @@ import {
   claimFindings,
   eligibleStateFindings,
   readState,
+  reconcilePublications,
   recordOutcomes,
   recordSeen,
   settlePublications,
   triageFindings,
   withStateLock,
+  type BranchObservation,
+  type PublicationLink,
   type SliceOutcome,
   type WorkflowState,
 } from "./state.js";
@@ -143,6 +148,41 @@ export async function preflight(inputs: WorkflowInputs, cwd: string, signal: Abo
   writeJson(join(runDir, "setup.json"), { setup, inputs });
   return setup;
 }
+// ---------------------------------------------------------------- publication reconciliation
+
+export type ReconcileSummary = {
+  readonly committed: boolean;
+  /** Branches whose remote status was queried (read-only). */
+  readonly checked: string[];
+  readonly merged: string[];
+  readonly reopened: string[];
+  readonly kept: string[];
+};
+
+/**
+ * Before sourcing: query (read-only) the branches that carry resolved findings and apply the
+ * lifecycle — merged PRs make their findings `merged`; a branch deleted before its PR merged
+ * reopens its findings, keeping the lost branch, PR and head on record — and reopen integrated
+ * findings that no pending publication carries. `publish=none` never queries the remote; a dry
+ * run changes nothing. State is written only when something changed, so re-running is a no-op.
+ */
+export async function reconcilePublicationsStep(setup: RunSetup, inputs: WorkflowInputs, signal: AbortSignal, inner?: CommandRunner): Promise<ReconcileSummary> {
+  if (inputs.dryRun) return { committed: false, checked: [], merged: [], reopened: [], kept: [] };
+  const runner = evidenceRunner(setup.runDir, inner);
+  const branches = inputs.publish === "none" ? [] : [...new Set(Object.values(readState(setup.stateDir).findings)
+    .flatMap((record) => (record.status === "resolved" && record.publishedOn ? [record.publishedOn.branch] : [])))].sort();
+  const observed: Record<string, BranchObservation> = {};
+  for (const branch of branches) {
+    observed[branch] = await remoteBranchStatus(runner, branch, { repo: inputs.repo, remote: inputs.remote, prefix: inputs.branchPrefix, cwd: setup.repoRoot, timeoutMs: 60_000, signal });
+  }
+  const summary = await withStateLock(setup.stateDir, (state) => {
+    const result = reconcilePublications(state, observed, new Date());
+    const changed = JSON.stringify(result.state) !== JSON.stringify(state);
+    return { ...(changed ? { state: result.state } : {}), result: { committed: changed, checked: branches, merged: result.merged, reopened: result.reopened, kept: result.kept } };
+  }, { owner: setup.runKey });
+  writeJson(join(setup.runDir, "reconcile.json"), { ...summary, observed });
+  return summary;
+}
 
 // ---------------------------------------------------------------- sourcing
 
@@ -151,7 +191,8 @@ export type SourceSummary = {
   readonly total: number;
   readonly byKind: Record<string, number>;
   readonly byTheory: Record<string, number>;
-  readonly reports: Array<{ key: string; directory: string; artifacts: string[]; missing: string[] }>;
+  /** `producedAt`: when the report was produced (Pulse run creation time, local file modification time). */
+  readonly reports: Array<{ key: string; directory: string; artifacts: string[]; missing: string[]; producedAt?: string }>;
   /** Next scan position per corpus and checker; batch corpora also rotate within each logic directory (`groupOffsets`). */
   readonly localScans: Record<string, { offset: number; cases: number; mode: string; groupOffsets?: Record<string, number> }>;
   /** Fingerprints re-sourced from state (eligible earlier findings no current source reported). */
@@ -200,7 +241,7 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
     if (runs.length === 0) diagnostics.push("No unprocessed Pulse reports were found.");
     for (const run of runs) {
       const downloaded = await downloadRunReports(runner, run, { repo: inputs.repo, cacheDir: join(setup.stateDir, "reports"), signal });
-      reports.push({ key: downloaded.key, directory: downloaded.directory, artifacts: downloaded.artifacts, missing: downloaded.missing });
+      reports.push({ key: downloaded.key, directory: downloaded.directory, artifacts: downloaded.artifacts, missing: downloaded.missing, producedAt: run.createdAt });
       if (downloaded.missing.length > 0) diagnostics.push(`${downloaded.key}: missing or expired artifacts ${downloaded.missing.join(", ")}`);
       const normalized = normalizeReportTree(downloaded.directory, { source: downloaded.key });
       findings.push(...normalized.findings);
@@ -217,14 +258,16 @@ export async function sourceFindings(setup: RunSetup, inputs: WorkflowInputs, si
       continue;
     }
     const key = localReportKey(absolute);
-    if (statSync(absolute).isDirectory()) {
-      reports.push({ key, directory: absolute, artifacts: [basename(absolute)], missing: [] });
+    const stats = statSync(absolute);
+    const producedAt = stats.mtime.toISOString();
+    if (stats.isDirectory()) {
+      reports.push({ key, directory: absolute, artifacts: [basename(absolute)], missing: [], producedAt });
       const normalized = normalizeReportTree(absolute, { source: key });
       findings.push(...normalized.findings);
       diagnostics.push(...normalized.diagnostics);
     } else {
       // A single OCaml/Cherry/F* build log (for example from the continuity launcher's --build-log).
-      reports.push({ key, directory: dirname(absolute), artifacts: [basename(absolute)], missing: [] });
+      reports.push({ key, directory: dirname(absolute), artifacts: [basename(absolute)], missing: [], producedAt });
       findings.push(...buildLogFindings(absolute, { source: key }));
     }
   }
@@ -324,7 +367,8 @@ export type RecordedSources = { readonly committed: boolean; readonly processedR
 /**
  * Record what this run ingested before any iteration can stop early: every sourced report is
  * processed, local scan windows advance, and new findings enter state as `open` so later runs
- * re-source them. Dry runs record nothing.
+ * re-source them. A finding's evidence time is its newest report's production time (local scans
+ * ran in this run), which decides whether evidence follows a merge. Dry runs record nothing.
  */
 export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs, source: SourceSummary): Promise<RecordedSources> {
   const processedReports = source.reports.map((report) => report.key);
@@ -333,13 +377,16 @@ export async function recordSourcesStep(setup: RunSetup, inputs: WorkflowInputs,
   if (inputs.dryRun) return { committed: false, processedReports, seen: fresh.length };
   await withStateLock(setup.stateDir, (state) => {
     const now = new Date();
+    const producedTimes = new Map<string, string>(source.reports.flatMap((report) => (report.producedAt ? [[report.key, report.producedAt] as const] : [])));
+    for (const key of Object.keys(source.localScans)) producedTimes.set(key, now.toISOString());
+    const producedAt = (finding: Finding) => finding.sources.map((key) => producedTimes.get(key)).filter((time): time is string => time !== undefined).sort().pop();
     const reportsSeen = { ...state.processedReports };
     for (const key of processedReports) reportsSeen[key] = { processedAt: now.toISOString(), findings: source.total };
     const localScans = { ...state.localScans };
     for (const [key, scan] of Object.entries(source.localScans)) {
       localScans[key] = { at: now.toISOString(), offset: scan.offset, ...(scan.groupOffsets ? { groupOffsets: scan.groupOffsets } : {}) };
     }
-    return { state: { ...recordSeen(state, fresh, now), processedReports: reportsSeen, localScans }, result: undefined };
+    return { state: { ...recordSeen(state, fresh, now, producedAt), processedReports: reportsSeen, localScans }, result: undefined };
   }, { owner: setup.runKey });
   writeJson(join(setup.runDir, "sources-recorded.json"), { processedReports, seen: fresh.length, localScans: source.localScans });
   return { committed: true, processedReports, seen: fresh.length };
@@ -529,7 +576,8 @@ export async function integrateStep(setup: RunSetup, inputs: WorkflowInputs, pla
   }
   const facts = await publicationFacts(runner, setup, inputs, state, signal);
   const active = state.publication.activeBranch;
-  const continueActive = active !== undefined && facts.known && facts.branchExists && !facts.prs.some((pr) => pr.state === "MERGED");
+  // The publish plan's rule (decideActiveBranch): build on the active branch unless the plan starts a new one.
+  const continueActive = active !== undefined && facts.known && facts.branchExists && decideActiveBranch(active, facts).kind !== "new-branch";
   const options = { cwd: setup.repoRoot, timeoutMs: 10 * 60_000, signal };
   let base = inputs.baseRef;
   if (continueActive) {
@@ -681,7 +729,8 @@ export async function publishStep(
     executed: result.executed,
     summary: result.summary,
     prUrl: "prUrl" in result ? result.prUrl : undefined,
-    blocked: action.kind === "blocked" ? action.reason : undefined,
+    // A plan that blocks (PR closed without merging) or a push the remote refused as non-fast-forward.
+    blocked: action.kind === "blocked" ? action.reason : "blocked" in result ? result.blocked : undefined,
     integrationVerified,
     integrationReasons: integrationVerified ? [] : decision.reasons,
     bugReports,
@@ -743,8 +792,12 @@ export async function persistStep(
     : undefined;
   await withStateLock(setup.stateDir, (state) => {
     const now = new Date();
-    let next = recordOutcomes(state, outcomes, { runKey: setup.runKey, now, published });
-    next = settlePublications(next, { runKey: setup.runKey, published, included: integration.pendingMerged, failed: integration.pendingFailed, added: unpublished });
+    const pushed = publication.publication;
+    const publishedOn: PublicationLink | undefined = published && pushed.activeBranch
+      ? { branch: pushed.activeBranch, prNumber: pushed.prNumber, prUrl: pushed.prUrl, head: integration.head, at: now.toISOString() }
+      : undefined;
+    let next = recordOutcomes(state, outcomes, { runKey: setup.runKey, now, published, publishedOn });
+    next = settlePublications(next, { runKey: setup.runKey, published, publishedOn, included: integration.pendingMerged, failed: integration.pendingFailed, added: unpublished, now });
     const bugReports = { ...next.bugReports };
     for (const report of publication.bugReports) {
       bugReports[report.fingerprint] = { draft: report.draft, issueUrl: report.url ?? bugReports[report.fingerprint]?.issueUrl, filedAt: report.action === "created" ? now.toISOString() : bugReports[report.fingerprint]?.filedAt };

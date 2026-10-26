@@ -14,6 +14,7 @@ export type RemotePr = {
   readonly number: number;
   readonly state: "OPEN" | "MERGED" | "CLOSED";
   readonly url: string;
+  readonly mergedAt?: string;
 };
 
 export interface PublicationFacts {
@@ -60,16 +61,20 @@ async function remoteBranchExists(runner: CommandRunner, branch: string, options
 
 async function listPrs(runner: CommandRunner, branch: string, state: "all" | "open", options: RemoteOptions): Promise<RemotePr[]> {
   const output = await runChecked(runner, [
-    "gh", "pr", "list", "--repo", options.repo, "--head", branch, "--state", state, "--json", "number,state,url", "--limit", "20",
+    "gh", "pr", "list", "--repo", options.repo, "--head", branch, "--state", state, "--json", "number,state,url,mergedAt", "--limit", "20",
   ], options);
   return output === "" ? [] : (JSON.parse(output) as RemotePr[]);
+}
+
+/** Read-only: whether a branch exists on the remote, and every PR from it. */
+export async function remoteBranchStatus(runner: CommandRunner, branch: string, options: RemoteOptions): Promise<{ branchExists: boolean; prs: RemotePr[] }> {
+  return { branchExists: await remoteBranchExists(runner, branch, options), prs: await listPrs(runner, branch, "all", options) };
 }
 
 /** Read-only queries about the active branch and the next free branch name. */
 export async function gatherPublicationFacts(runner: CommandRunner, state: PublicationState, options: RemoteOptions): Promise<PublicationFacts> {
   const branch = state.activeBranch;
-  const branchExists = branch ? await remoteBranchExists(runner, branch, options) : false;
-  const prs = branch ? await listPrs(runner, branch, "all", options) : [];
+  const { branchExists, prs } = branch ? await remoteBranchStatus(runner, branch, options) : { branchExists: false, prs: [] };
   let freeBranch = "";
   for (let sequence = Math.max(state.sequence, branch ? sequenceOf(branch, options.prefix) : 0) + 1, tries = 0; tries < 20; sequence += 1, tries += 1) {
     const candidate = `${options.prefix}/${sequence}`;
@@ -80,6 +85,32 @@ export async function gatherPublicationFacts(runner: CommandRunner, state: Publi
   }
   if (freeBranch === "") throw new Error(`No free ${options.prefix}/<n> branch name found after 20 attempts`);
   return { known: true, branchExists, prs, freeBranch };
+}
+
+/** What happens to the active branch, given what the remote says about it. */
+export type BranchDecision =
+  | { kind: "push-existing"; pr: RemotePr; reason: string }
+  | { kind: "push-and-open-pr"; reason: string }
+  | { kind: "new-branch"; previous: { state: "MERGED" | "DELETED"; pr?: RemotePr }; reason: string }
+  | { kind: "blocked"; reason: string };
+
+/**
+ * The one branch lifecycle rule, used both to choose the integration base and to plan the push:
+ * an open PR keeps the branch (even if an earlier PR from it merged); otherwise a merged PR or a
+ * deleted branch starts a new branch; a PR closed without merging blocks; a branch without a PR
+ * gets one. Deterministic in the facts.
+ */
+export function decideActiveBranch(branch: string, facts: Pick<PublicationFacts, "branchExists" | "prs">): BranchDecision {
+  const open = facts.prs.find((pr) => pr.state === "OPEN");
+  if (open) return { kind: "push-existing", pr: open, reason: `PR #${open.number} is open` };
+  const merged = facts.prs.find((pr) => pr.state === "MERGED");
+  if (merged) return { kind: "new-branch", previous: { state: "MERGED", pr: merged }, reason: `PR #${merged.number} was merged` };
+  if (!facts.branchExists) return { kind: "new-branch", previous: { state: "DELETED", pr: facts.prs[0] }, reason: `branch ${branch} was deleted` };
+  const closed = facts.prs.find((pr) => pr.state === "CLOSED");
+  if (closed) {
+    return { kind: "blocked", reason: `PR #${closed.number} for ${branch} was closed without merging; reopen it, or delete ${branch} so the next run starts a new branch and PR (and reopens its findings)` };
+  }
+  return { kind: "push-and-open-pr", reason: `${branch} exists without a PR` };
 }
 
 /** Decide where verified changes go, following the instructions' branch/PR lifecycle. */
@@ -94,20 +125,11 @@ export function planPublication(state: PublicationState, facts: PublicationFacts
   if (!facts.known) {
     return plan({ kind: "push-existing", branch, reason: "remote not queried in a dry run; a live run re-checks the branch and PR first" });
   }
-  const open = facts.prs.find((pr) => pr.state === "OPEN");
-  if (open) return plan({ kind: "push-existing", branch, pr: open, reason: `PR #${open.number} is open` });
-  const merged = facts.prs.find((pr) => pr.state === "MERGED");
-  if (merged) {
-    return plan({ kind: "new-branch", branch: nextBranch, sequence: sequenceOf(nextBranch, options.prefix), previous: { branch, state: "MERGED", pr: merged }, reason: `PR #${merged.number} was merged` });
+  const decision = decideActiveBranch(branch, facts);
+  if (decision.kind === "new-branch") {
+    return plan({ kind: "new-branch", branch: nextBranch, sequence: sequenceOf(nextBranch, options.prefix), previous: { branch, ...decision.previous }, reason: decision.reason });
   }
-  if (!facts.branchExists) {
-    return plan({ kind: "new-branch", branch: nextBranch, sequence: sequenceOf(nextBranch, options.prefix), previous: { branch, state: "DELETED", pr: facts.prs[0] }, reason: `branch ${branch} was deleted` });
-  }
-  const closed = facts.prs.find((pr) => pr.state === "CLOSED");
-  if (closed) {
-    return plan({ kind: "blocked", branch, reason: `PR #${closed.number} for ${branch} was closed without merging; reopen it, or delete ${branch} so the next run starts a new branch and PR` });
-  }
-  return plan({ kind: "push-and-open-pr", branch, reason: `${branch} exists without a PR` });
+  return plan({ ...decision, branch });
 }
 
 export interface ExecuteOptions extends RemoteOptions {
@@ -122,6 +144,8 @@ export interface PublicationResult {
   readonly state: PublicationState;
   readonly summary: string;
   readonly prUrl?: string;
+  /** Why a live push was refused (the remote branch has commits the integration does not contain). */
+  readonly blocked?: string;
 }
 
 async function ensurePr(runner: CommandRunner, branch: string, options: ExecuteOptions): Promise<RemotePr> {
@@ -133,7 +157,10 @@ async function ensurePr(runner: CommandRunner, branch: string, options: ExecuteO
   return { number: Number(url.split("/").pop()), state: "OPEN", url };
 }
 
-/** Carry out a plan. Non-live modes return the unchanged state and describe the intended effect. */
+/**
+ * Carry out a plan. Non-live modes return the unchanged state and describe the intended effect.
+ * Pushes are never forced: a push the remote rejects as non-fast-forward ends blocked.
+ */
 export async function executePublication(runner: CommandRunner, plan: PublicationPlan, options: ExecuteOptions): Promise<PublicationResult> {
   const { action } = plan;
   const describe = action.kind === "nothing-to-publish" || action.kind === "blocked"
@@ -142,7 +169,14 @@ export async function executePublication(runner: CommandRunner, plan: Publicatio
   if (options.mode !== "live" || action.kind === "nothing-to-publish" || action.kind === "blocked") {
     return { executed: false, state: plan.state, summary: options.mode === "live" ? describe : `${options.mode}: would ${describe}` };
   }
-  await runChecked(runner, ["git", "push", options.remote, `HEAD:refs/heads/${action.branch}`], options);
+  const push = await runner(["git", "push", options.remote, `HEAD:refs/heads/${action.branch}`], options);
+  if (push.code !== 0) {
+    if (/non-fast-forward|\[rejected\]|fetch first/i.test(`${push.stderr}\n${push.stdout}`)) {
+      const blocked = `push to ${action.branch} was rejected as non-fast-forward: the remote branch has commits the verified integration does not contain; inspect them, then merge them into ${action.branch}'s PR or delete the branch, and relaunch (the verified work stays pending)`;
+      return { executed: false, state: plan.state, summary: `blocked: ${blocked}`, blocked };
+    }
+    throw new Error(`git push ${options.remote} HEAD:refs/heads/${action.branch} failed (exit ${push.code}): ${push.stderr.trim()}`);
+  }
   const pr = action.kind === "push-existing" && action.pr ? action.pr : await ensurePr(runner, action.branch, options);
   const previous = plan.state;
   const history = action.kind === "new-branch" && action.previous

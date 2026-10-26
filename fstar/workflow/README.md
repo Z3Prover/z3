@@ -119,15 +119,23 @@ work as verified.
 ## What one run does
 
 ```text
-preflight → source → record-sources ─┬─ iter-i/triage ──(nothing actionable → stop)
-                                     │     └─ iter-i/plan  (theory slices, ≤32 cores, worktrees, claims)
-                                     │          ├─ iter-i/<slice>/repair   one fresh stage per slice, in its worktree
-                                     │          ├─ iter-i/<slice>/verify   fresh, schema-backed independent verifier
-                                     │          └─ iter-i/gate → iter-i/integrate → iter-i/integration/verify
-                                     │                         → iter-i/publish → iter-i/persist
-                                     └─ investigate/select → investigate/{checker-scalability, certificate-reformulation, diagnostics-ux} → finalize
+preflight → reconcile-publications → source → record-sources
+  ─┬─ iter-i/triage ──(nothing actionable → stop)
+   │     └─ iter-i/plan  (theory slices, ≤32 cores, worktrees, claims)
+   │          ├─ iter-i/<slice>/repair   one fresh stage per slice, in its worktree
+   │          ├─ iter-i/<slice>/verify   fresh, schema-backed independent verifier
+   │          └─ iter-i/gate → iter-i/integrate → iter-i/integration/verify
+   │                         → iter-i/publish → iter-i/persist
+   └─ investigate/select → investigate/{checker-scalability, certificate-reformulation, diagnostics-ux} → finalize
 ```
 
+0. **Reconcile publications.** Before sourcing, the run asks the remote (read-only
+   `git ls-remote` and `gh pr list`) about every branch that carries `resolved` findings and
+   applies the status machine below: a merged PR makes its findings `merged`; a branch deleted
+   before its PR merged reopens them. Integrated findings that no pending publication carries
+   any more are reopened too. `publish=none` skips the remote queries, a dry run changes
+   nothing, and state is written only when something changed, so reconciling twice is a no-op.
+   The observations are kept in `runs/<runKey>/reconcile.json`.
 1. **Source.** The workflow downloads up to `maxReports` unprocessed runs. Regression runs
    provide `pulse-checker-report-<id>-<attempt>` and `pulse-checker-cherry-report-<id>-<attempt>`.
    Failed or timed-out builds provide `pulse-checker-build-report`. Downloads use read-only `gh`
@@ -144,23 +152,27 @@ preflight → source → record-sources ─┬─ iter-i/triage ──(nothing a
    harness checks that copy, because it would otherwise always take the sorted first
    `--max-cases` files of the whole corpus. Finally,
    the step re-sources findings already recorded in state that are eligible now: findings left
-   open because the slice capacity was used up, retries whose backoff expired, and claims
-   abandoned by a crashed run. A continuity launch for unprocessed partial rules therefore always
-   has work to process.
+   open because the slice capacity was used up, retries whose backoff expired, claims abandoned
+   by a crashed run, and reopened findings. A continuity launch for unprocessed partial rules
+   therefore always has work to process.
 
    **Record sources.** Before any iteration can stop early, the run marks every sourced report
    processed, advances the scan windows, and records new findings as `open`, with a snapshot so
    later runs can re-source them. A run that finds nothing actionable, or that is blocked because
-   the toolchain is missing, does not see the same reports as new again.
+   the toolchain is missing, does not see the same reports as new again. Each finding's evidence
+   time is when its newest report was produced (the Pulse run's creation time, a local report's
+   modification time, or now for local scans). A `merged` finding whose evidence changed in a
+   report produced after the merge is reopened here; see the status machine below.
 2. **Normalize.** Findings are partial-rule families from `diagnostics.jsonl`, checker
    crashes, rejected proofs, whole-case checker timeouts, and F* build proof timeouts
    (`Error … The SMT query timed out`). Declarations whose
    `process_one_decl` time is over 2 s are slow obligations. Each finding has a stable
    fingerprint. The same family seen by several reports or checkers is merged.
-3. **Triage.** Resolved findings are skipped, and so are `integrated` ones (verified and
-   awaiting publication). So are findings claimed by another run, in backoff, or blocked
-   (unless their evidence changed). The rest are ordered: crashes, possible unsoundness, build
-   timeouts, partial rules by affected proofs, checker timeouts, then slow proofs.
+3. **Triage.** Resolved and merged findings are skipped, and so are `integrated` ones that a
+   pending publication carries (verified and awaiting publication). So are findings claimed by
+   another run, in backoff, or blocked (unless their evidence changed). The rest are ordered:
+   crashes, possible unsoundness, build timeouts, partial rules by affected proofs, checker
+   timeouts, then slow proofs.
 4. **Plan.** Findings are grouped into slices by theory and focus:
    * Theories: linear and non-linear arithmetic, UF, arrays, datatypes, bit-vectors, finite
      fields, floating point, quantifier instantiation and binding, other.
@@ -218,7 +230,8 @@ preflight → source → record-sources ─┬─ iter-i/triage ──(nothing a
 8. **Publish.** One branch receives pushes until it is merged or deleted (see below).
 9. **Persist.** Under the state lock, the step records outcomes, publication state and pending
    publications. Reports and scan offsets were already recorded by `record-sources`.
-   * Verified findings resolve only when a live push included them. Otherwise they become
+   * Verified findings resolve only when a live push included them, and record where:
+     `publishedOn` holds the branch, PR, pushed head and time. Otherwise they become
      `integrated` and the run's integration branch and head are recorded as a pending publication.
    * Others back off for 6 h, 12 h, … and are blocked after 3 attempts.
    * A blocked finding is reopened if its evidence changes.
@@ -231,21 +244,25 @@ preflight → source → record-sources ─┬─ iter-i/triage ──(nothing a
     * diagnostics and UX: rules-checked counts for PARTIAL and ACCEPT, and an admit-diagnostics mode.
 
 A run stops when nothing is actionable, at `maxIterations`, after two iterations in a row
-without a verified slice, or in a blocked state. Blocked states are a missing toolchain and a PR
-closed without merging. Each has an actionable reason in the `summary` output.
+without a verified slice, or in a blocked state. Blocked states are a missing toolchain, a PR
+closed without merging, and a push the remote refused as non-fast-forward. Each has an
+actionable reason in the `summary` output.
 
 ## Publication lifecycle
 
-Publication state is stored as `activeBranch`, `prNumber` and `sequence`.
+Publication state is stored as `activeBranch`, `prNumber` and `sequence`. One rule
+(`decideActiveBranch` in `lib/publish.ts`) decides what happens to the active branch, and both
+the integration base and the push use it, so they always agree:
 
 | Remote state of the active branch | Action |
 |---|---|
 | No active branch | Push `fstar-proof-checking/<n+1>` (the first free name) and open a PR. |
-| PR open | Push to the same branch; no new PR. |
-| Branch exists, no PR (e.g. an interrupted earlier run) | Push and open the PR. Every `gh pr create` is preceded by `gh pr list --state open`, so re-running never duplicates a PR. |
-| PR merged | Start `fstar-proof-checking/<n+1>` and a new PR. |
-| Branch deleted | Start a new branch and PR. |
-| PR closed without merging, branch still there | **Blocked.** Reopen the PR, or delete the branch to start a new one. |
+| PR open (even if an earlier PR from the same branch merged) | Integrate on top of the branch and push to it; no new PR. |
+| Branch exists, no PR (e.g. an interrupted earlier run) | Integrate on top of the branch, push and open the PR. Every `gh pr create` is preceded by `gh pr list --state open`, so re-running never duplicates a PR. |
+| PR merged (and none open) | Start `fstar-proof-checking/<n+1>` from `baseRef` and a new PR. |
+| Branch deleted | Start a new branch and PR. Findings published on the deleted branch whose PR never merged are reopened (see below). |
+| PR closed without merging, branch still there | **Blocked.** Reopen the PR, or delete the branch to start a new one (which reopens its findings). |
+| The remote refuses the push as non-fast-forward (someone pushed to the branch meanwhile) | **Blocked**, never forced. The verified work stays `integrated` and pending; merge or remove the other commits, then relaunch. |
 
 Crash reports carry the hidden marker `fstar-proof-checking:crash:<fingerprint>` and are filed in
 FStarLang/FStar only with `publish=live`, after a search for that marker finds nothing.
@@ -268,7 +285,38 @@ verifies the merged build. Then it pushes by the lifecycle above: to the active 
 PR is open, or to a new branch and PR after a merge or deletion. Only after that push succeeds
 do the findings resolve and the entries leave the list. An entry whose local branch is missing,
 or whose merge conflicts or fails the soundness scan, stays pending with the reason in
-`lastError`. Recreate the branch, or remove the entry from `state.json` to drop that work.
+`lastError`. Recreate the branch, or remove the entry from `state.json`: its findings are then
+reopened by the next run and repaired again.
+
+### Finding status machine
+
+Every status change is appended to the finding's `transitions` (the last ten, each with time,
+old and new status, and reason; a reopen also keeps the publication it gave up).
+
+```text
+open ──claim──▶ in_progress ──verified, not pushed──▶ integrated ──live push──▶ resolved ──PR merged──▶ merged
+                     │                                                (publishedOn)            (mergedAt)
+                     ├──failed──▶ unverified (backoff 6 h, 12 h, …) ──backoff over──▶ eligible again
+                     └──failed 3 times──▶ blocked ──evidence changed──▶ claimed again
+```
+
+Reopen edges, all back to `open` with attempts reset and the reason recorded:
+
+* **Publication lost** (`reconcile-publications`): a `resolved` finding's branch no longer exists
+  and its PR never merged, because the PR was closed and the branch deleted, or the branch was
+  deleted early. The transition keeps the lost branch, PR number and pushed head. Deleting a
+  branch after its PR merged is not a loss.
+* **Evidence after the merge** (`record-sources`): a `merged` finding shows up in a report
+  produced after `mergedAt` with a different evidence digest (rule, detail or examples). If the
+  report's production time is unknown, the changed evidence alone reopens it. A report produced
+  before the merge, or with unchanged evidence, keeps it `merged`, with `keptReason` saying why.
+* **Orphaned integration** (`reconcile-publications`, also counted by the continuity check): an
+  `integrated` finding that no `pendingPublications` entry carries.
+
+A `resolved` finding whose PR is still open (or closed while its branch still exists) is never
+reopened by newer reports: master does not contain the fix yet. Its `keptReason` records this.
+Reopened findings are re-sourced from state, so the next run's triage selects them, and they
+count as unprocessed for the continuity check.
 
 ## State and evidence
 
@@ -280,7 +328,8 @@ or whose merge conflicts or fails the soundness scan, stays pending with the rea
   or its process is dead. The file is replaced by write-then-rename.
 * `reports/` caches downloaded artifacts.
 * `runs/<runKey>/` holds:
-  * `setup.json`, `findings.json`, `commands.jsonl` and `evidence.json`;
+  * `setup.json`, `reconcile.json` (the branch observations and status changes of
+    `reconcile-publications`), `findings.json`, `commands.jsonl` and `evidence.json`;
   * `iter-<n>/` with the actionable, plan, gate, integration, publication and persistence
     records, plus each slice's `findings.json`, `slice-report.md`, `verification.md` and drafts;
   * `investigations/` with the investigation reports.
@@ -385,6 +434,15 @@ The tests cover:
   integration verification failed never reaches the next iteration's pending head; a run's
   verified iterations accumulate in one pending entry; an integration verifier's soundness
   concern blocks the live push;
+* the finding status machine with the same real git and scripted gh: a PR closed without merging
+  whose branch was deleted reopens its findings (keeping the lost branch, PR and head) and the
+  next run repairs and republishes them on a new branch; a branch deleted before any merge also
+  reopens, and reconciling again leaves `state.json` byte-identical; a merged finding is reopened
+  (and counted as unprocessed) only by changed evidence from a report produced after the merge;
+  while the PR is open, newer reports keep it resolved; an integrated finding whose pending entry
+  was removed is reopened; with an OPEN and a MERGED PR on the active branch, integration builds
+  on that branch and the push fast-forwards, and a push the remote refuses as non-fast-forward
+  ends blocked with the work pending and nothing forced;
 * the workflow itself: dry runs through Atomic's `run()` (including that existing state stays
   byte-identical), full-iteration topology with scripted durable steps, a live run that
   continues past triage only to publish pending work, and runs that stop in iteration 1

@@ -45,7 +45,7 @@ describe("dry run through Atomic's workflow runtime", () => {
     const run = store.snapshot().runs[0];
     const names: string[] = run.toolNodes.map((node: { name: string }) => node.name);
     expect(names).toEqual([
-      "preflight", "source", "record-sources",
+      "preflight", "reconcile-publications", "source", "record-sources",
       "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist",
       "iter-2/triage", "iter-2/plan", "iter-2/gate", "iter-2/integrate", "iter-2/publish", "iter-2/persist",
       "investigate/select", "finalize",
@@ -113,7 +113,8 @@ function fakeContext(inputs: Record<string, unknown>, overrides: Record<string, 
       const real = () => fn({ signal: new AbortController().signal }) as Promise<any>;
       const override = Object.entries(overrides).find(([pattern]) => new RegExp(`^${pattern}$`).test(name));
       if (override) return override[1](name, args, real);
-      if (!["record-sources", "iter-[0-9]+/triage", "investigate/select", "finalize"].some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
+      // reconcile-publications only queries GitHub for branches that carry published findings; these tests' states have none.
+      if (!["reconcile-publications", "record-sources", "iter-[0-9]+/triage", "investigate/select", "finalize"].some((pattern) => new RegExp(`^${pattern}$`).test(name))) {
         throw new Error(`unscripted durable step ${name} would touch git, GitHub or state`);
       }
       return real();
@@ -230,13 +231,13 @@ describe("full iteration topology with scripted durable steps", () => {
     };
     const live = fakeContext({ ...defaults, publish: "live", maxIterations: 2 }, scripted);
     await definition.run(live.ctx);
-    expect(live.tools).toEqual(["preflight", "source", "record-sources", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
+    expect(live.tools).toEqual(["preflight", "reconcile-publications", "source", "record-sources", "iter-1/triage", "iter-1/plan", "iter-1/gate", "iter-1/integrate", "iter-1/publish", "iter-1/persist", "iter-2/triage", "investigate/select", "finalize"]);
     expect(live.tasks.map((task) => task.name)).toEqual(["iter-1/integration/verify"]);
     expect(live.tasks[0]?.options.prompt).toContain("arrays-repair (f9) from pending integration r1");
     for (const publish of ["dry-run", "none"]) {
       const other = fakeContext({ ...defaults, publish, maxIterations: 2 }, scripted);
       const output = await definition.run(other.ctx);
-      expect(other.tools).toEqual(["preflight", "source", "record-sources", "iter-1/triage", "investigate/select", "finalize"]);
+      expect(other.tools).toEqual(["preflight", "reconcile-publications", "source", "record-sources", "iter-1/triage", "investigate/select", "finalize"]);
       expect(output.stop_reason).toBe("no new or unprocessed findings");
     }
   }, 120_000);

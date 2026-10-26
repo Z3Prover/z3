@@ -11,10 +11,10 @@ import { join } from "node:path";
 import { spawnRunner, type CommandLogEntry, type CommandResult, type CommandRunner } from "../lib/command.ts";
 import type { VerifierVerdict } from "../lib/gate.ts";
 import type { Finding } from "../lib/reports.ts";
-import { readState, writeJsonAtomic, emptyState, type WorkflowState } from "../lib/state.ts";
+import { countUnprocessed, eligibleStateFindings, readState, triageFindings, writeJsonAtomic, emptyState, type WorkflowState } from "../lib/state.ts";
 import * as steps from "../lib/steps.ts";
 
-type Pr = { number: number; state: "OPEN" | "MERGED" | "CLOSED"; url: string; head: string };
+type Pr = { number: number; state: "OPEN" | "MERGED" | "CLOSED"; url: string; head: string; mergedAt?: string };
 
 const signal = new AbortController().signal;
 const verified: VerifierVerdict = {
@@ -47,13 +47,19 @@ function environment(prs: Pr[] = []) {
   git(repo, "remote", "add", "origin", origin);
   git(repo, "push", "-q", "origin", "main");
   const ok = (stdout = ""): CommandResult => ({ code: 0, stdout, stderr: "" });
+  const hooks: { beforePush?: () => void } = {};
   // gh is scripted; git runs for real against the local bare remote.
   const runner: CommandRunner = async (argv, options) => {
+    if (argv[0] === "git" && argv[1] === "push" && hooks.beforePush) {
+      const hook = hooks.beforePush;
+      hooks.beforePush = undefined;
+      hook();
+    }
     if (argv[0] !== "gh") return spawnRunner(argv, options);
     const head = argv[argv.indexOf("--head") + 1] ?? "";
     if (argv[1] === "pr" && argv[2] === "list") {
       const state = argv[argv.indexOf("--state") + 1];
-      return ok(JSON.stringify(prs.filter((pr) => pr.head === head && (state === "all" || pr.state.toLowerCase() === state)).map(({ number, state: s, url }) => ({ number, state: s, url }))));
+      return ok(JSON.stringify(prs.filter((pr) => pr.head === head && (state === "all" || pr.state.toLowerCase() === state)).map(({ number, state: s, url, mergedAt }) => ({ number, state: s, url, mergedAt }))));
     }
     if (argv[1] === "pr" && argv[2] === "create") {
       const number = 100 + prs.length;
@@ -77,6 +83,20 @@ function environment(prs: Pr[] = []) {
     };
   };
 
+  /** What the source step hands on: the given findings (reported by one report), plus eligible findings re-sourced from state. */
+  const sourceOf = (setup: steps.RunSetup, findings: Finding[], producedAt?: string): steps.SourceSummary => {
+    const key = `pulse-run:${setup.runKey}-1`;
+    const fresh = findings.map((item) => ({ ...item, sources: [key] }));
+    const seen = new Set(findings.map((item) => item.fingerprint));
+    const carried = eligibleStateFindings(readState(stateDir), new Date()).filter((item) => !seen.has(item.fingerprint));
+    const findingsPath = join(setup.runDir, "findings.json");
+    writeFileSync(findingsPath, JSON.stringify([...fresh, ...carried]));
+    return {
+      findingsPath, total: findings.length + carried.length, byKind: {}, byTheory: {}, localScans: {}, carried: carried.map((item) => item.fingerprint), diagnostics: [],
+      reports: [{ key, directory: setup.runDir, artifacts: [], missing: [], ...(producedAt ? { producedAt } : {}) }],
+    };
+  };
+
   /**
    * Iterations exactly as the workflow entry sequences them, with scripted repair and verify
    * stages: each slice commits `src/<runKey>-<slice>.fst`, slice verifiers pass, and iteration i's
@@ -85,12 +105,9 @@ function environment(prs: Pr[] = []) {
   async function run(runKey: string, publish: steps.WorkflowInputs["publish"], findings: Finding[], options: { integrationVerdicts?: Array<VerifierVerdict | null>; overrides?: Partial<steps.WorkflowInputs> } = {}) {
     const setup = setupFor(runKey);
     const config = inputs(publish, options.overrides);
-    const findingsPath = join(setup.runDir, "findings.json");
-    writeFileSync(findingsPath, JSON.stringify(findings));
-    const source: steps.SourceSummary = {
-      findingsPath, total: findings.length, byKind: {}, byTheory: {}, localScans: {}, carried: [], diagnostics: [],
-      reports: [{ key: `pulse-run:${runKey}-1`, directory: setup.runDir, artifacts: [], missing: [] }],
-    };
+    const reconciled = await steps.reconcilePublicationsStep(setup, config, signal, runner);
+    const source = sourceOf(setup, findings);
+    const findingsPath = source.findingsPath;
     await steps.recordSourcesStep(setup, config, source);
     const verdicts = options.integrationVerdicts ?? [verified];
     const planned: string[] = [];
@@ -115,7 +132,7 @@ function environment(prs: Pr[] = []) {
     }
     await steps.finalizeStep(setup, config, { status: "completed", stopReason: "test", iterations: [], investigation: { run: false, reason: "", digest: "" }, verified: 0, attempted: 0 }, [...new Set(worktrees)], signal, runner);
     const commands = readFileSync(join(setup.runDir, "commands.jsonl"), "utf8").split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as CommandLogEntry);
-    return { ...(iterations[0] as (typeof iterations)[number]), iterations, commands, setup, state: readState(stateDir) };
+    return { ...(iterations[0] as (typeof iterations)[number]), iterations, commands, setup, reconciled, state: readState(stateDir) };
   }
 
   const remoteBranches = () => git(repo, "ls-remote", "--heads", "origin").split(/\r?\n/).filter(Boolean).map((line) => line.split("refs/heads/")[1]);
@@ -131,7 +148,7 @@ function environment(prs: Pr[] = []) {
     mkdirSync(stateDir, { recursive: true });
     writeJsonAtomic(join(stateDir, "state.json"), state);
   };
-  return { repo, stateDir, prs, git, run, inputs, setupFor, remoteBranches, contains, seed };
+  return { repo, origin, stateDir, prs, hooks, runner, git, run, inputs, setupFor, sourceOf, remoteBranches, contains, seed };
 }
 
 describe("verified work that is not published live", () => {
@@ -282,5 +299,143 @@ describe("dry-run workflow runs never touch state", () => {
     expect(integration.pendingMerged).toEqual([]);
     expect(readFileSync(path).equals(before)).toBe(true);
     expect(existsSync(join(env.stateDir, "state.lock"))).toBe(false);
+  }, 120_000);
+});
+
+describe("published findings reopen only when their publication is lost or newer evidence follows the merge", () => {
+  const stillPartial = { ...finding("f1"), examples: ["QF_AX/still-partial.smt2"] };
+  const reconcile = (env: ReturnType<typeof environment>, runKey: string, publish: steps.WorkflowInputs["publish"] = "live") =>
+    steps.reconcilePublicationsStep(env.setupFor(runKey), env.inputs(publish), signal, env.runner);
+
+  test("a PR closed without merging whose branch was deleted reopens its findings, and the next run repairs and republishes them", async () => {
+    const env = environment();
+    const first = await env.run("r1", "live", [finding("f1")]);
+    expect(first.state.findings.f1).toMatchObject({
+      status: "resolved", publishedOn: { branch: "fstar-proof-checking/1", prNumber: 100, head: first.integration.head },
+    });
+    (env.prs[0] as Pr).state = "CLOSED";
+    env.git(env.repo, "push", "-q", "origin", "--delete", "fstar-proof-checking/1");
+    const second = await env.run("r2", "live", []);
+    expect(second.reconciled.reopened).toEqual(["f1"]);
+    expect(second.triage.actionable).toBe(1);
+    expect(second.plan.slices.flatMap((slice) => slice.fingerprints)).toEqual(["f1"]);
+    expect(second.publication).toMatchObject({ executed: true, action: "new-branch", branch: "fstar-proof-checking/2" });
+    const record = second.state.findings.f1;
+    expect(record).toMatchObject({ status: "resolved", publishedOn: { branch: "fstar-proof-checking/2", prNumber: 101 } });
+    // The lost publication stays on record: its branch, PR, head and why the finding was reopened.
+    expect(record?.transitions).toContainEqual(expect.objectContaining({
+      from: "resolved", to: "open", reason: expect.stringMatching(/fstar-proof-checking\/1 was deleted.*PR #100.*CLOSED/),
+      publication: expect.objectContaining({ branch: "fstar-proof-checking/1", prNumber: 100, head: first.integration.head }),
+    }));
+  }, 120_000);
+
+  test("a branch deleted before any PR merged also reopens; reconciling again changes nothing", async () => {
+    const env = environment();
+    await env.run("r1", "live", [finding("f1")]);
+    env.git(env.repo, "push", "-q", "origin", "--delete", "fstar-proof-checking/1");
+    expect((await reconcile(env, "c1")).reopened).toEqual(["f1"]);
+    const path = join(env.stateDir, "state.json");
+    const once = readFileSync(path);
+    const again = await reconcile(env, "c2");
+    expect(again).toMatchObject({ reopened: [], merged: [] });
+    expect(readFileSync(path).equals(once)).toBe(true);
+    expect(countUnprocessed(readState(env.stateDir), new Date(), "partial-rule")).toBe(1);
+  }, 120_000);
+
+  test("a merged fix that a newer report still shows with changed evidence is reopened and counted as unprocessed", async () => {
+    const env = environment();
+    await env.run("r1", "live", [finding("f1")]);
+    const mergedAt = new Date(Date.now() - 60_000).toISOString();
+    Object.assign(env.prs[0] as Pr, { state: "MERGED", mergedAt });
+    // Deleting a branch after its PR merged is not a lost publication.
+    env.git(env.repo, "push", "-q", "origin", "--delete", "fstar-proof-checking/1");
+    expect(await reconcile(env, "c1")).toMatchObject({ merged: ["f1"], reopened: [] });
+    expect(readState(env.stateDir).findings.f1).toMatchObject({ status: "merged", mergedAt });
+    const setup = env.setupFor("r2");
+    // A report produced before the merge does not reopen the finding.
+    await steps.recordSourcesStep(setup, env.inputs("live"), env.sourceOf(setup, [stillPartial], new Date(Date.parse(mergedAt) - 3_600_000).toISOString()));
+    expect(readState(env.stateDir).findings.f1).toMatchObject({ status: "merged", keptReason: expect.stringMatching(/predates/) });
+    await steps.recordSourcesStep(setup, env.inputs("live"), env.sourceOf(setup, [stillPartial], new Date().toISOString()));
+    const state = readState(env.stateDir);
+    expect(state.findings.f1?.status).toBe("open");
+    expect(state.findings.f1?.transitions).toContainEqual(expect.objectContaining({ from: "merged", to: "open", reason: expect.stringMatching(/after PR #100 merged/) }));
+    expect(countUnprocessed(state, new Date(), "partial-rule")).toBe(1);
+    expect(triageFindings([stillPartial], state, { now: new Date() }).actionable).toHaveLength(1);
+  }, 120_000);
+
+  test("while the PR is still open, newer reports that still show the family do not reopen it", async () => {
+    const env = environment();
+    await env.run("r1", "live", [finding("f1")]);
+    expect(await reconcile(env, "c1")).toMatchObject({ merged: [], reopened: [] });
+    expect(readState(env.stateDir).findings.f1).toMatchObject({ status: "resolved", keptReason: expect.stringMatching(/PR #100 is open/) });
+    const setup = env.setupFor("r2");
+    await steps.recordSourcesStep(setup, env.inputs("live"), env.sourceOf(setup, [stillPartial], new Date().toISOString()));
+    const state = readState(env.stateDir);
+    expect(state.findings.f1).toMatchObject({ status: "resolved", keptReason: expect.stringMatching(/PR #100 .*not merged/) });
+    expect(countUnprocessed(state, new Date(), "partial-rule")).toBe(0);
+    expect(triageFindings([stillPartial], state, { now: new Date() }).skipped).toEqual({ resolved: 1 });
+  }, 120_000);
+
+  test("integrated work whose pending entry was removed from state.json is reopened and selected again", async () => {
+    const env = environment();
+    await env.run("r1", "dry-run", [finding("f1")]);
+    env.seed({ ...readState(env.stateDir), pendingPublications: [] });
+    expect(countUnprocessed(readState(env.stateDir), new Date(), "partial-rule")).toBe(1);
+    const second = await env.run("r2", "dry-run", []);
+    expect(second.reconciled.reopened).toEqual(["f1"]);
+    expect(second.triage.actionable).toBe(1);
+    expect(second.state.findings.f1?.transitions).toContainEqual(expect.objectContaining({ from: "integrated", to: "open", reason: expect.stringMatching(/no pending publication/) }));
+    expect(second.state.pendingPublications).toEqual([expect.objectContaining({ runKey: "r2", fingerprints: ["f1"] })]);
+  }, 120_000);
+});
+
+describe("an active branch with both an OPEN and a MERGED PR", () => {
+  function reusedBranch() {
+    const env = environment([
+      { number: 100, state: "MERGED", url: "u100", head: "fstar-proof-checking/1", mergedAt: "2026-10-01T00:00:00Z" },
+      { number: 101, state: "OPEN", url: "u101", head: "fstar-proof-checking/1" },
+    ]);
+    // The reused branch carries work beyond main.
+    env.git(env.repo, "checkout", "-q", "-b", "reuse");
+    writeFileSync(join(env.repo, "src", "Reused.fst"), "module Reused\nlet z = 3\n");
+    env.git(env.repo, "add", "-A");
+    env.git(env.repo, "commit", "-q", "-m", "reused branch work");
+    env.git(env.repo, "push", "-q", "origin", "reuse:refs/heads/fstar-proof-checking/1");
+    env.git(env.repo, "checkout", "-q", "main");
+    env.seed({ ...emptyState(), publication: { activeBranch: "fstar-proof-checking/1", prNumber: 101, prUrl: "u101", sequence: 1, history: [] } });
+    return { env, reusedHead: env.git(env.repo, "rev-parse", "reuse") };
+  }
+
+  test("integration continues on the branch the publish plan pushes to, so the push fast-forwards", async () => {
+    const { env, reusedHead } = reusedBranch();
+    const result = await env.run("r1", "live", [finding("f1")]);
+    expect(result.integration.base).toBe("origin/fstar-proof-checking/1");
+    expect(result.publication).toMatchObject({ executed: true, action: "push-existing", branch: "fstar-proof-checking/1" });
+    env.git(env.repo, "fetch", "-q", "origin");
+    expect(env.contains("refs/remotes/origin/fstar-proof-checking/1", reusedHead)).toBe(true);
+    expect(env.contains("refs/remotes/origin/fstar-proof-checking/1", result.integration.head as string)).toBe(true);
+    expect(env.prs).toHaveLength(2);
+    expect(result.state.findings.f1).toMatchObject({ status: "resolved", publishedOn: { branch: "fstar-proof-checking/1", prNumber: 101 } });
+  }, 120_000);
+
+  test("a push the remote rejects as non-fast-forward ends blocked with the work kept pending, never forced", async () => {
+    const { env } = reusedBranch();
+    // Someone pushes to the branch after the integration was built.
+    let concurrent = "";
+    env.hooks.beforePush = () => {
+      const other = join(mkdtempSync(join(tmpdir(), "fpc-other-")), "other");
+      execFileSync("git", ["clone", "-q", "-b", "fstar-proof-checking/1", env.origin, other]);
+      writeFileSync(join(other, "src", "Concurrent.fst"), "module Concurrent\n");
+      execFileSync("git", ["add", "-A"], { cwd: other });
+      execFileSync("git", ["-c", "user.email=o@example.com", "-c", "user.name=Other", "commit", "-q", "-m", "concurrent"], { cwd: other });
+      execFileSync("git", ["push", "-q", "origin", "HEAD:refs/heads/fstar-proof-checking/1"], { cwd: other });
+      concurrent = execFileSync("git", ["rev-parse", "HEAD"], { cwd: other, encoding: "utf8" }).trim();
+    };
+    const result = await env.run("r1", "live", [finding("f1")]);
+    expect(result.publication).toMatchObject({ executed: false, blocked: expect.stringMatching(/non-fast-forward/) });
+    expect(result.state.findings.f1?.status).toBe("integrated");
+    expect(result.state.pendingPublications).toEqual([expect.objectContaining({ runKey: "r1", fingerprints: ["f1"] })]);
+    expect(env.git(env.repo, "ls-remote", "origin", "refs/heads/fstar-proof-checking/1").split("\t")[0]).toBe(concurrent);
+    expect(result.commands.some((entry) => entry.argv.includes("--force") || entry.argv.some((arg) => arg.startsWith("+")))).toBe(false);
   }, 120_000);
 });

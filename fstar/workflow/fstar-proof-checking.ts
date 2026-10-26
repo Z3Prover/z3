@@ -5,17 +5,21 @@
  *
  * Graph (one bounded iteration i = 1..maxIterations; every node name is unique per iteration):
  *
- *   preflight → source → record-sources ─┬─ iter-i/triage ─(nothing actionable or pending → stop)
- *                                         │      └─ iter-i/plan (slices, cores ≤ 32, worktrees, claims)
- *                                         │            ├─ iter-i/<slice>/repair   (parallel, one worktree each)
- *                                         │            ├─ iter-i/<slice>/verify   (parallel, fresh verifier, schema)
- *                                         │            └─ iter-i/gate → iter-i/integrate → [iter-i/integration/verify]
- *                                         │                             → iter-i/publish → iter-i/persist
- *                                         └─ investigate/select → [investigate/<topic> ×3] → finalize
+ *   preflight → reconcile-publications → source → record-sources
+ *     ─┬─ iter-i/triage ─(nothing actionable or pending → stop)
+ *      │      └─ iter-i/plan (slices, cores ≤ 32, worktrees, claims)
+ *      │            ├─ iter-i/<slice>/repair   (parallel, one worktree each)
+ *      │            ├─ iter-i/<slice>/verify   (parallel, fresh verifier, schema)
+ *      │            └─ iter-i/gate → iter-i/integrate → [iter-i/integration/verify]
+ *      │                             → iter-i/publish → iter-i/persist
+ *      └─ investigate/select → [investigate/<topic> ×3] → finalize
  *
- * `record-sources` marks the sourced reports processed and records new findings before any
- * iteration can stop early; findings left open (deferred by slice capacity, out of backoff,
- * abandoned claims) are re-sourced from state by later runs.
+ * `reconcile-publications` checks (read-only) the branches carrying published findings: a merged
+ * PR marks them merged, a branch deleted before its PR merged reopens them, and integrated work no
+ * pending publication carries reopens. `record-sources` marks the sourced reports processed and
+ * records new findings before any iteration can stop early (a merged finding that newer report
+ * evidence still shows is reopened there); findings left open (deferred by slice capacity, out of
+ * backoff, abandoned claims, reopened) are re-sourced from state by later runs.
  *
  * Each iteration integrates into its own branch, on top of the run's earlier verified head, so a
  * merge whose integration verification failed never reaches a later head. Verified work that is
@@ -23,7 +27,8 @@
  * `publish=live` run merges, re-verifies and pushes it even without new findings.
  *
  * Stop conditions: nothing actionable, iteration limit, two consecutive iterations without a
- * verified slice, or a blocked state (toolchain not found, PR closed without merge).
+ * verified slice, or a blocked state (toolchain not found, PR closed without merge, push refused
+ * as non-fast-forward).
  */
 import { join } from "node:path";
 import { workflow } from "@bastani/atomic/workflows";
@@ -40,6 +45,7 @@ import {
   planStep,
   preflight,
   publishStep,
+  reconcilePublicationsStep,
   recordSourcesStep,
   selectInvestigation,
   sourceFindings,
@@ -115,6 +121,9 @@ export default workflow({
 
     const setup = await ctx.tool("preflight", { cwd, stateDir: inputs.stateDir, dryRun: inputs.dryRun },
       ({ signal }) => preflight(inputs, cwd, signal), { timeoutMs: 5 * 60_000 });
+    // Before sourcing: merged PRs mark their findings merged; lost publications and orphaned integrations reopen (and are re-sourced).
+    await ctx.tool("reconcile-publications", { runKey: setup.runKey, publish: inputs.publish },
+      ({ signal }) => reconcilePublicationsStep(setup, inputs, signal), { timeoutMs: 10 * 60_000 });
     const source = await ctx.tool("source", { runKey: setup.runKey },
       ({ signal }) => sourceFindings(setup, inputs, signal), { timeoutMs: 3 * HOUR });
     // Record ingested reports, scan windows and new findings before any iteration can stop early.

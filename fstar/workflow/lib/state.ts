@@ -11,9 +11,36 @@ import { join } from "node:path";
 import { evidenceDigest, type Finding, type FindingKind } from "./reports.js";
 import type { Theory } from "./theories.js";
 
-/** `integrated`: verified and merged into a local integration branch, but not yet published remotely. */
-export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "unverified" | "blocked";
+/**
+ * Finding status machine (see README "State and evidence"):
+ * open → in_progress → integrated (verified, merged into a local integration branch, awaiting a live push)
+ * → resolved (published on a branch/PR, awaiting merge) → merged (its PR merged).
+ * Failures go to unverified (backoff) and, after the attempt limit, blocked (reopened by new evidence).
+ * Reopen edges back to open: resolved whose publication was lost (branch deleted before its PR merged),
+ * merged with changed report evidence produced after the merge, and integrated with no pending publication.
+ */
+export type FindingStatus = "open" | "in_progress" | "integrated" | "resolved" | "merged" | "unverified" | "blocked";
 export type SliceOutcome = "verified" | "unverified" | "rejected" | "no-change" | "integration-conflict";
+
+/** Where a finding's verified change was pushed. */
+export interface PublicationLink {
+  branch: string;
+  prNumber?: number;
+  prUrl?: string;
+  /** The integration head that was pushed. */
+  head?: string;
+  at: string;
+}
+
+/** One status change and why it happened; a reopen keeps the publication it replaced. */
+export interface FindingTransition {
+  at: string;
+  from: FindingStatus;
+  to: FindingStatus;
+  reason: string;
+  publication?: PublicationLink;
+  mergedAt?: string;
+}
 
 export interface FindingRecord {
   fingerprint: string;
@@ -33,6 +60,29 @@ export interface FindingRecord {
   lastRunKey?: string;
   /** The latest observation, so later runs can re-source the finding without its original report. */
   snapshot?: Finding;
+  /** Set while resolved or merged: the branch/PR that carries the verified change. */
+  publishedOn?: PublicationLink;
+  /** When the PR in `publishedOn` merged (status `merged`). */
+  mergedAt?: string;
+  /** Why a resolved or merged finding was last kept despite new observations. */
+  keptReason?: string;
+  /** The most recent status changes, oldest first. */
+  transitions?: FindingTransition[];
+}
+
+const MAX_TRANSITIONS = 10;
+
+/** Change a record's status, recording why; the reason is part of the record. */
+function transition(record: FindingRecord, to: FindingStatus, reason: string, at: string, extra: Partial<FindingTransition> = {}): FindingRecord {
+  const entry: FindingTransition = { at, from: record.status, to, reason, ...extra };
+  return { ...record, status: to, transitions: [...(record.transitions ?? []), entry].slice(-MAX_TRANSITIONS) };
+}
+
+/** Back to `open`, keeping in the transition the publication (and merge) being given up. */
+function reopen(record: FindingRecord, reason: string, at: string, evidence?: string): FindingRecord {
+  const { publishedOn, mergedAt, keptReason: _kept, nextEligibleAt: _next, claimedBy: _by, claimedAt: _claimed, ...rest } = record;
+  const reopened = transition(rest, "open", reason, at, { ...(publishedOn ? { publication: publishedOn } : {}), ...(mergedAt ? { mergedAt } : {}) });
+  return { ...reopened, attempts: 0, lastOutcome: `reopened: ${reason}`, ...(evidence ? { evidenceDigest: evidence } : {}) };
 }
 
 export type PublicationRecord = {
@@ -290,6 +340,7 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
     skipped[reason] = (skipped[reason] ?? 0) + 1;
   };
   const actionable: Finding[] = [];
+  const pending = pendingFingerprints(state);
   for (const finding of findings) {
     if (options.theories && options.theories.length > 0 && !options.theories.includes(finding.theory)) {
       skip("theory-filter");
@@ -300,8 +351,8 @@ export function triageFindings(findings: readonly Finding[], state: WorkflowStat
       continue;
     }
     const record = state.findings[finding.fingerprint];
-    if (record?.status === "resolved" || record?.status === "integrated") {
-      // Integrated findings await publication of their verified integration, not another repair.
+    if (record?.status === "resolved" || record?.status === "merged" || (record?.status === "integrated" && pending.has(record.fingerprint))) {
+      // Published or merged work is not repaired again (reopening is explicit); integrated work awaits its pending publication.
       skip(record.status);
       continue;
     }
@@ -337,15 +388,41 @@ function newRecord(finding: Finding, at: string): FindingRecord {
   };
 }
 
-/** Record every observed finding so continuity can count unprocessed work; existing progress is kept. */
-export function recordSeen(state: WorkflowState, findings: readonly Finding[], now: Date): WorkflowState {
+/**
+ * Record every observed finding so continuity can count unprocessed work; existing progress is
+ * kept. A merged finding that report evidence produced after its merge still shows with changed
+ * evidence is reopened; published findings whose PR has not merged are kept, with the reason.
+ * `producedAt` gives when the reporting evidence was produced (unknown: undefined).
+ */
+export function recordSeen(state: WorkflowState, findings: readonly Finding[], now: Date, producedAt?: (finding: Finding) => string | undefined): WorkflowState {
   const at = now.toISOString();
   const records = { ...state.findings };
   for (const finding of findings) {
     const existing = records[finding.fingerprint];
-    records[finding.fingerprint] = existing ? { ...existing, lastSeen: at, snapshot: finding } : { ...newRecord(finding, at), snapshot: finding };
+    records[finding.fingerprint] = existing
+      ? observePublished({ ...existing, lastSeen: at, snapshot: finding }, finding, at, producedAt?.(finding))
+      : { ...newRecord(finding, at), snapshot: finding };
   }
   return { ...state, findings: records };
+}
+
+function observePublished(record: FindingRecord, finding: Finding, at: string, producedAt: string | undefined): FindingRecord {
+  if (record.status !== "resolved" && record.status !== "merged") return record;
+  const link = record.publishedOn;
+  const pr = link?.prNumber !== undefined ? `PR #${link.prNumber}` : "its PR";
+  const where = link ? ` on ${link.branch}` : "";
+  if (record.status === "resolved") {
+    return { ...record, keptReason: `${pr}${where} is not merged yet: newer report evidence is not acted on until it merges` };
+  }
+  const digestNow = evidenceDigest(finding);
+  const produced = producedAt ? `produced at ${producedAt}` : "of unknown production time";
+  if (digestNow === record.evidenceDigest) {
+    return { ...record, keptReason: `report evidence ${produced} is unchanged from before ${pr} merged` };
+  }
+  if (producedAt !== undefined && record.mergedAt !== undefined && Date.parse(producedAt) <= Date.parse(record.mergedAt)) {
+    return { ...record, keptReason: `report evidence produced at ${producedAt} predates the merge of ${pr} at ${record.mergedAt}` };
+  }
+  return reopen(record, `report evidence ${produced} after ${pr} merged${record.mergedAt ? ` at ${record.mergedAt}` : ""} still shows this finding with changed evidence`, at, digestNow);
 }
 
 /** Whether a run could pick this finding up now: open, out of backoff, or with an expired claim. */
@@ -356,13 +433,24 @@ export function isEligible(record: FindingRecord, now: Date, claimTtlMs = 24 * 3
   return false;
 }
 
+/** Fingerprints carried by pending (verified, not yet pushed) integrations. */
+function pendingFingerprints(state: WorkflowState): Set<string> {
+  return new Set(state.pendingPublications.flatMap((entry) => entry.fingerprints));
+}
+
+/** Eligible, or integrated work that no pending publication carries any more (it is reopened). */
+function eligibleIn(state: WorkflowState, now: Date, claimTtlMs?: number): (record: FindingRecord) => boolean {
+  const pending = pendingFingerprints(state);
+  return (record) => isEligible(record, now, claimTtlMs) || (record.status === "integrated" && !pending.has(record.fingerprint));
+}
+
 /**
  * Findings recorded in state that are eligible now, as findings a run can triage and plan:
- * work deferred by slice capacity, retries whose backoff expired, and abandoned claims.
- * Records written before snapshots existed are rebuilt from their stored fields.
+ * work deferred by slice capacity, retries whose backoff expired, abandoned claims, and reopened
+ * work. Records written before snapshots existed are rebuilt from their stored fields.
  */
 export function eligibleStateFindings(state: WorkflowState, now: Date, claimTtlMs?: number): Finding[] {
-  return Object.values(state.findings).filter((record) => isEligible(record, now, claimTtlMs)).map((record) => record.snapshot ?? {
+  return Object.values(state.findings).filter(eligibleIn(state, now, claimTtlMs)).map((record) => record.snapshot ?? {
     fingerprint: record.fingerprint, kind: record.kind, theory: record.theory, checker: "ocaml", rule: record.rule, detail: record.detail,
     affectedProofs: 1, obligations: 1, soleFamilyProofs: 0, examples: [], evidence: [], sources: ["state"],
   });
@@ -377,8 +465,7 @@ export function claimFindings(state: WorkflowState, findings: readonly Finding[]
     const digestNow = evidenceDigest(finding);
     const reopened = existing.status === "blocked" && existing.evidenceDigest !== digestNow;
     records[finding.fingerprint] = {
-      ...existing,
-      status: "in_progress",
+      ...transition(existing, "in_progress", `claimed by run ${options.runKey}${reopened ? " (blocked finding with new evidence)" : ""}`, at),
       attempts: reopened ? 0 : existing.attempts,
       evidenceDigest: digestNow,
       claimedBy: options.runKey,
@@ -396,6 +483,8 @@ export interface OutcomeOptions {
   readonly backoffHours?: number;
   /** Whether a live push included the verified work; otherwise verified findings stay `integrated`. */
   readonly published?: boolean;
+  /** Where the live push went (recorded on resolved findings). */
+  readonly publishedOn?: PublicationLink;
 }
 
 /** Apply slice outcomes: verified findings resolve once published (else stay integrated); others back off exponentially, then block. */
@@ -406,22 +495,28 @@ export function recordOutcomes(
 ): WorkflowState {
   const maxAttempts = options.maxAttempts ?? 3;
   const backoffMs = (options.backoffHours ?? 6) * 3_600_000;
+  const at = options.now.toISOString();
   const records = { ...state.findings };
   for (const outcome of outcomes) {
     const existing = records[outcome.fingerprint];
     if (!existing) continue;
     const { claimedBy: _claimedBy, claimedAt: _claimedAt, nextEligibleAt: _next, ...rest } = existing;
     if (outcome.status === "verified") {
-      records[outcome.fingerprint] = { ...rest, status: options.published ? "resolved" : "integrated", lastOutcome: outcome.note, lastRunKey: options.runKey };
+      const published = options.published === true;
+      records[outcome.fingerprint] = {
+        ...transition(rest, published ? "resolved" : "integrated", outcome.note, at),
+        lastOutcome: outcome.note, lastRunKey: options.runKey,
+        ...(published && options.publishedOn ? { publishedOn: options.publishedOn } : {}),
+      };
       continue;
     }
     const attempts = existing.attempts + 1;
     const blocked = attempts >= maxAttempts;
+    const note = `${outcome.status}: ${outcome.note}`;
     records[outcome.fingerprint] = {
-      ...rest,
+      ...transition(rest, blocked ? "blocked" : "unverified", blocked ? `${note} (attempt limit ${maxAttempts} reached)` : note, at),
       attempts,
-      status: blocked ? "blocked" : "unverified",
-      lastOutcome: `${outcome.status}: ${outcome.note}`,
+      lastOutcome: note,
       lastRunKey: options.runKey,
       ...(blocked ? {} : { nextEligibleAt: new Date(options.now.getTime() + backoffMs * 2 ** (attempts - 1)).toISOString() }),
     };
@@ -433,12 +528,15 @@ export interface PublicationSettlement {
   readonly runKey: string;
   /** A live push of the integration (including `included`) succeeded. */
   readonly published: boolean;
+  /** Where that push went. */
+  readonly publishedOn?: PublicationLink;
   /** Run keys of pending entries merged into this run's integration. */
   readonly included: readonly string[];
   /** Pending entries this run could not include, with the reason. */
   readonly failed: ReadonlyArray<{ runKey: string; reason: string }>;
   /** This run's verified integration when it was not pushed. */
   readonly added?: PendingPublication;
+  readonly now?: Date;
 }
 
 /**
@@ -449,6 +547,7 @@ export interface PublicationSettlement {
  * resumed step idempotent).
  */
 export function settlePublications(state: WorkflowState, settlement: PublicationSettlement): WorkflowState {
+  const at = (settlement.now ?? new Date()).toISOString();
   const published = new Set(settlement.published ? settlement.included : []);
   const failed = new Map(settlement.failed.map((item) => [item.runKey, item.reason]));
   const records = { ...state.findings };
@@ -464,7 +563,11 @@ export function settlePublications(state: WorkflowState, settlement: Publication
     for (const fingerprint of entry.fingerprints) {
       const record = records[fingerprint];
       if (record?.status === "integrated") {
-        records[fingerprint] = { ...record, status: "resolved", lastOutcome: `published by ${settlement.runKey} (integrated in ${entry.runKey})`, lastRunKey: settlement.runKey };
+        const note = `published by ${settlement.runKey} (integrated in ${entry.runKey})`;
+        records[fingerprint] = {
+          ...transition(record, "resolved", note, at), lastOutcome: note, lastRunKey: settlement.runKey,
+          ...(settlement.publishedOn ? { publishedOn: settlement.publishedOn } : {}),
+        };
       }
     }
   }
@@ -472,7 +575,70 @@ export function settlePublications(state: WorkflowState, settlement: Publication
   return { ...state, findings: records, pendingPublications: pending };
 }
 
-/** Findings that a new run could pick up now (optionally of one kind). */
+/** Findings that a new run could pick up now (optionally of one kind), including reopened integrated work. */
 export function countUnprocessed(state: WorkflowState, now: Date, kind?: FindingKind, claimTtlMs = 24 * 3_600_000): number {
-  return Object.values(state.findings).filter((record) => (!kind || record.kind === kind) && isEligible(record, now, claimTtlMs)).length;
+  return Object.values(state.findings).filter((record) => (!kind || record.kind === kind) && eligibleIn(state, now, claimTtlMs)(record)).length;
+}
+
+/** What the remote reports about one branch that carries published findings. */
+export interface BranchObservation {
+  readonly branchExists: boolean;
+  readonly prs: ReadonlyArray<{ readonly number: number; readonly state: string; readonly mergedAt?: string }>;
+}
+
+export interface Reconciliation {
+  readonly state: WorkflowState;
+  readonly merged: string[];
+  readonly reopened: string[];
+  readonly kept: string[];
+}
+
+/**
+ * Apply what the remote says about the branches carrying resolved (published, unmerged)
+ * findings, and reopen integrated findings that no pending publication carries any more:
+ * - the finding's PR merged: `merged`, with the PR's merge time (deleting the branch afterwards is not a loss);
+ * - the branch is gone and the PR never merged (closed and deleted, or deleted early): reopened,
+ *   keeping the lost branch, PR and head in the transition;
+ * - otherwise kept as `resolved`, with the reason (PR open, or closed while the branch still exists).
+ * Branches without an observation are left alone. Applying the same observations again changes nothing.
+ */
+export function reconcilePublications(state: WorkflowState, observed: Readonly<Record<string, BranchObservation>>, now: Date): Reconciliation {
+  const at = now.toISOString();
+  const pending = pendingFingerprints(state);
+  const records = { ...state.findings };
+  const merged: string[] = [];
+  const reopened: string[] = [];
+  const kept: string[] = [];
+  for (const record of Object.values(state.findings)) {
+    const fingerprint = record.fingerprint;
+    if (record.status === "integrated" && !pending.has(fingerprint)) {
+      records[fingerprint] = reopen(record, "verified integration has no pending publication any more (its pendingPublications entry was removed), so its change would never be published", at);
+      reopened.push(fingerprint);
+      continue;
+    }
+    const link = record.publishedOn;
+    const branch = link ? observed[link.branch] : undefined;
+    if (record.status !== "resolved" || !link || !branch) continue;
+    const label = link.prNumber !== undefined ? `PR #${link.prNumber}` : "its PR";
+    const own = link.prNumber !== undefined ? branch.prs.find((pr) => pr.number === link.prNumber) : undefined;
+    const mergedPr = branch.prs.find((pr) => pr.state === "MERGED" && (link.prNumber === undefined || pr.number === link.prNumber));
+    if (mergedPr) {
+      const { keptReason: _kept, ...rest } = record;
+      records[fingerprint] = { ...transition(rest, "merged", `PR #${mergedPr.number} on ${link.branch} merged`, at), mergedAt: mergedPr.mergedAt ?? at };
+      merged.push(fingerprint);
+    } else if (!branch.branchExists) {
+      const prState = own ? `${label} is ${own.state}` : "no PR was found for it";
+      records[fingerprint] = reopen(record, `publication lost: branch ${link.branch} was deleted before ${label} merged (${prState})`, at);
+      reopened.push(fingerprint);
+    } else {
+      const keptReason = own?.state === "OPEN"
+        ? `${label} is open on ${link.branch}: awaiting merge`
+        : own?.state === "CLOSED"
+          ? `${label} was closed without merging but ${link.branch} still exists: reopen the PR, or delete the branch to have this finding reopened`
+          : `${link.branch} still exists and ${label} has not merged`;
+      if (record.keptReason !== keptReason) records[fingerprint] = { ...record, keptReason };
+      kept.push(fingerprint);
+    }
+  }
+  return { state: { ...state, findings: records }, merged, reopened, kept };
 }
