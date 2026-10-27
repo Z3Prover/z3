@@ -817,9 +817,114 @@ let lemma_rewrite (i:interpretation value) (rho:env value)
     else if Some? (concat_association_rewrite e) then lemma_concat_association_rewrite i rho project e result
     else lemma_not_concat_rewrite i rho project e result
 
+let projection_operand (width:pos) (source:expr) (bit:nat) : expr =
+  if width = 1 && bit = 0 then source
+  else App { decl_name = "extract"; domain = [BV.bv_sort width];
+             range = BV.bv_sort 1; interp = Some BV.op_extract;
+             int_params = [width; bit; bit] } [source]
+
+let projection (width:pos) (source:expr) (bit:nat) : expr =
+  App { decl_name = "bvule"; domain = [BV.bv_sort 1; BV.bv_sort 1];
+        range = bool_sort; interp = Some BV.op_ule; int_params = [1] }
+      [BV.literal 1 1; projection_operand width source bit]
+
+let rec projection_bits (width:pos) (source:expr) (start count:nat)
+  : Tot (list expr) (decreases count) =
+  if count = 0 then []
+  else projection width source start :: projection_bits width source (start + 1) (count - 1)
+
+#push-options "--fuel 4 --ifuel 2"
+let lemma_projection (i:interpretation value) (rho:env value)
+                     (project:pos -> value -> int) (width:pos) (source:expr) (bit:nat)
+  : Lemma (requires BV.bv_model i project /\ width <= 4096 /\ bit < width /\
+                    D.scoped [] source /\ get_sort source == BV.bv_sort width)
+          (ensures D.scoped [] (projection width source bit) /\
+                   get_sort (projection width source bit) == bool_sort /\
+                   eval i (projection width source bit) rho ==
+                     VBool ((project width (eval i source rho) / pow2 bit) % 2 <> 0))
+  = BV.lemma_literal i rho project 1 1;
+    let extracted = projection_operand width source bit in
+    assert (D.scoped [] extracted);
+    if width = 1 then (
+      BV.lemma_word i rho project width source;
+      assert_norm (pow2 0 == 1 /\ pow2 1 == 2);
+      M.small_mod (project width (eval i source rho)) 2)
+    else (
+      let parts : BV.extraction =
+        { BV.source_width = width; BV.high = bit; BV.low = bit; BV.operand = source } in
+      assert (BV.extract_parts extracted == Some parts);
+      BV.lemma_extract_parts i rho project extracted parts);
+    let comparison : BV.unsigned_comparison =
+      { BV.width = 1; BV.relation = BV.op_ule; BV.lhs = BV.literal 1 1; BV.rhs = extracted } in
+    assert (BV.unsigned_parts (projection width source bit) == Some comparison);
+    assert (D.scoped [] (projection width source bit));
+    assert (eval i (projection width source bit) rho ==
+      VBool (BV.unsigned_value comparison.BV.relation
+        (project comparison.BV.width (eval i comparison.BV.lhs rho))
+        (project comparison.BV.width (eval i comparison.BV.rhs rho))));
+    assert_norm (pow2 1 == 2);
+    assert (0 <= (project width (eval i source rho) / pow2 bit) % 2 /\
+            (project width (eval i source rho) / pow2 bit) % 2 < 2)
+#pop-options
+
+let rec lemma_projection_bits (i:interpretation value) (rho:env value)
+                              (project:pos -> value -> int) (width:pos) (source:expr)
+                              (start count:nat)
+  : Lemma (requires BV.bv_model i project /\ width <= 4096 /\ start + count == width /\
+                    D.scoped [] source /\ get_sort source == BV.bv_sort width)
+          (ensures L.length (projection_bits width source start count) == count /\
+                   D.scoped_args [] (projection_bits width source start count) /\
+                   L.for_all (fun e -> get_sort e = bool_sort) (projection_bits width source start count) /\
+                   BV.bits_number (BV.bit_values i rho (projection_bits width source start count)) ==
+                     project width (eval i source rho) / pow2 start)
+          (decreases count)
+  = BV.lemma_word i rho project width source;
+    let n = project width (eval i source rho) in
+    if count = 0 then M.small_div n (pow2 width)
+    else (
+      lemma_projection i rho project width source start;
+      lemma_projection_bits i rho project width source (start + 1) (count - 1);
+      M.pow2_plus start 1;
+      M.division_multiplication_lemma n (pow2 start) 2;
+      M.lemma_div_mod (n / pow2 start) 2;
+      assert ((n / pow2 start) % 2 = 0 \/ (n / pow2 start) % 2 = 1))
+
+let rec matching_projections (width:pos) (source:expr) (start count:nat) (args:list expr)
+  : Tot bool (decreases args) =
+  match args with
+  | [] -> count = 0
+  | a :: rest ->
+    count > 0 && a = projection width source start &&
+      matching_projections width source (start + 1) (count - 1) rest
+
+let rec lemma_matching_projections (width:pos) (source:expr) (start count:nat) (args:list expr)
+  : Lemma (requires matching_projections width source start count args)
+          (ensures args == projection_bits width source start count)
+          (decreases args)
+  = match args with
+    | [] -> ()
+    | _ :: rest -> lemma_matching_projections width source (start + 1) (count - 1) rest
+
+let projection_equivalent (a b:expr) : bool =
+  match BV.word_parts b with
+  | Some (width, args) ->
+    get_sort a = BV.bv_sort width && matching_projections width a 0 width args
+  | None -> false
+
+let lemma_projection_equivalent (i:interpretation value) (rho:env value)
+                                (project:pos -> value -> int) (a b:expr)
+  : Lemma (requires BV.bv_model i project /\ D.scoped [] a /\ D.scoped [] b /\
+                    projection_equivalent a b)
+          (ensures eval i a rho == eval i b rho)
+  = let width, args = Some?.v (BV.word_parts b) in
+    lemma_matching_projections width a 0 width args;
+    lemma_projection_bits i rho project width a 0 width;
+    BV.lemma_reflect i rho project width a b
+
 let equivalent (a b:expr) : bool =
   D.scoped [] a && D.scoped [] b &&
-    (literal_equivalent a b || literal_equivalent b a || word_equivalent a b)
+    (literal_equivalent a b || literal_equivalent b a || word_equivalent a b ||
+     projection_equivalent a b || projection_equivalent b a)
 
 let lemma_equivalent (i:interpretation value) (rho:env value)
                      (project:pos -> value -> int) (a b:expr)
@@ -827,4 +932,6 @@ let lemma_equivalent (i:interpretation value) (rho:env value)
           (ensures eval i a rho == eval i b rho)
   = if literal_equivalent a b then lemma_literal_equivalent i rho project a b
     else if literal_equivalent b a then lemma_literal_equivalent i rho project b a
-    else lemma_word_equivalent i rho project a b
+    else if word_equivalent a b then lemma_word_equivalent i rho project a b
+    else if projection_equivalent a b then lemma_projection_equivalent i rho project a b
+    else lemma_projection_equivalent i rho project b a

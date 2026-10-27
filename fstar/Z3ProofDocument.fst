@@ -8,6 +8,7 @@ open Z3UnifiedProof
 open Z3ProofIndex
 module D = Z3Definitions
 module SK = Z3Skolemization
+module BF = Z3BvFresh
 module S = Z3ProofSet
 module L = FStar.List.Tot
 
@@ -63,6 +64,46 @@ let rec collect_definitions (defs:list D.definition) (branches:list expr) (entri
         if e.rule = DefinitionIntroduction then None else collect_definitions defs branches rest
       | Some d ->
         D.add_definition defs d >>= (fun defs' -> collect_definitions defs' branches rest)
+
+let rec reconstruction_equations (entries:list entry) (found:list expr)
+  : Tot (list expr) (decreases entries) =
+  match entries with
+  | [] -> found
+  | e :: rest ->
+    let found =
+      if e.rule <> RewriteRule || e.premise_ids <> [] then found
+      else match BF.candidate e.formula with
+      | None -> found
+      | Some r ->
+        let equation = mk_eq_expr (BF.source r) (BF.word r) in
+        if BF.valid r &&
+           (e.formula = equation || e.formula = mk_eq_expr (BF.word r) (BF.source r)) &&
+           not (L.mem equation found)
+        then equation :: found else found in
+    reconstruction_equations rest found
+
+let rec add_definitions (defs more:list D.definition)
+  : Tot (option (list D.definition)) (decreases more) =
+  match more with
+  | [] -> Some defs
+  | d :: rest -> D.add_definition defs d >>= (fun next -> add_definitions next rest)
+
+let document_definitions (doc:document) : option (list D.definition) =
+  collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
+  let equations = reconstruction_equations doc.entries [] in
+  let inputs = L.append doc.assertions (L.map (fun d -> d.D.body) defs) in
+  let bounded (e:expr) = Some? (expression_budget 65536 e) in
+  // Avoid expanding heavily shared DAGs into unbounded trees.
+  if equations = [] || not (L.for_all bounded inputs &&
+                           L.for_all (fun e -> bounded e.formula) doc.entries)
+  then Some defs else
+  match BF.check_context inputs equations with
+  | None -> Some defs
+  | Some rs ->
+    // Eliminate fresh bits throughout the proof; their reconstructions must still replay.
+    match add_definitions defs (BF.projection_definitions rs) with
+    | Some expanded -> Some expanded
+    | None -> Some defs)
 
 let expand_rule (defs:list D.definition) (kind:rule) : option rule =
   if defs = [] then Some kind
@@ -363,7 +404,7 @@ let prepare_document_inputs_using (transform:D.expander) (doc:document)
      (bound && not (well_formed_exprs doc.expressions)) ||
      not (ordinary_facts doc.assertions) ||
      (bound && not (scoped_assertions doc.assertions)) then None else
-  collect_definitions [] (axiom_branches doc.entries) doc.entries >>= (fun defs ->
+  document_definitions doc >>= (fun defs ->
   if not (D.acyclic_using transform (L.length defs) defs defs) then None else
   (if defs = [] then Some doc.assertions
    else D.expand_list_using transform (L.length defs) defs doc.assertions) >>= (fun expanded ->
@@ -630,7 +671,7 @@ let diagnose_document_using (transform:D.expander) (lookup:input_lookup) (doc:do
   else if not (ordinary_facts doc.assertions) then reject OriginalAssertions
   else if bound && not (scoped_assertions doc.assertions) then reject AssertionScope
   else
-    match collect_definitions [] (axiom_branches doc.entries) doc.entries with
+    match document_definitions doc with
     | None -> reject DefinitionCollection
     | Some defs -> diagnose_document_definitions_using transform lookup doc bound defs
 
@@ -691,7 +732,7 @@ let lemma_diagnose_document_using (transform:D.expander) (lookup:input_lookup) (
      (not bound || well_formed_exprs doc.expressions) &&
      ordinary_facts doc.assertions &&
      (not bound || scoped_assertions doc.assertions) then (
-    match collect_definitions [] (axiom_branches doc.entries) doc.entries with
+    match document_definitions doc with
     | None -> ()
     | Some defs -> lemma_diagnose_document_definitions_using transform lookup doc bound defs)
 #pop-options

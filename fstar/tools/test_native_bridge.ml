@@ -3084,6 +3084,101 @@ let fresh_bit_context_extension () =
         "literal retraction did not preserve extended evaluation")
     [first; F.word r; applied; quantified]
 
+let fresh_bit_document_projections () =
+  let module F = Z3BvFresh in
+  let module W = Z3BvWord in
+  let module R = Z3ResolutionProofTheory in
+  let symbol name range = {
+    A.decl_name = name; domain = []; range; interp = None; int_params = [];
+  } in
+  let reconstruction name names =
+    let width = Z.of_int (List.length names) in
+    let symbols = List.map (fun n -> symbol n A.bool_sort) names in
+    let constructor = match W.word (F.atoms symbols) with
+      | A.App (f, _) -> f | _ -> failwith "expected projection word constructor" in
+    { F.width = width; original = symbol name (Z3BvLemma.bv_sort width);
+      constructor; symbols } in
+  let r = reconstruction "v" ["p"; "q"; "r"] in
+  let s = reconstruction "w" ["s"; "t"; "u"] in
+  let equation r = R.mk_eq_expr (F.source r) (F.word r) in
+  let entry rule formula = { P.rule; formula; premise_ids = [] } in
+  let make inputs equations = {
+    P.declarations = [];
+    expressions = inputs @ equations;
+    assertions = inputs;
+    entries = entry U.Asserted R.false_expr ::
+      List.map (entry U.RewriteRule) equations;
+    root = Z.zero;
+  } in
+  let hash _ = Z.zero in
+  let check pending doc =
+    let expected = Some (Z.of_int pending) in
+    let actual = P.check_document doc in
+    let show = function None -> "rejected" | Some n -> Z.to_string n in
+    require (actual = expected && P.check_document_indexed hash doc = expected)
+      (Printf.sprintf "incorrect fresh-bit document projection result: expected %s, got %s (%d entries)"
+         (show expected) (show actual) (List.length doc.P.entries));
+    let result, diagnostic = P.check_document_diagnosed_indexed hash doc in
+    require (result = expected && P.diagnostic_result diagnostic = expected)
+      "fresh-bit projection diagnostics disagreed with replay" in
+  check 0 (make [R.false_expr] [equation r; R.mk_eq_expr (F.word s) (F.source s)]);
+  check 0 (make [R.false_expr] [equation r; equation r]);
+  check 0 (make [R.false_expr] [equation (reconstruction "bit" ["p"])]);
+  check 0 (make [R.false_expr]
+    [equation (reconstruction "v" ["true"; "false"; "and"])]);
+  let first = A.App (List.hd r.F.symbols, []) in
+  check 1 (make [R.false_expr; first] [equation r]);
+  let quantified = A.Quantifier (A.Forall_k, [A.bool_sort], A.bool_sort,
+    R.mk_eq_expr first (A.Var (Z.zero, A.bool_sort))) in
+  check 1 (make [R.false_expr; quantified] [equation r]);
+  let shared = { s with F.symbols = List.hd r.F.symbols :: List.tl s.F.symbols } in
+  check 2 (make [R.false_expr] [equation r; equation shared]);
+  let duplicate = { r with F.symbols =
+    [List.hd r.F.symbols; List.hd r.F.symbols; List.nth r.F.symbols 2] } in
+  check 1 (make [R.false_expr] [equation duplicate]);
+  let interpreted = { (List.hd r.F.symbols) with A.interp = Some Z3ValueTheory.op_true } in
+  check 1 (make [R.false_expr]
+    [equation { r with F.symbols = interpreted :: List.tl r.F.symbols }]);
+  let pair = { (symbol "pair" A.bool_sort) with A.domain = [A.bool_sort; A.bool_sort] } in
+  let rec shared depth =
+    if depth = 0 then first
+    else let child = shared (depth - 1) in A.App (pair, [child; child]) in
+  let large = shared 20 in
+  let large_formula = R.mk_eq_expr large large in
+  let large_document = make [R.false_expr] [equation r] in
+  let large_document = { large_document with
+    P.expressions = large_formula :: large_document.P.expressions;
+    P.entries = large_document.P.entries @ [entry U.Reflexivity large_formula] } in
+  check 1 large_document;
+  let defs = F.projection_definitions [r] in
+  let expanded = match Z3Definitions.expand (Z.of_int (List.length defs)) defs (F.word r) with
+    | Some e -> e | None -> failwith "fresh-bit macro expansion failed" in
+  require (W.equivalent (F.source r) expanded && W.equivalent expanded (F.source r))
+    "projected reconstruction identity was not recognized";
+  require (not (W.equivalent (F.source r) (F.word r)))
+    "fresh bits became an unconditional reconstruction identity";
+  (match expanded with
+   | A.App (f, bits) ->
+     require (not (W.equivalent (F.source r) (A.App (f, List.rev bits))))
+       "reversed projection order was accepted";
+     let bad = W.projection r.F.width (F.source r) r.F.width in
+     require (not (W.equivalent (F.source r) (A.App (f, bad :: List.tl bits))))
+       "out-of-range projection was accepted";
+     let bad = W.projection (Z.of_int 4) (F.source r) Z.zero in
+     require (not (W.equivalent (F.source r) (A.App (f, bad :: List.tl bits))))
+       "wrong-width projection was accepted"
+   | _ -> failwith "expected an expanded word");
+  let variable = A.Var (Z.zero, Z3BvLemma.bv_sort r.F.width) in
+  require (not (W.equivalent variable
+    (W.word (W.projection_bits r.F.width variable Z.zero r.F.width))))
+    "projection identity accepted an unbound variable";
+  let with_premise = make [R.false_expr] [equation r] in
+  let with_premise = { with_premise with P.entries =
+    [List.hd with_premise.P.entries;
+     { (List.nth with_premise.P.entries 1) with P.premise_ids = [Z.zero] }] } in
+  require (P.document_definitions with_premise = Some [])
+    "non-leaf reconstruction introduced fresh definitions"
+
 let scoped_model_extension () =
   let module SM = Z3ScopedModel in
   let module F = Z3BvFresh in
@@ -3943,6 +4038,7 @@ let () =
      "checked-bit-vector-rewrites", bv_rewrites;
      "checked-fresh-bit-model-extension", fresh_bit_model_extension;
      "checked-fresh-bit-context-extension", fresh_bit_context_extension;
+     "fresh-bit-document-projections", fresh_bit_document_projections;
      "scoped-model-extension", scoped_model_extension;
      "contextual-boolean-rewrites", contextual_boolean_rewrites;
      "unused-quantifier-rewrites", unused_quantifier_rewrites;

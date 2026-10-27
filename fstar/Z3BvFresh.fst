@@ -27,6 +27,21 @@ let atoms (symbols:list func_decl) : list expr =
 let source (r:reconstruction) : expr = App r.original []
 let word (r:reconstruction) : expr = App r.constructor (atoms r.symbols)
 
+let rec bit_definitions (width:pos) (original:expr) (start:nat) (symbols:list func_decl)
+  : Tot (list D.definition) (decreases symbols) =
+  match symbols with
+  | [] -> []
+  | f :: rest ->
+    { D.symbol = f; D.variables = []; D.body = W.projection width original start } ::
+      bit_definitions width original (start + 1) rest
+
+let rec projection_definitions (rs:list reconstruction)
+  : Tot (list D.definition) (decreases rs) =
+  match rs with
+  | [] -> []
+  | r :: rest ->
+    L.append (bit_definitions r.width (source r) 0 r.symbols) (projection_definitions rest)
+
 let rec witnesses (start:nat) (symbols:list func_decl)
   : Tot (list SK.witness) (decreases symbols) =
   match symbols with

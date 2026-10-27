@@ -533,6 +533,63 @@ laws or the full unified model, and it does not provide a concrete
 combined theory model. Simply proving closure of the old full model
 would be vacuous and would not discharge this gate.
 
+### Follow-up: fresh-bit elimination by scoped projections
+
+The document checker can avoid extending the interpretation at all.
+After collecting ordinary definitions, it collects premise-free native
+reconstruction rewrites and checks their simultaneous structural freshness,
+including original assertions, definition bodies, binders, and cross-word
+bit collisions. Each fresh bit is expanded throughout the proof to
+`bvule #b1 ((_ extract j j) original)`, in little-endian order. For a
+one-bit original, the redundant extract is omitted. These forms survive
+the existing normalization pipeline.
+
+The expanded reconstruction is an ordinary word/projection identity, not
+an axiom about independent Boolean symbols. `Z3BvWord.lemma_projection_equivalent`
+proves its value equality from the closed-term BV contract alone, without
+legacy Boolean/numeric assumptions or a Boolean model-extension theorem.
+The existing document-wide expansion, acyclicity, and final original-input
+freshness checks remain mandatory. Reconstruction nodes still replay, and
+diagnostics use the same definition collection as the checker. Invalid
+contexts retain their original obligations rather than gaining assumptions.
+The optional substitution path has a 65,536-node per-expression tree
+budget, checked before freshness and expansion. Oversized shared proof
+DAGs keep the original replay path and pending counts; no existing solver,
+normalization, or case resource limit is raised.
+
+Paired replays use the same checkout solver, Z3 5.3.2 at `48a710a9c`,
+and the frozen, hash-verified 25-input cohort with the existing 10-second
+solver, 60-second case, and 4 GiB limits:
+
+| Input | Previous pending | New pending | New verdict |
+|---|---:|---:|---|
+| `QF_BV_bv_bv_h_TicTacToe_cc_reg_max.smt2` | 1 | 0 | ACCEPT |
+| `bitops3.smt2` | 3 | 0 | ACCEPT |
+| `rand_40_200_1235844018_0_k=4_unsat.gph.smt2` | 40 | 0 | ACCEPT |
+
+The full cohort changes from **2 ACCEPT, 5 PARTIAL, 11 UNKNOWN, 7 TIMEOUT**
+to **5 ACCEPT, 2 PARTIAL, 11 UNKNOWN, 7 TIMEOUT**, with no other verdict
+or pending-count changes. These same-solver totals supersede comparisons
+with the older 5.3.1 checker binary.
+
+These remove all **44** targeted reconstruction obligations. Substitution
+has a measurable cost: graph checking increases from 5.14 to 47.52 seconds
+(52.95 seconds total wall time), still within the unchanged case limit.
+The two oversized completed partial proofs retain 93 and 96 obligations,
+with checking times of about 41 and 110 milliseconds, respectively.
+
+Strict verification of all 62 production modules and 15 formal test
+modules, all 58 native test groups, all 40 CLI tests, and basic solver/Python
+smoke checks pass. New native mutations cover input-visible bits (including
+under binders), duplicate and cross-word bits, interpreted atoms, malformed
+projection widths/indices/order, unbound variables, non-leaf rewrites,
+and bounded fallback for heavily shared DAGs.
+
+This is a syntactic alternative to full model extension, not a migration
+of the legacy unified semantics. It leaves the original interpretation
+unchanged and does not provide a concrete combined theory model;
+`semantics=legacy` retains its existing limitation described above.
+
 ### Upstream merge compatibility: datatype exclusions
 
 Rebuilding against the updated solver exposed a direct datatype consequence

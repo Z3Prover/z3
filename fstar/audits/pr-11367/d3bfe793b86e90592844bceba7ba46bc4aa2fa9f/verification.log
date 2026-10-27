@@ -1,0 +1,8 @@
+== AuditProjection
+Verified module: AuditProjection
+All verification conditions discharged successfully
+exit 0
+== AuditDefs
+Verified module: AuditDefs
+All verification conditions discharged successfully
+exit 0
