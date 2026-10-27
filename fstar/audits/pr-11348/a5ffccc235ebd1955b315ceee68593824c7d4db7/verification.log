@@ -1,6 +1,0 @@
-F* 2026.09.27; Z3 4.13.3
-command: timeout 120 fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --include fstar --z3rlimit 10 --cache_dir cache --odir out Z3Pr11348Head.fst
-exit 0
-Verified module: Z3Pr11348Head
-All verification conditions discharged successfully
-stderr: empty

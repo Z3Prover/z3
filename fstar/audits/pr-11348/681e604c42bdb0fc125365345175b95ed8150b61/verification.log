@@ -1,4 +1,0 @@
-F* 2026.09.27; Z3 4.13.3; fresh cache_dir/odir; timeout 120; z3rlimit 10; exit code 0
-Verified module: Z3RlimitAutoCancel
-All verification conditions discharged successfully
-(An earlier draft with an over-strong tms=0 post-condition in o3_fire failed and was removed; O1 covers it.)

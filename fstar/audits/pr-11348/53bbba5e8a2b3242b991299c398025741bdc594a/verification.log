@@ -1,8 +1,0 @@
-/tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out Z3Pr11348Guards.fst
-F* 2026.09.27
-platform=Linux_x86_64
-system=Unix
-Z3 version 4.13.3 - 64 bit
-Verified module: Z3Pr11348Guards
-All verification conditions discharged successfully
-exit 0
