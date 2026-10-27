@@ -35,6 +35,18 @@ type parameter_view =
   | ParameterExpression of ast
   | ParameterUnsupported
 
+type ff_pac_node =
+  | PacInput of Z.t
+  | PacAdd of Z.t * Z.t
+  | PacMul of Z.t * ast * Z.t list
+
+type ff_pac_view = {
+  pac_premises: ast list;
+  pac_nodes: ff_pac_node list;
+  pac_root: Z.t;
+  pac_support: Z.t list;
+}
+
 type proof_view = {
   proof_name: string;
   premises: ast list;
@@ -44,6 +56,7 @@ type proof_view = {
   lp_data: (string * parameter_view list) option;
   binding: (native_sort list * ast) option;
   instantiations: ast list;
+  ff_pac: ff_pac_view option;
 }
 
 type clause_action = InputClause | LearnedClause | TheoryClause | DeleteClause
@@ -315,6 +328,79 @@ let view_expression a =
       Application (declaration, app_args c app)
   | _ -> fail "Native object is not an expression"
 
+(* Flattens a recorded `ff-pac` certificate without trusting it: the nodes
+   are listed children first, each shared AST once, and references are
+   positions in that list. The traversal is iterative and stops before
+   expanding more than `max_certificate_nodes` nodes; indices must be Int
+   numerals in [0, 2^32). Any other shape yields None, so the step stays an
+   unchecked obligation; the F* kernel re-checks every field. *)
+exception Malformed_certificate
+
+let max_certificate_nodes = 100000
+let max_certificate_index = Z.shift_left Z.one 32
+
+let view_ff_pac c certificate =
+  let kind a = Z3enums.sort_kind_of_int (Z3native.get_sort_kind c (Z3native.get_sort c a)) in
+  let application a =
+    if not (Z3native.is_app c a) then raise Malformed_certificate;
+    let app = Z3native.to_app c a in
+    symbol c (Z3native.get_decl_name c (Z3native.get_app_decl c app)), app_args c app in
+  let arguments a name =
+    match application a with
+    | n, args when n = name -> args
+    | _ -> raise Malformed_certificate in
+  let index a =
+    if not (Z3native.is_numeral_ast c a) || kind a <> Z3enums.INT_SORT then
+      raise Malformed_certificate;
+    let value = Z.of_string (Z3native.get_numeral_string c a) in
+    if Z.sign value < 0 || Z.geq value max_certificate_index then raise Malformed_certificate;
+    value in
+  let node a =
+    match application a with
+    | "ff-input", [i] -> `Input i
+    | "ff-add", [l; r] -> `Add (l, r)
+    | "ff-mul", s :: coefficient :: factor -> `Mul (s, coefficient, factor)
+    | _ -> raise Malformed_certificate in
+  let positions = Hashtbl.create 64 in
+  let id a = Z3native.get_ast_id c a in
+  let position a =
+    match Hashtbl.find_opt positions (id a) with
+    | Some i -> Z.of_int i
+    | None -> raise Malformed_certificate in
+  let rec flatten nodes count expanded = function
+    | [] -> List.rev nodes
+    | `Visit a :: rest when Hashtbl.mem positions (id a) -> flatten nodes count expanded rest
+    | `Visit a :: rest ->
+        if expanded >= max_certificate_nodes then raise Malformed_certificate;
+        let expanded = expanded + 1 in
+        (match node a with
+         | `Input _ -> flatten nodes count expanded (`Build a :: rest)
+         | `Add (l, r) -> flatten nodes count expanded (`Visit l :: `Visit r :: `Build a :: rest)
+         | `Mul (s, _, _) -> flatten nodes count expanded (`Visit s :: `Build a :: rest))
+    | `Build a :: rest when Hashtbl.mem positions (id a) -> flatten nodes count expanded rest
+    | `Build a :: rest ->
+        if count >= max_certificate_nodes then raise Malformed_certificate;
+        let value = match node a with
+          | `Input i -> PacInput (index i)
+          | `Add (l, r) -> PacAdd (position l, position r)
+          | `Mul (s, coefficient, factor) ->
+              if kind coefficient <> Z3enums.FINITE_FIELD_SORT then raise Malformed_certificate;
+              PacMul (position s, coefficient, List.map index factor) in
+        Hashtbl.add positions (id a) count;
+        flatten (value :: nodes) (count + 1) expanded rest in
+  try
+    match application certificate with
+    | "ff-pac", [premises; root; support] ->
+        let premises = arguments premises "ff-premises" in
+        if List.exists (fun p -> kind p <> Z3enums.BOOL_SORT) premises then
+          raise Malformed_certificate;
+        let support = List.map index (arguments support "ff-support") in
+        let nodes = flatten [] 0 0 [`Visit root] in
+        Some { pac_premises = premises; pac_nodes = nodes; pac_root = position root;
+               pac_support = support }
+    | _ -> None
+  with Malformed_certificate -> None
+
 let view_proof a =
   let c = ctx a in
   if not (Z3native.is_app c a) then fail "Native proof node is not an application";
@@ -407,7 +493,12 @@ let view_proof a =
             fail "Malformed native quantified instance parameter";
           Z3native.get_decl_ast_parameter c d i)
     else [] in
-  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations }
+  let ff_pac =
+    if name = "th-lemma" && count = 3 && parameter_symbol 0 = Some "ff" &&
+       parameter_symbol 1 = Some "pac" && parameter_kind 2 = Z3enums.PARAMETER_AST
+    then view_ff_pac c (Z3native.get_decl_ast_parameter c d 2)
+    else None in
+  { proof_name; premises; conclusion; farkas; assumed; lp_data; binding; instantiations; ff_pac }
 
 let view_clause_trail a =
   let c = ctx a in

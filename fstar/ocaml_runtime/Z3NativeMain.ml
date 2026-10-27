@@ -8,6 +8,7 @@ let diagnostic_rule = function
   | Z3UnifiedProof.Unverified name -> name
   | Z3UnifiedProof.ArithmeticFarkas _ -> "arith/farkas"
   | Z3UnifiedProof.ArithmeticGomory _ -> "arith/lp-gomory"
+  | Z3UnifiedProof.FiniteFieldPac _ -> "th-lemma"
   | Z3UnifiedProof.RewriteRule -> "rewrite"
   | Z3UnifiedProof.PullQuantifier -> "pull-quant"
   | Z3UnifiedProof.DestructiveEqualityResolution -> "der"

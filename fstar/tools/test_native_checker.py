@@ -356,18 +356,34 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
 
     def test_finite_field_theory_lemmas_are_checked_within_the_bound(self):
-        # 17^2 assignments are evaluated; over a 31-bit prime the same refutation has more
-        # than 4096, so its `th-lemma` step stays an unmet obligation.
+        # 17^2 assignments are evaluated. Over a 31-bit prime the same refutation has more
+        # than 4096; its `th-lemma` step is checked by replaying the recorded ideal certificate.
         result = self.run_checker(unit_ideal(17), "--diagnostics")
         self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
-        source = unit_ideal(2147483647)
-        result = self.run_checker(source, "--diagnostics")
-        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
-        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
-        self.assertRegex(result.stderr, r"obligation\tth-lemma\t")
-        self.assertNotRegex(result.stderr, r"obligation\trewrite\t")
-        interactive = self.run_checker(source + "(check-sat)", "--interactive")
-        self.assertRegex(interactive.stdout, r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
+        for prime in (2147483647, 2305843009213693951, 170141183460469231731687303715884105727):
+            with self.subTest(prime=prime):
+                source = unit_ideal(prime)
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"),
+                                 result.stderr)
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_finite_field_inverse_witnesses_remain_unchecked(self):
+        # A certificate that uses the inverse witness of a disequality needs a prime modulus;
+        # its `th-lemma` step stays an unmet obligation, alone or next to a checked one.
+        for assertions, pending in (
+                ("(assert (= (ff.mul x x) (as ff0 F)))(assert (not (= x (as ff0 F))))", 1),
+                ("(assert (= (ff.mul x y) (as ff1 F)))(assert (= (ff.mul x x) (as ff0 F)))", 1)):
+            with self.subTest(assertions=assertions):
+                source = ("(set-logic QF_FF)(define-sort F () (_ FiniteField 2147483647))"
+                          "(declare-const x F)(declare-const y F)" + assertions)
+                result = self.run_checker(source, "--diagnostics")
+                self.assertEqual((result.returncode, result.stdout.strip()), (3, f"PARTIAL {pending}"),
+                                 result.stderr)
+                self.assertRegex(result.stderr, r"obligation\tth-lemma\t")
+                interactive = self.run_checker(source + "(check-sat)", "--interactive")
+                self.assertIn(f"unsat\n; proof-check PARTIAL {pending}\n", interactive.stdout)
 
     def test_quantified_rewrites_are_certified_in_both_modes(self):
         for source in (
