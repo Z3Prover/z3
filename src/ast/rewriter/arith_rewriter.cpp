@@ -964,7 +964,7 @@ br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
     }
 
     if (st == BR_FAILED && mk_eq_mod(arg1, arg2, result)) 
-        st = BR_REWRITE2;
+        st = BR_REWRITE_FULL;
     return st;
 }
 
@@ -993,9 +993,72 @@ br_status arith_rewriter::mk_and_core(unsigned n, expr* const* args, expr_ref& r
     return BR_FAILED;
 }
 
+static rational symmod(rational const& a, rational const& b) {
+    rational r = mod(a, b);
+    if (2*r > b) r -= b;
+    return r;
+}
+
 bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
     expr* x = nullptr, *y = nullptr, *z = nullptr, *u = nullptr;
     rational p, k, l;
+    if (m_util.is_numeral(arg1) && m_util.is_mod(arg2))
+        std::swap(arg1, arg2);
+    if (m_util.is_mod(arg1, x, y) && m_util.is_numeral(y, p) &&
+        m_util.is_numeral(arg2, l) && 0 <= l && l < p && m_util.is_add(x)) {
+        ptr_buffer<expr> terms;
+        vector<rational> coeffs;
+        rational offset(0), cost(0), inverse(1);
+        for (expr* arg : *to_app(x)) {
+            if (m_util.is_numeral(arg, k))
+                offset += k;
+            else {
+                terms.push_back(get_power_product(arg, k));
+                coeffs.push_back(k);
+                cost += abs(k);
+            }
+        }
+        // Only invert a coefficient when the total coefficient magnitude decreases.
+        hashtable<rational, rational::hash_proc, rational::eq_proc> candidates;
+        for (auto const& coeff : coeffs) {
+            // Bound the search to avoid quadratic work on large sums.
+            if (cost <= rational(coeffs.size()) || candidates.size() == 32)
+                break;
+            if (!m.inc())
+                return false;
+            if (coeff.is_one() || coeff.is_minus_one() || candidates.contains(coeff))
+                continue;
+            candidates.insert(coeff);
+            rational a, b;
+            if (gcd(p, coeff, a, b) != 1)
+                continue;
+            rational new_cost(0);
+            for (auto const& c : coeffs) {
+                if (!m.inc())
+                    return false;
+                new_cost += abs(symmod(b * c, p));
+                if (new_cost >= cost)
+                    break;
+            }
+            if (new_cost < cost) {
+                cost = new_cost;
+                inverse = b;
+            }
+        }
+        if (inverse != 1) {
+            expr_ref_vector args(m);
+            for (unsigned i = 0; i < terms.size(); ++i) {
+                rational c = symmod(inverse * coeffs[i], p);
+                if (!c.is_zero())
+                    args.push_back(m_util.mk_mul(m_util.mk_int(c), terms[i]));
+            }
+            expr_ref sum(m_util.mk_add(args.size(), args.data()), m);
+            expr_ref lhs(m_util.mk_mod(sum, y), m);
+            expr_ref rhs(m_util.mk_int(mod(inverse * (l - offset), p)), m);
+            result = m.mk_eq(lhs, rhs);
+            return true;
+        }
+    }
     // match k*u mod p = l, where k, p, l are integers
     if (m_util.is_mod(arg1, x, y) && m_util.is_numeral(y, p) &&
         m_util.is_mul(x, z, u) && m_util.is_numeral(z, k) &&
@@ -1518,12 +1581,6 @@ void arith_rewriter::remove_divisor(expr* d, ptr_buffer<expr>& args) {
     } 
     UNREACHABLE(); 
 } 
-
-static rational symmod(rational const& a, rational const& b) {
-    rational r = mod(a, b);
-    if (2*r > b) r -= b;
-    return r;
-}
 
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(arg1->get_sort());
