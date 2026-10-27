@@ -727,8 +727,9 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         source = flattening_rewrite_instance()
         lemma = self._normalized_lemma(source)
         self.assertIn("(Not True)", lemma)
-        self.assertIn("  by first | exact (let _s0 : Prop := ", lemma)
-        self.assertIn(" | grind (splits := 64)", lemma)
+        self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
+        self.assertIn("\n       refine Iff.intro (fun (_f1 : _s", lemma)
+        self.assertTrue(lemma.endswith(")\n    | grind (splits := 64)"), lemma[-200:])
         self.assertNotIn("Classical.em", lemma)
         self.check(source)
         with patch.object(proof_to_lean._PropositionalProver, "equivalence", lambda self, left, right: None):
@@ -748,7 +749,7 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         # disjunction's cases).
         source = clock_shaped_rewrite_instance()
         lemma = self._normalized_lemma(source)
-        self.assertIn("  by first | exact (let _s0 : Prop := ", lemma)
+        self.assertIn("  by first\n    | (let _s0 : Prop := ", lemma)
         self.assertGreaterEqual(lemma.count("(_atom84 : Prop)"), 1)
         self.assertNotIn("Classical.em", lemma)
         self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS // 2)

@@ -2167,6 +2167,40 @@ class TestClauseLogReplay(unittest.TestCase):
         self.assertIs(replay.assumptions_by_key, index)
         self.assertEqual(len(replay.normalizer.cache), cache_size)
 
+    def test_assumption_keys_are_interned_forms_over_child_keys(self):
+        # A key names an interned canonical form; forms refer to their
+        # children by key, so a deep circuit is keyed in time linear in its
+        # DAG (the nested forms of a 13,000-node bounded model checking
+        # circuit took two minutes to sort by repr). Equal formulas built
+        # apart get one key; and/or are flattened and sorted; a negation
+        # keys as the complement's form; the Int complement is tightened.
+        context = z3.Context()
+        x, y = z3.Ints("x y", context)
+        p, q, r = z3.Bools("p q r", context)
+        normalizer = proof_clause_log._Normalizer()
+        key = normalizer.key(z3.And(p, z3.Or(q, r), x <= 4))
+        self.assertEqual(key, normalizer.key(z3.And(z3.Or(r, q), z3.Not(z3.IntVal(5, context) <= x), p)))
+        self.assertEqual(key, normalizer.key(z3.And(p, z3.And(z3.Or(q, r), x <= 4))))
+        self.assertNotEqual(key, normalizer.key(z3.And(p, z3.Or(q, r), x <= 5)))
+        self.assertEqual(normalizer.key(z3.Not(z3.And(p, q))), normalizer.key(z3.Or(z3.Not(p), z3.Not(q))))
+        self.assertEqual(normalizer.key(z3.Implies(p, q)), normalizer.key(z3.Or(q, z3.Not(p))))
+        form = normalizer.forms[key]
+        self.assertEqual(form[0], "and")
+        self.assertTrue(all(isinstance(child, int) for child in form[1]), form)
+        self.assertEqual(list(form[1]), sorted(form[1]))
+        self.assertEqual(normalizer.ids[form], key)
+        # A chain of 200 nested gates sharing a subformula (the recursion
+        # over the formula bounds the depth, as before): every node is keyed
+        # once, and the forms stay small.
+        chain = p
+        for index in range(200):
+            chain = z3.And(z3.Or(chain, q), z3.Bool("b%d" % index, context))
+        deep = normalizer.key(chain)
+        self.assertEqual(normalizer.key(chain), deep)
+        self.assertTrue(all(len(form) <= 3 and all(len(part) <= 3 for part in form if isinstance(part, tuple))
+                            for form in normalizer.forms), "a form grew with its subtree")
+        self.assertGreater(len(normalizer.forms), 400)
+
     def test_rewritten_assumptions_are_tied_to_their_assertions(self):
         source = ("(declare-const x Real)(declare-const y Real)"
                   "(assert (and (> x 5.0) (< y 2.0)))(assert (= x (+ y 1.0)))")

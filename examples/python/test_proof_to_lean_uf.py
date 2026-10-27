@@ -903,12 +903,12 @@ class TestUninterpretedValidation(unittest.TestCase):
             self.assertTrue(text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
                             .endswith("\n  grind (splits := 64)"))
 
-    def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf_again(self):
+    def test_cnf_fallback_unfolds_a_formula_shared_with_a_leaf(self):
         # The predicate application (P (and a b)) is an opaque leaf of the
         # propagation proof, and its argument (and a b) also occurs outside
-        # it, so the head unfolds the argument's definition and the fallback,
-        # which unfolds the leaf, must unfold it once more: the inner
-        # occurrence comes out folded with the leaf (see _grind_lemma).
+        # it. The structural attempt unfolds nothing (the gates are named by
+        # their definitions, the leaf by its own), so the fallback unfolds
+        # everything reachable once, the shared argument included.
         source = UF_SHARED_GATE_ARGUMENT
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
@@ -922,16 +922,18 @@ class TestUninterpretedValidation(unittest.TestCase):
         for node in cnf:
             lemma = text.split("private theorem th_lemma_%d " % node, 1)[1].split("\n\n", 1)[0]
             head, _, attempts = lemma.partition("\n  first\n")
-            unfolded = head.split("\n  unfold ", 1)[1].split()
+            self.assertNotIn("unfold", head)
             structural, fallback = attempts.split("\n    | (")
-            self.assertIn("exact (Classical.byContradiction", structural)
+            self.assertIn("refine Classical.byContradiction ?_\n", structural)
+            self.assertNotIn("unfold formula", structural.split("refine Classical.byContradiction ?_", 1)[1])
+            self.assertNotIn("let _s", structural)  # the gates are named by their definitions
+            self.assertRegex(structural, r"have _f\d+ : \((Not )?\(formula_\d+ _atoms")
             rest = fallback.split("\n", 1)[0].split()
             self.assertEqual(rest[0], "unfold")
-            self.assertIn("formula_%d" % shared, unfolded)
-            self.assertNotIn("formula_%d" % leaf, unfolded)
-            # The leaf and everything under it, the shared argument and its atoms included.
-            self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, proof_to_lean._reachable(graph, leaf)[0]))
-            self.assertEqual(rest[1:3], ["formula_%d" % leaf, "formula_%d" % shared])
+            reachable = proof_to_lean._reachable(graph, graph.conclusion(node))[0]
+            self.assertEqual(rest[1:], proof_to_lean._definition_names(graph, reachable))
+            self.assertIn("formula_%d" % leaf, rest)
+            self.assertEqual(rest.count("formula_%d" % shared), 1)
 
     def test_distinct_gate_clauses_are_def_axioms_proved_from_the_pairs(self):
         source = UF_INPUTS["uf_distinct_gates"]
@@ -1712,10 +1714,10 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
                 self.assertIn("def-axiom", certificate["rule_counts"])
 
     def test_cnf_fallback_over_a_shared_leaf_argument_verifies(self):
-        # Structural first; then with the structural term replaced by one
+        # Structural first; then with the structural script replaced by one
         # Lean rejects, so that `first` takes the fallback, whose unfold
-        # list names the predicate's argument again (it comes out folded
-        # with the predicate, see the validation test of the same input).
+        # list names the predicate and its argument (see the validation
+        # test of the same input).
         source = UF_SHARED_GATE_ARGUMENT
         certificate, report = self.check(source)
         self.assertIn("th-lemma", certificate["rule_counts"])
@@ -1723,13 +1725,13 @@ class TestUninterpretedLeanIntegration(unittest.TestCase):
         original = proof_to_lean._PropositionalProver.refutation
 
         def bogus(prover, structure, facts=()):
-            term = original(prover, structure, facts)
-            return None if term is None else "(fun (_h : %s) => (_h : False))" % proof_to_lean._render_structure(
-                structure)
+            lines = original(prover, structure, facts)
+            return None if lines is None else [
+                "refine (fun (_h : %s) => ?_)" % proof_to_lean._render_structure(structure), "exact (_h : False)"]
 
         with patch.object(proof_to_lean._PropositionalProver, "refutation", bogus):
             text = proof_to_lean.reconstruct(source, certificate)
-            self.assertIn("exact (Classical.byContradiction (fun (_h : ", text)
+            self.assertIn("refine Classical.byContradiction ?_\n       refine (fun (_h : ", text)
             self.check(source)
 
     def test_one_argument_distinct_verifies(self):

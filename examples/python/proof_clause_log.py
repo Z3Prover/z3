@@ -600,10 +600,21 @@ def check_arith_hint(pairs):
 
 
 class _Normalizer:
-    """Canonical keys for Boolean formulas over linear atoms, used to match assumptions."""
+    """Canonical keys for Boolean formulas over linear atoms, used to match assumptions.
+
+    A key is an integer naming a canonical form; two formulas get one key
+    exactly when their canonical forms are equal. The forms are interned
+    (`ids`): a form is a tuple over the keys of its children, so building,
+    hashing, and sorting the forms is linear in the formula read as a DAG.
+    With the forms nested, a parent's form repeated every child's form and
+    the children were sorted by `repr`, which cost two minutes on the
+    13,000-node circuit of a QF_IDL bounded model checking input.
+    """
 
     def __init__(self):
         self.cache = {}  # (AST identifier, polarity) -> (expression kept alive, key)
+        self.ids = {}  # canonical form -> key
+        self.forms = []  # key -> canonical form
 
     def key(self, expr):
         return self._key(expr, True)
@@ -612,13 +623,20 @@ class _Normalizer:
         index = expr.get_id(), polarity
         cached = self.cache.get(index)
         if cached is None:
-            cached = self.cache[index] = (expr, self._compute_key(expr, polarity))
+            cached = self.cache[index] = (expr, self._intern(self._compute_form(expr, polarity)))
         return cached[1]
 
-    def _compute_key(self, expr, polarity):
+    def _intern(self, form):
+        key = self.ids.get(form)
+        if key is None:
+            key = self.ids[form] = len(self.forms)
+            self.forms.append(form)
+        return key
+
+    def _compute_form(self, expr, polarity):
         kind = expr.decl().kind()
         if kind == z3.Z3_OP_NOT:
-            return self._key(expr.arg(0), not polarity)
+            return self.forms[self._key(expr.arg(0), not polarity)]
         if kind in (z3.Z3_OP_AND, z3.Z3_OP_OR):
             if (kind == z3.Z3_OP_AND) == polarity:
                 tag = "and"
@@ -629,21 +647,22 @@ class _Normalizer:
             absorbing = ("false",) if tag == "and" else ("true",)
             for child in expr.children():
                 child_key = self._key(child, polarity)
-                if child_key == absorbing:
+                child_form = self.forms[child_key]
+                if child_form == absorbing:
                     return absorbing
-                if child_key == identity:
+                if child_form == identity:
                     continue
-                if child_key[0] == tag:
-                    parts.update(child_key[1])
+                if child_form[0] == tag:
+                    parts.update(child_form[1])
                 else:
                     parts.add(child_key)
             if not parts:
                 return identity
             if len(parts) == 1:
-                return next(iter(parts))
-            return (tag, tuple(sorted(parts, key=repr)))
+                return self.forms[next(iter(parts))]
+            return (tag, tuple(sorted(parts)))
         if kind == z3.Z3_OP_IMPLIES:
-            return self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)
+            return self.forms[self._key(z3.Or(z3.Not(expr.arg(0)), expr.arg(1)), polarity)]
         if kind == z3.Z3_OP_TRUE:
             return ("true",) if polarity else ("false",)
         if kind == z3.Z3_OP_FALSE:
@@ -652,7 +671,7 @@ class _Normalizer:
             return self._atom(expr, polarity)
         if kind == z3.Z3_OP_DISTINCT and z3.is_arith(expr.arg(0)) and expr.num_args() == 2:
             return self._atom(expr.arg(0) == expr.arg(1), not polarity)
-        # Structural key: a numeral (as a function argument) is identified by
+        # Structural form: a numeral (as a function argument) is identified by
         # its value, an uninterpreted symbol by its name.
         positive = (kind, tuple(self._key(child, True) for child in expr.children()),
                     str(expr.decl().name()) if kind == z3.Z3_OP_UNINTERPRETED

@@ -1520,6 +1520,47 @@ disjunction cases without excluded middle, atom splits where no disjunction
 is assumed, parity thresholds), `test_proof_to_lean_uflia.py` (cnf lemma
 shape).
 
+**Propagation proofs as tactic scripts over named gates (2026-10-27).**
+The iter-032 scan's one QF_IDL Lean failure, z3test's `smtlib-sample`
+`Averest/buble_sort/BubbleSort_safe_bgmc007.smt2` (one assertion, a
+13,000-node bounded model checking circuit of and, or, not and iff over
+Boolean variables with a few difference bounds; 890 steps, one `cnf` lemma),
+exhausted its heartbeats three times over. The lemma's head unfolded the
+13,000 definitions outside the leaves (`unfold` rewrites the whole goal once
+per name: quadratic, the "timeout at `transform`"); without the unfold, the
+1.6 MB propagation term of 9,500 `have` steps under 11,000 `let` names timed
+out at `whnf` after 400 s, because Lean elaborates a term of nested binders
+in time quadratic in their number (every binder abstracts the rest of the
+term: a synthetic chain of 1,000 type-free `have`s took nine minutes as one
+term and five seconds as tactic lines); and the export itself spent 134 s in
+`_Normalizer._compute_key`, sorting nested keys by `repr`. Three changes,
+none touching the trust boundary: (1) `_PropositionalProver` emits a tactic
+script (`have` lines, `refine` over `Or.elim`/`Iff.intro` with one hole per
+case and a bullet each, `exact`; `equivalence`, `implication` and
+`refutation` return lines), (2) the cnf lemmas and the propositional rewrites
+name the gates by the nodes' own definitions (`names=_structure_names`), so
+the proof binds no `let` and the lemma unfolds nothing before the attempt
+(Lean unfolds a definition when a step unifies with it, one level per step),
+and the steps through conjunctions and disjunctions leave their operands to
+unification (`mt (@And.left _ _)`, `Or.inr`, ...) under a `have` typed by
+the gate's name, where writing the operands out was O(n) characters per step
+through an n-ary gate; the normalized rewrites keep tactic `let`s for their
+structures over the abstracted atoms, (3) the replay's assumption keys are
+interned forms over child keys (`_Normalizer.ids`/`forms`), linear in the
+DAG. The BubbleSort file now exports in 10 s and verifies in about a minute
+of Lean (standard axioms); the lemma is a 1.1 MB script of 9,841 steps.
+Tests: `test_proof_to_lean_lia.py`
+(`test_bounded_model_checking_circuit_verifies_through_one_cnf_lemma`, the
+file itself under `examples/python/data`, through Lean),
+`test_proof_certificate.py` (interned keys), and the shape tests of
+`test_proof_to_lean.py`, `test_proof_to_lean_uf.py`,
+`test_proof_to_lean_uflia.py`, `test_proof_to_lean_arith.py` updated to the
+script form. Still open: a tactic `let` per structure is itself about 3 ms
+in a chain of thousands (8,000 lets and 8,000 steps: 25 s against 9.5 s
+without the lets), so a normalized rewrite over thousands of gates would
+want definitions too; and the `unfold` of the grind fallback is still one
+pass per name (`delta` is one pass for all, tested on the same file).
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or

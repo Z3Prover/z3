@@ -794,11 +794,16 @@ class TestProofToLean(unittest.TestCase):
         ])
         text = proof_to_lean.reconstruct(source, certificate)
         self.assertEqual(text.count("private theorem rewrite_"), 4)
-        # The compound structures are let-named inside the term; the double
-        # negation rewrite has none.
-        self.assertEqual(text.count("  exact (let _s0 : Prop := "), 3)
-        self.assertEqual(text.count("  exact (Iff.intro (fun (_f1 : (Not (Not (_atoms 0)))) => "), 1)
-        self.assertEqual(text.count("(Iff.intro (fun (_f1 : "), 4)
+        # The proof is a tactic script on the folded goal: the gates are
+        # named by their definitions (no let, no unfold), and each direction
+        # is a bullet under Iff.intro.
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : (formula_"), 3)
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : (Not (Not (_atoms 0)))) => ?_) (fun (_f3 : (_atoms 0)) => ?_)\n"
+                                    "  · have _f2 : (_atoms 0) := (Decidable.byContradiction (fun _g => _f1 _g))\n"
+                                    "    exact _f2\n"), 1)
+        self.assertEqual(text.count("  refine Iff.intro (fun (_f1 : "), 4)
+        self.assertNotIn("let _s0", text)
+        self.assertNotIn("unfold", text)
         self.assertNotIn("cases _d", text)
         self.assertNotIn("of_decide_eq_true", text)
         self.assertEqual(text.count("  refute_with_decidable"), 1)
@@ -908,9 +913,9 @@ class TestProofToLean(unittest.TestCase):
 
         def prove(structure, facts=()):
             prover = proof_to_lean._PropositionalProver(structure, *[fact for fact, _ in facts], classical=True)
-            term = prover.refutation(structure, facts)
+            lines = prover.refutation(structure, facts)
             self.assertEqual(prover.needed, set())
-            return term
+            return None if lines is None else "\n".join(lines)
 
         # (not S) or c from S = (or a b) and (or (not a) b), with c bridged
         # to b: propagation alone, so no split.
@@ -918,14 +923,18 @@ class TestProofToLean(unittest.TestCase):
         clause = ("or", ("not", source), c)
         term = prove(("not", clause), [(("iff", b, c), "_bridge")])
         self.assertIsNotNone(term)
-        # The and, or and iff structures are let-named, children first, and
-        # the hypothesis is stated over the names.
+        # Without names from the caller, the and, or and iff structures are
+        # bound by tactic lets, children first, and the hypothesis is stated
+        # over the names; the proof is a tactic script ending in exact.
         self.assertTrue(term.startswith(
-            "(let _s0 : Prop := (Or (formula_3 _atoms _vars) (formula_5 _atoms _vars)); "
-            "let _s1 : Prop := (Or (Not (formula_3 _atoms _vars)) (formula_5 _atoms _vars)); "
-            "let _s2 : Prop := (And _s0 _s1); let _s3 : Prop := (Or (Not _s2) (formula_7 _atoms _vars)); "
-            "let _s4 : Prop := (Iff (formula_5 _atoms _vars) (formula_7 _atoms _vars)); "
-            "(fun (_f1 : (Not _s3)) => ("), term)
+            "let _s0 : Prop := (Or (formula_3 _atoms _vars) (formula_5 _atoms _vars))\n"
+            "let _s1 : Prop := (Or (Not (formula_3 _atoms _vars)) (formula_5 _atoms _vars))\n"
+            "let _s2 : Prop := (And _s0 _s1)\nlet _s3 : Prop := (Or (Not _s2) (formula_7 _atoms _vars))\n"
+            "let _s4 : Prop := (Iff (formula_5 _atoms _vars) (formula_7 _atoms _vars))\n"
+            "refine (fun (_f1 : (Not _s3)) => ?_)\nhave _f2 := "), term)
+        self.assertTrue(term.endswith(")"), term)
+        self.assertIn("\nexact (False.elim (", term)
+        self.assertNotIn(";", term)
         self.assertIn("Classical.byContradiction (fun _g => ", term)
         self.assertIn("(Iff.mp _bridge _g)", term)  # c false gives b false through the bridge
         self.assertNotIn("Classical.em", term)
@@ -949,24 +958,30 @@ class TestProofToLean(unittest.TestCase):
         self.assertIsNotNone(term)
         self.assertNotIn("Classical.em", term)
         prover = proof_to_lean._PropositionalProver(mixed, ("false",))
-        term = prover.implication(mixed, ("false",))
-        self.assertIsNotNone(term)
+        lines = prover.implication(mixed, ("false",))
+        self.assertIsNotNone(lines)
+        term = "\n".join(lines)
         self.assertNotIn("Decidable", term)
         self.assertEqual(prover.needed, set())
         # A target that no assumed disjunction settles splits on an atom:
         # Decidable.em on the atom (a leaf is never split), recorded as
         # needed, or Classical.em on an atom or a leaf in classical mode.
+        # The split is a refine with one hole per case and a bullet each.
         for structure, split in ((("or", p, ("not", p)), "Decidable.em (_atoms 0)"),):
             prover = proof_to_lean._PropositionalProver(("true",), structure)
-            term = prover.implication(("true",), structure)
-            self.assertIsNotNone(term)
-            self.assertIn("(Or.elim (%s)" % split, term)
+            lines = prover.implication(("true",), structure)
+            self.assertIsNotNone(lines)
+            term = "\n".join(lines)
+            self.assertIn("\nrefine (Or.elim (%s) (fun _f3 => ?_) (fun _f6 => ?_))\n· have " % split, term)
+            self.assertEqual(sum(line.startswith("· ") for line in lines), 2)
+            self.assertEqual(lines[-1], "  exact _f7")
             self.assertEqual(prover.needed, {0})
         for structure, split in ((("or", p, ("not", p)), "(_atoms 0)"), (("or", a, ("not", a)), "(formula_3 _atoms _vars)")):
             prover = proof_to_lean._PropositionalProver(("true",), structure, classical=True)
-            term = prover.implication(("true",), structure)
-            self.assertIsNotNone(term)
-            self.assertIn("(Or.elim (Classical.em %s)" % split, term)
+            lines = prover.implication(("true",), structure)
+            self.assertIsNotNone(lines)
+            term = "\n".join(lines)
+            self.assertIn("\nrefine (Or.elim (Classical.em %s)" % split, term)
             self.assertEqual(prover.needed, set())
         self.assertIsNone(proof_to_lean._PropositionalProver(("true",), ("or", a, ("not", a))).implication(
             ("true",), ("or", a, ("not", a))))  # a leaf is not split without classical mode

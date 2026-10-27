@@ -471,12 +471,13 @@ class TestIntegerMixedValidation(unittest.TestCase):
 
     def test_cnf_bridges_are_proved_by_propagation_over_opaque_atoms(self):
         # Each cnf lemma states the clause of the negated assertion and the
-        # assumed gate clause's literals. Its first proof unfolds the
-        # connectives only (every theory atom stays a folded formula_N),
-        # bridges the two orientations of an equality by an Iff the theory
-        # tactic proves, and refutes the negated clause by gate propagation
-        # under Classical.byContradiction, without a case split; the
-        # unfolded grind proof is the second alternative of `first`.
+        # assumed gate clause's literals. Its first proof unfolds nothing
+        # (the gates are named by their definitions, every theory atom stays
+        # a folded formula_N), bridges the two orientations of an equality
+        # by an Iff the theory tactic proves, and refutes the negated clause
+        # by gate propagation under Classical.byContradiction, as a tactic
+        # script without a case split; the unfolded grind proof is the
+        # second alternative of `first`.
         source = UFLIA_INPUTS["uflia_root_ite_gates"]
         certificate = proof_certificate.export_clause_log_certificate(source)
         graph = proof_to_lean._validate_graph(source, certificate)
@@ -487,11 +488,13 @@ class TestIntegerMixedValidation(unittest.TestCase):
         for node in cnf:
             lemma = _lemma_text(text, node)
             head, _, attempts = lemma.partition("\n  first\n")
-            unfolded = head.split("\n  unfold ", 1)[1].split()
-            self.assertTrue(unfolded and all(name.startswith("formula_") for name in unfolded), unfolded)
+            self.assertNotIn("unfold", head)
             self.assertEqual(attempts.count("\n    | ("), 1)
             structural, fallback = attempts.split("\n    | (")
-            self.assertIn("exact (Classical.byContradiction (let _s0 : Prop := ", structural)
+            self.assertRegex(structural, r"refine Classical\.byContradiction \?_\n"
+                                         r"       refine \(fun \(_f\d+ : \(Not \(formula_\d+ _atoms")
+            self.assertNotIn("let _s", structural)
+            self.assertNotIn("Or.elim", structural)
             self.assertNotIn("Classical.em", structural)
             self.assertNotIn("Decidable", structural)
             for first, second in re.findall(
@@ -504,14 +507,10 @@ class TestIntegerMixedValidation(unittest.TestCase):
                 bridged.add((first, second))
             self.assertTrue(fallback.startswith("unfold "), fallback)
             self.assertTrue(fallback.endswith("\n       first | omega | grind (splits := 64))"), fallback)
-            # The fallback unfolds what the head did not, and nothing twice:
-            # no formula of this input is shared between the clause and the
-            # inside of a theory atom (see the QF_UF shared-argument test).
+            # The fallback unfolds everything reachable from the clause, once.
             rest = fallback.split("\n", 1)[0].split()[1:]
-            self.assertFalse(set(rest) & set(unfolded))
-            self.assertEqual(set(rest) | set(unfolded),
-                             set(proof_to_lean._definition_names(graph, proof_to_lean._reachable(
-                                 graph, graph.conclusion(node))[0])))
+            self.assertEqual(rest, proof_to_lean._definition_names(graph, proof_to_lean._reachable(
+                graph, graph.conclusion(node))[0]))
         self.assertTrue(bridged)
         # The clause-log literal (= 1 (cnt 0)) against the assertion's (= (cnt 0) 1).
         self.assertTrue(any(graph.kind(graph.arguments(first)[0]) == z3.Z3_OP_ANUM for first, _ in bridged)
@@ -718,7 +717,7 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     graph = proof_to_lean._validate_graph(source, certificate)
                     cnf = _cnf_nodes(graph)
                     self.assertGreaterEqual(len(cnf), 6)
-                    self.assertEqual(text.count("exact (Classical.byContradiction (let _s0 : Prop := "), len(cnf))
+                    self.assertEqual(text.count("refine Classical.byContradiction ?_\n"), len(cnf))
         # Every hint kind of the slice, plus the exporter's own cnf bridge.
         self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf", "arith"})
 
@@ -732,14 +731,15 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
         original = proof_to_lean._PropositionalProver.refutation
 
         def bogus(self, structure, facts=()):
-            term = original(self, structure, facts)
-            return None if term is None else "(fun (_h : %s) => (_h : False))" % proof_to_lean._render_structure(
-                structure)
+            lines = original(self, structure, facts)
+            return None if lines is None else [
+                "refine (fun (_h : %s) => ?_)" % proof_to_lean._render_structure(structure), "exact (_h : False)"]
 
         with patch.object(proof_to_lean._PropositionalProver, "refutation", bogus):
             certificate, text = self.check(source)
         graph = proof_to_lean._validate_graph(source, certificate)
-        self.assertEqual(text.count("exact (Classical.byContradiction (fun (_h : "), len(_cnf_nodes(graph)))
+        self.assertEqual(text.count("refine Classical.byContradiction ?_\n       refine (fun (_h : "),
+                         len(_cnf_nodes(graph)))
 
     # Seeds of random_instance whose unsat core has at least three assertions,
     # pinned so the checked inputs stay the same across Z3 versions: plain,
