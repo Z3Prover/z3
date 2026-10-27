@@ -239,7 +239,9 @@ void test_sin_negative_interval() {
             "(assert (<= (- 0.3141592653589793) h (- 0.10471975511965975)))\n"
             "(assert (= (sin h) 0.0))\n"
             "(assert (= (* e e) 2.0))\n"
-            "(check-sat)\n";
+            "(check-sat)\n"
+            "(set-option :smt.arith.nl.transcendental true)\n"
+            "(set-option :model_validate false)\n";
         std::string response = Z3_eval_smtlib2_string(ctx, spec.c_str());
         if (response != "unsat\n")
             std::cout << response << "\n";
