@@ -1,0 +1,5 @@
++ timeout 120 /tmp/gh-aw/fstar/bin/fstar.exe --smt /tmp/gh-aw/fstar/lib/fstar/z3-4.13.3/bin/z3 --z3version 4.13.3 --z3rlimit 10 --cache_dir cache --odir out --include /home/runner/work/z3/z3/fstar Z3Pr11348Head7fbf.fst
+Verified module: Z3Pr11348Head7fbf
+All verification conditions discharged successfully
++ echo exit=0
+exit=0
