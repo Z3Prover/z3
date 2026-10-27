@@ -40,6 +40,8 @@ Notes:
 #include "qe/qe.h"
 #include "ast/rewriter/label_rewriter.h"
 #include "util/params.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/tactical.h"
 
 namespace qe {
 
@@ -1514,9 +1516,9 @@ tactic * mk_qe2_tactic(ast_manager& m, params_ref const& p) {
 }
 
 tactic * mk_qe_rec_tactic(ast_manager& m, params_ref const& p) {   
-    return alloc(qe::qsat, m, p, qe::qsat_qe_rec);
+    tactic_ref t = alloc(qe::qsat, m, p, qe::qsat_qe_rec);
+    return cond(mk_produce_proofs_probe(),
+                and_then(mk_simplify_tactic(m, p), t.get()), t.get());
 }
-
-
 
 
