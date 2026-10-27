@@ -70,6 +70,106 @@ RULE_EXTENSION_CASES = (
     ("bv-wrap", "(assert (not (= (bvadd #xff #x01) #x00)))"),
 )
 
+# Rewrite steps of the Pulse QF_FF certificates (z3test generator, seed 40244844124).
+# Their proofs contain only `rewrite` steps decided by polynomial arithmetic modulo p, or by
+# comparing an ite with a numeral.
+def finite_field(prime, assertion):
+    return (f"(set-logic QF_FF)(define-sort F () (_ FiniteField {prime}))"
+            f"(declare-const x F)(declare-const y F)(assert {assertion})")
+
+
+FINITE_FIELD_CASES = (
+    ("ff-17-bitsum-folding", finite_field(17,
+     "(and (= (ff.mul (ff.bitsum x (as ff2 F)) (ff.bitsum (as ff-3 F) x))"
+     " (ff.bitsum (ff.mul x x) (ff.bitsum x y)))"
+     " (= (ff.bitsum (as ff24 F) (as ff19 F)) (as ff19 F)))")),
+    ("ff-17-cancellation", finite_field(17,
+     "(and (= (ff.bitsum x (ff.mul y y))"
+     " (ff.bitsum (ff.mul x (as ff24 F)) (ff.bitsum x (as ff31 F))))"
+     " (= (ff.neg (ff.add y (as ff5 F))) (ff.neg y)))")),
+    ("ff-2-numeral-disequality", finite_field(2,
+     "(or (= (as ff3 F) (as ff0 F)) (not (= x x)))")),
+    ("ff-5-negative-numerals", finite_field(5,
+     "(and (= (ff.mul (as ff-2 F) (ff.add (as ff3 F) (as ff8 F))) (as ff4 F))"
+     " (= (ff.bitsum y (ff.neg y)) (ff.bitsum (ff.bitsum y x) (ff.neg x))))")),
+    ("ff-5-conditional-atom", finite_field(5,
+     "(and (= (ff.neg (ff.mul (as ff5 F) x)) y)"
+     " (= (ite (= x y) (as ff1 F) (ff.neg y)) x))")),
+    ("ff-5-numeral-square", finite_field(5,
+     "(and (= (ff.mul y y) (ff.bitsum (as ff1 F) (ff.mul (as ff-7 F) (as ff-6 F))))"
+     " (= y (ff.neg (as ff4 F))))")),
+    ("ff-5-double-negation", finite_field(5,
+     "(and (not (= (ff.neg (ff.neg (as ff1 F))) (as ff-4 F)))"
+     " (not (= (ite (= x y) (ite (= x y) y x) (ff.add y y))"
+     " (ff.mul (ff.neg y) (ff.bitsum (as ff-8 F) x)))))")),
+    ("ff-7-negated-product", finite_field(7,
+     "(and (= (ff.mul y (ff.neg (as ff0 F))) (ff.neg (ff.neg x)))"
+     " (= (as ff5 F) (ff.bitsum (as ff6 F) (ff.bitsum x (as ff8 F)))))")),
+    ("ff-7-zero-product", finite_field(7,
+     "(and (= (ff.mul (ff.mul y y) x) (ff.add (ff.add x x) (ff.bitsum y x)))"
+     " (= (ff.mul (ff.add (as ff7 F) y) (ff.mul y (as ff7 F))) (as ff-10 F)))")),
+    ("ff-7-rescaled-equation", finite_field(7,
+     "(and (= (ff.mul (ite (= x y) (as ff-4 F) y) (ff.add x x))"
+     " (ff.add (ff.neg (as ff-7 F)) (ff.bitsum x (as ff11 F))))"
+     " (= x (ff.mul (ff.neg x) (ff.bitsum (as ff7 F) (as ff-3 F)))))")),
+    # An ite compared with a numeral (field-3/case-02, field-7/case-01): a branch that differs
+    # from the numeral by a nonzero constant is dropped and the condition selects the other.
+    ("ff-3-ite-equal-numeral", finite_field(3,
+     "(and (= (ite (= x y) (ff.neg (as ff1 F)) (ff.bitsum y y)) (as ff1 F))"
+     " (= y (ite (= x y) (ff.add x y) (ff.mul (as ff5 F) y))))")),
+    ("ff-7-ite-equal-numeral", finite_field(7,
+     "(and (= (ff.bitsum (as ff2 F) (ff.neg y)) (ff.neg (ff.bitsum y y)))"
+     " (= (ite (= x y) (ff.neg (as ff9 F)) (as ff-13 F)) (as ff-4 F)))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_CASES
+
+# The remaining Pulse QF_FF certificates, verbatim: their `th-lemma` steps are decided by
+# evaluating the clause under every assignment of residues to its leaves (at most 4096).
+FINITE_FIELD_THEORY_LEMMA_CASES = (
+    ("ff-17-case-02", finite_field(17,
+     "(and (= (ff.add (ff.bitsum x (as ff19 F)) (as ff-26 F)) (ff.add (ff.mul (as ff-11 F) x) y))"
+     " (= (ite (= x y) (ff.mul x y) (ff.bitsum y y)) (ff.mul x (ite (= x y) (as ff-6 F) x))))")),
+    ("ff-17-case-03", finite_field(17,
+     "(and (= (as ff-23 F) (ff.bitsum (ff.neg y) (ff.add x x)))"
+     " (= (ff.bitsum (ite (= x y) y x) (ff.neg (as ff-16 F))) (ff.mul (ff.add x (as ff6 F)) (ff.add x y))))")),
+    ("ff-17-case-05", finite_field(17,
+     "(and (= x (as ff29 F)) (= (ff.mul (ff.add y x) (ff.mul y x)) (as ff25 F)))")),
+    ("ff-2-case-02", finite_field(2,
+     "(and (not (= y (ff.mul (ff.add (as ff0 F) x) (ff.bitsum y x))))"
+     " (= (ff.bitsum (ff.mul x y) (ff.bitsum y y)) y))")),
+    ("ff-2-case-03", finite_field(2,
+     "(and (not (= (ff.mul (ff.mul x x) (as ff-3 F)) (ff.neg (as ff2 F))))"
+     " (= (ff.mul x (ff.bitsum x y)) (ff.mul y (ff.mul y (as ff-4 F)))))")),
+    ("ff-2-case-04", finite_field(2,
+     "(and (= (ite (= x y) (as ff3 F) (ff.mul x y)) (ff.neg (ff.mul x x)))"
+     " (= y (ff.mul (as ff3 F) (as ff2 F))))")),
+    ("ff-2-case-05", finite_field(2,
+     "(and (= (ff.add (ff.mul x (as ff2 F)) (ff.add y (as ff2 F))) (ff.bitsum (ff.add y y) (ff.bitsum y (as ff2 F))))"
+     " (not (= (ff.mul x x) (ff.bitsum (ff.bitsum x y) (ff.add y x)))))")),
+    ("ff-3-case-03", finite_field(3,
+     "(and (= x (ite (= x y) (ff.neg y) y)) (= (ff.neg (ff.bitsum x (as ff2 F))) (as ff1 F)))")),
+    ("ff-3-case-04", finite_field(3,
+     "(and (= (ff.mul (ite (= x y) (as ff5 F) (as ff1 F)) (ff.mul x y)) (ff.add x (ff.neg (as ff-5 F))))"
+     " (= (ff.bitsum (ff.neg (as ff3 F)) x) (ff.add (ff.add (as ff-4 F) (as ff5 F)) (ff.mul x y))))")),
+    ("ff-3-case-05", finite_field(3,
+     "(and (= (ff.add (ff.bitsum x y) (ff.mul y y)) y)"
+     " (= (ff.mul (ff.bitsum (as ff-1 F) x) (ff.bitsum (as ff4 F) (as ff-4 F)))"
+     " (ff.add (ite (= x y) y (as ff3 F)) (ff.add x x))))")),
+    ("ff-5-case-04", finite_field(5,
+     "(and (= (as ff8 F) (ff.mul (ff.mul x x) (ff.neg x)))"
+     " (= (ff.add (as ff3 F) y) (ff.add (as ff-9 F) (ite (= x y) (as ff-8 F) y))))")),
+    ("ff-7-case-02", finite_field(7,
+     "(and (= (ff.add (ff.add (as ff-8 F) (as ff-9 F)) (ff.neg x)) (ite (= x y) (ff.neg (as ff-8 F)) x))"
+     " (= (ff.add (ff.neg (as ff-7 F)) (ff.bitsum y y)) (ff.bitsum (ff.mul x x) (as ff-6 F))))")),
+)
+RULE_EXTENSION_CASES += FINITE_FIELD_THEORY_LEMMA_CASES
+
+
+# x*y = 1 and x*(y+1) = x+2 have no common root; Z3 refutes them with a `th-lemma`.
+def unit_ideal(prime):
+    return finite_field(prime,
+        "(and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F))))")
+
 
 @unittest.skipUnless(os.environ.get("Z3_FSTAR_CHECKER"),
                      "Set Z3_FSTAR_CHECKER to the built native checker")
@@ -212,6 +312,20 @@ class DirectCheckerTests(unittest.TestCase):
                 self.assertEqual(interactive.returncode, 0,
                                  interactive.stdout + interactive.stderr)
                 self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+
+    def test_finite_field_theory_lemmas_are_checked_within_the_bound(self):
+        # 17^2 assignments are evaluated; over a 31-bit prime the same refutation has more
+        # than 4096, so its `th-lemma` step stays an unmet obligation.
+        result = self.run_checker(unit_ideal(17), "--diagnostics")
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ACCEPT"), result.stderr)
+        source = unit_ideal(2147483647)
+        result = self.run_checker(source, "--diagnostics")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertRegex(result.stdout.strip(), r"^PARTIAL [1-9][0-9]*$")
+        self.assertRegex(result.stderr, r"obligation\tth-lemma\t")
+        self.assertNotRegex(result.stderr, r"obligation\trewrite\t")
+        interactive = self.run_checker(source + "(check-sat)", "--interactive")
+        self.assertRegex(interactive.stdout, r"unsat\n; proof-check PARTIAL [1-9][0-9]*\n")
 
     def test_quantified_rewrites_are_certified_in_both_modes(self):
         for source in (

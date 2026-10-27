@@ -256,7 +256,11 @@ step:
     under a unit asserted by another, which shows in alldiff clauses), the
     cnf lemma is over an unsat core of the assertions. Clauses with true, not
     false, or complementary literals are def-axiom nodes. Nothing else is
-    accepted as an assumption.
+    accepted as an assumption. In Lean a cnf lemma is first proved by gate
+    propagation over the Boolean structure of the clause with the theory
+    atoms opaque (two atoms denoting one constraint, or complementary ones,
+    are bridged by an equivalence the theory tactic proves); a clause that
+    needs a theory fact falls back to the unfolded grind proof.
   - farkas, bound, implied-eq, and euf hints list literals that are jointly
     contradictory; the exporter emits one th-lemma concluding the clause of
     their complements, after checking farkas and bound coefficients with exact

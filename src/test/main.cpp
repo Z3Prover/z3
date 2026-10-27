@@ -145,6 +145,7 @@
     X(ff_euf) \
     X(ff_native_proof) \
     X(finite_field) \
+    X(flatten_clauses) \
     X(polynomial) \
     X(polynomial_factorization) \
     X(upolynomial) \

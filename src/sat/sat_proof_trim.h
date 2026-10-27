@@ -71,7 +71,7 @@ namespace sat {
         void add_core(literal l, justification j);
         bool in_core(literal_vector const& cl) const;
         void revive(literal_vector const& cl, clause* cp);        
-        clause* del(literal_vector const& cl);
+        bool detach(literal_vector const& cl, clause*& cp);
 
         void insert_dep(unsigned dep);
 

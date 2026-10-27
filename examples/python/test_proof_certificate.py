@@ -2926,6 +2926,54 @@ class TestClauseLogDependencies(unittest.TestCase):
         self.assertNotIn("th-lemma", certificate["rule_counts"])
         self.assertEqual(len(certificate["assertions"]), 7)
 
+    @unittest.skipUnless(_z3_available(), "the z3 executable is required for proof trimming")
+    def test_native_trimming_ignores_deletions_of_clauses_it_never_added(self):
+        # The trimmer's propagation finds the conflict at (assume (not c)),
+        # before the solver logs its empty clause; the resolvent it derives
+        # in between is ignored. Its deletion used to be recorded anyway, and
+        # the backward pass revived a clause the proof never had, which the
+        # probe of (infer c rup) then chased: "the clause ... used by the
+        # proof was never added" (z3test LassoRanker HarrisLalNoriRajamani
+        # 4-pieceTemplate, iter-032). A deletion before the conflict of a
+        # clause never logged as added (a theory lemma deleted under other
+        # literals than the trimmer assumed) revived one the same way.
+        source = ("(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)"
+                  "(declare-const x Bool)(declare-const d Bool)"
+                  "(assert a)(assert (or (not a) b))(assert (or (not b) c x))"
+                  "(assert (or (not x) d))(assert (or (not x) (not d)))(assert (not c))")
+        head = """\
+(declare-fun a () Bool)
+(declare-fun b () Bool)
+(declare-fun c () Bool)
+(declare-fun x () Bool)
+(declare-fun d () Bool)
+(declare-fun rup () Proof)
+(assume a)
+(assume (not a) b)
+(assume (not b) c x)
+(assume (not x) d)
+(assume (not x) (not d))
+(infer c rup)
+"""
+        after_conflict = head + "(assume (not c))\n(infer (not b) c d rup)\n(del (not b) c d)\n(infer rup)\n"
+        before_conflict = head + "(del (not b) c d)\n(assume (not c))\n(infer rup)\n"
+        for name, log in [("after", after_conflict), ("before", before_conflict)]:
+            with self.subTest(deletion=name):
+                with patch.object(proof_clause_log, "_TRIM_THRESHOLD", 0):
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("error")  # a fallback to the untrimmed log would hide the defect
+                        trimmed = proof_clause_log.trim_clause_log(proof_certificate.default_z3_executable(), log)
+                self.assertNotEqual(trimmed, log)
+                self.assertNotIn("(not b) c d", trimmed)
+                self.assertIn("(infer c rup", trimmed)
+                for clause in ["(assume (not b) c x", "(assume (not x) d", "(assume (not x) (not d)"]:
+                    self.assertIn(clause, trimmed)
+                context = z3.Context()
+                assertions, fragment = proof_certificate.parse_assertions(source, context)
+                certificate = proof_clause_log.build_certificate(source, fragment, assertions, trimmed, context)
+                self.assertNotIn("th-lemma", certificate["rule_counts"])
+                self.assertEqual(len(certificate["assertions"]), 6)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ type operator =
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
   | Rational | BvNumeral
   | Bvzeroextend
+  | FfNum | FfAdd | FfMul | FfNeg | FfBitsum
   | Opaque
 
 noeq

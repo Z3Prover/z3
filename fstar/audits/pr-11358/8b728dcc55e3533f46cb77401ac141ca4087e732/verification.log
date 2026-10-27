@@ -1,0 +1,7 @@
+$ fstar.exe --version -> F* 2026.09.27 linux_x86_64
+$ z3 --version -> Z3 version 4.13.3 - 64 bit
+$ timeout 600 fstar.exe --smt .../z3-4.13.3/bin/z3 --z3version 4.13.3 --include /home/runner/work/z3/z3/fstar --cache_dir cache --odir out --z3rlimit 10 Z3FiniteFieldLemma.fst
+exit code: 0   (wall 15.4s, fresh cache)
+stdout: Verified module: Z3FiniteFieldLemma
+        All verification conditions discharged successfully
+stderr: only Warning 241 (checked file does not exist; will recheck) for fresh cache.

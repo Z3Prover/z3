@@ -11,6 +11,7 @@ module P = Z3ProofDocument
 module L = FStar.List.Tot
 module C = Z3LpCertificate
 module BV = Z3BvLemma
+module FF = Z3FiniteFieldLemma
 module DT = Z3DatatypeLemma
 module CP = Z3ClauseProof
 module R = Z3ResolutionProofTheory
@@ -90,6 +91,9 @@ let operator_tag (op:N.operator) (dom:list sort) (range:sort) : option decl_kind
   | N.Bvshl -> Some BV.op_shl | N.Bvlshr -> Some BV.op_lshr
   | N.Bvzeroextend -> Some BV.op_zero_extend
   | N.BvNumeral -> Some BV.op_numeral
+  | N.FfNum -> Some FF.op_ff_num | N.FfAdd -> Some FF.op_ff_add
+  | N.FfMul -> Some FF.op_ff_mul | N.FfNeg -> Some FF.op_ff_neg
+  | N.FfBitsum -> Some FF.op_ff_bitsum
   | N.DatatypeConstructor -> Some DT.op_constructor
   | N.DatatypeRecognizer -> Some DT.op_recognizer
   | N.DatatypeAccessor -> Some DT.op_accessor
@@ -119,6 +123,9 @@ let marshal_declaration (st:state) (d:N.declaration) (args:list expr)
       | N.BvNumeral, Some (n, den) ->
         if den = 1 then Some (d.parameters @ [n]) else None
       | N.BvNumeral, None -> None
+      | N.FfNum, Some (n, den) ->
+        if den = 1 then Some (d.parameters @ [n]) else None
+      | N.FfNum, None -> None
       | _, _ -> Some d.parameters
     in
     let parameters = require_some "Malformed native numeral" parameters in

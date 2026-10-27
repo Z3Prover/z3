@@ -8,7 +8,7 @@ type operator =
   | Bvult | Bvule | Bvuge | Bvshl | Bvlshr | Concat
   | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor
   | Add | Mul | Sub | Div | IDiv | Mod | Le | Lt | Ge | Gt | ToReal
-  | Rational | BvNumeral | Bvzeroextend | Opaque
+  | Rational | BvNumeral | Bvzeroextend | FfNum | FfAdd | FfMul | FfNeg | FfBitsum | Opaque
 
 type sort_view =
   | Base of string
@@ -90,6 +90,7 @@ let view_sort s =
       let domains = List.init (Z3native.get_array_arity c s)
           (Z3native.get_array_sort_domain_n c s) in
       Array (domains, Z3native.get_array_sort_range c s)
+  | Z3enums.FINITE_FIELD_SORT -> Base ("FF" ^ Z3native.get_finite_field_sort_size c s)
   | _ -> Base (unique "sort" (sort_id s) name)
 
 let operator = function
@@ -118,6 +119,8 @@ let operator = function
   | Z3enums.OP_LE -> Le | Z3enums.OP_LT -> Lt
   | Z3enums.OP_GE -> Ge | Z3enums.OP_GT -> Gt | Z3enums.OP_TO_REAL -> ToReal
   | Z3enums.OP_ANUM -> Rational | Z3enums.OP_BNUM -> BvNumeral
+  | Z3enums.OP_FF_NUM -> FfNum | Z3enums.OP_FF_ADD -> FfAdd | Z3enums.OP_FF_MUL -> FfMul
+  | Z3enums.OP_FF_NEG -> FfNeg | Z3enums.OP_FF_BITSUM -> FfBitsum
   | _ -> Opaque
 
 let rational text =
@@ -127,6 +130,13 @@ let rational text =
     Q.num q, Q.den q
   with Invalid_argument _ | Division_by_zero ->
     fail ("Invalid native rational: " ^ text)
+
+(* The decimal modulus of a finite-field sort, as reported by the native API. *)
+let field_modulus c s =
+  let text = Z3native.get_finite_field_sort_size c s in
+  match rational text with
+  | n, d when Z.equal d Z.one -> n
+  | _ -> fail ("Invalid native finite-field modulus: " ^ text)
 
 let app_args c a =
   List.init (Z3native.get_app_num_args c a) (Z3native.get_app_arg c a)
@@ -250,7 +260,7 @@ let view_expression a =
       let id = Z.of_int (Z3native.get_func_decl_id c d) in
       let native_kind = Z3native.get_decl_kind c d in
       let op = operator (Z3enums.decl_kind_of_int native_kind) in
-      let numeral = if op = Rational || op = BvNumeral
+      let numeral = if op = Rational || op = BvNumeral || op = FfNum
                     then Some (rational (Z3native.get_numeral_string c a))
                     else None in
       let range = Z3native.get_range c d in
@@ -282,6 +292,7 @@ let view_expression a =
               Z.of_int (Z3native.get_bv_sort_size c (Z3native.get_domain c d i)))
         | DatatypeConstructor | DatatypeRecognizer | DatatypeAccessor ->
             datatype_parameters c d op
+        | FfNum | FfAdd | FfMul | FfNeg | FfBitsum -> [field_modulus c range]
         | _ -> [] in
       let name = if op = BvNumeral then "bv"
                  else if op = Rational then Z3native.ast_to_string c a

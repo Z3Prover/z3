@@ -1393,6 +1393,50 @@ already holds would make these lemmas independent of `omega`'s
 elimination order altogether; the remaining 22 s of the seed-75 file are
 spread over its 587 theory lemmas, none above 3 s.
 
+**`cnf` bridges by propagation over opaque atoms (2026-10-23).** The
+iter-032 scan left `mathsat/Wisa/xs-05-12-1-4-2-1.smt2` (QF_UFLIA, 720
+steps) timing out in Lean with nine theory lemmas failing. All of them
+were the exporter's `cnf` bridges: the input is one 3,500-character
+assertion (a conjunction of equalities, a 40-way disjunction, and ten
+Boolean `ite` terms over Int applications) whose root `ite` terms Z3
+clausifies without the `ite` literal, so the 30 assumed gate clauses
+(`(not c) or t`, and `c`'s conjuncts distributed over `e`) match no
+conjunct and are tied to the assertion by `cnf` lemmas, which
+`_grind_lemma` proved by unfolding everything and calling `omega` then
+`grind`, both of which split every `ite` and disjunction. Such a clause
+follows from its sources propositionally with the theory atoms opaque,
+up to Z3's normalization of the atoms themselves (an equality's sides
+reordered, a sum's operands reordered, a strict comparison written as
+the negation of its complement). `_cnf_lemma` now proves it first by
+`Classical.byContradiction` and the gate propagation of
+`_PropositionalProver` (iter-018) in a classical mode over the Boolean
+structure with every theory atom a leaf rendered by its definition name
+(`_boolean_structure(..., leaves=...)`), after stating, as `have`
+equivalences the theory tactic proves on its own, a chain of bridges
+through the leaves of one constraint key and one bridge between two
+complementary keys (`_leaf_bridges`, `_leaf_key`: coprime integer
+coefficients, Int bounds rounded, equality sides unordered); the unfolded
+`grind` proof stays as the second alternative of `first` and alone when
+the prover finds no refutation (the `alldiff` clauses of `uf_ite_alldiff`
+need the `ite`'s value). The fallback unfolds what the attempt did not,
+and again a formula shared between the clause and the inside of a leaf (a
+predicate's Boolean argument), which occurs folded once more when the
+leaf is unfolded. Nothing is trusted: the term, the bridges, and
+the fallback are checked by Lean. The Wisa file verifies in 13 s of Lean
+(was a timeout after 900 s); its text grows from 0.75 MB to 2.7 MB (each
+propagation step restates its proposition over the leaf names). Tests:
+`test_proof_to_lean.py` (classical prover: bridges, `Classical.em`
+splits, no instances), `test_proof_to_lean_lia.py` (`_leaf_key` up to
+orientation, scaling, and complement), `test_proof_to_lean_uflia.py`
+(documented input `uflia_root_ite_gates`: lemma shape, Lean, and the
+fallback forced by a rejected structural term), `test_proof_to_lean_uf.py`
+(the `alldiff` bridges stay with `grind`). Through the legacy core the same
+input produced the first live `(_ th-lemma smt)` steps: `theory_lra`
+restating a held bound in its own normal form (`(>= (+ (* -1 (cnt 1))
+(* 1 (cnt 0))) -1)` from `(>= (+ (cnt 0) (* -1 (cnt 1))) -1)`), one
+premise each, which the existing path proves as the implication by
+`omega`; the legacy test now expects the hint.
+
 **Balanced `Inputs` and normalized rewrites over opaque terms
 (2026-10-22).** An end-to-end pass over z3test's `smtlib-sample`
 QF_LIA and QF_UFLIA files found two reconstructor limits on inputs Z3
@@ -1636,6 +1680,35 @@ regressions cover these malformed hints over Real and Int, and preserve
 valid equality propagation with positive or negative nonzero conclusion
 coefficients. This changes native checker acceptance, not solver search
 or Lean's independent verification of the implied equality.
+
+### Trimmer: deletions of clauses it never added (2026-10-23)
+
+The clause-log export of z3test's QF_LRA `LassoRanker/SV-COMP/
+HarrisLalNoriRajamani-2010SAS-Fig1_true-termination.c_Iteration1_Lasso_4-
+pieceTemplate.smt2` (141,681 log lines, 114,408 clause additions) failed
+native trimming with "the clause ... used by the proof was never added" and,
+since 2026-10-22, fell back to replaying the untrimmed log: 240 s of export
+and 29 MB of Lean text that does not check in time. The trimmer's own unit
+propagation finds the conflict as soon as the clause set is inconsistent,
+here about 3,000 additions before the solver logs its empty clause; it
+ignores the clauses added in between but recorded their deletions, and the
+backward pass "revived" each such clause by adding it to the solver, where it
+took part in the probes. A core that chased a literal such a clause implied
+referred to a clause registered nowhere, hence the error. A deletion logged
+before the conflict for a clause the trimmer never added (a theory lemma Z3
+deletes under its logged literals while the trimmer assumed the checker's
+clause, `proof_cmds.cpp`) revived one the same way.
+
+Now `proof_trim::del` ignores every deletion after the conflict (nothing
+after it changes the state the conflict was derived in) and records a
+deletion only when the solver held a copy of the clause (`detach`: a
+registered clause object, an attached binary watch; a unit's assignment is
+never withdrawn, so its deletion is a no-op). The LassoRanker log trims to
+62,659 retained steps and exports again. Tests: `src/test/proof_replay.cpp`
+(`tst_trim_ignores_deletions_of_clauses_never_added`, both placements, which
+the previous trimmer fails with the exact error) and `test_proof_certificate.py`
+(the same log through the z3 executable's trimmer with warnings as errors,
+the ignored resolvent absent from the core, the core replayed).
 
 ### Trimmer: implied literals of duplicate clauses, explicit failure (2026-10-22)
 

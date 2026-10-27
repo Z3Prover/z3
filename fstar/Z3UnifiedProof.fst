@@ -31,6 +31,7 @@ module QR = Z3QuantifierReduce
 module DE = Z3DestructiveEquality
 module LR = Z3LambdaRewrite
 module TN = Z3TheoryNormalize
+module FF = Z3FiniteFieldLemma
 module L = FStar.List.Tot
 
 type judgment =
@@ -572,7 +573,7 @@ let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bo
   match kind, proposition concl, propositions facts with
   | ArithmeticGomory c, Some e, Some es -> G.check c e es
   | Unverified "th-lemma", Some e, Some es ->
-    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e)) ||
+    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e || FF.exhaustive_clause e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
     G.inferred_split e es
@@ -1411,6 +1412,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                if array_lemma e then lemma_array_lemma_sound i rho e
                else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
                else if ID.check e then ID.lemma_check e i rho
+               else if FF.exhaustive_clause e then FF.lemma_exhaustive_clause_sound i rho e
                else
                  let es = Some?.v (propositions (premise_judgments node.premises)) in
                  if TN.consequence es e then TN.lemma_consequence i rho es e
