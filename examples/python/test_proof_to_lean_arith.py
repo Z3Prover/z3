@@ -474,6 +474,89 @@ class TestArithmeticValidation(unittest.TestCase):
             proof_to_lean.reconstruct(source, tampered)
 
 
+def flattening_rewrite_instance(variables=9):
+    """One wide disjunction Z3's rewriter flattens, with every variable bounded so that it is refuted.
+
+    The disjunction is left-nested over the lower bounds, repeats two of
+    them, has a conjunct false by a constant atom ((<= 0 0) under a not)
+    and a re-nested conjunction, then the upper bounds; with 2 * variables
+    atoms (more than proof_to_lean._NORMALIZED_REWRITE_ATOMS for nine) the
+    rewrite takes the normalized path, whose propositional lemma relates
+    the two nestings with the duplicates and the false conjunct dropped.
+    """
+    names = ["x%d" % i for i in range(variables)]
+    lows = ["(< %s 5)" % name for name in names]
+    highs = ["(> %s 7)" % name for name in names]
+    nested = lows[0]
+    for low in lows[1:]:
+        nested = "(or %s %s)" % (nested, low)
+    disjuncts = [nested, lows[0], lows[1],
+                 "(and %s (or (not (<= 0 0)) (not (<= 0 0))))" % highs[0],
+                 "(and (and %s %s) %s)" % (highs[1], highs[2], highs[3])] + highs[4:]
+    lines = ["(set-logic QF_LRA)"] + ["(declare-const %s Real)" % name for name in names]
+    lines.append("(assert (or %s))" % " ".join(disjuncts))
+    for name in names:
+        lines.extend(["(assert (>= %s 5))" % name, "(assert (<= %s 7))" % name])
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
+def clock_shaped_rewrite_instance():
+    """A disjunction with the Boolean skeleton of the clocksynchro_3clocks rewrite over fresh bounds.
+
+    z3test's smtlib-sample QF_LRA clock_synchro/clocksynchro_3clocks.main_
+    invar.base.smt2 asserts a 74-way left-nested disjunction over 85
+    distinct arithmetic atoms (three symmetric groups of conjunctions
+    sharing atoms, 15 copies of one literal, three conjuncts false by a
+    constant atom, a re-nested conjunction), which Z3's rewriter flattens
+    to 48 disjuncts; grind failed on the propositional lemma relating the
+    two. Here every atom is a bound on its own variable, asserted as a
+    unit, so every disjunct is false and the input is unsat.
+    """
+    counter = [0]
+
+    def atom():
+        counter[0] += 1
+        return "(<= x%d 5)" % counter[0]
+
+    def neg(formula):
+        return "(not %s)" % formula
+
+    clocks = range(3)
+    a = [atom() for _ in range(13)]
+    g, s, h = [atom() for _ in clocks], [atom() for _ in clocks], [atom() for _ in clocks]
+    a61, a62, a63, a64, a65, a66 = (atom() for _ in range(6))
+    k67, k74, k75, k82, k83, k84 = (atom() for _ in range(6))
+    disjuncts = [neg(x) for x in a[:10]] + [neg(a[6])] + [neg(x) for x in a[10:13]] + [neg(a[6])]
+    disjuncts += ["(and (or %s %s) %s)" % (neg(g[c]), neg(atom()), neg(s[c])) for c in clocks]
+    disjuncts.append("(and (and %s %s) %s)" % (neg(g[0]), neg(g[1]), neg(g[2])))
+    disjuncts += ["(and %s (or %s %s))" % (g[c], neg(atom()), neg(atom())) for c in clocks]
+    disjuncts += ["(and (and %s %s) (or (or %s %s) %s))" % (g[c], neg(h[c]), neg(atom()), neg(atom()), neg(atom()))
+                  for c in clocks]
+    for _ in range(2):
+        disjuncts += ["(and (or %s %s) (or %s %s))" % (neg(h[c]), s[c], neg(atom()), neg(atom())) for c in clocks]
+    disjuncts += ["(and %s %s)" % (s[c], neg(atom())) for c in clocks]
+    disjuncts += ["(and %s (or %s %s))" % (s[c], neg(atom()), neg(atom())) for c in clocks]
+    disjuncts += [neg(a61)] * 3 + [neg(a62)] * 3 + [neg(a[6])] * 9
+    disjuncts += ["(and (or %s %s) %s)" % (neg(a63), neg(a64), neg(a65))] * 3
+    disjuncts.append("(and (and %s %s) %s)" % (neg(a63), neg(a63), neg(a63)))
+    disjuncts += ["(and %s (or (not (<= 0 0)) (not (<= 0 0))))" % a63] * 3
+    disjuncts += ["(and (and %s %s) (or (or %s %s) %s))" % (a63, neg(a66), neg(k67), neg(atom()), neg(atom()))
+                  for c in clocks]
+    disjuncts += ["(and (or %s %s) (or %s %s))" % (neg(a66), a65, neg(k74), neg(k75))] * 3
+    disjuncts += ["(and (or %s %s) (or %s %s))" % (neg(a66), a65, neg(atom()), neg(atom())) for c in clocks]
+    disjuncts += ["(and %s %s)" % (a65, neg(k82))] * 3
+    disjuncts += ["(and %s (or %s %s))" % (a65, neg(k83), neg(k84))] * 3
+    assertion = disjuncts[0]
+    for disjunct in disjuncts[1:]:
+        assertion = "(or %s %s)" % (assertion, disjunct)
+    lines = ["(set-logic QF_LRA)"] + ["(declare-const x%d Real)" % i for i in range(1, counter[0] + 1)]
+    lines.append("(assert %s)" % assertion)
+    lines += ["(assert (<= x%d 5))" % i for i in range(1, counter[0] + 1)]
+    lines.append("(check-sat)")
+    return "\n".join(lines) + "\n"
+
+
 @unittest.skipUnless(_z3_available(), "the z3 executable is required for the clause log")
 class TestArithmeticLeanIntegration(unittest.TestCase):
     """End-to-end: z3 clause log, certificate, Lean reconstruction, kernel check."""
@@ -626,6 +709,50 @@ class TestArithmeticLeanIntegration(unittest.TestCase):
         self.assertNotIn("of_decide_eq_true", text)
         with tempfile.TemporaryDirectory() as directory:
             proof_to_lean.check_and_write(source, certificate, Path(directory) / "checked.lean")
+
+    def _normalized_lemma(self, source):
+        certificate = proof_certificate.export_clause_log_certificate(source)
+        text = proof_to_lean.reconstruct(source, certificate)
+        self.assertEqual(text.count("private theorem normalized_rewrite_"), 1)
+        return text.split("private theorem normalized_rewrite_", 1)[1].split("\n\n", 1)[0]
+
+    def test_normalized_rewrites_are_proved_by_propagation_with_grind_as_the_fallback(self):
+        # The propositional lemma of a normalized rewrite is a direct term
+        # over the let-named structures (case analysis on the assumed
+        # disjunction, propagation, the constant atoms' values: here a
+        # conjunct under (Not True) is dropped, duplicates and the nesting
+        # of or and and change), with grind as the `first` fallback; with
+        # the prover disabled the lemma is grind alone, and Lean proves this
+        # small instance either way.
+        source = flattening_rewrite_instance()
+        lemma = self._normalized_lemma(source)
+        self.assertIn("(Not True)", lemma)
+        self.assertIn("  by first | exact (let _s0 : Prop := ", lemma)
+        self.assertIn(" | grind (splits := 64)", lemma)
+        self.assertNotIn("Classical.em", lemma)
+        self.check(source)
+        with patch.object(proof_to_lean._PropositionalProver, "equivalence", lambda self, left, right: None):
+            lemma = self._normalized_lemma(source)
+            self.assertIn("  by grind (splits := 64)", lemma)
+            self.assertNotIn("Iff.intro", lemma)
+            self.check(source)
+
+    def test_clock_shaped_flattening_rewrite_verifies(self):
+        # The skeleton of the clocksynchro_3clocks rewrite (see
+        # clock_shaped_rewrite_instance): the direct term proves it where
+        # `grind (splits := 64)` failed on the same lemma, and the whole
+        # certificate verifies; the term stays far below the character
+        # budget with the structures let-named (it exhausted the budget
+        # after a thousand steps with every step stating its proposition,
+        # and the step budget when splitting on atoms instead of the
+        # disjunction's cases).
+        source = clock_shaped_rewrite_instance()
+        lemma = self._normalized_lemma(source)
+        self.assertIn("  by first | exact (let _s0 : Prop := ", lemma)
+        self.assertGreaterEqual(lemma.count("(_atom84 : Prop)"), 1)
+        self.assertNotIn("Classical.em", lemma)
+        self.assertLess(len(lemma), proof_to_lean._STRUCTURAL_REWRITE_CHARS // 2)
+        self.check(source)
 
     def test_euf_congruence_annotation_cannot_supply_a_missing_equality(self):
         source = ("(declare-const x Real)(declare-const y Real)"

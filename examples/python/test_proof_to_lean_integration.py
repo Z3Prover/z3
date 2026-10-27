@@ -951,7 +951,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
         steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
         steps.append(("asserted", [], "false"))
         text = self.check(source, make_certificate(source, steps))
-        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertEqual(text.count("(Iff.intro (fun (_f1 : "), len(equivalences))
         self.assertNotIn("cases _d", text)
 
     def test_wide_boolean_rewrites_are_proved_structurally(self):
@@ -987,7 +987,7 @@ class TestProofToLeanIntegration(unittest.TestCase):
         steps = [("rewrite", [], "(= %s %s)" % pair) for pair in equivalences]
         steps.append(("asserted", [], "false"))
         text = self.check(source, make_certificate(source, steps))
-        self.assertEqual(text.count("  exact (Iff.intro"), len(equivalences))
+        self.assertEqual(text.count("(Iff.intro (fun (_f1 : "), len(equivalences))
         self.assertNotIn("cases _d", text)
 
     def test_lean_rejects_false_rewrites_without_publication(self):

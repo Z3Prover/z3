@@ -1479,6 +1479,47 @@ applications through the normalized path; a wide rewrite deciding a
 `mod`-bound atom and a rewrite inside an application's argument stay
 with `grind`, all through Lean).
 
+**Normalized rewrites proved by propagation; let-named structures
+(2026-10-27).** z3test's `smtlib-sample` QF_LRA
+`clock_synchro/clocksynchro_3clocks.main_invar.base.smt2` (the last QF_LRA
+Lean failure of the iter-032 scan) failed on one lemma: the propositional
+part of a normalized rewrite relating a 74-way left-nested disjunction over
+85 atoms (three symmetric groups of conjunctions sharing atoms, 15 copies of
+one literal, three conjuncts false by a constant atom, a re-nested
+conjunction) to Z3's flattened 48-way form. The projection-only search
+(`_propositional_implication`) found no term, since it knew nothing of the
+constant atoms, and `grind (splits := 64)` failed on the whole equivalence.
+`_normalized_rewrite` now builds the two sides as `_boolean_structure`
+structures (a leaf per normalized atom name, a constant for a constant atom)
+and proves the lemma with `_PropositionalProver` in classical mode, `grind`
+staying as the `first` fallback; `_propositional_implication` is gone. Two
+changes to the prover made that term fit: (1) it names every and, or, implies
+and iff structure by a `let` inside the term (`_bind`, children first) and
+states propositions over the names, with the steps through conjunctions and
+disjunctions written so that Lean infers their types (projections,
+`And.intro`, `mt` over `And.left`/`And.right`/`Or.inl`/`Or.inr` with the
+other operand named, `not_or.mpr`, `Or.elim` over the disjunction's proof),
+where a `have` stating its proposition at every level was quadratic in a
+nested gate and exhausted the character budget after a thousand steps; (2)
+before splitting on an atom it does case analysis on a true disjunction with
+two or more undetermined disjuncts (`_case_split`, `Or.elim`), where
+splitting on the atoms the 74 disjuncts share branched on every atom before
+a case closed and exhausted the step budget. The same term shape serves the
+propositional rewrites and the cnf bridges: the parity rewrite over eight
+atoms is a 380 KB direct term Lean checks in 3 s (it rendered ten megabytes
+and fell back to the truth table), and the clocksynchro cnf lemmas shrink
+from 4.8 MB to 2.2 MB. Nothing is trusted: the term is checked by Lean, and
+the fallbacks (grind, the truth table) are unchanged. The clocksynchro file
+verifies in 23 s of Lean (was `grind` failed after 97 s); a generated input
+with its exact Boolean skeleton over fresh bounds fails under the previous
+reconstructor and verifies in 9 s now. Tests: `test_proof_to_lean_arith.py`
+(`flattening_rewrite_instance`: the direct term with `(Not True)` and the
+forced grind fallback, both through Lean; `clock_shaped_rewrite_instance`
+through Lean), `test_proof_to_lean.py` (let-named classical prover,
+disjunction cases without excluded middle, atom splits where no disjunction
+is assumed, parity thresholds), `test_proof_to_lean_uflia.py` (cnf lemma
+shape).
+
 **Legacy `(_ th-lemma arith unsupported)` over Int (2026-10-21).**
 `theory_lra::set_proof_params` labels an LP conflict `unsupported` instead
 of `farkas` with coefficients when its own `check_farkas_conflict` fails or

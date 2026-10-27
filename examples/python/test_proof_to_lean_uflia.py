@@ -491,7 +491,7 @@ class TestIntegerMixedValidation(unittest.TestCase):
             self.assertTrue(unfolded and all(name.startswith("formula_") for name in unfolded), unfolded)
             self.assertEqual(attempts.count("\n    | ("), 1)
             structural, fallback = attempts.split("\n    | (")
-            self.assertIn("exact (Classical.byContradiction (fun (_f", structural)
+            self.assertIn("exact (Classical.byContradiction (let _s0 : Prop := ", structural)
             self.assertNotIn("Classical.em", structural)
             self.assertNotIn("Decidable", structural)
             for first, second in re.findall(
@@ -718,7 +718,7 @@ class TestIntegerMixedLeanIntegration(unittest.TestCase):
                     graph = proof_to_lean._validate_graph(source, certificate)
                     cnf = _cnf_nodes(graph)
                     self.assertGreaterEqual(len(cnf), 6)
-                    self.assertEqual(text.count("exact (Classical.byContradiction (fun (_f"), len(cnf))
+                    self.assertEqual(text.count("exact (Classical.byContradiction (let _s0 : Prop := "), len(cnf))
         # Every hint kind of the slice, plus the exporter's own cnf bridge.
         self.assertEqual(hints, {"cut", "euf", "farkas", "implied-eq", "bound", "cnf", "arith"})
 
