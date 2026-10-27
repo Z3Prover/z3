@@ -392,6 +392,7 @@ namespace smt {
         bool                           m_has_seq;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
+        unsigned                       m_num_eager_eq_steps = 0;
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
         obj_hashtable<expr>            m_is_digit;         // expressions that have been constrained to be digits
@@ -476,6 +477,7 @@ namespace smt {
         bool check_contains();
         bool check_lts();
         dependency* m_eq_deps { nullptr };
+        bool can_reduce_eqs();
         bool solve_eqs(unsigned start);
         bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);

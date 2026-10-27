@@ -124,8 +124,98 @@ static void check_fixed_length_recovery() {
     ENSURE(ctx.check() == l_true);
 }
 
+static void check_eager_reduction_recovery() {
+    struct propagation_context : smt::context {
+        using smt::context::context;
+        using smt::context::propagate;
+    };
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util seq(m);
+    arith_util a(m);
+    smt_params params;
+    propagation_context ctx(m, params);
+    sort_ref seq_int(seq.str.mk_seq(a.mk_int()), m);
+    expr_ref last(m);
+    ctx.push();
+    unsigned count = 2048;
+    for (unsigned i = 0; i < count; ++i) {
+        expr_ref x(m.mk_fresh_const("x", seq_int), m);
+        expr_ref y(m.mk_fresh_const("y", seq_int), m);
+        expr_ref unit(seq.str.mk_unit(a.mk_int(i)), m);
+        expr_ref rhs(seq.str.mk_concat(unit, y), m);
+        expr_ref eq(m.mk_eq(x, rhs), m);
+        ctx.internalize(eq, false);
+        ctx.mark_as_relevant(eq.get());
+        ctx.assign(ctx.get_literal(eq), smt::b_justification::mk_axiom());
+        last = x;
+    }
+    {
+        scoped_rlimit limit(m.limit(), 1);
+        ENSURE(ctx.propagate());
+        ENSURE(m.limit().is_canceled());
+        unsigned reductions = get_stat(ctx, "seq num reductions");
+        ENSURE(reductions > 0 && reductions < count);
+    }
+    ENSURE(ctx.propagate());
+    ENSURE(get_stat(ctx, "seq num reductions") == count);
+    ENSURE(ctx.check() == l_true);
+    ctx.push();
+    ctx.assert_expr(m.mk_eq(last, seq.str.mk_empty(seq_int)));
+    ENSURE(ctx.check() == l_false);
+    ctx.pop(1);
+    ENSURE(ctx.check() == l_true);
+    ctx.pop(1);
+    ENSURE(ctx.check() == l_true);
+}
+
+static void check_normalization_recovery(bool cancel) {
+    struct propagation_context : smt::context {
+        using smt::context::context;
+        using smt::context::propagate;
+    };
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util seq(m);
+    arith_util a(m);
+    smt_params params;
+    propagation_context ctx(m, params);
+    sort_ref seq_int(seq.str.mk_seq(a.mk_int()), m);
+    expr_ref x(m.mk_const("x", seq_int), m);
+    expr_ref_vector units(m);
+    for (unsigned i = 0; i < 512; ++i)
+        units.push_back(seq.str.mk_unit(a.mk_int(i)));
+    expr_ref rhs(seq.str.mk_concat(units, seq_int), m);
+    expr_ref eq(m.mk_eq(x, rhs), m);
+    ctx.push();
+    ctx.internalize(eq, false);
+    ctx.mark_as_relevant(eq.get());
+    ctx.assign(ctx.get_literal(eq), smt::b_justification::mk_axiom());
+    {
+        scoped_rlimit limit(m.limit(), cancel ? 0 : 1);
+        if (cancel)
+            m.limit().cancel();
+        ENSURE(ctx.propagate());
+        ENSURE(m.limit().is_canceled());
+        ENSURE(get_stat(ctx, "seq num reductions") == 0);
+    }
+    ENSURE(ctx.propagate());
+    ENSURE(get_stat(ctx, "seq num reductions") > 0);
+    ENSURE(ctx.check() == l_true);
+    ctx.push();
+    ctx.assert_expr(m.mk_eq(x, seq.str.mk_empty(seq_int)));
+    ENSURE(ctx.check() == l_false);
+    ctx.pop(1);
+    ENSURE(ctx.check() == l_true);
+    ctx.pop(1);
+    ENSURE(ctx.check() == l_true);
+}
+
 void tst_seq_limits() {
     check_at_expansion();
     check_propagation_recovery();
     check_fixed_length_recovery();
+    check_eager_reduction_recovery();
+    for (bool cancel : {false, true})
+        check_normalization_recovery(cancel);
 }
