@@ -47,6 +47,24 @@ type parameter_view =
   | ParameterExpression : ast -> parameter_view
   | ParameterUnsupported : parameter_view
 
+(* A recorded finite-field ideal certificate, `(ff-pac (ff-premises ...) ROOT
+   (ff-support ...))`, with its node DAG flattened in topological order:
+   references are positions in `pac_nodes`, and shared nodes appear once.
+   Every field is re-checked by `Z3FiniteFieldPac.check`. *)
+noeq
+type ff_pac_node =
+  | PacInput : index:int -> ff_pac_node
+  | PacAdd : left:int -> right:int -> ff_pac_node
+  | PacMul : source:int -> coefficient:ast -> factor:list int -> ff_pac_node
+
+noeq
+type ff_pac_view = {
+  pac_premises: list ast;
+  pac_nodes: list ff_pac_node;
+  pac_root: int;
+  pac_support: list int;
+}
+
 noeq
 type proof_view = {
   proof_name: string;
@@ -57,6 +75,7 @@ type proof_view = {
   lp_data: option (string & list parameter_view);
   binding: option (list native_sort & ast);
   instantiations: list ast;
+  ff_pac: option ff_pac_view;
 }
 
 type clause_action =

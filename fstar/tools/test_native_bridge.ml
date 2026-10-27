@@ -1935,7 +1935,7 @@ let malformed_foreign_certificate () =
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
                farkas = Some [Z.one, Z.zero]; assumed = None; lp_data = None;
-               binding = None; instantiations = [] } in
+               binding = None; instantiations = []; ff_pac = None } in
   match B.native_rule view Z3ResolutionProofTheory.false_expr with
   | _ -> failwith "malformed foreign certificate was accepted"
   | exception N.Error _ -> ()
@@ -2287,7 +2287,7 @@ let assumed_nlsat () =
   let conclusion = List.hd (parse c "(assert false)") in
   let view = { N.proof_name = "th-lemma"; premises = []; conclusion;
                farkas = None; assumed = Some "nlsat"; lp_data = None;
-               binding = None; instantiations = [] } in
+               binding = None; instantiations = []; ff_pac = None } in
   let rule = B.native_rule view Z3ResolutionProofTheory.false_expr in
   require (rule = U.Unverified "assumed:nlsat")
     "native NLSAT assumption lost its origin";
@@ -2312,7 +2312,7 @@ let boolean_constant_resolution () =
     | _ -> failwith "expected an unsimplified false-padded clause" in
   let view = { N.proof_name = "true-axiom"; premises = [];
                conclusion = List.nth native 2; farkas = None; assumed = None;
-               lp_data = None; binding = None; instantiations = [] } in
+               lp_data = None; binding = None; instantiations = []; ff_pac = None } in
   let truth_rule = B.native_rule view truth in
   require (truth_rule = U.DefAxiom && U.check_step truth_rule (U.Holds truth) [])
     "native true-axiom retained an obligation";
@@ -3675,6 +3675,146 @@ let ff_theory_lemmas () =
   check ~premises:["(= (ff.mul a a) (as ff1 F3))"] false "(or (= a (as ff1 F3)) (= a (as ff2 F3)))";
   check ~premises:["(= a b)"] false (ors [lit_sel; lit_prod; lit_bits 1])
 
+(* Recorded finite-field ideal certificates (`ff-pac`), replayed by
+   Z3FiniteFieldPac for any modulus when only definitions and positive
+   premises are used. Every mutation of a real certificate is rejected, the
+   inverse witness of a disequality is never used, the replay bounds hold,
+   and the native flattening rejects malformed or oversized DAGs. *)
+let ff_certificates () =
+  let module FP = Z3FiniteFieldPac in
+  let finite_field prime assertions =
+    Printf.sprintf "(set-logic QF_FF)(define-sort F () (_ FiniteField %s))\
+                    (declare-const x F)(declare-const y F)%s" prime assertions in
+  let unit_ideal prime = finite_field prime
+      "(assert (and (= (ff.mul x y) (as ff1 F)) (= (ff.mul x (ff.add y (as ff1 F))) (ff.add x (as ff2 F)))))" in
+  let certificates doc = List.filter_map (fun e ->
+      match e.P.rule with
+      | U.FiniteFieldPac c -> Some (Option.get (U.classify_fact e.P.formula), c)
+      | _ -> None) doc.P.entries in
+  let checked (conclusion, c) = U.checked_theory_lemma (U.FiniteFieldPac c) conclusion [] in
+  let formula = function U.Holds e -> e | _ -> failwith "expected a proposition" in
+  List.iter (fun prime ->
+      let doc = document (unit_ideal prime) in
+      let found = certificates doc in
+      require (found <> [] && List.for_all checked found)
+        ("recorded finite-field certificate was not replayed over " ^ prime);
+      require (P.check_document doc = Some Z.zero)
+        ("finite-field refutation was not fully checked over " ^ prime))
+    ["2147483647"; "2305843009213693951"; "170141183460469231731687303715884105727"];
+  let conclusion, c = List.hd (certificates (document (unit_ideal "2147483647"))) in
+  let rejected why c' conclusion' =
+    require (not (U.checked_theory_lemma (U.FiniteFieldPac c') conclusion' []))
+      ("mutated finite-field certificate accepted: " ^ why) in
+  let map_nodes f = { c with FP.pac_nodes = List.mapi f c.FP.pac_nodes } in
+  let coefficient = List.hd (List.filter_map (function
+      | FP.PacMul (_, k, _) -> Some k | _ -> None) c.FP.pac_nodes) in
+  let first_mul = ref true in
+  rejected "coefficient" (map_nodes (fun _ n -> match n with
+      | FP.PacMul (s, A.App (d, []), f) when !first_mul ->
+          first_mul := false;
+          let v = match d.A.int_params with [_; v] -> v | _ -> failwith "numeral" in
+          let p = Z.of_string "2147483647" in
+          FP.PacMul (s, A.App ({ d with A.int_params = [p; Z.rem (Z.succ v) p] }, []), f)
+      | n -> n)) conclusion;
+  rejected "input index" (map_nodes (fun _ n -> match n with
+      | FP.PacInput i -> FP.PacInput (Z.add i (Z.of_int 1000)) | n -> n)) conclusion;
+  rejected "future reference" (map_nodes (fun i n -> match n with
+      | FP.PacAdd (_, r) -> FP.PacAdd (Z.of_int i, r) | n -> n)) conclusion;
+  rejected "root" { c with FP.pac_root = Z.pred c.FP.pac_root } conclusion;
+  rejected "missing support" { c with FP.pac_support = List.tl c.FP.pac_support } conclusion;
+  rejected "extra support" { c with FP.pac_support = c.FP.pac_support @ [Z.of_int 2] } conclusion;
+  rejected "reordered support" { c with FP.pac_support = List.rev c.FP.pac_support } conclusion;
+  rejected "missing premise" { c with FP.pac_premises = List.tl c.FP.pac_premises } conclusion;
+  (match formula conclusion with
+   | A.App (d, first :: rest) ->
+       rejected "dropped literal" c (U.Holds (A.App (d, rest)));
+       (match first with
+        | A.App (_, [premise]) ->
+            rejected "unnegated literal" c (U.Holds (A.App (d, premise :: rest)));
+            rejected "negated premise" { c with FP.pac_premises =
+                List.map (fun p -> if p = premise then Z3ResolutionProofTheory.mk_not_expr p else p)
+                  c.FP.pac_premises } conclusion
+        | _ -> failwith "expected a negated premise literal")
+   | _ -> failwith "expected a clause");
+  (* Bounds: unreferenced padding after a valid certificate is still replayed,
+     so the certificate is accepted up to each bound and rejected beyond it. *)
+  let base = List.length c.FP.pac_nodes in
+  let padded extra = { c with FP.pac_nodes = c.FP.pac_nodes @ extra } in
+  let accepted why c' =
+    require (U.checked_theory_lemma (U.FiniteFieldPac c') conclusion [])
+      ("padded finite-field certificate rejected: " ^ why) in
+  let inputs n = List.init n (fun _ -> FP.PacInput Z.zero) in
+  accepted "node bound" (padded (inputs (100000 - base)));
+  rejected "node bound" (padded (inputs (100001 - base))) conclusion;
+  (* Each step multiplies by (1 + k*v) for a cycling variable v. *)
+  let growth steps = FP.PacInput Z.zero :: List.concat (List.init steps (fun k ->
+      let previous = Z.of_int (base + 2 * k) in
+      [FP.PacMul (previous, coefficient, [Z.of_int (k mod 6)]);
+       FP.PacAdd (previous, Z.of_int (base + 2 * k + 1))])) in
+  accepted "polynomial bound" (padded (growth 6));
+  rejected "polynomial bound" (padded (growth 24)) conclusion;
+  let last = base + 2 * 6 in
+  let repeated n = List.init n (fun k -> FP.PacAdd (Z.of_int (last + k), Z.of_int last)) in
+  accepted "work bound" (padded (growth 6 @ repeated 20));
+  rejected "work bound" (padded (growth 6 @ repeated 20000)) conclusion;
+  (* Theory-lemma steps with premises keep their obligation. *)
+  require (not (U.checked_theory_lemma (U.FiniteFieldPac c) conclusion
+                 [U.Holds (List.hd c.FP.pac_premises)]))
+    "finite-field certificate replayed for a step with premises";
+  (* The inverse witness of a disequality needs a field: residual obligations. *)
+  let residual = document (finite_field "2147483647"
+      "(assert (= (ff.mul x x) (as ff0 F)))(assert (not (= x (as ff0 F))))") in
+  require (List.exists (fun cert -> not (checked cert)) (certificates residual) &&
+           P.check_document residual = Some Z.one) "inverse-witness certificate was replayed";
+  let mixed = document (finite_field "2147483647"
+      "(assert (= (ff.mul x y) (as ff1 F)))(assert (= (ff.mul x x) (as ff0 F)))") in
+  require (List.length (List.filter checked (certificates mixed)) = 1 &&
+           P.check_document mixed = Some Z.one) "mixed finite-field refutation changed";
+  (* Native flattening of hand-built DAGs. *)
+  let cx = context () in
+  let symbol = Z3native.mk_string_symbol cx in
+  let proof = Z3native.mk_uninterpreted_sort cx (symbol "P") in
+  let integer = Z3native.mk_int_sort cx in
+  let numeral, premise = match parse cx "(define-sort F () (_ FiniteField 7))(declare-const z F)\
+                                         (assert (= z (as ff3 F)))" with
+    | [e] -> List.nth (N.app_args cx (Z3native.to_app cx e)) 1, e
+    | _ -> failwith "parse" in
+  let decl name domain = Z3native.mk_func_decl cx (symbol name) (List.length domain) domain proof in
+  let app d args = Z3native.mk_app cx d (List.length args) args in
+  let index n = Z3native.mk_numeral cx n integer in
+  let input i = app (decl "ff-input" [integer]) [index i] in
+  let add l r = app (decl "ff-add" [proof; proof]) [l; r] in
+  let mul s k f = app (decl "ff-mul" [proof; Z3native.get_sort cx k; integer]) [s; k; index f] in
+  let pac ?(premises = [premise]) root =
+    app (decl "ff-pac" [proof; proof; proof])
+      [app (decl "ff-premises" (List.map (Z3native.get_sort cx) premises)) premises; root;
+       app (decl "ff-support" [integer]) [index "0"]] in
+  let view root = N.view_ff_pac cx (pac root) in
+  (match view (mul (add (input "0") (input "1")) numeral "2") with
+   | Some v ->
+       require (match v.N.pac_nodes with
+                | [N.PacInput i; N.PacInput j; N.PacAdd (l, r); N.PacMul (s, k, f)] ->
+                    Z.equal i Z.zero && Z.equal j Z.one && Z.equal l Z.zero && Z.equal r Z.one &&
+                    Z.equal s (Z.of_int 2) && Z3native.is_eq_ast cx k numeral &&
+                    List.equal Z.equal f [Z.of_int 2]
+                | _ -> false) "native finite-field certificate flattening";
+       require (Z.equal v.N.pac_root (Z.of_int 3) && List.equal Z.equal v.N.pac_support [Z.zero] &&
+                List.length v.N.pac_premises = 1)
+         "native finite-field certificate root and support"
+   | None -> failwith "well-formed native finite-field certificate rejected");
+  let rec shared k node = if k = 0 then node else shared (k - 1) (add node node) in
+  (match view (shared 60 (input "0")) with
+   | Some v -> require (List.length v.N.pac_nodes = 61) "shared certificate nodes were duplicated"
+   | None -> failwith "shared native certificate rejected");
+  let rec chain k node = if k = 0 then node else chain (k - 1) (add node (input "0")) in
+  require (Option.is_none (view (chain 200000 (input "1")))) "oversized native certificate accepted";
+  List.iter (fun (why, root) -> require (Option.is_none (view root)) ("malformed native certificate: " ^ why))
+    ["negative index", input "-1"; "huge index", input "4294967296";
+     "non-field coefficient", mul (input "0") (index "3") "0";
+     "unknown node", app (decl "ff-sub" [proof; proof]) [input "0"; input "1"]];
+  require (Option.is_none (N.view_ff_pac cx (pac ~premises:[numeral] (input "0"))))
+    "non-Boolean native certificate premise accepted"
+
 let () =
   ignore (N.version ());
   List.iter (fun (name, test) ->
@@ -3735,4 +3875,5 @@ let () =
      "proof-callback-exceptions", proof_callback_exceptions;
      "proof-callback-ownership", proof_callback_ownership;
      "checked-finite-field-rewrites", ff_rewrites;
-     "checked-finite-field-theory-lemmas", ff_theory_lemmas]
+     "checked-finite-field-theory-lemmas", ff_theory_lemmas;
+     "checked-finite-field-certificates", ff_certificates]

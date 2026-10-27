@@ -432,6 +432,147 @@ extern "C" Z3DatatypeSignature_schema Z3Native_view_datatypes(Prims_list__native
         list<Prims_list__constructor_case_Cons_s>(cases)});
 }
 
+namespace checker {
+// Flattens a recorded `ff-pac` certificate without trusting it, exactly as
+// Z3Native.view_ff_pac does: nodes are listed children first, each shared AST
+// once, and references are positions in that list. Any other shape yields
+// None, so the step stays an unchecked obligation; the F* kernel re-checks
+// every field. The traversal is iterative and stops before expanding more
+// than `max_certificate_nodes` nodes; indices must be Int numerals in
+// [0, 2^32). Nothing is allocated for the checker until the shape is valid.
+struct MalformedCertificate {};
+static constexpr size_t max_certificate_nodes = 100000;
+static constexpr uint64_t max_certificate_index = uint64_t(1) << 32;
+
+FStar_Pervasives_Native_option__ff_pac_view view_ff_pac(Z3_ast certificate) {
+    auto& c = context();
+    struct Node {
+        Z3Native_ff_pac_node_tags tag;
+        uint64_t input = 0;
+        size_t left = 0, right = 0;
+        Z3_ast coefficient = nullptr;
+        std::vector<uint64_t> factor;
+    };
+    auto sort_kind = [&](Z3_ast a) { return Z3_get_sort_kind(c, Z3_get_sort(c, a)); };
+    auto name = [&](Z3_ast a) {
+        if (!Z3_is_app(c, a))
+            throw MalformedCertificate{};
+        return symbol(Z3_get_decl_name(c, Z3_get_app_decl(c, Z3_to_app(c, a))));
+    };
+    auto children = [&](Z3_ast a, char const* expected) {
+        if (name(a) != expected)
+            throw MalformedCertificate{};
+        return arguments(a);
+    };
+    auto index = [&](Z3_ast a) {
+        uint64_t value = 0;
+        if (!Z3_is_numeral_ast(c, a) || sort_kind(a) != Z3_INT_SORT ||
+            !Z3_get_numeral_uint64(c, a, &value) || value >= max_certificate_index)
+            throw MalformedCertificate{};
+        return value;
+    };
+    std::vector<Node> nodes;
+    std::unordered_map<unsigned, size_t> positions;
+    auto position = [&](Z3_ast a) {
+        auto it = positions.find(Z3_get_ast_id(c, a));
+        if (it == positions.end())
+            throw MalformedCertificate{};
+        return it->second;
+    };
+    try {
+        if (name(certificate) != "ff-pac")
+            return {};
+        auto parts = arguments(certificate);
+        if (parts.size() != 3)
+            return {};
+        auto premises = children(parts[0], "ff-premises");
+        for (auto premise : premises)
+            if (sort_kind(premise) != Z3_BOOL_SORT)
+                return {};
+        std::vector<uint64_t> support;
+        for (auto i : children(parts[2], "ff-support"))
+            support.push_back(index(i));
+        std::vector<std::pair<Z3_ast, bool>> todo{{parts[1], false}};
+        size_t expanded = 0;
+        while (!todo.empty()) {
+            auto [a, build] = todo.back();
+            todo.pop_back();
+            if (positions.count(Z3_get_ast_id(c, a)))
+                continue;
+            auto kind = name(a);
+            auto args = arguments(a);
+            bool input = kind == "ff-input" && args.size() == 1;
+            bool add = kind == "ff-add" && args.size() == 2;
+            bool mul = kind == "ff-mul" && args.size() >= 2;
+            if (!input && !add && !mul)
+                throw MalformedCertificate{};
+            if (!build) {
+                if (expanded >= max_certificate_nodes)
+                    throw MalformedCertificate{};
+                ++expanded;
+                todo.push_back({a, true});
+                if (add) {
+                    todo.push_back({args[1], false});
+                    todo.push_back({args[0], false});
+                }
+                else if (mul)
+                    todo.push_back({args[0], false});
+                continue;
+            }
+            if (nodes.size() >= max_certificate_nodes)
+                throw MalformedCertificate{};
+            Node node;
+            if (input) {
+                node.tag = Z3NATIVE_PACINPUT;
+                node.input = index(args[0]);
+            }
+            else if (add) {
+                node.tag = Z3NATIVE_PACADD;
+                node.left = position(args[0]);
+                node.right = position(args[1]);
+            }
+            else {
+                node.tag = Z3NATIVE_PACMUL;
+                node.left = position(args[0]);
+                if (sort_kind(args[1]) != Z3_FINITE_FIELD_SORT)
+                    throw MalformedCertificate{};
+                node.coefficient = args[1];
+                for (size_t j = 2; j < args.size(); ++j)
+                    node.factor.push_back(index(args[j]));
+            }
+            positions.emplace(Z3_get_ast_id(c, a), nodes.size());
+            nodes.push_back(std::move(node));
+        }
+        auto root = position(parts[1]);
+        auto integers = [](std::vector<uint64_t> const& values) {
+            std::vector<cherry_int> result;
+            for (auto value : values)
+                result.push_back(number(value));
+            return list<Prims_list__int_Cons_s>(result);
+        };
+        std::vector<Z3Native_ff_pac_node> converted;
+        for (auto const& node : nodes) {
+            Z3Native_ff_pac_node value{};
+            value.tag = node.tag;
+            if (node.tag == Z3NATIVE_PACINPUT)
+                value.val.PacInput = number(node.input);
+            else if (node.tag == Z3NATIVE_PACADD)
+                value.val.PacAdd = {number(node.left), number(node.right)};
+            else
+                value.val.PacMul = {number(node.left), node.coefficient, integers(node.factor)};
+            converted.push_back(value);
+        }
+        return some<FStar_Pervasives_Native_option__ff_pac_view>(
+            {list<Prims_list__ast_Cons_s>(premises),
+             list<Prims_list__ff_pac_node_Cons_s>(converted),
+             number(root), integers(support)});
+    }
+    catch (MalformedCertificate const&) {
+        return {};
+    }
+}
+}
+
 extern "C" Z3Native_proof_view Z3Native_view_proof(Z3_ast ast) {
     using namespace checker;
     auto& c = context();
@@ -540,6 +681,9 @@ extern "C" Z3Native_proof_view Z3Native_view_proof(Z3_ast ast) {
             instantiations.push_back(keep(Z3_get_decl_ast_parameter(c, decl, i)));
         }
     result.instantiations = list<Prims_list__ast_Cons_s>(instantiations);
+    if (name == "th-lemma" && count == 3 && parameter_symbol(0) == "ff" &&
+        parameter_symbol(1) == "pac" && Z3_get_decl_parameter_kind(c, decl, 2) == Z3_PARAMETER_AST)
+        result.ff_pac = view_ff_pac(keep(Z3_get_decl_ast_parameter(c, decl, 2)));
     return checked(result);
 }
 

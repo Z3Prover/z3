@@ -12,6 +12,7 @@ module L = FStar.List.Tot
 module C = Z3LpCertificate
 module BV = Z3BvLemma
 module FF = Z3FiniteFieldLemma
+module FP = Z3FiniteFieldPac
 module DT = Z3DatatypeLemma
 module CP = Z3ClauseProof
 module R = Z3ResolutionProofTheory
@@ -241,6 +242,38 @@ let native_rule (view:N.proof_view) (formula:expr) : ML rule =
        | _ -> Unverified view.proof_name)
     | Some rule -> rule
 
+(* The premises and coefficients of a recorded finite-field certificate are
+   ordinary expressions; its node list may be long, so it is walked tail
+   recursively. *)
+let rec marshal_coefficients (st:state) (ns:list N.ff_pac_node) : ML state =
+  match ns with
+  | [] -> st
+  | N.PacMul _ c _ :: rest -> marshal_coefficients (marshal_expressions st [c]) rest
+  | _ :: rest -> marshal_coefficients st rest
+
+let marshal_ff_pac (st:state) (c:option N.ff_pac_view) : ML state =
+  match c with
+  | None -> st
+  | Some c -> marshal_coefficients (marshal_expressions st c.N.pac_premises) c.N.pac_nodes
+
+let rec ff_pac_nodes (st:state) (ns:list N.ff_pac_node) (acc:list FP.pac_node)
+  : ML (list FP.pac_node) =
+  match ns with
+  | [] -> L.rev acc
+  | n :: rest ->
+    let node =
+      match n with
+      | N.PacInput i -> FP.PacInput i
+      | N.PacAdd a b -> FP.PacAdd a b
+      | N.PacMul s c f -> FP.PacMul s (cached_expression st c) f in
+    ff_pac_nodes st rest (node :: acc)
+
+let ff_certificate (st:state) (c:N.ff_pac_view) : ML FP.certificate =
+  let premises = cached_expressions st c.N.pac_premises in
+  let nodes = ff_pac_nodes st c.N.pac_nodes [] in
+  { FP.pac_premises = premises; FP.pac_nodes = nodes;
+    FP.pac_root = c.N.pac_root; FP.pac_support = c.N.pac_support }
+
 let rec cached_premises (st:state) (ps:list N.ast) : ML (list int) =
   match ps with
   | [] -> []
@@ -429,6 +462,7 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
     let parameters = match view.lp_data with Some (_, ps) -> ps | None -> [] in
     let st = marshal_expressions st
       (view.conclusion :: (view.instantiations @ parameter_expressions parameters)) in
+    let st = marshal_ff_pac st view.ff_pac in
     let st =
       match view.lp_data with
       | Some ("lp-context", ps) ->
@@ -458,7 +492,10 @@ let rec marshal_proof_jobs (st:state) (jobs:list proof_job) : ML state =
           | Some c -> ArithmeticGomory c
           | None -> Unverified view.proof_name in
         kind, cached_premises st view.premises, st
-      else native_rule view formula, cached_premises st view.premises, st in
+      else
+        (match view.ff_pac with
+         | Some c -> FiniteFieldPac (ff_certificate st c)
+         | None -> native_rule view formula), cached_premises st view.premises, st in
     let entry = { P.rule = rule; P.formula = formula; P.premise_ids = premises } in
     let id = N.ast_id p in
     let st = { st with proofs = index_put st.proofs id st.next_proof;

@@ -316,7 +316,8 @@ over); the native bridge group `checked-finite-field-theory-lemmas`
 (`checked_theory_lemma` and `check_node` on parsed clauses, including 2^12
 assignments at the bound, 2^13 and F_4099 over it, and steps with premises);
 and the CLI cases for the twelve corpus certificates and a refutation over a
-31-bit prime whose `th-lemma` stays unmet.
+31-bit prime, which is out of the bound (its `th-lemma` is now checked by the
+certificate replay below).
 
 On the 25 hashed Pulse QF_FF certificates (pulse-run-40244844124-1, manifest
 sha256 `d2c1b338...f9380`) every one of the 21 finite-field `th-lemma`
@@ -325,11 +326,101 @@ one or two leaves (at most 17^2 = 289 assignments), and all 21 are decided:
 the OCaml and Cherry checkers go from 13 ACCEPT / 12 PARTIAL / 0 REJECT to
 25 ACCEPT / 0 PARTIAL / 0 REJECT with no pending obligation.
 
-Deferred. Fields and clauses beyond the bound stay PARTIAL. Replaying the
-recorded `ff-pac` certificate (an ideal combination of `ff-input` premises,
-with `ff-support` naming the variables whose field polynomials are used)
-would scale to large primes, but needs the producer's input-polynomial table
-and is not part of this change.
+Fields and clauses beyond the bound are handled by the certificate replay
+below when the producer's certificate uses only positive premises.
+
+## Native checker: finite-field ideal certificates
+
+Each finite-field `th-lemma` carries the solver's refutation certificate
+`(ff-pac (ff-premises L0 ... Ln) ROOT (ff-support i ...))`: a DAG of
+`(ff-input k)`, `(ff-add A B)` and `(ff-mul A c v1 ... vm)` nodes that
+combines the equations of the producer's input table (`ff_evidence.cpp`,
+`encoding::bind`) into the constant 1. `Z3FiniteFieldPac.check` replays it
+for any modulus `p >= 2`; the kernel tries it after the exhaustive check, as
+a new rule constructor `FiniteFieldPac` of `Z3UnifiedProof` for steps
+without premises.
+
+* Native view. `Z3Native.view_proof` (OCaml and Cherry) recognises only a
+  `th-lemma` whose parameters are exactly `ff`, `pac` and an `ff-pac`
+  application, and flattens the DAG iteratively, memoised by AST id: nodes
+  are listed children first and refer to earlier positions. It expands at
+  most 100000 nodes, accepts only Int numerals in [0, 2^32) as indices,
+  field-sorted coefficients and Boolean premises, and otherwise yields no
+  certificate, so the step stays pending. Nothing in the view is trusted.
+* Input table. The checker re-derives the table from the premise ASTs in
+  the producer's order: for each premise `(= a b)` or `(not (= a b))` over
+  one `FF<p>`, the subterms of `a` and then of `b` are visited (arguments
+  right to left, each term once); a canonical numeral is a constant, an
+  `ff.add`/`ff.mul`/`ff.bitsum`/`ff.neg` term gets a fresh variable `v` and
+  the definition `v - op(args)`, and any other term (constant, `ite`,
+  uninterpreted application) is a variable. A positive premise contributes
+  `a - b`. A negated premise allocates the producer's inverse witness, but its
+  equation `w*(a - b) - 1` is never usable. The Fermat equations `x^p - x`,
+  added by the producer for `p <= 31`, are not generated. The producer's
+  bounds of 4096 variables and 8192 equations apply.
+* Replay. Every node must refer to strictly earlier nodes, which rules out
+  cycles and future, self and missing references. An `ff-mul` coefficient
+  must be a canonical numeral of the same `FF<p>`, and its factor a sorted
+  list of table variables. Polynomials are normalised: merge sort,
+  coefficients reduced modulo p, zero terms dropped. The size of each
+  operation (at most 16384 monomial cells) and the cumulative work (4000000)
+  are checked before the operation. At most 100000 nodes are replayed.
+* Acceptance. The root must normalise to the constant 1. Each used input
+  must be a definition or a positive premise listed in the support, whose
+  negation is a literal of the conclusion. The support must be strictly
+  increasing, in range and exactly the set of used premises.
+
+Soundness is `lemma_check_sound`. Give every table variable the residue of
+its term. Under `ff_model`, every definition evaluates to 0 modulo p, and a
+positive premise does when it holds. If the conclusion were false, every used
+premise would hold. Each node is a sum or a monomial multiple of earlier nodes,
+so it would also evaluate to 0. The root evaluates to 1, and `p >= 2`. The
+lemma's hypotheses are `exists project. ff_model i project` (from
+`Z3TheoryNormalize.normalization_model`) and `boolean_model`, `not_sound`,
+`or_sound` and `eq_sound`. All are existing conjuncts of
+`Z3UnifiedProof.model_sound`; no model contract changed. Only ring laws of
+Z/pZ are used, so primality is neither assumed nor needed. The producer's
+rule name and claimed result are not trusted. There is no `assume`, axiom or
+admit, and no constructed witness: `ff_model` remains a hypothesis exactly
+as `bv_model`.
+
+Not checked (the step stays pending):
+
+* certificates that use the inverse witness of a disequality. Replaying
+  `w*(a - b) - 1` needs a prime modulus: `x*x = 0` and `x != 0` is
+  satisfiable modulo 4. Discharging these would need a checked primality
+  certificate.
+* certificates that use the Fermat equations (fields up to 31, usually
+  covered by the exhaustive check).
+* malformed or over-budget certificates, steps with premises, and premises
+  over different fields or outside equalities of field terms.
+
+Tests: `Z3FiniteFieldPacTests` (normalised F* assertions: the unit-ideal
+certificate over 2^31-1, 2^127-1 and Z/4Z; mutated coefficient and modulus;
+false conclusions; missing, reordered, extra and negated premises; support
+mutations; input indices out of the table; future, self and negative
+references; a wrong root; and the inverse-witness certificate over 2^31-1
+and Z/4Z). The native bridge group `checked-finite-field-certificates`
+covers real producer certificates over 2^31-1, 2^61-1 and 2^127-1 and their
+mutations. It also checks that each bound accepts up to the limit and
+rejects beyond it, that steps with premises are not replayed, and that
+inverse-witness and mixed refutations keep their obligations. For native
+flattening it covers a 60-level shared DAG (61 nodes), a 200000-deep chain
+and malformed indices, coefficients, node kinds and premises. The Cherry
+`checker-tests` repeat the native flattening cases, and the CLI tests
+accept `unit_ideal` over 2^31-1, 2^61-1 and 2^127-1 in batch and
+interactive mode while the inverse-witness cases stay `PARTIAL 1`.
+
+On twelve hashed QF_FF probes over fields beyond the exhaustive bound, both
+checkers behave the same in batch and interactive mode. The following
+refutations go from `PARTIAL 1` to `ACCEPT`: the unit ideal above over 4099,
+2^31-1, 2^61-1 and 2^127-1, inverse uniqueness over 2^127-1, a product chain
+over 2^61-1, and a three-bit range check (538 certificate nodes) and an XOR
+gadget over the 254-bit BN254 scalar field. A refutation with one
+positive-premise certificate and one inverse-witness certificate goes from
+`PARTIAL 2` to `PARTIAL 1`. `x*x = 0, x != 0` stays `PARTIAL 1`, and two
+controls refuted by rewriting stay `ACCEPT`. The 25 hashed Pulse QF_FF
+certificates stay 25 `ACCEPT` on both checkers.
 
 ## Mechanical verification
 

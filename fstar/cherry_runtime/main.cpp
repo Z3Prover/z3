@@ -181,6 +181,7 @@ static std::string rule_name(Z3UnifiedProof_rule const& rule) {
     RULE(DEFINITIONINTRODUCTION, "intro-def"); RULE(APPLYDEFINITION, "apply-def");
     RULE(HYPOTHESIS, "hypothesis"); RULE(LEMMARULE, "lemma");
     RULE(ARITHMETICFARKAS, "arith/farkas"); RULE(ARITHMETICGOMORY, "arith/lp-gomory");
+    RULE(FINITEFIELDPAC, "th-lemma");
     RULE(REWRITERULE, "rewrite"); RULE(PULLQUANTIFIER, "pull-quant");
     RULE(DESTRUCTIVEEQUALITYRESOLUTION, "der"); RULE(SKOLEMIZATION, "sk");
     RULE(ELIMUNUSED, "elim-unused"); RULE(PUSHQUANTIFIER, "push-quant");

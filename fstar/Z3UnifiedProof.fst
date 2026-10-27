@@ -32,6 +32,7 @@ module DE = Z3DestructiveEquality
 module LR = Z3LambdaRewrite
 module TN = Z3TheoryNormalize
 module FF = Z3FiniteFieldLemma
+module FP = Z3FiniteFieldPac
 module L = FStar.List.Tot
 
 type judgment =
@@ -61,6 +62,7 @@ type rule =
   | Unverified : name:string -> rule
   | ArithmeticFarkas : coefficients:list LA.coefficient -> rule
   | ArithmeticGomory : certificate:G.certificate -> rule
+  | FiniteFieldPac : certificate:FP.certificate -> rule
   | RewriteRule
   | PullQuantifier
   | DestructiveEqualityResolution
@@ -569,11 +571,20 @@ let rec remaining_hypotheses (hyps:list expr) (concl:expr)
 
 let false_judgment (j:judgment) : bool = j = Holds false_expr
 
+(* A finite-field lemma carrying its recorded ideal certificate; the
+   certificate is replayed only after the exhaustive check. *)
+let pac_lemma (kind:rule) (e:expr) : bool =
+  match kind with
+  | FiniteFieldPac c -> FP.check c e
+  | _ -> false
+
 let checked_theory_lemma (kind:rule) (concl:judgment) (facts:list judgment) : bool =
   match kind, proposition concl, propositions facts with
   | ArithmeticGomory c, Some e, Some es -> G.check c e es
-  | Unverified "th-lemma", Some e, Some es ->
-    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e || FF.exhaustive_clause e)) ||
+  | Unverified "th-lemma", Some e, Some es
+  | FiniteFieldPac _, Some e, Some es ->
+    (es = [] && (array_lemma e || AR.triangle_equality e || ID.check e || FF.exhaustive_clause e ||
+                 pac_lemma kind e)) ||
     TN.consequence es e || LP.implied_equality e es ||
     (Some? (LA.comparison e) && LP.inferred_bound e es) ||
     G.inferred_split e es
@@ -609,7 +620,7 @@ let check_node_with_membership (skolems:list SK.definition) (strict:bool)
          if false_judgment j && boolean_formulas (formula_clause e)
          then accept (remaining_hypotheses hyps e) 0 else None
        | _, _ -> None)
-    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+    | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
       accept hyps (if checked_theory_lemma node.kind node.conclusion facts then 0 else 1)
     | RewriteRule | PullQuantifier | ElimUnused | PushQuantifier
     | DestructiveEquality | DestructiveEqualityResolution ->
@@ -1350,6 +1361,11 @@ let rec lemma_boolean_premises (ps:list checked_fact)
       lemma_boolean_premises rest;
       lemma_boolean_union p.hypotheses (premise_hypotheses rest)
 
+(* Kept out of lemma_check_node_sound: only the existing model contract is used. *)
+let lemma_pac_lemma_sound (i:interpretation value) (rho:env value) (kind:rule) (e:expr)
+  : Lemma (requires model_sound i /\ pac_lemma kind e) (ensures lit_true i rho e)
+  = match kind with FiniteFieldPac c -> FP.lemma_check_sound i rho c e
+
 let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:env value) (strict:bool)
                     (assertions:list judgment) (node:proof_node) : prop =
   match node.kind with
@@ -1361,7 +1377,7 @@ let node_obligation (skolems:list SK.definition) (i:interpretation value) (rho:e
     not (check_step node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
-  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+  | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
     not (checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises)) ==>
     (conj_holds i rho (premise_hypotheses node.premises) ==>
      judgment_holds i rho node.conclusion)
@@ -1390,7 +1406,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
         if check_step DefAxiom node.conclusion (premise_judgments node.premises)
         then lemma_check_step_sound i rho DefAxiom node.conclusion (premise_judgments node.premises)
       | Hypothesis -> lemma_proposition_sound i rho node.conclusion
-      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ ->
+      | Unverified _ | ArithmeticFarkas _ | ArithmeticGomory _ | FiniteFieldPac _ ->
         if checked_theory_lemma node.kind node.conclusion (premise_judgments node.premises) then (
           lemma_proposition_sound i rho node.conclusion;
           lemma_premises_sound i rho node.premises;
@@ -1413,6 +1429,7 @@ let lemma_check_node_sound (skolems:list SK.definition) (i:interpretation value)
                else if AR.triangle_equality e then AR.lemma_triangle_with_numeric_model e i rho
                else if ID.check e then ID.lemma_check e i rho
                else if FF.exhaustive_clause e then FF.lemma_exhaustive_clause_sound i rho e
+               else if pac_lemma node.kind e then lemma_pac_lemma_sound i rho node.kind e
                else
                  let es = Some?.v (propositions (premise_judgments node.premises)) in
                  if TN.consequence es e then TN.lemma_consequence i rho es e
