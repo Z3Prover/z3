@@ -29,6 +29,7 @@ let op_ule : decl_kind = 115
 let op_uge : decl_kind = 116
 let op_shl : decl_kind = 117
 let op_lshr : decl_kind = 118
+let op_zero_extend : decl_kind = 119
 
 let bv_sort (width:int) : sort = BaseSort ("BV" ^ Prims.string_of_int width)
 
@@ -136,6 +137,23 @@ let concat_parts (e:expr) : option concatenation =
      | _ -> None)
   | _ -> None
 
+type zero_extension = {
+  input_width: pos;
+  extra_width: nat;
+  argument: expr
+}
+
+let zero_extend_parts (e:expr) : option zero_extension =
+  match e with
+  | App f [x] ->
+    (match f.int_params with
+     | [w; k] ->
+       if f.interp = Some op_zero_extend && w > 0 && k >= 0 && w + k <= 4096 &&
+          f.domain = [bv_sort w] && f.range = bv_sort (w + k) && get_sort x = bv_sort w
+       then Some { input_width = w; extra_width = k; argument = x } else None
+     | _ -> None)
+  | _ -> None
+
 let word_parts (e:expr) : option (pos & list expr) =
   match e with
   | App f args ->
@@ -217,6 +235,10 @@ let bv_model (i:interpretation value) (project:pos -> value -> int) : prop =
     project (c.left_width + c.right_width) (eval i e rho) ==
       project c.left_width (eval i c.left rho) * pow2 c.right_width +
       project c.right_width (eval i c.right rho)) /\
+  (forall (e:expr) (rho:env value) (s:zero_extension).
+    D.scoped [] e /\ zero_extend_parts e == Some s ==>
+    project (s.input_width + s.extra_width) (eval i e rho) ==
+      project s.input_width (eval i s.argument rho)) /\
   (forall (e:expr) (rho:env value) (width:pos) (args:list expr).
     D.scoped [] e /\ word_parts e == Some (width, args) ==>
     project width (eval i e rho) == bits_number (bit_values i rho args)) /\
@@ -749,6 +771,45 @@ let lemma_concat_parts (i:interpretation value) (rho:env value)
                      project c.right_width (eval i c.right rho))
   = match e with App _ [_; _] -> () | _ -> ()
 
+let lemma_zero_extend_parts (i:interpretation value) (rho:env value)
+                            (project:pos -> value -> int) (e:expr) (s:zero_extension)
+  : Lemma (requires bv_model i project /\ D.scoped [] e /\ zero_extend_parts e == Some s)
+          (ensures D.scoped [] s.argument /\ get_sort s.argument == bv_sort s.input_width /\
+                   s.input_width + s.extra_width <= 4096 /\
+                   get_sort e == bv_sort (s.input_width + s.extra_width) /\
+                   project (s.input_width + s.extra_width) (eval i e rho) ==
+                     project s.input_width (eval i s.argument rho))
+  = match e with App _ [_] -> () | _ -> ()
+
+let zero_extend_rewrite (e:expr) : option expr =
+  match zero_extend_parts e with
+  | None -> None
+  | Some s ->
+    if s.extra_width = 0 then Some s.argument
+    else Some (App { decl_name = "concat";
+                     domain = [bv_sort s.extra_width; bv_sort s.input_width];
+                     range = bv_sort (s.extra_width + s.input_width);
+                     interp = Some op_concat; int_params = [s.extra_width; s.input_width] }
+                    [literal s.extra_width 0; s.argument])
+
+#push-options "--fuel 4 --ifuel 2"
+let lemma_zero_extend_rewrite (i:interpretation value) (rho:env value)
+                              (project:pos -> value -> int) (e result:expr)
+  : Lemma (requires bv_model i project /\ D.scoped [] e /\ zero_extend_rewrite e == Some result)
+          (ensures eval i e rho == eval i result rho)
+  = let s = Some?.v (zero_extend_parts e) in
+    lemma_zero_extend_parts i rho project e s;
+    if s.extra_width > 0 then (
+      lemma_literal_shape s.extra_width 0;
+      lemma_literal i rho project s.extra_width 0;
+      assert (D.scoped [] result);
+      let c = { left_width = s.extra_width; right_width = s.input_width;
+                left = literal s.extra_width 0; right = s.argument } in
+      assert (concat_parts result == Some c);
+      lemma_concat_parts i rho project result c);
+    lemma_reflect i rho project (s.input_width + s.extra_width) e result
+#pop-options
+
 let lemma_concat3_parts (i:interpretation value) (rho:env value)
                        (project:pos -> value -> int) (e:expr) (c:concatenation3)
   : Lemma (requires bv_model i project /\ D.scoped [] e /\ concat3_parts e == Some c)
@@ -1020,6 +1081,7 @@ let lemma_coefficient_rewrite (i:interpretation value) (rho:env value)
       lemma_literal_shape width (U.mul_mod #width n m);
       lemma_binary_shape width op_mul (literal width (U.mul_mod #width n m)) x;
       lemma_binary_value i rho project width op_mul (literal width (U.mul_mod #width n m)) x;
+      assert (result == binary width op_mul (literal width (U.mul_mod #width n m)) x);
       lemma_mul_associative width n m (project width (eval i x rho));
       assert (project width (eval i e rho) ==
         U.mul_mod #width n (U.mul_mod #width m (project width (eval i x rho))));
@@ -1182,6 +1244,8 @@ let rewrite (e:expr) : option expr =
   if Some? r then r else
   let r = comparison_bridge e in
   if Some? r then r else
+  let r = zero_extend_rewrite e in
+  if Some? r then r else
   let r = extract_rewrite e in
   if Some? r then r else
   let r = concat_comparison e in
@@ -1208,6 +1272,7 @@ let lemma_rewrite (i:interpretation value) (rho:env value)
     else if Some? (bit_conditional e) then lemma_bit_conditional i rho project e result
     else if Some? (not_conditional e) then lemma_not_conditional i rho project e result
     else if Some? (comparison_bridge e) then lemma_comparison_bridge i rho project e result
+    else if Some? (zero_extend_rewrite e) then lemma_zero_extend_rewrite i rho project e result
     else if Some? (extract_rewrite e) then lemma_extract_rewrite i rho project e result
     else if Some? (concat_comparison e) then lemma_concat_comparison i rho project e result
     else if Some? (left_identity e) then lemma_left_identity i rho project e result

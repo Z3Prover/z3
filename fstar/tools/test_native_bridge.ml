@@ -2492,6 +2492,18 @@ let bv_rewrites () =
     "(mkbv (not p) (xor q p) (and p q))";
   check true "(= (mkbv p q) (mkbv (not r) (not s)))"
     "(not (or (= r p) (= s q)))";
+  check true "((_ zero_extend 0) v)" "v";
+  check true "((_ zero_extend 24) v)" "(concat (_ bv0 24) v)";
+  check true "(concat (_ bv0 24) v)" "((_ zero_extend 24) v)";
+  check true "((_ zero_extend 1) bit)" "(concat #b0 bit)";
+  check true "((_ zero_extend 65) wide)" "(concat (_ bv0 65) wide)";
+  check true "((_ zero_extend 4095) bit)" "(concat (_ bv0 4095) bit)";
+  check true "((_ zero_extend 24) #xff)" "#x000000ff";
+  check true "((_ zero_extend 24) (ite p #x00 #xff))" "(concat (_ bv0 24) (ite p #x00 #xff))";
+  check false "((_ zero_extend 24) v)" "(concat (_ bv1 24) v)";
+  check false "((_ zero_extend 24) #xff)" "#xffffffff";
+  check false "((_ zero_extend 1) bit)" "(concat bit #b0)";
+  check false "((_ sign_extend 24) v)" "(concat (_ bv0 24) v)";
   check true "((_ extract 0 0) bit)" "bit";
   check true "((_ extract 7 0) v)" "v";
   check true "((_ extract 64 0) wide)" "wide";
@@ -2557,6 +2569,30 @@ let bv_rewrites () =
        require (Z3BvLemma.concat_parts (A.App ({ f with A.interp = None }, args)) = None)
          "an uninterpreted concatenation name was trusted"
    | _ -> failwith "expected native bit-vector concatenation");
+  let inputs = parse c (declarations ^
+    "(assert (= ((_ zero_extend 24) v) (concat (_ bv0 24) v)))") in
+  let st = B.marshal_expressions (B.empty_state ()) inputs in
+  (match B.cached_expression st (List.hd inputs) with
+   | A.App (_, [A.App (f, args); target]) ->
+       require (f.A.interp = Some Z3BvLemma.op_zero_extend &&
+                f.A.int_params = List.map Z.of_int [8; 24])
+         "native zero-extension identity or widths were lost";
+       let reject f args =
+         let source = A.App (f, args) in
+         require (Z3BvLemma.zero_extend_parts source = None)
+           "malformed zero extension was recognized";
+         require (not (U.check_step U.RewriteRule (U.Equal (source, target)) []))
+           "malformed zero extension justified a rewrite" in
+       List.iter (fun parameters -> reject
+           { f with A.int_params = List.map Z.of_int parameters } args)
+         [[]; [8]; [8; 24; 0]; [0; 32]; [7; 25]; [8; -1]; [8; 4089]];
+       List.iter (fun malformed -> reject malformed args)
+         [{ f with A.interp = None }; { f with A.range = A.bool_sort };
+          { f with A.domain = [A.bool_sort] }];
+       reject f [];
+       reject f (args @ args);
+       reject f [Z3ResolutionProofTheory.true_expr]
+   | _ -> failwith "expected native bit-vector zero extension");
   let inputs = parse c (declarations ^ "(assert (bvule v w))") in
   let st = B.marshal_expressions (B.empty_state ()) inputs in
   (match B.cached_expression st (List.hd inputs) with

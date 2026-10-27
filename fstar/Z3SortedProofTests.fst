@@ -66,6 +66,79 @@ let model : V.interpretation primitive (S.signature schema) =
   T.interpretation #primitive schema booleans equality
     (S.default_interpretation #primitive schema primitive_default)
 
+let chain = BaseSort "Chain"
+let chain_empty : func_decl = {
+  decl_name = "chain-empty"; domain = []; range = chain;
+  interp = Some 200; int_params = [1; 0; 0];
+}
+let chain_link : func_decl = {
+  decl_name = "chain-link"; domain = [chain; chain]; range = chain;
+  interp = Some 200; int_params = [1; 1; 2];
+}
+let chain_is_empty : func_decl = {
+  decl_name = "chain-is-empty"; domain = [chain]; range = bool_sort;
+  interp = Some 201; int_params = [1; 0];
+}
+let chain_is_link : func_decl = {
+  decl_name = "chain-is-link"; domain = [chain]; range = bool_sort;
+  interp = Some 201; int_params = [1; 1];
+}
+let chain_head : func_decl = {
+  decl_name = "chain-head"; domain = [chain]; range = chain;
+  interp = Some 202; int_params = [1; 1; 0];
+}
+let chain_tail : func_decl = {
+  decl_name = "chain-tail"; domain = [chain]; range = chain;
+  interp = Some 202; int_params = [1; 1; 1];
+}
+
+let chain_schema : S.checked_schema =
+  let s = {
+    S.sorts = [chain];
+    cases = [
+      { S.constructor = chain_empty; recognizer = chain_is_empty; accessors = [] };
+      { S.constructor = chain_link; recognizer = chain_is_link; accessors = [chain_head; chain_tail] }];
+  } in
+  assert_norm (S.valid s);
+  s
+
+let chain_x = App {
+  decl_name = "chain-x"; domain = []; range = chain; interp = None; int_params = [];
+} []
+let chain_y = App {
+  decl_name = "chain-y"; domain = []; range = chain; interp = None; int_params = [];
+} []
+let chain_nil = App chain_empty []
+let chain_cycle = App chain_link [chain_nil; chain_x]
+
+let checked_direct_constructor_cycles ()
+  : Lemma (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_cycle chain_x] /\
+           K.cyclic_conflict chain_schema [R.true_expr; R.mk_eq_expr chain_x chain_cycle] /\
+           K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_x; chain_nil])] /\
+           K.direct_consequence chain_schema [R.mk_eq_expr chain_cycle chain_x] R.false_expr) =
+  assert_norm (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_cycle chain_x]);
+  assert_norm (K.cyclic_conflict chain_schema [R.true_expr; R.mk_eq_expr chain_x chain_cycle]);
+  assert_norm (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_x; chain_nil])]);
+  assert_norm (K.direct_consequence chain_schema [R.mk_eq_expr chain_cycle chain_x] R.false_expr)
+
+let rejected_constructor_cycle_lookalikes ()
+  : Lemma (
+    not (K.cyclic_conflict chain_schema []) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_nil; chain_y])]) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x
+      (App { chain_link with decl_name = "opaque-link" } [chain_nil; chain_x])]) /\
+    not (K.cyclic_conflict chain_schema [App { (R.eq_decl chain) with interp = None }
+      [chain_x; chain_cycle]]) /\
+    not (K.cyclic_conflict chain_schema [R.mk_eq_expr (Var 0 chain) (App chain_link [chain_nil; Var 0 chain])])) =
+  assert_norm (not (K.cyclic_conflict chain_schema []));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x (App chain_link [chain_nil; chain_y])]));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr chain_x
+    (App { chain_link with decl_name = "opaque-link" } [chain_nil; chain_x])]));
+  assert_norm (not (K.cyclic_conflict chain_schema [App { (R.eq_decl chain) with interp = None }
+    [chain_x; chain_cycle]]));
+  assert_norm (not (K.cyclic_conflict chain_schema [R.mk_eq_expr (Var 0 chain)
+    (App chain_link [chain_nil; Var 0 chain])]))
+
 let opaque_array = ArraySort [box] integer
 
 let all_result_sorts_are_inhabited ()

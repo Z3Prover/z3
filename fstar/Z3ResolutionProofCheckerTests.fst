@@ -578,3 +578,66 @@ let lemma_recursive_definitions_are_rejected ()
       let g : Defs.definition =
         { symbol = defined_g; variables = [0]; body = App defined_f [Var 0 bool_sort] } in
       not (Defs.acyclic 2 [f; g] [f; g]))
+
+module LA = Z3LinearArithmeticAst
+module AR = Z3ArithmeticRewrite
+module LP = Z3LinearArithmeticTheory
+
+let real_numeral (n:int) (d:pos) : expr =
+  App { decl_name = "numeral"; domain = []; range = LA.real_s;
+        interp = Some op_num_rational; int_params = [n; d] } []
+
+let real_application (name:string) (tag:decl_kind) (args:list expr) : expr =
+  App { decl_name = name; domain = FStar.List.Tot.map get_sort args; range = LA.real_s;
+        interp = Some tag; int_params = [] } args
+
+let real_quotient (a b:expr) : expr = real_application "/" op_arith_div [a; b]
+let real_difference (a b:expr) : expr =
+  real_application "+" op_arith_add [a; real_application "*" op_arith_mul [real_numeral (-1) 1; b]]
+
+let real_bound (name:string) (tag:decl_kind) (a b:expr) : expr =
+  App { decl_name = name; domain = [LA.real_s; LA.real_s]; range = bool_sort;
+        interp = Some tag; int_params = [] } [a; b]
+
+let division_linearization_regressions () : bool =
+  let x = typed_atom "real-x" LA.real_s in
+  let y = typed_atom "real-y" LA.real_s in
+  let z = typed_atom "real-z" LA.real_s in
+  let zero = real_numeral 0 1 in
+  let q = real_quotient x y in
+  let q0 = real_quotient x zero in
+  let nested = real_quotient q z in
+  LA.linearize 8 q = Some (LP.variable q) &&
+  LA.linearize 8 q0 = Some (LP.variable q0) &&
+  LA.linearize 8 nested = Some (LP.variable nested) &&
+  LA.linearize 0 q = None &&
+  AR.numeric_equivalent (real_quotient x (real_numeral 2 1))
+    (real_application "*" op_arith_mul [real_numeral 1 2; x]) &&
+  AR.numeric_equivalent (real_quotient x (real_numeral (-2) 1))
+    (real_application "*" op_arith_mul [real_numeral (-1) 2; x]) &&
+  AR.numeric_equivalent (real_difference q q) zero &&
+  not (AR.numeric_equivalent q0 zero) &&
+  not (AR.numeric_equivalent q (real_quotient x z))
+
+let lemma_division_linearization_regressions ()
+  : Lemma (division_linearization_regressions ()) =
+  assert_norm (division_linearization_regressions ())
+
+let division_triangle_regressions () : bool =
+  let x = typed_atom "real-x" LA.real_s in
+  let a = typed_atom "real-a" LA.real_s in
+  let b = typed_atom "real-b" LA.real_s in
+  let zero = real_numeral 0 1 in
+  let difference = real_difference x (real_quotient a b) in
+  let equality = mk_eq_expr zero difference in
+  let triangle bound = App or_decl [mk_not_expr equality; bound] in
+  AR.triangle_equality (triangle (real_bound ">=" op_arith_ge difference zero)) &&
+  AR.triangle_equality (triangle (real_bound "<=" op_arith_le difference zero)) &&
+  not (AR.triangle_equality (triangle (real_bound ">" op_arith_gt difference zero))) &&
+  not (AR.triangle_equality
+    (triangle (real_bound ">=" op_arith_ge difference (real_numeral 1 1)))) &&
+  not (AR.triangle_equality false_expr)
+
+let lemma_division_triangle_regressions ()
+  : Lemma (division_triangle_regressions ()) =
+  assert_norm (division_triangle_regressions ())
