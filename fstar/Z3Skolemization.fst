@@ -7,6 +7,7 @@ open Z3ProofIndex
 open Z3ObservationalEquality
 module D = Z3Definitions
 module Q = Z3QuantifierNnf
+module P = Z3QuantifierPull
 module L = FStar.List.Tot
 open FStar.List.Tot
 
@@ -189,25 +190,46 @@ let make_definition (negative:bool) (sorts:list sort) (body target:expr)
     if valid d && substitute 0 (L.length sorts) deps ws body = Some target
     then Some d else None))
 
+(* The binding block, polarity, body, and expected instance named by an `sk` conclusion
+   `a ~ b`. The choice-based and the vacuous recognizers share this shape check. *)
+let block_parts (a b:expr) : option (bool & list sort & expr & expr) =
+  match a with
+  | Quantifier Exists_k bs s body ->
+    if s = bool_sort && get_sort b = bool_sort then Some (false, bs, body, b) else None
+  | App n [Quantifier Forall_k bs s body] ->
+    if n <> not_decl || s <> bool_sort || get_sort b <> bool_sort then None
+    else (match negative_body b with
+      | Some target -> Some (true, bs, body, target)
+      | None ->
+        if Some? (negative_body body) then Some (true, bs, body, mk_not_expr b) else None)
+  | _ -> None
+
 let definition_of (a b:expr)
   : result:option definition{
       forall d. result == Some d ==> valid d /\ source d == a /\ instantiation d == Some b} =
   let candidate =
-    match a with
-    | Quantifier Exists_k bs s body ->
-      if s = bool_sort && get_sort b = bool_sort then make_definition false bs body b else None
-    | App n [Quantifier Forall_k bs s body] ->
-      if n <> not_decl || s <> bool_sort || get_sort b <> bool_sort then None
-      else (match negative_body b with
-        | Some target -> make_definition true bs body target
-        | None ->
-          if Some? (negative_body body) then make_definition true bs body (mk_not_expr b) else None)
-    | _ -> None in
+    match block_parts a b with
+    | Some (negative, bs, body, target) -> make_definition negative bs body target
+    | None -> None in
   candidate >>= (fun d ->
     if valid d && source d = a && instantiation d = Some b then Some d else None)
 
+(* A block none of whose variables occurs in its body has no Skolem symbol to introduce.
+   With no witnesses, substitution fails exactly when a variable of the block occurs and
+   otherwise only lowers the ambient indices, so nothing is collected from the proof and
+   no choice context is consulted. *)
+let vacuous_definition (negative:bool) (sorts:list sort) (body:expr) : definition =
+  { bound_sorts = sorts; negative = negative; body = body; dependencies = []; witnesses = [] }
+
+let vacuous (a b:expr) : bool =
+  match block_parts a b with
+  | Some (negative, sorts, body, _) ->
+    let d = vacuous_definition negative sorts body in
+    get_sort body = bool_sort && source d = a && instantiation d = Some b
+  | None -> false
+
 let check (defs:list definition) (a b:expr) : bool =
-  match definition_of a b with Some d -> L.mem d defs | None -> false
+  vacuous a b || (match definition_of a b with Some d -> L.mem d defs | None -> false)
 
 (* Choice is a semantic parameter, never executed by the certificate checker. *)
 noeq
@@ -486,13 +508,38 @@ let lemma_instance_truth (d:definition) (b:expr) (i:interpretation value) (rho:e
         (fun _ -> aux vs)
     in FStar.Classical.forall_intro all
 
+(* No choice is involved. The only semantic facts are `Z3QuantifierNnf.quantifier_model`, which
+   quantifies over every assignment of the block's length, and its inhabitant
+   `Z3QuantifierPull.sample_values`, both already used by `Z3BinderSubstitution.lemma_eliminate`
+   for unused-variable elimination. The hypotheses are those of `lemma_check_sound`. *)
+let lemma_vacuous_sound (a b:expr) (i:interpretation value) (rho:env value)
+    : Lemma (requires vacuous a b /\ boolean_model i /\ not_sound i /\ quant_extensional i /\
+                      Q.quantifier_model i)
+            (ensures observations_agree i rho a b) =
+    let (negative, sorts, body, _) = Some?.v (block_parts a b) in
+    let d = vacuous_definition negative sorts body in
+    let n = L.length sorts in
+    let lowered = Some?.v (substitute 0 n [] [] body) in
+    lemma_substitute_sort 0 n [] [] body lowered;
+    let kind = if negative then Forall_k else Exists_k in
+    let q = Quantifier kind sorts bool_sort body in
+    Q.lemma_quantifier_truth i rho kind sorts body;
+    if negative then (Q.lemma_not_truth i rho q; lemma_negate_truth i rho lowered);
+    let same (vs:list value{L.length vs = n})
+      : Lemma (lit_true i (shift vs rho) body <==> lit_true i rho lowered) =
+      lemma_substitute_sound 0 d body lowered i vs rho (shift vs rho) rho in
+    FStar.Classical.forall_intro same;
+    same (P.sample_values n)
+
 let lemma_check_sound (defs:list definition) (a b:expr) (i:interpretation value) (rho:env value)
     : Lemma (requires context_model defs i /\ check defs a b /\
                       boolean_model i /\ not_sound i /\ quant_extensional i /\ Q.quantifier_model i)
             (ensures observations_agree i rho a b) =
-    let d = Some?.v (definition_of a b) in
-    lemma_context_member defs d i;
-    lemma_instance_truth d b i rho
+    if vacuous a b then lemma_vacuous_sound a b i rho
+    else (
+      let d = Some?.v (definition_of a b) in
+      lemma_context_member defs d i;
+      lemma_instance_truth d b i rho)
 
 let rec lemma_fresh_evaluation (ws:list witness) (e:expr)
                                (i j:interpretation value) (rho:env value)

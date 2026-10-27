@@ -31,6 +31,25 @@ NEGATIVE_NNF_CASES = (
      "(assert (p 0))(assert (q 0))"),
 )
 
+# The nnf tactic Skolemizes a block even when none of its variables occurs in the body. Only
+# `under-binder` has an ambient bound variable (a de Bruijn index); the others use free constants.
+UNUSED_SKOLEM_CASES = (
+    ("constant-false", "(assert (exists ((a Int)) false))(assert (forall ((b Int)) false))"
+     "(check-sat-using nnf)"),
+    ("only-existential", "(assert (exists ((a Int)) false))(check-sat-using nnf)"),
+    ("free-constant", "(declare-const p Bool)(assert (exists ((a Int)) p))(assert (not p))"
+     "(check-sat-using (then nnf smt))"),
+    ("multi-binder", "(declare-const p Bool)(assert (exists ((a Int) (b Real)) p))"
+     "(assert (not p))(check-sat-using (then nnf smt))"),
+    ("ground-application", "(declare-fun p (Int) Bool)(assert (exists ((a Int)) (p 0)))"
+     "(assert (not (p 0)))(check-sat-using (then nnf smt))"),
+    ("negative-universal", "(declare-const p Bool)(assert (not (forall ((a Int)) p)))"
+     "(assert p)(check-sat-using (then nnf smt))"),
+    ("under-binder", "(declare-fun p (Int) Bool)"
+     "(assert (forall ((z Int)) (exists ((a Int)) (p z))))(assert (not (p 0)))"
+     "(check-sat-using (then nnf smt))"),
+)
+
 PULL_QUANT_CASES = (
     ("nested-exists", "(declare-fun p (Int Int) Bool)"
      "(assert (not (exists ((x Int)) (exists ((y Int)) (p x y)))))"
@@ -476,6 +495,16 @@ class DirectCheckerTests(unittest.TestCase):
         self.assertEqual(result.stdout.splitlines().count("unsat"), 3)
         self.assertEqual(result.stdout.count("; proof-check ACCEPT"), 3)
         self.assertEqual(result.stderr.count("diagnostic\tchecked\tpending=0"), 3)
+
+    def test_unused_skolem_block_is_certified(self):
+        for name, source in UNUSED_SKOLEM_CASES:
+            with self.subTest(case=name):
+                interactive = self.run_checker(source, "--interactive", "--diagnostics")
+                self.assertEqual(interactive.returncode, 0, interactive.stdout + interactive.stderr)
+                self.assertIn("unsat\n; proof-check ACCEPT\n", interactive.stdout)
+                self.assertNotIn("obligation\t", interactive.stderr)
+                if name == "under-binder":
+                    self.assertRegex(interactive.stdout, r"binder_nodes=[1-9]\d*")
 
     def test_sat_is_not_certified_unsat(self):
         result = self.run_checker("(declare-const x Int)(assert (> x 0))")
